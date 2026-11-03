@@ -1,0 +1,481 @@
+[reconcile.r16-104]
+revision = "0b17e0748b8a5c1506383faf11209f4f35235885"
+rows = 57
+
+[row.r16-104.1]
+interface = "interface.16.cli-qual-qualification-beta-driver"
+verdict = "served"
+path = "tools/qualification/beta_driver.py"
+line = 1586
+symbol = "ArgumentParser"
+evidence = "The declaring signature parser = argparse.ArgumentParser(prog=\"beta_driver\") is unchanged; its line moved from 1593 to 1586. The run subcommand requires --gate, --output, --source-identity and the STACK_FLAGS arguments."
+
+[row.r16-104.2]
+interface = "interface.16.cli-qual-qualification-paxeer-x-agent-http-bounds"
+verdict = "served"
+path = "tools/qualification/paxeer-x/agent_http_bounds.py"
+line = 901
+symbol = "__main__"
+evidence = "The declaring signature if __name__ == \"__main__\": is unchanged; its line moved from 900 to 901. The entry point parses --worker with allow_abbrev=False and launches the isolated worker through unshare."
+
+[row.r16-104.3]
+interface = "interface.16.cli-qual-qualification-paxeer-x-agent-operation-envelope"
+verdict = "served"
+path = "tools/qualification/paxeer-x/agent_operation_envelope.py"
+line = 2436
+symbol = "__main__"
+evidence = "The declaring signature if __name__ == '__main__': is unchanged; its line moved from 2608 to 2436. It raises SystemExit(main()); main parses mutually exclusive --build and --worker plus --manifest, requiring --build and --manifest together."
+
+[row.r16-104.4]
+interface = "interface.16.cli-qual-qualification-paxeer-x-agent-tenant-readiness"
+verdict = "served"
+path = "tools/qualification/paxeer-x/agent_tenant_readiness.py"
+line = 602
+symbol = "__main__"
+evidence = "The declaring signature if __name__ == '__main__': is unchanged; its line moved from 601 to 602. The CLI still parses --worker and launches the namespace-isolated tenant readiness worker."
+
+[row.r16-104.5]
+interface = "interface.16.cli-qual-qualification-paxeer-x-arbiter-admission"
+verdict = "retired"
+path = "tools/qualification/paxeer-x/arbiter-admission.py"
+line = 359
+symbol = "tools/qualification/paxeer-x/arbiter-admission.py"
+evidence = "The registered CLI file is absent, so its parser = argparse.ArgumentParser() declaration and invocation are gone. No same-name implementation was found; the remaining invocation-path literal is in the retired callers test. Repository-wide git grep -I -n -w -F excluding spec and docs found 1 other file; remaining records the first matching line per file."
+remaining_refs = 1
+remaining = ["tools/qualification/test_retired_callers_1.py:8"]
+
+[row.r16-104.6]
+interface = "interface.16.cli-qual-qualification-paxeer-x-arbiter-native-authority"
+verdict = "retired"
+path = "tools/qualification/paxeer-x/arbiter-native-authority.py"
+line = 215
+symbol = "tools/qualification/paxeer-x/arbiter-native-authority.py"
+evidence = "The registered CLI file is absent, so its parser = argparse.ArgumentParser() declaration and invocation are gone. No same-name implementation was found; the remaining invocation-path literal is in the retired callers test. Repository-wide git grep -I -n -w -F excluding spec and docs found 1 other file; remaining records the first matching line per file."
+remaining_refs = 1
+remaining = ["tools/qualification/test_retired_callers_1.py:9"]
+
+[row.r16-104.7]
+interface = "interface.16.cli-qual-qualification-paxeer-x-arbiter-prestate-transport"
+verdict = "retired"
+path = "tools/qualification/paxeer-x/arbiter-prestate-transport.py"
+line = 347
+symbol = "tools/qualification/paxeer-x/arbiter-prestate-transport.py"
+evidence = "The registered CLI file is absent, so its parser = argparse.ArgumentParser() declaration and invocation are gone. No same-name implementation was found; the remaining invocation-path literal is in the retired callers test. Repository-wide git grep -I -n -w -F excluding spec and docs found 1 other file; remaining records the first matching line per file."
+remaining_refs = 1
+remaining = ["tools/qualification/test_retired_callers_1.py:10"]
+
+[row.r16-104.8]
+interface = "interface.16.cli-qual-qualification-paxeer-x-arbiter-prestate"
+verdict = "served"
+path = "tools/qualification/paxeer-x/arbiter_prestate.py"
+line = 259
+symbol = "ArgumentParser"
+evidence = "The declaring signature parser = argparse.ArgumentParser() is unchanged; its line moved from 351 to 259. main accepts --build, --build-dir and --cargo and dispatches build or qualify using evidence_dir()."
+
+[row.r16-104.9]
+interface = "interface.16.cli-qual-qualification-paxeer-x-asset-execution-prestate"
+verdict = "served"
+path = "tools/qualification/paxeer-x/asset-execution-prestate.py"
+line = 240
+symbol = "ArgumentParser"
+evidence = "The declaring signature parser = argparse.ArgumentParser() is unchanged; its line moved from 386 to 240. The CLI accepts --build and --cargo and dispatches build or qualify using evidence_directory()."
+
+[row.r16-104.10]
+interface = "interface.16.cli-qual-qualification-paxeer-x-asset-inventory"
+verdict = "served"
+path = "tools/qualification/paxeer-x/asset-inventory.py"
+line = 241
+symbol = "ArgumentParser"
+evidence = "The declaring signature parser = argparse.ArgumentParser() is unchanged; its line moved from 390 to 241. The CLI accepts --build and --cargo and dispatches build or qualify using evidence_directory()."
+
+[row.r16-104.11]
+interface = "interface.16.cli-qual-qualification-paxeer-x-authority-evidence-read"
+verdict = "served"
+path = "tools/qualification/paxeer-x/authority-evidence-read.py"
+line = 18
+symbol = "__main__"
+evidence = "The registered single-quoted __main__ guard is now if __name__ == \"__main__\": at line 18 instead of 98. The command remains callable through sys.exit(main()), but main prints an authority-evidence-read retirement refusal and returns 1; it no longer produces authority evidence."
+
+[row.r16-104.12]
+interface = "interface.16.env-qual-qualification-paxeer-x-authority-lni-readiness-paxeer-x-runtime-artifacts"
+verdict = "retired"
+path = "tools/qualification/paxeer-x/authority-lni-readiness.py"
+line = 32
+symbol = "PAXEER_X_RUNTIME_ARTIFACTS"
+evidence = "The registered authority-lni-readiness.py file is absent; its fixture.artifacts(os.environ['PAXEER_X_RUNTIME_ARTIFACTS']) read is gone. Other qualification producers still mention this environment name; those references do not implement the deleted readiness command. Repository-wide git grep -I -n -w -F excluding spec and docs found 5 other files; remaining records the first matching line per file."
+remaining_refs = 5
+remaining = ["tools/qualification/paxeer-x/agent_operation_envelope.py:2344", "tools/qualification/paxeer-x/caps-codecs.py:105", "tools/qualification/paxeer-x/caps-discovery.py:51", "tools/qualification/paxeer-x/fixtures/caps_fixture.py:129", "tools/qualification/paxeer-x/fixtures/xweb_fixture.py:147"]
+
+[row.r16-104.13]
+interface = "interface.16.env-qual-qualification-paxeer-x-authority-lni-readiness-paxeer-x-runtime-client-manifest"
+verdict = "retired"
+path = "tools/qualification/paxeer-x/authority-lni-readiness.py"
+line = 33
+symbol = "PAXEER_X_RUNTIME_CLIENT_MANIFEST"
+evidence = "The registered authority-lni-readiness.py file is absent; its fixture.client_artifact(os.environ['PAXEER_X_RUNTIME_CLIENT_MANIFEST']) read is gone. Other producers still mention the environment name; the deleted readiness interface is retired. Repository-wide git grep -I -n -w -F excluding spec and docs found 2 other files; remaining records the first matching line per file."
+remaining_refs = 2
+remaining = ["tools/qualification/paxeer-x/agent_operation_envelope.py:2345", "tools/qualification/paxeer-x/caps-codecs.py:106"]
+
+[row.r16-104.14]
+interface = "interface.16.env-qual-qualification-paxeer-x-authority-lni-readiness-paxeer-x-authority-build-manifest"
+verdict = "retired"
+path = "tools/qualification/paxeer-x/authority-lni-readiness.py"
+line = 34
+symbol = "PAXEER_X_AUTHORITY_BUILD_MANIFEST"
+evidence = "The registered authority-lni-readiness.py file is absent; its os.environ['PAXEER_X_AUTHORITY_BUILD_MANIFEST'] read is gone. The environment identifier has no remaining references outside spec and docs. Repository-wide git grep -I -n -w -F excluding spec and docs found 0 other files; remaining records the first matching line per file."
+remaining_refs = 0
+remaining = []
+
+[row.r16-104.15]
+interface = "interface.16.env-qual-qualification-paxeer-x-authority-lni-readiness-path"
+verdict = "retired"
+path = "tools/qualification/paxeer-x/authority-lni-readiness.py"
+line = 62
+symbol = "PATH"
+evidence = "The registered authority-lni-readiness.py file is absent; its os.environ['PATH'] assignment prepending python_root / bin is gone. remaining lists all files mentioning the exact PATH identifier, including unrelated executable search paths; they do not preserve that readiness interface. Repository-wide git grep -I -n -w -F excluding spec and docs found 332 other files; remaining records the first matching line per file."
+remaining_refs = 332
+remaining = [".devcontainer/Dockerfile:28", ".github/workflows/agent.yml:57", ".github/workflows/paxeer-dapp-tests.yml:43", ".github/workflows/paxeer-pr-to-slack-codex.yml:167", ".github/workflows/paxeer-release-check.yml:114", ".github/workflows/paxeer-release-publish.yml:74", ".github/workflows/platform.yml:457", "GOTCHA.kvx:918", "apps/explorer/deploy/tools/envs-validator/external-json.spec.ts:28", "apps/launchpad/mobile/android/gradlew:137", "apps/launchpad/mobile/android/gradlew.bat:54", "apps/launchpad/qualification/market-ui/phase4-browser.mjs:236", "apps/launchpad/web/src/core/test-anvil.test.ts:22", "apps/launchpad/web/src/core/test-anvil.ts:15", "apps/launchpad/web/src/proof_launchpad_web_app.test.ts:216", "apps/launchpad/web/src/widgets/create/run-creation-chain.py:10", "apps/launchpad/web/src/widgets/create/test_run_creation_chain.py:22", "apps/perps/tests/dockerfile-args.test.ts:18", "chain.mk:276", "consensus/networks/remote/integration.sh:18", "consensus/scripts/get_nodejs.sh:12", "consensus/spec/ivy-proofs/Dockerfile:33", "contracts/bridge/evm/chains/arbitrum/README.md:41", "contracts/bridge/evm/chains/avalanche/README.md:41", "contracts/bridge/evm/chains/base/README.md:41", "contracts/bridge/evm/chains/bnb/README.md:41", "contracts/bridge/evm/chains/ethereum/README.md:41", "contracts/bridge/evm/chains/hyperevm/README.md:47", "contracts/bridge/evm/chains/optimism/README.md:41", "contracts/bridge/evm/chains/polygon/README.md:41", "contracts/bridge/solana/chains/solana/README.md:54", "contracts/test/lib.js:1033", "core/deps/geth/.github/workflows/unit_tests.yml:49", "core/deps/geth/Makefile:39", "core/deps/geth/accounts/usbwallet/trezor/trezor.go:40", "core/deps/geth/appveyor.yml:46", "core/deps/geth/build/ci.go:354", "core/deps/geth/build/nsis.geth.nsi:16", "core/deps/geth/build/nsis.install.nsh:40", "core/deps/geth/build/nsis.pathupdate.nsh:7", "core/deps/geth/build/nsis.uninstall.nsh:27", "core/deps/geth/crypto/secp256k1/libsecp256k1/.github/workflows/ci.yml:782", "core/deps/geth/internal/build/util.go:102", "core/deps/geth/signer/fourbyte/4byte.json:166735", "daemon/committed-fixture/main.go:82", "deploy/launchpad/production/recovery/phase2/providers.py:78", "deploy/launchpad/production/topology/fixtures/cnpg-clusters-v1.29.0.yaml:4449", "deploy/launchpad/tests/railway-values.test.sh:33", "docker/bridge-relayer/Dockerfile:7", "docker/flyci-runner/Dockerfile:12", "docker/kernel/Dockerfile:251", "docker/localnode/Dockerfile:5", "docker/localnode/scripts/deploy.sh:10", "docker/monitornode/scripts/start-grafana.sh:24", "docker/monitornode/scripts/start-prometheus.sh:21", "docker/monitornode/scripts/stop-grafana.sh:17", "docker/monitornode/scripts/stop-prometheus.sh:17", "docker/platform-registry-builder/Dockerfile:20", "docker/redis/tests/redis-image.test.sh:41", "docker/rpcnode/Dockerfile:4", "docker/rpcnode/scripts/deploy.sh:9", "docker/rpcnode/scripts/step1_configure_init.sh:3", "interchain/modules/apps/transfer/keeper/MBT_README.md:41", "precompiles/layerxledger/proof_layerxledger_0x101a_test.go:222", "programs/vendor/arrayref-0.3.9/.travis.yml:18", "programs/vendor/autocfg-1.5.1/README.md:101", "programs/vendor/autocfg-1.5.1/src/lib.rs:116", "programs/vendor/binaryen-0.12.1/appveyor.yml:12", "programs/vendor/binaryen-sys-0.12.0/binaryen/check.py:286", "programs/vendor/binaryen-sys-0.12.0/binaryen/scripts/test/shared.py:73", "programs/vendor/binaryen-sys-0.12.0/binaryen/third_party/llvm-project/Unix/Path.inc:152", "programs/vendor/binaryen-sys-0.12.0/binaryen/third_party/llvm-project/include/llvm/Support/Process.h:98", "programs/vendor/binaryen-sys-0.12.0/binaryen/third_party/llvm-project/include/llvm/Support/Program.h:26", "programs/vendor/binaryen-sys-0.12.0/binaryen/third_party/llvm-project/include/llvm/Support/Signals.h:42", "programs/vendor/binaryen-sys-0.12.0/build-binaryen-bc.sh:16", "programs/vendor/blake3-1.5.0/README.md:100", "programs/vendor/cc-1.4.4/CHANGELOG.md:652", "programs/vendor/cc-1.4.4/src/command_helpers.rs:375", "programs/vendor/cc-1.4.4/src/lib.rs:158", "programs/vendor/cc-1.4.4/src/tool.rs:286", "programs/vendor/clap-4.6.6/examples/cargo-example.md:24", "programs/vendor/clap-4.6.6/examples/cargo-example.rs:8", "programs/vendor/clap-4.6.6/examples/git-derive.md:43", "programs/vendor/clap-4.6.6/examples/git.md:41", "programs/vendor/clap-4.6.6/examples/git.rs:24", "programs/vendor/clap_builder-4.6.6/src/builder/value_hint.rs:44", "programs/vendor/cmake-0.1.58/src/lib.rs:1118", "programs/vendor/criterion-0.5.1/.github/workflows/ci.yaml:87", "programs/vendor/criterion-0.5.1/appveyor.yml:14", "programs/vendor/find-msvc-tools-0.1.11/src/find_tools.rs:134", "programs/vendor/pkg-config-0.3.34/src/lib.rs:319", "programs/vendor/rustix-1.1.4/src/backend/libc/fs/types.rs:248", "programs/vendor/rustix-1.1.4/src/backend/linux_raw/conv.rs:384", "programs/vendor/rustix-1.1.4/src/backend/linux_raw/fs/syscalls.rs:92", "programs/vendor/rustix-1.1.4/src/backend/linux_raw/fs/types.rs:182", "programs/vendor/rustix-1.1.4/src/fs/fd.rs:112", "programs/vendor/rustix-1.1.4/src/io/ioctl.rs:20", "programs/vendor/serde_json-1.0.151/src/lexical/cached.rs:34", "programs/vendor/spin-0.9.9/.travis.yml:18", "programs/vendor/syn-2.0.119/src/scan_expr.rs:64", "programs/vendor/syn-3.0.4/src/scan_expr.rs:64", "programs/vendor/thiserror-impl-2.0.21/src/scan_expr.rs:60", "programs/vendor/untrusted-0.9.0/mk/cargo.sh:24", "programs/vendor/url-2.5.8/src/parser.rs:23", "scripts/ci/beta-ci-inputs.sh:19", "scripts/ci/beta-ledger-check.sh:6", "scripts/ci/beta-qualify.sh:19", "scripts/ci/codeql-build-mode-check.sh:43", "scripts/codify.sh:91", "scripts/explorer/gate-lint.sh:153", "scripts/explorer/gate-test.sh:182", "scripts/explorer/lint-services.sh:16", "scripts/run_blocktests.sh:123", "sdk/chainflow/rust/README.md:221", "sdk/client/docs/swagger-ui/swagger-ui-bundle.js.map:1", "sdk/client/docs/swagger-ui/swagger-ui-es-bundle-core.js.map:1", "sdk/client/docs/swagger-ui/swagger-ui-es-bundle.js.map:1", "sdk/client/docs/swagger-ui/swagger-ui.js.map:1", "sdk/contrib/devtools/Makefile:15", "sdk/contrib/githooks/README.md:17", "sdk/contrib/rosetta/node/Dockerfile:18", "sdk/contrib/rosetta/rosetta-cli/Dockerfile:16", "sdk/integrations/android/sample-app/gradlew:136", "sdk/integrations/android/sample-app/gradlew.bat:47", "sdk/launchpad/protocol/generator-inputs/export.py:302", "sdk/platform/jvm/qualification.py:65", "sdk/platform/jvm/target/maven-javadoc-plugin-stale-data.txt:6", "sdk/wallet/test/evm-review.test.ts:162", "services/agent/README.md:60", "services/agent/crates/layerx-agentd/tests/config.rs:81", "services/agent/crates/layerx-agentd/tests/support/real_authority.rs:391", "services/agent/tests/boundary/tests/proof_agent_boundary_conformance.rs:51", "services/agent/tools/audit-verify/src/main.rs:25", "services/bridge/deploy/checklist.sh:89", "services/bridge/deploy/deploy-evm-chain.sh:102", "services/bridge/deploy/deploy-solana-program.sh:121", "services/bridge/deploy/overlay.sh:13", "services/bridge/deploy/tests/checklist-check.sh:38", "services/bridge/deploy/tests/deploy-scripts-check.sh:66", "services/bridge/deploy/tests/docs-check.sh:34", "services/bridge/deploy/tests/evm-dry-run-check.sh:96", "services/bridge/deploy/tests/solana-dry-run-check.sh:111", "services/bridge/deploy/verify-evm-chain.sh:76", "services/explorer/backend/.devcontainer/Dockerfile:26", "services/explorer/backend/.devcontainer/devcontainer.json:12", "services/explorer/backend/bin/deploy:112", "services/explorer/deploy/tools/copy-blockscout-11-to-10.sh:847", "services/explorer/deploy/tools/mix-in-builder.sh:186", "services/explorer/deploy/tools/tests/compose-smoke-test.sh:101", "services/explorer/deploy/tools/tests/copy-blockscout-test.sh:35", "services/explorer/services/libs/env-collector/README.md:26", "services/interop/crates/layerx-bridge-relayer/src/main.rs:1", "services/interop/crates/layerx-bridge-relayer/tests/outbound_isolation.rs:301", "services/interop/crates/layerx-gas-station/src/lib.rs:44", "services/interop/crates/layerx-gas-station/src/main.rs:95", "services/interop/crates/layerx-mirror-signer/src/lib.rs:71", "services/interop/crates/x-websearch/src/main.rs:1230", "services/interop/deploy/x-websearch/tests/dry-run-check.sh:73", "services/launchpad/api/internal/app/dev_authority_test.go:247", "services/launchpad/api/internal/rest/qualification_workload_test.go:469", "services/launchpad/metadata/internal/image/worker.go:155", "services/launchpad/metadata/internal/internaltest/identity.go:130", "services/launchpad/pnl-tracker/internal/app/proof_launchpad_pnl_tracker_test.go:450", "services/launchpad/security/supplychain/ci_tools.py:89", "services/launchpad/social/internal/social/voice_v2_actions_test.go:367", "services/launchpad/stats-workers/internal/projectionstats/qualify_phase2.py:148", "services/launchpad/user/internal/account/qualify_phase4.py:34", "services/platform/docs/content/environments/emulator.md:41", "services/platform/examples/README.md:28", "services/platform/examples/test/agent-program-call.test.mjs:251", "services/platform/hosted/authority/tests/human_tls.rs:326", "services/platform/hosted/gateway/src/ui_proxy.rs:1606", "services/platform/hosted/gateway/tests/chain_only_readiness.rs:218", "services/platform/hosted/gateway/tests/chain_reads.rs:222", "services/platform/hosted/gateway/tests/degraded.rs:448", "services/platform/hosted/gateway/tests/one_source_reads.rs:271", "services/platform/hosted/gateway/tests/paxeer_failover.rs:223", "services/platform/hosted/gateway/tests/proof_gateway_jsonrpc_methods.rs:238", "services/platform/hosted/gateway/tests/receipt_keys.rs:779", "services/platform/hosted/gateway/tests/router_surface.rs:233", "services/platform/hosted/gateway/tests/unified_service_paths.rs:360", "services/platform/hosted/node/bootstrap.sh:12", "services/platform/hosted/node/data_directory.py:338", "services/platform/hosted/node/signer/client.py:5", "services/platform/hosted/node/signer/signer.py:10", "services/platform/hosted/node/supervisor.sh:32", "services/platform/hosted/node/tests/probe/src/main.rs:24", "services/platform/hosted/node/tests/sequencer-seed-test.py:86", "services/platform/hosted/paxeer/deploy-contracts.sh:64", "services/platform/hosted/paxeer/fork-rehearsal.sh:82", "services/platform/hosted/paxeer/gov-consensus-params.sh:65", "services/platform/hosted/paxeer/gov-lib.sh:157", "services/platform/hosted/paxeer/gov-upgrade.sh:84", "services/platform/hosted/registry/builder-environment/layerx-build:7", "services/platform/hosted/tests/beta-cluster.sh:2542", "services/platform/hosted/tests/candidate-provenance.py:38", "services/platform/middleware/conformance/pay6/examples.test.mjs:7", "services/platform/perps-data/internal/records/proof_records_test.go:97", "services/platform/perps-data/internal/rest/proof_rest_test.go:294", "services/wallet/gateway/test/attestor.test.ts:941", "services/wallet/gateway/test/backfill-command.test.ts:50", "services/wallet/gateway/test/e2e/attestors.ts:289", "services/wallet/gateway/test/evm-approvals.test.ts:170", "services/wallet/gateway/test/evm-sign.test.ts:232", "services/wallet/gateway/test/lx-approvals.test.ts:160", "services/wallet/gateway/test/provisioning-station.test.ts:243", "services/wallet/gateway/test/provisioning.test.ts:272", "services/wallet/gateway/test/served-by.test.ts:383", "services/wallet/gateway/test/support/custody.ts:126", "storage/db_engine/litt/docs/benchmark-data/8-27-2025/README.md:78", "storage/db_engine/litt/docs/littdb_cli.md:35", "storage/state_db/bench/cryptosim/tools/setup-ubuntu.sh:59", "tests/daemon/test_serve_commits_programs_call.py:160", "tests/explorer/gate-test-test.sh:134", "tests/explorer/test_paxeer_x_data_boundary_cases.py:27", "tests/integration/contracts/deploy_flatkv_evm_fixture.sh:5", "tests/integration/contracts/verify_flatkv_evm_store.sh:5", "tests/integration/contracts/verify_flatkv_only_statesync.sh:405", "tests/integration/contracts/verify_flatkv_statesync_crash_recovery.sh:534", "tests/integration/contracts/verify_flatkv_total_loss_recovery.sh:394", "tests/integration/evm_module/scripts/evm_rpc_tests.sh:22", "tests/integration/rpc_tests/README.md:124", "tests/integration/rpc_tests/scripts/run-ci.sh:105", "tests/integration/rpc_tests/utils/constants.ts:29", "tests/integration/runner/runner.go:57", "tests/integration/scripts/runner.py:76", "tools/bringup/check-live.sh:3138", "tools/bringup/check-live.test.sh:54", "tools/bringup/registry-artifacts.py:233", "tools/bringup/sync-fleet.test.sh:227", "tools/bringup/tests/foundation-artifacts.py:202", "tools/bringup/tests/mint-secrets.test.sh:187", "tools/bringup/tests/paxeer-x-runtime-contract.py:497", "tools/bringup/tests/validator-firewall.test.sh:61", "tools/build/tests/native-archive-digest.test.sh:18", "tools/ci/beta-report.sh:6", "tools/deploy/tests/dockerfile-web-args.test.sh:10", "tools/flyci/runner/entrypoint.sh:32", "tools/jev/cli.py:13", "tools/launchpad/production/bootstrap/README.md:3", "tools/launchpad/production/load/phase2_feeder.py:53", "tools/launchpad/production/load/phase3_runner.py:135", "tools/ops/backup/lib.sh:19", "tools/ops/backup/test.sh:12", "tools/paxctl/.agent/runbooks/seictl-smoke.md:11", "tools/paxctl/README.md:82", "tools/paxctl/seinode/jsoncontract_test.go:13", "tools/paxctl/sidecar/tasks/evm_logical_digest.go:44", "tools/paxctl/workflow/jsoncontract_test.go:15", "tools/paxeer-x/builders/104.13.1.py:95", "tools/paxeer-x/gates/103.6.11.sh:239", "tools/paxeer-x/gates/103.6.13.sh:180", "tools/paxeer-x/gates/104.17.5.sh:36", "tools/paxeer-x/gates/104.17.6.sh:84", "tools/paxeer-x/gates/104.32.6.sh:84", "tools/paxeer-x/gates/104.33.4.sh:119", "tools/paxeer-x/gates/104.33.5.sh:121", "tools/paxeer-x/gates/104.37.2.sh:10", "tools/paxeer-x/gates/104.38.6.sh:8", "tools/paxeer-x/gates/104.38.7.sh:8", "tools/paxeer-x/gov/test.sh:6", "tools/paxeer-x/release.sh:2", "tools/paxeer-x/verify-task.sh:3", "tools/platform/cli/README.md:29", "tools/platform/cli/src/workspace.rs:1150", "tools/platform/cli/tests/clean-bootstrap.sh:80", "tools/platform/cli/tests/common/credential_environment.rs:135", "tools/platform/cli/tests/credential.rs:200", "tools/platform/cli/tests/emulator.rs:1124", "tools/platform/cli/tests/faucet_route.rs:60", "tools/platform/emulator/src/main.rs:1625", "tools/qualification/beta_driver.py:695", "tools/qualification/paxeer-x/agent_operation_envelope.py:2392", "tools/qualification/paxeer-x/authenticated-replay-step.py:65", "tools/qualification/paxeer-x/caps-codecs.py:124", "tools/qualification/paxeer-x/caps-discovery.py:70", "tools/qualification/paxeer-x/event-delivery-contract.py:360", "tools/qualification/paxeer-x/fixtures/agentd_fixture.py:165", "tools/qualification/paxeer-x/fixtures/event_source_fixture.py:78", "tools/qualification/paxeer-x/fixtures/identity_fixture.py:95", "tools/qualification/paxeer-x/fixtures/kms_fixture.py:119", "tools/qualification/paxeer-x/fixtures/receipt_authority_fixture.py:156", "tools/qualification/paxeer-x/human-movement-kms-assembly.py:45", "tools/qualification/paxeer-x/human-security-prerequisites.py:186", "tools/qualification/paxeer-x/human_unified_custody_shapes.py:133", "tools/qualification/paxeer-x/interop-archive-contract.py:1083", "tools/qualification/paxeer-x/market-sandbox-capture.py:76", "tools/qualification/paxeer-x/market-sandbox-profile.py:74", "tools/qualification/paxeer-x/mcp_binding_listener.py:163", "tools/qualification/paxeer-x/mcp_web_payer.py:314", "tools/qualification/paxeer-x/native-programs-link.py:191", "tools/qualification/paxeer-x/native_send_profile.py:179", "tools/qualification/paxeer-x/native_send_purpose.py:75", "tools/qualification/paxeer-x/paid-web-contract.py:362", "tools/qualification/paxeer-x/private-human-custody.py:60", "tools/qualification/paxeer-x/programs_native_interfaces.py:121", "tools/qualification/paxeer-x/programs_native_migration.py:498", "tools/qualification/paxeer-x/registry-contract.py:568", "tools/qualification/paxeer-x/registry-router-bootstrap.py:92", "tools/qualification/paxeer-x/replay-authority.py:15", "tools/qualification/paxeer-x/router-complete-readiness.py:456", "tools/qualification/paxeer-x/single-step-conformance.py:91", "tools/qualification/paxeer-x/tests/test_proof_qual_cli.py:58", "tools/qualification/paxeer-x/wallet-attestor-disclosure.py:71", "tools/qualification/paxeer-x/wallet-custody-recovery.py:133", "tools/qualification/paxeer-x/wallet-injected-chain.py:119", "tools/qualification/paxeer-x/wallet-injected-fixture.py:224", "tools/qualification/paxeer-x/wallet-signing-adapters.py:110", "tools/qualification/paxeer-x/wallet-sponsored-fees.py:71", "tools/qualification/paxeer-x/wallet-supported-demo.py:213", "tools/railway/tests/env-files.test.sh:37", "tools/release/build-paxd.sh:24", "tools/release/rehearse-v6120.sh:75", "tools/release/tests/build.test.sh:9", "tools/release/tests/env_templates.test.sh:14", "tools/release/tests/rehearse.test.sh:5", "tools/release/tests/run-all.sh:8", "tools/release/tests/snapshot.test.sh:9", "tools/release/tests/workflows.test.sh:107", "tools/rollout/tests/box_apply_login.test.sh:12", "tools/wasm-tools/ci/build-release-artifacts.sh:28", "tools/wasm-tools/ci/docker/aarch64-linux/Dockerfile:6", "tools/wasm-tools/ci/docker/x86_64-linux/Dockerfile:6", "tools/wasm-tools/src/bin/wasm-tools/component.rs:1169", "tools/wasm-tools/src/bin/wasm-tools/compose.rs:30", "wasm-runtime/builders/Dockerfile.alpine:11", "wasm-runtime/builders/Dockerfile.centos7:25", "wasm-runtime/builders/guest/build_macos.sh:7", "wasm-runtime/builders/guest/build_macos_static.sh:7", "wasm/contrib/devtools/Makefile:15", "wasm/contrib/local/README.md:5", "wasm/contrib/relayer-tests/README.md:4"]
+
+[row.r16-104.16]
+interface = "interface.16.cli-qual-qualification-paxeer-x-authority-lni-readiness-opt-argv1"
+verdict = "retired"
+path = "tools/qualification/paxeer-x/authority-lni-readiness.py"
+line = 213
+symbol = "argv[1]"
+evidence = "The registered authority-lni-readiness.py file is absent; its len(sys.argv) == 3 dispatch for --worker and --serializer-worker is gone. remaining lists files mentioning the literal argv[1], including unrelated CLI dispatchers; none is a relocated readiness script. Repository-wide git grep -I -n -w -F excluding spec and docs found 237 other files; remaining records the first matching line per file."
+remaining_refs = 237
+remaining = ["apps/launchpad/mobile/ios/Podfile:1", "apps/perps/tests/e2e-local-node.test.ts:325", "apps/perps/tests/proof_hooks.test.ts:675", "apps/web/e2e/prepare-production.py:159", "apps/web/e2e/software-authenticator.ts:127", "cmd/layerx-genesis/lxp_genesis_build_cli.c:674", "cmd/layerx-module-registry/main.c:99", "cmd/layerx-module-registry/test_registry.py:9", "cmd/layerxctl/tests/files.rs:677", "core/deps/geth/crypto/secp256k1/libsecp256k1/sage/prove_group_implementations.sage:278", "core/deps/geth/crypto/secp256k1/libsecp256k1/src/bench_ecmult.c:301", "core/deps/geth/crypto/secp256k1/libsecp256k1/src/tests.c:7677", "core/deps/geth/crypto/secp256k1/libsecp256k1/src/tests_exhaustive.c:373", "core/deps/geth/crypto/secp256k1/libsecp256k1/tools/test_vectors_musig2_generate.py:97", "core/deps/geth/crypto/secp256k1/libsecp256k1/tools/tests_wycheproof_generate.py:12", "deploy/launchpad/Dockerfile.native:11", "deploy/launchpad/production/observability/phase2/tests/test_control.py:124", "deploy/launchpad/tests/railway-values.test.sh:22", "docker/human-service/entrypoint.sh:35", "docker/kernel/Dockerfile:49", "docker/kernel/init.sh:969", "docker/redis/tests/redis-image.test.sh:19", "modules/layerxpay/types/payload_budget_test.go:61", "modules/layerxpay/types/payload_service_test.go:36", "modules/layerxpay/types/payload_stream_test.go:55", "precompiles/layerxagent/scheduler/proof_scheduler_0x0905_test.go:177", "programs/fixtures/pay5/native_roundtrip.c:8", "programs/vendor/binaryen-sys-0.12.0/binaryen/scripts/clean_c_api_trace.py:22", "programs/vendor/binaryen-sys-0.12.0/binaryen/scripts/embedwat.py:19", "programs/vendor/binaryen-sys-0.12.0/binaryen/scripts/fuzz_passes.py:53", "programs/vendor/binaryen-sys-0.12.0/binaryen/scripts/fuzz_passes_wast.py:50", "programs/vendor/binaryen-sys-0.12.0/binaryen/scripts/strip_local_names.py:8", "programs/vendor/binaryen-sys-0.12.0/binaryen/third_party/setup.py:224", "programs/vendor/blake3-1.5.0/.github/workflows/build_b3sum.py:10", "programs/vendor/blake3-1.5.0/.github/workflows/upload_github_release_asset.py:16", "programs/vendor/blake3-1.5.0/c/main.c:83", "programs/vendor/criterion-0.5.1/benches/benchmarks/external_process.py:17", "programs/vendor/walkdir-2.5.0/compare/nftw.c:20", "programs/vendor/walkdir-2.5.0/compare/walk.py:6", "rpc/sequencer_receipt_test.go:462", "scripts/ci/beta-ci-inputs.sh:38", "scripts/ci/xweb-workflow-check.sh:1068", "scripts/evm_stress.sh:46", "scripts/initialize_local_chain.sh:22", "scripts/paxeer-x/verify-sdk-program-dotnet.sh:17", "scripts/paxeer-x/verify-sdk-program-jvm.sh:10", "scripts/paxeer-x/verify-sdk-program-python.sh:14", "scripts/paxeer-x/verify-sdk-program-rust.sh:7", "scripts/qualify-mirror-live.sh:13", "scripts/qualify-mirror-verification-live.sh:50", "scripts/wallet/check-deploy.sh:70", "scripts/wallet/check-live.sh:190", "sdk/chainflow/typescript/scripts/publish-npm.mjs:78", "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/sage/secp256k1.sage:301", "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/tests.c:4399", "sdk/integrations/next/example/test/fulfillment.test.mjs:143", "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsEvmTests.swift:595", "services/agent/crates/layerx-crypto/tests/native_payment_vectors.c:70", "services/agent/crates/layerx-crypto/tests/native_receive.c:12", "services/agent/sdk/typescript/test/account-derivation.test.ts:360", "services/agent/sdk/typescript/test/ai-market.test.ts:2747", "services/agent/sdk/typescript/test/web-search.test.ts:386", "services/agent/tests/parity/python.py:90", "services/bridge/deploy/deploy-solana-program.sh:211", "services/bridge/deploy/tests/checklist-check.sh:84", "services/bridge/deploy/tests/deploy-scripts-check.sh:143", "services/bridge/deploy/tests/docs-check.sh:48", "services/bridge/deploy/tests/evm-dry-run-check.sh:158", "services/bridge/deploy/tests/fixtures/solana-deploy/solana_keys.py:73", "services/bridge/deploy/tests/solana-dry-run-check.sh:183", "services/bridge/deploy/tests/workflow-check.sh:713", "services/explorer/deploy/tests/config-check.sh:67", "services/explorer/deploy/tools/tests/compose-smoke-test.sh:144", "services/human/crates/layerx-human-identity-provider/tests/catalog.rs:9", "services/human/crates/layerx-human-kms/tests/proof_human_kms.rs:266", "services/interop/crates/layerx-portable/tests/python_portable_verifier.py:163", "services/interop/deploy/mirror/tests/render-config-check.sh:60", "services/interop/deploy/x-websearch/tests/dry-run-check.sh:126", "services/launchpad/api/internal/rest/production_integration_test.go:276", "services/launchpad/security/supplychain/container_target.py:3", "services/launchpad/security/supplychain/test_phase2.py:109", "services/launchpad/stats-workers/internal/holdings/phase4_measurement.go:957", "services/platform/examples/agent-program-call/verify-receipt.mjs:47", "services/platform/examples/buyer-agent/index.mjs:56", "services/platform/examples/paid-api/index.mjs:200", "services/platform/examples/qualify-reference-apps.mjs:136", "services/platform/examples/run-reference-apps.mjs:34", "services/platform/hosted/agentd/probe.sh:134", "services/platform/hosted/gateway/tests/proof_gateway_jsonrpc_methods.rs:533", "services/platform/hosted/human/bootstrap.py:39", "services/platform/hosted/human/material.py:710", "services/platform/hosted/human/material.sh:163", "services/platform/hosted/human/native_manifest.py:54", "services/platform/hosted/human/onboarding_provision.sh:11", "services/platform/hosted/human/onboarding_socket.py:159", "services/platform/hosted/human/provision.sh:17", "services/platform/hosted/human/recipient_binding.py:58", "services/platform/hosted/human/recipient_check.py:19", "services/platform/hosted/node/bootstrap.sh:568", "services/platform/hosted/node/data_directory.py:325", "services/platform/hosted/node/reset_state.py:1030", "services/platform/hosted/node/supervisor.sh:674", "services/platform/hosted/node/tests/signer-test.py:33", "services/platform/hosted/node/tests/test_reset_state.py:422", "services/platform/hosted/paxeer/settlement-domain.py:131", "services/platform/hosted/paxeer/tests/genesis.py:130", "services/platform/hosted/paxeer/tests/real_chain.py:78", "services/platform/hosted/paxeer/tests/tls_shutdown.py:8", "services/platform/hosted/registry/builder-environment/digest.py:3", "services/platform/hosted/registry/builder-environment/flatten.py:9", "services/platform/hosted/registry/builder-environment/ldscripts.py:6", "services/platform/hosted/registry/builder-environment/verify-vendor.py:40", "services/platform/hosted/tests/beta-cluster.sh:802", "services/platform/hosted/tests/beta-images.sh:140", "services/platform/hosted/tests/custody-identity.py:37", "services/platform/hosted/tests/mirror-identity.py:49", "services/platform/hosted/tests/paxeer-identity.py:68", "services/platform/hosted/tests/sequencer-pins.py:58", "services/platform/middleware/conformance/pay6/generate_evm_receipt.mjs:46", "services/platform/middleware/conformance/run.mjs:46", "services/platform/ramps/reference/tests/proof_ramp_reference_http_routes.rs:282", "services/platform/ramps/sandbox-journey.sh:43", "services/wallet/gateway/src/index.ts:193", "services/wallet/gateway/src/jobs/backfillAccounts.ts:137", "services/wallet/gateway/test/e2e/wallet-signing-adapters.production.ts:544", "tests/agent/sdk/python/test_evm_transaction.py:527", "tests/ci/focused-source-identity.py:31", "tests/ci/test_retired_tests.py:150", "tests/fixtures/asset/generate_supply_receipts.c:34", "tests/integration/contracts/deploy_flatkv_evm_fixture.sh:119", "tests/lxp_test_harness.c:70", "tests/modules/test_asset_withdraw_activity.c:245", "tests/modules/test_stream_meter.c:884", "tests/programs/test_ai_host_boundary.c:535", "tests/programs/test_cache_native_equivalence.c:519", "tests/programs/test_call_activity.c:2953", "tests/programs/test_execution_context.c:675", "tests/programs/test_fee_governance.c:335", "tests/programs/test_lifecycle.c:1989", "tests/programs/test_market_attestation.c:1404", "tests/programs/test_reference_custody.c:304", "tests/programs/test_registration.c:427", "tests/programs/test_spend_capability_composition.c:618", "tests/programs/test_terminal_v5.c:214", "tests/qualification/lxp_wallet_caps_discovery.c:588", "tests/replay/lxp_test_golden_replay.c:180", "tests/state/lxp_test_state_proof.c:87", "tests/test_authority_multisig.c:616", "tests/test_fees_v3.c:203", "tests/test_fees_v4.c:207", "tests/test_fuzz_smoke.c:277", "tests/test_qual_replay.c:31", "tests/test_web_program_path.c:540", "tests/wallet/check-deploy.test.sh:75", "tests/wallet/check-live.test.sh:825", "tools/bringup/ca.sh:366", "tools/bringup/check-live.sh:353", "tools/bringup/check-live.test.sh:312", "tools/bringup/human-state-preserve.sh:387", "tools/bringup/kernel-genesis.sh:89", "tools/bringup/mint-secrets.sh:57", "tools/bringup/search-front.sh:243", "tools/bringup/tests/kernel-genesis.test.sh:20", "tools/bringup/tests/paxeer-x-fixture-foundation.py:198", "tools/bringup/tests/paxeer-x-runtime-contract.py:184", "tools/bringup/tests/registry-artifacts.py:213", "tools/bringup/tests/search-front.test.sh:94", "tools/bringup/validator-firewall.sh:69", "tools/bringup/value-loop.sh:61", "tools/ci/beta-report.sh:55", "tools/ci/tests/publish-images.test.sh:99", "tools/codebase-map/generate.mjs:478", "tools/containers/check.sh:200", "tools/deploy/railway-apply-variables.py:120", "tools/deploy/railway-perps-project.py:338", "tools/deploy/tests/offchain-images.test.sh:169", "tools/deploy/tests/railway-apply-variables.test.sh:20", "tools/deploy/tests/railway-perps-project.test.sh:20", "tools/docs/gen/gen_system_docs.py:445", "tools/launchpad/production/bootstrap/runner_tests.py:163", "tools/launchpad/production/dispatcher/qualification_leases.py:31", "tools/launchpad/production/dispatcher/tests/test_store.py:132", "tools/launchpad/production/load/phase2_accounts.py:16", "tools/launchpad/production/qualify.py:181", "tools/launchpad/production/tests/test_serial_execution.py:12", "tools/log_inspect.c:13", "tools/lxp_corpus_gen.c:44", "tools/lxp_reserve_report.c:33", "tools/paxeer-x/build/104.30.2.mk:48", "tools/paxeer-x/gates/103.6.10.sh:16", "tools/paxeer-x/gates/103.6.11.sh:19", "tools/paxeer-x/gates/103.6.13.sh:18", "tools/paxeer-x/gates/103.6.3.sh:16", "tools/paxeer-x/gates/103.6.4.sh:16", "tools/paxeer-x/gates/103.6.9.sh:16", "tools/paxeer-x/gates/104.11.5.sh:17", "tools/paxeer-x/gates/104.12.4.sh:17", "tools/paxeer-x/gates/104.13.1.sh:15", "tools/paxeer-x/gates/104.16.5.sh:26", "tools/paxeer-x/gates/104.24.1.sh:25", "tools/paxeer-x/gates/104.24.2.sh:47", "tools/paxeer-x/gates/104.25.1.sh:18", "tools/paxeer-x/gates/104.25.2.sh:18", "tools/paxeer-x/gates/104.26.1.sh:19", "tools/paxeer-x/gates/104.33.4.sh:17", "tools/paxeer-x/gates/104.33.5.sh:17", "tools/paxeer-x/gates/104.37.2.sh:228", "tools/paxeer-x/gates/104.38.2.sh:16", "tools/paxeer-x/gates/104.38.3.sh:17", "tools/paxeer-x/gates/21.2.sh:14", "tools/paxeer-x/gates/21.3.sh:14", "tools/paxeer-x/gates/25.2.sh:12", "tools/paxeer-x/gov/render.sh:104", "tools/paxeer-x/release.sh:19", "tools/paxeer-x/sid-snapshot/test.sh:20", "tools/paxeer-x/verify-task.sh:29", "tools/platform/cli/tests/common/daemon_https.py:7", "tools/platform/cli/tests/install-journey.sh:120", "tools/platform/cli/tests/proof_cli_cli_commands.rs:168", "tools/qualification/localnode/v6120-node.sh:109", "tools/qualification/paxeer-x/caps-discovery.py:96", "tools/qualification/paxeer-x/custody-provider-producer.py:186", "tools/qualification/paxeer-x/fixtures/event_receiver_fixture.py:300", "tools/qualification/paxeer-x/human-movement-kms-assembly.py:241", "tools/qualification/paxeer-x/mcp_binding_listener.py:51", "tools/qualification/paxeer-x/program-bindings.py:47", "tools/qualification/paxeer-x/wallet-attestor-disclosure.py:26", "tools/release/rehearse-v6120.sh:432", "tools/release/rollback.sh:227", "tools/release/swap.sh:52", "tools/release/tests/rehearse.test.sh:109", "tools/release/tests/rollback.test.sh:50", "tools/release/tests/seed_halt_export.py:81", "tools/release/tests/stage.test.sh:55", "tools/release/tests/swap.test.sh:22", "tools/rollout/tests/box_apply_login.test.sh:48", "tools/rollout/tests/rollout.test.sh:62"]
+
+[row.r16-104.17]
+interface = "interface.16.cli-qual-qualification-paxeer-x-authority-lni-readiness-opt-argv2"
+verdict = "retired"
+path = "tools/qualification/paxeer-x/authority-lni-readiness.py"
+line = 214
+symbol = "argv[2]"
+evidence = "The registered authority-lni-readiness.py file is absent; its worker(sys.argv[2], sys.argv[1] == '--serializer-worker') dispatch is gone. remaining lists files mentioning the literal argv[2], including unrelated CLI arguments; none is a relocated readiness script. Repository-wide git grep -I -n -w -F excluding spec and docs found 129 other files; remaining records the first matching line per file."
+remaining_refs = 129
+remaining = ["apps/launchpad/web/src/core/wallet-sdk/test-fixtures/phase4-browser.mjs:8", "apps/perps/tests/local-spot-token-state.test.ts:76", "apps/wallet/deployment/render-edge-trust.sh:33", "apps/web/e2e/prepare-production.py:159", "apps/web/e2e/software-authenticator.ts:115", "cmd/layerx-genesis/lxp_genesis_build_cli.c:675", "contracts/test/staking-event-trigger.ts:75", "core/deps/geth/crypto/secp256k1/libsecp256k1/src/tests.c:7694", "core/deps/geth/crypto/secp256k1/libsecp256k1/src/tests_exhaustive.c:378", "deploy/launchpad/Dockerfile.native:11", "deploy/launchpad/tests/railway-values.test.sh:23", "docker/kernel/init.sh:1767", "docker/redis/tests/redis-image.test.sh:20", "programs/vendor/binaryen-sys-0.12.0/binaryen/scripts/embedwat.py:20", "programs/vendor/blake3-1.5.0/c/main.c:86", "scripts/ci/beta-ci-inputs.sh:39", "scripts/ci/xweb-workflow-check.sh:1068", "scripts/evm_stress.sh:47", "scripts/paxeer-x/verify-sdk-program-rust.sh:7", "scripts/qualify-mirror-live.sh:100", "scripts/wallet/check-deploy.sh:70", "scripts/wallet/check-live.sh:394", "sdk/crypto/keys/secp256k1/internal/secp256k1/libsecp256k1/src/tests.c:4405", "sdk/integrations/agents/examples/agent-runtime/webhook-conformance.mjs:30", "sdk/integrations/build-dependencies.mjs:11", "sdk/integrations/next/example/test/fulfillment.test.mjs:144", "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsEvmTests.swift:598", "services/agent/sdk/typescript/test/ai-market.test.ts:163", "services/agent/tests/parity/python.py:91", "services/bridge/deploy/tests/checklist-check.sh:84", "services/bridge/deploy/tests/deploy-scripts-check.sh:166", "services/bridge/deploy/tests/docs-check.sh:48", "services/bridge/deploy/tests/solana-dry-run-check.sh:713", "services/bridge/deploy/tests/workflow-check.sh:713", "services/explorer/backend/apps/explorer/priv/compile_solc.js:3", "services/explorer/backend/apps/explorer/priv/compile_solc_standard_json_input.js:3", "services/human/crates/layerx-human-identity-provider/tests/catalog.rs:9", "services/human/crates/layerx-human-kms/tests/proof_human_kms.rs:266", "services/interop/deploy/mirror/tests/render-config-check.sh:58", "services/interop/deploy/x-websearch/tests/dry-run-check.sh:127", "services/launchpad/api/internal/rest/production_integration_test.go:277", "services/launchpad/security/supplychain/container_target.py:3", "services/launchpad/security/supplychain/test_phase2.py:109", "services/launchpad/stats-workers/internal/holdings/phase4_measurement.go:957", "services/platform/examples/agent-program-call/verify-receipt.mjs:50", "services/platform/examples/agent-spend/index.mjs:8", "services/platform/hosted/agentd/probe.sh:139", "services/platform/hosted/gateway/tests/proof_gateway_jsonrpc_methods.rs:538", "services/platform/hosted/human/bootstrap.py:40", "services/platform/hosted/human/material.py:711", "services/platform/hosted/human/native_manifest.py:54", "services/platform/hosted/human/onboarding_provision.sh:22", "services/platform/hosted/human/provision.sh:46", "services/platform/hosted/node/bootstrap.sh:568", "services/platform/hosted/node/data_directory.py:333", "services/platform/hosted/node/reset_state.py:1059", "services/platform/hosted/node/supervisor.sh:694", "services/platform/hosted/node/tests/signer-test.py:34", "services/platform/hosted/node/tests/test_reset_state.py:430", "services/platform/hosted/paxeer/settlement-domain.py:132", "services/platform/hosted/paxeer/tests/tls_shutdown.py:7", "services/platform/hosted/registry/builder-environment/verify-vendor.py:40", "services/platform/hosted/tests/beta-cluster.sh:802", "services/platform/hosted/tests/paxeer-identity.py:68", "services/platform/hosted/tests/sequencer-pins.py:59", "services/platform/middleware/conformance/pay6/generate_evm_receipt.mjs:47", "services/platform/ramps/reference/tests/proof_ramp_reference_http_routes.rs:283", "services/wallet/attestor/internal/server/proof_s28_wallet_attestors_tss_test.go:362", "services/wallet/ceremony/testdata/gateway-envelope.mts:9", "tests/agent/sdk/python/test_evm_transaction.py:528", "tests/fixtures/asset/generate_supply_receipts.c:61", "tests/integration/contracts/deploy_flatkv_evm_fixture.sh:120", "tests/lxp_test_harness.c:74", "tests/programs/test_cache_native_equivalence.c:520", "tests/programs/test_call_activity.c:2968", "tests/programs/test_execution_context.c:686", "tests/programs/test_fee_governance.c:344", "tests/programs/test_reference_custody.c:308", "tests/programs/test_spend_capability_composition.c:629", "tests/qualification/lxp_wallet_caps_discovery.c:593", "tests/test_fuzz_smoke.c:277", "tests/test_qual_replay.c:31", "tests/wallet/check-live.test.sh:825", "tools/bringup/check-live.sh:354", "tools/bringup/check-live.test.sh:1446", "tools/bringup/human-state-preserve.sh:388", "tools/bringup/kernel-genesis.sh:198", "tools/bringup/tests/paxeer-x-runtime-contract.py:708", "tools/bringup/tests/registry-artifacts.py:215", "tools/bringup/tests/search-front.test.sh:95", "tools/bringup/validator-firewall.sh:70", "tools/ci/beta-report.sh:55", "tools/deploy/tests/offchain-images.test.sh:169", "tools/deploy/tests/railway-apply-variables.test.sh:22", "tools/deploy/tests/railway-perps-project.test.sh:195", "tools/launchpad/production/charts-realtime/phase4-browser.mjs:16", "tools/launchpad/production/dispatcher/qualification_leases.py:31", "tools/launchpad/production/dispatcher/tests/test_store.py:132", "tools/launchpad/production/interfaces/contracts/client-deployment.cjs:44", "tools/launchpad/production/tests/test_serial_execution.py:34", "tools/launchpad/storage/check.py:547", "tools/lxp_corpus_gen.c:44", "tools/paxeer-x/build/104.30.2.mk:55", "tools/paxeer-x/gates/103.6.10.sh:17", "tools/paxeer-x/gates/104.24.2.sh:52", "tools/paxeer-x/gates/104.38.6.sh:52", "tools/paxeer-x/gov/render.sh:119", "tools/paxeer-x/sid-snapshot/test.sh:36", "tools/platform/cli/tests/install-journey.sh:121", "tools/platform/cli/tests/proof_cli_cli_commands.rs:166", "tools/qualification/localnode/v6120-node.sh:117", "tools/qualification/paxeer-x/caps-discovery.py:97", "tools/qualification/paxeer-x/gas-station-contract.py:321", "tools/qualification/paxeer-x/human-movement-kms-assembly.py:241", "tools/qualification/paxeer-x/mcp_binding_listener.py:51", "tools/qualification/paxeer-x/wallet-402-caps.py:223", "tools/qualification/paxeer-x/wallet-attestor-disclosure.py:34", "tools/qualification/paxeer-x/wallet-injected-chain.py:49", "tools/qualification/paxeer-x/wallet-injected-fixture.mjs:255", "tools/qualification/paxeer-x/wallet-injected-fixture.py:148", "tools/release/rehearse-v6120.sh:435", "tools/release/rollback.sh:251", "tools/release/swap.sh:187", "tools/release/tests/rehearse.test.sh:109", "tools/release/tests/rollback.test.sh:52", "tools/release/tests/seed_halt_export.py:82", "tools/release/tests/stage.test.sh:90", "tools/release/tests/swap.test.sh:183", "tools/rollout/tests/rollout.test.sh:65"]
+
+[row.r16-104.18]
+interface = "interface.16.env-qual-qualification-paxeer-x-authority-lni-readiness-paxeer-x-authority-evidence"
+verdict = "retired"
+path = "tools/qualification/paxeer-x/authority-lni-readiness.py"
+line = 218
+symbol = "PAXEER_X_AUTHORITY_EVIDENCE"
+evidence = "The registered authority-lni-readiness.py file is absent; its Path(os.environ['PAXEER_X_AUTHORITY_EVIDENCE']) read is gone. A gate still mentions the environment name, but the registered producer is no longer implemented. Repository-wide git grep -I -n -w -F excluding spec and docs found 1 other file; remaining records the first matching line per file."
+remaining_refs = 1
+remaining = ["tools/paxeer-x/gates/103.6.3.sh:20"]
+
+[row.r16-104.19]
+interface = "interface.16.cli-qual-qualification-paxeer-x-budget-proof-intake"
+verdict = "served"
+path = "tools/qualification/paxeer-x/budget-proof-intake.py"
+line = 16
+symbol = "__main__"
+evidence = "The declaring signature if __name__ == '__main__': is unchanged; its line moved from 50 to 16. main now parses no operational arguments and calls parser.exit(1, ...) with the standalone transport qualification retirement refusal."
+
+[row.r16-104.20]
+interface = "interface.16.cli-qual-qualification-paxeer-x-caps-codecs"
+verdict = "served"
+path = "tools/qualification/paxeer-x/caps-codecs.py"
+line = 149
+symbol = "__main__"
+evidence = "The declaring signature if __name__ == '__main__': is unchanged; its line moved from 124 to 149. main accepts --worker DIRECTORY for prebuilt codec artifacts; the guard catches qualification failures and exits 1."
+
+[row.r16-104.21]
+interface = "interface.16.cli-qual-qualification-paxeer-x-custody-governance"
+verdict = "served"
+path = "tools/qualification/paxeer-x/custody_governance.py"
+line = 9
+symbol = "ArgumentParser"
+evidence = "The registered parser = argparse.ArgumentParser() at line 169 has become command = argparse.ArgumentParser(description=__doc__, allow_abbrev=False) at line 9 inside parser(). --produce and --manifest remain parseable, but main always reports custody governance artifact production and execution retired via command.error()."
+
+[row.r16-104.22]
+interface = "interface.16.cli-qual-qualification-paxeer-x-event-delivery-contract"
+verdict = "served"
+path = "tools/qualification/paxeer-x/event-delivery-contract.py"
+line = 2736
+symbol = "ArgumentParser"
+evidence = "The declaring signature parser = argparse.ArgumentParser() is unchanged; its line moved from 3031 to 2736. The CLI requires --case from CASES and --candidate-manifest before dispatching the selected delivery contract case."
+
+[row.r16-104.23]
+interface = "interface.16.cli-qual-qualification-paxeer-x-explorer-receipt-reader"
+verdict = "served"
+path = "tools/qualification/paxeer-x/explorer-receipt-reader.py"
+line = 18
+symbol = "__main__"
+evidence = "The declaring signature if __name__ == '__main__': is unchanged; its line moved from 216 to 18. main now reports daemon-backed receipt evidence production retired through parser.error(), directing callers to chain receipts."
+
+[row.r16-104.24]
+interface = "interface.16.cli-qual-qualification-paxeer-x-fixtures-xweb-attestation"
+verdict = "served"
+path = "tools/qualification/paxeer-x/fixtures/xweb_attestation.py"
+line = 683
+symbol = "ArgumentParser"
+evidence = "The declaring signature parser = argparse.ArgumentParser(description=__doc__) is unchanged; its line moved from 680 to 683. --case and --candidate-manifest are required for the xweb attestation fixture runner."
+
+[row.r16-104.25]
+interface = "interface.16.cli-qual-qualification-paxeer-x-gas-station-contract"
+verdict = "served"
+path = "tools/qualification/paxeer-x/gas-station-contract.py"
+line = 1426
+symbol = "ArgumentParser"
+evidence = "The declaring signature parser = argparse.ArgumentParser() is unchanged; its line moved from 1423 to 1426. --case selects a gas station contract scenario and --candidate-manifest is required and validated before dispatch."
+
+[row.r16-104.26]
+interface = "interface.16.cli-qual-qualification-paxeer-x-human-approval-admission"
+verdict = "served"
+path = "tools/qualification/paxeer-x/human-approval-admission.py"
+line = 16
+symbol = "__main__"
+evidence = "The declaring signature if __name__ == '__main__': is unchanged; its line moved from 84 to 16. main now parses no operational arguments and exits 1 with the standalone human approval admission transport qualification retirement refusal."
+
+[row.r16-104.27]
+interface = "interface.16.cli-qual-qualification-paxeer-x-human-canonical-projections"
+verdict = "served"
+path = "tools/qualification/paxeer-x/human-canonical-projections.py"
+line = 180
+symbol = "ArgumentParser"
+evidence = "The declaring signature parser = argparse.ArgumentParser() is unchanged; its line moved from 177 to 180. --candidate-manifest remains required; the runner validates it before loading the protected canonical projection fixture."
+
+[row.r16-104.28]
+interface = "interface.16.cli-qual-qualification-paxeer-x-human-native-send-producer"
+verdict = "served"
+path = "tools/qualification/paxeer-x/human-native-send-producer.py"
+line = 86
+symbol = "ArgumentParser"
+evidence = "The declaring signature parser = argparse.ArgumentParser() is unchanged; its line moved from 83 to 86. --candidate-manifest remains required and the native Send producer checks the published integrated candidate identity."
+
+[row.r16-104.29]
+interface = "interface.16.cli-qual-qualification-paxeer-x-human-attestor-intents"
+verdict = "served"
+path = "tools/qualification/paxeer-x/human_attestor_intents.py"
+line = 164
+symbol = "__main__"
+evidence = "The declaring signature if __name__ == '__main__': is unchanged; its line moved from 161 to 164. The guard calls main and reports failures; main accepts no operational arguments and requires protected candidate and attestor intent manifests."
+
+[row.r16-104.30]
+interface = "interface.16.cli-qual-qualification-paxeer-x-human-deposit-initial-response"
+verdict = "served"
+path = "tools/qualification/paxeer-x/human_deposit_initial_response.py"
+line = 439
+symbol = "__main__"
+evidence = "The declaring signature if __name__ == '__main__': is unchanged; its line moved from 434 to 439. The guard installs SIGTERM/SIGINT interruption handling before main, which parses no operational arguments and loads candidate and deposit initial response manifests."
+
+[row.r16-104.31]
+interface = "interface.16.cli-qual-qualification-paxeer-x-human-native-custody"
+verdict = "served"
+path = "tools/qualification/paxeer-x/human_native_custody.py"
+line = 54
+symbol = "ArgumentParser"
+evidence = "The declaring signature parser = argparse.ArgumentParser() is unchanged; its line moved from 51 to 54. The native custody CLI requires one of --build or --candidate-manifest through a mutually exclusive argument group."
+
+[row.r16-104.32]
+interface = "interface.16.cli-qual-qualification-paxeer-x-human-program-approvals-2"
+verdict = "served"
+path = "tools/qualification/paxeer-x/human_program_approvals.py"
+line = 92
+symbol = "ArgumentParser"
+evidence = "The declaring signature parser = argparse.ArgumentParser() is unchanged; its line moved from 89 to 92. --candidate-manifest is required before validating the candidate and loading the protected Programs approval manifest."
+
+[row.r16-104.33]
+interface = "interface.16.cli-qual-qualification-paxeer-x-interop-archive-contract"
+verdict = "served"
+path = "tools/qualification/paxeer-x/interop-archive-contract.py"
+line = 1375
+symbol = "ArgumentParser"
+evidence = "The declaring signature parser = argparse.ArgumentParser(prog=\"interop-archive-contract\") is unchanged; its line moved from 2288 to 1375. --case and --candidate-manifest remain required; readiness and checkpoint acquisition cases dispatch to their current handlers."
+
+[row.r16-104.34]
+interface = "interface.16.cli-qual-qualification-paxeer-x-market-sandbox-capture"
+verdict = "served"
+path = "tools/qualification/paxeer-x/market-sandbox-capture.py"
+line = 212
+symbol = "ArgumentParser"
+evidence = "The declaring signature parser = argparse.ArgumentParser() is unchanged; its line moved from 351 to 212. --build selects artifact production; otherwise the market sandbox capture command calls qualify() with a private evidence directory."
+
+[row.r16-104.35]
+interface = "interface.16.cli-qual-qualification-paxeer-x-market-sandbox-profile"
+verdict = "served"
+path = "tools/qualification/paxeer-x/market-sandbox-profile.py"
+line = 67
+symbol = "ArgumentParser"
+evidence = "The declaring signature parser = argparse.ArgumentParser() is unchanged and still at registered line 67. The market sandbox profile accepts --build and uses its private evidence directory; status=change does not imply a parser signature change."
+
+[row.r16-104.36]
+interface = "interface.16.cli-qual-qualification-paxeer-x-mcp-web-payer"
+verdict = "served"
+path = "tools/qualification/paxeer-x/mcp_web_payer.py"
+line = 585
+symbol = "ArgumentParser"
+evidence = "The declaring signature parser = argparse.ArgumentParser() is unchanged and still at registered line 585. The MCP web payer CLI accepts --build-artifacts and a hidden --worker flag; status=change does not imply a parser signature change."
+
+[row.r16-104.37]
+interface = "interface.16.cli-qual-qualification-paxeer-x-movement-custody-profile"
+verdict = "served"
+path = "tools/qualification/paxeer-x/movement-custody-profile.py"
+line = 238
+symbol = "__main__"
+evidence = "The declaring signature if __name__ == '__main__': is unchanged; its line moved from 242 to 238. main parses no operational arguments and requires genuine prebuilt movement custody artifacts and a protected fixture, reporting prerequisite-unavailable with exit 78 when absent."
+
+[row.r16-104.38]
+interface = "interface.16.cli-qual-qualification-paxeer-x-native-programs-link"
+verdict = "served"
+path = "tools/qualification/paxeer-x/native-programs-link.py"
+line = 291
+symbol = "ArgumentParser"
+evidence = "The declaring signature parser = argparse.ArgumentParser() is unchanged; its line moved from 352 to 291. The CLI still parses --build, --cargo, --native-dir, --programs-dir and --agent-dir for native Programs linkage qualification."
+
+[row.r16-104.39]
+interface = "interface.16.cli-qual-qualification-paxeer-x-native-send-profile"
+verdict = "served"
+path = "tools/qualification/paxeer-x/native_send_profile.py"
+line = 203
+symbol = "__main__"
+evidence = "The declaring signature if __name__ == '__main__': is unchanged; its line moved from 200 to 203. main parses no operational arguments, requires PAXEER_X_NATIVE_SEND_PROFILE_FIXTURE, and the guard reports protected-input or process refusals."
+
+[row.r16-104.40]
+interface = "interface.16.cli-qual-qualification-paxeer-x-native-send-purpose"
+verdict = "served"
+path = "tools/qualification/paxeer-x/native_send_purpose.py"
+line = 55
+symbol = "ArgumentParser"
+evidence = "The declaring signature parser = argparse.ArgumentParser() is unchanged; its line moved from 52 to 55. --build and --candidate-manifest are mutually exclusive; qualification requires the original task deadline and resolves a candidate manifest when not building."
+
+[row.r16-104.41]
+interface = "interface.16.cli-qual-qualification-paxeer-x-program-balance-read"
+verdict = "served"
+path = "tools/qualification/paxeer-x/program_balance_read.py"
+line = 230
+symbol = "ArgumentParser"
+evidence = "The registered parser = argparse.ArgumentParser() at line 231 has become parser = argparse.ArgumentParser(allow_abbrev=False) at line 230. A required operation subparser selects snapshot, record or verify, with operation-specific producer arguments."
+
+[row.r16-104.42]
+interface = "interface.16.cli-qual-qualification-paxeer-x-program-cache-native-equivalence"
+verdict = "served"
+path = "tools/qualification/paxeer-x/program_cache_native_equivalence.py"
+line = 221
+symbol = "ArgumentParser"
+evidence = "The declaring signature parser = argparse.ArgumentParser() is unchanged and still at registered line 221. Required operation subparsers select snapshot, record or verify with source-bound producer inputs; status=change does not imply a parser signature change."
+
+[row.r16-104.43]
+interface = "interface.16.cli-qual-qualification-paxeer-x-program-fee-governance"
+verdict = "served"
+path = "tools/qualification/paxeer-x/program_fee_governance.py"
+line = 235
+symbol = "ArgumentParser"
+evidence = "The declaring signature parser = argparse.ArgumentParser() is unchanged; its line moved from 236 to 235. The fee governance command accepts --build, --build-dir and --cc and obtains private evidence before running the selected mode."
+
+[row.r16-104.44]
+interface = "interface.16.cli-qual-qualification-paxeer-x-program-market-attestation"
+verdict = "served"
+path = "tools/qualification/paxeer-x/program_market_attestation.py"
+line = 364
+symbol = "ArgumentParser"
+evidence = "The declaring signature parser = argparse.ArgumentParser() is unchanged; its line moved from 383 to 364. parse_arguments accepts mutually exclusive --begin-build and --build plus compiler, cargo and target directory options."
+
+[row.r16-104.45]
+interface = "interface.16.cli-qual-qualification-paxeer-x-program-spend-composition"
+verdict = "served"
+path = "tools/qualification/paxeer-x/program_spend_composition.py"
+line = 324
+symbol = "ArgumentParser"
+evidence = "The registered parser = argparse.ArgumentParser() has become parser = argparse.ArgumentParser(allow_abbrev=False), still at line 324. The spend composition CLI accepts --build, --build-dir and --cc and dispatches build or qualify using a private evidence directory."
+
+[row.r16-104.46]
+interface = "interface.16.cli-qual-qualification-paxeer-x-program-transfer-authority"
+verdict = "served"
+path = "tools/qualification/paxeer-x/program_transfer_authority.py"
+line = 229
+symbol = "__main__"
+evidence = "The declaring signature if __name__ == \"__main__\": is unchanged; its line moved from 226 to 229. It calls sys.exit(main()); main parses no operational arguments and records transfer authority qualification in a private evidence directory."
+
+[row.r16-104.47]
+interface = "interface.16.cli-qual-qualification-paxeer-x-programs-accounts-winddown"
+verdict = "served"
+path = "tools/qualification/paxeer-x/programs_accounts_winddown.py"
+line = 542
+symbol = "ArgumentParser"
+evidence = "The declaring signature parser = argparse.ArgumentParser() is unchanged; its line moved from 552 to 542. --task selects 6.4 or 6.6, with --build, --build-dir, --cargo and --manifest options for account winddown qualification."
+
+[row.r16-104.48]
+interface = "interface.16.cli-qual-qualification-paxeer-x-programs-all-form-validation"
+verdict = "served"
+path = "tools/qualification/paxeer-x/programs_all_form_validation.py"
+line = 326
+symbol = "ArgumentParser"
+evidence = "The declaring signature parser = argparse.ArgumentParser(description=__doc__) is unchanged; its line moved from 612 to 326. The CLI accepts --manifest and --build-output, selecting focused artifact production or qualification."
+
+[row.r16-104.49]
+interface = "interface.16.cli-qual-qualification-paxeer-x-programs-source-abi"
+verdict = "served"
+path = "tools/qualification/paxeer-x/programs_source_abi.py"
+line = 679
+symbol = "ArgumentParser"
+evidence = "The declaring signature parser = argparse.ArgumentParser(description=__doc__) is unchanged; its line moved from 681 to 679. Mutually exclusive --snapshot-build and --record-artifacts CARGO_JSON select source ABI artifact recording modes."
+
+[row.r16-104.50]
+interface = "interface.16.cli-qual-qualification-paxeer-x-registry-contract"
+verdict = "served"
+path = "tools/qualification/paxeer-x/registry-contract.py"
+line = 1402
+symbol = "ArgumentParser"
+evidence = "The declaring signature parser = argparse.ArgumentParser(description=__doc__.splitlines()[0]) is unchanged; its line moved from 1403 to 1402. --case and --candidate-manifest remain required, with optional corpus and emulator/hosted URL inputs."
+
+[row.r16-104.51]
+interface = "interface.16.cli-qual-qualification-paxeer-x-registry-router-bootstrap"
+verdict = "served"
+path = "tools/qualification/paxeer-x/registry-router-bootstrap.py"
+line = 1340
+symbol = "ArgumentParser"
+evidence = "The registered opening signature parser = argparse.ArgumentParser( is unchanged; its line moved from 1337 to 1340. The following line declares the registry identity bootstrap description and allow_abbrev=False; options include --evidence-dir, --staged-evidence and --hosts-file."
+
+[row.r16-104.52]
+interface = "interface.16.cli-qual-qualification-paxeer-x-replay-authority"
+verdict = "served"
+path = "tools/qualification/paxeer-x/replay-authority.py"
+line = 12
+symbol = "ArgumentParser"
+evidence = "The registered parser = argparse.ArgumentParser() at line 118 has become command = argparse.ArgumentParser(description=__doc__, allow_abbrev=False) at line 12 inside parser(). --build and --prepare-fixture remain parseable, but main always raises the batch-WAL replay authority retirement refusal via command.error(RETIRED)."
+
+[row.r16-104.53]
+interface = "interface.16.cli-qual-qualification-paxeer-x-replay-catalogue"
+verdict = "retired"
+path = "tools/qualification/paxeer-x/replay-catalogue.py"
+line = 386
+symbol = "tools/qualification/paxeer-x/replay-catalogue.py"
+evidence = "The registered CLI file is absent, so its parser = argparse.ArgumentParser() declaration and invocation are gone. No same-name implementation was found; the remaining invocation-path literal is in the retired callers test. Repository-wide git grep -I -n -w -F excluding spec and docs found 1 other file; remaining records the first matching line per file."
+remaining_refs = 1
+remaining = ["tools/qualification/test_retired_callers_4.py:10"]
+
+[row.r16-104.54]
+interface = "interface.16.cli-qual-qualification-paxeer-x-router-complete-readiness"
+verdict = "served"
+path = "tools/qualification/paxeer-x/router-complete-readiness.py"
+line = 938
+symbol = "__main__"
+evidence = "The declaring signature if __name__ == \"__main__\": is unchanged; its line moved from 905 to 938. main now parses --worker DIRECTORY and qualifies readiness against the configured service roster, with failures reported by the guard."
+
+[row.r16-104.55]
+interface = "interface.16.cli-qual-qualification-paxeer-x-storage-recovery-producer"
+verdict = "served"
+path = "tools/qualification/paxeer-x/storage-recovery-producer.py"
+line = 159
+symbol = "ArgumentParser"
+evidence = "The declaring signature parser = argparse.ArgumentParser() is unchanged; its line moved from 166 to 159. --output remains required and main calls build(args.output), reporting storage recovery build failures with exit 1."
+
+[row.r16-104.56]
+interface = "interface.16.cli-qual-qualification-paxeer-x-wallet-402-caps"
+verdict = "served"
+path = "tools/qualification/paxeer-x/wallet-402-caps.py"
+line = 905
+symbol = "__main__"
+evidence = "The declaring signature if __name__ == \"__main__\": is unchanged; its line moved from 900 to 905. The guard installs SIGTERM handling and calls main, which parses no operational arguments and requires WALLET_CAPS_FIXTURE_BUNDLE."
+
+[row.r16-104.57]
+interface = "interface.16.cli-qual-qualification-paxeer-x-release"
+verdict = "served"
+path = "tools/qualification/paxeer_x_release.py"
+line = 274
+symbol = "ArgumentParser"
+evidence = "The registered parser = argparse.ArgumentParser() has become parser = argparse.ArgumentParser(allow_abbrev=False), still at line 274. A required command subparser selects prepare, submit, status, evidence, workflow-plan or workflow-run with explicit authority and evidence inputs."

@@ -1,0 +1,485 @@
+[reconcile.r9-57]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 60
+
+[row.r9-57.1]
+interface = "interface.9.rs-crypto-signer-sign-disclosed"
+verdict = "served"
+path = "services/agent/crates/layerx-crypto/src/signer.rs"
+line = 303
+symbol = "sign_disclosed"
+evidence = "pub fn sign_disclosed<'a>(signer, canonical, disclosure, registry) -> SignFuture<'a> still validates and signs canonical activity bytes at line 303. Override.J44.156 and decision.931 plan deletion in task 9.35.1; the separate EVM successor sign_disclosed_call is at line 276, but the registered function remains implemented."
+
+[row.r9-57.2]
+interface = "interface.9.rs-crypto-signer-keystoresigner"
+verdict = "served"
+path = "services/agent/crates/layerx-crypto/src/signer.rs"
+line = 327
+symbol = "KeystoreSigner"
+evidence = "pub struct KeystoreSigner remains an external OpenSSH Ed25519 signer with a 32-byte public_key; the declaration name is unchanged and moved from line 302 to 327. Its Signer implementation now includes evm_address returning None and sign_transaction returning EvmKeyUnavailable, so this type has not become a secp256k1 transaction signer."
+
+[row.r9-57.3]
+interface = "interface.9.fmt-mcp-binding-document"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/binding.rs"
+line = 42
+symbol = "BINDING_KEYS"
+evidence = "const BINDING_KEYS: [&str; 12] now declares core_height instead of core_sequence; Binding::load also accepts listener and web. WEB_KEYS uses payer_address, receiver_address, receipt_key_index, sequencer_id and batch bounds instead of a standalone sequencer_public_key; closed-key validation still rejects unknown fields."
+
+[row.r9-57.4]
+interface = "interface.9.cfg-mcp-binding-core-sequence"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/binding.rs"
+line = 618
+symbol = "core_sequence"
+evidence = "The literal core_sequence remains at root.contains_key(\"core_sequence\") only to refuse the retired JSON key with mcp.binding_retired_key. The accepted signature has changed to core_height: u64, loaded with unsigned(root, \"core_height\") at line 664; internal core_sequence variable names also remain."
+
+[row.r9-57.5]
+interface = "interface.9.cfg-mcp-binding-web-sequencer-public-key"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/binding.rs"
+line = 1190
+symbol = "sequencer_public_key"
+evidence = "The literal sequencer_public_key remains in web.contains_key(\"sequencer_public_key\") as an explicit retired-key refusal, not an accepted field. The binding signature now requires receipt_key_index plus sequencer_id and first_batch_number/last_batch_number; WEB_KEYS and web_binding load those replacements."
+
+[row.r9-57.6]
+interface = "interface.9.err-reason-mcp-native-owner-environment"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/binding.rs"
+line = 453
+symbol = "mcp.native_owner_environment"
+evidence = "mcp.native_owner_environment remains the unavailable refusal in OwnerBoundary when the owner environment cannot be provided; its defining literal moved from line 403 to 453."
+
+[row.r9-57.7]
+interface = "interface.9.err-reason-mcp-external-signature"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/binding.rs"
+line = 406
+symbol = "mcp.external_signature"
+evidence = "mcp.external_signature remains the malformed-request reason in external_signature_request(arguments: &Value) -> Result<Value, BoundaryRefusal>. The request now parses SignatureBytes and requires variant external_signature_v1; catalogue::validate enforces a 65-byte signature and 32-byte preparation_ref rather than a 64-byte activity signature."
+
+[row.r9-57.8]
+interface = "interface.9.http-mcp-tool-web-search"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/catalogue.rs"
+line = 228
+symbol = "web.search"
+evidence = "name: \"web.search\" remains a Write ToolDefinition with scope write:web:search. Its declaration now describes payExact or budget draw and a sequencer-signed settlement receipt; WebPayer prepares PrecompileCall payments and submit returns ExactPayment instead of signing a kernel activity envelope."
+
+[row.r9-57.9]
+interface = "interface.9.http-mcp-tool-web-fetch"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/catalogue.rs"
+line = 236
+symbol = "web.fetch"
+evidence = "name: \"web.fetch\" remains a Write ToolDefinition with scope write:web:fetch. Its declaration now describes payExact or budget draw and sequencer-signed settlement evidence; the request still requires url, currency, scheme and idempotency_key, while WebPayer submits a PrecompileCall and returns ExactPayment."
+
+[row.r9-57.10]
+interface = "interface.9.http-mcp-tool-web-content"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/catalogue.rs"
+line = 244
+symbol = "web.content"
+evidence = "name: \"web.content\" remains a Write ToolDefinition with scope write:web:content and digest, currency, scheme, idempotency_key fields. Catalogue metadata describes payExact or budget draw, but tools/web.rs documents content-by-digest as unpaid and digest checked; the current payment boundary returns sequencer receipt logs rather than kernel envelopes."
+
+[row.r9-57.11]
+interface = "interface.9.http-mcp-tool-subscription-create"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/catalogue.rs"
+line = 627
+symbol = "subscription.create"
+evidence = "name: \"subscription.create\" remains a Write ToolDefinition requiring subscribe. The current closed request contains scope, filter, start and delivery_target; start is a block_height/tx_index/log_index cursor rather than a kernel sequence cursor (subscription_cursor_schema at catalogue.rs:723)."
+
+[row.r9-57.12]
+interface = "interface.9.http-mcp-tool-subscription-list"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/catalogue.rs"
+line = 634
+symbol = "subscription.list"
+evidence = "name: \"subscription.list\" remains a Read ToolDefinition requiring subscribe and routes to SubscriptionList. The tool name and operation are unchanged; the current closed input is {scope}, whose subscriptions use block_height/tx_index/log_index cursors rather than kernel sequence positions."
+
+[row.r9-57.13]
+interface = "interface.9.http-mcp-tool-subscription-pause"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/catalogue.rs"
+line = 641
+symbol = "subscription.pause"
+evidence = "name: \"subscription.pause\" remains a Write ToolDefinition requiring subscribe and routes to SubscriptionPause. Its closed input remains scope and subscription_id; the cursor model shared by subscription requests is now block_height/tx_index/log_index, while this operation's argument names are unchanged."
+
+[row.r9-57.14]
+interface = "interface.9.http-mcp-tool-subscription-resume"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/catalogue.rs"
+line = 648
+symbol = "subscription.resume"
+evidence = "name: \"subscription.resume\" remains a Write ToolDefinition requiring subscribe and routes to SubscriptionResume. Its closed input remains scope and subscription_id; subscription progress is represented by block_height/tx_index/log_index cursors, with no new cursor argument on resume itself."
+
+[row.r9-57.15]
+interface = "interface.9.http-mcp-tool-subscription-delete"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/catalogue.rs"
+line = 655
+symbol = "subscription.delete"
+evidence = "name: \"subscription.delete\" remains a Write ToolDefinition requiring subscribe and routes to SubscriptionDelete. The operation and scope/subscription_id argument names are unchanged; the surrounding subscription schema uses block_height/tx_index/log_index cursors instead of kernel sequence positions."
+
+[row.r9-57.16]
+interface = "interface.9.http-mcp-tool-subscription-health"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/catalogue.rs"
+line = 662
+symbol = "subscription.health"
+evidence = "name: \"subscription.health\" remains a Read ToolDefinition requiring subscribe and routes to SubscriptionHealth. Its closed input still requires scope and subscription_id; the subscription schema now uses block_height/tx_index/log_index cursors, without changing this health request's argument names."
+
+[row.r9-57.17]
+interface = "interface.9.http-mcp-tool-subscription-acknowledge"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/catalogue.rs"
+line = 669
+symbol = "subscription.acknowledge"
+evidence = "name: \"subscription.acknowledge\" remains a Write ToolDefinition requiring subscribe. Its closed request now carries scope, subscription_id and cursor with block_height, tx_index and log_index; subscription_acknowledge_tool constructs CursorAcknowledgement with those chain cursor fields."
+
+[row.r9-57.18]
+interface = "interface.9.http-mcp-tool-approval-list"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/catalogue.rs"
+line = 676
+symbol = "approval.list"
+evidence = "name: \"approval.list\" remains a Read ToolDefinition requiring approve and maps to ApprovalList. session_input_schema now includes a native_v1 variant alongside the legacy current_sequence/limit and optional tenant/agent/cursor request; the tool name and operation remain unchanged."
+
+[row.r9-57.19]
+interface = "interface.9.http-mcp-tool-approval-get"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/catalogue.rs"
+line = 683
+symbol = "approval.get"
+evidence = "name: \"approval.get\" remains a Read ToolDefinition requiring approve and maps to ApprovalGet. The schema includes native_v1 plus approval_id alongside the legacy approval_id/current_sequence request; approval_get_tool currently refuses variant requests and returns tracked tx_hash and rung for legacy approved records."
+
+[row.r9-57.20]
+interface = "interface.9.http-mcp-tool-approval-approve"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/catalogue.rs"
+line = 690
+symbol = "approval.approve"
+evidence = "name: \"approval.approve\" remains a Write ToolDefinition requiring approve and maps to ApprovalApprove. The native_v1 schema adds variant alongside approval_id, held_digest and current_sequence; the legacy schema retains optional tenant/agent, so the name is unchanged while variant-aware request shapes coexist."
+
+[row.r9-57.21]
+interface = "interface.9.http-mcp-tool-approval-reject"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/catalogue.rs"
+line = 697
+symbol = "approval.reject"
+evidence = "name: \"approval.reject\" remains a Write ToolDefinition requiring approve and maps to ApprovalReject. The native_v1 schema adds variant alongside approval_id, held_digest and current_sequence; legacy optional tenant/agent fields remain supported in the separate legacy request shape."
+
+[row.r9-57.22]
+interface = "interface.9.rs-mcp-server-faucet-request"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/server.rs"
+line = 79
+symbol = "FAUCET_REQUEST"
+evidence = "pub const FAUCET_REQUEST: ToolDefinition keeps its public type and name but now declares funding through the node's px_requestFunds and evidence as the returned funding tx_hash or refusal. operation_for_tool returns None for faucet.request instead of dispatching faucet.claim."
+
+[row.r9-57.23]
+interface = "interface.9.http-mcp-tool-faucet-request"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/server.rs"
+line = 80
+symbol = "faucet.request"
+evidence = "name: \"faucet.request\" keeps the write:faucet:claim scope, but its ToolDefinition now declares one node px_requestFunds request and a funding tx_hash. operation_for_tool returns None for this tool, replacing the registry's faucet.claim daemon operation mapping."
+
+[row.r9-57.24]
+interface = "interface.9.http-mcp-tool-balance-get"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/server.rs"
+line = 96
+symbol = "balance.get"
+evidence = "name: \"balance.get\" still maps to ReadBalance with program and optional account/asset inputs; the registered tool name and operation signature are unchanged. ProgramReads now obtains balances through the retargeted agent surface and attaches the returned envelope and evidence, rather than introducing a new MCP method."
+
+[row.r9-57.25]
+interface = "interface.9.http-mcp-tool-history-list"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/server.rs"
+line = 103
+symbol = "history.list"
+evidence = "name: \"history.list\" still maps to ReadHistory with account, limit and optional cursor; the MCP name and operation signature are unchanged. ProgramReads now constructs /v1/reads/history/{account}?limit=... and an optional cursor against the retargeted native-read surface."
+
+[row.r9-57.26]
+interface = "interface.9.http-mcp-tool-receipt-get"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/server.rs"
+line = 110
+symbol = "receipt.get"
+evidence = "name: \"receipt.get\" still maps to ProgramReceipt and takes activity_id; the MCP name and operation signature are unchanged. ProgramReads now forwards to /v1/reads/receipt/{activity_id} through AgentSurface::native_read instead of a separate kernel proof transport."
+
+[row.r9-57.27]
+interface = "interface.9.http-mcp-tool-checkpoint-get"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/server.rs"
+line = 117
+symbol = "checkpoint.get"
+evidence = "name: \"checkpoint.get\" still maps to ReadCheckpoint and takes sequence; the MCP argument name has not been renamed to height. ProgramReads now forwards to /v1/reads/checkpoint/{sequence} through AgentSurface::native_read, preserving the current request shape."
+
+[row.r9-57.28]
+interface = "interface.9.http-mcp-tool-proof-get"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/server.rs"
+line = 124
+symbol = "proof.get"
+evidence = "name: \"proof.get\" still maps to ReadProofBundle and takes activity_id; the MCP name and operation signature are unchanged. ProgramReads now forwards to /v1/reads/proof/{activity_id} through AgentSurface::native_read and returns that owner's evidence envelope."
+
+[row.r9-57.29]
+interface = "interface.9.http-mcp-tool-availability-get"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/server.rs"
+line = 131
+symbol = "availability.get"
+evidence = "name: \"availability.get\" still maps to AvailabilityFetch and takes batch; the MCP name and operation signature are unchanged. ProgramReads now forwards to /v1/reads/availability/{batch} through AgentSurface::native_read, with unavailable cases reported by that owner."
+
+[row.r9-57.30]
+interface = "interface.9.http-mcp-tool-activity-prepare"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/server.rs"
+line = 138
+symbol = "activity.prepare"
+evidence = "name: \"activity.prepare\" still maps to Prepare, but catalogue::input_schema now adds native_v1, native_effect_v1 and native_send_v1 alternatives to the legacy activity input. These variants bind actor, authority, payload hash, purpose and local grant; the tool name is unchanged."
+
+[row.r9-57.31]
+interface = "interface.9.http-mcp-tool-activity-disclose"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/server.rs"
+line = 145
+symbol = "activity.disclose"
+evidence = "name: \"activity.disclose\" still maps to Prepare and accepts canonical_bytes; the argument signature itself is unchanged. The current ToolDefinition adds tx_hash and rung after submission to disclosure evidence, while the registered operation remains the ordinary daemon preparation path."
+
+[row.r9-57.32]
+interface = "interface.9.http-mcp-tool-activity-sign"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/server.rs"
+line = 152
+symbol = "activity.sign"
+evidence = "name: \"activity.sign\" still maps to Sign but now offers external_signature_v1 alongside legacy preparation_ref signing. Its external schema requires preparation_ref and a 65-byte signature; binding::external_signature_request validates and forwards that signature rather than treating it as a 64-byte kernel signature."
+
+[row.r9-57.33]
+interface = "interface.9.http-mcp-tool-activity-submit"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/server.rs"
+line = 159
+symbol = "activity.submit"
+evidence = "name: \"activity.submit\" still maps to Submit, with new native_send_submit_v1 input containing preparation_ref, a 65-byte signature and signer_address, or a raw_transaction EIP-1559 alternative. The legacy request remains in the schema; current evidence names tx_hash and daemon rung."
+
+[row.r9-57.34]
+interface = "interface.9.http-mcp-tool-activity-track"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/server.rs"
+line = 166
+symbol = "activity.track"
+evidence = "name: \"activity.track\" still maps to Track and takes submission_ref; the input signature is unchanged. Its current ToolDefinition advertises tx_hash, daemon rung and verified receipt or an honest non-terminal state instead of describing only kernel activity tracking."
+
+[row.r9-57.35]
+interface = "interface.9.http-mcp-tool-wallet-accounts"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/server.rs"
+line = 173
+symbol = "wallet.accounts"
+evidence = "name: \"wallet.accounts\" still maps to ReadAccount with program input; the MCP name and operation signature are unchanged. ProgramReads now derives the account list from balances returned by the agent surface and adds it to the returned evidence envelope."
+
+[row.r9-57.36]
+interface = "interface.9.http-mcp-tool-wallet-balance"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/server.rs"
+line = 180
+symbol = "wallet.balance"
+evidence = "name: \"wallet.balance\" still maps to ReadBalance with program/account/asset input; the MCP name and operation signature are unchanged. ProgramReads now returns the selected balance plus observed/account/asset fields on the retargeted agent surface envelope."
+
+[row.r9-57.37]
+interface = "interface.9.http-mcp-tool-wallet-send"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/server.rs"
+line = 187
+symbol = "wallet.send"
+evidence = "name: \"wallet.send\" retains its Submit mapping but now accepts native_write_v1 alongside legacy destination/asset/amount/idempotency_key. native_alias_target maps it to Asset ordinal 5 at 0x101a; execute_native_alias validates canonical preparation and submission bindings."
+
+[row.r9-57.38]
+interface = "interface.9.http-mcp-tool-token-create"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/server.rs"
+line = 194
+symbol = "token.create"
+evidence = "name: \"token.create\" retains its Submit mapping but now accepts native_write_v1 alongside legacy symbol/decimals/supply/idempotency_key. native_alias_target maps it to Asset ordinal 1 at 0x101a, replacing kernel-only alias preparation with the ledger call target."
+
+[row.r9-57.39]
+interface = "interface.9.http-mcp-tool-token-mint"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/server.rs"
+line = 201
+symbol = "token.mint"
+evidence = "name: \"token.mint\" retains its Submit mapping but now accepts native_write_v1 alongside legacy asset/destination/amount/idempotency_key. native_alias_target maps it to Asset ordinal 10 at 0x101a, and native alias execution checks the bound preparation before submission."
+
+[row.r9-57.40]
+interface = "interface.9.http-mcp-tool-token-transfer"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/server.rs"
+line = 208
+symbol = "token.transfer"
+evidence = "name: \"token.transfer\" retains its Submit mapping but now accepts native_write_v1 alongside legacy asset/destination/amount/idempotency_key. native_alias_target maps it with wallet.send to Asset ordinal 5 at 0x101a, using the ledger send target."
+
+[row.r9-57.41]
+interface = "interface.9.http-mcp-tool-grant-issue"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/server.rs"
+line = 215
+symbol = "grant.issue"
+evidence = "name: \"grant.issue\" retains its Submit mapping but now accepts native_write_v1 alongside legacy beneficiary/asset/amount/expires_at_ms/idempotency_key. native_alias_target maps it to Asset ordinal 7 at 0x101a; native alias execution validates the preparation binding."
+
+[row.r9-57.42]
+interface = "interface.9.http-mcp-tool-grant-draw"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/server.rs"
+line = 222
+symbol = "grant.draw"
+evidence = "name: \"grant.draw\" retains its Submit mapping but now accepts native_write_v1 alongside legacy grant_id/amount/idempotency_key. native_alias_target maps it to Asset ordinal 6 at 0x101a, using the ledger draw target rather than a kernel-only payment envelope."
+
+[row.r9-57.43]
+interface = "interface.9.http-mcp-tool-activity-wait"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/server.rs"
+line = 229
+symbol = "activity.wait"
+evidence = "name: \"activity.wait\" still maps to Wait with submission_ref and timeout_ms; the input signature is unchanged. The current ToolDefinition promises tx_hash, daemon rung and verified receipt or honest non-terminal state, matching the transaction-oriented tracking evidence."
+
+[row.r9-57.44]
+interface = "interface.9.err-mcp-jsonrpc-32700"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/stdio.rs"
+line = 130
+symbol = "-32700"
+evidence = "The -32700 literal remains the JSON-RPC parse-error response in the stdio request decoder at line 130; the daemon-bound decoder also returns it at line 443."
+
+[row.r9-57.45]
+interface = "interface.9.err-mcp-jsonrpc-32600"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/stdio.rs"
+line = 138
+symbol = "-32600"
+evidence = "The -32600 literal remains the JSON-RPC invalid-request response at line 138; the daemon-bound decoder also returns it at line 451."
+
+[row.r9-57.46]
+interface = "interface.9.err-mcp-jsonrpc-32601"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/stdio.rs"
+line = 153
+symbol = "-32601"
+evidence = "The -32601 literal remains the JSON-RPC method-not-found response at line 153; the daemon-bound dispatch also returns it at line 493."
+
+[row.r9-57.47]
+interface = "interface.9.err-mcp-jsonrpc-32602"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/stdio.rs"
+line = 195
+symbol = "-32602"
+evidence = "The -32602 literal remains the JSON-RPC invalid-params response for a call without a tool name at line 195 and for malformed arguments at line 200."
+
+[row.r9-57.48]
+interface = "interface.9.err-reason-mcp-request-counter-exhausted"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/stdio.rs"
+line = 367
+symbol = "mcp.request_counter_exhausted"
+evidence = "mcp.request_counter_exhausted remains the refused-state reason used when the daemon client request counter cannot advance at line 367."
+
+[row.r9-57.49]
+interface = "interface.9.err-reason-mcp-description-invalid"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/stdio.rs"
+line = 590
+symbol = "mcp.description_invalid"
+evidence = "mcp.description_invalid remains the refused-state reason rendered by the description-invalid helper at line 590."
+
+[row.r9-57.50]
+interface = "interface.9.err-reason-mcp-request-entropy-unavailable"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/stdio.rs"
+line = 597
+symbol = "mcp.request_entropy_unavailable"
+evidence = "mcp.request_entropy_unavailable remains the refused-state reason when request randomness or its conversion fails at lines 597 and 599."
+
+[row.r9-57.51]
+interface = "interface.9.err-reason-mcp-idempotency-key-conflict"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/stdio.rs"
+line = 615
+symbol = "mcp.idempotency_key_conflict"
+evidence = "mcp.idempotency_key_conflict remains the refused-state reason when the argument idempotency key conflicts with _meta.layerx/idempotency_key at line 615."
+
+[row.r9-57.52]
+interface = "interface.9.err-reason-mcp-idempotency-key-required"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/stdio.rs"
+line = 625
+symbol = "mcp.idempotency_key_required"
+evidence = "mcp.idempotency_key_required remains the refused-state reason for absent or malformed idempotency key input at lines 625, 629 and 632."
+
+[row.r9-57.53]
+interface = "interface.9.err-reason-gateway-authentication"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/stdio.rs"
+line = 649
+symbol = "gateway.authentication"
+evidence = "gateway.authentication remains the refused-state reason produced from EnvelopeError::GatewayAuthentication at line 649."
+
+[row.r9-57.54]
+interface = "interface.9.err-reason-mcp-transport-unavailable"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/stdio.rs"
+line = 652
+symbol = "mcp.transport_unavailable"
+evidence = "mcp.transport_unavailable remains the refused-state reason for the unavailable agent envelope transport at line 652."
+
+[row.r9-57.55]
+interface = "interface.9.err-reason-mcp-exchange-invalid"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/stdio.rs"
+line = 654
+symbol = "mcp.exchange_invalid"
+evidence = "mcp.exchange_invalid remains the refused-state reason for other agent envelope exchange failures at line 654."
+
+[row.r9-57.56]
+interface = "interface.9.rs-mcp-tools-web-payer-did-j43"
+verdict = "retired"
+path = "services/agent/crates/layerx-mcp/src/tools/web.rs"
+line = 54
+symbol = "PAYER_DID"
+evidence = "PAYER_DID is absent from tools/web.rs; its header constant is now PAYER_ADDRESS = LAYERX-PAYER-ADDRESS at line 44. Repository-wide git grep -n -w -F PAYER_DID excluding spec and docs finds two other files: a retirement guard regex and an SDK test-local payer DID variable, neither serving the removed MCP constant."
+remaining_refs = 2
+remaining = ["services/interop/deploy/gateway/tests/test_completion_gate.py:45", "tests/agent/sdk/python/test_web_search.py:77"]
+
+[row.r9-57.57]
+interface = "interface.9.rs-mcp-tools-web-grantterms"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/tools/web.rs"
+line = 462
+symbol = "GrantTerms"
+evidence = "pub struct GrantTerms keeps its type name but now binds 32-byte payer_account, recipient, asset, purpose_hash and idempotency_key with amount and expiry. Its methods prepare ledger grant/draw PrecompileCalls, including draw(bytes32,bytes32,uint128,bytes32,uint64,bytes32,bytes32), rather than producing kernel payment envelopes."
+
+[row.r9-57.58]
+interface = "interface.9.rs-mcp-tools-web-exactterms"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/tools/web.rs"
+line = 475
+symbol = "ExactTerms"
+evidence = "pub struct ExactTerms keeps its type name but now binds payer_account, recipient, recipient_account, asset, Disclosure, amount, expiry and idempotency_key. prepare_pay_exact returns a PrecompileCall for payExact(bytes32,bytes32,bytes32,uint128,uint64,bytes32), replacing kernel-envelope payment preparation."
+
+[row.r9-57.59]
+interface = "interface.9.rs-mcp-tools-web-webpayer"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/tools/web.rs"
+line = 501
+symbol = "WebPayer"
+evidence = "pub trait WebPayer keeps its name but grant/pay/draw now return Result<PrecompileCall, WebPayerError>; view returns call bytes and submit(&PrecompileCall) -> Result<ExactPayment, WebPayerError>. ExactPayment carries tx_hash, receipt and SequencerLog entries, making transaction receipts the payment evidence."
+
+[row.r9-57.60]
+interface = "interface.9.err-reason-mcp-native-write-binding"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/tools/write.rs"
+line = 408
+symbol = "mcp.native_write_binding"
+evidence = "mcp.native_write_binding remains the malformed-request reason in execute_native_alias at line 408, guarding native_write_v1 intent, idempotency and canonical preparation bindings."

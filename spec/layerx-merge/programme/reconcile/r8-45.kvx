@@ -1,0 +1,529 @@
+[reconcile.r8-45]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 60
+
+[row.r8-45.1]
+interface = "interface.8.http-gateway-post-v1-programs-registry"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/lib.rs"
+line = 1431
+symbol = "/v1/programs/registry/{identifier}"
+evidence = "The POST route handler is gone; this literal remains only in production_route_refuses_every_program_and_activity_route, which asserts InvalidRoute for every HTTP method. The served verdict records literal presence in the registered file, not a live endpoint."
+
+[row.r8-45.2]
+interface = "interface.8.http-gateway-get-v1-programs-activities"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/lib.rs"
+line = 1434
+symbol = "/v1/programs/activities/{identifier}"
+evidence = "The GET route handler is gone; this literal remains only in production_route_refuses_every_program_and_activity_route, which asserts InvalidRoute for every HTTP method. The served verdict records literal presence in the registered file, not a live endpoint."
+
+[row.r8-45.3]
+interface = "interface.8.http-gateway-get-v1-programs-receipts-by-idempotency"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/lib.rs"
+line = 1435
+symbol = "/v1/programs/receipts/by-idempotency/{identifier}"
+evidence = "The GET route handler is gone; this literal remains only in production_route_refuses_every_program_and_activity_route, which asserts InvalidRoute for every HTTP method. The served verdict records literal presence in the registered file, not a live endpoint."
+
+[row.r8-45.4]
+interface = "interface.8.http-gateway-get-v1-programs-registry-2"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/lib.rs"
+line = 1430
+symbol = "/v1/programs/registry"
+evidence = "The GET route handler is gone; this literal remains only in production_route_refuses_every_program_and_activity_route, which asserts InvalidRoute for every HTTP method. The served verdict records literal presence in the registered file, not a live endpoint."
+
+[row.r8-45.5]
+interface = "interface.8.http-gateway-get-v1-programs-registry"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/lib.rs"
+line = 1431
+symbol = "/v1/programs/registry/{identifier}"
+evidence = "The GET route handler is gone; this literal remains only in production_route_refuses_every_program_and_activity_route, which asserts InvalidRoute for every HTTP method. The served verdict records literal presence in the registered file, not a live endpoint."
+
+[row.r8-45.6]
+interface = "interface.8.env-gateway-layerx-gateway-receipt-keys-file"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/main.rs"
+line = 949
+symbol = "LAYERX_GATEWAY_RECEIPT_KEYS_FILE"
+evidence = "The registered env::var(\"LAYERX_GATEWAY_RECEIPT_KEYS_FILE\") is now env::var_os(\"LAYERX_GATEWAY_RECEIPT_KEYS_FILE\") in config(); the optional receipt key list loads independently before configured_kernel(), allowing chain-only receipt verification (override.J40.1, task 8.1.1)."
+
+[row.r8-45.7]
+interface = "interface.8.rpc-gateway-lx-getsequence"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/rpc.rs"
+line = 188
+symbol = "lx_getSequence"
+evidence = "The old lx_getSequence dispatch arm is removed. Its literal remains in lx_names_answer_method_not_found, which asserts -32601 with and without configured backends; dispatch rejects the entire lx_ prefix at rpc.rs:33. The served verdict records this refusal-test literal only."
+
+[row.r8-45.8]
+interface = "interface.8.rpc-gateway-lx-getproof"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/rpc.rs"
+line = 196
+symbol = "lx_getProof"
+evidence = "The old lx_getProof dispatch arm is removed. Its literal remains in lx_names_answer_method_not_found, which asserts -32601 with and without configured backends; dispatch rejects the entire lx_ prefix at rpc.rs:33. The served verdict records this refusal-test literal only."
+
+[row.r8-45.9]
+interface = "interface.8.rpc-gateway-lx-listassets"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/rpc.rs"
+line = 197
+symbol = "lx_listAssets"
+evidence = "The old lx_listAssets dispatch arm is removed. Its literal remains in lx_names_answer_method_not_found, which asserts -32601 with and without configured backends; dispatch rejects the entire lx_ prefix at rpc.rs:33. The served verdict records this refusal-test literal only."
+
+[row.r8-45.10]
+interface = "interface.8.rpc-gateway-lx-getnodeinfo"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/rpc.rs"
+line = 199
+symbol = "lx_getNodeInfo"
+evidence = "The old lx_getNodeInfo dispatch arm is removed. Its literal remains in lx_names_answer_method_not_found, which asserts -32601 with and without configured backends; dispatch rejects the entire lx_ prefix at rpc.rs:33. The served verdict records this refusal-test literal only."
+
+[row.r8-45.11]
+interface = "interface.8.rpc-gateway-lx-getaccount"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/rpc.rs"
+line = 185
+symbol = "lx_getAccount"
+evidence = "The old lx_getAccount dispatch arm is removed. Its literal remains in lx_names_answer_method_not_found, which asserts -32601 with and without configured backends; dispatch rejects the entire lx_ prefix at rpc.rs:33. The served verdict records this refusal-test literal only."
+
+[row.r8-45.12]
+interface = "interface.8.rpc-gateway-lx-getbatchheader"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/rpc.rs"
+line = 194
+symbol = "lx_getBatchHeader"
+evidence = "The old lx_getBatchHeader dispatch arm is removed. Its literal remains in lx_names_answer_method_not_found, which asserts -32601 with and without configured backends; dispatch rejects the entire lx_ prefix at rpc.rs:33. The served verdict records this refusal-test literal only."
+
+[row.r8-45.13]
+interface = "interface.8.rpc-gateway-lx-getbalances"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/rpc.rs"
+line = 187
+symbol = "lx_getBalances"
+evidence = "The old lx_getBalances dispatch arm is removed. Its literal remains in lx_names_answer_method_not_found, which asserts -32601 with and without configured backends; dispatch rejects the entire lx_ prefix at rpc.rs:33. The served verdict records this refusal-test literal only."
+
+[row.r8-45.14]
+interface = "interface.8.rpc-gateway-lx-getbalance"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/rpc.rs"
+line = 186
+symbol = "lx_getBalance"
+evidence = "The old lx_getBalance dispatch arm is removed. Its literal remains in lx_names_answer_method_not_found, which asserts -32601 with and without configured backends; dispatch rejects the entire lx_ prefix at rpc.rs:33. The served verdict records this refusal-test literal only."
+
+[row.r8-45.15]
+interface = "interface.8.rpc-gateway-lx-requestfunds"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/rpc.rs"
+line = 184
+symbol = "lx_requestFunds"
+evidence = "The old lx_requestFunds dispatch arm is removed. Its literal remains in lx_names_answer_method_not_found, which asserts -32601 with and without configured backends; dispatch rejects the entire lx_ prefix at rpc.rs:33. The served verdict records this refusal-test literal only."
+
+[row.r8-45.16]
+interface = "interface.8.rpc-gateway-lx-sendactivity"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/rpc.rs"
+line = 191
+symbol = "lx_sendActivity"
+evidence = "The old lx_sendActivity dispatch arm is removed. Its literal remains in lx_names_answer_method_not_found, which asserts -32601 with and without configured backends; dispatch rejects the entire lx_ prefix at rpc.rs:33. The served verdict records this refusal-test literal only."
+
+[row.r8-45.17]
+interface = "interface.8.rpc-gateway-lx-estimatefee"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/rpc.rs"
+line = 189
+symbol = "lx_estimateFee"
+evidence = "The old lx_estimateFee dispatch arm is removed. Its literal remains in lx_names_answer_method_not_found, which asserts -32601 with and without configured backends; dispatch rejects the entire lx_ prefix at rpc.rs:33. The served verdict records this refusal-test literal only."
+
+[row.r8-45.18]
+interface = "interface.8.rpc-gateway-lx-getprogramevents"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/rpc.rs"
+line = 190
+symbol = "lx_getProgramEvents"
+evidence = "The old lx_getProgramEvents dispatch arm is removed. Its literal remains in lx_names_answer_method_not_found, which asserts -32601 with and without configured backends; dispatch rejects the entire lx_ prefix at rpc.rs:33. The served verdict records this refusal-test literal only."
+
+[row.r8-45.19]
+interface = "interface.8.rpc-gateway-lx-getreceipt"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/rpc.rs"
+line = 192
+symbol = "lx_getReceipt"
+evidence = "The old lx_getReceipt dispatch arm is removed. Its literal remains in lx_names_answer_method_not_found, which asserts -32601 with and without configured backends; dispatch rejects the entire lx_ prefix at rpc.rs:33. The served verdict records this refusal-test literal only."
+
+[row.r8-45.20]
+interface = "interface.8.rpc-gateway-lx-getactivitystatus"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/rpc.rs"
+line = 193
+symbol = "lx_getActivityStatus"
+evidence = "The old lx_getActivityStatus dispatch arm is removed. Its literal remains in lx_names_answer_method_not_found, which asserts -32601 with and without configured backends; dispatch rejects the entire lx_ prefix at rpc.rs:33. The served verdict records this refusal-test literal only."
+
+[row.r8-45.21]
+interface = "interface.8.rpc-gateway-lx-getcheckpoint"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/rpc.rs"
+line = 195
+symbol = "lx_getCheckpoint"
+evidence = "The old lx_getCheckpoint dispatch arm is removed. Its literal remains in lx_names_answer_method_not_found, which asserts -32601 with and without configured backends; dispatch rejects the entire lx_ prefix at rpc.rs:33. The served verdict records this refusal-test literal only."
+
+[row.r8-45.22]
+interface = "interface.8.rpc-gateway-lx-getasset"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/rpc.rs"
+line = 198
+symbol = "lx_getAsset"
+evidence = "The old lx_getAsset dispatch arm is removed. Its literal remains in lx_names_answer_method_not_found, which asserts -32601 with and without configured backends; dispatch rejects the entire lx_ prefix at rpc.rs:33. The served verdict records this refusal-test literal only."
+
+[row.r8-45.23]
+interface = "interface.8.rpc-gateway-lx-getwalletcaps"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/rpc.rs"
+line = 203
+symbol = "lx_getWalletCaps"
+evidence = "The old lx_getWalletCaps dispatch arm is removed. Its literal remains in lx_names_answer_method_not_found, which asserts -32601 with and without configured backends; dispatch rejects the entire lx_ prefix at rpc.rs:33. The served verdict records this refusal-test literal only."
+
+[row.r8-45.24]
+interface = "interface.8.rpc-gateway-lx-subscribe"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/rpc.rs"
+line = 200
+symbol = "lx_subscribe"
+evidence = "The old lx_subscribe dispatch arm is removed. Its literal remains in lx_names_answer_method_not_found, which asserts -32601 with and without configured backends; dispatch rejects the entire lx_ prefix at rpc.rs:33. The served verdict records this refusal-test literal only."
+
+[row.r8-45.25]
+interface = "interface.8.rpc-gateway-lx-unsubscribe"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/rpc.rs"
+line = 201
+symbol = "lx_unsubscribe"
+evidence = "The old lx_unsubscribe dispatch arm is removed. Its literal remains in lx_names_answer_method_not_found, which asserts -32601 with and without configured backends; dispatch rejects the entire lx_ prefix at rpc.rs:33. The served verdict records this refusal-test literal only."
+
+[row.r8-45.26]
+interface = "interface.8.err-gateway-32005"
+verdict = "served_elsewhere"
+path = "services/platform/hosted/gateway/src/chain_reads.rs"
+line = 316
+symbol = "-32005"
+evidence = "The old rpc.rs 429 mapping is absent. chain_reads::dispatch now emits rpc::error(id, -32005, \"Read unavailable\") when public_reads::consume_read() refuses, adding data.code = public_read_rate_limit."
+
+[row.r8-45.27]
+interface = "interface.8.rpc-gateway-lx-subscription"
+verdict = "served"
+path = "services/platform/hosted/gateway/src/ws.rs"
+line = 938
+symbol = "lx_subscription"
+evidence = "The lx_subscription literal remains only in lx_subscribe_answers_method_not_found; the test asserts -32601 and empty upstream bytes, active subscriptions and outstanding requests. The old notification forwarding is gone; served records literal presence only."
+
+[row.r8-45.28]
+interface = "interface.8.cli-human-owner-custody-py-work-dir"
+verdict = "retired"
+path = "services/platform/hosted/human/owner_custody.py"
+line = 135
+symbol = "--work-dir"
+evidence = "owner_custody.py is absent, matching override.J40.720 and task 8.19.4. Repository-wide fixed-string search over tracked files outside spec/docs found 11 files mentioning --work-dir; reused flags in other tools do not restore this deleted custody CLI."
+remaining_refs = 11
+remaining = ["scripts/ci/human-web-image-build.sh:6","services/platform/hosted/human/guardians.py:134","services/platform/hosted/human/owner_kms.py:101","services/platform/hosted/human/provision.py:964","services/platform/hosted/human/provision.sh:11","services/platform/hosted/human/README.md:60","services/platform/hosted/human/test_guardians.py:39","services/platform/hosted/human/test_owner_native.py:75","services/platform/hosted/human/test_provision.py:98","services/platform/hosted/tests/beta-cluster.sh:2563","tools/qualification/paxeer-x/human-owner-evidence.py:187"]
+
+[row.r8-45.29]
+interface = "interface.8.cli-human-owner-custody-py-rpc"
+verdict = "retired"
+path = "services/platform/hosted/human/owner_custody.py"
+line = 136
+symbol = "--rpc"
+evidence = "owner_custody.py is absent, matching override.J40.721 and task 8.19.4. Repository-wide fixed-string search over tracked files outside spec/docs found 61 files mentioning --rpc; reused flags in other tools do not restore this deleted custody CLI."
+remaining_refs = 61
+remaining = ["apps/explorer/ui/contractVerification/methods/ContractVerificationSolidityFoundry.tsx:21","apps/launchpad/web/src/widgets/trading/transaction-controls/run-phase2.py:8","cmd/layerxctl/src/main.rs:18","cmd/layerxctl/tests/files.rs:94","consensus/rpc/openapi/openapi.yaml:17","contracts/bridge/README.md:180","core/deps/geth/cmd/clef/tests/testsigner.js:21","services/bridge/deploy/deploy-evm-chain.sh:254","services/bridge/deploy/tests/deploy-scripts-check.sh:1125","services/bridge/deploy/tests/solana-dry-run-check.sh:838","services/interop/deploy/mirror/deploy-ethereum-mirror.sh:43","services/platform/hosted/agentd/probe.sh:8","services/platform/hosted/node/tests/probe/src/main.rs:24","services/platform/hosted/paxeer/deploy-contracts.sh:242","services/platform/hosted/paxeer/evm.py:15","services/platform/hosted/paxeer/gov-consensus-params.sh:49","services/platform/hosted/paxeer/gov-upgrade.sh:56","services/platform/hosted/paxeer/tests/gov-scripts-test.sh:84","services/platform/hosted/paxeer/tests/real_chain.py:153","services/platform/hosted/tests/beta-cluster.sh:2272","services/platform/middleware/examples/examples-live-check.sh:187","services/platform/middleware/examples/public_rpc.py:256","services/platform/middleware/examples/public-rpc.mjs:156","services/platform/middleware/examples/test_public_rpc.py:79","services/platform/middleware/examples/test/public-rpc.test.mjs:132","tests/integration/contracts/deploy_flatkv_evm_fixture.sh:43","tests/integration/contracts/verify_flatkv_only_statesync.sh:414","tests/integration/contracts/verify_flatkv_statesync_crash_recovery.sh:543","tests/integration/contracts/verify_flatkv_total_loss_recovery.sh:403","tests/integration/db/flatkv_evm_test.yaml:9","tools/benchmark/loadtest/contracts/deploy_erc20.sh:19","tools/benchmark/loadtest/contracts/deploy_erc721.sh:19","tools/bringup/tests/test_value_loop_probe_contract.py:27","tools/bringup/value-loop.sh:66","tools/names/src/cli.ts:13","tools/paxctl/workflow/apply.go:91","tools/paxctl/workflow/README.md:43","tools/paxctl/workflow/render_test.go:101","tools/paxctl/workflow/render.go:141","tools/paxctl/workflow/state_sync.go:195","tools/paxeer-x/sid-snapshot/README.md:14","tools/paxeer-x/sid-snapshot/snapshot.py:68","tools/paxeer-x/sid-snapshot/test.sh:53","tools/platform/cli/README.md:18","tools/platform/cli/src/main.rs:591","tools/platform/cli/src/wallet_derive.rs:40","tools/platform/cli/src/wallet.rs:467","tools/platform/cli/tests/chains_commands.rs:427","tools/platform/cli/tests/program_evm_calls.rs:154","tools/platform/cli/tests/program_evm_lifecycle.rs:219","tools/platform/cli/tests/program_evm_registry.rs:120","tools/platform/cli/tests/proof_cli_cli_commands.rs:369","tools/platform/cli/tests/wallet_commands.rs:99","tools/platform/cli/tests/wallet_estimate_fee.rs:42","tools/platform/cli/tests/wallet_evm_writes.rs:592","tools/platform/cli/tests/wallet_px_reads.rs:125","tools/platform/cli/tests/wallet_watch_logs.rs:140","tools/qualification/paxeer-x/agent_tenant_readiness.py:349","tools/release/rehearsal/pool_parity.py:191","tools/release/rehearse-v6120.sh:840","wasm/contrib/local/start_node.sh:4"]
+
+[row.r8-45.30]
+interface = "interface.8.cli-human-owner-custody-py-ca-bundle"
+verdict = "retired"
+path = "services/platform/hosted/human/owner_custody.py"
+line = 137
+symbol = "--ca-bundle"
+evidence = "owner_custody.py is absent, matching override.J40.722 and task 8.19.4. Repository-wide fixed-string search over tracked files outside spec/docs found 0 files mentioning --ca-bundle; reused flags in other tools do not restore this deleted custody CLI."
+remaining_refs = 0
+remaining = []
+
+[row.r8-45.31]
+interface = "interface.8.cli-human-owner-custody-py-disposable-identity"
+verdict = "retired"
+path = "services/platform/hosted/human/owner_custody.py"
+line = 138
+symbol = "--disposable-identity"
+evidence = "owner_custody.py is absent, matching override.J40.723 and task 8.19.4. Repository-wide fixed-string search over tracked files outside spec/docs found 0 files mentioning --disposable-identity; reused flags in other tools do not restore this deleted custody CLI."
+remaining_refs = 0
+remaining = []
+
+[row.r8-45.32]
+interface = "interface.8.cli-human-owner-custody-py-vault-artifact"
+verdict = "retired"
+path = "services/platform/hosted/human/owner_custody.py"
+line = 139
+symbol = "--vault-artifact"
+evidence = "owner_custody.py is absent, matching override.J40.724 and task 8.19.4. Repository-wide fixed-string search over tracked files outside spec/docs found 0 files mentioning --vault-artifact; reused flags in other tools do not restore this deleted custody CLI."
+remaining_refs = 0
+remaining = []
+
+[row.r8-45.33]
+interface = "interface.8.cli-human-owner-custody-py-comet-rpc"
+verdict = "retired"
+path = "services/platform/hosted/human/owner_custody.py"
+line = 140
+symbol = "--comet-rpc"
+evidence = "owner_custody.py is absent, matching override.J40.725 and task 8.19.4. Repository-wide fixed-string search over tracked files outside spec/docs found 0 files mentioning --comet-rpc; reused flags in other tools do not restore this deleted custody CLI."
+remaining_refs = 0
+remaining = []
+
+[row.r8-45.34]
+interface = "interface.8.cli-human-owner-custody-py-trusted-height"
+verdict = "retired"
+path = "services/platform/hosted/human/owner_custody.py"
+line = 141
+symbol = "--trusted-height"
+evidence = "owner_custody.py is absent, matching override.J40.726 and task 8.19.4. Repository-wide fixed-string search over tracked files outside spec/docs found 0 files mentioning --trusted-height; reused flags in other tools do not restore this deleted custody CLI."
+remaining_refs = 0
+remaining = []
+
+[row.r8-45.35]
+interface = "interface.8.cli-human-owner-custody-py-trusting-period-seconds"
+verdict = "retired"
+path = "services/platform/hosted/human/owner_custody.py"
+line = 142
+symbol = "--trusting-period-seconds"
+evidence = "owner_custody.py is absent, matching override.J40.727 and task 8.19.4. Repository-wide fixed-string search over tracked files outside spec/docs found 0 files mentioning --trusting-period-seconds; reused flags in other tools do not restore this deleted custody CLI."
+remaining_refs = 0
+remaining = []
+
+[row.r8-45.36]
+interface = "interface.8.cli-human-owner-custody-py-key-file"
+verdict = "retired"
+path = "services/platform/hosted/human/owner_custody.py"
+line = 143
+symbol = "--key-file"
+evidence = "owner_custody.py is absent, matching override.J40.728 and task 8.19.4. Repository-wide fixed-string search over tracked files outside spec/docs found 11 files mentioning --key-file; reused flags in other tools do not restore this deleted custody CLI."
+remaining_refs = 11
+remaining = ["docker/kernel/init.sh:1194","services/platform/hosted/ai-artifacts/src/main.rs:1718","services/platform/hosted/ai-artifacts/tests/artifact_recovery.rs:255","services/platform/hosted/ai-artifacts/tests/artifact_service.rs:250","services/platform/hosted/core/tests/chain_fund.rs:301","services/platform/hosted/core/tests/signer.rs:92","services/platform/hosted/node/deployment.yaml:225","services/platform/hosted/node/signer/signer.py:21","services/platform/hosted/node/tests/signer-test.py:189","services/platform/hosted/paxeer/evm.py:18","services/platform/hosted/tests/beta-cluster.sh:2444"]
+
+[row.r8-45.37]
+interface = "interface.8.cli-human-owner-custody-py-network-id"
+verdict = "retired"
+path = "services/platform/hosted/human/owner_custody.py"
+line = 144
+symbol = "--network-id"
+evidence = "owner_custody.py is absent, matching override.J40.729 and task 8.19.4. Repository-wide fixed-string search over tracked files outside spec/docs found 44 files mentioning --network-id; reused flags in other tools do not restore this deleted custody CLI."
+remaining_refs = 44
+remaining = ["cmd/layerx-genesis/test_module_table_conformance.py:194","cmd/layerx-module-registry/main.c:112","cmd/layerx-module-registry/test_no_bridge_profile.py:15","cmd/layerx-module-registry/test_registry_cli.py:14","cmd/layerx-module-registry/test_registry.py:11","cmd/layerxctl/tests/files.rs:280","services/interop/deploy/gateway/render.py:887","services/interop/deploy/gateway/tests/test_render_receipt_keys.py:44","services/platform/examples/run-reference-apps.mjs:221","services/platform/hosted/human/onboarding_manifest.py:36","services/platform/hosted/human/owner_native.py:352","services/platform/hosted/human/provision.sh:344","services/platform/hosted/node/bootstrap.sh:11","services/platform/hosted/node/deployment.yaml:159","services/platform/hosted/node/supervisor.sh:528","services/platform/hosted/node/tests/genesis-modules-test.py:29","services/platform/hosted/node/tests/probe/src/main.rs:24","services/platform/hosted/node/tests/sequencer-seed-test.py:91","services/platform/hosted/node/tests/signer-test.py:669","services/platform/hosted/paxeer/custody-genesis.py:54","services/platform/hosted/paxeer/prepare-beta.py:89","services/platform/hosted/testnet/tests/hosted-smoke.sh:139","services/platform/hosted/testnet/tests/payment-journey.py:127","services/platform/hosted/tests/beta-cluster.sh:1076","tests/test_beta_withdrawal_genesis.py:61","tools/bringup/check-live.sh:4614","tools/bringup/tests/paxeer-x-fixture-foundation.py:294","tools/bringup/tests/test_value_loop_probe_contract.py:29","tools/bringup/value-loop.sh:66","tools/platform/cli/README.md:60","tools/platform/cli/src/emulator.rs:22","tools/platform/cli/src/install/mod.rs:568","tools/platform/cli/src/main.rs:747","tools/platform/cli/tests/clean-bootstrap.sh:62","tools/platform/cli/tests/commands.rs:217","tools/platform/cli/tests/common/mod.rs:84","tools/platform/cli/tests/emulator.rs:793","tools/platform/cli/tests/faucet_route.rs:42","tools/platform/cli/tests/install-journey.sh:60","tools/platform/cli/tests/proof_cli_cli_commands.rs:149","tools/platform/emulator/src/main.rs:1625","tools/qualification/beta_driver.py:717","tools/qualification/paxeer-x/fixtures/event_source_fixture.py:206","tools/qualification/test_beta_driver.py:157"]
+
+[row.r8-45.38]
+interface = "interface.8.cli-human-owner-custody-py-asset"
+verdict = "retired"
+path = "services/platform/hosted/human/owner_custody.py"
+line = 145
+symbol = "--asset"
+evidence = "owner_custody.py is absent, matching override.J40.730 and task 8.19.4. Repository-wide fixed-string search over tracked files outside spec/docs found 36 files mentioning --asset; reused flags in other tools do not restore this deleted custody CLI."
+remaining_refs = 36
+remaining = ["cmd/layerx-genesis/test_module_table_conformance.py:196","cmd/layerx-module-registry/main.c:108","cmd/layerx-module-registry/test_no_bridge_profile.py:17","cmd/layerx-module-registry/test_registry_cli.py:16","cmd/layerx-module-registry/test_registry.py:11","contracts/bridge/solana/admin/src/main.rs:93","contracts/bridge/solana/admin/tests/admin.rs:685","contracts/bridge/solana/chains/solana/README.md:56","services/bridge/deploy/deploy-solana-program.sh:515","services/platform/hosted/human/provision.py:956","services/platform/hosted/human/provision.sh:279","services/platform/hosted/human/README.md:68","services/platform/hosted/node/bootstrap.sh:25","services/platform/hosted/node/deployment.yaml:161","services/platform/hosted/node/supervisor.sh:547","services/platform/hosted/node/tests/genesis-modules-test.py:105","services/platform/hosted/node/tests/probe/src/main.rs:24","services/platform/hosted/paxeer/custody-genesis.py:64","services/platform/hosted/paxeer/prepare-beta.py:90","services/platform/hosted/testnet/tests/hosted-smoke.sh:138","services/platform/hosted/tests/beta-cluster.sh:1077","tools/bringup/tests/paxeer-x-fixture-foundation.py:296","tools/bringup/value-loop.sh:72","tools/platform/cli/README.md:109","tools/platform/cli/src/install/a2a.rs:360","tools/platform/cli/src/main.rs:1606","tools/platform/cli/tests/commands.rs:358","tools/platform/cli/tests/install-journey.sh:211","tools/platform/cli/tests/install.rs:46","tools/platform/cli/tests/program_evm_lifecycle.rs:343","tools/platform/cli/tests/proof_cli_cli_commands.rs:433","tools/platform/cli/tests/wallet_commands.rs:48","tools/platform/cli/tests/wallet_evm_writes.rs:611","tools/platform/cli/tests/wallet_px_reads.rs:129","tools/qualification/beta_driver.py:828","tools/qualification/paxeer-x/human-owner-evidence.py:188"]
+
+[row.r8-45.39]
+interface = "interface.8.cli-human-owner-custody-py-amount"
+verdict = "retired"
+path = "services/platform/hosted/human/owner_custody.py"
+line = 146
+symbol = "--amount"
+evidence = "owner_custody.py is absent, matching override.J40.731 and task 8.19.4. Repository-wide fixed-string search over tracked files outside spec/docs found 19 files mentioning --amount; reused flags in other tools do not restore this deleted custody CLI."
+remaining_refs = 19
+remaining = ["contracts/test/lib.js:923","services/platform/hosted/node/tests/probe/src/main.rs:24","services/platform/hosted/testnet/tests/hosted-smoke.sh:138","tests/integration/contracts/deploy_timelocked_token_contract.sh:50","tests/integration/dapp_tests/steak/utils.js:66","tests/integration/dapp_tests/utils.js:259","tools/hpx/hpx:859","tools/platform/cli/README.md:112","tools/platform/cli/tests/commands.rs:299","tools/platform/cli/tests/emulator.rs:192","tools/platform/cli/tests/wallet_commands.rs:50","tools/platform/cli/tests/wallet_evm_writes.rs:615","tools/qualification/beta_driver.py:769","wasm/contrib/local/00-genesis.sh:14","wasm/contrib/local/02-contracts.sh:25","wasm/contrib/local/setup_wasmd.sh:33","wasm/x/wasm/client/cli/genesis_msg.go:87","wasm/x/wasm/client/cli/gov_tx.go:96","wasm/x/wasm/client/cli/tx.go:155"]
+
+[row.r8-45.40]
+interface = "interface.8.rs-indexer-layerx-indexer-abi-known-precompiles-j40"
+verdict = "served"
+path = "services/platform/hosted/indexer/src/abi.rs"
+line = 23
+symbol = "KNOWN_PRECOMPILES"
+evidence = "The declaration changed from pub const KNOWN_PRECOMPILES: [(&str, u16); 19] to pub const KNOWN_PRECOMPILES: [(&str, u16); 20]. The current table includes perps at 0x1015, layerxpay at 0x101B and layerxprograms at 0x101D; nested venue ABIs are listed separately in NESTED_PRECOMPILES."
+
+[row.r8-45.41]
+interface = "interface.8.env-indexer-layerx-indexer-challenge-window-seconds-j40"
+verdict = "served"
+path = "services/platform/hosted/indexer/src/config.rs"
+line = 357
+symbol = "LAYERX_INDEXER_CHALLENGE_WINDOW_SECONDS"
+evidence = "The LAYERX_INDEXER_CHALLENGE_WINDOW_SECONDS literal remains in relay_variables_are_not_read, which supplies malformed legacy values and asserts the lookup never reads them. The production relay configuration is removed; served records the regression-test literal only."
+
+[row.r8-45.42]
+interface = "interface.8.env-indexer-layerx-indexer-relay-ca-der-j40"
+verdict = "served"
+path = "services/platform/hosted/indexer/src/config.rs"
+line = 354
+symbol = "LAYERX_INDEXER_RELAY_CA_DER"
+evidence = "The LAYERX_INDEXER_RELAY_CA_DER literal remains in relay_variables_are_not_read, which supplies malformed legacy values and asserts the lookup never reads them. The production relay configuration is removed; served records the regression-test literal only."
+
+[row.r8-45.43]
+interface = "interface.8.env-indexer-layerx-indexer-relay-url-j40"
+verdict = "served"
+path = "services/platform/hosted/indexer/src/config.rs"
+line = 353
+symbol = "LAYERX_INDEXER_RELAY_URL"
+evidence = "The LAYERX_INDEXER_RELAY_URL literal remains in relay_variables_are_not_read, which supplies malformed legacy values and asserts the lookup never reads them. The production relay configuration is removed; served records the regression-test literal only."
+
+[row.r8-45.44]
+interface = "interface.8.env-indexer-layerx-indexer-start-batch-j40"
+verdict = "served"
+path = "services/platform/hosted/indexer/src/config.rs"
+line = 355
+symbol = "LAYERX_INDEXER_START_BATCH"
+evidence = "The LAYERX_INDEXER_START_BATCH literal remains in relay_variables_are_not_read, which supplies malformed legacy values and asserts the lookup never reads them. The production relay configuration is removed; served records the regression-test literal only."
+
+[row.r8-45.45]
+interface = "interface.8.env-indexer-layerx-indexer-batch-interval-ms-j40"
+verdict = "served"
+path = "services/platform/hosted/indexer/src/config.rs"
+line = 356
+symbol = "LAYERX_INDEXER_BATCH_INTERVAL_MS"
+evidence = "The LAYERX_INDEXER_BATCH_INTERVAL_MS literal remains in relay_variables_are_not_read, which supplies malformed legacy values and asserts the lookup never reads them. The production relay configuration is removed; served records the regression-test literal only."
+
+[row.r8-45.46]
+interface = "interface.8.rs-indexer-layerx-indexer-store-stability-source-j40"
+verdict = "served"
+path = "services/platform/hosted/indexer/src/store.rs"
+line = 238
+symbol = "STABILITY_SOURCE"
+evidence = "The declaration changed from pub const STABILITY_SOURCE: &str = \"local_finality_depth\"; to pub const STABILITY_SOURCE: &str = \"block_commit\";. History final_basis and source fields now use the block_commit constant, matching task 8.16.7."
+
+[row.r8-45.47]
+interface = "interface.8.env-node-layerx-guarantor-identity-dir"
+verdict = "retired"
+path = "services/platform/hosted/node/guarantor.sh"
+line = 20
+symbol = "LAYERX_GUARANTOR_IDENTITY_DIR"
+evidence = "guarantor.sh is absent, matching override.J40.700 and task 8.19.1. Repository-wide fixed-string search over tracked files outside spec/docs found 0 remaining files mentioning LAYERX_GUARANTOR_IDENTITY_DIR; the retired launcher no longer consumes this variable."
+remaining_refs = 0
+remaining = []
+
+[row.r8-45.48]
+interface = "interface.8.env-node-layerx-guarantor-state-dir"
+verdict = "retired"
+path = "services/platform/hosted/node/guarantor.sh"
+line = 22
+symbol = "LAYERX_GUARANTOR_STATE_DIR"
+evidence = "guarantor.sh is absent, matching override.J40.701 and task 8.19.1. Repository-wide fixed-string search over tracked files outside spec/docs found 0 remaining files mentioning LAYERX_GUARANTOR_STATE_DIR; the retired launcher no longer consumes this variable."
+remaining_refs = 0
+remaining = []
+
+[row.r8-45.49]
+interface = "interface.8.env-node-layerx-guarantor-settlement-env"
+verdict = "retired"
+path = "services/platform/hosted/node/guarantor.sh"
+line = 23
+symbol = "LAYERX_GUARANTOR_SETTLEMENT_ENV"
+evidence = "guarantor.sh is absent, matching override.J40.702 and task 8.19.1. Repository-wide fixed-string search over tracked files outside spec/docs found 0 remaining files mentioning LAYERX_GUARANTOR_SETTLEMENT_ENV; the retired launcher no longer consumes this variable."
+remaining_refs = 0
+remaining = []
+
+[row.r8-45.50]
+interface = "interface.8.env-node-layerx-guarantor-submitter-key-file"
+verdict = "retired"
+path = "services/platform/hosted/node/guarantor.sh"
+line = 24
+symbol = "LAYERX_GUARANTOR_SUBMITTER_KEY_FILE"
+evidence = "guarantor.sh is absent, matching override.J40.703 and task 8.19.1. Repository-wide fixed-string search over tracked files outside spec/docs found 0 remaining files mentioning LAYERX_GUARANTOR_SUBMITTER_KEY_FILE; the retired launcher no longer consumes this variable."
+remaining_refs = 0
+remaining = []
+
+[row.r8-45.51]
+interface = "interface.8.env-node-layerx-guarantor-publication-inputs-dir"
+verdict = "retired"
+path = "services/platform/hosted/node/guarantor.sh"
+line = 35
+symbol = "LAYERX_GUARANTOR_PUBLICATION_INPUTS_DIR"
+evidence = "guarantor.sh is absent, matching override.J40.704 and task 8.19.1. Repository-wide fixed-string search over tracked files outside spec/docs found 0 remaining files mentioning LAYERX_GUARANTOR_PUBLICATION_INPUTS_DIR; the retired launcher no longer consumes this variable."
+remaining_refs = 0
+remaining = []
+
+[row.r8-45.52]
+interface = "interface.8.env-node-layerx-guarantor-publication-authorization-file"
+verdict = "retired"
+path = "services/platform/hosted/node/guarantor.sh"
+line = 36
+symbol = "LAYERX_GUARANTOR_PUBLICATION_AUTHORIZATION_FILE"
+evidence = "guarantor.sh is absent, matching override.J40.705 and task 8.19.1. Repository-wide fixed-string search over tracked files outside spec/docs found 0 remaining files mentioning LAYERX_GUARANTOR_PUBLICATION_AUTHORIZATION_FILE; the retired launcher no longer consumes this variable."
+remaining_refs = 0
+remaining = []
+
+[row.r8-45.53]
+interface = "interface.8.env-node-layerx-guarantor-publication-authorization-source"
+verdict = "retired"
+path = "services/platform/hosted/node/guarantor.sh"
+line = 37
+symbol = "LAYERX_GUARANTOR_PUBLICATION_AUTHORIZATION_SOURCE"
+evidence = "guarantor.sh is absent, matching override.J40.706 and task 8.19.1. Repository-wide fixed-string search over tracked files outside spec/docs found 0 remaining files mentioning LAYERX_GUARANTOR_PUBLICATION_AUTHORIZATION_SOURCE; the retired launcher no longer consumes this variable."
+remaining_refs = 0
+remaining = []
+
+[row.r8-45.54]
+interface = "interface.8.env-node-layerx-guarantor-anchor-abi"
+verdict = "retired"
+path = "services/platform/hosted/node/guarantor.sh"
+line = 48
+symbol = "LAYERX_GUARANTOR_ANCHOR_ABI"
+evidence = "guarantor.sh is absent, matching override.J40.707 and task 8.19.1. Repository-wide fixed-string search over tracked files outside spec/docs found 0 remaining files mentioning LAYERX_GUARANTOR_ANCHOR_ABI; the retired launcher no longer consumes this variable."
+remaining_refs = 0
+remaining = []
+
+[row.r8-45.55]
+interface = "interface.8.env-node-layerx-guarantor-binary"
+verdict = "retired"
+path = "services/platform/hosted/node/guarantor.sh"
+line = 58
+symbol = "LAYERX_GUARANTOR_BINARY"
+evidence = "guarantor.sh is absent, matching override.J40.708 and task 8.19.1. Repository-wide fixed-string search over tracked files outside spec/docs found 0 remaining files mentioning LAYERX_GUARANTOR_BINARY; the retired launcher no longer consumes this variable."
+remaining_refs = 0
+remaining = []
+
+[row.r8-45.56]
+interface = "interface.8.env-node-layerx-guarantor-producer-env-file"
+verdict = "retired"
+path = "services/platform/hosted/node/guarantor.sh"
+line = 75
+symbol = "LAYERX_GUARANTOR_PRODUCER_ENV_FILE"
+evidence = "guarantor.sh is absent, matching override.J40.709 and task 8.19.1. Repository-wide fixed-string search over tracked files outside spec/docs found 0 remaining files mentioning LAYERX_GUARANTOR_PRODUCER_ENV_FILE; the retired launcher no longer consumes this variable."
+remaining_refs = 0
+remaining = []
+
+[row.r8-45.57]
+interface = "interface.8.env-node-layerx-node-genesis-manifest"
+verdict = "served_elsewhere"
+path = "services/platform/hosted/node/generation_client.py"
+line = 183
+symbol = "LAYERX_NODE_GENESIS_MANIFEST"
+evidence = "guarantor.sh is deleted, but generation_client.py still exports LAYERX_NODE_GENESIS_MANIFEST into the adopted environment using a /proc/self/fd/ descriptor for the corresponding GENESIS file; materialize also supplies a filesystem path. This variable survives independently of the retired guarantor launcher."
+
+[row.r8-45.58]
+interface = "interface.8.env-node-layerx-node-genesis-registration"
+verdict = "served_elsewhere"
+path = "services/platform/hosted/node/generation_client.py"
+line = 184
+symbol = "LAYERX_NODE_GENESIS_REGISTRATION"
+evidence = "guarantor.sh is deleted, but generation_client.py still exports LAYERX_NODE_GENESIS_REGISTRATION into the adopted environment using a /proc/self/fd/ descriptor for the corresponding GENESIS file; materialize also supplies a filesystem path. This variable survives independently of the retired guarantor launcher."
+
+[row.r8-45.59]
+interface = "interface.8.env-node-layerx-guarantor-key-file"
+verdict = "retired"
+path = "services/platform/hosted/node/guarantor.sh"
+line = 78
+symbol = "LAYERX_GUARANTOR_KEY_FILE"
+evidence = "guarantor.sh is absent, matching override.J40.712 and task 8.19.1. Repository-wide fixed-string search over tracked files outside spec/docs found 0 remaining files mentioning LAYERX_GUARANTOR_KEY_FILE; the retired launcher no longer consumes this variable."
+remaining_refs = 0
+remaining = []
+
+[row.r8-45.60]
+interface = "interface.8.env-node-layerx-node-snapshot"
+verdict = "served_elsewhere"
+path = "services/platform/hosted/node/generation_client.py"
+line = 187
+symbol = "LAYERX_NODE_SNAPSHOT"
+evidence = "guarantor.sh is deleted, but generation_client.py still exports LAYERX_NODE_SNAPSHOT into the adopted environment using a /proc/self/fd/ descriptor for the corresponding GENESIS file; materialize also supplies a filesystem path. This variable survives independently of the retired guarantor launcher."
