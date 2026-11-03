@@ -2,7 +2,7 @@ import { defineConfig, mergeConfig } from 'vitest/config';
 import { resolve } from 'node:path';
 import baseline from '../../../../vitest.config';
 export default mergeConfig(
-  baseline,
+  { ...baseline },
   defineConfig({
     cacheDir:
       process.env.L26_CACHE_DIR ??
@@ -10,7 +10,6 @@ export default mergeConfig(
     test: {
       fileParallelism: false,
       maxWorkers: 1,
-      minWorkers: 1,
       include: [
         'src/widgets/trading/transaction-controls/domain.test.ts',
         'src/widgets/trading/transaction-controls/receipt.chain.test.ts',
