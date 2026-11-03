@@ -1,0 +1,67 @@
+[reconcile.r4-114]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 8
+
+[row.r4-114.1]
+interface = "interface.4.http-notifications-post-internal-v2-notifications-chat"
+verdict = "served"
+path = "services/launchpad/notifications/http.go"
+line = 285
+symbol = "POST /internal/v2/notifications/chat"
+evidence = "HTTP.InternalHandler registers mux.HandleFunc with POST /internal/v2/notifications/chat and an anonymous func(w http.ResponseWriter, r *http.Request) at line 285. The path comparison at line 240 only selects the authorization peer; it does not declare the route."
+
+[row.r4-114.2]
+interface = "interface.4.go-notifications-root-err-unavailable"
+verdict = "served"
+path = "services/launchpad/notifications/store.go"
+line = 410
+symbol = "ErrUnavailable"
+evidence = "Line 410 declares var ErrUnavailable = errors.New(\"notification authority unavailable\"), matching the registered exported variable and error text. Later occurrences in Renew and NewStore return this variable rather than declare it."
+
+[row.r4-114.3]
+interface = "interface.4.http-pnl-tracker-get-v2-me-rewards-app"
+verdict = "served"
+path = "services/launchpad/pnl-tracker/internal/app/app.go"
+line = 354
+symbol = "/v2/me/rewards"
+evidence = "registerRewardRoutes declares router.Get(\"/v2/me/rewards\", h.Rewards) at line 354. New passes journeys.rewardsHTTP to this helper at the registered line 295, so the route still binds journeys.rewardsHTTP.Rewards through h of type l18.HTTP. The adjacent POST route is the distinct prepare-claim operation."
+
+[row.r4-114.4]
+interface = "interface.4.env-ranking-algo-ranking-test-redis-url"
+verdict = "served"
+path = "services/launchpad/ranking-algo/internal/internaltest/containers.go"
+line = 77
+symbol = "RANKING_TEST_REDIS_URL"
+evidence = "RedisURLEnv declares the literal RANKING_TEST_REDIS_URL at line 77; NewRedisURL reads it with os.Getenv(RedisURLEnv) at line 158. The signature's environment lookup therefore remains implemented through the named constant, while the occurrence at line 4 is only package documentation."
+
+[row.r4-114.5]
+interface = "interface.4.env-social-social-test-redis-url"
+verdict = "served"
+path = "services/launchpad/social/internal/internaltest/containers.go"
+line = 37
+symbol = "SOCIAL_TEST_REDIS_URL"
+evidence = "RedisURLEnv declares the literal SOCIAL_TEST_REDIS_URL at line 37; NewRedisURL reads it with os.Getenv(RedisURLEnv) at line 137. The signature's environment lookup therefore remains implemented through the named constant, while the occurrence at line 4 is only package documentation."
+
+[row.r4-114.6]
+interface = "interface.4.http-social-get-v2-voice-rooms-room-id-recording"
+verdict = "served"
+path = "services/launchpad/social/internal/social/moderation.go"
+line = 790
+symbol = "/v2/voice-rooms/{roomId}/recording"
+evidence = "RegisterSafetyRoutes declares router.Get for the exact /v2/voice-rooms/{roomId}/recording path at line 790 with an anonymous HTTP handler calling control.Recording. The GET at line 794 serves the separate /recording/object path, and the POST at line 806 requests a recording."
+
+[row.r4-114.7]
+interface = "interface.4.http-social-post-v2-voice-rooms-room-id-recording"
+verdict = "served"
+path = "services/launchpad/social/internal/social/moderation.go"
+line = 806
+symbol = "/v2/voice-rooms/{roomId}/recording"
+evidence = "RegisterSafetyRoutes declares router.Post for the exact /v2/voice-rooms/{roomId}/recording path at line 806 with an anonymous HTTP handler calling control.RequestRecording. The GET at line 790 reads a recording; subsequent POST routes add /consent, /start or /stop and are distinct operations."
+
+[row.r4-114.8]
+interface = "interface.4.http-social-post-v3-voice-rooms"
+verdict = "served"
+path = "services/launchpad/social/internal/social/moderation.go"
+line = 663
+symbol = "/v3/voice-rooms"
+evidence = "RegisterSafetyRoutes declares router.Post(\"/v3/voice-rooms\", func(w http.ResponseWriter, r *http.Request)) at line 663, decoding poolId and calling control.Create. Registration follows the nil-control guard; later v3 paths add roomId subresources and do not declare this creation route."

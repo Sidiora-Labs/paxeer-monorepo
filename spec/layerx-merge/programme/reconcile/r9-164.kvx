@@ -1,0 +1,243 @@
+[reconcile.r9-164]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 30
+
+[row.r9-164.1]
+interface = "interface.9.rs-proof-export-codec-artifactdecodeerror"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/export_codec.rs"
+line = 767
+symbol = "ArtifactDecodeError"
+evidence = "The pub enum ArtifactDecodeError declaration describes complete-artifact decoding failures, including Facts and Record variants; later occurrences are error construction and handling."
+
+[row.r9-164.2]
+interface = "interface.9.rs-proof-export-codec-encodedofflineartifact-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/export_codec.rs"
+line = 757
+symbol = "EncodedOfflineArtifact"
+evidence = "The pub struct EncodedOfflineArtifact declaration holds facts, receipts, proofs, certificates and headers as canonical encoded buckets; the later occurrence constructs this type."
+
+[row.r9-164.3]
+interface = "interface.9.rs-proof-export-codec-headerrecord"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/export_codec.rs"
+line = 444
+symbol = "HeaderRecord"
+evidence = "The pub struct HeaderRecord declaration stores canonical_header, signature, sequencer identity, public key and batch range; the impl and artifact bucket references are uses of this type."
+
+[row.r9-164.4]
+interface = "interface.9.rs-proof-export-codec-inclusionrecord"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/export_codec.rs"
+line = 523
+symbol = "InclusionRecord"
+evidence = "The pub struct InclusionRecord declaration stores the kind, reference, canonical leaf, Merkle proof and header digest; later impl and ProofRecord variant occurrences use the declared type."
+
+[row.r9-164.5]
+interface = "interface.9.rs-proof-export-codec-parse-fact-set"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/export_codec.rs"
+line = 117
+symbol = "parse_fact_set"
+evidence = "The public generic parse_fact_set<S: AsRef<str>>(refs: &[S]) returns Result<Vec<FactSelector>, FactRefError>; its body checks the count, parses references and checks the selectors."
+
+[row.r9-164.6]
+interface = "interface.9.rs-proof-export-codec-proofrecord"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/export_codec.rs"
+line = 709
+symbol = "ProofRecord"
+evidence = "The pub enum ProofRecord declaration has Inclusion(InclusionRecord) and AccountState(AccountStateRecord) variants; its following impl and complete-artifact bucket use this enum."
+
+[row.r9-164.7]
+interface = "interface.9.rs-proof-export-codec-receiptrecord"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/export_codec.rs"
+line = 382
+symbol = "ReceiptRecord"
+evidence = "The pub struct ReceiptRecord declaration contains reference, canonical_receipt, authorised_batch and expected_receipt_digest; its impl and artifact bucket occurrences reference this type."
+
+[row.r9-164.8]
+interface = "interface.9.rs-proof-headerrecord-digest-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/export_codec.rs"
+line = 508
+symbol = "digest"
+evidence = "Within impl HeaderRecord, pub fn digest(&self) returns Result<[u8; 32], ExportCodecError> by hashing canonical_header with batch_header_digest; the earlier digest occurrences are documentation."
+
+[row.r9-164.9]
+interface = "interface.9.rs-proof-proofrecord-encode-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/export_codec.rs"
+line = 720
+symbol = "encode"
+evidence = "Within impl ProofRecord, pub fn encode(&self) returns Result<Vec<u8>, ExportCodecError> and dispatches to Inclusion or AccountState record encoding; the other encode declarations belong to different record types."
+
+[row.r9-164.10]
+interface = "interface.9.rs-proof-receipt-maintainedoutcomeevidence"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/receipt.rs"
+line = 471
+symbol = "MaintainedOutcomeEvidence"
+evidence = "The pub struct MaintainedOutcomeEvidence<'a> declaration borrows a header, header signature, activity proof, maintenance bytes, maintenance proof and sequencer authorization; later occurrences are parameter types."
+
+[row.r9-164.11]
+interface = "interface.9.rs-proof-receipt-maintainedoutcomefailure"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/receipt.rs"
+line = 481
+symbol = "MaintainedOutcomeFailure"
+evidence = "The pub enum MaintainedOutcomeFailure declaration lists Inclusion, MaintenanceEncoding, SequenceRange and Receipt failures; later occurrences construct or propagate these variants."
+
+[row.r9-164.12]
+interface = "interface.9.rs-proof-receipt-verify-program-preexecution-rejection-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/receipt.rs"
+line = 926
+symbol = "verify_program_preexecution_rejection"
+evidence = "The public verify_program_preexecution_rejection declaration accepts receipt_bytes: &[u8] and authorised: &AuthorizedBatch, returning Result<VerifiedReceipt, VerificationFailure>; the later occurrence invokes it."
+
+[row.r9-164.13]
+interface = "interface.9.rs-proof-receipt-verify-sequencer-signature"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/receipt.rs"
+line = 759
+symbol = "verify_sequencer_signature"
+evidence = "The public verify_sequencer_signature<'a> declaration accepts receipt_bytes: &[u8] and receipt_keys: impl Into<ReceiptKeys<'a>>, returning Result<Receipt, VerificationFailure>; other occurrences are calls."
+
+[row.r9-164.14]
+interface = "interface.9.rs-sdk-agent-envelope-decode-native-approval-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-sdk/src/agent_envelope.rs"
+line = 1364
+symbol = "decode_native_approval"
+evidence = "The public decode_native_approval declaration accepts value: &Value and returns Option<layerx_agent_api::identity::NativeApprovalResultV1>; earlier dispatcher occurrences and approval-list decoding call it."
+
+[row.r9-164.15]
+interface = "interface.9.rs-sdk-agent-envelope-decode-native-approval-list-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-sdk/src/agent_envelope.rs"
+line = 1398
+symbol = "decode_native_approval_list"
+evidence = "The public decode_native_approval_list declaration accepts value: &Value and returns Option<layerx_agent_api::identity::NativeApprovalListResultV1>; the earlier occurrence calls this decoder."
+
+[row.r9-164.16]
+interface = "interface.9.rs-sdk-agent-envelope-decode-native-preparation"
+verdict = "served"
+path = "services/agent/crates/layerx-sdk/src/agent_envelope.rs"
+line = 1327
+symbol = "decode_native_preparation"
+evidence = "The public decode_native_preparation declaration accepts value: &Value and returns Option<layerx_agent_api::identity::NativePrepareResultV1>; earlier occurrences call the same decoder."
+
+[row.r9-164.17]
+interface = "interface.9.rs-sdk-agent-envelope-decode-proof-bundle-request-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-sdk/src/agent_envelope.rs"
+line = 1436
+symbol = "decode_proof_bundle_request"
+evidence = "The public decode_proof_bundle_request(value: &Value) declaration returns Option<ReadRequest<CanonicalBytes>> and validates target and requested_rung fields; the earlier occurrence calls it."
+
+[row.r9-164.18]
+interface = "interface.9.rs-sdk-agent-envelope-decode-proof-bundle-response-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-sdk/src/agent_envelope.rs"
+line = 1449
+symbol = "decode_proof_bundle_response"
+evidence = "The public decode_proof_bundle_response declaration accepts &ReadRequest<CanonicalBytes> and &ApiSuccess<Value>, returning Option<VerifiedRead<ProofBundle>>; earlier occurrences call it."
+
+[row.r9-164.19]
+interface = "interface.9.rs-sdk-agent-envelope-encode-proof-bundle-request-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-sdk/src/agent_envelope.rs"
+line = 1425
+symbol = "encode_proof_bundle_request"
+evidence = "The public encode_proof_bundle_request declaration accepts request: &ReadRequest<CanonicalBytes> and returns Result<Value, EnvelopeError>; it validates the target before encoding target and requested_rung."
+
+[row.r9-164.20]
+interface = "interface.9.rs-sdk-production-humanapicalls-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-sdk/src/production.rs"
+line = 438
+symbol = "HumanApiCalls"
+evidence = "The pub trait HumanApiCalls declaration defines human_call<T> returning Result<HumanCall<T>, ProductionError>; the later impl HumanApiCalls for Client implements this trait."
+
+[row.r9-164.21]
+interface = "interface.9.rs-sdk-production-humancall-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-sdk/src/production.rs"
+line = 409
+symbol = "HumanCall"
+evidence = "The pub struct HumanCall<T> declaration stores deployment, operation, optional idempotency_key and request; the subsequent impl, return types and construction use this generic type."
+
+[row.r9-164.22]
+interface = "interface.9.rs-sdk-production-humanoperation-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-sdk/src/production.rs"
+line = 44
+symbol = "HumanOperation"
+evidence = "The pub enum HumanOperation declaration begins with AccountCreate and lists human-plane operations; metadata, its impl and HumanCall fields reference this enum."
+
+[row.r9-164.23]
+interface = "interface.9.rs-sdk-production-mirrorsdkerror-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-sdk/src/production.rs"
+line = 603
+symbol = "MirrorSdkError"
+evidence = "The pub enum MirrorSdkError declaration wraps MirrorSourceError in Source and MirrorVerifyError in Verification; subsequent From implementations and result types use this enum."
+
+[row.r9-164.24]
+interface = "interface.9.rs-sdk-production-platformsdkmetadata-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-sdk/src/production.rs"
+line = 26
+symbol = "PlatformSdkMetadata"
+evidence = "The pub struct PlatformSdkMetadata declaration stores package, version, agent_operations and human_operations; platform_sdk_rust returns and constructs this struct later."
+
+[row.r9-164.25]
+interface = "interface.9.rs-sdk-production-protocolamount"
+verdict = "served"
+path = "services/agent/crates/layerx-sdk/src/production.rs"
+line = 279
+symbol = "ProtocolAmount"
+evidence = "The exact pub struct ProtocolAmount(u128); declaration preserves the registered private u128 tuple field; the following impl provides construction and access methods."
+
+[row.r9-164.26]
+interface = "interface.9.rs-sdk-production-resumablestream"
+verdict = "served"
+path = "services/agent/crates/layerx-sdk/src/production.rs"
+line = 533
+symbol = "ResumableStream"
+evidence = "The pub struct ResumableStream declaration holds a StreamCursor and a BTreeSet<String> of seen event ids; its subsequent impl provides stream state operations."
+
+[row.r9-164.27]
+interface = "interface.9.rs-sdk-production-secretbytes"
+verdict = "served"
+path = "services/agent/crates/layerx-sdk/src/production.rs"
+line = 293
+symbol = "SecretBytes"
+evidence = "The exact pub struct SecretBytes(Vec<u8>); declaration owns the private byte vector; later inherent, Debug and Drop implementations operate on this declared type."
+
+[row.r9-164.28]
+interface = "interface.9.rs-sdk-production-streamcursor"
+verdict = "served"
+path = "services/agent/crates/layerx-sdk/src/production.rs"
+line = 475
+symbol = "StreamCursor"
+evidence = "The exact pub struct StreamCursor(String); declaration wraps the private opaque cursor string; its following impl validates cursors and later stream types use it."
+
+[row.r9-164.29]
+interface = "interface.9.rs-sdk-production-streamevent"
+verdict = "served"
+path = "services/agent/crates/layerx-sdk/src/production.rs"
+line = 518
+symbol = "StreamEvent"
+evidence = "The pub struct StreamEvent<T> declaration stores event_id, previous_cursor, cursor and value: T; StreamPage and ResumableStream subsequently reference this generic event type."
+
+[row.r9-164.30]
+interface = "interface.9.rs-sdk-production-streampage"
+verdict = "served"
+path = "services/agent/crates/layerx-sdk/src/production.rs"
+line = 526
+symbol = "StreamPage"
+evidence = "The pub struct StreamPage<T> declaration stores requested_cursor, events: Vec<StreamEvent<T>> and next_cursor; the later ResumableStream method accepts a reference to this page type."

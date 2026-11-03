@@ -1,0 +1,91 @@
+[reconcile.r15-198]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 11
+
+[row.r15-198.1]
+interface = "interface.15.mk-consensus-build-linux-j57"
+verdict = "served"
+path = "consensus/Makefile"
+line = 153
+symbol = "build-linux"
+evidence = "The build-linux: target declaration at line 153 matches the registered signature and runs GOOS=linux GOARCH=amd64 $(MAKE) build; line 155 is its .PHONY reference."
+
+[row.r15-198.2]
+interface = "interface.15.mk-consensus-clean-j57"
+verdict = "served"
+path = "consensus/Makefile"
+line = 157
+symbol = "clean"
+evidence = "The clean: target declaration at line 157 matches the registered signature and removes $(CURDIR)/artifacts/ and $(BUILDDIR)/; clean_certs is a separate target."
+
+[row.r15-198.3]
+interface = "interface.15.mk-consensus-metrics-j57"
+verdict = "served"
+path = "consensus/Makefile"
+line = 141
+symbol = "metrics"
+evidence = "The metrics: testdata-metrics declaration at line 141 retains the registered prerequisite and runs the metricsgen generator; line 143 is its .PHONY reference."
+
+[row.r15-198.4]
+interface = "interface.15.mk-consensus-mockery-j57"
+verdict = "served"
+path = "consensus/Makefile"
+line = 133
+symbol = "mockery"
+evidence = "The mockery: target declaration at line 133 matches the registered signature and invokes go generate with scripts/mockery_generate.sh; line 135 is its .PHONY reference."
+
+[row.r15-198.5]
+interface = "interface.15.mk-consensus-split-test-packages-j57"
+verdict = "served"
+path = "consensus/Makefile"
+line = 177
+symbol = "split-test-packages"
+evidence = "The split-test-packages:$(BUILDDIR)/packages.txt declaration at line 177 matches the registered signature and splits the package list; line 179 uses it as a test-group-% prerequisite."
+
+[row.r15-198.6]
+interface = "interface.15.mk-consensus-testdata-metrics-j57"
+verdict = "served"
+path = "consensus/Makefile"
+line = 148
+symbol = "testdata-metrics"
+evidence = "The testdata-metrics: target declaration at line 148 matches the registered signature and generates metrics testdata; line 141 uses it as a prerequisite and line 150 marks it .PHONY."
+
+[row.r15-198.7]
+interface = "interface.15.go-integrations-fastapi-decode-base64-j76"
+verdict = "served"
+path = "sdk/integrations/fastapi/layerx_fastapi/protocol.py"
+line = 547
+symbol = "decode_base64"
+evidence = "The declaration def decode_base64(value: str, code: MiddlewareErrorCode) -> bytes at line 547 retains the registered signature and validates base64; lines 446, 447 and 564 are calls."
+
+[row.r15-198.8]
+interface = "interface.15.go-integrations-fastapi-encode-base64-j76"
+verdict = "served"
+path = "sdk/integrations/fastapi/layerx_fastapi/protocol.py"
+line = 543
+symbol = "encode_base64"
+evidence = "The declaration def encode_base64(value: bytes) -> str at line 543 retains the registered signature and returns ASCII base64 text; line 560 is a call from _encode_header."
+
+[row.r15-198.9]
+interface = "interface.15.go-integrations-fastapi-parse-amount-j76"
+verdict = "served"
+path = "sdk/integrations/fastapi/layerx_fastapi/protocol.py"
+line = 496
+symbol = "parse_amount"
+evidence = "The declaration def parse_amount(value: JsonValue) -> str at line 496 retains the registered signature and checks a positive decimal amount bounded by MAX_U128; lines 321 and 376 are calls."
+
+[row.r15-198.10]
+interface = "interface.15.go-integrations-fastapi-parse-network-j76"
+verdict = "served"
+path = "sdk/integrations/fastapi/layerx_fastapi/protocol.py"
+line = 506
+symbol = "parse_network"
+evidence = "The declaration def parse_network(value: JsonValue) -> str at line 506 retains the registered signature and checks a layerx network identifier; lines 318 and 375 are calls."
+
+[row.r15-198.11]
+interface = "interface.15.go-integrations-fastapi-parse-url-j76"
+verdict = "served"
+path = "sdk/integrations/fastapi/layerx_fastapi/protocol.py"
+line = 515
+symbol = "parse_url"
+evidence = "The declaration def parse_url(value: JsonValue) -> str at line 515 retains the registered signature and validates a bounded HTTP or HTTPS URL; lines 347 and 352 are calls."
