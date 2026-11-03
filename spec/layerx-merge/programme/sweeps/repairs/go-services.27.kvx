@@ -1,0 +1,7 @@
+[repair.go-services.27]
+target = "services/platform/perps-data/internal/pnl"
+command = "cd services/platform/perps-data && go vet ./internal/pnl/ && go test -count=1 ./internal/pnl/"
+revision = "cea04b0a20fed9621b2f2580398024b38b76ff2e"
+result = "already-passing"
+change = "pnl_test.go clarifies the PostgreSQL input and schema permissions required by TestPnl; no product change is needed under decision 2496."
+producer_input_tests = ["TestPnl: PERPS_DATA_TEST_DATABASE_URL pointing to a dedicated PostgreSQL database with permission to drop and recreate the perps schema; includes realised_from_close, settlement_components, spot_average_cost, win_rate, leaderboard_rank_ties and history_order."]
