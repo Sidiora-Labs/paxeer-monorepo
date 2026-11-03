@@ -121279,7 +121279,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1503.1]
 title = "Issue #1503: Emit the VerificationStatus declaration the JVM AgentHttpSuccess record references"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
