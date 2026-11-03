@@ -135,7 +135,7 @@ fn signed_receipt(tx_hash: [u8; 32], success: bool) -> (Value, Vec<u8>, ReceiptK
         "feeDenom": "upax", "feeAmount": "0x5208", "sponsor": hex(&[0; 20]),
         "from": hex(&[6; 20]), "to": hex(&[7; 20]), "contractAddress": hex(&[0; 20]),
         "vmError": if success { "" } else { "execution reverted" },
-        "keyId": hex(&KEY_ID), "receipt": hex(&bytes)
+        "keyId": hex(&KEY_ID), "receipt": hex(&bytes), "signingKey": hex(&key.public_key)
     });
     (view, bytes, key)
 }

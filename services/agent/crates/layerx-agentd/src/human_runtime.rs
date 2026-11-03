@@ -8720,11 +8720,15 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             .ok_or(HumanOperationError::Refused)?;
         let tenant =
             TenantId::new(peer.tenant.clone()).map_err(|_| HumanOperationError::Refused)?;
+        let transaction = prepared
+            .transaction
+            .as_ref()
+            .ok_or(HumanOperationError::Refused)?;
         self.approval_queue
             .authorize_submit(
                 &tenant,
                 &request.operation.preparation_ref,
-                &prepared.prepared.canonical_bytes,
+                &transaction.transaction.call.encode_unsigned(),
                 request.operation.approval_release_ref,
             )
             .map_err(|_| HumanOperationError::Refused)
@@ -8769,15 +8773,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                         .prepared(reference)
                         .ok_or(HumanOperationError::Refused)?;
                     let native_program = {
-                        let mut operations = self.lock_operations()?;
-                        let registry = operations.authority.registry(peer).map_err(map_core)?;
-                        layerx_wire::activity::decode_unsigned(
-                            prepared.unsigned_canonical_bytes.as_bytes(),
-                            &registry,
-                        )
-                        .map_err(|_| HumanOperationError::Refused)?
-                        .activity_type()
-                        .module()
+                        approval_call_disclosure(&prepared)?.activity_type.module()
                             == layerx_types::payload::ModuleId::Programs
                     };
                     if native_program {
@@ -8853,15 +8849,9 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             }
         }
         let native_program = {
-            let mut operations = self.lock_operations()?;
-            let registry = operations.authority.registry(peer).map_err(map_core)?;
-            layerx_wire::activity::decode_unsigned(
-                snapshot.prepared.unsigned_canonical_bytes.as_bytes(),
-                &registry,
-            )
-            .map_err(|_| HumanOperationError::Refused)?
-            .activity_type()
-            .module()
+            approval_call_disclosure(&snapshot.prepared)?
+                .activity_type
+                .module()
                 == layerx_types::payload::ModuleId::Programs
         };
         if native_program && gate.is_none() {
@@ -17641,6 +17631,23 @@ fn encode_approval(out: &mut Encoder, record: &ApprovalRecord) -> Result<(), Hum
     }
     Ok(())
 }
+fn approval_call_disclosure(
+    prepared: &layerx_agent_api::prepare::Prepared,
+) -> Result<layerx_crypto::disclosure::Disclosure, HumanOperationError> {
+    let call = layerx_crypto::evm_transaction::decode_unsigned(
+        prepared.unsigned_canonical_bytes.as_bytes(),
+    )
+    .map_err(|_| HumanOperationError::Refused)?;
+    let sender = decode_hex(prepared.disclosure.actor.as_str())
+        .and_then(|bytes| bytes.try_into().ok())
+        .ok_or(HumanOperationError::Refused)?;
+    if prepared.signing_preimage.as_bytes() != call.signing_hash() {
+        return Err(HumanOperationError::Refused);
+    }
+    layerx_crypto::disclosure::call::bind_call(&call, sender)
+        .map_err(|_| HumanOperationError::Refused)
+}
+
 fn encode_disclosure(
     out: &mut Encoder,
     value: &layerx_agent_api::prepare::Disclosure,

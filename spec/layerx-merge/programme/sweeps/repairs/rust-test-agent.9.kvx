@@ -1,0 +1,7 @@
+[repair.rust-test-agent.9]
+target = "layerx-sdk"
+command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --no-fail-fast -- --skip v5_native_corpus_binds_exact_profiles_authority_and_all_outcomes --skip checks_the_actual_server_identity --skip native_request_binds_real_signed_fixture"
+revision = "152fc1b91d9beae4b7f78a34dad683ba4ff2653f"
+result = "repaired"
+change = "services/agent/crates/layerx-sdk/Cargo.toml owns the wallet proof declaration and services/agent/crates/layerx-sdk/tests/proof_layerx_wallet_rpc.rs checks it without relying on a custom section discarded by pipeline lock generation."
+producer_input_tests = ["programs::http::tests::v5_native_corpus_binds_exact_profiles_authority_and_all_outcomes: genuine native terminal corpus supplied through PAXEER_X_PROGRAM_TERMINAL_V5_CORPUS", "rpc::rpc_system_tls_checks_the_actual_server_identity: real TLS boundary binary supplied through LAYERX_PAXEER_BOUNDARY_BIN", "rpc::rpc_private_ca_tls_checks_the_actual_server_identity: real TLS boundary binary supplied through LAYERX_PAXEER_BOUNDARY_BIN", "rpc::rpc_subscription_private_ca_checks_the_actual_server_identity: real TLS boundary binary supplied through LAYERX_PAXEER_BOUNDARY_BIN", "native_request_binds_real_signed_fixture: real signed native-program-call-v3 fixture"]
