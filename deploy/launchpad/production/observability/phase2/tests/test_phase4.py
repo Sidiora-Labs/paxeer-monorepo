@@ -2,6 +2,7 @@ import copy
 import os
 from pathlib import Path
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -12,6 +13,22 @@ from contracts import canonical, Invalid, load, REQUIREMENTS, sha
 from control import read_key
 from phase4 import release, validate_plan, load_measurement, counter_deltas
 from runtime import prometheus_samples
+
+
+class Phase4Import(unittest.TestCase):
+    def test_import_without_site_packages_preserves_validation_entry_points(self):
+        script = (
+            'import sys; sys.path.insert(0, sys.argv[1]); '
+            'import phase4; '
+            'assert "jsonschema" not in sys.modules; '
+            'assert callable(phase4.validate_plan); '
+            'assert callable(phase4.release)'
+        )
+        result = subprocess.run(
+            [sys.executable, '-S', '-c', script, str(PHASE)],
+            capture_output=True, text=True, timeout=10,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
 
 
 class NativePhase4Measurement(unittest.TestCase):
