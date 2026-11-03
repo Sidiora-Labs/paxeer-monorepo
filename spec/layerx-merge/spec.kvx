@@ -124807,7 +124807,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1543.1]
 title = "Issue #1543: Align Android sample dependencies and verification checksums with the binding"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
