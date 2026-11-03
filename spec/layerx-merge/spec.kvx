@@ -137705,7 +137705,7 @@ do_5 = "Attempt 1 (continue): manifest_and_existing_balance_consumer_preserve_th
 
 [task.22.99.49]
 title = "Repair the inventory sweep target layerx-client"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.95.11"]
