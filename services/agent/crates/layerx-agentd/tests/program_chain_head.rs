@@ -1,4 +1,4 @@
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpListener;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
@@ -150,6 +150,7 @@ fn fixture() -> (
 struct HeadServer {
     endpoint: String,
     document: Arc<Mutex<Value>>,
+    checkpoint_reads: Arc<Mutex<Vec<(Value, Value)>>>,
     stopping: Arc<AtomicBool>,
     thread: Option<JoinHandle<()>>,
 }
@@ -160,8 +161,10 @@ impl HeadServer {
         let endpoint = format!("http://{}", listener.local_addr().unwrap());
         listener.set_nonblocking(true).unwrap();
         let document = Arc::new(Mutex::new(document));
+        let checkpoint_reads = Arc::new(Mutex::new(Vec::<(Value, Value)>::new()));
         let stopping = Arc::new(AtomicBool::new(false));
         let served = Arc::clone(&document);
+        let checkpoint = Arc::clone(&checkpoint_reads);
         let stop = Arc::clone(&stopping);
         let thread = thread::spawn(move || {
             while !stop.load(Ordering::SeqCst) {
@@ -182,8 +185,9 @@ impl HeadServer {
                 let mut reader = BufReader::new(&stream);
                 let mut line = String::new();
                 reader.read_line(&mut line).unwrap();
-                assert_eq!(line.trim_end(), format!("GET {path} HTTP/1.1"));
+                let request_line = line.trim_end().to_owned();
                 let mut authenticated = false;
+                let mut content_length = 0;
                 loop {
                     line.clear();
                     assert_ne!(reader.read_line(&mut line).unwrap(), 0);
@@ -195,16 +199,35 @@ impl HeadServer {
                             assert_eq!(value.trim(), format!("Bearer {authorization}"));
                             authenticated = true;
                         }
+                        if name.eq_ignore_ascii_case("content-length") {
+                            content_length = value.trim().parse::<usize>().unwrap();
+                        }
                     }
                 }
-                assert!(authenticated);
-                let body = served.lock().unwrap().to_string();
+                let body = if request_line == "POST / HTTP/1.1" {
+                    let mut body = vec![0; content_length];
+                    reader.read_exact(&mut body).unwrap();
+                    let request: Value = serde_json::from_slice(&body).unwrap();
+                    assert_eq!(request["jsonrpc"], "2.0");
+                    let reads = checkpoint.lock().unwrap();
+                    let key = json!([request["method"], request["params"]]);
+                    let (_, result) = reads
+                        .iter()
+                        .find(|(expected, _)| expected == &key)
+                        .unwrap_or_else(|| panic!("unexpected checkpoint read: {request}"));
+                    json!({"jsonrpc": "2.0", "id": request["id"], "result": result}).to_string()
+                } else {
+                    assert_eq!(request_line, format!("GET {path} HTTP/1.1"));
+                    assert!(authenticated);
+                    served.lock().unwrap().to_string()
+                };
                 write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).unwrap();
             }
         });
         Self {
             endpoint,
             document,
+            checkpoint_reads,
             stopping,
             thread: Some(thread),
         }
@@ -212,6 +235,95 @@ impl HeadServer {
 
     fn set(&self, document: Value) {
         *self.document.lock().unwrap() = document;
+    }
+
+    fn withhold_checkpoint(&self, height: i64) {
+        let mut reads = self.checkpoint_reads.lock().unwrap();
+        let (_, result) = reads
+            .iter_mut()
+            .find(|(request, _)| request == &json!(["px_getCommit", [height.to_string()]]))
+            .unwrap();
+        *result = Value::Null;
+    }
+
+    fn set_checkpoint(&self, fixture: &deployment_support::ProtocolFixture, timestamp: &str) {
+        let chain = &fixture.chain;
+        let header = &chain.header;
+        let commit = &chain.commit;
+        let height = header.height;
+        let block = json!({
+            "number": format!("{height:#x}"),
+            "hash": format!("0x{}", hex::encode(header.hash().unwrap())),
+            "parentHash": format!("0x{}", hex::encode(&header.last_block_id.hash)),
+            "timestamp": format!("{:#x}", header.time.seconds),
+            "transactionsRoot": format!("0x{}", hex::encode(&header.data_hash)),
+            "receiptsRoot": format!("0x{}", hex::encode(&header.last_results_hash)),
+            "stateRoot": format!("0x{}", hex::encode(&header.app_hash)),
+            "transactions": []
+        });
+        let material = json!({
+            "height": height.to_string(),
+            "signedHeader": {
+                "header": {
+                    "version": {"block": header.version.block.to_string(), "app": header.version.app.to_string()},
+                    "chain_id": header.chain_id,
+                    "height": height.to_string(),
+                    "time": timestamp,
+                    "last_block_id": {
+                        "hash": hex::encode(&header.last_block_id.hash),
+                        "parts": {"total": header.last_block_id.part_set_total, "hash": hex::encode(&header.last_block_id.part_set_hash)}
+                    },
+                    "last_commit_hash": hex::encode(&header.last_commit_hash),
+                    "data_hash": hex::encode(&header.data_hash),
+                    "validators_hash": hex::encode(&header.validators_hash),
+                    "next_validators_hash": hex::encode(&header.next_validators_hash),
+                    "consensus_hash": hex::encode(&header.consensus_hash),
+                    "app_hash": hex::encode(&header.app_hash),
+                    "last_results_hash": hex::encode(&header.last_results_hash),
+                    "evidence_hash": hex::encode(&header.evidence_hash),
+                    "proposer_address": hex::encode(&header.proposer_address)
+                },
+                "commit": {
+                    "height": commit.height.to_string(),
+                    "round": commit.round,
+                    "block_id": {
+                        "hash": hex::encode(&commit.block_id.hash),
+                        "parts": {"total": commit.block_id.part_set_header.total, "hash": hex::encode(&commit.block_id.part_set_header.hash)}
+                    },
+                    "signatures": commit.signatures.iter().map(|signature| json!({
+                        "block_id_flag": 2,
+                        "validator_address": hex::encode(&signature.validator_address),
+                        "timestamp": timestamp,
+                        "signature": openssl::base64::encode_block(&signature.signature)
+                    })).collect::<Vec<_>>()
+                }
+            }
+        });
+        let validators = chain.verifier.validators.validators();
+        let validator_set = json!({
+            "height": height.to_string(),
+            "total": validators.len().to_string(),
+            "validators": validators.iter().map(|validator| json!({
+                "address": hex::encode(validator.address),
+                "pubKey": {"type": "tendermint/PubKeyEd25519", "value": openssl::base64::encode_block(&validator.public_key)},
+                "votingPower": validator.voting_power.to_string()
+            })).collect::<Vec<_>>()
+        });
+        *self.checkpoint_reads.lock().unwrap() = vec![
+            (
+                json!(["eth_getBlockByNumber", [format!("{height:#x}"), true]]),
+                block.clone(),
+            ),
+            (
+                json!(["eth_getBlockByNumber", [format!("{height:#x}"), false]]),
+                block,
+            ),
+            (json!(["px_getCommit", [height.to_string()]]), material),
+            (
+                json!(["px_getValidators", [height.to_string()]]),
+                validator_set,
+            ),
+        ];
     }
 }
 
@@ -512,7 +624,13 @@ fn journal_admission_verifies_through_the_current_chain_head() {
     drop(reader);
     drop(authority);
 
-    fixture.chain.header.height += 2;
+    fixture.chain.header.height += 1;
+    sign_journal_head(&mut fixture, admission_time + 1_000);
+    assert_eq!(fixture.chain.header.height, 43);
+    assert_eq!(fixture.chain.header.time.seconds, 1_700_000_151);
+    assert_eq!(fixture.chain.header.time.nanos, 0);
+    node.set_checkpoint(&fixture, "2023-11-14T22:15:51Z");
+    fixture.chain.header.height += 1;
     let now = admission_time + STALENESS_LIMIT + 1;
     sign_journal_head(&mut fixture, now);
     let document = journal_head_document(&fixture);
@@ -561,19 +679,29 @@ fn journal_admission_verifies_through_the_current_chain_head() {
         reader
             .verify_journal_admission(&fixture.proof, now)
             .unwrap_err(),
-        ChainHeadError::Evidence(ProtocolEvidenceError::ChainProof)
+        ChainHeadError::Evidence(ProtocolEvidenceError::HistoricalTrustAnchor)
     );
 
-    let expired_now = admission_time + 14 * 24 * 60 * 60 * 1_000 + 1;
-    sign_journal_head(&mut fixture, expired_now);
-    let expired = journal_head_document(&fixture);
-    let mut expired_authority = expired.clone();
-    expired_authority["authority_replica_id"] = json!(hex::encode(REPLICA));
-    node.set(expired);
-    authority.set(expired_authority);
+    let historical_now = admission_time + 14 * 24 * 60 * 60 * 1_000 + 1;
+    assert_eq!(fixture.chain.header.height, 44);
+    sign_journal_head(&mut fixture, historical_now);
+    let historical = journal_head_document(&fixture);
+    let mut historical_authority = historical.clone();
+    historical_authority["authority_replica_id"] = json!(hex::encode(REPLICA));
+    node.set(historical);
+    authority.set(historical_authority);
     assert_eq!(
         reader
-            .verify_journal_admission(&fixture.proof, expired_now)
+            .verify_journal_admission(&fixture.proof, historical_now)
+            .unwrap()
+            .record(),
+        admission.record()
+    );
+
+    node.withhold_checkpoint(43);
+    assert_eq!(
+        reader
+            .verify_journal_admission(&fixture.proof, historical_now)
             .unwrap_err(),
         ChainHeadError::Evidence(ProtocolEvidenceError::HistoricalTrustAnchor)
     );
