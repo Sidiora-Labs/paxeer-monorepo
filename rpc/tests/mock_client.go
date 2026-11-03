@@ -160,6 +160,7 @@ func (c *MockClient) recordBlockResult(txResults []*abci.ExecTxResult, consParam
 }
 
 func (c *MockClient) Validators(ctx context.Context, height *int64, page, perPage *int) (*coretypes.ResultValidators, error) {
+	var captured *coretypes.ResultValidators
 	if c.mockedValidators != nil {
 		blockNum := int64(-1)
 		if height != nil {
@@ -169,14 +170,38 @@ func (c *MockClient) Validators(ctx context.Context, height *int64, page, perPag
 		if !ok {
 			return nil, errors.New("not found")
 		}
-		return res, nil
+		captured = res
+	} else {
+		validator := tmtypes.NewValidator(ed25519.TestSecretKey([]byte("rpc-test-validator")).Public(), 1)
+		captured = &coretypes.ResultValidators{Validators: []*tmtypes.Validator{validator}, Count: 1, Total: 1}
+		if height != nil {
+			captured.BlockHeight = *height
+		}
 	}
-	validator := tmtypes.NewValidator(ed25519.TestSecretKey([]byte("rpc-test-validator")).Public(), 1)
-	res := &coretypes.ResultValidators{Validators: []*tmtypes.Validator{validator}, Count: 1, Total: 1}
-	if height != nil {
-		res.BlockHeight = *height
+	// Each trace contains a single recorded page. Replay used only these
+	// captured validators, so they form the complete set for this fixture.
+	total := len(captured.Validators)
+	pageNumber, pageSize := 1, 30
+	if page != nil {
+		pageNumber = *page
 	}
-	return res, nil
+	if perPage != nil && *perPage > 0 {
+		pageSize = *perPage
+	}
+	if pageSize > 100 {
+		pageSize = 100
+	}
+	pages := (total + pageSize - 1) / pageSize
+	if pageNumber < 1 || pageNumber > pages {
+		return nil, fmt.Errorf("validator page %d is outside range [1, %d]", pageNumber, pages)
+	}
+	start := (pageNumber - 1) * pageSize
+	end := min(start+pageSize, total)
+	res := *captured
+	res.Validators = append([]*tmtypes.Validator(nil), captured.Validators[start:end]...)
+	res.Count = total
+	res.Total = total
+	return &res, nil
 }
 
 func (c *MockClient) Events(_ context.Context, req *coretypes.RequestEvents) (*coretypes.ResultEvents, error) {

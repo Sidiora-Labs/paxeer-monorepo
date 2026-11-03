@@ -19955,3 +19955,139 @@ symbol = "tsc"
 observed = "yarn tsc --noEmit reports 343 error TS lines in toolkit/chakra, toolkit/components and ui/zetaChain on attempts 3 and 4 while the attempts' lock diffs do not touch Chakra packages."
 assumption = "The explorer typecheck is broken on the main line by Chakra ConditionalValue variant typing; 14.99.1 restores it."
 severity = "medium"
+
+[finding.22.95.11.2]
+task = "22.95.11"
+file = "services/human/crates/layerx-human-service/tests/custody.rs"
+symbol = "RuntimeClock::from_environment"
+observed = "Attempt 5: the custody test panics at custody.rs:439 with plan clock: clock authority unavailable; the same call is on the main line at line 427."
+assumption = "The qualification environment has no runtime clock authority; the test must start its own clock as component_frame.rs does (decision 2493)."
+severity = "medium"
+
+[finding.22.98.152.1]
+task = "22.98.152"
+file = "spec/layerx-merge/programme/reconcile_check.py"
+symbol = "retired"
+observed = "Attempts 1 and 2: row 9 fails the retired absence check on the test literals at config.rs:424 and :452 after the production lookup was removed."
+assumption = "The checker rule was too coarse; decision 2494 lets remaining list test-code lines of the registered path and the check skips them."
+severity = "low"
+
+[finding.22.9.10.10]
+task = "22.9.10"
+file = "services/interop/crates/x-websearch/tests/fixtures/gateway/exact.json"
+symbol = "txHash"
+observed = "Attempt 23: web-search.test.js:201 throws receipt-unverified because the exact fixtures carry a synthetic transaction hash with no signed transaction bytes."
+assumption = "The fixture producer never signed a transaction for the exact payments; 11.98.1 records rawTransaction and 22.9.10 consumes it (decision 2495)."
+severity = "high"
+
+[finding.22.95.11.3]
+task = "22.95.11"
+file = "services/human/crates/layerx-human-service/tests/retired_crypto_codec_2.rs"
+symbol = "no_retired_layerx_crypto_codec_paths_2"
+observed = "Attempt 6: the custody and session-key tests pass; the verify fails only on the retired-path guard because session_keys.rs:267-268 panics with the text bind call in the same statement as the layerx_crypto::disclosure::call::bind_call path."
+assumption = "The guard treats panic text as identifiers (gotcha 2937); renaming the panic text clears it."
+severity = "low"
+
+[finding.18.1574.1.1]
+task = "18.1574.1"
+file = "services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x/receipt_vectors.json"
+symbol = "cases"
+observed = "Attempt 2: the verify iterated the values of the fixture's top entry and failed because the vectors sit in the cases list."
+assumption = "Verify defect (gotcha 2936); corrected in this revision."
+severity = "low"
+
+[finding.18.1573.1.1]
+task = "18.1573.1"
+file = "services/interop/deploy/gateway/render.py"
+symbol = "self_test"
+observed = "Attempts 1 and 2: python3 render.py --self-test fails because the complete fixture at lines 1041-1058 carries one AP2 use case, one asset field, one agent field and one target field while the validators at lines 575-660 require every use case and complete bindings."
+assumption = "The self-test fixture was never updated when the validators were tightened by 11.13.7, whose verify ran only a pytest target."
+severity = "medium"
+
+[finding.18.1568.1.1]
+task = "18.1568.1"
+file = "sdk/platform/jvm/pom.xml"
+symbol = "JVM_FILES"
+observed = "Attempts 1 and 2: the generator check reports pom.xml stale or hand-edited because 22.96.21 raised dependency floors in the generated file."
+assumption = "The floors belong in the pom renderer of sdk/platform/generators/src/main.rs (gotcha 2939)."
+severity = "medium"
+
+[finding.22.99.19.1]
+task = "22.99.19"
+file = "modules/layerxexchange/keeper/intents.go"
+symbol = "retirementError"
+observed = "Attempt 1: proof_layerxexchange_retirement_test.go expects codespace layerxexchange and code 14 but the error is wrapped with fmt.Errorf and %w, so the ABCI result carries the generic code."
+assumption = "Product defect (gotcha 2940); the fix lives in the keeper, outside the task's original paths, now added."
+severity = "medium"
+
+[finding.22.99.26.1]
+task = "22.99.26"
+file = "modules/layerxexchange/keeper/proofs.go"
+symbol = "RetiredFromUpgrade"
+observed = "Attempt 1: TestVersionSwitchV69Vectors reports keeper revert reasons that include source paths at intents.go:122 and proofs.go:38, 52 and 84, contrary to decision 2336."
+assumption = "The keeper fix belongs to 22.99.19, which 22.99.26 now requires."
+severity = "medium"
+
+[finding.22.99.35.1]
+task = "22.99.35"
+file = "spec/layerx-merge/spec.kvx"
+symbol = "req.22056"
+observed = "Attempt 1: tools/specgen TestRepositorySpecIsValidAndCurrent fails because task 9.35.17 cites 22056.2 and [req.22056] has only ac_1."
+assumption = "Spec defect (gotcha 2938); ac_2 is added in this revision."
+severity = "low"
+
+[finding.22.99.42.1]
+task = "22.99.42"
+file = "services/agent/sdk/python/layerx_sdk/programs.py"
+symbol = "verify_program_receipt"
+observed = "Attempt 1: tests under tests/agent/sdk/python import programs_module_version_for_protocol, decode_and_verify_program_terminal and _receipt_usage, retired by 22.9.11, and programs.py:425 still calls verify_program_receipt, which exists only as a declaration in programs.pyi:81 and which test_retired_kernel_receipts.py asserts absent."
+assumption = "The SDK carries a dead call to a retired function (task 9.98.3) and the inherited tests were never migrated (22.99.42)."
+severity = "high"
+
+[finding.22.99.62.1]
+task = "22.99.62"
+file = "services/interop/specs/conformance/committed/vector-v4-committed.json"
+symbol = "sourceSha256"
+observed = "Attempt 1: committed_vectors.rs:394-397 asserts the record's provenance.sourceSha256 equals the digest of daemon/committed-fixture/vectors/vector-v4-committed.json; the record declares dc364da8 and the recording hashes to 34e9f6ab."
+assumption = "The conformance record drifted from its recording; the record is regenerated from the recording."
+severity = "medium"
+
+[finding.22.99.65.1]
+task = "22.99.65"
+file = "services/interop/specs/conformance/fiat/sequenced-journeys.json"
+symbol = "transaction_hash"
+observed = "Attempt 1: sequenced_vectors.rs:337 finds the declared transaction_hash at line 171 differs from the shared receipt txHash."
+assumption = "The journeys record drifted from the shared receipt recording; the record is aligned."
+severity = "medium"
+
+[finding.22.99.64.1]
+task = "22.99.64"
+file = "services/agent/crates/layerx-client/src/sequencer.rs"
+symbol = "paymentDenom"
+observed = "Attempt 1: the relay tests of layerx-interop-service fail with a malformed receipt because the exact receipt field set at sequencer.rs:902 omits paymentDenom."
+assumption = "22.23.11 changes the field set; 22.99.64 now requires it."
+severity = "medium"
+
+[finding.9.35.18.1]
+task = "9.35.18"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+symbol = "activity_submission_index_tests"
+observed = "Attempt 4: fifteen library tests outside the task fail on the main line (ten activity submission index tests and the subject and native terminal tests decode tests/fixtures/authority/provider-subject/onboarding.activity as MalformedPayload; freshness_serializes_block_height_coordinates and wait_request_refuses_retired_level_names_and_field assert stale shapes; two TLS identity tests need the boundary binary)."
+assumption = "Pre-existing library test breaks unrelated to approvals; task 9.98.2 repairs them and 9.35.18 runs only its approval tests."
+severity = "high"
+
+[finding.22.99.80.1]
+task = "22.99.80"
+file = "services/platform/perps-data/deploy/dockerfile_test.go"
+symbol = "TestDockerfileContext"
+observed = "The go-services sweep records services/platform/perps-data/deploy failing at dockerfile_test.go:313 while the other twenty perps-data targets need PERPS_DATA_TEST_DATABASE_URL and related inputs."
+assumption = "One deterministic defect in the deploy package; the rest are producer inputs (decision 2325)."
+severity = "medium"
+
+[finding.22.99.10.1]
+task = "22.99.10"
+file = "services/launchpad/ranking-algo/app_test.go"
+symbol = "00001_init.sql"
+observed = "Attempt 1: app_test.go:233 opens core/indexer/migrations/00001_init.sql, which lives at services/launchpad/indexer/migrations/00001_init.sql; the other failures need L19_POSTGRES_DSN, L19_REDIS_URL and the moderation inputs."
+assumption = "One deterministic path defect beside producer-input tests (decision 2496)."
+severity = "medium"

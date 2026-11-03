@@ -321,9 +321,9 @@ func (app *App) Commit(ctx context.Context) (res *abci.ResponseCommit, err error
 		if n, ok := app.blockHeaderNotifier.Get(); ok {
 			if app.pendingBlockHeader != nil {
 				app.pendingBlockHeader.AppHash = bytes.Clone(app.LastCommitID().Hash)
+				n.PublishStashed()
+				app.pendingBlockHeader = nil
 			}
-			n.PublishStashed()
-			app.pendingBlockHeader = nil
 		}
 		if app.commitListener != nil {
 			err = commitListener(app, app.LastBlockHeight(), app.LastCommitID().Hash)

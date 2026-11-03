@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/admin"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/crypto/merkle"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/engine/deps/tasks"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/baseapp"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
@@ -1888,7 +1889,9 @@ func (app *App) FinalizeBlocker(ctx sdk.Context, req *abci.RequestFinalizeBlock)
 			app.LightInvarianceChecks(ctx.Context(), cms, app.lightInvarianceConfig)
 			resp := app.getFinalizeBlockResponse(app.GetWorkingHash(), sealed.Events, sealed.Results, sealed.EndBlock, consensusParamUpdates)
 			if hasHeadNotifier {
-				app.stashBlockHeader(headNotifier, req, &resp)
+				if err := app.stashBlockHeader(headNotifier, req, &resp); err != nil {
+					return nil, err
+				}
 			}
 			return &resp, nil
 		}
@@ -1918,7 +1921,9 @@ func (app *App) FinalizeBlocker(ctx sdk.Context, req *abci.RequestFinalizeBlock)
 			appHash := app.GetWorkingHash()
 			resp := app.getFinalizeBlockResponse(appHash, events, txRes, endBlockResp, consensusParamUpdates)
 			if hasHeadNotifier {
-				app.stashBlockHeader(headNotifier, req, &resp)
+				if err := app.stashBlockHeader(headNotifier, req, &resp); err != nil {
+					return nil, err
+				}
 			}
 			return &resp, nil
 		}
@@ -1944,17 +1949,32 @@ func (app *App) FinalizeBlocker(ctx sdk.Context, req *abci.RequestFinalizeBlock)
 	appHash := app.GetWorkingHash()
 	resp := app.getFinalizeBlockResponse(appHash, events, txResults, endBlockResp, consensusParamUpdates)
 	if hasHeadNotifier {
-		app.stashBlockHeader(headNotifier, req, &resp)
+		if err := app.stashBlockHeader(headNotifier, req, &resp); err != nil {
+			return nil, err
+		}
 	}
 	return &resp, nil
 }
 
-func (app *App) stashBlockHeader(notifier *evmrpc.BlockHeaderNotifier, req *abci.RequestFinalizeBlock, resp *abci.ResponseFinalizeBlock) {
-	header := *req.Header
-	request := *req
-	request.Header = &header
-	app.pendingBlockHeader = &header
-	notifier.Stash(&request, resp)
+func (app *App) stashBlockHeader(notifier *evmrpc.BlockHeaderNotifier, req *abci.RequestFinalizeBlock, resp *abci.ResponseFinalizeBlock) error {
+	results, err := abci.MarshalTxResults(resp.TxResults)
+	if err != nil {
+		return fmt.Errorf("marshal committed header results: %w", err)
+	}
+	txs := make(tmtypes.Txs, len(req.Txs))
+	for i, tx := range req.Txs {
+		txs[i] = tx
+	}
+	req.Header.DataHash = txs.Hash()
+	req.Header.LastResultsHash = merkle.HashFromByteSlices(results)
+	app.pendingBlockHeader = req.Header
+	notifier.Stash(req, resp)
+	return nil
+}
+
+func (app *App) BlockHeaderNotifier() *evmrpc.BlockHeaderNotifier {
+	notifier, _ := app.blockHeaderNotifier.Get()
+	return notifier
 }
 
 func (app *App) DeliverTxWithResult(ctx sdk.Context, tx []byte, typedTx sdk.Tx) *abci.ExecTxResult {
@@ -3660,7 +3680,7 @@ func (app *App) RegisterLocalServices(node client.LocalClient, txConfig client.T
 	}
 
 	if app.evmRPCConfig.WSEnabled {
-		headNotifier, _ := app.blockHeaderNotifier.Get()
+		headNotifier := app.BlockHeaderNotifier()
 		wsOptions := append([]evmrpc.ServerOption{app.sequencerReceipt}, options...)
 		wsServer, err := evmrpc.NewEVMWebSocketServer(app.evmRPCConfig, node, &app.EvmKeeper, app.BeginBlockKeepers, app.BaseApp, app.TracerAnteHandler, rpcCtxProvider, txConfigProvider, DefaultNodeHome, app.GetStateStore(), headNotifier, wsOptions...)
 		if err != nil {

@@ -77,6 +77,31 @@ type PendingTx struct {
 	Result  *abci.ExecTxResult
 }
 
+// simulationContextAtHeight resolves speculative heights before asking the state
+// provider, which only accepts the pending sentinel while a block is open.
+func simulationContextAtHeight(ctx context.Context, provider func(int64) sdk.Context, wm *WatermarkManager, height int64) sdk.Context {
+	latest := provider(LatestCtxHeight)
+	if height == PendingCtxHeight || height > latest.BlockHeight() {
+		if wm != nil && wm.pending != nil {
+			snapshot, pendingHeight, open, err := wm.pendingSnapshot(ctx)
+			if err != nil {
+				return latest
+			}
+			if open && (height == PendingCtxHeight || height == pendingHeight) {
+				return snapshot
+			}
+			if !open && height == PendingCtxHeight {
+				return provider(pendingHeight)
+			}
+		}
+		if height == PendingCtxHeight {
+			return provider(latest.BlockHeight())
+		}
+		return latest
+	}
+	return provider(height)
+}
+
 // ErrBlockNotFoundByHash is returned when no block exists for the given hash (e.g. empty or unknown hash).
 // Ethereum-compatible RPCs should return result: null for this case instead of an error.
 var ErrBlockNotFoundByHash = errors.New("block not found by hash")
