@@ -1,0 +1,17 @@
+[disposition.6.96.6.1]
+finding = "6.96.6.1"
+status = "resolved"
+evidence = "Commit 6ac65fc8f89f468340777db948b093a045ec8576 on origin/main asserts the constructed AnchorK at precompiles/layerxanchor/retired_surface_test.go:42 while retaining every selector's LXP_MODULE_DISABLED assertion after store deletion."
+follow_up = "closure"
+
+[disposition.6.96.6.2]
+finding = "6.96.6.2"
+status = "resolved"
+evidence = "Commits e39bdccfc0d0897956929e0aedfe1b6cee323bff and 24e7e1ab798d11fb72625f21f03d6c74904a1d3a on origin/main reconcile the seven keeper tests and four precompile tests using imported historical checkpoints, explicit merge boundaries and retirement-refusal assertions instead of successful live checkpoint submissions."
+follow_up = "closure"
+
+[disposition.6.96.6.3]
+finding = "6.96.6.3"
+status = "resolved"
+evidence = "On origin/main, spec/layerx-merge/spec.kvx:145039 excludes modules/layerxanchor/bringup_genesis_test.go from task 6.96.6 touches while its verification retains the absence assertion, honoring the deletion already landed in 24e7e1ab798d11fb72625f21f03d6c74904a1d3a."
+follow_up = "closure"

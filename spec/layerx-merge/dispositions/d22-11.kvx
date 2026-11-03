@@ -1,0 +1,53 @@
+[disposition.22.6.7.4]
+finding = "22.6.7.4"
+status = "resolved"
+evidence = "Commit ccd3b0d9d replaced sdkerrors.Wrapf with fmt.Errorf and %w in retirementError, retained at modules/layerxexchange/keeper/intents.go:40, so the retired error no longer appends the wrapping site's source path."
+follow_up = "closure"
+
+[disposition.22.2.5.4]
+finding = "22.2.5.4"
+status = "resolved"
+evidence = "Commit ea039363e made the shared-host test assert the two successful sends' payment-reference receipts at modules/layerxauth/keeper/shared_host_test.go:197 and removed RevokeGrant's module replay marker at modules/layerxauth/keeper/revoke.go:30, preserving the params-only assertion after revoke."
+follow_up = "closure"
+
+[disposition.22.8.11.4]
+finding = "22.8.11.4"
+status = "resolved"
+evidence = "Commit a5a196edb supplied LAYERX_RECEIPT_KEYS_JSON as a non-empty array containing receiptVector.pinnedKey in the test environment, retained at sdk/integrations/agents/test/a2a-store.test.mjs:288."
+follow_up = "closure"
+
+[disposition.22.2.6.2]
+finding = "22.2.6.2"
+status = "resolved"
+evidence = "Commit 0ecd6928d changed the LXP_AGENT_NOT_ACTIVE expectation at precompiles/common/lxp_site_rows_test.go:18 to agent function not active, matching the registry at precompiles/common/lxp_errors.go:339."
+follow_up = "closure"
+
+[disposition.22.2.6.3]
+finding = "22.2.6.3"
+status = "resolved"
+evidence = "Commit 0ecd6928d installed the activation precompile set before the retirement assertions at precompiles/common/retire_test.go:51 and reconciled service-view gas estimates and metered store-read assertions at precompiles/layerxpay/gas.go:67 and precompiles/layerxpay/service_views_test.go:175."
+follow_up = "closure"
+
+[disposition.22.11.7.3]
+finding = "22.11.7.3"
+status = "resolved"
+evidence = "Commit 7d816c4c0 kept status-zero receipts Pending until Reverted at services/interop/crates/layerx-bridge-relayer/src/relayer.rs:1449 and added assertions at services/interop/crates/layerx-bridge-relayer/tests/loops.rs:825 that the pending hash and bytes match the sent transaction."
+follow_up = "closure"
+
+[disposition.22.16.9.2]
+finding = "22.16.9.2"
+status = "resolved"
+evidence = "Commit 81e65aadc synchronized tools/platform/cli/tests/fixtures/openrpc.json with services/platform/hosted/gateway/openrpc.json, whose current main blobs are both d078489579006aa359d3ab1d835616e74ad5bd61, satisfying the byte-equality assertion at tools/platform/cli/src/rpc.rs:486."
+follow_up = "closure"
+
+[disposition.22.9.7.1]
+finding = "22.9.7.1"
+status = "resolved"
+evidence = "Commit 0803d0202 removed the invalid crate-root pub(super) qualifiers and commit 8926f90cf gave response, Parsed and parse_request valid pub(crate) visibility, retained at services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs:332, :353 and :383."
+follow_up = "closure"
+
+[disposition.22.13.8.2]
+finding = "22.13.8.2"
+status = "resolved"
+evidence = "Commit 0803d0202 removed the invalid crate-root pub(super) qualifiers and commit 8926f90cf gave response, Parsed and parse_request valid pub(crate) visibility, retained at services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs:332, :353 and :383."
+follow_up = "closure"

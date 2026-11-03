@@ -1,12 +1,14 @@
 [sweep.go-modules]
 revision = "1fea7069e58b649760bb1afcabdb9c4caec5ea4c"
 command = "CGO_ENABLED=1 go vet ./TARGET/ && CGO_ENABLED=1 go test -count=1 ./TARGET/"
-targets_total = 122
-targets_passed = 63
+targets_total = 124
+targets_passed = 65
 targets_failed = 2
-targets_not_run = 57
+targets_not_run = 45
+targets_no_tests = 12
 enumeration_command = "CGO_ENABLED=1 go list ./modules/..."
 enumeration_exit_code = 0
+supplemental_targets = ["precompiles/addr/legacy/v552", "precompiles/addr/legacy/v555"]
 prerequisite_command = "make paxd-native-libs"
 prerequisite_exit_code = 0
 environment = "CGO_ENABLED=1; GOMAXPROCS=2; four concurrent package commands"
@@ -28,15 +30,17 @@ reason = "The vet/test pair did not finish within its 240-second inventory alloc
 
 [target.go-modules.3]
 target = "modules/epoch/client/wasm"
-result = "not_run"
-exit_code = 124
-reason = "The vet/test pair did not finish within its 240-second inventory allocation and was stopped to preserve the task wall clock."
+result = "no_tests"
+exit_code = -1
+revision = "1d8ffe5b30c0552ca63b4c1747155f1483c9e9cc"
+observed = "No *_test.go files are present in modules/epoch/client/wasm; no package test command was run."
 
 [target.go-modules.4]
 target = "modules/epoch/client/wasm/bindings"
-result = "not_run"
-exit_code = 124
-reason = "The vet/test pair did not finish within its 240-second inventory allocation and was stopped to preserve the task wall clock."
+result = "no_tests"
+exit_code = -1
+revision = "1d8ffe5b30c0552ca63b4c1747155f1483c9e9cc"
+observed = "No *_test.go files are present in modules/epoch/client/wasm/bindings; no package test command was run."
 
 [target.go-modules.5]
 target = "modules/epoch/keeper"
@@ -103,9 +107,12 @@ exit_code = 0
 
 [target.go-modules.17]
 target = "modules/evm/artifacts/native"
-result = "not_run"
-exit_code = 124
-reason = "The vet/test pair did not finish within its 240-second inventory allocation and was stopped to preserve the task wall clock."
+result = "passed"
+exit_code = 0
+revision = "1d8ffe5b30c0552ca63b4c1747155f1483c9e9cc"
+command = "CGO_ENABLED=1 go test -count=1 ./modules/evm/artifacts/native/ ./modules/tokenfactory/client/wasm/bindings/"
+observed = "Package tests passed with CGO_ENABLED=1 and the test cache disabled; revision identifies the unchanged Go source tested by the task gate."
+qualification_record = "/out/logs/verify-1.log"
 
 [target.go-modules.18]
 target = "modules/evm/artifacts/utils"
@@ -459,9 +466,10 @@ reason = "Not started because the remaining task time is reserved for reporting 
 
 [target.go-modules.85]
 target = "modules/mint/simulation"
-result = "not_run"
+result = "no_tests"
 exit_code = -1
-reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+revision = "1d8ffe5b30c0552ca63b4c1747155f1483c9e9cc"
+observed = "No *_test.go files are present in modules/mint/simulation; no package test command was run."
 
 [target.go-modules.86]
 target = "modules/mint/types"
@@ -483,21 +491,24 @@ reason = "Not started because the remaining task time is reserved for reporting 
 
 [target.go-modules.89]
 target = "modules/oracle/client/rest"
-result = "not_run"
+result = "no_tests"
 exit_code = -1
-reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+revision = "1d8ffe5b30c0552ca63b4c1747155f1483c9e9cc"
+observed = "No *_test.go files are present in modules/oracle/client/rest; no package test command was run."
 
 [target.go-modules.90]
 target = "modules/oracle/client/wasm"
-result = "not_run"
+result = "no_tests"
 exit_code = -1
-reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+revision = "1d8ffe5b30c0552ca63b4c1747155f1483c9e9cc"
+observed = "No *_test.go files are present in modules/oracle/client/wasm; no package test command was run."
 
 [target.go-modules.91]
 target = "modules/oracle/client/wasm/bindings"
-result = "not_run"
+result = "no_tests"
 exit_code = -1
-reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+revision = "1d8ffe5b30c0552ca63b4c1747155f1483c9e9cc"
+observed = "No *_test.go files are present in modules/oracle/client/wasm/bindings; no package test command was run."
 
 [target.go-modules.92]
 target = "modules/oracle/keeper"
@@ -507,15 +518,17 @@ reason = "Not started because the remaining task time is reserved for reporting 
 
 [target.go-modules.93]
 target = "modules/oracle/keeper/testutils"
-result = "not_run"
+result = "no_tests"
 exit_code = -1
-reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+revision = "1d8ffe5b30c0552ca63b4c1747155f1483c9e9cc"
+observed = "No *_test.go files are present in modules/oracle/keeper/testutils; no package test command was run."
 
 [target.go-modules.94]
 target = "modules/oracle/simulation"
-result = "not_run"
+result = "no_tests"
 exit_code = -1
-reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+revision = "1d8ffe5b30c0552ca63b4c1747155f1483c9e9cc"
+observed = "No *_test.go files are present in modules/oracle/simulation; no package test command was run."
 
 [target.go-modules.95]
 target = "modules/oracle/types"
@@ -525,9 +538,10 @@ reason = "Not started because the remaining task time is reserved for reporting 
 
 [target.go-modules.96]
 target = "modules/oracle/utils"
-result = "not_run"
+result = "no_tests"
 exit_code = -1
-reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+revision = "1d8ffe5b30c0552ca63b4c1747155f1483c9e9cc"
+observed = "No *_test.go files are present in modules/oracle/utils; no package test command was run."
 
 [target.go-modules.97]
 target = "modules/perps"
@@ -567,9 +581,10 @@ reason = "Not started because the remaining task time is reserved for reporting 
 
 [target.go-modules.103]
 target = "modules/pricefeed/testutil"
-result = "not_run"
+result = "no_tests"
 exit_code = -1
-reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+revision = "1d8ffe5b30c0552ca63b4c1747155f1483c9e9cc"
+observed = "No *_test.go files are present in modules/pricefeed/testutil; no package test command was run."
 
 [target.go-modules.104]
 target = "modules/pricefeed/types"
@@ -639,9 +654,12 @@ reason = "Not started because the remaining task time is reserved for reporting 
 
 [target.go-modules.115]
 target = "modules/tokenfactory/client/wasm/bindings"
-result = "not_run"
-exit_code = -1
-reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+result = "passed"
+exit_code = 0
+revision = "1d8ffe5b30c0552ca63b4c1747155f1483c9e9cc"
+command = "CGO_ENABLED=1 go test -count=1 ./modules/evm/artifacts/native/ ./modules/tokenfactory/client/wasm/bindings/"
+observed = "Package tests passed with CGO_ENABLED=1 and the test cache disabled; revision identifies the unchanged Go source tested by the task gate."
+qualification_record = "/out/logs/verify-1.log"
 
 [target.go-modules.116]
 target = "modules/tokenfactory/keeper"
@@ -684,3 +702,17 @@ target = "modules/xweb/types"
 result = "not_run"
 exit_code = -1
 reason = "Not started because the remaining task time is reserved for reporting and bounded qualification gates."
+
+[target.go-modules.123]
+target = "precompiles/addr/legacy/v552"
+result = "no_tests"
+exit_code = -1
+revision = "1d8ffe5b30c0552ca63b4c1747155f1483c9e9cc"
+observed = "No *_test.go files are present in precompiles/addr/legacy/v552; no package test command was run."
+
+[target.go-modules.124]
+target = "precompiles/addr/legacy/v555"
+result = "no_tests"
+exit_code = -1
+revision = "1d8ffe5b30c0552ca63b4c1747155f1483c9e9cc"
+observed = "No *_test.go files are present in precompiles/addr/legacy/v555; no package test command was run."

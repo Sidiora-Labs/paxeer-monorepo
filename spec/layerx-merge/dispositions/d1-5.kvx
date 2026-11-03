@@ -1,0 +1,5 @@
+[disposition.1.2.4.1]
+finding = "1.2.4.1"
+status = "resolved"
+evidence = "1379ed3e02899317098c73e497950b63a507e1e6 removed the handover include and member from include/layerx/lxp_kernel.h, deleted src/protocol/lxp_handover.c and include/layerx/lxp_handover.h, and removed the handover include, manifest parameter and initialization calls from tests/programs/test_lifecycle.c while switching its governance registration to lxp_governance_module_iface(), as retained on main."
+follow_up = "closure"
