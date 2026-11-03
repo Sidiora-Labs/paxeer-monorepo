@@ -203940,7 +203940,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.95.13]
 title = "Serve receipts of sends committed before a restart from the rebuilt receipt source"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
