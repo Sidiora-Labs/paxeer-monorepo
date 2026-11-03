@@ -120178,7 +120178,7 @@ do_4 = "Decision 2459 (attempts 1 and 2, continue): the task now also owns servi
 
 [task.18.1527.1]
 title = "Issue #1527: Align explorer Phoenix and cookie dependencies with their resolution pins"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -193504,7 +193504,7 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 
 [task.22.95.9]
 title = "Make HTTPServer.Stop wait for the serve goroutine it races"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
