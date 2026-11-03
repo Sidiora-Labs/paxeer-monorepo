@@ -17,6 +17,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types/ethtx"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
+	precompiletest "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/testutil"
 	evmrpc "github.com/Sidiora-Labs/Paxeer-X-Network/rpc"
 	evmrpcconfig "github.com/Sidiora-Labs/Paxeer-X-Network/rpc/config"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
@@ -79,6 +80,9 @@ func initializeApp(
 	initializer ...func(sdk.Context, *app.App),
 ) (*app.App, *abci.ResponseFinalizeBlock) {
 	a := app.Setup(t, false, true, chainID == "pacific-1")
+	if err := precompiletest.Install(a); err != nil {
+		t.Fatal(err)
+	}
 	a.ChainID = chainID
 	res, err := a.FinalizeBlock(context.Background(), &abci.RequestFinalizeBlock{
 		Txs:  [][]byte{},
