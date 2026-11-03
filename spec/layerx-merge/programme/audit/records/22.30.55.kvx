@@ -1,0 +1,1610 @@
+# Pre-upgrade audit: node-runtime storage/state-sync and supporting harnesses.
+
+[audit.22.30.55]
+task = "22.30.55"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 154
+findings = 56
+docs_reviewed = 20
+upgrade_ready = false
+blocking = ["composite-rewind", "p2p-params-height", "seen-commit-destination", "validator-power-width", "runner-protocol"]
+review_basis = "All 154 package members read in full; package requirements and produced/consumed interface rows reviewed against current producer, transport and consumer paths. This record proposes repairs only. No runtime or test qualification is claimed by source inspection."
+
+[file.1]
+path = "consensus/internal/statesync/block_queue.go"
+lines = 265
+verdict = "issues"
+note = "Backfill height allocation, retries and completion reviewed; queue closure does not safely release its waiters."
+
+[file.2]
+path = "consensus/internal/statesync/block_queue_test.go"
+lines = 285
+verdict = "clean"
+note = "Backfill queue sequence, retry and verification tests reviewed; their tested cases do not establish safe repeated closure."
+
+[file.3]
+path = "consensus/internal/statesync/chunks.go"
+lines = 369
+verdict = "issues"
+note = "Chunk ordering, sender tracking, retry and temporary-file lifecycle reviewed; advertised chunk count controls eager allocations."
+
+[file.4]
+path = "consensus/internal/statesync/chunks_test.go"
+lines = 560
+verdict = "clean"
+note = "Chunk queue ordering, rejection, retry and close assertions agree with the queue API for the bounded fixtures supplied."
+
+[file.5]
+path = "consensus/internal/statesync/dispatcher.go"
+lines = 274
+verdict = "issues"
+note = "Light-block request correlation and provider adapters reviewed; shutdown does not complete outstanding calls."
+
+[file.6]
+path = "consensus/internal/statesync/dispatcher_test.go"
+lines = 411
+verdict = "issues"
+note = "Dispatcher request and peer-list concurrency assertions reviewed; the timeout branch queries failure without recording one."
+
+[file.7]
+path = "consensus/internal/statesync/message_test.go"
+lines = 198
+verdict = "clean"
+note = "Wire message validation fixtures agree with current request/response fields and required nonzero values."
+
+[file.8]
+path = "consensus/internal/statesync/metrics.go"
+lines = 30
+verdict = "clean"
+note = "State-sync metric names, types and labels agree with the Nop and Prometheus constructors."
+
+[file.9]
+path = "consensus/internal/statesync/mocks/state_provider.go"
+lines = 119
+verdict = "generated"
+note = "Generated mockery StateProvider implementation; test double declarations are generated and receive the generated verdict."
+
+[file.10]
+path = "consensus/internal/statesync/reactor.go"
+lines = 1219
+verdict = "clean"
+note = "State-sync channel registration, peer handling, snapshot/params transport, backfill and metrics reviewed against wire declarations."
+
+[file.11]
+path = "consensus/internal/statesync/reactor_test.go"
+lines = 703
+verdict = "issues"
+note = "Reactor integration, light-block fixtures and backfill persistence assertions reviewed; transition coverage and one loop are deficient."
+
+[file.12]
+path = "consensus/internal/statesync/snapshots.go"
+lines = 289
+verdict = "issues"
+note = "Snapshot discovery indexes, blacklists and ranking reviewed; the ranking comparator can violate ordering."
+
+[file.13]
+path = "consensus/internal/statesync/snapshots_test.go"
+lines = 300
+verdict = "clean"
+note = "Snapshot-pool fixtures exercise add, reject, peer and ranking APIs with their current shapes."
+
+[file.14]
+path = "consensus/internal/statesync/stateprovider.go"
+lines = 413
+verdict = "issues"
+note = "RPC/P2P light-client restoration reviewed end to end; P2P parameter verification uses the wrong header height."
+
+[file.15]
+path = "consensus/internal/statesync/syncer.go"
+lines = 595
+verdict = "issues"
+note = "Snapshot offering, discovery, application restore, retries and chunk fetching reviewed; empty discovery ignores cancellation."
+
+[file.16]
+path = "consensus/internal/statesync/syncer_test.go"
+lines = 809
+verdict = "clean"
+note = "Syncer snapshot rejection, retry and application response assertions use the declared ABCI shapes."
+
+[file.17]
+path = "consensus/internal/statesync/test_app_test.go"
+lines = 100
+verdict = "clean"
+note = "Test application snapshot and chunk responses match the state-sync ABCI transport used by syncer tests."
+
+[file.18]
+path = "consensus/internal/statesync/wiring_test.go"
+lines = 45
+verdict = "clean"
+note = "Wireguard tests correctly distinguish signed-commit scanning from the other channel payloads."
+
+[file.19]
+path = "consensus/scripts/README.md"
+lines = 5
+verdict = "clean"
+note = "Script inventory accurately labels the maintenance utilities as inherited tooling."
+
+[file.20]
+path = "consensus/scripts/authors.sh"
+lines = 16
+verdict = "issues"
+note = "Author listing and argument handling reviewed; missing positional argument bypasses the documented usage."
+
+[file.21]
+path = "consensus/scripts/build.sh"
+lines = 40
+verdict = "clean"
+note = "Container build helper uses the documented external buildlib contract and remains a build-container utility."
+
+[file.22]
+path = "consensus/scripts/confix/condiff/condiff.go"
+lines = 152
+verdict = "clean"
+note = "Configuration diff rendering uses the parsed TOML shape and deterministic sorted paths."
+
+[file.23]
+path = "consensus/scripts/confix/confix.go"
+lines = 164
+verdict = "clean"
+note = "Configuration migration CLI reads plans and input/output paths through the expected TOML editor."
+
+[file.24]
+path = "consensus/scripts/confix/confix_test.go"
+lines = 98
+verdict = "clean"
+note = "Configuration plan fixtures assert migrations and output paths on the real parser/editor surface."
+
+[file.25]
+path = "consensus/scripts/confix/plan.go"
+lines = 237
+verdict = "clean"
+note = "Ordered config transformations preserve the supported TOML section/key lifecycle and errors."
+
+[file.26]
+path = "consensus/scripts/dist.sh"
+lines = 76
+verdict = "issues"
+note = "Distribution script still assumes upstream standalone module symbols and a removed tools target."
+
+[file.27]
+path = "consensus/scripts/estream/estream.go"
+lines = 81
+verdict = "clean"
+note = "Event-stream CLI uses the live consensus event-stream subscription API and closes its context."
+
+[file.28]
+path = "consensus/scripts/get_nodejs.sh"
+lines = 14
+verdict = "issues"
+note = "Node.js/Dredd bootstrap downloads executable content over unauthenticated HTTP."
+
+[file.29]
+path = "consensus/scripts/keymigrate/migrate.go"
+lines = 461
+verdict = "clean"
+note = "Legacy key migration mapping, ordered key encoding and idempotent traversal reviewed against the DB APIs."
+
+[file.30]
+path = "consensus/scripts/keymigrate/migrate_test.go"
+lines = 241
+verdict = "clean"
+note = "Key migration fixtures cover old/new keys and repeated conversion with real in-memory DB operations."
+
+[file.31]
+path = "consensus/scripts/linkify_changelog.py"
+lines = 13
+verdict = "clean"
+note = "Changelog linkification is a repository maintenance transformation with no running-network endpoint."
+
+[file.32]
+path = "consensus/scripts/linkpatch/linkpatch.go"
+lines = 205
+verdict = "clean"
+note = "Link patch traversal and replacement remain a source maintenance operation using current module paths."
+
+[file.33]
+path = "consensus/scripts/metricsgen/metricsdiff/metricsdiff.go"
+lines = 198
+verdict = "issues"
+note = "Metrics diff parses metric families but does not sort label names before its merge-style comparison."
+
+[file.34]
+path = "consensus/scripts/metricsgen/metricsdiff/metricsdiff_test.go"
+lines = 62
+verdict = "clean"
+note = "Metric diff tests exercise metric changes with the accepted exposition shape; reordered labels need additional coverage."
+
+[file.35]
+path = "consensus/scripts/metricsgen/metricsgen.go"
+lines = 349
+verdict = "issues"
+note = "Metrics generator CLI reads the working directory despite advertising a distinct input directory."
+
+[file.36]
+path = "consensus/scripts/metricsgen/metricsgen_test.go"
+lines = 251
+verdict = "clean"
+note = "Metric AST and template fixtures match declared field/tag encoding; they call helpers rather than the CLI directory path."
+
+[file.37]
+path = "consensus/scripts/mockery_generate.sh"
+lines = 8
+verdict = "clean"
+note = "Mock generation wrapper retains its development-tool invocation and generation target semantics."
+
+[file.38]
+path = "consensus/scripts/scmigrate/migrate.go"
+lines = 197
+verdict = "issues"
+note = "Seen-commit migration can delete the canonical destination after copying the newest legacy record into it."
+
+[file.39]
+path = "consensus/scripts/scmigrate/migrate_test.go"
+lines = 171
+verdict = "clean"
+note = "Seen-commit fixtures cover legacy migration and repeat runs; mixed canonical/legacy heights are not covered."
+
+[file.40]
+path = "consensus/scripts/txs/random.sh"
+lines = 19
+verdict = "clean"
+note = "Random transaction shell helper addresses the consensus development RPC, rather than the public EVM or hosted gateway."
+
+[file.41]
+path = "consensus/test/Makefile"
+lines = 23
+verdict = "clean"
+note = "Kept make targets resolve relative package lists and preserve the declared test/release/race flags; retired targets are absent."
+
+[file.42]
+path = "consensus/test/README.md"
+lines = 21
+verdict = "clean"
+note = "Test directory documentation accurately distinguishes retained harnesses and retired upstream targets."
+
+[file.43]
+path = "consensus/test/app/counter_test.sh"
+lines = 136
+verdict = "clean"
+note = "Counter application shell harness addresses the local consensus ABCI/RPC test contract."
+
+[file.44]
+path = "consensus/test/e2e/Makefile"
+lines = 18
+verdict = "clean"
+note = "E2E Makefile command paths reviewed; its Docker target selects a context incompatible with the inherited Dockerfile."
+
+[file.45]
+path = "consensus/test/e2e/README.md"
+lines = 170
+verdict = "issues"
+note = "E2E documentation candidly records the Docker image blocker; deterministic generation wording needs correction."
+
+[file.46]
+path = "consensus/test/e2e/app/app.go"
+lines = 421
+verdict = "issues"
+note = "ABCI application methods, validator updates, snapshots, delays and leader keys reviewed against node config and runner serialization."
+
+[file.47]
+path = "consensus/test/e2e/app/leaders.go"
+lines = 13
+verdict = "clean"
+note = "LeaderSchedule returns ordered copied ed25519 keys and activation height through the declared LeaderSource shape."
+
+[file.48]
+path = "consensus/test/e2e/app/leaders_test.go"
+lines = 93
+verdict = "clean"
+note = "Leader schedule tests cover decoding, ordering, copy isolation and the activation-height contract."
+
+[file.49]
+path = "consensus/test/e2e/app/snapshots.go"
+lines = 175
+verdict = "issues"
+note = "Snapshot metadata and chunk lifecycle reviewed; pruning is not durable across reopening."
+
+[file.50]
+path = "consensus/test/e2e/app/state.go"
+lines = 206
+verdict = "issues"
+note = "State JSON persistence, hash calculation and rollback reviewed; rollback merges into a live map and is not persisted."
+
+[file.51]
+path = "consensus/test/e2e/docker/Dockerfile"
+lines = 33
+verdict = "issues"
+note = "Docker image assumes a standalone consensus module and binaries/entrypoint absent from this checkout."
+
+[file.52]
+path = "consensus/test/e2e/generator/generate.go"
+lines = 361
+verdict = "clean"
+note = "Manifest combination generation reviewed against node modes, validator powers, perturbations and config structures."
+
+[file.53]
+path = "consensus/test/e2e/generator/generate_test.go"
+lines = 50
+verdict = "clean"
+note = "Generator tests cover manifest combinations with current field names and validation contracts."
+
+[file.54]
+path = "consensus/test/e2e/generator/main.go"
+lines = 108
+verdict = "clean"
+note = "Generator CLI output naming, groups, seeds and manifest writes agree with the manifest transport."
+
+[file.55]
+path = "consensus/test/e2e/generator/random.go"
+lines = 109
+verdict = "issues"
+note = "Random choice helpers have an off-by-one cardinality and depend on randomized map iteration despite seeded generation."
+
+[file.56]
+path = "consensus/test/e2e/generator/random_test.go"
+lines = 59
+verdict = "clean"
+note = "Random-choice fixtures check lower bounds but do not assert reachability of the requested minimum cardinality."
+
+[file.57]
+path = "consensus/test/e2e/networks/ci.toml"
+lines = 85
+verdict = "clean"
+note = "CI manifest uses current validator, full/light node, state-sync and perturbation fields."
+
+[file.58]
+path = "consensus/test/e2e/networks/sequencer.toml"
+lines = 6
+verdict = "clean"
+note = "Sequencer-named manifest configures an in-node leader pin, not a standalone sequencer service; order and height are valid."
+
+[file.59]
+path = "consensus/test/e2e/networks/simple.toml"
+lines = 4
+verdict = "clean"
+note = "Simple manifest uses declared node modes, persistent-peer names and state-sync configuration."
+
+[file.60]
+path = "consensus/test/e2e/networks/single.toml"
+lines = 1
+verdict = "clean"
+note = "Single-node manifest uses supported initial-height, validator and retention fields."
+
+[file.61]
+path = "consensus/test/e2e/node/built-in.toml"
+lines = 4
+verdict = "clean"
+note = "Builtin node example uses the only application protocol implemented by the node runner."
+
+[file.62]
+path = "consensus/test/e2e/node/config.go"
+lines = 71
+verdict = "issues"
+note = "Node TOML decoder narrows validator powers and drops the runner's artificial-delay settings."
+
+[file.63]
+path = "consensus/test/e2e/node/main.go"
+lines = 320
+verdict = "clean"
+note = "Node bootstrap, signer and light-client wiring reviewed; only builtin application protocol reaches node.New."
+
+[file.64]
+path = "consensus/test/e2e/node/socket.toml"
+lines = 5
+verdict = "issues"
+note = "Socket example advertises a protocol which the current node runner refuses."
+
+[file.65]
+path = "consensus/test/e2e/pkg/manifest.go"
+lines = 277
+verdict = "clean"
+note = "Manifest TOML fields, save/load error handling, enum values and declared pin fields reviewed."
+
+[file.66]
+path = "consensus/test/e2e/pkg/proof_consensus_leader_pin_test.go"
+lines = 149
+verdict = "clean"
+note = "Proof test exercises real manifest save/load and ordered Testnet validation, including malformed transport refusal."
+
+[file.67]
+path = "consensus/test/e2e/pkg/testnet.go"
+lines = 587
+verdict = "clean"
+note = "Testnet loading and validation resolve pin names to positive-power validator keys and retain declared activation rules."
+
+[file.68]
+path = "consensus/test/e2e/pkg/testnet_leader_pin_test.go"
+lines = 149
+verdict = "clean"
+note = "Pin validation tests cover missing, duplicate, invalid-mode and nonpositive-power leaders."
+
+[file.69]
+path = "consensus/test/e2e/run-multiple.sh"
+lines = 49
+verdict = "clean"
+note = "Multi-network shell wrapper passes manifest paths through to the runner and preserves exit status."
+
+[file.70]
+path = "consensus/test/e2e/runner/benchmark.go"
+lines = 229
+verdict = "clean"
+note = "Benchmark runner derives block intervals from consensus block data and reports the requested window."
+
+[file.71]
+path = "consensus/test/e2e/runner/cleanup.go"
+lines = 69
+verdict = "issues"
+note = "Cleanup selects all e2e-labelled containers and networks, so unrelated concurrent testnets are removed."
+
+[file.72]
+path = "consensus/test/e2e/runner/evidence.go"
+lines = 321
+verdict = "clean"
+note = "Evidence generator constructs duplicate-vote/light-client evidence using actual consensus types and broadcasts it."
+
+[file.73]
+path = "consensus/test/e2e/runner/exec.go"
+lines = 50
+verdict = "clean"
+note = "Docker and subprocess execution helpers preserve command arguments and error results."
+
+[file.74]
+path = "consensus/test/e2e/runner/load.go"
+lines = 200
+verdict = "issues"
+note = "Load driver counts transport-successful broadcasts even when CheckTx rejects the transaction."
+
+[file.75]
+path = "consensus/test/e2e/runner/main.go"
+lines = 358
+verdict = "clean"
+note = "Runner command registration and stage selection agree with the declared manifest CLI."
+
+[file.76]
+path = "consensus/test/e2e/runner/perturb.go"
+lines = 99
+verdict = "clean"
+note = "Perturbation operations use the selected node/container and update the running-node lifecycle."
+
+[file.77]
+path = "consensus/test/e2e/runner/rpc.go"
+lines = 231
+verdict = "issues"
+note = "Height wait caches reached nodes before obtaining the target block and cannot retry block retrieval afterward."
+
+[file.78]
+path = "consensus/test/e2e/runner/setup.go"
+lines = 390
+verdict = "issues"
+note = "Runner TOML serializer emits socket for every node, including manifests whose node protocol is builtin."
+
+[file.79]
+path = "consensus/test/e2e/runner/start.go"
+lines = 134
+verdict = "clean"
+note = "Network start ordering and state-sync trust configuration use the expected node heights and clients."
+
+[file.80]
+path = "consensus/test/e2e/runner/test.go"
+lines = 17
+verdict = "clean"
+note = "Test subprocess receives the manifest and selected node environment expected by the e2e tests."
+
+[file.81]
+path = "consensus/test/e2e/runner/wait.go"
+lines = 26
+verdict = "clean"
+note = "Wait wrappers delegate target height and context through the common consensus polling path."
+
+[file.82]
+path = "consensus/test/e2e/tests/app_test.go"
+lines = 188
+verdict = "clean"
+note = "Application e2e assertions use current query/check/broadcast response fields; existing feature-specific skips remain visible."
+
+[file.83]
+path = "consensus/test/e2e/tests/block_test.go"
+lines = 100
+verdict = "clean"
+note = "Block tests compare canonical block data, hashes and heights across configured nodes."
+
+[file.84]
+path = "consensus/test/e2e/tests/e2e_test.go"
+lines = 142
+verdict = "clean"
+note = "E2E helpers load manifests, select nodes and fetch chain history with current consensus client types."
+
+[file.85]
+path = "consensus/test/e2e/tests/evidence_test.go"
+lines = 24
+verdict = "clean"
+note = "Evidence tests inspect committed evidence against the declared misbehavior and node history."
+
+[file.86]
+path = "consensus/test/e2e/tests/net_test.go"
+lines = 43
+verdict = "issues"
+note = "Peer test is unconditionally skipped and its unreachable lookup confuses node IDs with manifest names."
+
+[file.87]
+path = "consensus/test/e2e/tests/validator_test.go"
+lines = 178
+verdict = "issues"
+note = "Proposer assertions model weighted priority while the supplied pin fixture restricts leaders after activation."
+
+[file.88]
+path = "consensus/test/fuzz/README.md"
+lines = 27
+verdict = "issues"
+note = "Native fuzz documentation omits the gofuzz build tag required by all its test files."
+
+[file.89]
+path = "consensus/test/fuzz/oss-fuzz-build.sh"
+lines = 23
+verdict = "clean"
+note = "Inherited OSS-Fuzz builder uses upstream import paths; the adjacent README explicitly marks it inapplicable to this tree."
+
+[file.90]
+path = "consensus/test/fuzz/tests/mempool_test.go"
+lines = 22
+verdict = "clean"
+note = "Tagged mempool fuzzer constructs real kvstore/mempool requests using current CheckTx types."
+
+[file.91]
+path = "consensus/test/fuzz/tests/p2p_secretconnection_test.go"
+lines = 97
+verdict = "clean"
+note = "Tagged secret-connection fuzzer uses the connection's full-buffer Read/Write contract rather than net.Conn short-read semantics."
+
+[file.92]
+path = "consensus/test/fuzz/tests/rpc_jsonrpc_server_test.go"
+lines = 71
+verdict = "clean"
+note = "Tagged JSON-RPC fuzzer routes input through current server/response types and bounds fixture execution."
+
+[file.93]
+path = "consensus/test/maketargets/consensus_makefile_test.go"
+lines = 200
+verdict = "clean"
+note = "Consensus Makefile tests assert retained target recipes, fork linker paths, tags and absence of retired targets."
+
+[file.94]
+path = "consensus/test/maketargets/test_makefile_test.go"
+lines = 102
+verdict = "clean"
+note = "Test Makefile tests assert supported commands and explicit refusal of retired integration/docker/coverage recipes."
+
+[file.95]
+path = "storage/state_db/bench/README.md"
+lines = 91
+verdict = "issues"
+note = "Benchmark instructions advertise backends that the shared nil-config factory path cannot open."
+
+[file.96]
+path = "storage/state_db/bench/bench_sc_long_running_test.go"
+lines = 76
+verdict = "clean"
+note = "Slow benchmark build tag, snapshot path and scenario plumbing reviewed; it inherits the factory and iteration issues recorded elsewhere."
+
+[file.97]
+path = "storage/state_db/bench/bench_sc_test.go"
+lines = 376
+verdict = "issues"
+note = "SC benchmark scenarios omit their named non-even distribution functions for two backends."
+
+[file.98]
+path = "storage/state_db/bench/bench_ss_test.go"
+lines = 64
+verdict = "clean"
+note = "SS benchmark scenarios use the shared helper and therefore inherit its nil-config factory failure."
+
+[file.99]
+path = "storage/state_db/bench/cryptosim/Makefile"
+lines = 14
+verdict = "clean"
+note = "Cryptosim Makefile builds the declared main/configure-logger packages into their script-consumed paths."
+
+[file.100]
+path = "storage/state_db/bench/cryptosim/README.md"
+lines = 111
+verdict = "issues"
+note = "Cryptosim persistence and monitoring instructions reviewed; restart continuity is overstated by current behavior."
+
+[file.101]
+path = "storage/state_db/bench/cryptosim/block.go"
+lines = 113
+verdict = "clean"
+note = "Block container transaction/receipt iteration and end-of-block counters agree with builder/executor consumers."
+
+[file.102]
+path = "storage/state_db/bench/cryptosim/block_builder.go"
+lines = 98
+verdict = "issues"
+note = "Block builder never seeds its receipt block sequence from the persisted counter."
+
+[file.103]
+path = "storage/state_db/bench/cryptosim/cmd/configure-logger/main.go"
+lines = 73
+verdict = "clean"
+note = "Logger configurator reads validated JSON settings and emits shell assignments consumed by cryptosim.sh."
+
+[file.104]
+path = "storage/state_db/bench/cryptosim/cmd/cryptosim/main.go"
+lines = 182
+verdict = "clean"
+note = "Cryptosim command startup, config validation, signals and completion reporting reviewed against the simulator lifecycle."
+
+[file.105]
+path = "storage/state_db/bench/cryptosim/config/basic-config.json"
+lines = 53
+verdict = "clean"
+note = "Basic JSON config fields decode into current defaults; its retained database and multi-block commits expose the recorded recovery issues."
+
+[file.106]
+path = "storage/state_db/bench/cryptosim/config/debug.json"
+lines = 10
+verdict = "clean"
+note = "Debug configuration uses current workload, logging and storage fields."
+
+[file.107]
+path = "storage/state_db/bench/cryptosim/config/historical-offload-kafka.json"
+lines = 26
+verdict = "clean"
+note = "Kafka historical-offload configuration uses the declared stream topic, partition and broker fields."
+
+[file.108]
+path = "storage/state_db/bench/cryptosim/config/reciept-store.json"
+lines = 20
+verdict = "clean"
+note = "Receipt workload configuration matches currently declared read/write settings but is affected by unwired cache behavior."
+
+[file.109]
+path = "storage/state_db/bench/cryptosim/config/ss-composite-config.json"
+lines = 6
+verdict = "clean"
+note = "Composite SS JSON configuration uses the current backend and async write fields."
+
+[file.110]
+path = "storage/state_db/bench/cryptosim/config/ss-composite-pebbledb-write-only.json"
+lines = 50
+verdict = "clean"
+note = "Pebble write-only configuration explicitly disables read workload through the declared switch."
+
+[file.111]
+path = "storage/state_db/bench/cryptosim/config/ss-composite-rocksdb-write-only.json"
+lines = 50
+verdict = "clean"
+note = "RocksDB write-only configuration names the supported backend and async buffer parameters."
+
+[file.112]
+path = "storage/state_db/bench/cryptosim/config/standard-perf.json"
+lines = 13
+verdict = "clean"
+note = "Performance configuration uses current workload and timing units."
+
+[file.113]
+path = "storage/state_db/bench/cryptosim/cryptosim.go"
+lines = 603
+verdict = "issues"
+note = "Cryptosim setup, execution, suspension and teardown reviewed; persisted contract counters and receipt shutdown are deficient."
+
+[file.114]
+path = "storage/state_db/bench/cryptosim/cryptosim.sh"
+lines = 28
+verdict = "issues"
+note = "Launcher does not stop after its build command fails and may execute an older binary."
+
+[file.115]
+path = "storage/state_db/bench/cryptosim/cryptosim_config.go"
+lines = 459
+verdict = "clean"
+note = "Configuration loading/defaulting, backend validation, receipt modes and JSON field names reviewed against all packaged examples."
+
+[file.116]
+path = "storage/state_db/bench/cryptosim/cryptosim_config_test.go"
+lines = 69
+verdict = "clean"
+note = "Config tests cover real file loading, validation and backend choices with the current field types."
+
+[file.117]
+path = "storage/state_db/bench/cryptosim/cryptosim_metrics.go"
+lines = 694
+verdict = "clean"
+note = "Metric registration and counters use valid names/units; receipt cache methods exist but are not wired to an active cache observer."
+
+[file.118]
+path = "storage/state_db/bench/cryptosim/data_generator.go"
+lines = 329
+verdict = "clean"
+note = "Persisted account, contract and block counter decoding reviewed; builder does not consume the recovered block sequence."
+
+[file.119]
+path = "storage/state_db/bench/cryptosim/database.go"
+lines = 242
+verdict = "issues"
+note = "Database batch apply/commit lifecycle reviewed; forced shutdown commit returns early with a pending batch."
+
+[file.120]
+path = "storage/state_db/bench/cryptosim/historical_offload_test.go"
+lines = 76
+verdict = "clean"
+note = "Historical-offload tests use actual config validation and explicit backend errors rather than pretending remote success."
+
+[file.121]
+path = "storage/state_db/bench/cryptosim/receipt.go"
+lines = 232
+verdict = "clean"
+note = "Receipt construction validates EVM key shapes and builds declared transfer logs/hash identities."
+
+[file.122]
+path = "storage/state_db/bench/cryptosim/receipt_test.go"
+lines = 208
+verdict = "clean"
+note = "Receipt tests verify deterministic hashes, key rejection and log/account field encoding."
+
+[file.123]
+path = "storage/state_db/bench/cryptosim/reciept_store_simulator.go"
+lines = 454
+verdict = "issues"
+note = "Receipt read/write loop reviewed against the active receipt store; cache window and metric observer are unwired."
+
+[file.124]
+path = "storage/state_db/bench/cryptosim/reciept_store_simulator_test.go"
+lines = 64
+verdict = "issues"
+note = "Receipt tests only exercise ring sampling and cannot detect that configured log queries never reach storage."
+
+[file.125]
+path = "storage/state_db/bench/cryptosim/sync_map.go"
+lines = 45
+verdict = "clean"
+note = "Synchronized batch map preserves locking and the write iteration interface used by Database."
+
+[file.126]
+path = "storage/state_db/bench/cryptosim/tools/setup-ubuntu.sh"
+lines = 98
+verdict = "clean"
+note = "Ubuntu setup provisions explicit build/runtime dependencies for benchmark hosts; it has no production node activation path."
+
+[file.127]
+path = "storage/state_db/bench/cryptosim/transaction.go"
+lines = 206
+verdict = "clean"
+note = "Transfer executor uses declared account/slot keys and transaction operations; benchmark values are explicitly synthetic."
+
+[file.128]
+path = "storage/state_db/bench/cryptosim/transaction_executor.go"
+lines = 110
+verdict = "issues"
+note = "Executor cancellation bypasses flush completion while database teardown can still proceed."
+
+[file.129]
+path = "storage/state_db/bench/cryptosim/transaction_test.go"
+lines = 88
+verdict = "clean"
+note = "Transaction tests exercise supported backends and expected transfer key/value effects."
+
+[file.130]
+path = "storage/state_db/bench/cryptosim/util.go"
+lines = 134
+verdict = "clean"
+note = "Formatting and process/directory measurement helpers use the caller's configured values and units."
+
+[file.131]
+path = "storage/state_db/bench/helper.go"
+lines = 455
+verdict = "issues"
+note = "Benchmark consumer processes one fewer block than its changeset producer and leaks the final producer send."
+
+[file.132]
+path = "storage/state_db/bench/wrappers/combined_wrapper.go"
+lines = 71
+verdict = "clean"
+note = "Combined wrapper forwards identical versioned changesets to SC/SS; reads deliberately use SC as documented."
+
+[file.133]
+path = "storage/state_db/bench/wrappers/composite_wrapper.go"
+lines = 57
+verdict = "clean"
+note = "Composite adapter delegates version/load/import/commit operations without changing storage encodings."
+
+[file.134]
+path = "storage/state_db/bench/wrappers/db_implementations.go"
+lines = 168
+verdict = "issues"
+note = "Backend factory asserts concrete config pointers while its benchmark caller supplies an untyped nil."
+
+[file.135]
+path = "storage/state_db/bench/wrappers/db_wrapper.go"
+lines = 38
+verdict = "clean"
+note = "DBWrapper defines the versioned changelog and importer API used by benchmarks and simulators."
+
+[file.136]
+path = "storage/state_db/bench/wrappers/flatkv_wrapper.go"
+lines = 71
+verdict = "clean"
+note = "FlatKV adapter uses actual commit-store APIs and preserves error/close behavior."
+
+[file.137]
+path = "storage/state_db/bench/wrappers/historical_offload_wrapper.go"
+lines = 180
+verdict = "clean"
+note = "Historical offload wrapper validates Kafka settings and publishes versioned changesets through the real stream."
+
+[file.138]
+path = "storage/state_db/bench/wrappers/historical_offload_wrapper_test.go"
+lines = 80
+verdict = "clean"
+note = "Historical-offload tests assert real adapter sequencing, configuration refusals and publish errors."
+
+[file.139]
+path = "storage/state_db/bench/wrappers/memiavl_wrapper.go"
+lines = 61
+verdict = "clean"
+note = "MemIAVL adapter preserves state commitment/import/version semantics used by benchmark scenarios."
+
+[file.140]
+path = "storage/state_db/bench/wrappers/noop_wrapper.go"
+lines = 55
+verdict = "clean"
+note = "NoOp is an explicitly named benchmark baseline; it is not wired as a production storage fallback."
+
+[file.141]
+path = "storage/state_db/bench/wrappers/state_store_wrapper.go"
+lines = 71
+verdict = "clean"
+note = "State-store wrapper sends each changelog at its supplied version and deliberately exposes unsupported import as an error."
+
+[file.142]
+path = "storage/state_db/bench/wrappers/state_store_wrapper_test.go"
+lines = 80
+verdict = "clean"
+note = "State-store tests verify versioned apply/read delegation and explicit importer refusal."
+
+[file.143]
+path = "storage/state_db/bench/wrappers/wrappers_test.go"
+lines = 193
+verdict = "clean"
+note = "Wrapper delegation tests use doubles to isolate adapter behavior; they do not claim persistence-path qualification."
+
+[file.144]
+path = "storage/state_db/sc/composite/exporter.go"
+lines = 122
+verdict = "clean"
+note = "Composite exporter concatenates self-describing memIAVL and FlatKV streams and propagates completion/errors without duplicate headers."
+
+[file.145]
+path = "storage/state_db/sc/composite/importer.go"
+lines = 59
+verdict = "clean"
+note = "Composite importer dispatches module headers and nodes to the corresponding backend and joins close errors."
+
+[file.146]
+path = "storage/state_db/sc/composite/pending_store.go"
+lines = 261
+verdict = "clean"
+note = "Pending-store empty reads, discarded writes and absent authenticated root behavior agree with the documented MemiavlOnly lifecycle."
+
+[file.147]
+path = "storage/state_db/sc/composite/pending_store_test.go"
+lines = 286
+verdict = "clean"
+note = "Pending-store tests verify unchanged app hashes, write discard, reopen behavior, upgrade creation and unknown-name refusal."
+
+[file.148]
+path = "storage/state_db/sc/composite/random_test.go"
+lines = 454
+verdict = "issues"
+note = "Randomized scenarios restart immediately after rollback, hiding state retained by the same composite handle."
+
+[file.149]
+path = "storage/state_db/sc/composite/random_test_framework_test.go"
+lines = 1596
+verdict = "clean"
+note = "Randomized oracle framework checks actual backend placement, row decoding, values, hashes, proofs and bounded iteration."
+
+[file.150]
+path = "storage/state_db/sc/composite/state_sync_merge_stores_test.go"
+lines = 156
+verdict = "clean"
+note = "State-sync merge tests use real exporters/importers and compare module presence, hash and values after reopening."
+
+[file.151]
+path = "storage/state_db/sc/composite/store.go"
+lines = 986
+verdict = "issues"
+note = "Composite rollback preserves a sticky lattice-hash flag and router state across backend rewind."
+
+[file.152]
+path = "storage/state_db/sc/composite/store_merge_stores_test.go"
+lines = 178
+verdict = "issues"
+note = "All-mode merge-store tests start fresh; the legacy-to-pending-to-created scenario is restricted to MemiavlOnly."
+
+[file.153]
+path = "storage/state_db/sc/composite/store_migration_test.go"
+lines = 889
+verdict = "clean"
+note = "Migration integration tests drive real mode transitions and deterministic workload/root comparison."
+
+[file.154]
+path = "storage/state_db/sc/composite/store_test.go"
+lines = 2528
+verdict = "clean"
+note = "Composite API tests cover load, commit, cloning, export/import, direct writes and error paths; migration-boundary rewind needs a focused regression."
+
+[finding.composite-rewind]
+file = "storage/state_db/sc/composite/store.go"
+class = "restart-recovery"
+severity = "high"
+observed = "Rollback reopens memIAVL and FlatKV at targetVersion but retains latticeAppendLatched, migrationAdvancedThisCommit and the router. After observing the first MigrateEVM commit, rewinding to the pre-migration height still appends evm_lattice to LastCommitInfo although that height was committed with a memIAVL-only app hash. Writable LoadVersion also rebuilds the router without clearing the sticky hash flag."
+expected = "The Committer rewind/load lifecycle must reproduce the original committed hash and routing at the selected height, including the first migration boundary; memiavl/store.go Rollback and flatkv/snapshot.go Rollback both reopen usable backend handles."
+proposal = "In storage/state_db/sc/composite/store.go rebuild all height-dependent router, pending and migration/hash state after a successful rewind or writable reload. Add a real same-handle migration-boundary rollback/reload regression comparing LastCommitInfo, working hash and subsequent reads/writes with a fresh reopen."
+owner_domain = 5
+interface = "5.go-storage-state-db-sc-types-committer"
+line = 747
+
+[finding.p2p-params-height]
+file = "consensus/internal/statesync/stateprovider.go"
+class = "interface-mismatch"
+severity = "high"
+observed = "StateProviderP2P.State requests consensusParams at currentLightBlock.Height (snapshot H+1), but compares their hash with nextLightBlock.ConsensusHash at H+2. The serving reactor returns parameters for the requested height, and the RPC light-client path validates parameters against the header at that same height. A parameter change between those heights makes a valid restoration fail."
+expected = "ParamsChannel must round-trip the parameters at the requested height and validate their hash against that height's trusted header; RPC and P2P state restoration must agree across parameter changes."
+proposal = "In consensus/internal/statesync/stateprovider.go validate H+1 parameters against currentLightBlock.ConsensusHash and preserve height correlation through the ParamsChannel response. Add a real request/response restoration test with distinct valid H+1 and H+2 parameter hashes and a wrong-height refusal."
+owner_domain = 15
+interface = "15.go-consensus-internal-statesync-params-channel-j57"
+line = 348
+
+[finding.seen-commit-destination]
+file = "consensus/scripts/scmigrate/migrate.go"
+class = "restart-recovery"
+severity = "high"
+observed = "Migrate sorts canonical and height-suffixed SeenCommit records together. If the canonical key holds an older commit and a suffixed key holds the newest, renameRecord replaces the canonical value with the newest, then deleteRecords removes the older record's canonical key from the precomputed remove list. The retained newest commit disappears."
+expected = "The declared idempotent SeenCommit migration must preserve exactly the highest valid commit when old and new key formats coexist, and interruption/retry must not remove its destination."
+proposal = "In consensus/scripts/scmigrate/migrate.go select and write the winning canonical record together with deletion of source keys in one durable batch, explicitly excluding the destination from deletion. Extend migrate_test.go with older-canonical/newer-legacy and interrupted/repeated mixed-format migrations."
+owner_domain = 15
+interface = "15.go-consensus-scripts-scmigrate-migrate-j57"
+line = 180
+
+[finding.validator-power-width]
+file = "consensus/test/e2e/app/app.go"
+class = "interface-mismatch"
+severity = "high"
+observed = "Manifest.ValidatorUpdates and MakeAppConfig use int64 voting powers, but node.Config.ValidatorUpdates and app.Config.ValidatorUpdates use uint8. A valid manifest update with power 256 is serialized into TOML by the real producer and cannot be decoded by the node consumer, preventing the declared validator update from reaching the application."
+expected = "Validator powers must retain the same validated signed range through manifest, generated TOML, node.Config, app.Config and ABCI ValidatorUpdate; the transport must not narrow an accepted int64 to uint8."
+proposal = "In consensus/test/e2e/node/config.go and consensus/test/e2e/app/app.go carry the validated int64 voting power used by pkg/manifest.go and runner/setup.go through to ABCI. Prove MakeAppConfig output decoding and application update for powers 0, 255, 256 and the accepted upper bound."
+owner_domain = 15
+interface = "15.go-consensus-test-e2e-app-config-j57"
+line = 79
+
+[finding.backfill-close]
+file = "consensus/internal/statesync/block_queue.go"
+class = "runtime-risk"
+severity = "medium"
+observed = "_closeChannels closes doneCh and immediately selects from it, so it always returns before closing waiters and verifyCh. It also closes doneCh unconditionally, so a second close panics instead of safely ending the queue lifecycle."
+expected = "Backfill completion and cancellation must release blocked consumers once and permit competing shutdown paths without a close-of-closed-channel panic."
+proposal = "In consensus/internal/statesync/block_queue.go check closure before closing doneCh, then close and clear outstanding notification channels exactly once. Extend block_queue_test.go with active fetch/verify waiters and repeated/concurrent shutdown."
+owner_domain = 15
+line = 230
+
+[finding.snapshot-allocation]
+file = "consensus/internal/statesync/chunks.go"
+class = "security"
+severity = "medium"
+observed = "newChunkQueue eagerly sizes four maps from the peer-advertised uint32 snapshot.Chunks. Message.Validate only rejects zero and snapshotPool.Add does not bound it, so a tiny valid announcement with billions of chunks can trigger enormous allocation before OfferSnapshot or trusted app-hash verification."
+expected = "Untrusted snapshot metadata must be bounded before allocating memory; the receiver must reject unsupported resource requirements without exhausting a joining node."
+proposal = "In consensus/internal/statesync/chunks.go and proto/tendermint/statesync/message.go enforce a documented supported chunk budget before creating a queue and allocate tracking incrementally within that budget. Add a real wire-announcement refusal test at the boundary and above it."
+owner_domain = 15
+interface = "15.go-consensus-internal-statesync-snapshot-channel-j57"
+line = 55
+
+[finding.dispatcher-close]
+file = "consensus/internal/statesync/dispatcher.go"
+class = "runtime-risk"
+severity = "medium"
+observed = "Dispatcher.Close deletes pending entries from calls without delivering nil, closing their channels or canceling their wait contexts. Its comment promises nil completion, but outstanding LightBlock requests can remain blocked until the caller's independent timeout or cancellation."
+expected = "Closing the light-block transport must promptly and consistently complete all pending calls with a shutdown outcome while preventing late responses from double-completing them."
+proposal = "In consensus/internal/statesync/dispatcher.go give pending calls a single completion/cancellation mechanism used by response, timeout and Close. Test Close with a live request and assert prompt completion and safe late-response rejection."
+owner_domain = 15
+interface = "15.go-consensus-internal-statesync-light-block-channel-j57"
+line = 129
+
+[finding.dispatcher-timeout-assertion]
+file = "consensus/internal/statesync/dispatcher_test.go"
+class = "test-gap"
+severity = "medium"
+observed = "The concurrent peer-list test's one-second timeout branch invokes t.Failed(), which only reads the test status. A blocked peer list can therefore take the timeout branch and still pass without checking that waiting goroutines completed."
+expected = "A concurrency regression that exceeds its completion deadline must fail the test and preserve evidence that the blocked calls did not finish."
+proposal = "In consensus/internal/statesync/dispatcher_test.go turn the timeout into a failure assertion and terminate/join the waiting goroutines via their context. Keep the completion and remaining-peer assertions on both success and failure paths."
+owner_domain = 15
+line = 339
+
+[finding.backfill-empty-assertion-loop]
+file = "consensus/internal/statesync/reactor_test.go"
+class = "test-gap"
+severity = "medium"
+observed = "The backfill test sets startHeight=20 and stopHeight=10, then checks stored blocks in an ascending loop conditioned height<=stopHeight. The loop executes zero times, leaving all per-height persistence and commit assertions unexecuted despite the test's apparent coverage."
+expected = "Backfill qualification must inspect every recovered height from 20 down through 10, including block metadata and commits, rather than only counters and out-of-range absence."
+proposal = "In consensus/internal/statesync/reactor_test.go iterate over the actual recovered interval in the correct direction and assert the number of visited heights. Preserve the existing boundary and metric assertions."
+owner_domain = 15
+line = 580
+
+[finding.params-transition-test]
+file = "consensus/internal/statesync/reactor_test.go"
+class = "test-gap"
+severity = "medium"
+observed = "handleConsensusParamsRequest always serves DefaultConsensusParams, and the P2P state assertions use the same default shape. No fixture changes consensus parameters between snapshot H+1 and H+2, so the wrong-header comparison in StateProviderP2P.State is invisible."
+expected = "The real P2P producer/transport/consumer test must distinguish adjacent header parameter hashes and reject a mismatched-height response."
+proposal = "In consensus/internal/statesync/reactor_test.go produce a real parameter change across the restored interval, serve parameters by request height, and assert the returned state's exact parameters plus wrong-height/hash refusals."
+owner_domain = 15
+interface = "15.go-consensus-internal-statesync-params-channel-j57"
+line = 654
+
+[finding.snapshot-comparator]
+file = "consensus/internal/statesync/snapshots.go"
+class = "runtime-risk"
+severity = "medium"
+observed = "sorterFactory returns true for a greater peer count but does not return false for a smaller count before comparing Format. At equal height, a higher-peer lower-format snapshot and a lower-peer higher-format snapshot can each sort before the other, violating sort.Slice's ordering contract."
+expected = "Snapshot preference must define a consistent total or strict weak ordering so the same supported snapshot wins independently of map iteration order."
+proposal = "In consensus/internal/statesync/snapshots.go compare peer counts in both directions before using the format tie-breaker, document the intended priority, and add antisymmetry and permutation tests for equal-height candidates."
+owner_domain = 15
+line = 210
+
+[finding.discovery-cancellation]
+file = "consensus/internal/statesync/syncer.go"
+class = "runtime-risk"
+severity = "medium"
+observed = "SyncAny sleeps during initial and repeated snapshot discovery without selecting ctx.Done. When no snapshot is available its loop repeatedly sleeps and continues forever, even after the node's context is canceled."
+expected = "A node waiting for an available state-sync snapshot must stop promptly on shutdown and must not keep its restoration task alive indefinitely."
+proposal = "In consensus/internal/statesync/syncer.go replace discovery sleeps with context-aware timer waits and check cancellation on every empty discovery cycle. Add an empty-network cancellation test that asserts goroutine completion."
+owner_domain = 15
+line = 139
+
+[finding.authors-argument]
+file = "consensus/scripts/authors.sh"
+class = "runtime-risk"
+severity = "low"
+observed = "authors.sh enables set -u then expands $1 before checking for a reference. Running the script without arguments exits on an unbound variable and never reaches its Usage branch."
+expected = "The maintenance command must give its documented usage and a deliberate nonzero exit status when the required reference is missing."
+proposal = "In consensus/scripts/authors.sh validate the argument count before reading the first argument and emit the usage text consistently; retain strict shell error handling."
+owner_domain = 16
+line = 5
+
+[finding.distribution-upstream]
+file = "consensus/scripts/dist.sh"
+class = "retired-reference"
+severity = "low"
+observed = "dist.sh still links github.com/tendermint/tendermint/version.TMCoreSemVer, invokes make tools, and packages a standalone tendermint command, although the fork's distribution targets were retired and the supported module/version symbol is the Paxeer consensus path."
+expected = "Retired upstream distribution procedures must not present themselves as a usable way to produce the merged node release."
+proposal = "In consensus/scripts/dist.sh retire the obsolete entry point explicitly or replace it with the supported repository release tooling, correct fork version metadata, and link the supported product release procedure from scripts/README.md."
+owner_domain = 16
+line = 22
+
+[finding.nodejs-bootstrap-http]
+file = "consensus/scripts/get_nodejs.sh"
+class = "security"
+severity = "medium"
+observed = "get_nodejs.sh retrieves a Node v12.9.0 executable archive over plaintext HTTP, extracts it into the user's executable tree and installs Dredd through it without authenticating the downloaded archive."
+expected = "Developer tooling that installs executable bytes must verify an authenticated supported runtime distribution before executing it."
+proposal = "In consensus/scripts/get_nodejs.sh use the repository's supported runtime provisioning and authenticated artifact digest verification; retire the obsolete Node 12 bootstrap if Dredd is no longer a maintained tool."
+owner_domain = 16
+line = 8
+
+[finding.metric-label-order]
+file = "consensus/scripts/metricsgen/metricsdiff/metricsdiff.go"
+class = "runtime-risk"
+severity = "medium"
+observed = "labelsToStringList converts a slice to sort.StringSlice but never sorts it. listDiff expects sorted label names, so semantically identical metric labels supplied in a different order can be reported as added or removed."
+expected = "Metrics compatibility comparison must be independent of Prometheus label ordering and identify only actual label-set changes."
+proposal = "In consensus/scripts/metricsgen/metricsdiff/metricsdiff.go sort a copied label-name list before the merge comparison. Add reordered-label fixtures that produce no diff and a changed-label fixture that reports exactly that change."
+owner_domain = 15
+line = 143
+
+[finding.metricsgen-input-dir]
+file = "consensus/scripts/metricsgen/metricsgen.go"
+class = "config-drift"
+severity = "medium"
+observed = "The metricsgen -dir flag is documented as the input package directory and is used for the output path, but main parses '.' unconditionally. Running the CLI from another directory can fail to find the intended struct or write metrics for the wrong package into the selected directory."
+expected = "The generator's declared package directory must select both the parsed source and the generated destination, independent of the process working directory."
+proposal = "In consensus/scripts/metricsgen/metricsgen.go pass the selected input directory to ParseMetricsDir and add a CLI-level test invoked outside the fixture directory that checks package identity and output placement."
+owner_domain = 15
+line = 134
+
+[finding.snapshot-prune-reopen]
+file = "consensus/test/e2e/app/snapshots.go"
+class = "restart-recovery"
+severity = "medium"
+observed = "SnapshotStore.Prune deletes snapshot JSON files and trims only the in-memory metadata slice. It never calls saveMetadata, so reopening reloads entries for deleted files, advertises unavailable chunks and can repeatedly fail future pruning on the missing files."
+expected = "The snapshot listing and on-disk chunk inventory must remain consistent after successful pruning and process restart."
+proposal = "In consensus/test/e2e/app/snapshots.go persist pruned metadata with recoverable ordering and make interrupted prune recovery explicit. Add create/prune/reopen/list/load tests including a restart between file removal and metadata replacement."
+owner_domain = 15
+line = 127
+
+[finding.app-state-rollback]
+file = "consensus/test/e2e/app/state.go"
+class = "restart-recovery"
+severity = "medium"
+observed = "State.Rollback unmarshals previous JSON into the live State whose Values map is already populated. JSON decoding retains keys absent from the older object, while restoring its older Hash field; the resulting values disagree with the reported hash. The reverted state is also not installed as the current durable state before reopening."
+expected = "Rollback must replace the complete value set and hash atomically and reopening must recover the rolled-back state, including deletion of keys introduced after the target state."
+proposal = "In consensus/test/e2e/app/state.go decode into fresh state data, validate/recompute its hash, swap it under the state lock and durably install the selected rollback state. Test a newly added key disappearing and a stop/reopen preserving the rollback."
+owner_domain = 15
+line = 175
+
+[finding.e2e-docker-context]
+file = "consensus/test/e2e/docker/Dockerfile"
+class = "wiring-gap"
+severity = "medium"
+observed = "The Docker target supplies consensus/ as its context, but Dockerfile copies go.mod/go.sum from that root although the Go module is at the repository root. It also pins Go 1.17, expects build/tendermint and copies test/e2e/docker/entrypoint* that is absent. The README already acknowledges that this image cannot build."
+expected = "The supported end-to-end image must build the current consensus node/application from the monorepo module and start through an existing entrypoint."
+proposal = "In consensus/test/e2e/Makefile and docker/Dockerfile use the repository module context and supported Go toolchain, package the actual built commands and provide a maintained entrypoint. Qualify a real generated builtin testnet before claiming Docker-stage coverage."
+owner_domain = 15
+line = 14
+
+[finding.generator-cardinality]
+file = "consensus/test/e2e/generator/random.go"
+class = "runtime-risk"
+severity = "medium"
+observed = "uniformSetChoice.ChooseAtLeast selects a length of 1+randomInRange(num,len-1), so when num<len it never returns exactly num elements. Choose calls ChooseAtLeast(1), making every multi-item choice contain at least two items and excluding singleton topology cases."
+expected = "The manifest generator's declared minimum must be attainable, and single-peer/single-perturbation cases must remain in the generated configuration space."
+proposal = "In consensus/test/e2e/generator/random.go choose a count in the inclusive requested-minimum-to-length range without the extra increment. Extend random_test.go to establish reachability of each supported cardinality with fixed seeds."
+owner_domain = 15
+line = 82
+
+[finding.generator-map-seed]
+file = "consensus/test/e2e/generator/random.go"
+class = "runtime-risk"
+severity = "medium"
+observed = "probSetChoice and weightedChoice consume a seeded random stream while iterating Go maps in unspecified order. The same generator seed can assign draws or weighted intervals to different keys across processes, contradicting the README's deterministic testnet-generation promise."
+expected = "A supplied seed must reproduce the same manifest bytes and selection decisions across clean processes so an operator can replay a failed network configuration."
+proposal = "In consensus/test/e2e/generator/random.go sort choice keys before consuming the random stream or constructing weighted intervals. In generator tests compare complete generated manifests across fresh process invocations with the same seed."
+owner_domain = 15
+line = 66
+
+[finding.node-delay-config]
+file = "consensus/test/e2e/node/config.go"
+class = "config-drift"
+severity = "medium"
+observed = "MakeAppConfig emits prepare_proposal_delay_ms, process_proposal_delay_ms, check_tx_delay_ms and finalize_block_delay_ms, and app.Config consumes those fields, but node.Config declares none of them and App() never forwards them. TOML decode therefore discards the runner's requested delays."
+expected = "Manifest timing knobs must survive generated TOML and node application construction so stress and timeout scenarios execute the configured delays."
+proposal = "In consensus/test/e2e/node/config.go decode and forward every supported app delay field into app.Config. Prove the real runner-produced TOML through LoadConfig/App and observe each configured application delay with bounded assertions."
+owner_domain = 15
+interface = "15.go-consensus-test-e2e-app-config-j57"
+line = 33
+
+[finding.runner-protocol]
+file = "consensus/test/e2e/runner/setup.go"
+class = "interface-mismatch"
+severity = "high"
+observed = "MakeAppConfig hardcodes protocol='socket' and ignores node.ABCIProtocol, whereas node.run accepts only builtin and returns invalid protocol for socket. Even a valid builtin manifest is serialized into a node configuration that the actual consumer refuses."
+expected = "The valid builtin protocol must round-trip from Manifest through Testnet.Node and MakeAppConfig to node.LoadConfig/run so the in-process ABCI application and leader source can start."
+proposal = "In consensus/test/e2e/runner/setup.go serialize the supported application protocol selected by the manifest; align pkg validation and node protocol support for any remaining transports. Add a real generated-builtin-config bootstrap test and explicit refusal of unsupported transports."
+owner_domain = 15
+interface = "15.go-consensus-test-e2e-pkg-manifest-j57"
+line = 323
+
+[finding.socket-example]
+file = "consensus/test/e2e/node/socket.toml"
+class = "config-drift"
+severity = "medium"
+observed = "node/socket.toml presents a runnable socket application configuration, but node/main.go's run switch implements only builtin and rejects this example before starting the application."
+expected = "Checked-in node examples must represent supported startup modes or clearly identify the old transport as retired."
+proposal = "In consensus/test/e2e/node/socket.toml replace the obsolete example with a supported mode or retire it together with references; keep node protocol validation and examples synchronized."
+owner_domain = 15
+line = 4
+
+[finding.cleanup-network-isolation]
+file = "consensus/test/e2e/runner/cleanup.go"
+class = "runtime-risk"
+severity = "medium"
+observed = "Cleanup(testnet) invokes cleanupDocker without the testnet identity. The Docker commands remove every container and network carrying label=e2e, including other concurrently running manifests, despite the command being invoked for one selected testnet."
+expected = "Cleaning one development network must preserve other running testnets and their evidence, particularly parallel CI jobs sharing a Docker host."
+proposal = "In consensus/test/e2e/runner/cleanup.go scope removal to the selected compose project/testnet label and pass that identity through Cleanup. Verify two simultaneously created networks and show cleanup removes only the selected one."
+owner_domain = 15
+line = 31
+
+[finding.load-rejection-count]
+file = "consensus/test/e2e/runner/load.go"
+class = "test-gap"
+severity = "medium"
+observed = "loadProcess increments successes whenever BroadcastTxSync returns no Go error, discarding the response's CheckTx code. A healthy RPC transport that rejects every transaction still satisfies the runner's successful-load count."
+expected = "Successful load generation must count accepted transactions and surface application rejections separately from transport errors; rejected traffic cannot qualify block execution load."
+proposal = "In consensus/test/e2e/runner/load.go inspect the actual BroadcastTxSync code and count only accepted responses, retaining rejected-code diagnostics. Assert the real producer response shape for accepted and rejected transactions."
+owner_domain = 15
+line = 184
+
+[finding.height-block-retry]
+file = "consensus/test/e2e/runner/rpc.go"
+class = "runtime-risk"
+severity = "medium"
+observed = "waitForHeight marks every running node reached before attempting target-block retrieval. If all Block calls fail transiently on that iteration, subsequent iterations skip every reached node, never retry Block and eventually report a stalled chain even though all nodes reached the requested height."
+expected = "After height convergence the runner must retry obtaining the target block until context/deadline expiry and distinguish retrieval failure from lack of chain progress."
+proposal = "In consensus/test/e2e/runner/rpc.go separate height tracking from target-block retrieval and perform the latter on every retry after convergence. Add a polling regression where status succeeds and the first block fetch fails transiently."
+owner_domain = 15
+line = 87
+
+[finding.peer-assertions-skipped]
+file = "consensus/test/e2e/tests/net_test.go"
+class = "test-gap"
+severity = "medium"
+observed = "TestNet_Peers always calls SkipNow, so no live topology assertions run. Its unreachable body additionally calls LookupNode(string(peer.ID)) even though the lookup expects manifest names, and tracks peer IDs in a map initialized with names."
+expected = "The E2E suite must prove the topology actually requested by each manifest using a consistent node identity mapping; it must not silently omit all peering qualification."
+proposal = "In consensus/test/e2e/tests/net_test.go map consensus peer IDs to the corresponding manifest node and assert configured persistent/discovery connectivity without assuming every network must be fully meshed. Remove the unconditional skip only with the corrected real topology assertions."
+owner_domain = 15
+line = 15
+
+[finding.proposer-pin-fixture]
+file = "consensus/test/e2e/tests/validator_test.go"
+class = "test-gap"
+severity = "medium"
+observed = "TestValidator_Propose computes expected proposers exclusively from ValidatorSet priority. networks/sequencer.toml instead pins validator01/validator02 from height 3 while validator03 remains in the validator set, so the test expects proposals from a node intentionally excluded by the configured leader pin."
+expected = "Proposer qualification must follow the actual leader schedule and activation height, while signature qualification may continue to cover all voting validators."
+proposal = "In consensus/test/e2e/tests/validator_test.go derive expected proposers through the configured leader-pin policy at each height/round, retain pre-activation checks and assert excluded validators never propose after activation. Exercise networks/sequencer.toml through the real runner."
+owner_domain = 15
+interface = "5.go-consensus-test-e2e-app-application-leader-schedule-j32"
+line = 76
+
+[finding.fuzz-build-tag-doc]
+file = "consensus/test/fuzz/README.md"
+class = "doc-drift"
+severity = "medium"
+observed = "The three documented go test -fuzz commands omit -tags=gofuzz, although every source in consensus/test/fuzz/tests has //go:build gofuzz. The published commands exclude the fuzz entrypoints instead of exercising the listed mempool, secret-connection and JSON-RPC fuzzers."
+expected = "Fuzz instructions must select the actual tagged native Go fuzz functions in this checkout and name one function per invocation."
+proposal = "In consensus/test/fuzz/README.md include the required gofuzz build tag and exact fuzz function selectors in each command, while keeping the upstream OSS-Fuzz limitation explicit."
+owner_domain = 15
+line = 18
+
+[finding.benchmark-factory-config]
+file = "storage/state_db/bench/wrappers/db_implementations.go"
+class = "runtime-risk"
+severity = "medium"
+observed = "runBenchmark always passes nil as dbConfig to NewDBImpl. FlatKV, SSComposite, SSHistoricalOffload and CompositeDual_SSComposite directly type-assert that nil to backend config pointers, so the documented benchmark suite panics during setup before measuring these backends."
+expected = "The shared benchmark entry path must construct validated defaults for each selected backend and return a useful configuration error rather than panic on its own caller."
+proposal = "In storage/state_db/bench/helper.go provide the concrete configuration required by each backend, and in wrappers/db_implementations.go validate unsupported config shapes explicitly. Verify the actual factory/helper entry path for every advertised backend."
+owner_domain = 5
+interface = "5.go-storage-state-db-bench-wrappers-new-db-impl"
+line = 152
+
+[finding.benchmark-last-block]
+file = "storage/state_db/bench/helper.go"
+class = "runtime-risk"
+severity = "medium"
+observed = "startChangesetGenerator emits NumBlocks changesets on an unbuffered channel, while runBenchmark consumes only NumBlocks-1. The final producer send remains blocked for each benchmark iteration and TotalKeys throughput reports work that was never committed; b.Elapsed is also cumulative while the numerator remains one iteration."
+expected = "The measured block/key counts must equal completed durable work, each producer must terminate, and b.N iterations must be included consistently in throughput."
+proposal = "In storage/state_db/bench/helper.go consume the full generated block stream, join/cancel its producer on every exit, and derive metrics from actual processed keys and elapsed work across all iterations. Add a small real-backend scenario whose committed count and producer completion are observable."
+owner_domain = 5
+line = 424
+
+[finding.benchmark-distributions]
+file = "storage/state_db/bench/bench_sc_test.go"
+class = "test-gap"
+severity = "medium"
+observed = "BenchmarkMemIAVLWriteWithDifferentKeyDistributions and BenchmarkFlatKVWriteWithDifferentKeyDistributions name bursty, normal and ramp scenarios but omit Distribution in all of them. runBenchmark fills every nil distribution with EvenDistribution, so the advertised comparison repeats the even workload."
+expected = "Each benchmark label must execute its named key distribution and demonstrate a workload distinct from the even scenario."
+proposal = "In storage/state_db/bench/bench_sc_test.go supply the actual BurstyDistribution, NormalDistribution and RampDistribution functions for the named scenarios; assert representative per-block counts before using the comparison as performance evidence."
+owner_domain = 5
+line = 205
+
+[finding.cryptosim-block-restart]
+file = "storage/state_db/bench/cryptosim/block_builder.go"
+class = "restart-recovery"
+severity = "medium"
+observed = "NewBlockBuilder leaves nextBlockNumber at zero even after DataGenerator loads initialNextBlockNumber from the retained database and NewCryptoSim initializes Database.nextBlockNumber from it. Receipt records and SyntheticTxHash use the builder's block number, so each restart reuses old receipt heights and transaction identities."
+expected = "Continuing a retained benchmark database must resume one consistent next-block sequence across state commits, receipt writes, indexes and deterministic transaction hashes."
+proposal = "In storage/state_db/bench/cryptosim/block_builder.go seed the builder from the durable counter after setup, and in database.go persist the next unused sequence consistently. Add a write/close/reopen workload proving new receipt heights and hashes do not reuse prior identifiers."
+owner_domain = 5
+line = 34
+
+[finding.cryptosim-force-flush]
+file = "storage/state_db/bench/cryptosim/database.go"
+class = "restart-recovery"
+severity = "medium"
+observed = "FinalizeBlock returns immediately when transactionsInCurrentBlock is zero, before honoring forceCommit. A completed block clears that count even if uncommittedBlockCount remains below BlocksPerCommit. Close then calls FinalizeBlock(...,true), returns early and closes the SC backend with the final partial group uncommitted."
+expected = "A normal benchmark shutdown must commit every successfully finalized block even when the last group is smaller than BlocksPerCommit; retained data and counters must describe the reported completed workload."
+proposal = "In storage/state_db/bench/cryptosim/database.go flush outstanding applied blocks when forceCommit is requested independently of whether a new current block exists. Add a real SC backend close/reopen regression with fewer finalized blocks than BlocksPerCommit."
+owner_domain = 5
+line = 134
+
+[finding.cryptosim-contract-restart]
+file = "storage/state_db/bench/cryptosim/cryptosim.go"
+class = "restart-recovery"
+severity = "medium"
+observed = "setupErc20Contracts returns early when the retained contract count already meets the configured minimum, before assigning c.nextERC20ContractID. It remains zero and suspend/teardown pass it to Database.FinalizeBlock, so a nonempty pending block can persist a zero contract counter and later setup can reuse existing IDs."
+expected = "The recovered ERC20 contract counter must be initialized on every setup path and must never regress when suspending or closing an existing workload."
+proposal = "In storage/state_db/bench/cryptosim/cryptosim.go initialize the simulator counter from DataGenerator before the early return and use the latest finalized block counter consistently. Test retained setup followed by suspend/shutdown and a second reopen without counter regression."
+owner_domain = 5
+line = 321
+
+[finding.cryptosim-cancel-flush]
+file = "storage/state_db/bench/cryptosim/transaction_executor.go"
+class = "restart-recovery"
+severity = "medium"
+observed = "TransactionExecutor.Flush returns immediately when its shared context is canceled instead of waiting for queued execution. CryptoSim teardown calls Database.Close/FinalizeBlock using that same canceled context without joining executors, allowing writes to race the final batch or backend close and losing already counted work."
+expected = "Shutdown must stop admission, drain accepted transaction work, finalize the corresponding state, join workers and then close databases; cancellation alone must not be treated as a successful flush."
+proposal = "In storage/state_db/bench/cryptosim/transaction_executor.go and cryptosim.go separate admission cancellation from drain completion, join worker goroutines and report flush failure explicitly. Exercise cancellation with queued real transactions and verify final state after reopening."
+owner_domain = 5
+line = 67
+
+[finding.cryptosim-receipt-drain]
+file = "storage/state_db/bench/cryptosim/cryptosim.go"
+class = "restart-recovery"
+severity = "medium"
+observed = "NewCryptoSim discards the receipt simulator handle after starting it. The simulator exits as soon as its context is canceled, and teardown signals closeChan without waiting for the receipt channel to drain or the receipt store to close. Reported workload completion can precede receipt persistence and background shutdown."
+expected = "Receipt-enabled completion must account for every accepted block and wait for its storage writer to finish or return a clear incomplete-run error."
+proposal = "In storage/state_db/bench/cryptosim/cryptosim.go retain the receipt writer lifecycle, close its input after stopping producers, drain/join it and surface storage errors before signaling completion. Prove retained receipts across shutdown with a queued final block."
+owner_domain = 5
+line = 189
+
+[finding.cryptosim-cache-window]
+file = "storage/state_db/bench/cryptosim/reciept_store_simulator.go"
+class = "wiring-gap"
+severity = "medium"
+observed = "receiptCacheWindowBlocks is declared but never initialized. executeLogFilterRead computes safeWindow=0 and cacheMin=latest, then returns because latest<=cacheMin, so every configured cache log-filter worker executes no FilterLogs query. Receipt sampling is also restricted to the latest block rather than the advertised window."
+expected = "Configured receipt/log read load must reach the active receipt backend at the requested rate over a supported retained range; a retired cache must not silently turn the workload into a no-op."
+proposal = "In storage/state_db/bench/cryptosim/reciept_store_simulator.go derive a supported read window from the active receipt backend or reject obsolete cache-only configurations in cryptosim_config.go. Add a real-store workload test observing nonzero FilterLogs and GetReceipt operations."
+owner_domain = 5
+interface = "5.go-storage-state-db-bench-cryptosim-new-crypto-sim"
+line = 157
+
+[finding.cryptosim-cache-observer]
+file = "storage/state_db/bench/cryptosim/reciept_store_simulator.go"
+class = "wiring-gap"
+severity = "medium"
+observed = "The constructor comment says cryptosim passes metrics into a cache wrapper, but NewReceiptStoreWithReadMetrics accepts only config and StoreKey and constructs the plain backend. CryptosimMetrics' cache hit/miss and cache timing methods have no connected observer, leaving the declared cache metrics unmeasured."
+expected = "Metric names presented as active performance evidence must be driven by the layer that observes the operation; retired cache behavior must be explicitly retired in config, documentation and metric declarations."
+proposal = "In storage/state_db/bench/cryptosim/reciept_store_simulator.go and cryptosim_metrics.go align metrics with the supported receipt backend and connect real operation observers, or retire the unsupported cache-only series with corresponding registry/documentation changes. Verify observed counters through the actual write/read path."
+owner_domain = 5
+interface = "5.met-cryptosim-cryptosim-receipt-cache-hits-total"
+line = 149
+
+[finding.receipt-workload-test-gap]
+file = "storage/state_db/bench/cryptosim/reciept_store_simulator_test.go"
+class = "test-gap"
+severity = "medium"
+observed = "The receipt simulator test file only exercises txHashRing.RandomEntryInBlockRange; it never constructs the simulator, writes to a receipt store or observes GetReceipt/FilterLogs. The zero cache window and absent observer therefore leave the configured workload unverified."
+expected = "A performance workload must prove its configured readers and metrics execute against its actual producer/store path, including reopen and a refused query shape."
+proposal = "In storage/state_db/bench/cryptosim/reciept_store_simulator_test.go add bounded real-backend write/read/log-filter and reopen coverage with observable operations and decoded receipts. Keep ring unit tests as supporting coverage rather than workload qualification."
+owner_domain = 5
+line = 10
+
+[finding.cryptosim-build-failure]
+file = "storage/state_db/bench/cryptosim/cryptosim.sh"
+class = "runtime-risk"
+severity = "medium"
+observed = "cryptosim.sh invokes make build without set -e or checking its status and then execs bin/cryptosim. If a previous binary exists and the new build fails, the launcher can run that stale binary and produce benchmark output for a different source revision."
+expected = "A requested benchmark run must stop when its selected source cannot build, and evidence must identify the executable actually measured."
+proposal = "In storage/state_db/bench/cryptosim/cryptosim.sh fail immediately on build errors before configuring the logger or executing the binary; retain the failing build exit status and identify the binary revision in run metadata."
+owner_domain = 5
+line = 15
+
+[finding.rollback-regression-gap]
+file = "storage/state_db/sc/composite/random_test.go"
+class = "test-gap"
+severity = "medium"
+observed = "The randomized rollback scenario immediately calls restartComposite before inspecting the rolled-back state. A fresh composite clears in-memory migration state, so these tests cannot detect the live-handle rollback/hash defect or incorrect routing across the first migration boundary."
+expected = "The Committer.Rollback contract must be exercised before and after reopen on the same handle, especially when crossing a migration activation or pending-store creation boundary."
+proposal = "In storage/state_db/sc/composite/random_test.go add same-handle checks before restart, and in store_migration_test.go rewind from the first migration commit to the seeded baseline. Compare exact commit info, values, routes and next committed hash against a clean reopen."
+owner_domain = 5
+interface = "5.go-storage-state-db-sc-types-committer"
+line = 71
+
+[finding.runbook-plan]
+file = "docs/runbooks/paxeer-x-fork.md"
+class = "doc-drift"
+severity = "medium"
+observed = "The runbook introduction and local values describe v6.6 as the target upgrade and adding layerxanchor, while its merge rehearsal later requires v7.0 followed by v7.0-anchor-store-delete. The same operational procedure leaves the planned network/store lifecycle ambiguous."
+expected = "The pre-merge additions and the merged network's two-plan activation/anchor retirement must be identified as distinct historical/current procedures with one unambiguous target for operators."
+proposal = "In docs/runbooks/paxeer-x-fork.md label the v6.6 procedure as historical and provide the current v7.0 plus anchor-delete sequence tied to node/upgrades.go, required rehearsal evidence and the actual supported rollback boundary."
+owner_domain = 5
+line = 4
+
+[finding.workspace-build-input]
+file = "docs/site/docs/programs/workspace.md"
+class = "doc-drift"
+severity = "medium"
+observed = "The programs-differential table lists cmd/layerxd/lxp_daemon_batch_wal.c as a current compile prerequisite, but that daemon source is absent and the current Makefile rule builds the native differential program without it. The cited active test dependency is retired."
+expected = "The Programs workspace instructions must list the current native build inputs and describe the merged kernel's actual differential coverage without an active layerxd dependency."
+proposal = "Update docs/site/docs/programs/workspace.md from the current Makefile programs-differential rule and maintained native test path; remove the obsolete daemon prerequisite and refresh the source citations in both documentation copies."
+owner_domain = 17
+line = 156
+
+[finding.wiki-workspace-build-input]
+file = "docs/wiki/ProgramsWorkspace.md"
+class = "doc-drift"
+severity = "medium"
+observed = "The programs-differential table lists cmd/layerxd/lxp_daemon_batch_wal.c as a current compile prerequisite, but that daemon source is absent and the current Makefile rule builds the native differential program without it. The cited active test dependency is retired."
+expected = "The Programs workspace instructions must list the current native build inputs and describe the merged kernel's actual differential coverage without an active layerxd dependency."
+proposal = "Update docs/wiki/ProgramsWorkspace.md from the current Makefile programs-differential rule and maintained native test path; remove the obsolete daemon prerequisite and refresh the source citations in both documentation copies."
+owner_domain = 17
+line = 156
+
+[finding.platform-retired-rpc]
+file = "docs/site/docs/platform/index.md"
+class = "doc-drift"
+severity = "medium"
+observed = "The platform index advertises POST /rpc and GET /rpc/ws, a Sequencer pod, and api-mainnet-beta.paxeer.network/rpc as a router origin. These statements describe retired deployment/interface surfaces instead of the merged BFT node and its root-path public EVM RPC."
+expected = "The public node RPC must be documented at the root of api1 through api14.mainnet-beta.paxeer.network and api-mainnet-beta.paxeer.network; px_ gateway APIs and hosted credentials must be identified by their actual hosted contract."
+proposal = "In docs/site/docs/platform/index.md replace router/unified-RPC and standalone sequencer deployment instructions with the merged paxd/kernel topology and current endpoints; link services/platform/hosted/gateway/openrpc.json for the distinct hosted px_ contract."
+owner_domain = 17
+line = 14
+
+[finding.programs-feature-inventory]
+file = "docs/site/docs/programs/index.md"
+class = "doc-drift"
+severity = "medium"
+observed = "The Programs page says LXT-20 codecs, payments-merchant and programs/fixtures/pay5 are absent, then documents how to build them. Those codec/example/fixture paths exist, including account-authorization-vectors.json, token-lxt20 artifacts and payments-merchant/Cargo.toml, and the wiki describes them as present."
+expected = "An integrator must receive one accurate source inventory and reproducible build/fixture instructions for the checked-in Programs examples."
+proposal = "In docs/site/docs/programs/index.md replace the obsolete absence claims at the introduction and LXT-20/account-vector sections with the existing source/artifact paths, and reconcile the inventory with docs/wiki/Programs.md and operators/porting.md."
+owner_domain = 17
+line = 18
+
+[finding.programs-daemon-simulation]
+file = "docs/site/docs/programs/index.md"
+class = "doc-drift"
+severity = "medium"
+observed = "The Programs simulation source list names cmd/layerxd/lxp_daemon_lni.c and lxp_daemon_lni_simulate/send_simulate as implementation hooks, but that retired daemon source is absent. The page presents the citation as the current path an integrator should use."
+expected = "Simulation documentation must trace the current merged-node/kernel and hosted API implementation and distinguish preserved native ABI semantics from retired daemon transport."
+proposal = "Update docs/site/docs/programs/index.md to cite the current simulation producer and transport used by the merged system, remove the obsolete daemon implementation reference and align the linked LNI/SDK instructions with that real path."
+owner_domain = 17
+line = 137
+
+[finding.wiki-programs-daemon-simulation]
+file = "docs/wiki/Programs.md"
+class = "doc-drift"
+severity = "medium"
+observed = "The Programs simulation source list names cmd/layerxd/lxp_daemon_lni.c and lxp_daemon_lni_simulate/send_simulate as implementation hooks, but that retired daemon source is absent. The page presents the citation as the current path an integrator should use."
+expected = "Simulation documentation must trace the current merged-node/kernel and hosted API implementation and distinguish preserved native ABI semantics from retired daemon transport."
+proposal = "Update docs/wiki/Programs.md to cite the current simulation producer and transport used by the merged system, remove the obsolete daemon implementation reference and align the linked LNI/SDK instructions with that real path."
+owner_domain = 17
+line = 136
+
+[finding.route-catalogue-drift]
+file = "docs/system/routes.md"
+class = "doc-drift"
+severity = "medium"
+observed = "The generated route catalogue is titled Router routes and advertises /rpc/evm/ws under Paxeer boundaries, while the brief retires the separate router and unified /rpc interface. Its service table still describes a product kernel sequencer boundary rather than the merged node topology."
+expected = "The generated network catalogue must represent the served merged-node endpoints and clearly distinguish hosted gateway routes from root public node RPC and internal boundaries."
+proposal = "In tools/paxeer-x/route-catalogue.json and tools/docs/gen-system-docs.sh correct retired router endpoint/topology entries, then regenerate docs/system/routes.md from the supported product interfaces; document the actual public RPC hosts and path."
+owner_domain = 17
+line = 908
+
+[finding.e2e-determinism-doc]
+file = "consensus/test/e2e/README.md"
+class = "doc-drift"
+severity = "medium"
+observed = "The E2E README promises deterministic generated combinations, but generator/random.go consumes seeded randomness while ranging over maps and therefore cannot guarantee identical manifests across processes with the same seed."
+expected = "The documented replay procedure must generate identical network inputs from the supplied seed, allowing a failed configuration to be reproduced."
+proposal = "In consensus/test/e2e/README.md document the supported reproducibility contract and exact seed invocation after generator/random.go sorts all keyed choices; include a fresh-process manifest comparison as evidence for that promise."
+owner_domain = 15
+line = 40
+
+[finding.benchmark-backend-doc]
+file = "storage/state_db/bench/README.md"
+class = "doc-drift"
+severity = "medium"
+observed = "The benchmark README advertises a standard command covering FlatKV and SS backends plus distinct key distributions, but runBenchmark passes nil to backend configuration assertions and the MemIAVL/FlatKV named distributions all default to even. The advertised evidence cannot currently be produced as described."
+expected = "Published benchmark instructions must run supported backend configurations and identify the actual workload measured before performance comparisons are used for upgrade decisions."
+proposal = "In storage/state_db/bench/README.md update the backend/configuration and distribution instructions after repairing helper.go, wrappers/db_implementations.go and bench_sc_test.go; record actual completed key/block counts and the qualified invocation."
+owner_domain = 5
+line = 14
+
+[finding.cryptosim-persistence-doc]
+file = "storage/state_db/bench/cryptosim/README.md"
+class = "doc-drift"
+severity = "medium"
+observed = "The Data Persistence section promises continuing an existing benchmark database with stable seed/buffer settings, but the builder restarts receipt IDs at zero, shutdown can leave a partial commit group uncommitted and receipt writer completion is not joined."
+expected = "Continuation instructions must specify the actual durable workload boundary and preserve state counters, receipt identity and committed data across normal stop/reopen."
+proposal = "In storage/state_db/bench/cryptosim/README.md document continuation and shutdown semantics after the builder/database/worker lifecycle repairs; include a bounded reopen example whose durable block, account, contract and receipt counters are verified."
+owner_domain = 5
+line = 21
+
+[finding.merge-legacy-mode-coverage]
+file = "storage/state_db/sc/composite/store_merge_stores_test.go"
+class = "test-gap"
+severity = "medium"
+observed = "The all-mode merge tests initialize a fresh database containing all merge stores. The only pre-merge database reopened with newly mounted stores and then ApplyUpgrades is tested in MemiavlOnly. refreshPendingStores explicitly disables pending tracking whenever FlatKV is present, so these fixtures do not establish the pre-upgrade creation lifecycle in mixed migration modes."
+expected = "Requirements 5484.1-5484.3 require the merge store surface in the supported migration modes and ending pending state at creation; fresh-genesis success alone does not establish upgrade/recovery behavior on an existing database."
+proposal = "In storage/state_db/sc/composite/store_merge_stores_test.go seed a real pre-merge store set and exercise reopen, absent-store reads/writes, ApplyUpgrades, commit and reopen for every applicable migration mode. Specify unsupported combinations explicitly rather than inferring upgrade coverage from fresh initialization."
+owner_domain = 5
+interface = "5.go-storage-state-db-sc-composite-composite-commit-store"
+line = 86
+
+[doc.1]
+path = "docs/runbooks/paxeer-x-fork.md"
+status = "stale"
+notes = "Read all 382 lines; operational instructions mix the historical v6.6 addition and current v7.0/anchor-delete rehearsal. See runbook-plan."
+
+[doc.2]
+path = "docs/site/docs/programs/workspace.md"
+status = "stale"
+notes = "Read all 197 lines; programs-differential build inputs still name the removed daemon batch WAL source. See workspace-build-input."
+
+[doc.3]
+path = "docs/wiki/ProgramsWorkspace.md"
+status = "stale"
+notes = "Read all 197 lines, including differences from the site page; the same obsolete differential input remains. See wiki-workspace-build-input."
+
+[doc.4]
+path = "docs/site/docs/operators/settlement-evidence.md"
+status = "accurate"
+notes = "Read all 105 lines; evidence/publication v2, owner/deposit signatures, checkpoint ancestry and durable retries are distinguished from payout authorization; no contradiction with this slice's interfaces."
+
+[doc.5]
+path = "docs/site/docs/operators/porting.md"
+status = "accurate"
+notes = "Read all 521 lines; native/guest ABI framing, merchant artifacts, payload bounds and verification boundaries distinguish focused source checks from live deployment qualification."
+
+[doc.6]
+path = "docs/site/docs/agents/sdks.md"
+status = "accurate"
+notes = "Read all 63 lines; SDK tree inventory and shared-schema policy distinguish receipt verification from transaction execution and do not claim unrun publication gates."
+
+[doc.7]
+path = "docs/site/docs/platform/index.md"
+status = "misleading"
+notes = "Read all 43 lines; lines 14, 19 and 27-30 advertise retired unified RPC/router and sequencer deployment surfaces. See platform-retired-rpc."
+
+[doc.8]
+path = "docs/site/docs/programs/index.md"
+status = "stale"
+notes = "Read all 583 lines; existing merchant/LXT-20 fixtures are described as absent and the simulation source cites the retired daemon. See programs-feature-inventory and programs-daemon-simulation."
+
+[doc.9]
+path = "docs/wiki/Programs.md"
+status = "stale"
+notes = "Read all 634 lines through the site text and full copy differences; current LXT-20 inventory is improved but the simulation source still cites the removed daemon. See wiki-programs-daemon-simulation."
+
+[doc.10]
+path = "docs/wiki/SettlementEvidence.md"
+status = "accurate"
+notes = "Read all 105 lines and confirmed equality with the site publication page; the evidence codec and authority/lifecycle statements agree with the reviewed slice."
+
+[doc.11]
+path = "docs/wiki/Porting.md"
+status = "accurate"
+notes = "Read all 521 lines through the site text and full copy differences; current native ABI and SDK fixture contracts are preserved, with link-only differences."
+
+[doc.12]
+path = "docs/system/routes.md"
+status = "stale"
+notes = "Read all 2132 lines, including every generated service/route row and denied surface; Router routes and /rpc/evm/ws contradict the merged-network contract. See route-catalogue-drift."
+
+[doc.13]
+path = "consensus/scripts/README.md"
+status = "accurate"
+notes = "Read in full; explicitly labels the scripts as inherited maintenance utilities and does not claim current production support for obsolete distribution tooling."
+
+[doc.14]
+path = "consensus/test/README.md"
+status = "accurate"
+notes = "Read in full; retained and retired test make surfaces agree with the supported Makefile contract."
+
+[doc.15]
+path = "consensus/test/e2e/README.md"
+status = "stale"
+notes = "Read in full; accurately discloses the broken Docker image, but deterministic generation claims exceed random.go behavior. See e2e-determinism-doc; no Docker qualification was run."
+
+[doc.16]
+path = "consensus/test/fuzz/README.md"
+status = "stale"
+notes = "Read in full; native fuzz commands omit the required gofuzz build tag while correctly marking upstream OSS-Fuzz tooling inapplicable. See fuzz-build-tag-doc."
+
+[doc.17]
+path = "storage/state_db/bench/README.md"
+status = "stale"
+notes = "Read in full; advertised backend/distribution runs are contradicted by factory setup and scenario wiring. See benchmark-backend-doc."
+
+[doc.18]
+path = "storage/state_db/bench/cryptosim/README.md"
+status = "stale"
+notes = "Read in full; retained-database continuation lacks the promised counter/receipt/shutdown continuity. See cryptosim-persistence-doc."
+
+[doc.19]
+path = "spec/layerx-merge/contracts/sequencer.md"
+status = "accurate"
+notes = "Reviewed linked consensus-leader-pin, node-storage, config and CLI/metric contract material as a frozen historical specification, not a live deployment claim; current behavior assessed against BRIEF and current registry."
+
+[doc.20]
+path = "spec/layerx-merge/contracts/consensus-fork.md"
+status = "accurate"
+notes = "Reviewed the linked make-targets contract and pinned interface material; the supported and retired target distinction agrees with the inspected Makefiles and target tests."
