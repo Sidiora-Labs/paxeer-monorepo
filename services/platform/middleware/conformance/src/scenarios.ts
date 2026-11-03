@@ -62,12 +62,19 @@ const isMiddlewareError = (code: string) => (error: unknown): boolean =>
 /** A session issuing and retaining signed payments from the conformance producer. */
 export class ConformancePaymentRpcSession {
   readonly #receipts = new Map<string, Readonly<Record<string, unknown>>>();
+  private readonly sequencer: ConformanceSequencer;
+  private readonly facts: ReceiptFacts;
+  private readonly requirements: PaymentRequirements;
 
   public constructor(
-    private readonly sequencer: ConformanceSequencer,
-    private readonly facts: ReceiptFacts,
-    private readonly requirements: PaymentRequirements,
-  ) {}
+    sequencer: ConformanceSequencer,
+    facts: ReceiptFacts,
+    requirements: PaymentRequirements,
+  ) {
+    this.sequencer = sequencer;
+    this.facts = facts;
+    this.requirements = requirements;
+  }
 
   public get issuedCount(): number {
     return this.#receipts.size;

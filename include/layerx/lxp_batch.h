@@ -69,18 +69,6 @@ typedef struct lxp_sequencer_authorization {
     uint8_t authorized;
 } lxp_sequencer_authorization;
 
-typedef struct lxp_batch_body {
-    lxp_batch_header header;
-    uint8_t sequencer_signature[64];
-    lxp_byte_span activities;
-    lxp_byte_span receipts;
-    lxp_byte_span events;
-    lxp_byte_span oracle_inputs;
-    lxp_byte_span state_diff;
-    lxp_byte_span recovery_metadata;
-} lxp_batch_body;
-#define lxp_batch_body lxp_batch_body
-
 lxp_result lxp_batch_header_encode(const lxp_batch_header *header,
                                    lxp_arena *arena,
                                    lxp_byte_span *encoded);
@@ -88,11 +76,6 @@ lxp_result lxp_batch_header_decode(const uint8_t *bytes, size_t length,
                                    lxp_batch_header *header);
 lxp_result lxp_batch_header_hash(const lxp_batch_header *header,
                                  lxp_arena *arena, uint8_t digest[32]);
-lxp_result lxp_batch_timestamp_select(lxp_batch_header *header,
-                                      uint64_t timestamp_ms);
-lxp_result lxp_batch_timestamp_validate(const lxp_batch_header *previous,
-                                        const lxp_batch_header *candidate,
-                                        uint64_t maximum_forward_drift_ms);
 lxp_result lxp_exec_clock_bind(lxp_exec_clock *clock,
                                const lxp_batch_header *sealed_header);
 lxp_result lxp_exec_clock_read(const lxp_exec_clock *clock,
