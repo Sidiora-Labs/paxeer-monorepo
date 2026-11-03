@@ -561,6 +561,123 @@ static int delegate_spend(const uint8_t budget_id[32],
     return submit(&call, effects, result);
 }
 
+static int owner_spend_by_delegate(const uint8_t budget_id[32],
+                                   const uint8_t recipient[32], uint64_t amount,
+                                   lxp_effect_buffer *effects,
+                                   lxp_result *result)
+{
+    uint8_t payload[LX_BUDGET_SPEND_PAYLOAD_BYTES] = {0U, 1U};
+    budget_call call;
+    (void)memcpy(payload + 2U, budget_id, 32U);
+    (void)memcpy(payload + 34U, recipient, 32U);
+    put_u128(payload + 66U, 0U, amount);
+    (void)memset(&call, 0, sizeof(call));
+    call.did = delegate_did;
+    call.seed = delegate_seed;
+    call.timestamp = 500U;
+    call.activity_type = LX_BUDGET_SPEND;
+    call.payload = payload;
+    call.payload_length = sizeof(payload);
+    call.sequence = env.delegate->next_sequence;
+    return submit(&call, effects, result);
+}
+
+static int test_delegate_owner_spend(void)
+{
+    lxp_effect_buffer effects;
+    lxp_result result = LXP_OK;
+    uint8_t before[32];
+    uint64_t consumed = 0U;
+    uint64_t sequence;
+    CHECK(env_init() == 0);
+    CHECK(owner_setup(budget_one, env.budget_one, 30U) == 0);
+    CHECK(owner_setup(budget_two, env.budget_two, 5U) == 0);
+    sequence = env.delegate->next_sequence;
+
+    CHECK(lxp_state_root(&env.kernel, before) == LXP_OK);
+    CHECK(owner_spend_by_delegate(budget_one, env.recipient->id, 10U,
+                                  &effects, &result) == 0);
+    CASE("delegate-owner-spend-no-capability",
+         result == LXP_ERR_UNAUTHORIZED_DELEGATE && unchanged(before) &&
+         env.budget_one->balance.lo == 30U &&
+         env.recipient->balance.lo == 0U &&
+         env.delegate->next_sequence == sequence && effects.count == 0U);
+
+    CHECK(seed_capability(budget_one, 10U, 15U) == 0);
+    CHECK(lxp_state_root(&env.kernel, before) == LXP_OK);
+    CHECK(owner_spend_by_delegate(budget_one, env.recipient->id, 11U,
+                                  &effects, &result) == 0);
+    CHECK(read_consumed(budget_one, &consumed) == 0);
+    CASE("delegate-owner-spend-per-spend-cap",
+         result == LXP_ERR_UNAUTHORIZED_DELEGATE && unchanged(before) &&
+         consumed == 0U && env.budget_one->balance.lo == 30U &&
+         env.recipient->balance.lo == 0U &&
+         env.delegate->next_sequence == sequence && effects.count == 0U);
+
+    CHECK(owner_spend_by_delegate(budget_one, env.recipient->id, 10U,
+                                  &effects, &result) == 0);
+    CHECK(read_consumed(budget_one, &consumed) == 0);
+    CASE("delegate-owner-spend-authorized",
+         result == LXP_OK && consumed == 10U &&
+         env.budget_one->balance.hi == 0U &&
+         env.budget_one->balance.lo == 20U &&
+         env.recipient->balance.hi == 0U &&
+         env.recipient->balance.lo == 10U &&
+         env.delegate->next_sequence == sequence + 1U &&
+         expect_spent(&effects, budget_one, 10U) == 0);
+
+    CHECK(lxp_state_root(&env.kernel, before) == LXP_OK);
+    CHECK(owner_spend_by_delegate(budget_one, env.recipient->id, 6U,
+                                  &effects, &result) == 0);
+    CHECK(read_consumed(budget_one, &consumed) == 0);
+    CASE("delegate-owner-spend-total-cap",
+         result == LXP_ERR_UNAUTHORIZED_DELEGATE && unchanged(before) &&
+         consumed == 10U && env.budget_one->balance.lo == 20U &&
+         env.recipient->balance.lo == 10U &&
+         env.delegate->next_sequence == sequence + 1U && effects.count == 0U);
+
+    CHECK(lxp_state_root(&env.kernel, before) == LXP_OK);
+    CHECK(owner_spend_by_delegate(budget_one, env.other->id, 5U,
+                                  &effects, &result) == 0);
+    CHECK(read_consumed(budget_one, &consumed) == 0);
+    CASE("delegate-owner-spend-wrong-recipient",
+         result == LXP_ERR_UNAUTHORIZED_DELEGATE && unchanged(before) &&
+         consumed == 10U && env.budget_one->balance.lo == 20U &&
+         env.other->balance.lo == 0U && effects.count == 0U);
+
+    CHECK(owner_spend_by_delegate(budget_one, env.recipient->id, 5U,
+                                  &effects, &result) == 0);
+    CHECK(read_consumed(budget_one, &consumed) == 0);
+    CASE("delegate-owner-spend-remaining-allowance",
+         result == LXP_OK && consumed == 15U &&
+         env.budget_one->balance.lo == 15U &&
+         env.recipient->balance.lo == 15U &&
+         expect_spent(&effects, budget_one, 5U) == 0);
+
+    CHECK(seed_capability(budget_two, 10U, 15U) == 0);
+    sequence = env.delegate->next_sequence;
+    CHECK(lxp_state_root(&env.kernel, before) == LXP_OK);
+    CHECK(owner_spend_by_delegate(budget_two, env.recipient->id, 10U,
+                                  &effects, &result) == 0);
+    CHECK(read_consumed(budget_two, &consumed) == 0);
+    CASE("delegate-owner-spend-rollback",
+         result == LXP_ERR_INSUFFICIENT_BUDGET_FUNDS && unchanged(before) &&
+         consumed == 0U && env.budget_two->balance.lo == 5U &&
+         env.recipient->balance.lo == 15U &&
+         env.delegate->next_sequence == sequence && effects.count == 0U);
+    CHECK(owner_spend_by_delegate(budget_two, env.recipient->id, 5U,
+                                  &effects, &result) == 0);
+    CHECK(read_consumed(budget_two, &consumed) == 0);
+    CASE("delegate-owner-spend-after-rollback",
+         result == LXP_OK && consumed == 5U &&
+         env.budget_two->balance.lo == 0U &&
+         env.recipient->balance.lo == 20U &&
+         env.delegate->next_sequence == sequence + 1U &&
+         expect_spent(&effects, budget_two, 5U) == 0);
+    CHECK(lxp_state_store_destroy(&env.state) == LXP_OK);
+    return 0;
+}
+
 static int test_delegate_spend_activity(void)
 {
     lxp_effect_buffer effects;
@@ -813,6 +930,7 @@ int main(void)
     printf("BUDGET_CASE library-vectors ok\n");
     ++cases;
     if (execute_vectors() != 0) return 1;
+    if (test_delegate_owner_spend() != 0) return 1;
     printf("BUDGET_DELEGATE cases=%u skipped=0\n", cases);
     return 0;
 }

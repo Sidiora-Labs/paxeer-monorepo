@@ -152,6 +152,9 @@ defaults:
 env:
   TOTAL_RUNNERS: 5
 
+permissions:
+  contents: read
+
 jobs:
   runner-indexes:
     runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-latest' || vars.CI_LINUX_RUNNER || 'ubuntu-latest' }}
