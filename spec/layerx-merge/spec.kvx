@@ -117214,7 +117214,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.24.13]
 title = "Close the open dependency advisories of the names manifests (8 floors)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.24.1"]
@@ -117274,7 +117274,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.24.11]
 title = "Close the open dependency advisories of the wallet-app manifests (21 floors)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.24.1"]
@@ -117424,7 +117424,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.24.6]
 title = "Close the open dependency advisories of the perps-web manifests (70 floors)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.24.1"]
