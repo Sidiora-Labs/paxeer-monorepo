@@ -117154,7 +117154,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.24.15]
 title = "Close the open dependency advisories of the web-sdk-misc manifests (10 floors)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.24.1"]
@@ -117184,7 +117184,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.24.14]
 title = "Close the open dependency advisories of the platform-node manifests (18 floors)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.24.1"]
@@ -117304,7 +117304,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.24.10]
 title = "Close the open dependency advisories of the contracts-launchpad manifests (21 floors)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.24.1"]
@@ -117334,7 +117334,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.24.9]
 title = "Close the open dependency advisories of the rpc-tests manifests (21 floors)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.24.1"]
@@ -117394,7 +117394,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.24.7]
 title = "Close the open dependency advisories of the blockscout manifests (49 floors)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.24.1"]
@@ -117484,7 +117484,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.24.4]
 title = "Close the open dependency advisories of the dapp-tests manifests (39 floors)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.24.1"]
@@ -117514,7 +117514,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.24.3]
 title = "Close the open dependency advisories of the explorer-tools manifests (56 floors)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.24.1"]
@@ -134893,7 +134893,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.24.18]
 title = "Close the open dependency advisories of the go-vendored manifests (18 floors)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.24.1"]
