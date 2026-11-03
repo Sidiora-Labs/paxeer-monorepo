@@ -14120,3 +14120,8 @@ fix = "Floor the package at the lowest patched release across its major lines (d
 title = "A verify that chains toolchains of two SDK families needs the all-SDK profile"
 symptom = "18.1503.1 verified cargo run, cargo test and mvn compile under the mixed profile and failed with mvn not found after every Rust step passed."
 fix = "Set the profile key (line 4) to the all-SDK profile for any task whose verify names tools of two SDK families (decision 2373); check the profile against every command in the verify when writing the task."
+
+[gotcha.2860]
+title = "An all-targets Rust build of the agent daemon workspace plus the human workspace exhausts the qualification environment storage"
+symptom = "22.9.33 built -p layerx-agentd -p layerx-agentd-host --all-targets and the human workspace tests, then the dependent-crate check failed to write rmeta with no space left on device (attempts 3, 5, 6)."
+fix = "Write build_cmd as the declared targets only: cargo test --no-run per test target and cargo build per binary (decision 2374); never --all-targets on the agent daemon workspace."
