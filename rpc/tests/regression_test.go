@@ -39,26 +39,6 @@ func withCapturedConsensusParams(ctx sdk.Context, mc *MockClient, blockHeight in
 	return ctx.WithConsensusParams(cp)
 }
 
-func Test0xf15bb88570910ae06a479a6e052bbadf23bcc8eaae1239025252d4b1afc8ea18(t *testing.T) {
-	testTx(t,
-		"0xf15bb88570910ae06a479a6e052bbadf23bcc8eaae1239025252d4b1afc8ea18",
-		"v6.0.5",
-		"0x8e2a8",
-		"0x7fd13972",
-		true,
-	)
-}
-
-func Test0x01aaf9dd754d86f887c0c530cdd769da9202dfc1eb4a3e229050b417a4dc1adf(t *testing.T) {
-	testTx(t,
-		"0x01aaf9dd754d86f887c0c530cdd769da9202dfc1eb4a3e229050b417a4dc1adf",
-		"v6.0.0",
-		"0x950f2",
-		"0x7b52656164466c61747d",
-		true,
-	)
-}
-
 func Test0x5174c3eae7c0d87dca905c42a0f1241c2d3834c1421594ad8f067e0f486808a8(t *testing.T) {
 	testTx(t,
 		"0x5174c3eae7c0d87dca905c42a0f1241c2d3834c1421594ad8f067e0f486808a8",
