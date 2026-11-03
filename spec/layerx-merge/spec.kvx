@@ -128884,7 +128884,7 @@ do_5 = "Decision 2366 (2026-11-03): when the binder gains PayBudgetCreateNative 
 
 [task.9.35.15]
 title = "Port the human intents proof test from the activity send envelope to the ledger payment call and bind_call"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.9.33"]
@@ -129102,7 +129102,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.9.30]
 title = "Re-home the frame codec and Unix-socket transport and port the agent daemon library off the LNI module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.9.33"]
