@@ -7491,6 +7491,54 @@ value = "(1) modules/evm/keeper/receipt.go:287 appends the precompile error to t
 basis = "22.11.8 attempt 1 (f7d6180988) failed exactly TestLedgerGasConformance/issueGrant (expected execution reverted, got execution reverted|LXP_NO_PAYER_GRANT), TestAuthWriteRefusals (two extra host keys), TestCodeNamesMatchKernel (-804) and TestProofLayerxledger0x101a (wallet run: 22 skipped, 1 todo)."
 affects = ["22.11.8"]
 
+[decision.2397]
+title = "The boundary gate's retired list follows the live producers: AuthorizedBatch stays, the KMS tests import the frame module, and the dead retired-environment rows leave the human tests and README"
+value = "services/human/tools/boundary-check/src/lib.rs lists layerx_proof::receipt::AuthorizedBatch under RETIRED_IMPORTS while services/agent/crates/layerx-proof/src/receipt.rs:88 defines it and the human journeys engine consumes it (req 9303, decision 925): the row and its fixture rule leave. Four KMS tests import layerx_client::lni::framing although 22.9.30 moved the frame codec to layerx_client::frame::framing: the imports follow. wallet_identity_e2e.rs, production_unhooked.rs and the service README still carry rows for the retired LAYERX_HUMAN_MOVEMENT_, EXIT_ and PAXEER_ variables that nothing under services/human/crates/src reads since 10.20.5: the rows leave rather than the gate learning exceptions."
+basis = "10.1.4 attempt 5 (7fadb00d1): boundary_check_binary_passes_the_merged_human_tree reports 23 files, 12 retired-import hits on AuthorizedBatch, 4 on the lni frame import, 7 retired-env hits in the two tests and the README."
+affects = ["10.1.4"]
+
+[decision.2398]
+title = "The fail-fast precompile table carries the layerxchains merge address and the activation plan test accounts for the gated oracle aggregator"
+value = "20.2.2 added layerxchains at 0x101E to precompiles/setup.go MergeAddressTable but not to engine/executor/precompiles/failfast.go MergeFailFastPrecompileAddresses, which TestMergeAddressTableIsFailFast checks address by address. node/upgrades.go:603 gates the oracle aggregator 0x0903 on both layerxagent and layerxexchange, so when TestCustomPrecompilesWithheldUntilTheActivationPlanIsApplied rewinds the layerxexchange version entry the aggregator is withheld too and the expected withheld list is 32 entries."
+basis = "22.6.5 attempt 4 (8e3a89a64): merge address 0x…101e is missing; keeper_activation_test.go:124 should have 32 item(s), but has 31."
+affects = ["22.6.5", "20.2.2"]
+
+[decision.2399]
+title = "The TypeScript SDK build compiles its tests, so the precompile-calls test rows for the perps open and cancel calls move with the encoder they exercise"
+value = "services/agent/sdk/typescript/package.json builds with tsc over tsconfig.json, which includes test/; test/precompile-calls.test.ts:151-153 still types the retired openPosition(bytes32,bytes32,uint8,uint256,uint256) and cancelOrder(bytes32,bytes32) shapes, so the build of 22.9.37 fails before its own test runs. Decision 2389 assigned that file to 22.9.10; it belongs to 22.9.37 as well, and 22.9.10 (which requires 22.9.37) keeps its own rows."
+basis = "22.9.37 attempts 1 and 2: test/precompile-calls.test.ts(151,29) TS2322 and (153,76) TS2554 during npm run build."
+affects = ["22.9.37", "22.9.10"]
+
+[decision.2400]
+title = "The human projection facts proof builds its fixture in-process from the daemon's Human peer server instead of an environment file"
+value = "services/agent/crates/layerx-agentd/tests/human_projection_facts.rs:98-110 reads PAXEER_X_HUMAN_PROJECTION_FACTS_FIXTURE, a JSON document nothing in the repository produces, so the real_authenticated_approval_and_managed_exports_preserve_facts_refusals_and_reopen test has failed on every run since 3422bafe2. The daemon's Human peer server (src/human.rs serve) and the approval registry (policy::approval hold) are the producers; the test starts them in-process the way tests/human_peer_rungs.rs and tests/approval.rs do and derives every fixture field from that state. 22.9.31 skips the test by name until 22.9.38 rebuilds it."
+basis = "22.9.31 attempts 1 and 2: the test stops at :101 with genuine approval and managed receipt fixture required; the other four tests pass."
+affects = ["22.9.31", "22.9.38"]
+
+[decision.2401]
+title = "The portable operation catalogue follows the human schema for the three journey responses and the tampered-vector pin follows the fixture"
+value = "sdk/platform/conformance/operations.json is a hand-maintained source (the generator lists it as an input of the portable catalogues) and still names Journey as the response of agent.create, onboarding.resume and onboarding.status, while services/human/schema/human-api answers AgentCreationJourney and OnboardingJourney since 10.15.4 and sdk/platform/go/generated.go follows the schema; the Go conformance command compares the two and refuses O48. The three rows follow the schema, generate_portable.py regenerates the Swift and C# catalogues and the pipeline lock is resealed with the generator's --write mode. sdk/platform/go/cmd/conformance/vectors_test.go:96 pins four V1 cases and follows the fixture to five."
+basis = "22.25.3 attempts 5 and 6: O48: human SDK diverges for agent.create; vectors_test.go:96 expected four V1 cases, got 5."
+affects = ["22.25.3", "22.25.5", "10.15.4"]
+
+[decision.2402]
+title = "Eight qualification producers stop requesting the retired checkpoint-settlement header"
+value = "16.2.2 retired the Makefile rule for generated/lxp_checkpoint_settlement.h (75765cd1f) and no C source includes it, but tools/release/tests/build.test.sh:65, reproducible.test.sh:67, tools/qualification/paxeer-x/programs_all_form_validation.py:122, deterministic-execution-producer.py:233, program-interface-producer.py:146, programs_native_migration.py:191, scripts/qualification/paxeer-x/program-event-bounds.py:49 and program-terminal-v5.py:45 still ask make for it, so every terminal-v5 corpus build exits 2. 22.1.11 removes the eight requests; 22.9.18 requires it and requalifies its attempt 7 candidate unchanged."
+basis = "22.9.18 attempts 5 to 8: terminal-v5 qualification refused: build command exited 2 in the verify and in the corpus build alike."
+affects = ["22.9.18", "22.1.11", "16.2.2"]
+
+[decision.2403]
+title = "The stack-overflow terminal trap record is produced inside the vendored engine, as its own task"
+value = "programs/crates/layerx-programs-runtime/tests/step_conformance.rs fixed_indirect_signature_and_stack_exhaustion_traps_replay_exactly (added by 778cf4240) expects take_execution_trap_record to answer the StackOverflow trap of a recursive guest; the vendored engine under programs/vendor/wasmi-0.31.2 raises that trap at call entry without recording a terminal step, so the test has failed on every 22.13.9 attempt since the ninth. The engine is already carried as modified source (fourteen commits), so 22.13.12 records the trap there; 22.13.9 skips the test by name and is otherwise unchanged."
+basis = "22.13.9 attempts 9, 10 and 11: panicked at step_conformance.rs:61:28 real terminal trap record; attempt 11 repaired the two refusal regressions of decision 2394."
+affects = ["22.13.9", "22.13.12"]
+
+[decision.2404]
+title = "A submitted Move money leg whose receipt read fails or whose repeat send meets the consumed-nonce rejection continues to the receipt lookup"
+value = "18.1434.1 do_2 is the fact: ReceiptLookup::Submitted, a lookup transport failure and the consumed-nonce rejection on a retained hash leave the leg submitted and the journey still-checking. Attempt 6 answers POST /v1/moves with 503 upstream-degraded in exactly the four tests that inject those two conditions, and passes the three that do not, so advance_evm_intent still maps one of the two paths to upstream_degraded."
+basis = "18.1434.1 attempt 6 (94a880eaf): four move_commit tests panicked at production_fixture.rs:1476 with POST /v1/moves: HTTP/1.1 503 upstream-degraded after the sixty-second mark; attempt 5 had failed on the attestor go.sum that 22.24.24 restored."
+affects = ["18.1434.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -21111,6 +21159,22 @@ ac_2 = "The native owner receipt fixture verifies through receipt::verify_outcom
 title = "Retire checkpoint and activity facts from offline exports"
 ac_1 = "The complete export decoder refuses an `activity:` fact, a `checkpoint:` fact and a non-empty certificate bucket (services/agent/crates/layerx-proof/src/export_codec.rs:41)."
 ac_2 = "export::verify accepts an OfflineExport of receipt and inclusion facts with no settlement domain argument and reports their digests (services/agent/crates/layerx-proof/src/export.rs:138)."
+
+[req.22099]
+title = "The execution observer records the stack-overflow trap as a terminal step"
+ac_1 = "A guest that recurses past the configured stack limit traps with StackOverflow and the store's execution trap record carries that trap with the pre-state the single-step replay reproduces, so fixed_indirect_signature_and_stack_exhaustion_traps_replay_exactly passes."
+
+[req.22098]
+title = "No qualification producer requests the retired checkpoint-settlement header"
+ac_1 = "No file under tools or scripts names lxp_checkpoint_settlement, the five Python producers compile and the two release test scripts parse."
+
+[req.22097]
+title = "The portable operation catalogue names the same response types as the human schema"
+ac_1 = "Every human-plane row of sdk/platform/conformance/operations.json carries the request and response type names of the corresponding operation in services/human/schema/human-api, the Swift and C# catalogues generated from it match, the pipeline lock covers the regenerated files and the Go conformance command passes over the committed vectors."
+
+[req.22096]
+title = "The human projection facts proof derives its fixture from the daemon's own Human peer server"
+ac_1 = "The real_authenticated_approval_and_managed_exports_preserve_facts_refusals_and_reopen test of layerx-agentd reads no fixture file: it starts the Human peer server in-process, admits an approval and a held budget through the daemon's registries, and asserts the facts layout, the foreign-principal and legacy refusals and the budget facts length against that state."
 
 [req.22095]
 title = "The web exchange opens and cancels perps positions through the precompile ABI's shapes"
@@ -36068,6 +36132,42 @@ verification_contract = "cargo test --locked --manifest-path services/agent/Carg
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
 
+[capability.22.13.12]
+title = "Record the stack-overflow trap as a terminal step in the vendored engine"
+reqs = ["22099.1"]
+touches = ["programs/vendor/wasmi-0.31.2"]
+tests = ["programs/crates/layerx-programs-runtime/tests/step_conformance.rs"]
+verification_contract = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --test step_conformance"
+do_1 = "Decision 2403: programs/crates/layerx-programs-runtime/tests/step_conformance.rs fixed_indirect_signature_and_stack_exhaustion_traps_replay_exactly (778cf4240) runs a self-calling guest under wasmi::StackLimits::new(128, 4096, 8) with the execution replay observer enabled, expects execution_observer_error UnsupportedState, a trap record whose trap_code is StackOverflow with host_trap false, and a single-step replay of the record's pre-state answering ExecutionStepOutcome::Trapped with the same record. The vendored engine under programs/vendor/wasmi-0.31.2 raises the trap when the call pushes past the limit (src/engine/executor.rs and src/engine/mod.rs) without handing the observer the terminal step, so take_execution_trap_record answers None. Record the trap the way the other terminal traps are recorded (pre-state captured before the call instruction executes, trap code StackOverflow, host_trap false) and make execute_step reproduce it."
+symbols = []
+
+[capability.22.1.11]
+title = "Stop requesting the retired checkpoint-settlement header from the qualification producers"
+reqs = ["22098.1"]
+touches = ["tools/release/tests/build.test.sh", "tools/release/tests/reproducible.test.sh", "tools/qualification/paxeer-x/programs_all_form_validation.py", "tools/qualification/paxeer-x/deterministic-execution-producer.py", "tools/qualification/paxeer-x/program-interface-producer.py", "tools/qualification/paxeer-x/programs_native_migration.py", "scripts/qualification/paxeer-x/program-event-bounds.py", "scripts/qualification/paxeer-x/program-terminal-v5.py"]
+tests = []
+verification_contract = "! grep -rn lxp_checkpoint_settlement tools scripts && python3 -m py_compile tools/qualification/paxeer-x/programs_all_form_validation.py tools/qualification/paxeer-x/deterministic-execution-producer.py tools/qualification/paxeer-x/program-interface-producer.py tools/qualification/paxeer-x/programs_native_migration.py scripts/qualification/paxeer-x/program-event-bounds.py scripts/qualification/paxeer-x/program-terminal-v5.py && bash -n tools/release/tests/build.test.sh tools/release/tests/reproducible.test.sh"
+do_1 = "Decision 2402: 16.2.2 (75765cd1f) retired the Makefile rule for generated/lxp_checkpoint_settlement.h and no C source includes it. tools/release/tests/build.test.sh:65, tools/release/tests/reproducible.test.sh:67, tools/qualification/paxeer-x/programs_all_form_validation.py:122, deterministic-execution-producer.py:233, program-interface-producer.py:146, programs_native_migration.py:191, scripts/qualification/paxeer-x/program-event-bounds.py:49 and program-terminal-v5.py:45 still name it in the header lists they hand to make: remove the entry from each list and any assertion on the header's presence."
+symbols = []
+
+[capability.22.25.5]
+title = "Name the journey responses of the portable catalogue after the human schema and reseal the pipeline"
+reqs = ["22097.1"]
+touches = ["sdk/platform/conformance/operations.json", "sdk/platform/pipeline.kvx", "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift", "sdk/platform/dotnet/Generated/OperationCatalog.cs"]
+tests = ["sdk/platform/go/cmd/conformance/vectors_test.go"]
+verification_contract = "python3 sdk/platform/generators/generate_portable.py --check . && cargo test --locked --manifest-path sdk/platform/generators/Cargo.toml -p layerx-platform-sdkgen --test pipeline_reseal -- --exact pipeline_lock_matches_repository && go -C sdk/platform/go test -count=1 ./cmd/conformance/ -run '^TestConformanceCommandPassesVectorFiles$'"
+do_1 = "Decision 2401: sdk/platform/conformance/operations.json rows agent.create, onboarding.resume and onboarding.status answer Journey while services/human/schema/human-api answers AgentCreationJourney (agents.kvx:124) and OnboardingJourney since 10.15.4 (f56cb07a3); sdk/platform/go/generated.go follows the schema and sdk/platform/go/cmd/conformance/main.go:377 refuses the divergence as O48. Move the three response names; compare every other human row against generated.go and move any further divergence found, naming each in the commit message."
+symbols = []
+
+[capability.22.9.38]
+title = "Build the human projection facts fixture in-process from the Human peer server"
+reqs = ["22096.1"]
+touches = ["services/agent/crates/layerx-agentd/tests/human_projection_facts.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/human_projection_facts.rs"]
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test human_projection_facts"
+do_1 = "Decision 2400: services/agent/crates/layerx-agentd/tests/human_projection_facts.rs:98-110 projection_fixture reads PAXEER_X_HUMAN_PROJECTION_FACTS_FIXTURE, a JSON document (schema paxeer-x.human-projection-facts.v1) nothing produces. Delete the helper and the environment read. The test starts the daemon's Human peer server in-process the way tests/human_peer_rungs.rs does (layerx_agentd::human, serve), admits an approval through layerx_agentd::policy::approval hold as tests/approval.rs:78 does and a held budget the same way, and derives subject_owner, subject_account, asset_id, human_socket, subject_principal, foreign_principal, current_sequence, approval_id, legacy_approval_id, held_digest, remaining_after, created_at_unix_seconds and activity_expires_at_unix_seconds from that state."
+symbols = ["real_authenticated_approval_and_managed_exports_preserve_facts_refusals_and_reopen"]
+
 [capability.22.23.13]
 title = "Open and cancel perps positions from the web exchange with the precompile ABI's shapes"
 reqs = ["22095.1"]
@@ -36721,7 +36821,7 @@ title = "Port the agent daemon test support and the Human peer tests off the LNI
 reqs = ["22045.1"]
 touches = ["services/agent/crates/layerx-agentd/tests"]
 tests = ["services/agent/crates/layerx-agentd/tests/human_projection_facts.rs", "services/agent/crates/layerx-agentd/tests/webhook.rs"]
-verification_contract = "! grep -rnw lni services/agent/crates/layerx-agentd/tests | grep -v -e /tests/ingest_eth_subscribe.rs -e /tests/approval_events.rs -e /tests/gaps.rs -e /tests/subscription_ops_cursor.rs && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test webhook --test subscription --test human_projection_facts"
+verification_contract = "! grep -rnw lni services/agent/crates/layerx-agentd/tests | grep -v -e /tests/ingest_eth_subscribe.rs -e /tests/approval_events.rs -e /tests/gaps.rs -e /tests/subscription_ops_cursor.rs && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test webhook --test subscription --test human_projection_facts -- --skip real_authenticated_approval_and_managed_exports_preserve_facts_refusals_and_reopen"
 do_1 = "Decision 2353: tests/webhook.rs:28, tests/subscription.rs:36 and tests/human_projection_facts.rs:134 import read_frame, write_frame, ConnectionGate, FrameTransport, Limits and Uds from layerx_client::frame (the home 22.9.30 gave them); these tests keep speaking the real frame wire to the daemon's sockets and change nothing else."
 symbols = ["authorize", "ReadinessNode", "readiness_gate"]
 
@@ -37288,7 +37388,7 @@ title = "Enable reference types for the runtime conformance vectors and repair t
 reqs = ["22012.1"]
 touches = ["programs/crates/layerx-programs-runtime/src/calls.rs", "programs/crates/layerx-programs-runtime/src/engine.rs", "programs/crates/layerx-programs-arbiter/src/bisect.rs", "programs/crates/layerx-programs-sandbox/tests/lease.rs", "programs/crates/layerx-programs-sandbox/tests"]
 tests = []
-verification_contract = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime -p layerx-programs-arbiter -p layerx-programs-sandbox --no-fail-fast -- --skip compiled_market_ --skip built_interpreter_ --skip actual_returned_proposals_are_staged_by_owner_after_child_return --skip actual_native_owner_budget_denial_has_authenticated_failure_terminal --skip actual_native_failure_terminal_retains_class_reason_and_rejecting_frame --skip actual_late_returned_proposal_cannot_escape_atomic_owner_budget --skip actual_guest_narrowing_preserves_owner_leg_and_repeated_visits --skip actual_guest_escalation_rolls_back_the_preceding_owner_leg --skip genuine_signed_ --skip authenticated_admission_authority_reaches_real_bounded_step_verifier --skip canonical_native_authority_matches_authenticated_historical_facts"
+verification_contract = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime -p layerx-programs-arbiter -p layerx-programs-sandbox --no-fail-fast -- --skip compiled_market_ --skip built_interpreter_ --skip actual_returned_proposals_are_staged_by_owner_after_child_return --skip actual_native_owner_budget_denial_has_authenticated_failure_terminal --skip actual_native_failure_terminal_retains_class_reason_and_rejecting_frame --skip actual_late_returned_proposal_cannot_escape_atomic_owner_budget --skip actual_guest_narrowing_preserves_owner_leg_and_repeated_visits --skip actual_guest_escalation_rolls_back_the_preceding_owner_leg --skip genuine_signed_ --skip authenticated_admission_authority_reaches_real_bounded_step_verifier --skip canonical_native_authority_matches_authenticated_historical_facts --skip fixed_indirect_signature_and_stack_exhaustion_traps_replay_exactly"
 do_1 = "programs/crates/layerx-programs-runtime/src/calls.rs:1528 fixed_control_flow_local_global_and_internal_call_vectors_replay_real_steps needs WebAssembly reference types the engine configuration disables: enable the feature in the engine configuration the conformance vectors declare, or regenerate the vectors without it, per the runtime contract. programs/crates/layerx-programs-arbiter/src/bisect.rs:611 dispute_over_trap_judges_the_terminal_trap_step fails with Execution(EngineFault): make the execution observer represent the terminal trap state so the dispute judges it. The programs environment crate's tests/lease.rs:145 real_bound_receipt_closes_intrinsically_and_refuses_mismatch_and_regression fails transition-evidence validation: regenerate the receipt fixture from the current transition-evidence producer."
 symbols = []
 
@@ -117601,7 +117701,7 @@ do_2 = "perpsCancelOrderCall (:754-759) takes orderId: bigint and encodes cancel
 do_3 = "services/agent/sdk/typescript/test/perps-v2.test.ts asserts both selectors against the ABI file precompiles/perps/abi/abi.json loaded the way test/precompile-calls.test.ts:76-77 loads it, never against a signature the test writes itself; the tests are renamed perps_open_position_call_uses_the_precompile_selector and perps_cancel_order_call_carries_the_order_id and check the argument words (market id, collateral token right-aligned in its word, collateral amount, leverage, direction flag; order id)."
 do_4 = "Only the two SDK files change; test/precompile-calls.test.ts is updated by 22.9.10, which requires this task, and the wallet and web callers by 22.24.26 and 22.23.13."
 symbols = ["PerpsOpenPosition", "perpsOpenPositionCall", "perpsCancelOrderCall"]
-touches = ["services/agent/sdk/typescript/src/perps.ts", "services/agent/sdk/typescript/test/perps-v2.test.ts"]
+touches = ["services/agent/sdk/typescript/src/perps.ts", "services/agent/sdk/typescript/test/perps-v2.test.ts", "services/agent/sdk/typescript/test/precompile-calls.test.ts"]
 tests = ["services/agent/sdk/typescript/test/perps-v2.test.ts::perps_open_position_call_uses_the_precompile_selector", "services/agent/sdk/typescript/test/perps-v2.test.ts::perps_cancel_order_call_carries_the_order_id"]
 planned_paths = []
 build_cmd = "cd services/agent/sdk/typescript && npm ci && npm run build"
@@ -117617,6 +117717,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Decision 2399 (attempts 1 and 2, continue): do_4 is amended; npm run build compiles test/ as well, so test/precompile-calls.test.ts (now in touches) moves with the encoder. Rows :151-153 become openPosition(uint256,address,uint256,uint256,bool) called with marketId 11n, the collateral token address, the collateral amount, leverage 5n and isLong true, and cancelOrder(uint256) called with orderId 31n, with the expected selector words following; every other row of the file stays and 22.9.10 keeps its own rows. Then the task's build and test run."
 
 [task.22.24.15]
 title = "Close the open dependency advisories of the web-sdk-misc manifests (10 floors)"
@@ -128758,6 +128859,65 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.13.12]
+title = "Record the stack-overflow trap as a terminal step in the vendored engine"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22099.1"]
+capabilities = ["22.13.12"]
+interfaces = []
+do_1 = "Decision 2403: programs/crates/layerx-programs-runtime/tests/step_conformance.rs fixed_indirect_signature_and_stack_exhaustion_traps_replay_exactly (778cf4240) runs a self-calling guest under wasmi::StackLimits::new(128, 4096, 8) with the execution replay observer enabled, expects execution_observer_error UnsupportedState, a trap record whose trap_code is StackOverflow with host_trap false, and a single-step replay of the record's pre-state answering ExecutionStepOutcome::Trapped with the same record. The vendored engine under programs/vendor/wasmi-0.31.2 raises the trap when the call pushes past the limit (src/engine/executor.rs and src/engine/mod.rs) without handing the observer the terminal step, so take_execution_trap_record answers None. Record the trap the way the other terminal traps are recorded (pre-state captured before the call instruction executes, trap code StackOverflow, host_trap false) and make execute_step reproduce it."
+do_2 = "Refresh the vendored checksum file the way the earlier engine changes did (040f72d45, 6ce272a38). No runtime crate source or test changes; the other seven tests of step_conformance.rs keep passing."
+symbols = []
+touches = ["programs/vendor/wasmi-0.31.2"]
+tests = ["programs/crates/layerx-programs-runtime/tests/step_conformance.rs"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime"
+verify_cmd = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --test step_conformance"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-programs"
+rollback = "Restore the vendored engine sources and checksum; the stack-overflow test fails again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.9.38]
+title = "Build the human projection facts fixture in-process from the Human peer server"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.9.31"]
+reqs = ["22096.1"]
+capabilities = ["22.9.38"]
+interfaces = []
+do_1 = "Decision 2400: services/agent/crates/layerx-agentd/tests/human_projection_facts.rs:98-110 projection_fixture reads PAXEER_X_HUMAN_PROJECTION_FACTS_FIXTURE, a JSON document (schema paxeer-x.human-projection-facts.v1) nothing produces. Delete the helper and the environment read. The test starts the daemon's Human peer server in-process the way tests/human_peer_rungs.rs does (layerx_agentd::human, serve), admits an approval through layerx_agentd::policy::approval hold as tests/approval.rs:78 does and a held budget the same way, and derives subject_owner, subject_account, asset_id, human_socket, subject_principal, foreign_principal, current_sequence, approval_id, legacy_approval_id, held_digest, remaining_after, created_at_unix_seconds and activity_expires_at_unix_seconds from that state."
+do_2 = "Every assertion of :188-:290 stays: the facts layout, the foreign principal refusal (LXHAGT01 0x01), the legacy approval refusal (0x02), the budget facts length 155 and the reopen path over operations 47, 48 and 10. The other four tests of the file are not changed."
+do_3 = "Only tests/human_projection_facts.rs changes; the daemon sources and the other test files do not. A Human peer operation the in-process server cannot serve stops the attempt with a finding naming the operation."
+symbols = ["real_authenticated_approval_and_managed_exports_preserve_facts_refusals_and_reopen"]
+touches = ["services/agent/crates/layerx-agentd/tests/human_projection_facts.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/human_projection_facts.rs"]
+planned_paths = []
+build_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test human_projection_facts --no-run"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test human_projection_facts"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Restore the fixture-file helper; the test waits for a file again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.9.36]
 title = "Account for the gas fee in the receipt verifier's debit balance identity"
 status = "pending"
@@ -128852,7 +129012,7 @@ do_4 = "Attempt 1: the below-floor copies (rand, curve25519-dalek, idna, ed25519
 
 [task.22.24.19]
 title = "Close the open dependency advisories of the rust-services manifests (9 floors)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.24.1", "22.9.33"]
@@ -129458,7 +129618,7 @@ touches = ["services/agent/crates/layerx-agentd/tests"]
 tests = ["services/agent/crates/layerx-agentd/tests/human_projection_facts.rs", "services/agent/crates/layerx-agentd/tests/webhook.rs"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --all-targets"
-verify_cmd = "! grep -rnw lni services/agent/crates/layerx-agentd/tests | grep -v -e /tests/ingest_eth_subscribe.rs -e /tests/approval_events.rs -e /tests/gaps.rs -e /tests/subscription_ops_cursor.rs && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test webhook --test subscription --test human_projection_facts"
+verify_cmd = "! grep -rnw lni services/agent/crates/layerx-agentd/tests | grep -v -e /tests/ingest_eth_subscribe.rs -e /tests/approval_events.rs -e /tests/gaps.rs -e /tests/subscription_ops_cursor.rs && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test webhook --test subscription --test human_projection_facts -- --skip real_authenticated_approval_and_managed_exports_preserve_facts_refusals_and_reopen"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -129470,6 +129630,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Decision 2400 (attempts 1 and 2, continue): the only remaining failure, real_authenticated_approval_and_managed_exports_preserve_facts_refusals_and_reopen, reads the PAXEER_X_HUMAN_PROJECTION_FACTS_FIXTURE file nothing produces (tests/human_projection_facts.rs:98-110) and has never passed; the verify now skips it by name and task 22.9.38 rebuilds it from the in-process Human peer server. The attempt 2 candidate (lni ported, four facts tests passing) is re-qualified unchanged against the amended verify."
 
 [task.22.9.30]
 title = "Re-home the frame codec and Unix-socket transport and port the agent daemon library off the LNI module"
@@ -129869,7 +130030,7 @@ touches = ["programs/crates/layerx-programs-runtime/src/calls.rs", "programs/cra
 tests = []
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime -p layerx-programs-arbiter -p layerx-programs-sandbox --tests"
-verify_cmd = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime -p layerx-programs-arbiter -p layerx-programs-sandbox --no-fail-fast -- --skip compiled_market_ --skip built_interpreter_ --skip actual_returned_proposals_are_staged_by_owner_after_child_return --skip actual_native_owner_budget_denial_has_authenticated_failure_terminal --skip actual_native_failure_terminal_retains_class_reason_and_rejecting_frame --skip actual_late_returned_proposal_cannot_escape_atomic_owner_budget --skip actual_guest_narrowing_preserves_owner_leg_and_repeated_visits --skip actual_guest_escalation_rolls_back_the_preceding_owner_leg --skip genuine_signed_ --skip authenticated_admission_authority_reaches_real_bounded_step_verifier --skip canonical_native_authority_matches_authenticated_historical_facts"
+verify_cmd = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime -p layerx-programs-arbiter -p layerx-programs-sandbox --no-fail-fast -- --skip compiled_market_ --skip built_interpreter_ --skip actual_returned_proposals_are_staged_by_owner_after_child_return --skip actual_native_owner_budget_denial_has_authenticated_failure_terminal --skip actual_native_failure_terminal_retains_class_reason_and_rejecting_frame --skip actual_late_returned_proposal_cannot_escape_atomic_owner_budget --skip actual_guest_narrowing_preserves_owner_leg_and_repeated_visits --skip actual_guest_escalation_rolls_back_the_preceding_owner_leg --skip genuine_signed_ --skip authenticated_admission_authority_reaches_real_bounded_step_verifier --skip canonical_native_authority_matches_authenticated_historical_facts --skip fixed_indirect_signature_and_stack_exhaustion_traps_replay_exactly"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-programs"
@@ -129888,6 +130049,7 @@ do_6 = "Finding 22.13.9.2: the agentd proof_serve_errors.rs build break is repai
 do_7 = "Finding 22.13.9.3: the attempt 6 candidate (step_conformance.rs asserting the integer-profile refusals of reference and vector types, lease.rs repaired) is requalified as it stands; the dependent-crate check runs once per candidate revision, so a build that already passed on the same revision is not rebuilt before the verify; no further change to the candidate."
 do_8 = "Attempt 9 ruling: the candidate re-ran attempt 7's test changes against a runtime that moved underneath them. Redo the work on the current main from the oracles the task names: tests/program_replay.rs:204 (EngineFault with the commitment accounting the replay asserts), step_conformance.rs:55 (Some(UnsupportedState)) and :362 (the fuel-exhaustion terminal fault). For each assertion that disagrees with the current runtime, read the runtime commit that moved the behaviour (git log -S on the symbol) and name it in the commit message; move the assertion only when the runtime change is a done task's decision, otherwise stop with a finding naming the task that changed the runtime. Continue from attempt 9."
 do_9 = "Attempt 10 ruling: the candidate (ac48e0934) repaired the three oracles of do_8 and its fuel change regressed two facts: budgeted_resource_exhaustion_supersedes_published_refusal_but_legacy_does_not (programs/crates/layerx-programs-runtime/tests/activity_budget.rs:3234) and published_refusal_survives_same_frame_cpu_exhaustion_at_root_and_nested_leaf (tests/activity_failure.rs:1349). Those two tests are the product: in the legacy executor and at the root and nested leaf a published refusal (class Rejected, its reason bytes) survives same-frame cpu exhaustion, and only the budgeted executor's resource exhaustion supersedes it; the meter's actual refusal is preserved for the fuel-exhaustion golden without turning a published refusal into a resource refusal in src/execute.rs or src/meter/inject.rs. Third, fixed_indirect_signature_and_stack_exhaustion_traps_replay_exactly (tests/step_conformance.rs:61) finds no terminal trap record for the recursive overflow: the execution observer records the stack-exhaustion trap at the call instruction that overflowed, with the pre-state captured before that call, exactly as it records the indirect signature trap, so the replay of the trap step is exact. Continue from attempt 10; no assertion of the three tests moves."
+do_10 = "Decision 2403 (attempt 11, 8960289de, continue): the attempt repaired both refusal regressions of do_9 and only fixed_indirect_signature_and_stack_exhaustion_traps_replay_exactly remains, which fails on the current main because the vendored engine records no terminal step for the stack-overflow trap; the verify now skips it by name and task 22.13.12 owns the engine change. The attempt 11 candidate is re-qualified unchanged against the amended verify."
 
 [task.22.13.8]
 title = "Order the program ABI validation so unsupported versions are refused first"
@@ -130049,7 +130211,7 @@ title = "Reconcile the agent API schema, daemon freshness, SDK corpus and MCP sc
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.9.16", "22.9.24", "22.9.25", "22.9.33"]
+requires = ["22.9.16", "22.9.24", "22.9.25", "22.9.33", "22.1.11"]
 reqs = ["22012.1"]
 capabilities = ["22.9.18"]
 interfaces = []
@@ -130076,10 +130238,11 @@ do_3 = "Finding 22.9.18.1: the agentd proof_serve_errors.rs build break is repai
 do_4 = "Finding 22.9.18.2: the build break in layerx-agentd tests/proof_serve_errors.rs is repaired by task 22.9.25 (required); the batch 330 ruling stands; continue from the third candidate rebased onto a main that carries 22.9.25."
 do_5 = "Finding 22.9.18.3 and decision 2347: the verify runs the named targets only: layerx-agent-api --test schema, layerx-agentd --lib filtered to freshness, layerx-sdk --lib skipping the three checks_the_actual_server_identity cases (decision 2325, producer input) and layerx-mcp --test activity_evm_signatures; v5_native_corpus_binds_exact_profiles_authority_and_all_outcomes must pass: the candidate regenerates or carries the native corpus the test binds under services/agent/crates/layerx-sdk/src/programs and names it in the commit message. Continue from attempt 4."
 do_6 = "Decision 2392 and attempt 6 ruling: the verify builds the terminal v5 corpus with scripts/qualification/paxeer-x/program-terminal-v5.py (--build into a private directory from a detached worktree of HEAD, then --manifest, which prints the PAXEER_X_PROGRAM_TERMINAL_V5_CORPUS assignment) and runs the layerx-sdk library tests with that variable exported, so v5_native_corpus_binds_exact_profiles_authority_and_all_outcomes (services/agent/crates/layerx-sdk/src/program_http.rs:2337) is exercised against the signed corpus instead of returning Verification for a missing path; the candidate of attempt 6 (c420cc24e) is re-qualified unchanged under that verify, and a failure of the corpus test on the real corpus is a decoder finding, not an environment one."
+do_7 = "Decision 2402 (attempts 5 to 8): every terminal-v5 corpus build exits 2 because scripts/qualification/paxeer-x/program-terminal-v5.py:45-50 asks make for generated/lxp_checkpoint_settlement.h, whose rule 16.2.2 retired. This task now requires 22.1.11, which removes that request; the attempt 7 candidate is re-qualified unchanged once 22.1.11 has published."
 
 [task.22.9.17]
 title = "Reconcile the agent crates' vector counts, settlement fixtures and address casing"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.9.24", "22.9.25", "22.9.33"]
@@ -133553,6 +133716,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Decision 2270: the verify runs the move_commit_bank_send target through sh tools/runtime/run-with-clock.sh, as the Makefile runs every human-workspace test."
 do_6 = "Decision 2383: attempt 5 (6ac4ea361 on b9ae495fc) failed only because the attestor build stopped on a missing go.sum entry (3a45b8541 deleted services/wallet/attestor/go.sum); this task now requires 22.24.24, which restores the file. Re-qualify 6ac4ea361 unchanged once 22.24.24 has published."
+do_7 = "Decision 2404 (attempt 6, 94a880eaf, continue): with the attestor module restored, three move_commit tests pass and the four that inject a failed receipt read or the consumed-nonce rejection on a retained hash (retains_the_accepted_submission_when_the_receipt_read_fails, recovers_the_accepted_submission_after_reopening, keeps_a_submitted_receipt_pending_without_resending, reconciles_a_consumed_nonce_with_a_retained_hash) receive POST /v1/moves 503 upstream-degraded after the sixty-second mark. do_2 is the fact: in advance_evm_intent a submitted leg whose lookup fails or whose repeat send meets the consumed-nonce rejection continues to the receipt lookup and leaves the journey still-checking; find the branch that still answers upstream_degraded on those two paths (and any deadline the lookup retry runs past) and route it per do_2. Keep the fixture injections of do_3."
 
 [task.18.1433.1]
 title = "Issue #1433: Encode the owner receipt lookup answer as one shared frame the Human decoder reads"
@@ -135579,7 +135743,7 @@ title = "Add the accepted Programs call case to the sequencer receipt vectors an
 status = "pending"
 mode = "BUILD"
 wave = 0
-requires = ["22.25.4"]
+requires = ["22.25.4", "22.25.5"]
 reqs = ["22085.1"]
 capabilities = ["22.25.3"]
 interfaces = []
@@ -135587,7 +135751,7 @@ do_1 = "rpc/sequencer_receipt_vectors_test.go TestSequencerReceiptVectors (:562)
 do_2 = "The pins move with the fixture: 11 to 12 cases and 4 to 5 V1 cases in TestVectorFilesV1ToV3MatchSequencerReceiptFixture (:699) and in the case assertion helper. Regenerate sdk/platform/conformance/fixtures/vector-v1-receipted-positive.json and daemon/committed-fixture/vectors/vector-v1-receipted-positive.json byte-identical to the source group."
 do_3 = "A reader outside touches that pins the old count (the Go conformance readers under sdk/platform/go, the Python readers, the market namespaces vector test) stops the attempt with a finding naming the file and line; it is not edited here. If no committed fixture program can be deployed from the vectors chain, record a finding naming the missing fixture and stop."
 symbols = ["TestSequencerReceiptVectors", "TestVectorFilesV1ToV3MatchSequencerReceiptFixture"]
-touches = ["rpc/sequencer_receipt_vectors_test.go", "sdk/platform/conformance/fixtures", "daemon/committed-fixture", "sdk/platform/go/conformance_vectors_test.go", "sdk/platform/go/cmd/conformance/main.go", "tests/agent/sdk/python/test_receipt_fixture.py", "tests/agent/sdk/python/test_supply_receipt.py"]
+touches = ["rpc/sequencer_receipt_vectors_test.go", "sdk/platform/conformance/fixtures", "daemon/committed-fixture", "sdk/platform/go/conformance_vectors_test.go", "sdk/platform/go/cmd/conformance/main.go", "tests/agent/sdk/python/test_receipt_fixture.py", "tests/agent/sdk/python/test_supply_receipt.py", "sdk/platform/go/cmd/conformance/vectors_test.go"]
 tests = ["rpc/sequencer_receipt_vectors_test.go"]
 planned_paths = ["rpc/sequencer_receipt_vectors_test.go", "sdk/platform/conformance/fixtures", "daemon/committed-fixture"]
 build_cmd = "go vet ./rpc/ ./daemon/committed-fixture/"
@@ -135607,6 +135771,7 @@ do_4 = "Attempt 1 stopped on the out-of-scope readers that pin four V1 cases: sd
 do_5 = "Decision 2379: attempt 2 (4e2c455b1 on 8019d18ff) passed every Go check and stopped while collecting tests/agent/sdk/python/test_receipt_fixture.py with ModuleNotFoundError for layerx_sdk, because that reader imports the package at line 9 without the repository path insertion its siblings carry. The file is now in touches: add the insertion of test_ai_market.py:22-23 (ROOT = Path(__file__).resolve().parents[4]; sys.path.insert(0, str(ROOT / 'services/agent/sdk/python')) before the layerx_sdk imports, marked noqa: E402), keep its assertions and the rest of attempt 2 as they are, and if the file pins the V1 case count move the pin to the count the fixture now carries. Installing the package or changing the environment profile is not the fix."
 do_6 = "Decision 2381: attempt 3 (fefe165d6 on dcfbed2f9) carried the path insertion of decision 2379 and stopped at collection with ImportError, because tests/agent/sdk/python/test_receipt_fixture.py:14-15 imports verify_receipt and decode_program_receipt_outcome, two names task 9.97.7 (efc169938) retired from layerx_sdk (services/agent/sdk/python/tests/test_retired_kernel_receipts.py is the oracle). Port the reader: drop those two imports, delete test_explicit_protocol_three (:70), test_program_outcome_v3_vector (:100) and test_core_programs_fixture_preserves_optional_outcome (:151) together with the helpers only they use (_signature_verifier_class, _SIGNATURES_PATH, _NATIVE, _native_execution, _PROGRAM_OUTCOME_V3 and the imports that become unused), keep the four sequencer-vector tests and the path insertion as attempt 3 left them, and run the module alone with python3 -m pytest tests/agent/sdk/python/test_receipt_fixture.py before the single verify run. Continue from fefe165d6."
 do_7 = "Attempt 4 ruling: tests/ci/test_receipt_fixture_readers.py::test_sdk_tests_read_sequencer_receipt_vectors collects tests/agent/sdk/python/test_supply_receipt.py, whose line 8 imports verify_receipt, a name 9.97.7 (efc169938) retired from layerx_sdk; that file is now in touches. When its cases only verify the retired kernel receipts of tests/fixtures/asset/daemon-send-supply, delete the module; otherwise port it to the sequencer-vector reader of test_receipt_fixture.py the way decision 2381 ported that file. Continue from the attempt 4 candidate (405f8a9df)."
+do_8 = "Decision 2401 (attempts 5 and 6, continue): sdk/platform/go/cmd/conformance/vectors_test.go:96 (now in touches) pins five V1 cases. The O48 refusal of the conformance command is the catalogue drift of 10.15.4, repaired by task 22.25.5 which this task now requires; the attempt 6 candidate continues once 22.25.5 has published and changes nothing under sdk/platform/conformance/operations.json."
 
 [task.22.25.1]
 title = "Mount the chain registry and sequencer stores in the rpc receipt test chain"
@@ -165349,6 +165514,38 @@ do_13 = "Decision 2117: delete the faucet.claim entry (the O28 group, sdk/platfo
 do_14 = "Decision 2118: this task requires 8.46.9, which first returns sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java to the generator's shape and moves the JVM verification enum to decision 2115. After do_10, run --write (do_1) and accept GeneratedContract.java and sdk/platform/conformance/jvm.kvx exactly as rendered; if the rendered GeneratedContract.java still differs from the 8.46.9 result, the difference is the generator's and the mvn test of the verify proves it compiles. Run the build and the verify once on the final revision."
 do_15 = "Decision 2127: continue from attempt 6 (a82f26174). In sdk/platform/go/cmd/conformance/main.go delete the PerLeg field of operationDescriptor (:25) and the `strings.HasPrefix(metadata.Method, 'eth_')` branch at :424-428, so the request-vector comparison at :429-431 runs for every human operation (intent.plan and intent.submit have POST vectors under services/human/schema/human-api/golden); drop the strings import only if nothing else uses it. Nothing else in attempt 6 changes. Build once and verify once."
 
+[task.22.25.5]
+title = "Name the journey responses of the portable catalogue after the human schema and reseal the pipeline"
+status = "pending"
+mode = "BUILD"
+wave = 0
+requires = []
+reqs = ["22097.1"]
+capabilities = ["22.25.5"]
+interfaces = []
+wiring = ["wiring.J42.1"]
+do_1 = "Decision 2401: sdk/platform/conformance/operations.json rows agent.create, onboarding.resume and onboarding.status answer Journey while services/human/schema/human-api answers AgentCreationJourney (agents.kvx:124) and OnboardingJourney since 10.15.4 (f56cb07a3); sdk/platform/go/generated.go follows the schema and sdk/platform/go/cmd/conformance/main.go:377 refuses the divergence as O48. Move the three response names; compare every other human row against generated.go and move any further divergence found, naming each in the commit message."
+do_2 = "Run python3 sdk/platform/generators/generate_portable.py . so sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift and sdk/platform/dotnet/Generated/OperationCatalog.cs follow, then reseal sdk/platform/pipeline.kvx with the generator's --write mode (the pipeline_reseal test shows the invocation) so pipeline_lock_matches_repository passes."
+do_3 = "Only the four files in touches change; the schema, generated.go and the vector fixtures do not."
+symbols = []
+touches = ["sdk/platform/conformance/operations.json", "sdk/platform/pipeline.kvx", "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift", "sdk/platform/dotnet/Generated/OperationCatalog.cs"]
+tests = ["sdk/platform/go/cmd/conformance/vectors_test.go"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path sdk/platform/generators/Cargo.toml -p layerx-platform-sdkgen && go -C sdk/platform/go build ./..."
+verify_cmd = "python3 sdk/platform/generators/generate_portable.py --check . && cargo test --locked --manifest-path sdk/platform/generators/Cargo.toml -p layerx-platform-sdkgen --test pipeline_reseal -- --exact pipeline_lock_matches_repository && go -C sdk/platform/go test -count=1 ./cmd/conformance/ -run '^TestConformanceCommandPassesVectorFiles$'"
+gate_kind = "planned"
+sandbox_profile = "sdk-all"
+owner_role = "fm-platform"
+rollback = "Restore the four files; the conformance command refuses O48 again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+
 [task.8.46.1]
 title = "Go catalogue and operations.json route program and intent operations to EVM calls"
 status = "done"
@@ -173075,7 +173272,7 @@ do_1 = "services/human/tools/boundary-check/src/main.rs:23-25 runs the dependenc
 do_2 = "Print `human dependency, boundary, payload-authority and retired-surface policies passed` in place of the line at services/human/tools/boundary-check/src/main.rs:29."
 do_3 = "Create services/human/tools/boundary-check/tests/retired_surface_tree.rs (planned) running the real binary through `CARGO_BIN_EXE_layerx-human-boundary-check` over services/human/crates."
 symbols = ["main", "human_retired_surface_gate"]
-touches = ["services/human/tools/boundary-check/src/main.rs", "services/human/tools/boundary-check/tests/retired_surface_tree.rs", "services/human/tools/boundary-check/src/lib.rs", "services/human/tools/boundary-check/tests/fixtures.rs", "services/human/crates/layerx-human-service/tests/support/production_fixture.rs"]
+touches = ["services/human/tools/boundary-check/src/main.rs", "services/human/tools/boundary-check/tests/retired_surface_tree.rs", "services/human/tools/boundary-check/src/lib.rs", "services/human/tools/boundary-check/tests/fixtures.rs", "services/human/crates/layerx-human-service/tests/support/production_fixture.rs", "services/human/tools/boundary-check/tests/retired_surface_rules.rs", "services/human/crates/layerx-human-kms/tests/attestor.rs", "services/human/crates/layerx-human-kms/tests/evm_attestor_ops.rs", "services/human/crates/layerx-human-kms/tests/send_authorization_evm.rs", "services/human/crates/layerx-human-kms/tests/sign_eip1559_requests.rs", "services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs", "services/human/crates/layerx-human-service/tests/production_unhooked.rs", "services/human/crates/layerx-human-service/README.md"]
 tests = ["services/human/tools/boundary-check/tests/retired_surface_tree.rs::boundary_check_binary_passes_the_merged_human_tree"]
 planned_paths = ["services/human/tools/boundary-check/tests/retired_surface_tree.rs"]
 build_cmd = "cargo build --locked --manifest-path services/human/tools/boundary-check/Cargo.toml -p layerx-human-boundary-check"
@@ -173096,6 +173293,7 @@ do_5 = "Finding at the second attempt: the boundary-check binary test fails only
 do_6 = "Attempt 2: the boundary check reports ambient nondeterminism in services/human/crates/layerx-human-test-support/src/evidence_node.rs, services/human/crates/layerx-human-kms/tests/proof_human_kms.rs and services/human/crates/layerx-human-kms/tests/proof_human_kms_wire.rs, the three files task 10.1.11 repairs; this task already requires 10.1.11 and is requalified unchanged once it publishes."
 do_7 = "Decision 2391 and attempt 4 ruling, part A: in services/human/tools/boundary-check/src/lib.rs remove the manifest rule of human_payload_authority_gate (the payload-authority-dependency violation, manifest_declares_wire_dependency and PAYLOAD_ENCODING_CRATE) and keep the payload-encoding-entry-point rule for every file, tests included; the doc comment says the gate returns every component other than layerx-intents that invokes the payload-encoding entry points. In services/human/tools/boundary-check/tests/fixtures.rs delete service_crate_wire_dependency_is_rejected and workspace_inherited_wire_dependency_is_rejected and add service_crate_wire_dependency_is_allowed_while_encoding_is_caught (a service manifest declaring layerx-wire passes; a source invoking layerx_wire::encode in the same fixture is still reported)."
 do_8 = "Decision 2391 and attempt 4 ruling, part B: services/human/crates/layerx-human-service/tests/support/production_fixture.rs:474 imports the raw layerx_wire::encode::Encoder to build the fixture's sequencer answer; build those bytes through the receipt encoder the service itself uses (layerx_wire::receipt::encode, as the service's own src/agents/create.rs:563 does), or carry the pre-encoded answer bytes as a fixture constant when the receipt encoder cannot express them, so no file under services/human/crates invokes the encode entry point; then the boundary-check binary passes the merged human tree and the task's verify runs green."
+do_9 = "Decision 2397 (attempt 5, 7fadb00d1, continue): the merged-tree run reports 23 files for three causes, none of them a product violation. (1) layerx_proof::receipt::AuthorizedBatch is live (services/agent/crates/layerx-proof/src/receipt.rs:88, consumed by the journeys engine as StoredAuthorizedBatch per req 9303 and decision 925): the row leaves RETIRED_IMPORTS in src/lib.rs and the fixture rule leaves tests/retired_surface_rules.rs:79. (2) The four KMS tests attestor.rs, evm_attestor_ops.rs, send_authorization_evm.rs and sign_eip1559_requests.rs (now in touches) import read_frame and write_frame from layerx_client::frame::framing, where 22.9.30 moved them; the lni row of RETIRED_IMPORTS stays. (3) The retired-environment rows leave their last readers (now in touches): wallet_identity_e2e.rs:858-865 and :925-932 (the MOVEMENT and EXIT variables), production_unhooked.rs:51-57 (the PAXEER_, EXIT_ and RECIPIENT_ prefixes of retired_variable and their two asserts), :958-974 (the MOVEMENT rows and the movement listener field) and the README rows documenting the PAXEER_ and EXIT_ variables; nothing under the human crates reads them since 10.20.5. The gate lists stay otherwise unchanged and the binary run passes on the merged tree."
 
 [task.10.2.1]
 title = "Record activity entries with rungs instead of kernel verification levels"
@@ -189158,7 +189356,7 @@ interfaces = []
 do_1 = "precompiles/missing_merge_test.go:42 expects 10 merge constructors and finds 11 (layerxchains); engine/executor/precompiles/merge_table_test.go:13 expects 12 fail-fast address entries and finds 13; precompiles/layerxagent/served/served_test.go:65 rejects 0x000000000000000000000000000000000000101E as an unaccounted merge address; modules/evm/keeper/keeper_activation_test.go:104 expects a precompile map entry for a retired executor address. Update each expectation to the table at HEAD (layerxchains at 0x101E is a served merge address; the retired executor address is absent) and, where a test hard-codes a count, derive it from the table it checks so the next addition cannot drift it."
 do_2 = "The four packages vet and test clean."
 symbols = []
-touches = ["precompiles/missing_merge_test.go", "engine/executor/precompiles/merge_table_test.go", "precompiles/layerxagent/served/served_test.go", "modules/evm/keeper/keeper_activation_test.go"]
+touches = ["precompiles/missing_merge_test.go", "engine/executor/precompiles/merge_table_test.go", "precompiles/layerxagent/served/served_test.go", "modules/evm/keeper/keeper_activation_test.go", "engine/executor/precompiles/failfast.go"]
 tests = []
 planned_paths = []
 build_cmd = "CGO_ENABLED=1 go build ./precompiles/ ./engine/executor/precompiles/ ./modules/evm/keeper/"
@@ -189175,6 +189373,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Decision 2393: precompiles/layerxagent/served holds only served_test.go, so the build list no longer names it; go vet and go test in the verify keep it. Attempt 3 (3f399e38b) passed every test and is re-qualified unchanged."
+do_4 = "Decision 2398 (attempt 4, 8e3a89a64, continue): engine/executor/precompiles/failfast.go (now in touches) MergeFailFastPrecompileAddresses gains the layerxchains address 0x101E that precompiles/setup.go:73 carries since 20.2.2, so TestMergeAddressTableIsFailFast/layerxchains finds it. modules/evm/keeper/keeper_activation_test.go:124 lists 0x0903 among the addresses withheld until the plan is applied: node/upgrades.go:603 gates the oracle aggregator on layerxexchange as well as layerxagent, and the test rewinds the layerxexchange entry; the attempt 4 changes to merge_table_test.go (NotEmpty and Len over the table), served_test.go and missing_merge_test.go stay."
 
 [task.22.5.7]
 title = "Preserve every key in the Litt 3-to-3 migration and open the anchor tree once in the memiavl fixture"
@@ -211524,6 +211723,38 @@ contract = "contracts/launchpad.md#scope-and-reading-guide"
 test = "contracts/test/MultiSender.t.sol::test_batchTransferRejectsOverpayment (planned)"
 qualification = "UNRUN"
 
+[acceptance.22.13.12.1]
+feature = "22"
+req = "22099.1"
+scenario = "Given a guest that recurses past a 128-frame stack limit under the execution replay observer, when it traps, then the store's trap record carries StackOverflow with host_trap false and the single-step replay of its pre-state reproduces the trap exactly."
+contract = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --test step_conformance"
+test = "programs/crates/layerx-programs-runtime/tests/step_conformance.rs"
+qualification = "UNRUN"
+
+[acceptance.22.1.11.1]
+feature = "22"
+req = "22098.1"
+scenario = "Given the eight producers without the retired header entry, when the grep, the compile and the parse run, then no file under tools or scripts names lxp_checkpoint_settlement and all producers compile or parse."
+contract = "! grep -rn lxp_checkpoint_settlement tools scripts && python3 -m py_compile tools/qualification/paxeer-x/programs_all_form_validation.py tools/qualification/paxeer-x/deterministic-execution-producer.py tools/qualification/paxeer-x/program-interface-producer.py tools/qualification/paxeer-x/programs_native_migration.py scripts/qualification/paxeer-x/program-event-bounds.py scripts/qualification/paxeer-x/program-terminal-v5.py && bash -n tools/release/tests/build.test.sh tools/release/tests/reproducible.test.sh"
+test = "scripts/qualification/paxeer-x/program-terminal-v5.py"
+qualification = "UNRUN"
+
+[acceptance.22.25.5.1]
+feature = "22"
+req = "22097.1"
+scenario = "Given the catalogue rows named after the human schema and the regenerated Swift and C# catalogues, when the portable check, the pipeline lock test and the Go conformance command run, then all three pass."
+contract = "python3 sdk/platform/generators/generate_portable.py --check . && cargo test --locked --manifest-path sdk/platform/generators/Cargo.toml -p layerx-platform-sdkgen --test pipeline_reseal -- --exact pipeline_lock_matches_repository && go -C sdk/platform/go test -count=1 ./cmd/conformance/ -run '^TestConformanceCommandPassesVectorFiles$'"
+test = "sdk/platform/go/cmd/conformance/vectors_test.go"
+qualification = "UNRUN"
+
+[acceptance.22.9.38.1]
+feature = "22"
+req = "22096.1"
+scenario = "Given the daemon's Human peer server, approval registry and budget hold started in-process, when the projection facts test runs without PAXEER_X_HUMAN_PROJECTION_FACTS_FIXTURE in the environment, then it passes with every assertion of the facts layout, both refusals and the budget facts length intact."
+contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test human_projection_facts"
+test = "services/agent/crates/layerx-agentd/tests/human_projection_facts.rs"
+qualification = "UNRUN"
+
 [acceptance.22.23.13.1]
 feature = "22"
 req = "22095.1"
@@ -222005,6 +222236,35 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Add test_issue_closure_treats_a_superseded_task_as_closed to spec/layerx-merge/programme/tests/test_issue_closure.py: a temporary spec with one done and one superseded 18.x task returns an empty list."
 do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its tests passed; the closure over the live spec named three pending issue tasks that the requires list now carries and one superseded task. Once every required task is done, continue from attempt 1 rebased onto current main, add the superseded case of decision 2248 with its test, and run the declared build and verify once as written."
+
+[task.22.1.11]
+title = "Stop requesting the retired checkpoint-settlement header from the qualification producers"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22098.1"]
+capabilities = ["22.1.11"]
+interfaces = []
+do_1 = "Decision 2402: 16.2.2 (75765cd1f) retired the Makefile rule for generated/lxp_checkpoint_settlement.h and no C source includes it. tools/release/tests/build.test.sh:65, tools/release/tests/reproducible.test.sh:67, tools/qualification/paxeer-x/programs_all_form_validation.py:122, deterministic-execution-producer.py:233, program-interface-producer.py:146, programs_native_migration.py:191, scripts/qualification/paxeer-x/program-event-bounds.py:49 and program-terminal-v5.py:45 still name it in the header lists they hand to make: remove the entry from each list and any assertion on the header's presence."
+do_2 = "Nothing else in the eight files changes; the Makefile is not edited."
+symbols = []
+touches = ["tools/release/tests/build.test.sh", "tools/release/tests/reproducible.test.sh", "tools/qualification/paxeer-x/programs_all_form_validation.py", "tools/qualification/paxeer-x/deterministic-execution-producer.py", "tools/qualification/paxeer-x/program-interface-producer.py", "tools/qualification/paxeer-x/programs_native_migration.py", "scripts/qualification/paxeer-x/program-event-bounds.py", "scripts/qualification/paxeer-x/program-terminal-v5.py"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/qualification/paxeer-x/programs_all_form_validation.py tools/qualification/paxeer-x/deterministic-execution-producer.py tools/qualification/paxeer-x/program-interface-producer.py tools/qualification/paxeer-x/programs_native_migration.py scripts/qualification/paxeer-x/program-event-bounds.py scripts/qualification/paxeer-x/program-terminal-v5.py"
+verify_cmd = "! grep -rn lxp_checkpoint_settlement tools scripts && python3 -m py_compile tools/qualification/paxeer-x/programs_all_form_validation.py tools/qualification/paxeer-x/deterministic-execution-producer.py tools/qualification/paxeer-x/program-interface-producer.py tools/qualification/paxeer-x/programs_native_migration.py scripts/qualification/paxeer-x/program-event-bounds.py scripts/qualification/paxeer-x/program-terminal-v5.py && bash -n tools/release/tests/build.test.sh tools/release/tests/reproducible.test.sh"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Restore the eight lists; the corpus builds exit 2 again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.24.23]
 title = "Pin every workflow action to a commit digest and declare token permissions in every workflow"
