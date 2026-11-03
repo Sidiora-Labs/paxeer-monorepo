@@ -1,0 +1,7 @@
+[repair.go-services.17]
+target = "services/platform/perps-data/internal/decode"
+command = "cd services/platform/perps-data && go vet ./internal/decode/ && go test -count=1 ./internal/decode/"
+revision = "cea04b0a20fed9621b2f2580398024b38b76ff2e"
+result = "repaired"
+change = "owner_lookup_test.go and projection_seed_test.go supply positive position base sizes consistent with the entry cost basis required by newSeed, preserving all assertions."
+producer_input_tests = ["TestPerpsAccountLookup requires PERPS_DATA_TEST_DATABASE_URL pointing to PostgreSQL with permission to recreate the perps schema and apply migrations", "TestProjectionSeeds requires PERPS_DATA_TEST_DATABASE_URL pointing to PostgreSQL with permission to recreate the perps schema and apply migrations", "TestSpotDecoders requires FEED_ORIGIN serving the Chainflow PAX order book, PERPS_DATA_TEST_RPC serving a node with spot markets and fresh pricefeed submissions and pruned state at height 1, and PERPS_DATA_TEST_SEED_KEY_FILE containing a funded spot account signing key"]
