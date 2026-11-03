@@ -115,7 +115,10 @@ func registerCW20Pointer(nonce uint64, cw20Addr string) ethtypes.TxData {
 
 // RegisterCW20PointerTx builds the transaction used by the RPC scenarios.
 func RegisterCW20PointerTx(nonce uint64, cw20Addr string) ethtypes.TxData {
-	pInfo := precompiles.GetPrecompileInfo(pointer.PrecompileName)
+	pInfo, err := precompiles.GetPrecompileInfoE(pointer.PrecompileName)
+	if err != nil {
+		panic(err)
+	}
 	input, err := pInfo.ABI.Pack(pointer.AddCW20Pointer, cw20Addr)
 	if err != nil {
 		panic(err)

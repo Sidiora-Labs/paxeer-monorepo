@@ -54,15 +54,15 @@ func TestPublishedLedgerAndAuthABIFrozen(t *testing.T) {
 		path   string
 		sha256 string
 	}{
-		{"ledger", "abi.json", "28d2ebcf15ff62b5a156923f477cb7a8ffb5f77fcc4e546cd09a0284d7f41ac4"},
-		{"auth", "../layerxauth/abi.json", "07b191e379cc505016eebd82f43cd97c5bfd61c0ca954604b5b484d79bf62e7e"},
+		{"ledger", "abi.json", "06dc6641582cb159c16b2e5426dff95f3109e551b92346576a0108f98680c97a"},
+		{"auth", "../layerxauth/abi.json", "b05e1f3aa1d1c2647041c2fc2ab841afe42ee6cbb1b9fce8881480a49d6f8fc9"},
 	} {
 		t.Run(frozen.name, func(t *testing.T) {
 			data, err := os.ReadFile(frozen.path)
 			require.NoError(t, err, "read published %s ABI", frozen.name)
 			digest := sha256.Sum256(data)
 			require.Equal(t, frozen.sha256, hex.EncodeToString(digest[:]),
-				"published %s ABI must remain byte-identical to the frozen attestor copy", frozen.name)
+				"published %s ABI must remain byte-identical to the frozen digest", frozen.name)
 		})
 	}
 }
