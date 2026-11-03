@@ -148,7 +148,7 @@ func (s Store) RequestDeletionOperation(ctx context.Context, p Principal, ledger
 	if s.DB == nil || ledger.Pool != s.DB || verify == nil || key == uuid.Nil || sessionID == uuid.Nil {
 		return nil, false, errors.New("DEPENDENCY_UNAVAILABLE")
 	}
-	if req.Action != "account.delete" || req.Method != "POST" || req.Path != "/v1/me/deletion-requests" || len(req.Body) > 16384 {
+	if req.Action != "account.delete" || req.Method != "POST" || (req.Path != "/v1/me/deletion-requests" && req.Path != "/v2/me/deletion-requests") || len(req.Body) > 16384 {
 		return nil, false, ErrInvalid
 	}
 	id, err := uuid.Parse(req.RequestID)
