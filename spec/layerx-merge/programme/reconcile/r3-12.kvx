@@ -1,0 +1,387 @@
+[reconcile.r3-12]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 46
+
+[row.r3-12.1]
+interface = "interface.3.cli-perps-data-perps-loadtest-j27"
+verdict = "served"
+path = "services/platform/perps-data/cmd/perps-loadtest/main.go"
+line = 24
+symbol = "perps-loadtest"
+evidence = "The perps-loadtest command still declares func main() at line 21 and logs its command name here. Startup now calls FeedSymbols(ctx, cfg.GatewayURL) and FullProfile(symbols), replacing the fixed-symbol, no-argument profile flow; the executable name is unchanged."
+
+[row.r3-12.2]
+interface = "interface.3.go-perps-data-config-load-j27"
+verdict = "served"
+path = "services/platform/perps-data/internal/config/config.go"
+line = 95
+symbol = "Load"
+evidence = "func Load(service Service) (*Config, error) retains its registered signature at line 95. It now parses PERPS_TRUSTED_PROXY_CIDRS through ratelimit.ParseTrustedProxies into Config.TrustedProxies and returns validation errors; func (s Service) Load() wraps startup errors with the service name."
+
+[row.r3-12.3]
+interface = "interface.3.go-perps-data-explorer-options-j27"
+verdict = "served"
+path = "services/platform/perps-data/internal/explorer/server.go"
+line = 41
+symbol = "Options"
+evidence = "type Options struct remains the declaration. Its current fields include TrustedProxies []netip.Prefix alongside LinkBase, Requests, Window and Metrics; NewServer copies the prefixes and ServeHTTP passes them explicitly to ClientKey."
+
+[row.r3-12.4]
+interface = "interface.3.http-perps-data-explorer-get-api-chain-health-j27"
+verdict = "served"
+path = "services/platform/perps-data/internal/explorer/server.go"
+line = 88
+symbol = "GET /api/chain/health"
+evidence = "The route literal GET /api/chain/health is unchanged and now registers at line 88 with s.chainHealth. The handler reports status, ts, chain_connected, blocks_seen and txs_seen; disconnected heads yield degraded status with HTTP 200."
+
+[row.r3-12.5]
+interface = "interface.3.http-perps-data-explorer-get-api-explorer-health-j27"
+verdict = "served"
+path = "services/platform/perps-data/internal/explorer/server.go"
+line = 89
+symbol = "GET /api/explorer/health"
+evidence = "The route literal GET /api/explorer/health is unchanged and now registers at line 89 with s.explorerHealth. Its response contains nullable latest_block and chain_connected, read through the shared cursor-freshness status query."
+
+[row.r3-12.6]
+interface = "interface.3.ws-perps-data-topic-symbol-perp-orderbook-j27"
+verdict = "served"
+path = "services/platform/perps-data/internal/feeds/topics.go"
+line = 38
+symbol = "perp_orderbook"
+evidence = "kindPerpBook = \"perp_orderbook\" is the current literal implementing <SYMBOL>@perp_orderbook. The topic spelling is unchanged; parse checks the atomic market symbol set, which reloadMarkets reads from perps.markets rather than a fixed startup-only symbol list."
+
+[row.r3-12.7]
+interface = "interface.3.ws-perps-data-topic-symbol-perp-trade-j27"
+verdict = "served"
+path = "services/platform/perps-data/internal/feeds/topics.go"
+line = 39
+symbol = "perp_trade"
+evidence = "kindPerpTrade = \"perp_trade\" is the current literal implementing <SYMBOL>@perp_trade. The topic spelling is unchanged; parse accepts the kind only for symbols in the atomic market set populated by reloadMarkets from perps.markets."
+
+[row.r3-12.8]
+interface = "interface.3.ws-perps-data-topic-symbol-perp-stats-j27"
+verdict = "served"
+path = "services/platform/perps-data/internal/feeds/topics.go"
+line = 40
+symbol = "perp_stats"
+evidence = "kindPerpStats = \"perp_stats\" is the current literal implementing <SYMBOL>@perp_stats. The topic spelling is unchanged; parse uses the atomically stored market set, and Providers retains bodies for subscribed stats topics."
+
+[row.r3-12.9]
+interface = "interface.3.ws-perps-data-topic-symbol-market-j27"
+verdict = "served"
+path = "services/platform/perps-data/internal/feeds/topics.go"
+line = 41
+symbol = "market"
+evidence = "kindMarket = \"market\" is the current literal implementing <SYMBOL>@market. The topic spelling is unchanged; parse admits it for every known perpetual market symbol in p.markets.Load().symbols, and Providers holds subscribed market bodies."
+
+[row.r3-12.10]
+interface = "interface.3.ws-perps-data-topic-symbol-stats-j27"
+verdict = "served"
+path = "services/platform/perps-data/internal/feeds/topics.go"
+line = 44
+symbol = "stats"
+evidence = "kindStats = \"stats\" is the current literal implementing <SYMBOL>@stats. The spelling is unchanged; parse restricts this spot topic to the PAX and SID entries of spotRank after checking the current market set."
+
+[row.r3-12.11]
+interface = "interface.3.go-perps-data-feeds-newproviders-j27"
+verdict = "served"
+path = "services/platform/perps-data/internal/feeds/topics.go"
+line = 191
+symbol = "NewProviders"
+evidence = "func NewProviders(ctx context.Context, db *sql.DB, logger *slog.Logger, metrics ...*telemetry.Metrics) (*Providers, error) adds the variadic metrics parameter to the registered three-argument signature. It registers a perps_gateway_markets gauge for each supplied registry and loads an atomic topicMarkets set."
+
+[row.r3-12.12]
+interface = "interface.3.go-perps-data-gateway-options-j27"
+verdict = "served"
+path = "services/platform/perps-data/internal/gateway/server.go"
+line = 94
+symbol = "Options"
+evidence = "type Options struct is still declared here. The current wiring includes TrustedProxies []netip.Prefix with DB, NATS, Chain, AuthSecret, Node, Metrics and Logger; NewServer passes opts.Metrics to feeds.NewProviders and stores the explicit proxy configuration."
+
+[row.r3-12.13]
+interface = "interface.3.http-perps-data-graphql-type-market-j27"
+verdict = "served"
+path = "services/platform/perps-data/internal/graphql/schema.go"
+line = 26
+symbol = "Market"
+evidence = "type Market now includes oracleSymbol: String!, nullable szDecimals and pxDecimals, tickSize: BigInt, lotSize: BigInt, tierClass: Int, oiCapUsd: BigInt and marginTiers: [MarginTier!]! beyond the registered fields. createdAt remains DateTime but perps.go now selects listed_at instead of NULL::timestamptz."
+
+[row.r3-12.14]
+interface = "interface.3.http-perps-data-graphql-query-market-j27"
+verdict = "served"
+path = "services/platform/perps-data/internal/graphql/schema.go"
+line = 544
+symbol = "market"
+evidence = "market(marketId: Int!): Market retains the registered argument and return signature at line 544. The resolver rejects negative marketId, returns null for unknown ids, and loads the expanded Market configuration plus margin tiers and state loaders."
+
+[row.r3-12.15]
+interface = "interface.3.http-perps-data-graphql-query-markets-j27"
+verdict = "served"
+path = "services/platform/perps-data/internal/graphql/schema.go"
+line = 545
+symbol = "markets"
+evidence = "markets: [Market!]! retains the registered query signature at line 545. Resolver.Markets selects the expanded market configuration ordered by market_id and attaches shared state and margin-tier loaders to the returned Market objects."
+
+[row.r3-12.16]
+interface = "interface.3.http-perps-data-graphql-query-spotbatchclearings-j27"
+verdict = "retired"
+path = "services/platform/perps-data/internal/graphql/schema.go"
+line = 665
+symbol = "spotBatchClearings"
+evidence = "spotBatchClearings is absent from the entire registered schema.go, including Query. Repository-wide word search excluding spec and docs found four other files: frontend removal checks, CLI absence checks, GraphQL rejection tests and legacy spot query expectations. No implementation declaration remains."
+remaining_refs = 4
+remaining = ["apps/perps/tests/graphql-operations.test.ts:245", "modules/pricefeed/client/cli/completion_gate_test.go:31", "services/platform/perps-data/internal/graphql/retired_test.go:13", "services/platform/perps-data/internal/graphql/spot_test.go:323"]
+
+[row.r3-12.17]
+interface = "interface.3.http-perps-data-graphql-query-spotepochsettlements-j27"
+verdict = "retired"
+path = "services/platform/perps-data/internal/graphql/schema.go"
+line = 671
+symbol = "spotEpochSettlements"
+evidence = "spotEpochSettlements is absent from the entire registered schema.go, including Query. Repository-wide word search excluding spec and docs found four other files: frontend removal checks, CLI absence checks, GraphQL rejection tests and legacy spot query expectations. No implementation declaration remains."
+remaining_refs = 4
+remaining = ["apps/perps/tests/graphql-operations.test.ts:246", "modules/pricefeed/client/cli/completion_gate_test.go:36", "services/platform/perps-data/internal/graphql/retired_test.go:14", "services/platform/perps-data/internal/graphql/spot_test.go:325"]
+
+[row.r3-12.18]
+interface = "interface.3.http-perps-data-graphql-query-spotfastsettlements-j27"
+verdict = "retired"
+path = "services/platform/perps-data/internal/graphql/schema.go"
+line = 673
+symbol = "spotFastSettlements"
+evidence = "spotFastSettlements is absent from the entire registered schema.go, including Query. Repository-wide word search excluding spec and docs found four other files: frontend removal checks, CLI absence checks, GraphQL rejection tests and legacy spot query expectations. No implementation declaration remains."
+remaining_refs = 4
+remaining = ["apps/perps/tests/graphql-operations.test.ts:247", "modules/pricefeed/client/cli/completion_gate_test.go:41", "services/platform/perps-data/internal/graphql/retired_test.go:15", "services/platform/perps-data/internal/graphql/spot_test.go:327"]
+
+[row.r3-12.19]
+interface = "interface.3.http-perps-data-graphql-query-spotmarketmodechanges-j27"
+verdict = "retired"
+path = "services/platform/perps-data/internal/graphql/schema.go"
+line = 688
+symbol = "spotMarketModeChanges"
+evidence = "spotMarketModeChanges is absent from the entire registered schema.go, including Query. Repository-wide word search excluding spec and docs found four other files: frontend removal checks, CLI absence checks, GraphQL rejection tests and legacy spot query expectations. No implementation declaration remains."
+remaining_refs = 4
+remaining = ["apps/perps/tests/graphql-operations.test.ts:248", "modules/pricefeed/client/cli/completion_gate_test.go:46", "services/platform/perps-data/internal/graphql/retired_test.go:16", "services/platform/perps-data/internal/graphql/spot_test.go:329"]
+
+[row.r3-12.20]
+interface = "interface.3.http-perps-data-graphql-query-spotpofqupdates-j27"
+verdict = "retired"
+path = "services/platform/perps-data/internal/graphql/schema.go"
+line = 694
+symbol = "spotPofqUpdates"
+evidence = "spotPofqUpdates is absent from the entire registered schema.go, including Query. Repository-wide word search excluding spec and docs found four other files: frontend removal checks, CLI absence checks, GraphQL rejection tests and legacy spot query expectations. No implementation declaration remains."
+remaining_refs = 4
+remaining = ["apps/perps/tests/graphql-operations.test.ts:249", "modules/pricefeed/client/cli/completion_gate_test.go:51", "services/platform/perps-data/internal/graphql/retired_test.go:17", "services/platform/perps-data/internal/graphql/spot_test.go:331"]
+
+[row.r3-12.21]
+interface = "interface.3.http-perps-data-graphql-query-spotplvs-j27"
+verdict = "retired"
+path = "services/platform/perps-data/internal/graphql/schema.go"
+line = 701
+symbol = "spotPLVs"
+evidence = "spotPLVs is absent from the entire registered schema.go, including Query. Repository-wide word search excluding spec and docs found four other files: frontend removal checks, CLI absence checks, GraphQL rejection tests and legacy spot query expectations. No implementation declaration remains."
+remaining_refs = 4
+remaining = ["apps/perps/tests/graphql-operations.test.ts:250", "modules/pricefeed/client/cli/completion_gate_test.go:56", "services/platform/perps-data/internal/graphql/retired_test.go:18", "services/platform/perps-data/internal/graphql/spot_test.go:333"]
+
+[row.r3-12.22]
+interface = "interface.3.http-perps-data-graphql-query-spotkeepercycles-j27"
+verdict = "retired"
+path = "services/platform/perps-data/internal/graphql/schema.go"
+line = 703
+symbol = "spotKeeperCycles"
+evidence = "spotKeeperCycles is absent from the entire registered schema.go, including Query. Repository-wide word search excluding spec and docs found four other files: frontend removal checks, CLI absence checks, GraphQL rejection tests and legacy spot query expectations. No implementation declaration remains."
+remaining_refs = 4
+remaining = ["apps/perps/tests/graphql-operations.test.ts:251", "modules/pricefeed/client/cli/completion_gate_test.go:61", "services/platform/perps-data/internal/graphql/retired_test.go:19", "services/platform/perps-data/internal/graphql/spot_test.go:335"]
+
+[row.r3-12.23]
+interface = "interface.3.http-perps-data-graphql-query-spotbatchclearfailures-j27"
+verdict = "retired"
+path = "services/platform/perps-data/internal/graphql/schema.go"
+line = 705
+symbol = "spotBatchClearFailures"
+evidence = "spotBatchClearFailures is absent from the entire registered schema.go, including Query. Repository-wide word search excluding spec and docs found four other files: frontend removal checks, CLI absence checks, GraphQL rejection tests and legacy spot query expectations. No implementation declaration remains."
+remaining_refs = 4
+remaining = ["apps/perps/tests/graphql-operations.test.ts:252", "modules/pricefeed/client/cli/completion_gate_test.go:66", "services/platform/perps-data/internal/graphql/retired_test.go:20", "services/platform/perps-data/internal/graphql/spot_test.go:337"]
+
+[row.r3-12.24]
+interface = "interface.3.go-perps-data-markets-refresh-j27"
+verdict = "served"
+path = "services/platform/perps-data/internal/markets/markets.go"
+line = 147
+symbol = "Refresh"
+evidence = "func Refresh(ctx context.Context, db *sql.DB, client *ethclient.Client) error retains its signature at line 147. The refresh now includes getMarketConfig(id) and getMarginTiers(id), storing market configuration and tiers with chain values in one transaction."
+
+[row.r3-12.25]
+interface = "interface.3.http-perps-data-portal-get-markets-symbol-j27"
+verdict = "served"
+path = "services/platform/perps-data/internal/portal/server.go"
+line = 115
+symbol = "GET /markets/{symbol}"
+evidence = "The literal GET /markets/{symbol} remains at line 115 and still renders the portal market page. The handler validates symbolPattern before calling s.pages.Market; the registered route signature is unchanged."
+
+[row.r3-12.26]
+interface = "interface.3.env-perps-data-perps-trusted-proxy-cidrs-j27"
+verdict = "served"
+path = "services/platform/perps-data/internal/ratelimit/ratelimit.go"
+line = 29
+symbol = "PERPS_TRUSTED_PROXY_CIDRS"
+evidence = "const EnvTrustedProxies = \"PERPS_TRUSTED_PROXY_CIDRS\" preserves the environment variable name. The old package-initialization panic behavior is gone: config.Load reads the variable and calls ParseTrustedProxies(raw string) ([]netip.Prefix, error), then passes prefixes explicitly to request handling."
+
+[row.r3-12.27]
+interface = "interface.3.go-perps-data-ratelimit-clientkey-j27"
+verdict = "served"
+path = "services/platform/perps-data/internal/ratelimit/ratelimit.go"
+line = 110
+symbol = "ClientKey"
+evidence = "func ClientKey(r *http.Request, trusted []netip.Prefix) string adds an explicit trusted-prefix slice to the registered request-only signature. It returns an ip: key through clientIP(r, trusted), so caller-chosen X-API-Key headers do not create separate rate-limit identities."
+
+[row.r3-12.28]
+interface = "interface.3.go-perps-data-records-marketrecord-j27"
+verdict = "served"
+path = "services/platform/perps-data/internal/records/records.go"
+line = 67
+symbol = "MarketRecord"
+evidence = "type MarketRecord struct remains the declaration at line 67. Its current funding payload fields Funding8h, LastFundingRateHourly and PerpFundingRate are *string, preserving exact settled rates and null before the first settlement; the other fields include nullable float prices and notionals."
+
+[row.r3-12.29]
+interface = "interface.3.go-perps-data-records-symbol-price-j27"
+verdict = "served"
+path = "services/platform/perps-data/internal/records/records.go"
+line = 309
+symbol = "Price"
+evidence = "func (s *Symbol) Price(ctx context.Context, symbol string) (Price, error) retains the registered signature at line 309. It resolves the symbol through s.markets.ID, uses the latest index price, formats the timestamp as ISOMillis, and supplies fill-window open, high and low."
+
+[row.r3-12.30]
+interface = "interface.3.go-perps-data-records-symbol-stats-j27"
+verdict = "served"
+path = "services/platform/perps-data/internal/records/records.go"
+line = 352
+symbol = "Stats"
+evidence = "func (s *Symbol) Stats(ctx context.Context, symbol string) (Stats, error) retains the registered signature at line 352. It resolves the current market id and combines fillWindow and marketState through statsFrom; Stats.LastFundingRateHourly is an exact nullable decimal string."
+
+[row.r3-12.31]
+interface = "interface.3.go-perps-data-records-symbol-perpstats-j27"
+verdict = "served"
+path = "services/platform/perps-data/internal/records/records.go"
+line = 371
+symbol = "PerpStats"
+evidence = "func (s *Symbol) PerpStats(ctx context.Context, symbol string) (PerpStats, error) retains the registered signature at line 371. It combines Stats with latest mark/index/basis, liquidation volume and a nullable long/short ratio, with unknown symbols returning ErrUnknownSymbol."
+
+[row.r3-12.32]
+interface = "interface.3.go-perps-data-records-symbol-trades-j27"
+verdict = "served"
+path = "services/platform/perps-data/internal/records/records.go"
+line = 455
+symbol = "Trades"
+evidence = "func (s *Symbol) Trades(ctx context.Context, symbol string, limit int) (Trades[SpotTrade], error) retains the registered signature at line 455. It checks the current market set, limits spot trades to SpotTokenRank entries, and returns an empty typed trade list for other known symbols."
+
+[row.r3-12.33]
+interface = "interface.3.go-perps-data-records-symbol-perptrades-j27"
+verdict = "served"
+path = "services/platform/perps-data/internal/records/records.go"
+line = 513
+symbol = "PerpTrades"
+evidence = "func (s *Symbol) PerpTrades(ctx context.Context, symbol string, limit int) (Trades[PerpTrade], error) retains the registered signature at line 513. It resolves the current market id and reads fills with exact USD scaling, trade ids, side, liquidation and contract/notional values."
+
+[row.r3-12.34]
+interface = "interface.3.go-perps-data-records-symbol-health-j27"
+verdict = "served"
+path = "services/platform/perps-data/internal/records/records.go"
+line = 563
+symbol = "Health"
+evidence = "func (s *Symbol) Health(ctx context.Context, symbol string) (Health, error) retains the registered signature at line 563. It resolves the current market id, reads the latest fill and head-cursor existence, and returns pending or complete backfill plus an optional ISO last-fill timestamp."
+
+[row.r3-12.35]
+interface = "interface.3.http-perps-data-rest-get-api-markets-j27"
+verdict = "served"
+path = "services/platform/perps-data/internal/rest/markets.go"
+line = 49
+symbol = "GET /api/markets"
+evidence = "The literal GET /api/markets remains registered at line 49 with m.serveAll; its route signature is unchanged. The response is marketsBody{TS, Markets}, and marketRecordsSQL now joins the latest FundingSettled values as exact hourly and eight-hour decimal strings."
+
+[row.r3-12.36]
+interface = "interface.3.http-perps-data-rest-get-api-markets-symbol-j27"
+verdict = "served"
+path = "services/platform/perps-data/internal/rest/markets.go"
+line = 51
+symbol = "GET /api/markets/{symbol}"
+evidence = "The literal GET /api/markets/{symbol} remains registered at line 51 with m.serveOne; its route signature is unchanged. The handler uppercases the symbol, returns 404 for an unknown symbol, and emits the shared MarketRecord with exact nullable funding strings."
+
+[row.r3-12.37]
+interface = "interface.3.http-perps-data-rest-get-v1-leaderboards-kind-j27"
+verdict = "served"
+path = "services/platform/perps-data/internal/rest/spotusers.go"
+line = 118
+symbol = "GET /v1/leaderboards/{kind}"
+evidence = "The literal GET /v1/leaderboards/{kind} remains registered with s.leaderboard at line 118; its route signature is unchanged. spotLeaderboards still enumerates pnl, volume and win-rate as the supported kinds."
+
+[row.r3-12.38]
+interface = "interface.3.go-perps-data-rest-spotusers-streamitems-j27"
+verdict = "served"
+path = "services/platform/perps-data/internal/rest/spotusers.go"
+line = 1448
+symbol = "StreamItems"
+evidence = "func (s *SpotUsers) StreamItems(ctx context.Context, env delivery.Envelope) ([]SpotStreamItem, error) retains the registered signature at line 1448. It decodes spot_swaps and spot_order_events, emits orders and trade-related user items, and ignores rows from other tables."
+
+[row.r3-12.39]
+interface = "interface.3.http-perps-data-rest-get-api-symbol-route-j27"
+verdict = "served"
+path = "services/platform/perps-data/internal/rest/symbol.go"
+line = 47
+symbol = "GET /api/{symbol}/{route...}"
+evidence = "The literal GET /api/{symbol}/{route...} is unchanged and now registers at line 47. The serve switch dispatches price, stats, perp_stats, trades, perp_trades and health; optional path suffixes are accepted only for the trade routes and must match the symbol."
+
+[row.r3-12.40]
+interface = "interface.3.go-perps-data-store-rebuild-j27"
+verdict = "served"
+path = "services/platform/perps-data/internal/store/facts.go"
+line = 1397
+symbol = "Rebuild"
+evidence = "func Rebuild(ctx context.Context, tx *sql.Tx, from, to int64) error retains the registered signature at line 1397. It validates the transaction and range, collects touched accounts/markets from stored facts, refolds the range and refreshes cumulative snapshots and the leaderboard."
+
+[row.r3-12.41]
+interface = "interface.3.go-perps-data-store-project-j27"
+verdict = "served"
+path = "services/platform/perps-data/internal/store/projections.go"
+line = 67
+symbol = "Project"
+evidence = "func Project(ctx context.Context, tx *sql.Tx, rows []decode.Row) error retains the registered signature at line 67. It calls project and FoldSpotBoard, derives the block time, includes expired leaderboard accounts and rebuilds their leaderboard windows."
+
+[row.r3-12.42]
+interface = "interface.3.go-perps-data-loadtest-feedsymbols-j27"
+verdict = "served"
+path = "services/platform/perps-data/loadtest/load.go"
+line = 35
+symbol = "FeedSymbols"
+evidence = "func FeedSymbols(ctx context.Context, gateway string) ([]string, error) replaces the registered exported var FeedSymbols = []string{...}. It fetches GET /api/markets from the gateway, decodes market symbols and returns ErrNoSymbols when the response contains none."
+
+[row.r3-12.43]
+interface = "interface.3.go-perps-data-loadtest-fullprofile-j27"
+verdict = "served"
+path = "services/platform/perps-data/loadtest/load.go"
+line = 138
+symbol = "FullProfile"
+evidence = "func FullProfile(symbols []string) Profile adds the symbols []string argument to the registered func FullProfile() Profile signature. It clones that supplied list into Profile.Symbols while retaining 140000 sockets and the declared load, recovery and frame limits."
+
+[row.r3-12.44]
+interface = "interface.3.key-perps-data-table-markets-j27"
+verdict = "served"
+path = "services/platform/perps-data/migrations/0001_facts.sql"
+line = 956
+symbol = "perps.markets"
+evidence = "CREATE TABLE perps.markets remains at line 956 with its market_id primary key and unique symbol. The base declaration is unchanged; migrations/0006_markets_null_decimals.sql makes decimal fields nullable and 0012_markets_config.sql adds tick_size, lot_size, tier_class, impact_notional_usd, oi_cap_usd, funding_cap_ppm_per_hour and listed_at."
+
+[row.r3-12.45]
+interface = "interface.3.key-perps-data-table-market-stats-rolling-j27"
+verdict = "served"
+path = "services/platform/perps-data/migrations/0002_projections.sql"
+line = 108
+symbol = "perps.market_stats_rolling"
+evidence = "CREATE TABLE perps.market_stats_rolling remains at line 108; its registered table declaration is unchanged. The table still has a market_id primary key, rolling volumes, long/short open interest, nullable OHLC and updated_block; REST market records derive funding strings from funding_settlements instead."
+
+[row.r3-12.46]
+interface = "interface.3.key-perps-data-table-leaderboard-j27"
+verdict = "served"
+path = "services/platform/perps-data/migrations/0002_projections.sql"
+line = 124
+symbol = "perps.leaderboard"
+evidence = "CREATE TABLE perps.leaderboard remains at line 124; its registered declaration is unchanged. The table retains PRIMARY KEY (\"window\", rank) and UNIQUE (\"window\", account), with all/30d/7d windows; store.Project refolds touched and expired accounts before rebuilding ranks."

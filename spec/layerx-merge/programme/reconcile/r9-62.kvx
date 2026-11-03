@@ -1,0 +1,485 @@
+[reconcile.r9-62]
+revision = "0b17e0748b8a5c1506383faf11209f4f35235885"
+rows = 60
+
+[row.r9-62.1]
+interface = "interface.9.http-rpc-subscription-create"
+verdict = "served"
+path = "services/agent/schema/agent-api/stream.kvx"
+line = 14
+symbol = "operation.subscription.create"
+evidence = "The declaration [operation.subscription.create] still requires scope, filter, start and delivery_target, with a required idempotency key and MutationEnvelope<SubscriptionCreate> owner request. No operation signature change is present in this schema; the registry note about eth_subscribe is not a declaration of a new signature."
+
+[row.r9-62.2]
+interface = "interface.9.http-rpc-subscription-list"
+verdict = "served"
+path = "services/agent/schema/agent-api/stream.kvx"
+line = 25
+symbol = "operation.subscription.list"
+evidence = "The declaration [operation.subscription.list] still requires scope and returns SubscriptionRecord[], authorized by the authenticated session operation permit. No operation signature change is present in stream.kvx; the migration named in the registry note does not remove this declaration."
+
+[row.r9-62.3]
+interface = "interface.9.http-rpc-subscription-health"
+verdict = "served"
+path = "services/agent/schema/agent-api/stream.kvx"
+line = 31
+symbol = "operation.subscription.health"
+evidence = "The declaration [operation.subscription.health] still requires scope and subscription_id and returns SubscriptionHealth under the authenticated operation permit. No operation signature change is present in stream.kvx."
+
+[row.r9-62.4]
+interface = "interface.9.http-rpc-subscription-acknowledge"
+verdict = "served"
+path = "services/agent/schema/agent-api/stream.kvx"
+line = 37
+symbol = "operation.subscription.acknowledge"
+evidence = "The declaration [operation.subscription.acknowledge] still requires scope, subscription_id and cursor. The registered operation signature is unchanged; its schema declaration remains at line 37."
+
+[row.r9-62.5]
+interface = "interface.9.http-rpc-subscription-pause"
+verdict = "served"
+path = "services/agent/schema/agent-api/stream.kvx"
+line = 40
+symbol = "operation.subscription.pause"
+evidence = "The declaration [operation.subscription.pause] still requires scope and subscription_id. The registered operation signature is unchanged; its schema declaration remains at line 40."
+
+[row.r9-62.6]
+interface = "interface.9.http-rpc-subscription-resume"
+verdict = "served"
+path = "services/agent/schema/agent-api/stream.kvx"
+line = 43
+symbol = "operation.subscription.resume"
+evidence = "The declaration [operation.subscription.resume] still requires scope and subscription_id. The registered operation signature is unchanged; its schema declaration remains at line 43."
+
+[row.r9-62.7]
+interface = "interface.9.http-rpc-subscription-delete"
+verdict = "served"
+path = "services/agent/schema/agent-api/stream.kvx"
+line = 46
+symbol = "operation.subscription.delete"
+evidence = "The declaration [operation.subscription.delete] still requires scope and subscription_id. The registered operation signature is unchanged; its schema declaration remains at line 46."
+
+[row.r9-62.8]
+interface = "interface.9.fmt-agent-api-schema-v1"
+verdict = "served"
+path = "services/agent/schema/agent-api/v1.kvx"
+line = 1
+symbol = "[schema]"
+evidence = "The [schema] declaration remains in v1.kvx, named LayerX Agent API with major = 2 and minor = 0, despite the v1 filename. The registry module label is descriptive rather than a literal declaration; the current schema version is 2.0 and includes identity, write, read, stream, errors, approval and programs."
+
+[row.r9-62.9]
+interface = "interface.9.fmt-agent-api-request-frame"
+verdict = "served"
+path = "services/agent/schema/agent-api/v1.kvx"
+line = 11
+symbol = "contract_major:u16be contract_minor:u16be request_id:u64be operation:utf8 payload:canonical-map"
+evidence = "The request encoding remains contract_major:u16be contract_minor:u16be request_id:u64be operation:utf8 payload:canonical-map. Its field signature is unchanged; [schema] declares major 2 minor 0, distinct from the JSON Agent HTTP envelope version 1."
+
+[row.r9-62.10]
+interface = "interface.9.fmt-agent-api-response-frame"
+verdict = "served"
+path = "services/agent/schema/agent-api/v1.kvx"
+line = 12
+symbol = "contract_major:u16be contract_minor:u16be request_id:u64be result_code:u32be payload:canonical-map"
+evidence = "The response encoding remains contract_major:u16be contract_minor:u16be request_id:u64be result_code:u32be payload:canonical-map. Its field signature is unchanged; [schema] declares major 2 minor 0, while the JSON Agent HTTP envelope remains a separate contract."
+
+[row.r9-62.11]
+interface = "interface.9.err-reason-envelope-oversized"
+verdict = "served"
+path = "services/agent/schema/agent-api/v1.kvx"
+line = 634
+symbol = "envelope.oversized"
+evidence = "The current [transport.agent_http.errors] declaration at line 634 is \"envelope.oversized\" = \"ProtocolIncompatibility Terminal. Body above max_body_bytes.\" The reason literal remains present in the registered schema; the registry had line 641."
+
+[row.r9-62.12]
+interface = "interface.9.err-reason-envelope-malformed"
+verdict = "served"
+path = "services/agent/schema/agent-api/v1.kvx"
+line = 635
+symbol = "envelope.malformed"
+evidence = "The current [transport.agent_http.errors] declaration at line 635 is \"envelope.malformed\" = \"ProtocolIncompatibility Terminal. Body is not one well-formed envelope object.\" The reason literal remains present in the registered schema; the registry had line 642."
+
+[row.r9-62.13]
+interface = "interface.9.err-reason-envelope-unknown-field"
+verdict = "served"
+path = "services/agent/schema/agent-api/v1.kvx"
+line = 636
+symbol = "envelope.unknown_field"
+evidence = "The current [transport.agent_http.errors] declaration at line 636 is \"envelope.unknown_field\" = \"ProtocolIncompatibility Terminal. Envelope or request object carries an unknown key.\" The reason literal remains present in the registered schema; the registry had line 643."
+
+[row.r9-62.14]
+interface = "interface.9.err-reason-envelope-version"
+verdict = "served"
+path = "services/agent/schema/agent-api/v1.kvx"
+line = 637
+symbol = "envelope.version"
+evidence = "The current [transport.agent_http.errors] declaration at line 637 is \"envelope.version\" = \"ProtocolIncompatibility Terminal. Envelope version other than 1.\" The reason literal remains present in the registered schema; the registry had line 644."
+
+[row.r9-62.15]
+interface = "interface.9.err-reason-envelope-unknown-operation"
+verdict = "served"
+path = "services/agent/schema/agent-api/v1.kvx"
+line = 638
+symbol = "envelope.unknown_operation"
+evidence = "The current [transport.agent_http.errors] declaration at line 638 is \"envelope.unknown_operation\" = \"ProtocolIncompatibility Terminal. Operation is not a catalogue operation name.\" The reason literal remains present in the registered schema; the registry had line 645."
+
+[row.r9-62.16]
+interface = "interface.9.err-reason-envelope-noncanonical-integer"
+verdict = "served"
+path = "services/agent/schema/agent-api/v1.kvx"
+line = 639
+symbol = "envelope.noncanonical_integer"
+evidence = "The current [transport.agent_http.errors] declaration at line 639 is \"envelope.noncanonical_integer\" = \"ProtocolIncompatibility Terminal. An integer string is not canonical decimal.\" The reason literal remains present in the registered schema; the registry had line 646."
+
+[row.r9-62.17]
+interface = "interface.9.err-reason-envelope-credential"
+verdict = "served"
+path = "services/agent/schema/agent-api/v1.kvx"
+line = 640
+symbol = "envelope.credential"
+evidence = "The current [transport.agent_http.errors] declaration at line 640 is \"envelope.credential\" = \"ProtocolIncompatibility Terminal. Credential missing or a credential coordinate is malformed.\" The reason literal remains present in the registered schema; the registry had line 647."
+
+[row.r9-62.18]
+interface = "interface.9.err-reason-refused-pending-bootstrap-artifact"
+verdict = "retired"
+path = "services/agent/schema/agent-api/v1.kvx"
+line = 648
+symbol = "refused_pending_bootstrap_artifact"
+evidence = "The reason refused_pending_bootstrap_artifact is absent from the entire registered v1.kvx and from production source matches. The schema now requires credentials for agent.register and session.open under decision.1844 and identity.kvx declares prepare responses. Repository-wide exact-symbol searches excluding spec and docs found only two remaining files: the major-two RPC test and the operation-envelope qualification script retain the historical bootstrap refusal expectation."
+remaining_refs = 2
+remaining = ["services/agent/crates/layerx-agentd/tests/rpc_surface_major_two.rs:89", "tools/qualification/paxeer-x/agent_operation_envelope.py:111"]
+
+[row.r9-62.19]
+interface = "interface.9.err-reason-envelope-idempotency-key"
+verdict = "served"
+path = "services/agent/schema/agent-api/v1.kvx"
+line = 645
+symbol = "envelope.idempotency_key"
+evidence = "The current [transport.agent_http.errors] declaration at line 645 is \"envelope.idempotency_key\" = \"IdempotencyConflict Terminal. Idempotency key presence violates the idempotency rule or the key is malformed.\" The reason literal remains present in the registered schema; the registry had line 650."
+
+[row.r9-62.20]
+interface = "interface.9.err-reason-envelope-coordinate-mismatch"
+verdict = "served"
+path = "services/agent/schema/agent-api/v1.kvx"
+line = 646
+symbol = "envelope.coordinate_mismatch"
+evidence = "The current [transport.agent_http.errors] declaration at line 646 is \"envelope.coordinate_mismatch\" = \"PolicyRefusal Terminal. A request tenant or agent coordinate differs from the authenticated principal.\" The reason literal remains present in the registered schema; the registry had line 651."
+
+[row.r9-62.21]
+interface = "interface.9.err-reason-envelope-header-principal"
+verdict = "served"
+path = "services/agent/schema/agent-api/v1.kvx"
+line = 647
+symbol = "envelope.header_principal"
+evidence = "The current [transport.agent_http.errors] declaration at line 647 is \"envelope.header_principal\" = \"PolicyRefusal Terminal. A LayerX-Tenant, LayerX-Agent or Authorization header reached the daemon.\" The reason literal remains present in the registered schema; the registry had line 652."
+
+[row.r9-62.22]
+interface = "interface.9.err-reason-envelope-peer-unmapped"
+verdict = "served"
+path = "services/agent/schema/agent-api/v1.kvx"
+line = 648
+symbol = "envelope.peer_unmapped"
+evidence = "The current [transport.agent_http.errors] declaration at line 648 is \"envelope.peer_unmapped\" = \"PolicyRefusal Terminal. The authenticated principal maps to no owner peer.\" The reason literal remains present in the registered schema; the registry had line 653."
+
+[row.r9-62.23]
+interface = "interface.9.err-reason-unavailable-capability-faucet-claim"
+verdict = "served"
+path = "services/agent/schema/agent-api/v1.kvx"
+line = 649
+symbol = "unavailable_capability.faucet.claim"
+evidence = "The current [transport.agent_http.errors] declaration at line 649 is \"unavailable_capability.faucet.claim\" = \"UnavailableCapability Terminal. The retired faucet.claim operation.\" The reason literal remains present in the registered schema; the registry had line 654."
+
+[row.r9-62.24]
+interface = "interface.9.err-reason-idempotency-unsupported-operation"
+verdict = "served"
+path = "services/agent/schema/agent-api/v1.kvx"
+line = 650
+symbol = "idempotency.unsupported_operation"
+evidence = "The current [transport.agent_http.errors] declaration at line 650 is \"idempotency.unsupported_operation\" = \"UnavailableCapability Terminal. A keyed mutation without defined canonical request bytes.\" The reason literal remains present in the registered schema; the registry had line 655."
+
+[row.r9-62.25]
+interface = "interface.9.err-reason-idempotency-body-changed"
+verdict = "served"
+path = "services/agent/schema/agent-api/v1.kvx"
+line = 651
+symbol = "idempotency.body_changed"
+evidence = "The current [transport.agent_http.errors] declaration at line 651 is \"idempotency.body_changed\" = \"IdempotencyConflict Terminal. Same idempotency key with a different body digest.\" The reason literal remains present in the registered schema; the registry had line 656."
+
+[row.r9-62.26]
+interface = "interface.9.err-reason-outcome-unknown"
+verdict = "served"
+path = "services/agent/schema/agent-api/v1.kvx"
+line = 652
+symbol = "outcome.unknown"
+evidence = "The current [transport.agent_http.errors] declaration at line 652 is \"outcome.unknown\" = \"TransportFailure Terminal. Mutation outcome is Unknown; never resent automatically.\" The reason literal remains present in the registered schema; the registry had line 657."
+
+[row.r9-62.27]
+interface = "interface.9.err-reason-session-scope-denied"
+verdict = "served"
+path = "services/agent/schema/agent-api/v1.kvx"
+line = 653
+symbol = "session.scope_denied"
+evidence = "The current [transport.agent_http.errors] declaration at line 653 is \"session.scope_denied\" = \"CapabilityRefusal Terminal. Session scope does not admit the operation surface.\" The reason literal remains present in the registered schema; the registry had line 658."
+
+[row.r9-62.28]
+interface = "interface.9.err-reason-session-expired"
+verdict = "served"
+path = "services/agent/schema/agent-api/v1.kvx"
+line = 654
+symbol = "session.expired"
+evidence = "The current [transport.agent_http.errors] declaration at line 654 is \"session.expired\" = \"PolicyRefusal Terminal. Session expired.\" The reason literal remains present in the registered schema; the registry had line 659."
+
+[row.r9-62.29]
+interface = "interface.9.err-reason-session-revoked"
+verdict = "served"
+path = "services/agent/schema/agent-api/v1.kvx"
+line = 655
+symbol = "session.revoked"
+evidence = "The current [transport.agent_http.errors] declaration at line 655 is \"session.revoked\" = \"PolicyRefusal Terminal. Session revoked.\" The reason literal remains present in the registered schema; the registry had line 660."
+
+[row.r9-62.30]
+interface = "interface.9.err-reason-session-invalid-request"
+verdict = "served"
+path = "services/agent/schema/agent-api/v1.kvx"
+line = 656
+symbol = "session.invalid_request"
+evidence = "The current [transport.agent_http.errors] declaration at line 656 is \"session.invalid_request\" = \"ProtocolIncompatibility Terminal. Session authorization request is invalid.\" The reason literal remains present in the registered schema; the registry had line 661."
+
+[row.r9-62.31]
+interface = "interface.9.err-reason-session-not-authorized"
+verdict = "served"
+path = "services/agent/schema/agent-api/v1.kvx"
+line = 657
+symbol = "session.not_authorized"
+evidence = "The current [transport.agent_http.errors] declaration at line 657 is \"session.not_authorized\" = \"PolicyRefusal Terminal. Session authority does not authorize the credential.\" The reason literal remains present in the registered schema; the registry had line 662."
+
+[row.r9-62.32]
+interface = "interface.9.err-reason-owner-degraded"
+verdict = "served"
+path = "services/agent/schema/agent-api/v1.kvx"
+line = 658
+symbol = "owner.degraded"
+evidence = "The current [transport.agent_http.errors] declaration at line 658 is \"owner.degraded\" = \"UnavailableCapability Retriable. Owner is not Healthy.\" The reason literal remains present in the registered schema; the registry had line 663."
+
+[row.r9-62.33]
+interface = "interface.9.err-reason-owner-refused"
+verdict = "served"
+path = "services/agent/schema/agent-api/v1.kvx"
+line = 660
+symbol = "owner.refused"
+evidence = "The current [transport.agent_http.errors] declaration at line 660 is \"owner.refused\" = \"PolicyRefusal Terminal. Owner refused the typed operation.\" The reason literal remains present in the registered schema; the registry had line 665."
+
+[row.r9-62.34]
+interface = "interface.9.err-reason-policy-legacy-project-payload"
+verdict = "served"
+path = "services/agent/schema/agent-api/v1.kvx"
+line = 662
+symbol = "policy.legacy_project_payload"
+evidence = "The current [transport.agent_http.errors] declaration at line 662 is \"policy.legacy_project_payload\" = \"PolicyRefusal Terminal. A project request carries the earlier policy dry-run payload; it is never read as a fee request.\" The reason literal remains present in the registered schema; the registry had line 667."
+
+[row.r9-62.35]
+interface = "interface.9.err-reason-policy-intent-binding-missing"
+verdict = "served"
+path = "services/agent/schema/agent-api/v1.kvx"
+line = 663
+symbol = "policy.intent_binding_missing"
+evidence = "The current [transport.agent_http.errors] declaration at line 663 is \"policy.intent_binding_missing\" = \"PolicyRefusal Terminal. A LegacyPolicyDryRun canonical_intent carries raw canonical unsigned activity bytes whose typed semantics or retained purpose binding does not exist.\" The reason literal remains present in the registered schema; the registry had line 668."
+
+[row.r9-62.36]
+interface = "interface.9.err-reason-budget-not-found"
+verdict = "served"
+path = "services/agent/schema/agent-api/v1.kvx"
+line = 664
+symbol = "budget.not_found"
+evidence = "The current [transport.agent_http.errors] declaration at line 664 is \"budget.not_found\" = \"BudgetRefusal Terminal. The authenticated budget lookup names no budget of this tenant and agent.\" The reason literal remains present in the registered schema; the registry had line 669."
+
+[row.r9-62.37]
+interface = "interface.9.err-reason-capability-expiry"
+verdict = "served"
+path = "services/agent/schema/agent-api/v1.kvx"
+line = 665
+symbol = "capability.expiry"
+evidence = "The current [transport.agent_http.errors] declaration at line 665 is \"capability.expiry\" = \"CapabilityRefusal Terminal. Owner refused the typed operation: core protocol time is at or past the capability not_after.\" The reason literal remains present in the registered schema; the registry had line 670."
+
+[row.r9-62.38]
+interface = "interface.9.err-reason-capability-activity-type"
+verdict = "served"
+path = "services/agent/schema/agent-api/v1.kvx"
+line = 666
+symbol = "capability.activity_type"
+evidence = "The current [transport.agent_http.errors] declaration at line 666 is \"capability.activity_type\" = \"CapabilityRefusal Terminal. Owner refused the typed operation: the capability does not admit the activity type.\" The reason literal remains present in the registered schema; the registry had line 671."
+
+[row.r9-62.39]
+interface = "interface.9.err-reason-capability-counterparty"
+verdict = "served"
+path = "services/agent/schema/agent-api/v1.kvx"
+line = 667
+symbol = "capability.counterparty"
+evidence = "The current [transport.agent_http.errors] declaration at line 667 is \"capability.counterparty\" = \"CapabilityRefusal Terminal. Owner refused the typed operation: the capability does not admit the counterparty.\" The reason literal remains present in the registered schema; the registry had line 672."
+
+[row.r9-62.40]
+interface = "interface.9.err-reason-capability-asset"
+verdict = "served"
+path = "services/agent/schema/agent-api/v1.kvx"
+line = 668
+symbol = "capability.asset"
+evidence = "The current [transport.agent_http.errors] declaration at line 668 is \"capability.asset\" = \"CapabilityRefusal Terminal. Owner refused the typed operation: the capability does not admit the asset.\" The reason literal remains present in the registered schema; the registry had line 673."
+
+[row.r9-62.41]
+interface = "interface.9.err-reason-capability-amount"
+verdict = "served"
+path = "services/agent/schema/agent-api/v1.kvx"
+line = 669
+symbol = "capability.amount"
+evidence = "The current [transport.agent_http.errors] declaration at line 669 is \"capability.amount\" = \"CapabilityRefusal Terminal. Owner refused the typed operation: the amount exceeds the capability ceiling.\" The reason literal remains present in the registered schema; the registry had line 674."
+
+[row.r9-62.42]
+interface = "interface.9.err-reason-capability-rate"
+verdict = "served"
+path = "services/agent/schema/agent-api/v1.kvx"
+line = 670
+symbol = "capability.rate"
+evidence = "The current [transport.agent_http.errors] declaration at line 670 is \"capability.rate\" = \"CapabilityRefusal Terminal. Owner refused the typed operation: the capability rate window is exhausted.\" The reason literal remains present in the registered schema; the registry had line 675."
+
+[row.r9-62.43]
+interface = "interface.9.err-reason-capability-purpose"
+verdict = "served"
+path = "services/agent/schema/agent-api/v1.kvx"
+line = 671
+symbol = "capability.purpose"
+evidence = "The current [transport.agent_http.errors] declaration at line 671 is \"capability.purpose\" = \"CapabilityRefusal Terminal. Owner refused the typed operation: the capability does not admit the purpose.\" The reason literal remains present in the registered schema; the registry had line 676."
+
+[row.r9-62.44]
+interface = "interface.9.err-reason-owner-response-malformed"
+verdict = "served"
+path = "services/agent/schema/agent-api/v1.kvx"
+line = 672
+symbol = "owner.response_malformed"
+evidence = "The current [transport.agent_http.errors] declaration at line 672 is \"owner.response_malformed\" = \"InternalFault Terminal. Owner response did not decode.\" The reason literal remains present in the registered schema; the registry had line 677."
+
+[row.r9-62.45]
+interface = "interface.9.err-reason-verification-inconsistent"
+verdict = "served"
+path = "services/agent/schema/agent-api/v1.kvx"
+line = 673
+symbol = "verification.inconsistent"
+evidence = "The current [transport.agent_http.errors] declaration at line 673 is \"verification.inconsistent\" = \"VerificationFailure Terminal. Verification status violates the rung ordering.\" The reason literal remains present in the registered schema; the registry had line 678."
+
+[row.r9-62.46]
+interface = "interface.9.fmt-agent-api-schema-write"
+verdict = "served"
+path = "services/agent/schema/agent-api/write.kvx"
+line = 2
+symbol = "name = \"write\""
+evidence = "The [module] declaration still names write and declares contract_major = 2. The registry module label is descriptive rather than literal; the current module retains prepare, sign, submit, track and wait and adds NativeDisclosureV1, McpExternalSignatureV1 and McpNativeWriteV1 carriers."
+
+[row.r9-62.47]
+interface = "interface.9.http-rpc-prepare"
+verdict = "served"
+path = "services/agent/schema/agent-api/write.kvx"
+line = 6
+symbol = "operation.prepare"
+evidence = "The declaration [operation.prepare] still takes PrepareRequest and returns Prepared with preparation_ref, unsigned_canonical_bytes, signing_preimage, disclosure and expiry. The declaration preserves the existing fields plus optional capability_id; the registry operation name is unchanged."
+
+[row.r9-62.48]
+interface = "interface.9.http-rpc-sign"
+verdict = "served"
+path = "services/agent/schema/agent-api/write.kvx"
+line = 19
+symbol = "operation.sign"
+evidence = "The declaration [operation.sign] still takes SignRequest with preparation_ref and signature and returns Signed. The signature encoding is 130 lowercase hex characters (65 bytes), with required idempotency key and activity_id, submission and receipt response fields; the registered operation name is unchanged."
+
+[row.r9-62.49]
+interface = "interface.9.http-rpc-submit"
+verdict = "served"
+path = "services/agent/schema/agent-api/write.kvx"
+line = 30
+symbol = "operation.submit"
+evidence = "The declaration [operation.submit] still takes SubmitRequest with preparation_ref and signature and returns TrackedSubmission with state, evidence, rung and transitions. The operation name and these schema fields are unchanged; this declaration alone does not establish the transport migration named in the registry note."
+
+[row.r9-62.50]
+interface = "interface.9.http-rpc-track"
+verdict = "served"
+path = "services/agent/schema/agent-api/write.kvx"
+line = 37
+symbol = "operation.track"
+evidence = "The declaration [operation.track] still takes TrackRequest with submission_ref and returns TrackedSubmission with state, evidence, rung and transitions. The operation signature is unchanged; [type.SubmissionState] still includes Committed with receipt_ref and committed rung."
+
+[row.r9-62.51]
+interface = "interface.9.proto-agent-api-write-type-submissionstate"
+verdict = "served"
+path = "services/agent/schema/agent-api/write.kvx"
+line = 44
+symbol = "SubmissionState"
+evidence = "The declaration [type.SubmissionState] retains Prepared, Signed, Queued, Submitted, Unknown, Executed, Committed, Failed and Expired. The schema signature is unchanged. Contrary to the stale registry note, services/agent/crates/layerx-agentd/src/outbox/mod.rs:30 now declares the same nine state names, including Committed and excluding Acknowledged and Superseded."
+
+[row.r9-62.52]
+interface = "interface.9.http-rpc-wait"
+verdict = "served"
+path = "services/agent/schema/agent-api/write.kvx"
+line = 58
+symbol = "operation.wait"
+evidence = "The declaration [operation.wait] moved from registered line 59 to line 58. Its signature remains WaitRequest with submission_ref, requested_rung and deadline returning WaitResult with submission, actual_rung and deadline_elapsed; no parameter change is present."
+
+[row.r9-62.53]
+interface = "interface.9.ts-sdk-account-derivation-addr-precompile-address"
+verdict = "served"
+path = "services/agent/sdk/typescript/src/account-derivation.ts"
+line = 32
+symbol = "ADDR_PRECOMPILE_ADDRESS"
+evidence = "The declaring line remains export const ADDR_PRECOMPILE_ADDRESS = \"0x0000000000000000000000000000000000001004\";. Its value and export signature are unchanged; only the registered location moved from line 31 to 32."
+
+[row.r9-62.54]
+interface = "interface.9.ts-sdk-account-derivation-derivefromseed"
+verdict = "served"
+path = "services/agent/sdk/typescript/src/account-derivation.ts"
+line = 190
+symbol = "deriveFromSeed"
+evidence = "The declaring line remains export function deriveFromSeed(seed: Uint8Array, index = 0): DerivedAccount. The parameter and return signature is unchanged; the declaration moved from registered line 185 to 190 and derives both secp256k1 and Ed25519 account keys."
+
+[row.r9-62.55]
+interface = "interface.9.ts-sdk-account-derivation-bindtransactionrequest"
+verdict = "served"
+path = "services/agent/sdk/typescript/src/account-derivation.ts"
+line = 565
+symbol = "bindTransactionRequest"
+evidence = "The declaration is now export function bindTransactionRequest(derived: DerivedAccount, call: BindCall, nonce?: bigint): WalletRequest. Compared with the registered two-argument signature it adds nonce?: bigint; the body rejects missing or out-of-range nonce and emits a chain-125 type-2 eth_sendTransaction request with the pending EVM nonce."
+
+[row.r9-62.56]
+interface = "interface.9.ts-sdk-agent-http-agenthttptransport"
+verdict = "served"
+path = "services/agent/sdk/typescript/src/agent-http.ts"
+line = 110
+symbol = "AgentHttpTransport"
+evidence = "The declaring line remains export class AgentHttpTransport implements ProductionTransport. Its class signature is unchanged and moved from registered line 92 to 110. The options constructor and call<TRequest, TResponse>(call: TransportCall<TRequest>): Promise<TResponse> serve schema-routed Programs operations; this class is distinct from the envelope transport."
+
+[row.r9-62.57]
+interface = "interface.9.ts-sdk-agent-http-agent-envelope-version"
+verdict = "served"
+path = "services/agent/sdk/typescript/src/agent-http.ts"
+line = 399
+symbol = "AGENT_ENVELOPE_VERSION"
+evidence = "The declaring line remains export const AGENT_ENVELOPE_VERSION = 1 as const;. Its literal type and value are unchanged; the declaration moved from registered line 376 to 399 and is used to construct the version field of outgoing Agent HTTP envelopes."
+
+[row.r9-62.58]
+interface = "interface.9.ts-sdk-exchange-exchangeplaceordercall"
+verdict = "served"
+path = "services/agent/sdk/typescript/src/exchange.ts"
+line = 587
+symbol = "exchangePlaceOrderCall"
+evidence = "The declaration is export function exchangePlaceOrderCall(order: { readonly marketId: string; readonly accountId: string; readonly side: number; readonly price: bigint; readonly quantity: bigint; readonly timeInForce: number; }): PrecompileCall. The registry signature was truncated after order:; the current full signature encodes placeOrder(bytes32,bytes32,uint8,uint256,uint256,uint8), at line 587."
+
+[row.r9-62.59]
+interface = "interface.9.ts-sdk-exchange-exchangerequestsettlementcall"
+verdict = "served"
+path = "services/agent/sdk/typescript/src/exchange.ts"
+line = 614
+symbol = "exchangeRequestSettlementCall"
+evidence = "The declaring line remains export function exchangeRequestSettlementCall(positionId: string): PrecompileCall. The parameter and return signature is unchanged; the declaration moved from registered line 589 to 614 and still encodes requestSettlement(bytes32)."
+
+[row.r9-62.60]
+interface = "interface.9.ts-sdk-exchange-sendexchangerequestsettlement"
+verdict = "served"
+path = "services/agent/sdk/typescript/src/exchange.ts"
+line = 645
+symbol = "sendExchangeRequestSettlement"
+evidence = "The declaring line remains export const sendExchangeRequestSettlement = (wallet: Eip1193Requester, from: string, positionId: string): Promise<string> =>. The signature is unchanged; it moved from registered line 620 to 645 and delegates through sendPrecompileCall and exchangeRequestSettlementCall."

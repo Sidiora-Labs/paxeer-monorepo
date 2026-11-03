@@ -14455,3 +14455,28 @@ fix = "Build fixture receipts from the fields the reader checks, and assert thos
 title = "A refusal tag renumbering left a native corpus fixture asserting the old tag"
 symptom = "The runtime began reporting a kernel refusal of a settlement leg under the kernel tag instead of the receipt-mismatch tag; the native corpus fixture kept asserting the old tag and the signed corpus was no longer emitted, so every consumer of the corpus failed its qualification."
 fix = "When a producer changes an encoded tag, run the native corpus producer and every fixture that asserts the tag in the same task."
+
+[gotcha.2927]
+title = "A scope rename stranded a publication that deleted the old path"
+symptom = "A task moved a test file to another crate; its scope was renamed to the new path only, so the publication that deleted the old file was refused for a change outside the scope although the verify and the done check had passed."
+fix = "When a task moves or deletes a file, keep the old path in the scope beside the new one; a deletion is a change of the old path."
+
+[gotcha.2928]
+title = "CMake 4 refuses projects declaring a minimum version below 3.5"
+symptom = "A Rust crate that compiles a bundled C++ project through the cmake crate failed in its build script with Compatibility with CMake < 3.5 has been removed, because CMake 4 no longer accepts cmake_minimum_required values below 3.5."
+fix = "Upgrade or drop the dependency that bundles the old project; CMAKE_POLICY_VERSION_MINIMUM=3.5 only probes whether the rest of the build would succeed."
+
+[gotcha.2929]
+title = "A test that starts a tool binary needs the binary in the qualification environment"
+symptom = "The TypeScript SDK gas-station test starts a local EVM through anvil; run directly as node dist/test/gas-station.test.js in an environment without Foundry it fails with local EVM exited before readiness after every other case passed."
+fix = "Install Foundry before running the compiled SDK tests, or set ANVIL_BIN to the binary; the failure is environmental, not a product defect."
+
+[gotcha.2930]
+title = "A dependent-crate check fails on a test package already broken on the main line"
+symptom = "A change to the agent daemon's tests built cleanly, but the dependent-crate check compiled the human service's custody test, which no longer matches the daemon's prepare types on the main line, and reported the task as failed."
+fix = "Make the task depend on the task that repairs the broken package, and record the break as a finding so nobody re-investigates it."
+
+[gotcha.2931]
+title = "A hand-built EIP-1559 call with a placeholder target is refused by the disclosure binder"
+symptom = "A test built an Eip1559Call with to = 0x1a repeated and a kernel authorization as data; bind_call in layerx-crypto's disclosure/call.rs refused it with MalformedPayload because the binder accepts only registered targets with canonical ABI payloads."
+fix = "Build test calls against a registered target with the ABI the binder decodes, and sign kernel authorizations through their own path instead of wrapping them in an EVM call."

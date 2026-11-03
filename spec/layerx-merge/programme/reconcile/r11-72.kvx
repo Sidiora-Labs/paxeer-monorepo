@@ -1,0 +1,545 @@
+[reconcile.r11-72]
+revision = "0b17e0748b8a5c1506383faf11209f4f35235885"
+rows = 60
+
+[row.r11-72.1]
+interface = "interface.11.err-mirror-checkpoint-mirror-malformed"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 1434
+symbol = "committed_mirror_malformed"
+evidence = "ReconcileRefusal::code now maps Self::Malformed to committed_mirror_malformed instead of checkpoint_mirror_malformed; the wire refusal names committed-block evidence."
+
+[row.r11-72.2]
+interface = "interface.11.err-mirror-checkpoint-mirror-mismatch"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 1435
+symbol = "committed_mirror_mismatch"
+evidence = "ReconcileRefusal::code now maps Self::CommittedMismatch to committed_mirror_mismatch; the former CheckpointMismatch variant and checkpoint_mirror_mismatch wire code were replaced."
+
+[row.r11-72.3]
+interface = "interface.11.rs-mirror-runtime-config"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/runtime.rs"
+line = 31
+symbol = "RuntimeConfig"
+evidence = "pub struct RuntimeConfig now declares paxeer: CommittedSourceConfig, first_height and freshness_budget_blocks; the former node config and checkpoint freshness budget are replaced by committed-block inputs."
+
+[row.r11-72.4]
+interface = "interface.11.cfg-mirror-runtime-config-checkpoint-freshness-budget-batches"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/runtime.rs"
+line = 36
+symbol = "freshness_budget_blocks"
+evidence = "pub freshness_budget_blocks: u64 replaces RuntimeConfig.checkpoint_freshness_budget_batches: u64; readiness measures committed-block lag. RuntimeStatus still emits the old field name, but it is no longer a config key."
+
+[row.r11-72.5]
+interface = "interface.11.rs-mirror-node-file-config"
+verdict = "retired"
+path = "services/interop/crates/layerx-mirror/src/runtime.rs"
+line = 47
+symbol = "NodeFileConfig"
+evidence = "NodeFileConfig has no declaration or occurrence in runtime.rs. RuntimeConfig.paxeer now takes CommittedSourceConfig from committed.rs; task 11.25.4 removed the LNI node configuration."
+remaining_refs = 0
+remaining = []
+
+[row.r11-72.6]
+interface = "interface.11.cfg-mirror-node-file-config-socket"
+verdict = "retired"
+path = "services/interop/crates/layerx-mirror/src/runtime.rs"
+line = 48
+symbol = "NodeFileConfig.socket"
+evidence = "NodeFileConfig and its socket: PathBuf source field are gone. The socket: PathBuf at runtime.rs:104 belongs to SignerTransportFileConfig::Uds, not the removed node config; the qualified field disambiguates ownership."
+remaining_refs = 0
+remaining = []
+
+[row.r11-72.7]
+interface = "interface.11.cfg-mirror-node-file-config-expected-protocol-version"
+verdict = "retired"
+path = "services/interop/crates/layerx-mirror/src/runtime.rs"
+line = 49
+symbol = "NodeFileConfig.expected_protocol_version"
+evidence = "NodeFileConfig.expected_protocol_version: u16 is gone with the LNI source config. runtime.rs:160 mentions expected_protocol_version only in a comment about rejected former configuration; no node field survives."
+remaining_refs = 0
+remaining = []
+
+[row.r11-72.8]
+interface = "interface.11.cfg-mirror-node-file-config-expected-network-id"
+verdict = "retired"
+path = "services/interop/crates/layerx-mirror/src/runtime.rs"
+line = 50
+symbol = "NodeFileConfig.expected_network_id"
+evidence = "NodeFileConfig.expected_network_id: u32 is gone with the LNI source config. RuntimeConfig.paxeer.chain_id and committed_network_id now supply the committed source identity; no node config declaration remains."
+remaining_refs = 0
+remaining = []
+
+[row.r11-72.9]
+interface = "interface.11.cfg-mirror-node-file-config-maximum-frame-bytes"
+verdict = "retired"
+path = "services/interop/crates/layerx-mirror/src/runtime.rs"
+line = 51
+symbol = "NodeFileConfig.maximum_frame_bytes"
+evidence = "NodeFileConfig.maximum_frame_bytes: usize is absent: the node config and framed LNI source have been deleted. RuntimeConfig.paxeer instead carries CommittedSourceConfig; the retired field is qualified by its owner."
+remaining_refs = 0
+remaining = []
+
+[row.r11-72.10]
+interface = "interface.11.cfg-mirror-node-file-config-maximum-connections"
+verdict = "retired"
+path = "services/interop/crates/layerx-mirror/src/runtime.rs"
+line = 52
+symbol = "NodeFileConfig.maximum_connections"
+evidence = "NodeFileConfig.maximum_connections: usize is absent along with the node configuration type. CommittedSourceConfig supplies the committed RPC source instead of LNI connection limits."
+remaining_refs = 0
+remaining = []
+
+[row.r11-72.11]
+interface = "interface.11.cfg-mirror-node-file-config-maximum-streams"
+verdict = "retired"
+path = "services/interop/crates/layerx-mirror/src/runtime.rs"
+line = 53
+symbol = "NodeFileConfig.maximum_streams"
+evidence = "NodeFileConfig.maximum_streams: usize is absent along with the node configuration type. The committed RPC source configuration has no former LNI stream-count field."
+remaining_refs = 0
+remaining = []
+
+[row.r11-72.12]
+interface = "interface.11.cfg-mirror-node-file-config-maximum-queued-bytes"
+verdict = "retired"
+path = "services/interop/crates/layerx-mirror/src/runtime.rs"
+line = 54
+symbol = "NodeFileConfig.maximum_queued_bytes"
+evidence = "NodeFileConfig.maximum_queued_bytes: usize is absent along with the node configuration type. RuntimeConfig.paxeer now configures committed RPC acquisition instead of the former LNI queue."
+remaining_refs = 0
+remaining = []
+
+[row.r11-72.13]
+interface = "interface.11.cfg-mirror-node-file-config-deadline-ms"
+verdict = "retired"
+path = "services/interop/crates/layerx-mirror/src/runtime.rs"
+line = 55
+symbol = "NodeFileConfig.deadline_ms"
+evidence = "NodeFileConfig.deadline_ms: u64 is absent along with the node configuration type. The surviving signer timeout_ms belongs to SignerFileConfig and does not retain the node source deadline interface."
+remaining_refs = 0
+remaining = []
+
+[row.r11-72.14]
+interface = "interface.11.cfg-mirror-node-file-config-maximum-archive-bytes"
+verdict = "retired"
+path = "services/interop/crates/layerx-mirror/src/runtime.rs"
+line = 56
+symbol = "NodeFileConfig.maximum_archive_bytes"
+evidence = "NodeFileConfig.maximum_archive_bytes: usize is absent along with the node configuration type. Archive wire bounds remain enforced elsewhere, but this required LNI source configuration field is gone."
+remaining_refs = 0
+remaining = []
+
+[row.r11-72.15]
+interface = "interface.11.cfg-mirror-node-file-config-maximum-archive-chunks"
+verdict = "retired"
+path = "services/interop/crates/layerx-mirror/src/runtime.rs"
+line = 57
+symbol = "NodeFileConfig.maximum_archive_chunks"
+evidence = "NodeFileConfig.maximum_archive_chunks: usize is absent along with the node configuration type. RuntimeConfig.paxeer is a committed RPC source, without the former LNI archive chunk configuration."
+remaining_refs = 0
+remaining = []
+
+[row.r11-72.16]
+interface = "interface.11.cfg-mirror-node-file-config-checkpoint-policy"
+verdict = "retired"
+path = "services/interop/crates/layerx-mirror/src/runtime.rs"
+line = 58
+symbol = "NodeFileConfig.checkpoint_policy"
+evidence = "NodeFileConfig.checkpoint_policy: NativeCheckpointPolicy is gone with the LNI source config. CommittedSourceConfig now carries receipt_keys and chain identity instead of a native checkpoint policy."
+remaining_refs = 0
+remaining = []
+
+[row.r11-72.17]
+interface = "interface.11.rs-mirror-mirror-source-freshness"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/source.rs"
+line = 84
+symbol = "MirrorSourceFreshness"
+evidence = "pub struct MirrorSourceFreshness now declares latest_committed: Option<CommittedCoordinate> and committed_lag: MirrorLag; checkpoint coordinates and lag have been replaced while latest_batch and batch_lag remain."
+
+[row.r11-72.18]
+interface = "interface.11.rs-mirror-mirror-observation"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/source.rs"
+line = 92
+symbol = "MirrorObservation"
+evidence = "pub struct MirrorObservation now carries committed: Option<CommittedCoordinate> alongside source, target, batch_number, provenance and freshness; the coordinate describes a committed block instead of a checkpoint."
+
+[row.r11-72.19]
+interface = "interface.11.fmt-mirror-store-journal"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/store.rs"
+line = 13
+symbol = "LXMJNL03"
+evidence = "const JOURNAL_MAGIC: &[u8; 8] = b\"LXMJNL03\" replaces LXMJNL02, and RECORD_VERSION is now 3. encode_record writes encode_committed(record.committed) instead of a checkpoint; payload and record bounds remain 384 KiB and 512 KiB."
+
+[row.r11-72.20]
+interface = "interface.11.fmt-mirror-store-spool"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/store.rs"
+line = 15
+symbol = "LXMSPL03"
+evidence = "const SPOOL_MAGIC: &[u8; 8] = b\"LXMSPL03\" replaces LXMSPL02. encode_spool writes sealed_height and an optional committed coordinate instead of a finalised checkpoint, followed by bounded archive bytes and the SHA256 digest."
+
+[row.r11-72.21]
+interface = "interface.11.rs-mirror-signed-header-trust"
+verdict = "retired"
+path = "services/interop/crates/layerx-mirror/src/verify.rs"
+line = 21
+symbol = "SignedHeaderTrust"
+evidence = "SignedHeaderTrust is absent from verify.rs; MirrorVerifier admits committed archives without the old signed batch-header authority type. Remaining name references are listed from the repository search outside spec and docs."
+remaining_refs = 2
+remaining = ["GOTCHA.kvx:9525", "services/agent/crates/layerx-sdk/tests/sdk.rs:445"]
+
+[row.r11-72.22]
+interface = "interface.11.rs-mirror-mirror-verification-signed-header-digest"
+verdict = "retired"
+path = "services/interop/crates/layerx-mirror/src/verify.rs"
+line = 101
+symbol = "signed_header_digest"
+evidence = "signed_header_digest is absent from verify.rs. MirrorVerification now exposes value, level, batch_number, freshness and observation; the signed batch-header digest accessor was deleted."
+remaining_refs = 0
+remaining = []
+
+[row.r11-72.23]
+interface = "interface.11.rs-mirror-mirror-evidence-level"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/verify.rs"
+line = 95
+symbol = "MirrorEvidenceLevel"
+evidence = "pub enum MirrorEvidenceLevel now has only Committed; MirrorVerifier::committed_receipt reports this level for v4 archive evidence instead of the former batch/header evidence levels."
+
+[row.r11-72.24]
+interface = "interface.11.rs-mirror-mirror-verify-error"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/verify.rs"
+line = 100
+symbol = "MirrorVerifyError"
+evidence = "pub enum MirrorVerifyError now includes CommittedUnavailable and Receipt(ReceiptCheck) for the committed archive verifier. Header and CheckpointTrustUnavailable variants still remain; they are not evidence that the removed checkpoint methods survive."
+
+[row.r11-72.25]
+interface = "interface.11.rs-mirror-mirror-verifier-checkpoint-with-native-authority"
+verdict = "retired"
+path = "services/interop/crates/layerx-mirror/src/verify.rs"
+line = 155
+symbol = "checkpoint_with_native_authority"
+evidence = "checkpoint_with_native_authority is absent from verify.rs. The native checkpoint policy method was deleted; committed() now returns CommittedCoordinate from the v4 archive."
+remaining_refs = 0
+remaining = []
+
+[row.r11-72.26]
+interface = "interface.11.rs-mirror-mirror-verifier-receipt"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/verify.rs"
+line = 179
+symbol = "committed_receipt"
+evidence = "pub fn committed_receipt(&self, index: usize, keys: &[SequencerAuthorization]) -> Result<MirrorVerification<Receipt>, MirrorVerifyError> replaces receipt(&self, canonical_receipt: &[u8]) returning VerifiedReceipt; it selects archived receipt bytes and verifies governed key windows."
+
+[row.r11-72.27]
+interface = "interface.11.rs-mirror-mirror-verifier-state"
+verdict = "retired"
+path = "services/interop/crates/layerx-mirror/src/verify.rs"
+line = 366
+symbol = "MirrorVerifier::state"
+evidence = "MirrorVerifier::state is gone: the impl now provides committed() and committed_receipt(), with no state proof verifier. The qualified method name distinguishes this retired interface from unrelated state identifiers across the repository."
+remaining_refs = 0
+remaining = []
+
+[row.r11-72.28]
+interface = "interface.11.rs-mirror-mirror-verifier-checkpoint-level"
+verdict = "retired"
+path = "services/interop/crates/layerx-mirror/src/verify.rs"
+line = 409
+symbol = "checkpoint_level"
+evidence = "checkpoint_level has no occurrence in verify.rs; MirrorVerifier no longer exposes the checkpoint-level refusal helper. Remaining name references outside spec and docs are retained below, including SDK and script callers."
+remaining_refs = 4
+remaining = ["apps/web/src/explorer/model.ts:449", "scripts/qualify-mirror-verification-live.sh:100", "services/agent/sdk/python/layerx_sdk/mirror.py:40", "services/agent/sdk/python/layerx_sdk/mirror.pyi:28"]
+
+[row.r11-72.29]
+interface = "interface.11.rs-portable-interop-portable-verification"
+verdict = "served"
+path = "services/interop/crates/layerx-portable/src/lib.rs"
+line = 28
+symbol = "interop_portable_verification"
+evidence = "pub const fn interop_portable_verification() -> &'static str keeps its Rust signature but now returns layerx-receipt-proof-v2-and-pinned-external-evidence-v1; the portable export is v2-only after task 11.29.4."
+
+[row.r11-72.30]
+interface = "interface.11.rs-portable-portable-receipt-format"
+verdict = "served"
+path = "services/interop/crates/layerx-portable/src/receipt.rs"
+line = 10
+symbol = "PORTABLE_RECEIPT_FORMAT"
+evidence = "pub const PORTABLE_RECEIPT_FORMAT: &str now equals \"layerx-receipt-proof-v2\"; the shared constant selects the v2 media identifier, replacing the former v1 value and the separately named v2 constant."
+
+[row.r11-72.31]
+interface = "interface.11.rs-portable-portable-receipt-format-v2"
+verdict = "retired"
+path = "services/interop/crates/layerx-portable/src/receipt.rs"
+line = 17
+symbol = "PORTABLE_RECEIPT_FORMAT_V2"
+evidence = "PORTABLE_RECEIPT_FORMAT_V2 is absent from receipt.rs. PORTABLE_RECEIPT_FORMAT now names layerx-receipt-proof-v2, so the separate v2 constant was deleted with the v1 path in task 11.29.4."
+remaining_refs = 1
+remaining = ["GOTCHA.kvx:8993"]
+
+[row.r11-72.32]
+interface = "interface.11.fmt-portable-portable-receipt"
+verdict = "retired"
+path = "services/interop/crates/layerx-portable/src/receipt.rs"
+line = 34
+symbol = "PortableReceipt"
+evidence = "The v1 PortableReceipt JSON structure is absent from receipt.rs; only PortableReceiptV2 remains. The removed canonicalReceipt/batchId/state-root schema is not the v2 signedReceipt/receiptKey schema; remaining exact-name references are listed below."
+remaining_refs = 12
+remaining = ["sdk/platform/dotnet/PortableReceipt.cs:7", "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/PortableReceiptTests.cs:47", "sdk/platform/go/cmd/conformance/main.go:324", "sdk/platform/go/conformance_vectors_test.go:344", "sdk/platform/go/portable_receipt.go:29", "sdk/platform/go/portable_receipt_test.go:37", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/PortableReceipt.java:19", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/PortableReceiptTest.java:8", "sdk/platform/pipeline.kvx:385", "sdk/platform/swift/Sources/LayerXSDK/PortableReceipt.swift:3", "sdk/platform/swift/Tests/LayerXSDKTests/PortableReceiptTests.swift:8", "services/interop/PORTABILITY.md:337"]
+
+[row.r11-72.33]
+interface = "interface.11.rs-portable-portable-receipt"
+verdict = "retired"
+path = "services/interop/crates/layerx-portable/src/receipt.rs"
+line = 34
+symbol = "PortableReceipt"
+evidence = "pub struct PortableReceipt and its v1 implementation are absent from receipt.rs following task 11.29.4. PortableReceiptV2 is a distinct surviving type; repository name references in other SDKs and material do not restore this Rust declaration."
+remaining_refs = 12
+remaining = ["sdk/platform/dotnet/PortableReceipt.cs:7", "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/PortableReceiptTests.cs:47", "sdk/platform/go/cmd/conformance/main.go:324", "sdk/platform/go/conformance_vectors_test.go:344", "sdk/platform/go/portable_receipt.go:29", "sdk/platform/go/portable_receipt_test.go:37", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/PortableReceipt.java:19", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/PortableReceiptTest.java:8", "sdk/platform/pipeline.kvx:385", "sdk/platform/swift/Sources/LayerXSDK/PortableReceipt.swift:3", "sdk/platform/swift/Tests/LayerXSDKTests/PortableReceiptTests.swift:8", "services/interop/PORTABILITY.md:337"]
+
+[row.r11-72.34]
+interface = "interface.11.rs-portable-portable-receipt-export"
+verdict = "retired"
+path = "services/interop/crates/layerx-portable/src/receipt.rs"
+line = 55
+symbol = "PortableReceipt::export"
+evidence = "PortableReceipt::export(canonical_receipt, authorised: &AuthorizedBatch) is gone with its v1 owner. The export at receipt.rs:172 belongs to PortableReceiptV2 and takes signed_receipt, receipt_key and inclusion_height; qualified names distinguish the two interfaces."
+remaining_refs = 0
+remaining = []
+
+[row.r11-72.35]
+interface = "interface.11.rs-portable-portable-receipt-from-json"
+verdict = "retired"
+path = "services/interop/crates/layerx-portable/src/receipt.rs"
+line = 87
+symbol = "PortableReceipt::from_json"
+evidence = "PortableReceipt::from_json is gone with the v1 type after task 11.29.4. The from_json declaration at receipt.rs:225 belongs to PortableReceiptV2, not this retired owner; remaining references use the qualified v1 method name."
+remaining_refs = 0
+remaining = []
+
+[row.r11-72.36]
+interface = "interface.11.rs-portable-portable-receipt-verify-json"
+verdict = "retired"
+path = "services/interop/crates/layerx-portable/src/receipt.rs"
+line = 103
+symbol = "PortableReceipt::verify_json"
+evidence = "PortableReceipt::verify_json(bytes, trusted_batch: &AuthorizedBatch) is gone with the v1 type. The surviving PortableReceiptV2::verify_json at receipt.rs:305 takes receipt_keys; the qualified symbol preserves the retired owner distinction."
+remaining_refs = 0
+remaining = []
+
+[row.r11-72.37]
+interface = "interface.11.rs-portable-portable-receipt-to-json"
+verdict = "retired"
+path = "services/interop/crates/layerx-portable/src/receipt.rs"
+line = 117
+symbol = "PortableReceipt::to_json"
+evidence = "PortableReceipt::to_json is gone with the v1 type after task 11.29.4. The to_json declaration at receipt.rs:240 serializes PortableReceiptV2; it is not the removed v1 method despite sharing its short name."
+remaining_refs = 0
+remaining = []
+
+[row.r11-72.38]
+interface = "interface.11.rs-portable-portable-receipt-verify"
+verdict = "retired"
+path = "services/interop/crates/layerx-portable/src/receipt.rs"
+line = 130
+symbol = "PortableReceipt::verify"
+evidence = "PortableReceipt::verify(&self, trusted_batch: &AuthorizedBatch) is gone with its v1 owner. PortableReceiptV2::verify_v2 instead verifies sequencer receipt keys and returns PortableVerifiedReceiptV2; no v1 verification method remains."
+remaining_refs = 0
+remaining = []
+
+[row.r11-72.39]
+interface = "interface.11.rs-portable-receipt-portable-receipt-format"
+verdict = "retired"
+path = "services/interop/crates/layerx-portable/src/receipt.rs"
+line = 161
+symbol = "PortableReceipt::format"
+evidence = "PortableReceipt::format is gone with the v1 type. The format accessor at receipt.rs:314 belongs to PortableReceiptV2; the qualified symbol records the removed owner rather than confusing the surviving v2 method with it."
+remaining_refs = 0
+remaining = []
+
+[row.r11-72.40]
+interface = "interface.11.rs-portable-portable-receipt-canonical-receipt"
+verdict = "retired"
+path = "services/interop/crates/layerx-portable/src/receipt.rs"
+line = 167
+symbol = "PortableReceipt::canonical_receipt"
+evidence = "PortableReceipt::canonical_receipt is gone with the v1 type. PortableReceiptV2 carries signed_receipt and PortableVerifiedReceiptV2 exposes signed_receipt(); the former canonical receipt string accessor is absent."
+remaining_refs = 0
+remaining = []
+
+[row.r11-72.41]
+interface = "interface.11.rs-portable-portable-receipt-receipt-digest"
+verdict = "retired"
+path = "services/interop/crates/layerx-portable/src/receipt.rs"
+line = 173
+symbol = "PortableReceipt::receipt_digest"
+evidence = "PortableReceipt::receipt_digest returning &str is gone with the v1 type. PortableVerifiedReceiptV2::receipt_digest at receipt.rs:388 returns [u8; 32] under a different owner; the qualified name identifies the retired v1 method."
+remaining_refs = 0
+remaining = []
+
+[row.r11-72.42]
+interface = "interface.11.rs-portable-portable-verified-receipt"
+verdict = "retired"
+path = "services/interop/crates/layerx-portable/src/receipt.rs"
+line = 214
+symbol = "PortableVerifiedReceipt"
+evidence = "PortableVerifiedReceipt is absent from receipt.rs after removal of the v1 receipt path. The distinct PortableVerifiedReceiptV2 now retains verified signed bytes, receipt key, activity identity, sequence, result and heights."
+remaining_refs = 0
+remaining = []
+
+[row.r11-72.43]
+interface = "interface.11.rs-portable-portable-verified-receipt-receipt"
+verdict = "retired"
+path = "services/interop/crates/layerx-portable/src/receipt.rs"
+line = 223
+symbol = "PortableVerifiedReceipt::receipt"
+evidence = "PortableVerifiedReceipt::receipt returning &VerifiedReceipt is gone with the v1 verified type. PortableVerifiedReceiptV2 exposes signed_receipt() bytes instead; the qualified symbol avoids unrelated receipt identifiers."
+remaining_refs = 0
+remaining = []
+
+[row.r11-72.44]
+interface = "interface.11.rs-portable-portable-verified-receipt-receipt-digest"
+verdict = "retired"
+path = "services/interop/crates/layerx-portable/src/receipt.rs"
+line = 229
+symbol = "PortableVerifiedReceipt::receipt_digest"
+evidence = "PortableVerifiedReceipt::receipt_digest is gone with the v1 verified type. The identically named accessor on PortableVerifiedReceiptV2 is a separate surviving interface; no v1 owner or method remains."
+remaining_refs = 0
+remaining = []
+
+[row.r11-72.45]
+interface = "interface.11.rs-portable-portable-receipt-error"
+verdict = "served"
+path = "services/interop/crates/layerx-portable/src/receipt.rs"
+line = 20
+symbol = "PortableReceiptError"
+evidence = "pub enum PortableReceiptError now includes RawTransactionMismatch for the optional rawTransaction-to-activity-id binding, as well as receipt key, hex, quantity and inclusion-height refusals; some legacy batch/base64 variants still remain."
+
+[row.r11-72.46]
+interface = "interface.11.fmt-portable-portable-receipt-v2"
+verdict = "served"
+path = "services/interop/crates/layerx-portable/src/receipt.rs"
+line = 97
+symbol = "PortableReceiptV2"
+evidence = "pub struct PortableReceiptV2 keeps the camelCase, deny_unknown_fields JSON schema and adds raw_transaction: Option<String> as optional rawTransaction with default and skip_serializing_if. No blockHeader, receiptInclusion, commit or validatorSet fields are declared here."
+
+[row.r11-72.47]
+interface = "interface.11.rs-portable-portable-receipt-v2"
+verdict = "served"
+path = "services/interop/crates/layerx-portable/src/receipt.rs"
+line = 97
+symbol = "PortableReceiptV2"
+evidence = "pub struct PortableReceiptV2 now adds raw_transaction: Option<String> to format, verification_level, signed_receipt, receipt_digest, receipt_key and inclusion_height. The committed-proof fields described in the registry notes are absent from this declaration."
+
+[row.r11-72.48]
+interface = "interface.11.fmt-portable-portable-receipt-key"
+verdict = "served"
+path = "services/interop/crates/layerx-portable/src/receipt.rs"
+line = 110
+symbol = "PortableReceiptKey"
+evidence = "struct PortableReceiptKey still declares key_id, public_key, first_height and last_height as String, serialized with camelCase and deny_unknown_fields. Its wire signature is unchanged; the private declaration has moved from registered line 359 to 110 in the v2-only module."
+
+[row.r11-72.49]
+interface = "interface.11.rs-portable-portable-receipt-v2-export"
+verdict = "served"
+path = "services/interop/crates/layerx-portable/src/receipt.rs"
+line = 172
+symbol = "export"
+evidence = "pub fn export(signed_receipt: &[u8], receipt_key: &ReceiptKeyEntry, inclusion_height: u64) -> Result<Self, PortableReceiptError> retains its signature in impl PortableReceiptV2. It now initializes raw_transaction: None; export_with_transaction is the separate extended API."
+
+[row.r11-72.50]
+interface = "interface.11.rs-portable-portable-receipt-v2-verify-v2"
+verdict = "served"
+path = "services/interop/crates/layerx-portable/src/receipt.rs"
+line = 253
+symbol = "verify_v2"
+evidence = "pub fn verify_v2(&self, receipt_keys: &[ReceiptKeyEntry]) -> Result<PortableVerifiedReceiptV2, PortableReceiptError> keeps its signature; verification now checks Keccak256(raw_transaction) against protocol.activity_id() when optional transaction bytes are present."
+
+[row.r11-72.51]
+interface = "interface.11.rs-portable-portable-receipt-v2-verify-json"
+verdict = "served"
+path = "services/interop/crates/layerx-portable/src/receipt.rs"
+line = 305
+symbol = "verify_json"
+evidence = "pub fn verify_json(bytes: &[u8], receipt_keys: &[ReceiptKeyEntry]) -> Result<PortableVerifiedReceiptV2, PortableReceiptError> keeps its v2 signature, delegates through from_json().verify_v2(), and now admits optional rawTransaction with the activity-id binding."
+
+[row.r11-72.52]
+interface = "interface.11.rs-portable-portable-verified-receipt-v2"
+verdict = "served"
+path = "services/interop/crates/layerx-portable/src/receipt.rs"
+line = 361
+symbol = "PortableVerifiedReceiptV2"
+evidence = "pub struct PortableVerifiedReceiptV2 now retains raw_transaction: Option<Vec<u8>> and exposes raw_transaction() -> Option<&[u8]> in addition to signed bytes, digest, key, activity_id, global_sequence, result_code and heights."
+
+[row.r11-72.53]
+interface = "interface.11.rs-portable-portable-verified"
+verdict = "served"
+path = "services/interop/crates/layerx-portable/src/receipt.rs"
+line = 431
+symbol = "PortableVerified"
+evidence = "pub enum PortableVerified now contains only V2(PortableVerifiedReceiptV2); the former v1 arm and its AuthorizedBatch verification path were removed by task 11.29.4."
+
+[row.r11-72.54]
+interface = "interface.11.fmt-portable-format-probe"
+verdict = "kept"
+path = "services/interop/crates/layerx-portable/src/receipt.rs"
+line = 436
+symbol = "FormatProbe"
+evidence = "Decision 2278 and override.J48.44 keep FormatProbe { format: String }; verify_portable_json still deserializes this discriminator before selecting the v2 verifier, although task 11.29.4 removed the v1 arm."
+
+[row.r11-72.55]
+interface = "interface.11.rs-portable-verify-portable-json"
+verdict = "served"
+path = "services/interop/crates/layerx-portable/src/receipt.rs"
+line = 445
+symbol = "verify_portable_json"
+evidence = "pub fn verify_portable_json(bytes: &[u8], receipt_keys: &[ReceiptKeyEntry]) -> Result<PortableVerified, PortableReceiptError> removes trusted_batch: Option<&AuthorizedBatch> from the registered signature and dispatches only the v2 format."
+
+[row.r11-72.56]
+interface = "interface.11.rs-ucp-executed-ucp-payment"
+verdict = "served"
+path = "services/interop/crates/layerx-ucp/src/lib.rs"
+line = 485
+symbol = "ExecutedUcpPayment"
+evidence = "pub struct ExecutedUcpPayment now holds metadata: OrderMetadata and evidence: SequencerEvidence instead of AuthorizedBatch receipts; checkout consumes governed sequencer receipt bytes, logs and settlement rung."
+
+[row.r11-72.57]
+interface = "interface.11.rs-ucp-stored-order"
+verdict = "served"
+path = "services/interop/crates/layerx-ucp/src/lib.rs"
+line = 557
+symbol = "StoredOrder"
+evidence = "pub struct StoredOrder now stores submission, metadata, transaction_hash, signed_receipt: Vec<u8>, logs: Vec<SequencerLog> and rung: SettlementRung instead of an authorized batch; read_order reconstructs and re-verifies sequencer evidence."
+
+[row.r11-72.58]
+interface = "interface.11.rs-ucp-ucp-adapter-complete-checkout"
+verdict = "served"
+path = "services/interop/crates/layerx-ucp/src/lib.rs"
+line = 577
+symbol = "complete_checkout"
+evidence = "pub fn complete_checkout now adds receipt_keys: &[SequencerAuthorization] between plane and trace while retaining gateway, principal, submission, now and Result<CheckoutOutcome, Traced<UcpError>>; the keys govern order verification and settle_with_sequencer_evidence."
+
+[row.r11-72.59]
+interface = "interface.11.rs-ucp-ucp-adapter-read-order"
+verdict = "served"
+path = "services/interop/crates/layerx-ucp/src/lib.rs"
+line = 683
+symbol = "read_order"
+evidence = "pub fn read_order(stored: &StoredOrder, receipt_keys: &[SequencerAuthorization]) -> Result<UcpOrder, UcpError> adds the receipt_keys argument to the registered signature and re-verifies stored SequencerEvidence and its signed receipt before returning the order."
+
+[row.r11-72.60]
+interface = "interface.11.rs-visa-merchant-operation-result-from-receipt"
+verdict = "served"
+path = "services/interop/crates/layerx-visa-tap/src/lib.rs"
+line = 464
+symbol = "from_receipt"
+evidence = "pub fn from_receipt(evidence: &SequencerEvidence, receipt_keys: &[SequencerAuthorization], payment_reference: [u8; 32]) -> Result<Self, TapError> replaces canonical_receipt and caller-supplied from/to/asset/amount arguments with verified evidence; payment values come from its exact-payment log."

@@ -1,0 +1,163 @@
+[reconcile.r12-78]
+revision = "0b17e0748b8a5c1506383faf11209f4f35235885"
+rows = 18
+
+[row.r12-78.1]
+interface = "interface.12.ts-sdk-joined-balances"
+verdict = "retired"
+path = "sdk/wallet/src/types.ts"
+line = 294
+symbol = "JoinedBalances"
+evidence = "JoinedBalances is absent from types.ts; Balances at line 297 now holds account, height and BankBalance[] instead of joined balances. The remaining mention asserts that the old export is absent. Repository-wide identifier search excludes spec and docs; remaining lists one first match per file."
+remaining_refs = 1
+remaining = ["sdk/wallet/test/merged-types.test.ts:239"]
+
+[row.r12-78.2]
+interface = "interface.12.ts-sdk-completion-asset"
+verdict = "retired"
+path = "sdk/wallet/src/types.ts"
+line = 300
+symbol = "CompletionAsset"
+evidence = "CompletionAsset is absent from types.ts; BankAsset at line 303 and AssetPage at line 313 describe bank assets. Remaining references are retirement assertions and a same-named proof test helper, not a relocated SDK type. Repository-wide identifier search excludes spec and docs; remaining lists one first match per file."
+remaining_refs = 2
+remaining = ["sdk/wallet/test/merged-types.test.ts:240", "sdk/wallet/test/proof_wallet_sdk.test.ts:6"]
+
+[row.r12-78.3]
+interface = "interface.12.ts-sdk-completed-balance"
+verdict = "retired"
+path = "sdk/wallet/src/types.ts"
+line = 304
+symbol = "CompletedBalance"
+evidence = "CompletedBalance is absent from types.ts; BankBalance at line 292 carries denom and amount, and Balances carries the bank rows. The remaining mention asserts removal of the old export. Repository-wide identifier search excludes spec and docs; remaining lists one first match per file."
+remaining_refs = 1
+remaining = ["sdk/wallet/test/merged-types.test.ts:241"]
+
+[row.r12-78.4]
+interface = "interface.12.ts-sdk-account-balances"
+verdict = "retired"
+path = "sdk/wallet/src/types.ts"
+line = 311
+symbol = "AccountBalances"
+evidence = "AccountBalances no longer extends JoinedBalances in types.ts; EndpointClient.getBankBalances returns Balances. Remaining mentions include the export-removal assertion, a gotcha and the distinct Rust AccountBalances type and consumers, not a relocated TypeScript interface. Repository-wide identifier search excludes spec and docs; remaining lists one first match per file."
+remaining_refs = 7
+remaining = ["GOTCHA.kvx:12350", "sdk/wallet/test/merged-types.test.ts:242", "services/human/crates/layerx-network-gateway/src/lib.rs:314", "services/human/crates/layerx-network-gateway/tests/proof_human_network_gateway.rs:1", "services/human/crates/layerx-human-service/src/server/production_components.rs:8573", "services/human/crates/layerx-human-service/src/journeys/observed.rs:32", "services/human/crates/layerx-human-service/tests/observed_balances_denom.rs:5"]
+
+[row.r12-78.5]
+interface = "interface.12.ts-sdk-kernel-reason"
+verdict = "served"
+path = "sdk/wallet/src/types.ts"
+line = 327
+symbol = "KernelReason"
+evidence = "export type KernelReason = 'available' | 'not_configured' | 'unreachable' | 'consensus_unavailable'; replaces the registered no_finalised_checkpoint literal with consensus_unavailable, implementing override.J50.12 and task 12.24.5."
+
+[row.r12-78.6]
+interface = "interface.12.ts-sdk-kernel-status"
+verdict = "retired"
+path = "sdk/wallet/src/types.ts"
+line = 327
+symbol = "KernelStatus"
+evidence = "KernelStatus is absent from types.ts, as override.J50.14 and task 12.21.3 require; NetworkHead now exposes consensus and consensus_reason. The remaining mention asserts the retired export is absent. Repository-wide identifier search excludes spec and docs; remaining lists one first match per file."
+remaining_refs = 1
+remaining = ["sdk/wallet/test/merged-types.test.ts:243"]
+
+[row.r12-78.7]
+interface = "interface.12.ts-sdk-anchor-head"
+verdict = "retired"
+path = "sdk/wallet/src/types.ts"
+line = 332
+symbol = "AnchorHead"
+evidence = "AnchorHead is absent from types.ts; NetworkHead carries ConsensusHead rather than an anchor table. Remaining mentions are a gotcha about deleting the type and the export-removal assertion. Repository-wide identifier search excludes spec and docs; remaining lists one first match per file."
+remaining_refs = 2
+remaining = ["GOTCHA.kvx:12405", "sdk/wallet/test/merged-types.test.ts:244"]
+
+[row.r12-78.8]
+interface = "interface.12.ts-sdk-anchor-status-name"
+verdict = "retired"
+path = "sdk/wallet/src/types.ts"
+line = 339
+symbol = "AnchorStatusName"
+evidence = "AnchorStatusName is absent from types.ts; the ladder imports sequencer rungs and no anchor status. The remaining mention asserts the old type is not exported. Repository-wide identifier search excludes spec and docs; remaining lists one first match per file."
+remaining_refs = 1
+remaining = ["sdk/wallet/test/merged-types.test.ts:245"]
+
+[row.r12-78.9]
+interface = "interface.12.ts-sdk-network-head"
+verdict = "served"
+path = "sdk/wallet/src/types.ts"
+line = 336
+symbol = "NetworkHead"
+evidence = "export interface NetworkHead retains network_id and paxeer, but now declares consensus: ConsensusHead | null and consensus_reason: 'consensus_unavailable' | null instead of layerx, anchor and kernel, implementing override.J50.11 and task 12.24.5."
+
+[row.r12-78.10]
+interface = "interface.12.ts-sdk-history-item"
+verdict = "served"
+path = "sdk/wallet/src/types.ts"
+line = 356
+symbol = "HistoryItem"
+evidence = "export interface HistoryItem still declares the legacy chain and side fields; side is explicitly deprecated in favor of ChainHistoryItem. The new ChainHistoryItem = Omit<HistoryItem, 'chain' | 'side'> at line 383 removes those labels for chain history, while this compatibility declaration remains served."
+
+[row.r12-78.11]
+interface = "interface.12.ts-sdk-history-page"
+verdict = "served"
+path = "sdk/wallet/src/types.ts"
+line = 375
+symbol = "HistoryPage"
+evidence = "export interface HistoryPage remains declared with account: UnifiedAccountDocument, deprecated accounts, items: HistoryItem[] and next_cursor. ChainHistoryPage at line 385 instead has account: string and ChainHistoryItem[]; EndpointClient.getChainHistory serves that new shape while the old page type remains declared."
+
+[row.r12-78.12]
+interface = "interface.12.ts-sdk-kernel-read"
+verdict = "served"
+path = "sdk/wallet/src/types.ts"
+line = 416
+symbol = "KernelRead"
+evidence = "export type KernelRead<T> = { available: true; result: T } | KernelUnavailableState; keeps the registered generic envelope unchanged. Its unavailable reason now uses consensus_unavailable, and KernelClient returns typed chain account, bank balances, pending EVM nonce and sequencer receipt reads rather than lx_ documents."
+
+[row.r12-78.13]
+interface = "interface.12.ts-sdk-kernel-document"
+verdict = "served"
+path = "sdk/wallet/src/types.ts"
+line = 418
+symbol = "KernelDocument"
+evidence = "export type KernelDocument = ChainAccount | Balances | SequencerReceiptAnswer | null; replaces the registered Record<string, unknown> with the explicit chain account, bank balances and sequencer receipt union. KernelClient now returns these typed chain reads."
+
+[row.r12-78.14]
+interface = "interface.12.ts-sdk-intent-leg-binding"
+verdict = "served"
+path = "sdk/wallet/src/types.ts"
+line = 468
+symbol = "IntentLegBinding"
+evidence = "export interface IntentLegBinding now includes tx_hash?: string at line 476, implementing override.J50.7 and task 12.29.1. Its account_sequence: number is documented as the pending-tag EVM nonce of the leg sender under human decision.1003."
+
+[row.r12-78.15]
+interface = "interface.12.ts-sdk-explorer-rung"
+verdict = "served"
+path = "sdk/wallet/src/types.ts"
+line = 569
+symbol = "ExplorerRung"
+evidence = "export type ExplorerRung = SequencerRung; now aliases 'submitted' | 'receipted' | 'committed' declared at line 571, replacing the registered 'pending' | 'instant' | 'sealed' | 'final' union. The ladder uses the same three sequencer rungs without anchor status."
+
+[row.r12-78.16]
+interface = "interface.12.ts-sdk-explorer-transaction-status"
+verdict = "served"
+path = "sdk/wallet/src/types.ts"
+line = 600
+symbol = "ExplorerTransactionStatus"
+evidence = "export interface ExplorerTransactionStatus now declares rung: ExplorerRung, block_number: number | null and committed_height: number | null. ExplorerRung is the submitted/receipted/committed union; decodeExplorerStatus consumes committed_height and has no anchor status mapping."
+
+[row.r12-78.17]
+interface = "interface.12.rpc-sdk-calls-eth-request-accounts"
+verdict = "served"
+path = "sdk/wallet/src/wallet.ts"
+line = 50
+symbol = "eth_requestAccounts"
+evidence = "WalletInterface.accounts still calls this.provider.request({ method: 'eth_requestAccounts' }) at line 50 and validates the returned address array. The registered outbound JSON-RPC method remains served at its original location."
+
+[row.r12-78.18]
+interface = "interface.12.ts-sdk-wallet-interface-sign-custody"
+verdict = "retired"
+path = "sdk/wallet/src/wallet.ts"
+line = 119
+symbol = "signCustody"
+evidence = "signCustody is absent from WalletInterface in wallet.ts, implementing override.J50.1 and task 12.28.2. Remaining mentions include the explicit removal test, stale provider and gateway test callers, the demo retirement scan and the retired-callers inventory. Repository-wide identifier search excludes spec and docs; remaining lists one first match per file."
+remaining_refs = 5
+remaining = ["sdk/wallet/test/provider.test.ts:1241", "sdk/wallet/test/custody-retired.test.ts:13", "tools/paxeer-x/retired_callers.json:572", "services/wallet/gateway/test/e2e/wallet-signing-adapters.production.ts:304", "services/wallet/demo/src/components/Completion.test.tsx:122"]
