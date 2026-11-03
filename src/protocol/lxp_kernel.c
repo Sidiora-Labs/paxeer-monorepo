@@ -3119,19 +3119,13 @@ static lxp_result prestate_module(prestate_snapshot *snapshot,
     if (kernel->module_kv_count > LXP_KERNEL_MAX_MODULE_KV ||
         kernel->blob_count > LXP_KERNEL_MAX_BLOBS ||
         kernel->module_count > LXP_KERNEL_MAX_MODULE_REGISTRATIONS ||
-        kernel->state->count > LXP_STATE_MAX_CELLS ||
-        kernel->state->idempotency_count > LXP_STATE_MAX_IDEMPOTENCY)
+        kernel->state->count > LXP_STATE_MAX_CELLS)
         status = LXP_ERR_LENGTH_LIMIT;
     if (status == LXP_OK && module == 0U) {
         for (index = 0U; index < kernel->state->count; ++index) {
             keys[count].length = 33U;
             keys[count].bytes[0] = 1U;
             memcpy(keys[count++].bytes + 1U, kernel->state->cells[index].key, 32U);
-        }
-        for (index = 0U; index < kernel->state->idempotency_count; ++index) {
-            keys[count].length = 33U;
-            keys[count].bytes[0] = 2U;
-            memcpy(keys[count++].bytes + 1U, kernel->state->idempotency[index].key_hash, 32U);
         }
         for (index = 0U; index < kernel->module_count; ++index) {
             keys[count].length = 7U;

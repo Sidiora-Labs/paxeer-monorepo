@@ -22,24 +22,11 @@ typedef struct lxp_state_cell {
     lxp_u128 value;
 } lxp_state_cell;
 
-typedef struct lxp_idempotency_key_state {
-    uint8_t key_hash[32];
-    uint32_t receipt_length;
-    uint8_t receipt[LXP_STATE_MAX_RECEIPT_BYTES];
-    uint32_t canonical_length;
-    uint8_t canonical_receipt[LXP_STATE_MAX_RECEIPT_BYTES];
-    uint64_t recorded_sequence;
-} lxp_idempotency_key_state;
-#define lxp_idempotency_key_state lxp_idempotency_key_state
-
 struct lx_account_registry;
 
 typedef struct lxp_state_store {
     lxp_state_cell cells[LXP_STATE_MAX_CELLS];
     size_t count;
-    lxp_idempotency_key_state *idempotency;
-    size_t idempotency_count;
-    uint64_t idempotency_retention;
     uint64_t next_sequence;
     struct lx_account_registry *accounts;
     bool account_root_required;
@@ -54,8 +41,6 @@ typedef struct lxp_state_journal {
     uint64_t global_sequence;
     bool open;
     bool account_root_required_before;
-    bool has_idempotency;
-    lxp_idempotency_key_state staged_idempotency;
 } lxp_state_journal;
 #define lxp_state_journal lxp_state_journal
 
@@ -111,39 +96,6 @@ lxp_result lxp_state_journal_commit(lxp_state_journal *journal);
 lxp_result lxp_state_journal_rollback(lxp_state_journal *journal);
 lxp_result lxp_state_store_get(lxp_state_store *store, const uint8_t key[32],
                                lxp_u128 *value, bool *found);
-lxp_result lxp_idempotency_lookup(lxp_state_store *store,
-                                  const uint8_t *actor_did,
-                                  size_t actor_did_length,
-                                  const uint8_t idempotency_key[32],
-                                  const uint8_t **receipt,
-                                  size_t *receipt_length);
-lxp_result lxp_idempotency_record(lxp_state_journal *journal,
-                                  const uint8_t *actor_did,
-                                  size_t actor_did_length,
-                                  const uint8_t idempotency_key[32],
-                                  const uint8_t *receipt,
-                                  size_t receipt_length);
-lxp_result lxp_idempotency_canonical_lookup(lxp_state_store *store,
-    const uint8_t *actor_did, size_t actor_did_length,
-    const uint8_t idempotency_key[32], const uint8_t **receipt,
-    size_t *receipt_length);
-lxp_result lxp_idempotency_snapshot_encode(const lxp_idempotency_key_state *entry,
-    uint8_t *bytes, size_t capacity, size_t *length);
-lxp_result lxp_idempotency_snapshot_decode(lxp_idempotency_key_state *entry,
-    const uint8_t *bytes, size_t length);
-lxp_result lxp_kernel_idempotency_receipt_validate(
-    const lxp_idempotency_key_state *entry);
-lxp_result lxp_idempotency_reserve(lxp_state_store *store);
-lxp_result lxp_idempotency_prune(lxp_state_store *store,
-                                 uint64_t current_sequence);
-lxp_result lxp_idempotency_append(lxp_state_store *store,
-                                  const lxp_idempotency_key_state *entry,
-                                  uint64_t current_sequence);
-size_t lxp_idempotency_live_count(const lxp_state_store *store,
-                                  uint64_t current_sequence);
-lxp_result lxp_idempotency_can_commit(const lxp_state_journal *journal);
-void lxp_idempotency_commit_staged(lxp_state_journal *journal);
-
 struct lxp_kernel;
 lxp_result lxp_state_subtree_root(const struct lxp_kernel *kernel,
                                   uint16_t module_id, uint8_t root[32]);

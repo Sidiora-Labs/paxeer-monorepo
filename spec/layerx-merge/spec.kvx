@@ -135042,7 +135042,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.25.4]
 title = "Complete the root go.sum for the in-repo go-ethereum replace"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 0
 requires = []
