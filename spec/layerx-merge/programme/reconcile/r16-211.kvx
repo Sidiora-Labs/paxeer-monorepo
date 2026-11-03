@@ -1,0 +1,243 @@
+[reconcile.r16-211]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 30
+
+[row.r16-211.1]
+interface = "interface.16.mk-test-merkle"
+verdict = "served"
+path = "Makefile"
+line = 1289
+symbol = "test-merkle"
+evidence = "Definition is test-merkle: $(BUILD_DIR)/tests/lxp_test_merkle; the recipe runs that binary. The occurrences at lines 64 and 1311 are a phony declaration and a suite prerequisite."
+
+[row.r16-211.2]
+interface = "interface.16.mk-test-merkle-proof"
+verdict = "served"
+path = "Makefile"
+line = 1296
+symbol = "test-merkle-proof"
+evidence = "Definition is test-merkle-proof: $(BUILD_DIR)/tests/lxp_test_merkle_proof; the recipe runs that binary. The occurrences at lines 64 and 1311 are a phony declaration and a suite prerequisite."
+
+[row.r16-211.3]
+interface = "interface.16.mk-test-merkle-vector"
+verdict = "served"
+path = "Makefile"
+line = 1303
+symbol = "test-merkle-vector"
+evidence = "Definition is test-merkle-vector: $(BUILD_DIR)/tests/lxp_test_merkle_vector; the recipe runs that binary. The occurrences at lines 64 and 1312 are a phony declaration and a suite prerequisite."
+
+[row.r16-211.4]
+interface = "interface.16.mk-test-metering"
+verdict = "served"
+path = "Makefile"
+line = 926
+symbol = "test-metering"
+evidence = "Definition is test-metering: $(BUILD_DIR)/tests/test_metering; the recipe runs that binary. Line 137 declares it phony and line 939 uses it as a prerequisite."
+
+[row.r16-211.5]
+interface = "interface.16.mk-test-module-registry"
+verdict = "served"
+path = "Makefile"
+line = 3146
+symbol = "test-module-registry"
+evidence = "Definition is test-module-registry: layerx-module-registry; its recipe runs test_registry.py against the built registry binary and beta-cluster.sh test-retained-material. Line 3138 is only the phony declaration."
+
+[row.r16-211.6]
+interface = "interface.16.mk-test-owner-rotation"
+verdict = "served"
+path = "Makefile"
+line = 3165
+symbol = "test-owner-rotation"
+evidence = "Definition is test-owner-rotation: $(BUILD_DIR)/tests/lxp_test_owner_rotation_unit; its recipe runs that binary. Line 3164 is the phony declaration and line 3168 adds it to test."
+
+[row.r16-211.7]
+interface = "interface.16.mk-test-paxai-blob-lifecycle"
+verdict = "served"
+path = "Makefile"
+line = 2890
+symbol = "test-paxai-blob-lifecycle"
+evidence = "Definition is test-paxai-blob-lifecycle: $(BUILD_DIR)/tests/lxp_test_blob_lifecycle; its recipe runs that binary. The occurrence at line 59 belongs to the phony list."
+
+[row.r16-211.8]
+interface = "interface.16.mk-test-perps-book"
+verdict = "served"
+path = "Makefile"
+line = 779
+symbol = "test-perps-book"
+evidence = "Definition is test-perps-book: $(BUILD_DIR)/tests/test_perps_book; its recipe runs that binary and lxp_check_sole_writer.sh. Lines 840 and 843 use the target as a suite prerequisite."
+
+[row.r16-211.9]
+interface = "interface.16.mk-test-perps-funding"
+verdict = "served"
+path = "Makefile"
+line = 812
+symbol = "test-perps-funding"
+evidence = "Definition is test-perps-funding: $(BUILD_DIR)/tests/test_perps_funding; its recipe runs that binary and lxp_check_sole_writer.sh. Lines 841 and 844 are suite prerequisite references."
+
+[row.r16-211.10]
+interface = "interface.16.mk-test-perps-insurance"
+verdict = "served"
+path = "Makefile"
+line = 836
+symbol = "test-perps-insurance"
+evidence = "Definition is test-perps-insurance: $(BUILD_DIR)/tests/test_perps_insurance; its recipe runs that binary and lxp_check_sole_writer.sh. Lines 841 and 844 are suite prerequisite references."
+
+[row.r16-211.11]
+interface = "interface.16.mk-test-perps-liquidation"
+verdict = "served"
+path = "Makefile"
+line = 824
+symbol = "test-perps-liquidation"
+evidence = "Definition is test-perps-liquidation: $(BUILD_DIR)/tests/test_perps_liquidate; its recipe runs that binary and lxp_check_sole_writer.sh. Lines 841 and 844 are suite prerequisite references."
+
+[row.r16-211.12]
+interface = "interface.16.mk-test-perps-margin"
+verdict = "served"
+path = "Makefile"
+line = 801
+symbol = "test-perps-margin"
+evidence = "Definition is test-perps-margin: $(BUILD_DIR)/tests/test_perps_position; its recipe runs that binary and lxp_check_sole_writer.sh. Lines 841 and 843 are suite prerequisite references."
+
+[row.r16-211.13]
+interface = "interface.16.mk-test-perps-market"
+verdict = "served"
+path = "Makefile"
+line = 768
+symbol = "test-perps-market"
+evidence = "Definition is test-perps-market: $(BUILD_DIR)/tests/test_perps_market; its recipe runs that binary and lxp_check_sole_writer.sh. Lines 840 and 843 are suite prerequisite references."
+
+[row.r16-211.14]
+interface = "interface.16.mk-test-program-call-builders"
+verdict = "served"
+path = "Makefile"
+line = 3155
+symbol = "test-program-call-builders"
+evidence = "Definition is test-program-call-builders: $(BUILD_DIR)/tests/test_call_builders; its recipe runs that binary. Line 3150 declares it phony and line 3158 adds it to test."
+
+[row.r16-211.15]
+interface = "interface.16.mk-test-programs-abi5-admission"
+verdict = "served"
+path = "Makefile"
+line = 2900
+symbol = "test-programs-abi5-admission"
+evidence = "Definition is test-programs-abi5-admission: $(BUILD_DIR)/tests/test_programs_abi5_admission; its recipe runs that binary. The adjacent line 2899 is only the phony declaration."
+
+[row.r16-211.16]
+interface = "interface.16.mk-test-programs-metered-call"
+verdict = "served"
+path = "Makefile"
+line = 2808
+symbol = "test-programs-metered-call"
+evidence = "Definition is test-programs-metered-call: $(BUILD_DIR)/tests/programs_metered_call; its recipe runs that binary. The adjacent line 2807 is only the phony declaration."
+
+[row.r16-211.17]
+interface = "interface.16.mk-test-programs-web-read"
+verdict = "served"
+path = "Makefile"
+line = 2832
+symbol = "test-programs-web-read"
+evidence = "Definition is test-programs-web-read: $(BUILD_DIR)/tests/test_programs_web_read; its recipe runs that binary. The adjacent line 2831 is only the phony declaration."
+
+[row.r16-211.18]
+interface = "interface.16.mk-test-projection"
+verdict = "served"
+path = "Makefile"
+line = 1444
+symbol = "test-projection"
+evidence = "Definition is test-projection: $(BUILD_DIR)/tests/lxp_test_projection build; its recipe runs the projection binary and symbol-allowlist.sh. Lines 69, 277 and 1463 are phony or aggregate prerequisite references."
+
+[row.r16-211.19]
+interface = "interface.16.mk-test-rebuild"
+verdict = "served"
+path = "Makefile"
+line = 1459
+symbol = "test-rebuild"
+evidence = "Definition is test-rebuild: $(BUILD_DIR)/tests/lxp_test_rebuild $(BUILD_DIR)/tools/log_inspect; its recipe runs the rebuild binary. Lines 69, 277 and 1463 are phony or aggregate prerequisite references."
+
+[row.r16-211.20]
+interface = "interface.16.mk-test-recovery"
+verdict = "served"
+path = "Makefile"
+line = 1433
+symbol = "test-recovery"
+evidence = "Definition is test-recovery: $(BUILD_DIR)/tests/lxp_test_recovery; its recipe runs that binary. Lines 69, 277 and 1462 are phony or aggregate prerequisite references."
+
+[row.r16-211.21]
+interface = "interface.16.mk-test-reserve"
+verdict = "served"
+path = "Makefile"
+line = 970
+symbol = "test-reserve"
+evidence = "Definition starts at line 970 and continues at 971 with prerequisites $(BUILD_DIR)/tests/test_reserve_reconcile, $(BUILD_DIR)/tools/lxp-reserve-report and test-contracts, matching the registered signature. Its recipe runs reconciliation and the report with --classes."
+
+[row.r16-211.22]
+interface = "interface.16.mk-test-revocation"
+verdict = "served"
+path = "Makefile"
+line = 1588
+symbol = "test-revocation"
+evidence = "Definition is test-revocation: $(BUILD_DIR)/tests/lxp_test_revocation; its recipe runs that binary. Line 79 declares it phony and line 281 uses it as a test prerequisite."
+
+[row.r16-211.23]
+interface = "interface.16.mk-test-rotation"
+verdict = "served"
+path = "Makefile"
+line = 1596
+symbol = "test-rotation"
+evidence = "Definition is test-rotation: $(BUILD_DIR)/tests/lxp_test_rotation; its recipe runs that binary. Lines 80, 281 and 1701 are a phony declaration or prerequisite references."
+
+[row.r16-211.24]
+interface = "interface.16.mk-test-sanitizer-smoke"
+verdict = "served"
+path = "Makefile"
+line = 1604
+symbol = "test-sanitizer-smoke"
+evidence = "Definition is test-sanitizer-smoke: $(BUILD_DIR)/tests/lxp_test_sanitizer_smoke; its recipe runs that binary. Line 61 declares it phony and line 1608 uses it in test-sanitizer-suite."
+
+[row.r16-211.25]
+interface = "interface.16.mk-test-sanitizer-suite"
+verdict = "served"
+path = "Makefile"
+line = 1607
+symbol = "test-sanitizer-suite"
+evidence = "Definition starts at line 1607 and continues at 1608 with prerequisites test-result, test-protocol, test-harness, test-sanitizer-smoke and $(BUILD_DIR)/tests/lxp_test_arena, matching the registered signature. Line 62 only declares the target phony."
+
+[row.r16-211.26]
+interface = "interface.16.mk-test-service-acceptance"
+verdict = "served"
+path = "Makefile"
+line = 713
+symbol = "test-service-acceptance"
+evidence = "Definition is now test-service-acceptance: $(BUILD_DIR)/tests/test_service_acceptance; the registered $(BUILD_DIR)/tests/lxp_test_epoch_service_acceptance prerequisite is absent. The recipe runs the remaining binary and lxp_check_sole_writer.sh; lines 116, 289 and 1212 are phony or prerequisite references."
+
+[row.r16-211.27]
+interface = "interface.16.mk-test-service-attest"
+verdict = "served"
+path = "Makefile"
+line = 688
+symbol = "test-service-attest"
+evidence = "Definition is test-service-attest: $(BUILD_DIR)/tests/test_service_attest; its recipe runs that binary and lxp_check_sole_writer.sh. Lines 114, 288 and 1211 are phony or aggregate prerequisite references."
+
+[row.r16-211.28]
+interface = "interface.16.mk-test-service-commit"
+verdict = "served"
+path = "Makefile"
+line = 676
+symbol = "test-service-commit"
+evidence = "Definition is test-service-commit: $(BUILD_DIR)/tests/test_service_commit; its recipe runs that binary and lxp_check_sole_writer.sh. Lines 113, 288 and 1211 are phony or aggregate prerequisite references."
+
+[row.r16-211.29]
+interface = "interface.16.mk-test-service-deliver"
+verdict = "served"
+path = "Makefile"
+line = 700
+symbol = "test-service-deliver"
+evidence = "Definition is test-service-deliver: $(BUILD_DIR)/tests/test_service_deliver; its recipe runs that binary and lxp_check_sole_writer.sh. Lines 115, 289 and 1212 are phony or aggregate prerequisite references."
+
+[row.r16-211.30]
+interface = "interface.16.mk-test-service-dispute"
+verdict = "served"
+path = "Makefile"
+line = 726
+symbol = "test-service-dispute"
+evidence = "Definition is test-service-dispute: $(BUILD_DIR)/tests/test_service_dispute; its recipe runs that binary and lxp_check_sole_writer.sh. Lines 117, 289 and 1212 are phony or aggregate prerequisite references."
