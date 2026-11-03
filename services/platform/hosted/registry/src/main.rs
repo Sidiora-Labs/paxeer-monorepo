@@ -1638,6 +1638,7 @@ mod tests {
             eprintln!("SKIP live cgroup delegation: /sys/fs/cgroup is not writable cgroup2");
             return Ok(());
         }
+        fs::write("/sys/fs/cgroup/cgroup.subtree_control", CONTROLLERS)?;
         let root = PathBuf::from(format!(
             "/sys/fs/cgroup/layerx-registry-test-{}-{}",
             std::process::id(),
