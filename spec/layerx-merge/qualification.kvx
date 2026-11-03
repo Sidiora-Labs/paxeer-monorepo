@@ -20715,3 +20715,43 @@ symbol = "test_emergency_exit_is_retired"
 observed = "Attempt 3: the verify passed (498 tests collected, record written) at the commit the qualification run recorded, but the final tree differs from that commit (an edit landed after the qualification run), so the attempt was not published."
 assumption = "Requalify the attempt-3 tree as it stands."
 severity = "low"
+
+[finding.22.9.10.12]
+task = "22.9.10"
+file = "services/agent/sdk/typescript/src/web-search.ts"
+symbol = "verifySequencerReceipt"
+observed = "Attempt 25: the build passes and npm test fails in test/web-search.test.ts (dist line 186) with receipt-offer-mismatch from verifySequencerReceipt (src/web-search.ts:329), which compares the receipt protocol facts asset, amount and to against the offer after pinning moduleId 12 and operation 2 (line 328); the gateway's own verify_receipt (services/interop/crates/x-websearch/src/payment.rs:661-674) proves payee, asset and amount from the PaymentExact log of the ledger precompile in the pax_sequencerReceipt answer and never compares the protocol facts."
+assumption = "The TypeScript client follows the gateway contract: the settlement log, not the receipt protocol facts, proves the offer; the attempt-25 tree is continued with the web-search files in the paths."
+severity = "medium"
+
+[finding.22.99.92.4]
+task = "22.99.92"
+file = "tests/test_beta_withdrawal_genesis.py"
+symbol = "test_public_bootstrap_and_real_builder_bind_v3_and_native_authority"
+observed = "Attempt 4: 102 tests pass and 3 fail. The two public-bootstrap genesis runs stop at bootstrap: layerxd is not executable: build/bin/layerxd; cmd/layerxd is deleted on main (tasks 5.50.1-5.50.7, 16.9.4) and no root Makefile rule builds build/bin/layerxd, while services/platform/hosted/node/bootstrap.sh:82 and :444 still resolve it. tests/ci/test_agent_codec_corpus.py fails because the attempt moved tests/vectors/codec/generate.py to tests/codec/generate_replay_corpus.py and repointed the Makefile recipe agent-prepare-codec-corpus, while services/agent/crates/layerx-types/tests/vectors.rs:19-31 copies tests/vectors/codec/generate.py from the repository root into the clean checkout."
+assumption = "A test that starts the retired daemon is recorded as a producer-input test of the retired binary (gotcha 2397) and deselected; the generator move is reverted because the Rust vector test consumes the path."
+severity = "medium"
+
+[finding.22.99.92.5]
+task = "22.99.92"
+file = "services/platform/hosted/node/bootstrap.sh"
+symbol = "resolve_binary"
+observed = "services/platform/hosted/node/bootstrap.sh:82 and :444 resolve build/bin/layerxd and layerx-genesis-build although cmd/layerxd is deleted on main and nothing builds the binary (wiring.J33.23 is listed as fulfilled by tasks 8.19.2 and 8.19.3, yet the reference stays); the hosted node bootstrap, supervisor.sh and sequencer-env.sh cannot start a node from this tree."
+assumption = "Closure-wave item: the hosted node deployment is retargeted onto paxd or retired with the daemon; no repair task changes it now."
+severity = "medium"
+
+[finding.22.99.117.3]
+task = "22.99.117"
+file = "programs/crates/layerx-programs-arbiter/tests/authority_from_prestate.rs"
+symbol = "canonical_native_authority_matches_authenticated_historical_facts"
+observed = "Attempt 3: the build (make -s paxd-native-libs and go vet) passes and every verify step passes except cargo test -p layerx-programs-arbiter --tests, where canonical_native_authority_matches_authenticated_historical_facts panics required genuine native replay corpus; no fallback: NotPresent reading LAYERX_AUTHENTICATED_REPLAY_INPUTS (authority_from_prestate.rs:290; :298 reads LAYERX_ARBITER_ADMISSION_INPUTS); verified_step.rs and the market profile test of the arbiter crate read the same recorded corpora, which repair record rust-test-programs.11 lists under producer_input_tests."
+assumption = "The verify names the vector consumer that needs no recorded corpus; the attempt-3 tree is requalified."
+severity = "low"
+
+[finding.22.99.145.3]
+task = "22.99.145"
+file = "precompiles/layerxprograms/proof_layerxprograms_0x101d_test.go"
+symbol = "TestProofLayerxprograms0x101d"
+observed = "Attempt 3 (started before the attempt-2 ruling landed): the fuzz corpus entries 128 and 129 fail as ruled, and TestProofLayerxprograms0x101d fails because its producer tests/agent/sdk/python/test_evm_transaction.py imports cryptography, which the Go test environment lacks (ModuleNotFoundError at line 9)."
+assumption = "The build command installs the Python package the proof producer needs; the attempt-3 tree is continued under the attempt-2 ruling."
+severity = "low"
