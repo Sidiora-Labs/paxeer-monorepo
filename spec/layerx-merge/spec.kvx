@@ -124811,7 +124811,7 @@ do_2 = "Install and build pass; npm test fails. Read the first failing test, rep
 do_3 = "If the defect lies in a file outside the task's paths, stop and report the exact path and the failing output instead of editing it. If the recorded failure no longer reproduces on the current main line, no product change is made and the repair record says so."
 do_4 = "Write spec/layerx-merge/programme/sweeps/repairs/node-agent-sdk.1.kvx, each with one block ([repair.node-agent-sdk.1]) holding target (the recorded target), command (the recorded command as run), revision (the 40-hex commit of main the verify passed at), result (repaired or already-passing), change (one sentence naming the files changed, or none) and producer_input_tests (the tests that need an input the qualification environment lacks, each with the input it needs, or an empty list). Product facts only; no names of people, nothing about how or where work is executed. The sweep record itself is left unchanged; a later inventory pass re-records it."
 symbols = []
-touches = ["services/agent/sdk/typescript", "spec/layerx-merge/programme/sweeps/repairs/node-agent-sdk.1.kvx"]
+touches = ["services/agent/sdk/typescript", "spec/layerx-merge/programme/sweeps/repairs/node-agent-sdk.1.kvx", "sdk/platform/conformance/fixtures/intent-plan-v1.json"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/sweeps/repairs/node-agent-sdk.1.kvx"]
 build_cmd = "cd services/agent/sdk/typescript && npm ci && npm run build"
@@ -124827,6 +124827,7 @@ time_limit_minutes = 60
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Attempt 1 (continue, decision 2320): the intent fixture sdk/platform/conformance/fixtures/intent-plan-v1.json is now in the paths. plan_request holds only the IntentEndpoint fields the SDKs encode (kind, optional account); move the resolved account and evm_address under plan_result.legs. intent.test.ts and the Python intent conformance test both read the fixture; run the Python test locally once (python3 -m pytest tests/agent/sdk/python -k intent -q) and report if it disagrees."
 
 [task.22.99.39]
 title = "Repair the inventory sweep target sdk/integrations/next/example"
@@ -125152,6 +125153,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue): one error remains, toolkit/chakra/stat.tsx:8 maps Stat.Group, which the installed @chakra-ui/react namespace does not export. Read the installed namespace (node_modules/@chakra-ui/react/dist/types/components/stat) and map only members it exports; yarn tsc --noEmit must report zero errors."
 
 [task.22.96.36]
 title = "Restore the dapp integration tests npm lock"
@@ -130350,6 +130352,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue from attempt 1): the requalification shows the guest still above 520192 bytes under opt-level z. Measure with the stat of verify_cmd and write the byte count into the task record before and after each reduction; reduce inside the crate only (SDK hashing import instead of sha2 if available, no formatting or panic-message paths, shared codecs, no generic monomorphisation); the workspace release profile stays unchanged."
 do_5 = "Attempt 3 (continue): 534469 bytes against 520192. Remaining size is formatting and hashing code: remove every Debug derive, format! and {:?} path from the guest build (errors become numeric codes behind cfg(target_arch = wasm32)), replace the in-guest sha2 dependency with the host hashing import where the program SDK exposes one, and drop the spin mutex for a cell-based single-threaded state. Measure after each step with the stat of verify_cmd and write the byte counts into the commit message."
+do_6 = "Attempt 4 (continue): measure the release wasm first with the stat of the verify and write the byte count into the commit message before any further change (the attempt-4 reductions were committed unmeasured at 534851 bytes). Continue stripping Debug derives, format paths and the in-guest hashing; when the limit of 520192 bytes stays out of reach after the stripping, stop and report the ten largest functions by size (wasm-objdump or twiggy output) so the owner can rule on the limit."
 
 [task.22.96.37]
 title = "Restore the wasm-tools Cargo lock and the playground npm lock"
@@ -138306,6 +138309,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Decision 2511: the workspace lock programs/Cargo.lock is a planned path of this task; any manifest change refreshes it in the same commit, limited to the touched package, and the build stays under --locked."
+do_6 = "Attempt 1 (continue): test_build_control_flow_graph panics at validation.rs:429 after the default-feature memory-growth metering was restored. Decide from the vendored patch history whether the control-flow gas-cost model changed on purpose: when it did, update the test's expected graph costs to the patched model and say so in the record; when it did not, correct the metering so the upstream expectation holds. The test is never excluded."
 
 [task.22.99.155]
 title = "Repair the inventory sweep target layerx-indexer"
@@ -138324,10 +138328,10 @@ symbols = []
 touches = ["services/platform/hosted/indexer", "spec/layerx-merge/programme/sweeps/repairs/rust-test-platform.12.kvx"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/sweeps/repairs/rust-test-platform.12.kvx", "services/platform/Cargo.lock"]
-build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --tests"
+build_cmd = "make -s paxd-native-libs && cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --tests"
 verify_cmd = "test -s spec/layerx-merge/programme/sweeps/repairs/rust-test-platform.12.kvx && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --no-fail-fast"
 gate_kind = "planned"
-sandbox_profile = "rust"
+sandbox_profile = "mixed"
 owner_role = "fm-platform"
 rollback = "Revert the task's commit."
 max_builds = 1
@@ -138338,6 +138342,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Decision 2511: the workspace lock services/platform/Cargo.lock is a planned path of this task; any manifest change refreshes it in the same commit, limited to the touched package, and the build stays under --locked."
+do_6 = "Attempt 1 (requalify, gotcha 2955): the three proof tests spawn the Go proof producers, which link against the kernel native libraries; the build now runs make -s paxd-native-libs first in the mixed environment profile. Requalify the attempt-1 tree unchanged; if a proof test still fails, print the producer's stderr and report it."
 
 [task.22.99.154]
 title = "Repair the inventory sweep target layerx-bridge-relayer"
@@ -138357,7 +138362,7 @@ touches = ["services/interop/crates/layerx-bridge-relayer", "spec/layerx-merge/p
 tests = []
 planned_paths = ["spec/layerx-merge/programme/sweeps/repairs/rust-test-interop.4.kvx", "services/interop/Cargo.lock"]
 build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-bridge-relayer --tests"
-verify_cmd = "test -s spec/layerx-merge/programme/sweeps/repairs/rust-test-interop.4.kvx && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-bridge-relayer --no-fail-fast"
+verify_cmd = "test -s spec/layerx-merge/programme/sweeps/repairs/rust-test-interop.4.kvx && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-bridge-relayer --no-fail-fast -- --skip outbound_isolation_captured_production_boundaries"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-interop"
@@ -138370,6 +138375,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Decision 2511: the workspace lock services/interop/Cargo.lock is a planned path of this task; any manifest change refreshes it in the same commit, limited to the touched package, and the build stays under --locked."
+do_6 = "Attempt 1 (continue, decision 2506): outbound_isolation_captured_production_boundaries needs LAYERX_BRIDGE_CAPTURE_MANIFEST, the captured production boundary corpus, a producer input; the verify now excludes it by name. List it in the repair record under producer_input_tests with that input; every other relayer test passes."
 
 [task.22.99.153]
 title = "Repair the inventory sweep targets of the smart contract verifier"
@@ -138890,6 +138896,7 @@ do_4 = "Decision 2496 (continue): the tests real_core_and_identity_readiness_con
 do_5 = "Attempt 1 (continue): besides the three excluded tests the recorded command exposes deterministic failures to repair: chain_only_readiness_omits_kernel_backends, readyz_reports_the_consensus_endpoint, platform_completion_retired_surfaces_absent, native_generated_registry_admits_exactly_the_closed_protocol_module_set, px_request_funds_uses_the_claim_path and settle_binds_a_real_receipt_and_refuses_every_tampered_field (main.rs:4870)."
 do_6 = "Attempt 3 (continue): gotcha 2948. The attempt-2 manifest adds layerx-platform-authority and signal-hook =0.3.18; services/platform/Cargo.lock is now in the edit scope. Refresh only the entries that manifest needs (cargo update -p signal-hook --precise 0.3.18 in services/platform, or one build without --locked), commit the lock with the repair and run verify_cmd as written."
 do_7 = "Attempt 4 (continue): decision 2508. The readiness report must not degrade on a backend the configuration does not name: consensus not_configured with every configured backend ready is overall ready; the four degraded-endpoint tests state the contract. tools/paxeer-x/route-catalogue.json is a planned path of this task: remove the retired wallet routes (the /v1/wallet/sign-custody route and any other route a decision retired) so unified_service_paths agrees with the served surface."
+do_8 = "Attempt 6 (continue): the readiness logic passes; readyz_reports_the_consensus_endpoint fails at chain_reads.rs:64 because the fixture uses a fixed temporary directory that already exists under parallel tests. Give the fixture a unique temporary directory (tempfile::tempdir) and keep every other change of attempt 6."
 
 [task.22.99.71]
 title = "Repair the inventory sweep target layerx-platform-paxeer-boundary"
@@ -141181,7 +141188,7 @@ interfaces = []
 do_1 = "Finding 22.23.8.1 and decision 2360: services/agent/crates/layerx-client/src/sequencer.rs:957 reads feeDenom from the receipt view and the asset is still compared with the digest of the fee denomination; the view now carries paymentDenom (task 22.23.8). The decoder reads paymentDenom (same length bound as feeDenom), keeps fee_denom as the fee, exposes payment_denom on the decoded receipt, checks the asset against the digest of paymentDenom and refuses a view without paymentDenom with the existing shape error."
 do_2 = "services/agent/crates/layerx-client/tests/sequencer_receipts.rs and services/agent/crates/layerx-client/tests/receipt_rpc.rs are re-pinned on the regenerated conformance fixture: the fee-token case decodes with payment_denom equal to the base denom and asset equal to its digest, and a view whose asset is the fee denomination digest is refused."
 symbols = ["payment_denom"]
-touches = ["services/agent/crates/layerx-client/src/sequencer.rs", "services/agent/crates/layerx-client/tests/sequencer_receipts.rs", "services/agent/crates/layerx-client/tests/receipt_rpc.rs", "services/agent/crates/layerx-client/tests/sequencer.rs", "services/agent/crates/layerx-agentd/src/budget/execution_state.rs", "services/agent/crates/layerx-agentd/tests/budget_create.rs", "services/platform/ramps/toolkit/tests/custody_rungs.rs"]
+touches = ["services/agent/crates/layerx-client/src/sequencer.rs", "services/agent/crates/layerx-client/tests/sequencer_receipts.rs", "services/agent/crates/layerx-client/tests/receipt_rpc.rs", "services/agent/crates/layerx-client/tests/sequencer.rs", "services/agent/crates/layerx-agentd/src/budget/execution_state.rs", "services/agent/crates/layerx-agentd/tests/budget_create.rs", "services/platform/ramps/toolkit/tests/custody_rungs.rs", "services/agent/crates/layerx-agentd-host/tests"]
 tests = ["services/agent/crates/layerx-client/tests/sequencer_receipts.rs"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --tests"
@@ -141199,6 +141206,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "The crate's other test target tests/sequencer.rs builds ExecutedReceipt at line 140 without the new payment_denom field, so cargo build --tests fails with E0063 once the field exists. Set payment_denom there to the fixture's denomination so every test target of layerx-client compiles."
 do_4 = "Attempt 2 (continue): the dependent-crate check fails with E0063 at services/agent/crates/layerx-agentd/src/budget/execution_state.rs:593, services/agent/crates/layerx-agentd/tests/budget_create.rs:18 and services/platform/ramps/toolkit/tests/custody_rungs.rs:47 because the receipt type gained payment_denom; set the field in those three initializers (now inside the task's paths) and add paymentDenom to the exact receipt field set at sequencer.rs:902. The human service test break is repaired by 22.95.11 (required)."
+do_5 = "Attempt 3 (continue): the dependent-crate check fails in layerx-agentd-host tests payer and payer_evm because their ExecutedReceipt initializers lack the payment_denom field this task added; the layerx-agentd-host tests directory is now in the paths. Set payment_denom in every initializer to the denomination the test's receipt carries and keep the client tests of attempt 3."
 
 [task.18.1211.6]
 title = "Refresh the interop and explorer copies of the sequencer receipt vectors from the conformance source and compare them"
@@ -203255,6 +203263,7 @@ time_limit_minutes = 45
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Attempt 1 (continue): the remaining failures lie inside precompiles/layerxprograms. TestProgramsSubmitCarriesFeeLimitAndKey fails after the submit.go change: the submit path keeps the fee limit and key fields. TestProgramsPrecompileListedInMergeSet panics on reflection over an unexported field: compare the exported precompile list instead. FuzzProgramsDecodeArgs corpus entries 62 to 86 and TestProofLayerxprograms0x101d: print the decoded arguments against the expected ones and repair the decoder or the expectation that disagrees with the ABI."
 
 [task.22.99.144]
 title = "Repair the inventory sweep target node/sequencer"
@@ -203489,7 +203498,7 @@ do_4 = "Write spec/layerx-merge/programme/sweeps/repairs/go-modules.106.kvx and 
 symbols = []
 touches = ["modules/sequencer/keeper", "spec/layerx-merge/programme/sweeps/repairs/go-modules.106.kvx", "spec/layerx-merge/programme/sweeps/repairs/go-modules-2.5.kvx"]
 tests = []
-planned_paths = ["spec/layerx-merge/programme/sweeps/repairs/go-modules.106.kvx", "spec/layerx-merge/programme/sweeps/repairs/go-modules-2.5.kvx"]
+planned_paths = ["spec/layerx-merge/programme/sweeps/repairs/go-modules.106.kvx", "spec/layerx-merge/programme/sweeps/repairs/go-modules-2.5.kvx", "storage/state_db/sc/memiavl", "rpc/sequencer_receipt.go"]
 build_cmd = "make -s paxd-native-libs && CGO_ENABLED=1 go vet ./modules/sequencer/keeper/"
 verify_cmd = "test -s spec/layerx-merge/programme/sweeps/repairs/go-modules.106.kvx && test -s spec/layerx-merge/programme/sweeps/repairs/go-modules-2.5.kvx && CGO_ENABLED=1 go test -count=1 -timeout 35m ./modules/sequencer/keeper/"
 gate_kind = "planned"
@@ -203503,6 +203512,7 @@ time_limit_minutes = 60
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Attempt 1 (continue): TestReceiptKeysAppHashVector records app_hash at height 1200 while the tree writes version 1 where the initial version is 1200 (storage/state_db/sc/memiavl/tree.go:165, now a planned path): make the tree honour the configured initial version and keep the recorded vector unless its provenance shows it was recorded with the wrong version. TestProofSequencerModule reports the JSON view of an older receipt missing paymentDenom: the older receipt view carries the receipt's denomination (rpc/sequencer_receipt.go is a planned path). Report any failure whose fix lies outside the paths with file and line."
 
 [task.22.99.116]
 title = "Repair the inventory sweep target modules/pricefeed/types"
@@ -203828,7 +203838,7 @@ do_2 = "Decision 2506: the recorded failure is the time limit (240 or 600 second
 do_3 = "If the defect lies in a file outside the task's paths, stop and report the exact path and the failing output instead of editing it. If the recorded failure no longer reproduces on the current main line, no product change is made and the repair record says so."
 do_4 = "Write spec/layerx-merge/programme/sweeps/repairs/go-modules.8.kvx, each with one block ([repair.go-modules.8]) holding target (the recorded target), command (the recorded command as run), revision (the 40-hex commit of main the verify passed at), result (repaired or already-passing), change (one sentence naming the files changed, or none) and producer_input_tests (the tests that need an input the qualification environment lacks, each with the input it needs, or an empty list). Product facts only; no names of people, nothing about how or where work is executed. The sweep record itself is left unchanged; a later inventory pass re-records it."
 symbols = []
-touches = ["modules/evm", "spec/layerx-merge/programme/sweeps/repairs/go-modules.8.kvx"]
+touches = ["spec/layerx-merge/programme/sweeps/repairs/go-modules.8.kvx"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/sweeps/repairs/go-modules.8.kvx"]
 build_cmd = "make -s paxd-native-libs && CGO_ENABLED=1 go vet ./modules/evm/"
@@ -203844,6 +203854,7 @@ time_limit_minutes = 60
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Attempt 1 (requalify): go test ./modules/evm/ passes at the attempt revision; the paths are now the repair record alone, so the record states already-passing with the verified revision and no product change."
 
 [task.22.99.105]
 title = "Repair the inventory sweep target modules/epoch/keeper"
@@ -204518,9 +204529,9 @@ do_1 = "Decision 2492: the inventory sweep go-tools (spec/layerx-merge/programme
 do_2 = "If the defect lies in a file outside the task's paths, stop and report the exact path and the failing output instead of editing it. If the recorded failure no longer reproduces on the current main line, no product change is made and the repair record says so."
 do_3 = "Write spec/layerx-merge/programme/sweeps/repairs/go-tools.14.kvx with one block [repair.go-tools.14] holding target (the recorded target), command (the recorded command as run), revision (the 40-hex commit of main the verify passed at), result (repaired or already-passing) and change (one sentence naming the files changed, or none). Product facts only; no names of people, nothing about how or where work is executed. The sweep record itself is left unchanged; a later inventory pass re-records it."
 symbols = []
-touches = ["tools/specgen", "spec/layerx-merge/programme/sweeps/repairs/go-tools.14.kvx", "CLAUDE.md", "AGENTS.md", ".cursor/rules/spec-workflow.mdc", ".github/copilot-instructions.md"]
+touches = ["tools/specgen", "spec/layerx-merge/programme/sweeps/repairs/go-tools.14.kvx"]
 tests = []
-planned_paths = ["spec/layerx-merge/programme/sweeps/repairs/go-tools.14.kvx"]
+planned_paths = ["spec/layerx-merge/programme/sweeps/repairs/go-tools.14.kvx", "CLAUDE.md", "AGENTS.md", ".cursor/rules/spec-workflow.mdc", ".github/copilot-instructions.md"]
 build_cmd = "CGO_ENABLED=1 go vet ./tools/specgen/"
 verify_cmd = "test -s spec/layerx-merge/programme/sweeps/repairs/go-tools.14.kvx && CGO_ENABLED=1 go test -count=1 ./tools/specgen/"
 gate_kind = "planned"
@@ -204537,6 +204548,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_4 = "Attempt 1 (continue): the repository validation failed because [req.22056] lacked ac_2 while task 9.35.17 cites 22056.2; the criterion exists from this revision (gotcha 2938). Rerun the recorded command and record the result."
 do_5 = "Attempt 2 (continue): decision 2502, gotcha 2946. The four stale outputs are generated adapters of spec/workflow.kvx and are now in the edit scope: run go run ./tools/specgen -root . from the repository root, commit the regenerated CLAUDE.md, AGENTS.md, .cursor/rules/spec-workflow.mdc and .github/copilot-instructions.md together with the sweep record, and keep the specgen sources unchanged unless the renderer itself is wrong. Do not remove the repair record; run verify_cmd as written."
 do_6 = "Attempt 4 (continue): gotcha 2953. Commit CLAUDE.md, AGENTS.md, .cursor/rules/spec-workflow.mdc and .github/copilot-instructions.md exactly as the spec renderer writes them from spec/workflow.kvx, and make the tools/specgen check mode render byte-identically to the renderer so the verified tree is the candidate."
+do_7 = "Attempt 5 (requalify): the renderer check passes; the four pointer files are planned paths now, so a pointer file that already matches the renderer output stays unchanged. Requalify the attempt-5 tree unchanged."
 
 [task.22.99.34]
 title = "Repair the inventory sweep target tools/qualification/localnode"
@@ -240100,7 +240112,7 @@ symbols = []
 touches = ["tests/agent/sdk/python", "spec/layerx-merge/programme/sweeps/repairs/python-pytest-collect.48.kvx"]
 tests = []
 planned_paths = ["spec/layerx-merge/programme/sweeps/repairs/python-pytest-collect.48.kvx"]
-build_cmd = "python3 -m pip install -q -e services/agent/sdk/python"
+build_cmd = "python3 -m pytest --version"
 verify_cmd = "test -s spec/layerx-merge/programme/sweeps/repairs/python-pytest-collect.48.kvx && python3 -m pytest -q --collect-only tests"
 gate_kind = "planned"
 sandbox_profile = "python"
@@ -240113,6 +240125,7 @@ time_limit_minutes = 45
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "The build command is the pytest version check; the Python SDK is not installed in editable mode (its local build backend has no build_editable hook). Collection runs against the checked-out tree like the sibling collection tasks."
 
 [task.22.99.149]
 title = "Repair the inventory sweep target deploy/launchpad/production/observability/phase2/tests"
