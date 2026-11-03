@@ -1,9 +1,9 @@
 [sweep.rust-build-programs]
-revision = "1fea7069e58b649760bb1afcabdb9c4caec5ea4c"
+revision = "ace3608260f2ec826292dab08cd058031efe2f46"
 command = "cargo build --locked --manifest-path programs/Cargo.toml -p TARGET --all-targets"
 targets_total = 20
-targets_passed = 19
-targets_failed = 1
+targets_passed = 20
+targets_failed = 0
 targets_not_run = 0
 
 [target.rust-build-programs.1]
@@ -98,13 +98,8 @@ exit_code = 0
 
 [target.rust-build-programs.19]
 target = "wasm-instrument"
-revision = "e4ea95433a982235f0a6c0304857a074c61d0b6e"
-command = "cargo build --locked --manifest-path programs/Cargo.toml -p wasm-instrument --all-targets"
-toolchain = "cmake 4.2.3 on PATH."
-result = "failed"
-exit_code = 101
-observed = "After dropping the binaryen test dependency, the previous qualification build failed first with E0433 for DynamicHelper in the ungated memory-grow helper test; both helper-sequence tests now use the same bulk feature gate as DynamicHelper and add_dynamic_helpers, pending qualification."
-assumption = "Qualification runs in the Railway Ubuntu sandbox with CMake 4.2.3 on PATH."
+result = "passed"
+exit_code = 0
 
 [target.rust-build-programs.20]
 target = "wasmi"

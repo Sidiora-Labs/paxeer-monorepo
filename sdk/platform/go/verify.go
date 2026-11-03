@@ -624,6 +624,7 @@ type sequencerReceiptJSON struct {
 	GasUsed           string                `json:"gasUsed"`
 	CumulativeGasUsed string                `json:"cumulativeGasUsed"`
 	EffectiveGasPrice string                `json:"effectiveGasPrice"`
+	PaymentDenom      string                `json:"paymentDenom"`
 	FeeDenom          string                `json:"feeDenom"`
 	FeeAmount         string                `json:"feeAmount"`
 	Sponsor           string                `json:"sponsor"`
@@ -651,7 +652,7 @@ func VerifySequencerReceipt(receiptBytes, rawTransaction []byte, keys ReceiptKey
 	if err := json.Unmarshal(receiptBytes, &fields); err != nil {
 		return fail(ReceiptCheckDecode)
 	}
-	for _, name := range []string{"rung", "txHash", "nonce", "seq", "height", "index", "timestamp", "status", "returnData", "logs", "gasUsed", "cumulativeGasUsed", "effectiveGasPrice", "feeDenom", "feeAmount", "sponsor", "from", "to", "contractAddress", "vmError", "keyId", "receipt"} {
+	for _, name := range []string{"rung", "txHash", "nonce", "seq", "height", "index", "timestamp", "status", "returnData", "logs", "gasUsed", "cumulativeGasUsed", "effectiveGasPrice", "paymentDenom", "feeDenom", "feeAmount", "sponsor", "from", "to", "contractAddress", "vmError", "keyId", "receipt"} {
 		if v, ok := fields[name]; !ok || bytes.Equal(v, []byte("null")) {
 			return fail(ReceiptCheckFields)
 		}
@@ -797,7 +798,10 @@ func verifySequencerFields(v sequencerReceiptJSON, r ProtocolReceipt, height uin
 		return fail()
 	}
 	denomLen := int(b[108])
-	if denomLen == 0 || denomLen > 64 || len(b) != 109+denomLen || !utf8.Valid(b[109:]) || v.FeeDenom != string(b[109:]) || sha256.Sum256(b[109:]) != r.Asset {
+	if denomLen == 0 || denomLen > 64 || len(b) != 109+denomLen || !utf8.Valid(b[109:]) || v.FeeDenom != string(b[109:]) {
+		return fail()
+	}
+	if len(v.PaymentDenom) == 0 || len(v.PaymentDenom) > 64 || !utf8.ValidString(v.PaymentDenom) || sha256.Sum256([]byte(v.PaymentDenom)) != r.Asset {
 		return fail()
 	}
 	if !receiptQuantityEquals(v.GasUsed, binary.BigEndian.Uint64(b[:8])) ||
