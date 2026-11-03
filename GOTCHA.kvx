@@ -14345,3 +14345,8 @@ fix = "When a decoder or a recorded exchange changes shape, grep every fixture a
 title = "An in-memory index behind an RPC needs a restart proof"
 symptom = "The sequencer receipt source was filled only by the live accepter; a restart replayed the log, re-executed every send and answered null to every receipt lookup."
 fix = "Every in-memory read model that an RPC serves is rebuilt from durable state on start, and the restart test reads a pre-restart record back."
+
+[gotcha.2905]
+title = "A reader refuses a value shape its producer writes"
+symptom = "The sweep records wrote decimal elapsed seconds; the summary reader written against the records accepted integers only and refused the first file with a decimal."
+fix = "Derive a reader's accepted value shapes from the files it will read, and test it on one real record of each producer."
