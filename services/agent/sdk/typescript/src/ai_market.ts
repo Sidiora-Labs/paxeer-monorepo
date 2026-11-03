@@ -3569,12 +3569,15 @@ export async function decodeProgramsReceipt(
   }
   sr.end();
   const returnData = rpcBytes(v.returnData);
+  const paymentDenom = v.paymentDenom;
   if (
     typeof v.vmError !== "string" ||
     typeof v.feeDenom !== "string" ||
     v.feeDenom !== feeDenom ||
+    typeof paymentDenom !== "string" ||
+    !/^[a-zA-Z][a-zA-Z0-9/:._-]{2,63}$/u.test(paymentDenom) ||
     !equal(sha256(ascii(v.vmError)), vmErrorDigest) ||
-    !equal(sha256(ascii(feeDenom)), asset) ||
+    !equal(sha256(ascii(paymentDenom)), asset) ||
     returnData.length !== returnDataLength ||
     !equal(sha256(returnData), activityRoot) ||
     gasUsed > transaction.fees.gasLimit ||

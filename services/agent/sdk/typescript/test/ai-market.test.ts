@@ -822,6 +822,7 @@ function signedReceiptView(
     gasUsed: "0x64",
     cumulativeGasUsed: "0x64",
     effectiveGasPrice: "0x1",
+    paymentDenom: "upax",
     feeDenom: "upax",
     feeAmount: "0x64",
     sponsor: `0x${"0".repeat(40)}`,
@@ -2468,6 +2469,37 @@ try {
           hex(execution.receipt.activityId) === activityIdOf(signed),
         "conformance sequencer receipt was not decoded",
       );
+      assert(
+        hex(execution.receipt.asset) ===
+          hex(sha256(Buffer.from(String(vector.receiptJson.paymentDenom)))),
+        "conformance asset does not name the payment denomination",
+      );
+      for (const paymentDenom of [
+        undefined,
+        null,
+        1,
+        "",
+        "ab",
+        "a".repeat(65),
+        "uhpx ",
+        "uhpx\n",
+        "other",
+      ]) {
+        await refuses("ReceiptMismatch", () =>
+          decodeProgramsReceipt(
+            { ...vector.receiptJson, paymentDenom },
+            signed,
+            keys,
+          ),
+        );
+      }
+      await refuses("ReceiptMismatch", () =>
+        decodeProgramsReceipt(
+          { ...vector.receiptJson, feeDenom: "other" },
+          signed,
+          keys,
+        ),
+      );
       const result = execution.programResult;
       const output = raw(String(vector.receiptJson.returnData).slice(2));
       const envelopeDomain = Buffer.from(
@@ -2666,6 +2698,8 @@ try {
           { ...base, feeAmount: "0x65" },
           { ...base, vmError: "changed" },
           { ...base, feeDenom: "other" },
+          { ...base, paymentDenom: "other" },
+          { ...base, paymentDenom: undefined },
           { ...base, txHash: x(id(0x44)) },
           { ...base, logs: [] },
         ]) {
