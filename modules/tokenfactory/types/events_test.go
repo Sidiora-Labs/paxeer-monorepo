@@ -12,6 +12,9 @@ func TestEventAttributeNamesFrozen(t *testing.T) {
 		got  string
 		want string
 	}{
+		"set_denom_paused":           {set_denom_paused, "set_denom_paused"},
+		"EventTypeSetIssuerDid":      {EventTypeSetIssuerDid, "set_issuer_did"},
+		"AttributeIssuerDid":         {AttributeIssuerDid, "issuer_did"},
 		"AttributeAmount":            {AttributeAmount, "amount"},
 		"AttributeCreator":           {AttributeCreator, "creator"},
 		"AttributeSubdenom":          {AttributeSubdenom, "subdenom"},
