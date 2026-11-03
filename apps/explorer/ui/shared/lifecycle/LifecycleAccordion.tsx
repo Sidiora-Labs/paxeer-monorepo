@@ -1,10 +1,10 @@
-import type { AccordionItemProps, AccordionRootProps, GridProps } from '@chakra-ui/react';
+import type { AccordionItemProps, GridProps } from '@chakra-ui/react';
 import { Box, Spinner, HStack, Grid, GridItem } from '@chakra-ui/react';
 import React from 'react';
 
 import type { StepStatus } from './types';
 
-import type { AccordionItemContentProps } from 'toolkit/chakra/accordion';
+import type { AccordionItemContentProps, AccordionRootProps } from 'toolkit/chakra/accordion';
 import { AccordionItem, AccordionItemContent, AccordionItemTrigger, AccordionRoot } from 'toolkit/chakra/accordion';
 import { Skeleton } from 'toolkit/chakra/skeleton';
 import IconSvg from 'ui/shared/IconSvg';

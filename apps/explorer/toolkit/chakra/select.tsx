@@ -9,8 +9,13 @@ import ArrowIcon from 'icons/arrows/east-mini.svg';
 import CheckIcon from 'icons/check.svg';
 
 import { FilterInput } from '../components/filters/FilterInput';
+import { recipe as selectRecipe } from '../theme/recipes/select.recipe';
 import { CloseButton } from './close-button';
+import { withRecipe, type WithRecipeProps } from './recipe-props';
 import { Skeleton } from './skeleton';
+
+type RecipeRootProps = WithRecipeProps<ChakraSelect.RootProps, typeof selectRecipe>;
+const RecipeRoot = withRecipe(ChakraSelect.Root, selectRecipe);
 
 export type ViewMode = 'default' | 'compact';
 
@@ -188,15 +193,15 @@ export const SelectValueText = React.forwardRef<
   );
 });
 
-export interface SelectRootProps extends ChakraSelect.RootProps {}
+export interface SelectRootProps extends RecipeRootProps {}
 
 export const SelectRoot = React.forwardRef<
   HTMLDivElement,
-  ChakraSelect.RootProps
+  SelectRootProps
 >(function SelectRoot(props, ref) {
   const { lazyMount = true, unmountOnExit = true, ...rest } = props;
   return (
-    <ChakraSelect.Root
+    <RecipeRoot
       ref={ ref }
       lazyMount={ lazyMount }
       unmountOnExit={ unmountOnExit }
@@ -211,9 +216,9 @@ export const SelectRoot = React.forwardRef<
           { props.children }
         </>
       ) }
-    </ChakraSelect.Root>
+    </RecipeRoot>
   );
-}) as ChakraSelect.RootComponent;
+});
 
 interface SelectItemGroupProps extends ChakraSelect.ItemGroupProps {
   label: React.ReactNode;

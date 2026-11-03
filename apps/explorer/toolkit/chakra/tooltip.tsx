@@ -5,7 +5,13 @@ import * as React from 'react';
 import config from 'configs/app';
 import useIsMobile from 'lib/hooks/useIsMobile';
 
-export interface TooltipProps extends ChakraTooltip.RootProps {
+import { recipe as tooltipRecipe } from '../theme/recipes/tooltip.recipe';
+import { withRecipe, type WithRecipeProps } from './recipe-props';
+
+type RecipeRootProps = WithRecipeProps<ChakraTooltip.RootProps, typeof tooltipRecipe>;
+const RecipeRoot = withRecipe(ChakraTooltip.Root, tooltipRecipe);
+
+export interface TooltipProps extends RecipeRootProps {
   selected?: boolean;
   showArrow?: boolean;
   portalled?: boolean;
@@ -112,7 +118,7 @@ export const Tooltip = React.forwardRef<HTMLDivElement, TooltipProps>(
     };
 
     return (
-      <ChakraTooltip.Root
+      <RecipeRoot
         openDelay={ openDelay }
         // FIXME: chakra closes tooltip too fast, so Playwright is not able to make a screenshot of its content
         // so we need to increase the close delay in Playwright environment
@@ -153,7 +159,7 @@ export const Tooltip = React.forwardRef<HTMLDivElement, TooltipProps>(
             </ChakraTooltip.Content>
           </ChakraTooltip.Positioner>
         </Portal>
-      </ChakraTooltip.Root>
+      </RecipeRoot>
     );
   },
 );
