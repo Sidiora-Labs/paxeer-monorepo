@@ -14070,3 +14070,23 @@ fix = "Before appending a finding, check the id is unused; a duplicate is remove
 title = "A transport entry restored for a retired operation needs its operation declaration too"
 symptom = "The drift test compares the transport operations of the agent API schema with the [operation.<name>] declarations; a task restored the retired faucet.claim transport entry without the declaration and the next task to touch the schema failed the drift test."
 fix = "Restore or add transport entries and operation declarations together; the drift test is the oracle for both."
+
+[gotcha.2850]
+title = "Node's strip-only TypeScript loader refuses constructor parameter properties"
+symptom = "A TypeScript source loaded directly by node --test used constructor parameter properties (private readonly in the parameter list) and node 24 refused it with ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX in strip-only mode."
+fix = "A .ts file that node loads without a build step declares its fields explicitly and assigns them in the constructor body; parameter properties, enums and namespaces need a build step."
+
+[gotcha.2851]
+title = "An in-repo Maven module must be installed before a dependent module can resolve it"
+symptom = "mvn dependency:resolve on an integration module failed with 'Could not find artifact' for the repository's own sdk artifact, because the local repository had no copy and no remote carries it."
+fix = "Run mvn install (tests skipped) of the in-repo module first, then resolve the modules that depend on it; put both into the same command."
+
+[gotcha.2852]
+title = "A match-arm repair must cite the variant list of the current main, not a planned one"
+symptom = "A do item named two enum variants that a later task was going to add; the attempt added arms for them and the build failed with E0599 because the enum on main did not declare them."
+fix = "Before writing a do item that names enum variants or fields, read the declaration on the current main; a repair that depends on a planned variant belongs to the task that adds the variant."
+
+[gotcha.2853]
+title = "A pinned dependency requirement blocks a lock-file raise"
+symptom = "A lock-file raise to a floored version failed silently: the manifest pinned the dependency with an exact requirement (=9.3.1), so the lock could not move without a manifest edit outside the task's touches."
+fix = "A floor task whose package is pinned exactly in a manifest includes that manifest in its touches, raises the requirement with the lock, and builds the crate that uses it."
