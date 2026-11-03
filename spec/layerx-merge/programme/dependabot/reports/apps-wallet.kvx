@@ -1,0 +1,9 @@
+# GHSA-8g5g-mxqh-grgj affects apps/wallet/package.json and apps/wallet/pnpm-lock.yaml.
+[alert.GHSA-8g5g-mxqh-grgj]
+package = "vite"
+manifest = "apps/wallet/pnpm-lock.yaml"
+verdict = "upgraded"
+version_before = "6.4.4"
+version_after = "6.4.5"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
