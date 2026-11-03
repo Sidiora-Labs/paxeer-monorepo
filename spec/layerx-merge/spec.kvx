@@ -215721,7 +215721,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.97.4]
 title = "Add Foundry tests for the SidioraProxyTimelock state-changing surface"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -233864,7 +233864,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.115]
 title = "Reconcile drifted interface registry rows: cmd/layerxctl and daemon/paxd part 1"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -233924,7 +233924,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.113]
 title = "Reconcile drifted interface registry rows: sdk/launchpad and services/launchpad part 5"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -233954,7 +233954,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.112]
 title = "Reconcile drifted interface registry rows: sdk/launchpad part 4"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -233984,7 +233984,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.111]
 title = "Reconcile drifted interface registry rows: sdk/launchpad part 3"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -234044,7 +234044,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.109]
 title = "Reconcile drifted interface registry rows: apps/launchpad and contracts/launchpad part 1"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -234074,7 +234074,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.108]
 title = "Reconcile drifted interface registry rows: apps/perps and services/platform part 1"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -234104,7 +234104,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.107]
 title = "Reconcile drifted interface registry rows: modules/lxphost part 2"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -234134,7 +234134,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.106]
 title = "Reconcile drifted interface registry rows: include/layerx and layerxproof/codec part 1"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
