@@ -100,6 +100,11 @@ func TestAuthModuleStoreHasNoIdempotencyKeys(t *testing.T) {
 			require.Equal(t, types.DefaultParams(), storedParams)
 			assertParamsOnly := func(stage string) {
 				t.Helper()
+				// This test executes identity registration, a grant and its revoke,
+				// but no LX_ASSET_SEND, so it creates no host payment references.
+				references := sdk.KVStorePrefixIterator(ctx.KVStore(hostKey), []byte{0x04})
+				require.False(t, references.Valid(), "%s: no successful asset send wrote a payment reference", stage)
+				require.NoError(t, references.Close())
 				iterator := ctx.KVStore(moduleKey).Iterator(nil, nil)
 				defer func() { require.NoError(t, iterator.Close()) }()
 				var keys [][]byte
@@ -107,6 +112,8 @@ func TestAuthModuleStoreHasNoIdempotencyKeys(t *testing.T) {
 					key := bytes.Clone(iterator.Key())
 					require.NotEmpty(t, key, stage)
 					require.NotContains(t, []byte{0x02, 0x03}, key[0], "%s: retired idempotency key %x", stage, key)
+					require.NotEqual(t, byte(0x04), key[0],
+						"%s: non-send replay marker %x is written by keeper/revoke.go in RevokeGrant, not by an asset send", stage, key)
 					require.Equal(t, types.ParamsKey, key, "%s: unexpected module key %x", stage, key)
 					require.Equal(t, paramsBefore, iterator.Value(), stage)
 					keys = append(keys, key)

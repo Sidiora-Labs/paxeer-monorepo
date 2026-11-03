@@ -29,6 +29,10 @@ func (k *Keeper) GrantCapability(ctx sdk.Context, actor Actor, grant []byte, ide
 	cache, write := ctx.CacheContext()
 	result, err := k.execute(cache, actor, payload, idempotencyKey)
 	if err != nil {
+		// lxp_kernel_execute passes admission a false idempotency-exists flag;
+		// lxp_admit_activity checks sequence before that flag. execute supplies a
+		// fresh sequence, so the duplicate grant check reports sequence reused.
+		// Preserve that kernel reason instead of synthesizing an idempotent replay.
 		write()
 		return result, err
 	}

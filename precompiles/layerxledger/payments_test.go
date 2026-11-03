@@ -153,6 +153,20 @@ func (f *paymentFixture) assertBalances(t *testing.T, from, to int64) {
 	}
 }
 
+func (f *paymentFixture) assertNoPayerGrant(t *testing.T) {
+	t.Helper()
+	hostBefore := storeSnapshot(t, f.ctx.KVStore(f.hostKey))
+	ledgerBefore := storeSnapshot(t, f.ctx.KVStore(f.storeKey))
+	logs := len(f.stateDB.GetAllLogs())
+	data, err := f.call(t, f.caller, "getPayerGrant", f.grantID)
+	require.ErrorIs(t, err, vm.ErrExecutionReverted)
+	assertLedgerRevert(t, data, "LXP_NO_PAYER_GRANT")
+	require.Equal(t, hostBefore, storeSnapshot(t, f.ctx.KVStore(f.hostKey)))
+	require.Equal(t, ledgerBefore, storeSnapshot(t, f.ctx.KVStore(f.storeKey)))
+	require.Len(t, f.stateDB.GetAllLogs(), logs)
+}
+
+// 52fda45db retired payer grants; the keeper now refuses their entry points.
 func TestPrecompileIssueRevokeGrant(t *testing.T) {
 	f := newPaymentFixture(t)
 	before := storeSnapshot(t, f.ctx.KVStore(f.hostKey))
@@ -176,6 +190,7 @@ func TestPrecompileIssueRevokeGrant(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, sequence, after)
 		f.assertBalances(t, 250, 0)
+		f.assertNoPayerGrant(t)
 	}
 }
 
@@ -206,6 +221,7 @@ func TestPrecompileDraw(t *testing.T) {
 		require.Equal(t, before, storeSnapshot(t, f.ctx.KVStore(f.hostKey)))
 		require.Len(t, f.stateDB.GetAllLogs(), logsBefore)
 		f.assertBalances(t, 250, 0)
+		f.assertNoPayerGrant(t)
 		after, err := f.keeper.NextSequence(f.ctx, f.payee.DIDKey, f.asset)
 		require.NoError(t, err)
 		require.Equal(t, sequence, after)
