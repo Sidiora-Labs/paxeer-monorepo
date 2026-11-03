@@ -23,6 +23,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer/wal"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/tests/occ/utils"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/require"
 )
@@ -302,4 +303,29 @@ func TestStartInstallsOpenBlockAndSource(t *testing.T) {
 		require.Nil(t, f.app.SequencerSource())
 		require.Empty(t, driverEntries(t, f.cfg.WALDir))
 	})
+}
+
+func TestNodeStartRestoresReceiptSource(t *testing.T) {
+	for _, mode := range []sequencer.Mode{sequencer.ModeSequential, sequencer.ModeMicroBatch} {
+		t.Run(mode.String(), func(t *testing.T) {
+			sender := utils.NewSigner()
+			f := newStartHarness(t, mode, sender)
+			entries, _ := f.loggedTransfers(t, sender, 3)
+			f.restart(t, entries)
+			require.NoError(t, f.n.Start(t.Context()))
+			for _, entry := range entries {
+				accepted, ok := entry.(*wal.Accept)
+				if !ok {
+					continue
+				}
+				decoded, err := codec.DecodeReceipt(accepted.Receipt)
+				require.NoError(t, err)
+				send, err := f.n.ReceiptSource.SequencerSend(common.Hash(decoded.ActivityID))
+				require.NoError(t, err)
+				require.NotNil(t, send)
+				require.Equal(t, accepted.Receipt, send.Receipt)
+				require.Equal(t, decoded.FromSequence, send.Nonce)
+			}
+		})
+	}
 }

@@ -1,0 +1,59 @@
+[disposition.22.90.9.1]
+finding = "22.90.9.1"
+status = "resolved"
+evidence = "Commit fc892032f adds the explicit ProgramCall refusal arm retained at services/human/crates/layerx-human-service/src/agents/create.rs:745, removing the non-exhaustive lifecycle binding match."
+follow_up = "closure"
+
+[disposition.22.16.4.1]
+finding = "22.16.4.1"
+status = "resolved"
+evidence = "Commit ff75a3d8a removes the deleted tests/daemon/lxp_test_runtime_fixture.c producer from SOURCES, whose retained entries end at tools/qualification/paxeer-x/agent_operation_envelope.py:123."
+follow_up = "closure"
+
+[disposition.22.13.6.1]
+finding = "22.13.6.1"
+status = "resolved"
+evidence = "Commit fb067a262 extends tests/test_genesis_module_table.c itself, with the enabled storage-retirement registration asserting exactly one retirement activity at tests/test_genesis_module_table.c:226."
+follow_up = "closure"
+
+[disposition.22.5.4.1]
+finding = "22.5.4.1"
+status = "resolved"
+evidence = "Commit 1208b0754 makes LastBlockID return the committed block hash with the ABCI path's empty part-set header at node/app.go:3397 and tests that contract, while bd7dc0c03 repairs the xwebInfo(t) call retained at node/sequencer/precompile_refresh_test.go:74."
+follow_up = "closure"
+
+[disposition.22.4.3.1]
+finding = "22.4.3.1"
+status = "resolved"
+evidence = "Commit 786113ca4 adds the missing chat graph, policy, erasure and projection tables and functions in the service-owned Up section at services/launchpad/social/migrations/00005_dev_v2_social_graph.sql:3 and adds TestEveryReferencedChatRelationIsCreated at services/launchpad/social/migrations/migrations_test.go:16 to check embedded migration coverage."
+follow_up = "closure"
+
+[disposition.22.10.6.1]
+finding = "22.10.6.1"
+status = "resolved"
+evidence = "Commit 120b02d31 fixes continuation joining at services/platform/hosted/human/test_material.py:335 and bootstrap container assertions at services/platform/hosted/human/test_material.py:374, and implements decision 2315 with an explicit missing-input operator-test skip at services/platform/hosted/human/test_material.py:166 and an independent production custody resolver test at services/platform/hosted/human/test_material.py:247."
+follow_up = "closure"
+
+[disposition.22.16.5.1]
+finding = "22.16.5.1"
+status = "resolved"
+evidence = "Commit c1b6cf18f teaches copy_inputs to accept artifacts/ pipeline inputs only in a -prebuilt stage with a stage-local _SHA256 ARG, retaining ordinary source existence checks at tools/containers/check.sh:362."
+follow_up = "closure"
+
+[disposition.22.9.12.1]
+finding = "22.9.12.1"
+status = "resolved"
+evidence = "Commit e3cbac93f imports the HTTP helpers directly from serve_http at services/agent/crates/layerx-agentd/src/human_owner_mode.rs:1 and repairs the host targets, while fc892032f supplies the missing human-service ProgramCall match arm."
+follow_up = "closure"
+
+[disposition.22.2.4.1]
+finding = "22.2.4.1"
+status = "resolved"
+evidence = "Commit ad4a30dfb replaces both stale authorization-deletion expectations with retained authorization and ErrAuthRevoked checks, and ea039363e aligns the repeated-grant assertion with ErrSequenceReused at modules/layerxauth/keeper/capability_test.go:88."
+follow_up = "closure"
+
+[disposition.22.10.7.1]
+finding = "22.10.7.1"
+status = "resolved"
+evidence = "Commit 120b02d31 changes the bootstrap output to policy.json with the protected-producer ValueError assertion at services/platform/hosted/human/test_material.py:148 and implements decision 2315's explicit missing-input operator-test skip at services/platform/hosted/human/test_material.py:166 plus an independent production custody resolver test at services/platform/hosted/human/test_material.py:247."
+follow_up = "closure"

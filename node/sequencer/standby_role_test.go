@@ -135,7 +135,7 @@ func TestStartStandbyReplaysLedgerAfterCommit(t *testing.T) {
 		cancel()
 		require.Eventually(t, func() bool { return s.Err() != nil }, replicationTimeout, time.Millisecond)
 	})
-	require.Nil(t, backup.SequencerSource())
+	require.NotNil(t, backup.SequencerSource())
 	w, err := wal.OpenWAL(filepath.Join(dir, "primary-wal"), wal.DefaultConfig())
 	require.NoError(t, err)
 	t.Cleanup(w.Close)
