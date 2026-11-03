@@ -1,0 +1,7 @@
+[issue.1571]
+number = 1571
+title = "[P2] Preserve the perps image and floor-gate inputs when retiring its lockfiles"
+revision = "c69af8b6706e55a243bc0f3a0e184b872b900e14"
+verdict = "already-fixed"
+evidence = "apps/perps/pnpm-lock.yaml and apps/perps/package-lock.json are present on main at the recorded revision and tools/deps/floors/perps-web.json names both."
+close_comment = "Both perps lockfiles are present on main; the frozen install and the perps floor gate pass."

@@ -1,0 +1,127 @@
+# version_before lists affected locked versions; version_after is the lowest remaining locked version in the affected major range.
+
+[alert.GHSA-58qx-3vcg-4xpx]
+package = "ws"
+manifest = "apps/bridge/pnpm-lock.yaml"
+verdict = "upgraded"
+version_before = "8.18.0, 8.18.3"
+version_after = "8.21.0"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-w5hq-g745-h8pq]
+package = "uuid"
+manifest = "apps/bridge/pnpm-lock.yaml"
+verdict = "upgraded"
+version_before = "8.3.2, 9.0.1"
+version_after = "11.1.1"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-96hv-2xvq-fx4p]
+package = "ws"
+manifest = "apps/bridge/pnpm-lock.yaml"
+verdict = "upgraded"
+version_before = "8.18.0, 8.18.3"
+version_after = "8.21.0"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-vcc3-ghjq-m6fr]
+package = "decode-uri-component"
+manifest = "apps/bridge/pnpm-lock.yaml"
+verdict = "upgraded"
+version_before = "0.2.2"
+version_after = "0.5.1"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-528h-pc64-c93x]
+package = "stream-json"
+manifest = "apps/bridge/pnpm-lock.yaml"
+verdict = "upgraded"
+version_before = "1.9.1"
+version_after = "3.6.0"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-mjw6-4jj6-33hc]
+package = "stream-json"
+manifest = "apps/bridge/pnpm-lock.yaml"
+verdict = "upgraded"
+version_before = "1.9.1"
+version_after = "3.6.0"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-hqr4-qq8f-hg3x]
+package = "stream-json"
+manifest = "apps/bridge/pnpm-lock.yaml"
+verdict = "upgraded"
+version_before = "1.9.1"
+version_after = "3.6.0"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-xp26-3454-mjgp]
+package = "@vitest/mocker"
+manifest = "apps/bridge/pnpm-lock.yaml"
+verdict = "upgraded"
+version_before = "4.1.11"
+version_after = "4.1.12"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-qxg6-89mg-rqv8]
+package = "@vitest/mocker"
+manifest = "apps/bridge/pnpm-lock.yaml"
+verdict = "upgraded"
+version_before = "4.1.11"
+version_after = "4.1.12"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-mrhx-c7xc-m3w5]
+package = "zod"
+manifest = "apps/bridge/pnpm-lock.yaml"
+verdict = "upgraded"
+version_before = "3.22.4, 3.25.76"
+version_after = "4.6.6"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-gcqx-w48m-w2h4]
+package = "deepmerge"
+manifest = "apps/bridge/pnpm-lock.yaml"
+verdict = "no-fix"
+version_before = "4.3.1"
+version_after = "4.3.1"
+pinned_by = "@svgr/webpack@6.5.1 -> @svgr/plugin-svgo@6.5.1 -> deepmerge@4.3.1; @svgr/plugin-svgo@8.1.0 also requires deepmerge@^4.3.1"
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-qr28-fpjm-wq7f]
+package = "decode-uri-component"
+manifest = "apps/bridge/pnpm-lock.yaml"
+verdict = "upgraded"
+version_before = "0.2.2"
+version_after = "0.5.1"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-mrwp-f3q8-3g9p]
+package = "follow-redirects"
+manifest = "apps/bridge/pnpm-lock.yaml"
+verdict = "upgraded"
+version_before = "1.16.1"
+version_after = "1.16.2"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-g3hv-75wg-m249]
+package = "minimatch"
+manifest = "apps/bridge/pnpm-lock.yaml"
+verdict = "upgraded"
+version_before = "3.1.5, 9.0.9, 10.2.6"
+version_after = "11.0.1"
+pinned_by = ""
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"

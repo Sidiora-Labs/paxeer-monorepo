@@ -1,0 +1,48 @@
+[issue.1578]
+number = 1578
+title = "[P2] Isolate inherited live-node tests from the MCP native-read proof"
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+verdict = "task"
+evidence = "services/agent/crates/layerx-mcp/tests/proof_native_reads.rs:23-25 includes services/agent/crates/layerx-agentd/tests/proof_native_reads.rs:11-13, which includes proof_serve_errors.rs whose proof module (lines 543-900) registers seven tests, five of which call Service::start and read LOCAL_NODE_RPC at :642 and :708 without the disposable node the consumer proof starts."
+close_comment = "The MCP native-read proof target no longer inherits the daemon's live-node tests: the shared harness is separated from the tests that need an externally configured node, so the unfiltered target runs with the disposable node the proof starts."
+
+[task.18.1578.1]
+title = "Issue #1578: Isolate the inherited live-node tests from the MCP native-read proof"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181578.1"]
+capabilities = []
+interfaces = []
+do_1 = "Decision 2490 (triage record spec/layerx-merge/programme/issues/1578.kvx, verdict task): the MCP proof target (layerx-mcp/tests/proof_native_reads.rs:23-25) includes the agentd harness (layerx-agentd/tests/proof_native_reads.rs:11-13), which includes proof_serve_errors.rs; its proof module (lines 543-900) registers seven tests and five of them call Service::start, which reads LOCAL_NODE_RPC (lines 642 and 708), so the unfiltered MCP target fails without an externally configured node. Separate the live-node tests from the shared harness source (move the proof module's tests into their own agentd test target that the harness does not include, or guard them with a cfg the consumer target does not set) so the unfiltered MCP target runs to completion with only the disposable node the proof starts."
+do_2 = "Keep the native-read proof's producer, transport and consumer coverage unchanged and keep the daemon HTTP proof tests runnable under their own agentd target with LOCAL_NODE_RPC; the verify runs the unfiltered MCP target with LOCAL_NODE_RPC unset."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs", "services/agent/crates/layerx-agentd/tests/proof_native_reads.rs", "services/agent/crates/layerx-mcp/tests/proof_native_reads.rs"]
+tests = ["services/agent/crates/layerx-mcp/tests/proof_native_reads.rs"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --tests"
+verify_cmd = "env -u LOCAL_NODE_RPC cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --test proof_native_reads"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181578]
+title = "The unfiltered MCP native-read proof target runs without an externally supplied node"
+ac_1 = "Given LOCAL_NODE_RPC unset, when cargo test -p layerx-mcp --test proof_native_reads runs unfiltered, then every collected test passes using the disposable node the proof starts, and the daemon HTTP proof tests remain runnable under their own target."
+
+[acceptance.18.1578.1]
+feature = "18"
+req = "181578.1"
+scenario = "Given no externally configured node, when the MCP proof target runs unfiltered, then it passes."
+contract = "contracts/agent-daemon.md#native-reads"
+test = "cargo test -p layerx-mcp --test proof_native_reads (planned)"
+qualification = "UNRUN"

@@ -1,0 +1,6 @@
+[repair.python-pytest-collect.21]
+target = "sdk/integrations/fastapi/tests"
+command = "python3 -m pytest -q --collect-only sdk/integrations/fastapi/tests"
+revision = "c69af8b6706e55a243bc0f3a0e184b872b900e14"
+result = "repaired"
+change = "Added sdk/integrations/fastapi/tests/conftest.py to load the FastAPI integration and Python SDK sources and sdk/integrations/fastapi/tests/requirements.txt to declare the test dependencies."

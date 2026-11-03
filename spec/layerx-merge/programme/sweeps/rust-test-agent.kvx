@@ -1,11 +1,11 @@
 [sweep.rust-test-agent]
-revision = "1fea7069e58b649760bb1afcabdb9c4caec5ea4c"
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
 command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p TARGET --no-fail-fast"
 enumeration_command = "cargo metadata --no-deps --format-version 1 --manifest-path services/agent/Cargo.toml"
 targets_total = 11
 targets_passed = 3
-targets_failed = 7
-targets_not_run = 1
+targets_failed = 8
+targets_not_run = 0
 qualification_log = "/out/logs/rust-test-agent/qualification.jsonl"
 
 [target.rust-test-agent.1]
@@ -53,11 +53,11 @@ exit_code = 0
 
 [target.rust-test-agent.8]
 target = "layerx-agentd"
-result = "not_run"
-exit_code = 124
-reason = "The full package run was not completed: cargo test exceeded its 240-second per-target allowance within the 30-minute task budget and was terminated after partial test execution."
-observed = "Before timeout, services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs:2617 failed agent_rpc_adapters::tests::wait_request_refuses_retired_level_names_and_field because the response was envelope.malformed instead of envelope.unknown_field."
-assumption = "The test likely retains an error-classification expectation that differs from the current request-validation order."
+result = "failed"
+exit_code = 101
+observed = "test agent_rpc_adapters::tests::freshness_serializes_block_height_coordinates ... FAILED; services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs:2559:9 asserted an unprefixed relative_to.hash, but the response contained a 0x-prefixed hash. The command completed with 33 failed test targets."
+assumption = "The freshness assertion likely retains an unprefixed-hash expectation while freshness_value delegates to Freshness::encode_json, which emits the 0x prefix."
+log = "/out/logs/rust-test-agent-layerx-agentd.log"
 
 [target.rust-test-agent.9]
 target = "layerx-sdk"

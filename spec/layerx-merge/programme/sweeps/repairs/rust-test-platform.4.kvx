@@ -1,0 +1,6 @@
+[repair.rust-test-platform.4]
+target = "layerx-platform-core"
+command = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-core --no-fail-fast"
+revision = "3bc9e23f938f3add09f1b16665b0c66d9e4695a1"
+result = "repaired"
+change = "services/platform/hosted/core/src/lib.rs retains unavailable EVM signing errors without preventing startup, and services/platform/hosted/core/tests/chain_fund.rs supplies the required sequencer endpoint and trust anchor."
