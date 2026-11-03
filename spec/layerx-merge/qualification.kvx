@@ -19587,3 +19587,19 @@ symbol = "exchange"
 observed = "The wallet SDK exchange module still calls the perps cancel encoder with two arguments after 22.9.37 narrowed it to one, so the web typecheck fails on main."
 assumption = "Decision 2413: 22.24.26 moves the caller; 22.23.13 requires it."
 severity = "medium"
+
+[finding.10.3.2.3]
+task = "10.3.2"
+file = "services/human/crates/layerx-human-service/src/server/stream_journal.rs"
+symbol = "StreamJournal"
+observed = "10.3.2 removed the settlement domain from the persisted stream record but left the StreamJournal::new parameter, its field and two unused read parameters, so the human service still imports the retired layerx_proof::checkpoint::SettlementDomain in five files."
+assumption = "Decision 2415: 10.1.4 removes the leftovers with the boundary gate as oracle."
+severity = "medium"
+
+[finding.9.97.15.2]
+task = "9.97.15"
+file = "services/agent/sdk/typescript/src/ai_market.ts"
+symbol = "decodeProgramsCallResult"
+observed = "The AI market decoder bounds the ABI response output by the call's declared responseCapacity, but the precompile packs the runtime's terminal envelope there, which carries the execution record and the applied legs and is larger than any guest response bound."
+assumption = "Decision 2416: the decoder unwraps the envelope and bounds the guest response inside it."
+severity = "medium"
