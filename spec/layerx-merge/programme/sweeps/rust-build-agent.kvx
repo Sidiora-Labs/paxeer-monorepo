@@ -1,62 +1,84 @@
 [sweep.rust-build-agent]
-revision = "1fea7069e58b649760bb1afcabdb9c4caec5ea4c"
+revision = "ace3608260f2ec826292dab08cd058031efe2f46"
 command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p TARGET --all-targets"
 targets_total = 11
-targets_passed = 11
-targets_failed = 0
+targets_passed = 0
+targets_failed = 11
 targets_not_run = 0
 
 [target.rust-build-agent.1]
 target = "layerx-types"
-result = "passed"
-exit_code = 0
+result = "failed"
+exit_code = 101
+observed = "services/agent/Cargo.lock: Cargo exited 101 because the lock file needs to be updated but --locked prevents changes, before reporting any source file:line or test name."
+assumption = "The existing workspace lock file is stale after landed manifest dependency changes, as recorded in GOTCHA.kvx gotcha.2954; refreshing it is outside this inventory scope."
 
 [target.rust-build-agent.2]
 target = "layerx-wire"
-result = "passed"
-exit_code = 0
+result = "failed"
+exit_code = 101
+observed = "services/agent/Cargo.lock: Cargo exited 101 because the lock file needs to be updated but --locked prevents changes, before reporting any source file:line or test name."
+assumption = "The existing workspace lock file is stale after landed manifest dependency changes, as recorded in GOTCHA.kvx gotcha.2954; refreshing it is outside this inventory scope."
 
 [target.rust-build-agent.3]
 target = "layerx-crypto"
-result = "passed"
-exit_code = 0
+result = "failed"
+exit_code = 101
+observed = "services/agent/Cargo.lock: Cargo exited 101 because the lock file needs to be updated but --locked prevents changes, before reporting any source file:line or test name."
+assumption = "The existing workspace lock file is stale after landed manifest dependency changes, as recorded in GOTCHA.kvx gotcha.2954; refreshing it is outside this inventory scope."
 
 [target.rust-build-agent.4]
 target = "layerx-proof"
-result = "passed"
-exit_code = 0
+result = "failed"
+exit_code = 101
+observed = "services/agent/Cargo.lock: Cargo exited 101 because the lock file needs to be updated but --locked prevents changes, before reporting any source file:line or test name."
+assumption = "The existing workspace lock file is stale after landed manifest dependency changes, as recorded in GOTCHA.kvx gotcha.2954; refreshing it is outside this inventory scope."
 
 [target.rust-build-agent.5]
 target = "layerx-client"
-result = "passed"
-exit_code = 0
+result = "failed"
+exit_code = 101
+observed = "services/agent/Cargo.lock: Cargo exited 101 because the lock file needs to be updated but --locked prevents changes, before reporting any source file:line or test name."
+assumption = "The existing workspace lock file is stale after landed manifest dependency changes, as recorded in GOTCHA.kvx gotcha.2954; refreshing it is outside this inventory scope."
 
 [target.rust-build-agent.6]
 target = "layerx-identity-binding"
-result = "passed"
-exit_code = 0
+result = "failed"
+exit_code = 101
+observed = "services/agent/Cargo.lock: Cargo exited 101 because the lock file needs to be updated but --locked prevents changes, before reporting any source file:line or test name."
+assumption = "The existing workspace lock file is stale after landed manifest dependency changes, as recorded in GOTCHA.kvx gotcha.2954; refreshing it is outside this inventory scope."
 
 [target.rust-build-agent.7]
 target = "layerx-agent-api"
-result = "passed"
-exit_code = 0
+result = "failed"
+exit_code = 101
+observed = "services/agent/Cargo.lock: Cargo exited 101 because the lock file needs to be updated but --locked prevents changes, before reporting any source file:line or test name."
+assumption = "The existing workspace lock file is stale after landed manifest dependency changes, as recorded in GOTCHA.kvx gotcha.2954; refreshing it is outside this inventory scope."
 
 [target.rust-build-agent.8]
 target = "layerx-agentd"
-result = "passed"
-exit_code = 0
+result = "failed"
+exit_code = 101
+observed = "services/agent/Cargo.lock: Cargo exited 101 because the lock file needs to be updated but --locked prevents changes, before reporting any source file:line or test name."
+assumption = "The existing workspace lock file is stale after landed manifest dependency changes, as recorded in GOTCHA.kvx gotcha.2954; refreshing it is outside this inventory scope."
 
 [target.rust-build-agent.9]
 target = "layerx-sdk"
-result = "passed"
-exit_code = 0
+result = "failed"
+exit_code = 101
+observed = "services/agent/Cargo.lock: Cargo exited 101 because the lock file needs to be updated but --locked prevents changes, before reporting any source file:line or test name."
+assumption = "The existing workspace lock file is stale after landed manifest dependency changes, as recorded in GOTCHA.kvx gotcha.2954; refreshing it is outside this inventory scope."
 
 [target.rust-build-agent.10]
 target = "layerx-agentd-host"
-result = "passed"
-exit_code = 0
+result = "failed"
+exit_code = 101
+observed = "services/agent/Cargo.lock: Cargo exited 101 because the lock file needs to be updated but --locked prevents changes, before reporting any source file:line or test name."
+assumption = "The existing workspace lock file is stale after landed manifest dependency changes, as recorded in GOTCHA.kvx gotcha.2954; refreshing it is outside this inventory scope."
 
 [target.rust-build-agent.11]
 target = "layerx-mcp"
-result = "passed"
-exit_code = 0
+result = "failed"
+exit_code = 101
+observed = "services/agent/Cargo.lock: Cargo exited 101 because the lock file needs to be updated but --locked prevents changes, before reporting any source file:line or test name."
+assumption = "The existing workspace lock file is stale after landed manifest dependency changes, as recorded in GOTCHA.kvx gotcha.2954; refreshing it is outside this inventory scope."
