@@ -8,30 +8,23 @@ import (
 	"errors"
 	"math/big"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/internaltest"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func phase2Storage(t *testing.T) *Ledger {
 	t.Helper()
-	dsn := os.Getenv("L18_POSTGRES_DSN")
-	if dsn == "" {
-		t.Fatal("real isolated PostgreSQL L18_POSTGRES_DSN required")
-	}
 	ctx := context.Background()
-	pool, e := pgxpool.New(ctx, dsn)
-	if e != nil {
-		t.Fatal(e)
-	}
+	pool := internaltest.NewPostgres(t)
+	var e error
 	suffix := make([]byte, 8)
 	if _, e = rand.Read(suffix); e != nil {
 		t.Fatal(e)
@@ -56,11 +49,8 @@ func phase2Storage(t *testing.T) *Ledger {
 		t.Fatal(e)
 	}
 	defer tx.Rollback(ctx)
-	proposal, e := os.ReadFile(filepath.Join("../../../../../../launchpad/spec/production-system/handoffs/L18/phase2/migration-proposal.sql"))
-	if e != nil {
-		t.Fatal(e)
-	}
-	if _, e = tx.Exec(ctx, SchemaDDL+"\n"+string(proposal)); e != nil {
+	proposal := phase2Migration(t, schema)
+	if _, e = tx.Exec(ctx, SchemaDDL+"\n"+proposal); e != nil {
 		t.Fatal(e)
 	}
 	if e = tx.Commit(ctx); e != nil {
@@ -143,7 +133,7 @@ func TestPhase2RealPostgresKeyRotationFirstBindingAndRollback(t *testing.T) {
 	}
 }
 func TestPhase2ActualCommittedCreatorAuthorityAndReceipt(t *testing.T) {
-	path := os.Getenv("L18_CHAIN_FIXTURE")
+	path := localChainFixture(t)
 	if path == "" {
 		t.Fatal("actual owned Anvil fixture required")
 	}
