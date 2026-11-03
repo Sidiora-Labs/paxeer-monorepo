@@ -8205,6 +8205,12 @@ value = "spec/layerx-merge/programme/audit holds 185 packages (packages/22.30.N.
 basis = "The owner's order of 2026-11-03: the deepest audit so far, system by system, to find issues, inconsistencies and incompatible interfaces before the upgrade and to rewrite the documentation properly, with a per-task package that states how the finished system behaves and what its interfaces are; the quality ruling that every interface-changing task proves producer, transport and consumer; the 22.95.1 attempt-6 finding (three disagreeing shapes of one px_getHistory result) as the class of defect the audit exists to catch."
 affects = ["22.30.1", "22.30.2", "22.30.3", "22.30.4", "22.30.5", "22.30.6", "22.30.7", "22.30.8", "22.30.9", "22.30.10", "22.30.11", "22.30.12", "22.30.13", "22.30.14", "22.30.15", "22.30.16", "22.30.17", "22.30.18", "22.30.19", "22.30.20", "22.30.21", "22.30.22", "22.30.23", "22.30.24", "22.30.25", "22.30.26", "22.30.27", "22.30.28", "22.30.29", "22.30.30", "22.30.31", "22.30.32", "22.30.33", "22.30.34", "22.30.35", "22.30.36", "22.30.37", "22.30.38", "22.30.39", "22.30.40", "22.30.41", "22.30.42", "22.30.43", "22.30.44", "22.30.45", "22.30.46", "22.30.47", "22.30.48", "22.30.49", "22.30.50", "22.30.51", "22.30.52", "22.30.53", "22.30.54", "22.30.55", "22.30.56", "22.30.57", "22.30.58", "22.30.59", "22.30.60", "22.30.61", "22.30.62", "22.30.63", "22.30.64", "22.30.65", "22.30.66", "22.30.67", "22.30.68", "22.30.69", "22.30.70", "22.30.71", "22.30.72", "22.30.73", "22.30.74", "22.30.75", "22.30.76", "22.30.77", "22.30.78", "22.30.79", "22.30.80", "22.30.81", "22.30.82", "22.30.83", "22.30.84", "22.30.85", "22.30.86", "22.30.87", "22.30.88", "22.30.89", "22.30.90", "22.30.91", "22.30.92", "22.30.93", "22.30.94", "22.30.95", "22.30.96", "22.30.97", "22.30.98", "22.30.99", "22.30.100", "22.30.101", "22.30.102", "22.30.103", "22.30.104", "22.30.105", "22.30.106", "22.30.107", "22.30.108", "22.30.109", "22.30.110", "22.30.111", "22.30.112", "22.30.113", "22.30.114", "22.30.115", "22.30.116", "22.30.117", "22.30.118", "22.30.119", "22.30.120", "22.30.121", "22.30.122", "22.30.123", "22.30.124", "22.30.125", "22.30.126", "22.30.127", "22.30.128", "22.30.129", "22.30.130", "22.30.131", "22.30.132", "22.30.133", "22.30.134", "22.30.135", "22.30.136", "22.30.137", "22.30.138", "22.30.139", "22.30.140", "22.30.141", "22.30.142", "22.30.143", "22.30.144", "22.30.145", "22.30.146", "22.30.147", "22.30.148", "22.30.149", "22.30.150", "22.30.151", "22.30.152", "22.30.153", "22.30.154", "22.30.155", "22.30.156", "22.30.157", "22.30.158", "22.30.159", "22.30.160", "22.30.161", "22.30.162", "22.30.163", "22.30.164", "22.30.165", "22.30.166", "22.30.167", "22.30.168", "22.30.169", "22.30.170", "22.30.171", "22.30.172", "22.30.173", "22.30.174", "22.30.175", "22.30.176", "22.30.177", "22.30.178", "22.30.179", "22.30.180", "22.30.181", "22.30.182", "22.30.183", "22.30.184", "22.30.185"]
 
+[decision.2516]
+title = "The hosted kernel registers the programs module at guest ABI 5 from the merge upgrade; genesis manifests select it with module-enable:programs-abi5"
+value = "The programs module of the hosted kernel is registered at guest ABI 4 (the storage-retirement registration) until the merge upgrade and at guest ABI 5 (programs_module_registration_v5, the same activity list) from the first block after it; the selection is recorded in the hosted-kernel store by the upgrade handler and read at construction, so a restart keeps it. lxphost.Config exposes it as ProgramsGuestABI (0 or 4 keep ABI 4, 5 selects ABI 5). A genesis manifest selects the ABI-5 registration with the governance canonical boolean module-enable:programs-abi5, resolved by lxp_genesis_module_plan_resolve beside module-enable:programs-retire; the published fixtures do not set it and keep their module-table roots (decision 2304). Receipts carry module_version 4 or 5 accordingly and the Go receipt decoders accept both."
+basis = "18.1562.1 attempt 9: the AI market guest (13.99.1, GUEST_ABI_V5) deploys and upgrades to ABI 5 but every call is refused with LXP_VERSION_UNSUPPORTED because src/modules/programs/call.c:2438 compares the call's abi_version with the registered module's and the hosted kernel registers ABI 4 unconditionally (modules/lxphost/host.go:175, read.go:185); nothing outside tests registers programs_module_registration_v5. Without this the upgrade ships an AI market that no transaction can call."
+affects = ["1.23.7", "5.99.1", "18.1562.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -37096,6 +37102,33 @@ verification_contract = "cargo test --locked --manifest-path services/agent/Carg
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
 
+[capability.5.99.1]
+title = "Switch the hosted kernel to programs guest ABI 5 at the merge upgrade and keep the choice across restarts"
+reqs = ["5004.1"]
+touches = ["node/app.go", "node/upgrades.go", "node/upgrades_merge_programs_abi_test.go"]
+tests = ["node/upgrades_merge_programs_abi_test.go"]
+verification_contract = "CGO_ENABLED=1 go test -count=1 ./node/ -run '^TestHostedKernelProgramsABI'"
+do_1 = "node/app.go:647-651 constructs the hosted kernel with a fixed lxphost.Config; with 1.23.7 the Config carries ProgramsGuestABI. The node chooses it from state, not from a build constant: a chain that has not run the merge upgrade (node/upgrades.go:218, mergeUpgradePlan at :465) constructs the host with ABI 4 and its receipts keep module_version 4; the merge upgrade handler records the ABI-5 selection in the hosted-kernel store (storekeys.LayerXHostStoreKey) inside the same cached context as the rest of the plan, and from the first block after the upgrade the host registers the programs module at ABI 5, so a call to an ABI-5 program succeeds and its receipt carries module_version 5 (sdk/platform/go/programs.go:531 already accepts module version 4 and 5 for the native receipt layout)."
+symbols = []
+
+[capability.1.23.7]
+title = "Register the programs module at guest ABI 5 on the hosted kernel and in the genesis module plan behind an enable parameter"
+reqs = ["1073.1"]
+touches = ["modules/lxphost/host.go", "modules/lxphost/read.go", "modules/lxphost/programs_registration_test.go", "src/protocol/lxp_genesis.c", "include/layerx/lxp_genesis.h", "tests/test_genesis_module_table.c", "cmd/layerx-genesis/lxp_genesis_builder.c"]
+tests = ["modules/lxphost/programs_registration_test.go", "tests/test_genesis_module_table.c"]
+verification_contract = "make -s test-genesis-module-table && CGO_ENABLED=1 go test -count=1 ./modules/lxphost/ -run '^TestHostProgramsModule'"
+do_1 = "src/modules/programs/call.c:2438-2442 refuses a call activity whose abi_version exceeds the registered module's abi_version, and :2491 refuses a call whose ABI differs from the program record's; the hosted kernel registers programs_module_registration_v4_storage_retirement unconditionally (modules/lxphost/host.go:174-175, modules/lxphost/read.go:184-185), so an ABI-5 program such as the AI market guest of 13.99.1 (GUEST_ABI_V5, decision 2483) can be deployed and upgraded to ABI 5 but never called (18.1562.1 attempt 9: LXP_VERSION_UNSUPPORTED). lxphost.Config gains a field ProgramsGuestABI (uint16): 0 and 4 keep the ABI-4 storage-retirement registration unchanged, 5 registers programs_module_registration_v5 (src/modules/programs/registration.c:317, the same activity list at abi_version LX_PROGRAMS_GUEST_ABI_V5_VERSION), any other value fails NewHost; lxphost_reset in host.go and lxphost_read_authority_envelope in read.go both honour it, so receipts carry module_version 5 (host.go:620) and authority envelopes agree."
+symbols = []
+
+[capability.9.98.4]
+title = "Carry paymentDenom in every daemon receipt fixture so the exact receipted and committed field sets of the receipt decoder accept them"
+reqs = ["9998.1"]
+touches = ["services/agent/crates/layerx-agentd/src/ops/program.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/tests/support/mod.rs", "services/agent/crates/layerx-agentd/tests/human_node_receipts.rs", "services/agent/crates/layerx-agentd/tests/human_node_budgets.rs", "services/agent/crates/layerx-agentd/tests/node_rpc.rs", "services/agent/crates/layerx-agentd/tests/recovery.rs", "services/agent/crates/layerx-agentd/tests/unknown.rs", "services/agent/crates/layerx-agentd/tests/unknown_receipt_lookup.rs", "services/agent/crates/layerx-agentd/tests/native_routes_rpc.rs", "services/agent/crates/layerx-agentd/tests/finality_rungs.rs", "services/agent/crates/layerx-agentd/tests/receipt_store_v2.rs", "services/agent/crates/layerx-agentd/tests/program_adapters_rungs.rs", "services/agent/crates/layerx-agentd/tests/read_ops_rpc.rs", "services/agent/crates/layerx-agentd/tests/fixtures/receipted-log-transition.json"]
+tests = ["services/agent/crates/layerx-agentd/src/ops/program.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/tests/human_node_receipts.rs", "services/agent/crates/layerx-agentd/tests/node_rpc.rs", "services/agent/crates/layerx-agentd/tests/recovery.rs"]
+verification_contract = "sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- ops::program::evm_program_tests human_runtime::retained_settlement_tests human_runtime::tests::policy_usage_sums_only_proven_receipts_in_the_window human_runtime::tests::native_policy_usage_refuses_a_page_without_a_proof --skip checks_the_actual_server_identity && sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test human_node_receipts --test human_node_budgets --test node_rpc --test recovery --test unknown --test unknown_receipt_lookup --test native_routes_rpc --test finality_rungs --test receipt_store_v2 --test program_adapters_rungs --test read_ops_rpc"
+do_1 = "22.23.11 added paymentDenom to RECEIPTED_FIELDS of services/agent/crates/layerx-client/src/sequencer.rs (:929) and executed() reads it (:981); decode_receipt matches the receipted and committed rungs with Fields::exact, so a receipt object without paymentDenom decodes as None and the caller sees Sequencer(Malformed) or Unavailable. Every receipt fixture of services/agent/crates/layerx-agentd that serves the receipted or committed shape carries paymentDenom with the asset the fixture's feeDenom names: executed_receipt in src/ops/program.rs:2459-2475, the receipts in src/human_runtime.rs:22393-22398 and :23323-23325, tests/support/mod.rs:930-936, and the receipt mocks of tests/human_node_receipts.rs, tests/human_node_budgets.rs, tests/node_rpc.rs, tests/recovery.rs, tests/unknown.rs, tests/unknown_receipt_lookup.rs, tests/native_routes_rpc.rs, tests/finality_rungs.rs, tests/receipt_store_v2.rs, tests/program_adapters_rungs.rs, tests/read_ops_rpc.rs and tests/fixtures/receipted-log-transition.json; grep the crate for every receipted or committed receipt literal (rung, status, feeDenom, gasUsed keys) and leave none without the field."
+symbols = []
+
 [capability.22.99.163]
 title = "Point the bring-up checks, the web search front configuration and the halt export at the node names at the root path instead of the router URL"
 reqs = ["22998.1"]
@@ -45480,7 +45513,7 @@ title = "Read the call-bound preparation in the native-effect carrier and the pr
 reqs = ["22058.1"]
 touches = ["services/agent/crates/layerx-agentd/src/approval/native_effect.rs", "services/agent/crates/layerx-agentd/src/approval/native_program.rs", "services/agent/crates/layerx-agentd/src/approval/program_requirement.rs", "services/agent/crates/layerx-agentd/src/approval/native_program_presentation.rs", "services/agent/crates/layerx-agentd/src/policy/native_program.rs", "services/agent/crates/layerx-agentd/src/budget/program_settlement.rs", "services/agent/crates/layerx-agentd/src/budget/program_lifecycle_settlement.rs", "services/agent/crates/layerx-agentd/src/budget/program_sources.rs", "services/agent/crates/layerx-agentd/src/capability/binding.rs", "services/agent/crates/layerx-agentd/src/prepare/expiry.rs", "services/agent/crates/layerx-agentd/src/session_control.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs", "services/agent/crates/layerx-agentd/tests/program_ops_layerxprograms.rs"]
-verification_contract = "sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test native_send_preview_evm --test program_ops_layerxprograms --test fee_projection_program_state --test approval_ops"
+verification_contract = "sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test native_send_preview_evm --test program_ops_layerxprograms --test fee_projection_program_state --test approval_ops -- --skip checks_the_actual_server_identity"
 do_1 = "services/agent/crates/layerx-agentd/src/approval/native_effect.rs NativeEffectApprovalCarrier keeps canonical_bytes as the call's encode_unsigned() output, gains sender: [u8; 20] and drops the authority and envelope_not_after fields in favour of the disclosure's expiry; bind (:193-240) takes &EvmPrepared, verifies it with verify_call_binding, drops the protocol-version-3 check and reads the module from the disclosure's activity type, the reservation deadline from disclosure.expiry.not_after and the head from observed_head_height; disclosure() (:307-335) decodes the call and binds with bind_call(&call, self.sender), keeping the budget context comparison on the disclosure's budget fields; restore_prepared (:1093-1140) decodes the call with decode_unsigned, rebuilds the EvmPrepared through bind_call and the stored head height and no longer uses the envelope builder; a carrier of the previous version is refused as Corrupt and the preparation is prepared again, nothing is migrated."
 symbols = ["NativeEffectApprovalCarrier", "verify_call_binding"]
 
@@ -132221,7 +132254,7 @@ title = "Issue #1562: Decode and validate transfer-authority wrappers in AI mark
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["13.99.1", "22.99.160"]
+requires = ["13.99.1", "22.99.160", "1.23.7"]
 reqs = ["181562.1"]
 capabilities = ["18.1562.1"]
 interfaces = []
@@ -132250,6 +132283,7 @@ do_5 = "Decision 2458 (attempts 1 and 2, continue): the build failed with ERR_PN
 do_6 = "Attempt 6 (continue after 22.99.160): the rpc test binary links the native libraries, so the build now runs make paxd-native-libs first; the verify failure was environmental. Continue the attempt-6 tree and rerun the gates."
 do_7 = "Attempt 7 (continue): keep the account-registration repair of attempt 7. The AI market CREATE fixture of the rpc test (the create record and the 307-byte policy assembled at sequencer_receipt_vectors_test.go:688-700, packed as envelope(0x0101, 1, create)) follows the create record layout the guest decodes after task 13.99.1 (051e6c3e0): take the field order, widths and the nonzero big-endian version fields from the create decoder in programs/crates/layerx-programs-ai-market/src (state.rs, types.rs and the version reader of reputation_codec.rs) and from the crate's own create vectors or tests, so that the CREATE executes (created[0] == 0) and the transfer-authority receipt is produced for the SDK decoder test; the guest and the kernel are not changed. Name the layout source in the test comment."
 do_8 = "Attempt 8 (continue): keep every attempt-8 change; the AI market registration in rpc/sequencer_receipt_vectors_test.go performs the upgrade to guest ABI 5 the way the C harness does (deploy at the account ABI, then upgrade with LX_PROGRAMS_GUEST_ABI_V5_VERSION) before the create call at :718, and asserts record.ABIVersion is 5 as :659 already does on the other path; the fixture encoding of attempt 8 stays."
+do_9 = "Attempt 9 (requalify after 1.23.7): keep every attempt-9 change, including the deploy-then-upgrade step; the create call was refused because the host of the test registers the programs module at ABI 4 (finding on modules/lxphost/host.go:175), which 1.23.7 repairs behind lxphost.Config.ProgramsGuestABI. This task now requires 1.23.7; once it is on main, the host fixture at rpc/sequencer_receipt_vectors_test.go:474 sets ProgramsGuestABI to 5 and the vector records module_version 5. A test that still fails afterwards is repaired inside the paths."
 
 [task.18.1561.1]
 title = "Issue #1561: Prepare the codec replay corpus before agent vector tests"
@@ -139540,6 +139574,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.9.98.4]
+title = "Carry paymentDenom in every daemon receipt fixture so the exact receipted and committed field sets of the receipt decoder accept them"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.23.11"]
+reqs = ["9998.1"]
+capabilities = ["9.98.4"]
+interfaces = []
+do_1 = "22.23.11 added paymentDenom to RECEIPTED_FIELDS of services/agent/crates/layerx-client/src/sequencer.rs (:929) and executed() reads it (:981); decode_receipt matches the receipted and committed rungs with Fields::exact, so a receipt object without paymentDenom decodes as None and the caller sees Sequencer(Malformed) or Unavailable. Every receipt fixture of services/agent/crates/layerx-agentd that serves the receipted or committed shape carries paymentDenom with the asset the fixture's feeDenom names: executed_receipt in src/ops/program.rs:2459-2475, the receipts in src/human_runtime.rs:22393-22398 and :23323-23325, tests/support/mod.rs:930-936, and the receipt mocks of tests/human_node_receipts.rs, tests/human_node_budgets.rs, tests/node_rpc.rs, tests/recovery.rs, tests/unknown.rs, tests/unknown_receipt_lookup.rs, tests/native_routes_rpc.rs, tests/finality_rungs.rs, tests/receipt_store_v2.rs, tests/program_adapters_rungs.rs, tests/read_ops_rpc.rs and tests/fixtures/receipted-log-transition.json; grep the crate for every receipted or committed receipt literal (rung, status, feeDenom, gasUsed keys) and leave none without the field."
+do_2 = "Only fixtures change: no decoder, no production path, no test assertion other than the field the fixture now carries. The seven tests that 9.35.19 attempt 8 saw fail on main after 22.23.11 pass again: ops::program::evm_program_tests::program_submission_reads_its_receipt_at_the_submitted_rung, the four human_runtime::retained_settlement_tests cases (refuses_a_failed_receipt, settles_after_the_head_advances, settles_once_across_replay, still_refuses_a_stale_node), human_runtime::tests::native_policy_usage_refuses_a_page_without_a_proof and human_runtime::tests::policy_usage_sums_only_proven_receipts_in_the_window; the integration targets named in the verify pass."
+do_3 = "The task record lists every fixture changed with its file and line and states, for each integration target in the verify, whether it failed before the change (run it once on the unchanged tree first). The two TLS identity tests (decision 2325) are producer-input tests and are excluded by the verify's skip filter."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/src/ops/program.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/tests/support/mod.rs", "services/agent/crates/layerx-agentd/tests/human_node_receipts.rs", "services/agent/crates/layerx-agentd/tests/human_node_budgets.rs", "services/agent/crates/layerx-agentd/tests/node_rpc.rs", "services/agent/crates/layerx-agentd/tests/recovery.rs", "services/agent/crates/layerx-agentd/tests/unknown.rs", "services/agent/crates/layerx-agentd/tests/unknown_receipt_lookup.rs", "services/agent/crates/layerx-agentd/tests/native_routes_rpc.rs", "services/agent/crates/layerx-agentd/tests/finality_rungs.rs", "services/agent/crates/layerx-agentd/tests/receipt_store_v2.rs", "services/agent/crates/layerx-agentd/tests/program_adapters_rungs.rs", "services/agent/crates/layerx-agentd/tests/read_ops_rpc.rs", "services/agent/crates/layerx-agentd/tests/fixtures/receipted-log-transition.json"]
+tests = ["services/agent/crates/layerx-agentd/src/ops/program.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/tests/human_node_receipts.rs", "services/agent/crates/layerx-agentd/tests/node_rpc.rs", "services/agent/crates/layerx-agentd/tests/recovery.rs"]
+planned_paths = ["services/agent/Cargo.lock"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+verify_cmd = "sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- ops::program::evm_program_tests human_runtime::retained_settlement_tests human_runtime::tests::policy_usage_sums_only_proven_receipts_in_the_window human_runtime::tests::native_policy_usage_refuses_a_page_without_a_proof --skip checks_the_actual_server_identity && sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test human_node_receipts --test human_node_budgets --test node_rpc --test recovery --test unknown --test unknown_receipt_lookup --test native_routes_rpc --test finality_rungs --test receipt_store_v2 --test program_adapters_rungs --test read_ops_rpc"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.99.159]
 title = "Restore the provider-subject consent fixture the agent daemon tests include"
 status = "done"
@@ -143315,7 +143379,7 @@ title = "Read the call-bound preparation in the native-effect carrier and the pr
 status = "pending"
 mode = "BUILD"
 wave = 4
-requires = ["9.35.17", "22.99.158", "22.99.159", "22.99.160"]
+requires = ["9.35.17", "22.99.158", "22.99.159", "22.99.160", "9.98.4"]
 reqs = ["22058.1"]
 capabilities = ["9.35.19"]
 interfaces = []
@@ -143328,7 +143392,7 @@ touches = ["services/agent/crates/layerx-agentd/src/approval/native_effect.rs", 
 tests = ["services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs", "services/agent/crates/layerx-agentd/tests/program_ops_layerxprograms.rs"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
-verify_cmd = "sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test native_send_preview_evm --test program_ops_layerxprograms --test fee_projection_program_state --test approval_ops"
+verify_cmd = "sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test native_send_preview_evm --test program_ops_layerxprograms --test fee_projection_program_state --test approval_ops -- --skip checks_the_actual_server_identity"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -143346,6 +143410,7 @@ do_7 = "Attempt 4 (continue): the test build fails in tests/w7_core_time.rs (lin
 do_8 = "Attempt 5 (continue after 22.99.158): the build failed only on the stale services/agent lock (gotcha 2954); requalify the attempt-5 tree once 22.99.158 is on main. If the migration of w7_core_time to the call-bound preparation then fails a test, repair it inside the task's paths."
 do_9 = "Attempt 6 (continue after 22.99.159): the build failed only because tests/fixtures/authority/provider-subject/consent.activity was absent on main (gotcha 2956); 22.99.159 restores it and this task now requires it. Continue the attempt-6 tree unchanged and run the gates."
 do_10 = "Attempt 7 (continue): services/agent/crates/layerx-agentd/tests/prepare_expiry.rs is now in the paths. Its expiry registry callers at lines 164, 170 and 198 pass the legacy prepare::Prepared to register, which since this task takes the call-bound prepare::evm::Prepared; migrate those callers the way w7_core_time.rs was migrated (attempt 4 ruling), keeping the assertions on expiry behaviour unchanged, so cargo build --tests passes and the verify runs. Report any further caller outside the paths with file and line instead of editing it."
+do_11 = "Attempt 8 (requalify after 9.98.4): keep every attempt-8 change; the seven non-TLS failures of the lib run come from daemon receipt fixtures without paymentDenom, a main-line regression from 22.23.11 that 9.98.4 repairs, so this task now requires 9.98.4 and the attempt-8 tree is requalified as it stands once that repair is on main; the verify skips the two TLS identity tests (producer-input tests, decision 2325). A test that still fails afterwards is repaired inside the paths."
 
 [task.9.35.18]
 title = "Hold approvals over the unsigned EIP-1559 call and replay them through bind_call"
@@ -204513,6 +204578,66 @@ do_15 = "Attempt 32 (28dfb4c7c) reverts the funded sandboxExecute with LXP_SEQUE
 do_16 = "Attempt 34 re-qualified the attempt 33 files on a base with 13.27.6 and sandboxExecute still reverted with a bare LXP_FATAL_INVARIANT returned by host Execute (not by the handler or a receipt code); the stored lease is Active with zero usage, the escrow funded 100000000 with nothing spent, and the ledger is the initial one. This task changes nothing further; it requires 13.27.7 (decision.1890), which fixes the -1001 site on the sandboxed SUCCESS path with an end-to-end SANDBOX_EXECUTE SUCCESS case in tests/codec/lxp_test_sandbox_lifecycle.c; then re-qualify ef3be2b2f unchanged."
 do_17 = "Attempt 35 (566d189c8) reverts TestProgramsSandboxExecuteEmitsUsage with LXP_FATAL_INVARIANT on a base that holds 13.27.7 (7331258b0), and the test output carries no sandbox.c invariant line although sandbox_invariant (src/modules/programs/sandbox.c:82, called at :395, :411 and :440) prints the line, site and state to stderr: run the test so the kernel's stderr reaches the output (go test -v; the precompile harness must not redirect fd 2) and include the printed site with the lease-state record in the failure message. When the site shows the precompile's request out of order or missing a step (admit host, open lease, execute, publish usage, release), fix method_sandbox_execute.go; when the kernel refuses a legal sequence, record file, line and site as a finding and stop without changing src/."
 do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection (src/protocol/lxp_kernel.c:2389-2394) refuses the sandbox escrow-charge effect that task 13.27.7 made the call emit; task 13.27.8 binds it in the kernel (decision.1898). Once 13.27.8 is on main, continue attempt 35 unchanged: one build, one verify."
+
+[task.5.99.1]
+title = "Switch the hosted kernel to programs guest ABI 5 at the merge upgrade and keep the choice across restarts"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["1.23.7"]
+reqs = ["5004.1"]
+capabilities = ["5.99.1"]
+interfaces = []
+do_1 = "node/app.go:647-651 constructs the hosted kernel with a fixed lxphost.Config; with 1.23.7 the Config carries ProgramsGuestABI. The node chooses it from state, not from a build constant: a chain that has not run the merge upgrade (node/upgrades.go:218, mergeUpgradePlan at :465) constructs the host with ABI 4 and its receipts keep module_version 4; the merge upgrade handler records the ABI-5 selection in the hosted-kernel store (storekeys.LayerXHostStoreKey) inside the same cached context as the rest of the plan, and from the first block after the upgrade the host registers the programs module at ABI 5, so a call to an ABI-5 program succeeds and its receipt carries module_version 5 (sdk/platform/go/programs.go:531 already accepts module version 4 and 5 for the native receipt layout)."
+do_2 = "The choice survives a restart: a node restarted after the upgrade reads the recorded selection at construction and registers ABI 5 again without re-running the handler; a fresh chain with no record registers ABI 4. If the hosted kernel is constructed before the store is readable, the host switches its registration when the recorded selection is first observed (at upgrade time and at the first block after start) rather than at construction, and the task record says which path was taken and why."
+do_3 = "Tests in node/upgrades_merge_programs_abi_test.go: TestHostedKernelProgramsABIFollowsTheMergeUpgrade runs the merge upgrade plan on an app fixture and proves the recorded selection, the module registration at ABI 5 and a receipt module_version of 5 afterwards, and that the receipts of the block before the upgrade carry 4; TestHostedKernelProgramsABIDefaultsToFourWithoutTheUpgrade proves a fresh app registers ABI 4 and refuses an ABI-5 call with LXP_ERR_VERSION_UNSUPPORTED; TestHostedKernelProgramsABISurvivesRestart constructs a second app over the same store after the upgrade and proves ABI 5."
+symbols = []
+touches = ["node/app.go", "node/upgrades.go", "node/upgrades_merge_programs_abi_test.go"]
+tests = ["node/upgrades_merge_programs_abi_test.go"]
+planned_paths = []
+build_cmd = "make -s paxd-native-libs && CGO_ENABLED=1 go build ./node/"
+verify_cmd = "CGO_ENABLED=1 go test -count=1 ./node/ -run '^TestHostedKernelProgramsABI'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.1.23.7]
+title = "Register the programs module at guest ABI 5 on the hosted kernel and in the genesis module plan behind an enable parameter"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.13.6"]
+reqs = ["1073.1"]
+capabilities = ["1.23.7"]
+interfaces = []
+do_1 = "src/modules/programs/call.c:2438-2442 refuses a call activity whose abi_version exceeds the registered module's abi_version, and :2491 refuses a call whose ABI differs from the program record's; the hosted kernel registers programs_module_registration_v4_storage_retirement unconditionally (modules/lxphost/host.go:174-175, modules/lxphost/read.go:184-185), so an ABI-5 program such as the AI market guest of 13.99.1 (GUEST_ABI_V5, decision 2483) can be deployed and upgraded to ABI 5 but never called (18.1562.1 attempt 9: LXP_VERSION_UNSUPPORTED). lxphost.Config gains a field ProgramsGuestABI (uint16): 0 and 4 keep the ABI-4 storage-retirement registration unchanged, 5 registers programs_module_registration_v5 (src/modules/programs/registration.c:317, the same activity list at abi_version LX_PROGRAMS_GUEST_ABI_V5_VERSION), any other value fails NewHost; lxphost_reset in host.go and lxphost_read_authority_envelope in read.go both honour it, so receipts carry module_version 5 (host.go:620) and authority envelopes agree."
+do_2 = "Tests in modules/lxphost/programs_registration_test.go: TestHostProgramsModuleRegistersGuestABIFive constructs a host with ProgramsGuestABI 5, deploys a program at ABI 2, upgrades it to ABI 5 the way tests/programs/test_ai_host_boundary.c:501-507 does, and proves a call activity at abi_version 5 is not refused with LXP_ERR_VERSION_UNSUPPORTED and the receipt's module_version is 5; TestHostProgramsModuleKeepsGuestABIFourByDefault constructs a host without the field, proves the same call is refused with LXP_ERR_VERSION_UNSUPPORTED and the existing two tests still pass. The genesis side follows decision 2304: include/layerx/lxp_genesis.h defines LXP_PROGRAMS_GUEST_ABI_V5_PARAMETER as the governance canonical boolean module-enable:programs-abi5 next to LXP_PROGRAMS_STORAGE_RETIREMENT_PARAMETER (:6); src/protocol/lxp_genesis.c resolves it as programs_storage_retirement_flag does (:176-195), module_enable_flags_known accepts the key (:197-224), and lxp_genesis_module_plan_resolve selects programs_module_registration_v5 for LXP_MODULE_PROGRAMS when the parameter is 1 (with or without the retirement parameter, since v5 carries the retirement activity list; :385-386), otherwise the existing choice; the default plan is unchanged."
+do_3 = "tests/test_genesis_module_table.c gains a case proving that a manifest with the ABI-5 parameter resolves the programs entry to programs_module_registration_v5 with abi_version 5 and the retirement activity types, and that a manifest with both parameters resolves the same; the published fixture cases (tests/fixtures/public-testnet-genesis-v3 and public-testnet-genesis) keep their module-table roots unchanged, since neither fixture sets the parameter. cmd/layerx-genesis/lxp_genesis_builder.c:304-305 registers programs_module_registration_v4 unconditionally; it registers the programs interface the manifest's resolved plan selects (v4, v4 storage retirement or v5) so the module registry and the genesis builder agree on the module table (conformance decision 18731). Nothing in node/ changes here: the network switch to ABI 5 is wired by 5.99.1."
+symbols = []
+touches = ["modules/lxphost/host.go", "modules/lxphost/read.go", "modules/lxphost/programs_registration_test.go", "src/protocol/lxp_genesis.c", "include/layerx/lxp_genesis.h", "tests/test_genesis_module_table.c", "cmd/layerx-genesis/lxp_genesis_builder.c"]
+tests = ["modules/lxphost/programs_registration_test.go", "tests/test_genesis_module_table.c"]
+planned_paths = []
+build_cmd = "make -s all && make -s paxd-native-libs && CGO_ENABLED=1 go build ./modules/lxphost/ && CGO_ENABLED=1 go vet ./modules/lxphost/"
+verify_cmd = "make -s test-genesis-module-table && CGO_ENABLED=1 go test -count=1 ./modules/lxphost/ -run '^TestHostProgramsModule'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-kernel"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.91.127]
 title = "Finish the Go modules inventory for the twenty-two packages the first pass did not run a third time at the closure revision"
