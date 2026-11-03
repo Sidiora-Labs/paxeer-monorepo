@@ -117454,7 +117454,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.24.5]
 title = "Close the open dependency advisories of the contracts manifests (34 floors)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.24.1"]
@@ -221098,7 +221098,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.24.22]
 title = "Close the open dependency advisories of the docs-pip manifests (1 floors)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.24.1"]
