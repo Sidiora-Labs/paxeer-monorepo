@@ -231569,7 +231569,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.47]
 title = "Reconcile interface registry rows: services/platform part 18"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -231659,7 +231659,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.44]
 title = "Reconcile interface registry rows: services/platform part 15"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -231869,7 +231869,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.98.37]
 title = "Reconcile interface registry rows: sdk/platform part 8"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -233916,7 +233916,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1528.1]
 title = "Issue #1528: Restore launchpad dependency checksums without lowering dependency floors"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
