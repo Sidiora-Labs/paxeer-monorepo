@@ -1,0 +1,7 @@
+[repair.python-pytest-collect.74]
+target = "tools/launchpad/production/interfaces"
+command = "python3 -m pytest -q --collect-only tools/launchpad/production/interfaces"
+revision = "cea04b0a20fed9621b2f2580398024b38b76ff2e"
+result = "repaired"
+change = "tools/launchpad/production/interfaces/requirements.txt pins jsonschema for the interface validation tools and test collection."
+producer_input_tests = ["CompatibilityFreezeTests.* requires launchpad/spec/production-system/integration/contracts/v1/compatibility.json, its frozen source inventory via COMPAT_SOURCE_ROOT, and materialized schemas via COMPAT_SCHEMAS.", "ExamplesTests.* requires launchpad/spec/production-system/spec.kvx and the frozen contracts bundle containing schema-definitions.json and openapi.json via EXAMPLE_SPEC and EXAMPLE_CONTRACTS.", "CapabilityTests.* requires launchpad/spec/production-system/integration/contracts/v1/capabilities.json, its referenced source authorities and artifacts, launchpad/spec/production-system/spec.kvx, and the materialized schema-definitions.json, catalog-map.json and openapi.json bundle.", "MaterializeTests.* requires launchpad/spec/production-system/spec.kvx and launchpad/spec/production-system/integration/contracts/v1/inputs/supplementary.json."]
