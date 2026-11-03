@@ -1,0 +1,243 @@
+[reconcile.r8-141]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 30
+
+[row.r8-141.1]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-version"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4543
+symbol = "VERSION"
+evidence = "HumanOperations declares public static final SchemaTypes.TypedOperation<VersionRequest, VersionResponse> VERSION with Plane.HUMAN, operation version and false; the registered declaration moved from line 4781 to 4543."
+
+[row.r8-141.2]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-versionrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4535
+symbol = "VersionRequest"
+evidence = "HumanOperations declares public record VersionRequest() implements SchemaTypes.GeneratedRequest at line 4535. Its empty request matches the registered signature; AgentModels.VersionRequest at line 1013 has request_id and supported fields."
+
+[row.r8-141.3]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-versionresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4537
+symbol = "VersionResponse"
+evidence = "HumanOperations declares public record VersionResponse(HumanModels.SchemaVersion schema, String service) implements SchemaTypes.GeneratedResponse at line 4537; the compact constructor follows at 4538. The agent model has different response fields."
+
+[row.r8-141.4]
+interface = "interface.8.go-sdkjvm-programsclient-budget"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 332
+symbol = "Budget"
+evidence = "ProgramsClient declares public record Budget(BigInteger fuel, BigInteger feeLimit) at line 332, matching the registered signature. Its validating compact constructor starts at 333; Call uses the type later."
+
+[row.r8-141.5]
+interface = "interface.8.go-sdkjvm-programsclient-capability"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 313
+symbol = "Capability"
+evidence = "ProgramsClient declares public enum Capability at line 313 with STORAGE_READ, STORAGE_WRITE, TRANSFER, EMIT_EVENT and COMPOSE values. This is the enum declaration; its constructor follows at 317."
+
+[row.r8-141.6]
+interface = "interface.8.go-sdkjvm-programsclient-capability-wire"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 318
+symbol = "wire"
+evidence = "Capability declares public String wire() { return wire; } at line 318, matching the registered member signature. The same method text at line 325 belongs to SubmissionState; the enclosing Capability selects line 318."
+
+[row.r8-141.7]
+interface = "interface.8.go-sdkjvm-programsclient-discovery"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 386
+symbol = "Discovery"
+evidence = "ProgramsClient declares public record Discovery(byte[] programId, Lifecycle lifecycle, long version, byte[] codeHash, at line 386, matching the registered signature prefix. Its remaining components continue through 389 and its compact constructor starts at 390."
+
+[row.r8-141.8]
+interface = "interface.8.go-sdkjvm-programsclient-lifecycle"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 371
+symbol = "Lifecycle"
+evidence = "ProgramsClient declares public enum Lifecycle { ACTIVE, DEPRECATED, TOMBSTONED } at line 371, exactly matching the registered signature. Discovery and the discover method refer to this enum later."
+
+[row.r8-141.9]
+interface = "interface.8.go-sdkjvm-programsclient-lifecycle-active"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 371
+symbol = "ACTIVE"
+evidence = "Lifecycle declares the ACTIVE enum constant on line 371 in public enum Lifecycle { ACTIVE, DEPRECATED, TOMBSTONED }. The later Lifecycle.ACTIVE occurrence in discover is a use of this declaration."
+
+[row.r8-141.10]
+interface = "interface.8.go-sdkjvm-programsclient-lifecycle-deprecated"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 371
+symbol = "DEPRECATED"
+evidence = "Lifecycle declares the DEPRECATED enum constant on line 371 in public enum Lifecycle { ACTIVE, DEPRECATED, TOMBSTONED }. The later Lifecycle.DEPRECATED switch result uses this declared constant."
+
+[row.r8-141.11]
+interface = "interface.8.go-sdkjvm-programsclient-lifecycle-tombstoned"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 371
+symbol = "TOMBSTONED"
+evidence = "Lifecycle declares the TOMBSTONED enum constant on line 371 in public enum Lifecycle { ACTIVE, DEPRECATED, TOMBSTONED }. The later Lifecycle.TOMBSTONED switch result uses this declared constant."
+
+[row.r8-141.12]
+interface = "interface.8.go-sdkjvm-programsclient-simulation"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 434
+symbol = "Simulation"
+evidence = "ProgramsClient declares public record Simulation(ObjectNode value, VerifiedExecution execution) at line 434, exactly matching the registered signature. Its compact constructor at 435 copies value and requires execution."
+
+[row.r8-141.13]
+interface = "interface.8.go-sdkjvm-programsclient-simulation-committed"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 439
+symbol = "committed"
+evidence = "Simulation declares public boolean committed() { return false; } at line 439, matching the registered signature and enclosing record. The identical method at line 74 belongs to ProgramSimulation."
+
+[row.r8-141.14]
+interface = "interface.8.go-sdkjvm-programsclient-source"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 373
+symbol = "Source"
+evidence = "ProgramsClient declares public record Source(String status, byte[] sourceDigest, byte[] environmentDigest, String pipeline, at line 373, matching the signature prefix. expectedCodeHash and reproducedArtifactDigest complete the record at 374; its compact constructor starts at 375."
+
+[row.r8-141.15]
+interface = "interface.8.go-sdkjvm-programsclient-verifiedexecution"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 415
+symbol = "VerifiedExecution"
+evidence = "ProgramsClient declares public record VerifiedExecution(ObjectNode document, LocalVerifier.ReceiptVerification receipt, at line 415, matching the signature prefix. terminalPayload, callGraph and transferVerification complete the record at 416; its compact constructor starts at 417."
+
+[row.r8-141.16]
+interface = "interface.8.go-sdkjvm-programsclient-verifiedexecution-callgraphroot"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 429
+symbol = "callGraphRoot"
+evidence = "VerifiedExecution declares public byte[] callGraphRoot() at line 429. Its body returns a clone of receipt.receipt().programOutcome().callGraphRoot(); the following occurrence at 430 is the delegated accessor call."
+
+[row.r8-141.17]
+interface = "interface.8.go-sdkjvm-programsclient-verifiedexecution-terminalpayloadroot"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"
+line = 426
+symbol = "terminalPayloadRoot"
+evidence = "VerifiedExecution declares public byte[] terminalPayloadRoot() at line 426. Its body returns a clone of receipt.receipt().programOutcome().terminalPayloadRoot(); the following occurrence at 427 is the delegated accessor call."
+
+[row.r8-141.18]
+interface = "interface.8.go-sdkswift-platformclient-agentcapabilitycreate"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 475
+symbol = "agentCapabilityCreate"
+evidence = "The public PlatformClient extension declares func agentCapabilityCreate with JSONValue request, required IdempotencyKey, default pathParameters and async throws -> JSONValue at line 475. Its body calls mutate(.agentCapabilityCreate, ...)."
+
+[row.r8-141.19]
+interface = "interface.8.go-sdkswift-platformclient-agentcapabilitylist"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 478
+symbol = "agentCapabilityList"
+evidence = "The public PlatformClient extension declares func agentCapabilityList with JSONValue request, default pathParameters and async throws -> JSONValue at line 478, matching the registered signature. Its body calls read(.agentCapabilityList, ...)."
+
+[row.r8-141.20]
+interface = "interface.8.go-sdkswift-platformclient-agentcapabilityrevoke"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 481
+symbol = "agentCapabilityRevoke"
+evidence = "The public PlatformClient extension declares func agentCapabilityRevoke with JSONValue request, required IdempotencyKey, default pathParameters and async throws -> JSONValue at line 481. Its body calls mutate(.agentCapabilityRevoke, ...)."
+
+[row.r8-141.21]
+interface = "interface.8.go-sdkswift-platformclient-agentexportoffline"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 484
+symbol = "agentExportOffline"
+evidence = "The public PlatformClient extension declares func agentExportOffline with JSONValue request, default pathParameters and async throws -> JSONValue at line 484, matching the registered signature. Its body calls read(.agentExportOffline, ...)."
+
+[row.r8-141.22]
+interface = "interface.8.go-sdkswift-platformclient-agentmcpinvoke"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 487
+symbol = "agentMcpInvoke"
+evidence = "The public PlatformClient extension declares func agentMcpInvoke with JSONValue request, required IdempotencyKey, default pathParameters and async throws -> JSONValue at line 487. Its body calls mutate(.agentMcpInvoke, ...)."
+
+[row.r8-141.23]
+interface = "interface.8.go-sdkswift-platformclient-agentpolicydryrun"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 490
+symbol = "agentPolicyDryRun"
+evidence = "The public PlatformClient extension declares func agentPolicyDryRun with JSONValue request, default pathParameters and async throws -> JSONValue at line 490, matching the registered signature. Its body calls read(.agentPolicyDryRun, ...)."
+
+[row.r8-141.24]
+interface = "interface.8.go-sdkswift-platformclient-agentprepare"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 493
+symbol = "agentPrepare"
+evidence = "The public PlatformClient extension declares func agentPrepare with JSONValue request, required IdempotencyKey, default pathParameters and async throws -> JSONValue at line 493. Its body calls mutate(.agentPrepare, ...)."
+
+[row.r8-141.25]
+interface = "interface.8.go-sdkswift-platformclient-agentproject"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 523
+symbol = "agentProject"
+evidence = "The public PlatformClient extension declares func agentProject with JSONValue request, default pathParameters and async throws -> JSONValue at line 523, matching the registered signature. Its body calls read(.agentProject, ...)."
+
+[row.r8-141.26]
+interface = "interface.8.go-sdkswift-platformclient-agentreadaccount"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 526
+symbol = "agentReadAccount"
+evidence = "The public PlatformClient extension declares func agentReadAccount with JSONValue request, default pathParameters and async throws -> JSONValue at line 526, matching the registered signature. Its body calls read(.agentReadAccount, ...)."
+
+[row.r8-141.27]
+interface = "interface.8.go-sdkswift-platformclient-agentreadbalance"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 529
+symbol = "agentReadBalance"
+evidence = "The public PlatformClient extension declares func agentReadBalance with JSONValue request, default pathParameters and async throws -> JSONValue at line 529, matching the registered signature. Its body calls read(.agentReadBalance, ...)."
+
+[row.r8-141.28]
+interface = "interface.8.go-sdkswift-platformclient-agentreadbatch"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 532
+symbol = "agentReadBatch"
+evidence = "The public PlatformClient extension declares func agentReadBatch with JSONValue request, default pathParameters and async throws -> JSONValue at line 532, matching the registered signature. Its body calls read(.agentReadBatch, ...)."
+
+[row.r8-141.29]
+interface = "interface.8.go-sdkswift-platformclient-agentreadcheckpoint"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 535
+symbol = "agentReadCheckpoint"
+evidence = "The public PlatformClient extension declares func agentReadCheckpoint with JSONValue request, default pathParameters and async throws -> JSONValue at line 535, matching the registered signature. Its body calls read(.agentReadCheckpoint, ...)."
+
+[row.r8-141.30]
+interface = "interface.8.go-sdkswift-platformclient-agentreadhistory"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 538
+symbol = "agentReadHistory"
+evidence = "The public PlatformClient extension declares func agentReadHistory with JSONValue request, default pathParameters and async throws -> JSONValue at line 538, matching the registered signature. Its body calls read(.agentReadHistory, ...)."
