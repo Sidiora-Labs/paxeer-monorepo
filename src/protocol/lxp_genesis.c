@@ -49,7 +49,10 @@ _Static_assert(sizeof(module_enable_prefix) ==
 /* The single genesis module registration table.  Every genesis consumer - the
  * protocol state root, the genesis builder, the daemon, the guarantor runtime
  * and the module registry - registers exactly these modules in this order, so
- * adding a module is one row here. */
+ * adding a module is one row here. Activity lists come from each module's
+ * interface: the asset interface includes its eight live activities and
+ * excludes the retired receive/grant ordinals (6, 7 and 8). Genesis must not
+ * reconstruct a contiguous ordinal range from the asset constants. */
 static const lxp_genesis_module_entry module_table[] = {
     {LXP_MODULE_PROGRAMS, LXP_GENESIS_MODULE_GATE_ALWAYS, true,
      programs_module_registration_v4},

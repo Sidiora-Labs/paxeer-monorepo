@@ -426,15 +426,41 @@ func (a *Authority) Evaluate(keyID, subject, requestID, kind string, view any) e
 	if p.Frozen || p.Policy.Mode == "read_only" {
 		return ErrFrozen
 	}
-	if kind == policy.KindPersonalMessage || kind == policy.KindTypedData {
-		return nil
-	}
 	var value *big.Int
 	var destination *common.Address
 	var data []byte
 	var chainID *big.Int
 	var signingDigest common.Hash
+	var permits []policy.Spend
 	switch kind {
+	case policy.KindTypedData:
+		typed, ok := view.(*evm.TypedData)
+		if !ok || typed == nil {
+			return ErrAuthority
+		}
+		inspection, err := policy.InspectTypedData(policy.Context{ChainID: new(big.Int).SetUint64(a.config.ChainID)}, typed)
+		if err != nil {
+			return ErrAuthority
+		}
+		verifier := common.HexToAddress(typed.Data.Domain.VerifyingContract)
+		value, destination = new(big.Int), &verifier
+		chainID, signingDigest = new(big.Int).SetUint64(a.config.ChainID), typed.Digest
+		permits = inspection.Spends
+	case policy.KindPersonalMessage:
+		message, ok := view.(*evm.PersonalMessage)
+		if !ok || message == nil || message.Message == nil || evm.PersonalDigest(message.Message) != message.Digest {
+			return ErrAuthority
+		}
+		if p.Policy.Mode != "full" || p.Policy.WithdrawalOnly {
+			return ErrAuthority
+		}
+		for _, rule := range p.Rules {
+			if rule.Effect == "deny" || (rule.Effect == "allow" && rule.Subject == "token" && rule.MaxValue != nil) {
+				return ErrAuthority
+			}
+		}
+		value = new(big.Int)
+		chainID, signingDigest = new(big.Int).SetUint64(a.config.ChainID), message.Digest
 	case policy.KindSponsoredBatch:
 		claim, ok := view.(*evm.SponsoredBatchClaim)
 		if !ok || claim == nil || a.config.Store == nil {
@@ -540,46 +566,26 @@ func (a *Authority) Evaluate(keyID, subject, requestID, kind string, view any) e
 			token = to
 		}
 	}
-	allowedContract := false
-	hasAllowedContract := false
-	allowedWithdrawal := false
-	withdrawal := recipient
-	if value.Sign() > 0 && len(data) == 0 {
-		withdrawal = to
-	}
-	for _, r := range p.Rules {
-		if r.Effect == "deny" && ((r.Subject == "contract" && r.Value == to) || (r.Subject == "selector" && r.Value == selector) || (r.Subject == "token" && r.Value == token) || (r.Subject == "address" && (r.Value == recipient || r.Value == withdrawal))) {
-			return ErrAuthority
-		}
-		if r.Effect == "allow" && r.Subject == "contract" {
-			hasAllowedContract = true
-			allowedContract = allowedContract || r.Value == to
-		}
-		if r.Effect == "allow" && r.Subject == "withdrawal" && r.Value == withdrawal {
-			allowedWithdrawal = true
-		}
-		if r.Effect == "allow" && r.Subject == "token" && r.Value == token && r.MaxValue != nil && tokenAmount != nil {
-			cap, _ := amount256(*r.MaxValue)
-			if tokenAmount.Cmp(cap) > 0 {
+	if permits != nil {
+		totals := make(map[string]*big.Int)
+		for _, spend := range permits {
+			if spend.Spender == nil || spend.Amount == nil || !common.IsHexAddress(spend.Asset) {
 				return ErrAuthority
 			}
+			if totals[spend.Asset] == nil {
+				totals[spend.Asset] = new(big.Int)
+			}
+			totals[spend.Asset].Add(totals[spend.Asset], spend.Amount)
 		}
-	}
-	if p.Policy.Mode == "trade_only" && hasAllowedContract && !allowedContract {
-		return ErrAuthority
-	}
-	if p.Policy.WithdrawalOnly && withdrawal != "" && !allowedWithdrawal {
-		return ErrAuthority
-	}
-	if value.Sign() > 0 && len(data) == 0 && !p.Policy.AllowNative {
-		return ErrAuthority
-	}
-	if approve {
-		cap, _ := amount256(p.Policy.MaxApprove)
-		if tokenAmount.Cmp(cap) > 0 {
-			return ErrAuthority
+		for _, spend := range permits {
+			if err := checkAgentSpend(p, to, "0x095ea7b3", strings.ToLower(spend.Asset), strings.ToLower(spend.Spender.Hex()), value, totals[spend.Asset], true, false); err != nil {
+				return err
+			}
 		}
+	} else if err := checkAgentSpend(p, to, selector, token, recipient, value, tokenAmount, approve, len(data) == 0); err != nil {
+		return err
 	}
+
 	digest := signingDigest.Hex()
 	now := time.Now()
 	start := time.Date(now.UTC().Year(), now.UTC().Month(), now.UTC().Day(), p.Policy.ResetHour, 0, 0, 0, time.UTC)
@@ -684,6 +690,50 @@ func (a *Authority) Evaluate(keyID, subject, requestID, kind string, view any) e
 		kept = append(kept, policyReservation{Request: requestID, Digest: digest, At: now.Unix(), Value: value.String(), Budget: budgetID, Reservation: reservationID})
 		return json.Marshal(kept)
 	})
+}
+
+func checkAgentSpend(p AuthorityPrincipal, to, selector, token, recipient string, value, tokenAmount *big.Int, approve, native bool) error {
+	allowedContract := false
+	hasAllowedContract := false
+	allowedWithdrawal := false
+	withdrawal := recipient
+	if value.Sign() > 0 && native {
+		withdrawal = to
+	}
+	for _, r := range p.Rules {
+		if r.Effect == "deny" && ((r.Subject == "contract" && r.Value == to) || (r.Subject == "selector" && r.Value == selector) || (r.Subject == "token" && r.Value == token) || (r.Subject == "address" && (r.Value == recipient || r.Value == withdrawal)) || (r.Subject == "withdrawal" && r.Value == withdrawal)) {
+			return ErrAuthority
+		}
+		if r.Effect == "allow" && r.Subject == "contract" {
+			hasAllowedContract = true
+			allowedContract = allowedContract || r.Value == to
+		}
+		if r.Effect == "allow" && r.Subject == "withdrawal" && r.Value == withdrawal {
+			allowedWithdrawal = true
+		}
+		if r.Effect == "allow" && r.Subject == "token" && r.Value == token && r.MaxValue != nil && tokenAmount != nil {
+			cap, _ := amount256(*r.MaxValue)
+			if tokenAmount.Cmp(cap) > 0 {
+				return ErrAuthority
+			}
+		}
+	}
+	if p.Policy.Mode == "trade_only" && hasAllowedContract && !allowedContract {
+		return ErrAuthority
+	}
+	if p.Policy.WithdrawalOnly && withdrawal != "" && !allowedWithdrawal {
+		return ErrAuthority
+	}
+	if value.Sign() > 0 && native && !p.Policy.AllowNative {
+		return ErrAuthority
+	}
+	if approve {
+		cap, _ := amount256(p.Policy.MaxApprove)
+		if tokenAmount.Cmp(cap) > 0 {
+			return ErrAuthority
+		}
+	}
+	return nil
 }
 
 func (a *Authority) Ready() error {

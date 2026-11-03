@@ -9,7 +9,6 @@
 #include "layerx/lxp_snapshot.h"
 #include "layerx/lxp_identity.h"
 #include "layerx/lxp_governance.h"
-#include "layerx/lxp_handover.h"
 #include "layerx/lxp_fee.h"
 #include "layerx/lxp_module_ctx.h"
 
@@ -94,11 +93,6 @@ static int project_metering_genesis_with(lxp_kernel *kernel,
     manifest.parameters[0].value[31] = 1U;
     if (migration) {
         manifest.protocol_version = LXP_PROTOCOL_VERSION_STATE_COMMITMENT;
-        manifest.parameter_count = 2U;
-        manifest.parameters[1].module_id = LXP_MODULE_GOVERNANCE;
-        (void)memcpy(manifest.parameters[1].key, "handover-authority", 18U);
-        if (public_key_for(migration_governor_seed, manifest.parameters[1].value) != 0)
-            return 1;
     }
     manifest.guarantor_count = 1U;
     manifest.guarantors[0].guarantor_id[0] = 1U;
@@ -148,8 +142,7 @@ static int project_metering_genesis_with(lxp_kernel *kernel,
         return 1;
     if (migration) {
         if (lxp_arena_reset(&arena, 0U) != LXP_OK ||
-            lxp_programs_fee_genesis_project(&manifest, &arena, kernel) != LXP_OK ||
-            lxp_handover_kernel_initialize(kernel, &manifest, NULL, NULL) != LXP_OK)
+            lxp_programs_fee_genesis_project(&manifest, &arena, kernel) != LXP_OK)
             return 1;
         migration_genesis = manifest;
     }
@@ -1122,7 +1115,7 @@ static int migration_activate(lxp_kernel *kernel, const uint8_t seed[32],
     fees.version = 1U;
     fees.multiplier_basis_points = 10000U;
     if (migration_runtime(kernel) != 0 ||
-        lxp_kernel_register_module(kernel, lxp_governance_module_iface_for_handover(true)) != LXP_OK ||
+        lxp_kernel_register_module(kernel, lxp_governance_module_iface()) != LXP_OK ||
         public_key_for(seed, public_key) != 0 ||
         lxp_programs_migration_proposal_encode(&profile, proposal) != LXP_OK ||
         lxp_arena_init(&arena, arena_bytes, sizeof(arena_bytes)) != LXP_OK ||
@@ -1254,7 +1247,6 @@ static int migration_snapshot(lxp_kernel *kernel, lxp_kernel *restored,
         lxp_kernel_create(restored, store, journal, &parameters, 0U) != LXP_OK ||
         lxp_kernel_register_module(restored, programs_module_registration_v4()) != LXP_OK ||
         migration_runtime(restored) != 0 ||
-        lxp_handover_kernel_initialize(restored, &migration_genesis, NULL, NULL) != LXP_OK ||
         lxp_snapshot_load(encoded.bytes, encoded.length, &manifest, restored) != LXP_OK ||
         lxp_snapshot_verify_root(restored, &manifest) != LXP_OK) return 1;
     return 0;
@@ -1824,7 +1816,6 @@ static int migration_legacy(void)
         lxp_kernel_create(&kernel, &store, &journal, &parameters, 0U) != LXP_OK ||
         lxp_kernel_register_module(&kernel, programs_module_registration_v4()) != LXP_OK ||
         migration_runtime(&kernel) != 0 ||
-        lxp_handover_kernel_initialize(&kernel, &manifest, NULL, NULL) != LXP_OK ||
         expected.global_sequence == 0U ||
         lxp_snapshot_manifest_build(snapshot_bytes, sizes[1], expected.global_sequence - 1U,
             expected.previous_state_root, bytes + 205U, &snapshot_manifest) != LXP_OK ||

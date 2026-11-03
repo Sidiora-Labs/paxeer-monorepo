@@ -149,6 +149,9 @@ env:
   # that subtree everywhere in this workflow to avoid double-running them.
   STATE_DB_PKG_PREFIX: github.com/Sidiora-Labs/Paxeer-X-Network/storage/state_db
 
+permissions:
+  contents: read
+
 jobs:
   test:
     name: Race Detection

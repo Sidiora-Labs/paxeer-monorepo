@@ -14055,3 +14055,18 @@ fix = "When a build command compiles test targets, every test file in the crate 
 title = "A security report's proof of concept is the verify test, written into the task before the fix"
 symptom = "Advisory fixes written from the report's prose alone were hard to qualify: the test had to be invented after the fix and tended to test the fix rather than the attack."
 fix = "Turn the reporter's reproduction into the named test in the task's verify (the delegatecall, the over-cap permit, the refused recipient, the closed position, the low-power majority, the delegate on the owner path, the rate-limited burst, the fee-token receipt, the replayed receipt) so the attack fails before the fix and passes after."
+
+[gotcha.2847]
+title = "A closure checker task fails until every follow-up task its inputs name is done, so those tasks are its requires"
+symptom = "The dispositions closure task ran at wave 6, passed its own tests and failed its verify on the live state of the dispositions: follow-up tasks pending, missing or pointing at a literal placeholder."
+fix = "A task whose verify reads the live specification state requires every task that state names and sits in a wave above all of them; its inputs (placeholders, missing ids, duplicate sections) are repaired in the specification, not in the checker."
+
+[gotcha.2848]
+title = "An appended finding section must not reuse an existing id"
+symptom = "qualification.kvx carried two identical [finding.1.21.1] sections; every parser that indexes findings by id refused the file."
+fix = "Before appending a finding, check the id is unused; a duplicate is removed as a specification edit."
+
+[gotcha.2849]
+title = "A transport entry restored for a retired operation needs its operation declaration too"
+symptom = "The drift test compares the transport operations of the agent API schema with the [operation.<name>] declarations; a task restored the retired faucet.claim transport entry without the declaration and the next task to touch the schema failed the drift test."
+fix = "Restore or add transport entries and operation declarations together; the drift test is the oracle for both."
