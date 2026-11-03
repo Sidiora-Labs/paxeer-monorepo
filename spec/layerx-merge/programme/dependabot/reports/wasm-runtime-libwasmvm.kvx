@@ -1,0 +1,26 @@
+[alert.GHSA-g98v-hv3f-hcfr]
+package = "atty"
+manifest = "wasm-runtime/libwasmvm/Cargo.lock"
+verdict = "no-fix"
+version_before = "0.2.14"
+version_after = "0.2.14"
+pinned_by = "wasmvm -> cbindgen 0.24.5 (manifest ^0.24.3) -> clap 3.2.25 -> atty 0.2.14; cbindgen 0.27.0 switches to clap ^4.3, which removes atty; the advisory names no patched atty version."
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+[alert.GHSA-x4gp-pqpj-f43q]
+package = "curve25519-dalek"
+manifest = "wasm-runtime/libwasmvm/Cargo.lock"
+verdict = "pinned"
+version_before = "3.2.0"
+version_after = "3.2.0"
+pinned_by = "cosmwasm-std and cosmwasm-vm 1.5.12 at pax-cosmwasm v1.5.13 (latest v1.5 release, commit cd3c4399b8c0ea0d08b2068a893ed2973685fe30) -> cosmwasm-crypto 1.5.12 -> ed25519-zebra ^3 (latest 3.x: 3.1.0) -> curve25519-dalek ^3, excluding patched 4.1.3; latest fork release v3.0.2 instead uses ed25519-zebra =4.0.3 and curve25519-dalek ^4.1.3, requiring a CosmWasm major-version migration."
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+[alert.GHSA-55f3-3qvg-8pv5]
+package = "wasmer"
+manifest = "wasm-runtime/libwasmvm/Cargo.lock"
+verdict = "no-fix"
+version_before = "4.2.2"
+version_after = "4.2.2"
+pinned_by = "wasmvm -> cosmwasm-vm 1.5.12 at pax-cosmwasm v1.5.13 -> wasmer =4.2.2, also through wasmer-middlewares 4.2.2; pax-cosmwasm v3.0.2 uses wasmer =5.0.6, outside the advisory range <=4.3.1; the advisory names no patched wasmer version."
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
