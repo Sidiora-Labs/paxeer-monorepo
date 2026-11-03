@@ -125167,7 +125167,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.99.1]
 title = "Restore the explorer typecheck"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -130336,7 +130336,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.161]
 title = "Refresh the interop and tools-platform workspace lockfiles for the manifest changes since 6378efda0"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -138884,7 +138884,7 @@ do_5 = "Attempt 3 (continue after 22.99.159 and 22.99.160): the dependent-crate 
 
 [task.22.99.76]
 title = "Repair the inventory sweep target layerx-programs-runtime"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.99.160", "22.99.159"]
@@ -139452,7 +139452,7 @@ do_4 = "Attempt 1 (continue): the dependent-crate check failed only on the human
 
 [task.22.99.58]
 title = "Repair the inventory sweep target layerx-human-identity-provider"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.99.160"]
@@ -203645,7 +203645,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.117]
 title = "Repair the inventory sweep target modules/sequencer/keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.99.158", "22.99.160"]
