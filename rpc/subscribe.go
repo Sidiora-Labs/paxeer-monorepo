@@ -414,8 +414,8 @@ func (a *SubscriptionAPI) notifyReceiptedLogs(ctx context.Context, notifier *rpc
 			logs, err := a.scopeLogs(ctx, []*FilterLog{&notice.log})
 			if err != nil {
 				wpMetrics.RecordSubscriptionError()
-				logger.Warn("Ending logs subscription after scope failure", "subscription", sub.ID, "err", err)
-				return
+				logger.Warn("Skipping receipted log after scope failure", "subscription", sub.ID, "height", notice.log.BlockNumber, "transaction", notice.log.TxHash, "err", err)
+				continue
 			}
 			if len(logs) == 0 {
 				continue
