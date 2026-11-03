@@ -132,25 +132,68 @@ fn program_call_body(
     Ok((call, fee_limit))
 }
 
+#[path = "programs/native_activity.rs"]
+mod native_activity;
+
+struct SignedProgramTransaction {
+    to: [u8; 20],
+    data: Vec<u8>,
+    activity_id: [u8; 32],
+    idempotency_key: [u8; 32],
+    protocol_version: u16,
+}
+
 fn signed_program_transaction(
     raw: &[u8],
-) -> Result<evm_transaction::Eip1559Call, ProgramOperationError> {
+) -> Result<SignedProgramTransaction, ProgramOperationError> {
     if raw.is_empty() || raw.len() > MAX_SIGNED_ACTIVITY_BYTES {
         return Err(ProgramOperationError::Bounds);
     }
-    let (transaction, signature) =
-        evm_transaction::decode_signed(raw).map_err(|_| ProgramOperationError::Decode)?;
-    if transaction.to != PROGRAMS_ADDRESS {
-        return Err(ProgramOperationError::IdentityMismatch);
+    match raw[0] {
+        0x00 => {
+            let registry = super::programs_module_registry()?;
+            let activity = native_activity::decode(raw, &registry)
+                .map_err(|_| ProgramOperationError::Decode)?;
+            let call = layerx_types::program_call::NativeProgramCall::decode(activity.payload())
+                .map_err(|_| ProgramOperationError::Decode)?;
+            Ok(SignedProgramTransaction {
+                to: PROGRAMS_ADDRESS,
+                data: program_call_calldata(call, activity.fee_limit())?,
+                activity_id: layerx_wire::hash::activity_id(&activity)
+                    .map_err(|_| ProgramOperationError::Decode)?,
+                idempotency_key: activity.idempotency_key(),
+                protocol_version: activity.protocol_version(),
+            })
+        }
+        0x02 => {
+            let (transaction, signature) =
+                evm_transaction::decode_signed(raw).map_err(|_| ProgramOperationError::Decode)?;
+            if transaction.to != PROGRAMS_ADDRESS {
+                return Err(ProgramOperationError::IdentityMismatch);
+            }
+            evm_transaction::recover_sender(&transaction, &signature)
+                .map_err(|_| ProgramOperationError::Decode)?;
+            program_call_body(&transaction.data)?;
+            let activity_id = evm_transaction::transaction_hash(raw);
+            let mut idempotency = Sha256::new();
+            idempotency.update(b"layerxprograms/idempotency/v1");
+            idempotency.update(activity_id);
+            idempotency.update(0_u32.to_be_bytes());
+            idempotency.update(PROGRAM_CALL_SELECTOR);
+            Ok(SignedProgramTransaction {
+                to: transaction.to,
+                data: transaction.data,
+                activity_id,
+                idempotency_key: idempotency.finalize().into(),
+                protocol_version: 3,
+            })
+        }
+        _ => Err(ProgramOperationError::Decode),
     }
-    evm_transaction::recover_sender(&transaction, &signature)
-        .map_err(|_| ProgramOperationError::Decode)?;
-    program_call_body(&transaction.data)?;
-    Ok(transaction)
 }
 
 impl NativeProgramCallRequest {
-    /// Binds a native call and fee ceiling to a signed layerxprograms EIP-1559 transaction.
+    /// Binds a native call and fee ceiling to a signed native activity or EIP-1559 transaction.
     ///
     /// # Errors
     /// Refuses malformed transactions, other targets, and calldata that differs from the call.
@@ -166,19 +209,13 @@ impl NativeProgramCallRequest {
         if transaction.data != program_call_calldata(call, fee_limit)? {
             return Err(ProgramOperationError::IdentityMismatch);
         }
-        let activity_id = evm_transaction::transaction_hash(signed_transaction);
-        let mut idempotency = Sha256::new();
-        idempotency.update(b"layerxprograms/idempotency/v1");
-        idempotency.update(activity_id);
-        idempotency.update(0_u32.to_be_bytes());
-        idempotency.update(PROGRAM_CALL_SELECTOR);
         Ok(Self {
             payload: call.encode().map_err(|_| ProgramOperationError::Decode)?,
             fee_limit,
             program_id: call.program_id.bytes(),
             signed_activity: signed_transaction.to_vec(),
-            activity_id,
-            idempotency_key: idempotency.finalize().into(),
+            activity_id: transaction.activity_id,
+            idempotency_key: transaction.idempotency_key,
         })
     }
 }
@@ -1410,7 +1447,7 @@ fn execution_call_binding(
     guest_abi_version: u16,
 ) -> Result<([u8; 32], u16), ProgramOperationError> {
     let transaction = signed_program_transaction(signed_activity)?;
-    if evm_transaction::transaction_hash(signed_activity) != activity_id {
+    if transaction.activity_id != activity_id {
         return Err(ProgramOperationError::IdentityMismatch);
     }
     let (call, _) = program_call_body(&transaction.data)?;
@@ -1420,7 +1457,7 @@ fn execution_call_binding(
     let mut hash = Sha256::new();
     hash.update(layerx_wire::hash::Domain::PayloadHash.tag());
     hash.update(call.encode().map_err(|_| ProgramOperationError::Decode)?);
-    Ok((hash.finalize().into(), 3))
+    Ok((hash.finalize().into(), transaction.protocol_version))
 }
 
 type OccupancyPayerHint = (Vec<u8>, [u8; 32]);
@@ -2372,7 +2409,7 @@ mod source_contract {
             0xb3, 0xfb, 0x33, 0x60,
         ];
         let mut seen = std::collections::BTreeSet::new();
-        for case in cases {
+        for (record_index, case) in cases.iter().enumerate() {
             let case_object = object(case)?;
             let abi = super::bounded_u16(case_object, "guest_abi", 3, 4)?;
             let role = super::required_string(case_object, "outcome")?;
@@ -2388,10 +2425,63 @@ mod source_contract {
                 MAX_SIGNED_ACTIVITY_BYTES,
                 None,
             )?;
-            let activity = super::signed_program_transaction(&signed)?;
-            let (native, _) = super::program_call_body(&activity.data)?;
+            if signed.first() == Some(&0) {
+                super::native_activity::decode(&signed, &super::super::programs_module_registry()?)
+                    .unwrap_or_else(|error| panic!(
+                        "corpus record {record_index} ({}) field signed_activity_hex byte offset {}: {:?}",
+                        case["name"], error.offset, error.result
+                    ));
+            }
+            let activity = super::signed_program_transaction(&signed).unwrap_or_else(|error| {
+                panic!("corpus record {record_index} ({}) field signed_activity_hex byte offset 0: {error:?}", case["name"])
+            });
+            let (native, fee_limit) = super::program_call_body(&activity.data)?;
             assert_eq!(activity.to, super::PROGRAMS_ADDRESS);
             assert_eq!(native.guest_abi, abi);
+            assert_eq!(
+                native.encode().map_err(|_| ProgramOperationError::Decode)?,
+                bounded_hex(
+                    case_object,
+                    "native_call_payload_hex",
+                    MAX_SIGNED_ACTIVITY_BYTES,
+                    None
+                )?
+            );
+            assert_eq!(fee_limit, super::decimal_u128(case_object, "fee_limit")?);
+            let request =
+                NativeProgramCallRequest::from_signed_transaction(native, fee_limit, &signed)?;
+            assert_eq!(request.bound_activity_id(), activity.activity_id);
+            assert_eq!(request.bound_idempotency_key(), activity.idempotency_key);
+            assert_eq!(wire_native_call(&request)?["signed_activity"], hex(&signed));
+            assert!(NativeProgramCallRequest::from_signed_transaction(
+                native,
+                fee_limit - 1,
+                &signed
+            )
+            .is_err());
+            assert!(NativeProgramCallRequest::from_signed_transaction(
+                layerx_types::program_call::NativeProgramCall {
+                    response_capacity: native.response_capacity + 1,
+                    ..native
+                },
+                fee_limit,
+                &signed
+            )
+            .is_err());
+            for first in [1, 3, 0x7f, 0xff] {
+                let mut altered = signed.clone();
+                altered[0] = first;
+                assert!(super::signed_program_transaction(&altered).is_err());
+            }
+            for length in [0, 1, signed.len() / 2, signed.len() - 1] {
+                assert!(super::signed_program_transaction(&signed[..length]).is_err());
+            }
+            let mut altered = signed.clone();
+            altered.push(0);
+            assert!(super::signed_program_transaction(&altered).is_err());
+            let mut altered = signed.clone();
+            *altered.last_mut().ok_or(ProgramOperationError::Decode)? ^= 1;
+            assert!(super::signed_program_transaction(&altered).is_err());
             let authority = object(
                 case.get("authorized_batch")
                     .ok_or(ProgramOperationError::Decode)?,
@@ -2400,7 +2490,7 @@ mod source_contract {
             let evidence = super::ProgramExecutionEvidence {
                 payload_hash: super::execution_call_binding(
                     &signed,
-                    evm_transaction::transaction_hash(&signed),
+                    activity.activity_id,
                     native.program_id.bytes(),
                     native.guest_abi,
                 )?
@@ -2430,7 +2520,7 @@ mod source_contract {
                     fixed(authority, "resulting_state_root_hex")?,
                     pinned_key,
                 ),
-                activity_id: evm_transaction::transaction_hash(&signed),
+                activity_id: activity.activity_id,
                 program_id: native.program_id.bytes(),
                 guest_abi_version: native.guest_abi,
             };
@@ -2469,10 +2559,7 @@ mod source_contract {
             let decoded = decode_execution(document, None, pinned_key, &signed)?;
             require_native_execution(&decoded.verified)?;
             assert_eq!(decoded.program_id, native.program_id.bytes());
-            assert_eq!(
-                decoded.activity_id,
-                evm_transaction::transaction_hash(&signed)
-            );
+            assert_eq!(decoded.activity_id, activity.activity_id);
             assert_eq!(decoded.verified.outcome().is_completed(), role == "success");
             if matches!(role, "callback" | "settlement") {
                 assert_eq!(decoded.verified.terminal_execution_version(), None);
