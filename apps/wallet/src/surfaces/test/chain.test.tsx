@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { expect, test } from 'vitest';
 import { ethers } from 'ethers';
+import { decodeSequencerReceipt } from '@paxeer/wallet';
 import { SurfaceChain, type SentCall } from './chain';
 
 async function surfaces_test_chain_answers_the_sequencer_receipt_of_a_sent_transaction() {
@@ -18,7 +19,7 @@ async function surfaces_test_chain_answers_the_sequencer_receipt_of_a_sent_trans
   });
   chain.logsFor = (call) => {
     const [, amount] = abi.decodeFunctionData('approve', call.data);
-    return [approvalLog(amount)];
+    return [approvalLog(amount), approvalLog(amount)];
   };
 
   const unknownHash = ethers.ZeroHash;
@@ -39,16 +40,25 @@ async function surfaces_test_chain_answers_the_sequencer_receipt_of_a_sent_trans
     };
     const call = { ...tx, from: chain.address, to: token, data: tx.data.toLowerCase() };
     const hash = ethers.id(`${index + 1}:${call.to}:${call.data}:${call.value}`);
-    const receipt = { status: '0x1', logs: [approvalLog(amount)] };
+    const receipt = {
+      nonce: ethers.toQuantity(index),
+      status: '0x1',
+      logs: [
+        { ...approvalLog(amount), logIndex: '0x0' },
+        { ...approvalLog(amount), logIndex: '0x1' },
+      ],
+    };
     const sequencerReceipt = { rung: 'receipted', txHash: hash, ...receipt };
 
     const result = await chain.request({ method, params: [tx] });
     expect(result).toEqual(method === 'eth_sendTransaction' ? hash : sequencerReceipt);
     expect(chain.sent).toHaveLength(index + 1);
     expect(chain.sent[index]).toEqual(call);
-    expect(await chain.request({ method: 'pax_sequencerReceipt', params: [hash] })).toEqual(
-      sequencerReceipt
-    );
+    const sequencerAnswer = await chain.request({ method: 'pax_sequencerReceipt', params: [hash] });
+    expect(sequencerAnswer).toEqual(sequencerReceipt);
+    const decoded = decodeSequencerReceipt(sequencerAnswer, hash);
+    expect(decoded.nonce).toBe(ethers.toQuantity(index));
+    expect(decoded.logs?.map((log) => log.logIndex)).toEqual(['0x0', '0x1']);
     expect(await chain.request({ method: 'eth_getTransactionReceipt', params: [hash] })).toEqual({
       transactionHash: hash,
       ...receipt,
