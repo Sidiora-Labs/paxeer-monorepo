@@ -156,9 +156,9 @@ impl Archive {
         network_id: u32,
         node_head: NodeHead,
     ) -> Result<Self, SourceError> {
-        if block.header.block_hash == [0; 32] || block.receipts.iter().any(Vec::is_empty) {
-            return Err(SourceError::Committed);
-        }
+        block
+            .validate_archive()
+            .map_err(|_| SourceError::Committed)?;
         if node_head.latest_sealed_batch < block.header.height {
             return Err(SourceError::HeadBehindBatch);
         }

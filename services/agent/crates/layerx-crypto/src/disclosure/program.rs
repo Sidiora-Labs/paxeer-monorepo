@@ -6,9 +6,143 @@ use layerx_types::program_lifecycle::{
 };
 use sha2::{Digest, Sha256};
 
+use super::call::{abi_tail, abi_word, ledger_selector, tail, uint, word};
 use super::{
     Activity, DisclosedNativeOperation, DisclosureError, DisclosureFields, Encoder, Expiry,
 };
+
+const PROGRAM_CALL_SIGNATURE: &str =
+    "call(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128)";
+const PROGRAM_CALL_HEAD_BYTES: usize = 15 * 32;
+const MAX_PROGRAM_CALL_BYTES: usize = 2_163_428;
+
+/// Encodes the Programs precompile ABI, including its separate execution fee budget.
+///
+/// # Panics
+/// Panics if `call` is not a valid native program call.
+#[must_use]
+pub fn encode_program_call(call: &NativeProgramCall<'_>, fee_limit: u128) -> Vec<u8> {
+    assert!(call.encode().is_ok(), "invalid native program call");
+    let mut head = ledger_selector(PROGRAM_CALL_SIGNATURE).to_vec();
+    head.extend_from_slice(&call.program_id.bytes());
+    head.extend_from_slice(&abi_word(call.guest_abi.into()));
+    let mut tails = Vec::new();
+    for part in [
+        call.entrypoint,
+        call.calldata,
+        call.capabilities,
+        call.access_declaration,
+    ] {
+        head.extend_from_slice(&abi_word((PROGRAM_CALL_HEAD_BYTES + tails.len()) as u128));
+        tails.extend_from_slice(&abi_tail(part));
+    }
+    head.extend_from_slice(&abi_word(call.response_capacity.into()));
+    for ceiling in call.resources.0 {
+        head.extend_from_slice(&abi_word(ceiling.into()));
+    }
+    head.extend_from_slice(&abi_word(fee_limit));
+    head.extend_from_slice(&tails);
+    head
+}
+
+/// Decodes only the canonical fifteen-word head and four ordered, zero-padded tails.
+///
+/// # Errors
+/// Refuses invalid native calls, integer overflow, noncanonical offsets or padding,
+/// truncation and trailing bytes as `MalformedPayload`.
+pub fn decode_program_call(data: &[u8]) -> Result<(DisclosedProgramCall, u128), DisclosureError> {
+    if !(484..=MAX_PROGRAM_CALL_BYTES).contains(&data.len())
+        || data[..4] != ledger_selector(PROGRAM_CALL_SIGNATURE)
+    {
+        return Err(DisclosureError::MalformedPayload);
+    }
+    let args = &data[4..];
+    let mut cursor = PROGRAM_CALL_HEAD_BYTES;
+    let entrypoint = tail(args, 2, &mut cursor)?;
+    let calldata = tail(args, 3, &mut cursor)?;
+    let capabilities = tail(args, 4, &mut cursor)?;
+    let access_declaration = tail(args, 5, &mut cursor)?;
+    if cursor != args.len() {
+        return Err(DisclosureError::MalformedPayload);
+    }
+    let mut resources = [0; 7];
+    for (index, ceiling) in resources.iter_mut().enumerate() {
+        *ceiling = u64::from_be_bytes(uint(word(args, index + 7)?)?);
+    }
+    let native = NativeProgramCall {
+        program_id: ProgramId::new(word(args, 0)?),
+        guest_abi: u16::from_be_bytes(uint(word(args, 1)?)?),
+        entrypoint,
+        calldata,
+        capabilities,
+        access_declaration,
+        response_capacity: u32::from_be_bytes(uint(word(args, 6)?)?),
+        resources: Resources(resources),
+    };
+    native
+        .encode()
+        .map_err(|_| DisclosureError::MalformedPayload)?;
+    let fee_limit = u128::from_be_bytes(uint(word(args, 14)?)?);
+    if encode_program_call(&native, fee_limit) != data {
+        return Err(DisclosureError::MalformedPayload);
+    }
+    Ok((
+        DisclosedProgramCall {
+            program_id: native.program_id,
+            guest_abi: native.guest_abi,
+            entrypoint: entrypoint.to_vec(),
+            calldata: calldata.to_vec(),
+            capabilities: capabilities.to_vec(),
+            access_declaration: access_declaration.to_vec(),
+            response_capacity: native.response_capacity,
+            resources: native.resources,
+        },
+        fee_limit,
+    ))
+}
+
+// PAXAI's fixed prefix carries expiry and retry identity independently of the
+// operation payload. Other programs do not have these envelope fields.
+pub(super) fn paxai_envelope_terms(
+    call: &DisclosedProgramCall,
+) -> Result<Option<([u8; 32], Expiry)>, DisclosureError> {
+    let data = &call.calldata;
+    if !data.starts_with(b"PAXAI1") {
+        return Ok(None);
+    }
+    let malformed = || DisclosureError::MalformedPayload;
+    if !(239..=16_384).contains(&data.len())
+        || data[6..8] != [0, 1]
+        || data[42..74] != call.program_id.bytes()
+    {
+        return Err(malformed());
+    }
+    let payload_length = u32::from_be_bytes(data[234..238].try_into().map_err(|_| malformed())?);
+    let auth_offset = 238_usize
+        .checked_add(usize::try_from(payload_length).map_err(|_| malformed())?)
+        .ok_or_else(malformed)?;
+    let auth_length = match data.get(auth_offset) {
+        Some(0) => 1,
+        Some(1) => 97,
+        _ => return Err(malformed()),
+    };
+    if payload_length > 15_965 || auth_offset.checked_add(auth_length) != Some(data.len()) {
+        return Err(malformed());
+    }
+    let not_after = u64::from_be_bytes(data[194..202].try_into().map_err(|_| malformed())?);
+    let idempotency_key = data[202..234].try_into().map_err(|_| malformed())?;
+    if not_after == 0 || idempotency_key == [0; 32] {
+        return Err(malformed());
+    }
+    Ok(Some((
+        idempotency_key,
+        Expiry {
+            not_before: 0,
+            not_after,
+            payload_expires_at: not_after,
+        },
+    )))
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DisclosedProgramDeploy {

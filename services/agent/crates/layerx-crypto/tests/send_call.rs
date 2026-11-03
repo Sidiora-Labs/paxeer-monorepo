@@ -97,3 +97,73 @@ fn ledger_payment_call_refuses_a_malformed_payload() {
         ));
     }
 }
+
+#[test]
+fn send_envelope_encoder_keeps_asset_ordinal_five() -> Result<(), Box<dyn std::error::Error>> {
+    use ed25519_dalek::{Signer as _, SigningKey};
+    use layerx_crypto::send::{send_context_hash, SendCondition, SendDebit};
+    use layerx_crypto::SignatureMessage;
+    use layerx_types::activity::Signature;
+    use layerx_types::payload::ModuleId;
+    use layerx_wire::activity::{decode_signed, encode_signed_envelope};
+    use layerx_wire::hash::Domain;
+
+    let key = SigningKey::from_bytes(&[5; 32]);
+    let options = EnvelopeOptions {
+        actor: "did:layerx:alice",
+        public_key: key.verifying_key().to_bytes(),
+        protocol_version: 3,
+        network_id: 17,
+        identity_sequence: 7,
+        idempotency_key: [4; 32],
+        fee_limit: 20,
+        not_before: 10,
+        not_after: 100,
+    };
+    let debit = SendDebit {
+        from: [1; 32],
+        to: [2; 32],
+        asset: [3; 32],
+        amount: 123,
+        source_sequence: 9,
+        idempotency_key: options.idempotency_key,
+        expires_at: options.not_after,
+        context_hash: send_context_hash(&[1; 32], &[2; 32], &[3; 32], 123, &[4; 32]),
+        conditions: vec![SendCondition {
+            kind: 1,
+            timestamp: options.not_before,
+        }],
+        authorization_kind: 1,
+        network_id: options.network_id,
+        protocol_version: options.protocol_version,
+    };
+    let authorization = debit.authorization_message()?;
+    let message = SignatureMessage::new(
+        Domain::SignaturePreimage,
+        options.protocol_version,
+        options.network_id,
+        &authorization,
+    )
+    .map_err(|error| format!("{error:?}"))?;
+    let payload =
+        debit.encode_signed(options.public_key, key.sign(&message.digest()).to_bytes())?;
+    let disclosed = encode_send_envelope(&payload, &options)?;
+    let message = SignatureMessage::new(
+        Domain::SignaturePreimage,
+        options.protocol_version,
+        options.network_id,
+        &disclosed.canonical,
+    )
+    .map_err(|error| format!("{error:?}"))?;
+    let signature = Signature::new(&key.sign(&message.digest()).to_bytes())
+        .map_err(|error| format!("{error:?}"))?;
+    let signed = disclosed.envelope.attach_signature(signature);
+    let canonical = encode_signed_envelope(&signed).map_err(|error| format!("{error:?}"))?;
+    let decoded =
+        decode_signed(&canonical, &disclosed.registry).map_err(|error| format!("{error:?}"))?;
+    assert_eq!(decoded.activity_type().module(), ModuleId::Asset);
+    assert_eq!(decoded.activity_type().ordinal(), 5);
+    assert_eq!(decoded.payload(), payload);
+    assert_eq!(decoded.account_sequence(), options.identity_sequence);
+    Ok(())
+}

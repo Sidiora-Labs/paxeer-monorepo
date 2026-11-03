@@ -1,47 +1,74 @@
-import json
 import unittest
-from pathlib import Path
-from test_commitment import CommitmentTests
-from layerx_sdk.x402_rpc import (
-    verify_rpc_payment,
-    rpc_batch_evidence,
-    PaymentRpc,
-)
-from layerx_sdk.verifier import SequencerAuthorization
+from test_commitment import CommitmentTests, FIXTURE
+from layerx_sdk.x402_rpc import verify_rpc_payment, PaymentRpc
+from layerx_sdk.verifier import verify_sequencer_receipt
 
 
 class RpcTests(unittest.TestCase):
     def test_receipt_binding_and_pending(self):
         fixture = CommitmentTests()
         fixture.setUp()
-        verified = fixture.verify()
-        activity = verified.receipt.activity_id.hex()
-        payer = verified.receipt.from_account.hex()
-        result = {"activity_id": activity, "receipt": fixture.wire.hex()}
+        verified = verify_sequencer_receipt(
+            fixture.wire, fixture.raw_transaction, fixture.receipt_keys
+        )
+        transaction_hash = FIXTURE["txHash"]
+        payer = FIXTURE["payer"]
+        self.assertEqual(verified.receipt.activity_id.hex(), transaction_hash[2:])
+        result = FIXTURE["rpcResult"]
 
-        def verify(body, expected_payer=payer):
+        def verify(body, expected_payer=payer, commitment="receipted"):
             return verify_rpc_payment(
                 body,
-                activity,
+                transaction_hash,
                 expected_payer,
-                fixture.authorized,
-                fixture.signatures,
+                receipt_keys=fixture.receipt_keys,
+                raw_transaction=fixture.raw_transaction,
+                commitment=commitment,
                 **fixture.offer,
             )
 
-        self.assertEqual(verify(result), verified)
-        self.assertIsNone(verify({"activity_id": activity, "state": "pending"}))
+        expected = {
+            "txHash": transaction_hash,
+            "rung": "receipted",
+            "height": verified.height,
+            "keyId": FIXTURE["rpcResult"]["keyId"],
+        }
+        self.assertEqual(verify(result), expected)
+        self.assertEqual(verify({
+            "txHash": transaction_hash, "rung": "submitted", "nonce": "0x0"
+        }), {"txHash": transaction_hash, "rung": "pending", "height": None, "keyId": None})
+        committed = result | {"rung": "committed", "blockHash": "0x" + "12" * 32}
+        self.assertEqual(verify(committed), expected | {"rung": "committed"})
+        self.assertEqual(verify(committed, commitment="committed"), expected | {"rung": "committed"})
+        with self.assertRaises(ValueError):
+            verify(result, commitment="committed")
         for change in (
-            {"activity_id": "ab" * 32},
-            {"state": "acknowledged"},
-            {"commitment": "batched"},
+            {"txHash": "0x" + "ab" * 32},
+            {"rung": "acknowledged"},
+            {"rung": "batched"},
+            {"rung": "executed"},
+            {"rung": "finalised"},
+            {"rung": "committed"},
+            {"receipt": "0x00"},
+            {"height": "0x8"},
+            {"height": "0x07"},
+            {"height": "0x10000000000000000"},
+            {"status": "0x2"},
+            {"keyId": "0x" + "ab" * 32},
         ):
             with self.assertRaises(ValueError):
                 verify(result | change)
         with self.assertRaises(ValueError):
-            verify(result, "ab" * 32)
+            verify(result, "0x" + "ab" * 32)
         with self.assertRaises(ValueError):
-            verify({"activity_id": activity})
+            verify({"txHash": transaction_hash})
+        with self.assertRaises(ValueError):
+            verify({"activity_id": transaction_hash[2:], "state": "pending"})
+        with self.assertRaises(ValueError):
+            verify({"txHash": transaction_hash, "rung": "submitted", "nonce": "0x00"})
+        for retired in ("executed", "batched", "finalised"):
+            with self.assertRaisesRegex(Exception, "rung ladder"):
+                verify(result, commitment=retired)
 
     def test_endpoints(self):
         for endpoint in (
@@ -53,53 +80,4 @@ class RpcTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 PaymentRpc(endpoint)
         with self.assertRaises(ValueError):
-            PaymentRpc("http://127.0.0.1:1/rpc").send("00", "finalized")
-
-    def test_batched_result_uses_configured_sequencer_authority(self):
-        fixture = CommitmentTests()
-        fixture.setUp()
-        verified = fixture.verify()
-        activity = verified.receipt.activity_id.hex()
-        payer = verified.receipt.from_account.hex()
-        batch = json.loads(Path(__file__).with_name("batch.json").read_text())
-        result = {
-            "activity_id": activity,
-            "receipt": fixture.wire.hex(),
-            "commitment": "batched",
-            "batch_evidence": {
-                "kind": "receipt",
-                "activity_id": activity,
-                "canonical_value": fixture.wire.hex(),
-                "proof": {"leaf_index": 0, "leaf_count": 1, "siblings": []},
-                "signed_header": {
-                    "canonical_header": batch["header"],
-                    "signature": batch["signature"],
-                    "sequencer_id": batch["sequencer_id"],
-                    "public_key": fixture.authorized.sequencer_public_key.hex(),
-                },
-            },
-        }
-        authorization = SequencerAuthorization(
-            bytes.fromhex(batch["sequencer_id"]),
-            fixture.authorized.sequencer_public_key,
-            1,
-            1,
-        )
-        evidence = rpc_batch_evidence(result, activity, fixture.wire, 7, authorization)
-        self.assertEqual(
-            verify_rpc_payment(
-                result,
-                activity,
-                payer,
-                fixture.authorized,
-                fixture.signatures,
-                **fixture.offer,
-                commitment="batched",
-                evidence=evidence,
-            ),
-            verified,
-        )
-        forged = json.loads(json.dumps(result))
-        forged["batch_evidence"]["signed_header"]["public_key"] = "00" * 32
-        with self.assertRaises(ValueError):
-            rpc_batch_evidence(forged, activity, fixture.wire, 7, authorization)
+            PaymentRpc("http://127.0.0.1:1/rpc").send("00")

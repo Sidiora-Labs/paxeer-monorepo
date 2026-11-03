@@ -11,12 +11,7 @@ use crate::evidence::Evidence;
 use crate::level::achieved;
 
 mod native_credit;
-mod owner_module;
 pub mod withdrawal;
-
-pub use owner_module::{
-    verify_native_owner_outcome, NativeOwnerOutcomeContext, NativeOwnerOutcomeFailure,
-};
 
 const PROGRAMS_MODULE_ID: u32 = 9;
 const PROGRAMS_STATE_OPERATION: u16 = 0;
@@ -364,7 +359,10 @@ pub fn verify_outcome(
     {
         return verify_program_outcome(receipt_bytes, authorised);
     }
-    if protocol.operation() == 0 {
+    let native_owner = (2..=7).contains(&protocol.module_id()) && protocol.operation() == 0;
+    if native_owner {
+        verify_owner_projection(protocol)?;
+    } else if protocol.operation() == 0 {
         return Err(VerificationFailure::at(ReceiptCheck::Operation));
     }
     if protocol.activity_id() == [0; 32] {
@@ -373,7 +371,7 @@ pub fn verify_outcome(
     if protocol.batch_id() != authorised.batch_id {
         return Err(VerificationFailure::at(ReceiptCheck::BatchId));
     }
-    if protocol.asset() != authorised.asset || protocol.asset() == [0; 32] {
+    if protocol.asset() != authorised.asset || (!native_owner && protocol.asset() == [0; 32]) {
         return Err(VerificationFailure::at(ReceiptCheck::Asset));
     }
     if protocol.previous_state_root() != authorised.previous_state_root {
@@ -413,6 +411,42 @@ pub fn verify_outcome(
         evidence: Evidence::sequencer(digest),
     }
     .with_batch_authorization(authorised))
+}
+
+fn verify_owner_projection(
+    protocol: &layerx_wire::receipt::ProtocolReceipt,
+) -> Result<(), VerificationFailure> {
+    if protocol.protocol_version() != 3 {
+        return Err(VerificationFailure::at(ReceiptCheck::ProtocolVersion));
+    }
+    if !(2..=7).contains(&protocol.module_id()) || protocol.module_version() != 1 {
+        return Err(VerificationFailure::at(ReceiptCheck::Module));
+    }
+    if protocol.global_sequence() == 0
+        || protocol.timestamp() == 0
+        || protocol.operation() != 0
+        || protocol.asset() != [0; 32]
+        || protocol.amount() != 0
+        || protocol.from() != [0; 32]
+        || protocol.to() != [0; 32]
+        || protocol.debit_sequence() != 0
+        || protocol.debit_balance_before() != 0
+        || protocol.debit_balance_after() != 0
+        || protocol.credit_balance_before() != 0
+        || protocol.credit_balance_after() != 0
+        || protocol.transfer_set_root() != [0; 32]
+        || protocol.authorization_hash() != [0; 32]
+        || protocol.context_hash() != [0; 32]
+        || protocol.program_outcome().is_some()
+        || protocol.total_units().is_some()
+        || protocol
+            .effects()
+            .iter()
+            .any(layerx_wire::receipt::Effect::monetary)
+    {
+        return Err(VerificationFailure::at(ReceiptCheck::ReceiptShape));
+    }
+    Ok(())
 }
 
 #[derive(Clone, Copy, Debug)]

@@ -1,37 +1,14 @@
-use layerx_proof::program::{
-    verify_authorized_program_execution, verify_program_execution,
-    AuthorizedProgramExecutionExpectation, ProgramExecutionCheck, ProgramExecutionExpectation,
-};
-use layerx_proof::receipt::{verify_program_outcome, AuthorizedBatch};
-use layerx_wire::receipt::{decode, decode_applied_terminal};
-use sha2::{Digest as _, Sha256};
 use std::path::PathBuf;
 
-fn bytes(document: &str, field: &str) -> Vec<u8> {
-    let marker = format!("\"{field}\": \"");
-    let parts: Vec<_> = document.split(&marker).collect();
-    assert_eq!(parts.len(), 2, "unique field {field}");
-    let hex = parts[1]
-        .split('"')
-        .next()
-        .unwrap_or_else(|| panic!("field {field}"));
-    assert_eq!(hex.len() % 2, 0);
-    hex.as_bytes()
-        .chunks_exact(2)
-        .map(|pair| {
-            let text = core::str::from_utf8(pair).unwrap_or_else(|error| panic!("{error}"));
-            u8::from_str_radix(text, 16).unwrap_or_else(|error| panic!("{error}"))
-        })
-        .collect()
-}
+use layerx_proof::inclusion::SequencerAuthorization;
+use layerx_proof::receipt::{verify_sequencer_signature, ReceiptCheck, ReceiptKeys};
+use layerx_proof::sequencer_logs::{verify_logs, LogField, SequencerLog, SequencerLogRefusal};
+use layerx_types::json::{parse, JsonValue};
+use layerx_wire::hash::receipt_digest;
+use layerx_wire::receipt::{decode, encode, encode_unsigned, Receipt};
+use sha2::{Digest as _, Sha256};
 
-fn array(document: &str, field: &str) -> [u8; 32] {
-    bytes(document, field)
-        .try_into()
-        .unwrap_or_else(|_| panic!("array {field}"))
-}
-
-fn load(name: &str) -> String {
+fn load(name: &str) -> JsonValue {
     let directory = std::env::var_os("LAYERX_TERMINAL_FIXTURE_DIR").map_or_else(
         || {
             PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -39,287 +16,228 @@ fn load(name: &str) -> String {
         },
         PathBuf::from,
     );
-    std::fs::read_to_string(directory.join(name))
-        .unwrap_or_else(|error| panic!("fixture {name}: {error}"))
+    let document = std::fs::read_to_string(directory.join(name))
+        .unwrap_or_else(|error| panic!("fixture {name}: {error}"));
+    parse(&document).unwrap_or_else(|error| panic!("fixture {name}: {error}"))
 }
 
-fn fixture_payload_hash(name: &str) -> [u8; 32] {
-    match name {
-        "receipt-programs-executed-v4.json" | "receipt-programs-mutated-leg-v4.json" => [
-            0xfb, 0x62, 0xa1, 0xc1, 0xdf, 0x17, 0xd6, 0x18, 0x78, 0x9f, 0x9d, 0x34, 0xd3, 0x24,
-            0x85, 0xb6, 0x46, 0x70, 0x89, 0x2b, 0x33, 0xac, 0xe5, 0xcf, 0x44, 0xfb, 0xbe, 0x6e,
-            0xb8, 0x0f, 0xec, 0x93,
-        ],
-        "receipt-programs-principal-v4.json" => [
-            0xa8, 0x60, 0x39, 0x09, 0x2e, 0x20, 0xb8, 0x48, 0x63, 0x66, 0x48, 0xcc, 0xc6, 0xf1,
-            0xb0, 0xe8, 0xb9, 0xe1, 0x9f, 0x3e, 0x5e, 0x62, 0xac, 0xb5, 0xaf, 0x81, 0x0b, 0x39,
-            0x26, 0xdc, 0x6e, 0xba,
-        ],
-        _ => panic!("payload hash for fixture {name}"),
-    }
+fn bytes(document: &JsonValue, field: &str) -> Vec<u8> {
+    document
+        .hex_at(field)
+        .unwrap_or_else(|error| panic!("{field}: {error}"))
+}
+
+fn array<const N: usize>(document: &JsonValue, field: &str) -> [u8; N] {
+    document
+        .hex_array_at(field)
+        .unwrap_or_else(|error| panic!("{field}: {error}"))
+}
+
+fn quantity(document: &JsonValue, field: &str) -> u64 {
+    let text = document
+        .str_at(field)
+        .unwrap_or_else(|error| panic!("{error}"));
+    let digits = text
+        .strip_prefix("0x")
+        .unwrap_or_else(|| panic!("{field}: hex quantity"));
+    u64::from_str_radix(digits, 16).unwrap_or_else(|error| panic!("{field}: {error}"))
+}
+
+fn cases(document: &JsonValue) -> &[JsonValue] {
+    document
+        .array_at("cases")
+        .unwrap_or_else(|error| panic!("{error}"))
+}
+
+fn pin(case: &JsonValue) -> SequencerAuthorization {
+    SequencerAuthorization::new(
+        array(case, "pinnedKey.keyId"),
+        array(case, "pinnedKey.publicKey"),
+        case.u64_at("pinnedKey.firstHeight")
+            .unwrap_or_else(|error| panic!("{error}")),
+        case.u64_at("pinnedKey.lastHeight")
+            .unwrap_or_else(|error| panic!("{error}")),
+    )
+}
+
+fn verified(case: &JsonValue) -> Receipt {
+    let pins = [pin(case)];
+    verify_sequencer_signature(
+        &bytes(case, "signedReceipt"),
+        ReceiptKeys::HeightRanges(&pins),
+    )
+    .unwrap_or_else(|error| panic!("{error:?}"))
+}
+
+fn logs(case: &JsonValue) -> Vec<SequencerLog> {
+    case.array_at("receiptJson.logs")
+        .unwrap_or_else(|error| panic!("{error}"))
+        .iter()
+        .map(|log| {
+            let topics = log
+                .array_at("topics")
+                .unwrap_or_else(|error| panic!("{error}"));
+            SequencerLog::new(
+                array(log, "address"),
+                (0..topics.len())
+                    .map(|index| array(log, &format!("topics.{index}")))
+                    .collect(),
+                bytes(log, "data"),
+                quantity(log, "logIndex"),
+            )
+        })
+        .collect()
 }
 
 #[test]
-fn real_executed_v4_and_signed_mutated_leg_refusal() {
-    for (name, abi, mutated) in [
-        ("receipt-programs-executed-v4.json", 2, false),
-        ("receipt-programs-principal-v4.json", 1, false),
-        ("receipt-programs-mutated-leg-v4.json", 2, true),
+fn retained_positive_and_revert_receipts_verify_byte_exactly() {
+    for (name, result_code, count) in [
+        ("vector-v1-receipted-positive.json", 0, 4),
+        ("vector-v2-receipted-revert.json", 1, 1),
     ] {
         let document = load(name);
-        let canonical = bytes(&document, "canonical_receipt_hex");
-        let receipt = decode(&canonical).unwrap_or_else(|error| panic!("{error:?}"));
-        let protocol = receipt
-            .protocol()
-            .unwrap_or_else(|| panic!("protocol receipt"));
-        let outcome = protocol
-            .program_outcome()
-            .unwrap_or_else(|| panic!("program outcome"));
-        assert_eq!(outcome.encoding_version(), 4);
-        let authority = AuthorizedBatch::new(
-            array(&document, "batch_id_hex"),
-            array(&document, "asset_hex"),
-            array(&document, "previous_state_root_hex"),
-            array(&document, "resulting_state_root_hex"),
-            array(&document, "sequencer_public_key_hex"),
-        );
-        assert!(
-            verify_program_outcome(&canonical, &authority).is_ok(),
-            "real signature for {name}"
-        );
-        assert_eq!(
-            layerx_proof::receipt::verify_historical_program_outcome_v1(&canonical, &authority)
-                .err()
-                .map(|error| error.check),
-            Some(layerx_proof::receipt::ReceiptCheck::ProtocolVersion)
-        );
-        let terminal = bytes(&document, "terminal_payload_hex");
-        let (_, legs) =
-            decode_applied_terminal(&terminal).unwrap_or_else(|error| panic!("{error:?}"));
-        assert_eq!(legs.len(), 115);
-        assert_eq!(
-            <[u8; 32]>::from(Sha256::digest(legs)),
-            outcome.applied_legs_digest()
-        );
-        let expected = AuthorizedProgramExecutionExpectation {
-            authority,
-            activity_id: protocol.activity_id(),
-            payload_hash: fixture_payload_hash(name),
-            program_id: array(&document, "program_id_hex"),
-            guest_abi_version: abi,
-        };
-        let graph = bytes(&document, "call_graph_hex");
-        let result = verify_authorized_program_execution(&canonical, &terminal, &graph, &expected);
-        if mutated {
+        assert_eq!(cases(&document).len(), count);
+        for case in cases(&document) {
+            let canonical = bytes(case, "signedReceipt");
+            let receipt = verified(case);
+            let protocol = receipt
+                .protocol()
+                .unwrap_or_else(|| panic!("protocol receipt"));
+            assert_eq!(protocol.protocol_version(), 2);
+            assert_eq!(protocol.module_id(), 12);
+            assert_eq!(protocol.result_code(), result_code);
+            assert!(protocol.program_outcome().is_none());
+            assert_eq!(protocol.activity_id(), array(case, "receiptJson.txHash"));
+            assert_eq!(protocol.context_hash(), array(case, "pinnedKey.keyId"));
+            assert_eq!(protocol.previous_state_root(), array(case, "prevSeqHash"));
             assert_eq!(
-                result.err().map(|error| error.check),
-                Some(ProgramExecutionCheck::TransferAuthority)
+                protocol.activity_root(),
+                <[u8; 32]>::from(Sha256::digest(bytes(case, "receiptJson.returnData")))
             );
-        } else {
-            assert!(result.is_ok(), "{name}: {:?}", result.err());
-            for offset in [0, 1, 33, 65, 97, 112, 113, 114] {
-                let mut changed = legs.to_vec();
-                changed[offset] ^= 1;
-                assert!(
-                    layerx_programs_runtime::transfer::verify_applied_kernel_legs(
-                        &changed,
-                        outcome.transfer_root()
-                    )
-                    .is_err()
-                );
-            }
+            assert_eq!(encode(&receipt), Ok(canonical.clone()));
+            assert_eq!(bytes(case, "receiptJson.receipt"), canonical);
+            let unsigned = encode_unsigned(&receipt).unwrap_or_else(|error| panic!("{error:?}"));
+            assert_eq!(receipt_digest(&unsigned), Ok(array(case, "receiptDigest")));
+            let served = logs(case);
+            let checked =
+                verify_logs(&receipt, served.clone()).unwrap_or_else(|error| panic!("{error:?}"));
+            assert_eq!(checked.logs(), served.as_slice());
+            assert_eq!(
+                usize::try_from(checked.summary().log_count()),
+                Ok(served.len())
+            );
+            assert_eq!(
+                checked.summary().gas_used(),
+                quantity(case, "receiptJson.gasUsed")
+            );
         }
     }
 }
 
 #[test]
-fn stored_historical_protocol_v1_receipt_still_verifies_byte_exactly() {
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../../../sdk/platform/conformance/fixtures/receipt-programs-positive-v1.json");
-    let document = std::fs::read_to_string(path).unwrap_or_else(|error| panic!("{error}"));
-    let canonical = bytes(&document, "canonical_receipt_hex");
-    let authority = AuthorizedBatch::new(
-        array(&document, "batch_id_hex"),
-        array(&document, "asset_hex"),
-        array(&document, "previous_state_root_hex"),
-        array(&document, "resulting_state_root_hex"),
-        array(&document, "sequencer_public_key_hex"),
-    );
-    assert!(
-        layerx_proof::receipt::verify_historical_program_outcome_v1(&canonical, &authority).is_ok()
-    );
-    assert_eq!(
-        verify_program_outcome(&canonical, &authority)
-            .err()
-            .map(|error| error.check),
-        Some(layerx_proof::receipt::ReceiptCheck::ProtocolVersion)
-    );
-    for index in 0..4 {
-        let mut binding = [
-            array(&document, "batch_id_hex"),
-            array(&document, "previous_state_root_hex"),
-            array(&document, "resulting_state_root_hex"),
-            array(&document, "sequencer_public_key_hex"),
-        ];
-        binding[index][0] ^= 1;
-        let changed = AuthorizedBatch::new(
-            binding[0],
-            array(&document, "asset_hex"),
-            binding[1],
-            binding[2],
-            binding[3],
-        );
-        assert!(
-            layerx_proof::receipt::verify_historical_program_outcome_v1(&canonical, &changed)
-                .is_err()
+fn retained_positive_mutated_transfer_leg_is_refused() {
+    let document = load("vector-v1-receipted-positive.json");
+    let case = cases(&document)
+        .iter()
+        .find(|case| case.str_at("id") == Ok("V1-layerxledger-pay-exact"))
+        .unwrap_or_else(|| panic!("retained payExact positive vector"));
+    let canonical = bytes(case, "signedReceipt");
+    let receipt = verified(case);
+    let served = logs(case);
+    assert_eq!(served.len(), 1);
+    let leg = &served[0];
+    assert_eq!(leg.topics().len(), 4);
+    assert_eq!(leg.data().len(), 64);
+    assert!(verify_logs(&receipt, served.clone()).is_ok());
+    for offset in 0..leg.data().len() {
+        let mut data = leg.data().to_vec();
+        data[offset] ^= 1;
+        let changed =
+            SequencerLog::new(leg.address(), leg.topics().to_vec(), data, leg.log_index());
+        assert_eq!(
+            verify_logs(&receipt, vec![changed]),
+            Err(SequencerLogRefusal::Log {
+                index: 0,
+                field: LogField::Data
+            })
         );
     }
-    let decoded = decode(&canonical).unwrap_or_else(|error| panic!("{error:?}"));
-    assert_eq!(layerx_wire::receipt::encode(&decoded), Ok(canonical));
-    let protocol = decoded.protocol().unwrap_or_else(|| panic!("protocol"));
-    assert_eq!(protocol.protocol_version(), 1);
-    assert_eq!(
-        protocol
-            .program_outcome()
-            .unwrap_or_else(|| panic!("outcome"))
-            .applied_legs_digest(),
-        [0; 32]
-    );
-}
-
-#[test]
-fn terminal_v4_envelope_refuses_bounds_truncation_and_trailing_bytes() {
-    let document = load("receipt-programs-executed-v4.json");
-    let terminal = bytes(&document, "terminal_payload_hex");
-    for length in 0..terminal.len() {
-        assert!(decode_applied_terminal(&terminal[..length]).is_err());
+    for topic in 0..leg.topics().len() {
+        for offset in 0..32 {
+            let mut topics = leg.topics().to_vec();
+            topics[topic][offset] ^= 1;
+            let changed =
+                SequencerLog::new(leg.address(), topics, leg.data().to_vec(), leg.log_index());
+            assert_eq!(
+                verify_logs(&receipt, vec![changed]),
+                Err(SequencerLogRefusal::Log {
+                    index: 0,
+                    field: LogField::Topics
+                })
+            );
+        }
     }
-    let mut changed = terminal.clone();
-    changed.push(0);
-    assert!(decode_applied_terminal(&changed).is_err());
-    changed = terminal.clone();
-    let length_offset = b"LXP/programs/terminal-applied-legs/v1\0".len();
-    changed[length_offset..length_offset + 4].copy_from_slice(&u32::MAX.to_be_bytes());
-    assert!(decode_applied_terminal(&changed).is_err());
-    changed = terminal;
-    changed[0] ^= 1;
-    assert!(decode_applied_terminal(&changed).is_err());
-}
-
-#[test]
-fn stored_historical_v3_receipt_replays_without_v4_fields() {
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../../../sdk/platform/conformance/fixtures/receipt-programs-executed-v3.json");
-    let document = std::fs::read_to_string(path).unwrap_or_else(|error| panic!("{error}"));
-    let canonical = bytes(&document, "canonical_receipt_hex");
-    let authority = AuthorizedBatch::new(
-        array(&document, "batch_id_hex"),
-        array(&document, "asset_hex"),
-        array(&document, "previous_state_root_hex"),
-        array(&document, "resulting_state_root_hex"),
-        array(&document, "sequencer_public_key_hex"),
-    );
-    assert!(verify_program_outcome(&canonical, &authority).is_ok());
-    let decoded = decode(&canonical).unwrap_or_else(|error| panic!("{error:?}"));
-    assert_eq!(layerx_wire::receipt::encode(&decoded), Ok(canonical));
-    let protocol = decoded.protocol().unwrap_or_else(|| panic!("protocol"));
-    assert_eq!(protocol.protocol_version(), 3);
-    let outcome = protocol
-        .program_outcome()
-        .unwrap_or_else(|| panic!("outcome"));
-    assert_eq!(outcome.encoding_version(), 3);
-    assert_eq!(outcome.applied_legs_digest(), [0; 32]);
-    assert_eq!(
-        <[u8; 32]>::from(Sha256::digest(bytes(&document, "terminal_payload_hex"))),
-        outcome.terminal_payload_root()
-    );
-    assert_eq!(
-        <[u8; 32]>::from(Sha256::digest(bytes(&document, "call_graph_hex"))),
-        outcome.call_graph_root()
-    );
-}
-
-#[test]
-fn both_expectations_bind_the_same_activity_program_and_guest_abi() {
-    let document = load("receipt-programs-executed-v4.json");
-    let canonical = bytes(&document, "canonical_receipt_hex");
-    let terminal = bytes(&document, "terminal_payload_hex");
-    let graph = bytes(&document, "call_graph_hex");
-    let receipt = decode(&canonical).unwrap_or_else(|error| panic!("{error:?}"));
+    for offset in 0..20 {
+        let mut address = leg.address();
+        address[offset] ^= 1;
+        let changed = SequencerLog::new(
+            address,
+            leg.topics().to_vec(),
+            leg.data().to_vec(),
+            leg.log_index(),
+        );
+        assert_eq!(
+            verify_logs(&receipt, vec![changed]),
+            Err(SequencerLogRefusal::Log {
+                index: 0,
+                field: LogField::Address
+            })
+        );
+    }
     let protocol = receipt
         .protocol()
         .unwrap_or_else(|| panic!("protocol receipt"));
-    let payload_hash = fixture_payload_hash("receipt-programs-executed-v4.json");
-    let sequencer_public_key = array(&document, "sequencer_public_key_hex");
-    let previous_state_root = array(&document, "previous_state_root_hex");
-    let authority = AuthorizedBatch::new(
-        array(&document, "batch_id_hex"),
-        array(&document, "asset_hex"),
-        previous_state_root,
-        array(&document, "resulting_state_root_hex"),
-        sequencer_public_key,
-    );
-    let truth = (
-        protocol.activity_id(),
-        array(&document, "program_id_hex"),
-        2_u16,
-    );
-    let bound = |(activity_id, program_id, guest_abi_version): ([u8; 32], [u8; 32], u16)| {
-        let at_root = verify_program_execution(
-            &canonical,
-            &terminal,
-            &graph,
-            ProgramExecutionExpectation {
-                sequencer_public_key,
-                previous_state_root,
-                activity_id,
-                payload_hash,
-                program_id,
-                guest_abi_version,
-            },
-        );
-        let authorized = verify_authorized_program_execution(
-            &canonical,
-            &terminal,
-            &graph,
-            &AuthorizedProgramExecutionExpectation {
-                authority,
-                activity_id,
-                payload_hash,
-                program_id,
-                guest_abi_version,
-            },
-        );
-        (
-            at_root.err().map(|error| error.check),
-            authorized.err().map(|error| error.check),
-        )
-    };
-    assert_eq!(bound(truth), (None, None));
-    let mut wrong_activity = truth;
-    wrong_activity.0[0] ^= 1;
+    let effect = protocol.effects()[1].body();
+    let offsets: Vec<_> = canonical
+        .windows(effect.len())
+        .enumerate()
+        .filter_map(|(offset, window)| (window == effect).then_some(offset))
+        .collect();
+    assert_eq!(offsets.len(), 1);
+    let mut changed = canonical.clone();
+    changed[offsets[0] + effect.len() - 1] ^= 1;
+    assert!(decode(&changed).is_ok());
+    let pins = [pin(case)];
     assert_eq!(
-        bound(wrong_activity),
-        (
-            Some(ProgramExecutionCheck::Activity),
-            Some(ProgramExecutionCheck::Activity)
-        )
+        verify_sequencer_signature(&changed, ReceiptKeys::HeightRanges(&pins))
+            .err()
+            .map(|error| error.check),
+        Some(ReceiptCheck::SequencerSignature)
     );
-    let mut wrong_program = truth;
-    wrong_program.1[0] ^= 1;
-    assert_eq!(
-        bound(wrong_program),
-        (
-            Some(ProgramExecutionCheck::Terminal),
-            Some(ProgramExecutionCheck::Terminal)
-        )
-    );
-    let wrong_abi = (truth.0, truth.1, truth.2.wrapping_add(1));
-    assert_eq!(
-        bound(wrong_abi),
-        (
-            Some(ProgramExecutionCheck::GuestAbi),
-            Some(ProgramExecutionCheck::GuestAbi)
-        )
-    );
+    assert_eq!(encode(&verified(case)), Ok(canonical));
+}
+
+#[test]
+fn retained_receipt_envelope_refuses_truncation_and_trailing_bytes() {
+    let document = load("vector-v1-receipted-positive.json");
+    for case in cases(&document) {
+        let canonical = bytes(case, "signedReceipt");
+        let pins = [pin(case)];
+        assert!(verify_sequencer_signature(&canonical, ReceiptKeys::HeightRanges(&pins)).is_ok());
+        for length in 0..canonical.len() {
+            assert!(
+                decode(&canonical[..length]).is_err(),
+                "truncation at {length}"
+            );
+        }
+        let mut changed = canonical.clone();
+        changed.push(0);
+        assert!(decode(&changed).is_err());
+        changed = canonical.clone();
+        changed[0] ^= 1;
+        assert!(decode(&changed).is_err());
+        changed = canonical;
+        changed[5..9].copy_from_slice(&u32::MAX.to_be_bytes());
+        assert!(decode(&changed).is_err());
+    }
 }

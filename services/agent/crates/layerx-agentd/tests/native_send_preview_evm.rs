@@ -16,14 +16,9 @@ use layerx_agentd::node_rpc::{NodeRpc, NodeRpcConfig};
 use layerx_agentd::session::{self, OpenRequest, SessionId, SessionRegistry};
 use layerx_agentd::session_keys::SessionKeyRegistry;
 use layerx_agentd::store::{Store, TenantId};
-use layerx_client::client::{ClientConfig, ReconnectPolicy};
-use layerx_client::lni::handshake::{encode_node_info, HandshakeConfig, NodeInfo, NodeRole};
-use layerx_client::lni::schema::{encode_envelope, Envelope, Version};
-use layerx_client::lni::transport::Limits;
 use layerx_client::paxeer_binding::{Binding, SignedBinding};
 use layerx_client::runtime_clock::{ClockBinding, RuntimeClock};
 use layerx_client::sequencer::SequencerEndpoint;
-use layerx_client::Client;
 use layerx_crypto::account_derivation::derive_from_seed;
 use layerx_types::account::AccountId;
 use layerx_types::clock::ClockReading;
@@ -226,6 +221,14 @@ fn rpc(url: &str, request: &Value) -> Value {
 }
 
 fn chain_peer(node: &Node, binding: SignedBinding, writes: Arc<AtomicUsize>) -> (String, Peer) {
+    fn abi_string(value: &[u8]) -> Vec<u8> {
+        let mut result = vec![0; 64 + value.len().div_ceil(32) * 32];
+        result[31] = 32;
+        result[56..64].copy_from_slice(&(value.len() as u64).to_be_bytes());
+        result[64..64 + value.len()].copy_from_slice(value);
+        result
+    }
+
     must(binding.verify());
     let listener = must(TcpListener::bind("127.0.0.1:0"));
     let url = format!("http://{}/", must(listener.local_addr()));
@@ -275,6 +278,48 @@ fn chain_peer(node: &Node, binding: SignedBinding, writes: Arc<AtomicUsize>) -> 
                     other => panic!("unsupported binding read: {other:?}"),
                 }
                 json!({"jsonrpc":"2.0", "id":request["id"], "result":format!("0x{}", hex::encode(word))})
+            } else if method == "eth_call"
+                && request["params"][0]["to"] == "0x0000000000000000000000000000000000001018"
+            {
+                let call = &request["params"][0];
+                let data = call
+                    .get("data")
+                    .or_else(|| call.get("input"))
+                    .and_then(Value::as_str)
+                    .expect("ABI call data");
+                let data = must(hex::decode(data.trim_start_matches("0x")));
+                assert!(
+                    data.starts_with(
+                        &layerx_crypto::evm_transaction::transaction_hash(b"getFeeDenom(address)")
+                            [..4]
+                    ),
+                    "unsupported fee read"
+                );
+                json!({"jsonrpc":"2.0", "id":request["id"], "result":format!("0x{}", hex::encode(abi_string(b"upax")))})
+            } else if method == "eth_call"
+                && request["params"][0]["to"] == "0x0000000000000000000000000000000000001001"
+            {
+                let call = &request["params"][0];
+                let data = call
+                    .get("data")
+                    .or_else(|| call.get("input"))
+                    .and_then(Value::as_str)
+                    .expect("ABI call data");
+                let data = must(hex::decode(data.trim_start_matches("0x")));
+                let answer = if data.starts_with(
+                    &layerx_crypto::evm_transaction::transaction_hash(b"symbol(string)")[..4],
+                ) {
+                    abi_string(b"PAX")
+                } else if data.starts_with(
+                    &layerx_crypto::evm_transaction::transaction_hash(b"decimals(string)")[..4],
+                ) {
+                    let mut word = vec![0; 32];
+                    word[31] = 6;
+                    word
+                } else {
+                    panic!("unsupported fee read");
+                };
+                json!({"jsonrpc":"2.0", "id":request["id"], "result":format!("0x{}", hex::encode(answer))})
             } else {
                 rpc(&upstream, &request)
             };
@@ -452,112 +497,6 @@ fn clock_peer(root: &Path) -> (Arc<RuntimeClock>, Peer) {
     (clock, worker)
 }
 
-fn node_peer(root: &Path) -> (Client, Peer) {
-    let path = root.join("node.sock");
-    let listener = must(UnixListener::bind(&path));
-    must(listener.set_nonblocking(true));
-    let info = NodeInfo {
-        interface_version: Version::V1_8,
-        protocol_version: 3,
-        network_id: 125,
-        role: NodeRole::Sequencer,
-        chain_head_sequence: HEAD,
-        latest_sealed_batch: 1,
-        latest_finalised_checkpoint: random(),
-        authorised_sequencer_key: ed25519_dalek::SigningKey::from_bytes(&random())
-            .verifying_key()
-            .to_bytes(),
-        advertised_capabilities: vec![],
-    };
-    let worker = Peer::spawn(move |stop| {
-        while !stop.load(Ordering::Acquire) {
-            match listener.accept() {
-                Ok((mut stream, _)) => {
-                    must(stream.set_read_timeout(Some(Duration::from_secs(3))));
-                    let mut prefix = [0; 4];
-                    must(stream.read_exact(&mut prefix));
-                    let mut request = vec![0; u32::from_be_bytes(prefix) as usize];
-                    must(stream.read_exact(&mut request));
-                    let payload = must(encode_node_info(&info));
-                    let response = must(encode_envelope(Envelope {
-                        version: Version::V1_8,
-                        message_tag: 2,
-                        correlation_id: 0,
-                        canonical_payload: &payload,
-                        proof_material: &[],
-                    }));
-                    must(stream.write_all(&must(u32::try_from(response.len())).to_be_bytes()));
-                    must(stream.write_all(&response));
-                    while !stop.load(Ordering::Acquire) {
-                        if stream.read_exact(&mut prefix).is_err() {
-                            break;
-                        }
-                        let mut request = vec![0; u32::from_be_bytes(prefix) as usize];
-                        must(stream.read_exact(&mut request));
-                        let request = must(layerx_client::lni::schema::decode_envelope(&request));
-                        assert_eq!(request.message_tag, 32);
-                        assert_eq!(request.canonical_payload, [0, 1, 3]);
-                        let mut asset = 3_u16.to_be_bytes().to_vec();
-                        asset.extend_from_slice(&[7; 32]);
-                        asset.extend_from_slice(&[3, b'P', b'A', b'X', 18, 0]);
-                        asset.extend_from_slice(&1_u16.to_be_bytes());
-                        asset.push(1);
-                        asset.extend_from_slice(&[0, 0]);
-                        asset.extend_from_slice(&u128::MAX.to_be_bytes());
-                        asset.extend_from_slice(&[0; 32]);
-                        asset.push(0);
-                        asset.extend_from_slice(&0_u128.to_be_bytes());
-                        asset.extend_from_slice(&[0; 32]);
-                        let mut payload = 1_u16.to_be_bytes().to_vec();
-                        payload.extend_from_slice(&HEAD.to_be_bytes());
-                        payload.extend_from_slice(&[1; 32]);
-                        payload.extend_from_slice(&1_u16.to_be_bytes());
-                        payload.push(1);
-                        payload.extend_from_slice(&must(u16::try_from(asset.len())).to_be_bytes());
-                        payload.extend_from_slice(&asset);
-                        let response = must(encode_envelope(Envelope {
-                            version: Version::V1_8,
-                            message_tag: 33,
-                            correlation_id: request.correlation_id,
-                            canonical_payload: &payload,
-                            proof_material: &[],
-                        }));
-                        must(stream.write_all(&must(u32::try_from(response.len())).to_be_bytes()));
-                        must(stream.write_all(&response));
-                    }
-                }
-                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                    thread::sleep(Duration::from_millis(2))
-                }
-                Err(error) => panic!("LNI accept: {error}"),
-            }
-        }
-    });
-    let deadline = Duration::from_secs(3);
-    let node = must(Client::connect(ClientConfig {
-        endpoint: path,
-        handshake: HandshakeConfig {
-            built_interface_version: Version::V1_8,
-            expected_protocol_version: 3,
-            expected_network_id: 125,
-        },
-        limits: Limits {
-            maximum_frame_bytes: 1_212_416,
-            maximum_connections: 1,
-            maximum_streams: 1,
-            maximum_queued_bytes: 1_212_416,
-            deadline,
-        },
-        reconnect: ReconnectPolicy {
-            maximum_attempts: 1,
-            base_delay: Duration::from_millis(1),
-            maximum_delay: Duration::from_millis(1),
-            jitter_percent: 0,
-        },
-    }));
-    (node, worker)
-}
-
 struct Fixture {
     owner: SharedAgentOwner<RemoteHumanAuthority>,
     peer: HumanPeer,
@@ -592,7 +531,7 @@ impl Fixture {
                 transport_principal: "bootstrap-owner".to_owned(),
                 owner: account.did(),
                 account: format!("agent:{}:main", account.did()),
-                asset: [7; 32],
+                asset: layerx_crypto::evm_transaction::transaction_hash(b"upax"),
                 registration: None,
             }),
         };
@@ -641,8 +580,6 @@ impl Fixture {
         .credential();
         let retained = Arc::new(Mutex::new(store));
         let (clock, clock_worker) = clock_peer(&root);
-        let (client, node_worker) = node_peer(&root);
-        let node_head = client.head();
         let node = Node::start();
         node.rpc(
             "anvil_setBalance",
@@ -659,14 +596,16 @@ impl Fixture {
         let binding = Binding::new(125, account.evm_address(), 3).sign(account.layerx_seed());
         let writes = Arc::new(AtomicUsize::new(0));
         let (url, chain_worker) = chain_peer(&node, binding, Arc::clone(&writes));
+        let endpoint = must(SequencerEndpoint::new(&url, &[]));
         let chain = must(NodeRpc::connect(&NodeRpcConfig {
             url: url.clone(),
             chain_id: 125,
             deadline: Duration::from_secs(3),
         }));
+        let node_head = must(endpoint.block_number());
         let mut operations = must(ProductionHumanOperations::new(
             authority,
-            client,
+            must(SequencerEndpoint::new(&url, &[])),
             Box::new(chain),
             Arc::clone(&retained),
             &peers,
@@ -709,14 +648,13 @@ impl Fixture {
             &mut owner.degraded,
             layerx_agentd::degraded::Observation::Ready {
                 reference: layerx_agentd::degraded::Reference {
-                    head_sequence: node_head.chain_sequence,
-                    checkpoint: node_head.finalised_checkpoint,
+                    head_sequence: node_head,
+                    checkpoint: [0; 32],
                 },
                 maximum_rung: layerx_types::rung::Rung::Submitted,
             },
         );
         let owner = SharedAgentOwner::new(owner);
-        let endpoint = must(SequencerEndpoint::new(&url, &[]));
         let previous_rpc = std::env::var_os("LAYERX_AGENT_NODE_RPC_URL");
         let previous_chain = std::env::var_os("LAYERX_AGENT_NODE_CHAIN_ID");
         std::env::set_var("LAYERX_AGENT_NODE_RPC_URL", &url);
@@ -728,7 +666,7 @@ impl Fixture {
             account,
             endpoint,
             writes,
-            peers: vec![authority_worker, clock_worker, node_worker, chain_worker],
+            peers: vec![authority_worker, clock_worker, chain_worker],
             node,
             root,
             previous_rpc,
@@ -748,7 +686,7 @@ impl Fixture {
         };
         use layerx_agentd::session::NativeSessionScopeV1;
         use layerx_crypto::send::{send_context_hash, SendDebit};
-        let asset = [7; 32];
+        let asset = layerx_crypto::evm_transaction::transaction_hash(b"upax");
         let from = must(layerx_wire::hash::account_id_for_protocol(
             &must(AccountId::for_asset(&self.account.did(), asset, asset)),
             3,

@@ -1,7 +1,10 @@
 use std::fmt::{Debug, Formatter};
 use std::sync::{Arc, Mutex, MutexGuard};
 
+use layerx_crypto::disclosure::call::bind_call;
 use layerx_crypto::disclosure::Disclosure;
+use layerx_crypto::evm_transaction::{assemble, recover_sender, Eip1559Call};
+use layerx_crypto::signer::{AgentSignature, SignError};
 use layerx_types::payload::ModuleRegistry;
 
 use crate::audit::{
@@ -11,6 +14,22 @@ use crate::store::{PrincipalId, PrincipalScope, PrincipalStore, RowKey, Table};
 use crate::trace::TraceId;
 
 use super::{CustodyError, KeyId, Keystore};
+
+pub fn attach_call_signature(
+    call: &Eip1559Call,
+    signature: [u8; 65],
+    from: [u8; 20],
+) -> Result<Vec<u8>, CustodyError> {
+    bind_call(call, from).map_err(|_| CustodyError::Sign(SignError::InvalidDisclosure))?;
+    let signature = AgentSignature::new(signature)
+        .map_err(|_| CustodyError::Sign(SignError::ReturnedSignatureInvalid))?;
+    let recovered = recover_sender(call, &signature)
+        .map_err(|_| CustodyError::Sign(SignError::ReturnedSignatureInvalid))?;
+    if recovered != from {
+        return Err(CustodyError::Sign(SignError::InvalidDisclosure));
+    }
+    Ok(assemble(call, &signature))
+}
 
 const RATE_KEY: &str = "custody-sign-rate";
 const RATE_MAGIC: &[u8; 4] = b"LXRL";

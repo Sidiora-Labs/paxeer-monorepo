@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, beforeEach, describe, expect, it, test } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, test, inject } from 'vitest';
 import { ADDR_PRECOMPILE_ADDRESS, XWEB_PRECOMPILE, abiSelector } from '@sidiora/layerx-sdk';
 import {
   GasStationError,
@@ -21,12 +21,13 @@ import {
   toHex,
   type Hex,
 } from 'viem';
-import { WebDataView } from './WebDataView';
+import { WebDataView, buildWebDataRequest } from './WebDataView';
 import {
   GRANT_LOG_BATCH,
   GRANT_LOG_WINDOW,
   GRANT_LOG_WINDOW_CEILING,
   boundDid,
+  decodePayerGrantIssued,
   readGrantCaps,
   useWebDataCaps,
 } from './useSurface';
@@ -843,3 +844,59 @@ describe('WebDataView', () => {
     expect(grants.methods).not.toContain('eth_getLogs');
   });
 });
+
+function web_data_view_refuses_nondecimal_callback_gas_before_building() {
+  const module = webData(chain);
+  const expected = module.search('network', 200000n, 1n);
+  expect(buildWebDataRequest(module, 'search', 'network', '200000', '', 1n)).toEqual(expected);
+  for (const gas of ['-1', '0x10', '1e3', '18446744073709551616'])
+    expect(() => buildWebDataRequest(module, 'search', 'network', gas, '', 1n)).toThrow();
+}
+test(web_data_view_refuses_nondecimal_callback_gas_before_building);
+
+function payer_grant_issued_decoder_refuses_data_on_the_indexed_only_event() {
+  const log = {
+    address: LEDGER_PRECOMPILE,
+    topics: [PAYER_GRANT_ISSUED, `0x${GRANT_ID}`],
+    data: '0x',
+    transactionHash: issuingTx(OWNED_GRANT),
+  };
+  expect(decodePayerGrantIssued(log)).toEqual([`0x${GRANT_ID}`, issuingTx(OWNED_GRANT)]);
+  expect(() => decodePayerGrantIssued({ ...log, data: `0x${'00'.repeat(32)}` })).toThrow(
+    'invalid grant log'
+  );
+  expect(() => decodePayerGrantIssued({ ...log, topics: [...log.topics, ACCOUNT_ID] })).toThrow(
+    'invalid grant log'
+  );
+}
+
+test(payer_grant_issued_decoder_refuses_data_on_the_indexed_only_event);
+
+interface LedgerProducerProof {
+  grantLogs: { address: string; topics: string[]; data: string; transactionHash: string }[];
+  grantId: string;
+  paymentLogs: LedgerProducerProof['grantLogs'];
+}
+
+declare module 'vitest' {
+  export interface ProvidedContext {
+    ledgerProof: LedgerProducerProof;
+  }
+}
+
+// Invoked by the Go proof with the actual application logs in Vitest's context.
+function proof_layerxledger_0x101a() {
+  const proof = inject('ledgerProof');
+  expect(
+    proof,
+    'precompiles/layerxledger/proof_layerxledger_0x101a_test.go producer'
+  ).toBeDefined();
+  // Decision 2340: the real issuance call refused and emitted no grant.
+  expect(proof.grantLogs).toHaveLength(0);
+  expect(proof.grantLogs.map(decodePayerGrantIssued)).toEqual([]);
+  expect(proof.paymentLogs).toHaveLength(2);
+  // A served payment event cannot masquerade as grant discovery.
+  for (const log of proof.paymentLogs)
+    expect(() => decodePayerGrantIssued(log)).toThrow('invalid grant log');
+}
+test(proof_layerxledger_0x101a);

@@ -320,10 +320,24 @@ impl Store {
                 self.persist()?;
                 Ok(Vec::new())
             }
-            Operation::Sign => Ok(signing_key(record.seed.as_ref().ok_or(Error::NotFound)?)?
-                .sign(&signing_digest.ok_or(Error::Refused)?)
-                .as_ref()
-                .to_vec()),
+            Operation::Sign => {
+                let signer = k256::ecdsa::SigningKey::from_slice(
+                    record.seed.as_ref().ok_or(Error::NotFound)?,
+                )
+                .map_err(|_| Error::Integrity)?;
+                let point = signer.verifying_key().to_encoded_point(false);
+                let address = layerx_crypto::secp256k1::evm_address(point.as_bytes())
+                    .map_err(|_| Error::Integrity)?;
+                if address != request.from {
+                    return Err(Error::Integrity);
+                }
+                let (signature, recovery) = signer
+                    .sign_prehash_recoverable(&signing_digest.ok_or(Error::Refused)?)
+                    .map_err(|_| Error::Integrity)?;
+                let mut bytes = signature.to_bytes().to_vec();
+                bytes.push(27 + recovery.to_byte());
+                Ok(bytes)
+            }
             _ => Err(Error::Refused),
         }
     }
@@ -420,14 +434,14 @@ impl Store {
             .records
             .get_mut(&hex(&request.binding))
             .ok_or(Error::NotFound)?;
-        if record.class != request.class
-            || request.reference != record.handle
-            || record.seed.is_none()
-        {
+        if record.class != request.class || request.reference != record.handle {
             return Err(Error::Refused);
         }
         if record.self_custodied {
             return Err(Error::SelfCustodied);
+        }
+        if record.seed.is_none() {
+            return Err(Error::NotFound);
         }
         if request.operation == 6 {
             if record.wallet.is_none() {

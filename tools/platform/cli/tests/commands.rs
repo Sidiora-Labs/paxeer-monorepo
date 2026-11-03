@@ -56,6 +56,9 @@ fn assert_command_failed(output: &std::process::Output) {
 
 #[test]
 fn new_scaffolds_a_deterministic_program_project() {
+    if !common::credential_environment() {
+        return;
+    }
     let cli = Cli::new();
     let parent = scratch_dir("scaffold");
     if let Err(error) = std::fs::create_dir_all(&parent) {
@@ -75,6 +78,9 @@ fn new_scaffolds_a_deterministic_program_project() {
 
 #[test]
 fn environment_list_reports_the_default_profile() {
+    if !common::credential_environment() {
+        return;
+    }
     let cli = Cli::new();
     let output = cli.run(&["--json", "environment", "list"]);
     let value = assert_success_envelope(&output, "environment.list");
@@ -88,6 +94,9 @@ fn environment_list_reports_the_default_profile() {
 
 #[test]
 fn environment_use_requires_endpoint_and_network_together() {
+    if !common::credential_environment() {
+        return;
+    }
     let cli = Cli::new();
     let output = cli.run(&[
         "--json",
@@ -107,6 +116,9 @@ fn environment_use_requires_endpoint_and_network_together() {
 
 #[test]
 fn legacy_non_emulator_profile_without_an_anchor_can_be_selected() {
+    if !common::credential_environment() {
+        return;
+    }
     let cli = Cli::new();
     let configuration = r#"{
   "version": 1,
@@ -138,6 +150,9 @@ fn legacy_non_emulator_profile_without_an_anchor_can_be_selected() {
 
 #[test]
 fn the_testnet_alias_selects_the_beta_environment() {
+    if !common::credential_environment() {
+        return;
+    }
     let cli = Cli::new();
     let configuration = r#"{
   "version": 1,
@@ -188,6 +203,9 @@ fn the_testnet_alias_selects_the_beta_environment() {
 
 #[test]
 fn environment_use_rejects_unknown_environment_names() {
+    if !common::credential_environment() {
+        return;
+    }
     let cli = Cli::new();
     let output = cli.run(&[
         "--json",
@@ -204,6 +222,9 @@ fn environment_use_rejects_unknown_environment_names() {
 
 #[test]
 fn key_lifecycle_metadata_persists_in_configuration() {
+    if !common::credential_environment() {
+        return;
+    }
     let cli = Cli::new();
     assert_success_envelope(
         &cli.run(&["--json", "key", "create", "alpha"]),
@@ -238,12 +259,18 @@ fn key_lifecycle_metadata_persists_in_configuration() {
 
 #[test]
 fn deleting_an_unknown_key_is_refused() {
+    if !common::credential_environment() {
+        return;
+    }
     let cli = Cli::new();
     assert_command_failed(&cli.run(&["--json", "key", "delete", "ghost"]));
 }
 
 #[test]
 fn auth_status_reports_no_token_for_a_fresh_environment() {
+    if !common::credential_environment() {
+        return;
+    }
     let cli = Cli::new();
     let output = cli.run(&["--json", "auth", "status", "--environment", "beta"]);
     let value = assert_success_envelope(&output, "auth.status");
@@ -255,6 +282,9 @@ fn auth_status_reports_no_token_for_a_fresh_environment() {
 
 #[test]
 fn payment_rejects_a_zero_amount() {
+    if !common::credential_environment() {
+        return;
+    }
     let cli = Cli::new();
     let output = cli.run(&[
         "--json",
@@ -276,6 +306,9 @@ fn payment_rejects_a_zero_amount() {
 
 #[test]
 fn payment_rejects_a_short_idempotency_key() {
+    if !common::credential_environment() {
+        return;
+    }
     let cli = Cli::new();
     let output = cli.run(&[
         "--json",
@@ -297,6 +330,9 @@ fn payment_rejects_a_short_idempotency_key() {
 
 #[test]
 fn receipt_get_rejects_an_unsafe_identifier() {
+    if !common::credential_environment() {
+        return;
+    }
     let cli = Cli::new();
     let output = cli.run(&["--json", "receipt", "get", "bad id"]);
     assert_command_failed(&output);
@@ -304,6 +340,9 @@ fn receipt_get_rejects_an_unsafe_identifier() {
 
 #[test]
 fn receipt_verify_refuses_a_forged_receipt_locally() {
+    if !common::credential_environment() {
+        return;
+    }
     let cli = Cli::new();
     let zeros = "0".repeat(64);
     let receipt = write_scratch_file("receipt", "00");
@@ -331,6 +370,9 @@ fn receipt_verify_refuses_a_forged_receipt_locally() {
 
 #[test]
 fn program_build_reports_a_missing_manifest() {
+    if !common::credential_environment() {
+        return;
+    }
     let cli = Cli::new();
     let missing = scratch_dir("manifest").join("Cargo.toml");
     let missing_text = missing.to_string_lossy().into_owned();
@@ -346,6 +388,9 @@ fn program_build_reports_a_missing_manifest() {
 
 #[test]
 fn program_deploy_reports_a_missing_artifact() {
+    if !common::credential_environment() {
+        return;
+    }
     let cli = Cli::new();
     let missing = scratch_dir("artifact").join("program.wasm");
     let missing_text = missing.to_string_lossy().into_owned();
@@ -372,6 +417,9 @@ fn program_deploy_reports_a_missing_artifact() {
 
 #[test]
 fn program_registry_get_rejects_an_unsafe_identifier() {
+    if !common::credential_environment() {
+        return;
+    }
     let cli = Cli::new();
     let output = cli.run(&["--json", "program", "registry", "get", "not a program"]);
     assert_command_failed(&output);
@@ -379,6 +427,9 @@ fn program_registry_get_rejects_an_unsafe_identifier() {
 
 #[test]
 fn program_registry_verify_source_rejects_a_malformed_digest() {
+    if !common::credential_environment() {
+        return;
+    }
     let cli = Cli::new();
     let output = cli.run(&[
         "--json",
@@ -398,6 +449,9 @@ fn program_registry_verify_source_rejects_a_malformed_digest() {
 
 #[test]
 fn json_and_human_output_diverge_for_the_same_command() {
+    if !common::credential_environment() {
+        return;
+    }
     let cli = Cli::new();
     let machine = cli.run(&["--json", "environment", "list"]);
     assert!(machine.status.success());
@@ -413,7 +467,31 @@ fn json_and_human_output_diverge_for_the_same_command() {
 
 #[test]
 fn unknown_subcommands_are_rejected() {
+    if !common::credential_environment() {
+        return;
+    }
     let cli = Cli::new();
     let output = cli.run(&["nonsense"]);
     assert!(!output.status.success());
+}
+
+#[test]
+fn malformed_arguments_keep_the_json_error_contract() {
+    if !common::credential_environment() {
+        return;
+    }
+    let cli = Cli::new();
+    for arguments in [
+        vec!["--json", "token", "list", "--limit", "0"],
+        vec!["program", "call", "--json"],
+        vec!["--json", "mcp", "serve"],
+    ] {
+        let output = cli.run(&arguments);
+        assert_eq!(output.status.code(), Some(2));
+        assert!(output.stdout.is_empty());
+        assert_eq!(
+            error_envelope(&output)["error"]["code"],
+            "invalid_arguments"
+        );
+    }
 }

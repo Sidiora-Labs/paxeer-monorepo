@@ -7,7 +7,7 @@ import { errorMessage, kernelStateGate, useAsync } from './hooks';
 import { useAccountClients } from './AccountProvider';
 import { KernelNotice } from './KernelNotice';
 
-type AssetBalance = BankBalance & Pick<BankAsset, 'symbol' | 'decimals'>;
+type AssetBalance = BankBalance & Pick<BankAsset, 'decimals'> & { symbol: string };
 
 function Balances({ balances }: { balances: AssetBalance[] }) {
   return (
@@ -42,7 +42,7 @@ export function AssetList({ account }: { account: string }) {
     return bankBalances.balances.map((balance): AssetBalance => {
       const asset = assets.get(balance.denom);
       if (!asset) throw new Error(`Asset metadata is unavailable for ${balance.denom}`);
-      return { ...balance, symbol: asset.symbol, decimals: asset.decimals };
+      return { ...balance, symbol: asset.symbol ?? balance.denom, decimals: asset.decimals };
     });
   }, `balances:${account.toLowerCase()}`);
   const unavailable = balances.status === 'error' ? kernelUnavailableFrom(balances.error) : null;

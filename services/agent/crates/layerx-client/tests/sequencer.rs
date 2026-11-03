@@ -3,11 +3,12 @@ use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpListener;
 use std::thread::JoinHandle;
 
+use layerx_crypto::evm_transaction::Eip1559Call;
+
 use layerx_client::sequencer::{
     CallRequest, ExecutedReceipt, ReceiptKeyEntry, RpcRefusal, SequencerBlock, SequencerEndpoint,
     SequencerError, SequencerLog, SequencerReceipt,
 };
-use layerx_crypto::evm_transaction::Eip1559Call;
 use serde_json::{json, Value};
 
 trait Must<T> {
@@ -94,6 +95,31 @@ fn serve(exchanges: Vec<Exchange>) -> (String, JoinHandle<Vec<Value>>) {
 
 fn endpoint(url: &str) -> SequencerEndpoint {
     SequencerEndpoint::new(url, &[]).must()
+}
+
+#[test]
+fn endpoint_refuses_plain_remote_urls_and_unpinned_https() {
+    assert_eq!(
+        SequencerEndpoint::new("http://router.example/", &[]).map(|_| ()),
+        Err(SequencerError::Endpoint)
+    );
+    assert_eq!(
+        SequencerEndpoint::new("https://router.example/", &[]).map(|_| ()),
+        Err(SequencerError::Endpoint)
+    );
+    assert_eq!(
+        SequencerEndpoint::new("https://router.example/", &[&[]]).map(|_| ()),
+        Err(SequencerError::Endpoint)
+    );
+    assert_eq!(
+        SequencerEndpoint::new("ftp://127.0.0.1/", &[]).map(|_| ()),
+        Err(SequencerError::Endpoint)
+    );
+    assert!(SequencerEndpoint::new("https://router.example/", &[&[0x30, 0x82]]).is_ok());
+    assert_eq!(
+        SequencerEndpoint::new("http://router.railway.internal:9443", &[]).map(|_| ()),
+        Err(SequencerError::Endpoint)
+    );
 }
 
 fn receipted_members() -> String {
@@ -278,40 +304,41 @@ fn public_key(seed: u8) -> [u8; 32] {
 
 #[test]
 fn receipt_keys_decode_height_ranges_and_refuse_invalid_entries() {
-    let entry = |id: u8, key: [u8; 32], first: &str, last: &str| {
+    let entry = |id: u8, key: [u8; 32], first: u64, last: u64| {
         let key = hex(&key);
         format!(
-            r#"{{"keyId":"0x{}","publicKey":"0x{key}","firstHeight":"{first}","lastHeight":"{last}"}}"#,
+            r#"{{"keyId":"0x{}","publicKey":"0x{key}","firstHeight":{first},"lastHeight":{last}}}"#,
             format!("{id:02x}").repeat(32)
         )
     };
     let listed = format!(
-        r#""result":[{},{}]"#,
-        entry(1, public_key(7), "0x1", "0x3e7"),
-        entry(2, public_key(8), "0x3e8", "0xffffffffffffffff")
+        r#""result":{{"keys":[{},{}]}}"#,
+        entry(1, public_key(7), 1, 999),
+        entry(2, public_key(8), 1000, u64::MAX)
     );
     let (url, server) = serve(vec![
+        ("px_getReceiptKeys", Some(listed.clone())),
         ("px_getReceiptKeys", Some(listed)),
         (
             "px_getReceiptKeys",
             Some(format!(
-                r#""result":[{},{}]"#,
-                entry(1, public_key(7), "0x1", "0x3e7"),
-                entry(1, public_key(8), "0x3e8", "0x7d0")
+                r#""result":{{"keys":[{},{}]}}"#,
+                entry(1, public_key(7), 1, 999),
+                entry(1, public_key(8), 1000, 2000)
             )),
         ),
         (
             "px_getReceiptKeys",
             Some(format!(
-                r#""result":[{}]"#,
-                entry(1, public_key(7), "0x3e8", "0x3e7")
+                r#""result":{{"keys":[{}]}}"#,
+                entry(1, public_key(7), 1000, 999)
             )),
         ),
         (
             "px_getReceiptKeys",
             Some(format!(
-                r#""result":[{}]"#,
-                entry(0, public_key(7), "0x1", "0x2")
+                r#""result":{{"keys":[{}]}}"#,
+                entry(0, public_key(7), 1, 2)
             )),
         ),
     ]);
@@ -330,6 +357,23 @@ fn receipt_keys_decode_height_ranges_and_refuse_invalid_entries() {
                 public_key: public_key(8),
                 first_height: 1000,
                 last_height: u64::MAX,
+            },
+        ])
+    );
+    assert_eq!(
+        endpoint.receipt_keys(),
+        Ok(vec![
+            ReceiptKeyEntry {
+                key_id: [1; 32],
+                public_key: public_key(7),
+                first_height: 1,
+                last_height: 999
+            },
+            ReceiptKeyEntry {
+                key_id: [2; 32],
+                public_key: public_key(8),
+                first_height: 1000,
+                last_height: u64::MAX
             },
         ])
     );
@@ -635,31 +679,6 @@ fn unusable_send_answer_is_unavailable() {
         Err(SequencerError::Malformed)
     );
     assert_eq!(server.join().must().len(), 4);
-}
-
-#[test]
-fn endpoint_refuses_plain_remote_urls_and_unpinned_https() {
-    assert_eq!(
-        SequencerEndpoint::new("http://router.example/", &[]).map(|_| ()),
-        Err(SequencerError::Endpoint)
-    );
-    assert_eq!(
-        SequencerEndpoint::new("https://router.example/", &[]).map(|_| ()),
-        Err(SequencerError::Endpoint)
-    );
-    assert_eq!(
-        SequencerEndpoint::new("https://router.example/", &[&[]]).map(|_| ()),
-        Err(SequencerError::Endpoint)
-    );
-    assert_eq!(
-        SequencerEndpoint::new("ftp://127.0.0.1/", &[]).map(|_| ()),
-        Err(SequencerError::Endpoint)
-    );
-    assert!(SequencerEndpoint::new("https://router.example/", &[&[0x30, 0x82]]).is_ok());
-    assert_eq!(
-        SequencerEndpoint::new("http://router.railway.internal:9443", &[]).map(|_| ()),
-        Err(SequencerError::Endpoint)
-    );
 }
 
 #[test]

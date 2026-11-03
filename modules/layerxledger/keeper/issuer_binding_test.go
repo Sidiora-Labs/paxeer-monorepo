@@ -3,6 +3,8 @@ package keeper_test
 import (
 	"encoding/hex"
 	"errors"
+	"fmt"
+	"math/big"
 	"testing"
 
 	ledgerkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxledger/keeper"
@@ -64,7 +66,7 @@ func TestRegisterBindsTokenfactoryDenom(t *testing.T) {
 	require.NoError(t, err)
 	require.Zero(t, result.Receipt.ResultCode)
 	require.Equal(t, []issuerBindingCall{
-		{method: "create", creator: authtypes.NewModuleAddress(types.ModuleName).String(), subdenom: hex.EncodeToString(args.AssetID[:])},
+		{method: "create", creator: authtypes.NewModuleAddress(types.ModuleName).String(), subdenom: fmt.Sprintf("%043s", new(big.Int).SetBytes(args.AssetID[:]).Text(62))},
 		{method: "issuer", denom: issuer.denom, did: string(actor.DID)},
 	}, issuer.calls)
 	asset, err := f.host.ReadAsset(f.ctx, args.AssetID)

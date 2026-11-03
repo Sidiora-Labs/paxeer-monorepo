@@ -62,8 +62,6 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       label: "Paxify",
       icon: SunIcon,
       value: 'greenify',
-      // Real backdrop served from /public — shown as the preview.
-      bgImage: '/Paxify.png',
       gradient: 'linear-gradient(135deg, var(--brand-blue) 0%, #0035a8 100%)',
       badgeColor: '#ecfdf5',
       badgeBg: '#13136d',
@@ -201,7 +199,9 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         <div
                           className="w-10 h-10 rounded-lg border flex items-center justify-center relative overflow-hidden shrink-0"
                           style={{
-                            backgroundImage: `url(${option.bgImage}), ${option.gradient}`,
+                            backgroundImage: option.bgImage
+                              ? `url(${option.bgImage}), ${option.gradient}`
+                              : option.gradient,
                             backgroundSize: 'cover',
                             backgroundPosition: 'center',
                             borderColor: option.border

@@ -12,11 +12,17 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
+// JSON-RPC names shared with metrics and the client parity contract.
+const (
+	eth_getRawTransactionByBlockNumberAndIndex = "eth_getRawTransactionByBlockNumberAndIndex"
+	eth_getRawTransactionByBlockHashAndIndex   = "eth_getRawTransactionByBlockHashAndIndex"
+)
+
 func (r *RawTransactionAPI) GetRawTransactionByBlockNumberAndIndex(ctx context.Context, blockNr rpc.BlockNumber, index hexutil.Uint) (result hexutil.Bytes, returnErr error) {
 	t := r.transactions
 	startTime := time.Now()
 	defer func() {
-		recordMetricsWithError(ctx, "eth_getRawTransactionByBlockNumberAndIndex", t.connectionType, startTime, returnErr, recover())
+		recordMetricsWithError(ctx, eth_getRawTransactionByBlockNumberAndIndex, t.connectionType, startTime, returnErr, recover())
 		var overflowErr txUint32OverflowError
 		if errors.As(returnErr, &overflowErr) {
 			returnErr = nil
@@ -41,7 +47,7 @@ func (r *RawTransactionAPI) GetRawTransactionByBlockHashAndIndex(ctx context.Con
 	t := r.transactions
 	startTime := time.Now()
 	defer func() {
-		recordMetricsWithError(ctx, "eth_getRawTransactionByBlockHashAndIndex", t.connectionType, startTime, returnErr, recover())
+		recordMetricsWithError(ctx, eth_getRawTransactionByBlockHashAndIndex, t.connectionType, startTime, returnErr, recover())
 		var overflowErr txUint32OverflowError
 		if errors.As(returnErr, &overflowErr) {
 			returnErr = nil

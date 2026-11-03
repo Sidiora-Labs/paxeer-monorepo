@@ -8,6 +8,7 @@ import { formatUnits } from 'viem';
 
 /** Parse a decimal string to base units. Returns undefined on any malformed input. */
 export function parseAmount(input: string, decimals: number): bigint | undefined {
+  if (!Number.isInteger(decimals) || decimals < 0 || decimals > 255) return undefined;
   let text = input.trim();
   const integerPart = text.split('.')[0];
   if (integerPart.includes(',')) {

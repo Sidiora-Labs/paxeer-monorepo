@@ -1,8 +1,25 @@
 import ast
 from pathlib import Path
+import re
 from types import ModuleType
 
 import pytest
+
+
+def test_history_readiness_missing_source_refusal_matches_indexer(data_boundary: ModuleType):
+    script_path = Path(data_boundary.__file__)
+    config_path = script_path.resolve().parents[2] / "services/platform/hosted/indexer/src/config.rs"
+    missing_source = re.search(
+        r'if paxeer\.is_none\(\)\s*\{\s*return Err\(IndexError::Config\(\s*"([^"]+)"\.to_owned\(\)',
+        config_path.read_text(),
+    )
+    assert missing_source is not None, "missing EVM source refusal not found in indexer config"
+    assert data_boundary.MISSING_EVM_SOURCE_REFUSAL == (
+        "layerx-indexer: configuration invalid: " + missing_source.group(1)
+    )
+    script_source = script_path.read_text()
+    assert "MISSING_EVM_SOURCE_REFUSAL in refusal" in script_source
+    assert "LAYERX_INDEXER_RELAY_URL" not in script_source
 
 
 def test_history_readiness_uses_evm_url(data_boundary: ModuleType, tmp_path: Path):

@@ -6,12 +6,13 @@ rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
+base64 = "=0.22.1"
+layerx_programs_registry = { package = "layerx-programs-registry", version = "=0.1.0", path = "../../../../programs/crates/layerx-programs-registry" }
 ed25519-dalek = "=2.2.0"
 layerx-crypto = { path = "../layerx-crypto" }
 layerx-types = { path = "../layerx-types" }
 layerx-wire = { path = "../layerx-wire" }
 layerx-proof = { path = "../layerx-proof" }
-layerx-paxeer-verifier = { path = "../layerx-paxeer-verifier" }
 layerx-programs-ai-market = { path = "../../../../programs/crates/layerx-programs-ai-market" }
 sha2 = "=0.10.9"
 rustls = { version = "0.23.32", default-features = false, features = ["ring", "std", "tls12"] }

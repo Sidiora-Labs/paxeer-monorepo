@@ -115,3 +115,31 @@ def check_against_spec(
             )
         checked.append({**card, "max_parallel": max(waves.values())})
     return checked
+
+
+def render_counts(
+    cards: Iterable[Mapping[str, KvxValue]], spec_path: str | PathLike[str]
+) -> list[dict[str, KvxValue]]:
+    checked = check_against_spec(cards, spec_path)
+    domains = {str(card["domain"]) for card in checked}
+    counts: dict[str, Counter[int]] = {}
+    for name, task in load(spec_path).items():
+        if name.startswith("task."):
+            domain = name.removeprefix("task.").split(".", 1)[0]
+            if domain not in domains:
+                continue
+            wave = task.get("wave")
+            if type(wave) is not int or wave < 0:
+                raise CardError(f"{name}: wave must be a nonnegative integer")
+            counts.setdefault(domain, Counter())[wave] += 1
+
+    return [
+        {
+            **card,
+            "waves": [
+                f"wave {wave}: {count}"
+                for wave, count in sorted(counts[str(card["domain"])].items())
+            ],
+        }
+        for card in checked
+    ]

@@ -14,14 +14,9 @@ use layerx_agentd::prepare::evm::{PrecompileTarget, ProductionEvmPreparationBoun
 use layerx_agentd::session::{self, OpenRequest, SessionId, SessionRecord, SessionRegistry};
 use layerx_agentd::session_keys::SessionKeyRegistry;
 use layerx_agentd::store::{ObjectKind, Store, TenantId};
-use layerx_client::client::{ClientConfig, ReconnectPolicy};
-use layerx_client::lni::handshake::{encode_node_info, HandshakeConfig, NodeInfo, NodeRole};
-use layerx_client::lni::schema::{encode_envelope, Envelope, Version};
-use layerx_client::lni::transport::Limits;
 use layerx_client::paxeer_binding::{Binding, SignedBinding};
 use layerx_client::runtime_clock::{ClockBinding, RuntimeClock};
 use layerx_client::sequencer::SequencerEndpoint;
-use layerx_client::Client;
 use layerx_crypto::account_derivation::derive_from_seed;
 use layerx_crypto::evm_transaction::Eip1559Call;
 use layerx_crypto::session::{
@@ -456,75 +451,6 @@ fn clock_peer(root: &Path) -> (Arc<RuntimeClock>, Peer) {
     (clock, worker)
 }
 
-fn node_peer(root: &Path) -> (Client, Peer) {
-    let path = root.join("node.sock");
-    let listener = must(UnixListener::bind(&path));
-    must(listener.set_nonblocking(true));
-    let info = NodeInfo {
-        interface_version: Version::V1_8,
-        protocol_version: 3,
-        network_id: 125,
-        role: NodeRole::Sequencer,
-        chain_head_sequence: HEAD,
-        latest_sealed_batch: 1,
-        latest_finalised_checkpoint: random(),
-        authorised_sequencer_key: ed25519_dalek::SigningKey::from_bytes(&random())
-            .verifying_key()
-            .to_bytes(),
-        advertised_capabilities: vec![],
-    };
-    let worker = Peer::spawn(move |stop| {
-        while !stop.load(Ordering::Acquire) {
-            match listener.accept() {
-                Ok((mut stream, _)) => {
-                    must(stream.set_read_timeout(Some(Duration::from_secs(3))));
-                    let mut prefix = [0; 4];
-                    must(stream.read_exact(&mut prefix));
-                    let mut request = vec![0; u32::from_be_bytes(prefix) as usize];
-                    must(stream.read_exact(&mut request));
-                    let payload = must(encode_node_info(&info));
-                    let response = must(encode_envelope(Envelope {
-                        version: Version::V1_8,
-                        message_tag: 2,
-                        correlation_id: 0,
-                        canonical_payload: &payload,
-                        proof_material: &[],
-                    }));
-                    must(stream.write_all(&must(u32::try_from(response.len())).to_be_bytes()));
-                    must(stream.write_all(&response));
-                }
-                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                    thread::sleep(Duration::from_millis(2))
-                }
-                Err(error) => panic!("LNI accept: {error}"),
-            }
-        }
-    });
-    let deadline = Duration::from_secs(3);
-    let node = must(Client::connect(ClientConfig {
-        endpoint: path,
-        handshake: HandshakeConfig {
-            built_interface_version: Version::V1_8,
-            expected_protocol_version: 3,
-            expected_network_id: 125,
-        },
-        limits: Limits {
-            maximum_frame_bytes: 1_212_416,
-            maximum_connections: 1,
-            maximum_streams: 1,
-            maximum_queued_bytes: 1_212_416,
-            deadline,
-        },
-        reconnect: ReconnectPolicy {
-            maximum_attempts: 1,
-            base_delay: Duration::from_millis(1),
-            maximum_delay: Duration::from_millis(1),
-            jitter_percent: 0,
-        },
-    }));
-    (node, worker)
-}
-
 struct OwnerFixture {
     owner: SharedAgentOwner<RemoteHumanAuthority>,
     retained: Arc<Mutex<Store>>,
@@ -634,17 +560,29 @@ impl OwnerFixture {
         .credential();
         let retained = Arc::new(Mutex::new(store));
         let (clock, clock_worker) = clock_peer(&root);
-        let (client, node_worker) = node_peer(&root);
-        let node_head = client.head();
         let node = Node::start();
+        let from = account.evm_address();
+        node.rpc(
+            "anvil_setBalance",
+            json!([format!("0x{}", hex::encode(from)), "0x3635c9adc5dea00000"]),
+        );
+        node.rpc(
+            "anvil_setNonce",
+            json!([format!("0x{}", hex::encode(from)), "0x7"]),
+        );
+        let binding = Binding::new(125, from, 3).sign(account.layerx_seed());
+        let writes = Arc::new(AtomicUsize::new(0));
+        let (url, chain_worker) = chain_peer(&node, binding, Arc::clone(&writes));
+        let endpoint = must(SequencerEndpoint::new(&url, &[]));
         let chain = must(NodeRpc::connect(&NodeRpcConfig {
-            url: node.url.clone(),
+            url: url.clone(),
             chain_id: 125,
             deadline: Duration::from_secs(3),
         }));
+        let node_head = must(endpoint.block_number());
         let mut operations = must(ProductionHumanOperations::new(
             authority,
-            client,
+            must(SequencerEndpoint::new(&url, &[])),
             Box::new(chain),
             Arc::clone(&retained),
             &peers,
@@ -697,8 +635,8 @@ impl OwnerFixture {
             &mut owner.degraded,
             layerx_agentd::degraded::Observation::Ready {
                 reference: layerx_agentd::degraded::Reference {
-                    head_sequence: node_head.chain_sequence,
-                    checkpoint: node_head.finalised_checkpoint,
+                    head_sequence: node_head,
+                    checkpoint: [0; 32],
                 },
                 maximum_rung: layerx_types::rung::Rung::Submitted,
             },
@@ -708,19 +646,6 @@ impl OwnerFixture {
             1000,
             1000,
         ));
-        let from = account.evm_address();
-        node.rpc(
-            "anvil_setBalance",
-            json!([format!("0x{}", hex::encode(from)), "0x3635c9adc5dea00000"]),
-        );
-        node.rpc(
-            "anvil_setNonce",
-            json!([format!("0x{}", hex::encode(from)), "0x7"]),
-        );
-        let binding = Binding::new(125, from, 3).sign(account.layerx_seed());
-        let writes = Arc::new(AtomicUsize::new(0));
-        let (url, chain_worker) = chain_peer(&node, binding, Arc::clone(&writes));
-        let endpoint = must(SequencerEndpoint::new(&url, &[]));
         let boundary = must(ProductionEvmPreparationBoundary::new(&url, &[]));
         let previous_rpc = std::env::var_os("LAYERX_AGENT_NODE_RPC_URL");
         let previous_chain = std::env::var_os("LAYERX_AGENT_NODE_CHAIN_ID");
@@ -737,7 +662,7 @@ impl OwnerFixture {
             endpoint,
             boundary,
             writes,
-            peers: vec![authority_worker, clock_worker, node_worker, chain_worker],
+            peers: vec![authority_worker, clock_worker, chain_worker],
             node,
             root,
             previous_rpc,

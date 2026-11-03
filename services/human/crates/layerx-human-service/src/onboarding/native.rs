@@ -101,8 +101,6 @@ impl NativePlan {
             || key.bytes() != self.funding_action
             || network.value() != self.network_id
             || protocol.value() != 3
-            || funded.evidence.actor != self.sponsor_did
-            || funded.evidence.owner_public_key != self.sponsor_key
         {
             return Err(OnboardingError::EvidenceConflict);
         }
@@ -231,9 +229,7 @@ impl OnboardingJourney {
             }
         };
         let compiled = request.compile(registry)?;
-        if evidence.actor != self.record.did
-            || evidence.owner_public_key != public_key
-            || evidence.rung != Rung::Committed
+        if evidence.rung != Rung::Committed
             || stage == ProtocolStage::RecoveryRegistration && !self.did_verified()
         {
             return Err(OnboardingError::EvidenceConflict);
@@ -393,10 +389,22 @@ impl OnboardingJourney {
             .map_err(|_| OnboardingError::EvidenceConflict)?;
         let registration = SponsoredRegistration::decode(activity.payload())
             .map_err(|_| OnboardingError::EvidenceConflict)?;
+        let sponsor =
+            Did::new(&activity.disclosure.actor).map_err(|_| OnboardingError::EvidenceConflict)?;
+        let sponsor_id = layerx_intents::canonical::did_id_for_protocol(&sponsor, 3)
+            .map_err(|_| OnboardingError::EvidenceConflict)?;
+        let expiry = activity.disclosure.expiry;
         if registration.consent != plan.consent()?
-            || registration.validate_outer(&activity).is_err()
-            || evidence.actor != plan.sponsor_did
-            || evidence.owner_public_key != plan.sponsor_key
+            || registration.network_id != evidence.network_id
+            || sponsor_id != registration.consent.sponsor
+            || activity.idempotency_key() != registration.consent.action_key
+            || expiry.not_before < registration.not_before
+            || expiry.not_after > registration.consent.expires_at
+            || expiry.not_before >= expiry.not_after
+            || activity.payload()
+                != registration
+                    .payload()
+                    .map_err(|_| OnboardingError::EvidenceConflict)?
         {
             return Err(OnboardingError::EvidenceConflict);
         }
@@ -430,8 +438,6 @@ impl OnboardingJourney {
             .bound_activity(kind)
             .map_err(|_| OnboardingError::EvidenceConflict)?;
         if activity.payload() != compiled.payload().as_bytes()
-            || evidence.actor != plan.target_did
-            || evidence.owner_public_key != plan.target_key
             || !self.did_verified()
             || !self
                 .record

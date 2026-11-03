@@ -2,6 +2,7 @@
 
 use layerx_types::error::ErrorClass as LayerErrorClass;
 use layerx_types::result::ResultCode;
+pub use layerx_types::result::Retriability;
 
 use crate::identity::ContractError;
 
@@ -88,12 +89,6 @@ impl From<LayerErrorClass> for ErrorClass {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum Retriability {
-    Terminal,
-    Retriable,
-}
-
 /// One lossless error envelope used by all generated SDKs.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ApiError {
@@ -105,15 +100,25 @@ pub struct ApiError {
 }
 
 impl ApiError {
+    /// Preserves the core's exact result and its canonical retry classification.
     #[must_use]
-    pub fn idempotent_replay(request_id: RequestId) -> Self {
+    pub fn core_rejection(request_id: RequestId, result: ResultCode, reason: ReasonCode) -> Self {
         Self {
             class: ErrorClass::CoreRejection,
-            protocol_result_code: Some(ResultCode::from_raw(-302)),
-            retriability: Retriability::Terminal,
+            protocol_result_code: Some(result),
+            retriability: result.retriability(),
             request_id,
-            reason: ReasonCode("idempotent_replay".into()),
+            reason,
         }
+    }
+
+    #[must_use]
+    pub fn idempotent_replay(request_id: RequestId) -> Self {
+        Self::core_rejection(
+            request_id,
+            ResultCode::from_raw(-302),
+            ReasonCode("idempotent_replay".into()),
+        )
     }
 
     /// Constructs the non-emulated unavailable-capability error.
@@ -145,6 +150,26 @@ pub enum RungStatus {
         achieved: Rung,
         reason: ReasonCode,
     },
+}
+
+impl RungStatus {
+    /// Refuses an impossible shortfall before a transport renders it as success.
+    ///
+    /// # Errors
+    /// Returns a mismatch when a Below status has already reached its requested rung.
+    pub fn validate(&self) -> Result<(), ContractError> {
+        if let Self::Below {
+            requested,
+            achieved,
+            ..
+        } = self
+        {
+            if achieved >= requested {
+                return Err(ContractError::Mismatch("verification.inconsistent"));
+            }
+        }
+        Ok(())
+    }
 }
 
 /// The only successful API envelope; verification status cannot be omitted.

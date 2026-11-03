@@ -1,16 +1,18 @@
 module github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor
 
-go 1.25.6
+go 1.25.8
 
 require (
 	filippo.io/edwards25519 v1.1.0
+	github.com/Sidiora-Labs/Paxeer-X-Network v0.0.0
 	github.com/ethereum/go-ethereum v1.16.8
 	github.com/getamis/alice v1.0.9-0.20260916062408-d8fd6861d3b2
 	github.com/holiman/uint256 v1.3.2
 	github.com/lestrrat-go/jwx/v2 v2.1.7
 	github.com/pkg/sftp v1.13.11
 	github.com/prometheus/client_golang v1.24.1
-	github.com/Sidiora-Labs/Paxeer-X-Network v0.0.0
+	github.com/prometheus/client_model v0.6.2
+	github.com/prometheus/common v0.70.1
 	go.etcd.io/bbolt v1.5.0
 	golang.org/x/crypto v0.54.0
 	google.golang.org/protobuf v1.36.11
@@ -42,8 +44,6 @@ require (
 	github.com/lestrrat-go/option v1.0.1 // indirect
 	github.com/minio/blake2b-simd v0.0.0-20160723061019-3f5f724cb5b1 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/prometheus/client_model v0.6.2 // indirect
-	github.com/prometheus/common v0.70.1 // indirect
 	github.com/prometheus/procfs v0.21.1 // indirect
 	github.com/rollbar/rollbar-go v1.2.0 // indirect
 	github.com/segmentio/asm v1.2.1 // indirect

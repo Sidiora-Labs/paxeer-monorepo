@@ -435,6 +435,7 @@ fn kernel_journey_legs(
                 expectation.actor.clone(),
                 expectation.authority.clone(),
                 binding.account_sequence,
+                binding.account_sequence,
                 binding.not_before,
                 binding.not_after,
                 binding.fee_limit,
@@ -509,6 +510,7 @@ impl IntentSubmission {
             JourneyState::StillChecking => "still-checking",
             JourneyState::Done => "done",
             JourneyState::Refused => "refused",
+            JourneyState::Closed => "closed",
         };
         Self {
             journey_id: status.journey_id().clone(),

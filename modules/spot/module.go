@@ -107,6 +107,8 @@ func (am AppModule) RegisterInvariants(registry sdk.InvariantRegistry) {
 	keeper.RegisterInvariants(registry, am.keeper)
 }
 
+// InitGenesis decodes the application genesis and delegates validation and
+// active-index reconstruction to the same keeper served by the ABI rails.
 func (am AppModule) InitGenesis(ctx sdk.Context, _ codec.JSONCodec, gs json.RawMessage) []abci.ValidatorUpdate {
 	var genState types.GenesisState
 	if err := json.Unmarshal(gs, &genState); err != nil {

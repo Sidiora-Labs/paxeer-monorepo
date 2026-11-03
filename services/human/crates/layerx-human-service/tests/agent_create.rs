@@ -796,6 +796,71 @@ fn durable_count(root: &std::path::Path, stage: CreationStage) -> usize {
 }
 
 #[test]
+fn program_call_disclosure_is_refused_as_a_lifecycle_method() {
+    use layerx_crypto::disclosure::call::{bind_call, encode_program_call, ConstructMethod};
+    use layerx_crypto::evm_transaction::{
+        decode_signed, recover_sender, transaction_hash, Eip1559Call,
+    };
+    use layerx_types::intent::ProgramId;
+    use layerx_types::program_call::{NativeProgramCall, Resources};
+
+    let native = NativeProgramCall {
+        program_id: ProgramId::new([0x31; 32]),
+        guest_abi: 5,
+        entrypoint: b"layerx_call",
+        calldata: &[1, 2, 3, 4],
+        capabilities: &[0, 0],
+        access_declaration: b"LayerX/programs/access-declaration/v1\0\0",
+        response_capacity: 16,
+        resources: Resources([1_000_000, 16_777_216, 1_048_576, 64, 7, 4096, 1_000]),
+    };
+    let mut to = [0; 20];
+    to[18..].copy_from_slice(&0x101d_u16.to_be_bytes());
+    let call = Eip1559Call {
+        chain_id: u64::from(NETWORK_ID),
+        nonce: 1,
+        max_priority_fee_per_gas: 1,
+        max_fee_per_gas: 10,
+        gas_limit: 100_000,
+        to,
+        data: encode_program_call(&native, 1_000),
+    };
+    let signed_activity = call.sign(&[0x68; 32]).expect("sign program call");
+    let (decoded, signature) = decode_signed(&signed_activity).expect("decode program call");
+    let sender = recover_sender(&decoded, &signature).expect("recover program caller");
+    let disclosure = bind_call(&decoded, sender).expect("bind program call disclosure");
+    assert!(matches!(
+        disclosure.construct_method().expect("program call method"),
+        Some(ConstructMethod::ProgramCall { call, fee_limit })
+            if call.native() == native && fee_limit == 1_000
+    ));
+    let expected = activity(ModuleId::Programs, 3);
+    assert_eq!(disclosure.activity_type, expected);
+    let mut owner_public_key = [0; 32];
+    owner_public_key[12..].copy_from_slice(&sender);
+    let activity_id = transaction_hash(&signed_activity);
+    let evidence = ProtocolEvidence {
+        signed_activity,
+        actor: disclosure.actor.clone(),
+        owner_public_key,
+        network_id: NETWORK_ID,
+        action_key: disclosure.idempotency_key,
+        activity_id,
+        receipt_bytes: Vec::new(),
+        tx_hash: activity_id,
+        receipt_hash: [0; 32],
+        block_height: CORE_SEQUENCE,
+        rung: Rung::Committed,
+    };
+    assert_eq!(
+        evidence.bound_activity(expected).err(),
+        Some(AgentFailure::Refused(
+            "invalid lifecycle transaction method"
+        )),
+    );
+}
+
+#[test]
 fn creation_is_receipt_gated_idempotent_and_uses_real_agentd_paths() {
     let mut fixture = Fixture::new("agent-create-complete");
     let alice = principal("alice");
@@ -835,7 +900,7 @@ fn creation_is_receipt_gated_idempotent_and_uses_real_agentd_paths() {
     ));
     let compiled =
         layerx_intents::compile(&intent, &fixture.registry).expect("compiled creation budget");
-    let (canonical, disclosure, _) = prepare_call(compiled.payload());
+    let (canonical, disclosure, signed_creation) = prepare_call(compiled.payload());
     let call = layerx_human_kms::attestor::decode_unsigned_evm_transaction(&canonical)
         .expect("unsigned EIP-1559 creation preparation");
     assert!(matches!(
@@ -879,33 +944,11 @@ fn creation_is_receipt_gated_idempotent_and_uses_real_agentd_paths() {
             "agent preparation differs from creation intent"
         )),
     );
-    let envelope_intent = layerx_intents::Intent::v1(IntentKind::DidRegistration(
-        layerx_intents::DidRegistration::new(
-            layerx_types::ids::Did::new(b"did:layerx:owner-receipt-fixture")
-                .expect("kernel creation actor"),
-            layerx_types::intent::PublicKey::new(
-                SigningKey::from_bytes(&[0x68; 32])
-                    .verifying_key()
-                    .to_bytes(),
-            ),
-        )
-        .expect("kernel creation intent"),
-    ));
-    let envelope_compiled = layerx_intents::compile(&envelope_intent, &fixture.registry)
-        .expect("compiled kernel creation intent");
-    let envelope = canonical_owner::sign(
-        envelope_compiled.payload(),
-        disclosure.idempotency_key,
-        layerx_intents::canonical::STATE_COMMITMENT_PROTOCOL_VERSION,
-        NETWORK_ID,
-    );
-    let activity =
-        layerx_intents::canonical::decode_signed_activity(&envelope.bytes, &fixture.registry)
-            .expect("kernel creation activity");
-    let envelope_bytes = layerx_intents::canonical::unsigned_activity_bytes(&activity)
-        .expect("unsigned kernel creation activity");
+    let (signed_call, _) = layerx_crypto::evm_transaction::decode_signed(&signed_creation.bytes)
+        .expect("signed creation transaction");
+    assert_eq!(signed_call, call);
     assert_eq!(
-        verify_creation_call_disclosure(&envelope_bytes, &disclosure),
+        verify_creation_call_disclosure(&signed_creation.bytes, &disclosure),
         Err(AgentFailure::Refused(
             "agent preparation differs from creation intent"
         )),

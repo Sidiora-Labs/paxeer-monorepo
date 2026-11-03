@@ -482,11 +482,21 @@ mod tests {
     #[test]
     fn positional_requests_match_published_contract() -> Result<(), String> {
         let fixture = include_str!("../tests/fixtures/openrpc.json");
+        let gateway = include_str!("../../../../services/platform/hosted/gateway/openrpc.json");
+        assert_eq!(fixture, gateway);
         let published: Value = serde_json::from_str(fixture).map_err(|error| error.to_string())?;
         let methods = published["methods"]
             .as_array()
             .ok_or("missing contract methods")?;
         assert_published_methods(methods)?;
+        let network = methods
+            .iter()
+            .find(|entry| entry["name"] == "px_getNetwork")
+            .ok_or("missing px_getNetwork contract")?;
+        assert_eq!(
+            network["result"]["schema"]["required"],
+            json!(["network_id", "paxeer", "consensus"])
+        );
         let id = "ab".repeat(32);
         for (method, params) in [
             ("lx_getAsset", json!([id])),

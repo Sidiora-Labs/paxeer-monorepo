@@ -6,19 +6,24 @@ use crate::rung::Rung;
 
 /// Internal rank for the ordered verification lattice.
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[repr(u8)]
 enum VerificationRank {
-    Unverified,
-    SequencerSigned,
-    BatchIncluded,
-    StateProven,
-    CheckpointFinalised,
-    SettlementAnchored,
+    Unverified = 0,
+    SequencerSigned = 1,
+    BatchIncluded = 2,
+    StateProven = 3,
+    CheckpointFinalised = 4,
+    SettlementAnchored = 5,
 }
 
 /// An ordered verification level. The internal rank is private so callers can
 /// request and compare levels but cannot invent a new level representation.
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct VerificationLevel(VerificationRank);
+
+/// A wire label outside the declared verification lattice.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct InvalidVerificationRank(pub u8);
 
 impl VerificationLevel {
     /// No local evidence has passed.
@@ -52,6 +57,22 @@ impl VerificationLevel {
     #[must_use]
     pub const fn wire_rank(self) -> u8 {
         self.0 as u8
+    }
+
+    /// Decodes an observation's stable wire label, without constructing verified evidence.
+    ///
+    /// # Errors
+    /// Returns the rejected rank for any label outside zero through five.
+    pub const fn from_wire_rank(rank: u8) -> Result<Self, InvalidVerificationRank> {
+        match rank {
+            0 => Ok(Self::UNVERIFIED),
+            1 => Ok(Self::SEQUENCER_SIGNED),
+            2 => Ok(Self::BATCH_INCLUDED),
+            3 => Ok(Self::STATE_PROVEN),
+            4 => Ok(Self::CHECKPOINT_FINALISED),
+            5 => Ok(Self::SETTLEMENT_ANCHORED),
+            _ => Err(InvalidVerificationRank(rank)),
+        }
     }
 
     /// Maps legacy evidence levels to write rungs; settlement anchoring has no rung.

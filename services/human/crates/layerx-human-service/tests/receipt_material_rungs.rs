@@ -1,5 +1,7 @@
 use layerx_agent_api::track::{ReceiptRef, SubmissionRef, SubmissionState, TrackedSubmission};
-use layerx_human_service::journeys::{AgentObservation, ReceiptLookup, ReceiptMaterial};
+use layerx_human_service::journeys::{
+    AgentObservation, ReceiptKeyEntry, ReceiptLookup, ReceiptMaterial,
+};
 use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::receipt::{
     verify_sequencer_signature, AuthorizedBatch, ReceiptCheck, ReceiptKeys, VerificationFailure,
@@ -120,9 +122,18 @@ fn journey_leg_receipt_material_carries_rung_and_receipt_hash() {
         )
         .expect("batch authority against independently pinned receipt key");
         let verification_level = layerx_types::verify::VerificationLevel::SEQUENCER_SIGNED;
+        let receipt_key = ReceiptKeyEntry {
+            key_id: hash(case, "pinnedKey.keyId"),
+            public_key: hash(case, "pinnedKey.publicKey"),
+            first_height: case.u64_at("pinnedKey.firstHeight").expect("first height"),
+            last_height: case.u64_at("pinnedKey.lastHeight").expect("last height"),
+        };
         for rung in [rung, Rung::Committed] {
             let material = ReceiptMaterial {
                 canonical_bytes: canonical_bytes.clone(),
+                signed_receipt: canonical_bytes.clone(),
+                receipt_key: receipt_key.clone(),
+                inclusion_height: block_height,
                 authorised_batch,
                 verification_level,
                 tx_hash,
@@ -158,6 +169,9 @@ fn journey_leg_receipt_material_carries_rung_and_receipt_hash() {
                 receipt_hash: carried_receipt_hash,
                 block_height: carried_height,
                 rung: carried_rung,
+                signed_receipt: carried_signed_receipt,
+                receipt_key: carried_key,
+                inclusion_height: carried_inclusion_height,
             } = observation.receipt.expect("journey leg receipt material");
             assert_eq!(carried_bytes, canonical_bytes);
             assert_eq!(carried_batch, authorised_batch);
@@ -168,6 +182,9 @@ fn journey_leg_receipt_material_carries_rung_and_receipt_hash() {
             assert_eq!(carried_height, block_height);
             assert_eq!(carried_rung, rung);
             assert_eq!(carried_rung, observation.submission.rung);
+            assert_eq!(carried_signed_receipt, canonical_bytes);
+            assert_eq!(carried_key, receipt_key);
+            assert_eq!(carried_inclusion_height, block_height);
         }
     }
     assert_eq!(observed, (5, 6));

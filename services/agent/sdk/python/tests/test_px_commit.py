@@ -13,8 +13,12 @@ def test_network_head_has_no_anchor():
     document = {
         "network_id": "paxeer",
         "paxeer": {"chain_id": 125, "latest_block": 8},
-        "layerx": None,
-        "latest_committed_height": 7,
+        "consensus": {
+            "latest_height": 7,
+            "latest_block_hash": "12" * 32,
+            "latest_app_hash": "34" * 32,
+            "catching_up": False,
+        },
     }
     head = px.decode_px_network_head(document)
     assert head.network_id == "paxeer"
@@ -31,6 +35,36 @@ def test_network_head_has_no_anchor():
     assert "decode_px_anchor_head" not in layerx_sdk.__all__
     assert layerx_sdk.decode_px_network_head is px.decode_px_network_head
 
+    for anchor in (None, {}, {"latest_finalized_batch": 9}):
+        with pytest.raises(ValueError, match="^invalid-px-finality$"):
+            px.decode_px_network_head({**document, "anchor": anchor})
+
+
+def test_network_head_reads_consensus_height():
+    document = {
+        "network_id": "paxeer",
+        "paxeer": {"chain_id": "0x7d", "latest_block": "0x10"},
+        "consensus": {
+            "latest_height": 9,
+            "latest_block_hash": "12" * 32,
+            "latest_app_hash": "34" * 32,
+            "catching_up": False,
+        },
+    }
+    head = px.decode_px_network_head(document)
+    assert head.network_id == "paxeer"
+    assert head.paxeer.chain_id == 125
+    assert head.paxeer.latest_block == 16
+    assert head.latest_committed_height == 9
+    assert head.layerx is None
+    with pytest.raises(ValueError, match="^px-consensus-unavailable$"):
+        px.decode_px_network_head(
+            {**document, "consensus": None, "reason": "consensus_unavailable"}
+        )
+    with pytest.raises(ValueError, match="^invalid-px-finality$"):
+        px.decode_px_network_head(
+            {**document, "consensus": {**document["consensus"], "latest_height": 17}}
+        )
     for anchor in (None, {}, {"latest_finalized_batch": 9}):
         with pytest.raises(ValueError, match="^invalid-px-finality$"):
             px.decode_px_network_head({**document, "anchor": anchor})
@@ -121,6 +155,7 @@ def test_history_page_keeps_rows_tied_with_the_limit_row():
             "asset": "0x" + "33" * 20,
             "amount": "100",
             "tx_id": "0x" + "ab" * 32,
+            "tx_hash": "0x" + "ab" * 32,
             "ordinal": "1",
             "final": True,
             "decoded": {"amount": "100"},
@@ -154,6 +189,7 @@ def test_history_page_keeps_rows_tied_with_the_limit_row():
             (row.block_height, row.tx_index, row.log_index) for row in page.items
         ] == [(41, 2, 0), (42, 2, 0), (42, 2, 0)]
         assert page.next_cursor == px.history_cursor(42, 2, 0)
+        assert [row.tx_hash for row in page.items] == ["0x" + "ab" * 32] * 3
         with pytest.raises(ValueError, match="^invalid-history-page$"):
             decode(
                 {
@@ -166,3 +202,13 @@ def test_history_page_keeps_rows_tied_with_the_limit_row():
                 },
                 limit=2,
             )
+
+    for invalid_hash in (
+        None,
+        "ab" * 32,
+        "0x" + "ab" * 31,
+        "0x" + "ab" * 33,
+        "0x" + "gg" * 32,
+    ):
+        with pytest.raises(ValueError, match="^invalid-history-transaction-hash$"):
+            px.decode_history_row({**items[0], "tx_hash": invalid_hash})

@@ -177,19 +177,84 @@ func TestNamesContenthashProofVerifiesAgainstTheAppHash(t *testing.T) {
 	flipped[0] ^= 1
 	require.Error(t, runtime.VerifyValue(proof.StorageProof[0], commit.Hash, keypath, flipped))
 
-	vectorPath := filepath.Join(vectorDir, "storage_proof_v1.json")
+	var absentNode common.Hash
+	for _, label := range []string{"pax", "absent"} {
+		labelHash := crypto.Keccak256Hash([]byte(label))
+		absentNode = crypto.Keccak256Hash(absentNode[:], labelHash[:])
+	}
+	absentSlotInput, err := (abi.Arguments{{Type: bytes32Type}, {Type: uint256Type}}).
+		Pack(absentNode, new(big.Int).SetUint64(layout.ManifestDigestSlot))
+	require.NoError(t, err)
+	absentSlot := crypto.Keccak256Hash(absentSlotInput)
+	absentKey := append(evmtypes.StateKey(resolver), absentSlot[:]...)
+	absentKeypath := merkle.KeyPath{}.
+		AppendKey([]byte(evmtypes.StoreKey), merkle.KeyEncodingHex).
+		AppendKey(absentKey, merkle.KeyEncodingHex).String()
+	absence, err := stateAPI.GetProof(t.Context(), resolver, []string{absentSlot.Hex()}, gethrpc.BlockNumberOrHashWithNumber(gethrpc.BlockNumber(commit.Version)))
+	require.NoError(t, err)
+	require.Equal(t, resolver, absence.Address)
+	require.Equal(t, []string{""}, absence.HexValues)
+	require.Len(t, absence.StorageProof, 1)
+	require.NotNil(t, absence.StorageProof[0])
+	require.Len(t, absence.StorageProof[0].Ops, 2)
+	require.Equal(t, storetypes.ProofOpIAVLCommitment, absence.StorageProof[0].Ops[0].Type)
+	require.Equal(t, storetypes.ProofOpSimpleMerkleCommitment, absence.StorageProof[0].Ops[1].Type)
+	var absenceCommitment ics23.CommitmentProof
+	require.NoError(t, absenceCommitment.Unmarshal(absence.StorageProof[0].Ops[0].Data))
+	require.NotNil(t, absenceCommitment.GetNonexist())
+	require.Equal(t, absentKey, absenceCommitment.GetNonexist().Key)
+	require.NoError(t, runtime.VerifyAbsence(absence.StorageProof[0], commit.Hash, absentKeypath))
+	wrongHash := append([]byte(nil), commit.Hash...)
+	wrongHash[0] ^= 1
+	require.Error(t, runtime.VerifyAbsence(absence.StorageProof[0], wrongHash, absentKeypath))
+	require.Error(t, runtime.VerifyAbsence(proof.StorageProof[0], commit.Hash, keypath))
+
+	absencePath := filepath.Join(vectorDir, "storage_absence_v1.json")
 	if os.Getenv("NAMES_WRITE_VECTOR") == "1" {
 		vector := namesStorageProofVector{
 			Version: 1, Height: commit.Version, AppHash: commit.Hash, Store: evmtypes.StoreKey,
-			Address: resolver, Slot: slot, Key: key, Value: digest[:], Node: node, Name: "example.pax",
+			Address: resolver, Slot: absentSlot, Key: absentKey, Value: []byte{}, Node: absentNode, Name: "absent.pax",
 		}
-		for _, op := range proof.StorageProof[0].Ops {
+		for _, op := range absence.StorageProof[0].Ops {
 			vector.ProofOps = append(vector.ProofOps, namesStorageProofOp{Type: op.Type, Key: op.Key, Data: op.Data})
 		}
 		encoded, err := json.MarshalIndent(vector, "", "  ")
 		require.NoError(t, err)
-		require.NoError(t, os.WriteFile(vectorPath, append(encoded, '\n'), 0o644))
+		require.NoError(t, os.WriteFile(absencePath, append(encoded, '\n'), 0o644))
 	}
+	absenceBytes, err := os.ReadFile(absencePath)
+	require.NoError(t, err)
+	var absenceVector namesStorageProofVector
+	require.NoError(t, json.Unmarshal(absenceBytes, &absenceVector))
+	require.Equal(t, 1, absenceVector.Version)
+	require.Positive(t, absenceVector.Height)
+	require.Len(t, absenceVector.AppHash, 32)
+	require.Equal(t, evmtypes.StoreKey, absenceVector.Store)
+	require.Equal(t, resolver, absenceVector.Address)
+	require.Equal(t, absentSlot, absenceVector.Slot)
+	require.Equal(t, absentKey, []byte(absenceVector.Key))
+	require.Empty(t, absenceVector.Value)
+	require.Equal(t, absentNode, absenceVector.Node)
+	require.Equal(t, "absent.pax", absenceVector.Name)
+	require.Len(t, absenceVector.ProofOps, 2)
+	require.Equal(t, storetypes.ProofOpIAVLCommitment, absenceVector.ProofOps[0].Type)
+	require.Equal(t, absentKey, []byte(absenceVector.ProofOps[0].Key))
+	require.Equal(t, storetypes.ProofOpSimpleMerkleCommitment, absenceVector.ProofOps[1].Type)
+	require.Equal(t, []byte(evmtypes.StoreKey), []byte(absenceVector.ProofOps[1].Key))
+	storedAbsenceOps := &tmcrypto.ProofOps{}
+	for i, op := range absenceVector.ProofOps {
+		var commitmentProof ics23.CommitmentProof
+		require.NoError(t, commitmentProof.Unmarshal(op.Data))
+		if i == 0 {
+			require.NotNil(t, commitmentProof.GetNonexist())
+		} else {
+			require.NotNil(t, commitmentProof.GetExist())
+		}
+		storedAbsenceOps.Ops = append(storedAbsenceOps.Ops, tmcrypto.ProofOp{Type: op.Type, Key: op.Key, Data: op.Data})
+	}
+	require.NoError(t, runtime.VerifyAbsence(storedAbsenceOps, absenceVector.AppHash, absentKeypath))
+
+	vectorPath := filepath.Join(vectorDir, "storage_proof_v1.json")
 	vectorBytes, err := os.ReadFile(vectorPath)
 	require.NoError(t, err)
 	var vector namesStorageProofVector

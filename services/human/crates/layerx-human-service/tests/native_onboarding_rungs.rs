@@ -1,7 +1,9 @@
+#[path = "support/canonical_owner.rs"]
+mod canonical_owner;
+
 use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_agent_api::agent_api_schema_v1;
 use layerx_agent_api::identity::{AgentDid, AuthorityRef};
-use layerx_crypto::SignatureMessage;
 use layerx_human_service::agents::ProtocolEvidence;
 use layerx_human_service::custody::{EnvelopeKms, KeyClass, KeyEntropy, KeyId, Keystore};
 use layerx_human_service::frame::{read_frame, write_frame, Limits};
@@ -13,8 +15,9 @@ use layerx_human_service::server::agent_runtime::AgentRuntime;
 use layerx_human_service::store::{PrincipalStore, TenancyDigest};
 use layerx_human_service::trace::TraceId;
 use layerx_human_test_support as support;
-use layerx_intents::{canonical, owner_activity, NativeOwnerBootstrap};
+use layerx_intents::{canonical, NativeOwnerBootstrap};
 use layerx_sdk::Client as AgentClient;
+use layerx_types::clock::{Clock, Deadline};
 use layerx_types::ids::Did;
 use layerx_types::intent::{ApprovalThreshold, PublicKey, RecoveryRoot};
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
@@ -22,8 +25,9 @@ use layerx_types::rung::Rung;
 use sha2::{Digest as _, Sha256};
 use std::fs;
 use std::os::unix::net::UnixListener;
+use std::sync::Arc;
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use support::{directory, install_and_open, principal, retention_uniform, tenancy};
 const NETWORK_ID: u32 = 77;
 const CHALLENGE_DELAY: u64 = 86_400;
@@ -116,6 +120,7 @@ fn context(sequence: u64, timestamp: u64) -> AgentPreparationContext {
         AgentDid::new("did:layerx:registrar").unwrap_or_else(|error| panic!("actor: {error:?}")),
         AuthorityRef::new("custody:human-primary")
             .unwrap_or_else(|error| panic!("authority: {error:?}")),
+        sequence,
         sequence,
         timestamp,
         timestamp.saturating_add(30),
@@ -223,40 +228,17 @@ fn setup_evidence(
         },
     };
     let compiled = request.compile(registry).unwrap();
-    let (unsigned, _) = owner_activity::unsigned_native(
-        &compiled,
-        &owner_activity::OwnerEnvelopeContext {
-            actor: Did::new(b"did:layerx:owner-receipt-fixture").unwrap(),
-            owner_public_key: public_key,
-            network_id: NETWORK_ID,
-            account_sequence: 1,
-            not_before_ms: 900,
-            not_after_ms: 2000,
-            action_key,
-            fee_limit: 10,
-        },
-        registry,
-    )
-    .unwrap();
-    let message = SignatureMessage::new(
-        canonical::Domain::SignaturePreimage,
-        3,
+    let owner = canonical_owner::sign_transaction(
+        compiled.payload(),
+        action_key,
+        canonical::STATE_COMMITMENT_PROTOCOL_VERSION,
         NETWORK_ID,
-        &unsigned,
-    )
-    .unwrap();
-    let signature = SigningKey::from_bytes(&[0x68; 32])
-        .sign(&message.digest())
-        .to_bytes();
-    let signed_activity =
-        owner_activity::attach_signature(&unsigned, signature, public_key, registry).unwrap();
-    let activity = owner_activity::verify(&signed_activity, registry).unwrap();
-    let activity_id = canonical::activity_id(&activity).unwrap();
+    );
     let block_height = 42_u64;
     let mut batch_id = [0; 32];
     batch_id[24..].copy_from_slice(&block_height.to_be_bytes());
     let fields = ReceiptFields {
-        activity_id,
+        activity_id: owner.id,
         previous_state_root: [0x31; 32],
         resulting_state_root: [0x32; 32],
         batch_id,
@@ -271,15 +253,15 @@ fn setup_evidence(
     let signature = signer.sign(&<[u8; 32]>::from(digest.finalize())).to_bytes();
     let receipt_bytes = encode_receipt(&fields, Some(signature));
     let evidence = ProtocolEvidence {
-        signed_activity,
-        actor: activity.actor_did().to_vec(),
-        owner_public_key: public_key,
+        signed_activity: owner.bytes,
+        actor: owner.actor,
+        owner_public_key: owner.public_key,
         network_id: NETWORK_ID,
         action_key,
-        activity_id,
+        activity_id: owner.id,
         receipt_hash: Sha256::digest(&receipt_bytes).into(),
         receipt_bytes,
-        tx_hash: activity_id,
+        tx_hash: owner.id,
         block_height,
         rung: Rung::Committed,
     };
@@ -357,7 +339,8 @@ fn native_onboarding_completes_only_at_committed() {
 #[test]
 fn native_onboarding_uses_the_pending_nonce() {
     let mut fixture = Fixture::new("native-onboarding-pending-nonce");
-    let mut runtime = AgentRuntime::new(
+    let clock: Arc<dyn Clock> = Arc::new(support::StepClock::new(100_000));
+    let mut runtime = AgentRuntime::new_with_clock(
         fixture.root.join("unavailable-agent.sock"),
         layerx_human_service::frame::Limits {
             maximum_frame_bytes: 65_536,
@@ -367,6 +350,7 @@ fn native_onboarding_uses_the_pending_nonce() {
             deadline: Duration::from_secs(1),
         },
         fixture.registry.clone(),
+        Arc::clone(&clock),
     )
     .unwrap();
     let mut scope = fixture.store.principal(&principal("alice")).unwrap();
@@ -397,13 +381,17 @@ fn native_onboarding_uses_the_pending_nonce() {
     let socket = fixture.root.join("peer.sock");
     let listener = UnixListener::bind(&socket).unwrap();
     listener.set_nonblocking(true).unwrap();
+    let peer_clock = Arc::clone(&clock);
     let server = thread::spawn(move || {
-        let deadline = Instant::now() + Duration::from_secs(5);
+        let mut deadline = Deadline::start(peer_clock.as_ref(), Duration::from_secs(5)).unwrap();
         let mut stream = loop {
             match listener.accept() {
                 Ok((stream, _)) => break stream,
                 Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                    assert!(Instant::now() < deadline, "peer request deadline");
+                    assert!(
+                        !deadline.remaining(peer_clock.as_ref()).unwrap().is_zero(),
+                        "peer request deadline"
+                    );
                     thread::sleep(Duration::from_millis(1));
                 }
                 Err(error) => panic!("peer accept: {error}"),
@@ -418,7 +406,7 @@ fn native_onboarding_uses_the_pending_nonce() {
         assert_eq!(read_frame(&mut stream, 4096).unwrap(), nonce_request);
         write_frame(&mut stream, &nonce_answer, 4096).unwrap();
     });
-    let mut pending_runtime = AgentRuntime::new(
+    let mut pending_runtime = AgentRuntime::new_with_clock(
         &socket,
         Limits {
             maximum_frame_bytes: 4096,
@@ -428,6 +416,7 @@ fn native_onboarding_uses_the_pending_nonce() {
             deadline: Duration::from_secs(5),
         },
         fixture.registry.clone(),
+        clock,
     )
     .unwrap();
     let action = journey

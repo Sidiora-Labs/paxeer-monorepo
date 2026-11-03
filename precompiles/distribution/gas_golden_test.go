@@ -48,10 +48,10 @@ func TestDistributionGasGolden(t *testing.T) {
 	params := testApp.DistrKeeper.GetParams(ctx)
 	params.WithdrawAddrEnabled = true
 	testApp.DistrKeeper.SetParams(ctx, params)
-	commission := sdk.NewDecCoins(sdk.NewDecCoinFromDec("uhpx", sdk.NewDecWithPrec(5, 1)))
-	testApp.DistrKeeper.SetValidatorAccumulatedCommission(ctx, validator, distrtypes.ValidatorAccumulatedCommission{Commission: commission})
-	testApp.DistrKeeper.SetValidatorOutstandingRewards(ctx, validator, distrtypes.ValidatorOutstandingRewards{Rewards: commission})
-	backing := sdk.NewCoins(sdk.NewInt64Coin("uhpx", 1))
+	val, found := testApp.StakingKeeper.GetValidator(ctx, validator)
+	require.True(t, found)
+	backing := sdk.NewCoins(sdk.NewInt64Coin("uhpx", 1000))
+	testApp.DistrKeeper.AllocateTokensToValidator(ctx, val, sdk.NewDecCoinsFromCoins(backing...))
 	require.NoError(t, testApp.BankKeeper.MintCoins(ctx, minttypes.ModuleName, backing))
 	require.NoError(t, testApp.BankKeeper.SendCoinsFromModuleToModule(ctx, minttypes.ModuleName, distrtypes.ModuleName, backing))
 
@@ -67,11 +67,11 @@ func TestDistributionGasGolden(t *testing.T) {
 		args   []interface{}
 		gas    uint64
 	}{
-		{"rewards", []interface{}{caller}, 19_172},
+		{"rewards", []interface{}{caller}, 20_222},
 		{"setWithdrawAddress", []interface{}{withdrawAddress}, 7_677},
-		{"withdrawDelegationRewards", []interface{}{validator.String()}, 45_016},
-		{"withdrawMultipleDelegationRewards", []interface{}{[]string{validator.String()}}, 45_016},
-		{"withdrawValidatorCommission", nil, 10_423},
+		{"withdrawDelegationRewards", []interface{}{validator.String()}, 59_969},
+		{"withdrawMultipleDelegationRewards", []interface{}{[]string{validator.String()}}, 59_969},
+		{"withdrawValidatorCommission", nil, 22_565},
 	}
 	embeddedABI := pcommon.MustGetABI(f, "abi.json")
 	require.Len(t, golden, len(embeddedABI.Methods))
@@ -88,6 +88,8 @@ func TestDistributionGasGolden(t *testing.T) {
 
 	for _, row := range golden {
 		t.Run(row.method, func(t *testing.T) {
+			withdrawal := row.method == "withdrawDelegationRewards" ||
+				row.method == "withdrawMultipleDelegationRewards" || row.method == "withdrawValidatorCommission"
 			input, err := precompile.Pack(row.method, row.args...)
 			require.NoError(t, err)
 			var charged [2]uint64
@@ -96,8 +98,16 @@ func TestDistributionGasGolden(t *testing.T) {
 				callCtx, _ := ctx.CacheContext()
 				callCtx = callCtx.WithBlockHeight(height).WithGasMeter(sdk.NewInfiniteGasMeter(1, 1))
 				require.Equal(t, height >= planHeight, pcommon.MergePlanActive(callCtx, k))
+				stateDB := state.NewDBImpl(callCtx, k, true)
+				callCtx = stateDB.Ctx()
+				var payoutAddress sdk.AccAddress
+				var balanceBefore sdk.Int
+				if withdrawal {
+					payoutAddress = testApp.DistrKeeper.GetDelegatorWithdrawAddr(callCtx, delegator)
+					balanceBefore = testApp.BankKeeper.GetBalance(callCtx, payoutAddress, "uhpx").Amount
+				}
 				evm := &vm.EVM{
-					StateDB:   state.NewDBImpl(callCtx, k, true),
+					StateDB:   stateDB,
 					TxContext: vm.TxContext{Origin: caller},
 				}
 				ret, remaining, err := precompile.RunAndCalculateGas(
@@ -105,6 +115,10 @@ func TestDistributionGasGolden(t *testing.T) {
 					row.method == "rewards", false,
 				)
 				require.NoError(t, err, "height %d", height)
+				if withdrawal {
+					balanceAfter := testApp.BankKeeper.GetBalance(callCtx, payoutAddress, "uhpx").Amount
+					require.True(t, balanceAfter.GT(balanceBefore), "height %d: withdrawal must pay non-zero uhpx", height)
+				}
 				require.LessOrEqual(t, remaining, suppliedGas)
 				charged[i] = suppliedGas - remaining
 				output[i] = ret

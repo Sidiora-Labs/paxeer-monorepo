@@ -244,3 +244,72 @@ func TestExecuteReusedKeyNextSequence(t *testing.T) {
 	require.NotEqual(t, first.Receipt.Encoded, result.Receipt.Encoded)
 	require.Empty(t, executeStore(t, ctx, k.storeKey))
 }
+
+func TestExecuteIdempotentReplay(t *testing.T) {
+	k, ctx, hostKey, _ := newExecuteKeeper(t)
+	issuer, actor := executeActor(t, 97), executeActor(t, 98)
+	registration, asset := executeAssetPayload(issuer, 1)
+	registered, err := k.execute(ctx, issuer, 0x00010001, registration, [32]byte{1})
+	require.NoError(t, err)
+	require.Equal(t, lxphost.Code(0), registered.Receipt.ResultCode)
+	payload := append([]byte{0, 1}, asset[:]...)
+	key := [32]byte{0x72}
+	accountSequence, err := k.host.ReadIdentitySequence(ctx, actor.DID)
+	require.NoError(t, err)
+	first, err := k.execute(ctx, actor, 0x00010004, payload, key)
+	require.NoError(t, err)
+	require.Equal(t, lxphost.Code(0), first.Receipt.ResultCode)
+	requireExecuteReceipt(t, first.Receipt)
+	_, accountID, err := lxphost.AssetAccountID(actor.DIDKey, asset)
+	require.NoError(t, err)
+	owner, err := k.host.ReadAccountOwner(ctx, accountID)
+	require.NoError(t, err)
+	require.Equal(t, actor.Authority.Actor, owner)
+
+	sequence, err := lxphost.NextSequence(ctx, hostKey)
+	require.NoError(t, err)
+	timestamp := uint64(ctx.BlockTime().UnixMilli())
+	activity := lxphost.Activity{
+		ProtocolVersion: 3,
+		Type:            0x00010004,
+		ActorDID:        actor.DID,
+		AuthorityKey:    actor.Authority.VerifiedKey,
+		AccountSequence: accountSequence,
+		NotBefore:       timestamp,
+		NotAfter:        timestamp,
+		IdempotencyKey:  key,
+		Payload:         payload,
+	}
+	refused, err := k.host.Execute(lxphost.WithSequence(ctx, sequence), activity, actor.Authority)
+	if err != nil {
+		require.ErrorIs(t, err, lxphost.Code(-301))
+		require.EqualError(t, err, "LXP_ERR_SEQUENCE_REUSED")
+	} else {
+		require.Equal(t, lxphost.Code(-301), refused.ResultCode)
+		require.Equal(t, "LXP_ERR_SEQUENCE_REUSED", refused.ResultCode.Error())
+	}
+	owner, err = k.host.ReadAccountOwner(ctx, accountID)
+	require.NoError(t, err)
+	require.Equal(t, actor.Authority.Actor, owner)
+	nextAccountSequence, err := k.host.ReadIdentitySequence(ctx, actor.DID)
+	require.NoError(t, err)
+	require.Equal(t, accountSequence+1, nextAccountSequence)
+
+	registration, nextAsset := executeAssetPayload(issuer, 2)
+	registered, err = k.execute(ctx, issuer, 0x00010001, registration, [32]byte{1})
+	require.NoError(t, err)
+	require.Equal(t, lxphost.Code(0), registered.Receipt.ResultCode)
+	nextPayload := append([]byte{0, 1}, nextAsset[:]...)
+	second, err := k.execute(ctx, actor, 0x00010004, nextPayload, key)
+	require.NoError(t, err)
+	require.Equal(t, lxphost.Code(0), second.Receipt.ResultCode)
+	requireExecuteReceipt(t, second.Receipt)
+	_, nextAccountID, err := lxphost.AssetAccountID(actor.DIDKey, nextAsset)
+	require.NoError(t, err)
+	owner, err = k.host.ReadAccountOwner(ctx, nextAccountID)
+	require.NoError(t, err)
+	require.Equal(t, actor.Authority.Actor, owner)
+	nextAccountSequence, err = k.host.ReadIdentitySequence(ctx, actor.DID)
+	require.NoError(t, err)
+	require.Equal(t, accountSequence+2, nextAccountSequence)
+}

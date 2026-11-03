@@ -1040,6 +1040,46 @@ func TestGetTransactionCountPending(t *testing.T) {
 	})
 }
 
+func TestPendingNonceMatchesExecutedTransferAcrossCommit(t *testing.T) {
+	sender := occutils.NewSigner()
+	s := newPendingSequencer(t, 2, sender)
+	tx := pendingTransfer(t, sender, 0, occutils.NewSigner().EvmAddress, big.NewInt(pendingOnePaxWei))
+	accepted := pendingSimulateAccept(t, s.exec, tx)
+	snapshot, err := s.exec.Snapshot()
+	require.NoError(t, err)
+	receipt, err := s.app.EvmKeeper.GetTransientReceipt(snapshot, pendingBlockEthHash(t, s, tx), uint64(accepted.TxIndex))
+	require.NoError(t, err)
+	require.Equal(t, uint32(1), receipt.Status, receipt.VmError)
+	require.Equal(t, uint64(s.committed+1), receipt.BlockNumber)
+
+	readNonce := func(want uint64) {
+		t.Helper()
+		api := pendingTxSequencerAPI(s, &pendingNonceClient{MockClient: &MockClient{latestOverride: s.committed}})
+		server := rpc.NewServer()
+		defer server.Stop()
+		require.NoError(t, server.RegisterName("eth", api))
+		rpcClient := rpc.DialInProc(server)
+		defer rpcClient.Close()
+		var nonce hexutil.Uint64
+		require.NoError(t, rpcClient.CallContext(context.Background(), &nonce, "eth_getTransactionCount", sender.EvmAddress, "pending"))
+		require.Equal(t, hexutil.Uint64(want), nonce)
+	}
+	readNonce(1)
+	batch, err := s.exec.Seal(s.committed + 1)
+	require.NoError(t, err)
+	readNonce(0)
+	batch.Store.Write()
+	s.committed++
+	require.Equal(t, s.committed, s.app.CommitMultiStore().Commit(true).Version)
+	s.wm = evmrpc.NewWatermarkManager(&MockClient{latestOverride: s.committed}, s.ctxProvider, nil, nil)
+	s.wm.SetPendingSnapshot(s.exec)
+	readNonce(1)
+	require.NoError(t, s.exec.Open(s.committed+1, time.Now().UTC().Add(2*time.Second).UnixMilli()))
+	readNonce(1)
+	pendingSimulateAccept(t, s.exec, pendingTransfer(t, sender, 1, occutils.NewSigner().EvmAddress, big.NewInt(pendingOnePaxWei)))
+	readNonce(2)
+}
+
 // pendingTxNonceReader reads the next nonce from the open block, the state the
 // sequencer's nonce queue compares against.
 type pendingTxNonceReader struct {

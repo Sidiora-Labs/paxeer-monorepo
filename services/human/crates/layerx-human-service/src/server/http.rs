@@ -1,4 +1,4 @@
-use layerx_types::clock::Clock;
+use layerx_types::clock::{Clock, Deadline};
 use std::collections::BTreeMap;
 use std::io::{Read, Write};
 use std::sync::Arc;
@@ -19,6 +19,9 @@ use super::backend::{
 use super::limits::PrincipalLimits;
 use super::schema::{ApiSchema, Operation};
 
+// The Human envelope reports backend components. A ramp's bare local-journal
+// readiness document is a different contract even though both use /readyz.
+const HUMAN_READINESS_PATH: &str = "/readyz";
 const ACCESS_COOKIE: &str = "__Host-layerx_access";
 const REFRESH_COOKIE: &str = "__Host-layerx_refresh";
 const CSRF_COOKIE: &str = "__Host-layerx_csrf";
@@ -82,6 +85,10 @@ pub struct Router<B: HumanApiComponents> {
 }
 
 impl<B: HumanApiComponents> Router<B> {
+    pub(super) fn clock(&self) -> &Arc<dyn Clock> {
+        &self.clock
+    }
+
     fn unix_seconds(&self) -> Result<u64, ApiFailure> {
         self.clock
             .sample(Duration::from_secs(1))
@@ -283,8 +290,8 @@ impl<B: HumanApiComponents> Router<B> {
                 Some(context) => context,
                 None => return error_response(&trace, &ApiFailure::unauthenticated()),
             };
-            let now = match std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
-                Ok(now) => now,
+            let now = match self.clock.sample(Duration::from_secs(1)) {
+                Ok(now) => Duration::from_millis(now.unix_milliseconds),
                 Err(_) => return error_response(&trace, &ApiFailure::unavailable()),
             };
             let remaining = match Duration::from_secs(context.expires_at())
@@ -295,10 +302,11 @@ impl<B: HumanApiComponents> Router<B> {
                 None => return error_response(&trace, &ApiFailure::session_expired()),
             };
             if let Some(watch) = watch {
-                if watch
-                    .set_deadline(std::time::Instant::now() + remaining)
-                    .is_err()
-                {
+                let deadline = match Deadline::start(self.clock.as_ref(), remaining) {
+                    Ok(deadline) => deadline,
+                    Err(_) => return error_response(&trace, &ApiFailure::unavailable()),
+                };
+                if watch.set_deadline(deadline).is_err() {
                     return error_response(&trace, &ApiFailure::unavailable());
                 }
             }
@@ -463,7 +471,7 @@ impl<B: HumanApiComponents> Router<B> {
                 Vec::new(),
             ));
         }
-        if request.method == "GET" && request.path == "/readyz" {
+        if request.method == "GET" && request.path == HUMAN_READINESS_PATH {
             return Some(match self.backend.readiness(trace.as_str()) {
                 Ok(readiness) => success_response(
                     if readiness.ready() { 200 } else { 503 },

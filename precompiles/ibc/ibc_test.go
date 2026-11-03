@@ -595,6 +595,9 @@ func (ck *MockClientKeeper) GetClientState(ctx sdk.Context, clientID string) (ex
 }
 
 func (ck *MockClientKeeper) GetClientConsensusState(ctx sdk.Context, clientID string, height exported.Height) (exported.ConsensusState, bool) {
+	if ck.consensusState == nil {
+		return nil, ck.returnConsensusState
+	}
 	return ck.consensusState, ck.returnConsensusState
 }
 
@@ -650,14 +653,14 @@ func TestPrecompile_GetAdjustedTimestamp(t *testing.T) {
 		fields  fields
 		args    args
 		want    uint64
-		wantErr bool
+		wantErr string
 	}{
 		{
 			name: "if consensus timestamp is less than the given time, return the given time adjusted with default",
 			fields: fields{
 				clientKeeper: &MockClientKeeper{
 					consensusState: &MockConsensusState{
-						timestamp: uint64(timestampSeconds - 1),
+						timestamp: uint64(timestampSeconds-1) * 1_000_000_000,
 					},
 					returnConsensusState: true,
 				},
@@ -666,32 +669,50 @@ func TestPrecompile_GetAdjustedTimestamp(t *testing.T) {
 				ctx: ctx.WithBlockTime(time.Unix(int64(timestampSeconds), 0)),
 			},
 			want:    uint64(timestampSeconds)*1_000_000_000 + uint64((time.Duration(10) * time.Minute).Nanoseconds()),
-			wantErr: false,
+			wantErr: "",
 		},
 		{
-			name: "if consensus state is not found, return the given time adjusted with default",
+			name: "if consensus state is not found, refuse even with a valid block time",
 			fields: fields{
 				clientKeeper: &MockClientKeeper{
 					returnConsensusState: false,
 				},
 			},
 			args: args{
-				ctx: ctx.WithBlockTime(time.Unix(int64(timestampSeconds), 0)),
+				ctx:      ctx.WithBlockTime(time.Unix(int64(timestampSeconds), 0)),
+				clientId: "07-tendermint-0",
+				height:   clienttypes.NewHeight(1, 10),
 			},
-			want:    uint64(timestampSeconds)*1_000_000_000 + uint64((time.Duration(10) * time.Minute).Nanoseconds()),
-			wantErr: false,
+			want:    0,
+			wantErr: "consensus state for client 07-tendermint-0 at height 1-10 not found",
+		},
+		{
+			name: "if consensus state is nil despite being found, refuse",
+			fields: fields{
+				clientKeeper: &MockClientKeeper{
+					returnConsensusState: true,
+				},
+			},
+			args: args{
+				ctx:      ctx.WithBlockTime(time.Unix(int64(timestampSeconds), 0)),
+				clientId: "07-tendermint-0",
+				height:   clienttypes.NewHeight(1, 10),
+			},
+			want:    0,
+			wantErr: "consensus state for client 07-tendermint-0 at height 1-10 not found",
 		},
 		{
 			name: "if time from local clock can not be retrieved, return error",
 			fields: fields{
 				clientKeeper: &MockClientKeeper{
-					returnConsensusState: false,
+					consensusState:       &MockConsensusState{timestamp: uint64(timestampSeconds) * 1_000_000_000},
+					returnConsensusState: true,
 				},
 			},
 			args: args{
 				ctx: ctx.WithBlockTime(time.Unix(int64(0), 0)),
 			},
-			wantErr: true,
+			wantErr: "block time is not greater than Jan 1st, 1970 12:00 AM",
 		},
 		{
 			name: "if consensus timestamp is > than the given time, return the consensus time adjusted with default",
@@ -707,7 +728,7 @@ func TestPrecompile_GetAdjustedTimestamp(t *testing.T) {
 				ctx: ctx.WithBlockTime(time.Unix(int64(timestampSeconds), 0)),
 			},
 			want:    uint64(timestampSeconds+1)*1_000_000_000 + uint64((time.Duration(10) * time.Minute).Nanoseconds()),
-			wantErr: false,
+			wantErr: "",
 		},
 	}
 	for _, tt := range tests {
@@ -720,13 +741,12 @@ func TestPrecompile_GetAdjustedTimestamp(t *testing.T) {
 				ConnectionKeeper: tt.fields.connectionKeeper,
 			})
 			got, err := p.GetExecutor().(*ibc.PrecompileExecutor).GetAdjustedTimestamp(tt.args.ctx, tt.args.clientId, tt.args.height)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("GetAdjustedTimestamp() error = %v, wantErr %v", err, tt.wantErr)
-				return
+			if tt.wantErr != "" {
+				require.EqualError(t, err, tt.wantErr)
+			} else {
+				require.NoError(t, err)
 			}
-			if got != tt.want {
-				t.Errorf("GetAdjustedTimestamp() got = %v, want %v", got, tt.want)
-			}
+			require.Equal(t, tt.want, got)
 		})
 	}
 }

@@ -422,10 +422,7 @@ func beforeCosmos(tx sdk.Tx, in *ReceiptInput) error {
 }
 
 func (r *Receipter) after(etx *ethtypes.Transaction, in *ReceiptInput) error {
-	ctx, err := r.exec.Snapshot()
-	if err != nil {
-		return err
-	}
+	ctx := in.Accepted.ReceiptContext
 	acc := in.Accepted
 	if etx == nil {
 		if acc.Result.GasUsed < 0 {
@@ -434,9 +431,14 @@ func (r *Receipter) after(etx *ethtypes.Transaction, in *ReceiptInput) error {
 		if in.FeeDenom == "" {
 			in.FeeDenom = r.evm.GetBaseDenom(ctx)
 		}
+		gasUsed := uint64(acc.Result.GasUsed)
+		if r.cumulative > math.MaxUint64-gasUsed {
+			return errors.New("cumulative gas overflows")
+		}
+		r.cumulative += gasUsed
 		in.EVM = &evmtypes.Receipt{
 			Status:            uint32(ethtypes.ReceiptStatusSuccessful),
-			GasUsed:           uint64(acc.Result.GasUsed),
+			GasUsed:           gasUsed,
 			CumulativeGasUsed: r.cumulative,
 		}
 		return nil

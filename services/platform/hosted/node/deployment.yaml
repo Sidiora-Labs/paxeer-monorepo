@@ -373,8 +373,6 @@ spec:
             - {name: LAYERX_AUTHORITY_IDENTITY_BINDING_SOCKET, value: /run/layerx/human/identity-binding.sock}
             - {name: LAYERX_AUTHORITY_IDENTITY_BINDING_UID, value: '4020'}
             - {name: LAYERX_AUTHORITY_IDENTITY_BINDING_GID, value: '4020'}
-            - {name: LAYERX_AUTHORITY_GENESIS_TRUST, valueFrom: {secretKeyRef: {name: layerx-human-authority-config, key: genesis-trust-file, optional: true}}}
-            - {name: LAYERX_AUTHORITY_HANDOVER_FINALITY, valueFrom: {secretKeyRef: {name: layerx-human-authority-config, key: handover-finality-file, optional: true}}}
             - {name: LAYERX_AUTHORITY_HUMAN_AGENT_TENANT, valueFrom: {secretKeyRef: {name: layerx-human-authority-config, key: tenant}}}
             - {name: LAYERX_AUTHORITY_HUMAN_AGENT_PRINCIPAL, valueFrom: {secretKeyRef: {name: layerx-human-authority-config, key: principal}}}
             - {name: LAYERX_AUTHORITY_PRINCIPAL_POLICY_FILE, value: /run/authority-private/material/principal-policy.json}

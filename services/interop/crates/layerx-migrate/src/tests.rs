@@ -8,6 +8,7 @@ use crate::{
 use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_interop_gateway::adapter::{AdapterId, ConformanceSuite, PinnedSpec, SpecVersion};
 use layerx_interop_gateway::evidence::{SequencerEvidence, SettlementRung};
+use layerx_interop_gateway::gateway::{SequencerSettlementError, TranslationStatus};
 use layerx_interop_gateway::principal::PrincipalId;
 use layerx_interop_gateway::trace::TraceId;
 use layerx_interop_gateway::{interop_gateway_core, GatewayCore};
@@ -31,6 +32,7 @@ const PERIOD_START: u64 = 1_700_000_000;
 const WINDOW_START: u64 = 200;
 const SEQUENCER_MODULE_ID: u16 = 12;
 const RECEIPT_HEIGHT: u64 = 1001;
+const TEST_SEQUENCER_KEY_ID: [u8; 32] = [0x6b; 32];
 const TEST_ASSET: [u8; 32] = [0xc2; 32];
 const TEST_CUSTODY_AUTHORITY: [u8; 32] = [0x42; 32];
 const TEST_CUSTODY_AUTHORIZATION: [u8; 32] = [0x92; 32];
@@ -114,7 +116,6 @@ impl TestPlane {
             canonical,
             activity_id,
             payment_log(key, ownership.layerx_identity, TEST_ASSET, 1),
-            BindingReceiptPolicy::context_hash(ownership),
         )
     }
 
@@ -147,7 +148,6 @@ impl TestPlane {
                 finality.layerx_asset,
                 finality.layerx_amount,
             ),
-            CustodyReceiptPolicy::context_hash(finality),
         )
     }
 
@@ -168,7 +168,6 @@ impl TestPlane {
         signed_receipt: Vec<u8>,
         transaction_hash: [u8; 32],
         log: SequencerLog,
-        context: [u8; 32],
     ) -> (SequencerEvidence, Vec<SequencerAuthorization>) {
         (
             SequencerEvidence {
@@ -178,7 +177,7 @@ impl TestPlane {
                 rung: SettlementRung::Receipted,
             },
             vec![SequencerAuthorization::new(
-                context,
+                TEST_SEQUENCER_KEY_ID,
                 self.sequencer.verifying_key().to_bytes(),
                 RECEIPT_HEIGHT,
                 RECEIPT_HEIGHT,
@@ -231,7 +230,7 @@ impl TestPlane {
         bytes.extend_from_slice(&1_u128.to_be_bytes());
         push_bytes(&mut bytes, &[0x91; 32]);
         push_bytes(&mut bytes, &TEST_CUSTODY_AUTHORIZATION);
-        push_bytes(&mut bytes, &BindingReceiptPolicy::context_hash(ownership));
+        push_bytes(&mut bytes, &TEST_SEQUENCER_KEY_ID);
         push_u64(&mut bytes, PERIOD_START + sequence);
         bytes.push(0);
         let signature = self.sign(&bytes);
@@ -290,7 +289,7 @@ impl TestPlane {
         bytes.extend_from_slice(&(credit_before + finality.layerx_amount).to_be_bytes());
         push_bytes(&mut bytes, &[0x91; 32]);
         push_bytes(&mut bytes, &[0x92; 32]);
-        push_bytes(&mut bytes, &CustodyReceiptPolicy::context_hash(finality));
+        push_bytes(&mut bytes, &TEST_SEQUENCER_KEY_ID);
         push_u64(&mut bytes, PERIOD_START + sequence);
         bytes.push(0);
         let signature = self.sign(&bytes);
@@ -1135,6 +1134,170 @@ fn registered_migration_gateway() -> GatewayCore {
     core.register_adapter(descriptor, &trace(), 1)
         .unwrap_or_else(|error| panic!("register: {error}"));
     core
+}
+
+#[test]
+fn migration_settles_receipts_under_one_fixed_sequencer_key_id() {
+    let mut gateway = registered_migration_gateway();
+    let mut plane = TestPlane::new();
+    let verifier = EthereumTestVerifier::new(ETHEREUM_MAINNET_CHAIN_ID);
+    let alice = principal("alice");
+    let trace = trace();
+    let binding_policy = binding_policy();
+    let custody_policy = custody_policy();
+    let ownership_evidence = EthereumTestVerifier::test_ownership_evidence(
+        ETHEREUM_MAINNET_CHAIN_ID,
+        [0xe1; 20],
+        [0xf1; 32],
+    );
+    let custody_evidence = EthereumTestVerifier::test_finality_evidence(
+        ETHEREUM_MAINNET_CHAIN_ID,
+        &FinalityFields {
+            transaction: SourceTransaction::ethereum([0xd1; 32])
+                .unwrap_or_else(|error| panic!("transaction: {error}")),
+            source: [0xe2; 20],
+            source_asset: [0xa1; 32],
+            source_amount: 1_000_000,
+            custody_reference: [0xb1; 32],
+            layerx_asset: TEST_ASSET,
+            layerx_amount: 1_000,
+            destination: [0xf2; 32],
+            finality_height: 20_000_000,
+        },
+    );
+    let ownership = verifier
+        .verify_ownership(&ownership_evidence, &trace)
+        .unwrap_or_else(|error| panic!("ownership: {error}"));
+    let finality = verifier
+        .verify_asset_finality(&custody_evidence, &trace)
+        .unwrap_or_else(|error| panic!("finality: {error}"));
+    let binding_key = crate::ownership_key(&ownership);
+    let custody_key = crate::asset_key(&finality);
+    assert_ne!(binding_key, custody_key);
+    let (binding_receipt, binding_keys) = plane.mint_binding_receipt(&ownership, binding_key);
+    let (custody_receipt, custody_keys) = plane.mint_custody_receipt(&finality, custody_key);
+    let pinned_keys = vec![SequencerAuthorization::new(
+        TEST_SEQUENCER_KEY_ID,
+        test_sequencer_public_key(),
+        RECEIPT_HEIGHT,
+        RECEIPT_HEIGHT,
+    )];
+    assert_eq!(binding_keys, pinned_keys);
+    assert_eq!(custody_keys, pinned_keys);
+    for receipt in [&binding_receipt, &custody_receipt] {
+        let verified = layerx_proof::receipt::verify_sequencer_signature(
+            &receipt.signed_receipt,
+            layerx_proof::receipt::ReceiptKeys::HeightRanges(&pinned_keys),
+        )
+        .unwrap_or_else(|error| panic!("fixed-key receipt: {error:?}"));
+        assert_eq!(
+            verified.protocol().unwrap().context_hash(),
+            TEST_SEQUENCER_KEY_ID
+        );
+    }
+    let mapped = MigrationAdapter::map_account(
+        &mut gateway,
+        &alice,
+        &ownership_evidence,
+        &verifier,
+        &mut plane,
+        &binding_policy,
+        &trace,
+        10,
+    )
+    .unwrap_or_else(|error| panic!("fixed-key binding: {error}"));
+    assert!(matches!(mapped, MigrationState::AccountMapped { .. }));
+    let credited = MigrationAdapter::migrate_asset(
+        &mut gateway,
+        &alice,
+        &custody_evidence,
+        &verifier,
+        &mut plane,
+        &custody_policy,
+        &trace,
+        11,
+    )
+    .unwrap_or_else(|error| panic!("fixed-key custody: {error}"));
+    assert!(matches!(credited, MigrationState::AssetCredited { .. }));
+}
+
+#[test]
+fn migration_refuses_a_receipt_paying_another_claim() {
+    let mut gateway = registered_migration_gateway();
+    let mut plane = TestPlane::new();
+    let verifier = EthereumTestVerifier::new(ETHEREUM_MAINNET_CHAIN_ID);
+    let alice = principal("alice");
+    let trace = trace();
+    let policy = binding_policy();
+    let claims = [[0xe1; 20], [0xe2; 20]].map(|address| {
+        let evidence = EthereumTestVerifier::test_ownership_evidence(
+            ETHEREUM_MAINNET_CHAIN_ID,
+            address,
+            [0xf1; 32],
+        );
+        verifier
+            .verify_ownership(&evidence, &trace)
+            .unwrap_or_else(|error| panic!("ownership: {error}"))
+    });
+    let keys = claims.each_ref().map(crate::ownership_key);
+    assert_ne!(keys[0], keys[1]);
+    for (claim, key) in claims.iter().zip(keys) {
+        let request = crate::translation_request(key, crate::ownership_digest(claim), &trace)
+            .unwrap_or_else(|error| panic!("request: {error}"));
+        assert_eq!(
+            crate::begin(&mut gateway, &alice, &request, &trace, 10).unwrap(),
+            TranslationStatus::Pending
+        );
+    }
+    let (evidence, receipt_keys) = plane.mint_binding_receipt(&claims[0], keys[0]);
+    let error = gateway
+        .settle_with_sequencer_evidence(&alice, keys[1], &evidence, &receipt_keys, &trace, 11)
+        .unwrap_err();
+    assert_eq!(
+        error.into_error(),
+        SequencerSettlementError::PaymentUnmatched
+    );
+    let error = crate::settle(
+        &mut gateway,
+        &alice,
+        keys[1],
+        MigrationPlaneResult::Executed {
+            evidence: evidence.clone(),
+            receipt_keys: receipt_keys.clone(),
+        },
+        test_sequencer_public_key(),
+        &trace,
+        12,
+        |receipt| {
+            assert_eq!(policy.verify(&claims[1], receipt), Ok(()));
+            Ok(())
+        },
+        |receipt_digest| MigrationState::AccountMapped { receipt_digest },
+    )
+    .unwrap_err();
+    assert_eq!(error.into_error(), MigrationError::ReceiptMismatch);
+    let request =
+        crate::translation_request(keys[1], crate::ownership_digest(&claims[1]), &trace).unwrap();
+    assert_eq!(
+        crate::begin(&mut gateway, &alice, &request, &trace, 13).unwrap(),
+        TranslationStatus::Pending
+    );
+    let settled = crate::settle(
+        &mut gateway,
+        &alice,
+        keys[0],
+        MigrationPlaneResult::Executed {
+            evidence,
+            receipt_keys,
+        },
+        test_sequencer_public_key(),
+        &trace,
+        14,
+        |receipt| policy.verify(&claims[0], receipt),
+        |receipt_digest| MigrationState::AccountMapped { receipt_digest },
+    )
+    .unwrap_or_else(|error| panic!("receipt must settle its own claim: {error}"));
+    assert!(matches!(settled, MigrationState::AccountMapped { .. }));
 }
 
 #[test]

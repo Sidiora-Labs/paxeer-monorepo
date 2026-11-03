@@ -74,6 +74,8 @@ unit-tested against vectors generated from the precompiles' ABI
 core reads. A batch may mix `eth_`, `lx_` and `px_` entries. Shapes and error
 codes: [`openrpc.json`](openrpc.json).
 
+Successful `px_listAssets` ledger rows include `paused` (boolean) and `verification` (`"authenticated_committed_snapshot"`); both fields are optional in the closed result schema and absent from bank, token-factory and failed-read rows.
+
 Method list: [`docs/wiki/PublicRpc.md`](../../../../docs/wiki/PublicRpc.md).
 Commitment parameter: [`docs/wiki/CommitmentLevels.md`](../../../../docs/wiki/CommitmentLevels.md).
 Request and response pairs: [`docs/wiki/PublicAPI.md`](../../../../docs/wiki/PublicAPI.md).

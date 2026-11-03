@@ -1,0 +1,124 @@
+[disposition.10.0.1]
+finding = "10.0.1"
+status = "environment"
+evidence = "services/human/crates/layerx-human-service/src/frame.rs:38 declares Limits and services/human/crates/layerx-human-service/src/frame.rs:67 declares ConnectionGate, introduced by landed commit 0af25bfb0; the recorded refusal came from the qualification environment's older Hyperfide extractor failing to resolve qualified Rust names."
+
+[disposition.10.0.2.1]
+finding = "10.0.2.1"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:165249 now lists only ApiFailure::operation_retired and Router::serve_one for task 10.0.2, removing the ambiguous Operation::retired graph requirement while landed commit 969de4c78 implements the retired-operation refusal."
+
+[disposition.10.0.3.11]
+finding = "10.0.3.11"
+status = "resolved"
+evidence = "services/human/crates/layerx-human-service/tests/intent_plan_evm.rs:1 uses the production fixture whose services/human/crates/layerx-human-service/tests/support/production_fixture.rs:1215 opens a passkey session and :1341 sends its __Host-layerx_access cookie alongside the bearer, removing the bearer-only request that caused the recorded 401."
+
+[disposition.10.0.3.13]
+finding = "10.0.3.13"
+status = "resolved"
+evidence = "Landed commits 0a26ef46a and e799e1b54 port the intent_submit and wallet_identity_e2e callers respectively, with services/human/crates/layerx-human-service/tests/intent_submit.rs:51 forwarding all six arguments and services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs:1272 passing signed EVM actions and asserting the IntentSubmission state."
+
+[disposition.10.2.2]
+finding = "10.2.2"
+status = "resolved"
+evidence = "Landed commit cc343619f ports both consumers to rung, which services/human/crates/layerx-human-service/src/server/agent_runtime.rs:4296 constructs and services/human/crates/layerx-human-service/src/server/projection.rs:297 reads instead of the removed VerifiedBudgetAfter.level."
+
+[disposition.10.2.2.1]
+finding = "10.2.2.1"
+status = "resolved"
+evidence = "Landed commits 05dcc1243 and 1866e77a1 port the mirror and SDK to the reshaped read APIs, while services/human/crates/layerx-human-service/src/server/projection.rs:297 reads budget.rung and cc343619f ports its matching constructor, removing both recorded source incompatibilities."
+
+[disposition.10.2.2.2]
+finding = "10.2.2.2"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:165551 restricts task 10.2.2 symbols to VerifiedBudgetAfter and DisclosureRenderer::render, removing the requirement to declare the other crate's Rung within the task paths."
+
+[disposition.10.2.3]
+finding = "10.2.3"
+status = "resolved"
+evidence = "Landed commit a2fc4cbd7 replaces the external TLS fixture with services/human/crates/layerx-human-service/tests/projection_rungs.rs:64 Server::start, which constructs and binds an in-process HumanComponentServer at :122 without PAXEER_X_HUMAN_PROJECTION_RUNGS_FIXTURE, and 8905cf9fe refreshed the recorded stale lockfile."
+
+[disposition.10.2.4.7]
+finding = "10.2.4.7"
+status = "resolved"
+evidence = "Landed commit b55ff1dec defines the shared receipt lookup frame used by the daemon encoder at services/agent/crates/layerx-agentd/src/human_runtime.rs:965 and the Human decoder at services/human/crates/layerx-human-service/src/server/agent_runtime.rs:4461, including the Submitted answer and all receipt authority fields."
+
+[disposition.10.2.5]
+finding = "10.2.5"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:165655 lists only FinalityReference::new and EntryDetail::assemble for task 10.2.5, removing the graph requirement for the externally declared Rung::Committed variant used by landed implementation ceeda1ecc."
+
+[disposition.10.2.5.1]
+finding = "10.2.5.1"
+status = "resolved"
+evidence = "Landed commit 9ea5dac81 removes the obsolete rung_level call and ports Verified receipt destructuring, and services/human/crates/layerx-human-service/src/activity/detail.rs:292 now carries finality.rung() directly while services/human/crates/layerx-human-service/src/activity/mod.rs:620 matches ReceiptReference::Verified with rung."
+
+[disposition.10.2.7]
+finding = "10.2.7"
+status = "resolved"
+evidence = "Landed commit 05dcc1243 ports the mirror read types and 85c5b32c5 adds receipt coordinates while retaining authorised_batch and verification_level, as services/human/crates/layerx-human-service/src/journeys/engine.rs:242 still declares, so the recorded removal of fields needed by existing consumers did not land."
+
+[disposition.10.2.7.2]
+finding = "10.2.7.2"
+status = "resolved"
+evidence = "Landed commit 85c5b32c5 keeps the existing ReceiptMaterial fields during the additive change, and a5edae038 subsequently adds the ProtocolEvidence coordinates now declared at services/human/crates/layerx-human-service/src/agents/create.rs:473, removing the premature references to nonexistent fields."
+
+[disposition.10.2.8.1]
+finding = "10.2.8.1"
+status = "resolved"
+evidence = "Landed commit 8fc426ffe ports the seven agent-boundary test targets, and services/human/crates/layerx-human-service/tests/journey_faults.rs:770 now decodes a 65-byte EVM signature, :819 enqueues raw transaction bytes with three arguments, :831 uses Submitted and :925 supplies all six raw_receipt_evidence arguments."
+
+[disposition.10.2.8.2]
+finding = "10.2.8.2"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:165750 names ReceiptEvidence and EvidenceLink as structs instead of the ambiguous field/accessor names, preserving the rung accessors in services/human/crates/layerx-human-service/src/activity/mod.rs:236 and services/human/crates/layerx-human-service/src/activity/detail.rs:215."
+
+[disposition.10.3.1.1]
+finding = "10.3.1.1"
+status = "resolved"
+evidence = "Landed commit b6b097019 ports services/human/crates/layerx-human-service/tests/export.rs to structured Cursor values at :198 and :229, rung at :205 and ReceiptExport at :10, replacing the incompatible version-1 daemon build call with receipt-bundle evidence construction at :288."
+
+[disposition.10.3.1.2]
+finding = "10.3.1.2"
+status = "resolved"
+evidence = "Landed commit b6b097019 ports production_reads to receipt-key verification, with services/human/crates/layerx-human-service/src/server/production_reads.rs:302 calling bundle.verify(expected, scope.principal(), &receipt_keys) and :719 calling EvidenceBundle::verify_receipt(&fact, &keys) without the removed settlement-domain arguments."
+
+[disposition.10.3.2]
+finding = "10.3.2"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:165847 now accurately scopes task 10.3.2 to legacy persisted Event keys and explicitly retains the in-memory domain API at :165848, while landed commit 923e94e75 implements legacy-key removal through services/human/crates/layerx-human-service/src/server/stream_journal.rs:55 Event::decode without inventing a record version."
+
+[disposition.10.3.2.1]
+finding = "10.3.2.1"
+status = "resolved"
+evidence = "Landed commit 923e94e75 preserves the two-argument StreamJournal::new at services/human/crates/layerx-human-service/src/server/stream_journal.rs:76 and the domain-bearing journey_json call at :257, matching production_components.rs:761 and production_reads.rs:609 while adding legacy persisted-row decoding."
+
+[disposition.10.3.2.2]
+finding = "10.3.2.2"
+status = "superseded"
+evidence = "Landed commit f0aa4ee07 retires and deletes services/interop/crates/layerx-mirror/src/node.rs, including the cited Freshness consumer, after 05dcc1243 and 1866e77a1 had ported the mirror and SDK read APIs that blocked the earlier journal qualification."
+
+[disposition.10.4.1]
+finding = "10.4.1"
+status = "resolved"
+evidence = "Landed commit d4c30aef2 ports production_components and onboarding_sponsor to frame KMS types, and services/human/crates/layerx-human-service/src/server/production_components.rs:7063 now passes the frame TLS identity and configured frame limits to RemoteKmsProvider::new, matching custody/provider.rs:750."
+
+[disposition.10.4.1.1]
+finding = "10.4.1.1"
+status = "superseded"
+evidence = "Landed commit 479b9cc75 deletes the retired movement provider's tests/kms/mod.rs and b55da7a91 deletes its src/config.rs and crate manifest, removing both cited KmsProvider construction sites from the repository after d4c30aef2 had ported their transport types."
+
+[disposition.10.4.2]
+finding = "10.4.2"
+status = "resolved"
+evidence = "Landed commits d4c30aef2 and 49c3c40f4 align the provider and gateway transport types, with services/human/crates/layerx-human-service/src/custody/provider.rs:8 importing frame types and services/human/crates/layerx-human-service/src/bin/layerx-human-kms-gateway.rs:14 importing the same Limits and MutualTlsConfig used by its provider call at :81."
+
+[disposition.10.4.3]
+finding = "10.4.3"
+status = "resolved"
+evidence = "Landed commit af1bb9209 separates the KMS frame imports from the then-required LNI schema and handshake imports, and the current services/human/crates/layerx-human-service/tests/evidence_node.rs:8 uses RPC APIs while native_send_producer.rs:9 and native_journey_approval.rs:24 use frame transport types without importing nonexistent frame schema or handshake types."
+
+[disposition.10.4.3.1]
+finding = "10.4.3.1"
+status = "resolved"
+evidence = "Landed commit b6b097019 changes AgentRuntime::connect to accept crate::frame::Limits directly, as services/human/crates/layerx-human-service/src/server/agent_runtime.rs:2131 declares and services/human/crates/layerx-human-service/tests/native_send_producer.rs:9 supplies, removing the LNI-to-frame parameter mismatch."

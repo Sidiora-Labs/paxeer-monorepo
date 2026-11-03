@@ -194,12 +194,12 @@ fn respond_with_origin(
     if status == 204 {
         return write!(
             stream,
-            "HTTP/1.1 {status} {reason}\r\nConnection: close\r\n{cors}\r\n"
+            "HTTP/1.1 {status} {reason}\r\nConnection: close\r\nCache-Control: no-store\r\n{cors}\r\n"
         );
     }
     write!(
         stream,
-        "HTTP/1.1 {status} {reason}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n{}{cors}\r\n{body}",
+        "HTTP/1.1 {status} {reason}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\nCache-Control: no-store\r\n{}{cors}\r\n{body}",
         body.len(),
         if status == 405 { "Allow: GET, OPTIONS\r\n" } else { "" },
     )

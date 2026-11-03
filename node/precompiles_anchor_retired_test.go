@@ -1,8 +1,12 @@
 package app
 
-import "testing"
+import (
+	"testing"
 
-func TestPrecompileKeepersAnchorKReturnsNil(t *testing.T) {
+	"github.com/stretchr/testify/require"
+)
+
+func TestPrecompileKeepersAnchorKCarriesTheKeeper(t *testing.T) {
 	a := Setup(t, false, false, false)
 	t.Cleanup(func() {
 		if err := a.Close(); err != nil {
@@ -11,7 +15,9 @@ func TestPrecompileKeepersAnchorKReturnsNil(t *testing.T) {
 	})
 
 	keepers := NewPrecompileKeepers(a)
-	if got := keepers.AnchorK(); got != nil {
-		t.Fatalf("AnchorK() = %v, want nil after anchor retirement", got)
-	}
+	anchor := keepers.AnchorK()
+	require.NotNil(t, anchor)
+	require.Same(t, &a.LayerXAnchorKeeper, anchor)
+	ctx := a.GetContextForDeliverTx([]byte{})
+	require.Equal(t, a.LayerXAnchorKeeper.GetParams(ctx), anchor.GetParams(ctx))
 }

@@ -75,6 +75,8 @@ export const CORE_DEPLOYMENT = Object.freeze({
 } as const);
 
 export const OPTIONAL_CONTRACT_CAPABILITIES = Object.freeze({ metaAg: false, pecorOrders: false } as const);
+export const CORE_TRADE_EXECUTION_ROLES = Object.freeze(['router', 'quoter', 'poolRegistry', 'eventEmitter'] as const);
+export const PRIVATE_FIXTURE_WAGMI_STORAGE_KEY = 'kindle-private-qualification-v1';
 export type OptionalContractCapability = keyof typeof OPTIONAL_CONTRACT_CAPABILITIES;
 
 export function isActiveApprovalSpender(spender: string): boolean {

@@ -351,7 +351,7 @@ impl ProductionAgentCreation<'_> {
             .receipt_by_idempotency_key(action.action_key, activity_id)
             .map_err(map_boundary)?
         {
-            ReceiptLookup::Absent => return Ok(None),
+            ReceiptLookup::Absent | ReceiptLookup::Submitted { .. } => return Ok(None),
             ReceiptLookup::Found(value) => value,
         };
         ProductionAgentCreation::protocol_evidence(

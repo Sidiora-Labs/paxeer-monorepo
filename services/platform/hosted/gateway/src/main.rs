@@ -14,26 +14,21 @@ mod ui_proxy;
 mod ws;
 mod ws_wire;
 
-use layerx_crypto::ed25519;
 use layerx_platform_gateway::http::{
     self, Client, Endpoint, IncomingRequest, OutgoingResponse, UpstreamResponse,
 };
+#[cfg(test)]
+use layerx_platform_gateway::store::OperationRecord;
 use layerx_platform_gateway::store::{
-    Completion, KeyIssuance, KeyRecord, KeyRotation, OperationRecord, RedisEndpoint, RedisStore,
-    Reservation, ReservationRequest,
+    KeyIssuance, KeyRecord, KeyRotation, RedisEndpoint, RedisStore,
 };
 use layerx_platform_gateway::{
-    authenticate_gateway_key, pay_timing, production_route, verify_live_receipt,
-    verify_program_operation, verify_program_simulation_operation, verify_submission, AccessError,
+    authenticate_gateway_key, pay_timing, production_route, verify_live_receipt, AccessError,
     AuthorityFacts, GatewayError, IssuedKey, PrincipalId, ProductionRoute, Quota,
-    VerifiedSubmission,
 };
-use layerx_types::amount::Amount;
-use layerx_types::intent::{
-    CallBudget, Calldata, CapabilityRequest, ProgramCall, ProgramId, RequestedCapabilities,
-};
+#[cfg(test)]
+use layerx_proof::receipt::AuthorizedBatch;
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
-use layerx_wire::activity::decode_signed;
 use native_tls::{Certificate, Identity};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
 use rustls::{ServerConfig, ServerConnection, StreamOwned};
@@ -98,6 +93,7 @@ struct Kernel {
     registry: Endpoint,
     registry_token: Zeroizing<String>,
     key_provisioning_key: Zeroizing<[u8; 32]>,
+    #[cfg(test)]
     modules: ModuleRegistry,
 }
 
@@ -292,11 +288,6 @@ impl Config {
         self.kernel_side(KernelBackend::Identity)
             .map(|kernel| &kernel.key_provisioning_key)
     }
-
-    fn modules(&self) -> Result<&ModuleRegistry, KernelUnavailable> {
-        self.kernel_side(KernelBackend::Component)
-            .map(|kernel| &kernel.modules)
-    }
 }
 
 #[derive(Deserialize)]
@@ -324,18 +315,6 @@ struct PublicKeyRecord {
     quota_requests: u64,
     quota_window_seconds: u64,
     state: &'static str,
-}
-
-#[derive(Deserialize)]
-struct ComponentActivity {
-    state: String,
-    activity_id: String,
-    #[serde(default)]
-    receipt: String,
-    #[serde(default)]
-    terminal_payload: String,
-    #[serde(default)]
-    call_graph: String,
 }
 
 #[derive(Deserialize)]
@@ -492,29 +471,6 @@ struct AssetMetadata {
 struct ModuleDeclaration {
     module: u16,
     ordinals: Vec<u16>,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct JsonActivity {
-    activity: String,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct ProgramCallBudgetBody {
-    fuel: String,
-    fee_limit: String,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct ProgramCallBody {
-    program_id: String,
-    calldata: String,
-    budget: ProgramCallBudgetBody,
-    capabilities: Vec<String>,
-    signed_activity: String,
 }
 
 #[derive(Deserialize)]
@@ -737,87 +693,6 @@ fn media_type_is(request: &IncomingRequest, expected: &str) -> bool {
         .is_some_and(|value| value.trim().eq_ignore_ascii_case(expected))
 }
 
-fn program_call_bytes(
-    request: &IncomingRequest,
-    registry: &ModuleRegistry,
-) -> Result<(Vec<u8>, [u8; 32]), String> {
-    let (signed_activity, expected_call) = if media_type_is(request, "application/octet-stream") {
-        if request.body.len() > 1_048_576 {
-            return Err("signed program activity exceeds its bound".to_owned());
-        }
-        (request.body.clone(), None)
-    } else if media_type_is(request, "application/json") {
-        let body: ProgramCallBody =
-            serde_json::from_slice(&request.body).map_err(|_| "program call body is invalid")?;
-        if !canonical_hex32_text(&body.program_id) {
-            return Err("program id is not canonical".to_owned());
-        }
-        let program_id = parse_hex32(&body.program_id)?;
-        let program = ProgramId::new(program_id);
-        if program.is_zero() {
-            return Err("program id is invalid".to_owned());
-        }
-        let calldata_bytes = decode_hex(&body.calldata, 1_048_576)?;
-        let calldata = Calldata::new(&calldata_bytes).map_err(|_| "program calldata is invalid")?;
-        let fee_limit = body
-            .budget
-            .fee_limit
-            .parse::<u128>()
-            .map_err(|_| "program fee limit is invalid")?;
-        if fee_limit.to_string() != body.budget.fee_limit {
-            return Err("program fee limit is not canonical".to_owned());
-        }
-        let fuel = body
-            .budget
-            .fuel
-            .parse::<u64>()
-            .map_err(|_| "program fuel budget is invalid")?;
-        if fuel.to_string() != body.budget.fuel {
-            return Err("program fuel budget is not canonical".to_owned());
-        }
-        let budget = CallBudget::new(fuel, Amount::from_u128(fee_limit))
-            .map_err(|_| "program budget is invalid")?;
-        let mut requested = Vec::with_capacity(body.capabilities.len());
-        for capability in body.capabilities {
-            requested.push(match capability.as_str() {
-                "storage_read" => CapabilityRequest::StorageRead,
-                "storage_write" => CapabilityRequest::StorageWrite,
-                "transfer" => CapabilityRequest::Transfer,
-                "emit_event" => CapabilityRequest::EmitEvent,
-                "compose" => CapabilityRequest::Compose,
-                _ => return Err("program capability is invalid".to_owned()),
-            });
-        }
-        let capabilities = RequestedCapabilities::new(&requested)
-            .map_err(|_| "program capabilities are invalid")?;
-        (
-            decode_hex(&body.signed_activity, 1_048_576)?,
-            Some(ProgramCall::new(program, calldata, budget, capabilities)),
-        )
-    } else {
-        return Err("program call content type is not supported".to_owned());
-    };
-    let activity = decode_signed(&signed_activity, registry)
-        .map_err(|_| "signed program activity is invalid")?;
-    if activity.activity_type().module() != ModuleId::Programs
-        || activity.activity_type().ordinal() != 3
-    {
-        return Err("signed activity is not a Programs CALL".to_owned());
-    }
-    if activity.protocol_version() == 3 {
-        return Err("native program calls are retired".to_owned());
-    }
-    let call = ProgramCall::from_canonical_payload(activity.payload())
-        .map_err(|_| "signed program payload is not canonical".to_owned())?;
-    if expected_call
-        .as_ref()
-        .is_some_and(|expected| expected != &call)
-    {
-        return Err("signed program activity does not match the typed call".to_owned());
-    }
-    Ok((signed_activity, call.callee().bytes()))
-}
-
 fn program_head(
     config: &Config,
     expected_program: [u8; 32],
@@ -1011,7 +886,8 @@ fn configured_kernel() -> Result<Option<(Kernel, Identity)>, String> {
     .map_err(|error| error.to_string())?;
     let provisioning_key = read_secret("LAYERX_GATEWAY_KEY_PROVISIONING_KEY_FILE")?;
     let key_provisioning_key = Zeroizing::new(parse_hex32(provisioning_key.as_str())?);
-    let modules = configured_modules()?;
+    #[cfg(not(test))]
+    configured_modules()?;
     let kernel = Kernel {
         component: Endpoint::parse(
             &env::var("LAYERX_GATEWAY_COMPONENT_URL")
@@ -1035,7 +911,8 @@ fn configured_kernel() -> Result<Option<(Kernel, Identity)>, String> {
         )?,
         registry_token: read_secret("LAYERX_GATEWAY_PROGRAM_REGISTRY_TOKEN_FILE")?,
         key_provisioning_key,
-        modules,
+        #[cfg(test)]
+        modules: configured_modules()?,
     };
     Ok(Some((kernel, identity)))
 }
@@ -1883,1075 +1760,21 @@ fn verified_result(
     result
 }
 
-fn verified_program_result(
-    config: &Config,
-    activity_id: &str,
-    receipt_hex: &str,
-    terminal_payload_hex: &str,
-    call_graph_hex: &str,
-    head: &ProgramHead,
-    signed_activity: &[u8],
-) -> Result<(Vec<u8>, Vec<u8>, i32), OutgoingResponse> {
-    let expected_activity =
-        parse_hex32(activity_id).map_err(|_| response(503, "component_invalid", Some(5)))?;
-    let receipt = decode_hex(receipt_hex, 1_048_576)
-        .map_err(|_| response(503, "component_invalid", Some(5)))?;
-    let terminal_payload = decode_hex(terminal_payload_hex, 1_048_576)
-        .map_err(|_| response(503, "component_invalid", Some(5)))?;
-    let call_graph = decode_hex(call_graph_hex, 1_048_576)
-        .map_err(|_| response(503, "component_invalid", Some(5)))?;
-    let activity = decode_signed(signed_activity, config.modules()?)
-        .map_err(|_| response(503, "program_activity_invalid", Some(5)))?;
-    let program_id = if activity.protocol_version() == 3 {
-        let call = layerx_types::program_call::NativeProgramCall::decode(activity.payload())
-            .map_err(|_| response(503, "program_activity_invalid", Some(5)))?;
-        if call.guest_abi != head.abi_version {
-            return Err(response(503, "program_activity_invalid", Some(5)));
-        }
-        call.callee().bytes()
-    } else {
-        ProgramCall::from_canonical_payload(activity.payload())
-            .map_err(|_| response(503, "program_activity_invalid", Some(5)))?
-            .callee()
-            .bytes()
-    };
-    if layerx_wire::hash::activity_id(&activity)
-        .map_err(|_| response(503, "program_activity_invalid", Some(5)))?
-        != expected_activity
-        || program_id != head.program_id
-    {
-        return Err(response(503, "program_activity_invalid", Some(5)));
-    }
-    let payload_hash = layerx_wire::hash::payload_hash(&activity)
-        .map_err(|_| response(503, "program_activity_invalid", Some(5)))?;
-    let facts = authority(config, activity_id, &receipt)?;
-    let sequencer_public_key = config
-        .receipt_keys()?
-        .authorization_for_facts(facts)
-        .map_err(|error| {
-            unauthorized_or(
-                error,
-                response(503, "program_receipt_verification_failed", Some(5)),
-            )
-        })?
-        .public_key();
-    let verified = verify_program_operation(
-        &receipt,
-        &terminal_payload,
-        &call_graph,
-        facts,
-        &sequencer_public_key,
-        layerx_platform_gateway::ProgramExpectation {
-            activity_id: expected_activity,
-            payload_hash,
-            program_id: head.program_id,
-            guest_abi_version: head.abi_version,
-            actor_did: activity.actor_did(),
-        },
-    )
-    .map_err(|_| response(503, "program_receipt_verification_failed", Some(5)))?;
-    Ok((
-        verified.response().to_vec(),
-        verified.receipt().to_vec(),
-        verified.result_code(),
-    ))
-}
-
-fn program_simulation(
-    config: &Config,
-    request: &IncomingRequest,
-    record: &KeyRecord,
-    trace_id: &str,
-) -> OutgoingResponse {
-    let read_only = request.path == "/v1/programs/read";
-    let minimum_sequence = match request.headers.get("layerx-minimum-sequence") {
-        Some(value) if read_only => match value.parse::<u64>() {
-            Ok(value_parsed) if value_parsed.to_string() == *value => value_parsed,
-            _ => return response(400, "invalid_minimum_sequence", None),
-        },
-        _ => 0,
-    };
-    let expected_state_root = match request.headers.get("layerx-expected-state-root") {
-        Some(value) if read_only => match parse_hex32(value) {
-            Ok(root) if root != [0; 32] => Some(root),
-            _ => return response(400, "invalid_expected_state_root", None),
-        },
-        _ => None,
-    };
-    let modules = match config.modules() {
-        Ok(modules) => modules,
-        Err(unavailable) => return unavailable.into(),
-    };
-    let Ok((canonical, program_id)) = program_call_bytes(request, modules) else {
-        return response(400, "invalid_program_call", None);
-    };
-    let Ok(signer_public_key) = parse_hex32(&record.signer_public_key) else {
-        return response(503, "persistence_unavailable", Some(5));
-    };
-    let Ok(submission) = verify_submission(
-        &canonical,
-        modules,
-        config.protocol_version,
-        config.protocol_network_id,
-        &signer_public_key,
-    ) else {
-        return response(403, "activity_authorization_refused", None);
-    };
-    let head = match program_head(config, program_id) {
-        Ok(value) => value,
-        Err(error) => return error,
-    };
-    if head.lifecycle != ProgramLifecycle::Active {
-        return response(409, "program_not_active", None);
-    }
-    let (Some(mut state_root), Some(mut observed_sequence), Some(mut observed_at)) =
-        (head.state_root, head.observed_sequence, head.observed_at)
-    else {
-        return response(503, "program_simulation_head_unavailable", Some(5));
-    };
-    match config.store.consume_read(
-        record,
-        now().unwrap_or(0),
-        &audit_event(
-            &record.principal_digest,
-            if read_only {
-                "program_read"
-            } else {
-                "program_simulate"
-            },
-            &record.key_id,
-            "attempted",
-        ),
-    ) {
-        Ok(None) => {}
-        Ok(Some(retry)) => return response(429, "quota_exceeded", Some(retry)),
-        Err(_) => return response(503, "persistence_unavailable", Some(5)),
-    }
-    let outbound = http::OutboundRequest {
-        method: "POST",
-        path: if read_only {
-            "/v1/programs/read"
-        } else {
-            "/v1/programs/simulate"
-        },
-        idempotency: None,
-        content_type: "application/octet-stream",
-        body: &canonical,
-    };
-    let upstream = if read_only {
-        config
-            .target(KernelBackend::Component)
-            .and_then(|(endpoint, token)| {
-                config.client.request_program_read(
-                    endpoint,
-                    token,
-                    &outbound,
-                    minimum_sequence,
-                    expected_state_root,
-                )
-            })
-    } else {
-        config
-            .target(KernelBackend::Component)
-            .and_then(|(endpoint, token)| config.client.request(endpoint, token, &outbound))
-    };
-    let Ok(upstream) = upstream else {
-        return response(503, "component_unavailable", Some(5));
-    };
-    if read_only && upstream.status == 409 && upstream.content_type == "application/json" {
-        let error = serde_json::from_slice::<serde_json::Value>(&upstream.body).ok();
-        match error
-            .as_ref()
-            .and_then(|value| value.get("error"))
-            .and_then(|value| value.get("code"))
-            .and_then(serde_json::Value::as_str)
-        {
-            Some("snapshot_stale") => return response(409, "snapshot_stale", Some(1)),
-            Some("snapshot_mismatch") => return response(409, "snapshot_mismatch", None),
-            _ => return response(503, "component_invalid", Some(5)),
-        }
-    }
-    if upstream.status != 200 || upstream.content_type != "application/json" {
-        return response(503, "component_invalid", Some(5));
-    }
-    let Ok(document): Result<serde_json::Value, _> = serde_json::from_slice(&upstream.body) else {
-        return response(503, "component_invalid", Some(5));
-    };
-    if read_only {
-        let value = document.get("result").unwrap_or(&document);
-        let evidence = &value["simulation_evidence"];
-        let Some(root) = evidence["previous_state_root"]
-            .as_str()
-            .and_then(|value| parse_hex32(value).ok())
-        else {
-            return response(503, "program_read_unverified", Some(5));
-        };
-        let (Some(sequence), Some(at)) = (
-            canonical_u64(&evidence["observed_sequence"]),
-            canonical_u64(&evidence["observed_at"]),
-        ) else {
-            return response(503, "program_read_unverified", Some(5));
-        };
-        if sequence < minimum_sequence
-            || expected_state_root.is_some_and(|expected| expected != root)
-        {
-            return response(503, "program_read_unverified", Some(5));
-        }
-        state_root = root;
-        observed_sequence = sequence;
-        observed_at = at;
-    }
-    let Ok(activity) = decode_signed(&canonical, modules) else {
-        return response(400, "invalid_program_call", None);
-    };
-    let Ok(payload_hash) = layerx_wire::hash::payload_hash(&activity) else {
-        return response(400, "invalid_program_call", None);
-    };
-    let expected = SimulationExpectation {
-        payload_hash,
-        activity_id: submission.activity_id(),
-        program_id,
-        abi_version: head.abi_version,
-        actor_did: activity.actor_did().to_vec(),
-        state_root,
-        observed_sequence,
-        observed_at,
-    };
-    let rendered = render_simulation(config, &document, &expected, trace_id);
-    if !read_only || rendered.status != 200 {
-        return rendered;
-    }
-    let Ok(mut verified): Result<serde_json::Value, _> = serde_json::from_slice(&rendered.body)
-    else {
-        return response(503, "program_read_unverified", Some(5));
-    };
-    verified["result"]["read_only"] = serde_json::json!(true);
-    verified["result"]["snapshot"] = serde_json::json!({
-        "minimum_sequence": minimum_sequence.to_string(),
-        "observed_sequence": observed_sequence.to_string(),
-        "state_root": hex(&state_root),
-    });
-    json_response(200, &verified)
-}
-
-struct SimulationExpectation {
-    payload_hash: [u8; 32],
-    activity_id: [u8; 32],
-    program_id: [u8; 32],
-    abi_version: u16,
-    actor_did: Vec<u8>,
-    state_root: [u8; 32],
-    observed_sequence: u64,
-    observed_at: u64,
-}
-
-fn render_simulation(
-    config: &Config,
-    document: &serde_json::Value,
-    expected: &SimulationExpectation,
-    trace_id: &str,
-) -> OutgoingResponse {
-    let value = document.get("result").unwrap_or(document);
-    let execution = value.get("execution").unwrap_or(value);
-    let activity_id = execution
-        .get("activity_id")
-        .and_then(serde_json::Value::as_str)
-        .and_then(|value| parse_hex32(value).ok());
-    if activity_id != Some(expected.activity_id) {
-        return response(503, "component_invalid", Some(5));
-    }
-    let Some(receipt) = execution
-        .get("receipt")
-        .and_then(serde_json::Value::as_str)
-        .and_then(|value| decode_hex(value, 1_048_576).ok())
-    else {
-        return response(503, "component_invalid", Some(5));
-    };
-    let Some(terminal_payload) = execution
-        .get("terminal_payload")
-        .and_then(serde_json::Value::as_str)
-        .and_then(|value| decode_hex(value, 1_048_576).ok())
-    else {
-        return response(503, "component_invalid", Some(5));
-    };
-    let Some(call_graph) = execution
-        .get("call_graph")
-        .and_then(serde_json::Value::as_str)
-        .and_then(|value| decode_hex(value, 1_048_576).ok())
-    else {
-        return response(503, "component_invalid", Some(5));
-    };
-    let receipt_keys = match config.receipt_keys() {
-        Ok(keys) => keys,
-        Err(unavailable) => return unavailable.into(),
-    };
-    let sequencer_public_key = match receipt_keys.authorization_for_receipt(&receipt) {
-        Ok(authorization) => authorization.public_key(),
-        Err(error) => {
-            return unauthorized_or(
-                error,
-                response(503, "program_simulation_unverified", Some(5)),
-            )
-        }
-    };
-    let Ok(verified) = verify_program_simulation_operation(
-        &receipt,
-        &terminal_payload,
-        &call_graph,
-        expected.state_root,
-        sequencer_public_key,
-        layerx_platform_gateway::ProgramExpectation {
-            activity_id: expected.activity_id,
-            payload_hash: expected.payload_hash,
-            program_id: expected.program_id,
-            guest_abi_version: expected.abi_version,
-            actor_did: &expected.actor_did,
-        },
-    ) else {
-        return response(503, "program_simulation_unverified", Some(5));
-    };
-    render_simulation_evidence(value, &verified, expected, sequencer_public_key, trace_id)
-}
-
-fn render_simulation_evidence(
-    value: &serde_json::Value,
-    verified: &layerx_platform_gateway::VerifiedOperation,
-    expected: &SimulationExpectation,
-    sequencer_public_key: [u8; 32],
-    trace_id: &str,
-) -> OutgoingResponse {
-    let Some(evidence) = value.get("simulation_evidence") else {
-        return response(503, "program_simulation_unverified", Some(5));
-    };
-    let boundary_id = evidence
-        .get("boundary_id")
-        .and_then(serde_json::Value::as_str)
-        .and_then(|value| parse_hex32(value).ok());
-    let evidence_activity = evidence
-        .get("activity_id")
-        .and_then(serde_json::Value::as_str)
-        .and_then(|value| parse_hex32(value).ok());
-    let previous = evidence
-        .get("previous_state_root")
-        .and_then(serde_json::Value::as_str)
-        .and_then(|value| parse_hex32(value).ok());
-    let hypothetical = evidence
-        .get("hypothetical_state_root")
-        .and_then(serde_json::Value::as_str)
-        .and_then(|value| parse_hex32(value).ok());
-    let evidence_sequence = evidence.get("observed_sequence").and_then(canonical_u64);
-    let evidence_at = evidence.get("observed_at").and_then(canonical_u64);
-    let public_key = evidence
-        .get("public_key")
-        .and_then(serde_json::Value::as_str)
-        .and_then(|value| parse_hex32(value).ok());
-    let signature = evidence
-        .get("signature")
-        .and_then(serde_json::Value::as_str)
-        .and_then(|value| decode_hex(value, 64).ok())
-        .and_then(|value| <[u8; 64]>::try_from(value).ok());
-    let verified_document: serde_json::Value = match serde_json::from_slice(verified.response()) {
-        Ok(value) => value,
-        Err(_) => return response(503, "program_simulation_unverified", Some(5)),
-    };
-    let verified_root = verified_document
-        .get("state_root")
-        .and_then(serde_json::Value::as_str)
-        .and_then(|value| parse_hex32(value).ok());
-    if evidence
-        .get("committed")
-        .and_then(serde_json::Value::as_bool)
-        != Some(false)
-        || previous != Some(expected.state_root)
-        || evidence_activity != Some(expected.activity_id)
-        || evidence_sequence != Some(expected.observed_sequence)
-        || evidence_at != Some(expected.observed_at)
-        || public_key != Some(sequencer_public_key)
-        || hypothetical != verified_root
-    {
-        return response(503, "program_simulation_unverified", Some(5));
-    }
-    let (Some(boundary_id), Some(hypothetical), Some(signature)) =
-        (boundary_id, hypothetical, signature)
-    else {
-        return response(503, "program_simulation_unverified", Some(5));
-    };
-    if let Err(error) = verify_simulation_signature(
-        &sequencer_public_key,
-        expected,
-        boundary_id,
-        hypothetical,
-        &signature,
-    ) {
-        return error;
-    }
-    json_response(
-        200,
-        &serde_json::json!({
-            "ok": true,
-            "result": {
-                "committed": false,
-                "execution": verified_document,
-                "simulation_evidence": {
-                    "boundary_id": hex(&boundary_id),
-                    "activity_id": hex(&expected.activity_id),
-                    "previous_state_root": hex(&expected.state_root),
-                    "hypothetical_state_root": hex(&hypothetical),
-                    "observed_sequence": expected.observed_sequence.to_string(),
-                    "observed_at": expected.observed_at.to_string(),
-                    "committed": false,
-                    "public_key": hex(&sequencer_public_key),
-                    "signature": hex(&signature),
-                },
-            },
-            "trace": trace_id,
-        }),
-    )
-}
-
-fn activity(
-    config: &Config,
-    request: &IncomingRequest,
-    record: &KeyRecord,
-    trace_id: &str,
-    program_call: bool,
-    rpc_submission: bool,
-    preverified: Option<VerifiedSubmission>,
-) -> OutgoingResponse {
-    let total_started = Instant::now();
-    let program_mutation = program_call;
-    let idempotency = match request.headers.get("idempotency-key") {
-        Some(value)
-            if if program_mutation {
-                canonical_hex32_text(value)
-            } else {
-                valid_identifier(value, 128)
-            } =>
-        {
-            value
-        }
-        _ => return response(400, "idempotency_key_required", None),
-    };
-    let decode_started = Instant::now();
-    let (canonical, expected_program) = match decode_activity_request(config, request, program_call)
-    {
-        Ok(value) => value,
-        Err(error) => return error,
-    };
-    pay_timing("gateway.activity.decode", decode_started);
-    let content_type = request
-        .headers
-        .get("content-type")
-        .map_or("", String::as_str);
-    let retained_signed_activity = hex(&canonical);
-    let verify_started = Instant::now();
-    let verified_submission = if let Some(verified) = preverified {
-        verified
-    } else {
-        let Ok(signer_public_key) = parse_hex32(&record.signer_public_key) else {
-            return response(503, "persistence_unavailable", Some(5));
-        };
-        let modules = match config.modules() {
-            Ok(modules) => modules,
-            Err(unavailable) => return unavailable.into(),
-        };
-        let Ok(verified) = verify_submission(
-            &canonical,
-            modules,
-            config.protocol_version,
-            config.protocol_network_id,
-            &signer_public_key,
-        ) else {
-            return response(403, "activity_authorization_refused", None);
-        };
-        verified
-    };
-    pay_timing("gateway.activity.verify_submission", verify_started);
-    if idempotency != &hex(&verified_submission.idempotency_key()) {
-        return response(409, "protocol_idempotency_mismatch", None);
-    }
-    let program_head = match expected_program {
-        Some(program) => match program_head(config, program) {
-            Ok(head) if head.lifecycle == ProgramLifecycle::Active => Some(head),
-            Ok(_) => return response(409, "program_not_active", None),
-            Err(error) => return error,
-        },
-        None => None,
-    };
-    let protocol_idempotency = hex(&verified_submission.idempotency_key());
-    let submitted_activity_id = hex(&verified_submission.activity_id());
-    let request_digest = digest(&[
-        b"gateway-activity-v1",
-        record.signer_public_key.as_bytes(),
-        content_type.as_bytes(),
-        &canonical,
-    ]);
-    let scope = digest(&[
-        record.principal_digest.as_bytes(),
-        if rpc_submission {
-            submitted_activity_id.as_bytes()
-        } else {
-            protocol_idempotency.as_bytes()
-        },
-    ]);
-    let operation = ActivityOperation {
-        scope,
-        request_digest,
-        submitted_activity_id,
-        protocol_idempotency,
-        retained_signed_activity,
-        program_mutation,
-        program_call,
-        program_head,
-        canonical,
-        activity_id: verified_submission.activity_id(),
-    };
-    let reserve_started = Instant::now();
-    if let Err(error) = reserve_activity(config, record, &operation, trace_id) {
-        return error;
-    }
-    pay_timing("gateway.activity.reserve", reserve_started);
-    let submit_started = Instant::now();
-    let response = submit_activity(config, request, record, &operation, trace_id);
-    pay_timing("gateway.activity.submit", submit_started);
-    pay_timing("gateway.activity.total", total_started);
-    response
-}
-
-struct ActivityOperation {
-    scope: String,
-    request_digest: String,
-    submitted_activity_id: String,
-    protocol_idempotency: String,
-    retained_signed_activity: String,
-    program_mutation: bool,
-    program_call: bool,
-    program_head: Option<ProgramHead>,
-    canonical: Vec<u8>,
-    activity_id: [u8; 32],
-}
-
-fn decode_activity_request(
-    config: &Config,
-    request: &IncomingRequest,
-    program_call: bool,
-) -> Result<(Vec<u8>, Option<[u8; 32]>), OutgoingResponse> {
-    let content_type = request
-        .headers
-        .get("content-type")
-        .map_or("", String::as_str);
-    let supported_content_type = if program_call {
-        media_type_is(request, "application/json")
-            || media_type_is(request, "application/octet-stream")
-    } else {
-        matches!(
-            content_type,
-            "application/json" | "application/octet-stream"
-        )
-    };
-    if !supported_content_type || request.body.is_empty() {
-        return Err(response(415, "activity_content_type_required", None));
-    }
-    let (canonical, expected_program) = if program_call {
-        match program_call_bytes(request, config.modules()?) {
-            Ok((activity, program)) => (activity, Some(program)),
-            Err(_) => return Err(response(400, "invalid_program_call", None)),
-        }
-    } else if content_type == "application/octet-stream" {
-        (request.body.clone(), None)
-    } else {
-        let body: JsonActivity = match serde_json::from_slice(&request.body) {
-            Ok(value) => value,
-            Err(_) => return Err(response(400, "invalid_activity", None)),
-        };
-        match decode_hex(&body.activity, 512 * 1024) {
-            Ok(value) => (value, None),
-            Err(_) => return Err(response(400, "invalid_activity", None)),
-        }
-    };
-    Ok((canonical, expected_program))
-}
-
-fn reserve_activity(
-    config: &Config,
-    record: &KeyRecord,
-    operation: &ActivityOperation,
-    trace_id: &str,
-) -> Result<(), OutgoingResponse> {
-    let total_started = Instant::now();
-    let audit = audit_event(
-        &record.principal_digest,
-        "activity",
-        &record.key_id,
-        "attempted",
-    );
-    let Ok(reservation) = config.store.reserve(
-        record,
-        ReservationRequest {
-            idempotency_scope: &operation.scope,
-            request_digest: &operation.request_digest,
-            now: now().unwrap_or(0),
-            retention_seconds: config.idempotency_seconds,
-            activity_id: &operation.submitted_activity_id,
-            protocol_idempotency_key: &operation.protocol_idempotency,
-            principal_digest: &record.principal_digest,
-            audit_event: &audit,
-            continuation: if operation.program_mutation {
-                operation.retained_signed_activity.as_str()
-            } else {
-                ""
-            },
-        },
-    ) else {
-        return Err(response(503, "persistence_unavailable", Some(5)));
-    };
-    match reservation {
-        Reservation::Revoked => return Err(response(401, "api_key_required", None)),
-        Reservation::RateLimited {
-            retry_after_seconds,
-        } => return Err(response(429, "quota_exceeded", Some(retry_after_seconds))),
-        Reservation::Existing {
-            digest: existing,
-            state,
-            response: stored,
-            ..
-        } => {
-            if existing
-                .as_bytes()
-                .ct_eq(operation.request_digest.as_bytes())
-                .unwrap_u8()
-                != 1
-            {
-                return Err(response(409, "idempotency_conflict", None));
-            }
-            if matches!(state.as_str(), "completed" | "refused") {
-                let limit = if operation.program_mutation {
-                    MAX_REQUEST
-                } else {
-                    512 * 1024
-                };
-                let Ok(result) = decode_hex(&stored, limit) else {
-                    return Err(response(503, "persistence_unavailable", Some(5)));
-                };
-                let Ok(result) = serde_json::from_slice::<serde_json::Value>(&result) else {
-                    return Err(response(503, "persistence_unavailable", Some(5)));
-                };
-                return Err(activity_terminal_response(
-                    config, operation, result, trace_id,
-                ));
-            }
-            if let Some(status) = state
-                .strip_prefix("refused_")
-                .and_then(|value| value.parse::<u16>().ok())
-            {
-                let Ok(body) = decode_hex(&stored, 64 * 1024) else {
-                    return Err(response(503, "persistence_unavailable", Some(5)));
-                };
-                return Err(OutgoingResponse {
-                    content_type: "application/json".to_owned(),
-                    headers: Vec::new(),
-                    status,
-                    body,
-                    retry_after: None,
-                });
-            }
-            if state != "pending" {
-                return Err(response(503, "operation_state_unknown", Some(5)));
-            }
-        }
-        Reservation::Reserved => {}
-    }
-    pay_timing("gateway.reserve.total", total_started);
-    Ok(())
-}
-
-fn submit_upstreams(
-    config: &Config,
-    request: &IncomingRequest,
-    operation: &ActivityOperation,
-) -> (
-    Result<UpstreamResponse, String>,
-    Option<Result<PreparedAuthority, OutgoingResponse>>,
-) {
-    thread::scope(|scope| {
-        let authority = (!operation.program_mutation && !operation.program_call).then(|| {
-            scope.spawn(|| {
-                let started = Instant::now();
-                let result = authority_request(config, &operation.submitted_activity_id, true);
-                pay_timing("gateway.authority.request", started);
-                result.and_then(|upstream| {
-                    authority_response(config, &operation.submitted_activity_id, &upstream)
-                })
-            })
-        });
-        let component = config
-            .target(KernelBackend::Component)
-            .and_then(|(endpoint, token)| {
-                config.client.request(
-                    endpoint,
-                    token,
-                    &http::OutboundRequest {
-                        method: "POST",
-                        path: if operation.program_mutation {
-                            &request.path
-                        } else {
-                            "/v1/activities"
-                        },
-                        idempotency: Some(&operation.protocol_idempotency),
-                        content_type: "application/octet-stream",
-                        body: &operation.canonical,
-                    },
-                )
-            });
-        let authority = authority.map(|handle| match handle.join() {
-            Ok(result) => result,
-            Err(_) => Err(response(503, "authority_unavailable", Some(5))),
-        });
-        (component, authority)
-    })
-}
-
-fn submit_activity(
-    config: &Config,
-    request: &IncomingRequest,
-    record: &KeyRecord,
-    operation: &ActivityOperation,
-    trace_id: &str,
-) -> OutgoingResponse {
-    let total_started = Instant::now();
-    let component_started = Instant::now();
-    let (upstream, prefetched_authority) = submit_upstreams(config, request, operation);
-    let Ok(upstream) = upstream else {
-        return submitted_unknown_response(
-            &operation.submitted_activity_id,
-            &operation.protocol_idempotency,
-            &operation.retained_signed_activity,
-            trace_id,
-        );
-    };
-    pay_timing("gateway.submit.component", component_started);
-    if upstream.status == 202 {
-        return submitted_unknown_response(
-            &operation.submitted_activity_id,
-            &operation.protocol_idempotency,
-            &operation.retained_signed_activity,
-            trace_id,
-        );
-    }
-    if upstream.status != 200 || upstream.content_type != "application/json" {
-        return if (400..500).contains(&upstream.status) {
-            let refusal = response(upstream.status, "activity_refused", None);
-            if config
-                .store
-                .complete(Completion {
-                    idempotency_scope: &operation.scope,
-                    request_digest: &operation.request_digest,
-                    state: &format!("refused_{}", upstream.status),
-                    response_hex: &hex(&refusal.body),
-                    receipt_hex: "",
-                    activity_id: None,
-                    principal_digest: &record.principal_digest,
-                    audit_event: &audit_event(
-                        &record.principal_digest,
-                        "activity",
-                        &record.key_id,
-                        "refused",
-                    ),
-                })
-                .is_err()
-            {
-                response(503, "persistence_unavailable", Some(5))
-            } else {
-                refusal
-            }
-        } else {
-            submitted_unknown_response(
-                &operation.submitted_activity_id,
-                &operation.protocol_idempotency,
-                &operation.retained_signed_activity,
-                trace_id,
-            )
-        };
-    }
-    let decode_started = Instant::now();
-    let component_document: serde_json::Value = match serde_json::from_slice(&upstream.body) {
-        Ok(value) => value,
-        Err(_) => return response(503, "component_invalid", Some(5)),
-    };
-    let component_value = component_document
-        .get("result")
-        .unwrap_or(&component_document)
-        .clone();
-    pay_timing("gateway.submit.decode", decode_started);
-    let complete_started = Instant::now();
-    let response = complete_activity(
-        config,
-        record,
-        operation,
-        component_value,
-        prefetched_authority,
-        trace_id,
-    );
-    pay_timing("gateway.submit.complete", complete_started);
-    pay_timing("gateway.submit.total", total_started);
-    response
-}
-
-fn activity_terminal_response(
-    config: &Config,
-    operation: &ActivityOperation,
-    result: serde_json::Value,
-    trace_id: &str,
-) -> OutgoingResponse {
-    if operation.program_mutation {
-        program_terminal_response(config, result, trace_id, true)
-    } else {
-        json_response(
-            200,
-            &serde_json::json!({"ok": true, "result": result, "trace": trace_id}),
-        )
-    }
-}
-
-fn program_terminal_response(
-    config: &Config,
-    mut result: serde_json::Value,
-    trace_id: &str,
-    mutation: bool,
-) -> OutgoingResponse {
-    let Some(receipt_hex) = result.get("receipt").and_then(serde_json::Value::as_str) else {
-        return response(503, "receipt_encoding_failed", Some(5));
-    };
-    let Ok(receipt) = decode_hex(receipt_hex, 1_048_576) else {
-        return response(503, "receipt_encoding_failed", Some(5));
-    };
-    let receipt_keys = match config.receipt_keys() {
-        Ok(keys) => keys,
-        Err(unavailable) => return unavailable.into(),
-    };
-    let sequencer_public_key = match receipt_keys.authorization_for_receipt(&receipt) {
-        Ok(authorization) => authorization.public_key(),
-        Err(error) => {
-            return unauthorized_or(error, response(502, "receipt_verification_failed", None))
-        }
-    };
-    let Ok(verified) =
-        layerx_proof::receipt::verify_sequencer_signature(&receipt, sequencer_public_key)
-    else {
-        return response(502, "receipt_verification_failed", None);
-    };
-    let Some(protocol) = verified.protocol() else {
-        return response(502, "receipt_verification_failed", None);
-    };
-    let result_code = protocol.result_code();
-    let activity_id = hex(&protocol.activity_id());
-    let state = result.get("state").and_then(serde_json::Value::as_str);
-    if result
-        .get("activity_id")
-        .and_then(serde_json::Value::as_str)
-        != Some(activity_id.as_str())
-        || if result_code == 0 {
-            !matches!(state, Some("completed" | "executed"))
-        } else {
-            state != Some("refused")
-        }
-    {
-        return response(502, "receipt_verification_failed", None);
-    }
-    if mutation && result_code != 0 {
-        return json_response(
-            409,
-            &serde_json::json!({"ok": false, "error": {
-                "code": "program_call_refused", "protocol_result_code": result_code,
-                "retry": "never", "activity_id": activity_id, "receipt": hex(&receipt)
-            }, "trace": trace_id}),
-        );
-    }
-    result["result_code"] = serde_json::json!(result_code);
-    json_response(
-        200,
-        &serde_json::json!({"ok": true, "result": result, "trace": trace_id}),
-    )
-}
-
-fn terminal_state(result_code: i32) -> &'static str {
-    if result_code == 0 {
-        "completed"
-    } else {
-        "refused"
-    }
-}
-
-fn complete_activity(
-    config: &Config,
-    record: &KeyRecord,
-    operation: &ActivityOperation,
-    component_value: serde_json::Value,
-    prefetched_authority: Option<Result<PreparedAuthority, OutgoingResponse>>,
-    trace_id: &str,
-) -> OutgoingResponse {
-    let total_started = Instant::now();
-    let decode_started = Instant::now();
-    let component: ComponentActivity = match serde_json::from_value(component_value) {
-        Ok(value) => value,
-        Err(_) => return response(503, "component_invalid", Some(5)),
-    };
-    if !matches!(
-        component.state.as_str(),
-        "completed" | "executed" | "refused"
-    ) || !component
-        .activity_id
-        .eq_ignore_ascii_case(&hex(&operation.activity_id))
-        || component.receipt.is_empty()
-    {
-        return response(503, "component_invalid", Some(5));
-    }
-    if operation.program_call
-        && (component.terminal_payload.is_empty() || component.call_graph.is_empty())
-    {
-        return response(503, "component_invalid", Some(5));
-    }
-    pay_timing("gateway.complete.decode", decode_started);
-    let verify_started = Instant::now();
-    let (result, receipt, verified_result_code) = match operation.program_head.map_or_else(
-        || {
-            verified_result(
-                config,
-                &component.activity_id,
-                &component.receipt,
-                prefetched_authority,
-            )
-        },
-        |head| {
-            verified_program_result(
-                config,
-                &component.activity_id,
-                &component.receipt,
-                &component.terminal_payload,
-                &component.call_graph,
-                &head,
-                &operation.canonical,
-            )
-        },
-    ) {
-        Ok(value) => value,
-        Err(error) => return error,
-    };
-    pay_timing("gateway.complete.receipt", verify_started);
-    if verify_withdrawal_submission(config, operation, &receipt).is_err() {
-        return response(502, "withdrawal_verification_failed", None);
-    }
-    if !operation.program_mutation && verified_result_code != 0 {
-        return complete_activity_refusal(
-            config,
-            record,
-            operation,
-            &component,
-            &receipt,
-            verified_result_code,
-            trace_id,
-        );
-    }
-    let Ok((result, stored_result)) = retained_activity_result(&result, operation) else {
-        return response(503, "receipt_encoding_failed", Some(5));
-    };
-    let persist_started = Instant::now();
-    if config
-        .store
-        .complete_verified(Completion {
-            idempotency_scope: &operation.scope,
-            request_digest: &operation.request_digest,
-            state: terminal_state(verified_result_code),
-            response_hex: &hex(&stored_result),
-            receipt_hex: &hex(&receipt),
-            activity_id: Some(&component.activity_id.to_ascii_lowercase()),
-            principal_digest: &record.principal_digest,
-            audit_event: &audit_event(
-                &record.principal_digest,
-                "activity",
-                &record.key_id,
-                "receipt_verified",
-            ),
-        })
-        .is_err()
-    {
-        return response(503, "persistence_unavailable", Some(5));
-    }
-    pay_timing("gateway.complete.persist", persist_started);
-    let response = activity_terminal_response(config, operation, result, trace_id);
-    pay_timing("gateway.complete.total", total_started);
-    response
-}
-
-fn retained_activity_result(
-    encoded: &[u8],
-    operation: &ActivityOperation,
-) -> Result<(serde_json::Value, Vec<u8>), ()> {
-    let mut result = serde_json::from_slice::<serde_json::Value>(encoded).map_err(|_| ())?;
-    retain_submission_binding(
-        &mut result,
-        &operation.protocol_idempotency,
-        operation
-            .program_call
-            .then_some(operation.retained_signed_activity.as_str()),
-    );
-    let stored = serde_json::to_vec(&result).map_err(|_| ())?;
-    Ok((result, stored))
-}
-
-fn verify_withdrawal_submission(
-    config: &Config,
-    operation: &ActivityOperation,
+#[cfg(test)]
+fn verify_withdrawal_receipt(
     receipt: &[u8],
+    authorized: &AuthorizedBatch,
+    activity_id: &[u8; 32],
 ) -> Result<(), ()> {
-    let decoded = layerx_wire::receipt::decode(receipt).map_err(|_| ())?;
-    let protocol = decoded.protocol().ok_or(())?;
-    if protocol.module_id() != 1 || protocol.operation() != 9 {
-        return Ok(());
+    let verified = layerx_proof::receipt::verify_outcome(receipt, authorized).map_err(|_| ())?;
+    let protocol = verified.receipt().protocol().ok_or(())?;
+    if protocol.activity_id() != *activity_id {
+        return Err(());
     }
-    let authorized = layerx_proof::receipt::AuthorizedBatch::new(
-        protocol.batch_id(),
-        protocol.asset(),
-        protocol.previous_state_root(),
-        protocol.resulting_state_root(),
-        config
-            .receipt_keys()
-            .map_err(|_| ())?
-            .authorization_for_receipt(receipt)
-            .map_err(|_| ())?
-            .public_key(),
-    );
-    layerx_proof::receipt::withdrawal::verify(
-        receipt,
-        &authorized,
-        &operation.canonical,
-        config.protocol_network_id,
-    )
-    .map_err(|_| ())?;
     Ok(())
 }
 
-fn submitted_unknown_response(
-    activity_id: &str,
-    idempotency_key: &str,
-    retained_signed_activity: &str,
-    trace_id: &str,
-) -> OutgoingResponse {
-    json_response(
-        202,
-        &serde_json::json!({
-            "ok": true,
-            "result": {
-                "state": "unknown",
-                "activity_id": activity_id,
-                "idempotency_key": idempotency_key,
-                "retained_signed_activity": retained_signed_activity,
-            },
-            "trace": trace_id,
-        }),
-    )
-}
-
+#[cfg(test)]
 fn pending_program_response(operation: &OperationRecord, trace_id: &str) -> OutgoingResponse {
     if !operation.continuation.is_empty()
         && decode_hex(&operation.continuation, 1024 * 1024).is_err()
@@ -2978,94 +1801,6 @@ fn pending_program_response(operation: &OperationRecord, trace_id: &str) -> Outg
             "result": result,
             "trace": trace_id,
         }),
-    )
-}
-
-fn resolve_pending_program(
-    config: &Config,
-    record: &KeyRecord,
-    operation: &OperationRecord,
-    trace_id: &str,
-) -> OutgoingResponse {
-    let Ok(upstream) = config
-        .target(KernelBackend::Component)
-        .and_then(|(endpoint, token)| {
-            config.client.request(
-                endpoint,
-                token,
-                &http::OutboundRequest {
-                    method: "GET",
-                    path: &format!("/v1/programs/activities/{}", operation.activity_id),
-                    idempotency: None,
-                    content_type: "application/json",
-                    body: &[],
-                },
-            )
-        })
-    else {
-        return pending_program_response(operation, trace_id);
-    };
-    if matches!(upstream.status, 202 | 404) {
-        return pending_program_response(operation, trace_id);
-    }
-    if upstream.status != 200 || upstream.content_type != "application/json" {
-        return response(503, "component_invalid", Some(5));
-    }
-    let document: serde_json::Value = match serde_json::from_slice(&upstream.body) {
-        Ok(value) => value,
-        Err(_) => return response(503, "component_invalid", Some(5)),
-    };
-    let value = document.get("result").unwrap_or(&document);
-    let component: ComponentActivity = match serde_json::from_value(value.clone()) {
-        Ok(value) => value,
-        Err(_) => return response(503, "component_invalid", Some(5)),
-    };
-    let program_id = value
-        .get("program_id")
-        .and_then(serde_json::Value::as_str)
-        .and_then(|value| parse_hex32(value).ok());
-    if !matches!(
-        component.state.as_str(),
-        "executed" | "refused" | "completed"
-    ) || !component
-        .activity_id
-        .eq_ignore_ascii_case(&operation.activity_id)
-        || component.receipt.is_empty()
-        || component.terminal_payload.is_empty()
-        || component.call_graph.is_empty()
-    {
-        return response(503, "component_invalid", Some(5));
-    }
-    let Some(program_id) = program_id else {
-        return response(503, "component_invalid", Some(5));
-    };
-    let head = match program_head(config, program_id) {
-        Ok(value) => value,
-        Err(error) => return error,
-    };
-    let Ok(canonical) = decode_hex(&operation.continuation, 1_048_576) else {
-        return response(503, "persistence_unavailable", Some(5));
-    };
-    let (verified, receipt, result_code) = match verified_program_result(
-        config,
-        &component.activity_id,
-        &component.receipt,
-        &component.terminal_payload,
-        &component.call_graph,
-        &head,
-        &canonical,
-    ) {
-        Ok(value) => value,
-        Err(error) => return error,
-    };
-    complete_pending_program(
-        config,
-        record,
-        operation,
-        &verified,
-        &receipt,
-        result_code,
-        trace_id,
     )
 }
 
@@ -4459,108 +3194,6 @@ fn read_program_interface(config: &Config, program: &str, trace_id: &str) -> Out
     render_program_interface(&document, &head, trace_id)
 }
 
-fn read_program_receipt(
-    config: &Config,
-    record: &KeyRecord,
-    idempotency: &str,
-    trace_id: &str,
-    expected_receipt_activity: Option<&str>,
-) -> OutgoingResponse {
-    let idempotency = idempotency.to_owned();
-    let scope = digest(&[record.principal_digest.as_bytes(), idempotency.as_bytes()]);
-    let operation = match config.store.operation(&scope) {
-        Ok(Some(value))
-            if value
-                .principal
-                .as_bytes()
-                .ct_eq(record.principal_digest.as_bytes())
-                .unwrap_u8()
-                == 1 =>
-        {
-            value
-        }
-        Ok(Some(_) | None) => return response(404, "program_receipt_not_found", None),
-        Err(_) => return response(503, "persistence_unavailable", Some(5)),
-    };
-    if operation.idempotency_key != idempotency {
-        return response(404, "program_receipt_not_found", None);
-    }
-    if expected_receipt_activity != Some(operation.activity_id.as_str()) {
-        return response(409, "program_receipt_selector_mismatch", None);
-    }
-    if operation.state == "pending" {
-        return resolve_pending_program(config, record, &operation, trace_id);
-    }
-    if !matches!(operation.state.as_str(), "completed" | "refused") {
-        return response(409, "program_call_refused", None);
-    }
-    let Ok(body) = decode_hex(&operation.response, MAX_REQUEST) else {
-        return response(503, "persistence_unavailable", Some(5));
-    };
-    let mut value: serde_json::Value = match serde_json::from_slice(&body) {
-        Ok(value) => value,
-        Err(_) => return response(503, "persistence_unavailable", Some(5)),
-    };
-    if let Some(object) = value.as_object_mut() {
-        object.insert(
-            "idempotency_key".to_owned(),
-            serde_json::Value::String(idempotency),
-        );
-    }
-    program_terminal_response(config, value, trace_id, false)
-}
-
-fn read_program_activity(
-    config: &Config,
-    record: &KeyRecord,
-    activity_id: &str,
-    trace_id: &str,
-) -> OutgoingResponse {
-    let activity_id = activity_id.to_owned();
-    let owner = match config.store.activity_owner(&activity_id) {
-        Ok(Some(value)) => value,
-        Ok(None) => return response(404, "program_activity_not_found", None),
-        Err(_) => return response(503, "persistence_unavailable", Some(5)),
-    };
-    if owner
-        .as_bytes()
-        .ct_eq(record.principal_digest.as_bytes())
-        .unwrap_u8()
-        != 1
-    {
-        return response(404, "program_activity_not_found", None);
-    }
-    let operation = match config.store.activity_operation(&activity_id) {
-        Ok(Some(value)) => value,
-        Ok(None) => return response(404, "program_activity_not_found", None),
-        Err(_) => return response(503, "persistence_unavailable", Some(5)),
-    };
-    if operation.activity_id != activity_id
-        || operation
-            .principal
-            .as_bytes()
-            .ct_eq(record.principal_digest.as_bytes())
-            .unwrap_u8()
-            != 1
-    {
-        return response(404, "program_activity_not_found", None);
-    }
-    if operation.state == "pending" {
-        return resolve_pending_program(config, record, &operation, trace_id);
-    }
-    if !matches!(operation.state.as_str(), "completed" | "refused") {
-        return response(409, "program_call_refused", None);
-    }
-    let Ok(body) = decode_hex(&operation.response, MAX_REQUEST) else {
-        return response(503, "persistence_unavailable", Some(5));
-    };
-    let value: serde_json::Value = match serde_json::from_slice(&body) {
-        Ok(value) => value,
-        Err(_) => return response(503, "persistence_unavailable", Some(5)),
-    };
-    program_terminal_response(config, value, trace_id, false)
-}
-
 fn render_program_interface(
     document: &serde_json::Value,
     head: &ProgramHead,
@@ -4655,81 +3288,6 @@ fn render_program_interface(
     )
 }
 
-fn verify_simulation_signature(
-    sequencer_public_key: &[u8; 32],
-    expected: &SimulationExpectation,
-    boundary_id: [u8; 32],
-    hypothetical: [u8; 32],
-    signature: &[u8; 64],
-) -> Result<(), OutgoingResponse> {
-    let mut boundary_material = b"LayerX/emulator/simulation-boundary/v1\0".to_vec();
-    boundary_material.extend_from_slice(sequencer_public_key);
-    let expected_boundary: [u8; 32] = Sha256::digest(boundary_material).into();
-    if boundary_id != expected_boundary {
-        return Err(response(503, "program_simulation_unverified", Some(5)));
-    }
-    let mut signed = b"LayerX/agent/program-simulation-evidence/v1\0".to_vec();
-    signed.extend_from_slice(&boundary_id);
-    signed.extend_from_slice(&expected.activity_id);
-    signed.extend_from_slice(&expected.state_root);
-    signed.extend_from_slice(&hypothetical);
-    signed.extend_from_slice(&expected.observed_sequence.to_be_bytes());
-    signed.extend_from_slice(&expected.observed_at.to_be_bytes());
-    signed.push(0);
-    let evidence_digest: [u8; 32] = Sha256::digest(signed).into();
-    if ed25519::verify_digest(sequencer_public_key, signature, &evidence_digest).is_err() {
-        return Err(response(503, "program_simulation_unverified", Some(5)));
-    }
-    Ok(())
-}
-
-fn complete_activity_refusal(
-    config: &Config,
-    record: &KeyRecord,
-    operation: &ActivityOperation,
-    component: &ComponentActivity,
-    receipt: &[u8],
-    verified_result_code: i32,
-    trace_id: &str,
-) -> OutgoingResponse {
-    let refusal = json_response(
-        409,
-        &serde_json::json!({
-            "ok": false,
-            "error": {
-                "code": "activity_refused",
-                "protocol_result_code": verified_result_code,
-                "retry": "never",
-                "activity_id": component.activity_id.to_ascii_lowercase(),
-                "receipt": hex(receipt),
-            },
-            "trace": trace_id,
-        }),
-    );
-    if config
-        .store
-        .complete_verified(Completion {
-            idempotency_scope: &operation.scope,
-            request_digest: &operation.request_digest,
-            state: "refused_409",
-            response_hex: &hex(&refusal.body),
-            receipt_hex: &hex(receipt),
-            activity_id: Some(&component.activity_id.to_ascii_lowercase()),
-            principal_digest: &record.principal_digest,
-            audit_event: &audit_event(
-                &record.principal_digest,
-                "activity",
-                &record.key_id,
-                "receipt_verified_refusal",
-            ),
-        })
-        .is_err()
-    {
-        return response(503, "persistence_unavailable", Some(5));
-    }
-    refusal
-}
-
 fn rotate_key(
     config: &Config,
     request: &IncomingRequest,
@@ -4808,74 +3366,6 @@ fn rotate_key(
     } else {
         response(409, "rotation_conflict", None)
     }
-}
-
-fn retain_submission_binding(
-    result: &mut serde_json::Value,
-    idempotency: &str,
-    signed_activity: Option<&str>,
-) {
-    if let Some(object) = result.as_object_mut() {
-        object.insert(
-            "idempotency_key".to_owned(),
-            serde_json::Value::String(idempotency.to_owned()),
-        );
-        if let Some(signed) = signed_activity {
-            object.insert(
-                "retained_signed_activity".to_owned(),
-                serde_json::Value::String(signed.to_owned()),
-            );
-        }
-    }
-}
-
-fn complete_pending_program(
-    config: &Config,
-    record: &KeyRecord,
-    operation: &OperationRecord,
-    verified: &[u8],
-    receipt: &[u8],
-    result_code: i32,
-    trace_id: &str,
-) -> OutgoingResponse {
-    let mut result: serde_json::Value = match serde_json::from_slice(verified) {
-        Ok(value) => value,
-        Err(_) => return response(503, "receipt_encoding_failed", Some(5)),
-    };
-    retain_submission_binding(
-        &mut result,
-        &operation.idempotency_key,
-        Some(&operation.continuation),
-    );
-    let Ok(stored_result) = serde_json::to_vec(&result) else {
-        return response(503, "receipt_encoding_failed", Some(5));
-    };
-    if config
-        .store
-        .complete(Completion {
-            idempotency_scope: &operation.scope,
-            request_digest: &operation.digest,
-            state: if result_code == 0 {
-                "completed"
-            } else {
-                "refused"
-            },
-            response_hex: &hex(&stored_result),
-            receipt_hex: &hex(receipt),
-            activity_id: Some(&operation.activity_id),
-            principal_digest: &record.principal_digest,
-            audit_event: &audit_event(
-                &record.principal_digest,
-                "program_reconcile",
-                &record.key_id,
-                "receipt_verified",
-            ),
-        })
-        .is_err()
-    {
-        return response(503, "persistence_unavailable", Some(5));
-    }
-    program_terminal_response(config, result, trace_id, false)
 }
 
 #[cfg(test)]
@@ -5655,6 +4145,87 @@ mod programs_wire_tests {
         );
         assert!(program_activity_selector(&lookup, &activity).is_ok());
         assert!(program_activity_selector(&lookup, &"A".repeat(64)).is_err());
+    }
+}
+
+#[cfg(test)]
+mod withdrawal_completion_tests {
+    use super::*;
+
+    #[test]
+    fn withdrawal_completion_binds_the_receipt_to_its_operation() {
+        let receipt =
+            include_bytes!("../../../../../tests/fixtures/asset/bound-native-withdrawal/receipt");
+        let header_bytes =
+            include_bytes!("../../../../../tests/fixtures/asset/bound-native-withdrawal/header");
+        let key = *include_bytes!(
+            "../../../../../tests/fixtures/asset/bound-native-withdrawal/sequencer.public"
+        );
+        let header = layerx_wire::receipt::decode_batch_header(header_bytes)
+            .unwrap_or_else(|error| panic!("{error:?}"));
+        let decoded = layerx_proof::receipt::verify_sequencer_signature(receipt, key)
+            .unwrap_or_else(|error| panic!("{error:?}"));
+        let protocol = decoded
+            .protocol()
+            .unwrap_or_else(|| panic!("protocol receipt required"));
+        assert_eq!((protocol.module_id(), protocol.operation()), (1, 9));
+        let batch = AuthorizedBatch::new(
+            protocol.batch_id(),
+            protocol.asset(),
+            header.previous_state_root(),
+            header.resulting_state_root(),
+            key,
+        );
+        let authorization = layerx_proof::inclusion::SequencerAuthorization::new(
+            header.sequencer_id(),
+            key,
+            header.batch_number(),
+            header.batch_number(),
+        );
+        let proof = |bytes: &[u8]| {
+            let path = layerx_wire::receipt::decode_merkle_proof(bytes)
+                .unwrap_or_else(|error| panic!("{error:?}"));
+            layerx_proof::merkle::Proof::new(
+                path.leaf_index(),
+                path.leaf_count(),
+                path.siblings().to_vec(),
+            )
+            .unwrap_or_else(|error| panic!("{error:?}"))
+        };
+        let receipt_proof = proof(include_bytes!(
+            "../../../../../tests/fixtures/asset/bound-native-withdrawal/receipt.proof"
+        ));
+        let maintenance_proof = proof(include_bytes!(
+            "../../../../../tests/fixtures/asset/bound-native-withdrawal/maintenance.proof"
+        ));
+        let evidence = layerx_proof::receipt::MaintainedOutcomeEvidence {
+            header: header_bytes,
+            header_signature: include_bytes!(
+                "../../../../../tests/fixtures/asset/bound-native-withdrawal/header.signature"
+            ),
+            activity_proof: &receipt_proof,
+            maintenance: include_bytes!(
+                "../../../../../tests/fixtures/asset/bound-native-withdrawal/maintenance.receipt"
+            ),
+            maintenance_proof: &maintenance_proof,
+            authorization: &authorization,
+        };
+        let authorized = layerx_proof::receipt::authorized_maintained_activity_batch_chain(
+            receipt,
+            &batch,
+            &evidence,
+            &[receipt.to_vec()],
+        )
+        .unwrap_or_else(|error| panic!("{error:?}"));
+
+        let activity_id = protocol.activity_id();
+        assert_eq!(
+            verify_withdrawal_receipt(receipt, &authorized, &activity_id),
+            Ok(())
+        );
+        let mut different_activity_id = activity_id;
+        different_activity_id[0] ^= 1;
+        assert!(verify_withdrawal_receipt(receipt, &authorized, &different_activity_id).is_err());
     }
 }
 

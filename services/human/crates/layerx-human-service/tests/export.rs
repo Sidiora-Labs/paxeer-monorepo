@@ -85,7 +85,6 @@ fn protocol_artifact() -> OfflineExport {
             header_signature: sequencer_key.sign(&header_digest).to_bytes(),
             sequencer_authorization: SequencerAuthorization::new(sequencer_id, sequencer_id, 8, 8),
         }],
-        checkpoints: Vec::new(),
         derived_aggregates: Vec::new(),
     }
 }

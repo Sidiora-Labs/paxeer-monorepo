@@ -50,7 +50,7 @@ func venueUnknown(w http.ResponseWriter, symbol string) {
 func (v *Venue) market(w http.ResponseWriter, r *http.Request) (string, bool) {
 	symbol := strings.ToUpper(r.PathValue("symbol"))
 	var market string
-	err := v.db.QueryRowContext(r.Context(), `SELECT market_id::text FROM perps.markets WHERE symbol = $1`, symbol).Scan(&market)
+	err := v.db.QueryRowContext(r.Context(), `SELECT market_id::text FROM perps.markets WHERE upper(symbol) = $1`, symbol).Scan(&market)
 	if errors.Is(err, sql.ErrNoRows) {
 		venueUnknown(w, symbol)
 		return "", false
@@ -226,7 +226,7 @@ LEFT JOIN LATERAL (SELECT long_oi, short_oi FROM perps.open_interest WHERE marke
 LEFT JOIN perps.market_stats_rolling s ON s.market_id = m.market_id
 LEFT JOIN LATERAL (SELECT sum(size_usd / price) AS contracts FROM perps.fills
     WHERE market_id = m.market_id AND price > 0 AND block_time > CURRENT_TIMESTAMP - interval '24 hours') amount ON true
-WHERE ($2 = '' OR m.symbol = $2)
+WHERE ($2 = '' OR upper(m.symbol) = $2)
 ORDER BY m.market_id`
 
 func venueFinite(v float64) bool {

@@ -46,7 +46,8 @@ fn journal_verifies_deployments_from_chain_trust() {
     record.extend_from_slice(&1_u16.to_be_bytes());
     record.extend_from_slice(&7_u32.to_be_bytes());
     let pairs = vec![(key.clone(), record)];
-    let fixture = chain::ChainFixture::new(
+    let fixture = chain::ChainFixture::new_in_store(
+        "lxphost",
         "registry-chain-trust",
         &[[1; 32], [2; 32], [3; 32], [4; 32]],
         pairs.clone(),
@@ -145,7 +146,8 @@ fn journal_verifies_deployments_from_chain_trust() {
             [[11; 32], [12; 32], [13; 32], [14; 32]],
         ),
     ] {
-        let untrusted = chain::ChainFixture::new(chain_id, &seeds, pairs.clone()).unwrap();
+        let untrusted =
+            chain::ChainFixture::new_in_store("lxphost", chain_id, &seeds, pairs.clone()).unwrap();
         let untrusted_proof = package(
             untrusted.encode_key(&key).unwrap(),
             support::WASM_V1,
@@ -187,4 +189,75 @@ fn journal_verifies_deployments_from_chain_trust() {
     fs::remove_file(&trust_path).unwrap();
     assert!(journal.append_chain_deployment(&proof, now).is_err());
     assert_eq!(fs::read(&saved).unwrap(), proof);
+}
+
+#[test]
+fn journal_refuses_deployment_outside_the_lxphost_store() {
+    let root = Directory(
+        PathBuf::from(env!("CARGO_TARGET_TMPDIR"))
+            .join(format!("journal-wrong-store-{}", std::process::id())),
+    );
+    fs::create_dir_all(&root.0).unwrap();
+    let trust_path = root.0.join("trust-root");
+    let journal_path = root.0.join("journal");
+    let program = ProgramId::new([31; 32]).unwrap();
+    let mut key = b"program\0".to_vec();
+    key.extend_from_slice(&program.bytes());
+    let key = programs_state_key(&key);
+    let code_hash: [u8; 32] = Sha256::digest(support::WASM_V1).into();
+    let mut record = vec![1];
+    record.extend_from_slice(&[32; 32]);
+    record.extend_from_slice(&code_hash);
+    record.extend_from_slice(&1_u16.to_be_bytes());
+    record.extend_from_slice(&7_u32.to_be_bytes());
+    let fixture = chain::ChainFixture::new_in_store(
+        "layerx",
+        "registry-chain-trust",
+        &[[1; 32], [2; 32], [3; 32], [4; 32]],
+        vec![(key.clone(), record)],
+    )
+    .unwrap();
+    let head = fixture
+        .verifier
+        .verify_head(&fixture.header, &fixture.commit)
+        .unwrap();
+    let trust = TrustRoot::from_head(&head, fixture.verifier.validators.clone()).unwrap();
+    fs::write(&trust_path, trust.canonical_bytes().unwrap()).unwrap();
+    fs::set_permissions(&trust_path, fs::Permissions::from_mode(0o600)).unwrap();
+    let interface = ProgramInterface::bind(
+        support::WASM_V1,
+        1,
+        vec![InterfaceEntryPoint {
+            name: "call".to_owned(),
+            discriminator: [1, 2, 3, 4],
+            calldata: ValueSchema::layerx(ValueType::Bytes { max_len: 64 }),
+            response: ValueSchema::layerx(ValueType::Bytes { max_len: 64 }),
+            capabilities: Vec::new(),
+            event_topics: Vec::new(),
+            failures: Vec::new(),
+        }],
+    )
+    .unwrap();
+    let commitment = fixture.encode_key(&key).unwrap();
+    assert_eq!(
+        decode_commitment_proof(&commitment).unwrap().store_name,
+        "layerx"
+    );
+    let proof = serde_json::to_vec(&json!({
+        "commitment": commitment,
+        "code": support::WASM_V1,
+        "interface": interface.canonical_encoding(),
+    }))
+    .unwrap();
+    let journal =
+        FileDeploymentJournal::open_from_chain_trust(journal_path.clone(), &trust_path, 1_000)
+            .unwrap();
+    assert_eq!(fs::read_dir(&journal_path).unwrap().count(), 0);
+    assert_eq!(
+        journal
+            .append_chain_deployment(&proof, u64::try_from(head.time_ms()).unwrap())
+            .unwrap_err(),
+        "deployment proof must use the lxphost store"
+    );
+    assert_eq!(fs::read_dir(&journal_path).unwrap().count(), 0);
 }

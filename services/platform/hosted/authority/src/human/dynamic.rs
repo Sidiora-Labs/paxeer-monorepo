@@ -555,9 +555,7 @@ pub(super) fn dispatch(
         .last()
         .ok_or_else(|| unavailable("identity_head_evidence_incomplete"))?;
     let checkpoint = native_checkpoint(latest)?;
-    if latest.last_sequence != current.head
-        || checkpoint.report().evidence().checkpoint_id() != Some(current.checkpoint)
-    {
+    if latest.last_sequence != current.head || checkpoint.checkpoint_id != current.checkpoint {
         return Err(unavailable("identity_head_evidence_incomplete"));
     }
     let target = params

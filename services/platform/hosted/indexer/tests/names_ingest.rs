@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
-use layerx_indexer::abi::{keccak, AbiRegistry};
+use layerx_indexer::abi::{keccak, AbiRegistry, DecodedEvent};
 use layerx_indexer::codec::{hex0x, unhex, unhex_fixed};
 use layerx_indexer::follow::{FollowPolicy, StepOutcome};
 use layerx_indexer::names::{names_abi, NamesConfig};
@@ -244,7 +244,7 @@ fn names_ingest_builds_the_view_and_events() -> Checked<()> {
     let expected = [
         (1, 0, "register", "names_registrar", "NameRegistered"),
         (1, 1, "register", "names_controller", "NameRegistered"),
-        (1, 2, "register", "names_registry", "NewOwner"),
+        (1, 2, "transfer", "names_registry", "NewOwner"),
         (1, 3, "set_addr", "names_resolver", "AddrChanged"),
         (
             1,
@@ -331,7 +331,7 @@ fn names_ingest_builds_the_view_and_events() -> Checked<()> {
     );
 
     let registry = registry();
-    for (index, action) in ["transfer", "set_addr", "name_changed"]
+    for (index, action) in ["transfer", "set_resolver", "name_changed"]
         .into_iter()
         .enumerate()
     {
@@ -366,6 +366,97 @@ fn names_ingest_builds_the_view_and_events() -> Checked<()> {
         assert_eq!(decoded.action, action);
         assert_eq!(decoded.timestamp, 42);
         assert_eq!(decoded.from_address, chain["sender"]);
+    }
+    Ok(())
+}
+
+#[test]
+fn names_registry_owner_and_resolver_changes_are_not_registrations() -> Checked<()> {
+    let parent = [0x11; 32];
+    let label = [0x22; 32];
+    let node = hex0x(&parent);
+    let labelhash = hex0x(&label);
+    let owner = hex0x(&[0x33; 20]);
+    let resolver = hex0x(&[0x44; 20]);
+    let sender = hex0x(&[0x55; 20]);
+    for (name, signature, args, expected) in [
+        (
+            "NewOwner",
+            "NewOwner(bytes32,bytes32,address)",
+            json!({"node":node, "label":labelhash, "owner":owner}),
+            Some(("transfer", json!({"owner":owner}))),
+        ),
+        (
+            "Transfer",
+            "Transfer(bytes32,address)",
+            json!({"node":node, "owner":owner}),
+            Some(("transfer", json!({"owner":owner}))),
+        ),
+        (
+            "NewResolver",
+            "NewResolver(bytes32,address)",
+            json!({"node":node, "resolver":resolver}),
+            Some(("set_resolver", json!({"resolver":resolver}))),
+        ),
+        (
+            "NewTTL",
+            "NewTTL(bytes32,uint64)",
+            json!({"node":node, "ttl":"3600"}),
+            None,
+        ),
+        (
+            "ApprovalForAll",
+            "ApprovalForAll(address,address,bool)",
+            json!({"owner":owner, "operator":sender, "approved":true}),
+            None,
+        ),
+    ] {
+        let event = DecodedEvent {
+            contract: "names_registry".to_owned(),
+            name: name.to_owned(),
+            signature: signature.to_owned(),
+            args: args.as_object().ok_or("event args missing")?.clone(),
+        };
+        let row = layerx_indexer::names::decode(&event, &sender, 42);
+        if let Some((action, changes)) = expected {
+            let row = row.ok_or("registry name event missing")?;
+            assert_eq!(row.action, action, "{name}");
+            assert_ne!(row.action, "register", "{name}");
+            assert_ne!(row.action, "set_addr", "{name}");
+            assert_eq!(row.data["changes"], changes, "{name}");
+            let expected_node = if name == "NewOwner" {
+                hex0x(&layerx_indexer::names::child_node(parent, label))
+            } else {
+                node.clone()
+            };
+            assert_eq!(row.node, expected_node, "{name}");
+        } else {
+            assert!(row.is_none(), "unexpected registry name event: {name}");
+        }
+    }
+    for (contract, signature, args) in [
+        (
+            "names_registrar",
+            "NameRegistered(uint256,address,uint256)",
+            json!({"id":"1", "owner":owner, "expires":"2000000000"}),
+        ),
+        (
+            "names_controller",
+            "NameRegistered(string,bytes32,address,uint256,uint256,bytes32)",
+            json!({"label":"alice", "labelhash":labelhash, "owner":owner,
+                "cost":"1", "expires":"2000000000", "referrer":hex0x(&[0; 32])}),
+        ),
+    ] {
+        let event = DecodedEvent {
+            contract: contract.to_owned(),
+            name: "NameRegistered".to_owned(),
+            signature: signature.to_owned(),
+            args: args.as_object().ok_or("registration args missing")?.clone(),
+        };
+        let row = layerx_indexer::names::decode(&event, &sender, 42)
+            .ok_or("registration event missing")?;
+        assert_eq!(row.action, "register", "{contract}");
+        assert_eq!(row.data["changes"]["owner"], owner, "{contract}");
     }
     Ok(())
 }

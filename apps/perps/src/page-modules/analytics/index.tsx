@@ -1,5 +1,6 @@
-import { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { usePerpsMarkets } from "@/hooks/perps/usePerpsMarkets";
+import type { MarketCatalogEntry } from "@/core/perps/marketCatalog";
 import { useIsMobile } from "@/hooks/ui/useMobile";
 import { TRACK_B_STRINGS } from "@/core/perps/config";
 import { OiChart } from "@/widgets/analytics/OiChart";
@@ -10,13 +11,19 @@ import { MarketSnapshotTable } from "@/widgets/analytics/MarketSnapshotTable";
 import { AnalyticsLiquidStat } from "@/widgets/analytics/AnalyticsLiquidStat";
 import { GasWeather } from "@/ui/tokens/GasWeather";
 
+export function analyticsMarketId(
+  selection: number | undefined,
+  catalog: readonly MarketCatalogEntry[],
+): number | undefined {
+  if (selection === undefined) return catalog[0]?.marketId;
+  return catalog.find((market) => market.marketId === selection)?.marketId;
+}
+
 export default function AnalyticsPage() {
   const isMobile = useIsMobile();
   const { catalog, isLoading, error } = usePerpsMarkets();
   const [marketSelection, setSelectedMarketId] = useState<number>();
-  const selectedMarketId = catalog.some(
-    (market) => market.marketId === marketSelection,
-  ) ? marketSelection : catalog[0]?.marketId;
+  const selectedMarketId = analyticsMarketId(marketSelection, catalog);
 
   const marketOptions = useMemo(
     () => catalog.map((m) => ({ value: m.marketId, label: `${m.symbol}/USD` })),

@@ -210,8 +210,8 @@ function joinedLimit(value: unknown): number {
 
 function decodeBankAssetPage(value: unknown): AssetPage {
   const doc = record(value, 'bank asset page');
-  if (typeof doc.height !== 'string' || DECIMAL.exec(doc.height)?.[0] !== doc.height)
-    fail('bank asset page height');
+  const height = chainHeight(doc.height);
+  if (height === null) fail('bank asset page height');
   if (!Array.isArray(doc.assets)) fail('bank asset page assets');
   const assets = doc.assets.map((entry): AssetPage['assets'][number] => {
     const asset = record(entry, 'bank asset');
@@ -221,26 +221,30 @@ function decodeBankAssetPage(value: unknown): AssetPage {
       return field;
     };
     if (
-      typeof asset.decimals !== 'number' ||
-      !Number.isInteger(asset.decimals) ||
-      asset.decimals < 0 ||
-      asset.decimals > 36
+      asset.decimals !== null &&
+      (typeof asset.decimals !== 'number' ||
+        !Number.isInteger(asset.decimals) ||
+        asset.decimals < 0 ||
+        asset.decimals > 255)
     ) {
       fail('bank asset decimals');
     }
-    if (typeof asset.supply !== 'string' || DECIMAL.exec(asset.supply)?.[0] !== asset.supply)
+    if (
+      asset.supply !== null &&
+      (typeof asset.supply !== 'string' || DECIMAL.exec(asset.supply)?.[0] !== asset.supply)
+    )
       fail('bank asset supply');
     return {
       asset_id: text('asset_id'),
-      denom: text('denom'),
+      denom: nullableString(asset.denom, 'bank asset denom'),
       kind: text('kind'),
-      name: text('name'),
-      symbol: text('symbol'),
+      name: nullableString(asset.name, 'bank asset name'),
+      symbol: nullableString(asset.symbol, 'bank asset symbol'),
       decimals: asset.decimals,
       supply: asset.supply,
     };
   });
-  return { height: doc.height, assets, joined_limit: joinedLimit(doc.joined_limit) };
+  return { height, assets, joined_limit: joinedLimit(doc.joined_limit) };
 }
 
 function decodeBankBalances(value: unknown): Balances {

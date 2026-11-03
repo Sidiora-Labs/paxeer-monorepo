@@ -5,7 +5,6 @@ import (
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec"
 	cryptotypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/types"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/telemetry"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/slashing/types"
 	"go.opentelemetry.io/otel/attribute"
@@ -70,8 +69,6 @@ func (k Keeper) Slash(ctx sdk.Context, consAddr sdk.ConsAddress, fraction sdk.De
 		),
 	)
 	slashingKeeperMetrics.validatorSlashed.Add(ctx.Context(), 1, otelmetric.WithAttributes(attribute.String("type", types.AttributeValueDoubleSign), attribute.String("validator", consAddr.String())))
-	// TODO(PLT-414): remove once slashing_validator_slashed verified
-	telemetry.IncrValidatorSlashedCounter(consAddr.String(), types.AttributeValueDoubleSign)
 	k.sk.Slash(ctx, consAddr, distributionHeight, power, fraction)
 }
 

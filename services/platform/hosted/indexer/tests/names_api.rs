@@ -269,6 +269,189 @@ fn names_api_answers_match_the_committed_vector() -> Checked<()> {
 }
 
 #[test]
+fn names_api_accepts_the_explorer_query_parameters() -> Checked<()> {
+    let store = Store::open_in_memory()?;
+    let ingester = node(Arc::new(AtomicU64::new(3)))?;
+    assert_eq!(
+        ingester.step(&store)?,
+        StepOutcome::Advanced {
+            units: 3,
+            position: 3
+        }
+    );
+    let endpoint = api_endpoint(store)?;
+    let chain = fixture();
+    let resolved = chain["alice"].as_str().ok_or("resolved address missing")?;
+    let owner = chain["bob"].as_str().ok_or("owner missing")?;
+    let vector: Value = serde_json::from_str(include_str!(
+        "../../../../../tests/vectors/names/indexer_api_v1.json"
+    ))?;
+    let summary = &vector["/api/v1/domains:lookup?name=alice.pax&only_active=true"];
+    let detail = &vector["/api/v1/domains/alice.pax"];
+    for (address, flags) in [
+        (resolved, "resolved_to=true"),
+        (resolved, "owned_by=false&resolved_to=true"),
+        (resolved, "owned_by=true&resolved_to=true"),
+        (owner, "owned_by=true&resolved_to=true"),
+        (owner, "owned_by=true&resolved_to=false"),
+        (owner, "resolved_to=false"),
+        (resolved, "owned_by=false&resolved_to=false"),
+    ] {
+        let target = format!(
+            "/api/v1/addresses:lookup?address={address}&{flags}&protocols=pax&only_active=true&sort=registration_date&order=ASC"
+        );
+        let (status, body) = answer(&endpoint, &target)?;
+        assert_eq!(status, 200, "{target}: {body}");
+        assert_eq!(&body, summary, "{target}");
+    }
+    for protocols in ["pax", "ens,pax", "pax,ens", "ens%2Cpax"] {
+        let target = format!("/api/v1/domains:lookup?name=alice.pax&protocols={protocols}");
+        let (status, body) = answer(&endpoint, &target)?;
+        assert_eq!(status, 200, "{target}: {body}");
+        assert_eq!(&body, summary, "{target}");
+        let target = format!("/api/v1/addresses/{resolved}?protocols={protocols}");
+        let (status, body) = answer(&endpoint, &target)?;
+        assert_eq!(status, 200, "{target}: {body}");
+        assert_eq!(body, json!({"domain": detail, "resolved_domains_count": 1}));
+        for filter in [
+            "protocol_id=pax".to_owned(),
+            format!("protocols={protocols}"),
+            format!("protocol_id=pax&protocols={protocols}"),
+        ] {
+            let target = format!("/api/v1/domains/alice.pax?{filter}");
+            let (status, body) = answer(&endpoint, &target)?;
+            assert_eq!(status, 200, "{target}: {body}");
+            assert_eq!(&body, detail, "{target}");
+            let target = format!("/api/v1/domains/alice.pax/events?{filter}&order=ASC");
+            let (status, body) = answer(&endpoint, &target)?;
+            assert_eq!(status, 200, "{target}: {body}");
+            let mut events = vector["/api/v1/domains/alice.pax/events?order=DESC"]["items"]
+                .as_array()
+                .ok_or("event vector missing")?
+                .clone();
+            events.reverse();
+            assert_eq!(body, json!({"items": events, "next_page_params": null}));
+        }
+    }
+    let (status, protocols) = answer(&endpoint, "/api/v1/protocols")?;
+    assert_eq!(status, 200);
+    assert_eq!(
+        protocols["items"]
+            .as_array()
+            .ok_or("protocols missing")?
+            .len(),
+        1
+    );
+    let protocol = &protocols["items"][0];
+    assert_eq!(protocol["id"], "pax");
+    assert_eq!(protocol["short_name"], "PNS");
+    assert_eq!(protocol["title"], "Paxeer Name System");
+    assert_eq!(protocol["tld_list"], json!(["pax"]));
+    assert!(!protocol["description"]
+        .as_str()
+        .ok_or("description missing")?
+        .is_empty());
+    for (key, value) in detail["protocol"]
+        .as_object()
+        .ok_or("domain protocol missing")?
+    {
+        assert_eq!(&protocol[key], value, "protocol field {key}");
+    }
+    for target in [
+        format!("/api/v1/addresses:lookup?address={owner}&protocols=ens"),
+        format!("/api/v1/addresses:lookup?address={resolved}&resolved_to=true&protocols=ens,other"),
+        format!(
+            "/api/v1/addresses:lookup?address={owner}&owned_by=true&resolved_to=true&protocols=ens"
+        ),
+        format!("/api/v1/addresses:lookup?address={resolved}&resolved_to=false&protocols=pax"),
+        format!("/api/v1/addresses:lookup?address={owner}&resolved_to=true&protocols=pax"),
+        "/api/v1/domains:lookup?name=alice.pax&protocols=ens".to_owned(),
+        "/api/v1/domains:lookup?name=alice.pax&protocols=notpax".to_owned(),
+    ] {
+        let (status, body) = answer(&endpoint, &target)?;
+        assert_eq!(status, 200, "{target}: {body}");
+        assert_eq!(
+            body,
+            json!({"items": [], "next_page_params": null}),
+            "{target}"
+        );
+    }
+    let (status, body) = answer(
+        &endpoint,
+        &format!("/api/v1/addresses/{resolved}?protocols=ens"),
+    )?;
+    assert_eq!(status, 200);
+    assert_eq!(body, json!({"domain": null, "resolved_domains_count": 0}));
+    for filter in [
+        "protocol_id=ens",
+        "protocols=ens",
+        "protocol_id=ens&protocols=pax",
+        "protocols=pax&protocol_id=ens",
+        "protocol_id=pax&protocols=ens",
+        "protocols=ens&protocol_id=pax",
+        "protocol_id=ens,pax",
+    ] {
+        for suffix in [format!("?{filter}"), format!("/events?{filter}&order=ASC")] {
+            let target = format!("/api/v1/domains/alice.pax{suffix}");
+            let (status, body) = answer(&endpoint, &target)?;
+            assert_eq!(status, 404, "{target}: {body}");
+            assert_eq!(body["error"]["code"], "domain_not_found", "{target}");
+        }
+    }
+    for target in [
+        format!("/api/v1/addresses:lookup?address={resolved}&resolved_to=true&protocols=pax&unknown=true"),
+        "/api/v1/domains:lookup?name=alice.pax&protocols=pax&unknown=true".to_owned(),
+        "/api/v1/domains/alice.pax?protocol_id=pax&unknown=true".to_owned(),
+        "/api/v1/domains/alice.pax/events?protocol_id=pax&order=ASC&unknown=true".to_owned(),
+        format!("/api/v1/addresses/{resolved}?protocols=pax&unknown=true"),
+        "/api/v1/protocols?unknown=true".to_owned(),
+        "/api/v1/domains:lookup?name=alice.pax&protocol_id=pax".to_owned(),
+        format!("/api/v1/addresses/{resolved}?protocol_id=pax"),
+    ] {
+        let (status, body) = answer(&endpoint, &target)?;
+        assert_eq!(status, 400, "{target}: {body}");
+        assert_eq!(body["error"]["code"], "unknown_query_parameter", "{target}");
+    }
+    for (parameters, code) in [
+        ("resolved_to=yes", "invalid_query"),
+        (
+            "resolved_to=true&resolved_to=false",
+            "duplicate_query_parameter",
+        ),
+        ("protocols=pax&protocols=ens", "duplicate_query_parameter"),
+    ] {
+        let target = format!("/api/v1/addresses:lookup?address={resolved}&{parameters}");
+        let (status, body) = answer(&endpoint, &target)?;
+        assert_eq!(status, 400, "{target}: {body}");
+        assert_eq!(body["error"]["code"], code, "{target}");
+    }
+
+    let overlap = Store::open_in_memory()?;
+    let ingester = node(Arc::new(AtomicU64::new(1)))?;
+    assert_eq!(
+        ingester.step(&overlap)?,
+        StepOutcome::Advanced {
+            units: 1,
+            position: 1
+        }
+    );
+    let endpoint = api_endpoint(overlap)?;
+    let target = format!(
+        "/api/v1/addresses:lookup?address={resolved}&owned_by=true&resolved_to=true&protocols=pax"
+    );
+    let (status, body) = answer(&endpoint, &target)?;
+    assert_eq!(status, 200, "{target}: {body}");
+    let items = body["items"].as_array().ok_or("union items missing")?;
+    assert_eq!(
+        items.len(),
+        1,
+        "owned and resolved names must be deduplicated"
+    );
+    assert_eq!(items[0]["id"], chain["node"]);
+    Ok(())
+}
+
+#[test]
 fn names_api_refuses_unknown_parameters_and_names() -> Checked<()> {
     let store = Store::open_in_memory()?;
     let ingester = node(Arc::new(AtomicU64::new(3)))?;

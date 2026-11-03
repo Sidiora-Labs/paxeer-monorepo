@@ -145,9 +145,6 @@ gate = "tools/paxeer-x/gates/25.3.sh"
 [task.25.4]
 gate = "tools/paxeer-x/gates/25.4.sh"
 
-[task.103.6.1]
-gate = "tools/paxeer-x/gates/103.6.1.sh"
-
 [task.103.6.2]
 gate = "tools/paxeer-x/gates/103.6.2.sh"
 
@@ -414,9 +411,6 @@ gate = "tools/paxeer-x/gates/106.4.9.sh"
 
 [task.108.0.7]
 gate = "tools/paxeer-x/gates/108.0.7.sh"
-
-[task.108.1.1]
-gate = "tools/paxeer-x/gates/108.1.1.sh"
 
 [task.108.1.10]
 gate = "tools/paxeer-x/gates/108.1.10.sh"

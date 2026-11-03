@@ -396,7 +396,7 @@ fn resolve_journey(
     };
     require_path(delivery, &link_path)?;
     let (surface, path, landing_state) = match state {
-        JourneyState::Done => (
+        JourneyState::Done | JourneyState::Closed => (
             Surface::Journey,
             journey_path,
             LandingState::Resolved(Resolution::Done),

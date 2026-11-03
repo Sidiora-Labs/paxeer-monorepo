@@ -165,8 +165,10 @@ func TestNativeLifecycleRefusals(t *testing.T) {
 	}
 }
 
+// TestLifecycleVerifierRejectsCallOutcomeReceipt constructs a signed CALL outcome
+// bound to the retained v4 activity: no retained fixture carries a CALL receipt.
 func TestLifecycleVerifierRejectsCallOutcomeReceipt(t *testing.T) {
-	raw, err := os.ReadFile("../conformance/fixtures/receipt-programs-positive-v3.json")
+	raw, err := os.ReadFile("../conformance/fixtures/native-program-call-v4.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -174,17 +176,86 @@ func TestLifecycleVerifierRejectsCallOutcomeReceipt(t *testing.T) {
 	if err := json.Unmarshal(raw, &fixture); err != nil {
 		t.Fatal(err)
 	}
-	canonical := lifecycleFixtureBytes(t, fixture, "canonical_receipt_hex")
+	for field, expected := range map[string]uint16{"protocol_version": 3, "module": 9, "ordinal": 3} {
+		var value uint16
+		if err := json.Unmarshal(fixture[field], &value); err != nil || value != expected {
+			t.Fatalf("invalid %s in retained CALL activity", field)
+		}
+	}
+	activity := lifecycleFixtureBytes(t, fixture, "activity_id_hex")
+	if len(activity) != 32 {
+		t.Fatal("invalid CALL activity ID length")
+	}
+	receipt := ProtocolReceipt{
+		ProtocolVersion: 3, GlobalSequence: 1, ResultingStateRoot: [32]byte{1},
+		ModuleID: 9, ModuleVersion: 4, ParameterVersion: 1, Timestamp: 1,
+		ResultCode: 1,
+	}
+	copy(receipt.ActivityID[:], activity)
+	key := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{1}, ed25519.SeedSize))
+	var sequencer [32]byte
+	copy(sequencer[:], key.Public().(ed25519.PublicKey))
+	signReceipt := func(outcome []byte) []byte {
+		unsigned := encodeSequencerReceipt(receipt, false)
+		unsigned = append(unsigned[:len(unsigned)-1], outcome...)
+		unsigned = append(unsigned, 0)
+		digest := domainDigest(receiptDomain, unsigned)
+		canonical := append(unsigned[:len(unsigned)-1], 1)
+		canonical = appendUint32(canonical, ed25519.SignatureSize)
+		return append(canonical, ed25519.Sign(key, digest[:])...)
+	}
+	if verified, err := VerifyProgramLifecycleReceipt(signReceipt(nil), receipt.ActivityID, sequencer); err != nil || verified.Receipt.ActivityID != receipt.ActivityID {
+		t.Fatalf("valid lifecycle receipt control rejected: %v", err)
+	}
+
+	// A v4 revert outcome has no occupancy or transfer effects.
+	outcome := appendUint32(nil, ProgramOutcomeTagV4)
+	outcome = append(outcome, 2) // Reverted terminal.
+	outcome = appendUint32(outcome, uint32(receipt.ResultCode))
+	outcome = appendUint16(outcome, 1) // Runtime version.
+	outcome = appendUint16(outcome, 4) // ABI version.
+	outcome = appendUint32(outcome, 1) // Fee schedule version.
+	outcome = appendUint32(outcome, 1) // Metering schedule version.
+	for range [4]uint64{} {            // CPU, memory, storage read and storage write.
+		outcome = appendUint64(outcome, 0)
+	}
+	outcome = appendUint32(outcome, 0) // Output values.
+	outcome = appendUint64(outcome, 0) // Output bytes.
+	for range [4]uint64{} {            // Occupancy byte-batches and fee units (u128).
+		outcome = appendUint64(outcome, 0)
+	}
+	for range [7]uint64{} { // Fee schedule prices.
+		outcome = appendUint64(outcome, 0)
+	}
+	appendRoot := func(root [32]byte) {
+		outcome = appendUint32(outcome, uint32(len(root)))
+		outcome = append(outcome, root[:]...)
+	}
+	for range [3]uint8{} { // Occupancy asset, evidence digest and transfer root.
+		appendRoot([32]byte{})
+	}
+	outcome = appendUint64(outcome, 0) // Fee units (u128).
+	outcome = appendUint64(outcome, 0)
+	appendRoot([32]byte{1}) // Call graph root.
+	appendRoot([32]byte{2}) // Terminal payload root.
+	appendRoot([32]byte{})  // Transfer root.
+	appendRoot([32]byte{3}) // Applied legs digest.
+	receipt.Operation = 3
+	canonical := signReceipt(outcome)
 	decoded, err := decodeProtocolReceipt(canonical)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if decoded.protocol.Operation != 3 {
-		t.Fatal("fixture is not a CALL outcome")
+	if decoded.protocol.Operation != 3 || decoded.protocol.ProgramOutcome == nil || decoded.protocol.ProgramOutcome.EncodingVersion != 4 || decoded.activityID != receipt.ActivityID {
+		t.Fatal("constructed receipt is not a v4 CALL outcome for the retained activity")
 	}
-	_, err = VerifyProgramLifecycleReceipt(canonical, decoded.activityID, [32]byte{1})
+	digest := domainDigest(receiptDomain, decoded.unsigned)
+	if !ed25519.Verify(sequencer[:], digest[:], decoded.signature[:]) {
+		t.Fatal("constructed CALL receipt signature is invalid")
+	}
+	_, err = VerifyProgramLifecycleReceipt(canonical, decoded.activityID, sequencer)
 	refusal, ok := err.(*VerificationError)
 	if !ok || refusal.Check != ReceiptCheckReceiptShape {
-		t.Fatal("CALL outcome accepted as a lifecycle state receipt")
+		t.Fatalf("want CALL outcome refusal at receipt shape, got %v", err)
 	}
 }

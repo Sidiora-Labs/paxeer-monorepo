@@ -249,6 +249,16 @@ fn transported_registration_never_invents_paxeer_chain_finality() {
             &anchored_keys,
             &anchored_identifier,
             settlement_domain(),
+            None,
+        ),
+        Err(CheckpointError::Settlement)
+    );
+    assert_eq!(
+        verify_certificate(
+            &anchored,
+            &anchored_keys,
+            &anchored_identifier,
+            settlement_domain(),
             Some(b"different-reference"),
         ),
         Err(CheckpointError::Settlement)

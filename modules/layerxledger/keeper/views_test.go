@@ -105,37 +105,12 @@ func ledgerViewStore(t *testing.T, ctx sdk.Context, key sdk.StoreKey) map[string
 	return rows
 }
 
-func (f *ledgerViewFixture) payerGrant(t *testing.T) ([]byte, [32]byte) {
-	t.Helper()
-	body := append([]byte(nil), f.account[:]...)
-	body = append(body, f.to[:]...)
-	body = append(body, f.asset[:]...)
-	body = binary.BigEndian.AppendUint64(body, 0)
-	body = binary.BigEndian.AppendUint64(body, 40)
-	body = binary.BigEndian.AppendUint64(body, 0)
-	body = binary.BigEndian.AppendUint64(body, 100)
-	body = append(body, 0)
-	body = binary.BigEndian.AppendUint64(body, 0)
-	body = binary.BigEndian.AppendUint64(body, uint64(f.ctx.BlockTime().UnixMilli())+1000)
-	body = append(body, bytes.Repeat([]byte{0x22}, 32)...)
-	body = append(body, 0)
-	body = append(body, make([]byte, 32)...)
-	body = binary.BigEndian.AppendUint64(body, 0)
-	body = append(body, f.actor.key[:]...)
-	id, err := codec.DomainHash(codec.DomainAuthorityHash, append([]byte("LXP:GRANT:v1"), body...))
-	require.NoError(t, err)
-	grant := append(append([]byte(nil), id[:]...), body...)
-	return append(grant, ed25519.Sign(f.actor.private, id[:])...), id
-}
-
 func TestLedgerViews(t *testing.T) {
 	f := newLedgerViewFixture(t)
-	grant, grantID := f.payerGrant(t)
-	f.execute(t, f.ctx, f.actor, 0x00010007, 3, grant, [32]byte{})
 	for _, paused := range []bool{false, true} {
 		require.NoError(t, f.keeper.SetParams(f.ctx, types.Params{Paused: paused}))
 		if paused {
-			f.execute(t, f.ctx, f.actor, 0x00010002, 4, append([]byte{0, 1}, f.asset[:]...), [32]byte{})
+			f.execute(t, f.ctx, f.actor, 0x00010002, 3, append([]byte{0, 1}, f.asset[:]...), [32]byte{})
 		}
 		before := ledgerViewStore(t, f.ctx, f.hostKey)
 		ledgerBefore := ledgerViewStore(t, f.ctx, f.storeKey)
@@ -174,17 +149,6 @@ func TestLedgerViews(t *testing.T) {
 		require.Equal(t, wantOwner, owner)
 		require.Equal(t, f.actor.id, owner)
 
-		wantGrant, err := f.host.ReadPayerGrant(f.ctx, grantID)
-		require.NoError(t, err)
-		state, err := f.keeper.GetPayerGrant(f.ctx, grantID)
-		require.NoError(t, err)
-		require.Equal(t, wantGrant, state)
-		require.Equal(t, lxphost.PayerGrantState{Grant: grant, DrawnTotal: sdk.ZeroInt(), DrawnThisPeriod: sdk.ZeroInt()}, state)
-		state.Grant[0] ^= 0xff
-		state, err = f.keeper.GetPayerGrant(f.ctx, grantID)
-		require.NoError(t, err)
-		require.Equal(t, wantGrant, state)
-
 		missingAsset, err := f.keeper.GetAsset(f.ctx, [32]byte{})
 		require.ErrorIs(t, err, types.ErrAssetMismatch)
 		require.Equal(t, lxphost.AssetRecord{}, missingAsset)
@@ -200,9 +164,6 @@ func TestLedgerViews(t *testing.T) {
 		owner, err = f.keeper.AccountOwner(f.ctx, [32]byte{})
 		require.Equal(t, lxphost.Code(-208), err)
 		require.Equal(t, [32]byte{}, owner)
-		state, err = f.keeper.GetPayerGrant(f.ctx, [32]byte{})
-		require.ErrorIs(t, err, types.ErrNoPayerGrant)
-		require.Equal(t, lxphost.PayerGrantState{}, state)
 		require.Equal(t, before, ledgerViewStore(t, f.ctx, f.hostKey))
 		require.Equal(t, ledgerBefore, ledgerViewStore(t, f.ctx, f.storeKey))
 	}
@@ -215,8 +176,6 @@ func TestLedgerViews(t *testing.T) {
 	_, err = f.keeper.TotalUnits(f.ctx, f.asset)
 	require.ErrorIs(t, err, types.ErrNonCanonical)
 	_, err = f.keeper.AccountOwner(f.ctx, f.account)
-	require.ErrorIs(t, err, types.ErrNonCanonical)
-	_, err = f.keeper.GetPayerGrant(f.ctx, grantID)
 	require.ErrorIs(t, err, types.ErrNonCanonical)
 }
 

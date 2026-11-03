@@ -24,15 +24,18 @@ public final class GeneratedCatalogueIntentsTest {
     @Test
     void intentPlanProducesPerLegCalls() throws Exception {
         JsonNode vector = fixture("intent-plan-v1.json");
-        JsonNode expected = vector.required("plan_result");
+        ObjectNode expected = vector.required("plan_result").deepCopy();
+        expected.putNull("tx_hash");
         var request = JSON.treeToValue(vector.required("plan_request"),
             GeneratedSchema.HumanOperations.INTENT_PLAN.requestType());
         assertEquals("0x9858effd232b4033e47d90003d41ec34ecaeda94", request.source().evm_address());
         assertEquals(BigInteger.valueOf(125), request.source().resolution().chainId());
-        var plan = JSON.treeToValue(expected, GeneratedSchema.HumanOperations.INTENT_PLAN.responseType());
-        var model = JSON.treeToValue(expected, GeneratedSchema.HumanModels.IntentPlan.class);
+        var plan = JSON.treeToValue(vector.required("plan_result"), GeneratedSchema.HumanOperations.INTENT_PLAN.responseType());
+        var model = JSON.treeToValue(vector.required("plan_result"), GeneratedSchema.HumanModels.IntentPlan.class);
         assertEquals(2, plan.legs().size());
         assertEquals(model.legs(), plan.legs());
+        assertNull(plan.tx_hash());
+        assertNull(model.tx_hash());
         assertEquals(expected, JSON.readTree(JSON.writeValueAsBytes(plan)));
         assertEquals(expected, JSON.readTree(JSON.writeValueAsBytes(model)));
         for (int i = 0; i < plan.legs().size(); i++) {
@@ -66,12 +69,15 @@ public final class GeneratedCatalogueIntentsTest {
         ObjectNode submitted = JSON.createObjectNode().put("journey_id", "journey-per-leg")
             .put("plan_digest", plan.plan_digest()).put("state", "submitted")
             .put("state_copy_key", "intent.submitted");
+        submitted.putNull("tx_hash");
         submitted.set("legs", expected.required("legs"));
         var submission = JSON.treeToValue(submitted, GeneratedSchema.HumanOperations.INTENT_SUBMIT.responseType());
         var submissionModel = JSON.treeToValue(submitted, GeneratedSchema.HumanModels.IntentSubmission.class);
         assertEquals(plan.legs(), submission.legs());
         assertEquals(plan.legs(), submissionModel.legs());
         assertEquals(submitted, JSON.readTree(JSON.writeValueAsBytes(submission)));
+        assertNull(submission.tx_hash());
+        assertNull(submissionModel.tx_hash());
         assertThrows(UnsupportedOperationException.class, () -> submission.legs().clear());
         for (Class<?> type : List.of(GeneratedSchema.HumanModels.IntentPlan.class,
                 GeneratedSchema.HumanOperations.IntentPlanResponse.class,

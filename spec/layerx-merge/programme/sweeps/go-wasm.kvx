@@ -1,0 +1,111 @@
+[sweep.go-wasm]
+revision = "03e2d849d7f3e9ca51cada79f6d3cfe90938a0fb"
+command = "CGO_ENABLED=1 go vet ./TARGET/ && CGO_ENABLED=1 go test -count=1 ./TARGET/"
+targets_total = 20
+targets_passed = 18
+targets_failed = 2
+targets_not_run = 0
+
+[target.go-wasm.1]
+target = "wasm/app"
+result = "passed"
+exit_code = 0
+
+[target.go-wasm.2]
+target = "wasm/app/params"
+result = "passed"
+exit_code = 0
+
+[target.go-wasm.3]
+target = "wasm/benchmarks"
+result = "passed"
+exit_code = 0
+
+[target.go-wasm.4]
+target = "wasm/staticarchive"
+result = "passed"
+exit_code = 0
+
+[target.go-wasm.5]
+target = "wasm/x/wasm"
+result = "passed"
+exit_code = 0
+
+[target.go-wasm.6]
+target = "wasm/x/wasm/artifacts/v152"
+result = "passed"
+exit_code = 0
+
+[target.go-wasm.7]
+target = "wasm/x/wasm/artifacts/v152/api"
+result = "failed"
+exit_code = 1
+observed = "wasm/x/wasm/artifacts/v152/api/lib_test.go:58: TestInitCacheErrorsForBrokenDir failed because an error was expected but got nil."
+assumption = "The environmental cause is execution as root, which permits creating /foo:bar although the test expects Unix directory creation to fail for lack of permission."
+
+[target.go-wasm.8]
+target = "wasm/x/wasm/artifacts/v152/api/testdb"
+result = "passed"
+exit_code = 0
+
+[target.go-wasm.9]
+target = "wasm/x/wasm/artifacts/v155"
+result = "passed"
+exit_code = 0
+
+[target.go-wasm.10]
+target = "wasm/x/wasm/artifacts/v155/api"
+result = "failed"
+exit_code = 1
+observed = "wasm/x/wasm/artifacts/v155/api/lib_test.go:58: TestInitCacheErrorsForBrokenDir failed because an error was expected but got nil."
+assumption = "The environmental cause is execution as root, which permits creating /foo:bar although the test expects Unix directory creation to fail for lack of permission."
+
+[target.go-wasm.11]
+target = "wasm/x/wasm/artifacts/v155/api/testdb"
+result = "passed"
+exit_code = 0
+
+[target.go-wasm.12]
+target = "wasm/x/wasm/client"
+result = "passed"
+exit_code = 0
+
+[target.go-wasm.13]
+target = "wasm/x/wasm/client/cli"
+result = "passed"
+exit_code = 0
+
+[target.go-wasm.14]
+target = "wasm/x/wasm/client/rest"
+result = "passed"
+exit_code = 0
+
+[target.go-wasm.15]
+target = "wasm/x/wasm/ibctesting"
+result = "passed"
+exit_code = 0
+
+[target.go-wasm.16]
+target = "wasm/x/wasm/ioutils"
+result = "passed"
+exit_code = 0
+
+[target.go-wasm.17]
+target = "wasm/x/wasm/keeper"
+result = "passed"
+exit_code = 0
+
+[target.go-wasm.18]
+target = "wasm/x/wasm/keeper/wasmtesting"
+result = "passed"
+exit_code = 0
+
+[target.go-wasm.19]
+target = "wasm/x/wasm/simulation"
+result = "passed"
+exit_code = 0
+
+[target.go-wasm.20]
+target = "wasm/x/wasm/types"
+result = "passed"
+exit_code = 0

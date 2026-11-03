@@ -8,6 +8,10 @@ import com.sidiora.layerx.sdk.verify.LocalVerifier;
 import com.sun.net.httpserver.HttpServer;
 import java.net.InetSocketAddress;
 import java.net.URI;
+import java.net.URLClassLoader;
+import java.io.ByteArrayOutputStream;
+import javax.tools.ToolProvider;
+import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HexFormat;
@@ -16,6 +20,22 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 public final class RelayReceiptResolverTest {
+    @TempDir Path compiledSample;
+
+    private URLClassLoader compileSample() throws Exception {
+        Path source = Path.of("src/sample/java/com/sidiora/layerx/android/sample/RelayReceiptResolver.java");
+        assertTrue(Files.isRegularFile(source));
+        var compiler = ToolProvider.getSystemJavaCompiler();
+        assertNotNull(compiler, "the Maven suite requires a JDK");
+        String classpath = System.getProperty("surefire.test.class.path");
+        assertNotNull(classpath, "the Maven suite must expose its test classpath");
+        var diagnostics = new ByteArrayOutputStream();
+        assertEquals(0, compiler.run(null, diagnostics, diagnostics, "--release", "21",
+            "-classpath", classpath, "-d", compiledSample.toString(), source.toString()),
+            diagnostics.toString(java.nio.charset.StandardCharsets.UTF_8));
+        return new URLClassLoader(new java.net.URL[] {compiledSample.toUri().toURL()}, getClass().getClassLoader());
+    }
+
     @Test
     void parsesSignedReceiptPayload() throws Exception {
         ObjectMapper mapper = new ObjectMapper();
@@ -40,9 +60,11 @@ public final class RelayReceiptResolverTest {
             }
         });
         relay.start();
-        try {
-            RelayReceiptResolver resolver = new RelayReceiptResolver(
-                URI.create("http://127.0.0.1:" + relay.getAddress().getPort() + "/receipts/"), mapper, 5_000);
+        try (URLClassLoader sample = compileSample()) {
+            ReceiptGate.ReceiptResolver resolver = (ReceiptGate.ReceiptResolver) sample.loadClass(
+                "com.sidiora.layerx.android.sample.RelayReceiptResolver")
+                .getConstructor(URI.class, ObjectMapper.class, int.class)
+                .newInstance(URI.create("http://127.0.0.1:" + relay.getAddress().getPort() + "/receipts/"), mapper, 5_000);
             ReceiptGate.Evidence evidence = resolver.resolve("signed-transfer");
             assertEquals("GET", requestedMethod.get());
             assertEquals("/receipts/signed-transfer", requestedPath.get());
@@ -53,6 +75,11 @@ public final class RelayReceiptResolverTest {
             assertArrayEquals(bytes(key, "publicKey"), receiptKey.publicKey());
             assertEquals(key.required("firstHeight").bigIntegerValue(), receiptKey.firstHeight());
             assertEquals(key.required("lastHeight").bigIntegerValue(), receiptKey.lastHeight());
+            var verified = LocalVerifier.verifySequencerReceipt(evidence.signedReceipt(), evidence.rawTransaction(),
+                new LocalVerifier.ReceiptKeys(java.util.List.of(receiptKey)));
+            verified.requireSuccess();
+            assertEquals(LocalVerifier.VerificationLevel.RECEIPTED, verified.level());
+            assertArrayEquals(bytes(vector, "receiptDigest"), verified.receiptDigest());
         } finally {
             relay.stop(0);
         }

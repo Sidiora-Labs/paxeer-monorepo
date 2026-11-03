@@ -1,0 +1,71 @@
+[disposition.1.4.3.3]
+finding = "1.4.3.3"
+status = "resolved"
+evidence = "3fab52136 adds archive removal before ar rcsD for both kernel libraries, retained at Makefile:185 and Makefile:194, so rebuilding no longer preserves retired members such as lxp_batch_seal.o."
+follow_up = "closure"
+
+[disposition.1.93.2.1]
+finding = "1.93.2.1"
+status = "resolved"
+evidence = "e6bb6130c supplies the payer main-account balance to execution and simulation, retained at modules/lxphost/host.go:554 and modules/lxphost/simulate.go:114, while modules/lxphost/simulate_test.go:118 explicitly checks the fixture's zero fee limit."
+follow_up = "closure"
+
+[disposition.1.12.1.2]
+finding = "1.12.1.2"
+status = "resolved"
+evidence = "984636931 removes Host.ReadPayerGrant, PayerGrantState and their references to the retired C grant symbols from modules/lxphost/read.go, with the export-absence assertions retained at modules/lxphost/read_exports_test.go:34."
+follow_up = "closure"
+
+[disposition.1.12.4.1]
+finding = "1.12.4.1"
+status = "resolved"
+evidence = "Decision 2340 retired the payer-grant route: modules/layerxledger/keeper/grants.go IssueGrant and RevokeGrant and modules/layerxledger/keeper/draw.go Draw refuse with types.ErrNoPayerGrant and submit no kernel activity, so the activities the kernel rejects are never built; the ABI methods stay and answer the refusal. No follow-up task."
+follow_up = ""
+
+[disposition.1.12.4.2]
+finding = "1.12.4.2"
+status = "resolved"
+evidence = "7d9310759 removes the deleted grant-reader calls from all five named keeper test files and deletes grants_test.go, with modules/layerxledger/keeper/draw_test.go:95 now asserting the Draw refusal and unchanged state instead of reading GetPayerGrant."
+follow_up = "closure"
+
+[disposition.1.12.5.1]
+finding = "1.12.5.1"
+status = "resolved"
+evidence = "7d9310759 removes grant issuance from the draw fixture, deletes the grant-lifecycle-only tests and drops grant steps from pause, retirement and view tests, while modules/layerxledger/keeper/draw_test.go:68 proves refusal without payer grants and preserves balances."
+follow_up = "closure"
+
+[disposition.1.12.5.2]
+finding = "1.12.5.2"
+status = "resolved"
+evidence = "7d9310759 changes the create-call expectation at modules/layerxledger/keeper/issuer_binding_test.go:69 to the same 43-character zero-padded base-62 subdenom used at modules/layerxledger/keeper/issuer_binding.go:47."
+follow_up = "closure"
+
+[disposition.1.36.1.1]
+finding = "1.36.1.1"
+status = "resolved"
+evidence = "520414c87 replaces the deleted codec constant with keeper-local availabilityClassCount = 5 at modules/layerxanchor/keeper/checkpoints.go:145 and uses it for the counts array and loop at modules/layerxanchor/keeper/checkpoints.go:150 and modules/layerxanchor/keeper/checkpoints.go:157."
+follow_up = "closure"
+
+[disposition.1.12.1.3]
+finding = "1.12.1.3"
+status = "resolved"
+evidence = "96675790b deletes grant_vector and its three calls along with both grant-vector consumer tests, leaving tests/qualification/lxp_wallet_caps_vectors.c:68 to produce only budget vectors without the retired lxp_grant_state type."
+follow_up = "closure"
+
+[disposition.1.36.3.1]
+finding = "1.36.3.1"
+status = "open"
+evidence = "precompiles/layerxanchor/retire_read_gate_test.go:117 and precompiles/layerxanchor/retired_wrapper_test.go:26 still call testvectors.LoadAnchor although 3373522c3 deleted that loader, so the precompile test package still requires the fixture port assigned to task 6.96.6."
+follow_up = "6.96.6"
+
+[disposition.1.36.1.2]
+finding = "1.36.1.2"
+status = "open"
+evidence = "precompiles/layerxanchor/retire_read_gate_test.go:121 still calls proofcodec.DecodeCheckpointCertificate although 9dd2a2c72 deleted that decoder and layerxproof/exportcheck/checkpoint_exports_test.go:17 requires its absence, so task 6.96.6 must port this remaining consumer."
+follow_up = "6.96.6"
+
+[disposition.1.32.1.1]
+finding = "1.32.1.1"
+status = "resolved"
+evidence = "a91c89ed0 deletes src/guarantor/lxp_attestation.c and its second lxp_guarantor_attestation_verify definition before 3d334e4ce deletes src/paxeer/lxp_checkpoint_cert.c, with modules/lxphost/retired_checkpoint_cert_test.go:11 retaining the symbol-absence assertion."
+follow_up = "closure"

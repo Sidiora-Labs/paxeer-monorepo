@@ -71,9 +71,11 @@ public final class GeneratedCatalogueJourneysTest {
         assertEquals(Set.of("unverified", "receipt-verified", "checkpoint-finalised"),
             Arrays.stream(GeneratedSchema.HumanModels.HumanVerificationLevel.values())
                 .map(GeneratedSchema.HumanModels.HumanVerificationLevel::wire).collect(Collectors.toSet()));
-        assertThrows(IllegalArgumentException.class,
-            () -> GeneratedSchema.HumanModels.HumanVerificationLevel.fromWire("settlement-anchored"));
-        assertThrows(DatabindException.class, () -> json.readValue("\"settlement-anchored\"",
-            GeneratedSchema.HumanModels.HumanVerificationLevel.class));
+        for (String retired : List.of("block-committed", "paxeer-finalised", "settlement-anchored")) {
+            assertThrows(IllegalArgumentException.class,
+                () -> GeneratedSchema.HumanModels.HumanVerificationLevel.fromWire(retired));
+            assertThrows(DatabindException.class, () -> json.readValue(json.writeValueAsBytes(retired),
+                GeneratedSchema.HumanModels.HumanVerificationLevel.class));
+        }
     }
 }

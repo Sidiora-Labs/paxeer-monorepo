@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxauth"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -59,6 +60,41 @@ func TestAuthSurfaceFrozen(t *testing.T) {
 			} else {
 				_, err := method.Outputs.Unpack(data)
 				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestPrecompileSurface(t *testing.T) {
+	expected := pcommon.GasTable{
+		"recordLifecycle":       {Write: true, Surcharge: 36680},
+		"grantSession":          {Write: true, Surcharge: 36680},
+		"grantSessionSuccessor": {Write: true, Surcharge: 38600},
+		"grantCapability":       {Write: true, Surcharge: 34760},
+		"revokeGrant":           {Write: true, Surcharge: 5000},
+		"getGrant":              {Write: false, Surcharge: 1108},
+		"isLive":                {Write: false, Surcharge: 1300},
+		"sessionKey":            {Write: false, Surcharge: 1108},
+		"capabilityScope":       {Write: false, Surcharge: 1108},
+		"checkActivity":         {Write: false, Surcharge: 1396},
+	}
+	h := newHarness(t)
+	a := h.precompile.GetABI()
+	require.Equal(t, layerxauth.GetABI(), a)
+	require.NotContains(t, a.Methods, "resultByIdempotency")
+	require.NotContains(t, layerxauth.GasTable, "resultByIdempotency")
+	require.Len(t, a.Methods, len(expected))
+	require.Equal(t, expected, layerxauth.GasTable)
+	for name, method := range a.Methods {
+		t.Run(name, func(t *testing.T) {
+			row, found := expected[name]
+			require.True(t, found, "unexpected auth method %s", name)
+			require.Equal(t, row.Write, !method.IsConstant())
+			for _, payload := range [][]byte{nil, {1}, make([]byte, 32), make([]byte, 33)} {
+				input := append(append([]byte(nil), method.ID...), payload...)
+				gas := pcommon.DefaultGasCost(payload, row.Write) + row.Surcharge
+				require.Equal(t, gas, h.precompile.RequiredGas(input))
+				require.Equal(t, gas, h.precompile.GetExecutor().RequiredGas(payload, &method))
 			}
 		})
 	}

@@ -30,31 +30,6 @@ typedef struct lx_oracle_observation {
     uint8_t signature[64];
 } lx_oracle_observation;
 
-typedef lxp_result (*lx_oracle_poll_fn)(void *context,
-                                       lx_oracle_observation *observation,
-                                       bool *available);
-typedef lxp_result (*lx_oracle_submit_fn)(void *context,
-                                         const uint8_t *activity,
-                                         size_t activity_length);
-
-typedef struct lx_oracle_adapter_config {
-    lx_oracle_poll_fn poll_crossverse;
-    void *poll_context;
-    lx_oracle_submit_fn submit_activity;
-    void *submit_context;
-    uint8_t oracle_private_key[32];
-    uint32_t network_id;
-    const uint8_t *actor_did;
-    size_t actor_did_length;
-    uint64_t next_account_sequence;
-    lxp_u128 fee_limit;
-    size_t maximum_observations;
-    uint16_t protocol_version;
-    uint8_t transport_version;
-    uint64_t not_before;
-    uint64_t not_after;
-} lx_oracle_adapter_config;
-
 typedef struct lx_oracle_market {
     uint8_t market_id[32];
     uint8_t permitted_keys[LX_ORACLE_MAX_KEYS][32];
@@ -115,18 +90,6 @@ lxp_result lx_oracle_observation_encode(
     size_t capacity, size_t *length);
 lxp_result lx_oracle_observation_sign(lx_oracle_observation *observation,
                                       const uint8_t private_key[32]);
-lxp_result lx_oracle_activity_encode(
-    const lx_oracle_observation *observation, uint32_t network_id,
-    const uint8_t *actor_did, size_t actor_did_length,
-    uint64_t account_sequence, lxp_u128 fee_limit, lxp_arena *arena,
-    lxp_byte_span *encoded);
-lxp_result lx_oracle_transport_encode(const lx_oracle_observation *observation,
-    uint8_t bytes[LX_ORACLE_TRANSPORT_BYTES]);
-lxp_result lx_oracle_activity_encode_signed(const lx_oracle_observation *observation,
-    const lx_oracle_adapter_config *config, lxp_arena *arena, lxp_byte_span *encoded);
-lxp_result lx_oracle_adapter_run(lx_oracle_adapter_config *config,
-                                 size_t *submitted);
-lxp_result lx_oracle_adapter_isolation_check(void);
 lxp_result lx_oracle_market_lookup(const lx_oracle_market_store *store,
                                    const uint8_t market_id[32],
                                    const lx_oracle_market **market);

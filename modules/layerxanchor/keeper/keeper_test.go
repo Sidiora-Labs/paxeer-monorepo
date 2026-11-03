@@ -15,6 +15,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 
 	"encoding/json"
+	"os"
 	"testing"
 	"time"
 
@@ -43,6 +44,53 @@ type suite struct {
 	ids       [][32]byte
 	signers   [][20]byte
 	fixture   testvectors.Fixture
+}
+
+func loadAnchorFixture(t *testing.T) testvectors.Fixture {
+	t.Helper()
+	raw, err := os.ReadFile("../testdata/anchor_vectors.json")
+	require.NoError(t, err)
+	var document map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal(raw, &document))
+	fixture := testvectors.Fixture{}
+	for section, body := range document {
+		if section == "generator" {
+			continue
+		}
+		var entries []map[string]json.RawMessage
+		require.NoError(t, json.Unmarshal(body, &entries), "section %s", section)
+		for _, entry := range entries {
+			vector := testvectors.Vector{Fields: map[string]string{}}
+			require.NoError(t, json.Unmarshal(entry["name"], &vector.Name), "section %s", section)
+			require.NotEmpty(t, vector.Name)
+			require.NoError(t, json.Unmarshal(entry["valid"], &vector.Valid), "vector %s", vector.Name)
+			for key, value := range entry {
+				if key == "name" || key == "valid" {
+					continue
+				}
+				var field string
+				require.NoError(t, json.Unmarshal(value, &field), "vector %s field %s", vector.Name, key)
+				vector.Fields[key] = field
+			}
+			fixture[section] = append(fixture[section], vector)
+		}
+	}
+	require.Len(t, fixture["context"], 1)
+	require.Len(t, fixture["guarantors"], 4)
+	require.Len(t, fixture["checkpoints"], 13)
+	require.Len(t, fixture["attestations"], 6)
+	return fixture
+}
+
+func (s *suite) vector(section, name string) testvectors.Vector {
+	s.t.Helper()
+	for _, vector := range s.fixture[section] {
+		if vector.Name == name {
+			return vector
+		}
+	}
+	s.t.Fatalf("no vector %s/%s", section, name)
+	return testvectors.Vector{}
 }
 
 func account(tag byte) sdk.AccAddress {
@@ -91,7 +139,7 @@ func newSuite(t *testing.T, mutate func(*types.Params)) *suite {
 
 func initializeSuite(t *testing.T, testApp *app.App, ctx sdk.Context, mutate func(*types.Params)) *suite {
 	t.Helper()
-	s := &suite{t: t, app: testApp, ctx: ctx, k: testApp.LayerXAnchorKeeper, authority: account(0xa1), reporter: account(0xa2)}
+	s := &suite{t: t, app: testApp, ctx: ctx, k: testApp.LayerXAnchorKeeper, authority: account(0xa1), reporter: account(0xa2), fixture: loadAnchorFixture(t)}
 	params := types.DefaultParams(s.authority.String())
 	params.Threshold = 2
 	params.UnbondingDelaySeconds = unbondingDelay
@@ -133,36 +181,36 @@ func (s *suite) invariant() {
 	require.False(s.t, broken, message)
 }
 
-func (s *suite) vector(section, name string) testvectors.Vector {
+func (s *suite) importHistoricalCheckpoint() types.Checkpoint {
 	s.t.Helper()
-	for _, v := range s.fixture[section] {
-		if v.Name == name {
-			return v
-		}
+	checkpoint := types.Checkpoint{
+		BatchNumber: 1, CheckpointID: types.Hash32{0x11}, StateRoot: types.Hash32{0x12}, ReceiptRoot: types.Hash32{0x13},
+		Status: types.CheckpointSubmitted, Guarantors: []types.Hash32{s.ids[0], s.ids[1]}, DeclaredThreshold: 2,
+		Submitter: s.reporter.String(), SubmittedHeight: s.ctx.BlockHeight(), SubmittedTime: s.ctx.BlockTime().Unix(),
 	}
-	s.t.Fatalf("no vector %s/%s", section, name)
-	return testvectors.Vector{}
+	genesis := s.k.ExportGenesis(s.ctx)
+	require.Empty(s.t, genesis.Checkpoints)
+	genesis.Checkpoints = []types.Checkpoint{checkpoint}
+	require.NoError(s.t, genesis.Validate())
+	s.k.InitGenesis(s.ctx, *genesis)
+	finalized, err := s.k.Finalize(s.ctx, checkpoint.BatchNumber)
+	require.NoError(s.t, err)
+	require.Equal(s.t, types.CheckpointFinal, finalized.Status)
+	s.invariant()
+	return finalized
 }
 
-func (s *suite) submit(name string) (types.Checkpoint, error) {
+func (s *suite) submit(header []byte, signature [64]byte, certificate []byte) (types.Checkpoint, error) {
 	s.t.Helper()
-	v := s.vector("checkpoints", name)
-	header, err := v.Bytes("header")
-	require.NoError(s.t, err)
-	raw, err := v.Bytes("header_signature")
-	require.NoError(s.t, err)
-	var signature [64]byte
-	copy(signature[:], raw)
-	certificate, err := v.Bytes("certificate")
-	require.NoError(s.t, err)
-	return s.k.SubmitCheckpoint(s.ctx, s.reporter, header, signature, certificate)
-}
-
-func (s *suite) attestation(name string) []byte {
-	s.t.Helper()
-	raw, err := s.vector("attestations", name).Bytes("attestation")
-	require.NoError(s.t, err)
-	return raw
+	before := s.k.ExportGenesis(s.ctx)
+	events := s.ctx.EventManager().Events()
+	checkpoint, err := s.k.SubmitCheckpoint(s.ctx, s.reporter, header, signature, certificate)
+	require.ErrorIs(s.t, err, types.ErrModuleRetired)
+	require.EqualError(s.t, err, types.ErrModuleRetired.Wrap("SubmitCheckpoint").Error())
+	require.Equal(s.t, types.Checkpoint{}, checkpoint)
+	require.Equal(s.t, before, s.k.ExportGenesis(s.ctx))
+	require.Equal(s.t, events, s.ctx.EventManager().Events())
+	return checkpoint, err
 }
 
 func (s *suite) advance(seconds uint64) {
@@ -343,4 +391,48 @@ func TestMsgUpdateParamsRefusals(t *testing.T) {
 	_, err := keeper.NewMsgServerImpl(k).UpdateParams(sdk.WrapSDKContext(ctx), nil)
 	require.Error(t, err)
 	require.Equal(t, before, k.GetParams(ctx))
+}
+
+func TestSubmitCheckpointIsRetired(t *testing.T) {
+	s := newSuite(t, func(params *types.Params) {
+		params.ChallengeWindowSeconds = 50
+	})
+	t.Cleanup(func() { require.NoError(t, s.app.Close()) })
+	s.bondAll()
+	const mergeHeight = int64(20)
+	vector := s.vector("checkpoints", "batch_1_quorum")
+	batchNumber, err := vector.Uint64("batch_number")
+	require.NoError(t, err)
+	header, err := vector.Bytes("header")
+	require.NoError(t, err)
+	rawSignature, err := vector.Bytes("header_signature")
+	require.NoError(t, err)
+	var signature [64]byte
+	require.Len(t, rawSignature, len(signature))
+	copy(signature[:], rawSignature)
+	certificate, err := vector.Bytes("certificate")
+	require.NoError(t, err)
+	s.app.UpgradeKeeper.SetDone(s.ctx.WithBlockHeight(mergeHeight), types.MergeUpgrade)
+	for _, height := range []int64{mergeHeight - 1, mergeHeight, mergeHeight + 1} {
+		s.ctx = s.ctx.WithBlockHeight(height)
+		require.Equal(t, height >= mergeHeight, keeper.MergeRetired(s.ctx, &s.app.UpgradeKeeper))
+		require.Empty(t, s.k.GetCheckpoints(s.ctx))
+
+		first, err := s.submit(header, signature, certificate)
+		require.ErrorIs(t, err, types.ErrModuleRetired)
+		require.Equal(t, types.Checkpoint{}, first)
+		stored, found := s.k.GetCheckpoint(s.ctx, batchNumber)
+		require.False(t, found)
+		require.Equal(t, types.Checkpoint{}, stored)
+		require.Empty(t, s.k.GetCheckpoints(s.ctx))
+
+		s.ctx = s.ctx.WithBlockTime(s.ctx.BlockTime().Add(30 * time.Second))
+		resubmitted, err := s.submit(header, signature, certificate)
+		require.ErrorIs(t, err, types.ErrModuleRetired)
+		require.Equal(t, types.Checkpoint{}, resubmitted)
+		stored, found = s.k.GetCheckpoint(s.ctx, batchNumber)
+		require.False(t, found)
+		require.Equal(t, types.Checkpoint{}, stored)
+		require.Empty(t, s.k.GetCheckpoints(s.ctx))
+	}
 }

@@ -1,17 +1,27 @@
 use std::collections::BTreeSet;
 
+#[path = "../src/lib.rs"]
+mod daemon;
+pub use daemon::*;
+#[path = "../src/agent_rpc_wire.rs"]
+mod agent_rpc_wire;
+#[path = "../src/outbound_tls.rs"]
+mod outbound_tls;
+
+use agent_rpc::{
+    decode, dispatch_target, error_body, http_status, mcp_result_response, success_body,
+    version_exchange, Rejection, ENVELOPE_VERSION,
+};
+use agent_rpc_dispatch::Dispatched;
 use layerx_agent_api::error::{ErrorClass, RequestId, Retriability};
+use layerx_agent_api::verify::{Rung, RungStatus};
 use layerx_agent_api::{
     agent_api_schema_v1, ContractVersion, Operation, Sequence, VersionRequest, VersionResponse,
     AGENT_API_V1_SOURCE,
 };
-use layerx_agentd::agent_rpc::{
-    decode, dispatch_target, error_body, http_status, mcp_result_response, version_exchange,
-    Rejection, ENVELOPE_VERSION,
-};
-use layerx_agentd::session::{SessionCredential, SessionId};
-use layerx_agentd::store::TenantId;
 use serde_json::{json, Value};
+use session::{SessionCredential, SessionId};
+use store::TenantId;
 
 fn envelope(operation: Operation) -> Value {
     let bootstrap = matches!(operation, Operation::AgentRegister | Operation::SessionOpen);
@@ -318,6 +328,38 @@ fn agent_http_envelope_goldens_round_trip() {
     let response = mcp_result_response(decoded.request_id, json!({ "account": "ready" }));
     assert_eq!(response.status, 200);
     assert_eq!(response.body.as_slice(), success);
+    for (answer, golden, state) in [
+        (
+            Dispatched {
+                value: json!({
+                    "found": false,
+                    "submitted": {"tx_hash": format!("0x{}", "ab".repeat(32)), "nonce": "7"},
+                }),
+                verification: Some(RungStatus::Achieved(Rung::Submitted)),
+            },
+            include_bytes!("../../../schema/agent-api/golden/agent-http-success-pending.json")
+                .as_slice(),
+            "pending",
+        ),
+        (
+            Dispatched {
+                value: json!({"found": false}),
+                verification: None,
+            },
+            include_bytes!("../../../schema/agent-api/golden/agent-http-success-absent.json")
+                .as_slice(),
+            "absent",
+        ),
+    ] {
+        let response = success_body(decoded.request_id, &answer, Some(Some(Rung::Receipted)))
+            .expect("not-ready program.receipt envelope");
+        assert_eq!(response.status, 200);
+        assert_eq!(response.body.as_slice(), golden);
+        let body: Value = serde_json::from_slice(&response.body).expect("success JSON");
+        assert_eq!(body["verification_status"]["state"], state);
+        assert_eq!(body["verification_status"]["requested"], "receipted");
+        assert!(body["verification_status"].get("rung").is_none());
+    }
     let rejection = Rejection {
         class: ErrorClass::PolicyRefusal,
         retriability: Retriability::Terminal,

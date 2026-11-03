@@ -463,6 +463,18 @@ mod tests {
         let paxeer = config.paxeer.unwrap_or_else(|| panic!("paxeer source"));
         assert_eq!(paxeer.policy.finality_depth, 0);
         assert!(paxeer.comet.is_some());
+        assert_eq!(
+            paxeer.evm.security(),
+            &Security::Plaintext {
+                allow_remote: false
+            }
+        );
+        assert_eq!(
+            paxeer.comet.as_ref().expect("Comet source").security(),
+            &Security::Plaintext {
+                allow_remote: false
+            }
+        );
         assert_eq!(config.pointers.len(), 1);
         assert_eq!(
             config.pointers[0].address.as_deref(),

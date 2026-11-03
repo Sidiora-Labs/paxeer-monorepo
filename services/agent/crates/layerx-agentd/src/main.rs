@@ -27,20 +27,21 @@ use layerx_agentd::human_runtime::{
     UnifiedAgentOwner,
 };
 use layerx_agentd::identity::{self, CoreIdentity, IdentityError, IdentityResolver};
+use layerx_agentd::node_rpc::environment::{
+    parse_digest, parse_u64, refuse_retired_environment, required, HumanNodeEnvironment, McpHeights,
+};
 use layerx_agentd::node_rpc::{NodeRpc, NodeRpcConfig};
 use layerx_agentd::ops::program::ProgramOperations;
 use layerx_agentd::read::{
-    CommittedProgramBalanceFreshness, LayerxdProgramBalanceReader, NativeReadRoute,
-    ProgramAuthority, ProgramBalanceRead, ProgramBalanceReadRoute, ProgramReadError,
+    LayerxdProgramBalanceReader, NativeReadRoute, ProgramAuthority, ProgramBalanceReadRoute,
+    ProgramReadError,
 };
 use layerx_agentd::session::{SessionId, SessionRegistry};
 use layerx_agentd::session_keys::SessionKeyRegistry;
 use layerx_agentd::store::{Store, TenantId};
-use layerx_client::client::{ClientConfig, ReconnectPolicy};
-use layerx_client::lni::handshake::HandshakeConfig;
-use layerx_client::lni::schema::Version;
 use layerx_client::lni::transport::Limits;
-use layerx_client::Client;
+type PxEndpoint = layerx_client::px::PxEndpoint;
+type SequencerEndpoint = layerx_client::sequencer::SequencerEndpoint;
 use layerx_programs::{
     hex, DeploymentProof, DeploymentRecord, ProgramId, ProgramLifecycle,
     ProtocolDeploymentVerifier, Registry,
@@ -53,206 +54,13 @@ mod human_peer_config;
 #[path = "../../layerx-agentd-host/src/payer.rs"]
 mod mcp_payer;
 
-pub(crate) const HEADER_LIMIT: usize = 16 * 1024;
-const BODY_LIMIT: usize = 0;
-const PROGRAM_WORKERS: usize = 8;
-const PROGRAM_QUEUE: usize = 16;
-const REQUEST_DEADLINE: Duration = Duration::from_secs(5);
-const IO_CEILING: Duration = Duration::from_secs(10);
-const SUPERVISION_INTERVAL: Duration = Duration::from_millis(25);
-
-struct DeadlineStream {
-    socket: TcpStream,
-    expires: Instant,
-}
-
-impl DeadlineStream {
-    fn new(socket: TcpStream) -> Self {
-        Self {
-            socket,
-            expires: Instant::now() + REQUEST_DEADLINE,
-        }
-    }
-
-    fn remaining(&self) -> std::io::Result<Duration> {
-        let remaining = self.expires.saturating_duration_since(Instant::now());
-        if remaining.is_zero() {
-            Err(std::io::Error::new(
-                std::io::ErrorKind::TimedOut,
-                "request deadline elapsed",
-            ))
-        } else {
-            Ok(remaining.min(IO_CEILING))
-        }
-    }
-}
-
-impl Read for DeadlineStream {
-    fn read(&mut self, bytes: &mut [u8]) -> std::io::Result<usize> {
-        self.socket.set_read_timeout(Some(self.remaining()?))?;
-        self.socket.read(bytes)
-    }
-}
-
-impl Write for DeadlineStream {
-    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-        self.socket.set_write_timeout(Some(self.remaining()?))?;
-        self.socket.write(bytes)
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        self.socket.set_write_timeout(Some(self.remaining()?))?;
-        self.socket.flush()
-    }
-}
-
-struct HttpAdmissions {
-    stopping: bool,
-    busy: Vec<bool>,
-    pending: Vec<Option<DeadlineStream>>,
-    active: Vec<Option<TcpStream>>,
-    queue: std::collections::VecDeque<DeadlineStream>,
-}
-
-pub(crate) struct HttpPool {
-    admissions: Arc<(Mutex<HttpAdmissions>, std::sync::Condvar)>,
-    threads: Vec<thread::JoinHandle<()>>,
-}
-
-impl HttpPool {
-    fn start<F>(listener: TcpListener, handle: F) -> Result<Self, String>
-    where
-        F: Fn(DeadlineStream) + Send + Sync + 'static,
-    {
-        listener
-            .set_nonblocking(true)
-            .map_err(|error| error.to_string())?;
-        let handle = Arc::new(handle);
-        let mut pool = Self {
-            admissions: Arc::new((
-                Mutex::new(HttpAdmissions {
-                    stopping: false,
-                    busy: vec![false; PROGRAM_WORKERS],
-                    pending: (0..PROGRAM_WORKERS).map(|_| None).collect(),
-                    active: (0..PROGRAM_WORKERS).map(|_| None).collect(),
-                    queue: std::collections::VecDeque::with_capacity(PROGRAM_QUEUE),
-                }),
-                std::sync::Condvar::new(),
-            )),
-            threads: Vec::with_capacity(PROGRAM_WORKERS + 1),
-        };
-        for index in 0..PROGRAM_WORKERS {
-            let admissions = Arc::clone(&pool.admissions);
-            let handle = Arc::clone(&handle);
-            let worker = thread::Builder::new()
-                .name(format!("layerx-http-{index}"))
-                .spawn(move || loop {
-                    let stream = {
-                        let Ok(mut state) = admissions.0.lock() else {
-                            return;
-                        };
-                        while state.pending[index].is_none() && !state.stopping {
-                            state = match admissions.1.wait(state) {
-                                Ok(state) => state,
-                                Err(_) => return,
-                            };
-                        }
-                        if state.stopping {
-                            return;
-                        }
-                        let Some(stream) = state.pending[index].take() else {
-                            return;
-                        };
-                        match stream.socket.try_clone() {
-                            Ok(socket) => state.active[index] = Some(socket),
-                            Err(_) => {
-                                state.pending[index] = state.queue.pop_front();
-                                state.busy[index] = state.pending[index].is_some();
-                                continue;
-                            }
-                        }
-                        stream
-                    };
-                    if stream.remaining().is_ok() {
-                        handle(stream);
-                    }
-                    let Ok(mut state) = admissions.0.lock() else {
-                        return;
-                    };
-                    state.active[index] = None;
-                    state.pending[index] = state.queue.pop_front();
-                    state.busy[index] = state.pending[index].is_some();
-                })
-                .map_err(|error| format!("HTTP worker failed: {error}"))?;
-            pool.threads.push(worker);
-        }
-        let admissions = Arc::clone(&pool.admissions);
-        pool.threads.push(
-            thread::Builder::new()
-                .name("layerx-http-accept".to_owned())
-                .spawn(move || loop {
-                    {
-                        let Ok(mut state) = admissions.0.lock() else {
-                            return;
-                        };
-                        if state.stopping {
-                            return;
-                        }
-                        state.queue.retain(|stream| stream.remaining().is_ok());
-                    }
-                    match listener.accept() {
-                        Ok((socket, _)) => {
-                            let stream = DeadlineStream::new(socket);
-                            let Ok(mut state) = admissions.0.lock() else {
-                                return;
-                            };
-                            if state.stopping {
-                                return;
-                            }
-                            if let Some(index) = state.busy.iter().position(|busy| !busy) {
-                                state.busy[index] = true;
-                                state.pending[index] = Some(stream);
-                                admissions.1.notify_all();
-                            } else if state.queue.len() < PROGRAM_QUEUE {
-                                state.queue.push_back(stream);
-                            }
-                        }
-                        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                            thread::sleep(SUPERVISION_INTERVAL)
-                        }
-                        Err(error) if error.kind() == std::io::ErrorKind::Interrupted => {}
-                        Err(_) => return,
-                    }
-                })
-                .map_err(|error| format!("HTTP accept thread failed: {error}"))?,
-        );
-        Ok(pool)
-    }
-
-    fn check(&self) -> Result<(), String> {
-        if self.threads.iter().any(thread::JoinHandle::is_finished) {
-            Err("HTTP listener or worker terminated".to_owned())
-        } else {
-            Ok(())
-        }
-    }
-}
-
-impl Drop for HttpPool {
-    fn drop(&mut self) {
-        if let Ok(mut state) = self.admissions.0.lock() {
-            state.stopping = true;
-            state.queue.clear();
-            for stream in &mut state.pending {
-                *stream = None;
-            }
-            for socket in state.active.iter().flatten() {
-                let _ = socket.shutdown(std::net::Shutdown::Both);
-            }
-            self.admissions.1.notify_all();
-        }
-    }
-}
+// Share the exact HTTP path with the focused proof target. The implementation
+// lives in its declared proof path because this task may not add a source file.
+#[path = "../tests/proof_serve_errors.rs"]
+mod serve_http;
+pub(crate) use self::serve_http::{
+    serve_read_routes, HttpPool, HEADER_LIMIT, REQUEST_DEADLINE, SUPERVISION_INTERVAL,
+};
 
 struct Config {
     listen: String,
@@ -278,10 +86,6 @@ fn optional(name: &str) -> Option<String> {
     env::var(name).ok().filter(|value| !value.is_empty())
 }
 
-fn required(name: &str) -> Result<String, String> {
-    optional(name).ok_or_else(|| format!("{name} is required"))
-}
-
 fn absolute_path(name: &str) -> Result<PathBuf, String> {
     let path = PathBuf::from(required(name)?);
     if path.is_absolute() {
@@ -297,16 +101,6 @@ fn read_ca(name: &str) -> Result<Vec<u8>, String> {
         return Err(format!("{name} is empty"));
     }
     Ok(bytes)
-}
-
-fn parse_u64(name: &str) -> Result<u64, String> {
-    required(name)?
-        .parse()
-        .map_err(|_| format!("{name} must be an unsigned integer"))
-}
-
-fn parse_digest(name: &str) -> Result<[u8; 32], String> {
-    hex::decode_digest(&required(name)?).map_err(|error| format!("{name} is invalid: {error}"))
 }
 
 fn parse_hex<const N: usize>(name: &str) -> Result<[u8; N], String> {
@@ -524,6 +318,7 @@ fn mcp_enrolment(config: &Config) -> Result<Option<McpEnrolment>, String> {
     let peer_uid = required("LAYERX_AGENT_MCP_PEER_UID")?
         .parse()
         .map_err(|_| "LAYERX_AGENT_MCP_PEER_UID is invalid")?;
+    let heights = McpHeights::from_environment()?;
     Ok(Some(McpEnrolment {
         root: absolute_path("LAYERX_AGENT_MCP_BINDING_ROOT")?,
         audit_root: absolute_path("LAYERX_AGENT_MCP_AUDIT_ROOT")?,
@@ -535,10 +330,10 @@ fn mcp_enrolment(config: &Config) -> Result<Option<McpEnrolment>, String> {
             capability_id: CapabilityId(parse_digest("LAYERX_AGENT_MCP_CAPABILITY_ID")?),
             permitted_activity_types: mcp_activity_types()?,
             scopes: mcp_scopes()?,
-            expiry_sequence: parse_u64("LAYERX_AGENT_MCP_EXPIRY_HEIGHT")?,
+            expiry_sequence: heights.expiry_height,
             opening_client: required("LAYERX_AGENT_MCP_OPENING_CLIENT")?,
             policy_version: required("LAYERX_AGENT_MCP_POLICY_VERSION")?,
-            core_sequence: parse_u64("LAYERX_AGENT_MCP_CORE_HEIGHT")?,
+            core_sequence: heights.core_height,
         },
         limit: mcp_limit()?,
         deadline: Duration::from_millis(parse_u64("LAYERX_AGENT_MCP_DEADLINE_MS")?),
@@ -689,36 +484,35 @@ fn human_lni_limits(deadline: Duration) -> Result<Limits, String> {
     .map_err(|_| "human LNI limits are invalid".to_owned())
 }
 
-fn connect_human_node(node_path: PathBuf, node_limits: Limits) -> Result<Client, String> {
-    let human_protocol_version = required("LAYERX_AGENT_HUMAN_PROTOCOL_VERSION")?
-        .parse()
-        .map_err(|_| "human protocol version is invalid")?;
-    if !layerx_wire::limits::protocol_version_uses_occupancy(human_protocol_version) {
-        return Err("human protocol version is not the current beta protocol".to_owned());
+fn connect_human_node() -> Result<SequencerEndpoint, String> {
+    let environment = HumanNodeEnvironment::from_environment()?;
+    let config = environment.rpc;
+    let certificates = if config.url.starts_with("https://") {
+        let loaded = rustls_native_certs::load_native_certs();
+        if loaded.certs.is_empty() || !loaded.errors.is_empty() {
+            return Err("human node RPC trust roots are unavailable".to_owned());
+        }
+        loaded.certs
+    } else {
+        Vec::new()
+    };
+    let roots: Vec<&[u8]> = certificates.iter().map(AsRef::as_ref).collect();
+    let network = PxEndpoint::new(&config.url, &roots)
+        .and_then(|endpoint| endpoint.network())
+        .map_err(|error| format!("human PX network head is unavailable: {error:?}"))?;
+    if network.paxeer.chain_id != config.chain_id {
+        return Err("human node RPC chain id mismatch".to_owned());
     }
-    let node = Client::connect(ClientConfig {
-        endpoint: node_path,
-        handshake: HandshakeConfig {
-            built_interface_version: Version::V1_3,
-            expected_protocol_version: human_protocol_version,
-            expected_network_id: required("LAYERX_AGENT_HUMAN_NETWORK_ID")?
-                .parse()
-                .map_err(|_| "human network id is invalid")?,
-        },
-        limits: node_limits,
-        reconnect: ReconnectPolicy {
-            maximum_attempts: required("LAYERX_AGENT_HUMAN_RECONNECT_ATTEMPTS")?
-                .parse()
-                .map_err(|_| "human reconnect attempts are invalid")?,
-            base_delay: Duration::from_millis(parse_u64("LAYERX_AGENT_HUMAN_RECONNECT_BASE_MS")?),
-            maximum_delay: Duration::from_millis(parse_u64("LAYERX_AGENT_HUMAN_RECONNECT_MAX_MS")?),
-            jitter_percent: required("LAYERX_AGENT_HUMAN_RECONNECT_JITTER_PERCENT")?
-                .parse()
-                .map_err(|_| "human reconnect jitter is invalid")?,
-        },
-    })
-    .map_err(|error| format!("human node LNI is unavailable: {error:?}"))?;
-    Ok(node)
+    let endpoint = SequencerEndpoint::new(&config.url, &roots)
+        .map_err(|error| format!("human sequencer endpoint is invalid: {error:?}"))?;
+    if endpoint
+        .chain_id()
+        .map_err(|error| format!("human sequencer chain id is unavailable: {error:?}"))?
+        != config.chain_id
+    {
+        return Err("human sequencer chain id mismatch".to_owned());
+    }
+    Ok(endpoint)
 }
 
 fn configured_registry_source(
@@ -946,27 +740,19 @@ fn start_shared_owner(
     }
     let deadline = Duration::from_millis(parse_u64("LAYERX_AGENT_HUMAN_DEADLINE_MS")?);
     let human_limits = human_lni_limits(deadline)?;
-    let node_limits = Limits {
-        maximum_frame_bytes: human_limits
-            .maximum_frame_bytes
-            .max(layerx_client::evidence::MINIMUM_FINALITY_FRAME_BYTES),
-        ..human_limits
-    };
-    let node_path = PathBuf::from(required("LAYERX_AGENT_HUMAN_NODE_LNI")?);
     let store_path = PathBuf::from(required("LAYERX_AGENT_HUMAN_STORE")?);
     let socket_path = PathBuf::from(required("LAYERX_AGENT_HUMAN_SOCKET")?);
     let session_key_root = PathBuf::from(required("LAYERX_AGENT_HUMAN_SESSION_KEY_ROOT")?);
     let session_secret_path =
         PathBuf::from(required("LAYERX_AGENT_HUMAN_SESSION_OPERATOR_SECRET_FILE")?);
-    if !node_path.is_absolute()
-        || !store_path.is_absolute()
+    if !store_path.is_absolute()
         || !socket_path.is_absolute()
         || !session_key_root.is_absolute()
         || !session_secret_path.is_absolute()
     {
         return Err("human daemon paths must be absolute".to_owned());
     }
-    let node: Client = connect_human_node(node_path, node_limits)?;
+    let node = connect_human_node()?;
     let mut authority = connect_human_authority(deadline, &peers)?;
     let shared_store =
         Arc::new(Mutex::new(Store::open(&store_path).map_err(|error| {
@@ -1816,278 +1602,6 @@ fn now_ms() -> Result<u64, String> {
     u64::try_from(value.as_millis()).map_err(|_| "system time is out of range".to_owned())
 }
 
-fn lifecycle(value: ProgramLifecycle) -> &'static str {
-    match value {
-        ProgramLifecycle::Active => "active",
-        ProgramLifecycle::Deprecated => "deprecated",
-        ProgramLifecycle::Tombstoned => "tombstoned",
-    }
-}
-
-fn balance_json(read: &ProgramBalanceRead<CommittedProgramBalanceFreshness>) -> String {
-    let accounts: Vec<_> = read
-        .accounts
-        .iter()
-        .map(|account| {
-            serde_json::json!({
-                "account": hex::encode(&account.account),
-                "asset": hex::encode(&account.asset),
-                "amount": account.amount.to_string(),
-                "frozen": account.frozen.map_or(serde_json::Value::Null, serde_json::Value::Bool),
-            })
-        })
-        .collect();
-    serde_json::json!({
-        "program": hex::encode(&read.program),
-        "lifecycle": lifecycle(read.lifecycle),
-        "accounts": accounts,
-        "freshness": {
-            "height": read.freshness.height,
-            "block_hash": hex::encode(&read.freshness.block_hash),
-            "timestamp": read.freshness.timestamp,
-        },
-    })
-    .to_string()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use layerx_agentd::read::ProgramValueBalance;
-
-    #[test]
-    fn balance_json_renders_committed_freshness() {
-        let mut read = ProgramBalanceRead::<CommittedProgramBalanceFreshness> {
-            program: [0x11; 32],
-            lifecycle: ProgramLifecycle::Active,
-            accounts: vec![ProgramValueBalance {
-                account: [0x22; 32],
-                asset: [0x33; 32],
-                amount: u128::MAX,
-                frozen: Some(true),
-            }],
-            freshness: CommittedProgramBalanceFreshness {
-                height: 12_345,
-                block_hash: [0x44; 32],
-                timestamp: 1_700_000_000,
-            },
-        };
-
-        let rendered: serde_json::Value =
-            serde_json::from_str(&balance_json(&read)).expect("balance response is valid JSON");
-
-        assert_eq!(
-            rendered,
-            serde_json::json!({
-                "program": "11".repeat(32),
-                "lifecycle": "active",
-                "accounts": [{
-                    "account": "22".repeat(32),
-                    "asset": "33".repeat(32),
-                    "amount": "340282366920938463463374607431768211455",
-                    "frozen": true,
-                }],
-                "freshness": {
-                    "height": 12_345,
-                    "block_hash": "44".repeat(32),
-                    "timestamp": 1_700_000_000,
-                },
-            })
-        );
-
-        read.accounts[0].frozen = None;
-        let rendered: serde_json::Value =
-            serde_json::from_str(&balance_json(&read)).expect("balance response is valid JSON");
-        assert!(rendered["accounts"][0]["frozen"].is_null());
-
-        read.accounts[0].frozen = Some(false);
-        let rendered: serde_json::Value =
-            serde_json::from_str(&balance_json(&read)).expect("balance response is valid JSON");
-        assert_eq!(rendered["accounts"][0]["frozen"], false);
-    }
-}
-
-fn response<S: Write>(stream: &mut S, status: u16, body: &str) -> Result<(), String> {
-    let reason = if status < 300 { "OK" } else { "Refused" };
-    let header = format!(
-        "HTTP/1.1 {status} {reason}\r\nContent-Type: application/json\r\nCache-Control: no-store\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-        body.len()
-    );
-    stream
-        .write_all(header.as_bytes())
-        .and_then(|()| stream.write_all(body.as_bytes()))
-        .map_err(|error| format!("agent response failed: {error}"))
-}
-
-fn refresh_native_receipt_keys(native: &mut Option<NativeReadRoute>) -> Result<(), String> {
-    if let Some(native) = native.as_mut() {
-        native
-            .signed_authority()
-            .map_err(|error| format!("program receipt keys unavailable: {error:?}"))?;
-    }
-    Ok(())
-}
-
-enum Parsed {
-    Admitted(String),
-    Refused(u16, &'static str),
-    Closed,
-}
-
-fn declared_body(request: &str) -> Result<usize, ()> {
-    let mut length = None;
-    for header in request.split("\r\n").skip(1) {
-        let (name, value) = header.split_once(':').ok_or(())?;
-        if name.eq_ignore_ascii_case("transfer-encoding") {
-            return Err(());
-        }
-        if name.eq_ignore_ascii_case("content-length") {
-            let value = value.trim();
-            if length.is_some()
-                || value.is_empty()
-                || !value.bytes().all(|byte| byte.is_ascii_digit())
-            {
-                return Err(());
-            }
-            length = Some(value.parse().map_err(|_| ())?);
-        }
-    }
-    Ok(length.unwrap_or(BODY_LIMIT))
-}
-
-/// Reads one request head under a single absolute deadline. Every read is also capped by the
-/// per-I/O ceiling, so neither a silent peer nor a peer trickling partial bytes can hold a
-/// connection worker beyond `REQUEST_DEADLINE`.
-fn parse_request(stream: &mut DeadlineStream, bearer: &str) -> Parsed {
-    let deadline = stream.expires;
-    let mut bytes = [0_u8; HEADER_LIMIT];
-    let mut length = 0_usize;
-    while length < bytes.len() && !bytes[..length].windows(4).any(|value| value == b"\r\n\r\n") {
-        let remaining = deadline.saturating_duration_since(Instant::now());
-        if remaining.is_zero() {
-            return Parsed::Refused(408, "{\"error\":\"request_timeout\"}");
-        }
-        match stream.read(&mut bytes[length..]) {
-            Ok(0) => return Parsed::Closed,
-            Ok(count) => length += count,
-            Err(error)
-                if matches!(
-                    error.kind(),
-                    std::io::ErrorKind::WouldBlock
-                        | std::io::ErrorKind::TimedOut
-                        | std::io::ErrorKind::Interrupted
-                ) => {}
-            Err(_) => return Parsed::Closed,
-        }
-    }
-    let Some(end) = bytes[..length]
-        .windows(4)
-        .position(|value| value == b"\r\n\r\n")
-    else {
-        return Parsed::Refused(431, "{\"error\":\"headers_too_large\"}");
-    };
-    let Ok(request) = std::str::from_utf8(&bytes[..end]) else {
-        return Parsed::Refused(400, "{\"error\":\"invalid_request\"}");
-    };
-    let line = request.lines().next().unwrap_or_default();
-    let mut parts = line.split_ascii_whitespace();
-    let method = parts.next().unwrap_or_default();
-    let path = parts.next().unwrap_or_default();
-    if parts.next() != Some("HTTP/1.1") || parts.next().is_some() || method != "GET" {
-        return Parsed::Refused(400, "{\"error\":\"invalid_request\"}");
-    }
-    match declared_body(request) {
-        Ok(BODY_LIMIT) => {}
-        Ok(_) => return Parsed::Refused(413, "{\"error\":\"body_too_large\"}"),
-        Err(()) => return Parsed::Refused(400, "{\"error\":\"invalid_request\"}"),
-    }
-    if length != end + 4 {
-        return Parsed::Refused(413, "{\"error\":\"body_too_large\"}");
-    }
-    let mut credentials = request.lines().filter_map(|header| {
-        let (name, value) = header.split_once(':')?;
-        name.eq_ignore_ascii_case("authorization")
-            .then_some(value.trim())
-    });
-    let authorized = credentials
-        .next()
-        .and_then(|value| value.strip_prefix("Bearer "))
-        == Some(bearer)
-        && credentials.next().is_none();
-    if !authorized {
-        return Parsed::Refused(401, "{\"error\":\"unauthorized\"}");
-    }
-    Parsed::Admitted(path.to_owned())
-}
-
-fn route_request(
-    path: &str,
-    node_config: &NodeRpcConfig,
-    node_ca_der: &[u8],
-    endpoint: &layerx_client::sequencer::SequencerEndpoint,
-    route: &mut ProgramBalanceReadRoute,
-    native: &mut Option<NativeReadRoute>,
-) -> (u16, String) {
-    let reply = |status: u16, body: &str| (status, body.to_owned());
-    if path == "/healthz" {
-        let (transport_ready, ready) = match NodeRpc::connect_with_ca(node_config, node_ca_der) {
-            Ok(node) => (true, readiness_gate(&node).is_ok()),
-            Err(_) => (false, false),
-        };
-        return (
-            if ready { 200 } else { 503 },
-            serde_json::json!({
-                "ready": ready,
-                "transport_ready": transport_ready,
-                "verified_reads_ready": ready,
-                "tenant_writes": "unknown",
-            })
-            .to_string(),
-        );
-    }
-    if path.starts_with("/v1/reads/") {
-        let Some(reader) = native.as_mut() else {
-            return reply(404, "{\"error\":\"not_found\"}");
-        };
-        return match reader.read(path) {
-            Ok(value) => (200, value.to_string()),
-            Err(
-                layerx_agentd::read::NativeReadError::InvalidRequest
-                | layerx_agentd::read::NativeReadError::CursorMismatch,
-            ) => reply(400, "{\"error\":\"invalid_read\"}"),
-            Err(layerx_agentd::read::NativeReadError::ResultTooLarge) => {
-                reply(413, "{\"error\":\"read_too_large\"}")
-            }
-            Err(_) => reply(503, "{\"error\":\"verified_read_unavailable\"}"),
-        };
-    }
-    let Some(program_text) = path
-        .strip_prefix("/v1/programs/")
-        .and_then(|value| value.strip_suffix("/balances"))
-    else {
-        return reply(404, "{\"error\":\"not_found\"}");
-    };
-    let program = hex::decode_digest(program_text)
-        .ok()
-        .and_then(|bytes| ProgramId::new(bytes).ok());
-    let Some(program) = program else {
-        return reply(400, "{\"error\":\"invalid_program\"}");
-    };
-    if refresh_native_receipt_keys(native).is_err() {
-        return reply(503, "{\"error\":\"program_state_unavailable\"}");
-    }
-    let read = (|| {
-        let node = NodeRpc::connect_with_ca(node_config, node_ca_der).map_err(|_| ())?;
-        readiness_gate(&node).map_err(|_| ())?;
-        let height = endpoint.block_number().map_err(|_| ())?;
-        route.read(program, height).map_err(|_| ())
-    })();
-    match read {
-        Ok(read) => (200, balance_json(&read)),
-        _ => reply(503, "{\"error\":\"program_state_unavailable\"}"),
-    }
-}
-
 fn load_chain_trust_root(
     path: &Path,
 ) -> Result<layerx_programs::chain_proof::trust_store::TrustRoot, String> {
@@ -2176,45 +1690,6 @@ fn program_reader(
         format!("agent program reader configuration failed: {error:?}")
     })?;
     Ok(reader)
-}
-
-pub(crate) fn serve_read_routes(
-    listener: TcpListener,
-    bearer: String,
-    route: ProgramBalanceReadRoute,
-    native: Option<NativeReadRoute>,
-    node_config: NodeRpcConfig,
-    node_ca_der: Vec<u8>,
-    endpoint: layerx_client::sequencer::SequencerEndpoint,
-) -> Result<HttpPool, String> {
-    let shared_reads = Arc::new(Mutex::new((route, native)));
-    HttpPool::start(listener, move |mut stream| {
-        let answer = match parse_request(&mut stream, &bearer) {
-            Parsed::Closed => return,
-            Parsed::Refused(status, body) => (status, body.to_owned()),
-            Parsed::Admitted(path) => loop {
-                if stream.remaining().is_err() {
-                    return;
-                }
-                match shared_reads.try_lock() {
-                    Ok(mut reads) => {
-                        let (route, native) = &mut *reads;
-                        break route_request(
-                            &path,
-                            &node_config,
-                            &node_ca_der,
-                            &endpoint,
-                            route,
-                            native,
-                        );
-                    }
-                    Err(std::sync::TryLockError::WouldBlock) => thread::sleep(SUPERVISION_INTERVAL),
-                    Err(std::sync::TryLockError::Poisoned(_)) => return,
-                }
-            },
-        };
-        let _ = response(&mut stream, answer.0, &answer.1);
-    })
 }
 
 fn serve(config: Config) -> Result<(), String> {
@@ -2357,21 +1832,6 @@ fn mcp_evidence_mode() -> Option<Result<(), String>> {
         );
         Ok(())
     })())
-}
-
-fn refuse_retired_environment() -> Result<(), String> {
-    for name in [
-        "LAYERX_AGENT_HUMAN_EXPORT_SETTLEMENT_DOMAIN",
-        "LAYERX_AGENT_SEQUENCER_TRUST_HISTORY",
-        "LAYERX_AGENT_GENESIS_TRUST",
-        "LAYERX_AGENT_HANDOVER_FINALITY",
-        "LAYERX_AGENT_MCP_WEB_SEQUENCER_PUBLIC_KEY",
-    ] {
-        if env::var_os(name).is_some() {
-            return Err(format!("{name} is retired"));
-        }
-    }
-    Ok(())
 }
 
 fn main() {

@@ -4,7 +4,7 @@ use layerx_client::runtime_clock::RuntimeClock;
 use layerx_human_identity_provider::{
     AssertionConfig, AssertionReceipt, AssertionRefusal, AssertionVerifier, Policy, Server, State,
 };
-use layerx_types::clock::{Clock as _, Deadline};
+use layerx_types::clock::{Clock, ClockError, ClockReading, Deadline};
 use p256::ecdsa::signature::Signer as _;
 use p256::ecdsa::{Signature, SigningKey};
 use serde_json::{json, Value};
@@ -16,10 +16,10 @@ use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::os::unix::fs::{OpenOptionsExt as _, PermissionsExt as _};
 use std::os::unix::net::UnixStream;
 use std::path::Path;
-use std::sync::atomic::{AtomicBool, AtomicU8, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicU8, AtomicUsize, Ordering};
 use std::sync::{Arc, Barrier, Mutex};
 use std::thread::{self, JoinHandle};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 type Result<T = ()> = std::result::Result<T, Box<dyn Error>>;
 
@@ -195,8 +195,45 @@ impl TokenSigner {
     }
 }
 
-fn now() -> Result<u64> {
-    Ok(SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs())
+#[derive(Default)]
+struct StepClock {
+    milliseconds: AtomicU64,
+}
+
+impl StepClock {
+    fn now(&self) -> Result<u64> {
+        Ok(self.sample(Duration::from_secs(1))?.unix_seconds())
+    }
+
+    fn advance(&self, duration: Duration) -> Result {
+        let milliseconds = u64::try_from(duration.as_millis())?;
+        self.milliseconds
+            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |value| {
+                value.checked_add(milliseconds)
+            })
+            .map_err(|_| ClockError::Overflow)?;
+        Ok(())
+    }
+}
+
+impl Clock for StepClock {
+    fn sample(&self, _budget: Duration) -> std::result::Result<ClockReading, ClockError> {
+        let milliseconds = self
+            .milliseconds
+            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |value| {
+                value.checked_add(1)
+            })
+            .map_err(|_| ClockError::Overflow)?;
+        Ok(ClockReading {
+            generation: [0x52; 16],
+            unix_milliseconds: 1_900_000_000_000_u64
+                .checked_add(milliseconds)
+                .ok_or(ClockError::Overflow)?,
+            monotonic_nanoseconds: milliseconds
+                .checked_mul(1_000_000)
+                .ok_or(ClockError::Overflow)?,
+        })
+    }
 }
 
 fn claims(subject: &str, now: u64) -> Value {
@@ -230,13 +267,14 @@ fn policy() -> Policy {
     }
 }
 
-fn open_state(root: &Path, config: AssertionConfig) -> Result<State> {
+fn open_state(root: &Path, config: AssertionConfig, clock: Arc<dyn Clock>) -> Result<State> {
     let mut state = State::open(root, policy())?;
-    state.enable_assertion(AssertionVerifier::new(config)?)?;
+    state.enable_assertion(AssertionVerifier::new_with_clock(config, clock)?)?;
     Ok(state)
 }
 
 struct Fixture {
+    clock: Arc<StepClock>,
     _directory: tempfile::TempDir,
     root: std::path::PathBuf,
     server: KeySetServer,
@@ -252,6 +290,7 @@ impl Fixture {
         let signer = TokenSigner::generate("signing-key-1")?;
         let server = KeySetServer::serve(&[signer.jwk()?])?;
         Ok(Self {
+            clock: Arc::new(StepClock::default()),
             _directory: directory,
             root,
             server,
@@ -260,7 +299,11 @@ impl Fixture {
     }
 
     fn state(&self) -> Result<State> {
-        open_state(&self.root, config(self.server.url(), 300))
+        open_state(
+            &self.root,
+            config(self.server.url(), 300),
+            self.clock.clone(),
+        )
     }
 }
 
@@ -279,7 +322,7 @@ fn assert_chain(receipts: &[AssertionReceipt]) -> Result {
 fn assertion_first_login_creates_account_and_second_login_reopens_it() -> Result {
     let fixture = Fixture::new()?;
     let mut state = fixture.state()?;
-    let now = now()?;
+    let now = fixture.clock.now()?;
     let token = fixture.signer.mint(&claims("user-0001", now));
 
     let (first, created) = state.open_or_create_by_assertion(&token, None, now)?;
@@ -327,7 +370,7 @@ fn assertion_first_login_creates_account_and_second_login_reopens_it() -> Result
 fn assertion_wrong_issuer_audience_expired_and_not_yet_valid_are_refused() -> Result {
     let fixture = Fixture::new()?;
     let mut state = fixture.state()?;
-    let now = now()?;
+    let now = fixture.clock.now()?;
 
     let mut wrong_issuer = claims("user-0003", now);
     wrong_issuer["iss"] = json!("https://other.example.test/auth/v1");
@@ -374,7 +417,7 @@ fn assertion_wrong_issuer_audience_expired_and_not_yet_valid_are_refused() -> Re
 fn assertion_did_recorded_on_first_login_and_returned_on_reopen() -> Result {
     let fixture = Fixture::new()?;
     let mut state = fixture.state()?;
-    let now = now()?;
+    let now = fixture.clock.now()?;
     let token = fixture.signer.mint(&claims("user-0004", now));
 
     let (first, created) = state.open_or_create_by_assertion(&token, Some(WALLET_DID), now)?;
@@ -406,7 +449,7 @@ fn assertion_did_recorded_on_first_login_and_returned_on_reopen() -> Result {
 fn assertion_did_supplied_after_creation_is_recorded_with_a_receipt() -> Result {
     let fixture = Fixture::new()?;
     let mut state = fixture.state()?;
-    let now = now()?;
+    let now = fixture.clock.now()?;
     let token = fixture.signer.mint(&claims("user-0005", now));
 
     let (first, _) = state.open_or_create_by_assertion(&token, None, now)?;
@@ -428,7 +471,7 @@ fn assertion_did_supplied_after_creation_is_recorded_with_a_receipt() -> Result 
 fn assertion_different_did_for_the_same_account_is_refused() -> Result {
     let fixture = Fixture::new()?;
     let mut state = fixture.state()?;
-    let now = now()?;
+    let now = fixture.clock.now()?;
     let token = fixture.signer.mint(&claims("user-0006", now));
 
     state.open_or_create_by_assertion(&token, Some(WALLET_DID), now)?;
@@ -448,7 +491,7 @@ fn assertion_different_did_for_the_same_account_is_refused() -> Result {
 fn assertion_same_did_for_another_subject_is_refused() -> Result {
     let fixture = Fixture::new()?;
     let mut state = fixture.state()?;
-    let now = now()?;
+    let now = fixture.clock.now()?;
     let owner = fixture.signer.mint(&claims("user-0007", now));
     let other = fixture.signer.mint(&claims("user-0008", now));
 
@@ -476,7 +519,7 @@ fn assertion_same_did_for_another_subject_is_refused() -> Result {
 fn assertion_invalid_did_is_refused() -> Result {
     let fixture = Fixture::new()?;
     let mut state = fixture.state()?;
-    let now = now()?;
+    let now = fixture.clock.now()?;
     let token = fixture.signer.mint(&claims("user-0009", now));
     for invalid in [
         "did:layerx:3F1C0A9E5B7D2468ACE013579BDF2468ACE013579BDF2468ACE013579BDF2468",
@@ -496,7 +539,7 @@ fn assertion_invalid_did_is_refused() -> Result {
 fn assertion_hs256_and_unsigned_tokens_are_refused() -> Result {
     let fixture = Fixture::new()?;
     let mut state = fixture.state()?;
-    let now = now()?;
+    let now = fixture.clock.now()?;
     let body = claims("user-0010", now);
 
     let mut header = jsonwebtoken::Header::new(jsonwebtoken::Algorithm::HS256);
@@ -527,8 +570,12 @@ fn assertion_hs256_and_unsigned_tokens_are_refused() -> Result {
 #[test]
 fn assertion_unknown_key_id_refreshes_only_after_the_minimum_interval() -> Result {
     let fixture = Fixture::new()?;
-    let mut state = open_state(&fixture.root, config(fixture.server.url(), 1))?;
-    let now = now()?;
+    let mut state = open_state(
+        &fixture.root,
+        config(fixture.server.url(), 1),
+        fixture.clock.clone(),
+    )?;
+    let now = fixture.clock.now()?;
     let first = fixture.signer.mint(&claims("user-0011", now));
     state.open_or_create_by_assertion(&first, None, now)?;
     assert_eq!(fixture.server.hits(), 1);
@@ -543,7 +590,7 @@ fn assertion_unknown_key_id_refreshes_only_after_the_minimum_interval() -> Resul
         .is_err());
     assert_eq!(fixture.server.hits(), 1);
 
-    thread::sleep(Duration::from_millis(1100));
+    fixture.clock.advance(Duration::from_millis(1100))?;
     let (principal, created) = state.open_or_create_by_assertion(&second, None, now)?;
     assert!(created);
     assert_eq!(principal.subject(), "user-0012");
@@ -555,16 +602,22 @@ fn assertion_unknown_key_id_refreshes_only_after_the_minimum_interval() -> Resul
 fn assertion_disabled_principal_refuses_tokens() -> Result {
     let fixture = Fixture::new()?;
     let mut state = State::open(&fixture.root, policy())?;
-    let now = now()?;
+    let now = fixture.clock.now()?;
     let token = fixture.signer.mint(&claims("user-0013", now));
     assert!(state
         .open_or_create_by_assertion(&token, None, now)
         .is_err());
     assert!(state.resolve_assertion(&token, now).is_err());
     assert_eq!(fixture.server.hits(), 0);
-    state.enable_assertion(AssertionVerifier::new(config(fixture.server.url(), 300))?)?;
+    state.enable_assertion(AssertionVerifier::new_with_clock(
+        config(fixture.server.url(), 300),
+        fixture.clock.clone(),
+    )?)?;
     assert!(state
-        .enable_assertion(AssertionVerifier::new(config(fixture.server.url(), 300))?)
+        .enable_assertion(AssertionVerifier::new_with_clock(
+            config(fixture.server.url(), 300),
+            fixture.clock.clone()
+        )?)
         .is_err());
     state.open_or_create_by_assertion(&token, None, now)?;
     Ok(())
@@ -666,13 +719,13 @@ struct Running {
 }
 
 impl Running {
-    fn start(socket: &Path, state: State) -> Result<Self> {
+    fn start(socket: &Path, state: State, clock: Arc<dyn Clock>) -> Result<Self> {
         let server = Server::bind(
             socket,
             state,
             rustix::process::geteuid().as_raw(),
             Duration::from_secs(2),
-            RuntimeClock::from_environment()?,
+            clock,
         )?;
         let shutdown = Arc::new(AtomicBool::new(false));
         let flag = Arc::clone(&shutdown);
@@ -782,8 +835,8 @@ fn assertion_wire_operation_four_returns_principal_and_recorded_did() -> Result 
         .parent()
         .ok_or("parent missing")?
         .join("identity.sock");
-    let running = Running::start(&socket, fixture.state()?)?;
-    let now = authority_now()?;
+    let running = Running::start(&socket, fixture.state()?, fixture.clock.clone())?;
+    let now = fixture.clock.now()?;
     let token = fixture.signer.mint(&claims("user-0014", now));
 
     let (status, fields) = operation_four(&socket, &[token.as_bytes()])?;
@@ -866,10 +919,14 @@ fn assertion_wire_operation_four_reports_unavailable_without_a_verifier_or_key_s
         .parent()
         .ok_or("parent missing")?
         .join("identity.sock");
-    let now = authority_now()?;
+    let now = fixture.clock.now()?;
     let token = fixture.signer.mint(&claims("user-0016", now));
 
-    let disabled = Running::start(&socket, State::open(&fixture.root, policy())?)?;
+    let disabled = Running::start(
+        &socket,
+        State::open(&fixture.root, policy())?,
+        fixture.clock.clone(),
+    )?;
     let (status, fields) = operation_four(&socket, &[token.as_bytes()])?;
     assert_eq!(
         (status, fields.len()),
@@ -886,7 +943,12 @@ fn assertion_wire_operation_four_reports_unavailable_without_a_verifier_or_key_s
     drop(closed);
     let running = Running::start(
         &socket,
-        open_state(&fixture.root, config(unreachable, 300))?,
+        open_state(
+            &fixture.root,
+            config(unreachable, 300),
+            fixture.clock.clone(),
+        )?,
+        fixture.clock.clone(),
     )?;
     let (status, fields) = operation_four(&socket, &[token.as_bytes()])?;
     assert_eq!(
@@ -1003,8 +1065,9 @@ fn refusal_kind(result: std::io::Result<impl std::fmt::Debug>) -> Result<std::io
 #[test]
 fn assertion_known_key_removed_from_the_key_set_is_refused_after_the_refresh_interval() -> Result {
     let fixture = Fixture::new()?;
-    let verifier = AssertionVerifier::new(config(fixture.server.url(), 1))?;
-    let now = now()?;
+    let verifier =
+        AssertionVerifier::new_with_clock(config(fixture.server.url(), 1), fixture.clock.clone())?;
+    let now = fixture.clock.now()?;
     let token = fixture.signer.mint(&claims("user-0018", now));
     assert_eq!(verifier.verify(&token, now)?.subject(), "user-0018");
     assert_eq!(fixture.server.hits(), 1);
@@ -1021,7 +1084,7 @@ fn assertion_known_key_removed_from_the_key_set_is_refused_after_the_refresh_int
     }
     assert_eq!(fixture.server.hits(), 1);
 
-    thread::sleep(PAST_INTERVAL);
+    fixture.clock.advance(PAST_INTERVAL)?;
     assert_eq!(
         refusal_kind(verifier.verify(&token, now))?,
         std::io::ErrorKind::InvalidData
@@ -1044,8 +1107,12 @@ fn assertion_known_key_removed_from_the_key_set_is_refused_after_the_refresh_int
 fn assertion_known_key_id_replaced_in_the_key_set_uses_the_new_key_after_the_refresh_interval(
 ) -> Result {
     let fixture = Fixture::new()?;
-    let mut state = open_state(&fixture.root, config(fixture.server.url(), 1))?;
-    let now = now()?;
+    let mut state = open_state(
+        &fixture.root,
+        config(fixture.server.url(), 1),
+        fixture.clock.clone(),
+    )?;
+    let now = fixture.clock.now()?;
     let original = fixture.signer.mint(&claims("user-0021", now));
     let (first, created) = state.open_or_create_by_assertion(&original, None, now)?;
     assert!(created);
@@ -1063,7 +1130,7 @@ fn assertion_known_key_id_replaced_in_the_key_set_uses_the_new_key_after_the_ref
     );
     assert_eq!(fixture.server.hits(), 1);
 
-    thread::sleep(PAST_INTERVAL);
+    fixture.clock.advance(PAST_INTERVAL)?;
     assert!(state.resolve_assertion(&original, now).is_err());
     assert_eq!(fixture.server.hits(), 2);
     let (second, created) = state.open_or_create_by_assertion(&replaced, None, now)?;
@@ -1080,8 +1147,9 @@ fn assertion_known_key_id_replaced_in_the_key_set_uses_the_new_key_after_the_ref
 #[test]
 fn assertion_key_set_outage_refuses_expired_keys_until_a_refresh_succeeds() -> Result {
     let fixture = Fixture::new()?;
-    let verifier = AssertionVerifier::new(config(fixture.server.url(), 1))?;
-    let now = now()?;
+    let verifier =
+        AssertionVerifier::new_with_clock(config(fixture.server.url(), 1), fixture.clock.clone())?;
+    let now = fixture.clock.now()?;
     let token = fixture.signer.mint(&claims("user-0023", now));
     verifier.verify(&token, now)?;
     assert_eq!(fixture.server.hits(), 1);
@@ -1090,7 +1158,7 @@ fn assertion_key_set_outage_refuses_expired_keys_until_a_refresh_succeeds() -> R
     verifier.verify(&token, now)?;
     assert_eq!(fixture.server.hits(), 1);
 
-    thread::sleep(PAST_INTERVAL);
+    fixture.clock.advance(PAST_INTERVAL)?;
     assert_eq!(
         refusal_kind(verifier.verify(&token, now))?,
         std::io::ErrorKind::Other
@@ -1102,7 +1170,7 @@ fn assertion_key_set_outage_refuses_expired_keys_until_a_refresh_succeeds() -> R
     );
     assert_eq!(fixture.server.hits(), 2);
 
-    thread::sleep(PAST_INTERVAL);
+    fixture.clock.advance(PAST_INTERVAL)?;
     assert_eq!(
         refusal_kind(verifier.verify(&token, now))?,
         std::io::ErrorKind::Other
@@ -1115,7 +1183,7 @@ fn assertion_key_set_outage_refuses_expired_keys_until_a_refresh_succeeds() -> R
         std::io::ErrorKind::Other
     );
     assert_eq!(fixture.server.hits(), 3);
-    thread::sleep(PAST_INTERVAL);
+    fixture.clock.advance(PAST_INTERVAL)?;
     assert_eq!(verifier.verify(&token, now)?.subject(), "user-0023");
     assert_eq!(fixture.server.hits(), 4);
     Ok(())
@@ -1132,16 +1200,21 @@ fn assertion_wire_operation_four_reports_an_expired_key_set_during_an_outage_as_
         .join("identity.sock");
     let running = Running::start(
         &socket,
-        open_state(&fixture.root, config(fixture.server.url(), 1))?,
+        open_state(
+            &fixture.root,
+            config(fixture.server.url(), 1),
+            fixture.clock.clone(),
+        )?,
+        fixture.clock.clone(),
     )?;
-    let now = authority_now()?;
+    let now = fixture.clock.now()?;
     let token = fixture.signer.mint(&claims("user-0024", now));
     let (status, fields) = operation_four(&socket, &[token.as_bytes()])?;
     assert_eq!((status, fields.len()), (0, 1));
     let principal = fields[0].clone();
 
     fixture.server.set_mode(UNAVAILABLE);
-    thread::sleep(PAST_INTERVAL);
+    fixture.clock.advance(PAST_INTERVAL)?;
     for expected_hits in [2, 2] {
         let (status, fields) = operation_four(&socket, &[token.as_bytes()])?;
         assert_eq!(
@@ -1152,7 +1225,7 @@ fn assertion_wire_operation_four_reports_an_expired_key_set_during_an_outage_as_
     }
 
     fixture.server.set_mode(SERVE);
-    thread::sleep(PAST_INTERVAL);
+    fixture.clock.advance(PAST_INTERVAL)?;
     let (status, fields) = operation_four(&socket, &[token.as_bytes()])?;
     assert_eq!((status, fields), (0, vec![principal]));
     assert_eq!(fixture.server.hits(), 3);
@@ -1164,8 +1237,11 @@ fn assertion_wire_operation_four_reports_an_expired_key_set_during_an_outage_as_
 #[test]
 fn assertion_simultaneous_requests_share_one_key_set_fetch() -> Result {
     let fixture = Fixture::new()?;
-    let verifier = Arc::new(AssertionVerifier::new(config(fixture.server.url(), 1))?);
-    let now = now()?;
+    let verifier = Arc::new(AssertionVerifier::new_with_clock(
+        config(fixture.server.url(), 1),
+        fixture.clock.clone(),
+    )?);
+    let now = fixture.clock.now()?;
     let tokens: Vec<String> = (0..16)
         .map(|index| {
             fixture
@@ -1208,7 +1284,7 @@ fn assertion_simultaneous_requests_share_one_key_set_fetch() -> Result {
     assert_eq!(fixture.server.hits(), 1);
 
     fixture.server.set_mode(UNAVAILABLE);
-    thread::sleep(PAST_INTERVAL);
+    fixture.clock.advance(PAST_INTERVAL)?;
     for result in simultaneous(&tokens)? {
         assert_eq!(result, Err(std::io::ErrorKind::Other));
     }
@@ -1219,7 +1295,7 @@ fn assertion_simultaneous_requests_share_one_key_set_fetch() -> Result {
 #[test]
 fn assertion_restart_assumes_no_cached_key() -> Result {
     let fixture = Fixture::new()?;
-    let now = now()?;
+    let now = fixture.clock.now()?;
     let token = fixture.signer.mint(&claims("user-0025", now));
     let mut state = fixture.state()?;
     let (first, _) = state.open_or_create_by_assertion(&token, None, now)?;
@@ -1239,7 +1315,10 @@ fn assertion_restart_assumes_no_cached_key() -> Result {
     fixture.server.set_mode(SERVE);
     let successor = TokenSigner::generate("signing-key-2")?;
     fixture.server.replace(&[successor.jwk()?])?;
-    let verifier = AssertionVerifier::new(config(fixture.server.url(), 300))?;
+    let verifier = AssertionVerifier::new_with_clock(
+        config(fixture.server.url(), 300),
+        fixture.clock.clone(),
+    )?;
     assert_eq!(
         refusal_kind(verifier.verify(&token, now))?,
         std::io::ErrorKind::InvalidData
@@ -1256,8 +1335,9 @@ fn assertion_restart_assumes_no_cached_key() -> Result {
 #[test]
 fn assertion_key_set_redirects_and_oversized_documents_are_refused() -> Result {
     let fixture = Fixture::new()?;
-    let verifier = AssertionVerifier::new(config(fixture.server.url(), 1))?;
-    let now = now()?;
+    let verifier =
+        AssertionVerifier::new_with_clock(config(fixture.server.url(), 1), fixture.clock.clone())?;
+    let now = fixture.clock.now()?;
     let token = fixture.signer.mint(&claims("user-0026", now));
 
     fixture.server.set_mode(REDIRECT);
@@ -1272,7 +1352,7 @@ fn assertion_key_set_redirects_and_oversized_documents_are_refused() -> Result {
         "keys": [fixture.signer.jwk()?],
         "padding": "x".repeat(300 * 1024),
     }))?;
-    thread::sleep(PAST_INTERVAL);
+    fixture.clock.advance(PAST_INTERVAL)?;
     assert_eq!(
         refusal_kind(verifier.verify(&token, now))?,
         std::io::ErrorKind::Other
@@ -1280,7 +1360,7 @@ fn assertion_key_set_redirects_and_oversized_documents_are_refused() -> Result {
     assert_eq!(fixture.server.hits(), 2);
 
     fixture.server.replace(&[fixture.signer.jwk()?])?;
-    thread::sleep(PAST_INTERVAL);
+    fixture.clock.advance(PAST_INTERVAL)?;
     assert_eq!(verifier.verify(&token, now)?.subject(), "user-0026");
     assert_eq!(fixture.server.hits(), 3);
     Ok(())

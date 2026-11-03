@@ -13,7 +13,6 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/multiversion"
 	store "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/types"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/telemetry"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/occ"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/utils/tracing"
@@ -267,11 +266,7 @@ type schedulerMetrics struct {
 
 func (s *scheduler) emitMetrics() {
 	taskMetrics.retries.Add(context.Background(), int64(s.metrics.retries))
-	// TODO(PLT-353): remove once scheduler_retries verified
-	telemetry.IncrCounter(float32(s.metrics.retries), "scheduler", "retries")
 	taskMetrics.incarnations.Add(context.Background(), int64(s.metrics.maxIncarnation))
-	// TODO(PLT-353): remove once scheduler_incarnations verified
-	telemetry.IncrCounter(float32(s.metrics.maxIncarnation), "scheduler", "incarnations")
 }
 
 func (s *scheduler) ProcessAll(ctx sdk.Context, reqs []*sdk.DeliverTxEntry) ([]types.ResponseDeliverTx, error) {

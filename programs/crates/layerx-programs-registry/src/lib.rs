@@ -484,6 +484,47 @@ impl Registry {
         )
     }
 
+    pub fn record_verified_upgrade(
+        &mut self,
+        predecessor: &VerifiedDeploymentEvidence,
+        evidence: &VerifiedDeploymentEvidence,
+    ) -> Result<(), RegistryError> {
+        let prior = predecessor.record();
+        let record = evidence.record();
+        let prior_header = chain_proof::header::ChainHeader::decode(
+            &predecessor.proof().state.commitment.signed_header,
+        )
+        .map_err(|_| RegistryError::VersionHistoryMismatch)?;
+        let header = chain_proof::header::ChainHeader::decode(
+            &evidence.proof().state.commitment.signed_header,
+        )
+        .map_err(|_| RegistryError::VersionHistoryMismatch)?;
+        if prior.program != record.program
+            || prior.version.checked_add(1) != Some(record.version)
+            || prior_header.chain_id != header.chain_id
+            || prior_header.height >= header.height
+            || self
+                .entries
+                .get(&record.program)
+                .and_then(|entry| entry.versions.last())
+                .map(|version| version.code_hash)
+                != Some(prior.new_code_hash)
+        {
+            return Err(RegistryError::VersionHistoryMismatch);
+        }
+        self.record_deployment_version(
+            DeploymentIdentity {
+                program: record.program,
+                number: record.version,
+                old_code_hash: Some(prior.new_code_hash),
+                new_code_hash: record.new_code_hash,
+            },
+            &record.program_version(),
+            record.upgrade_policy,
+            evidence.receipt_digest(),
+        )
+    }
+
     fn record_deployment_version(
         &mut self,
         identity: DeploymentIdentity,

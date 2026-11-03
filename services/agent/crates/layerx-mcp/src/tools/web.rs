@@ -534,11 +534,48 @@ pub trait WebPayer {
         grant_id: [u8; 32],
     ) -> Result<PrecompileCall, WebPayerError> {
         let result = self.view(&terms.next_sequence_call())?;
-        let sequence = sequence_result(&result)?;
-        Ok(terms.prepare_draw(grant_id, sequence))
+        terms.draw_from_sequence_result(grant_id, &result)
     }
 
     fn submit(&mut self, call: &PrecompileCall) -> Result<ExactPayment, WebPayerError>;
+}
+
+impl dyn WebPayer + '_ {
+    /// The tool's consumer boundary for a host-produced grant call.
+    pub fn decode_grant_call(
+        terms: &GrantTerms,
+        prepared: &PrecompileCall,
+    ) -> Result<Grant, WebToolError> {
+        let refuse = || WebToolError::PaymentArtifact("grant_call");
+        let [AbiArgument::Bytes(payload)] = prepared.arguments.as_slice() else {
+            return Err(refuse());
+        };
+        let Payment::IssueGrant(grant) = Payment::decode(
+            ModuleId::Asset,
+            GRANT_OPERATION,
+            payload,
+            terms.payer_did.as_bytes(),
+        )
+        .map_err(|_| refuse())?
+        else {
+            return Err(refuse());
+        };
+        if *prepared != terms.prepare_grant(&grant).map_err(WebToolError::Payer)? {
+            return Err(refuse());
+        }
+        Ok(grant)
+    }
+
+    /// The tool's consumer boundary for a host-produced exact payment call.
+    pub fn validate_exact_call(
+        terms: &ExactTerms,
+        prepared: &PrecompileCall,
+    ) -> Result<(), WebToolError> {
+        if *prepared != terms.prepare_pay_exact() {
+            return Err(WebToolError::PaymentArtifact("pay_exact_call"));
+        }
+        Ok(())
+    }
 }
 
 fn address_word(address: [u8; 20]) -> [u8; 32] {
@@ -581,6 +618,40 @@ impl ExactTerms {
 }
 
 impl GrantTerms {
+    /// Canonical unsigned grant used by the host before its external signing step.
+    #[must_use]
+    pub fn unsigned_grant(&self, public_key: [u8; 32]) -> Grant {
+        Grant {
+            id: [0; 32],
+            from: self.payer_account,
+            recipient: self.recipient,
+            asset: self.asset,
+            per_draw_maximum: self.amount,
+            allowance: self.amount,
+            recurring: false,
+            window_length: 0,
+            expiration: self.expires_at_ms,
+            purpose_hash: self.purpose_hash,
+            has_reference: true,
+            reference_hash: self.idempotency_key,
+            revocation_sequence: 0,
+            public_key,
+            signature: [0; 64],
+        }
+    }
+
+    /// Decodes the ledger view before either payer prepares a draw.
+    pub fn draw_from_sequence_result(
+        &self,
+        grant_id: [u8; 32],
+        result: &[u8],
+    ) -> Result<PrecompileCall, WebPayerError> {
+        if grant_id == [0; 32] || self.purpose_hash == [0; 32] {
+            return Err(WebPayerError::Refused);
+        }
+        Ok(self.prepare_draw(grant_id, sequence_result(result)?))
+    }
+
     pub fn prepare_grant(&self, grant: &Grant) -> Result<PrecompileCall, WebPayerError> {
         if grant.from != self.payer_account
             || grant.recipient != self.recipient
@@ -1244,11 +1315,23 @@ impl WebPlane<'_, '_> {
                     .as_ref()
                     .and_then(|extra| extra.pointer("/layerx/grantId"));
                 let grant_id = if let Some(existing) = existing {
-                    existing
+                    let id = existing
                         .as_str()
                         .and_then(unhex32)
                         .filter(|id| *id != [0; 32])
-                        .ok_or(WebToolError::OfferMismatch("grant_id"))?
+                        .ok_or(WebToolError::OfferMismatch("grant_id"))?;
+                    let grant = getPayerGrant(self.payer, id).map_err(WebToolError::Payer)?;
+                    if grant.id != id
+                        || !facts.payer_accounts.contains(&grant.from)
+                        || grant.recipient != facts.pay_to
+                        || grant.asset != facts.asset
+                        || grant.purpose_hash != terms.purpose_hash
+                        || grant.per_draw_maximum < facts.amount
+                        || grant.allowance < facts.amount
+                    {
+                        return Err(WebToolError::PaymentArtifact("offered_grant"));
+                    }
+                    id
                 } else if let Some(id) = self
                     .payer
                     .standing_grant(&terms)
@@ -1268,39 +1351,11 @@ impl WebPlane<'_, '_> {
                     return Ok(json!({ "grantId": hex(&id), "idempotencyKey": hex(&key) }));
                 } else {
                     let prepared = self.payer.grant(&terms).map_err(WebToolError::Payer)?;
-                    let [AbiArgument::Bytes(payload)] = prepared.arguments.as_slice() else {
-                        return Err(WebToolError::PaymentArtifact("grant_call"));
-                    };
-                    let Payment::IssueGrant(grant) = Payment::decode(
-                        ModuleId::Asset,
-                        GRANT_OPERATION,
-                        payload,
-                        terms.payer_did.as_bytes(),
-                    )
-                    .map_err(|_| WebToolError::PaymentArtifact("grant_call"))?
-                    else {
-                        return Err(WebToolError::PaymentArtifact("grant_call"));
-                    };
-                    if prepared != terms.prepare_grant(&grant).map_err(WebToolError::Payer)? {
-                        return Err(WebToolError::PaymentArtifact("grant_call"));
-                    }
+                    let grant = <dyn WebPayer>::decode_grant_call(&terms, &prepared)?;
                     let payment = self.payer.submit(&prepared).map_err(WebToolError::Payer)?;
                     check_grant(self.config, &payment, grant.id)?;
                     grant.id
                 };
-                let prepared = self
-                    .payer
-                    .draw(&terms, grant_id)
-                    .map_err(WebToolError::Payer)?;
-                let Some(AbiArgument::Word(sequence_word)) = prepared.arguments.get(4) else {
-                    return Err(WebToolError::PaymentArtifact("draw_call"));
-                };
-                let sequence = sequence_result(sequence_word).map_err(WebToolError::Payer)?;
-                if prepared != terms.prepare_draw(grant_id, sequence) {
-                    return Err(WebToolError::PaymentArtifact("draw_call"));
-                }
-                let payment = self.payer.submit(&prepared).map_err(WebToolError::Payer)?;
-                check_receipt(self.config, &payment, &facts, Some((grant_id, key)), key)?;
                 Ok(json!({ "grantId": hex(&grant_id), "idempotencyKey": hex(&key) }))
             }
             Scheme::Exact => {
@@ -1308,9 +1363,7 @@ impl WebPlane<'_, '_> {
                     self.call
                         .exact_terms_for_disclosure(self.config, offer, disclosure, &facts)?;
                 let prepared = self.payer.pay(&terms).map_err(WebToolError::Payer)?;
-                if prepared != terms.prepare_pay_exact() {
-                    return Err(WebToolError::PaymentArtifact("pay_exact_call"));
-                }
+                <dyn WebPayer>::validate_exact_call(&terms, &prepared)?;
                 let payment = self.payer.submit(&prepared).map_err(WebToolError::Payer)?;
                 let digest = check_receipt(self.config, &payment, &facts, None, key)?;
                 Ok(json!({
@@ -2266,6 +2319,7 @@ mod tests {
     struct IssuingPayer {
         terms: Option<GrantTerms>,
         submissions: Vec<PrecompileCall>,
+        settle_issue: bool,
     }
 
     impl WebPayer for IssuingPayer {
@@ -2296,7 +2350,318 @@ mod tests {
 
         fn submit(&mut self, call: &PrecompileCall) -> Result<ExactPayment, WebPayerError> {
             self.submissions.push(call.clone());
+            if self.settle_issue {
+                let terms = self.terms.clone().unwrap_or_else(|| panic!("issue terms"));
+                let grant = self.sign_grant(&terms)?;
+                assert_eq!(*call, terms.prepare_grant(&grant)?);
+                let event: [u8; 32] = Keccak256::digest(b"PayerGrantIssued(bytes32)").into();
+                let log =
+                    SequencerLog::new(call.target.address(), vec![event, grant.id], Vec::new(), 0);
+                let tx_hash = [3; 32];
+                let unsigned = encoded_grant_receipt(tx_hash, &log, None);
+                let digest = Sha256::new()
+                    .chain_update(b"LXP/v1/receipt\0")
+                    .chain_update(&unsigned)
+                    .finalize();
+                let signature = SigningKey::from_bytes(&[8; 32]).sign(&digest).to_bytes();
+                return Ok(ExactPayment {
+                    tx_hash,
+                    receipt: encoded_grant_receipt(tx_hash, &log, Some(signature)),
+                    logs: vec![log],
+                });
+            }
             Err(WebPayerError::Unavailable)
+        }
+    }
+
+    const METERED_SEQUENCER_ID: [u8; 32] = [1; 32];
+
+    fn encoded_grant_receipt(
+        tx_hash: [u8; 32],
+        log: &SequencerLog,
+        signature: Option<[u8; 64]>,
+    ) -> Vec<u8> {
+        fn field(bytes: &[u8]) -> Vec<u8> {
+            let length = u32::try_from(bytes.len())
+                .unwrap_or_else(|error| panic!("receipt field length: {error}"));
+            [length.to_be_bytes().as_slice(), bytes].concat()
+        }
+
+        let previous = [4; 32];
+        let sequence = [
+            b"PAXEER/v1/sequence\0".as_slice(),
+            &previous,
+            &7_u64.to_be_bytes(),
+            &tx_hash,
+        ]
+        .concat();
+        let mut height = [0; 32];
+        height[24..].copy_from_slice(&9_u64.to_be_bytes());
+        let summary = [
+            21_000_u64.to_be_bytes().as_slice(),
+            &21_000_u64.to_be_bytes(),
+            &1_u64.to_be_bytes(),
+            &0_u32.to_be_bytes(),
+            &[0; 20],
+            &[0; 20],
+            Sha256::digest(b"").as_slice(),
+            &0_u32.to_be_bytes(),
+            &1_u32.to_be_bytes(),
+            &[4],
+            b"upax",
+        ]
+        .concat();
+        let mut log_body = log.address().to_vec();
+        log_body.push(2);
+        for topic in log.topics() {
+            log_body.extend_from_slice(topic);
+        }
+        log_body.extend_from_slice(&Sha256::digest(log.data()));
+        let mut receipt = [
+            2_u16.to_be_bytes().as_slice(),
+            &0x5201_u16.to_be_bytes(),
+            &2_u16.to_be_bytes(),
+            &field(&tx_hash),
+            &7_u64.to_be_bytes(),
+            &field(&previous),
+            &field(&Sha256::digest(&sequence)),
+            &field(&Sha256::digest(b"")),
+            &0_i32.to_be_bytes(),
+            &2_u32.to_be_bytes(),
+        ]
+        .concat();
+        for (ordinal, kind, body) in [(0_u16, 1, summary), (1, 3, log_body)] {
+            receipt.extend_from_slice(&12_u16.to_be_bytes());
+            receipt.extend_from_slice(&ordinal.to_be_bytes());
+            receipt.extend_from_slice(&0_u16.to_be_bytes());
+            receipt.extend_from_slice(&[kind, 0]);
+            receipt.extend_from_slice(&field(&[0; 32]));
+            receipt.extend_from_slice(&field(&body));
+        }
+        receipt.extend_from_slice(
+            &[
+                21_000_u128.to_be_bytes().as_slice(),
+                &field(&height),
+                &12_u16.to_be_bytes(),
+                &1_u32.to_be_bytes(),
+                &0_u32.to_be_bytes(),
+                &[2],
+                &field(&Sha256::digest(b"upax")),
+                &0_u128.to_be_bytes(),
+                &field(&[0; 32]),
+                &21_000_u128.to_be_bytes(),
+                &0_u128.to_be_bytes(),
+                &41_u64.to_be_bytes(),
+                &field(&[0; 32]),
+                &0_u128.to_be_bytes(),
+                &0_u128.to_be_bytes(),
+                &field(&[0; 32]),
+                &field(&[0; 32]),
+                &field(&METERED_SEQUENCER_ID),
+                &1_000_u64.to_be_bytes(),
+                &[u8::from(signature.is_some())],
+            ]
+            .concat(),
+        );
+        if let Some(signature) = signature {
+            receipt.extend_from_slice(&field(&signature));
+        }
+        receipt
+    }
+
+    fn authorise_metered_offer(
+        offer: &PaymentRequirements,
+        payer: &mut dyn WebPayer,
+    ) -> Result<Value, WebToolError> {
+        let buyer = fixture("gateway/buyer.json");
+        let exchange = fixture("client-exchange.json");
+        let key = word(
+            &exchange["exchange"][1]["request"]["headers"][PAYMENT_SIGNATURE]["payload"]
+                ["idempotencyKey"],
+        );
+        let call = WebCall {
+            operation: WebOperation::Search(WebSearch {
+                query: "paxeer".to_owned(),
+            }),
+            currency: Currency::Sid,
+            scheme: Scheme::Metered,
+            idempotency_key: key,
+        };
+        let registry = ApprovalRegistry::default();
+        let approval = WebApproval {
+            registry: &registry,
+            policy: ApprovalPolicy {
+                amount_threshold: u128::MAX,
+            },
+            context: ApprovalContext {
+                tenant: TenantId::new("metered-offer-test")
+                    .unwrap_or_else(|error| panic!("tenant: {error}")),
+                agent: Did::new(text(&buyer["payerDid"]).as_bytes())
+                    .unwrap_or_else(|error| panic!("payer DID: {error:?}")),
+                session: SessionId([7; 32]),
+                capability: CapabilityId([9; 32]),
+                policy_version: "policy-v1".to_owned(),
+                request_id: key,
+            },
+            current_sequence: 10,
+        };
+        let (endpoint, replay) = replay_search(1);
+        let config = WebConfig::new(
+            &endpoint,
+            text(&buyer["payerDid"]),
+            text(&exchange["exchange"][0]["request"]["headers"][PAYER_ADDRESS]),
+            unhex20(text(
+                &fixture("gateway/metered.json")["ledger"]["receiverAddress"],
+            ))
+            .unwrap_or_else(|| panic!("receiver address")),
+            "eip155:125",
+            SigningKey::from_bytes(&[8; 32]).verifying_key().to_bytes(),
+            METERED_SEQUENCER_ID,
+            buyer["firstBatchNumber"]
+                .as_u64()
+                .unwrap_or_else(|| panic!("first batch")),
+            buyer["lastBatchNumber"]
+                .as_u64()
+                .unwrap_or_else(|| panic!("last batch")),
+            Duration::from_secs(5),
+            1,
+        )
+        .unwrap_or_else(|error| panic!("web config: {error:?}"));
+        let result = WebPlane {
+            config: &config,
+            call: &call,
+            approval: &approval,
+            payer,
+            target: "/search?q=paxeer",
+        }
+        .authorise(offer, key);
+        replay
+            .join()
+            .unwrap_or_else(|error| panic!("replay: {error:?}"));
+        result
+    }
+
+    #[test]
+    fn metered_offer_returns_the_grant_without_a_payer_draw() {
+        let exchange = fixture("client-exchange.json");
+        let signature = &exchange["exchange"][1]["request"]["headers"][PAYMENT_SIGNATURE];
+        let offer: PaymentRequirements = serde_json::from_value(signature["accepted"].clone())
+            .unwrap_or_else(|error| panic!("metered offer: {error}"));
+        let mut payer = IssuingPayer {
+            settle_issue: true,
+            ..IssuingPayer::default()
+        };
+        let artifact = authorise_metered_offer(&offer, &mut payer)
+            .unwrap_or_else(|error| panic!("issue authorisation: {error:?}"));
+        let terms = payer
+            .terms
+            .as_ref()
+            .unwrap_or_else(|| panic!("issue terms"));
+        assert_ne!(terms.payer_account, terms.recipient);
+        assert_eq!(payer.submissions.len(), 1);
+        let submitted = &payer.submissions[0];
+        let [AbiArgument::Bytes(payload)] = submitted.arguments.as_slice() else {
+            panic!("issue payload")
+        };
+        let Payment::IssueGrant(grant) = Payment::decode(
+            ModuleId::Asset,
+            GRANT_OPERATION,
+            payload,
+            terms.payer_did.as_bytes(),
+        )
+        .unwrap_or_else(|error| panic!("issue grant: {error:?}")) else {
+            panic!("issue grant")
+        };
+        assert_eq!(
+            *submitted,
+            terms
+                .prepare_grant(&grant)
+                .unwrap_or_else(|error| panic!("issue call: {error:?}"))
+        );
+        assert_eq!(
+            artifact,
+            json!({
+                "grantId": hex(&grant.id),
+                "idempotencyKey": hex(&terms.idempotency_key),
+            })
+        );
+    }
+
+    #[test]
+    fn metered_offer_with_a_foreign_grant_is_refused() {
+        let exchange = fixture("client-exchange.json");
+        let signature = &exchange["exchange"][1]["request"]["headers"][PAYMENT_SIGNATURE];
+        let mut offer: PaymentRequirements = serde_json::from_value(signature["accepted"].clone())
+            .unwrap_or_else(|error| panic!("metered offer: {error}"));
+        let mut payer = StandingPayer::recorded("SID");
+        let id = payer.id;
+        let valid = getPayerGrant(&mut payer, id)
+            .unwrap_or_else(|error| panic!("recorded grant: {error:?}"));
+        assert_ne!(valid.from, valid.recipient);
+        offer
+            .extra
+            .as_mut()
+            .unwrap_or_else(|| panic!("offer extra"))["layerx"]["grantId"] = json!(hex(&payer.id));
+        payer.views = 0;
+        let artifact = authorise_metered_offer(&offer, &mut payer)
+            .unwrap_or_else(|error| panic!("offered grant: {error:?}"));
+        assert_eq!(artifact, signature["payload"]);
+        assert_eq!(
+            (payer.views, payer.issues, payer.draws, payer.submissions),
+            (1, 0, 0, 0)
+        );
+
+        for field in [
+            "recipient",
+            "asset",
+            "purpose",
+            "per_draw_maximum",
+            "allowance",
+            "from",
+            "id",
+        ] {
+            let mut payer = StandingPayer::recorded("SID");
+            let mut grant = valid.clone();
+            match field {
+                "recipient" => grant.recipient = [0x11; 32],
+                "asset" => grant.asset = [0x22; 32],
+                "purpose" => grant.purpose_hash = [0x33; 32],
+                "per_draw_maximum" => grant.per_draw_maximum = 3113,
+                "allowance" => grant.allowance = 3113,
+                "from" => grant.from = [0x44; 32],
+                "id" => (),
+                _ => unreachable!(),
+            }
+            let signer = SigningKey::from_bytes(&[31; 32]);
+            grant.public_key = signer.verifying_key().to_bytes();
+            grant.id = grant
+                .signing_digest()
+                .unwrap_or_else(|error| panic!("grant digest: {error:?}"));
+            grant.signature = signer.sign(&grant.id).to_bytes();
+            if field != "id" {
+                payer.id = grant.id;
+            }
+            let payload = Payment::IssueGrant(grant)
+                .encode(b"")
+                .unwrap_or_else(|error| panic!("grant encoding: {error:?}"));
+            payer.record[256..256 + payload.len()].copy_from_slice(&payload);
+            offer
+                .extra
+                .as_mut()
+                .unwrap_or_else(|| panic!("offer extra"))["layerx"]["grantId"] =
+                json!(hex(&payer.id));
+            assert!(
+                matches!(
+                    authorise_metered_offer(&offer, &mut payer),
+                    Err(WebToolError::PaymentArtifact("offered_grant"))
+                ),
+                "{field}"
+            );
+            assert_eq!(
+                (payer.views, payer.issues, payer.draws, payer.submissions),
+                (1, 0, 0, 0),
+                "{field}"
+            );
         }
     }
 

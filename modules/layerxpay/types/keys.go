@@ -3,18 +3,19 @@ package types
 import "encoding/binary"
 
 const (
-	ModuleName                 = "layerxpay"
-	StoreKey                   = ModuleName
-	RouterKey                  = ModuleName
-	QuerierRoute               = ModuleName
-	EscrowModuleID      uint16 = 2
-	BudgetModuleID      uint16 = 3
-	StreamModuleID      uint16 = 4
-	ServiceModuleID     uint16 = 5
-	GovernanceModuleID  uint16 = 7
-	MaxKernelRecords           = 512
-	MaxKernelKeyBytes          = 128
-	MaxKernelValueBytes        = 1024
+	ModuleName                       = "layerxpay"
+	StoreKey                         = ModuleName
+	RouterKey                        = ModuleName
+	QuerierRoute                     = ModuleName
+	EscrowModuleID            uint16 = 2
+	BudgetModuleID            uint16 = 3
+	StreamModuleID            uint16 = 4
+	ServiceModuleID           uint16 = 5
+	GovernanceModuleID        uint16 = 7
+	MaxKernelRecords                 = 512
+	MaxKernelKeyBytes                = 128
+	MaxKernelValueBytes              = 1024
+	AgentStreamMetadataPrefix        = "layerxpay/agent-stream/v1/"
 )
 
 var (

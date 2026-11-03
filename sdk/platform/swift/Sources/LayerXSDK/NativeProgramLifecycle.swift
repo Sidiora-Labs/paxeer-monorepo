@@ -203,6 +203,8 @@ public struct NativeProgramLifecycleRequest: Sendable {
   public let ordinal: UInt16
   public let payload: Data
   public let signedActivity: Data
+  /// The LXP/v1/activity-id digest of signedActivity, not an EVM transaction identity.
+  /// Use the Keccak hash of the signed EVM transaction to resolve a lifecycle receipt.
   public let activityID: Data
   public let idempotencyKey: Data
   public init(operation: any NativeProgramLifecycle, signedActivity: Data) throws {

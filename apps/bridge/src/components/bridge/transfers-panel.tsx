@@ -1,6 +1,6 @@
 'use client';
 
-import { useQueries, useQuery } from '@tanstack/react-query';
+import { queryOptions, useQueries, useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAccount, useChainId, useSwitchChain, useWriteContract } from 'wagmi';
 import { getTransactionReceipt } from 'wagmi/actions';
@@ -12,6 +12,8 @@ import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { toast } from '@/components/ui/sonner';
 import { formatAmount } from '@/lib/bridge/amount';
+import { attestationPollInterval, fetchDepositAttestation, fetchReleaseAttestation } from '@/lib/bridge/attestation-api';
+import { bridgeConfig } from '@/lib/bridge/config';
 import { bridgeChainByKey, finalityEstimate, paxeer } from '@/lib/bridge/chains';
 import { enrichRecord } from '@/lib/bridge/enrich';
 import { describeWriteError } from '@/lib/bridge/errors';
@@ -25,15 +27,14 @@ import {
 } from '@/lib/bridge/transfers';
 import {
   attestationApiConfigured,
-  useDepositAttestation,
   useDepositNullified,
-  useReleaseAttestation,
 } from '@/lib/bridge/use-bridge-state';
 import { wagmiConfig } from '@/lib/bridge/wagmi';
 import { ImportTransfer } from './import-transfer';
 import {
   buildVerifiedClaim,
   buildVerifiedRelease,
+  decodeTransferLive,
   readTransferLive,
 } from './transfer-actions';
 
@@ -76,6 +77,72 @@ async function enrichTransfers(list: BridgeTransfer[]): Promise<BridgeTransfer[]
   return changed ? next : list;
 }
 
+/** The page and its consumers use the same storage/enrichment crossing. */
+export function transferListOptions(address: BridgeTransfer['account'] | undefined, refreshKey: number, version: number) {
+  return queryOptions({
+    queryKey: [ 'bridge-transfers', address, refreshKey, version ],
+    queryFn: async() => enrichTransfers(listTransfers(address)),
+  });
+}
+
+export function transferLiveOptions(transfer: BridgeTransfer) {
+  const settledLocally =
+    (transfer.direction === 'in' && (transfer.claimTxHash !== undefined || transfer.claimedAt !== undefined)) ||
+    (transfer.direction === 'out' && transfer.releaseTxHash !== undefined);
+  return queryOptions({
+    queryKey: [ 'transfer-live', transfer.id, settledLocally ],
+    queryFn: () => readTransferLive(transfer),
+    select: decodeTransferLive,
+  });
+}
+
+/** Shared with the settlement rows so each observation uses the real HTTP decoder. */
+export function depositAttestationOptions(transfer: BridgeTransfer, settled: boolean, base = bridgeConfig.attestationApiUrl) {
+  return queryOptions({
+    queryKey: [ 'deposit-attestation', transfer.id, base ],
+    enabled: Boolean(base) && !settled && transfer.direction === 'in' && transfer.logIndex !== undefined,
+    queryFn: () => fetchDepositAttestation({
+      chainId: BigInt(transfer.foreignChainId),
+      txHash: transfer.sourceTxHash,
+      logIndex: BigInt(transfer.logIndex!),
+    }, base),
+    refetchInterval: (query) => attestationPollInterval(query.state.data, 12_000),
+  });
+}
+
+export function releaseAttestationOptions(transfer: BridgeTransfer, settled: boolean, base = bridgeConfig.attestationApiUrl) {
+  return queryOptions({
+    queryKey: [ 'release-attestation', transfer.id, base ],
+    enabled: Boolean(base) && !settled && transfer.direction === 'out' && transfer.bridgeOutNonce !== undefined,
+    queryFn: () => fetchReleaseAttestation({
+      chainId: BigInt(transfer.foreignChainId),
+      paxeerTxHash: transfer.sourceTxHash,
+      paxeerNonce: BigInt(transfer.bridgeOutNonce!),
+    }, base),
+    refetchInterval: (query) => attestationPollInterval(query.state.data, 12_000),
+  });
+}
+
+export function transferHistoryRecords(transfers: BridgeTransfer[], live: Array<Parameters<typeof phaseOf>[1]>): TransferRecord[] {
+  return transfers.map((transfer, index) => {
+    const chain = bridgeChainByKey(transfer.foreignChainKey);
+    const state = live[index];
+    const phase = phaseOf(transfer, state, state?.attestationReady === true);
+    return {
+      id: transfer.id,
+      type: transfer.direction === 'in' ? 'deposit' : 'withdraw',
+      token: transfer.symbol,
+      amount: Number(formatAmount(BigInt(transfer.amount), transfer.decimals)),
+      decimals: Math.min(transfer.decimals, 6),
+      fee: null,
+      network: chain?.label,
+      status: historyStatusOf(phase),
+      time: transfer.submittedAt,
+      txHash: transfer.sourceTxHash,
+    };
+  });
+}
+
 function TransferRow({
   transfer,
   onChanged,
@@ -94,8 +161,7 @@ function TransferRow({
     (transfer.direction === 'out' && transfer.releaseTxHash !== undefined);
 
   const liveQuery = useQuery({
-    queryKey: [ 'transfer-live', transfer.id, settledLocally ],
-    queryFn: () => readTransferLive(transfer),
+    ...transferLiveOptions(transfer),
     enabled: !settledLocally,
     refetchInterval: 15_000,
   });
@@ -103,8 +169,8 @@ function TransferRow({
   const nullified = useDepositNullified(settledLocally ? undefined : transfer);
   const credited = settledLocally || nullified.data === true || live?.credited === true;
 
-  const depositAttestation = useDepositAttestation(transfer, credited);
-  const releaseAttestation = useReleaseAttestation(transfer, settledLocally);
+  const depositAttestation = useQuery(depositAttestationOptions(transfer, credited));
+  const releaseAttestation = useQuery(releaseAttestationOptions(transfer, settledLocally));
   const attestation = transfer.direction === 'in' ? depositAttestation.data : releaseAttestation.data;
   const attestationReady = attestation?.status === 'ready' && attestation.signatures.length > 0;
 
@@ -223,42 +289,19 @@ export function TransfersPanel({ refreshKey }: { refreshKey: number }) {
   const onChanged = useCallback(() => setVersion((v) => v + 1), []);
 
   const transfersQuery = useQuery({
-    queryKey: [ 'bridge-transfers', address, refreshKey, version ],
-    queryFn: async() => enrichTransfers(listTransfers(address)),
+    ...transferListOptions(address, refreshKey, version),
     enabled: isConnected && address !== undefined,
     refetchInterval: 30_000,
   });
   const transfers = useMemo(() => transfersQuery.data ?? [], [ transfersQuery.data ]);
   const liveQueries = useQueries({
     queries: transfers.map((transfer) => ({
-      queryKey: [
-        'transfer-live',
-        transfer.id,
-        (transfer.direction === 'in' && (transfer.claimTxHash !== undefined || transfer.claimedAt !== undefined)) ||
-          (transfer.direction === 'out' && transfer.releaseTxHash !== undefined),
-      ],
-      queryFn: () => readTransferLive(transfer),
+      ...transferLiveOptions(transfer),
       enabled: false,
     })),
   });
 
-  const records: TransferRecord[] = transfers.map((t, index) => {
-    const chain = bridgeChainByKey(t.foreignChainKey);
-    const live = liveQueries[index].data;
-    const phase = phaseOf(t, live, live?.attestationReady === true);
-    return {
-      id: t.id,
-      type: t.direction === 'in' ? 'deposit' : 'withdraw',
-      token: t.symbol,
-      amount: Number(formatAmount(BigInt(t.amount), t.decimals)),
-      decimals: Math.min(t.decimals, 6),
-      fee: null,
-      network: chain?.label,
-      status: historyStatusOf(phase),
-      time: t.submittedAt,
-      txHash: t.sourceTxHash,
-    };
-  });
+  const records = transferHistoryRecords(transfers, liveQueries.map((query) => query.data));
 
   const pending = transfers.filter(
     (t) =>

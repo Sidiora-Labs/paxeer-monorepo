@@ -4,7 +4,7 @@ use std::fmt::{Display, Formatter};
 use super::gap::{attempt_backfill, BackfillReport, Gap};
 use crate::read::{Cursor, HistoryLimits};
 use layerx_client::lni::transport::FrameTransport;
-use layerx_client::read::ReadContext;
+use layerx_client::rpc::history::ReadContext;
 use layerx_client::subscription::NodeSubscription;
 use layerx_types::{rung::Rung, verify as legacy};
 use serde_json::Value;
@@ -245,6 +245,14 @@ impl EventIngestor {
     #[must_use]
     pub const fn tenant(&self) -> &TenantId {
         &self.tenant
+    }
+
+    /// Reads a retained event with its exact bytes and evidence, including after restart.
+    ///
+    /// # Errors
+    /// Returns `CorruptEvent` for an absent or inconsistent retained record.
+    pub fn retained_event(&self, sequence: u64) -> Result<CoreEvent, IngestError> {
+        durable_event(&self.store, &self.tenant, sequence)
     }
 
     /// Consumes the ingestor and returns its durable store.

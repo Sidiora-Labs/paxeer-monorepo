@@ -31,7 +31,7 @@ type AgentStream struct {
 	Active        bool
 }
 
-const agentStreamMetadataPrefix = "layerxpay/agent-stream/v1/"
+const agentStreamMetadataPrefix = types.AgentStreamMetadataPrefix
 
 func agentStreamMetadataKey(id [32]byte) []byte {
 	return append([]byte(agentStreamMetadataPrefix), id[:]...)

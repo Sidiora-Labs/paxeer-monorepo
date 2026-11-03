@@ -40,7 +40,7 @@ function sdkError(code: PlatformSdkError["code"]): (error: unknown) => boolean {
 
 async function agent_envelope_requests_carry_contract_major_2(): Promise<void> {
   const received: Record<string, unknown>[] = [];
-  let major: unknown = 2;
+  let major: unknown = undefined;
   let refusal = false;
   const credential = session();
   const key = idempotencyKey("33".repeat(32));
@@ -53,14 +53,14 @@ async function agent_envelope_requests_carry_contract_major_2(): Promise<void> {
     assert.equal(request.url, AGENT_ENVELOPE_PATH);
     assert.equal(request.headers["content-type"], "application/json");
     assert.equal(body.version, 1);
-    assert.equal(body.contract_major, 2);
+    assert.equal(Object.hasOwn(body, "contract_major"), false);
     assert.deepEqual(body.credential, credential.encode());
     response.writeHead(refusal ? 403 : 200, { "Content-Type": "application/json" });
     response.end(JSON.stringify(refusal ? {
-      contract_major: major, request_id: body.request_id,
+      ...(major === undefined ? {} : { contract_major: major }), request_id: body.request_id,
       class: "PolicyRefusal", protocol_result_code: null, retriability: "Terminal", reason: "policy.denied",
     } : {
-      contract_major: major, request_id: body.request_id,
+      ...(major === undefined ? {} : { contract_major: major }), request_id: body.request_id,
       value: { operation: body.operation }, verification_status: { state: "achieved", rung: "submitted" },
     }));
   });
@@ -77,21 +77,21 @@ async function agent_envelope_requests_carry_contract_major_2(): Promise<void> {
       assert.equal(received.at(-1)?.idempotency_key, operation === "session.list" ? null : key);
     }
     for (refusal of [false, true]) {
-      for (major of [1, 3, "2", null, undefined]) {
+      for (major of [1, 2, 3, "2", null]) {
         for (const mutation of [false, true]) {
           await assert.rejects(transport.call({
             plane: "agent", operation: mutation ? "session.close" : "session.list", request: {},
             ...(mutation ? { idempotencyKey: key } : {}),
           }), (error: unknown) => {
             assert(error instanceof PlatformSdkError);
-            assert.equal(error.code, "protocol-incompatibility");
+            assert.equal(error.code, mutation ? "unknown-outcome" : "decode-failure");
             assert.equal(error.retry, mutation ? "unknown-outcome" : "never");
             return true;
           });
         }
       }
     }
-    major = 2;
+    major = undefined;
     await assert.rejects(transport.call({ plane: "agent", operation: "session.list", request: {} }), sdkError("policy-refusal"));
     assert.equal(received.length, 25);
   } finally {
@@ -116,13 +116,13 @@ async function proof_bundle_levels_are_rungs(): Promise<void> {
     const body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
     requests += 1;
     assert.equal(request.url, AGENT_ENVELOPE_PATH);
-    assert.equal(body.contract_major, 2);
+    assert.equal(Object.hasOwn(body, "contract_major"), false);
     assert.equal(body.operation, "read.proof_bundle");
     assert.equal(body.request.target, target);
     assert(["submitted", "receipted", "committed"].includes(body.request.requested_verification_level));
     response.writeHead(200, { "Content-Type": "application/json" });
     response.end(JSON.stringify({
-      contract_major: 2, request_id: body.request_id,
+      request_id: body.request_id,
       value: {
         value: { target: replyTarget, proofs: [proof] }, achieved_verification_level: achieved,
         freshness: {

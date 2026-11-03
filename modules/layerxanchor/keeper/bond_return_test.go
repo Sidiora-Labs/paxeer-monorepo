@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxanchor/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxanchor/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
@@ -42,6 +43,25 @@ func openBondReturnChallenge(t *testing.T, s *suite, amount int64, kind uint8, e
 	return challenge
 }
 
+func importBondReturnCheckpoint(t *testing.T, s *suite) {
+	t.Helper()
+	checkpoint := types.Checkpoint{
+		BatchNumber: 1, CheckpointID: types.Hash32{0x11}, StateRoot: types.Hash32{0x12}, ReceiptRoot: types.Hash32{0x13},
+		Status: types.CheckpointSubmitted, Guarantors: []types.Hash32{s.ids[0], s.ids[1], s.ids[2]}, DeclaredThreshold: 2,
+		Submitter: s.reporter.String(), SubmittedHeight: s.ctx.BlockHeight(), SubmittedTime: s.ctx.BlockTime().Unix(),
+	}
+	genesis := s.k.ExportGenesis(s.ctx)
+	require.Empty(t, genesis.Checkpoints)
+	genesis.Checkpoints = []types.Checkpoint{checkpoint}
+	require.NoError(t, genesis.Validate())
+	s.k.InitGenesis(s.ctx, *genesis)
+	finalized, err := s.k.Finalize(s.ctx, checkpoint.BatchNumber)
+	require.NoError(t, err)
+	require.Equal(t, types.CheckpointFinal, finalized.Status)
+	require.Equal(t, checkpoint.Guarantors, finalized.Guarantors)
+	s.invariant()
+}
+
 func TestBondReturn(t *testing.T) {
 	cases := []struct {
 		name               string
@@ -62,11 +82,12 @@ func TestBondReturn(t *testing.T) {
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
 			s := newSuite(t, nil)
+			s.app.UpgradeKeeper.SetDone(s.ctx.WithBlockHeight(1001), types.MergeUpgrade)
+			require.False(t, keeper.MergeRetired(s.ctx, &s.app.UpgradeKeeper))
 			t.Cleanup(func() { require.NoError(t, s.app.Close()) })
 			registerBondReturnGuarantors(t, s, test.bonds)
 			if test.challenge {
-				_, err := s.submit("batch_1_quorum")
-				require.NoError(t, err)
+				importBondReturnCheckpoint(t, s)
 			}
 			for i, amount := range test.unbondings {
 				if amount == 0 {
@@ -91,6 +112,7 @@ func TestBondReturn(t *testing.T) {
 				challenge = openBondReturnChallenge(t, s, test.challengeAmount, types.ChallengeFraud, 1)
 			}
 			s.ctx = s.ctx.WithBlockHeight(1000)
+			require.False(t, keeper.MergeRetired(s.ctx, &s.app.UpgradeKeeper))
 			s.invariant()
 			before := s.k.ModuleBalance(s.ctx)
 			require.Equal(t, sdk.NewInt(test.total*bondReturnUnit), before)
@@ -150,12 +172,13 @@ func TestBondReturn(t *testing.T) {
 
 func TestBondReturnClosedChallenges(t *testing.T) {
 	s := newSuite(t, nil)
+	s.app.UpgradeKeeper.SetDone(s.ctx.WithBlockHeight(1001), types.MergeUpgrade)
+	require.False(t, keeper.MergeRetired(s.ctx, &s.app.UpgradeKeeper))
 	t.Cleanup(func() { require.NoError(t, s.app.Close()) })
 	s.bondAll()
-	_, err := s.submit("batch_1_quorum")
-	require.NoError(t, err)
+	importBondReturnCheckpoint(t, s)
 	closed := openBondReturnChallenge(t, s, 10, types.ChallengeFraud, 1)
-	closed, _, err = s.k.ResolveChallenge(s.ctx, s.authority, closed.ID, false)
+	closed, _, err := s.k.ResolveChallenge(s.ctx, s.authority, closed.ID, false)
 	require.NoError(t, err)
 	require.Equal(t, types.ChallengeRejected, closed.Status)
 	first := openBondReturnChallenge(t, s, 10, types.ChallengeFraud, 2)
@@ -246,17 +269,24 @@ func TestBondReturnRollback(t *testing.T) {
 				}
 				encoded, err := json.Marshal(value)
 				require.NoError(t, err)
-				s.ctx.KVStore(s.app.GetKey(types.StoreKey)).Set(key, encoded)
+				for _, storeKey := range s.ctx.MultiStore().StoreKeys() {
+					if storeKey.Name() == types.StoreKey {
+						s.ctx.KVStore(storeKey).Set(key, encoded)
+						return
+					}
+				}
+				t.Fatal("anchor store is not mounted")
 			}})
 		}
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
 			s := newSuite(t, nil)
+			s.app.UpgradeKeeper.SetDone(s.ctx.WithBlockHeight(1001), types.MergeUpgrade)
+			require.False(t, keeper.MergeRetired(s.ctx, &s.app.UpgradeKeeper))
 			t.Cleanup(func() { require.NoError(t, s.app.Close()) })
 			s.bondAll()
-			_, err := s.submit("batch_1_quorum")
-			require.NoError(t, err)
+			importBondReturnCheckpoint(t, s)
 			entry, err := s.k.BeginUnbond(s.ctx, s.operators[0], s.ids[0], sdk.NewInt(1_000_000))
 			require.NoError(t, err)
 			challenge := openBondReturnChallenge(t, s, 10, types.ChallengeFraud, 1)

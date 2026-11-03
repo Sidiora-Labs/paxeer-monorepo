@@ -11,6 +11,7 @@ import (
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/tests/occ/utils"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )
 
@@ -44,6 +45,28 @@ func microbatchOptions(h *harness) sequencer.Options {
 		LastSeq:         startSeq,
 		LastSeqHash:     startSeqHash,
 	}
+}
+
+func TestMicroBatchAcceptedCarriesReceiptContext(t *testing.T) {
+	sender := utils.NewSigner()
+	recipient := utils.NewSigner().EvmAddress
+	h := newHarness(t, sender)
+	mb, err := sequencer.NewMicroBatch(h.app, microbatchOptions(h), sequencer.MicroBatchOptions{
+		Window: microbatchWindow, MaxCount: microbatchMaxCount,
+	})
+	require.NoError(t, err)
+	require.NoError(t, mb.Open(openHeight, h.genesis.Add(time.Second).UnixMilli()))
+
+	_, bz := transfer(t, sender, 0, recipient, big.NewInt(onePaxInWei))
+	acc, err := mb.Accept(bz)
+	require.NoError(t, err)
+	require.NotNil(t, acc)
+	require.Zero(t, acc.Result.Code, acc.Result.Log)
+	require.NotNil(t, acc.ReceiptContext.MultiStore())
+
+	receipt, err := h.app.EvmKeeper.GetTransientReceipt(acc.ReceiptContext, common.Hash(acc.ActivityID), uint64(acc.TxIndex))
+	require.NoError(t, err)
+	require.NotNil(t, receipt)
 }
 
 func TestMicroBatchEqualsSequential(t *testing.T) {

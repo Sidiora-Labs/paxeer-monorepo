@@ -7,6 +7,112 @@ use layerx_types::payload::ModuleId;
 
 const SENDER: [u8; 20] = [0xa1; 20];
 
+#[test]
+fn program_call_round_trips_through_bind_call() -> Result<(), Box<dyn std::error::Error>> {
+    use layerx_crypto::disclosure::call::{decode_program_call, encode_program_call};
+    use layerx_crypto::disclosure::DisclosedNativeOperation;
+    use layerx_types::intent::ProgramId;
+    use layerx_types::program_call::{NativeProgramCall, Resources};
+
+    let native = NativeProgramCall {
+        program_id: ProgramId::new([0x31; 32]),
+        guest_abi: 5,
+        entrypoint: b"layerx_call",
+        calldata: &[1, 2, 3, 4],
+        capabilities: &[0, 0],
+        access_declaration: b"LayerX/programs/access-declaration/v1\0\0",
+        response_capacity: 16,
+        resources: Resources([1_000_000, 16_777_216, 1_048_576, 64, 7, 4096, u64::MAX]),
+    };
+    let fee_limit = u128::MAX;
+    let data = encode_program_call(&native, fee_limit);
+    assert_eq!(&data[..4], &[0x54, 0xbd, 0x2b, 0x48]);
+    assert_eq!(data.len(), 772);
+    for (index, offset) in [(2, 480), (3, 544), (4, 608), (5, 672)] {
+        assert_eq!(&data[4 + index * 32..4 + (index + 1) * 32], &word(offset));
+    }
+    let transaction = call(0x101d, data[..4].try_into()?, &data[4..]);
+    let (decoded, decoded_fee) = decode_program_call(&transaction.data)?;
+    assert_eq!(decoded.native(), native);
+    assert_eq!(decoded_fee, fee_limit);
+    assert_eq!(encode_program_call(&decoded.native(), decoded_fee), data);
+    let disclosure = bind_call(&transaction, SENDER)?;
+    assert_eq!(disclosure.activity_type.module(), ModuleId::Programs);
+    assert_eq!(disclosure.activity_type.ordinal(), 3);
+    assert_eq!(disclosure.actor, SENDER);
+    assert_eq!(disclosure.authority, SENDER);
+    assert_eq!(disclosure.fee_limit, 3_000_000);
+    assert_eq!(disclosure.signing_digest()?, transaction.signing_hash());
+    let Some(DisclosedNativeOperation::ProgramCall(disclosed)) = &disclosure.native_operation
+    else {
+        panic!("missing native program call");
+    };
+    assert_eq!(disclosed.program_id, native.program_id);
+    assert_eq!(disclosed.entrypoint, native.entrypoint);
+    assert_eq!(disclosed.calldata, native.calldata);
+    assert_eq!(disclosed.resources, native.resources);
+    assert_eq!(disclosed.native(), native);
+    assert_eq!(
+        disclosure.construct_method()?,
+        Some(ConstructMethod::ProgramCall {
+            call: Box::new(decoded),
+            fee_limit
+        })
+    );
+    for index in 1..15 {
+        let mut invalid = transaction.clone();
+        invalid.data[4 + index * 32] ^= 1;
+        assert_eq!(
+            bind_call(&invalid, SENDER),
+            Err(DisclosureError::MalformedPayload)
+        );
+    }
+    for length in 0..data.len() {
+        assert_eq!(
+            decode_program_call(&data[..length]),
+            Err(DisclosureError::MalformedPayload)
+        );
+    }
+    let mut invalid = transaction.clone();
+    *invalid.data.last_mut().expect("access tail padding") = 1;
+    assert_eq!(
+        bind_call(&invalid, SENDER),
+        Err(DisclosureError::MalformedPayload)
+    );
+    let mut invalid = transaction.clone();
+    invalid.data.push(0);
+    assert_eq!(
+        bind_call(&invalid, SENDER),
+        Err(DisclosureError::MalformedPayload)
+    );
+    let mut invalid = transaction.clone();
+    invalid.data[0] ^= 1;
+    assert_eq!(
+        bind_call(&invalid, SENDER),
+        Err(DisclosureError::MalformedPayload)
+    );
+    let mut invalid = transaction.clone();
+    invalid.to[18] ^= 1;
+    assert_eq!(
+        bind_call(&invalid, SENDER),
+        Err(DisclosureError::MalformedPayload)
+    );
+    let mut invalid = transaction;
+    invalid.max_fee_per_gas = u128::MAX;
+    assert_eq!(
+        bind_call(&invalid, SENDER),
+        Err(DisclosureError::MalformedPayload)
+    );
+    let mut changed = disclosure;
+    let Some(DisclosedNativeOperation::ProgramCall(disclosed)) = &mut changed.native_operation
+    else {
+        panic!("missing native program call");
+    };
+    disclosed.resources.0[0] += 1;
+    assert!(changed.signing_digest().is_err());
+    Ok(())
+}
+
 fn hex(text: &str) -> Vec<u8> {
     text.trim()
         .as_bytes()

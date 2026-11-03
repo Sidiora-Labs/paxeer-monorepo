@@ -14,11 +14,26 @@ import (
 
 type seamsSequencerSource struct {
 	activation int64
+	admitted   map[int64]tmtypes.Txs
 	sealed     map[int64]tmtypes.SealedBlock
 }
 
 func (s *seamsSequencerSource) Sequenced(height int64) bool {
 	return height >= s.activation
+}
+
+func (s *seamsSequencerSource) Admit(ctx context.Context, height int64, txs tmtypes.Txs) (int, error) {
+	if err := ctx.Err(); err != nil {
+		return 0, err
+	}
+	if !s.Sequenced(height) {
+		return 0, fmt.Errorf("height %d is not sequenced", height)
+	}
+	if s.admitted == nil {
+		s.admitted = make(map[int64]tmtypes.Txs)
+	}
+	s.admitted[height] = append(s.admitted[height], txs...)
+	return len(txs), nil
 }
 
 func (s *seamsSequencerSource) Seal(ctx context.Context, height int64) (tmtypes.SealedBlock, error) {
@@ -49,6 +64,14 @@ func TestSetSequencerSourceReturnsInstalledSource(t *testing.T) {
 	require.Same(t, source, app.SequencerSource())
 	require.False(t, app.SequencerSource().Sequenced(10))
 	require.True(t, app.SequencerSource().Sequenced(11))
+	admitted, err := app.SequencerSource().Admit(context.Background(), 10, block.Txs)
+	require.EqualError(t, err, "height 10 is not sequenced")
+	require.Zero(t, admitted)
+	require.NotContains(t, source.admitted, int64(10))
+	admitted, err = app.SequencerSource().Admit(context.Background(), 11, block.Txs)
+	require.NoError(t, err)
+	require.Equal(t, 1, admitted)
+	require.Equal(t, block.Txs, source.admitted[11])
 	sealed, err := app.SequencerSource().Seal(context.Background(), 11)
 	require.NoError(t, err)
 	require.Equal(t, block, sealed)

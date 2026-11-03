@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"crypto/sha256"
+	"fmt"
 	"os"
 	"sort"
 
@@ -27,6 +28,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/dbadapter"
 	storetypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	upgradekeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/upgrade/keeper"
 	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -72,6 +74,7 @@ type harness struct {
 	evm        *vm.EVM
 	precompile *pcommon.Precompile
 	keeper     *exchangekeeper.Keeper
+	upgrade    upgradekeeper.Keeper
 	custody    *custodykeeper.Keeper
 	exit       testvectors.Vector
 	native     [32]byte
@@ -150,11 +153,15 @@ func newHarness(t *testing.T) *harness {
 	base, _ := app.NewContext(false, tmtypes.Header{}).WithBlockHeight(11).WithBlockTime(genesisTime).CacheContext()
 	key := sdk.NewKVStoreKey(types.StoreKey)
 	ctx := withStore(base, key)
+	upgradeKey := sdk.NewKVStoreKey("layerxexchange-precompile-upgrade")
+	ctx = withStore(ctx, upgradeKey)
 	fixture, err := testvectors.Load()
 	require.NoError(t, err)
 	h := &harness{t: t, custody: app.LayerXCustodyKeeper, exit: fixture["exit"][0],
 		native: array(t, fixture["withdrawal"][0], "asset"), token: array(t, fixture["exit"][0], "asset")}
 	h.keeper = exchangekeeper.NewKeeper(app.AppCodec(), key, app.LayerXCustodyKeeper, &app.EvmKeeper)
+	h.upgrade = upgradekeeper.NewKeeper(nil, upgradeKey, app.AppCodec(), t.TempDir(), nil)
+	h.keeper.SetUpgradeKeeper(h.upgrade)
 	// Finalized roots come from custody's authority-registered checkpoints;
 	// the app wires the anchor module's reader in its place.
 	h.custody.SetAnchorReader(nil)
@@ -205,6 +212,10 @@ func (h *harness) input(name string, args ...interface{}) []byte {
 
 func (h *harness) run(name string, value *big.Int, readOnly, delegate bool, args ...interface{}) ([]interface{}, error) {
 	h.t.Helper()
+	events := h.ctx.EventManager().Events()
+	snapshot := h.stateDB.Snapshot()
+	h.ctx = h.stateDB.Ctx()
+	h.ctx.EventManager().EmitEvents(events)
 	if value != nil && value.Sign() > 0 {
 		// The interpreter moves msg.value to the callee before it runs a
 		// precompile; Run is entered after that transfer.
@@ -218,7 +229,9 @@ func (h *harness) run(name string, value *big.Int, readOnly, delegate bool, args
 		reason, unpackErr := abi.UnpackRevert(res)
 		require.NoError(h.t, unpackErr)
 		require.NotEmpty(h.t, reason)
-		return nil, err
+		h.stateDB.RevertToSnapshot(snapshot)
+		h.ctx = h.stateDB.Ctx()
+		return nil, fmt.Errorf("%s: %w", reason, err)
 	}
 	out, err := h.method(name).Outputs.Unpack(res)
 	require.NoError(h.t, err)
@@ -271,38 +284,23 @@ func (h *harness) intentID(kind types.IntentKind, nonce uint64) [32]byte {
 
 func TestDepositMarginCustodiesNativeValue(t *testing.T) {
 	h := newHarness(t)
-	custody := h.custody.ModuleAddress()
+	h.upgrade.SetDone(h.ctx, types.RetiredFromUpgrade)
 	before := h.balance(h.callerAcc, sdk.MustGetBaseDenom())
+	custodyBefore := h.balance(h.custody.ModuleAddress(), sdk.MustGetBaseDenom())
+	stateBefore := h.keeper.ExportGenesis(h.ctx)
+	custodyStateBefore := h.custody.ExportGenesis(h.ctx)
 	value := new(big.Int).Mul(big.NewInt(3_000), weiPerBase)
 	out, err := h.run(layerxexchange.DepositMarginMethod, value, false, false, account)
-	require.NoError(t, err)
-
-	intentID := h.intentID(types.IntentKind_INTENT_KIND_DEPOSIT, 1)
-	depositID := custodytypes.DepositID(testkeeper.EVMTestApp.EvmKeeper.ChainID(h.ctx), h.caller, h.native, account,
-		big.NewInt(3_000), 1)
-	require.Equal(t, intentID, out[0].([32]byte))
-	require.Equal(t, depositID, out[1].([32]byte))
-	require.Equal(t, sdk.NewInt(3_000), h.balance(custody, sdk.MustGetBaseDenom()))
-	require.Equal(t, before.SubRaw(3_000), h.balance(h.callerAcc, sdk.MustGetBaseDenom()))
-	require.True(t, h.balance(h.pax(exchange), sdk.MustGetBaseDenom()).IsZero(), "the precompile keeps nothing")
-	_, found := h.custody.GetDeposit(h.ctx, depositID)
-	require.True(t, found)
-
-	logs := h.logs("MarginDeposited(bytes32,bytes32,address,bytes32,uint256,bytes32,uint64)")
-	require.Len(t, logs, 1)
-	require.Equal(t, []common.Hash{logs[0].Topics[0], intentID, account, common.BytesToHash(h.caller.Bytes())}, logs[0].Topics)
-	require.Equal(t, 1, h.typedEvents("EventMarginDeposited"))
-
-	record := *abi.ConvertType(h.view(layerxexchange.GetIntentMethod, intentID)[0],
-		new(layerxexchange.Intent)).(*layerxexchange.Intent)
-	require.Equal(t, uint8(types.IntentKind_INTENT_KIND_DEPOSIT), record.Kind)
-	require.Equal(t, uint8(types.IntentStatus_INTENT_STATUS_PENDING), record.Status)
-	require.Equal(t, h.caller, record.Owner)
-	require.Equal(t, account, record.Account)
-	require.Equal(t, h.native, record.AssetId)
-	require.Equal(t, big.NewInt(3_000), record.Amount)
-	require.Equal(t, depositID, record.DepositId)
-	require.Equal(t, uint64(1), h.view(layerxexchange.IntentNonceMethod, h.caller)[0].(uint64))
+	require.ErrorIs(t, err, vm.ErrExecutionReverted)
+	require.EqualError(t, err, "LXP_EXCHANGE_RETIRED: v6.12.0 done at height 11: layerxexchange is retired from v6.12.0: execution reverted")
+	require.Nil(t, out)
+	require.Equal(t, before, h.balance(h.callerAcc, sdk.MustGetBaseDenom()))
+	require.Equal(t, custodyBefore, h.balance(h.custody.ModuleAddress(), sdk.MustGetBaseDenom()))
+	require.True(t, h.balance(h.pax(exchange), sdk.MustGetBaseDenom()).IsZero())
+	require.Equal(t, stateBefore, h.keeper.ExportGenesis(h.ctx))
+	require.Equal(t, custodyStateBefore, h.custody.ExportGenesis(h.ctx))
+	require.Empty(t, h.stateDB.GetAllLogs())
+	require.Empty(t, h.ctx.EventManager().Events())
 
 	_, err = h.run(layerxexchange.DepositMarginMethod, nil, false, false, account)
 	require.Error(t, err, "no value")
@@ -314,19 +312,27 @@ func TestDepositMarginCustodiesNativeValue(t *testing.T) {
 
 func TestDepositMarginTokenCustodiesTheDenom(t *testing.T) {
 	h := newHarness(t)
+	h.upgrade.SetDone(h.ctx, types.RetiredFromUpgrade)
 	before := h.balance(h.callerAcc, tokenDenom)
+	custodyBefore := h.balance(h.custody.ModuleAddress(), tokenDenom)
+	stateBefore := h.keeper.ExportGenesis(h.ctx)
+	custodyStateBefore := h.custody.ExportGenesis(h.ctx)
 	out, err := h.call(layerxexchange.DepositMarginTokenMethod, tokenPointer, big.NewInt(900), account)
-	require.NoError(t, err)
-	require.Equal(t, h.intentID(types.IntentKind_INTENT_KIND_DEPOSIT, 1), out[0].([32]byte))
-	require.Equal(t, sdk.NewInt(900), h.balance(h.custody.ModuleAddress(), tokenDenom))
-	require.Equal(t, before.SubRaw(900), h.balance(h.callerAcc, tokenDenom))
-	require.Len(t, h.logs("MarginDeposited(bytes32,bytes32,address,bytes32,uint256,bytes32,uint64)"), 1)
+	require.ErrorIs(t, err, vm.ErrExecutionReverted)
+	require.EqualError(t, err, "LXP_EXCHANGE_RETIRED: v6.12.0 done at height 11: layerxexchange is retired from v6.12.0: execution reverted")
+	require.Nil(t, out)
+	require.Equal(t, before, h.balance(h.callerAcc, tokenDenom))
+	require.Equal(t, custodyBefore, h.balance(h.custody.ModuleAddress(), tokenDenom))
+	require.Equal(t, stateBefore, h.keeper.ExportGenesis(h.ctx))
+	require.Equal(t, custodyStateBefore, h.custody.ExportGenesis(h.ctx))
+	require.Empty(t, h.stateDB.GetAllLogs())
+	require.Empty(t, h.ctx.EventManager().Events())
 
 	_, err = h.call(layerxexchange.DepositMarginTokenMethod, common.HexToAddress("0x1234"), big.NewInt(900), account)
 	require.Error(t, err, "unknown pointer")
 	_, err = h.call(layerxexchange.DepositMarginTokenMethod, tokenPointer, big.NewInt(900), [32]byte{})
 	require.Error(t, err, "zero account")
-	require.Equal(t, sdk.NewInt(900), h.balance(h.custody.ModuleAddress(), tokenDenom))
+	require.Equal(t, custodyBefore, h.balance(h.custody.ModuleAddress(), tokenDenom))
 	_, err = h.run(layerxexchange.DepositMarginTokenMethod, weiPerBase, false, false, tokenPointer, big.NewInt(1), account)
 	require.Error(t, err, "value on a non-payable method")
 }

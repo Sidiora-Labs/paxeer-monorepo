@@ -16,7 +16,6 @@ serde_json = { workspace = true, features = ["raw_value"] }
 zeroize.workspace = true
 
 [dev-dependencies]
-layerx-paxeer-client.workspace = true
 layerx-proof.workspace = true
 layerx-types.workspace = true
 

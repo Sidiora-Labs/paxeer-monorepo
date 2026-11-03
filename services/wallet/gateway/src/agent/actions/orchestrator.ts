@@ -513,15 +513,7 @@ async function broadcastLeg(
       value: BigInt(draft.value), nonce: draft.nonce, gas: BigInt(draft.gas),
       maxFeePerGas: BigInt(draft.maxFeePerGas), maxPriorityFeePerGas: BigInt(draft.maxPriorityFeePerGas),
     });
-    if(!isSerializedEip1559(raw))throw new Error('signer returned a non-EIP1559 serialized transaction');
-    const parsed = parseTransaction(raw);
-    if ((await recoverTransactionAddress({ serializedTransaction: raw })).toLowerCase() !== wallet.address.toLowerCase()
-      || parsed.nonce !== draft.nonce || parsed.chainId !== draft.chainId
-      || parsed.to?.toLowerCase() !== draft.to.toLowerCase() || (parsed.data ?? '0x') !== draft.data
-      || (parsed.value ?? 0n) !== BigInt(draft.value) || parsed.gas !== BigInt(draft.gas)
-      || parsed.maxFeePerGas !== BigInt(draft.maxFeePerGas) || parsed.maxPriorityFeePerGas !== BigInt(draft.maxPriorityFeePerGas)) {
-      throw new Error('signed transaction differs from the exact authorized draft');
-    }
+    await assertSignedActionTransaction(raw, wallet.address, draft);
     const retained = await retainActionSignedTransaction(current.id, leg, { draft, raw, hash: keccak256(raw) });
     const error = await submitRetained(current, retained, lease);
     return { hash: retained.hash, nonce: retained.draft.nonce, error };
@@ -611,4 +603,21 @@ export async function advanceById(id: string): Promise<ActionRow | null> {
 function isSerializedEip1559(value:Hex):value is `0x02${string}` {
   if(!/^0x02(?:[0-9a-fA-F]{2})+$/u.test(value))return false;
   try{return parseTransaction(value).type==='eip1559';}catch{return false;}
+}
+
+/** Verify the attestor result before retaining bytes or committing a nonce. */
+export async function assertSignedActionTransaction(
+  raw: Hex,
+  address: string,
+  draft: { nonce: number; chainId: number; to: string; data: string; value: string; gas: string; maxFeePerGas: string; maxPriorityFeePerGas: string },
+): Promise<void> {
+  if(!isSerializedEip1559(raw))throw new Error('signer returned a non-EIP1559 serialized transaction');
+  const parsed = parseTransaction(raw);
+  if ((await recoverTransactionAddress({ serializedTransaction: raw })).toLowerCase() !== address.toLowerCase()
+    || parsed.nonce !== draft.nonce || parsed.chainId !== draft.chainId
+    || parsed.to?.toLowerCase() !== draft.to.toLowerCase() || (parsed.data ?? '0x') !== draft.data
+    || (parsed.value ?? 0n) !== BigInt(draft.value) || parsed.gas !== BigInt(draft.gas)
+    || parsed.maxFeePerGas !== BigInt(draft.maxFeePerGas) || parsed.maxPriorityFeePerGas !== BigInt(draft.maxPriorityFeePerGas)) {
+    throw new Error('signed transaction differs from the exact authorized draft');
+  }
 }

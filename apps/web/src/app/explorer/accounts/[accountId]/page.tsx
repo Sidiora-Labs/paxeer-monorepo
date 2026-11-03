@@ -5,6 +5,7 @@ import { formatCopy } from "../../../../../copy/format";
 import { unifiedAccountAvailability } from "../../../../explorer/client";
 import {
   ExplorerFrame,
+  explorerReceiptPath,
   ExplorerUnavailable,
   FreshnessDisplay,
   verificationLabel,
@@ -16,6 +17,8 @@ import {
   type UnifiedAccountAvailabilityRecord,
 } from "../../../../explorer/model";
 import { ExplorerLink, ExplorerPanel, ExplorerTable, ExplorerVerificationBadge } from "../../../../kit/explorer";
+
+export const dynamic = "force-dynamic";
 
 function eventLabel(event: PaxeerActivityEvent): string {
   return copyEntry(`explorer.account.event.${event.replaceAll("-", "_")}`).message;
@@ -60,10 +63,10 @@ function IdentitiesPanel({ account }: Readonly<{ account?: UnifiedAccountAvailab
               identities?.layerxAccount === undefined
                 ? absentValue()
                 : (
-                    <ExplorerLink href={accountIdentifierPath(identities.layerxAccount)}>
-                      {identities.layerxAccount}
-                    </ExplorerLink>
-                  ),
+                  <ExplorerLink href={accountIdentifierPath(identities.layerxAccount)}>
+                    {identities.layerxAccount}
+                  </ExplorerLink>
+                ),
             ],
           },
         ]}
@@ -136,9 +139,9 @@ function SettlementPanel({ account }: Readonly<{ account?: UnifiedAccountAvailab
               settlement === undefined || settlement.finalizedBatch.state === "unavailable" || settlement.anchorStatusName.state === "unavailable"
                 ? copyEntry("explorer.verify.unavailable").message
                 : formatCopy("explorer.settlement.final.detail", {
-                    batch: settlement.finalizedBatch.value,
-                    status: settlement.anchorStatusName.value,
-                  }),
+                  batch: settlement.finalizedBatch.value,
+                  status: settlement.anchorStatusName.value,
+                }),
             ],
           },
         ]}
@@ -155,9 +158,9 @@ function PaxeerActivityPanel({ account }: Readonly<{ account?: UnifiedAccountAva
         {activity === undefined
           ? copyEntry("explorer.account.paxeer_activity.unavailable").message
           : formatCopy("explorer.account.paxeer_activity.window", {
-              fromBlock: activity.fromBlock,
-              toBlock: activity.toBlock,
-            })}
+            fromBlock: activity.fromBlock,
+            toBlock: activity.toBlock,
+          })}
       </p>
       <ExplorerTable
         caption={copyEntry("explorer.account.paxeer_activity.table").message}
@@ -240,40 +243,40 @@ export default async function AccountPage({
       <ExplorerPanel title={copyEntry("explorer.account.layerx_activity").message}>
         {activity === undefined
           ? (
-              <p className="text-sm text-foreground-secondary">
-                {copyEntry("explorer.account.layerx_activity.absent").message}
-              </p>
-            )
+            <p className="text-sm text-foreground-secondary">
+              {copyEntry("explorer.account.layerx_activity.absent").message}
+            </p>
+          )
           : (
-              <ExplorerTable
-                caption={copyEntry("explorer.account.table").message}
-                columns={[
-                  copyEntry("explorer.column.sequence").message,
-                  copyEntry("explorer.column.receipt").message,
-                  copyEntry("explorer.column.operation").message,
-                  copyEntry("explorer.column.amount").message,
-                  copyEntry("explorer.column.result").message,
-                  copyEntry("explorer.column.verification").message,
-                ]}
-                rows={activity.items.map((record) => ({
-                  id: record.receiptId,
-                  cells: [
-                    record.globalSequence,
-                    <ExplorerLink key="receipt" href={`/explorer/receipts/${record.receiptDigest}`}>
-                      {record.receiptDigest}
-                    </ExplorerLink>,
-                    record.operation,
-                    record.amount,
-                    record.resultCode,
-                    <ExplorerVerificationBadge
-                      key="verification"
-                      label={verificationLabel(record.verificationLevel)}
-                      unverified={record.verificationLevel === "unverified"}
-                    />,
-                  ],
-                }))}
-              />
-            )}
+            <ExplorerTable
+              caption={copyEntry("explorer.account.table").message}
+              columns={[
+                copyEntry("explorer.column.sequence").message,
+                copyEntry("explorer.column.receipt").message,
+                copyEntry("explorer.column.operation").message,
+                copyEntry("explorer.column.amount").message,
+                copyEntry("explorer.column.result").message,
+                copyEntry("explorer.column.verification").message,
+              ]}
+              rows={activity.items.map((record) => ({
+                id: record.receiptId,
+                cells: [
+                  record.globalSequence,
+                  <ExplorerLink key="receipt" href={explorerReceiptPath(record.receiptDigest)}>
+                    {record.receiptDigest}
+                  </ExplorerLink>,
+                  record.operation,
+                  record.amount,
+                  record.resultCode,
+                  <ExplorerVerificationBadge
+                    key="verification"
+                    label={verificationLabel(record.verificationLevel)}
+                    unverified={record.verificationLevel === "unverified"}
+                  />,
+                ],
+              }))}
+            />
+          )}
         {activity?.nextBefore === undefined ? null : (
           <ExplorerLink href={accountPagePath(identifier.canonical, activity.nextBefore, query.beforeBlock)}>
             {copyEntry("explorer.pagination.older").message}

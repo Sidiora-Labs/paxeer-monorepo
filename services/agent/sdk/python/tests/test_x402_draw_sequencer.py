@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import ast
 import sqlite3
 from dataclasses import replace
 from hashlib import sha256
+from pathlib import Path
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -14,25 +16,30 @@ from layerx_sdk.revert import RevertReasonError
 from layerx_sdk.verifier import (
     ReceiptVerificationError,
     SequencerReceiptVerificationError,
+    _decode_sequencer_receipt,
 )
-from layerx_sdk.x402 import verify_payment_receipt, verify_sequencer_receipt
+from layerx_sdk.x402 import (
+    PaymentCommitmentError,
+    payment_commitment,
+    receipt_protocol_version,
+    verify_payment_receipt,
+    verify_sequencer_receipt,
+)
 from layerx_sdk.x402_draw import PreparedGrantDraws
+from layerx_sdk.x402_grant import validate_grant_draw
 from layerx_sdk.x402_http import ConfiguredReceiptAuthority, PaymentEvidence
 from layerx_sdk.x402_receive import (
     encode_receive,
     grant_authorization_message,
     receive_authorization_message,
 )
-from test_sequencer_receipt import VECTORS, _bytes, _key
-
-
-def _payment_terms(vector: dict) -> dict[str, str]:
-    return {
-        "amount": str(10**18),
-        "asset": sha256(b"uhpx").hexdigest(),
-        "pay_to": _bytes(vector["receiptJson"]["to"]).rjust(32, b"\0").hex(),
-        "payer": _bytes(vector["receiptJson"]["from"]).rjust(32, b"\0").hex(),
-    }
+from test_sequencer_receipt import (
+    VECTORS,
+    _bytes,
+    _key,
+    _payment_terms,
+    _payment_vector,
+)
 
 
 def test_x402_draw_verifies_the_sequencer_receipt():
@@ -50,21 +57,22 @@ def test_x402_draw_verifies_the_sequencer_receipt():
         assert verified.height == int(vector["receiptJson"]["height"], 16)
         assert verified.receipt.result_code == 0
 
-    vector = VECTORS[0]
+    vector = _payment_vector()
     signed = _bytes(vector["signedReceipt"])
     raw = _bytes(vector["rawTransaction"])
     key = _key(vector)
     terms = _payment_terms(vector)
     payment = verify_payment_receipt(signed, raw, (key,), return_data=b"", **terms)
     assert payment == verify_sequencer_receipt(signed, raw, [key])
-    assert payment.receipt.amount == int(terms["amount"])
-    assert payment.receipt.asset.hex() == terms["asset"]
-    assert payment.receipt.to_account.hex() == terms["pay_to"]
+    log = vector["receiptJson"]["logs"][0]
+    assert int.from_bytes(_bytes(log["data"])[32:], "big") == int(terms["amount"])
+    assert _bytes(log["data"])[:32].hex() == terms["asset"]
+    assert _bytes(log["topics"][3]).hex() == terms["pay_to"]
     assert payment.receipt.from_account.hex() == terms["payer"]
     assert raw == _bytes(vector["rawTransaction"])
 
     for changes in (
-        {"amount": str(10**18 + 1)},
+        {"amount": str(int(terms["amount"]) + 1)},
         {"amount": "01"},
         {"asset": "2a" * 32},
         {"pay_to": "2a" * 32},
@@ -78,7 +86,12 @@ def test_x402_draw_verifies_the_sequencer_receipt():
     for canonical, transaction, keys, check in (
         (signed, raw + b"\0", [key], "hash_mismatch"),
         (signed[:-1] + bytes([signed[-1] ^ 1]), raw, [key], "bad_signature"),
-        (signed, raw, [replace(key, first_height=1001)], "key_out_of_range"),
+        (
+            signed,
+            raw,
+            [replace(key, first_height=payment.height + 1)],
+            "key_out_of_range",
+        ),
     ):
         with pytest.raises(SequencerReceiptVerificationError) as raised:
             verify_payment_receipt(canonical, transaction, keys, **terms)
@@ -89,7 +102,7 @@ def test_x402_draw_verifies_the_sequencer_receipt():
     raw = _bytes(reverted["rawTransaction"])
     with pytest.raises(ReceiptVerificationError) as raised:
         verify_sequencer_receipt(signed, raw, [_key(reverted)])
-    assert raised.value.check == ReceiptFailureCode.RESULT_CODE
+    assert raised.value.check == ReceiptFailureCode.FIELDS
     with pytest.raises(RevertReasonError) as raised:
         verify_sequencer_receipt(
             signed,
@@ -100,8 +113,52 @@ def test_x402_draw_verifies_the_sequencer_receipt():
     assert raised.value.code == "LXP_INSUFFICIENT_BALANCE"
 
 
+def test_x402_failure_paths_use_current_receipt_codes():
+    reverted = next(vector for vector in VECTORS if vector["vector"] == "V2")
+    signed = _bytes(reverted["signedReceipt"])
+    raw = _bytes(reverted["rawTransaction"])
+    key = _key(reverted)
+
+    with pytest.raises(ReceiptVerificationError) as raised:
+        verify_sequencer_receipt(signed, raw, [key])
+    assert raised.value.check == ReceiptFailureCode.FIELDS
+
+    with pytest.raises(RevertReasonError) as raised:
+        verify_sequencer_receipt(
+            signed,
+            raw,
+            [key],
+            return_data=_bytes(reverted["receiptJson"]["returnData"]),
+        )
+    assert raised.value.code == "LXP_INSUFFICIENT_BALANCE"
+
+    with pytest.raises(ReceiptVerificationError) as raised:
+        receipt_protocol_version(b"\x00\x02\x52\x01\x00\x03")
+    assert raised.value.check == ReceiptFailureCode.RECEIPT_VERSION
+
+    for malformed in (b"", signed[:4] + b"\x00\x03" + signed[6:]):
+        with pytest.raises(ReceiptVerificationError) as raised:
+            _decode_sequencer_receipt(malformed)
+        assert raised.value.check == ReceiptFailureCode.DECODE
+
+    package = Path(__file__).resolve().parents[1] / "layerx_sdk"
+    for path in sorted(package.rglob("*.py")):
+        module = ast.parse(path.read_text(), filename=str(path))
+        references = {
+            node.attr
+            for node in ast.walk(module)
+            if isinstance(node, ast.Attribute)
+            and isinstance(node.value, ast.Name)
+            and node.value.id == "ReceiptFailureCode"
+        }
+        assert references <= ReceiptFailureCode.__members__.keys(), (
+            path.relative_to(package),
+            references - ReceiptFailureCode.__members__.keys(),
+        )
+
+
 def test_x402_draw_refuses_a_receipt_under_an_unknown_key():
-    vector = VECTORS[0]
+    vector = _payment_vector()
     signed = _bytes(vector["signedReceipt"])
     raw = _bytes(vector["rawTransaction"])
     key = _key(vector)
@@ -121,12 +178,8 @@ def test_x402_draw_refuses_a_receipt_under_an_unknown_key():
 class _ReceiptRpc:
     def __init__(self, vector):
         self.result = {
-            "activity_id": _bytes(vector["receiptJson"]["txHash"]).hex(),
-            "state": "completed",
-            "commitment": "executed",
-            "receipt": _bytes(vector["signedReceipt"]).hex(),
-            "raw_transaction": _bytes(vector["rawTransaction"]).hex(),
-            "returnData": vector["receiptJson"]["returnData"],
+            **vector["receiptJson"],
+            "receipt": vector["signedReceipt"],
         }
         self.raw_transaction = _bytes(vector["rawTransaction"])
         self.submissions = []
@@ -134,12 +187,12 @@ class _ReceiptRpc:
 
     def send(self, canonical_hex, commitment):
         assert bytes.fromhex(canonical_hex) == self.raw_transaction
-        assert commitment == "executed"
+        assert commitment == "receipted"
         self.submissions.append((canonical_hex, commitment))
         return dict(self.result)
 
     def receipt(self, activity_id):
-        assert activity_id == self.result["activity_id"]
+        assert activity_id == self.result["txHash"]
         self.lookups.append(activity_id)
         return dict(self.result)
 
@@ -147,7 +200,7 @@ class _ReceiptRpc:
 def _grant_inputs(vector):
     terms = _payment_terms(vector)
     key = "11" * 32
-    purpose = sha256(b"sequencer-grant-purpose").hexdigest()
+    purpose = _bytes(vector["receiptJson"]["logs"][0]["topics"][1]).hex()
     context = sha256(b"sequencer-grant-context").hexdigest()
     grant_signer = Ed25519PrivateKey.generate()
     receiver_signer = Ed25519PrivateKey.generate()
@@ -201,7 +254,7 @@ def _grant_inputs(vector):
         "maxTimeoutSeconds": 30,
         "extra": {
             "layerx": {
-                "commitment": "executed",
+                "commitment": "receipted",
                 "payer": terms["payer"],
                 "purposeHash": purpose,
             }
@@ -212,12 +265,12 @@ def _grant_inputs(vector):
 
 
 def test_grant_draws_verify_through_receipt_keys(tmp_path):
-    vector = VECTORS[0]
+    vector = _payment_vector()
     terms = _payment_terms(vector)
     signed = _bytes(vector["signedReceipt"])
     raw = _bytes(vector["rawTransaction"])
     key = _key(vector)
-    activity = _bytes(vector["receiptJson"]["txHash"]).hex()
+    activity = vector["receiptJson"]["txHash"]
     request_digest = sha256(b"grant-draw-request").hexdigest()
     receive, body, offer = _grant_inputs(vector)
     rpc = _ReceiptRpc(vector)
@@ -236,9 +289,9 @@ def test_grant_draws_verify_through_receipt_keys(tmp_path):
         evidence.canonical_receipt, evidence.raw_transaction, [key], **terms
     )
     assert verified.level == "sequencer-signed"
-    assert verified.receipt.activity_id.hex() == activity
+    assert "0x" + verified.receipt.activity_id.hex() == activity
     assert verified.receipt_digest == _bytes(vector["receiptDigest"])
-    assert rpc.submissions == [(raw.hex(), "executed")]
+    assert rpc.submissions == [(raw.hex(), "receipted")]
     with sqlite3.connect(path) as db:
         attempted, attempted_at = db.execute(
             "SELECT attempted, attempted_at FROM grant_draws WHERE idempotency_key = ?",
@@ -261,3 +314,20 @@ def test_grant_draws_verify_through_receipt_keys(tmp_path):
         assert raised.value.check == check
         assert raised.value.code == SdkErrorCode.VERIFICATION_FAILURE
     assert len(rpc.submissions) == 1
+
+
+def test_payment_commitment_refuses_the_retired_executed_rung():
+    with pytest.raises(PaymentCommitmentError):
+        payment_commitment({"layerx": {"commitment": "executed"}})
+    receive, body, offer = _grant_inputs(_payment_vector())
+    validated = validate_grant_draw(receive, offer, body["idempotencyKey"], 125, 0)
+    assert validated["from"] == offer["extra"]["layerx"]["payer"]
+    assert validated["receiver_authorization"]["network_id"] == 125
+    retired = {
+        **offer,
+        "extra": {
+            "layerx": {**offer["extra"]["layerx"], "commitment": "executed"}
+        },
+    }
+    with pytest.raises(PaymentCommitmentError):
+        validate_grant_draw(receive, retired, body["idempotencyKey"], 125, 0)

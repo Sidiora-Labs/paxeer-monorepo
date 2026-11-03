@@ -642,7 +642,7 @@ impl Response {
             _ => "Service Unavailable",
         };
         let mut output = format!(
-            "HTTP/1.1 {} {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+            "HTTP/1.1 {} {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n",
             self.status,
             reason,
             self.body.len()
@@ -1018,15 +1018,15 @@ fn perform_work(state: &State, request: &Request) -> Result<Response, Response> 
     require_operator(state, request)?;
     let work: Work =
         serde_json::from_slice(&request.body).map_err(|_| error(400, "work_invalid"))?;
+    if work.account_sequence.is_some() && !matches!(work.action, WorkAction::SubmitLayerx) {
+        return Err(error(400, "work_invalid"));
+    }
     let mut journal = state
         .journal
         .lock()
         .map_err(|_| error(503, "journal_unavailable"))?;
     if !journal.health().ready {
         return Err(error(503, "journal_recovery_required"));
-    }
-    if work.account_sequence.is_some() && !matches!(work.action, WorkAction::SubmitLayerx) {
-        return Err(error(400, "work_invalid"));
     }
     let mut engine = engine(state, &mut journal);
     match work.action {
@@ -1079,8 +1079,7 @@ fn rebalance_presentation(
 
 fn rebalance(state: &State, request: &Request) -> Result<Response, Response> {
     require_operator(state, request)?;
-    let action: Rebalance =
-        serde_json::from_slice(&request.body).map_err(|_| error(400, "rebalance_invalid"))?;
+    let action = decode_rebalance(&request.body).map_err(|_| error(400, "rebalance_invalid"))?;
     let mut journal = state
         .journal
         .lock()
@@ -1115,7 +1114,7 @@ fn rebalance(state: &State, request: &Request) -> Result<Response, Response> {
         } => {
             rebalancer
                 .submit(asset, amount, idempotency_key, now())
-                .map_err(|error| map_error(&error))?;
+                .map_err(|error| map_rebalance_error(&error))?;
             let persisted = journal
                 .paxeer(&idempotency_key)
                 .ok_or_else(|| error(404, "rebalance_not_found"))?;
@@ -1130,7 +1129,7 @@ fn rebalance(state: &State, request: &Request) -> Result<Response, Response> {
                 .map_err(|_| error(400, "transaction_hash_invalid"))?;
             rebalancer
                 .poll(idempotency_key, &operation_id, transaction, now())
-                .map_err(|error| map_error(&error))?;
+                .map_err(|error| map_rebalance_error(&error))?;
             let persisted = journal
                 .paxeer(&idempotency_key)
                 .ok_or_else(|| error(404, "rebalance_not_found"))?;
@@ -1139,7 +1138,7 @@ fn rebalance(state: &State, request: &Request) -> Result<Response, Response> {
         Rebalance::Reconcile { idempotency_key } => {
             rebalancer
                 .reconcile(idempotency_key, now())
-                .map_err(|error| map_error(&error))?;
+                .map_err(|error| map_rebalance_error(&error))?;
             let persisted = journal
                 .paxeer(&idempotency_key)
                 .ok_or_else(|| error(404, "rebalance_not_found"))?;
@@ -1166,8 +1165,6 @@ enum WorkAction {
     ResolveLayerx,
 }
 
-#[derive(Deserialize)]
-#[serde(tag = "action", rename_all = "snake_case", deny_unknown_fields)]
 enum Rebalance {
     Submit {
         asset: [u8; 32],
@@ -1182,6 +1179,72 @@ enum Rebalance {
         operation_id: String,
         transaction_hash: String,
     },
+}
+
+fn decode_rebalance(bytes: &[u8]) -> Result<Rebalance, serde_json::Error> {
+    // Internally tagged enums buffer fields in Serde Content, which cannot
+    // deserialize u128. Decode each strict request struct from the original
+    // JSON so the full amount range and numeric validation remain intact.
+    #[derive(Deserialize)]
+    #[serde(rename_all = "snake_case")]
+    enum Action {
+        Submit,
+        Reconcile,
+        Poll,
+    }
+    #[derive(Deserialize)]
+    struct Tag {
+        action: Action,
+    }
+    match serde_json::from_slice::<Tag>(bytes)?.action {
+        Action::Submit => {
+            #[derive(Deserialize)]
+            #[serde(deny_unknown_fields)]
+            struct Submit {
+                #[serde(rename = "action")]
+                _action: Action,
+                asset: [u8; 32],
+                amount: u128,
+                idempotency_key: [u8; 32],
+            }
+            let request: Submit = serde_json::from_slice(bytes)?;
+            Ok(Rebalance::Submit {
+                asset: request.asset,
+                amount: request.amount,
+                idempotency_key: request.idempotency_key,
+            })
+        }
+        Action::Reconcile => {
+            #[derive(Deserialize)]
+            #[serde(deny_unknown_fields)]
+            struct Reconcile {
+                #[serde(rename = "action")]
+                _action: Action,
+                idempotency_key: [u8; 32],
+            }
+            let request: Reconcile = serde_json::from_slice(bytes)?;
+            Ok(Rebalance::Reconcile {
+                idempotency_key: request.idempotency_key,
+            })
+        }
+        Action::Poll => {
+            #[derive(Deserialize)]
+            #[serde(deny_unknown_fields)]
+            struct Poll {
+                #[serde(rename = "action")]
+                _action: Action,
+                idempotency_key: [u8; 32],
+                operation_id: String,
+                transaction_hash: String,
+            }
+            let request: Poll = serde_json::from_slice(bytes)?;
+            Ok(Rebalance::Poll {
+                idempotency_key: request.idempotency_key,
+                operation_id: request.operation_id,
+                transaction_hash: request.transaction_hash,
+            })
+        }
+    }
 }
 
 fn authenticate(
@@ -1219,6 +1282,12 @@ fn require_operator(state: &State, request: &Request) -> Result<(), Response> {
 
 fn verified_recovery(state: &State) -> Result<(), RampError> {
     let mut journal = state.journal.lock().map_err(|_| RampError::Journal)?;
+    // A fresh journal has no retained settlement to verify. In particular, local
+    // readiness must not depend on an unrelated RPC being reachable at first boot.
+    let health = journal.health();
+    if health.ready && health.record_count == 0 {
+        return Ok(());
+    }
     let mut pending = BTreeSet::new();
     journal.recover_verified(|projection| {
         for record in projection.source_settlements() {
@@ -1376,6 +1445,15 @@ fn json_response(status: u16, value: impl Serialize) -> Response {
             status: 503,
             body: b"{\"error\":\"encoding_failed\"}".to_vec(),
         },
+    }
+}
+
+fn map_rebalance_error(error_value: &RampError) -> Response {
+    // MutualTlsClient uses Provider for transport failures for every external
+    // service. On this route that transport belongs to Paxeer custody.
+    match error_value {
+        RampError::Provider => error(503, "paxeer_unavailable"),
+        _ => map_error(error_value),
     }
 }
 

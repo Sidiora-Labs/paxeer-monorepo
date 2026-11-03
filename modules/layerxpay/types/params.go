@@ -19,8 +19,9 @@ func (Params) Validate() error {
 }
 
 type GenesisState struct {
-	Params        Params    `json:"params"`
-	KernelRecords []kv.Pair `json:"kernel_records"`
+	Params              Params    `json:"params"`
+	KernelRecords       []kv.Pair `json:"kernel_records"`
+	AgentStreamMetadata []kv.Pair `json:"agent_stream_metadata"`
 }
 
 func DefaultGenesis() *GenesisState {
@@ -30,6 +31,26 @@ func DefaultGenesis() *GenesisState {
 func (g GenesisState) Validate() error {
 	if err := g.Params.Validate(); err != nil {
 		return err
+	}
+	if len(g.AgentStreamMetadata) > MaxKernelRecords {
+		return ErrInvalidGenesis.Wrapf("agent stream metadata count %d exceeds %d", len(g.AgentStreamMetadata), MaxKernelRecords)
+	}
+	metadataKeys := make(map[string]struct{}, len(g.AgentStreamMetadata))
+	for i, record := range g.AgentStreamMetadata {
+		if len(record.Key) != len(AgentStreamMetadataPrefix)+32 || !bytes.HasPrefix(record.Key, []byte(AgentStreamMetadataPrefix)) {
+			return ErrInvalidGenesis.Wrapf("agent stream metadata %d has an invalid key", i)
+		}
+		if bytes.Equal(record.Key[len(AgentStreamMetadataPrefix):], make([]byte, 32)) {
+			return ErrInvalidGenesis.Wrapf("agent stream metadata %d has a zero stream id", i)
+		}
+		if len(record.Value) != 60 {
+			return ErrInvalidGenesis.Wrapf("agent stream metadata %d has an invalid value length", i)
+		}
+		key := string(record.Key)
+		if _, duplicate := metadataKeys[key]; duplicate {
+			return ErrInvalidGenesis.Wrapf("duplicate agent stream metadata %d", i)
+		}
+		metadataKeys[key] = struct{}{}
 	}
 	if len(g.KernelRecords) > MaxKernelRecords {
 		return ErrInvalidGenesis.Wrapf("kernel record count %d exceeds %d", len(g.KernelRecords), MaxKernelRecords)

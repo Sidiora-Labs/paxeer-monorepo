@@ -1,6 +1,7 @@
 use layerx_agent_api::identity::{AgentDid, AuthorityRef};
 use layerx_agent_api::prepare::{IdempotencyRef, PayloadBytes, PrepareRequest, TimestampBound};
 use layerx_client::rpc::evidence::checkpoint;
+use layerx_client::runtime_clock::RuntimeClock;
 use layerx_client::sequencer::SequencerEndpoint;
 use layerx_human_service::custody::{
     CustodySigner, KeyId, Keystore, NativeConsent, NativeConsentRequest, Operation,
@@ -19,6 +20,7 @@ use layerx_human_service::trace::TraceId;
 use layerx_intents::{Intent, IntentKind, LxpSend};
 use layerx_types::account::AccountId;
 use layerx_types::amount::Amount;
+use layerx_types::clock::{Clock, Deadline};
 use layerx_types::ids::{AssetId, Did, IdempotencyKey};
 use layerx_types::intent::{
     AuthorizationSignature, ContextHash, NetworkId, ProtocolVersion, PublicKey, SendAuthorization,
@@ -93,11 +95,13 @@ fn limits() -> Limits {
 }
 
 fn clock(fixture: &Value) -> (u64, u64) {
-    let mut agent = runtime(
+    let runtime_clock = checked(RuntimeClock::from_environment());
+    let mut agent = runtime_with_clock(
         fixture,
         text(fixture, "principal"),
         text(fixture, "owner"),
         text(fixture, "account"),
+        runtime_clock.clone(),
     );
     let head = checked(agent.head());
     let listener = checked(TcpListener::bind("127.0.0.1:0"));
@@ -109,13 +113,16 @@ fn clock(fixture: &Value) -> (u64, u64) {
     let upstream = text(fixture, "rpc_url").to_owned();
     let height = head.chain_sequence;
     let server = std::thread::spawn(move || {
-        let deadline = std::time::Instant::now() + Duration::from_secs(8);
+        let mut deadline = checked(Deadline::start(
+            runtime_clock.as_ref(),
+            Duration::from_secs(8),
+        ));
         let stream = loop {
             match listener.accept() {
                 Ok((stream, _)) => break stream,
                 Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
                     assert!(
-                        std::time::Instant::now() < deadline,
+                        !checked(deadline.remaining(runtime_clock.as_ref())).is_zero(),
                         "missing sequencer head read"
                     );
                     std::thread::sleep(Duration::from_millis(1));
@@ -198,10 +205,21 @@ fn store(fixture: &Value) -> PrincipalStore {
 }
 
 fn runtime(fixture: &Value, principal: &str, owner: &str, account: &str) -> AgentRuntime {
+    let clock = checked(RuntimeClock::from_environment());
+    runtime_with_clock(fixture, principal, owner, account, clock)
+}
+fn runtime_with_clock(
+    fixture: &Value,
+    principal: &str,
+    owner: &str,
+    account: &str,
+    clock: Arc<dyn Clock>,
+) -> AgentRuntime {
     checked(
-        checked(AgentRuntime::connect(
+        checked(AgentRuntime::connect_with_clock(
             text(fixture, "agent_socket"),
             limits(),
+            clock,
         ))
         .for_subject(
             &checked(PrincipalId::new(principal)),
@@ -560,16 +578,27 @@ fn genuine_human_owner_session_consent_preview_and_reopen() {
     let case = &fixture["case"];
     let principal = checked(PrincipalId::new(text(&fixture, "principal")));
     let capability = id(text(case, "capability_id"));
+    let mut agent = runtime(
+        &fixture,
+        principal.as_str(),
+        text(&fixture, "owner"),
+        text(&fixture, "account"),
+    );
     let mut retained = store(&fixture);
     let mut scope = checked(retained.principal(&principal));
-    assert!(load_access(&scope, capability, clock(&fixture).0).is_err());
+    assert!(load_access(&scope, &mut agent, capability, clock(&fixture).0).is_err());
     drop(scope);
     drop(retained);
     println!("NATIVE_SEND_PRODUCER_CASE denied-before-consent");
     public_access(&fixture, case);
     let mut retained = store(&fixture);
     let mut scope = checked(retained.principal(&principal));
-    let context = checked(load_access(&scope, capability, clock(&fixture).0));
+    let context = checked(load_access(
+        &scope,
+        &mut agent,
+        capability,
+        clock(&fixture).0,
+    ));
     assert_eq!(context.session.owner, text(&fixture, "owner"));
     assert_eq!(context.session.principal, principal.as_str());
     assert_eq!(context.session.tenant, text(&fixture, "agent_tenant"));
@@ -587,12 +616,6 @@ fn genuine_human_owner_session_consent_preview_and_reopen() {
         &digest,
         &ed25519_dalek::Signature::from_bytes(&grant.signature),
     ));
-    let mut agent = runtime(
-        &fixture,
-        principal.as_str(),
-        text(&fixture, "owner"),
-        text(&fixture, "account"),
-    );
     let owner =
         checked(agent.native_send_owner_context(&context.session, number(&fixture, "request_id")));
     assert_eq!(owner.generation, context.session.generation);
@@ -677,7 +700,7 @@ fn genuine_human_owner_session_consent_preview_and_reopen() {
     let foreign = checked(PrincipalId::new(text(&fixture, "foreign_principal")));
     let mut foreign_store = store(&fixture);
     let foreign_scope = checked(foreign_store.principal(&foreign));
-    assert!(load_access(&foreign_scope, capability, clock(&fixture).0).is_err());
+    assert!(load_access(&foreign_scope, &mut agent, capability, clock(&fixture).0).is_err());
     assert!(context
         .session
         .validate(&foreign_scope, clock(&fixture).0)
@@ -730,16 +753,21 @@ fn genuine_human_owner_session_consent_preview_and_reopen() {
     drop(agent);
     let mut reopened = store(&fixture);
     let scope = checked(reopened.principal(&principal));
-    let context = checked(load_access(&scope, capability, clock(&fixture).0));
-    assert_eq!(
-        serde_json::to_vec(&context.session).expect("actual reopened session serialization"),
-        original_session
-    );
     let mut agent = runtime(
         &fixture,
         principal.as_str(),
         text(&fixture, "owner"),
         text(&fixture, "account"),
+    );
+    let context = checked(load_access(
+        &scope,
+        &mut agent,
+        capability,
+        clock(&fixture).0,
+    ));
+    assert_eq!(
+        serde_json::to_vec(&context.session).expect("actual reopened session serialization"),
+        original_session
     );
     let resumed = checked(preview_send_v2(
         &scope,

@@ -339,6 +339,7 @@ impl AgentBoundary for RealAgentLayer {
             actor: request.actor.clone(),
             authority: request.authority.clone(),
             account_sequence: request.account_sequence.get(),
+            pending_nonce: request.account_sequence.get(),
             not_before: request.timestamp_bound.not_before.get(),
             not_after: request.timestamp_bound.not_after.get(),
             fee_limit: request.fee_limit.get(),
@@ -375,8 +376,12 @@ impl AgentBoundary for RealAgentLayer {
             .map_err(|_| AgentBoundaryError::Refused)?;
         let signed = attach_kernel_signature(&prepared, signature)
             .map_err(|_| AgentBoundaryError::Refused)?;
-        verify_kernel_before_submit(&signed, &prepared, &signer_public_key, &self.registry)
-            .map_err(|_| AgentBoundaryError::Refused)?;
+        let verified =
+            verify_kernel_before_submit(&signed, &prepared, &signer_public_key, &self.registry)
+                .map_err(|_| AgentBoundaryError::Refused)?;
+        assert_eq!(verified.exact_bytes(), signed);
+        assert_eq!(verified.idempotency_key(), key);
+        assert_eq!(verified.signed_byte_length(), signed.len());
         let raw = if let Some(id) = self.outbox_submissions.get(&key) {
             self.outbox
                 .exact_signed_bytes(*id)
@@ -520,6 +525,16 @@ impl AgentBoundary for RealAgentLayer {
             .get(&key)
             .ok_or(AgentBoundaryError::CorruptResponse)?;
         let signer = SigningKey::from_bytes(&[key[0].saturating_add(4); 32]);
+        let decoded = layerx_intents::canonical::decode_receipt(&material.canonical_bytes)
+            .map_err(|_| AgentBoundaryError::CorruptResponse)?;
+        let protocol = decoded
+            .protocol()
+            .ok_or(AgentBoundaryError::CorruptResponse)?;
+        if protocol.previous_state_root() != material.authorised_batch.previous_state_root()
+            || protocol.resulting_state_root() != material.authorised_batch.resulting_state_root()
+        {
+            return Err(AgentBoundaryError::CorruptResponse);
+        }
         let raw = support::raw_receipt_evidence(
             material.canonical_bytes.clone(),
             signer.verifying_key().to_bytes(),
@@ -643,10 +658,18 @@ fn receipt(activity_id: [u8; 32], marker: u8, specification: ReceiptSpec) -> Rec
     );
     ReceiptMaterial {
         receipt_hash: Sha256::digest(&canonical_bytes).into(),
+        signed_receipt: canonical_bytes.clone(),
         canonical_bytes,
         tx_hash: activity_id,
         block_height: sequence,
         rung: Rung::Receipted,
+        receipt_key: layerx_human_service::journeys::ReceiptKeyEntry {
+            key_id: [0x94; 32],
+            public_key: signer.verifying_key().to_bytes(),
+            first_height: 1,
+            last_height: u64::MAX,
+        },
+        inclusion_height: sequence,
         authorised_batch: AuthorizedBatch::new(
             batch,
             ASSET,

@@ -37,6 +37,7 @@ const ADMISSION_SUFFIX: &str = "admission";
 const TEMPORARY_SUFFIX: &str = "tmp";
 const HEAD_FILE: &str = "head";
 const SEAL_BYTES: usize = 32;
+const HOST_STORE_NAME: &str = layerx_programs::chain_evidence::HOST_STORE_NAME;
 
 /// One accepted deployment record together with the protocol admission proof
 /// it was derived from. The two are published to the journal as a single
@@ -633,7 +634,14 @@ impl FileDeploymentJournal {
             } else {
                 WriteStep::WriteRecord
             })?;
-            protected_replace(&path, &bytes)?;
+            if suffix == ADMISSION_SUFFIX {
+                evidence
+                    .proof()
+                    .publish_canonical(&path)
+                    .map_err(|error| error.to_string())?;
+            } else {
+                protected_replace(&path, &bytes)?;
+            }
         }
         self.reach(WriteStep::SyncTemporary)?;
         File::open(&stage)
@@ -686,7 +694,7 @@ impl FileDeploymentJournal {
             .map_err(|error| format!("could not sync {}: {error}", temporary.display()))?;
         drop(file);
         self.reach(WriteStep::Commit)?;
-        fs::rename(&temporary, &path)
+        DeploymentProof::commit_staged_file(&temporary, &path)
             .map_err(|error| format!("could not commit {}: {error}", path.display()))?;
         self.reach(WriteStep::SyncDirectory)?;
         File::open(&self.root)
@@ -887,11 +895,15 @@ fn read_legacy(record_path: &Path, proof_path: &Path) -> Result<DeploymentEnvelo
     let record_bytes =
         fs::read(record_path).map_err(|error| UnitDefect::Unreadable(error.to_string()))?;
     let record = decode_record(&record_bytes)?;
-    let proof_bytes =
-        fs::read(proof_path).map_err(|error| UnitDefect::Unreadable(error.to_string()))?;
-    let proof = DeploymentProof::decode(&proof_bytes).map_err(|error| UnitDefect::Corrupt {
-        part: UnitPart::Proof,
-        reason: error.to_string(),
+    let proof = DeploymentProof::read_canonical(proof_path).map_err(|error| {
+        if error.kind() == std::io::ErrorKind::InvalidData {
+            UnitDefect::Corrupt {
+                part: UnitPart::Proof,
+                reason: error.to_string(),
+            }
+        } else {
+            UnitDefect::Unreadable(error.to_string())
+        }
     })?;
     DeploymentEnvelope::pair(record, proof)
 }
@@ -1056,8 +1068,8 @@ fn verify_chain_deployment_package(
         chain_freshness(&head, now_ms, verifier.staleness_limit_ms())
             .map_err(|error| format!("chain deployment freshness refused: {error}"))?;
     }
-    if commitment.store_name != "layerx" {
-        return Err("deployment proof must use the layerx store".into());
+    if commitment.store_name != HOST_STORE_NAME {
+        return Err("deployment proof must use the lxphost store".into());
     }
     let prefix = layerx_programs::chain_evidence::programs_state_key(b"program\0");
     let program_bytes = commitment

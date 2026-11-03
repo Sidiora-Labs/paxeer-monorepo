@@ -41,19 +41,19 @@ No parameters, messages or proposal types declared in `types/`.
 
 | Field | Go type |
 |---|---|
-| `priority_normalizer` | `github_com_sidiora_labs_paxeer_network_sdk_types.Dec` |
-| `base_fee_per_gas` | `github_com_sidiora_labs_paxeer_network_sdk_types.Dec` |
-| `minimum_fee_per_gas` | `github_com_sidiora_labs_paxeer_network_sdk_types.Dec` |
+| `priority_normalizer` | `github_com_Sidiora_Labs_Paxeer_X_Network_sdk_types.Dec` |
+| `base_fee_per_gas` | `github_com_Sidiora_Labs_Paxeer_X_Network_sdk_types.Dec` |
+| `minimum_fee_per_gas` | `github_com_Sidiora_Labs_Paxeer_X_Network_sdk_types.Dec` |
 | `whitelisted_cw_code_hashes_for_delegate_call` | `[][]byte` |
 | `deliver_tx_hook_wasm_gas_limit` | `uint64` |
-| `max_dynamic_base_fee_upward_adjustment` | `github_com_sidiora_labs_paxeer_network_sdk_types.Dec` |
-| `max_dynamic_base_fee_downward_adjustment` | `github_com_sidiora_labs_paxeer_network_sdk_types.Dec` |
+| `max_dynamic_base_fee_upward_adjustment` | `github_com_Sidiora_Labs_Paxeer_X_Network_sdk_types.Dec` |
+| `max_dynamic_base_fee_downward_adjustment` | `github_com_Sidiora_Labs_Paxeer_X_Network_sdk_types.Dec` |
 | `target_gas_used_per_block` | `uint64` |
-| `maximum_fee_per_gas` | `github_com_sidiora_labs_paxeer_network_sdk_types.Dec` |
+| `maximum_fee_per_gas` | `github_com_Sidiora_Labs_Paxeer_X_Network_sdk_types.Dec` |
 | `register_pointer_disabled` | `bool` |
 | `pax_sstore_set_gas_eip2200` | `uint64` |
 | `allowed_fee_denoms` | `[]AllowedFeeDenom` |
-| `max_fee_token_spread` | `github_com_sidiora_labs_paxeer_network_sdk_types.Dec` |
+| `max_fee_token_spread` | `github_com_Sidiora_Labs_Paxeer_X_Network_sdk_types.Dec` |
 | `fee_token_enabled` | `bool` |
 | `fee_token_distribution` | `bool` |
 | `max_fee_token_rate_age` | `int64` |
@@ -304,12 +304,12 @@ No parameters, messages or proposal types declared in `types/`.
 | Field | Go type |
 |---|---|
 | `vote_period` | `uint64` |
-| `vote_threshold` | `github_com_sidiora_labs_paxeer_network_sdk_types.Dec` |
-| `reward_band` | `github_com_sidiora_labs_paxeer_network_sdk_types.Dec` |
+| `vote_threshold` | `github_com_Sidiora_Labs_Paxeer_X_Network_sdk_types.Dec` |
+| `reward_band` | `github_com_Sidiora_Labs_Paxeer_X_Network_sdk_types.Dec` |
 | `whitelist` | `DenomList` |
-| `slash_fraction` | `github_com_sidiora_labs_paxeer_network_sdk_types.Dec` |
+| `slash_fraction` | `github_com_Sidiora_Labs_Paxeer_X_Network_sdk_types.Dec` |
 | `slash_window` | `uint64` |
-| `min_valid_per_window` | `github_com_sidiora_labs_paxeer_network_sdk_types.Dec` |
+| `min_valid_per_window` | `github_com_Sidiora_Labs_Paxeer_X_Network_sdk_types.Dec` |
 | `lookback_duration` | `uint64` |
 
 ### Messages

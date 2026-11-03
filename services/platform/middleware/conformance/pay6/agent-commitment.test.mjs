@@ -1,15 +1,36 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { verifyAgentPayment } from "../../agent/dist/index.js";
-const f = JSON.parse(readFileSync(new URL("../../../../../sdk/platform/conformance/fixtures/receipt-positive-v2.json", import.meta.url)));
-const b = v => Uint8Array.from(Buffer.from(v, "hex"));
-const a = f.authorized_batch;
-const evidence = { canonicalReceipt: b(f.canonical_receipt_hex), authorizedBatch: { batchId: b(a.batch_id_hex), asset: b(a.asset_hex), previousStateRoot: b(a.previous_state_root_hex), resultingStateRoot: b(a.resulting_state_root_hex), sequencerPublicKey: b(a.sequencer_public_key_hex) } };
-const request = { tenant: "tenant", actor: "actor", authority: "authority", accountSequence: "1", timestampBound: "1", idempotencyKey: "request", feeLimit: "1", payloadBase64: "AA==", payloadHash: "00".repeat(32), asset: a.asset_hex, amount: f.expected.amount, recipient: f.expected.to_hex };
+import { secp256k1 } from "@noble/curves/secp256k1.js";
+import { verifyAgentPayment as agentVerifyPayment } from "../../agent/dist/index.js";
+import { pinnedReceiptKeys } from "./generate_evm_receipt.mjs";
+
+const fixture = JSON.parse(readFileSync(new URL("evm-receipt.json", import.meta.url), "utf8"));
+const evidence = fixture.receipt;
+const keys = pinnedReceiptKeys(fixture);
+const payload = "00";
+const request = {
+  tenant: "tenant", networkId: "125", authorityHex: "01",
+  signerPublicKey: Buffer.from(secp256k1.getPublicKey(new Uint8Array(32).fill(1))).toString("hex"),
+  submitIdempotencyKey: "02".repeat(32), approvalCurrentSequence: "0",
+  preparation: {
+    activity_type: "786433", actor: "actor", authority: "authority", account_sequence: "0",
+    not_before: "0", not_after: "1", idempotency_key: "01".repeat(32), fee_limit: "100000",
+    payload, payload_hash: createHash("sha256").update("LXP/v1/payload-hash\0").update(Buffer.from(payload, "hex")).digest("hex"),
+  },
+  asset: fixture.offer.asset, amount: fixture.offer.amount, recipient: fixture.offer.payTo,
+};
+
+async function verifyAgentPayment(proof, spend) {
+  return agentVerifyPayment(proof, spend, keys);
+}
+
 test("agent receipt verification enforces selected commitment before budget commit", async () => {
-  await verifyAgentPayment(evidence, request);
-  await verifyAgentPayment(evidence, { ...request, commitment: { network: "layerx:beta", level: "executed" } });
-  for (const level of ["batched", "finalised", "acknowledged"]) await assert.rejects(verifyAgentPayment(evidence, { ...request, commitment: { network: "layerx:beta", level } }));
-  await assert.rejects(verifyAgentPayment(evidence, { ...request, amount: "1" }));
+  const verified = await verifyAgentPayment(evidence, request);
+  assert.equal(verified.txHash, fixture.txHash);
+  assert.equal(verified.payment.amount, BigInt(request.amount));
+  await verifyAgentPayment(evidence, { ...request, commitment: { network: "eip155:125", level: "receipted" } });
+  for (const level of ["committed", "executed", "batched", "finalised", "acknowledged"]) await assert.rejects(verifyAgentPayment(evidence, { ...request, commitment: { network: "eip155:125", level } }));
+  for (const change of [{ amount: "1" }, { asset: "ab".repeat(32) }, { recipient: "ab".repeat(32) }, { networkId: "1" }]) await assert.rejects(verifyAgentPayment(evidence, { ...request, ...change }));
 });

@@ -3,6 +3,9 @@ use crate::chain_proof::{
 };
 use crate::protocol_evidence::PROGRAMS_MODULE_ID;
 
+/// Node store named by `storage/common/keys/store_keys.go` `LayerXHostStoreKey`.
+pub const HOST_STORE_NAME: &str = "lxphost";
+
 pub mod deployment;
 pub mod freshness;
 pub mod lifecycle;

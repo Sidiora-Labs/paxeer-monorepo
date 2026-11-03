@@ -44,6 +44,7 @@ fn request(key: u8, nonce: u64, agent: &str) -> ReclaimRequest {
             actor: AgentDid::new(format!("did:layerx:{agent}")).expect("agent DID"),
             authority: AuthorityRef::new("custody-human-primary").expect("authority"),
             custody_key: KeyId::new("human-primary").expect("custody key"),
+            account_sequence: nonce,
             nonce,
             not_before: 995,
             not_after: 1_010,

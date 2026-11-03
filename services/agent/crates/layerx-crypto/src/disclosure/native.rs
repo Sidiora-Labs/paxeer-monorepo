@@ -49,7 +49,6 @@ pub enum DisclosedNativeOperation {
     LegacyProgramCall(Box<layerx_types::intent::ProgramCall>),
     IdentityRegistration(DisclosedNativeIdentity),
     RecoveryPolicy(DisclosedRecoveryPolicy),
-    OwnerRotation(Box<crate::rotation::OwnerRotation>),
     BudgetCreate(Box<DisclosedNativeBudgetCreate>),
     BudgetFund(Box<DisclosedNativeBudgetFund>),
     BudgetDefund(Box<DisclosedNativeBudgetDefund>),
@@ -139,19 +138,6 @@ impl DisclosedNativeOperation {
                 encoder.u8(1)?;
                 encoder.fixed(&identity.did_id)?;
                 encoder.fixed(&identity.primary_key)?;
-            }
-            Self::OwnerRotation(rotation) => {
-                encoder.u8(5)?;
-                encoder.bytes(rotation.owner().as_bytes(), 512)?;
-                if let crate::rotation::OwnerRotation::Consent(consent) = rotation.as_ref() {
-                    encoder.fixed(&consent.pending_public_key)?;
-                }
-                encoder.bytes(
-                    &rotation
-                        .payload()
-                        .map_err(|_| DisclosureError::MalformedPayload)?,
-                    1024,
-                )?;
             }
             Self::RecoveryPolicy(policy) => {
                 encoder.u8(3)?;
@@ -282,6 +268,33 @@ fn recovery(activity: &Activity) -> Result<DisclosedRecoveryPolicy, DisclosureEr
     })
 }
 
+pub(crate) fn budget_create_terms(
+    budget_id: &[u8; 32],
+    budget_account: &[u8; 32],
+    asset: &[u8; 32],
+    per_period_limit: u128,
+    carry_cap: u128,
+    initial_amount: u128,
+    period_length_ms: u64,
+    period_start_ms: u64,
+    expiry_ms: u64,
+    rollover: u8,
+) -> Result<(), DisclosureError> {
+    if *budget_id == [0; 32]
+        || *budget_account == [0; 32]
+        || *asset == [0; 32]
+        || initial_amount == 0
+        || per_period_limit == 0
+        || period_length_ms == 0
+        || expiry_ms <= period_start_ms
+        || !matches!(rollover, 1 | 2)
+        || (rollover == 1 && carry_cap != 0)
+    {
+        return Err(DisclosureError::MalformedPayload);
+    }
+    Ok(())
+}
+
 fn budget(activity: &Activity) -> Result<DisclosedNativeBudgetCreate, DisclosureError> {
     let malformed = || DisclosureError::MalformedPayload;
     let actor = std::str::from_utf8(activity.actor_did()).map_err(|_| malformed())?;
@@ -313,21 +326,25 @@ fn budget(activity: &Activity) -> Result<DisclosedNativeBudgetCreate, Disclosure
         value.source_sequence = reader.u64()?;
     }
     reader.finish()?;
+    budget_create_terms(
+        &value.budget_id,
+        &value.budget_account,
+        &value.asset,
+        value.per_period_limit,
+        value.carry_cap,
+        value.initial_amount,
+        value.period_length_ms,
+        value.period_start_ms,
+        value.expiry_ms,
+        value.rollover,
+    )?;
     let per_asset = account_id(&format!("agent:{actor}:asset:{}", hex(&value.asset)))?;
     let expected_budget = account_id(&format!("agent:{actor}:budget:{}", hex(&value.budget_id)))?;
-    if value.budget_id == [0; 32]
-        || value.asset == [0; 32]
-        || value.budget_account != expected_budget
+    if value.budget_account != expected_budget
         || value.source_account == value.budget_account
         || (value.source_account != main && value.source_account != per_asset)
         || value.source_sequence == u64::MAX
-        || value.initial_amount == 0
-        || value.per_period_limit == 0
-        || value.period_length_ms == 0
-        || value.expiry_ms <= value.period_start_ms
         || value.expiry_ms <= activity.timestamp_bound().not_before
-        || !matches!(value.rollover, 1 | 2)
-        || (value.rollover == 1 && value.carry_cap != 0)
     {
         return Err(malformed());
     }
@@ -573,10 +590,6 @@ pub(super) fn fields(
         (ModuleId::Governance, 1) => {
             DisclosedNativeOperation::IdentityRegistration(identity(activity)?)
         }
-        (ModuleId::Governance, 2) => DisclosedNativeOperation::OwnerRotation(Box::new(
-            crate::rotation::OwnerRotation::from_activity(activity)
-                .map_err(|_| DisclosureError::MalformedPayload)?,
-        )),
         (ModuleId::Governance, 3) => DisclosedNativeOperation::RecoveryPolicy(recovery(activity)?),
         (ModuleId::Budget, 1) => budget_create_operation(
             activity,
@@ -600,11 +613,7 @@ pub(super) fn fields(
                 &mut amounts,
             )?
         }
-        _ => {
-            return Err(DisclosureError::UnsupportedActivity(
-                activity.activity_type().value(),
-            ))
-        }
+        _ => return Err(DisclosureError::MalformedPayload),
     };
     Ok(DisclosureFields {
         activity_type: activity.activity_type(),

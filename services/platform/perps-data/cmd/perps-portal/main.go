@@ -41,9 +41,9 @@ func main() {
 }
 
 func run(logger *slog.Logger) error {
-	cfg, err := config.Load(config.Portal)
+	cfg, err := config.Portal.Load()
 	if err != nil {
-		return fmt.Errorf("config: %w", err)
+		return err
 	}
 	logger.Info("perps-portal starting", slog.Any("config", *cfg))
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

@@ -80,12 +80,19 @@ pub(super) type Node<'a> = dyn FnMut(&Value) -> Result<Value, &'static str> + 'a
 /// and returns the answer document of the first one that answers 200 without
 /// a transport failure, unchanged. Every skipped node is reported on stderr.
 pub(super) fn node(config: &Config, request: &Value) -> Result<Value, &'static str> {
-    let Some(endpoints) = &config.paxeer else {
+    if config.paxeer.is_none() {
         return Err("paxeer_rpc_not_configured");
-    };
+    }
     if !public_reads::consume_read() {
         return Err("public_read_rate_limit");
     }
+    node_unmetered(config, request)
+}
+
+fn node_unmetered(config: &Config, request: &Value) -> Result<Value, &'static str> {
+    let Some(endpoints) = &config.paxeer else {
+        return Err("paxeer_rpc_not_configured");
+    };
     let body = serde_json::to_vec(request).map_err(|_| "invalid_paxeer_request")?;
     let mut failure = "paxeer_unreachable";
     let mut answered = None;
@@ -168,8 +175,17 @@ pub(super) fn node(config: &Config, request: &Value) -> Result<Value, &'static s
     Ok(document)
 }
 
+fn receipt_params(params: Option<&Value>) -> bool {
+    matches!(params.and_then(Value::as_array).map(Vec::as_slice), Some([hash])
+        if hash.as_str().is_some_and(|hash| hash.starts_with("0x")
+            && hash.len() == 66 && hash[2..].bytes().all(|b| b.is_ascii_hexdigit())))
+}
+
 /// Relays one EVM request under the caller's own identifier.
 pub(super) fn relay(config: &Config, id: &Value, method: &str, params: Option<&Value>) -> Value {
+    if method == "pax_sequencerReceipt" && !receipt_params(params) {
+        return super::rpc::error(id, -32602, "Invalid params");
+    }
     if config.paxeer.is_none() {
         return unconfigured(id);
     }
@@ -505,12 +521,16 @@ fn resolve_account(config: &Config, id: &Value, params: Option<&Value>) -> Value
     }
 }
 
-fn node_at_height(config: &Config, height: u64, request: &Value) -> Result<Value, &'static str> {
+fn node_at_height(
+    node: &mut Node<'_>,
+    height: u64,
+    request: &Value,
+) -> Result<Value, &'static str> {
     let mut request = request.clone();
     if request["method"] == "eth_call" {
         request["params"][1] = json!(format!("0x{height:x}"));
     }
-    node(config, &request)
+    node(&request)
 }
 
 fn resolved_at_height(
@@ -526,7 +546,7 @@ fn resolved_at_height(
     let height =
         block_number(&mut |request| node(config, request)).map_err(|code| unavailable(id, code))?;
     let resolution = match resolve(
-        &mut |request| node_at_height(config, height, request),
+        &mut |request| node_at_height(&mut |request| node(config, request), height, request),
         &selector,
     ) {
         Ok(resolution) => resolution,
@@ -661,8 +681,16 @@ fn layerx_assets(config: &Config, id: &Value) -> Result<Vec<Value>, Value> {
     Ok(records)
 }
 
-fn custody_asset(config: &Config, record: &Value, height: u64) -> Value {
-    let mut node = |request: &Value| node_at_height(config, height, request);
+/// Successful ledger reads include the optional OpenRPC `paused` and `verification` fields.
+/// Bank metadata and failed reads retain their existing shapes in `custody_asset`.
+fn layerx_asset_metadata(asset: &evm::LedgerAsset) -> Value {
+    json!({"name": asset.name, "symbol": asset.symbol,
+        "decimals": asset.decimals, "supply": asset.total_units.to_string(),
+        "paused": asset.paused, "verification": "authenticated_committed_snapshot"})
+}
+
+fn custody_asset(node: &mut Node<'_>, record: &Value, height: u64) -> Result<Value, &'static str> {
+    let mut node = |request: &Value| node_at_height(node, height, request);
     let metadata = (|| -> Result<Value, &'static str> {
         if matches!(record["kind"].as_str(), Some("layerx" | "ledger")) {
             let id = record["asset_id"]
@@ -679,8 +707,7 @@ fn custody_asset(config: &Config, record: &Value, height: u64) -> Value {
             if asset.asset_id != id {
                 return Err("invalid_ledger_asset");
             }
-            return Ok(json!({"name": asset.name, "symbol": asset.symbol,
-                "decimals": asset.decimals, "supply": asset.total_units.to_string()}));
+            return Ok(layerx_asset_metadata(&asset));
         }
         let denom = record["denom"]
             .as_str()
@@ -709,8 +736,9 @@ fn custody_asset(config: &Config, record: &Value, height: u64) -> Value {
             "supply": evm::uint256_decimal(&supply)}))
     })();
     match metadata {
-        Ok(metadata) => metadata,
-        Err(_) => json!({"name": null, "symbol": null, "decimals": null, "supply": null}),
+        Ok(metadata) => Ok(metadata),
+        Err("public_read_rate_limit") => Err("public_read_rate_limit"),
+        Err(_) => Ok(json!({"name": null, "symbol": null, "decimals": null, "supply": null})),
     }
 }
 
@@ -725,13 +753,20 @@ fn list_assets(config: &Config, id: &Value, params: Option<&Value>) -> Value {
         Ok(records) => records,
         Err(refusal) => return refusal,
     };
-    let height = match block_number(&mut |request| node(config, request)) {
+    if !public_reads::consume_read() {
+        return unavailable(id, "public_read_rate_limit");
+    }
+    let mut node = |request: &Value| node_unmetered(config, request);
+    let height = match block_number(&mut node) {
         Ok(height) => height,
         Err(code) => return unavailable(id, code),
     };
     let mut joined = Vec::with_capacity(records.len());
     for mut record in records {
-        let metadata = custody_asset(config, &record, height);
+        let metadata = match custody_asset(&mut node, &record, height) {
+            Ok(metadata) => metadata,
+            Err(code) => return unavailable(id, code),
+        };
         record
             .as_object_mut()
             .expect("asset record is an object")
@@ -772,7 +807,7 @@ fn get_balances(config: &Config, id: &Value, params: Option<&Value>) -> Value {
         return unavailable(id, UNBOUND_DID);
     };
     let answer = match call(
-        &mut |request| node_at_height(config, height, request),
+        &mut |request| node_at_height(&mut |request| node(config, request), height, request),
         &evm::BANK_PRECOMPILE,
         &evm::calldata_address(evm::SELECTOR_BANK_ALL_BALANCES, &address),
     ) {
@@ -889,6 +924,36 @@ pub(super) fn status(config: &Config) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn listed_layerx_asset_carries_verification_and_decoded_paused() {
+        for paused in [false, true] {
+            let asset = evm::LedgerAsset {
+                asset_id: [0x11; 32],
+                symbol: "LED".to_owned(),
+                name: "Ledger Asset".to_owned(),
+                decimals: 18,
+                supply_cap: 100,
+                issuer_did: [0x22; 32],
+                salt: [0x33; 32],
+                issuer_kind: 1,
+                custody_kind: 0,
+                custody_reference: Vec::new(),
+                paused,
+                total_units: 42,
+            };
+            let metadata = layerx_asset_metadata(&asset);
+            assert_eq!(metadata["paused"], json!(asset.paused));
+            assert_eq!(
+                metadata["verification"],
+                json!("authenticated_committed_snapshot")
+            );
+            assert_eq!(metadata["name"], json!(asset.name));
+            assert_eq!(metadata["symbol"], json!(asset.symbol));
+            assert_eq!(metadata["decimals"], json!(asset.decimals));
+            assert_eq!(metadata["supply"], json!("42"));
+        }
+    }
 
     #[test]
     fn endpoint_arrays_hold_two_to_eight_distinct_https_names() {

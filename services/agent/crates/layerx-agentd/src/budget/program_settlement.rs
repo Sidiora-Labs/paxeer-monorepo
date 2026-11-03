@@ -67,6 +67,45 @@ pub struct VerifiedProgramApprovalBudgetRow {
 }
 
 impl VerifiedProgramApprovalBudgetRow {
+    #[cfg(test)]
+    pub(crate) fn for_test(
+        approval_id: [u8; 32],
+        held_digest: [u8; 32],
+        budget_id: [u8; 32],
+        asset: [u8; 32],
+        source: [u8; 32],
+        observed_sequence: u64,
+        remaining_after_reservations: u128,
+        terminal: bool,
+        verification: VerificationLevel,
+        evidence_digest: [u8; 32],
+        receipt_digest: [u8; 32],
+        checkpoint_digest: [u8; 32],
+        age_sequences: u64,
+        maximum_age_sequences: u64,
+        proof_digest: [u8; 32],
+        proof_bytes: Vec<u8>,
+    ) -> Self {
+        Self {
+            approval_id,
+            held_digest,
+            budget_id,
+            asset,
+            source,
+            observed_sequence,
+            remaining_after_reservations,
+            terminal,
+            verification,
+            evidence_digest,
+            receipt_digest,
+            checkpoint_digest,
+            age_sequences,
+            maximum_age_sequences,
+            proof_digest,
+            proof_bytes,
+        }
+    }
+
     pub const fn approval_id(&self) -> [u8; 32] {
         self.approval_id
     }

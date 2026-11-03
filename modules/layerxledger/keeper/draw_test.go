@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"crypto/sha256"
-	"encoding/binary"
-	"math/big"
 	"testing"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
@@ -45,12 +43,6 @@ func newDrawFixture(t *testing.T) *drawFixture {
 	require.NoError(t, err)
 	minted := f.execute(t, f.actor, 0x0001000a, 2, mint)
 	require.NoError(t, f.keeper.Mirror(f.ctx, 0x0001000a, minted))
-	grantFixture := ledgerViewFixture{
-		harness: f.harness, actor: f.actor, recipient: recipient,
-		asset: f.asset, account: f.from, to: f.to,
-	}
-	grant, grantID := grantFixture.payerGrant(t)
-	f.execute(t, f.actor, 0x00010007, 3, grant)
 
 	app := testkeeper.EVMTestApp
 	caller := common.HexToAddress("0x2470000000000000000000000000000000000001")
@@ -66,88 +58,49 @@ func newDrawFixture(t *testing.T) *drawFixture {
 	contextHash, err := codec.DomainHash(codec.DomainContextHash, bytes.Repeat([]byte{0x22}, 32))
 	require.NoError(t, err)
 	f.args = types.DrawArgs{
-		From: f.from, Asset: f.asset, Amount: sdk.NewInt(15), GrantID: grantID,
+		From: f.from, Asset: f.asset, Amount: sdk.NewInt(15), GrantID: sha256.Sum256([]byte("retired-payer-grant")),
 		ReceiverSequence: 0, IdempotencyKey: sha256.Sum256([]byte("keeper-draw-0")),
 		ContextHash: contextHash,
 	}
 	return f
 }
 
-func TestDrawWithinGrant(t *testing.T) {
+func TestDrawRefusesWithoutPayerGrants(t *testing.T) {
 	f := newDrawFixture(t)
-	before, err := f.keeper.GetPayerGrant(f.ctx, f.args.GrantID)
-	require.NoError(t, err)
-	require.Equal(t, sdk.ZeroInt(), before.DrawnTotal)
-	allowance := sdk.NewIntFromBigInt(new(big.Int).SetBytes(before.Grant[144:160]))
-	require.Equal(t, sdk.NewInt(100), allowance)
-	for draw := uint64(0); draw < 2; draw++ {
-		args := f.args
-		args.ReceiverSequence = draw
-		args.IdempotencyKey = sha256.Sum256(binary.BigEndian.AppendUint64([]byte("keeper-draw"), draw))
-		result, err := f.keeper.Draw(f.ctx, f.payee, args)
-		require.NoError(t, err, "receive result code: %v", result.Receipt.ResultCode)
-		require.Equal(t, lxphost.Code(0), result.Receipt.ResultCode)
-		require.Equal(t, f.global+draw+1, result.Receipt.GlobalSequence)
-		require.NotEmpty(t, result.Receipt.Encoded)
-		require.Equal(t, []lxphost.TransferLeg{{
-			Asset: f.asset, From: f.from, To: f.to, Amount: args.Amount,
-		}}, result.Receipt.Transfers)
-		require.Equal(t, result.Receipt.Events, result.Events)
-		events, err := ledgerkeeper.LedgerEvents(0x00010006, result.Receipt, ledgerkeeper.EventArgs{
-			GrantID: args.GrantID, IdempotencyKey: args.IdempotencyKey, ContextHash: args.ContextHash,
-		})
-		require.NoError(t, err)
-		require.Equal(t, []ledgerkeeper.Event{
-			{Name: "Transfer", Fields: map[string]any{
-				"from": f.from, "to": f.to, "assetId": f.asset,
-				"amount": args.Amount.BigInt(), "kind": uint8(6),
-			}},
-			{Name: "PaymentDrawn", Fields: map[string]any{
-				"grantId": args.GrantID, "from": f.from, "to": f.to,
-				"assetId": f.asset, "amount": args.Amount.BigInt(),
-				"idempotencyKey": args.IdempotencyKey, "contextHash": args.ContextHash,
-			}},
-		}, events)
-		after, err := f.keeper.GetPayerGrant(f.ctx, args.GrantID)
-		require.NoError(t, err)
-		require.Equal(t, before.Grant, after.Grant)
-		require.Equal(t, before.DrawnTotal.Add(args.Amount), after.DrawnTotal)
-		require.Equal(t, allowance.Sub(before.DrawnTotal).Sub(args.Amount), allowance.Sub(after.DrawnTotal))
-		before = after
-		for _, account := range [][32]byte{f.from, f.to} {
-			balance, err := f.keeper.BalanceOf(f.ctx, account, f.asset)
+	grantIDs := [][32]byte{f.args.GrantID, sha256.Sum256([]byte("unknown-payer-grant"))}
+	require.NotEqual(t, grantIDs[0], grantIDs[1])
+	balances := map[[32]byte]sdk.Int{
+		f.issuance: sdk.NewInt(750),
+		f.from:     sdk.NewInt(250),
+		f.to:       sdk.ZeroInt(),
+	}
+	assertBalances := func() {
+		t.Helper()
+		for account, want := range balances {
+			balance, err := f.host.ReadBalance(f.ctx, account, f.asset)
 			require.NoError(t, err)
-			want := sdk.NewInt(15 * int64(draw+1))
-			if account == f.from {
-				want = sdk.NewInt(250).Sub(want)
-			}
 			require.Equal(t, want, balance)
+			viewBalance, err := f.keeper.BalanceOf(f.ctx, account, f.asset)
+			require.NoError(t, err)
+			require.Equal(t, balance, viewBalance)
 			require.Equal(t, balance, f.bank.GetBalance(f.ctx, lxphost.BankAddress(account), types.MirrorDenom(f.asset)).Amount)
 		}
-		next, err := f.keeper.NextSequence(f.ctx, f.payee.DIDKey, f.asset)
-		require.NoError(t, err)
-		require.Equal(t, draw+1, next)
 	}
-}
-
-func TestDrawWithoutGrant(t *testing.T) {
-	f := newDrawFixture(t)
-	args := f.args
-	args.GrantID = sha256.Sum256([]byte("unknown-payer-grant"))
+	assertBalances()
 	hostBefore := ledgerViewStore(t, f.ctx, f.hostKey)
 	ledgerBefore := ledgerViewStore(t, f.ctx, f.storeKey)
-	result, err := f.keeper.Draw(f.ctx, f.payee, args)
-	require.ErrorIs(t, err, types.ErrNoPayerGrant)
-	require.Equal(t, ledgerkeeper.Result{}, result)
-	require.Equal(t, hostBefore, ledgerViewStore(t, f.ctx, f.hostKey))
-	require.Equal(t, ledgerBefore, ledgerViewStore(t, f.ctx, f.storeKey))
-	require.Equal(t, sdk.NewInt(250), f.bank.GetBalance(f.ctx, lxphost.BankAddress(f.from), types.MirrorDenom(f.asset)).Amount)
-	require.True(t, f.bank.GetBalance(f.ctx, lxphost.BankAddress(f.to), types.MirrorDenom(f.asset)).IsZero())
-	grant, err := f.keeper.GetPayerGrant(f.ctx, f.args.GrantID)
-	require.NoError(t, err)
-	require.Equal(t, sdk.ZeroInt(), grant.DrawnTotal)
+	for _, grantID := range grantIDs {
+		args := f.args
+		args.GrantID = grantID
+		result, err := f.keeper.Draw(f.ctx, f.payee, args)
+		require.ErrorIs(t, err, types.ErrNoPayerGrant)
+		require.Equal(t, ledgerkeeper.Result{}, result)
+		require.Equal(t, hostBefore, ledgerViewStore(t, f.ctx, f.hostKey))
+		require.Equal(t, ledgerBefore, ledgerViewStore(t, f.ctx, f.storeKey))
+		assertBalances()
+	}
 
 	require.NoError(t, f.keeper.SetParams(f.ctx, types.Params{Paused: true}))
-	_, err = f.keeper.Draw(f.ctx, ledgerkeeper.Actor{}, args)
+	_, err := f.keeper.Draw(f.ctx, ledgerkeeper.Actor{}, f.args)
 	require.ErrorIs(t, err, ledgerkeeper.ErrPausedScope)
 }

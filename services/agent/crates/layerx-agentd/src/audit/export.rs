@@ -4,7 +4,6 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::{Display, Formatter};
 use std::path::Path;
 
-use layerx_proof::checkpoint::SettlementDomain;
 use layerx_proof::export::{
     verify as verify_protocol_evidence, ExportVerificationError, OfflineExport,
 };
@@ -233,7 +232,6 @@ pub struct ReviewReport {
     pub exported_entries: usize,
     pub verified_receipts: usize,
     pub verified_inclusions: usize,
-    pub verified_checkpoints: usize,
     pub failed_records: usize,
 }
 
@@ -248,7 +246,6 @@ pub fn export(
     config: &Config,
     query: Query,
     evidence_store: &EvidenceStore,
-    expected_settlement_domain: SettlementDomain,
 ) -> Result<AuditExport, ExportError> {
     if query.tenant != config.tenant || evidence_store.tenant != config.tenant {
         return Err(ExportError::WrongTenant);
@@ -290,8 +287,7 @@ pub fn export(
         });
     }
 
-    let referenced_evidence =
-        collect_referenced_evidence(&entries, evidence_store, expected_settlement_domain)?;
+    let referenced_evidence = collect_referenced_evidence(&entries, evidence_store)?;
 
     let first_index = usize::try_from(first_sequence).map_err(|_| ExportError::EmptySlice)?;
     let links = chain_links(
@@ -333,7 +329,6 @@ fn decode_owned_entries(
 fn collect_referenced_evidence(
     entries: &[ExportedEntry],
     evidence_store: &EvidenceStore,
-    expected_settlement_domain: SettlementDomain,
 ) -> Result<Vec<ReferencedEvidence>, ExportError> {
     let receipt_ids: BTreeSet<_> = entries
         .iter()
@@ -353,7 +348,7 @@ fn collect_referenced_evidence(
         {
             return Err(ExportError::EvidenceMismatch { receipt_id });
         }
-        verify_protocol_evidence(&protocol_facts, expected_settlement_domain)
+        verify_protocol_evidence(&protocol_facts)
             .map_err(|error| ExportError::EvidenceInvalid { receipt_id, error })?;
         referenced_evidence.push(ReferencedEvidence {
             receipt_id,
@@ -459,10 +454,7 @@ pub fn verify_chain_material(material: &ChainMaterial) -> Result<(), ChainError>
 ///
 /// Returns an error when the export has been altered, falls outside its query, or contains
 /// protocol evidence that `layerx-proof` cannot verify.
-pub fn review(
-    exported: &AuditExport,
-    expected_settlement_domain: SettlementDomain,
-) -> Result<ReviewReport, ReviewError> {
+pub fn review(exported: &AuditExport) -> Result<ReviewReport, ReviewError> {
     verify_chain_material(&exported.chain)?;
     let selected: Vec<_> = exported
         .chain
@@ -507,7 +499,6 @@ pub fn review(
         exported_entries: exported.entries.len(),
         verified_receipts: 0,
         verified_inclusions: 0,
-        verified_checkpoints: 0,
         failed_records: exported
             .entries
             .iter()
@@ -523,21 +514,18 @@ pub fn review(
         {
             return Err(ReviewError::EvidenceSet);
         }
-        let verified =
-            verify_protocol_evidence(&evidence.protocol_facts, expected_settlement_domain)
-                .map_err(|error| ReviewError::Evidence {
-                    receipt_id: evidence.receipt_id,
-                    error,
-                })?;
+        let verified = verify_protocol_evidence(&evidence.protocol_facts).map_err(|error| {
+            ReviewError::Evidence {
+                receipt_id: evidence.receipt_id,
+                error,
+            }
+        })?;
         report.verified_receipts = report
             .verified_receipts
             .saturating_add(verified.verified_receipts);
         report.verified_inclusions = report
             .verified_inclusions
             .saturating_add(verified.verified_inclusions);
-        report.verified_checkpoints = report
-            .verified_checkpoints
-            .saturating_add(verified.verified_checkpoints);
     }
     Ok(report)
 }

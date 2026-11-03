@@ -17935,6 +17935,7 @@ components:
           type: integer
           x-struct: null
           x-validate: null
+        priority_fee:
           $ref: '#/components/schemas/IntegerStringNullable'
         rewards:
           items:

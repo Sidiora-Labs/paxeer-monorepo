@@ -16,6 +16,7 @@ import (
 
 func scheduleCustodyRelease(t *testing.T, e *env) {
 	t.Helper()
+	e.ctx, _ = e.ctx.CacheContext()
 	require.NoError(t, testkeeper.EVMTestApp.UpgradeKeeper.ScheduleUpgrade(e.ctx,
 		upgradetypes.Plan{Name: types.MergePlanUpgrade, Height: 20}))
 	e.ctx = e.ctx.WithBlockHeight(20)
@@ -47,8 +48,8 @@ func TestReleaseRetiredMovesEveryCustodiedBalanceToTheAuthority(t *testing.T) {
 	require.NoError(t, e.k.SetParams(e.ctx, params))
 	e.deposit(e.withdrawal.Fields["asset"], 1_000)
 	e.deposit(e.exit.Fields["asset"], 2_000)
-	paid, err := e.k.FinaliseWithdrawal(e.ctx, e.evidence())
-	require.NoError(t, err)
+	withdrawal := e.seedClaim(types.ClaimKind_CLAIM_KIND_WITHDRAWAL, vectorNumber(t, e.withdrawal, "batch_number"))
+	paid := e.payStoredWithdrawal(e.ctx, withdrawal)
 	require.Equal(t, types.ClaimStatus_CLAIM_STATUS_PAID, paid.Claim.Status)
 	donation := sdk.NewCoins(sdk.NewInt64Coin(tokenDenom, 17))
 	require.NoError(t, app.BankKeeper.SendCoinsFromAccountToModule(e.ctx, e.payerAcc, types.ModuleName, donation))
@@ -131,20 +132,18 @@ func TestReleaseRetiredCancelsPendingClaims(t *testing.T) {
 			require.NoError(t, e.k.SetParams(e.ctx, params))
 			e.deposit(e.withdrawal.Fields["asset"], 1_000)
 			e.deposit(e.exit.Fields["asset"], 6_000_000)
-			withdrawal, err := e.k.RequestWithdrawal(e.ctx, e.evidence())
-			require.NoError(t, err)
+			withdrawal := e.seedClaim(types.ClaimKind_CLAIM_KIND_WITHDRAWAL, vectorNumber(t, e.withdrawal, "batch_number"))
 			batch := vectorNumber(t, e.withdrawal, "batch_number") + 1
 			require.NoError(t, e.k.RegisterCheckpoint(e.ctx, batch, vectorArray(t, e.exit, "state_root"), [32]byte{7}))
 			require.NoError(t, e.k.SetEmergency(e.ctx, true))
-			exit, err := e.k.RequestForcedExit(e.ctx, e.exitEvidence(batch))
-			require.NoError(t, err)
+			exit := e.seedClaim(types.ClaimKind_CLAIM_KIND_FORCED_EXIT, batch)
 			scheduleCustodyRelease(t, e)
 			e.solvent()
 			state := e.k.ExportGenesis(e.ctx)
 			eventCount := len(e.ctx.EventManager().Events())
 			baseBalance := e.balance(e.k.ModuleAddress(), sdk.MustGetBaseDenom())
 			tokenBalance := e.balance(e.k.ModuleAddress(), tokenDenom)
-			err = e.k.ReleaseRetired(e.ctx)
+			err := e.k.ReleaseRetired(e.ctx)
 			if failSend {
 				require.ErrorIs(t, err, sdkerrors.ErrUnauthorized)
 				require.Equal(t, state, e.k.ExportGenesis(e.ctx))
@@ -194,14 +193,14 @@ func TestReleaseRetiredIsRefusedBeforeTheMergePlanHeight(t *testing.T) {
 	for _, name := range []string{"no plan", "before height", "after height", "different plan", "already done", "done without plan", "no upgrade reader"} {
 		t.Run(name, func(t *testing.T) {
 			e := newEnv(t, 600)
+			e.ctx, _ = e.ctx.CacheContext()
 			app := testkeeper.EVMTestApp
 			params := e.k.GetParams(e.ctx)
 			params.Authority = e.payerAcc.String()
 			require.NoError(t, e.k.SetParams(e.ctx, params))
 			e.deposit(e.withdrawal.Fields["asset"], 1_000)
 			e.deposit(e.exit.Fields["asset"], 2_000)
-			_, err := e.k.RequestWithdrawal(e.ctx, e.evidence())
-			require.NoError(t, err)
+			e.seedClaim(types.ClaimKind_CLAIM_KIND_WITHDRAWAL, vectorNumber(t, e.withdrawal, "batch_number"))
 			plan := upgradetypes.Plan{Name: types.MergePlanUpgrade, Height: 20}
 			if name == "different plan" {
 				plan.Name = "another-upgrade"
@@ -231,7 +230,7 @@ func TestReleaseRetiredIsRefusedBeforeTheMergePlanHeight(t *testing.T) {
 			tokenBalance := e.balance(e.k.ModuleAddress(), tokenDenom)
 			authorityBase := e.balance(e.payerAcc, sdk.MustGetBaseDenom())
 			authorityToken := e.balance(e.payerAcc, tokenDenom)
-			err = e.k.ReleaseRetired(e.ctx)
+			err := e.k.ReleaseRetired(e.ctx)
 			require.ErrorIs(t, err, types.ErrModuleRetired)
 			if name == "already done" || name == "done without plan" {
 				require.ErrorContains(t, err, "already released")
