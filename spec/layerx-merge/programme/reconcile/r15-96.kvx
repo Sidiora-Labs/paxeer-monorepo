@@ -1,0 +1,413 @@
+[reconcile.r15-96]
+revision = "0b17e0748b8a5c1506383faf11209f4f35235885"
+rows = 51
+
+[row.r15-96.1]
+interface = "interface.15.mk-consensus-all-j57"
+verdict = "served"
+path = "consensus/Makefile"
+line = 57
+symbol = "all"
+evidence = "Registered all: check build test install is now all: build test install at line 57; the check prerequisite was removed, while build, test and install remain."
+
+[row.r15-96.2]
+interface = "interface.15.mk-consensus-build-j57"
+verdict = "served"
+path = "consensus/Makefile"
+line = 66
+symbol = "build"
+evidence = "Declaration remains build: $(BUILDDIR)/ at line 66; no target signature change. The recipe still builds ./cmd/tendermint/ with BUILD_FLAGS, whose linker flags now accept LDFLAGS at line 55."
+
+[row.r15-96.3]
+interface = "interface.15.mk-consensus-install-j57"
+verdict = "served"
+path = "consensus/Makefile"
+line = 70
+symbol = "install"
+evidence = "Declaration remains install: at line 70; no target signature change. The recipe installs ./cmd/tendermint with BUILD_FLAGS and BUILD_TAGS; linker flags now accept LDFLAGS at line 55."
+
+[row.r15-96.4]
+interface = "interface.15.mk-consensus-build-privval-server-j57"
+verdict = "served"
+path = "consensus/Makefile"
+line = 81
+symbol = "build_privval_server"
+evidence = "Declaration remains build_privval_server: at line 81; no target signature change. Its recipe builds ./cmd/priv_val_server/... with -mod=readonly into $(BUILDDIR)/."
+
+[row.r15-96.5]
+interface = "interface.15.mk-consensus-format-j57"
+verdict = "served"
+path = "consensus/Makefile"
+line = 122
+symbol = "format"
+evidence = "Declaration remains format: but moved from registered line 155 to line 122. No target signature change; recipes run gofmt and goimports over non-generated Go files."
+
+[row.r15-96.6]
+interface = "interface.15.mk-consensus-lint-j57"
+verdict = "retired"
+path = "consensus/Makefile"
+line = 160
+symbol = "lint"
+evidence = "The registered lint: target and all whole-word lint mentions are absent from consensus/Makefile. Repository-wide git grep -a -n -w lint over tracked working-tree files, excluding all spec and docs directories, found 218 other files; remaining lists the first hit per file. These generic lint mentions do not implement this removed consensus target."
+remaining_refs = 218
+remaining = [".coderabbit.yaml:128", ".cursor/rules/spec-workflow.mdc:23", ".github/copilot-instructions.md:18", ".github/workflows/agent.yml:22", ".github/workflows/explorer-build.yml:97", ".github/workflows/human.yml:24", ".github/workflows/paxeer-golangci.yml:1", ".github/workflows/paxeer-uci-go-lint.yml:68", ".github/workflows/platform.yml:25", "AGENTS.md:18", "CLAUDE.md:18", "CONTRIBUTING.md:36", "GOTCHA.kvx:70", "Makefile:157", "README.md:167", "api/buf_lint_test.go:22", "api/evm/receipt.proto:30", "api/evm/tx.proto:45", "apps/bridge/package.json:9", "apps/bridge/pnpm-lock.yaml:359", "apps/explorer/.cursor/BUGBOT.md:44", "apps/explorer/.husky/pre-commit:4", "apps/explorer/.vscode/tasks.json:74", "apps/explorer/CLAUDE.md:14", "apps/explorer/README.md:30", "apps/explorer/package.json:22", "apps/explorer/yarn.lock:1835", "apps/launchpad/package.json:8", "apps/launchpad/production_checklist.md:124", "apps/launchpad/qualification/bootstrap/checks.json:12", "apps/launchpad/web/package.json:9", "apps/wallet/.github/workflows/ci.yml:23", "apps/wallet/README.md:12", "apps/wallet/package.json:10", "apps/web/package.json:22", "buf.yaml:14", "chain.mk:26", "consensus/abci/types/types.pb.go:1168", "consensus/internal/pubsub/query/query.go:208", "consensus/internal/store/store.go:660", "consensus/proto/tendermint/abci/types.proto:183", "consensus/test/maketargets/consensus_makefile_test.go:131", "contracts/launchpad/operations/README.md:102", "contracts/launchpad/package.json:12", "contracts/launchpad/scripts/release-qualify.js:37", "core/deps/cosmwasm/README.md:574", "core/deps/cosmwasm/deny.toml:3", "core/deps/db-backend/go.sum:227", "core/deps/db-backend/makefile:1", "core/deps/geth/.golangci.yml:1", "core/deps/geth/Makefile:5", "core/deps/geth/accounts/abi/event_test.go:175", "core/deps/geth/accounts/keystore/passphrase.go:125", "core/deps/geth/accounts/scwallet/wallet.go:891", "core/deps/geth/accounts/usbwallet/ledger.go:170", "core/deps/geth/appveyor.yml:21", "core/deps/geth/build/checksums.txt:58", "core/deps/geth/build/ci.go:27", "core/deps/geth/cmd/clef/main.go:585", "core/deps/geth/go.sum:248", "core/deps/geth/rlp/decode.go:35", "core/deps/geth/rlp/decode_test.go:406", "core/deps/geth/rpc/testservice_test.go:114", "core/deps/log/.github/workflows/uci-lint.yml:18", "core/deps/tm-db/go.sum:175", "engine/deps/xevm/types/receipt.pb.go:117", "engine/deps/xevm/types/tx.pb.go:256", "go.sum:1174", "modules/evm/types/receipt.pb.go:116", "modules/evm/types/tx.pb.go:255", "programs/Cargo.lock:894", "programs/Cargo.toml:19", "programs/README.md:39", "programs/sdk/assemblyscript/assembly/abi.ts:6", "programs/sdk/assemblyscript/examples/paid-counter/layerx-program.json:12", "programs/sdk/assemblyscript/examples/paid-counter/package.json:10", "programs/sdk/assemblyscript/package-lock.json:12", "programs/sdk/assemblyscript/package.json:13", "programs/sdk/assemblyscript/toolchain.json:13", "programs/sdk/assemblyscript/tools/determinism-lint.mjs:519", "programs/sdk/c/examples/paid-counter/build.sh:8", "programs/sdk/c/examples/paid-counter/layerx-program.json:12", "programs/sdk/c/toolchain.json:12", "programs/sdk/c/tools/determinism_lint.c:695", "programs/sdk/rust/examples/escrow/build.sh:16", "programs/sdk/rust/examples/naming/build.sh:16", "programs/sdk/rust/examples/nft-lxt721/README.md:30", "programs/sdk/rust/examples/nft-lxt721/build.sh:16", "programs/sdk/rust/examples/vault/build.sh:16", "programs/sdk/rust/examples/web-reader/build.sh:16", "programs/sdk/rust/lint/Cargo.toml:2", "programs/sdk/rust/lint/src/lib.rs:1", "programs/sdk/rust/lint/src/main.rs:3", "programs/sdk/rust/lint/tests/abi_versions.rs:34", "programs/sdk/rust/quickstart/build.sh:17", "programs/sdk/rust/quickstart/layerx-program.json:12", "programs/sdk/rust/response-fixture/build.sh:18", "programs/sdk/rust/src/abi.rs:4", "programs/sdk/rust/toolchain.json:18", "programs/vendor/anyhow-1.0.104/tests/ui/must-use.stderr:7", "programs/vendor/base64ct-1.8.3/CHANGELOG.md:99", "programs/vendor/binaryen-sys-0.12.0/binaryen/.github/workflows/ci.yml:14", "programs/vendor/bitflags-2.13.1/CHANGELOG.md:180", "programs/vendor/cc-1.4.4/CHANGELOG.md:343", "programs/vendor/cc-1.4.4/src/flags.rs:56", "programs/vendor/ciborium-0.2.2/Cargo.toml.orig:18", "programs/vendor/ciborium-io-0.2.2/Cargo.toml.orig:18", "programs/vendor/ciborium-ll-0.2.2/Cargo.toml.orig:18", "programs/vendor/criterion-plot-0.5.0/src/lib.rs:367", "programs/vendor/downcast-rs-1.2.1/CHANGELOG.md:10", "programs/vendor/form_urlencoded-1.2.2/src/lib.rs:400", "programs/vendor/group-0.13.0/.github/workflows/ci.yml:6", "programs/vendor/half-2.7.1/CHANGELOG.md:28", "programs/vendor/half-2.7.1/src/lib.rs:230", "programs/vendor/hashbrown-0.12.3/src/map.rs:7360", "programs/vendor/hex-conservative-0.1.2/src/display.rs:42", "programs/vendor/http-1.5.0/src/header/map.rs:1347", "programs/vendor/libc-0.2.189/CHANGELOG.md:849", "programs/vendor/libc-0.2.189/src/lib.rs:173", "programs/vendor/libm-0.2.16/CHANGELOG.md:125", "programs/vendor/libm-0.2.16/src/math/support/float_traits.rs:362", "programs/vendor/log-0.4.34/CHANGELOG.md:89", "programs/vendor/paste-1.0.15/tests/ui/case-warning.stderr:10", "programs/vendor/percent-encoding-2.3.2/src/lib.rs:336", "programs/vendor/proc-macro2-1.0.107/src/fallback.rs:1102", "programs/vendor/regex-1.13.1/CHANGELOG.md:131", "programs/vendor/rustc_version-0.4.1/.github/workflows/rust.yml:46", "programs/vendor/rustix-1.1.4/src/lib.rs:123", "programs/vendor/syn-2.0.119/tests/repo/mod.rs:229", "programs/vendor/syn-3.0.4/src/ty.rs:248", "programs/vendor/syn-3.0.4/tests/repo/mod.rs:36", "programs/vendor/thiserror-2.0.21/tests/ui/unconditional-recursion.stderr:17", "programs/vendor/ureq-3.4.0/.github/workflows/test.yml:12", "programs/vendor/ureq-3.4.0/src/lib.rs:531", "programs/vendor/ureq-proto-0.6.4/.github/workflows/test.yml:10", "programs/vendor/utf8-zero-0.8.1/.github/workflows/ci.yml:12", "programs/vendor/utf8-zero-0.8.1/README.md:51", "programs/vendor/zerocopy-0.8.56/POLICIES.md:51", "programs/vendor/zerocopy-0.8.56/build.rs:12", "programs/vendor/zerocopy-0.8.56/src/lib.rs:224", "programs/vendor/zerocopy-0.8.56/src/macros.rs:134", "programs/vendor/zerocopy-0.8.56/src/util/macros.rs:416", "programs/vendor/zerocopy-derive-0.8.56/src/lib.rs:17", "programs/vendor/zerocopy-derive-0.8.56/src/util.rs:806", "programs/vendor/zerocopy-derive-0.8.56/tests/enum_try_from_bytes.rs:654", "programs/vendor/zerocopy-derive-0.8.56/tests/hygiene.rs:98", "programs/vendor/zerocopy-derive-0.8.56/tests/ui/absence_of_deprecated_warning.msrv.stderr:7", "programs/vendor/zerocopy-derive-0.8.56/tests/ui/absence_of_deprecated_warning.nightly.stderr:7", "programs/vendor/zerocopy-derive-0.8.56/tests/ui/absence_of_deprecated_warning.stable.stderr:7", "programs/vendor/zerovec-derive-0.11.6/src/make_ule.rs:252", "scripts/ci/runner-routing-check.sh:21", "scripts/ci/xweb-workflow-check.sh:154", "scripts/explorer/gate-lint.sh:3", "scripts/explorer/gate-test.sh:63", "scripts/explorer/lint-backend.sh:3", "scripts/explorer/lint-frontend.sh:2", "scripts/gates/test_wave_0.py:30", "scripts/gates/test_wave_6.py:18", "scripts/gates/wave-0.sh:6", "scripts/gates/wave-6.sh:7", "scripts/programs/program-fixtures.sh:20", "scripts/qualification/paxeer-x/reference-custody.py:80", "scripts/wallet/gate-lint.sh:4", "sdk/Makefile:102", "sdk/chainflow/rust/Cargo.toml:56", "sdk/integrations/android/sample-app/gradle/verification-metadata.xml:320", "sdk/proto/cosmos/base/abci/v1beta1/abci.proto:113", "sdk/storev2/rootmulti/store_test.go:388", "sdk/types/abci.pb.go:343", "sdk/wallet/package.json:33", "services/agent/README.md:43", "services/explorer/README.md:102", "services/explorer/backend/README.md:55", "services/explorer/deploy/tools/mix-in-builder.sh:6", "services/explorer/services/sig-provider/README.md:40", "services/explorer/services/smart-contract-verifier/README.md:40", "services/human/README.md:24", "services/human/crates/layerx-human-kms/tests/proof_human_kms.rs:10", "services/human/tools/copy-lint/Cargo.lock:6", "services/human/tools/copy-lint/Cargo.toml:2", "services/human/tools/copy-lint/src/main.rs:449", "services/interop/README.md:60", "services/launchpad/Makefile:5", "services/launchpad/livestream/PROGRESS.md:45", "services/platform/Makefile.inc:7", "services/platform/tools/workspace-gate/src/main.rs:19", "services/platform/workspace.kvx:39", "services/wallet/demo/README.md:26", "services/wallet/demo/package.json:11", "services/wallet/gateway/package.json:19", "services/wallet/package.json:13", "storage/state_db/sc/memiavl/multitree.go:221", "tests/ci/test_runner_routing_container_runtime.py:46", "tests/explorer/gate-test-test.sh:131", "tests/wallet/gate.test.sh:6", "tools/ci/tests/test_wallet_gate_targets.py:9", "tools/jev/tests/test_ledger.py:60", "tools/loadtest/Makefile:33", "tools/loadtest/README.md:185", "tools/paxctl/.github/workflows/uci-lint.yml:18", "tools/paxctl/CLAUDE.md:53", "tools/paxctl/Makefile:16", "tools/paxctl/go.sum:1718", "tools/paxeer-x/gates/104.28.1.sh:83", "tools/paxeer-x/gates/104.33.4.sh:33", "tools/paxeer-x/gates/104.33.5.sh:33", "tools/paxeer-x/gates/110.8.2.sh:60", "tools/platform/cli/src/programs.rs:190", "tools/qualification/paxeer-x/external_custody.py:15", "tools/qualification/paxeer-x/programs_language_abi.py:209", "tools/qualification/release_runner.py:262", "tools/qualification/test_release_runner.py:61", "tools/uci/.github/workflows/go-lint.yml:12", "tools/uci/README.md:5", "wasm-runtime/Makefile:157", "wasm/Makefile:79", "wasm/contrib/devtools/Makefile:52", "wasm/contrib/devtools/README.md:4"]
+
+[row.r15-96.7]
+interface = "interface.15.cli-consensus-cmd-tendermint-commands-inspect-j57"
+verdict = "served"
+path = "consensus/cmd/tendermint/commands/inspect.go"
+line = 19
+symbol = "inspect"
+evidence = "Use: \"inspect\" remains at line 19 in MakeInspectCommand; the command literal has no signature change. RunE now refuses ErrAutobahnOfflineStore when conf.AutobahnConfigFile is set, at lines 31-32."
+
+[row.r15-96.8]
+interface = "interface.15.cli-consensus-cmd-tendermint-commands-reindex-event-j57"
+verdict = "served"
+path = "consensus/cmd/tendermint/commands/reindex_event.go"
+line = 40
+symbol = "reindex-event"
+evidence = "Use: \"reindex-event\" moved from line 38 to line 40 without a command signature change. MakeReindexEventCommand calls loadStateAndBlockStore, which now refuses Autobahn configurations at lines 151-153."
+
+[row.r15-96.9]
+interface = "interface.15.cli-consensus-cmd-tendermint-commands-blockchain-j57"
+verdict = "served"
+path = "consensus/cmd/tendermint/commands/reset.go"
+line = 28
+symbol = "blockchain"
+evidence = "Use: \"blockchain\" remains at line 28 as the reset blockchain subcommand in MakeResetCommand. No command signature change; RunE still calls ResetState(conf.DBDir())."
+
+[row.r15-96.10]
+interface = "interface.15.go-consensus-cmd-tendermint-commands-load-tendermint-state-j57"
+verdict = "served"
+path = "consensus/cmd/tendermint/commands/rollback.go"
+line = 12
+symbol = "LoadTendermintState"
+evidence = "Declaration remains func LoadTendermintState(config *config.Config) (state.State, error) at line 12; no parameter or result change. Its loadStateAndBlockStore helper now rejects Autobahn configurations in reindex_event.go:151-153."
+
+[row.r15-96.11]
+interface = "interface.15.go-consensus-cmd-tendermint-commands-rollback-state-to-target-height-j57"
+verdict = "served"
+path = "consensus/cmd/tendermint/commands/rollback.go"
+line = 32
+symbol = "RollbackStateToTargetHeight"
+evidence = "Declaration remains func RollbackStateToTargetHeight(config *config.Config, removeBlock bool, targetHeight int64) (int64, []byte, error) at line 32; no signature change. Its shared store loader now rejects Autobahn configurations in reindex_event.go:151-153."
+
+[row.r15-96.12]
+interface = "interface.15.go-consensus-internal-pubsub-query-syntax-t-tag-j57"
+verdict = "served"
+path = "consensus/internal/pubsub/query/syntax/scanner.go"
+line = 18
+symbol = "TTag"
+evidence = "Current grouped declaration is TTag // field tag: x.y at line 18; the registered identifier and its type or value are unchanged."
+
+[row.r15-96.13]
+interface = "interface.15.go-consensus-internal-pubsub-query-syntax-t-number-j57"
+verdict = "served"
+path = "consensus/internal/pubsub/query/syntax/scanner.go"
+line = 20
+symbol = "TNumber"
+evidence = "Current grouped declaration is TNumber // number: 0, 15.5, 100 at line 20; the registered identifier and its type or value are unchanged."
+
+[row.r15-96.14]
+interface = "interface.15.go-consensus-internal-pubsub-query-syntax-t-date-j57"
+verdict = "served"
+path = "consensus/internal/pubsub/query/syntax/scanner.go"
+line = 22
+symbol = "TDate"
+evidence = "Current grouped declaration is TDate // datestamp: DATE yyyy-mm-dd at line 22; the registered identifier and its type or value are unchanged."
+
+[row.r15-96.15]
+interface = "interface.15.go-consensus-internal-pubsub-query-syntax-t-and-j57"
+verdict = "served"
+path = "consensus/internal/pubsub/query/syntax/scanner.go"
+line = 23
+symbol = "TAnd"
+evidence = "Current grouped declaration is TAnd // operator: AND at line 23; the registered identifier and its type or value are unchanged."
+
+[row.r15-96.16]
+interface = "interface.15.go-consensus-internal-pubsub-query-syntax-t-contains-j57"
+verdict = "served"
+path = "consensus/internal/pubsub/query/syntax/scanner.go"
+line = 24
+symbol = "TContains"
+evidence = "Current grouped declaration is TContains // operator: CONTAINS at line 24; the registered identifier and its type or value are unchanged."
+
+[row.r15-96.17]
+interface = "interface.15.go-consensus-internal-pubsub-query-syntax-t-exists-j57"
+verdict = "served"
+path = "consensus/internal/pubsub/query/syntax/scanner.go"
+line = 25
+symbol = "TExists"
+evidence = "Current grouped declaration is TExists // operator: EXISTS at line 25; the registered identifier and its type or value are unchanged."
+
+[row.r15-96.18]
+interface = "interface.15.go-consensus-internal-pubsub-query-syntax-t-eq-j57"
+verdict = "served"
+path = "consensus/internal/pubsub/query/syntax/scanner.go"
+line = 26
+symbol = "TEq"
+evidence = "Current grouped declaration is TEq // operator: = at line 26; the registered identifier and its type or value are unchanged."
+
+[row.r15-96.19]
+interface = "interface.15.go-consensus-internal-pubsub-query-syntax-t-lt-j57"
+verdict = "served"
+path = "consensus/internal/pubsub/query/syntax/scanner.go"
+line = 27
+symbol = "TLt"
+evidence = "Current grouped declaration is TLt // operator: < at line 27; the registered identifier and its type or value are unchanged."
+
+[row.r15-96.20]
+interface = "interface.15.go-consensus-internal-pubsub-query-syntax-t-leq-j57"
+verdict = "served"
+path = "consensus/internal/pubsub/query/syntax/scanner.go"
+line = 28
+symbol = "TLeq"
+evidence = "Current grouped declaration is TLeq // operator: <= at line 28; the registered identifier and its type or value are unchanged."
+
+[row.r15-96.21]
+interface = "interface.15.go-consensus-internal-pubsub-query-syntax-t-gt-j57"
+verdict = "served"
+path = "consensus/internal/pubsub/query/syntax/scanner.go"
+line = 29
+symbol = "TGt"
+evidence = "Current grouped declaration is TGt // operator: > at line 29; the registered identifier and its type or value are unchanged."
+
+[row.r15-96.22]
+interface = "interface.15.go-consensus-internal-pubsub-query-syntax-t-geq-j57"
+verdict = "served"
+path = "consensus/internal/pubsub/query/syntax/scanner.go"
+line = 30
+symbol = "TGeq"
+evidence = "Current grouped declaration is TGeq // operator: >= at line 30; the registered identifier and its type or value are unchanged."
+
+[row.r15-96.23]
+interface = "interface.15.go-consensus-internal-pubsub-query-syntax-t-matches-j57"
+verdict = "served"
+path = "consensus/internal/pubsub/query/syntax/scanner.go"
+line = 31
+symbol = "TMatches"
+evidence = "Current grouped declaration is TMatches // operator: MATCHES at line 31; the registered identifier and its type or value are unchanged."
+
+[row.r15-96.24]
+interface = "interface.15.rpc-consensus-status-j57"
+verdict = "served"
+path = "consensus/internal/rpc/core/routes.go"
+line = 43
+symbol = "status"
+evidence = "Registered \"status\": rpc.NewRPCFunc(svc.Status); current declaration is \"status\": NewRPCFunc(svc.Status) at line 43. Construction changed from rpc.NewRPCFunc to the local NewRPCFunc wrapper, which delegates to rpc.NewRPCFunc at lines 21-22; the route literal and service handler are unchanged."
+
+[row.r15-96.25]
+interface = "interface.15.rpc-consensus-lag-status-j57"
+verdict = "served"
+path = "consensus/internal/rpc/core/routes.go"
+line = 44
+symbol = "lag_status"
+evidence = "Registered \"lag_status\": rpc.NewRPCFunc(svc.LagStatus); current declaration is \"lag_status\": NewRPCFunc(svc.LagStatus) at line 44. Construction changed from rpc.NewRPCFunc to the local NewRPCFunc wrapper, which delegates to rpc.NewRPCFunc at lines 21-22; the route literal and service handler are unchanged."
+
+[row.r15-96.26]
+interface = "interface.15.rpc-consensus-blockchain-j57"
+verdict = "served"
+path = "consensus/internal/rpc/core/routes.go"
+line = 46
+symbol = "blockchain"
+evidence = "Registered \"blockchain\": rpc.NewRPCFunc(svc.BlockchainInfo); current declaration is \"blockchain\": NewRPCFunc(svc.BlockchainInfo) at line 46. Construction changed from rpc.NewRPCFunc to the local NewRPCFunc wrapper, which delegates to rpc.NewRPCFunc at lines 21-22; the route literal and service handler are unchanged."
+
+[row.r15-96.27]
+interface = "interface.15.rpc-consensus-header-j57"
+verdict = "served"
+path = "consensus/internal/rpc/core/routes.go"
+line = 49
+symbol = "header"
+evidence = "Registered \"header\": rpc.NewRPCFunc(svc.Header); current declaration is \"header\": NewRPCFunc(svc.Header) at line 49. Construction changed from rpc.NewRPCFunc to the local NewRPCFunc wrapper, which delegates to rpc.NewRPCFunc at lines 21-22; the route literal and service handler are unchanged."
+
+[row.r15-96.28]
+interface = "interface.15.rpc-consensus-header-by-hash-j57"
+verdict = "served"
+path = "consensus/internal/rpc/core/routes.go"
+line = 50
+symbol = "header_by_hash"
+evidence = "Registered \"header_by_hash\": rpc.NewRPCFunc(svc.HeaderByHash); current declaration is \"header_by_hash\": NewRPCFunc(svc.HeaderByHash) at line 50. Construction changed from rpc.NewRPCFunc to the local NewRPCFunc wrapper, which delegates to rpc.NewRPCFunc at lines 21-22; the route literal and service handler are unchanged."
+
+[row.r15-96.29]
+interface = "interface.15.rpc-consensus-commit-j57"
+verdict = "served"
+path = "consensus/internal/rpc/core/routes.go"
+line = 54
+symbol = "commit"
+evidence = "Registered \"commit\": rpc.NewRPCFunc(svc.Commit); current declaration is \"commit\": NewRPCFunc(svc.Commit) at line 54. Construction changed from rpc.NewRPCFunc to the local NewRPCFunc wrapper, which delegates to rpc.NewRPCFunc at lines 21-22; the route literal and service handler are unchanged."
+
+[row.r15-96.30]
+interface = "interface.15.rpc-consensus-tx-j57"
+verdict = "served"
+path = "consensus/internal/rpc/core/routes.go"
+line = 56
+symbol = "tx"
+evidence = "Registered \"tx\": rpc.NewRPCFunc(svc.Tx); current declaration is \"tx\": NewRPCFunc(svc.Tx) at line 56. Construction changed from rpc.NewRPCFunc to the local NewRPCFunc wrapper, which delegates to rpc.NewRPCFunc at lines 21-22; the route literal and service handler are unchanged."
+
+[row.r15-96.31]
+interface = "interface.15.rpc-consensus-tx-search-j57"
+verdict = "served"
+path = "consensus/internal/rpc/core/routes.go"
+line = 57
+symbol = "tx_search"
+evidence = "Registered \"tx_search\": rpc.NewRPCFunc(svc.TxSearch); current declaration is \"tx_search\": NewRPCFunc(svc.TxSearch) at line 57. Construction changed from rpc.NewRPCFunc to the local NewRPCFunc wrapper, which delegates to rpc.NewRPCFunc at lines 21-22; the route literal and service handler are unchanged."
+
+[row.r15-96.32]
+interface = "interface.15.rpc-consensus-block-search-j57"
+verdict = "served"
+path = "consensus/internal/rpc/core/routes.go"
+line = 58
+symbol = "block_search"
+evidence = "Registered \"block_search\": rpc.NewRPCFunc(svc.BlockSearch); current declaration is \"block_search\": NewRPCFunc(svc.BlockSearch) at line 58. Construction changed from rpc.NewRPCFunc to the local NewRPCFunc wrapper, which delegates to rpc.NewRPCFunc at lines 21-22; the route literal and service handler are unchanged."
+
+[row.r15-96.33]
+interface = "interface.15.rpc-consensus-dump-consensus-state-j57"
+verdict = "served"
+path = "consensus/internal/rpc/core/routes.go"
+line = 60
+symbol = "dump_consensus_state"
+evidence = "Registered \"dump_consensus_state\": rpc.NewRPCFunc(svc.DumpConsensusState); current declaration is \"dump_consensus_state\": NewRPCFunc(svc.DumpConsensusState) at line 60. Construction changed from rpc.NewRPCFunc to the local NewRPCFunc wrapper, which delegates to rpc.NewRPCFunc at lines 21-22; the route literal and service handler are unchanged."
+
+[row.r15-96.34]
+interface = "interface.15.rpc-consensus-consensus-state-j57"
+verdict = "served"
+path = "consensus/internal/rpc/core/routes.go"
+line = 61
+symbol = "consensus_state"
+evidence = "Registered \"consensus_state\": rpc.NewRPCFunc(svc.GetConsensusState); current declaration is \"consensus_state\": NewRPCFunc(svc.GetConsensusState) at line 61. Construction changed from rpc.NewRPCFunc to the local NewRPCFunc wrapper, which delegates to rpc.NewRPCFunc at lines 21-22; the route literal and service handler are unchanged."
+
+[row.r15-96.35]
+interface = "interface.15.rpc-consensus-consensus-params-j57"
+verdict = "served"
+path = "consensus/internal/rpc/core/routes.go"
+line = 62
+symbol = "consensus_params"
+evidence = "Registered \"consensus_params\": rpc.NewRPCFunc(svc.ConsensusParams); current declaration is \"consensus_params\": NewRPCFunc(svc.ConsensusParams) at line 62. Construction changed from rpc.NewRPCFunc to the local NewRPCFunc wrapper, which delegates to rpc.NewRPCFunc at lines 21-22; the route literal and service handler are unchanged."
+
+[row.r15-96.36]
+interface = "interface.15.rpc-consensus-broadcast-evidence-j57"
+verdict = "served"
+path = "consensus/internal/rpc/core/routes.go"
+line = 79
+symbol = "broadcast_evidence"
+evidence = "Registered \"broadcast_evidence\": rpc.NewRPCFunc(svc.BroadcastEvidence); current declaration is \"broadcast_evidence\": NewRPCFunc(svc.BroadcastEvidence) at line 79. Construction changed from rpc.NewRPCFunc to the local NewRPCFunc wrapper, which delegates to rpc.NewRPCFunc at lines 21-22; the route literal and service handler are unchanged."
+
+[row.r15-96.37]
+interface = "interface.15.go-consensus-light-provider-http-new-j57"
+verdict = "served"
+path = "consensus/light/provider/http/http.go"
+line = 68
+symbol = "New"
+evidence = "Declaration remains func New(chainID, remote string) (provider.Provider, error) at line 68; no signature change. It delegates to NewWithOptions with defaultOptions, including the five-second timeout."
+
+[row.r15-96.38]
+interface = "interface.15.go-consensus-light-provider-http-new-with-client-j57"
+verdict = "served"
+path = "consensus/light/provider/http/http.go"
+line = 88
+symbol = "NewWithClient"
+evidence = "Declaration remains func NewWithClient(chainID string, client rpcclient.RemoteClient) provider.Provider at line 88; no signature change. It delegates to NewWithClientAndOptions using defaultOptions."
+
+[row.r15-96.39]
+interface = "interface.15.go-consensus-rpc-coretypes-result-subscribe-j57"
+verdict = "served"
+path = "consensus/rpc/coretypes/responses.go"
+line = 364
+symbol = "ResultSubscribe"
+evidence = "Current grouped declaration is ResultSubscribe struct{} at line 364; the registered identifier and its type or value are unchanged."
+
+[row.r15-96.40]
+interface = "interface.15.go-consensus-rpc-coretypes-result-unsubscribe-j57"
+verdict = "served"
+path = "consensus/rpc/coretypes/responses.go"
+line = 365
+symbol = "ResultUnsubscribe"
+evidence = "Current grouped declaration is ResultUnsubscribe struct{} at line 365; the registered identifier and its type or value are unchanged."
+
+[row.r15-96.41]
+interface = "interface.15.go-consensus-rpc-coretypes-result-health-j57"
+verdict = "served"
+path = "consensus/rpc/coretypes/responses.go"
+line = 366
+symbol = "ResultHealth"
+evidence = "Current grouped declaration is ResultHealth struct{} at line 366; the registered identifier and its type or value are unchanged."
+
+[row.r15-96.42]
+interface = "interface.15.go-consensus-rpc-jsonrpc-types-code-parse-error-j57"
+verdict = "served"
+path = "consensus/rpc/jsonrpc/types/types.go"
+line = 30
+symbol = "CodeParseError"
+evidence = "Current grouped declaration is CodeParseError ErrorCode = -32700 // Invalid JSON received by the server at line 30; the registered identifier and its type or value are unchanged."
+
+[row.r15-96.43]
+interface = "interface.15.go-consensus-rpc-jsonrpc-types-code-invalid-params-j57"
+verdict = "served"
+path = "consensus/rpc/jsonrpc/types/types.go"
+line = 33
+symbol = "CodeInvalidParams"
+evidence = "Current grouped declaration is CodeInvalidParams ErrorCode = -32602 // Invalid method parameters at line 33; the registered identifier and its type or value are unchanged."
+
+[row.r15-96.44]
+interface = "interface.15.go-consensus-rpc-jsonrpc-types-code-internal-error-j57"
+verdict = "served"
+path = "consensus/rpc/jsonrpc/types/types.go"
+line = 34
+symbol = "CodeInternalError"
+evidence = "Current grouped declaration is CodeInternalError ErrorCode = -32603 // Internal JSON-RPC error at line 34; the registered identifier and its type or value are unchanged."
+
+[row.r15-96.45]
+interface = "interface.15.fmt-consensus-rpc-openapi-j57"
+verdict = "served"
+path = "consensus/rpc/openapi/openapi.yaml"
+line = 1
+symbol = "openapi: 3.0.0"
+evidence = "The document still declares openapi: 3.0.0 at line 1; no format-version signature change. The obsolete /dial_peers and /dial_seeds paths noted by the registry are absent; the paths block starts at line 81."
+
+[row.r15-96.46]
+interface = "interface.15.go-consensus-test-e2e-pkg-evidence-age-height-j57"
+verdict = "served"
+path = "consensus/test/e2e/pkg/testnet.go"
+line = 50
+symbol = "EvidenceAgeHeight"
+evidence = "Current grouped declaration is EvidenceAgeHeight int64 = 7 at line 50; the registered identifier and its type or value are unchanged."
+
+[row.r15-96.47]
+interface = "interface.15.go-consensus-test-e2e-pkg-evidence-age-time-j57"
+verdict = "served"
+path = "consensus/test/e2e/pkg/testnet.go"
+line = 51
+symbol = "EvidenceAgeTime"
+evidence = "Current grouped declaration is EvidenceAgeTime time.Duration = 500 * time.Millisecond at line 51; the registered identifier and its type or value are unchanged."
+
+[row.r15-96.48]
+interface = "interface.15.go-consensus-version-tm-version-j57"
+verdict = "served"
+path = "consensus/version/version.go"
+line = 26
+symbol = "TMVersion"
+evidence = "Registered TMVersion = TMVersionDefault is now explicitly declared var TMVersion = TMVersionDefault at line 26, outside the const block. The default value remains TMVersionDefault and the variable supports the Makefile -X linker override."
+
+[row.r15-96.49]
+interface = "interface.15.go-interchain-testing-trusting-period-j57"
+verdict = "served"
+path = "interchain/testing/values.go"
+line = 25
+symbol = "TrustingPeriod"
+evidence = "Current grouped declaration is TrustingPeriod time.Duration = time.Hour * 24 * 7 * 2 at line 25; the registered identifier and its type or value are unchanged."
+
+[row.r15-96.50]
+interface = "interface.15.go-interchain-testing-unbonding-period-j57"
+verdict = "served"
+path = "interchain/testing/values.go"
+line = 26
+symbol = "UnbondingPeriod"
+evidence = "Current grouped declaration is UnbondingPeriod time.Duration = time.Hour * 24 * 7 * 3 at line 26; the registered identifier and its type or value are unchanged."
+
+[row.r15-96.51]
+interface = "interface.15.go-interchain-testing-max-clock-drift-j57"
+verdict = "served"
+path = "interchain/testing/values.go"
+line = 27
+symbol = "MaxClockDrift"
+evidence = "Current grouped declaration is MaxClockDrift time.Duration = time.Second * 10 at line 27; the registered identifier and its type or value are unchanged."

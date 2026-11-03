@@ -1,0 +1,493 @@
+[reconcile.r12-74]
+revision = "0b17e0748b8a5c1506383faf11209f4f35235885"
+rows = 60
+
+[row.r12-74.1]
+interface = "interface.12.ts-app-account-view"
+verdict = "served"
+path = "apps/wallet/src/account/AccountView.tsx"
+line = 20
+symbol = "AccountView"
+evidence = "export function AccountView({ account }: { account: string }) retains its signature; its document fields now read nested ChainAccount.account and ChainAccount.paxeer rather than the former unified fields."
+
+[row.r12-74.2]
+interface = "interface.12.ts-app-asset-list"
+verdict = "served"
+path = "apps/wallet/src/account/AssetList.tsx"
+line = 34
+symbol = "AssetList"
+evidence = "export function AssetList({ account }: { account: string }) drops assets?: readonly CompletionAsset[]; it loads getBankBalances and listBankAssets and renders each bank denom with its metadata."
+
+[row.r12-74.3]
+interface = "interface.12.ts-app-history-view"
+verdict = "served"
+path = "apps/wallet/src/account/HistoryView.tsx"
+line = 37
+symbol = "HistoryView"
+evidence = "export function HistoryView({ account, pageSize = 20 }: { account: string; pageSize?: number }) keeps its signature; the item type is now ChainHistoryItem and pagination calls endpoint.getChainHistory."
+
+[row.r12-74.4]
+interface = "interface.12.ts-app-kernel-notice"
+verdict = "served"
+path = "apps/wallet/src/account/KernelNotice.tsx"
+line = 6
+symbol = "KernelNotice"
+evidence = "export function KernelNotice({ gate, className }: { gate: KernelGate; className?: string }) keeps its signature; an open gate now says the chain node is available and a closed gate requires a nonempty reason."
+
+[row.r12-74.5]
+interface = "interface.12.ts-app-kernel-plan-props"
+verdict = "served"
+path = "apps/wallet/src/account/KernelPlan.tsx"
+line = 57
+symbol = "KernelPlanProps"
+evidence = "export interface KernelPlanProps now includes readonly address: string alongside account, now?: () => number and idempotencyKey?: () => string; the address is required for the sequence read."
+
+[row.r12-74.6]
+interface = "interface.12.ts-app-leg-bindings"
+verdict = "served"
+path = "apps/wallet/src/account/KernelPlan.tsx"
+line = 74
+symbol = "legBindings"
+evidence = "export function legBindings(plan: IntentPlan, document: UnifiedAccountDocument, sequence: number, window: { notBefore: number; notAfter: number }, maxFee: { amount: string; currency: string }): IntentLegBinding[] remains declared; its caller now passes the nested ChainAccount.account document."
+
+[row.r12-74.7]
+interface = "interface.12.ts-app-kernel-plan"
+verdict = "served"
+path = "apps/wallet/src/account/KernelPlan.tsx"
+line = 185
+symbol = "KernelPlan"
+evidence = "export function KernelPlan({ account, address, now = Date.now, idempotencyKey = newIdempotencyKey }: KernelPlanProps) now destructures the required address prop for kernelReads.getSequence(address); it still plans and submits a human journey."
+
+[row.r12-74.8]
+interface = "interface.12.ts-app-status-ladder"
+verdict = "served"
+path = "apps/wallet/src/account/StatusLadder.tsx"
+line = 32
+symbol = "StatusLadder"
+evidence = "export function StatusLadder({ steps }: { steps: readonly LadderStep[] }) retains its signature; the accepted rung vocabulary is now submitted, receipted and committed, with receipt, explorer and journey evidence sources."
+
+[row.r12-74.9]
+interface = "interface.12.ts-app-transaction-ladder"
+verdict = "served"
+path = "apps/wallet/src/account/StatusLadder.tsx"
+line = 76
+symbol = "TransactionLadder"
+evidence = "export function TransactionLadder({ hash }: { hash: string }) retains its signature; it now reads a sequencer receipt and explorer status, requiring explorer evidence for the committed rung."
+
+[row.r12-74.10]
+interface = "interface.12.ts-app-completion-assets"
+verdict = "retired"
+path = "apps/wallet/src/account/format.ts"
+line = 10
+symbol = "completionAssets"
+evidence = "completionAssets is absent from account/format.ts, which only exports units. AssetList now discovers bank balances and metadata directly. Repository-wide whole-word search excluding spec and docs found no remaining files."
+remaining_refs = 0
+remaining = []
+
+[row.r12-74.11]
+interface = "interface.12.ts-app-account-hooks-use-kernel-state"
+verdict = "served"
+path = "apps/wallet/src/account/hooks.ts"
+line = 43
+symbol = "useKernelState"
+evidence = "export function useKernelState(): AsyncState<KernelAvailabilityState> & { readonly reload: () => void } keeps its signature and still delegates to kernel.current(); node availability wording changed in the gate helpers."
+
+[row.r12-74.12]
+interface = "interface.12.ts-app-use-account-document"
+verdict = "served"
+path = "apps/wallet/src/account/hooks.ts"
+line = 50
+symbol = "useAccountDocument"
+evidence = "export function useAccountDocument(account: string): AsyncState<ChainAccount> & { readonly reload: () => void } replaces AsyncState<UnifiedAccountDocument>; it now calls kernelReads.getAccount(account) and returns the available result."
+
+[row.r12-74.13]
+interface = "interface.12.ts-app-kernel-gate"
+verdict = "served"
+path = "apps/wallet/src/account/hooks.ts"
+line = 61
+symbol = "KernelGate"
+evidence = "export type KernelGate remains the union { readonly open: true } | { readonly open: false; readonly reason: string; readonly checking?: true }; its shape is retained while gate messages now describe the chain node."
+
+[row.r12-74.14]
+interface = "interface.12.ts-app-kernel-gate-2"
+verdict = "served"
+path = "apps/wallet/src/account/hooks.ts"
+line = 65
+symbol = "kernelGate"
+evidence = "export function kernelGate(state: AsyncState<KernelAvailabilityState>): KernelGate retains its signature; loading and endpoint errors now name the chain node, and ready state delegates to kernelStateGate."
+
+[row.r12-74.15]
+interface = "interface.12.ts-app-kernel-state-gate"
+verdict = "served"
+path = "apps/wallet/src/account/hooks.ts"
+line = 77
+symbol = "kernelStateGate"
+evidence = "export function kernelStateGate(state: KernelAvailabilityState): KernelGate retains its signature; available state opens the gate and unavailable state uses the updated chain-node reason text."
+
+[row.r12-74.16]
+interface = "interface.12.ts-app-kernel-reason-text"
+verdict = "served"
+path = "apps/wallet/src/account/hooks.ts"
+line = 82
+symbol = "kernelReasonText"
+evidence = "export function kernelReasonText(state: KernelAvailabilityState): string retains its signature; its messages now describe chain-node availability and consensus_unavailable says the node is catching up or unreachable."
+
+[row.r12-74.17]
+interface = "interface.12.http-app-page-account-history"
+verdict = "served"
+path = "apps/wallet/src/app/account/history/page.tsx"
+line = 6
+symbol = "AccountHistoryPage"
+evidence = "GET /account/history still uses export default function AccountHistoryPage() with no arguments; its unchanged signature now leads to the chain-history HistoryView and a chain-history sign-in prompt."
+
+[row.r12-74.18]
+interface = "interface.12.ts-app-account-history-page"
+verdict = "served"
+path = "apps/wallet/src/app/account/history/page.tsx"
+line = 6
+symbol = "AccountHistoryPage"
+evidence = "export default function AccountHistoryPage() retains its signature and renders HistoryView with wallet.address; the view now reads ChainHistoryItem pages rather than joined unified history."
+
+[row.r12-74.19]
+interface = "interface.12.http-app-page-account"
+verdict = "served"
+path = "apps/wallet/src/app/account/page.tsx"
+line = 13
+symbol = "AccountPage"
+evidence = "GET /account still uses export default function AccountPage() with no arguments; the signature is retained and the page composes the current AccountView and bank-backed AssetList with history and plan links."
+
+[row.r12-74.20]
+interface = "interface.12.ts-app-account-page"
+verdict = "served"
+path = "apps/wallet/src/app/account/page.tsx"
+line = 13
+symbol = "AccountPage"
+evidence = "export default function AccountPage() retains its signature; the authenticated page passes wallet.address to the current chain-account AccountView and bank-backed AssetList."
+
+[row.r12-74.21]
+interface = "interface.12.http-app-page-account-plan"
+verdict = "served"
+path = "apps/wallet/src/app/account/plan/page.tsx"
+line = 6
+symbol = "AccountPlanPage"
+evidence = "GET /account/plan still uses export default function AccountPlanPage() with no arguments; the signature is retained but KernelPlan now receives both account={wallet.address} and address={wallet.address}."
+
+[row.r12-74.22]
+interface = "interface.12.ts-app-account-plan-page"
+verdict = "served"
+path = "apps/wallet/src/app/account/plan/page.tsx"
+line = 6
+symbol = "AccountPlanPage"
+evidence = "export default function AccountPlanPage() retains its signature; its KernelPlan child now requires the additional address prop and receives the wallet address for both account and address."
+
+[row.r12-74.23]
+interface = "interface.12.http-app-get-api-health"
+verdict = "served"
+path = "apps/wallet/src/app/api/health/route.ts"
+line = 99
+symbol = "GET"
+evidence = "GET /api/health is implemented by export async function GET(request: Request); readiness now calls gateway /healthz and validates the wallet service response, replacing the stale /v1/wallet/health probe, while mode=liveness returns early."
+
+[row.r12-74.24]
+interface = "interface.12.err-app-media-url-invalid"
+verdict = "served"
+path = "apps/wallet/src/app/api/media/route.ts"
+line = 22
+symbol = "MEDIA_URL_INVALID"
+evidence = "return publicError(400, 'MEDIA_URL_INVALID', 'Media URL is not allowed') is still emitted when parseHttpsUrl rejects the media URL."
+
+[row.r12-74.25]
+interface = "interface.12.err-app-media-upstream-failed"
+verdict = "served"
+path = "apps/wallet/src/app/api/media/route.ts"
+line = 35
+symbol = "MEDIA_UPSTREAM_FAILED"
+evidence = "return publicError(502, 'MEDIA_UPSTREAM_FAILED', 'Media is unavailable') remains on both upstream HTTP failure and the general exception path."
+
+[row.r12-74.26]
+interface = "interface.12.err-app-media-type-rejected"
+verdict = "served"
+path = "apps/wallet/src/app/api/media/route.ts"
+line = 39
+symbol = "MEDIA_TYPE_REJECTED"
+evidence = "return publicError(415, 'MEDIA_TYPE_REJECTED', 'Media type is not allowed') remains the response for absent or disallowed media content types."
+
+[row.r12-74.27]
+interface = "interface.12.err-app-campaign-invalid"
+verdict = "served"
+path = "apps/wallet/src/app/api/push/cron/route.ts"
+line = 44
+symbol = "CAMPAIGN_INVALID"
+evidence = "HttpBoundaryError(400, 'CAMPAIGN_INVALID', 'Campaign is invalid') remains in campaign validation, including the invalid campaign object branch."
+
+[row.r12-74.28]
+interface = "interface.12.err-app-notification-invalid"
+verdict = "served"
+path = "apps/wallet/src/app/api/push/notify-tx/route.ts"
+line = 12
+symbol = "NOTIFICATION_INVALID"
+evidence = "HttpBoundaryError(400, 'NOTIFICATION_INVALID', 'Notification is invalid') remains the notification object validation refusal and is also used for invalid fields."
+
+[row.r12-74.29]
+interface = "interface.12.err-app-push-invalid"
+verdict = "served"
+path = "apps/wallet/src/app/api/push/send/route.ts"
+line = 27
+symbol = "PUSH_INVALID"
+evidence = "HttpBoundaryError(400, 'PUSH_INVALID', `${name} is invalid`) remains the invalid push-field refusal; the same code is used for malformed push requests."
+
+[row.r12-74.30]
+interface = "interface.12.err-app-push-target-invalid"
+verdict = "served"
+path = "apps/wallet/src/app/api/push/send/route.ts"
+line = 79
+symbol = "PUSH_TARGET_INVALID"
+evidence = "HttpBoundaryError(400, 'PUSH_TARGET_INVALID', 'Push target is invalid') remains in push-target validation, with further branches reusing the same code."
+
+[row.r12-74.31]
+interface = "interface.12.err-app-address-invalid"
+verdict = "served"
+path = "apps/wallet/src/app/api/token-icon/[address]/route.ts"
+line = 19
+symbol = "ADDRESS_INVALID"
+evidence = "return publicError(400, 'ADDRESS_INVALID', 'Token address is invalid') remains the token-icon endpoint refusal for an invalid address."
+
+[row.r12-74.32]
+interface = "interface.12.err-app-token-icon-not-found"
+verdict = "served"
+path = "apps/wallet/src/app/api/token-icon/[address]/route.ts"
+line = 27
+symbol = "TOKEN_ICON_NOT_FOUND"
+evidence = "return publicError(404, 'TOKEN_ICON_NOT_FOUND', 'Token icon was not found') remains the token-icon endpoint response for a missing icon."
+
+[row.r12-74.33]
+interface = "interface.12.err-app-query-invalid"
+verdict = "served"
+path = "apps/wallet/src/app/api/token-metadata/route.ts"
+line = 139
+symbol = "QUERY_INVALID"
+evidence = "return publicError(400, 'QUERY_INVALID', 'Query is invalid') remains the token-metadata endpoint response when parsing its query fails."
+
+[row.r12-74.34]
+interface = "interface.12.ts-app-privacy-policy-page"
+verdict = "served"
+path = "apps/wallet/src/app/privacy/page.tsx"
+line = 8
+symbol = "PrivacyPage"
+evidence = "The privacy route now declares export default function PrivacyPage() at line 8; the former default function identifier PrivacyPolicyPage has been renamed, while the file still renders the Privacy Policy page."
+
+[row.r12-74.35]
+interface = "interface.12.ts-app-transfer-success"
+verdict = "served"
+path = "apps/wallet/src/components/TransferSuccess.tsx"
+line = 220
+symbol = "TransferSuccess"
+evidence = "export function TransferSuccess(props: TransferSuccessProps) is present; props now carry a TransferIdentity and onDone(terminal: boolean), and the component observes transfer truth before rendering the status result."
+
+[row.r12-74.36]
+interface = "interface.12.ts-app-pns-contracts"
+verdict = "retired"
+path = "apps/wallet/src/lib/pns.ts"
+line = 16
+symbol = "PNS_CONTRACTS"
+evidence = "PNS_CONTRACTS is absent from lib/pns.ts. readPnsContracts() now validates the three configured contract addresses and throws PnsNotConfiguredError when missing. Repository-wide whole-word search excluding spec and docs found no remaining files."
+remaining_refs = 0
+remaining = []
+
+[row.r12-74.37]
+interface = "interface.12.ts-app-lib-swap-executor-execute-swap"
+verdict = "served"
+path = "apps/wallet/src/lib/swap/executor.ts"
+line = 55
+symbol = "executeSwap"
+evidence = "export async function executeSwap(signer: ethers.Signer, quote: SwapQuote, params: SwapParams): Promise<SwapResult> returns hash plus ethers.TransactionReceipt; protocol branches await tx.wait(), and a reverted receipt raises SwapRevertedError."
+
+[row.r12-74.38]
+interface = "interface.12.key-app-sw-cache-names"
+verdict = "served"
+path = "apps/wallet/src/pwa/caching.ts"
+line = 51
+symbol = "cacheNames"
+evidence = "export function cacheNames(version: string): CacheNames still returns shell and static Cache Storage names using CACHE_PREFIX and the supplied version; staleCaches retains those two current caches."
+
+[row.r12-74.39]
+interface = "interface.12.evt-app-sw-handler-install"
+verdict = "served"
+path = "apps/wallet/src/pwa/sw.ts"
+line = 127
+symbol = "install"
+evidence = "scope.addEventListener('install', (event) => ...) is registered at line 127 and waits for precache() to finish."
+
+[row.r12-74.40]
+interface = "interface.12.evt-app-sw-handler-activate"
+verdict = "served"
+path = "apps/wallet/src/pwa/sw.ts"
+line = 131
+symbol = "activate"
+evidence = "scope.addEventListener('activate', (event) => ...) is registered at line 131 and waits for purge() to finish."
+
+[row.r12-74.41]
+interface = "interface.12.evt-app-sw-handler-fetch"
+verdict = "served"
+path = "apps/wallet/src/pwa/sw.ts"
+line = 135
+symbol = "fetch"
+evidence = "scope.addEventListener('fetch', (event) => ...) is registered at line 135 and dispatches requests according to strategyFor."
+
+[row.r12-74.42]
+interface = "interface.12.evt-app-sw-handler-message"
+verdict = "served"
+path = "apps/wallet/src/pwa/sw.ts"
+line = 148
+symbol = "message"
+evidence = "scope.addEventListener('message', (event) => ...) is registered at line 148 and handles SKIP_WAITING by waiting for scope.skipWaiting()."
+
+[row.r12-74.43]
+interface = "interface.12.evt-app-sw-handler-push"
+verdict = "served"
+path = "apps/wallet/src/pwa/sw.ts"
+line = 155
+symbol = "push"
+evidence = "scope.addEventListener('push', (event) => ...) remains registered at line 155 and parses notification payloads before showing a notification."
+
+[row.r12-74.44]
+interface = "interface.12.evt-app-sw-handler-notificationclick"
+verdict = "served"
+path = "apps/wallet/src/pwa/sw.ts"
+line = 176
+symbol = "notificationclick"
+evidence = "scope.addEventListener('notificationclick', (event) => ...) remains registered at line 176; it closes the notification and navigates or focuses a window client."
+
+[row.r12-74.45]
+interface = "interface.12.evt-app-sw-paxport-navigate"
+verdict = "served"
+path = "apps/wallet/src/pwa/sw.ts"
+line = 183
+symbol = "PAXPORT_NAVIGATE"
+evidence = "client.postMessage({ type: 'PAXPORT_NAVIGATE', route: target }) remains the navigation message sent to an existing window client on notification click."
+
+[row.r12-74.46]
+interface = "interface.12.evt-app-sw-handler-pushsubscriptionchange"
+verdict = "served"
+path = "apps/wallet/src/pwa/sw.ts"
+line = 192
+symbol = "pushsubscriptionchange"
+evidence = "scope.addEventListener('pushsubscriptionchange', (event) => ...) remains registered at line 192 and renews the old push subscription before informing clients."
+
+[row.r12-74.47]
+interface = "interface.12.evt-app-sw-push-subscription-changed"
+verdict = "served"
+path = "apps/wallet/src/pwa/sw.ts"
+line = 199
+symbol = "PUSH_SUBSCRIPTION_CHANGED"
+evidence = "client.postMessage({ type: 'PUSH_SUBSCRIPTION_CHANGED', subscription: subscription.toJSON() }) remains the renewed-subscription notification to window clients."
+
+[row.r12-74.48]
+interface = "interface.12.err-app-upstream-timeout"
+verdict = "served"
+path = "apps/wallet/src/server/json-proxy.ts"
+line = 62
+symbol = "UPSTREAM_TIMEOUT"
+evidence = "return publicError(504, 'UPSTREAM_TIMEOUT', 'Upstream request timed out') remains the JSON proxy response when its timeout signal is aborted."
+
+[row.r12-74.49]
+interface = "interface.12.err-app-upstream-unavailable"
+verdict = "served"
+path = "apps/wallet/src/server/json-proxy.ts"
+line = 64
+symbol = "UPSTREAM_UNAVAILABLE"
+evidence = "return publicError(502, 'UPSTREAM_UNAVAILABLE', 'Upstream request failed') remains the JSON proxy response for other upstream exceptions."
+
+[row.r12-74.50]
+interface = "interface.12.err-app-method-not-allowed"
+verdict = "served"
+path = "apps/wallet/src/server/wallet-read-proxy.ts"
+line = 102
+symbol = "METHOD_NOT_ALLOWED"
+evidence = "HttpBoundaryError(405, 'METHOD_NOT_ALLOWED', 'Method is not allowed') is now at line 102; walletReadRequest rejects every method other than GET."
+
+[row.r12-74.51]
+interface = "interface.12.err-app-route-invalid"
+verdict = "served"
+path = "apps/wallet/src/server/wallet-read-proxy.ts"
+line = 105
+symbol = "ROUTE_INVALID"
+evidence = "HttpBoundaryError(400, 'ROUTE_INVALID', 'Read route is invalid') is now at line 105; walletReadRequest rejects names absent from ROUTES."
+
+[row.r12-74.52]
+interface = "interface.12.ts-app-launchpad-view"
+verdict = "served"
+path = "apps/wallet/src/surfaces/LaunchpadView.tsx"
+line = 73
+symbol = "LaunchpadView"
+evidence = "export function LaunchpadView({ sidRate, legs, now = Date.now }: LaunchpadViewProps) retains its signature; createdMarket now comes from the MarketCreated receipt event only at the receipted or committed rung."
+
+[row.r12-74.53]
+interface = "interface.12.ts-app-receipt-status"
+verdict = "served"
+path = "apps/wallet/src/surfaces/useSurface.ts"
+line = 61
+symbol = "ReceiptStatus"
+evidence = "export type ReceiptStatus = 'pending' | 'confirmed' | 'reverted' retains the exact union; sequencer progress is now a separate SentTransaction.rung field and this union still describes execution status."
+
+[row.r12-74.54]
+interface = "interface.12.ts-app-sent-transaction"
+verdict = "served"
+path = "apps/wallet/src/surfaces/useSurface.ts"
+line = 63
+symbol = "SentTransaction"
+evidence = "export interface SentTransaction now declares readonly rung: SequencerRung alongside hash, status and events; surfaceReceipt fills those fields from the sequencer receipt returned by the send path."
+
+[row.r12-74.55]
+interface = "interface.12.ts-app-receipt-attempts"
+verdict = "retired"
+path = "apps/wallet/src/surfaces/useSurface.ts"
+line = 58
+symbol = "RECEIPT_ATTEMPTS"
+evidence = "RECEIPT_ATTEMPTS is absent from useSurface.ts after removal of transaction-receipt polling. The sole remaining file is useSurface.test.ts, which explicitly asserts that this export is absent; references were searched repository-wide excluding spec and docs."
+remaining_refs = 1
+remaining = ["apps/wallet/src/surfaces/useSurface.test.ts:7"]
+
+[row.r12-74.56]
+interface = "interface.12.ts-app-receipt-interval-ms"
+verdict = "retired"
+path = "apps/wallet/src/surfaces/useSurface.ts"
+line = 59
+symbol = "RECEIPT_INTERVAL_MS"
+evidence = "RECEIPT_INTERVAL_MS is absent from useSurface.ts after removal of transaction-receipt polling. The sole remaining file is useSurface.test.ts, which explicitly asserts that this export is absent; references were searched repository-wide excluding spec and docs."
+remaining_refs = 1
+remaining = ["apps/wallet/src/surfaces/useSurface.test.ts:8"]
+
+[row.r12-74.57]
+interface = "interface.12.ts-app-receipt-events"
+verdict = "served"
+path = "apps/wallet/src/surfaces/useSurface.ts"
+line = 100
+symbol = "receiptEvents"
+evidence = "export function receiptEvents(receipt: SequencerReceiptAnswer, surfaceModule: Pick<SurfaceModule, 'address' | 'decodeEvent'>): SentTransaction['events'] replaces receipt: unknown with the typed sequencer answer and validates logs before decoding matching addresses."
+
+[row.r12-74.58]
+interface = "interface.12.ts-app-receipt-status-2"
+verdict = "served"
+path = "apps/wallet/src/surfaces/useSurface.ts"
+line = 132
+symbol = "receiptStatus"
+evidence = "export function receiptStatus(receipt: unknown): ReceiptStatus retains its signature; it reads 0x1 as confirmed, 0x0 as reverted and missing status as pending, and is now called on send-path sequencer receipts."
+
+[row.r12-74.59]
+interface = "interface.12.ts-app-wait-for-receipt"
+verdict = "retired"
+path = "apps/wallet/src/surfaces/useSurface.ts"
+line = 96
+symbol = "waitForReceipt"
+evidence = "waitForReceipt is absent from useSurface.ts; direct sends now use sendModuleTransactionReceipted, with waitForSequencerReceipt for sponsored sends. Repository-wide whole-word search excluding spec and docs finds removal assertions and unrelated Go, contract-test and gateway helpers, listed once per file below."
+remaining_refs = 12
+remaining = ["apps/wallet/src/surfaces/useSurface.test.ts:6", "contracts/test/AssociateTest.js:1", "contracts/test/lib.js:147", "rpc/ethclient_transactions_test.go:24", "rpc/tx_test.go:42", "services/wallet/gateway/src/agent/actions/orchestrator.ts:10", "services/wallet/gateway/src/chainReads.ts:308", "services/wallet/gateway/src/provision/bind.ts:307", "services/wallet/gateway/src/provision/state.ts:26", "services/wallet/gateway/test/chain-reads-receipt.test.ts:7", "services/wallet/gateway/test/provisioning.test.ts:556", "tools/loadtest/sender/worker.go:129"]
+
+[row.r12-74.60]
+interface = "interface.12.ts-app-module-send"
+verdict = "served"
+path = "apps/wallet/src/surfaces/useSurface.ts"
+line = 163
+symbol = "ModuleSend"
+evidence = "export interface ModuleSend now includes readonly approving: boolean alongside sending, sent, error and send: (tx: ModuleTransaction) => Promise<void>; useModuleSend returns approval progress and a SentTransaction carrying the sequencer rung."
