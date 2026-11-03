@@ -1,0 +1,227 @@
+[reconcile.r16-213]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 28
+
+[row.r16-213.1]
+interface = "interface.16.env-bringup-bringup-check-live-check-live-interop-rpc"
+verdict = "served"
+path = "tools/bringup/check-live.sh"
+line = 3476
+symbol = "CHECK_LIVE_INTEROP_RPC"
+evidence = "check_interop assigns rpc_url from CHECK_LIVE_INTEROP_RPC with the mainnet-beta RPC default. This is the assignment in the registered signature; the occurrence at 3455 is explanatory commentary."
+
+[row.r16-213.2]
+interface = "interface.16.env-bringup-bringup-check-live-check-live-mirrors-verify-config"
+verdict = "served"
+path = "tools/bringup/check-live.sh"
+line = 3184
+symbol = "$CHECK_LIVE_MIRRORS_VERIFY_CONFIG"
+evidence = "The registered closing argument line of the python3 source-count reader is now 3184: it passes CHECK_LIVE_MIRRORS_VERIFY_CONFIG to json.load. The separate verifier invocation at 3194 and required-variable loop at 3151 are different occurrences."
+
+[row.r16-213.3]
+interface = "interface.16.env-bringup-bringup-check-live-check-live-relay-activity"
+verdict = "served"
+path = "tools/bringup/check-live.sh"
+line = 3385
+symbol = "$CHECK_LIVE_RELAY_ACTIVITY"
+evidence = "The registered reply assignment passes CHECK_LIVE_RELAY_ACTIVITY to the embedded Python request reader at 3385. It reads the signed activity bytes for original and altered submissions; the earlier required-variable loop is not this reader."
+
+[row.r16-213.4]
+interface = "interface.16.env-bringup-bringup-check-live-check-live-relay-key-file"
+verdict = "served"
+path = "tools/bringup/check-live.sh"
+line = 3385
+symbol = "$CHECK_LIVE_RELAY_KEY_FILE"
+evidence = "The registered reply assignment passes CHECK_LIVE_RELAY_KEY_FILE to the embedded Python request reader at 3385. Python opens this file for the LayerX-Key authorization header; the earlier required-variable loop is a separate occurrence."
+
+[row.r16-213.5]
+interface = "interface.16.env-bringup-bringup-check-live-edge-host"
+verdict = "served"
+path = "tools/bringup/check-live.sh"
+line = 1510
+symbol = "EDGE_HOST"
+evidence = "check_edge assigns reply from ssh_read with EDGE_HOST and edge_cmd at 1510, matching the registered signature and status handling. The similar ssh_read at 3686 belongs to check_ramp, so it is not the selected reader."
+
+[row.r16-213.6]
+interface = "interface.16.env-bringup-bringup-check-live-layerx-ramp-ca-pem"
+verdict = "served"
+path = "tools/bringup/check-live.sh"
+line = 3737
+symbol = "LAYERX_RAMP_CA_PEM"
+evidence = "check_ramp declares LAYERX_RAMP_URL and LAYERX_RAMP_CA_PEM together for sandbox-journey.sh at 3737. The CA environment assignment retains the system CA-file default; the later interop-adapter required-variable list is a different occurrence."
+
+[row.r16-213.7]
+interface = "interface.16.env-bringup-bringup-check-live-rpc-hosts"
+verdict = "served"
+path = "tools/bringup/check-live.sh"
+line = 521
+symbol = "$RPC_HOSTS"
+evidence = "check_rpc_nodes reads RPC_HOSTS into the dests array at 521, exactly matching the registered read -r -a dests signature. The placement check at 609 instead reads the same variable into rpcs."
+
+[row.r16-213.8]
+interface = "interface.16.env-bringup-bringup-check-live-t"
+verdict = "served"
+path = "tools/bringup/check-live.sh"
+line = 1768
+symbol = "$T"
+evidence = "The embedded ask function declares the curl request with -m \"$T\", --cacert \"$ca\" and the JSON-RPC method from $2 at 1768. This matches the registered signature; pub at 1772 omits --cacert and uses eth_blockNumber."
+
+[row.r16-213.9]
+interface = "interface.16.env-bringup-bringup-check-live-validator-hosts"
+verdict = "served"
+path = "tools/bringup/check-live.sh"
+line = 610
+symbol = "$VALIDATOR_HOSTS"
+evidence = "check_rpc_placement reads VALIDATOR_HOSTS into the validators array at 610, matching the registered read -r -a validators signature. The other readers at 1316 and 4824 populate dests for separate checks."
+
+[row.r16-213.10]
+interface = "interface.16.cli-qual-qualification-paxeer-x-agent-operation-envelope-opt-argv1"
+verdict = "served"
+path = "tools/qualification/paxeer-x/agent_operation_envelope.py"
+line = 2390
+symbol = "--build"
+evidence = "The old positional sys.argv[1] == --build branch is now modes.add_argument('--build', action='store_true') in main. Argparse disables abbreviation, makes build mutually exclusive with worker, and requires --manifest PATH together with --build; 2390 is the option declaration."
+
+[row.r16-213.11]
+interface = "interface.16.cli-qual-qualification-paxeer-x-agent-operation-envelope-opt-argv2"
+verdict = "served"
+path = "tools/qualification/paxeer-x/agent_operation_envelope.py"
+line = 2392
+symbol = "--manifest"
+evidence = "The old positional sys.argv[2] == --manifest branch is now parser.add_argument('--manifest', metavar='PATH') in main. The pairing check still requires --build with --manifest PATH and dispatches build(args.manifest); 2392 declares the option rather than a diagnostic mention."
+
+[row.r16-213.12]
+interface = "interface.16.cli-qual-qualification-paxeer-x-arbiter-prestate-opt-build"
+verdict = "served"
+path = "tools/qualification/paxeer-x/arbiter_prestate.py"
+line = 260
+symbol = "--build"
+evidence = "main declares parser.add_argument(\"--build\", action=\"store_true\") at 260, matching the registry signature. The neighboring --build-dir declaration is a different option; arguments.build selects the explicit build branch."
+
+[row.r16-213.13]
+interface = "interface.16.cli-qual-qualification-paxeer-x-event-delivery-contract-opt-candidate-manifest"
+verdict = "served"
+path = "tools/qualification/paxeer-x/event-delivery-contract.py"
+line = 2738
+symbol = "--candidate-manifest"
+evidence = "main declares parser.add_argument('--candidate-manifest', required=True) at 2738, retaining the registered required option. Earlier occurrences construct worker commands or record evidence rather than declare the CLI argument."
+
+[row.r16-213.14]
+interface = "interface.16.cli-qual-qualification-paxeer-x-event-delivery-contract-opt-case"
+verdict = "served"
+path = "tools/qualification/paxeer-x/event-delivery-contract.py"
+line = 2737
+symbol = "--case"
+evidence = "main declares parser.add_argument('--case', choices=tuple(CASES), required=True) at 2737, matching the registered signature. Worker command construction and recorded command strings are callers of this declared option."
+
+[row.r16-213.15]
+interface = "interface.16.env-qual-qualification-paxeer-x-event-delivery-contract-layerx-events-kind"
+verdict = "served"
+path = "tools/qualification/paxeer-x/event-delivery-contract.py"
+line = 1785
+symbol = "LAYERX_EVENTS_KIND"
+evidence = "provisioning_inputs retains the registered env.get comparison between LAYERX_EVENTS_KIND and name at 1785, alongside the loopback-listener check. The assignment at 362 and fairness check at 926 describe different occurrences."
+
+[row.r16-213.16]
+interface = "interface.16.env-qual-qualification-paxeer-x-event-delivery-contract-layerx-events-listen"
+verdict = "served"
+path = "tools/qualification/paxeer-x/event-delivery-contract.py"
+line = 1785
+symbol = "LAYERX_EVENTS_LISTEN"
+evidence = "provisioning_inputs checks env.get('LAYERX_EVENTS_LISTEN', '').startswith('127.0.0.1:') at 1785 together with source kind, matching the registered signature. The listener assignment and fairness-case direct indexing are separate occurrences."
+
+[row.r16-213.17]
+interface = "interface.16.env-qual-qualification-paxeer-x-event-delivery-contract-layerx-webhooks-listen"
+verdict = "served"
+path = "tools/qualification/paxeer-x/event-delivery-contract.py"
+line = 1809
+symbol = "LAYERX_WEBHOOKS_LISTEN"
+evidence = "provisioning_inputs retains the registered continuation checking that LAYERX_WEBHOOKS_LISTEN starts with 127.0.0.1: at 1809. It belongs to the private TLS webhook-role validation, rather than environment construction or process port extraction."
+
+[row.r16-213.18]
+interface = "interface.16.env-qual-qualification-paxeer-x-event-delivery-contract-layerx-webhooks-listener"
+verdict = "served"
+path = "tools/qualification/paxeer-x/event-delivery-contract.py"
+line = 1808
+symbol = "LAYERX_WEBHOOKS_LISTENER"
+evidence = "provisioning_inputs retains the registered env.get('LAYERX_WEBHOOKS_LISTENER') != 'tls' condition at 1808. This is the mandatory webhook provisioning validation; role setup, source-text assertions and startup-refusal cases are other occurrences."
+
+[row.r16-213.19]
+interface = "interface.16.env-qual-qualification-paxeer-x-event-delivery-contract-layerx-webhooks-role"
+verdict = "served"
+path = "tools/qualification/paxeer-x/event-delivery-contract.py"
+line = 1807
+symbol = "LAYERX_WEBHOOKS_ROLE"
+evidence = "provisioning_inputs retains the registered comparison of env.get('LAYERX_WEBHOOKS_ROLE') with name.removeprefix('webhook-') at 1807. The public/ingress environment assignments and refusal diagnostics are separate from this validation reader."
+
+[row.r16-213.20]
+interface = "interface.16.env-qual-qualification-paxeer-x-event-delivery-contract-paxeer-x-event-provisioning"
+verdict = "served"
+path = "tools/qualification/paxeer-x/event-delivery-contract.py"
+line = 1704
+symbol = "PAXEER_X_EVENT_PROVISIONING"
+evidence = "provisioning_inputs assigns location = os.environ.get('PAXEER_X_EVENT_PROVISIONING') at 1704, exactly matching the registered signature. The following occurrence at 1706 is the required-input error message."
+
+[row.r16-213.21]
+interface = "interface.16.env-qual-qualification-paxeer-x-event-delivery-contract-paxeer-x-event-provisioning-worker"
+verdict = "served"
+path = "tools/qualification/paxeer-x/event-delivery-contract.py"
+line = 2315
+symbol = "PAXEER_X_EVENT_PROVISIONING_WORKER"
+evidence = "event_principal_provisioning assigns worker = os.environ.get('PAXEER_X_EVENT_PROVISIONING_WORKER') at 2315 and dispatches provisioning_worker. This matches the original provisioning reader; producer_readiness repeats the reader at 2654 and environment.update publishes it to children."
+
+[row.r16-213.22]
+interface = "interface.16.fmt-schema-layerx-event-admission-v1"
+verdict = "served"
+path = "tools/qualification/paxeer-x/event-delivery-contract.py"
+line = 2468
+symbol = "layerx.event-admission.v1"
+evidence = "producer_readiness_checks defines the source admission predicate with value.get('schema') == 'layerx.event-admission.v1' at 2468. This is the first registered schema check for source-producer; the second at 2508 checks the separate webhook-trigger contract."
+
+[row.r16-213.23]
+interface = "interface.16.env-qual-qualification-paxeer-x-fixtures-xweb-fixture-paxeer-x-xweb-artifact"
+verdict = "served"
+path = "tools/qualification/paxeer-x/fixtures/xweb_fixture.py"
+line = 155
+symbol = "PAXEER_X_XWEB_ARTIFACT"
+evidence = "The fixture initializer assigns metadata = os.environ.get(\"PAXEER_X_XWEB_ARTIFACT\", \"\") at 155, matching the registered reader. It then validates the private metadata file and loads the binary artifact; the next occurrence is only the missing-value diagnostic."
+
+[row.r16-213.24]
+interface = "interface.16.env-qual-qualification-paxeer-x-fixtures-xweb-fixture-paxeer-x-xweb-binary"
+verdict = "served"
+path = "tools/qualification/paxeer-x/fixtures/xweb_fixture.py"
+line = 150
+symbol = "PAXEER_X_XWEB_BINARY"
+evidence = "The fixture initializer assigns binary = os.environ.get(\"PAXEER_X_XWEB_BINARY\", \"\") at 150, matching the registered reader. It resolves the executable and validates its presence; the following occurrence is the missing-value diagnostic."
+
+[row.r16-213.25]
+interface = "interface.16.env-qual-qualification-paxeer-x-interop-archive-contract-path"
+verdict = "served"
+path = "tools/qualification/paxeer-x/interop-archive-contract.py"
+line = 1083
+symbol = "PATH"
+evidence = "The former os.environ[\"PATH\"] assignment using python_root/bin is absent. The PATH interface now appears in start as env = dict(PATH=os.environ.get(\"PATH\", \"/usr/bin:/bin\"), ...) before subprocess.Popen; later verification/refusal subprocesses repeat this reader. Line 1083 defines the child environment."
+
+[row.r16-213.26]
+interface = "interface.16.env-qual-qualification-paxeer-x-mcp-binding-listener-paxeer-x-mcp-boot-seconds"
+verdict = "served"
+path = "tools/qualification/paxeer-x/mcp_binding_listener.py"
+line = 224
+symbol = "PAXEER_X_MCP_BOOT_SECONDS"
+evidence = "The listener initializer assigns self.boot_seconds = int(os.environ.get('PAXEER_X_MCP_BOOT_SECONDS', '180')) at 224, matching the registered signature. The next occurrence enforces the existing 10..900 bound rather than reading the value."
+
+[row.r16-213.27]
+interface = "interface.16.cli-qual-qualification-paxeer-x-programs-all-form-validation-opt-manifest"
+verdict = "served"
+path = "tools/qualification/paxeer-x/programs_all_form_validation.py"
+line = 327
+symbol = "--manifest"
+evidence = "main declares parser.add_argument(\"--manifest\", default=os.environ.get(\"PAXEER_X_PROGRAM_VALIDATION_MANIFEST\")) at 327, matching the registered option and default. Earlier --manifest-path strings belong to Cargo subprocess commands, not this CLI option."
+
+[row.r16-213.28]
+interface = "interface.16.env-qual-qualification-paxeer-x-programs-all-form-validation-paxeer-x-program-validation-manifest"
+verdict = "served"
+path = "tools/qualification/paxeer-x/programs_all_form_validation.py"
+line = 327
+symbol = "PAXEER_X_PROGRAM_VALIDATION_MANIFEST"
+evidence = "main reads PAXEER_X_PROGRAM_VALIDATION_MANIFEST as the default for the --manifest argument at 327, matching the registered signature. The occurrence at 249 is a required-manifest diagnostic rather than the environment reader."

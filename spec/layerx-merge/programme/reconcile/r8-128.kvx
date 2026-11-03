@@ -1,0 +1,243 @@
+[reconcile.r8-128]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 30
+
+[row.r8-128.1]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-readmodulestaterequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3149
+symbol = "ReadModuleStateRequest"
+evidence = "AgentOperations declaration at line 3149: public record ReadModuleStateRequest(JsonNode module, JsonNode key, JsonNode requested_verification_level) implements SchemaTypes.GeneratedRequest. The declared component types, names, order and implemented interface match the registered signature. Registered line 3257 has drifted; the selected line is the record declaration, rather than its compact constructor or TypedOperation reference."
+
+[row.r8-128.2]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-readmodulestateresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3156
+symbol = "ReadModuleStateResponse"
+evidence = "AgentOperations declaration at line 3156: public record ReadModuleStateResponse(JsonNode value, JsonNode achieved_verification_level, JsonNode freshness) implements SchemaTypes.GeneratedResponse. The declared component types, names, order and implemented interface match the registered signature. Registered line 3264 has drifted; the selected line is the record declaration, rather than its compact constructor or TypedOperation reference."
+
+[row.r8-128.3]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-readproofbundlerequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3164
+symbol = "ReadProofBundleRequest"
+evidence = "AgentOperations declaration at line 3164: public record ReadProofBundleRequest(JsonNode target, JsonNode requested_verification_level) implements SchemaTypes.GeneratedRequest. The declared component types, names, order and implemented interface match the registered signature. Registered line 3272 has drifted; the selected line is the record declaration, rather than its compact constructor or TypedOperation reference."
+
+[row.r8-128.4]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-readproofbundleresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3170
+symbol = "ReadProofBundleResponse"
+evidence = "AgentOperations declaration at line 3170: public record ReadProofBundleResponse(JsonNode value, JsonNode achieved_verification_level, JsonNode freshness) implements SchemaTypes.GeneratedResponse. The declared component types, names, order and implemented interface match the registered signature. Registered line 3278 has drifted; the selected line is the record declaration, rather than its compact constructor or TypedOperation reference."
+
+[row.r8-128.5]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-sessioncloserequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3178
+symbol = "SessionCloseRequest"
+evidence = "AgentOperations declaration at line 3178: public record SessionCloseRequest(JsonNode session_id, JsonNode context) implements SchemaTypes.GeneratedRequest. The declared component types, names, order and implemented interface match the registered signature. Registered line 3286 has drifted; the selected line is the record declaration, rather than its compact constructor or TypedOperation reference."
+
+[row.r8-128.6]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-sessioncloseresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3184
+symbol = "SessionCloseResponse"
+evidence = "AgentOperations declaration at line 3184: public record SessionCloseResponse(JsonNode authority, JsonNode value) implements SchemaTypes.GeneratedResponse. The declared component types, names, order and implemented interface match the registered signature. Registered line 3292 has drifted; the selected line is the record declaration, rather than its compact constructor or TypedOperation reference."
+
+[row.r8-128.7]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-sessionlistrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3191
+symbol = "SessionListRequest"
+evidence = "AgentOperations declaration at line 3191: public record SessionListRequest(JsonNode context) implements SchemaTypes.GeneratedRequest. The declared component types, names, order and implemented interface match the registered signature. The same-named HumanOperations record has different components; this row names the agent record. Registered line 3299 has drifted; the selected line is the record declaration, rather than its compact constructor or TypedOperation reference."
+
+[row.r8-128.8]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-sessionlistresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3196
+symbol = "SessionListResponse"
+evidence = "AgentOperations declaration at line 3196: public record SessionListResponse(JsonNode authority, JsonNode value) implements SchemaTypes.GeneratedResponse. The declared component types, names, order and implemented interface match the registered signature. The same-named HumanOperations record has different components; this row names the agent record. Registered line 3304 has drifted; the selected line is the record declaration, rather than its compact constructor or TypedOperation reference."
+
+[row.r8-128.9]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-sessionopenrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3203
+symbol = "SessionOpenRequest"
+evidence = "AgentOperations declaration at line 3203: public record SessionOpenRequest(JsonNode context, JsonNode grant_id, JsonNode registration_payload, JsonNode expiry_sequence, JsonNode purpose, JsonNode fee_limit) implements SchemaTypes.GeneratedRequest. The registered context-only request now also declares JsonNode grant_id, registration_payload, expiry_sequence, purpose and fee_limit; the HumanModels and HumanOperations SessionOpenRequest records instead take assertion_id and device. Registered line 3311 has drifted; the selected line is the record declaration, rather than its compact constructor or TypedOperation reference."
+
+[row.r8-128.10]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-sessionopenresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3213
+symbol = "SessionOpenResponse"
+evidence = "AgentOperations declaration at line 3213: public record SessionOpenResponse(JsonNode authority, JsonNode value) implements SchemaTypes.GeneratedResponse. The declared component types, names, order and implemented interface match the registered signature. The same-named HumanOperations record has different components; this row names the agent record. Registered line 3316 has drifted; the selected line is the record declaration, rather than its compact constructor or TypedOperation reference."
+
+[row.r8-128.11]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-sessionrefreshrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3220
+symbol = "SessionRefreshRequest"
+evidence = "AgentOperations declaration at line 3220: public record SessionRefreshRequest(JsonNode session_id, JsonNode context) implements SchemaTypes.GeneratedRequest. The declared component types, names, order and implemented interface match the registered signature. The same-named HumanOperations record has different components; this row names the agent record. Registered line 3323 has drifted; the selected line is the record declaration, rather than its compact constructor or TypedOperation reference."
+
+[row.r8-128.12]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-sessionrefreshresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3226
+symbol = "SessionRefreshResponse"
+evidence = "AgentOperations declaration at line 3226: public record SessionRefreshResponse(JsonNode authority, JsonNode value) implements SchemaTypes.GeneratedResponse. The declared component types, names, order and implemented interface match the registered signature. The same-named HumanOperations record has different components; this row names the agent record. Registered line 3329 has drifted; the selected line is the record declaration, rather than its compact constructor or TypedOperation reference."
+
+[row.r8-128.13]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-signrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3233
+symbol = "SignRequest"
+evidence = "AgentOperations declaration at line 3233: public record SignRequest(JsonNode preparation_ref, JsonNode signature) implements SchemaTypes.GeneratedRequest. The declared component types, names, order and implemented interface match the registered signature. Registered line 3336 has drifted; the selected line is the record declaration, rather than its compact constructor or TypedOperation reference."
+
+[row.r8-128.14]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-signresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3239
+symbol = "SignResponse"
+evidence = "AgentOperations declaration at line 3239: public record SignResponse(JsonNode activity_id, JsonNode submission, JsonNode receipt) implements SchemaTypes.GeneratedResponse. The declared component types, names, order and implemented interface match the registered signature. Registered line 3342 has drifted; the selected line is the record declaration, rather than its compact constructor or TypedOperation reference."
+
+[row.r8-128.15]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-submitrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3247
+symbol = "SubmitRequest"
+evidence = "AgentOperations declaration at line 3247: public record SubmitRequest(JsonNode preparation_ref, JsonNode signature) implements SchemaTypes.GeneratedRequest. The declared component types, names, order and implemented interface match the registered signature. Registered line 3350 has drifted; the selected line is the record declaration, rather than its compact constructor or TypedOperation reference."
+
+[row.r8-128.16]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-submitresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3253
+symbol = "SubmitResponse"
+evidence = "AgentOperations declaration at line 3253: public record SubmitResponse(JsonNode state, JsonNode evidence, JsonNode rung, JsonNode transitions) implements SchemaTypes.GeneratedResponse. The declared component types, names, order and implemented interface match the registered signature. Registered line 3356 has drifted; the selected line is the record declaration, rather than its compact constructor or TypedOperation reference."
+
+[row.r8-128.17]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-subscriptionacknowledgerequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3262
+symbol = "SubscriptionAcknowledgeRequest"
+evidence = "AgentOperations declaration at line 3262: public record SubscriptionAcknowledgeRequest(JsonNode scope, JsonNode subscription_id, JsonNode cursor) implements SchemaTypes.GeneratedRequest. The declared component types, names, order and implemented interface match the registered signature. Registered line 3365 has drifted; the selected line is the record declaration, rather than its compact constructor or TypedOperation reference."
+
+[row.r8-128.18]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-subscriptionacknowledgeresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3269
+symbol = "SubscriptionAcknowledgeResponse"
+evidence = "AgentOperations declaration at line 3269: public record SubscriptionAcknowledgeResponse(JsonNode value) implements SchemaTypes.GeneratedResponse. The declared component types, names, order and implemented interface match the registered signature. Registered line 3372 has drifted; the selected line is the record declaration, rather than its compact constructor or TypedOperation reference."
+
+[row.r8-128.19]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-subscriptioncreaterequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3277
+symbol = "SubscriptionCreateRequest"
+evidence = "AgentOperations declaration at line 3277: public record SubscriptionCreateRequest(JsonNode scope, JsonNode filter, JsonNode start, JsonNode delivery_target) implements SchemaTypes.GeneratedRequest. The declared component types, names, order and implemented interface match the registered signature. Registered line 3380 has drifted; the selected line is the record declaration, rather than its compact constructor or TypedOperation reference."
+
+[row.r8-128.20]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-subscriptioncreateresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3285
+symbol = "SubscriptionCreateResponse"
+evidence = "AgentOperations declaration at line 3285: public record SubscriptionCreateResponse(JsonNode subscription_id, JsonNode scope, JsonNode filter, JsonNode start, JsonNode last_acknowledged, JsonNode delivery_target, JsonNode paused) implements SchemaTypes.GeneratedResponse. The declared component types, names, order and implemented interface match the registered signature. Registered line 3388 has drifted; the selected line is the record declaration, rather than its compact constructor or TypedOperation reference."
+
+[row.r8-128.21]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-subscriptiondeleterequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3297
+symbol = "SubscriptionDeleteRequest"
+evidence = "AgentOperations declaration at line 3297: public record SubscriptionDeleteRequest(JsonNode scope, JsonNode subscription_id) implements SchemaTypes.GeneratedRequest. The declared component types, names, order and implemented interface match the registered signature. Registered line 3400 has drifted; the selected line is the record declaration, rather than its compact constructor or TypedOperation reference."
+
+[row.r8-128.22]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-subscriptiondeleteresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3303
+symbol = "SubscriptionDeleteResponse"
+evidence = "AgentOperations declaration at line 3303: public record SubscriptionDeleteResponse(JsonNode value) implements SchemaTypes.GeneratedResponse. The declared component types, names, order and implemented interface match the registered signature. Registered line 3406 has drifted; the selected line is the record declaration, rather than its compact constructor or TypedOperation reference."
+
+[row.r8-128.23]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-subscriptionhealthrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3311
+symbol = "SubscriptionHealthRequest"
+evidence = "AgentOperations declaration at line 3311: public record SubscriptionHealthRequest(JsonNode scope, JsonNode subscription_id) implements SchemaTypes.GeneratedRequest. The declared component types, names, order and implemented interface match the registered signature. Registered line 3414 has drifted; the selected line is the record declaration, rather than its compact constructor or TypedOperation reference."
+
+[row.r8-128.24]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-subscriptionhealthresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3317
+symbol = "SubscriptionHealthResponse"
+evidence = "AgentOperations declaration at line 3317: public record SubscriptionHealthResponse(JsonNode target, JsonNode last_acknowledged, JsonNode last_delivery_at, JsonNode pending_backfill) implements SchemaTypes.GeneratedResponse. The declared component types, names, order and implemented interface match the registered signature. Registered line 3420 has drifted; the selected line is the record declaration, rather than its compact constructor or TypedOperation reference."
+
+[row.r8-128.25]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-subscriptionlistrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3326
+symbol = "SubscriptionListRequest"
+evidence = "AgentOperations declaration at line 3326: public record SubscriptionListRequest(JsonNode scope) implements SchemaTypes.GeneratedRequest. The declared component types, names, order and implemented interface match the registered signature. Registered line 3429 has drifted; the selected line is the record declaration, rather than its compact constructor or TypedOperation reference."
+
+[row.r8-128.26]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-subscriptionlistresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3331
+symbol = "SubscriptionListResponse"
+evidence = "AgentOperations declaration at line 3331: public record SubscriptionListResponse(JsonNode value) implements SchemaTypes.GeneratedResponse. The declared component types, names, order and implemented interface match the registered signature. Registered line 3434 has drifted; the selected line is the record declaration, rather than its compact constructor or TypedOperation reference."
+
+[row.r8-128.27]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-subscriptionpauserequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3339
+symbol = "SubscriptionPauseRequest"
+evidence = "AgentOperations declaration at line 3339: public record SubscriptionPauseRequest(JsonNode scope, JsonNode subscription_id) implements SchemaTypes.GeneratedRequest. The declared component types, names, order and implemented interface match the registered signature. Registered line 3442 has drifted; the selected line is the record declaration, rather than its compact constructor or TypedOperation reference."
+
+[row.r8-128.28]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-subscriptionpauseresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3345
+symbol = "SubscriptionPauseResponse"
+evidence = "AgentOperations declaration at line 3345: public record SubscriptionPauseResponse(JsonNode value) implements SchemaTypes.GeneratedResponse. The declared component types, names, order and implemented interface match the registered signature. Registered line 3448 has drifted; the selected line is the record declaration, rather than its compact constructor or TypedOperation reference."
+
+[row.r8-128.29]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-subscriptionresumerequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3353
+symbol = "SubscriptionResumeRequest"
+evidence = "AgentOperations declaration at line 3353: public record SubscriptionResumeRequest(JsonNode scope, JsonNode subscription_id) implements SchemaTypes.GeneratedRequest. The declared component types, names, order and implemented interface match the registered signature. Registered line 3456 has drifted; the selected line is the record declaration, rather than its compact constructor or TypedOperation reference."
+
+[row.r8-128.30]
+interface = "interface.8.go-sdkjvm-generatedschema-agentoperations-subscriptionresumeresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 3359
+symbol = "SubscriptionResumeResponse"
+evidence = "AgentOperations declaration at line 3359: public record SubscriptionResumeResponse(JsonNode value) implements SchemaTypes.GeneratedResponse. The declared component types, names, order and implemented interface match the registered signature. Registered line 3462 has drifted; the selected line is the record declaration, rather than its compact constructor or TypedOperation reference."

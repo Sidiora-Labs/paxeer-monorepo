@@ -1,0 +1,244 @@
+[reconcile.r4-110]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 30
+
+[row.r4-110.1]
+interface = "interface.4.ts-sdk-op-if-connected-chat-history-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 1203
+symbol = "IF_CONNECTED_CHAT_HISTORY"
+evidence = "operationDefinitions.IF_CONNECTED_CHAT_HISTORY is declared at line 1203; its method, path and service fields match GET /v2/chat/history (media). The earlier OperationTypes property describes input and response types; the runtime definition is the declaration matching the registered signature."
+
+[row.r4-110.2]
+interface = "interface.4.ts-sdk-op-if-connected-feed-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 1767
+symbol = "IF_CONNECTED_FEED"
+evidence = "operationDefinitions.IF_CONNECTED_FEED is declared at line 1767; its method, path and service fields match GET /v2/discovery/feed (api). The earlier OperationTypes property describes input and response types; the runtime definition is the declaration matching the registered signature."
+
+[row.r4-110.3]
+interface = "interface.4.ts-sdk-op-if-connected-pnl-interval-v3-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 1942
+symbol = "IF_CONNECTED_PNL_INTERVAL_V3"
+evidence = "operationDefinitions.IF_CONNECTED_PNL_INTERVAL_V3 is declared at line 1942; its method, path and service fields match GET /v3/me/pnl/history (api). The earlier OperationTypes property describes input and response types; the runtime definition is the declaration matching the registered signature."
+
+[row.r4-110.4]
+interface = "interface.4.ts-sdk-op-if-connected-portfolio-interval-v3-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 2243
+symbol = "IF_CONNECTED_PORTFOLIO_INTERVAL_V3"
+evidence = "operationDefinitions.IF_CONNECTED_PORTFOLIO_INTERVAL_V3 is declared at line 2243; its method, path and service fields match GET /v3/me/portfolio/history (api). The earlier OperationTypes property describes input and response types; the runtime definition is the declaration matching the registered signature."
+
+[row.r4-110.5]
+interface = "interface.4.ts-sdk-op-if-connected-public-portfolio-v3-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 2412
+symbol = "IF_CONNECTED_PUBLIC_PORTFOLIO_V3"
+evidence = "operationDefinitions.IF_CONNECTED_PUBLIC_PORTFOLIO_V3 is declared at line 2412; its method, path and service fields match GET /v3/wallets/{wallet}/portfolio (api). The earlier OperationTypes property describes input and response types; the runtime definition is the declaration matching the registered signature."
+
+[row.r4-110.6]
+interface = "interface.4.ts-sdk-op-if-connected-referral-consent-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 2593
+symbol = "IF_CONNECTED_REFERRAL_CONSENT"
+evidence = "operationDefinitions.IF_CONNECTED_REFERRAL_CONSENT is declared at line 2593; its method, path and service fields match POST /v2/me/referrals:consent (api). The earlier OperationTypes property describes input and response types; the runtime definition is the declaration matching the registered signature."
+
+[row.r4-110.7]
+interface = "interface.4.ts-sdk-op-if-holders-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 4047
+symbol = "IF_HOLDERS"
+evidence = "operationDefinitions.IF_HOLDERS is declared at line 4047; its method, path and service fields match GET /v2/pools/{poolAddress}/holders (api). The earlier OperationTypes property describes input and response types; the runtime definition is the declaration matching the registered signature."
+
+[row.r4-110.8]
+interface = "interface.4.ts-sdk-op-if-messages-list-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 4298
+symbol = "IF_MESSAGES_LIST"
+evidence = "operationDefinitions.IF_MESSAGES_LIST is declared at line 4298; its method, path and service fields match GET /v2/rooms/{roomId}/messages (api). The earlier OperationTypes property describes input and response types; the runtime definition is the declaration matching the registered signature."
+
+[row.r4-110.9]
+interface = "interface.4.ts-sdk-op-if-pnl-history-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 4985
+symbol = "IF_PNL_HISTORY"
+evidence = "operationDefinitions.IF_PNL_HISTORY is declared at line 4985; its method, path and service fields match GET /v2/me/portfolio/history (api). The earlier OperationTypes property describes input and response types; the runtime definition is the declaration matching the registered signature."
+
+[row.r4-110.10]
+interface = "interface.4.ts-sdk-op-if-portfolio-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 5128
+symbol = "IF_PORTFOLIO"
+evidence = "operationDefinitions.IF_PORTFOLIO is declared at line 5128; its method, path and service fields match GET /v2/me/portfolio (api). The earlier OperationTypes property describes input and response types; the runtime definition is the declaration matching the registered signature."
+
+[row.r4-110.11]
+interface = "interface.4.ts-sdk-op-if-rewards-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 5499
+symbol = "IF_REWARDS"
+evidence = "operationDefinitions.IF_REWARDS is declared at line 5499; its method, path and service fields match GET /v2/me/rewards (api). The earlier OperationTypes property describes input and response types; the runtime definition is the declaration matching the registered signature."
+
+[row.r4-110.12]
+interface = "interface.4.ts-sdk-op-if-search-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 5566
+symbol = "IF_SEARCH"
+evidence = "operationDefinitions.IF_SEARCH is declared at line 5566; its method, path and service fields match GET /v2/search (api). The earlier OperationTypes property describes input and response types; the runtime definition is the declaration matching the registered signature."
+
+[row.r4-110.13]
+interface = "interface.4.ts-sdk-op-if-sessions-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 5619
+symbol = "IF_SESSIONS"
+evidence = "operationDefinitions.IF_SESSIONS is declared at line 5619; its method, path and service fields match GET /v2/auth/sessions (identity). The earlier OperationTypes property describes input and response types; the runtime definition is the declaration matching the registered signature."
+
+[row.r4-110.14]
+interface = "interface.4.ts-sdk-op-if-stream-ticket-issue-j30"
+verdict = "served"
+path = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+line = 6004
+symbol = "IF_STREAM_TICKET_ISSUE"
+evidence = "operationDefinitions.IF_STREAM_TICKET_ISSUE is declared at line 6004; its method, path and service fields match POST /v2/stream/tickets (identity). The earlier OperationTypes property describes input and response types; the runtime definition is the declaration matching the registered signature."
+
+[row.r4-110.15]
+interface = "interface.4.go-protocol-bindings-fee-accumulator-airdrop-claimed"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/feeaccumulator.go"
+line = 1861
+symbol = "FeeAccumulatorAirdropClaimed"
+evidence = "type FeeAccumulatorAirdropClaimed struct is declared at line 1861, with Pool and Holder common.Address, Amount and Epoch *big.Int, and Raw types.Log. This event payload declaration matches the registered type signature; iterator fields, allocation expressions and filter/watch/parse signatures reference it."
+
+[row.r4-110.16]
+interface = "interface.4.go-protocol-bindings-fee-accumulator-airdrop-claimed-iterator"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/feeaccumulator.go"
+line = 1794
+symbol = "FeeAccumulatorAirdropClaimedIterator"
+evidence = "type FeeAccumulatorAirdropClaimedIterator struct is declared at line 1794, with Event *FeeAccumulatorAirdropClaimed and contract, event, logs, sub, done and fail fields. This is the iterator type returned by FilterAirdropClaimed; method receivers and return expressions are other occurrences."
+
+[row.r4-110.17]
+interface = "interface.4.go-protocol-bindings-fee-accumulator-airdrop-triggered"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/feeaccumulator.go"
+line = 2016
+symbol = "FeeAccumulatorAirdropTriggered"
+evidence = "type FeeAccumulatorAirdropTriggered struct is declared at line 2016, with Pool common.Address, TotalAmount and Epoch *big.Int, and Raw types.Log. This event payload declaration matches the registered type signature; iterator fields, allocation expressions and filter/watch/parse signatures reference it."
+
+[row.r4-110.18]
+interface = "interface.4.go-protocol-bindings-fee-accumulator-airdrop-triggered-iterator"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/feeaccumulator.go"
+line = 1949
+symbol = "FeeAccumulatorAirdropTriggeredIterator"
+evidence = "type FeeAccumulatorAirdropTriggeredIterator struct is declared at line 1949, with Event *FeeAccumulatorAirdropTriggered and contract, event, logs, sub, done and fail fields. This is the iterator type returned by FilterAirdropTriggered; method receivers and return expressions are other occurrences."
+
+[row.r4-110.19]
+interface = "interface.4.go-protocol-bindings-fee-accumulator-fee-recorded"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/feeaccumulator.go"
+line = 2162
+symbol = "FeeAccumulatorFeeRecorded"
+evidence = "type FeeAccumulatorFeeRecorded struct is declared at line 2162, with Pool common.Address, FeeAmount, ProtocolCut and PoolCut *big.Int, and Raw types.Log. This event payload declaration matches the registered type signature; iterator fields, allocation expressions and filter/watch/parse signatures reference it."
+
+[row.r4-110.20]
+interface = "interface.4.go-protocol-bindings-fee-accumulator-fee-recorded-iterator"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/feeaccumulator.go"
+line = 2095
+symbol = "FeeAccumulatorFeeRecordedIterator"
+evidence = "type FeeAccumulatorFeeRecordedIterator struct is declared at line 2095, with Event *FeeAccumulatorFeeRecorded and contract, event, logs, sub, done and fail fields. This is the iterator type returned by FilterFeeRecorded; method receivers and return expressions are other occurrences."
+
+[row.r4-110.21]
+interface = "interface.4.go-protocol-bindings-fee-accumulator-fees-burned"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/feeaccumulator.go"
+line = 2309
+symbol = "FeeAccumulatorFeesBurned"
+evidence = "type FeeAccumulatorFeesBurned struct is declared at line 2309, with Pool common.Address, Amount *big.Int, and Raw types.Log. This event payload declaration matches the registered type signature; iterator fields, allocation expressions and filter/watch/parse signatures reference it."
+
+[row.r4-110.22]
+interface = "interface.4.go-protocol-bindings-fee-accumulator-fees-burned-iterator"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/feeaccumulator.go"
+line = 2242
+symbol = "FeeAccumulatorFeesBurnedIterator"
+evidence = "type FeeAccumulatorFeesBurnedIterator struct is declared at line 2242, with Event *FeeAccumulatorFeesBurned and contract, event, logs, sub, done and fail fields. This is the iterator type returned by FilterFeesBurned; method receivers and return expressions are other occurrences."
+
+[row.r4-110.23]
+interface = "interface.4.go-protocol-bindings-fee-accumulator-fees-claimed"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/feeaccumulator.go"
+line = 2454
+symbol = "FeeAccumulatorFeesClaimed"
+evidence = "type FeeAccumulatorFeesClaimed struct is declared at line 2454, with Pool and Recipient common.Address, Amount *big.Int, and Raw types.Log. This event payload declaration matches the registered type signature; iterator fields, allocation expressions and filter/watch/parse signatures reference it."
+
+[row.r4-110.24]
+interface = "interface.4.go-protocol-bindings-fee-accumulator-fees-claimed-iterator"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/feeaccumulator.go"
+line = 2387
+symbol = "FeeAccumulatorFeesClaimedIterator"
+evidence = "type FeeAccumulatorFeesClaimedIterator struct is declared at line 2387, with Event *FeeAccumulatorFeesClaimed and contract, event, logs, sub, done and fail fields. This is the iterator type returned by FilterFeesClaimed; method receivers and return expressions are other occurrences."
+
+[row.r4-110.25]
+interface = "interface.4.go-protocol-bindings-fee-accumulator-initialized"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/feeaccumulator.go"
+line = 2608
+symbol = "FeeAccumulatorInitialized"
+evidence = "type FeeAccumulatorInitialized struct is declared at line 2608, with Version uint64 and Raw types.Log. This event payload declaration matches the registered type signature; iterator fields, allocation expressions and filter/watch/parse signatures reference it."
+
+[row.r4-110.26]
+interface = "interface.4.go-protocol-bindings-fee-accumulator-initialized-iterator"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/feeaccumulator.go"
+line = 2541
+symbol = "FeeAccumulatorInitializedIterator"
+evidence = "type FeeAccumulatorInitializedIterator struct is declared at line 2541, with Event *FeeAccumulatorInitialized and contract, event, logs, sub, done and fail fields. This is the iterator type returned by FilterInitialized; method receivers and return expressions are other occurrences."
+
+[row.r4-110.27]
+interface = "interface.4.go-protocol-bindings-fee-accumulator-lp-rewards-sent"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/feeaccumulator.go"
+line = 2897
+symbol = "FeeAccumulatorLpRewardsSent"
+evidence = "type FeeAccumulatorLpRewardsSent struct is declared at line 2897, with Pool common.Address, Amount *big.Int, and Raw types.Log. This event payload declaration matches the registered type signature; iterator fields, allocation expressions and filter/watch/parse signatures reference it."
+
+[row.r4-110.28]
+interface = "interface.4.go-protocol-bindings-fee-accumulator-lp-rewards-sent-iterator"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/feeaccumulator.go"
+line = 2830
+symbol = "FeeAccumulatorLpRewardsSentIterator"
+evidence = "type FeeAccumulatorLpRewardsSentIterator struct is declared at line 2830, with Event *FeeAccumulatorLpRewardsSent and contract, event, logs, sub, done and fail fields. This is the iterator type returned by FilterLpRewardsSent; method receivers and return expressions are other occurrences."
+
+[row.r4-110.29]
+interface = "interface.4.go-protocol-bindings-fee-accumulator-protocol-fee-swept"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/feeaccumulator.go"
+line = 3485
+symbol = "FeeAccumulatorProtocolFeeSwept"
+evidence = "type FeeAccumulatorProtocolFeeSwept struct is declared at line 3485, with Amount *big.Int and Raw types.Log. This event payload declaration matches the registered type signature; iterator fields, allocation expressions and filter/watch/parse signatures reference it."
+
+[row.r4-110.30]
+interface = "interface.4.go-protocol-bindings-fee-accumulator-protocol-fee-swept-iterator"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/feeaccumulator.go"
+line = 3418
+symbol = "FeeAccumulatorProtocolFeeSweptIterator"
+evidence = "type FeeAccumulatorProtocolFeeSweptIterator struct is declared at line 3418, with Event *FeeAccumulatorProtocolFeeSwept and contract, event, logs, sub, done and fail fields. This is the iterator type returned by FilterProtocolFeeSwept; method receivers and return expressions are other occurrences."
+
