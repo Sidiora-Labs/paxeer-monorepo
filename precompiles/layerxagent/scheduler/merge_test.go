@@ -12,6 +12,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles"
 	agentcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxagent/common"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxagent/scheduler"
+	precompiletest "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/testutil"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/utils"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
@@ -32,11 +33,11 @@ func (k agentKeepers) LayerXAgentK() *agentkeeper.Keeper {
 
 func TestSchedulerMergeConstructorNeedsAgentKeeper(t *testing.T) {
 	application := testkeeper.EVMTestApp
-	keepers := app.NewPrecompileKeepers(application)
+	keepers := precompiletest.Keepers(application)
 	var _ scheduler.LayerXAgentKeepers = keepers
-	missingEVM := app.NewPrecompileKeepers(application)
+	missingEVM := precompiletest.Keepers(application)
 	missingEVM.EVMKeeper = nil
-	nilEVM := app.NewPrecompileKeepers(application)
+	nilEVM := precompiletest.Keepers(application)
 	nilEVM.EVMKeeper = (*evmkeeper.Keeper)(nil)
 	for _, tc := range []struct {
 		name    string

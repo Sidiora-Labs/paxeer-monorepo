@@ -32,6 +32,7 @@ func TestMissingMergeConstructorsInTableOrder(t *testing.T) {
 		{ecommon.HexToAddress("0x101B"), "layerxpay"},
 		{ecommon.HexToAddress("0x101C"), "layerxauth"},
 		{ecommon.HexToAddress("0x101D"), "layerxprograms"},
+		{ecommon.HexToAddress("0x000000000000000000000000000000000000101E"), "layerxchains"},
 		{ecommon.HexToAddress("0x0902"), "clearing"},
 		{ecommon.HexToAddress("0x0903"), "oracle aggregator"},
 		{ecommon.HexToAddress("0x0904"), "pofq"},
