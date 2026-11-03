@@ -899,4 +899,4 @@ function proof_layerxledger_0x101a() {
   for (const log of proof.paymentLogs)
     expect(() => decodePayerGrantIssued(log)).toThrow('invalid grant log');
 }
-test(proof_layerxledger_0x101a);
+test('proof_layerxledger_0x101a', proof_layerxledger_0x101a);

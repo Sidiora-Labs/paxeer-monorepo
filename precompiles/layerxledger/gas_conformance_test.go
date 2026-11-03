@@ -18,10 +18,13 @@ import (
 	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxledger"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/tests/occ/utils"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/stretchr/testify/require"
 )
 
@@ -97,26 +100,56 @@ func TestLedgerGasConformance(t *testing.T) {
 			require.NoError(t, err)
 			tx, err := a.GetTxConfig().TxDecoder()(encoded)
 			require.NoError(t, err)
+			retired := name == "issueGrant" || name == "draw" || name == "revokeGrant" || name == "getPayerGrant"
+			hostBefore := storeSnapshot(t, ctx.KVStore(a.GetKey(app.LayerXHostStoreKey)))
 			at := ctx.WithTxIndex(index).WithEventManager(sdk.NewEventManager())
 			result := a.DeliverTx(at, abci.RequestDeliverTxV2{Tx: encoded}, tx, sha256.Sum256(encoded))
-			require.Zero(t, result.Code, result.Log)
+			if retired {
+				require.Equal(t, sdkerrors.ErrEVMVMError.ABCICode(), result.Code, result.Log)
+			} else {
+				require.Zero(t, result.Code, result.Log)
+			}
 			require.NotNil(t, result.EvmTxInfo)
-			require.Empty(t, result.EvmTxInfo.VmError)
+			if retired {
+				require.Equal(t, vm.ErrExecutionReverted.Error(), result.EvmTxInfo.VmError)
+			} else {
+				require.Empty(t, result.EvmTxInfo.VmError)
+			}
 			var messages sdk.TxMsgData
 			require.NoError(t, messages.Unmarshal(result.Data))
 			require.Len(t, messages.Data, 1)
 			var response evmtypes.MsgEVMTransactionResponse
 			require.NoError(t, response.Unmarshal(messages.Data[0].Data))
-			require.Empty(t, response.VmError)
+			if retired {
+				// The message response carries the VM error; only the receipt appends the precompile code.
+				require.Equal(t, vm.ErrExecutionReverted.Error(), response.VmError)
+				reason, err := abi.UnpackRevert(response.ReturnData)
+				require.NoError(t, err)
+				require.Equal(t, "LXP_NO_PAYER_GRANT", reason)
+			} else {
+				require.Empty(t, response.VmError)
+			}
 			receipt, err := a.EvmKeeper.GetTransientReceipt(ctx, signed.Hash(), uint64(index))
 			require.NoError(t, err)
 			require.NotNil(t, receipt)
-			require.Empty(t, receipt.VmError)
-			require.Equal(t, uint32(ethtypes.ReceiptStatusSuccessful), receipt.Status, receipt.VmError)
+			if retired {
+				require.Equal(t, vm.ErrExecutionReverted.Error()+"|LXP_NO_PAYER_GRANT", receipt.VmError)
+				require.Equal(t, uint32(ethtypes.ReceiptStatusFailed), receipt.Status)
+				require.Empty(t, receipt.Logs)
+				require.Equal(t, hostBefore, storeSnapshot(t, ctx.KVStore(a.GetKey(app.LayerXHostStoreKey))))
+			} else {
+				require.Empty(t, receipt.VmError)
+				require.Equal(t, uint32(ethtypes.ReceiptStatusSuccessful), receipt.Status, receipt.VmError)
+			}
 			require.Equal(t, signed.Hash().Hex(), receipt.TxHashHex)
 			require.Equal(t, address.Hex(), receipt.To)
 			require.Equal(t, want, receipt.GasUsed, "receipt gas must equal intrinsic gas plus the method row")
 			require.Equal(t, want, response.GasUsed, "response gas must equal intrinsic gas plus the method row")
+			seen[name] = true
+			index++
+			if retired {
+				return
+			}
 			outputs := method.Outputs
 			switch name {
 			case "register", "openAccount", "issueGrant":
@@ -127,8 +160,6 @@ func TestLedgerGasConformance(t *testing.T) {
 			}
 			values, err = outputs.Unpack(response.ReturnData)
 			require.NoError(t, err)
-			seen[name] = true
-			index++
 		}))
 		return values
 	}
@@ -213,7 +244,7 @@ func TestLedgerGasConformance(t *testing.T) {
 	grant := append(append([]byte(nil), grantID[:]...), body...)
 	grant = append(grant, ed25519.Sign(private, grantID[:])...)
 	require.NoError(t, types.ValidateIssueGrantPayload(grant))
-	require.Equal(t, []interface{}{grantID}, call(sender, "issueGrant", grant))
+	call(sender, "issueGrant", grant)
 	sequence := call(recipient, "nextSequence", payee.DIDKey, asset)[0].(uint64)
 	call(recipient, "draw", grantID, to, big.NewInt(15), [32]byte{0x75}, sequence, purpose, contextHash)
 	revokeSequence, err := a.LayerXHost.ReadIdentitySequence(ctx, payer.DID)
@@ -221,12 +252,12 @@ func TestLedgerGasConformance(t *testing.T) {
 	call(sender, "revokeGrant", grantID, revokeSequence)
 	call(sender, "getPayerGrant", grantID)
 	call(sender, "getAsset", asset)
-	require.Zero(t, call(sender, "balanceOf", from, asset)[0].(*big.Int).Cmp(big.NewInt(135)))
+	require.Zero(t, call(sender, "balanceOf", from, asset)[0].(*big.Int).Cmp(big.NewInt(150)))
 	require.Zero(t, call(sender, "totalUnits", asset)[0].(*big.Int).Cmp(big.NewInt(250)))
 	require.Equal(t, []interface{}{from}, call(sender, "accountId", payer.DIDKey, asset))
 	require.Equal(t, []interface{}{payer.Authority.Actor}, call(sender, "accountOwner", from))
 	require.Len(t, seen, len(contractABI.Methods))
 	for name := range contractABI.Methods {
-		require.True(t, seen[name], "%s must execute a successful node-delivered gas assertion", name)
+		require.True(t, seen[name], "%s must execute a node-delivered gas assertion", name)
 	}
 }
