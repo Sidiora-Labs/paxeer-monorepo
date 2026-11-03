@@ -103878,7 +103878,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.6.1]
 title = "Pin the kernel snapshot format with a conformance golden"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 47
 requires = ["1.2.3", "1.4.5", "16.2.1", "6.96.5", "22.25.4"]
@@ -128915,7 +128915,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.35.14]
 title = "Rename the remote custody signer's disclosed-call signing method to sign_call and drop its unused registry parameter"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.9.33"]
