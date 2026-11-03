@@ -714,6 +714,25 @@ mod tests {
         };
         let id = json!("claim-1");
         for method in ["px_requestFunds", "lx_requestFunds"] {
+            if method == "lx_requestFunds" {
+                for params in [json!([]), json!(["did:layerx:alice", "ab".repeat(32)])] {
+                    assert_eq!(
+                        dispatch(&config, &request, method, &id, Some(&params)),
+                        None
+                    );
+                    assert_eq!(
+                        crate::rpc::dispatch(
+                            &config,
+                            &request,
+                            &json!({
+                                "jsonrpc": "2.0", "id": id, "method": method, "params": params
+                            })
+                        ),
+                        Some(error(&id, -32601, "Method not found"))
+                    );
+                }
+                continue;
+            }
             for params in [
                 None,
                 Some(json!([])),
