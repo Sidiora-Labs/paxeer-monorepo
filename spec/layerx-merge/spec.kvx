@@ -138379,7 +138379,7 @@ do_6 = "Attempt 1 (continue, decision 2506): outbound_isolation_captured_product
 
 [task.22.99.153]
 title = "Repair the inventory sweep targets of the smart contract verifier"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -148553,7 +148553,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.31]
 title = "Repair the inventory sweep target services/wallet/attestor"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -148586,7 +148586,7 @@ do_6 = "Attempt 4 (continue): TestNativeCustodyRealProfiles and TestNativeSendPu
 
 [task.22.99.30]
 title = "Repair the inventory sweep target sdk/launchpad/shared"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -148649,7 +148649,7 @@ do_4 = "Decision 2496 (continue): TestRealReviewedHistoricalDecoderMeasurement n
 
 [task.22.99.28]
 title = "Repair the inventory sweep target sdk/platform/go"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -203204,7 +203204,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.146]
 title = "Repair the inventory sweep target rpc"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -203329,7 +203329,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.122]
 title = "Repair the inventory sweep target modules/xweb/keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -203360,7 +203360,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.121]
 title = "Repair the inventory sweep target modules/tokenfactory/client/cli"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -203391,7 +203391,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.120]
 title = "Repair the inventory sweep target modules/tokenfactory/keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -203453,7 +203453,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.118]
 title = "Repair the inventory sweep target modules/spot/keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -203547,7 +203547,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.115]
 title = "Repair the inventory sweep target modules/pricefeed/keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -203671,7 +203671,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.111]
 title = "Repair the inventory sweep target modules/mint"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -203733,7 +203733,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.109]
 title = "Repair the inventory sweep target modules/layerxledger/keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -204672,7 +204672,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.26]
 title = "Repair the inventory sweep target precompiles/perps"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.99.19"]
@@ -240310,7 +240310,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1575.1]
 title = "Issue #1575: Make the sweep summary accept the recorded results"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.99.81"]
