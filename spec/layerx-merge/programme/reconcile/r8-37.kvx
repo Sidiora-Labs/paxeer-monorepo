@@ -1,0 +1,551 @@
+[reconcile.r8-37]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 60
+
+[row.r8-37.1]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-nativeprogramcallfields"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 541
+symbol = "NativeProgramCallFields"
+evidence = "Replaced guest_abi, entrypoint, capabilities_hex, access_declaration_hex, response_capacity and resources with String to, String data and BigInteger chainId for EVM calls. Current declaration at line 541: public record NativeProgramCallFields(String to, String data, BigInteger chainId) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-37.2]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-nativeprogramcallrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 550
+symbol = "NativeProgramCallRequest"
+evidence = "Replaced payload_encoding, program_id, calldata, budget and signed_activity with native_call and String signed_transaction. Current declaration at line 550: public record NativeProgramCallRequest(AgentModels.NativeProgramCallFields native_call, String signed_transaction) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-37.3]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-nativeprogramdeployrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 566
+symbol = "NativeProgramDeployRequest"
+evidence = "Replaced JsonNode signed_activity with NativeProgramCallFields native_call and String signed_transaction. Current declaration at line 566: public record NativeProgramDeployRequest(AgentModels.NativeProgramCallFields native_call, String signed_transaction) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-37.4]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-nativeprogramupgraderequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 583
+symbol = "NativeProgramUpgradeRequest"
+evidence = "Replaced JsonNode signed_activity with NativeProgramCallFields native_call and String signed_transaction. Current declaration at line 583: public record NativeProgramUpgradeRequest(AgentModels.NativeProgramCallFields native_call, String signed_transaction) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-37.5]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-nativeprogramwinddownrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 602
+symbol = "NativeProgramWindDownRequest"
+evidence = "Replaced JsonNode signed_activity with NativeProgramCallFields native_call and String signed_transaction. Current declaration at line 602: public record NativeProgramWindDownRequest(AgentModels.NativeProgramCallFields native_call, String signed_transaction) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-37.6]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-nativeregistrationpreparerequestv1"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 608
+symbol = "NativeRegistrationPrepareRequestV1"
+evidence = "Signature unchanged: registration preparation still carries activity, account sequence, payload, signed preparation purpose and local_grant; the registry transport change does not alter this record. Current declaration at line 608: public record NativeRegistrationPrepareRequestV1(String variant, AgentModels.NativeActivityV1 activity, String actor, String authority, String account_sequence, String not_before, String not_after, String idempotency_key, String fee_limit, String payload, String payload_hash, String capability_id, AgentModels.SignedNativePreparationPurposeV1 purpose, AgentModels.NativeLocalGrantConsentV1 local_grant) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-37.7]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-nativesendpreparerequestv1"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 625
+symbol = "NativeSendPrepareRequestV1"
+evidence = "Signature unchanged: send preparation still carries activity, account sequence, payload, signed send purpose and local_grant; the registry transport change does not alter this record. Current declaration at line 625: public record NativeSendPrepareRequestV1(String variant, AgentModels.NativeActivityV1 activity, String actor, String authority, String account_sequence, String not_before, String not_after, String idempotency_key, String fee_limit, String payload, String payload_hash, String capability_id, AgentModels.SignedNativeSendPurposeV1 purpose, AgentModels.NativeLocalGrantConsentV1 local_grant) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-37.8]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-nativesendpurposev1"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 642
+symbol = "NativeSendPurposeV1"
+evidence = "Signature unchanged: NativeSendPurposeV1 retains activity, preparation_id, canonical_digest, economic_action and commitment; no transaction-shaped replacement of this purpose record is declared. Current declaration at line 642: public record NativeSendPurposeV1(String version, String tenant, String agent_did, String owner_did, String owner_public_key, String session_id, String generation, String expires_at_ms, String capability_id, String protocol_version, String network_id, AgentModels.NativeActivityV1 activity, String preparation_id, String canonical_digest, String economic_action, String idempotency_key, String commitment) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-37.9]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-programexecutionevidence"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 700
+symbol = "ProgramExecutionEvidence"
+evidence = "ProgramExecutionEvidence is absent; current ProgramSubmission carries the program transaction and receipt response instead of the activity evidence record. Repository-wide git grep excludes spec and docs directories; remaining lists the first whole-symbol match per other file, including unrelated homonyms and tests."
+remaining_refs = 2
+remaining = ["services/agent/crates/layerx-sdk/src/program_http.rs:22", "services/agent/crates/layerx-sdk/src/programs.rs:405"]
+
+[row.r8-37.10]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-programfailure"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 709
+symbol = "ProgramFailure"
+evidence = "ProgramFailure enum is absent; the generated program responses now use ProgramSubmission rather than this legacy failure vocabulary. Repository-wide git grep excludes spec and docs directories; remaining lists the first whole-symbol match per other file, including unrelated homonyms and tests."
+remaining_refs = 15
+remaining = ["programs/crates/layerx-programs-runtime/src/calls.rs:17", "programs/crates/layerx-programs-runtime/src/execute.rs:22", "programs/crates/layerx-programs-runtime/src/fault.rs:126", "programs/crates/layerx-programs-runtime/src/host/mod.rs:25", "programs/crates/layerx-programs-runtime/src/lib.rs:188", "programs/crates/layerx-programs-runtime/src/terminal.rs:4", "programs/crates/layerx-programs-runtime/tests/failure_payload.rs:2", "programs/crates/layerx-programs-sandbox/src/host_ffi.rs:799", "programs/crates/layerx-programs-sandbox/src/usage.rs:24", "programs/sdk/rust/src/error.rs:576", "sdk/platform/go/programs.go:171", "services/agent/crates/layerx-agentd/src/ops/program.rs:10", "services/agent/crates/layerx-proof/src/program.rs:7", "services/agent/sdk/typescript/src/programs.ts:66", "tools/platform/cli/src/programs.rs:2229"]
+
+[row.r8-37.11]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-programfailure-unknown-program"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 710
+symbol = "UNKNOWN_PROGRAM"
+evidence = "UNKNOWN_PROGRAM is absent from the generated JVM schema together with ProgramFailure; it is no longer a generated failure variant. Repository-wide git grep excludes spec and docs directories; remaining lists the first whole-symbol match per other file, including unrelated homonyms and tests."
+remaining_refs = 0
+remaining = []
+
+[row.r8-37.12]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-programfailure-reentrancy"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 711
+symbol = "REENTRANCY"
+evidence = "REENTRANCY is absent from the generated JVM schema together with ProgramFailure; it is no longer a generated failure variant. Repository-wide git grep excludes spec and docs directories; remaining lists the first whole-symbol match per other file, including unrelated homonyms and tests."
+remaining_refs = 1
+remaining = ["tools/benchmark/loadtest/contracts/evm/lib/solmate/src/utils/ReentrancyGuard.sol:11"]
+
+[row.r8-37.13]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-programfailure-depth-exceeded"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 712
+symbol = "DEPTH_EXCEEDED"
+evidence = "DEPTH_EXCEEDED is absent from the generated JVM schema together with ProgramFailure; it is no longer a generated failure variant. Repository-wide git grep excludes spec and docs directories; remaining lists the first whole-symbol match per other file, including unrelated homonyms and tests."
+remaining_refs = 0
+remaining = []
+
+[row.r8-37.14]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-programfailure-fanout-exceeded"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 713
+symbol = "FANOUT_EXCEEDED"
+evidence = "FANOUT_EXCEEDED is absent from the generated JVM schema together with ProgramFailure; it is no longer a generated failure variant. Repository-wide git grep excludes spec and docs directories; remaining lists the first whole-symbol match per other file, including unrelated homonyms and tests."
+remaining_refs = 0
+remaining = []
+
+[row.r8-37.15]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-programfailure-guest-refused"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 714
+symbol = "GUEST_REFUSED"
+evidence = "GUEST_REFUSED is absent from the generated JVM schema together with ProgramFailure; it is no longer a generated failure variant. Repository-wide git grep excludes spec and docs directories; remaining lists the first whole-symbol match per other file, including unrelated homonyms and tests."
+remaining_refs = 0
+remaining = []
+
+[row.r8-37.16]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-programfailure-resource"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 716
+symbol = "RESOURCE"
+evidence = "RESOURCE is absent from the generated JVM schema together with ProgramFailure; it is no longer a generated failure variant. Repository-wide git grep excludes spec and docs directories; remaining lists the first whole-symbol match per other file, including unrelated homonyms and tests."
+remaining_refs = 7
+remaining = ["programs/crates/layerx-programs-runtime/src/ffi_call.rs:413", "programs/crates/layerx-programs-runtime/src/terminal.rs:15", "programs/vendor/icu_normalizer-2.3.0/tests/data/NormalizationTest.txt:1988", "programs/vendor/winapi-0.3.9/src/shared/sddl.rs:171", "programs/vendor/windows-sys-0.52.0/src/Windows/Win32/Security/Authorization/mod.rs:502", "programs/vendor/windows-sys-0.61.2/src/Windows/Win32/Security/Authorization/mod.rs:966", "services/agent/sdk/typescript/src/program-wire.ts:15"]
+
+[row.r8-37.17]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-programfailure-response"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 717
+symbol = "RESPONSE"
+evidence = "RESPONSE is absent from the generated JVM schema together with ProgramFailure; it is no longer a generated failure variant. Repository-wide git grep excludes spec and docs directories; remaining lists the first whole-symbol match per other file, including unrelated homonyms and tests."
+remaining_refs = 44
+remaining = ["consensus/rpc/jsonrpc/types/types.go:191", "consensus/test/app/counter_test.sh:55", "contracts/test/XWebConsumer.t.sol:18", "programs/crates/layerx-programs-runtime/tests/web_read.rs:29", "programs/vendor/httparse-1.10.1/src/lib.rs:2263", "programs/vendor/ureq-proto-0.6.4/src/client/mod.rs:438", "programs/vendor/ureq-proto-0.6.4/src/client/test/state_recv_response.rs:8", "programs/vendor/ureq-proto-0.6.4/src/server/mod.rs:392", "sdk/integrations/fastapi/layerx_fastapi/protocol.py:23", "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/X402.java:33", "services/agent/crates/layerx-mcp/src/tools/web.rs:43", "services/agent/crates/layerx-mcp/tests/web.rs:380", "services/agent/sdk/python/layerx_sdk/x402_http.py:344", "services/agent/sdk/python/tests/test_x402_http_sequencer.py:97", "services/agent/sdk/typescript/test/web-search-sequencer.test.ts:139", "services/agent/sdk/typescript/test/web-search.test.ts:53", "services/interop/crates/layerx-x402/COMPATIBILITY.md:3", "services/interop/crates/layerx-x402/src/buyer.rs:425", "services/interop/crates/layerx-x402/src/model.rs:16", "services/interop/crates/layerx-x402/tests/seller.rs:858", "services/interop/crates/layerx-x402/tests/sequenced_vectors.rs:110", "services/interop/crates/x-websearch/src/payment.rs:56", "services/interop/crates/x-websearch/tests/fixtures/client-exchange.json:344", "services/interop/crates/x-websearch/tests/payment.rs:3619", "services/interop/crates/x-websearch/tests/server.rs:53", "services/interop/deploy/search-front/nginx.conf:104", "services/interop/specs/conformance/transport-http/README.md:24", "services/interop/specs/conformance/transport-http/role-messages.json:74", "services/interop/specs/conformance/x402/README.md:11", "services/interop/specs/vendor/x402/transports/http.md:113", "services/platform/hosted/human/README.md:76", "services/platform/hosted/paxeer/fork-rehearsal.sh:556", "services/platform/middleware/conformance/pay6/test_http.py:76", "services/platform/middleware/conformance/service.mjs:171", "services/platform/middleware/conformance/src/scenarios.ts:404", "services/platform/middleware/seller/src/index.ts:27", "services/platform/middleware/seller/test/proof_middleware_seller_ts_exports.test.mjs:199", "tests/agent/sdk/python/test_web_search.py:525", "tests/integration/upgrade_module/scripts/proposal_submit.sh:37", "tests/integration/upgrade_module/scripts/proposal_vote.sh:21", "tools/bringup/check-live.sh:3457", "tools/bringup/check-live.test.sh:2780", "tools/jev/tests/test_deps.py:53", "tools/qualification/paxeer-x/paid-web-contract.py:794"]
+
+[row.r8-37.18]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-programfailure-fault"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 718
+symbol = "FAULT"
+evidence = "FAULT is absent from the generated JVM schema together with ProgramFailure; it is no longer a generated failure variant. Repository-wide git grep excludes spec and docs directories; remaining lists the first whole-symbol match per other file, including unrelated homonyms and tests."
+remaining_refs = 5
+remaining = ["programs/vendor/rustix-1.1.4/src/backend/libc/fs/syscalls.rs:2104", "programs/vendor/rustix-1.1.4/src/backend/libc/io/errno.rs:260", "programs/vendor/rustix-1.1.4/src/backend/linux_raw/fs/syscalls.rs:872", "programs/vendor/rustix-1.1.4/src/backend/linux_raw/io/errno.rs:337", "programs/vendor/wasi-0.11.1+wasi-snapshot-preview1/src/lib_generated.rs:252"]
+
+[row.r8-37.19]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-programlifecycleerror"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 741
+symbol = "ProgramLifecycleError"
+evidence = "ProgramLifecycleError is absent; ProgramLifecycleResponse now has only PROGRAMSUBMISSION with wire ProgramSubmission. Repository-wide git grep excludes spec and docs directories; remaining lists the first whole-symbol match per other file, including unrelated homonyms and tests."
+remaining_refs = 0
+remaining = []
+
+[row.r8-37.20]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-programlifecycleerrorenvelope"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 747
+symbol = "ProgramLifecycleErrorEnvelope"
+evidence = "ProgramLifecycleErrorEnvelope is absent; ProgramLifecycleResponse no longer declares an error-envelope variant. Repository-wide git grep excludes spec and docs directories; remaining lists the first whole-symbol match per other file, including unrelated homonyms and tests."
+remaining_refs = 0
+remaining = []
+
+[row.r8-37.21]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-programlifecyclereceipt"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 752
+symbol = "ProgramLifecycleReceipt"
+evidence = "ProgramLifecycleReceipt is absent; ProgramReceiptResponse now has only PROGRAMSUBMISSION with wire ProgramSubmission. Repository-wide git grep excludes spec and docs directories; remaining lists the first whole-symbol match per other file, including unrelated homonyms and tests."
+remaining_refs = 0
+remaining = []
+
+[row.r8-37.22]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-programlifecyclereceiptenvelope"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 758
+symbol = "ProgramLifecycleReceiptEnvelope"
+evidence = "ProgramLifecycleReceiptEnvelope is absent; the receipt response uses ProgramSubmission rather than an activity_id/receipt wrapper. Repository-wide git grep excludes spec and docs directories; remaining lists the first whole-symbol match per other file, including unrelated homonyms and tests."
+remaining_refs = 0
+remaining = []
+
+[row.r8-37.23]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-programlifecycleresponse-programlifecycleresultenvelope"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 764
+symbol = "PROGRAMLIFECYCLERESULTENVELOPE"
+evidence = "PROGRAMLIFECYCLERESULTENVELOPE is absent from ProgramLifecycleResponse, whose only current variant is PROGRAMSUBMISSION. Repository-wide git grep excludes spec and docs directories; remaining lists the first whole-symbol match per other file, including unrelated homonyms and tests."
+remaining_refs = 0
+remaining = []
+
+[row.r8-37.24]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-programlifecycleresponse-programlifecycleunknown"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 765
+symbol = "PROGRAMLIFECYCLEUNKNOWN"
+evidence = "PROGRAMLIFECYCLEUNKNOWN is absent from ProgramLifecycleResponse, whose only current variant is PROGRAMSUBMISSION. Repository-wide git grep excludes spec and docs directories; remaining lists the first whole-symbol match per other file, including unrelated homonyms and tests."
+remaining_refs = 0
+remaining = []
+
+[row.r8-37.25]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-programlifecycleresponse-programlifecycleerrorenvelope"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 766
+symbol = "PROGRAMLIFECYCLEERRORENVELOPE"
+evidence = "PROGRAMLIFECYCLEERRORENVELOPE is absent from ProgramLifecycleResponse, whose only current variant is PROGRAMSUBMISSION. Repository-wide git grep excludes spec and docs directories; remaining lists the first whole-symbol match per other file, including unrelated homonyms and tests."
+remaining_refs = 0
+remaining = []
+
+[row.r8-37.26]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-programlifecycleresult"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 775
+symbol = "ProgramLifecycleResult"
+evidence = "ProgramLifecycleResult is absent; the generated lifecycle response no longer carries state, activity_id, terminal_payload and call_graph in this record. Repository-wide git grep excludes spec and docs directories; remaining lists the first whole-symbol match per other file, including unrelated homonyms and tests."
+remaining_refs = 0
+remaining = []
+
+[row.r8-37.27]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-programlifecycleresultenvelope"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 784
+symbol = "ProgramLifecycleResultEnvelope"
+evidence = "ProgramLifecycleResultEnvelope is absent; ProgramLifecycleResponse now refers to ProgramSubmission. Repository-wide git grep excludes spec and docs directories; remaining lists the first whole-symbol match per other file, including unrelated homonyms and tests."
+remaining_refs = 0
+remaining = []
+
+[row.r8-37.28]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-programlifecycleunknown"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 789
+symbol = "ProgramLifecycleUnknown"
+evidence = "ProgramLifecycleUnknown is absent; the generated lifecycle response no longer exposes this retry/activity_id record. Repository-wide git grep excludes spec and docs directories; remaining lists the first whole-symbol match per other file, including unrelated homonyms and tests."
+remaining_refs = 0
+remaining = []
+
+[row.r8-37.29]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-programoutcome"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 797
+symbol = "ProgramOutcome"
+evidence = "ProgramOutcome enum is absent from the JVM schema; program responses instead expose transaction-oriented ProgramSubmission. Repository-wide git grep excludes spec and docs directories; remaining lists the first whole-symbol match per other file, including unrelated homonyms and tests."
+remaining_refs = 37
+remaining = ["daemon/committed-fixture/vector_v3.go:159", "layerxproof/codec/codec_test.go:172", "layerxproof/codec/receipt.go:44", "layerxproof/verify/withdrawal.go:85", "modules/lxphost/host.go:970", "modules/lxphost/proof_lxphost_host_test.go:156", "modules/lxphost/receipt_fee_test.go:93", "modules/lxphost/simulate.go:258", "modules/lxphost/simulate_test.go:163", "node/sequencer/receipt_equality_test.go:359", "precompiles/layerxprograms/events_call.go:16", "precompiles/layerxprograms/events_call_test.go:82", "precompiles/layerxprograms/method_call.go:41", "precompiles/layerxprograms/method_call_test.go:168", "precompiles/layerxprograms/method_sandbox_execute.go:30", "precompiles/layerxprograms/method_simulate.go:88", "precompiles/layerxprograms/method_simulate_test.go:34", "precompiles/layerxprograms/occ_test.go:184", "precompiles/layerxprograms/proof_layerxprograms_0x101d_test.go:6", "precompiles/layerxprograms/receipt_authorities_test.go:60", "precompiles/layerxprograms/replay_test.go:60", "precompiles/layerxprograms/xweb.go:61", "precompiles/layerxprograms/xweb_test.go:421", "rpc/sequencer_receipt.go:512", "sdk/platform/dotnet/Programs.cs:86", "sdk/platform/dotnet/Verifier.cs:94", "sdk/platform/generators/tests/proof_generators.rs:189", "sdk/platform/go/native_program_lifecycle_test.go:249", "sdk/platform/go/programs.go:178", "sdk/platform/go/programs_http_test.go:853", "sdk/platform/go/verify.go:162", "services/agent/crates/layerx-proof/src/program.rs:13", "services/agent/crates/layerx-wire/src/receipt.rs:54", "services/agent/sdk/typescript/src/program-wire.ts:3", "services/agent/sdk/typescript/src/programs.ts:67", "services/human/crates/layerx-intents/src/canonical.rs:14", "tools/platform/cli/src/programs.rs:1890"]
+
+[row.r8-37.30]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-programoutcome-completed"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 798
+symbol = "COMPLETED"
+evidence = "COMPLETED is absent from the JVM schema, together with its ProgramOutcome enum. Repository-wide git grep excludes spec and docs directories; remaining lists the first whole-symbol match per other file, including unrelated homonyms and tests."
+remaining_refs = 10
+remaining = ["programs/vendor/wit-bindgen-0.57.1/src/rt/async_support.rs:447", "programs/vendor/wit-bindgen-0.57.1/src/rt/async_support/future_support.rs:673", "programs/vendor/wit-bindgen-0.57.1/src/rt/async_support/inter_task_wakeup.rs:3", "sdk/integrations/android/src/main/java/com/sidiora/layerx/android/EventDeliveryStore.java:5", "sdk/integrations/android/src/main/java/com/sidiora/layerx/android/FileEventDeliveryStore.java:69", "sdk/integrations/android/src/main/java/com/sidiora/layerx/android/InMemoryEventDeliveryStore.java:39", "sdk/integrations/android/src/main/java/com/sidiora/layerx/android/VerifiedEventConsumer.java:84", "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/DurableStores.java:104", "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/Webhooks.java:33", "services/agent/sdk/python/layerx_sdk/ai_market.py:243"]
+
+[row.r8-37.31]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-programoutcome-legacy-completed"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 799
+symbol = "LEGACY_COMPLETED"
+evidence = "LEGACY_COMPLETED is absent from the JVM schema, together with its ProgramOutcome enum. Repository-wide git grep excludes spec and docs directories; remaining lists the first whole-symbol match per other file, including unrelated homonyms and tests."
+remaining_refs = 0
+remaining = []
+
+[row.r8-37.32]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-programreceiptresponse-programlifecyclereceiptenvelope"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 811
+symbol = "PROGRAMLIFECYCLERECEIPTENVELOPE"
+evidence = "PROGRAMLIFECYCLERECEIPTENVELOPE is absent from ProgramReceiptResponse; its only current variant is PROGRAMSUBMISSION. Repository-wide git grep excludes spec and docs directories; remaining lists the first whole-symbol match per other file, including unrelated homonyms and tests."
+remaining_refs = 0
+remaining = []
+
+[row.r8-37.33]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-settlementdomain"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 931
+symbol = "SettlementDomain"
+evidence = "AgentModels.SettlementDomain enum is absent; the registered domain selector is no longer generated. Repository-wide git grep excludes spec and docs directories; remaining lists the first whole-symbol match per other file, including unrelated homonyms and tests."
+remaining_refs = 21
+remaining = ["apps/web/src/api/generated/index.ts:591", "layerxproof/exportcheck/checkpoint_exports_test.go:39", "sdk/platform/generators/tests/test_generate_jvm_retired.py:52", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueIntentsTest.java:140", "services/agent/crates/layerx-agent-api/tests/schema.rs:363", "services/agent/crates/layerx-agent-api/tests/schema_retired.rs:14", "services/agent/crates/layerx-proof/src/checkpoint.rs:177", "services/agent/crates/layerx-proof/src/settlement.rs:7", "services/agent/crates/layerx-proof/tests/checkpoint.rs:8", "services/agent/crates/layerx-sdk/tests/sdk.rs:381", "services/human/schema/human-api/baseline.kvx:327", "services/human/schema/human-api/compatibility.kvx:3", "services/human/schema/human-api/journeys.kvx:33", "services/human/schema/human-api/movement.kvx:43", "services/human/tools/boundary-check/src/lib.rs:17", "services/human/tools/boundary-check/tests/retired_surface_rules.rs:79", "services/human/tools/schema-check/tests/journey_vocabulary.rs:193", "services/human/tools/schema-check/tests/merged_schema_retired.rs:89", "services/human/tools/schema-check/tests/merged_schema_shapes.rs:115", "tests/codec/lxp_test_kernel_complete.c:1451", "tools/paxeer-x/retired_callers.json:315"]
+
+[row.r8-37.34]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-settlementdomain-paxeer"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 932
+symbol = "AgentModels.SettlementDomain.PAXEER"
+evidence = "AgentModels.SettlementDomain and its PAXEER variant with wire Paxeer are absent. The bare PAXEER still declared at line 1495 belongs to HumanModels.IntentDomain, not this enum; references below use the qualified removed member. Repository-wide git grep excludes spec and docs directories; remaining lists the first whole-symbol match per other file, including unrelated homonyms and tests."
+remaining_refs = 0
+remaining = []
+
+[row.r8-37.35]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-signednativepreparationpurposev1"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 856
+symbol = "SignedNativePreparationPurposeV1"
+evidence = "Signature unchanged: signed preparation still wraps NativePreparationPurposeV1 purpose, owner_public_key and signature; the transport change has not changed this wrapper. Current declaration at line 856: public record SignedNativePreparationPurposeV1(AgentModels.NativePreparationPurposeV1 purpose, String owner_public_key, String signature) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-37.36]
+interface = "interface.8.go-sdkjvm-generatedschema-agentmodels-signednativesendpurposev1"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 863
+symbol = "SignedNativeSendPurposeV1"
+evidence = "Signature unchanged: signed send still wraps NativeSendPurposeV1 purpose, owner_public_key and signature; the transport change has not changed this wrapper. Current declaration at line 863: public record SignedNativeSendPurposeV1(AgentModels.NativeSendPurposeV1 purpose, String owner_public_key, String signature) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-37.37]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-evidenceclass-paxeer-finality"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1509
+symbol = "PAXEER_FINALITY"
+evidence = "PAXEER_FINALITY with wire paxeer-finality is absent from EvidenceClass; the current enum retains receipt, checkpoint and other evidence classes. Repository-wide git grep excludes spec and docs directories; remaining lists the first whole-symbol match per other file, including unrelated homonyms and tests."
+remaining_refs = 0
+remaining = []
+
+[row.r8-37.38]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-intentconstraints"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1488
+symbol = "IntentConstraints"
+evidence = "Signature unchanged: String deadline, Money max_fee and boolean allow_top_up remain the constraint fields; per-leg EVM details are carried by IntentLeg. Current declaration at line 1488: public record IntentConstraints(String deadline, HumanModels.Money max_fee, boolean allow_top_up) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-37.39]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-intentdomain"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1494
+symbol = "IntentDomain"
+evidence = "Enum now contains only PAXEER with wire paxeer; removed the LAYERX/layerx domain variant. Current declaration at line 1494: public enum IntentDomain {"
+
+[row.r8-37.40]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-intentdomain-paxeer"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1495
+symbol = "PAXEER"
+evidence = "IntentDomain retains PAXEER with wire paxeer as its sole variant; the trailing comma changed to a semicolon after LAYERX was removed. Current declaration at line 1495: PAXEER(\"paxeer\");"
+
+[row.r8-37.41]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-intentdomain-layerx"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1600
+symbol = "LAYERX"
+evidence = "LAYERX with wire layerx is absent from IntentDomain, whose only current variant is PAXEER. Repository-wide git grep excludes spec and docs directories; remaining lists the first whole-symbol match per other file, including unrelated homonyms and tests."
+remaining_refs = 26
+remaining = ["GOTCHA.kvx:10542", "apps/web/e2e/explorer-account.test.ts:66", "modules/layerxledger/types/denom_test.go:54", "services/agent/crates/layerx-mcp/src/tools/web.rs:44", "services/agent/crates/layerx-mcp/tests/daemon_bound.rs:1003", "services/agent/crates/layerx-mcp/tests/web.rs:236", "services/agent/sdk/python/layerx_sdk/web_search.py:35", "services/agent/sdk/typescript/src/web-search.ts:13", "services/agent/sdk/typescript/test/web-search.test.ts:102", "services/interop/crates/x-websearch/README.md:15", "services/interop/crates/x-websearch/src/config.rs:171", "services/interop/crates/x-websearch/src/payment.rs:58", "services/interop/crates/x-websearch/tests/fixtures/client-exchange.json:6", "services/interop/crates/x-websearch/tests/payment.rs:1957", "services/interop/deploy/search-front/nginx.conf:95", "services/interop/deploy/search-front/tests/test_nginx_headers.py:22", "services/platform/tests/test_relay_archive_install_retired.py:26", "tests/agent/sdk/python/test_px.py:619", "tests/agent/sdk/python/test_web_search.py:156", "tools/bringup/check-live.sh:4173", "tools/bringup/check-live.test.sh:2779", "tools/bringup/tests/search-front.test.sh:140", "tools/bringup/xweb-config.sh:391", "tools/paxeer-x/retired_callers.json:530", "tools/platform/cli/tests/emulator.rs:261", "tools/qualification/paxeer-x/paid-web-contract.py:719"]
+
+[row.r8-37.42]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-intentendpoint"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1504
+symbol = "IntentEndpoint"
+evidence = "Added String layerx_public_key, String evm_address and IntentAddressResolution resolution after kind and account. Current declaration at line 1504: public record IntentEndpoint(HumanModels.IntentEndpointKind kind, String account, String layerx_public_key, String evm_address, HumanModels.IntentAddressResolution resolution) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-37.43]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-intentendpointkind"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1509
+symbol = "IntentEndpointKind"
+evidence = "IntentEndpointKind now declares PAXEER_WALLET, HUMAN, AGENT and AGENT_BUDGET; PAXEER_WALLET remains the wallet endpoint. Current declaration at line 1509: public enum IntentEndpointKind {"
+
+[row.r8-37.44]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-intentendpointkind-paxeer-wallet"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1510
+symbol = "PAXEER_WALLET"
+evidence = "PAXEER_WALLET with wire paxeer-wallet is unchanged; its containing IntentEndpointKind also includes HUMAN, AGENT and AGENT_BUDGET for endpoint resolution. Current declaration at line 1510: PAXEER_WALLET(\"paxeer-wallet\"),"
+
+[row.r8-37.45]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-intentleg"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1522
+symbol = "IntentLeg"
+evidence = "Added IntentPayment payment, String to, String data and BigInteger chainId after fee, exposing each leg as EVM calldata. Current declaration at line 1522: public record IntentLeg(@JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) long index, String mechanism, HumanModels.IntentDomain domain, HumanModels.IntentEndpoint source, HumanModels.IntentEndpoint destination, HumanModels.Money money, HumanModels.Money fee, HumanModels.IntentPayment payment, String to, String data, BigInteger chainId) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-37.46]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-intentlegbinding"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1537
+symbol = "IntentLegBinding"
+evidence = "Signature unchanged: leg_index, action_key, actor, authority, relationship, account_sequence, not_before, not_after and fee_limit remain the binding fields. Current declaration at line 1537: public record IntentLegBinding(@JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) long leg_index, String action_key, String actor, String authority, String relationship, @JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) long account_sequence, @JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) long not_before, @JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) long not_after, HumanModels.Money fee_limit) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-37.47]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-intentplan"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1557
+symbol = "IntentPlan"
+evidence = "Added String tx_hash after signing_requirements; legs remain List<HumanModels.IntentLeg> and now expose per-leg EVM fields. Current declaration at line 1557: public record IntentPlan(String plan_digest, String journey_kind, HumanModels.Money total_fee, List<HumanModels.IntentLeg> legs, List<HumanModels.IntentSigningRequirement> signing_requirements, String tx_hash) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-37.48]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-intentsigningrequirement"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1566
+symbol = "IntentSigningRequirement"
+evidence = "Signature unchanged: leg_index, action_key, signing_context and authority remain the signing requirement fields. Current declaration at line 1566: public record IntentSigningRequirement(@JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) long leg_index, String action_key, String signing_context, String authority) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-37.49]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-intentsubmission"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1573
+symbol = "IntentSubmission"
+evidence = "Added List<HumanModels.IntentLeg> legs and String tx_hash after state_copy_key to preserve per-leg EVM submission details. Current declaration at line 1573: public record IntentSubmission(String journey_id, String plan_digest, String state, String state_copy_key, List<HumanModels.IntentLeg> legs, String tx_hash) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-37.50]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-journeykind"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1594
+symbol = "JourneyKind"
+evidence = "JourneyKind now declares ONBOARDING, MOVE, AGENT_CREATE, AGENT_FUND, AGENT_PAUSE and AGENT_RETIRE; DEPOSIT, WITHDRAW, EXIT and wallet-binding variants are absent from this enum. Current declaration at line 1594: public enum JourneyKind {"
+
+[row.r8-37.51]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-journeykind-deposit"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1685
+symbol = "JourneyKind.DEPOSIT"
+evidence = "JourneyKind no longer declares DEPOSIT with wire deposit. Bare DEPOSIT remains in ActivityEntryKind and SupportTopic; those are different interfaces. References below use the qualified removed journey member. Repository-wide git grep excludes spec and docs directories; remaining lists the first whole-symbol match per other file, including unrelated homonyms and tests."
+remaining_refs = 0
+remaining = []
+
+[row.r8-37.52]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-journeykind-exit"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1687
+symbol = "JourneyKind.EXIT"
+evidence = "JourneyKind no longer declares EXIT with wire exit. Bare EXIT remains in NativeProgramWindDown and ProgramWindDownKind; those are different interfaces. References below use the qualified removed journey member. Repository-wide git grep excludes spec and docs directories; remaining lists the first whole-symbol match per other file, including unrelated homonyms and tests."
+remaining_refs = 0
+remaining = []
+
+[row.r8-37.53]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-planintentrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 1943
+symbol = "PlanIntentRequest"
+evidence = "Signature unchanged: source, destination, asset_id, money and constraints remain; source and destination now use the expanded IntentEndpoint record. Current declaration at line 1943: public record PlanIntentRequest(HumanModels.IntentEndpoint source, HumanModels.IntentEndpoint destination, String asset_id, HumanModels.Money money, HumanModels.IntentConstraints constraints) implements SchemaTypes.GeneratedResponse {"
+
+[row.r8-37.54]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-settlementdomain"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2434
+symbol = "SettlementDomain"
+evidence = "HumanModels.SettlementDomain enum is absent; generated human evidence records no longer declare this domain selector. Repository-wide git grep excludes spec and docs directories; remaining lists the first whole-symbol match per other file, including unrelated homonyms and tests."
+remaining_refs = 21
+remaining = ["apps/web/src/api/generated/index.ts:591", "layerxproof/exportcheck/checkpoint_exports_test.go:39", "sdk/platform/generators/tests/test_generate_jvm_retired.py:52", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueIntentsTest.java:140", "services/agent/crates/layerx-agent-api/tests/schema.rs:363", "services/agent/crates/layerx-agent-api/tests/schema_retired.rs:14", "services/agent/crates/layerx-proof/src/checkpoint.rs:177", "services/agent/crates/layerx-proof/src/settlement.rs:7", "services/agent/crates/layerx-proof/tests/checkpoint.rs:8", "services/agent/crates/layerx-sdk/tests/sdk.rs:381", "services/human/schema/human-api/baseline.kvx:327", "services/human/schema/human-api/compatibility.kvx:3", "services/human/schema/human-api/journeys.kvx:33", "services/human/schema/human-api/movement.kvx:43", "services/human/tools/boundary-check/src/lib.rs:17", "services/human/tools/boundary-check/tests/retired_surface_rules.rs:79", "services/human/tools/schema-check/tests/journey_vocabulary.rs:193", "services/human/tools/schema-check/tests/merged_schema_retired.rs:89", "services/human/tools/schema-check/tests/merged_schema_shapes.rs:115", "tests/codec/lxp_test_kernel_complete.c:1451", "tools/paxeer-x/retired_callers.json:315"]
+
+[row.r8-37.55]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-settlementdomain-paxeer"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2435
+symbol = "HumanModels.SettlementDomain.PAXEER"
+evidence = "HumanModels.SettlementDomain and its PAXEER variant with wire paxeer are absent. The bare PAXEER at line 1495 belongs to IntentDomain; references below use the qualified removed settlement member. Repository-wide git grep excludes spec and docs directories; remaining lists the first whole-symbol match per other file, including unrelated homonyms and tests."
+remaining_refs = 0
+remaining = []
+
+[row.r8-37.56]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-verificationlevel"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2635
+symbol = "VerificationLevel"
+evidence = "VerificationLevel identifier is absent; the replacement enum is HumanVerificationLevel at line 2548 with unverified, receipt-verified and checkpoint-finalised variants. Repository-wide git grep excludes spec and docs directories; remaining lists the first whole-symbol match per other file, including unrelated homonyms and tests."
+remaining_refs = 186
+remaining = ["GOTCHA.kvx:10031", "apps/web/e2e/activity-rungs.test.ts:8", "apps/web/e2e/agents-rungs.test.ts:13", "apps/web/e2e/proof_journeys.test.ts:16", "apps/web/e2e/proof_kit.test.ts:9", "apps/web/src/api/generated/index.ts:675", "apps/web/src/journeys/activity/model.ts:23", "apps/web/src/journeys/agents/model.ts:20", "sdk/integrations/android/src/test/java/com/sidiora/layerx/android/sample/RelayReceiptResolverTest.java:81", "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/SellerMiddleware.java:193", "sdk/integrations/spring/src/test/java/com/sidiora/layerx/spring/SellerReceiptsTest.java:99", "sdk/platform/dotnet/PortableReceipt.cs:22", "sdk/platform/dotnet/Verifier.cs:36", "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/KernelVerifierRetiredTests.cs:14", "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/PortableReceiptTests.cs:48", "sdk/platform/generators/generate_jvm.py:240", "sdk/platform/generators/src/main.rs:1382", "sdk/platform/generators/tests/drift.rs:146", "sdk/platform/go/cmd/conformance/main.go:336", "sdk/platform/go/conformance_vectors_test.go:348", "sdk/platform/go/kernel_verifier_retired_test.go:12", "sdk/platform/go/portable_receipt.go:31", "sdk/platform/go/portable_receipt_test.go:23", "sdk/platform/go/verify.go:75", "sdk/platform/jvm/README.md:105", "sdk/platform/jvm/src/conformance/java/com/sidiora/layerx/sdk/ConformanceMain.java:195", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/Committed.java:34", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/verify/LocalVerifier.java:41", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/KernelVerifierRetiredTest.java:23", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/PortableReceiptTest.java:49", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/ProgramsContractTest.java:245", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/ProgramsEvmTest.java:68", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/SequencerReceiptTest.java:81", "sdk/platform/jvm/target/apidocs/allclasses-index.html:90", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/class-use/PlatformSdkException.html:128", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/Committed.Verification.html:101", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/Committed.VerificationLevel.html:5", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/Committed.html:137", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/LocalVerifier.ReceiptVerification.html:101", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/LocalVerifier.SequencerReceiptVerification.html:101", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/LocalVerifier.VerificationLevel.html:5", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/LocalVerifier.html:135", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/class-use/Committed.VerificationLevel.html:5", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/class-use/LocalVerifier.ProtocolReceipt.html:88", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/class-use/LocalVerifier.SequencerReceiptVerification.html:182", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/class-use/LocalVerifier.VerificationLevel.html:5", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/package-summary.html:118", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/package-tree.html:89", "sdk/platform/jvm/target/apidocs/com.sidiora.layerx.sdk/com/sidiora/layerx/sdk/verify/package-use.html:110", "sdk/platform/jvm/target/apidocs/index-all.html:2887", "sdk/platform/jvm/target/apidocs/member-search-index.js:1", "sdk/platform/jvm/target/apidocs/overview-tree.html:147", "sdk/platform/jvm/target/apidocs/type-search-index.js:1", "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift:49", "sdk/platform/swift/Tests/LayerXSDKTests/KernelVerifierRetiredTests.swift:8", "sdk/wallet/src/human.ts:22", "sdk/wallet/src/types.ts:515", "services/agent/crates/layerx-agent-api/tests/schema_retired.rs:92", "services/agent/crates/layerx-agentd/src/admin.rs:8", "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs:723", "services/agent/crates/layerx-agentd/src/approval/events.rs:6", "services/agent/crates/layerx-agentd/src/audit/record.rs:7", "services/agent/crates/layerx-agentd/src/budget/budget_proof.rs:5", "services/agent/crates/layerx-agentd/src/budget/execution_state.rs:9", "services/agent/crates/layerx-agentd/src/budget/program_lifecycle_settlement.rs:11", "services/agent/crates/layerx-agentd/src/budget/program_settlement.rs:12", "services/agent/crates/layerx-agentd/src/budget/program_sources.rs:239", "services/agent/crates/layerx-agentd/src/cache.rs:8", "services/agent/crates/layerx-agentd/src/config.rs:15", "services/agent/crates/layerx-agentd/src/enrolment.rs:1135", "services/agent/crates/layerx-agentd/src/events/ingest.rs:33", "services/agent/crates/layerx-agentd/src/export.rs:22", "services/agent/crates/layerx-agentd/src/human_receipt_frame.rs:8", "services/agent/crates/layerx-agentd/src/human_runtime.rs:17", "services/agent/crates/layerx-agentd/src/identity.rs:4", "services/agent/crates/layerx-agentd/src/managed_agent.rs:6", "services/agent/crates/layerx-agentd/src/policy/approval.rs:13", "services/agent/crates/layerx-agentd/src/protocol_evidence.rs:17", "services/agent/crates/layerx-agentd/src/protocol_evidence_native_tests.rs:106", "services/agent/crates/layerx-agentd/src/read/committed.rs:9", "services/agent/crates/layerx-agentd/src/receipt.rs:7", "services/agent/crates/layerx-agentd/src/session_control.rs:1431", "services/agent/crates/layerx-agentd/src/tenant/errors.rs:100", "services/agent/crates/layerx-agentd/src/tenant/isolation.rs:3", "services/agent/crates/layerx-agentd/tests/admin_retry_rung.rs:10", "services/agent/crates/layerx-agentd/tests/approval_events.rs:41", "services/agent/crates/layerx-agentd/tests/audit_coverage.rs:16", "services/agent/crates/layerx-agentd/tests/audit_export.rs:20", "services/agent/crates/layerx-agentd/tests/audit_record_v3.rs:16", "services/agent/crates/layerx-agentd/tests/bootstrap_bind_layerx.rs:500", "services/agent/crates/layerx-agentd/tests/budget_durable_limits.rs:44", "services/agent/crates/layerx-agentd/tests/budget_reconcile.rs:31", "services/agent/crates/layerx-agentd/tests/cache.rs:5", "services/agent/crates/layerx-agentd/tests/checkpoint.rs:9", "services/agent/crates/layerx-agentd/tests/config.rs:10", "services/agent/crates/layerx-agentd/tests/delivery.rs:21", "services/agent/crates/layerx-agentd/tests/gaps.rs:40", "services/agent/crates/layerx-agentd/tests/grant_revocation_on_chain.rs:13", "services/agent/crates/layerx-agentd/tests/handshake_gate.rs:19", "services/agent/crates/layerx-agentd/tests/identity.rs:6", "services/agent/crates/layerx-agentd/tests/ingest.rs:9", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs:546", "services/agent/crates/layerx-agentd/tests/observability.rs:15", "services/agent/crates/layerx-agentd/tests/operator.rs:15", "services/agent/crates/layerx-agentd/tests/outbox.rs:139", "services/agent/crates/layerx-agentd/tests/proof_agentd.rs:46", "services/agent/crates/layerx-agentd/tests/protocol_evidence.rs:87", "services/agent/crates/layerx-agentd/tests/receipts.rs:12", "services/agent/crates/layerx-agentd/tests/redaction.rs:11", "services/agent/crates/layerx-agentd/tests/revocation.rs:17", "services/agent/crates/layerx-agentd/tests/rotation_refused.rs:9", "services/agent/crates/layerx-agentd/tests/session.rs:15", "services/agent/crates/layerx-agentd/tests/subscription.rs:39", "services/agent/crates/layerx-agentd/tests/support/mod.rs:41", "services/agent/crates/layerx-agentd/tests/tenant_isolation.rs:16", "services/agent/crates/layerx-agentd/tests/tenant_leakage.rs:83", "services/agent/crates/layerx-agentd/tests/tenant_resolve.rs:19", "services/agent/crates/layerx-agentd/tests/w7_core_time.rs:29", "services/agent/crates/layerx-agentd/tests/w7_subscription_permit.rs:25", "services/agent/crates/layerx-agentd/tests/webhook.rs:30", "services/agent/crates/layerx-client/src/rpc/history.rs:7", "services/agent/crates/layerx-mcp/tests/daemon_bound.rs:28", "services/agent/crates/layerx-mcp/tests/faucet.rs:24", "services/agent/crates/layerx-mcp/tests/readonly.rs:23", "services/agent/crates/layerx-mcp/tests/scope.rs:24", "services/agent/crates/layerx-mcp/tests/web.rs:43", "services/agent/crates/layerx-mcp/tests/write.rs:27", "services/agent/crates/layerx-proof/src/checkpoint.rs:299", "services/agent/crates/layerx-proof/src/evidence.rs:3", "services/agent/crates/layerx-proof/src/export.rs:7", "services/agent/crates/layerx-proof/src/inclusion.rs:160", "services/agent/crates/layerx-proof/src/level.rs:3", "services/agent/crates/layerx-proof/src/receipt.rs:290", "services/agent/crates/layerx-proof/tests/checkpoint.rs:22", "services/agent/crates/layerx-proof/tests/inclusion.rs:7", "services/agent/crates/layerx-proof/tests/native_owner_outcome.rs:4", "services/agent/crates/layerx-proof/tests/native_terminal_outcome.rs:13", "services/agent/crates/layerx-proof/tests/offline_export.rs:9", "services/agent/crates/layerx-proof/tests/receipt.rs:8", "services/agent/crates/layerx-types/src/verify.rs:22", "services/agent/crates/layerx-types/tests/proof_types.rs:1", "services/agent/crates/layerx-types/tests/verification.rs:7", "services/agent/qualification/pay2/pay2e_test.rs:70", "services/agent/tests/parity/python.py:13", "services/agent/tests/parity/typescript.mjs:6", "services/agent/tests/qualify/fabrication.rs:94", "services/human/crates/layerx-human-service/src/activity/export.rs:1088", "services/human/crates/layerx-human-service/src/journeys/engine.rs:24", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:23", "services/human/crates/layerx-human-service/tests/activity.rs:39", "services/human/crates/layerx-human-service/tests/agent_controls.rs:51", "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs:53", "services/human/crates/layerx-human-service/tests/agent_create.rs:36", "services/human/crates/layerx-human-service/tests/agent_runtime_receipt_frame.rs:10", "services/human/crates/layerx-human-service/tests/agent_runtime_rungs.rs:25", "services/human/crates/layerx-human-service/tests/approvals.rs:148", "services/human/crates/layerx-human-service/tests/archive.rs:32", "services/human/crates/layerx-human-service/tests/detail.rs:20", "services/human/crates/layerx-human-service/tests/detail_rungs.rs:19", "services/human/crates/layerx-human-service/tests/journey_faults.rs:1083", "services/human/crates/layerx-human-service/tests/move_money.rs:680", "services/human/crates/layerx-human-service/tests/receipt_material_rungs.rs:124", "services/human/crates/layerx-human-service/tests/render.rs:256", "services/human/crates/layerx-human-service/tests/session_keys.rs:52", "services/human/crates/layerx-human-service/tests/session_rungs.rs:31", "services/human/crates/layerx-human-service/tests/spend.rs:295", "services/human/crates/layerx-human-service/tests/support/production_fixture.rs:566", "services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs:724", "services/human/crates/layerx-human-test-support/src/lib.rs:28", "services/human/crates/layerx-human-test-support/tests/evidence_gate_rungs.rs:9", "services/human/crates/layerx-human-test-support/tests/proof_human_test_support.rs:40", "services/human/crates/layerx-human-test-support/tests/receipt_evidence_key.rs:9", "services/human/schema/human-api/agents.kvx:36", "services/human/schema/human-api/baseline.kvx:252", "services/human/schema/human-api/home.kvx:13", "services/human/schema/human-api/journeys.kvx:25", "services/human/schema/human-api/program-approvals.kvx:84", "services/human/tools/schema-check/tests/journey_vocabulary.rs:12", "services/human/tools/schema-check/tests/merged_schema_retired.rs:128", "services/human/tools/schema-check/tests/merged_schema_shapes.rs:249", "services/platform/hosted/gateway/src/lib.rs:1288", "services/platform/hosted/gateway/src/main.rs:5023", "services/platform/hosted/gateway/src/settlement.rs:93", "services/platform/hosted/gateway/tests/completion_gate.rs:91", "tools/platform/cli/tests/mcp_daemon_bound.rs:31", "tools/platform/emulator/src/settlement.rs:92"]
+
+[row.r8-37.57]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-verificationlevel-unverified"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2549
+symbol = "UNVERIFIED"
+evidence = "UNVERIFIED retains wire unverified, now declared in HumanVerificationLevel instead of the removed VerificationLevel enum; this member itself is unchanged. Current declaration at line 2549: UNVERIFIED(\"unverified\"),"
+
+[row.r8-37.58]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-verificationlevel-receipt-verified"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2550
+symbol = "RECEIPT_VERIFIED"
+evidence = "RECEIPT_VERIFIED retains wire receipt-verified, now declared in HumanVerificationLevel instead of the removed VerificationLevel enum; this member itself is unchanged. Current declaration at line 2550: RECEIPT_VERIFIED(\"receipt-verified\"),"
+
+[row.r8-37.59]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-verificationlevel-checkpoint-finalised"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2551
+symbol = "CHECKPOINT_FINALISED"
+evidence = "CHECKPOINT_FINALISED retains wire checkpoint-finalised in HumanVerificationLevel instead of VerificationLevel; now the last variant, with PAXEER_FINALISED removed. Current declaration at line 2551: CHECKPOINT_FINALISED(\"checkpoint-finalised\");"
+
+[row.r8-37.60]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-verificationlevel-paxeer-finalised"
+verdict = "retired"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2639
+symbol = "PAXEER_FINALISED"
+evidence = "PAXEER_FINALISED with wire paxeer-finalised is absent; HumanVerificationLevel ends with CHECKPOINT_FINALISED. Repository-wide git grep excludes spec and docs directories; remaining lists the first whole-symbol match per other file, including unrelated homonyms and tests."
+remaining_refs = 0
+remaining = []
