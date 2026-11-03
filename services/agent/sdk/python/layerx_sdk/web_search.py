@@ -50,6 +50,8 @@ _MAX_HEADER_CHARACTERS = 131072
 _MAX_RETRY_AFTER_SECONDS = 30
 _GRANT_BYTES = 346
 _RECEIPT_LEAF_DOMAIN = b"LXP/v1/merkle-leaf\x00"
+_SEQUENCER_MODULE_ID = 12
+_SEQUENCER_OPERATION = 2
 _TIMEOUT_SECONDS = 30.0
 
 
@@ -437,16 +439,21 @@ def verify_sequencer_receipt(
         body = verified.receipt
         if body.result_code != 0:
             raise WebSearchError("receipt-unverified")
-        if body.module_id == 1 and (
-            body.operation == 0
-            or body.from_balance_before < body.amount
-            or body.from_balance_before - body.amount != body.from_balance_after
-            or body.to_balance_before + body.amount >= 1 << 128
-            or body.to_balance_before + body.amount != body.to_balance_after
-        ):
-            raise WebSearchError("receipt-unverified")
     except Exception:
         raise WebSearchError("receipt-unverified") from None
+    verify_web_search_payment(verified, offer)
+    return verified
+
+
+def verify_web_search_payment(
+    verified: ReceiptVerification, offer: WebSearchOffer
+) -> None:
+    body = verified.receipt
+    if (
+        body.module_id != _SEQUENCER_MODULE_ID
+        or body.operation != _SEQUENCER_OPERATION
+    ):
+        raise WebSearchError("settlement-operation-mismatch")
     if (
         body.asset.hex() != offer.asset
         or body.amount != int(offer.amount)
@@ -455,7 +462,6 @@ def verify_sequencer_receipt(
         raise WebSearchError("receipt-offer-mismatch")
     if offer.payer is not None and body.from_account.hex() != offer.payer:
         raise WebSearchError("settlement-payer-mismatch")
-    return verified
 
 
 class WebSearchClient:
@@ -910,8 +916,6 @@ class WebSearchClient:
         if settlement.get("payer") != payer:
             raise WebSearchError("settlement-payer-mismatch")
         if offer.scheme == "metered":
-            if verified.receipt.module_id != 1 or verified.receipt.operation != 6:
-                raise WebSearchError("settlement-operation-mismatch")
             if payer != offer.payer:
                 raise WebSearchError("settlement-payer-mismatch")
             if layerx.get("purposeHash") != offer.purpose_hash:
