@@ -148052,7 +148052,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.136]
 title = "Repair the inventory sweep target services/platform/perps-data/internal/replay"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -148083,7 +148083,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.135]
 title = "Repair the inventory sweep target services/platform/perps-data/internal/records"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -148114,7 +148114,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.134]
 title = "Repair the inventory sweep target services/platform/perps-data/internal/publish"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -148207,7 +148207,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.131]
 title = "Repair the inventory sweep target services/platform/perps-data/internal/markets"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -148269,7 +148269,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.129]
 title = "Repair the inventory sweep target services/platform/perps-data/internal/graphql"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -148393,7 +148393,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.125]
 title = "Repair the inventory sweep target services/platform/perps-data/internal/delivery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -148424,7 +148424,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.124]
 title = "Repair the inventory sweep target services/platform/perps-data/internal/decode"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -203506,7 +203506,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.116]
 title = "Repair the inventory sweep target modules/pricefeed/types"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -203568,7 +203568,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.114]
 title = "Repair the inventory sweep target modules/oracle"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -203692,7 +203692,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.99.110]
 title = "Repair the inventory sweep target modules/layerxpay/integration"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
