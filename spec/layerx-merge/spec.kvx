@@ -187956,7 +187956,7 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 
 [task.22.25.2]
 title = "Admit the active programs fee record and keep unrelated module-9 rows out of the lxphost loader tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 0
 requires = ["22.25.4"]
