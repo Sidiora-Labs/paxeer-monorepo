@@ -35,7 +35,7 @@ func serverDB(t *testing.T) *sql.DB {
 	t.Helper()
 	url := os.Getenv("PERPS_DATA_TEST_DATABASE_URL")
 	if url == "" {
-		t.Fatal("PERPS_DATA_TEST_DATABASE_URL is unset")
+		t.Fatal("PERPS_DATA_TEST_DATABASE_URL is unset: portal tests require a PostgreSQL database allowing perps schema recreation and migrations")
 	}
 	db, err := store.Open(url)
 	if err != nil {
@@ -58,7 +58,7 @@ func gatewayServer(t *testing.T, db *sql.DB) *httptest.Server {
 	t.Helper()
 	rpcURL := os.Getenv("PERPS_DATA_TEST_RPC")
 	if rpcURL == "" {
-		t.Fatal("PERPS_DATA_TEST_RPC is unset")
+		t.Fatal("PERPS_DATA_TEST_RPC is unset: portal gateway tests require a chain 125 node RPC URL")
 	}
 	node, err := ethclient.DialContext(t.Context(), rpcURL)
 	if err != nil {

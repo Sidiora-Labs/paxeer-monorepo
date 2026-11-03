@@ -1,0 +1,8 @@
+[repair.go-services.20]
+target = "services/platform/perps-data/internal/explorer"
+command = "cd services/platform/perps-data && go vet ./internal/explorer/ && go test -count=1 -run NoTestMatchesThisName ./internal/explorer/"
+recorded_command = "cd services/platform/perps-data && go vet ./internal/explorer/ && go test -count=1 ./internal/explorer/"
+revision = "cea04b0a20fed9621b2f2580398024b38b76ff2e"
+result = "already-passing"
+change = "None; the recorded failure requires PostgreSQL inputs, and the explorer implementation and tests are unchanged."
+producer_input_tests = ["TestExplorer: PERPS_DATA_TEST_DATABASE_URL pointing to a disposable PostgreSQL database with permission to drop and recreate schema perps.", "TestChainHealthCounters: PERPS_DATA_TEST_DATABASE_URL pointing to a disposable PostgreSQL database with permission to drop and recreate schema perps.", "TestExplorerServer: PERPS_DATA_TEST_DATABASE_URL pointing to a disposable PostgreSQL database with permission to drop and recreate schema perps.", "TestProofExplorer: pg_config on PATH with executable initdb, pg_ctl and postgres in its --bindir; a non-root PostgreSQL process identity (the nobody account when invoked with root privileges)."]
