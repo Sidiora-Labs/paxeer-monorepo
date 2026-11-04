@@ -1,0 +1,54 @@
+[task.22.33.622]
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+repair = "ReceiptGateTest no longer projects the synthetic settled/receipt_ref journey or supplies its evidence with a resolver lambda. Its original success case calls the configured production gate.track through the real broker, AndroidHttpTransport, MobileClient and HumanReceiptResolver against a loopback HTTP peer. The signed transaction, receipt, digest and pin remain the existing V1-pax-transfer producer recording. Additional Java assertions cover done and retained done-finalised vocabulary plus transported signature, raw transaction, digest, evidence identity, proof key, configured authority and payment-term refusals. All existing direct tamper, defensive-copy, key-height and invalid-configuration assertions remain."
+source_proof = "The five offline pytest tests parse the committed JSON, base64 proof, pin heights and existing vector, recompute receipt identity and the domain-separated unsigned receipt digest, and assert the actual Rust producer fields and labels. They inspect the repaired ReceiptGateTest declarations, loopback request sequence and authorization checks, and the production Android entry point, HTTP codec, client, resolver and gate connections. This is source qualification, not execution of a replacement implementation. No shell script, unit file, manifest or build file is repaired."
+review_only = "Java/JUnit execution, HTTP exchange, Ed25519 verification, transaction Keccak, live Human response emission and BFT commitment are not executed by this Python gate. human-receipt-journey-22-33-622.json is a source-derived contract fixture, not a captured Human response. Its signed bytes are copied unchanged from the committed sequencer recording, while its envelope and native done projection are checked against current producer source. done-finalised is retained schema compatibility coverage; the current native producer renders done. The test asserts receipted execution verification and does not claim that a service label authenticates BFT finality. Capturing a producer-emitted completed journey requires the out-of-path wiring request below. No restart-recovery or interface-mismatch finding applies."
+baseline = "No pre-change verification was run and no baseline test failures are claimed: the explicit implementation-first and hf-done-only order takes precedence over the contradictory unchanged-tree baseline clause. Initial Git status/diff showed only runner-owned .cgignore and spec task-start bookkeeping, both preserved. Both scoped qualification artifacts were absent; gate.json recorded zero builds and verifies and gates.jsonl was absent. The synthetic journey incompatibility was observed by source inspection, not a baseline test run."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_622.py"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision = "The exact candidate revision, command, exit and private log are recorded by the final hf-done JSON and the corresponding evidence_ledger row."
+evidence = "Qualification requires build and verification to pass on the same candidate revision. This record is complete before the gates; embedding its own content-derived candidate hash would change the candidate. The runner retains exact immutable revision evidence and performs publication; no manual commit or push is performed."
+
+[finding.033]
+audit = "22.30.163"
+file = "sdk/integrations/android/src/test/java/com/sidiora/layerx/android/ReceiptGateTest.java"
+line = 53
+class = "test-gap"
+severity = "medium"
+owner_domain = 15
+expected = "The Android journey test must use the current done/done-finalised Journey with evidence references supplied by the real Human producer."
+java_tests = ["verifiesSignedSequencerReceipt", "refusesReceiptUnderUnpinnedKey", "completedHumanJourneyRequiresMatchingPinnedEvidence"]
+tests = ["test_033_current_producer_completion_and_evidence_contract", "test_033_portable_material_is_bound_to_committed_producer_bytes", "test_033_java_regression_uses_http_client_resolution_and_configured_gate", "test_033_tamper_and_pin_assertions_remain_and_cover_transport", "test_033_record_discloses_proof_limits_and_names_every_test"]
+qualification_boundary = "The declared gate proves the repaired source facts; runtime producer emission and Java execution remain review-only and the producer transcript request remains outstanding. Full runtime closure is not claimed by this record."
+
+[wiring.human_completion_transcript]
+request = "services/human/crates/layerx-human-service/src/server/production_reads.rs; owning domain 15 (Human producer): capture native_journey_json and evidence_get output for a completed move backed by V1-pax-transfer (or publish another signed completed-move transcript), then replace the source-derived Android contract envelope with that unchanged recording in the consumer domain."
+status = "Outstanding: the existing journey.get golden is processing historical deposit data, not a completed current payment; its evidence golden contains illustrative bytes. No producer or generated artifact outside scope is changed here."
+
+[format]
+policy = "No Java, Python or KVX formatter is configured for these paths. Apply repository .editorconfig UTF-8, LF, final newline and trailing-whitespace conventions to touched files only; JSON uses two-space indentation."
+
+[gotcha.1]
+observed = "The baseline clause conflicts with the explicit no-tests-before-complete-implementation and hf-done-only gate order."
+resolution = "Follow the explicit order; record baseline UNRUN without claiming failures. Keep this note here because GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.2]
+observed = "Codify brief/survey can report an unrelated next task and stale uncommitted counts; broad ledger reads exceed the output limit."
+resolution = "Use assigned task metadata, actual Git status/diff, bounded source reads and runner evidence; preserve runner bookkeeping."
+
+[gotcha.3]
+observed = "The Human journey and evidence goldens are illustrative historical data, not a completed producer recording."
+resolution = "Disclose the source-derived envelope, verify its producer source and unchanged signed recording, and request an emitted completion transcript from the producer owner without asserting runtime proof."
+
+[qualification.first_attempt]
+revision = "97fa80cfac89bbac3b345bdd4c7c9d4d7a060f61"
+command = "cg spec done 22.33.622 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Four tests passed and the producer-contract test failed because parsing all of journeys.kvx as TOML encounters a KVX scalar/dotted namespace collision outside JourneyState."
+repair = "Parse the complete relevant JourneyState section rather than treating the whole KVX schema as TOML; retain every vocabulary and semantics assertion."
+
+[gotcha.4]
+observed = "KVX permits scalar and dotted namespaces that tomllib rejects when parsing a whole schema."
+resolution = "For this proof, isolate and parse the full relevant JourneyState section, retaining all required variants and semantics checks."
