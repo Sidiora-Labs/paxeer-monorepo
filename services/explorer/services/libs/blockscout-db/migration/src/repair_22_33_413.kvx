@@ -1,0 +1,9 @@
+[repair.22.33.413]
+finding = "migration-unicode-offset"
+source = "services/explorer/services/libs/blockscout-db/migration/src/lib.rs"
+change = "Use char_indices byte offsets when slicing UTF-8 SQL at semicolons."
+test = "services/explorer/services/libs/blockscout-db/migration/tests/repair_22_33_413.rs::migration_unicode_offset_from_sql_preserves_multibyte_statements"
+proof = "Production from_sql and the real SeaORM PostgreSQL driver execute against a loopback replay of recorded PostgreSQL 18.6 transactions; exact statement bytes, both commits and decoded Unicode rows are asserted."
+baseline = "Not run: the task's ordered gate instructions prohibit verification before implementation and direct the sole verification through hf-done. No baseline failure is claimed."
+wiring_requests = "None: the implementation and its recorded fixtures are inside the authorized paths."
+evidence = "The private hf-build/hf-done ledger records the exact candidate revision, command, exit code and log location; no qualification is claimed by this record alone."

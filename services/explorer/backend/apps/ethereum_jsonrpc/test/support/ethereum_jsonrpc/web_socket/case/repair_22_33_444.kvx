@@ -1,0 +1,10 @@
+[repair.22.33.444]
+audit = "22.30.147"
+test_file = "services/explorer/backend/apps/ethereum_jsonrpc/test/repair/repair_22_33_444_test.exs"
+external-test-endpoint-146 = "external-test-endpoint-146: configured local chain-125 HTTP and WebSocket consume the same recorded head"
+external-test-endpoint-148 = "external-test-endpoint-148: configured local chain-125 HTTP and WebSocket consume the same recorded head"
+proof = "Both profiles also reject absent or invalid configuration, wrong-chain and failed RPC responses on either transport, and mismatched blocks; compatibility requires explicit opt-in and chain id."
+baseline = "Not run: the mandatory implementation-first and hf-build/hf-done-only order prohibits the unchanged-tree verify requested by do_6; no pre-change test failure is claimed."
+qualification = "Verified revision, exact command, exit and private log location are recorded by the bounded hf-build/hf-done gate ledger."
+wiring_geth = "Domain 14: services/explorer/backend/apps/ethereum_jsonrpc/test/support/ethereum_jsonrpc/case/geth/http_websocket.ex must consume the paired json_rpc_named_arguments returned by WebSocket.Case.Geth.setup instead of its independent external HTTP endpoint."
+wiring_nethermind = "Domain 14: services/explorer/backend/apps/ethereum_jsonrpc/test/support/ethereum_jsonrpc/case/nethermind/http_websocket.ex must consume the paired json_rpc_named_arguments returned by WebSocket.Case.Nethermind.setup instead of its independent external HTTP endpoint."

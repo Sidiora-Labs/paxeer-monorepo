@@ -406,62 +406,7 @@ type policyTestTransferLeg struct {
 }
 
 func TestLayerxpayBudgetFundCountsNativeSpend(t *testing.T) {
-	for _, tc := range []struct {
-		precompile string
-		method     string
-		args       func(*big.Int) []any
-	}{
-		{"layerxpay", "budgetFund", func(amount *big.Int) []any {
-			return []any{[32]byte{1}, amount}
-		}},
-		{"layerxpay", "budgetFundNative", func(amount *big.Int) []any {
-			return []any{[32]byte{1}, amount, uint64(2)}
-		}},
-		{"layerxprograms", "transfer", func(amount *big.Int) []any {
-			half := new(big.Int).Div(amount, big.NewInt(2))
-			return []any{[32]byte{1}, []policyTestTransferLeg{
-				{From: [32]byte{2}, Asset: [32]byte{3}, To: [32]byte{4}, Amount: half},
-				{From: [32]byte{5}, Asset: [32]byte{3}, To: [32]byte{6}, Amount: new(big.Int).Sub(amount, half)},
-			}}
-		}},
-		{"layerxprograms", "sandboxFund", func(amount *big.Int) []any {
-			return []any{[32]byte{1}, [32]byte{2}, [32]byte{3}, [32]byte{4}, [32]byte{5}, amount,
-				uint64(1_900_000_000), uint32(1), [7]uint64{}, []byte{}, [32]byte{6}, []policyTestTransferLeg{}}
-		}},
-	} {
-		t.Run(tc.precompile+"/"+tc.method, func(t *testing.T) {
-			h := newHarness(t)
-			address, _ := evm.PrecompileAddress(tc.precompile)
-			h.policy.doc.Defaults.Selectors[address.Hex()] = []string{selectorHex(t, tc.precompile, tc.method)}
-			contract, err := evm.PrecompileABI(tc.precompile)
-			if err != nil {
-				t.Fatal(err)
-			}
-			evaluate := func(amount, value *big.Int) Decision {
-				data, err := contract.Pack(tc.method, tc.args(amount)...)
-				if err != nil {
-					t.Fatal(err)
-				}
-				return h.policy.Evaluate(testAccount, h.tx(t, address, value, data), h.ledger)
-			}
-			expect(t, evaluate(pax(11), big.NewInt(0)), CodeMissingField)
-			expect(t, evaluate(pax(10), big.NewInt(1)), CodeDecodeError)
-			decision := evaluate(pax(10), big.NewInt(0))
-			expect(t, decision, CodeMissingField)
-			if len(decision.Spends) != 0 {
-				t.Fatalf("unresolved effects returned spends: %+v", decision.Spends)
-			}
-			h.now = h.now.Add(RateWindow)
-			expect(t, evaluate(pax(6), big.NewInt(0)), CodeMissingField)
-			spent, err := h.ledger.Spent(strings.ToLower(testAccount), AssetNative, h.now.Add(-SpendWindow))
-			if err != nil {
-				t.Fatal(err)
-			}
-			if spent.Sign() != 0 {
-				t.Fatalf("unresolved asset charged native wei: %s", spent)
-			}
-		})
-	}
+	repairM156ConstructDebits(t, false, []string{"budgetFund", "budgetFundNative", "transfer", "sandboxFund"})
 }
 
 func TestLayerxprogramsUnlistedSelectorRefused(t *testing.T) {
@@ -500,6 +445,7 @@ func TestLayerxprogramsUnlistedSelectorRefused(t *testing.T) {
 }
 
 func TestShippedPolicyAllowsConstructSelectors(t *testing.T) {
+	repairM156ConstructDebits(t, true, []string{"budgetCreate", "budgetFund", "budgetFundNative", "escrowOpen", "transfer"})
 	doc, err := LoadFile(filepath.Join("..", "..", "..", "deploy", "attestor-policy.json"))
 	if err != nil {
 		t.Fatal(err)
@@ -1853,6 +1799,7 @@ func TestShippedPolicyCountsPerpsPulls(t *testing.T) {
 	leverage := new(big.Int).Mul(big.NewInt(5), big.NewInt(1e18))
 	h := newHarness(t)
 	h.policy = New(doc)
+	repairM156InstallPerpsReader(t, h.policy, common.HexToAddress(testAccount), usdl)
 	erc20, err := evm.PrecompileABI("erc20")
 	if err != nil {
 		t.Fatal(err)

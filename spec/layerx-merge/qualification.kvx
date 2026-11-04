@@ -22683,3 +22683,787 @@ symbol = "repair-22-31-384.test.ts"
 observed = "Attempt 3: approval_operation_digest_real_http fails; the generated ApprovalDetail codec returns undefined for the operation digest."
 assumption = "Producer-consumer defect: the schema and generated client were left outside the first scope."
 severity = "high"
+
+[finding.22.33.56.1]
+task = "22.33.56"
+file = "services/human/crates/layerx-network-gateway/tests/repair_22_33_56.rs"
+symbol = "repair_22_33_56.rs"
+observed = "Attempt 1: the human service test crate fails to build on six Quantity type mismatches in a test outside this task's paths; the task's own tests did not run."
+assumption = "An unrelated producer change left a consumer test behind; the task is blocked until 22.31.443 publishes."
+severity = "medium"
+
+[finding.22.33.57.1]
+task = "22.33.57"
+file = "services/human/crates/layerx-network-gateway/tests/repair_22_33_57.rs"
+symbol = "repair_22_33_57.rs"
+observed = "Attempt 1: the human service test crate fails to build on six Quantity type mismatches in a test outside this task's paths; the task's own tests did not run."
+assumption = "An unrelated producer change left a consumer test behind; the task is blocked until 22.31.443 publishes."
+severity = "medium"
+
+[finding.22.33.58.1]
+task = "22.33.58"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_58.rs"
+symbol = "repair_22_33_58.rs"
+observed = "Attempt 1: the human service test crate fails to build on six Quantity type mismatches in a test outside this task's paths; the task's own tests did not run."
+assumption = "An unrelated producer change left a consumer test behind; the task is blocked until 22.31.443 publishes."
+severity = "medium"
+
+[finding.22.33.59.1]
+task = "22.33.59"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_59.rs"
+symbol = "repair_22_33_59.rs"
+observed = "Attempt 1: the human service test crate fails to build on six Quantity type mismatches in a test outside this task's paths; the task's own tests did not run."
+assumption = "An unrelated producer change left a consumer test behind; the task is blocked until 22.31.443 publishes."
+severity = "medium"
+
+[finding.22.33.60.1]
+task = "22.33.60"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_60.rs"
+symbol = "repair_22_33_60.rs"
+observed = "Attempt 1: the human service test crate fails to build on six Quantity type mismatches in a test outside this task's paths; the task's own tests did not run."
+assumption = "An unrelated producer change left a consumer test behind; the task is blocked until 22.31.443 publishes."
+severity = "medium"
+
+[finding.22.33.61.1]
+task = "22.33.61"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_61.rs"
+symbol = "repair_22_33_61.rs"
+observed = "Attempt 1: the human service test crate fails to build on six Quantity type mismatches in a test outside this task's paths; the task's own tests did not run."
+assumption = "An unrelated producer change left a consumer test behind; the task is blocked until 22.31.443 publishes."
+severity = "medium"
+
+[finding.22.33.62.1]
+task = "22.33.62"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_62.rs"
+symbol = "repair_22_33_62.rs"
+observed = "Attempt 1: the human service test crate fails to build on six Quantity type mismatches in a test outside this task's paths; the task's own tests did not run."
+assumption = "An unrelated producer change left a consumer test behind; the task is blocked until 22.31.443 publishes."
+severity = "medium"
+
+[finding.22.33.48.1]
+task = "22.33.48"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_48.rs"
+symbol = "repair_22_33_48.rs"
+observed = "Attempt 1: the human service test crate fails to build on six Quantity type mismatches in a test outside this task's paths; the task's own tests did not run."
+assumption = "An unrelated producer change left a consumer test behind; the task is blocked until 22.31.443 publishes."
+severity = "medium"
+
+[finding.22.33.51.1]
+task = "22.33.51"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_51.rs"
+symbol = "repair_22_33_51.rs"
+observed = "Attempt 1: the human service test crate fails to build on six Quantity type mismatches in a test outside this task's paths; the task's own tests did not run."
+assumption = "An unrelated producer change left a consumer test behind; the task is blocked until 22.31.443 publishes."
+severity = "medium"
+
+[finding.22.33.117.1]
+task = "22.33.117"
+file = "services/interop/crates/layerx-portable/tests/repair_22_33_117.rs"
+symbol = "repair_22_33_117.rs"
+observed = "Attempt 1: the human service test crate fails to build on six Quantity type mismatches in a test outside this task's paths; the task's own tests did not run."
+assumption = "An unrelated producer change left a consumer test behind; the task is blocked until 22.31.443 publishes."
+severity = "medium"
+
+[finding.22.33.218.1]
+task = "22.33.218"
+file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_218.rs"
+symbol = "repair_22_33_218.rs"
+observed = "Attempt 1: the human service test crate fails to build on six Quantity type mismatches in a test outside this task's paths; the task's own tests did not run."
+assumption = "An unrelated producer change left a consumer test behind; the task is blocked until 22.31.443 publishes."
+severity = "medium"
+
+[finding.22.33.221.1]
+task = "22.33.221"
+file = "programs/crates/layerx-programs-registry/tests/repair_22_33_221.rs"
+symbol = "repair_22_33_221.rs"
+observed = "Attempt 1: the human service test crate fails to build on six Quantity type mismatches in a test outside this task's paths; the task's own tests did not run."
+assumption = "An unrelated producer change left a consumer test behind; the task is blocked until 22.31.443 publishes."
+severity = "medium"
+
+[finding.22.33.244.1]
+task = "22.33.244"
+file = "programs/sdk/rust/tests/repair_22_33_244.rs"
+symbol = "repair_22_33_244.rs"
+observed = "Attempt 1: the human service test crate fails to build on six Quantity type mismatches in a test outside this task's paths; the task's own tests did not run."
+assumption = "An unrelated producer change left a consumer test behind; the task is blocked until 22.31.443 publishes."
+severity = "medium"
+
+[finding.22.33.12.1]
+task = "22.33.12"
+file = "apps/perps/tests/repair-22-33-12.test.ts"
+symbol = "repair-22-33-12.test.ts"
+observed = "Attempt 1: the perps type-check reports viem, the noble packages and zod unresolved under sdk/wallet and the gateway sources; the task's own tests did not run."
+assumption = "An environment gap of the gate, not a defect of the repair."
+severity = "medium"
+
+[finding.22.33.77.1]
+task = "22.33.77"
+file = "apps/perps/tests/repair-22-33-77.test.ts"
+symbol = "repair-22-33-77.test.ts"
+observed = "Attempt 1: the perps type-check reports viem, the noble packages and zod unresolved under sdk/wallet and the gateway sources; the task's own tests did not run."
+assumption = "An environment gap of the gate, not a defect of the repair."
+severity = "medium"
+
+[finding.22.33.79.1]
+task = "22.33.79"
+file = "apps/perps/tests/repair-22-33-79.test.ts"
+symbol = "repair-22-33-79.test.ts"
+observed = "Attempt 1: the perps type-check reports viem, the noble packages and zod unresolved under sdk/wallet and the gateway sources; the task's own tests did not run."
+assumption = "An environment gap of the gate, not a defect of the repair."
+severity = "medium"
+
+[finding.22.33.80.1]
+task = "22.33.80"
+file = "apps/perps/tests/repair-22-33-80.test.ts"
+symbol = "repair-22-33-80.test.ts"
+observed = "Attempt 1: the perps type-check reports viem, the noble packages and zod unresolved under sdk/wallet and the gateway sources; the task's own tests did not run."
+assumption = "An environment gap of the gate, not a defect of the repair."
+severity = "medium"
+
+[finding.22.33.81.1]
+task = "22.33.81"
+file = "apps/perps/tests/repair-22-33-81.test.ts"
+symbol = "repair-22-33-81.test.ts"
+observed = "Attempt 1: the perps type-check reports viem, the noble packages and zod unresolved under sdk/wallet and the gateway sources; the task's own tests did not run."
+assumption = "An environment gap of the gate, not a defect of the repair."
+severity = "medium"
+
+[finding.22.33.82.1]
+task = "22.33.82"
+file = "apps/perps/tests/repair-22-33-82.test.ts"
+symbol = "repair-22-33-82.test.ts"
+observed = "Attempt 1: the perps type-check reports viem, the noble packages and zod unresolved under sdk/wallet and the gateway sources; the task's own tests did not run."
+assumption = "An environment gap of the gate, not a defect of the repair."
+severity = "medium"
+
+[finding.22.33.83.1]
+task = "22.33.83"
+file = "apps/perps/tests/repair-22-33-83.test.ts"
+symbol = "repair-22-33-83.test.ts"
+observed = "Attempt 1: the perps type-check reports viem, the noble packages and zod unresolved under sdk/wallet and the gateway sources; the task's own tests did not run."
+assumption = "An environment gap of the gate, not a defect of the repair."
+severity = "medium"
+
+[finding.22.33.193.1]
+task = "22.33.193"
+file = "apps/perps/tests/repair-22-33-193.test.ts"
+symbol = "repair-22-33-193.test.ts"
+observed = "Attempt 1: the perps type-check reports viem, the noble packages and zod unresolved under sdk/wallet and the gateway sources; the task's own tests did not run."
+assumption = "An environment gap of the gate, not a defect of the repair."
+severity = "medium"
+
+[finding.22.33.275.1]
+task = "22.33.275"
+file = "apps/explorer/mocks/paxeerX/repair-22-33-275.spec.ts"
+symbol = "repair-22-33-275.spec.ts"
+observed = "Attempt 1: the explorer type-check failed on an undeclared ganache import or on the pnpm and yarn mismatch before this task's tests ran."
+assumption = "Two environment blockers of the explorer, both fixed independently of this task."
+severity = "medium"
+
+[finding.22.33.281.1]
+task = "22.33.281"
+file = "apps/explorer/ui/blocks/repair-22-33-281.spec.ts"
+symbol = "repair-22-33-281.spec.ts"
+observed = "Attempt 1: the explorer type-check failed on an undeclared ganache import or on the pnpm and yarn mismatch before this task's tests ran."
+assumption = "Two environment blockers of the explorer, both fixed independently of this task."
+severity = "medium"
+
+[finding.22.33.319.1]
+task = "22.33.319"
+file = "apps/explorer/ui/shared/AppError/custom/repair-22-33-319.spec.ts"
+symbol = "repair-22-33-319.spec.ts"
+observed = "Attempt 1: the explorer type-check failed on an undeclared ganache import or on the pnpm and yarn mismatch before this task's tests ran."
+assumption = "Two environment blockers of the explorer, both fixed independently of this task."
+severity = "medium"
+
+[finding.22.33.324.1]
+task = "22.33.324"
+file = "apps/explorer/ui/shared/layout/repair-22-33-324.spec.ts"
+symbol = "repair-22-33-324.spec.ts"
+observed = "Attempt 1: the explorer type-check failed on an undeclared ganache import or on the pnpm and yarn mismatch before this task's tests ran."
+assumption = "Two environment blockers of the explorer, both fixed independently of this task."
+severity = "medium"
+
+[finding.22.33.285.1]
+task = "22.33.285"
+file = "apps/explorer/ui/crossChain/transfers/repair-22-33-285.spec.ts"
+symbol = "repair-22-33-285.spec.ts"
+observed = "Attempt 1: the explorer type-check failed on an undeclared ganache import or on the pnpm and yarn mismatch before this task's tests ran."
+assumption = "Two environment blockers of the explorer, both fixed independently of this task."
+severity = "medium"
+
+[finding.22.33.344.1]
+task = "22.33.344"
+file = "apps/explorer/ui/snippets/topBar/settings/repair-22-33-344.spec.ts"
+symbol = "repair-22-33-344.spec.ts"
+observed = "Attempt 1: the explorer type-check failed on an undeclared ganache import or on the pnpm and yarn mismatch before this task's tests ran."
+assumption = "Two environment blockers of the explorer, both fixed independently of this task."
+severity = "medium"
+
+[finding.22.33.366.1]
+task = "22.33.366"
+file = "apps/explorer/ui/block/details/repair-22-33-366.spec.ts"
+symbol = "repair-22-33-366.spec.ts"
+observed = "Attempt 1: the explorer type-check failed on an undeclared ganache import or on the pnpm and yarn mismatch before this task's tests ran."
+assumption = "Two environment blockers of the explorer, both fixed independently of this task."
+severity = "medium"
+
+[finding.22.33.386.1]
+task = "22.33.386"
+file = "apps/explorer/ui/nameDomain/history/repair-22-33-386.spec.ts"
+symbol = "repair-22-33-386.spec.ts"
+observed = "Attempt 1: the explorer type-check failed on an undeclared ganache import or on the pnpm and yarn mismatch before this task's tests ran."
+assumption = "Two environment blockers of the explorer, both fixed independently of this task."
+severity = "medium"
+
+[finding.22.33.387.1]
+task = "22.33.387"
+file = "apps/explorer/ui/megaEth/uptime/repair-22-33-387.spec.ts"
+symbol = "repair-22-33-387.spec.ts"
+observed = "Attempt 1: the explorer type-check failed on an undeclared ganache import or on the pnpm and yarn mismatch before this task's tests ran."
+assumption = "Two environment blockers of the explorer, both fixed independently of this task."
+severity = "medium"
+
+[finding.22.33.274.1]
+task = "22.33.274"
+file = "apps/explorer/mocks/txs/repair-22-33-274.spec.ts"
+symbol = "repair-22-33-274.spec.ts"
+observed = "Attempt 1: the type-check reports PriceUpdateItem not assignable to Transaction in three ui/txs spec files outside the first scope, plus the ganache import and the package manager mismatch."
+assumption = "Producer-consumer defect inside apps/explorer; the consumers belong to this task."
+severity = "medium"
+
+[finding.22.33.135.1]
+task = "22.33.135"
+file = "sdk/wallet/test/repair-22-33-135.test.ts"
+symbol = "repair-22-33-135.test.ts"
+observed = "Attempt 1: the sdk/wallet type-check reports the agent SDK browser entry unresolved in five modules; the task's own tests did not run."
+assumption = "An environment gap of the gate, not a defect of the repair."
+severity = "medium"
+
+[finding.22.33.208.1]
+task = "22.33.208"
+file = "services/wallet/gateway/test/repair-22-33-208.test.ts"
+symbol = "repair-22-33-208.test.ts"
+observed = "Attempt 1: the type-check reports the PGlite packages unresolved in src/db/testDatabase.ts; the task's own tests did not run."
+assumption = "An undeclared dependency planted by an earlier repair; blocked until 22.31.447 publishes."
+severity = "medium"
+
+[finding.22.33.163.1]
+task = "22.33.163"
+file = "apps/wallet/src/app/api/wallet/[...path]"
+symbol = "[...path]"
+observed = "Attempt 1: build and verify passed; the scope check matched no changed file under the bracketed route directory."
+assumption = "A scope declaration defect, not a defect of the repair."
+severity = "medium"
+
+[finding.22.33.155.1]
+task = "22.33.155"
+file = "apps/wallet/e2e/repair-22-33-155.test.ts"
+symbol = "repair-22-33-155.test.ts"
+observed = "Attempt 1: vitest found no test file because e2e is outside the configured include patterns."
+assumption = "A test placement defect; the repair itself is in place."
+severity = "medium"
+
+[finding.22.33.28.1]
+task = "22.33.28"
+file = "services/human/tools/schema-check/tests/repair_22_33_28.rs"
+symbol = "repair_22_33_28.rs"
+observed = "Attempt 1: nine of ten tests fail on real schema conformance violations of rule breaking-declaration-change between baseline.kvx and intent.kvx module texts."
+assumption = "The baseline is stale after documented prose rewrites; the checker is right to demand a deliberate refresh."
+severity = "medium"
+
+[finding.22.33.114.1]
+task = "22.33.114"
+file = "services/interop/crates/layerx-portable/tests/repair_22_33_114.rs"
+symbol = "repair_22_33_114.rs"
+observed = "Attempt 1: the test build fails with layerx_ap2 unresolved and p256 unlinked."
+assumption = "A manifest gap of the test crate, inside this task's repair."
+severity = "medium"
+
+[finding.22.33.253.1]
+task = "22.33.253"
+file = "apps/perps/tests/repair-22-33-253.test.ts"
+symbol = "repair-22-33-253.test.ts"
+observed = "Attempt 1: one test fails with no query client set; the fix landed after the budget was exhausted."
+assumption = "The repair is complete but unqualified; one re-verification is owed."
+severity = "medium"
+
+[finding.22.33.255.1]
+task = "22.33.255"
+file = "modules/oracle/client/rest/repair_m255_test.go"
+symbol = "repair_m255_test.go"
+observed = "Attempt 1: one of the lookback cases fails on the real no-data refusal of the handler; the other cases pass."
+assumption = "A fixture gap, not a handler defect."
+severity = "medium"
+
+[finding.22.33.382.1]
+task = "22.33.382"
+file = "services/explorer/services/libs/recache/tests/repair_22_33_382.rs"
+symbol = "repair_22_33_382.rs"
+observed = "Attempt 1: the tests panic in the fixture on an unsupported SETEX command; the build passed."
+assumption = "A fixture gap, not a defect of the repair."
+severity = "medium"
+
+[finding.22.33.5.1]
+task = "22.33.5"
+file = "src/modules/escrow"
+symbol = "escrow"
+observed = "Attempt 2: make test-escrow-invariants fails at the asset runtime bind in the invariant fixture; the other four targets pass."
+assumption = "A fixture setup defect inside this task's own test."
+severity = "medium"
+
+[finding.22.31.53.3]
+task = "22.31.53"
+file = "services/launchpad/indexer/internal/receipt/repair_53_test.go"
+symbol = "repair_53_test.go"
+observed = "Attempt 5: three tests report receipt qualification rejected for the rehydrated SidioraPool; six tests pass including the archive restart."
+assumption = "The repair stopped at the fixture and never changed the rehydration rule."
+severity = "high"
+
+[finding.22.31.410.3]
+task = "22.31.410"
+file = "services/explorer/backend/apps/explorer/test/repair/repair_22_31_410_test.exs"
+symbol = "repair_22_31_410_test.exs"
+observed = "Attempt 3: build passed; ten failures across the existing migrator test and the repair test, all on the selfdestruct rule; the agent treated the migrator as outside the allowed paths."
+assumption = "A scope reading error; the migrator is the component under repair."
+severity = "high"
+
+[finding.22.33.71.1]
+task = "22.33.71"
+file = "services/interop/crates/layerx-gas-station/tests/repair_22_33_71.rs"
+symbol = "repair_22_33_71.rs"
+observed = "Attempt 1: five of seven cases fail because the recordings are hand-built, which the real-effects guard refuses; the build passed."
+assumption = "The producer recording is this task's work; the qualification environment can run the producer once."
+severity = "medium"
+
+[finding.22.33.92.1]
+task = "22.33.92"
+file = "services/interop/crates/layerx-ap2/tests/repair_22_33_92.rs"
+symbol = "repair_22_33_92.rs"
+observed = "Attempt 1: two of three cases fail because the fixtures are rewritten receipts; the replay path answers IdempotencyConflict."
+assumption = "The producer recording and the replay defect are both this task's work."
+severity = "medium"
+
+[finding.22.33.47.1]
+task = "22.33.47"
+file = "services/human/crates/layerx-human-security-provider/tests/repair_22_33_47.rs"
+symbol = "repair_22_33_47.rs"
+observed = "Attempt 1: zero of three tests pass; the agent reports the recovery outcome fixture missing and its production needing commands outside the gates."
+assumption = "The committed daemon recording is the producer fixture; no external command is needed at gate time."
+severity = "medium"
+
+[finding.22.31.415.4]
+task = "22.31.415"
+file = "sdk/integrations/ios/Tests/LayerXMobileTests/Repair2231415Tests.swift"
+symbol = "Repair2231415Tests.swift"
+observed = "Attempt 4: four failures in the configured-wallet and wrong-key cases because the response fixture and the receipt fixture disagree."
+assumption = "A fixture derivation defect; the vector already carries both halves."
+severity = "high"
+
+[finding.22.31.206.1]
+task = "22.31.206"
+file = "services/platform/hosted/registry/tests/repair_22_31_206.rs"
+symbol = "repair_22_31_206.rs"
+observed = "Attempt 1: three tests fail on an invalid peer certificate (a CA used as end entity) from the loopback authority; the corrected fixture landed after the budget."
+assumption = "A fixture defect, repaired but unverified."
+severity = "medium"
+
+[finding.22.33.205.1]
+task = "22.33.205"
+file = "apps/wallet/src/surfaces/repair-22-33-205.test.ts"
+symbol = "repair-22-33-205.test.ts"
+observed = "Attempt 1: two of eight cases fail on fixture shape; fixes landed after the budget."
+assumption = "The repair is complete but unqualified; one re-verification is owed."
+severity = "medium"
+
+[finding.22.33.419.1]
+task = "22.33.419"
+file = "apps/web/test/repair-22-33-419.test.mjs"
+symbol = "repair-22-33-419.test.mjs"
+observed = "Attempt 1: two policy cases fail on an unapproved local package target; the classification fix landed after the budget."
+assumption = "The repair is complete but unqualified; one re-verification is owed."
+severity = "medium"
+
+[finding.18.1562.1.6]
+task = "18.1562.1"
+file = "rpc/sequencer_receipt_vectors_test.go::TestAiMarketTransferAuthorityReceipt"
+symbol = "sequencer_receipt_vectors_test.go::TestAiMarketTransferAuthorityReceipt"
+observed = "Attempt 11: npm ci refused with ganache missing from the root lockfile; verification did not run."
+assumption = "An environment blocker now removed."
+severity = "medium"
+
+[finding.22.31.405.2]
+task = "22.31.405"
+file = "apps/explorer/ui/tx/repair-22-31-405.spec.ts"
+symbol = "repair-22-31-405.spec.ts"
+observed = "Attempt 4: the explorer type-check failed on the ganache import of another task's test; verification did not run."
+assumption = "An environment blocker now removed."
+severity = "medium"
+
+[finding.22.31.278.3]
+task = "22.31.278"
+file = "services/explorer/services/libs/blockscout-client/crate/tests/repair_22_31_278.rs"
+symbol = "repair_22_31_278.rs"
+observed = "Attempt 3: the test build fails on two type mismatches in another task's test; this task's tests did not run."
+assumption = "Blocked by a consumer test another repair left behind."
+severity = "medium"
+
+[finding.22.33.264.1]
+task = "22.33.264"
+file = "apps/bridge/src/lib/bridge/repair-22-33-264.spec.ts"
+symbol = "repair-22-33-264.spec.ts"
+observed = "Attempt 1: tsc reports the LayoutProps name missing in src/app/layout.tsx; the task's own tests did not run."
+assumption = "An environment gap of the gate, not a defect of the repair."
+severity = "medium"
+
+[finding.22.33.266.1]
+task = "22.33.266"
+file = "apps/bridge/src/test/repair-22-33-266.spec.ts"
+symbol = "repair-22-33-266.spec.ts"
+observed = "Attempt 1: tsc reports the LayoutProps name missing in src/app/layout.tsx; the task's own tests did not run."
+assumption = "An environment gap of the gate, not a defect of the repair."
+severity = "medium"
+
+[finding.22.33.268.1]
+task = "22.33.268"
+file = "apps/bridge/src/components/trading/repair-22-33-268.spec.ts"
+symbol = "repair-22-33-268.spec.ts"
+observed = "Attempt 1: tsc reports the LayoutProps name missing in src/app/layout.tsx; the task's own tests did not run."
+assumption = "An environment gap of the gate, not a defect of the repair."
+severity = "medium"
+
+[finding.22.31.217.3]
+task = "22.31.217"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_217.rs"
+symbol = "repair_22_31_217.rs"
+observed = "Attempt 3: the human service test crate fails to build on six Quantity type mismatches in a test outside this task's paths; the task's own tests did not run."
+assumption = "An unrelated producer change left a consumer test behind; blocked until 22.31.443 publishes."
+severity = "medium"
+
+[finding.22.31.227.3]
+task = "22.31.227"
+file = "services/agent/crates/layerx-sdk/tests/repair_22_31_227.rs"
+symbol = "repair_22_31_227.rs"
+observed = "Attempt 3: the human service test crate fails to build on six Quantity type mismatches in a test outside this task's paths; the task's own tests did not run."
+assumption = "An unrelated producer change left a consumer test behind; blocked until 22.31.443 publishes."
+severity = "medium"
+
+[finding.22.31.332.1]
+task = "22.31.332"
+file = "tools/qualification/paxeer-x/tests/test_repair_22_31_332.py"
+symbol = "test_repair_22_31_332.py"
+observed = "Attempt 1: the human service test crate fails to build on six Quantity type mismatches in a test outside this task's paths; the task's own tests did not run."
+assumption = "An unrelated producer change left a consumer test behind; blocked until 22.31.443 publishes."
+severity = "medium"
+
+[finding.22.33.104.1]
+task = "22.33.104"
+file = "services/interop/crates/layerx-mirror/tests/repair_22_33_104.rs"
+symbol = "repair_22_33_104.rs"
+observed = "Attempt 1: the human service test crate fails to build on six Quantity type mismatches in a test outside this task's paths; the task's own tests did not run."
+assumption = "An unrelated producer change left a consumer test behind; blocked until 22.31.443 publishes."
+severity = "medium"
+
+[finding.22.33.100.1]
+task = "22.33.100"
+file = "services/interop/crates/layerx-mirror/tests/repair_22_33_100.rs"
+symbol = "repair_22_33_100.rs"
+observed = "Attempt 1: the human service test crate fails to build on six Quantity type mismatches in a test outside this task's paths; the task's own tests did not run."
+assumption = "An unrelated producer change left a consumer test behind; blocked until 22.31.443 publishes."
+severity = "medium"
+
+[finding.22.33.26.1]
+task = "22.33.26"
+file = "services/human/crates/layerx-human-kms/tests/repair_22_33_26.rs"
+symbol = "repair_22_33_26.rs"
+observed = "Attempt 1: the human service test crate fails to build on six Quantity type mismatches in a test outside this task's paths; the task's own tests did not run."
+assumption = "An unrelated producer change left a consumer test behind; blocked until 22.31.443 publishes."
+severity = "medium"
+
+[finding.22.33.217.1]
+task = "22.33.217"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_217.rs"
+symbol = "repair_22_33_217.rs"
+observed = "Attempt 1: the human service test crate fails to build on six Quantity type mismatches in a test outside this task's paths; the task's own tests did not run."
+assumption = "An unrelated producer change left a consumer test behind; blocked until 22.31.443 publishes."
+severity = "medium"
+
+[finding.22.33.190.1]
+task = "22.33.190"
+file = "apps/perps/tests/repair-22-33-190.test.ts"
+symbol = "repair-22-33-190.test.ts"
+observed = "Attempt 1: the perps type-check reports viem and the agent SDK browser entry unresolved under sdk/wallet; the task's own tests did not run."
+assumption = "An environment gap of the gate, not a defect of the repair."
+severity = "medium"
+
+[finding.22.33.201.1]
+task = "22.33.201"
+file = "apps/perps/tests/repair-22-33-201.test.ts"
+symbol = "repair-22-33-201.test.ts"
+observed = "Attempt 1: the perps type-check reports viem and the agent SDK browser entry unresolved under sdk/wallet; the task's own tests did not run."
+assumption = "An environment gap of the gate, not a defect of the repair."
+severity = "medium"
+
+[finding.22.33.192.1]
+task = "22.33.192"
+file = "apps/perps/tests/repair-22-33-192.test.ts"
+symbol = "repair-22-33-192.test.ts"
+observed = "Attempt 2: the perps type-check reports viem and the agent SDK browser entry unresolved under sdk/wallet; the task's own tests did not run."
+assumption = "An environment gap of the gate, not a defect of the repair."
+severity = "medium"
+
+[finding.22.33.198.1]
+task = "22.33.198"
+file = "apps/perps/tests/repair-22-33-198.test.ts"
+symbol = "repair-22-33-198.test.ts"
+observed = "Attempt 2: the perps type-check reports viem and the agent SDK browser entry unresolved under sdk/wallet; the task's own tests did not run."
+assumption = "An environment gap of the gate, not a defect of the repair."
+severity = "medium"
+
+[finding.22.33.199.1]
+task = "22.33.199"
+file = "apps/perps/tests/repair-22-33-199.test.ts"
+symbol = "repair-22-33-199.test.ts"
+observed = "Attempt 2: the perps type-check reports viem and the agent SDK browser entry unresolved under sdk/wallet; the task's own tests did not run."
+assumption = "An environment gap of the gate, not a defect of the repair."
+severity = "medium"
+
+[finding.22.33.200.1]
+task = "22.33.200"
+file = "apps/perps/tests/repair-22-33-200.test.ts"
+symbol = "repair-22-33-200.test.ts"
+observed = "Attempt 2: the perps type-check reports viem and the agent SDK browser entry unresolved under sdk/wallet; the task's own tests did not run."
+assumption = "An environment gap of the gate, not a defect of the repair."
+severity = "medium"
+
+[finding.22.33.269.1]
+task = "22.33.269"
+file = "apps/explorer/toolkit/chakra/repair-22-33-269.spec.ts"
+symbol = "repair-22-33-269.spec.ts"
+observed = "Attempt 1: the explorer type-check failed on an undeclared ganache import or on the pnpm and yarn mismatch before this task's tests ran."
+assumption = "Two environment blockers of the explorer, both fixed independently of this task."
+severity = "medium"
+
+[finding.22.33.323.1]
+task = "22.33.323"
+file = "apps/explorer/ui/shared/gas/repair-22-33-323.spec.ts"
+symbol = "repair-22-33-323.spec.ts"
+observed = "Attempt 2: the explorer type-check failed on an undeclared ganache import or on the pnpm and yarn mismatch before this task's tests ran."
+assumption = "Two environment blockers of the explorer, both fixed independently of this task."
+severity = "medium"
+
+[finding.22.33.328.1]
+task = "22.33.328"
+file = "apps/explorer/ui/shared/nft/repair-22-33-328.spec.ts"
+symbol = "repair-22-33-328.spec.ts"
+observed = "Attempt 1: the explorer type-check failed on an undeclared ganache import or on the pnpm and yarn mismatch before this task's tests ran."
+assumption = "Two environment blockers of the explorer, both fixed independently of this task."
+severity = "medium"
+
+[finding.22.33.329.1]
+task = "22.33.329"
+file = "apps/explorer/ui/shared/pagination/repair-22-33-329.spec.ts"
+symbol = "repair-22-33-329.spec.ts"
+observed = "Attempt 1: the explorer type-check failed on an undeclared ganache import or on the pnpm and yarn mismatch before this task's tests ran."
+assumption = "Two environment blockers of the explorer, both fixed independently of this task."
+severity = "medium"
+
+[finding.22.33.330.1]
+task = "22.33.330"
+file = "apps/explorer/ui/shared/reCaptcha/repair-22-33-330.spec.ts"
+symbol = "repair-22-33-330.spec.ts"
+observed = "Attempt 1: the explorer type-check failed on an undeclared ganache import or on the pnpm and yarn mismatch before this task's tests ran."
+assumption = "Two environment blockers of the explorer, both fixed independently of this task."
+severity = "medium"
+
+[finding.22.33.331.1]
+task = "22.33.331"
+file = "apps/explorer/ui/shared/statusLadder/repair-22-33-331.spec.ts"
+symbol = "repair-22-33-331.spec.ts"
+observed = "Attempt 1: the explorer type-check failed on an undeclared ganache import or on the pnpm and yarn mismatch before this task's tests ran."
+assumption = "Two environment blockers of the explorer, both fixed independently of this task."
+severity = "medium"
+
+[finding.22.33.332.1]
+task = "22.33.332"
+file = "apps/explorer/ui/shared/web3/providers/repair-22-33-332.spec.ts"
+symbol = "repair-22-33-332.spec.ts"
+observed = "Attempt 1: the explorer type-check failed on an undeclared ganache import or on the pnpm and yarn mismatch before this task's tests ran."
+assumption = "Two environment blockers of the explorer, both fixed independently of this task."
+severity = "medium"
+
+[finding.22.33.340.1]
+task = "22.33.340"
+file = "apps/explorer/ui/snippets/navigation/horizontal/repair-22-33-340.spec.ts"
+symbol = "repair-22-33-340.spec.ts"
+observed = "Attempt 1: the explorer type-check failed on an undeclared ganache import or on the pnpm and yarn mismatch before this task's tests ran."
+assumption = "Two environment blockers of the explorer, both fixed independently of this task."
+severity = "medium"
+
+[finding.22.33.342.1]
+task = "22.33.342"
+file = "apps/explorer/ui/snippets/searchBar/repair-22-33-342.spec.ts"
+symbol = "repair-22-33-342.spec.ts"
+observed = "Attempt 1: the explorer type-check failed on an undeclared ganache import or on the pnpm and yarn mismatch before this task's tests ran."
+assumption = "Two environment blockers of the explorer, both fixed independently of this task."
+severity = "medium"
+
+[finding.22.33.368.1]
+task = "22.33.368"
+file = "apps/explorer/ui/contractVerification/repair-22-33-368.spec.ts"
+symbol = "repair-22-33-368.spec.ts"
+observed = "Attempt 1: the explorer type-check failed on an undeclared ganache import or on the pnpm and yarn mismatch before this task's tests ran."
+assumption = "Two environment blockers of the explorer, both fixed independently of this task."
+severity = "medium"
+
+[finding.22.33.407.1]
+task = "22.33.407"
+file = "apps/explorer/ui/home/fallbacks/repair-22-33-407.spec.ts"
+symbol = "repair-22-33-407.spec.ts"
+observed = "Attempt 1: the explorer type-check failed on an undeclared ganache import or on the pnpm and yarn mismatch before this task's tests ran."
+assumption = "Two environment blockers of the explorer, both fixed independently of this task."
+severity = "medium"
+
+[finding.22.33.409.1]
+task = "22.33.409"
+file = "apps/explorer/ui/home/indicators/utils/repair-22-33-409.spec.ts"
+symbol = "repair-22-33-409.spec.ts"
+observed = "Attempt 1: the explorer type-check failed on an undeclared ganache import or on the pnpm and yarn mismatch before this task's tests ran."
+assumption = "Two environment blockers of the explorer, both fixed independently of this task."
+severity = "medium"
+
+[finding.22.33.466.1]
+task = "22.33.466"
+file = "apps/explorer/ui/tokens/repair-22-33-466.spec.ts"
+symbol = "repair-22-33-466.spec.ts"
+observed = "Attempt 1: the explorer type-check failed on an undeclared ganache import or on the pnpm and yarn mismatch before this task's tests ran."
+assumption = "Two environment blockers of the explorer, both fixed independently of this task."
+severity = "medium"
+
+[finding.22.33.341.1]
+task = "22.33.341"
+file = "apps/explorer/ui/snippets/navigation/vertical/repair-22-33-341.spec.ts"
+symbol = "repair-22-33-341.spec.ts"
+observed = "Attempt 1: the explorer type-check failed on an undeclared ganache import or on the pnpm and yarn mismatch before this task's tests ran."
+assumption = "Two environment blockers of the explorer, both fixed independently of this task."
+severity = "medium"
+
+[finding.22.33.370.1]
+task = "22.33.370"
+file = "apps/explorer/ui/zetaChain/repair-22-33-370.spec.ts"
+symbol = "repair-22-33-370.spec.ts"
+observed = "Attempt 1: the type-check reports the ganache import and a missing next_page_params field in this task's own spec."
+assumption = "One environment blocker and one fixture typing defect."
+severity = "medium"
+
+[finding.22.33.345.1]
+task = "22.33.345"
+file = "apps/explorer/ui/snippets/auth/linkEmail/repair-22-33-345.spec.ts"
+symbol = "repair-22-33-345.spec.ts"
+observed = "Attempt 1: the type-check reports a d3 listener signature mismatch in pointerTracker.ts and the ganache import."
+assumption = "A pre-existing type defect of the explorer charts toolkit inside the repaired area."
+severity = "medium"
+
+[finding.22.33.179.1]
+task = "22.33.179"
+file = "services/wallet/gateway/test/repair-22-33-179.test.ts"
+symbol = "repair-22-33-179.test.ts"
+observed = "Attempt 1: the type-check reports the PGlite packages unresolved in src/db/testDatabase.ts; the task's own tests did not run."
+assumption = "An undeclared dependency planted by an earlier repair; blocked until 22.31.447 publishes."
+severity = "medium"
+
+[finding.22.33.181.1]
+task = "22.33.181"
+file = "services/wallet/gateway/test/repair-22-33-181.test.ts"
+symbol = "repair-22-33-181.test.ts"
+observed = "Attempt 1: the type-check reports the PGlite packages unresolved in src/db/testDatabase.ts; the task's own tests did not run."
+assumption = "An undeclared dependency planted by an earlier repair; blocked until 22.31.447 publishes."
+severity = "medium"
+
+[finding.22.33.184.1]
+task = "22.33.184"
+file = "services/wallet/gateway/test/repair-22-33-184.test.ts"
+symbol = "repair-22-33-184.test.ts"
+observed = "Attempt 1: the type-check reports the PGlite packages unresolved in src/db/testDatabase.ts; the task's own tests did not run."
+assumption = "An undeclared dependency planted by an earlier repair; blocked until 22.31.447 publishes."
+severity = "medium"
+
+[finding.22.31.279.2]
+task = "22.31.279"
+file = "services/explorer/services/libs/blockscout-client/crate/tests/repair_22_31_279.rs"
+symbol = "repair_22_31_279.rs"
+observed = "Attempt 3: the test build fails on two type mismatches in another task's test; this task's tests did not run."
+assumption = "Blocked by a consumer test another repair left behind."
+severity = "medium"
+
+[finding.22.33.135.2]
+task = "22.33.135"
+file = "sdk/wallet/test/repair-22-33-135.test.ts"
+symbol = "repair-22-33-135.test.ts"
+observed = "Attempt 2: build passed; three tests fail on AuthInvalidJwtError from a malformed fixture token; no agent summary was recorded."
+assumption = "A fixture encoding defect, not a defect of the repair."
+severity = "medium"
+
+[finding.22.33.162.1]
+task = "22.33.162"
+file = "apps/wallet/src/account/test/repair-22-33-162.test.ts"
+symbol = "repair-22-33-162.test.ts"
+observed = "Attempt 1: one test fails on the error type expected from the malformed asset page refusal."
+assumption = "An assertion typed against the wrong error class."
+severity = "medium"
+
+[finding.22.33.113.1]
+task = "22.33.113"
+file = "services/interop/crates/layerx-fiat/tests/repair_22_33_113.rs"
+symbol = "repair_22_33_113.rs"
+observed = "Attempt 2: three settlement tests fail on the transaction reference mismatch between the producer transaction and the provider settlement."
+assumption = "The producer path is this task's work; the test support already drives it."
+severity = "medium"
+
+[finding.22.33.23.1]
+task = "22.33.23"
+file = "services/agent/sdk/typescript/test/repair-22-33-23.test.ts"
+symbol = "repair-22-33-23.test.ts"
+observed = "Attempt 1: four node tests fail on the order selector and on stale and malformed nonce admission; one asynchronous assertion fires after the test ended."
+assumption = "The production writer and queue are the components under repair."
+severity = "medium"
+
+[finding.22.33.337.1]
+task = "22.33.337"
+file = "apps/web/e2e/repair-22-33-337.test.ts"
+symbol = "repair-22-33-337.test.ts"
+observed = "Attempt 1: the e2e test fails on a loader error; the fix landed after the budget."
+assumption = "The repair is complete but unqualified; one re-verification is owed."
+severity = "medium"
+
+[finding.22.33.363.1]
+task = "22.33.363"
+file = "modules/perps/keeper/repair_m363_test.go"
+symbol = "repair_m363_test.go"
+observed = "Attempt 2: two of the keeper tests fail on ADL close fee and quote execution; the others pass."
+assumption = "Two production defects remain in the repaired path."
+severity = "medium"
+
+[finding.22.33.379.1]
+task = "22.33.379"
+file = "services/explorer/backend/apps/explorer/test/repair/repair_22_33_379_test.exs"
+symbol = "repair_22_33_379_test.exs"
+observed = "Attempt 2: two assertions fail on timestamp precision; the other seven pass."
+assumption = "A fixture precision defect, not a defect of the repair."
+severity = "medium"
+
+[finding.22.33.402.1]
+task = "22.33.402"
+file = "services/explorer/backend/apps/indexer/test/repair/repair_22_33_402_test.exs"
+symbol = "repair_22_33_402_test.exs"
+observed = "Attempt 2: six of the cases fail on a stopped L1 block number cache in the test setup."
+assumption = "A test setup defect, not a defect of the repair."
+severity = "medium"
+
+[finding.22.31.212.1]
+task = "22.31.212"
+file = "tools/platform/cli/tests/repair_22_31_212.rs"
+symbol = "repair_22_31_212.rs"
+observed = "Attempt 1: one test fails on an address the RPC fixture refused for its hex casing; the repair landed after the budget."
+assumption = "A formatting defect in the bind path, repaired but unverified."
+severity = "medium"

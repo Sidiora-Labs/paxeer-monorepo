@@ -1,0 +1,23 @@
+[task.22.33.336]
+audit = "22.30.138"
+base_revision = "aefa91aa13a43dff9d0a27098f8280d43fd1ed42"
+baseline = "No prior gate ledger or task implementation existed. No pre-change verification was run: the explicit gate order and budget require complete implementation followed by hf-build and hf-done. No baseline test failure is claimed."
+evidence = "The runner's hf-build/hf-done ledger records the exact verified candidate revision, command, exit code and private log path; the final response copies the last gate evidence without editing the qualified candidate."
+wiring_requests = []
+
+[finding.bridge-boundary-tests]
+proof = "TestRepairM_336_BridgeBoundaryTests"
+repair = "Reuse the prerequisite's all-nine-chain native/token maximum and maximum+1 table through Load, LoadOverlay/Apply, Validate and RequireDeployable; extend successful cases with JSON reload and exact decimal parser round-trips without changing existing assertions."
+
+[finding.solana-mint-case]
+proof = "TestRepairM_336_SolanaMintCase"
+regression = "TestRepairM_336_EVMAddressIdentity"
+repair = "After validating each asset, use decoded 32-byte Solana mint identities or decoded 20-byte EVM addresses as uniqueness keys. Case-varied Solana mints with distinct handles load and remain deployable, including cap overlays; actual Solana duplicates and EVM hex case duplicates are refused at the precise source and address field."
+
+[gotcha.1]
+symptom = "The requested baseline verification conflicts with the explicit ordered gates and one-run budget."
+resolution = "Follow the explicit gate order and record no baseline result; root gotcha and spec records are outside the authorized scope."
+
+[gotcha.2]
+symptom = "The scoped Codify graph excludes the vectors dependency and positional cg grep arguments do not narrow its results."
+resolution = "Read the production dependency at its recorded path; do not infer absent code from a scoped graph or broaden its configuration."

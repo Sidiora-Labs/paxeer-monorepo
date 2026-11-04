@@ -8,6 +8,7 @@ use serde_json::Value;
 use std::{
     collections::BTreeMap,
     marker::PhantomData,
+    ops::Range,
     path::{Path, PathBuf},
 };
 
@@ -268,17 +269,10 @@ impl Envs {
         markdown_content: &str,
         anchor_postfix: Option<String>,
     ) -> Result<Self, anyhow::Error> {
-        let start_anchor = push_postfix_to_anchor(ANCHOR_START, anchor_postfix.clone());
-        let line_start = markdown_content
-            .find(&start_anchor)
-            .context("anchors.envs.start not found")?
-            + start_anchor.len();
-        let end_anchor = push_postfix_to_anchor(ANCHOR_END, anchor_postfix);
-        let line_end = markdown_content
-            .find(&end_anchor)
-            .context("anchors.envs.end not found")?
-            - 1;
-        let table_content = &markdown_content[line_start..=line_end];
+        let table_range = markdown_table_range(markdown_content, anchor_postfix.as_deref())?;
+        let table_content = markdown_content
+            .get(table_range)
+            .context("invalid UTF-8 environment table boundaries")?;
 
         let re = regex::Regex::new(regex_md_table_row()).context("regex creation")?;
         let result = re
@@ -287,18 +281,19 @@ impl Envs {
             .enumerate()
             .map(
                 |(index, (_, [key, required, description, default_value]))| {
-                    let id = filter_non_ascii(key);
+                    let key = decode_markdown_cell(key);
+                    let id = filter_non_ascii(&key);
                     let required = required.trim().eq("true");
                     let default_value = if default_value.trim().is_empty() {
                         None
                     } else {
-                        Some(default_value.trim().to_string())
+                        Some(decode_markdown_cell(default_value.trim()))
                     };
                     let var = EnvVariable {
-                        key: key.to_string(),
+                        key,
                         default_value,
                         required,
-                        description: description.trim().to_string(),
+                        description: decode_markdown_cell(description.trim()),
                         table_index: Some(index),
                     };
 
@@ -420,36 +415,18 @@ where
             .expect("config path is not valid utf-8"),
         vars_filter,
     )?;
-    let mut markdown_config = Envs::from_markdown(
-        std::fs::read_to_string(markdown_path)
-            .context("failed to read markdown file")?
-            .as_str(),
-        anchor_postfix.clone(),
-    )?;
+    let content = std::fs::read_to_string(markdown_path).context("failed to read markdown file")?;
+    let table_range = markdown_table_range(&content, anchor_postfix.as_deref())?;
+    let mut markdown_config = Envs::from_markdown(&content, anchor_postfix)?;
     if !options.ignore_unused {
         markdown_config.remove_unused_envs(&from_config);
     }
     markdown_config.update_no_override(from_config, options.ignore_defaults);
     let table = serialize_env_vars_to_md_table(markdown_config, format_markdown);
 
-    let content = std::fs::read_to_string(markdown_path).context("failed to read markdown file")?;
-    let lines = content.lines().collect::<Vec<&str>>();
-    let line_start = lines
-        .iter()
-        .position(|line| {
-            line.contains(&push_postfix_to_anchor(
-                ANCHOR_START,
-                anchor_postfix.clone(),
-            ))
-        })
-        .context("anchors.envs.start not found in markdown")?;
-    let line_end = lines
-        .iter()
-        .position(|line| line.contains(&push_postfix_to_anchor(ANCHOR_END, anchor_postfix.clone())))
-        .context("anchors.envs.end not found in markdown")?;
-
-    let new_content = [&lines[..=line_start], &[&table], &lines[line_end..]].concat();
-    std::fs::write(markdown_path, new_content.join("\n")).context("failed to write file")?;
+    let mut new_content = content;
+    new_content.replace_range(table_range, &format!("{table}\n"));
+    std::fs::write(markdown_path, new_content).context("failed to write file")?;
     Ok(())
 }
 
@@ -509,16 +486,19 @@ fn serialize_env_vars_to_md_table(vars: Envs, format_markdown: bool) -> String {
         let description = if env.description.is_empty() {
             " ".to_string()
         } else {
-            format!(" {} ", env.description)
+            format!(" {} ", encode_markdown_cell(&env.description))
         };
         let default_value = env
             .default_value
             .as_ref()
-            .map(|v| format!(" {v} "))
+            .map(|v| format!(" {} ", encode_markdown_cell(v)))
             .unwrap_or(" ".to_string());
         result.push_str(&format!(
             "| `{}` |{}|{}|{}|\n",
-            env.key, required, description, default_value,
+            encode_markdown_cell(&env.key),
+            required,
+            description,
+            default_value,
         ));
     }
     if format_markdown {
@@ -528,7 +508,68 @@ fn serialize_env_vars_to_md_table(vars: Envs, format_markdown: bool) -> String {
     }
 }
 
-fn push_postfix_to_anchor(anchor: &str, postfix: Option<String>) -> String {
+fn markdown_table_range(
+    content: &str,
+    postfix: Option<&str>,
+) -> Result<Range<usize>, anyhow::Error> {
+    let start_marker = format!(
+        "[anchor]: <> ({})",
+        push_postfix_to_anchor(ANCHOR_START, postfix)
+    );
+    let end_marker = format!(
+        "[anchor]: <> ({})",
+        push_postfix_to_anchor(ANCHOR_END, postfix)
+    );
+    let mut start = None;
+    let mut end = None;
+    let mut offset = 0;
+    for line in content.split_inclusive('\n') {
+        if line.trim() == start_marker {
+            anyhow::ensure!(
+                start.is_none(),
+                "duplicate environment start marker: {start_marker}"
+            );
+            start = Some(offset + line.len());
+        }
+        if line.trim() == end_marker {
+            anyhow::ensure!(
+                end.is_none(),
+                "duplicate environment end marker: {end_marker}"
+            );
+            end = Some(offset);
+        }
+        offset += line.len();
+    }
+    let start =
+        start.with_context(|| format!("environment start marker not found: {start_marker}"))?;
+    let end = end.with_context(|| format!("environment end marker not found: {end_marker}"))?;
+    anyhow::ensure!(
+        start <= end,
+        "environment end marker must follow start marker"
+    );
+    let range = start..end;
+    anyhow::ensure!(
+        content.get(range.clone()).is_some(),
+        "invalid UTF-8 environment table boundaries"
+    );
+    Ok(range)
+}
+
+fn encode_markdown_cell(cell: &str) -> String {
+    cell.replace('&', "&amp;")
+        .replace('|', "&#124;")
+        .replace('\r', "&#13;")
+        .replace('\n', "&#10;")
+}
+
+fn decode_markdown_cell(cell: &str) -> String {
+    cell.replace("&#124;", "|")
+        .replace("&#13;", "\r")
+        .replace("&#10;", "\n")
+        .replace("&amp;", "&")
+}
+
+fn push_postfix_to_anchor(anchor: &str, postfix: Option<&str>) -> String {
     if let Some(postfix) = postfix {
         format!("{anchor}.{postfix}")
     } else {
@@ -947,6 +988,7 @@ mod tests {
 | `TEST_SERVICE__TEST4_NOT_SET`                                                     |                          |                                                                                                      | `null`           |
 
 [anchor]: <> (anchors.envs.end)
+
 "#
         );
     }
@@ -1018,6 +1060,7 @@ mod tests {
 | `TEST_SERVICE__TEST4_NOT_SET`       |                          |              | `null`        |
 
 [anchor]: <> (anchors.envs.end)
+
 "#
         );
     }
@@ -1094,6 +1137,7 @@ mod tests {
 | `TEST_SERVICE__TEST4_NOT_SET`       |                          |              | `null`        |
 
 [anchor]: <> (anchors.envs.end)
+
 "#
         );
     }
