@@ -8,13 +8,87 @@ use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs::{self, File, OpenOptions};
 use std::io::Write;
-use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
+use std::os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 use subtle::ConstantTimeEq;
 use zeroize::Zeroizing;
 
 const MAX_FILE: u64 = 16 * 1024 * 1024;
+const QUARANTINE: &str = ".receipt-quarantine";
+static STAGING_SEQUENCE: AtomicU64 = AtomicU64::new(0);
+
+fn staging_name() -> Result<String, ()> {
+    let sequence = STAGING_SEQUENCE
+        .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |value| {
+            value.checked_add(1)
+        })
+        .map_err(|_| ())?;
+    Ok(format!(
+        ".receipt.{}.{sequence}.pending",
+        std::process::id()
+    ))
+}
+
+fn is_staging(name: &str) -> bool {
+    if name == ".receipt.pending" {
+        return true;
+    }
+    name.strip_prefix(".receipt.")
+        .and_then(|name| name.strip_suffix(".pending"))
+        .and_then(|name| name.split_once('.'))
+        .is_some_and(|(pid, sequence)| {
+            pid.parse::<u32>().is_ok() && sequence.parse::<u64>().is_ok()
+        })
+}
+
+fn recover_staging(root: &Path, directory: &File) -> Result<(), ()> {
+    let quarantine = root.join(QUARANTINE);
+    let mut quarantine_directory = match fs::symlink_metadata(&quarantine) {
+        Ok(_) => {
+            root_valid(&quarantine)?;
+            Some(File::open(&quarantine).map_err(|_| ())?)
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+        Err(_) => return Err(()),
+    };
+    for entry in fs::read_dir(root).map_err(|_| ())? {
+        let entry = entry.map_err(|_| ())?;
+        if !entry.file_name().to_str().is_some_and(is_staging) {
+            continue;
+        }
+        let metadata = fs::symlink_metadata(entry.path()).map_err(|_| ())?;
+        if !metadata.is_file()
+            || metadata.mode() & 0o077 != 0
+            || metadata.uid() != directory.metadata().map_err(|_| ())?.uid()
+        {
+            return Err(());
+        }
+        if quarantine_directory.is_none() {
+            fs::DirBuilder::new()
+                .mode(0o700)
+                .create(&quarantine)
+                .map_err(|_| ())?;
+            root_valid(&quarantine)?;
+            quarantine_directory = Some(File::open(&quarantine).map_err(|_| ())?);
+        }
+        loop {
+            let destination = quarantine.join(staging_name()?);
+            match fs::symlink_metadata(&destination) {
+                Ok(_) => continue,
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                Err(_) => return Err(()),
+            }
+            fs::rename(entry.path(), destination).map_err(|_| ())?;
+            break;
+        }
+    }
+    if let Some(quarantine_directory) = quarantine_directory {
+        quarantine_directory.sync_all().map_err(|_| ())?;
+    }
+    directory.sync_all().map_err(|_| ())
+}
 
 mod budget_state;
 mod dynamic;
@@ -358,6 +432,9 @@ impl Human {
     ) -> Result<(), ()> {
         let _guard = self.records.lock().map_err(|_| ())?;
         root_valid(&self.state_root)?;
+        let directory = File::open(&self.state_root).map_err(|_| ())?;
+        directory.lock().map_err(|_| ())?;
+        recover_staging(&self.state_root, &directory)?;
         let record = Record {
             receipt_hex: hex::encode(receipt),
             replica_document: serde_json::from_slice(document).map_err(|_| ())?,
@@ -373,20 +450,34 @@ impl Human {
             }
             return Ok(());
         }
-        let temporary = self.state_root.join(".receipt.pending");
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .mode(0o600)
-            .open(&temporary)
-            .map_err(|_| ())?;
-        file.write_all(&bytes)
-            .and_then(|()| file.sync_all())
-            .map_err(|_| ())?;
+        let (temporary, mut file) = loop {
+            let temporary = self.state_root.join(staging_name()?);
+            match OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .mode(0o600)
+                .open(&temporary)
+            {
+                Ok(file) => break (temporary, file),
+                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+                Err(_) => return Err(()),
+            }
+        };
+        #[cfg(test)]
+        publication_interruption::partial_write(&mut file, &bytes)?;
+        file.write_all(&bytes).map_err(|_| ())?;
+        #[cfg(test)]
+        publication_interruption::at(publication_interruption::Boundary::Sync)?;
+        file.sync_all().map_err(|_| ())?;
+        #[cfg(test)]
+        publication_interruption::at(publication_interruption::Boundary::Rename)?;
         fs::rename(&temporary, &path).map_err(|_| ())?;
-        File::open(&self.state_root)
-            .and_then(|dir| dir.sync_all())
-            .map_err(|_| ())
+        #[cfg(test)]
+        publication_interruption::at(publication_interruption::Boundary::DirectorySync)?;
+        directory.sync_all().map_err(|_| ())?;
+        #[cfg(test)]
+        publication_interruption::at(publication_interruption::Boundary::Durable)?;
+        Ok(())
     }
 
     fn evidence(&self, config: &Config) -> Result<Vec<Verified>, Response> {
@@ -395,9 +486,19 @@ impl Human {
             .lock()
             .map_err(|_| unavailable("state_unavailable"))?;
         root_valid(&self.state_root).map_err(|()| unavailable("state_unavailable"))?;
+        let directory =
+            File::open(&self.state_root).map_err(|_| unavailable("state_unavailable"))?;
+        directory
+            .lock()
+            .map_err(|_| unavailable("state_unavailable"))?;
+        recover_staging(&self.state_root, &directory)
+            .map_err(|()| unavailable("state_unavailable"))?;
         let mut verified = Vec::new();
         for entry in fs::read_dir(&self.state_root).map_err(|_| unavailable("state_unavailable"))? {
             let path = entry.map_err(|_| unavailable("state_unavailable"))?.path();
+            if path.file_name().and_then(|name| name.to_str()) == Some(QUARANTINE) {
+                continue;
+            }
             let bytes =
                 protected::read(&path, MAX_FILE).map_err(|()| unavailable("state_unavailable"))?;
             let record =
@@ -1236,3 +1337,62 @@ fn native_complete_suffix(start: &Verified, evidence: &[Verified]) -> Result<(),
 #[cfg(test)]
 #[path = "../tests/support/human_unit.rs"]
 mod tests;
+
+#[cfg(test)]
+pub(super) mod publication_interruption {
+    use super::*;
+    use std::cell::Cell;
+
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    pub(crate) enum Boundary {
+        Write,
+        Sync,
+        Rename,
+        DirectorySync,
+        Durable,
+    }
+
+    thread_local! {
+        static BOUNDARY: Cell<Option<Boundary>> = const { Cell::new(None) };
+    }
+
+    pub(crate) struct Reset;
+
+    impl Drop for Reset {
+        fn drop(&mut self) {
+            BOUNDARY.set(None);
+        }
+    }
+
+    pub(crate) fn arm(boundary: Boundary) -> Reset {
+        BOUNDARY.set(Some(boundary));
+        Reset
+    }
+
+    pub(super) fn at(boundary: Boundary) -> Result<(), ()> {
+        if BOUNDARY.get() == Some(boundary) {
+            Err(())
+        } else {
+            Ok(())
+        }
+    }
+
+    pub(super) fn partial_write(file: &mut File, bytes: &[u8]) -> Result<(), ()> {
+        if BOUNDARY.get() == Some(Boundary::Write) {
+            file.write_all(&bytes[..bytes.len() / 2]).map_err(|_| ())?;
+            return Err(());
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+impl Config {
+    pub(crate) fn fixture_receipt_evidence(&self) -> Result<Vec<AuthorityFacts>, Response> {
+        self.human
+            .as_ref()
+            .ok_or_else(|| unavailable("human_authority_unconfigured"))?
+            .evidence(self)
+            .map(|records| records.into_iter().map(|record| record.facts).collect())
+    }
+}
