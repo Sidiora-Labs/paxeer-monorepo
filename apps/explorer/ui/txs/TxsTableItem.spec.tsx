@@ -10,9 +10,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('next/router', async() => (await import('ui/shared/layout/testWrapper')).nextRouterModule());
 
+import type { TransactionFeedItem } from './TxPriceUpdate';
 import TxsTableItem from './TxsTableItem';
 
-const renderItem = (tx = txMock.base) => render(
+const renderItem = (tx: TransactionFeedItem = txMock.base) => render(
   <TableRoot variant="scan">
     <TableBody>
       <TxsTableItem tx={ tx } showBlockInfo/>

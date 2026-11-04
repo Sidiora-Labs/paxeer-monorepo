@@ -1,0 +1,11 @@
+[repair.22.33.346]
+finding = "shared-login-partial-success"
+proof = "repair-22-33-346.spec.ts:sharedLoginCommitsAccountBeforeRewardsAndRecoversAfterRestart"
+behavior = "Commit the verified account profile before rewards login; return rewards failure separately and offer a new rewards login through the existing Merits modal."
+proof_boundary = "The production session hook, reCAPTCHA wrapper, API transport, query cache and profile hook run against a loopback peer that verifies a real wallet signature and stores sessions; reopening uses an empty query client and the server-issued cookie."
+baseline = "Not run: the explicit gate order forbids verification before implementation; no baseline failure is claimed."
+wiring_requests = []
+evidence = "The runner's hf-build and hf-done ledger records the exact candidate revision, command, exit and private log."
+environment = "The sandbox's pnpm bootstrap rejects the application's Yarn package-manager pin; dependencies are installed with its pinned Yarn and gate commands use pnpm 8.15.9 without changing manifests."
+formatter_note = "The repository ESLint formatter was applied only to touched TypeScript files; its diagnostics reject Vitest's jsdom ambient global and the named-function registrations explicitly required by this task. These checks and registrations remain intact; lint is not a declared gate."
+repair_cycle_1 = "Vitest treats the requested one-argument test(function) registration as todo, and the first hf-done returned zero with no executed tests. Each declared test now supplies its name and body explicitly; that earlier result is not behavioral evidence."

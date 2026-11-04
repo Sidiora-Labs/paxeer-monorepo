@@ -9,6 +9,8 @@ import shortenString from 'lib/shortenString';
 import { Button } from 'toolkit/chakra/button';
 import { apos } from 'toolkit/utils/htmlEntities';
 
+import AuthModalRewardsRetry from './AuthModalRewardsRetry';
+
 interface Props {
   address: string;
   onAddEmail: (screen: Screen) => void;
@@ -16,9 +18,10 @@ interface Props {
   isAuth?: boolean;
   profile: UserInfo | undefined;
   rewardsToken?: string;
+  rewardsAuthFailed?: boolean;
 }
 
-const AuthModalScreenSuccessWallet = ({ address, onAddEmail, onClose, isAuth, profile, rewardsToken }: Props) => {
+const AuthModalScreenSuccessWallet = ({ address, onAddEmail, onClose, isAuth, profile, rewardsToken, rewardsAuthFailed }: Props) => {
   const handleAddEmailClick = React.useCallback(() => {
     onAddEmail({ type: 'email', isAuth: true });
   }, [ onAddEmail ]);
@@ -31,6 +34,7 @@ const AuthModalScreenSuccessWallet = ({ address, onAddEmail, onClose, isAuth, pr
           <chakra.span fontWeight="700">{ shortenString(address) }</chakra.span>{ ' ' }
           wallet. Use for the next login.
         </Text>
+        { rewardsAuthFailed && <AuthModalRewardsRetry onClose={ onClose }/> }
         <Button
           mt={ 6 }
           variant="outline"
@@ -50,6 +54,7 @@ const AuthModalScreenSuccessWallet = ({ address, onAddEmail, onClose, isAuth, pr
         has been successfully used to log in to your Blockscout account
         { Boolean(rewardsToken) && ` and Merits Program` }.
       </Text>
+      { rewardsAuthFailed && <AuthModalRewardsRetry onClose={ onClose }/> }
       { !profile?.email ? (
         <>
           <Text mt={ 6 }>

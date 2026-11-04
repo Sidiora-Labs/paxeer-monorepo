@@ -22,8 +22,10 @@ const AuthModalScreenConnectWallet = ({ onSuccess, onError, isAuth, source, logi
   const isStartedRef = React.useRef(false);
   const recaptcha = useReCaptcha();
 
-  const handleSignInSuccess = React.useCallback(({ address, profile, rewardsToken }: { address: string; profile: UserInfo; rewardsToken?: string }) => {
-    onSuccess({ type: 'success_wallet', address, isAuth, profile, rewardsToken });
+  const handleSignInSuccess = React.useCallback((result: {
+    address: string; profile: UserInfo; rewardsToken?: string; rewardsAuthFailed: boolean;
+  }) => {
+    onSuccess({ type: 'success_wallet', isAuth, ...result });
   }, [ onSuccess, isAuth ]);
 
   const handleSignInError = React.useCallback(() => {

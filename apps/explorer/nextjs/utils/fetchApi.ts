@@ -34,6 +34,10 @@ export default async function fetchApi<R extends ResourceName = never, S = Resou
       httpLogger.logger.error({ message: 'API fetch', url, code: response.status, duration });
     }
 
+    if (!response.ok) {
+      return;
+    }
+
     return await response.json() as Promise<S>;
   } catch (error) {
     const code = error instanceof AbortError ? 504 : 500;

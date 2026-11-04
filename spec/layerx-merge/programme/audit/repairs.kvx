@@ -10064,3 +10064,4049 @@ findings = ["22.30.33/native-feeflow-test-path", "22.30.33/inventory-real-consum
 files = ["services/launchpad/indexer/internal/processor/airdrop_test.go", "services/launchpad/indexer/internal/processor/inventory_publication_postgres_test.go", "services/launchpad/indexer/internal/processor/live_ingest_postgres_test.go", "services/launchpad/indexer/internal/processor/measurement_test.go"]
 owner_domain = 4
 classes = ["test-gap"]
+
+[repair.22.33.1001]
+record = "22.30.34"
+findings = ["22.30.34/007", "22.30.34/008", "22.30.34/016", "22.30.34/006"]
+files = ["services/launchpad/livestream/internal/streams/proof_launchpad_livestream_test.go", "services/launchpad/livestream/internal/streams/provision_worker.go", "services/launchpad/livestream/internal/streams/usage.go", "services/launchpad/livestream/internal/streams/webhook_alias_test.go"]
+owner_domain = 4
+classes = ["config-drift", "restart-recovery", "test-gap"]
+
+[repair.22.33.1002]
+record = "22.30.34"
+findings = ["22.30.34/009"]
+files = ["services/launchpad/livestream/internal/app/app.go"]
+owner_domain = 4
+classes = ["runtime-risk"]
+
+[repair.22.33.1003]
+record = "22.30.34"
+findings = ["22.30.34/010"]
+files = ["services/launchpad/livestream/internal/livepeer/client_test.go"]
+owner_domain = 4
+classes = ["test-gap"]
+
+[repair.22.33.1004]
+record = "22.30.34"
+findings = ["22.30.34/015", "22.30.34/012", "22.30.34/013", "22.30.34/011"]
+files = ["apps/launchpad/web/src/widgets/trading/trade-panel.tsx", "apps/launchpad/web/src/widgets/trading/udf-datafeed.ts", "apps/launchpad/web/src/widgets/trading/use-live-balances.ts"]
+owner_domain = 4
+classes = ["runtime-risk"]
+
+[repair.22.33.1005]
+record = "22.30.34"
+findings = ["22.30.34/014", "22.30.34/017", "22.30.34/018"]
+files = ["apps/launchpad/web/src/widgets/trading/transaction-controls/recovery.ts", "apps/launchpad/web/src/widgets/trading/transaction-controls/run-phase2.py", "apps/launchpad/web/src/widgets/trading/transaction-controls/run-phase4.py"]
+owner_domain = 4
+classes = ["config-drift", "runtime-risk"]
+
+[repair.22.33.1006]
+record = "22.30.35"
+findings = ["22.30.35/4", "22.30.35/15", "22.30.35/6"]
+files = ["services/launchpad/metadata/internal/app/app.go", "services/launchpad/metadata/internal/app/dev_v2_test.go", "services/launchpad/metadata/internal/app/development_connected.go"]
+owner_domain = 4
+classes = ["runtime-risk", "security", "test-gap"]
+
+[repair.22.33.1007]
+record = "22.30.35"
+findings = ["22.30.35/5", "22.30.35/14", "22.30.35/11"]
+files = ["services/launchpad/metadata/internal/metadata/dev_connected.go", "services/launchpad/metadata/internal/metadata/edge_production_test.go", "services/launchpad/metadata/internal/metadata/handlers.go"]
+owner_domain = 4
+classes = ["restart-recovery", "runtime-risk", "test-gap"]
+
+[repair.22.33.1008]
+record = "22.30.35"
+findings = ["22.30.35/7", "22.30.35/13", "22.30.35/9", "22.30.35/10", "22.30.35/12"]
+files = ["services/launchpad/api/internal/rest/compatibility.go", "services/launchpad/api/internal/rest/dev_chain.go", "services/launchpad/api/internal/rest/dev_market_test.go", "services/launchpad/api/internal/rest/qualification_workload_test.go", "services/launchpad/api/internal/rest/rest.go"]
+owner_domain = 4
+classes = ["config-drift", "doc-drift", "runtime-risk", "test-gap"]
+
+[repair.22.33.1009]
+record = "22.30.35"
+findings = ["22.30.35/8"]
+files = ["services/launchpad/metadata/internal/image/inprocess.go"]
+owner_domain = 4
+classes = ["runtime-risk"]
+
+[repair.22.33.1010]
+record = "22.30.36"
+findings = ["22.30.36/creator-wallet-lifecycle"]
+files = ["apps/launchpad/web/src/widgets/my-token/my-token-view.tsx"]
+owner_domain = 4
+classes = ["runtime-risk"]
+
+[repair.22.33.1011]
+record = "22.30.36"
+findings = ["22.30.36/dm-session-revocation", "22.30.36/dm-visible-read-marker"]
+files = ["apps/launchpad/web/src/widgets/chat/conversation-list.tsx", "apps/launchpad/web/src/widgets/chat/dm-thread.tsx"]
+owner_domain = 4
+classes = ["runtime-risk", "security"]
+
+[repair.22.33.1012]
+record = "22.30.36"
+findings = ["22.30.36/event-schema-path-test"]
+files = ["sdk/launchpad/protocol/events_test.go"]
+owner_domain = 4
+classes = ["test-gap"]
+
+[repair.22.33.1013]
+record = "22.30.36"
+findings = ["22.30.36/mutation-commit-telemetry"]
+files = ["sdk/launchpad/shared/telemetry/metrics.go"]
+owner_domain = 4
+classes = ["wiring-gap"]
+
+[repair.22.33.1014]
+record = "22.30.36"
+findings = ["22.30.36/legacy-reconcile-cache-recovery", "22.30.36/legacy-reconcile-push", "22.30.36/legacy-reconcile-restart-test"]
+files = ["services/launchpad/pnl-tracker/internal/reconcile/reconcile.go", "services/launchpad/pnl-tracker/internal/reconcile/reconcile_test.go"]
+owner_domain = 4
+classes = ["restart-recovery", "test-gap", "wiring-gap"]
+
+[repair.22.33.1015]
+record = "22.30.36"
+findings = ["22.30.36/legacy-consumer-path-test"]
+files = ["services/launchpad/pnl-tracker/internal/position/consumer_test.go"]
+owner_domain = 4
+classes = ["test-gap"]
+
+[repair.22.33.1016]
+record = "22.30.36"
+findings = ["22.30.36/make-package-discovery"]
+files = ["services/launchpad/Makefile"]
+owner_domain = 4
+classes = ["runtime-risk"]
+
+[repair.22.33.1017]
+record = "22.30.36"
+findings = ["22.30.36/coverage-module-inventory"]
+files = ["tools/launchpad/coverage-gate.sh"]
+owner_domain = 4
+classes = ["wiring-gap"]
+
+[repair.22.33.1018]
+record = "22.30.37"
+findings = ["22.30.37/baseline-role-proof-skips-grants"]
+files = ["services/launchpad/pnl-tracker/internal/production/l16/baseline_ahead_postgres_test.go"]
+owner_domain = 4
+classes = ["test-gap"]
+
+[repair.22.33.1019]
+record = "22.30.37"
+findings = ["22.30.37/nonclaim-market-breaks-listing", "22.30.37/community-policy-restart", "22.30.37/reward-outbox-has-no-relay", "22.30.37/qualification-ephemeral-runner"]
+files = ["services/launchpad/pnl-tracker/internal/production/l18/journeys.go", "services/launchpad/pnl-tracker/internal/production/l18/ledger.go", "services/launchpad/pnl-tracker/internal/production/l18/qualify.py"]
+owner_domain = 4
+classes = ["config-drift", "restart-recovery", "runtime-risk", "wiring-gap"]
+
+[repair.22.33.1020]
+record = "22.30.38"
+findings = ["22.30.38/control-readme-behavior", "22.30.38/replay-executor-missing", "22.30.38/registry-contract-pages-missing", "22.30.38/incident-drain-fairness", "22.30.38/settlement-drain-fairness", "22.30.38/workflow-production-role-proof"]
+files = ["services/launchpad/security/control/README.md", "services/launchpad/security/control/operator.go", "services/launchpad/security/control/providers.go", "services/launchpad/security/control/workers.go", "services/launchpad/security/control/workflows_test.go"]
+owner_domain = 4
+classes = ["doc-drift", "runtime-risk", "test-gap", "wiring-gap"]
+
+[repair.22.33.1021]
+record = "22.30.38"
+findings = ["22.30.38/column-grants-not-checked", "22.30.38/audit-export-not-scheduled", "22.30.38/retained-export-positive-proof", "22.30.38/active-body-deadline", "22.30.38/mutation-case-alias", "22.30.38/scenario-facts-detached"]
+files = ["services/launchpad/security/policy/credentials.go", "services/launchpad/security/policy/export.go", "services/launchpad/security/policy/export_test.go", "services/launchpad/security/policy/parsing.go", "services/launchpad/security/policy/policy.go", "services/launchpad/security/policy/release_harness.py"]
+owner_domain = 4
+classes = ["runtime-risk", "security", "test-gap", "wiring-gap"]
+
+[repair.22.33.1022]
+record = "22.30.38"
+findings = ["22.30.38/mobile-v4-schema-root"]
+files = ["apps/launchpad/qualification/mobile/evidence-manifest.schema.json"]
+owner_domain = 4
+classes = ["config-drift"]
+
+[repair.22.33.1023]
+record = "22.30.38"
+findings = ["22.30.38/accessibility-source-path"]
+files = ["apps/launchpad/qualification/accessibility/corpus.json"]
+owner_domain = 4
+classes = ["config-drift"]
+
+[repair.22.33.1024]
+record = "22.30.38"
+findings = ["22.30.38/root-network-model"]
+files = ["README.md"]
+owner_domain = 17
+classes = ["doc-drift"]
+
+[repair.22.33.1025]
+record = "22.30.38"
+findings = ["22.30.38/supplychain-readme-ci"]
+files = ["services/launchpad/security/supplychain/README.md"]
+owner_domain = 4
+classes = ["doc-drift"]
+
+[repair.22.33.1026]
+record = "22.30.38"
+findings = ["22.30.38/account-readme-path"]
+files = ["apps/launchpad/qualification/account-ui/README.md"]
+owner_domain = 4
+classes = ["doc-drift"]
+
+[repair.22.33.1027]
+record = "22.30.39"
+findings = ["22.30.39/19", "22.30.39/20", "22.30.39/5"]
+files = ["services/launchpad/social/internal/fanout/hub.go", "services/launchpad/social/internal/fanout/message.go"]
+owner_domain = 4
+classes = ["config-drift", "restart-recovery", "wiring-gap"]
+
+[repair.22.33.1028]
+record = "22.30.39"
+findings = ["22.30.39/6", "22.30.39/7"]
+files = ["services/launchpad/social/internal/devsocial/policy.go", "services/launchpad/social/internal/devsocial/reports.go"]
+owner_domain = 4
+classes = ["security", "wiring-gap"]
+
+[repair.22.33.1029]
+record = "22.30.39"
+findings = ["22.30.39/17", "22.30.39/11", "22.30.39/18"]
+files = ["services/launchpad/social/internal/social/handlers_test.go", "services/launchpad/social/internal/social/moderation.go", "services/launchpad/social/internal/social/voice_v2_actions_test.go"]
+owner_domain = 4
+classes = ["restart-recovery", "test-gap"]
+
+[repair.22.33.1030]
+record = "22.30.39"
+findings = ["22.30.39/12"]
+files = ["services/launchpad/social/internal/voice/reconcile.go"]
+owner_domain = 4
+classes = ["restart-recovery"]
+
+[repair.22.33.1031]
+record = "22.30.39"
+findings = ["22.30.39/13"]
+files = ["services/launchpad/social/internal/app/app.go"]
+owner_domain = 4
+classes = ["restart-recovery"]
+
+[repair.22.33.1032]
+record = "22.30.39"
+findings = ["22.30.39/15", "22.30.39/14"]
+files = ["services/launchpad/pnl-tracker/internal/devreads/history.go", "services/launchpad/pnl-tracker/internal/devreads/snapshot.go"]
+owner_domain = 4
+classes = ["runtime-risk"]
+
+[repair.22.33.1033]
+record = "22.30.39"
+findings = ["22.30.39/23"]
+files = ["README.md"]
+owner_domain = 16
+classes = ["doc-drift"]
+
+[repair.22.33.1034]
+record = "22.30.4"
+findings = ["22.30.4/001", "22.30.4/017", "22.30.4/004", "22.30.4/016", "22.30.4/005", "22.30.4/006", "22.30.4/007", "22.30.4/008"]
+files = ["tests/codec/lxp_test_binding_authority_receive.c", "tests/codec/lxp_test_bridge_credit_absent.c", "tests/codec/lxp_test_budget_pull_retired.c", "tests/codec/lxp_test_codec_strict.c", "tests/codec/lxp_test_codec_vectors.c", "tests/codec/lxp_test_custody_builder_header.c", "tests/codec/lxp_test_fee_golden.c", "tests/codec/lxp_test_fee_meter_refused.c"]
+owner_domain = 1
+classes = ["config-drift", "test-gap"]
+
+[repair.22.33.1035]
+record = "22.30.4"
+findings = ["22.30.4/009", "22.30.4/018", "22.30.4/019", "22.30.4/010", "22.30.4/015", "22.30.4/020", "22.30.4/011", "22.30.4/021"]
+files = ["tests/codec/lxp_test_fee_relay_retired.c", "tests/codec/lxp_test_handover_absent.c", "tests/codec/lxp_test_idempotency_absent.c", "tests/codec/lxp_test_idempotency_retired.c", "tests/codec/lxp_test_kernel_entry_retired.c", "tests/codec/lxp_test_program_signer_binding.c", "tests/codec/lxp_test_programs_retired.c"]
+owner_domain = 1
+classes = ["config-drift", "test-gap"]
+
+[repair.22.33.1036]
+record = "22.30.4"
+findings = ["22.30.4/012", "22.30.4/022", "22.30.4/013", "22.30.4/023", "22.30.4/014", "22.30.4/024"]
+files = ["tests/codec/lxp_test_queue_disposition_retired.c", "tests/codec/lxp_test_receive_retired.c", "tests/codec/lxp_test_settled_maintenance.c", "tests/codec/lxp_test_state_diff_retired.c", "tests/codec/lxp_test_state_feed_unbound.c", "tests/codec/lxp_test_web_absent.c"]
+owner_domain = 1
+classes = ["config-drift", "test-gap"]
+
+[repair.22.33.1037]
+record = "22.30.4"
+findings = ["22.30.4/028"]
+files = ["README.md"]
+owner_domain = 17
+classes = ["doc-drift"]
+
+[repair.22.33.1038]
+record = "22.30.40"
+findings = ["22.30.40/capacity_pause_slo_conflict", "22.30.40/risk_inputs_unwired"]
+files = ["services/launchpad/stats-workers/internal/analytics/phase2_capacity_test.go", "services/launchpad/stats-workers/internal/analytics/projector.go"]
+owner_domain = 4
+classes = ["test-gap", "wiring-gap"]
+
+[repair.22.33.1039]
+record = "22.30.40"
+findings = ["22.30.40/cross_history_page_bound", "22.30.40/creator_history_unbounded", "22.30.40/legacy_holder_page_bound", "22.30.40/distribution_unbounded", "22.30.40/transaction_page_bound", "22.30.40/legacy_reaction_signature", "22.30.40/legacy_reaction_state", "22.30.40/reaction_test_wrong_intent"]
+files = ["services/launchpad/stats-workers/internal/httpapi/cross_token_swaps.go", "services/launchpad/stats-workers/internal/httpapi/pool_analytics.go", "services/launchpad/stats-workers/internal/httpapi/pool_holders.go", "services/launchpad/stats-workers/internal/httpapi/pool_transactions.go", "services/launchpad/stats-workers/internal/httpapi/reactions.go", "services/launchpad/stats-workers/internal/httpapi/reactions_test.go"]
+owner_domain = 4
+classes = ["restart-recovery", "runtime-risk", "security", "test-gap"]
+
+[repair.22.33.1040]
+record = "22.30.40"
+findings = ["22.30.40/webhook_failed_ack", "22.30.40/webhook_body_bound"]
+files = ["services/launchpad/stats-workers/internal/httpapi/webhook.go"]
+owner_domain = 4
+classes = ["restart-recovery", "security"]
+
+[repair.22.33.1041]
+record = "22.30.40"
+findings = ["22.30.40/legacy_idle_windows", "22.30.40/holder_text_order", "22.30.40/platform_fee_units", "22.30.40/pressure_sell_units", "22.30.40/fee_fixture_wrong_units", "22.30.40/pressure_fixture_wrong_leg"]
+files = ["services/launchpad/stats-workers/internal/store/buckets.go", "services/launchpad/stats-workers/internal/store/holders.go", "services/launchpad/stats-workers/internal/store/platform.go", "services/launchpad/stats-workers/internal/store/platform_test.go"]
+owner_domain = 4
+classes = ["runtime-risk", "test-gap", "wiring-gap"]
+
+[repair.22.33.1042]
+record = "22.30.40"
+findings = ["22.30.40/webhook_duplicate_effects"]
+files = ["services/launchpad/stats-workers/internal/consumer/swap.go"]
+owner_domain = 4
+classes = ["restart-recovery"]
+
+[repair.22.33.1043]
+record = "22.30.40"
+findings = ["22.30.40/stream_schema_split", "22.30.40/sync_lifetime_cap"]
+files = ["services/launchpad/stats-workers/internal/projectionstats/postgres.go", "services/launchpad/stats-workers/internal/projectionstats/public_stats.go"]
+owner_domain = 4
+classes = ["config-drift", "runtime-risk"]
+
+[repair.22.33.1044]
+record = "22.30.40"
+findings = ["22.30.40/public_search_fixture_disconnect"]
+files = ["services/launchpad/stats-workers/internal/search/search_test.go"]
+owner_domain = 4
+classes = ["test-gap"]
+
+[repair.22.33.1045]
+record = "22.30.41"
+findings = ["22.30.41/3"]
+files = ["sdk/launchpad/packages/candles-sdk/test/client.test.mjs"]
+owner_domain = 4
+classes = ["test-gap"]
+
+[repair.22.33.1046]
+record = "22.30.41"
+findings = ["22.30.41/5", "22.30.41/4"]
+files = ["sdk/launchpad/packages/sdk/scripts/examples.py", "sdk/launchpad/packages/sdk/scripts/generate.py"]
+owner_domain = 4
+classes = ["config-drift"]
+
+[repair.22.33.1047]
+record = "22.30.41"
+findings = ["22.30.41/6", "22.30.41/9", "22.30.41/8", "22.30.41/7"]
+files = ["sdk/launchpad/packages/sdk/test/generation.test.py", "sdk/launchpad/packages/sdk/test/served-routes.test.mjs", "sdk/launchpad/packages/sdk/test/test_examples_layout.py", "sdk/launchpad/packages/sdk/test/test_generate_layout.py"]
+owner_domain = 4
+classes = ["test-gap"]
+
+[repair.22.33.1048]
+record = "22.30.41"
+findings = ["22.30.41/12"]
+files = ["services/launchpad/trading-charts/internal/consumer/accounting.go"]
+owner_domain = 4
+classes = ["wiring-gap"]
+
+[repair.22.33.1049]
+record = "22.30.41"
+findings = ["22.30.41/15", "22.30.41/13"]
+files = ["services/launchpad/trading-charts/internal/app/app.go"]
+owner_domain = 4
+classes = ["wiring-gap"]
+
+[repair.22.33.1050]
+record = "22.30.41"
+findings = ["22.30.41/20", "22.30.41/19", "22.30.41/14"]
+files = ["services/launchpad/trading-charts/internal/httpapi/webhook.go", "services/launchpad/trading-charts/internal/httpapi/ws_test.go"]
+owner_domain = 4
+classes = ["runtime-risk", "security", "test-gap"]
+
+[repair.22.33.1051]
+record = "22.30.41"
+findings = ["22.30.41/16", "22.30.41/17", "22.30.41/18", "22.30.41/24"]
+files = ["services/launchpad/trading-charts/internal/engine/builder.go", "services/launchpad/trading-charts/internal/engine/rollup_test.go"]
+owner_domain = 4
+classes = ["restart-recovery", "runtime-risk", "test-gap"]
+
+[repair.22.33.1052]
+record = "22.30.41"
+findings = ["22.30.41/23"]
+files = ["services/launchpad/trading-charts/cmd/charts-rebuild/main.go"]
+owner_domain = 4
+classes = ["config-drift"]
+
+[repair.22.33.1053]
+record = "22.30.41"
+findings = ["22.30.41/27"]
+files = ["sdk/launchpad/packages/sidiora-launchpad-v3/provenance.json"]
+owner_domain = 4
+classes = ["config-drift"]
+
+[repair.22.33.1054]
+record = "22.30.41"
+findings = ["22.30.41/29", "22.30.41/28"]
+files = ["sdk/launchpad/packages/sidiora-launchpad-v3/test/abi-conformance.test.mjs", "sdk/launchpad/packages/sidiora-launchpad-v3/test/provenance.test.mjs"]
+owner_domain = 4
+classes = ["test-gap"]
+
+[repair.22.33.1055]
+record = "22.30.41"
+findings = ["22.30.41/30"]
+files = ["sdk/launchpad/packages/indexer-sdk/src/index.ts"]
+owner_domain = 4
+classes = ["runtime-risk"]
+
+[repair.22.33.1056]
+record = "22.30.41"
+findings = ["22.30.41/31"]
+files = ["sdk/launchpad/packages/metadata-sdk/src/index.ts"]
+owner_domain = 4
+classes = ["runtime-risk"]
+
+[repair.22.33.1057]
+record = "22.30.41"
+findings = ["22.30.41/32"]
+files = ["sdk/launchpad/packages/ranking-algo-sdk/src/index.ts"]
+owner_domain = 4
+classes = ["runtime-risk"]
+
+[repair.22.33.1058]
+record = "22.30.41"
+findings = ["22.30.41/33"]
+files = ["sdk/launchpad/packages/users-sdk/src/index.ts"]
+owner_domain = 4
+classes = ["runtime-risk"]
+
+[repair.22.33.1059]
+record = "22.30.41"
+findings = ["22.30.41/34"]
+files = ["sdk/launchpad/packages/sdk/src/transport.ts"]
+owner_domain = 4
+classes = ["runtime-risk"]
+
+[repair.22.33.1060]
+record = "22.30.41"
+findings = ["22.30.41/37"]
+files = ["sdk/launchpad/packages/stats-sdk/src/index.ts"]
+owner_domain = 4
+classes = ["runtime-risk"]
+
+[repair.22.33.1061]
+record = "22.30.41"
+findings = ["22.30.41/38"]
+files = ["sdk/launchpad/packages/candles-sdk/src/index.ts"]
+owner_domain = 4
+classes = ["runtime-risk"]
+
+[repair.22.33.1062]
+record = "22.30.42"
+findings = ["22.30.42/notification-quiet-timezone"]
+files = ["services/launchpad/user/internal/app/app.go"]
+owner_domain = 4
+classes = ["interface-mismatch"]
+
+[repair.22.33.1063]
+record = "22.30.42"
+findings = ["22.30.42/export-failed-read-consumes-token", "22.30.42/provisioned-privacy-default", "22.30.42/deletion-fixture-schema-source", "22.30.42/completed-export-fixture"]
+files = ["services/launchpad/user/internal/account/jobs_http.go", "services/launchpad/user/internal/account/preferences_http.go", "services/launchpad/user/internal/account/v2_owner_http_test.go", "services/launchpad/user/internal/account/v2_owner_wire_test.go"]
+owner_domain = 4
+classes = ["config-drift", "restart-recovery", "test-gap"]
+
+[repair.22.33.1064]
+record = "22.30.42"
+findings = ["22.30.42/legacy-wallet-replay", "22.30.42/legacy-multipart-unbounded", "22.30.42/legacy-image-cache-stale", "22.30.42/profile-host-cache-poisoning"]
+files = ["services/launchpad/user/internal/user/handlers.go", "services/launchpad/user/internal/user/helpers.go"]
+owner_domain = 4
+classes = ["runtime-risk", "security"]
+
+[repair.22.33.1065]
+record = "22.30.42"
+findings = ["22.30.42/svg-normalized-active-content"]
+files = ["services/launchpad/user/internal/image/image.go"]
+owner_domain = 4
+classes = ["security"]
+
+[repair.22.33.1066]
+record = "22.30.42"
+findings = ["22.30.42/inventory-spec-missing", "22.30.42/final-manifest-spec", "22.30.42/phase2-manifest-spec", "22.30.42/phase3-manifest-spec", "22.30.42/phase4-manifest-spec", "22.30.42/readiness-spec-missing"]
+files = ["tools/launchpad/production/feature-acceptance/build_inventory.py", "tools/launchpad/production/feature-acceptance/final-integrated-gate-readiness.json", "tools/launchpad/production/feature-acceptance/phase-2-scenario-manifest.json", "tools/launchpad/production/feature-acceptance/phase-3-scenario-manifest.json", "tools/launchpad/production/feature-acceptance/phase-4-scenario-manifest.json", "tools/launchpad/production/feature-acceptance/policy.py"]
+owner_domain = 4
+classes = ["config-drift", "wiring-gap"]
+
+[repair.22.33.1067]
+record = "22.30.42"
+findings = ["22.30.42/catalog-test-missing-input", "22.30.42/closure-test-missing-input", "22.30.42/inventory-test-missing-input"]
+files = ["tools/launchpad/production/feature-acceptance/tests/test_phase2.py", "tools/launchpad/production/feature-acceptance/tests/test_phase4.py", "tools/launchpad/production/feature-acceptance/tests/test_policy.py"]
+owner_domain = 4
+classes = ["test-gap"]
+
+[repair.22.33.1068]
+record = "22.30.43"
+findings = ["22.30.43/f001", "22.30.43/f007"]
+files = ["cmd/layerxctl/tests/files.rs"]
+owner_domain = 5
+classes = ["test-gap"]
+
+[repair.22.33.1069]
+record = "22.30.43"
+findings = ["22.30.43/f003"]
+files = ["consensus/internal/protoutils/wireguard/wireguard_test.go"]
+owner_domain = 15
+classes = ["test-gap"]
+
+[repair.22.33.1070]
+record = "22.30.43"
+findings = ["22.30.43/f004"]
+files = ["consensus/internal/eventlog/eventlog.go"]
+owner_domain = 15
+classes = ["runtime-risk"]
+
+[repair.22.33.1071]
+record = "22.30.43"
+findings = ["22.30.43/f005"]
+files = ["consensus/abci/types/util.go"]
+owner_domain = 15
+classes = ["runtime-risk"]
+
+[repair.22.33.1072]
+record = "22.30.43"
+findings = ["22.30.43/f008", "22.30.43/f010", "22.30.43/f009", "22.30.43/f011"]
+files = ["storage/db_engine/rocksdb/mvcc/db.go"]
+owner_domain = 5
+classes = ["config-drift", "restart-recovery", "runtime-risk"]
+
+[repair.22.33.1073]
+record = "22.30.43"
+findings = ["22.30.43/f012"]
+files = ["storage/wal/utils.go"]
+owner_domain = 5
+classes = ["restart-recovery"]
+
+[repair.22.33.1074]
+record = "22.30.43"
+findings = ["22.30.43/f013"]
+files = ["node/apptesting/test_suite.go"]
+owner_domain = 5
+classes = ["test-gap"]
+
+[repair.22.33.1075]
+record = "22.30.43"
+findings = ["22.30.43/f014", "22.30.43/f015"]
+files = ["node/benchmark/generator.go"]
+owner_domain = 5
+classes = ["runtime-risk"]
+
+[repair.22.33.1076]
+record = "22.30.43"
+findings = ["22.30.43/f016", "22.30.43/f017", "22.30.43/f018", "22.30.43/f019"]
+files = ["tests/daemon/test_handover_chain_no_read_consumer.py", "tests/daemon/test_protocol_owner_binds_state_feed.py", "tests/daemon/test_serve_commits_programs_call.py", "tests/daemon/test_serve_startup_without_anchor_bind.py"]
+owner_domain = 5
+classes = ["retired-reference"]
+
+[repair.22.33.1077]
+record = "22.30.43"
+findings = ["22.30.43/f025"]
+files = ["README.md"]
+owner_domain = 5
+classes = ["doc-drift"]
+
+[repair.22.33.1078]
+record = "22.30.43"
+findings = ["22.30.43/f032"]
+files = ["cmd/layerxctl/src/main.rs"]
+owner_domain = 5
+classes = ["doc-drift"]
+
+[repair.22.33.1079]
+record = "22.30.44"
+findings = ["22.30.44/first-batch-wal-crash"]
+files = ["consensus/internal/autobahn/data/state.go"]
+owner_domain = 5
+classes = ["restart-recovery"]
+
+[repair.22.33.1080]
+record = "22.30.44"
+findings = ["22.30.44/impossible-anchor-fixture", "22.30.44/unverified-prune-anchor", "22.30.44/lane-truncation-unasserted"]
+files = ["consensus/internal/autobahn/avail/inner_test.go", "consensus/internal/autobahn/avail/state.go", "consensus/internal/autobahn/avail/state_test.go"]
+owner_domain = 5
+classes = ["restart-recovery", "test-gap"]
+
+[repair.22.33.1081]
+record = "22.30.44"
+findings = ["22.30.44/estimated-gas-test-oracle", "22.30.44/producer-pending-index-restart"]
+files = ["consensus/internal/autobahn/producer/mempool_test.go", "consensus/internal/autobahn/producer/state.go"]
+owner_domain = 5
+classes = ["restart-recovery", "test-gap"]
+
+[repair.22.33.1082]
+record = "22.30.44"
+findings = ["22.30.44/equivocation-test-commented", "22.30.44/invalid-precommit-test-skipped", "22.30.44/step-latency-baseline", "22.30.44/wal-test-zero-time", "22.30.44/memory-coverage-test-inert", "22.30.44/nonzero-proposer-timeout", "22.30.44/legacy-proposer-test-shape", "22.30.44/assembled-block-source-assertion"]
+files = ["consensus/internal/consensus/byzantine_test.go", "consensus/internal/consensus/invalid_test.go", "consensus/internal/consensus/metrics.go", "consensus/internal/consensus/msgs_test.go", "consensus/internal/consensus/reactor_test.go", "consensus/internal/consensus/state.go", "consensus/internal/consensus/state_test.go", "consensus/internal/consensus/wiring_test.go"]
+owner_domain = 5
+classes = ["runtime-risk", "test-gap"]
+
+[repair.22.33.1083]
+record = "22.30.44"
+findings = ["22.30.44/catchup-vote-churn"]
+files = ["consensus/internal/consensus/types/height_vote_set.go"]
+owner_domain = 5
+classes = ["security"]
+
+[repair.22.33.1084]
+record = "22.30.44"
+findings = ["22.30.44/permission-error-fixtures"]
+files = ["consensus/internal/autobahn/consensus/persist/persist_test.go"]
+owner_domain = 5
+classes = ["test-gap"]
+
+[repair.22.33.1085]
+record = "22.30.45"
+findings = ["22.30.45/grpc-close-loses-connection", "22.30.45/grpc-nil-payload", "22.30.45/grpc-tests-no-safety-state", "22.30.45/tls-loader-process-exit", "22.30.45/partial-tls-downgrade", "22.30.45/grpc-dial-error-swallowed"]
+files = ["consensus/privval/grpc/client.go", "consensus/privval/grpc/server.go", "consensus/privval/grpc/server_test.go", "consensus/privval/grpc/util.go"]
+owner_domain = 15
+classes = ["runtime-risk", "security", "test-gap"]
+
+[repair.22.33.1086]
+record = "22.30.45"
+findings = ["22.30.45/retry-signing-cancellation", "22.30.45/ping-false-success", "22.30.45/signer-tests-discard-signatures", "22.30.45/timeout-test-is-refusal", "22.30.45/timeout-classification", "22.30.45/socket-peer-identity"]
+files = ["consensus/privval/retry_signer_client.go", "consensus/privval/signer_client.go", "consensus/privval/signer_client_test.go", "consensus/privval/socket_dialers_test.go", "consensus/privval/utils.go"]
+owner_domain = 15
+classes = ["runtime-risk", "security", "test-gap"]
+
+[repair.22.33.1087]
+record = "22.30.45"
+findings = ["22.30.45/config-skips-p2p-validation", "22.30.45/config-reservoir-bounds", "22.30.45/toml-unescaped-input", "22.30.45/toml-tests-default-autobahn"]
+files = ["consensus/config/config.go", "consensus/config/toml.go", "consensus/config/toml_test.go"]
+owner_domain = 5
+classes = ["config-drift", "test-gap"]
+
+[repair.22.33.1088]
+record = "22.30.45"
+findings = ["22.30.45/reactor-readiness-shutdown"]
+files = ["consensus/internal/mempool/reactor/reactor.go"]
+owner_domain = 15
+classes = ["runtime-risk"]
+
+[repair.22.33.1089]
+record = "22.30.45"
+findings = ["22.30.45/service-failed-start-state"]
+files = ["consensus/libs/service/service.go"]
+owner_domain = 15
+classes = ["runtime-risk"]
+
+[repair.22.33.1090]
+record = "22.30.45"
+findings = ["22.30.45/bitarray-lock-order", "22.30.45/bitarray-or-right-tail"]
+files = ["consensus/libs/bits/bit_array.go"]
+owner_domain = 15
+classes = ["runtime-risk"]
+
+[repair.22.33.1091]
+record = "22.30.45"
+findings = ["22.30.45/json-doc-retired-registration"]
+files = ["consensus/libs/json/doc.go"]
+owner_domain = 15
+classes = ["doc-drift"]
+
+[repair.22.33.1092]
+record = "22.30.45"
+findings = ["22.30.45/fixture-port-reservation-race", "22.30.45/fixture-v1-programs-case-missing", "22.30.45/fixture-v2-rejects-standby-pins", "22.30.45/fixture-v2-test-never-records"]
+files = ["daemon/committed-fixture/main.go", "daemon/committed-fixture/vector_v1.go", "daemon/committed-fixture/vector_v2.go", "daemon/committed-fixture/vector_v2_test.go"]
+owner_domain = 5
+classes = ["runtime-risk", "test-gap"]
+
+[repair.22.33.1093]
+record = "22.30.45"
+findings = ["22.30.45/replay-pprof-public-bind", "22.30.45/keyring-stops-before-match"]
+files = ["daemon/paxd/cmd/ethreplay.go", "daemon/paxd/cmd/genaccounts.go"]
+owner_domain = 5
+classes = ["runtime-risk", "security"]
+
+[repair.22.33.1094]
+record = "22.30.45"
+findings = ["22.30.45/split-rawiterate-omits-evm", "22.30.45/split-store-errors-swallowed", "22.30.45/flatkv-tests-avoid-key-collision"]
+files = ["storage/state_db/ss/composite/store.go", "storage/state_db/ss/composite/store_test.go"]
+owner_domain = 5
+classes = ["runtime-risk", "test-gap"]
+
+[repair.22.33.1095]
+record = "22.30.45"
+findings = ["22.30.45/evm-import-filter-leak"]
+files = ["storage/state_db/ss/evm/store.go"]
+owner_domain = 5
+classes = ["runtime-risk"]
+
+[repair.22.33.1096]
+record = "22.30.45"
+findings = ["22.30.45/readme-retired-daemon"]
+files = ["README.md"]
+owner_domain = 5
+classes = ["doc-drift"]
+
+[repair.22.33.1097]
+record = "22.30.46"
+findings = ["22.30.46/1"]
+files = ["consensus/internal/inspect/rpc/rpc.go"]
+owner_domain = 5
+classes = ["runtime-risk"]
+
+[repair.22.33.1098]
+record = "22.30.46"
+findings = ["22.30.46/2"]
+files = ["consensus/internal/state/execution.go"]
+owner_domain = 5
+classes = ["restart-recovery"]
+
+[repair.22.33.1099]
+record = "22.30.46"
+findings = ["22.30.46/51", "22.30.46/4"]
+files = ["consensus/internal/state/indexer/doc.go", "consensus/internal/state/indexer/query_range.go"]
+owner_domain = 5
+classes = ["doc-drift", "runtime-risk"]
+
+[repair.22.33.1100]
+record = "22.30.46"
+findings = ["22.30.46/5"]
+files = ["consensus/internal/state/indexer/block/kv/kv.go"]
+owner_domain = 5
+classes = ["runtime-risk"]
+
+[repair.22.33.1101]
+record = "22.30.46"
+findings = ["22.30.46/6", "22.30.46/26"]
+files = ["consensus/internal/state/indexer/tx/kv/kv.go", "consensus/internal/state/indexer/tx/kv/kv_test.go"]
+owner_domain = 5
+classes = ["runtime-risk", "test-gap"]
+
+[repair.22.33.1102]
+record = "22.30.46"
+findings = ["22.30.46/17", "22.30.46/30", "22.30.46/18"]
+files = ["consensus/rpc/jsonrpc/client/http_json_client.go", "consensus/rpc/jsonrpc/client/integration_test.go", "consensus/rpc/jsonrpc/client/ws_client.go"]
+owner_domain = 5
+classes = ["restart-recovery", "security", "test-gap"]
+
+[repair.22.33.1103]
+record = "22.30.46"
+findings = ["22.30.46/19"]
+files = ["consensus/light/provider/http/http.go"]
+owner_domain = 5
+classes = ["runtime-risk"]
+
+[repair.22.33.1104]
+record = "22.30.46"
+findings = ["22.30.46/20"]
+files = ["consensus/light/rpc/client.go"]
+owner_domain = 5
+classes = ["runtime-risk"]
+
+[repair.22.33.1105]
+record = "22.30.46"
+findings = ["22.30.46/37", "22.30.46/21"]
+files = ["consensus/internal/inspect/doc.go", "consensus/internal/inspect/inspect.go"]
+owner_domain = 5
+classes = ["doc-drift", "runtime-risk"]
+
+[repair.22.33.1106]
+record = "22.30.46"
+findings = ["22.30.46/24"]
+files = ["consensus/internal/state/indexer/sink/psql/psql_test.go"]
+owner_domain = 5
+classes = ["test-gap"]
+
+[repair.22.33.1107]
+record = "22.30.46"
+findings = ["22.30.46/25"]
+files = ["consensus/internal/state/indexer/sink/kv/kv_test.go"]
+owner_domain = 5
+classes = ["test-gap"]
+
+[repair.22.33.1108]
+record = "22.30.46"
+findings = ["22.30.46/28", "22.30.46/27"]
+files = ["consensus/rpc/jsonrpc/test/integration_test.sh", "consensus/rpc/jsonrpc/test/main.go"]
+owner_domain = 5
+classes = ["runtime-risk", "test-gap"]
+
+[repair.22.33.1109]
+record = "22.30.46"
+findings = ["22.30.46/29"]
+files = ["consensus/rpc/jsonrpc/server/http_json_handler_test.go"]
+owner_domain = 5
+classes = ["test-gap"]
+
+[repair.22.33.1110]
+record = "22.30.46"
+findings = ["22.30.46/31"]
+files = ["consensus/rpc/client/rpc_test.go"]
+owner_domain = 5
+classes = ["test-gap"]
+
+[repair.22.33.1111]
+record = "22.30.46"
+findings = ["22.30.46/38"]
+files = ["consensus/light/doc.go"]
+owner_domain = 5
+classes = ["doc-drift"]
+
+[repair.22.33.1112]
+record = "22.30.46"
+findings = ["22.30.46/39"]
+files = ["consensus/rpc/jsonrpc/doc.go"]
+owner_domain = 5
+classes = ["doc-drift"]
+
+[repair.22.33.1113]
+record = "22.30.46"
+findings = ["22.30.46/63", "22.30.46/50", "22.30.46/49"]
+files = ["consensus/rpc/openapi/openapi.yaml"]
+owner_domain = 17
+classes = ["doc-drift"]
+
+[repair.22.33.1114]
+record = "22.30.47"
+findings = ["22.30.47/mutable-app-hash", "22.30.47/mutable-hashed-payload", "22.30.47/app-qc-tests-wrong-branch", "22.30.47/timestamp-canonical-range", "22.30.47/codec-tests-miss-production-bounds"]
+files = ["consensus/autobahn/types/app_proposal.go", "consensus/autobahn/types/block.go", "consensus/autobahn/types/proposal_test.go", "consensus/autobahn/types/time.go", "consensus/autobahn/types/types_test.go"]
+owner_domain = 5
+classes = ["runtime-risk", "test-gap"]
+
+[repair.22.33.1115]
+record = "22.30.47"
+findings = ["22.30.47/event-reserved-keys", "22.30.47/event-tests-no-reserved-collision"]
+files = ["consensus/internal/eventbus/event_bus.go", "consensus/internal/eventbus/event_bus_test.go"]
+owner_domain = 5
+classes = ["interface-mismatch", "test-gap"]
+
+[repair.22.33.1116]
+record = "22.30.47"
+findings = ["22.30.47/ivy-exit-status-lost"]
+files = ["consensus/spec/ivy-proofs/check_proofs.sh"]
+owner_domain = 5
+classes = ["test-gap"]
+
+[repair.22.33.1117]
+record = "22.30.47"
+findings = ["22.30.47/accountability-local-harness"]
+files = ["consensus/spec/light-client/accountability/run.sh"]
+owner_domain = 5
+classes = ["config-drift"]
+
+[repair.22.33.1118]
+record = "22.30.48"
+findings = ["22.30.48/invalid-header-vector", "22.30.48/legacy-event-test-gap", "22.30.48/attack-evidence-digest", "22.30.48/invalid-attack-vector", "22.30.48/tx-hash-length", "22.30.48/node-key-atomic-save", "22.30.48/node-public-key-retry", "22.30.48/vote-extension-enable"]
+files = ["consensus/types/block_test.go", "consensus/types/events_test.go", "consensus/types/evidence.go", "consensus/types/evidence_test.go", "consensus/types/mempool.go", "consensus/types/node_key.go", "consensus/types/params.go"]
+owner_domain = 15
+classes = ["config-drift", "restart-recovery", "runtime-risk", "security", "test-gap"]
+
+[repair.22.33.1119]
+record = "22.30.48"
+findings = ["22.30.48/validator-power-panic"]
+files = ["consensus/types/validator_set.go"]
+owner_domain = 15
+classes = ["security"]
+
+[repair.22.33.1120]
+record = "22.30.48"
+findings = ["22.30.48/migration-partition-doc", "22.30.48/migration-crash-doc", "22.30.48/migration-terminal-doc", "22.30.48/boundary-metric-cardinality"]
+files = ["storage/state_db/sc/migration/OPERATIONS.md", "storage/state_db/sc/migration/README.md", "storage/state_db/sc/migration/migration_metrics.go"]
+owner_domain = 17
+classes = ["doc-drift", "runtime-risk"]
+
+[repair.22.33.1121]
+record = "22.30.48"
+findings = ["22.30.48/readme-retired-network"]
+files = ["README.md"]
+owner_domain = 17
+classes = ["doc-drift"]
+
+[repair.22.33.1122]
+record = "22.30.49"
+findings = ["22.30.49/001", "22.30.49/003"]
+files = ["consensus/internal/p2p/conn_tracker.go", "consensus/internal/p2p/testonly.go"]
+owner_domain = 5
+classes = ["runtime-risk", "test-gap"]
+
+[repair.22.33.1123]
+record = "22.30.49"
+findings = ["22.30.49/002"]
+files = ["consensus/internal/p2p/conn/oldmux.go"]
+owner_domain = 5
+classes = ["runtime-risk"]
+
+[repair.22.33.1124]
+record = "22.30.49"
+findings = ["22.30.49/006"]
+files = ["engine/deps/tasks/scheduler.go"]
+owner_domain = 5
+classes = ["runtime-risk"]
+
+[repair.22.33.1125]
+record = "22.30.49"
+findings = ["22.30.49/007", "22.30.49/009"]
+files = ["engine/deps/xbank/keeper/genesis.go", "engine/deps/xbank/keeper/view_test.go"]
+owner_domain = 5
+classes = ["restart-recovery", "test-gap"]
+
+[repair.22.33.1126]
+record = "22.30.49"
+findings = ["22.30.49/008"]
+files = ["engine/deps/xbank/types/genesis.go"]
+owner_domain = 5
+classes = ["runtime-risk"]
+
+[repair.22.33.1127]
+record = "22.30.49"
+findings = ["22.30.49/012", "22.30.49/013"]
+files = ["engine/deps/xevm/state/check_test.go", "engine/deps/xevm/state/mock_balances.go"]
+owner_domain = 5
+classes = ["security", "test-gap"]
+
+[repair.22.33.1128]
+record = "22.30.49"
+findings = ["22.30.49/015", "22.30.49/017"]
+files = ["engine/deps/xevm/types/ethtx/blob_tx.go", "engine/deps/xevm/types/ethtx/semantic_validation.go"]
+owner_domain = 5
+classes = ["runtime-risk", "security"]
+
+[repair.22.33.1129]
+record = "22.30.49"
+findings = ["22.30.49/018", "22.30.49/021"]
+files = ["engine/deps/xevm/types/genesis.go", "engine/deps/xevm/types/params.go"]
+owner_domain = 5
+classes = ["config-drift", "runtime-risk"]
+
+[repair.22.33.1130]
+record = "22.30.49"
+findings = ["22.30.49/020", "22.30.49/019"]
+files = ["engine/deps/xevm/keeper/fee_test.go", "engine/deps/xevm/keeper/receipt.go"]
+owner_domain = 5
+classes = ["runtime-risk", "test-gap"]
+
+[repair.22.33.1131]
+record = "22.30.49"
+findings = ["22.30.49/022", "22.30.49/024", "22.30.49/025", "22.30.49/026", "22.30.49/027", "22.30.49/028", "22.30.49/023", "22.30.49/029"]
+files = ["engine/executor/internal/host_context.go", "engine/executor/internal/host_context_test.go", "engine/executor/internal/interpreter.go", "engine/executor/internal/interpreter_test.go"]
+owner_domain = 5
+classes = ["config-drift", "runtime-risk", "security", "test-gap"]
+
+[repair.22.33.1132]
+record = "22.30.5"
+findings = ["22.30.5/22.30.5.3"]
+files = ["src/modules/budget/lx_budget_create.c"]
+owner_domain = 1
+classes = ["interface-mismatch"]
+
+[repair.22.33.1133]
+record = "22.30.5"
+findings = ["22.30.5/22.30.5.7"]
+files = ["src/modules/service/lx_service_commit.c"]
+owner_domain = 1
+classes = ["security"]
+
+[repair.22.33.1134]
+record = "22.30.5"
+findings = ["22.30.5/22.30.5.9", "22.30.5/22.30.5.8", "22.30.5/22.30.5.11"]
+files = ["src/modules/governance/lxp_emergency.c", "src/modules/governance/lxp_gov_param.c"]
+owner_domain = 1
+classes = ["runtime-risk", "security"]
+
+[repair.22.33.1135]
+record = "22.30.5"
+findings = ["22.30.5/22.30.5.12"]
+files = ["src/codec/lxp_codec.c"]
+owner_domain = 1
+classes = ["runtime-risk"]
+
+[repair.22.33.1136]
+record = "22.30.5"
+findings = ["22.30.5/22.30.5.20"]
+files = ["src/ledger/lx_account_id.c"]
+owner_domain = 1
+classes = ["retired-reference"]
+
+[repair.22.33.1137]
+record = "22.30.5"
+findings = ["22.30.5/22.30.5.23", "22.30.5/22.30.5.25", "22.30.5/22.30.5.26"]
+files = ["src/modules/asset/lx_asset_custody.c", "src/modules/asset/lx_asset_registry.c", "src/modules/asset/lx_asset_reserve.c"]
+owner_domain = 1
+classes = ["retired-reference"]
+
+[repair.22.33.1138]
+record = "22.30.5"
+findings = ["22.30.5/22.30.5.27", "22.30.5/22.30.5.28"]
+files = ["tests/ledger/test_account_id.c", "tests/ledger/test_transfer_set.c"]
+owner_domain = 1
+classes = ["retired-reference"]
+
+[repair.22.33.1139]
+record = "22.30.5"
+findings = ["22.30.5/22.30.5.29"]
+files = ["README.md"]
+owner_domain = 17
+classes = ["doc-drift"]
+
+[repair.22.33.1140]
+record = "22.30.50"
+findings = ["22.30.50/empty-block-test-compares-only-length", "22.30.50/upgrade-panic-test-exercises-copy", "22.30.50/benchmark-success-tolerates-no-output", "22.30.50/replay-network-calls-unbounded", "22.30.50/giga-map-test-freezes-unrelated-height", "22.30.50/invariance-check-swallowing-corruption", "22.30.50/tenant-block-test-bypasses-proposer-contract", "22.30.50/leader-source-helper-omits-required-batch"]
+files = ["node/app_test.go", "node/benchmark_test.go", "node/eth_replay.go", "node/giga_precompiles_test.go", "node/invariance.go", "node/layerxchains_block_test.go", "node/leader_source_test.go"]
+owner_domain = 5
+classes = ["runtime-risk", "test-gap"]
+
+[repair.22.33.1141]
+record = "22.30.50"
+findings = ["22.30.50/migration-batch-config-silently-substitutes-default", "22.30.50/proof-node-expects-wrong-domain-error", "22.30.50/sequenced-success-fixture-has-wrong-hash", "22.30.50/test-helper-leaks-consensus-bypass", "22.30.50/test-helpers-swallow-initialization-failures", "22.30.50/activation-test-stale-tag-and-plan-list", "22.30.50/activation-test-omits-chains-address", "22.30.50/activation-test-assumes-sequencer-only-stores"]
+files = ["node/paxdb.go", "node/proof_node_abci_test.go", "node/sequenced_block_test.go", "node/test_helpers.go", "node/upgrades_activation_test.go"]
+owner_domain = 5
+classes = ["config-drift", "test-gap"]
+
+[repair.22.33.1142]
+record = "22.30.50"
+findings = ["22.30.50/activation-test-requires-retired-anchor-module", "22.30.50/activation-test-rejects-live-retirement-dependency", "22.30.50/merge-gate-test-expects-missing-production-constructors", "22.30.50/merge-name-test-assumes-last-plan", "22.30.50/merge-stores-test-omits-layerxchains", "22.30.50/sequencer-upgrade-test-obsolete-store-contract", "22.30.50/fee-upgrade-test-stale-tag-tail", "22.30.50/v610-test-stale-current-upgrade-metadata"]
+files = ["node/upgrades_activation_test.go", "node/upgrades_merge_gate_test.go", "node/upgrades_merge_name_test.go", "node/upgrades_merge_stores_test.go", "node/upgrades_sequencer_test.go", "node/upgrades_test.go", "node/upgrades_v610_test.go"]
+owner_domain = 5
+classes = ["test-gap"]
+
+[repair.22.33.1143]
+record = "22.30.50"
+findings = ["22.30.50/v6120-test-stale-known-plan-list", "22.30.50/xweb-test-stale-latest-tag"]
+files = ["node/upgrades_v6120_test.go", "node/upgrades_xweb_test.go"]
+owner_domain = 5
+classes = ["test-gap"]
+
+[repair.22.33.1144]
+record = "22.30.51"
+findings = ["22.30.51/governed-pins-not-refreshed", "22.30.51/microbatch-test-bypasses-live-serialization", "22.30.51/promotion-runtime-unwired", "22.30.51/lease-lifecycle-unwired", "22.30.51/nonce-queue-not-on-send-path", "22.30.51/nonce-drain-error", "22.30.51/microbatch-serialized-before-grouping", "22.30.51/receipt-capacity-after-execution"]
+files = ["node/sequencer/driver.go", "node/sequencer/microbatch_test.go", "node/sequencer/node.go", "node/sequencer/nonce_queue.go", "node/sequencer/receipt.go", "node/sequencer/receipt_source.go"]
+owner_domain = 5
+classes = ["runtime-risk", "test-gap", "wiring-gap"]
+
+[repair.22.33.1145]
+record = "22.30.51"
+findings = ["22.30.51/receipt-key-concurrency"]
+files = ["node/sequencer/receiptkey.go"]
+owner_domain = 5
+classes = ["runtime-risk"]
+
+[repair.22.33.1146]
+record = "22.30.52"
+findings = ["22.30.52/receipt-recovery-handle-lifecycle", "22.30.52/receipt-recovery-masks-io-errors", "22.30.52/receipt-recovery-test-misses-singleton"]
+files = ["storage/ledger_db/receipt/receipt_store.go", "storage/ledger_db/receipt/receipt_store_test.go"]
+owner_domain = 5
+classes = ["restart-recovery", "test-gap"]
+
+[repair.22.33.1147]
+record = "22.30.52"
+findings = ["22.30.52/rpc-agents-pending-policy-stale", "22.30.52/rpc-readme-pending-contradiction", "22.30.52/rpc-readme-recommends-deprecated-api", "22.30.52/access-list-omitted-tag-full-node"]
+files = ["rpc/AGENTS.md", "rpc/README.md", "rpc/simulate.go"]
+owner_domain = 7
+classes = ["doc-drift", "runtime-risk"]
+
+[repair.22.33.1148]
+record = "22.30.52"
+findings = ["22.30.52/cache-constructor-metrics-panic", "22.30.52/cached-batch-records-failed-mutations", "22.30.52/cached-db-value-ownership"]
+files = ["storage/db_engine/dbcache/cache_impl.go", "storage/db_engine/dbcache/cached_batch.go", "storage/db_engine/dbcache/cached_key_value_db.go"]
+owner_domain = 5
+classes = ["config-drift", "runtime-risk"]
+
+[repair.22.33.1149]
+record = "22.30.52"
+findings = ["22.30.52/autobahn-generator-invalid-opt-out", "22.30.52/reindex-discards-normalized-heights", "22.30.52/reset-root-applied-twice", "22.30.52/reset-success-after-delete-failure", "22.30.52/reset-ignores-custom-autobahn-dir"]
+files = ["consensus/cmd/tendermint/commands/gen_autobahn_config.go", "consensus/cmd/tendermint/commands/reindex_event.go", "consensus/cmd/tendermint/commands/reset.go"]
+owner_domain = 15
+classes = ["config-drift", "runtime-risk"]
+
+[repair.22.33.1150]
+record = "22.30.52"
+findings = ["22.30.52/signer-shutdown-handler-unreachable", "22.30.52/signer-prometheus-registry-unwired"]
+files = ["consensus/cmd/priv_val_server/main.go"]
+owner_domain = 15
+classes = ["runtime-risk", "wiring-gap"]
+
+[repair.22.33.1151]
+record = "22.30.52"
+findings = ["22.30.52/contract-hooks-skip-live-endpoints"]
+files = ["consensus/cmd/contract_tests/main.go"]
+owner_domain = 15
+classes = ["test-gap"]
+
+[repair.22.33.1152]
+record = "22.30.52"
+findings = ["22.30.52/debug-archive-close-errors-lost", "22.30.52/debug-profile-unbounded-fetch"]
+files = ["consensus/cmd/tendermint/commands/debug/io.go", "consensus/cmd/tendermint/commands/debug/util.go"]
+owner_domain = 15
+classes = ["runtime-risk"]
+
+[repair.22.33.1153]
+record = "22.30.52"
+findings = ["22.30.52/merkle-malformed-proof-panics"]
+files = ["consensus/crypto/merkle/proof_op.go"]
+owner_domain = 15
+classes = ["security"]
+
+[repair.22.33.1154]
+record = "22.30.52"
+findings = ["22.30.52/evidence-start-guard-never-set", "22.30.52/evidence-lifecycle-test-omits-start", "22.30.52/evidence-shutdown-does-not-join-users"]
+files = ["consensus/internal/evidence/pool.go", "consensus/internal/evidence/pool_test.go", "consensus/internal/evidence/reactor.go"]
+owner_domain = 15
+classes = ["restart-recovery", "runtime-risk", "test-gap"]
+
+[repair.22.33.1155]
+record = "22.30.52"
+findings = ["22.30.52/queue-multiple-waiters-not-woken", "22.30.52/queue-cancellation-lost-wakeup"]
+files = ["consensus/internal/libs/queue/queue.go"]
+owner_domain = 15
+classes = ["runtime-risk"]
+
+[repair.22.33.1156]
+record = "22.30.52"
+findings = ["22.30.52/reservoir-dirty-state-overwritten"]
+files = ["consensus/internal/libs/reservoir/reservoir.go"]
+owner_domain = 15
+classes = ["runtime-risk"]
+
+[repair.22.33.1157]
+record = "22.30.52"
+findings = ["22.30.52/clist-zero-value-panics", "22.30.52/clist-property-test-disabled"]
+files = ["consensus/internal/libs/clist/clist.go", "consensus/internal/libs/clist/clist_property_test.go"]
+owner_domain = 15
+classes = ["runtime-risk", "test-gap"]
+
+[repair.22.33.1158]
+record = "22.30.52"
+findings = ["22.30.52/consensus-wal-reader-leak"]
+files = ["consensus/internal/libs/wal/log.go"]
+owner_domain = 15
+classes = ["runtime-risk"]
+
+[repair.22.33.1159]
+record = "22.30.52"
+findings = ["22.30.52/blockdb-reopen-test-reuses-instance"]
+files = ["storage/ledger_db/block/block_db_test/block_db_test.go"]
+owner_domain = 5
+classes = ["test-gap"]
+
+[repair.22.33.1160]
+record = "22.30.52"
+findings = ["22.30.52/blocksim-errors-exit-success", "22.30.52/blocksim-prune-height-underflow", "22.30.52/blocksim-launches-after-failed-build"]
+files = ["storage/ledger_db/block/blocksim/blocksim.go", "storage/ledger_db/block/blocksim/blocksim.sh"]
+owner_domain = 5
+classes = ["runtime-risk"]
+
+[repair.22.33.1161]
+record = "22.30.52"
+findings = ["22.30.52/pubsub-counts-panic-after-stop"]
+files = ["consensus/internal/pubsub/pubsub.go"]
+owner_domain = 15
+classes = ["runtime-risk"]
+
+[repair.22.33.1162]
+record = "22.30.53"
+findings = ["22.30.53/key-descriptor-lifecycle", "22.30.53/truncated-key-tautology"]
+files = ["storage/db_engine/litt/disktable/segment/key_file.go", "storage/db_engine/litt/disktable/segment/key_file_test.go"]
+owner_domain = 5
+classes = ["runtime-risk", "test-gap"]
+
+[repair.22.33.1163]
+record = "22.30.53"
+findings = ["22.30.53/prune-unpublished-orphans", "22.30.53/push-connection-close", "22.30.53/push-tests-disabled", "22.30.53/rebase-path-fixture", "22.30.53/rebase-overlap-fixture", "22.30.53/sync-period-bounds", "22.30.53/table-info-map-order"]
+files = ["storage/db_engine/litt/cli/prune.go", "storage/db_engine/litt/cli/push.go", "storage/db_engine/litt/cli/push_test.go", "storage/db_engine/litt/cli/rebase_test.go", "storage/db_engine/litt/cli/sync.go", "storage/db_engine/litt/cli/table_info.go"]
+owner_domain = 5
+classes = ["runtime-risk", "test-gap"]
+
+[repair.22.33.1164]
+record = "22.30.53"
+findings = ["22.30.53/cache-metric-series-collision", "22.30.53/flush-coordinator-shutdown", "22.30.53/delete-relative-link", "22.30.53/pprof-network-exposure", "22.30.53/ssh-host-verification", "22.30.53/ssh-cancellation", "22.30.53/ssh-path-encoding", "22.30.53/ssh-tests-disabled"]
+files = ["storage/db_engine/litt/util/cache_metrics.go", "storage/db_engine/litt/util/error_monitor.go", "storage/db_engine/litt/util/file_utils.go", "storage/db_engine/litt/util/pprof.go", "storage/db_engine/litt/util/ssh.go", "storage/db_engine/litt/util/ssh_test.go"]
+owner_domain = 5
+classes = ["runtime-risk", "security", "test-gap"]
+
+[repair.22.33.1165]
+record = "22.30.53"
+findings = ["22.30.53/readme-key-limit", "22.30.53/readme-close-name", "22.30.53/readme-unbounded-value", "22.30.53/readme-shard-limit", "22.30.53/db-runtime-volume-doc", "22.30.53/architecture-cache-deletion", "22.30.53/cli-doc-installation", "22.30.53/cli-doc-validator-config"]
+files = ["storage/db_engine/litt/README.md", "storage/db_engine/litt/db.go", "storage/db_engine/litt/docs/architecture.md", "storage/db_engine/litt/docs/littdb_cli.md"]
+owner_domain = 5
+classes = ["doc-drift"]
+
+[repair.22.33.1166]
+record = "22.30.53"
+findings = ["22.30.53/cli-doc-invalid-json", "22.30.53/cli-doc-restore-mode", "22.30.53/config-signed-bounds", "22.30.53/table-api-size-doc"]
+files = ["storage/db_engine/litt/docs/littdb_cli.md", "storage/db_engine/litt/littdb_config.go", "storage/db_engine/litt/table.go"]
+owner_domain = 5
+classes = ["config-drift", "doc-drift"]
+
+[repair.22.33.1167]
+record = "22.30.53"
+findings = ["22.30.53/table-constructor-unwind", "22.30.53/global-metrics-provider", "22.30.53/metrics-server-close"]
+files = ["storage/db_engine/litt/littbuilder/build_utils.go"]
+owner_domain = 5
+classes = ["runtime-risk", "wiring-gap"]
+
+[repair.22.33.1168]
+record = "22.30.53"
+findings = ["22.30.53/boundary-index-range", "22.30.53/nil-batch-request", "22.30.53/v3-truncation-fixture"]
+files = ["storage/db_engine/litt/disktable/boundary_file.go", "storage/db_engine/litt/disktable/disk_table.go", "storage/db_engine/litt/disktable/disk_table_test.go"]
+owner_domain = 5
+classes = ["runtime-risk", "test-gap"]
+
+[repair.22.33.1169]
+record = "22.30.53"
+findings = ["22.30.53/dashboard-datasource", "22.30.53/benchmark-config-validation"]
+files = ["storage/db_engine/litt/benchmark/config/benchmark-grafana-dashboard.json", "storage/db_engine/litt/benchmark/config/benchmark_config.go"]
+owner_domain = 5
+classes = ["config-drift"]
+
+[repair.22.33.1170]
+record = "22.30.53"
+findings = ["22.30.53/benchmark-error-result", "22.30.53/benchmark-shutdown-drain", "22.30.53/benchmark-missing-read-success", "22.30.53/cohort-durability-restart", "22.30.53/generator-seed", "22.30.53/generator-exact-pool", "22.30.53/cohort-gap-recovery", "22.30.53/genesis-cohort-count"]
+files = ["storage/db_engine/litt/benchmark/benchmark_engine.go", "storage/db_engine/litt/benchmark/cohort.go", "storage/db_engine/litt/benchmark/data_generator.go", "storage/db_engine/litt/benchmark/data_tracker.go"]
+owner_domain = 5
+classes = ["restart-recovery", "runtime-risk", "test-gap"]
+
+[repair.22.33.1171]
+record = "22.30.53"
+findings = ["22.30.53/benchmark-script-paths"]
+files = ["storage/db_engine/litt/benchmark/run.sh"]
+owner_domain = 5
+classes = ["runtime-risk"]
+
+[repair.22.33.1172]
+record = "22.30.53"
+findings = ["22.30.53/cached-gc-coverage", "22.30.53/purge-multivolume-fixture"]
+files = ["storage/db_engine/litt/test/table_test.go", "storage/db_engine/litt/test/unlock_test.go"]
+owner_domain = 5
+classes = ["test-gap"]
+
+[repair.22.33.1173]
+record = "22.30.53"
+findings = ["22.30.53/address-prefix-doc"]
+files = ["storage/db_engine/litt/types/address.go"]
+owner_domain = 5
+classes = ["doc-drift"]
+
+[repair.22.33.1174]
+record = "22.30.54"
+findings = ["22.30.54/batch-bytes-is-operation-count", "22.30.54/mvcc-metrics-close-race", "22.30.54/metadata-short-version-panic", "22.30.54/prune-dirty-map-restart", "22.30.54/raw-export-module-identity", "22.30.54/rollback-leaves-tombstones", "22.30.54/rollback-discards-callback-errors", "22.30.54/mvcc-counter-double-count"]
+files = ["storage/db_engine/pebbledb/mvcc/batch.go", "storage/db_engine/pebbledb/mvcc/db.go"]
+owner_domain = 5
+classes = ["restart-recovery", "runtime-risk"]
+
+[repair.22.33.1175]
+record = "22.30.54"
+findings = ["22.30.54/ascending-prune-dirty-map", "22.30.54/metrics-proof-accepts-wrong-units"]
+files = ["storage/db_engine/pebbledb/mvcc/db_ascending.go", "storage/db_engine/pebbledb/mvcc/proof_node_metrics_test.go"]
+owner_domain = 5
+classes = ["restart-recovery", "test-gap"]
+
+[repair.22.33.1176]
+record = "22.30.54"
+findings = ["22.30.54/raw-metrics-close-race"]
+files = ["storage/db_engine/pebbledb/db.go"]
+owner_domain = 5
+classes = ["runtime-risk"]
+
+[repair.22.33.1177]
+record = "22.30.54"
+findings = ["22.30.54/dump-db-ignores-source", "22.30.54/dump-iavl-header-error-hidden", "22.30.54/legacy-module-inventory", "22.30.54/prune-db-dir-home-confusion", "22.30.54/replay-offset-flag-types"]
+files = ["storage/tools/cmd/paxdb/operations/dump_db.go", "storage/tools/cmd/paxdb/operations/dump_iavl.go", "storage/tools/cmd/paxdb/operations/module.go", "storage/tools/cmd/paxdb/operations/prune.go", "storage/tools/cmd/paxdb/operations/replay_changelog.go"]
+owner_domain = 5
+classes = ["config-drift", "runtime-risk", "wiring-gap"]
+
+[repair.22.33.1178]
+record = "22.30.54"
+findings = ["22.30.54/benchmark-unchecked-dimensions", "22.30.54/benchmark-step-bound-ignored", "22.30.54/reverse-benchmark-retains-iterators"]
+files = ["storage/tools/bench/benchmark.go"]
+owner_domain = 5
+classes = ["runtime-risk"]
+
+[repair.22.33.1179]
+record = "22.30.54"
+findings = ["22.30.54/input-allocation-unbounded"]
+files = ["storage/tools/utils/utils.go"]
+owner_domain = 5
+classes = ["security"]
+
+[repair.22.33.1180]
+record = "22.30.54"
+findings = ["22.30.54/state-runbook-recommends-exclusion", "22.30.54/state-skip-inventory-hides-failures", "22.30.54/state-exception-one-sided-pass", "22.30.54/state-suite-zero-execution", "22.30.54/state-oracle-opt-in"]
+files = ["engine/tests/AGENTS.md", "engine/tests/data/skip_list.json", "engine/tests/state_harness_test.go", "engine/tests/state_test.go"]
+owner_domain = 5
+classes = ["doc-drift", "test-gap"]
+
+[repair.22.33.1181]
+record = "22.30.54"
+findings = ["22.30.54/wasm-message-ambiguous-variant", "22.30.54/wasm-oracle-ambiguous-query"]
+files = ["node/wasmbinding/encoder.go", "node/wasmbinding/queries.go"]
+owner_domain = 5
+classes = ["runtime-risk"]
+
+[repair.22.33.1182]
+record = "22.30.54"
+findings = ["22.30.54/autobahn-status-hidden-read-errors", "22.30.54/autobahn-catching-up-stuck"]
+files = ["consensus/internal/rpc/core/status.go"]
+owner_domain = 15
+classes = ["runtime-risk"]
+
+[repair.22.33.1183]
+record = "22.30.55"
+findings = ["22.30.55/backfill-close", "22.30.55/snapshot-allocation", "22.30.55/dispatcher-close", "22.30.55/dispatcher-timeout-assertion", "22.30.55/backfill-empty-assertion-loop", "22.30.55/params-transition-test", "22.30.55/snapshot-comparator", "22.30.55/discovery-cancellation"]
+files = ["consensus/internal/statesync/block_queue.go", "consensus/internal/statesync/chunks.go", "consensus/internal/statesync/dispatcher.go", "consensus/internal/statesync/dispatcher_test.go", "consensus/internal/statesync/reactor_test.go", "consensus/internal/statesync/snapshots.go", "consensus/internal/statesync/syncer.go"]
+owner_domain = 15
+classes = ["runtime-risk", "security", "test-gap"]
+
+[repair.22.33.1184]
+record = "22.30.55"
+findings = ["22.30.55/nodejs-bootstrap-http"]
+files = ["consensus/scripts/get_nodejs.sh"]
+owner_domain = 16
+classes = ["security"]
+
+[repair.22.33.1185]
+record = "22.30.55"
+findings = ["22.30.55/metric-label-order"]
+files = ["consensus/scripts/metricsgen/metricsdiff/metricsdiff.go"]
+owner_domain = 15
+classes = ["runtime-risk"]
+
+[repair.22.33.1186]
+record = "22.30.55"
+findings = ["22.30.55/metricsgen-input-dir"]
+files = ["consensus/scripts/metricsgen/metricsgen.go"]
+owner_domain = 15
+classes = ["config-drift"]
+
+[repair.22.33.1187]
+record = "22.30.55"
+findings = ["22.30.55/snapshot-prune-reopen", "22.30.55/app-state-rollback"]
+files = ["consensus/test/e2e/app/snapshots.go", "consensus/test/e2e/app/state.go"]
+owner_domain = 15
+classes = ["restart-recovery"]
+
+[repair.22.33.1188]
+record = "22.30.55"
+findings = ["22.30.55/e2e-docker-context"]
+files = ["consensus/test/e2e/docker/Dockerfile"]
+owner_domain = 15
+classes = ["wiring-gap"]
+
+[repair.22.33.1189]
+record = "22.30.55"
+findings = ["22.30.55/generator-map-seed", "22.30.55/generator-cardinality"]
+files = ["consensus/test/e2e/generator/random.go"]
+owner_domain = 15
+classes = ["runtime-risk"]
+
+[repair.22.33.1190]
+record = "22.30.55"
+findings = ["22.30.55/node-delay-config", "22.30.55/socket-example"]
+files = ["consensus/test/e2e/node/config.go", "consensus/test/e2e/node/socket.toml"]
+owner_domain = 15
+classes = ["config-drift"]
+
+[repair.22.33.1191]
+record = "22.30.55"
+findings = ["22.30.55/cleanup-network-isolation", "22.30.55/load-rejection-count", "22.30.55/height-block-retry"]
+files = ["consensus/test/e2e/runner/cleanup.go", "consensus/test/e2e/runner/load.go", "consensus/test/e2e/runner/rpc.go"]
+owner_domain = 15
+classes = ["runtime-risk", "test-gap"]
+
+[repair.22.33.1192]
+record = "22.30.55"
+findings = ["22.30.55/peer-assertions-skipped", "22.30.55/proposer-pin-fixture"]
+files = ["consensus/test/e2e/tests/net_test.go", "consensus/test/e2e/tests/validator_test.go"]
+owner_domain = 15
+classes = ["test-gap"]
+
+[repair.22.33.1193]
+record = "22.30.55"
+findings = ["22.30.55/benchmark-factory-config"]
+files = ["storage/state_db/bench/wrappers/db_implementations.go"]
+owner_domain = 5
+classes = ["runtime-risk"]
+
+[repair.22.33.1194]
+record = "22.30.55"
+findings = ["22.30.55/benchmark-backend-doc", "22.30.55/benchmark-distributions", "22.30.55/benchmark-last-block"]
+files = ["storage/state_db/bench/README.md", "storage/state_db/bench/bench_sc_test.go", "storage/state_db/bench/helper.go"]
+owner_domain = 5
+classes = ["doc-drift", "runtime-risk", "test-gap"]
+
+[repair.22.33.1195]
+record = "22.30.55"
+findings = ["22.30.55/cryptosim-persistence-doc", "22.30.55/cryptosim-block-restart", "22.30.55/cryptosim-receipt-drain", "22.30.55/cryptosim-contract-restart", "22.30.55/cryptosim-build-failure", "22.30.55/cryptosim-force-flush", "22.30.55/cryptosim-cache-observer", "22.30.55/cryptosim-cache-window"]
+files = ["storage/state_db/bench/cryptosim/README.md", "storage/state_db/bench/cryptosim/block_builder.go", "storage/state_db/bench/cryptosim/cryptosim.go", "storage/state_db/bench/cryptosim/cryptosim.sh", "storage/state_db/bench/cryptosim/database.go", "storage/state_db/bench/cryptosim/reciept_store_simulator.go"]
+owner_domain = 5
+classes = ["doc-drift", "restart-recovery", "runtime-risk", "wiring-gap"]
+
+[repair.22.33.1196]
+record = "22.30.55"
+findings = ["22.30.55/receipt-workload-test-gap", "22.30.55/cryptosim-cancel-flush"]
+files = ["storage/state_db/bench/cryptosim/reciept_store_simulator_test.go", "storage/state_db/bench/cryptosim/transaction_executor.go"]
+owner_domain = 5
+classes = ["restart-recovery", "test-gap"]
+
+[repair.22.33.1197]
+record = "22.30.55"
+findings = ["22.30.55/rollback-regression-gap", "22.30.55/merge-legacy-mode-coverage"]
+files = ["storage/state_db/sc/composite/random_test.go", "storage/state_db/sc/composite/store_merge_stores_test.go"]
+owner_domain = 5
+classes = ["test-gap"]
+
+[repair.22.33.1198]
+record = "22.30.56"
+findings = ["22.30.56/flatkv-read-lifecycle-prose", "22.30.56/flatkv-import-duplicate-hash", "22.30.56/flatkv-import-batch-release", "22.30.56/flatkv-import-validation", "22.30.56/flatkv-import-fixture-shape", "22.30.56/flatkv-wal-sync-prose", "22.30.56/flatkv-rejected-write-test"]
+files = ["storage/state_db/sc/flatkv/api.go", "storage/state_db/sc/flatkv/importer.go", "storage/state_db/sc/flatkv/importer_test.go", "storage/state_db/sc/flatkv/store_write.go", "storage/state_db/sc/flatkv/store_write_test.go"]
+owner_domain = 5
+classes = ["doc-drift", "runtime-risk", "test-gap"]
+
+[repair.22.33.1199]
+record = "22.30.56"
+findings = ["22.30.56/memiavl-retirement-test-contract", "22.30.56/memiavl-open-error-cleanup", "22.30.56/memiavl-stale-current-link", "22.30.56/memiavl-import-error-backpressure", "22.30.56/memiavl-import-stack-validation", "22.30.56/memiavl-delete-tree-release", "22.30.56/memiavl-zero-rate-config", "22.30.56/memiavl-empty-membership-proof"]
+files = ["storage/state_db/sc/memiavl/anchor_delete_test.go", "storage/state_db/sc/memiavl/db.go", "storage/state_db/sc/memiavl/import.go", "storage/state_db/sc/memiavl/multitree.go", "storage/state_db/sc/memiavl/opts.go", "storage/state_db/sc/memiavl/proof.go"]
+owner_domain = 5
+classes = ["config-drift", "restart-recovery", "runtime-risk", "security", "test-gap"]
+
+[repair.22.33.1200]
+record = "22.30.56"
+findings = ["22.30.56/memiavl-unroutable-read", "22.30.56/memiavl-export-cancellation"]
+files = ["storage/state_db/sc/memiavl/store.go", "storage/state_db/sc/memiavl/tree.go"]
+owner_domain = 5
+classes = ["runtime-risk", "wiring-gap"]
+
+[repair.22.33.1201]
+record = "22.30.57"
+findings = ["22.30.57/validator-key-length", "22.30.57/staking-error-assertion", "22.30.57/shares-test-fixture", "22.30.57/static-query-no-assertion"]
+files = ["precompiles/staking/staking.go", "precompiles/staking/staking_test.go"]
+owner_domain = 6
+classes = ["security", "test-gap"]
+
+[repair.22.33.1202]
+record = "22.30.57"
+findings = ["22.30.57/ica-runtime-availability", "22.30.57/ica-export-context-lifetime"]
+files = ["interchain/modules/apps/27-interchain-accounts/module.go"]
+owner_domain = 6
+classes = ["restart-recovery", "wiring-gap"]
+
+[repair.22.33.1203]
+record = "22.30.57"
+findings = ["22.30.57/ica-host-genesis-validation"]
+files = ["interchain/modules/apps/27-interchain-accounts/types/genesis.go"]
+owner_domain = 6
+classes = ["restart-recovery"]
+
+[repair.22.33.1204]
+record = "22.30.57"
+findings = ["22.30.57/ica-host-port-roundtrip"]
+files = ["interchain/modules/apps/27-interchain-accounts/host/keeper/genesis.go"]
+owner_domain = 6
+classes = ["config-drift"]
+
+[repair.22.33.1205]
+record = "22.30.57"
+findings = ["22.30.57/transfer-genesis-fixture", "22.30.57/transfer-query-fixture", "22.30.57/transfer-mbt-negative-outcomes", "22.30.57/transfer-metric-registry"]
+files = ["interchain/modules/apps/transfer/keeper/genesis_test.go", "interchain/modules/apps/transfer/keeper/grpc_query_test.go", "interchain/modules/apps/transfer/keeper/mbt_relay_test.go", "interchain/modules/apps/transfer/keeper/relay.go"]
+owner_domain = 6
+classes = ["interface-mismatch", "test-gap"]
+
+[repair.22.33.1206]
+record = "22.30.57"
+findings = ["22.30.57/transfer-doc-query-shape", "22.30.57/transfer-doc-port-storage", "22.30.57/transfer-doc-timeout-event", "22.30.57/transfer-doc-metrics", "22.30.57/transfer-doc-receive-gating", "22.30.57/transfer-multihop-balance-proof"]
+files = ["interchain/modules/apps/transfer/spec/01_concepts.md", "interchain/modules/apps/transfer/spec/02_state.md", "interchain/modules/apps/transfer/spec/05_events.md", "interchain/modules/apps/transfer/spec/06_metrics.md", "interchain/modules/apps/transfer/spec/07_params.md", "interchain/modules/apps/transfer/transfer_test.go"]
+owner_domain = 6
+classes = ["doc-drift", "test-gap"]
+
+[repair.22.33.1207]
+record = "22.30.57"
+findings = ["22.30.57/tokenfactory-genesis-registry"]
+files = ["api/tokenfactory/genesis.proto"]
+owner_domain = 15
+classes = ["interface-mismatch"]
+
+[repair.22.33.1208]
+record = "22.30.57"
+findings = ["22.30.57/historical-key-v614"]
+files = ["precompiles/staking/legacy/v614/staking.go"]
+owner_domain = 6
+classes = ["security"]
+
+[repair.22.33.1209]
+record = "22.30.57"
+findings = ["22.30.57/historical-key-v620"]
+files = ["precompiles/staking/legacy/v620/staking.go"]
+owner_domain = 6
+classes = ["security"]
+
+[repair.22.33.1210]
+record = "22.30.57"
+findings = ["22.30.57/historical-key-v630", "22.30.57/historical-shares-v630"]
+files = ["precompiles/staking/legacy/v630/staking.go"]
+owner_domain = 6
+classes = ["runtime-risk", "security"]
+
+[repair.22.33.1211]
+record = "22.30.57"
+findings = ["22.30.57/historical-key-v640", "22.30.57/historical-shares-v640"]
+files = ["precompiles/staking/legacy/v640/staking.go"]
+owner_domain = 6
+classes = ["runtime-risk", "security"]
+
+[repair.22.33.1212]
+record = "22.30.57"
+findings = ["22.30.57/historical-key-v65", "22.30.57/historical-shares-v65"]
+files = ["precompiles/staking/legacy/v65/staking.go"]
+owner_domain = 6
+classes = ["runtime-risk", "security"]
+
+[repair.22.33.1213]
+record = "22.30.57"
+findings = ["22.30.57/readme-network-model"]
+files = ["README.md"]
+owner_domain = 15
+classes = ["doc-drift"]
+
+[repair.22.33.1214]
+record = "22.30.58"
+findings = ["22.30.58/nil-query-embedding", "22.30.58/timeout-height-metric-contract", "22.30.58/timeout-close-metric-contract"]
+files = ["interchain/modules/core/keeper/keeper.go", "interchain/modules/core/keeper/msg_server.go"]
+owner_domain = 6
+classes = ["interface-mismatch", "runtime-risk"]
+
+[repair.22.33.1215]
+record = "22.30.58"
+findings = ["22.30.58/params-query-error"]
+files = ["interchain/modules/core/02-client/client/cli/query.go"]
+owner_domain = 6
+classes = ["runtime-risk"]
+
+[repair.22.33.1216]
+record = "22.30.58"
+findings = ["22.30.58/client-sequence-zero", "22.30.58/client-parameter-destination"]
+files = ["interchain/modules/core/02-client/types/genesis.go", "interchain/modules/core/02-client/types/params.go"]
+owner_domain = 6
+classes = ["interface-mismatch", "restart-recovery"]
+
+[repair.22.33.1217]
+record = "22.30.58"
+findings = ["22.30.58/connection-sequence-zero", "22.30.58/connection-genesis-test-collision", "22.30.58/connection-parameter-destination", "22.30.58/zero-block-delay-parameter"]
+files = ["interchain/modules/core/03-connection/types/genesis.go", "interchain/modules/core/03-connection/types/genesis_test.go", "interchain/modules/core/03-connection/types/params.go"]
+owner_domain = 6
+classes = ["config-drift", "interface-mismatch", "restart-recovery", "test-gap"]
+
+[repair.22.33.1218]
+record = "22.30.58"
+findings = ["22.30.58/channel-sequence-zero", "22.30.58/receipt-constructor-test-gap"]
+files = ["interchain/modules/core/04-channel/types/genesis.go", "interchain/modules/core/04-channel/types/genesis_test.go"]
+owner_domain = 6
+classes = ["restart-recovery", "test-gap"]
+
+[repair.22.33.1219]
+record = "22.30.58"
+findings = ["22.30.58/client-metadata-decoder", "22.30.58/metadata-decoder-fixture-gap"]
+files = ["interchain/modules/core/02-client/simulation/decoder.go", "interchain/modules/core/02-client/simulation/decoder_test.go"]
+owner_domain = 6
+classes = ["runtime-risk", "test-gap"]
+
+[repair.22.33.1220]
+record = "22.30.58"
+findings = ["22.30.58/receipt-diff-decoder"]
+files = ["interchain/modules/core/04-channel/simulation/decoder.go"]
+owner_domain = 6
+classes = ["runtime-risk"]
+
+[repair.22.33.1221]
+record = "22.30.58"
+findings = ["22.30.58/allocation-diff-decoder"]
+files = ["interchain/modules/core/simulation/decoder.go"]
+owner_domain = 6
+classes = ["runtime-risk"]
+
+[repair.22.33.1222]
+record = "22.30.58"
+findings = ["22.30.58/receive-sequence-test-getter"]
+files = ["interchain/modules/core/04-channel/keeper/keeper_test.go"]
+owner_domain = 6
+classes = ["test-gap"]
+
+[repair.22.33.1223]
+record = "22.30.58"
+findings = ["22.30.58/aggregate-query-test-gap"]
+files = ["interchain/modules/core/02-client/keeper/grpc_query_test.go"]
+owner_domain = 6
+classes = ["test-gap"]
+
+[repair.22.33.1224]
+record = "22.30.58"
+findings = ["22.30.58/readme-retired-topology"]
+files = ["README.md"]
+owner_domain = 17
+classes = ["doc-drift"]
+
+[repair.22.33.1225]
+record = "22.30.58"
+findings = ["22.30.58/concept-governance-recovery", "22.30.58/concept-timeout-conjunction"]
+files = ["interchain/modules/core/spec/01_concepts.md"]
+owner_domain = 6
+classes = ["doc-drift"]
+
+[repair.22.33.1226]
+record = "22.30.59"
+findings = ["22.30.59/21", "22.30.59/3"]
+files = ["modules/tokenfactory/README.md", "modules/tokenfactory/module.go"]
+owner_domain = 6
+classes = ["doc-drift", "runtime-risk"]
+
+[repair.22.33.1227]
+record = "22.30.59"
+findings = ["22.30.59/9", "22.30.59/4", "22.30.59/12"]
+files = ["modules/tokenfactory/keeper/admins_test.go", "modules/tokenfactory/keeper/issuer_supply.go", "modules/tokenfactory/keeper/proof_genesis_test.go"]
+owner_domain = 6
+classes = ["runtime-risk", "test-gap"]
+
+[repair.22.33.1228]
+record = "22.30.59"
+findings = ["22.30.59/7", "22.30.59/5", "22.30.59/6"]
+files = ["modules/layerxcustody/keeper/genesis_retire_test.go", "modules/layerxcustody/keeper/keeper.go", "modules/layerxcustody/keeper/merge_release_test.go"]
+owner_domain = 6
+classes = ["runtime-risk", "test-gap"]
+
+[repair.22.33.1229]
+record = "22.30.59"
+findings = ["22.30.59/8", "22.30.59/11"]
+files = ["modules/tokenfactory/types/msgs.go", "modules/tokenfactory/types/msgs_test.go"]
+owner_domain = 6
+classes = ["runtime-risk", "test-gap"]
+
+[repair.22.33.1230]
+record = "22.30.59"
+findings = ["22.30.59/15", "22.30.59/14", "22.30.59/13", "22.30.59/16"]
+files = ["wasm/contrib/relayer-tests/init_two_chainz_relayer.sh", "wasm/contrib/relayer-tests/one_chain.sh", "wasm/contrib/relayer-tests/test_ibc_transfer.sh"]
+owner_domain = 6
+classes = ["config-drift", "runtime-risk", "test-gap"]
+
+[repair.22.33.1231]
+record = "22.30.59"
+findings = ["22.30.59/17"]
+files = ["wasm/contrib/devtools/Makefile"]
+owner_domain = 16
+classes = ["config-drift"]
+
+[repair.22.33.1232]
+record = "22.30.59"
+findings = ["22.30.59/18", "22.30.59/19"]
+files = ["wasm/contrib/prototools-docker/Dockerfile", "wasm/contrib/prototools-docker/README.md"]
+owner_domain = 16
+classes = ["config-drift", "doc-drift"]
+
+[repair.22.33.1233]
+record = "22.30.59"
+findings = ["22.30.59/22"]
+files = ["README.md"]
+owner_domain = 17
+classes = ["doc-drift"]
+
+[repair.22.33.1234]
+record = "22.30.59"
+findings = ["22.30.59/35"]
+files = ["interchain/modules/light-clients/06-solomachine/spec/01_concepts.md"]
+owner_domain = 6
+classes = ["doc-drift"]
+
+[repair.22.33.1235]
+record = "22.30.6"
+findings = ["22.30.6/halted-margin-policy", "22.30.6/parallel-oracle-state"]
+files = ["src/modules/perps/lx_oracle_halt.c", "src/modules/perps/lx_oracle_intake.c"]
+owner_domain = 1
+classes = ["wiring-gap"]
+
+[repair.22.33.1236]
+record = "22.30.6"
+findings = ["22.30.6/meter-timeout-evidence", "22.30.6/reserve-custody-fixture", "22.30.6/withdraw-helper-positive", "22.30.6/withdraw-old-protocol-fixture", "22.30.6/budget-durable-roundtrip", "22.30.6/escrow-restart-copy", "22.30.6/escrow-custody-report", "22.30.6/oracle-halt-test-seam"]
+files = ["tests/modules/paxeer_x_metered_end_boundary.py", "tests/modules/test_asset_reserve.c", "tests/modules/test_asset_withdraw.c", "tests/modules/test_asset_withdraw_activity.c", "tests/modules/test_budget_close.c", "tests/modules/test_escrow_capture.c", "tests/modules/test_escrow_invariants.c", "tests/modules/test_oracle_halt.c"]
+owner_domain = 1
+classes = ["retired-reference", "runtime-risk", "test-gap"]
+
+[repair.22.33.1237]
+record = "22.30.6"
+findings = ["22.30.6/profitable-long-test", "22.30.6/reservation-close-test-gap"]
+files = ["tests/modules/test_perps_book.c", "tests/modules/test_perps_position.c"]
+owner_domain = 1
+classes = ["test-gap"]
+
+[repair.22.33.1238]
+record = "22.30.6"
+findings = ["22.30.6/issuer-binding-real-state"]
+files = ["modules/layerxledger/keeper/issuer_binding_test.go"]
+owner_domain = 2
+classes = ["test-gap"]
+
+[repair.22.33.1239]
+record = "22.30.6"
+findings = ["22.30.6/readme-retired-daemon"]
+files = ["README.md"]
+owner_domain = 16
+classes = ["doc-drift"]
+
+[repair.22.33.1240]
+record = "22.30.60"
+findings = ["22.30.60/005", "22.30.60/006", "22.30.60/007", "22.30.60/004", "22.30.60/003", "22.30.60/002"]
+files = ["modules/evm/client/cli/common.go", "modules/evm/client/cli/query.go", "modules/evm/client/cli/tx.go"]
+owner_domain = 6
+classes = ["runtime-risk"]
+
+[repair.22.33.1241]
+record = "22.30.60"
+findings = ["22.30.60/008", "22.30.60/009"]
+files = ["modules/evm/client/wasm/query.go"]
+owner_domain = 6
+classes = ["runtime-risk"]
+
+[repair.22.33.1242]
+record = "22.30.60"
+findings = ["22.30.60/013", "22.30.60/010", "22.30.60/022", "22.30.60/014", "22.30.60/018", "22.30.60/015"]
+files = ["modules/evm/keeper/domain_fees_test.go", "modules/evm/keeper/evm_test.go", "modules/evm/keeper/genesis.go", "modules/evm/keeper/keeper_test.go", "modules/evm/keeper/receipt.go", "modules/evm/keeper/view.go"]
+owner_domain = 6
+classes = ["runtime-risk", "test-gap", "wiring-gap"]
+
+[repair.22.33.1243]
+record = "22.30.60"
+findings = ["22.30.60/016", "22.30.60/017"]
+files = ["modules/evm/migrations/migrate_eip_1559_max_base_fee_test.go", "modules/evm/migrations/migrate_eip_1559_params_test.go"]
+owner_domain = 6
+classes = ["test-gap"]
+
+[repair.22.33.1244]
+record = "22.30.60"
+findings = ["22.30.60/032", "22.30.60/020"]
+files = ["modules/evm/AGENTS.md", "modules/evm/genesis.go"]
+owner_domain = 6
+classes = ["doc-drift", "restart-recovery"]
+
+[repair.22.33.1245]
+record = "22.30.60"
+findings = ["22.30.60/027", "22.30.60/021", "22.30.60/023"]
+files = ["modules/evm/types/codec.go", "modules/evm/types/genesis.go", "modules/evm/types/message_send.go"]
+owner_domain = 6
+classes = ["runtime-risk"]
+
+[repair.22.33.1246]
+record = "22.30.60"
+findings = ["22.30.60/024", "22.30.60/029", "22.30.60/030", "22.30.60/031"]
+files = ["modules/evm/state/mock_balances.go", "modules/evm/state/state.go", "modules/evm/state/state_test.go", "modules/evm/state/statedb.go"]
+owner_domain = 6
+classes = ["runtime-risk", "security", "test-gap"]
+
+[repair.22.33.1247]
+record = "22.30.60"
+findings = ["22.30.60/026", "22.30.60/025"]
+files = ["modules/evm/types/ethtx/blob_tx.go", "modules/evm/types/ethtx/set_code_tx.go"]
+owner_domain = 6
+classes = ["runtime-risk"]
+
+[repair.22.33.1248]
+record = "22.30.61"
+findings = ["22.30.61/program-result-proof", "22.30.61/timeout-height-overflow"]
+files = ["modules/xweb/keeper/proof_go_api_test.go", "modules/xweb/keeper/request.go"]
+owner_domain = 6
+classes = ["runtime-risk", "test-gap"]
+
+[repair.22.33.1249]
+record = "22.30.61"
+findings = ["22.30.61/storage-receipt-error-name", "22.30.61/pending-genesis-fee-denom", "22.30.61/program-answer-genesis"]
+files = ["modules/xweb/types/errors.go", "modules/xweb/types/genesis.go"]
+owner_domain = 6
+classes = ["interface-mismatch", "restart-recovery"]
+
+[repair.22.33.1250]
+record = "22.30.61"
+findings = ["22.30.61/readme-retired-runtime"]
+files = ["README.md"]
+owner_domain = 6
+classes = ["doc-drift"]
+
+[repair.22.33.1251]
+record = "22.30.61"
+findings = ["22.30.61/attestation-doc-retired-intake"]
+files = ["modules/xweb/ATTESTATION.md"]
+owner_domain = 6
+classes = ["doc-drift"]
+
+[repair.22.33.1252]
+record = "22.30.61"
+findings = ["22.30.61/wasm-swagger-import-roots", "22.30.61/wasm-protoc-generation-drift"]
+files = ["wasm/scripts/protoc-swagger-gen.sh", "wasm/scripts/protocgen.sh"]
+owner_domain = 6
+classes = ["config-drift"]
+
+[repair.22.33.1253]
+record = "22.30.62"
+findings = ["22.30.62/bridge-release-nonce-overflow", "22.30.62/bridge-sidiora-reopen-proof", "22.30.62/bridge-general-reopen-proof", "22.30.62/cap-first-test-invariant", "22.30.62/sidiora-helper-home", "22.30.62/sidiora-fixture-chain"]
+files = ["modules/layerxbridge/keeper/bridge.go", "modules/layerxbridge/keeper/genesis_test.go", "modules/layerxbridge/keeper/keeper_test.go", "modules/layerxbridge/keeper/sidiora.go", "modules/layerxbridge/keeper/sidiora_test.go"]
+owner_domain = 6
+classes = ["restart-recovery", "runtime-risk", "test-gap"]
+
+[repair.22.33.1254]
+record = "22.30.62"
+findings = ["22.30.62/historical-rewards-value-v580"]
+files = ["precompiles/distribution/legacy/v580/distribution.go"]
+owner_domain = 6
+classes = ["runtime-risk"]
+
+[repair.22.33.1255]
+record = "22.30.62"
+findings = ["22.30.62/historical-rewards-value-v605"]
+files = ["precompiles/distribution/legacy/v605/distribution.go"]
+owner_domain = 6
+classes = ["runtime-risk"]
+
+[repair.22.33.1256]
+record = "22.30.62"
+findings = ["22.30.62/historical-rewards-value-v606"]
+files = ["precompiles/distribution/legacy/v606/distribution.go"]
+owner_domain = 6
+classes = ["runtime-risk"]
+
+[repair.22.33.1257]
+record = "22.30.62"
+findings = ["22.30.62/historical-rewards-value-v610"]
+files = ["precompiles/distribution/legacy/v610/distribution.go"]
+owner_domain = 6
+classes = ["runtime-risk"]
+
+[repair.22.33.1258]
+record = "22.30.62"
+findings = ["22.30.62/historical-rewards-value-v614"]
+files = ["precompiles/distribution/legacy/v614/distribution.go"]
+owner_domain = 6
+classes = ["runtime-risk"]
+
+[repair.22.33.1259]
+record = "22.30.62"
+findings = ["22.30.62/historical-rewards-value-v620"]
+files = ["precompiles/distribution/legacy/v620/distribution.go"]
+owner_domain = 6
+classes = ["runtime-risk"]
+
+[repair.22.33.1260]
+record = "22.30.62"
+findings = ["22.30.62/historical-rewards-value-v630"]
+files = ["precompiles/distribution/legacy/v630/distribution.go"]
+owner_domain = 6
+classes = ["runtime-risk"]
+
+[repair.22.33.1261]
+record = "22.30.62"
+findings = ["22.30.62/historical-rewards-value-v640"]
+files = ["precompiles/distribution/legacy/v640/distribution.go"]
+owner_domain = 6
+classes = ["runtime-risk"]
+
+[repair.22.33.1262]
+record = "22.30.62"
+findings = ["22.30.62/historical-distribution-static-v555"]
+files = ["precompiles/distribution/legacy/v555/distribution.go"]
+owner_domain = 6
+classes = ["runtime-risk"]
+
+[repair.22.33.1263]
+record = "22.30.62"
+findings = ["22.30.62/historical-distribution-static-v562"]
+files = ["precompiles/distribution/legacy/v562/distribution.go"]
+owner_domain = 6
+classes = ["runtime-risk"]
+
+[repair.22.33.1264]
+record = "22.30.62"
+findings = ["22.30.62/historical-associate-static"]
+files = ["precompiles/addr/legacy/v575/addr.go"]
+owner_domain = 6
+classes = ["runtime-risk"]
+
+[repair.22.33.1265]
+record = "22.30.62"
+findings = ["22.30.62/ibc-gas-real-transfer", "22.30.62/ibc-transfer-real-path"]
+files = ["precompiles/ibc/gas_golden_test.go", "precompiles/ibc/ibc_test.go"]
+owner_domain = 6
+classes = ["test-gap"]
+
+[repair.22.33.1266]
+record = "22.30.62"
+findings = ["22.30.62/addr-gas-charge-literal"]
+files = ["precompiles/addr/gas_golden_test.go"]
+owner_domain = 6
+classes = ["test-gap"]
+
+[repair.22.33.1267]
+record = "22.30.62"
+findings = ["22.30.62/gov-parameter-test-is-text"]
+files = ["precompiles/gov/gov_test.go"]
+owner_domain = 6
+classes = ["test-gap"]
+
+[repair.22.33.1268]
+record = "22.30.62"
+findings = ["22.30.62/bridge-rest-trailing-json"]
+files = ["modules/layerxbridge/client/cli/tx.go"]
+owner_domain = 6
+classes = ["runtime-risk"]
+
+[repair.22.33.1269]
+record = "22.30.62"
+findings = ["22.30.62/bridge-denom-doc"]
+files = ["modules/layerxbridge/ATTESTATION.md"]
+owner_domain = 6
+classes = ["doc-drift"]
+
+[repair.22.33.1270]
+record = "22.30.62"
+findings = ["22.30.62/readme-retired-architecture"]
+files = ["README.md"]
+owner_domain = 1
+classes = ["doc-drift"]
+
+[repair.22.33.1271]
+record = "22.30.63"
+findings = ["22.30.63/002", "22.30.63/001", "22.30.63/003", "22.30.63/004"]
+files = ["wasm/benchmarks/app_test.go", "wasm/benchmarks/bench_test.go"]
+owner_domain = 6
+classes = ["test-gap"]
+
+[repair.22.33.1272]
+record = "22.30.63"
+findings = ["22.30.63/005"]
+files = ["wasm/Makefile"]
+owner_domain = 6
+classes = ["config-drift"]
+
+[repair.22.33.1273]
+record = "22.30.63"
+findings = ["22.30.63/006", "22.30.63/007"]
+files = ["services/platform/hosted/node/tests/sequencer-seed-test.py", "services/platform/hosted/node/tests/signer-test.py"]
+owner_domain = 8
+classes = ["retired-reference", "test-gap"]
+
+[repair.22.33.1274]
+record = "22.30.63"
+findings = ["22.30.63/016"]
+files = ["README.md"]
+owner_domain = 17
+classes = ["doc-drift"]
+
+[repair.22.33.1275]
+record = "22.30.64"
+findings = ["22.30.64/wasmd-delegatecall-success", "22.30.64/wasmd-query-selector", "22.30.64/wasmd-value-success", "22.30.64/wasmd-batch-rollback-proof"]
+files = ["precompiles/wasmd/wasmd_test.go"]
+owner_domain = 6
+classes = ["test-gap"]
+
+[repair.22.33.1276]
+record = "22.30.64"
+findings = ["22.30.64/testing-readme-identifiers", "22.30.64/testing-readme-callback", "22.30.64/ibc-connection-version", "22.30.64/ibc-timeout-destination", "22.30.64/ibc-integration-skipped"]
+files = ["interchain/testing/README.md", "interchain/testing/endpoint.go", "interchain/testing/sdk_test.go"]
+owner_domain = 15
+classes = ["config-drift", "doc-drift", "runtime-risk", "test-gap"]
+
+[repair.22.33.1277]
+record = "22.30.64"
+findings = ["22.30.64/ibc-mock-genesis-stream"]
+files = ["interchain/testing/mock/mock.go"]
+owner_domain = 15
+classes = ["restart-recovery"]
+
+[repair.22.33.1278]
+record = "22.30.64"
+findings = ["22.30.64/simapp-readme-bond-denom", "22.30.64/ibc-delivery-error"]
+files = ["interchain/testing/simapp/README.md", "interchain/testing/simapp/test_helpers.go"]
+owner_domain = 15
+classes = ["doc-drift", "runtime-risk"]
+
+[repair.22.33.1279]
+record = "22.30.64"
+findings = ["22.30.64/simapp-init-test-home", "22.30.64/simapp-key-seed-permissions"]
+files = ["interchain/testing/simapp/simd/cmd/cmd_test.go", "interchain/testing/simapp/simd/cmd/testnet.go"]
+owner_domain = 15
+classes = ["runtime-risk", "security"]
+
+[repair.22.33.1280]
+record = "22.30.64"
+findings = ["22.30.64/bank-durable-reopen-proof"]
+files = ["precompiles/bank/proof_0x1001_bank_test.go"]
+owner_domain = 6
+classes = ["test-gap"]
+
+[repair.22.33.1281]
+record = "22.30.64"
+findings = ["22.30.64/readme-separated-network"]
+files = ["README.md"]
+owner_domain = 17
+classes = ["doc-drift"]
+
+[repair.22.33.1282]
+record = "22.30.65"
+findings = ["22.30.65/solidity-program-event-fields", "22.30.65/abi-program-event-context", "22.30.65/program-event-test-third-shape", "22.30.65/event-parity-ignores-names"]
+files = ["precompiles/xweb/XWeb.sol", "precompiles/xweb/abi.json", "precompiles/xweb/program_requested_event_test.go", "precompiles/xweb/xweb_test.go"]
+owner_domain = 6
+classes = ["interface-mismatch", "test-gap"]
+
+[repair.22.33.1283]
+record = "22.30.65"
+findings = ["22.30.65/pointer-payability-contract", "22.30.65/pointer-freeze-misses-mutability", "22.30.65/pointer-untrusted-metadata"]
+files = ["precompiles/pointer/abi.json", "precompiles/pointer/abi_freeze_test.go", "precompiles/pointer/pointer.go"]
+owner_domain = 6
+classes = ["interface-mismatch", "runtime-risk", "test-gap"]
+
+[repair.22.33.1284]
+record = "22.30.65"
+findings = ["22.30.65/solo-nft-pagination-progress"]
+files = ["precompiles/solo/solo.go"]
+owner_domain = 6
+classes = ["runtime-risk"]
+
+[repair.22.33.1285]
+record = "22.30.65"
+findings = ["22.30.65/readme-separated-network"]
+files = ["README.md"]
+owner_domain = 17
+classes = ["doc-drift"]
+
+[repair.22.33.1286]
+record = "22.30.66"
+findings = ["22.30.66/genesis-code-hash", "22.30.66/cli-migration-error", "22.30.66/cli-page-key-panic"]
+files = ["wasm/x/wasm/client/cli/genesis_msg.go", "wasm/x/wasm/client/cli/new_tx.go", "wasm/x/wasm/client/cli/query.go"]
+owner_domain = 6
+classes = ["runtime-risk"]
+
+[repair.22.33.1287]
+record = "22.30.66"
+findings = ["22.30.66/rest-code-id-error"]
+files = ["wasm/x/wasm/client/rest/tx.go"]
+owner_domain = 6
+classes = ["runtime-risk"]
+
+[repair.22.33.1288]
+record = "22.30.66"
+findings = ["22.30.66/gas-overflow-check", "22.30.66/gov-encoder-override", "22.30.66/history-query-test-gap", "22.30.66/ibc-query-before-metadata", "22.30.66/ibc-gas-test-gap", "22.30.66/snapshot-recovery-proof", "22.30.66/test-handler-third-shape"]
+files = ["wasm/x/wasm/keeper/gas_register.go", "wasm/x/wasm/keeper/handler_plugin_encoders.go", "wasm/x/wasm/keeper/querier_test.go", "wasm/x/wasm/keeper/query_plugins.go", "wasm/x/wasm/keeper/relay_test.go", "wasm/x/wasm/keeper/snapshotter_integration_test.go", "wasm/x/wasm/keeper/test_common.go"]
+owner_domain = 6
+classes = ["runtime-risk", "test-gap", "wiring-gap"]
+
+[repair.22.33.1289]
+record = "22.30.66"
+findings = ["22.30.66/governance-documentation", "22.30.66/ibc-documentation", "22.30.66/genesis-validator-lifecycle", "22.30.66/simulation-config-type"]
+files = ["wasm/x/wasm/Governance.md", "wasm/x/wasm/IBC.md", "wasm/x/wasm/module.go"]
+owner_domain = 6
+classes = ["config-drift", "doc-drift", "runtime-risk"]
+
+[repair.22.33.1290]
+record = "22.30.66"
+findings = ["22.30.66/empty-genesis-stream"]
+files = ["wasm/x/wasm/types/genesis.go"]
+owner_domain = 6
+classes = ["runtime-risk"]
+
+[repair.22.33.1291]
+record = "22.30.67"
+findings = ["22.30.67/net-listening-proof", "22.30.67/net-peers-proof", "22.30.67/test-api-path-proof", "22.30.67/test-version-global-race", "22.30.67/client-version-proof", "22.30.67/ws-handshake-count", "22.30.67/legacy-connect-policy"]
+files = ["rpc/net_listening_test.go", "rpc/net_peers_test.go", "rpc/test.go", "rpc/web3_test.go", "rpc/websockets.go"]
+owner_domain = 7
+classes = ["runtime-risk", "test-gap", "wiring-gap"]
+
+[repair.22.33.1292]
+record = "22.30.68"
+findings = ["22.30.68/rpc-instructions-drift", "22.30.68/profiled-empty-tracer", "22.30.68/profiled-parent-cancel", "22.30.68/profiled-empty-test", "22.30.68/tenant-ws-test", "22.30.68/skipped-filter-cases", "22.30.68/legacy-body-truncation", "22.30.68/legacy-single-notification"]
+files = ["rpc/AGENTS.md", "rpc/block_trace_profiled.go", "rpc/block_trace_profiled_test.go", "rpc/domain_ws_test.go", "rpc/filter_test.go", "rpc/pax_legacy_http.go"]
+owner_domain = 7
+classes = ["doc-drift", "runtime-risk", "security", "test-gap"]
+
+[repair.22.33.1293]
+record = "22.30.68"
+findings = ["22.30.68/legacy-batch-limit", "22.30.68/served-dispatch-instance", "22.30.68/trace-baker-server-lifecycle", "22.30.68/subscription-server-lifecycle", "22.30.68/tenant-error-metadata", "22.30.68/tenant-txpool", "22.30.68/worker-submit-close"]
+files = ["rpc/pax_legacy_http.go", "rpc/served_methods_test.go", "rpc/server.go", "rpc/subscribe.go", "rpc/tx.go", "rpc/txpool.go", "rpc/worker_pool.go"]
+owner_domain = 7
+classes = ["config-drift", "restart-recovery", "runtime-risk", "test-gap", "wiring-gap"]
+
+[repair.22.33.1294]
+record = "22.30.68"
+findings = ["22.30.68/stats-tracker-lifecycle"]
+files = ["rpc/stats/tracker.go"]
+owner_domain = 7
+classes = ["restart-recovery"]
+
+[repair.22.33.1295]
+record = "22.30.68"
+findings = ["22.30.68/wildcard-topic-cardinality"]
+files = ["rpc/ethbloom/bloom.go"]
+owner_domain = 7
+classes = ["runtime-risk"]
+
+[repair.22.33.1296]
+record = "22.30.68"
+findings = ["22.30.68/readme-architecture-drift"]
+files = ["README.md"]
+owner_domain = 5
+classes = ["doc-drift"]
+
+[repair.22.33.1297]
+record = "22.30.69"
+findings = ["22.30.69/filter-ticker-panic", "22.30.69/filter-expiry-race", "22.30.69/committed-receipt-nil-view", "22.30.69/fee-token-vector-reversed", "22.30.69/estimate-limiter-not-proven", "22.30.69/log-subscription-skipped", "22.30.69/legacy-trace-lookback", "22.30.69/transaction-tests-vacuous"]
+files = ["rpc/filter.go", "rpc/sequencer_receipt.go", "rpc/sequencer_receipt_vectors_test.go", "rpc/simulate_test.go", "rpc/subscribe_test.go", "rpc/tracers.go", "rpc/tx_test.go"]
+owner_domain = 7
+classes = ["runtime-risk", "test-gap"]
+
+[repair.22.33.1298]
+record = "22.30.69"
+findings = ["22.30.69/metrics-ticker-panic"]
+files = ["rpc/worker_pool_metrics.go"]
+owner_domain = 7
+classes = ["runtime-risk"]
+
+[repair.22.33.1299]
+record = "22.30.69"
+findings = ["22.30.69/config-duration-contract"]
+files = ["rpc/config/config.go"]
+owner_domain = 7
+classes = ["config-drift"]
+
+[repair.22.33.1300]
+record = "22.30.69"
+findings = ["22.30.69/descriptor-shape-blind-spots"]
+files = ["api/protosource_helpers_test.go"]
+owner_domain = 7
+classes = ["test-gap"]
+
+[repair.22.33.1301]
+record = "22.30.69"
+findings = ["22.30.69/fixture-block-metadata-diverges"]
+files = ["rpc/tests/utils.go"]
+owner_domain = 7
+classes = ["test-gap"]
+
+[repair.22.33.1302]
+record = "22.30.7"
+findings = ["22.30.7/opaque-genesis", "22.30.7/escrow-root-proof-gap"]
+files = ["modules/layerxpay/types/params.go", "modules/layerxpay/types/proof_views_test.go"]
+owner_domain = 2
+classes = ["restart-recovery", "test-gap"]
+
+[repair.22.33.1303]
+record = "22.30.7"
+findings = ["22.30.7/declaration-authority", "22.30.7/budget-time-view", "22.30.7/escrow-corruption-panic", "22.30.7/declaration-submit", "22.30.7/declaration-gate", "22.30.7/declaration-query", "22.30.7/declaration-keeper", "22.30.7/declaration-constructor"]
+files = ["modules/layerxpay/keeper/authority.go", "modules/layerxpay/keeper/budget_views.go", "modules/layerxpay/keeper/escrow_views.go", "modules/layerxpay/keeper/execute.go", "modules/layerxpay/keeper/gate.go", "modules/layerxpay/keeper/grpc_query.go", "modules/layerxpay/keeper/keeper.go"]
+owner_domain = 2
+classes = ["interface-mismatch", "runtime-risk"]
+
+[repair.22.33.1304]
+record = "22.30.7"
+findings = ["22.30.7/genesis-proof-gap", "22.30.7/service-corruption-panic", "22.30.7/service-global-scans", "22.30.7/declaration-agent-open", "22.30.7/declaration-agent-settle", "22.30.7/declaration-agent-close", "22.30.7/declaration-agent-rate", "22.30.7/declaration-agent-view"]
+files = ["modules/layerxpay/keeper/proof_pay_genesis_test.go", "modules/layerxpay/keeper/service_views.go", "modules/layerxpay/keeper/stream_agent.go"]
+owner_domain = 2
+classes = ["interface-mismatch", "runtime-risk", "test-gap"]
+
+[repair.22.33.1305]
+record = "22.30.7"
+findings = ["22.30.7/doc-root-architecture"]
+files = ["README.md"]
+owner_domain = 17
+classes = ["doc-drift"]
+
+[repair.22.33.1306]
+record = "22.30.70"
+findings = ["22.30.70/sdk-install-agent-skill", "22.30.70/sdk-install-readme", "22.30.70/sdk-install-skill", "22.30.70/sdk-token-example"]
+files = ["sdk/chainflow/go/.claude/skills/chainflow-data-gateway-go-sdk/SKILL.md", "sdk/chainflow/go/README.md", "sdk/chainflow/go/SKILL.md", "sdk/chainflow/go/api.md"]
+owner_domain = 8
+classes = ["doc-drift"]
+
+[repair.22.33.1307]
+record = "22.30.70"
+findings = ["22.30.70/sdk-json-syntax"]
+files = ["sdk/chainflow/go/internal/apijson/decoder.go"]
+owner_domain = 15
+classes = ["runtime-risk"]
+
+[repair.22.33.1308]
+record = "22.30.70"
+findings = ["22.30.70/sdk-test-probe"]
+files = ["sdk/chainflow/go/internal/testutil/testutil.go"]
+owner_domain = 15
+classes = ["test-gap"]
+
+[repair.22.33.1309]
+record = "22.30.70"
+findings = ["22.30.70/export-stream-error", "22.30.70/rollback-preflight", "22.30.70/rollback-recovery-test", "22.30.70/start-genesis-error", "22.30.70/start-validation-ignored", "22.30.70/start-late-service-error"]
+files = ["sdk/server/export.go", "sdk/server/rollback.go", "sdk/server/rollback_test.go", "sdk/server/start.go"]
+owner_domain = 15
+classes = ["config-drift", "restart-recovery", "runtime-risk", "test-gap"]
+
+[repair.22.33.1310]
+record = "22.30.70"
+findings = ["22.30.70/config-label-panic", "22.30.70/config-pruning-roundtrip"]
+files = ["sdk/server/config/config.go"]
+owner_domain = 15
+classes = ["config-drift", "runtime-risk"]
+
+[repair.22.33.1311]
+record = "22.30.70"
+findings = ["22.30.70/rosetta-resource-lifecycle"]
+files = ["sdk/server/rosetta/lib/server/server.go"]
+owner_domain = 15
+classes = ["restart-recovery"]
+
+[repair.22.33.1312]
+record = "22.30.70"
+findings = ["22.30.70/rosetta-bank-pagination", "22.30.70/rosetta-operation-index", "22.30.70/rosetta-combine-identity", "22.30.70/rosetta-skipped-suite", "22.30.70/rosetta-metadata-precision"]
+files = ["sdk/server/rosetta/client_online.go", "sdk/server/rosetta/converter.go", "sdk/server/rosetta/converter_test.go", "sdk/server/rosetta/util.go"]
+owner_domain = 15
+classes = ["runtime-risk", "security", "test-gap"]
+
+[repair.22.33.1313]
+record = "22.30.70"
+findings = ["22.30.70/rosetta-balance-height", "22.30.70/rosetta-block-membership"]
+files = ["sdk/server/rosetta/lib/internal/service/data.go"]
+owner_domain = 15
+classes = ["runtime-risk"]
+
+[repair.22.33.1314]
+record = "22.30.70"
+findings = ["22.30.70/rosetta-error-seal-test", "22.30.70/rosetta-error-seal"]
+files = ["sdk/server/rosetta/lib/errors/errors_test.go", "sdk/server/rosetta/lib/errors/registry.go"]
+owner_domain = 15
+classes = ["interface-mismatch", "test-gap"]
+
+[repair.22.33.1315]
+record = "22.30.70"
+findings = ["22.30.70/rosetta-empty-version"]
+files = ["sdk/server/rosetta/lib/types/types.go"]
+owner_domain = 15
+classes = ["config-drift"]
+
+[repair.22.33.1316]
+record = "22.30.70"
+findings = ["22.30.70/grpc-web-supply-assertion", "22.30.70/grpc-test-source-errors"]
+files = ["sdk/server/grpc/grpc_web_test.go", "sdk/server/grpc/server_test.go"]
+owner_domain = 15
+classes = ["test-gap"]
+
+[repair.22.33.1317]
+record = "22.30.70"
+findings = ["22.30.70/paid-api-durable-fulfillment"]
+files = ["services/platform/examples/paid-api/index.mjs"]
+owner_domain = 8
+classes = ["restart-recovery"]
+
+[repair.22.33.1318]
+record = "22.30.70"
+findings = ["22.30.70/examples-authority-doc"]
+files = ["services/platform/examples/README.md"]
+owner_domain = 8
+classes = ["doc-drift"]
+
+[repair.22.33.1319]
+record = "22.30.70"
+findings = ["22.30.70/relay-retirement-1", "22.30.70/relay-retirement-3", "22.30.70/relay-retirement-4", "22.30.70/deployment-key-argv", "22.30.70/deployment-phase-recovery", "22.30.70/relay-retirement-5", "22.30.70/relay-retirement-6", "22.30.70/relay-retirement-7"]
+files = ["services/platform/hosted/paxeer/Cargo.toml", "services/platform/hosted/paxeer/custody-genesis.py", "services/platform/hosted/paxeer/deploy-contracts.sh", "services/platform/hosted/paxeer/deployment-input.beta.json", "services/platform/hosted/paxeer/deployment.yaml", "services/platform/hosted/paxeer/evm.py"]
+owner_domain = 8
+classes = ["restart-recovery", "retired-reference", "security"]
+
+[repair.22.33.1320]
+record = "22.30.70"
+findings = ["22.30.70/relay-retirement-8", "22.30.70/relay-retirement-9", "22.30.70/governance-proposal-association", "22.30.70/relay-retirement-10", "22.30.70/governance-query-failure", "22.30.70/governance-shell-arguments", "22.30.70/relay-retirement-11", "22.30.70/relay-retirement-12"]
+files = ["services/platform/hosted/paxeer/fork-rehearsal.sh", "services/platform/hosted/paxeer/gov-consensus-params.sh", "services/platform/hosted/paxeer/gov-lib.sh", "services/platform/hosted/paxeer/gov-upgrade.sh", "services/platform/hosted/paxeer/init-chain.sh"]
+owner_domain = 8
+classes = ["retired-reference", "runtime-risk"]
+
+[repair.22.33.1321]
+record = "22.30.70"
+findings = ["22.30.70/initialization-restart-drift", "22.30.70/relay-retirement-13", "22.30.70/preparation-key-argv", "22.30.70/relay-retirement-14"]
+files = ["services/platform/hosted/paxeer/init-chain.sh", "services/platform/hosted/paxeer/prepare-beta.py", "services/platform/hosted/paxeer/settlement-domain.py"]
+owner_domain = 8
+classes = ["restart-recovery", "retired-reference", "security"]
+
+[repair.22.33.1322]
+record = "22.30.70"
+findings = ["22.30.70/relay-retirement-15", "22.30.70/relay-retirement-16", "22.30.70/relay-retirement-17", "22.30.70/boundary-wrong-chain-forwarding", "22.30.70/boundary-cumulative-deadline", "22.30.70/relay-retirement-18"]
+files = ["services/platform/hosted/paxeer/src/comet.rs", "services/platform/hosted/paxeer/src/genesis.rs", "services/platform/hosted/paxeer/src/main.rs", "services/platform/hosted/paxeer/src/transport.rs"]
+owner_domain = 8
+classes = ["retired-reference", "runtime-risk", "security"]
+
+[repair.22.33.1323]
+record = "22.30.70"
+findings = ["22.30.70/relay-retirement-19", "22.30.70/relay-retirement-20", "22.30.70/relay-retirement-21", "22.30.70/relay-retirement-22", "22.30.70/relay-retirement-23", "22.30.70/relay-retirement-24", "22.30.70/deployment-test-old-interface", "22.30.70/relay-retirement-25"]
+files = ["services/platform/hosted/paxeer/tests/comet.py", "services/platform/hosted/paxeer/tests/deployment_profile.py", "services/platform/hosted/paxeer/tests/genesis.py", "services/platform/hosted/paxeer/tests/genesis.rs", "services/platform/hosted/paxeer/tests/gov-scripts-test.sh", "services/platform/hosted/paxeer/tests/real_chain.py", "services/platform/hosted/paxeer/tests/real_chain.rs"]
+owner_domain = 8
+classes = ["retired-reference", "test-gap"]
+
+[repair.22.33.1324]
+record = "22.30.70"
+findings = ["22.30.70/relay-retirement-26", "22.30.70/relay-retirement-27", "22.30.70/relay-retirement-28"]
+files = ["services/platform/hosted/paxeer/tests/settlement_domains.py", "services/platform/hosted/paxeer/tests/tls_listen.rs", "services/platform/hosted/paxeer/tests/tls_shutdown.py"]
+owner_domain = 8
+classes = ["retired-reference"]
+
+[repair.22.33.1325]
+record = "22.30.70"
+findings = ["22.30.70/docs-root-readme"]
+files = ["README.md"]
+owner_domain = 8
+classes = ["doc-drift"]
+
+[repair.22.33.1326]
+record = "22.30.71"
+findings = ["22.30.71/10", "22.30.71/7", "22.30.71/9", "22.30.71/22"]
+files = ["sdk/chainflow/python/src/chainflow_data_gateway/_base_client.py", "sdk/chainflow/python/src/chainflow_data_gateway/_client.py", "sdk/chainflow/python/src/chainflow_data_gateway/_send_queue.py"]
+owner_domain = 15
+classes = ["runtime-risk", "security"]
+
+[repair.22.33.1327]
+record = "22.30.71"
+findings = ["22.30.71/8"]
+files = ["sdk/chainflow/python/src/chainflow_data_gateway/resources/web_sockets/ws.py"]
+owner_domain = 15
+classes = ["security"]
+
+[repair.22.33.1328]
+record = "22.30.71"
+findings = ["22.30.71/15", "22.30.71/16", "22.30.71/12", "22.30.71/13", "22.30.71/11", "22.30.71/14", "22.30.71/20"]
+files = ["services/platform/hosted/webhooks/src/ai_market.rs", "services/platform/hosted/webhooks/src/endpoints.rs", "services/platform/hosted/webhooks/src/hosted.rs", "services/platform/hosted/webhooks/src/main.rs", "services/platform/hosted/webhooks/src/trusted.rs"]
+owner_domain = 8
+classes = ["config-drift", "retired-reference", "runtime-risk", "test-gap"]
+
+[repair.22.33.1329]
+record = "22.30.71"
+findings = ["22.30.71/18", "22.30.71/19", "22.30.71/33"]
+files = ["services/platform/hosted/webhooks/tests/ai_finalized_delivery.rs", "services/platform/hosted/webhooks/tests/fault-injection.sh"]
+owner_domain = 8
+classes = ["test-gap"]
+
+[repair.22.33.1330]
+record = "22.30.71"
+findings = ["22.30.71/21"]
+files = ["sdk/chainflow/python/tests/test_web_sockets.py"]
+owner_domain = 15
+classes = ["test-gap"]
+
+[repair.22.33.1331]
+record = "22.30.71"
+findings = ["22.30.71/36"]
+files = ["services/platform/hosted/webhooks/Cargo.toml"]
+owner_domain = 8
+classes = ["retired-reference"]
+
+[repair.22.33.1332]
+record = "22.30.72"
+findings = ["22.30.72/sdk-ci-not-discovered"]
+files = ["sdk/chainflow/rust/.github/workflows/sdk-ci.yml"]
+owner_domain = 15
+classes = ["wiring-gap"]
+
+[repair.22.33.1333]
+record = "22.30.72"
+findings = ["22.30.72/payment-codec-retired-dependency"]
+files = ["services/agent/crates/layerx-crypto/src/payments.rs"]
+owner_domain = 9
+classes = ["retired-reference"]
+
+[repair.22.33.1334]
+record = "22.30.72"
+findings = ["22.30.72/payment-tests-old-signing-path"]
+files = ["services/agent/crates/layerx-crypto/tests/payments.rs"]
+owner_domain = 9
+classes = ["retired-reference"]
+
+[repair.22.33.1335]
+record = "22.30.72"
+findings = ["22.30.72/readiness-contract-conflict", "22.30.72/chain-read-router-path", "22.30.72/degraded-router-path", "22.30.72/one-source-router-path", "22.30.72/failover-upstream-path-shape", "22.30.72/failover-router-path", "22.30.72/gateway-method-proof-success-gap", "22.30.72/proof-router-path"]
+files = ["services/platform/hosted/gateway/tests/chain_only_readiness.rs", "services/platform/hosted/gateway/tests/chain_reads.rs", "services/platform/hosted/gateway/tests/degraded.rs", "services/platform/hosted/gateway/tests/one_source_reads.rs", "services/platform/hosted/gateway/tests/paxeer_failover.rs", "services/platform/hosted/gateway/tests/proof_gateway_jsonrpc_methods.rs"]
+owner_domain = 8
+classes = ["retired-reference", "test-gap"]
+
+[repair.22.33.1336]
+record = "22.30.72"
+findings = ["22.30.72/receipt-key-router-path", "22.30.72/surface-router-path", "22.30.72/tap-recovery-proof-gap", "22.30.72/unified-paths-retired-upgrades"]
+files = ["services/platform/hosted/gateway/tests/receipt_keys.rs", "services/platform/hosted/gateway/tests/router_surface.rs", "services/platform/hosted/gateway/tests/tap_nonce.rs", "services/platform/hosted/gateway/tests/unified_service_paths.rs"]
+owner_domain = 8
+classes = ["restart-recovery", "retired-reference"]
+
+[repair.22.33.1337]
+record = "22.30.72"
+findings = ["22.30.72/readme-separate-daemon"]
+files = ["README.md"]
+owner_domain = 8
+classes = ["doc-drift"]
+
+[repair.22.33.1338]
+record = "22.30.73"
+findings = ["22.30.73/symmetric-empty-payload", "22.30.73/armor-kdf-recovery", "22.30.73/armor-password-code", "22.30.73/xcrypto-test-version-drift", "22.30.73/bcrypt-doc-backup-risk"]
+files = ["sdk/crypto/armor.go", "sdk/crypto/armor_xcrypto_test.go", "sdk/crypto/bcrypt_readme.md"]
+owner_domain = 15
+classes = ["doc-drift", "interface-mismatch", "restart-recovery", "runtime-risk", "test-gap"]
+
+[repair.22.33.1339]
+record = "22.30.73"
+findings = ["22.30.73/keyring-doc-api", "22.30.73/keyring-import-algorithm", "22.30.73/keyring-offline-algorithm", "22.30.73/keyring-empty-address-index", "22.30.73/keyring-list-invalid-info", "22.30.73/keyring-passphrase-oracle", "22.30.73/keyring-partial-persistence", "22.30.73/keyring-ledger-test-errors"]
+files = ["sdk/crypto/keyring/doc.go", "sdk/crypto/keyring/keyring.go", "sdk/crypto/keyring/keyring_ledger_test.go"]
+owner_domain = 15
+classes = ["doc-drift", "interface-mismatch", "restart-recovery", "runtime-risk", "security", "test-gap"]
+
+[repair.22.33.1340]
+record = "22.30.73"
+findings = ["22.30.73/keyring-test-wrong-password", "22.30.73/keyring-test-offline-shape", "22.30.73/keyring-output-public-address", "22.30.73/keyring-output-sr25519"]
+files = ["sdk/crypto/keyring/keyring_test.go", "sdk/crypto/keyring/output.go"]
+owner_domain = 15
+classes = ["interface-mismatch", "runtime-risk", "test-gap"]
+
+[repair.22.33.1341]
+record = "22.30.73"
+findings = ["22.30.73/sr25519-string-secret"]
+files = ["sdk/crypto/keys/sr25519/privkey.go"]
+owner_domain = 15
+classes = ["security"]
+
+[repair.22.33.1342]
+record = "22.30.73"
+findings = ["22.30.73/p256-private-scalar", "22.30.73/ecdsa-address-cache"]
+files = ["sdk/crypto/keys/internal/ecdsa/privkey.go", "sdk/crypto/keys/internal/ecdsa/pubkey.go"]
+owner_domain = 15
+classes = ["runtime-risk", "security"]
+
+[repair.22.33.1343]
+record = "22.30.73"
+findings = ["22.30.73/secp-private-scalar", "22.30.73/secp-test-high-s", "22.30.73/secp-test-independent-verifier"]
+files = ["sdk/crypto/keys/secp256k1/secp256k1.go", "sdk/crypto/keys/secp256k1/secp256k1_nocgo_test.go", "sdk/crypto/keys/secp256k1/secp256k1_test.go"]
+owner_domain = 15
+classes = ["security", "test-gap"]
+
+[repair.22.33.1344]
+record = "22.30.73"
+findings = ["22.30.73/ed25519-import-consistency"]
+files = ["sdk/crypto/keys/ed25519/ed25519.go"]
+owner_domain = 15
+classes = ["security"]
+
+[repair.22.33.1345]
+record = "22.30.73"
+findings = ["22.30.73/multisig-cardinality", "22.30.73/multisig-test-boundary"]
+files = ["sdk/crypto/keys/multisig/multisig.go", "sdk/crypto/keys/multisig/multisig_test.go"]
+owner_domain = 15
+classes = ["runtime-risk", "test-gap"]
+
+[repair.22.33.1346]
+record = "22.30.73"
+findings = ["22.30.73/bitarray-empty-json", "22.30.73/bitarray-test-generation"]
+files = ["sdk/crypto/types/compact_bit_array.go", "sdk/crypto/types/compact_bit_array_test.go"]
+owner_domain = 15
+classes = ["runtime-risk", "test-gap"]
+
+[repair.22.33.1347]
+record = "22.30.73"
+findings = ["22.30.73/multisig-add-index"]
+files = ["sdk/crypto/types/multisig/multisignature.go"]
+owner_domain = 15
+classes = ["runtime-risk"]
+
+[repair.22.33.1348]
+record = "22.30.73"
+findings = ["22.30.73/ledger-mock-shape", "22.30.73/ledger-der-test-gap"]
+files = ["sdk/crypto/ledger/ledger_mock.go", "sdk/crypto/ledger/ledger_secp256k1_test.go"]
+owner_domain = 15
+classes = ["test-gap"]
+
+[repair.22.33.1349]
+record = "22.30.73"
+findings = ["22.30.73/cgo-test-selection"]
+files = ["sdk/crypto/keys/secp256k1/internal/secp256k1/secp256_test.go"]
+owner_domain = 15
+classes = ["config-drift"]
+
+[repair.22.33.1350]
+record = "22.30.73"
+findings = ["22.30.73/interop-kubernetes-retired-authority", "22.30.73/interop-fly-retired-authority"]
+files = ["services/platform/hosted/interop/deployment.yaml", "services/platform/hosted/interop/fly.toml"]
+owner_domain = 8
+classes = ["retired-reference"]
+
+[repair.22.33.1351]
+record = "22.30.74"
+findings = ["22.30.74/image-build-context"]
+files = ["sdk/contrib/images/Makefile"]
+owner_domain = 15
+classes = ["wiring-gap"]
+
+[repair.22.33.1352]
+record = "22.30.74"
+findings = ["22.30.74/debug-image-build"]
+files = ["sdk/contrib/images/simd-dlv/Dockerfile"]
+owner_domain = 15
+classes = ["config-drift"]
+
+[repair.22.33.1353]
+record = "22.30.74"
+findings = ["22.30.74/environment-image-build"]
+files = ["sdk/contrib/images/simd-env/Dockerfile"]
+owner_domain = 15
+classes = ["config-drift"]
+
+[repair.22.33.1354]
+record = "22.30.74"
+findings = ["22.30.74/liveness-request-deadline", "22.30.74/liveness-empty-container-set"]
+files = ["sdk/contrib/localnet_liveness.sh"]
+owner_domain = 15
+classes = ["runtime-risk"]
+
+[repair.22.33.1355]
+record = "22.30.74"
+findings = ["22.30.74/historical-migration-validation"]
+files = ["sdk/contrib/migrate/v0.33.x-to-v0.34.0.py"]
+owner_domain = 15
+classes = ["runtime-risk"]
+
+[repair.22.33.1356]
+record = "22.30.74"
+findings = ["22.30.74/rosetta-bootstrap-state", "22.30.74/rosetta-regeneration-contract", "22.30.74/faucet-input-and-process-bounds", "22.30.74/faucet-transfer-outcome", "22.30.74/rosetta-faucet-currency"]
+files = ["sdk/contrib/rosetta/configuration/bootstrap.json", "sdk/contrib/rosetta/configuration/data.sh", "sdk/contrib/rosetta/configuration/faucet.py", "sdk/contrib/rosetta/configuration/send_funds.sh"]
+owner_domain = 15
+classes = ["config-drift", "runtime-risk", "security"]
+
+[repair.22.33.1357]
+record = "22.30.74"
+findings = ["22.30.74/rosetta-compose-node-wiring"]
+files = ["sdk/contrib/rosetta/docker-compose.yaml"]
+owner_domain = 15
+classes = ["wiring-gap"]
+
+[repair.22.33.1358]
+record = "22.30.74"
+findings = ["22.30.74/rosetta-node-image-source"]
+files = ["sdk/contrib/rosetta/node/Dockerfile"]
+owner_domain = 15
+classes = ["wiring-gap"]
+
+[repair.22.33.1359]
+record = "22.30.74"
+findings = ["22.30.74/ics23-verification-coverage", "22.30.74/ics23-protobuf-regeneration", "22.30.74/ics23-compress-empty-variant", "22.30.74/ics23-compressed-index-bounds", "22.30.74/ics23-public-verifier-inputs", "22.30.74/ics23-root-length-error", "22.30.74/ics23-decompress-empty-variant", "22.30.74/ics23-neighbor-path-panics"]
+files = ["sdk/ics23/Makefile", "sdk/ics23/compress.go", "sdk/ics23/ics23.go", "sdk/ics23/proof.go"]
+owner_domain = 15
+classes = ["runtime-risk", "security", "test-gap", "wiring-gap"]
+
+[repair.22.33.1360]
+record = "22.30.74"
+findings = ["22.30.74/module-dependent-tests", "22.30.74/module-coverage-profile"]
+files = ["sdk/scripts/module-tests.sh"]
+owner_domain = 15
+classes = ["runtime-risk", "test-gap"]
+
+[repair.22.33.1361]
+record = "22.30.74"
+findings = ["22.30.74/version-sdk-module-identity"]
+files = ["sdk/version/version.go"]
+owner_domain = 15
+classes = ["config-drift"]
+
+[repair.22.33.1362]
+record = "22.30.74"
+findings = ["22.30.74/stream-retained-identities", "22.30.74/stream-empty-page-loop"]
+files = ["services/agent/sdk/python/layerx_sdk/stream.py"]
+owner_domain = 9
+classes = ["runtime-risk"]
+
+[repair.22.33.1363]
+record = "22.30.74"
+findings = ["22.30.74/program-raw-transaction-fetch-bounds"]
+files = ["services/platform/examples/agent-program-call/verify-receipt.mjs"]
+owner_domain = 8
+classes = ["runtime-risk"]
+
+[repair.22.33.1364]
+record = "22.30.74"
+findings = ["22.30.74/agent-spend-dependency", "22.30.74/agent-spend-node-version", "22.30.74/wallet-review-recovery"]
+files = ["services/platform/examples/agent-spend/package.json", "services/platform/examples/agent-spend/services.mjs"]
+owner_domain = 8
+classes = ["config-drift", "restart-recovery", "wiring-gap"]
+
+[repair.22.33.1365]
+record = "22.30.74"
+findings = ["22.30.74/reference-build-process-deadline"]
+files = ["services/platform/examples/build-reference-apps.mjs"]
+owner_domain = 8
+classes = ["runtime-risk"]
+
+[repair.22.33.1366]
+record = "22.30.74"
+findings = ["22.30.74/tls-probe-process-deadline"]
+files = ["services/platform/tests/support/tls_boundary.rs"]
+owner_domain = 8
+classes = ["runtime-risk"]
+
+[repair.22.33.1367]
+record = "22.30.74"
+findings = ["22.30.74/repository-topology"]
+files = ["README.md"]
+owner_domain = 17
+classes = ["doc-drift"]
+
+[repair.22.33.1368]
+record = "22.30.75"
+findings = ["22.30.75/program-deployment-limit", "22.30.75/programs-legacy-constructor", "22.30.75/stream-history-growth", "22.30.75/agent-envelope-tests", "22.30.75/agent-probe-registration-gap", "22.30.75/portable-positive-vector-count", "22.30.75/portable-consensus-test-trust", "22.30.75/retired-program-transport-test-path"]
+files = ["sdk/platform/dotnet/NativeProgramLifecycle.cs", "sdk/platform/dotnet/Programs.cs", "sdk/platform/dotnet/Stream.cs", "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/AgentEnvelopeMajor2Tests.cs", "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/AgentOperationEnvelopeTests.cs", "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/PortableReceiptTests.cs", "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/ProgramTransportRetiredTests.cs"]
+owner_domain = 8
+classes = ["config-drift", "retired-reference", "runtime-risk", "test-gap", "wiring-gap"]
+
+[repair.22.33.1369]
+record = "22.30.75"
+findings = ["22.30.75/programs-contract-tests-stale", "22.30.75/programs-evm-producer-gap", "22.30.75/receipt-positive-vector-count"]
+files = ["sdk/platform/dotnet/tests/LayerX.Sdk.Tests/ProgramsContractTests.cs", "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/ProgramsEvmTests.cs", "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/SequencerReceiptTests.cs"]
+owner_domain = 8
+classes = ["test-gap"]
+
+[repair.22.33.1370]
+record = "22.30.75"
+findings = ["22.30.75/event-application-order", "22.30.75/position-collateral-units", "22.30.75/open-interest-lifecycle", "22.30.75/ignored-chain-effects", "22.30.75/event-history-unindexed-variants", "22.30.75/cli-negative-fraction"]
+files = ["services/platform/perf-db/src/engine.rs", "services/platform/perf-db/src/main.rs"]
+owner_domain = 8
+classes = ["runtime-risk", "wiring-gap"]
+
+[repair.22.33.1371]
+record = "22.30.75"
+findings = ["22.30.75/mmap-header-validation", "22.30.75/tick-chronological-admission"]
+files = ["services/platform/perf-db/src/storage/mmap.rs", "services/platform/perf-db/src/storage/tick_store.rs"]
+owner_domain = 8
+classes = ["runtime-risk"]
+
+[repair.22.33.1372]
+record = "22.30.75"
+findings = ["22.30.75/candle-time-rewind"]
+files = ["services/platform/perf-db/src/aggregation/candle_builder.rs"]
+owner_domain = 8
+classes = ["runtime-risk"]
+
+[repair.22.33.1373]
+record = "22.30.75"
+findings = ["22.30.75/query-reversed-range"]
+files = ["services/platform/perf-db/src/query/time_range.rs"]
+owner_domain = 8
+classes = ["runtime-risk"]
+
+[repair.22.33.1374]
+record = "22.30.75"
+findings = ["22.30.75/event-effects-test-gap", "22.30.75/recovery-tail-followup-test", "22.30.75/recovery-test-stale-exposure"]
+files = ["services/platform/perf-db/tests/integration.rs", "services/platform/perf-db/tests/recovery.rs"]
+owner_domain = 8
+classes = ["test-gap"]
+
+[repair.22.33.1375]
+record = "22.30.75"
+findings = ["22.30.75/numeric-parse-zero-fallback", "22.30.75/identifier-parse-validation"]
+files = ["services/platform/perf-db/src/core/types.rs"]
+owner_domain = 8
+classes = ["runtime-risk"]
+
+[repair.22.33.1376]
+record = "22.30.75"
+findings = ["22.30.75/api-key-replacement-alias", "22.30.75/checkpoint-coherence", "22.30.75/referral-tier-empty-config", "22.30.75/user-referral-index"]
+files = ["services/platform/perf-db/src/relational/api_keys.rs", "services/platform/perf-db/src/relational/checkpoint.rs", "services/platform/perf-db/src/relational/referrals.rs", "services/platform/perf-db/src/relational/users.rs"]
+owner_domain = 8
+classes = ["runtime-risk", "security"]
+
+[repair.22.33.1377]
+record = "22.30.75"
+findings = ["22.30.75/order-replacement-index", "22.30.75/position-replacement-index"]
+files = ["services/platform/perf-db/src/state/orders.rs", "services/platform/perf-db/src/state/positions.rs"]
+owner_domain = 8
+classes = ["runtime-risk"]
+
+[repair.22.33.1378]
+record = "22.30.75"
+findings = ["22.30.75/perf-benchmark-workflow-location", "22.30.75/perf-ci-workflow-location", "22.30.75/perf-security-workflow-location"]
+files = ["services/platform/perf-db/.github/workflows/benchmark.yml", "services/platform/perf-db/.github/workflows/ci.yml", "services/platform/perf-db/.github/workflows/security.yml"]
+owner_domain = 8
+classes = ["config-drift"]
+
+[repair.22.33.1379]
+record = "22.30.75"
+findings = ["22.30.75/perf-dependabot-location"]
+files = ["services/platform/perf-db/.github/dependabot.yml"]
+owner_domain = 8
+classes = ["config-drift"]
+
+[repair.22.33.1380]
+record = "22.30.75"
+findings = ["22.30.75/sdk-make-module-root", "22.30.75/swagger-clean-check", "22.30.75/markdown-container-image", "22.30.75/sdk-overview-two-domains"]
+files = ["sdk/Makefile", "sdk/README.md"]
+owner_domain = 15
+classes = ["doc-drift", "test-gap", "wiring-gap"]
+
+[repair.22.33.1381]
+record = "22.30.75"
+findings = ["22.30.75/merchant-node-url"]
+files = ["services/platform/examples/merchant-checkout/layerx.example.json"]
+owner_domain = 8
+classes = ["config-drift"]
+
+[repair.22.33.1382]
+record = "22.30.75"
+findings = ["22.30.75/root-network-overview"]
+files = ["README.md"]
+owner_domain = 17
+classes = ["doc-drift"]
+
+[repair.22.33.1383]
+record = "22.30.75"
+findings = ["22.30.75/perf-architecture-drift", "22.30.75/perf-readme-drift"]
+files = ["services/platform/perf-db/ARCHITECTURE.md", "services/platform/perf-db/README.md"]
+owner_domain = 8
+classes = ["doc-drift"]
+
+[repair.22.33.1384]
+record = "22.30.76"
+findings = ["22.30.76/rewritten-committed-fixture", "22.30.76/http-default-no-deadline", "22.30.76/deployment-payload-bound", "22.30.76/occupancy-tests-bypass-public-api", "22.30.76/portable-tests-no-external-anchor", "22.30.76/wind-down-test-expects-refusal", "22.30.76/program-verification-claims", "22.30.76/program-root-chain-hardcoded"]
+files = ["sdk/platform/go/committed_inclusion_test.go", "sdk/platform/go/http.go", "sdk/platform/go/native_program_lifecycle.go", "sdk/platform/go/occupancy_payers_test.go", "sdk/platform/go/portable_receipt_test.go", "sdk/platform/go/program_transport_retired_test.go", "sdk/platform/go/programs.go"]
+owner_domain = 8
+classes = ["config-drift", "runtime-risk", "security", "test-gap"]
+
+[repair.22.33.1385]
+record = "22.30.76"
+findings = ["22.30.76/program-corpus-third-shape", "22.30.76/secret-callback-deadlock", "22.30.76/stream-unbounded-history", "22.30.76/exported-kernel-lifecycle-verifier"]
+files = ["sdk/platform/go/programs_http_test.go", "sdk/platform/go/secret.go", "sdk/platform/go/stream.go", "sdk/platform/go/verify.go"]
+owner_domain = 8
+classes = ["retired-reference", "runtime-risk", "test-gap"]
+
+[repair.22.33.1386]
+record = "22.30.76"
+findings = ["22.30.76/beta-dirty-image-provenance", "22.30.76/beta-build-contexts", "22.30.76/beta-retired-bootstrap", "22.30.76/beta-retained-publication-file", "22.30.76/beta-image-retired-components", "22.30.76/mirror-keypair-not-derived", "22.30.76/pin-tests-no-consumer", "22.30.76/topology-short-dns-bypass"]
+files = ["services/platform/hosted/tests/beta-cluster.sh", "services/platform/hosted/tests/beta-images.sh", "services/platform/hosted/tests/mirror-identity.py", "services/platform/hosted/tests/test_sequencer_pins.py", "services/platform/hosted/tests/topology-check.sh"]
+owner_domain = 8
+classes = ["config-drift", "restart-recovery", "retired-reference", "security", "test-gap", "wiring-gap"]
+
+[repair.22.33.1387]
+record = "22.30.76"
+findings = ["22.30.76/topology-retired-baseline"]
+files = ["services/platform/hosted/tests/topology-regressions.py"]
+owner_domain = 8
+classes = ["retired-reference"]
+
+[repair.22.33.1388]
+record = "22.30.76"
+findings = ["22.30.76/value-loop-retired-submission"]
+files = ["tools/bringup/value-loop.sh"]
+owner_domain = 16
+classes = ["retired-reference"]
+
+[repair.22.33.1389]
+record = "22.30.77"
+findings = ["22.30.77/program-read-metadata", "22.30.77/http-body-deadline", "22.30.77/native-call-total-bound", "22.30.77/deploy-total-bound", "22.30.77/upgrade-total-bound", "22.30.77/telemetry-outcome", "22.30.77/program-plaintext-origin", "22.30.77/program-response-bound"]
+files = ["sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/HttpProductionTransport.java", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/NativeProgramCall.java", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/NativeProgramDeploy.java", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/NativeProgramUpgrade.java", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProductionClient.java", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java"]
+owner_domain = 8
+classes = ["config-drift", "runtime-risk", "security"]
+
+[repair.22.33.1390]
+record = "22.30.77"
+findings = ["22.30.77/program-rpc-refusals", "22.30.77/program-memory-growth", "22.30.77/program-restart-lookup", "22.30.77/stream-lifetime-limit", "22.30.77/stream-empty-poll"]
+files = ["sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ResumableStream.java"]
+owner_domain = 8
+classes = ["restart-recovery", "runtime-risk"]
+
+[repair.22.33.1391]
+record = "22.30.77"
+findings = ["22.30.77/program-metadata-test", "22.30.77/portable-test-rung-rewrite", "22.30.77/fee-token-test-coverage"]
+files = ["sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueProgramsTest.java", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/PortableReceiptTest.java", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/SequencerReceiptTest.java"]
+owner_domain = 8
+classes = ["test-gap"]
+
+[repair.22.33.1392]
+record = "22.30.77"
+findings = ["22.30.77/first-payment-retired-origin", "22.30.77/first-payment-unusable", "22.30.77/offline-example-retired-api", "22.30.77/kotlin-retired-origin", "22.30.77/kotlin-example-unusable"]
+files = ["sdk/platform/jvm/examples/FirstPaymentExample.java", "sdk/platform/jvm/examples/OfflineVerificationExample.java", "sdk/platform/jvm/examples/ServiceLifecycleExample.kt"]
+owner_domain = 8
+classes = ["retired-reference", "wiring-gap"]
+
+[repair.22.33.1393]
+record = "22.30.77"
+findings = ["22.30.77/conformance-producer-gap"]
+files = ["sdk/platform/jvm/src/conformance/java/com/sidiora/layerx/sdk/ConformanceMain.java"]
+owner_domain = 8
+classes = ["test-gap"]
+
+[repair.22.33.1394]
+record = "22.30.77"
+findings = ["22.30.77/jvm-readme-verifier"]
+files = ["sdk/platform/jvm/README.md"]
+owner_domain = 8
+classes = ["doc-drift"]
+
+[repair.22.33.1395]
+record = "22.30.77"
+findings = ["22.30.77/gateway-retired-dependencies"]
+files = ["services/platform/hosted/gateway/deployment.yaml"]
+owner_domain = 8
+classes = ["retired-reference"]
+
+[repair.22.33.1396]
+record = "22.30.77"
+findings = ["22.30.77/root-overview"]
+files = ["README.md"]
+owner_domain = 8
+classes = ["doc-drift"]
+
+[repair.22.33.1397]
+record = "22.30.78"
+findings = ["22.30.78/deploy-payload-limit", "22.30.78/program-rpc-response-bound", "22.30.78/programs-sequence-recovery", "22.30.78/programs-inert-constructor", "22.30.78/stream-memory-and-pacing", "22.30.78/legacy-lifecycle-verification"]
+files = ["sdk/platform/swift/Sources/LayerXSDK/NativeProgramLifecycle.swift", "sdk/platform/swift/Sources/LayerXSDK/Programs.swift", "sdk/platform/swift/Sources/LayerXSDK/Stream.swift", "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift"]
+owner_domain = 8
+classes = ["restart-recovery", "retired-reference", "runtime-risk", "wiring-gap"]
+
+[repair.22.33.1398]
+record = "22.30.78"
+findings = ["22.30.78/committed-test-trust", "22.30.78/portable-test-producer-shape", "22.30.78/program-pending-test", "22.30.78/program-old-status-test", "22.30.78/program-abi-five-test", "22.30.78/program-evm-test-producer"]
+files = ["sdk/platform/swift/Tests/LayerXSDKTests/CommittedReceiptTests.swift", "sdk/platform/swift/Tests/LayerXSDKTests/PortableReceiptTests.swift", "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsContractTests.swift", "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsEvmTests.swift"]
+owner_domain = 8
+classes = ["test-gap"]
+
+[repair.22.33.1399]
+record = "22.30.78"
+findings = ["22.30.78/buyer-rpc-path"]
+files = ["services/platform/examples/buyer-agent/layerx.example.json"]
+owner_domain = 8
+classes = ["config-drift"]
+
+[repair.22.33.1400]
+record = "22.30.78"
+findings = ["22.30.78/walkthrough-test-receipt", "22.30.78/buyer-config-test-rpc", "22.30.78/merchant-proof-test-shape", "22.30.78/merchant-config-test-rpc", "22.30.78/runtime-proof-test-shape"]
+files = ["services/platform/examples/test/agent-program-call.test.mjs", "services/platform/examples/test/buyer-agent.test.mjs", "services/platform/examples/test/merchant-app.test.mjs", "services/platform/examples/test/merchant-config.test.mjs", "services/platform/examples/test/runtime.test.mjs"]
+owner_domain = 8
+classes = ["test-gap"]
+
+[repair.22.33.1401]
+record = "22.30.78"
+findings = ["22.30.78/human-doc-custody", "22.30.78/history-finality-material", "22.30.78/material-shell-trust-history", "22.30.78/native-manifest-retired-input", "22.30.78/owner-kms-prepare-bounds", "22.30.78/provision-movement-source", "22.30.78/provision-retired-daemon", "22.30.78/material-test-retired-node"]
+files = ["services/platform/hosted/human/README.md", "services/platform/hosted/human/history_material.py", "services/platform/hosted/human/material.sh", "services/platform/hosted/human/native_manifest.py", "services/platform/hosted/human/owner_kms.py", "services/platform/hosted/human/provision.py", "services/platform/hosted/human/provision.sh", "services/platform/hosted/human/test_material.py"]
+owner_domain = 8
+classes = ["doc-drift", "retired-reference", "runtime-risk", "test-gap"]
+
+[repair.22.33.1402]
+record = "22.30.78"
+findings = ["22.30.78/owner-test-current-success", "22.30.78/web-explorer-relay"]
+files = ["services/platform/hosted/human/test_owner_native.py", "services/platform/hosted/human/web-deployment.yaml"]
+owner_domain = 8
+classes = ["retired-reference", "test-gap"]
+
+[repair.22.33.1403]
+record = "22.30.78"
+findings = ["22.30.78/root-doc-two-domains"]
+files = ["README.md"]
+owner_domain = 17
+classes = ["doc-drift"]
+
+[repair.22.33.1404]
+record = "22.30.79"
+findings = ["22.30.79/001"]
+files = ["sdk/codec/amino.go"]
+owner_domain = 15
+classes = ["runtime-risk"]
+
+[repair.22.33.1405]
+record = "22.30.79"
+findings = ["22.30.79/002", "22.30.79/003"]
+files = ["sdk/codec/types/interface_registry.go", "sdk/codec/types/legacy.go"]
+owner_domain = 15
+classes = ["runtime-risk"]
+
+[repair.22.33.1406]
+record = "22.30.79"
+findings = ["22.30.79/007", "22.30.79/006", "22.30.79/008", "22.30.79/042", "22.30.79/009"]
+files = ["sdk/cosmovisor/process.go", "sdk/cosmovisor/scanner.go", "sdk/cosmovisor/scanner_test.go", "sdk/cosmovisor/upgrade_test.go"]
+owner_domain = 15
+classes = ["runtime-risk", "test-gap"]
+
+[repair.22.33.1407]
+record = "22.30.79"
+findings = ["22.30.79/021", "22.30.79/024"]
+files = ["services/platform/examples/marketplace/layerx.example.json", "services/platform/examples/marketplace/package.json"]
+owner_domain = 8
+classes = ["config-drift", "test-gap"]
+
+[repair.22.33.1408]
+record = "22.30.79"
+findings = ["22.30.79/022", "22.30.79/023"]
+files = ["services/platform/examples/marketplace/test/deploy-payload.test.mjs", "services/platform/examples/marketplace/test/receipt-outcome.test.mjs"]
+owner_domain = 8
+classes = ["test-gap"]
+
+[repair.22.33.1409]
+record = "22.30.79"
+findings = ["22.30.79/025"]
+files = ["services/platform/hosted/agentd/probe.sh"]
+owner_domain = 8
+classes = ["test-gap"]
+
+[repair.22.33.1410]
+record = "22.30.79"
+findings = ["22.30.79/027", "22.30.79/026"]
+files = ["services/platform/hosted/dashboard/src/gateway.rs", "services/platform/hosted/dashboard/src/service.rs"]
+owner_domain = 8
+classes = ["runtime-risk"]
+
+[repair.22.33.1411]
+record = "22.30.79"
+findings = ["22.30.79/028"]
+files = ["services/platform/hosted/dashboard/web/package.json"]
+owner_domain = 8
+classes = ["test-gap"]
+
+[repair.22.33.1412]
+record = "22.30.79"
+findings = ["22.30.79/031", "22.30.79/029"]
+files = ["services/platform/hosted/feeder/src/bin/price-sidecar/main.rs", "services/platform/hosted/feeder/src/bin/price-sidecar/round.rs"]
+owner_domain = 8
+classes = ["runtime-risk", "security"]
+
+[repair.22.33.1413]
+record = "22.30.79"
+findings = ["22.30.79/030"]
+files = ["services/platform/hosted/feeder/src/lib.rs"]
+owner_domain = 8
+classes = ["runtime-risk"]
+
+[repair.22.33.1414]
+record = "22.30.79"
+findings = ["22.30.79/040", "22.30.79/032"]
+files = ["services/platform/tools/workspace-gate/src/main.rs"]
+owner_domain = 8
+classes = ["config-drift", "runtime-risk"]
+
+[repair.22.33.1415]
+record = "22.30.79"
+findings = ["22.30.79/039", "22.30.79/033"]
+files = ["services/platform/tools/dependency-policy.sh"]
+owner_domain = 8
+classes = ["runtime-risk", "wiring-gap"]
+
+[repair.22.33.1416]
+record = "22.30.79"
+findings = ["22.30.79/034"]
+files = ["services/platform/tools/kvx/src/lib.rs"]
+owner_domain = 8
+classes = ["runtime-risk"]
+
+[repair.22.33.1417]
+record = "22.30.79"
+findings = ["22.30.79/035"]
+files = ["services/platform/hosted/gateway/openrpc.json"]
+owner_domain = 8
+classes = ["retired-reference"]
+
+[repair.22.33.1418]
+record = "22.30.79"
+findings = ["22.30.79/041"]
+files = ["services/platform/tools/workspace-gate/tests/gate.rs"]
+owner_domain = 8
+classes = ["test-gap"]
+
+[repair.22.33.1419]
+record = "22.30.79"
+findings = ["22.30.79/051"]
+files = ["README.md"]
+owner_domain = 16
+classes = ["doc-drift"]
+
+[repair.22.33.1420]
+record = "22.30.8"
+findings = ["22.30.8/auth-integration-replaces-producer-grant"]
+files = ["modules/layerxauth/ante/integration_test.go"]
+owner_domain = 2
+classes = ["test-gap"]
+
+[repair.22.33.1421]
+record = "22.30.8"
+findings = ["22.30.8/capability-test-endpoint-gap", "22.30.8/auth-proof-endpoint-gap"]
+files = ["modules/layerxauth/keeper/capability_test.go", "modules/layerxauth/keeper/proof_layerxauth_keeper_test.go"]
+owner_domain = 2
+classes = ["test-gap"]
+
+[repair.22.33.1422]
+record = "22.30.8"
+findings = ["22.30.8/scope-tests-use-only-test-message"]
+files = ["modules/layerxauth/types/authorization_test.go"]
+owner_domain = 2
+classes = ["test-gap"]
+
+[repair.22.33.1423]
+record = "22.30.8"
+findings = ["22.30.8/issuer-binding-not-exported", "22.30.8/issuer-binding-unwired", "22.30.8/payexact-test-retired-idempotency", "22.30.8/send-test-invents-main-account", "22.30.8/send-test-retired-idempotency"]
+files = ["modules/layerxledger/keeper/genesis.go", "modules/layerxledger/keeper/issuer_binding.go", "modules/layerxledger/keeper/payexact_test.go", "modules/layerxledger/keeper/send_test.go"]
+owner_domain = 2
+classes = ["restart-recovery", "test-gap", "wiring-gap"]
+
+[repair.22.33.1424]
+record = "22.30.8"
+findings = ["22.30.8/chain-genesis-proof-omits-accounting"]
+files = ["modules/layerxchains/keeper/keeper_test.go"]
+owner_domain = 2
+classes = ["test-gap"]
+
+[repair.22.33.1425]
+record = "22.30.8"
+findings = ["22.30.8/oracle-fixture-bypasses-production", "22.30.8/oracle-test-endorses-wrong-median", "22.30.8/oracle-proof-does-not-reopen-store"]
+files = ["precompiles/layerxagent/oracle/oracle_test.go", "precompiles/layerxagent/oracle/proof_oracle_aggregator_0x0903_test.go"]
+owner_domain = 2
+classes = ["test-gap"]
+
+[repair.22.33.1426]
+record = "22.30.8"
+findings = ["22.30.8/streams-proof-reopens-only-precompile"]
+files = ["precompiles/layerxagent/streams/proof_streams_0x0906_test.go"]
+owner_domain = 2
+classes = ["test-gap"]
+
+[repair.22.33.1427]
+record = "22.30.8"
+findings = ["22.30.8/readme-separate-kernel-network"]
+files = ["README.md"]
+owner_domain = 16
+classes = ["doc-drift"]
+
+[repair.22.33.1428]
+record = "22.30.80"
+findings = ["22.30.80/missing-platform-interface-contracts", "22.30.80/artifact-finalize-live-state", "22.30.80/artifact-content-corruption", "22.30.80/artifact-listener-admission", "22.30.80/artifact-staging-reclamation"]
+files = ["services/platform/hosted/ai-artifacts/src/authority.rs", "services/platform/hosted/ai-artifacts/src/main.rs", "services/platform/hosted/ai-artifacts/src/store.rs"]
+owner_domain = 8
+classes = ["doc-drift", "runtime-risk"]
+
+[repair.22.33.1429]
+record = "22.30.80"
+findings = ["22.30.80/artifact-terminal-fixture-shape"]
+files = ["services/platform/hosted/ai-artifacts/tests/artifact_service.rs"]
+owner_domain = 8
+classes = ["test-gap"]
+
+[repair.22.33.1430]
+record = "22.30.80"
+findings = ["22.30.80/identity-outbox-durability", "22.30.80/identity-verify-session-retry", "22.30.80/identity-hourly-key-bound", "22.30.80/identity-rate-window-restart", "22.30.80/identity-expired-signup-growth", "22.30.80/identity-signup-subject-replacement"]
+files = ["services/platform/hosted/identity/src/main.rs", "services/platform/hosted/identity/src/signup.rs", "services/platform/hosted/identity/src/store.rs"]
+owner_domain = 8
+classes = ["restart-recovery", "runtime-risk", "security"]
+
+[repair.22.33.1431]
+record = "22.30.80"
+findings = ["22.30.80/identity-smtp-deployment"]
+files = ["services/platform/hosted/identity/deployment.yaml"]
+owner_domain = 8
+classes = ["config-drift"]
+
+[repair.22.33.1432]
+record = "22.30.80"
+findings = ["22.30.80/identity-signup-service-coverage"]
+files = ["services/platform/hosted/identity/tests/service.rs"]
+owner_domain = 8
+classes = ["test-gap"]
+
+[repair.22.33.1433]
+record = "22.30.80"
+findings = ["22.30.80/emulator-settlement-receipt-wiring", "22.30.80/emulator-retired-route-registry"]
+files = ["tools/platform/emulator/src/main.rs"]
+owner_domain = 8
+classes = ["retired-reference", "wiring-gap"]
+
+[repair.22.33.1434]
+record = "22.30.80"
+findings = ["22.30.80/emulator-retired-wire-dependency"]
+files = ["tools/platform/emulator/Cargo.toml"]
+owner_domain = 8
+classes = ["retired-reference"]
+
+[repair.22.33.1435]
+record = "22.30.80"
+findings = ["22.30.80/emulator-head-proof-coverage", "22.30.80/emulator-program-path-coverage"]
+files = ["tools/platform/emulator/tests/core_linkage.rs", "tools/platform/emulator/tests/gateway.rs"]
+owner_domain = 8
+classes = ["test-gap"]
+
+[repair.22.33.1436]
+record = "22.30.80"
+findings = ["22.30.80/release-go-fixture-module"]
+files = ["tools/platform/release/tests/manifest.rs"]
+owner_domain = 8
+classes = ["test-gap"]
+
+[repair.22.33.1437]
+record = "22.30.80"
+findings = ["22.30.80/release-git-fetch-timeout"]
+files = ["tools/platform/release/src/fetch.rs"]
+owner_domain = 8
+classes = ["runtime-risk"]
+
+[repair.22.33.1438]
+record = "22.30.80"
+findings = ["22.30.80/doc-gateway"]
+files = ["services/platform/hosted/gateway/README.md"]
+owner_domain = 8
+classes = ["doc-drift"]
+
+[repair.22.33.1439]
+record = "22.30.81"
+findings = ["22.30.81/ai-views-unmounted", "22.30.81/node-root-test", "22.30.81/validator-pagination-bound", "22.30.81/history-unneeded-registry", "22.30.81/history-registry-errors", "22.30.81/history-native-test-gap", "22.30.81/history-requirement-conflict", "22.30.81/readiness-kernel-drift"]
+files = ["services/platform/hosted/gateway/src/ai_views.rs", "services/platform/hosted/gateway/src/capabilities.rs", "services/platform/hosted/gateway/src/chain_reads.rs", "services/platform/hosted/gateway/src/history.rs", "services/platform/hosted/gateway/src/main.rs"]
+owner_domain = 8
+classes = ["interface-mismatch", "runtime-risk", "test-gap", "wiring-gap"]
+
+[repair.22.33.1440]
+record = "22.30.81"
+findings = ["22.30.81/readiness-required-backends", "22.30.81/status-permanent-degradation", "22.30.81/readiness-test-contract", "22.30.81/asset-list-full-scan", "22.30.81/retired-http-ingress", "22.30.81/retired-schema-route", "22.30.81/tenant-fixed-beta", "22.30.81/explorer-pages-retired"]
+files = ["services/platform/hosted/gateway/src/main.rs", "services/platform/hosted/gateway/src/paxeer.rs", "services/platform/hosted/gateway/src/public_reads.rs", "services/platform/hosted/gateway/src/rpc.rs", "services/platform/hosted/gateway/src/rpc_register.rs", "services/platform/hosted/gateway/src/ui_proxy.rs"]
+owner_domain = 8
+classes = ["retired-reference", "runtime-risk", "test-gap", "wiring-gap"]
+
+[repair.22.33.1441]
+record = "22.30.81"
+findings = ["22.30.81/retired-ws-ingress"]
+files = ["services/platform/hosted/gateway/src/ws.rs"]
+owner_domain = 8
+classes = ["retired-reference"]
+
+[repair.22.33.1442]
+record = "22.30.81"
+findings = ["22.30.81/doc-readme"]
+files = ["README.md"]
+owner_domain = 17
+classes = ["doc-drift"]
+
+[repair.22.33.1443]
+record = "22.30.81"
+findings = ["22.30.81/doc-openrpc"]
+files = ["services/platform/hosted/gateway/openrpc.json"]
+owner_domain = 8
+classes = ["doc-drift"]
+
+[repair.22.33.1444]
+record = "22.30.82"
+findings = ["22.30.82/abi-bytes24", "22.30.82/limiter-retention", "22.30.82/snapshot-archive", "22.30.82/authority-regression", "22.30.82/comet-fallback-wiring", "22.30.82/ai-runtime-wiring", "22.30.82/tenant-query", "22.30.82/legacy-settlement-output"]
+files = ["services/platform/hosted/indexer/src/abi.rs", "services/platform/hosted/indexer/src/ai_market.rs", "services/platform/hosted/indexer/src/main.rs", "services/platform/hosted/indexer/src/paxscan.rs", "services/platform/hosted/indexer/src/store.rs"]
+owner_domain = 8
+classes = ["restart-recovery", "retired-reference", "runtime-risk", "wiring-gap"]
+
+[repair.22.33.1445]
+record = "22.30.82"
+findings = ["22.30.82/names-unbounded-reads", "22.30.82/reverse-forward-binding", "22.30.82/transport-total-deadline"]
+files = ["services/platform/hosted/indexer/src/store.rs", "services/platform/hosted/indexer/src/transport.rs"]
+owner_domain = 8
+classes = ["runtime-risk", "security"]
+
+[repair.22.33.1446]
+record = "22.30.82"
+findings = ["22.30.82/reputation-proof-tests", "22.30.82/snapshot-proof-tests", "22.30.82/backfill-path-tests", "22.30.82/binding-proof-tests"]
+files = ["services/platform/hosted/indexer/tests/ai_reputation_finality.rs", "services/platform/hosted/indexer/tests/ai_snapshot_minimal.rs", "services/platform/hosted/indexer/tests/backfill.rs", "services/platform/hosted/indexer/tests/finality_evidence_v2.rs"]
+owner_domain = 8
+classes = ["test-gap"]
+
+[repair.22.33.1447]
+record = "22.30.82"
+findings = ["22.30.82/smoke-removed-option", "22.30.82/journey-router-path", "22.30.82/smoke-signer-asset", "22.30.82/wallet-router-fixture"]
+files = ["services/platform/hosted/testnet/tests/hosted-smoke.sh", "services/platform/hosted/testnet/tests/journey_common.py", "services/platform/hosted/testnet/tests/payment-journey.py", "services/platform/hosted/testnet/tests/wallet-receipt-journey.py"]
+owner_domain = 8
+classes = ["config-drift", "retired-reference", "wiring-gap"]
+
+[repair.22.33.1448]
+record = "22.30.82"
+findings = ["22.30.82/merchant-result-code"]
+files = ["services/platform/examples/run-reference-apps.mjs"]
+owner_domain = 8
+classes = ["wiring-gap"]
+
+[repair.22.33.1449]
+record = "22.30.82"
+findings = ["22.30.82/doc-testnet-readme"]
+files = ["services/platform/hosted/testnet/README.md"]
+owner_domain = 8
+classes = ["doc-drift"]
+
+[repair.22.33.1450]
+record = "22.30.83"
+findings = ["22.30.83/merchant-emulator-rpc"]
+files = ["services/platform/examples/merchant-shop/layerx.example.json"]
+owner_domain = 8
+classes = ["retired-reference"]
+
+[repair.22.33.1451]
+record = "22.30.83"
+findings = ["22.30.83/funding-wrong-network", "22.30.83/absent-receipt-status", "22.30.83/receipt-event-authentication"]
+files = ["services/platform/hosted/core/src/chain_fund.rs", "services/platform/hosted/core/src/main.rs", "services/platform/hosted/core/src/public_reads.rs"]
+owner_domain = 8
+classes = ["config-drift", "interface-mismatch", "security"]
+
+[repair.22.33.1452]
+record = "22.30.83"
+findings = ["22.30.83/gateway-root-trust", "22.30.83/journal-torn-tail", "22.30.83/producer-retention-growth", "22.30.83/secret-prefix-truncation"]
+files = ["services/platform/hosted/internal/src/gateway_http.rs", "services/platform/hosted/internal/src/journal.rs", "services/platform/hosted/internal/src/producer.rs", "services/platform/hosted/internal/src/secret.rs"]
+owner_domain = 8
+classes = ["restart-recovery", "runtime-risk", "security"]
+
+[repair.22.33.1453]
+record = "22.30.83"
+findings = ["22.30.83/generation-legacy-artifacts", "22.30.83/generation-guarantor-operation", "22.30.83/sequencer-seed-helper"]
+files = ["services/platform/hosted/node/generation_client.py", "services/platform/hosted/node/generation_transport.py", "services/platform/hosted/node/sequencer-env.sh"]
+owner_domain = 8
+classes = ["retired-reference"]
+
+[repair.22.33.1454]
+record = "22.30.83"
+findings = ["22.30.83/provider-process-bounds", "22.30.83/signer-concurrency-bound"]
+files = ["services/platform/hosted/node/signer/provider.py", "services/platform/hosted/node/signer/signer.py"]
+owner_domain = 8
+classes = ["runtime-risk"]
+
+[repair.22.33.1455]
+record = "22.30.83"
+findings = ["22.30.83/native-funding-integration-gap", "22.30.83/funding-intent-fixture-gap"]
+files = ["services/platform/hosted/core/tests/chain_fund.rs", "services/platform/hosted/core/tests/send.rs"]
+owner_domain = 8
+classes = ["test-gap"]
+
+[repair.22.33.1456]
+record = "22.30.83"
+findings = ["22.30.83/genesis-test-retired-tools", "22.30.83/lost-ack-retired-lni", "22.30.83/topology-test-retired-roles", "22.30.83/activation-success-test-gap", "22.30.83/generation-test-retired-operation", "22.30.83/retirement-test-requires-lni", "22.30.83/reset-staged-success-test-gap"]
+files = ["services/platform/hosted/node/tests/genesis-modules-test.py", "services/platform/hosted/node/tests/lni-drop-ack.py", "services/platform/hosted/node/tests/node-topology-test.py", "services/platform/hosted/node/tests/test_data_directory.py", "services/platform/hosted/node/tests/test_generation_transport.py", "services/platform/hosted/node/tests/test_node_without_guarantor.py", "services/platform/hosted/node/tests/test_reset_state.py"]
+owner_domain = 8
+classes = ["retired-reference", "test-gap"]
+
+[repair.22.33.1457]
+record = "22.30.83"
+findings = ["22.30.83/probe-retired-anchor"]
+files = ["services/platform/hosted/node/tests/probe/src/main.rs"]
+owner_domain = 8
+classes = ["retired-reference"]
+
+[repair.22.33.1458]
+record = "22.30.84"
+findings = ["22.30.84/confirmation-prefix"]
+files = ["sdk/client/input/input.go"]
+owner_domain = 15
+classes = ["security"]
+
+[repair.22.33.1459]
+record = "22.30.84"
+findings = ["22.30.84/raw-byte-signed-range"]
+files = ["sdk/client/debug/main.go"]
+owner_domain = 15
+classes = ["runtime-risk"]
+
+[repair.22.33.1460]
+record = "22.30.84"
+findings = ["22.30.84/config-string-roundtrip", "22.30.84/config-interrupted-write"]
+files = ["sdk/client/config/toml.go"]
+owner_domain = 15
+classes = ["config-drift", "restart-recovery"]
+
+[repair.22.33.1461]
+record = "22.30.84"
+findings = ["22.30.84/invoke-nil-panic", "22.30.84/grpc-suite-constructor", "22.30.84/query-cancellation-lost", "22.30.84/query-proof-unverified", "22.30.84/query-proof-test-path", "22.30.84/pagination-overflow"]
+files = ["sdk/client/grpc_query.go", "sdk/client/grpc_query_test.go", "sdk/client/query.go", "sdk/client/query_test.go", "sdk/client/utils.go"]
+owner_domain = 15
+classes = ["runtime-risk", "security", "test-gap"]
+
+[repair.22.33.1462]
+record = "22.30.84"
+findings = ["22.30.84/factory-invalid-flags", "22.30.84/gas-adjustment-bounds"]
+files = ["sdk/client/tx/factory.go", "sdk/client/tx/tx.go"]
+owner_domain = 15
+classes = ["runtime-risk"]
+
+[repair.22.33.1463]
+record = "22.30.84"
+findings = ["22.30.84/ledger-show-false-success"]
+files = ["sdk/client/keys/show.go"]
+owner_domain = 15
+classes = ["runtime-risk"]
+
+[repair.22.33.1464]
+record = "22.30.84"
+findings = ["22.30.84/worker-request-target-injection", "22.30.84/worker-client-total-deadline", "22.30.84/worker-client-framing", "22.30.84/worker-retention-unbounded", "22.30.84/worker-adapter-timeout-incomplete", "22.30.84/worker-server-framing", "22.30.84/worker-runner-timeout-incomplete"]
+files = ["services/platform/hosted/paxai-worker/src/discovery.rs", "services/platform/hosted/paxai-worker/src/main.rs", "services/platform/hosted/paxai-worker/src/runner.rs"]
+owner_domain = 8
+classes = ["runtime-risk", "security"]
+
+[repair.22.33.1465]
+record = "22.30.84"
+findings = ["22.30.84/worker-live-path-test-gap"]
+files = ["services/platform/hosted/paxai-worker/tests/real_workload.rs"]
+owner_domain = 8
+classes = ["test-gap"]
+
+[repair.22.33.1466]
+record = "22.30.84"
+findings = ["22.30.84/block-unverified-claim", "22.30.84/block-negative-height-latest"]
+files = ["sdk/client/rpc/block.go"]
+owner_domain = 15
+classes = ["runtime-risk", "security"]
+
+[repair.22.33.1467]
+record = "22.30.85"
+findings = ["22.30.85/receipt-staging-recovery"]
+files = ["services/platform/hosted/authority/src/human.rs"]
+owner_domain = 8
+classes = ["restart-recovery"]
+
+[repair.22.33.1468]
+record = "22.30.85"
+findings = ["22.30.85/mutable-source-mirror", "22.30.85/mismatch-outcome-persistence"]
+files = ["services/platform/hosted/registry/src/mirror.rs", "services/platform/hosted/registry/src/routes.rs"]
+owner_domain = 8
+classes = ["interface-mismatch", "restart-recovery"]
+
+[repair.22.33.1469]
+record = "22.30.85"
+findings = ["22.30.85/retired-explorer-topology"]
+files = ["services/platform/hosted/registry/deployment.yaml"]
+owner_domain = 8
+classes = ["retired-reference"]
+
+[repair.22.33.1470]
+record = "22.30.85"
+findings = ["22.30.85/upgrade-test-accepts-quarantine", "22.30.85/program-state-rpc-fixture", "22.30.85/programs-rpc-fixture", "22.30.85/startup-test-only-journal"]
+files = ["services/platform/hosted/registry/tests/journal.rs", "services/platform/hosted/registry/tests/program_state_eth_call.rs", "services/platform/hosted/registry/tests/programs_chain.rs"]
+owner_domain = 8
+classes = ["test-gap"]
+
+[repair.22.33.1471]
+record = "22.30.85"
+findings = ["22.30.85/budget-export-corpus-optional", "22.30.85/human-tls-retired-anchor", "22.30.85/human-budget-corpus-optional", "22.30.85/retirement-guard-requires-anchor"]
+files = ["services/platform/hosted/authority/tests/budget_proof_exports.rs", "services/platform/hosted/authority/tests/human_tls.rs", "services/platform/hosted/authority/tests/retired_client_modules.rs"]
+owner_domain = 8
+classes = ["test-gap"]
+
+[repair.22.33.1472]
+record = "22.30.85"
+findings = ["22.30.85/lifecycle-anchor-abi-test"]
+files = ["services/platform/hosted/authority/tests/support/lifecycle_dispatch.rs"]
+owner_domain = 8
+classes = ["test-gap"]
+
+[repair.22.33.1473]
+record = "22.30.85"
+findings = ["22.30.85/authority-readme-lni"]
+files = ["services/platform/hosted/authority/README.md"]
+owner_domain = 8
+classes = ["doc-drift"]
+
+[repair.22.33.1474]
+record = "22.30.86"
+findings = ["22.30.86/merchant-transport-unbounded", "22.30.86/order-file-crash-window", "22.30.86/order-cross-process-transitions", "22.30.86/webhook-cross-process-claim", "22.30.86/merchant-order-read-auth", "22.30.86/merchant-checkout-principal-auth", "22.30.86/receipt-transport-unbounded"]
+files = ["services/platform/examples/support/merchant-app.mjs", "services/platform/examples/support/runtime.mjs"]
+owner_domain = 8
+classes = ["restart-recovery", "runtime-risk", "security"]
+
+[repair.22.33.1475]
+record = "22.30.86"
+findings = ["22.30.86/legacy-draw-field-names"]
+files = ["services/platform/middleware/seller/src/ledger.ts"]
+owner_domain = 8
+classes = ["interface-mismatch"]
+
+[repair.22.33.1476]
+record = "22.30.86"
+findings = ["22.30.86/agent-draw-fixture", "22.30.86/daemon-decoder-fixture", "22.30.86/agent-export-daemon-fixture"]
+files = ["services/platform/middleware/agent/test/agent-grant.test.mjs", "services/platform/middleware/agent/test/daemon-evm.test.mjs", "services/platform/middleware/agent/test/proof_middleware_agent_ts_exports.test.mjs"]
+owner_domain = 8
+classes = ["test-gap"]
+
+[repair.22.33.1477]
+record = "22.30.86"
+findings = ["22.30.86/buyer-draw-fixture", "22.30.86/buyer-export-draw-fixture"]
+files = ["services/platform/middleware/buyer/test/grant-draw-header.test.mjs", "services/platform/middleware/buyer/test/proof_middleware_buyer_ts_exports.test.mjs"]
+owner_domain = 8
+classes = ["test-gap"]
+
+[repair.22.33.1478]
+record = "22.30.86"
+findings = ["22.30.86/commit-test-unbound-block", "22.30.86/seller-draw-fixture", "22.30.86/seller-rpc-route-test", "22.30.86/seller-export-unbound-block", "22.30.86/seller-export-rpc-route-test", "22.30.86/replay-test-second-release", "22.30.86/settlement-test-unbound-block"]
+files = ["services/platform/middleware/seller/test/commitment-rungs.test.mjs", "services/platform/middleware/seller/test/grant-draw.test.mjs", "services/platform/middleware/seller/test/payment-rpc.test.mjs", "services/platform/middleware/seller/test/proof_middleware_seller_ts_exports.test.mjs", "services/platform/middleware/seller/test/receipt-replay.test.mjs", "services/platform/middleware/seller/test/settlement-response.test.mjs"]
+owner_domain = 8
+classes = ["test-gap"]
+
+[repair.22.33.1479]
+record = "22.30.86"
+findings = ["22.30.86/validator-mismatch-test-masks-hash", "22.30.86/abi-test-reversed-payment", "22.30.86/pay6-rpc-root-refused", "22.30.86/python-agent-retired-proof", "22.30.86/python-submitted-payment-rung", "22.30.86/python-http-retired-proof", "22.30.86/python-rpc-unproven-commit", "22.30.86/python-rpc-root-refused"]
+files = ["services/platform/middleware/conformance/pay6/committed-rung.test.mjs", "services/platform/middleware/conformance/pay6/ledger-draw.test.mjs", "services/platform/middleware/conformance/pay6/rpc.test.mjs", "services/platform/middleware/conformance/pay6/test_agent.py", "services/platform/middleware/conformance/pay6/test_commitment.py", "services/platform/middleware/conformance/pay6/test_http.py", "services/platform/middleware/conformance/pay6/test_rpc.py"]
+owner_domain = 8
+classes = ["test-gap"]
+
+[repair.22.33.1480]
+record = "22.30.86"
+findings = ["22.30.86/conformance-node-router-fixture", "22.30.86/conformance-daemon-fixture"]
+files = ["services/platform/middleware/conformance/service.mjs"]
+owner_domain = 8
+classes = ["test-gap"]
+
+[repair.22.33.1481]
+record = "22.30.86"
+findings = ["22.30.86/memory-fulfillment-race"]
+files = ["services/platform/middleware/conformance/src/support.ts"]
+owner_domain = 8
+classes = ["test-gap"]
+
+[repair.22.33.1482]
+record = "22.30.86"
+findings = ["22.30.86/doc-root-readme"]
+files = ["README.md"]
+owner_domain = 17
+classes = ["doc-drift"]
+
+[repair.22.33.1483]
+record = "22.30.87"
+findings = ["22.30.87/rewind-path-test", "22.30.87/rpc-url-credentials"]
+files = ["services/platform/perps-data/internal/source/follower_test.go", "services/platform/perps-data/internal/source/rpc.go"]
+owner_domain = 8
+classes = ["security", "test-gap"]
+
+[repair.22.33.1484]
+record = "22.30.87"
+findings = ["22.30.87/envelope-boundary-test"]
+files = ["services/platform/perps-data/internal/publish/publisher_test.go"]
+owner_domain = 8
+classes = ["test-gap"]
+
+[repair.22.33.1485]
+record = "22.30.87"
+findings = ["22.30.87/auth-challenge-retention"]
+files = ["services/platform/perps-data/internal/auth/auth.go"]
+owner_domain = 8
+classes = ["runtime-risk"]
+
+[repair.22.33.1486]
+record = "22.30.88"
+findings = ["22.30.88/secret-file-open", "22.30.88/anchor-registry-optionality", "22.30.88/transaction-cache-growth", "22.30.88/draw-registry-signature", "22.30.88/presentation-legacy-identifier", "22.30.88/offramp-account-disagreement"]
+files = ["services/platform/ramps/toolkit/src/clients.rs", "services/platform/ramps/toolkit/src/evm.rs", "services/platform/ramps/toolkit/src/journal.rs", "services/platform/ramps/toolkit/src/lib.rs"]
+owner_domain = 8
+classes = ["interface-mismatch", "retired-reference", "runtime-risk", "security"]
+
+[repair.22.33.1487]
+record = "22.30.88"
+findings = ["22.30.88/unused-custody-cadence", "22.30.88/listener-timeouts", "22.30.88/order-purpose-idempotency"]
+files = ["services/platform/ramps/reference/src/main.rs"]
+owner_domain = 8
+classes = ["config-drift", "interface-mismatch", "runtime-risk"]
+
+[repair.22.33.1488]
+record = "22.30.88"
+findings = ["22.30.88/runbook-signer", "22.30.88/runbook-work-sequence", "22.30.88/runbook-finality", "22.30.88/readme-missing-purpose", "22.30.88/readme-payment-path", "22.30.88/example-retired-endpoint", "22.30.88/deployment-egress-disagreement", "22.30.88/journey-retired-verifier"]
+files = ["services/platform/ramps/OPERATIONS.md", "services/platform/ramps/README.md", "services/platform/ramps/config.example.json", "services/platform/ramps/deployment.yaml", "services/platform/ramps/sandbox-journey.sh"]
+owner_domain = 8
+classes = ["config-drift", "doc-drift", "retired-reference", "test-gap"]
+
+[repair.22.33.1489]
+record = "22.30.88"
+findings = ["22.30.88/journey-order-request", "22.30.88/journey-confirmation-vocabulary"]
+files = ["services/platform/ramps/sandbox-journey.sh"]
+owner_domain = 8
+classes = ["test-gap"]
+
+[repair.22.33.1490]
+record = "22.30.88"
+findings = ["22.30.88/v2-recovery-test-bypass", "22.30.88/receipt-test-third-shape", "22.30.88/signer-test-third-shape", "22.30.88/native-payment-proof-gap", "22.30.88/recovery-test-node-gateway-double"]
+files = ["services/platform/ramps/toolkit/tests/engine_legs.rs", "services/platform/ramps/toolkit/tests/evm_order.rs", "services/platform/ramps/toolkit/tests/evm_submit.rs", "services/platform/ramps/toolkit/tests/proof_precompile_1_layerxledger_0x101a.rs", "services/platform/ramps/toolkit/tests/recovery_settlement.rs"]
+owner_domain = 8
+classes = ["test-gap"]
+
+[repair.22.33.1491]
+record = "22.30.88"
+findings = ["22.30.88/root-overview-retired-daemon"]
+files = ["README.md"]
+owner_domain = 8
+classes = ["doc-drift"]
+
+[repair.22.33.1492]
+record = "22.30.89"
+findings = ["22.30.89/a2a_task_recovery", "22.30.89/test_retired_endpoint_a2a_embedded", "22.30.89/retired_endpoint_chains", "22.30.89/chain_submission_recovery", "22.30.89/retired_endpoint_faucet", "22.30.89/retired_endpoint_main", "22.30.89/mcp_serve_binding_wiring", "22.30.89/program_lifecycle_evidence"]
+files = ["tools/platform/cli/src/a2a.rs", "tools/platform/cli/src/chains.rs", "tools/platform/cli/src/faucet.rs", "tools/platform/cli/src/main.rs", "tools/platform/cli/src/mcp.rs", "tools/platform/cli/src/programs.rs"]
+owner_domain = 8
+classes = ["restart-recovery", "retired-reference", "security", "test-gap", "wiring-gap"]
+
+[repair.22.33.1493]
+record = "22.30.89"
+findings = ["22.30.89/retired_endpoint_programs", "22.30.89/program_submission_recovery", "22.30.89/retired_endpoint_register", "22.30.89/retired_endpoint_rpc", "22.30.89/retired_endpoint_subscription", "22.30.89/scaffold_build_host_path", "22.30.89/retired_endpoint_toolset", "22.30.89/tool_submit_recovery"]
+files = ["tools/platform/cli/src/programs.rs", "tools/platform/cli/src/register.rs", "tools/platform/cli/src/rpc.rs", "tools/platform/cli/src/rpc_subscription.rs", "tools/platform/cli/src/scaffold.rs", "tools/platform/cli/src/toolset.rs"]
+owner_domain = 8
+classes = ["restart-recovery", "retired-reference", "runtime-risk"]
+
+[repair.22.33.1494]
+record = "22.30.89"
+findings = ["22.30.89/wallet_finality_option", "22.30.89/retired_endpoint_wallet", "22.30.89/wallet_submission_recovery", "22.30.89/wallet_snapshot_proof_label", "22.30.89/wallet_key_file_open", "22.30.89/workspace_retired_core"]
+files = ["tools/platform/cli/src/wallet.rs", "tools/platform/cli/src/wallet_signing.rs", "tools/platform/cli/src/workspace.rs"]
+owner_domain = 8
+classes = ["config-drift", "restart-recovery", "retired-reference", "security"]
+
+[repair.22.33.1495]
+record = "22.30.89"
+findings = ["22.30.89/test_retired_endpoint_chains", "22.30.89/credential_profile_collision_gap", "22.30.89/test_retired_endpoint_faucet", "22.30.89/install_journey_a2a_contract", "22.30.89/test_retired_endpoint_lx_refusal", "22.30.89/mcp_binding_test_rewrite", "22.30.89/test_retired_endpoint_mcp_submit", "22.30.89/mcp_submit_path_test"]
+files = ["tools/platform/cli/tests/chains_commands.rs", "tools/platform/cli/tests/credential.rs", "tools/platform/cli/tests/faucet_route.rs", "tools/platform/cli/tests/install-journey.sh", "tools/platform/cli/tests/lx_switch_off.rs", "tools/platform/cli/tests/mcp_daemon_bound.rs", "tools/platform/cli/tests/mcp_evm_submit.rs"]
+owner_domain = 8
+classes = ["test-gap"]
+
+[repair.22.33.1496]
+record = "22.30.89"
+findings = ["22.30.89/test_retired_endpoint_program_calls", "22.30.89/program_capture_path_gap", "22.30.89/test_retired_endpoint_program_lifecycle", "22.30.89/program_lifecycle_third_shape", "22.30.89/test_retired_endpoint_program_registry", "22.30.89/proof_rpc_expected_failure", "22.30.89/test_retired_endpoint_rpc_identity", "22.30.89/test_retired_endpoint_wallet_commands"]
+files = ["tools/platform/cli/tests/program_evm_calls.rs", "tools/platform/cli/tests/program_evm_lifecycle.rs", "tools/platform/cli/tests/program_evm_registry.rs", "tools/platform/cli/tests/proof_cli_cli_commands.rs", "tools/platform/cli/tests/rpc_identity.rs", "tools/platform/cli/tests/wallet_commands.rs"]
+owner_domain = 8
+classes = ["test-gap"]
+
+[repair.22.33.1497]
+record = "22.30.89"
+findings = ["22.30.89/wallet_bind_success_gap", "22.30.89/test_retired_endpoint_wallet_fee", "22.30.89/test_retired_endpoint_wallet_writes", "22.30.89/wallet_third_shape_test", "22.30.89/test_retired_endpoint_wallet_reads", "22.30.89/wallet_read_capture_gap", "22.30.89/test_retired_endpoint_wallet_watch"]
+files = ["tools/platform/cli/tests/wallet_derive.rs", "tools/platform/cli/tests/wallet_estimate_fee.rs", "tools/platform/cli/tests/wallet_evm_writes.rs", "tools/platform/cli/tests/wallet_px_reads.rs", "tools/platform/cli/tests/wallet_watch_logs.rs"]
+owner_domain = 8
+classes = ["test-gap"]
+
+[repair.22.33.1498]
+record = "22.30.89"
+findings = ["22.30.89/mcp_readiness_test_rewrite"]
+files = ["tools/platform/cli/tests/common/daemon_gateway.rs"]
+owner_domain = 9
+classes = ["test-gap"]
+
+[repair.22.33.1499]
+record = "22.30.89"
+findings = ["22.30.89/readme_retired_endpoint", "22.30.89/readme_operator_contract"]
+files = ["tools/platform/cli/README.md"]
+owner_domain = 8
+classes = ["doc-drift"]
+
+[repair.22.33.1500]
+record = "22.30.89"
+findings = ["22.30.89/install_guide_inputs"]
+files = ["services/platform/docs/content/install.md"]
+owner_domain = 8
+classes = ["doc-drift"]
+
+[repair.22.33.1501]
+record = "22.30.9"
+findings = ["22.30.9/2", "22.30.9/14", "22.30.9/15", "22.30.9/16", "22.30.9/17", "22.30.9/20", "22.30.9/13", "22.30.9/18"]
+files = ["precompiles/layerxledger/abi.json", "precompiles/layerxledger/client_test.go", "precompiles/layerxledger/gas_conformance_test.go", "precompiles/layerxledger/mirror_app_test.go", "precompiles/layerxledger/parity_test.go", "precompiles/layerxledger/payments.go", "precompiles/layerxledger/transfers_test.go", "precompiles/layerxledger/views_test.go"]
+owner_domain = 2
+classes = ["interface-mismatch", "test-gap", "wiring-gap"]
+
+[repair.22.33.1502]
+record = "22.30.9"
+findings = ["22.30.9/8"]
+files = ["modules/layerxagent/keeper/keeper.go"]
+owner_domain = 2
+classes = ["config-drift"]
+
+[repair.22.33.1503]
+record = "22.30.9"
+findings = ["22.30.9/10", "22.30.9/12", "22.30.9/11"]
+files = ["precompiles/layerxauth/grants_test.go", "precompiles/layerxauth/lifecycle_test.go", "precompiles/layerxauth/parity_test.go"]
+owner_domain = 2
+classes = ["test-gap"]
+
+[repair.22.33.1504]
+record = "22.30.9"
+findings = ["22.30.9/21"]
+files = ["README.md"]
+owner_domain = 16
+classes = ["doc-drift"]
+
+[repair.22.33.1505]
+record = "22.30.90"
+findings = ["22.30.90/proof-corpus-gap", "22.30.90/proof-rung-test"]
+files = ["services/agent/crates/layerx-agent-api/tests/proof_agent_api.rs", "services/agent/crates/layerx-agent-api/tests/read_heights.rs"]
+owner_domain = 9
+classes = ["test-gap"]
+
+[repair.22.33.1506]
+record = "22.30.90"
+findings = ["22.30.90/paused-delivery", "22.30.90/outbound-connect-deadline", "22.30.90/outbound-peer", "22.30.90/unacknowledged-window", "22.30.90/subscription-upgrade-recovery"]
+files = ["services/agent/crates/layerx-agentd/src/events/deliver.rs", "services/agent/crates/layerx-agentd/src/events/outbound.rs", "services/agent/crates/layerx-agentd/src/events/subscription.rs"]
+owner_domain = 9
+classes = ["restart-recovery", "runtime-risk", "security"]
+
+[repair.22.33.1507]
+record = "22.30.90"
+findings = ["22.30.90/approval-time-units", "22.30.90/policy-history-durability"]
+files = ["services/agent/crates/layerx-agentd/src/policy/approval.rs", "services/agent/crates/layerx-agentd/src/policy/version.rs"]
+owner_domain = 9
+classes = ["restart-recovery", "runtime-risk"]
+
+[repair.22.33.1508]
+record = "22.30.90"
+findings = ["22.30.90/mcp-history-scan"]
+files = ["services/agent/crates/layerx-agentd/src/session_control.rs"]
+owner_domain = 9
+classes = ["runtime-risk"]
+
+[repair.22.33.1509]
+record = "22.30.90"
+findings = ["22.30.90/python-retired-contract"]
+files = ["tests/agent/sdk/python/test_integration.py"]
+owner_domain = 9
+classes = ["test-gap"]
+
+[repair.22.33.1510]
+record = "22.30.90"
+findings = ["22.30.90/human-approval-fixture", "22.30.90/human-decision-fixture"]
+files = ["services/human/crates/layerx-human-service/tests/approvals.rs", "services/human/crates/layerx-human-service/tests/decide.rs"]
+owner_domain = 10
+classes = ["test-gap"]
+
+[repair.22.33.1511]
+record = "22.30.91"
+findings = ["22.30.91/payer_equal_denom_fixture", "22.30.91/payer_binding_bypass"]
+files = ["services/agent/crates/layerx-agentd-host/tests/payer.rs", "services/agent/crates/layerx-agentd-host/tests/payer_evm.rs"]
+owner_domain = 9
+classes = ["test-gap"]
+
+[repair.22.33.1512]
+record = "22.30.91"
+findings = ["22.30.91/audit_concurrent_writers", "22.30.91/audit_append_crash_window", "22.30.91/audit_record_tenant_binding"]
+files = ["services/agent/crates/layerx-agentd/src/audit/log.rs", "services/agent/crates/layerx-agentd/src/audit/record.rs"]
+owner_domain = 9
+classes = ["restart-recovery", "runtime-risk", "security"]
+
+[repair.22.33.1513]
+record = "22.30.91"
+findings = ["22.30.91/enrolment_publication_recovery", "22.30.91/receipt_v2_unverified_ingress", "22.30.91/tenant_observability_growth"]
+files = ["services/agent/crates/layerx-agentd/src/enrolment.rs", "services/agent/crates/layerx-agentd/src/receipt.rs", "services/agent/crates/layerx-agentd/src/tenant.rs"]
+owner_domain = 9
+classes = ["restart-recovery", "runtime-risk", "security"]
+
+[repair.22.33.1514]
+record = "22.30.91"
+findings = ["22.30.91/subject_registration_test_gap"]
+files = ["services/agent/crates/layerx-agentd/src/human_runtime/subject/tests.rs"]
+owner_domain = 9
+classes = ["test-gap"]
+
+[repair.22.33.1515]
+record = "22.30.91"
+findings = ["22.30.91/registry_failed_read_mutation"]
+files = ["programs/crates/layerx-programs-registry/src/state_record.rs"]
+owner_domain = 13
+classes = ["runtime-risk"]
+
+[repair.22.33.1516]
+record = "22.30.91"
+findings = ["22.30.91/migration_private_file_modes", "22.30.91/store_independent_writer_loss", "22.30.91/store_private_file_modes"]
+files = ["services/agent/crates/layerx-agentd/src/store/migrate.rs", "services/agent/crates/layerx-agentd/src/store/mod.rs"]
+owner_domain = 9
+classes = ["restart-recovery", "security"]
+
+[repair.22.33.1517]
+record = "22.30.91"
+findings = ["22.30.91/error_trace_growth"]
+files = ["services/agent/crates/layerx-agentd/src/tenant/errors.rs"]
+owner_domain = 9
+classes = ["runtime-risk"]
+
+[repair.22.33.1518]
+record = "22.30.91"
+findings = ["22.30.91/human_receipt_fixture_missing_payment", "22.30.91/proof_agentd_retired_preparation"]
+files = ["services/agent/crates/layerx-agentd/tests/human_node_receipts.rs", "services/agent/crates/layerx-agentd/tests/proof_agentd.rs"]
+owner_domain = 9
+classes = ["retired-reference", "test-gap"]
+
+[repair.22.33.1519]
+record = "22.30.91"
+findings = ["22.30.91/intent_proof_chain_domain"]
+files = ["services/human/crates/layerx-intents/tests/proof_human_intents.rs"]
+owner_domain = 10
+classes = ["test-gap"]
+
+[repair.22.33.1520]
+record = "22.30.92"
+findings = ["22.30.92/missing_contracts", "22.30.92/proof_owner_join", "22.30.92/daemon_atomic_creation", "22.30.92/execution_state_test", "22.30.92/fee_fixture", "22.30.92/enrolment_atomic_creation", "22.30.92/reservation_zero_id"]
+files = ["services/agent/crates/layerx-agentd/src/budget/budget_proof.rs", "services/agent/crates/layerx-agentd/src/budget/daemon.rs", "services/agent/crates/layerx-agentd/src/budget/execution_state.rs", "services/agent/crates/layerx-agentd/src/budget/fee_policy.rs", "services/agent/crates/layerx-agentd/src/budget/mod.rs", "services/agent/crates/layerx-agentd/src/budget/reserve.rs"]
+owner_domain = 9
+classes = ["doc-drift", "restart-recovery", "security", "test-gap"]
+
+[repair.22.33.1521]
+record = "22.30.92"
+findings = ["22.30.92/grant_fixture", "22.30.92/history_range"]
+files = ["services/agent/crates/layerx-agentd/src/read/committed.rs", "services/agent/crates/layerx-agentd/src/read/history.rs"]
+owner_domain = 9
+classes = ["runtime-risk", "test-gap"]
+
+[repair.22.33.1522]
+record = "22.30.92"
+findings = ["22.30.92/wire_activity_retired", "22.30.92/wire_activity_hash", "22.30.92/wire_exports", "22.30.92/checkpoint_codec_bounds", "22.30.92/wire_sign_retired"]
+files = ["services/agent/crates/layerx-wire/src/activity.rs", "services/agent/crates/layerx-wire/src/hash.rs", "services/agent/crates/layerx-wire/src/lib.rs", "services/agent/crates/layerx-wire/src/receipt.rs", "services/agent/crates/layerx-wire/src/sign.rs"]
+owner_domain = 9
+classes = ["retired-reference", "runtime-risk"]
+
+[repair.22.33.1523]
+record = "22.30.92"
+findings = ["22.30.92/wire_hash_tests", "22.30.92/wire_rejection_tests", "22.30.92/wire_structure_tests", "22.30.92/wallet_vector_tests"]
+files = ["services/agent/crates/layerx-wire/tests/hashing.rs", "services/agent/crates/layerx-wire/tests/rejection.rs", "services/agent/crates/layerx-wire/tests/structures.rs", "services/agent/crates/layerx-wire/tests/wallet_vectors.rs"]
+owner_domain = 9
+classes = ["test-gap"]
+
+[repair.22.33.1524]
+record = "22.30.92"
+findings = ["22.30.92/doc_9"]
+files = ["README.md"]
+owner_domain = 17
+classes = ["doc-drift"]
+
+[repair.22.33.1525]
+record = "22.30.93"
+findings = ["22.30.93/offline-export-unwired", "22.30.93/human-socket-restart", "22.30.93/human-total-deadline", "22.30.93/human-limits-config-unapplied", "22.30.93/retired-environment-registry", "22.30.93/managed-evidence-lifetime-cap", "22.30.93/managed-effect-binding"]
+files = ["services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs", "services/agent/crates/layerx-agentd/src/human.rs", "services/agent/crates/layerx-agentd/src/main.rs", "services/agent/crates/layerx-agentd/src/managed_agent.rs"]
+owner_domain = 9
+classes = ["config-drift", "restart-recovery", "runtime-risk", "security", "wiring-gap"]
+
+[repair.22.33.1526]
+record = "22.30.93"
+findings = ["22.30.93/admission-controller-unwired", "22.30.93/request-deadline-tracker-unwired", "22.30.93/shedding-cancellation-hooks-unwired", "22.30.93/quota-unbounded-observations", "22.30.93/rate-counter-recovery", "22.30.93/rate-window-regression"]
+files = ["services/agent/crates/layerx-agentd/src/limits/admission.rs", "services/agent/crates/layerx-agentd/src/limits/deadline.rs", "services/agent/crates/layerx-agentd/src/limits/mod.rs", "services/agent/crates/layerx-agentd/src/limits/quota.rs", "services/agent/crates/layerx-agentd/src/limits/rate.rs"]
+owner_domain = 9
+classes = ["restart-recovery", "runtime-risk", "wiring-gap"]
+
+[repair.22.33.1527]
+record = "22.30.93"
+findings = ["22.30.93/program-hex-unicode-panic"]
+files = ["services/agent/crates/layerx-agentd/src/ops/program.rs"]
+owner_domain = 9
+classes = ["runtime-risk"]
+
+[repair.22.33.1528]
+record = "22.30.93"
+findings = ["22.30.93/support-kernel-authorizations", "22.30.93/readiness-real-path-test-gap", "22.30.93/send-authorization-retired-shape"]
+files = ["services/agent/crates/layerx-agentd/tests/support/mod.rs", "services/agent/crates/layerx-agentd/tests/support/real_authority.rs", "services/agent/crates/layerx-agentd/tests/support/send_authorization.rs"]
+owner_domain = 9
+classes = ["test-gap"]
+
+[repair.22.33.1529]
+record = "22.30.94"
+findings = ["22.30.94/budget_schema_restart_test", "22.30.94/legacy_disclosure_test", "22.30.94/revocation_chain_path_test", "22.30.94/human_node_key_fixture", "22.30.94/identity_restart_test", "22.30.94/operator_socket_test", "22.30.94/policy_activation_behavior", "22.30.94/protocol2_evidence_test"]
+files = ["services/agent/crates/layerx-agentd/tests/budget_schema.rs", "services/agent/crates/layerx-agentd/tests/disclosure.rs", "services/agent/crates/layerx-agentd/tests/grant_revocation_on_chain.rs", "services/agent/crates/layerx-agentd/tests/human_node.rs", "services/agent/crates/layerx-agentd/tests/identity.rs", "services/agent/crates/layerx-agentd/tests/operator_route.rs", "services/agent/crates/layerx-agentd/tests/policy_version.rs", "services/agent/crates/layerx-agentd/tests/protocol2_restart.rs"]
+owner_domain = 9
+classes = ["retired-reference", "test-gap"]
+
+[repair.22.33.1530]
+record = "22.30.94"
+findings = ["22.30.94/readiness_empty_key_fixture", "22.30.94/legacy_owner_signature_test"]
+files = ["services/agent/crates/layerx-agentd/tests/readiness_node_rpc.rs", "services/agent/crates/layerx-agentd/tests/w7_owner_binding.rs"]
+owner_domain = 9
+classes = ["retired-reference", "test-gap"]
+
+[repair.22.33.1531]
+record = "22.30.94"
+findings = ["22.30.94/orphan_tls_tests"]
+files = ["services/agent/crates/layerx-agentd/src/outbound_tls/tests.rs"]
+owner_domain = 9
+classes = ["test-gap"]
+
+[repair.22.33.1532]
+record = "22.30.94"
+findings = ["22.30.94/readme_startup"]
+files = ["services/agent/crates/layerx-agentd/README.md"]
+owner_domain = 9
+classes = ["doc-drift"]
+
+[repair.22.33.1533]
+record = "22.30.94"
+findings = ["22.30.94/authority_cache_unbounded", "22.30.94/boot_registry_transport", "22.30.94/compat_registry_version", "22.30.94/health_bearer_registry", "22.30.94/missing_agent_contract_pages", "22.30.94/retired_bridge_time_fixture"]
+files = ["services/agent/crates/layerx-agentd/src/authority.rs", "services/agent/crates/layerx-agentd/src/boot.rs", "services/agent/crates/layerx-agentd/src/compat.rs", "services/agent/crates/layerx-agentd/src/human_owner_mode.rs", "services/agent/crates/layerx-agentd/src/human_receipt_frame.rs", "services/agent/crates/layerx-agentd/src/protocol_evidence_time_tests.rs"]
+owner_domain = 9
+classes = ["config-drift", "doc-drift", "retired-reference", "runtime-risk"]
+
+[repair.22.33.1534]
+record = "22.30.95"
+findings = ["22.30.95/2", "22.30.95/1"]
+files = ["docker/human-service/entrypoint.sh"]
+owner_domain = 16
+classes = ["restart-recovery", "retired-reference"]
+
+[repair.22.33.1535]
+record = "22.30.95"
+findings = ["22.30.95/3", "22.30.95/4", "22.30.95/5", "22.30.95/7", "22.30.95/31", "22.30.95/50", "22.30.95/49"]
+files = ["services/agent/crates/layerx-agentd/src/cache.rs", "services/agent/crates/layerx-agentd/src/degraded.rs", "services/agent/crates/layerx-agentd/src/finality.rs", "services/agent/crates/layerx-agentd/src/protocol_evidence_native_tests.rs", "services/agent/crates/layerx-agentd/src/registry_source.rs", "services/agent/crates/layerx-agentd/src/sign.rs"]
+owner_domain = 9
+classes = ["doc-drift", "interface-mismatch", "runtime-risk", "security", "test-gap"]
+
+[repair.22.33.1536]
+record = "22.30.95"
+findings = ["22.30.95/25", "22.30.95/26", "22.30.95/28", "22.30.95/21", "22.30.95/34", "22.30.95/33", "22.30.95/12", "22.30.95/18"]
+files = ["services/agent/crates/layerx-agentd/tests/approval.rs", "services/agent/crates/layerx-agentd/tests/approval_ops.rs", "services/agent/crates/layerx-agentd/tests/approval_semantics.rs", "services/agent/crates/layerx-agentd/tests/evm_signing.rs", "services/agent/crates/layerx-agentd/tests/export.rs", "services/agent/crates/layerx-agentd/tests/finality_rungs.rs", "services/agent/crates/layerx-agentd/tests/handshake_gate.rs", "services/agent/crates/layerx-agentd/tests/human_node_budgets.rs"]
+owner_domain = 9
+classes = ["test-gap"]
+
+[repair.22.33.1537]
+record = "22.30.95"
+findings = ["22.30.95/17", "22.30.95/14", "22.30.95/13", "22.30.95/29", "22.30.95/23", "22.30.95/30", "22.30.95/32", "22.30.95/20"]
+files = ["services/agent/crates/layerx-agentd/tests/native_routes_rpc.rs", "services/agent/crates/layerx-agentd/tests/node_rpc.rs", "services/agent/crates/layerx-agentd/tests/outbox_recover.rs", "services/agent/crates/layerx-agentd/tests/prepare_expiry.rs", "services/agent/crates/layerx-agentd/tests/proof_agentd_startup.rs", "services/agent/crates/layerx-agentd/tests/protocol_evidence.rs", "services/agent/crates/layerx-agentd/tests/recovery.rs"]
+owner_domain = 9
+classes = ["retired-reference", "test-gap"]
+
+[repair.22.33.1538]
+record = "22.30.95"
+findings = ["22.30.95/22", "22.30.95/19", "22.30.95/16", "22.30.95/15", "22.30.95/24"]
+files = ["services/agent/crates/layerx-agentd/tests/signing.rs", "services/agent/crates/layerx-agentd/tests/unknown.rs", "services/agent/crates/layerx-agentd/tests/unknown_receipt_lookup.rs", "services/agent/crates/layerx-agentd/tests/w7_core_time.rs"]
+owner_domain = 9
+classes = ["retired-reference", "test-gap"]
+
+[repair.22.33.1539]
+record = "22.30.95"
+findings = ["22.30.95/27"]
+files = ["services/agent/crates/layerx-agentd/tests/approval_ordering/mod.rs"]
+owner_domain = 9
+classes = ["test-gap"]
+
+[repair.22.33.1540]
+record = "22.30.95"
+findings = ["22.30.95/35", "22.30.95/36"]
+files = ["services/human/crates/layerx-human-kms/tests/provider/native_setup.rs"]
+owner_domain = 10
+classes = ["test-gap"]
+
+[repair.22.33.1541]
+record = "22.30.96"
+findings = ["22.30.96/f11", "22.30.96/f18", "22.30.96/f10", "22.30.96/f47"]
+files = ["services/agent/crates/layerx-client/src/ai_market.rs", "services/agent/crates/layerx-client/src/lib.rs", "services/agent/crates/layerx-client/src/px.rs", "services/agent/crates/layerx-client/src/subscription.rs"]
+owner_domain = 9
+classes = ["interface-mismatch", "restart-recovery", "retired-reference", "runtime-risk"]
+
+[repair.22.33.1542]
+record = "22.30.96"
+findings = ["22.30.96/f30", "22.30.96/f33", "22.30.96/f12", "22.30.96/f48", "22.30.96/f31", "22.30.96/f32"]
+files = ["services/agent/crates/layerx-types/src/checkpoint.rs", "services/agent/crates/layerx-types/src/lib.rs", "services/agent/crates/layerx-types/src/program_lifecycle.rs", "services/agent/crates/layerx-types/src/rung.rs", "services/agent/crates/layerx-types/src/settlement.rs", "services/agent/crates/layerx-types/src/verify.rs"]
+owner_domain = 9
+classes = ["doc-drift", "retired-reference", "runtime-risk"]
+
+[repair.22.33.1543]
+record = "22.30.96"
+findings = ["22.30.96/f14", "22.30.96/f15", "22.30.96/f16", "22.30.96/f13", "22.30.96/f17"]
+files = ["services/agent/crates/layerx-agentd/src/prepare/disclose.rs", "services/agent/crates/layerx-agentd/src/prepare/expiry.rs", "services/agent/crates/layerx-agentd/src/prepare/mod.rs", "services/agent/crates/layerx-agentd/src/prepare/restore_tests.rs"]
+owner_domain = 9
+classes = ["retired-reference", "runtime-risk", "test-gap"]
+
+[repair.22.33.1544]
+record = "22.30.96"
+findings = ["22.30.96/f20", "22.30.96/f21", "22.30.96/f22", "22.30.96/f19", "22.30.96/f24", "22.30.96/f25"]
+files = ["services/agent/crates/layerx-client/src/lni/abi.rs", "services/agent/crates/layerx-client/src/lni/capabilities.rs", "services/agent/crates/layerx-client/src/lni/handshake.rs", "services/agent/crates/layerx-client/src/lni/mod.rs", "services/agent/crates/layerx-client/src/lni/report.rs", "services/agent/crates/layerx-client/src/lni/schema.rs"]
+owner_domain = 9
+classes = ["retired-reference"]
+
+[repair.22.33.1545]
+record = "22.30.96"
+findings = ["22.30.96/f26", "22.30.96/f28", "22.30.96/f27", "22.30.96/f29"]
+files = ["services/agent/crates/layerx-client/src/rpc/history.rs", "services/agent/crates/layerx-client/src/rpc/mod.rs", "services/agent/crates/layerx-client/src/rpc/payments.rs", "services/agent/crates/layerx-client/src/rpc/withdrawal.rs"]
+owner_domain = 9
+classes = ["retired-reference", "wiring-gap"]
+
+[repair.22.33.1546]
+record = "22.30.96"
+findings = ["22.30.96/f39", "22.30.96/f37", "22.30.96/f36", "22.30.96/f44", "22.30.96/f35", "22.30.96/f42", "22.30.96/f40", "22.30.96/f41"]
+files = ["services/agent/crates/layerx-client/tests/ai_market_commit.rs", "services/agent/crates/layerx-client/tests/ai_market_rpc.rs", "services/agent/crates/layerx-client/tests/evidence_rpc.rs", "services/agent/crates/layerx-client/tests/history_rpc.rs", "services/agent/crates/layerx-client/tests/module_reads_rpc.rs", "services/agent/crates/layerx-client/tests/payments_rpc.rs", "services/agent/crates/layerx-client/tests/proof_client.rs", "services/agent/crates/layerx-client/tests/px_reads.rs"]
+owner_domain = 9
+classes = ["test-gap"]
+
+[repair.22.33.1547]
+record = "22.30.96"
+findings = ["22.30.96/f46", "22.30.96/f38", "22.30.96/f45", "22.30.96/f43"]
+files = ["services/agent/crates/layerx-client/tests/receipt_rpc.rs", "services/agent/crates/layerx-client/tests/sequencer.rs", "services/agent/crates/layerx-client/tests/sequencer_reads.rs", "services/agent/crates/layerx-client/tests/withdrawal_rpc.rs"]
+owner_domain = 9
+classes = ["test-gap"]
+
+[repair.22.33.1548]
+record = "22.30.96"
+findings = ["22.30.96/f50", "22.30.96/f49"]
+files = ["services/agent/crates/layerx-types/tests/proof_types.rs", "services/agent/crates/layerx-types/tests/verification.rs"]
+owner_domain = 9
+classes = ["test-gap"]
+
+[repair.22.33.1549]
+record = "22.30.96"
+findings = ["22.30.96/f59"]
+files = ["README.md"]
+owner_domain = 1
+classes = ["doc-drift"]
+
+[repair.22.33.1550]
+record = "22.30.97"
+findings = ["22.30.97/grant_before_persist", "22.30.97/rate_lifetime_cap", "22.30.97/program_presentation_legacy", "22.30.97/program_requirement_legacy"]
+files = ["services/agent/crates/layerx-agentd/src/approval/mod.rs", "services/agent/crates/layerx-agentd/src/approval/native_program.rs", "services/agent/crates/layerx-agentd/src/approval/native_program_presentation.rs", "services/agent/crates/layerx-agentd/src/approval/program_requirement.rs"]
+owner_domain = 9
+classes = ["restart-recovery", "runtime-risk", "wiring-gap"]
+
+[repair.22.33.1551]
+record = "22.30.97"
+findings = ["22.30.97/web_hold_not_call"]
+files = ["services/agent/crates/layerx-mcp/src/tools/web.rs"]
+owner_domain = 9
+classes = ["restart-recovery"]
+
+[repair.22.33.1552]
+record = "22.30.97"
+findings = ["22.30.97/connect_deadline", "22.30.97/hex_length_validation", "22.30.97/approval_page_bound", "22.30.97/listener_monopolisation"]
+files = ["services/agent/crates/layerx-mcp/src/boundary.rs", "services/agent/crates/layerx-mcp/src/catalogue.rs", "services/agent/crates/layerx-mcp/src/listener.rs"]
+owner_domain = 9
+classes = ["interface-mismatch", "runtime-risk"]
+
+[repair.22.33.1553]
+record = "22.30.97"
+findings = ["22.30.97/alias_tests_bypass_verifier", "22.30.97/approval_fixture_not_call", "22.30.97/daemon_test_omits_session", "22.30.97/daemon_web_fixture_retired", "22.30.97/session_tests_bypass_transport", "22.30.97/web_replay_invents_rpc", "22.30.97/web_binding_fixture_retired", "22.30.97/payment_replay_invents_rpc"]
+files = ["services/agent/crates/layerx-mcp/tests/alias_precompiles.rs", "services/agent/crates/layerx-mcp/tests/approval.rs", "services/agent/crates/layerx-mcp/tests/daemon_bound.rs", "services/agent/crates/layerx-mcp/tests/session_tools_major_two.rs", "services/agent/crates/layerx-mcp/tests/web.rs", "services/agent/crates/layerx-mcp/tests/web_payments_layerxpay.rs"]
+owner_domain = 9
+classes = ["test-gap"]
+
+[repair.22.33.1554]
+record = "22.30.97"
+findings = ["22.30.97/payment_binding_fixture_retired"]
+files = ["services/agent/crates/layerx-mcp/tests/web_payments_layerxpay.rs"]
+owner_domain = 9
+classes = ["test-gap"]
+
+[repair.22.33.1555]
+record = "22.30.97"
+findings = ["22.30.97/doc_root"]
+files = ["README.md"]
+owner_domain = 17
+classes = ["doc-drift"]
+
+[repair.22.33.1556]
+record = "22.30.97"
+findings = ["22.30.97/doc_crate"]
+files = ["services/agent/crates/layerx-mcp/README.md"]
+owner_domain = 9
+classes = ["doc-drift"]
+
+[repair.22.33.1557]
+record = "22.30.98"
+findings = ["22.30.98/checkpoint-evidence-constructor", "22.30.98/registry-export-signatures-stale", "22.30.98/registry-removed-codec-symbols", "22.30.98/legacy-level-mints-commitment", "22.30.98/retired-proof-modules-exported", "22.30.98/embedded-settlement-retained"]
+files = ["services/agent/crates/layerx-proof/src/evidence.rs", "services/agent/crates/layerx-proof/src/export.rs", "services/agent/crates/layerx-proof/src/export_codec.rs", "services/agent/crates/layerx-proof/src/level.rs", "services/agent/crates/layerx-proof/src/lib.rs", "services/agent/crates/layerx-proof/src/settlement.rs"]
+owner_domain = 9
+classes = ["doc-drift", "retired-reference"]
+
+[repair.22.33.1558]
+record = "22.30.98"
+findings = ["22.30.98/activity-disclosure-still-public", "22.30.98/api-contract-document-absent", "22.30.98/crypto-retired-exports", "22.30.98/nested-activity-onboarding", "22.30.98/old-send-envelope-constructor", "22.30.98/recipient-binding-not-signed", "22.30.98/keystore-accepts-activity-preimage"]
+files = ["services/agent/crates/layerx-crypto/src/disclosure.rs", "services/agent/crates/layerx-crypto/src/lib.rs", "services/agent/crates/layerx-crypto/src/onboarding.rs", "services/agent/crates/layerx-crypto/src/send.rs", "services/agent/crates/layerx-crypto/src/settlement_recipient.rs", "services/agent/crates/layerx-crypto/src/signer.rs"]
+owner_domain = 9
+classes = ["doc-drift", "retired-reference", "security"]
+
+[repair.22.33.1559]
+record = "22.30.98"
+findings = ["22.30.98/registry-call-constructors-incomplete", "22.30.98/program-execution-fee-projection", "22.30.98/bank-monetary-projection-empty"]
+files = ["services/agent/crates/layerx-crypto/src/disclosure/call.rs"]
+owner_domain = 9
+classes = ["doc-drift", "runtime-risk"]
+
+[repair.22.33.1560]
+record = "22.30.98"
+findings = ["22.30.98/authority-fixture-old-wrapper", "22.30.98/disclosure-activity-success-tests", "22.30.98/monetary-call-tests-miss-common-view", "22.30.98/native-fee-grant-activity-test", "22.30.98/reopened-agent-signs-old-activity", "22.30.98/remote-success-fixture-is-activity", "22.30.98/ssh-agent-test-expects-old-signature"]
+files = ["services/agent/crates/layerx-crypto/tests/authority_grant.rs", "services/agent/crates/layerx-crypto/tests/disclosure.rs", "services/agent/crates/layerx-crypto/tests/disclosure_call.rs", "services/agent/crates/layerx-crypto/tests/native_fee_grant.rs", "services/agent/crates/layerx-crypto/tests/proof_crypto.rs", "services/agent/crates/layerx-crypto/tests/remote.rs", "services/agent/crates/layerx-crypto/tests/signer.rs"]
+owner_domain = 9
+classes = ["test-gap"]
+
+[repair.22.33.1561]
+record = "22.30.98"
+findings = ["22.30.98/shared-fixtures-produce-retired-ingress"]
+files = ["services/agent/crates/layerx-crypto/tests/support/mod.rs"]
+owner_domain = 9
+classes = ["test-gap"]
+
+[repair.22.33.1562]
+record = "22.30.98"
+findings = ["22.30.98/checkpoint-test-mislabels-finality", "22.30.98/export-negative-controls-already-fail", "22.30.98/terminal-suite-decodes-activities"]
+files = ["services/agent/crates/layerx-proof/tests/checkpoint.rs", "services/agent/crates/layerx-proof/tests/export_complete.rs", "services/agent/crates/layerx-proof/tests/terminal_v4.rs"]
+owner_domain = 9
+classes = ["retired-reference", "test-gap"]
+
+[repair.22.33.1563]
+record = "22.30.98"
+findings = ["22.30.98/registry-withdrawal-verifier-removed"]
+files = ["services/agent/crates/layerx-proof/src/receipt/withdrawal.rs"]
+owner_domain = 9
+classes = ["doc-drift"]
+
+[repair.22.33.1564]
+record = "22.30.99"
+findings = ["22.30.99/unbounded-stream-identities", "22.30.99/discovery-lifecycle-binding", "22.30.99/default-unified-route", "22.30.99/receipt-key-range", "22.30.99/wallet-ambient-clock"]
+files = ["services/agent/crates/layerx-sdk/src/production.rs", "services/agent/crates/layerx-sdk/src/program_http.rs", "services/agent/crates/layerx-sdk/src/rpc.rs", "services/agent/crates/layerx-sdk/src/rpc_verification.rs", "services/agent/crates/layerx-sdk/src/wallet.rs"]
+owner_domain = 9
+classes = ["config-drift", "retired-reference", "runtime-risk", "security"]
+
+[repair.22.33.1565]
+record = "22.30.99"
+findings = ["22.30.99/agent-compatibility-major", "22.30.99/agent-readme-topology", "22.30.99/clock-policy-drift"]
+files = ["services/agent/COMPATIBILITY.md", "services/agent/README.md", "services/agent/nondeterminism-allowlist.toml"]
+owner_domain = 9
+classes = ["config-drift", "doc-drift"]
+
+[repair.22.33.1566]
+record = "22.30.99"
+findings = ["22.30.99/signed-prepare-fixture", "22.30.99/bootstrap-probe-credentials", "22.30.99/program-constructor-test-gap", "22.30.99/bridge-proof-positive-gap", "22.30.99/proof-sdk-positive-gap", "22.30.99/rpc-route-fixture", "22.30.99/wallet-route-fixture", "22.30.99/binary-route-fixture"]
+files = ["services/agent/crates/layerx-sdk/tests/agent_operation_envelope.rs", "services/agent/crates/layerx-sdk/tests/native_programs.rs", "services/agent/crates/layerx-sdk/tests/proof_layerx_wallet_rpc.rs", "services/agent/crates/layerx-sdk/tests/proof_sdk.rs", "services/agent/crates/layerx-sdk/tests/rpc_node.rs", "services/agent/crates/layerx-sdk/tests/wallet_calls.rs", "services/agent/crates/layerx-sdk/tests/wallet_rpc_bin.rs"]
+owner_domain = 9
+classes = ["test-gap"]
+
+[repair.22.33.1567]
+record = "22.30.99"
+findings = ["22.30.99/payload-fuzz-coverage", "22.30.99/fuzz-module-registry"]
+files = ["services/agent/fuzz/fuzz_targets/payload_decode.rs", "services/agent/fuzz/fuzz_targets/support.rs"]
+owner_domain = 9
+classes = ["test-gap"]
+
+[repair.22.33.1568]
+record = "22.30.99"
+findings = ["22.30.99/pay2-target-missing", "22.30.99/pay2-build-text-only"]
+files = ["services/agent/qualification/pay2/Cargo.toml", "services/agent/qualification/pay2/build.rs"]
+owner_domain = 9
+classes = ["test-gap", "wiring-gap"]
+
+[repair.22.33.1569]
+record = "22.30.99"
+findings = ["22.30.99/pay2-input-test-gap"]
+files = ["services/agent/qualification/pay2/tests/build_inputs.rs"]
+owner_domain = 9
+classes = ["test-gap"]
+
+[repair.22.33.1570]
+record = "22.30.99"
+findings = ["22.30.99/isolation-surface-gap"]
+files = ["services/agent/tests/isolation/src/main.rs"]
+owner_domain = 9
+classes = ["test-gap"]
+
+[repair.22.33.1571]
+record = "22.30.99"
+findings = ["22.30.99/exactly-once-effect-gap"]
+files = ["services/agent/tests/limits/exactly_once.rs"]
+owner_domain = 9
+classes = ["test-gap"]
+
+[repair.22.33.1572]
+record = "22.30.99"
+findings = ["22.30.99/parity-synthetic-owner"]
+files = ["services/agent/tests/parity/src/main.rs"]
+owner_domain = 9
+classes = ["test-gap"]
+
+[repair.22.33.1573]
+record = "22.30.99"
+findings = ["22.30.99/policy-control-denies"]
+files = ["services/agent/tests/policy/adversarial.rs"]
+owner_domain = 9
+classes = ["test-gap"]
+
+[repair.22.33.1574]
+record = "22.30.99"
+findings = ["22.30.99/policy-harness-evidence-gap"]
+files = ["services/agent/tools/policy-harness/src/main.rs"]
+owner_domain = 9
+classes = ["test-gap"]
+
+[repair.22.33.1575]
+record = "22.30.99"
+findings = ["22.30.99/fabrication-generated-shape", "22.30.99/unsafe-policy-contradiction", "22.30.99/boundary-checker-root", "22.30.99/hostile-certificate-unchecked"]
+files = ["services/agent/tests/qualify/fabrication.rs", "services/agent/tests/qualify/fuzz.rs", "services/agent/tests/qualify/hostile_node.rs"]
+owner_domain = 9
+classes = ["config-drift", "test-gap", "wiring-gap"]
+
+[repair.22.33.1576]
+record = "22.30.99"
+findings = ["22.30.99/real-node-script-function"]
+files = ["services/agent/tests/qualify/tests/real_node_script.rs"]
+owner_domain = 9
+classes = ["test-gap"]
+
+[repair.22.33.1577]
+record = "22.30.99"
+findings = ["22.30.99/generator-retired-lifecycle"]
+files = ["services/agent/tools/sdk-gen/src/main.rs"]
+owner_domain = 9
+classes = ["retired-reference"]
+
+[repair.22.33.1578]
+record = "22.30.99"
+findings = ["22.30.99/root-readme-topology"]
+files = ["README.md"]
+owner_domain = 9
+classes = ["doc-drift"]
