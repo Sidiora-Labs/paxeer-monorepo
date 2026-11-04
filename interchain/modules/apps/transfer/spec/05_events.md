@@ -7,6 +7,8 @@ order: 5
 The following tables describe attributes emitted directly by the transfer
 [message server](../keeper/msg_server.go),
 [IBC callbacks](../ibc_module.go) and [receive keeper](../keeper/relay.go).
+`TestRepairM_1206_CallbackEvents` checks the receive, acknowledgement and timeout
+tables against real packet processing and bank refunds.
 Core IBC and bank operations can emit additional events. Packet `denom` and
 `amount` attributes are the packet's full denomination path and decimal amount
 string; they need not be the receiver's bank denomination.
@@ -31,6 +33,13 @@ keeper itself does not emit an `action` attribute.
 The callback emits this event for both successful and unsuccessful receives,
 including packet decoding failures. Fields reflect the decoded packet data;
 fields unavailable after a decoding failure may be empty.
+
+These are callback-level emissions. The [core receive handler](../../../core/keeper/msg_server.go)
+executes the callback in a cached context and publishes its events only for
+successful or asynchronous acknowledgements. For an error acknowledgement,
+it discards the callback's state and events, then writes the acknowledgement.
+Transaction event consumers must inspect that acknowledgement for the failure
+outcome; they will not see the callback's `success = false` event.
 
 | Type | Attribute Key | Attribute Value |
 |------|---------------|-----------------|

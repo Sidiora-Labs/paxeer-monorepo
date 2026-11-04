@@ -1,0 +1,44 @@
+[task]
+id = "22.33.869"
+requirement = "22998.1"
+base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
+starting_revision = "4ae51276a6e37e16a05dd5bb78f77cb652943540"
+repair = "Consume the README rewrite owned by 22.31.470 under decision 2525 and add a focused offline regression proof for audit 22.30.182/root-network-guide. README.md is outside scope and is unchanged by this task."
+source_proof = "Read the actual README sections and compare their architecture, root JSON-RPC example, hosted contract, transaction acceptance and receipt commitment, native bank funding, recovery links, executor retirements and linked paxd build commands with committed production sources and parsed JSON ABIs/OpenRPC. No subprocess, environment variable, credential or endpoint is used by the module."
+review_only = "These are documentation source assertions, not execution of the Go/C/Rust node or Make targets. BFT consensus, signature validation, live endpoint availability, funding, WAL restart/recovery and deployment correctness remain runtime/review obligations. No interface or stateful runtime is changed, so no restart or interface test is claimed."
+baseline_tests_run = false
+baseline = "Initial status/diff showed only runner-prepared .cgignore and spec bookkeeping; neither scoped file existed. gate.json showed zero build/verify runs and gates.jsonl was absent. No pre-change failures were observed or claimed: the explicit implementation-first order and exclusive hf-done gate supersede step 5's older pre-change verification request. README already contains the owner's repair at the starting revision."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_869.py"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision = "The final hf-done JSON and private /out/run/gates.jsonl bind this record and module to the exact content-derived candidate revision, command, exit code and log. A literal candidate hash embedded here would change its own revision; the external evidence ledger is authoritative."
+qualification = "Only hf-build followed by hf-done is authorized; both must pass at the same candidate revision. No gate result is claimed before it runs. The runner retains private logs and publishes the qualified candidate."
+wiring_requests = []
+format = "No Python or KVX formatter is configured for these paths; apply the existing .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions after implementation."
+
+[finding.root-network-guide]
+audit = "22.30.182"
+file = "README.md"
+audit_line = 44
+class = "doc-drift"
+severity = "medium"
+owner_domain = 17
+owner_task = "22.31.470"
+resolution = "The owning task has replaced the split custody/settlement and separate daemon/checkpoint model with one chain-125 paxd BFT network, root-path node RPC, committed-block finality, native bank funding and current linked build/recovery guidance. The module asserts each fact without editing the shared README; no expected fact is missing on inspection, so no wiring request is needed."
+tests = ["test_root_network_guide_merged_paxd_and_finality", "test_root_network_guide_root_rpc_and_hosted_gateway", "test_root_network_guide_transaction_to_committed_receipt", "test_root_network_guide_native_funding_and_recovery_links", "test_root_network_guide_retired_executors_and_merged_build", "test_root_network_guide_record_names_all_proofs_and_scope"]
+
+[gotcha.scope]
+observed = "The audit's original proposal edits README.md and asks for a pre-change verify, while decision 2525 excludes README and the explicit gate order forbids that extra run."
+resolution = "Assert the unchanged owner's README, document baseline limitations, and use only the prescribed bounded gates; retain this note here because GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.context]
+observed = "Broad combined workflow, gotcha and audit reads exceeded output limits."
+resolution = "Use bounded sections and the task's exact finding, the production README and its owning repair record; do not infer gate results from truncated context."
+
+[repair_cycle.1]
+revision = "8c2f0ccd5ef09fdcf6bc1e1def2e7b97c98639ea"
+command = "cg spec done 22.33.869 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Five tests passed; the RPC test failed because the Markdown reader treated the fenced curl example's Expected result comment as a section boundary."
+repair = "Track Markdown fences when finding section boundaries so the entire real quickstart is inspected; preserve every assertion and rerun the build and verify on the repaired candidate."

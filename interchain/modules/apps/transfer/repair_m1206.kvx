@@ -1,0 +1,42 @@
+[repair.22.33.1206]
+audit = "22.30.57"
+base_revision = "f25ab9129415b70e1e47d668e4d2d04777519969"
+implementation = "Preserve existing keeper behavior, finish the five documentation contracts, and correct the multi-hop denomination and escrow assertions at amount 2^63."
+baseline = "No pre-change gate ran: the explicit implementation-first and hf-build/hf-done-only order takes precedence over step 10's contradictory baseline request; the focused test file did not exist at the base, so no pre-change failure is claimed."
+qualification = "hf-build followed by hf-done on the unchanged candidate; the runner's private gate ledger records the exact candidate revision, command, exit and evidence location."
+continuation_base_revision = "357234853ae90e2dbfd210d59cb4085eaf01ed95"
+current_base_revision = "90c597177fcfcac6653ca7effb29d994ae45b128"
+metrics_proof_repair = "The continuation ruling records five passing proofs and a metrics JSON decoding failure; decode legacy gauge Labels as map[string]string, matching the real producer, while retaining exact denomination and last-representable-value assertions."
+qualification_repair = "The first focused run passed query/storage but rejected receives exposed core's discarded callback-event context; retain exact callback attribute assertions at the production callback boundary, assert transaction event suppression separately, and compare its acknowledgement with the real relay and refund."
+wiring_request = "Any future per-denomination inbound policy belongs to domain 6 (sdk/x/bank and interchain/modules/apps/transfer), in a separate task with real receive and refund proofs; this repair requests no policy change."
+
+[finding.transfer-doc-query-shape]
+proof = "TestRepairM_1206_QueryShape"
+path = "spec/01_concepts.md"
+assertion = "A real transfer produces the documented voucher; the registered protobuf query client and generated HTTP gateway return the documented route and denom_trace envelope, including invalid-hash and absent-trace errors."
+
+[finding.transfer-doc-port-storage]
+proof = "TestRepairM_1206_PortStorage"
+path = "spec/02_state.md"
+assertion = "Production genesis and keeper accessors store raw port bytes at 0x01; a real trace is stored at 0x02 plus raw hash bytes and decoded by the production protobuf codec."
+
+[finding.transfer-doc-timeout-event]
+proof = "TestRepairM_1206_CallbackEvents"
+path = "spec/05_events.md"
+assertion = "Real send/receive/acknowledgement transactions and a real timeout callback assert exact packet, receive sender, result/error and refund event attributes, with actual escrow refunds."
+event_boundary = "Rejected receive callback attributes are checked before core discards its cached context; real packet transactions additionally prove the same error acknowledgement, suppressed callback events and refund."
+
+[finding.transfer-doc-metrics]
+proof = "TestRepairM_1206_Metrics"
+path = "spec/06_metrics.md"
+assertion = "Real sends and receives record concurrent legacy full-denomination gauges and OpenTelemetry last-value gauges, int64 boundary behavior and cumulative counters with both source roles and channel labels."
+
+[finding.transfer-doc-receive-gating]
+proof = "TestRepairM_1206_ReceiveGating"
+path = "spec/07_params.md"
+assertion = "Real bank MsgSend and outbound transfer refuse disabled denominations while inbound mint and unescrow succeed; ReceiveEnabled rejects inbound processing and its real error acknowledgement refunds despite disabled send/receive and bank send policy."
+
+[finding.transfer-multihop-balance-proof]
+proof = "TestRepairM_1206_MultihopBalanceProof"
+path = "transfer_test.go"
+assertion = "Runs the repaired A-to-B-to-C-to-B integration proof itself at 2^63, checking B's actual voucher debit, C's actual voucher burn and B-to-C voucher escrow before and after unescrow without narrowing to int64."
