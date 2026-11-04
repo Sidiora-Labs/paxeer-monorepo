@@ -11,9 +11,10 @@ import (
 
 // HandlerOptions are the options required for constructing a default SDK AnteHandler.
 type HandlerOptions struct {
-	AccountKeeper   AccountKeeper
-	BankKeeper      types.BankKeeper
-	FeegrantKeeper  FeegrantKeeper
+	AccountKeeper  AccountKeeper
+	BankKeeper     types.BankKeeper
+	FeegrantKeeper FeegrantKeeper
+	// ParamsKeeper must be a paramskeeper.Keeper, as required by TxFeeChecker.
 	ParamsKeeper    ParamsKeeper
 	SignModeHandler authsigning.SignModeHandler
 	SigGasConsumer  func(meter sdk.GasMeter, sig signing.SignatureV2, params types.Params) error
@@ -35,6 +36,10 @@ func NewAnteHandler(options HandlerOptions) (sdk.AnteHandler, error) {
 	if options.ParamsKeeper == nil {
 		return nil, sdkerrors.Wrap(sdkerrors.ErrLogic, "params keeper is required for ante builder")
 	}
+	paramsKeeper, ok := options.ParamsKeeper.(paramskeeper.Keeper)
+	if !ok {
+		return nil, sdkerrors.Wrapf(sdkerrors.ErrLogic, "ante builder requires paramskeeper.Keeper for fee checking, got %T", options.ParamsKeeper)
+	}
 
 	if options.SignModeHandler == nil {
 		return nil, sdkerrors.Wrap(sdkerrors.ErrLogic, "sign mode handler is required for ante builder")
@@ -51,7 +56,7 @@ func NewAnteHandler(options HandlerOptions) (sdk.AnteHandler, error) {
 		NewTxTimeoutHeightDecorator(),
 		NewValidateMemoDecorator(options.AccountKeeper),
 		NewConsumeGasForTxSizeDecorator(options.AccountKeeper),
-		NewDeductFeeDecorator(options.AccountKeeper, options.BankKeeper, options.FeegrantKeeper, options.ParamsKeeper.(paramskeeper.Keeper), options.TxFeeChecker),
+		NewDeductFeeDecorator(options.AccountKeeper, options.BankKeeper, options.FeegrantKeeper, paramsKeeper, options.TxFeeChecker),
 		NewSetPubKeyDecorator(options.AccountKeeper), // SetPubKeyDecorator must be called before all signature verification decorators
 		NewValidateSigCountDecorator(options.AccountKeeper),
 		NewSigGasConsumeDecorator(options.AccountKeeper, options.SigGasConsumer),
