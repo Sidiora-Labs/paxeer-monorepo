@@ -1,7 +1,10 @@
 package utils
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"math"
 
 	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
@@ -71,7 +74,32 @@ func QueryConsensusState(
 	clientCtx client.Context, clientID string, height exported.Height, prove, latestHeight bool,
 ) (*types.QueryConsensusStateResponse, error) {
 	if prove {
-		return QueryConsensusStateABCI(clientCtx, clientID, height)
+		if !latestHeight {
+			return QueryConsensusStateABCI(clientCtx, clientID, height)
+		}
+
+		// The client proof selects a store snapshot as well as the latest
+		// consensus height. Reuse that snapshot even if the chain advances.
+		clientRes, err := QueryClientStateABCI(clientCtx, clientID)
+		if err != nil {
+			return nil, err
+		}
+		clientState, err := types.UnpackClientState(clientRes.ClientState)
+		if err != nil {
+			return nil, err
+		}
+		if clientRes.ProofHeight.RevisionHeight > math.MaxInt64 {
+			return nil, fmt.Errorf("proof height exceeds supported query height: %s", clientRes.ProofHeight)
+		}
+		pinnedCtx := clientCtx.WithHeight(int64(clientRes.ProofHeight.RevisionHeight))
+		res, err := QueryConsensusStateABCI(pinnedCtx, clientID, clientState.GetLatestHeight())
+		if err != nil {
+			return nil, err
+		}
+		if res.ProofHeight != clientRes.ProofHeight {
+			return nil, fmt.Errorf("consensus proof snapshot %s differs from client snapshot %s", res.ProofHeight, clientRes.ProofHeight)
+		}
+		return res, nil
 	}
 
 	queryClient := types.NewQueryClient(clientCtx)
@@ -142,16 +170,17 @@ func QueryTendermintHeader(clientCtx client.Context) (ibctmtypes.Header, int64, 
 		return ibctmtypes.Header{}, 0, err
 	}
 
-	page := 1
-	count := 10_000
+	if commit == nil || commit.Header == nil || commit.Height != height {
+		return ibctmtypes.Header{}, 0, fmt.Errorf("commit does not contain the requested header at height %d", height)
+	}
 
-	validators, err := node.Validators(context.Background(), &height, &page, &count)
+	validators, err := queryValidatorSet(node, height, commit.ValidatorsHash)
 	if err != nil {
 		return ibctmtypes.Header{}, 0, err
 	}
 
 	protoCommit := commit.ToProto()
-	protoValset, err := tmtypes.NewValidatorSet(validators.Validators).ToProto()
+	protoValset, err := validators.ToProto()
 	if err != nil {
 		return ibctmtypes.Header{}, 0, err
 	}
@@ -189,11 +218,14 @@ func QuerySelfConsensusState(clientCtx client.Context) (*ibctmtypes.ConsensusSta
 		return &ibctmtypes.ConsensusState{}, 0, err
 	}
 
-	page := 1
-	count := 10_000
+	if commit == nil || commit.Header == nil || commit.Height != height {
+		return &ibctmtypes.ConsensusState{}, 0, fmt.Errorf("commit does not contain the requested header at height %d", height)
+	}
+	if height == math.MaxInt64 {
+		return &ibctmtypes.ConsensusState{}, 0, fmt.Errorf("next validator height overflows at %d", height)
+	}
 
-	nextHeight := height + 1
-	nextVals, err := node.Validators(context.Background(), &nextHeight, &page, &count)
+	nextVals, err := queryValidatorSet(node, height+1, commit.NextValidatorsHash)
 	if err != nil {
 		return &ibctmtypes.ConsensusState{}, 0, err
 	}
@@ -201,8 +233,60 @@ func QuerySelfConsensusState(clientCtx client.Context) (*ibctmtypes.ConsensusSta
 	state := &ibctmtypes.ConsensusState{
 		Timestamp:          commit.Time,
 		Root:               commitmenttypes.NewMerkleRoot(commit.AppHash),
-		NextValidatorsHash: tmtypes.NewValidatorSet(nextVals.Validators).Hash(),
+		NextValidatorsHash: nextVals.Hash(),
 	}
 
 	return state, height, nil
+}
+
+// queryValidatorSet collects the complete set at one height using the safe RPC
+// page limit, then checks it against the hash committed by the selected header.
+func queryValidatorSet(node client.Client, height int64, expectedHash []byte) (*tmtypes.ValidatorSet, error) {
+	const perPage = 100
+	var validators []*tmtypes.Validator
+	seen := make(map[string]struct{})
+	total := 0
+	var power int64
+	for page := 1; ; page++ {
+		count := perPage
+		res, err := node.Validators(context.Background(), &height, &page, &count)
+		if err != nil {
+			return nil, err
+		}
+		if res == nil || res.BlockHeight != height {
+			return nil, fmt.Errorf("validator page %d does not match height %d", page, height)
+		}
+		if page == 1 {
+			total = res.Total
+		}
+		if total <= 0 || res.Total != total {
+			return nil, fmt.Errorf("inconsistent validator total on page %d: got %d, expected %d", page, res.Total, total)
+		}
+		want := min(perPage, total-len(validators))
+		if want <= 0 || res.Count != len(res.Validators) || len(res.Validators) != want {
+			return nil, fmt.Errorf("incomplete validator page %d: count %d, validators %d, expected %d", page, res.Count, len(res.Validators), want)
+		}
+		for _, val := range res.Validators {
+			if err := val.ValidateBasic(); err != nil {
+				return nil, fmt.Errorf("invalid validator on page %d: %w", page, err)
+			}
+			if !bytes.Equal(val.Address, val.PubKey.Address()) || val.VotingPower <= 0 || val.VotingPower > tmtypes.MaxTotalVotingPower-power {
+				return nil, fmt.Errorf("invalid validator key or voting power on page %d", page)
+			}
+			if _, exists := seen[string(val.Address)]; exists {
+				return nil, fmt.Errorf("duplicate validator on page %d: %X", page, val.Address)
+			}
+			seen[string(val.Address)] = struct{}{}
+			power += val.VotingPower
+			validators = append(validators, val)
+		}
+		if len(validators) == total {
+			break
+		}
+	}
+	set := tmtypes.NewValidatorSet(validators)
+	if !bytes.Equal(set.Hash(), expectedHash) {
+		return nil, fmt.Errorf("validator set hash at height %d does not match committed hash: got %X, expected %X", height, set.Hash(), expectedHash)
+	}
+	return set, nil
 }
