@@ -20899,3 +20899,27 @@ symbol = "test_finality_vector_retired"
 observed = "Attempt 6: the retired-vector scan finds tests/ci/__pycache__/test_retired_finality_vector.cpython-312-pytest-9.2.0.pyc because the attempt committed Python byte-code caches under tests/__pycache__ and tests/ci/__pycache__ (listed among its changed files)."
 assumption = "Remove the committed byte-code files and make the scan ignore __pycache__ directories; continue the attempt-6 tree."
 severity = "low"
+
+[finding.22.23.11.4]
+task = "22.23.11"
+file = "services/agent/crates/layerx-client/src/sequencer.rs"
+symbol = "RECEIPTED_FIELDS"
+observed = "Published change: paymentDenom joined RECEIPTED_FIELDS (:929) and executed() reads it (:981) while decode_receipt matches the receipted and committed rungs with Fields::exact; the daemon fixtures in services/agent/crates/layerx-agentd (src/ops/program.rs:2459-2475, src/human_runtime.rs:22393 and :23323, tests/support/mod.rs:930 and the receipt mocks under tests/) carry no paymentDenom, so on main after 22.23.11 the receipt decodes as None and seven layerx-agentd tests fail with Sequencer(Malformed), Unavailable or ItemUnproven (seen in 9.35.19 attempt 8; 9.35.18 attempt 4 on the earlier base passed them)."
+assumption = "9.98.4 adds paymentDenom to every daemon receipt fixture; 9.35.19 requires 9.98.4 and is requalified afterwards."
+severity = "high"
+
+[finding.9.35.19.5]
+task = "9.35.19"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+symbol = "retained_settlement_tests"
+observed = "Attempt 8: build passed; the lib run had 302 passed and 9 failed: the four retained_settlement_tests cases, native_policy_usage_refuses_a_page_without_a_proof, policy_usage_sums_only_proven_receipts_in_the_window and program_submission_reads_its_receipt_at_the_submitted_rung fail on receipt fixtures without paymentDenom (main-line regression from 22.23.11, not from the attempt-8 changes, which did not touch ops/program.rs), and the two TLS identity tests are producer-input tests under decision 2325."
+assumption = "Requalify the attempt-8 tree after 9.98.4 with the TLS identity tests skipped, as 9.98.2 does."
+severity = "medium"
+
+[finding.18.1562.1.4]
+task = "18.1562.1"
+file = "modules/lxphost/host.go"
+symbol = "programs_module_registration_v4_storage_retirement"
+observed = "Attempt 9: the test now deploys at ABI 2, upgrades to ABI 5 and asserts record.ABIVersion is 5 (passes), then the create call at rpc/sequencer_receipt_vectors_test.go:720 (from :1399) is refused with LXP_VERSION_UNSUPPORTED because src/modules/programs/call.c:2438 refuses a call whose abi_version exceeds the registered module's and the hosted kernel registers the programs module at ABI 4 (host.go:174-175, read.go:184-185); nothing outside the C harness registers programs_module_registration_v5. The same refusal would meet every AI market call on the network after the upgrade."
+assumption = "1.23.7 adds the ABI-5 registration to the hosted kernel behind lxphost.Config.ProgramsGuestABI and 5.99.1 switches the network at the merge upgrade (decision 2516); 18.1562.1 requires 1.23.7 and its host fixture selects ABI 5."
+severity = "high"

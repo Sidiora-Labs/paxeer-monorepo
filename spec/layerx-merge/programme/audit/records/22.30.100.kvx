@@ -1,0 +1,983 @@
+# Pre-upgrade audit of the Python agent SDK and capability slice. Proposals only.
+
+[audit.22.30.100]
+task = "22.30.100"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 61
+findings = 53
+docs_reviewed = 12
+upgrade_ready = false
+blocking = ["unverified-market-finality", "mirror-request-shape", "mirror-response-shape", "lifecycle-transaction-binding", "program-call-envelope", "program-interface-transport", "web-search-payer-header", "web-search-account-derivation", "web-search-payment-binding", "draw-send-contract", "buyer-send-contract", "seller-commitment-downgrade", "empty-receipt-keys", "grant-receipt-kind"]
+
+[file.01]
+path = "services/agent/crates/layerx-agentd/src/capability/attenuate.rs"
+lines = 380
+verdict = "issues"
+note = "Read complete: root insertion, attenuation, tenant scoping, persisted graph encoding and parent traversal; restore validation finding records the corrupt-ancestry boundary."
+
+[file.02]
+path = "services/agent/crates/layerx-agentd/src/capability/binding.rs"
+lines = 3732
+verdict = "issues"
+note = "Read complete: native program/effect/send bindings, signed purpose, replay state and restoration. Retired native-send envelope remains; identity ed25519 proofs themselves are still valid."
+
+[file.03]
+path = "services/agent/crates/layerx-agentd/src/capability/consume.rs"
+lines = 1029
+verdict = "clean"
+note = "Read complete: spend/rate reservation journals, chain settlement, receipt-result checks and restore paths; mutation/settlement APIs retain explicit failures and tenant keys."
+
+[file.04]
+path = "services/agent/crates/layerx-agentd/src/capability/effects.rs"
+lines = 1249
+verdict = "issues"
+note = "Read complete: effect derivation, registration, program spend bounds and semantic commitments. Registration economic principals still use retired derivation."
+
+[file.05]
+path = "services/agent/crates/layerx-agentd/src/capability/mod.rs"
+lines = 453
+verdict = "clean"
+note = "Read complete: capability record types, grant bounds, admission profiles, serialization and refusal dimensions; no additional disagreement in the declared types."
+
+[file.06]
+path = "services/agent/crates/layerx-agentd/src/capability/narrowing.rs"
+lines = 134
+verdict = "clean"
+note = "Read complete: narrowing of protocol authority and submission permissions; subset refusals preserve the parent capability dimensions."
+
+[file.07]
+path = "services/agent/crates/layerx-agentd/src/capability/report.rs"
+lines = 141
+verdict = "clean"
+note = "Read complete: effect and refusal reporting; dimensions, encoded fields and public report types agree with their consumers."
+
+[file.08]
+path = "services/agent/crates/layerx-agentd/src/capability/timed.rs"
+lines = 1030
+verdict = "clean"
+note = "Read complete: timed capability ancestry, tenant/agent binding, cycle/depth bounds, time windows and retained native chain checks."
+
+[file.09]
+path = "services/agent/crates/layerx-agentd/tests/ingest.rs"
+lines = 374
+verdict = "issues"
+note = "Read complete: durable queue, ordered replay, reconnect and backpressure assertions; synthetic producer coverage is recorded separately."
+
+[file.10]
+path = "services/agent/sdk/python/build_backend.py"
+lines = 92
+verdict = "clean"
+note = "Read complete: deterministic wheel metadata, timestamps, paths, example inclusion and RECORD hashes; build backend and manifest agree."
+
+[file.11]
+path = "services/agent/sdk/python/examples/budget_constrained_spending.py"
+lines = 16
+verdict = "clean"
+note = "Read complete: budget request typing, positive limit validation and idempotent client invocation; budget authority is explicit."
+
+[file.12]
+path = "services/agent/sdk/python/examples/http_402_settlement.py"
+lines = 23
+verdict = "clean"
+note = "Read complete: submission result ladder and refusal/pending handling; does not claim committed state from a submitted result."
+
+[file.13]
+path = "services/agent/sdk/python/examples/offline_receipt_verification.py"
+lines = 14
+verdict = "issues"
+note = "Read complete: shipped offline example imports a removed verifier; replacement signed-transaction example is proposed."
+
+[file.14]
+path = "services/agent/sdk/python/examples/payment_with_verification.py"
+lines = 26
+verdict = "clean"
+note = "Read complete: verified-read requirement and receipted/committed result discrimination; explicit failure handling retains the verification boundary."
+
+[file.15]
+path = "services/agent/sdk/python/examples/service_lifecycle.py"
+lines = 23
+verdict = "clean"
+note = "Read complete: service lifecycle sequencing, idempotent request wrappers and submission union validation."
+
+[file.16]
+path = "services/agent/sdk/python/layerx_sdk/__init__.py"
+lines = 595
+verdict = "issues"
+note = "Read complete: imports, public exports and __all__; obsolete external-batch evidence remains alongside the supported transaction verifier."
+
+[file.17]
+path = "services/agent/sdk/python/layerx_sdk/account_derivation.py"
+lines = 880
+verdict = "clean"
+note = "Read complete: BIP39 validation, seed/key derivation, secp256k1 arithmetic, addresses, RLP and signing helpers; retained DID identity derivation is not treated as economic authority."
+
+[file.18]
+path = "services/agent/sdk/python/layerx_sdk/agent_http.py"
+lines = 981
+verdict = "issues"
+note = "Read complete: credentials, sessions, request bounds, operation dispatch, freshness and result decoding; retired program mutation routes remain."
+
+[file.19]
+path = "services/agent/sdk/python/layerx_sdk/ai_market.py"
+lines = 2342
+verdict = "issues"
+note = "Read complete: operation codecs, EIP-1559 signatures, receipt binding, journal transitions, persistence and restart paths; finality trust and complete-write findings apply."
+
+[file.20]
+path = "services/agent/sdk/python/layerx_sdk/bip39_english.py"
+lines = 263
+verdict = "vendored"
+note = "Vendored published BIP39 English 2048-word list; header records SHA256 2f5eed53a4727b4bf8880d8f3f199efc90e58503646d9ff8eff3a2ed3b24dbda. Data takes vendored verdict."
+
+[file.21]
+path = "services/agent/sdk/python/layerx_sdk/bridge.py"
+lines = 99
+verdict = "clean"
+note = "Read complete: bridge calldata, event field order/indexing and wallet helpers agree with the declared bridge ABI."
+
+[file.22]
+path = "services/agent/sdk/python/layerx_sdk/chains.py"
+lines = 344
+verdict = "clean"
+note = "Read complete: chain tenant descriptors, strict parameter decoders, reads and mutations; tenant identity is carried in the gateway operations."
+
+[file.23]
+path = "services/agent/sdk/python/layerx_sdk/evm_transaction.py"
+lines = 388
+verdict = "clean"
+note = "Read complete: canonical RLP/EIP-1559 encoding and decoding, chain/sender signatures and ABI call machinery; rejects noncanonical encodings."
+
+[file.24]
+path = "services/agent/sdk/python/layerx_sdk/exchange.py"
+lines = 511
+verdict = "issues"
+note = "Read complete: shared ABI encoders/decoders and event helpers; current legacy exchange writes at the switched address are recorded as retired."
+
+[file.25]
+path = "services/agent/sdk/python/layerx_sdk/intent.py"
+lines = 653
+verdict = "clean"
+note = "Read complete: human-plane intent endpoints, session/step-up transport, bounded plans, refusal classes and idempotent submission. Human planning is distinct from retired exchange intents."
+
+[file.26]
+path = "services/agent/sdk/python/layerx_sdk/launchpad.py"
+lines = 100
+verdict = "clean"
+note = "Read complete: generated launchpad write/event tables, signature validation, NFT operations and wallet sending; launchpad Router remains a legitimate contract."
+
+[file.27]
+path = "services/agent/sdk/python/layerx_sdk/mirror.py"
+lines = 144
+verdict = "issues"
+note = "Read complete: subprocess policy, request serialization and output decoding compared with the real verifier executable; request and result schemas disagree."
+
+[file.28]
+path = "services/agent/sdk/python/layerx_sdk/native_capabilities.py"
+lines = 197
+verdict = "clean"
+note = "Read complete: native capability bounds, canonical ordering, duplicate/refusal rules and strict decode/encode round trips."
+
+[file.29]
+path = "services/agent/sdk/python/layerx_sdk/native_effect.py"
+lines = 100
+verdict = "clean"
+note = "Read complete: native effect request serialization, profile/resource bounds and generated API request assembly; no retired handshake in this file."
+
+[file.30]
+path = "services/agent/sdk/python/layerx_sdk/native_program_call.py"
+lines = 60
+verdict = "clean"
+note = "Read complete: native host-call payload field order, fixed/resource bounds, ABI eligibility and canonical decoder. This payload codec is distinct from the broken economic transaction wrapper."
+
+[file.31]
+path = "services/agent/sdk/python/layerx_sdk/perps.py"
+lines = 481
+verdict = "issues"
+note = "Read complete: fixed-width perps activity layouts and current precompile write helpers; identifier and flag input validation findings apply."
+
+[file.32]
+path = "services/agent/sdk/python/layerx_sdk/production.py"
+lines = 298
+verdict = "issues"
+note = "Read complete: operation allowlists, retry/error mapping, secret lifetime, idempotency and exact amount wrapper; fractional coercion is recorded."
+
+[file.33]
+path = "services/agent/sdk/python/layerx_sdk/program_lifecycle.py"
+lines = 180
+verdict = "issues"
+note = "Read complete: deploy/upgrade/wind-down codecs, interface framing, code digest and request binding; transaction wrapper and total payload bounds require migration."
+
+[file.34]
+path = "services/agent/sdk/python/layerx_sdk/program_wire.py"
+lines = 921
+verdict = "issues"
+note = "Read complete: lifecycle/call framing, signature binding, native execution/effect/event/occupancy codecs and resource limits; the retired economic call envelope prevents current submission."
+
+[file.35]
+path = "services/agent/sdk/python/layerx_sdk/programs.py"
+lines = 900
+verdict = "issues"
+note = "Read complete: program discovery, interface, simulation, submission, retained calls, key trust and recovery; registry transport and key rotation findings apply."
+
+[file.36]
+path = "services/agent/sdk/python/layerx_sdk/px.py"
+lines = 909
+verdict = "clean"
+note = "Read complete: hosted gateway method routing, endpoint validation, receipt keys, network consensus head, transaction history and committed-block decoding; current height and cursor contracts are preserved."
+
+[file.37]
+path = "services/agent/sdk/python/layerx_sdk/revert.py"
+lines = 465
+verdict = "clean"
+note = "Read complete: generated result-code lookup, Error/Panic/custom ABI decoding and retry classification; no silent successful fallback on malformed revert data."
+
+[file.38]
+path = "services/agent/sdk/python/layerx_sdk/spot.py"
+lines = 111
+verdict = "clean"
+note = "Read complete: module-10 payload types and current generated PECOR call allowlist; shared identifier validation defect is owned by perps.py."
+
+[file.39]
+path = "services/agent/sdk/python/layerx_sdk/verifier.py"
+lines = 410
+verdict = "issues"
+note = "Read complete: receipt decoding, EIP-1559 binding, pinned key ID and inclusive heights, signature/refusal behavior; obsolete batch-authority dataclass remains."
+
+[file.40]
+path = "services/agent/sdk/python/layerx_sdk/web_search.py"
+lines = 983
+verdict = "issues"
+note = "Read complete: HTTP challenges, payer/grant encoding, exact/metered selection, receipt validation and settlement; current server account/header and payment-proof mismatches are recorded."
+
+[file.41]
+path = "services/agent/sdk/python/layerx_sdk/x402.py"
+lines = 245
+verdict = "issues"
+note = "Read complete: ledger payExact calldata/event verification and receipt-key path; obsolete batch evidence remains, and shared grant-draw callers cannot verify the real draw method/event."
+
+[file.42]
+path = "services/agent/sdk/python/layerx_sdk/x402_activity.py"
+lines = 77
+verdict = "issues"
+note = "Read complete: Receive activity binder and hash derivation; only the retired economic activity envelope is accepted."
+
+[file.43]
+path = "services/agent/sdk/python/layerx_sdk/x402_agent.py"
+lines = 119
+verdict = "clean"
+note = "Read complete: SQLite tenant/asset budgets, durable reservations, replay constraints and exact verification commitment; failures retain reservations and do not silently release spend."
+
+[file.44]
+path = "services/agent/sdk/python/layerx_sdk/x402_draw.py"
+lines = 119
+verdict = "issues"
+note = "Read complete: grant draw registration, SQLite claim, submit/receipt recovery and evidence checks; send contract, durable hash migration and null receipt findings apply."
+
+[file.45]
+path = "services/agent/sdk/python/layerx_sdk/x402_grant.py"
+lines = 73
+verdict = "clean"
+note = "Read complete: grant/receive terms, payer/payee/asset/amount/purpose bounds, expiration, network and subscription windows; wire authorization is checked downstream."
+
+[file.46]
+path = "services/agent/sdk/python/layerx_sdk/x402_http.py"
+lines = 610
+verdict = "issues"
+note = "Read complete: challenge/offer validation, durable fulfillment, exact/grant/buyer/seller paths and response parsing; send contract and commitment enforcement findings apply."
+
+[file.47]
+path = "services/agent/sdk/python/layerx_sdk/x402_receive.py"
+lines = 270
+verdict = "clean"
+note = "Read complete: grant and receive fixed-layout codecs, authorization messages, registration/draw payloads and canonical value bounds; the retained payload bytes are not themselves EVM ingress."
+
+[file.48]
+path = "services/agent/sdk/python/layerx_sdk/x402_rpc.py"
+lines = 348
+verdict = "issues"
+note = "Read complete: RPC envelopes, key decoding, EVM send/receipt transport, rung/status binding and legacy evidence helper; endpoint, empty-key and obsolete batch evidence findings apply."
+
+[file.49]
+path = "services/agent/sdk/python/layerx_sdk/xweb_api.py"
+lines = 785
+verdict = "clean"
+note = "Read complete: xweb kind-3 payload and attestor credential ECIES/HKDF/AES-GCM encoders, URL/header limits, secp256k1 and ABI invocation; matches the native decoder boundaries."
+
+[file.50]
+path = "services/agent/sdk/python/pyproject.toml"
+lines = 29
+verdict = "issues"
+note = "Read complete: deterministic build metadata and optional dependency declarations agree with the backend, but default pytest discovery excludes the local integration suites."
+
+[file.51]
+path = "services/agent/sdk/python/tests/market_receipt_producer.c"
+lines = 54
+verdict = "issues"
+note = "Read complete: canonical C receipt fixture producer; its empty effects and invented roots are insufficient evidence of the actual node producer."
+
+[file.52]
+path = "services/agent/sdk/python/tests/test_ai_market_commit.py"
+lines = 375
+verdict = "issues"
+note = "Read complete: journal durability, nonce, receipt/refusal, landing and restart tests; commit proof boundary is replaced by constant hashes."
+
+[file.53]
+path = "services/agent/sdk/python/tests/test_px_commit.py"
+lines = 214
+verdict = "clean"
+note = "Read complete: consensus latest_height decoding, no anchor, receipt key/history references, cursor stability and zero-DID refusal coverage."
+
+[file.54]
+path = "services/agent/sdk/python/tests/test_receipt_generated_current.py"
+lines = 68
+verdict = "clean"
+note = "Read complete: regenerated receipt outputs, copied generator inputs and pipeline hash assertions; no assertions are weakened or skipped."
+
+[file.55]
+path = "services/agent/sdk/python/tests/test_retired_kernel_receipts.py"
+lines = 283
+verdict = "issues"
+note = "Read complete: removed verifier/receipt surface assertions and current receipt paths; test explicitly protects retired batch evidence."
+
+[file.56]
+path = "services/agent/sdk/python/tests/test_revert_retryable.py"
+lines = 17
+verdict = "clean"
+note = "Read complete: revert table/parser and retry-class assertions cover known, unknown and malformed errors without weakening refusal behavior."
+
+[file.57]
+path = "services/agent/sdk/python/tests/test_sequencer_receipt.py"
+lines = 297
+verdict = "clean"
+note = "Read complete: conformance signed transaction/receipt corpus, key-ID/height pins, EVM hash/signature and mutation refusals; independent live transport gaps are recorded on their callers."
+
+[file.58]
+path = "services/agent/sdk/python/tests/test_spot_call.py"
+lines = 105
+verdict = "clean"
+note = "Read complete: PECOR spot calls, generated signatures/selectors, parity and unsupported write refusal; no extra mutation is performed."
+
+[file.59]
+path = "services/agent/sdk/python/tests/test_web_search_sequencer.py"
+lines = 271
+verdict = "issues"
+note = "Read complete: web settlement and key refusal tests; generic transfer fixture and bypassed challenge boundary are recorded."
+
+[file.60]
+path = "services/agent/sdk/python/tests/test_x402_draw_sequencer.py"
+lines = 333
+verdict = "issues"
+note = "Read complete: payment verifier, key refusal, prepared draw and restart tests; send double and direct DB insertion hide production contracts."
+
+[file.61]
+path = "services/agent/sdk/python/tests/test_x402_http_sequencer.py"
+lines = 264
+verdict = "issues"
+note = "Read complete: seller/buyer evidence, replay, fulfillment restart and key-tampering tests; obsolete send double and untested committed-offer enforcement remain."
+
+[finding.graph-restore]
+file = "services/agent/crates/layerx-agentd/src/capability/attenuate.rs"
+line = 279
+class = "restart-recovery"
+severity = "medium"
+observed = "decode_graph inserts persisted nodes directly, overwriting duplicate IDs and accepting foreign tenants, missing parents and cycles. chain and is_enabled follow parents without a visited set, so a self-parent in restored data loops indefinitely."
+expected = "Restored capability graphs must retain the tenant, uniqueness and attenuation invariants enforced by insert_root and attenuate, and reject corrupt ancestry before serving authorization."
+proposal = "In services/agent/crates/layerx-agentd/src/capability/attenuate.rs validate every restored node, parent and attenuation edge, reject duplicate IDs and cycles, and bound traversal; cover corrupt and valid restart cases."
+owner_domain = 9
+interface = "9.rs-agentd-capability-attenuate-capabilitygraph-j43"
+
+[finding.native-send-envelope]
+file = "services/agent/crates/layerx-agentd/src/capability/binding.rs"
+line = 3490
+class = "retired-reference"
+severity = "medium"
+observed = "verify_native_send_canonical reconstructs layerx_wire::activity::encode_unsigned_envelope and the ed25519 signing preimage from Prepared.envelope. Native send admission still depends on the retired economic activity framing."
+expected = "Native send preparation and restoration must bind the raw EIP-1559 transaction, chain ID 125, sender, destination, calldata and nonce without the retired LayerX activity envelope (brief and requirement 22063.1)."
+proposal = "Migrate services/agent/crates/layerx-agentd/src/capability/binding.rs native-send admission and restoration to the signed EVM transaction binding used by preparation; preserve replay consumption and exact retained bytes."
+owner_domain = 9
+interface = "9.rs-agentd-capability-binding-native-send-purpose-digest-j43"
+
+[finding.registration-principal]
+file = "services/agent/crates/layerx-agentd/src/capability/effects.rs"
+line = 379
+class = "retired-reference"
+severity = "medium"
+observed = "native_registration_terms derives the issuer with did_id_for_protocol(actor,3), and derive_native_registration derives the fee principal with AccountId::for_asset and account_id_for_protocol. The economic principal remains a DID-derived legacy account."
+expected = "Merged economic authorization must follow the EVM address and its bound ledger owner/account, while DID ed25519 proof remains identity authority; registration and fee debit must identify the same live account."
+proposal = "Update services/agent/crates/layerx-agentd/src/capability/effects.rs with the owning ledger domain to derive registration issuer and fee principal from the verified EVM preparation and ledger account lookup, retaining supply-cap checks."
+owner_domain = 9
+interface = "9.rs-agentd-capability-effects-derive-native-registration-j43"
+
+[finding.ingest-producer-coverage]
+file = "services/agent/crates/layerx-agentd/tests/ingest.rs"
+line = 28
+class = "test-gap"
+severity = "medium"
+observed = "event constructs three arbitrary canonical bytes and a declared SEQUENCER_SIGNED level. Queue/backpressure/restart tests cover storage, but do not connect these bytes or watermark advancement to a node event producer."
+expected = "Requirements 9038.1 and 9038.2 need event ingestion and recovery to agree with the running producer, including position, authenticated receipt and replay after disconnection."
+proposal = "Extend services/agent/crates/layerx-agentd/tests/ingest.rs with emitted node events through the real subscription/backfill decoder and a restart boundary, retaining the existing storage and backpressure assertions."
+owner_domain = 9
+
+[finding.offline-example-import]
+file = "services/agent/sdk/python/examples/offline_receipt_verification.py"
+line = 5
+class = "wiring-gap"
+severity = "medium"
+observed = "offline_receipt_verification imports verify_receipt from layerx_sdk and calls it, although __init__.py and verifier.py no longer define that symbol. Importing this shipped example fails before verification begins."
+expected = "The offline example must demonstrate the supported signed EVM receipt verifier with raw transaction bytes and key-ID/height pins, rather than the removed AuthorizedReceiptBatch verifier."
+proposal = "Rewrite services/agent/sdk/python/examples/offline_receipt_verification.py around verify_sequencer_receipt, raw signed transaction bytes and ReceiptKey ranges, and exercise the installed example against a real receipt vector."
+owner_domain = 9
+
+[finding.retired-public-exports]
+file = "services/agent/sdk/python/layerx_sdk/__init__.py"
+line = 197
+class = "retired-reference"
+severity = "medium"
+observed = "The public SDK exports AuthorizedReceiptBatch, PaymentCommitmentEvidence and rpc_batch_evidence alongside the replacement sequencer receipt API, advertising retired external batch-authority and Merkle evidence as supported payment tools."
+expected = "The merged SDK surface must describe transaction receipts authenticated by governed key-ID/height pins and committed blocks; retired external receipt authority and batch-seal evidence must not be public integration paths."
+proposal = "Remove or explicitly migrate the retired exports in services/agent/sdk/python/layerx_sdk/__init__.py together with their consumers and examples, preserving the current ReceiptKey and sequencer verification APIs."
+owner_domain = 9
+
+[finding.retired-program-routes]
+file = "services/agent/sdk/python/layerx_sdk/agent_http.py"
+line = 60
+class = "retired-reference"
+severity = "medium"
+observed = "_ROUTES maps deploy, upgrade, wind-down and call mutations to /v1/programs/deploy, /upgrade, /wind-down and /call, and the lifecycle encoder binds the old signed_activity before transport."
+expected = "The retired-component inventory replaces these program mutation ingress routes with signed EVM transactions to 0x101D; local review, session authentication and preparation must remain available."
+proposal = "Move services/agent/sdk/python/layerx_sdk/agent_http.py program mutation dispatch to the merged preparation/sign/send flow for 0x101D and retain idempotent hash-based recovery without reintroducing the retired routes."
+owner_domain = 9
+
+[finding.unverified-market-finality]
+file = "services/agent/sdk/python/layerx_sdk/ai_market.py"
+line = 1714
+class = "security"
+severity = "high"
+observed = "OperationJournal.finalize promotes an EXECUTED record to FINALIZED and COMMITTED using a caller-constructed CommitFinality after a height comparison. app_hash and store_proof_digest are never verified or used; a receipted transaction without landing evidence can be finalized with arbitrary nonzero digests."
+expected = "A market operation is final only when its transaction is included in a BFT committed block. An unverified height/hash DTO must not turn a signed execution receipt into a committed operation."
+proposal = "In services/agent/sdk/python/layerx_sdk/ai_market.py accept finality produced by commit/validator and transaction-inclusion verification, bind it to the retained transaction hash and landing block, and retain receipted state until that evidence succeeds."
+owner_domain = 9
+
+[finding.journal-short-write]
+file = "services/agent/sdk/python/layerx_sdk/ai_market.py"
+line = 1608
+class = "restart-recovery"
+severity = "medium"
+observed = "OperationJournal.persist calls os.write once without checking its returned byte count, then fsyncs and replaces the durable record. A successful short write publishes a truncated journal in place of the last recoverable operation."
+expected = "A durable signed-operation journal must publish the complete serialized record or leave its prior record intact, including under partial writes and storage failures."
+proposal = "Use a complete-write loop or a checked buffered write in services/agent/sdk/python/layerx_sdk/ai_market.py before fsync/rename, and verify partial-write failure leaves restart recovery with an intact record."
+owner_domain = 9
+
+[finding.legacy-exchange-writes]
+file = "services/agent/sdk/python/layerx_sdk/exchange.py"
+line = 428
+class = "retired-reference"
+severity = "medium"
+observed = "exchange_request_settlement_call still builds requestSettlement(bytes32) at 0x1015, and the module advertises legacy LayerXExchange methods at the address now selected for Perps. The registry marks these exchange signatures as pre-v6120."
+expected = "After the version switch 0x1015 uses the current Perps ABI; retired exchange intents and requestSettlement must not be presented as current merged-network settlement operations."
+proposal = "Retire the legacy public exchange builders in services/agent/sdk/python/layerx_sdk/exchange.py or place them behind explicit historical-version APIs; route current orders and positions through the canonical perps builders."
+owner_domain = 9
+interface = "3.pc-0x1015-exchange-requestsettlement"
+
+[finding.mirror-request-shape]
+file = "services/agent/sdk/python/layerx_sdk/mirror.py"
+line = 58
+class = "interface-mismatch"
+severity = "high"
+observed = "MirrorVerifier.receipt emits evidence={kind:receipt,canonical_hex:...} and state emits kind:state with canonical_hex/proof_hex. The real layerx-mirror-verify EvidenceRequest denies unknown fields and accepts only Receipt{index} or Committed, so both Python entry points are refused as malformed."
+expected = "Python mirror requests must round-trip with services/interop/crates/layerx-mirror/src/bin/layerx-mirror-verify.rs using a mirrored receipt index or the committed-header query, with the same source policy."
+proposal = "Change services/agent/sdk/python/layerx_sdk/mirror.py to expose receipt-by-index and committed-header verification matching the executable, retire the removed state-proof request, and qualify both against the real process."
+owner_domain = 9
+interface = "11.cli-mirror-verify"
+
+[finding.mirror-response-shape]
+file = "services/agent/sdk/python/layerx_sdk/mirror.py"
+line = 100
+class = "interface-mismatch"
+severity = "high"
+observed = "decode_mirror_process_result requires checkpointLevel=unavailable plus batchNumber and headerDigest. The current executable report emits committedHeight and committedBlockHash, omits those retired fields and permits null evidenceDigest for Committed; valid current output is rejected."
+expected = "The mirror result must expose the committed block height/hash emitted by the actual verifier, with evidence digest optional for a committed-header request and no invented checkpoint field."
+proposal = "Update MirrorVerification and decode_mirror_process_result in services/agent/sdk/python/layerx_sdk/mirror.py to the executable report schema, and verify a real receipt result and committed-header result through the subprocess boundary."
+owner_domain = 9
+interface = "11.cli-mirror-verify"
+
+[finding.trading-id-whitespace]
+file = "services/agent/sdk/python/layerx_sdk/perps.py"
+line = 34
+class = "runtime-risk"
+severity = "medium"
+observed = "_check_id validates text length and lowercase but bytes.fromhex ignores whitespace, and the decoded size is not checked. A 64-character identifier containing spaces can encode fewer than 32 bytes, shifting every following fixed-width field."
+expected = "Every perps and spot identifier must contain exactly 64 lowercase hexadecimal digits and encode exactly 32 bytes before a fixed-width payload is built."
+proposal = "Require an exact hexadecimal alphabet and a 32-byte result in services/agent/sdk/python/layerx_sdk/perps.py _check_id, and cover whitespace-containing IDs in both perps and spot payload construction."
+owner_domain = 9
+
+[finding.trading-boolean-coercion]
+file = "services/agent/sdk/python/layerx_sdk/perps.py"
+line = 60
+class = "runtime-risk"
+severity = "medium"
+observed = "Writer.flag appends 1 for any truthy object and 0 for any falsy object. Typed payload constructors can therefore silently encode strings or integers as boolean protocol fields."
+expected = "The strict activity encoders must refuse non-boolean flags just as Writer.uint refuses booleans as integers, so malformed user input cannot be silently reinterpreted."
+proposal = "Validate type(value) is bool in services/agent/sdk/python/layerx_sdk/perps.py Writer.flag before encoding, preserving exact true/false round trips for every layout with flag fields."
+owner_domain = 9
+
+[finding.amount-float-truncation]
+file = "services/agent/sdk/python/layerx_sdk/production.py"
+line = 132
+class = "runtime-risk"
+severity = "medium"
+observed = "ProtocolAmount rejects bool but accepts other non-string values if comparisons succeed, then int.__new__ coerces them. ProtocolAmount(1.9) silently becomes 1, changing a monetary amount instead of refusing the input."
+expected = "Protocol amounts accept exact integers or canonical decimal strings in the u128 range; fractional numeric values must never be rounded or truncated into a financial instruction."
+proposal = "In services/agent/sdk/python/layerx_sdk/production.py require an actual integer or validated canonical string before conversion, and verify fractional and non-finite inputs are refused without a mutation."
+owner_domain = 9
+
+[finding.lifecycle-transaction-binding]
+file = "services/agent/sdk/python/layerx_sdk/program_lifecycle.py"
+line = 37
+class = "wiring-gap"
+severity = "high"
+observed = "Every NativeProgramLifecycleRequest invokes bind_signed_program_lifecycle, which accepts only the tagged 0x1001 protocol-3 ed25519 activity. A signed EVM deploy/upgrade/wind-down transaction to 0x101D cannot construct the request."
+expected = "The merged program lifecycle must bind the submitted raw EIP-1559 transaction to chain ID 125, target 0x101D, lifecycle calldata, sender and nonce, and retain those exact bytes for recovery."
+proposal = "Migrate NativeProgramLifecycleRequest in services/agent/sdk/python/layerx_sdk/program_lifecycle.py to validated EVM lifecycle calldata and raw transaction binding, coordinated with program_wire.py and agent_http.py."
+owner_domain = 9
+
+[finding.deployment-size-bound]
+file = "services/agent/sdk/python/layerx_sdk/program_lifecycle.py"
+line = 47
+class = "runtime-risk"
+severity = "medium"
+observed = "_code permits WASM up to 1,048,576 bytes, while NativeProgramDeploy.encode adds at least the 104-byte envelope and does not enforce the complete payload limit. Oversized AI-market guest deployments pass local validation."
+expected = "Brief fact 6 and decision 2483 limit the complete deployment payload to 524288 bytes including the 104-byte envelope and any encoded interface metadata."
+proposal = "Enforce the complete encoded deployment bound in services/agent/sdk/python/layerx_sdk/program_lifecycle.py and report the remaining WASM budget after envelope/interface bytes; cover the exact limit and one byte over."
+owner_domain = 9
+
+[finding.program-call-envelope]
+file = "services/agent/sdk/python/layerx_sdk/program_wire.py"
+line = 134
+class = "interface-mismatch"
+severity = "high"
+observed = "_signed_call_envelope requires tag 0x1001 and activity type 0x00090003, verifies ed25519 and hashes LXP/v1/activity-id. The declared 0x101D call executes ABI calldata inside an EIP-1559 transaction with a keccak transaction hash."
+expected = "The program-call verifier and recovery binder must accept the real 0x101D call transaction and bind program ID, ABI, entrypoint, capabilities, resources, fee and chain identity from its calldata."
+proposal = "Replace the retired economic envelope binding in services/agent/sdk/python/layerx_sdk/program_wire.py with EVM transaction and 0x101D ABI decoding, retaining native payload codecs only where the live host ABI uses them."
+owner_domain = 9
+interface = "13.pc-0x101d-call"
+
+[finding.program-receipt-key-rotation]
+file = "services/agent/sdk/python/layerx_sdk/programs.py"
+line = 145
+class = "runtime-risk"
+severity = "medium"
+observed = "ProgramTrustContext requires every ReceiptKey.public_key to equal the single sequencer_public_key, and lifecycle recovery filters its pins by that same key. A valid key list spanning a signing-key rotation cannot be represented."
+expected = "Requirements 9964.1, 9964.2 and 181551.1 authenticate receipts using the matching key ID and inclusive height interval, allowing different public keys before and after a governed rotation."
+proposal = "Change services/agent/sdk/python/layerx_sdk/programs.py trust and lifecycle recovery to select the governed key by receipt key ID and height, keeping discovery signing authority separate from receipt-key rotation."
+owner_domain = 9
+interface = "8.rpc-gateway-px-getreceiptkeys"
+
+[finding.program-interface-transport]
+file = "services/agent/sdk/python/layerx_sdk/programs.py"
+line = 727
+class = "wiring-gap"
+severity = "high"
+observed = "ProgramsClient._interface requires receipt_digest and decimal-string freshness fields. AgentHttpTransport selects the registry HTTP interface route, whose routes.rs read_interface emits deployment_receipt_digest and numeric observed_sequence/observed_at/valid_through. This transport cannot feed its response into the Python program decoder; the daemon operation is a distinct schema."
+expected = "Program interface discovery must preserve the names and integer encodings of the actual registry producer through the selected HTTP transport, or use the daemon operation schema consistently end to end."
+proposal = "Align services/agent/sdk/python/layerx_sdk/programs.py _interface and agent_http.py with services/platform/hosted/registry/src/routes.rs read_interface, including deployment_receipt_digest and freshness types; qualify the emitted response through that route."
+owner_domain = 9
+interface = "9.http-rpc-program-interface"
+
+[finding.retired-batch-authority]
+file = "services/agent/sdk/python/layerx_sdk/verifier.py"
+line = 188
+class = "retired-reference"
+severity = "medium"
+observed = "AuthorizedReceiptBatch remains a public dataclass carrying batch_id, previous/resulting state roots and a sequencer public key although external batch authority was retired and the verifier now authenticates signed EVM receipts with ReceiptKey."
+expected = "The SDK must not present a retired batch-authority object as the basis for trust in the merged network; key-ID/height receipt pins and committed-block evidence define that trust."
+proposal = "Remove the obsolete AuthorizedReceiptBatch path in services/agent/sdk/python/layerx_sdk/verifier.py together with its public exports and program consumers, preserving the active signed-receipt verifier."
+owner_domain = 9
+
+[finding.web-search-payer-header]
+file = "services/agent/sdk/python/layerx_sdk/web_search.py"
+line = 35
+class = "interface-mismatch"
+severity = "high"
+observed = "_exchange sends LAYERX-PAYER-DID after resolving an address to a DID. The current server payer_address in payment.rs:1887 reads only LAYERX-PAYER-ADDRESS and validates a 20-byte EVM address; the Python header is ignored, so metered offers lose their payer."
+expected = "The web-search payer handshake must send the current EVM payer address and let the server bind it through the address precompile; a configured payer mismatch must retain the server refusal."
+proposal = "Update services/agent/sdk/python/layerx_sdk/web_search.py to send the validated payer EVM address in LAYERX-PAYER-ADDRESS and qualify metered challenge selection against the real server with an unconfigured server payer."
+owner_domain = 9
+interface = "11.rs-xws-payment-gate-payer"
+
+[finding.web-search-account-derivation]
+file = "services/agent/sdk/python/layerx_sdk/web_search.py"
+line = 762
+class = "interface-mismatch"
+severity = "high"
+observed = "For non-native assets _offer re-derives payTo and payer with _wallet_account SHA256 over legacy agent:did account names. The live server payment.rs:134-169 obtains accountId(bytes32,bytes32) from the ledger for those assets; only its native-PAX compatibility branch uses account-name aliases. Valid non-native offers are rejected."
+expected = "Non-native offer account and payer validation must use the same EVM-owner ledger account lookup as the server; native-PAX compatibility aliases must remain consistent with the separately advertised native branch."
+proposal = "In services/agent/sdk/python/layerx_sdk/web_search.py validate non-native payTo/payer through the authenticated ledger account lookup shared with the server, preserve its native-PAX compatibility branch, and qualify actual offers for every configured currency."
+owner_domain = 9
+interface = "11.rs-xws-payment-gate-payee"
+
+[finding.web-search-payment-binding]
+file = "services/agent/sdk/python/layerx_sdk/web_search.py"
+line = 450
+class = "security"
+severity = "high"
+observed = "verify_web_search_payment checks only receipt header module, operation, asset, amount and from/to. It never verifies payExact calldata or the bound payment event. The local test accepts the generic native-transfer corpus case as web payment, while actual ledger calls have the precompile as transaction destination."
+expected = "A web-search payment must prove the successful ledger payment instruction and event for the quoted recipient, asset and amount; a generic native transfer is not that payment and a valid contract call must remain accepted."
+proposal = "Use the ledger payment calldata/event verifier in services/agent/sdk/python/layerx_sdk/web_search.py, coordinated with x402.py, and prove actual exact and metered payments from node receipts instead of header-only transfer fixtures."
+owner_domain = 9
+interface = "6.pc-0x101a-payexact"
+
+[finding.retired-payment-evidence]
+file = "services/agent/sdk/python/layerx_sdk/x402.py"
+line = 35
+class = "retired-reference"
+severity = "medium"
+observed = "PaymentCommitmentEvidence and _SequencerAuthorization retain canonical batch headers, signatures, Merkle proofs and batch-number authorization ranges. They remain exported although current payment verification uses ReceiptKey and raw transactions."
+expected = "Payment evidence must follow submitted/receipted/committed transaction rungs, with governed receipt-key height pins and block commitment; retired external batch-seal authorization is not a current payment proof."
+proposal = "Retire the obsolete evidence dataclasses in services/agent/sdk/python/layerx_sdk/x402.py and migrate all exports, helpers and tests to the live receipt and committed-block evidence model."
+owner_domain = 9
+
+[finding.receive-activity-envelope]
+file = "services/agent/sdk/python/layerx_sdk/x402_activity.py"
+line = 35
+class = "retired-reference"
+severity = "medium"
+observed = "bind_receive_activity accepts only tagged 0x1001 activity envelopes and returns unprefixed SHA256(LXP/v1/activity-id || canonical). PreparedGrantDraws.register uses this as its durable lookup identity, which differs from the EVM RPC keccak transaction hash."
+expected = "A grant draw must bind the actual ledger receive transaction and persist the same 0x-prefixed keccak hash that send and receipt lookup return, preserving idempotency across restart."
+proposal = "Replace services/agent/sdk/python/layerx_sdk/x402_activity.py economic-envelope binding with EVM transaction plus ledger receive calldata binding, and migrate PreparedGrantDraws registration and stored lookup identifiers."
+owner_domain = 9
+
+[finding.draw-send-contract]
+file = "services/agent/sdk/python/layerx_sdk/x402_draw.py"
+line = 51
+class = "interface-mismatch"
+severity = "high"
+observed = "PreparedGrantDraws._resolve calls rpc.send(unprefixed_hex,commitment) and expects a receipt object. The shipped PaymentRpc.send accepts one 0x-prefixed raw transaction and returns a hash string, so the real draw path raises TypeError before submission."
+expected = "Send must submit one signed EVM transaction, return its hash, and then obtain receipt state through receipt(hash) until the requested commitment is satisfied."
+proposal = "Update services/agent/sdk/python/layerx_sdk/x402_draw.py to call the actual PaymentRpc send contract, persist/check its hash, then resolve receipt state without resending on uncertain outcomes."
+owner_domain = 9
+interface = "8.rpc-gateway-eth-sendrawtransaction"
+
+[finding.draw-null-recovery]
+file = "services/agent/sdk/python/layerx_sdk/x402_draw.py"
+line = 98
+class = "restart-recovery"
+severity = "medium"
+observed = "The attempted flag is persisted before send. A later attempt queries PaymentRpc.receipt, which returns None for an unknown transaction, but __call__ immediately invokes result.get. Recovery therefore crashes while the receipt is absent instead of remaining pending."
+expected = "Restart after an uncertain send must preserve a recoverable pending operation when the node does not yet know its transaction hash, without a second monetary submission."
+proposal = "Handle a null receipt explicitly in services/agent/sdk/python/layerx_sdk/x402_draw.py and retain the durable transaction bytes/hash and pending status; exercise crash-before-send and unknown-receipt recovery."
+owner_domain = 9
+
+[finding.buyer-send-contract]
+file = "services/agent/sdk/python/layerx_sdk/x402_http.py"
+line = 367
+class = "interface-mismatch"
+severity = "high"
+observed = "BuyerMiddleware.prepare calls rpc.send(canonical_hex,commitment), then accesses result.get and receipt fields. PaymentRpc.send(raw_transaction) takes one argument and returns the eth_sendRawTransaction hash, so the bundled transport cannot complete the buyer path."
+expected = "The buyer must use the actual EVM send result and resolve receipt state separately, while preserving exact signed transaction identity and checking the requested rung before emitting payment evidence."
+proposal = "Repair services/agent/sdk/python/layerx_sdk/x402_http.py BuyerMiddleware.prepare to submit one 0x-prefixed raw transaction, validate its returned hash, and query the receipt via PaymentRpc before constructing the payment header."
+owner_domain = 9
+interface = "8.rpc-gateway-eth-sendrawtransaction"
+
+[finding.seller-commitment-downgrade]
+file = "services/agent/sdk/python/layerx_sdk/x402_http.py"
+line = 307
+class = "security"
+severity = "high"
+observed = "validate_requirements accepts extra.layerx.commitment=committed, but SellerMiddleware.handle omits commitment when calling verify_payment_receipt. That defaults to receipted, and fulfillment releases the resource without committed evidence for the accepted offer."
+expected = "A seller must enforce the exact advertised commitment before releasing a paid resource. A sequencer-signed receipt alone cannot satisfy an offer that requires a committed block."
+proposal = "Pass and enforce the accepted commitment in services/agent/sdk/python/layerx_sdk/x402_http.py, resolve transaction landing and committed-block evidence for committed offers, and refuse fulfillment until the requested rung is proven."
+owner_domain = 9
+
+[finding.payment-rpc-root-endpoint]
+file = "services/agent/sdk/python/layerx_sdk/x402_rpc.py"
+line = 178
+class = "config-drift"
+severity = "medium"
+observed = "PaymentRpc requires url.path == /rpc and rejects a root-path endpoint. The published mainnet-beta node URLs in brief fact 3 serve JSON-RPC at the root, so a correctly configured node endpoint cannot construct this transport."
+expected = "The payment transport must support root-path node JSON-RPC at api1 through api14.mainnet-beta.paxeer.network and api-mainnet-beta.paxeer.network, without requiring the retired unified /rpc service."
+proposal = "Change endpoint validation in services/agent/sdk/python/layerx_sdk/x402_rpc.py to the current root-path node contract and distinct configured hosted gateway endpoint, retaining redirect, scheme and credential protections."
+owner_domain = 9
+
+[finding.empty-receipt-keys]
+file = "services/agent/sdk/python/layerx_sdk/x402_rpc.py"
+line = 36
+class = "interface-mismatch"
+severity = "high"
+observed = "decode_receipt_keys rejects {keys:[]} as invalid. The actual node ReceiptKeysResult explicitly emits an empty JSON list when governance has no pins (rpc/sequencer_receipt.go:352-395), and requirement 181551.1 preserves that shape."
+expected = "The decoder must round-trip a valid empty key list, while receipt verification with that list must fail closed as unpinned; absence of authority is distinct from malformed transport data."
+proposal = "Return an empty tuple for a valid empty keys array in services/agent/sdk/python/layerx_sdk/x402_rpc.py and preserve verification refusal without pins; qualify empty and rotated producer responses."
+owner_domain = 9
+interface = "8.rpc-gateway-px-getreceiptkeys"
+
+[finding.retired-rpc-batch-evidence]
+file = "services/agent/sdk/python/layerx_sdk/x402_rpc.py"
+line = 319
+class = "retired-reference"
+severity = "medium"
+observed = "rpc_batch_evidence still parses result.batch_evidence.signed_header and Merkle siblings into PaymentCommitmentEvidence, although pax_sequencerReceipt emits transaction rung, signed receipt/key and committed block fields instead."
+expected = "The supported payment RPC evidence helper must parse the live transaction receipt and commitment contract and must not depend on the retired batch evidence response shape."
+proposal = "Retire rpc_batch_evidence in services/agent/sdk/python/layerx_sdk/x402_rpc.py with its public export, and provide the committed-transaction evidence helper used by current buyer, seller and recovery paths."
+owner_domain = 9
+
+[finding.market-producer-fixture]
+file = "services/agent/sdk/python/tests/market_receipt_producer.c"
+line = 35
+class = "test-gap"
+severity = "medium"
+observed = "The C fixture fills arbitrary resulting_state_root and activity_root bytes and builds an empty effects buffer. The live node producer always emits a summary effect, derives return-data and VM-error digests and can emit EVM logs. This fixture is not an emitted market-call receipt."
+expected = "The market integration must prove the actual node receipt layout and execution outputs at the producer/consumer boundary, in addition to testing independent canonical receipt encoding."
+proposal = "Retain codec coverage in services/agent/sdk/python/tests/market_receipt_producer.c but add real node market-call receipt output to the Python journal integration so summary/event and return-data binding are exercised."
+owner_domain = 9
+
+[finding.market-finality-test-gap]
+file = "services/agent/sdk/python/tests/test_ai_market_commit.py"
+line = 23
+class = "test-gap"
+severity = "medium"
+observed = "COMMIT is constructed from constant repeated-byte hashes, and restart tests finalize a receipt using it or a larger height. No commit, validator set or inclusion path proves that the retained transaction belongs to the declared block."
+expected = "Finalization tests must refuse a forged or unrelated block and prove inclusion in the actual committed block across restart, rather than accepting a well-shaped caller-supplied finality DTO."
+proposal = "Extend services/agent/sdk/python/tests/test_ai_market_commit.py through the real finality verifier and transaction inclusion producer, keeping existing journal/revert/landing tests and adding forged-proof refusals."
+owner_domain = 9
+
+[finding.retirement-test-preserves-batches]
+file = "services/agent/sdk/python/tests/test_retired_kernel_receipts.py"
+line = 68
+class = "test-gap"
+severity = "medium"
+observed = "test_kernel_receipt_paths_are_gone explicitly requires PaymentCommitmentEvidence, its MerkleProof field and AuthorizedReceiptBatch to remain exported. It therefore protects retired external batch authority while claiming kernel receipt retirement."
+expected = "The retirement test must prohibit obsolete batch authority and evidence exports and retain positive coverage of ReceiptKey, raw EVM transaction binding and the live sequencer receipt API."
+proposal = "Update services/agent/sdk/python/tests/test_retired_kernel_receipts.py with the owning removal task to assert the complete retired surface is absent and the supported receipt/commit verification paths still work."
+owner_domain = 9
+
+[finding.web-payment-test-fixture]
+file = "services/agent/sdk/python/tests/test_web_search_sequencer.py"
+line = 30
+class = "test-gap"
+severity = "medium"
+observed = "The tests use conformance cases[0], a native transfer, as their paid web-search transaction and call _prepare/_settle directly. They bypass the real 402 offer, payer-address header and ledger payment event, hiding the account and payment-binding mismatches."
+expected = "Web-search integration tests must consume a live server challenge and actual ledger payment receipt through the public request path, including metered payer binding and restart/pending behavior."
+proposal = "Extend services/agent/sdk/python/tests/test_web_search_sequencer.py with real server offers and exact/metered ledger transactions, preserving key-tampering refusals while covering the complete public exchange path."
+owner_domain = 9
+
+[finding.draw-test-transport-shape]
+file = "services/agent/sdk/python/tests/test_x402_draw_sequencer.py"
+line = 188
+class = "test-gap"
+severity = "medium"
+observed = "_ReceiptRpc.send accepts two arguments, unprefixed transaction hex and returns receipt JSON, unlike PaymentRpc.send. The recovery test inserts grant_draws rows directly rather than using register, hiding both the send mismatch and retired registration binder."
+expected = "Grant-draw qualification must exercise the real transport signature, registered raw transaction hash and persistent recovery path without replacing those boundaries with a third contract shape."
+proposal = "Extend services/agent/sdk/python/tests/test_x402_draw_sequencer.py through PaymentRpc and PreparedGrantDraws.register with an emitted receive transaction, then restart and resolve submitted, unknown and receipted states."
+owner_domain = 9
+
+[finding.http-test-transport-shape]
+file = "services/agent/sdk/python/tests/test_x402_http_sequencer.py"
+line = 174
+class = "test-gap"
+severity = "medium"
+observed = "The buyer test imports _ReceiptRpc with its obsolete send(canonical_hex,commitment)->receipt behavior; grant coverage inserts durable rows directly. The bundled real PaymentRpc transport and registration path are never exercised together."
+expected = "Buyer/seller middleware tests must prove the same send/hash/receipt contract used in production, and committed offers must remain unfulfilled until block commitment is verified."
+proposal = "Extend services/agent/sdk/python/tests/test_x402_http_sequencer.py using the real PaymentRpc protocol boundary and grant registration, and add a committed offer that cannot release on receipted-only evidence."
+owner_domain = 9
+
+[finding.doc-01]
+file = "docs/site/docs/agents/agentd.md"
+line = 12
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 12-15 and 46-115 describe receipt-authority/bootstrap handshake configuration; lines 473-490 describe separate batch/checkpoint finality. Rewrite for one BFT node network and native transaction receipts."
+expected = "Operator and integrator documentation must describe one Paxeer BFT chain, chain ID 125, root-path node RPC, EVM economic authority and native committed-block finality, with retired LNI, layerxd and external batch authority removed."
+proposal = "Rewrite docs/site/docs/agents/agentd.md at the cited lines against the merged node/gateway, program and receipt contracts; retain valid local agent-session guidance and update examples and diagrams to the live producer and transport."
+owner_domain = 9
+
+[finding.doc-02]
+file = "docs/wiki/Agentd.md"
+line = 12
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 12-15 and 47-116 repeat the site page authority/handshake topology; the matching batch/checkpoint finality section is also pre-merge. Wiki copy needs the same merged-network rewrite."
+expected = "Operator and integrator documentation must describe one Paxeer BFT chain, chain ID 125, root-path node RPC, EVM economic authority and native committed-block finality, with retired LNI, layerxd and external batch authority removed."
+proposal = "Rewrite docs/wiki/Agentd.md at the cited lines against the merged node/gateway, program and receipt contracts; retain valid local agent-session guidance and update examples and diagrams to the live producer and transport."
+owner_domain = 9
+
+[finding.doc-03]
+file = "docs/site/docs/concepts/identity.md"
+line = 14
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 14-37 describe DID-controlled economic accounts and lines 34-35 deny balance authority to the EVM key. Economic authority now follows the EVM address and its ledger binding."
+expected = "Operator and integrator documentation must describe one Paxeer BFT chain, chain ID 125, root-path node RPC, EVM economic authority and native committed-block finality, with retired LNI, layerxd and external batch authority removed."
+proposal = "Rewrite docs/site/docs/concepts/identity.md at the cited lines against the merged node/gateway, program and receipt contracts; retain valid local agent-session guidance and update examples and diagrams to the live producer and transport."
+owner_domain = 6
+
+[finding.doc-04]
+file = "docs/site/docs/agents/lni.md"
+line = 1
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 1-6, 20-25 and 37-47 present LNI as a live protocol and wire transport. LNI is retired and its receipts/reads are replaced by native chain interfaces."
+expected = "Operator and integrator documentation must describe one Paxeer BFT chain, chain ID 125, root-path node RPC, EVM economic authority and native committed-block finality, with retired LNI, layerxd and external batch authority removed."
+proposal = "Rewrite docs/site/docs/agents/lni.md at the cited lines against the merged node/gateway, program and receipt contracts; retain valid local agent-session guidance and update examples and diagrams to the live producer and transport."
+owner_domain = 11
+
+[finding.doc-05]
+file = "docs/site/docs/agents/running.md"
+line = 486
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 486-490 teach removed verify_receipt; lines 520-525 require /rpc and lines 585-593 and the configuration near 733 retain external receipt-authority/batch assumptions."
+expected = "Operator and integrator documentation must describe one Paxeer BFT chain, chain ID 125, root-path node RPC, EVM economic authority and native committed-block finality, with retired LNI, layerxd and external batch authority removed."
+proposal = "Rewrite docs/site/docs/agents/running.md at the cited lines against the merged node/gateway, program and receipt contracts; retain valid local agent-session guidance and update examples and diagrams to the live producer and transport."
+owner_domain = 9
+
+[finding.doc-06]
+file = "docs/site/docs/platform/cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "Line 8 requires the retired unified /rpc endpoint; lines 105-135 call implemented commands not implemented, and lines 260-270 retain retired program mutation ingress."
+expected = "Operator and integrator documentation must describe one Paxeer BFT chain, chain ID 125, root-path node RPC, EVM economic authority and native committed-block finality, with retired LNI, layerxd and external batch authority removed."
+proposal = "Rewrite docs/site/docs/platform/cli.md at the cited lines against the merged node/gateway, program and receipt contracts; retain valid local agent-session guidance and update examples and diagrams to the live producer and transport."
+owner_domain = 8
+
+[finding.doc-07]
+file = "docs/site/docs/platform/hosted-node.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-12 and 39-51 describe a standalone layerxd topology; lines 437-489 retain LNI and the page retains external authority replicas. Replace running-component and ingress instructions."
+expected = "Operator and integrator documentation must describe one Paxeer BFT chain, chain ID 125, root-path node RPC, EVM economic authority and native committed-block finality, with retired LNI, layerxd and external batch authority removed."
+proposal = "Rewrite docs/site/docs/platform/hosted-node.md at the cited lines against the merged node/gateway, program and receipt contracts; retain valid local agent-session guidance and update examples and diagrams to the live producer and transport."
+owner_domain = 8
+
+[finding.doc-08]
+file = "docs/site/docs/platform/registry.md"
+line = 9
+class = "doc-drift"
+severity = "medium"
+observed = "Line 9 and the configuration at 176-186 describe receipt-authority replicas and bootstrap; credential guidance near 29 retains the old topology. Interface table is producer vocabulary, which the Python transport currently fails to consume."
+expected = "Operator and integrator documentation must describe one Paxeer BFT chain, chain ID 125, root-path node RPC, EVM economic authority and native committed-block finality, with retired LNI, layerxd and external batch authority removed."
+proposal = "Rewrite docs/site/docs/platform/registry.md at the cited lines against the merged node/gateway, program and receipt contracts; retain valid local agent-session guidance and update examples and diagrams to the live producer and transport."
+owner_domain = 8
+
+[finding.doc-09]
+file = "docs/readme/README.pt-BR.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 37-39 separate layerxd execution and anchoring; diagram lines 153, 196, 203 and 211 retain layerxd/LNI/checkpoint/lx read topology. Localized overview must describe one BFT chain."
+expected = "Operator and integrator documentation must describe one Paxeer BFT chain, chain ID 125, root-path node RPC, EVM economic authority and native committed-block finality, with retired LNI, layerxd and external batch authority removed."
+proposal = "Rewrite docs/readme/README.pt-BR.md at the cited lines against the merged node/gateway, program and receipt contracts; retain valid local agent-session guidance and update examples and diagrams to the live producer and transport."
+owner_domain = 17
+
+[finding.doc-10]
+file = "docs/readme/README.fr.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 37-39 separate layerxd execution and anchoring; diagram lines 153, 196, 203 and 211 retain layerxd/LNI/checkpoint/lx read topology. French overview must follow the merged network."
+expected = "Operator and integrator documentation must describe one Paxeer BFT chain, chain ID 125, root-path node RPC, EVM economic authority and native committed-block finality, with retired LNI, layerxd and external batch authority removed."
+proposal = "Rewrite docs/readme/README.fr.md at the cited lines against the merged node/gateway, program and receipt contracts; retain valid local agent-session guidance and update examples and diagrams to the live producer and transport."
+owner_domain = 17
+
+[finding.doc-11]
+file = "docs/readme/README.ja.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 37-39 separate layerxd execution and anchoring; diagram lines 153, 196, 203 and 211 retain layerxd/LNI/checkpoint/lx read topology. Japanese overview must follow the merged network."
+expected = "Operator and integrator documentation must describe one Paxeer BFT chain, chain ID 125, root-path node RPC, EVM economic authority and native committed-block finality, with retired LNI, layerxd and external batch authority removed."
+proposal = "Rewrite docs/readme/README.ja.md at the cited lines against the merged node/gateway, program and receipt contracts; retain valid local agent-session guidance and update examples and diagrams to the live producer and transport."
+owner_domain = 17
+
+[finding.doc-12]
+file = "docs/readme/README.ru.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 37-39 separate layerxd execution and anchoring; diagram lines 153, 196, 203 and 211 retain layerxd/LNI/checkpoint/lx read topology. Russian overview must follow the merged network."
+expected = "Operator and integrator documentation must describe one Paxeer BFT chain, chain ID 125, root-path node RPC, EVM economic authority and native committed-block finality, with retired LNI, layerxd and external batch authority removed."
+proposal = "Rewrite docs/readme/README.ru.md at the cited lines against the merged node/gateway, program and receipt contracts; retain valid local agent-session guidance and update examples and diagrams to the live producer and transport."
+owner_domain = 17
+
+[finding.grant-receipt-kind]
+file = "services/agent/sdk/python/layerx_sdk/x402.py"
+line = 200
+class = "interface-mismatch"
+severity = "high"
+observed = "verify_payment_receipt accepts only payExact calldata and a PaymentExact log. PreparedGrantDraws and AgentGrantMiddleware use this same verifier for metered/subscription draws, but the current ledger draw method emits PaymentDrawn. Even after transport repair, a real draw transaction is rejected."
+expected = "Exact payments and grant draws must each verify their actual ledger method and event, including grant ID, purpose, idempotency key and negotiated payment terms; a successful draw must round-trip through the shared payment consumers."
+proposal = "Extend services/agent/sdk/python/layerx_sdk/x402.py with scheme-specific draw calldata and PaymentDrawn verification, thread the accepted scheme and grant binding through x402_rpc.py, x402_draw.py and x402_agent.py, and qualify actual ledger draw receipts."
+owner_domain = 9
+interface = "6.pc-0x101a-draw"
+
+[finding.local-test-discovery]
+file = "services/agent/sdk/python/pyproject.toml"
+line = 29
+class = "test-gap"
+severity = "medium"
+observed = "The pytest testpaths setting selects only ../../../../tests/agent/sdk/python. The ten receipt, market, spot and payment suites under services/agent/sdk/python/tests in this package are outside that default discovery tree, so a normal package pytest run does not collect them."
+expected = "The documented/default package test invocation must include the SDK local integration suites as well as the central conformance suites, so receipt migrations and payment regressions are enforced without undisclosed extra commands."
+proposal = "Include the local tests directory alongside the central suite in services/agent/sdk/python/pyproject.toml and give the owning SDK gate an explicit collection contract, preserving every existing receipt, restart and rejection assertion."
+owner_domain = 9
+
+[doc.01]
+path = "docs/site/docs/agents/agentd.md"
+status = "stale"
+notes = "Lines 12-15 and 46-115 describe receipt-authority/bootstrap handshake configuration; lines 473-490 describe separate batch/checkpoint finality. Rewrite for one BFT node network and native transaction receipts."
+
+[doc.02]
+path = "docs/wiki/Agentd.md"
+status = "stale"
+notes = "Lines 12-15 and 47-116 repeat the site page authority/handshake topology; the matching batch/checkpoint finality section is also pre-merge. Wiki copy needs the same merged-network rewrite."
+
+[doc.03]
+path = "docs/site/docs/concepts/identity.md"
+status = "misleading"
+notes = "Lines 14-37 describe DID-controlled economic accounts and lines 34-35 deny balance authority to the EVM key. Economic authority now follows the EVM address and its ledger binding."
+
+[doc.04]
+path = "docs/site/docs/agents/lni.md"
+status = "stale"
+notes = "Lines 1-6, 20-25 and 37-47 present LNI as a live protocol and wire transport. LNI is retired and its receipts/reads are replaced by native chain interfaces."
+
+[doc.05]
+path = "docs/site/docs/agents/running.md"
+status = "stale"
+notes = "Lines 486-490 teach removed verify_receipt; lines 520-525 require /rpc and lines 585-593 and the configuration near 733 retain external receipt-authority/batch assumptions."
+
+[doc.06]
+path = "docs/site/docs/platform/cli.md"
+status = "misleading"
+notes = "Line 8 requires the retired unified /rpc endpoint; lines 105-135 call implemented commands not implemented, and lines 260-270 retain retired program mutation ingress."
+
+[doc.07]
+path = "docs/site/docs/platform/hosted-node.md"
+status = "stale"
+notes = "Lines 3-12 and 39-51 describe a standalone layerxd topology; lines 437-489 retain LNI and the page retains external authority replicas. Replace running-component and ingress instructions."
+
+[doc.08]
+path = "docs/site/docs/platform/registry.md"
+status = "stale"
+notes = "Line 9 and the configuration at 176-186 describe receipt-authority replicas and bootstrap; credential guidance near 29 retains the old topology. Interface table is producer vocabulary, which the Python transport currently fails to consume."
+
+[doc.09]
+path = "docs/readme/README.pt-BR.md"
+status = "stale"
+notes = "Lines 37-39 separate layerxd execution and anchoring; diagram lines 153, 196, 203 and 211 retain layerxd/LNI/checkpoint/lx read topology. Localized overview must describe one BFT chain."
+
+[doc.10]
+path = "docs/readme/README.fr.md"
+status = "stale"
+notes = "Lines 37-39 separate layerxd execution and anchoring; diagram lines 153, 196, 203 and 211 retain layerxd/LNI/checkpoint/lx read topology. French overview must follow the merged network."
+
+[doc.11]
+path = "docs/readme/README.ja.md"
+status = "stale"
+notes = "Lines 37-39 separate layerxd execution and anchoring; diagram lines 153, 196, 203 and 211 retain layerxd/LNI/checkpoint/lx read topology. Japanese overview must follow the merged network."
+
+[doc.12]
+path = "docs/readme/README.ru.md"
+status = "stale"
+notes = "Lines 37-39 separate layerxd execution and anchoring; diagram lines 153, 196, 203 and 211 retain layerxd/LNI/checkpoint/lx read topology. Russian overview must follow the merged network."
+

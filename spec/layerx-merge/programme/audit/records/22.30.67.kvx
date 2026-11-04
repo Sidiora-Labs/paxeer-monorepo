@@ -1,0 +1,440 @@
+# Pre-upgrade RPC audit; source revision and findings describe the reviewed tree.
+
+[audit.22.30.67]
+task = "22.30.67"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 19
+findings = 24
+docs_reviewed = 12
+upgrade_ready = true
+blocking = []
+produces_reviewed = ["7.err-evm-not-supported-32000-j38", "7.fmt-buf-yaml-j39", "7.go-newechoapi-j38", "7.rpc-echo-echo", "7.rpc-net-peercount-j38", "7.rpc-test-incrementpointerversion", "7.rpc-web3-clientversion", "7.rpc-web3-sha3-j38"]
+consumes_reviewed = ["6.go-evm-artifacts-cw20-setversionwithoffset-j34", "7.fmt-api-buf-yaml", "7.met-otel-evmrpc-websocket-connects-total", "7.met-pax-websocket-connect", "8.cfg-authority-registry-modules", "8.err-cli-32601", "8.err-gateway-32601", "8.err-paxeer-32601"]
+readiness_basis = "No high-severity producer/consumer failure was identified in these members. Open medium findings concern operational telemetry, non-live test controls, real-path evidence and misleading documentation. Source review is not a claim that Go or network gates ran."
+
+[file.1]
+path = "buf.yaml"
+lines = 31
+verdict = "clean"
+note = "Read all 31 lines. The eight v2 module directories and the sole sdk/third_party/proto ignore exist; BASIC, FILE_LOWER_SNAKE_CASE, UNARY_RPC and WIRE/WIRE_JSON agree with the root generation path in scripts/protoc.sh. No api/buf.yaml is read after decision 722. Registry rows 7.fmt-buf-yaml-j39, 7.fmt-api-buf-yaml and 8.cfg-authority-registry-modules have the documentation disagreements recorded separately; the source configuration itself holds no retired dependency. Existing TestBufLintWorkspace and TestBufBuildFromApiDirMatchesWorkspaceImage cover the intended configuration; they were read, not executed."
+
+[file.2]
+path = "rpc/bloom.go"
+lines = 20
+verdict = "clean"
+note = "Read all 20 lines. BloomIndexes is a type alias and EncodeFilters/MatchFilters forward unchanged address, hash and 256-byte Ethereum bloom types to rpc/ethbloom. Read the helper and TestMatchBloom: the producer uses Keccak bloom indexes, empty criteria match, OR alternatives and AND groups agree. BitMasks is a compatibility export; no mutable request state, tenant selection or retired component is introduced by this wrapper."
+
+[file.3]
+path = "rpc/echo.go"
+lines = 11
+verdict = "clean"
+note = "Read all 11 lines. Rows 7.go-newechoapi-j38 and 7.rpc-echo-echo agree: constructor returns *EchoAPI, exported Echo accepts and returns a JSON string unchanged, and both production API lists register echo. The integration hello request/response agrees; HTTP mixed-batch consumers also assert returned strings. node/rpc_restart_test.go uses the real constructor on both transports and proves listener closure/replacement. The handler is stateless and requires no durable recovery or privileged authentication."
+
+[file.4]
+path = "rpc/export_filter_test.go"
+lines = 9
+verdict = "clean"
+note = "Read all 9 lines. Package-level test functions call the actual unexported setReceiptLogFeed and shutdown with *FilterAPI and *ReceiptLogFeed unchanged. pending_filter_test.go and synthetic_receipts_test.go use these functions and clean up the API. They are compiled only for tests and cannot become eth_ or pax_ receiver methods through geth reflection; filter state and shutdown remain owned by FilterAPI."
+
+[file.5]
+path = "rpc/export_info_test.go"
+lines = 16
+verdict = "clean"
+note = "Read all 16 lines. Both wrappers are package functions, not InfoAPI methods, so the served-method set is unchanged. *big.Int, uint64, *hexutil.Big, context and errors are passed unchanged to the actual helpers. rpc/info_test.go consumes both signatures and asserts gas-ratio behavior, including accumulated receipt gas; the hidden-helper HTTP tests and served goldens protect 7002.3/7002.4."
+
+[file.6]
+path = "rpc/export_metrics_test.go"
+lines = 11
+verdict = "clean"
+note = "Read all 11 lines. The test-only package function temporarily swaps the real metric.Float64Histogram and returns a closure restoring the exact previous instrument. served_labels_test.go registers that closure with t.Cleanup and sends real JSON-RPC calls after installation, avoiding the known global MeterProvider initialization trap. No receiver method or production route is added; no persisted metric state is implied."
+
+[file.7]
+path = "rpc/filter_feed_setter_test.go"
+lines = 19
+verdict = "clean"
+note = "Read all 19 lines. Real HTTP requests exercise the registered eth and pax namespaces and require an error object with numeric -32601 and no result. setReceiptLogFeed is unexported, and its exported test shim is a package function. This agrees with 7002.5 and the served goldens; the pax legacy gate can independently refuse the name, so the reflected-set coverage is material corroboration."
+
+[file.8]
+path = "rpc/info_helpers_test.go"
+lines = 21
+verdict = "clean"
+note = "Read all 21 lines. The real HTTP server receives eth_gasPriceHelper and eth_calculateGasUsedRatio and the test checks jsonrpc 2.0, preserved string id, no result and numeric -32601. Both production helpers are unexported and the test bridges are package functions. This agrees with 7002.3 and does not confuse the independent gateway/CLI -32601 producers with a node dependency."
+
+[file.9]
+path = "rpc/net_listening_test.go"
+lines = 13
+verdict = "issues"
+note = "Read all 13 lines. The asserted JSON boolean agrees with the current producer signature and 7004.2; the missing real consensus producer, alternate-state and WebSocket evidence is recorded in net-listening-proof."
+
+[file.10]
+path = "rpc/net_peers.go"
+lines = 24
+verdict = "clean"
+note = "Read all 24 lines. Row 7.rpc-net-peercount-j38 agrees with the live NetAPI registration over HTTP and WS, including promotion through domainNetAPI. The real consensus Environment.NetInfo emits int NPeers from its peer inventory, errors propagate, negative counts are refused and hexutil.Uint marshals a minimal 0x quantity. net_peerCount metrics use the served name and panic recovery rethrows rather than returning false success. Peer count describes shared physical networking, so tenant scoping of the logical chain id does not require a different count. No state is cached across restart."
+
+[file.11]
+path = "rpc/net_peers_test.go"
+lines = 14
+verdict = "issues"
+note = "Read all 14 lines. The JSON 0x3 assertion agrees with hexutil.Uint and the mock producer; the missing real peer lifecycle and both-transport value coverage is recorded in net-peers-proof."
+
+[file.12]
+path = "rpc/query_builder.go"
+lines = 29
+verdict = "clean"
+note = "Read all 29 lines. Fixed NewBlockHeader and NewBlock event values agree with consensus/types/events.go and consensus/internal/state/execution.go FireEvents. SubscriptionManager passes Build directly to the real client Subscribe/Unsubscribe and FilterAPI uses NewBlockQueryBuilder; no untrusted string enters the query. The builders are stateless selectors, not durable cursors; reconnect/recovery belongs to their subscription/filter owners. The direct-notifier path intentionally bypasses the event-bus selector."
+
+[file.13]
+path = "rpc/rpc_unsupported.go"
+lines = 21
+verdict = "clean"
+note = "Read all 21 lines. Row 7.err-evm-not-supported-32000-j38 agrees: Error returns Msg and ErrorCode returns -32000, including the compatibility alias ErrCodeBlobsNotSupported. Actual InfoAPI and DebugAPI producers and geth error serialization use this typed error; error_codes_test.go exercises the real dispatch/client decoder for unsupported methods. -32601 is a documented distinction for missing names, not a dependency on the CLI, hosted gateway or removed relay rows; registry false edges are recorded separately."
+
+[file.14]
+path = "rpc/test.go"
+lines = 23
+verdict = "issues"
+note = "Read all 23 lines. Rows 7.rpc-test-incrementpointerversion and 6.go-evm-artifacts-cw20-setversionwithoffset-j34 agree on string/int16 arguments and the error-only result. Unknown pointer types return invalid pointer type; cw20 forwards the signed offset. NewEVMHTTPServer registers this HTTP-only API only with EnableTestAPI on a non-live chain, and GetVersionWthDefault separately ignores overrides on live chains. The shared unsynchronized test state and absent path/lifecycle proof are recorded; no mainnet exposure is claimed."
+
+[file.15]
+path = "rpc/unsupported_ethdb_test.go"
+lines = 17
+verdict = "clean"
+note = "Read all 17 lines. Backend.ChainDb returns the real unsupportedEthereumChainDatabase adapter. Get and Has return errEthereumChainDatabaseUnavailable, and errors.Is checks the actual sentinel rather than fixture text. Read unsupported_ethdb.go: write, batch and iterator operations also retain explicit unavailable behavior rather than fabricating database contents. This file verifies its stated read boundary without claiming a durable Ethereum chain database exists."
+
+[file.16]
+path = "rpc/utils_internal_test.go"
+lines = 26
+verdict = "clean"
+note = "Read all 26 lines. The test drives the real runWithRecovery and recoverAndLog path with a synchronous panic, observes the installed hook exactly once via sync.Once and restores a typed nil hook on return. Atomic hook storage and the typed-nil check agree with utils.go; the timeout prevents a missing notification from hanging the test. This is process-level recovery, not evidence of persisted chain state recovery."
+
+[file.17]
+path = "rpc/web3.go"
+lines = 27
+verdict = "clean"
+note = "Read all 27 lines. Row 7.rpc-web3-clientversion and decision 710 agree on Geth/<os>-<arch>/<go version>; registry row 7.rpc-web3-sha3-j38 uses hexutil.Bytes in and out and returns crypto.Keccak256, not standardized SHA3-256. Both production transports register Web3API with the right connection label. TestWeb3Sha3HashesInput sends the known hello-world bytes over real HTTP and checks all 32 output bytes; served_labels_test.go also calls both web3 methods over WS. Transport request limits apply before hex decoding and the methods carry no tenant-specific or restart state. Weak version-value evidence is recorded on web3_test.go."
+
+[file.18]
+path = "rpc/web3_test.go"
+lines = 13
+verdict = "issues"
+note = "Read all 13 lines. TestClientVersion accepts any nonempty direct return and does not protect decision 710 or its actual wire shape; client-version-proof also identifies the obsolete listed integration fixture and its permissive response-kind comparator."
+
+[file.19]
+path = "rpc/websockets.go"
+lines = 16
+verdict = "issues"
+note = "Read all 16 lines. The wrapper delegates the original ResponseWriter and request without replacing upgrade, origin, JWT or message checks. Row 7.met-otel-evmrpc-websocket-connects-total resolves to an Int64Counter with unit {count}; the legacy keep row conflicts with its absent emission. The wrapper runs before successful upgrade/authentication, producing the count error recorded separately. Counters are process-local observations, not restart-persistent chain state."
+
+[finding.ws-handshake-count]
+file = "rpc/websockets.go"
+line = 10
+class = "runtime-risk"
+severity = "medium"
+observed = "wsConnectionHandler.ServeHTTP increments evmrpc_websocket_connects_total before invoking the underlying handler. NewWSHandlerStack places this wrapper outside JWT validation, and newDenyListWSHandler can subsequently reject the Origin or fail its upgrade, so unsuccessful connection attempts increase the established-connection total."
+expected = "Registry row 7.met-otel-evmrpc-websocket-connects-total describes new WebSocket connections; rejected authentication, rejected origins and malformed handshakes establish no connection."
+proposal = "Move successful-connection accounting into the successful upgrade path in rpc/rpcstack.go and retain a separately named attempt counter if needed. Extend rpc/websockets_metrics_test.go through real authorized, unauthorized and rejected-origin handshakes to prove the distinction."
+owner_domain = 7
+interface = "7.met-otel-evmrpc-websocket-connects-total"
+
+[finding.legacy-connect-policy]
+file = "rpc/websockets.go"
+line = 10
+class = "wiring-gap"
+severity = "medium"
+observed = "The only connection emission is recordWebsocketConnect, whose rpc/metrics.go implementation adds only the OTel counter. Registry row 7.met-pax-websocket-connect remains keep under decision 2278 and promises dual emission until dashboard migration. TestWSConnectDoesNotEmitLegacyCounter instead asserts the legacy sink does not advance."
+expected = "The kept legacy metric must reach its operational consumers until the declared migration completes. Requirement 7014.3 and decision 718 prescribe removal, whereas later decision 2278 and the active registry prescribe retention; these lifecycle authorities disagree."
+proposal = "Reconcile domain 7 telemetry lifecycle in spec/layerx-merge/interfaces.kvx and the RPC contract with the dashboard migration owner. While the keep policy remains active, emit IncWebsocketConnects from rpc/metrics.go alongside OTel and prove the two real sinks; retire it only with recorded dashboard migration evidence."
+owner_domain = 7
+interface = "7.met-pax-websocket-connect"
+
+[finding.test-version-global-race]
+file = "rpc/test.go"
+line = 18
+class = "runtime-risk"
+severity = "medium"
+observed = "IncrementPointerVersion forwards every concurrent cw20 request to SetVersionWithOffset, which writes the process-global uint16 versionOverride without synchronization; CurrentVersion reads that same variable during pointer operations. Separate TestAPI instances share the override, and an HTTP server restart in the same process retains it."
+expected = "The consumed row 6.go-evm-artifacts-cw20-setversionwithoffset-j34 must support the concurrency of its HTTP caller without races or accidental cross-instance test state. Live chains are already protected by server registration and GetVersionWthDefault."
+proposal = "Make the override access synchronized and give test overrides an explicit node or test lifetime in modules/evm/artifacts/cw20/artifacts.go and rpc/test.go. Exercise simultaneous HTTP changes and pointer reads plus server replacement, with an explicit reset policy for the test network."
+owner_domain = 6
+interface = "6.go-evm-artifacts-cw20-setversionwithoffset-j34"
+
+[finding.test-api-path-proof]
+file = "rpc/test.go"
+line = 15
+class = "test-gap"
+severity = "medium"
+observed = "The declared test_incrementPointerVersion method takes a string and int16 and returns only an error, but the inspected rpc test callers contain no invocation proving its successful JSON null result, invalid-type error, version effect or live-chain exclusion. The registry also lists no caller."
+expected = "Row 7.rpc-test-incrementpointerversion promises an HTTP-only method gated by evm.enable_test_api and a non-live chain id. Brief network fact 7 requires its real producer, transport and consumer behavior to be proven, including the lifetime of the override."
+proposal = "Add an owning RPC test using NewEVMHTTPServer and a real HTTP client to call both pointer types and int16 boundaries, observe CurrentVersion on a non-live context, and prove -32601 when disabled, on chain 125 and over WebSocket; cover the agreed override reset lifecycle."
+owner_domain = 7
+interface = "7.rpc-test-incrementpointerversion"
+
+[finding.net-listening-proof]
+file = "rpc/net_listening_test.go"
+line = 10
+class = "test-gap"
+severity = "medium"
+observed = "TestNetListeningReportsNetInfo exercises HTTP dispatch but its entire consensus answer comes from rpc/setup_test.go MockClient.NetInfo, which always returns Listening true and NPeers 3. It cannot detect a disconnected real consensus producer, a false listening state or an error, and does not assert the WebSocket result."
+expected = "Requirement 7004.2 requires the consensus NetInfo.Listening value, and the declared method is served on both transports. Brief fact 7 requires producer, transport and consumer agreement on the real path."
+proposal = "Extend rpc/net_listening_test.go with a real consensus Environment and local client through the registered HTTP and WebSocket services; change its real listening state and assert both boolean values and the real unavailable/error path without substituting a NetInfo fixture."
+owner_domain = 7
+
+[finding.net-peers-proof]
+file = "rpc/net_peers_test.go"
+line = 10
+class = "test-gap"
+severity = "medium"
+observed = "TestNetPeerCountReportsPeers asserts only the constant 0x3 returned from MockClient.NetInfo in rpc/setup_test.go. It never connects the consensus peer inventory to the RPC, does not observe peer removal or zero peers, and makes no WebSocket value assertion."
+expected = "Requirement 7004.3 and row 7.rpc-net-peercount-j38 require the consensus NPeers as a hex quantity over HTTP and WebSocket, with real producer evidence under brief fact 7."
+proposal = "Extend rpc/net_peers_test.go with the real consensus router/local-client path, add and remove real peer entries, and decode both transports with hexutil.Uint; assert zero and changing counts and propagated consensus failure."
+owner_domain = 7
+interface = "7.rpc-net-peercount-j38"
+
+[finding.client-version-proof]
+file = "rpc/web3_test.go"
+line = 12
+class = "test-gap"
+severity = "medium"
+observed = "TestClientVersion calls Web3API directly and accepts every nonempty string. Its listed integration consumer fixture tests/integration/evm_module/rpc_io_test/testdata/web3_clientVersion/clientVersion.io:3 still says Pax-EVM/1.0, whereas ClientVersion emits Geth/<os>-<arch>/<go version>. The integration specOnly comparator checks response kind rather than the result value."
+expected = "Decision 710 and row 7.rpc-web3-clientversion preserve the Geth prefix because client libraries branch on it; both HTTP and WebSocket consumers must receive the actual platform and Go-version shape."
+proposal = "Strengthen rpc/web3_test.go to call the registered production service through HTTP and WebSocket and assert the decision-710 shape using the running platform/runtime. Correct the integration fixture and add a result assertion to its real consumer so an obsolete prefix cannot pass unnoticed."
+owner_domain = 7
+interface = "7.rpc-web3-clientversion"
+
+[finding.registry-buf-stale]
+file = "spec/layerx-merge/interfaces.kvx"
+line = 305398
+class = "doc-drift"
+severity = "low"
+observed = "Row 7.fmt-buf-yaml-j39 still declares lint.ignore wasm/third_party/proto and says buf.yaml contains the dead path. The full current buf.yaml instead ignores only the existing sdk/third_party/proto directory; scripts/protoc.sh consumes this root v2 workspace."
+expected = "Requirement 7244.1 and the root workspace authority in decision 722 are already reflected in the source; the registry must describe its actual module, lint and breaking configuration."
+proposal = "Update row 7.fmt-buf-yaml-j39 in spec/layerx-merge/interfaces.kvx to the current ignore list and completed disposition, then regenerate the linked proto-api contract without restoring the nonexistent directory."
+owner_domain = 7
+interface = "7.fmt-buf-yaml-j39"
+
+[finding.registry-authority-false-edge]
+file = "spec/layerx-merge/interfaces.kvx"
+line = 313887
+class = "doc-drift"
+severity = "low"
+observed = "Row 8.cfg-authority-registry-modules lists buf.yaml:3 as a consumer of authority Registry.modules: Vec<Module>. That YAML key defines Buf workspace paths, while services/platform/hosted/authority/src/human.rs decodes a separate JSON registry with schema_version, assets and modules of module/ordinals entries."
+expected = "Identically named keys in unrelated formats are separate interfaces. Buf never emits or consumes the authority module registry and its module-path list is not a Vec<Module> payload."
+proposal = "Remove the buf.yaml caller edge from row 8.cfg-authority-registry-modules in spec/layerx-merge/interfaces.kvx and constrain future config consumer inventory to actual decoder and configuration sources."
+owner_domain = 8
+interface = "8.cfg-authority-registry-modules"
+
+[finding.registry-error-false-edges]
+file = "spec/layerx-merge/interfaces.kvx"
+line = 337748
+class = "doc-drift"
+severity = "medium"
+observed = "Rows 8.err-cli-32601, 8.err-gateway-32601 and 8.err-paxeer-32601 classify the explanatory -32601 comment in rpc/rpc_unsupported.go:4 as a consumer. The node defines its own -32000 typed error and geth produces method-not-found locally; it calls neither CLI nor gateway for this. The stable paxeer error row names services/platform/hosted/paxeer/src/main.rs, a removed relay."
+expected = "Brief facts 2 and 3 and retired component eth-relay require the active gateway to own its boundary errors. Independent uses of the standard -32601 code must not imply a transport dependency on the CLI, gateway or removed relay."
+proposal = "Correct the caller sets of all three rows in spec/layerx-merge/interfaces.kvx, retire the removed 8.err-paxeer-32601 provider, and keep the actual CLI, active gateway and node error paths separately documented with their own lifecycle."
+owner_domain = 8
+interface = "8.err-paxeer-32601"
+
+[finding.docs-index-retired]
+file = "docs/README.md"
+line = 21
+class = "doc-drift"
+severity = "low"
+observed = "The current documentation index describes wiki/LNI.md as Node interface v1.7 and wiki/Protocol.md as Activity envelope and the three rules, without identifying those pre-merge interface descriptions as historical."
+expected = "Brief fact 2 and retired component lni remove the separate LayerX interface; the main documentation index must direct integrators to the merged node and current gateway contracts."
+proposal = "Rewrite the entries at docs/README.md:17 and :21 to point to the merged JSON-RPC and transaction documentation or clearly mark the old pages as historical; preserve a discoverable current RPC entry."
+owner_domain = 7
+
+[finding.docs-chain-two-boundaries]
+file = "docs/paxeer-chain-docs.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-5 and 17 describe Paxeer as custody and checkpoint settlement for a separate LayerX network with two trust boundaries and separate settlement contracts, although the same page correctly locates the node and RPC at the repository root."
+expected = "Brief facts 1 and 2 define one BFT network whose kernel proposes chain blocks; custody deposit, checkpoint anchor and guarantor settlement paths are retired."
+proposal = "Rewrite the introduction and settlement paragraph in docs/paxeer-chain-docs.md around one paxd network and committed-block finality, retaining the applicable Swagger generation and serving instructions."
+owner_domain = 7
+
+[finding.docs-network-two-boundaries]
+file = "docs/paxeer-network.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-20 describe separate LayerX activity, checkpoints, guarantor bonds, custody and emergency exits and say 402LXP is the sole balance writer. Lines 38-40 and 82 continue to present retired settlement modules and distinct settlement contract trees as current components."
+expected = "The merged network uses committed native state and one paxd kernel/consensus path. Brief facts 1, 2 and 5 and the custody/anchor retirements supersede this two-network account while tenant domains remain namespaces."
+proposal = "Rewrite docs/paxeer-network.md introduction, ownership table, balance paragraph and module/contract descriptions around the merged bank, ledger, programs and tenant model; retain accurate chain-id and virtual-chain facts and verify the documented build targets."
+owner_domain = 7
+
+[finding.docs-public-router]
+file = "docs/site/docs/reference/public-rpc.md"
+line = 72
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 71-74 call api-mainnet-beta.paxeer.network a router URL and a unified interface and direct readers to a pre-merge architecture page describing /rpc and separate LayerX methods."
+expected = "Brief facts 2 and 3 specify public node JSON-RPC at the root path and distinguish the hosted gateway px_ contract; there is no router or separate LayerX interface."
+proposal = "Replace the final paragraph in docs/site/docs/reference/public-rpc.md with the merged root-path node description and the separate hosted gateway contract location services/platform/hosted/gateway/openrpc.json; remove the router claim."
+owner_domain = 7
+
+[finding.docs-public-node-inventory]
+file = "docs/site/docs/reference/public-rpc.md"
+line = 29
+class = "doc-drift"
+severity = "medium"
+observed = "The public endpoint table advertises api15 and api16 and describes sixteen numbered node names; the unnumbered api-mainnet-beta.paxeer.network name appears only in the router paragraph."
+expected = "Brief fact 3 identifies api1 through api14.mainnet-beta.paxeer.network and api-mainnet-beta.paxeer.network as the declared public node inventory at the root path."
+proposal = "Align the public-rpc.md endpoint table with the fourteen numbered nodes and the unnumbered root endpoint in the authoritative inventory; remove unconfirmed numbered endpoints and describe root WebSocket support without probing external hosts."
+owner_domain = 7
+
+[finding.docs-rpc-catalogue]
+file = "docs/system/rpc.md"
+line = 7
+class = "doc-drift"
+severity = "medium"
+observed = "The generated page claims Total methods: 103 yet omits registered eth_getFilterChanges, eth_newBlockFilter, eth_newFilter, eth_newPendingTransactionFilter, eth_uninstallFilter and px_getReceiptKeys. It lists eth_logs, eth_newHeads and eth_newPendingTransactions as method names although the dispatcher exposes eth_subscribe with those subscription arguments."
+expected = "Requirements 7001.3 and 7001.4 freeze the actual HTTP/WS served sets, and rpc/served_methods.go plus its golden tests distinguish subscription selectors from method names and include the registered filter and receipt-key methods."
+proposal = "Fix tools/docs/gen_system_docs.py service and subscription discovery to consume the real served-method inventory, regenerate docs/system/rpc.md, and publish per-transport availability, legacy allowlist requirements and correct eth_subscribe arguments."
+owner_domain = 7
+
+[finding.docs-rpc-test-guard]
+file = "docs/system/rpc.md"
+line = 5
+class = "doc-drift"
+severity = "low"
+observed = "The opening paragraph and test_incrementPointerVersion row describe the test namespace as served on non-live chain ids but omit the separate evm.enable_test_api opt-in, which defaults to false in rpc/config/config.go."
+expected = "Row 7.rpc-test-incrementpointerversion and rpc/server.go require both EnableTestAPI and a non-live chain id; the method is HTTP-only and is unavailable on live chain 125."
+proposal = "Teach tools/docs/gen_system_docs.py to include the enable_test_api condition, its false default and HTTP-only availability, then regenerate the introduction and test section in docs/system/rpc.md."
+owner_domain = 7
+interface = "7.rpc-test-incrementpointerversion"
+
+[finding.docs-unsupported-pending]
+file = "docs/evm_jsonrpc_unsupported.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "The table at line 12 and behavior note at line 20 say eth_newPendingTransactionFilter is always unsupported because of instant finality. FilterAPI.NewPendingTransactionFilter now creates a hash filter when a receipt log feed is attached and refuses only nodes without that feed or full-transaction mode."
+expected = "The current producer at rpc/filter.go:849 supports receipted pending hashes on the sequencer and standby; committed-block finality does not eliminate the open-block receipt feed."
+proposal = "Update docs/evm_jsonrpc_unsupported.md to distinguish sequencer/standby receipt-feed support from other nodes and document hash-only mode, polling lifecycle, restart expiration and the actual -32000 refusals."
+owner_domain = 7
+
+[finding.docs-unsupported-raw-tx]
+file = "docs/evm_jsonrpc_unsupported.md"
+line = 16
+class = "doc-drift"
+severity = "medium"
+observed = "The unsupported table includes debug_getRawTransaction and line 21 says raw transaction payloads are not served. DebugAPI.GetRawTransaction now delegates to RawTransactionAPI.GetRawTransactionByHash, returns the real binary transaction, and has TestDebugGetRawTransactionReturnsEnvelope coverage."
+expected = "The shared ErrEVMNotSupported code still applies to raw block, header and receipt methods, but debug_getRawTransaction is a working HTTP method and must not be described as a fixed -32000 refusal."
+proposal = "Remove debug_getRawTransaction from the unsupported table and narrow the raw-payload note in docs/evm_jsonrpc_unsupported.md; document its current binary envelope and unknown-transaction behavior with the implemented raw transaction API."
+owner_domain = 7
+
+[finding.docs-overview-retired-architecture]
+file = "docs/site/docs/overview/unified-network.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "The page presents cmd/layerxd, independent C consensus, batch proofs, LayerXVerify 0x1012, custody claims at 0x1013 and anchor/guarantor finality at 0x1014 as running infrastructure. Lines 54-123 explain retired deposits, withdrawals, exits, checkpoints and relay custody genesis as active flows."
+expected = "Brief facts 1 and 2 and the verify, anchor, custody-claims, custody-deposit and eth-relay retirements require one chain, committed-block finality, native bank/ledger moves and no separate daemon or settlement proof hop."
+proposal = "Rewrite docs/site/docs/overview/unified-network.md architecture and funds/finality sections around the merged paxd kernel, native balances, commit verification and the retained binding/precompile interfaces; mark any retained historical explanation explicitly as history."
+owner_domain = 7
+
+[finding.docs-overview-router]
+file = "docs/site/docs/overview/unified-network.md"
+line = 129
+class = "doc-drift"
+severity = "medium"
+observed = "The endpoint section directs integrators to https://api-mainnet-beta.paxeer.network/rpc as a router, says lx_* methods and lx_subscribe remain unchanged, joins two balance domains, and advertises GET /rpc/schema at line 171 with a contract link to the old repository path."
+expected = "Brief facts 2 and 3 remove /rpc, /rpc/ws, /rpc/schema and separate LayerX methods, place public node RPC at the root, and assign px_ contracts to services/platform/hosted/gateway/openrpc.json."
+proposal = "Replace the endpoint and cross-domain-join guidance in docs/site/docs/overview/unified-network.md with root-path node methods and the current hosted gateway contract and chain-only result semantics; remove the retired URL, lx subscription and schema endpoint examples."
+owner_domain = 8
+
+[finding.docs-proto-workspace-stale]
+file = "spec/layerx-merge/contracts/proto-api.md"
+line = 14
+class = "doc-drift"
+severity = "low"
+observed = "The linked buf-workspace contract still includes lint ignore wasm/third_party/proto in row 7.fmt-buf-yaml-j39 and repeats at line 21 that the source contains a nonexistent directory, although buf.yaml now has only sdk/third_party/proto."
+expected = "The contract selected by the active registry should describe the current root Buf authority and the already removed dead ignore path required by 7244.1; its pinned historical source is insufficient as current configuration guidance."
+proposal = "Amend and regenerate spec/layerx-merge/contracts/proto-api.md buf-workspace from the reconciled registry, keeping the eight real module paths, existing lint rules and WIRE/WIRE_JSON breaking protections intact."
+owner_domain = 7
+interface = "7.fmt-buf-yaml-j39"
+
+[finding.docs-legacy-metrics-conflict]
+file = "spec/layerx-merge/contracts/evm-rpc.md"
+line = 2078
+class = "doc-drift"
+severity = "low"
+observed = "The metrics-legacy section marks 7.met-pax-websocket-connect retire and says RPC emission stops, whereas its active registry row is keep under decision 2278 and describes dual emission. The current code follows the older removal behavior."
+expected = "The active registry, RPC contract and operational dashboard lifecycle must specify one observable metric policy; a pinned earlier contract must not conceal a later contradictory decision."
+proposal = "After domain 7 resolves the lifecycle finding legacy-connect-policy, amend the metrics-legacy section of spec/layerx-merge/contracts/evm-rpc.md and regenerate its status/context rows to the governing migration policy."
+owner_domain = 7
+interface = "7.met-pax-websocket-connect"
+
+[finding.docs-retired-buf-contract-anchor]
+file = "spec/layerx-merge/contracts/rpc.md"
+line = 0
+class = "doc-drift"
+severity = "low"
+observed = "Consumed row 7.fmt-api-buf-yaml points to contracts/rpc.md#fmt-api-buf-yaml, but that anchor is absent from the resolved spec/layerx-merge/contracts/rpc.md catalogue. The retired api/buf.yaml file is absent too; the root workspace no longer reads it."
+expected = "Decision 722 makes root buf.yaml the only workspace authority. A retired interface may remain as history, but its registry contract and callers must resolve and explicitly describe retirement."
+proposal = "Reconcile row 7.fmt-api-buf-yaml to the root workspace retirement documentation in spec/layerx-merge/contracts/proto-api.md#buf-workspace, remove its stale root caller edge and document the removed v1 configuration in that section."
+owner_domain = 7
+interface = "7.fmt-api-buf-yaml"
+
+[doc.1]
+path = "docs/README.md"
+status = "stale"
+notes = "The directory/site index is useful, but lines 17 and 21 promote the retired activity-envelope and LNI interface descriptions without historical labels; see docs-index-retired."
+
+[doc.2]
+path = "docs/paxeer-chain-docs.md"
+status = "stale"
+notes = "Read the entire page. Lines 3-5 and 17 retain two trust boundaries and retired custody/checkpoint settlement. Swagger enablement and the described local serving path remain separate from public EVM root RPC."
+
+[doc.3]
+path = "docs/paxeer-network.md"
+status = "misleading"
+notes = "Read the entire page. Lines 3-20, 38-40 and 82 still teach two-network custody/settlement and the old balance writer. Chain id 125 and the tenant namespace model are consistent; the surrounding architecture needs rewrite."
+
+[doc.4]
+path = "docs/site/docs/reference/public-rpc.md"
+status = "misleading"
+notes = "Read the entire page. The root HTTPS call, 0x7d chain and root WebSocket support agree with the brief. Lines 29-30 exceed the declared node inventory, and 71-74 reintroduce a router and stale unified-interface guidance; no endpoint was probed."
+
+[doc.5]
+path = "docs/system/rpc.md"
+status = "stale"
+notes = "Read the entire generated catalogue. Lines 5 and 137-141 omit the test opt-in; the 103-method catalogue misses filter and receipt-key registrations and renders subscription selectors as method names. Repair its generator and regenerate."
+
+[doc.6]
+path = "docs/evm_jsonrpc_unsupported.md"
+status = "misleading"
+notes = "Read the entire page. The -32000 versus -32601 distinction agrees with rpc_unsupported.go, but lines 12 and 20 omit receipt-feed pending-filter support and lines 16 and 21 incorrectly classify debug_getRawTransaction as unsupported."
+
+[doc.7]
+path = "docs/site/docs/overview/unified-network.md"
+status = "misleading"
+notes = "Read all 229 lines following the public RPC link. Lines 5-123 retain independent daemon, proofs, custody and anchor architecture; 129-171 prescribe the retired router /rpc, lx methods and /rpc/schema. Its funds and endpoint guidance need a merged-network rewrite."
+
+[doc.8]
+path = "spec/layerx-merge/contracts/evm-rpc.md"
+status = "stale"
+notes = "Read the relevant client-parity, error-codes, served-methods, echo-echo, web3-clientversion, test-incrementpointerversion and metrics-legacy sections. RPC signatures and Geth behavior agree; the pinned metrics lifecycle conflicts with the active keep row and later decision 2278."
+
+[doc.9]
+path = "spec/layerx-merge/contracts/proto-api.md"
+status = "stale"
+notes = "Read buf-workspace and its linked acceptance context. Root modules, WIRE/WIRE_JSON and existing ignore behavior agree, but lines 14 and 21 retain the already removed wasm/third_party/proto lint ignore as present."
+
+[doc.10]
+path = "spec/layerx-merge/contracts/rpc.md"
+status = "stale"
+notes = "Read the catalogue endpoint/error and relevant RPC entries and inspected its anchors. The consumed retired api/buf.yaml row references a nonexistent fmt-api-buf-yaml anchor; its replacement is the root buf-workspace contract."
+
+[doc.11]
+path = "spec/layerx-merge/contracts/telemetry.md"
+status = "accurate"
+notes = "Read rpc-metrics. The OTel websocket counter name, Int64Counter type and {count} unit agree with rpc/metrics.go. The implementation counts failed handshakes too, recorded as a source finding rather than changing the documented established-connection meaning."
+
+[doc.12]
+path = "spec/layerx-merge/interfaces.kvx"
+status = "stale"
+notes = "Read all eight produced and eight consumed rows and their cited source/caller paths. Findings identify the stale Buf ignore, false authority modules edge, unrelated -32601 comment consumers, removed relay provider and conflicting kept legacy metric lifecycle."

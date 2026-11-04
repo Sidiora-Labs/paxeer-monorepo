@@ -1,0 +1,634 @@
+[audit.22.30.81]
+task = "22.30.81"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 25
+findings = 37
+docs_reviewed = 18
+upgrade_ready = false
+blocking = ["node-root", "history-schema", "settlement-component-gate", "identity-config-coupling", "state-retired-producer"]
+
+[file.ai_views]
+path = "services/platform/hosted/gateway/src/ai_views.rs"
+lines = 339
+verdict = "issues"
+note = "Read all request parsing, authentication, projection access, cursor/freshness handling and tests; handler logic is exported but the executable wiring is missing as recorded."
+
+[file.authority_evidence]
+path = "services/platform/hosted/gateway/src/authority_evidence.rs"
+lines = 428
+verdict = "clean"
+note = "Read all verification and tests. Retained authorized-batch evidence checks bind identity, roots and receipt inclusion; historical signed-batch decoding is evidence compatibility, not a live sequencer service assertion."
+
+[file.authority_readiness]
+path = "services/platform/hosted/gateway/src/authority_readiness.rs"
+lines = 72
+verdict = "clean"
+note = "Read all 72 lines. The exact four-field decoder agrees with the actual authority readiness serializer in hosted/authority/src/main.rs; dependency removal from merged readiness is recorded against the caller in main.rs."
+
+[file.backend_availability]
+path = "services/platform/hosted/gateway/src/backend_availability.rs"
+lines = 63
+verdict = "clean"
+note = "Read all backend enumeration and response serialization. Configured/unconfigured status encoding is consistent with its consumers; the obsolete dependency policy applied by main.rs is separately recorded."
+
+[file.capabilities]
+path = "services/platform/hosted/gateway/src/capabilities.rs"
+lines = 1627
+verdict = "issues"
+note = "Read all seven surface probes, configuration, cache refresh, transaction admission and tests. Surface addresses and ABI gates agree with evm.rs; node endpoint normalization and its test retain the wrong transport."
+
+[file.chain_reads]
+path = "services/platform/hosted/gateway/src/chain_reads.rs"
+lines = 338
+verdict = "issues"
+note = "Read all commit, validator, receipt-key and sequence-batch handling and tests. Decimal/hex encodings and inclusion hashing were compared with consensus/node producers; validator pagination lacks an aggregate bound."
+
+[file.evm]
+path = "services/platform/hosted/gateway/src/evm.rs"
+lines = 887
+verdict = "clean"
+note = "Read all ABI encoders, strict bounded decoders and tests. Live surface selectors, integer/byte encodings, account resolution, ledger and program reads agree with their declared precompile interfaces; retired custody/anchor names occur as refusal assertions."
+
+[file.explorer_proxy]
+path = "services/platform/hosted/gateway/src/explorer_proxy.rs"
+lines = 1260
+verdict = "clean"
+note = "Read all path/method allowlisting, upstream forwarding, response transforms and tests. Archive receipt routes are allowed, retired live receipt/anchor APIs refused and live capabilities strip custody/anchor; frontend page drift is recorded in ui_proxy.rs."
+
+[file.explorer_target]
+path = "services/platform/hosted/gateway/src/explorer_target.rs"
+lines = 52
+verdict = "clean"
+note = "Read all normalization and refusal branches. Prefix/query validation agrees with proxy callers and prevents targets escaping the explorer mount; no live retired transport is selected here."
+
+[file.history]
+path = "services/platform/hosted/gateway/src/history.rs"
+lines = 2602
+verdict = "issues"
+note = "Read all indexer transports, position/cursor decoding, account selection, metadata joins, failure handling and tests. Findings cover the closed-schema mismatch, unnecessary registry dependency, error categories and contradictory acceptance wording."
+
+[file.http]
+path = "services/platform/hosted/gateway/src/http.rs"
+lines = 2292
+verdict = "clean"
+note = "Read all request/response framing, TLS/plain endpoint handling, header sanitation, size/deadline bounds, proxy helpers and tests. Transport callers retain explicit paths and credentials; historical /rpc/ws parser-test input is opaque framing data, not a mounted endpoint."
+
+[file.lib]
+path = "services/platform/hosted/gateway/src/lib.rs"
+lines = 1514
+verdict = "clean"
+note = "Read all public declarations, authentication, key issuance, receipt authorization, route selection and tests. lx_* and retired production routes are refused; retained receipt/program verification helpers do not themselves submit to a retired service. ROUTER_METHODS is a method catalogue, not a deployed router."
+
+[file.main]
+path = "services/platform/hosted/gateway/src/main.rs"
+lines = 5482
+verdict = "issues"
+note = "Read all startup/configuration, dispatch, workers, receipt/settlement checks, key administration, readiness/status and tests. Live kernel dependency policy, public state/settlement availability, readiness and status findings are recorded; receipt and authorization checks were not weakened."
+
+[file.paxeer]
+path = "services/platform/hosted/gateway/src/paxeer.rs"
+lines = 1179
+verdict = "issues"
+note = "Read all configured transports, failover, chain/precompile joins, account/asset responses and tests. Chain-only resolution and refusal paths agree with their producers; asset enumeration is not bounded by its output limit and module prose remains stale."
+
+[file.public_reads]
+path = "services/platform/hosted/gateway/src/public_reads.rs"
+lines = 210
+verdict = "issues"
+note = "Read all client attribution, bounded read windows, core target parsing and routing tests. Rate limits are bounded per interval and selectors are checked; the active /rpc mount remains retired ingress."
+
+[file.routes]
+path = "services/platform/hosted/gateway/src/routes.rs"
+lines = 1688
+verdict = "clean"
+note = "Read all binding/configuration parsing, trusted service health/identity checks, passthrough, HPX, MCP, agent routing and tests. Route identity/version comparisons, origin/provenance checks and scope admission are enforced; optional-route health aggregation is a main.rs readiness policy finding."
+
+[file.rpc]
+path = "services/platform/hosted/gateway/src/rpc.rs"
+lines = 341
+verdict = "issues"
+note = "Read all JSON-RPC validation, batching, notification and method dispatch code and tests. lx_* refusal and hosted method dispatch are explicit; the live /rpc/schema publication remains retired ingress."
+
+[file.rpc_faucet]
+path = "services/platform/hosted/gateway/src/rpc_faucet.rs"
+lines = 1089
+verdict = "clean"
+note = "Read all faucet configuration, representable-amount checks, registration/session binding, quotas, idempotent pending/completed claims and tests. Identity/faucet request shapes and claim amounts agree with producers; startup dependency coupling is recorded against main.rs rather than the claim protocol."
+
+[file.rpc_register]
+path = "services/platform/hosted/gateway/src/rpc_register.rs"
+lines = 776
+verdict = "issues"
+note = "Read all proof-of-possession, subject derivation, proxy/client attribution, signup/verify/direct registration and tests. Signer and response checks agree with identity; tenant is fixed to beta rather than selected from trusted tenant context."
+
+[file.settlement]
+path = "services/platform/hosted/gateway/src/settlement.rs"
+lines = 924
+verdict = "clean"
+note = "Read all exact claim fields, signature/key-range authorization, canonical receipt/execution binding, committed node receipt comparisons and tests. Sequencer-signed names describe retained receipt wire evidence, not a separate live sequencer service; the unreachable chain-only ingress is recorded in main.rs."
+
+[file.state]
+path = "services/platform/hosted/gateway/src/state.rs"
+lines = 352
+verdict = "issues"
+note = "Read all head decoding, maintenance/batch proof checks, state document generation and tests. Its live producer is still the standalone Component and signed batch head, so no committed node state source survives kernel-service removal."
+
+[file.store]
+path = "services/platform/hosted/gateway/src/store.rs"
+lines = 1643
+verdict = "clean"
+note = "Read all Redis framing/TLS, pooling, key/epoch/quota Lua transactions, idempotent operation records, bounded continuation persistence, event outbox/ack and tests. Atomic reservations and retained outcomes support retry across reconnect/restart; no key secret is returned by store serialization."
+
+[file.ui_proxy]
+path = "services/platform/hosted/gateway/src/ui_proxy.rs"
+lines = 1703
+verdict = "issues"
+note = "Read all UI bindings, host/target validation, wallet/explorer forwarding, cookie/redirect/header filtering, frontend/data route allowlists and tests. The live explorer page catalogue has not followed the archive API migration."
+
+[file.ws]
+path = "services/platform/hosted/gateway/src/ws.rs"
+lines = 2314
+verdict = "issues"
+note = "Read all upgrade validation, subscriber limits, upstream routing, subscription id mapping, frame admission, revocation rechecks, disconnect/overflow handling and tests. Connections fail closed on lost upstream state; retired /rpc/ws mounts remain in the serving path."
+
+[file.ws_wire]
+path = "services/platform/hosted/gateway/src/ws_wire.rs"
+lines = 282
+verdict = "clean"
+note = "Read all handshake, masked frame decoding, opcode/length/control-frame rules, close handling and tests. Bounded frame transport and consumer limits agree; it carries no durable cursor or promised silent replay."
+
+[finding.node-root]
+file = "services/platform/hosted/gateway/src/capabilities.rs"
+line = 291
+class = "interface-mismatch"
+severity = "high"
+observed = "chain_rpc replaces an empty base_path with /rpc through CHAIN_RPC_PATH. main.rs:874-875 applies it to every LAYERX_GATEWAY_PAXEER_RPC_URLS endpoint before paxeer::node sends requests. The node HTTPServer in rpc/rpcstack.go:299-302 accepts only / when no prefix is configured, so a documented bare node origin becomes a failing /rpc call."
+expected = "Brief facts 2 and 3 and registry 7.http-jsonrpc-root require JSON-RPC at the node root. A configured api-mainnet-beta or numbered node origin must support gateway chain reads and transaction submission without a retired router."
+proposal = "In services/platform/hosted/gateway/src/capabilities.rs and main.rs preserve the configured root as / instead of appending /rpc. Prove bare node configuration through the running node HTTP server into gateway reads, capability probing and transaction submission; retain explicitly configured domain paths."
+owner_domain = 8
+interface = "7.http-jsonrpc-root"
+
+[finding.node-root-test]
+file = "services/platform/hosted/gateway/src/capabilities.rs"
+line = 1260
+class = "test-gap"
+severity = "medium"
+observed = "The chain endpoint test expects https://router.example and its trailing-slash form to become /rpc. It proves the obsolete rewrite rather than the root accepted by the node, so it endorses the node-root failure."
+expected = "Brief checks 3 and 7 require root-path node transport and tests whose endpoint behavior agrees with the real producer."
+proposal = "Replace the router-origin expectations in services/platform/hosted/gateway/src/capabilities.rs with the merged node root contract and exercise the configured gateway against a real node listener, including explicit /chain/<id> paths and rejection of obsolete router assumptions."
+owner_domain = 8
+
+[finding.history-schema]
+file = "services/platform/hosted/gateway/src/history.rs"
+line = 263
+class = "interface-mismatch"
+severity = "high"
+observed = "page clones each indexer row and inserts tx_hash equal to tx_id. Both px_getHistory and px_getUnifiedHistory OpenRPC item schemas have additionalProperties false but no tx_hash property (openrpc.json:1627 and 1964). The recorded web fixture includes tx_hash; a client enforcing the declared closed schema rejects these non-empty gateway answers."
+expected = "Registry 8.rpc-gateway-px-gethistory and 8.rpc-gateway-px-getunifiedhistory must describe the emitted history rows. Requirement 99713.1 explicitly requires tx_hash beside tx_id and the recorded answer must decode for consumers."
+proposal = "In services/platform/hosted/gateway/openrpc.json declare the emitted tx_hash with its hash encoding in both item schemas and coordinate clients under sdk/ and apps/web/. Validate a real indexer-to-gateway answer against the closed schemas and decode that same recording in consumers without weakening exact equality."
+owner_domain = 8
+interface = "8.rpc-gateway-px-gethistory"
+
+[finding.settlement-component-gate]
+file = "services/platform/hosted/gateway/src/main.rs"
+line = 1920
+class = "interface-mismatch"
+severity = "high"
+observed = "After production_route accepts POST /v1/settle, the shared ingress unconditionally requires KernelBackend::Component. With kernel variables unset it returns kernel_unavailable before settle, although settle at lines 2724-2797 uses the durable key store, pinned receipt keys and node pax_sequencerReceipt plus eth_getTransactionReceipt, not that component."
+expected = "Registry 8.http-gateway-post-v1-settle is a surviving merchant interface. Brief fact 1 and requirement 8153.1 require hosted chain paths to operate without a separate kernel-side service."
+proposal = "In services/platform/hosted/gateway/src/main.rs assign dependencies per production route so settlement authenticates and verifies committed node evidence without a Component precondition. Exercise an actual committed payment through merchant POST /v1/settle with every retired backend unset, including pending and refused results."
+owner_domain = 8
+interface = "8.http-gateway-post-v1-settle"
+
+[finding.identity-config-coupling]
+file = "services/platform/hosted/gateway/src/main.rs"
+line = 736
+class = "wiring-gap"
+severity = "high"
+observed = "configured_kernel rejects identity variables unless LAYERX_GATEWAY_COMPONENT_URL is set, then requires component, authority, program registry, module configuration and kernel client credentials together. Config::backend exposes Identity only from this Kernel. px_register, px_requestFunds and /v1/keys therefore cannot use the surviving identity service independently in a chain-only deployment."
+expected = "The declared hosted registration, starter-credit and key-management interfaces remain available with their identity and durable-store dependencies. Removing the separate kernel service must not remove onboarding or require deployment of retired services."
+proposal = "Split identity endpoint, identity credentials and key provisioning configuration from Kernel in services/platform/hosted/gateway/src/main.rs; wire rpc_register.rs, rpc_faucet.rs and key management to that independent target. Prove registration, session introspection, faucet claim and key rotation through actual identity and Redis transports with kernel variables unset."
+owner_domain = 8
+interface = "8.rpc-gateway-px-register"
+
+[finding.tenant-fixed-beta]
+file = "services/platform/hosted/gateway/src/rpc_register.rs"
+line = 10
+class = "wiring-gap"
+severity = "medium"
+observed = "TENANT is fixed to beta and is used for signature binding, derived subject, identity request bodies and response verification at lines 198, 254-290 and 334-347. A gateway serving another tenant cannot register a principal in that tenant and instead targets beta."
+expected = "Brief fact 5 requires tenant domains to be parameterized namespaces. Registration identity, signature domain and principal ownership must use the authenticated or configured tenant consistently."
+proposal = "In services/platform/hosted/gateway/src/rpc_register.rs obtain the tenant from the trusted gateway tenant context, bind the signature and subject to it, and pass it to identity and response checks. Coordinate openrpc.json and prove two tenants over real identity storage, including rejection of cross-tenant signatures."
+owner_domain = 8
+interface = "8.rpc-gateway-px-register"
+
+[finding.readiness-kernel-drift]
+file = "services/platform/hosted/gateway/src/main.rs"
+line = 2192
+class = "interface-mismatch"
+severity = "medium"
+observed = "readiness appends every KernelBackend when any kernel backend is configured, and gateway_readiness_scope inserts those entries and principal_state_boundary under components. The capabilities document also omits layerx_activity entirely. Setting a legacy kernel configuration changes readiness and can make an otherwise serving merged gateway degraded."
+expected = "Requirement 8153.2 requires readiness to stay unchanged when a kernel backend is configured, with no kernel entries or principal_state_boundary and layerx_activity explicitly not_configured."
+proposal = "In services/platform/hosted/gateway/src/main.rs derive merged readiness from the live chain, indexer and durable-store dependencies, omit retired backend probes regardless of leftover configuration, and publish the required layerx_activity status. Verify equal readiness documents with and without legacy variables, preserving observation-time semantics."
+owner_domain = 8
+interface = "8.http-gateway-get-readyz"
+
+[finding.readiness-required-backends]
+file = "services/platform/hosted/gateway/src/main.rs"
+line = 2318
+class = "runtime-risk"
+severity = "medium"
+observed = "serving uses backend.ready || !backend.configured, so absent Paxeer and consensus targets do not prevent HTTP 200 ready if the durable store is healthy. readiness never probes the indexer, and complete is just serving even when product_routes reports unavailable dependencies. Traffic can be admitted while chain and history methods cannot serve."
+expected = "A ready gateway must have the required serving dependencies for the advertised public methods. Requirement 8153.2 bases readiness on ready chain and indexer listeners rather than accepting their absence."
+proposal = "In services/platform/hosted/gateway/src/main.rs define required dependencies for each advertised serving scope, require chain and indexer readiness, and apply product-route dependency results to the appropriate scope. Cover missing, unreachable and recovered dependencies with actual listeners and assert the corresponding 503-to-200 transition."
+owner_domain = 8
+interface = "8.http-gateway-get-readyz"
+
+[finding.readiness-test-contract]
+file = "services/platform/hosted/gateway/src/main.rs"
+line = 5298
+class = "test-gap"
+severity = "medium"
+observed = "real_gateway_readiness_capabilities_contract requires eight backends and at line 5311 asserts that capabilities has no layerx_activity. Those assertions preserve the kernel-era document instead of the explicit merged readiness contract; the current test cannot establish configuration-independent readiness."
+expected = "Requirement 8153.2 requires no kernel backend entries under either configuration and an explicit layerx_activity not_configured capability. Tests must assert that product contract on real transports."
+proposal = "Update the test and its real-service case generation in services/platform/hosted/gateway/src/main.rs to assert the merged dependency set and explicit capability state for both kernel-variable configurations. Keep strict field and status checks and restart dependencies to prove recovery rather than deleting assertions."
+owner_domain = 8
+
+[finding.status-permanent-degradation]
+file = "services/platform/hosted/gateway/src/main.rs"
+line = 2387
+class = "runtime-risk"
+severity = "medium"
+observed = "gateway_status reports hosted_gateway as degraded whenever Redis is ready and unavailable otherwise; it has no available branch. It still probes testnet_core and receipt_authority. Operators cannot distinguish a healthy merged gateway from a degraded one using this surviving status route."
+expected = "A healthy hosted gateway should report available based on its live chain, indexer and store dependencies, with retired standalone service health absent from the operational status."
+proposal = "In services/platform/hosted/gateway/src/main.rs derive /v1/status from the same live dependency model as readiness, include a reachable healthy state, and remove obsolete core/authority service status. Verify healthy, failed and recovered dependencies against the running gateway."
+owner_domain = 8
+interface = "8.http-gateway-get-v1-status"
+
+[finding.ai-views-unmounted]
+file = "services/platform/hosted/gateway/src/ai_views.rs"
+line = 53
+class = "wiring-gap"
+severity = "medium"
+observed = "AiViews::respond implements authenticated snapshot, participants and epochs routes under /v1/ai/markets/, with projection freshness and cursor keys. lib.rs exports the module, but main.rs has no AiViews state, respond call or route mount. The gateway binary therefore falls through to 404 for the module advertised routes."
+expected = "Brief check 2 requires handlers to be registered and projection state to have a live producer. The authenticated market views described by this module must be reachable with the same key revocation, freshness and cursor semantics."
+proposal = "Wire services/platform/hosted/gateway/src/ai_views.rs into main.rs with the actual indexer projection, persistent cursor key configuration and principal limiter. Prove committed market ingestion through the running gateway, then restart projection and gateway processes and check cursor continuation, freshness and revoked-key refusal."
+owner_domain = 8
+
+[finding.retired-http-ingress]
+file = "services/platform/hosted/gateway/src/public_reads.rs"
+line = 119
+class = "retired-reference"
+severity = "medium"
+observed = "public_reads::route actively mounts the hosted JSON-RPC handler at /rpc and /rpc/schema. The main request path invokes this router, retaining the unified ingress prohibited by the merged-network brief."
+expected = "Brief facts 2 and 3 retire unified /rpc and /rpc/schema endpoints, distinguish hosted px_ methods from node namespaces, and publish node JSON-RPC at the root."
+proposal = "Change the hosted ingress mounting in services/platform/hosted/gateway/src/public_reads.rs with main.rs and the deployment bindings to the approved merged gateway surface. Keep hosted px_ ownership explicit, use root-path node targets, and prove the published client route while refusing retired ingress aliases."
+owner_domain = 8
+interface = "8.http-gateway-any-rpc"
+
+[finding.retired-schema-route]
+file = "services/platform/hosted/gateway/src/rpc.rs"
+line = 74
+class = "retired-reference"
+severity = "medium"
+observed = "rpc::route serves the embedded OpenRPC document on GET /rpc/schema and preserves that live endpoint rather than restricting the old path to historical documentation."
+expected = "Brief fact 2 explicitly retires /rpc/schema. The surviving hosted px_ contract must be discoverable through the merged gateway publication surface and describe only supported operations."
+proposal = "In services/platform/hosted/gateway/src/rpc.rs retire the /rpc/schema route and publish services/platform/hosted/gateway/openrpc.json at the chosen hosted contract location, coordinated with gateway bindings and clients. Assert the new discovery path and refusal of the retired path."
+owner_domain = 8
+interface = "8.http-gateway-any-rpc-schema"
+
+[finding.retired-ws-ingress]
+file = "services/platform/hosted/gateway/src/ws.rs"
+line = 588
+class = "retired-reference"
+severity = "medium"
+observed = "subscription_text treats /rpc/ws as the combined JSON-RPC and subscription transport; main.rs:1988-1992 still mounts /rpc/evm/ws and /rpc/ws. This keeps the former unified WebSocket ingress live after the router retirement."
+expected = "Brief fact 2 retires /rpc/ws and the separate unified router. Node WebSocket transport follows registry 7.ws-endpoint-root and hosted methods retain an explicitly owned gateway surface."
+proposal = "Coordinate services/platform/hosted/gateway/src/ws.rs and main.rs with gateway bindings and clients to remove the retired mounts and use the merged transport routes. Prove actual node subscriptions and hosted calls through their published routes, including disconnect, resubscription and revoked credentials."
+owner_domain = 8
+interface = "8.ws-gateway-any-rpc-ws"
+
+[finding.state-retired-producer]
+file = "services/platform/hosted/gateway/src/state.rs"
+line = 140
+class = "interface-mismatch"
+severity = "high"
+observed = "state::read exclusively fetches GET /v1/state from KernelBackend::Component, then requires a current HeadDocument with signed batch evidence and receipt-key authorization. No node committed-state source is wired. The declared public state route is unavailable with the separate component removed."
+expected = "Registry 8.http-gateway-get-v1-state must expose verified state of the single committed BFT chain. Brief facts 1 and 2 rule out a required standalone kernel service as its live state producer."
+proposal = "In services/platform/hosted/gateway/src/state.rs and main.rs source current state and its authenticated commitment proof from the node, bind response height/root to the committed block, and keep historical batch decoding explicitly archival if needed. Prove node producer through HTTP into the public state consumer, including restart and stale-proof refusal."
+owner_domain = 8
+interface = "8.http-gateway-get-v1-state"
+
+[finding.validator-pagination-bound]
+file = "services/platform/hosted/gateway/src/chain_reads.rs"
+line = 119
+class = "runtime-risk"
+severity = "medium"
+observed = "px_getValidators accumulates every returned validator in a loop bounded only by the consensus response total and increasing page. A large or inconsistent-but-progressing upstream total can hold a public request and grow its vector over arbitrarily many individually timed HTTP calls."
+expected = "Brief check 4 requires bounded inputs and request duration. Consensus pagination must fit a declared validator-set bound and one overall gateway request deadline."
+proposal = "Add a protocol-supported validator-set/page bound and aggregate deadline in services/platform/hosted/gateway/src/chain_reads.rs; reject oversized or non-progressing responses with the declared unavailable error. Verify real consensus pagination at the boundary and recovery after a refused response."
+owner_domain = 8
+interface = "8.rpc-gateway-px-getvalidators"
+
+[finding.asset-list-full-scan]
+file = "services/platform/hosted/gateway/src/paxeer.rs"
+line = 620
+class = "runtime-risk"
+severity = "medium"
+observed = "layerx_assets fetches /v1/assets in pages of 500 until next_cursor is null, stores and sorts the entire catalogue, then truncates it to MAX_JOINED_ASSETS = 16. A small px_listAssets answer therefore costs an unbounded catalogue scan, memory growth and repeated public-read admission that can fail on a large healthy catalogue."
+expected = "Brief check 4 requires bounded work for public requests. The documented 16-asset response bound must also bound the metadata discovery work rather than merely trimming the final vector."
+proposal = "In services/platform/hosted/gateway/src/paxeer.rs use an indexer ordering and page contract that selects the required 16 assets before retrieval, with an aggregate deadline and explicit continuation semantics. Coordinate services/platform/hosted/indexer/src and prove stable results against a populated indexer without scanning every asset."
+owner_domain = 8
+interface = "8.rpc-gateway-px-listassets"
+
+[finding.history-unneeded-registry]
+file = "services/platform/hosted/gateway/src/history.rs"
+line = 401
+class = "runtime-risk"
+severity = "medium"
+observed = "join_assets invokes registry whenever any asset lookup returns a non-null record. Even a native record or a record whose symbol and decimals are complete triggers a full /v1/assets registry scan; registry failure then rejects a history page that could be served without that lookup."
+expected = "Requirement 18878.1 says pages whose rows need no asset metadata must be served without reading the registry. Native and already-complete metadata must not gain an unrelated availability dependency."
+proposal = "In services/platform/hosted/gateway/src/history.rs determine unresolved metadata fields first and query only needed registry information, with bounded work. Exercise actual indexer native and complete-metadata records while the registry route fails and assert that the page still succeeds without any registry request."
+owner_domain = 8
+
+[finding.history-registry-errors]
+file = "services/platform/hosted/gateway/src/history.rs"
+line = 530
+class = "runtime-risk"
+severity = "medium"
+observed = "registry maps a successful response with missing items to registry_unavailable, and malformed next_cursor to invalid_registry_response at lines 546-549. These codes lose the specific invalid_indexer_response distinction required for the indexer /v1/assets producer."
+expected = "Requirement 18878.1 requires the failed registry read to retain its specific indexer_unreachable, invalid_indexer_response or registry_rate_limited code rather than collapse response failures into registry_unavailable."
+proposal = "In services/platform/hosted/gateway/src/history.rs preserve transport, malformed-indexer and rate-limit failure categories through registry and the JSON-RPC refusal. Drive the real indexer HTTP path and assert each exact code without adding fallback metadata or weakening response validation."
+owner_domain = 8
+interface = "8.http-indexer-any-v1-assets"
+
+[finding.history-native-test-gap]
+file = "services/platform/hosted/gateway/src/history.rs"
+line = 2165
+class = "test-gap"
+severity = "medium"
+observed = "history_registry_skipped_for_native_only_pages commits transfers with Vec::new() asset records. Asset lookups therefore return 404 and the test only proves the missing-record shortcut. It never covers the real non-null native record that currently causes join_assets to read the registry."
+expected = "Brief check 7 and requirement 18878.1 require a no-registry assertion for actual native and complete-metadata producer records, not a fixture with absent asset records."
+proposal = "Extend services/platform/hosted/gateway/src/history.rs tests to ingest native and fully described assets through the real indexer store/API and assert zero registry reads and successful pages during registry failure. Retain the existing absent-record coverage and strict row assertions."
+owner_domain = 8
+
+[finding.history-requirement-conflict]
+file = "services/platform/hosted/gateway/src/history.rs"
+line = 2321
+class = "test-gap"
+severity = "medium"
+observed = "history_rows_carry_the_transaction_hash asserts tx_hash and unified_history_answer_matches_the_web_fixture compares the complete answer unchanged to a fixture that contains tx_hash. This agrees with 99713.1, while package requirement 181092.1 still demands a fixture with no tx_hash key. Both acceptance statements cannot hold simultaneously."
+expected = "The history producer, unchanged exact fixture comparison, SDK consumer and acceptance wording must agree on one transaction-hash field contract, retaining the emitted tx_hash required by 99713.1."
+proposal = "Resolve the acceptance contradiction in spec/layerx-merge/spec.kvx under the history owner, preserving services/platform/hosted/gateway/src/history.rs exact recording comparison and hash assertions. Align openrpc.json and consumer decoding with that producer recording; do not remove fields or weaken equality to satisfy the obsolete no-tx_hash wording."
+owner_domain = 8
+
+[finding.explorer-pages-retired]
+file = "services/platform/hosted/gateway/src/ui_proxy.rs"
+line = 752
+class = "retired-reference"
+severity = "medium"
+observed = "The frontend page allowlist still exposes /explorer/paxeer-x/anchors, /receipts and /receipts/[id]. explorer_proxy.rs explicitly refuses the corresponding live anchor/receipt APIs and allows archive routes, so these pages retain the retired live model while their data transport has moved."
+expected = "Brief checks 1 and 3 and requirement 8990.1 require historical evidence to be presented as archive data and retired live receipt/anchor routes to be refused consistently."
+proposal = "Coordinate services/platform/hosted/gateway/src/ui_proxy.rs with apps/explorer and explorer_proxy.rs so the supported archive pages and their Next data paths use the archive APIs. Remove the obsolete live-page entries and prove page-to-proxy-to-archive rendering plus refusal of retired URLs."
+owner_domain = 8
+interface = "8.http-gateway-any-explorer"
+
+[finding.paxeer-module-description]
+file = "services/platform/hosted/gateway/src/paxeer.rs"
+line = 1
+class = "doc-drift"
+severity = "low"
+observed = "The module introduction describes a Paxeer half joined with its LayerX counterpart and a public tier that answers lx_* reads. rpc.rs now refuses every lx_ method and the implementation uses merged chain precompile and indexer reads."
+expected = "Brief facts 1 and 2 require a single network description with hosted px_ reads and no separate LayerX public interface."
+proposal = "Rewrite the module description in services/platform/hosted/gateway/src/paxeer.rs around the single-chain relay, hosted px_ joins, actual admission budget and explicit refusal behavior; remove the obsolete public lx_* and separate-domain claims."
+owner_domain = 8
+
+[finding.doc-readme]
+file = "README.md"
+line = 45
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 45-48 describe layerxd as a separate running daemon settling checkpoints; line 181 calls the merge draft. The precompile overview also retains the custody/anchor model."
+expected = "Brief facts 1-5 define one paxd BFT chain with linked kernel, chain id 125, root node RPC and hosted px_ methods; retired layerxd, router, lx_* and checkpoint/custody flows must not be taught as live integration paths."
+proposal = "Rewrite README.md network, build and upgrade sections around paxd with the linked kernel, committed-block finality and the live gateway contract. Mark retained pre-merge commands and evidence explicitly historical."
+owner_domain = 17
+
+[finding.doc-network]
+file = "docs/paxeer-network.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-9 describe Paxeer as the separate custody, checkpoint, guarantor, withdrawal and emergency-exit settlement network for ordinary LayerX activity."
+expected = "Brief facts 1-5 define one paxd BFT chain with linked kernel, chain id 125, root node RPC and hosted px_ methods; retired layerxd, router, lx_* and checkpoint/custody flows must not be taught as live integration paths."
+proposal = "Rewrite docs/paxeer-network.md as the single chain-125 BFT network reference with root node endpoints and committed receipt finality; move retired custody, bond and checkpoint instructions to a clearly labeled archive."
+owner_domain = 17
+
+[finding.doc-monorepo]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Line 3 lists layerxd as a running kernel; lines 66-72 preserve separate kernel and checkpoint/custody trust boundaries rather than the merged node lifecycle."
+expected = "Brief facts 1-5 define one paxd BFT chain with linked kernel, chain id 125, root node RPC and hosted px_ methods; retired layerxd, router, lx_* and checkpoint/custody flows must not be taught as live integration paths."
+proposal = "Update docs/MONOREPO.md runtime and trust-boundary sections to show the linked kernel inside paxd and independently hosted services with their actual transports. Separate historical directory migration notes from current deployment guidance."
+owner_domain = 17
+
+[finding.doc-site-index]
+file = "docs/site/docs/index.md"
+line = 9
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 9-14 describe periodic checkpoints to a separate finality/custody domain; lines 24-26 and the support table present guarantors and emergency exits as the active network model."
+expected = "Brief facts 1-5 define one paxd BFT chain with linked kernel, chain id 125, root node RPC and hosted px_ methods; retired layerxd, router, lx_* and checkpoint/custody flows must not be taught as live integration paths."
+proposal = "Rewrite docs/site/docs/index.md introduction and capability table for the merged chain, committed-block finality, hosted px_ methods and supported precompile surfaces. Link to current root-path node configuration instead of a two-network settlement flow."
+owner_domain = 17
+
+[finding.doc-site-monorepo]
+file = "docs/site/docs/overview/monorepo.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3 and 12-30 retain separate LayerX/Paxeer deployment and trust domains with custody, checkpoint registration and guarantor settlement as current behavior."
+expected = "Brief facts 1-5 define one paxd BFT chain with linked kernel, chain id 125, root node RPC and hosted px_ methods; retired layerxd, router, lx_* and checkpoint/custody flows must not be taught as live integration paths."
+proposal = "Revise docs/site/docs/overview/monorepo.md runtime and trust boundaries around paxd with a linked kernel and hosted service ownership, distinguishing historical source-layout explanations from the current single-network deployment."
+owner_domain = 17
+
+[finding.doc-unified-network]
+file = "docs/site/docs/overview/unified-network.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "Line 11 describes cmd/layerxd as the live sequencer; lines 52-137 teach custody and anchor finality; lines 129-171 publish the router /rpc and /rpc/schema and old joins, followed by the obsolete subscription surface."
+expected = "Brief facts 1-5 define one paxd BFT chain with linked kernel, chain id 125, root node RPC and hosted px_ methods; retired layerxd, router, lx_* and checkpoint/custody flows must not be taught as live integration paths."
+proposal = "Rewrite docs/site/docs/overview/unified-network.md for one BFT chain, the live construct addresses and root node HTTP/WS endpoints api1 through api14 plus api-mainnet-beta. Document hosted px_ ownership separately and retain custody/anchor evidence only in an archive section."
+owner_domain = 17
+
+[finding.doc-quickstart]
+file = "docs/site/docs/overview/quickstart.md"
+line = 7
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 7-10 promise hosted Programs deploy and activity routes that production_route now rejects. Line 20 and later RPC/WS examples retain /rpc and lx_*; the later funding flow still assumes retired custody and standalone kernel behavior."
+expected = "Brief facts 1-5 define one paxd BFT chain with linked kernel, chain id 125, root node RPC and hosted px_ methods; retired layerxd, router, lx_* and checkpoint/custody flows must not be taught as live integration paths."
+proposal = "Replace docs/site/docs/overview/quickstart.md with a runnable merged-node and hosted-gateway journey using surviving transaction, registration, faucet and receipt methods. Re-run the documented user journey through actual services before publishing its command and response examples."
+owner_domain = 17
+
+[finding.doc-getting-started]
+file = "docs/site/docs/overview/getting-started.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-10 call the public origin a router and append /rpc; the later wallet/funding flow uses public lx_* operations and outdated method inventory and registration guidance."
+expected = "Brief facts 1-5 define one paxd BFT chain with linked kernel, chain id 125, root node RPC and hosted px_ methods; retired layerxd, router, lx_* and checkpoint/custody flows must not be taught as live integration paths."
+proposal = "Update docs/site/docs/overview/getting-started.md to configure the root node origin and the approved hosted px_ surface, describe the supported registration and tenant selection flow, and replace retired wallet activity commands with the actual merged-network journey."
+owner_domain = 17
+
+[finding.doc-payments]
+file = "docs/site/docs/overview/payments.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 18-22 publish a router /rpc origin and the payment, funding and issuance examples rely on lx_* Asset activities and the former standalone LXT20/402 execution path."
+expected = "Brief facts 1-5 define one paxd BFT chain with linked kernel, chain id 125, root node RPC and hosted px_ methods; retired layerxd, router, lx_* and checkpoint/custody flows must not be taught as live integration paths."
+proposal = "Rewrite docs/site/docs/overview/payments.md using the merged chain payment and program entry points, live funding configuration and merchant committed-receipt settlement. Verify each command through producer, transport and merchant consumer before publishing the examples."
+owner_domain = 17
+
+[finding.doc-settlement]
+file = "docs/site/docs/concepts/paxeer-settlement.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-23 define a separate checkpoint/guarantor settlement finality and lines 28-50 present custody withdrawals and forced exits as live network operations."
+expected = "Brief facts 1-5 define one paxd BFT chain with linked kernel, chain id 125, root node RPC and hosted px_ methods; retired layerxd, router, lx_* and checkpoint/custody flows must not be taught as live integration paths."
+proposal = "Replace docs/site/docs/concepts/paxeer-settlement.md with committed-block receipt finality and actual merchant verification behavior. Preserve historical checkpoint/custody material only as archived evidence with no live submission or deployment instructions."
+owner_domain = 17
+
+[finding.doc-assets]
+file = "docs/site/docs/concepts/assets.md"
+line = 42
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 42-55 describe live public lx_sendActivity Asset ordinals; lines 217-227 advertise lx_listAssets, lx_getAsset, balances and fee reads that rpc::dispatch now refuses."
+expected = "Brief facts 1-5 define one paxd BFT chain with linked kernel, chain id 125, root node RPC and hosted px_ methods; retired layerxd, router, lx_* and checkpoint/custody flows must not be taught as live integration paths."
+proposal = "Update docs/site/docs/concepts/assets.md to document merged ledger/bank/pointer asset behavior and the supported hosted px_ reads and transaction entry points. Retain legacy payload encodings only as explicitly historical decoding references."
+owner_domain = 17
+
+[finding.doc-activities]
+file = "docs/site/docs/concepts/activities.md"
+line = 53
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 53-67 instruct authenticated lx_sendActivity on POST /rpc and a separate LayerX Node Interface, while gateway dispatch refuses lx_* and those activity production routes are retired."
+expected = "Brief facts 1-5 define one paxd BFT chain with linked kernel, chain id 125, root node RPC and hosted px_ methods; retired layerxd, router, lx_* and checkpoint/custody flows must not be taught as live integration paths."
+proposal = "Rewrite docs/site/docs/concepts/activities.md around the merged node transaction and committed receipt lifecycle; move legacy activity envelopes to an archival compatibility reference and link to current hosted methods."
+owner_domain = 17
+
+[finding.doc-openrpc]
+file = "services/platform/hosted/gateway/openrpc.json"
+line = 6
+class = "doc-drift"
+severity = "medium"
+observed = "info.description still promises authenticated activity submission, scoped subscriptions and native core reads, and px_register describes a fixed beta tenant. The closed history schemas at lines 1627 and 1964 exclude the emitted tx_hash; the unified history prose retains a two-sided merge even though its producer reads the bound EVM account only."
+expected = "The hosted OpenRPC publication must describe the actual supported methods, parameterized tenancy and exact producer result fields of the merged gateway, including history tx_hash."
+proposal = "Update services/platform/hosted/gateway/openrpc.json descriptions and schemas together with the gateway and SDK/web consumers. Remove retired activity/core promises, describe the actual account-selection behavior, and validate real recorded gateway answers against every closed result schema."
+owner_domain = 8
+
+[finding.doc-service-ingress]
+file = "spec/layerx-merge/contracts/services.md"
+line = 46
+class = "doc-drift"
+severity = "medium"
+observed = "The service catalogue presents platform-gateway ingress as POST /rpc, GET /rpc/schema, /rpc/ws and /rpc/evm/ws. Its runtime dependency guidance still carries the former unified-router service model rather than the network behavior required by the audit brief."
+expected = "Brief fact 2 retires the unified router paths and requires published service guidance to distinguish root node RPC from hosted px_ service ownership."
+proposal = "Regenerate or revise spec/layerx-merge/contracts/services.md service ingress and dependency guidance from the approved merged gateway bindings, with explicitly historical labeling for the frozen old routes and matching producer/consumer contract links."
+owner_domain = 8
+
+[doc.readme]
+path = "README.md"
+status = "misleading"
+notes = "Lines 45-48 describe layerxd as a separate running daemon settling checkpoints; line 181 calls the merge draft. The precompile overview also retains the custody/anchor model. Rewrite proposal: Rewrite README.md network, build and upgrade sections around paxd with the linked kernel, committed-block finality and the live gateway contract. Mark retained pre-merge commands and evidence explicitly historical."
+
+[doc.network]
+path = "docs/paxeer-network.md"
+status = "misleading"
+notes = "Lines 3-9 describe Paxeer as the separate custody, checkpoint, guarantor, withdrawal and emergency-exit settlement network for ordinary LayerX activity. Rewrite proposal: Rewrite docs/paxeer-network.md as the single chain-125 BFT network reference with root node endpoints and committed receipt finality; move retired custody, bond and checkpoint instructions to a clearly labeled archive."
+
+[doc.monorepo]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "Line 3 lists layerxd as a running kernel; lines 66-72 preserve separate kernel and checkpoint/custody trust boundaries rather than the merged node lifecycle. Rewrite proposal: Update docs/MONOREPO.md runtime and trust-boundary sections to show the linked kernel inside paxd and independently hosted services with their actual transports. Separate historical directory migration notes from current deployment guidance."
+
+[doc.site-index]
+path = "docs/site/docs/index.md"
+status = "misleading"
+notes = "Lines 9-14 describe periodic checkpoints to a separate finality/custody domain; lines 24-26 and the support table present guarantors and emergency exits as the active network model. Rewrite proposal: Rewrite docs/site/docs/index.md introduction and capability table for the merged chain, committed-block finality, hosted px_ methods and supported precompile surfaces. Link to current root-path node configuration instead of a two-network settlement flow."
+
+[doc.site-monorepo]
+path = "docs/site/docs/overview/monorepo.md"
+status = "stale"
+notes = "Lines 3 and 12-30 retain separate LayerX/Paxeer deployment and trust domains with custody, checkpoint registration and guarantor settlement as current behavior. Rewrite proposal: Revise docs/site/docs/overview/monorepo.md runtime and trust boundaries around paxd with a linked kernel and hosted service ownership, distinguishing historical source-layout explanations from the current single-network deployment."
+
+[doc.unified-network]
+path = "docs/site/docs/overview/unified-network.md"
+status = "misleading"
+notes = "Line 11 describes cmd/layerxd as the live sequencer; lines 52-137 teach custody and anchor finality; lines 129-171 publish the router /rpc and /rpc/schema and old joins, followed by the obsolete subscription surface. Rewrite proposal: Rewrite docs/site/docs/overview/unified-network.md for one BFT chain, the live construct addresses and root node HTTP/WS endpoints api1 through api14 plus api-mainnet-beta. Document hosted px_ ownership separately and retain custody/anchor evidence only in an archive section."
+
+[doc.quickstart]
+path = "docs/site/docs/overview/quickstart.md"
+status = "misleading"
+notes = "Lines 7-10 promise hosted Programs deploy and activity routes that production_route now rejects. Line 20 and later RPC/WS examples retain /rpc and lx_*; the later funding flow still assumes retired custody and standalone kernel behavior. Rewrite proposal: Replace docs/site/docs/overview/quickstart.md with a runnable merged-node and hosted-gateway journey using surviving transaction, registration, faucet and receipt methods. Re-run the documented user journey through actual services before publishing its command and response examples."
+
+[doc.getting-started]
+path = "docs/site/docs/overview/getting-started.md"
+status = "misleading"
+notes = "Lines 3-10 call the public origin a router and append /rpc; the later wallet/funding flow uses public lx_* operations and outdated method inventory and registration guidance. Rewrite proposal: Update docs/site/docs/overview/getting-started.md to configure the root node origin and the approved hosted px_ surface, describe the supported registration and tenant selection flow, and replace retired wallet activity commands with the actual merged-network journey."
+
+[doc.payments]
+path = "docs/site/docs/overview/payments.md"
+status = "misleading"
+notes = "Lines 18-22 publish a router /rpc origin and the payment, funding and issuance examples rely on lx_* Asset activities and the former standalone LXT20/402 execution path. Rewrite proposal: Rewrite docs/site/docs/overview/payments.md using the merged chain payment and program entry points, live funding configuration and merchant committed-receipt settlement. Verify each command through producer, transport and merchant consumer before publishing the examples."
+
+[doc.settlement]
+path = "docs/site/docs/concepts/paxeer-settlement.md"
+status = "misleading"
+notes = "Lines 3-23 define a separate checkpoint/guarantor settlement finality and lines 28-50 present custody withdrawals and forced exits as live network operations. Rewrite proposal: Replace docs/site/docs/concepts/paxeer-settlement.md with committed-block receipt finality and actual merchant verification behavior. Preserve historical checkpoint/custody material only as archived evidence with no live submission or deployment instructions."
+
+[doc.assets]
+path = "docs/site/docs/concepts/assets.md"
+status = "stale"
+notes = "Lines 42-55 describe live public lx_sendActivity Asset ordinals; lines 217-227 advertise lx_listAssets, lx_getAsset, balances and fee reads that rpc::dispatch now refuses. Rewrite proposal: Update docs/site/docs/concepts/assets.md to document merged ledger/bank/pointer asset behavior and the supported hosted px_ reads and transaction entry points. Retain legacy payload encodings only as explicitly historical decoding references."
+
+[doc.activities]
+path = "docs/site/docs/concepts/activities.md"
+status = "stale"
+notes = "Lines 53-67 instruct authenticated lx_sendActivity on POST /rpc and a separate LayerX Node Interface, while gateway dispatch refuses lx_* and those activity production routes are retired. Rewrite proposal: Rewrite docs/site/docs/concepts/activities.md around the merged node transaction and committed receipt lifecycle; move legacy activity envelopes to an archival compatibility reference and link to current hosted methods."
+
+[doc.openrpc]
+path = "services/platform/hosted/gateway/openrpc.json"
+status = "misleading"
+notes = "Read the complete parsed method contract. info.description and unified-history prose retain retired behavior; fixed-beta registration needs tenant evolution, and the closed history row schemas omit emitted tx_hash. See history-schema and doc-openrpc."
+
+[doc.contract-platform]
+path = "spec/layerx-merge/contracts/platform.md"
+status = "accurate"
+notes = "Read the whole frozen contract. Archive receipt list/by-id routes and retired-live-route refusal agree with explorer_proxy.rs. Planned markers and UNRUN qualification refer explicitly to pinned revision 2a1033aa2, not a current gate claim."
+
+[doc.contract-gateway]
+path = "spec/layerx-merge/contracts/platform-gateway.md"
+status = "stale"
+notes = "Read gateway configuration, method, HTTP/WS and public-item contract sections relevant to this slice. Frozen revision 2a1033aa2 is historical: px consensus/faucet methods now exist, lx methods are refused, and live /rpc guidance requires replacement under brief fact 2. Source behavior findings name the current registry rows."
+
+[doc.contract-hosted]
+path = "spec/layerx-merge/contracts/platform-hosted.md"
+status = "accurate"
+notes = "Read the authority, identity and indexer contract sections relevant to consumed routes. Four-field readiness, principal/session transport and history/assets endpoints agree with the reviewed producers; pinned source/status markers describe the historical freeze, not current qualification."
+
+[doc.contract-evm-rpc]
+path = "spec/layerx-merge/contracts/evm-rpc.md"
+status = "accurate"
+notes = "Read root HTTP/WS endpoint and pax-sequencerreceipt sections and their transport context. Node default CheckPath accepts / and receipt evidence distinguishes submitted, receipted and committed; this supports node-root and settlement findings. The document explicitly freezes an earlier revision and is not proof of a new gate."
+
+[doc.contract-services]
+path = "spec/layerx-merge/contracts/services.md"
+status = "stale"
+notes = "Read service catalogue, dependency rules and gateway-related guidance. Line 46 retains POST /rpc, /rpc/schema and old WS ingress; service topology must follow the merged-network brief. See doc-service-ingress."
