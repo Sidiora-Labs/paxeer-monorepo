@@ -1,3 +1,6 @@
+use layerx_platform_webhooks::ai_market::{
+    CaptureDocument, MarketEventError, MarketHub, ProducerGrant,
+};
 use layerx_platform_webhooks::error::WebhookError;
 use layerx_platform_webhooks::events::{
     DeliveryId, EndpointId, EventKind, Principal, Verification,
@@ -50,6 +53,7 @@ struct Config {
     listener: Listener,
     service: Arc<HostedService>,
     role: Role,
+    markets: Option<MarketHub>,
     dispatch_interval: Duration,
     dispatch_budget: u32,
     retention_events: usize,
@@ -230,6 +234,7 @@ fn config() -> Result<Config, String> {
         listener,
         service: Arc::new(HostedService::from_environment()?),
         role,
+        markets: MarketHub::from_environment()?,
         dispatch_interval: Duration::from_secs(number(
             "LAYERX_WEBHOOKS_DISPATCH_INTERVAL_SECONDS",
             1,
@@ -408,6 +413,11 @@ fn owned_route(config: &Config, request: &Request, principal: &Principal, at: u6
     let segments = request.segments();
     match (request.method.as_str(), segments.as_slice()) {
         (_, ["v1", "webhooks", "endpoints"]) => endpoints(config, request, principal, at),
+        (method, ["v1", "webhooks", "endpoints", endpoint, "markets", market, action]) => {
+            market_route(
+                config, request, principal, endpoint, market, method, action, at,
+            )
+        }
         (_, ["v1", "webhooks", "endpoints", endpoint, action]) => {
             endpoint_route(config, request, principal, endpoint, action, at)
         }
@@ -456,6 +466,25 @@ fn internal_route(
 ) -> Reply {
     let segments = request.segments();
     match (request.method.as_str(), segments.as_slice()) {
+        ("POST", ["internal", "v1", "ai-market", "captures", principal]) => {
+            if peer != Some(IngressRole::Producer) {
+                return Reply::refusal(403, "producer_role_required", None);
+            }
+            if !source_trigger.authorizes(request.header("authorization")) {
+                return Reply::refusal(401, "source_authentication_required", None);
+            }
+            let Some(markets) = &config.markets else {
+                return Reply::refusal(503, "market_outbox_unavailable", None);
+            };
+            let result = Principal::new(*principal)
+                .map_err(MarketEventError::from)
+                .and_then(|principal| {
+                    let document = body::<CaptureDocument>(request)?;
+                    let grant = ProducerGrant::from_authenticated_role(IngressRole::Producer)?;
+                    markets.capture(&principal, &grant, &document)
+                });
+            result.map_or_else(|e| market_refusal(&e), |value| encoded(202, &value))
+        }
         ("GET", ["internal", "v1", "readiness", kind]) => {
             if peer != Some(IngressRole::Producer) {
                 return Reply::refusal(403, "producer_role_required", None);
@@ -563,7 +592,7 @@ fn readiness(config: &Config) -> Reply {
                     "role": "ingress",
                     "components": {
                         "delivery_state_and_signer": delivery,
-                        "canonical_sources_and_receipt_authority": sources
+                        "canonical_sources_and_node_receipts": sources
                     }
                 }),
             )
@@ -684,6 +713,9 @@ fn serve(config: Config) -> Result<(), String> {
     let worker_config = Arc::clone(&config);
     thread::spawn(move || loop {
         thread::sleep(worker_config.dispatch_interval);
+        if let Some(markets) = &worker_config.markets {
+            let _ = markets.drain(&worker_config.service, now());
+        }
         let _ = worker_config
             .service
             .dispatch(now(), worker_config.dispatch_budget);
@@ -760,5 +792,74 @@ fn main() {
     if let Err(error) = config().and_then(serve) {
         eprintln!("layerx-webhooks: {error}");
         std::process::exit(2);
+    }
+}
+
+fn market_refusal(error: &MarketEventError) -> Reply {
+    match error {
+        MarketEventError::Webhook(e) => refusal(e),
+        MarketEventError::InvalidRequest => Reply::refusal(400, "invalid_market_capture", None),
+        MarketEventError::ProducerRoleRequired | MarketEventError::Revoked => {
+            Reply::refusal(403, "market_access_refused", None)
+        }
+        MarketEventError::CommitRejected => Reply::refusal(422, "commit_rejected", None),
+        MarketEventError::Quarantined(_) | MarketEventError::StreamQuarantined => {
+            Reply::refusal(409, "market_quarantined", None)
+        }
+        MarketEventError::CaptureStopped => Reply::refusal(503, "market_capture_stopped", Some(10)),
+    }
+}
+fn market_route(
+    config: &Config,
+    request: &Request,
+    principal: &Principal,
+    endpoint: &str,
+    market: &str,
+    method: &str,
+    action: &str,
+    at: u64,
+) -> Reply {
+    let Some(markets) = &config.markets else {
+        return Reply::refusal(503, "market_outbox_unavailable", None);
+    };
+    let endpoint = match EndpointId::new(endpoint).and_then(|id| {
+        config.service.signing_keys(principal, &id, at)?;
+        Ok(id)
+    }) {
+        Ok(v) => v,
+        Err(e) => return refusal(&e),
+    };
+    let market = match layerx_platform_webhooks::encoding::fixed_hex::<32>(market) {
+        Ok(v) => v,
+        Err(e) => return refusal(&e),
+    };
+    match (method, action) {
+        ("POST", "grants") => markets.grant(principal, &market).map_or_else(
+            |e| market_refusal(&e),
+            |()| Reply::json(200, "{\"granted\":true}".to_owned()),
+        ),
+        ("POST", "revocations") => markets.revoke(principal, &market).map_or_else(
+            |e| market_refusal(&e),
+            |()| Reply::json(200, "{\"granted\":false}".to_owned()),
+        ),
+        ("GET", "events") => {
+            let limit = match request.parameter("limit") {
+                None => 32,
+                Some(value) => match value.parse::<usize>() {
+                    Ok(n) if (1..=32).contains(&n) => n,
+                    _ => return refusal(&WebhookError::InvalidRequest),
+                },
+            };
+            markets
+                .resume(
+                    principal,
+                    &endpoint,
+                    &market,
+                    request.parameter("cursor"),
+                    limit,
+                )
+                .map_or_else(|e| market_refusal(&e), |value| encoded(200, &value))
+        }
+        _ => Reply::refusal(404, "not_found", None),
     }
 }
