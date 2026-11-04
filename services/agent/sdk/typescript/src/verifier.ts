@@ -3,7 +3,7 @@ import { encodeSequencerReceipt } from "./sequencer-receipt-codec.js";
 import { PlatformSdkError } from "./production.js";
 import { ed25519 } from "@noble/curves/ed25519.js";
 import { keccak_256 } from "@noble/hashes/sha3.js";
-import { ReceiptFailureCode } from "./generated/receipt.js";
+import { ReceiptFailureCode, supportsProgramGuestAbi } from "./generated/receipt.js";
 
 const RECEIPT_DOMAIN = new TextEncoder().encode("LXP/v1/receipt\0");
 const MAX_MESSAGE_BYTES = 1_048_576;
@@ -37,7 +37,7 @@ export function selectedProtocolVersion(selection?: ProtocolSelection): Selectab
 }
 
 export function supportedProgramGuestAbi(abiVersion: number): boolean {
-  return abiVersion === 1 || abiVersion === 2;
+  return supportsProgramGuestAbi(abiVersion);
 }
 
 export interface ReceiptEffect {

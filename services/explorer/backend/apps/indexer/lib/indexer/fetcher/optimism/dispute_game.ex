@@ -129,26 +129,62 @@ defmodule Indexer.Fetcher.Optimism.DisputeGame do
     chunks_number = ceil((end_index - start_index + 1) / @games_range_size)
     chunk_range = Range.new(0, max(chunks_number - 1, 0), 1)
 
-    chunk_range
-    |> Enum.each(fn current_chunk ->
-      chunk_start = start_index + @games_range_size * current_chunk
-      chunk_end = min(chunk_start + @games_range_size - 1, end_index)
+    result =
+      chunk_range
+      |> Enum.reduce_while(:ok, fn current_chunk, _ ->
+        chunk_start = start_index + @games_range_size * current_chunk
+        chunk_end = min(chunk_start + @games_range_size - 1, end_index)
 
-      if chunk_end >= chunk_start do
-        log_games_chunk_handling(chunk_start, chunk_end, start_index, end_index, nil)
+        if chunk_end >= chunk_start do
+          log_games_chunk_handling(chunk_start, chunk_end, start_index, end_index, nil)
 
-        games = read_game_list(chunk_start, chunk_end, dispute_game_factory, json_rpc_named_arguments)
+          case read_game_list(chunk_start, chunk_end, dispute_game_factory, json_rpc_named_arguments) do
+            {:ok, games} ->
+              {:ok, _} = Chain.import(%{optimism_dispute_games: %{params: games}, timeout: :infinity})
 
-        {:ok, _} =
-          Chain.import(%{
-            optimism_dispute_games: %{params: games},
-            timeout: :infinity
-          })
+              log_games_chunk_handling(
+                chunk_start,
+                chunk_end,
+                start_index,
+                end_index,
+                "#{Enum.count(games)} dispute game(s)"
+              )
 
-        log_games_chunk_handling(chunk_start, chunk_end, start_index, end_index, "#{Enum.count(games)} dispute game(s)")
-      end
-    end)
+              {:cont, :ok}
 
+            {:error, reason} ->
+              Logger.error("Cannot index dispute games #{chunk_start}..#{chunk_end}: #{inspect(reason)}")
+              {:halt, {:error, chunk_start}}
+          end
+        else
+          {:cont, :ok}
+        end
+      end)
+
+    case result do
+      {:error, failed_start} ->
+        Process.send_after(self(), :continue, @game_check_interval * 1000)
+        {:noreply, %{state | start_index: failed_start}}
+
+      :ok ->
+        continue_after_games(state, time_before)
+    end
+  end
+
+  @impl GenServer
+  def handle_info({ref, _result}, state) do
+    Process.demonitor(ref, [:flush])
+    {:noreply, state}
+  end
+
+  defp continue_after_games(
+         %{
+           dispute_game_factory: dispute_game_factory,
+           end_index: end_index,
+           json_rpc_named_arguments: json_rpc_named_arguments
+         } = state,
+         time_before
+       ) do
     game_count = get_game_count(dispute_game_factory, json_rpc_named_arguments, IndexerHelper.infinite_retries_number())
 
     false = is_nil(game_count)
@@ -170,12 +206,6 @@ defmodule Indexer.Fetcher.Optimism.DisputeGame do
     Process.send_after(self(), :continue, delay)
 
     {:noreply, %{state | start_index: get_start_index(end_index, new_end_index), end_index: new_end_index}}
-  end
-
-  @impl GenServer
-  def handle_info({ref, _result}, state) do
-    Process.demonitor(ref, [:flush])
-    {:noreply, state}
   end
 
   defp set_dispute_game_finality_delay_seconds(optimism_portal, json_rpc_named_arguments) do
@@ -333,7 +363,26 @@ defmodule Indexer.Fetcher.Optimism.DisputeGame do
     end
   end
 
-  defp read_game_list(start_index, end_index, dispute_game_factory, json_rpc_named_arguments, retries \\ 10) do
+  defp read_games_rpc(requests, json_rpc_named_arguments) do
+    with {:ok, responses} <- json_rpc(requests, json_rpc_named_arguments) do
+      expected_ids = requests |> Enum.map(& &1.id) |> Enum.sort()
+      actual_ids = responses |> Enum.map(& &1.id) |> Enum.sort()
+
+      if actual_ids == expected_ids and Enum.all?(responses, &is_binary(Map.get(&1, :result))) do
+        {:ok, responses}
+      else
+        {:error, {:incomplete_game_response, responses}}
+      end
+    end
+  end
+
+  defp read_game_list(
+         start_index,
+         end_index,
+         dispute_game_factory,
+         json_rpc_named_arguments,
+         retries \\ IndexerHelper.finite_retries_number()
+       ) do
     requests =
       start_index..end_index
       |> Enum.map(fn index ->
@@ -353,7 +402,7 @@ defmodule Indexer.Fetcher.Optimism.DisputeGame do
     error_message = &"Cannot call gameAtIndex() public getter of DisputeGameFactory. Error: #{inspect(&1)}"
 
     with {:ok, responses} <-
-           IndexerHelper.repeated_call(&json_rpc/2, [requests, json_rpc_named_arguments], error_message, retries),
+           IndexerHelper.repeated_call(&read_games_rpc/2, [requests, json_rpc_named_arguments], error_message, retries),
          games = decode_games(responses),
          extra_data_by_index =
            read_extra_data(@extra_data_method_signature, "extraData()", games, json_rpc_named_arguments),
@@ -363,16 +412,20 @@ defmodule Indexer.Fetcher.Optimism.DisputeGame do
          false <- is_nil(resolved_at_by_index),
          status_by_index = read_extra_data(@status_method_signature, "status()", games, json_rpc_named_arguments),
          false <- is_nil(status_by_index) do
-      Enum.map(games, fn game ->
-        [extra_data] = Helper.decode_data(extra_data_by_index[game.index], [:bytes])
+      games =
+        Enum.map(games, fn game ->
+          [extra_data] = Helper.decode_data(extra_data_by_index[game.index], [:bytes])
 
-        game
-        |> Map.put(:extra_data, %Data{bytes: extra_data})
-        |> Map.put(:resolved_at, sanitize_resolved_at(resolved_at_by_index[game.index]))
-        |> Map.put(:status, quantity_to_integer(status_by_index[game.index]))
-      end)
+          game
+          |> Map.put(:extra_data, %Data{bytes: extra_data})
+          |> Map.put(:resolved_at, sanitize_resolved_at(resolved_at_by_index[game.index]))
+          |> Map.put(:status, quantity_to_integer(status_by_index[game.index]))
+        end)
+
+      {:ok, games}
     else
-      _ -> []
+      {:error, _} = error -> error
+      _ -> {:error, :game_metadata_unavailable}
     end
   end
 
@@ -406,7 +459,7 @@ defmodule Indexer.Fetcher.Optimism.DisputeGame do
 
     error_message = &"Cannot call #{method_name} public getter of FaultDisputeGame. Error: #{inspect(&1)}"
 
-    case IndexerHelper.repeated_call(&json_rpc/2, [requests, json_rpc_named_arguments], error_message, retries) do
+    case IndexerHelper.repeated_call(&read_games_rpc/2, [requests, json_rpc_named_arguments], error_message, retries) do
       {:ok, responses} ->
         Enum.reduce(responses, %{}, fn response, acc ->
           game_index = response.id

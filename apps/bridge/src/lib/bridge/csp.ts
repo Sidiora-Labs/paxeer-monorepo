@@ -1,4 +1,6 @@
 import type { readConfig } from './config';
+import { buildBridgeChains, walletBridgeChains } from './chains';
+import { effectiveForeignRpcUrl } from './rpc';
 
 export type BridgeConfig = ReturnType<typeof readConfig>;
 
@@ -7,7 +9,8 @@ export function contentSecurityPolicy(config: BridgeConfig): string {
   const endpoints = [
     config.paxeerRpcUrl,
     config.attestationApiUrl,
-    ...Object.values(config.foreignRpcUrls),
+    ...walletBridgeChains(buildBridgeChains(config)).map((chain) => effectiveForeignRpcUrl(chain, config)),
+    config.foreignRpcUrls.solana,
   ];
 
   for (const endpoint of endpoints) {

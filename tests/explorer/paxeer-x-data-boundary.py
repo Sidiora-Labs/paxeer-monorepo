@@ -85,6 +85,53 @@ def history_local_node_rpc(env_file):
     raise ValueError("local node env file is missing LOCAL_NODE_RPC")
 
 
+class HistoryLocalNode:
+    def __init__(self, work, node_script, *, tmpdir=None):
+        import tempfile
+
+        self.work = Path(work)
+        self.node_script = node_script
+        self.home = None
+        base = Path(tmpdir if tmpdir is not None else os.environ.get("TMPDIR") or "/tmp") / "lx-localnode"
+        base.mkdir(mode=0o700, parents=True, exist_ok=True)
+        descriptor, filename = tempfile.mkstemp(prefix="history-readiness-", suffix=".env", dir=base)
+        os.close(descriptor)
+        self.env_file = Path(filename)
+
+    def setup(self, execute):
+        import re
+
+        execute("history-node-setup", ["bash", self.node_script, "--env-out", self.env_file], timeout=240)
+        setup = (self.work / "history-node-setup.log").read_text()
+        ready_line = re.search(r"^v6120-node: ready; home=(.+) env=", setup, re.MULTILINE)
+        require(ready_line is not None, f"local node omitted ready home; evidence: {self.work}")
+        self.home = Path(ready_line.group(1))
+        evidence = self.work / "localnode.env"
+        with evidence.open("wb") as output:
+            evidence.chmod(0o600)
+            output.write(self.env_file.read_bytes())
+        self.evm_url = history_local_node_rpc(self.env_file)
+        return self.evm_url
+
+    def rpc(self, method, params=None):
+        request = urllib.request.Request(self.evm_url, data=json.dumps({
+            "jsonrpc": "2.0", "id": 1, "method": method, "params": params or []
+        }).encode(), headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(request, timeout=5) as response:
+            document = json.loads(response.read())
+        require("error" not in document, f"local node RPC {method}: {document}")
+        return document["result"]
+
+    def stop(self, execute):
+        execute("history-node-stop", ["bash", self.node_script, "--stop", self.home])
+
+    def restart(self, start):
+        process_env = dict(token.split("=", 1) for token in shlex.split((self.home / "process.env").read_text()))
+        source = start("history-node-restarted", [process_env["PAXD"], "start", "--home", self.home])
+        (self.home / "node.pid").write_text(str(source.pid) + "\n")
+        return source
+
+
 def history_readiness():
     import re
     import sqlite3
@@ -109,9 +156,8 @@ def history_readiness():
     work.chmod(0o700)
     children = []
     reservations = []
-    node_home = None
     node_script = repo / "tools/qualification/localnode/v6120-node.sh"
-    env_file = Path(os.environ.get("TMPDIR") or "/tmp") / "lx-localnode/history-readiness.env"
+    node = HistoryLocalNode(work, node_script)
     checks = 0
 
     def start(name, command, env=None):
@@ -150,32 +196,19 @@ def history_readiness():
         require(process.returncode == 0, f"{name} exited {process.returncode}; evidence: {work}")
 
     def stop_node():
-        execute("history-node-stop", ["bash", node_script, "--stop", node_home])
+        node.stop(execute)
 
     def close():
         try:
-            if node_home is not None:
+            if node.home is not None:
                 stop_node()
         finally:
             for process in reversed(children):
                 stop(process)
 
     try:
-        execute("history-node-setup", ["bash", node_script, "--env-out", env_file], timeout=240)
-        setup = (work / "history-node-setup.log").read_text()
-        ready_line = re.search(r"^v6120-node: ready; home=(.+) env=", setup, re.MULTILINE)
-        require(ready_line is not None, f"local node omitted ready home; evidence: {work}")
-        node_home = Path(ready_line.group(1))
-        evm_url = history_local_node_rpc(env_file)
-
-        def rpc(method, params=None):
-            request = urllib.request.Request(evm_url, data=json.dumps({
-                "jsonrpc": "2.0", "id": 1, "method": method, "params": params or []
-            }).encode(), headers={"Content-Type": "application/json"})
-            with urllib.request.urlopen(request, timeout=5) as response:
-                document = json.loads(response.read())
-            require("error" not in document, f"local node RPC {method}: {document}")
-            return document["result"]
+        evm_url = node.setup(execute)
+        rpc = node.rpc
 
         until(lambda: rpc("eth_chainId") == "0x7d", "local node chain id 125")
         earliest = rpc("eth_getBlockByNumber", ["earliest", False])
@@ -312,9 +345,7 @@ def history_readiness():
             require(connection.execute("SELECT count(*) FROM events").fetchone()[0] == events_before,
                     "disconnected restart changed indexed receipt rows")
         checks += 1
-        process_env = dict(token.split("=", 1) for token in shlex.split((node_home / "process.env").read_text()))
-        source = start("history-node-restarted", [process_env["PAXD"], "start", "--home", node_home])
-        (node_home / "node.pid").write_text(str(source.pid) + "\n")
+        source = node.restart(start)
         until(lambda: rpc("eth_chainId") == "0x7d", "restarted local node chain id 125")
         recovered = until(lambda: ready("ready"), "fresh source reconciles restart")
         require(recovered["reconciled"] and recovered["consecutive_failures"] == 0

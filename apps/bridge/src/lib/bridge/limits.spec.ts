@@ -20,7 +20,7 @@ function amountLimitErrorRefusesAWithdrawalAboveOutstanding() {
     .toBe('Above the vault per-transaction cap.');
   expect(amountLimitError({ ...args, amount: BigInt(10), balance: BigInt(9) }))
     .toBe('That is more than your available balance.');
-  expect(amountLimitError({ ...args, amount: BigInt(10), perTx: BigInt(0), balance: undefined })).toBeUndefined();
+  expect(amountLimitError({ ...args, amount: BigInt(10), perTx: BigInt(0), balance: undefined })).toBe('Above the vault per-transaction cap.');
 }
 
 function amountLimitErrorAppliesInFlightCapOnlyToDeposits() {
@@ -35,7 +35,7 @@ function amountLimitErrorAppliesInFlightCapOnlyToDeposits() {
   expect(amountLimitError(args)).toBe('That would exceed the vault\'s total capacity for this asset.');
   expect(amountLimitError({ ...args, direction: 'out' })).toBeUndefined();
   expect(amountLimitError({ ...args, amount: BigInt(5) })).toBeUndefined();
-  expect(amountLimitError({ ...args, total: BigInt(0) })).toBeUndefined();
+  expect(amountLimitError({ ...args, total: BigInt(0) })).toBe('The vault asset is disabled (total capacity is zero).');
   expect(amountLimitError({ ...args, outstanding: BigInt(101), direction: 'out' })).toBeUndefined();
   expect(amountLimitError({ ...args, amount: BigInt(101), total: BigInt(1000), balance: BigInt(200) }))
     .toBe('Above the vault per-transaction cap.');
@@ -92,7 +92,9 @@ function routeBlockersReportsAFailedPaxeerRead() {
   expect(routeBlockers({ ...args, paxeerState: { ...args.paxeerState, error: true } })).toEqual([ readBlocker ]);
   expect(routeBlockers({ ...args, paxeerState: { ...args.paxeerState, error: true, loaded: false } }))
     .toEqual([ readBlocker ]);
-  expect(routeBlockers({ ...args, paxeerState: { ...args.paxeerState, loaded: false } })).toEqual([]);
+  expect(routeBlockers({ ...args, paxeerState: { ...args.paxeerState, loaded: false } })).toEqual([
+    'The Paxeer bridge state is loading. Wait for this route to be verified.',
+  ]);
   expect(routeBlockers({ ...args, paxeerState: { ...args.paxeerState, paused: true } }))
     .toContain('The bridge is paused on Paxeer. No deposits or withdrawals will be accepted until it reopens.');
   expect(routeBlockers({ ...args, paxeerState: { ...args.paxeerState, registered: false } }))

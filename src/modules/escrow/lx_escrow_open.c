@@ -9,6 +9,7 @@ static lxp_result validate_open(lxp_module_ctx *ctx,
                                 const lx_escrow_open_request *request)
 {
     lx_escrow_record existing;
+    lxp_u128 balance;
     lxp_result status;
     if (ctx == NULL || request == NULL || request->owner == NULL ||
         request->escrow_account == NULL || request->asset == NULL ||
@@ -31,7 +32,12 @@ static lxp_result validate_open(lxp_module_ctx *ctx,
         return LXP_ERR_ASSET_MISMATCH;
     status = lx_escrow_lookup(ctx, request->record.escrow_id, &existing);
     if (status == LXP_OK) return LXP_ERR_ESCROW_STATE;
-    return status == LXP_ERR_ESCROW_STATE ? LXP_OK : status;
+    if (status != LXP_ERR_ESCROW_STATE) return status;
+    status = lxp_state_balance_get(request->escrow_account,
+                                   request->record.asset_id, &balance);
+    if (status != LXP_OK) return status;
+    if (!lxp_u128_is_zero(balance)) return LXP_ERR_ESCROW_STATE;
+    return lx_escrow_binding_check(ctx, &request->record);
 }
 
 lxp_result lx_escrow_open_execute(lxp_module_ctx *ctx,
@@ -47,6 +53,7 @@ lxp_result lx_escrow_open_execute(lxp_module_ctx *ctx,
     if (status != LXP_OK) return status;
     record = request->record;
     (void)memset(&settlement, 0, sizeof(settlement));
+    settlement.record = &record;
     settlement.from = request->owner;
     settlement.to = request->escrow_account;
     settlement.asset = request->asset;

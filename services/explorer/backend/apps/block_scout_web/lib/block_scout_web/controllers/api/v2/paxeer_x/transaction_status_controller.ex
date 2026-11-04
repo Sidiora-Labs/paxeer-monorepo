@@ -11,6 +11,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionStatusController do
   use BlockScoutWeb, :controller
   use OpenApiSpex.ControllerSpecs
 
+  alias BlockScoutWeb.API.V2.PaxeerX.TransactionStatusView
   alias BlockScoutWeb.Schemas.API.V2.ErrorResponses.NotFoundResponse
   alias Explorer.Chain
   alias Explorer.Chain.Hash
@@ -49,7 +50,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionStatusController do
          {:ok, %Status{} = status} <- status_of(transaction_hash) do
       conn
       |> put_status(200)
-      |> render(:status, %{status: status})
+      |> json(TransactionStatusView.render("status.json", %{status: status}))
     end
   end
 
