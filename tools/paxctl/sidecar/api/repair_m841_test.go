@@ -396,13 +396,20 @@ func repair841Wait(t *testing.T, eng *engine.Engine, id string, run int, status 
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
-		result := eng.GetResult(id)
+		result, err := eng.GetResult(id)
+		if err != nil {
+			t.Fatal(err)
+		}
 		if result != nil && result.Run == run && result.Status == status {
 			return result
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
-	t.Fatalf("task never reached run %d, status %s: %+v", run, status, eng.GetResult(id))
+	result, err := eng.GetResult(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Fatalf("task never reached run %d, status %s: %+v", run, status, result)
 	return nil
 }
 
@@ -474,11 +481,17 @@ func TestRepairM_841_FailedTaskResubmission(t *testing.T) {
 			t.Fatalf("get/list contract diverged: %s / %s", get.Body, list.Body)
 		}
 	}
-	before := s.engine.GetResult(id.String())
+	before, err := s.engine.GetResult(id.String())
+	if err != nil {
+		t.Fatal(err)
+	}
 	if _, err := client.SubmitTaskWithResponse(ctx, request); err != nil {
 		t.Fatal(err)
 	}
-	after := s.engine.GetResult(id.String())
+	after, err := s.engine.GetResult(id.String())
+	if err != nil {
+		t.Fatal(err)
+	}
 	if after.Run != 2 || !after.SubmittedAt.Equal(before.SubmittedAt) {
 		t.Fatalf("completed resubmission changed run: %+v", after)
 	}

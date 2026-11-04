@@ -1,0 +1,58 @@
+[repair.22.33.822]
+audit = "22.30.179"
+acceptance = "22998.1"
+mode = "BUILD"
+scope = "tools/loadtest/stats"
+baseline = "Not run: the explicit task order prohibits verification before full implementation and permits verification only through hf-done after hf-build; no pre-change failing tests are claimed."
+qualification = "The runner gate ledger records the exact candidate revision, command, exit code and private evidence location; hf-build and hf-done must qualify the same candidate."
+continuation = "The seeded attempt reached TestRepairM_822_UserLatencyUnrelatedTransactions but panicked in ERC20Scenario.Attach because the generation fixture omitted endpoints; provide a loopback RPC peer while retaining production scenario signing, sender, receipt polling and all behavior assertions."
+
+[finding.block-subscription-recovery]
+tests = ["TestRepairM_822_BlockSubscriptionRecovery", "TestRepairM_822_UnrecoverableGap", "TestRepairM_822_ConflictingCommittedHash"]
+repair = "Reconnect with five bounded consecutive attempts and bounded RPC timeouts, reconcile and backfill committed heights through the node, validate hashes and parents, deduplicate observations, and persist optional full-run checkpoints for consumer reopen; terminal gaps remain explicitly incomplete in JSON, bounds and final report errors."
+
+[finding.block-statistics-semantics]
+tests = ["TestRepairM_822_BlockStatisticsSemantics"]
+repair = "Ordered committed header timestamps supply block intervals; full-run intervals and gas samples retain early outliers beyond 1000 blocks, delivery lag has distinct fields, periodic and ramper inputs carry a reporting-window scope, and both final block summaries use cumulative evidence."
+
+[finding.latency-bound-no-evidence]
+tests = ["TestRepairM_822_LatencyBoundRequiresEvidence"]
+repair = "Required endpoint membership survives report serialization, absent and empty endpoint observations produce insufficient-samples violations, and the original numerical p99 comparisons and equality assertions remain intact."
+
+[finding.failed-attempt-throughput]
+tests = ["TestRepairM_822_FailedAttemptThroughput", "TestRepairM_822_AcceptedSubmissionEvidence", "TestRepairM_822_UserLatencyUnrelatedTransactions"]
+repair = "Attempted, accepted, failed, committed and failed-execution counts are explicit; existing min-average-TPS and min-total-transactions bounds measure node-accepted submissions and require accepted samples. Failed attempts contribute neither accepted TPS nor accepted latency. Unobserved commit evidence is labeled, never inferred from RPC success."
+
+[finding.user-latency-unrelated-transactions]
+tests = ["TestRepairM_822_UserLatencyUnrelatedTransactions", "TestRepairM_822_UserLatencyMissingAndInvalidEvidence"]
+repair = "Register signed transaction hashes with bounded actual send times, follow real receipt and block RPC codecs, validate hash/index/block identity, consume blocks once, recover delayed receipts, exclude unrelated positive, huge and timestamp-shaped payments, and report missing receipts and absent samples explicitly."
+
+[wiring]
+endpoint_membership = "tools/loadtest/config/cli/command.go — domain 16: pass cfg.Endpoints to stats.NewCollector(cfg.Endpoints...) so configured endpoints with no attempts are included in required endpoint membership."
+user_latency = "tools/loadtest/config/cli/command.go — domain 16: attach the same UserLatencyTracker to Collector.SetUserLatencyTracker and sender dispatch so reports receive correlated commit evidence."
+send_time = "tools/loadtest/sender/worker.go — domain 16: call UserLatencyTracker.TrackTransaction(tx.EthTx.Hash(), endpoint, retainedStartTime) before the actual send; report registration errors instead of dropping evidence."
+checkpoint = "tools/loadtest/config/cli/command.go — domain 16: provide an explicit per-run checkpoint path to OpenBlockCollector when recovery must survive a collector process restart."
+
+[gotcha.gate-order]
+observed = "The embedded baseline-verify step conflicts with the explicit implementation-first, hf-build then hf-done order."
+resolution = "Follow the explicit gate order and record the absence of baseline evidence without claiming a pre-change failure."
+
+[gotcha.scope]
+observed = "Root GOTCHA.kvx and spec task/qualification records are outside the task's explicit writable scope."
+resolution = "Keep this task record and wiring requests under tools/loadtest/stats, preserve runner-owned spec changes, and let the runner publish qualification evidence."
+
+[gotcha.local-context]
+observed = "The Codify graph search returned no call sites for known stats APIs, and the default module cache did not yet contain the geth dependency."
+resolution = "Read the named source paths and use ripgrep for call-site inspection; let the declared gates resolve dependencies rather than running an extra build or test."
+
+[gotcha.contract-fixture-endpoint]
+observed = "ERC20Scenario.Attach indexes the first configured endpoint even when the transaction will only be signed locally."
+resolution = "Supply a loopback RPC fixture endpoint for real scenario attachment; do not use a live node or replace the scenario producer."
+
+[qualification.initial]
+revision = "968e3fd78e4191bdb1b79384aabb2be74415a66b"
+command = "cg spec done 22.33.822 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; /tmp/repair-m822.log"
+observed = "The first verification stopped before tests because importing geth/trie for fixture roots required extra go.mod dependencies outside scope."
+repair = "Generate genuine fixture Patricia roots using the existing RLP and Keccak packages, remove the full database/trie and direct websocket imports, retain all behavior assertions, and qualify the revised tree through hf-build then hf-done."

@@ -9,7 +9,10 @@ import (
 
 // Collector tracks comprehensive statistics for load testing
 type Collector struct {
-	mu sync.RWMutex
+	mu                 sync.RWMutex
+	requiredEndpoints  map[string]bool
+	outcomes           map[string]OutcomeCounts
+	userLatencyTracker *UserLatencyTracker
 
 	// Transaction counts by scenario and endpoint
 	txCounts map[string]map[string]uint64 // [scenario][endpoint] -> count
@@ -46,8 +49,14 @@ type TPSWindow struct {
 }
 
 // NewCollector creates a new statistics collector
-func NewCollector() *Collector {
+func NewCollector(requiredEndpoints ...string) *Collector {
+	required := make(map[string]bool)
+	for _, endpoint := range requiredEndpoints {
+		required[endpoint] = true
+	}
 	return &Collector{
+		requiredEndpoints: required,
+		outcomes:          make(map[string]OutcomeCounts),
 		txCounts:          make(map[string]map[string]uint64),
 		latencies:         make(map[string][]time.Duration),
 		tpsWindows:        make(map[string]*TPSWindow),
@@ -82,21 +91,28 @@ func (c *Collector) RecordTransaction(scenario, endpoint string, latency time.Du
 		}
 	}
 
+	c.requiredEndpoints[endpoint] = true
+	outcome := c.outcomes[endpoint]
+	outcome.Attempted++
+	if success {
+		outcome.Accepted++
+	} else {
+		outcome.Failed++
+	}
+	c.outcomes[endpoint] = outcome
+
 	// Record transaction count
 	c.txCounts[scenario][endpoint]++
 	c.totalTxs++
 
-	// Record latency (only for successful transactions)
+	// TPS and latency measure node-accepted submissions, never failed attempts.
 	if success {
 		c.recordLatency(endpoint, latency)
+		c.recordTPS(endpoint)
+		c.recordOverallTPS()
+		c.recordWindowStats(endpoint, latency)
 	}
 
-	// Record TPS
-	c.recordTPS(endpoint)
-	c.recordOverallTPS()
-
-	// Record window stats
-	c.recordWindowStats(endpoint, latency)
 }
 
 // recordLatency adds a latency measurement, maintaining history limit
@@ -229,6 +245,26 @@ func (c *Collector) GetStats() Stats {
 		TotalTxs:      c.totalTxs,
 		TxCounts:      make(map[string]map[string]uint64),
 		EndpointStats: make(map[string]EndpointStats),
+		Outcomes:      make(map[string]OutcomeCounts),
+	}
+
+	for endpoint := range c.requiredEndpoints {
+		stats.RequiredEndpoints = append(stats.RequiredEndpoints, endpoint)
+	}
+	sort.Strings(stats.RequiredEndpoints)
+	for endpoint, outcome := range c.outcomes {
+		stats.Outcomes[endpoint] = outcome
+	}
+	if c.userLatencyTracker != nil {
+		user := c.userLatencyTracker.GetStats()
+		stats.UserLatency = &user
+		for endpoint, evidence := range user.Endpoints {
+			outcome := stats.Outcomes[endpoint]
+			outcome.Committed = evidence.Committed
+			outcome.FailedExecutions = evidence.FailedExecutions
+			outcome.MissingReceipts = evidence.MissingReceipts
+			stats.Outcomes[endpoint] = outcome
+		}
 	}
 
 	// Copy transaction counts
@@ -240,9 +276,12 @@ func (c *Collector) GetStats() Stats {
 	}
 
 	// Calculate endpoint statistics
-	for endpoint, latencyList := range c.latencies {
+	for endpoint := range c.requiredEndpoints {
+		latencyList := c.latencies[endpoint]
 		endpointStats := EndpointStats{
-			Endpoint: endpoint,
+			Endpoint:     endpoint,
+			Outcomes:     stats.Outcomes[endpoint],
+			LatencyScope: "last_10000_accepted_submissions",
 		}
 
 		// Calculate latency percentiles
@@ -339,7 +378,25 @@ func calculatePercentile(sorted []time.Duration, percentile int) time.Duration {
 }
 
 // Stats represents comprehensive load test statistics
+type OutcomeCounts struct {
+	Attempted        uint64 `json:"attempted"`
+	Accepted         uint64 `json:"accepted"`
+	Failed           uint64 `json:"failed"`
+	Committed        uint64 `json:"committed"`
+	FailedExecutions uint64 `json:"failed_executions"`
+	MissingReceipts  uint64 `json:"missing_receipts"`
+}
+
+func (c *Collector) SetUserLatencyTracker(tracker *UserLatencyTracker) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.userLatencyTracker = tracker
+}
+
 type Stats struct {
+	RequiredEndpoints []string
+	Outcomes          map[string]OutcomeCounts
+	UserLatency       *UserLatencyStats
 	StartTime         time.Time
 	TotalTxs          uint64
 	TxCounts          map[string]map[string]uint64 // [scenario][endpoint] -> count
@@ -351,13 +408,15 @@ type Stats struct {
 
 // EndpointStats represents statistics for a specific endpoint
 type EndpointStats struct {
-	Endpoint    string
-	P50Latency  time.Duration
-	P99Latency  time.Duration
-	MaxTPS      float64
-	CurrentTPS  float64
-	SampleCount int
-	QueueDepth  int // Current queue depth for monitoring backpressure
+	Outcomes     OutcomeCounts
+	LatencyScope string
+	Endpoint     string
+	P50Latency   time.Duration
+	P99Latency   time.Duration
+	MaxTPS       float64
+	CurrentTPS   float64
+	SampleCount  int
+	QueueDepth   int // Current queue depth for monitoring backpressure
 
 	// Window stats
 	WindowTxCount        uint64

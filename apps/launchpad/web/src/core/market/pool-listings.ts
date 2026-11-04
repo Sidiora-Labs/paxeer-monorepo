@@ -1,6 +1,6 @@
 'use client';
 import { useQuery, useQueryClient, type QueryClient, type UseQueryResult } from '@tanstack/react-query';
-import type { Operations, V2ContractTypes } from '@kindle/sdk';
+import { CapabilityUnavailableError, HttpError, type Operations, type V2ContractTypes } from '@kindle/sdk';
 import { queryKeys } from '@/core/query-keys';
 import { marketCachePolicy } from '@/core/cache-policy';
 import { marketAddress, marketLimits } from '@/page-modules/token/market-session';
@@ -88,82 +88,114 @@ function seed(qc: QueryClient, origin: string, listing: PoolListing): void {
   qc.setQueryData(queryKeys.poolListing(origin, listing.poolAddress), listing);
 }
 
-/**
- * Listings for a set of pools keyed by lowercased pool address. When `sort`
- * names an IF_POOL_LIST order whose ranking holds these pools, one
- * `GET /v2/pools?sort=…&limit=100` seeds the session cache first; every pool
- * still missing is read with IF_POOL_DETAIL. A pool whose detail is not served
- * (404 / 503: no registry row or no stats projection yet) is left out; when
- * no pool resolves at all the first real failure is thrown.
- */
-export async function fetchPoolListings(qc: QueryClient, operations: Operations, origin: string, pools: readonly string[], signal?: AbortSignal, sort?: PoolListSort): Promise<Record<string, PoolListing>> {
+export interface PoolListingOmission {
+  state: 'not_found' | 'unavailable';
+  status: 404 | 503;
+}
+
+export interface PoolListingBatch<T extends PoolListing = PoolListing> {
+  listings: Record<string, T>;
+  omissions: Record<string, PoolListingOmission>;
+}
+
+export type PoolListingsQueryResult<T extends PoolListing = PoolListing> = UseQueryResult<Record<string, T>> & {
+  omissions: Record<string, PoolListingOmission>;
+};
+
+function omissionFor(error: unknown): PoolListingOmission | null {
+  if (
+    (error instanceof CapabilityUnavailableError && error.status === 404) ||
+    (error instanceof HttpError && error.status === 404 && error.code === 'NOT_FOUND')
+  ) return { state: 'not_found', status: 404 };
+  if (error instanceof HttpError && error.status === 503 && error.code === 'DEPENDENCY_UNAVAILABLE') return { state: 'unavailable', status: 503 };
+  return null;
+}
+
+function classifyListings<T extends PoolListing>(wanted: readonly string[], settled: readonly PromiseSettledResult<T>[], signal?: AbortSignal): PoolListingBatch<T> {
+  signal?.throwIfAborted();
+  const listings: Record<string, T> = {};
+  const omissions: Record<string, PoolListingOmission> = {};
+  let firstUnavailable: unknown;
+  for (const [index, result] of settled.entries()) {
+    if (result.status === 'fulfilled') listings[wanted[index]] = result.value;
+    else {
+      const omission = omissionFor(result.reason);
+      if (!omission) throw result.reason;
+      omissions[wanted[index]] = omission;
+      firstUnavailable ??= result.reason;
+    }
+  }
+  if (wanted.length > 0 && Object.keys(listings).length === 0) throw firstUnavailable;
+  return { listings, omissions };
+}
+
+/** Classified list/detail reads; only declared 404/503 omissions tolerate partial success. */
+export async function fetchPoolListingsWithStatus(qc: QueryClient, operations: Operations, origin: string, pools: readonly string[], signal?: AbortSignal, sort?: PoolListSort): Promise<PoolListingBatch> {
   const wanted = [...new Set(pools.map(marketAddress))].sort();
-  if (wanted.length === 0) return {};
+  if (wanted.length === 0) return { listings: {}, omissions: {} };
   const missing = () => wanted.filter(pool => qc.getQueryData(queryKeys.poolListing(origin, pool)) === undefined);
-  let listError: unknown = null;
   if (sort && missing().length > 1) {
     try {
       const response = await operations.call('IF_POOL_LIST', { query: { sort, limit: 2 * marketLimits.rankingPage } }, { signal });
       if (response.quality === 'quarantined' || response.watermark?.integrity === 'quarantined') throw new Error('Pool list integrity quarantined');
-      for (const pool of response.data.items) seed(qc, origin, poolListing(pool));
+      const listings = response.data.items.map(pool => {
+        if (pool.chainId !== '125') throw new Error('Pool identity disagreement');
+        return poolListing(pool);
+      });
+      for (const listing of listings) seed(qc, origin, listing);
     } catch (error) {
-      if (signal?.aborted) throw error;
-      listError = error;
+      if (signal?.aborted || !omissionFor(error)) throw error;
     }
   }
   const settled = await Promise.allSettled(wanted.map(pool => fetchPoolListing(qc, operations, origin, pool, signal)));
-  const out: Record<string, PoolListing> = {};
-  let firstError: unknown = listError;
-  settled.forEach((result, index) => {
-    if (result.status === 'fulfilled') out[wanted[index]] = result.value;
-    else firstError ??= result.reason;
-  });
-  if (Object.keys(out).length === 0 && firstError !== null) throw firstError;
-  return out;
+  return classifyListings(wanted, settled, signal);
 }
 
-/** React binding of fetchPoolListings (session-cached per pool; the set query follows the stats batch tolerance). */
-export function usePoolListings(pools: readonly string[], sort?: PoolListSort): UseQueryResult<Record<string, PoolListing>> {
+/** Compatibility projection for consumers that only need the successful rows. */
+export async function fetchPoolListings(qc: QueryClient, operations: Operations, origin: string, pools: readonly string[], signal?: AbortSignal, sort?: PoolListSort): Promise<Record<string, PoolListing>> {
+  return (await fetchPoolListingsWithStatus(qc, operations, origin, pools, signal, sort)).listings;
+}
+
+/** React binding retaining omission status alongside the existing address-indexed data. */
+export function usePoolListings(pools: readonly string[], sort?: PoolListSort): PoolListingsQueryResult {
   const client = useMarketClient();
   const operations = useOperations();
   const qc = useQueryClient();
   const wanted = [...new Set(pools.filter(isPool).map(value => value.toLowerCase()))].sort();
-  return useQuery({
-    queryKey: queryKeys.poolListings(client.config.apiOrigin, wanted),
-    queryFn: ({ signal }) => fetchPoolListings(qc, operations, client.config.apiOrigin, wanted, signal, sort),
+  const queryKey = queryKeys.poolListings(client.config.apiOrigin, wanted);
+  const query = useQuery({
+    queryKey,
+    queryFn: ({ signal }) => fetchPoolListingsWithStatus(qc, operations, client.config.apiOrigin, wanted, signal, sort),
+    select: result => result.listings,
     enabled: wanted.length > 0,
     ...marketCachePolicy.statsBatch,
   });
+  return Object.assign(query, { omissions: qc.getQueryData<PoolListingBatch>(queryKey)?.omissions ?? {} });
 }
 
-/**
- * Fresh IF_POOL_DETAIL reads (listing + spot price) for a short pool list,
- * such as the recently viewed rail. Listings learned here seed the session
- * cache; an unserved pool is left out, and only a set where nothing resolves fails.
- */
-export function usePoolDetailListings(pools: readonly string[]): UseQueryResult<Record<string, PoolDetailListing>> {
+/** Fresh detail reads share the same error classification as session-cached listings. */
+export async function fetchPoolDetailListings(qc: QueryClient, operations: Operations, origin: string, pools: readonly string[], signal?: AbortSignal): Promise<PoolListingBatch<PoolDetailListing>> {
+  const wanted = [...new Set(pools.map(marketAddress))].sort();
+  const settled = await Promise.allSettled(wanted.map(pool => fetchPoolDetailListing(operations, pool, signal)));
+  const result = classifyListings(wanted, settled, signal);
+  for (const { spotPrice: _price, ...listing } of Object.values(result.listings)) seed(qc, origin, listing);
+  return result;
+}
+
+/** Fresh IF_POOL_DETAIL reads for a short pool list, retaining declared omissions. */
+export function usePoolDetailListings(pools: readonly string[]): PoolListingsQueryResult<PoolDetailListing> {
   const client = useMarketClient();
   const operations = useOperations();
   const qc = useQueryClient();
   const origin = client.config.apiOrigin;
   const wanted = [...new Set(pools.filter(isPool).map(value => value.toLowerCase()))].sort();
-  return useQuery({
-    queryKey: queryKeys.poolDetailListings(origin, wanted),
-    queryFn: async ({ signal }) => {
-      const settled = await Promise.allSettled(wanted.map(pool => fetchPoolDetailListing(operations, pool, signal)));
-      const out: Record<string, PoolDetailListing> = {};
-      let firstError: unknown = null;
-      settled.forEach((result, index) => {
-        if (result.status === 'fulfilled') {
-          const { spotPrice: _price, ...listing } = result.value;
-          seed(qc, origin, listing);
-          out[wanted[index]] = result.value;
-        } else firstError ??= result.reason;
-      });
-      if (Object.keys(out).length === 0 && firstError !== null) throw firstError;
-      return out;
-    },
+  const queryKey = queryKeys.poolDetailListings(origin, wanted);
+  const query = useQuery({
+    queryKey,
+    queryFn: ({ signal }) => fetchPoolDetailListings(qc, operations, origin, wanted, signal),
+    select: result => result.listings,
     enabled: wanted.length > 0,
     ...marketCachePolicy.poolDetail,
   });
+  return Object.assign(query, { omissions: qc.getQueryData<PoolListingBatch<PoolDetailListing>>(queryKey)?.omissions ?? {} });
 }

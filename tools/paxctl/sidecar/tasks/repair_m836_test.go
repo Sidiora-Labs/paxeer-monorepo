@@ -809,7 +809,10 @@ func TestRepairM_836_ExportEngineDoesNotCompleteFailedWork(t *testing.T) {
 	ctx, cancel = context.WithCancel(context.Background())
 	defer cancel()
 	e = engine.NewEngine(ctx, map[engine.TaskType]engine.TaskHandler{engine.TaskResultExport: NewResultExporter(home, m836Chain, "node", upload).Handler()}, store)
-	restored := e.GetResult(id)
+	restored, err := e.GetResult(id)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if restored == nil || restored.Status != engine.TaskStatusFailed {
 		t.Fatalf("reopen lost failed outcome: %+v", restored)
 	}

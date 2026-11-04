@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "scope": "core/pnl-tracker reward request storage; task 22.33.917",
+  "migration_id": 180001,
+  "source_sha256": "e1c728094af3edf12c6a5d1d3384691b976c29d77d0f3ed26630eb4bdcae3482",
+  "predecessors": {
+    "80003": "e5475a321d8e7d10f2a79d419af2b0129681fb066372d20932241967b9faf374",
+    "160000": "d0e14e39b91a41d8efb75108e39922e5541ed12d261a857a5c2e83faeb194318",
+    "180000": "5aed18e2a3d7869f71bc25d9de78f5edbb546c0c579f2153e9529f76bbfccee7"
+  },
+  "interface_path": "sdk/launchpad/shared/interfaces/v2/validators.gen.go",
+  "interface_digest": "b8d400593ea9184337a6ab66ae5be49da1676708a4ffcbdb31ce0c4732a0b7e6",
+  "reader_min_version": 1,
+  "estimated_lock_ms": 2000,
+  "transaction_mode": "transactional",
+  "rollback_strategy": "Retain additive durable evidence and tables; roll back readers only. Any compensating DDL requires independent approval.",
+  "backfill_strategy": "No inferred source facts or automatic legacy backfill. Populate only authenticated current source records.",
+  "destructive": false
+}
