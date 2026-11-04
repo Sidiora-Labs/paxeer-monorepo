@@ -26,6 +26,7 @@
 #   --socket-group GID        Group that owns the socket; the socket is 0660.
 #   --public-key-file PATH    Publish the treasury public key hex (mode 0644).
 #   --request-timeout-seconds N   Per-connection deadline. Default 5.
+#   --max-active-requests N    Maximum accepted request workers. Default 32.
 #   --binding-policy PATH    Protected native recipient-binding policy, when enabled.
 #
 # Requests are one line; the reply is one JSON object and the connection closes:
@@ -40,6 +41,7 @@
 import argparse
 import hashlib
 import json
+import math
 import os
 import re
 import signal
@@ -49,13 +51,17 @@ import stat
 import struct
 import sys
 import threading
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from provider import ProviderError, load, verify, verify_binding
+from provider import (ProviderError, ProviderTimeout, load, operation_deadline,
+                      remaining_time, verify, verify_binding)
 
 DIGEST_PATTERN = re.compile(r'^[0-9a-f]{64}$')
 MAXIMUM_REQUEST_BYTES = 256
 BINDING_PATTERN = re.compile(r'[0-9a-f]{240}')
+MAXIMUM_ACTIVE_REQUESTS = 32
+BUSY_REPLY = {'error': {'code': 'busy', 'retry': 'later'}}
 
 
 class BindingPolicy:
@@ -136,13 +142,20 @@ class Signer:
         return uid in self._allowed_uids
 
     def sign(self, digest):
-        with self._lock:
-            if self._backend.public_key() != self._public_key:
-                raise ProviderError('the provider changed its public key')
-            signature = self._backend.sign(digest)
-        if not verify(self._public_key, digest, signature):
-            raise ProviderError('the provider signature does not verify')
-        return signature
+        with operation_deadline(time.monotonic() + remaining_time()):
+            if not self._lock.acquire(timeout=remaining_time()):
+                raise ProviderTimeout('the signer is busy')
+            try:
+                remaining_time()
+                if self._backend.public_key() != self._public_key:
+                    raise ProviderError('the provider changed its public key')
+                signature = self._backend.sign(digest)
+            finally:
+                self._lock.release()
+            if not verify(self._public_key, digest, signature):
+                raise ProviderError('the provider signature does not verify')
+            remaining_time()
+            return signature
 
     def close(self):
         self._backend.close()
@@ -151,27 +164,40 @@ class Signer:
         if self._binding_policy is None \
                 or not self._binding_policy.admits(binding, self._binding_account):
             raise ProviderError('recipient binding is not authorized')
-        with self._lock:
-            if self._backend.public_key() != self._public_key:
-                raise ProviderError('the provider changed its public key')
-            signature = self._backend.bind(binding)
-        if not verify_binding(self._public_key, binding, signature):
-            raise ProviderError('the recipient binding signature does not verify')
-        return signature
+        with operation_deadline(time.monotonic() + remaining_time()):
+            if not self._lock.acquire(timeout=remaining_time()):
+                raise ProviderTimeout('the signer is busy')
+            try:
+                remaining_time()
+                if self._backend.public_key() != self._public_key:
+                    raise ProviderError('the provider changed its public key')
+                signature = self._backend.bind(binding)
+            finally:
+                self._lock.release()
+            if not verify_binding(self._public_key, binding, signature):
+                raise ProviderError('the recipient binding signature does not verify')
+            remaining_time()
+            return signature
 
 
 class Handler(socketserver.BaseRequestHandler):
     def handle(self):
-        self.request.settimeout(self.server.request_timeout)
+        self.deadline = self.server.deadlines[self.request]
         try:
-            credentials = self.request.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED,
-                                                  struct.calcsize('3i'))
-            _, uid, _ = struct.unpack('3i', credentials)
-            if not self.server.signer.admits(uid):
-                self.reply({'error': {'code': 'peer_refused', 'retry': 'never'}})
-                self.drain()
-                return
-            self.reply(self.answer(self.read_line()))
+            with operation_deadline(self.deadline):
+                credentials = self.request.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED,
+                                                      struct.calcsize('3i'))
+                _, uid, _ = struct.unpack('3i', credentials)
+                if not self.server.signer.admits(uid):
+                    self.reply({'error': {'code': 'peer_refused', 'retry': 'never'}})
+                    self.drain()
+                    return
+                self.reply(self.answer(self.read_line()))
+        except ProviderTimeout:
+            try:
+                self.reply(BUSY_REPLY)
+            except OSError:
+                pass
         except (OSError, socket.timeout):
             return
 
@@ -182,6 +208,7 @@ class Handler(socketserver.BaseRequestHandler):
         self.request.shutdown(socket.SHUT_WR)
         remaining = MAXIMUM_REQUEST_BYTES
         while remaining > 0:
+            self.request.settimeout(remaining_time(self.deadline))
             chunk = self.request.recv(remaining)
             if not chunk:
                 return
@@ -192,6 +219,7 @@ class Handler(socketserver.BaseRequestHandler):
         while b'\n' not in buffered:
             if len(buffered) > MAXIMUM_REQUEST_BYTES:
                 return ''
+            self.request.settimeout(remaining_time(self.deadline))
             chunk = self.request.recv(MAXIMUM_REQUEST_BYTES)
             if not chunk:
                 break
@@ -210,6 +238,8 @@ class Handler(socketserver.BaseRequestHandler):
                 return {'error': {'code': 'binding_refused', 'retry': 'never'}}
             try:
                 signature = signer.bind(bytes.fromhex(binding))
+            except ProviderTimeout:
+                return BUSY_REPLY
             except ProviderError:
                 return {'error': {'code': 'binding_refused', 'retry': 'never'}}
             return {'public_key': signer.public_key.hex(), 'binding': binding,
@@ -223,6 +253,8 @@ class Handler(socketserver.BaseRequestHandler):
                 return {'error': {'code': 'digest_refused', 'retry': 'never'}}
             try:
                 signature = signer.sign(bytes.fromhex(digest))
+            except ProviderTimeout:
+                return BUSY_REPLY
             except ProviderError:
                 return {'error': {'code': 'signature_refused', 'retry': 'never'}}
             return {'public_key': signer.public_key.hex(), 'digest': digest,
@@ -230,6 +262,7 @@ class Handler(socketserver.BaseRequestHandler):
         return {'error': {'code': 'unknown_request', 'retry': 'never'}}
 
     def reply(self, message):
+        self.request.settimeout(max(0.001, self.deadline - time.monotonic()))
         self.request.sendall((json.dumps(message, separators=(',', ':')) + '\n').encode())
 
 
@@ -237,6 +270,46 @@ class Server(socketserver.ThreadingUnixStreamServer):
     daemon_threads = True
     allow_reuse_address = False
     request_queue_size = 32
+
+    def __init__(self, server_address, handler_class, bind_and_activate=True,
+                 max_active_requests=MAXIMUM_ACTIVE_REQUESTS, request_timeout=5):
+        if type(max_active_requests) is not int or max_active_requests <= 0:
+            raise ValueError('the active request bound must be a positive integer')
+        if not math.isfinite(request_timeout) or request_timeout <= 0:
+            raise ValueError('the request timeout must be finite and positive')
+        self.request_timeout = request_timeout
+        self.active_requests = threading.BoundedSemaphore(max_active_requests)
+        self.deadlines = {}
+        super().__init__(server_address, handler_class, bind_and_activate)
+
+    def process_request(self, request, client_address):
+        deadline = time.monotonic() + self.request_timeout
+        if not self.active_requests.acquire(blocking=False):
+            try:
+                request.settimeout(min(0.01, self.request_timeout))
+                request.sendall((json.dumps(BUSY_REPLY, separators=(',', ':')) + '\n').encode())
+                request.shutdown(socket.SHUT_WR)
+                # Drain a single bounded request so close preserves the refusal.
+                request.recv(MAXIMUM_REQUEST_BYTES)
+            except OSError:
+                pass
+            finally:
+                self.shutdown_request(request)
+            return
+        self.deadlines[request] = deadline
+        try:
+            super().process_request(request, client_address)
+        except BaseException:
+            self.deadlines.pop(request, None)
+            self.active_requests.release()
+            raise
+
+    def process_request_thread(self, request, client_address):
+        try:
+            super().process_request_thread(request, client_address)
+        finally:
+            self.deadlines.pop(request, None)
+            self.active_requests.release()
 
 
 def positive(value):
@@ -294,6 +367,7 @@ def main(argv):
     parser.add_argument('--socket-group', default=None, type=int)
     parser.add_argument('--public-key-file', default='')
     parser.add_argument('--request-timeout-seconds', default=5, type=positive)
+    parser.add_argument('--max-active-requests', default=MAXIMUM_ACTIVE_REQUESTS, type=positive)
     parser.add_argument('--binding-policy', default='')
     arguments = parser.parse_args(argv)
 
@@ -310,11 +384,12 @@ def main(argv):
     prepare_socket_path(arguments.socket)
     previous = os.umask(0o177 if arguments.socket_group is None else 0o117)
     try:
-        server = Server(arguments.socket, Handler)
+        server = Server(arguments.socket, Handler,
+                        max_active_requests=arguments.max_active_requests,
+                        request_timeout=arguments.request_timeout_seconds)
     finally:
         os.umask(previous)
     server.signer = signer
-    server.request_timeout = arguments.request_timeout_seconds
     if arguments.socket_group is not None:
         os.chown(arguments.socket, -1, arguments.socket_group)
         os.chmod(arguments.socket, 0o660)

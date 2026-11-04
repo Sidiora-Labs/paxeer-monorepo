@@ -1,0 +1,29 @@
+[repair.22.33.995]
+finding = "native-swap-actors"
+tests = ["TestRepairM_995_NativeReceiptAttribution", "TestRepairM_995_NativeRoleProvenance", "TestRepairM_995_ConservativeEvidence", "TestRepairM_995_ReceiptIdentity"]
+change = "Select decoded primary economic Swap families from registry-verified provenance while retaining exact receipt identity, active pool admission and unique output-transfer checks."
+producer = "Committed receipt/testdata/repair53-producer.json; immutable JSON-RPC replay through RPCQualification, receipt correlation and QualifiedReceipt.QualifiedEvents/Fills."
+baseline = "Not run: the explicit implementation-first gate order forbids running verify_cmd manually or before implementation; no pre-change test failure is claimed."
+wiring_requests = []
+evidence = "The runner records the qualified candidate revision, command, exit code and private gate log; no qualification is claimed before hf-done succeeds."
+
+[qualification.workspace]
+revision = "389aed2168e0f8d5bc7ca31799ea1c33d0b55887"
+command = "cd services/launchpad/indexer && go build ./internal/decode/..."
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "Pre-existing go.work declares Go 1.25.0 but unrelated notifications requires Go 1.27.0; compilation did not start."
+assumption = "Use GOWORK=off for both gates to select the indexer's existing standalone go.mod and local replace directives; leave unrelated workspace files untouched."
+
+[qualification.fixture_read]
+revision = "08d08b930b8ae4d79cae0bad322b090c291308b8"
+command = "cg spec done 22.33.995 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "NativeReceiptAttribution passed through the production consumer; the remaining tests failed because their helper requested an uncaptured transaction-by-hash response."
+repair = "Read the exact signed native transaction from the committed block response, require a unique hash match, and preserve every actor, ambiguity and identity assertion."
+
+[repair.fixture_block_lookup]
+observed = "The producer capture records full transactions via eth_getBlockByNumber, not eth_getBlockByHash; reading the latter leaves an empty JSON response."
+change = "Select the recorded block by the receipt's exact number, require matching block hash and number, and require the unique signed transaction at the receipt's transaction index."
+assertions = "All existing attribution, conservative-evidence and receipt-identity assertions are retained."

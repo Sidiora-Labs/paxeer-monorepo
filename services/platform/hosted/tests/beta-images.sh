@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 IMAGE_NAMES=(layerx-testnet-control layerx-gateway layerx-faucet layerx-program-registry layerx-webhooks layerx-dashboard layerx-dashboard-web
-    layerx-internal layerx-human layerx-human-web layerx-node layerx-core-boundary layerx-receipt-authority layerx-agent-boundary layerx-identity layerx-paxeer-boundary
+    layerx-internal layerx-human layerx-human-web layerx-agent-boundary layerx-identity layerx-paxeer-boundary
     layerx-mirror layerx-interop-gateway layerx-reference-ramp
     paxd-node paxd
     bridge-relayer explorer-backend explorer-elixir-builder explorer-frontend explorer-sig-provider explorer-smart-contract-verifier flyci-controller flyci-runner
@@ -20,9 +20,6 @@ image_source() {
         layerx-internal) printf 'ghcr.io/sidiora-labs/layerx-internal:0.1.0 docker/platform-internal/Dockerfile' ;;
         layerx-human) printf 'ghcr.io/sidiora-labs/layerx-human:0.1.0 docker/human-service/Dockerfile' ;;
         layerx-human-web) printf 'ghcr.io/sidiora-labs/layerx-human-web:0.1.0 docker/web/Dockerfile' ;;
-        layerx-node) printf 'ghcr.io/sidiora-labs/layerx-node:0.1.0 docker/platform-node/Dockerfile' ;;
-        layerx-core-boundary) printf 'ghcr.io/sidiora-labs/layerx-core-boundary:0.1.0 docker/platform-core/Dockerfile' ;;
-        layerx-receipt-authority) printf 'ghcr.io/sidiora-labs/layerx-receipt-authority:0.1.0 docker/platform-authority/Dockerfile' ;;
         layerx-agent-boundary) printf 'ghcr.io/sidiora-labs/layerx-agent-boundary:0.1.0 docker/platform-agent-boundary/Dockerfile' ;;
         layerx-identity) printf 'ghcr.io/sidiora-labs/layerx-identity:0.1.0 docker/platform-identity/Dockerfile' ;;
         layerx-paxeer-boundary) printf 'ghcr.io/sidiora-labs/layerx-paxeer-boundary:0.1.0 docker/paxeer/Dockerfile' ;;
@@ -61,12 +58,11 @@ image_source() {
 
 image_build_args() {
     case "$1" in
-        layerx-node) printf -- '--build-arg LXP_REVISION=%s' "$REVISION" ;;
         kernel) printf -- '--build-arg LXP_REVISION=%s' "$(git -C "${REPO_ROOT:-.}" rev-parse HEAD)" ;;
         flyci-controller) printf -- '--build-arg SOURCE_REVISION=%s' "$(git -C "${REPO_ROOT:-.}" rev-parse HEAD)" ;;
         wallet-gateway) printf -- '--build-arg SOURCE_REVISION=%s --build-arg SOURCE_TREE=%s' \
             "$(git -C "${REPO_ROOT:-.}" rev-parse HEAD)" "$(git -C "${REPO_ROOT:-.}" rev-parse 'HEAD^{tree}')" ;;
-        paxd-node) printf -- '--build-arg PAX_CHAIN_REF=%s' "$REVISION" ;;
+        paxd-node) printf -- '--build-arg PAX_CHAIN_REF=%s' "${SOURCE_REVISION:-$(git -C "${REPO_ROOT:-.}" rev-parse HEAD)}" ;;
         paxd) printf -- '--build-arg PAXD_IMAGE=%s' "$(image_ref paxd-node)" ;;
         *) ;;
     esac
@@ -78,6 +74,14 @@ image_context() {
         platform-registry-builder) printf '@registry-builder' ;;
         *) printf '.' ;;
     esac
+}
+
+registry_builder_context_prepare() {
+    local stage
+    stage=$(mktemp -d "$WORK_DIR/registry-context.XXXXXXXX")
+    bash "$REPO_ROOT/services/platform/hosted/registry/builder-environment/build-env.sh" \
+        --prepare-context "$stage/prepared" >&2
+    printf '%s/context' "$stage/prepared"
 }
 
 image_target() {

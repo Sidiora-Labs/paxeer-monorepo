@@ -10,6 +10,11 @@ use crate::secret::{sha256_hex, valid_hex, valid_identifier, valid_principal};
 use crate::tls::Upstream;
 
 pub const MAX_PENDING: usize = 1024;
+/// Pending observations and the bounded retry history share this capacity.
+pub const MAX_RETAINED_OBSERVATIONS: usize = 2 * MAX_PENDING;
+/// Sequence counters cannot be forgotten while their resources remain replayable.
+pub const MAX_TRACKED_RESOURCES: usize = 10_000;
+const MAX_TRANSITION_BYTES: usize = 512;
 pub const MAX_OBSERVATION_BYTES: usize = 16 * 1024;
 pub const ADMISSION_FRESHNESS: Duration = Duration::from_secs(10);
 const ADMISSION_DEADLINE: Duration = Duration::from_secs(5);
@@ -269,12 +274,23 @@ impl DeliveryState {
     }
 }
 
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ReplayFloor {
+    sequence: u64,
+    source_sequence: u64,
+}
+
 #[derive(Clone, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct QueueState {
     counters: BTreeMap<String, u64>,
     entries: Vec<Pending>,
     retained: BTreeMap<String, Observation>,
+    #[serde(default)]
+    compacted: BTreeMap<String, ReplayFloor>,
+    #[serde(default)]
+    closed_through: Option<String>,
     #[serde(default)]
     delivery: DeliveryState,
 }
@@ -299,33 +315,71 @@ impl QueueState {
         {
             return Err("invalid producer scheduling state".to_owned());
         }
-        if self.entries.len() > MAX_PENDING {
-            return Err("producer queue exceeds bound".to_owned());
+        if self.entries.len() > MAX_PENDING
+            || self.retained.len() > MAX_RETAINED_OBSERVATIONS
+            || self.counters.len() > MAX_TRACKED_RESOURCES
+            || self.compacted.len() > self.counters.len()
+        {
+            return Err("producer retention exceeds bound".to_owned());
+        }
+        if self
+            .closed_through
+            .as_ref()
+            .is_some_and(|key| !valid_stream_key(key))
+        {
+            return Err("invalid producer replay boundary".to_owned());
         }
         let mut sequences = BTreeMap::<String, Vec<u64>>::new();
         for (transition, observation) in &self.retained {
             observation.validate()?;
-            if transition.is_empty() {
-                return Err("producer transition missing".to_owned());
+            if transition.is_empty() || transition.len() > MAX_TRANSITION_BYTES {
+                return Err("producer transition exceeds bound".to_owned());
             }
             sequences
                 .entry(format!("{}:{}", observation.kind, observation.resource))
                 .or_default()
                 .push(observation.sequence);
         }
-        if sequences.len() != self.counters.len() {
-            return Err("producer counter mismatch".to_owned());
-        }
-        for (resource, mut values) in sequences {
+        for (resource, counter) in &self.counters {
+            if !valid_stream_key(resource)
+                || *counter == 0
+                || self
+                    .closed_through
+                    .as_ref()
+                    .is_some_and(|floor| resource <= floor)
+            {
+                return Err("invalid producer resource counter".to_owned());
+            }
+            let floor = self
+                .compacted
+                .get(resource)
+                .map_or(0, |floor| floor.sequence);
+            if floor > *counter
+                || self
+                    .compacted
+                    .get(resource)
+                    .is_some_and(|floor| floor.sequence == 0)
+            {
+                return Err("invalid producer compacted counter".to_owned());
+            }
+            let mut values = sequences.remove(resource).unwrap_or_default();
             values.sort_unstable();
             if values
                 .iter()
                 .enumerate()
-                .any(|(index, value)| *value != index as u64 + 1)
-                || self.counters.get(&resource) != values.last()
+                .any(|(index, value)| floor.checked_add(index as u64 + 1) != Some(*value))
+                || values.last().copied().unwrap_or(floor) != *counter
             {
                 return Err("producer sequence mismatch".to_owned());
             }
+        }
+        if !sequences.is_empty()
+            || self
+                .compacted
+                .keys()
+                .any(|key| !self.counters.contains_key(key))
+        {
+            return Err("producer counter mismatch".to_owned());
         }
         let mut ids = std::collections::BTreeSet::new();
         let mut pending_sequences = BTreeMap::new();
@@ -357,6 +411,17 @@ impl QueueState {
         transition: &str,
         mut observation: Observation,
     ) -> Result<Observation, String> {
+        if transition.is_empty() || transition.len() > MAX_TRANSITION_BYTES {
+            return Err("producer transition exceeds bound".to_owned());
+        }
+        let resource = format!("{}:{}", observation.kind, observation.resource);
+        if self
+            .closed_through
+            .as_ref()
+            .is_some_and(|floor| &resource <= floor)
+        {
+            return Err("producer resource is outside the replay boundary".to_owned());
+        }
         if let Some(previous) = self.retained.get(transition) {
             observation.sequence = previous.sequence;
             observation.id.clone_from(&previous.id);
@@ -369,7 +434,16 @@ impl QueueState {
         if self.entries.len() >= MAX_PENDING {
             return Err("producer queue full".to_owned());
         }
-        let resource = format!("{}:{}", observation.kind, observation.resource);
+        if !self.counters.contains_key(&resource) && self.counters.len() >= MAX_TRACKED_RESOURCES {
+            return Err("producer resource capacity requires a replay checkpoint".to_owned());
+        }
+        if self
+            .compacted
+            .get(&resource)
+            .is_some_and(|floor| observation.source_sequence <= floor.source_sequence)
+        {
+            return Err("producer transition is outside the replay boundary".to_owned());
+        }
         observation.sequence = self
             .counters
             .get(&resource)
@@ -383,11 +457,78 @@ impl QueueState {
             observation.sequence,
         );
         let pending = Pending::new(observation.clone())?;
+        if self.retained.len() >= MAX_RETAINED_OBSERVATIONS {
+            // Only the oldest acknowledged observation of a stream may leave
+            // history. Its source high-water mark durably refuses expired retries.
+            let evicted = self
+                .retained
+                .iter()
+                .filter(|(_, old)| {
+                    !self
+                        .entries
+                        .iter()
+                        .any(|pending| pending.observation.id == old.id)
+                })
+                .min_by_key(|(_, old)| old.sequence)
+                .map(|(transition, old)| (transition.clone(), old.clone()))
+                .ok_or("producer retention has no acknowledged prefix")?;
+            let old_resource = format!("{}:{}", evicted.1.kind, evicted.1.resource);
+            let source_sequence = self
+                .compacted
+                .get(&old_resource)
+                .map_or(evicted.1.source_sequence, |floor| {
+                    floor.source_sequence.max(evicted.1.source_sequence)
+                });
+            if resource == old_resource && observation.source_sequence <= source_sequence {
+                return Err("producer transition is outside the replay boundary".to_owned());
+            }
+            self.retained.remove(&evicted.0);
+            self.compacted.insert(
+                old_resource,
+                ReplayFloor {
+                    sequence: evicted.1.sequence,
+                    source_sequence,
+                },
+            );
+        }
         self.counters.insert(resource, observation.sequence);
         self.retained
             .insert(transition.to_owned(), observation.clone());
         self.entries.push(pending);
         Ok(observation)
+    }
+
+    /// Permanently closes the inclusive lexicographic `kind:resource` prefix.
+    /// The owner must checkpoint this state with its authoritative source cursor
+    /// before acknowledging the boundary. All subsequent submissions in that
+    /// prefix are refused, so removing its counters cannot reissue event IDs.
+    ///
+    /// # Errors
+    /// Refuses a backward boundary, invalid stream, or any unacknowledged stream
+    /// in the prefix. Callers must stop producing resources in the closed prefix.
+    pub fn compact_through(&mut self, kind: &str, resource: &str) -> Result<(), String> {
+        let boundary = format!("{kind}:{resource}");
+        if !valid_stream_key(&boundary)
+            || self
+                .closed_through
+                .as_ref()
+                .is_some_and(|floor| &boundary <= floor)
+            || self.entries.iter().any(|pending| {
+                format!(
+                    "{}:{}",
+                    pending.observation.kind, pending.observation.resource
+                ) <= boundary
+            })
+        {
+            return Err("producer replay checkpoint is not safe".to_owned());
+        }
+        self.retained.retain(|_, observation| {
+            format!("{}:{}", observation.kind, observation.resource) > boundary
+        });
+        self.counters.retain(|key, _| key > &boundary);
+        self.compacted.retain(|key, _| key > &boundary);
+        self.closed_through = Some(boundary);
+        Ok(())
     }
 
     #[must_use]
@@ -521,6 +662,13 @@ impl QueueState {
         self.delivery.last_progress_at = Some(now);
         Ok(())
     }
+}
+
+fn valid_stream_key(key: &str) -> bool {
+    key.split_once(':').is_some_and(|(kind, resource)| {
+        matches!(kind, "payment" | "program" | "journey" | "approval")
+            && valid_identifier(resource, 128)
+    })
 }
 
 #[derive(Default)]

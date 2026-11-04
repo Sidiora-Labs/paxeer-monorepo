@@ -1,0 +1,58 @@
+[task]
+id = "22.33.1304"
+mode = "BUILD"
+base = "72c91077cb966f1c4c640ded61b4b259f41cad90"
+scope = "modules/layerxpay/keeper; spec/layerx-merge/contracts/agent-functions.md"
+baseline = "No prior task gate ledger existed. An unchanged-tree verify was not run: the task's mandatory Order requires complete implementation, hf-build, then hf-done and explicitly forbids running verify_cmd by hand first. No baseline test failure is claimed."
+
+[finding.genesis-proof-gap]
+test = "TestRepairM_1304_GenesisProofGap"
+repair = "Owned service validation precedes all writes; malformed real JSON exports and duplicates are refused atomically while both valid application JSON/reopen rounds remain exercised."
+
+[finding.service-corruption-panic]
+test = "TestRepairM_1304_ServiceCorruption; TestRepairM_1304_GenesisProofGap"
+repair = "ServiceViews returns explicit ErrServiceCorruptState errors, preserves missing-record semantics and validates key identifiers and canonical fields. Keeper dispute consumers propagate those errors. Both import paths refuse malformed owned records before writes."
+boundary = "Legacy two-result Keeper service methods retain invariant panics for source compatibility with the out-of-scope precompile; served corruption-error propagation remains dependent on the wiring request below. This record does not claim the legacy served path is fixed."
+
+[finding.service-global-scans]
+test = "TestRepairM_1304_ServiceIndexes; TestRepairM_1304_ServiceRecovery; TestRepairM_1304_ServiceIndexWriterAtomicity"
+repair = "Successful keeper Submit service delivery/progress activities persist bounded pay-store indexes in the same cache branch as kernel writes. Queries read only the requested index and delivery/items. Explicit rebuild validates all service records, uses greatest sequence then greatest delivery id for ties and maximum progress, replaces stale indexes atomically and persists version 1. JSON and chunked recovery rebuild; ordinary database reopen reads persisted indexes. Missing versions require explicit rebuild, never query-time scanning."
+boundary = "Writers that bypass Keeper.Submit must participate in index maintenance or run explicit RebuildServiceIndexes before exposing the keeper aggregate views; native service writer integration is out of scope."
+
+[finding.declaration-agent-open]
+test = "TestRepairM_1304_DeclarationAgentOpen"
+repair = "Contract declares common.Address inputs, internally derived full uint256 id and (*big.Int,error) return; real 0x0906 vm.EVM.Call output and persisted kernel ids prove the boundary."
+
+[finding.declaration-agent-settle]
+test = "TestRepairM_1304_DeclarationAgentSettle"
+repair = "Contract declares caller common.Address and streamID *big.Int with transaction/ordinal/selector-derived settlement key and paid amount; real ABI caller proves both sides and persisted result ownership."
+
+[finding.declaration-agent-close]
+test = "TestRepairM_1304_DeclarationAgentClose"
+repair = "Contract declares actual address/*big.Int inputs, internal key and final-paid/refund returns; real ABI output, event and persisted result prove both amounts."
+
+[finding.declaration-agent-rate]
+test = "TestRepairM_1304_DeclarationAgentRate"
+repair = "Contract declares actual address/*big.Int inputs and internally keyed settlement at the prior rate before returning old rate; real ABI event and subsequent settlement prove the rates and exact amounts."
+
+[finding.declaration-agent-view]
+test = "TestRepairM_1304_DeclarationAgentView"
+repair = "Contract declares *big.Int id and persisted 60-byte payer/payee/token address metadata; real ABI tuple and stopped/reopened persistent keeper prove metadata recovery and explicit missing-metadata refusal."
+
+[wiring]
+service_adapter = "Owning domain 2: precompiles/layerxpay/service_views.go must use keeper.ServiceViews() three-result methods and return errors before ABI packing, including execution, delivery and high-water; then migrate/remove the legacy two-result keeper methods."
+genesis_validator = "Owning domain 2: modules/layerxpay/module.go AppModuleBasic.ValidateGenesis must call keeper.ValidateOwnedGenesis after JSON decoding so application preflight matches keeper import validation."
+agent_open = "Owning domain 2: spec/layerx-merge/interfaces.kvx row 2.go-layerxpay-keeper-openagentstream-j24 must match the OpenAgentStream signature and derived-id return documented in contracts/agent-functions.md#streams-0x0906."
+agent_settle = "Owning domain 2: spec/layerx-merge/interfaces.kvx row 2.go-layerxpay-keeper-settleagentstream-j24 must match caller common.Address, streamID *big.Int and internally derived settlement key documented in contracts/agent-functions.md#streams-0x0906."
+agent_close = "Owning domain 2: spec/layerx-merge/interfaces.kvx row 2.go-layerxpay-keeper-closeagentstream-j24 must match caller common.Address, streamID *big.Int, internal key and finalPaid/refund returns documented in contracts/agent-functions.md#streams-0x0906."
+agent_rate = "Owning domain 2: spec/layerx-merge/interfaces.kvx row 2.go-layerxpay-keeper-updateagentstreamrate-j24 must match caller common.Address, *big.Int identifier/rate and old-rate return after settlement documented in contracts/agent-functions.md#streams-0x0906."
+agent_view = "Owning domain 2: spec/layerx-merge/interfaces.kvx row 2.go-layerxpay-keeper-agentstreamview-j24 must match *big.Int id and persisted address metadata requirements documented in contracts/agent-functions.md#streams-0x0906."
+native_service_writer = "Owning domain 2: src/modules/service/lx_service_state.c and modules/lxphost execution consumers that bypass Keeper.Submit must maintain the same service indexes or invoke explicit keeper migration before enabling aggregate views."
+
+[gotcha]
+fixture = "The service payload header is two bytes; record ids are payload[2:34]. Agent stream ids additionally require the EVM transient call-ordinal store supplied by the real EVM caller fixture."
+validation = "AppModuleBasic.ValidateGenesis only validates envelopes; SDK AppModule.InitGenesis converts the keeper's explicit refusal to a panic by its existing initialization contract. Keeper refusal is tested separately for no panic and no writes."
+tooling = "hf-gate.py is invoked with python3; the executable task gates are hf-build and hf-done."
+
+[evidence]
+record = "The final hf-done line and /out/run/gates.jsonl provide the exact verified candidate revision, command, exit and private log; no successful gate is claimed before it runs. Runner publication is external to this task; no manual commit or push."

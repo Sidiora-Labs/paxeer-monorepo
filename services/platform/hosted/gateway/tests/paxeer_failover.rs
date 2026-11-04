@@ -8,7 +8,7 @@ use std::net::{TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -266,6 +266,7 @@ struct Upstream {
     port: u16,
     failing: Arc<AtomicBool>,
     hits: Arc<AtomicUsize>,
+    calls: Arc<Mutex<Vec<Value>>>,
     stop: Arc<AtomicBool>,
     join: Option<JoinHandle<()>>,
 }
@@ -282,6 +283,8 @@ impl Upstream {
             .unwrap_or_else(|error| panic!("{error}"));
         let failing = Arc::new(AtomicBool::new(failing));
         let hits = Arc::new(AtomicUsize::new(0));
+        let calls = Arc::new(Mutex::new(Vec::new()));
+        let observed = Arc::clone(&calls);
         let stop = Arc::new(AtomicBool::new(false));
         let (tls, fail, count, stopped) = (
             Arc::clone(tls),
@@ -302,6 +305,12 @@ impl Upstream {
                         let mut stream = StreamOwned::new(connection, tcp);
                         let request = http::parse_client_request(&mut stream)
                             .unwrap_or_else(|error| panic!("chain request must be read: {error}"));
+                        assert_eq!(request.method, "POST");
+                        assert_eq!(request.path, "/");
+                        observed
+                            .lock()
+                            .expect("captured calls")
+                            .push(serde_json::from_slice(&request.body).expect("upstream JSON"));
                         count.fetch_add(1, Ordering::AcqRel);
                         let response = if fail.load(Ordering::Acquire) {
                             http::refusal(502, "bad_gateway", None)
@@ -326,6 +335,7 @@ impl Upstream {
             port,
             failing,
             hits,
+            calls,
             stop,
             join: Some(join),
         }
@@ -355,7 +365,7 @@ impl Drop for Upstream {
 
 fn chain_answer(request: &http::Request) -> http::Response {
     assert_eq!(request.method, "POST");
-    assert_eq!(request.path, "/rpc");
+    assert_eq!(request.path, "/");
     let Ok(call) = serde_json::from_slice::<Value>(&request.body) else {
         return http::refusal(400, "invalid_json", None);
     };
@@ -462,8 +472,14 @@ impl Gateway {
 
     fn chain_id(&self) -> Value {
         let request = json!({"jsonrpc": "2.0", "id": 7, "method": "eth_chainId", "params": []});
+        assert_eq!(
+            self.exchange("POST", "/rpc", request.to_string().as_bytes())
+                .expect("retired RPC refusal")
+                .0,
+            404
+        );
         let (status, body) = self
-            .exchange("POST", "/rpc", request.to_string().as_bytes())
+            .exchange("POST", "/", request.to_string().as_bytes())
             .unwrap_or_else(|error| panic!("eth_chainId must be answered: {error}"));
         assert_eq!(status, 200);
         let document: Value = serde_json::from_slice(&body)
@@ -516,7 +532,7 @@ fn pax_sequencer_receipt_relays_the_node_answer() {
             "params": [tx_hash]
         });
         let (status, body) = gateway
-            .exchange("POST", "/rpc", request.to_string().as_bytes())
+            .exchange("POST", "/", request.to_string().as_bytes())
             .unwrap_or_else(|error| panic!("pax_sequencerReceipt must be answered: {error}"));
         assert_eq!(status, 200);
         let expected = json!({
@@ -539,6 +555,26 @@ fn pax_sequencer_receipt_relays_the_node_answer() {
     assert!(
         upstream.hits() > 0,
         "the chain listener must receive the call"
+    );
+    let calls = upstream.calls.lock().expect("captured calls");
+    assert_eq!(calls.len(), 4);
+    for (pair, id) in calls
+        .chunks_exact(2)
+        .zip([json!("receipt-caller"), json!(9_007_199_254_740_993_u64)])
+    {
+        assert_eq!(
+            pair[0],
+            json!({"jsonrpc":"2.0", "id":"route-network", "method":"eth_chainId", "params":[]})
+        );
+        assert_eq!(
+            pair[1],
+            json!({"jsonrpc":"2.0", "id":id, "method":"pax_sequencerReceipt", "params":[tx_hash]})
+        );
+    }
+    assert_eq!(
+        second.hits(),
+        0,
+        "a successful first endpoint ends retrying"
     );
 }
 

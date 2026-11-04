@@ -57,6 +57,12 @@
     "-v"
   ],
   "policy_check_boundary": "Negative policy cases are not real vendor or native product proof",
-  "verify_cmd": "python3 tools/launchpad/production/qualify.py --task 2.50 --spec launchpad/spec/production-system/spec.kvx --require-current-source",
-  "release_qualified": false
+  "verify_cmd": "python3 tools/launchpad/production/qualify.py --task 2.50 --spec spec/layerx-merge/spec.kvx --require-current-source",
+  "release_qualified": false,
+  "spec_reference": {
+    "spec": "spec/layerx-merge/spec.kvx",
+    "section": "task.2.50",
+    "class": "retired-reference",
+    "reason": "decision.1803 retires launchpad/spec/production-system/spec.kvx; task.2.50 is absent from spec/layerx-merge/spec.kvx"
+  }
 }

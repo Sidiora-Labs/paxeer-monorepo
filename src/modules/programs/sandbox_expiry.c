@@ -37,107 +37,161 @@ static uint16_t take_u16(const uint8_t *p){return (uint16_t)(((uint16_t)p[0]<<8U
 static uint32_t take_u32(const uint8_t *p){return ((uint32_t)p[0]<<24U)|((uint32_t)p[1]<<16U)|((uint32_t)p[2]<<8U)|p[3];}
 static void put_u32(uint8_t *p,uint32_t v){p[0]=(uint8_t)(v>>24U);p[1]=(uint8_t)(v>>16U);p[2]=(uint8_t)(v>>8U);p[3]=(uint8_t)v;}
 
-/* lease_scope also skips the other storage head of the lease being torn down: both heads
- * are dropped together in its final settlement, so neither may pin the other's blobs. */
+typedef struct cleanup_reference_scan {
+    lxp_module_ctx *ctx;
+    const uint8_t *current_key;
+    size_t current_key_length;
+    const uint8_t *digest;
+    bool lease_scope;
+    bool referenced;
+} cleanup_reference_scan;
+
+static bool cleanup_contains_digest(const uint8_t *bytes, size_t length,
+                                    const uint8_t digest[32])
+{
+    size_t offset;
+    for (offset = 0U; length >= 32U && offset <= length - 32U; ++offset)
+        if (memcmp(bytes + offset, digest, 32U) == 0) return true;
+    return false;
+}
+
+static lxp_result cleanup_reference_visit(const uint8_t *key, size_t key_length,
+    const uint8_t *head, size_t head_length, void *user)
+{
+    cleanup_reference_scan *scan = user;
+    const uint8_t *manifest;
+    size_t manifest_length, cursor = 6U;
+    uint32_t cell, count;
+    uint8_t manifest_digest[32];
+    lxp_result status;
+    if (scan->referenced) return LXP_OK;
+    if (key_length == scan->current_key_length &&
+        memcmp(key, scan->current_key, key_length) == 0) return LXP_OK;
+    if (key_length < 8U || memcmp(key, "progstor", 8U) != 0) {
+        /* Other Programs records retain direct roots, including artifacts and
+         * replay witnesses. The iterator includes newly staged records. */
+        scan->referenced = cleanup_contains_digest(key, key_length, scan->digest) ||
+            cleanup_contains_digest(head, head_length, scan->digest);
+        return LXP_OK;
+    }
+    if (!((key_length == 41U && key[40] == 1U) ||
+          (key_length == 73U && (key[40] == 0U || key[40] == 2U) &&
+           !lxp_ct_is_zero(key + 41U, 32U))) ||
+        lxp_ct_is_zero(key + 8U, 32U)) return LXP_FATAL_INVARIANT;
+    /* Both heads of the expiring lease disappear in the final settlement. */
+    if (scan->lease_scope && scan->current_key_length == 73U &&
+        key_length == 73U &&
+        memcmp(key + 8U, scan->current_key + 8U, 32U) == 0 &&
+        memcmp(key + 41U, scan->current_key + 41U, 32U) == 0)
+        return LXP_OK;
+    if (head_length != 38U || take_u16(head) != 1U)
+        return LXP_FATAL_INVARIANT;
+    if (lxp_ct_memcmp(head + 6U, scan->digest, 32U) == 0) {
+        scan->referenced = true;
+        return LXP_OK;
+    }
+    status = lxp_ctx_blob_get(scan->ctx, head + 6U, &manifest, &manifest_length);
+    if (status != LXP_OK) return status;
+    status = lxp_hash_sha256(manifest, manifest_length, manifest_digest);
+    if (status != LXP_OK) return status;
+    count = take_u32(head + 2U);
+    if (manifest_length < 6U || take_u16(manifest) != 1U ||
+        take_u32(manifest + 2U) != count ||
+        lxp_ct_memcmp(manifest_digest, head + 6U, 32U) != 0)
+        return LXP_FATAL_INVARIANT;
+    for (cell = 0U; cell < count; ++cell) {
+        uint16_t key_bytes;
+        if (cursor + 2U > manifest_length) return LXP_FATAL_INVARIANT;
+        key_bytes = take_u16(manifest + cursor);
+        cursor += 2U;
+        if (key_bytes == 0U || cursor + (size_t)key_bytes + 36U > manifest_length)
+            return LXP_FATAL_INVARIANT;
+        if (lxp_ct_memcmp(manifest + cursor + key_bytes, scan->digest, 32U) == 0)
+            scan->referenced = true;
+        cursor += (size_t)key_bytes + 36U;
+    }
+    return cursor == manifest_length ? LXP_OK : LXP_FATAL_INVARIANT;
+}
+
 static lxp_result blob_referenced_elsewhere(
     lxp_module_ctx *ctx, const uint8_t *current_key,
     size_t current_key_length, const uint8_t digest[32], bool lease_scope,
     bool *referenced)
 {
-    size_t index;
-    if (ctx == NULL || current_key == NULL || digest == NULL ||
-        referenced == NULL)
+    cleanup_reference_scan scan = {
+        ctx, current_key, current_key_length, digest, lease_scope, false};
+    lxp_result status;
+    if (ctx == NULL || current_key == NULL || digest == NULL || referenced == NULL)
         return LXP_ERR_NON_CANONICAL;
-    *referenced = false;
-    for (index = 0U; index < ctx->kernel->module_kv_count; ++index) {
-        const lxp_module_kv_entry *entry = &ctx->kernel->module_kv[index];
-        const uint8_t *head;
-        const uint8_t *manifest;
-        size_t head_length;
-        size_t manifest_length;
-        size_t cursor = 6U;
-        uint32_t cell;
-        uint32_t count;
-        uint8_t manifest_digest[32];
-        lxp_result status;
-        if (entry->module_id != LXP_MODULE_PROGRAMS ||
-            entry->key_length != 73U ||
-            memcmp(entry->key, "progstor", 8U) != 0 ||
-            (entry->key_length == current_key_length &&
-             memcmp(entry->key, current_key, current_key_length) == 0))
-            continue;
-        if (lease_scope && current_key_length == 73U &&
-            (entry->key[40] == 0U || entry->key[40] == 2U) &&
-            memcmp(entry->key + 8U, current_key + 8U, 32U) == 0 &&
-            memcmp(entry->key + 41U, current_key + 41U, 32U) == 0)
-            continue;
-        status = lxp_ctx_kv_get(ctx, entry->key, entry->key_length,
-                                &head, &head_length);
-        if (status == LXP_ERR_UNKNOWN_FIELD) continue;
-        if (status != LXP_OK) return status;
-        if (head_length != 38U || take_u16(head) != 1U)
-            return LXP_FATAL_INVARIANT;
-        if (lxp_ct_memcmp(head + 6U, digest, 32U) == 0) {
-            *referenced = true;
-            return LXP_OK;
-        }
-        status = lxp_ctx_blob_get(ctx, head + 6U,
-                                  &manifest, &manifest_length);
-        if (status != LXP_OK) return status;
-        status = lxp_hash_sha256(manifest, manifest_length,
-                                 manifest_digest);
-        if (status != LXP_OK) return status;
-        count = take_u32(head + 2U);
-        if (manifest_length < 6U || take_u16(manifest) != 1U ||
-            take_u32(manifest + 2U) != count ||
-            lxp_ct_memcmp(manifest_digest, head + 6U, 32U) != 0)
-            return LXP_FATAL_INVARIANT;
-        for (cell = 0U; cell < count; ++cell) {
-            uint16_t key_length;
-            if (cursor + 2U > manifest_length)
-                return LXP_FATAL_INVARIANT;
-            key_length = take_u16(manifest + cursor);
-            cursor += 2U;
-            if (key_length == 0U ||
-                cursor + (size_t)key_length + 36U > manifest_length)
-                return LXP_FATAL_INVARIANT;
-            if (lxp_ct_memcmp(manifest + cursor + key_length,
-                              digest, 32U) == 0) {
-                *referenced = true;
-                return LXP_OK;
-            }
-            cursor += (size_t)key_length + 36U;
-        }
-        if (cursor != manifest_length) return LXP_FATAL_INVARIANT;
-    }
-    return LXP_OK;
+    status = lxp_ctx_kv_iter(ctx, NULL, 0U, cleanup_reference_visit, &scan);
+    *referenced = scan.referenced;
+    return status;
 }
 
-static lxp_result reclaim_storage_head(lxp_module_ctx *ctx,const uint8_t *key,size_t key_length,
-    bool lease_scope,uint32_t *next,uint8_t root[32],uint64_t *cells,uint64_t *bytes,bool *complete){
-    const uint8_t *head,*manifest;size_t head_len,manifest_len,cursor=6U;uint32_t i,count,removed=0U;lxp_result s;
-    *complete=false;s=lxp_ctx_kv_get(ctx,key,key_length,&head,&head_len);if(s==LXP_ERR_UNKNOWN_FIELD){*complete=true;return LXP_OK;}if(s!=LXP_OK)return s;
+static lxp_result reclaim_storage_head(
+    lxp_module_ctx *ctx, const uint8_t *key, size_t key_length,
+    bool lease_scope, uint32_t *next, uint8_t root[32],
+    uint64_t *cells, uint64_t *bytes, bool *complete)
+{
+    const uint8_t *head, *manifest;
+    size_t head_len, manifest_len, cursor = 6U;
+    uint32_t i, count, removed = 0U;
+    lxp_result status;
+    *complete = false;
+    status = lxp_ctx_kv_get(ctx, key, key_length, &head, &head_len);
+    if (status == LXP_ERR_UNKNOWN_FIELD) {
+        *complete = true;
+        return LXP_OK;
+    }
+    if (status != LXP_OK) return status;
     if (head_len != 38U) return LXP_FATAL_INVARIANT;
-    s = lxp_ctx_blob_get(ctx, head + 6U, &manifest, &manifest_len);
-    if (s != LXP_OK) return s;
-    if(lxp_ct_is_zero(root,32U)){s=lxp_hash_sha256(head,head_len,root);if(s!=LXP_OK)return s;}
-    count=take_u32(head+2U);if(*next>count)return LXP_FATAL_INVARIANT;
-    for(i=0U;i<count;++i){uint16_t n;if(cursor+2U>manifest_len)return LXP_FATAL_INVARIANT;n=take_u16(manifest+cursor);cursor+=2U;
-        if(cursor+(size_t)n+36U>manifest_len)return LXP_FATAL_INVARIANT;
-        if(i>=*next&&removed<CLEANUP_BLOBS_PER_ACTIVITY){
-            uint32_t value_length=take_u32(manifest+cursor+n+32U);
-            bool referenced=false;
-            *bytes+=(uint64_t)n+(uint64_t)value_length;
-            if(value_length!=0U){s=blob_referenced_elsewhere(ctx,key,key_length,manifest+cursor+n,lease_scope,&referenced);if(s!=LXP_OK)return s;
-                if(!referenced){s=lxp_ctx_blob_del(ctx,manifest+cursor+n);if(s!=LXP_OK)return s;}}
-            ++removed;++*next;}
-        cursor+=(size_t)n+36U;}
-    if(cursor!=manifest_len)return LXP_FATAL_INVARIANT;
-    if(*next!=count)return LXP_OK;
-    *cells+=count;*complete=true;return LXP_OK;
+    status = lxp_ctx_blob_get(ctx, head + 6U, &manifest, &manifest_len);
+    if (status != LXP_OK) return status;
+    if (lxp_ct_is_zero(root, 32U)) {
+        status = lxp_hash_sha256(head, head_len, root);
+        if (status != LXP_OK) return status;
+    }
+    count = take_u32(head + 2U);
+    if (*next > count) return LXP_FATAL_INVARIANT;
+    for (i = 0U; i < count; ++i) {
+        uint16_t key_bytes;
+        if (cursor + 2U > manifest_len) return LXP_FATAL_INVARIANT;
+        key_bytes = take_u16(manifest + cursor);
+        cursor += 2U;
+        if (cursor + (size_t)key_bytes + 36U > manifest_len)
+            return LXP_FATAL_INVARIANT;
+        if (i == *next && removed < CLEANUP_BLOBS_PER_ACTIVITY) {
+            uint32_t value_length = take_u32(manifest + cursor + key_bytes + 32U);
+            bool referenced = false, advanced = true;
+            if (value_length != 0U) {
+                status = blob_referenced_elsewhere(ctx, key, key_length,
+                    manifest + cursor + key_bytes, lease_scope, &referenced);
+                if (status != LXP_OK) return status;
+                if (!referenced) {
+                    if (ctx->staged_blob_count == LXP_KERNEL_MAX_STAGED_BLOBS) {
+                        advanced = false;
+                    } else {
+                        status = lxp_ctx_blob_del(ctx, manifest + cursor + key_bytes);
+                        if (status != LXP_OK) return status;
+                    }
+                }
+            }
+            if (advanced) {
+                *bytes += (uint64_t)key_bytes + (uint64_t)value_length;
+                ++removed;
+                ++*next;
+            }
+        }
+        cursor += (size_t)key_bytes + 36U;
+    }
+    if (cursor != manifest_len) return LXP_FATAL_INVARIANT;
+    if (*next != count) return LXP_OK;
+    *cells += count;
+    *complete = true;
+    return LXP_OK;
 }
-/* The head and its manifest stay readable until the final settlement drops both heads,
- * settles occupancy and refunds the escrow in one activity. */
+/* Drop heads only after both value cursors finish. Manifest deletion precedes
+ * settlement so its four archive blobs fit in a fresh activity's blob budget. */
 static lxp_result drop_storage_head(lxp_module_ctx *ctx,const uint8_t *key,size_t key_length){
     const uint8_t *head;size_t head_len;bool referenced=false;lxp_result s;
     s=lxp_ctx_kv_get(ctx,key,key_length,&head,&head_len);if(s==LXP_ERR_UNKNOWN_FIELD)return LXP_OK;if(s!=LXP_OK)return s;
@@ -187,8 +241,12 @@ lxp_result layerx_programs_sandbox_destroy_archive(uint64_t token,uint16_t kind,
 lxp_result layerx_programs_sandbox_destroy_charge(uint64_t token,const uint8_t from[32],const uint8_t to[32],
     const uint8_t asset[32],uint64_t hi,uint64_t lo,uint8_t root[32]){
     lxp_module_ctx *ctx=(lxp_module_ctx*)(uintptr_t)token;lxp_transfer_set set;lxp_transfer_source_authority auth;
+    const lx_programs_transfer_runtime *runtime;
     lxp_receipt receipt;lxp_result s;
     if(ctx!=active_destroy_ctx||active_destroy==NULL||from==NULL||to==NULL||asset==NULL||root==NULL||(hi==0U&&lo==0U))return LXP_ERR_AUTH_SCOPE;
+    runtime = lxp_ctx_module_runtime(ctx);
+    if (runtime == NULL || runtime->assets == NULL || runtime->asset_count == 0U)
+        return LXP_ERR_MODULE_DISABLED;
     (void)memset(&set,0,sizeof(set));(void)memset(&auth,0,sizeof(auth));(void)memset(&receipt,0,sizeof(receipt));
     s=lxp_ctx_account_find(ctx,from,&set.legs[0].from);if(s==LXP_OK)s=lxp_ctx_account_find(ctx,to,&set.legs[0].to);
     if (s != LXP_OK) return s;
@@ -198,6 +256,9 @@ lxp_result layerx_programs_sandbox_destroy_charge(uint64_t token,const uint8_t f
     (void)memcpy(auth.authorized_from,from,32U);auth.debit_authority_kind=LXP_AUTH_PROTOCOL_MODULE;auth.protocol_system_capability=true;
     set.context.protocol_system_capability=true;set.context.debit_authority_kind=LXP_AUTH_PROTOCOL_MODULE;
     set.context.source_authorities=&auth;set.context.source_authority_count=1U;
+    set.context.assets = runtime->assets;
+    set.context.asset_count = runtime->asset_count;
+    set.context.batch_timestamp = lxp_ctx_batch_timestamp_ms(ctx);
     s=lxp_ctx_emit_programs_maintenance_transfer_set(ctx,&set,&receipt);
     if (s == LXP_OK)
         (void)memcpy(root, receipt.transfer_set_root, 32U);
@@ -206,8 +267,12 @@ lxp_result layerx_programs_sandbox_destroy_charge(uint64_t token,const uint8_t f
 lxp_result layerx_programs_sandbox_destroy_refund(uint64_t token,const uint8_t from[32],const uint8_t to[32],
     const uint8_t asset[32],uint64_t hi,uint64_t lo,uint8_t root[32]){
     lxp_module_ctx *ctx=(lxp_module_ctx*)(uintptr_t)token;lxp_transfer_set set;lxp_transfer_source_authority auth;
+    const lx_programs_transfer_runtime *runtime;
     lxp_receipt receipt;lxp_result s;
     if(ctx!=active_destroy_ctx||active_destroy==NULL||from==NULL||to==NULL||asset==NULL||root==NULL)return LXP_ERR_AUTH_SCOPE;
+    runtime = lxp_ctx_module_runtime(ctx);
+    if (runtime == NULL || runtime->assets == NULL || runtime->asset_count == 0U)
+        return LXP_ERR_MODULE_DISABLED;
     (void)memset(&set,0,sizeof(set));(void)memset(&auth,0,sizeof(auth));(void)memset(&receipt,0,sizeof(receipt));
     s=lxp_ctx_account_find(ctx,from,&set.legs[0].from);if(s==LXP_OK)s=lxp_ctx_account_find(ctx,to,&set.legs[0].to);
     if (s != LXP_OK) return s;
@@ -217,6 +282,9 @@ lxp_result layerx_programs_sandbox_destroy_refund(uint64_t token,const uint8_t f
     (void)memcpy(auth.authorized_from,from,32U);auth.debit_authority_kind=LXP_AUTH_PROTOCOL_MODULE;auth.protocol_system_capability=true;
     set.context.protocol_system_capability=true;set.context.debit_authority_kind=LXP_AUTH_PROTOCOL_MODULE;
     set.context.source_authorities=&auth;set.context.source_authority_count=1U;
+    set.context.assets = runtime->assets;
+    set.context.asset_count = runtime->asset_count;
+    set.context.batch_timestamp = lxp_ctx_batch_timestamp_ms(ctx);
     s=lxp_ctx_emit_programs_maintenance_transfer_set(ctx,&set,&receipt);
     if (s == LXP_OK)
         (void)memcpy(root, receipt.transfer_set_root, 32U);
@@ -281,23 +349,49 @@ lxp_result lxp_programs_sandbox_destroy_execute(lxp_module_ctx *ctx,
     expiry=take_u64(lease+383U); if(value->boundary<expiry)return LXP_ERR_NOT_YET_VALID;
     cleanup_key[0]=(uint8_t)'x';cleanup_key[1]=(uint8_t)'c';(void)memcpy(cleanup_key+2U,value->lease_id,32U);
     status=lxp_ctx_kv_get(ctx,cleanup_key,sizeof(cleanup_key),&prior_cleanup,&prior_cleanup_len);
-    if(status==LXP_OK){if(prior_cleanup_len!=CLEANUP_BYTES||memcmp(prior_cleanup,"LXCL1",5U)!=0)return LXP_FATAL_INVARIANT;(void)memcpy(cleanup,prior_cleanup,CLEANUP_BYTES);next=take_u32(cleanup+6U);cells=take_u64(cleanup+10U);bytes=take_u64(cleanup+18U);(void)memcpy(namespace_root,cleanup+26U,32U);(void)memcpy(snapshot_root,cleanup+58U,32U);}
+    if(status==LXP_OK){if(prior_cleanup_len!=CLEANUP_BYTES||memcmp(prior_cleanup,"LXCL1",5U)!=0||prior_cleanup[5U]>3U)return LXP_FATAL_INVARIANT;(void)memcpy(cleanup,prior_cleanup,CLEANUP_BYTES);next=take_u32(cleanup+6U);cells=take_u64(cleanup+10U);bytes=take_u64(cleanup+18U);(void)memcpy(namespace_root,cleanup+26U,32U);(void)memcpy(snapshot_root,cleanup+58U,32U);}
     else if(status==LXP_ERR_UNKNOWN_FIELD){(void)memcpy(cleanup,"LXCL1",5U);status=LXP_OK;}else return status;
     {
         uint8_t storage_key[73];
         (void)memcpy(storage_key,"progstor",8U);
         (void)memcpy(storage_key+8U,lease+103U,32U);
         (void)memcpy(storage_key+41U,lease+167U,32U);
-        storage_key[40U]=cleanup[5U]==0U?0U:2U;
-        status=reclaim_storage_head(ctx,storage_key,sizeof(storage_key),cleanup[5U]!=0U,&next,
-            cleanup[5U]==0U?namespace_root:snapshot_root,&cells,&bytes,&complete);
-        if(status!=LXP_OK)return status;
-        if(complete){++cleanup[5U];next=0U;}
-        if(cleanup[5U]<2U){put_u32(cleanup+6U,next);put_u64(cleanup+10U,cells);put_u64(cleanup+18U,bytes);(void)memcpy(cleanup+26U,namespace_root,32U);(void)memcpy(cleanup+58U,snapshot_root,32U);return lxp_ctx_kv_put(ctx,cleanup_key,sizeof(cleanup_key),cleanup,sizeof(cleanup));}
-        /* Namespace drop, final occupancy, refund and terminal record share this one activity. */
-        storage_key[40U]=0U;status=drop_storage_head(ctx,storage_key,sizeof(storage_key));
-        storage_key[40U]=2U;if(status==LXP_OK)status=drop_storage_head(ctx,storage_key,sizeof(storage_key));
-        if(status!=LXP_OK)return status;
+        if (cleanup[5U] < 2U) {
+            storage_key[40U] = cleanup[5U] == 0U ? 0U : 2U;
+            status = reclaim_storage_head(ctx, storage_key, sizeof(storage_key),
+                cleanup[5U] != 0U, &next,
+                cleanup[5U] == 0U ? namespace_root : snapshot_root,
+                &cells, &bytes, &complete);
+            if (status != LXP_OK) return status;
+            if (complete) {
+                ++cleanup[5U];
+                next = 0U;
+            }
+            put_u32(cleanup + 6U, next);
+            put_u64(cleanup + 10U, cells);
+            put_u64(cleanup + 18U, bytes);
+            (void)memcpy(cleanup + 26U, namespace_root, 32U);
+            (void)memcpy(cleanup + 58U, snapshot_root, 32U);
+            return lxp_ctx_kv_put(ctx, cleanup_key, sizeof(cleanup_key),
+                                   cleanup, sizeof(cleanup));
+        }
+        if (cleanup[5U] == 2U) {
+            if (ctx->staged_blob_count > LXP_KERNEL_MAX_STAGED_BLOBS - 2U)
+                return lxp_ctx_kv_put(ctx, cleanup_key, sizeof(cleanup_key),
+                                       cleanup, sizeof(cleanup));
+            storage_key[40U] = 0U;
+            status = drop_storage_head(ctx, storage_key, sizeof(storage_key));
+            storage_key[40U] = 2U;
+            if (status == LXP_OK)
+                status = drop_storage_head(ctx, storage_key, sizeof(storage_key));
+            if (status != LXP_OK) return status;
+            cleanup[5U] = 3U;
+        }
+        /* Rust publishes four distinct archives with the atomic occupancy
+         * settlement, refund and terminal record. Reserve the whole budget. */
+        if (ctx->staged_blob_count != 0U)
+            return lxp_ctx_kv_put(ctx, cleanup_key, sizeof(cleanup_key),
+                                   cleanup, sizeof(cleanup));
     }
     /* Rust owns exact decoding, namespace/blob enumeration and refund derivation. */
     active_destroy=value;active_destroy_ctx=ctx;

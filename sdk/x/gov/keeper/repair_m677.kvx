@@ -1,0 +1,8 @@
+[repair.22.33.677]
+audit = "22.30.167"
+finding_failed_proposal_tally = "TestRepairM_677_FailedProposalTally"
+finding_failed_proposal_legacy_tally = "TestRepairM_677_FailedProposalLegacyTally"
+proof = "Real in-memory governance, auth, bank, staking and params keepers; weighted vote, EndBlocker, rejected zero-validator parameter change, persisted nonzero final tally, deleted votes, protobuf gRPC query and legacy Amino query parity for regular and expedited proposals."
+baseline = "Not run: task Order 1 and Order 4 prohibit testing before complete implementation and running verify_cmd by hand; no baseline failure is claimed."
+wiring_requests = []
+evidence = "The runner records the exact candidate revision, build and hf-done command, exit code and private log path in its gate ledger."

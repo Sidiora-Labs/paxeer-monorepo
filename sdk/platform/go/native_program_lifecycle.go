@@ -42,10 +42,14 @@ type NativeProgramWindDown struct {
 	DeadlineBatch uint64
 }
 
+// MaximumNativeProgramPayloadBytes includes lifecycle headers, migration hooks,
+// interface framing and Wasm, matching the native activity payload ceiling.
+const MaximumNativeProgramPayloadBytes = 524_288
+
 func lifecycleInvalid() error { return newSDKError(ErrorInvalidArgument, RetryNever) }
 
 func lifecycleCodeValid(program [32]byte, abi uint16, hash [32]byte, wasm []byte) bool {
-	return program != ([32]byte{}) && SupportsProgramGuestAbi(abi) && len(wasm) >= 8 && len(wasm) <= 1048576 && bytes.Equal(wasm[:8], []byte{0, 97, 115, 109, 1, 0, 0, 0}) && sha256.Sum256(wasm) == hash
+	return program != ([32]byte{}) && SupportsProgramGuestAbi(abi) && len(wasm) >= 8 && len(wasm) <= MaximumNativeProgramPayloadBytes && bytes.Equal(wasm[:8], []byte{0, 97, 115, 109, 1, 0, 0, 0}) && sha256.Sum256(wasm) == hash
 }
 
 func EncodeNativeProgramDeploy(value NativeProgramDeploy) ([]byte, error) {
@@ -55,6 +59,9 @@ func EncodeNativeProgramDeploy(value NativeProgramDeploy) ([]byte, error) {
 	fixed := 104
 	if value.Interface != nil {
 		fixed = 108
+	}
+	if len(value.Wasm) > MaximumNativeProgramPayloadBytes-fixed-len(value.Interface) {
+		return nil, lifecycleInvalid()
 	}
 	out := make([]byte, fixed)
 	copy(out, value.ProgramID[:])
@@ -72,7 +79,7 @@ func EncodeNativeProgramDeploy(value NativeProgramDeploy) ([]byte, error) {
 
 func DecodeNativeProgramDeploy(payload []byte) (NativeProgramDeploy, error) {
 	var value NativeProgramDeploy
-	if len(payload) < 104 || payload[35] != 0 {
+	if len(payload) < 104 || len(payload) > MaximumNativeProgramPayloadBytes || payload[35] != 0 {
 		return value, lifecycleInvalid()
 	}
 	copy(value.ProgramID[:], payload[:32])
@@ -109,6 +116,9 @@ func EncodeNativeProgramUpgrade(value NativeProgramUpgrade) ([]byte, error) {
 	if value.Interface != nil {
 		fixed = 110
 	}
+	if len(value.Wasm) > MaximumNativeProgramPayloadBytes-fixed-len(value.MigrationHook)-len(value.Interface) {
+		return nil, lifecycleInvalid()
+	}
 	out := make([]byte, fixed)
 	copy(out, value.ProgramID[:])
 	binary.BigEndian.PutUint16(out[32:], value.GuestABI)
@@ -132,7 +142,7 @@ func EncodeNativeProgramUpgrade(value NativeProgramUpgrade) ([]byte, error) {
 
 func DecodeNativeProgramUpgrade(payload []byte) (NativeProgramUpgrade, error) {
 	var value NativeProgramUpgrade
-	if len(payload) < 106 || payload[35] != 0 || payload[34]&0xfc != 0 {
+	if len(payload) < 106 || len(payload) > MaximumNativeProgramPayloadBytes || payload[35] != 0 || payload[34]&0xfc != 0 {
 		return value, lifecycleInvalid()
 	}
 	copy(value.ProgramID[:], payload[:32])

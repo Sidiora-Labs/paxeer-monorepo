@@ -47,6 +47,13 @@ func NewKeyOutput(name string, keyType KeyType, a sdk.Address, pk cryptotypes.Pu
 
 // MkConsKeyOutput create a KeyOutput in with "cons" Bech32 prefixes.
 func MkConsKeyOutput(keyInfo Info) (KeyOutput, error) {
+	if err := validateInfo(keyInfo); err != nil {
+		entry := "<nil>"
+		if !isNilInterface(keyInfo) {
+			entry = infoKey(keyInfo.GetName())
+		}
+		return KeyOutput{}, &EntryError{Entry: entry, Err: err}
+	}
 	pk := keyInfo.GetPubKey()
 	addr := sdk.ConsAddress(pk.Address())
 	return NewKeyOutput(keyInfo.GetName(), keyInfo.GetType(), addr, pk)
@@ -54,6 +61,13 @@ func MkConsKeyOutput(keyInfo Info) (KeyOutput, error) {
 
 // MkValKeyOutput create a KeyOutput in with "val" Bech32 prefixes.
 func MkValKeyOutput(keyInfo Info) (KeyOutput, error) {
+	if err := validateInfo(keyInfo); err != nil {
+		entry := "<nil>"
+		if !isNilInterface(keyInfo) {
+			entry = infoKey(keyInfo.GetName())
+		}
+		return KeyOutput{}, &EntryError{Entry: entry, Err: err}
+	}
 	pk := keyInfo.GetPubKey()
 	addr := sdk.ValAddress(pk.Address())
 	return NewKeyOutput(keyInfo.GetName(), keyInfo.GetType(), addr, pk)
@@ -63,6 +77,13 @@ func MkValKeyOutput(keyInfo Info) (KeyOutput, error) {
 // public key is a multisig public key, then the threshold and constituent
 // public keys will be added.
 func MkAccKeyOutput(keyInfo Info) (KeyOutput, error) {
+	if err := validateInfo(keyInfo); err != nil {
+		entry := "<nil>"
+		if !isNilInterface(keyInfo) {
+			entry = infoKey(keyInfo.GetName())
+		}
+		return KeyOutput{}, &EntryError{Entry: entry, Err: err}
+	}
 	pk := keyInfo.GetPubKey()
 	addr := sdk.AccAddress(pk.Address())
 	return NewKeyOutput(keyInfo.GetName(), keyInfo.GetType(), addr, pk)
@@ -70,8 +91,14 @@ func MkAccKeyOutput(keyInfo Info) (KeyOutput, error) {
 
 // MkAccKeysOutput returns a slice of KeyOutput objects, each with the "acc"
 // Bech32 prefixes, given a slice of Info objects. It returns an error if any
-// call to MkKeyOutput fails.
-func MkAccKeysOutput(infos []Info) ([]KeyOutput, error) {
+// call to MkKeyOutput fails. An optional List error is propagated unchanged.
+func MkAccKeysOutput(infos []Info, listErrors ...error) ([]KeyOutput, error) {
+	for _, err := range listErrors {
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	kos := make([]KeyOutput, len(infos))
 	var err error
 	for i, info := range infos {

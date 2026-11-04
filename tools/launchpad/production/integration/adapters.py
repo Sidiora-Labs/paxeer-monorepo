@@ -1,5 +1,6 @@
 """Real local adapters; authority is explicit and never inferred from a name prefix."""
 from dataclasses import dataclass
+import hashlib
 import http.client
 import ipaddress
 import json
@@ -12,6 +13,24 @@ import threading
 import socket
 import selectors
 from urllib.parse import urlsplit
+
+from deploy.launchpad.production.topology.phase2 import v1 as _topology
+from deploy.launchpad.production.topology.phase2.attestations import regular_bytes as _regular_bytes
+from deploy.launchpad.production.topology.phase2.providers import DOCUMENT_ENV
+
+
+ROLES = {
+    role: (owner.partition(':')[0], owner.partition(':')[2], owner)
+    for role, owner in _topology.RUNTIME_ROLES.items()
+}
+
+
+def document_binding(path):
+    data = _regular_bytes(path)
+    document = _topology.decode(data)
+    _topology.need(type(document) is dict, 'runtime document must be a JSON object')
+    return document, hashlib.sha256(data).hexdigest()
+
 
 class BoundaryError(ValueError): pass
 

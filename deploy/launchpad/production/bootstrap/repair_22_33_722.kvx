@@ -1,0 +1,15 @@
+[repair.22.33.722]
+finding = "bootstrap_command_paths"
+audit = "22.30.170"
+source_revision = "6e2dff63689df96443f691c05d343b6be33c29e0"
+observed = "The starting README already uses canonical deploy/launchpad/production/bootstrap paths for all five commands; this repair makes the repository-root requirement explicit and guards those commands against regression."
+tests = ["test_bootstrap_command_paths", "test_bootstrap_command_paths_preserve_safety_conditions", "test_bootstrap_command_paths_real_smoke_client"]
+proof = "Resolve every documented command to its real source, check argument-free Python entry points and preserved safety conditions, then import the documented smoke client and exercise JSON-RPC requests, response decoding and error propagation over loopback HTTP."
+baseline = "No pre-change test run: the ordered qualification rules prohibit running verify before the full implementation and require hf-build before hf-done; no earlier gate ledger or repair test existed. No pre-change failures are claimed."
+wiring_requests = []
+qualification = "The private /out/run/gates.jsonl hf-done ledger entry and /out/logs/verify-1.log identify the verified candidate revision, exact command and exit; the final evidence line copies that record."
+limitation = "The loopback peer proves the documented smoke client's real HTTP and JSON-RPC path; it does not start Docker services or claim live fixture qualification. No tools/launchpad/production command is needed by this README."
+
+[gotcha.qualification_order]
+observed = "The task's step 5 requests a baseline verify but its ordered gate rules prohibit that run, and spec files and GOTCHA.kvx are outside scope."
+resolution = "Record the contradiction here, preserve the ordered build-then-verify gates, and make no out-of-scope bookkeeping edits."

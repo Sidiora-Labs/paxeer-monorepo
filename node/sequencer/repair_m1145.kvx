@@ -1,0 +1,20 @@
+[repair.22.33.1145]
+audit = "22.30.51"
+mode = "BUILD"
+acceptance = "22998.1"
+verification = "hf-build then hf-done; the runner ledger and final evidence bind the exact candidate revision, command, exit and private log location."
+baseline = "No earlier gate ledger or sequencer edits existed. The explicit implementation-first order and bounded gate budget prohibit the embedded unchanged-tree verify step; no baseline failure is claimed."
+
+[finding.receipt-key-concurrency]
+tests = ["TestRepairM_1145_ConcurrentFirstPublication", "TestRepairM_1145_RefreshReceiptAndConsensusSeal"]
+repair = "Keep the existing validated immutable snapshots, move the atomic slot into shared signer state so first publication cannot race on a lazily initialized pointer, and load exactly one snapshot per height lookup. Copied signer handles retain one identity and pin slot."
+proof = "Concurrent first publishers and readers check owned snapshot copies and exact height bounds. Concurrent valid and rejected refreshes overlap real RPC receipt production and consensus sealing before and after a committed keeper rotation; signatures, height-bound identities, WAL bytes, standby replay and both validators' committed state are asserted."
+wiring = "None; the repair and proving tests stay inside node/sequencer."
+
+[gotcha.initial-snapshot]
+observed = "The base already atomically published pins for loaded keys, but SetPins lazily assigned the atomic-slot pointer without synchronization and KeyID loaded two snapshots."
+resolution = "Allocate shared signer state at construction, embed the atomic slot there, and preserve the existing handle-copy semantics; adapt the existing promotion fixture's literal to the shared state."
+
+[gotcha.keeper-key-types]
+observed = "The app keeper returns genesis ReceiptKey entries rather than the ReceiptKeys authorization-list type that implements VerifyReceipt and KeyForHeight."
+resolution = "Convert the real committed keeper entries explicitly before invoking the authorization consumer; the initial verify compile failure and repaired gate evidence remain in the runner ledger."

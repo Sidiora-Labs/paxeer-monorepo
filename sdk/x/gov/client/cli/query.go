@@ -208,7 +208,7 @@ $ %s query gov vote 1 cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk
 
 			// check to see if the proposal is in the store
 			ctx := cmd.Context()
-			_, err = queryClient.Proposal(
+			proposalRes, err := queryClient.Proposal(
 				ctx,
 				&types.QueryProposalRequest{ProposalId: proposalID},
 			)
@@ -221,26 +221,27 @@ $ %s query gov vote 1 cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk
 				return err
 			}
 
+			propStatus := proposalRes.GetProposal().Status
+			if propStatus != types.StatusVotingPeriod && propStatus != types.StatusDepositPeriod {
+				params := types.NewQueryVoteParams(proposalID, voterAddr)
+				resByTxQuery, err := gcutils.QueryVoteByTxQuery(ctx, clientCtx, params)
+				if err != nil {
+					return err
+				}
+
+				var vote types.Vote
+				if err := clientCtx.Codec.UnmarshalAsJSON(resByTxQuery, &vote); err != nil {
+					return err
+				}
+				return clientCtx.PrintProto(&vote)
+			}
+
 			res, err := queryClient.Vote(
 				ctx,
 				&types.QueryVoteRequest{ProposalId: proposalID, Voter: args[1]},
 			)
 			if err != nil {
 				return err
-			}
-
-			vote := res.GetVote()
-			if vote.Empty() {
-				params := types.NewQueryVoteParams(proposalID, voterAddr)
-				resByTxQuery, err := gcutils.QueryVoteByTxQuery(ctx, clientCtx, params)
-
-				if err != nil {
-					return err
-				}
-
-				if err := clientCtx.Codec.UnmarshalAsJSON(resByTxQuery, &vote); err != nil {
-					return err
-				}
 			}
 
 			return clientCtx.PrintProto(&res.Vote)

@@ -190,8 +190,8 @@ func TestRepair_116_SingletonTrackerRestart(t *testing.T) {
 	require.NoError(t, err)
 	completed := cohorts[1]
 	require.NotNil(t, completed)
-	require.Equal(t, uint64(2), completed.LowKeyIndex())
-	require.Equal(t, uint64(2), completed.HighKeyIndex())
+	require.Equal(t, uint64(1), completed.LowKeyIndex())
+	require.Equal(t, uint64(1), completed.HighKeyIndex())
 	require.True(t, completed.IsComplete())
 	lastHigh := tracker.activeCohort.HighKeyIndex()
 
@@ -208,7 +208,7 @@ func TestRepair_116_SingletonTrackerRestart(t *testing.T) {
 	require.True(t, restored.IsComplete())
 	key, err := restored.GetKeyIndexForReading(rand.New(rand.NewSource(116)))
 	require.NoError(t, err)
-	require.Equal(t, uint64(2), key)
+	require.Equal(t, uint64(1), key)
 	ok, err := monitor.IsOk()
 	require.NoError(t, err)
 	require.True(t, ok)

@@ -10,6 +10,7 @@ package mvcc
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"fmt"
 	"math"
 	"net/http"
@@ -30,6 +31,11 @@ import (
 )
 
 func TestProofNodeMetrics(t *testing.T) {
+	proofNodeMetrics(t)
+}
+
+func proofNodeMetrics(t *testing.T) {
+	t.Helper()
 	ctx := context.Background()
 	previousProvider, previousMetrics := otel.GetMeterProvider(), otelMetrics
 	registry, shutdown, err := smetrics.SetupOtelPrometheus()
@@ -70,14 +76,21 @@ func TestProofNodeMetrics(t *testing.T) {
 	}
 	first, second := changes(1), changes(2)
 	encodedBytes := func(version int64, changes []*proto.NamedChangeSet) int64 {
-		batch, batchErr := NewBatch(db.storage, version, db.descending)
-		require.NoError(t, batchErr)
+		// Independently account for Pebble's header, record kinds and
+		// varint-prefixed fields, including the committed head metadata.
+		var scratch [binary.MaxVarintLen64]byte
+		fieldBytes := func(size int) int64 {
+			return int64(binary.PutUvarint(scratch[:], uint64(size)) + size)
+		}
+		total := int64(12) + 1 + fieldBytes(len(latestVersionKey)) + fieldBytes(VersionSize)
 		for _, cs := range changes {
 			for _, pair := range cs.Changeset.Pairs {
-				require.NoError(t, batch.Set(cs.Name, pair.Key, pair.Value))
+				key := db.mvccEncode(prependStoreKey(cs.Name, pair.Key), version)
+				value := db.mvccEncode(pair.Value, 0)
+				total += 1 + fieldBytes(len(key)) + fieldBytes(len(value))
 			}
 		}
-		return repair1174EncodedBytes(batch.ops, true)
+		return total
 	}
 	firstBytes, secondBytes := encodedBytes(1, first), encodedBytes(2, second)
 	require.NoError(t, db.ApplyChangesetSync(1, first))
@@ -179,6 +192,26 @@ func TestProofNodeMetrics(t *testing.T) {
 			require.Equal(t, float64(level.TableBytesIn), matching[0].GetCounter().GetValue())
 		}
 	}
+
+	// The reopened database contributes its fresh snapshot once to the
+	// continuing exporter. Polling the unchanged snapshot adds no counters.
+	reopenedSnapshot := db.PebbleMetrics()
+	db.collectAndRecordMetrics(ctx)
+	collected := scrape()
+	require.Equal(t, float64(snapshot.BlockCache.Hits+reopenedSnapshot.BlockCache.Hits), proofNodeCounter(t, collected, "pebble_cache_hits_total"))
+	require.Equal(t, float64(snapshot.BlockCache.Misses+reopenedSnapshot.BlockCache.Misses), proofNodeCounter(t, collected, "pebble_cache_misses_total"))
+	db.collectAndRecordMetrics(ctx)
+	unchanged := scrape()
+	for _, name := range []string{
+		"pebble_compaction_count_total", "pebble_flush_count_total",
+		"pebble_flush_bytes_written_bytes_total", "pebble_compaction_bytes_read_bytes_total",
+		"pebble_compaction_bytes_written_bytes_total", "pebble_cache_hits_total", "pebble_cache_misses_total",
+	} {
+		proofNodeCounter(t, collected, name)
+		proofNodeCounter(t, unchanged, name)
+		require.Equal(t, collected[name], unchanged[name], "unchanged collection must preserve %s series and totals", name)
+	}
+	observed = unchanged
 
 	// A second consumer scrape must not change any of the eight streams.
 	repeated := scrape()
