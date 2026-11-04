@@ -128,7 +128,7 @@ fn sign_setup(
     let response = host.call(&request)?;
     assert_eq!(response[7], 0);
     assert_eq!(response.len(), 73);
-    verify_evm_signature(host, handle, &digest, &response[8..])?;
+    verify_evm_signature(host, binding, handle, &digest, &response[8..])?;
     for changed in mutated_native(disclosure) {
         assert_eq!(
             changed.reencode(),
@@ -264,7 +264,7 @@ fn setup_disclosure(_public: [u8; 32], payload: &Payload, call: &Disclosure) -> 
 
 #[test]
 fn native_creation_disclosures_sign_through_real_kms_before_and_after_restart() -> Result<()> {
-    let mut host = Host::new()?;
+    let mut host = Host::for_bindings(&[75])?;
     let target_binding = [75; 32];
     let (target_handle, target_public) =
         facts(&host.call(&request(1, target_binding, &[], None)?)?)?;
@@ -295,7 +295,7 @@ fn native_creation_disclosures_sign_through_real_kms_before_and_after_restart() 
             .encode(b"did:layerx:alice"),
     )?;
     target_operations.push(payload(ModuleId::Asset, 4, &opening)?);
-    let sender = host.sender(&target_handle)?;
+    let sender = host.sender(target_binding, &target_handle)?;
     let mut calls = Vec::new();
 
     for payload in &target_operations {
@@ -334,7 +334,7 @@ fn native_creation_disclosures_sign_through_real_kms_before_and_after_restart() 
             };
             let call = construct_signing_call(
                 &setup_call(payload.clone(), limits)?,
-                host.sender(&target_handle)?,
+                host.sender(target_binding, &target_handle)?,
             )?;
             let disclosure = setup_disclosure(target_public, payload, &call.1)?;
             signatures.push(sign_setup(&host, target, &call, &disclosure)?);
@@ -388,10 +388,10 @@ fn native_setup_refuses_wrong_accounts_limits_and_payload_shapes() -> Result<()>
         trailing.data.push(0);
         assert!(layerx_crypto::disclosure::call::bind_call(&trailing, [0x41; 20]).is_err());
     }
-    let host = Host::new()?;
+    let host = Host::for_bindings(&[76])?;
     let binding = [76; 32];
     let (handle, _) = facts(&host.call(&request(1, binding, &[], None)?)?)?;
-    let sender = host.sender(&handle)?;
+    let sender = host.sender(binding, &handle)?;
     let valid = recovery(false)?;
     let valid_call = setup_call(payload(ModuleId::Governance, 3, &valid)?, (7, 1))?;
     let mut malformed_calls = Vec::new();
@@ -441,7 +441,7 @@ fn native_setup_refuses_wrong_accounts_limits_and_payload_shapes() -> Result<()>
                 "provider signs recordLifecycle recovery body with bytes {start}..{} zeroed",
                 start + length
             ))?;
-            verify_evm_signature(&host, &handle, &digest, &response[8..])?;
+            verify_evm_signature(&host, binding, &handle, &digest, &response[8..])?;
         } else {
             assert_eq!(response[7], 1, "recovery body corruption refusal");
         }
