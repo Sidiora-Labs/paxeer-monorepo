@@ -35,8 +35,9 @@ Results are placed at the input vote's index in a slice. For a positive
    to `!SignedLastBlock` with `SetBooleanInBitGroups`. Increment the counter only
    for a clear-to-set transition; decrement it only for a set-to-clear transition.
 5. Advance `IndexOffset = (IndexOffset + 1) % window` after any resizing.
-6. If the current signature is missing, emit a `liveness` event with `address`,
-   `missed_blocks` and `height` attributes.
+6. If the current signature is missing, return a pending `liveness` event with
+   `address`, `missed_blocks` and `height` attributes. The missed count is the
+   updated count before any penalty resets it. Do not emit from the worker.
 7. Calculate the downtime threshold and, if exceeded, check the staking
    validator before returning a pending penalty.
 
@@ -65,6 +66,8 @@ the misses need not be consecutive.
 
 After all workers finish, `BeginBlocker` applies their results in the original
 vote order. A missing result is an invariant failure and causes a panic.
+First emit the result's pending liveness events, then apply that vote's state
+changes and any penalty. A signed vote has no liveness event.
 
 For a result marked `ShouldSlash`, it first deletes the validator's bitmap with
 `ClearValidatorMissedBlockBitArray`, then calls
@@ -86,9 +89,9 @@ For other results, `BeginBlocker` persists the updated bitmap with
 `ValidatorSigningInfo` with `SetValidatorSigningInfo`. A penalty leaves the
 bitmap absent until another signature calculation allocates it again.
 
-Store mutations and downtime slash events occur in vote order. Liveness events
-are emitted inside the concurrent calculation phase, so their order is not
-guaranteed by the ordered write loop.
+Store mutations and all validator events occur in vote order. When a missed vote
+causes a penalty, its liveness event precedes its slash event, before processing
+the next vote. Worker scheduling does not affect event order or attributes.
 
 Downtime does not tombstone the validator. Even with a zero downtime slash
 fraction, the jail and state reset still occur. Expiration of `JailedUntil`

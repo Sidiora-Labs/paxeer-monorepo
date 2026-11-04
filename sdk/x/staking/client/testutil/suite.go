@@ -2,6 +2,7 @@ package testutil
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
@@ -11,8 +12,10 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/client/http"
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/suite"
+	"gopkg.in/yaml.v2"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client/flags"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/hd"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keyring"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/ed25519"
@@ -447,7 +450,7 @@ func (s *IntegrationTestSuite) TestGetCmdQueryValidatorDelegations() {
 		{
 			"valid request(height specific)",
 			[]string{
-				val.Address.String(),
+				val.ValAddress.String(),
 				fmt.Sprintf("--%s=json", tmcli.OutputFlag),
 				fmt.Sprintf("--%s=1", flags.FlagHeight),
 			},
@@ -465,7 +468,7 @@ func (s *IntegrationTestSuite) TestGetCmdQueryValidatorDelegations() {
 	for _, tc := range testCases {
 		tc := tc
 		s.Run(tc.name, func() {
-			cmd := cli.GetCmdQueryDelegations()
+			cmd := cli.GetCmdQueryValidatorDelegations()
 			clientCtx := val.ClientCtx
 
 			out, err := clitestutil.ExecTestCLICmd(clientCtx, cmd, tc.args)
@@ -478,6 +481,32 @@ func (s *IntegrationTestSuite) TestGetCmdQueryValidatorDelegations() {
 			}
 		})
 	}
+
+	s.Run("all delegators on the second validator", func() {
+		val2 := s.network.Validators[1]
+		args := []string{val2.ValAddress.String(), fmt.Sprintf("--%s=json", tmcli.OutputFlag)}
+		out, err := clitestutil.ExecTestCLICmd(val.ClientCtx, cli.GetCmdQueryValidatorDelegations(), args)
+		s.Require().NoError(err)
+		var actual types.QueryValidatorDelegationsResponse
+		s.Require().NoError(val.ClientCtx.Codec.UnmarshalAsJSON(out.Bytes(), &actual), out.String())
+		// SetupSuite redelegates ten tokens from the first validator to the second.
+		s.Require().ElementsMatch(types.DelegationResponses{
+			types.NewDelegationResp(val.Address, val2.ValAddress, sdk.NewDec(10), sdk.NewInt64Coin(s.cfg.BondDenom, 10)),
+			types.NewDelegationResp(val2.Address, val2.ValAddress, sdk.NewDecFromInt(cli.DefaultTokens), sdk.NewCoin(s.cfg.BondDenom, cli.DefaultTokens)),
+		}, actual.DelegationResponses)
+		s.Require().Equal(&query.PageResponse{}, actual.Pagination)
+
+		out, err = clitestutil.ExecTestCLICmd(val.ClientCtx, cli.GetCmdQueryDelegations(), []string{
+			val2.Address.String(), fmt.Sprintf("--%s=json", tmcli.OutputFlag),
+		})
+		s.Require().NoError(err)
+		var account types.QueryDelegatorDelegationsResponse
+		s.Require().NoError(val.ClientCtx.Codec.UnmarshalAsJSON(out.Bytes(), &account), out.String())
+		s.Require().Equal([]types.DelegationResponse{
+			types.NewDelegationResp(val2.Address, val2.ValAddress, sdk.NewDecFromInt(cli.DefaultTokens), sdk.NewCoin(s.cfg.BondDenom, cli.DefaultTokens)),
+		}, account.DelegationResponses)
+		s.Require().NotEqual(account.DelegationResponses, actual.DelegationResponses)
+	})
 }
 
 func (s *IntegrationTestSuite) TestGetCmdQueryUnbondingDelegations() {
@@ -864,25 +893,31 @@ func (s *IntegrationTestSuite) TestGetCmdQueryHistoricalInfo() {
 
 func (s *IntegrationTestSuite) TestGetCmdQueryParams() {
 	val := s.network.Validators[0]
+	var genesis types.GenesisState
+	s.Require().NoError(s.cfg.Codec.UnmarshalAsJSON(s.cfg.GenesisState[types.ModuleName], &genesis))
+	expected := genesis.Params
+	s.Require().NoError(expected.Validate())
+	jsonSnapshot, err := s.cfg.Codec.MarshalAsJSON(&expected)
+	s.Require().NoError(err)
+	textSnapshot, err := codec.MarshalYAML(s.cfg.Codec, &expected)
+	s.Require().NoError(err)
 	testCases := []struct {
 		name           string
+		format         string
 		args           []string
 		expectedOutput string
 	}{
 		{
 			"with text output",
+			"text",
 			[]string{fmt.Sprintf("--%s=text", tmcli.OutputFlag)},
-			`bond_denom: stake
-historical_entries: 10000
-max_entries: 7
-max_validators: 100
-min_commission_rate: "0.000000000000000000"
-unbonding_time: 1814400s`,
+			strings.TrimSpace(string(textSnapshot)),
 		},
 		{
 			"with json output",
+			"json",
 			[]string{fmt.Sprintf("--%s=json", tmcli.OutputFlag)},
-			`{"unbonding_time":"1814400s","max_validators":100,"max_entries":7,"historical_entries":10000,"bond_denom":"uhpx",min_commission_rate: "0.000000000000000000"}`,
+			string(jsonSnapshot),
 		},
 	}
 	for _, tc := range testCases {
@@ -893,6 +928,17 @@ unbonding_time: 1814400s`,
 			out, err := clitestutil.ExecTestCLICmd(clientCtx, cmd, tc.args)
 			s.Require().NoError(err)
 			s.Require().Equal(tc.expectedOutput, strings.TrimSpace(out.String()))
+			data := out.Bytes()
+			if tc.format == "text" {
+				var fields map[string]interface{}
+				s.Require().NoError(yaml.Unmarshal(data, &fields))
+				data, err = json.Marshal(fields)
+				s.Require().NoError(err)
+			}
+			var actual types.Params
+			s.Require().NoError(clientCtx.Codec.UnmarshalAsJSON(data, &actual), out.String())
+			s.Require().NoError(actual.Validate())
+			s.Require().Equal(expected, actual)
 		})
 	}
 }

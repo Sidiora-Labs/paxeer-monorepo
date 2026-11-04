@@ -133,6 +133,21 @@ impl AuthorizedPayment {
     pub const fn request_digest(&self) -> [u8; 32] {
         self.request_digest
     }
+
+    /// Builds the gateway request from the verified, stable payment identity.
+    /// Fresh verification times affect execution policy, not this request.
+    ///
+    /// # Errors
+    /// Returns a gateway refusal for an invalid translation identity.
+    pub fn translation_request(&self) -> Result<TranslationRequest, Ap2Error> {
+        TranslationRequest::new(
+            adapter_id()?,
+            TranslationKind::StateChanging,
+            self.idempotency_key,
+            self.request_digest,
+        )
+        .map_err(Ap2Error::Gateway)
+    }
 }
 
 /// Real typed-intent and execution boundary. `CompiledIntent` has no public
@@ -267,13 +282,7 @@ impl<'a, R: KeyResolver> Ap2Adapter<'a, R> {
             .verify(checkout_presentation, payment_presentation, verification)
             .map_err(fail)?;
         let payment = prepare_payment(principal, &mandates, verification, binding).map_err(fail)?;
-        let request = TranslationRequest::new(
-            adapter_id().map_err(fail)?,
-            TranslationKind::StateChanging,
-            payment.idempotency_key,
-            payment.request_digest,
-        )
-        .map_err(|error| fail(Ap2Error::Gateway(error)))?;
+        let request = payment.translation_request().map_err(fail)?;
         match gateway
             .begin_translation(principal, &request, trace, now)
             .map_err(|error| trace.wrap(Ap2Error::Gateway(error.into_error())))?

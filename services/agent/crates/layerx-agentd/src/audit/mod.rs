@@ -16,6 +16,7 @@ pub use exporting::{
 pub use log::{
     verify_chain, AppendReceipt, AuditError, ChainFailure, ChainIssue, Log, Verification,
 };
+pub(crate) use records::{encode_operator_attempt, OperatorAttempt};
 pub use records::{
     read_entries, reconstruct_session, record, Coverage, Decision, DecisionEvidence, Entry,
     EventClass, Reconstruction, RecordError, StoredReceiptEvidence,

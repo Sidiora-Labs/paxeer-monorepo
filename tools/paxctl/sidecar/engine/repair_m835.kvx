@@ -1,0 +1,15 @@
+[task.22.33.835]
+findings = ["ready-lost-on-restart", "store-failure-becomes-not-found"]
+baseline = "Not run: the explicit gate order forbids verification before full implementation and permits verification only through hf-done; no pre-change test failure is claimed."
+evidence = "The hf-build and hf-done ledger at /out/run/gates.jsonl names the exact verified candidate revision, command, exit code and private log location."
+
+[finding.ready-lost-on-restart]
+repair = "Restore readiness from persisted completed releases ordered strictly after every hold attempt before probes and stale replay; persist successful completion before publishing readiness and deduplicate completed redeliveries without re-execution."
+proving_tests = ["TestRepairM_835_CompletedReleaseRestartRepeatedSubmission", "TestRepairM_835_NewerHoldWinsOnRestartAndRedelivery", "TestRepairM_835_ReleaseAfterHoldRestoresReady", "TestRepairM_835_FailedReleasePreservesPriorCompletedRelease", "TestRepairM_835_ReadinessOrdersNewestHoldAndTies", "TestRepairM_835_LateReleaseCannotOverrideNewerHold", "TestRepairM_835_ReleaseRequiresDurableCompletion", "TestRepairM_835_UnavailableRecoveryKeepsGateClosed"]
+
+[finding.store-failure-becomes-not-found]
+repair = "GetResult and RecentResults return wrapped store errors; only a successful lookup can confirm absence, and only a successful list can confirm empty history."
+proving_tests = ["TestRepairM_835_QueryStoreFailureDiffersFromAbsence", "TestRepairM_835_QueryDecodeErrorsReachConsumer"]
+wiring_server = "Domain 16 (fm-tools-ops): tools/paxctl/sidecar/server/server.go and its tests must consume the new GetResult/RecentResults error returns, send explicit retryable 503 on store errors, and retain 404 only for (nil, nil)."
+wiring_client = "Domain 16 (fm-tools-ops): tools/paxctl/sidecar/client/client.go, tools/paxctl/sidecar/client/sidecar.gen.go and tests must expose retryable task-query 503 without treating it as absence or empty history."
+wiring_schema = "Domain 16 (fm-tools-ops): tools/paxctl/sidecar/api/openapi.yaml must declare retryable 503 for both GET /v0/tasks and GET /v0/tasks/{id}, retaining 404 only for confirmed absence."
