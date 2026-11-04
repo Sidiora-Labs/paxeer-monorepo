@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"testing"
 
+	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/stretchr/testify/require"
 )
@@ -113,6 +114,7 @@ func TestReadProgramRecordFields(t *testing.T) {
 	require.Equal(t, codeNonCanonical, err)
 }
 
+// programReadAccountFixture is an opaque-copy/corruption fixture, not producer proof.
 func programReadAccountFixture(t *testing.T, chain *testChain, ctx sdk.Context) ProgramAccount {
 	t.Helper()
 	program, asset, principal := repeated(0x71), repeated(0xaa), repeated(0x31)
@@ -163,7 +165,7 @@ func programReadAccountFixture(t *testing.T, chain *testChain, ctx sdk.Context) 
 		Seed: seed, RegisteredSequence: 42, RegistrationEventDigest: digest}
 }
 
-func TestReadProgramAccounts(t *testing.T) {
+func TestReadProgramAccountsOpaqueCopy(t *testing.T) {
 	chain := newTestChain(t)
 	host := chain.host(t)
 	ctx := chain.context(1, 10000, 42)
@@ -211,7 +213,7 @@ func TestReadProgramAccounts(t *testing.T) {
 	require.Equal(t, codeNonCanonical, err)
 }
 
-func TestReadWindDownAndRetirementControl(t *testing.T) {
+func TestReadWindDownAndRetirementOpaqueCopy(t *testing.T) {
 	chain := newTestChain(t)
 	host := chain.host(t)
 	ctx := chain.context(1, 10000, 42)
@@ -300,4 +302,157 @@ func TestReadWindDownAndRetirementControl(t *testing.T) {
 func repeatedBytes(value byte) []byte {
 	id := repeated(value)
 	return id[:]
+}
+
+func TestReadProgramLifecycleProducers(t *testing.T) {
+	testReadProgramLifecycleProducers(t)
+}
+
+func testReadProgramLifecycleProducers(t *testing.T) {
+	t.Helper()
+	f := repairM909Funded(t)
+	ctx := f.chain.context(2, resolutionBlockTime, 8)
+	called := execute(t, f.host, ctx, f.call, f.authority)
+	require.Zero(t, called.ResultCode)
+	head, err := f.host.ReadProgramStateHead(ctx, f.program)
+	require.NoError(t, err)
+	require.Len(t, head, 38)
+	require.Equal(t, uint16(1), binary.BigEndian.Uint16(head[:2]))
+	require.Equal(t, uint32(1), binary.BigEndian.Uint32(head[2:6]))
+
+	// Account activities require an ABI 2 program and bind its owner at deploy.
+	program := repeated(0x78)
+	wasm := resolutionGuest("layerx_v1", "event_emit", 4)
+	hash := sha256.Sum256(wasm)
+	deploy := append([]byte(nil), program[:]...)
+	deploy = append(deploy, 0, 2, 1, 0)
+	deploy = append(deploy, f.actor.id[:]...)
+	deploy = append(deploy, hash[:]...)
+	deploy = binary.BigEndian.AppendUint32(deploy, uint32(len(wasm)))
+	deploy = append(deploy, wasm...)
+	identitySequence, globalSequence := uint64(7), uint64(9)
+	run := func(kind uint32, payload []byte) Receipt {
+		t.Helper()
+		activity := f.actor.activity(t, f.host, kind, identitySequence, resolutionBlockTime, payload)
+		receipt := execute(t, f.host, f.chain.context(2, resolutionBlockTime, globalSequence), activity, f.authority)
+		require.Zero(t, receipt.ResultCode, "activity %x: %s", kind, receipt.ResultCode.Error())
+		identitySequence++
+		globalSequence++
+		return receipt
+	}
+	run(resolutionDeployType, deploy)
+	lease := repeated(0x51)
+	seed := append([]byte("sandbox-lease-escrow/v1\x00"), lease[:]...)
+	accountPayload := append([]byte(nil), program[:]...)
+	accountPayload = append(accountPayload, "LXPA2"...)
+	accountPayload = append(accountPayload, f.asset.id[:]...)
+	accountPayload = binary.BigEndian.AppendUint32(accountPayload, uint32(len(seed)))
+	accountPayload = append(accountPayload, seed...)
+	registered := run(0x00090006, accountPayload)
+	ctx = f.chain.context(2, resolutionBlockTime, globalSequence)
+	binding, err := f.host.ReadProgramAccount(ctx, program, f.asset.id, seed)
+	require.NoError(t, err)
+	material := append([]byte("LayerX/programs/program-account/v1\x00"), program[:]...)
+	material = binary.BigEndian.AppendUint32(material, uint32(len(seed)))
+	require.Equal(t, sha256.Sum256(append(material, seed...)), binding.AccountID)
+	require.Equal(t, registered.GlobalSequence, binding.RegisteredSequence)
+	require.Equal(t, uint8(2), binding.RecordVersion)
+	var accountEvent []byte
+	for _, event := range registered.Events {
+		if len(event.Body) > 5 && string(event.Body[:5]) == "LXPA1" {
+			accountEvent = event.Body
+		}
+	}
+	require.NotEmpty(t, accountEvent)
+	require.Equal(t, sha256.Sum256(accountEvent), binding.RegistrationEventDigest)
+
+	var amount [16]byte
+	binary.BigEndian.PutUint64(amount[8:], 5)
+	requestEvidence, err := codec.DecodeReceipt(registered.Encoded)
+	require.NoError(t, err)
+	fund, err := EncodeSandboxFunding(SandboxFunding{
+		LeaseID: lease, Tenant: f.actor.id, ProgramID: program, ImageCodeHash: hash,
+		Asset: f.asset.id, Source: f.asset.account, Amount: amount,
+		Limits: [8]uint64{1, 1, 1, 1, 1, 1, 1, 1}, OpenedAt: 2, Expiry: 200,
+		FeeScheduleVersion: 1, Prices: [7]uint64{1, 1, 1, 1, 1, 1, 1},
+		RequestActivityID: requestEvidence.ActivityID, RequestReceiptDigest: requestEvidence.Digest(),
+	})
+	require.NoError(t, err)
+	requestLength := int(binary.BigEndian.Uint32(fund[248:252]))
+	stateOffset := requestLength - 112
+	require.Equal(t, binding.AccountID[:], fund[100:132])
+	run(0x00090009, fund)
+	ctx = f.chain.context(2, resolutionBlockTime, globalSequence)
+	sandbox := make([][]byte, 3)
+	for kind, domain := range []string{"LayerX/programs/sandbox/lease-state/v3\x00", "LayerX/programs/sandbox/escrow-state/v1\x00", "LayerX/programs/sandbox/usage-ledger/v2\x00"} {
+		sandbox[kind], err = f.host.ReadSandbox(ctx, lease, uint8(kind))
+		require.NoError(t, err)
+		require.Greater(t, len(sandbox[kind]), len(domain))
+		require.Equal(t, domain, string(sandbox[kind][:len(domain)]))
+	}
+	require.Equal(t, byte(1), sandbox[0][stateOffset], "FUND must produce Funded state")
+	require.Equal(t, byte(2), sandbox[0][stateOffset+1], "FUND must append its native transition to the request acknowledgement")
+	require.Equal(t, fund[252:252+stateOffset], sandbox[0][:stateOffset], "native FUND must preserve the encoded lease terms")
+	value, err := f.host.ReadValueAccount(ctx, program, binding.AccountID)
+	require.NoError(t, err)
+	require.Equal(t, sdk.NewInt(5), value.Balance)
+
+	route := append([]byte(nil), program[:]...)
+	route = append(route, 1)
+	route = append(route, binding.AccountID[:]...)
+	route = append(route, f.asset.id[:]...)
+	route = append(route, f.payee[:]...)
+	route = binary.BigEndian.AppendUint16(route, uint16(len(seed)))
+	route = append(route, seed...)
+	run(0x00090007, route)
+	deprecate := append([]byte(nil), program[:]...)
+	deprecate = append(deprecate, 2)
+	deprecate = append(deprecate, program[:]...)
+	deprecate = binary.BigEndian.AppendUint64(deprecate, uint64(resolutionBlockTime+1000))
+	deprecated := run(0x00090007, deprecate)
+	control, err := f.host.ReadRetirementControl(ctx)
+	require.NoError(t, err)
+	require.Len(t, control, 251)
+	require.Equal(t, "LXRT1", string(control[:5]))
+	require.Equal(t, uint32(testNetworkID), binary.BigEndian.Uint32(control[7:11]))
+	require.Equal(t, f.actor.id[:], control[11:43])
+	profileHash := sha256.Sum256(append([]byte("LXP/programs-retirement-profile/v1\x00"), control[:147]...))
+	require.Equal(t, profileHash[:], control[147:179])
+	f.reopen(t)
+	ctx = f.chain.context(3, resolutionBlockTime, globalSequence)
+	before := f.chain.dump()
+	bySeed, err := f.host.ReadProgramAccount(ctx, program, f.asset.id, seed)
+	require.NoError(t, err)
+	require.Equal(t, binding, bySeed)
+	byID, err := f.host.ReadProgramAccountByID(ctx, binding.AccountID)
+	require.NoError(t, err)
+	require.Equal(t, binding, byID)
+	profile, err := f.host.ReadAccountProfile(ctx, program)
+	require.NoError(t, err)
+	require.Equal(t, AccountProfile{Profile: 2, Principal: f.actor.id}, profile)
+	value, err = f.host.ReadValueAccount(ctx, program, binding.AccountID)
+	require.NoError(t, err)
+	require.Equal(t, sdk.NewInt(5), value.Balance)
+	wind, err := f.host.ReadWindDown(ctx, program)
+	require.NoError(t, err)
+	require.Equal(t, WindDown{ProgramID: program, Status: 2, ExitProgram: program, Deadline: uint64(resolutionBlockTime + 1000), EffectiveSequence: deprecated.GlobalSequence, ValueAccountCount: 1, LiveValueAccountCount: 1}, wind)
+	actualRoute, err := f.host.ReadExitRoute(ctx, program, binding.AccountID)
+	require.NoError(t, err)
+	require.Equal(t, ExitRoute{ProgramID: program, AccountID: binding.AccountID, AssetID: f.asset.id, Destination: f.payee, Seed: seed}, actualRoute)
+	for kind, expected := range sandbox {
+		actual, err := f.host.ReadSandbox(ctx, lease, uint8(kind))
+		require.NoError(t, err)
+		require.Equal(t, expected, actual)
+		actual[0] ^= 0xff
+		again, err := f.host.ReadSandbox(ctx, lease, uint8(kind))
+		require.NoError(t, err)
+		require.Equal(t, expected, again)
+	}
+	actualHead, err := f.host.ReadProgramStateHead(ctx, f.program)
+	require.NoError(t, err)
+	require.Equal(t, head, actualHead)
+	actualControl, err := f.host.ReadRetirementControl(ctx)
+	require.NoError(t, err)
+	require.Equal(t, control, actualControl)
+	require.Equal(t, before, f.chain.dump())
 }
