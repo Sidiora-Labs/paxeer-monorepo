@@ -154050,7 +154050,7 @@ do_10 = "Attempt 3 (continue): four of five cases fail for two reasons. First, t
 
 [task.22.33.281]
 title = "Repair audit record 22.30.133 medium findings in apps/explorer/ui/blocks (part 1 of 1): config-drift, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.377", "22.31.378", "22.31.474"]
@@ -173643,7 +173643,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1566]
 title = "Repair audit record 22.30.99 medium findings in services/agent/crates/layerx-sdk/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.227", "22.31.228", "22.31.229", "22.31.230", "22.31.443"]
@@ -177158,7 +177158,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1418]
 title = "Repair audit record 22.30.79 medium findings in services/platform/tools/workspace-gate/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.189", "22.31.190", "22.31.191", "22.31.349", "22.31.465"]
@@ -177263,7 +177263,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1413]
 title = "Repair audit record 22.30.79 medium findings in services/platform/hosted/feeder/src (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.189", "22.31.190", "22.31.191", "22.31.349", "22.31.465"]
@@ -177333,7 +177333,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1410]
 title = "Repair audit record 22.30.79 medium findings in services/platform/hosted/dashboard/src (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.189", "22.31.190", "22.31.191", "22.31.349", "22.31.465"]
@@ -180465,7 +180465,7 @@ do_8 = "Attempt 2 (continue): the build or the dependent-crate check failed befo
 
 [task.22.33.221]
 title = "Repair audit record 22.30.124 medium findings in programs/crates/layerx-programs-registry/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.256", "22.31.257", "22.31.258", "22.31.443"]
@@ -180506,7 +180506,7 @@ do_14 = "Attempt 2 (continue): the first attempt failed before its own verify be
 
 [task.22.33.220]
 title = "Repair audit record 22.30.124 medium findings in programs/crates/layerx-programs-registry/src (part 1 of 1): runtime-risk, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.256", "22.31.257", "22.31.258", "22.31.443"]
@@ -184068,7 +184068,7 @@ do_12 = "Attempt 3 (requalify): attempt 2 passed the build, both integration tes
 
 [task.22.31.281]
 title = "Repair audit record 22.30.161 findings in services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/types: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -197270,7 +197270,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.31.481]
 title = "Reconcile the four 22.33.1319 deployment tests with the maintained node manifest (decision 2532)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.465"]
@@ -321428,7 +321428,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1354]
 title = "Repair audit record 22.30.74 medium findings in sdk/contrib (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.342"]
