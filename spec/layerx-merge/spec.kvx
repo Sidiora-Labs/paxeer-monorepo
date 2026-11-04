@@ -37144,6 +37144,15 @@ verification_contract = "cargo test --locked --manifest-path services/agent/Carg
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
 
+[capability.22.31.458]
+title = "Remove the committed Python bytecode caches and ignore __pycache__ at the repository root"
+reqs = ["22998.1"]
+touches = ["tools/qualification/audit_repairs", ".gitignore"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_31_458.py"
+do_1 = "Three compiled bytecode files are committed under tools/qualification/audit_repairs/__pycache__ (the test_px_node_root_design, test_repair_22_31_425 and test_repair_22_31_427 caches) because the root .gitignore carries no rule for Python bytecode; every pytest run rewrites them, so the published revision of a Python task drifts from its built revision (gotcha 2981)."
+symbols = []
+
 [capability.22.31.457]
 title = "Carry the agent SDK's widened committed-receipt inclusion through the seller middleware so the seller package and the packages that build it compile again"
 reqs = ["22998.1"]
@@ -148218,6 +148227,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_11 = "Attempt 2 (continue): the registration correction has no verify record and the only verify run left fourteen regression cases as TODO entries, which are not proofs. Implement each case against the real right-rail components, then run the build and the verify once on the final revision with no TODO entries and no commit after the pass."
 
 [task.22.33.930]
 title = "Repair audit record 22.30.22 medium findings in apps/launchpad/web/src/widgets/profile (part 1 of 1): runtime-risk, security"
@@ -148971,7 +148981,7 @@ title = "Repair audit record 22.30.185 medium findings in apps/web/src/app/excha
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.433"]
+requires = ["22.31.433", "22.31.456"]
 reqs = ["22998.1"]
 capabilities = ["22.33.897"]
 interfaces = []
@@ -149003,6 +149013,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_12 = "Attempt 2 (continue): the type-check failed in sdk/wallet/src/receipt.ts (the optional signal shape the web application's exact-optional type-check refuses), repaired by task 22.31.456, which has landed and which this task now requires. Take the current head, run the type-check and the five mounted tests once, repair only what that run reports in scope, and finish on one commit."
 
 [task.22.33.896]
 title = "Repair audit record 22.30.185 medium findings in apps/web (part 1 of 1): config-drift"
@@ -149264,6 +149275,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_16 = "Attempt 2 (continue): eight of ten cases pass; referralMutationAccountRace and perfdbSelectionConnection time out at five seconds because the loopback fixture never answers the mutation and the performance-database selection requests the hooks send (the before hook then fails on an empty JSON body after the test ends). The fixture serves every route the two hooks reach with the recorded response shapes, closes its server in an awaited after hook, and the hooks' request policy accepts the fixture origin; a hook that never settles because of a defect in apps/perps/src/hooks/perps is repaired there. Run the build and the verify once on the final revision; no commit after the pass."
 
 [task.22.33.709]
 title = "Repair audit record 22.30.17 medium findings in apps/perps/src/hooks/perps (part 1 of 3): config-drift, doc-drift, runtime-risk"
@@ -153274,6 +153286,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_8 = "Attempt 2 (continue): the two filtered second-page cases pass; the unfiltered export link carries filterValue undefined where the expected link has no filter key. The link builder in apps/explorer/ui/address omits absent filter parameters (an in-scope production defect, not a pre-existing exclusion); keep the renamed action; run the build and the verify once on the final revision with no commit after the pass."
 
 [task.22.33.290]
 title = "Repair audit record 22.30.134 medium findings in apps/explorer/ui/address (part 1 of 2): restart-recovery, runtime-risk, test-gap, wiring-gap"
@@ -155633,6 +155646,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_8 = "Attempt 2 (continue): the reopen proof needs the human service's store, which the wallet's gate does not run; record it once at implementation time (the recording pattern of 22.33.47): run the service's Rust fixture with cargo in the implementation step, commit its output as a fixture under apps/wallet/src (JSON carrying the digest of the recorded bytes), and let the vitest proof replay the recording and assert the reopened state the finding describes. No placeholder test and no substitute producer; run the build and the verify once on the final revision."
 
 [task.22.33.151]
 title = "Repair audit record 22.30.116 medium findings in apps/wallet/src/platform/storage (part 1 of 1): restart-recovery, runtime-risk"
@@ -179131,6 +179145,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_9 = "Attempt 2 (requalify): the build passed on the final revision but that revision has no verify record (the custody assertion was repaired after the only verify run). Run the build and the verify command once on the final revision, repair only what that run reports, and make no commit after the pass."
 
 [task.22.33.238]
 title = "Repair audit record 22.30.128 medium findings in programs (part 1 of 1): doc-drift"
@@ -179294,7 +179309,7 @@ do_5 = "Prove each repair with an integration test programs/crates/layerx-progra
 do_6 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command above is the whole gate (gotcha 2962)."
 do_7 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["programs/crates/layerx-programs-ai-market/tests"]
+touches = ["programs/crates/layerx-programs-ai-market/tests", "programs/crates/layerx-programs-ai-market/Cargo.toml", "programs/Cargo.lock"]
 tests = ["programs/crates/layerx-programs-ai-market/tests/repair_22_33_233.rs"]
 planned_paths = ["programs/crates/layerx-programs-ai-market/tests/repair_22_33_233.rs", "programs/Cargo.lock"]
 build_cmd = "cargo build --locked --manifest-path programs/crates/layerx-programs-ai-market/Cargo.toml --tests"
@@ -179310,6 +179325,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_8 = "Attempt 2 (continue): the consumer/restart test fails to compile for want of two crates. The committed-proof crate (services/interop/crates/layerx-committed-proof) is declared as a path dev-dependency in the crate manifest with programs/Cargo.lock updated, both now in scope. The hosted indexer is a service of another domain and is not a dependency of the programs crates: the test does not import it; it decodes the producer's bytes with the ai-market crate's own types and asserts them against the indexer's recorded consumer transcript, a committed fixture produced once at implementation time (the 22.33.47 pattern). Run the build and the verify once on the final revision; no commit after the pass."
 
 [task.22.33.232]
 title = "Repair audit record 22.30.128 medium findings in programs/crates/layerx-programs-storage environment/tests (part 1 of 1): test-gap"
@@ -181647,7 +181663,7 @@ do_5 = "Prove each repair with an integration test services/human/crates/layerx-
 do_6 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command above is the whole gate (gotcha 2962)."
 do_7 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["services/human/crates/layerx-human-service/tests", "services/human/crates/layerx-human-service/src"]
+touches = ["services/human/crates/layerx-human-service/tests", "services/human/crates/layerx-human-service/src", "services/agent/crates/layerx-agentd/src"]
 tests = ["services/human/crates/layerx-human-service/tests/repair_22_33_50.rs"]
 planned_paths = ["services/human/crates/layerx-human-service/tests/repair_22_33_50.rs", "services/human/Cargo.lock"]
 build_cmd = "cargo build --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --tests"
@@ -181665,6 +181681,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_8 = "Attempt 3 (continue): the build or the dependent-crate check failed before this task's verify because services/human/crates/layerx-human-service/tests/observed_balances_denom.rs no longer builds against the Quantity type (gotcha 2974); 22.31.443 repairs that test and this task now requires it. Keep the implementation and re-run both commands when it has published."
 do_9 = "Attempt 4 (continue): the two cases fail because the agent receipt ingress of the human service reports Submitted for a receipt the recorded node transport has already receipted; that ingress lives in services/human/crates/layerx-human-service/src, this domain, so it is repaired here rather than requested: the ingress derives the state from the node receipt it was given (Receipted once the committed receipt is present, Submitted only before), and the recovery path re-derives it on replay. Keep the assertions as written and finish on one commit after the verify passes."
+do_10 = "Attempt 5 (continue): the human receipt ingress whose persisted metadata still reports Submitted after the receipt is held is implemented in the agent daemon's human runtime and receipt modules, so the scope now includes services/agent/crates/layerx-agentd/src. Repair the persisted state transition there (the reopened metadata reports Receipted once the receipt is held, and the replay assertion sees it), keep the three assertions as they stand, never await a scope decision (this ruling is the decision), and run the build and the verify once on the final revision with no commit after the pass."
 
 [task.22.33.49]
 title = "Repair audit record 22.30.106 medium findings in services/human/crates/layerx-human-service/src/onboarding (part 1 of 1): restart-recovery, runtime-risk"
@@ -181956,6 +181973,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_13 = "Attempt 2 (requalify): the build passed on the final revision but that revision has no verify record (the balance HTTP fixture was repaired after the only verify run). Run the build and the verify command once on the final revision, repair only what that run reports, and make no commit after the pass."
 
 [task.22.33.41]
 title = "Repair audit record 22.30.103 medium findings in services/human/schema/human-api (part 1 of 1): doc-drift"
@@ -206486,7 +206504,7 @@ title = "Repair audit record 22.30.24 medium findings in modules/launchpad/clien
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.34", "22.31.35"]
+requires = ["22.31.34", "22.31.35", "22.33.943"]
 reqs = ["22998.1"]
 capabilities = ["22.33.944"]
 interfaces = []
@@ -206522,6 +206540,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_16 = "Attempt 2 (continue, after 22.33.943 lands): f18's genesis accounting counts of 0/0/0 come from the keeper accounting the sibling task 22.33.943 repairs, which this task now requires. Take the current head once it has landed, rerun the eight cases, repair only what remains in modules/launchpad/client/cli, and finish on one commit with the build and the verify run once on it."
 
 [task.22.33.943]
 title = "Repair audit record 22.30.24 medium findings in modules/launchpad/keeper (part 1 of 1): runtime-risk, test-gap"
@@ -206560,6 +206579,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_12 = "Attempt 2 (continue): f07 fails with liabilities 0 where 2700 are expected after the network accounting path records them. Determine whether the keeper's accounting read and the recording path the test drives use the same store key and denomination scale: if the recording path omits the liabilities (the sibling client task 22.33.944 sees the same accounting as collection counts 0/0/0), repair the keeper, which is in scope; if the test bypasses the real message handler, drive the handler. Run the build and the verify once on the final revision; no commit after the pass."
 
 [task.22.33.934]
 title = "Repair audit record 22.30.23 medium findings in services/launchpad/ranking-algo/internal/app (part 1 of 1): test-gap"
@@ -279610,6 +279630,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_8 = "Attempt 2 (continue): the suite does not compile because the registration test the attempt added names the retired fee-governance activity constant, which no header defines (tests/codec/lxp_test_programs_retired.c lists it among retired names). Use the live fee activity constant the programs module registers today, or drop that case, keep the rollback-error propagation and its regressions, re-run make -s programs-core-test and finish on one commit."
+do_9 = "Attempt 3 (continue): tests/programs/test_lifecycle.c:1155 and tests/programs/test_registration.c:80 still name LX_PROGRAMS_FEE_GOVERNANCE, which the kernel contract retired (req.1057: include/layerx/programs.h no longer defines it). tests/programs is in scope: rewrite those two cases to the current fee type list (drop the governance fee case or use the type the contract names), keep the rollback repair and its regressions, and run the build and the verify once on the final revision with no commit after the pass."
 
 [task.22.33.213]
 title = "Repair audit record 22.30.121 medium findings in precompiles/layerxprograms (part 2 of 2): retired-reference, test-gap"
@@ -318438,6 +318459,37 @@ do_3 = "Add test_issue_closure_treats_a_superseded_task_as_closed to spec/layerx
 do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its tests passed; the closure over the live spec named three pending issue tasks that the requires list now carries and one superseded task. Once every required task is done, continue from attempt 1 rebased onto current main, add the superseded case of decision 2248 with its test, and run the declared build and verify once as written."
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 
+[task.22.31.458]
+title = "Remove the committed Python bytecode caches and ignore __pycache__ at the repository root"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.458"]
+interfaces = []
+do_1 = "Three compiled bytecode files are committed under tools/qualification/audit_repairs/__pycache__ (the test_px_node_root_design, test_repair_22_31_425 and test_repair_22_31_427 caches) because the root .gitignore carries no rule for Python bytecode; every pytest run rewrites them, so the published revision of a Python task drifts from its built revision (gotcha 2981)."
+do_2 = "Delete the three committed bytecode files and add the rules __pycache__/ and *.pyc to the root .gitignore, keeping every existing rule in place."
+do_3 = "Prove it with tools/qualification/audit_repairs/test_repair_22_31_458.py: the tracked file list (git ls-files) contains no path with a __pycache__ component, and the root .gitignore contains both rules as whole lines."
+do_4 = "The task record names the files removed and the rules added."
+symbols = []
+touches = ["tools/qualification/audit_repairs", ".gitignore"]
+tests = []
+planned_paths = ["tools/qualification/audit_repairs/test_repair_22_31_458.py", ".gitignore"]
+build_cmd = "python3 -m py_compile tools/qualification/audit_repairs/test_repair_22_31_458.py"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_31_458.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.33.1578]
 title = "Repair audit record 22.30.99 medium findings in (part 1 of 1): doc-drift"
 status = "pending"
@@ -324557,6 +324609,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_8 = "Attempt 2 (requalify): all eleven tests passed, but the verified revision differed from the built one only by the __pycache__ bytecode files pytest wrote (gotcha 2981). The qualification environment no longer writes bytecode: run the build and the verify once more on the final revision with no edits and no commit after the pass."
 
 [task.22.33.772]
 title = "Repair audit record 22.30.174 medium findings in scripts/explorer (part 1 of 1): test-gap"
@@ -325620,6 +325673,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_10 = "Attempt 2 (requalify): the build passed on the final revision but that revision has no verify record (all fifteen tests passed). Run the build and the verify command once on the final revision, repair only what that run reports, and make no commit after the pass."
+do_11 = "Attempt 3 (requalify): the requalification run passed every test, but the verified revision differed from the built one only by the __pycache__ bytecode files pytest wrote (gotcha 2981). The qualification environment no longer writes bytecode: run the build and the verify once more on the final revision with no edits and no commit after the pass."
 
 [task.22.33.726]
 title = "Repair audit record 22.30.170 medium findings in deploy/launchpad/production/topology/phase2 (part 1 of 1): doc-drift"
