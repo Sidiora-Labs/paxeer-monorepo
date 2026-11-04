@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -297,50 +296,41 @@ func TestEmptyPeerListReturnsWhenContextCanceled(t *testing.T) {
 
 func TestPeerListConcurrent(t *testing.T) {
 	t.Cleanup(leaktest.Check(t))
-	ctx, cancel := context.WithCancel(t.Context())
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 	defer cancel()
-
 	peerList := NewPeerList()
-	numPeers := 10
-
-	wg := sync.WaitGroup{}
-	// we run a set of goroutines requesting the next peer in the list. As the
-	// peer list hasn't been populated each these go routines should block
-	for i := 0; i < numPeers/2; i++ {
-		go func() {
-			_ = peerList.Pop(ctx)
-			wg.Done()
-		}()
+	const numPeers = 10
+	completed := make(chan types.NodeID, numPeers)
+	err := scope.Run(ctx, func(ctx context.Context, s scope.Scope) error {
+		pop := func() error {
+			peer := peerList.Pop(ctx)
+			if peer == "" {
+				return ctx.Err()
+			}
+			completed <- peer
+			return nil
+		}
+		// Start consumers before populating the list, then a second wave.
+		for range numPeers / 2 {
+			s.Spawn(pop)
+		}
+		for _, peer := range createPeerSet(numPeers) {
+			peerList.Append(peer)
+		}
+		for range numPeers / 2 {
+			s.Spawn(pop)
+		}
+		return nil
+	}) // cancellation terminates and joins every blocked Pop on failure too.
+	assert.NoError(t, err, "peer-list consumers did not complete before the deadline")
+	assert.Len(t, completed, numPeers)
+	assert.Zero(t, peerList.Len())
+	close(completed)
+	var peers []types.NodeID
+	for peer := range completed {
+		peers = append(peers, peer)
 	}
-
-	// now we add the peers to the list, this should allow the previously
-	// blocked go routines to unblock
-	for _, peer := range createPeerSet(numPeers) {
-		wg.Add(1)
-		peerList.Append(peer)
-	}
-
-	// we request the second half of the peer set
-	for i := 0; i < numPeers/2; i++ {
-		go func() {
-			_ = peerList.Pop(ctx)
-			wg.Done()
-		}()
-	}
-
-	// we use a context with cancel and a separate go routine to wait for all
-	// the other goroutines to close.
-	go func() { wg.Wait(); cancel() }()
-
-	select {
-	case <-time.After(time.Second):
-		// not all of the blocked go routines waiting on peers have closed after
-		// one second. This likely means the list got blocked.
-		t.Failed()
-	case <-ctx.Done():
-		// there should be no peers remaining
-		require.Equal(t, 0, peerList.Len())
-	}
+	assert.ElementsMatch(t, createPeerSet(numPeers), peers)
 }
 
 func TestPeerListRemove(t *testing.T) {
@@ -383,6 +373,7 @@ func mockLBResp(ctx context.Context, peer types.NodeID, height int64, time time.
 
 func mockLB(ctx context.Context, height int64, time time.Time, lastBlockID types.BlockID,
 	currentVals *types.ValidatorSet, currentPrivVals []types.PrivValidator,
+	consensusParams ...*types.ConsensusParams,
 ) (*types.ValidatorSet, []types.PrivValidator, *types.LightBlock) {
 	header := factory.MakeHeader(&types.Header{
 		Height:      height,
@@ -394,7 +385,11 @@ func mockLB(ctx context.Context, height int64, time time.Time, lastBlockID types
 	nextVals, nextPrivVals := factory.ValidatorSet(ctx, 3, 10)
 	header.ValidatorsHash = currentVals.Hash()
 	header.NextValidatorsHash = nextVals.Hash()
-	header.ConsensusHash = types.DefaultConsensusParams().HashConsensusParams()
+	params := types.DefaultConsensusParams()
+	if len(consensusParams) > 0 {
+		params = consensusParams[0]
+	}
+	header.ConsensusHash = params.HashConsensusParams()
 	lastBlockID = factory.MakeBlockIDWithHash(header.Hash())
 	voteSet := types.NewVoteSet(factory.DefaultTestChainID, height, 0, tmproto.PrecommitType, currentVals)
 	commit, err := factory.MakeCommit(ctx, lastBlockID, height, 0, voteSet, currentPrivVals, time)

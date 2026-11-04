@@ -1,0 +1,10 @@
+[repair.22.33.1190]
+finding_node_delay_config = "22.30.55/node-delay-config -> TestRepairM_1190_NodeDelayConfig"
+finding_socket_example = "22.30.55/socket-example -> TestRepairM_1190_SocketExample"
+implementation = "The executable aliases node/runtime.Config; its production TOML decoder and App() now preserve all four uint64 delay fields. socket.toml retains its historical filename but selects the supported builtin protocol."
+proof = "Manifest -> LoadTestnet -> actual runner.MakeAppConfig -> TOML file -> LoadConfig -> App -> real application callbacks and committed key/value state; all checked-in node examples load and unsupported protocols remain refused."
+producer_fixture = "repair_m1190_runner_test.go is an exact, test-only source fixture of ../runner/setup.go, compiled in-process because the producer is a command package. The proving test checks byte identity with the production source before calling MakeAppConfig; no producer logic is reimplemented and the gate needs no Go subprocess."
+baseline = "Not run: the explicit ordered gate instructions prohibit verification before implementation or invoking verify_cmd by hand. No pre-change failure is claimed; no earlier hf-build/hf-done ledger exists."
+wiring_request = "consensus/test/e2e/app/app.go and consensus/abci/types/application.go: owning domain 15 (fm-cosmos-fork) must reconcile prepare_proposal_delay_ms with the retired PrepareProposal callback; this task preserves its configured value, while measuring the three callbacks the production interface supports."
+gotcha = "node/config.go is now an alias; the active configuration decoder is node/runtime/config.go. The producer is package main; an unchanged source fixture lets the normal test compilation exercise it without a subprocess toolchain in the gate (gotcha 2962)."
+evidence = "hf-build and hf-done record the exact candidate revision, command, exit code and private log location in the runner gate ledger."

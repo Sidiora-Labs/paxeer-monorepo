@@ -1,5 +1,6 @@
+# Legacy filename retained for callers; socket ABCI transport is retired.
+# Run the application in the supported builtin node instead.
 snapshot_interval = 100
 persist_interval = 1
 chain_id = "test-chain"
-protocol = "socket"
-listen = "tcp://127.0.0.1:26658"
+protocol = "builtin"
