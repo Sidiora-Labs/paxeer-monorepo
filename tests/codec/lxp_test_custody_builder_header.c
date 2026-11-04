@@ -11,8 +11,7 @@ typedef lxp_result (*fresh_empty_builder)(
     lxp_byte_span *);
 typedef lxp_result (*registration_encoder)(const lxp_genesis_manifest *,
                                            uint8_t *);
-typedef lxp_result (*handover_builder)(const lxp_genesis_manifest *, lxp_arena *,
-                                      lxp_byte_span *);
+typedef int lxp_genesis_handover_trust_build;
 typedef lxp_result (*deployment_encoder)(const lxp_genesis_manifest *,
                                          lxp_arena *, uint8_t *);
 typedef lxp_result (*artifact_builder)(const char *, const char *, const char *);
@@ -36,8 +35,6 @@ static int builder_header_without_custody(void)
                            fresh_empty_builder: 1, default: 0));
     LXP_CASE_CHECK(_Generic(&lxp_genesis_registration_request_encode,
                            registration_encoder: 1, default: 0));
-    LXP_CASE_CHECK(_Generic(&lxp_genesis_handover_trust_build,
-                           handover_builder: 1, default: 0));
     LXP_CASE_CHECK(_Generic(&lxp_genesis_deployment_descriptor_encode,
                            deployment_encoder: 1, default: 0));
     LXP_CASE_CHECK(_Generic(&lxp_genesis_build_artifacts,
@@ -67,6 +64,7 @@ static int builder_header_without_custody(void)
     close_ok = fclose(header) == 0;
     contents[bytes] = '\0';
     without_custody = read_ok &&
+        strstr(contents, "lxp_genesis_handover_trust_build") == NULL &&
         strstr(contents, "lxp_genesis_build_fresh_custody") == NULL &&
         strstr(contents, "lxp_genesis_build_fresh_custody_registry") == NULL;
     free(contents);

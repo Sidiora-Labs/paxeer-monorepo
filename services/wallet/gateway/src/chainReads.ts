@@ -3,13 +3,16 @@ import {
   http,
   encodeFunctionData,
   parseAbiItem,
+  formatTransaction,
+  formatTransactionReceipt,
   type AbiFunction,
   type Hex,
   type PublicClient,
 } from 'viem';
+import { z } from 'zod';
 import { hyperPaxeer } from './chain.js';
 import { env } from './env.js';
-import { sharedRpcPool } from './rpc/pool.js';
+import { RpcUnavailableError, sharedRpcPool } from './rpc/pool.js';
 
 /**
  * Read-only chain access for the agent lane.
@@ -270,18 +273,56 @@ export interface TxReceiptSummary {
   tx_hash: Hex;
 }
 
-/** Fetch a receipt if mined; null if still pending / unknown. */
+const observationQuantity = z.string().regex(/^0x(?:0|[1-9a-fA-F][0-9a-fA-F]*)$/);
+const observationHash = z.string().regex(/^0x[0-9a-fA-F]{64}$/);
+const receiptObservation = z.object({
+  status: z.enum(['0x0', '0x1']),
+  blockNumber: observationQuantity,
+  gasUsed: observationQuantity,
+  transactionHash: observationHash,
+});
+const transactionObservation = z.object({
+  hash: observationHash,
+  blockNumber: observationQuantity.nullable(),
+});
+
+export class ChainReadUnavailableError extends RpcUnavailableError {
+  readonly code = 'chain_read_unavailable';
+  override readonly cause: unknown;
+
+  constructor(
+    readonly method: 'eth_getTransactionReceipt' | 'eth_getTransactionByHash',
+    cause: unknown,
+  ) {
+    super(`${method} observation unavailable`);
+    this.name = 'ChainReadUnavailableError';
+    this.cause = cause;
+  }
+}
+
+/** Null means the node explicitly returned no receipt; failed observations throw. */
 export async function getReceipt(hash: Hex): Promise<TxReceiptSummary | null> {
   try {
-    const r = await publicClient().getTransactionReceipt({ hash });
+    // viem's convenience action treats every falsy result as not found. Inspect
+    // the wire result first so a missing/invalid result cannot become absence.
+    const raw = await publicClient().request({
+      method: 'eth_getTransactionReceipt',
+      params: [hash],
+    });
+    if (raw === null) return null;
+    const observation = receiptObservation.parse(raw);
+    if (observation.transactionHash.toLowerCase() !== hash.toLowerCase()) {
+      throw new Error('receipt hash differs from requested transaction');
+    }
+    const r = formatTransactionReceipt(raw);
     return {
       status: r.status,
       block_number: r.blockNumber.toString(),
       gas_used: r.gasUsed.toString(),
       tx_hash: r.transactionHash,
     };
-  } catch {
-    return null;
+  } catch (cause) {
+    throw new ChainReadUnavailableError('eth_getTransactionReceipt', cause);
   }
 }
 
@@ -348,17 +389,25 @@ export async function waitForReceipt(
   }
 }
 
-/** True when the node still knows the tx (mined OR in mempool). */
+/** True for a mined or pooled tx; false only after explicit absence from both reads. */
 export async function isTxKnown(hash: Hex): Promise<boolean> {
-  const pc = publicClient();
   try {
-    await pc.getTransaction({ hash });
-    return true;
-  } catch {
-    // getTransaction throws when the node has never seen (or dropped) the tx.
-    const r = await getReceipt(hash);
-    return r !== null;
+    const raw = await publicClient().request({
+      method: 'eth_getTransactionByHash',
+      params: [hash],
+    });
+    if (raw !== null) {
+      const observation = transactionObservation.parse(raw);
+      if (observation.hash.toLowerCase() !== hash.toLowerCase()) {
+        throw new Error('transaction hash differs from requested transaction');
+      }
+      formatTransaction(raw);
+      return true;
+    }
+  } catch (cause) {
+    throw new ChainReadUnavailableError('eth_getTransactionByHash', cause);
   }
+  return (await getReceipt(hash)) !== null;
 }
 
 /**
