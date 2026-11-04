@@ -90,69 +90,103 @@ defmodule Explorer.Account.Auth0ToKeycloakMigration do
     if Keycloak.enabled?(), do: :ok, else: {:error, "Keycloak is not configured. Cannot create target users."}
   end
 
-  defp do_run(opts) do
+  @doc "Runs a migration from a downloaded Auth0 NDJSON export; previews by default."
+  def run_export(body, opts \\ []) do
+    opts = Keyword.put_new(opts, :dry_run, true)
+
+    do_run(opts, fn -> parse_export(body) end)
+  end
+
+  defp do_run(opts, source \\ &export_auth0_users/0) do
     dry_run = Keyword.get(opts, :dry_run, false)
     batch_size = Keyword.get(opts, :batch_size, @default_batch_size)
 
+    account_config = Application.get_env(:explorer, Account, [])
     unless dry_run, do: disable_account()
 
-    case run_phases(dry_run, batch_size) do
+    case run_phases(dry_run, batch_size, source) do
       {:ok, results, migrated_ids} ->
         unless dry_run, do: finalize(results, migrated_ids)
         results
 
       {:error, reason} ->
         Logger.error("Migration failed: #{inspect(reason)}")
-        unless dry_run, do: enable_account()
+        unless dry_run, do: Application.put_env(:explorer, Account, account_config)
         []
     end
   end
 
-  defp run_phases(dry_run, batch_size) do
-    # Phase 1: Export all Auth0 users
+  defp run_phases(dry_run, batch_size, source) do
     Logger.info("Phase 1: Exporting Auth0 users...")
 
-    with {:ok, auth0_users} <- export_auth0_users(),
-         # Phase 2: Load identities and match with Auth0 data
-         Logger.info("Phase 2: Loading identities and matching with Auth0 data..."),
-         identities = load_auth0_identities(),
-         {[_ | _] = items, skipped_with_data} <- build_migration_items(identities, auth0_users) do
-      execute_or_dry_run(items, skipped_with_data, dry_run, batch_size)
-    else
-      {[], skipped_with_data} ->
-        Logger.info("No identities to migrate")
-        {:ok, [], MapSet.new(skipped_with_data)}
-
-      {:error, _} = error ->
-        error
+    with {:ok, auth0_users} <- source.(),
+         {:ok, plan} <- plan(auth0_users) do
+      execute_or_dry_run(plan, dry_run, batch_size)
     end
   end
 
-  defp execute_or_dry_run(items, skipped_with_data, dry_run, batch_size) do
+  @doc "Builds a read-only plan. Unverified email collisions require operator resolution."
+  def plan(auth0_users) do
+    Logger.info("Phase 2: Loading identities and matching with Auth0 data...")
+    {items, skipped_with_data} = build_migration_items(load_auth0_identities(), auth0_users)
+
+    with {:ok, planned_items, merges} <- plan_duplicate_emails(items) do
+      log_duplicate_addresses(planned_items)
+      {:ok, %{items: planned_items, merges: merges, skipped_with_data: skipped_with_data}}
+    end
+  end
+
+  defp execute_or_dry_run(plan, dry_run, batch_size) do
+    items = plan.items
     Logger.info("Found #{Enum.count(items)} identities to migrate#{if dry_run, do: " (DRY RUN)"}")
 
-    # Protect both migrated identities and skipped-with-data identities from deletion
     protected_ids =
       items
       |> MapSet.new(& &1.identity_id)
-      |> MapSet.union(MapSet.new(skipped_with_data))
+      |> MapSet.union(MapSet.new(plan.skipped_with_data))
 
     if dry_run do
       log_dry_run(items)
-      log_dry_run_deletion_count(protected_ids)
-      {:ok, [], protected_ids}
+      Enum.each(plan.merges, &Logger.info("[DRY RUN] Would merge identities #{inspect(&1)}"))
+      all_source_ids = MapSet.union(protected_ids, MapSet.new(List.flatten(plan.merges)))
+      log_dry_run_deletion_count(all_source_ids)
+      {:ok, [], all_source_ids}
     else
-      # Phase 3: Batch import to Keycloak
       Logger.info("Phase 3: Importing users to Keycloak...")
-      keycloak_map = batch_import_to_keycloak(items, batch_size)
 
-      # Phase 4: Update identity UIDs
-      Logger.info("Phase 4: Updating identity UIDs...")
-      results = update_identities(items, keycloak_map)
-
-      summarize(results)
-      {:ok, results, protected_ids}
+      with :ok <- check_keycloak_configured(),
+           keycloak_map = batch_import_to_keycloak(items, batch_size),
+           {:ok, results} <- apply_plan(plan, keycloak_map) do
+        summarize(results)
+        {:ok, results, protected_ids}
+      end
     end
+  end
+
+  @doc "Atomically applies approved merges and imported UIDs; any failure rolls back all account writes."
+  def apply_plan(plan, keycloak_map) do
+    Repo.account_repo().transaction(fn ->
+      Enum.each(plan.merges, fn ids ->
+        identities =
+          Enum.map(ids, fn id ->
+            Repo.account_repo().one!(from(i in Identity, where: i.id == ^id, lock: "FOR UPDATE"))
+          end)
+
+        case Account.merge(identities) do
+          {{:ok, _}, _} -> :ok
+          {{:error, operation, reason, _}, _} -> Repo.account_repo().rollback({:merge_failed, ids, operation, reason})
+          {{:error, reason}, _} -> Repo.account_repo().rollback({:merge_failed, ids, reason})
+        end
+      end)
+
+      results = update_identities(plan.items, keycloak_map)
+
+      if Enum.any?(results, &match?({:error, _, _}, &1)) do
+        Repo.account_repo().rollback({:identity_updates_failed, results})
+      end
+
+      results
+    end)
   end
 
   defp export_auth0_users do
@@ -246,18 +280,7 @@ defmodule Explorer.Account.Auth0ToKeycloakMigration do
 
     case HttpClient.get(location, []) do
       {:ok, %{status_code: 200, body: body}} ->
-        text = safe_gunzip(body)
-
-        users_map =
-          text
-          |> String.split("\n", trim: true)
-          |> Map.new(fn line ->
-            {:ok, %{"user_id" => user_id} = user} = Jason.decode(line)
-            {user_id, user}
-          end)
-
-        Logger.info("Parsed #{map_size(users_map)} users from Auth0 export")
-        {:ok, users_map}
+        parse_export(body)
 
       {:ok, %{status_code: status, body: resp_body}} ->
         {:error, "Failed to download Auth0 export: HTTP #{status}: #{resp_body}"}
@@ -265,6 +288,20 @@ defmodule Explorer.Account.Auth0ToKeycloakMigration do
       {:error, reason} ->
         {:error, "Failed to download Auth0 export: #{inspect(reason)}"}
     end
+  end
+
+  defp parse_export(body) do
+    users_map =
+      body
+      |> safe_gunzip()
+      |> String.split("\n", trim: true)
+      |> Map.new(fn line ->
+        %{"user_id" => user_id} = user = Jason.decode!(line)
+        {user_id, user}
+      end)
+
+    Logger.info("Parsed #{map_size(users_map)} users from Auth0 export")
+    {:ok, users_map}
   end
 
   # Auth0 export files are gzipped. If content is already decompressed
@@ -336,54 +373,27 @@ defmodule Explorer.Account.Auth0ToKeycloakMigration do
       )
     end
 
-    deduplicated_items = merge_duplicate_emails(items)
-    log_duplicate_addresses(deduplicated_items)
-    {deduplicated_items, skipped_with_data}
+    {items, skipped_with_data}
   end
 
-  # Merges identities that share the same email within this instance.
-  # Uses Account.merge/1 to consolidate all user data into one identity,
-  # then returns a deduplicated items list with only the surviving identities.
-  defp merge_duplicate_emails(items) do
-    {dupes, uniques} =
-      items
-      |> Enum.filter(& &1.email)
-      |> Enum.group_by(& &1.email)
-      |> Enum.split_with(fn {_email, group} -> length(group) > 1 end)
+  defp plan_duplicate_emails(items) do
+    groups = Enum.group_by(items, fn item -> if item.email, do: {:email, item.email}, else: {:id, item.identity_id} end)
 
-    no_email_items = Enum.filter(items, &is_nil(&1.email))
-    unique_items = Enum.flat_map(uniques, fn {_email, [item]} -> [item] end)
+    Enum.reduce_while(groups, {:ok, [], []}, fn {_key, group}, {:ok, planned, merges} ->
+      sorted = Enum.sort_by(group, fn item -> {is_nil(item.address), !item.has_user_data, item.identity_id} end)
+      [primary | _] = sorted
 
-    merged_items =
-      Enum.map(dupes, fn {email, group} ->
-        ids = Enum.map(group, & &1.identity_id)
-        Logger.info("Merging #{length(group)} identities with duplicate email #{email}: #{inspect(ids)}")
+      cond do
+        length(group) == 1 ->
+          {:cont, {:ok, [primary | planned], merges}}
 
-        # Pick primary: prefer one with address, then with user_data
-        sorted = Enum.sort_by(group, fn item -> {is_nil(item.address), !item.has_user_data} end)
-        [primary | _rest] = sorted
+        Enum.all?(group, & &1.email_verified) ->
+          {:cont, {:ok, [primary | planned], [Enum.map(sorted, & &1.identity_id) | merges]}}
 
-        identities =
-          ids
-          |> Enum.map(&Repo.account_repo().get(Identity, &1))
-          |> Enum.reject(&is_nil/1)
-
-        # Reorder identities so primary is first
-        primary_identity = Enum.find(identities, &(&1.id == primary.identity_id))
-        rest_identities = Enum.reject(identities, &(&1.id == primary.identity_id))
-
-        case Account.merge([primary_identity | rest_identities]) do
-          {{:ok, _}, _} ->
-            Logger.info("Merged duplicate email #{email} into identity #{primary.identity_id}")
-            primary
-
-          {{:error, reason}, _} ->
-            Logger.error("Failed to merge duplicate email #{email}: #{inspect(reason)}, keeping primary only")
-            primary
-        end
-      end)
-
-    no_email_items ++ unique_items ++ merged_items
+        true ->
+          {:halt, {:error, {:unverified_email_collision, primary.email, Enum.map(sorted, & &1.identity_id)}}}
+      end
+    end)
   end
 
   defp log_duplicate_addresses(items) do
@@ -412,9 +422,12 @@ defmodule Explorer.Account.Auth0ToKeycloakMigration do
        %{
          identity_id: id,
          auth0_id: auth0_id,
-         email: identity.email,
+         email: normalize_email(identity.email),
+         email_verified:
+           user["email_verified"] == true and
+             normalize_email(user["email"]) == normalize_email(identity.email) and not is_nil(identity.email),
          address: identity.address_hash,
-         username: keycloak_username,
+         username: if(identity.email, do: normalize_email(identity.email), else: keycloak_username),
          has_user_data: has_user_data
        }}
     else
@@ -432,6 +445,9 @@ defmodule Explorer.Account.Auth0ToKeycloakMigration do
     end
   end
 
+  defp normalize_email(nil), do: nil
+  defp normalize_email(email), do: email |> String.trim() |> String.downcase()
+
   # Creates or finds Keycloak users for each migration item.
   # Across tenants, multiple identities with the same email map to one Keycloak user.
   # Returns %{identity_id => keycloak_id}.
@@ -445,7 +461,7 @@ defmodule Explorer.Account.Auth0ToKeycloakMigration do
 
     num_batches = ceil(length(keycloak_users) / batch_size)
 
-    items_by_username = Map.new(items, &{&1.username, &1})
+    bodies_by_username = Map.new(keycloak_users)
 
     username_to_keycloak_id =
       keycloak_users
@@ -458,7 +474,7 @@ defmodule Explorer.Account.Auth0ToKeycloakMigration do
         results
       end)
       |> Map.new()
-      |> resolve_missing_ids(items_by_username)
+      |> resolve_missing_ids(bodies_by_username)
 
     # Convert username → keycloak_id into identity_id → keycloak_id
     Map.new(items, fn %{identity_id: id, username: username} ->
@@ -466,7 +482,11 @@ defmodule Explorer.Account.Auth0ToKeycloakMigration do
     end)
   end
 
-  defp build_keycloak_user(%{username: username, email: email, address: address}, taken_addresses) do
+  @doc false
+  def build_keycloak_user(
+        %{username: username, email: email, email_verified: verified, address: address},
+        taken_addresses
+      ) do
     normalized_address = if address, do: String.downcase(to_string(address))
 
     # Exclude address if already claimed by another Keycloak user
@@ -484,7 +504,7 @@ defmodule Explorer.Account.Auth0ToKeycloakMigration do
 
     body =
       %{username: username, enabled: true}
-      |> then(fn body -> if email, do: Map.merge(body, %{email: email, emailVerified: true}), else: body end)
+      |> then(fn body -> if email, do: Map.merge(body, %{email: email, emailVerified: verified}), else: body end)
       |> then(fn body ->
         if use_address,
           do: Map.put(body, :attributes, %{address: [use_address]}),
@@ -533,9 +553,7 @@ defmodule Explorer.Account.Auth0ToKeycloakMigration do
             [{username, keycloak_id}]
 
           %{"resourceName" => username, "id" => keycloak_id, "action" => "SKIPPED"} ->
-            # User already exists (same username) — append our address to their attributes
-            maybe_append_address(keycloak_id, entries_by_username[username])
-            [{username, keycloak_id}]
+            [{username, reuse_existing_user(keycloak_id, entries_by_username[username])}]
 
           %{"resourceName" => username, "action" => "SKIPPED"} ->
             # SKIPPED without ID — will be resolved in resolve_missing_ids
@@ -575,68 +593,54 @@ defmodule Explorer.Account.Auth0ToKeycloakMigration do
     end
   end
 
-  # When a user already exists in Keycloak (e.g. from another tenant),
-  # find them by email and append the new address to their attributes.
-  defp lookup_and_append_address(%{email: email} = body) when is_binary(email) do
+  defp lookup_and_append_address(%{email: email, emailVerified: true} = body) when is_binary(email) do
     case Keycloak.find_users_by_email(email) do
-      {:ok, [%{"id" => keycloak_id} | _]} ->
-        maybe_append_address(keycloak_id, body)
-        {:ok, keycloak_id}
+      {:ok, [%{"id" => keycloak_id}]} ->
+        case reuse_existing_user(keycloak_id, body) do
+          nil -> {:error, :ownership_not_verified}
+          id -> {:ok, id}
+        end
 
       _ ->
-        Logger.warning("User already exists but could not find by email: #{email}")
-        {:error, :not_found}
+        {:error, :unresolved_email_collision}
     end
   end
 
-  defp lookup_and_append_address(_body), do: {:error, :no_email}
+  defp lookup_and_append_address(_body), do: {:error, :ownership_not_verified}
 
-  # For users where we didn't get a Keycloak ID (SKIPPED without id, or 409),
-  # fall back to individual lookup by email/address.
-  defp resolve_missing_ids(username_to_id, items_by_username) do
-    missing = Enum.filter(username_to_id, fn {_username, id} -> is_nil(id) end)
-
-    if not Enum.empty?(missing) do
-      Logger.info("Resolving #{length(missing)} users without Keycloak IDs...")
+  defp reuse_existing_user(keycloak_id, body) do
+    with {:ok, user} <- Keycloak.get_user(keycloak_id),
+         true <- verified_common_owner?(body, user),
+         :ok <- maybe_append_address(keycloak_id, body) do
+      keycloak_id
+    else
+      _ ->
+        Logger.error("Existing Keycloak user #{keycloak_id} requires explicit ownership resolution")
+        nil
     end
+  end
 
-    Enum.reduce(missing, username_to_id, fn {username, _nil}, acc ->
-      item = items_by_username[username]
+  @doc false
+  def verified_common_owner?(%{email: email, emailVerified: true}, %{"email" => target, "emailVerified" => true})
+      when is_binary(email) and is_binary(target),
+      do: normalize_email(email) == normalize_email(target)
 
-      case resolve_single_user(item) do
-        {:ok, keycloak_id} -> Map.put(acc, username, keycloak_id)
-        :error -> acc
-      end
+  def verified_common_owner?(_, _), do: false
+
+  defp resolve_missing_ids(username_to_id, bodies_by_username) do
+    Enum.reduce(username_to_id, username_to_id, fn
+      {username, nil}, acc ->
+        body = Map.fetch!(bodies_by_username, username)
+
+        case lookup_and_append_address(body) do
+          {:ok, keycloak_id} -> Map.put(acc, username, keycloak_id)
+          _ -> acc
+        end
+
+      _, acc ->
+        acc
     end)
   end
-
-  defp resolve_single_user(%{email: email, address: address, username: username}) do
-    case lookup_keycloak_user(email, address) do
-      {:ok, keycloak_id} ->
-        append_address_to_keycloak_user(keycloak_id, address)
-        {:ok, keycloak_id}
-
-      _ ->
-        Logger.error("Could not resolve Keycloak ID for #{username}")
-        :error
-    end
-  end
-
-  defp lookup_keycloak_user(email, address) do
-    with {:ok, []} <- maybe_find_by_email(email),
-         {:ok, []} <- maybe_find_by_address(address) do
-      {:error, :not_found}
-    else
-      {:ok, [%{"id" => keycloak_id} | _]} -> {:ok, keycloak_id}
-      error -> error
-    end
-  end
-
-  defp maybe_find_by_email(nil), do: {:ok, []}
-  defp maybe_find_by_email(email), do: Keycloak.find_users_by_email(email)
-
-  defp maybe_find_by_address(nil), do: {:ok, []}
-  defp maybe_find_by_address(address), do: Keycloak.find_users_by_address(address)
 
   # Extracts address from a Keycloak user body and appends it to the existing user.
   defp maybe_append_address(keycloak_id, %{attributes: %{address: [address | _]}}) do
