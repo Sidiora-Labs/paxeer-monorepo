@@ -177503,7 +177503,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1438]
 title = "Repair audit record 22.30.80 medium findings in services/platform/hosted/gateway (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.198", "22.31.199", "22.31.200", "22.31.201", "22.31.465", "22.31.483"]
@@ -208907,7 +208907,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.890]
 title = "Repair audit record 22.30.184 medium findings in tools/release (part 1 of 1): config-drift, restart-recovery, retired-reference, runtime-risk, security, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.331", "22.31.332"]
