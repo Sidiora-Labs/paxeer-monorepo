@@ -557,6 +557,7 @@ type socialConnectedRuntime struct {
 	stop                                          context.CancelFunc
 	wg                                            sync.WaitGroup
 	failure                                       atomic.Pointer[error]
+	durableFailure                                atomic.Pointer[error]
 	pool                                          *pgxpool.Pool
 	identity                                      sharedauth.RequestIdentityAuthority
 	chatIdentity                                  fanout.ChatTicketAuthority
@@ -833,7 +834,7 @@ func newSocialConnectedRuntime(ctx context.Context, cfg config.Config, pool *pgx
 	if e != nil {
 		return nil, e
 	}
-	r.nc, e = nats.Connect(b.NATSURL, nats.UserCredentialBytes([]byte(credentials)), nats.Secure(clientTLS.Clone()), nats.Timeout(3*time.Second), nats.MaxReconnects(3), nats.ReconnectWait(time.Second), nats.Name("social-"+cfg.RuntimeInstanceID), nats.DisconnectErrHandler(func(_ *nats.Conn, e error) { r.fail(errors.New("social broker disconnected")) }))
+	e = r.connectBroker(b.NATSURL, nats.UserCredentialBytes([]byte(credentials)), nats.Secure(clientTLS.Clone()), nats.Name("social-"+cfg.RuntimeInstanceID))
 	if e != nil {
 		return nil, e
 	}
@@ -950,6 +951,12 @@ func (r *socialConnectedRuntime) ingress(next http.Handler) http.Handler {
 		next.ServeHTTP(w, req.WithContext(ctx))
 	})
 }
+func (r *socialConnectedRuntime) connectBroker(address string, options ...nats.Option) error {
+	options = append([]nats.Option{nats.Timeout(3 * time.Second), nats.MaxReconnects(3), nats.ReconnectWait(time.Second)}, options...)
+	var err error
+	r.nc, err = nats.Connect(address, options...)
+	return err
+}
 func (r *socialConnectedRuntime) fail(e error) {
 	if e != nil {
 		r.failure.CompareAndSwap(nil, &e)
@@ -969,6 +976,15 @@ func (r *socialConnectedRuntime) ready(ctx context.Context) error {
 	}
 	if r.nc == nil || !r.nc.IsConnected() {
 		return errors.New("social broker unavailable")
+	}
+	probe, cancel := context.WithTimeout(ctx, 2*time.Second)
+	err := r.nc.FlushWithContext(probe)
+	cancel()
+	if err != nil {
+		return fmt.Errorf("social broker probe: %w", err)
+	}
+	if failure := r.durableFailure.Load(); failure != nil {
+		return *failure
 	}
 	for reference, consumed := range r.secrets {
 		value, e := r.provider.GetRequired(ctx, reference)
@@ -1140,24 +1156,38 @@ func (r *socialConnectedRuntime) start(hub *fanout.Hub) {
 				return ctx.Err()
 			case <-ticker.C:
 				bounded, cancel := context.WithTimeout(ctx, 10*time.Second)
-				_, a := r.chat.DrainNotificationIntents(bounded, 32, func(ctx context.Context, v fanout.NotificationIntent) error {
-					_, _, e := r.notification.EnqueueChat(ctx, v.EventID, v.AccountID, v.ConversationID, v.CreatedAt)
-					return e
-				})
-				b := r.stageSafetyOutbox(bounded)
-				c := relay.RunOnce(bounded)
-				d := r.eraseOnce(bounded)
-				_, e := r.store.PruneReplay(bounded, 1000)
+				r.durableCycle(bounded,
+					func(ctx context.Context) error {
+						_, e := r.chat.DrainNotificationIntents(ctx, 32, func(ctx context.Context, v fanout.NotificationIntent) error {
+							_, _, e := r.notification.EnqueueChat(ctx, v.EventID, v.AccountID, v.ConversationID, v.CreatedAt)
+							return e
+						})
+						return e
+					},
+					r.stageSafetyOutbox, relay.RunOnce, r.eraseOnce,
+					func(ctx context.Context) error { _, e := r.store.PruneReplay(ctx, 1000); return e },
+				)
 				cancel()
-				if failure := errors.Join(a, b, c, d, e); failure != nil && ctx.Err() == nil {
-					r.fail(failure)
-					if r.logger != nil {
-						r.logger.Error("social durable work pending", slog.String("error", failure.Error()))
-					}
-				}
 			}
 		}
 	})
+}
+
+func (r *socialConnectedRuntime) durableCycle(ctx context.Context, work ...func(context.Context) error) error {
+	var failure error
+	for _, run := range work {
+		failure = errors.Join(failure, run(ctx))
+	}
+	failure = errors.Join(failure, ctx.Err())
+	if failure == nil {
+		r.durableFailure.Store(nil)
+	} else {
+		r.durableFailure.Store(&failure)
+		if r.logger != nil {
+			r.logger.Error("social durable work pending", slog.String("error", failure.Error()))
+		}
+	}
+	return failure
 }
 
 type socialPolicyEvent struct {

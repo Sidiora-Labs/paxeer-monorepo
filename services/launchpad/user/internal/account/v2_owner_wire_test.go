@@ -1,8 +1,12 @@
 package account
 
 import (
+	"bytes"
 	"encoding/json"
+	"net/http"
+	"net/url"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -217,10 +221,18 @@ func TestAdaptV2AccountJobsMatchFrozenSchema(t *testing.T) {
 				v2OwnerTestRejectEnvelope(t, raw, func(input []byte) ([]byte, error) { return AdaptV2AccountJob(input, kind, status) })
 				if kind == "export" && status {
 					job.State = "ready"
-					ready := wireJob(job)
-					expires := "2026-10-13T09:30:00.000Z"
-					url := "https://example.com/v2/me/exports/" + job.ID.String() + "/download"
-					ready.ExpiresAt, ready.DownloadURL = &expires, &url
+					key := bytes.Repeat([]byte{63}, 32)
+					metadata, _, err := newExportMetadata(key, job.ID, "exports/ready", at)
+					must(t, err)
+					expiresAt := at.Add(15 * time.Minute)
+					h := HTTP{Store: Store{Clock: func() time.Time { return at }}, Runtime: &Runtime{ExportKey: key, DownloadBaseURL: "https://example.com"}}
+					ready, err := h.exportStatusProjection(job, &expiresAt, metadata)
+					must(t, err)
+					expires, url := *ready.ExpiresAt, *ready.DownloadURL
+					if ready.DownloadAuthorization == nil || !strings.Contains(url, "authorization="+*ready.DownloadAuthorization) {
+						t.Fatal("producer credential missing", ready)
+					}
+
 					raw := v2OwnerTestEnvelope(t, map[string]any{"job": ready, "downloadUrl": url}, "0")
 					body, err := AdaptV2AccountJob(raw, kind, status)
 					if err != nil {
@@ -306,4 +318,40 @@ func v2OwnerTestRejectEnvelope(t *testing.T, raw []byte, adapt func([]byte) ([]b
 			t.Fatalf("accepted malformed envelope: %s", output)
 		}
 	}
+}
+
+func testCompletedExportParticipant(t *testing.T) {
+	t.Helper()
+	fixture := repairM1063NewExport(t)
+	defer fixture.close()
+	client, base := fixture.start(t)
+	status := repairM1063Request(t, client, base+"/status", nil, http.StatusOK)
+	decoded, err := v2.DecodeAccountExportStatusResponse(status)
+	must(t, err)
+	if decoded.Data.Job.State != "completed" || decoded.Data.Job.ExpiresAt == nil || decoded.Data.DownloadUrl == nil || decoded.Data.Job.DownloadUrl == nil || *decoded.Data.Job.DownloadUrl != *decoded.Data.DownloadUrl {
+		t.Fatal("ready producer did not reach consumer", decoded)
+	}
+	parsed, err := url.Parse(*decoded.Data.DownloadUrl)
+	must(t, err)
+	if !validExportAuthorization(parsed.Query().Get("authorization")) {
+		t.Fatal("consumer lost authorization", decoded)
+	}
+	fixture.reopen(t)
+	client, base = fixture.start(t)
+	download := base + parsed.RequestURI()
+	repairM1063Request(t, client, base+parsed.Path, nil, http.StatusForbidden)
+	repairM1063Request(t, client, download, map[string]string{"X-Export-Authorization": strings.Repeat("0", 64)}, http.StatusForbidden)
+	repairM1063Request(t, client, download+"&authorization="+strings.Repeat("1", 64), nil, http.StatusForbidden)
+	repairM1063Request(t, client, download, map[string]string{"X-Test-Other-Account": "true"}, http.StatusForbidden)
+	plain := repairM1063Request(t, client, download, nil, http.StatusOK)
+	if !bytes.Equal(plain, fixture.snapshot) {
+		t.Fatalf("consumer downloaded different snapshot: %s", plain)
+	}
+	fixture.reopen(t)
+	client, base = fixture.start(t)
+	repairM1063Request(t, client, base+parsed.RequestURI(), nil, http.StatusForbidden)
+}
+
+func TestCompletedExportParticipantAcrossReopen(t *testing.T) {
+	testCompletedExportParticipant(t)
 }

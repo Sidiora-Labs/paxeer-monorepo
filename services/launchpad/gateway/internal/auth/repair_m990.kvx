@@ -1,0 +1,50 @@
+[repair.22.33.990]
+audit = "22.30.32"
+source_revision = "0e1d5eb94cabe89e2260279a849b7154911ef8ee"
+status = "auth implementation and bounded proofs; external lifecycle and serial qualification requests remain"
+baseline = "Not run: the explicit gate order prohibits testing before complete implementation and prohibits a manual verify_cmd; the initial working tree contained no auth changes and /out/run/gates.jsonl did not exist, so no baseline failures are claimed."
+evidence = "The runner's private /out/run/gates.jsonl and final hf-done line supply the exact qualified candidate revision, command, exit code and private log; this record is part of that candidate and does not claim gates before they run."
+
+[finding.legacy_message_binding]
+tests = ["TestRepairM_990_LegacyMessageBinding", "TestAuth_RejectsBadSignature"]
+repair = "Persist exact issued bytes, read and compare them before signature verification, then Redis compare/delete atomically; wrong domain, purpose, wallet, issue time and invalid signatures retain the original challenge; concurrent valid retries have one winner."
+proof = "Registered development HTTP routes over loopback HTTP and a bounded in-memory RESP peer, actual Redis client, EIP-191 signing/verification, minted JWT and session middleware."
+
+[finding.wallet_link_history]
+tests = ["TestRepairM_990_WalletLinkHistory", "TestRepairM_990_IdentityCollection"]
+repair = "Owner-bound authenticated keyset pages retain verified/revoked records, expose nextCursor with the existing items envelope and bounded cursor/limit contract, and omit expired pending challenges; separate current pages exclude revoked history. Collection removes only pending rows whose challenge references have already expired and been collected."
+proof = "Actual registered owner read route, opaque-session authentication, pgx transport, two serialized/decoded pages containing 151 historical links, immutable linkedAt values, and cursor session/limit/tamper refusal, using a committed PostgreSQL wire transcript peer."
+wiring_request = "sdk/launchpad/packages/sdk/src/operations.gen.ts and its source contract, Launchpad SDK owner_domain 4: publish the owner wallet-read operation with cursor/limit and the existing items/nextCursor envelope; expose current/history page selection only through an admitted frozen contract extension, never by editing generated SDK output here."
+
+[finding.measurement_load_window]
+tests = ["TestRepairM_990_MeasurementLoadWindow"]
+repair = "Use the declared scheduling window for achieved throughput and count only successful login/refresh completions inside it; separately record offered/enqueued journeys, scheduling completion, worker drain, sampling shutdown and successful drain completions. Reject fractional offered journeys instead of flooring them."
+proof = "RunIdentityMeasurement generates actual signed HTTP journeys against committed in-memory protocol peers, captures raw correlated request evidence and durable checkpoint transport, and proves healthy throughput survives shutdown overhead while delayed drain fails throughput and unchanged latency assertions while every offered operation remains accounted for."
+
+[finding.measurement_final_evidence]
+tests = ["TestRepairM_990_MeasurementFinalEvidence"]
+repair = "Serial input consumes a candidate/topology/run-bound owning-process runtime archive; the runner publishes its own workload/checkpoint handoff and waits under the serial deadline for typed recovery, replay, actual HTTP/private-socket revocation and shared acceptance evidence. Recompute/check evidence invariants and require every existing local/shared assertion before assigning FinalAcceptance."
+proof = "Actual owning-process runtime capture/archive producer and reader, immutable workload/checkpoint/file transport, actual managed JWTs and production logout/authentication/WebSocket enforcement and revocation measurement, plus refusal of absent or mismatched fault/replay/shared evidence and of loopback receipts presented as AZ loss. No successful AZ-loss or global load certification is claimed by this bounded gate."
+wiring_request = "services/launchpad/gateway/internal/app/app.go and the serial 9.1 coordinator, Launchpad runtime/qualification owner_domain 4: schedule WriteRuntimeMeasurementEvidence in the actual owning process using its admitted source/candidate/topology/run binding, consume workload.json/checkpoint.json, execute the approved AZ-loss procedure, call CaptureIdentityDurability/WriteIdentityRecoveryEvidence/MeasureIdentityReplay/MeasureRevocationPropagation, and publish the final typed bundle and every shared acceptance assertion for that same run."
+
+[finding.identity_collection]
+tests = ["TestRepairM_990_IdentityCollection", "TestRepairM_990_RequestReplayRetention"]
+repair = "Provide a cancellable, deadline-bounded collector lifecycle; include both expired request-replay tables and abandoned pending links in transactional SKIP LOCKED batches; retire expired matching replay keys inside their already serialized producer transactions, preserving retained exact-body retries and verified/revoked/audit/outbox evidence."
+proof = "Real collector/producer/transaction/pgx paths with an in-memory PostgreSQL protocol peer prove batch bounds, cancellation, rollback on interruption, retained replay/conflict semantics, expired-key renewal and component/client reopening. A protocol-peer restart is not a PostgreSQL restart proof."
+wiring_request = "services/launchpad/gateway/internal/app/app.go, Launchpad gateway owner_domain 4: start Identity.RunCollector with the application's shutdown context and explicit interval/timeout/batch bounds, supervise its returned error, and join it before pool shutdown."
+restart_wiring_request = "services/launchpad/gateway/internal/app/dev_identity_test.go and the PostgreSQL integration qualification owner_domain 4: stop and reopen real PostgreSQL, verify expired challenge/owner request collection and retained exact-body replay, and compare preserved verified/revoked links plus audit/outbox records; this external-binary gate is expressly excluded from TestRepairM_990_*."
+
+[gotcha.scope]
+observed = "The baseline-first step contradicts the explicit implementation/build/hf-done order, and the proposed application lifecycle, SDK publication and real PostgreSQL/AZ-loss/replay qualification lie outside the writable auth paths or offline gate."
+action = "Follow the explicit bounded gate order, keep every write in auth, retain stricter acceptance conditions, and record the owning-domain requests above instead of asserting unexecuted integration or release evidence."
+
+[gotcha.protocol_peer]
+observed = "The pinned pgx protocol package uses a byte slice for BackendKeyData.SecretKey, rather than the integer used by older PostgreSQL transcript fixtures."
+action = "Use the pinned package's four-byte protocol key in the committed loopback peer; no compatibility type widening or dependency changes are needed."
+
+[qualification.first]
+revision = "4aced6f4f9a3dacd844562e516890bac443d73a0"
+command = "cg spec done 22.33.990 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+repair = "The pinned pgx simple-protocol encoder quotes numeric/boolean text and encodes []byte JSON as bytea; correct the peer's exact encoding assertions and decode the actual producer JSON bytes, retaining the same batch value, current-view filter and exact replay assertions."
