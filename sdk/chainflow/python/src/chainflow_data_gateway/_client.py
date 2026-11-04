@@ -24,7 +24,7 @@ from ._types import (
 )
 from ._utils import is_given, is_mapping_t, get_async_library
 from ._compat import cached_property
-from ._exceptions import APIStatusError, ChainflowDataGatewayError
+from ._exceptions import APIStatusError
 from ._base_client import (
     DEFAULT_MAX_RETRIES,
     SyncAPIClient,
@@ -69,9 +69,19 @@ __all__ = [
 ]
 
 
+def _validate_operation_credentials(security: SecurityOptions, headers: Headers, params: Mapping[str, object]) -> None:
+    normalized_headers = {name.lower(): value for name, value in headers.items()}
+    for scheme, option in (("RestApiKey", "rest_api_key"), ("WsMintKey", "ws_mint_key"), ("WsToken", "ws_token")):
+        if not security.get(scheme):
+            continue
+        credential = params.get("token") if scheme == "WsToken" else normalized_headers.get("x-api-key")
+        if not isinstance(credential, str) or not credential:
+            raise TypeError(f"Could not resolve authentication method. This operation requires {option}")
+
+
 class ChainflowDataGateway(SyncAPIClient):
     # client options
-    rest_api_key: str
+    rest_api_key: str | None
     ws_mint_key: str | None
     ws_token: str | None
 
@@ -115,13 +125,15 @@ class ChainflowDataGateway(SyncAPIClient):
         - `rest_api_key` from `REST_API_KEY`
         - `ws_mint_key` from `WS_MINT_KEY`
         - `ws_token` from `WS_TOKEN`
+
+        Construction supports REST-key-only, mint-key-only, token-only, mixed,
+        or unauthenticated clients. Each protected operation requires its own
+        credential: REST reads use rest_api_key, token minting uses ws_mint_key,
+        and WebSocket upgrades use ws_token. Public health needs no credential.
+        Operation header/query overrides may supply the required credential.
         """
         if rest_api_key is None:
             rest_api_key = os.environ.get("REST_API_KEY")
-        if rest_api_key is None:
-            raise ChainflowDataGatewayError(
-                "The rest_api_key client option must be set either by passing rest_api_key to the client or by setting the REST_API_KEY environment variable"
-            )
         self.rest_api_key = rest_api_key
         if ws_mint_key is None:
             ws_mint_key = os.environ.get("WS_MINT_KEY")
@@ -278,15 +290,18 @@ class ChainflowDataGateway(SyncAPIClient):
         params: Mapping[str, object],
         cookies: Mapping[str, str],
     ) -> None:
-        if headers.get("X-API-Key"):
-            return
-        if isinstance(custom_headers.get("X-API-Key"), Omit):
-            return
-        if params.get("token") is not None:
-            return
-        raise TypeError(
-            '"Could not resolve authentication method. Expected either rest_api_key, ws_mint_key or ws_token to be set. Or for the `X-API-Key` headers to be explicitly omitted"'
-        )
+        self._validate_security({"WsToken": True}, headers, custom_headers, params, cookies)
+
+    @override
+    def _validate_security(
+        self,
+        security: SecurityOptions,
+        headers: Headers,
+        custom_headers: Headers,
+        params: Mapping[str, object],
+        cookies: Mapping[str, str],
+    ) -> None:
+        _validate_operation_credentials(security, headers, params)
 
     def copy(
         self,
@@ -361,7 +376,7 @@ class ChainflowDataGateway(SyncAPIClient):
 
 class AsyncChainflowDataGateway(AsyncAPIClient):
     # client options
-    rest_api_key: str
+    rest_api_key: str | None
     ws_mint_key: str | None
     ws_token: str | None
 
@@ -405,13 +420,15 @@ class AsyncChainflowDataGateway(AsyncAPIClient):
         - `rest_api_key` from `REST_API_KEY`
         - `ws_mint_key` from `WS_MINT_KEY`
         - `ws_token` from `WS_TOKEN`
+
+        Construction supports REST-key-only, mint-key-only, token-only, mixed,
+        or unauthenticated clients. Each protected operation requires its own
+        credential: REST reads use rest_api_key, token minting uses ws_mint_key,
+        and WebSocket upgrades use ws_token. Public health needs no credential.
+        Operation header/query overrides may supply the required credential.
         """
         if rest_api_key is None:
             rest_api_key = os.environ.get("REST_API_KEY")
-        if rest_api_key is None:
-            raise ChainflowDataGatewayError(
-                "The rest_api_key client option must be set either by passing rest_api_key to the client or by setting the REST_API_KEY environment variable"
-            )
         self.rest_api_key = rest_api_key
         if ws_mint_key is None:
             ws_mint_key = os.environ.get("WS_MINT_KEY")
@@ -568,15 +585,18 @@ class AsyncChainflowDataGateway(AsyncAPIClient):
         params: Mapping[str, object],
         cookies: Mapping[str, str],
     ) -> None:
-        if headers.get("X-API-Key"):
-            return
-        if isinstance(custom_headers.get("X-API-Key"), Omit):
-            return
-        if params.get("token") is not None:
-            return
-        raise TypeError(
-            '"Could not resolve authentication method. Expected either rest_api_key, ws_mint_key or ws_token to be set. Or for the `X-API-Key` headers to be explicitly omitted"'
-        )
+        self._validate_security({"WsToken": True}, headers, custom_headers, params, cookies)
+
+    @override
+    def _validate_security(
+        self,
+        security: SecurityOptions,
+        headers: Headers,
+        custom_headers: Headers,
+        params: Mapping[str, object],
+        cookies: Mapping[str, str],
+    ) -> None:
+        _validate_operation_credentials(security, headers, params)
 
     def copy(
         self,

@@ -60,6 +60,15 @@ is not a MemIAVL commitment store. Malformed changed keys or balance values are
 logged and skipped in several read paths, so the light check should not be
 interpreted as comprehensive state validation.
 
+There is currently no registered all-denomination bank invariant. Consequently,
+an imbalance in another denomination can be detected by explicitly invoking
+`keeper.TotalSupply` while remaining outside the node's light check.
+`TestRepairM_669_InvariantWiring` in
+[repair_m669_test.go](../repair_m669_test.go) exercises both checks on a real
+commitment store: a non-native imbalance fails the helper but passes the light
+check, a native imbalance panics when enabled, and the configuration switch
+disables that runtime check. It also verifies the empty module registration.
+
 ## Module Accounts
 
 Module accounts hold coins directly and can transfer them to other module
