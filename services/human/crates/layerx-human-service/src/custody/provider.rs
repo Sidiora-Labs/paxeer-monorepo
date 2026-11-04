@@ -1,6 +1,7 @@
 use std::fmt::{Debug, Formatter};
 use std::future::Future;
-use std::net::SocketAddr;
+use std::io::{Read, Write};
+use std::net::{SocketAddr, TcpStream};
 use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
@@ -302,7 +303,7 @@ pub struct ProviderSignRequest<'a> {
 }
 
 impl<'a> ProviderSignRequest<'a> {
-    pub(super) const fn new(
+    pub const fn new(
         call: &'a Eip1559Call,
         disclosure: &'a Disclosure,
         from: [u8; 20],
@@ -499,6 +500,16 @@ pub type KmsSignFuture<'a> =
 /// description, rotation, destruction and signing; none can return private key
 /// material through this interface.
 pub trait KmsProvider: Debug + Send + Sync {
+    /// Binds all provider calls to one absolute operation deadline. Providers
+    /// without a cancellable synchronous transport refuse gateway dispatch.
+    fn for_deadline(
+        &self,
+        _deadline: Deadline,
+        _clock: Arc<dyn Clock>,
+    ) -> Result<Box<dyn KmsProvider>, KmsError> {
+        Err(KmsError::InvalidConfiguration)
+    }
+
     /// Returns the bounded, non-secret provider or partition reference.
     #[must_use]
     fn provider_reference(&self) -> &str;
@@ -761,6 +772,7 @@ impl Debug for RemoteCustodySigner {
 /// Production provider speaking the bounded `LayerX` KMS protocol over mutual
 /// TLS to a remote KMS/HSM gateway. Every operation opens a fresh authenticated
 /// connection, so a failed connection cannot silently reuse cached authority.
+#[derive(Clone)]
 pub struct RemoteKmsProvider {
     clock: Arc<dyn Clock>,
     provider_reference: String,
@@ -769,6 +781,8 @@ pub struct RemoteKmsProvider {
     tls: MutualTlsConfig,
     gate: ConnectionGate,
     limits: Limits,
+    deadline_tls: Option<Arc<rustls::ClientConfig>>,
+    operation_deadline: Option<Deadline>,
 }
 
 impl RemoteKmsProvider {
@@ -812,7 +826,38 @@ impl RemoteKmsProvider {
             tls,
             gate: ConnectionGate::new(limits.maximum_connections),
             limits,
+            deadline_tls: None,
+            operation_deadline: None,
         })
+    }
+
+    /// Supplies the authenticated TLS configuration for the absolute-deadline
+    /// transport used by gateway dispatch.
+    #[must_use]
+    pub fn with_deadline_transport(mut self, config: Arc<rustls::ClientConfig>) -> Self {
+        self.deadline_tls = Some(config);
+        self
+    }
+
+    /// Encodes the same validated signing frame sent by the provider, for
+    /// authenticated relays that already resolved public wallet facts.
+    pub fn encode_signing_request(
+        &self,
+        binding: &PrincipalKeyBinding,
+        reference: &ProviderKeyReference,
+        request: ProviderSignRequest<'_>,
+    ) -> Result<Vec<u8>, CustodyError> {
+        let validated = request.validate()?;
+        if request.call.chain_id != u64::from(binding.network_id) {
+            return Err(KmsError::Integrity.into());
+        }
+        Ok(encode_sign_request(
+            &self.provider_reference,
+            binding,
+            reference,
+            request,
+            &validated,
+        )?)
     }
 
     fn call(&self, contract: Contract, request: &[u8]) -> Result<Vec<u8>, KmsError> {
@@ -824,8 +869,24 @@ impl RemoteKmsProvider {
             .clone()
             .try_into()
             .map_err(|_| KmsError::Authentication)?;
-        let mut deadline = Deadline::start(self.clock.as_ref(), self.limits.deadline)
+        let mut local_deadline = Deadline::start(self.clock.as_ref(), self.limits.deadline)
             .map_err(|_| KmsError::Unavailable)?;
+        let mut deadline = match self.operation_deadline {
+            Some(mut inherited) => {
+                let inherited_remaining = inherited
+                    .remaining(self.clock.as_ref())
+                    .map_err(|_| KmsError::Unavailable)?;
+                let local_remaining = local_deadline
+                    .remaining(self.clock.as_ref())
+                    .map_err(|_| KmsError::Unavailable)?;
+                if inherited_remaining <= local_remaining {
+                    inherited
+                } else {
+                    local_deadline
+                }
+            }
+            None => local_deadline,
+        };
         let mut limits = self.limits;
         limits.deadline = deadline
             .remaining(self.clock.as_ref())
@@ -833,10 +894,32 @@ impl RemoteKmsProvider {
         if limits.deadline.is_zero() {
             return Err(KmsError::Timeout);
         }
-        let mut transport = Tls::connect(self.endpoint, server_name, &self.tls, &self.gate, limits)
-            .map_err(map_transport)?;
-        transport.send(request).map_err(map_transport)?;
-        let response = transport.receive().map_err(map_transport)?;
+        let response = if let Some(config) = &self.deadline_tls {
+            let _permit = self.gate.acquire().map_err(map_transport)?;
+            let tcp = TcpStream::connect_timeout(&self.endpoint, limits.deadline)
+                .map_err(|_| KmsError::Timeout)?;
+            let socket = DeadlineSocket {
+                tcp,
+                deadline,
+                clock: Arc::clone(&self.clock),
+            };
+            let connection = rustls::ClientConnection::new(Arc::clone(config), server_name)
+                .map_err(|_| KmsError::Authentication)?;
+            let mut transport = rustls::StreamOwned::new(connection, socket);
+            crate::frame::write_frame(&mut transport, request, limits.maximum_frame_bytes)
+                .map_err(map_transport)?;
+            crate::frame::read_frame(&mut transport, limits.maximum_frame_bytes)
+                .map_err(map_transport)?
+        } else {
+            if self.operation_deadline.is_some() {
+                return Err(KmsError::InvalidConfiguration);
+            }
+            let mut transport =
+                Tls::connect(self.endpoint, server_name, &self.tls, &self.gate, limits)
+                    .map_err(map_transport)?;
+            transport.send(request).map_err(map_transport)?;
+            transport.receive().map_err(map_transport)?
+        };
         if deadline
             .remaining(self.clock.as_ref())
             .map_err(|_| KmsError::Unavailable)?
@@ -1047,6 +1130,20 @@ impl Debug for RemoteKmsProvider {
 }
 
 impl KmsProvider for RemoteKmsProvider {
+    fn for_deadline(
+        &self,
+        deadline: Deadline,
+        clock: Arc<dyn Clock>,
+    ) -> Result<Box<dyn KmsProvider>, KmsError> {
+        if self.deadline_tls.is_none() {
+            return Err(KmsError::InvalidConfiguration);
+        }
+        let mut provider = self.clone();
+        provider.clock = clock;
+        provider.operation_deadline = Some(deadline);
+        Ok(Box::new(provider))
+    }
+
     fn provider_reference(&self) -> &str {
         &self.provider_reference
     }
@@ -1919,5 +2016,41 @@ impl<'a> WireReader<'a> {
         } else {
             Err(KmsError::InvalidResponse)
         }
+    }
+}
+
+struct DeadlineSocket {
+    tcp: TcpStream,
+    deadline: Deadline,
+    clock: Arc<dyn Clock>,
+}
+
+impl DeadlineSocket {
+    fn bound(&mut self) -> std::io::Result<()> {
+        let remaining = self
+            .deadline
+            .remaining(self.clock.as_ref())
+            .map_err(|_| std::io::Error::other("provider clock unavailable"))?;
+        if remaining.is_zero() {
+            return Err(std::io::ErrorKind::TimedOut.into());
+        }
+        self.tcp.set_read_timeout(Some(remaining))?;
+        self.tcp.set_write_timeout(Some(remaining))
+    }
+}
+impl Read for DeadlineSocket {
+    fn read(&mut self, bytes: &mut [u8]) -> std::io::Result<usize> {
+        self.bound()?;
+        self.tcp.read(bytes)
+    }
+}
+impl Write for DeadlineSocket {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.bound()?;
+        self.tcp.write(bytes)
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.bound()?;
+        self.tcp.flush()
     }
 }
