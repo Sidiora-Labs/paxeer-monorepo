@@ -1,0 +1,15 @@
+[repair]
+task = "22.33.1011"
+audit = "22.30.36"
+base_revision = "4299cb15eced23eb9a839162acd11e9a937edd05"
+baseline = "Not run: the explicit gate order requires complete implementation before hf-build and hf-done, and prohibits running verify_cmd by hand. No baseline failures are claimed."
+evidence = "The runner records the exact candidate revision, command, exit code and private log in the hf-build/hf-done gate ledger."
+wiring_requests = []
+
+[finding.dm-session-revocation]
+implementation = "Subscribe to the account epoch, synchronously revoke list state and requests, bind list/profile fetches to the session AbortSignal, and reject responses from obsolete sessions."
+tests = ["dm_session_revocation_logout_and_same_wallet_login", "dm_session_revocation_rejects_pending_list_after_replacement", "dm_session_revocation_rejects_pending_peer_metadata", "dm_session_revocation_expiry_with_unchanged_wallet"]
+
+[finding.dm-visible-read-marker]
+implementation = "Pass the highest visible received sequence into the real hook; cancel pending read markers on visibility, viewed range changes and unmount."
+tests = ["dm_visible_read_marker_preserves_unseen_arrival_in_earlier_messages", "dm_visible_read_marker_cancels_when_hidden_and_marks_received_sequence", "dm_visible_read_marker_cancels_on_unmount"]

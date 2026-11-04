@@ -122,10 +122,13 @@ function useConversation(kind: 'pool' | 'dm', target: string, conversationId: st
     try { transmit(pending); } catch (cause) { state.current.pending.set(clientId, { ...pending, state: 'rejected' }); setError(reportUserFacingError(cause, 'Message not sent, try again', 'chat-send')); publish(); }
     clearTimeout(timeout.current); timeout.current = setTimeout(() => { state.current.uncertain(); publish(); }, 10_000);
   }, [wsStatus, transmit, publish]);
-  const markRead = useCallback(() => {
-    const rows = state.current.messages;
-    const through = rows.at(-1)?.sequence;
-    if (!through || !address || readTimer.current || BigInt(through) <= state.current.readThrough) return;
+  const cancelMarkRead = useCallback(() => {
+    clearTimeout(readTimer.current);
+    readTimer.current = undefined;
+  }, []);
+  // Callers that display the whole conversation retain their existing no-argument API.
+  const markRead = useCallback((through = state.current.messages.at(-1)?.sequence) => {
+    if (!through || !address || renderedWallet.current !== address.toLowerCase() || readTimer.current || BigInt(through) <= state.current.readThrough) return;
     const generation = epoch.current;
     readTimer.current = setTimeout(() => { readTimer.current = undefined; if (generation !== epoch.current) return; void markConversationRead(conversationId, through).then(() => { if (generation === epoch.current) { state.current.read(through); publish(); } }).catch(cause => { if (generation === epoch.current) setError(reportUserFacingError(cause, 'Something went wrong, try again', 'chat-read')); }); }, 2000);
   }, [address, conversationId, publish]);
@@ -145,7 +148,7 @@ function useConversation(kind: 'pool' | 'dm', target: string, conversationId: st
     catch(cause){if(generation===epoch.current)setError(reportUserFacingError(cause,'Could not update your message, try again','chat-edit'));return false;}
   },[address,publish]);
   const connectChat = useCallback(async () => { chatWs.refreshAuthorization(); return isConnected; }, [isConnected]);
-  return { messages: renderedWallet.current === address?.toLowerCase() ? messages : [], loading, error, wsStatus, sendMessage, retryMessage, reviseMessage, connectChat, loadMore, replyTo: renderedWallet.current === address?.toLowerCase() ? replyTo : null, setReplyTo, isAuthenticated: renderedWallet.current === address?.toLowerCase() && wsStatus === 'connected', isConnected, wallet: address, markRead, unreadCount: state.current.unreadCount };
+  return { messages: renderedWallet.current === address?.toLowerCase() ? messages : [], loading, error, wsStatus, sendMessage, retryMessage, reviseMessage, connectChat, loadMore, replyTo: renderedWallet.current === address?.toLowerCase() ? replyTo : null, setReplyTo, isAuthenticated: renderedWallet.current === address?.toLowerCase() && wsStatus === 'connected', isConnected, wallet: address, markRead, cancelMarkRead, unreadCount: state.current.unreadCount };
 }
 export function usePoolChat(poolAddress: string) { return useConversation('pool', poolAddress.toLowerCase(), `pool:${poolAddress.toLowerCase()}`); }
 export function useDmChat(conversationId: string, peerAddress: string) {
