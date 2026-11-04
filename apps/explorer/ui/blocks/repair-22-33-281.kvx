@@ -1,0 +1,35 @@
+[task]
+id = "22.33.281"
+test_file = "apps/explorer/ui/blocks/repair-22-33-281.spec.ts"
+path = "Committed block and chain configuration fixtures -> production BlocksTable/BlocksListItem/BlocksTableItem -> chain-aware nextjs/routes and NativeCoinValue/SimpleValue -> rendered anchors, headings and values, using real Next Router and React context providers."
+baseline = "Not run: the explicit gate order prohibits testing before implementation and invoking verify_cmd outside hf-done. No pre-change test failure is claimed."
+evidence = "The private /out/run/gates.jsonl ledger names the verified candidate revision, exact command, exit code and log path; hf-done must pass on the same revision as hf-build."
+wiring_requests = []
+scope_note = "Shared currency helpers outside apps/explorer/ui/blocks remain unchanged; the block consumers pass chain currency through the existing NativeCoinValue decimals and asset interface and sum integer rewards locally. No out-of-path step is required."
+setup = "Runner setup did not install explorer dependencies: root npm ci encountered an unrelated missing ganache lock entry, and the initial pnpm rejected the Yarn pin. Installed pnpm 9 with package-manager-strict=false in sandbox configuration and installed explorer dependencies with its pinned Yarn lock, without editing manifests."
+formatter_note = "ESLint --fix formats the touched TypeScript. The registration rules vitest/expect-expect and vitest/valid-title do not recognize assertions in imported named callbacks or the required function-name registration; neither rule is disabled, and no lint pass is claimed. Format evidence: /out/logs/blocks-format.log."
+gotcha = "Vitest function-name registration also needs the named function as the callback: test(namedFunction, namedFunction)."
+
+[finding.mobile-block-chain-link]
+proving_test = "mobileBlockChainLink"
+asserts = "Selected and default count hrefs, selected reward and fee scales, currency unit labels, and hidden mobile fields."
+
+[finding.block-table-configuration]
+proving_test = "blockTableConfiguration"
+additional_test = "selectedRollupBlockConfiguration"
+asserts = "Two selected chains and the default chain have matching header/row visibility, currency labels and numeric scales; switching configurations updates the same mounted table. Selected rollup hides monetary columns and mobile values."
+
+[finding.desktop-block-value-scale]
+proving_test = "desktopBlockValueScale"
+asserts = "Integer rewards above Number.MAX_SAFE_INTEGER sum exactly before conversion; six/eight decimal currencies scale reward and burnt fees correctly; custom wei/gwei labels and threshold boundaries follow the selected chain."
+
+[finding.desktop-block-chain-link]
+proving_test = "desktopBlockChainLink"
+asserts = "The real rendered count and height anchors preserve /chain/tenant-alpha for a selected chain and use /block for the same default-chain height."
+
+[qualification]
+revision = "9c3886e134a2fce75f00a8a88b4f6d077bf63e70"
+command = "pnpm --dir apps/explorer exec tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "TS2307 at ui/marketplace/essentialDapps/revoke/hooks/repair-22-31-381.spec.ts:2:21: Cannot find module ganache or its corresponding type declarations; this unchanged marketplace test is outside scope and explorer does not declare ganache. No errors were reported in this task's files. Assumption: the marketplace owner must repair its dependency wiring; no unrelated repair or unchanged gate rerun is authorized. hf-done was not run because hf-build did not pass; the regressions are implemented but unqualified."
