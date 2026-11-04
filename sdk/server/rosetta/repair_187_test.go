@@ -273,7 +273,7 @@ func TestRepair_187_MultisignerKey(t *testing.T) {
 	}
 	operations = rosetta.AddOperationIndexes(operations, nil)
 	var preprocess ros.ConstructionPreprocessResponse
-	require.Equal(t, http.StatusOK, h.post(t, "/construction/preprocess", &ros.ConstructionPreprocessRequest{NetworkIdentifier: h.netID, Operations: operations, Metadata: map[string]interface{}{"gas_limit": 1000000, "gas_price": "10000uhpx", "memo": "two distinct signers"}}, &preprocess))
+	require.Equal(t, http.StatusOK, h.post(t, "/construction/preprocess", &ros.ConstructionPreprocessRequest{NetworkIdentifier: h.netID, Operations: operations, Metadata: map[string]interface{}{"gas_limit": "1000000", "gas_price": "10000uhpx", "memo": "two distinct signers"}}, &preprocess))
 	require.Len(t, preprocess.RequiredPublicKeys, 2)
 	pubkeys := make([]*ros.PublicKey, 2)
 	for i, key := range h.keys {
@@ -293,7 +293,9 @@ func TestRepair_187_MultisignerKey(t *testing.T) {
 	require.Len(t, payloads.Payloads, 2)
 	unsigned, err := hex.DecodeString(payloads.UnsignedTransaction)
 	require.NoError(t, err)
-	decoded, err := h.network.Config.TxConfig.TxDecoder()(unsigned)
+	var envelope rosetta.UnsignedTransaction
+	require.NoError(t, json.Unmarshal(unsigned, &envelope))
+	decoded, err := h.network.Config.TxConfig.TxDecoder()(envelope.Transaction)
 	require.NoError(t, err)
 	signatures := make([]*ros.Signature, 2)
 	for i, payload := range payloads.Payloads {
