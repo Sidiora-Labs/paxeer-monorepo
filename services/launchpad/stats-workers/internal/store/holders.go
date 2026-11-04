@@ -103,9 +103,8 @@ func (s *Store) ApplyHolderDelta(ctx context.Context, poolAddress, sender string
 
 // RefreshPoolHolderStats recomputes holderCount, top-10 concentration, creator
 // holdings, and the risk rating for a pool, writing them to pool_stats. Ports
-// HolderTracker.refreshPoolHolderStats. The top-10 query orders by the text
-// `balance` column descending, byte-for-byte identical to the live drizzle query
-// (desc(poolHolders.balance)) for strangler parity (invariant i2).
+// HolderTracker.refreshPoolHolderStats. All holder ranks use exact numeric
+// balances and the same deterministic address tie-breaker.
 func (s *Store) RefreshPoolHolderStats(ctx context.Context, poolAddress string, now int64) error {
 	var holderCount int
 	if err := s.db.QueryRow(ctx, `
@@ -116,7 +115,7 @@ func (s *Store) RefreshPoolHolderStats(ctx context.Context, poolAddress string, 
 
 	rows, err := s.db.Query(ctx, `
 		SELECT balance FROM stats.pool_holders
-		WHERE pool_address = $1 ORDER BY balance DESC LIMIT 10`, poolAddress)
+		WHERE pool_address = $1 ORDER BY balance::numeric DESC, holder_address ASC LIMIT 10`, poolAddress)
 	if err != nil {
 		return fmt.Errorf("store: top10 holders: %w", err)
 	}
@@ -214,15 +213,14 @@ func (s *Store) RefreshPoolHolderStats(ctx context.Context, poolAddress string, 
 	return nil
 }
 
-// ListHolders returns a page of holders ordered by balance descending (text
-// ordering, parity with the live drizzle query). Ports the GET
+// ListHolders returns a page in exact numeric balance and address order. Ports the GET
 // /stats/:pool/holders query.
 func (s *Store) ListHolders(ctx context.Context, poolAddress string, limit, offset int) ([]HolderRow, error) {
 	rows, err := s.db.Query(ctx, `
 		SELECT pool_address, holder_address, balance, pct_of_supply, last_updated
 		FROM stats.pool_holders
 		WHERE pool_address = $1
-		ORDER BY balance DESC
+		ORDER BY balance::numeric DESC, holder_address ASC
 		LIMIT $2 OFFSET $3`, poolAddress, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("store: list holders: %w", err)
@@ -243,14 +241,14 @@ func (s *Store) CountHolders(ctx context.Context, poolAddress string) (int, erro
 }
 
 // ListHoldersByBalance returns ALL holders of a pool ordered by balance
-// descending (text ordering, parity). Used by the distribution / whales /
+// descending, with an address tie-breaker. Used by the distribution / whales /
 // analytics routes that aggregate in application code.
 func (s *Store) ListHoldersByBalance(ctx context.Context, poolAddress string) ([]HolderRow, error) {
 	rows, err := s.db.Query(ctx, `
 		SELECT pool_address, holder_address, balance, pct_of_supply, last_updated
 		FROM stats.pool_holders
 		WHERE pool_address = $1
-		ORDER BY balance DESC`, poolAddress)
+		ORDER BY balance::numeric DESC, holder_address ASC`, poolAddress)
 	if err != nil {
 		return nil, fmt.Errorf("store: list holders by balance: %w", err)
 	}
@@ -337,4 +335,12 @@ func (s *Store) ListHolderBalances(ctx context.Context, poolAddress string, limi
 		out = append(out, h)
 	}
 	return out, rows.Err()
+}
+
+// EnsureHolderBalanceIndex installs the expression index used by all legacy
+// holder ranks. Invalid numeric data fails startup rather than changing ranks.
+func (s *Store) EnsureHolderBalanceIndex(ctx context.Context) error {
+	_, err := s.db.Exec(ctx, `CREATE INDEX IF NOT EXISTS idx_ph_balance_numeric
+        ON stats.pool_holders (pool_address, (balance::numeric) DESC, holder_address ASC)`)
+	return err
 }

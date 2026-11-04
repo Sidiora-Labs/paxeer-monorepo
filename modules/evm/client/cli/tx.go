@@ -91,7 +91,10 @@ func CmdAssociateAddress() *cobra.Command {
 			if len(args) == 1 {
 				privHex = args[0]
 			} else {
-				txf := tx.NewFactoryCLI(clientCtx, cmd.Flags())
+				txf, err := tx.NewFactoryCLI(clientCtx, cmd.Flags())
+				if err != nil {
+					return err
+				}
 				kb := txf.Keybase()
 				info, err := kb.Key(clientCtx.GetFromName())
 				if err != nil {
@@ -608,7 +611,10 @@ func getPrivateKey(cmd *cobra.Command) (*ecdsa.PrivateKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	txf := tx.NewFactoryCLI(clientCtx, cmd.Flags())
+	txf, err := tx.NewFactoryCLI(clientCtx, cmd.Flags())
+	if err != nil {
+		return nil, err
+	}
 	kb := txf.Keybase()
 	info, err := kb.Key(clientCtx.GetFromName())
 	if err != nil {

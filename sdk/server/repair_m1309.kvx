@@ -1,0 +1,28 @@
+[repair.22.33.1309]
+findings = ["export-stream-error", "rollback-preflight", "rollback-recovery-test", "start-genesis-error", "start-validation-ignored", "start-late-service-error"]
+export-stream-error = "TestRepairM_1309_ExportStreamError"
+rollback-preflight = "TestRepairM_1309_RollbackPreflight; TestRepairM_1309_RollbackUnequalHashes"
+rollback-recovery-test = "TestRepairM_1309_RollbackRecovery"
+start-genesis-error = "TestRepairM_1309_StartGenesisError"
+start-validation-ignored = "TestRepairM_1309_StartValidationIgnored"
+start-late-service-error = "TestRepairM_1309_StartLateServiceError"
+baseline = "Not run: the explicit gate order forbids builds or tests before the complete implementation and forbids running verify_cmd by hand. No unchanged-tree test failures are claimed."
+implementation = "Streaming export reports only actual write and close failures; startup wraps genesis load failures, enforces ValidateBasic and supervises API/Rosetta errors through shutdown; rollback validates positive targets, preflights the real application history and isolated copies of both consensus databases, fsyncs a recoverable intent before mutation, resumes the recorded target and closes the application. Startup refuses an unfinished rollback until recovery completes."
+proof = "Real BaseApp, params store, persistent storev2 multistore and loopback services exercise the commands. A disposable in-process consensus node produces blocks, stops, persists an intent, rolls back the real app only, closes/reopens the app, resumes through NewRollbackCmd, reopens both stores and resumes consensus block production. Separate coverage permits unequal app hashes and resumes after both mutations without rolling back again."
+qualification = "The runner's /out/run/gates.jsonl ledger records the exact candidate revision, hf-build/hf-done command, exit and private evidence path. Both gates must pass on the unchanged candidate."
+wiring_requests = []
+repair_cycle_1 = "Initial hf-done test compilation rejected upstream ABCI fields absent from this fork. The real BaseApp fixture now returns validators read from the genesis document through the fork response type; consensus params remain handled by BaseApp.InitChain."
+gotcha = "The legacy sdk/store/rootmulti explicitly refuses historical rollback; preflight returns its typed unsupported error without changing consensus. Existing rollback unit assertions use the real rollback-capable sdk/storev2/rootmulti rather than the unsupported legacy store. The earlier export consensus test now requires streaming success."
+continuation = "The real-node recovery fixture reserves its P2P endpoint through tcp.TestReserveAddr for collision-free initial startup and reopening. The unsupported legacy application fixture asserts the working hash from actual mounted stores and the committed hash from their commit IDs separately, using the current CommitInfo hash definition; the persistent rollback-capable fixture retains working/committed hash equality."
+continuation_attempt_4_repair = "Candidate c993096752d134e70bf60a3ff594e0f0ba0f7235 built successfully; hf-done exited 1 (/out/logs/verify-1.log) because the real restarted node rejected stale consensus WAL heights. NewRollbackCmd now archives the head and rotated consensus WAL files before removing the durable intent. The recovery test proves the real WAL bytes are preserved and the old head is absent, then retains the same real-node resumed-production assertions."
+continuation_attempt_4 = "The recovery fixture already runs a real node, but ResetTestRootWithChainID selects memdb. It now explicitly selects GoLevelDB, asserts both consensus databases exist on disk after node shutdown, and reserves a fresh P2P address before restarting. Rosetta conflict resolution retains the landed shared Shutdown lifecycle and uses the lifetime service-error channel in startInProcess."
+continuation_evidence = "The qualification.failed section preserves attempt 1 evidence. Its legacy-hash assumption is superseded by the explicit attempt 2 ruling and the current-definition assertions above. The runner records continuation gate revision, command, exit and private log in /out/run/gates.jsonl; no baseline re-run, commit or push is performed by the worker."
+continuation_repair = "At candidate 8370abf1f87bbba5f4ba083d5a268c5d6a9d8a99, hf-build passed and hf-done exited 1 (/out/logs/verify-1.log): the first five tests passed, then the real-node readiness predicate dereferenced the local RPC's nil block before the first block existed. Both readiness predicates now require a nonnil result and block before asserting the unchanged required heights."
+
+[qualification.failed]
+revision = "1ace0edf24fe36ad0a1c73741242ed47a01023df"
+command = "cg spec done 22.33.1309 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-2.log; detailed test output: /tmp/repair-m1309.log"
+observed = "Export, genesis, config validation and late API failure tests passed; rollback preflight's legacy fixture failed working-hash equality, then the real-node fixture panicked because P2P port zero is forbidden, before restart recovery and unequal-hash qualification could finish."
+assumption = "The legacy store hash mismatch is pre-existing and remains unchanged; use the existing node port reservation fixture on continuation. The wrapper counts build-2 and verify-2 as both permitted repair runs, so the bounded budget is exhausted and the task remains unqualified."

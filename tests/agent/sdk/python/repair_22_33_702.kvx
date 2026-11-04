@@ -1,0 +1,80 @@
+[repair.22.33.702]
+audit = "22.30.169"
+base_revision = "117197c811684e097104c96b29e872d45034cebb"
+status = "Attempt 2 implementation complete, awaiting bounded qualification: preserve the prior repair and producer recordings; adopt recorded replay-protected EIP-155 payment transactions and address-derived search payer accounts in the production SDK."
+qualification = "hf-build and hf-done own exact candidate revision, command, exit and private evidence location; no gate success is claimed before execution."
+baseline = "Not run: explicit Order 1/4 prohibits tests before complete implementation and prohibits manual verify_cmd execution. The initial gate ledger did not exist, gate.json showed builds_used=0 and verify_runs_used=0, and the repair module was absent. No unchanged-tree test failures are claimed."
+format = "No Python formatter is configured in the scoped SDK pyproject.toml; edits follow surrounding Python conventions."
+
+[finding.px-retired-rpc-path]
+tests = ["test_px_retired_rpc_path_matches_gateway_contract", "test_px_invalid_url_and_unsupported_method_refusals_remain_independent"]
+implementation = "Positive PxClient balance and history transports use /. Loopback peers reject other paths. The focused proof binds the current gateway main.rs POST / routing branch and OpenRPC positional balance request/result contract to the real PxClient HTTP request and response, including JSON-RPC errors and pagination. Invalid URL, timeout, method and account refusals remain independent."
+provenance = "services/platform/hosted/gateway/src/main.rs route_with_peer and openrpc.json define the request; existing committed chain-only balance schema vectors and apps/web/e2e/fixtures/px-get-unified-history.json define responses. No gateway binary execution is claimed."
+
+[finding.x402-retired-receipt-proof]
+tests = ["test_x402_retired_receipt_proof_real_rpc", "test_x402_rpc_payment_refuses_rebinding", "test_x402_current_receipts_and_retained_protocol_refusals", "test_x402_committed_recording_keeps_the_actual_block_identity", "test_recorded_eip155_decoder_preserves_canonical_and_signature_refusals", "test_committed_payment_log_selection_refuses_missing_duplicate_and_rebound_events"]
+implementation = "Payment-positive cases use unchanged sequencer-receipt-v1 signed bytes, actual raw EIP-1559 or replay-protected EIP-155 transactions and governed key ranges. Real PaymentRpc send/read crosses loopback HTTP into verify_rpc_payment; assertions bind recovered payer, calldata/log asset, amount, recipient, raw hash, height and key. The separate recorded-transaction decoder preserves the strict type-2 decoder and refuses unprotected legacy signatures, noncanonical RLP, zero/high-s signatures and unknown envelopes. Byte flips, unpinned/out-of-range keys, altered raw bytes, version 1/3/4 and mismatched versions refuse. A genuine signed ledger revert authenticates returnData before registry decoding; other registry codes remain explicitly unsigned ABI codec tests."
+provenance = "rpc/sequencer_receipt_vectors_test.go -> sdk/platform/conformance/fixtures/sequencer-receipt-v1.json#V1-layerxledger-pay-exact and V2-layerxledger-revert -> HTTP -> PaymentRpc -> verify_rpc_payment/verify_payment_receipt. No receipts are re-signed or synthesized."
+committed_provenance = "daemon/committed-fixture/vectors/vector-v4-committed.json settlement supplies original raw_transaction, signed receipt and committed RPC result; sdk/platform/conformance/fixtures/vector-v4-committed.json supplies its height-10 key pin. The test verifies exact signed bytes and raw hash, committed rung/height/key, execution commit block hash and successor header linkage. It does not claim Python independently verifies Comet voting power or inclusion proofs."
+wiring = "Domain 9 transport: services/agent/sdk/python/layerx_sdk/x402_rpc.py must admit documented root node and gateway URLs; its existing PaymentRpc constructor requires /rpc, so this transport replay uses that SDK contract and does not advertise /rpc as a deployed public route."
+committed_resolution = "daemon/committed-fixture/vector_v4.go records eth_sendRawTransaction using NewTransaction and LatestSignerForChainID. The production SDK now decodes this exact EIP-155 envelope, recovers its signer with the chain-bound signing digest and verifies the original committed signed receipt without replacing any producer evidence."
+
+[finding.web-search-authorized-batch]
+tests = ["test_web_search_current_receipt_and_refusal_contracts", "test_web_search_authorized_batch_cannot_replace_raw_payment_binding", "test_web_search_recorded_http_producer_contract_is_not_rewritten", "test_web_search_recorded_content_digest_and_tamper_refusals_over_http", "test_search_payer_address_binds_the_recorded_offer_over_http"]
+implementation = "Removed receipt-offset reconstruction of AuthorizedReceiptBatch and protocol-version-three success configuration. Search helpers use producer-governed ReceiptKey ranges, chain 125, signed receipt and actual recorded raw payment bytes from gateway/exact.json. Current protocol-two receipts are cryptographically checked at their recorded height. Version/signature refusal-before-send, account/asset derivation, grant codec, registry reverts and real HTTP content digest/tamper refusal are qualified by the focused proof. Existing positive exact/metered settlement, per-asset/purpose/amount and paid content assertions remain present."
+remaining = "The committed client-exchange producer sends exact txHash/receiptDigest/idempotencyKey and metered grantId with LAYERX-PAYER-ADDRESS, while the Python client sends receipt/rawTransaction or grant bytes with LAYERX-PAYER-DID. Its settlement headers omit rawTransaction. The real node payExact receipt summary records EVM value=0/to=ledger; paid asset/amount/recipient live in authenticated PaymentExact logs, but verify_web_search_payment compares summary fields. No successful paid-search execution is claimed and the original success assertions are not changed into expected failures."
+wiring = "Domain 11 x-websearch: services/interop/crates/x-websearch/tests/payment.rs#the_client_exchange_matches_the_recording and tests/fixtures/client-exchange.json must publish current layerxpay exact/draw raw transactions, governed receipt pins, actual committed RPC evidence and payer header/payload shapes for every configured asset and purpose; this out-of-path producer is not edited here."
+wiring_consumer = "Domain 9 SDK with Domain 11 payment owner: services/agent/sdk/python/layerx_sdk/web_search.py must agree with the actual txHash/grantId/payer-address producer contract and authenticate payment logs against raw transaction calldata, including asset/payer/recipient/amount/purpose, instead of reading those values from the EVM value-transfer summary. Preserve every positive and negative settlement assertion in test_web_search.py."
+wiring_chain = "Domain 6 ledger/pay with Domain 11 x-websearch: precompiles/layerxpay and the real fixture producer must supply an actual committed draw/purpose transaction transcript; the available node corpus contains ledger payExact at 0x101a, not a layerxpay draw at 0x101b, so it is never relabeled as that evidence."
+derivation_resolution = "services/interop/crates/x-websearch/tests/payment.rs payer_account derives the owner DID by zero-padding the recorded LAYERX-PAYER-ADDRESS; buyer.payerDid is the independent Ed25519 grant signing key. The SDK now derives configured payer accounts from the address and binds the actual recorded HTTP challenge to the unchanged grant.from for every asset; grant.public_key remains equal to buyer.payerDid. The original account, name and seller equalities remain, with the producer's address as their payer input."
+
+[finding.legacy-exchange-write-proof]
+tests = ["test_legacy_exchange_write_proof_retains_historical_vectors_and_current_direct_codecs"]
+implementation = "All six legacy byte vectors remain and are explicitly historical encoding compatibility. Current 0x1015 openPosition/cancelOrder/closePosition SDK builders and getOrder/getPosition read selectors are checked against the committed perps ABI and wallet transaction request codec. All retired-signature refusal assertions remain, including requestSettlement; no live settlement write is advertised by these current examples."
+remaining = "No activated-chain requestSettlement/getOrder/getPosition execution transcript exists in the scoped inputs. Codec/SDK rejection is not an on-chain retirement proof. The retirement inventory's replacement prose still names LXP_MODULE_DISABLED while its refusal_reason is LXP_EXCHANGE_RETIRED; no invented RPC error resolves this contradiction."
+wiring = "Domain 3 exchange/node: precompiles/layerxexchange and precompiles/perps owning EVM fixture producer must retain genuine post-activation calls at 0x1015 proving requestSettlement's inventory error (refusal_code 14 / LXP_EXCHANGE_RETIRED) and current direct getOrder/getPosition results in tests/agent/sdk/python/recordings_22_33_702/exchange-post-activation.json."
+wiring_examples = "Domain 9 SDK: services/agent/sdk/python README/examples and services/agent/sdk/python/layerx_sdk/exchange.py must label old settlement encoders historical and use perps direct order/position paths in current guidance; these files are outside this task's scope."
+
+[gotcha.scope-and-baseline]
+observed = "Direct scope prohibits edits to GOTCHA.kvx and spec task/qualification records, so this in-scope task record owns gotchas, limitations and wiring. User Order prohibits a baseline run despite do_8 asking for one."
+resolution = "Follow the explicit bounded gate order, leave runner setup changes intact, never run verify_cmd manually, never invent baseline evidence, and never modify or re-sign external producer evidence."
+
+[gotcha.receipt-failure-enum]
+observed = "The historical tests referenced missing ReceiptFailureCode.PROTOCOL_VERSION, RESULT_CODE and SEQUENCER_SIGNATURE names."
+resolution = "Current tests use generated RECEIPT_VERSION/FIELDS and SequencerReceiptVerificationError.check, preserving the actual version, execution-status and signature refusal assertions."
+
+[qualification.committed-transaction-interface]
+revision = "0d46e6a1e47f0a2db63c81a7f1b6970665e6015a"
+command = "cg spec done 22.33.702 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The unchanged committed producer raw_transaction begins with legacy RLP f9, and production decode_signed refuses it as invalid_transaction; this is a missing current producer interface, not a signature or block-hash fixture to synthesize."
+assumption = "Attempt 1 diagnosis superseded by explicit attempt 2 ruling: adopt the producer's existing EIP-155 transaction in the now-in-scope SDK through a separate strict decoder, preserving the original committed proof and type-2 decoder."
+
+[qualification.search-account-derivation]
+revision = "0d46e6a1e47f0a2db63c81a7f1b6970665e6015a"
+command = "cg spec done 22.33.702 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The preserved test_derived_accounts_match_payment_vectors equality fails because the recorded SID grant payer differs from the current SDK-derived account; neither compared producer input nor derivation implementation was changed here."
+assumption = "Attempt 1 diagnosis superseded by explicit attempt 2 ruling: the producer records distinct payer-address and grant-signing identities, so derive payer accounts from the unchanged recorded address and separately assert the unchanged Ed25519 grant key."
+
+[gotcha.producer-identity-and-encoding]
+observed = "Attempt 1 assumed all current payments used type 2 and used the Ed25519 grant DID for payer-address account derivation; both assumptions contradict committed producer code and recordings."
+resolution = "Read the original vector_v4.go signer and payment.rs payer_account definition, preserve their evidence, add explicit SDK support, and qualify only with hf-build then hf-done on the final candidate."
+
+[qualification.attempt-2-first-gate]
+revision = "79925044fd2f910b279c7974484ba1bfe9d9b2d4"
+command = "cg spec done 22.33.702 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "50 tests pass; the committed-payment helper wrongly treats its first Transfer log as PaymentExact."
+assumption = "Repair the helper to require exactly one event selected by ledger address and PaymentExact signature and bind reference, source, recipient, asset and amount to signed calldata, matching the Go producer's own verification."
+
+[gotcha.committed-log-order]
+observed = "The public-node committed recording includes Transfer before PaymentExact, unlike the focused Go-harness payment recording."
+resolution = "Select the event by its recorded address and signature, require uniqueness, retain every original field equality and add reference/source checks; preserve producer bytes and add missing/duplicate/rebinding refusals."
+
+[gotcha.independent-abi-address-types]
+observed = "The task's independent evm_transaction.encode_call check passed a hex address string, while that ABI codec requires exactly 20 bytes."
+resolution = "Convert only ABI address inputs to their exact byte representation; retain all independently generated selector, body, destination, value and wallet request equality assertions."

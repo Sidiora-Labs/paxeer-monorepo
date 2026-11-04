@@ -1,0 +1,81 @@
+[repair.22.33.795]
+audit = "22.30.177"
+base_revision = "5f6b5f0aad35a415da93671f70183d5e5688bda0"
+mode = "BUILD"
+scope = "tools/bringup"
+build = "hf-build: go build ./tools/bringup/..."
+verify = "hf-done: cg spec done 22.33.795 -f layerx-merge --root /work/paxeer-monorepo"
+evidence = "The final hf-build and hf-done records in /out/run/gates.jsonl carry the exact candidate revision, command, exit and private log. Both gates must bind the same candidate; no passing result is claimed before qualification."
+baseline = "Initial git status/diff contained only runner-owned .cgignore and task status changes. No earlier gates.jsonl or repair_m795_test.go existed. The unchanged-tree verify requested in step 12 conflicts with the explicit implementation/format/hf-build/hf-done order and prohibition on manual verification; no baseline run or baseline failures are claimed."
+qualification = "The declared Go gate drives production stores, renderers, codecs, inspector handlers and verified loopback HTTPS/Docker HTTP peers without environment variables, subprocesses, credentials, native executables, devices or live infrastructure. Shell/native integration suites and deployment are not claimed as qualified."
+fixtures = "record-legacy-mint.sh ran the unchanged mint-secrets.sh at the base revision with disposable generated certificates and the committed module registry. legacy-mint contains only public disposable regression material emitted by that producer, including disposable wallet identities; none was deployed. Genesis uses the existing native paxd-produced repair_22_31_355 genesis and the real consensus key, validator and genesis codecs."
+
+[finding.edge-concurrent-state-mutation]
+test = "TestRepairM_795_EdgeConcurrentStateMutation"
+repair = "All edge shell writers serialize across rendering, validation and reload on .edge-operation.lock outside edge/. Cron delegates to that common lock; imported/locked rerender requires the inherited matching inode and acquires it. Secondary import retains fd 8 across its subprocesses. WithMutation exposes the identical stable lock to production Go callers."
+proof = "Concurrent health and route transactions use the real durable journal, manifest, renderer and reload-result consumer. A blocked writer observes the accepted health result; a subsequent refused transaction and close/reopen preserve both accepted updates and the original lock inode."
+
+[finding.archive-unpublished-names]
+test = "TestRepairM_795_ArchiveUnpublishedNames"
+repair = "Archive-name validation uses ReadPublicInventory through bringup-inspect, shared with check-live and docs-names. Usage requires an installed inventory for stdin SSH provisioning instead of maintaining a second numeric regular expression."
+proof = "All fourteen actual published numbered nodes pass the real CLI consumer; api15/api16, the canonical alias, old-domain, routed and malformed names are refused."
+
+[finding.archive-tls-resume]
+test = "TestRepairM_795_ArchiveTLSResume"
+repair = "Every invocation reconciles the actual certificate/key validity, rendered HTTP/TLS site and enabled link. The exact old HTTP bootstrap is adoptable. Partial ACME material stays resumable; modified operator TLS sites are preserved, incomplete operator sites are refused unchanged. The shell reissues when needed, validates/reloads changed rendering and verifies HTTPS health, retrying a refused serving state through validation/reload."
+proof = "Production inspector writes the HTTP site and symlink, stops/reopens after failed issuance, refuses partial key material, then installs TLS after the certificate producer publishes a matching pair. Verified loopback HTTPS succeeds; unhealthy HTTPS fails, and custom operator files remain byte-identical."
+
+[finding.genesis-retired-network-boundary]
+test = "TestRepairM_795_GenesisRetiredNetworkBoundary"
+repair = "Live init uses paxd init with explicit home, chain, mode, approved native genesis digest and stopped exclusive service owner. adopt/identity retain native node/validator/receipt identity hashes while validating the native signing state without resetting it. Old keys/genesis/plan/migrate commands refuse; historical conversion is explicit offline-render/offline-regenerate-fixture. Operator guidance is paxd-initialization.md."
+proof = "Real native consensus producers emit node/validator keys, advancing signing state and native genesis. The real genesis/identity consumers adopt, reopen and retain those files, refuse foreign chains, populated-home initialization and replacement keys, and never rewrite the retained record on refusal."
+
+[finding.mint-retired-secret-targets]
+test = "TestRepairM_795_MintRetiredSecretTargets"
+repair = "NewSecretPlan derives gateway delivery from the rollout image/service, validates surviving Railway roles and registry box ownership, and reads the Human box consumer. It emits gateway-named bundles and twenty-five distinct surviving capabilities; retired kernel/replica/component/receipt-authority and interop-authority outputs disappear. Public webhooks receive only identity while ingress receives its own capabilities. migrate-retired writes a separate directory, preserving surviving tokens and wallet identities and retaining the old mint for explicit revocation."
+proof = "Actual rollout/box declarations -> random token producer -> protected dotenv/apply scripts -> strict secret decoder and producer/consumer comparisons. Exact role membership, distinct capabilities, malformed encoding, protected modes, stdout secrecy and overwrite refusal are asserted. The old unchanged producer's recorded mint migrates through the production consumer without rotating surviving identity material or retaining retired output targets."
+
+[finding.registry-orphan-container-recovery]
+test = "TestRepairM_795_RegistryOrphanContainerRecovery"
+repair = "Python run_job delegates durable planning and Docker creation to the shared lifecycle store. It binds persisted lifecycle/UID labels into the actual Docker create request before creation. Reopen inspects every planned name, checks label/name/ID ownership, durably publishes discovered IDs before removal by ID, and proves absence by both name and ID. Python reports final cleanup only after container, cgroup, mount and loop checks."
+proof = "Production Plan -> durable JSON -> Docker create HTTP codec -> independent loopback engine state. A lost create response leaves a real peer object without a published ID; close/reopen discovers, persists and removes it. The deletion peer reads the journal before removal. Foreign labels, failed inspection and a still-present removed object are refused."
+
+[finding.search-default-node-drift]
+test = "TestRepairM_795_SearchDefaultNodeDrift"
+repair = "Render discovers serving/validator roles before selecting either pin. The shared selector orders current inventory names, excludes validators and selects two distinct serving defaults; both explicit names are checked against discovery and inventory. Render/qualify share selection and the strict bounded fresh typed HTTPS readiness consumer."
+proof = "Actual published inventory plus serving discovery -> real selector/CLI -> verified TLS readiness consumer -> nginx pin/eligibility renderer. A current backup is admitted after primary refusal; both unready leave primary unadmitted. Validators, duplicate pins, single-node inventories, unpublished/old names, ambiguous roles and stale readiness are refused."
+
+[finding.resync-source-interruption]
+test = "TestRepairM_795_ResyncSourceInterruption"
+repair = "The private durable journal records source, destination, original ActiveState and prepared/copying/restoring phase before stop. The source restoration decision is shared production code; it never starts an originally inactive/failed source. EXIT/INT/TERM/HUP trigger bounded cleanup; process-death recovery runs before survey or another destination, under a stable operation lock, and requires observed original state before deleting the obligation."
+proof = "Prepare -> separate unit-state transition -> close/reopen before copying, mid-copy and during restoration -> production recovery action/acknowledgement. Wrong observed state cannot clear the journal; another destination is refused until recovery. Originally inactive and failed states never emit a start action."
+
+[wiring.native_interface_registry]
+request = "spec/layerx-merge/contracts/ and spec/layerx-merge/spec.kvx — domains 6 and 16: retire 6.pc-0x1013-nativeassetid and legacy kernel-genesis keys/genesis/plan/migrate interface rows; register paxd init/adopt/identity and explicitly offline historical conversion, linking tools/bringup/paxd-initialization.md."
+
+[wiring.gateway_service_name]
+request = "deploy/rollout.kvx — domains 10 and 16: coordinate the declared layerx-gateway service rename from router to gateway; gateway.railway.sh currently resolves and addresses the actual declared Railway service without emitting router-named bundles."
+
+[wiring.retired_secret_consumers]
+request = "docker/platform-registry/init.sh, docker/platform-registry/registry.env.example, services/platform/hosted/gateway/railway.env.example, services/platform/hosted/webhooks/env-init.sh, services/platform/hosted/webhooks/railway.env.example and services/interop/deploy/gateway/ — domains 10, 11 and 16: remove retired component/receipt-authority/replica credential requirements and consume native committed receipts before deploying the new secret plan; revoke retired credentials from the preserved old mint after migration."
+
+[wiring.installed_inspector_inventory]
+request = "docker/ and tools/rollout/ installation owners — domain 16: install the source-bound bringup-inspect binary on operator, registry, edge and archive hosts, and install the shared public-rpc.md at /usr/local/share/paxeer/public-rpc.md for stdin archive provisioning; preserve SYNC_FLEET_JOURNAL across operator process restarts."
+
+[gotcha.scope]
+observed = "The exclusive task scope forbids GOTCHA.kvx, spec/ edits, commits and pushes; this in-scope record carries the finding/test map, wiring requests and gotchas, and the runner owns publication."
+
+[gotcha.fixture_path]
+observed = "The previous task has no attestor-1/cert.pem fixture at the guessed path; the legacy-mint recording instead generates five disposable public test certificate inputs with openssl before running the unchanged old producer. No test gate was run during fixture generation."
+
+[gotcha.native_sequencer_option]
+observed = "The native app.toml option is sequencer.enable rather than enabled; retained identity decoding uses that exact producer spelling and includes the configured receipt key when enabled."
+
+[gotcha.offline_historical_test]
+observed = "The historical kernel-genesis shell test is now explicitly offline; its pre-existing guarantor-positive fixture contradicts the retained renderer's accepted schema. That separate audit finding is not changed or qualified here."
+
+[gotcha.gate_order]
+observed = "Only gofmt is the repository-established formatter for the touched Go sources; no shell/Python formatter or formatter configuration is present. Formatting and the two declared wrappers begin only after the entire implementation, regression tests and this record are written."
+
+[gotcha.formatting]
+observed = "The first gofmt pass identified a missing closing brace in the new mint target loop; the syntax was corrected without changing an assertion before either declared gate ran."

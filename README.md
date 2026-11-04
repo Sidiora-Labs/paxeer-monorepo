@@ -46,7 +46,7 @@ The node integrates the following components:
 - **Node and consensus.** `paxd` is built from [`daemon/paxd`](daemon/paxd/), with the application in [`node/`](node/), BFT consensus in [`consensus/`](consensus/), state machine modules in [`modules/`](modules/) and JSON-RPC servers in [`rpc/`](rpc/).
 - **Kernel and programs.** The C17 kernel in `src/` and `include/` runs inside `paxd` through [`modules/lxphost`](modules/lxphost/). The node links `build/liblayerx.a` and the programs sandbox from [`programs/`](programs/). [`node/sequencer`](node/sequencer/) supplies execution ordering and the consensus block source within the node.
 
-A receipt is final once its block is committed. A signed execution receipt can arrive before that commitment; [`pax_sequencerReceipt`](rpc/sequencer_receipt.go) distinguishes `submitted`, `receipted` and `committed`. See [committed block evidence](docs/site/docs/concepts/checkpoints.md) for verification. The standalone kernel daemon and external checkpoint settlement model are retired.
+A receipt is final once its block is committed. A signed execution receipt can arrive before that commitment; [`pax_sequencerReceipt`](rpc/sequencer_receipt.go) distinguishes `submitted`, `receipted` and `committed`. See [committed block evidence](docs/site/docs/concepts/checkpoints.md) for verification. The standalone `layerxd` daemon and external checkpoint settlement model are retired.
 
 Sub-chains are tenant domains stored in the database, managed by [`modules/layerxchains`](modules/layerxchains/). Creating a domain namespaces state within the shared network and does not require new node infrastructure.
 
@@ -72,6 +72,34 @@ curl --max-time 10 -sS https://api1.mainnet-beta.paxeer.network \
 Configure more than one node and compare `eth_blockNumber` when selecting one near the head. `node.hyperpaxeer.com` is only the hpx library mirror used by build and installation tooling, never a JSON-RPC endpoint.
 
 The hosted gateway's `px_` API is defined by [`services/platform/hosted/gateway/openrpc.json`](services/platform/hosted/gateway/openrpc.json). Obtain its deployment URL and credentials from the operator; the gateway contract does not establish method availability at public node URLs. Mainnet-beta uses real value; hosted funding and private test-environment faucets have their own access policies.
+
+### Accounts and native funding
+
+An EVM address uses a secp256k1 key; a LayerX DID is `did:layerx:<64 lowercase hex characters of the Ed25519 public key>`. Bind them through the [`addr` precompile](precompiles/addr/abi.json) at `0x1004`: read `layerXBindNonce(address)`, sign the following bytes with the Ed25519 key, and submit `bindLayerX(bytes32,bytes)` from the EVM address:
+
+```text
+"LX:PAXEER-BIND:v1" || chainId:uint256be || evmAddress:20 || nonce:uint64be
+```
+
+The EVM transaction supplies the address owner's consent; the 64-byte Ed25519 signature supplies the DID's consent. After commit, confirm the binding with `getLayerXDid(address)` and `getUnifiedAccount(address)`. Binding does not fund an account. The [one-account guide](docs/site/docs/concepts/one-account.md) retains mnemonic derivation, external-wallet EIP-712/HKDF-SHA256 derivation and recovery details; preserve the original derivation context when recovering an identity.
+
+Native sub-accounts map to derived bank addresses inside the node; see [`modules/lxphost/accountmap.go`](modules/lxphost/accountmap.go). For each registered Asset, the bound owner opens a per-asset account at the [`layerxledger` precompile](precompiles/layerxledger/abi.json), `0x101A`. Its funding and balance calls are:
+
+| Operation | ABI method |
+| --- | --- |
+| Open the caller's per-asset account | `openAccount(bytes32)` |
+| Derive an account ID from the DID public key and Asset ID | `accountId(bytes32,bytes32)` |
+| Fund an opened account by authorized issuer mint | `mint(bytes32,bytes32,uint128)` |
+| Transfer from a funded account owned by the bound caller | `payExact(bytes32,bytes32,bytes32,uint128,uint64,bytes32)` |
+| Read the committed per-asset balance | `balanceOf(bytes32,bytes32)` |
+
+Account ID derivation alone does not open or fund an account. Submit ledger writes as signed EVM transactions for chain ID `125` with zero EVM `value`; these methods are nonpayable. `payExact` takes an expiry in Unix milliseconds and a payment reference. Wait for commit and read `balanceOf` to confirm funding. Fund the EVM address's native gas balance separately and read it with `eth_getBalance(address,"latest")`. The custody deposit and credit-attestation funding flow is retired. See the [Payments Quickstart](docs/wiki/PaymentsQuickstart.md) for the complete transaction sequence.
+
+### Receipt and proof verification
+
+The node produces signed ProtocolReceipt v2 bytes through [`node/sequencer/receipt.go`](node/sequencer/receipt.go). Its [Ed25519 receipt key](node/sequencer/receiptkey.go) is separate from the validator consensus key and must be pinned for the receipt height. Verify canonical receipt bytes and their signature using [`layerxproof/verify/receipt.go`](layerxproof/verify/receipt.go); a public key supplied beside an untrusted receipt does not establish trust. A valid signature proves execution evidence, while the `committed` rung requires coverage by the committed block's `MsgSequenceBatch`.
+
+For independent committed proofs, authenticate the block header and CometBFT commit against trusted validator information, then verify transaction or state inclusion against the authenticated root at the relevant height and key. The [chain proof verifier](programs/crates/layerx-programs-registry/src/chain_proof/) implements those checks. Neither a transaction hash nor a signed execution receipt alone establishes block commitment; the [committed block evidence guide](docs/site/docs/concepts/checkpoints.md) explains the current proof model.
 
 ### Client SDKs
 
@@ -120,6 +148,8 @@ The base set includes `bank`, `wasmd`, `json`, `addr`, `staking`, `gov`, `distri
 The `v6.12.0` set built by `v6120Contracts` in [`node/app.go`](node/app.go) serves `perps` at `0x1015` in place of the earlier `layerxExchange`, the second-generation `launchpad` at `0x1017`, `pricefeed` at `0x1020`, and `spot_pecor`, `spot_orders`, `spot_stoporders`, `spot_quoter` and `spot_vault` at `0x1021`–`0x1025`. Constructor and ABI inventories include historical versions; select the interface for the upgrade active at the queried height.
 
 The pre-merge `layerxVerify` (`0x1012`) and `layerxCustody` (`0x1013`) interfaces are retired at the merge. `layerxAnchor` (`0x1014`) rejects writes after the merge; its remaining historical views retire at `v7.0-anchor-store-delete`. See the retirement gates in [`precompiles/layerxverify`](precompiles/layerxverify/), [`precompiles/layerxcustody`](precompiles/layerxcustody/) and [`precompiles/layerxanchor`](precompiles/layerxanchor/). These historical interfaces do not provide current funding or finality paths.
+
+The retained [batch-header codec](layerxproof/codec/batch.go) and [archived settlement witness formats](docs/site/docs/operators/settlement-evidence.md) support historical interpretation. External checkpoint registration, guarantor attestations and the L0–L4 settlement ladder are retired; archived formats add no settlement step to current block finality.
 
 ## Community
 

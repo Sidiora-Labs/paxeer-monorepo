@@ -290,30 +290,25 @@ def run_job(directory, command, *, memory=67108864, pids=16, cpu=1000000, wall=3
         require(quota_state(directory) == state['mount'], 'quota identity changed')
         manifest = json.loads(regular(state['manifest']).read_text())
         require(source(manifest['repo']) == state['source'], 'source identity changed')
-        name = 'layerx-artifacts-' + state['id'] + '-' + uuid.uuid4().hex[:8]
+        name = run([os.environ.get('BRINGUP_INSPECT_BIN', 'bringup-inspect'),
+                    'registry-container-plan', str(directory)]).stdout.strip()
+        state = load_state(directory)
+        record = next(item for item in state['containers'] if item['name'] == name)
         control = directory / name
         control.mkdir(mode=0o755)
         control.chmod(0o755)
-        record = {'name': name, 'id': None, 'cgroup': None, 'phase': 'planned'}
-        state['containers'].append(record)
-        state['phase'] = 'running'
-        write_json(directory / 'lifecycle.json', state)
         process = None
         started = time.monotonic()
         observations = []
         try:
-            invocation = ['docker', 'create', '--name', name, '--network', 'none', '--cgroupns', 'private',
-                          '--cpus', '1', '--memory', '256m', '--pids-limit', '128',
-                          '--cap-drop', 'ALL', '--cap-add', 'SETUID', '--cap-add', 'SETGID',
-                          '--security-opt', 'no-new-privileges',
-                          '--mount', f'type=bind,src={control},dst=/control',
-                          '--mount', f'type=bind,src={state["quota_root"]},dst=/quota',
-                          '--mount', f'type=bind,src={manifest["builder_root"]},dst=/builder,readonly',
-                          '--mount', 'type=bind,src=/sys/fs/cgroup,dst=/host-cgroup',
-                          manifest['runtime_image'], '/bin/sh', '-c',
-                          'while [ ! -f /control/command ]; do :; done; exec su -s /bin/sh layerx -c "$(cat /control/command)"']
-            record['id'] = run(invocation).stdout.strip()
-            write_json(directory / 'lifecycle.json', state)
+            # The shared production lifecycle producer adds durable ownership
+            # labels before creation, and persists the returned ID atomically.
+            record['id'] = run([os.environ.get('BRINGUP_INSPECT_BIN', 'bringup-inspect'),
+                                'registry-container-create', str(directory), name,
+                                manifest['runtime_image'], str(control), state['quota_root'],
+                                manifest['builder_root'], 'v1']).stdout.strip()
+            state = load_state(directory)
+            record = next(item for item in state['containers'] if item['name'] == name)
             run(['docker', 'start', name])
             pid = int(run(['docker', 'inspect', '--format', '{{.State.Pid}}', name]).stdout)
             group = cgroup_for_pid(pid)
@@ -362,13 +357,17 @@ def run_job(directory, command, *, memory=67108864, pids=16, cpu=1000000, wall=3
             state['jobs'].append(result)
             return result
         finally:
-            run(['docker', 'stop', '--time', '2', name], check=False)
-            removed = run(['docker', 'rm', name], check=False)
+            # Reload after the shared store publishes a discovered ID. The
+            # finalizer must reconcile even if create never returned an ID.
+            cleaned = run([os.environ.get('BRINGUP_INSPECT_BIN', 'bringup-inspect'),
+                           'registry-container-clean', str(directory), name], check=False)
+            state = load_state(directory)
+            record = next(item for item in state['containers'] if item['name'] == name)
             if process is not None and process.poll() is None:
                 process.wait(timeout=10)
             group_name = record.get('cgroup')
             absent = not group_name or not Path(group_name).exists()
-            record['phase'] = 'cleaned' if removed.returncode == 0 and absent else 'cleanup_failed'
+            record['phase'] = 'cleaned' if cleaned.returncode == 0 and record.get('container_absent') is True and absent else 'cleanup_failed'
             state['phase'] = 'prepared' if record['phase'] == 'cleaned' else 'interrupted'
             write_json(directory / 'lifecycle.json', state)
             require(record['phase'] == 'cleaned', 'owned job cleanup incomplete')
@@ -398,15 +397,12 @@ def cleanup(directory):
         state['phase'] = 'cleaning'
         write_json(directory / 'lifecycle.json', state)
         try:
+            removed = run([os.environ.get('BRINGUP_INSPECT_BIN', 'bringup-inspect'),
+                           'registry-container-clean', str(directory)], check=False)
+            state = load_state(directory)
+            require(removed.returncode == 0, 'container cleanup failed')
             for container in state['containers']:
-                if container['phase'] == 'cleaned':
-                    continue
-                if container.get('id'):
-                    actual = run(['docker', 'inspect', '--format', '{{.Id}}', container['name']], check=False)
-                    if actual.returncode == 0:
-                        require(actual.stdout.strip() == container['id'], 'container ownership changed')
-                        run(['docker', 'stop', '--time', '2', container['name']])
-                        run(['docker', 'rm', container['name']])
+                require(container.get('container_absent') is True, 'container absence unproven')
                 require(not container.get('cgroup') or not Path(container['cgroup']).exists(), 'owned cgroup remains')
                 container['phase'] = 'cleaned'
             slot = directory / 'quota/slot-0'

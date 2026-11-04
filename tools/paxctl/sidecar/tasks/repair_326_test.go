@@ -110,7 +110,10 @@ func repairWaitResult(t *testing.T, e *engine.Engine, id string) *engine.TaskRes
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
-		result := e.GetResult(id)
+		result, err := e.GetResult(id)
+		if err != nil {
+			t.Fatal(err)
+		}
 		if result != nil && result.Status != engine.TaskStatusRunning {
 			return result
 		}

@@ -1,0 +1,41 @@
+[task.22.33.1376]
+mode = "BUILD"
+audit = "22.30.75"
+acceptance = "22998.1"
+proof = "services/platform/perf-db/tests/repair_22_33_1376.rs"
+baseline = "The initial diff contained only runner bookkeeping; there was no prior gate ledger or repair. No unchanged-tree verification was run because the controlling gate order forbids tests before complete implementation and hf-build. No baseline failure is claimed."
+evidence = "Exact qualified source revision, command, exit code and private log location are supplied by the runner's hf-build/hf-done receipts; implementation alone does not establish closure."
+
+[finding.api-key-replacement-alias]
+tests = ["api_key_replacement_revokes_old_secret_and_owner_aliases", "api_key_duplicate_hash_rejection_preserves_both_identities", "api_key_concurrent_hash_claims_and_rotation_have_no_aliases", "api_key_durable_rotation_and_duplicate_rejection_survive_wal_and_snapshot_recovery"]
+repair = "A store-wide read/write lock binds the primary, hash and user indexes. Insertion rejects a hash owned by a different key before changing state, removes the previous identity's hash and owner indexes, and installs exactly one current mapping. Conditional owner removal holds the same write lock through its authorization check and deletion."
+
+[finding.checkpoint-coherence]
+tests = ["checkpoint_concurrent_saves_publish_one_complete_tuple", "checkpoint_engine_snapshot_event_boundary_and_reopen_recover_complete_state"]
+repair = "The full checkpoint tuple resides under one read/write lock. Save publishes one value and snapshot clones that value while locked. The existing engine mutation boundary already serializes save_checkpoint with event application and snapshot publication; the integration test drives concurrent saves, real events and snapshots, then recovers snapshot plus WAL suffix across two reopens."
+
+[finding.referral-tier-empty-config]
+tests = ["referral_tier_invalid_configuration_returns_typed_errors_and_preserves_table", "referral_tier_valid_configuration_drives_thresholds_and_basis_point_limits", "referral_tier_durable_boundary_rejects_invalid_tables_before_wal_and_recovers_valid_table"]
+repair = "Both custom construction and replacement return ReferralTierError for an empty table, missing zero-threshold base, decreasing or duplicate threshold pairs, or basis points above 10000. Validation precedes replacement so every rejection preserves the complete last valid table. Thresholds may increase in either dimension while neither decreases."
+consumer = "services/platform/perf-db/src/storage/relational.rs propagates typed tier errors through PerfDbError on restore and mutation, validates before WAL append, and propagates API-key insertion errors without pre-removing the current key. Real durable-store tests reopen from both WAL alone and snapshot plus WAL."
+
+[finding.user-referral-index]
+tests = ["user_referral_replacement_clears_only_the_current_owners_code", "user_referral_collisions_reject_complete_updates", "user_referral_concurrent_claims_and_reads_keep_unique_current_owners", "user_referral_current_owners_survive_engine_snapshot_recovery"]
+repair = "One lock binds users and referral indexes. Upsert validates exclusive ownership before replacement; callback updates stage a clone and reject collisions or changed primary addresses before installing any field. Old mappings are removed only when they still identify the replaced user. Empty/absent codes create no index entries."
+consumer = "services/platform/perf-db/src/engine.rs propagates UserStore::upsert errors as corruption during snapshot restoration; current referral ownership is proven through a real engine snapshot and reopen."
+
+[gotcha.baseline-order]
+observed = "The baseline verification instruction conflicts with the explicit implementation-before-gates order."
+resolution = "Follow the controlling gate order; claim no baseline failure and keep this record inside the authorized source directory."
+
+[gotcha.fallible-tier-callers]
+observed = "storage/relational.rs constructs ReferralEngine directly and uses set_tiers as a unit-valued match arm; returning the required typed errors needs caller wiring outside the original scope."
+resolution = "Attempt 2 explicitly expands scope to src: propagate both fallible tier calls and validate before persistence; no scope clarification is needed."
+
+[gotcha.seed-type-drift]
+observed = "The carried repair conflicted with the landed owned String tier names; its integration helpers still used static strings."
+resolution = "Preserve owned tier names, consume the fallible runtime update, and adapt test helpers to the production type before qualification."
+
+[continuation]
+prior_attempt = "The supplied attempt-1 build failed with two E0308 errors in storage/relational.rs before verification; no baseline behavior result is claimed."
+wiring_requests = []

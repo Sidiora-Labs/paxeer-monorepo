@@ -1,0 +1,104 @@
+[repair.22.33.1041]
+audit = "22.30.40"
+base_revision = "117197c811684e097104c96b29e872d45034cebb"
+previous_base_revision = "0d67b10a1307bd87573ba79cf46b7f9c0337f7e3"
+status = "implemented; qualification is recorded by hf-build and hf-done against their candidate revision"
+baseline = "Not run: the explicit implementation-first order and sole hf-done gate prohibit the contradictory unchanged-tree verification in step 10; the initial ledger had zero build and verify runs, and the proving test file did not exist."
+evidence = "The runner's private gates.jsonl and final hf-done revision/command/exit/log record are authoritative; no gate is claimed here before execution."
+
+[finding.legacy_idle_windows]
+test = "TestRepairM_1041_LegacyIdleWindows"
+repair = "A bounded address-cursor sweep refreshes idle pools transactionally at an explicit clock, resets expired price changes and extrema, and uses full settlement timestamps for rolling sums; platform totals query bounded transactions instead of stale persisted aggregates."
+proof = "Real canonical codec, ABI bridge, swap consumer, live application refresh function, store and registered pool route; 5m/1h/24h crossings, independent platform sums, stopped/reopened SQL peer and recovered store state."
+
+[finding.holder_text_order]
+test = "TestRepairM_1041_HolderTextOrder"
+repair = "All three legacy holder queries order balance::numeric DESC, holder_address ASC; startup installs the matching expression index."
+proof = "Actual holder writes and SQL ordering for 9,100,1000,zero,ties and adjacent large integers; index query plan, paginated route ranks, canonical big.Int top-ten concentration and restart."
+
+[finding.platform_fee_units]
+test = "TestRepairM_1041_PlatformFeeUnits"
+repair = "totalFees24h is an asset-fees-v1 array of assetAddress,assetDecimals,disposition,raw; every legacy transaction binds to its validated canonical fill and digest at the configured projection, with exact separate integer sums."
+proof = "Canonical publication producer/codec, bridge and swap writes; a buy and two sells across 6- and 18-decimal token scenarios, exact asset totals, registered platform route, projection isolation and restart."
+
+[finding.pressure_sell_units]
+test = "TestRepairM_1041_PressureSellUnits"
+repair = "Sell notional uses amount_out; buy notional uses amount_in, bounded by the same cutoff and observation clock."
+proof = "Real recorded canonical buy/sell legs, actual swap projection, PressureStats and registered pressure route; sell token input 4803406952560 differs from USDL output 47278912."
+
+[finding.fee_fixture_wrong_units]
+test = "TestRepairM_1041_FeeFixtureWrongUnits"
+repair = "TestPlatformMetrics runs the canonical asset fee contract with strict per-asset equality instead of asserting a unitless scalar; missing fill, incomplete exact-input evidence, invalid decimals and mismatched digest/legacy amount are rejected."
+
+[finding.pressure_fixture_wrong_leg]
+test = "TestRepairM_1041_PressureFixtureWrongLeg"
+repair = "TestPressureStats runs full nonzero unequal canonical buy/sell legs and verifies exact settlement volume through Store and the registered route, excluding old and future activity."
+
+[wiring.platform_cache]
+request = "services/launchpad/stats-workers/internal/httpapi/platform.go — owner domain 4: version platform:metrics for asset-fees-v1 and validate cached feeSchema before serving; app startup deletes the old key, and fresh serialization already carries the new typed contract."
+
+[wiring.platform_consumers]
+request = "services/launchpad/api/internal/rest/pool_reads_test.go and dev_market_test.go — owner domain 4: migrate scalar totalFees24h cache fixtures/consumers to asset-fees-v1 and preserve each asset's decimals and disposition; development webhook data without canonical accounting must return explicit evidence-unavailable rather than inventing a conversion."
+
+[qualification.fixture]
+peer = "File-backed pure-Go SQLite over loopback PostgreSQL wire, based on committed repair_m1042 fixture; no external services or test doubles for Store, consumers, codecs or handlers."
+translation = "Schema/cast/locking syntax only; PostgreSQL exact balance::numeric is translated to a deterministic exact 78-digit SQL key because SQLite NUMERIC would lose precision."
+limit = "The focused gate proves store behavior and real wire/HTTP paths; it does not certify PostgreSQL planner choices or concurrent production workload behavior."
+
+[gotcha.scope]
+observed = "Scope forbids spec/ and GOTCHA.kvx edits; task findings, wiring requests and the contradictory baseline instruction are recorded in this allowed task record."
+
+[qualification.workspace]
+revision = "139900044b6d9ee834b0569f25da1f25ce26d57a"
+command = "cd services/launchpad/stats-* && go build ./internal/store/..."
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "Parent services/launchpad/go.work declares Go 1.25 but the unrelated notifications module requires Go 1.27, so compilation never started."
+assumption = "Historical attempt 1 only; dependency 22.31.461 has repaired the workspace, and continuation gates keep the workspace enabled."
+
+[qualification.module_metadata]
+revision = "43e6cd6070f6593a15e889d389dbe581e1da609e"
+command = "cg spec done 22.33.1041 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; compiler detail /tmp/repair-m1041.log"
+observed = "With GOWORK=off the build passed, but verification stopped before test compilation with 'go: updates to go.mod needed; to update it: go mod tidy'; no repair test executed and the task is not qualified."
+assumption = "Historical standalone attempt 1 only; continuation verification compiles with the repaired parent workspace without manifest edits."
+
+[qualification.last_build]
+revision = "43e6cd6070f6593a15e889d389dbe581e1da609e"
+command = "cd services/launchpad/stats-* && go build ./internal/store/..."
+exit = 0
+log = "/out/logs/build-2.log"
+environment = "GOWORK=off"
+result = "Implemented, not qualified; last verification exited 1 before tests and was not forced."
+
+[qualification.continuation_build]
+revision = "987ae7a62bd3c9c9184a44a5b48e6eb3af1e7a22"
+command = "cd services/launchpad/stats-* && go build ./internal/store/..."
+exit = 0
+log = "/out/logs/build-1.log"
+environment = "Parent workspace enabled; dependency 22.31.461 is done."
+
+[qualification.continuation_verify]
+revision = "987ae7a62bd3c9c9184a44a5b48e6eb3af1e7a22"
+command = "cg spec done 22.33.1041 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; test detail /tmp/repair-m1041.log"
+observed = "All six repair tests executed; HolderTextOrder passed, while the five fee/pressure/idle tests failed because SQLite treated pgx PostgreSQL boolean literals as text in SQL expressions."
+repair = "Translate pgx 't'/'f' boolean literals to SQLite TRUE/FALSE before executing actual SQL; preserve all production paths and exact assertions."
+
+[gotcha.boolean_literals]
+observed = "PostgreSQL accepts simple-protocol 't'/'f' literals for BOOLEAN columns; SQLite BOOLEAN affinity retains them as text, producing false CASE branches and failed boolean equality."
+fix = "The SQL peer translates the wire boolean literals to TRUE/FALSE so storage, predicates and CASE expressions share PostgreSQL boolean semantics."
+
+[qualification.current_verify]
+revision = "ed5a2bdf2b36f92055c54e654e7b77f5f7ffc4ef"
+command = "cg spec done 22.33.1041 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; test detail /tmp/repair-m1041.log"
+observed = "PressureSellUnits, PressureFixtureWrongLeg and HolderTextOrder passed; fee and idle tests failed scanning integer-encoded is_buy into bool."
+assumption = "Repair the SQL peer's boolean wire encoding, preserving the real Store code and every assertion, then rebuild and verify the same candidate."
+
+[gotcha.boolean_wire]
+observed = "SQLite returns BOOLEAN storage as int64; overwriting its declared BoolOID with Int8OID prevents pgx from scanning is_buy into Go bool."
+fix = "Preserve BoolOID and encode only integer 0/1 as PostgreSQL f/t, rejecting other values."

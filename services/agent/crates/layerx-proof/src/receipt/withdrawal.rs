@@ -1,4 +1,10 @@
-//! Native withdrawal lifecycle receipt verification.
+//! Native withdrawal outcomes from sequencer-signed receipts.
+//!
+//! Verify receipt bytes with [`super::verify_outcome`], then decode the retained
+//! facts with [`WithdrawalOutcome::from_verified`]. The activity-bound
+//! `withdrawal::verify` API was removed; no signed activity is needed here.
+//! The returned facts carry only the authority established by the verified
+//! receipt; decoding does not establish chain finality.
 
 use super::{
     encode_unsigned, receipt_digest, verify_sequencer_signature, AuthorizedBatch, Evidence,
@@ -9,6 +15,57 @@ use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRe
 use layerx_wire::hash::{account_id_for_protocol, payload_hash_for};
 use layerx_wire::receipt::ProtocolReceipt;
 use sha2::{Digest as _, Sha256};
+
+/// Economic facts retained from a successfully verified native withdrawal.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct WithdrawalOutcome {
+    asset: [u8; 32],
+    amount: u128,
+    recipient: [u8; 20],
+    nullifier: [u8; 32],
+}
+
+impl WithdrawalOutcome {
+    /// Decodes withdrawal facts from a value returned by [`super::verify_outcome`].
+    ///
+    /// # Errors
+    /// Refuses other receipt kinds and inconsistent withdrawal effects.
+    pub fn from_verified(verified: &VerifiedReceipt) -> Result<Self, VerificationFailure> {
+        let receipt = verified.receipt().protocol().ok_or_else(refused)?;
+        shape(receipt)?;
+        let body = effects(receipt)?;
+        Ok(Self {
+            asset: receipt.asset(),
+            amount: receipt.amount(),
+            recipient: body[130..150].try_into().map_err(|_| refused())?,
+            nullifier: receipt.context_hash(),
+        })
+    }
+
+    /// Returns the withdrawn asset identifier.
+    #[must_use]
+    pub const fn asset(self) -> [u8; 32] {
+        self.asset
+    }
+
+    /// Returns the exact withdrawn quantity in the asset's native units.
+    #[must_use]
+    pub const fn amount(self) -> u128 {
+        self.amount
+    }
+
+    /// Returns the destination address encoded in the withdrawal event.
+    #[must_use]
+    pub const fn recipient(self) -> [u8; 20] {
+        self.recipient
+    }
+
+    /// Returns the withdrawal nullifier bound by the receipt context hash.
+    #[must_use]
+    pub const fn nullifier(self) -> [u8; 32] {
+        self.nullifier
+    }
+}
 
 fn refused() -> VerificationFailure {
     VerificationFailure::at(ReceiptCheck::ReceiptShape)

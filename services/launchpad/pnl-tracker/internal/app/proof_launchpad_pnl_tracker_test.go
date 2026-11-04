@@ -39,6 +39,7 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/migrate"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l18"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/db/production"
 	iface "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/queue"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -48,6 +49,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -80,8 +82,8 @@ func proveLaunchpadPnLTracker(t *testing.T) {
 	}
 	execSQL(epochSQL)
 	execSQL(`INSERT INTO recovery.recovery_control(singleton,epoch,region,revision,checkpoint_sha256) VALUES(true,1,'local',1,$1)`, strings.Repeat("a", 64))
-	applyRewardDeploymentMigration(t, ctx, pool, root, "180000.sql")
-	applyRewardDeploymentMigration(t, ctx, pool, root, "180001.sql")
+	proofLaunchpadBootstrapRewardCoordinator(t, ctx, pool, root)
+	proofLaunchpadApplyRegisteredRewardMigration(t, ctx, pool, root)
 	execSQL(`CREATE TABLE indexer.indexer_canonical_creations (
 		nft_id numeric PRIMARY KEY,pool text NOT NULL,creator text NOT NULL,
 		height bigint NOT NULL,block_hash text NOT NULL,transaction_hash text NOT NULL,
@@ -355,6 +357,140 @@ func proveLaunchpadPnLTracker(t *testing.T) {
 }
 
 type proofLaunchpadFixture struct{ Pool, Alice, Bob string }
+
+func proofLaunchpadRewardRegistry(root string) (production.MigrationRegistry, error) {
+	raw, err := os.ReadFile(filepath.Join(root, "launchpad/spec/production-system/integration/migrations/registry.json"))
+	if err != nil {
+		return production.MigrationRegistry{}, err
+	}
+	approval, err := os.ReadFile(filepath.Join(root, "launchpad/spec/production-system/integration/migrations/pnl-reward-approval.json"))
+	if err != nil {
+		return production.MigrationRegistry{}, err
+	}
+	reader, err := os.ReadFile(filepath.Join(root, "sdk/launchpad/shared/interfaces/v2/validators.gen.go"))
+	if err != nil {
+		return production.MigrationRegistry{}, err
+	}
+	return migrate.LoadRewardRegistry(raw, approval, reader)
+}
+
+// Bootstrap the legacy deployment and predecessor history before the reward
+// coordinator runs, as the shared coordinator fixture does for legacy services.
+func proofLaunchpadBootstrapRewardCoordinator(t *testing.T, ctx context.Context, pool *pgxpool.Pool, root string) {
+	t.Helper()
+	registry, err := proofLaunchpadRewardRegistry(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalog, err := registry.ValidateOrder()
+	if err != nil {
+		t.Fatal(err)
+	}
+	conn, err := pool.Acquire(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Release()
+	var locked bool
+	if err := conn.QueryRow(ctx, "SELECT pg_try_advisory_lock($1)", production.CoordinatorKey).Scan(&locked); err != nil || !locked {
+		t.Fatalf("bootstrap coordinator lock: %v", err)
+	}
+	defer func() {
+		if err := conn.QueryRow(ctx, "SELECT pg_advisory_unlock($1)", production.CoordinatorKey).Scan(&locked); err != nil || !locked {
+			t.Errorf("bootstrap coordinator unlock: %v", err)
+		}
+	}()
+	exec := func(query string, args ...any) {
+		t.Helper()
+		if _, err := conn.Exec(ctx, query, args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	exec(production.MigrationControlDDL())
+	history, err := production.HistoryDDL("core/pnl-tracker", "pnl")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// HistoryDDL uses SET LOCAL ROLE and therefore belongs to one transaction.
+	tx, err := conn.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, production.OnlineIndexControlDDL()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(ctx, history); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	exec("CREATE ROLE pnl_owner NOLOGIN; GRANT USAGE, CREATE ON SCHEMA pnl TO pnl_owner")
+	for _, id := range []int64{80003, 160000, 180000} {
+		m := catalog[id]
+		sql, err := os.ReadFile(filepath.Join(root, "launchpad", m.Path))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if production.Checksum(sql) != m.SHA256 {
+			t.Fatalf("bootstrap predecessor %d source drift", id)
+		}
+		tx, err := conn.Begin(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err = tx.Exec(ctx, "SET LOCAL lock_timeout='2s'"); err != nil {
+			t.Fatal(err)
+		}
+		if _, err = tx.Exec(ctx, "SET LOCAL ROLE "+pgx.Identifier{"pnl_owner"}.Sanitize()); err != nil {
+			t.Fatal(err)
+		}
+		if _, err = tx.Exec(ctx, string(sql)); err != nil {
+			t.Fatal(err)
+		}
+		if _, err = tx.Exec(ctx, "RESET ROLE"); err != nil {
+			t.Fatal(err)
+		}
+		if _, err = tx.Exec(ctx, "INSERT INTO migration_control.pnl_tracker_versions(version_id,is_applied) VALUES($1,true)", id); err != nil {
+			t.Fatal(err)
+		}
+		if _, err = tx.Exec(ctx, "INSERT INTO migration_control.applied_migrations(migration_id,service,schema_name,checksum,registry_digest) VALUES($1,$2,$3,$4,$5)", id, m.Service, m.Schema, m.SHA256, registry.ApprovalDigest); err != nil {
+			t.Fatal(err)
+		}
+		if err := tx.Commit(ctx); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func proofLaunchpadApplyRegisteredRewardMigration(t *testing.T, ctx context.Context, pool *pgxpool.Pool, root string) {
+	t.Helper()
+	registry, err := proofLaunchpadRewardRegistry(root)
+	if err != nil {
+		t.Fatalf("production reward migration registry: %v", err)
+	}
+	catalog, err := registry.ValidateOrder()
+	if err != nil {
+		t.Fatal(err)
+	}
+	migration, ok := catalog[180001]
+	if !ok || migration.Service != "core/pnl-tracker" || migration.Schema != "pnl" {
+		t.Fatal("production registry does not register reward migration 180001 for core/pnl-tracker")
+	}
+	sql, err := os.ReadFile(filepath.Join(root, "launchpad", migration.Path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	conn, err := pool.Acquire(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Release()
+	if err := production.ApplyCoordinatedMigration(ctx, conn.Conn(), migration, sql, catalog, migration.InterfaceDigest, registry.ApprovalDigest, migration.ReaderMinVersion); err != nil {
+		t.Fatalf("production reward migration 180001: %v", err)
+	}
+}
 
 func proofLaunchpadPostgres(t *testing.T, ctx context.Context) (string, *pgxpool.Pool) {
 	t.Helper()
