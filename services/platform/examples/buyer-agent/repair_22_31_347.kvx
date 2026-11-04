@@ -1,0 +1,12 @@
+[repair.22.31.347]
+finding = "buyer-human-endpoint"
+base_revision = "7f80bc77d69d432a30797265253debe7936b8dfb"
+configuration_test = "services/platform/examples/buyer-agent/test/repair-22-31-347.test.mjs -> repair.test.mjs::buyerHumanEndpointConfiguration"
+payment_test = "services/platform/examples/buyer-agent/test/repair-22-31-347.test.mjs -> repair.test.mjs::betaBuyerPaymentReachesHumanAndVerifiesNodeReceipt"
+implementation = "Use the declared hosted Human HTTPS Service, accept a dedicated deployment origin and refuse node RPC origins before payment transport creation."
+proof = "Actual beta loader, buyer and HTTPS transport over committed Human transcripts and node-produced signed receipt fixtures; actual paid API server, seller middleware and durable fulfillment repository; independently pinned node RPC receipt read, wrong-transaction and unpinned-key rejection."
+baseline = "No baseline verification ran: the explicit gate order forbids verification before full implementation and hf-build; the integration target did not exist on the base."
+qualification = "Unqualified until the bounded hf-done evidence records a passing candidate revision; private runner gate ledger holds revision, command, exit and log."
+wiring_deployment = "services/platform/hosted/human/deployment.yaml — fm-platform (domain 8): provision reachable Human HTTPS ingress, an admitted bearer principal, funded source, paid resource and independent node receipt pins for deployment; the declared fixture gate needs none of these inputs."
+previous_attempt = "The obsolete cargo test target failed with exit 101 before Node tests ran; the unowned Rust launcher was removed as directed by attempt 2."
+verified_revision = "The final passing hf-done line in the private /out/run/gates.jsonl ledger names the verified candidate; no gate result is claimed before that record exists."
