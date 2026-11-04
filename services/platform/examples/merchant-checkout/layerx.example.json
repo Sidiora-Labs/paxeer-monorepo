@@ -22,7 +22,7 @@
     "beta": {
       "publicUrl": "http://127.0.0.1:8082",
       "settlementUrl": "https://api-mainnet-beta.paxeer.network/v1/settle",
-      "rpcUrl": "https://api-mainnet-beta.paxeer.network/rpc",
+      "rpcUrl": "https://api-mainnet-beta.paxeer.network",
       "scheme": "exact",
       "network": "eip155:125",
       "receiptKeysEnvironment": "LAYERX_TESTNET_RECEIPT_KEYS_JSON",
