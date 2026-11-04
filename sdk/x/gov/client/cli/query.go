@@ -294,10 +294,23 @@ $ %[1]s query gov votes 1 --page=2 --limit=100
 
 			propStatus := proposalRes.GetProposal().Status
 			if propStatus != types.StatusVotingPeriod && propStatus != types.StatusDepositPeriod {
-				page, _ := cmd.Flags().GetInt(flags.FlagPage)
-				limit, _ := cmd.Flags().GetInt(flags.FlagLimit)
+				page, err := cmd.Flags().GetUint64(flags.FlagPage)
+				if err != nil {
+					return err
+				}
+				limit, err := cmd.Flags().GetUint64(flags.FlagLimit)
+				if err != nil {
+					return err
+				}
+				if limit == 0 {
+					limit = 100 // Match QueryVotesByTxQuery's default before checking arithmetic.
+				}
+				maxInt := uint64(^uint(0) >> 1)
+				if page > maxInt || limit > maxInt || (page != 0 && limit > maxInt/page) {
+					return fmt.Errorf("page and limit exceed the supported history pagination range")
+				}
 
-				params := types.NewQueryProposalVotesParams(proposalID, page, limit)
+				params := types.NewQueryProposalVotesParams(proposalID, int(page), int(limit))
 				resByTxQuery, err := gcutils.QueryVotesByTxQuery(ctx, clientCtx, params)
 				if err != nil {
 					return err

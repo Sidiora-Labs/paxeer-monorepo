@@ -727,10 +727,25 @@ pub fn production_route<'a>(
 pub fn unified_service_catalogue() -> &'static serde_json::Value {
     static CATALOGUE: std::sync::OnceLock<serde_json::Value> = std::sync::OnceLock::new();
     CATALOGUE.get_or_init(|| {
-        serde_json::from_str(include_str!(
+        let mut catalogue: serde_json::Value = serde_json::from_str(include_str!(
             "../../../../../tools/paxeer-x/route-catalogue.json"
         ))
-        .expect("compiled unified route catalogue")
+        .expect("compiled unified route catalogue");
+        let locations: serde_json::Map<String, serde_json::Value> =
+            serde_json::from_str(include_str!("../route-locations.json"))
+                .expect("compiled node and hosted gateway locations");
+        catalogue
+            .as_object_mut()
+            .expect("route catalogue is an object")
+            .extend(locations);
+        catalogue["routes"]
+            .as_array_mut()
+            .expect("route catalogue has a routes array")
+            .retain(|route| {
+                let path = route["path"].as_str().expect("route path is a string");
+                path != "/rpc" && !path.starts_with("/rpc/")
+            });
+        catalogue
     })
 }
 

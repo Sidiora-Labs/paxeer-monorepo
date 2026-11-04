@@ -136,8 +136,12 @@ impl RemoteSigner {
             .and_then(|()| tls.write_all(&body))
             .map_err(|error| io_refusal(&error))?;
         let response = read_response(&mut tls)?;
-        ed25519::verify(&self.public_key, &response, request.message())
-            .map_err(|_| SignRefusal::InvalidSignature)?;
+        ed25519::verify_message(
+            &self.public_key,
+            &response,
+            &request.signing_bytes().map_err(|_| SignRefusal::Refused)?,
+        )
+        .map_err(|_| SignRefusal::InvalidSignature)?;
         Ok(DidSignature::new(response))
     }
 }
@@ -167,7 +171,12 @@ impl Signer for RemoteSigner {
 }
 
 fn encode_request(request: SigningRequest<'_>) -> Result<Vec<u8>, SignRefusal> {
-    let message = request.message();
+    // Protocol v1 transports scoped payer digests only. Raw bind consent needs
+    // a separately versioned peer contract and is explicitly refused here.
+    request
+        .external_signing_bytes()
+        .map_err(|_| SignRefusal::Refused)?;
+    let message = request.message().ok_or(SignRefusal::Refused)?;
     let canonical = message.canonical();
     let disclosure = request
         .disclosure()

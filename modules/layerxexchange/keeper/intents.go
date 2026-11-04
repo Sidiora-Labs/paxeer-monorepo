@@ -108,6 +108,29 @@ func (k *Keeper) RecordWithdrawMarginIntent(ctx sdk.Context, owner common.Addres
 // only the shape of the order; LayerX matches it.
 func (k *Keeper) RecordPlaceOrderIntent(ctx sdk.Context, owner common.Address, marketID [32]byte, side uint8,
 	price, quantity sdk.Int, timeInForce uint8) (types.Intent, error) {
+	account := ""
+	if bindings, ok := k.evmKeeper.(exchangeAccountBindings); ok {
+		if key, bound := bindings.GetLayerXDid(ctx, owner); bound {
+			id, err := defaultOrderAccount(key)
+			if err != nil {
+				return types.Intent{}, err
+			}
+			account = custodytypes.Hash32(id)
+		}
+	}
+	return k.recordPlaceOrderIntent(ctx, owner, marketID, account, side, price, quantity, timeInForce)
+}
+
+func (k *Keeper) RecordPlaceOrderIntentForAccount(ctx sdk.Context, owner common.Address, marketID, accountID [32]byte, side uint8,
+	price, quantity sdk.Int, timeInForce uint8) (types.Intent, error) {
+	if err := k.requireOrderAccount(ctx, owner, accountID); err != nil {
+		return types.Intent{}, err
+	}
+	return k.recordPlaceOrderIntent(ctx, owner, marketID, custodytypes.Hash32(accountID), side, price, quantity, timeInForce)
+}
+
+func (k *Keeper) recordPlaceOrderIntent(ctx sdk.Context, owner common.Address, marketID [32]byte, account string, side uint8,
+	price, quantity sdk.Int, timeInForce uint8) (types.Intent, error) {
 	market, found := k.GetParams(ctx).Market(custodytypes.Hash32(marketID))
 	if !found || !market.Enabled {
 		return types.Intent{}, types.ErrUnknownMarket
@@ -142,7 +165,7 @@ func (k *Keeper) RecordPlaceOrderIntent(ctx sdk.Context, owner common.Address, m
 	}
 	return atomically(ctx, func(ctx sdk.Context) (types.Intent, error) {
 		intent, err := k.record(ctx, owner, types.Intent{Kind: types.IntentKind_INTENT_KIND_PLACE,
-			MarketId: market.MarketId, AssetId: market.MarginAssetId, Side: uint32(side), Price: price.String(),
+			Account: account, MarketId: market.MarketId, AssetId: market.MarginAssetId, Side: uint32(side), Price: price.String(),
 			Quantity: quantity.String(), TimeInForce: uint32(timeInForce)})
 		if err != nil {
 			return types.Intent{}, err

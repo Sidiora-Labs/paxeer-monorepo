@@ -1,0 +1,22 @@
+[repair.22.33.1262]
+finding = "historical-distribution-static-v555"
+base_revision = "ca3015b61333a7ebcaedf0914337d4460107fe1a"
+continuation = "Attempt 3 preserves the attempt-2 keeper fixture and every assertion on a base containing 22.31.463, which carries the fallible tx.NewFactoryCLI constructor through its CLI consumers. The previous attempt could not compile the test binary; no TestRepairM_1262_ test executed or failed an assertion before this continuation."
+tests = ["TestRepairM_1262_HistoricalStaticCallStateDiff", "TestRepairM_1262_LiveStaticCallRefusesSameWrites", "TestRepairM_1262_ReplayAndActivationIsolation"]
+proof = "ABI-produced calldata traverses real EVM CALL and STATICCALL, production height selection, distribution and bank keepers, and isolated SDK stores. All three historical mutations retain their full CALL-equivalent bank/distribution state diff, including a 950-token payout from 1000 tokens at five percent commission; finalization preserves that diff. Live STATICCALL rejects the same calldata and preserves every bank/distribution key, while live CALL proves the writes remain reachable."
+replay = "distribution.go remains byte-identical, pinned by its original SHA-256. Fixture done heights 10/20/30/40 exercise the boundaries of v5.5.2/v5.5.5/v5.6.2/v7.0 without asserting those synthetic heights are mainnet heights."
+baseline = "No additional baseline run: the explicit gate order requires complete implementation then hf-build then hf-done, and forbids running verify_cmd by hand first. The carried qualification below records the earlier compile failure; no baseline assertion failure is claimed."
+wiring_request = "precompiles/distribution/setup.go, owning domain 6: preserve v555 exclusively under the historical v5.5.5 key in future generated activation mappings; the current and prospective v7.1 mappings are asserted here, and no out-of-scope mapping is changed."
+evidence = "The private /out/run/gates.jsonl hf-done row and final task evidence record the immutable verified candidate revision, exact command, exit code and log path; /tmp/repair-m1262.log holds the focused Go test transcript."
+gotcha = "The scoped graph excludes most source packages, so cg files/grep can return no hits for existing dependencies; use direct read-only source inspection after graph discovery. Task-specific gate ordering takes precedence over the contradictory baseline-run step."
+continuation_gotcha = "The fresh attempt has no /out/run/gates.jsonl until its first gate; previous-attempt evidence remains in this record and the task ruling. The keepers bundle is declared in precompiles/utils/expected_keepers.go, not keepers.go."
+boundary_repair = "The first continuation verify found that v5.6.2 has no Precompile type: its constructor returns common/legacy/v562.DynamicGasPrecompile. The boundary assertion now uses that declared wrapper and additionally requires the exact instance registered under each selected version; all state-diff and live-refusal assertions remain intact."
+fixture_repair = "Construct the real account, bank, staking, distribution, upgrade and EVM keepers directly on a fresh MemDB; create the validator through the production staking message server and distribution hooks. The committed EmptyKeepers bundle supplies unused domains only; the two constructor getters used here return the real distribution and EVM keepers. Fund distribution by minting through the authorized EVM module and transferring, because distribution has no minter permission. All original assertions remain intact."
+
+[qualification.1]
+revision = "2031f9f9aba283642e5008e884b00486bdded767"
+command = "cg spec done 22.33.1262 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; /out/logs/repair-m1262-verify-1.log"
+observed = "The application fixture transitively compiled auth, staking and tokenfactory CLI consumers that still expect one result from tx.NewFactoryCLI, which now returns two; no task test executed."
+assumption = "These existing out-of-scope consumers remain untouched; directly wiring production keepers removes the unnecessary application dependency from this focused proof."

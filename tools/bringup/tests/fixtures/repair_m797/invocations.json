@@ -1,0 +1,19 @@
+[
+  {
+    "argv": [
+      "git",
+      "-C",
+      "/work/paxeer-monorepo",
+      "ls-tree",
+      "-r",
+      "--full-tree",
+      "-z",
+      "76bd4ca9414014055f61431cd0c7be0dc9ac5fe2",
+      "--",
+      "tools/bringup/runtime-bundle.json"
+    ],
+    "exit_code": 0,
+    "stdout_sha256": "7a38721e76c9b51f0142960eeca74b46fd5efc609a93f71ab6d92f85beb6329d",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+]

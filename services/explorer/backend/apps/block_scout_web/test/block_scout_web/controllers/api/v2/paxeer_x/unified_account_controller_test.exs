@@ -1,8 +1,13 @@
+Code.require_file("repair_evidence.exs", __DIR__)
+
 defmodule BlockScoutWeb.API.V2.PaxeerX.UnifiedAccountControllerTest do
   use BlockScoutWeb.ConnCase
 
   alias Explorer.Chain.Address
-  alias Explorer.Chain.PaxeerX.{AccountBinding, UnifiedAccount}
+  alias Explorer.Chain.PaxeerX.{AccountBinding, Identity, UnifiedAccount}
+  alias Explorer.Chain.Import
+  alias Indexer.Transform.PaxeerXLogs
+  alias BlockScoutWeb.API.V2.PaxeerX.Repair2233416Evidence, as: Evidence
   alias Explorer.Repo
 
   @pax_address "pax1005qwm6w5jj26zq8tsjs3eyp6my5d5fthrlqk3"
@@ -33,14 +38,19 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.UnifiedAccountControllerTest do
     end
 
     test "answers with the native identities and three PAX of a bound account", %{conn: conn} do
-      address = insert(:address, fetched_coin_balance: 3_000_000_000_000_000_000)
-      insert_binding(address, did: "did:lx:a")
+      {:ok, pax_bytes} = Identity.pax_address_bytes(@pax_address)
+      address = insert(:address, hash: pax_bytes, fetched_coin_balance: 3_000_000_000_000_000_000)
+      binding = insert_binding(address)
+      assert binding.layerx_did == did()
+      assert Identity.kernel_account(Identity.key(binding.layerx_did)) == kernel_account()
+      assert binding.pax_address == nil
+      assert binding.layerx_account == nil
       response = json_response(get(conn, path(address)), 200)
 
       assert response["identities"] == %{
                "evm" => Address.checksum(address.hash),
                "pax" => @pax_address,
-               "did" => "did:lx:a"
+               "did" => did()
              }
 
       assert response["balances"] == [
@@ -387,23 +397,124 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.UnifiedAccountControllerTest do
     block = Keyword.get_lazy(options, :block, fn -> insert(:block, number: 10) end)
     transaction = Keyword.get_lazy(options, :transaction, fn -> :transaction |> insert() |> with_block(block) end)
 
-    attributes = %{
+    bound = Keyword.get(options, :bound, true)
+    log_index = Keyword.get(options, :log_index, 0)
+
+    [event] =
+      Evidence.abi()
+      |> ABI.parse_specification(include_events?: true)
+      |> Enum.filter(&(&1.function == if(bound, do: "LayerXBound", else: "LayerXUnbound")))
+
+    assert event.types == [:address, {:bytes, 32}, {:uint, 64}]
+
+    log = %{
       transaction_hash: transaction.hash,
-      log_index: Keyword.get(options, :log_index, 0),
+      index: log_index,
       block_hash: block.hash,
       block_number: block.number,
-      block_consensus: true,
-      evm_address_hash: to_string(address.hash),
-      pax_address: @pax_address,
-      layerx_did: Keyword.get(options, :did, did()),
-      layerx_account: kernel_account(),
-      bound: Keyword.get(options, :bound, true),
-      nonce: 1
+      address_hash: Evidence.addr(),
+      first_topic:
+        Evidence.hex(
+          ExKeccak.hash_256(
+            if(bound, do: "LayerXBound(address,bytes32,uint64)", else: "LayerXUnbound(address,bytes32,uint64)")
+          )
+        ),
+      second_topic: Evidence.hex(ABI.TypeEncoder.encode([address.hash.bytes], [:address])),
+      third_topic: "0x" <> @kernel_key,
+      fourth_topic: nil,
+      data: Evidence.hex(ABI.TypeEncoder.encode([log_index], [{:uint, 64}]))
     }
 
-    %AccountBinding{}
-    |> AccountBinding.changeset(attributes)
-    |> Repo.insert!()
+    assert %{lx_account_bindings: [row], undecoded_log_count: 0} = PaxeerXLogs.parse([log])
+    assert row.layerx_did == did()
+    assert row.parameters["evm"] == to_string(address.hash)
+    assert row.parameters["didPublicKey"] == "0x" <> @kernel_key
+    assert row.parameters["nonce"] == log_index
+
+    assert {:ok, %{insert_paxeer_x_account_bindings: [binding]}} =
+             Import.all(%{paxeer_x_account_bindings: %{params: [row]}})
+
+    binding
+  end
+
+  def prove_identity_restart_and_unbind(conn) do
+    {:ok, pax_bytes} = Identity.pax_address_bytes(@pax_address)
+    address = insert(:address, hash: pax_bytes, fetched_coin_balance: 3_000_000_000_000_000_000)
+    binding = insert_binding(address)
+    assert binding.event_name == "LayerXBound"
+    assert Identity.pax_address(binding.evm_address_hash) == @pax_address
+    assert Identity.did(Identity.key(binding.layerx_did)) == did()
+    assert Identity.kernel_account(Identity.key(binding.layerx_did)) == kernel_account()
+
+    for number <- 11..61 do
+      block = insert(:block, number: number)
+      :transaction |> insert(from_address: address) |> with_block(block)
+    end
+
+    first = json_response(get(conn, path(address)), 200)
+    expected = %{"evm" => Address.checksum(address.hash), "pax" => @pax_address, "did" => did()}
+    assert first["identities"] == expected
+    assert [%{"total" => "3000000000000000000", "asset" => %{"id" => "native"}}] = first["balances"]
+    assert length(first["activity"]) == 50
+    assert first["next_page_params"] != nil
+    second = json_response(get(conn, path(address), first["next_page_params"]), 200)
+    assert [%{"block_number" => 11}] = second["activity"]
+    assert second["next_page_params"] == nil
+    Evidence.restart_endpoint()
+
+    assert Repo.get_by!(AccountBinding, transaction_hash: binding.transaction_hash, log_index: binding.log_index) ==
+             binding
+
+    for spelling <- [to_string(address.hash), @pax_address, did(), kernel_account(), @kernel_key] do
+      reopened = json_response(get(conn, "/api/v2/addresses/#{spelling}/unified"), 200)
+      assert reopened["identities"] == expected
+      assert reopened["activity"] == first["activity"]
+    end
+
+    resumed = json_response(get(conn, path(address), first["next_page_params"]), 200)
+    replayed = json_response(get(conn, path(address), %{"cursor" => first["page_cursor"]}), 200)
+    assert_same_page(resumed, second)
+    assert_same_page(replayed, first)
+    unbound_block = insert(:block, number: 62)
+    unbound = insert_binding(address, block: unbound_block, log_index: 1, bound: false)
+    assert unbound.event_name == "LayerXUnbound"
+    assert unbound.parameters["didPublicKey"] == binding.parameters["didPublicKey"]
+    assert unbound.parameters["evm"] == binding.parameters["evm"]
+    assert json_response(get(conn, path(address), first["next_page_params"]), 422) == refusal()
+    Evidence.restart_endpoint()
+    assert json_response(get(conn, path(address), first["next_page_params"]), 422) == refusal()
+    response = json_response(get(conn, path(address)), 200)
+    assert response["identities"] == %{"evm" => Address.checksum(address.hash), "pax" => nil, "did" => nil}
+    assert response["balances"] == first["balances"]
+    assert response["activity"] == first["activity"]
+
+    for spelling <- [@pax_address, did(), kernel_account(), @kernel_key] do
+      assert %{"message" => "Not found"} = json_response(get(conn, "/api/v2/addresses/#{spelling}/unified"), 404)
+    end
+  end
+
+  defp assert_same_page(actual, expected) do
+    cursor_fields = ~w(page_cursor first_page_cursor next_page_params)
+    assert Map.drop(actual, cursor_fields) == Map.drop(expected, cursor_fields)
+
+    for field <- ~w(page_cursor first_page_cursor) do
+      assert {:ok, original_state} = Phoenix.Token.verify(@endpoint, @cursor_salt, expected[field], max_age: 3600)
+      assert {:ok, recovered_state} = Phoenix.Token.verify(@endpoint, @cursor_salt, actual[field], max_age: 3600)
+      assert recovered_state == original_state
+    end
+
+    case expected["next_page_params"] do
+      nil ->
+        assert actual["next_page_params"] == nil
+
+      %{"cursor" => original} ->
+        assert {:ok, original_state} = Phoenix.Token.verify(@endpoint, @cursor_salt, original, max_age: 3600)
+
+        assert {:ok, recovered_state} =
+                 Phoenix.Token.verify(@endpoint, @cursor_salt, actual["next_page_params"]["cursor"], max_age: 3600)
+
+        assert recovered_state == original_state
+    end
   end
 
   defp insert_custody_event(block, transaction, fields) do

@@ -2,6 +2,7 @@ package layerxauth_test
 
 import (
 	"bytes"
+	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/binary"
 	"io"
@@ -227,58 +228,14 @@ func nativeSessionReceiptResult(t *testing.T, host *lxphost.Host) (int32, uint64
 func TestAuthPrecompileKernelParity(t *testing.T) {
 	for _, name := range []string{"authentication", "fee", "legacy", "replacement"} {
 		t.Run(name, func(t *testing.T) {
+			if name == "replacement" {
+				repairM1503SuccessorParity(t)
+				return
+			}
 			f := readNativeSessionFixture(t, name)
 			grantID, err := codec.DomainHash(codec.DomainAuthorityHash, f.body)
 			require.NoError(t, err)
-			h, host, actor := nativeSessionHost(t, f)
-			if f.successor != nil {
-				prior := readNativeSessionFixture(t, "fee")
-				priorID, err := codec.DomainHash(codec.DomainAuthorityHash, prior.body)
-				require.NoError(t, err)
-				require.Equal(t, f.successor.PredecessorID, priorID)
-				prior.activity.Signature = nil
-				prior.activity.FeeLimit = [16]byte{}
-				prior.activity.AccountSequence, err = host.ReadIdentitySequence(h.ctx, actor.DID)
-				require.NoError(t, err)
-				issued, err := host.Execute(lxphost.WithSequence(h.ctx, prior.receipt.GlobalSequence), prior.activity, actor.Authority)
-				require.NoError(t, err)
-				require.Equal(t, lxphost.Code(0), issued.ResultCode)
-				const predecessorCharge = uint64(65840)
-				counters := append([]byte(nil), priorID[:]...)
-				for i := 0; i < 2; i++ {
-					counters = binary.BigEndian.AppendUint64(counters, 0)
-					counters = binary.BigEndian.AppendUint64(counters, predecessorCharge)
-				}
-				counters = append(counters, prior.body[len(prior.body)-8:]...)
-				require.Len(t, counters, 72)
-				h.ctx.KVStore(h.hostKey).Set(append([]byte{1, 0, 7, 8}, priorID[:]...), counters)
-				var revokedAt uint64
-				for _, effect := range f.receipt.Effects {
-					if effect.ModuleID == 7 && effect.Kind == 3 && effect.EventType == 0x7145 {
-						require.Len(t, effect.Body, 209)
-						revokedAt = binary.BigEndian.Uint64(effect.Body[201:209])
-					}
-				}
-				require.Greater(t, revokedAt, prior.receipt.GlobalSequence)
-				require.Less(t, revokedAt, f.receipt.GlobalSequence)
-				revoked, err := host.Execute(lxphost.WithSequence(h.ctx, revokedAt), lxphost.Activity{
-					ProtocolVersion: 3, Type: 0x00070006, ActorDID: actor.DID, AuthorityKey: actor.DIDKey,
-					AccountSequence: 2, NotBefore: f.activity.NotBefore, NotAfter: f.activity.NotBefore,
-					IdempotencyKey: [32]byte{2}, Payload: authtypes.EncodeRevokePayload(priorID, 1, revokedAt),
-				}, actor.Authority)
-				require.NoError(t, err)
-				require.Equal(t, lxphost.Code(0), revoked.ResultCode)
-				predecessor, err := host.ReadGrant(h.ctx, priorID)
-				require.NoError(t, err)
-				require.True(t, predecessor.Revoked)
-				require.Equal(t, revokedAt, predecessor.RevokedAtSequence)
-				require.Equal(t, sdk.NewIntFromUint64(predecessorCharge), predecessor.FeeBudget.SpentTotal)
-				require.Equal(t, predecessor.FeeBudget.SpentTotal, predecessor.FeeBudget.SpentThisPeriod)
-				commitment := append([]byte("LXP/session-fee-replacement/v1\x00"), priorID[:]...)
-				commitment = binary.BigEndian.AppendUint64(commitment, revokedAt)
-				commitment = append(commitment, counters...)
-				require.Equal(t, f.successor.ExpectedCommitment, sha256.Sum256(commitment))
-			}
+			h, host, _ := nativeSessionHost(t, f)
 			h.ctx.KVStore(h.hostKey).Set([]byte{2}, binary.BigEndian.AppendUint64(nil, f.receipt.GlobalSequence-1))
 			a := h.precompile.GetABI()
 			method := "grantSession"
@@ -304,4 +261,108 @@ func TestAuthPrecompileKernelParity(t *testing.T) {
 			require.NoError(t, callErr, "%s returned %x", method, output)
 		})
 	}
+}
+
+func repairM1503SuccessorParity(t *testing.T) {
+	t.Helper()
+	f := newGrantFixture(t)
+	payload, fee := repairM1503FeesAndProgram(t, f)
+	evm, db := f.evm()
+	predecessorBody := repairM1503Body(f, f.key, 41, fee)
+	predecessorID := grantCall(t, f, evm, "grantSession", predecessorBody, uint64(100), [32]byte{0x33})[0].([32]byte)
+	charged := repairM1503Charge(t, f, db.Ctx(), predecessorID, payload, fee)
+	require.Equal(t, sdk.NewIntFromUint64(fee), charged.FeeBudget.SpentTotal)
+	require.Equal(t, charged.FeeBudget.SpentTotal, charged.FeeBudget.SpentThisPeriod)
+	sequence, err := lxphost.NextSequence(db.Ctx(), f.hostKey)
+	require.NoError(t, err)
+	revoked, err := f.keeper.RevokeGrant(db.Ctx(), f.actor, predecessorID, 1, sequence, [32]byte{0x35})
+	require.NoError(t, err)
+	require.Zero(t, revoked.ResultCode)
+	predecessor, err := f.host.ReadGrant(db.Ctx(), predecessorID)
+	require.NoError(t, err)
+	require.True(t, predecessor.Revoked)
+	require.Equal(t, charged.FeeBudget, predecessor.FeeBudget)
+	require.Equal(t, revoked.GlobalSequence, predecessor.RevokedAtSequence)
+	commitment := repairM1503Commitment(predecessor)
+	repairM1503Reopen(t, f, db.Ctx())
+	persisted, err := f.host.ReadGrant(f.ctx, predecessorID)
+	require.NoError(t, err)
+	require.Equal(t, predecessor, persisted)
+	require.Equal(t, commitment, repairM1503Commitment(persisted))
+	var successorKey [32]byte
+	copy(successorKey[:], ed25519.NewKeyFromSeed(bytes.Repeat([]byte{75}, ed25519.SeedSize)).Public().(ed25519.PublicKey))
+	successorBody := repairM1503Body(f, successorKey, predecessor.RevokedAtSequence, fee)
+	successorID, err := codec.DomainHash(codec.DomainAuthorityHash, successorBody)
+	require.NoError(t, err)
+	action := [32]byte{0x34}
+	a := f.precompile.GetABI()
+	method := a.Methods["grantSessionSuccessor"]
+	packed, err := method.Inputs.Pack(successorBody, uint64(120), action, predecessorID, commitment)
+	require.NoError(t, err)
+	preimage := append([]byte("layerxauth/grants/v1"), f.actor.DIDKey[:]...)
+	preimage = append(preimage, method.ID...)
+	idempotency := sha256.Sum256(append(preimage, packed...))
+	nativePayload, err := authtypes.EncodeSessionPayload(successorBody, 120, action, &authtypes.SessionSuccessor{
+		PredecessorID: predecessorID, ExpectedCommitment: commitment})
+	require.NoError(t, err)
+	nativeCtx, _ := f.ctx.CacheContext()
+	activity := repairM1503Activity(t, f, nativeCtx, 0x00070005, nativePayload, 0, f.actor.DIDKey)
+	activity.IdempotencyKey = idempotency
+	sequence, err = lxphost.NextSequence(nativeCtx, f.hostKey)
+	require.NoError(t, err)
+	receipt, err := f.host.Execute(lxphost.WithSequence(nativeCtx, sequence), activity, f.actor.Authority)
+	require.NoError(t, err)
+	require.Zero(t, receipt.ResultCode)
+	require.Equal(t, sequence, receipt.GlobalSequence)
+	nativeGrant, err := f.host.ReadGrant(nativeCtx, successorID)
+	require.NoError(t, err)
+	nativeSummary, err := f.host.ReadSessionKey(nativeCtx, successorID)
+	require.NoError(t, err)
+	events, err := authkeeper.AuthEvents(receipt)
+	require.NoError(t, err)
+	require.Len(t, events, 5)
+	nativeState := hostSnapshot(t, nativeCtx, f.hostKey)
+	evm, db = f.evm()
+	result := grantCall(t, f, evm, "grantSessionSuccessor", successorBody, uint64(120), action, predecessorID, commitment)
+	require.Equal(t, []interface{}{successorID}, result)
+	code, globalSequence := nativeSessionReceiptResult(t, f.host)
+	require.Equal(t, int32(receipt.ResultCode), code)
+	require.Equal(t, receipt.GlobalSequence, globalSequence)
+	evmGrant, err := f.host.ReadGrant(db.Ctx(), successorID)
+	require.NoError(t, err)
+	require.Equal(t, nativeGrant, evmGrant)
+	require.False(t, evmGrant.Revoked)
+	require.Equal(t, predecessor.FeeBudget, evmGrant.FeeBudget)
+	require.Equal(t, nativeState, hostSnapshot(t, db.Ctx(), f.hostKey))
+	summary := grantCall(t, f, evm, "sessionKey", successorID)[0].([]byte)
+	require.Equal(t, nativeSummary, summary)
+	grantLogs(t, f, db, successorID, successorBody, "SessionGranted", summary)
+	logs := db.GetAllLogs()
+	require.Len(t, logs, len(events))
+	for i, event := range events {
+		var indexed common.Hash
+		var values []interface{}
+		switch event.Name {
+		case "SessionGranted":
+			indexed = common.Hash(event.GrantID)
+			values = []interface{}{event.Body}
+		case "GrantBody":
+			indexed = common.Hash(event.GrantID)
+			values = []interface{}{event.Sub, event.Chunk, event.Body}
+		case "IdentityStateUpdated":
+			indexed = common.Hash(event.DIDID)
+			values = []interface{}{event.Body}
+		default:
+			t.Fatalf("unexpected receipt event %s", event.Name)
+		}
+		require.Equal(t, []common.Hash{a.Events[event.Name].ID, indexed}, logs[i].Topics)
+		encoded, err := a.Events[event.Name].Inputs.NonIndexed().Pack(values...)
+		require.NoError(t, err)
+		require.Equal(t, encoded, logs[i].Data)
+	}
+	repairM1503Reopen(t, f, db.Ctx())
+	recovered, err := f.host.ReadGrant(f.ctx, successorID)
+	require.NoError(t, err)
+	require.Equal(t, nativeGrant, recovered)
+	repairM1503AssertExhausted(t, f, successorID, fee, false)
 }

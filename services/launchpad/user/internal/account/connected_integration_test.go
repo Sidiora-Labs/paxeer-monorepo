@@ -235,7 +235,7 @@ func TestConnectedEncryptedExportWorkerAndSingleUseDownload(t *testing.T) {
 			t.Error(e)
 		}
 	})
-	sealed, _, e := objects.GetBytes(ctx, metadata.EncryptedObject)
+	sealed, _, e := objects.GetBytes(ctx, metadata.EncryptedObject, maxSealedExportBytes)
 	must(t, e)
 	if bytes.Contains(sealed, []byte(`"preferences"`)) {
 		t.Fatal("plaintext snapshot stored")
@@ -257,7 +257,7 @@ func TestConnectedEncryptedExportWorkerAndSingleUseDownload(t *testing.T) {
 	}
 	now = now.Add(25 * time.Hour)
 	must(t, worker.PurgeExpiredExports(ctx, 100))
-	if _, _, e = objects.GetBytes(ctx, metadata.EncryptedObject); !errors.Is(e, storage.ErrNotFound) {
+	if _, _, e = objects.GetBytes(ctx, metadata.EncryptedObject, maxSealedExportBytes); !errors.Is(e, storage.ErrNotFound) {
 		t.Fatal("retained encrypted object", e)
 	}
 }
@@ -740,7 +740,7 @@ func TestConnectedPhase3DeletionRetryAndImmutableBoundary(t *testing.T) {
 	if state != "failed" || !seen["user"] || !seen["sessions"] || !seen["images"] || seen["notifications"] {
 		t.Fatal("partial owner acknowledgments were not durable", state)
 	}
-	if _, _, e = objects.GetBytes(ctx, imageKey); !errors.Is(e, storage.ErrNotFound) {
+	if _, _, e = objects.GetBytes(ctx, imageKey, int64(len(image))); !errors.Is(e, storage.ErrNotFound) {
 		t.Fatal("image survives acknowledged image owner", e)
 	}
 	if e = worker.RunOnce(ctx); e == nil {

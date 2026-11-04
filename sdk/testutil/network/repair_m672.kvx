@@ -1,0 +1,46 @@
+[task]
+id = "22.33.672"
+base = "5f6b5f0aad35a415da93671f70183d5e5688bda0"
+baseline = "Not executed: the explicit gate order prohibits verification before implementation; no earlier hf-build/hf-done ledger exists. Baseline code inspection confirms the three recorded defects, including the norace constructor arity error."
+evidence = "The runner's hf-build/hf-done ledger records the exact qualified candidate revision, command, exit code and private log location."
+
+[finding.network-app-config]
+test = "TestRepairM_672_AppConfigRestart"
+repair = "Construct the real uninitialized application with Validator.Dir, persistent application metadata, AppConfig startup/storage options and the supplied encoding; close application resources after consensus shutdown. Prove committed custom balances, distribution parameters, configured directories, gas prices and encoding survive close/reopen."
+
+[finding.network-test-config]
+test = "TestRepairM_672_DefaultConfigLiveness"
+repair = "Pass s.T() to DefaultConfig in the norace suite and retain its height-10 assertion; the focused gate also starts a real default network and asserts height 10."
+
+[finding.network-genesis]
+test = "TestRepairM_672_SharedGenesis"
+repair = "Generate the full validator list once, derive power from BondedTokens, persist the canonical genesis for all nodes and consume it without per-node replacement. Prove three-validator progress, identical disk and RPC genesis hashes, and identical committed blocks with the shared validator hash."
+
+[wiring]
+request = "sdk/storev2/rootmulti/store.go (cosmos-fork/storage): SetPruning currently ignores its argument; the network now passes validated AppConfig pruning options, while implementation of storage pruning remains owned by that domain."
+
+[qualification.first]
+revision = "a882000adad35fe68d904ea6b779fa068ab4bc31"
+command = "cg spec done 22.33.672 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Default liveness passed and three-validator consensus progressed; tests incorrectly expected noncanonical gas-price text and decoded consensus JSON with encoding/json."
+repair = "Derive the expected exact gas-price string from AppConfig.GetMinGasPrices and decode RPC genesis with GenesisDocFromJSON; retain all state, hash, height and equality assertions."
+
+[continuation]
+previous_revision = "8df671194ee39a06ba4e3729053637afa40c7b32"
+previous_result = "The supplied attempt-1 evidence reports AppConfigRestart and DefaultConfigLiveness passing and SharedGenesis failing; the raw prior verification log is not present in this sandbox."
+repair = "Decode RPC-produced genesis with the consensus JSON codec that encodes it, including quoted ABCI parameter integers; initialize real genesis chunks for local clients on validators whose HTTP RPC service is disabled. Preserve every existing assertion and bound."
+baseline = "Continue the supplied implementation without rerunning its recorded failure; qualification follows the explicit implementation, format, hf-build, hf-done order."
+
+[gotcha.rpc-genesis]
+observed = "RPC genesis chunks use consensus JSON, whose quoted ABCI integer fields differ from disk genesis JSON; nodes without an HTTP RPC listener do not initialize chunks on startup."
+resolution = "Use consensus/libs/json.Unmarshal for the real RPC output and explicitly initialize the local RPC environment's chunks before querying each validator."
+
+[continuation.main]
+base = "4b4896072f927b28618921285b3e3ae758bc467e"
+previous_revision = "440b5dd664a07674c47078d4365ebd563b575518"
+previous_result = "Attempt 2 could not compile because auth, staking and tokenfactory CLI callers still used the former single-value tx.NewFactoryCLI interface; no TestRepairM_672_ test result was obtained in that attempt."
+repair = "Task 22.31.463 repaired those callers on main; preserve the supplied network implementation and tests and qualify them on this base."
+baseline = "No extra baseline verification: the supplied prior failure is retained, and the explicit gate order permits only hf-build followed by hf-done after implementation."
+evidence = "The final hf-build/hf-done ledger supplies the exact current candidate revision, command, exit code and private log location without changing the candidate between gates."

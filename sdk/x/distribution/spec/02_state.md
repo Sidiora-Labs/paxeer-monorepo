@@ -24,7 +24,14 @@ produced by `address.MustLengthPrefix`; keys do not contain Bech32 strings.
 | `0x08 \| L(V) \| heightBE \| periodBE` | Protobuf `ValidatorSlashEvent` |
 
 `periodLE` is an eight-byte little-endian `uint64`. `heightBE` and `periodBE`
-are eight-byte big-endian `uint64` values. Slash-event keys include both height
+are eight-byte big-endian `uint64` values. Address widths are encoded, not
+hard-coded to 20 bytes: for a 32-byte validator address, `L(V)` starts with
+`0x20`; a 20-byte delegator's `L(D)` starts with `0x14`.
+For example, historical period `0x0102030405060708` has the suffix
+`08 07 06 05 04 03 02 01`. The same period in a slash-event key has suffix
+`01 02 03 04 05 06 07 08`, after its big-endian height.
+
+Slash-event keys include both height
 and period; their ordering supports height-range iteration and multiple events
 at one height. Distribution parameters are managed separately through the
 parameter subspace; they are not fields of `FeePool`.
@@ -96,7 +103,11 @@ parameters, withdrawal addresses, previous proposer, outstanding rewards,
 commissions, historical and current rewards, delegation starting information,
 and slash events. Genesis address strings are decoded before constructing
 store keys. Export retains the periods, reference counts and slash heights
-needed to resume reward calculations.
+needed to resume reward calculations. `ValidatorSlashEventRecord.Height` and
+`Period` rebuild the slash key on import; export obtains the height from the
+key and the period from `ValidatorSlashEvent.ValidatorPeriod`. Those two period
+values must agree. Export/import preserves raw address lengths through the
+Bech32 address strings as well as the protobuf reward records.
 
 Initialization checks that the distribution module account exists and that
 its bank balance equals the truncated sum of outstanding rewards and the

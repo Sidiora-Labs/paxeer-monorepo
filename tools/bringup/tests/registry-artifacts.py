@@ -208,6 +208,113 @@ if(n<=0||n>65536)throw Error('inode bound');console.log('inode-refused '+n)}fina
         self.assertTrue(any(value > 1048576 for value in written), 'no actual I/O ceiling observed')
         (self.fixture / 'quota/slot-0/io-limit').unlink()
 
+    def test_98_created_resource_before_id_publication(self):
+        # Forward to the actual local Docker engine. Hold its successful create
+        # response so the real owner cannot publish the returned identifier.
+        import http.client
+        import signal
+        import socket
+        import socketserver
+        import threading
+        from http.server import BaseHTTPRequestHandler
+
+        fixture = self.evidence / 'create-window'
+        artifacts.prepare(MANIFEST, fixture)
+        created, release = threading.Event(), threading.Event()
+        observed = {}
+        engine = os.environ.get('BRINGUP_DOCKER_SOCKET', '/var/run/docker.sock')
+        proxy_socket = str(self.evidence / 'docker-create.sock')
+
+        class Connection(http.client.HTTPConnection):
+            def connect(self):
+                self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                self.sock.settimeout(30)
+                self.sock.connect(engine)
+
+        class Forward(BaseHTTPRequestHandler):
+            def do_POST(self):
+                connection = Connection('local-docker', timeout=30)
+                try:
+                    body = self.rfile.read(int(self.headers.get('Content-Length', '0')))
+                    connection.request('POST', self.path, body, {'Content-Type': 'application/json'})
+                    response = connection.getresponse()
+                    raw = response.read()
+                    if '/containers/create?' in self.path and response.status == 201:
+                        observed['id'] = json.loads(raw)['Id']
+                        created.set()
+                        if not release.wait(30):
+                            raise RuntimeError('create-window owner was not interrupted')
+                    self.send_response(response.status)
+                    self.send_header('Content-Type', 'application/json')
+                    self.send_header('Content-Length', str(len(raw)))
+                    self.end_headers()
+                    self.wfile.write(raw)
+                except BrokenPipeError:
+                    pass  # The owner was killed after the engine created its object.
+                finally:
+                    connection.close()
+
+            def log_message(self, *_):
+                pass
+
+        class Server(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
+            daemon_threads = True
+
+        server = Server(proxy_socket, Forward)
+        os.chmod(proxy_socket, 0o600)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        code = ("import importlib.util,sys; "
+                "s=importlib.util.spec_from_file_location('producer',sys.argv[1]); "
+                "m=importlib.util.module_from_spec(s);s.loader.exec_module(m); "
+                "m.run_job(sys.argv[2],['/bin/sleep','60'],wall=60000,cpu=10000000)")
+        environment = dict(os.environ, BRINGUP_DOCKER_SOCKET=proxy_socket)
+        process = None
+        try:
+            with (self.evidence / 'create-window.log').open('w') as log:
+                process = subprocess.Popen([sys.executable, '-c', code, str(PRODUCER), str(fixture)],
+                                           stdout=log, stderr=subprocess.STDOUT, env=environment,
+                                           start_new_session=True)
+                self.assertTrue(created.wait(20), 'actual Docker resource was not created')
+                state = artifacts.load_state(fixture)
+                record = state['containers'][-1]
+                self.assertEqual(record['phase'], 'planned')
+                self.assertIsNone(record['id'], 'identifier was published before interruption')
+                actual = json.loads(artifacts.run(['docker', 'inspect', observed['id']]).stdout)[0]
+                self.assertEqual(actual['Name'], '/' + record['name'])
+                self.assertEqual(actual['Config']['Labels']['network.paxeer.bringup.lifecycle'], state['id'])
+                self.assertEqual(actual['Config']['Labels']['network.paxeer.bringup.owner-uid'], str(os.getuid()))
+                self.assertEqual(actual['State']['Pid'], 0, 'container ran before ID publication')
+                self.assertIsNone(record['cgroup'], 'unstarted container acquired a workload cgroup')
+                os.killpg(process.pid, signal.SIGKILL)
+                process.wait(timeout=10)
+                release.set()
+                result = subprocess.run([sys.executable, str(PRODUCER), 'cleanup', '--directory', str(fixture)],
+                                        capture_output=True, text=True, timeout=30)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                recovered = json.loads(result.stdout)
+                self.assertEqual(recovered['phase'], 'cleaned')
+                self.assertTrue(all(recovered['cleanup'][name] for name in
+                                    ('containers_absent', 'cgroups_absent', 'mount_absent', 'loop_absent')))
+                self.assertEqual(recovered['containers'][-1]['id'], observed['id'])
+                for reference in (observed['id'], record['name']):
+                    refused = artifacts.run(['docker', 'inspect', reference], check=False)
+                    self.assertNotEqual(refused.returncode, 0, 'owned resource remains')
+                    self.assertIn('No such', refused.stderr)
+                self.assertFalse(artifacts.run(['losetup', '-j', fixture / 'quota/slot-0.ext4']).stdout.strip())
+                self.assertNotEqual(artifacts.run(['mountpoint', '-q', fixture / 'quota/slot-0'], check=False).returncode, 0)
+        finally:
+            if process is not None and process.poll() is None:
+                os.killpg(process.pid, signal.SIGKILL)
+                process.wait(timeout=10)
+            release.set()
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
+            Path(proxy_socket).unlink(missing_ok=True)
+            if artifacts.load_state(fixture)['phase'] != 'cleaned':
+                artifacts.cleanup(fixture)
+
     def test_99_interrupted_owner_reconciles_and_cleans(self):
         code = ("import importlib.util,sys; "
                 "s=importlib.util.spec_from_file_location('producer',sys.argv[1]); "
@@ -246,4 +353,4 @@ if __name__ == '__main__':
     suite = unittest.defaultTestLoader.loadTestsFromTestCase(RegistryArtifacts)
     result = unittest.TextTestRunner(verbosity=2, failfast=True).run(suite)
     print(f'PAXEER_X_GATE tests={result.testsRun} skipped={len(result.skipped)}', flush=True)
-    sys.exit(0 if result.wasSuccessful() and result.testsRun == 22 and not result.skipped else 1)
+    sys.exit(0 if result.wasSuccessful() and result.testsRun == 23 and not result.skipped else 1)

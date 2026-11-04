@@ -35,7 +35,8 @@ Governance recovery uses a `ClientUpdateProposal` with `SubjectClientId` and
 [the client proposal keeper](../02-client/keeper/proposal.go):
 
 - Both clients must exist and neither may be the localhost client.
-- The subject must not be active; the substitute must be active.
+- The subject must not be active (for Tendermint, frozen or expired); the
+  substitute must be active.
 - The substitute's latest height must be strictly greater than the subject's.
 - The subject's `CheckSubstituteAndUpdateState` implementation must accept the
   substitute and update the required state successfully.
@@ -49,6 +50,26 @@ and its processed-height/time metadata, and adopts the substitute's latest
 height, chain ID and trusting period. It retains the subject client identifier,
 so existing connections continue to refer to that client. Recovery does not
 consist of overriding a header and does not reopen closed channels.
+
+Submit the proposal using the current [client-update proposal CLI](../02-client/client/cli/tx.go),
+registered under governance's `submit-proposal` command:
+
+```sh
+paxd tx gov submit-proposal update-client 07-tendermint-0 07-tendermint-1 \
+  --title "Recover IBC client" \
+  --description "Recover the subject from a compatible active substitute" \
+  --deposit "$DEPOSIT" --from "$PROPOSER" --chain-id "$CHAIN_ID"
+```
+
+The first ID is the existing subject to recover; the second is the substitute
+whose state will be copied. Set the deposit, proposer and chain ID for the chain
+hosting these clients. Submitting a proposal does not itself recover the client:
+the checks above run when governance executes the approved proposal through the
+[client proposal handler](../02-client/proposal_handler.go). The deprecated
+allow-update flags do not bypass these checks. See
+[`TestRepairM_1225_GovernanceRecovery`](../repair_m1225_test.go) for CLI-generated
+proposal encoding, rejected prerequisites, and frozen/expired subject recovery
+through that handler with consensus-state metadata preserved.
 
 ## Connection Handshake
 
@@ -205,6 +226,14 @@ zero for a valid packet. A deadline is reached at equality; both enabled
 bounds do not have to be reached. Local sender wall-clock time alone is not a
 counterparty timeout proof.
 
+The receiver's [RecvPacket checks](../04-channel/keeper/packet.go) likewise reject
+a packet when either enabled local deadline is reached. The
+[packet validation](../04-channel/types/packet.go) rejects packets with both
+deadlines disabled. Representative keeper tests are
+[`TestRepairM_1225_TimeoutDeadlines`](../repair_m1225_test.go) and
+[`TestTimeoutPacket`](../04-channel/keeper/timeout_test.go): they cover independent
+deadlines, disabled fields, equality and non-receipt proofs.
+
 For unordered channels, non-receipt is proven by absence of the packet receipt.
 For ordered channels, the next receive sequence must prove that the packet's
 sequence has not been received. After successful application timeout handling,
@@ -215,6 +244,9 @@ channel if it is ordered. The transfer callback refunds the sender.
 and that the individual packet was not received. It does not require a packet
 deadline to have elapsed. A closed channel does not automatically refund all
 tokens or erase outstanding obligations; relayers must submit the applicable
-proofs and execute the packet callbacks. See the transfer application's
+proofs and execute the packet callbacks. The
+[`TimeoutOnClose` keeper checks](../04-channel/keeper/timeout.go) and
+[`TestRepairM_1225_TimeoutOnClose`](../repair_m1225_test.go) demonstrate closure
+and non-receipt verification before either deadline. See the transfer application's
 [locked-funds discussion](../../apps/transfer/spec/01_concepts.md#locked-funds)
 for the effect of channel closure on voucher redemption.

@@ -132,6 +132,8 @@ pub const ResumeHistory: Operation = Operation(0x0703);
 pub const ApproveAdmission: Operation = Operation(0x0801);
 pub const RevokeAdmissionApproval: Operation = Operation(0x0802);
 pub const AdmitWorker: Operation = Operation(0x0803);
+/// Successful consent binds the evaluator replay slot and records this request. Subsequent
+/// evidence, commit and reveal calls must use the next sequence from committed replay.
 pub const AdmitEvaluator: Operation = Operation(0x0804);
 pub const Heartbeat: Operation = Operation(0x0805);
 pub const RequestExit: Operation = Operation(0x0806);

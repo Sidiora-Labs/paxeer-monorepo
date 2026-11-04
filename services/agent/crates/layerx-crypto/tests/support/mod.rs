@@ -1,18 +1,102 @@
 #![allow(dead_code)]
 
-use ed25519_dalek::{Signer as _, SigningKey};
-use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
-use layerx_wire::encode::Encoder;
-use layerx_wire::hash::Domain;
-use sha2::{Digest as _, Sha256};
+pub mod kernel_payloads;
 
-const NETWORK_ID: u32 = 17;
-const PROTOCOL_VERSION: u16 = layerx_wire::limits::PROTOCOL_VERSION;
-const SEQUENCE: u64 = 7;
-const NOT_BEFORE: u64 = 10;
-const EXPIRES_AT: u64 = 100;
-const FEE_LIMIT: u128 = 20;
-const IDEMPOTENCY_KEY: [u8; 32] = [0x71; 32];
+// Compile the maintained producer directly: this task cannot change the dev-dependency manifest.
+#[path = "../../../layerx-client/src/paxeer_binding.rs"]
+pub mod paxeer_binding;
+
+use layerx_crypto::account_derivation::derive_from_seed;
+use layerx_crypto::send::{ledger_payment_call, CallOptions, DisclosedCall};
+use layerx_crypto::signer::LocalSigner;
+use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
+
+pub const CHAIN_ID: u64 = 125;
+pub const NETWORK_ID: u32 = 17;
+pub const PROTOCOL_VERSION: u16 = layerx_wire::limits::PROTOCOL_VERSION;
+pub const SEQUENCE: u64 = 7;
+pub const NOT_BEFORE: u64 = 10;
+pub const EXPIRES_AT: u64 = 100;
+pub const IDEMPOTENCY_KEY: [u8; 32] = [0x71; 32];
+
+pub fn signer() -> LocalSigner {
+    let account = derive_from_seed(&[0x07; 64], 0).expect("fixture account");
+    LocalSigner::from_derived_account(&account)
+}
+
+pub fn call_options(nonce: u64) -> CallOptions {
+    let account = derive_from_seed(&[0x07; 64], 0).expect("fixture account");
+    CallOptions {
+        from: account.evm_address(),
+        chain_id: CHAIN_ID,
+        nonce,
+        max_priority_fee_per_gas: 2,
+        max_fee_per_gas: 30,
+        gas_limit: 100_000,
+    }
+}
+
+pub fn send_call(amount: u128, nonce: u64) -> DisclosedCall {
+    let (payload, _) = kernel_payloads::send(amount);
+    ledger_payment_call(&payload, &call_options(nonce)).expect("ledger send call")
+}
+
+pub fn scoped_binding(
+    chain_id: u64,
+    address: [u8; 20],
+    nonce: u64,
+) -> paxeer_binding::SignedBinding {
+    paxeer_binding::Binding::new(chain_id, address, nonce).sign(&[0x61; 32])
+}
+
+pub fn canonical_send(amount: u128) -> Vec<u8> {
+    canonical_send_sequences(amount, SEQUENCE)
+}
+
+pub fn canonical_send_sequences(amount: u128, transaction_nonce: u64) -> Vec<u8> {
+    send_call(amount, transaction_nonce).call.encode_unsigned()
+}
+
+pub fn canonical_send_with_payload(
+    payload: &[u8],
+    authority: &[u8],
+    transaction_nonce: u64,
+) -> Vec<u8> {
+    assert_eq!(authority.len(), 32, "kernel authorization key width");
+    let key_start = payload
+        .len()
+        .checked_sub(134)
+        .expect("complete kernel send payload");
+    assert_eq!(
+        &payload[key_start..key_start + 32],
+        authority,
+        "kernel authorization key"
+    );
+    ledger_payment_call(payload, &call_options(transaction_nonce))
+        .expect("validated ledger send payload")
+        .call
+        .encode_unsigned()
+}
+
+#[deprecated(
+    note = "raw kernel payload only; migrate the consumer away from bridge activity ingress"
+)]
+pub fn canonical_bridge_withdraw(amount: u128) -> Vec<u8> {
+    kernel_payloads::bridge_withdraw(amount)
+}
+
+#[deprecated(
+    note = "raw kernel payload only; migrate the consumer away from bridge activity ingress"
+)]
+pub fn canonical_bridge_credit(amount: u128) -> Vec<u8> {
+    kernel_payloads::bridge_credit(amount)
+}
+
+#[deprecated(note = "raw kernel payload only; native withdrawal activity ingress is retired")]
+pub fn canonical_native_withdraw(payload: &[u8], activity_type: u32) -> Vec<u8> {
+    assert_eq!(activity_type >> 16, ModuleId::Asset as u32);
+    payload.to_vec()
+}
 
 pub fn registry() -> ModuleRegistry {
     let Ok(send) = ActivityType::new(ModuleId::Asset, 5) else {
@@ -53,241 +137,124 @@ pub fn bridge_withdraw_registry() -> ModuleRegistry {
     registry
 }
 
-fn encode_send_common(encoder: &mut Encoder, amount: u128) {
-    assert!(encoder.fixed(&[0x11; 32]).is_ok());
-    assert!(encoder.fixed(&[0x22; 32]).is_ok());
-    assert!(encoder.fixed(&[0x33; 32]).is_ok());
-    assert!(encoder.u128(amount).is_ok());
-    assert!(encoder.u64(SEQUENCE).is_ok());
-    assert!(encoder.fixed(&IDEMPOTENCY_KEY).is_ok());
-    assert!(encoder.u64(EXPIRES_AT).is_ok());
-    assert!(encoder.fixed(&[0x44; 32]).is_ok());
-    assert!(encoder.u8(2).is_ok());
-    assert!(encoder.u8(1).is_ok());
-    assert!(encoder.u64(NOT_BEFORE).is_ok());
-    assert!(encoder.u8(2).is_ok());
-    assert!(encoder.u64(EXPIRES_AT).is_ok());
+// Archive fixtures have explicit names so the current transaction fixtures
+// remain unchanged for consumers migrated by other tasks.
+pub fn archived_send(amount: u128) -> Vec<u8> {
+    let (payload, key) = kernel_payloads::send(amount);
+    layerx_crypto::send::encode_send_envelope(
+        &payload,
+        &layerx_crypto::send::EnvelopeOptions {
+            actor: "did:layerx:alice",
+            public_key: key,
+            protocol_version: PROTOCOL_VERSION,
+            network_id: NETWORK_ID,
+            identity_sequence: SEQUENCE,
+            idempotency_key: IDEMPOTENCY_KEY,
+            fee_limit: 20,
+            not_before: NOT_BEFORE,
+            not_after: EXPIRES_AT,
+        },
+    )
+    .expect("legacy producer compatibility")
+    .canonical
 }
 
-fn send_payload(amount: u128) -> (Vec<u8>, [u8; 32]) {
-    let signing_key = SigningKey::from_bytes(&[0x53; 32]);
-    let public_key = signing_key.verifying_key().to_bytes();
-
-    let mut authorization = Encoder::new(512);
-    assert!(authorization.u16(0x5301).is_ok());
-    encode_send_common(&mut authorization, amount);
-    assert!(authorization.u8(1).is_ok());
-    assert!(authorization.fixed(&[0x11; 32]).is_ok());
-    assert!(authorization.fixed(&[0x44; 32]).is_ok());
-    assert!(authorization.u32(NETWORK_ID).is_ok());
-    assert!(authorization.u16(PROTOCOL_VERSION).is_ok());
-    let authorization = authorization.finish();
-    let mut hasher = Sha256::new();
-    hasher.update(Domain::SignaturePreimage.tag());
-    hasher.update(&authorization);
-    let digest: [u8; 32] = hasher.finalize().into();
-    let signature = signing_key.sign(&digest).to_bytes();
-
-    let mut payload = Encoder::new(512);
-    assert!(payload.u16(0x5301).is_ok());
-    assert!(payload.u16(10).is_ok());
-    encode_send_common(&mut payload, amount);
-    assert!(payload.u8(1).is_ok());
-    assert!(payload.fixed(&[0x11; 32]).is_ok());
-    assert!(payload.fixed(&public_key).is_ok());
-    assert!(payload.fixed(&signature).is_ok());
-    assert!(payload.fixed(&[0x44; 32]).is_ok());
-    assert!(payload.u32(NETWORK_ID).is_ok());
-    assert!(payload.u16(PROTOCOL_VERSION).is_ok());
-    (payload.finish(), public_key)
+fn archived_activity(payload: &[u8], kind: ActivityType, action_key: [u8; 32]) -> Vec<u8> {
+    use layerx_types::activity::{Authority, EnvelopeBuilder, TimestampBound};
+    use layerx_types::amount::Amount;
+    use layerx_types::ids::{Did, IdempotencyKey};
+    use layerx_types::payload::Payload;
+    use layerx_wire::hash::Domain;
+    use sha2::{Digest as _, Sha256};
+    let module = ModuleRegistration::new(kind.module(), &[kind]).expect("archive module");
+    let registry = ModuleRegistry::new(&[module]).expect("archive registry");
+    let mut hash = Sha256::new();
+    hash.update(Domain::PayloadHash.tag());
+    hash.update(payload);
+    let mut builder = EnvelopeBuilder::new();
+    builder
+        .protocol_version(PROTOCOL_VERSION)
+        .expect("protocol");
+    builder.network_id(NETWORK_ID).expect("network");
+    builder.activity_type(kind).expect("kind");
+    builder
+        .actor_did(Did::new(b"did:layerx:alice").expect("DID"))
+        .expect("actor");
+    builder
+        .authority(Authority::owner(&[0x55; 32]).expect("key"))
+        .expect("authority");
+    builder.account_sequence(SEQUENCE).expect("sequence");
+    builder
+        .timestamp_bound(TimestampBound::new(NOT_BEFORE, EXPIRES_AT).expect("bounds"))
+        .expect("time");
+    builder
+        .idempotency_key(IdempotencyKey::new(action_key))
+        .expect("retry identity");
+    builder.fee_limit(Amount::from_u128(20)).expect("fee");
+    builder
+        .payload_hash(hash.finalize().into())
+        .expect("commitment");
+    builder
+        .payload(Payload::new(&registry, kind, payload).expect("payload"))
+        .expect("payload field");
+    layerx_wire::activity::encode_unsigned_envelope(&builder.build().expect("archive envelope"))
+        .expect("archive bytes")
 }
 
-pub fn canonical_send(amount: u128) -> Vec<u8> {
-    canonical_send_sequences(amount, SEQUENCE)
-}
-
-pub fn canonical_send_sequences(amount: u128, envelope_sequence: u64) -> Vec<u8> {
-    let (payload, authority) = send_payload(amount);
-    canonical_send_with_payload(&payload, &authority, envelope_sequence)
-}
-
-pub fn canonical_send_with_payload(
-    payload: &[u8],
-    authority: &[u8],
-    envelope_sequence: u64,
-) -> Vec<u8> {
-    let mut hasher = Sha256::new();
-    hasher.update(Domain::PayloadHash.tag());
-    hasher.update(payload);
-    let payload_hash: [u8; 32] = hasher.finalize().into();
-
-    let mut activity = Encoder::new(4096);
-    assert!(activity
-        .structure_header_version(0x1001, PROTOCOL_VERSION)
-        .is_ok());
-    assert!(activity.u8(11).is_ok());
-    assert!(activity.tag(1, 12).is_ok());
-    assert!(activity.u16(PROTOCOL_VERSION).is_ok());
-    assert!(activity.tag(2, 12).is_ok());
-    assert!(activity.u32(NETWORK_ID).is_ok());
-    assert!(activity.tag(3, 12).is_ok());
-    assert!(activity.u32(0x0001_0005).is_ok());
-    assert!(activity.tag(4, 12).is_ok());
-    assert!(activity.bytes(b"did:layerx:alice", 255).is_ok());
-    assert!(activity.tag(5, 12).is_ok());
-    assert!(activity.bytes(authority, 524_288).is_ok());
-    assert!(activity.tag(6, 12).is_ok());
-    assert!(activity.u64(envelope_sequence).is_ok());
-    assert!(activity.tag(7, 12).is_ok());
-    assert!(activity.u64(NOT_BEFORE).is_ok());
-    assert!(activity.u64(EXPIRES_AT).is_ok());
-    assert!(activity.tag(8, 12).is_ok());
-    assert!(activity.bytes(&IDEMPOTENCY_KEY, 32).is_ok());
-    assert!(activity.tag(9, 12).is_ok());
-    assert!(activity.u128(FEE_LIMIT).is_ok());
-    assert!(activity.tag(10, 12).is_ok());
-    assert!(activity.bytes(&payload_hash, 32).is_ok());
-    assert!(activity.tag(11, 12).is_ok());
-    assert!(activity.bytes(payload, 524_288).is_ok());
-    activity.finish()
-}
-
-pub fn canonical_bridge_withdraw(amount: u128) -> Vec<u8> {
-    let mut payload = Encoder::new(512);
-    assert!(payload.u16(0x4802).is_ok());
-    assert!(payload.u16(7).is_ok());
-    assert!(payload.fixed(&[0x41; 32]).is_ok());
-    assert!(payload.fixed(&[0x11; 32]).is_ok());
-    assert!(payload.fixed(&[0x22; 32]).is_ok());
-    assert!(payload.fixed(&[0x44; 20]).is_ok());
-    assert!(payload.fixed(&[0x33; 32]).is_ok());
-    assert!(payload.u128(amount).is_ok());
-    assert!(payload.fixed(&IDEMPOTENCY_KEY).is_ok());
-    let payload = payload.finish();
-    let mut hasher = Sha256::new();
-    hasher.update(Domain::PayloadHash.tag());
-    hasher.update(&payload);
-    let payload_hash: [u8; 32] = hasher.finalize().into();
-
-    let mut activity = Encoder::new(4096);
-    assert!(activity
-        .structure_header_version(0x1001, PROTOCOL_VERSION)
-        .is_ok());
-    assert!(activity.u8(11).is_ok());
-    assert!(activity.tag(1, 12).is_ok());
-    assert!(activity.u16(PROTOCOL_VERSION).is_ok());
-    assert!(activity.tag(2, 12).is_ok());
-    assert!(activity.u32(NETWORK_ID).is_ok());
-    assert!(activity.tag(3, 12).is_ok());
-    assert!(activity.u32(0x0008_0002).is_ok());
-    assert!(activity.tag(4, 12).is_ok());
-    assert!(activity.bytes(b"did:layerx:withdraw", 255).is_ok());
-    assert!(activity.tag(5, 12).is_ok());
-    assert!(activity.bytes(&[0x55; 32], 524_288).is_ok());
-    assert!(activity.tag(6, 12).is_ok());
-    assert!(activity.u64(SEQUENCE).is_ok());
-    assert!(activity.tag(7, 12).is_ok());
-    assert!(activity.u64(NOT_BEFORE).is_ok());
-    assert!(activity.u64(EXPIRES_AT).is_ok());
-    assert!(activity.tag(8, 12).is_ok());
-    assert!(activity.bytes(&IDEMPOTENCY_KEY, 32).is_ok());
-    assert!(activity.tag(9, 12).is_ok());
-    assert!(activity.u128(FEE_LIMIT).is_ok());
-    assert!(activity.tag(10, 12).is_ok());
-    assert!(activity.bytes(&payload_hash, 32).is_ok());
-    assert!(activity.tag(11, 12).is_ok());
-    assert!(activity.bytes(&payload, 524_288).is_ok());
-    activity.finish()
-}
-
-pub fn canonical_bridge_credit(amount: u128) -> Vec<u8> {
-    let mut payload = vec![0; 368];
-    payload[..5].copy_from_slice(b"LXDC3");
-    payload[5..37].fill(0x42);
-    payload[37..41].copy_from_slice(&NETWORK_ID.to_be_bytes());
-    payload[41..43].copy_from_slice(&PROTOCOL_VERSION.to_be_bytes());
-    payload[43..75].fill(0x41);
-    payload[75..107].fill(0x33);
-    payload[107..139].fill(0x22);
-    payload[171..191].fill(0x11);
-    payload[191..207].copy_from_slice(&amount.to_be_bytes());
-    payload[359..363].copy_from_slice(&2_u32.to_be_bytes());
-    payload[363..368].copy_from_slice(b"LXLB1");
-    let bundle_hash = Sha256::digest(&payload[363..]);
-    payload[327..359].copy_from_slice(&bundle_hash);
+pub fn archived_bridge_credit(amount: u128) -> Vec<u8> {
+    use sha2::{Digest as _, Sha256};
+    let payload = kernel_payloads::bridge_credit(amount);
     let mut nullifier = Sha256::new();
     nullifier.update(b"LX:DEPOSIT:NULLIFIER:v1");
     nullifier.update(&payload[43..75]);
-    let idempotency_key: [u8; 32] = nullifier.finalize().into();
-    let mut hasher = Sha256::new();
-    hasher.update(Domain::PayloadHash.tag());
-    hasher.update(&payload);
-    let payload_hash: [u8; 32] = hasher.finalize().into();
-
-    let mut activity = Encoder::new(4096);
-    assert!(activity
-        .structure_header_version(0x1001, PROTOCOL_VERSION)
-        .is_ok());
-    assert!(activity.u8(11).is_ok());
-    assert!(activity.tag(1, 12).is_ok());
-    assert!(activity.u16(PROTOCOL_VERSION).is_ok());
-    assert!(activity.tag(2, 12).is_ok());
-    assert!(activity.u32(NETWORK_ID).is_ok());
-    assert!(activity.tag(3, 12).is_ok());
-    assert!(activity.u32(0x0008_0001).is_ok());
-    assert!(activity.tag(4, 12).is_ok());
-    assert!(activity.bytes(b"did:layerx:deposit", 255).is_ok());
-    assert!(activity.tag(5, 12).is_ok());
-    assert!(activity.bytes(&[0x55; 32], 524_288).is_ok());
-    assert!(activity.tag(6, 12).is_ok());
-    assert!(activity.u64(SEQUENCE).is_ok());
-    assert!(activity.tag(7, 12).is_ok());
-    assert!(activity.u64(NOT_BEFORE).is_ok());
-    assert!(activity.u64(EXPIRES_AT).is_ok());
-    assert!(activity.tag(8, 12).is_ok());
-    assert!(activity.bytes(&idempotency_key, 32).is_ok());
-    assert!(activity.tag(9, 12).is_ok());
-    assert!(activity.u128(FEE_LIMIT).is_ok());
-    assert!(activity.tag(10, 12).is_ok());
-    assert!(activity.bytes(&payload_hash, 32).is_ok());
-    assert!(activity.tag(11, 12).is_ok());
-    assert!(activity.bytes(&payload, 524_288).is_ok());
-    activity.finish()
+    archived_activity(
+        &payload,
+        ActivityType::new(ModuleId::Bridge, 1).expect("credit"),
+        nullifier.finalize().into(),
+    )
 }
 
-pub fn canonical_native_withdraw(payload: &[u8], activity_type: u32) -> Vec<u8> {
-    let mut hasher = Sha256::new();
-    hasher.update(Domain::PayloadHash.tag());
-    hasher.update(payload);
-    let payload_hash: [u8; 32] = hasher.finalize().into();
+pub fn archived_bridge_withdraw(amount: u128) -> Vec<u8> {
+    archived_activity(
+        &kernel_payloads::bridge_withdraw(amount),
+        ActivityType::new(ModuleId::Bridge, 2).expect("withdraw"),
+        IDEMPOTENCY_KEY,
+    )
+}
 
-    let mut activity = Encoder::new(4096);
-    assert!(activity
-        .structure_header_version(0x1001, PROTOCOL_VERSION)
-        .is_ok());
-    assert!(activity.u8(11).is_ok());
-    assert!(activity.tag(1, 12).is_ok());
-    assert!(activity.u16(PROTOCOL_VERSION).is_ok());
-    assert!(activity.tag(2, 12).is_ok());
-    assert!(activity.u32(NETWORK_ID).is_ok());
-    assert!(activity.tag(3, 12).is_ok());
-    assert!(activity.u32(activity_type).is_ok());
-    assert!(activity.tag(4, 12).is_ok());
-    assert!(activity.bytes(b"did:layerx:alice", 255).is_ok());
-    assert!(activity.tag(5, 12).is_ok());
-    assert!(activity.bytes(&[0x55; 32], 524_288).is_ok());
-    assert!(activity.tag(6, 12).is_ok());
-    assert!(activity.u64(SEQUENCE).is_ok());
-    assert!(activity.tag(7, 12).is_ok());
-    assert!(activity.u64(NOT_BEFORE).is_ok());
-    assert!(activity.u64(EXPIRES_AT).is_ok());
-    assert!(activity.tag(8, 12).is_ok());
-    assert!(activity.bytes(&IDEMPOTENCY_KEY, 32).is_ok());
-    assert!(activity.tag(9, 12).is_ok());
-    assert!(activity.u128(FEE_LIMIT).is_ok());
-    assert!(activity.tag(10, 12).is_ok());
-    assert!(activity.bytes(&payload_hash, 32).is_ok());
-    assert!(activity.tag(11, 12).is_ok());
-    assert!(activity.bytes(payload, 524_288).is_ok());
-    activity.finish()
+pub fn archived_native_withdraw(payload: &[u8], activity_type: u32) -> Vec<u8> {
+    assert_eq!(activity_type >> 16, ModuleId::Asset as u32);
+    archived_activity(
+        payload,
+        ActivityType::new(ModuleId::Asset, activity_type as u16).expect("native withdraw"),
+        IDEMPOTENCY_KEY,
+    )
+}
+
+pub fn debit(amount: u128) -> layerx_crypto::send::SendDebit {
+    kernel_payloads::send_debit(amount)
+}
+
+pub fn evm_signer() -> LocalSigner {
+    signer()
+}
+
+pub fn complete<F: std::future::Future>(future: F) -> F::Output {
+    use std::sync::Arc;
+    use std::task::{Context, Poll, Wake, Waker};
+    struct ThreadWake(std::thread::Thread);
+    impl Wake for ThreadWake {
+        fn wake(self: Arc<Self>) {
+            self.0.unpark();
+        }
+    }
+    let mut future = std::pin::pin!(future);
+    let waker = Waker::from(Arc::new(ThreadWake(std::thread::current())));
+    let mut context = Context::from_waker(&waker);
+    loop {
+        match future.as_mut().poll(&mut context) {
+            Poll::Ready(result) => return result,
+            Poll::Pending => std::thread::park(),
+        }
+    }
 }

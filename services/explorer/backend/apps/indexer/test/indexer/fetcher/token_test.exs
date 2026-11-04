@@ -1,3 +1,5 @@
+Code.require_file("repair_22_33_555_support.exs", __DIR__)
+
 defmodule Indexer.Fetcher.TokenTest do
   use EthereumJSONRPC.Case
   use Explorer.DataCase
@@ -21,7 +23,29 @@ defmodule Indexer.Fetcher.TokenTest do
 
   describe "run/3" do
     test "catalogs tokens that haven't been cataloged", %{json_rpc_named_arguments: json_rpc_named_arguments} do
-      token = insert(:token, name: nil, symbol: nil, total_supply: nil, decimals: nil, cataloged: false)
+      json_rpc_named_arguments =
+        case Keyword.fetch!(json_rpc_named_arguments, :transport) do
+          EthereumJSONRPC.Mox ->
+            json_rpc_named_arguments
+
+          EthereumJSONRPC.HTTP ->
+            http = json_rpc_named_arguments |> Keyword.fetch!(:transport_options) |> Keyword.fetch!(:http)
+            Indexer.Fetcher.Repair2233555.catalog_arguments(http)
+        end
+
+      Indexer.Fetcher.Repair2233555.put_env(:explorer, :json_rpc_named_arguments, json_rpc_named_arguments)
+      address = insert(:address, hash: Indexer.Fetcher.Repair2233555.fixture("catalog")["address"])
+
+      token =
+        insert(:token,
+          contract_address: address,
+          name: nil,
+          symbol: nil,
+          total_supply: nil,
+          decimals: nil,
+          cataloged: false
+        )
+
       contract_address_hash = token.contract_address_hash
 
       if json_rpc_named_arguments[:transport] == EthereumJSONRPC.Mox do
@@ -60,22 +84,22 @@ defmodule Indexer.Fetcher.TokenTest do
              end)}
           end
         )
-
-        assert TokenFetcher.run([contract_address_hash], json_rpc_named_arguments) == :ok
-
-        expected_supply = Decimal.new(1_000_000_000_000_000_000)
-
-        decimals_expected = Decimal.new(18)
-
-        assert {:ok,
-                %Token{
-                  name: "Bancor",
-                  symbol: "BNT",
-                  total_supply: ^expected_supply,
-                  decimals: ^decimals_expected,
-                  cataloged: true
-                }} = Chain.token_from_address_hash(contract_address_hash)
       end
+
+      assert TokenFetcher.run([contract_address_hash], json_rpc_named_arguments) == :ok
+
+      expected_supply = Decimal.new(1_000_000_000_000_000_000)
+
+      decimals_expected = Decimal.new(18)
+
+      assert {:ok,
+              %Token{
+                name: "Bancor",
+                symbol: "BNT",
+                total_supply: ^expected_supply,
+                decimals: ^decimals_expected,
+                cataloged: true
+              }} = Chain.token_from_address_hash(contract_address_hash)
     end
   end
 end

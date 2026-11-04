@@ -535,3 +535,11 @@ fn ucp_client_and_seller_maintain_idempotency_across_retries() {
         "idempotent replay must return same completed status"
     );
 }
+
+#[path = "support/producer_checkout.rs"]
+mod producer_checkout;
+
+#[test]
+fn ucp_e2e_durability() {
+    producer_checkout::producer_checkout("ucp-e2e-durability");
+}

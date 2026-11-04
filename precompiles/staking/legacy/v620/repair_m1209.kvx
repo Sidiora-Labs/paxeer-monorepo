@@ -1,0 +1,30 @@
+[repair.22.33.1209]
+audit = "22.30.57"
+finding = "historical-key-v620"
+related_finding = "validator-key-length"
+proof = ["TestRepairM_1209_InvalidKeyBeforePayment", "TestRepairM_1209_ValidKeyCreatesValidator", "TestRepairM_1209_UpgradeReplay", "TestRepairM_1209_EVMTransactionRefusal"]
+implementation = "The current createValidator rejects decoded keys whose length differs from ed25519.PubKeySize before payment or keeper invocation, starting at the applied common.MergeUpgrade height."
+historical_heights = "All heights below the applied v7.0 merge height retain the old boundary, as do all heights while the plan is unapplied or merely scheduled. Historical tracing selects v620 from the applied v6.2.0 height until the next applied staking version; its source and ABI remain unchanged. The archived v620 implementation always retains its original behavior. No absolute mainnet activation height is assumed."
+producer_transport_consumer = "ABI-packed calldata reaches the production dynamic wrapper and real staking/bank keepers; signed EVM transactions prove ordinary bounded refusal and balance/validator rollback, direct calls prove refusal precedes payment, and a valid Ed25519 key creates a real validator and delegation."
+baseline = "Not run: the explicit ordered instructions require complete implementation, hf-build, then hf-done and prohibit running verify_cmd manually first; no pre-change failing tests are claimed."
+wiring_requests = []
+evidence = "The runner-owned /out/run/gates.jsonl records the exact candidate revision, command, exit code and private log location; closure requires hf-done to pass on the built revision."
+
+[gotcha.order]
+observed = "The generated task asks for pre-change verification but the explicit gate order forbids it and limits verification to hf-done."
+resolution = "Follow the explicit ordered gate instructions; record that no baseline ran."
+
+[gotcha.scope]
+observed = "The task record and gotcha ledger normally live outside this task's permitted paths."
+resolution = "Keep this repair record and task-local gotchas inside the permitted v620 directory; leave spec and root ledgers to their owners."
+
+[gotcha.evm_snapshot]
+observed = "NewDBImpl takes a snapshot, so direct precompile calls write to db.Ctx() rather than the fixture's parent context."
+resolution = "Inspect db.Ctx() for both successful validator creation and unchanged state after refusal."
+
+[qualification.first_attempt]
+revision = "bf892527d36427c9508cbc7a81f395cd92dc0391"
+command = "cg spec done 22.33.1209 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Refusal, signed transaction and replay tests passed; the valid-key test inspected the parent context rather than the EVM snapshot."

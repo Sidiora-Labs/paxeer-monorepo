@@ -1,0 +1,36 @@
+[task.22.33.1283]
+mode = "BUILD"
+base_revision = "9e535b4932ba8111a729a5cef10e0ca2370ca435"
+scope = "precompiles/pointer"
+qualification = "hf-build then hf-done; authoritative revision, command, exit and private log are emitted by the runner ledger /out/run/gates.jsonl."
+baseline = "Not executed: the explicit Order forbids testing before implementation and running verify_cmd by hand; no earlier gate ledger or repair tests existed. No pre-change test failure is claimed."
+
+[finding.pointer-payability-contract]
+tests = ["TestRepairM_1283_CurrentABIAndSolidity", "TestRepairM_1283_ZeroValueRegistrationAndValueRefusal", "TestRepairM_1283_HistoricalReplayABI"]
+repair = "Current ABI nonpayable matches Pointer.sol and the four handlers. Real EVM CALL registers and deploys at zero value; nonzero value reverts with explicit non-payable precompile error, no value transfer or pointer state. Historical replay snapshots stay payable and unchanged."
+wiring_request = "Domain 6: update spec/layerx-merge/interfaces.kvx rows 6.pc-0x100b-addcw1155pointer, 6.pc-0x100b-addcw20pointer, 6.pc-0x100b-addcw721pointer and 6.pc-0x100b-addnativepointer to publish nonpayable/zero-value registration; this registry is outside task scope."
+
+[finding.pointer-freeze-misses-mutability]
+tests = ["TestRepairM_1283_CurrentABIAndSolidity", "TestRepairM_1283_ZeroValueRegistrationAndValueRefusal", "TestRepairM_1283_HistoricalReplayABI"]
+repair = "Freeze retains all selectors and the empty event set, compares current Solidity and served ABI mutability, and is exercised alongside real value refusal and registration for all four methods. Historical expectations are separately keyed by replay version."
+
+[finding.pointer-untrusted-metadata]
+tests = ["TestRepairM_1283_UntrustedMetadata", "TestRepairM_1283_MetadataSizeBoundaries"]
+repair = "CW20/CW721/CW1155 smart-query metadata must be a JSON object with string name and symbol, respectively 1..256 and 1..128 UTF-8 bytes. Invalid JSON, absent/null/wrong-type/empty/oversized fields wrap ErrInvalidMetadata (invalid pointer metadata) before deployment. Real hostile CosmWasm guest responses traverse QuerySmartSafe and EVM CALL; refusals leave the deployment nonce, events and committed pointer stores unchanged. Accepted endpoints round-trip through deployed EVM wrapper name/symbol consumers."
+
+[gotcha.gate_order]
+observed = "Task step 7 requests an unchanged-tree baseline while the explicit Order forbids any test before implementation and allows only the hf-build/hf-done sequence."
+action = "Follow the explicit Order; record baseline as unrun without inventing evidence."
+
+[qualification.external_compile_failure]
+revision = "637f0a73d236dad9ca736ed1b4ca333f50250915"
+command = "cg spec done 22.33.1283 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; compiler detail /tmp/repair-m1283.log"
+observed = "The test package fails to compile before any repair test runs because existing auth, staking and tokenfactory CLI callers use the two-result tx.NewFactoryCLI in single-value contexts."
+assumption = "These unchanged files are outside scope; record without chasing or rerunning the same external failure, and do not claim qualification."
+
+[qualification.attempt_3]
+base_revision = "ca3015b61333a7ebcaedf0914337d4460107fe1a"
+continuation = "Preserve the attempt-2 implementation and tests; qualify on the updated base carrying the fallible transaction-factory callers from 22.31.463. The earlier external compile failure above is historical evidence, not a result on this base."
+evidence = "The current candidate revision, exact command, exit code and private log are the final hf-done ledger line; no earlier verification success is claimed."
