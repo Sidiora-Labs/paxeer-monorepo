@@ -27,6 +27,28 @@ class Contracts(unittest.TestCase):
   p=r.restore_plan(c,m,r.sha(m),150,"12345")
   self.assertFalse(p["traffic_cutover_allowed"]);self.assertEqual(p["new_epoch"],4)
   self.assertEqual(p["postgres_recovery"]["recovery_target_action"],"pause")
+ def test_opaque_versions_remain_bound_to_inventory_and_trusted_manifest(self):
+  for version in ("A", "3Lg_AbC+/=", "9" + "A_" * 100, "V" * 1024, "e\u0301-version", "\u00e9-version"):
+   with self.subTest(version=version):
+    m=manifest();m["objects"][0]["version_id"]=version
+    m["inventory_sha256"]=r.sha({"tables":m["tables"],"objects":m["objects"]})
+    raw=r.canonical(m);trusted=r.sha(m);decoded=r.load(raw)
+    self.assertEqual(r.manifest(decoded)["objects"][0]["version_id"].encode(),version.encode())
+    self.assertEqual(r.restore_plan(config(),decoded,trusted,150,"12345")["manifest_sha256"],trusted)
+    decoded["objects"][0]["version_id"] += "x"
+    with self.assertRaises(r.Invalid):r.manifest(decoded)
+    decoded["inventory_sha256"]=r.sha({"tables":decoded["tables"],"objects":decoded["objects"]})
+    with self.assertRaises(r.Invalid):r.restore_plan(config(),decoded,trusted,150,"12345")
+  for version in (None,True,1,b"bytes","","null","x"*1025,"bad\x00version","\ud800"):
+   with self.subTest(invalid=repr(version)),self.assertRaises(r.Invalid):r.version_id(version)
+  for version in (None,True,1,"","null","x"*1025,"bad\x00version"):
+   with self.subTest(invalid_manifest=repr(version)):
+    m=manifest();m["objects"][0]["version_id"]=version
+    m["inventory_sha256"]=r.sha({"tables":m["tables"],"objects":m["objects"]})
+    decoded=r.load(r.canonical(m))
+    with self.assertRaises(r.Invalid):r.manifest(decoded)
+    with self.assertRaises(r.Invalid):r.restore_plan(config(),decoded,r.sha(decoded),150,"12345")
+  self.assertNotEqual(r.sha({"version_id":"e\u0301"}),r.sha({"version_id":"\u00e9"}))
  def test_failclosed_configuration(self):
   for k,v in [("primary_region","region-recovery"),("replica_bucket","kindle-backups-primary"),("restore_principal","backup-writer"),("replica_kms_key","kms://primary/qualification-backups"),("rpo_seconds",301),("rto_seconds",1801),("wal_age_seconds",61),("daily_points",True),("postgres_major",15)]:
    with self.subTest(k=k):
@@ -105,6 +127,9 @@ class Contracts(unittest.TestCase):
     lambda d:d["resources"]["object_storage"].update(versioning=False),
     lambda d:d["resources"]["cutover"].update(automatic_failback=True),
     lambda d:d["resources"]["drills"].update(capacity_qualified=True),
+    lambda d:d["command_contracts"]["base_backup"].__setitem__(1,"--format=tar"),
+    lambda d:d["command_contracts"]["base_backup"].remove("--pgdata=<isolated-owned-backup-directory>"),
+    lambda d:d["command_contracts"]["restore"].remove("--timeout=60"),
     lambda d:d["command_contracts"].update(base_backup=["sh","-c","unsafe"])]
   for mutate in mutations:
    d=copy.deepcopy(source);mutate(d)

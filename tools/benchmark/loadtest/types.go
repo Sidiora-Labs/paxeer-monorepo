@@ -58,6 +58,7 @@ type Config struct {
 	ContractDistr      ContractDistributions `json:"contract_distribution"`
 	PerMessageConfigs  MessageConfigs        `json:"message_configs"`
 	MetricsPort        uint64                `json:"metrics_port"`
+	TLSCAFile          string                `json:"tls_ca_file,omitempty"`
 	TLS                bool                  `json:"tls"`
 	PostTxEvmQueries   PostTxEvmQueries      `json:"post_tx_evm_queries"`
 	Ticks              uint64                `json:"ticks"`

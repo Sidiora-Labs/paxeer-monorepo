@@ -15,6 +15,11 @@ defmodule Explorer.Market.Fetcher.TokenTest do
     setup do
       bypass = Bypass.open()
 
+      http_client_configuration = Application.fetch_env(:explorer, :http_client)
+      token_fetcher_enabled = :persistent_term.get(:market_token_fetcher_enabled, :absent)
+      :persistent_term.put(:market_token_fetcher_enabled, true)
+      Application.put_env(:explorer, :http_client, HTTPoison)
+
       source_configuration = Application.get_env(:explorer, Explorer.Market.Source)
       fetcher_configuration = Application.get_env(:explorer, Explorer.Market.Fetcher.Token)
       coin_gecko_configuration = Application.get_env(:explorer, Explorer.Market.Source.CoinGecko)
@@ -37,26 +42,39 @@ defmodule Explorer.Market.Fetcher.TokenTest do
       Application.put_env(:tesla, :adapter, Tesla.Adapter.Mint)
 
       on_exit(fn ->
+        case http_client_configuration do
+          {:ok, original} -> Application.put_env(:explorer, :http_client, original)
+          :error -> Application.delete_env(:explorer, :http_client)
+        end
+
+        if token_fetcher_enabled == :absent do
+          :persistent_term.erase(:market_token_fetcher_enabled)
+        else
+          :persistent_term.put(:market_token_fetcher_enabled, token_fetcher_enabled)
+        end
+
         Application.put_env(:explorer, Explorer.Market.Source, source_configuration)
         Application.put_env(:explorer, Explorer.Market.Fetcher.Token, fetcher_configuration)
         Application.put_env(:explorer, Explorer.Market.Source.CoinGecko, coin_gecko_configuration)
         Application.put_env(:tesla, :adapter, Explorer.Mock.TeslaAdapter)
       end)
 
-      [_token_with_no_exchange_rate | tokens] =
+      [token_with_no_exchange_rate | tokens] =
         for _ <- 0..4 do
           insert(:token, fiat_value: nil)
         end
 
-      {:ok, %{bypass: bypass, tokens: tokens}}
+      {:ok, %{bypass: bypass, tokens: tokens, excluded_token: token_with_no_exchange_rate}}
     end
 
-    test "success fetch", %{bypass: bypass, tokens: tokens} do
+    test "success fetch", %{bypass: bypass, tokens: tokens, excluded_token: excluded_token} do
+      provider_ids = Map.new(tokens, &{&1.contract_address_hash, "#{&1.contract_address_hash}_id"})
+
       coins_list =
         tokens
         |> Enum.map(fn %{contract_address_hash: contract_address_hash} ->
           %{
-            "id" => "#{contract_address_hash}_id",
+            "id" => Map.fetch!(provider_ids, contract_address_hash),
             "symbol" => "#{contract_address_hash}_symbol",
             "name" => "#{contract_address_hash}_name",
             "platforms" => %{
@@ -73,16 +91,16 @@ defmodule Explorer.Market.Fetcher.TokenTest do
 
       token_exchange_rates =
         tokens
-        |> Enum.reduce(%{}, fn %{contract_address_hash: contract_address_hash}, acc ->
-          Map.put(acc, "#{contract_address_hash}_id", %{
-            "usd" => 1..100 |> Enum.random() |> Decimal.new() |> Decimal.mult(Decimal.from_float(0.7))
-          })
+        |> Enum.with_index(1)
+        |> Map.new(fn {%{contract_address_hash: contract_address_hash}, index} ->
+          {Map.fetch!(provider_ids, contract_address_hash),
+           %{"usd" => index * 7 / 10, "usd_market_cap" => index * 1000, "usd_24h_vol" => index * 100}}
         end)
 
       joined_ids =
         tokens
         |> Enum.reverse()
-        |> Enum.map_join(",", fn %{contract_address_hash: contract_address_hash} -> "#{contract_address_hash}_id" end)
+        |> Enum.map_join(",", &Map.fetch!(provider_ids, &1.contract_address_hash))
 
       Bypass.expect_once(
         bypass,
@@ -96,31 +114,43 @@ defmodule Explorer.Market.Fetcher.TokenTest do
         end
       )
 
-      GenServer.start_link(TokenFetcher, [])
+      start_supervised!(TokenFetcher)
 
-      :timer.sleep(100)
+      await_fetched_tokens(tokens, System.monotonic_time(:millisecond) + 5_000)
 
-      Repo.all(Token)
-      |> Enum.each(fn %{contract_address_hash: contract_address_hash, fiat_value: fiat_value} ->
-        assert token_exchange_rates[contract_address_hash]["usd"] == fiat_value
+      Enum.each(tokens, fn %{contract_address_hash: contract_address_hash} = token ->
+        provider_id = Map.fetch!(provider_ids, contract_address_hash)
+        expected_usd = token_exchange_rates |> Map.fetch!(provider_id) |> Map.fetch!("usd") |> Decimal.from_float()
+        fiat_value = Repo.reload!(token).fiat_value
+
+        refute is_nil(fiat_value)
+        assert Decimal.equal?(fiat_value, expected_usd)
       end)
+
+      assert is_nil(Repo.reload!(excluded_token).fiat_value)
     end
 
     test "empty body in /coins/list response", %{bypass: bypass} do
+      observer = self()
+
       Bypass.expect(bypass, "GET", "/coins/list", fn conn ->
         assert conn.query_string == "include_platform=true"
+        send(observer, :fetch_response_requested)
         Conn.resp(conn, 200, "[]")
       end)
 
-      GenServer.start_link(TokenFetcher, [])
+      fetcher = start_supervised!(TokenFetcher)
 
-      :timer.sleep(100)
+      assert_receive :fetch_response_requested, 5_000
+      assert %TokenFetcher{} = :sys.get_state(fetcher, 5_000)
 
       Repo.all(Token)
       |> Enum.each(fn %{fiat_value: fiat_value} -> assert is_nil(fiat_value) end)
     end
 
     test "empty body in fetch response", %{bypass: bypass, tokens: tokens} do
+      observer = self()
+
       coins_list =
         tokens
         |> Enum.map(fn %{contract_address_hash: contract_address_hash} ->
@@ -153,33 +183,41 @@ defmodule Explorer.Market.Fetcher.TokenTest do
           assert conn.query_string ==
                    "vs_currencies=usd&include_market_cap=true&include_24hr_vol=true&ids=#{joined_ids}"
 
+          send(observer, :fetch_response_requested)
           Conn.resp(conn, 200, "{}")
         end
       )
 
-      GenServer.start_link(TokenFetcher, [])
+      fetcher = start_supervised!(TokenFetcher)
 
-      :timer.sleep(100)
+      assert_receive :fetch_response_requested, 5_000
+      assert %TokenFetcher{} = :sys.get_state(fetcher, 5_000)
 
       Repo.all(Token)
       |> Enum.each(fn %{fiat_value: fiat_value} -> assert is_nil(fiat_value) end)
     end
 
     test "error in /coins/list response", %{bypass: bypass} do
+      observer = self()
+
       Bypass.expect(bypass, "GET", "/coins/list", fn conn ->
         assert conn.query_string == "include_platform=true"
+        send(observer, :fetch_response_requested)
         Conn.resp(conn, 429, "Too many requests")
       end)
 
-      GenServer.start_link(TokenFetcher, [])
+      fetcher = start_supervised!(TokenFetcher)
 
-      :timer.sleep(100)
+      assert_receive :fetch_response_requested, 5_000
+      assert %TokenFetcher{} = :sys.get_state(fetcher, 5_000)
 
       Repo.all(Token)
       |> Enum.each(fn %{fiat_value: fiat_value} -> assert is_nil(fiat_value) end)
     end
 
     test "error in fetch response", %{bypass: bypass, tokens: tokens} do
+      observer = self()
+
       coins_list =
         tokens
         |> Enum.map(fn %{contract_address_hash: contract_address_hash} ->
@@ -212,16 +250,26 @@ defmodule Explorer.Market.Fetcher.TokenTest do
           assert conn.query_string ==
                    "vs_currencies=usd&include_market_cap=true&include_24hr_vol=true&ids=#{joined_ids}"
 
+          send(observer, :fetch_response_requested)
           Conn.resp(conn, 429, "Too many requests")
         end
       )
 
-      GenServer.start_link(TokenFetcher, [])
+      fetcher = start_supervised!(TokenFetcher)
 
-      :timer.sleep(100)
+      assert_receive :fetch_response_requested, 5_000
+      assert %TokenFetcher{} = :sys.get_state(fetcher, 5_000)
 
       Repo.all(Token)
       |> Enum.each(fn %{fiat_value: fiat_value} -> assert is_nil(fiat_value) end)
+    end
+  end
+
+  defp await_fetched_tokens(tokens, deadline) do
+    unless Enum.all?(tokens, &(not is_nil(Repo.reload!(&1).fiat_value))) do
+      assert System.monotonic_time(:millisecond) < deadline, "token prices were not imported before the deadline"
+      Process.sleep(10)
+      await_fetched_tokens(tokens, deadline)
     end
   end
 end

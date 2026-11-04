@@ -167,13 +167,57 @@ Symbol stats:
 }
 ```
 
-`volume_24h` is USD fill notional; `open_interest` sums long and short USD open
-interest. `last_funding_rate_hourly` is the exact signed decimal **fraction per
+`volume_24h` is USD fill notional over the rolling 24-hour window;
+`open_interest` sums long and short USD open interest. These are JSON numbers,
+including zero when no fills or open interest have been recorded.
+`last_funding_rate_hourly` is the exact signed decimal **fraction per
 hour** from the latest `FundingSettled` row, scaled from the chain's 18-decimal
 integer. `"0.0000125"` means `0.00125%` per hour. It is `null` before the first
 settlement. `last_funding_rate` is a nullable JSON-number compatibility copy of
 the same settled hourly rate. Neither stats response carries
 `est_funding_rate`, a predicted `funding_rate`, or `next_funding_ms`.
+
+#### Perpetual stats wire example
+
+`GET /api/btc/perp_stats` and the `data` body of `BTC@perp_stats` use
+[`records.PerpStats`](../../services/platform/perps-data/internal/records/records.go),
+which embeds `records.Stats`. This example uses the settled-rate and notional
+values of the gateway's symbol-route fixture:
+
+```json
+{
+  "symbol": "BTC",
+  "volume_24h": 3500,
+  "open_interest": 1000000,
+  "last_funding_rate_hourly": "0.0000125",
+  "last_funding_rate": 0.0000125,
+  "mark_price": 77182.4,
+  "index_price": 77173,
+  "basis_bps": 1.218,
+  "long_short_ratio": 1.5,
+  "liq_volume_24h": 500
+}
+```
+
+#### Perpetual stats before settlement
+
+Prices, basis and long/short ratio are nullable independently. Missing funding
+is `null`, never a zero rate. An empty registered market can send:
+
+```json
+{
+  "symbol": "ETH",
+  "volume_24h": 0,
+  "open_interest": 0,
+  "last_funding_rate_hourly": null,
+  "last_funding_rate": null,
+  "mark_price": null,
+  "index_price": null,
+  "basis_bps": null,
+  "long_short_ratio": null,
+  "liq_volume_24h": 0
+}
+```
 
 Trade lists are newest first. `limit` defaults to 100 and is clamped to 1–1000;
 malformed or repeated limits return HTTP 400 with `{ "error": "invalid limit" }`.
@@ -233,10 +277,27 @@ notional quantities; its payload is not interchangeable with the socket book.
 The current symbol adapter
 [`useSidPaxMarketStream`](src/hooks/perps/useSidPaxMarketStream.ts) converts the
 numeric `last_funding_rate` compatibility field to a nullable decimal string
-with `fundingRateFromJsonNumber`. Absent predicted funding remains `null`;
+with `fundingRateFromJsonNumber`; an already plain decimal string also passes
+unchanged. The wire's `last_funding_rate_hourly` remains the authoritative exact
+on-chain hourly rate; the compatibility number can lose decimal precision.
+
+| Gateway wire field | Adapter field | Meaning |
+| --- | --- | --- |
+| `volume_24h` | `volume_24h_usd` and `volume_24h` | Rolling USD fill notional |
+| `open_interest` | `oi_usd` and `open_interest` | Long plus short USD open interest |
+| `last_funding_rate` | `last_funding_rate` | Nullable plain decimal string converted from the compatibility number |
+| No `funding_rate` in the on-chain body | `funding_rate: null` | No predicted rate supplied |
+
+`volume_24h_usd` and `oi_usd` are client aliases, not additional fields promised
+by `/perp_stats`. Contract quantities are not implied by these USD values.
+Optional external reference estimates use `funding_rate` in the adapter and
+are separate from the last on-chain settlement; their period is defined by
+the reference source, not by the on-chain hourly rate. `est_funding_rate` is
+not a field of the current gateway contract. Absent predicted funding remains `null`;
 [`fundingRowFigure`](src/core/perps/fundingRate.ts) then displays the venue's
 last settled hourly rate. A connected symbol socket does not imply an estimate
-is available.
+is available. Multiplying the settled hourly rate by 24 is a projection of the
+last settlement, not an estimate of the next funding payment.
 
 ## Markets Service
 

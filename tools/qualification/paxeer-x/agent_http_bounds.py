@@ -506,14 +506,11 @@ def case_shutdown_restart(daemon):
 
 
 def rpc_request(daemon, envelope=None, identity='client'):
+    if envelope is not None:
+        return daemon.fixture.routed_request(envelope, identity, DEADLINE + SLACK)
     with daemon.fixture.client(identity) as connection:
         connection.settimeout(DEADLINE + SLACK)
-        if envelope is None:
-            payload = b'GET /healthz HTTP/1.1\r\nHost: localhost\r\n\r\n'
-        else:
-            body = json.dumps(envelope, separators=(',', ':')).encode()
-            payload = b'POST /rpc HTTP/1.1\r\nHost: localhost\r\nContent-Length: ' + str(len(body)).encode() + b'\r\n\r\n' + body
-        connection.sendall(payload)
+        connection.sendall(b'GET /healthz HTTP/1.1\r\nHost: localhost\r\n\r\n')
         status, body, _ = read_response(connection)
         return status, json.loads(body) if body else None
 

@@ -49,7 +49,7 @@ defmodule Explorer.Repair.Repair2233471Test do
 
   test "production-database-peer-verification: every production repo inherits authenticated TLS" do
     System.delete_env(@ca_env)
-    config = Config.Reader.read!(Path.join(@config_dir, "prod.exs"))
+    config = Config.Reader.read!(Path.join(@config_dir, "runtime/prod.exs"), imports: :disabled)
     configured_repos = for {repo, opts} <- config[:explorer], Keyword.has_key?(opts, :ssl_opts), do: repo
     assert Enum.sort(configured_repos) == Enum.sort(@repos)
 
@@ -65,6 +65,12 @@ defmodule Explorer.Repair.Repair2233471Test do
   test "production-database-peer-verification: runtime CA selection overrides the build configuration" do
     System.delete_env(@ca_env)
     build_config = Config.Reader.read!(Path.join(@config_dir, "prod.exs"))
+
+    # Build-time config must stay free of TLS function terms so `mix release` can write it.
+    for repo <- @repos do
+      refute Keyword.has_key?(build_config[:explorer][repo] || [], :ssl_opts)
+    end
+
     ca_path = Path.join(@fixtures, "trusted-ca.pem")
     System.put_env(@ca_env, ca_path)
     runtime_config = Config.Reader.read!(Path.join(@config_dir, "runtime/prod.exs"), imports: :disabled)
