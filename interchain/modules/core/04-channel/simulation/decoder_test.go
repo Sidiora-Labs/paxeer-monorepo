@@ -55,6 +55,10 @@ func TestDecodeStore(t *testing.T) {
 				Value: bz,
 			},
 			{
+				Key:   host.PacketReceiptKey(portID, channelID, 1),
+				Value: []byte{1},
+			},
+			{
 				Key:   []byte{0x99},
 				Value: []byte{0x99},
 			},
@@ -70,6 +74,7 @@ func TestDecodeStore(t *testing.T) {
 		{"NextSeqAck", "NextSeqAck A: 1\nNextSeqAck B: 1"},
 		{"CommitmentHash", fmt.Sprintf("CommitmentHash A: %X\nCommitmentHash B: %X", bz, bz)},
 		{"AckHash", fmt.Sprintf("AckHash A: %X\nAckHash B: %X", bz, bz)},
+		{"Receipt", "Receipt A: 01\nReceipt B: 01"},
 		{"other", ""},
 	}
 
