@@ -18,7 +18,6 @@ defmodule Indexer.Fetcher.Optimism.Interop.MessageFailed do
   require Logger
 
   import EthereumJSONRPC, only: [fetch_blocks_by_range: 2, fetch_transaction_receipts: 2]
-  import Explorer.Helper, only: [decode_data: 2]
 
   import Indexer.Fetcher.Optimism.Interop.Helper,
     only: [log_cant_get_chain_id_from_rpc: 0, log_cant_get_last_transaction_from_rpc: 1, log_last_block_numbers: 2]
@@ -291,51 +290,20 @@ defmodule Indexer.Fetcher.Optimism.Interop.MessageFailed do
   # - The number of failed relay transactions imported into the `op_interop_messages` table.
   @spec handle_failed_relays_inner(list(), non_neg_integer()) :: non_neg_integer()
   defp handle_failed_relays_inner(transactions_params, current_chain_id) do
-    relay_message_selector = %ABI.FunctionSelector{
-      function: "relayMessage",
-      types: [
-        {:tuple,
-         [
-           :address,
-           {:uint, 256},
-           {:uint, 256},
-           {:uint, 256},
-           {:uint, 256}
-         ]},
-        :bytes
-      ]
-    }
-
-    sent_message_event_signature = InteropMessageFetcher.sent_message_event_signature()
-
     messages =
-      transactions_params
-      |> Enum.map(fn transaction ->
-        @relay_message_method <> encoded_params = transaction.input
+      Enum.flat_map(transactions_params, fn transaction ->
+        case decode_failed_relay(transaction) do
+          {:ok, message} ->
+            if message.relay_chain_id == current_chain_id and
+                 message.init_chain_id <= InteropMessageFetcher.max_int32(),
+               do: [message],
+               else: []
 
-        [
-          {_origin, _block_number, _log_index, _timestamp, init_chain_id},
-          ^sent_message_event_signature <> sent_message_topics_and_data
-        ] =
-          TypeDecoder.decode(
-            Base.decode16!(encoded_params, case: :lower),
-            relay_message_selector
-          )
-
-        [relay_chain_id, _target, nonce, _sender, _payload] =
-          decode_data(sent_message_topics_and_data, [{:uint, 256}, :address, {:uint, 256}, :address, :bytes])
-
-        %{
-          nonce: nonce,
-          init_chain_id: init_chain_id,
-          block_number: transaction.block_number,
-          relay_chain_id: relay_chain_id,
-          relay_transaction_hash: transaction.hash,
-          failed: true
-        }
+          {:error, :malformed_relay_call} ->
+            Logger.warning("Ignoring malformed failed interop relay transaction #{transaction.hash}")
+            []
+        end
       end)
-      |> Enum.filter(&(&1.relay_chain_id == current_chain_id))
-      |> Enum.reject(&(&1.init_chain_id > InteropMessageFetcher.max_int32()))
 
     {:ok, _} =
       Chain.import(%{
@@ -344,6 +312,56 @@ defmodule Indexer.Fetcher.Optimism.Interop.MessageFailed do
       })
 
     Enum.count(messages)
+  end
+
+  @relay_types [{:tuple, [:address, {:uint, 256}, {:uint, 256}, {:uint, 256}, {:uint, 256}]}, :bytes]
+  @topic_types [{:uint, 256}, :address, {:uint, 256}]
+  @event_data_types [:address, :bytes]
+
+  defp decode_failed_relay(transaction) do
+    with "0x" <> calldata <- transaction.input,
+         {:ok, <<0x8D, 0x1D, 0x29, 0x8F, encoded::binary>>} <- Base.decode16(calldata, case: :mixed),
+         true <- valid_bytes_layout?(encoded, 6, 5),
+         [identifier, sent_message] = relay <- TypeDecoder.decode_raw(encoded, @relay_types),
+         true <- ABI.TypeEncoder.encode(relay, @relay_types) == encoded,
+         <<signature::binary-size(32), topics::binary-size(96), data::binary>> <- sent_message,
+         "0x" <> signature_hex = InteropMessageFetcher.sent_message_event_signature(),
+         {:ok, ^signature} <- Base.decode16(signature_hex, case: :mixed),
+         true <- valid_bytes_layout?(data, 2, 1),
+         [relay_chain_id, _target, nonce] = decoded_topics <- TypeDecoder.decode_raw(topics, @topic_types),
+         true <- ABI.TypeEncoder.encode(decoded_topics, @topic_types) == topics,
+         decoded_data = TypeDecoder.decode_raw(data, @event_data_types),
+         true <- ABI.TypeEncoder.encode(decoded_data, @event_data_types) == data do
+      {_origin, _block_number, _log_index, _timestamp, init_chain_id} = identifier
+
+      {:ok,
+       %{
+         nonce: nonce,
+         init_chain_id: init_chain_id,
+         block_number: transaction.block_number,
+         relay_chain_id: relay_chain_id,
+         relay_transaction_hash: transaction.hash,
+         failed: true
+       }}
+    else
+      _ -> {:error, :malformed_relay_call}
+    end
+  end
+
+  # The bytes offset is relative to its ABI head, including for the unindexed
+  # SentMessage data after the three packed topics, rather than to those topics.
+  defp valid_bytes_layout?(encoded, head_words, offset_word) do
+    head_size = head_words * 32
+    offset_position = offset_word * 32
+
+    with true <- byte_size(encoded) >= head_size + 32,
+         <<_::binary-size(offset_position), offset::256, _::binary>> <- encoded,
+         true <- offset == head_size,
+         <<_::binary-size(head_size), length::256, tail::binary>> <- encoded do
+      byte_size(tail) == div(length + 31, 32) * 32
+    else
+      _ -> false
+    end
   end
 
   # Filters the given list of transactions leaving only failed `relayMessage` calls.
@@ -369,10 +387,10 @@ defmodule Indexer.Fetcher.Optimism.Interop.MessageFailed do
           end
 
         is_relay_message_method =
-          transaction
-          |> Map.get(:input, "")
-          |> String.downcase()
-          |> String.starts_with?(@relay_message_method)
+          case Map.get(transaction, :input) do
+            input when is_binary(input) -> String.starts_with?(String.downcase(input), @relay_message_method)
+            _ -> false
+          end
 
         to_address == InteropMessageFetcher.l2tol2_cross_domain_messenger() and is_relay_message_method
       end)

@@ -1,0 +1,8 @@
+[repair.22.33.505]
+finding = "feed-socket-joined-lifecycle"
+tests = ["feedSocketReplacementTimeoutKeepsHttpPolling", "feedSocketDisableAndRestartRecoverCurrentChannel", "feedSocketReconnectFailureKeepsHttpPollingUntilRejoined"]
+proof = "Real SocketProvider, Phoenix channels and loopback WebSocket join replies drive useFeedSocket; React Query polls a loopback HTTP endpoint while replacement joins time out or reconnect joins fail, and disable/re-enable, consumer restart and provider restart recover only after the current channel joins."
+baseline = "Not run: task Order 1 and 4 require complete implementation before gates and prohibit running verify_cmd by hand; source inspection shows the old boolean survives topic and enabled changes, which the first two tests assert against."
+continuation = "Attempt 1 implementation retained; its build stopped before verification on ERR_PNPM_OTHER_PM_EXPECTED. Attempt 2 uses the declared Corepack Yarn gates and explicitly registers all three test callbacks so Vitest executes their assertions."
+wiring_requests = []
+evidence = "hf-done records the verified candidate revision, command, exit and private log location in /out/run/gates.jsonl."

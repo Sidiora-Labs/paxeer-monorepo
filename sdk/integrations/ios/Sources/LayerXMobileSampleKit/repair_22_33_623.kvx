@@ -1,0 +1,12 @@
+[repair.22.33.623]
+finding = "22.30.163/034"
+implementation = "WalletModel.refresh decodes Human service and groups[].entries and refuses malformed shapes with decode-failure before publishing a partial snapshot."
+proof = "Repair2233623Tests.testFinding034RefreshUsesRecordedHumanResponses; testFinding034RefreshCountsEveryGroupAndAcceptsEmptyPage; testFinding034MalformedShapesAreDecodeRefusals"
+producer = "services/human/schema/human-api/golden/{version,profile.get,activity.query}.response.json via loopback HTTP, brokered LayerXMobileClient and HumanHTTPTransport into WalletModel.refresh."
+baseline = "Not run: the task's explicit numbered gate order requires complete implementation before hf-build and hf-done; no pre-change test failure is claimed."
+wiring = "None; all proposed production changes are inside the sample-kit scope."
+evidence = "The runner records the verified candidate revision, command, exit code and private evidence log in the hf-done ledger."
+
+[gotcha.22.33.623]
+symptom = "The embedded task steps ask for an unchanged-tree baseline, while the explicit bounded gate order forbids tests before full implementation and forbids direct verify invocation."
+do = "Follow the explicit gate order, record that no baseline ran, and use only hf-build followed by hf-done."

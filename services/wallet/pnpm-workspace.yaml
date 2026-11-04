@@ -2,6 +2,7 @@ packages:
   - "gateway"
   - "../../sdk/wallet"
   - "demo"
+  - "../../apps/perps"
 allowBuilds:
   esbuild: true
   sharp: true
