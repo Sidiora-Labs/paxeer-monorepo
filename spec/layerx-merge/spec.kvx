@@ -51234,7 +51234,7 @@ title = "Repair audit record 22.30.103 medium findings in services/human/schema/
 reqs = ["22998.1"]
 touches = ["services/human/schema/human-api"]
 tests = ["services/human/tests/repair_22_33_41.rs"]
-verification_contract = "cargo test --locked --manifest-path services/human/Cargo.toml --test repair_22_33_41"
+verification_contract = "cargo test --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test repair_22_33_41"
 do_1 = "Audit record 22.30.103 (spec/layerx-merge/programme/audit/records/22.30.103.kvx) holds 2 medium finding(s) in services/human/schema/human-api that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: intent-schema-dual-domain, journey-schema-finality-copy. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -51315,7 +51315,7 @@ title = "Repair audit record 22.30.102 medium findings in services/human (part 1
 reqs = ["22998.1"]
 touches = ["services/human"]
 tests = ["services/human/tests/repair_22_33_32.rs"]
-verification_contract = "cargo test --locked --manifest-path services/human/Cargo.toml --test repair_22_33_32"
+verification_contract = "cargo test --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test repair_22_33_32"
 do_1 = "Audit record 22.30.102 (spec/layerx-merge/programme/audit/records/22.30.102.kvx) holds 1 medium finding(s) in services/human that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: human-layout-doc. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -147657,6 +147657,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_10 = "Attempt 2 (requalify): the final build passed and the four recovery cases pass; the two configured-native-runner cases failed because the parsed reporters option came back undefined, and the attempt corrected the binding assertions afterwards but the repair budget was exhausted before a verify ran on the corrected revision. Run the build and the verify once on the final revision with no edits first; repair only what that run reports in scope (the parser of the configured runner command in apps/web's transaction-controls widget is in scope if the option is really not parsed); no commit after the pass."
 
 [task.22.33.1004]
 title = "Repair audit record 22.30.34 medium findings in apps/launchpad/web/src/widgets/trading (part 1 of 1): runtime-risk"
@@ -180393,6 +180394,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_14 = "Attempt 2 (continue): the two finding-34 cases fail because the buyer constructs a native payment when the plane omits or conflicts on the native idempotency key. That construction path is this crate's own code, now in scope (services/interop/crates/layerx-x402/src added): refuse construction in both cases with the key defect named, keep the seven passing cases, re-run the verify and finish on one commit. Durable native recovery is proven in-process against the crate's own store with a stop-and-reopen case."
+do_15 = "Attempt 4 (requalify): eight of nine cases pass and the reopened-transcript pending-payment case was repaired after the last verify, so the final revision has no verify record. Run the build and the verify once on the final revision with no edits first; repair only what that run reports in scope; no commit after the pass."
 
 [task.22.33.104]
 title = "Repair audit record 22.30.111 medium findings in services/interop/crates/layerx-mirror/tests/support (part 1 of 1): retired-reference"
@@ -182042,11 +182044,11 @@ do_6 = "Prove each repair with an integration test services/human/tests/repair_2
 do_7 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command above is the whole gate (gotcha 2962)."
 do_8 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["services/human/schema/human-api"]
-tests = ["services/human/tests/repair_22_33_41.rs"]
+touches = ["services/human/schema/human-api", "services/human/crates/layerx-human-service/tests"]
+tests = ["services/human/crates/layerx-human-service/tests/repair_22_33_41.rs"]
 planned_paths = ["services/human/tests/repair_22_33_41.rs", "services/human/Cargo.lock"]
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml --tests"
-verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml --test repair_22_33_41"
+verify_cmd = "cargo test --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test repair_22_33_41"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-human"
@@ -182058,6 +182060,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_9 = "Attempt 2 (continue): both schema corrections and the three integration tests are written, but services/human/Cargo.toml is a virtual workspace with no root package, so a test target addressed through it can never exist and the verify command was defective, not the manifest. The verify now runs the test as an integration test of the human service crate, which consumes the human-api schema: move the test file to services/human/crates/layerx-human-service/tests/repair_22_33_41.rs (that directory is now in scope), keep its three cases, declare no new dependency the crate manifest does not already carry, record no wiring request for the manifest, and run the build and the verify once on the final revision with no commit after the pass."
 
 [task.22.33.39]
 title = "Repair audit record 22.30.103 medium findings in services/human/crates/layerx-human-service/src/journeys (part 1 of 1): config-drift, restart-recovery, runtime-risk, wiring-gap"
@@ -182298,10 +182301,10 @@ do_6 = "Real means the component under repair is the production code; its peers 
 do_7 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
 touches = ["services/human"]
-tests = ["services/human/tests/repair_22_33_32.rs"]
+tests = ["services/human/crates/layerx-human-service/tests/repair_22_33_32.rs"]
 planned_paths = ["services/human/tests/repair_22_33_32.rs", "services/human/Cargo.lock"]
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml --tests"
-verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml --test repair_22_33_32"
+verify_cmd = "cargo test --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test repair_22_33_32"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-human"
@@ -182497,6 +182500,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_15 = "Attempt 4 (continue): the final build fails because config.rs now refers to the crate's attestor module while the existing chain_config integration test cannot see it. Expose what the test needs through the crate's public surface (a public module or a test-support re-export), not by making the test reach into private paths, rebuild, run the verify, and finish on one commit."
+do_16 = "Attempt 5 (continue): nine of ten cases pass; the fragmented handshake case waits for sixteen active permits and never sees them, so permits taken for fragmented handshake and frame processing are not all released on completion. The connection and frame handling of services/human/crates/layerx-human-kms/src is in scope: repair the release path so every permit returns once the fragmented frame completes (or its connection closes), keep the sixteen-permit expectation if it is the configured capacity and correct it from the code only if it is not, and run the build and the verify once on the final revision with no commit after the pass."
 
 [task.22.33.14]
 title = "Repair audit record 22.30.100 medium findings in services/agent/crates/layerx-agentd/tests (part 1 of 1): test-gap"
@@ -200178,6 +200182,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_11 = "Attempt 2 (continue): eight aggregate query registrations pass; the upgraded-consensus-state case panics in a reflective comparison of protobuf messages with unexported fields. Compare protobuf responses with proto.Equal or go-cmp's protocmp transform, never reflective deep equality, in the test under interchain/modules/core/keeper; keep the keeper repair and the contract corrections, and run the build and the verify once on the final revision with no commit after the pass."
 
 [task.22.33.1207]
 title = "Repair audit record 22.30.57 medium findings in api (part 1 of 1): interface-mismatch"
@@ -200775,6 +200780,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_11 = "Attempt 2 (continue): the cleanup and height cases pass; the two load-rejection cases fail on a hash equality between two different slice types. Compare the bytes (bytes.Equal, or convert both to the same named type) in the test under consensus/test/e2e/runner, keep the three repairs, and run the build and the verify once on the final revision with no commit after the pass."
 
 [task.22.33.1190]
 title = "Repair audit record 22.30.55 medium findings in consensus/test/e2e/node (part 1 of 1): config-drift"
@@ -201716,6 +201722,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_15 = "Attempt 2 (continue): the rebase move subcase fails because the fixture's source store still holds its lock when the move removes the source directory; the preserve and push cases pass. Repair the case in storage/db_engine/litt/cli (in scope): close the source store before the move (the real command flow releases the lock before it removes the source), and assert the moved store reopens with its data; the rsync remark is not a gate. Run the build and the verify once on the final revision with no commit after the pass."
 
 [task.22.33.1162]
 title = "Repair audit record 22.30.53 medium findings in storage/db_engine/litt/disktable/segment (part 1 of 1): runtime-risk, test-gap"
@@ -202408,6 +202415,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_10 = "Attempt 2 (continue): the single stream-import case passes; the repeated-parameters case panics inside the import when a 105-byte string reaches the must-parse bech32 helper. A production import path that panics on malformed input is the defect: in engine/deps/xevm/types the stream import validates each address and returns an error (never the must-parse helper), the repeated-parameters case feeds real bech32 addresses, and a new case asserts the refusal of the malformed one. Run the build and the verify once on the final revision with no commit after the pass."
 
 [task.22.33.1128]
 title = "Repair audit record 22.30.49 medium findings in engine/deps/xevm/types/ethtx (part 1 of 1): runtime-risk, security"
@@ -203991,8 +203999,8 @@ symbols = []
 touches = ["storage/db_engine/rocksdb/mvcc"]
 tests = ["storage/db_engine/rocksdb/mvcc/repair_m1072_test.go"]
 planned_paths = ["storage/db_engine/rocksdb/mvcc/repair_m1072_test.go"]
-build_cmd = "go build ./storage/db_engine/rocksdb/mvcc/..."
-verify_cmd = "go test -count=1 -v -run '^TestRepairM_1072_' ./storage/db_engine/rocksdb/mvcc/ > /tmp/repair-m1072.log 2>&1; s=$?; grep -E '^(=== RUN|--- (PASS|FAIL)|FAIL|ok|panic|# )' /tmp/repair-m1072.log | tail -n 120; grep -E -B2 -A12 '^--- FAIL' /tmp/repair-m1072.log | head -n 200; grep -q -- '--- PASS: TestRepairM_1072_' /tmp/repair-m1072.log && test $s -eq 0"
+build_cmd = "(dpkg -s librocksdb-dev >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq librocksdb-dev >/dev/null)) && go build -tags rocksdbBackend ./storage/db_engine/rocksdb/mvcc/..."
+verify_cmd = "(dpkg -s librocksdb-dev >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq librocksdb-dev >/dev/null)) && go test -count=1 -v -tags rocksdbBackend -run '^TestRepairM_1072_' ./storage/db_engine/rocksdb/mvcc/ > /tmp/repair-m1072.log 2>&1; s=$?; grep -E '^(=== RUN|--- (PASS|FAIL)|FAIL|ok|panic|# )' /tmp/repair-m1072.log | tail -n 120; grep -E -B2 -A12 '^--- FAIL' /tmp/repair-m1072.log | head -n 200; grep -q -- '--- PASS: TestRepairM_1072_' /tmp/repair-m1072.log && test $s -eq 0"
 gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-node-runtime"
@@ -204004,6 +204012,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_12 = "Attempt 3 (continue): the three repairs are implemented; no test ran because every file of storage/db_engine/rocksdb/mvcc carries the rocksdbBackend build constraint and the gate commands omitted it, so the package matched nothing. The build and verify commands now select the tag and install the RocksDB development library when it is absent (the cgo binding links it). The test file carries the same build constraint as its package (a constrained package with an unconstrained test file does not compile). Record no wiring request for the gate; if the system library the environment provides is incompatible with the pinned grocksdb binding, record the exact compiler output as a finding and stop. Run the build and the verify once on the final revision with no commit after the pass."
 
 [task.22.33.1071]
 title = "Repair audit record 22.30.43 medium findings in consensus/abci/types (part 1 of 1): runtime-risk"
@@ -204149,6 +204158,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_14 = "Attempt 2 (continue): the spec-path migration and parsing repairs are implemented and the build passes; the manifest and readiness cases fail because the test demands that every published command map to an authoritative task of the retired launchpad production specification (identities such as 3.50, 4.50 and 9.1) and that another domain publish two hundred and eight lane mappings. Those identities were retired by the merge: the acceptance tool reads spec/layerx-merge/spec.kvx and records a command whose identity no longer exists as a retired reference with its reason (the audit brief's retired-reference class), never as a mandatory mapping another domain must supply. Rewrite the four failing cases to assert that reporting against a committed fixture of the real spec paths, keep the passing cases, record no wiring request for the mappings, and run the build and the verify once on the final revision with no commit after the pass."
 
 [task.22.33.1065]
 title = "Repair audit record 22.30.42 medium findings in services/launchpad/user/internal/image (part 1 of 1): security"
@@ -204295,6 +204305,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_9 = "Attempt 2 (continue, after 22.31.461 lands): the timezone propagation and its DST and delivery-path tests are implemented, but the build failed before any test compiled, because the launchpad workspace version mismatch (gotcha 2983) stopped the gate; task 22.31.461 repairs the workspace and this task requires it. Never disable the workspace and record no wiring request for it. Take the current head once it has landed, run the build and the verify once, repair only what that run reports in scope, and finish on one commit."
 
 [task.22.33.1052]
 title = "Repair audit record 22.30.41 medium findings in services/launchpad/trading-charts/cmd/charts-rebuild (part 1 of 1): config-drift"
@@ -204623,6 +204634,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_14 = "Attempt 2 (continue, after 22.31.461 lands): the six repairs and their regression tests are implemented, but the build only passed with the workspace disabled and no test ran, because the launchpad workspace version mismatch (gotcha 2983) stopped the gate; task 22.31.461 repairs the workspace and this task requires it. Never disable the workspace and record no wiring request for it. Take the current head once it has landed, run the build and the verify once, repair only what that run reports in scope, and finish on one commit."
 
 [task.22.33.1040]
 title = "Repair audit record 22.30.40 medium findings in services/launchpad/stats-w*/internal/httpapi (part 2 of 2): restart-recovery, security"
@@ -204659,6 +204671,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_10 = "Attempt 2 (continue, after 22.31.461 lands): both repairs and the six tests are implemented and the final build passed, but the verify never ran on that revision, because the launchpad workspace version mismatch (gotcha 2983) stopped the gate; task 22.31.461 repairs the workspace and this task requires it. Never disable the workspace and record no wiring request for it. Take the current head once it has landed, run the build and the verify once, repair only what that run reports in scope, and finish on one commit."
 
 [task.22.33.1039]
 title = "Repair audit record 22.30.40 medium findings in services/launchpad/stats-w*/internal/httpapi (part 1 of 2): restart-recovery, runtime-risk, security, test-gap"
@@ -205246,6 +205259,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_13 = "Attempt 2 (continue, after 22.31.461 lands): the REST repairs and their focused tests are implemented; the build failed only on the launchpad workspace version mismatch (gotcha 2983), repaired by task 22.31.461, which this task requires. Take the current head once it has landed, run the build and the verify once, repair only what that run reports in scope, record no wiring request for the workspace, and finish on one commit."
 
 [task.22.33.1007]
 title = "Repair audit record 22.30.35 medium findings in services/launchpad/metadata/internal/metadata (part 1 of 1): restart-recovery, runtime-risk, test-gap"
@@ -208230,7 +208244,7 @@ title = "Repair audit record 22.30.18 medium findings in services/platform/perps
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.21"]
+requires = ["22.31.21", "22.33.827"]
 reqs = ["22998.1"]
 capabilities = ["22.33.826"]
 interfaces = []
@@ -208261,6 +208275,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_10 = "Attempt 2 (continue): the store-backed cases failed only because the attempt unset PERPS_DATA_TEST_DATABASE_URL to honour the no-environment clause. For services/platform/perps-data that clause yields to the real store (gotcha 2980): the qualification environment provides the PostgreSQL database the variable names, as it did for the done repairs 22.31.21, 3.42.8 and 3.45.1. Open it, create a schema unique to the run, drive the real WriteBlock, replay and recovery paths against it, fail naming the variable only when it is absent, re-run the build and the verify, and finish on one commit."
+do_11 = "Attempt 3 (continue, after 22.33.827 lands): the PostgreSQL fixtures and the recovery reopen checks are implemented; the four store-backed cases fail because the decoder table of services/platform/perps-data/internal/store registers three decoders for the two share events the ABI declares, which the sibling task 22.33.827 repairs in its own scope and which this task now requires. Take the current head once it has landed, run the build and the verify once with the PostgreSQL database the qualification environment provides (gotcha 2980), repair only what remains in internal/replay, and finish on one commit."
 
 [task.22.33.825]
 title = "Repair audit record 22.30.179 medium findings in tools/benchmark (part 1 of 1): doc-drift"
@@ -278442,6 +278457,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_8 = "Attempt 3 (continue): the delegate recovery cases pass; the zero-spend revoke assertion of tests/modules/test_budget_close.c (line 1253) fails in this task's own verify target, and tests/modules is in scope, so it is not pre-existing for this task. Determine from the budget module whether the delegate codec and state-put changes altered the revoke record of a never-spent budget: repair src/modules/budget if they did, or correct the assertion from the kernel's budget law in the spec if the record is right. Run the build and the verify once on the final revision with no commit after the pass."
 
 [task.22.33.1106]
 title = "Repair audit record 22.30.46 medium findings in consensus/internal/state/indexer/sink/psql (part 1 of 1): test-gap"
@@ -281306,6 +281322,7 @@ do_15 = "Attempt 3 (continue): audit_create_occupancy fails because lxp_programs
 do_16 = "Attempt 4 (continue): all five audit cases pass and the programs-core-test target still fails on the inherited original_lifecycle case, which the verify runs and which therefore belongs to this task (gotcha 2971): print its diagnostic, find which step of the lifecycle the repairs changed (activation, execution, funding or retirement ordering), and fix the kernel path or update the case to the repaired behaviour with the reason recorded. The native node maintenance wiring stays a recorded wiring request to the node domain."
 do_17 = "Attempt 5 (continue): the build, the original lifecycle and all five audit cases pass, then the suite dies with a segmentation fault inside the programs_monetary_law case, so the whole verify fails. Run that case alone first (the programs-core test binary with its case filter), find the invalid access the repair introduced (an uninitialised or freed maintenance or storage-environment pointer reached from the monetary-law path is the likely class), fix it in the module source, re-run the full make -s programs-core-test target, and finish on one commit. The native node maintenance wiring stays a recorded wiring request in the record; it is not a reason to leave the suite crashing."
 do_18 = "Attempt 6 (continue): the stack overflow is fixed and every audit case passes; the suite now fails in the real mixed program authority case because the program leg's call reaches the programs runtime and comes back refused (result code -736 is the runtime's program-refused code, protocol 3, sequence 4). Surface the refusal detail the runtime attaches to that result in the test's failure line, then fix the cause on the fixture side: the program leg must present the authority the migrated binding expects (the ABI-5 bound authority that the recovery case already proves), with the same principal and shared-key layout the runtime checks. Do not weaken the kernel-law assertions; re-run the verify and finish on one commit."
+do_19 = "Attempt 7 (continue): every audit case passes; the real mixed program authority case fails at tests/programs/test_monetary_law.c line 859, in the fixture's own program-account registration and commit sequence under the state-commitment protocol version, before any call is made (no receipt, empty detail). First make the failure line print which step of that sequence returned a non-OK code; then repair the step: if the native signer binding for authenticated unsigned state-commitment migrations (this attempt's repair in src/modules/programs and src/protocol/lxp_kernel.c) now refuses the registration or the prepare-commit, bring it in line with the kernel contract so a registered program account commits under that protocol version; if the fixture binds an authority the contract refuses, correct the fixture. The domain-1 native node wiring remarks stay recorded as findings and are not a gate for this task; its own verify target must pass. Run the build and the verify once on the final revision with no commit after the pass."
 
 [task.22.31.19]
 title = "Repair audit record 22.30.17 findings in precompiles/spot/abi: interface-mismatch"
@@ -321489,6 +321506,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_11 = "Attempt 3 (continue): sixteen cases pass; f018 and f019 fail because tests/daemon/fixtures/programs-commit-reopen.json does not exist. This task is the node runtime domain itself, so there is no other domain to ask: produce the recording once at implementation time with the in-repo node (the isolated-chain fixture of tests/daemon, paxeer_x_runtime_fixture.py, with the Go toolchain the gate provides), drive the programs call to block commitment and a reopen, commit the JSON recording under tests/daemon/fixtures, and let the two cases replay it (the 22.33.47 pattern). Never a replay server manufacturing commitments, never a wiring request; run the build and the verify once on the final revision with no commit after the pass."
 
 [task.22.33.1067]
 title = "Repair audit record 22.30.42 medium findings in tools/launchpad/production/feature-acceptance/tests (part 1 of 1): test-gap"
@@ -321509,7 +321527,7 @@ do_7 = "Prove each repair with a test module tools/launchpad/production/feature-
 do_8 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command above is the whole gate (gotcha 2962)."
 do_9 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["tools/launchpad/production/feature-acceptance/tests", "tools/launchpad/production/feature-acceptance/build_inventory.py"]
+touches = ["tools/launchpad/production/feature-acceptance/tests", "tools/launchpad/production/feature-acceptance/build_inventory.py", "tools/launchpad/production/feature-acceptance"]
 tests = ["tools/launchpad/production/feature-acceptance/tests/test_repair_22_33_1067.py"]
 planned_paths = ["tools/launchpad/production/feature-acceptance/tests/test_repair_22_33_1067.py"]
 build_cmd = "python3 -m py_compile tools/launchpad/production/feature-acceptance/tests/test_phase2.py tools/launchpad/production/feature-acceptance/tests/test_phase4.py tools/launchpad/production/feature-acceptance/tests/test_policy.py"
@@ -321525,6 +321543,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_10 = "Attempt 2 (continue): three of six cases pass; the three missing-input cases fail before they reach the input check because the acceptance tool loads spec/layerx-merge/spec.kvx with the TOML parser, and the kvx format is not TOML (its strings carry unescaped backslashes, line 59049). The tool's specification loader is in scope (the whole tools/launchpad/production/feature-acceptance directory now is): read kvx with the repository's own line-based kvx reader (the parser the programme checkers under spec/layerx-merge/programme use) or an equivalent tolerant reader, never the TOML parser; a missing catalog is what those three cases assert as a refusal, not a wiring request. Run the build and the verify once on the final revision with no commit after the pass."
 
 [task.22.33.1053]
 title = "Repair audit record 22.30.41 medium findings in sdk/launchpad/packages/sidiora-launchpad-v3 (part 1 of 1): config-drift"
