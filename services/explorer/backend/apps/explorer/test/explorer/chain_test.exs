@@ -2134,6 +2134,15 @@ defmodule Explorer.ChainTest do
   end
 
   test "total_supply/0" do
+    original_supply = Application.fetch_env(:explorer, :supply)
+
+    on_exit(fn ->
+      case original_supply do
+        {:ok, supply} -> Application.put_env(:explorer, :supply, supply)
+        :error -> Application.delete_env(:explorer, :supply)
+      end
+    end)
+
     Application.put_env(:explorer, :supply, Explorer.Chain.Supply.ProofOfAuthority)
     height = 2_000_000
     insert(:block, number: height)
@@ -2143,6 +2152,15 @@ defmodule Explorer.ChainTest do
   end
 
   test "circulating_supply/0" do
+    original_supply = Application.fetch_env(:explorer, :supply)
+
+    on_exit(fn ->
+      case original_supply do
+        {:ok, supply} -> Application.put_env(:explorer, :supply, supply)
+        :error -> Application.delete_env(:explorer, :supply)
+      end
+    end)
+
     Application.put_env(:explorer, :supply, Explorer.Chain.Supply.ProofOfAuthority)
     assert Chain.circulating_supply() == ProofOfAuthority.circulating()
   end
@@ -2399,23 +2417,36 @@ defmodule Explorer.ChainTest do
              ]
     end
 
-    # Flaky test
-    # test "uses last block value if there a couple of change in the same day" do
-    #   address = insert(:address)
-    #   today = NaiveDateTime.utc_now()
-    #   past = Timex.shift(today, hours: -1)
+    test "uses last block value if there a couple of change in the same day" do
+      address = insert(:address)
+      past = ~U[2026-09-24 11:00:00Z]
+      latest = ~U[2026-09-24 12:00:00Z]
+      day = DateTime.to_date(latest)
+      config_key = BlockScoutWeb.Chain.Address.CoinBalance
+      original_config = Application.fetch_env!(:block_scout_web, config_key)
 
-    #   block_now = insert(:block, timestamp: today, number: 1)
-    #   insert(:fetched_balance, address_hash: address.hash, value: 1, block_number: block_now.number)
+      on_exit(fn -> Application.put_env(:block_scout_web, config_key, original_config) end)
 
-    #   block_past = insert(:block, timestamp: past, number: 2)
-    #   insert(:fetched_balance, address_hash: address.hash, value: 0, block_number: block_past.number)
-    #   insert(:fetched_balance_daily, address_hash: address.hash, value: 0, day: today)
+      Application.put_env(
+        :block_scout_web,
+        config_key,
+        Keyword.put(original_config, :coin_balance_history_days, Date.diff(Date.utc_today(), day) + 1)
+      )
 
-    #   [balance] = Chain.address_to_balances_by_day(address.hash)
+      block_now = insert(:block, timestamp: latest, number: 2)
+      insert(:fetched_balance, address_hash: address.hash, value: 0, block_number: block_now.number)
 
-    #   assert balance.value == Decimal.new(0)
-    # end
+      block_past = insert(:block, timestamp: past, number: 1)
+      insert(:fetched_balance, address_hash: address.hash, value: 1, block_number: block_past.number)
+      insert(:fetched_balance_daily, address_hash: address.hash, value: 1, day: day)
+
+      balances = Chain.address_to_balances_by_day(address.hash)
+      balance = Enum.find(balances, &(&1.date == Date.to_string(day)))
+
+      assert balance.value == Decimal.new(0)
+      assert Enum.map(balances, & &1.date) == Enum.uniq([Date.to_string(day), Date.to_string(Date.utc_today())])
+      assert Enum.all?(balances, &(&1.value == Decimal.new(0)))
+    end
   end
 
   describe "transaction_token_transfer_type/1" do
