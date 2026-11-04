@@ -1,130 +1,144 @@
 # Peers
 
-This document explains how Tendermint Peers are identified and how they connect to one another.
+This page describes node identity and TCP handshakes in the Paxeer consensus
+implementation. The wire definitions are
+[`internal/p2p/p2p.proto`](../../internal/p2p/p2p.proto); the handshake consumers
+are [`handshake.go`](../../internal/p2p/handshake.go) and the connection admission
+code in [`internal/p2p`](../../internal/p2p). These connections belong to the same
+network whose kernel proposes blocks.
 
-For details on peer discovery, see the [peer exchange (PEX) doc](https://github.com/tendermint/tendermint/blob/master/docs/tendermint-core/pex/README.md).
+For peer discovery, see the local [PEX implementation](../../internal/p2p/pex).
+For channel payloads, see [Consensus](messages/consensus.md) and
+[State Sync](messages/state-sync.md). The [RPC reference](../rpc/README.md)
+describes node and peer inspection through the local consensus listener.
 
 ## Peer Identity
 
-Tendermint peers are expected to maintain long-term persistent identities in the form of a public key.
-Each peer has an ID defined as `peer.ID == peer.PubKey.Address()`, where `Address` uses the scheme defined in `crypto` package.
+A node has a persistent Ed25519 key. Its `types.NodeID` is the lowercase hex
+encoding of the first 20 bytes of SHA-256 of the raw public key: 40 hex digits.
+See [`types/node_id.go`](../../types/node_id.go) and
+[`crypto/ed25519/conv.go`](../../crypto/ed25519/conv.go). The node key authenticates
+the transport; it is distinct from a validator's consensus role.
 
-A single peer ID can have multiple IP addresses associated with it, but a node
-will only ever connect to one at a time.
+[`NodeAddress`](../../internal/p2p/address.go) carries the node ID, a hostname or
+IP address, and a port. Its string form is `mconn://<ID>@<HOST>:<PORT>`; the parser
+also accepts `<ID>@<HOST>:<PORT>`. IPv6 hosts use brackets. Specify the actual P2P
+port explicitly: the parser's omitted-port default is 26657, while
+`DefaultP2PConfig` listens on `tcp://127.0.0.1:26656`.
 
-When attempting to connect to a peer, we use the PeerURL: `<ID>@<IP>:<PORT>`.
-We will attempt to connect to the peer at IP:PORT, and verify,
-via authenticated encryption, that it is in possession of the private key
-corresponding to `<ID>`. This prevents man-in-the-middle attacks on the peer layer.
+A node ID can have several candidate addresses. Dialing checks the authenticated
+remote key against the intended node ID before accepting node information.
+Advertised addresses are not proof that another node controls those identities.
 
 ## Connections
 
-All p2p connections use TCP.
-Upon establishing a successful TCP connection with a peer,
-two handshakes are performed: one for authenticated encryption, and one for Tendermint versioning.
-Both handshakes have configurable timeouts (they should complete quickly).
+The TCP connection first establishes encryption, then authenticates a persistent
+node key. Ordinary channel connections next exchange `NodeInfo`. Peers that
+negotiate the PaxGiga connection mode instead enter its peer RPC transport.
+These are internal transport choices, not separate networks or public API
+services.
+
+The connection APIs take contexts for cancellation. `RouterOptions.HandshakeTimeout`
+bounds the authenticated handshake; the outgoing channel path also exchanges
+`NodeInfo` within that timeout. Incoming `NodeInfo` exchange uses the connection's
+parent context. Do not assume two independent timeout settings for the two
+stages.
 
 ### Authenticated Encryption Handshake
 
-Tendermint implements the Station-to-Station protocol
-using X25519 keys for Diffie-Helman key-exchange and chacha20poly1305 for encryption.
+[`conn/secret_connection.go`](../../internal/p2p/conn/secret_connection.go)
+implements the ephemeral key exchange and encrypted framing.
 
-Previous versions of this protocol (0.32 and below) suffered from malleability attacks whereas an active man
-in the middle attacker could compromise confidentiality as described in [Prime, Order Please!
-Revisiting Small Subgroup and Invalid Curve Attacks on
-Protocols using Diffie-Hellman](https://eprint.iacr.org/2019/526.pdf).
+1. Each side generates an ephemeral X25519 key pair and concurrently sends and
+   receives a protobuf `Preface`. Its only field is `bytes sts_public_key = 1`.
+   [`conn/protoio.go`](../../internal/p2p/conn/protoio.go) prefixes the encoded
+   message with its byte length as an unsigned varint. The read limit is 1,024
+   bytes; the public key must be exactly 32 bytes.
+2. Sort the two public keys lexicographically. Start a Merlin transcript named
+   `TENDERMINT_SECRET_CONNECTION_TRANSCRIPT_HASH`, append the lower key under
+   `EPHEMERAL_LOWER_PUBLIC_KEY`, the upper key under
+   `EPHEMERAL_UPPER_PUBLIC_KEY`, and the X25519 shared secret under `DH_SECRET`.
+   Invalid shared-secret derivation fails the handshake.
+3. Extract the 32-byte authentication challenge from the transcript using
+   `SECRET_CONNECTION_MAC`. Separately derive 64 bytes of encryption key material
+   with HKDF-SHA256, the shared secret as input key material, no salt, and info
+   `TENDERMINT_SECRET_CONNECTION_KEY_AND_CHALLENGE_GEN`. The side with the lower
+   ephemeral key uses the first 32 bytes to receive and the second 32 to send;
+   the other side uses the reverse assignment.
+4. Encrypt subsequent traffic with ChaCha20-Poly1305. A plaintext frame contains
+   a four-byte little-endian data length followed by a 1,024-byte data area,
+   padded when necessary. The 1,028-byte frame plus the 16-byte tag produces
+   1,044 bytes on the wire. Each direction has an independent counter starting
+   at zero. The 12-byte nonce has four zero bytes followed by the little-endian
+   64-bit counter. The implementation rejects counter overflow.
+5. Over this encrypted channel, exchange a varint-length-prefixed protobuf
+   `Handshake`, with a receive limit of 1,048,576 bytes. Each side signs the
+   **Merlin challenge**, not the ephemeral public key or HKDF output, with its
+   persistent Ed25519 key.
 
-We have added dependency on the Merlin a keccak based transcript hashing protocol to ensure non-malleability.
+The `Handshake` fields are:
 
-It goes as follows:
+| Name | Type | Field Number | Meaning |
+| --- | --- | --- | --- |
+| node_auth_key | NodePublicKey | 1 | Persistent public key; nested `bytes ed25519 = 1` is 32 bytes |
+| node_auth_sig | bytes | 2 | 64-byte Ed25519 signature over the session challenge |
+| pax_giga_connection | bool | 3 | Requests the PaxGiga peer RPC connection mode |
+| self_addr | optional string | 4 | Address at which this node advertises it can be dialed |
+| pex_addrs | repeated string | 5 | Initial peer-discovery addresses; at most 100 |
 
-- generate an ephemeral X25519 keypair
-- send the ephemeral public key to the peer
-- wait to receive the peer's ephemeral public key
-- create a new Merlin Transcript with the string "TENDERMINT_SECRET_CONNECTION_TRANSCRIPT_HASH"
-- Sort the ephemeral keys and add the high labeled "EPHEMERAL_UPPER_PUBLIC_KEY" and the low keys labeled "EPHEMERAL_LOWER_PUBLIC_KEY" to the Merlin transcript.
-- compute the Diffie-Hellman shared secret using the peers ephemeral public key and our ephemeral private key
-- add the DH secret to the transcript labeled DH_SECRET.
-- generate two keys to use for encryption (sending and receiving) and a challenge for authentication as follows:
-    - create a hkdf-sha256 instance with the key being the diffie hellman shared secret, and info parameter as
-    `TENDERMINT_SECRET_CONNECTION_KEY_AND_CHALLENGE_GEN`
-    - get 64 bytes of output from hkdf-sha256
-    - if we had the smaller ephemeral pubkey, use the first 32 bytes for the key for receiving, the second 32 bytes for sending; else the opposite.
-- use a separate nonce for receiving and sending. Both nonces start at 0, and should support the full 96 bit nonce range
-- all communications from now on are encrypted in 1400 byte frames (plus encoding overhead),
-  using the respective secret and nonce. Each nonce is incremented by one after each use.
-- we now have an encrypted channel, but still need to authenticate
-- extract a 32 bytes challenge from merlin transcript with the label "SECRET_CONNECTION_MAC"
-- sign the common challenge obtained from the hkdf with our persistent private key
-- send the amino encoded persistent pubkey and signature to the peer
-- wait to receive the persistent public key and signature from the peer
-- verify the signature on the challenge using the peer's persistent public key
-
-If this is an outgoing connection (we dialed the peer) and we used a peer ID,
-then finally verify that the peer's persistent public key corresponds to the peer ID we dialed,
-ie. `peer.PubKey.Address() == <ID>`.
-
-The connection has now been authenticated. All traffic is encrypted.
-
-Note: only the dialer can authenticate the identity of the peer,
-but this is what we care about since when we join the network we wish to
-ensure we have reached the intended peer (and are not being MITMd).
+[`conv.go`](../../internal/p2p/conv.go) requires the public key and checks key and
+signature encodings. `handshake` verifies the signature, requires any
+`self_addr` to name the authenticated node, and rejects an oversized peer list.
+The dialer additionally requires the authenticated ID to equal its dial target.
+Both sides verify the remote signature; the dialer also knows which identity it
+intended to reach. Encryption alone does not establish that intended identity.
 
 ### Peer Filter
 
-Before continuing, we check if the new peer has the same ID as ourselves or
-an existing peer. If so, we disconnect.
-
-We also check the peer's address and public key against
-an optional whitelist which can be managed through the ABCI app -
-if the whitelist is enabled and the peer does not qualify, the connection is
-terminated.
+For ordinary connections, admission runs after the identity and `NodeInfo`
+checks. The peer manager rejects a connection to self and applies its connection
+pool policy. Duplicate connections may be rejected or replace an existing
+connection according to that policy; there is no unconditional rule that every
+second connection is disconnected. This path does not call the historical ABCI
+address/public-key whitelist described by older peer guides.
 
 ### Tendermint Version Handshake
 
-The Tendermint Version Handshake allows the peers to exchange their NodeInfo:
+On the ordinary channel path, `exchangeNodeInfo` sends and receives the
+varint-length-prefixed `tendermint.p2p.NodeInfo` protobuf defined in
+[`proto/tendermint/p2p/types.proto`](../../proto/tendermint/p2p/types.proto).
+The receive limit is 10,240 bytes.
 
-```golang
-type NodeInfo struct {
-  Version    p2p.Version
-  ID         p2p.ID
-  ListenAddr string
+| Name | Type | Field Number |
+| --- | --- | --- |
+| protocol_version | ProtocolVersion (`uint64 p2p = 1`, `block = 2`, `app = 3`) | 1 |
+| node_id | string | 2 |
+| listen_addr | string | 3 |
+| network | string | 4 |
+| version | string | 5 |
+| channels | bytes | 6 |
+| moniker | string | 7 |
+| other | NodeInfoOther (`string tx_index = 1`, `rpc_address = 2`) | 8 |
 
-  Network    string
-  SoftwareVersion    string
-  Channels   []int8
+`node_id` must match the ID derived from the authenticated key. Then
+[`NodeInfo.Validate`](../../types/node_info.go) checks the listen address
+(including DNS resolution), ASCII text fields, a nonempty moniker, at most 16
+channel bytes with no duplicates, and `tx_index` equal to `on`, `off` or empty.
+The network string and block protocol version must match the local node.
+`CompatibleWith` currently does not require matching P2P or application versions
+or an intersection of advertised channels. Advertised channels determine which
+channel messages a peer can receive.
 
-  Moniker    string
-  Other      NodeInfoOther
-}
-
-type Version struct {
- P2P uint64
- Block uint64
- App uint64
-}
-
-type NodeInfoOther struct {
- TxIndex          string
- RPCAddress       string
-}
-```
-
-The connection is disconnected if:
-
-- `peer.NodeInfo.ID` is not equal `peerConn.ID`
-- `peer.NodeInfo.Version.Block` does not match ours
-- `peer.NodeInfo.Network` is not the same as ours
-- `peer.Channels` does not intersect with our known Channels.
-- `peer.NodeInfo.ListenAddr` is malformed or is a DNS host that cannot be
-  resolved
-
-At this point, if we have not disconnected, the peer is valid.
-It is added to the switch and hence all reactors via the `AddPeer` method.
-Note that each reactor may handle multiple channels.
+When both sides negotiate `pax_giga_connection`, the inbound transport branches
+to `RunInboundConn` before this ordinary `NodeInfo` exchange. Its RPC definitions
+are in [`internal/p2p/giga/api.proto`](../../internal/p2p/giga/api.proto). Do not
+send classic channel envelopes on that RPC connection.
 
 ## Connection Activity
 
-Once a peer is added, incoming messages for a given reactor are handled through
-that reactor's `Receive` method, and output messages are sent directly by the Reactors
-on each peer. A typical reactor maintains per-peer go-routine(s) that handle this.
+After admission, ordinary connections use `conn.NewMConnection` and its protobuf
+`Packet` envelope. Channel receive loops deliver messages to the subscribed
+consumers; send queues carry messages back to the peer. The current API uses
+opened channels and peer updates rather than the historical switch's `AddPeer`
+and reactor `Receive` callbacks. Connection cancellation or a transport error
+ends the loops and notifies the peer manager of disconnection.
