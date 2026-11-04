@@ -91,6 +91,9 @@ impl Source<'_> {
             } => http::loopback_get(*address, authority, &format!("{base_path}{path}"), query),
         };
         let upstream = upstream.map_err(|_| "indexer_unreachable")?;
+        if path == "/v1/assets" && upstream.status == 429 {
+            return Ok((429, Value::Null));
+        }
         if upstream.content_type != "application/json" {
             return Err("invalid_indexer_response");
         }
@@ -369,9 +372,17 @@ fn asset_metadata(asset: &str, record: &Value, registry: &[Value]) -> Value {
     })
 }
 
+fn registry_matches(asset: &str, record: &Value, entry: &Value) -> bool {
+    if text(record, "kind") == Some("layerx") {
+        text(entry, "asset") == Some(asset)
+    } else {
+        text(record, "denom").is_some() && text(entry, "denom") == text(record, "denom")
+    }
+}
+
 fn join_assets(
     source: &Source<'_>,
-    registry: &dyn Fn() -> Result<Vec<Value>, Failure>,
+    registry: &dyn Fn(&BTreeMap<String, Value>) -> Result<Vec<Value>, Failure>,
     items: &mut [Value],
 ) -> Result<(), Failure> {
     if items.is_empty() {
@@ -399,10 +410,20 @@ fn join_assets(
         };
         records.insert(asset.to_owned(), record);
     }
-    let registry = if records.values().any(|record| !record.is_null()) {
-        registry()?
-    } else {
+    let needed: BTreeMap<_, _> = records
+        .iter()
+        .filter(|(_, record)| {
+            record.is_object()
+                && text(record, "kind") != Some("native")
+                && (text(&record["metadata"], "symbol").is_none()
+                    || record["metadata"]["decimals"].as_u64().is_none())
+        })
+        .map(|(asset, record)| (asset.clone(), record.clone()))
+        .collect();
+    let registry = if needed.is_empty() {
         Vec::new()
+    } else {
+        registry(&needed)?
     };
     for item in items.iter_mut() {
         let asset = text(item, "asset").unwrap_or_default().to_owned();
@@ -426,7 +447,7 @@ fn join_assets(
 /// repeats nor skips a row.
 pub(super) fn history(
     source: &Source<'_>,
-    registry: &dyn Fn() -> Result<Vec<Value>, Failure>,
+    registry: &dyn Fn(&BTreeMap<String, Value>) -> Result<Vec<Value>, Failure>,
     accounts: &[(&'static str, String)],
     query: &Query,
     tagged: bool,
@@ -506,11 +527,21 @@ fn refusal(id: &Value, code: i32, message: &str, data: Value) -> Value {
     refusal
 }
 
+#[cfg(test)]
 fn registry(source: Option<&Source<'_>>) -> Result<Vec<Value>, Failure> {
+    registry_for(source, None)
+}
+
+fn registry_for(
+    source: Option<&Source<'_>>,
+    needed: Option<&BTreeMap<String, Value>>,
+) -> Result<Vec<Value>, Failure> {
     let source = source.ok_or(Failure::Unavailable("registry_unavailable"))?;
     let mut assets = Vec::new();
     let mut cursor = 0;
-    loop {
+    // The catalogue API has no denom selector. Bound discovery to 3,200 records;
+    // exhaustion is an explicit refusal, never incomplete fallback metadata.
+    for _ in 0..32 {
         let query = if cursor == 0 {
             format!("limit={MAXIMUM_LIMIT}")
         } else {
@@ -524,14 +555,32 @@ fn registry(source: Option<&Source<'_>>) -> Result<Vec<Value>, Failure> {
             429 => return Err(Failure::Unavailable("registry_rate_limited")),
             _ => return Err(Failure::Unavailable("registry_unavailable")),
         }
+        if body.get("version") != Some(&json!(1)) {
+            return Err(Failure::Unavailable("invalid_indexer_response"));
+        }
         let rows = body
             .get("items")
             .and_then(Value::as_array)
-            .ok_or(Failure::Unavailable("registry_unavailable"))?;
-        for row in rows
-            .iter()
-            .filter(|row| text(row, "kind") == Some("layerx"))
-        {
+            .ok_or(Failure::Unavailable("invalid_indexer_response"))?;
+        if rows.len() > MAXIMUM_LIMIT as usize {
+            return Err(Failure::Unavailable("invalid_indexer_response"));
+        }
+        for row in rows {
+            if text(row, "asset").is_none()
+                || text(row, "kind").is_none()
+                || !row.get("metadata").is_some_and(Value::is_object)
+            {
+                return Err(Failure::Unavailable("invalid_indexer_response"));
+            }
+            if text(row, "kind") != Some("layerx")
+                || needed.is_some_and(|needed| {
+                    !needed
+                        .iter()
+                        .any(|(asset, record)| registry_matches(asset, record, row))
+                })
+            {
+                continue;
+            }
             assets.push(json!({
                 "asset_id": row["asset"],
                 "denom": row["denom"],
@@ -539,16 +588,38 @@ fn registry(source: Option<&Source<'_>>) -> Result<Vec<Value>, Failure> {
                 "decimals": row["metadata"]["decimals"],
             }));
         }
+        // Validate the page envelope even when this page resolves every field.
+        if !matches!(body.get("next_cursor"), Some(Value::Null))
+            && !body
+                .get("next_cursor")
+                .and_then(Value::as_str)
+                .and_then(decimal)
+                .is_some_and(|next| next > cursor)
+        {
+            return Err(Failure::Unavailable("invalid_indexer_response"));
+        }
+        if needed.is_some_and(|needed| {
+            needed.iter().all(|(asset, record)| {
+                let metadata = asset_metadata(asset, record, &assets);
+                metadata["symbol"].is_string() && metadata["decimals"].is_u64()
+            })
+        }) {
+            return Ok(assets);
+        }
         match body.get("next_cursor") {
             Some(Value::Null) => return registry_result(Some(json!({"assets": assets}))),
             Some(Value::String(next)) => {
                 cursor = decimal(next)
                     .filter(|next| *next > cursor)
-                    .ok_or(Failure::Unavailable("invalid_registry_response"))?;
+                    .ok_or(Failure::Unavailable("invalid_indexer_response"))?;
+                if rows.is_empty() {
+                    return Err(Failure::Unavailable("invalid_indexer_response"));
+                }
             }
-            _ => return Err(Failure::Unavailable("invalid_registry_response")),
+            _ => return Err(Failure::Unavailable("invalid_indexer_response")),
         }
     }
+    Err(Failure::Unavailable("registry_unavailable"))
 }
 
 fn registry_result(result: Option<Value>) -> Result<Vec<Value>, Failure> {
@@ -568,7 +639,7 @@ fn answer(config: &Config, method: &str, id: &Value, params: Option<&Value>) -> 
     served(
         &mut |request| super::paxeer::node(config, request),
         source.as_ref(),
-        &|| registry(source.as_ref()),
+        &|needed| registry_for(source.as_ref(), Some(needed)),
         method,
         id,
         params,
@@ -580,7 +651,7 @@ fn answer(config: &Config, method: &str, id: &Value, params: Option<&Value>) -> 
 fn served(
     node: &mut super::paxeer::Node<'_>,
     source: Option<&Source<'_>>,
-    registry: &dyn Fn() -> Result<Vec<Value>, Failure>,
+    registry: &dyn Fn(&BTreeMap<String, Value>) -> Result<Vec<Value>, Failure>,
     method: &str,
     id: &Value,
     params: Option<&Value>,
@@ -1133,7 +1204,7 @@ mod tests {
         Indexer::parse(&format!("http://{address}")).unwrap_or_else(|error| panic!("{error}"))
     }
 
-    fn registry() -> Result<Vec<Value>, Failure> {
+    fn registry(_: &BTreeMap<String, Value>) -> Result<Vec<Value>, Failure> {
         Ok(vec![
             json!({"asset_id": LXP, "symbol": "LXP", "name": "LayerX Points", "decimals": 6, "denom": "ulxp"}),
         ])
@@ -2203,7 +2274,7 @@ mod tests {
             client: None,
         };
         let reads = std::cell::Cell::new(0);
-        let unavailable = || {
+        let unavailable = |_: &BTreeMap<String, Value>| {
             reads.set(reads.get() + 1);
             Err(Failure::Unavailable("registry_unavailable"))
         };
@@ -2241,6 +2312,79 @@ mod tests {
     }
 
     #[test]
+    fn history_registry_skipped_for_present_native_and_complete_assets() {
+        let store = Store::open_in_memory().unwrap_or_else(|e| panic!("{e}"));
+        let complete = format!("evm:{POINTER}");
+        store
+            .commit(
+                &unit(
+                    "paxeer",
+                    10,
+                    vec![
+                        leg(
+                            (10, 0, 0),
+                            "native_transfer",
+                            "out",
+                            EVE,
+                            FRANK,
+                            "evm:native",
+                            "1",
+                        ),
+                        leg(
+                            (10, 1, 1),
+                            "erc20_transfer",
+                            "in",
+                            EVE,
+                            FRANK,
+                            &complete,
+                            "2",
+                        ),
+                    ],
+                    vec![
+                        asset("evm:native", "paxeer", "native", None, None),
+                        AssetRow {
+                            metadata: json!({"symbol":"TOKEN", "decimals":6}),
+                            ..asset(&complete, "paxeer", "erc20", Some(POINTER), None)
+                        },
+                    ],
+                ),
+                64,
+            )
+            .unwrap_or_else(|e| panic!("{e}"));
+        let indexer = serve(store);
+        let source = Source {
+            indexer: &indexer,
+            client: None,
+        };
+        let reads = std::cell::Cell::new(0);
+        let unavailable = |_: &BTreeMap<String, Value>| {
+            reads.set(reads.get() + 1);
+            Err(Failure::Unavailable("registry_unavailable"))
+        };
+        for method in ["px_getHistory", "px_getUnifiedHistory"] {
+            let answer = served(
+                &mut chain,
+                Some(&source),
+                &unavailable,
+                method,
+                &json!(7),
+                Some(&json!([EVE, null, 100])),
+            );
+            assert!(answer.get("error").is_none(), "{answer}");
+            assert_eq!(ids(&answer["result"]), vec![1, 2]);
+            let rows = items(&answer["result"]);
+            assert_eq!(rows[0]["asset_metadata"]["kind"], "native");
+            assert_eq!(rows[0]["asset_metadata"]["decimals"], 18);
+            assert_eq!(rows[1]["asset_metadata"]["symbol"], "TOKEN");
+            assert_eq!(rows[1]["asset_metadata"]["decimals"], 6);
+            for row in rows {
+                assert_eq!(row["tx_hash"], row["tx_id"]);
+            }
+        }
+        assert_eq!(reads.get(), 0);
+    }
+
+    #[test]
     fn history_registry_passes_through_refusal_codes() {
         let closed = TcpListener::bind("127.0.0.1:0").unwrap_or_else(|error| panic!("{error}"));
         let address = closed
@@ -2266,7 +2410,7 @@ mod tests {
             let answer = served(
                 &mut chain,
                 Some(&source),
-                &|| super::registry(Some(&unavailable)),
+                &|_| super::registry(Some(&unavailable)),
                 method,
                 &json!(7),
                 Some(&json!([EVE, null, 100])),
@@ -2297,7 +2441,7 @@ mod tests {
                 let answer = served(
                     &mut chain,
                     Some(&source),
-                    &|| registry_result(result.clone()),
+                    &|_| registry_result(result.clone()),
                     method,
                     &json!(7),
                     Some(&json!([EVE, null, 100])),
