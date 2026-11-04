@@ -3,8 +3,8 @@
 // omitted all four native events, so consumers could not decode producer logs.
 // The RPC adapter below only forwards calls to the application's real EVM; it
 // never substitutes return values, keeper operations, logs or ABI encodings.
-// The anchor owns no store: reconstructing it and reading twice must observe
-// the underlying pay/kernel state afresh. Truncation of an actual emitted event
+// Reopening commits and closes the stores and host, then reconstructs the pay
+// keeper, both precompiles and EVM from disk. Truncation of an actual emitted event
 // is refused by the wallet's own strict decoder.
 // modules/layerxpay/keeper/stream_views.go StreamAccrued returns cumulative
 // accrual; the wallet computes unpaid value by subtracting getStream.settled.
@@ -31,26 +31,21 @@ import (
 	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/require"
 )
 
 func TestProofStreams0x0906(t *testing.T) {
-	h := newStreamsHarness(t)
+	persisted := newProofStreamsStore(t)
+	h := persisted.h
 	keepers := payKeepers{testkeeper.EVMTestApp.GetPrecompileKeepers(), h.keeper}
-	var producer precompiles.IPrecompile
+	var producer precompiles.IPrecompile = h.precompile
 	reopen := func() error {
-		p, err := streams.NewMergePrecompile(keepers, streamsPlan)
-		if err != nil {
-			return err
-		}
-		producer = p
-		h.precompile = p.(*agentcommon.Precompile)
-		h.evm.SetPrecompiles(map[common.Address]vm.PrecompiledContract{p.Address(): p})
+		persisted.reopen()
+		producer = h.precompile
 		return nil
 	}
-	require.NoError(t, reopen())
 	require.Equal(t, common.HexToAddress(streams.StreamsAddress), producer.Address())
 	require.Equal(t, streams.PrecompileName, producer.GetName())
 	_, err := streams.NewMergePrecompile(keepers, "")
@@ -69,6 +64,7 @@ func TestProofStreams0x0906(t *testing.T) {
 	}
 	var mu sync.Mutex
 	counts := make(map[string]int)
+	var producedLogs []*types.Log
 	reopenCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
@@ -154,6 +150,7 @@ func TestProofStreams0x0906(t *testing.T) {
 			}
 			logs := make([]wireLog, 0)
 			for _, entry := range h.db.GetAllLogs()[before:] {
+				producedLogs = append(producedLogs, entry)
 				logs = append(logs, wireLog{entry.Address.Hex(), entry.Topics, "0x" + common.Bytes2Hex(entry.Data)})
 			}
 			reply(map[string]interface{}{"output": "0x" + common.Bytes2Hex(output), "logs": logs, "gas": producer.RequiredGas(input)}, nil, nil)
@@ -190,7 +187,7 @@ func TestProofStreams0x0906(t *testing.T) {
 	require.Equal(t, 9, counts["eth_call:894e9a0d"])
 	require.Equal(t, 5, counts["eth_call:f52981f4"])
 
-	id := new(big.Int).SetBytes(h.db.GetAllLogs()[0].Topics[1].Bytes())
+	id := new(big.Int).SetBytes(producedLogs[0].Topics[1].Bytes())
 	record := h.record(id)
 	require.True(t, record.Closed)
 	require.Equal(t, codec.U128{Lo: 3}, record.Rate)
@@ -200,8 +197,8 @@ func TestProofStreams0x0906(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, expected, balance.String())
 	}
-	require.Len(t, h.db.GetAllLogs(), 6)
-	require.Equal(t, common.HexToAddress("0x101b"), h.db.GetAllLogs()[4].Address)
+	require.Len(t, producedLogs, 6)
+	require.Equal(t, common.HexToAddress("0x101b"), producedLogs[4].Address)
 
 	// The same real producer ABI feeds the gas consumer; charge full calldata.
 	for _, row := range []struct {

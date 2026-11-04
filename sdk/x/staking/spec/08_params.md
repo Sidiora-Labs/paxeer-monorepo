@@ -10,7 +10,9 @@ table follows the registered `ParamSetPairs` in
 [protobuf Params](../../../proto/cosmos/staking/v1beta1/staking.proto) and the
 [keeper accessors](../keeper/params.go). Defaults are the values returned by
 `DefaultParams()` in this tree, not a claim about a deployed chain's governed
-values. The SDK-wide defaults used below are in
+values. The complete default response and a separately labeled transaction
+fixture are in the [client reference](./09_client.md#params-1). The SDK-wide
+defaults used below are in
 [sdk/types/staking.go](../../../types/staking.go).
 
 | Go field / protobuf field | Parameter-store key | Type | Code default |
@@ -81,5 +83,8 @@ Power reduction is separate from the on-chain `Params` fields. Although
 `KeyPowerReduction` and a validation helper exist in the source, it is not
 registered in `ParamSetPairs` or included in the protobuf `Params`; changing a
 parameter-store value named `PowerReduction` does not change this keeper's
-conversion. The [state reference](./01_state.md#validator) describes the indexes
-that use the application reduction.
+conversion. This application default is fixed by node code, rather than
+changed through staking governance. Test applications may deliberately override
+the global; such overrides do not define production defaults. The
+[state reference](./01_state.md#validator) describes the indexes that use the
+application reduction.

@@ -21,6 +21,18 @@ fn hash(hex: &str) -> String {
 #[automock]
 #[async_trait]
 pub trait SignatureSource {
+    /// Whether this source can answer this key. A finite local inventory does
+    /// not establish global absence when directory lookups fail.
+    fn covers_function(&self, _hex: &str) -> bool {
+        true
+    }
+    fn covers_event(&self, _hex: &str) -> bool {
+        true
+    }
+    fn accepts_imports(&self) -> bool {
+        true
+    }
+
     async fn create_signatures(&self, abi: &str) -> Result<(), anyhow::Error>;
     // Resulting signatures should be sorted in priority descending order (first - max priority)
     async fn get_function_signatures(&self, hex: &str) -> Result<Vec<String>, anyhow::Error>;
@@ -31,7 +43,10 @@ pub trait SignatureSource {
         &self,
         hex: &[String],
     ) -> Result<Vec<Vec<String>>, anyhow::Error> {
-        Ok(vec![vec![]; hex.len()])
+        futures::future::join_all(hex.iter().map(|key| self.get_event_signatures(key)))
+            .await
+            .into_iter()
+            .collect()
     }
 
     // for errors
@@ -41,6 +56,10 @@ pub trait SignatureSource {
 #[automock]
 #[async_trait]
 pub trait CompleteSignatureSource {
+    fn covers_event(&self, _hex: &str) -> bool {
+        true
+    }
+
     async fn get_event_signatures(
         &self,
         hex: &str,
@@ -50,7 +69,10 @@ pub trait CompleteSignatureSource {
         &self,
         hex: &[String],
     ) -> Result<Vec<Vec<alloy_json_abi::Event>>, anyhow::Error> {
-        Ok(vec![vec![]; hex.len()])
+        futures::future::join_all(hex.iter().map(|key| self.get_event_signatures(key)))
+            .await
+            .into_iter()
+            .collect()
     }
 
     // for errors

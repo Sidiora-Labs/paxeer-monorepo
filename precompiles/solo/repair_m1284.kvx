@@ -1,0 +1,29 @@
+[repair.22.33.1284]
+finding = "solo-nft-pagination-progress"
+policy = "CW721 claim-all allows at most 32 smart queries including the terminal empty page and 256 tokens per asset; ids must be unique and strictly increasing in CW721 byte order. Larger sets use claimSpecific with an explicit token denom."
+atomicity = "ClaimSpecific stages signature sequence, native balances, CW20 transfers, CW721 transfers and events in one cache; only a fully successful claim commits."
+tests = ["TestRepairM_1284_RepeatedPageAtomic", "TestRepairM_1284_MalformedPagination", "TestRepairM_1284_TokenBoundAndSpecificRoute", "TestRepairM_1284_PageBound", "TestRepairM_1284_FiniteEnumeration"]
+proof = "Signed Cosmos claim payloads are ABI-encoded into the production dynamic precompile and reach real SDK stores, bank/account keepers and deployed Wasm contracts. The repeated-page contract queries actual minted CW721 ownership while ignoring start_after; prior native, CW20 and honest NFT transfers and signing sequence remain unchanged on repeated deterministic refusal."
+fixtures = "Committed gzip Wasm fixtures wrap only cw721_base query; original mint, owner_of, authorization and transfer code is retained. cw721_pages.py records reproducible bytecode construction; tests need no subprocess."
+baseline = "Attempt 1 verification could not compile inherited NewFactoryCLI callers, so no TestRepairM_1284_ test executed or failed before the repair. This continuation preserves that implementation; the ordered hf-build and hf-done gates take precedence over do_5's contradictory unchanged-tree baseline request."
+wiring_requests = []
+resolved_wiring = "Task 22.31.463 repaired NewFactoryCLI two-result handling in sdk/x/auth/client/cli, sdk/x/staking/client/cli (Domain 15) and modules/tokenfactory/client/cli (Domain 6); those repairs are included in this continuation's base 4b4896072f927b28618921285b3e3ae758bc467e."
+evidence = "The private hf-done ledger and final evidence line record the exact verified candidate revision, command, exit code and log location."
+gotcha = "CacheContext commits EVM events but SDK events require explicit forwarding on successful ClaimSpecific. Failed claims must discard the signature sequence together with all asset changes."
+fixture_gotcha = "The real cw721_base query decoder rejects unknown fields; the repeated-page wrapper removes the trailing start_after member instead of renaming it, retaining real ownership enumeration and transfer behavior."
+
+[qualification.continuation_fixture]
+revision = "1108484d0c3ed41aed4de8b54e3a35d8ca0f6fc9"
+command = "cg spec done 22.33.1284 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "RepeatedPageAtomic exposed the fixture's invalid xtart_after field; all four other repair test groups passed."
+repair = "Remove start_after in the repeat fixture's query wrapper, regenerate committed bytecode, and rerun both gates without changing assertions."
+
+[qualification.22.33.1284]
+revision = "594f6609def9a36481264de57782eda37e2fc994"
+command = "cg spec done 22.33.1284 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build passed; verification compiled the existing node test dependencies and failed on NewFactoryCLI return-arity mismatches in auth, staking and tokenfactory CLI before any repair test executed (compiler detail: /tmp/repair-m1284.log)."
+assumption = "These inherited CLI callers require out-of-scope owning-domain repairs; do not rerun or investigate this recorded failure, and do not claim the finding qualified."
