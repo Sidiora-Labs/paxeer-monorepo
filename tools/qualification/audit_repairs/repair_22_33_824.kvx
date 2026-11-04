@@ -1,0 +1,40 @@
+[task.22.33.824]
+base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
+start_revision = "bd09b6fa16afd5f9f92bef280322d1be0dc3a5c2"
+repair = "Decision 2525 assigns the README rewrite to 22.31.470 in domain 17. Preserve README.md exactly as supplied and add independent source assertions for audit 22.30.179/doc-readme: one integrated paxd BFT network, chain 125, root api1..api14 JSON-RPC, tenant namespaces, mirror distinction, transaction and committed receipt flows, retired custody/checkpoint executors, current build and activation, and historical-only settlement formats. All requested facts are present; no missing-fact wiring request is needed."
+source_proof = "Seven offline pytest tests read the actual README and production files. They check integrated host/consensus and topology wiring, parse the documented curl arguments and JSON payload without executing it, validate root URLs, trace transaction acceptance/forwarding through WAL-backed receipt publication and committed RPC coverage, inspect signed receipt and authenticated proof consumers, check executor refusal gates, check native build prerequisites and activation names, resolve README repository links, and validate this finding-to-test mapping."
+review_only = "Native Go/C/Rust execution, builds, node startup, endpoint availability, transaction execution, cryptographic verification, WAL restart/recovery and BFT consensus are not executed by this documentation gate. Producer/transport/consumer relationships are source assertions, not runtime certification. No interface or stateful production component changes, so no restart or interface execution proof is claimed. No shell script, unit or manifest is changed; shell examples and build rules are inspected in-process without bash, make or another subprocess toolchain. Editorial completeness and operational suitability require review."
+baseline = "No pre-change verification was run: the explicit task order requires complete implementation, formatting, hf-build, then hf-done and prohibits a manual verify_cmd run. Thus no baseline test failure is claimed despite the older baseline clause in step 5. Initial scoped files were absent; git status/diff contained only runner-prepared .cgignore and spec task status changes. The private gate configuration reported zero builds, zero verifies, zero repairs used and no gates.jsonl existed. README already contained the owning task's rewrite."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_824.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The last hf-done JSON and private /out/run/gates.jsonl record the exact verified content-derived candidate revision, command, exit code and log path. Build and verification must pass on the same candidate revision. This record is finalized before qualification; embedding its own candidate hash would change that hash. The runner retains evidence and publishes the task; no manual commit or push is performed and no source edit follows a passing hf-done."
+wiring_requests = []
+
+[finding.doc-readme]
+audit = "22.30.179"
+file = "README.md"
+class = "doc-drift"
+severity = "medium"
+owner_domain = 17
+owner_task = "22.31.470"
+expected = "Brief facts 1-5 require one paxd BFT network on EVM chain 125, final committed receipts, root public RPC and tenant namespaces, with retired daemon/router/custody/checkpoint guidance removed or clearly historical."
+tests = ["test_doc_readme_merged_network_and_tenant_topology", "test_doc_readme_root_rpc_probe_and_mirror_distinction", "test_doc_readme_transaction_to_committed_receipt_path", "test_doc_readme_finality_requires_authenticated_commitment", "test_doc_readme_retired_executors_and_historical_guidance", "test_doc_readme_current_build_activation_and_repository_paths", "test_doc_readme_record_maps_finding_and_evidence_limits"]
+
+[wiring.readme_ownership]
+request = "README.md — domain 17, task 22.31.470 owns the out-of-scope rewrite; its supplied result contains all expected facts, so this task consumes it unchanged and requests no further edit."
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths. After completing implementation, apply .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions only to the two scoped files."
+
+[gotcha.1]
+observed = "The baseline-verification clause conflicts with the explicit implementation-first and hf-build/hf-done-only gate order."
+resolution = "Follow the explicit gate order and record no baseline execution or baseline failures."
+
+[gotcha.2]
+observed = "Codify brief and broad reads expose unrelated cached task context or exceed output limits; symbol context queries return no source for production paths outside the prepared graph."
+resolution = "Use the exact task block, audit finding, Git diff, private ledger and bounded file reads as authority; preserve all runner-prepared changes. Notes remain here because GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.3]
+observed = "A read-only gate-wrapper inspection assumed a function named run_gate that does not exist."
+resolution = "Inspect actual wrapper paths and private gate configuration/ledger; do not infer a prior gate result or modify gate tooling."
