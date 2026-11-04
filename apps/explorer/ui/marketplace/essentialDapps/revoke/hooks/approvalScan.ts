@@ -19,7 +19,10 @@ export class ApprovalScanError extends Error {
   readonly coverage = 'incomplete';
 
   constructor(readonly partialAllowances: Array<AllowanceType>, readonly issues: Array<ApprovalScanIssue>) {
-    super('Approval scan is incomplete. Retry to check all permissions.');
+    super([
+      'Approval scan is incomplete. Retry to check all permissions.',
+      ...issues.map((issue) => issue.cause instanceof Error ? issue.cause.message : String(issue.cause)),
+    ].join('\n'));
     this.name = 'ApprovalScanError';
   }
 }

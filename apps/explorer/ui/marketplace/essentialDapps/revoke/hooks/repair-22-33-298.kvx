@@ -1,0 +1,69 @@
+[repair.22.33.298]
+mode = "BUILD"
+scope = "apps/explorer/ui/marketplace/essentialDapps/revoke/hooks"
+acceptance = "22998.1"
+baseline = "Not run: ordered instructions prohibit testing before full implementation and require hf-build before hf-done; no pre-change test failure is claimed."
+evidence = "The verified candidate revision, exact command, exit and private log are recorded by hf-build and hf-done in /out/run/gates.jsonl; final response copies the last gate evidence."
+
+[finding.nft-scan-errors]
+tests = ["nftScanErrorsRetainSuccessfulContractsAndRetry", "nftScanWaitsForSuccessfulContractsAfterAnotherFails", "nftTerminalPermissionErrorsRemainObservable", "nftCancellationBeforeAndDuringScanPropagates", "nftConfirmedRevocationIsCompleteEmptySuccess"]
+repair = "Settle every contract independently before collecting results; retain successful contract rows in ApprovalScanError with incomplete coverage, retryable issues, failed contract addresses and original errors. The approvals query retains these partial NFT rows and issues, and refetch keeps the selected chain/account. Cancellation remains AbortError; actual revocation remains a complete empty success."
+wiring_request = "apps/explorer/ui/marketplace/essentialDapps/revoke/lib/getLogs.ts — explorer revoke RPC domain: terminate recursive range splitting at a single failing block and propagate the terminal provider error; this pre-existing external limitation cannot be repaired inside hook scope."
+
+[finding.nft-contract-discovery]
+tests = ["nftOperatorOnlyCollectionIsDiscoveredOnceAcrossEventKinds", "nftContractDiscoveryIgnoresInterleavedErc20Indexes"]
+repair = "The base already normalizes the union of NFT Approval, ApprovalForAll and Transfer addresses with getAddress and Set. Preserve this production discovery and prove an ApprovalForAll-only collection, mixed-case duplicate contracts across event kinds, and interleaved ERC20 approvals through the real provider and hook."
+
+[proof]
+test_file = "apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/repair-22-33-298.spec.ts"
+path = "Committed ERC721 log/read transcripts -> loopback JSON-RPC/API server -> real viem transport and ABI codecs -> production NFT hook -> approvalsQueryOptions -> React Query error, retained rows and retry."
+constraints = "No live endpoints, credentials, environment overrides, subprocesses, native artifacts, mocks or fake component implementations. The test closes its loopback server and QueryClient."
+
+[gotcha.read-path]
+observed = "A read used useApiFetch.ts instead of its actual extension; a repository-relative edit ran from the app directory and a formatter executable was not installed. These failures changed no files."
+action = "Use absolute edit paths and resolve formatter dependencies before invoking formatting."
+
+[gotcha.formatter]
+observed = "The sibling task records that ESLint rejects required test(namedFunction) registration as a non-string title and cannot see function assertions."
+action = "Preserve named function registration and all checks; use ESLint for touched-file formatting and the declared gates for qualification."
+
+[gotcha.formatting-result]
+observed = "ESLint formatted the touched files and reported nested test fixture ternaries, an assertion promise awaited later, and its known incompatibility with test(namedFunction)."
+action = "Use explicit fixture branches and capture the cancellation outcome before awaiting its assertion; retain required named test functions and enabled checks."
+
+[qualification.build-1]
+revision = "261069222dbf9536537916b35be5f6dd78f444ea"
+command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "Pre-existing TS2769 at ui/marketplace/essentialDapps/revoke/components/repair-22-33-299.spec.ts:116: its query fixture lacks coverage, partialAllowances, scanIssues and retry; the base hook already requires these fields."
+assumption = "The explorer revoke components domain owns this out-of-scope fixture repair; no task hook error was reported, no check is weakened, and hf-done and the regression tests have not run."
+
+[qualification.eslint-attempt-2]
+command = "cd apps/explorer && yarn eslint --fix ui/marketplace/essentialDapps/revoke/hooks/approvalScan.ts ui/marketplace/essentialDapps/revoke/hooks/useApprovalsQuery.tsx ui/marketplace/essentialDapps/revoke/hooks/useSearchNftAllowances.tsx ui/marketplace/essentialDapps/revoke/hooks/repair-22-33-298.spec.ts"
+exit = 1
+log = "/out/logs/eslint-22-33-298.log"
+observed = "Only the seven required test(namedFunction) registrations report vitest/valid-title and vitest/expect-expect; assertions remain in their named functions."
+assumption = "Preserve the explicitly required registration syntax and every assertion and check; qualify behavior through hf-build and hf-done without disabling lint rules."
+
+[gotcha.dependencies-attempt-2]
+observed = "The continued attempt starts without apps/explorer/node_modules, so the first ESLint invocation cannot find its executable."
+action = "Install the frozen dependencies with scripts ignored before formatting; the declared build and verification commands still run their own installs."
+
+[qualification.verify-registration]
+revision = "877ac7324742d6cf65aa5ca5b5c8a5ba59d61aa6"
+command = "cg spec done 22.33.298 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 0
+log = "/out/logs/verify-1.log"
+observed = "Vitest registered all seven single-argument test(namedFunction) calls as todo and executed zero tests; the wrapper exit is not behavioral qualification."
+assumption = "Use Vitest's supported two-argument registration with the existing named function as callback and its exact name as title; retain every function and assertion and rebuild before verification."
+
+[gotcha.named-test-registration]
+observed = "Vitest treats single-argument function registrations as todo; ESLint's assertion rule visits registrations and declarations in source order."
+action = "Register each exact test name and its hoisted named callback before its declaration so Vitest executes it and ESLint can find the existing assertions."
+
+[qualification.eslint-final]
+command = "cd apps/explorer && yarn eslint --fix ui/marketplace/essentialDapps/revoke/hooks/repair-22-33-298.spec.ts"
+exit = 0
+log = "/out/logs/eslint-22-33-298-final.log"
+observed = "The supported registration and declaration order resolve all fourteen lint findings without changing test bodies, weakening assertions or disabling checks."
