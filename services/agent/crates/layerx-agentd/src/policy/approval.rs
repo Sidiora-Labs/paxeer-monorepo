@@ -130,6 +130,10 @@ pub struct ApprovalPresentation {
     pub activity_expires_at_unix_seconds: u64,
 }
 
+/// A protocol block sequence; never a Unix timestamp.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
+pub struct ApprovalSequence(pub u64);
+
 #[derive(Clone, Debug)]
 struct HeldApproval {
     sender: [u8; 20],
@@ -353,11 +357,29 @@ impl ApprovalRegistry {
         tenant: &TenantId,
         current_sequence: u64,
     ) -> Result<Vec<ApprovalSnapshot>, ApprovalError> {
+        self.list_scoped_inner(tenant, current_sequence, None)
+    }
+
+    pub(crate) fn list_scoped_at(
+        &self,
+        tenant: &TenantId,
+        current_sequence: ApprovalSequence,
+        current_time: TimestampSeconds,
+    ) -> Result<Vec<ApprovalSnapshot>, ApprovalError> {
+        self.list_scoped_inner(tenant, current_sequence.0, Some(current_time))
+    }
+
+    pub(crate) fn list_scoped_inner(
+        &self,
+        tenant: &TenantId,
+        current_sequence: u64,
+        current_time: Option<TimestampSeconds>,
+    ) -> Result<Vec<ApprovalSnapshot>, ApprovalError> {
         let mut holds = self.holds.lock().map_err(|_| ApprovalError::Unavailable)?;
         let mut records = Vec::new();
         for held in holds.values_mut() {
             if &held.context.tenant == tenant {
-                validate_for_read(held, current_sequence);
+                validate_for_read(held, current_sequence, current_time)?;
                 records.push(snapshot(held));
             }
         }
@@ -370,12 +392,32 @@ impl ApprovalRegistry {
         hold_id: [u8; 32],
         current_sequence: u64,
     ) -> Result<ApprovalSnapshot, ApprovalError> {
+        self.get_scoped_inner(tenant, hold_id, current_sequence, None)
+    }
+
+    pub(crate) fn get_scoped_at(
+        &self,
+        tenant: &TenantId,
+        hold_id: [u8; 32],
+        current_sequence: ApprovalSequence,
+        current_time: TimestampSeconds,
+    ) -> Result<ApprovalSnapshot, ApprovalError> {
+        self.get_scoped_inner(tenant, hold_id, current_sequence.0, Some(current_time))
+    }
+
+    pub(crate) fn get_scoped_inner(
+        &self,
+        tenant: &TenantId,
+        hold_id: [u8; 32],
+        current_sequence: u64,
+        current_time: Option<TimestampSeconds>,
+    ) -> Result<ApprovalSnapshot, ApprovalError> {
         let mut holds = self.holds.lock().map_err(|_| ApprovalError::Unavailable)?;
         let held = holds.get_mut(&hold_id).ok_or(ApprovalError::NotFound)?;
         if &held.context.tenant != tenant {
             return Err(ApprovalError::NotFound);
         }
-        validate_for_read(held, current_sequence);
+        validate_for_read(held, current_sequence, current_time)?;
         Ok(snapshot(held))
     }
 
@@ -420,12 +462,32 @@ impl ApprovalRegistry {
         hold_id: [u8; 32],
         current_sequence: u64,
     ) -> Result<ApprovalSnapshot, ApprovalError> {
+        self.claim_scoped_inner(tenant, hold_id, current_sequence, None)
+    }
+
+    pub(crate) fn claim_scoped_at(
+        &self,
+        tenant: &TenantId,
+        hold_id: [u8; 32],
+        current_sequence: ApprovalSequence,
+        current_time: TimestampSeconds,
+    ) -> Result<ApprovalSnapshot, ApprovalError> {
+        self.claim_scoped_inner(tenant, hold_id, current_sequence.0, Some(current_time))
+    }
+
+    pub(crate) fn claim_scoped_inner(
+        &self,
+        tenant: &TenantId,
+        hold_id: [u8; 32],
+        current_sequence: u64,
+        current_time: Option<TimestampSeconds>,
+    ) -> Result<ApprovalSnapshot, ApprovalError> {
         let mut holds = self.holds.lock().map_err(|_| ApprovalError::Unavailable)?;
         let held = holds.get_mut(&hold_id).ok_or(ApprovalError::NotFound)?;
         if &held.context.tenant != tenant {
             return Err(ApprovalError::NotFound);
         }
-        validate_for_read(held, current_sequence);
+        validate_for_read(held, current_sequence, current_time)?;
         if held.state == ApprovalState::Defective {
             return Err(ApprovalError::Defective);
         }
@@ -586,6 +648,8 @@ pub enum ApprovalError {
     Unavailable,
     CorruptRecord,
     TooManyItems,
+    ClockRequired,
+    LegacyTimeUnits,
 }
 
 /// Refusal while acquiring and durably publishing an approval reservation.
@@ -606,6 +670,7 @@ impl From<budget::LimitRefusal> for ApprovalReservationError {
 /// # Errors
 ///
 /// Returns the reservation refusal or the approval admission/persistence refusal.
+#[deprecated(note = "ambiguous sequence-only entry retired; use the timed approval entry")]
 pub fn reserve_and_hold(
     registry: &ApprovalRegistry,
     limiter: &BudgetLimiter,
@@ -614,23 +679,16 @@ pub fn reserve_and_hold(
     request: &budget::ReservationRequest,
     expires_at_sequence: u64,
 ) -> Result<ApprovalTicket, ApprovalReservationError> {
-    let mut ticket = None;
-    limiter.reserve_locked(request, None, budget::CoreTimestampMs(0), |reservation| {
-        ticket = Some(
-            hold_reserved(
-                registry,
-                context,
-                prepared,
-                request.current_sequence,
-                expires_at_sequence,
-                reservation,
-            )
-            .map_err(ApprovalReservationError::Approval)?,
-        );
-        Ok::<(), ApprovalReservationError>(())
-    })?;
-    ticket.ok_or(ApprovalReservationError::Approval(
-        ApprovalError::CorruptRecord,
+    let _ = (
+        registry,
+        limiter,
+        context,
+        prepared,
+        request,
+        expires_at_sequence,
+    );
+    Err(ApprovalReservationError::Approval(
+        ApprovalError::ClockRequired,
     ))
 }
 
@@ -641,6 +699,7 @@ pub fn reserve_and_hold(
 /// Refuses a window that does not close before the preparation expires, a digest that does not
 /// match the canonical bytes, an actor other than the disclosed one, a duplicate request
 /// identifier, and a poisoned registry.
+#[deprecated(note = "ambiguous sequence-only entry retired; use the timed approval entry")]
 pub fn hold(
     registry: &ApprovalRegistry,
     context: ApprovalContext,
@@ -648,14 +707,14 @@ pub fn hold(
     current_sequence: u64,
     expires_at_sequence: u64,
 ) -> Result<ApprovalTicket, ApprovalError> {
-    hold_inner(
+    let _ = (
         registry,
         context,
         prepared,
         current_sequence,
         expires_at_sequence,
-        Vec::new(),
-    )
+    );
+    Err(ApprovalError::ClockRequired)
 }
 
 /// Persists an approval and its exact already-acquired budget reservation in one record.
@@ -665,6 +724,7 @@ pub fn hold(
 /// # Errors
 ///
 /// Returns an error if approval state, reservations, registry bindings, or durable storage are invalid.
+#[deprecated(note = "ambiguous sequence-only entry retired; use the timed approval entry")]
 pub fn hold_reserved(
     registry: &ApprovalRegistry,
     context: ApprovalContext,
@@ -673,15 +733,15 @@ pub fn hold_reserved(
     expires_at_sequence: u64,
     reservation: &BudgetReservation,
 ) -> Result<ApprovalTicket, ApprovalError> {
-    validate_reservation(&context, reservation)?;
-    hold_inner(
+    let _ = (
         registry,
         context,
         prepared,
         current_sequence,
         expires_at_sequence,
-        reservation.durable.clone(),
-    )
+        reservation,
+    );
+    Err(ApprovalError::ClockRequired)
 }
 
 pub(crate) struct StagedApproval {
@@ -750,36 +810,140 @@ pub fn hold_reserved_at(
     reservation: &BudgetReservation,
     clock: &dyn layerx_types::clock::Clock,
 ) -> Result<ApprovalTicket, ApprovalError> {
-    validate_reservation(&context, reservation)?;
     let reading = clock
         .sample(std::time::Duration::from_secs(1))
         .map_err(|_| ApprovalError::Unavailable)?;
     if reading.generation == [0; 16] {
         return Err(ApprovalError::Unavailable);
     }
-    let presentation = ApprovalPresentation {
-        created_at_unix_seconds: reading.unix_seconds(),
-        activity_expires_at_unix_seconds: prepared.disclosure.expiry.get(),
-    };
-    if expires_at_sequence <= current_sequence
-        || presentation.created_at_unix_seconds >= presentation.activity_expires_at_unix_seconds
-        || prepared.expiry.get() != presentation.activity_expires_at_unix_seconds
-        || reservation
-            .durable
-            .iter()
-            .any(|item| item.expiry_sequence < expires_at_sequence)
+    hold_reserved_timed(
+        registry,
+        context,
+        prepared,
+        ApprovalSequence(current_sequence),
+        ApprovalSequence(expires_at_sequence),
+        reservation,
+        TimestampSeconds(reading.unix_seconds()),
+    )
+}
+
+pub fn hold_reserved_timed(
+    registry: &ApprovalRegistry,
+    context: ApprovalContext,
+    prepared: Prepared,
+    current_sequence: ApprovalSequence,
+    expires_at_sequence: ApprovalSequence,
+    reservation: &BudgetReservation,
+    current_time: TimestampSeconds,
+) -> Result<ApprovalTicket, ApprovalError> {
+    validate_reservation(&context, reservation)?;
+    if reservation
+        .durable
+        .iter()
+        .any(|item| item.expiry_sequence < expires_at_sequence.0)
     {
         return Err(ApprovalError::InvalidWindow);
     }
-    register_hold(
+    hold_timed_inner(
         registry,
         context,
         prepared,
         current_sequence,
         expires_at_sequence,
+        current_time,
         reservation.durable.clone(),
+    )
+}
+
+pub fn hold_at(
+    registry: &ApprovalRegistry,
+    context: ApprovalContext,
+    prepared: Prepared,
+    current_sequence: ApprovalSequence,
+    expires_at_sequence: ApprovalSequence,
+    current_time: TimestampSeconds,
+) -> Result<ApprovalTicket, ApprovalError> {
+    hold_timed_inner(
+        registry,
+        context,
+        prepared,
+        current_sequence,
+        expires_at_sequence,
+        current_time,
+        Vec::new(),
+    )
+}
+
+fn hold_timed_inner(
+    registry: &ApprovalRegistry,
+    context: ApprovalContext,
+    prepared: Prepared,
+    current_sequence: ApprovalSequence,
+    expires_at_sequence: ApprovalSequence,
+    current_time: TimestampSeconds,
+    reservations: Vec<DurableBudgetReservation>,
+) -> Result<ApprovalTicket, ApprovalError> {
+    if expires_at_sequence <= current_sequence
+        || current_time.get() >= prepared.expiry.get()
+        || prepared.expiry != prepared.disclosure.expiry
+    {
+        return Err(ApprovalError::InvalidWindow);
+    }
+    let presentation = ApprovalPresentation {
+        created_at_unix_seconds: current_time.get(),
+        activity_expires_at_unix_seconds: prepared.expiry.get(),
+    };
+    register_hold(
+        registry,
+        context,
+        prepared,
+        current_sequence.0,
+        expires_at_sequence.0,
+        reservations,
         Some(presentation),
     )
+}
+
+pub fn reserve_and_hold_at(
+    registry: &ApprovalRegistry,
+    limiter: &BudgetLimiter,
+    context: ApprovalContext,
+    prepared: Prepared,
+    request: &budget::ReservationRequest,
+    expires_at_sequence: ApprovalSequence,
+    current_time: TimestampSeconds,
+) -> Result<ApprovalTicket, ApprovalReservationError> {
+    let milliseconds =
+        current_time
+            .get()
+            .checked_mul(1_000)
+            .ok_or(ApprovalReservationError::Approval(
+                ApprovalError::InvalidWindow,
+            ))?;
+    let mut ticket = None;
+    limiter.reserve_locked(
+        request,
+        None,
+        budget::CoreTimestampMs(milliseconds),
+        |reservation| {
+            ticket = Some(
+                hold_reserved_timed(
+                    registry,
+                    context,
+                    prepared,
+                    ApprovalSequence(request.current_sequence),
+                    expires_at_sequence,
+                    reservation,
+                    current_time,
+                )
+                .map_err(ApprovalReservationError::Approval)?,
+            );
+            Ok::<(), ApprovalReservationError>(())
+        },
+    )?;
+    ticket.ok_or(ApprovalReservationError::Approval(
+        ApprovalError::CorruptRecord,
+    ))
 }
 
 fn validate_reservation(
@@ -809,28 +973,6 @@ fn validate_reservation(
         return Err(ApprovalError::CorruptRecord);
     }
     Ok(())
-}
-
-fn hold_inner(
-    registry: &ApprovalRegistry,
-    context: ApprovalContext,
-    prepared: Prepared,
-    current_sequence: u64,
-    expires_at_sequence: u64,
-    budget_reservations: Vec<DurableBudgetReservation>,
-) -> Result<ApprovalTicket, ApprovalError> {
-    if expires_at_sequence <= current_sequence || expires_at_sequence > prepared.expiry.0 {
-        return Err(ApprovalError::InvalidWindow);
-    }
-    register_hold(
-        registry,
-        context,
-        prepared,
-        current_sequence,
-        expires_at_sequence,
-        budget_reservations,
-        None,
-    )
 }
 
 fn register_hold(
@@ -894,6 +1036,7 @@ fn register_hold(
 ///
 /// Refuses an unknown hold, an already decided or newly expired hold, a presented digest that
 /// differs from the held disclosure, and a poisoned registry.
+#[deprecated(note = "ambiguous sequence-only entry retired; use the timed approval entry")]
 pub fn decide(
     registry: &ApprovalRegistry,
     hold_id: [u8; 32],
@@ -901,6 +1044,26 @@ pub fn decide(
     choice: ApprovalChoice,
     presented_disclosure_digest: [u8; 32],
     current_sequence: u64,
+) -> Result<ApprovalAuditEntry, ApprovalError> {
+    let _ = (
+        registry,
+        hold_id,
+        approver,
+        choice,
+        presented_disclosure_digest,
+        current_sequence,
+    );
+    Err(ApprovalError::ClockRequired)
+}
+
+pub fn decide_at(
+    registry: &ApprovalRegistry,
+    hold_id: [u8; 32],
+    approver: ApproverId,
+    choice: ApprovalChoice,
+    presented_disclosure_digest: [u8; 32],
+    current_sequence: ApprovalSequence,
+    current_time: TimestampSeconds,
 ) -> Result<ApprovalAuditEntry, ApprovalError> {
     let mut holds = registry
         .holds
@@ -910,7 +1073,15 @@ pub fn decide(
     if held.state != ApprovalState::AwaitingApproval {
         return Err(ApprovalError::AlreadyDecided(held.state));
     }
-    if current_sequence >= held.expires_at_sequence {
+    let presentation = held.presentation.ok_or(ApprovalError::LegacyTimeUnits)?;
+    if current_sequence.0 < held.created_at_sequence
+        || current_time.get() < presentation.created_at_unix_seconds
+    {
+        return Err(ApprovalError::InvalidWindow);
+    }
+    if current_sequence.0 >= held.expires_at_sequence
+        || current_time.get() >= presentation.activity_expires_at_unix_seconds
+    {
         let audit = terminal_audit(
             held,
             ApprovalState::Expired,
@@ -921,6 +1092,11 @@ pub fn decide(
         held.state = ApprovalState::Expired;
         held.audit = Some(audit);
         return Err(ApprovalError::AlreadyDecided(ApprovalState::Expired));
+    }
+    if canonical_digest(held.prepared.unsigned_canonical_bytes.as_bytes())
+        != held.prepared.disclosure.canonical_digest
+    {
+        return Err(ApprovalError::Defective);
     }
     if presented_disclosure_digest != held.prepared.disclosure.canonical_digest {
         return Err(ApprovalError::DisclosureChanged);
@@ -1024,11 +1200,24 @@ fn replace_durable_with_released(
         })
 }
 
-fn validate_for_read(held: &mut HeldApproval, current_sequence: u64) {
+fn validate_for_read(
+    held: &mut HeldApproval,
+    current_sequence: u64,
+    current_time: Option<TimestampSeconds>,
+) -> Result<(), ApprovalError> {
     if held.state != ApprovalState::AwaitingApproval {
-        return;
+        return Ok(());
     }
-    if current_sequence >= held.expires_at_sequence {
+    let current_time = current_time.ok_or(ApprovalError::ClockRequired)?;
+    let presentation = held.presentation.ok_or(ApprovalError::LegacyTimeUnits)?;
+    if current_sequence < held.created_at_sequence
+        || current_time.get() < presentation.created_at_unix_seconds
+    {
+        return Err(ApprovalError::InvalidWindow);
+    }
+    if current_sequence >= held.expires_at_sequence
+        || current_time.get() >= presentation.activity_expires_at_unix_seconds
+    {
         let audit = terminal_audit(
             held,
             ApprovalState::Expired,
@@ -1037,7 +1226,7 @@ fn validate_for_read(held: &mut HeldApproval, current_sequence: u64) {
         );
         held.state = ApprovalState::Expired;
         held.audit = Some(audit);
-        return;
+        return Ok(());
     }
     let observed = canonical_digest(held.prepared.unsigned_canonical_bytes.as_bytes());
     if observed != held.prepared.disclosure.canonical_digest {
@@ -1050,6 +1239,7 @@ fn validate_for_read(held: &mut HeldApproval, current_sequence: u64) {
         held.state = ApprovalState::Defective;
         held.audit = Some(audit);
     }
+    Ok(())
 }
 
 fn snapshot(held: &HeldApproval) -> ApprovalSnapshot {
@@ -1072,18 +1262,37 @@ fn snapshot(held: &HeldApproval) -> ApprovalSnapshot {
 /// # Errors
 ///
 /// Returns `Unavailable` when the hold registry lock is poisoned.
+#[deprecated(note = "ambiguous sequence-only entry retired; use the timed approval entry")]
 pub fn expire(
     registry: &ApprovalRegistry,
     current_sequence: u64,
+) -> Result<Vec<ApprovalAuditEntry>, ApprovalError> {
+    let _ = (registry, current_sequence);
+    Err(ApprovalError::ClockRequired)
+}
+
+pub fn expire_at(
+    registry: &ApprovalRegistry,
+    current_sequence: ApprovalSequence,
+    current_time: TimestampSeconds,
 ) -> Result<Vec<ApprovalAuditEntry>, ApprovalError> {
     let mut holds = registry
         .holds
         .lock()
         .map_err(|_| ApprovalError::Unavailable)?;
     let mut expired = Vec::new();
-    for held in holds.values_mut() {
-        if held.state == ApprovalState::AwaitingApproval
-            && current_sequence >= held.expires_at_sequence
+    for held in holds
+        .values_mut()
+        .filter(|held| held.state == ApprovalState::AwaitingApproval)
+    {
+        let presentation = held.presentation.ok_or(ApprovalError::LegacyTimeUnits)?;
+        if current_sequence.0 < held.created_at_sequence
+            || current_time.get() < presentation.created_at_unix_seconds
+        {
+            return Err(ApprovalError::InvalidWindow);
+        }
+        if current_sequence.0 >= held.expires_at_sequence
+            || current_time.get() >= presentation.activity_expires_at_unix_seconds
         {
             let audit = terminal_audit(
                 held,
@@ -1091,6 +1300,7 @@ pub fn expire(
                 None,
                 "approval_window_expired",
             );
+            remove_durable(registry, held)?;
             held.state = ApprovalState::Expired;
             held.audit = Some(audit.clone());
             expired.push(audit);
@@ -1226,11 +1436,14 @@ fn validate_held_call(
 }
 
 fn validate_replayed(held: &HeldApproval, tenant: &TenantId) -> Result<(), ApprovalError> {
+    if held.presentation.is_none() {
+        return Err(ApprovalError::LegacyTimeUnits);
+    }
     if &held.context.tenant != tenant
         || held.context.request_id == [0; 32]
         || held.created_at_sequence >= held.expires_at_sequence
         || match held.presentation {
-            None => held.expires_at_sequence > held.prepared.expiry.get(),
+            None => true,
             Some(presentation) => {
                 presentation.created_at_unix_seconds
                     >= presentation.activity_expires_at_unix_seconds
