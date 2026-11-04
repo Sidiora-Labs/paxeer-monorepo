@@ -383,7 +383,7 @@ pub struct PrincipalStore {
     retention: RetentionPolicy,
     tenancy: TenancyMap,
     provider: Option<std::sync::Arc<dyn PrincipalTenancyAuthority>>,
-    provider_lock: Option<fs::File>,
+    _ownership: fs::File,
 }
 
 impl PrincipalStore {
@@ -409,7 +409,8 @@ impl PrincipalStore {
     /// # Errors
     ///
     /// Returns typed migration refusals, tenancy authentication failures, and
-    /// storage corruption or I/O failures.
+    /// storage corruption or I/O failures. A competing store owner is refused
+    /// with an I/O error of kind `WouldBlock` until that owner is dropped.
     pub fn open(
         root: impl AsRef<Path>,
         retention: RetentionPolicy,
@@ -417,6 +418,7 @@ impl PrincipalStore {
     ) -> Result<Self, StoreError> {
         let root = root.as_ref().to_path_buf();
         fs::create_dir_all(&root)?;
+        let ownership = provider::ownership_lock(&root)?;
         let version = migrate::prepare(&root)?;
         verify_principals_tree(&root)?;
         let tenancy = tenancy::load_installed(&root)?;
@@ -429,7 +431,7 @@ impl PrincipalStore {
             retention,
             tenancy,
             provider: None,
-            provider_lock: None,
+            _ownership: ownership,
         })
     }
 

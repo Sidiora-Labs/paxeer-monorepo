@@ -4,19 +4,17 @@ use crate::occupancy::{
     OccupancyAuthority, OccupancyLedger, OccupancyUsage, MAX_OCCUPANCY_EVIDENCE_BYTES,
     MAX_OCCUPANCY_LEDGER_BYTES, MAX_OCCUPANCY_POSITIONS,
 };
-use crate::storage::StorageError;
 use crate::validate::AbiRevision;
 use crate::{
     AbiError, AccessSet, ActivityBudgetBinding, AtomicTransferSet, AuthorizationContext,
     BalanceView, BudgetMeterRefusal, BudgetResourceKind, BudgetedAuthorizedExecutionRequest,
-    BudgetedV1FailureCause, CandidateAuthorizedExecutionRecord, CapabilitySet, CommittedOracle,
-    CommittedWeb, CompiledModule, CompositionContext, CompositionRefusal, CompositionRules,
-    DeclaredBudget, EntrypointRefusal, ExecutionFault, Executor, KernelTransferEvidence,
-    KernelTransferPrimitive, MeterRefusal, MeteredUsage, ModuleCacheKey, OracleObservation,
-    PreparedAuthorizedActivityOutcome, PrincipalId, ProgramEvent, ProgramId, ProgramResolver,
-    ReceiptOracle, ReceiptView, ResourceKind, ResponseRefusal, RuntimeArtifactOwnerRefusal,
-    Storage, StorageNamespace, TransferCapability, TransferLawError, TransferSource,
-    V2ActivityOutcome, WebAnswer,
+    CandidateAuthorizedExecutionRecord, CapabilitySet, CommittedOracle, CommittedWeb,
+    CompiledModule, CompositionContext, CompositionRules, DeclaredBudget, Executor,
+    KernelTransferEvidence, KernelTransferPrimitive, MeteredUsage, ModuleCacheKey,
+    OracleObservation, PreparedAuthorizedActivityOutcome, PrincipalId, ProgramEvent, ProgramId,
+    ProgramResolver, ReceiptOracle, ReceiptView, RuntimeArtifactOwnerRefusal, Storage,
+    StorageNamespace, TransferCapability, TransferLawError, TransferSource, V2ActivityOutcome,
+    WebAnswer,
 };
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
@@ -519,23 +517,6 @@ pub extern "C" fn layerx_programs_module_cache_invalidate_abi(retired_abi_versio
         .map_or_else(|refusal| artifact_refusal_status(&refusal), |_| OK)
 }
 
-fn put_usize(out: &mut Vec<u8>, value: usize) -> Result<(), i32> {
-    out.extend_from_slice(
-        &u64::try_from(value)
-            .map_err(|_| LENGTH_LIMIT)?
-            .to_be_bytes(),
-    );
-    Ok(())
-}
-fn put_text(out: &mut Vec<u8>, value: &str) -> Result<(), i32> {
-    out.extend_from_slice(
-        &u32::try_from(value.len())
-            .map_err(|_| LENGTH_LIMIT)?
-            .to_be_bytes(),
-    );
-    out.extend_from_slice(value.as_bytes());
-    Ok(())
-}
 const fn protocol_supported(protocol_version: u16) -> bool {
     matches!(
         protocol_version,
@@ -556,285 +537,6 @@ const fn protocol_admits_abi(protocol_version: u16, abi_version: u16) -> bool {
         Ok(CapabilityEncoding::V2) => protocol_uses_occupancy(protocol_version),
         Err(_) => false,
     }
-}
-
-const fn revision_tag(value: AbiRevision) -> u8 {
-    match value {
-        AbiRevision::V1 => 1,
-        AbiRevision::V2 => 2,
-        AbiRevision::V3 => 3,
-        AbiRevision::V4 => 4,
-        AbiRevision::V5 => 5,
-    }
-}
-const fn meter_kind(value: ResourceKind) -> u8 {
-    match value {
-        ResourceKind::Cpu => 1,
-        ResourceKind::Memory => 2,
-        ResourceKind::StorageRead => 3,
-        ResourceKind::StorageWrite => 4,
-        ResourceKind::StorageOccupancy => 5,
-        ResourceKind::Output => 6,
-        ResourceKind::OutputBytes => 7,
-    }
-}
-fn meter_payload(value: MeterRefusal) -> Vec<u8> {
-    let mut out = Vec::new();
-    match value {
-        MeterRefusal::BudgetExceeded {
-            resource,
-            limit,
-            attempted,
-        } => {
-            out.extend([1, meter_kind(resource)]);
-            out.extend_from_slice(&limit.to_be_bytes());
-            out.extend_from_slice(&attempted.to_be_bytes());
-        }
-        MeterRefusal::CounterOverflow { resource } => out.extend([2, meter_kind(resource)]),
-        MeterRefusal::FeeOverflow => out.push(3),
-    }
-    out
-}
-const fn storage_tag(value: StorageError) -> u8 {
-    match value {
-        StorageError::InvalidProgram => 1,
-        StorageError::InvalidPrincipal => 2,
-        StorageError::EmptyKey => 3,
-        StorageError::KeyTooLarge => 4,
-        StorageError::ValueTooLarge => 5,
-        StorageError::PrefixTooLarge => 6,
-        StorageError::InvalidScanCursor => 7,
-        StorageError::InvalidScanLimits => 8,
-        StorageError::ScanCeilingExceeded => 9,
-        StorageError::SizeOverflow => 10,
-        StorageError::FrozenNamespace => 11,
-    }
-}
-fn abi_payload(value: &AbiError) -> Vec<u8> {
-    match value {
-        AbiError::WrongVersion => vec![1],
-        AbiError::InvalidCapability => vec![2],
-        AbiError::DuplicateCapability => vec![3],
-        AbiError::CapabilityDenied => vec![4],
-        AbiError::CapabilityEscalation => vec![5],
-        AbiError::EventBounds => vec![6],
-        AbiError::CallBounds => vec![7],
-        AbiError::AmountBounds => vec![8],
-        AbiError::ReceiptMismatch => vec![9],
-        AbiError::BalanceAbsent => vec![13],
-        AbiError::BalanceEvidenceUnavailable => vec![14],
-        AbiError::AccessDeclaration => vec![15],
-        AbiError::OracleUnknownMarket => vec![16],
-        AbiError::OracleMarketHalted => vec![17],
-        AbiError::EffectLimit => vec![18],
-        AbiError::InvalidEncoding => vec![10],
-        AbiError::Storage(error) => vec![11, storage_tag(*error)],
-        AbiError::Meter(error) => {
-            let mut out = vec![12];
-            out.extend(meter_payload(*error));
-            out
-        }
-    }
-}
-fn fault_payload(value: &ExecutionFault) -> Result<Vec<u8>, i32> {
-    let mut out = Vec::new();
-    match value {
-        ExecutionFault::UnknownExport { name } => {
-            out.push(1);
-            put_text(&mut out, name)?;
-        }
-        ExecutionFault::NotAFunction { name } => {
-            out.push(2);
-            put_text(&mut out, name)?;
-        }
-        ExecutionFault::UnreachableExecuted => out.push(3),
-        ExecutionFault::MemoryOutOfBounds => out.push(4),
-        ExecutionFault::TableOutOfBounds => out.push(5),
-        ExecutionFault::IndirectCallToNull => out.push(6),
-        ExecutionFault::IntegerDivisionByZero => out.push(7),
-        ExecutionFault::IntegerOverflow => out.push(8),
-        ExecutionFault::BadConversionToInteger => out.push(9),
-        ExecutionFault::StackExhausted => out.push(10),
-        ExecutionFault::BadSignature => out.push(11),
-        ExecutionFault::OutOfFuel => out.push(12),
-        ExecutionFault::GrowthLimited => out.push(13),
-        ExecutionFault::Resource { refusal } => {
-            out.push(14);
-            out.extend(meter_payload(*refusal));
-        }
-        ExecutionFault::NonIntegerValue => out.push(15),
-        ExecutionFault::EngineFault { reason } => {
-            out.push(16);
-            put_text(&mut out, reason)?;
-        }
-    }
-    Ok(out)
-}
-fn response_payload(value: &ResponseRefusal) -> Result<Vec<u8>, i32> {
-    let mut out = Vec::new();
-    match value {
-        ResponseRefusal::TooLarge { bytes, limit } => {
-            out.push(1);
-            put_usize(&mut out, *bytes)?;
-            put_usize(&mut out, *limit)?;
-        }
-        ResponseRefusal::CapacityExceeded { bytes, capacity } => {
-            out.push(2);
-            put_usize(&mut out, *bytes)?;
-            put_usize(&mut out, *capacity)?;
-        }
-        ResponseRefusal::DuplicatePublication => out.push(3),
-        ResponseRefusal::InvalidPublication => out.push(4),
-        ResponseRefusal::CodeMismatch {
-            published,
-            returned,
-        } => {
-            out.push(5);
-            out.extend_from_slice(&published.to_be_bytes());
-            out.extend_from_slice(&returned.to_be_bytes());
-        }
-        ResponseRefusal::Meter(error) => {
-            out.push(6);
-            out.extend(meter_payload(*error));
-        }
-    }
-    Ok(out)
-}
-fn entry_payload(value: &EntrypointRefusal) -> Result<Vec<u8>, i32> {
-    let mut out = Vec::new();
-    match value {
-        EntrypointRefusal::InputTooLarge { bytes, limit } => {
-            out.push(1);
-            put_usize(&mut out, *bytes)?;
-            put_usize(&mut out, *limit)?;
-        }
-        EntrypointRefusal::MissingAllocator => out.push(2),
-        EntrypointRefusal::MissingMemory => out.push(3),
-        EntrypointRefusal::MissingEntry => out.push(4),
-        EntrypointRefusal::AllocationRefused { code } => {
-            out.push(5);
-            out.extend_from_slice(&code.to_be_bytes());
-        }
-        EntrypointRefusal::GuestRefused { code } => {
-            out.push(6);
-            out.extend_from_slice(&code.to_be_bytes());
-        }
-        EntrypointRefusal::Fault(fault) => {
-            out.push(7);
-            out.extend(fault_payload(fault)?);
-        }
-        EntrypointRefusal::Resource(error) => {
-            out.push(8);
-            out.extend(meter_payload(*error));
-        }
-    }
-    Ok(out)
-}
-fn composition_payload(value: &CompositionRefusal) -> Result<Vec<u8>, i32> {
-    let mut out = Vec::new();
-    match value {
-        CompositionRefusal::NotComposable => out.push(1),
-        CompositionRefusal::ActivityEvidenceRequired => out.push(20),
-        CompositionRefusal::ActivityEvidenceMismatch => out.push(21),
-        CompositionRefusal::ActivityEvidenceReused => out.push(22),
-        CompositionRefusal::WrongVersion { expected, actual } => {
-            out.extend([2, revision_tag(*expected), revision_tag(*actual)]);
-        }
-        CompositionRefusal::MeteringPlanMismatch { expected, actual } => {
-            out.push(23);
-            out.extend_from_slice(expected);
-            out.extend_from_slice(actual);
-        }
-        CompositionRefusal::UnknownProgram { program } => {
-            out.push(3);
-            out.extend_from_slice(&program.bytes());
-        }
-        CompositionRefusal::Reentrancy { program } => {
-            out.push(4);
-            out.extend_from_slice(&program.bytes());
-        }
-        CompositionRefusal::DepthExceeded { limit, attempted } => {
-            out.push(5);
-            out.extend_from_slice(&limit.to_be_bytes());
-            out.extend_from_slice(&attempted.to_be_bytes());
-        }
-        CompositionRefusal::EdgesExceeded { limit, attempted } => {
-            out.push(6);
-            out.extend_from_slice(&limit.to_be_bytes());
-            out.extend_from_slice(&attempted.to_be_bytes());
-        }
-        CompositionRefusal::FanoutExceeded { limit, attempted } => {
-            out.push(7);
-            out.extend_from_slice(&limit.to_be_bytes());
-            out.extend_from_slice(&attempted.to_be_bytes());
-        }
-        CompositionRefusal::VisitsExceeded {
-            program,
-            limit,
-            attempted,
-        } => {
-            out.push(8);
-            out.extend_from_slice(&program.bytes());
-            out.extend_from_slice(&limit.to_be_bytes());
-            out.extend_from_slice(&attempted.to_be_bytes());
-        }
-        CompositionRefusal::MissingEntry => out.push(9),
-        CompositionRefusal::MissingAllocator => out.push(10),
-        CompositionRefusal::MissingMemory => out.push(11),
-        CompositionRefusal::AllocationRefused { code } => {
-            out.push(12);
-            out.extend_from_slice(&code.to_be_bytes());
-        }
-        CompositionRefusal::InputTooLarge { bytes, limit } => {
-            out.push(13);
-            put_usize(&mut out, *bytes)?;
-            put_usize(&mut out, *limit)?;
-        }
-        CompositionRefusal::GuestRefused { program, code } => {
-            out.push(14);
-            out.extend_from_slice(&program.bytes());
-            out.extend_from_slice(&code.to_be_bytes());
-        }
-        CompositionRefusal::Program(failure) => {
-            out.push(15);
-            out.extend(failure.canonical_encode());
-        }
-        CompositionRefusal::Authority(error) => {
-            out.push(16);
-            out.extend(abi_payload(error));
-        }
-        CompositionRefusal::Fault(fault) => {
-            out.push(17);
-            out.extend(fault_payload(fault)?);
-        }
-        CompositionRefusal::Resource(error) => {
-            out.push(18);
-            out.extend(meter_payload(*error));
-        }
-        CompositionRefusal::Response(error) => {
-            out.push(19);
-            out.extend(response_payload(error)?);
-        }
-    }
-    Ok(out)
-}
-
-fn typed_failure_detail(cause: &BudgetedV1FailureCause) -> Result<Vec<u8>, i32> {
-    let mut encoded = b"LXP/programs/failure-detail/v1\0".to_vec();
-    let (tag, payload) = match cause {
-        BudgetedV1FailureCause::Program(failure) => (1_u8, failure.canonical_encode()),
-        BudgetedV1FailureCause::Composition(refusal) => (2, composition_payload(refusal)?),
-        BudgetedV1FailureCause::Entrypoint(refusal) => (3, entry_payload(refusal)?),
-        BudgetedV1FailureCause::Abi(refusal) => (4, abi_payload(refusal)),
-    };
-    encoded.push(tag);
-    encoded.extend_from_slice(
-        &u32::try_from(payload.len())
-            .map_err(|_| LENGTH_LIMIT)?
-            .to_be_bytes(),
-    );
-    encoded.extend_from_slice(&payload);
-    Ok(encoded)
 }
 
 const fn resource_tag(resource: BudgetResourceKind) -> u8 {
@@ -3814,7 +3516,7 @@ pub extern "C" fn layerx_programs_call_begin(
                 })
             }
             PreparedAuthorizedActivityOutcome::Failure(failure) => {
-                let detail = typed_failure_detail(failure.cause())?;
+                let detail = crate::terminal::encode_failure_payload(failure.cause())?;
                 failure
                     .call_graph()
                     .write_canonical_evidence(&mut terminal_graph);

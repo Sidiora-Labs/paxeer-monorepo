@@ -688,8 +688,12 @@ func (rs *Store) GetStoreByName(name string) types.Store {
 // Implements interface Queryable
 func (rs *Store) Query(ctx context.Context, req abci.RequestQuery) abci.ResponseQuery {
 	version := req.Height
-	if version <= 0 || version > rs.lastCommitInfo.Version {
-		version = rs.scStore.Version()
+	if version > rs.lastCommitInfo.Version {
+		return sdkerrors.QueryResult(errors.Wrapf(sdkerrors.ErrInvalidHeight,
+			"cannot query height %d above committed height %d", version, rs.lastCommitInfo.Version))
+	}
+	if version <= 0 {
+		version = rs.lastCommitInfo.Version
 	}
 
 	storeName, subPath, err := parsePath(req.Path)
@@ -903,6 +907,7 @@ func (rs *Store) Restore(
 func (rs *Store) restore(height int64, protoReader protoio.Reader) (snapshottypes.SnapshotItem, error) {
 	var (
 		ssImporter   chan paxdbtypes.SnapshotNode
+		ssResult     chan error
 		snapshotItem snapshottypes.SnapshotItem
 		storeKey     string
 		restoreErr   error
@@ -911,13 +916,13 @@ func (rs *Store) restore(height int64, protoReader protoio.Reader) (snapshottype
 	if err != nil {
 		return snapshottypes.SnapshotItem{}, err
 	}
+	ssContext, cancelSS := context.WithCancel(context.Background())
+	defer cancelSS()
 	if rs.ssStore != nil {
 		ssImporter = make(chan paxdbtypes.SnapshotNode, 10000)
+		ssResult = make(chan error, 1)
 		go func() {
-			err := rs.ssStore.Import(height, ssImporter)
-			if err != nil {
-				panic(err)
-			}
+			ssResult <- rs.importSnapshotState(ssContext, height, ssImporter)
 		}()
 	}
 loop:
@@ -975,27 +980,62 @@ loop:
 		}
 	}
 
+	if restoreErr != nil {
+		cancelSS()
+	}
 	if err = scImporter.Close(); err != nil {
-		if restoreErr == nil {
-			restoreErr = err
-		}
+		restoreErr = commonerrors.Join(restoreErr, err)
+		cancelSS()
 	}
 	if ssImporter != nil {
 		close(ssImporter)
+		restoreErr = commonerrors.Join(restoreErr, <-ssResult)
 	}
-	// Initialize SS version metadata. Without SetLatestVersion, GetLatestVersion()
-	// stays 0 until the first post-sync block commits, which is misleading to any
-	// caller that reads it in that window.
+	if restoreErr != nil {
+		return snapshotItem, restoreErr
+	}
+	// Publish restore metadata only after both import pipelines have finished.
 	if rs.ssStore != nil {
 		if err := rs.ssStore.SetEarliestVersion(height, false); err != nil {
-			logger.Error("Failed to set earliest version during DB restore", "err", err)
+			return snapshotItem, fmt.Errorf("failed to set earliest version during DB restore: %w", err)
 		}
 		if err := rs.ssStore.SetLatestVersion(height); err != nil {
-			logger.Error("Failed to set latest version during DB restore", "err", err)
+			return snapshotItem, fmt.Errorf("failed to set latest version during DB restore: %w", err)
 		}
 	}
 
 	return snapshotItem, restoreErr
+}
+
+// importSnapshotState stops forwarding on cancellation or an importer error,
+// drains the producer, and joins the backend before returning.
+func (rs *Store) importSnapshotState(ctx context.Context, height int64, input <-chan paxdbtypes.SnapshotNode) error {
+	nodes := make(chan paxdbtypes.SnapshotNode)
+	result := make(chan error, 1)
+	go func() { result <- rs.ssStore.Import(height, nodes) }()
+	var importErr error
+	stopped := false
+	for node := range input {
+		if stopped {
+			continue
+		}
+		select {
+		case <-ctx.Done():
+			stopped = true
+		case importErr = <-result:
+			if importErr == nil {
+				importErr = fmt.Errorf("SS importer stopped before snapshot input closed")
+			}
+			result = nil
+			stopped = true
+		case nodes <- node:
+		}
+	}
+	close(nodes)
+	if result != nil {
+		importErr = <-result
+	}
+	return importErr
 }
 
 // Snapshot Implements the interface from Snapshotter

@@ -1,0 +1,23 @@
+[task.22.31.50]
+finding = "approved_cache_purge"
+proving_tests = ["TestRepair_50_ResponsePaths", "TestRepair_50_ApprovedDenials", "TestRepair_50_HeaderCommitment", "TestRepair_50_ApprovedCachePurge"]
+repair = "Approved response writes enforce both no-store headers at commitment, including delegated buffered, streaming, HEAD, 304, range, precondition, error and negative-cache response policies."
+proof = "Real gateway buffered/streaming/missing response producers and the approved response writer send file-backed bytes through HTTP to real Nginx caches independently honoring browser and CDN directives; public controls must yield HITs while approved responses remain MISSes, and subsequent actual Approved denial responses remain unavailable before and after local source removal."
+proof_boundary = "The offline gate proves the serve response boundary and downstream retention behavior; it does not execute PostgreSQL authority state transitions, Redis eviction or OriginCachePurgeProvider receipt generation."
+baseline = "No additional baseline run: explicit gate order forbids verify_cmd by hand and requires complete implementation before hf-build/hf-done. Supplied attempt-1 evidence reports TestRepair_50_ResponsePaths and both TestRepair_50_ApprovedCachePurge subtests failing during S3 fixture setup before reaching security assertions."
+prerequisite = "nginx must be on PATH; the focused tests start isolated local Nginx caches and need no PostgreSQL, Redis, S3, Anvil or RPC endpoint."
+wiring_request = "Domain 4, services/launchpad/gateway/internal/storage/purge_origin.go and purge_origin_integration_test.go: bind origin-only purge completion to enforced Approved no-store delivery, retain real authority/restriction/Redis/receipt integration coverage in the storage domain, and invalidate or expire previously public downstream copies before rollout asserts completion."
+qualification_evidence = "The runner's final hf-done JSON records the exact candidate revision, command, exit and private evidence log; this record is finalized before qualification to keep build and verification on the same candidate."
+
+[qualification.previous_attempt]
+revision = "ba4e53083c523a8d931674836737c97404195ae4"
+command = "cg spec done 22.31.50 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Previous attempt's S3 fixture authentication prevented the security assertions from running; this attempt replaces those external setup dependencies with direct real response-producer tests, not substitute authority or purge implementations."
+
+[gotcha.offline_gate]
+area = "test"
+symptom = "The storage Authority and OriginCachePurgeProvider require PostgreSQL and the object cache requires Redis, even when only serving response policy is under repair."
+cause = "The previous attempt tested storage integration in a serve-only gate that explicitly excludes PostgreSQL, Redis and S3."
+do = "Exercise the real serve response functions and downstream HTTP cache here; record storage-domain integration and rollout prerequisites as an out-of-scope wiring request."

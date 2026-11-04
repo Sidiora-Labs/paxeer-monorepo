@@ -53,6 +53,7 @@ type validationIterator struct {
 	types.Iterator
 
 	mvStore      MultiVersionStore
+	parentStore  types.KVStore
 	writeset     WriteSet
 	index        int
 	abortChannel chan occtypes.Abort
@@ -67,6 +68,7 @@ func (store *Store) newMVSValidationIterator(
 	items *dbm.MemDB,
 	ascending bool,
 	writeset WriteSet,
+	parentStore types.KVStore,
 	abortChannel chan occtypes.Abort,
 ) *validationIterator {
 	var iter types.Iterator
@@ -88,6 +90,7 @@ func (store *Store) newMVSValidationIterator(
 	return &validationIterator{
 		Iterator:     iter,
 		mvStore:      store,
+		parentStore:  parentStore,
 		index:        index,
 		abortChannel: abortChannel,
 		writeset:     writeset,
@@ -110,6 +113,13 @@ func (vi *validationIterator) Value() []byte {
 
 	// get the value from the multiversion store
 	val := vi.mvStore.GetLatestBeforeIndex(vi.index, key)
+	if val == nil {
+		// A re-executed predecessor can remove a snapshotted key. Absence
+		// exposes the parent value, rather than acting as a deletion.
+		parentValue := vi.parentStore.Get(key)
+		vi.readCache[string(key)] = parentValue
+		return parentValue
+	}
 
 	// if we have an estimate, write to abort channel
 	if val.IsEstimate() {

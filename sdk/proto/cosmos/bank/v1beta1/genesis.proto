@@ -30,6 +30,18 @@ message GenesisState {
 
   // wei balances
   repeated WeiBalance wei_balances = 5 [(gogoproto.nullable) = false];
+
+  // Version 1 carries denom transfer policies. Version 0 is legacy genesis
+  // and must not contain denom_allow_lists.
+  uint32 denom_allow_lists_version = 6;
+  repeated DenomAllowList denom_allow_lists = 7 [(gogoproto.nullable) = false];
+}
+
+// DenomAllowList preserves a bank-owned policy, including an explicitly empty
+// list (unrestricted transfers). Denoms and decoded addresses must be unique.
+message DenomAllowList {
+  string denom = 1;
+  AllowList allow_list = 2 [(gogoproto.nullable) = false];
 }
 
 // Balance defines an account address and balance pair used in the bank module's

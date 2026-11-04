@@ -23,8 +23,8 @@ use sha2::{Digest as _, Sha256};
 
 use crate::codec::{decode_header, encode_header};
 use crate::model::{
-    AtomicAmount, PaymentPayload, PaymentRequired, PaymentRequirements, SettlementResponse,
-    X402Error,
+    parse_hex32, AtomicAmount, PaymentPayload, PaymentRequired, PaymentRequirements,
+    SettlementResponse, X402Error,
 };
 
 const ADAPTER_ID: &str = "x402";
@@ -356,26 +356,8 @@ impl Seller {
         };
         let verified = verify_logs(&receipt, evidence.logs.clone())
             .map_err(|_| X402Error::EvidenceMismatch)?;
-        let mut payments = verified.logs().iter().filter(|log| {
-            log.address() == LEDGER_ADDRESS
-                && matches!(
-                    log.topics().first(),
-                    Some(topic) if *topic == PAYMENT_EXACT_TOPIC || *topic == PAYMENT_DRAWN_TOPIC
-                )
-        });
-        let payment = payments.next().ok_or(X402Error::EvidenceMismatch)?;
-        if payments.next().is_some() {
-            return Err(X402Error::EvidenceMismatch);
-        }
-        let payer = match payment.topics().first() {
-            Some(topic) if *topic == PAYMENT_EXACT_TOPIC => {
-                pay_exact_matches(accepted, verified.logs(), &idempotency_key)?
-            }
-            Some(topic) if *topic == PAYMENT_DRAWN_TOPIC => {
-                pay_drawn_matches(accepted, payment, &idempotency_key, scheme_payload)?
-            }
-            _ => return Err(X402Error::EvidenceMismatch),
-        };
+        let payer =
+            settlement_payment(accepted, verified.logs(), &idempotency_key, scheme_payload)?;
         let purpose = grant_purpose(accepted)?;
         let status = gateway
             .settle_with_sequencer_evidence(
@@ -567,6 +549,38 @@ pub(crate) fn validate_transaction(transaction: &str) -> Result<(), X402Error> {
     Ok(())
 }
 
+pub(crate) fn settlement_payment(
+    accepted: &PaymentRequirements,
+    logs: &[SequencerLog],
+    idempotency_key: &[u8; 32],
+    scheme_payload: &Value,
+) -> Result<[u8; 32], X402Error> {
+    let topic = match accepted.scheme.as_str() {
+        "exact" => PAYMENT_EXACT_TOPIC,
+        "metered" | "subscription" => PAYMENT_DRAWN_TOPIC,
+        _ => return Err(X402Error::UnsupportedOffer),
+    };
+    if *idempotency_key == [0; 32] {
+        return Err(X402Error::EvidenceMismatch);
+    }
+    let mut payments = logs.iter().filter(|log| {
+        log.address() == LEDGER_ADDRESS
+            && matches!(log.topics().first(), Some(topic)
+                if *topic == PAYMENT_EXACT_TOPIC || *topic == PAYMENT_DRAWN_TOPIC)
+    });
+    let payment = payments.next().ok_or(X402Error::EvidenceMismatch)?;
+    if payments.next().is_some() || payment.topics().first() != Some(&topic) {
+        return Err(X402Error::EvidenceMismatch);
+    }
+    match accepted.scheme.as_str() {
+        "exact" => pay_exact_matches(accepted, logs, idempotency_key),
+        "metered" | "subscription" => {
+            pay_drawn_matches(accepted, payment, idempotency_key, scheme_payload)
+        }
+        _ => Err(X402Error::UnsupportedOffer),
+    }
+}
+
 fn pay_exact_matches(
     accepted: &PaymentRequirements,
     logs: &[SequencerLog],
@@ -642,8 +656,8 @@ pub(crate) fn payment_matches(
     validate_network(&accepted.network)?;
     accepted.validate()?;
     accepted.layerx_terms()?;
-    if !matches_identifier(&accepted.asset, &asset)
-        || !matches_identifier(&accepted.pay_to, &recipient)
+    if parse_hex32(&accepted.asset).map_err(|_| X402Error::EvidenceMismatch)? != asset
+        || parse_hex32(&accepted.pay_to).map_err(|_| X402Error::EvidenceMismatch)? != recipient
         || accepted.amount.value() != amount
     {
         return Err(X402Error::EvidenceMismatch);
@@ -651,18 +665,10 @@ pub(crate) fn payment_matches(
     Ok(())
 }
 
-fn matches_identifier(value: &str, identifier: &[u8; 32]) -> bool {
-    let digits = match value.strip_prefix("0x") {
-        Some(digits) => digits,
-        None => value,
-    };
-    digits.eq_ignore_ascii_case(&hex(identifier))
-}
-
 /// The challenge's `purposeHash` a grant settlement repeats: `None` for an
 /// exact offer, the offer's 64 lowercase hexadecimal characters for a metered
 /// or subscription offer, and a refusal when a grant offer carries none.
-fn grant_purpose(accepted: &PaymentRequirements) -> Result<Option<String>, X402Error> {
+pub(crate) fn grant_purpose(accepted: &PaymentRequirements) -> Result<Option<String>, X402Error> {
     if !matches!(accepted.scheme.as_str(), "metered" | "subscription") {
         return Ok(None);
     }

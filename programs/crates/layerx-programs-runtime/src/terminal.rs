@@ -1,5 +1,8 @@
 //! Canonical decoding for the terminal availability bytes produced by the Programs call bridge.
 
+mod failure;
+pub use failure::encode_failure_payload;
+
 use crate::{
     BudgetMeterRefusal, BudgetResourceKind, MeteredUsage, ProgramFailure, TransferLawError,
     DEFAULT_MAX_CALL_GRAPH_EDGES, MAX_CALL_RESPONSE_BYTES, MAX_TRACE_COMMITMENTS,
@@ -627,7 +630,9 @@ fn decode_composition(payload: &[u8]) -> Result<(u8, FailureFields), TerminalDec
         2 => {
             let expected = c.byte()?;
             let actual = c.byte()?;
-            if !matches!(expected, 1 | 2) || !matches!(actual, 1 | 2) {
+            if crate::abi_policy::abi_revision(u16::from(expected)).is_err()
+                || crate::abi_policy::abi_revision(u16::from(actual)).is_err()
+            {
                 return Err(TerminalDecodeError::Malformed);
             }
             FailureFields::Revisions { expected, actual }

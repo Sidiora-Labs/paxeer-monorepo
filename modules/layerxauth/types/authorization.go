@@ -32,15 +32,18 @@ type AcceptResponse = authz.AcceptResponse
 
 type grantorRevocationKey struct{}
 
-type grantorRevocation struct {
-	grantor  sdk.AccAddress
-	sequence uint64
-}
+type grantorRevocations map[string]uint64
 
 // WithGrantorRevocation records the grantor's current identity REVOCATION
 // sequence on the context that Accept reads it from.
 func WithGrantorRevocation(ctx sdk.Context, grantor sdk.AccAddress, sequence uint64) sdk.Context {
-	return ctx.WithValue(grantorRevocationKey{}, grantorRevocation{grantor: grantor, sequence: sequence})
+	current, _ := ctx.Value(grantorRevocationKey{}).(grantorRevocations)
+	detached := make(grantorRevocations, len(current)+1)
+	for address, value := range current {
+		detached[address] = value
+	}
+	detached[string(grantor)] = sequence
+	return ctx.WithValue(grantorRevocationKey{}, detached)
 }
 
 // MsgTypeURL implements Authorization.MsgTypeURL. A LayerX-scope grant from
@@ -68,12 +71,13 @@ func (a LayerXScopeAuthorization) Accept(ctx sdk.Context, msg sdk.Msg) (AcceptRe
 	if len(signers) != 1 {
 		return authz.AcceptResponse{}, ErrAuthScope.Wrapf("message has %d signers, want 1", len(signers))
 	}
-	current, ok := ctx.Value(grantorRevocationKey{}).(grantorRevocation)
-	if !ok || !current.grantor.Equals(signers[0]) {
+	current, _ := ctx.Value(grantorRevocationKey{}).(grantorRevocations)
+	sequence, ok := current[string(signers[0])]
+	if !ok {
 		return authz.AcceptResponse{}, ErrAuthRevoked.Wrap("grantor revocation sequence not established")
 	}
-	if current.sequence != a.RevocationEpoch {
-		return authz.AcceptResponse{}, ErrAuthRevoked.Wrapf("revocation epoch %d, grantor revocation %d", a.RevocationEpoch, current.sequence)
+	if sequence != a.RevocationEpoch {
+		return authz.AcceptResponse{}, ErrAuthRevoked.Wrapf("revocation epoch %d, grantor revocation %d", a.RevocationEpoch, sequence)
 	}
 	activity, ok := msg.(ScopedActivity)
 	if !ok {

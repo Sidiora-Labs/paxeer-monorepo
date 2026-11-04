@@ -517,6 +517,7 @@ func TestAccountIDsMatchRustAndChain(t *testing.T) {
 			MainAccountName(did),
 			"agent:" + did + ":budget:weekly",
 			"agent:" + did + ":escrow:e1",
+			"agent:" + did + ":stream:s1",
 			"agent:" + did + ":margin:p9",
 		} {
 			got, err := AccountID([]byte(name))
@@ -534,14 +535,13 @@ func TestAccountIDsMatchRustAndChain(t *testing.T) {
 		"agent:did:layerx:Alice:main",
 		"agent::main",
 		"agent:did:layerx:alice:unknown:x",
-		"agent:did:layerx:alice:stream:s1",
 		"agent:did:layerx:alice:budget:a:b",
 		"agent:did::alice:main",
 		"system:liquidity:",
 		"system:liquidity:a:b",
 		"system:other",
 		"agent:did:layerx:alice:asset:" + string(bytes.Repeat([]byte("AB"), 32)),
-		"agent:" + string(bytes.Repeat([]byte("a"), 256)) + ":main",
+		"agent:" + string(bytes.Repeat([]byte("a"), MaxAccountNameBytes)) + ":main",
 	} {
 		if _, err := AccountID([]byte(name)); !errors.Is(err, ErrAccountName) {
 			t.Fatalf("%q: accepted or wrong error %v", name, err)

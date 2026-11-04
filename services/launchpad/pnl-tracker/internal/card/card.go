@@ -1,15 +1,10 @@
-// Package card mints and hydrates shareable PnL cards. A mint validates that the
-// (owner, pool) pair has a real position (rejecting garbage mints), captures an
-// immutable CardSnapshot (position + market context), persists it with a public
-// short code, and returns the share + OG image URLs. The wire shapes match the
-// TS client (pnl.ts CardSnapshot / MintedCard) exactly for response parity; all
-// numeric fields stay decimal strings (invariant i1) and image display strings
-// are formatted with math/big, never float.
+// Package card reads archived legacy PnL cards and formats their snapshots.
+// New public disclosures must use owner-approved v3 publications; legacy card
+// identifiers and short codes are not v3 share identifiers.
 package card
 
 import (
 	"context"
-	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -20,8 +15,11 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/store"
 )
 
-// ErrNoPosition is returned when a mint is attempted for a pair that never traded.
+// ErrNoPosition is retained for callers of the retired legacy mint interface.
 var ErrNoPosition = errors.New("card: no position for owner/pool")
+
+// ErrMintRetired rejects legacy publication without creating a card or referral.
+var ErrMintRetired = errors.New("card: legacy minting retired; use owner-approved /v3/me/portfolio/shares publications")
 
 // Position is the numeric subset of a position embedded in a snapshot
 // (pnl.ts: Omit<UserPosition,'userAddress'|'poolAddress'|'tokenAddress'>).
@@ -58,7 +56,8 @@ type Snapshot struct {
 	CapturedAt   int64    `json:"capturedAt"`
 }
 
-// Minted is the mint/hydrate response (pnl.ts MintedCard).
+// Minted is the archived hydrate response (pnl.ts MintedCard).
+// ShareURL is empty: archived cards have no supported public landing contract.
 type Minted struct {
 	CardID    string   `json:"cardId"`
 	ShortCode string   `json:"shortCode"`
@@ -68,112 +67,27 @@ type Minted struct {
 	CreatedAt int64    `json:"createdAt,omitempty"`
 }
 
-// Service mints and reads cards.
+// Service reads archived cards. Its legacy mint interface is retired.
 type Service struct {
-	store       *store.Store
-	shareOrigin string
-	ogOrigin    string
-	now         func() int64
+	store    *store.Store
+	ogOrigin string
 }
 
-// New builds a card Service. shareOrigin/ogOrigin are the trimmed origins used to
-// build shareUrl/ogUrl.
+// New builds an archive Service. The legacy share origin and clock parameters
+// are retained for source compatibility; archives do not issue share links.
 func New(st *store.Store, shareOrigin, ogOrigin string, now func() int64) *Service {
-	return &Service{store: st, shareOrigin: shareOrigin, ogOrigin: ogOrigin, now: now}
+	return &Service{store: st, ogOrigin: ogOrigin}
 }
 
-// shareURL / ogURL build the public links for a card.
-func (s *Service) shareURL(shortCode string) string { return s.shareOrigin + "/pnl/" + shortCode }
 func (s *Service) ogURL(cardID string) string {
 	return s.ogOrigin + "/pnl/cards/" + cardID + "/og.png"
 }
 
-// Mint validates the position, captures a snapshot, persists the card and its
-// referral binding, and returns the minted card. It returns ErrNoPosition when
-// the pair never traded (the route maps that to 400).
+// Mint is retired. A wallet/pool pair cannot express owner approval, selected
+// disclosure, expiry or revocation, so it must never create a v3 publication or
+// emit a link to the v3 public landing page.
 func (s *Service) Mint(ctx context.Context, owner, pool string) (*Minted, error) {
-	pos, err := s.store.GetPosition(ctx, owner, pool)
-	if err != nil {
-		return nil, err
-	}
-	if pos == nil {
-		return nil, ErrNoPosition
-	}
-
-	market, err := s.store.GetMarket(ctx, pos.PoolAddress)
-	if err != nil {
-		return nil, err
-	}
-	meta, err := s.store.GetTokenMeta(ctx, pos.TokenAddress)
-	if err != nil {
-		return nil, err
-	}
-
-	snap := Snapshot{
-		Version:      1,
-		OwnerAddress: pos.UserAddress,
-		PoolAddress:  pos.PoolAddress,
-		TokenAddress: pos.TokenAddress,
-		Position: Position{
-			TotalUsdlSpent:    pos.TotalUsdlSpent,
-			TotalTokensBought: pos.TotalTokensBought,
-			TotalUsdlReceived: pos.TotalUsdlReceived,
-			TotalTokensSold:   pos.TotalTokensSold,
-			AvgCostBasis:      pos.AvgCostBasis,
-			CurrentHoldings:   pos.CurrentHoldings,
-			RealizedPnlUsdl:   pos.RealizedPnlUsdl,
-			FirstBuyTs:        pos.FirstBuyTs,
-			LastTradeTs:       pos.LastTradeTs,
-			TradeCount:        pos.TradeCount,
-		},
-		CapturedAt: s.now(),
-	}
-	if meta != nil {
-		snap.TokenSymbol = meta.Symbol
-		snap.TokenName = meta.Name
-	}
-	if market != nil {
-		snap.Market = Market{
-			PriceWad:          ptr(market.PriceWad),
-			MarketCapUsdl:     ptr(market.MarketCapUsdl),
-			PriceChange24hBps: ptr(market.PriceChange24hBps),
-		}
-	}
-
-	payload, err := json.Marshal(snap)
-	if err != nil {
-		return nil, fmt.Errorf("card: marshal snapshot: %w", err)
-	}
-
-	cardID, err := randomID(16)
-	if err != nil {
-		return nil, err
-	}
-	shortCode, err := s.freeShortCode(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := s.store.InsertCard(ctx, store.CardRow{
-		CardID:       cardID,
-		ShortCode:    shortCode,
-		OwnerAddress: pos.UserAddress,
-		PoolAddress:  pos.PoolAddress,
-		TokenAddress: pos.TokenAddress,
-		Snapshot:     payload,
-		CreatedAt:    snap.CapturedAt,
-	}); err != nil {
-		return nil, err
-	}
-
-	return &Minted{
-		CardID:    cardID,
-		ShortCode: shortCode,
-		ShareURL:  s.shareURL(shortCode),
-		OgURL:     s.ogURL(cardID),
-		Snapshot:  snap,
-		CreatedAt: snap.CapturedAt,
-	}, nil
+	return nil, ErrMintRetired
 }
 
 // Get hydrates a minted card by id, or (nil, nil) when unknown.
@@ -185,6 +99,11 @@ func (s *Service) Get(ctx context.Context, cardID string) (*Minted, error) {
 	if row == nil {
 		return nil, nil
 	}
+	return s.DecodeArchive(*row)
+}
+
+// DecodeArchive hydrates a stored legacy disclosure without issuing a share URL.
+func (s *Service) DecodeArchive(row store.CardRow) (*Minted, error) {
 	var snap Snapshot
 	if err := json.Unmarshal(row.Snapshot, &snap); err != nil {
 		return nil, fmt.Errorf("card: decode snapshot: %w", err)
@@ -192,63 +111,10 @@ func (s *Service) Get(ctx context.Context, cardID string) (*Minted, error) {
 	return &Minted{
 		CardID:    row.CardID,
 		ShortCode: row.ShortCode,
-		ShareURL:  s.shareURL(row.ShortCode),
 		OgURL:     s.ogURL(row.CardID),
 		Snapshot:  snap,
 		CreatedAt: row.CreatedAt,
 	}, nil
-}
-
-// freeShortCode generates a short code not already issued (a handful of retries
-// makes a collision astronomically unlikely).
-func (s *Service) freeShortCode(ctx context.Context) (string, error) {
-	for i := 0; i < 5; i++ {
-		code, err := randomShortCode(7)
-		if err != nil {
-			return "", err
-		}
-		exists, err := s.store.ShortCodeExists(ctx, code)
-		if err != nil {
-			return "", err
-		}
-		if !exists {
-			return code, nil
-		}
-	}
-	return "", fmt.Errorf("card: could not allocate a unique short code")
-}
-
-func ptr(s string) *string { return &s }
-
-// base62 alphabet for short codes.
-const base62 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-
-// randomShortCode returns an n-char base62 code from crypto/rand.
-func randomShortCode(n int) (string, error) {
-	buf := make([]byte, n)
-	if _, err := rand.Read(buf); err != nil {
-		return "", fmt.Errorf("card: read random: %w", err)
-	}
-	out := make([]byte, n)
-	for i, b := range buf {
-		out[i] = base62[int(b)%len(base62)]
-	}
-	return string(out), nil
-}
-
-// randomID returns a hex id of nBytes random bytes (2*nBytes chars).
-func randomID(nBytes int) (string, error) {
-	buf := make([]byte, nBytes)
-	if _, err := rand.Read(buf); err != nil {
-		return "", fmt.Errorf("card: read random: %w", err)
-	}
-	const hexdigits = "0123456789abcdef"
-	out := make([]byte, nBytes*2)
-	for i, b := range buf {
-		out[i*2] = hexdigits[b>>4]
-		out[i*2+1] = hexdigits[b&0x0f]
-	}
-	return string(out), nil
 }
 
 // wad is the 1e18 fixed-point scale used by price/cost basis.

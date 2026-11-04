@@ -1,14 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import {
-  copyFile,
-  mkdir,
-  open,
-  readFile,
-  rename,
-  stat,
-  unlink,
-  writeFile,
-} from 'node:fs/promises';
+import { copyFile, mkdir, open, readFile, rename, stat, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 const queues = new Map<string, Promise<unknown>>();
@@ -46,6 +37,7 @@ async function wait(milliseconds: number): Promise<void> {
 export class AtomicJsonStore<T> {
   readonly #filePath: string;
   readonly #lockPath: string;
+  readonly #corruptionPath: string;
   readonly #empty: () => T;
   readonly #parse: (input: unknown) => T;
   readonly #migrate?: (input: unknown) => T;
@@ -54,6 +46,7 @@ export class AtomicJsonStore<T> {
   constructor(options: AtomicJsonStoreOptions<T>) {
     this.#filePath = options.filePath;
     this.#lockPath = `${options.filePath}.lock`;
+    this.#corruptionPath = `${options.filePath}.corrupt`;
     this.#empty = options.empty;
     this.#parse = options.parse;
     this.#migrate = options.migrate;
@@ -61,26 +54,67 @@ export class AtomicJsonStore<T> {
   }
 
   async read(): Promise<T> {
-    return enqueue(this.#filePath, () => this.#readUnlocked());
+    return enqueue(this.#filePath, () => this.#withFileLock(() => this.#readUnlocked()));
   }
 
   async update(mutator: (current: T) => T | Promise<T>): Promise<T> {
-    return enqueue(this.#filePath, async () => {
-      await mkdir(path.dirname(this.#filePath), { recursive: true });
-      const release = await this.#acquireFileLock();
-      try {
+    return enqueue(this.#filePath, () =>
+      this.#withFileLock(async () => {
         const current = await this.#readUnlocked();
         const next = await mutator(current);
         this.#parse(next);
         await this.#writeUnlocked(next);
         return next;
-      } finally {
-        await release();
-      }
-    });
+      })
+    );
+  }
+
+  async recoverFromBackup(): Promise<T> {
+    return enqueue(this.#filePath, () =>
+      this.#withFileLock(async () => {
+        await stat(this.#corruptionPath);
+        let recovered: T;
+        try {
+          const backupPath = `${this.#filePath}.bak`;
+          const metadata = await stat(backupPath);
+          if (metadata.size > this.#maxBytes) throw new RangeError('Backup exceeds its size limit');
+          const raw = await readFile(backupPath);
+          if (raw.byteLength > this.#maxBytes)
+            throw new RangeError('Backup exceeds its size limit');
+          recovered = this.#parse(JSON.parse(raw.toString('utf8')));
+        } catch {
+          throw new DurableStoreCorruptError(this.#filePath);
+        }
+        // Keep both the marker and the verified backup until the primary is published.
+        await this.#writeUnlocked(recovered, true);
+        await unlink(this.#corruptionPath);
+        return recovered;
+      })
+    );
+  }
+
+  async #withFileLock<R>(operation: () => Promise<R>): Promise<R> {
+    await mkdir(path.dirname(this.#filePath), { recursive: true });
+    const release = await this.#acquireFileLock();
+    try {
+      return await operation();
+    } finally {
+      await release();
+    }
+  }
+
+  async #assertAvailable(): Promise<void> {
+    try {
+      await stat(this.#corruptionPath);
+    } catch (error) {
+      if (error instanceof Error && 'code' in error && error.code === 'ENOENT') return;
+      throw error;
+    }
+    throw new DurableStoreCorruptError(this.#filePath);
   }
 
   async #readUnlocked(): Promise<T> {
+    await this.#assertAvailable();
     try {
       const metadata = await stat(this.#filePath);
       if (metadata.size > this.#maxBytes) {
@@ -99,11 +133,7 @@ export class AtomicJsonStore<T> {
         return migrated;
       }
     } catch (error) {
-      if (
-        error instanceof Error &&
-        'code' in error &&
-        error.code === 'ENOENT'
-      ) {
+      if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
         return this.#empty();
       }
       if (error instanceof DurableStoreCorruptError) throw error;
@@ -112,7 +142,8 @@ export class AtomicJsonStore<T> {
     }
   }
 
-  async #writeUnlocked(value: T): Promise<void> {
+  async #writeUnlocked(value: T, recovering = false): Promise<void> {
+    if (!recovering) await this.#assertAvailable();
     const serialized = JSON.stringify(value);
     if (Buffer.byteLength(serialized) > this.#maxBytes) {
       throw new RangeError('Durable store exceeds its size limit');
@@ -121,13 +152,13 @@ export class AtomicJsonStore<T> {
     const temporary = `${this.#filePath}.${process.pid}.${randomUUID()}.tmp`;
     try {
       await writeFile(temporary, serialized, { encoding: 'utf8', mode: 0o600 });
-      try {
-        await copyFile(this.#filePath, `${this.#filePath}.bak`);
-      } catch (error) {
-        if (
-          !(error instanceof Error && 'code' in error && error.code === 'ENOENT')
-        ) {
-          throw error;
+      if (!recovering) {
+        try {
+          await copyFile(this.#filePath, `${this.#filePath}.bak`);
+        } catch (error) {
+          if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) {
+            throw error;
+          }
         }
       }
       await rename(temporary, this.#filePath);
@@ -137,8 +168,15 @@ export class AtomicJsonStore<T> {
   }
 
   async #quarantine(): Promise<void> {
-    const target = `${this.#filePath}.corrupt-${Date.now()}`;
-    await rename(this.#filePath, target).catch(() => undefined);
+    const marker = await open(this.#corruptionPath, 'wx', 0o600);
+    try {
+      await marker.writeFile('Durable store requires verified backup recovery\n');
+      await marker.sync();
+    } finally {
+      await marker.close();
+    }
+    const target = `${this.#filePath}.corrupt-${randomUUID()}`;
+    await rename(this.#filePath, target);
   }
 
   async #acquireFileLock(): Promise<() => Promise<void>> {
@@ -150,9 +188,7 @@ export class AtomicJsonStore<T> {
           await unlink(this.#lockPath).catch(() => undefined);
         };
       } catch (error) {
-        if (
-          !(error instanceof Error && 'code' in error && error.code === 'EEXIST')
-        ) {
+        if (!(error instanceof Error && 'code' in error && error.code === 'EEXIST')) {
           throw error;
         }
         const lockStat = await stat(this.#lockPath).catch(() => null);

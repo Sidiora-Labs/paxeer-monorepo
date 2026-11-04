@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"sync"
 	"testing"
 	"time"
 
@@ -34,7 +35,8 @@ var (
 
 	// A hook that test cases can call to obtain the shared database instance
 	// used for testing the sink. This is initialized in TestMain (see below).
-	testDB func() *sql.DB
+	testDB   func() *sql.DB
+	testConn string
 )
 
 const (
@@ -51,16 +53,32 @@ const (
 func TestMain(m *testing.M) {
 	flag.Parse()
 
+	// Service-free repair tests must reach m.Run even without Docker. Initialize
+	// the existing PostgreSQL suite only when a selected test requests its DB.
+	var once sync.Once
+	var db *sql.DB
+	var cleanup func()
+	testDB = func() *sql.DB {
+		once.Do(func() { db, cleanup = startTestPostgres() })
+		return db
+	}
+	code := m.Run()
+	if cleanup != nil {
+		cleanup()
+	}
+	os.Exit(code)
+}
+
+func startTestPostgres() (*sql.DB, func()) {
 	// Set up docker.
 	pool, err := dockertest.NewPool(os.Getenv("DOCKER_URL"))
 	if err != nil {
 		log.Fatalf("Creating docker pool: %v", err)
 	}
 
-	// If docker is unavailable, log and exit without reporting failure.
+	// Selected PostgreSQL integration tests require an available Docker engine.
 	if _, err := pool.Client.Info(); err != nil {
-		log.Printf("WARNING: Docker is not available: %v [skipping this test]", err)
-		return
+		log.Fatalf("Docker is not available: %v", err)
 	}
 
 	// Start a container running PostgreSQL.
@@ -96,6 +114,7 @@ func TestMain(m *testing.M) {
 	// Connect to the database, clear any leftover data, and install the
 	// indexing schema.
 	conn := fmt.Sprintf(dsn, user, password, resource.GetPort(port+"/tcp"), dbName)
+	testConn = conn
 	var db *sql.DB
 
 	if err := pool.Retry(func() error {
@@ -122,27 +141,20 @@ func TestMain(m *testing.M) {
 		log.Fatalf("Applying schema: %v", err)
 	}
 
-	// Set up the hook for tests to get the shared database handle.
-	testDB = func() *sql.DB { return db }
-
-	// Run the selected test cases.
-	code := m.Run()
-
-	// Clean up and shut down the database container.
-	if *doPauseAtExit {
-		log.Print("Testing complete, pausing for inspection. Send SIGINT to resume teardown")
-		waitForInterrupt()
-		log.Print("(resuming)")
+	return db, func() {
+		if *doPauseAtExit {
+			log.Print("Testing complete, pausing for inspection. Send SIGINT to resume teardown")
+			waitForInterrupt()
+			log.Print("(resuming)")
+		}
+		log.Print("Shutting down database")
+		if err := pool.Purge(resource); err != nil {
+			log.Printf("WARNING: Purging pool failed: %v", err)
+		}
+		if err := db.Close(); err != nil {
+			log.Printf("WARNING: Closing database failed: %v", err)
+		}
 	}
-	log.Print("Shutting down database")
-	if err := pool.Purge(resource); err != nil {
-		log.Printf("WARNING: Purging pool failed: %v", err)
-	}
-	if err := db.Close(); err != nil {
-		log.Printf("WARNING: Closing database failed: %v", err)
-	}
-
-	os.Exit(code)
 }
 
 func TestType(t *testing.T) {
@@ -205,6 +217,37 @@ func TestIndexing(t *testing.T) {
 		// try to insert the duplicate tx events.
 		err = indexer.IndexTxEvents([]*abci.TxResultV2{txResult})
 		require.NoError(t, err)
+	})
+
+	// The same repair assertions run against PostgreSQL in the integration
+	// suite; the focused repair gate uses the embedded SQL engine instead.
+	t.Run("Repair82Postgres", func(t *testing.T) {
+		db := testDB()
+		// Recreate the old attribute identity and upgrade existing rows with
+		// the operator migration before exercising the new writer.
+		var before, after int64
+		require.NoError(t, db.QueryRowContext(t.Context(), "SELECT COUNT(*) FROM attributes").Scan(&before))
+		_, err := db.ExecContext(t.Context(), `
+ALTER TABLE attributes DROP CONSTRAINT attributes_pkey;
+ALTER TABLE attributes DROP COLUMN ordinal;
+ALTER TABLE attributes ADD UNIQUE (event_id, key);`)
+		require.NoError(t, err)
+		migration, err := os.ReadFile("migrate_attributes_ordinal.sql")
+		require.NoError(t, err)
+		_, err = db.ExecContext(t.Context(), string(migration))
+		require.NoError(t, err)
+		require.NoError(t, db.QueryRowContext(t.Context(), "SELECT COUNT(*) FROM attributes WHERE ordinal >= 0").Scan(&after))
+		require.Equal(t, before, after)
+		for _, table := range []string{tableBlocks, tableTxResults, tableEvents} {
+			_, err := db.ExecContext(t.Context(), "SELECT setval(pg_get_serial_sequence($1, 'rowid'), $2)", table, int64(1<<32-1))
+			require.NoError(t, err)
+		}
+		repair82RoundTrip(t, func() *EventSink {
+			sink, err := NewEventSink(testConn, t.Name())
+			require.NoError(t, err)
+			t.Cleanup(func() { require.NoError(t, sink.Stop()) })
+			return sink
+		}, 1<<32)
 	})
 }
 
