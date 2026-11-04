@@ -341,6 +341,11 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 				return err
 			})
 		}})
+		multihopJob, e := canonicalMultihopJob(pool, cfg, d, guard, logger, runtimeHealth)
+		if e != nil {
+			return nil, e
+		}
+		jobs = append(jobs, multihopJob)
 		legacy := &consumer.CanonicalLegacyBridge{Pool: pool, ProjectionSchema: d.Schema, SourceSchema: "indexer", SourceStream: d.SourceStream, ProjectionVersion: d.ProjectionVersion, Market: marketConsumer, Swap: swapConsumer, Holder: holderTracker, Batch: cfg.LegacyBridgeBatch}
 		runtimeHealth.set("legacy read model", errors.New("legacy read model awaiting canonical replay"))
 		jobs = append(jobs, statsRuntimeJob{name: "canonical legacy read model", run: func(ctx context.Context) error {
