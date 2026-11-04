@@ -180451,7 +180451,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.105]
 title = "Repair audit record 22.30.111 medium findings in services/interop/crates/layerx-x402/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.165", "22.31.166", "22.31.443"]
@@ -326179,7 +326179,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.723]
 title = "Repair audit record 22.30.170 medium findings in deploy/launchpad/production/observability (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.313", "22.31.314"]
