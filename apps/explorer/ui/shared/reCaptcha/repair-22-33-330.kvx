@@ -1,0 +1,32 @@
+[repair.22.33.330]
+finding = "captcha_retry_unbounded"
+implementation = "Allow at most one captcha bypass per protected operation; a supplied token exhausts that bypass, and the retry returns the original failure including rate-limit reset data."
+tests = ["captchaRetryUnbounded", "captchaRetryUnboundedErrorCause", "captchaSuppliedTokenDoesNotPromptAgain", "captchaSuccessPreservesResultAndNewOperationBudget"]
+test_path = "apps/explorer/ui/shared/reCaptcha/repair-22-33-330.spec.ts"
+proof = "Production useReCaptcha and react-google-recaptcha consume a solved-token callback; production useFetch sends it to a loopback HTTP transcript server and produces the subsequent 429 with reset metadata."
+baseline = "Not run: the explicit qualification order prohibits testing before implementation and reserves verification for hf-done; no baseline failures are claimed. The old recursion would leave the regression operation pending on another challenge."
+wiring_requests = ["apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/repair-22-31-381.spec.ts: owning domain 14 must replace the undeclared ganache dependency with an in-process JSON-RPC fixture, as decision 2520 assigns to task 22.31.440; this task changes no out-of-scope files."]
+evidence = "The runner records the exact verified candidate revision, command, exit and private log in /out/run/gates.jsonl and the final task evidence; this record is part of that candidate."
+
+[gotcha.task_gate_order]
+observed = "The audit step asks for unchanged-tree verification, while the explicit task order requires implementation first and verification only through hf-done."
+resolution = "Follow the explicit task order; retain baseline provenance here because the task forbids changes to root GOTCHA.kvx and spec files."
+
+[gotcha.explorer_dependencies]
+observed = "Runner preparation left explorer dependencies absent after an unrelated root npm lock mismatch and a package-manager mismatch."
+resolution = "Install explorer with its declared Yarn version and frozen yarn.lock, and use pnpm 8 for the prescribed exec gates; do not alter manifests or the root workspace."
+
+[gotcha.named_test_lint]
+observed = "The repository formatter applied layout fixes but its Vitest lint plugin rejects the task-mandated test(namedFunction) form as requiring string titles and inline assertions."
+resolution = "Keep the explicitly required named test registrations and their assertions intact; the task gates are TypeScript and Vitest, and no lint rule is disabled."
+
+[qualification.unrelated_dependency]
+revision = "ef50987ca9c0863cf89cb9803cf1181fdff2d13a"
+command = "pnpm --dir apps/explorer exec tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "Existing ui/marketplace/essentialDapps/revoke/hooks/repair-22-31-381.spec.ts imports undeclared ganache and fails TS2307; its dependency owner must supply it outside this task's scope."
+
+[gotcha.recaptcha_class_types]
+observed = "React.createElement checks static contextType across installed React 18 and React 19 declarations, rejecting the real reCAPTCHA class."
+resolution = "Mount the real component through a typed JSX fixture, matching the production JSX path without widening or replacing its type."

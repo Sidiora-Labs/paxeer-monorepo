@@ -14710,3 +14710,8 @@ fix = "The build command of a task whose type-check crosses into the wallet work
 title = "The bridge application's global layout props type exists only after the framework's type generation step"
 symptom = "apps/bridge/src/app/layout.tsx uses the LayoutProps global type that Next.js 16 generates with next typegen; a bare tsc --noEmit fails with the name not found before any task test runs (22.33.264, 22.33.266, 22.33.268 a1), while the package's own typecheck script runs the generation first."
 fix = "A type-check gate of a Next.js application runs the package's typecheck script (or next typegen before tsc), never tsc alone."
+
+[gotcha.2978]
+title = "The web application's node:test suites cannot import a module that imports a Next.js runtime entry"
+symptom = "apps/web runs its e2e suites with node --test; a test that imports src/kit/explorer.tsx or src/journeys/onboarding/onboarding.tsx fails with ERR_MODULE_NOT_FOUND for next/link or next/navigation because the Next.js package resolves those entries only through its bundler, not through the Node ESM resolver (22.33.337 a1 and a2); the committed suites import only the copy catalog, the perf budgets and other pure modules."
+fix = "A node:test case of apps/web imports pure modules only; behaviour of a component that imports a Next.js entry is asserted through the component's extracted pure logic or through the Playwright suites, never by importing the component under node --test."

@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/launchpadtest"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/perps/keeper"
@@ -305,4 +306,101 @@ func TestEndblockNoBorrowingFields(t *testing.T) {
 		keeper.StepPrices, keeper.StepPremiumSamples, keeper.StepFundingIndex, keeper.StepTriggers, keeper.StepExpiries,
 		keeper.StepSweep, keeper.StepLiquidation, keeper.StepDeficits, keeper.StepBackstopCloses,
 	}, steps)
+}
+
+// This pass includes repeated Backstop -> CoverDeficit -> ExecuteADL calls,
+// step-8 coverage, and an insurance close in step 9.
+func TestEndblockADLSharedAllowanceAndContinuation(t *testing.T) {
+	for _, bound := range []uint64{1, 2} {
+		t.Run(fmt.Sprintf("bound_%d", bound), func(t *testing.T) {
+			e := newEndblockEnv(t, 0)
+			restart := repair14DurableEndblock(t, e)
+			e.setMark(usdAmount(60_000))
+			state := e.marketState(0)
+			state.LastIndexHour = endblockHour
+			state.LastSampleTime = uint64(e.ctx.BlockTime().Unix())
+			e.k.SetMarketState(e.ctx, state)
+			params, err := e.k.GetParams(e.ctx)
+			require.NoError(t, err)
+			params.AdlPositionsPerBlock = bound
+			require.NoError(t, e.k.UpdateParams(e.ctx, e.k.Authority(), params))
+			fund := e.k.InsuranceAccountAddress()
+			e.account(fund, 100_000_000)
+			var holders []common.Address
+			for id := uint64(1); id <= 5; id++ {
+				holder := e.address(id)
+				holders = append(holders, holder)
+				// Each real settlement creates a 5,000 USD deficit. Five
+				// distinct short counterparties have 6,000 USD of profit each.
+				e.pair(id, holder, 1_000_000_000, usdAmount(1), usdAmount(66_000))
+			}
+			// The exhausted fund must realise enough profit to pay the real
+			// close's trading fee. Only 0.1 BTC has book liquidity.
+			bidder := e.maker(100, usdAmount(60_100), baseAmount(10_000))
+			records := e.k.EndBlock(e.ctx)
+			require.Empty(t, e.errorEvents())
+			require.Len(t, eventsNamed(records, types.EventBackstopLiquidation), 5)
+			require.NotEmpty(t, eventsNamed(records, types.EventInsuranceDraw))
+			require.GreaterOrEqual(t, len(eventsNamed(records, types.EventVaultDeficit)), 5)
+			require.Len(t, eventsNamed(records, types.EventADLMatched), int(bound))
+			fills := eventsNamed(records, types.EventFill)
+			require.Len(t, fills, 1, "step 9 must execute the insurance close")
+			require.Equal(t, bidder, fills[0].Args[3])
+			for _, holder := range holders {
+				account := e.readAccount(holder)
+				require.Zero(t, account.PositionCount)
+				require.True(t, account.DeficitUsd.IsZero(), "the uncovered debt moves to insurance")
+			}
+			// Book the close's realised profit against retained debt before
+			// checking that a restart cannot replenish the ADL allowance.
+			profit := e.readAccount(fund)
+			require.False(t, profit.Collateral.IsZero())
+			events, err := e.k.CoverDeficit(e.ctx, fund, 0)
+			require.NoError(t, err)
+			require.Empty(t, eventsNamed(events, types.EventADLMatched))
+			require.Len(t, eventsNamed(events, types.EventInsuranceDraw), 1)
+			before := e.readAccount(fund)
+			require.True(t, before.Collateral.IsZero())
+			covered := new(uint256.Int).Sub(&profit.DeficitUsd, &before.DeficitUsd)
+			require.Equal(t, new(uint256.Int).Mul(&profit.Collateral, uint256.NewInt(1_000_000_000_000)), covered)
+			require.False(t, before.DeficitUsd.IsZero())
+			assertReceipt := func(records []types.EventRecord) {
+				t.Helper()
+				r, err := evmlogsProvisional(t, &testkeeper.EVMTestApp.EvmKeeper, e.ctx)
+				require.NoError(t, err)
+				parsed, err := perpsabi.ABI()
+				require.NoError(t, err)
+				matched := 0
+				for _, log := range r.Logs {
+					if len(log.Topics) > 0 && log.Topics[0] == parsed.Events[types.EventADLMatched].ID.Hex() {
+						decoded := map[string]interface{}{}
+						require.NoError(t, parsed.Events[types.EventADLMatched].Inputs.NonIndexed().UnpackIntoMap(decoded, log.Data))
+						require.NotEmpty(t, decoded)
+						matched++
+					}
+				}
+				require.Equal(t, len(eventsNamed(records, types.EventADLMatched)), matched)
+				require.Equal(t, int(bound), matched, "the entire synthetic receipt shares the governed cap")
+			}
+			assertReceipt(records)
+			// A keeper/store restart at the same height cannot renew work.
+			restart()
+			debt := e.readAccount(fund)
+			require.Equal(t, before.DeficitUsd, debt.DeficitUsd)
+			events, err = e.k.CoverDeficit(e.ctx, fund, 0)
+			require.NoError(t, err)
+			require.Empty(t, eventsNamed(events, types.EventADLMatched))
+			debt = e.readAccount(fund)
+			require.Equal(t, before.DeficitUsd, debt.DeficitUsd)
+			e.ctx = e.ctx.WithBlockHeight(e.ctx.BlockHeight() + 1).WithBlockTime(e.ctx.BlockTime().Add(time.Second)).WithEventManager(sdk.NewEventManager())
+			e.setAggregate(0, 60_000, e.ctx.BlockTime().UnixMilli())
+			records = e.k.EndBlock(e.ctx)
+			repair14InsuranceScanRefusal(t, e)
+			assertReceipt(records)
+			after := e.readAccount(fund)
+			require.True(t, after.DeficitUsd.Lt(&before.DeficitUsd), "the next block resumes retained debt")
+			state = e.marketState(0)
+			require.Equal(t, state.LongOpenInterest, state.ShortOpenInterest)
+		})
+	}
 }

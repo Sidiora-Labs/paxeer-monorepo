@@ -28,6 +28,8 @@ lxp_result lx_escrow_dispute_open_execute(
     if (record.dispute_window == 0U ||
         lxp_ctx_batch_timestamp_ms(ctx) > record.dispute_window)
         return LXP_ERR_DISPUTE_WINDOW_CLOSED;
+    status = lx_escrow_prepare(ctx, &record, request->escrow_account);
+    if (status != LXP_OK) return status;
     record.state = LX_ESCROW_STATE_DISPUTED;
     return lx_escrow_state_update(ctx, &record);
 }
@@ -109,6 +111,7 @@ lxp_result lx_escrow_dispute_resolve_execute(
                           &captured_after);
     if (status != LXP_OK) return status;
     (void)memset(&settlement, 0, sizeof(settlement));
+    settlement.record = &record;
     settlement.from = request->escrow_account;
     settlement.to = request->beneficiary_account;
     settlement.secondary_to = request->owner_account;

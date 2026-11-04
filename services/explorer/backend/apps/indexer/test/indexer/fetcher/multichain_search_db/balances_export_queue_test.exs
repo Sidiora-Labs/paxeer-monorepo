@@ -1,3 +1,5 @@
+Code.require_file("export_queue_contract.exs", __DIR__)
+
 defmodule Indexer.Fetcher.MultichainSearchDb.BalancesExportQueueTest do
   use ExUnit.Case
   use Explorer.DataCase
@@ -13,17 +15,14 @@ defmodule Indexer.Fetcher.MultichainSearchDb.BalancesExportQueueTest do
   alias Indexer.Fetcher.MultichainSearchDb.BalancesExportQueue,
     as: MultichainSearchDbExportBalancesExportQueue
 
-  alias Plug.Conn
+  alias Indexer.Fetcher.MultichainSearchDb.ExportQueueContract
 
   @moduletag :capture_log
 
   setup do
+    ExportQueueContract.preserve_config(MultichainSearchDbExportBalancesExportQueue.Supervisor)
     start_supervised!({Task.Supervisor, name: Indexer.TaskSupervisor})
     Application.put_env(:indexer, MultichainSearchDbExportBalancesExportQueue.Supervisor, disabled?: false)
-
-    on_exit(fn ->
-      Application.put_env(:indexer, MultichainSearchDbExportBalancesExportQueue.Supervisor, disabled?: true)
-    end)
 
     :ok
   end
@@ -35,10 +34,6 @@ defmodule Indexer.Fetcher.MultichainSearchDb.BalancesExportQueueTest do
         api_key: "12345",
         addresses_chunk_size: 7000
       )
-
-      on_exit(fn ->
-        Application.put_env(:explorer, MultichainSearch, service_url: nil, api_key: nil, addresses_chunk_size: 7000)
-      end)
     end
 
     test "initializes with data from the retry queue" do
@@ -116,11 +111,7 @@ defmodule Indexer.Fetcher.MultichainSearchDb.BalancesExportQueueTest do
         addresses_chunk_size: 7000
       )
 
-      on_exit(fn ->
-        Application.put_env(:explorer, MultichainSearch, service_url: nil, api_key: nil, addresses_chunk_size: 7000)
-        Application.put_env(:tesla, :adapter, Explorer.Mock.TeslaAdapter)
-        Bypass.down(bypass)
-      end)
+      on_exit(fn -> Bypass.down(bypass) end)
 
       {:ok, bypass: bypass}
     end
@@ -159,13 +150,34 @@ defmodule Indexer.Fetcher.MultichainSearchDb.BalancesExportQueueTest do
 
       Application.put_env(:tesla, :adapter, Tesla.Adapter.Mint)
 
-      Bypass.expect_once(bypass, "POST", "/api/v1/import:batch", fn conn ->
-        Conn.resp(
-          conn,
-          200,
-          Jason.encode!(%{"status" => "ok"})
-        )
-      end)
+      expected = ExportQueueContract.empty_batch("1", "12345")
+
+      expected =
+        Map.merge(expected, %{
+          "address_coin_balances" => [
+            %{
+              "address_hash" => to_string(address_hash),
+              "token_contract_address_hash_or_native" => "native",
+              "value" => "100"
+            }
+          ],
+          "address_token_balances" => [
+            %{
+              "address_hash" => to_string(nft_contract_address_hash),
+              "token_address_hash" => to_string(nft_contract_address_hash),
+              "value" => nil,
+              "token_id" => "12345"
+            },
+            %{
+              "address_hash" => to_string(erc_20_contract_address_hash),
+              "token_address_hash" => to_string(erc_20_contract_address_hash),
+              "value" => "200",
+              "token_id" => nil
+            }
+          ]
+        })
+
+      ExportQueueContract.expect_import(bypass, expected)
 
       assert :ok = MultichainSearchDbExportBalancesExportQueue.run(export_data, nil)
     end
@@ -178,10 +190,6 @@ defmodule Indexer.Fetcher.MultichainSearchDb.BalancesExportQueueTest do
         api_key: "12345",
         addresses_chunk_size: 1
       )
-
-      on_exit(fn ->
-        Application.put_env(:explorer, MultichainSearch, service_url: nil, api_key: nil, addresses_chunk_size: 7000)
-      end)
 
       address_1 = insert(:address)
       address_1_hash = address_1.hash
@@ -341,8 +349,6 @@ defmodule Indexer.Fetcher.MultichainSearchDb.BalancesExportQueueTest do
       MultichainSearchDbExportBalancesExportQueue.run(export_data_2, nil)
 
       assert Repo.aggregate(BalancesExportQueue, :count, :id) == 0
-
-      Application.put_env(:explorer, MultichainSearch, service_url: nil, api_key: nil, addresses_chunk_size: 7000)
     end
   end
 
