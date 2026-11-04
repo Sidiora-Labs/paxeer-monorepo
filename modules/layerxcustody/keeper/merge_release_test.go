@@ -77,6 +77,11 @@ func prepareCustodyMerge(t *testing.T) (*env, types.Claim, upgradetypes.Plan) {
 
 func TestMergePlanReleasesCustodyToTheAuthority(t *testing.T) {
 	e, queued, plan := prepareCustodyMerge(t)
+	assertCustodyMergeRelease(t, e, queued, plan)
+}
+
+func assertCustodyMergeRelease(t *testing.T, e *env, queued types.Claim, plan upgradetypes.Plan) {
+	t.Helper()
 	app := testkeeper.EVMTestApp
 	authority, err := sdk.AccAddressFromBech32(e.k.Authority(e.ctx))
 	require.NoError(t, err)
