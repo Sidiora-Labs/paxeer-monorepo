@@ -64,6 +64,12 @@ image rows defined by
 [tools/deploy/offchain-images.sh](../../../../tools/deploy/offchain-images.sh).
 It runs on relevant pushes to `main` or manual dispatch:
 
+| Job | Direct dependencies |
+| --- | --- |
+| `plan` | none |
+| `images` | `plan` |
+| `digests` | `plan`, `images` |
+
 - `plan` checks the configured base-image digest pins and selects rows that pass
   the image table's checks. Failed rows are reported as unbuilt.
 - `images` depends on `plan`. Its matrix builds and pushes selected images to
@@ -72,14 +78,18 @@ It runs on relevant pushes to `main` or manual dispatch:
   with the workflow token and uses `push: true`.
 - `digests` depends on `plan` and `images`. After a successful plan, when the run
   is not cancelled, it merges available digest artifacts into `digests.json`,
-  reports unbuilt/failed rows and rejects an empty result. Missing rows remain
-  absent so rollout cannot treat them as published images.
+  reports unbuilt/failed rows and rejects an empty result.
+
+Missing rows remain
+absent so rollout cannot treat them as published images.
 
 This workflow does not depend on four preceding verification jobs and does not
 invoke the six-check release admission policy above. A pushed image or a
 `digests.json` entry proves neither policy admission nor deployment approval.
 The workflow has no pull-request trigger; its publication authority is scoped
-to its push/manual execution. External actions are pinned to full revisions.
+to its push/manual execution. Manual dispatch can publish images, but it does
+not satisfy the admission policies' independent requirement for push evidence.
+External actions are pinned to full revisions.
 No workflow execution or registry publication is performed by this documentation
 rewrite.
 

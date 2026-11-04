@@ -60,10 +60,14 @@ if [ "${UPGRADE_REPLAY_IN_PLACE:-0}" = "1" ]; then
 	state=$data
 	echo "replaying over $state itself"
 else
-	state="$workdir/state"
-	rm -rf "$state"
-	echo "copying $data to $state, because a replay writes to the state it runs over"
-	cp -a "$data" "$state"
+	# The stage handler accepts either a data directory or a full node home
+	# and copies config and wasm beside data, where prepareHome consumes them.
+	# It refuses an existing destination; use a fresh directory on every run.
+	sourcehome=$(mktemp -d "$workdir/source-home.XXXXXX")
+	rmdir "$sourcehome"
+	state="$sourcehome/data"
+	echo "copying the source home of $data to $sourcehome, because replay writes to it"
+	"$binary" -mode stage -data "$data" -out "$sourcehome"
 fi
 
 rm -rf "$home"

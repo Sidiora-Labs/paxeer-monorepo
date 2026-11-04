@@ -1,0 +1,52 @@
+[meta]
+task = "22.33.1027"
+audit = "22.30.39"
+base_revision = "caa8b41ee668274ee1e5c1df6691288455c46278"
+evidence = "/out/run/gates.jsonl records the runner-owned candidate revision, exact build/verify commands, exits and private log paths; the last hf-done record is the qualification result."
+baseline = "Not run: the explicit gate order prohibits verification before the entire implementation and prohibits running verify_cmd by hand. Admission found no earlier gate ledger or repair test. No baseline failure is claimed."
+
+[finding.19]
+tests = ["TestRepairM_1027_MessageLengthBoundaries", "TestRepairM_1027_DefaultAndConfiguredMessageLimits"]
+implementation = "The product default is 500 Unicode code points after sanitization, with the existing independent 16384-byte input ceiling. Hub construction applies MaxMessageLength to the shared DurableStore; Send and Revise enforce that same configured bound."
+proof = "Real platform store assembly, ticket-authenticated v2 socket sends, durable SQL transactions/outbox, Redis pub/sub, socket delivery, REST edits and durable history cover exact/over/empty ASCII and multibyte boundaries, configured/default bounds, invalid UTF-8, byte ceiling and deletion."
+
+[finding.20]
+tests = ["TestRepairM_1027_RestartWindowRecovery"]
+implementation = "One MULTI/EXEC transaction performs INCR, PEXPIRE NX and PTTL. A missing expiry is repaired without clearing the count, an existing expiry never slides, and an error or absent window returns ErrUnavailable rather than a quota refusal. Redis must support PEXPIRE NX."
+proof = "Stop and reopen hub, pgx pool and Redis clients over retained peer state after a missing TTL, interruption before EXEC, lost response after EXEC and refused expiry. Check exact retained counters/deadlines, explicit dependency refusal, eventual recovery, durable history and preservation of an unrelated actor/kind counter."
+
+[finding.5]
+tests = ["TestRepairM_1027_PlatformSocketAdmission", "TestRepairM_1027_SharedAbuseLimiter"]
+implementation = "DurableStore has a new-message Admission phase after authorization and durable client-message deduplication. Hub.New binds configured per-actor windows and safety.AbuseLimiter to the actual shared platform store for both socket protocols. Retries and conflicts consume neither window nor shared safety quota."
+proof = "Use devsocial.New, its real SendChat policy, TicketAuthenticator and HTTPStreamAuthority, the actual sidiora.v2 /v2/stream handler and DurableStore. Assert pool/DM configured quotas, shared safety quotas, repeated identities before/after store restart, payload conflict and separate window/abuse Redis dependency refusals with no committed message or outbox work."
+
+[wiring.1]
+request = "Domain 4: services/launchpad/social/internal/config/config.go and the owning deployment MAX_MESSAGE_LENGTH settings must document the 500-code-point sanitized default and keep all HTTP/client content admission on the same unit; these paths are outside this task."
+
+[wiring.2]
+request = "Domain 4: services/launchpad/social/internal/app/app.go must split its bound-runtime Policy wrapper into authorization-only Policy and new-message-only DurableStore.Admission, composing the configured window with its existing shared safety.AbuseLimiter namespace so the bound profile does not charge legacy policy quota before deduplication."
+
+[wiring.3]
+request = "Domain 4: services/launchpad/social/internal/devsocial/runtime.go must pass explicit message-length and shared admission settings when constructing standalone HTTP-only chat stores; the platform socket assembly is protected here by Hub.New binding the same Chat pointer."
+
+[proof_boundary]
+peers = "Committed in-process PostgreSQL wire transactions, Redis RESP2 transactions/expiry/pubsub and pinned safety-script transcript with token-bucket state, and a loopback identity authority. These qualify the real fanout producer/transport/consumer, not PostgreSQL, Redis Lua itself, the full app boot lifecycle or the gateway ticket issuer. No live services, credentials, subprocess or environment variable are required."
+
+[gotcha.1]
+symptom = "The task asks for an unchanged baseline verification but its explicit gate order forbids that run; the root gotcha/spec files are also outside scope."
+action = "Follow the bounded gate order, record the missing baseline honestly here, and retain all task-local gotchas/wiring requests in this in-scope record."
+
+[gotcha.2]
+symptom = "HTTPStreamAuthority session checks require status 200, not 204; Redis MULTI command errors do not undo earlier successful commands."
+action = "The committed peers preserve these production transport semantics, including expiry refusal after an increment and recovery on component reopen."
+
+[gotcha.3]
+symptom = "First qualification compiled the new tests and found the socket-write helper and SQL-result helper declared with the same package-level name."
+action = "Rename the socket helper to repair1027WriteFrame, preserve all assertions, format the touched test and repeat the required build/verify pair."
+
+[qualification.first]
+revision = "7553974dec2e864431c141f88a2a9c3ebe9de893"
+command = "cg spec done 22.33.1027 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; compiler detail /tmp/repair-m1027.log at first run"
+observed = "The build passed; the verify test compilation failed on the duplicate test helper name. No test executed and no runtime failure is inferred from this result."

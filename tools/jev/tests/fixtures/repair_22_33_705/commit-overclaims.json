@@ -1,0 +1,26 @@
+{
+  "model": "typesafe/jev-1.13-20260917",
+  "answers": {
+    "message_overclaims": {
+      "type": "noul",
+      "noul": 0.87
+    },
+    "message_honesty": {
+      "type": "choice",
+      "choice": "overclaims",
+      "probabilities": {
+        "consistent": 0.1,
+        "overclaims": 0.8,
+        "underclaims": 0.05,
+        "unclear": 0.05
+      },
+      "confidence": 0.8
+    }
+  },
+  "usage": {
+    "input_tokens": 512,
+    "output_tokens": 40,
+    "cost": 2.15e-05
+  },
+  "id": "gen-dec-1789717233-test"
+}

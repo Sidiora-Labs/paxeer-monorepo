@@ -64,7 +64,7 @@ func TestPostgresInvitationReplayAndRemovedAuthorization(t *testing.T) {
 		s.DB.Exec(`DELETE FROM narrative_discovery.squads WHERE id=$1`, id)
 	})
 	token := id + id
-	if e := s.Invite(ctx, owner, id, recipient, token, time.Now().Add(time.Hour)); e != nil {
+	if e := s.Invite(ctx, owner, id, recipient, token, 0, time.Now().Add(time.Hour)); e != nil {
 		t.Fatal(e)
 	}
 	m, e := s.AcceptInvitation(ctx, recipient, id, token, 1, time.Now())
@@ -216,7 +216,7 @@ func TestPostgresSquadRecipientConfirmationAndStaleRoleEdits(t *testing.T) {
 		s.DB.Exec(`DELETE FROM narrative_discovery.squads WHERE id=$1`, id)
 	})
 	token := id + id
-	if err := s.Invite(ctx, owner, id, recipient, token, time.Now().Add(time.Hour)); err != nil {
+	if err := s.Invite(ctx, owner, id, recipient, token, 0, time.Now().Add(time.Hour)); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.AcceptInvitation(ctx, recipient, id, token, 1, time.Now()); err != nil {

@@ -1,0 +1,43 @@
+[repair.22.33.931]
+mode = "BUILD"
+scope = "services/launchpad/ranking-algo/internal/store"
+allowed_gates = "hf-build; hf-done"
+stop_condition = "Stop on hf-done passing or the bounded repair/time budget; runner publishes the candidate."
+baseline = "No earlier task gate ledger or store edits existed at session entry. No unchanged baseline was run: the controlling ordered instructions require complete implementation before the one hf-build and hf-done qualification; no baseline failure is claimed."
+proof_boundary = "Production CanonicalInputReader, FrozenInputs, HTTP evidence/visibility transports, pgx codecs, feature derivation, ComputeRun, PublicationStore, StreamWriter, stream parser and ranking HTTP consumer execute against committed source read transcripts, loopback HTTP fixtures and the existing durable transactional in-memory PostgreSQL protocol peer. The gate does not qualify deployed source endpoints, PostgreSQL migrations, Redis or a deployed broker. Existing service-dependent tests retain their gates and assertions and compile in the focused gate."
+qualification_evidence = "The exact candidate revision, command, exit and private log are retained by hf-build/hf-done and copied in the final response; no source edit follows the passing hf-done."
+wiring_request_1 = "services/launchpad/indexer/internal — launchpad canonical source owner: expose immutable CanonicalRankingEvidence observations keyed by cutoffHeight, cutoffTime and blockHash, with per-pool pause proof and independently qualified self-volume proof for the exact 24-hour window; fills alone cannot establish either observation."
+wiring_request_2 = "services/launchpad/ranking-algo/internal/app/app.go — launchpad ranking application owner: configure NewHTTPCanonicalEvidence against the canonical source owner endpoint and assign CanonicalInputReader.Evidence; until configured unknown pause stays nil and the pool remains ineligible."
+wiring_request_3 = "launchpad/spec/production-system/integration/migrations/190000.sql — launchpad migration owner: retain the earlier repair_32.kvx request for a reviewed category-constraint upgrade; the actual database/broker phase-two test remains an external release qualification and is not claimed by this focused service-free gate."
+
+[finding.publication-tests-five-categories]
+proving_tests = ["TestRepairM_931_PublicationCategories", "TestRepairM_931_PublicationAcknowledgementsAndExhaustion"]
+repair = "Phase-two tests derive category counts from the frozen heavy inventory and assert exact snapshot, head and consumed event membership; rollback, immutable identity, persisted acknowledgement, retry and exhaustion assertions remain. The focused gate drives actual publication and stream methods against the existing durable in-memory storage peer, including empty-run restart and atomic rollback; the actual NATS/JetStream publisher exchanges producer frames and acknowledgements with a loopback wire fixture and proves persisted acknowledgements, immutable duplicate identity and exhausted-intent recovery."
+
+[finding.historical-replay-six-category-gate]
+proving_test = "TestRepairM_931_HistoricalReplayCategories"
+repair = "The release replay gate derives its thirteen-cutoff sample minimum from Categories and requires exact canonical membership per cutoff, retaining real historical execution, 72-hour span, six-hour gap and input/output digest equality checks."
+
+[finding.production-universe-test-category-count]
+proving_test = "TestRepairM_931_ProductionUniverseCategories"
+repair = "Production-universe expectations cover exact canonical membership and lifecycle counts; all categories including gainers and losers are consumed through the committed-frame parser. Hidden-pool, metrics, replay, pruning, relay and stream assertions remain. The focused proof reopens real publication and HTTP consumers over persisted source-produced artifacts and pending stream intents."
+
+[finding.publication-health-category-count]
+proving_test = "TestRepairM_931_PublicationHealthCategories"
+repair = "Health selects the bounded canonical category set, requires every heavy name and computes the latest stale transition across all seven heavy heads; missing volume/unusual heads, fresh last heads and five-minute boundaries are covered. Runtime readiness is unchanged."
+
+[finding.canonical-pause-not-wired]
+proving_tests = ["TestRepairM_931_CanonicalPauseAndRecoveredEvidence", "TestRepairM_931_PauseEvidenceRecovery", "TestRepairM_931_RejectUnboundCanonicalEvidence"]
+repair = "The canonical input reader loads source-owner evidence bound to the frozen height/time/hash and populates both nullable pause observation and eligibility; absent observations remain explicit gaps and ineligible, invalid configured evidence fails the freeze, and recovered unpaused evidence restores discovery after reopening the consumer. External source/application wiring is requested above."
+
+[finding.round-trip-volume-labelled-self-trade]
+proving_tests = ["TestRepairM_931_CanonicalVolumeEvidence", "TestRepairM_931_RejectUnboundCanonicalEvidence"]
+repair = "Fill-derived matched buy/sell volume is only round-trip-activity; raw volume is preserved and only independently qualified cutoff/window-bound self-volume is subtracted. Production-universe tests distinguish normal buy/partial-sell behavior from canonical wash evidence and reject evidence above raw volume."
+
+[gotcha.baseline_order]
+observed = "The audit step requests an unchanged baseline while the explicit gate order prohibits testing before implementation and allows only bounded wrappers."
+resolution = "Follow the controlling gate order and record that baseline execution was not performed."
+
+[gotcha.source_evidence]
+observed = "Committed fills and the existing canonical source tables do not carry a cutoff-bound pause observation or proven self-trade classification."
+resolution = "Add an explicit owner evidence reader within scope, exclude unknown pause state and request the out-of-path source and application wiring instead of manufacturing canonical authority from fills."

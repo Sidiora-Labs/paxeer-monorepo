@@ -1,9 +1,15 @@
 package httpapi
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"os"
+
+	interfaces "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
+	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/websocket"
 	goredis "github.com/redis/go-redis/v9"
 	"net/http"
@@ -494,5 +500,236 @@ func TestSocketRejectsMalformedOriginAndBinaryFrames(t *testing.T) {
 	}
 	if _, _, err = conn.ReadMessage(); err == nil {
 		t.Fatal("binary subscription frame admitted")
+	}
+}
+
+// Exercise the route registration used by the application, with the admitted
+// canonical producer and a loopback replay peer. The peer owns retained frames
+// and cursors; the charts proxy must preserve them across its own restart.
+func testAdmittedCandleApplicationStream(t *testing.T, frames [][]byte, retainedPath string) {
+	t.Helper()
+	if len(frames) != 2 {
+		t.Fatal("two real producer revisions required")
+	}
+	retained, err := json.Marshal(frames)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(retainedPath, retained, 0600); err != nil {
+		t.Fatal(err)
+	}
+	load := func() [][]byte {
+		t.Helper()
+		raw, err := os.ReadFile(retainedPath)
+		if err != nil {
+			t.Error(err)
+			return nil
+		}
+		var recovered [][]byte
+		if err = json.Unmarshal(raw, &recovered); err != nil {
+			t.Error(err)
+			return nil
+		}
+		return recovered
+	}
+	latest, err := interfaces.DecodeCandleEvent(frames[1])
+	if err != nil {
+		t.Fatal(err)
+	}
+	cursors := []interfaces.OpaqueResumeCursor{"snapshot_0", "retained_1", "retained_2"}
+	subscriptionID := "repair-m1050"
+	snapshotURL := "/v2/snapshots?topics=" + latest.Topic
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		recovered := load()
+		if len(recovered) != 2 {
+			http.Error(w, "retained source unavailable", 503)
+			return
+		}
+		if r.URL.Path == "/v2/snapshots" {
+			if r.URL.Query().Get("topics") != latest.Topic {
+				t.Error("snapshot topic lost")
+				w.WriteHeader(422)
+				return
+			}
+			envelope := interfaces.TopicSnapshotReadResponse{RequestId: "10500000-0000-4000-8000-000000000001", Quality: "complete", GeneratedAt: latest.OccurredAt, Data: interfaces.TopicSnapshotReadData{Snapshot: interfaces.TopicSnapshot{SnapshotId: latest.Payload.SnapshotId, GeneratedAt: latest.OccurredAt, ResumeCursor: cursors[2], Topics: []interfaces.TopicSnapshotEntry{{Topic: latest.Topic, Sequence: latest.Sequence, Revision: latest.Revision, Payload: interfaces.TopicSnapshotEntryPayload{Variant2: &latest.Payload}}}}}}
+			raw, err := json.Marshal(envelope)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			if _, err = interfaces.DecodeTopicSnapshotReadResponse(raw); err != nil {
+				t.Error(err)
+				w.WriteHeader(500)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write(raw)
+			return
+		}
+		if r.URL.Path != "/v2/stream" {
+			w.WriteHeader(404)
+			return
+		}
+		if r.Header.Get("Origin") != "https://charts.example" {
+			t.Error("origin lost")
+			w.WriteHeader(403)
+			return
+		}
+		upgrade := websocket.Upgrader{CheckOrigin: func(*http.Request) bool { return true }, Subprotocols: []string{"sidiora.v2"}}
+		conn, err := upgrade.Upgrade(w, r, nil)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		defer conn.Close()
+		_ = conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+		_, raw, err := conn.ReadMessage()
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		subscribe, err := interfaces.DecodeSubscribe(raw)
+		if err != nil || subscribe.AfterCursor == nil || len(subscribe.Topics) != 1 || string(subscribe.Topics[0]) != latest.Topic {
+			t.Error("subscribe interface changed", err)
+			return
+		}
+		index := -1
+		if *subscribe.AfterCursor == cursors[0] {
+			index = 0
+		}
+		if *subscribe.AfterCursor == cursors[1] {
+			index = 1
+		}
+		if index >= 0 {
+			if err = conn.WriteMessage(websocket.TextMessage, recovered[index]); err != nil {
+				t.Error(err)
+				return
+			}
+			control := interfaces.StreamControl{Op: "checkpoint", SubscriptionId: &subscriptionID, Cursor: &cursors[index+1]}
+			if err = conn.WriteJSON(control); err != nil {
+				t.Error(err)
+			}
+		} else {
+			code := "SNAPSHOT_REQUIRED"
+			control := interfaces.StreamControl{Op: "resnapshot_required", Code: &code, SubscriptionId: &subscriptionID, SnapshotUrl: &snapshotURL}
+			if err = conn.WriteJSON(control); err != nil {
+				t.Error(err)
+			}
+		}
+	}))
+	defer upstream.Close()
+	start := func() (*httptest.Server, context.CancelFunc) {
+		ctx, cancel := context.WithCancel(context.Background())
+		router := chi.NewRouter()
+		RegisterWS(ctx, router, WSDeps{ReplayGatewayOrigin: upstream.URL})
+		return httptest.NewServer(router), cancel
+	}
+	open := func(endpoint string, cursor interfaces.OpaqueResumeCursor) *websocket.Conn {
+		t.Helper()
+		dialer := websocket.Dialer{Subprotocols: []string{"sidiora.v2"}, HandshakeTimeout: 2 * time.Second}
+		conn, response, err := dialer.Dial("ws"+strings.TrimPrefix(endpoint, "http")+"/v2/stream", http.Header{"Origin": {"https://charts.example"}})
+		if err != nil {
+			if response != nil {
+				_ = response.Body.Close()
+			}
+			t.Fatal(err)
+		}
+		if conn.Subprotocol() != "sidiora.v2" {
+			t.Fatal("subprotocol lost")
+		}
+		_ = conn.SetReadDeadline(time.Now().Add(3 * time.Second))
+		if err = conn.WriteJSON(interfaces.Subscribe{Op: "subscribe", SubscriptionId: subscriptionID, Topics: []interfaces.TopicName{interfaces.TopicName(latest.Topic)}, AfterCursor: &cursor}); err != nil {
+			t.Fatal(err)
+		}
+		return conn
+	}
+	read := func(conn *websocket.Conn) []byte {
+		t.Helper()
+		_, raw, err := conn.ReadMessage()
+		if err != nil {
+			t.Fatal(err)
+		}
+		return raw
+	}
+	first, cancel := start()
+	conn := open(first.URL, cursors[0])
+	if got := read(conn); !bytes.Equal(got, frames[0]) {
+		t.Fatalf("producer frame changed: %s", got)
+	}
+	checkpoint, err := interfaces.DecodeStreamControl(read(conn))
+	if err != nil || checkpoint.Op != "checkpoint" || checkpoint.Cursor == nil || *checkpoint.Cursor != cursors[1] {
+		t.Fatal("checkpoint lost", checkpoint, err)
+	}
+	_ = conn.Close()
+	cancel()
+	first.Close()
+	// Drop the original byte slices and reopen the charts transport. Its volatile
+	// state is gone; only the peer's retained producer bytes and client cursor remain.
+	frames = nil
+	reopened, cancelReopened := start()
+	defer reopened.Close()
+	defer cancelReopened()
+	conn = open(reopened.URL, *checkpoint.Cursor)
+	resumed, err := interfaces.DecodeCandleEvent(read(conn))
+	if err != nil || resumed.Revision != "2" || resumed.Sequence != "2" || resumed.Payload.Trades != "2" || resumed.Payload.VolumeUsdlRaw != "2000003" || resumed.Payload.Close.Numerator != "500001" || resumed.Payload.Close.Denominator != "500000" || resumed.Payload.Close.Source.SourceEventId == nil || *resumed.Payload.Close.Source.SourceEventId != *latest.Payload.Close.Source.SourceEventId {
+		t.Fatal("canonical producer state did not resume", resumed, err)
+	}
+	next, err := interfaces.DecodeStreamControl(read(conn))
+	if err != nil || next.Cursor == nil || *next.Cursor != cursors[2] {
+		t.Fatal("resume checkpoint", next, err)
+	}
+	_ = conn.Close()
+	conn = open(reopened.URL, "expired_cursor")
+	control, err := interfaces.DecodeStreamControl(read(conn))
+	if err != nil || control.Op != "resnapshot_required" || control.Code == nil || *control.Code != "SNAPSHOT_REQUIRED" || control.SnapshotUrl == nil || *control.SnapshotUrl != snapshotURL {
+		t.Fatal("resync refusal lost", control, err)
+	}
+	_ = conn.Close()
+	response, err := reopened.Client().Get(reopened.URL + *control.SnapshotUrl)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := io.ReadAll(response.Body)
+	_ = response.Body.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := interfaces.DecodeTopicSnapshotReadResponse(raw)
+	if err != nil || response.StatusCode != 200 || snapshot.Data.Snapshot.ResumeCursor != cursors[2] || len(snapshot.Data.Snapshot.Topics) != 1 {
+		t.Fatalf("resnapshot failed: %d %s %v", response.StatusCode, raw, err)
+	}
+	recovered := snapshot.Data.Snapshot.Topics[0].Payload.Variant2
+	if recovered == nil || recovered.Revision != resumed.Payload.Revision || recovered.VolumeUsdlRaw != resumed.Payload.VolumeUsdlRaw || recovered.Close.Numerator != resumed.Payload.Close.Numerator {
+		t.Fatal("snapshot and socket disagree", recovered)
+	}
+	upstream.Close()
+	response, err = reopened.Client().Get(reopened.URL + snapshotURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err = io.ReadAll(response.Body)
+	_ = response.Body.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	refusal, err := interfaces.DecodeError(raw)
+	if err != nil || response.StatusCode != 503 || refusal.Code != "DEPENDENCY_UNAVAILABLE" || !refusal.Retryable {
+		t.Fatalf("source outage acknowledged: %d %s %v", response.StatusCode, raw, err)
+	}
+	_, response, err = websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(reopened.URL, "http")+"/v2/stream", nil)
+	if err == nil {
+		t.Fatal("unavailable socket source accepted")
+	}
+	if response == nil || response.StatusCode != 503 {
+		t.Fatal("socket outage status", response, err)
+	}
+	_ = response.Body.Close()
+	// The application's unavailable legacy source is an explicit migration refusal.
+	router := chi.NewRouter()
+	RegisterWS(context.Background(), router, WSDeps{})
+	legacy := httptest.NewRecorder()
+	router.ServeHTTP(legacy, httptest.NewRequest(http.MethodGet, "/ws", nil))
+	if legacy.Code != 410 || !strings.Contains(legacy.Body.String(), "LEGACY_STREAM_RETIRED") || !strings.Contains(legacy.Header().Get("Link"), "/v2/stream") {
+		t.Fatal("legacy source accepted", legacy.Code, legacy.Body.String())
 	}
 }

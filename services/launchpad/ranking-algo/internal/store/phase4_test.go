@@ -780,8 +780,8 @@ func phase4MixedEvidence(c phase4Config, a *phase4Artifacts, start, end time.Tim
 	return nil
 }
 func phase4Replay(c phase4Config, a *phase4Artifacts) error {
-	if len(c.Replay) < 78 || len(c.Replay) > 10000 {
-		return errors.New("72hour sampled archive requires all six categories at13 or more cutoff sets")
+	if len(c.Replay) < 13*len(ranker.Categories) || len(c.Replay) > 10000 {
+		return errors.New("72hour sampled archive requires the canonical category set at13 or more cutoffs")
 	}
 	cutoffs := map[int64]map[string]bool{}
 	var minimum, maximum int64
@@ -815,8 +815,13 @@ func phase4Replay(c phase4Config, a *phase4Artifacts) error {
 	}
 	var sorted []int64
 	for cutoff, categories := range cutoffs {
-		if len(categories) != 6 {
+		if len(categories) != len(ranker.Categories) {
 			return errors.New("historical cutoff missing category")
+		}
+		for _, category := range ranker.Categories {
+			if !categories[category] {
+				return errors.New("historical cutoff missing canonical category")
+			}
 		}
 		sorted = append(sorted, cutoff)
 	}
@@ -966,4 +971,17 @@ func TestPhase4ActualMeasurementHarness(t *testing.T) {
 		t.Fatal("actual measurement failed", errors.Join(err, closeErr, packageErr))
 	}
 	t.Logf("actual lane measurement captured in%s; final shared acceptance remains9.1", c.Output)
+}
+
+// RepairM931Replay exercises the release replay consumer with bounded local artifacts.
+func RepairM931Replay(t *testing.T, samples []ranker.HistoricalReplaySample) error {
+	t.Helper()
+	directory := t.TempDir()
+	rows, err := os.OpenFile(filepath.Join(directory, "raw.ndjson"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	artifacts := &phase4Artifacts{directory: directory, limit: 64 << 20, rows: rows}
+	defer artifacts.close()
+	return phase4Replay(phase4Config{Replay: samples}, artifacts)
 }

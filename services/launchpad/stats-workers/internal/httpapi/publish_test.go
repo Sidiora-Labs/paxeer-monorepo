@@ -40,51 +40,29 @@ func awaitPublish(t *testing.T, sub *goredis.PubSub) []byte {
 	}
 }
 
-// TestReactionVotePublishesReactionsUpdate proves a vote mutation pushes the
-// fresh aggregate tally on reactions:update (so every viewer updates in place),
-// carrying poolAddress for broker routing and the recomputed counts — but NOT
-// the per-wallet userVote.
+// TestReactionVotePublishesReactionsUpdate ensures the retired compatibility
+// route cannot publish a Redis-only vote as if it were durably committed.
 func TestReactionVotePublishesReactionsUpdate(t *testing.T) {
 	ctx := context.Background()
 	rdb := internaltest.NewRedis(t)
-	r := chi.NewRouter()
-	httpapi.RegisterReactions(r, rdb)
-
-	const pool = "0xpublish_react"
+	router := chi.NewRouter()
+	httpapi.RegisterReactions(router, rdb)
 	key, wallet := newWallet(t)
-	msg := "vote on " + pool
-	sig := signWallet(t, key, msg)
-
+	message := "vote on " + repair1039ReactionPool
 	sub := subscribeConfirmed(t, ctx, rdb, constants.ChannelReactionsUpdate)
-
-	body := mustJSON(t, map[string]string{
-		"reaction": "bullish", "walletAddress": wallet, "signature": sig, "message": msg,
-	})
-	if rec := serve(t, r, http.MethodPost, "/stats/"+pool+"/reactions", body,
-		map[string]string{"Content-Type": "application/json"}); rec.Code != http.StatusOK {
-		t.Fatalf("vote status = %d, want 200", rec.Code)
+	body := mustJSON(t, map[string]string{"reaction": "bullish", "walletAddress": wallet, "signature": signWallet(t, key, message), "message": message})
+	response := serve(t, router, http.MethodPost, "/stats/"+repair1039ReactionPool+"/reactions", body, nil)
+	repair1039RequireStatus(t, response, http.StatusGone)
+	select {
+	case msg := <-sub.Channel():
+		t.Fatalf("retired mutation published an uncommitted tally: %s", msg.Payload)
+	case <-time.After(50 * time.Millisecond):
 	}
-
-	var got struct {
-		PoolAddress string `json:"poolAddress"`
-		Reactions   struct {
-			Bullish int `json:"bullish"`
-		} `json:"reactions"`
-		Total    int             `json:"total"`
-		UserVote json.RawMessage `json:"userVote"`
+	keys, err := rdb.Keys(ctx, "reactions:*").Result()
+	if err != nil || len(keys) != 0 {
+		t.Fatalf("retired route wrote Redis vote state: %v %v", keys, err)
 	}
-	if err := json.Unmarshal(awaitPublish(t, sub), &got); err != nil {
-		t.Fatalf("unmarshal reactions:update payload: %v", err)
-	}
-	if got.PoolAddress != pool {
-		t.Errorf("published poolAddress = %q, want %q", got.PoolAddress, pool)
-	}
-	if got.Reactions.Bullish != 1 || got.Total != 1 {
-		t.Errorf("published tally = %+v, want one bullish vote", got)
-	}
-	if got.UserVote != nil {
-		t.Errorf("userVote must NOT be broadcast (per-wallet), got %s", got.UserVote)
-	}
+	repair1039DurableReplacement(t)
 }
 
 // TestPrecomputePublishesPlatformUpdate proves the background precompute pushes

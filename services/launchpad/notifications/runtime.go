@@ -171,7 +171,8 @@ func NewPushRuntime(ctx context.Context, db *sql.DB, authority TargetAuthority, 
 		}
 		adapters[a.Provider()] = a
 	}
-	return &PushRuntime{Credentials: credentials, Worker: Worker{Store: Store{DB: db}, Authority: authority, Adapters: adapters, Owner: o.Owner, DeepLinkOrigin: o.DeepLinkOrigin}}, nil
+	origin := (&url.URL{Scheme: u.Scheme, Host: u.Host}).String()
+	return &PushRuntime{Credentials: credentials, Worker: Worker{Store: Store{DB: db}, Authority: authority, Adapters: adapters, Owner: o.Owner, DeepLinkOrigin: origin}}, nil
 }
 func (r *PushRuntime) Run(ctx context.Context) error {
 	run, cancel := context.WithCancel(ctx)

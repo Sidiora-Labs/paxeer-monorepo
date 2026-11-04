@@ -1,5 +1,12 @@
 "use client";
-import { isPageActive, scheduleActive, sequenceGuard, watchSocket, notifyStreamResync, type CancelTask } from "@/core/net/realtime";
+import {
+  isPageActive,
+  scheduleActive,
+  sequenceGuard,
+  watchSocket,
+  notifyStreamResync,
+  type CancelTask,
+} from "@/core/net/realtime";
 import { gatewayUrls } from "@/core/network/gateway";
 
 import { useEffect, useState } from "react";
@@ -113,7 +120,10 @@ function ensureSocket(): void {
 }
 
 function connect(): void {
-  if (!isPageActive()) { scheduleReconnect(); return; }
+  if (!isPageActive()) {
+    scheduleReconnect();
+    return;
+  }
   if (typeof window === "undefined") return;
   setConnection("connecting");
 
@@ -125,7 +135,9 @@ function connect(): void {
     return;
   }
   state.ws = ws;
-  watchSocket(ws, () => { state.reconnectDelay = INITIAL_RECONNECT_DELAY; });
+  watchSocket(ws, () => {
+    state.reconnectDelay = INITIAL_RECONNECT_DELAY;
+  });
   // Reset all sentOnSocket flags on a brand-new socket.
   for (const sub of state.subscriptions.values()) {
     sub.sentOnSocket = false;
@@ -156,11 +168,17 @@ function connect(): void {
     } catch {
       return;
     }
-    if (!acceptSequence(frame)) { ws.close(4000, "sequence-gap"); return; }
+    if (!acceptSequence(frame)) {
+      ws.close(4000, "sequence-gap");
+      return;
+    }
 
     // Server sometimes echoes hello / pong / subscribed control frames.
     // Only data frames carry both `stream` and `address`.
-    const stream = typeof frame.stream === "string" ? (frame.stream as SpotUserStreamName) : null;
+    const stream =
+      typeof frame.stream === "string"
+        ? (frame.stream as SpotUserStreamName)
+        : null;
     const addrRaw = typeof frame.address === "string" ? frame.address : null;
     if (!stream || !addrRaw) return;
 
@@ -203,7 +221,11 @@ function flushSubscribes(): void {
     if (sub.sentOnSocket) continue;
     try {
       ws.send(
-        JSON.stringify({ op: "subscribe", stream: sub.stream, address: sub.address }),
+        JSON.stringify({
+          op: "subscribe",
+          stream: sub.stream,
+          address: sub.address,
+        }),
       );
       sub.sentOnSocket = true;
     } catch {
@@ -217,11 +239,18 @@ function scheduleReconnect(): void {
   // Only reconnect if there's still demand.
   if (state.subscriptions.size === 0 && state.subsConnection.size === 0) return;
   const delay = state.reconnectDelay;
-  state.reconnectTimer = scheduleActive(() => {
-    state.reconnectTimer = null;
-    state.reconnectDelay = Math.min(MAX_RECONNECT_DELAY, state.reconnectDelay * 2);
-    connect();
-  }, delay, SPOT_USER_WS_URL);
+  state.reconnectTimer = scheduleActive(
+    () => {
+      state.reconnectTimer = null;
+      state.reconnectDelay = Math.min(
+        MAX_RECONNECT_DELAY,
+        state.reconnectDelay * 2,
+      );
+      connect();
+    },
+    delay,
+    SPOT_USER_WS_URL,
+  );
 }
 
 function teardownIfIdle(): void {
@@ -236,7 +265,10 @@ function teardownIfIdle(): void {
   }
   const ws = state.ws;
   state.ws = null;
-  if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+  if (
+    ws &&
+    (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)
+  ) {
     try {
       ws.close(1000, "no-subscribers");
     } catch {
@@ -276,11 +308,7 @@ export function subscribeSpotUserStream(
   sub.subscribers.add(handler);
 
   ensureSocket();
-  if (
-    !sub.sentOnSocket &&
-    state.ws &&
-    state.ws.readyState === WebSocket.OPEN
-  ) {
+  if (!sub.sentOnSocket && state.ws && state.ws.readyState === WebSocket.OPEN) {
     try {
       state.ws.send(
         JSON.stringify({ op: "subscribe", stream, address: lcAddr }),
@@ -297,7 +325,11 @@ export function subscribeSpotUserStream(
     if (sub.subscribers.size > 0) return;
     // Last subscriber for this (stream,address) — tell the server and
     // free the local slot so a future subscribe gets a fresh start.
-    if (state.ws && state.ws.readyState === WebSocket.OPEN && sub.sentOnSocket) {
+    if (
+      state.ws &&
+      state.ws.readyState === WebSocket.OPEN &&
+      sub.sentOnSocket
+    ) {
       try {
         state.ws.send(
           JSON.stringify({ op: "unsubscribe", stream, address: lcAddr }),
@@ -344,18 +376,30 @@ export function useSpotUserStream(
   stream: SpotUserStreamName,
   address: string | null | undefined,
 ): SpotUserFrame | null {
-  const [frame, setFrame] = useState<SpotUserFrame | null>(null);
+  const account = address?.toLowerCase() || null;
+  const key = account ? subKey(stream, account) : null;
+  const [latest, setLatest] = useState<{
+    key: string | null;
+    frame: SpotUserFrame | null;
+  }>({
+    key: null,
+    frame: null,
+  });
 
   useEffect(() => {
-    if (!address) {
-      setFrame(null);
-      return;
-    }
-    const off = subscribeSpotUserStream(stream, address, (f) => setFrame(f));
-    return off;
-  }, [stream, address]);
+    setLatest({ key, frame: null });
+    if (!account || !key) return;
+    let active = true;
+    const off = subscribeSpotUserStream(stream, account, (frame) => {
+      if (active) setLatest({ key, frame });
+    });
+    return () => {
+      active = false;
+      off();
+    };
+  }, [stream, account, key]);
 
-  return frame;
+  return latest.key === key ? latest.frame : null;
 }
 
 /**
@@ -366,25 +410,39 @@ export function useSpotUserStreams(
   streams: SpotUserStreamName[],
   address: string | null | undefined,
 ): Partial<Record<SpotUserStreamName, SpotUserFrame>> {
-  const [frames, setFrames] = useState<
-    Partial<Record<SpotUserStreamName, SpotUserFrame>>
-  >({});
+  const account = address?.toLowerCase() || null;
+  const streamKey = [...new Set(streams)].sort().join("|");
+  const selection = JSON.stringify([account, streamKey]);
+  const [latest, setLatest] = useState<{
+    selection: string;
+    frames: Partial<Record<SpotUserStreamName, SpotUserFrame>>;
+  }>({ selection, frames: {} });
 
   useEffect(() => {
-    if (!address || streams.length === 0) {
-      setFrames({});
-      return;
-    }
-    const offs = streams.map((s) =>
-      subscribeSpotUserStream(s, address, (f) =>
-        setFrames((prev) => ({ ...prev, [s]: f })),
-      ),
-    );
-    return () => offs.forEach((off) => off());
-    // streams is a dynamic array — depend on the joined key so React
-    // doesn't churn on stable arrays passed inline.
+    setLatest({ selection, frames: {} });
+    if (!account || !streamKey) return;
+    let active = true;
+    const offs = streams
+      .filter((stream, index) => streams.indexOf(stream) === index)
+      .map((stream) =>
+        subscribeSpotUserStream(stream, account, (frame) => {
+          if (active)
+            setLatest((previous) => ({
+              selection,
+              frames: {
+                ...(previous.selection === selection ? previous.frames : {}),
+                [stream]: frame,
+              },
+            }));
+        }),
+      );
+    return () => {
+      active = false;
+      offs.forEach((off) => off());
+    };
+    // Subscription identity uses a normalized set, so inline arrays do not churn.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [address, streams.join("|")]);
+  }, [account, streamKey, selection]);
 
-  return frames;
+  return latest.selection === selection ? latest.frames : {};
 }

@@ -80,7 +80,8 @@ func TestPubkeyBytesToPaxPubKey(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			paxPubkey := PubkeyBytesToPaxPubKey(tt.pubkey)
+			paxPubkey, err := PubkeyBytesToPaxPubKey(tt.pubkey)
+			require.NoError(t, err)
 
 			// Verify the key is properly converted
 			require.NotNil(t, paxPubkey.Key)
@@ -213,7 +214,8 @@ func TestGetAddressesFromPubkeyBytes(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, expectedEvmAddr, evmAddr)
 
-				expectedPaxPubkey := PubkeyBytesToPaxPubKey(tt.pubkey)
+				expectedPaxPubkey, err := PubkeyBytesToPaxPubKey(tt.pubkey)
+				require.NoError(t, err)
 				require.Equal(t, &expectedPaxPubkey, paxPubkey)
 				require.Equal(t, sdk.AccAddress(expectedPaxPubkey.Address()), paxAddr)
 			}
@@ -289,7 +291,7 @@ func TestGetAddresses(t *testing.T) {
 }
 
 func TestRecoverAddressesFromTx(t *testing.T) {
-	chainID := big.NewInt(713715) // Pax chain ID
+	chainID := big.NewInt(713715) // Historical chain ID
 
 	// Generate a private key for signing
 	privateKey, err := crypto.GenerateKey()
@@ -386,6 +388,77 @@ func TestRecoverAddressesFromTx(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, derivedEvmAddr, evmAddr, "EVM address from pubkey should match")
 		})
+	}
+}
+
+func TestRecoverAddressesFromTx_Mainnet125(t *testing.T) {
+	privateKey, err := crypto.HexToECDSA("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+	require.NoError(t, err)
+	expectedEVM := crypto.PubkeyToAddress(privateKey.PublicKey)
+	expectedPubkey := crypto.CompressPubkey(&privateKey.PublicKey)
+	expectedPax := sdk.AccAddress((&secp256k1.PubKey{Key: expectedPubkey}).Address())
+
+	for _, txType := range []uint8{ethtypes.LegacyTxType, ethtypes.AccessListTxType, ethtypes.DynamicFeeTxType} {
+		for _, domain := range []int64{125, 713715} {
+			name := new(big.Int).SetUint64(uint64(txType)).String() + "/chain_" + big.NewInt(domain).String()
+			t.Run(name, func(t *testing.T) {
+				chainID := big.NewInt(domain)
+				signer := ethtypes.NewCancunSigner(chainID)
+				var tx *ethtypes.Transaction
+				switch txType {
+				case ethtypes.LegacyTxType:
+					tx = ethtypes.NewTx(&ethtypes.LegacyTx{Nonce: 7, GasPrice: big.NewInt(10), Gas: 21000, To: &expectedEVM, Value: big.NewInt(1)})
+				case ethtypes.AccessListTxType:
+					tx = ethtypes.NewTx(&ethtypes.AccessListTx{ChainID: chainID, Nonce: 7, GasPrice: big.NewInt(10), Gas: 21000, To: &expectedEVM, Value: big.NewInt(1)})
+				case ethtypes.DynamicFeeTxType:
+					tx = ethtypes.NewTx(&ethtypes.DynamicFeeTx{ChainID: chainID, Nonce: 7, GasFeeCap: big.NewInt(10), GasTipCap: big.NewInt(1), Gas: 21000, To: &expectedEVM, Value: big.NewInt(1)})
+				}
+				signed, err := ethtypes.SignTx(tx, signer, privateKey)
+				require.NoError(t, err)
+				wire, err := signed.MarshalBinary()
+				require.NoError(t, err)
+				var received ethtypes.Transaction
+				require.NoError(t, received.UnmarshalBinary(wire))
+				require.Equal(t, txType, received.Type())
+				require.True(t, received.Protected())
+				require.Equal(t, chainID, received.ChainId())
+
+				evmAddr, paxAddr, pubkey, err := RecoverAddressesFromTx(&received, signer, chainID)
+				require.NoError(t, err)
+				require.Equal(t, expectedEVM, evmAddr)
+				require.Equal(t, expectedPax, paxAddr)
+				require.Equal(t, expectedPubkey, pubkey.Bytes())
+				sender, err := ethtypes.Sender(signer, &received)
+				require.NoError(t, err)
+				require.Equal(t, sender, evmAddr)
+
+				otherDomain := int64(125)
+				if domain == 125 {
+					otherDomain = 713715
+				}
+				otherChain := big.NewInt(otherDomain)
+				otherSigner := ethtypes.NewCancunSigner(otherChain)
+				_, err = ethtypes.Sender(otherSigner, &received)
+				require.ErrorIs(t, err, ethtypes.ErrInvalidChainId)
+				for _, mismatch := range []struct {
+					name    string
+					signer  ethtypes.Signer
+					chainID *big.Int
+				}{
+					{"foreign transaction", otherSigner, otherChain},
+					{"foreign signer", otherSigner, chainID},
+					{"foreign recovery domain", signer, otherChain},
+				} {
+					t.Run(mismatch.name, func(t *testing.T) {
+						evmAddr, paxAddr, pubkey, err := RecoverAddressesFromTx(&received, mismatch.signer, mismatch.chainID)
+						require.ErrorIs(t, err, ethtypes.ErrInvalidChainId)
+						require.Equal(t, common.Address{}, evmAddr)
+						require.Empty(t, paxAddr)
+						require.Nil(t, pubkey)
+					})
+				}
+			})
+		}
 	}
 }
 

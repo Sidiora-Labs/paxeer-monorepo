@@ -33,6 +33,11 @@ func MutateAudited(ctx context.Context, pool *pgxpool.Pool, table pgx.Identifier
 	if e = mutate(tx); e != nil {
 		return e
 	}
+	// The exporter takes the exclusive side before reading a completed day.
+	// An insert waiting behind it receives its timestamp after that snapshot.
+	if _, e = tx.Exec(ctx, "SELECT pg_advisory_xact_lock_shared(hashtextextended($1,0))", table.Sanitize()); e != nil {
+		return e
+	}
 	if _, e = tx.Exec(ctx, "INSERT INTO "+table.Sanitize()+" (record) VALUES ($1::jsonb)", string(b)); e != nil {
 		return e
 	}

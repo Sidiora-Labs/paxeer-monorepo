@@ -3,12 +3,19 @@ package auth
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"crypto/subtle"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"net"
+	"net/http"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -39,6 +46,9 @@ func (s *Identity) ownerMutation(ctx context.Context, p Principal, key, operatio
 	defer tx.Rollback(ctx)
 	if err = s.AuthorizeTx(ctx, tx, p); err != nil {
 		return nil, err
+	}
+	if _, err = tx.Exec(ctx, `DELETE FROM identity_owner_requests WHERE account_id=$1 AND request_id=$2 AND operation=$3 AND retain_until<=clock_timestamp()`, p.accountID, key, operation); err != nil {
+		return nil, unavailable()
 	}
 	var prior, raw []byte
 	err = tx.QueryRow(ctx, `SELECT body_hash,response FROM identity_owner_requests WHERE account_id=$1 AND request_id=$2 AND operation=$3`, p.accountID, key, operation).Scan(&prior, &raw)
@@ -194,30 +204,100 @@ func (s *Identity) UnlinkIdempotent(ctx context.Context, p Principal, r WalletLi
 	return result, mutationErr
 }
 func (s *Identity) WalletLinks(ctx context.Context, p Principal) ([]WalletLink, error) {
-	if err := s.CheckSocket(ctx, p); err != nil {
-		return nil, err
+	items, _, err := s.CurrentWalletLinksPage(ctx, p, 100, "")
+	return items, err
+}
+
+type identityWalletCursor struct {
+	AccountID string `json:"accountId"`
+	SessionID string `json:"sessionId"`
+	AfterID   string `json:"afterId"`
+	Limit     int    `json:"limit"`
+	History   bool   `json:"history"`
+	ExpiresAt int64  `json:"expiresAt"`
+}
+
+func (s *Identity) walletCursorMAC(raw []byte) []byte {
+	mac := hmac.New(sha256.New, s.limiterKey)
+	mac.Write([]byte("identity-wallet-page-v2\x00"))
+	mac.Write(raw)
+	return mac.Sum(nil)
+}
+
+func (s *Identity) CurrentWalletLinksPage(ctx context.Context, p Principal, limit int, encoded string) ([]WalletLink, *string, error) {
+	return s.walletLinksPage(ctx, p, limit, encoded, false)
+}
+
+// WalletLinksPage retains verified and revoked history; expired pending proofs are not current links.
+func (s *Identity) WalletLinksPage(ctx context.Context, p Principal, limit int, encoded string) ([]WalletLink, *string, error) {
+	return s.walletLinksPage(ctx, p, limit, encoded, true)
+}
+func (s *Identity) walletLinksPage(ctx context.Context, p Principal, limit int, encoded string, history bool) ([]WalletLink, *string, error) {
+	if limit < 1 || limit > 100 {
+		return nil, nil, invalid()
 	}
-	rows, err := s.pool.Query(ctx, `SELECT link_id::text,account_id::text,wallet,visibility,state,linked_at FROM identity_wallet_links WHERE account_id=$1 ORDER BY link_id LIMIT 101`, p.accountID)
+	if err := s.CheckSocket(ctx, p); err != nil {
+		return nil, nil, err
+	}
+	cursor := identityWalletCursor{AccountID: p.accountID, SessionID: p.sessionID, Limit: limit, History: history, ExpiresAt: s.now().Add(15 * time.Minute).Unix()}
+	if encoded != "" {
+		parts := strings.Split(encoded, ".")
+		if len(encoded) > 2048 || len(parts) != 2 {
+			return nil, nil, identityError("CURSOR_INVALID", 400)
+		}
+		raw, err := b64.DecodeString(parts[0])
+		mac, macErr := hex.DecodeString(parts[1])
+		if err != nil || macErr != nil || subtle.ConstantTimeCompare(mac, s.walletCursorMAC(raw)) != 1 || strictJSON(raw, &cursor) != nil || cursor.AccountID != p.accountID || cursor.SessionID != p.sessionID || cursor.Limit != limit || cursor.History != history || cursor.ExpiresAt <= s.now().Unix() || !validUUID(cursor.AfterID) {
+			return nil, nil, identityError("CURSOR_INVALID", 400)
+		}
+	}
+	rows, err := s.pool.Query(ctx, `SELECT w.link_id::text,w.account_id::text,w.wallet,w.visibility,w.state,w.linked_at FROM identity_wallet_links w WHERE w.account_id=$1 AND ($2::uuid IS NULL OR w.link_id>$2::uuid) AND ($3::boolean OR w.state<>'revoked') AND (w.state<>'pending' OR EXISTS(SELECT 1 FROM identity_challenges c WHERE c.link_id=w.link_id AND c.consumed_at IS NULL AND c.expires_at>$4)) ORDER BY w.link_id LIMIT $5`, p.accountID, nullableID(cursor.AfterID), history, s.now(), limit+1)
 	if err != nil {
-		return nil, unavailable()
+		return nil, nil, unavailable()
 	}
 	defer rows.Close()
-	links := []WalletLink{}
+	items := []WalletLink{}
+	var next *string
 	for rows.Next() {
 		var link WalletLink
 		if err = rows.Scan(&link.LinkID, &link.AccountID, &link.Wallet, &link.Visibility, &link.State, &link.LinkedAt); err != nil {
-			return nil, unavailable()
+			return nil, nil, unavailable()
+		}
+		if len(items) == limit {
+			cursor.AfterID = items[len(items)-1].LinkID
+			raw, err := json.Marshal(cursor)
+			if err != nil {
+				return nil, nil, unavailable()
+			}
+			value := b64.EncodeToString(raw) + "." + hex.EncodeToString(s.walletCursorMAC(raw))
+			next = &value
+			break
 		}
 		link.ChainID = "125"
-		links = append(links, link)
+		items = append(items, link)
 	}
 	if rows.Err() != nil {
-		return nil, unavailable()
+		return nil, nil, unavailable()
 	}
-	if len(links) > 100 {
-		return nil, identityError("RATE_LIMITED", 429)
+	return items, next, nil
+}
+
+func walletPageQuery(r *http.Request) (int, string, error) {
+	limit := 50
+	q := r.URL.Query()
+	for key, values := range q {
+		if (key != "limit" && key != "cursor") || len(values) != 1 || values[0] == "" {
+			return 0, "", invalid()
+		}
 	}
-	return links, nil
+	if value := q.Get("limit"); value != "" {
+		n, err := strconv.Atoi(value)
+		if err != nil || n < 1 || n > 100 || strconv.Itoa(n) != value {
+			return 0, "", invalid()
+		}
+		limit = n
+	}
+	return limit, q.Get("cursor"), nil
 }
 
 func optionalAccessDigest(accessID string) []byte {

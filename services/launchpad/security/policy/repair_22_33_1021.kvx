@@ -1,0 +1,64 @@
+[repair.22.33.1021]
+audit = "22.30.38"
+base_revision = "caa8b41ee668274ee1e5c1df6691288455c46278"
+qualification = "hf-build followed by hf-done on the same candidate; the immutable private /out/run/gates.jsonl ledger and final hf-done JSON name the verified revision, exact command, exit code and log. This record is frozen before those gates."
+baseline = "No baseline verification ran: the task's ordered instructions prohibit testing before complete implementation and invoking verify_cmd by hand; no observed pre-change failing tests are claimed. The new required test file did not exist at the base."
+evidence_boundary = "The declared Python gate executes the production Python capture encoder and native evidence consumer against a loopback HTTP peer, actual durable SQLite records and committed in-memory protocol fixtures. It checks native Go test declarations against the production component runner selection. It does not execute Go, PostgreSQL, Redis or S3 and cannot establish native qualification for the first five findings; their real production-path Go tests are included and registered, with no claim they ran in this gate."
+
+[finding.column-grants-not-checked]
+tests = ["test_native_repair_qualification_wiring[column-grants-not-checked]", "TestRepairColumnGrantsAndOwnerViews"]
+change = "The actual foreign-relation catalog query checks effective INSERT/UPDATE column privileges and inherited relation ownership in addition to table writes."
+native_proof = "The real PostgreSQL fixture grants direct and inherited column-only INSERT/UPDATE, proves table privilege remains false and column privilege true, checks denial, revokes each grant and retains SELECT on an owner view; inherited foreign ownership is also denied."
+
+[finding.audit-export-not-scheduled]
+tests = ["test_native_repair_qualification_wiring[audit-export-not-scheduled]", "TestRepairAuditSchedulerStartupCatchUpAndAlerts"]
+change = "AuditExporter.Run validates non-owner/nonprivileged credentials and read-only journal authority, catches up completed UTC days from the configured inception day, polls hourly and returns failures after bounded alert delivery. AuditExportDDL declares durable per-bucket/prefix/day progress."
+native_proof = "Startup catch-up with a real restricted PostgreSQL role and the real S3 client advances only completed-day progress; an interrupted upload produces one alert, cancellation stops the worker and reopening resumes its durable plan."
+wiring = "Domain 4 launchpad gateway runtime owner: services/launchpad/gateway/internal/app must own AuditExporter.Run lifecycle, journal inception day, two least-privilege pools, independently configured versioned Object Lock bucket, scoped read/put/get-retention credentials, signing key and failure-alert sink."
+wiring_migration = "Domain 4 launchpad integration owner: launchpad/spec/production-system/integration/migrations and grants.json must apply AuditExportDDL and grant journal SELECT plus progress SELECT/INSERT/UPDATE(complete), without journal writes, DELETE, schema ownership or runtime DDL."
+
+[finding.retained-export-positive-proof]
+tests = ["test_native_repair_qualification_wiring[retained-export-positive-proof]", "TestRepairRetainedExportRecoveryAndCommittedCoverage"]
+change = "Persist exact signed manifest bytes before upload; conditionally create stable content-addressed objects with an Object Lock checksum, read back exact versioned bytes and confirm compliance retention before checkpointing. MutateAudited and the exporter share a transaction lock so pending committed journal records enter the snapshot."
+native_proof = "Real MutateAuditedV2 producer transactions commit three records to PostgreSQL. The real AWS S3 codec talks HTTP/XML to a retained in-process storage peer. Interrupt before and after each of three uploads, stop/reopen storage and exporter, and check three unique retained objects, Ed25519 signature, exact bytes, retention and ordered producer records without loss or duplication; corrupt bytes and weakened retention remain denied."
+wiring = "Domain 4 journal producer owners: any direct audit_outbox INSERT outside MutateAudited must use its shared transaction lock and database insertion-time timestamps; backdated or bypass writes are outside the sealed-day producer contract."
+
+[finding.active-body-deadline]
+tests = ["test_native_repair_qualification_wiring[active-body-deadline]", "TestRepairActiveBodyDeadlinePreservesReadStreams"]
+change = "Mutation requests receive a ten-second connection read deadline, cancellation deadline and timeout response, plus an eleven-second write deadline. Body close precedes deadline reset. GET/HEAD/OPTIONS retain the existing read-stream policy."
+native_proof = "The native client holds a partial HTTP body on a real TCP connection to ProductionServer, requires handler release and a bounded timeout with no mutation callback, and concurrently reads a real event stream beyond the mutation deadline."
+
+[finding.mutation-case-alias]
+tests = ["test_native_repair_qualification_wiring[mutation-case-alias]", "TestRepairNestedMutationCaseAliases"]
+change = "Destination decoding requires exact JSON field names with embedded-field dominance, recursively through pointers, arrays and map values, before publishing caller state. Exact semantic-key duplicate checking remains in the bounded token walk. Map keys retain case-sensitive data semantics."
+native_proof = "The real HTTP client sends nested case aliases, escaped aliases and escaped duplicate keys through DecodeMutationSchema and requires denial before the callback; canonical traffic executes once. Embedded canonical fields and distinct map keys remain permitted; single ASCII/Unicode aliases leave destination state unchanged."
+
+[finding.scenario-facts-detached]
+tests = ["test_raw_http_and_durable_records_override_passing_facts", "test_raw_success_cannot_be_hidden_by_denial_facts", "test_same_principal_budget_uses_each_native_redis_and_http_outcome", "test_restart_identity_and_recovered_counter_enumeration_are_required", "test_loss_scenarios_join_native_arrivals_by_request_and_run", "test_egress_connections_contradict_passing_ssrf_facts", "test_startup_fallback_cannot_hide_in_unrelated_raw_artifact", "test_rotation_assertions_use_native_verification_results", "test_role_outcomes_require_catalog_and_actual_durable_records", "test_telemetry_requests_are_joined_and_scanned_for_actual_secret_bytes", "test_registry_manifest_is_compared_with_native_unclassified_routes", "test_foreign_or_unbound_native_records_fail_closed", "test_hash_valid_unrelated_artifact_does_not_qualify_authored_facts", "test_complete_runtime_document_qualifies_only_derived_current_outcomes"]
+change = "runtime_scenarios derives all assertions from authenticated native_scenario records bound to the candidate/interface/topology/generator, run, scenario, request and actual interval. It joins HTTP responses, queried durable records, Redis/native admission decisions, restart identities, connection attempts, startup outcomes, rotation checks and registry results; authored summaries must exactly match derived facts."
+proof = "The production encoder emits records from actual loopback HTTP exchanges. The production consumer rejects passing summaries paired with changed durable SQLite records reopened from disk, success HTTP statuses, allowed Redis decisions, connected SSRF targets, accepted retired keys and other contradictory outcomes. A complete fifteen-scenario document passes while preserving release_qualified=false. Missing, duplicate, unsigned, foreign or unrelated records fail closed."
+wiring = "Domain 4 native qualification capture owners: tools/launchpad/production/load and sdk/launchpad/shared/secrets must emit the authenticated scenario_observation envelope from their owning native adapters, preserving request identity, actual outcomes and queried durable records; old hash-only authored summaries are intentionally rejected."
+
+[gotcha.baseline-conflict]
+observed = "The proposal asks for an unchanged-tree baseline but the task order explicitly forbids pre-implementation testing and any hand-run verify_cmd."
+resolution = "Follow the ordered gates and record no baseline result instead of fabricating pre-change failures."
+
+[gotcha.cross-toolchain-evidence]
+observed = "The declared gate is Python-only while five proposals demand native Go/PostgreSQL/S3 or TCP execution, and the gate explicitly forbids external binaries, subprocess toolchains and native artifacts."
+resolution = "Keep the gate in-process and register full native tests in the existing real component qualifier; report the native qualification boundary rather than claim it passed."
+
+[gotcha.python-cache]
+observed = "py_compile explicitly writes bytecode even when PYTHONDONTWRITEBYTECODE is set, and task candidate collection includes small untracked binary files inside directory scope."
+resolution = "Run both allowed gates with PYTHONPYCACHEPREFIX outside the repository so generated bytecode cannot change the qualified candidate."
+
+[qualification.first_pass]
+revision = "f19a2500fb5261c833bfd7eeb6de3f0cf6ebf320"
+command = "cg spec done 22.33.1021 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "32 tests passed; the two admission fixture cases failed because HTTP 204 forbids the JSON response body the real client was asked to decode."
+repair = "Serve admitted JSON observations as HTTP 200; preserve the exact sixty-one-request budget, ten admitted requests, all native outcome joins and every assertion."
+
+[gotcha.http204]
+observed = "An HTTP client correctly exposes an empty body for 204 even if a test peer writes JSON bytes."
+resolution = "A fixture transporting a JSON observation uses a status that permits its body; use 200 for these admitted responses."

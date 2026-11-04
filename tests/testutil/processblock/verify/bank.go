@@ -14,7 +14,7 @@ import (
 // Only works if all transactions are successful.
 func Balance(t *testing.T, app *processblock.App, f BlockRunnable, txs []signing.Tx) BlockRunnable {
 	return func() []uint32 {
-		expectedChanges := map[string]map[string]int64{} // denom -> (account -> delta)
+		expectedChanges := map[string]map[string]sdk.Int{} // denom -> (account -> delta)
 		for _, tx := range txs {
 			for _, fee := range tx.GetFee() {
 				updateExpectedBalanceChange(expectedChanges, tx.FeePayer().String(), fee, false)
@@ -37,12 +37,12 @@ func Balance(t *testing.T, app *processblock.App, f BlockRunnable, txs []signing
 				}
 			}
 		}
-		expectedBalances := map[string]map[string]int64{}
+		expectedBalances := map[string]map[string]sdk.Int{}
 		for denom, changes := range expectedChanges {
-			expectedBalances[denom] = map[string]int64{}
+			expectedBalances[denom] = map[string]sdk.Int{}
 			for account, delta := range changes {
 				balance := app.BankKeeper.GetBalance(app.Ctx(), sdk.MustAccAddressFromBech32(account), denom)
-				expectedBalances[denom][account] = balance.Amount.Int64() + delta
+				expectedBalances[denom][account] = balance.Amount.Add(delta)
 			}
 		}
 
@@ -51,7 +51,8 @@ func Balance(t *testing.T, app *processblock.App, f BlockRunnable, txs []signing
 		for denom, expectedBalances := range expectedBalances {
 			for account, expectedBalance := range expectedBalances {
 				actualBalance := app.BankKeeper.GetBalance(app.Ctx(), sdk.MustAccAddressFromBech32(account), denom)
-				require.Equal(t, expectedBalance, actualBalance.Amount.Int64())
+				require.True(t, expectedBalance.Equal(actualBalance.Amount),
+					"balance of %s in %s: expected %s, got %s", account, denom, expectedBalance, actualBalance.Amount)
 			}
 		}
 
@@ -59,22 +60,22 @@ func Balance(t *testing.T, app *processblock.App, f BlockRunnable, txs []signing
 	}
 }
 
-func updateMultipleExpectedBalanceChange(changes map[string]map[string]int64, account string, coins sdk.Coins, positive bool) {
+func updateMultipleExpectedBalanceChange(changes map[string]map[string]sdk.Int, account string, coins sdk.Coins, positive bool) {
 	for _, coin := range coins {
 		updateExpectedBalanceChange(changes, account, coin, positive)
 	}
 }
 
-func updateExpectedBalanceChange(changes map[string]map[string]int64, account string, coin sdk.Coin, positive bool) {
+func updateExpectedBalanceChange(changes map[string]map[string]sdk.Int, account string, coin sdk.Coin, positive bool) {
 	if _, ok := changes[coin.Denom]; !ok {
-		changes[coin.Denom] = map[string]int64{}
+		changes[coin.Denom] = map[string]sdk.Int{}
 	}
 	if _, ok := changes[coin.Denom][account]; !ok {
-		changes[coin.Denom][account] = 0
+		changes[coin.Denom][account] = sdk.ZeroInt()
 	}
 	if positive {
-		changes[coin.Denom][account] += coin.Amount.Int64()
+		changes[coin.Denom][account] = changes[coin.Denom][account].Add(coin.Amount)
 	} else {
-		changes[coin.Denom][account] -= coin.Amount.Int64()
+		changes[coin.Denom][account] = changes[coin.Denom][account].Sub(coin.Amount)
 	}
 }

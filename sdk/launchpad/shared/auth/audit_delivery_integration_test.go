@@ -125,7 +125,7 @@ func TestPhase2AuditDurableBridgeAndRealBroker(t *testing.T) {
 	if err = relay.RunOnce(ctx); err != nil {
 		t.Fatal(err)
 	}
-	consumer, err := natsdriver.NewConsumer(ctx, nc, natsdriver.ConsumerConfig{Stream: stream, Durable: "audit_fixture", Subject: subject, Batch: 10, MaxAckPending: 20, MaxWaiting: 1, MaxDeliver: 5, FetchWait: time.Second, AckWait: 5 * time.Second})
+	consumer, err := newAuditFixtureConsumer(ctx, nc, js, stream, "audit_fixture", subject)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,7 +149,7 @@ func TestPhase2AuditDurableBridgeAndRealBroker(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	replay, err := natsdriver.NewConsumer(ctx, nc, natsdriver.ConsumerConfig{Stream: stream, Durable: "audit_replay", Subject: subject, Batch: 10, MaxAckPending: 20, MaxWaiting: 1, MaxDeliver: 5, FetchWait: time.Second, AckWait: 5 * time.Second})
+	replay, err := newAuditFixtureConsumer(ctx, nc, js, stream, "audit_replay", subject)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -189,6 +189,18 @@ func TestPhase2AuditDurableBridgeAndRealBroker(t *testing.T) {
 		t.Fatal(count, err)
 	}
 	t.Log("D11_028 audit_intents=7 broker_persisted=7 sink_rows=7 inbox_rows=7 duplicate_deliveries=7")
+}
+
+func newAuditFixtureConsumer(ctx context.Context, nc *nats.Conn, js jetstream.JetStream, stream, durable, subject string) (*natsdriver.Consumer, error) {
+	cfg := natsdriver.ConsumerConfig{Stream: stream, Durable: durable, Subject: subject, Batch: 10, MaxAckPending: 20, MaxWaiting: 1, MaxDeliver: 5, FetchWait: time.Second, AckWait: 5 * time.Second}
+	brokerConfig, err := cfg.BrokerConsumerConfig()
+	if err != nil {
+		return nil, err
+	}
+	if _, err = js.CreateConsumer(ctx, stream, brokerConfig); err != nil {
+		return nil, err
+	}
+	return natsdriver.NewConsumer(ctx, nc, cfg)
 }
 
 func TestPhase2VersionedBodylessDelete(t *testing.T) {

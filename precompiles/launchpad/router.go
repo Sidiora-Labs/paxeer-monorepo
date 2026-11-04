@@ -113,12 +113,16 @@ func (p PrecompileExecutor) routerEntry(c *call, nested launchpadkeeper.NestedCa
 	case "createMarket":
 		return p.routerCreateMarket(c, nested)
 	case "createMarketWithPermit":
-		p.applyPermit(c, nested, p.usdl(c.ctx), c.args[4])
+		if err := p.applyPermit(c, nested, p.usdl(c.ctx), c.args[4]); err != nil {
+			return nil, err
+		}
 		return p.routerCreateMarket(c, nested)
 	case "buy":
 		return p.buy(c, nested)
 	case "buyWithPermit":
-		p.applyPermit(c, nested, p.usdl(c.ctx), c.args[4])
+		if err := p.applyPermit(c, nested, p.usdl(c.ctx), c.args[4]); err != nil {
+			return nil, err
+		}
 		return p.buy(c, nested)
 	case "sell":
 		return p.sell(c, nested)
@@ -127,12 +131,16 @@ func (p PrecompileExecutor) routerEntry(c *call, nested launchpadkeeper.NestedCa
 		if err != nil {
 			return nil, err
 		}
-		p.applyPermit(c, nested, common.HexToAddress(market.TokenAddress), c.args[4])
+		if err := p.applyPermit(c, nested, common.HexToAddress(market.TokenAddress), c.args[4]); err != nil {
+			return nil, err
+		}
 		return p.sell(c, nested)
 	case "swapTokenForToken":
 		return p.swapTokenForToken(c, nested)
 	default:
-		p.applyPermit(c, nested, c.args[0].(common.Address), c.args[5])
+		if err := p.applyPermit(c, nested, c.args[0].(common.Address), c.args[5]); err != nil {
+			return nil, err
+		}
 		return p.swapTokenForToken(c, nested)
 	}
 }
@@ -232,7 +240,7 @@ func (p PrecompileExecutor) multicallEntry(c *call, input []byte, index int) ([]
 	defer func() { c.evm.Depth-- }()
 	ret, err := p.routerHandler(&entry)
 	c.ctx = entry.ctx
-	if err != nil && !errors.Is(err, vm.ErrOutOfGas) && !errors.Is(err, vm.ErrDepth) {
+	if err != nil && !nestedAborted(err) && !errors.Is(err, vm.ErrOutOfGas) && !errors.Is(err, vm.ErrDepth) {
 		return nil, &multicallFailure{index: index, reason: entryRevert(err), cause: err}
 	}
 	return ret, err
@@ -442,6 +450,9 @@ func (p PrecompileExecutor) pullInput(c *call, nested launchpadkeeper.NestedCall
 		return err
 	}
 	ctx, ret, err := nested.Call(c.ctx, p.address, token, input)
+	if nestedAborted(err) {
+		return err
+	}
 	if err != nil {
 		return fmt.Errorf("%w: %v", types.ErrTransferFromFailed, err)
 	}
@@ -457,27 +468,24 @@ func (p PrecompileExecutor) pullInput(c *call, nested launchpadkeeper.NestedCall
 // front-run or unsupported permit leaves the pull to the existing allowance
 // (Launch-x:contracts/contracts/periphery/Router.sol:292-314).
 func (p PrecompileExecutor) applyPermit(c *call, nested launchpadkeeper.NestedCaller, token common.Address,
-	tuple interface{}) {
+	tuple interface{}) error {
 	permit, ok := abi.ConvertType(tuple, new(permitParams)).(*permitParams)
 	if !ok {
-		return
+		return types.ErrInvalidPermit
 	}
-	words := []interface{}{c.caller, p.address, permit.Value, permit.Deadline, permit.V, permit.R, permit.S}
-	args := abi.Arguments{}
-	for _, kind := range []string{"address", "address", "uint256", "uint256", "uint8", "bytes32", "bytes32"} {
-		typ, err := abi.NewType(kind, "", nil)
-		if err != nil {
-			return
-		}
-		args = append(args, abi.Argument{Type: typ})
-	}
-	packed, err := args.Pack(words...)
+	input, err := sidioraERC20ABI.Pack("permit", c.caller, p.address, permit.Value, permit.Deadline,
+		permit.V, permit.R, permit.S)
 	if err != nil {
-		return
+		return fmt.Errorf("%w: %w", types.ErrInvalidPermit, err)
 	}
-	if ctx, _, err := nested.Call(c.ctx, p.address, token, append(common.CopyBytes(permitSelector), packed...)); err == nil {
+	ctx, _, err := nested.Call(c.ctx, p.address, token, input)
+	if nestedAborted(err) {
+		return err
+	}
+	if err == nil {
 		c.ctx = ctx
 	}
+	return nil
 }
 
 // routerSwapFor is SidioraPool.swapFor(amountIn, minAmountOut, isBuy,

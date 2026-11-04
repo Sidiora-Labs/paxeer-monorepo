@@ -1,0 +1,31 @@
+[repair.22.33.913]
+audit = "22.30.20"
+base_revision = "0e1d5eb94cabe89e2260279a849b7154911ef8ee"
+qualification = "hf-build then hf-done; the exact candidate revision, command, exit and private evidence location are recorded in /out/run/gates.jsonl and the final evidence line."
+baseline = "No baseline run: the explicit gate Order requires complete implementation before any verification and forbids running verify_cmd by hand; no pre-change failure is claimed."
+
+[finding.production-rest-budget-bypass]
+proof = "TestRepairM_913_ProductionRESTQuota"
+repair = "New calls App.registerREST, which registers accounting, market, authority, preflight, discovery and search within the same chi group as the in-flight limiter and per-client quota; startup errors propagate to New's cleanup."
+path = "Real in-process chain-125 EVM -> HTTP RPC -> production REST registration shared with New -> real quota/admission -> HTTP -> generated receipt/deployment/error validators."
+assertions = "Walk all mounted production routes for inherited middleware; exhaust one shared API-key quota across cached deployment, aggregate transaction and preflight validation routes; verify 429 and retry metadata before admission; prove independent-key isolation and same-router quota-window recovery."
+
+[finding.transaction-test-position-coverage]
+proof = "TestRepairM_913_TransactionPositionCoverage, TestProductionNetworkReceiptPositions"
+repair = "The production network suite decodes full receipt positions and compares all six fields and complete API/SDK receipt data to real EVM receipts, including transaction/log index one and log-free success/reversion with the aligned legacy zero log index."
+path = "Real signed transactions and EVM LOG0/revert execution -> committed node receipts -> SDK ReceiptState and production RegisterNetworkReads -> HTTP -> generated DecodeTxStatusResponse -> complete identity comparison."
+live = "The existing bound-document live test also compares every receipt position field with node evidence; the focused repair gate uses only the in-process chain and loopback HTTP."
+
+[finding.relay-test-outdated-grant-assumption]
+proof = "TestRepairM_913_RelayReviewedGrants; service-backed assertions remain in TestProductionStreamRelayPublishesCommittedFrames"
+repair = "Start the production relay with unchanged reviewed runtime grants; create a separate non-inheriting least-privilege role with exactly the planned grants minus recovery.assert_epoch; require a permission-denied fence failure for that role and retain stale-epoch refusal."
+path = "Reviewed grants.json -> production RoleManifest validation/GrantSQL/ProvisionSQL -> the exact independent-role SQL setup consumed by the production relay integration test; bound document -> real relay document loader."
+recovery = "The service-backed test stops and reopens the production relay against the persisted publication ledger, executes another pass, and retains byte identity, publication-ledger, message-count and committed-consumer assertions."
+qualification_limit = "The hermetic gate executes the real grant-plan producer and bound-document consumer; PostgreSQL permission enforcement, JetStream publication and restart assertions belong to the service-backed test and are not claimed as executed by this gate."
+
+[wiring.relay_integration]
+request = "services/launchpad/api/internal/internaltest and sdk/launchpad/shared/delivery — owning domain 4: run the retained production relay publication/restart and restricted-role assertions in the service-backed release fixture; this task's sole focused gate requires no PostgreSQL or NATS service."
+
+[workflow.gotcha]
+observed = "The baseline-test step conflicts with the explicit gate order and budget, while spec/ and GOTCHA.kvx are outside the allowed write scope."
+resolution = "Record the baseline limitation and finding-to-test mapping here; leave the external ledgers untouched and let hf-done record qualification evidence."
