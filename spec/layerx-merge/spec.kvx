@@ -166033,7 +166033,7 @@ do_5 = "Attempt 2 (continue, decision 2557): the seven digest cases pass. The tw
 
 [task.22.31.509]
 title = "Record the sponsored set-code binding execution as committed vector V6 for the wallet gateway receipt tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -280820,7 +280820,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1136]
 title = "Repair audit record 22.30.5 medium findings in src/ledger (part 1 of 1): retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.98", "22.31.99", "22.31.100", "22.31.101"]
@@ -281560,7 +281560,7 @@ do_12 = "Attempt 3 (after 22.31.505): attempt 2 spent both repair cycles and its
 
 [task.22.33.891]
 title = "Repair audit record 22.30.184 medium findings in tests (part 1 of 2): retired-reference, runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.331", "22.31.332", "22.31.505"]
