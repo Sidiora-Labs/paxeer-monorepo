@@ -515,18 +515,7 @@ func (h *Handlers) webhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.studioWebhook {
-		wire, ok := NormalizeStudioWebhook(w, r, h.webhookSecret, h.clock())
-		if !ok {
-			return
-		}
-		normalized := r.Clone(r.Context())
-		normalized.Header = r.Header.Clone()
-		normalized.Header.Set("Content-Type", "application/json")
-		normalized.Header.Set(NormalizedWebhookTimestampHeader, wire.Timestamp)
-		normalized.Header.Set(NormalizedWebhookSignatureHeader, wire.Signature)
-		normalized.Body = io.NopCloser(bytes.NewReader(wire.Body))
-		normalized.ContentLength = int64(len(wire.Body))
-		h.normalizedWebhook(w, normalized)
+		h.providerWebhookAdapter().Studio(w, r)
 		return
 	}
 	body, ok := VerifyProviderWebhook(w, r, h.webhookSecret, h.clock(), h.webhookMilliseconds)
