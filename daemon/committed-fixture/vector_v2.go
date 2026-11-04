@@ -80,6 +80,10 @@ func recordV2(n *node) (any, error) {
 	if version.Commit == "" {
 		return nil, errors.New("paxd must report its build revision")
 	}
+	return recordV2FromHome(n, version.Commit)
+}
+
+func recordV2FromHome(n *node, revision string) (any, error) {
 	var genesis struct {
 		ChainID  string `json:"chain_id"`
 		AppState struct {
@@ -104,7 +108,6 @@ func recordV2(n *node) (any, error) {
 	if len(primaryKeys) != 1 {
 		return nil, errors.New("V2 requires exactly one genesis pin for this home's receipt key")
 	}
-	keys = primaryKeys
 	kr, err := keyring.New(sdk.KeyringServiceName(), keyring.BackendTest, n.home, strings.NewReader(""))
 	if err != nil {
 		return nil, err
@@ -119,7 +122,7 @@ func recordV2(n *node) (any, error) {
 	}
 	defer key.D.SetInt64(0)
 	return recordV2RPC(n, key, keys, vectorV2Provenance{
-		Revision: version.Commit, ChainID: genesis.ChainID,
+		Revision: revision, ChainID: genesis.ChainID,
 		Generator: "daemon/committed-fixture/vector_v2.go",
 		Command:   "committed-fixture record --paxd paxd --out daemon/committed-fixture/vectors --vector " + vectorV2Name,
 		Source:    vectorV2SourceRef,
@@ -372,32 +375,45 @@ type v2SourceCase struct {
 }
 
 type v2Source struct {
-	Name       string             `json:"name"`
-	Provenance vectorV2Provenance `json:"provenance"`
-	ChainID    uint64             `json:"chainId"`
-	ModuleID   uint16             `json:"moduleId"`
-	FeeDenom   string             `json:"feeDenom"`
-	Cases      []v2SourceCase     `json:"cases"`
+	ReceiptKeys seqkeeper.ReceiptKeys `json:"receiptKeys,omitempty"`
+	Name        string                `json:"name"`
+	Provenance  vectorV2Provenance    `json:"provenance"`
+	ChainID     uint64                `json:"chainId"`
+	ModuleID    uint16                `json:"moduleId"`
+	FeeDenom    string                `json:"feeDenom"`
+	Cases       []v2SourceCase        `json:"cases"`
 }
 
 func canonicalV2(v *vectorV2) (*v2Source, error) {
 	if err := verifyVectorV2(v); err != nil {
 		return nil, err
 	}
-	if len(v.ReceiptKeys) != 1 || !v.ChainID.ToInt().IsUint64() {
-		return nil, errors.New("V2 source requires one authorized pin and uint64 chain ID")
+	if !v.ChainID.ToInt().IsUint64() {
+		return nil, errors.New("V2 source requires a uint64 chain ID")
 	}
 	verified, err := verify.ReceiptSignature(v.Receipt.Receipt, [32]byte(v.Receipt.SigningKey))
 	if err != nil {
 		return nil, err
 	}
-	pin := v.ReceiptKeys[0]
+	var pin seqkeeper.ReceiptKeyEntry
+	for _, candidate := range v.ReceiptKeys {
+		if bytes.Equal(candidate.KeyId, v.Receipt.KeyID[:]) && bytes.Equal(candidate.PublicKey, v.Receipt.SigningKey) {
+			pin = candidate
+		}
+	}
+	if len(pin.PublicKey) != 32 {
+		return nil, errors.New("V2 signing key is absent from the validated authorization set")
+	}
 	c := v2SourceCase{ID: vectorV2CaseID, Vector: "V2", Description: "layerxledger payExact reverted with Error(string) LXP_INSUFFICIENT_BALANCE",
 		RawTransaction: bytes.Clone(v.RawTransaction), Receipt: v.Receipt, SignedReceipt: bytes.Clone(v.Receipt.Receipt),
 		ReceiptDigest: common.Hash(verified.Digest), PrevSeqHash: common.Hash(verified.Receipt.PreviousStateRoot),
 		PinnedKey: v2Pin{common.BytesToHash(pin.KeyId), bytes.Clone(pin.PublicKey), pin.FirstHeight, pin.LastHeight}, LXPCode: v.LXPCode}
 	c.Expected.Rung, c.Expected.Verifier = string(v.Receipt.Rung), "accepts"
-	return &v2Source{Name: "sequencer-receipt-v1", Provenance: v.Provenance, ChainID: v.ChainID.ToInt().Uint64(),
+	var allPins seqkeeper.ReceiptKeys
+	if len(v.ReceiptKeys) > 1 {
+		allPins = v.ReceiptKeys
+	}
+	return &v2Source{ReceiptKeys: allPins, Name: "sequencer-receipt-v1", Provenance: v.Provenance, ChainID: v.ChainID.ToInt().Uint64(),
 		ModuleID: verified.Receipt.ModuleID, FeeDenom: v.Receipt.FeeDenom, Cases: []v2SourceCase{c}}, nil
 }
 
@@ -418,6 +434,21 @@ func vectorV2FromSource(source *v2Source) (*vectorV2, error) {
 	v := &vectorV2{Name: vectorV2Name, Provenance: source.Provenance, ChainID: chainID, RawTransaction: bytes.Clone(c.RawTransaction),
 		ReceiptKeys: seqkeeper.ReceiptKeys{{KeyId: bytes.Clone(c.PinnedKey.KeyID[:]), PublicKey: bytes.Clone(c.PinnedKey.PublicKey), FirstHeight: c.PinnedKey.FirstHeight, LastHeight: c.PinnedKey.LastHeight}},
 		Receipt:     c.Receipt, LXPCode: c.LXPCode, RevertReason: reason}
+	if len(source.ReceiptKeys) > 0 {
+		v.ReceiptKeys = source.ReceiptKeys
+		if err := v.ReceiptKeys.Validate(); err != nil {
+			return nil, err
+		}
+		var matches int
+		for _, pin := range v.ReceiptKeys {
+			if bytes.Equal(pin.KeyId, c.PinnedKey.KeyID[:]) && bytes.Equal(pin.PublicKey, c.PinnedKey.PublicKey) && pin.FirstHeight == c.PinnedKey.FirstHeight && pin.LastHeight == c.PinnedKey.LastHeight {
+				matches++
+			}
+		}
+		if matches != 1 {
+			return nil, errors.New("V2 canonical signing pin differs from its authorization set")
+		}
+	}
 	if err := verifyVectorV2(v); err != nil {
 		return nil, err
 	}
@@ -451,11 +482,12 @@ func writeVectorV2Copies(out string, v *vectorV2) error {
 		return err
 	}
 	group := struct {
-		Name       string             `json:"name"`
-		Provenance vectorV2Provenance `json:"provenance"`
-		ChainID    uint64             `json:"chainId"`
-		Cases      []v2SourceCase     `json:"cases"`
-	}{vectorV2Name, transported.Provenance, transported.ChainID, transported.Cases}
+		ReceiptKeys seqkeeper.ReceiptKeys `json:"receiptKeys,omitempty"`
+		Name        string                `json:"name"`
+		Provenance  vectorV2Provenance    `json:"provenance"`
+		ChainID     uint64                `json:"chainId"`
+		Cases       []v2SourceCase        `json:"cases"`
+	}{transported.ReceiptKeys, vectorV2Name, transported.Provenance, transported.ChainID, transported.Cases}
 	conformance := filepath.Join(out, "conformance")
 	if err := os.MkdirAll(conformance, 0755); err != nil {
 		return err
