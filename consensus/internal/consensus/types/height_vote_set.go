@@ -17,17 +17,21 @@ type RoundVoteSet struct {
 	Precommits *types.VoteSet
 }
 
+// Bound retained catchup rounds independently of the number of peer identities.
+const maxCatchupRounds = 64
+
 var (
 	ErrGotVoteFromUnwantedRound = errors.New(
 		"peer has sent a vote that does not match our round for more than one round",
 	)
+	ErrCatchupRoundLimit = errors.New("height catchup round allocation limit reached")
 )
 
 /*
 Keeps track of all VoteSets from round 0 to round 'round'.
 
-Also keeps track of up to one RoundVoteSet greater than
-'round' from each peer, to facilitate catchup syncing of commits.
+Also keeps track of at most maxCatchupRounds additional RoundVoteSets,
+with up to two allocated by each peer, to facilitate catchup syncing of commits.
 
 A commit is +2/3 precommits for a block at a round,
 but which round is not known in advance, so when a peer
@@ -46,6 +50,7 @@ type HeightVoteSet struct {
 	round             int32                    // max tracked round
 	roundVoteSets     map[int32]RoundVoteSet   // keys: [0...round]
 	peerCatchupRounds map[types.NodeID][]int32 // keys: peer.ID; values: at most 2 rounds
+	catchupRounds     map[int32]struct{}       // authenticated rounds beyond the local round
 }
 
 func NewHeightVoteSet(chainID string, height int64, valSet *types.ValidatorSet) *HeightVoteSet {
@@ -64,6 +69,7 @@ func (hvs *HeightVoteSet) Reset(height int64, valSet *types.ValidatorSet) {
 	hvs.valSet = valSet
 	hvs.roundVoteSets = make(map[int32]RoundVoteSet)
 	hvs.peerCatchupRounds = make(map[types.NodeID][]int32)
+	hvs.catchupRounds = make(map[int32]struct{})
 
 	hvs.addRound(0)
 	hvs.round = 0
@@ -100,6 +106,26 @@ func (hvs *HeightVoteSet) SetRound(round int32) {
 		hvs.addRound(r)
 	}
 	hvs.round = round
+	// Promoted rounds remain available for consensus, but no longer consume the
+	// catchup budget or a peer's admission allowance.
+	for r := range hvs.catchupRounds {
+		if r <= round {
+			delete(hvs.catchupRounds, r)
+		}
+	}
+	for peerID, rounds := range hvs.peerCatchupRounds {
+		remaining := rounds[:0]
+		for _, r := range rounds {
+			if r > round {
+				remaining = append(remaining, r)
+			}
+		}
+		if len(remaining) == 0 {
+			delete(hvs.peerCatchupRounds, peerID)
+		} else {
+			hvs.peerCatchupRounds[peerID] = remaining
+		}
+	}
 }
 
 func (hvs *HeightVoteSet) addRound(round int32) {
@@ -119,13 +145,30 @@ func (hvs *HeightVoteSet) addRound(round int32) {
 func (hvs *HeightVoteSet) AddVote(vote *types.Vote, peerID types.NodeID) (added bool, err error) {
 	hvs.mtx.Lock()
 	defer hvs.mtx.Unlock()
+	if vote == nil {
+		return false, types.ErrVoteNil
+	}
 	if !types.IsVoteTypeValid(vote.Type) {
 		return
 	}
 	voteSet := hvs.getVoteSet(vote.Round, vote.Type)
 	if voteSet == nil {
+		if vote.Height != hvs.height || vote.Round < 0 {
+			return false, types.ErrVoteUnexpectedStep
+		}
+		_, validator, ok := hvs.valSet.GetByIndex(vote.ValidatorIndex)
+		if !ok {
+			return false, types.ErrVoteInvalidValidatorIndex
+		}
+		if err := vote.Verify(hvs.chainID, validator.PubKey); err != nil {
+			return false, err
+		}
 		if rndz := hvs.peerCatchupRounds[peerID]; len(rndz) < 2 {
+			if len(hvs.catchupRounds) >= maxCatchupRounds {
+				return false, ErrCatchupRoundLimit
+			}
 			hvs.addRound(vote.Round)
+			hvs.catchupRounds[vote.Round] = struct{}{}
 			voteSet = hvs.getVoteSet(vote.Round, vote.Type)
 			hvs.peerCatchupRounds[peerID] = append(rndz, vote.Round)
 		} else {
@@ -136,6 +179,15 @@ func (hvs *HeightVoteSet) AddVote(vote *types.Vote, peerID types.NodeID) (added 
 	}
 	added, err = voteSet.AddVote(vote)
 	return
+}
+
+// RemovePeer releases connection admission bookkeeping. Authenticated votes and
+// their global budget remain until promotion by SetRound or a height Reset, so
+// disconnect/reconnect churn cannot erase votes or replenish the global budget.
+func (hvs *HeightVoteSet) RemovePeer(peerID types.NodeID) {
+	hvs.mtx.Lock()
+	defer hvs.mtx.Unlock()
+	delete(hvs.peerCatchupRounds, peerID)
 }
 
 func (hvs *HeightVoteSet) Prevotes(round int32) *types.VoteSet {
