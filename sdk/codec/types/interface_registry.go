@@ -303,12 +303,7 @@ func (r *statefulUnpacker) UnpackAny(any *Any, iface interface{}) error {
 
 	rv.Elem().Set(reflect.ValueOf(msg))
 
-	newAnyWithCache, err := NewAnyWithValue(msg)
-	if err != nil {
-		return err
-	}
-
-	*any = *newAnyWithCache
+	any.cachedValue = msg
 	return nil
 }
 

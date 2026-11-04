@@ -1,0 +1,153 @@
+//go:build ledger || test_ledger_mock
+// +build ledger test_ledger_mock
+
+package keyring
+
+import (
+	"bytes"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/hd"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/secp256k1"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+)
+
+func TestInMemoryCreateLedger(t *testing.T) {
+	kb := NewInMemory()
+
+	ledger, err := kb.SaveLedgerKey("some_account", hd.Secp256k1, "cosmos", 118, 3, 1)
+
+	require.NoError(t, err, "positive Ledger qualification requires a configured device; unavailable errors have a separate gate")
+
+	// The configured device must match the committed qualification fixture.
+	pubKey := ledger.GetPubKey()
+	expectedPkStr := "PubKeySecp256k1{03602C0CB4D8C0081FEE794BDE96E7B95FA16F2B5283B764AC070584327B2C7202}"
+	require.Equal(t, expectedPkStr, pubKey.String())
+
+	// Check that restoring the key gets the same results
+	restoredKey, err := kb.Key("some_account")
+	require.NoError(t, err)
+	require.NotNil(t, restoredKey)
+	require.Equal(t, "some_account", restoredKey.GetName())
+	require.Equal(t, TypeLedger, restoredKey.GetType())
+	pubKey = restoredKey.GetPubKey()
+	require.Equal(t, expectedPkStr, pubKey.String())
+
+	path, err := restoredKey.GetPath()
+	require.NoError(t, err)
+	require.Equal(t, "m/44'/118'/3'/0/1", path.String())
+}
+
+// TestSignVerify does some detailed checks on how we sign and validate
+// signatures
+func TestSignVerifyKeyRingWithLedger(t *testing.T) {
+	dir := t.TempDir()
+
+	kb, err := New("keybasename", "test", dir, nil)
+	require.NoError(t, err)
+
+	_, hardware := kb.SupportedAlgorithms()
+	require.NotEmpty(t, hardware)
+	for _, algo := range hardware {
+		t.Run(string(algo.Name()), func(t *testing.T) {
+			i1, err := kb.SaveLedgerKey("key", algo, "cosmos", 118, 0, 0)
+			require.NoError(t, err, "positive Ledger qualification requires a configured device")
+			// Reopen the real persistent backend before exercising the signing consumer.
+			kb, err = New("keybasename", BackendTest, dir, nil)
+			require.NoError(t, err)
+			recovered, err := kb.Key("key")
+			require.NoError(t, err)
+			require.True(t, i1.GetPubKey().Equals(recovered.GetPubKey()))
+			require.Equal(t, i1.GetAlgo(), recovered.GetAlgo())
+			i1 = recovered
+
+			require.Equal(t, "key", i1.GetName())
+
+			d1 := []byte("my first message")
+			s1, pub1, err := kb.Sign("key", d1)
+			require.NoError(t, err)
+
+			s2, pub2, err := SignWithLedger(i1, d1)
+			require.NoError(t, err)
+
+			require.True(t, pub1.Equals(pub2))
+			require.True(t, bytes.Equal(s1, s2))
+
+			require.Equal(t, i1.GetPubKey(), pub1)
+			require.Equal(t, i1.GetPubKey(), pub2)
+			require.True(t, pub1.VerifySignature(d1, s1))
+			require.True(t, i1.GetPubKey().VerifySignature(d1, s1))
+			require.True(t, bytes.Equal(s1, s2))
+
+			LocalInfo, _, err := kb.NewMnemonic("test", English, types.FullFundraiserPath, DefaultBIP39Passphrase, hd.Secp256k1)
+			require.NoError(t, err)
+			_, _, err = SignWithLedger(LocalInfo, d1)
+			require.Error(t, err)
+			require.Equal(t, "not a ledger object", err.Error())
+			require.NoError(t, kb.Delete("key"))
+			require.NoError(t, kb.Delete("test"))
+
+		})
+	}
+
+}
+
+func TestAltKeyring_SaveLedgerKey(t *testing.T) {
+	dir := t.TempDir()
+
+	keyring, err := New(t.Name(), BackendTest, dir, nil)
+	require.NoError(t, err)
+
+	// Test unsupported Algo
+	_, err = keyring.SaveLedgerKey("key", notSupportedAlgo{}, "cosmos", 118, 0, 0)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), ErrUnsupportedSigningAlgo.Error())
+
+	ledger, err := keyring.SaveLedgerKey("some_account", hd.Secp256k1, "cosmos", 118, 3, 1)
+	require.NoError(t, err, "positive Ledger qualification requires a configured device")
+	keyring, err = New(t.Name(), BackendTest, dir, nil)
+	require.NoError(t, err)
+
+	// The configured device must match the committed qualification fixture.
+	require.Equal(t, "some_account", ledger.GetName())
+	pubKey := ledger.GetPubKey()
+	expectedPkStr := "PubKeySecp256k1{03602C0CB4D8C0081FEE794BDE96E7B95FA16F2B5283B764AC070584327B2C7202}"
+	require.Equal(t, expectedPkStr, pubKey.String())
+
+	// Check that restoring the key gets the same results
+	restoredKey, err := keyring.Key("some_account")
+	require.NoError(t, err)
+	require.NotNil(t, restoredKey)
+	require.Equal(t, "some_account", restoredKey.GetName())
+	require.Equal(t, TypeLedger, restoredKey.GetType())
+	pubKey = restoredKey.GetPubKey()
+	require.Equal(t, expectedPkStr, pubKey.String())
+
+	path, err := restoredKey.GetPath()
+	require.NoError(t, err)
+	require.Equal(t, "m/44'/118'/3'/0/1", path.String())
+}
+
+// TestSignWithLedger_PubKeyMismatch tests that SignWithLedger returns an error
+// when the public key from the device doesn't match the cached key in the keyring
+func TestSignWithLedger_PubKeyMismatch(t *testing.T) {
+	// Create a ledger info with a mismatched public key
+	// The path is valid but the public key is different from what the device will return
+	wrongPubKey := &secp256k1.PubKey{Key: make([]byte, secp256k1.PubKeySize)}
+	wrongPubKey.Key[0] = 0x02 // Valid compressed pubkey prefix
+
+	mismatchedInfo := newLedgerInfo(
+		"mismatched_key",
+		wrongPubKey,
+		*hd.NewFundraiserParams(0, types.GetConfig().GetCoinType(), 0),
+		hd.Secp256k1Type,
+	)
+
+	msg := []byte("test message")
+	_, _, err := SignWithLedger(mismatchedInfo, msg)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "the public key from the Ledger device does not match the cached key in the keyring")
+}
