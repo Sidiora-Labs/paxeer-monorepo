@@ -285846,7 +285846,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.126]
 title = "Rewrite the web-explorer-bridge documentation pages of contracts/launchpad: stale and misleading pages (manifest 22.32.126, 3 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285876,7 +285876,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.125]
 title = "Rewrite the web-explorer-bridge documentation pages of contracts/bridge: stale and misleading pages (manifest 22.32.125, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286026,7 +286026,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.120]
 title = "Rewrite the web-explorer-bridge documentation pages of apps/explorer: stale and misleading pages (manifest 22.32.120, 3 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286056,7 +286056,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.119]
 title = "Rewrite the web-explorer-bridge documentation pages of apps/bridge: stale and misleading pages (manifest 22.32.119, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286086,7 +286086,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.118]
 title = "Rewrite the web-explorer-bridge documentation pages of .: stale and misleading pages (manifest 22.32.118, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286116,7 +286116,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.117]
 title = "Rewrite the programs documentation pages of programs/sdk: stale and misleading pages (manifest 22.32.117, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286146,7 +286146,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.116]
 title = "Rewrite the programs documentation pages of programs/porting: stale and misleading pages (manifest 22.32.116, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286176,7 +286176,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.115]
 title = "Rewrite the programs documentation pages of programs/porting: stale and misleading pages (manifest 22.32.115, 2 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286686,7 +286686,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.98]
 title = "Rewrite the interop documentation pages of docs/site: stale and misleading pages (manifest 22.32.98, 6 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286716,7 +286716,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.97]
 title = "Rewrite the interop documentation pages of contracts/bridge: stale and misleading pages (manifest 22.32.97, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286746,7 +286746,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.96]
 title = "Rewrite the human documentation pages of services/platform: stale and misleading pages (manifest 22.32.96, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286776,7 +286776,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.95]
 title = "Rewrite the human documentation pages of services/human: stale and misleading pages (manifest 22.32.95, 2 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286806,7 +286806,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.94]
 title = "Rewrite the human documentation pages of services/human: stale and misleading pages (manifest 22.32.94, 6 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286836,7 +286836,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.93]
 title = "Rewrite the human documentation pages of docs/wiki: stale and misleading pages (manifest 22.32.93, 3 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286866,7 +286866,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.92]
 title = "Rewrite the human documentation pages of docs/site: stale and misleading pages (manifest 22.32.92, 4 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286896,7 +286896,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.91]
 title = "Rewrite the human documentation pages of docs/readme: stale and misleading pages (manifest 22.32.91, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286956,7 +286956,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.89]
 title = "Rewrite the agent documentation pages of docs/wiki: stale and misleading pages (manifest 22.32.89, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286986,7 +286986,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.88]
 title = "Rewrite the agent documentation pages of docs/wiki: stale and misleading pages (manifest 22.32.88, 3 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -287016,7 +287016,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.87]
 title = "Rewrite the agent documentation pages of docs/site: stale and misleading pages (manifest 22.32.87, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -287046,7 +287046,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.86]
 title = "Rewrite the agent documentation pages of docs/site: stale and misleading pages (manifest 22.32.86, 3 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -287076,7 +287076,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.85]
 title = "Rewrite the agent documentation pages of contracts: new pages (manifest 22.32.85, 5 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -287106,7 +287106,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.84]
 title = "Rewrite the platform documentation pages of tools/platform: stale and misleading pages (manifest 22.32.84, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -287136,7 +287136,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.83]
 title = "Rewrite the platform documentation pages of services/platform: stale and misleading pages (manifest 22.32.83, 6 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -287166,7 +287166,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.82]
 title = "Rewrite the platform documentation pages of sdk/platform: stale and misleading pages (manifest 22.32.82, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -287196,7 +287196,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.81]
 title = "Rewrite the platform documentation pages of sdk/crypto: stale and misleading pages (manifest 22.32.81, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
