@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Exercises assets_match_build of tools/release/verify-release.sh on a fixture release directory of the
-# nine release files and its published copy, and the refusals for a differing sum, a missing asset and a
+# eight release files and its published copy, and the refusals for a differing sum, a missing asset and a
 # published asset whose bytes differ from its SHA256SUMS line.
 set -euo pipefail
 export LC_ALL=C
@@ -14,7 +14,6 @@ trap 'rm -rf -- "$work"' EXIT
 version=v6.12.0
 files=(
   "paxd-$version-linux-amd64"
-  "layerxd-$version-linux-amd64"
   "price-sidecar-$version-linux-amd64"
   libwasmvm.x86_64.so
   libwasmvm152.x86_64.so
@@ -23,7 +22,7 @@ files=(
   upgrade-info.json
 )
 
-# A build host release directory $1 of the eight files and their SHA256SUMS, and its published copy $2.
+# A build host release directory $1 of the seven files and their SHA256SUMS, and its published copy $2.
 fixture() {
   local dist=$1 release=$2 f
   mkdir -p "$dist"
@@ -45,45 +44,54 @@ assets_match_build_on_fixture() {
   fixture "$dir/dist" "$dir/release"
   run_match "$dir/release" "$dir/dist"
   [ "$code" = 0 ] || { echo "exit $code, want 0: $err" >&2; return 1; }
-  [ "$out" = "verify-release: 9 assets match" ] || { echo "printed '$out'" >&2; return 1; }
+  [ "$out" = "verify-release: 8 assets match" ] || { echo "printed '$out'" >&2; return 1; }
   [ -z "$err" ] || { echo "stderr '$err'" >&2; return 1; }
 }
 
 mismatched_sum_refused() {
-  local dir=$work/sum name="paxd-$version-linux-amd64"
-  fixture "$dir/dist" "$dir/release"
-  printf 'rebuilt on the publish runner\n' > "$dir/release/$name"
-  (cd "$dir/release" && printf '%s\n' "${files[@]}" | sort | xargs sha256sum > SHA256SUMS)
-  local build publish
-  build=$(sha256sum "$dir/dist/$name" | cut -d' ' -f1)
-  publish=$(sha256sum "$dir/release/$name" | cut -d' ' -f1)
-  run_match "$dir/release" "$dir/dist"
-  [ "$code" = 1 ] || { echo "exit $code, want 1" >&2; return 1; }
-  [ -z "$out" ] || { echo "printed '$out' on a mismatch" >&2; return 1; }
-  [ "$err" = "verify-release: $name sum differs: build $build, publish $publish" ] ||
-    { echo "stderr '$err'" >&2; return 1; }
+  local dir name
+  for name in "${files[@]}"; do
+    dir=$work/sum-$name
+    fixture "$dir/dist" "$dir/release"
+    printf 'rebuilt on the publish runner\n' > "$dir/release/$name"
+    (cd "$dir/release" && printf '%s\n' "${files[@]}" | sort | xargs sha256sum > SHA256SUMS)
+    local build publish
+    build=$(sha256sum "$dir/dist/$name" | cut -d' ' -f1)
+    publish=$(sha256sum "$dir/release/$name" | cut -d' ' -f1)
+    run_match "$dir/release" "$dir/dist"
+    [ "$code" = 1 ] || { echo "exit $code, want 1" >&2; return 1; }
+    [ -z "$out" ] || { echo "printed '$out' on a mismatch" >&2; return 1; }
+    [ "$err" = "verify-release: $name sum differs: build $build, publish $publish" ] ||
+      { echo "stderr '$err'" >&2; return 1; }
+  done
 }
 
 missing_asset_refused() {
-  local dir=$work/missing name=upgrade-info.json
-  fixture "$dir/dist" "$dir/release"
-  rm "$dir/release/$name"
-  run_match "$dir/release" "$dir/dist"
-  [ "$code" = 1 ] || { echo "exit $code, want 1" >&2; return 1; }
-  [ -z "$out" ] || { echo "printed '$out' with a missing asset" >&2; return 1; }
-  grep -qxF "verify-release: $name is not a release asset" <<<"$err" || { echo "stderr '$err'" >&2; return 1; }
+  local dir name
+  for name in "${files[@]}"; do
+    dir=$work/missing-$name
+    fixture "$dir/dist" "$dir/release"
+    rm "$dir/release/$name"
+    run_match "$dir/release" "$dir/dist"
+    [ "$code" = 1 ] || { echo "exit $code, want 1" >&2; return 1; }
+    [ -z "$out" ] || { echo "printed '$out' with a missing asset" >&2; return 1; }
+    grep -qxF "verify-release: $name is not a release asset" <<<"$err" || { echo "stderr '$err'" >&2; return 1; }
+  done
 }
 
 corrupt_asset_refused() {
-  local dir=$work/corrupt name=libwasmvm152.x86_64.so
-  fixture "$dir/dist" "$dir/release"
-  printf 'truncated upload\n' > "$dir/release/$name"
-  run_match "$dir/release" "$dir/dist"
-  [ "$code" = 1 ] || { echo "exit $code, want 1" >&2; return 1; }
-  [ -z "$out" ] || { echo "printed '$out' with a corrupt asset" >&2; return 1; }
-  grep -qxF "$name: FAILED" <<<"$err" || { echo "stderr '$err'" >&2; return 1; }
-  grep -qxF "verify-release: files of $dir/release do not match its SHA256SUMS" <<<"$err" ||
-    { echo "stderr '$err'" >&2; return 1; }
+  local dir name
+  for name in "${files[@]}"; do
+    dir=$work/corrupt-$name
+    fixture "$dir/dist" "$dir/release"
+    printf 'truncated upload\n' > "$dir/release/$name"
+    run_match "$dir/release" "$dir/dist"
+    [ "$code" = 1 ] || { echo "exit $code, want 1" >&2; return 1; }
+    [ -z "$out" ] || { echo "printed '$out' with a corrupt asset" >&2; return 1; }
+    grep -qxF "$name: FAILED" <<<"$err" || { echo "stderr '$err'" >&2; return 1; }
+    grep -qxF "verify-release: files of $dir/release do not match its SHA256SUMS" <<<"$err" ||
+      { echo "stderr '$err'" >&2; return 1; }
+  done
 }
 
 usage_refused() {

@@ -7,7 +7,7 @@ evidence = "Commit 9192a4c0252081121f077c5ac6095ca488eb4b42 kept AuthorizedRecei
 finding = "9.97.8.3"
 status = "open"
 evidence = "services/agent/sdk/typescript/src/ai_market.ts:3273 still defines decodeProgramsReceipt over SequencerAuthorization keys, parses the kernel-shaped 0x5201 receipt at :3306 and constructs ProtocolReceipt at :3367 for OperationJournal.resolve at :3084, so retaining the interfaces in 9192a4c0252081121f077c5ac6095ca488eb4b42 fixed the missing exports without retiring or establishing the live producer for this decoder."
-follow_up = "9.97.15"
+follow_up = "22.9.10"
 
 [disposition.9.97.8.4]
 finding = "9.97.8.4"
