@@ -5,7 +5,13 @@ import {
 } from '@chakra-ui/react';
 import * as React from 'react';
 
+import { recipe as buttonRecipe } from '../theme/recipes/button.recipe';
+import { withRecipe, type WithRecipeProps } from './recipe-props';
 import { Skeleton } from './skeleton';
+
+type RecipeProps = WithRecipeProps<ChakraButtonProps, typeof buttonRecipe>;
+const RecipeComponent = withRecipe(ChakraButton, buttonRecipe);
+const RecipeButtonGroup = withRecipe(ChakraButtonGroup, buttonRecipe);
 
 interface ButtonLoadingProps {
   loading?: boolean;
@@ -13,7 +19,7 @@ interface ButtonLoadingProps {
   loadingSkeleton?: boolean;
 }
 
-export interface ButtonProps extends ChakraButtonProps, ButtonLoadingProps {
+export interface ButtonProps extends RecipeProps, ButtonLoadingProps {
   expanded?: boolean;
   selected?: boolean;
   highlighted?: boolean;
@@ -25,7 +31,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 
     return (
       <Skeleton loading={ loadingSkeleton } asChild ref={ ref as React.ForwardedRef<HTMLDivElement> }>
-        <ChakraButton
+        <RecipeComponent
           { ...(expanded ? { 'data-expanded': true } : {}) }
           { ...(selected ? { 'data-selected': true } : {}) }
           { ...(highlighted ? { 'data-highlighted': true } : {}) }
@@ -35,25 +41,25 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
           { ...rest }
         >
           { children }
-        </ChakraButton>
+        </RecipeComponent>
       </Skeleton>
     );
   },
 );
 
-export interface ButtonGroupProps extends ChakraButtonGroupProps {}
+export interface ButtonGroupProps extends WithRecipeProps<ChakraButtonGroupProps, typeof buttonRecipe> {}
 
 export const ButtonGroup = React.forwardRef<HTMLDivElement, ButtonGroupProps>(
   function ButtonGroup(props, ref) {
     const { ...rest } = props;
 
     return (
-      <ChakraButtonGroup ref={ ref } { ...rest }/>
+      <RecipeButtonGroup ref={ ref } { ...rest }/>
     );
   },
 );
 
-export interface ButtonGroupRadioProps extends Omit<ChakraButtonGroupProps, 'children' | 'onChange'> {
+export interface ButtonGroupRadioProps extends Omit<ButtonGroupProps, 'children' | 'onChange'> {
   children: Array<React.ReactElement<ButtonProps>>;
   onChange?: (value: string) => void;
   defaultValue?: string;
@@ -90,7 +96,7 @@ export const ButtonGroupRadio = React.forwardRef<HTMLDivElement, ButtonGroupRadi
 
     return (
       <Skeleton loading={ loading }>
-        <ChakraButtonGroup
+        <RecipeButtonGroup
           ref={ ref }
           gap={ 0 }
           { ...(equalWidth ? {
@@ -100,7 +106,7 @@ export const ButtonGroupRadio = React.forwardRef<HTMLDivElement, ButtonGroupRadi
           { ...rest }
         >
           { clonedChildren }
-        </ChakraButtonGroup>
+        </RecipeButtonGroup>
       </Skeleton>
     );
   },

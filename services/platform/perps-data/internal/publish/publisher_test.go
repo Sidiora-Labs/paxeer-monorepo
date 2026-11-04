@@ -364,7 +364,7 @@ func testDatabase(t *testing.T) string {
 	t.Helper()
 	dsn := os.Getenv(testDatabaseEnv)
 	if dsn == "" {
-		t.Fatal("TestPublisher requires " + testDatabaseEnv)
+		t.Fatalf("%s requires %s pointing to PostgreSQL with CREATE DATABASE permission", t.Name(), testDatabaseEnv)
 	}
 	if strings.HasPrefix(dsn, "postgres://") || strings.HasPrefix(dsn, "postgresql://") {
 		var err error

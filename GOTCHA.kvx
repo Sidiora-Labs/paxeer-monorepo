@@ -14590,3 +14590,23 @@ fix = "Regenerate the digest and count constants in the same change that re-reco
 title = "Rendered spec pointer files that differ from the committed adapters make the qualification candidate drift"
 symptom = "The qualification done step re-renders CLAUDE.md, AGENTS.md, the cursor rule and the copilot instructions; when the committed files differ from the render, the verified tree is not the candidate (same_candidate unmet)."
 fix = "Commit the four pointer files exactly as the renderer writes them and keep the generator check mode identical to the renderer."
+
+[gotcha.2954]
+title = "Two landed repairs added manifest dependencies without the workspace lock and turned every --locked build of the workspace red"
+symptom = "22.99.49 (layerx-client) and 22.99.50 (layerx-sdk) each added dependencies to their Cargo.toml; services/agent/Cargo.lock was outside their scope and their own verifies passed before the merge, so main now fails cargo build --locked for the whole services/agent workspace."
+fix = "Give every Rust task its workspace lock as a planned path (decision 2511) and refresh the lock in the same commit as the manifest."
+
+[gotcha.2955]
+title = "The indexer proof tests spawn the Go proof producers, which link against the kernel native libraries a Rust-only build never produces"
+symptom = "hosted/indexer/tests/history_position.rs runs go test for the layerxledger, layerxpay and layerxauth proof producers and reads their bytes from stdin; in a Rust-only environment the Go link step fails (cannot find the kernel and programs environment libraries) and the three proof tests panic with an empty producer answer."
+fix = "Run such tasks in the mixed environment profile and build the kernel native libraries (make -s paxd-native-libs) before the cargo build."
+
+[gotcha.2956]
+title = "A fixture file a test includes at compile time was created during the task but did not reach its commit"
+symptom = "Task 9.98.2 made two agent daemon tests include tests/fixtures/authority/provider-subject/consent.activity; its commit a1ea1c8a6 deleted onboarding.activity but did not add the new file, so cargo build --tests of layerx-agentd fails on main for every later task while the task's own verification had passed against its working tree."
+fix = "22.99.159 restores the fixture from its producer (the signed consent inside sponsored.activity); every task that creates a file its code includes or reads lists the file in the change set and the repair record names it; reviewers compare the commit's file list with the new include_bytes and read_to_string paths."
+
+[gotcha.2957]
+title = "A crate manifest change left four workspace lockfiles stale and every locked build on main failed"
+symptom = "Commit 051e6c3e0 (task 13.99.1) removed the wasm32 spin dependency from programs/crates/layerx-programs-ai-market/Cargo.toml; the crate is a path dependency named in programs/Cargo.lock, services/agent/Cargo.lock, services/human/Cargo.lock and services/platform/Cargo.lock, none of which followed, so cargo build --locked in those workspaces and make paxd-native-libs (programs-release-build, Makefile:2738) fail with the lock file needs to be updated."
+fix = "22.99.160 refreshes the four lockfiles with cargo update --workspace; decision 2513 makes every manifest-changing task refresh and carry every workspace lock naming the crate."

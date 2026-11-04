@@ -352,13 +352,17 @@ fn secret(directory: &Path, name: &str, value: &str) -> String {
     path(&file).to_owned()
 }
 
-const KERNEL_SIDE_VARIABLES: [&str; 8] = [
+const KERNEL_SIDE_VARIABLES: [&str; 12] = [
+    "LAYERX_GATEWAY_COMPONENT_TOKEN_FILE",
+    "LAYERX_GATEWAY_PUBLIC_CORE_URL",
+    "LAYERX_GATEWAY_AUTHORITY_URL",
+    "LAYERX_GATEWAY_AUTHORITY_TOKEN_FILE",
+    "LAYERX_GATEWAY_IDENTITY_URL",
+    "LAYERX_GATEWAY_IDENTITY_TOKEN_FILE",
+    "LAYERX_GATEWAY_PROGRAM_REGISTRY_URL",
+    "LAYERX_GATEWAY_PROGRAM_REGISTRY_TOKEN_FILE",
     "LAYERX_GATEWAY_CLIENT_IDENTITY_PKCS12",
     "LAYERX_GATEWAY_CLIENT_IDENTITY_PASSWORD_FILE",
-    "LAYERX_GATEWAY_SEQUENCER_PUBLIC_KEY_FILE",
-    "LAYERX_GATEWAY_SEQUENCER_ID_FILE",
-    "LAYERX_GATEWAY_SEQUENCER_FIRST_BATCH_FILE",
-    "LAYERX_GATEWAY_SEQUENCER_LAST_BATCH_FILE",
     "LAYERX_GATEWAY_KEY_PROVISIONING_KEY_FILE",
     "LAYERX_GATEWAY_MODULE_REGISTRY_FILE",
 ];
@@ -627,7 +631,8 @@ fn degraded_endpoint_serves_the_chain_and_refuses_kernel_methods_without_the_ker
         readiness["backends"],
         json!({
             "paxeer_chain": {"state": "ready", "reason": "ready"},
-            "durable_store": {"state": "ready", "reason": "ready"}
+            "durable_store": {"state": "ready", "reason": "ready"},
+            "consensus": {"state": "unavailable", "reason": "not_configured"}
         }),
         "{readiness}"
     );

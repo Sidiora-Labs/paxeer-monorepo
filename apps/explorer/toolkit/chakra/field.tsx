@@ -1,18 +1,23 @@
 import { Field as ChakraField } from '@chakra-ui/react';
 import * as React from 'react';
 
+import { recipe as fieldRecipe } from '../theme/recipes/field.recipe';
 import getComponentDisplayName from '../utils/getComponentDisplayName';
 import { space } from '../utils/htmlEntities';
 import type { InputProps } from './input';
 import type { InputGroupProps } from './input-group';
+import { withRecipe, type WithRecipeProps } from './recipe-props';
 
-export interface FieldProps extends Omit<ChakraField.RootProps, 'label' | 'children' | 'size'> {
+type RecipeRootProps = WithRecipeProps<ChakraField.RootProps, typeof fieldRecipe>;
+const RecipeRoot = withRecipe(ChakraField.Root, fieldRecipe);
+
+export interface FieldProps extends Omit<RecipeRootProps, 'label' | 'children' | 'size'> {
   label?: React.ReactNode;
   helperText?: React.ReactNode;
   errorText?: React.ReactNode;
   optionalText?: React.ReactNode;
   children: React.ReactElement<InputProps> | React.ReactElement<InputGroupProps>;
-  size?: 'sm' | 'md' | 'lg' | '2xl';
+  size?: RecipeRootProps['size'];
 }
 
 export const Field = React.forwardRef<HTMLDivElement, FieldProps>(
@@ -61,21 +66,21 @@ export const Field = React.forwardRef<HTMLDivElement, FieldProps>(
         );
 
         return (
-          <ChakraField.Root pos="relative" w="full" ref={ ref } { ...rest }>
+          <RecipeRoot pos="relative" w="full" ref={ ref } { ...rest }>
             { groupInputElement }
             { helperTextElement }
-          </ChakraField.Root>
+          </RecipeRoot>
         );
       }
 
       const inputElement = React.cloneElement(child, injectedProps);
 
       return (
-        <ChakraField.Root pos="relative" w="full" ref={ ref } { ...rest }>
+        <RecipeRoot pos="relative" w="full" ref={ ref } { ...rest }>
           { inputElement }
           { labelElement }
           { helperTextElement }
-        </ChakraField.Root>
+        </RecipeRoot>
       );
     }
 
@@ -87,7 +92,7 @@ export const Field = React.forwardRef<HTMLDivElement, FieldProps>(
     const clonedChild = React.cloneElement(child, injectedProps);
 
     return (
-      <ChakraField.Root ref={ ref } { ...rest }>
+      <RecipeRoot ref={ ref } { ...rest }>
         { label && (
           <ChakraField.Label>
             { label }
@@ -101,7 +106,7 @@ export const Field = React.forwardRef<HTMLDivElement, FieldProps>(
         { errorText && (
           <ChakraField.ErrorText>{ errorText }</ChakraField.ErrorText>
         ) }
-      </ChakraField.Root>
+      </RecipeRoot>
     );
   },
 );

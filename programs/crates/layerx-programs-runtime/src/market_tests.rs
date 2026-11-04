@@ -5,6 +5,20 @@ use crate::{
     ProgramId, Storage, StorageNamespace, TransferSource, WasmEngine,
 };
 
+#[path = "../tests/support/compiled_guest.rs"]
+mod compiled_guest;
+
+fn market_wasm() -> &'static [u8] {
+    static WASM: std::sync::OnceLock<Vec<u8>> = std::sync::OnceLock::new();
+    WASM.get_or_init(|| {
+        compiled_guest::load_or_build(
+            "LAYERX_MARKET_WASM",
+            "layerx-programs-market",
+            "layerx_programs_market.wasm",
+        )
+    })
+}
+
 fn program() -> ProgramId {
     ProgramId::new([0x55; 32]).unwrap_or_else(|e| panic!("{e}"))
 }
@@ -100,12 +114,9 @@ fn execute_with_authority(
     input: &[u8],
     authority: Vec<Capability>,
 ) -> CandidateAuthorizedExecutionRecord {
-    let path = std::env::var("LAYERX_MARKET_WASM")
-        .unwrap_or_else(|e| panic!("actual compiled market: {e}"));
-    let wasm = std::fs::read(path).unwrap_or_else(|e| panic!("compiled market: {e}"));
     let module = WasmEngine::declared()
         .unwrap_or_else(|e| panic!("engine: {e}"))
-        .validate_v5(&wasm)
+        .validate_v5(market_wasm())
         .unwrap_or_else(|e| panic!("market validation: {e}"));
     let mut catalog = ProgramCatalog::new();
     catalog.insert(sandbox_program(), sandbox_module());
@@ -1354,7 +1365,23 @@ fn compiled_market_dispute_refuses_forged_wrong_replayed_unauthorized_and_premat
     commitment.extend(WINDOW.to_be_bytes());
     let mut committed = vec![1, 10];
     committed.extend(commitment);
-    accepted(&mut usage_claim, PROVIDER, 6, &committed, vec![]);
+    refused(&mut usage_claim, PROVIDER, 6, &committed, vec![]);
+    for (prefix, id) in [
+        (b"lx.market.claim/".as_slice(), LEASE_B),
+        (b"lx.market.claim-id/".as_slice(), claim_id(LEASE_B)),
+        (b"lx.market.challenge/".as_slice(), LEASE_B),
+        (b"lx.market.dispute/".as_slice(), LEASE_B),
+        (b"lx.market.settlement/".as_slice(), LEASE_B),
+    ] {
+        let mut key = prefix.to_vec();
+        key.extend(id);
+        assert_eq!(
+            usage_claim
+                .protocol_state_value(StorageNamespace::shared(program()), &key)
+                .unwrap_or_else(|error| panic!("plain usage state: {error:?}")),
+            None,
+        );
+    }
     refused(
         &mut usage_claim,
         CHALLENGER,

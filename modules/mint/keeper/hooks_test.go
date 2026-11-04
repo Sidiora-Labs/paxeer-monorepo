@@ -310,7 +310,10 @@ func TestEndOfEpochMintedCoinDistribution(t *testing.T) {
 }
 
 func TestNoEpochPassedNoDistribution(t *testing.T) {
+	started := time.Now()
+	t.Log("initializing application for repeated epoch hooks")
 	paxApp := keepertest.TestApp(t)
+	t.Logf("application initialized after %s", time.Since(started))
 	ctx := paxApp.BaseApp.NewContext(false, tmproto.Header{Time: time.Now()})
 
 	header := tmproto.Header{Height: paxApp.LastBlockHeight() + 1}
@@ -330,10 +333,14 @@ func TestNoEpochPassedNoDistribution(t *testing.T) {
 		// Verify supply is the same and no coins have been minted
 		currSupply := paxApp.BankKeeper.GetSupply(ctx, mintParams.MintDenom)
 		require.True(t, currSupply.IsEqual(presupply))
+		if (i+1)%100000 == 0 {
+			t.Logf("verified %d epoch hook iterations after %s", i+1, time.Since(started))
+		}
 	}
 	// Ensure that EpochProvision hasn't changed
 	endLastMintAmount := paxApp.MintKeeper.GetMinter(ctx).GetLastMintAmountCoin()
 	require.True(t, startLastMintAmount.Equal(endLastMintAmount))
+	t.Logf("verified all epoch hook iterations after %s", time.Since(started))
 }
 
 func TestSortTokenReleaseCalendar(t *testing.T) {

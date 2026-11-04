@@ -1,0 +1,7 @@
+[repair.go-modules.116]
+target = "modules/tokenfactory/keeper"
+command = "make -s paxd-native-libs && CGO_ENABLED=1 go vet ./modules/tokenfactory/keeper/ && CGO_ENABLED=1 go test -count=1 -timeout 35m ./modules/tokenfactory/keeper/"
+revision = "cea04b0a20fed9621b2f2580398024b38b76ff2e"
+result = "already-passing"
+change = "none"
+producer_input_tests = []

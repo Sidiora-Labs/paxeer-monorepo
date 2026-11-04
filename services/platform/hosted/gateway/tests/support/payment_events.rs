@@ -402,7 +402,7 @@ fn event_source(
         .iter()
         .map(|(principal, credential)| (principal.as_str(), credential.as_str()))
         .collect();
-    let snapshot = serde_json::json!({
+    let mut snapshot = serde_json::json!({
         "version": ENROLLMENT_VERSION,
         "generation": 1,
         "principals": principals,
@@ -429,6 +429,21 @@ fn event_source(
         }])
     })
     .unwrap_or_else(|error| panic!("{error}"));
+    assert_eq!(
+        service.refresh().unwrap_err().0,
+        "enrollment_credential_reused"
+    );
+    snapshot["principals"]
+        .as_array_mut()
+        .unwrap()
+        .retain(|entry| entry["principal"] == "payment-principal");
+    let entries: Vec<_> = entries
+        .into_iter()
+        .filter(|(principal, _)| *principal == "payment-principal")
+        .collect();
+    assert_eq!(entries.len(), 1);
+    snapshot["mac"] = enrollment_snapshot_mac(Kind::Payment, 1, &entries, enrollment_key).into();
+    fs::write(&snapshot_path, snapshot.to_string()).unwrap_or_else(|error| panic!("{error}"));
     service
         .refresh()
         .unwrap_or_else(|error| panic!("payment source enrollment: {error:?}"));

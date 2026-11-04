@@ -106,6 +106,12 @@ func (p *Precompile) WithRevertReasons() *Precompile {
 	return p
 }
 
+func (p *Precompile) WithLegacyRevertReasons() *Precompile {
+	p.WithRevertReasons()
+	p.lxp = false
+	return p
+}
+
 // WithLXPReasons makes every failed call return the ABI encoding of
 // Error(string) carrying the registry text "LXP_<code>: ..." built by
 // LXPReason. Every precompile served only from the merge plan height uses it.

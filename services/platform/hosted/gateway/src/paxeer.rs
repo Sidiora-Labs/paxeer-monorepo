@@ -112,10 +112,20 @@ fn node_unmetered(config: &Config, request: &Value) -> Result<Value, &'static st
                 body: identity_body,
             },
         );
-        let valid_network = identity
-            .ok()
-            .filter(|reply| reply.status == 200 && reply.content_type == "application/json")
-            .and_then(|reply| serde_json::from_slice::<Value>(&reply.body).ok())
+        let identity = match identity {
+            Ok(reply) if reply.status == 200 => reply,
+            Ok(_) => {
+                failure = "paxeer_node_unavailable";
+                continue;
+            }
+            Err(_) => {
+                failure = "paxeer_unreachable";
+                continue;
+            }
+        };
+        let valid_network = (identity.content_type == "application/json")
+            .then(|| serde_json::from_slice::<Value>(&identity.body).ok())
+            .flatten()
             .is_some_and(|body| {
                 body["jsonrpc"] == "2.0"
                     && body["id"] == "route-network"

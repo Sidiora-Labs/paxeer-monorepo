@@ -61,8 +61,8 @@ func TestPortableReceiptRoundTripsAtReceipted(t *testing.T) {
 			}
 		})
 	}
-	if count != 4 {
-		t.Fatalf("executed %d V1 cases, want 4", count)
+	if count != 5 {
+		t.Fatalf("executed %d V1 cases, want 5", count)
 	}
 	t.Run("committed", func(t *testing.T) {
 		c := sequencerReceiptCases(t)[0]

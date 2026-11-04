@@ -28,6 +28,7 @@ fn room(out: &[u8], size: usize) -> CodecResult<()> {
         Ok(())
     }
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn schema(r: &mut Reader<'_>) -> CodecResult<()> {
     if r.u16()? == crate::SCHEMA_VERSION {
         Ok(())
@@ -39,6 +40,7 @@ fn schema(r: &mut Reader<'_>) -> CodecResult<()> {
 ///
 /// # Errors
 /// Propagates `EvaluatorGrant::validate` refusals; returns `CAPACITY` when `out` is shorter than `GRANT_BYTES`.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_grant(value: &EvaluatorGrant, out: &mut [u8]) -> CodecResult<usize> {
     value.validate()?;
     room(out, GRANT_BYTES)?;
@@ -58,17 +60,18 @@ pub fn encode_grant(value: &EvaluatorGrant, out: &mut [u8]) -> CodecResult<usize
 ///
 /// # Errors
 /// Returns `NON_CANONICAL` when the input is not exactly `GRANT_BYTES`, for a zero identity, digest or version, or an unknown status; propagates `EvaluatorGrant::validate` refusals.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_grant(input: &[u8]) -> CodecResult<EvaluatorGrant> {
     if input.len() != GRANT_BYTES {
         return Err(NON_CANONICAL);
     }
     let mut r = Reader::new(input);
     let value = EvaluatorGrant {
-        evaluator: EvaluatorId::new(r.fixed()?)?,
-        principal: PrincipalId::new(r.fixed()?)?,
-        rubric: RubricDigest::new(r.fixed()?)?,
-        grant_version: Version::new(r.u64()?)?,
-        key_version: Version::new(r.u64()?)?,
+        evaluator: r.evaluator_id()?,
+        principal: r.principal_id()?,
+        rubric: r.rubric_digest()?,
+        grant_version: r.version()?,
+        key_version: r.version()?,
         signing_key: PublicKey32(r.fixed()?),
         effective_epoch: r.u64()?,
         expiry_epoch_exclusive: r.u64()?,
@@ -107,6 +110,7 @@ fn validate_scores(scores: &ScoreVector<'_>) -> CodecResult<()> {
 ///
 /// # Errors
 /// Returns `F03_NO_SCORES` for an empty vector; `F03_NONCANONICAL_VECTOR` for unsorted or duplicate workers; `NON_CANONICAL` for a malformed or oversized vector; propagates `encode_report` refusals.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_report_body(value: &ReportBody<'_>, out: &mut [u8]) -> CodecResult<usize> {
     validate_scores(&value.scores)?;
     common::encode_report(value, out)
@@ -115,6 +119,7 @@ pub fn encode_report_body(value: &ReportBody<'_>, out: &mut [u8]) -> CodecResult
 ///
 /// # Errors
 /// Returns `NON_CANONICAL` for an out-of-bounds or mismatched length, a count above `MAX_WORKERS` or a malformed vector; `BAD_VERSION` for a wrong schema; `F03_NO_SCORES` for a zero count; `F03_NONCANONICAL_VECTOR` for unsorted workers; propagates `decode_report` refusals.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_report_body(input: &[u8]) -> CodecResult<ReportBody<'_>> {
     // Validate prefix/types through the common codec, and vector through F03.
     // The preflight is bounded and uses only checked lengths before any slice.
@@ -147,6 +152,7 @@ pub fn decode_report_body(input: &[u8]) -> CodecResult<ReportBody<'_>> {
 ///
 /// # Errors
 /// Returns the `encode_report_body` vector refusals; `ARITHMETIC` when the size overflows; `CAPACITY` when `out` is too small.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_signed_report(value: &SignedReport<'_>, out: &mut [u8]) -> CodecResult<usize> {
     validate_scores(&value.body.scores)?;
     let n = common::REPORT_FIXED_BYTES
@@ -162,6 +168,7 @@ pub fn encode_signed_report(value: &SignedReport<'_>, out: &mut [u8]) -> CodecRe
 ///
 /// # Errors
 /// Returns `NON_CANONICAL` when the length is outside the signed-report bounds; propagates `decode_report_body` refusals.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_signed_report(input: &[u8]) -> CodecResult<SignedReport<'_>> {
     if input.len() < common::REPORT_FIXED_BYTES + 64 || input.len() > SIGNED_REPORT_MAX_BYTES {
         return Err(NON_CANONICAL);
@@ -177,6 +184,7 @@ pub fn decode_signed_report(input: &[u8]) -> CodecResult<SignedReport<'_>> {
 ///
 /// # Errors
 /// Returns `WRONG_DOMAIN`, `WRONG_EPOCH`, `WRONG_CONFIG`, `WRONG_ROSTER`, `F03_NO_GRANT`, `F03_GRANT_VERSION_CONFLICT` or `F03_KEY_VERSION_CONFLICT` for the first mismatched field, in that order.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn check_binding(actual: &EvaluatorBinding, expected: &EvaluatorBinding) -> CodecResult<()> {
     let a = actual.frozen;
     let e = expected.frozen;
@@ -338,6 +346,7 @@ pub fn verify_signed_report(
 ///
 /// # Errors
 /// Propagates `EvaluatorAdmissionConsentV1::validate` refusals; returns `CAPACITY` when `out` is shorter than `CONSENT_BYTES`.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_consent(value: &EvaluatorAdmissionConsentV1, out: &mut [u8]) -> CodecResult<usize> {
     value.validate()?;
     room(out, CONSENT_BYTES)?;
@@ -364,6 +373,7 @@ pub fn encode_consent(value: &EvaluatorAdmissionConsentV1, out: &mut [u8]) -> Co
 ///
 /// # Errors
 /// Returns `NON_CANONICAL` when the input is not exactly `CONSENT_BYTES` or for a zero identity, digest or version; `BAD_VERSION` for a wrong schema; propagates `EvaluatorAdmissionConsentV1::validate` refusals.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_consent(input: &[u8]) -> CodecResult<EvaluatorAdmissionConsentV1> {
     if input.len() != CONSENT_BYTES {
         return Err(NON_CANONICAL);
@@ -371,20 +381,20 @@ pub fn decode_consent(input: &[u8]) -> CodecResult<EvaluatorAdmissionConsentV1> 
     let mut r = Reader::new(input);
     schema(&mut r)?;
     let value = EvaluatorAdmissionConsentV1 {
-        chain: ChainDomain::new(r.fixed()?)?,
-        program: ProgramId::new(r.fixed()?)?,
-        market: MarketId::new(r.fixed()?)?,
-        evaluator: EvaluatorId::new(r.fixed()?)?,
-        owner: PrincipalId::new(r.fixed()?)?,
+        chain: r.chain_domain()?,
+        program: r.program_id()?,
+        market: r.market_id()?,
+        evaluator: r.evaluator_id()?,
+        owner: r.principal_id()?,
         delegate_key: PublicKey32(r.fixed()?),
         enrollment_nonce: r.fixed()?,
-        rubric: RubricDigest::new(r.fixed()?)?,
-        approval: Digest32::new(r.fixed()?)?,
-        request: RequestId::new(r.fixed()?)?,
-        grant_version: Version::new(r.u64()?)?,
-        key_version: Version::new(r.u64()?)?,
+        rubric: r.rubric_digest()?,
+        approval: r.digest32()?,
+        request: r.request_id()?,
+        grant_version: r.version()?,
+        key_version: r.version()?,
         effective_epoch: r.u64()?,
-        config_version: Version::new(r.u64()?)?,
+        config_version: r.version()?,
         expiry_height: r.u64()?,
     };
     r.finish()?;
@@ -404,6 +414,7 @@ pub fn consent_digest(value: &EvaluatorAdmissionConsentV1) -> CodecResult<Digest
 ///
 /// # Errors
 /// Propagates `EvaluatorAdmissionConsentV1::validate` refusals; returns `CAPACITY` when `out` is shorter than `SIGNED_CONSENT_BYTES`.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_signed_consent(value: &SignedEvaluatorConsent, out: &mut [u8]) -> CodecResult<usize> {
     value.consent.validate()?;
     room(out, SIGNED_CONSENT_BYTES)?;
@@ -415,6 +426,7 @@ pub fn encode_signed_consent(value: &SignedEvaluatorConsent, out: &mut [u8]) -> 
 ///
 /// # Errors
 /// Returns `NON_CANONICAL` when the input is not exactly `SIGNED_CONSENT_BYTES`; propagates `decode_consent` refusals.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_signed_consent(input: &[u8]) -> CodecResult<SignedEvaluatorConsent> {
     if input.len() != SIGNED_CONSENT_BYTES {
         return Err(NON_CANONICAL);
