@@ -147270,7 +147270,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.508]
 title = "Teach the wallet surface test double the web-data payment availability read so the grant-discovery cases pass on main"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
