@@ -17,9 +17,9 @@ HTTP at all. While the authenticated request runs, a second authenticated TLS
 connection is held open without sending a request, proving that one stalled
 client cannot block health behind it.
 
-The default read journey proves transport and verified reads only; health never
-proves tenant write admission. An explicit tenant read or write journey requires
-the full HTTPS /v1/agent/rpc URL, a separate gateway key file containing
+The default journey proves daemon health and authentication only; health never
+proves verified tenant reads or tenant write admission. An explicit tenant read
+or write journey requires the full HTTPS /v1/agent/rpc URL, a separate gateway key file containing
 <key_id>:<secret>, and an owned private JSON file containing exactly tenant,
 session_id, token_id and generation. The write journey additionally requires the
 authenticated tenant readiness owner to admit writes with no recovery reason.
@@ -320,5 +320,5 @@ if [ "$journey" = write ]; then
 elif [ "$tenant_probe" = 1 ]; then
     printf 'agentd-probe: authenticated tenant transport and verified reads ready; no tenant write claim\n'
 else
-    printf 'agentd-probe: transport and verified reads only; no tenant write claim\n'
+    printf 'agentd-probe: daemon health and authentication only; no tenant read or write claim\n'
 fi
