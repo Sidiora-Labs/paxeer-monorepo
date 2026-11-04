@@ -1,0 +1,46 @@
+[repair]
+id = "22.33.770"
+requirement = "22998.1"
+base_revision = "76c050242a1edcad6212aa52fac15670ecb5612d"
+implementation = "Set the production RPC profile to four concurrent simulations per HTTP/WS transport and disable test-only APIs. Retain auxiliary APIs on loopback, disable API/gRPC-web unsafe CORS and preserve disabled Swagger/Rosetta. Document an explicit diagnostic override confined to a separate private non-live-chain node, with loopback EVM HTTP, WebSocket disabled, a finite four-call limit, private tunnel or authenticated proxy access, and production restoration/restart. No other configuration changes."
+simulation_limit = 4
+operator_policy = "Four calls is a conservative proposed finite default, independent of host CPU count; HTTP and WebSocket each instantiate their own limiter, so together can admit eight simulations. Operator approval was requested in-session; this record does not assert approval or measured production capacity. Deployment owners must approve the limit and exposure policy before rollout and retain a positive finite bound in any explicit capacity override."
+source_proof = "The pytest module parses the real app.toml with tomllib, verifies exact typed simulation/test keys, loopback auxiliary addresses and ports, disabled unsafe CORS, and parses the commented diagnostic replacement settings. Source assertions trace the committed initialization copy, EVM option decoder and node startup wiring to both HTTP/WS SimulateConfig instances, semaphore creation, busy-error refusal and deferred release for eth_call and gas estimators, and the test-API/non-live-chain registration guard. SDK reader and listener source facts connect auxiliary exposure settings to consumers. The repair record maps every test to the finding and states qualification limits."
+review_only = "Native Go/node execution, actual concurrent request refusal, container/network isolation, effective deployed overrides, authentication, proxy routing and operator capacity/approval are not executed or proven by this source gate. No restart/recovery or runtime interface is changed; no fake consumer or substitute limiter is used. The module requires no environment variable, credential, endpoint, external binary, subprocess toolchain, native artifact or device. Shell scripts are inspected read-only for the config-copy fact; no shell script is repaired or named by the finding, so no shell syntax gate is added."
+baseline = "No pre-change verification was run: the explicit task order requires complete implementation before formatting/build/testing, hf-build before hf-done, and forbids running verify_cmd by hand. The unchanged-tree clause conflicts with that order; no baseline failures are claimed. Initial gate.json had zero builds/verifications and /out/run/gates.jsonl was absent; initial git status/diff showed only runner-prepared .cgignore and spec task status, both preserved. The two repair files were absent."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_770.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private ledger name the exact verified content-derived candidate revision, command, exit and log. Build and verify must pass on the same candidate revision. This record is finalized before gates: embedding its own content-derived revision would change that revision. The final response copies the exact qualification evidence, and the runner publishes the candidate. No gate or operator approval is claimed without evidence."
+wiring_requests = ["docker/rpcnode deployment and proxy configuration; owning domain 16: approve the finite four-call per-transport limit and loopback/unsafe-CORS-off production exposure policy before rollout, provision any required authenticated proxy in the node network namespace or private tunnel, and isolate diagnostic overrides to a separate private non-live-chain node; no deployment or proxy file is changed here."]
+
+[finding.rpc-unbounded-simulation]
+audit = "22.30.174"
+file = "docker/rpcnode/config/app.toml"
+line = 264
+class = "config-drift"
+severity = "medium"
+owner_domain = 16
+observed = "The RPC deployment enables the test API and sets max-concurrent-simulation-calls to 0, documented here as unlimited. The same profile enables public API listeners and unsafe CORS."
+expected = "The public node profile must make test-only capabilities deliberate and bound simulation resources so one caller cannot consume all RPC capacity."
+tests = ["test_rpc_unbounded_simulation_finite_production_limit", "test_rpc_unbounded_simulation_private_auxiliary_api_policy", "test_rpc_unbounded_simulation_explicit_private_diagnostics_override", "test_rpc_unbounded_simulation_config_reaches_real_limiter_and_test_gate", "test_rpc_unbounded_simulation_auxiliary_policy_reaches_sdk_consumers", "test_rpc_unbounded_simulation_record_maps_proof_and_limits"]
+closure = "Source repair is qualified only by hf-done passing on the built candidate; operator rollout approval and effective runtime authentication/isolation remain explicitly assigned to owning domain 16. No tests are deleted, skipped, ignored, expected-failure or weakened."
+
+[gotcha.baseline_order]
+observed = "The inherited baseline instruction conflicts with the explicit implementation-first and wrapper-only gate order."
+resolution = "Follow the explicit order and claim no baseline run; keep the note here because GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.context]
+observed = "Unbounded GOTCHA/audit reads exceed tool output limits and Codify brief reports unrelated cached task data; some guessed source roots no longer exist."
+resolution = "Use bounded task/finding reads, tracked source paths and the private gate ledger as authority; preserve runner bookkeeping and record no unrelated qualification claim."
+
+[format]
+policy = "No Python, TOML or KVX formatter is configured for these paths. After complete implementation, apply .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions to touched files only."
+
+[qualification.repair1]
+revision = "757ded5c67690b3481514432ca2aaca239e223fa"
+command = "cg spec done 22.33.770 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Five tests passed; the diagnostic decoder source checker incorrectly assumed HTTPAddress used an inline conversion/error condition."
+resolution = "Match the actual separate HTTPAddress conversion and error-return statements and additionally require the literal-IP rejection guard; retain all policy, finite-limit and other decoder assertions."
