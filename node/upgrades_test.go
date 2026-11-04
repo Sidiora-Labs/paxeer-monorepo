@@ -213,18 +213,21 @@ func TestSidioraFeeTokenUpgradeIsRegisteredAndRunsTheFeeTokenMigration(t *testin
 	require.NoError(t, err)
 	names := parseUpgradesList(string(tags))
 	require.Contains(t, names, sidioraFeeTokenUpgrade)
-	require.Equal(t, sidioraFeeTokenUpgrade, names[len(names)-2])
-	require.Equal(t, xwebUpgrade, names[len(names)-1])
-	require.Equal(t, xwebUpgrade, LatestUpgrade)
+	require.Contains(t, names, xwebUpgrade)
+	require.Equal(t, indexOf(names, sidioraFeeTokenUpgrade)+1, indexOf(names, xwebUpgrade))
+	require.Equal(t, []string{"v6.7", "v6.8", "v7.0"}, names[len(names)-3:])
+	require.Equal(t, "v7.0", LatestUpgrade)
+	require.Equal(t, LatestUpgrade, names[len(names)-1])
 
 	valPub := secp256k1.GenPrivKey().PubKey()
 	testWrapper := NewTestWrapper(t, time.Now().UTC(), valPub, false)
 	a, ctx := testWrapper.App, testWrapper.Ctx
+	t.Cleanup(func() { require.NoError(t, a.Close()) })
 
 	a.RegisterUpgradeHandlers()
 	require.True(t, a.UpgradeKeeper.HasHandler(sidioraFeeTokenUpgrade))
 
-	const chainID = uint64(1)
+	const chainID = layerxbridgetypes.SidioraHomeChainID
 	denom := registerSidioraRemoteAsset(t, a, ctx, chainID)
 
 	// Rewind x/evm to the store and the module version a chain that predates the
