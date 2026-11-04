@@ -605,7 +605,7 @@ pub fn observe_deposits_pass(
                     } => (observation, Some(reason)),
                 };
                 let item = observation.key();
-                if let Some(existing) = journal.state().items.get(&item) {
+                if let Some(existing) = journal.lookup(&item)? {
                     if existing.observation != observation {
                         return Err(JournalError::Conflict(format!(
                             "{item} observed with different content"
@@ -620,7 +620,10 @@ pub fn observe_deposits_pass(
                     progress.observed += 1;
                 }
                 if let Some(reason) = refusal {
-                    if journal.state().items[&item].refusal.is_none() {
+                    if journal
+                        .lookup(&item)?
+                        .is_some_and(|record| record.refusal.is_none())
+                    {
                         journal.append(&Entry::Refused { item, reason })?;
                         progress.refused += 1;
                     }

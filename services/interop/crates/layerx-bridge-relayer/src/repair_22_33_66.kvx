@@ -1,0 +1,15 @@
+[repair.22.33.66]
+audit = "22.30.108"
+base_revision = "84b6cf09552744359c78f419900ba8fcd9bbeaf5"
+evidence = "hf-done records the verified candidate revision, exact command, exit and private log; this record claims no gate result."
+baseline = "No baseline verify ran: the explicit order and allowed gates require complete implementation before hf-build followed by hf-done and forbid running verify_cmd separately; no pre-change failures are claimed."
+
+[finding.journal-growth]
+tests = ["journal_growth_checkpoint_replays_pending_bytes_and_serves_indexed_history", "journal_growth_interrupted_archival_and_replacement_recover_equivalent_state", "journal_growth_automatic_checkpoints_bound_active_state_and_replay", "journal_growth_reopened_pending_transaction_broadcasts_exact_checkpointed_bytes"]
+repair = "Per-item append validation, durable indexed closed records, bounded active checkpoint and replay interval, exact pending EVM/Solana bytes and receipt status, archive-aware observation deduplication and on-demand historical HTTP bundles."
+recovery = "Archive data and its directory are synced before checkpoint replacement; the previous log remains authoritative until rename; partial archives are idempotent, temporary files are ignored and any write failure requires reopen."
+
+[finding.duplicate-quorum]
+tests = ["duplicate_quorum_rejects_urls_authority_aliases_and_backend_aliases_before_transport", "duplicate_quorum_counts_independent_backends_and_retains_single_endpoint_operation"]
+repair = "Single-endpoint constructor remains explicit; multi-endpoint construction requires distinct operator-declared independent_backend identities, normalized authorities and TLS public keys."
+wiring = "Domain 11: migrate multi-endpoint fixtures in services/interop/crates/layerx-bridge-relayer/tests/paxeer_rpc.rs and services/interop/crates/layerx-bridge-relayer/tests/operator_config.rs to explicit independent_backend declarations and PaxeerRpc::with_backends."
