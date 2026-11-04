@@ -1,0 +1,41 @@
+[repair.22.33.1425]
+audit = "22.30.8"
+base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
+qualification = "The runner's hf-build/hf-done ledger records the qualified candidate revision, exact command, exit and private log; this record does not claim an unexecuted gate."
+baseline = "Continue the four scoped files from attempt 3 after prerequisite 22.31.463 repaired the external NewFactoryCLI callers. The first hf-build passed on the carried-over implementation; hf-done at candidate 15198ea16474fa508151647f32dbaf4657532707 passed TestRepairM_1425_ProductionNode but TestRepairM_1425_ReopenCommittedApplication panicked with committed block identity missing at height 1 before the median test ran. Evidence: command cg spec done 22.33.1425 -f layerx-merge --root /work/paxeer-monorepo, exit 1, /out/logs/verify-1.log. Verification runs only through hf-done after hf-build as the explicit task Order requires. The prerequisite already contains the corrected median and odd-majority expectation."
+
+[finding.oracle-fixture-bypasses-production]
+test = "TestRepairM_1425_ProductionNode"
+repair = "Use the application's actual host, exchange dependency, retirement history, registered oracle, signed DeliverTx intake and public StaticCallEVM reads without WithOracleReplay. Native asset registration and signed market-create produce market state and pool accounts; only the insurance peer is a validated genesis fixture. The old fixture remains for native negatives and compatibility cases."
+limitation = "Full governance-to-native-market creation remains an owning-domain wiring dependency: the registered exchange governance producer is retired. The test exercises its actual proposal/router refusal and proves immutable parameters and committed prices; it does not claim that this refusal creates a market."
+
+[finding.oracle-test-endorses-wrong-median]
+test = "TestRepairM_1425_WeightedMedianReference"
+repair = "The prerequisite already uses ceiling-half total confidence and expects 30 for weights 2 at 10 and 3 at 30. Add independently expanded individual-vote reference medians at odd floor boundaries and an exact even tie, drive both Aggregate and ordinary node EVM consumption, and retain refusal, arbitrary-precision and input/result-alias immutability checks. Extend the original weighted-median test with one-vote and multi-feed odd-floor cases."
+
+[finding.oracle-proof-does-not-reopen-store]
+test = "TestRepairM_1425_ReopenCommittedApplication"
+repair = "Commit native producer state, close the entire application including its database and host, reopen the same disk database and application home, and reconstruct registered node dependencies. Read the prior price through public EVM calls before another observation, assert the identical full price, millisecond timestamp, observation sequence and source-set digest, then submit and read the next observation. The original oracle proof shares this recovery path and retains ABI, gas, refusal, large-price, source and native-corruption assertions."
+
+[wiring.domain3]
+request = "modules/layerxexchange and modules/layerxgov (owning exchange/governance domain 3): expose a live governance market-create producer bound to the node host and native market codec, independently of retired exchange intents; the registered MsgUpdateParams route currently refuses after v6.12.0 and MsgSetMarket only toggles existing listings. Do not restore retired authority or seed native market bytes to bypass this dependency."
+
+[gotcha.scope]
+observed = "Spec task records and GOTCHA.kvx are outside the task's authorized paths."
+handling = "Keep finding-to-test mappings, the missing-interface wiring request and baseline-order conflict in this scoped record; leave spec bookkeeping and publication to the runner."
+
+[gotcha.graph]
+observed = "The scoped Codify index reports broad stale uncommitted paths that git status does not report."
+handling = "Use git status and the runner gate ledger as the working-tree and qualification evidence; do not reset or widen the scoped index configuration."
+
+[gotcha.retirement_error]
+observed = "The carried-over test referenced exchangetypes.ErrModuleRetired, but the exchange producer declares ErrRetired; hf-done could not compile the test binary."
+handling = "Use the producer-declared ErrRetired with the same ErrorIs assertion; first failed candidate de3136d40eed09530e678d21bae0c487b5604883, command cg spec done 22.33.1425 -f layerx-merge --root /work/paxeer-monorepo, exit 1, evidence /out/logs/verify-1.log and /tmp/repair-m1425.log."
+
+[gotcha.application_commit]
+observed = "A direct CommitMultiStore commit omits the application's precommit handler and its persisted block identity, so reopening the node panics before reading oracle state."
+handling = "Seal the existing context and call the real application Commit with a consensus-header hash, then verify that both the commit ID and block identity survive reopening; retain all oracle recovery assertions."
+
+[gotcha.header_type]
+observed = "Attempt 4's recovery fixture assigned Header.ToProto(), which returns a pointer, to the value returned by Context.BlockHeader(), preventing the oracle test package from compiling."
+handling = "Dereference the producer's protobuf header before passing it to WithBlockHeader; compile the entire oracle test package with go vet before running the declared gates."
