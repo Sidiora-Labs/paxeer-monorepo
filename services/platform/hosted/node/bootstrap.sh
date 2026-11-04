@@ -328,10 +328,14 @@ if [ -n "$MODULE_PROFILE" ]; then
 elif [ "${#GENESIS_MODULES[@]}" -eq 0 ]; then
     [ -f "$SCRIPT_DIR/genesis-modules.conf" ] && [ -r "$SCRIPT_DIR/genesis-modules.conf" ] \
         || fail "public testnet genesis module configuration is unavailable"
-    while IFS= read -r module || [ -n "$module" ]; do
+    mapfile -t CONFIGURED_GENESIS_MODULES < "$SCRIPT_DIR/genesis-modules.conf"
+    [ "${#CONFIGURED_GENESIS_MODULES[@]}" -gt 0 ] \
+        || fail "public testnet genesis module configuration is empty"
+    for module in "${CONFIGURED_GENESIS_MODULES[@]}"; do
         enable_genesis_module "$module"
-    done < "$SCRIPT_DIR/genesis-modules.conf"
-    [ "${#GENESIS_MODULES[@]}" -eq 7 ] || fail "public testnet genesis requires seven configured modules"
+    done
+    [ "${#GENESIS_MODULES[@]}" -eq "${#CONFIGURED_GENESIS_MODULES[@]}" ] \
+        || fail "public testnet genesis requires every configured module"
 fi
 
 [ -n "$GENESIS_METADATA" ] || fail "--genesis-metadata is required: name the LXGB v2 metadata file, or the path where bootstrap writes it"

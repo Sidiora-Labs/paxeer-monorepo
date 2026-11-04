@@ -1,0 +1,1065 @@
+[audit.22.30.84]
+task = "22.30.84"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 85
+findings = 42
+docs_reviewed = 20
+upgrade_ready = false
+blocking = ["key-overwrite-loss", "transaction-copy-loses-fee-fields", "worker-drain-blocks-existing-jobs", "worker-startup-binding-stale", "worker-evaluator-grants-unwired", "worker-cancel-cross-customer-ack", "worker-old-generation-signing"]
+interface_coverage = "436 produced and 765 consumed memberships span 800 unique registry rows. Reviewed retained SDK consensus client/CLI, worker frames/config/routes, proof execution/occupancy and native AI-market/runtime consumers. Explicitly retired registry rows are historical declarations, not additional package members."
+requirements_reviewed = "22998.1, 22012.1, 22089.1, 22076.1, 22006.1, 21078.1, 8319.1, 85201.1, 7288.1, 8081.1, 8951.1, 9303.1, 9303.2, 9303.3, 9304.1, 9304.2, 9309.1, 9309.2, 9310.1, 9308.1, 9308.2, 9305.1, 9305.2, 9305.3, 9305.4, 9307.1, 18723.1, 18724.1, 18724.2, 181088.1, 18721.1, 18721.2, 181139.1, 84711.1"
+
+[file.001]
+path = "sdk/client/account_retriever.go"
+lines = 49
+verdict = "clean"
+note = "Read the whole file. Account and AccountRetriever interfaces retain address, account-number and sequence types used by the transaction factory."
+
+[file.002]
+path = "sdk/client/broadcast.go"
+lines = 144
+verdict = "clean"
+note = "Read the whole file. All broadcast modes, timeout handling and TxServiceBroadcast conversions preserve the distinction between CheckTx and committed DeliverTx responses."
+
+[file.003]
+path = "sdk/client/broadcast_test.go"
+lines = 64
+verdict = "clean"
+note = "Read the whole file. Broadcast success, failure and timeout assertions retain the actual producer response codes and transaction hash representation."
+
+[file.004]
+path = "sdk/client/cmd.go"
+lines = 302
+verdict = "clean"
+note = "Read the whole file. Command context setup, persistent flag precedence, signer selection and keyring creation agree with retained SDK interfaces; consensus endpoint configuration is distinct from public EVM RPC."
+
+[file.005]
+path = "sdk/client/cmd_test.go"
+lines = 112
+verdict = "clean"
+note = "Read the whole file. Flag and context fixtures exercise current CLI context values and preserve validation assertions."
+
+[file.006]
+path = "sdk/client/config/cmd.go"
+lines = 81
+verdict = "clean"
+note = "Read the whole file. Config command registration and lookup/update flow agree on supported key names and command errors."
+
+[file.007]
+path = "sdk/client/config/config.go"
+lines = 97
+verdict = "clean"
+note = "Read the whole file. Client defaults, fields and setters agree with retained consensus RPC callers; the default consensus endpoint is not a public router declaration."
+
+[file.008]
+path = "sdk/client/config/config_test.go"
+lines = 107
+verdict = "clean"
+note = "Read the whole file. Configuration fixtures agree with current simple default values; escaping and interrupted replacement gaps are recorded against toml.go."
+
+[file.009]
+path = "sdk/client/config/toml.go"
+lines = 96
+verdict = "issues"
+note = "Read the whole file. Unescaped TOML string interpolation and direct truncating configuration replacement do not preserve safe round trips or restart recovery."
+
+[file.010]
+path = "sdk/client/context.go"
+lines = 390
+verdict = "clean"
+note = "Read the whole file. All immutable context setters, codec/output branches, command I/O and node accessors preserve the declared Context field types."
+
+[file.011]
+path = "sdk/client/context_test.go"
+lines = 212
+verdict = "clean"
+note = "Read the whole file. Context setter and output tests agree with the current producer and public interface declarations."
+
+[file.012]
+path = "sdk/client/debug/main.go"
+lines = 131
+verdict = "issues"
+note = "Read the whole file. Address and public-key conversion paths agree with SDK types; raw byte conversion uses a signed-eight-bit parser despite advertising unsigned bytes."
+
+[file.013]
+path = "sdk/client/flags/flags.go"
+lines = 170
+verdict = "clean"
+note = "Read the whole file. Every flag constant, query/transaction registration, gas parser and default was reviewed; parser errors are meaningful but ignored by the factory."
+
+[file.014]
+path = "sdk/client/flags/flags_test.go"
+lines = 38
+verdict = "clean"
+note = "Read the whole file. Gas setting tests agree with literal and automatic producer values and retain malformed-value refusals."
+
+[file.015]
+path = "sdk/client/grpc/reflection/reflection.go"
+lines = 45
+verdict = "clean"
+note = "Read the whole file. Both reflection handlers use the registered interface names and implementation names and preserve InvalidArgument refusals."
+
+[file.016]
+path = "sdk/client/grpc/tmservice/service.go"
+lines = 222
+verdict = "clean"
+note = "Read the whole file. Block, validator, node-info, syncing and gateway registration paths agree with retained SDK protobuf and consensus response types."
+
+[file.017]
+path = "sdk/client/grpc/tmservice/service_test.go"
+lines = 259
+verdict = "clean"
+note = "Read the whole file. Service integration setup passes the current network fixture argument; response heights and types match handlers."
+
+[file.018]
+path = "sdk/client/grpc_query.go"
+lines = 119
+verdict = "issues"
+note = "Read the whole file. Broadcast and query bridging, height metadata and protobuf conversion were reviewed; malformed request validation can panic and cancellation is lost in the underlying query path."
+
+[file.019]
+path = "sdk/client/grpc_query_test.go"
+lines = 83
+verdict = "issues"
+note = "Read the whole file. The complete norace integration suite was reviewed; its network.DefaultConfig call omits the currently required testing argument."
+
+[file.020]
+path = "sdk/client/input/input.go"
+lines = 110
+verdict = "issues"
+note = "Read the whole file. Password, confirmation and buffered-line paths were reviewed; confirmation accepts unrecognized affirmative prefixes used by sensitive commands."
+
+[file.021]
+path = "sdk/client/input/input_test.go"
+lines = 57
+verdict = "clean"
+note = "Read the whole file. Buffered-line EOF and reader-error fixtures match readLineFromBuf and do not assert the unsafe confirmation-prefix behavior."
+
+[file.022]
+path = "sdk/client/keys/add.go"
+lines = 325
+verdict = "issues"
+note = "Read the whole file. Every generation, overwrite, mnemonic, multisig, public-key and hardware path was reviewed; failed replacement can remove the existing signing identity."
+
+[file.023]
+path = "sdk/client/keys/add_ledger_test.go"
+lines = 191
+verdict = "clean"
+note = "Read the whole file. Tagged hardware-key tests and metadata assertions match the device-backed producer; these do not establish preservation after a failed overwrite."
+
+[file.024]
+path = "sdk/client/keys/add_test.go"
+lines = 275
+verdict = "clean"
+note = "Read the whole file. Creation, recovery, dry-run and multisig cases use actual command outputs; failed replacement preservation is proposed against add.go."
+
+[file.025]
+path = "sdk/client/keys/codec.go"
+lines = 27
+verdict = "clean"
+note = "Read the whole file. KeysCdc initialization and crypto registration agree with key serialization consumers."
+
+[file.026]
+path = "sdk/client/keys/codec_test.go"
+lines = 97
+verdict = "clean"
+note = "Read the whole file. Key codec round-trip assertions preserve current public-key variants and decoded types."
+
+[file.027]
+path = "sdk/client/keys/delete.go"
+lines = 71
+verdict = "clean"
+note = "Read the whole file. Key lookup, force/confirmation branches and deletion errors agree with the keyring API; confirmation recognition is recorded against input.go."
+
+[file.028]
+path = "sdk/client/keys/delete_test.go"
+lines = 95
+verdict = "clean"
+note = "Read the whole file. Delete command scenarios and keyring assertions match current explicit deletion and refusal paths."
+
+[file.029]
+path = "sdk/client/keys/export.go"
+lines = 86
+verdict = "clean"
+note = "Read the whole file. Private/public export, password confirmation and output flow agree with keyring armor types; ordinary diagnostic output does not add private key material."
+
+[file.030]
+path = "sdk/client/keys/export_test.go"
+lines = 113
+verdict = "clean"
+note = "Read the whole file. Export command scenarios assert the armor and public-output shapes the current producer emits."
+
+[file.031]
+path = "sdk/client/keys/import.go"
+lines = 40
+verdict = "clean"
+note = "Read the whole file. Import file loading, keyring insertion and errors agree with accepted keyring armor and command argument types."
+
+[file.032]
+path = "sdk/client/keys/import_test.go"
+lines = 118
+verdict = "clean"
+note = "Read the whole file. Successful and malformed import fixtures preserve actual imported identity assertions."
+
+[file.033]
+path = "sdk/client/keys/list.go"
+lines = 46
+verdict = "clean"
+note = "Read the whole file. Name-only and structured list output consume current keyring Info and registered output codecs."
+
+[file.034]
+path = "sdk/client/keys/list_test.go"
+lines = 71
+verdict = "clean"
+note = "Read the whole file. Text, JSON and name-only expectations agree with the current key output producer."
+
+[file.035]
+path = "sdk/client/keys/mnemonic.go"
+lines = 75
+verdict = "clean"
+note = "Read the whole file. Entropy and mnemonic generation enforce the supported sizes before generation."
+
+[file.036]
+path = "sdk/client/keys/mnemonic_test.go"
+lines = 52
+verdict = "clean"
+note = "Read the whole file. Mnemonic validation assertions agree with the producer language and permitted entropy sizes."
+
+[file.037]
+path = "sdk/client/keys/parse.go"
+lines = 151
+verdict = "clean"
+note = "Read the whole file. Address parsing and raw byte output agree with retained SDK account and validator encodings."
+
+[file.038]
+path = "sdk/client/keys/parse_test.go"
+lines = 33
+verdict = "clean"
+note = "Read the whole file. Valid and invalid address command cases assert the SDK parser output and errors."
+
+[file.039]
+path = "sdk/client/keys/root.go"
+lines = 57
+verdict = "clean"
+note = "Read the whole file. Root registration, context defaults and crypto options have live child-command consumers."
+
+[file.040]
+path = "sdk/client/keys/root_test.go"
+lines = 15
+verdict = "clean"
+note = "Read the whole file. Root command setup and option assertions agree with configured keyring and crypto consumers."
+
+[file.041]
+path = "sdk/client/keys/show.go"
+lines = 197
+verdict = "issues"
+note = "Read the whole file. Named/address/multisig lookup and display prefixes were reviewed; Ledger GetPath failure is converted to command success."
+
+[file.042]
+path = "sdk/client/keys/show_test.go"
+lines = 216
+verdict = "clean"
+note = "Read the whole file. Ordinary display and multisig assertions match producer output; device error preservation is proposed against show.go."
+
+[file.043]
+path = "sdk/client/keys/types.go"
+lines = 55
+verdict = "clean"
+note = "Read the whole file. All key request structures and constructors agree on field names, password values and optional string-encoded account/index values."
+
+[file.044]
+path = "sdk/client/keys/types_test.go"
+lines = 29
+verdict = "clean"
+note = "Read the whole file. Request constructor assertions match the exact current type declarations."
+
+[file.045]
+path = "sdk/client/keys/utils.go"
+lines = 70
+verdict = "clean"
+note = "Read the whole file. All display helpers were reviewed; list and single-key paths both invoke current keyring output/EVM enrichment helpers and supported JSON/text codecs."
+
+[file.046]
+path = "sdk/client/query.go"
+lines = 166
+verdict = "issues"
+note = "Read the whole file. Account accessors, ABCI conversion, proof-path detection and error mapping were reviewed; proof verification and cancellation gaps are recorded."
+
+[file.047]
+path = "sdk/client/query_test.go"
+lines = 64
+verdict = "issues"
+note = "Read the whole file. Height-precedence fixtures were reviewed; the nominal proof request lacks the canonical leading slash and does not assert proof authentication."
+
+[file.048]
+path = "sdk/client/rest/rest.go"
+lines = 33
+verdict = "clean"
+note = "Read the whole file. Deprecation middleware and response headers remain retained SDK REST helpers and do not mount the removed public router."
+
+[file.049]
+path = "sdk/client/rpc/block.go"
+lines = 131
+verdict = "issues"
+note = "Read the whole file. CLI/REST block retrieval, height parsing and response encoding were reviewed; these are retained SDK consensus routes, not the retired public /rpc transport. Explicit negative heights silently select latest, and the verified-data claim lacks authentication."
+
+[file.050]
+path = "sdk/client/rpc/routes.go"
+lines = 17
+verdict = "clean"
+note = "Read the whole file. Block, validator and status handler registration has existing retained handler implementations."
+
+[file.051]
+path = "sdk/client/rpc/rpc_test.go"
+lines = 61
+verdict = "clean"
+note = "Read the whole file. Consensus RPC integration setup and block/status/validator expectations match current response types and the fixture API."
+
+[file.052]
+path = "sdk/client/rpc/status.go"
+lines = 138
+verdict = "clean"
+note = "Read the whole file. Status CLI/REST errors and serialization agree with the retained node status producer."
+
+[file.053]
+path = "sdk/client/rpc/validators.go"
+lines = 208
+verdict = "clean"
+note = "Read the whole file. Height parsing, validator retrieval, pagination and converted public-key shapes agree with retained consensus consumers."
+
+[file.054]
+path = "sdk/client/tendermint.go"
+lines = 27
+verdict = "clean"
+note = "Read the whole file. Complete Client interface and local/remote aliases agree with retained SDK consensus method signatures."
+
+[file.055]
+path = "sdk/client/test_helpers.go"
+lines = 83
+verdict = "clean"
+note = "Read the whole file. MockAccountRetriever return values and interface conformance agree with its test callers; it is not a live network authority path."
+
+[file.056]
+path = "sdk/client/tx/factory.go"
+lines = 362
+verdict = "issues"
+note = "Read the whole file. All setters, unsigned/simulation construction and validation were reviewed; malformed gas is ignored and fee parsing can panic."
+
+[file.057]
+path = "sdk/client/tx/legacy.go"
+lines = 66
+verdict = "issues"
+note = "Read the whole file. Every conversion and CopyTx assignment was reviewed; fee granter and gas estimate disappear despite being exposed by source and destination interfaces."
+
+[file.058]
+path = "sdk/client/tx/legacy_test.go"
+lines = 153
+verdict = "clean"
+note = "Read the whole file. Conversion fixtures and signature/message assertions match represented fields, but do not exercise nonempty sponsorship or gas-estimate preservation."
+
+[file.059]
+path = "sdk/client/tx/tx.go"
+lines = 434
+verdict = "issues"
+note = "Read the whole file. Generate, simulate, sign, multisig and broadcast paths were reviewed; gas adjustment is an unchecked truncating floating conversion."
+
+[file.060]
+path = "sdk/client/tx/tx_test.go"
+lines = 295
+verdict = "clean"
+note = "Read the whole file. Transaction construction and signing scenarios preserve existing fee, signature and response assertions; extreme gas adjustment coverage is proposed against tx.go."
+
+[file.061]
+path = "sdk/client/tx_config.go"
+lines = 48
+verdict = "clean"
+note = "Read the whole file. Complete TxConfig and TxBuilder declarations include fee-granter and gas-estimate setters, confirming the fields omitted by CopyTx can be preserved."
+
+[file.062]
+path = "sdk/client/utils.go"
+lines = 80
+verdict = "issues"
+note = "Read the whole file. Pagination and node construction were reviewed; index and PageRequest arithmetic can wrap before range checks."
+
+[file.063]
+path = "sdk/client/utils_test.go"
+lines = 77
+verdict = "clean"
+note = "Read the whole file. Pagination boundary/default fixtures agree for ordinary ranges; maximum-integer arithmetic is part of the utils.go repair proposal."
+
+[file.064]
+path = "services/agent/crates/layerx-proof/src/program.rs"
+lines = 959
+verdict = "clean"
+note = "Read all 959 lines of Programs receipt/terminal checks, occupancy payer derivation, attachment commitments, transfer authority, version gates and tests. It authenticates execution evidence without claiming committed-block finality; AuthorizedBatch terminology alone does not deploy a sequencer service."
+
+[file.065]
+path = "services/platform/Cargo.toml"
+lines = 72
+verdict = "clean"
+note = "Read every workspace member, inherited version, dependency and lint. Member entries are unique and resolve to manifests; layerx-paxeer-client is absent. No workspace build or advisory gate is inferred from reading the manifest."
+
+[file.066]
+path = "services/platform/hosted/paxai-worker/Cargo.toml"
+lines = 33
+verdict = "clean"
+note = "Read library/binary targets and dependencies. Worker and runner entry points exist, native AI-market dependency paths agree and the retired Paxeer client dependency is absent."
+
+[file.067]
+path = "services/platform/hosted/paxai-worker/src/auth.rs"
+lines = 1366
+verdict = "clean"
+note = "Read all PAXAIS1 encoding, strict payload decoding, signature/domain/version checks, admission, acknowledgment, status and metadata authentication. Frozen admission identities are explicit; adapter grant and lifecycle findings belong to main.rs."
+
+[file.068]
+path = "services/platform/hosted/paxai-worker/src/bin/paxai-runner.rs"
+lines = 731
+verdict = "clean"
+note = "Read all describe/dispatch/lookup/cancel paths, model configuration, journal transitions and measured outputs. PAXAI_RUNNER_MODELS, PAXAI_RUNNER_STATE and PAXRUN1 frames agree with the process consumer."
+
+[file.069]
+path = "services/platform/hosted/paxai-worker/src/discovery.rs"
+lines = 800
+verdict = "issues"
+note = "Read all finalized authority, membership gates, pinned TLS discovery and response parsing; target validation, complete deadlines and response framing gaps are recorded."
+
+[file.070]
+path = "services/platform/hosted/paxai-worker/src/jobs.rs"
+lines = 1166
+verdict = "issues"
+note = "Read all admission, input binding, capacity, fencing, reconciliation, late-result retention, query/cancel authorization and purge; one SigningKey cannot settle unfinished admissions after actual delegate key rotation."
+
+[file.071]
+path = "services/platform/hosted/paxai-worker/src/lib.rs"
+lines = 9
+verdict = "clean"
+note = "All exported auth, discovery, jobs, membership, metadata, metrics, runner and store modules are present and reachable library surfaces."
+
+[file.072]
+path = "services/platform/hosted/paxai-worker/src/main.rs"
+lines = 1130
+verdict = "issues"
+note = "Read all startup, 21 mandatory config fields, TLS deadlines, routes, authority/sponsored adapters and durable maintenance; production lifecycle, authorization, framing and resource bounds have recorded gaps."
+
+[file.073]
+path = "services/platform/hosted/paxai-worker/src/membership.rs"
+lines = 646
+verdict = "clean"
+note = "Read all PXMEMB01 decoding, atomic persistence, observations, retained generations/entitlements, pending requests and gates. Drain explicitly permits admitted_work while refusing new_work."
+
+[file.074]
+path = "services/platform/hosted/paxai-worker/src/metadata.rs"
+lines = 278
+verdict = "clean"
+note = "Read all canonical manifest/model/capability bounds and endpoint/SPKI types. The shared decode_manifest enforces transport/min/max API versions at one before projection, so those constants are not silently discarded."
+
+[file.075]
+path = "services/platform/hosted/paxai-worker/src/metrics.rs"
+lines = 43
+verdict = "clean"
+note = "Atomic request counters and Prometheus rendering agree with paxai_worker_up and status-labelled totals exposed by the real handler."
+
+[file.076]
+path = "services/platform/hosted/paxai-worker/src/runner.rs"
+lines = 808
+verdict = "issues"
+note = "Read every PAXRUN1 frame, bounded description, dispatch/report measurement and process control branch; pipe joins can outlive the process deadline."
+
+[file.077]
+path = "services/platform/hosted/paxai-worker/src/store.rs"
+lines = 1018
+verdict = "clean"
+note = "Read all durable records, indexes, locks, sequence allocation, atomic job commits, results, markers and tombstones. Request-index and active-marker creation before job rename is deliberate crash-safe ordering, not an index-after-commit defect."
+
+[file.078]
+path = "services/platform/hosted/paxai-worker/tests/job_admission.rs"
+lines = 1630
+verdict = "clean"
+note = "Read all real codec, guest-state, JobService and filesystem admission cases, including identity, input, signatures and replay refusals; adapter gaps are recorded separately."
+
+[file.079]
+path = "services/platform/hosted/paxai-worker/tests/job_recovery.rs"
+lines = 2466
+verdict = "clean"
+note = "Read every restart, fencing, ambiguous execution, duplicate-result, authorization, retention and late-result case; reopening retains store evidence but does not prove binary delegate seed rotation."
+
+[file.080]
+path = "services/platform/hosted/paxai-worker/tests/membership_recovery.rs"
+lines = 2035
+verdict = "clean"
+note = "Read all finalized roster, generation, revocation, drain, heartbeat, replay and reopen scenarios. Explicit admitted_work assertions during drain expose the main adapter gate disagreement."
+
+[file.081]
+path = "services/platform/hosted/paxai-worker/tests/metrics_endpoint.rs"
+lines = 31
+verdict = "clean"
+note = "Read real-listener metrics, status counters and connection/request bounds tests; metric names and refusal behavior agree with listener producers."
+
+[file.082]
+path = "services/platform/hosted/paxai-worker/tests/real_workload.rs"
+lines = 3047
+verdict = "issues"
+note = "Read all inference/embedding, commit, failure and restart fixtures; binary status is real but job operations bypass its handlers and maintenance adapters, leaving the transport path unproven."
+
+[file.083]
+path = "services/platform/hosted/paxai-worker/tests/retired_client_modules.rs"
+lines = 61
+verdict = "clean"
+note = "Read all retirement assertions and checked paths; worker production imports use retained client namespaces without restoring deleted modules."
+
+[file.084]
+path = "services/platform/hosted/paxai-worker/tests/task_chain_handoff.rs"
+lines = 1313
+verdict = "clean"
+note = "Read task acceptance/result handoff, expiry, pending request and ABI/adapter assertions; native chain calls use Programs precompile ABI 5 rather than retired kernel activity submission."
+
+[file.085]
+path = "services/platform/hosted/paxai-worker/tests/transport_identity.rs"
+lines = 2540
+verdict = "clean"
+note = "Read all TLS/SPKI, endpoint, signed-status, route/domain/signature and HTTP refusal tests; valid envelopes agree with auth.rs, while malformed targets/framing and overall client deadline cases are proposed against producers."
+
+[finding.key-overwrite-loss]
+file = "sdk/client/keys/add.go"
+line = 137
+class = "runtime-risk"
+severity = "high"
+observed = "runAddCmd calls kb.Delete(name) before validating the replacement multisig threshold and members, public key, HD path or recovery mnemonic. A later validation, storage or device error leaves the original named signing key deleted."
+expected = "Replacing a signing identity must preserve the existing durable key on every unsuccessful replacement, including an invalid recovery phrase or unavailable Ledger device."
+proposal = "In sdk/client/keys/add.go, validate and stage the replacement before modifying the original; use an atomic keyring replacement and persistent-backend tests that reopen after failed replacement and recover the original signing identity."
+owner_domain = 15
+interface = "15.cli-client-keys-add-j76"
+
+[finding.confirmation-prefix]
+file = "sdk/client/input/input.go"
+line = 59
+class = "security"
+severity = "medium"
+observed = "GetConfirmation accepts every nonempty answer beginning with y after lowercasing; an unrecognized answer such as yesterday authorizes callers that delete, overwrite or export a key."
+expected = "The documented confirmation language accepts y and yes case-insensitively and returns false for unrecognized input; sensitive key actions require that exact affirmative choice."
+proposal = "In sdk/client/input/input.go, compare the entire normalized response with y or yes; extend input_test.go with affirmative variants, prefix lookalikes, blank input and EOF cases."
+owner_domain = 15
+interface = "15.go-client-input-get-confirmation-j76"
+
+[finding.raw-byte-signed-range]
+file = "sdk/client/debug/main.go"
+line = 121
+class = "runtime-risk"
+severity = "medium"
+observed = "RawBytesCmd advertises byte arrays containing 255 but parses each element with strconv.ParseInt at bitSize 8. Values 128 through 255 fail, while a negative value such as -1 is accepted and cast to byte 255."
+expected = "The raw-byte conversion command must accept unsigned bytes from 0 through 255 and refuse negative or out-of-range elements without changing their meaning."
+proposal = "In sdk/client/debug/main.go, parse unsigned eight-bit values and add command cases for 0, 127, 128, 255, -1 and 256, asserting refusals and the emitted hexadecimal bytes."
+owner_domain = 15
+interface = "15.cli-client-debug-raw-bytes-j76"
+
+[finding.config-string-roundtrip]
+file = "sdk/client/config/toml.go"
+line = 23
+class = "config-drift"
+severity = "medium"
+observed = "defaultConfigTemplate inserts ChainID, Node and other strings directly inside TOML quotes through text/template. Quotes, backslashes or newlines can corrupt the next read or introduce other TOML keys."
+expected = "A value accepted by SetClientConfig must round-trip through GetClientConfig unchanged or be rejected before replacing the existing usable configuration."
+proposal = "In sdk/client/config/toml.go, use canonical TOML serialization or escaping, validate before writing and cover quotes, backslashes and newline-containing values with write/read round-trip tests."
+owner_domain = 15
+interface = "15.go-client-config-set-client-config-j76"
+
+[finding.config-interrupted-write]
+file = "sdk/client/config/toml.go"
+line = 72
+class = "restart-recovery"
+severity = "medium"
+observed = "writeConfigToFile overwrites client.toml directly with os.WriteFile. A short write, full disk or process interruption after truncation can destroy the previously usable node and keyring configuration."
+expected = "A failed configuration update must leave either the complete old configuration or the complete new configuration available on the next CLI invocation."
+proposal = "In sdk/client/config/toml.go, write a mode-0600 temporary sibling, sync contents, atomically rename it and sync the directory; test an interrupted or refused replacement without losing the prior configuration."
+owner_domain = 15
+
+[finding.query-cancellation-lost]
+file = "sdk/client/query.go"
+line = 93
+class = "runtime-risk"
+severity = "medium"
+observed = "Context.Invoke receives grpcCtx, but its query branch calls QueryABCI and queryABCI invokes ABCIQueryWithOptions with context.Background. Caller cancellation and deadlines never reach the underlying node query."
+expected = "A state query made through the gRPC ClientConn adapter must honor the caller deadline and cancellation throughout its underlying node request."
+proposal = "Thread a context-aware query path through sdk/client/grpc_query.go and sdk/client/query.go, preserving convenience APIs where needed; assert that a cancelled Invoke cancels the underlying node request."
+owner_domain = 15
+interface = "15.go-client-context-j76"
+
+[finding.query-proof-unverified]
+file = "sdk/client/query.go"
+line = 102
+class = "security"
+severity = "medium"
+observed = "The canonical store/key branch with Prove=true returns result.Response unchanged, exactly like the trusted-node branch. No proof, response root or trusted header is checked before returning the value."
+expected = "A caller relying on proof verification must receive a value authenticated against independently trusted committed state or an explicit refusal that verification is unavailable."
+proposal = "In sdk/client/query.go, verify store proofs against a trusted header at the response height or explicitly refuse the unimplemented verification mode; add missing, forged and wrong-height proof refusal cases."
+owner_domain = 15
+
+[finding.query-proof-test-path]
+file = "sdk/client/query_test.go"
+line = 52
+class = "test-gap"
+severity = "medium"
+observed = "TestQueryABCI constructs store/%s/key without the leading slash required by isQueryStoreWithProof. It sets Prove but checks only height, leaving the proof-verification branch unexercised."
+expected = "A proof-query test must use the path generated by the real store-query producer and authenticate its returned value, including refusal of altered evidence."
+proposal = "In sdk/client/query_test.go, use /store/<name>/key and assert an authentic node proof plus tampered or missing proof refusal after implementing the verification path."
+owner_domain = 15
+
+[finding.invoke-nil-panic]
+file = "sdk/client/grpc_query.go"
+line = 33
+class = "runtime-risk"
+severity = "medium"
+observed = "Invoke calls reflect.ValueOf(req).IsNil without checking validity or kind. A nil interface or a non-nilable argument such as an integer panics instead of returning the intended invalid-request error."
+expected = "The public ClientConn adapter must reject malformed request shapes with an error and must not panic while validating caller input."
+proposal = "In sdk/client/grpc_query.go, handle a nil interface first and validate the message type or kind before IsNil; cover nil, typed nil, a wrong-kind value and a valid protobuf request."
+owner_domain = 15
+interface = "15.go-client-context-j76"
+
+[finding.grpc-suite-constructor]
+file = "sdk/client/grpc_query_test.go"
+line = 31
+class = "test-gap"
+severity = "medium"
+observed = "The norace integration suite calls network.DefaultConfig() without an argument, while sdk/testutil/network/network.go:96 declares DefaultConfig(t *testing.T). Neighboring RPC suites pass s.T(). This is a static call-signature disagreement."
+expected = "The gRPC integration target must instantiate the current network fixture API so its existing query assertions can execute with the norace build tag."
+proposal = "In sdk/client/grpc_query_test.go, pass s.T() to network.DefaultConfig and qualify the focused norace integration target in the owning SDK repair task; retain every existing assertion."
+owner_domain = 15
+
+[finding.pagination-overflow]
+file = "sdk/client/utils.go"
+line = 33
+class = "runtime-risk"
+severity = "medium"
+observed = "Paginate multiplies (page-1)*limit and adds limit in int without overflow checks. ReadPageRequest similarly multiplies uint64 page and limit. Large numeric inputs can produce negative slice indices or a silently wrapped offset."
+expected = "Pagination must reject unrepresentable ranges and never return a wrapped index interval or request a different page through arithmetic overflow."
+proposal = "In sdk/client/utils.go, check multiplication and addition bounds before constructing ranges and offsets; cover maximum integers, overflow products, zero defaults and final partial pages."
+owner_domain = 15
+interface = "15.go-client-paginate-j76"
+
+[finding.factory-invalid-flags]
+file = "sdk/client/tx/factory.go"
+line = 60
+class = "runtime-risk"
+severity = "medium"
+observed = "NewFactoryCLI discards ParseGasSetting errors, turning an invalid explicit gas string into a zero-valued setting. User fees and gas prices are sent to WithFees and WithGasPrices, which panic on parse errors."
+expected = "Malformed transaction flags must return actionable command errors before signing or submission, without silently substituting gas or panicking."
+proposal = "Make CLI factory creation fallible in sdk/client/tx/factory.go and propagate errors through transaction commands; validate gas, fees and prices before creating a Factory and cover each malformed flag."
+owner_domain = 15
+interface = "15.go-client-tx-new-factory-cli-j76"
+
+[finding.gas-adjustment-bounds]
+file = "sdk/client/tx/tx.go"
+line = 261
+class = "runtime-risk"
+severity = "medium"
+observed = "CalculateGas multiplies GasUsed by a float64 adjustment and casts directly to uint64. It rounds down requested headroom and does not reject negative, nonfinite or overflowing adjustment products."
+expected = "Automatic gas estimation must return a representable unsigned limit with the requested headroom and report invalid factors or an overflowing result."
+proposal = "In sdk/client/tx/tx.go, validate the factor and product and round upward with checked conversion; cover fractional results, negative/nonfinite factors and products above uint64 range."
+owner_domain = 15
+interface = "15.go-client-tx-calculate-gas-j76"
+
+[finding.transaction-copy-loses-fee-fields]
+file = "sdk/client/tx/legacy.go"
+line = 60
+class = "interface-mismatch"
+severity = "high"
+observed = "CopyTx copies fees and gas limit but omits FeeGranter() and GetGasEstimate(), although signing.Tx exposes both and client.TxBuilder can set them. Even protobuf-to-protobuf copying drops sponsorship and the gas estimate."
+expected = "The transaction-copy interface must preserve supported fee authorization and gas fields; a target unable to represent sponsorship must refuse rather than silently change fee semantics."
+proposal = "In sdk/client/tx/legacy.go, copy gas estimate and fee granter when representable and reject unsupported nonempty fee-granter conversion to StdTx; add protobuf-to-protobuf and unsupported-format cases in legacy_test.go."
+owner_domain = 15
+interface = "15.go-client-tx-copy-tx-j76"
+
+[finding.ledger-show-false-success]
+file = "sdk/client/keys/show.go"
+line = 147
+class = "runtime-risk"
+severity = "medium"
+observed = "The --device branch returns nil when info.GetPath fails. The host address was already printed, so the command exits successfully without displaying or verifying that address on the Ledger device."
+expected = "Requested device confirmation must either display the address on the device or return a visible error; host-side address output is insufficient."
+proposal = "In sdk/client/keys/show.go, propagate GetPath errors and add a Ledger-info failure case requiring a failing command result and no false device-confirmation success."
+owner_domain = 15
+interface = "15.cli-client-keys-show-j76"
+
+[finding.worker-drain-blocks-existing-jobs]
+file = "services/platform/hosted/paxai-worker/src/main.rs"
+line = 370
+class = "interface-mismatch"
+severity = "high"
+observed = "Service::job obtains membership.new_work before dispatching Submit, Query or Cancel. Draining members cannot retrieve/cancel admitted jobs or replay saved acknowledgments. maintenance_tick also calls new_work before claiming an already accepted task at line 888."
+expected = "Membership distinguishes new_work from admitted_work: drain must refuse new admissions while preserving authorized retrieval, cancellation, replay recovery and execution of already accepted work."
+proposal = "In services/platform/hosted/paxai-worker/src/main.rs, select the gate by operation and durable job state, using admitted_work for existing work and new_work only for new admissions; exercise drain, redelivery and restart through TLS."
+owner_domain = 8
+interface = "8.http-paxai-worker-any-paxai-v1"
+
+[finding.worker-startup-binding-stale]
+file = "services/platform/hosted/paxai-worker/src/main.rs"
+line = 361
+class = "interface-mismatch"
+severity = "high"
+observed = "Service::job verifies submits against immutable startup self.binding before the refreshed authority. Valid changed metadata revisions/generations fail that first check; status at line 344 also signs the startup binding after runtime authority changes."
+expected = "A current finalized binding must accept its matching requests and produce matching signed status, while preserving frozen identity for existing admissions."
+proposal = "In services/platform/hosted/paxai-worker/src/main.rs, validate submits against one current finalized binding and derive status from that observation; coordinate signing-key changes and retain old admission bindings; test metadata refresh and rotation through HTTP."
+owner_domain = 8
+interface = "8.fmt-paxai-worker-service-auth"
+
+[finding.worker-evaluator-grants-unwired]
+file = "services/platform/hosted/paxai-worker/src/main.rs"
+line = 416
+class = "wiring-gap"
+severity = "high"
+observed = "The HTTP Query branch always passes an empty granted-principals slice to JobService::query. Admission::authorize admits an expressly granted evaluator and work binds evaluation_access, but no grant reaches the live query consumer."
+expected = "An expressly authorized evaluator must retrieve the admitted result through the authenticated worker transport while unrelated principals remain denied."
+proposal = "In services/platform/hosted/paxai-worker/src/main.rs, resolve verified evaluator access for the admitted job and pass only authorized principals to query; exercise real HTTP customer, granted-evaluator and outsider requests, including restart."
+owner_domain = 8
+interface = "8.http-paxai-worker-any-paxai-v1"
+
+[finding.worker-cancel-cross-customer-ack]
+file = "services/platform/hosted/paxai-worker/src/main.rs"
+line = 424
+class = "interface-mismatch"
+severity = "high"
+observed = "After JobService::cancel authorizes one customer job, Service::job performs by_request(market, original) again and returns the first acknowledgment without customer filtering. JobKey includes customer, so distinct customers may share that request id."
+expected = "A cancellation response must identify exactly the authorized cancelled job and must never return another customer admission acknowledgment."
+proposal = "In services/platform/hosted/paxai-worker/src/main.rs and src/jobs.rs, return the authorized JobKey or acknowledgment from cancel and use that exact record; test two customers sharing an original request id with distinct signed admissions."
+owner_domain = 8
+interface = "8.http-paxai-worker-any-paxai-v1"
+
+[finding.worker-adapter-timeout-incomplete]
+file = "services/platform/hosted/paxai-worker/src/main.rs"
+line = 556
+class = "runtime-risk"
+severity = "medium"
+observed = "adapter bounds direct-child waiting to ten seconds but then joins stdin/stdout threads without deadlines. A descendant retaining a pipe can block forever after the direct child exits or is killed, stalling authority refresh or maintenance."
+expected = "The authority-reader and sponsored-sender deadline must bound complete process and pipe I/O so the worker can recover from a hung adapter."
+proposal = "In services/platform/hosted/paxai-worker/src/main.rs, enforce one deadline for process and pipe completion, clean up the process group and cancel I/O on expiry; test a child that exits while a descendant retains stdout."
+owner_domain = 8
+
+[finding.worker-runner-timeout-incomplete]
+file = "services/platform/hosted/paxai-worker/src/runner.rs"
+line = 651
+class = "runtime-risk"
+severity = "medium"
+observed = "ProcessRunner::invoke stops its timeout loop when the direct child exits, then joins pipe threads without bounds. A descendant retaining stdout can hang dispatch/reconciliation indefinitely; timeout branches detach pipe threads."
+expected = "PAXRUN1 process calls must return within their complete invocation deadline, preserve conservative Ambiguous semantics and bound resources retained by failed calls."
+proposal = "In services/platform/hosted/paxai-worker/src/runner.rs, bound pipe completion by the same deadline and clean up process groups and I/O workers; test retained pipes on normal child exit and timeout without retrying ambiguous execution unsafely."
+owner_domain = 8
+interface = "8.fmt-paxai-worker-runner"
+
+[finding.worker-retention-unbounded]
+file = "services/platform/hosted/paxai-worker/src/main.rs"
+line = 499
+class = "runtime-risk"
+severity = "medium"
+observed = "chain-jobs.json is repeatedly loaded/rewritten as a vector that only grows, and expired-attempts.json only gains entries. track runs before complete input/admission validation. Production maintenance never invokes the available job retention purge."
+expected = "A long-running worker must bound tracking and retained evidence while preserving unresolved attempts, valid replay protection and promised customer result retention."
+proposal = "In services/platform/hosted/paxai-worker/src/main.rs, track only durable admissions and apply indexed retention to settled jobs and expired fences; wire safe JobService purge and prove unresolved jobs survive cleanup and reopen."
+owner_domain = 8
+
+[finding.worker-old-generation-signing]
+file = "services/platform/hosted/paxai-worker/src/jobs.rs"
+line = 864
+class = "restart-recovery"
+severity = "high"
+observed = "JobService stores only one SigningKey and terminal signs with self.key. sign_result requires the original admission.delegate, so reopening with the rotated delegate seed cannot finish/cancel an unfinished old-generation job: it returns BadSignature."
+expected = "Supported delegate rotation must preserve recovery and settlement of already admitted jobs under their original signing identity without falsely attributing old evidence to the new key."
+proposal = "In services/platform/hosted/paxai-worker/src/jobs.rs and src/main.rs, retain protected signing keys by admitted generation until jobs settle, or define and enforce completion before rotation; test actual seed rotation, process restart and old-job completion."
+owner_domain = 8
+interface = "8.fmt-paxai-worker-service-auth"
+
+[finding.worker-live-path-test-gap]
+file = "services/platform/hosted/paxai-worker/tests/real_workload.rs"
+line = 1752
+class = "test-gap"
+severity = "medium"
+observed = "serve starts the TLS binary with authority-reader and sponsored-sender paths it never creates. Binary status is verified, but end_to_end uses a separate JobService/store and direct chain fixture steps; job operations bypass Service::job and maintenance_tick."
+expected = "The real producer, TLS transport, worker handlers, finalized observation, sponsored submission and restart must operate on the same admitted job and durable evidence."
+proposal = "In services/platform/hosted/paxai-worker/tests/real_workload.rs, provision real authority/sender adapters and inputs, submit/query/cancel through the listener and observe binary dispatch and chain commit; kill and reopen the same store before retrieval."
+owner_domain = 8
+interface = "8.http-paxai-worker-any-paxai-v1"
+
+[finding.worker-request-target-injection]
+file = "services/platform/hosted/paxai-worker/src/discovery.rs"
+line = 707
+class = "security"
+severity = "medium"
+observed = "EndpointClient::post checks only a /paxai/v1/ prefix before interpolating the entire path into an HTTP request line. Spaces and CRLF after that prefix are accepted and can alter framing or inject headers."
+expected = "A canonical worker request target must name the intended route without injecting HTTP syntax into the authenticated pinned connection."
+proposal = "In services/platform/hosted/paxai-worker/src/discovery.rs, accept exact declared route paths or reject whitespace, controls and noncanonical targets before connecting; assert malformed targets send no bytes."
+owner_domain = 8
+interface = "8.http-paxai-worker-any-paxai-v1"
+
+[finding.worker-client-total-deadline]
+file = "services/platform/hosted/paxai-worker/src/discovery.rs"
+line = 761
+class = "runtime-risk"
+severity = "medium"
+observed = "EndpointClient has per-operation socket timeouts, but read_response consumes one header byte per read. A peer trickling each byte before expiry can greatly exceed the configured request timeout; TLS handshake loops also lack an overall deadline."
+expected = "A worker discovery/job request timeout must bound the complete handshake, write and response operation even when the peer repeatedly makes partial progress."
+proposal = "In services/platform/hosted/paxai-worker/src/discovery.rs, use an absolute deadline with remaining-time socket settings for handshake and parsing, matching the listener approach; test a slow peer that keeps individual reads successful."
+owner_domain = 8
+interface = "8.http-paxai-worker-any-paxai-v1"
+
+[finding.worker-client-framing]
+file = "services/platform/hosted/paxai-worker/src/discovery.rs"
+line = 780
+class = "security"
+severity = "medium"
+observed = "read_response overwrites earlier Content-Length headers, ignores Transfer-Encoding and treats a missing length as an empty body. Ambiguous or unsupported HTTP framing can be accepted instead of rejected as Malformed."
+expected = "The signed worker transport must read one bounded canonical response and refuse conflicting lengths or unsupported framing before interpreting service evidence."
+proposal = "In services/platform/hosted/paxai-worker/src/discovery.rs, require one Content-Length and no unsupported Transfer-Encoding, validate the entire status line and cover duplicate lengths, chunked framing, absent length and truncated bodies."
+owner_domain = 8
+interface = "8.http-paxai-worker-any-paxai-v1"
+
+[finding.worker-server-framing]
+file = "services/platform/hosted/paxai-worker/src/main.rs"
+line = 974
+class = "security"
+severity = "medium"
+observed = "read_request uses last-header-wins Content-Length parsing, ignores Transfer-Encoding and does not reject extra request-line tokens. An upstream intermediary can consequently interpret a different body boundary from the worker."
+expected = "The worker listener must require one canonical HTTP/1.1 request shape and bounded content length before decoding any signed envelope."
+proposal = "In services/platform/hosted/paxai-worker/src/main.rs, reject duplicate lengths, unsupported Transfer-Encoding and extra request-line tokens; exercise conflicting framing and a valid signed request through the TLS listener."
+owner_domain = 8
+interface = "8.http-paxai-worker-any-paxai-v1"
+
+[finding.worker-config-contract-incomplete]
+file = "spec/layerx-merge/contracts/platform-hosted.md"
+line = 2659
+class = "doc-drift"
+severity = "medium"
+observed = "The worker config table and registry inventory list ten keys, but Config requires twenty-one with deny_unknown_fields. Mandatory state/input directories, runner, authority_reader, sponsored_sender, chain_config, capabilities, access_declaration, response_capacity, budget and fee_limit are omitted."
+expected = "Operators must be able to construct the complete accepted worker configuration and understand adapter shapes, durable paths, ABI budgets and key lifecycle from the declared contract."
+proposal = "Update the owning source for spec/layerx-merge/contracts/platform-hosted.md and registry rows with all Config fields and process-adapter schemas, including a complete deployable example checked against Config."
+owner_domain = 8
+interface = "8.cli-paxai-worker-main-rs-config"
+
+[finding.x402-retired-transport]
+file = "docs/site/docs/interop/x402.md"
+line = 90
+class = "doc-drift"
+severity = "medium"
+observed = "The public x402 flow uses gateway POST /rpc, lx_sendActivity, lx_getActivityStatus and guarantor checkpoint certificates for finalised payments. The later retry narrative repeats the retired submission path."
+expected = "The merged network serves node RPC at the root, submits EVM transactions and finalizes receipts when their block commits; hosted px_ methods follow the gateway contract."
+proposal = "Rewrite docs/site/docs/interop/x402.md submission, same-key uncertainty recovery and finality sections against root node RPC and current payment/receipt producers; replace the lx_ inventory with the correct surface contracts."
+owner_domain = 11
+
+[finding.x402-wiki-retired-transport]
+file = "docs/wiki/X402Transport.md"
+line = 91
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki copy repeats POST /rpc and lx_sendActivity with checkpoint/guarantor finality, directing integrators to removed transport and obsolete evidence requirements."
+expected = "Wiki and site must agree on root node transport and committed-block finality for the one Paxeer network, with hosted methods explicitly assigned to the gateway."
+proposal = "Rewrite docs/wiki/X402Transport.md with docs/site/docs/interop/x402.md and maintain their shared transport/finality instructions from a single source to prevent duplicate guides drifting."
+owner_domain = 11
+
+[finding.quickstart-premerge-runbook]
+file = "docs/site/docs/overview/quickstart.md"
+line = 167
+class = "doc-drift"
+severity = "medium"
+observed = "The guide prescribes POST /rpc, GET /rpc/ws, lx_sendActivity and lx_getReceipt, lists guarantor/checkpoint bootstrap and router funding, and sends later EVM transactions to /rpc."
+expected = "First deployment and payment must use chain 125 at root node RPC, current precompiles and committed receipts without bringing up a router or checkpoint-finality service."
+proposal = "Rewrite docs/site/docs/overview/quickstart.md bootstrap, endpoints, funding, payment, CLI and agent examples as one merged-network walkthrough; keep only current precompile configuration and link gateway-only methods to their own contract."
+owner_domain = 8
+
+[finding.payments-retired-client-flow]
+file = "docs/site/docs/overview/payments.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The guide calls the public endpoint a router and sets RPC_URL to https://api-mainnet-beta.paxeer.network/rpc. It describes lx_ account/activity methods, checkpoint_context_digest and checkpoint watches as current client interfaces."
+expected = "Payment clients must use root node RPC and current EVM transaction/receipt contracts with block-commit finality; hosted methods must agree with the gateway contract."
+proposal = "Rewrite docs/site/docs/overview/payments.md commands and response examples against current wallet/payment producers, root RPC and transaction-hash recovery; remove obsolete activity/checkpoint fields from the live recipe."
+owner_domain = 8
+
+[finding.receipts-checkpoint-finality]
+file = "docs/site/docs/concepts/receipts.md"
+line = 23
+class = "doc-drift"
+severity = "medium"
+observed = "Receipt lifecycle instructions say a covering checkpoint is accepted on Paxeer and augments the receipt with checkpoint_id and a guarantor certificate, presenting a separate settlement stage as final evidence."
+expected = "A merged-network receipt is final when its block commits; receipt verification must not infer block finality from separate guarantor certificates or settlement domains."
+proposal = "Rewrite docs/site/docs/concepts/receipts.md lifecycle and evidence levels around transaction inclusion, trusted receipt keys and header/commit verification, matching the proof API and its explicit finality limits."
+owner_domain = 9
+
+[finding.boundary-retired-bootstrap]
+file = "docs/site/docs/concepts/paxeer-boundary.md"
+line = 119
+class = "doc-drift"
+severity = "medium"
+observed = "The settlement-suite section describes GuarantorBond, CheckpointRegistry, challenge contracts and deploy-contracts.sh bootstrap as live setup; other sections cite the removed human PaxeerClient boundary."
+expected = "The merged chain runs kernel-backed precompiles in committed blocks; retained hosted boundary duties cannot require retired checkpoint settlement contracts or deleted client crates."
+proposal = "Rewrite docs/site/docs/concepts/paxeer-boundary.md around the retained EVM boundary and current deployment paths; remove obsolete suite bootstrap and client references and explain native block finality."
+owner_domain = 8
+
+[finding.beta-control-retired-funding]
+file = "docs/site/docs/operators/beta-control.md"
+line = 295
+class = "doc-drift"
+severity = "medium"
+observed = "The runbook opens with custody credit submitted to a router and later describes treasury sends through LNI followed by a receipt, instructing operators to use removed transport components."
+expected = "Funding and treasury actions must use supported merged-network submission and recover a committed receipt on chain 125 without router or LNI dependencies."
+proposal = "Rewrite docs/site/docs/operators/beta-control.md funding and treasury sections with current private funding controls, EVM submission at root node RPC and transaction recovery, retaining authorization and audit requirements."
+owner_domain = 8
+
+[finding.agent-running-retired-rpc]
+file = "docs/site/docs/agents/running.md"
+line = 512
+class = "doc-drift"
+severity = "medium"
+observed = "Program execution sends eth_sendRawTransaction to /rpc. verification_defaults lists settlement-anchored/checkpoint-finalised policies and the tool catalogue still includes checkpoint and availability operations."
+expected = "Agents must use root node RPC, expose retained operations and distinguish receipt verification from committed-block finality without removed settlement-domain evidence."
+proposal = "Rewrite docs/site/docs/agents/running.md execution transport, policy defaults, trust setup and tools against current agent exports; remove retired operations and demonstrate original-transaction recovery."
+owner_domain = 9
+
+[finding.faucet-retired-gateway-contract]
+file = "docs/site/docs/platform/faucet.md"
+line = 23
+class = "doc-drift"
+severity = "medium"
+observed = "The faucet guide describes lx_requestFunds as the served gateway method and custody credit submitted to a router as the funding model, applying those claims to CLI and SDK behavior."
+expected = "Hosted method names must match services/platform/hosted/gateway/openrpc.json and remain distinct from node namespaces; the merged system has no router funding endpoint."
+proposal = "Rewrite docs/site/docs/platform/faucet.md around the current hosted claim contract, supported funding mechanism and typed refusals; update CLI/SDK examples together and remove router and lx_ instructions."
+owner_domain = 8
+
+[finding.cli-retired-endpoint]
+file = "docs/site/docs/platform/cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The CLI guide requires --rpc to end in /rpc, repeats /rpc submission for wallet/program transactions and presents lx_requestFunds and lx_ queries as the current public surface."
+expected = "CLI endpoint instructions must use root node RPC for merged transactions and current hosted contracts for gateway methods without requiring a retired /rpc suffix."
+proposal = "Rewrite docs/site/docs/platform/cli.md endpoint validation, examples and methods against current CLI/gateway producers; document root node submission and recovery of the same transaction after uncertainty."
+owner_domain = 8
+
+[finding.cli-command-inventory-contradiction]
+file = "docs/site/docs/platform/cli.md"
+line = 106
+class = "doc-drift"
+severity = "medium"
+observed = "The guide first lists wallet, token and faucet commands as implemented with citations, then calls overlapping groups unimplemented and gives future command tables. Operators cannot determine the supported command set."
+expected = "The command reference needs one authoritative current inventory of commands, arguments and errors with proposed features clearly distinguished and no contradictory implementation claims."
+proposal = "Reconcile implemented and proposed sections in docs/site/docs/platform/cli.md against tools/platform/cli/src/main.rs and modules; remove duplicate contradictory entries and keep current flags, refusals and examples together."
+owner_domain = 8
+
+[doc.01]
+path = "docs/site/docs/interop/x402.md"
+status = "stale"
+notes = "Read the complete payment, retry, receipt and verification guide. Lines 90-109 and 175 prescribe retired /rpc, lx_ activity methods and checkpoint finality; see x402-retired-transport."
+
+[doc.02]
+path = "docs/wiki/X402Transport.md"
+status = "stale"
+notes = "Read the complete mirrored guide, using identical-region comparison for shared text and reading wiki-specific differences. Lines 91-110 repeat retired transport/finality; see x402-wiki-retired-transport."
+
+[doc.03]
+path = "docs/site/docs/overview/quickstart.md"
+status = "stale"
+notes = "Read the full bootstrap, payments, funding, programs and agent walkthrough. Lines 20, 65, 132, 167-219, 301-302 and 492-518 retain retired endpoints or settlement setup; see quickstart-premerge-runbook."
+
+[doc.04]
+path = "docs/site/docs/overview/payments.md"
+status = "stale"
+notes = "Read all identity, submission, recovery and client examples. Lines 18-21, 139, 178-184 and 225 retain router/activity/checkpoint semantics; see payments-retired-client-flow."
+
+[doc.05]
+path = "docs/site/docs/concepts/receipts.md"
+status = "stale"
+notes = "Read the whole lifecycle/evidence page. Lines 23-26 require separate checkpoint acceptance and guarantor certification; see receipts-checkpoint-finality."
+
+[doc.06]
+path = "docs/site/docs/concepts/paxeer-boundary.md"
+status = "stale"
+notes = "Read the complete boundary guide, including settlement suite lines 119-129 and deleted client references. Retained hosted responsibilities need current deployment/finality instructions; see boundary-retired-bootstrap."
+
+[doc.07]
+path = "docs/site/docs/operators/hosted-internal.md"
+status = "accurate"
+notes = "Read the entire internal-service guide. Retained key-management, signed authority and durable-event boundaries agree with this slice; this page does not establish that worker process adapters are wired end to end."
+
+[doc.08]
+path = "docs/site/docs/operators/porting.md"
+status = "accurate"
+notes = "Read the entire porting guide. Constrained host ports and compatibility ABI discussion do not prescribe that version for the AI-market guest; current worker Programs calls use ABI 5."
+
+[doc.09]
+path = "docs/site/docs/operators/beta-control.md"
+status = "stale"
+notes = "Read all beta operator controls and funding procedures. The introduction and treasury-send section around lines 290-309 retain router/LNI instructions; see beta-control-retired-funding."
+
+[doc.10]
+path = "docs/site/docs/agents/running.md"
+status = "stale"
+notes = "Read all runtime, configuration, tools, permission and execution sections. Lines 512 and 701 retain /rpc and obsolete settlement verification policy; see agent-running-retired-rpc."
+
+[doc.11]
+path = "docs/site/docs/platform/faucet.md"
+status = "stale"
+notes = "Read all hosted faucet configuration, claims and refusals. Lines 5 and 23-31 retain router funding and lx_requestFunds as the gateway contract; see faucet-retired-gateway-contract."
+
+[doc.12]
+path = "docs/site/docs/platform/cli.md"
+status = "misleading"
+notes = "Read all commands, examples and errors. Line 8 requires retired /rpc; lines 106-137 contradict the implemented command inventory; see cli-retired-endpoint and cli-command-inventory-contradiction."
+
+[doc.13]
+path = "spec/layerx-merge/contracts/platform-hosted.md"
+status = "stale"
+notes = "Reviewed worker command/config/environment/frame/HTTP sections at lines 2649-2719. Frame constants agree, but eleven mandatory production configuration fields are absent; see worker-config-contract-incomplete."
+
+[doc.14]
+path = "spec/layerx-merge/contracts/cosmos-fork.md"
+status = "accurate"
+notes = "Reviewed sdk/client CLI and Go API rows. Declared names/signatures agree with retained consensus client declarations; source runtime gaps are recorded separately and no component qualification is inferred."
+
+[doc.15]
+path = "spec/layerx-merge/contracts/agent-rust-api.md"
+status = "accurate"
+notes = "Reviewed proof/program execution, occupancy and requirement rows. Execution receipt evidence is distinct from committed finality; historical rows marked retire do not require deployment of removed components."
+
+[doc.16]
+path = "spec/layerx-merge/contracts/programs.md"
+status = "accurate"
+notes = "Reviewed AI-market/runtime task, dispatch, error and occupancy rows consumed by this slice. Worker chain calls use ABI 5, bounded state and the declared task/result commitments."
+
+[doc.17]
+path = "spec/layerx-merge/contracts/services.md"
+status = "accurate"
+notes = "Reviewed referenced gateway, explorer and former human Paxeer client rows and retirement statuses. Retired declarations describe removed surfaces rather than live worker transport dependencies."
+
+[doc.18]
+path = "spec/layerx-merge/contracts/kernel.md"
+status = "accurate"
+notes = "Reviewed module, ledger and Merkle sections referenced by receipt/runtime consumers. Kernel commitment/error types stay internal to the single BFT network and do not require a separate sequencer service."
+
+[doc.19]
+path = "spec/layerx-merge/contracts/address-table.md"
+status = "accurate"
+notes = "Reviewed error-code registry and Programs precompile context referenced by this package. Worker chain calls target 0x101D and use typed refusals; no conflicting numeric assignment was found in this slice."
+
+[doc.20]
+path = "spec/layerx-merge/contracts/interop-gas-station.md"
+status = "accurate"
+notes = "Reviewed the referenced err-gas-conflict section. The declared conflict service string remains separate from worker binary service-error framing."
+
+[finding.block-negative-height-latest]
+file = "sdk/client/rpc/block.go"
+line = 37
+class = "runtime-risk"
+severity = "medium"
+observed = "BlockCommand parses an explicit height but sets the height pointer only when h > 0. A supplied negative height therefore becomes nil and returns the latest block rather than refusing the invalid requested height."
+expected = "An explicit invalid historical height must fail clearly; it must not silently return a different block that a caller could mistake for the requested one."
+proposal = "In sdk/client/rpc/block.go, reject negative heights before calling getBlock and explicitly document the zero/latest convention; add command cases for a negative height, zero, an omitted height and a positive historical height."
+owner_domain = 15
+interface = "15.go-client-rpc-block-command-j76"
+
+[finding.block-unverified-claim]
+file = "sdk/client/rpc/block.go"
+line = 18
+class = "security"
+severity = "medium"
+observed = "BlockCommand promises verified block data in its comment and help text, but getBlock only calls node.Block and marshals the response. It verifies no header, commit, validator set or trusted checkpoint before presenting the node response."
+expected = "Block data described as verified must be authenticated against independently trusted committed chain state, with unverified node retrieval clearly distinguished from that assurance."
+proposal = "In sdk/client/rpc/block.go, authenticate the returned header and commit against a trusted validator-set path before reporting verified data; document the trust input and add altered-header, missing-commit and wrong-height refusals."
+owner_domain = 15
+interface = "15.go-client-rpc-block-command-j76"
