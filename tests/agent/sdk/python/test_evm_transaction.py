@@ -463,17 +463,12 @@ def proof_layerxprograms_0x101d(path: str, mode: str) -> None:
     assert len(fixture["refusals"]) == 2
     for code, output in fixture["refusals"].items():
         assert decode_revert_reason(bytes.fromhex(output)).code == code
-    assert len(fixture["calls"]) == len(fixture["heads"]) == 2
-    for output in fixture["calls"] + fixture["simulations"]:
-        # Host.Execute/Simulate currently expose the terminal frame as guest response.
-        # Preserve the guest capacity and refuse the producer defect.
-        assert native.response_capacity == 64
-        try:
-            decode_programs_call_result(bytes.fromhex(output), native.response_capacity)
-        except AiMarketError as error:
-            assert error.code == "ReceiptMismatch"
-        else:
-            raise AssertionError("accepted terminal frame exceeding guest capacity")
+    assert native.guest_abi == 1
+    assert native.response_capacity == 64
+    assert len(fixture["calls"]) == len(fixture["simulations"]) == len(fixture["heads"]) == 2
+    assert len(fixture["expectedResponses"]) == 2
+    assert len(fixture["malformedCalls"]) == 6
+    assert len(fixture["malformedHeads"]) == 3
     for output in fixture["heads"]:
         assert decode_programs_state_head(bytes.fromhex(output)).hex() == fixture["stateHead"]
     for output in fixture["malformedCalls"]:
@@ -490,7 +485,25 @@ def proof_layerxprograms_0x101d(path: str, mode: str) -> None:
             pass
         else:
             raise AssertionError("accepted malformed producer state head")
-    print("python observed two real calls and state heads and refused malformed output")
+    for call, simulation, expected in zip(
+        fixture["calls"], fixture["simulations"], fixture["expectedResponses"], strict=True
+    ):
+        assert call == simulation
+        for output in (call, simulation):
+            encoded = bytes.fromhex(output)
+            overflow = encoded[:96] + word(native.response_capacity + 1) + bytes(96)
+            try:
+                decode_programs_call_result(overflow, native.response_capacity)
+            except AiMarketError as error:
+                assert error.code == "ReceiptMismatch"
+            else:
+                raise AssertionError("accepted guest response exceeding capacity")
+            # programsCallFixture's ABI-1 guest emits an event and returns zero;
+            # it has no guest byte response, before or after the host reopens.
+            assert decode_programs_call_result(encoded, native.response_capacity) == (0, 1, b"")
+            length = int.from_bytes(encoded[96:128], "big")
+            assert encoded[128:128 + length] == bytes.fromhex(expected)
+    print("python observed two successful calls, simulations and state heads across host reopen and refused malformed output")
 
 
 def layerxpay_proof_transactions(document: list[dict[str, object]]) -> list[dict[str, str]]:

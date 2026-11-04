@@ -361,16 +361,39 @@ func (c *AccountClient) VerifiedAccount(ctx context.Context, account string) (bo
 	e := c.rpc.call(ctx, "GET", accountPath(account)+"/verified-account", nil, &v)
 	return v.Verified, e
 }
+func (c *AccountClient) WalletAttribution(ctx context.Context, wallet string) (discovery.WalletAttribution, error) {
+	var out discovery.WalletAttribution
+	if !notificationWalletPattern.MatchString(wallet) || strings.ToLower(wallet) != wallet {
+		return out, ErrInvalid
+	}
+	err := c.rpc.call(ctx, "GET", "/internal/v2/wallets/"+url.PathEscape(wallet)+"/attribution", nil, &out)
+	if err != nil {
+		return out, err
+	}
+	if (out.Verified && out.AccountID == "") || (out.OptedIn && (!out.Verified || out.ProfileID != wallet)) {
+		return discovery.WalletAttribution{}, ErrUnavailable
+	}
+	return out, nil
+}
 func (c *AccountClient) CurrentAttribution(ctx context.Context, account, wallet string) (bool, string, error) {
-	var v struct {
-		OptedIn   bool
-		ProfileID string
+	var out discovery.WalletAttribution
+	if account == "" || !notificationWalletPattern.MatchString(wallet) {
+		return false, "", ErrInvalid
 	}
-	e := c.rpc.call(ctx, "GET", accountPath(account)+"/attribution?wallet="+url.QueryEscape(wallet), nil, &v)
-	if e != nil {
-		return false, "", e
+	err := c.rpc.call(ctx, "GET", accountPath(account)+"/attribution?wallet="+url.QueryEscape(wallet), nil, &out)
+	if err != nil {
+		return false, "", err
 	}
-	return v.OptedIn, v.ProfileID, nil
+	if out.AccountID == "" && !out.Verified && !out.OptedIn && out.ProfileID == "" {
+		return false, "", nil
+	}
+	if out.AccountID != account || !out.Verified {
+		return false, "", ErrForbidden
+	}
+	if out.OptedIn && out.ProfileID != wallet {
+		return false, "", ErrUnavailable
+	}
+	return out.OptedIn, out.ProfileID, nil
 }
 
 var _ discovery.PreferencesConsumer = (*AccountClient)(nil)

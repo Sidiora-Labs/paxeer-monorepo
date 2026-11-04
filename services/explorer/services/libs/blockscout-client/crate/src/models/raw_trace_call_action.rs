@@ -19,6 +19,7 @@ use serde_aux::prelude::*;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize, derive_new::new)]
 pub struct RawTraceCallAction {
+    #[serde(rename = "callType")]
     pub call_type: String,
     pub to: String,
     pub from: String,
