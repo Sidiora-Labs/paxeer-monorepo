@@ -1,0 +1,12 @@
+[repair.22.31.352]
+finding = "smoke-receipt-shape"
+source_revision = "b034a05fda5d0bb049e3b941849ba8f12d6944e9"
+proof = "test_repair_22_31_352.py::test_smoke_receipt_shape_real_node_payment_and_inspection"
+binding_proof = "test_repair_22_31_352.py::test_smoke_receipt_shape_binds_every_node_view_field; test_smoke_receipt_shape_binds_logs; test_smoke_receipt_shape_refuses_payment_artifact_mismatch"
+refusal_proof = "test_repair_22_31_352.py::test_smoke_receipt_shape_current_verifier_refusals; test_smoke_receipt_shape_refuses_unachieved_rung; test_smoke_receipt_shape_refuses_wrong_rpc_id"
+caller_proof = "test_repair_22_31_352.py::test_smoke_receipt_shape_shell_uses_node_inspection"
+producer = "rpc/sequencer_receipt.go; daemon/committed-fixture/vectors/vector-v4-committed.json; sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+baseline = "Not run: task execution order prohibits verification before complete implementation and allows verification only through hf-done; no baseline failure is claimed."
+evidence = "The hf-done private gate ledger records the exact candidate revision, command, exit code and log; no qualification is claimed by this record."
+wiring_request = "Domain 8: services/platform/hosted/tests/beta-cluster.sh must export LAYERX_TEST_NODE_URL (HTTPS root node RPC) and LAYERX_TEST_RECEIPT_KEYS_FILE (independent px_getReceiptKeys keys object with numeric firstHeight/lastHeight); keep pins separate from receipt signingKey."
+limitation = "The verified level is sequencer-signed; committed is the node's achieved rung with a nonzero block hash at or above the signed height, not independent Comet consensus proof verification."

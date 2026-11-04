@@ -1,0 +1,7 @@
+[repair.22.31.297]
+finding = "22.30.165/rest-sanitize-timeout"
+tests = ["TestRepair_297_SanitizePreservesFields", "TestRepair_297_BankSendTimeout"]
+path = "Amino-encoded SendReq -> registered bank send REST handler -> BaseReq.Sanitize -> transaction factory -> unsigned transaction -> Amino response decoded as StdTx."
+baseline = "Not run: the task's gate order prohibits verification before full implementation and prohibits running verify_cmd by hand."
+wiring_requests = []
+evidence = "The bounded hf-build/hf-done ledger records the exact candidate revision, command, exit code and private log location."

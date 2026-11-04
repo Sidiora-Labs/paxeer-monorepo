@@ -215,18 +215,27 @@ static int open_payload_codec(void)
     /* A time stream may carry no meter authority and a metered stream may
      * not go without one. */
     open_payload_init(&payload, 4U, 1000U);
+    CHECK(lx_stream_open_encode(&payload, bytes, sizeof(bytes), &length) ==
+          LXP_OK);
     payload.record.meter_authorities[0][0] = 1U;
     payload.record.meter_authority_count = 1U;
     CHECK(lx_stream_open_encode(&payload, bytes, sizeof(bytes), &length) ==
-          LXP_OK);
+          LXP_ERR_NON_CANONICAL);
+    bytes[LX_STREAM_OPEN_PAYLOAD_FIXED - 1] = 1U;
+    (void)memcpy(bytes + LX_STREAM_OPEN_PAYLOAD_FIXED,
+                 payload.record.meter_authorities[0], 32U);
+    length += 32U;
     CHECK(length == (size_t)LX_STREAM_OPEN_PAYLOAD_FIXED + 32U);
     CHECK(lx_stream_open_decode(bytes, length, &decoded) ==
           LXP_ERR_NON_CANONICAL);
 
     open_payload_init(&payload, 4U, 1000U);
-    payload.record.mode = LX_STREAM_MODE_METERED;
     CHECK(lx_stream_open_encode(&payload, bytes, sizeof(bytes), &length) ==
           LXP_OK);
+    payload.record.mode = LX_STREAM_MODE_METERED;
+    CHECK(lx_stream_open_encode(&payload, bytes, sizeof(bytes), &length) ==
+          LXP_ERR_NON_CANONICAL);
+    bytes[130] = (uint8_t)LX_STREAM_MODE_METERED;
     CHECK(lx_stream_open_decode(bytes, length, &decoded) ==
           LXP_ERR_NON_CANONICAL);
 

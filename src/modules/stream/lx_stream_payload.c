@@ -35,6 +35,76 @@ static lxp_result version_check(const uint8_t *bytes, size_t length,
         LXP_OK : LXP_ERR_VERSION_UNSUPPORTED;
 }
 
+static lxp_result open_payload_validate(const lx_stream_open_payload *payload)
+{
+    size_t i;
+    if (payload == NULL ||
+        payload->record.meter_authority_count >
+            LX_STREAM_MAX_METER_AUTHORITIES ||
+        (payload->record.mode != LX_STREAM_MODE_TIME &&
+         payload->record.mode != LX_STREAM_MODE_METERED) ||
+        lxp_ct_is_zero(payload->record.stream_id, 32U) ||
+        lxp_ct_is_zero(payload->record.stream_account, 32U) ||
+        lxp_ct_is_zero(payload->record.recipient, 32U) ||
+        lxp_ct_is_zero(payload->record.asset_id, 32U) ||
+        memcmp(payload->record.stream_account, payload->record.recipient,
+               32U) == 0 ||
+        lxp_u128_is_zero(payload->record.rate) ||
+        payload->record.rate_unit == 0U ||
+        payload->record.start_timestamp == 0U ||
+        (payload->record.end_timestamp != 0U &&
+         payload->record.end_timestamp <= payload->record.start_timestamp) ||
+        lxp_u128_is_zero(payload->record.total_cap) ||
+        lxp_u128_is_zero(payload->initial_funding) ||
+        (payload->record.mode == LX_STREAM_MODE_METERED &&
+         payload->record.meter_authority_count == 0U) ||
+        (payload->record.mode == LX_STREAM_MODE_TIME &&
+         payload->record.meter_authority_count != 0U))
+        return LXP_ERR_NON_CANONICAL;
+    for (i = 0U; i < payload->record.meter_authority_count; ++i) {
+        if (lxp_ct_is_zero(payload->record.meter_authorities[i], 32U))
+            return LXP_ERR_NON_CANONICAL;
+        if (i != 0U && memcmp(payload->record.meter_authorities[i - 1U],
+                              payload->record.meter_authorities[i], 32U) >= 0)
+            return LXP_ERR_NON_CANONICAL;
+    }
+    return LXP_OK;
+}
+
+static lxp_result amount_payload_validate(
+    const lx_stream_amount_payload *payload)
+{
+    if (payload == NULL || lxp_ct_is_zero(payload->stream_id, 32U) ||
+        lxp_u128_is_zero(payload->amount))
+        return LXP_ERR_NON_CANONICAL;
+    return LXP_OK;
+}
+
+static lxp_result meter_payload_validate(
+    const lx_stream_meter_attestation *payload)
+{
+    if (payload == NULL || lxp_ct_is_zero(payload->stream_id, 32U) ||
+        lxp_ct_is_zero(payload->authority_key, 32U) ||
+        lxp_ct_is_zero(payload->signature, 64U))
+        return LXP_ERR_NON_CANONICAL;
+    return LXP_OK;
+}
+
+static lxp_result keyed_payload_validate(const lx_stream_keyed_payload *payload)
+{
+    if (payload == NULL || lxp_ct_is_zero(payload->stream_id, 32U) ||
+        lxp_ct_is_zero(payload->idempotency_key, 32U))
+        return LXP_ERR_NON_CANONICAL;
+    return LXP_OK;
+}
+
+static lxp_result id_payload_validate(const lx_stream_id_payload *payload)
+{
+    if (payload == NULL || lxp_ct_is_zero(payload->stream_id, 32U))
+        return LXP_ERR_NON_CANONICAL;
+    return LXP_OK;
+}
+
 lxp_result lx_stream_open_encode(const lx_stream_open_payload *payload,
                                  uint8_t *bytes, size_t capacity,
                                  size_t *length)
@@ -42,10 +112,9 @@ lxp_result lx_stream_open_encode(const lx_stream_open_payload *payload,
     size_t offset = 0U;
     size_t required;
     lxp_result status;
-    if (payload == NULL || length == NULL ||
-        payload->record.meter_authority_count >
-            LX_STREAM_MAX_METER_AUTHORITIES)
-        return LXP_ERR_NON_CANONICAL;
+    if (length == NULL) return LXP_ERR_NON_CANONICAL;
+    status = open_payload_validate(payload);
+    if (status != LXP_OK) return status;
     required = (size_t)LX_STREAM_OPEN_PAYLOAD_FIXED +
                payload->record.meter_authority_count * 32U;
     status = version_write(bytes, capacity, required);
@@ -132,30 +201,7 @@ lxp_result lx_stream_open_decode(const uint8_t *bytes, size_t length,
     }
     payload->record.last_accrual_timestamp = payload->record.start_timestamp;
     if (offset != length) return LXP_ERR_TRAILING_BYTES;
-    if (lxp_ct_is_zero(payload->record.stream_id, 32U) ||
-        lxp_ct_is_zero(payload->record.stream_account, 32U) ||
-        lxp_ct_is_zero(payload->record.recipient, 32U) ||
-        lxp_ct_is_zero(payload->record.asset_id, 32U) ||
-        memcmp(payload->record.stream_account, payload->record.recipient,
-               32U) == 0 ||
-        lxp_u128_is_zero(payload->record.rate) ||
-        payload->record.rate_unit == 0U ||
-        payload->record.start_timestamp == 0U ||
-        (payload->record.end_timestamp != 0U &&
-         payload->record.end_timestamp <= payload->record.start_timestamp) ||
-        lxp_u128_is_zero(payload->record.total_cap) ||
-        lxp_u128_is_zero(payload->initial_funding) ||
-        (payload->record.mode == LX_STREAM_MODE_METERED && count == 0U) ||
-        (payload->record.mode == LX_STREAM_MODE_TIME && count != 0U))
-        return LXP_ERR_NON_CANONICAL;
-    for (i = 0U; i < count; ++i) {
-        if (lxp_ct_is_zero(payload->record.meter_authorities[i], 32U))
-            return LXP_ERR_NON_CANONICAL;
-        if (i != 0U && memcmp(payload->record.meter_authorities[i - 1U],
-                              payload->record.meter_authorities[i], 32U) >= 0)
-            return LXP_ERR_NON_CANONICAL;
-    }
-    return LXP_OK;
+    return open_payload_validate(payload);
 }
 
 lxp_result lx_stream_amount_encode(const lx_stream_amount_payload *payload,
@@ -163,7 +209,9 @@ lxp_result lx_stream_amount_encode(const lx_stream_amount_payload *payload,
                                    size_t *length)
 {
     lxp_result status;
-    if (payload == NULL || length == NULL) return LXP_ERR_NON_CANONICAL;
+    if (length == NULL) return LXP_ERR_NON_CANONICAL;
+    status = amount_payload_validate(payload);
+    if (status != LXP_OK) return status;
     status = version_write(bytes, capacity,
                            (size_t)LX_STREAM_TOP_UP_PAYLOAD_BYTES);
     if (status != LXP_OK) return status;
@@ -186,10 +234,7 @@ lxp_result lx_stream_amount_decode(const uint8_t *bytes, size_t length,
     (void)memcpy(payload->stream_id, bytes + 2U, 32U);
     status = lxp_u128_from_be(bytes + 34U, &payload->amount);
     if (status != LXP_OK) return status;
-    if (lxp_ct_is_zero(payload->stream_id, 32U) ||
-        lxp_u128_is_zero(payload->amount))
-        return LXP_ERR_NON_CANONICAL;
-    return LXP_OK;
+    return amount_payload_validate(payload);
 }
 
 lxp_result lx_stream_meter_encode(const lx_stream_meter_attestation *payload,
@@ -197,7 +242,9 @@ lxp_result lx_stream_meter_encode(const lx_stream_meter_attestation *payload,
                                   size_t *length)
 {
     lxp_result status;
-    if (payload == NULL || length == NULL) return LXP_ERR_NON_CANONICAL;
+    if (length == NULL) return LXP_ERR_NON_CANONICAL;
+    status = meter_payload_validate(payload);
+    if (status != LXP_OK) return status;
     status = version_write(bytes, capacity,
                            (size_t)LX_STREAM_METER_PAYLOAD_BYTES);
     if (status != LXP_OK) return status;
@@ -222,11 +269,7 @@ lxp_result lx_stream_meter_decode(const uint8_t *bytes, size_t length,
     payload->cumulative_reading = get_u64(bytes + 34U);
     (void)memcpy(payload->authority_key, bytes + 42U, 32U);
     (void)memcpy(payload->signature, bytes + 74U, 64U);
-    if (lxp_ct_is_zero(payload->stream_id, 32U) ||
-        lxp_ct_is_zero(payload->authority_key, 32U) ||
-        lxp_ct_is_zero(payload->signature, 64U))
-        return LXP_ERR_NON_CANONICAL;
-    return LXP_OK;
+    return meter_payload_validate(payload);
 }
 
 lxp_result lx_stream_keyed_encode(const lx_stream_keyed_payload *payload,
@@ -234,7 +277,9 @@ lxp_result lx_stream_keyed_encode(const lx_stream_keyed_payload *payload,
                                   size_t *length)
 {
     lxp_result status;
-    if (payload == NULL || length == NULL) return LXP_ERR_NON_CANONICAL;
+    if (length == NULL) return LXP_ERR_NON_CANONICAL;
+    status = keyed_payload_validate(payload);
+    if (status != LXP_OK) return status;
     status = version_write(bytes, capacity,
                            (size_t)LX_STREAM_KEYED_PAYLOAD_BYTES);
     if (status != LXP_OK) return status;
@@ -255,10 +300,7 @@ lxp_result lx_stream_keyed_decode(const uint8_t *bytes, size_t length,
     (void)memset(payload, 0, sizeof(*payload));
     (void)memcpy(payload->stream_id, bytes + 2U, 32U);
     (void)memcpy(payload->idempotency_key, bytes + 34U, 32U);
-    if (lxp_ct_is_zero(payload->stream_id, 32U) ||
-        lxp_ct_is_zero(payload->idempotency_key, 32U))
-        return LXP_ERR_NON_CANONICAL;
-    return LXP_OK;
+    return keyed_payload_validate(payload);
 }
 
 lxp_result lx_stream_rate_change_decode(
@@ -287,7 +329,9 @@ lxp_result lx_stream_id_encode(const lx_stream_id_payload *payload,
                                size_t *length)
 {
     lxp_result status;
-    if (payload == NULL || length == NULL) return LXP_ERR_NON_CANONICAL;
+    if (length == NULL) return LXP_ERR_NON_CANONICAL;
+    status = id_payload_validate(payload);
+    if (status != LXP_OK) return status;
     status = version_write(bytes, capacity,
                            (size_t)LX_STREAM_ID_PAYLOAD_BYTES);
     if (status != LXP_OK) return status;
@@ -306,6 +350,5 @@ lxp_result lx_stream_id_decode(const uint8_t *bytes, size_t length,
     if (status != LXP_OK) return status;
     (void)memset(payload, 0, sizeof(*payload));
     (void)memcpy(payload->stream_id, bytes + 2U, 32U);
-    return lxp_ct_is_zero(payload->stream_id, 32U) ?
-        LXP_ERR_NON_CANONICAL : LXP_OK;
+    return id_payload_validate(payload);
 }

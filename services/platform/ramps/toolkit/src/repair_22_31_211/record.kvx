@@ -1,0 +1,51 @@
+[repair.22.31.211]
+audit = "22.30.88"
+baseline = "No prior gate ledger or repair test existed at task start; no baseline was run because the explicit order permits verification only via hf-done after the completed implementation and hf-build. No baseline failure is claimed."
+prior_attempt = "Seed revision 41665cfe09f06925cda210af24ff44be1f345bf1 passed six Rust cases; native_customer_budget_debits_through_maintained_authority_and_decodes_payment, native_keeper_expiry_consumes_ramp_calldata_before_and_at_expiry and recovery_node_durable_transaction_and_failed_native_custody_use_real_root_rpc failed because the owning Go packages could not link liblayerx and liblayerx_programs_sandbox. The continued harness builds these real prerequisites once, with a private build log, before launching native proofs."
+qualification_repair = "Revision de3eec92204d1da14ceb6751f33192b40fa4be07; command cg spec done 22.31.211 -f layerx-merge --root /work/paxeer-monorepo; exit 1; private log /out/logs/verify-1.log: seven tests passed, budget validation exposed legacy account hashing and the failed-custody proof exposed the general RPC fixture's disabled custom precompiles. Use maintained protocol-three account derivation and enable the real production constructors and activation gates in the fixture overlay; retain every refusal assertion."
+evidence = "The candidate revision, exact command, exit and private log are recorded by hf-build and hf-done; the final response copies their evidence."
+
+[finding.signer-wire]
+test = "signer_wire_canonical_compact_signature_recovers_real_operator"
+change = "Strict KMS response consumes canonical compact signature plus recovery_id, bounds parity to 0/1, assembles v=27/28 and authenticates the operator."
+wiring = "Domain 8: services/platform/ramps/toolkit/Cargo.toml needs a dev dependency on layerx-platform-internal to drive its actual provisioned KMS handler over mTLS in the integration target; the in-scope test currently proves the real signing primitive and consumer codec, not that hosted handler."
+
+[finding.recovery-node-api]
+test = "recovery_node_durable_transaction_and_failed_native_custody_use_real_root_rpc"
+change = "Recovery reads committed head through eth_blockNumber on the actual node namespace, with no gateway px_getNetwork dependency."
+
+[finding.recovery-v2-identifiers]
+test = "journal_receipted_progress_cannot_settle_or_pay_out_after_restart"
+change = "Recovery uses tx_hash/raw_transaction/receipt_height/receipt_digest/rung and refuses conflicting or lower evidence; legacy activity identifiers are explicitly read only."
+wiring = "Domain 2: node/sequencer native payment bootstrap must be exposed to the ramp harness to exercise successful payment recovery at submitted, receipted, committed and done against a single running node; the in-scope journal test reopens every persisted authority field and the node test exercises real unknown/re-delivery and failed execution."
+
+[finding.recovery-durable-transaction]
+test = "recovery_node_durable_transaction_and_failed_native_custody_use_real_root_rpc"
+change = "Engine resolution passes durable exact bytes, authenticates sender/chain/calldata/hash and reconciles receipt plus latest/pending nonce before authorized identical-byte re-delivery."
+
+[finding.payment-expiry-units]
+test = "native_keeper_expiry_consumes_ramp_calldata_before_and_at_expiry"
+change = "Quote API is Unix seconds; validation and compilation use checked conversion to native Unix milliseconds; the real keeper consumes the ramp ABI expiry before and at the boundary."
+
+[finding.offramp-retired-grants]
+test = "native_customer_budget_debits_through_maintained_authority_and_decodes_payment"
+change = "Off-ramps compile customer-owned budgetSpend at 0x101B, bind actual owner/asset/purpose/expiry, accept only an exact customer-signed transaction, verify BudgetSpent and forbid reusing a payment transaction for another order. Rust legacy coordinate members remain readable for journal compatibility; new request wire names identify customer budget authority."
+native_binding = "Native calldata, budget ownership and receipt recipients use maintained protocol-three account identifiers; the real keeper supplies the expected operator account independently of the Rust derivation."
+wiring = "Domain 8: services/platform/ramps/reference/src/main.rs must accept the customer's signed payment bytes and call RampEngine::submit_customer_payment, and its quote/order UI must use customer_budget_id/customer_budget_purpose; no operator-held customer key or retired grant is authorized."
+wiring_2 = "Domain 2: src/modules/budget/lx_budget_module.c exposes no capability-creation activity for delegated budget spending, so this repair uses the maintained customer-owned budgetSpend authority and does not fabricate a capability record."
+
+[finding.premature-payment-settlement]
+test = "journal_receipted_progress_cannot_settle_or_pay_out_after_restart"
+change = "Receipted progress retains top-level evidence in LayerxPending; only authenticated committed inclusion satisfies LayerxVerified, Done or external payout."
+
+[finding.custody-unverified-receipt]
+test = "custody_pinned_receipt_validator_rejects_forged_execution_and_logs"
+native_test = "recovery_node_durable_transaction_and_failed_native_custody_use_real_root_rpc"
+change = "Live polling and recovery share pinned signature, successful result, signed execution metadata, exact transaction/log and committed-inclusion checks before persisting observations."
+
+[finding.custody-recovery-rung]
+test = "custody_committed_rung_height_and_hash_survive_restart"
+change = "V2 persisted committed rung requires equal inclusion height/hash and refuses any regression; legacy final records have explicit hash comparison."
+
+[environment]
+native_prerequisites = "Native integration adapters use the existing Go keeper/node harnesses via overlays; the harness builds build/liblayerx.a and the host-ffi layerx-programs-sandbox static library before first use. Build and producer failures retain private evidence and fail the assertion; none is skipped or replaced."

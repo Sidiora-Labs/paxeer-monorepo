@@ -118,6 +118,10 @@ def verify_sequencer_receipt(receipt, sequencer, transaction_hash, source, nonce
     return decoded
 
 
+def write_payment_receipt(output, receipt):
+    write(output / "receipt.json", json.dumps({"result": receipt}, indent=2))
+
+
 def validate_evm_chain_id(evm_chain_id, rpc_chain_id):
     assert type(evm_chain_id) is int and evm_chain_id == EVM_CHAIN_ID, (
         "payment requires Paxeer EVM chain 125"
@@ -316,7 +320,7 @@ def main():
     assert quantity(client.rpc("eth_getBalance", [destination, "latest"])) == destination_wei_after
     assert client.rpc("eth_getTransactionCount", [source, "latest"]) == nonce_after
     assert client.rpc("pax_sequencerReceipt", [transaction_hash]) == receipt
-    write(args.output / "receipt.json", json.dumps({"result": receipt}, indent=2))
+    write_payment_receipt(args.output, receipt)
     result = {
         "activity_id": transaction_hash,
         "funding": funding,
