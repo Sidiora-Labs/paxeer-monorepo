@@ -14,8 +14,9 @@
 //! - Begin seals the admitted F03 rows of the opened epoch, excluding an evaluator whose live
 //!   grant is REVOKED, whose revocation excludes the frozen epoch or whose F08 membership is
 //!   missing or revoked. Every later step reads the sealed digests only.
-//! - The frozen worker attributes are rebuilt from the F06 row (worker, recipient) and the
-//!   live F02 table, exactly as F03 admission does, and must hash to the frozen roster.
+//! - The complete worker attributes come from the immutable opening snapshot in F03,
+//!   cross-checked with the F08 epoch and F06 reserve. Live identity publication cannot
+//!   rewrite the roster consumed by any aggregation step.
 //! - Finalize terminalizes the F06 row in the same transition and appends one history row;
 //!   history rows whose F06 epoch row is no longer retained are dropped (shared retention).
 //! - The host derives `AuthorityContext::aggregate_sealed` from [`progress`].
@@ -34,9 +35,7 @@ use crate::{
         NOT_FOUND, STALE_CURSOR, UNKNOWN_OPERATION, WRONG_CONFIG, WRONG_EPOCH, WRONG_MARKET,
         WRONG_PHASE, WRONG_ROSTER,
     },
-    evaluators::{
-        authority::evaluator_region, authority::split_identity_section, model::GrantStatus,
-    },
+    evaluators::{authority::evaluator_region, model::GrantStatus},
     registry::check_f01_capacity,
     registry_ops::{CallContext, PolicySection},
     reward_math::allocate_aggregation,
@@ -49,7 +48,6 @@ use crate::{
         Digest32, EpochWindows, EvaluatorId, EvaluatorRosterEntry, FrozenBinding, Presence,
         ResultDigest, Score, Version, WorkerRosterEntry,
     },
-    workers::WorkerTable,
 };
 
 pub const QUORUM: usize = 3;
@@ -453,8 +451,12 @@ fn view(current: &[u8]) -> CodecResult<View<'_>> {
     if section.header.state_revision != state.revision {
         return Err(NON_CANONICAL);
     }
-    let admission =
-        AdmissionTable::decode(state.feature_sections[Section::ReputationAdmission.index()])?;
+    let admission = AdmissionTable::decode(
+        crate::reputation_transition::split_joint(
+            state.feature_sections[Section::ReputationAdmission.index()],
+        )?
+        .1,
+    )?;
     let epoch = admission.current_epoch().ok_or(WRONG_EPOCH)?;
     let settlement = state.feature_sections[Section::SettlementClaims.index()];
     let (rewards, tail) = settlement
@@ -586,8 +588,7 @@ fn packed<T, const N: usize>(items: Option<&[T; N]>, count: usize) -> CodecResul
     }
 }
 
-/// The frozen roster of the opened epoch: the F06 row workers with their F02 attributes,
-/// sorted by worker, and the F03 snapshot evaluators.
+/// The immutable F03 opening roster, cross-checked against the F06 reservation.
 struct FrozenRoster {
     workers: Option<[WorkerRosterEntry; MAX_WORKERS]>,
     worker_count: usize,
@@ -611,30 +612,16 @@ impl FrozenRoster {
 
 fn frozen_roster(view: &View<'_>) -> CodecResult<FrozenRoster> {
     let identity = view.state.feature_sections[Section::IdentityRoster.index()];
-    let live = WorkerTable::decode(split_identity_section(identity)?.0)?;
-    let dictionary = view.rewards.dictionary();
+    let captured = crate::epoch::captured_roster(&view.state)?.ok_or(WRONG_ROSTER)?;
+    if captured.binding != view.frozen {
+        return Err(WRONG_ROSTER);
+    }
     let mut workers = [None; MAX_WORKERS];
-    let entries = view.row.entries();
-    for (slot, frozen) in workers.iter_mut().zip(entries) {
-        let frozen = dictionary.slot(frozen.slot)?;
-        let record = live.get(frozen.worker).ok_or(WRONG_ROSTER)?;
-        *slot = Some(WorkerRosterEntry {
-            worker: frozen.worker,
-            owner: record.owner,
-            recipient: frozen.recipient,
-            generation: Version::new(record.generation)?,
-            key_version: Version::new(record.key_version)?,
-            public_key: record.delegate,
-            metadata: record.metadata,
-        });
+    for (slot, entry) in workers.iter_mut().zip(captured.workers()) {
+        *slot = Some(*entry);
     }
-    let mut workers = pack(&workers);
-    let worker_count = entries.len();
-    if let Some(workers) = workers.as_mut() {
-        codec::sort_by(workers.get_mut(..worker_count).ok_or(CAPACITY)?, |a, b| {
-            a.worker.cmp(&b.worker)
-        });
-    }
+    let workers = pack(&workers);
+    let worker_count = captured.workers().len();
     let region = evaluator_region(identity)?;
     let snapshot = region
         .snapshot()
@@ -698,8 +685,12 @@ impl<'a> PackedInputs<'a> {
 /// not exclude the frozen epoch and its F08 membership is present and not revoked.
 fn eligible_inputs<'a>(view: &View<'a>) -> CodecResult<PackedInputs<'a>> {
     let region = evaluator_region(view.state.feature_sections[Section::IdentityRoster.index()])?;
-    let admission =
-        AdmissionTable::decode(view.state.feature_sections[Section::ReputationAdmission.index()])?;
+    let admission = AdmissionTable::decode(
+        crate::reputation_transition::split_joint(
+            view.state.feature_sections[Section::ReputationAdmission.index()],
+        )?
+        .1,
+    )?;
     let mut inputs = Inputs::new();
     for row in view.reports.rows(view.frozen.epoch) {
         let row = row?;
@@ -796,6 +787,17 @@ pub fn progress(current: &[u8]) -> CodecResult<Progress> {
     let view = view(current)?;
     let sealed = view.sealed()?;
     view.progress(sealed)
+}
+
+/// Validated aggregation output for the captured opening, absent until its F05 seal.
+/// A previous terminal record carried into a new opening is not that opening's output.
+pub fn captured_aggregation(current: &[u8]) -> CodecResult<Option<DecodedCurrent>> {
+    let view = view(current)?;
+    let Some(record) = view.sealed()? else {
+        return Ok(None);
+    };
+    let roster = crate::epoch::captured_roster(&view.state)?.ok_or(WRONG_ROSTER)?;
+    decode_current(record.bytes, view.frozen, roster.workers()).map(Some)
 }
 
 /// The compact C08 result payload of one aggregation operation.
