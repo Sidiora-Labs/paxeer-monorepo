@@ -20755,3 +20755,147 @@ symbol = "TestProofLayerxprograms0x101d"
 observed = "Attempt 3 (started before the attempt-2 ruling landed): the fuzz corpus entries 128 and 129 fail as ruled, and TestProofLayerxprograms0x101d fails because its producer tests/agent/sdk/python/test_evm_transaction.py imports cryptography, which the Go test environment lacks (ModuleNotFoundError at line 9)."
 assumption = "The build command installs the Python package the proof producer needs; the attempt-3 tree is continued under the attempt-2 ruling."
 severity = "low"
+
+[finding.22.99.144.1]
+task = "22.99.144"
+file = "node/sequencer/limits_test.go"
+symbol = "TestExecutorAdmissionIsAnteChain"
+observed = "Attempt 1: go vet passes and go test ./node/sequencer/ fails 20 tests on top of the landed replay and chain-allowance work. (1) TestExecutorAdmissionIsAnteChain and TestNonceAdmissionReleasesHeldNonceInOrder sign their wrong-chain case with config.DefaultChainID+1 and expect sdkerrors.ErrInvalidChainID; since task 20.3.2 (dd59c88fc) node/sequencer/limits.go:77-79 refuses every chain id that DomainAllowance reports unknown with ErrNotAdmitted wrapping ErrDomainNotActive before the ante handler runs. (2) TestAcceptRefusesPastChainGasAllowance, TestAcceptRefusesPastChainByteAllowance and TestChainAllowanceDoesNotLimitRootTransactions build their domains in the in-memory host map of limits_test.go:52-62 without registering them in the chains keeper, and modules/evm/keeper/msg_server.go:250-254 (e576fb445) now reads NextBaseFee for the transaction's domain, which panics recovered: unknown domain in modules/layerxchains/keeper/accounting.go:50. (3) TestMicroBatchEqualsSequential and TestMicroBatchPlacesTxWithSetTxPosition compare whole Accepted values whose ctx now carries the admission usage value of the allowance accounting. (4) TestProofSequencerExecutorTransportRecovery (proof_sequencer_executor_test.go:255, message outside-scope Node.Start does not rebuild receipt lookup) and TestProofSequencerExecutorRPCConsumers (:393) still assert the gap that 22.95.2 and 22.95.13 closed. (5) TestSealBatchEqualsGigaProcessBlock finds no evmone library (seal_giga_test.go:49) because the build never ran go generate ./engine/executor/lib (precedent task 5.16.4). (6) TestConsensusSourceBelowActivation (consensus_source_test.go:368 reports height 2 sequenced), the resolutionProposal REJECT at limits_test.go:429, resolution_test.go:190 and :399, seal_batch_test.go:119, :184 and :255, standby_role_test.go:786 and :865 and standby_wal_sync_hook_test.go:42 fail on the replay-rebuilt source state and are not yet diagnosed."
+assumption = "The package is repaired as one task: an unknown chain id is refused as invalid chain-id, the allowance harness registers its domains in the keeper, the proof tests assert the closed gap, the build generates the evmone library; the attempt-1 tree is continued."
+severity = "medium"
+
+[finding.22.99.155.3]
+task = "22.99.155"
+file = "services/platform/hosted/indexer/tests/names_api.rs"
+symbol = "names_api_answers_match_the_committed_vector"
+observed = "Attempt 4: attempts 1 to 4 changed only the repair record and the three failing test targets of layerx-indexer remain. names_api_answers_match_the_committed_vector and names_api_accepts_the_explorer_query_parameters compare the events of alice.pax with tests/vectors/names/indexer_api_v1.json, whose third event at 2027-01-15T08:00:01Z is register, while names.rs classifies a registry NewOwner as transfer since issue #1394 (task 18.1394.1, 62c08f5e0, which changed names.rs and names_ingest.rs but not the vector)."
+assumption = "The committed vector follows the product classification of issue #1394 (the registry owner change recorded during a registration is a transfer, not a registration); the vector is added to the paths."
+severity = "medium"
+
+[finding.22.99.155.4]
+task = "22.99.155"
+file = "services/platform/hosted/indexer/tests/ai_reputation_finality.rs"
+symbol = "a11_finalized_eviction_reports_history_outside_retention_with_archive_locator"
+observed = "a11_finalized_eviction_reports_history_outside_retention_with_archive_locator and a11_eviction_never_seen_by_this_projection_has_no_archive_locator offer a 32-record first section at height 20000 and are refused with CAPACITY (ApplicationError 0x0016) at ai_reputation_finality.rs:893 instead of Admission::Advanced; the a11 fixtures date from before the block-commit finality port (task 8.1.5, c0b6a66b0)."
+assumption = "The retention capacity the projection applies is the product fact; the fixture record count, or the constant the test derives it from, is aligned with it."
+severity = "medium"
+
+[finding.22.99.155.5]
+task = "22.99.155"
+file = "services/platform/hosted/indexer/tests/history_position.rs"
+symbol = "proof_layerxledger_0x101a"
+observed = "proof_layerxledger_0x101a and proof_layerxpay_0x101b read their producer document from stdin and run through the declared gates of the two proof tasks (precompiles/layerxledger/proof_layerxledger_0x101a_test.go and precompiles/layerxpay/proof_layerxpay_0x101b_test.go); under cargo test -p layerx-indexer they read an empty stdin and panic EOF while parsing a value."
+assumption = "Producer-input tests: the sweep verify skips them by name and the record lists them under producer_input_tests."
+severity = "low"
+
+[finding.22.99.58.3]
+task = "22.99.58"
+file = "services/platform/hosted/human/provision.py"
+symbol = "activity_types"
+observed = "Attempt 5: build and dependent-crate check pass; generated_catalog_loads_through_the_service_reader (tests/catalog.rs:25) fails with catalog load: InvalidPresetConfig. The producer services/platform/hosted/human/provision.py:203 emits each preset with activity_types from the template beta-purpose-catalog.json, while the consumer PurposePreset in services/human/crates/layerx-human-service/src/agents/create.rs:214-230 is deny_unknown_fields and requires a non-empty call_selectors list of 4-byte hex selectors (tasks 10.0.3, 63aee3813, and 10.20.5, 5ff108e0d); the generator was never moved to the new schema."
+assumption = "Producer follows consumer: the generator emits call_selectors from the template and stops emitting activity_types; the three hosted human files are added to the paths."
+severity = "medium"
+
+[finding.18.1562.1.2]
+task = "18.1562.1"
+file = "rpc/sequencer_receipt_vectors_test.go"
+symbol = "TestAiMarketTransferAuthorityReceipt"
+observed = "Attempt 7: the build passes (make paxd-native-libs, go build ./rpc/..., SDK build); TestAiMarketTransferAuthorityReceipt fails at sequencer_receipt_vectors_test.go:707 (from :1385): the AI market CREATE call reverts with LXP_VERSION_UNSUPPORTED. The test assembles the create record and the 307-byte policy by hand (lines 688-700) and packs envelope(0x0101, 1, create); task 13.99.1 (051e6c3e0, required by this task) rewrote the guest codec in programs/crates/layerx-programs-ai-market so that record fields read as u64 before are read as nonzero big-endian versions (the version reader of reputation_codec.rs, the config version of the create record), and the guest refuses the hand-built bytes. Earlier attempts never reached this call (attempt 5 failed on the guest size that 13.99.1 fixed)."
+assumption = "The guest codec is the producer contract: the create fixture of the test is rebuilt from the record layout the guest decodes after 13.99.1, and the guest is not changed."
+severity = "medium"
+
+[finding.22.99.64.2]
+task = "22.99.64"
+file = "services/interop/Cargo.lock"
+symbol = "layerx-interop-service"
+observed = "Attempt 2: cargo build --locked in services/interop fails on main because services/interop/Cargo.lock (last refreshed by 6378efda0) predates the manifest changes of 1ea64199b (layerx-client), f7646b1ab (layerx-platform-gateway), 051e6c3e0 (layerx-programs-ai-market) and b022d25a2 (the vendored wasm-instrument); tools/platform/Cargo.lock is stale for the same manifests; 22.99.160 refreshed only the programs, services/agent, services/human and services/platform locks. No change inside the task's paths was made."
+assumption = "Repaired by 22.99.161; 22.99.64 and 22.9.10 require it (decision 2513)."
+severity = "high"
+
+[finding.9.35.19.4]
+task = "9.35.19"
+file = "services/agent/crates/layerx-agentd/tests/prepare_expiry.rs"
+symbol = "layerx-agentd"
+observed = "Attempt 7: the test build fails with E0308 at tests/prepare_expiry.rs:164, :170 and :198 because the expiry registry callers there pass prepare::Prepared while src/prepare/expiry.rs:71 register now takes the call-bound prepare::evm::Prepared the task introduced; the file was outside the task's paths, so the migration stopped."
+assumption = "tests/prepare_expiry.rs joins the paths and its callers follow the call-bound preparation type; continue the attempt-7 tree."
+severity = "medium"
+
+[finding.22.99.92.6]
+task = "22.99.92"
+file = "spec/layerx-merge/programme/sweeps/repairs/c-kernel-make.5.kvx"
+symbol = "test-tests-python"
+observed = "Attempt 5: the verify passed (102 tests and 9 subtests, two declared deselections, record written) at the commit the qualification run recorded, but the final tree differs from that commit (the repair record was edited after the qualification run), so the attempt was not published."
+assumption = "Requalify the attempt-5 tree as it stands."
+severity = "low"
+
+[finding.22.99.77.3]
+task = "22.99.77"
+file = "programs/crates/layerx-programs-ai-market/src/reputation_codec.rs"
+symbol = "reputation_root"
+observed = "Attempt 4: reputation_root (reputation_codec.rs:225-237) reserves 24 bytes for the domain prefix in its fixed buffer (24 + 32 + 8 + 2 + LIMIT * CURRENT_BYTES) but writes the 25-byte string PAXAI/reputation-root/v1 plus NUL, so with a full LIMIT of records the Writer returns CAPACITY; f07_a11_capacity_and_sizes and the indexer a11 cases at tests/ai_reputation_finality.rs:901 fail on it."
+assumption = "Size the buffer for the 25-byte prefix; continue the attempt-4 tree."
+severity = "high"
+
+[finding.22.99.77.4]
+task = "22.99.77"
+file = "programs/crates/layerx-programs-ai-market/tests/f03_evaluator_host.rs"
+symbol = "Native::start"
+observed = "Attempt 4: all 12 native tests fail at Native::start (f03_evaluator_host.rs:2558-2573) because the C harness prints only native bring-up failed; tests/programs/test_ai_host_boundary.c deploy() (:479-520) returns 1 when the module exceeds LXP_MAX_ACTIVITY_BYTES minus 106 bytes, when DEPLOY or the UPGRADE to LX_PROGRAMS_GUEST_ABI_V5_VERSION fails or when the receipt result code is not LXP_OK, without saying which."
+assumption = "Run build/tests/paxai_host_boundary against the manifest module directly to learn which step fails (module size against the activity limit and the deployment payload limit of decision 2483, or the ABI5 upgrade), make the harness print the failing step and code, then repair the cause inside the paths."
+severity = "high"
+
+[finding.22.99.77.5]
+task = "22.99.77"
+file = "programs/crates/layerx-programs-ai-market/build.rs"
+symbol = "PAXAI_CHAIN_DOMAIN"
+observed = "Attempt 4 added build.rs, which falls back to parsing PAXAI_CHAIN_DOMAIN out of the programs Makefile when the environment lacks it, so the crate build depends on a file outside the crate and silently binds the Makefile default."
+assumption = "The chain domain comes from the environment the Makefile target exports (paxai-host-boundary-build); without it a release build fails with a clear message and cargo test uses the fixture domain; build.rs does not read the Makefile."
+severity = "medium"
+
+[finding.22.99.77.6]
+task = "22.99.77"
+file = "programs/crates/layerx-programs-ai-market/src/commit_reveal.rs"
+symbol = "DEFAULT_CPU_FUEL"
+observed = "Attempt 4: the OPEN_EPOCH path at height 1024 and RevealScore exceed DEFAULT_CPU_FUEL (1000000, programs/crates/layerx-programs-runtime/src/meter.rs:11) by 6 to 53 fuel units in the f04 and f05 tests."
+assumption = "The fuel cap is a protocol constant and is not raised; trim the two paths (fewer copies, no repeated decoding) until they fit with margin, recording the fuel before and after in the task record."
+severity = "medium"
+
+[finding.22.99.155.6]
+task = "22.99.155"
+file = "programs/crates/layerx-programs-ai-market/src/reputation_codec.rs"
+symbol = "reputation_root"
+observed = "Attempt 5: the a11 indexer cases fail on the same CAPACITY return of reputation_root (a 24-byte reservation for the 25-byte domain prefix) that 22.99.77 attempt 4 exposed; the crate is repaired by 22.99.77."
+assumption = "22.99.155 requires 22.99.77; requalify the attempt-5 tree once that repair is on main."
+severity = "medium"
+
+[finding.22.9.10.13]
+task = "22.9.10"
+file = "services/agent/sdk/typescript/src/web-search.ts"
+symbol = "#settle"
+observed = "Attempt 26: web-search.ts:517-520 reads rawTransaction from the settlement extension and throws settlement-receipt-mismatch when it is not a hex string, but the producer (the x-websearch payment module of the hosted gateway, payment.rs:1591-1597) emits only resource, receiptDigest, delivery, contentDigest and responseDigest in that extension and its exact payload accepts txHash, receiptDigest, verificationLevel and idempotencyKey (:2626-2650); the raw transaction exists only in the payer result that exactIn returns, which the test at web-search.test.ts:176-194 strips from the recorded payment."
+assumption = "#settle takes rawTransaction from the payer result (payment.rawTransaction) and passes it to verifySequencerReceipt; the settlement-derived check is removed; continue the attempt-26 tree."
+severity = "high"
+
+[finding.18.1562.1.3]
+task = "18.1562.1"
+file = "rpc/sequencer_receipt_vectors_test.go"
+symbol = "create AI market"
+observed = "Attempt 8: the vectors test fails at rpc/sequencer_receipt_vectors_test.go:718 (from :1397) with create AI market: LXP_VERSION_UNSUPPORTED: the registration at :627-633 deploys the program at guest ABI 1 (2 for account profile 2) and the host registration check (src/modules/programs/call.c:2491) refuses the 13.99.1 guest, which is GUEST_ABI_V5, before execution; the C harness deploys at the account ABI and then upgrades to LX_PROGRAMS_GUEST_ABI_V5_VERSION (tests/programs/test_ai_host_boundary.c:501-507)."
+assumption = "The test performs the same deploy-then-upgrade step to ABI 5 before the create call; keep the attempt-8 fixture encoding; continue the attempt-8 tree."
+severity = "high"
+
+[finding.22.95.1.3]
+task = "22.95.1"
+file = "services/agent/crates/layerx-client/src/sequencer.rs"
+symbol = "decode_history_page"
+observed = "Attempt 6: human_history_pages_px_get_history_without_frame_transport fails with Sequencer(Unavailable) because three shapes of the px_getHistory result disagree: the gateway contract (services/platform/hosted/gateway/openrpc.json) declares six required fields account, items, next_cursor, indexedHeight, chainHeight and freshness with a 32-hex next_cursor and params account, cursor, limit; decode_history_page accepts exactly items, next_cursor and indexedHeight (Fields::exact rejects any other field count); the fixture at tests/human_node.rs:128-178 serves height, items and an array cursor with from_height, to_height, limit params; the fixture at src/human_runtime.rs:22536 serves the three-field shape. The gateway's declared result is therefore refused by the client in production as well."
+assumption = "The decoder accepts the declared six-field result and keeps refusing unknown fields; both fixtures serve the declared shape; src/human_runtime.rs joins the paths for that fixture only; continue the attempt-6 tree."
+severity = "high"
+
+[finding.22.99.92.7]
+task = "22.99.92"
+file = "tests/ci/test_retired_finality_vector.py"
+symbol = "test_finality_vector_retired"
+observed = "Attempt 6: the retired-vector scan finds tests/ci/__pycache__/test_retired_finality_vector.cpython-312-pytest-9.2.0.pyc because the attempt committed Python byte-code caches under tests/__pycache__ and tests/ci/__pycache__ (listed among its changed files)."
+assumption = "Remove the committed byte-code files and make the scan ignore __pycache__ directories; continue the attempt-6 tree."
+severity = "low"

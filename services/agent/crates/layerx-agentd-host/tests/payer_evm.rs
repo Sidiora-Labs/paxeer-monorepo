@@ -354,7 +354,7 @@ impl RpcServer {
                                         "data":hex(&log.data), "logIndex":format!("{:#x}", log.log_index),
                                     })).collect::<Vec<_>>(),
                                     "gasUsed":"0x10000", "cumulativeGasUsed":"0x10000", "effectiveGasPrice":"0x3b9aca00",
-                                    "feeDenom":"upax", "feeAmount":"0x1", "sponsor":hex(&[0;20]), "from":hex(&sender),
+                                    "feeDenom":"upax", "paymentDenom":execution.payment_denom, "feeAmount":"0x1", "sponsor":hex(&[0;20]), "from":hex(&sender),
                                     "to":hex(&destination), "contractAddress":hex(&[0;20]), "vmError":"",
                                     "keyId":hex(&execution.key_id), "receipt":hex(&execution.receipt), "signingKey":hex(&execution.signing_key),
                                 });
