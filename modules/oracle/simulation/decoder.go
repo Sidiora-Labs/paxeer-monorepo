@@ -2,6 +2,7 @@ package simulation
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec"
@@ -15,9 +16,12 @@ import (
 // Value to the corresponding oracle type.
 func NewDecodeStore(cdc codec.Codec) func(kvA, kvB kv.Pair) string {
 	return func(kvA, kvB kv.Pair) string {
+		if len(kvA.Key) == 0 {
+			panic("invalid empty oracle key")
+		}
 		switch {
 		case bytes.Equal(kvA.Key[:1], types.ExchangeRateKey):
-			var exchangeRateA, exchangeRateB sdk.DecProto
+			var exchangeRateA, exchangeRateB types.OracleExchangeRate
 			cdc.MustUnmarshal(kvA.Value, &exchangeRateA)
 			cdc.MustUnmarshal(kvB.Value, &exchangeRateB)
 			return fmt.Sprintf("%v\n%v", exchangeRateA, exchangeRateB)
@@ -38,6 +42,13 @@ func NewDecodeStore(cdc codec.Codec) func(kvA, kvB kv.Pair) string {
 			cdc.MustUnmarshal(kvA.Value, &voteTargetA)
 			cdc.MustUnmarshal(kvB.Value, &voteTargetB)
 			return fmt.Sprintf("%v\n%v", voteTargetA, voteTargetB)
+		case bytes.Equal(kvA.Key[:1], types.PriceSnapshotKey):
+			var snapshotA, snapshotB types.PriceSnapshot
+			cdc.MustUnmarshal(kvA.Value, &snapshotA)
+			cdc.MustUnmarshal(kvB.Value, &snapshotB)
+			return fmt.Sprintf("%v\n%v", snapshotA, snapshotB)
+		case bytes.Equal(kvA.Key[:1], types.SpamPreventionCounter):
+			return fmt.Sprintf("%v\n%v", binary.BigEndian.Uint64(kvA.Value), binary.BigEndian.Uint64(kvB.Value))
 		default:
 			panic(fmt.Sprintf("invalid oracle key prefix %X", kvA.Key[:1]))
 		}
