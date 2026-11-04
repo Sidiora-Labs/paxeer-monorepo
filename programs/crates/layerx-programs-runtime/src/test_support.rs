@@ -177,3 +177,62 @@ pub fn add_module() -> Vec<u8> {
         )]),
     ])
 }
+
+/// Invokes a real composed guest through its versioned host linker without publishing effects.
+///
+/// # Errors
+///
+/// Returns the actual ABI, entrypoint, instantiation or nested-call refusal.
+pub fn invoke_composed_for_qualification(
+    storage: &crate::Storage,
+    request: crate::AuthorizedExecutionRequest<'_>,
+) -> Result<i32, crate::ExecutionError> {
+    use crate::{abi::Abi, calls::Composition, meter::Meter, ExecutionError};
+
+    crate::entrypoint::preflight(request.calldata).map_err(ExecutionError::Entrypoint)?;
+    let revision = request.module.abi_revision();
+    let principal = request.authorization.principal();
+    let abi = Abi::new(
+        crate::abi_policy::abi_version(revision),
+        request.program,
+        request.authorization,
+        storage.clone(),
+        request.receipts,
+    )
+    .map_err(ExecutionError::Abi)?;
+    let composition = Composition::new(
+        request
+            .composition
+            .claim_resolver(None)
+            .map_err(ExecutionError::Composition)?,
+        crate::CallGraph::root(request.composition.rules(), request.program, principal),
+        revision,
+    );
+    let meter = Meter::new(
+        crate::ResourceBudget::declared(),
+        crate::FeeSchedule::declared(),
+    );
+    let mut instance = if revision == crate::AbiRevision::V1 {
+        request
+            .module
+            .instantiate_composed(meter, abi, composition)
+            .map_err(|(fault, _)| ExecutionError::Fault(fault))?
+    } else {
+        request
+            .module
+            .instantiate_composed_response_context_retained(
+                meter,
+                abi,
+                composition,
+                request.response_capacity,
+                None,
+            )
+            .map_err(ExecutionError::Response)?
+            .map_err(|failure| ExecutionError::Fault(failure.0))?
+    };
+    let outcome = crate::entrypoint::invoke(&mut instance, request.entrypoint, request.calldata);
+    if let Some(refusal) = instance.state().refusal() {
+        return Err(ExecutionError::Composition(refusal.clone()));
+    }
+    outcome.map_err(ExecutionError::Entrypoint)
+}
