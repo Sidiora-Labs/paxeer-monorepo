@@ -1,0 +1,1352 @@
+# Pre-upgrade kernel header, export and codec audit.
+# Revision names the source tree reviewed; findings propose repairs only.
+
+[audit.22.30.4]
+task = "22.30.4"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 128
+findings = 50
+docs_reviewed = 12
+upgrade_ready = false
+blocking = []
+note = "Retirement tests still depend on removed declarations and operator guidance directs integrations to retired services. These medium and low findings need correction before upgrade qualification; no high-severity production round-trip failure was identified."
+
+[file.001]
+path = "include/layerx/lx_asset.h"
+lines = 347
+verdict = "issues"
+note = "Asset registration uses big-endian versioned payloads, custody-kind enums, 32-byte identifiers and staged conserved transfers; historical RECEIVE/grant ordinals remain reserved while their executable entry points are absent. Findings below identify the required corrections."
+
+[file.002]
+path = "include/layerx/lx_budget.h"
+lines = 292
+verdict = "issues"
+note = "Budget create/fund have versioned native-source payloads; delegated-spend capabilities are bounded and pull is absent from the public interface. Findings below identify the required corrections."
+
+[file.003]
+path = "include/layerx/lx_escrow.h"
+lines = 231
+verdict = "clean"
+note = "Escrow records bind assets, amounts, parties, dispute status and context-bound replay results; settlement is emitted through module transfer authority."
+
+[file.004]
+path = "include/layerx/lx_oracle.h"
+lines = 139
+verdict = "clean"
+note = "Canonical signed observations, freshness, price bounds and registered-key checks remain available to market consumers; adapter and batch-root services are absent."
+
+[file.005]
+path = "include/layerx/lx_perps.h"
+lines = 572
+verdict = "clean"
+note = "Market, margin, position, order, funding and liquidation declarations use fixed identifiers, explicit units and bounded result sets."
+
+[file.006]
+path = "include/layerx/lx_service.h"
+lines = 451
+verdict = "clean"
+note = "Service offers, agreements, deliverables, arbitration authority and economic results use versioned payloads and bounded committed records."
+
+[file.007]
+path = "include/layerx/lx_spot.h"
+lines = 186
+verdict = "clean"
+note = "Spot market/order state and asset transfer requests share kernel account authority and explicit price/amount types."
+
+[file.008]
+path = "include/layerx/lx_stream.h"
+lines = 270
+verdict = "clean"
+note = "Stream records bind funder, beneficiary, asset, schedule and bounded meter authorities; mutations emit authorized transfers."
+
+[file.009]
+path = "include/layerx/lx_stream_read.h"
+lines = 12
+verdict = "clean"
+note = "Read results expose accrued and claimable values through explicit status and canonical record shapes without changing stream state."
+
+[file.010]
+path = "include/layerx/lxp_activity.h"
+lines = 49
+verdict = "clean"
+note = "Activity encoding binds protocol/network, actor, authority, sequence, idempotency input, timestamp, payload hash and signature with bounded spans."
+
+[file.011]
+path = "include/layerx/lxp_admission.h"
+lines = 37
+verdict = "clean"
+note = "Admission results state whether a refusal assigns global sequence, consumes account sequence or charges fees; the context explicitly binds network, timestamp, signature, next sequence and spendability."
+
+[file.012]
+path = "include/layerx/lxp_arena.h"
+lines = 22
+verdict = "clean"
+note = "Arena ownership is caller-managed, bounded and explicitly reset; allocation/alignment and exhaustion are represented by result codes."
+
+[file.013]
+path = "include/layerx/lxp_authority.h"
+lines = 251
+verdict = "clean"
+note = "Authority resolution binds actor, principal, controller, sequence and opaque capabilities; charge reservations require matching authorized context."
+
+[file.014]
+path = "include/layerx/lxp_batch.h"
+lines = 91
+verdict = "clean"
+note = "Canonical batch, root and receipt transport declarations retain fixed field ordering and size; legacy sequencer authorization is a frozen evidence type."
+
+[file.015]
+path = "include/layerx/lxp_batch_identity.h"
+lines = 40
+verdict = "clean"
+note = "Batch identity preimages bind sequence ranges, roots and committed headers through fixed byte lengths and domain-separated hashes."
+
+[file.016]
+path = "include/layerx/lxp_bridge.h"
+lines = 82
+verdict = "clean"
+note = "Retained bridge structures express proof and transfer facts without restoring the retired bridge-credit profile or light-client runtime."
+
+[file.017]
+path = "include/layerx/lxp_build.h"
+lines = 15
+verdict = "clean"
+note = "Build metadata exposes compiler, target triple, optimization level and source revision through read-only reporting functions."
+
+[file.018]
+path = "include/layerx/lxp_codec.h"
+lines = 73
+verdict = "clean"
+note = "Primitive readers and writers expose explicit capacities, canonical tags, sorted sequences and errors for truncation, limits and trailing bytes."
+
+[file.019]
+path = "include/layerx/lxp_crypto.h"
+lines = 48
+verdict = "clean"
+note = "Cryptographic declarations use explicit message lengths and fixed Ed25519/secp256k1 key/signature sizes with result-coded verification."
+
+[file.020]
+path = "include/layerx/lxp_fault.h"
+lines = 42
+verdict = "clean"
+note = "Fault injection uses explicit sites and bounded failure events; controls are distinct from protocol success and fatal errors."
+
+[file.021]
+path = "include/layerx/lxp_fee.h"
+lines = 184
+verdict = "clean"
+note = "Fee schedules and meter inputs have versioned canonical lengths, separate asset/module pricing and checked u128 amounts; queue disposition codec is absent."
+
+[file.022]
+path = "include/layerx/lxp_fuzz.h"
+lines = 16
+verdict = "clean"
+note = "Fuzz adapters expose explicit byte lengths and result codes for activity decode, signature mutation, transfer sets and qualification corpus seeding."
+
+[file.023]
+path = "include/layerx/lxp_gateway.h"
+lines = 109
+verdict = "issues"
+note = "Payment requirements bind network, asset, amount, invoice, purpose and service signature; invoice ownership uses coordinated lifecycle and explicit settlement results. Findings below identify the required corrections."
+
+[file.024]
+path = "include/layerx/lxp_genesis.h"
+lines = 296
+verdict = "clean"
+note = "Genesis manifests bound parameter, account, asset and module inventories and define initial roots and module registration versions."
+
+[file.025]
+path = "include/layerx/lxp_genesis_builder.h"
+lines = 41
+verdict = "clean"
+note = "Fresh, registration, deployment and snapshot-migration builders expose typed bounded outputs; custody and handover trust builders are absent."
+
+[file.026]
+path = "include/layerx/lxp_governance.h"
+lines = 191
+verdict = "clean"
+note = "Governance proposals, parameter versions, effects and authority checks retain explicit limits; handover runtime entry points are absent."
+
+[file.027]
+path = "include/layerx/lxp_hash.h"
+lines = 37
+verdict = "clean"
+note = "Domain-separated hashing exposes fixed 32-byte results, incremental state and explicit preimage lengths."
+
+[file.028]
+path = "include/layerx/lxp_history.h"
+lines = 61
+verdict = "clean"
+note = "Retained history query/result types are bounded compatibility projections; no retired database-open or state-feed runtime API is declared."
+
+[file.029]
+path = "include/layerx/lxp_identity.h"
+lines = 92
+verdict = "clean"
+note = "Identity records bind DID key, next sequence, controller and authority lifecycle through bounded stores and explicit lookup results."
+
+[file.030]
+path = "include/layerx/lxp_kernel.h"
+lines = 714
+verdict = "issues"
+note = "Kernel snapshots and staged writes bound accounts, blobs and module state; prepared transitions settle in canonical order before atomic publication. Findings below identify the required corrections."
+
+[file.031]
+path = "include/layerx/lxp_kernel_host.h"
+lines = 11
+verdict = "clean"
+note = "Native host entry points load a bounded module-KV inventory and claim the kernel writer; their result codes make validation and writer-ownership refusal explicit."
+
+[file.032]
+path = "include/layerx/lxp_ledger.h"
+lines = 335
+verdict = "clean"
+note = "Account registries define indexed ownership and canonical namespaces; SEND retains staged transfer and proof APIs while payer-grant and RECEIVE types are absent."
+
+[file.033]
+path = "include/layerx/lxp_legacy.h"
+lines = 44
+verdict = "clean"
+note = "Legacy readers are explicitly read-only; the guard rejects writes and boundary checks reject database, HTTP, process-local event or development fallback authority."
+
+[file.034]
+path = "include/layerx/lxp_maintenance.h"
+lines = 30
+verdict = "clean"
+note = "Batch maintenance has a bounded 524288-byte payload and ordered module processing with explicit completeness/results."
+
+[file.035]
+path = "include/layerx/lxp_merkle.h"
+lines = 39
+verdict = "clean"
+note = "Merkle proof depth is bounded and leaf/internal hashing is domain-separated with explicit lengths and root verification results."
+
+[file.036]
+path = "include/layerx/lxp_module.h"
+lines = 213
+verdict = "clean"
+note = "Module registrations bind identifiers, ABI versions and supported activity arrays to decode/validate/execute hooks with bounded effects."
+
+[file.037]
+path = "include/layerx/lxp_module_ctx.h"
+lines = 22
+verdict = "clean"
+note = "Module context APIs stage account, KV and blob changes with checked authority, resource usage and rollback before commit."
+
+[file.038]
+path = "include/layerx/lxp_projection.h"
+lines = 52
+verdict = "clean"
+note = "Projection records carry canonical activity/account/asset/receipt facts; a watermark, stale flag and log-range rebuild make the database a recoverable read model."
+
+[file.039]
+path = "include/layerx/lxp_protocol.h"
+lines = 55
+verdict = "clean"
+note = "Protocol versions and domain tags have fixed numeric identities; historical domain allocations remain frozen compatibility values rather than live services."
+
+[file.040]
+path = "include/layerx/lxp_qualification.h"
+lines = 48
+verdict = "clean"
+note = "Qualification vectors use explicit record sizes and a 50-activity inventory with bounded deterministic outputs."
+
+[file.041]
+path = "include/layerx/lxp_receipt.h"
+lines = 260
+verdict = "clean"
+note = "Signed receipt fields bind activity/batch identity, state roots, sequence, result and bounded effects; Programs outcomes carry explicit versions and metering."
+
+[file.042]
+path = "include/layerx/lxp_reserve.h"
+lines = 58
+verdict = "clean"
+note = "Reserve classes and balance lines use checked u128 totals and explicit account/asset identity for reconciliation."
+
+[file.043]
+path = "include/layerx/lxp_result.h"
+lines = 183
+verdict = "clean"
+note = "Result codes preserve stable numeric error domains and distinguish protocol refusal from fatal invariants."
+
+[file.044]
+path = "include/layerx/lxp_shadow.h"
+lines = 91
+verdict = "clean"
+note = "Shadow comparison exposes bounded receipt/value divergences and explicit categories without mutating canonical state."
+
+[file.045]
+path = "include/layerx/lxp_snapshot.h"
+lines = 95
+verdict = "clean"
+note = "Snapshot formats version accounts, module roots and bounded blobs; manifest and migration authorization bind canonical roots for recovery."
+
+[file.046]
+path = "include/layerx/lxp_state.h"
+lines = 114
+verdict = "clean"
+note = "State store and journal expose staged cells and sequence commit without kernel idempotency storage; frozen legacy size constants do not restore that table."
+
+[file.047]
+path = "include/layerx/lxp_state_proof.h"
+lines = 35
+verdict = "clean"
+note = "Version-2 witnesses bound module key/value and Merkle material, with explicit encode/decode/verify and account/blob proof shapes."
+
+[file.048]
+path = "include/layerx/lxp_storage.h"
+lines = 112
+verdict = "clean"
+note = "Logs and durability groups specify append/sync/recovery ownership and bounded descriptor counts with explicit failure returns."
+
+[file.049]
+path = "include/layerx/lxp_tools.h"
+lines = 54
+verdict = "clean"
+note = "CLI adapters use fixed output lengths and typed decoding; the header does not expose a running daemon interface."
+
+[file.050]
+path = "include/layerx/lxp_transfer.h"
+lines = 161
+verdict = "clean"
+note = "Transfer sets bind source authority, asset and checked amounts; opaque program permits are consumed at the kernel boundary and supply modes are explicit."
+
+[file.051]
+path = "include/layerx/lxp_u128.h"
+lines = 63
+verdict = "clean"
+note = "Unsigned 128-bit arithmetic uses explicit hi/lo representation with checked overflow, underflow, conversion and decimal/byte encodings."
+
+[file.052]
+path = "include/layerx/lxp_u256.h"
+lines = 6
+verdict = "clean"
+note = "Unsigned 256-bit arithmetic exposes checked wide operations and deterministic conversion without implicit narrowing."
+
+[file.053]
+path = "include/layerx/lxp_verify.h"
+lines = 21
+verdict = "clean"
+note = "Offline verification checks receipt signatures and exact payment-requirement facts through explicit network and trusted-key inputs; no retired checkpoint verifier is exposed."
+
+[file.054]
+path = "include/layerx/lxp_verify_pool.h"
+lines = 25
+verdict = "clean"
+note = "The pool has explicit worker and queue capacities, immutable verification contexts and bounded result collection through create, submit and join."
+
+[file.055]
+path = "include/layerx/programs.h"
+lines = 1061
+verdict = "issues"
+note = "C/Rust scalar FFI types, repr(C) schedule descriptors, version-2 native receipt authority, deployment limits and owned span lifetimes agree on transport; stale catalogue and height wording are recorded below. Findings below identify the required corrections."
+
+[file.056]
+path = "layerxproof/exportcheck/anchor_vectors_test.go"
+lines = 36
+verdict = "clean"
+note = "Export checks keep retired anchor vector generation absent from the proof package surface."
+
+[file.057]
+path = "layerxproof/exportcheck/checkpoint_exports_test.go"
+lines = 59
+verdict = "clean"
+note = "Go package export assertions require retired checkpoint codec and verification entry points to stay absent."
+
+[file.058]
+path = "layerxproof/exportcheck/custody_light_exports_test.go"
+lines = 23
+verdict = "clean"
+note = "Export assertions require retired custody/light-client verification declarations to stay absent."
+
+[file.059]
+path = "layerxproof/exportcheck/exportcheck.go"
+lines = 71
+verdict = "clean"
+note = "PackageExports reads real Go compiler export data and enumerates exported package identifiers and named-type methods, propagating compiler/import and empty-export failures."
+
+[file.060]
+path = "layerxproof/exportcheck/exportcheck_test.go"
+lines = 23
+verdict = "clean"
+note = "Export discovery checks real standard-library and local package declarations and rejects unknown package requests."
+
+[file.061]
+path = "layerxproof/exportcheck/inclusion_exports_test.go"
+lines = 59
+verdict = "clean"
+note = "Inclusion export assertions require retired batch-header/inclusion/discovery verifiers absent while retained receipt/root/state primitives remain public."
+
+[file.062]
+path = "tests/codec/lxp_kernel_case.h"
+lines = 51
+verdict = "clean"
+note = "The case harness parses explicit case filters and reports nonzero failures; case function registration and check macros propagate failures."
+
+[file.063]
+path = "tests/codec/lxp_test_asset_state_root.c"
+lines = 145
+verdict = "clean"
+note = "Assertions cover asset_state_root_rejects_duplicate_key, asset_state_root_order_independent. Historical names in retirement cases identify forbidden interfaces, not live services."
+
+[file.064]
+path = "tests/codec/lxp_test_binding_authority.c"
+lines = 401
+verdict = "clean"
+note = "Assertions cover binding_authority_substitutes_signature, native_runtime_verifies_signature, send_environment_copies_binding. Historical names in retirement cases identify forbidden interfaces, not live services."
+
+[file.065]
+path = "tests/codec/lxp_test_binding_authority_receive.c"
+lines = 428
+verdict = "issues"
+note = "Assertions cover binding_authority_substitutes_receiver_signature, native_receive_verifies_receiver_signature, receive_environment_copies_binding. Historical names in retirement cases identify forbidden interfaces, not live services. Findings below identify the required corrections."
+
+[file.066]
+path = "tests/codec/lxp_test_binding_ctx_stage.c"
+lines = 253
+verdict = "clean"
+note = "Assertions cover issuance_stage_bound_skips_signature, account_stage_bound_keeps_other_checks. Historical names in retirement cases identify forbidden interfaces, not live services."
+
+[file.067]
+path = "tests/codec/lxp_test_binding_custody_stage.c"
+lines = 246
+verdict = "clean"
+note = "Assertions cover custody_stage_bound_skips_signature, custody_stage_unbound_verifies_signature. Historical names in retirement cases identify forbidden interfaces, not live services."
+
+[file.068]
+path = "tests/codec/lxp_test_bridge_claims_retired.c"
+lines = 189
+verdict = "clean"
+note = "Assertions cover bridge_header_without_guarantor, bridge_claim_symbols_absent. Historical names in retirement cases identify forbidden interfaces, not live services."
+
+[file.069]
+path = "tests/codec/lxp_test_bridge_credit_absent.c"
+lines = 152
+verdict = "issues"
+note = "Assertions cover bridge_credit_symbols_absent, deposit_nullifier_kept. Historical names in retirement cases identify forbidden interfaces, not live services. Findings below identify the required corrections."
+
+[file.070]
+path = "tests/codec/lxp_test_budget_pull_retired.c"
+lines = 563
+verdict = "issues"
+note = "Assertions cover budget_pull_type_refused, budget_delegate_spend_unchanged. Historical names in retirement cases identify forbidden interfaces, not live services. Findings below identify the required corrections."
+
+[file.071]
+path = "tests/codec/lxp_test_case_dispatch.c"
+lines = 92
+verdict = "clean"
+note = "Assertions cover first, second, failure, first, second, case_dispatch_runs_named_case, case_dispatch_rejects_unknown_case. Historical names in retirement cases identify forbidden interfaces, not live services."
+
+[file.072]
+path = "tests/codec/lxp_test_client_reads.c"
+lines = 539
+verdict = "clean"
+note = "Assertions cover client_reads_leave_module_kv_identical, client_reads_unknown_ids_refused. Historical names in retirement cases identify forbidden interfaces, not live services."
+
+[file.073]
+path = "tests/codec/lxp_test_codec_composite.c"
+lines = 50
+verdict = "clean"
+note = "Typed codec assertions cover codec composite, canonical reader/writer boundaries and explicit refusal results."
+
+[file.074]
+path = "tests/codec/lxp_test_codec_header_version.c"
+lines = 122
+verdict = "clean"
+note = "Assertions cover codec_header_version_roundtrip, codec_header_version_refusals. Historical names in retirement cases identify forbidden interfaces, not live services."
+
+[file.075]
+path = "tests/codec/lxp_test_codec_primitives.c"
+lines = 52
+verdict = "clean"
+note = "Typed codec assertions cover codec primitives, canonical reader/writer boundaries and explicit refusal results."
+
+[file.076]
+path = "tests/codec/lxp_test_codec_strict.c"
+lines = 33
+verdict = "issues"
+note = "Typed codec assertions cover codec strict, canonical reader/writer boundaries and explicit refusal results. Findings below identify the required corrections."
+
+[file.077]
+path = "tests/codec/lxp_test_codec_vectors.c"
+lines = 152
+verdict = "issues"
+note = "Typed codec assertions cover codec vectors, canonical reader/writer boundaries and explicit refusal results. Findings below identify the required corrections."
+
+[file.078]
+path = "tests/codec/lxp_test_custody_asset_id.c"
+lines = 57
+verdict = "clean"
+note = "Assertions cover custody_asset_id_matches_table, custody_asset_id_bounds. Historical names in retirement cases identify forbidden interfaces, not live services."
+
+[file.079]
+path = "tests/codec/lxp_test_custody_builder_header.c"
+lines = 88
+verdict = "issues"
+note = "Assertions cover builder_header_without_custody. Historical names in retirement cases identify forbidden interfaces, not live services. Findings below identify the required corrections."
+
+[file.080]
+path = "tests/codec/lxp_test_daemon_header_absent.c"
+lines = 32
+verdict = "clean"
+note = "Assertions cover daemon_header_absent. Historical names in retirement cases identify forbidden interfaces, not live services."
+
+[file.081]
+path = "tests/codec/lxp_test_event_log_decl.c"
+lines = 27
+verdict = "clean"
+note = "Assertions cover event_log_encode_declared. Historical names in retirement cases identify forbidden interfaces, not live services."
+
+[file.082]
+path = "tests/codec/lxp_test_fee_golden.c"
+lines = 237
+verdict = "issues"
+note = "Assertions cover fee_schedule_golden_bytes, fee_per_activity_golden_table. Historical names in retirement cases identify forbidden interfaces, not live services. Findings below identify the required corrections."
+
+[file.083]
+path = "tests/codec/lxp_test_fee_meter_refused.c"
+lines = 401
+verdict = "issues"
+note = "Assertions cover execute_refuses_host_fee_meter, prepare_refuses_host_fee_meter. Historical names in retirement cases identify forbidden interfaces, not live services. Findings below identify the required corrections."
+
+[file.084]
+path = "tests/codec/lxp_test_fee_relay_retired.c"
+lines = 192
+verdict = "issues"
+note = "Assertions cover fee_relay_type_refused, fee_observe_batch_unchanged. Historical names in retirement cases identify forbidden interfaces, not live services. Findings below identify the required corrections."
+
+[file.085]
+path = "tests/codec/lxp_test_genesis_builder_header.c"
+lines = 88
+verdict = "clean"
+note = "Assertions cover builder_header_without_handover. Historical names in retirement cases identify forbidden interfaces, not live services."
+
+[file.086]
+path = "tests/codec/lxp_test_global_sequence.c"
+lines = 306
+verdict = "clean"
+note = "Assertions cover execute_refuses_sequence_gap, execute_refuses_sequence_reuse. Historical names in retirement cases identify forbidden interfaces, not live services."
+
+[file.087]
+path = "tests/codec/lxp_test_grant_fee_asset.c"
+lines = 281
+verdict = "clean"
+note = "Assertions cover grant_fee_asset_resolves_governed_record, grant_fee_asset_mismatch_refused. Historical names in retirement cases identify forbidden interfaces, not live services."
+
+[file.088]
+path = "tests/codec/lxp_test_handover_absent.c"
+lines = 82
+verdict = "issues"
+note = "Assertions cover handover_symbols_absent. Historical names in retirement cases identify forbidden interfaces, not live services. Findings below identify the required corrections."
+
+[file.089]
+path = "tests/codec/lxp_test_handover_retired.c"
+lines = 291
+verdict = "clean"
+note = "Assertions cover handover_activity_refused, governance_fee_keeps_key. Historical names in retirement cases identify forbidden interfaces, not live services."
+
+[file.090]
+path = "tests/codec/lxp_test_idempotency_absent.c"
+lines = 160
+verdict = "issues"
+note = "Assertions cover idempotency_symbols_absent, journal_commit_without_idempotency. Historical names in retirement cases identify forbidden interfaces, not live services. Findings below identify the required corrections."
+
+[file.091]
+path = "tests/codec/lxp_test_idempotency_retired.c"
+lines = 308
+verdict = "issues"
+note = "Assertions cover reused_key_next_sequence_executes, reused_sequence_refused, idempotency_table_stays_empty. Historical names in retirement cases identify forbidden interfaces, not live services. Findings below identify the required corrections."
+
+[file.092]
+path = "tests/codec/lxp_test_kernel_complete.c"
+lines = 1726
+verdict = "clean"
+note = "Assertions cover kernel_completion_retired_surfaces_absent. Historical names in retirement cases identify forbidden interfaces, not live services."
+
+[file.093]
+path = "tests/codec/lxp_test_kernel_entry_retired.c"
+lines = 471
+verdict = "issues"
+note = "Assertions cover kernel_entry_symbols_absent, blob_admission_without_capacity. Historical names in retirement cases identify forbidden interfaces, not live services. Findings below identify the required corrections."
+
+[file.094]
+path = "tests/codec/lxp_test_kernel_writer.c"
+lines = 135
+verdict = "clean"
+note = "Assertions cover claim_writer_moves_owner, claim_writer_refuses_open_journal. Historical names in retirement cases identify forbidden interfaces, not live services."
+
+[file.095]
+path = "tests/codec/lxp_test_ledger_bridge_credit_absent.c"
+lines = 108
+verdict = "clean"
+note = "Assertions cover ledger_bridge_credit_absent, ledger_restore_snapshot_kept. Historical names in retirement cases identify forbidden interfaces, not live services."
+
+[file.096]
+path = "tests/codec/lxp_test_ledger_journal.c"
+lines = 133
+verdict = "clean"
+note = "Assertions cover ledger_journal_rollback_restores, ledger_journal_state_machine. Historical names in retirement cases identify forbidden interfaces, not live services."
+
+[file.097]
+path = "tests/codec/lxp_test_log_kinds.c"
+lines = 236
+verdict = "clean"
+note = "Assertions cover log_append_refuses_retired_kinds, log_read_accepts_historic_kind_record. Historical names in retirement cases identify forbidden interfaces, not live services."
+
+[file.098]
+path = "tests/codec/lxp_test_migration_authorization.c"
+lines = 260
+verdict = "clean"
+note = "Assertions cover migration_authorization_roundtrip, migration_authorization_refusals. Historical names in retirement cases identify forbidden interfaces, not live services."
+
+[file.099]
+path = "tests/codec/lxp_test_module_bounds.c"
+lines = 253
+verdict = "clean"
+note = "Assertions cover module_kv_bound_raised, staged_writes_bound_raised. Historical names in retirement cases identify forbidden interfaces, not live services."
+
+[file.100]
+path = "tests/codec/lxp_test_module_kv_load.c"
+lines = 181
+verdict = "clean"
+note = "Assertions cover module_kv_load_orders_permuted_input, module_kv_load_rejects_duplicate, module_kv_load_enforces_bounds. Historical names in retirement cases identify forbidden interfaces, not live services."
+
+[file.101]
+path = "tests/codec/lxp_test_modules_unregistered.c"
+lines = 170
+verdict = "clean"
+note = "Assertions cover web_and_bridge_rows_absent, program_web_read_disabled, bridge_receipt_bind_absent. Historical names in retirement cases identify forbidden interfaces, not live services."
+
+[file.102]
+path = "tests/codec/lxp_test_program_signer_binding.c"
+lines = 426
+verdict = "issues"
+note = "Assertions cover bound_unsigned_program_passes_signer_binding, unbound_unsigned_program_refused, bound_signed_program_still_verified. Historical names in retirement cases identify forbidden interfaces, not live services. Findings below identify the required corrections."
+
+[file.103]
+path = "tests/codec/lxp_test_programs_header.c"
+lines = 25
+verdict = "clean"
+note = "Assertions cover programs_header_without_replica. Historical names in retirement cases identify forbidden interfaces, not live services."
+
+[file.104]
+path = "tests/codec/lxp_test_programs_reads.c"
+lines = 258
+verdict = "clean"
+note = "Assertions cover interface_read_returns_stored_bytes, sandbox_read_selects_kind. Historical names in retirement cases identify forbidden interfaces, not live services."
+
+[file.105]
+path = "tests/codec/lxp_test_programs_retired.c"
+lines = 159
+verdict = "issues"
+note = "Assertions cover programs_retired_symbols_absent, programs_header_without_relay. Historical names in retirement cases identify forbidden interfaces, not live services. Findings below identify the required corrections."
+
+[file.106]
+path = "tests/codec/lxp_test_qual_header.c"
+lines = 122
+verdict = "clean"
+note = "Assertions cover qual_activity_count_matches_registry, qual_fault_sims_undeclared. Historical names in retirement cases identify forbidden interfaces, not live services."
+
+[file.107]
+path = "tests/codec/lxp_test_queue_disposition_retired.c"
+lines = 118
+verdict = "issues"
+note = "Assertions cover queue_disposition_codec_removed. Historical names in retirement cases identify forbidden interfaces, not live services. Findings below identify the required corrections."
+
+[file.108]
+path = "tests/codec/lxp_test_receipt_authority_v2.c"
+lines = 290
+verdict = "clean"
+note = "Assertions cover authority_v2_record_bytes, authority_v2_height_checks, height_authority_add_refusals. Historical names in retirement cases identify forbidden interfaces, not live services."
+
+[file.109]
+path = "tests/codec/lxp_test_receive_retired.c"
+lines = 247
+verdict = "issues"
+note = "Assertions cover receive_and_grant_types_refused, grant_store_symbols_absent. Historical names in retirement cases identify forbidden interfaces, not live services. Findings below identify the required corrections."
+
+[file.110]
+path = "tests/codec/lxp_test_result_codes.c"
+lines = 46
+verdict = "clean"
+note = "Assertions cover result_arbiter_codes_named, result_arbiter_codes_module_domain. Historical names in retirement cases identify forbidden interfaces, not live services."
+
+[file.111]
+path = "tests/codec/lxp_test_result_domain.c"
+lines = 89
+verdict = "clean"
+note = "Assertions cover result_domain_unregistered_unknown, result_is_registered_matches_list. Historical names in retirement cases identify forbidden interfaces, not live services."
+
+[file.112]
+path = "tests/codec/lxp_test_result_registry.c"
+lines = 88
+verdict = "clean"
+note = "Assertions cover result_registry_enumerates_in_order, result_registry_values_unique. Historical names in retirement cases identify forbidden interfaces, not live services."
+
+[file.113]
+path = "tests/codec/lxp_test_result_retired.c"
+lines = 34
+verdict = "clean"
+note = "Assertions cover result_da_missing_unregistered. Historical names in retirement cases identify forbidden interfaces, not live services."
+
+[file.114]
+path = "tests/codec/lxp_test_sandbox_expiry_bound.c"
+lines = 149
+verdict = "clean"
+note = "Assertions cover sweep_limit_128_accepted, sweep_limit_above_bound_refused. Historical names in retirement cases identify forbidden interfaces, not live services."
+
+[file.115]
+path = "tests/codec/lxp_test_send_store.c"
+lines = 212
+verdict = "clean"
+note = "Assertions cover send_store_spill_replays, send_store_refusals. Historical names in retirement cases identify forbidden interfaces, not live services."
+
+[file.116]
+path = "tests/codec/lxp_test_service_arbiter.c"
+lines = 357
+verdict = "clean"
+note = "Assertions cover resolve_requires_linked_arbiter, open_requires_arbiter_and_link, dispute_window_rules_kept. Historical names in retirement cases identify forbidden interfaces, not live services."
+
+[file.117]
+path = "tests/codec/lxp_test_service_deliverable.c"
+lines = 150
+verdict = "clean"
+note = "Assertions cover deliverable_empty_reference_non_canonical, deliverable_hash_mismatch_unchanged. Historical names in retirement cases identify forbidden interfaces, not live services."
+
+[file.118]
+path = "tests/codec/lxp_test_service_runtime.c"
+lines = 268
+verdict = "clean"
+note = "Assertions cover service_runtime_missing_disabled, service_runtime_reader_called_once. Historical names in retirement cases identify forbidden interfaces, not live services."
+
+[file.119]
+path = "tests/codec/lxp_test_settled_maintenance.c"
+lines = 421
+verdict = "issues"
+note = "Assertions cover fresh_genesis_maintenance_batch_commits, second_maintenance_batch_chains. Historical names in retirement cases identify forbidden interfaces, not live services. Findings below identify the required corrections."
+
+[file.120]
+path = "tests/codec/lxp_test_snapshot_golden.c"
+lines = 441
+verdict = "clean"
+note = "Assertions cover snapshot_golden_digest, snapshot_golden_reload_identical. Historical names in retirement cases identify forbidden interfaces, not live services."
+
+[file.121]
+path = "tests/codec/lxp_test_snapshot_idempotency.c"
+lines = 193
+verdict = "clean"
+note = "Assertions cover root_ignores_idempotency, snapshot_count_word_zero. Historical names in retirement cases identify forbidden interfaces, not live services."
+
+[file.122]
+path = "tests/codec/lxp_test_state_diff_retired.c"
+lines = 79
+verdict = "issues"
+note = "Assertions cover state_diff_codec_removed. Historical names in retirement cases identify forbidden interfaces, not live services. Findings below identify the required corrections."
+
+[file.123]
+path = "tests/codec/lxp_test_state_feed_unbound.c"
+lines = 538
+verdict = "issues"
+note = "Assertions cover programs_runtime_without_feed, feed_does_not_change_roots. Historical names in retirement cases identify forbidden interfaces, not live services. Findings below identify the required corrections."
+
+[file.124]
+path = "tests/codec/lxp_test_state_record.c"
+lines = 165
+verdict = "clean"
+note = "Assertions cover state_record_rejects_duplicate_account. Historical names in retirement cases identify forbidden interfaces, not live services."
+
+[file.125]
+path = "tests/codec/lxp_test_stream_accrued_read.c"
+lines = 190
+verdict = "clean"
+note = "Assertions cover accrued_read_time_stream, accrued_read_metered_and_missing. Historical names in retirement cases identify forbidden interfaces, not live services."
+
+[file.126]
+path = "tests/codec/lxp_test_surface_frozen.c"
+lines = 196
+verdict = "clean"
+note = "Assertions cover result_registry_matches_frozen_list, module_ids_frozen. Historical names in retirement cases identify forbidden interfaces, not live services."
+
+[file.127]
+path = "tests/codec/lxp_test_verify_header.c"
+lines = 141
+verdict = "clean"
+note = "Assertions cover verify_header_without_guarantor, checkpointed_verify_absent. Historical names in retirement cases identify forbidden interfaces, not live services."
+
+[file.128]
+path = "tests/codec/lxp_test_web_absent.c"
+lines = 76
+verdict = "issues"
+note = "Assertions cover web_symbols_absent. Historical names in retirement cases identify forbidden interfaces, not live services. Findings below identify the required corrections."
+
+[finding.001]
+file = "tests/codec/lxp_test_binding_authority_receive.c"
+line = 30
+class = "test-gap"
+severity = "medium"
+observed = "binding_fixture still embeds lxp_receive and lxp_payer_grant, and the cases expect successful grant issue and RECEIVE execution; those types and executable paths have left lxp_ledger.h and asset dispatch."
+expected = "Requirements 1047.1 and 1047.2 retire kernel RECEIVE and payer-grant activities and their validation functions; native bound payments execute through layerxpay."
+proposal = "In tests/codec/lxp_test_binding_authority_receive.c port the retained signature, controller, sequence and context assertions to the native layerxpay producer and consumer; keep the kernel retirement refusal coverage."
+owner_domain = 1
+
+[finding.002]
+file = "include/layerx/lx_asset.h"
+line = 34
+class = "doc-drift"
+severity = "low"
+observed = "The register-payload comment says lx_asset_custody_kind PAXEER=1 and instructs callers not to persist issuer_kind directly, while the enum below declares NATIVE=1 and PAXEER=2."
+expected = "Public header guidance must use the actual persisted custody kind numbers so host integrations encode the same asset records as lx_asset_record_encode."
+proposal = "Correct the custody-kind comment in include/layerx/lx_asset.h to describe NATIVE=1 and PAXEER=2 and explicitly state the current mapping from register issuer_kind."
+owner_domain = 1
+
+[finding.003]
+file = "include/layerx/lxp_kernel.h"
+line = 321
+class = "retired-reference"
+severity = "low"
+observed = "The canonical ledger applier is documented as installed by layerxd, and the terminal-rejection comment still promises a receipt stored under the activity idempotency key after the state idempotency table was removed."
+expected = "The merged host is paxd/modules/lxphost, and requirements 1010 through 1012 remove kernel idempotency receipt storage; comments must describe the durable node receipt path."
+proposal = "Update the public contract comments in include/layerx/lxp_kernel.h to name the paxd host and actual terminal receipt publication and sequence semantics without promising the retired idempotency table."
+owner_domain = 1
+
+[finding.004]
+file = "tests/codec/lxp_test_budget_pull_retired.c"
+line = 78
+class = "test-gap"
+severity = "medium"
+observed = "sign_grant and budget_pull_type_refused still construct lxp_payer_grant and call lxp_grant_authorization_message, lxp_verify_payer_grant and lxp_payer_grant_encode, which are absent from the public ledger interface after RECEIVE retirement."
+expected = "The retired budget pull must be rejected and valid delegated spending preserved under requirement 1048, without requiring the payer-grant implementation removed by requirement 1047."
+proposal = "Build the retired pull input from a fixed historical wire fixture in tests/codec/lxp_test_budget_pull_retired.c and prove its refusal alongside the retained delegated-spend assertions through the live budget path."
+owner_domain = 1
+
+[finding.005]
+file = "tests/codec/lxp_test_codec_vectors.c"
+line = 68
+class = "test-gap"
+severity = "medium"
+observed = "lxp_codec_vector_load copies the golden digest and checks only its length; lxp_codec_vector_run never hashes the vector or compares cases[i].digest, so changing the recorded digest cannot fail this test."
+expected = "A codec golden digest must authenticate the canonical producer bytes as well as the decoder result, so vector corruption is detected across implementations."
+proposal = "In tests/codec/lxp_test_codec_vectors.c hash the canonical encoded bytes with the declared vector hash algorithm and compare the complete digest for each successful vector, keeping every existing decode and round-trip assertion."
+owner_domain = 1
+
+[finding.006]
+file = "tests/codec/lxp_test_custody_builder_header.c"
+line = 39
+class = "test-gap"
+severity = "medium"
+observed = "builder_header_without_custody requires lxp_genesis_handover_trust_build with _Generic even though lxp_genesis_builder.h no longer declares it; lxp_test_genesis_builder_header.c correctly checks that the retired identifier is absent."
+expected = "Custody builder coverage must remain compilable after handover retirement and continue checking the signatures of the retained fresh, registration, deployment and migration builders."
+proposal = "Replace the removed handover signature expectation in tests/codec/lxp_test_custody_builder_header.c with an explicit absence assertion; preserve every retained builder type and custody absence assertion."
+owner_domain = 1
+
+[finding.007]
+file = "tests/codec/lxp_test_fee_golden.c"
+line = 113
+class = "test-gap"
+severity = "medium"
+observed = "fee_per_activity_golden_table includes retired Asset RECEIVE/grant, Budget PULL and Bridge CREDIT ordinals, then requires every golden row to be advertised by the live genesis module table at line 223."
+expected = "The retained fee arithmetic vectors may document historical ordinals, but live activity coverage must agree with the post-retirement module registrations and reject retired dispatch."
+proposal = "In tests/codec/lxp_test_fee_golden.c retain the immutable fee arithmetic goldens, maintain an explicit live-registration expectation and separately assert retired ordinals cannot dispatch; keep exhaustive live coverage."
+owner_domain = 1
+
+[finding.008]
+file = "tests/codec/lxp_test_fee_meter_refused.c"
+line = 262
+class = "test-gap"
+severity = "medium"
+observed = "fee_meter_refused compares state.idempotency_count to zero and later to one at line 308, but lxp_state_store no longer contains that member, preventing the refusal and successful fee cases from compiling."
+expected = "Fee refusal must leave balances, sequences and committed state unchanged; successful fee execution must be proved using the current receipt path without the retired kernel idempotency table."
+proposal = "Port tests/codec/lxp_test_fee_meter_refused.c to snapshot and compare actual balances, sequences, roots and emitted receipts, retaining the fee-meter refusal and successful debit assertions."
+owner_domain = 1
+
+[finding.009]
+file = "tests/codec/lxp_test_fee_relay_retired.c"
+line = 28
+class = "test-gap"
+severity = "medium"
+observed = "fee_relay_type_refused uses LX_PROGRAMS_FEE_GOVERNANCE at lines 28, 45, 51 and 59, although programs.h deliberately no longer declares that retired activity constant."
+expected = "Fee relay retirement coverage must prove ordinal 0x00090008 is refused at lookup and decode while all retained module registrations and fee observations remain usable."
+proposal = "Use a test-local frozen historical numeric ordinal in tests/codec/lxp_test_fee_relay_retired.c, preserve the registration-count, decode-refusal and fee-observation assertions, and keep the public identifier absent."
+owner_domain = 1
+interface = "1.c-enum-lx-programs-deploy"
+
+[finding.010]
+file = "tests/codec/lxp_test_idempotency_retired.c"
+line = 205
+class = "test-gap"
+severity = "medium"
+observed = "Repeated-key coverage reads journal.has_idempotency and state.idempotency_count at lines 205 and 254 through 294; both storage members were removed from the current journal and store declarations."
+expected = "Retiring the kernel idempotency table must retain repeat-key/new-sequence execution and stale-sequence refusal coverage without accessing deleted storage."
+proposal = "Port tests/codec/lxp_test_idempotency_retired.c to compare committed roots, identity/global sequences and receipts before and after repeated submissions; retain the separate public/storage absence assertions."
+owner_domain = 1
+
+[finding.011]
+file = "tests/codec/lxp_test_program_signer_binding.c"
+line = 263
+class = "test-gap"
+severity = "medium"
+observed = "signer_state_unchanged reads f->state.idempotency_count, a member absent from lxp_state_store, so the current signer-binding and rollback test cannot compile against its producer header."
+expected = "Malformed or unauthorized program signers must be refused without changing ledger balances, identity sequences, kernel roots or durable receipts."
+proposal = "Replace the deleted-storage check in tests/codec/lxp_test_program_signer_binding.c with a comparison of the actual committed state and receipt outputs while retaining every signer authorization and rollback scenario."
+owner_domain = 1
+
+[finding.012]
+file = "tests/codec/lxp_test_queue_disposition_retired.c"
+line = 3
+class = "test-gap"
+severity = "medium"
+observed = "The retirement test includes missing layerx/lxp_daemon.h and instantiates removed lxp_queue_disposition and lxp_daemon_lni_server storage at lines 76 and 93 before checking codec absence."
+expected = "Queue-disposition retirement must be provable after daemon and disposition types are removed; current pending status belongs to the node admission/receipt lifecycle."
+proposal = "In tests/codec/lxp_test_queue_disposition_retired.c use test-local opaque historical declarations for weak-symbol checks, assert the old header and codec are absent, and exercise retained pending-status behavior through the node path."
+owner_domain = 1
+
+[finding.013]
+file = "tests/codec/lxp_test_settled_maintenance.c"
+line = 306
+class = "test-gap"
+severity = "medium"
+observed = "Settled maintenance coverage accesses removed state.idempotency_count and runtime.state_feed fields at lines 306 through 308, 326 and 404, so its batch-publication assertions cannot compile against current types."
+expected = "Settled maintenance must demonstrate ordered, durable current-state publication and unchanged state on refusal without binding a retired Programs state feed."
+proposal = "Adapt tests/codec/lxp_test_settled_maintenance.c to the retained maintenance producer and host receipt/root publication, preserving batch order, expiration and failure atomicity assertions through current state fields."
+owner_domain = 1
+
+[finding.014]
+file = "tests/codec/lxp_test_state_feed_unbound.c"
+line = 254
+class = "test-gap"
+severity = "medium"
+observed = "The fixture instantiates removed lx_programs_state_feed_store, calls retired store-open and anchor APIs at lines 326 through 329, and assigns runtime.state_feed at line 331 although the live runtime has no such member."
+expected = "Programs execution and publication must work without the retired state-feed store, and removal coverage must not require the removed implementation or its types."
+proposal = "Port tests/codec/lxp_test_state_feed_unbound.c to the paxd host execution and publication boundary, preserving execution, state equality and restart assertions; test retired feed symbols separately with opaque weak declarations."
+owner_domain = 1
+
+[finding.015]
+file = "tests/codec/lxp_test_kernel_entry_retired.c"
+line = 36
+class = "test-gap"
+severity = "medium"
+observed = "kernel_entry_symbols_absent evaluates lxp_kernel_idempotency_receipt_validate, but the file provides only a pragma weak for that name and no extern declaration; no included header declares the retired function."
+expected = "Retired entry-point absence checks must compile independently of the removed public declarations while still failing if any retired symbol is linked or exported."
+proposal = "Add a test-local historical extern declaration for lxp_kernel_idempotency_receipt_validate in tests/codec/lxp_test_kernel_entry_retired.c and retain the weak-symbol, archive and real blob-admission assertions."
+owner_domain = 1
+
+[finding.016]
+file = "tests/codec/lxp_test_codec_strict.c"
+line = 31
+class = "test-gap"
+severity = "medium"
+observed = "The pre-admission mutation claim compares local sequence=9 and fee=11 variables that are never passed to any codec or admission function, so the final assertion cannot observe a state mutation."
+expected = "Malformed-envelope refusal must be proved at the real admission boundary with observable sequence and fee state in addition to the primitive decoder error checks."
+proposal = "Extend tests/codec/lxp_test_codec_strict.c with malformed canonical envelope submissions through current admission and compare real balances and sequences before and after; retain all primitive strict-decoder assertions."
+owner_domain = 1
+
+[finding.017]
+file = "tests/codec/lxp_test_bridge_credit_absent.c"
+line = 46
+class = "config-drift"
+severity = "medium"
+observed = "The symbol absence check runs nm against hard-coded build/liblayerx.a, while Makefile supports BUILD_DIR overrides and links codec tests against the selected archive. An alternate build can inspect a stale default archive or fail because it is absent."
+expected = "The retirement assertion must inspect the same archive linked into the current test for every supported BUILD_DIR and fail on archive inspection errors."
+proposal = "Pass the resolved library path from the Makefile into tests/codec/lxp_test_bridge_credit_absent.c and inspect that exact archive, preserving all forbidden-symbol checks and subprocess error assertions."
+owner_domain = 1
+
+[finding.018]
+file = "tests/codec/lxp_test_handover_absent.c"
+line = 53
+class = "config-drift"
+severity = "medium"
+observed = "The symbol absence check runs nm against hard-coded build/liblayerx.a, while Makefile supports BUILD_DIR overrides and links codec tests against the selected archive. An alternate build can inspect a stale default archive or fail because it is absent."
+expected = "The retirement assertion must inspect the same archive linked into the current test for every supported BUILD_DIR and fail on archive inspection errors."
+proposal = "Pass the resolved library path from the Makefile into tests/codec/lxp_test_handover_absent.c and inspect that exact archive, preserving all forbidden-symbol checks and subprocess error assertions."
+owner_domain = 1
+
+[finding.019]
+file = "tests/codec/lxp_test_idempotency_absent.c"
+line = 52
+class = "config-drift"
+severity = "medium"
+observed = "The symbol absence check runs nm against hard-coded build/liblayerx.a, while Makefile supports BUILD_DIR overrides and links codec tests against the selected archive. An alternate build can inspect a stale default archive or fail because it is absent."
+expected = "The retirement assertion must inspect the same archive linked into the current test for every supported BUILD_DIR and fail on archive inspection errors."
+proposal = "Pass the resolved library path from the Makefile into tests/codec/lxp_test_idempotency_absent.c and inspect that exact archive, preserving all forbidden-symbol checks and subprocess error assertions."
+owner_domain = 1
+
+[finding.020]
+file = "tests/codec/lxp_test_kernel_entry_retired.c"
+line = 48
+class = "config-drift"
+severity = "medium"
+observed = "The symbol absence check runs nm against hard-coded build/liblayerx.a, while Makefile supports BUILD_DIR overrides and links codec tests against the selected archive. An alternate build can inspect a stale default archive or fail because it is absent."
+expected = "The retirement assertion must inspect the same archive linked into the current test for every supported BUILD_DIR and fail on archive inspection errors."
+proposal = "Pass the resolved library path from the Makefile into tests/codec/lxp_test_kernel_entry_retired.c and inspect that exact archive, preserving all forbidden-symbol checks and subprocess error assertions."
+owner_domain = 1
+
+[finding.021]
+file = "tests/codec/lxp_test_programs_retired.c"
+line = 70
+class = "config-drift"
+severity = "medium"
+observed = "The symbol absence check runs nm against hard-coded build/liblayerx.a, while Makefile supports BUILD_DIR overrides and links codec tests against the selected archive. An alternate build can inspect a stale default archive or fail because it is absent."
+expected = "The retirement assertion must inspect the same archive linked into the current test for every supported BUILD_DIR and fail on archive inspection errors."
+proposal = "Pass the resolved library path from the Makefile into tests/codec/lxp_test_programs_retired.c and inspect that exact archive, preserving all forbidden-symbol checks and subprocess error assertions."
+owner_domain = 1
+
+[finding.022]
+file = "tests/codec/lxp_test_receive_retired.c"
+line = 213
+class = "config-drift"
+severity = "medium"
+observed = "The symbol absence check runs nm against hard-coded build/liblayerx.a, while Makefile supports BUILD_DIR overrides and links codec tests against the selected archive. An alternate build can inspect a stale default archive or fail because it is absent."
+expected = "The retirement assertion must inspect the same archive linked into the current test for every supported BUILD_DIR and fail on archive inspection errors."
+proposal = "Pass the resolved library path from the Makefile into tests/codec/lxp_test_receive_retired.c and inspect that exact archive, preserving all forbidden-symbol checks and subprocess error assertions."
+owner_domain = 1
+
+[finding.023]
+file = "tests/codec/lxp_test_state_diff_retired.c"
+line = 42
+class = "config-drift"
+severity = "medium"
+observed = "The symbol absence check runs nm against hard-coded build/liblayerx.a, while Makefile supports BUILD_DIR overrides and links codec tests against the selected archive. An alternate build can inspect a stale default archive or fail because it is absent."
+expected = "The retirement assertion must inspect the same archive linked into the current test for every supported BUILD_DIR and fail on archive inspection errors."
+proposal = "Pass the resolved library path from the Makefile into tests/codec/lxp_test_state_diff_retired.c and inspect that exact archive, preserving all forbidden-symbol checks and subprocess error assertions."
+owner_domain = 1
+
+[finding.024]
+file = "tests/codec/lxp_test_web_absent.c"
+line = 40
+class = "config-drift"
+severity = "medium"
+observed = "The symbol absence check runs nm against hard-coded build/liblayerx.a, while Makefile supports BUILD_DIR overrides and links codec tests against the selected archive. An alternate build can inspect a stale default archive or fail because it is absent."
+expected = "The retirement assertion must inspect the same archive linked into the current test for every supported BUILD_DIR and fail on archive inspection errors."
+proposal = "Pass the resolved library path from the Makefile into tests/codec/lxp_test_web_absent.c and inspect that exact archive, preserving all forbidden-symbol checks and subprocess error assertions."
+owner_domain = 1
+
+[finding.025]
+file = "docs/site/docs/overview/unified-network.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "The page describes a separate C core node and sequencer under cmd/layerxd and live LayerXVerify, LayerXCustody and LayerXAnchor evidence bridging; line 69 defines finality by bonded guarantor threshold and challenge-window expiry."
+expected = "The merged network is one paxd BFT chain with chain id 125; receipts are final on block commit, and the retired separate daemon and custody/anchor finality services do not run."
+proposal = "Rewrite the architecture, evidence and finality sections of docs/site/docs/overview/unified-network.md around native modules, the paxd kernel host and committed-block receipts; label any retained pre-merge explanation as historical."
+owner_domain = 17
+
+[finding.026]
+file = "docs/wiki/UnifiedNetwork.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "The page describes a separate C core node and sequencer under cmd/layerxd and live LayerXVerify, LayerXCustody and LayerXAnchor evidence bridging; line 69 defines finality by bonded guarantor threshold and challenge-window expiry."
+expected = "The merged network is one paxd BFT chain with chain id 125; receipts are final on block commit, and the retired separate daemon and custody/anchor finality services do not run."
+proposal = "Rewrite the architecture, evidence and finality sections of docs/wiki/UnifiedNetwork.md around native modules, the paxd kernel host and committed-block receipts; label any retained pre-merge explanation as historical."
+owner_domain = 17
+
+[finding.027]
+file = "docs/site/docs/overview/unified-network.md"
+line = 129
+class = "doc-drift"
+severity = "medium"
+observed = "The public endpoint section advertises https://api-mainnet-beta.paxeer.network/rpc as a router URL and a live GET /rpc/schema at line 171, directing clients toward the retired unified interface."
+expected = "Node JSON-RPC is served at the root path by api1 through api14 and api-mainnet-beta.paxeer.network; px_ methods belong to the hosted gateway's declared OpenRPC contract."
+proposal = "Replace router, /rpc and /rpc/schema instructions in docs/site/docs/overview/unified-network.md with the merged root-path node endpoints and a separately named hosted gateway contract and namespaces."
+owner_domain = 17
+
+[finding.028]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "The repository introduction and build guidance present layerxd and layerxctl as running components; line 79 calls the merge a draft and line 83 lists the retired 0x1012 through 0x1014 precompiles as network interfaces."
+expected = "The public repository entry page must describe the shipped single paxd network, its kernel host and current native precompile surfaces so developers choose the supported build and integration path."
+proposal = "Rewrite README.md architecture, specification status, precompile and daemon build passages against the merged node entry point; keep historical components only in an explicitly dated migration account."
+owner_domain = 17
+
+[finding.029]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The layout guide names the LayerX kernel as layerxd; its trust-boundary section at line 71 assigns custody, checkpoint registration, guarantor bonds, challenges and emergency exits to the current settlement plane."
+expected = "The merged repository contains the kernel hosted inside paxd, and its current operational trust boundary follows BFT block commitment and the retained native module interfaces."
+proposal = "Update docs/MONOREPO.md component names and trust boundaries to describe the paxd kernel host and current module ownership, removing the retired daemon and guarantor/checkpoint services from present-tense guidance."
+owner_domain = 17
+
+[finding.030]
+file = "docs/site/docs/operators/settlement-evidence.md"
+line = 34
+class = "doc-drift"
+severity = "medium"
+observed = "The operator procedure requires a full guarantor certificate, independently replayed guarantor kernel and LAYERX_GUARANTOR_PUBLICATION_INPUTS_DIR at line 95, plus retired deposit-root registration and checkpoint publication."
+expected = "Operators must obtain settlement evidence from committed paxd blocks and the current native proof and receipt paths, without provisioning retired guarantor publication authorities or daemon processes."
+proposal = "Rewrite docs/site/docs/operators/settlement-evidence.md around the current node receipt, block, state-proof and custody flows; preserve owner authorization checks and document recovery of pending submissions through the supported host."
+owner_domain = 16
+
+[finding.031]
+file = "docs/site/docs/agents/sdk-verification.md"
+line = 93
+class = "doc-drift"
+severity = "medium"
+observed = "The V4 guidance instructs clients to call BatchHeader and ReceiptInclusion from layerxproof/verify/receipt.go, but inclusion_exports_test.go explicitly requires those public exports to be absent after retirement."
+expected = "SDK guidance must use the retained ReceiptSignature, ReceiptAtRoot and StateProof primitives with current committed-chain evidence and trusted node authority, without importing retired batch-header verifier exports."
+proposal = "Replace the inclusion-envelope recipe in docs/site/docs/agents/sdk-verification.md with the supported committed-chain proof verification path; retain signature pinning, exact activity binding and adversarial proof refusal checks."
+owner_domain = 17
+
+[finding.032]
+file = "docs/site/docs/programs/index.md"
+line = 48
+class = "doc-drift"
+severity = "medium"
+observed = "The activity table advertises removed LX_PROGRAMS_FEE_GOVERNANCE, limits the module table to ABI 1 through 4, and at line 298 describes frozen guest ABIs 1 and 2 with a maximum guest ABI of 2; current frozen vectors include versions 3 through 5."
+expected = "Programs guidance must distinguish module registration versions from guest import versions, describe supported current ABI admissions, and keep retired fee-relay ordinal 8 unavailable."
+proposal = "Update the activity, admission and frozen-ABI tables in docs/site/docs/programs/index.md from programs.h, the runtime ABI policy and programs/abi-frozen.sha256; document storage retirement and retained guest compatibility without restoring fee governance."
+owner_domain = 13
+
+[finding.033]
+file = "docs/site/docs/programs/index.md"
+line = 137
+class = "doc-drift"
+severity = "medium"
+observed = "The simulate recipe points to cmd/layerxd/lxp_daemon_lni.c, and the occupancy settlement section at line 420 routes publication through removed lxp_programs_replay_finalize and the replica replay engine."
+expected = "Simulation and settlement documentation must follow the maintained native Programs host and ordered batch maintenance path, including durable publication and recovery under paxd."
+proposal = "Rewrite simulation and occupancy finalization in docs/site/docs/programs/index.md using the native Programs module and current maintenance/host publication functions; preserve the distinction between simulation and committed state."
+owner_domain = 13
+
+[finding.034]
+file = "docs/wiki/Programs.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "The activity table advertises removed LX_PROGRAMS_FEE_GOVERNANCE, limits the module table to ABI 1 through 4, and at line 300 describes frozen guest ABIs 1 and 2 with a maximum guest ABI of 2; current frozen vectors include versions 3 through 5."
+expected = "Programs guidance must distinguish module registration versions from guest import versions, describe supported current ABI admissions, and keep retired fee-relay ordinal 8 unavailable."
+proposal = "Update the activity, admission and frozen-ABI tables in docs/wiki/Programs.md from programs.h, the runtime ABI policy and programs/abi-frozen.sha256; document storage retirement and retained guest compatibility without restoring fee governance."
+owner_domain = 13
+
+[finding.035]
+file = "docs/wiki/Programs.md"
+line = 136
+class = "doc-drift"
+severity = "medium"
+observed = "The simulate recipe points to cmd/layerxd/lxp_daemon_lni.c, and the occupancy settlement section at line 461 routes publication through removed lxp_programs_replay_finalize and the replica replay engine."
+expected = "Simulation and settlement documentation must follow the maintained native Programs host and ordered batch maintenance path, including durable publication and recovery under paxd."
+proposal = "Rewrite simulation and occupancy finalization in docs/wiki/Programs.md using the native Programs module and current maintenance/host publication functions; preserve the distinction between simulation and committed state."
+owner_domain = 13
+
+[finding.036]
+file = "docs/site/docs/programs/workspace.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The workspace guide says the ABI generator requires crate-root ABI_VERSION=2 and lists only frozen vectors 1 and 2; its regression/differential target table at lines 151 and 156 still references retired replay and cmd/layerxd batch-WAL inputs."
+expected = "The workspace instructions must match the current ABI policy and frozen versions 1 through 5, and name build and regression prerequisites that exist after daemon and replica retirement."
+proposal = "Refresh docs/site/docs/programs/workspace.md ABI checks and target descriptions from the current manifest, generator, frozen digest list and Makefile; remove retired replay/daemon prerequisites from the supported workflow."
+owner_domain = 13
+
+[finding.037]
+file = "docs/site/docs/interop/x402.md"
+line = 83
+class = "doc-drift"
+severity = "medium"
+observed = "Metered payments are specified as 346-byte Asset ordinal-7 payer grants and 733-byte ordinal-6 RECEIVE, followed by POST /rpc and guarantor-certificate finality at lines 91 through 105; those kernel operations and finality services are retired."
+expected = "Metered and subscription integrations must use current native layerxpay authorization and payment flows and committed-block evidence, while retaining exact amount, recipient, purpose and replay binding."
+proposal = "Rewrite docs/site/docs/interop/x402.md payment encoding, transport and finality examples around the native layerxpay producer and current gateway OpenRPC contract; preserve pending recovery without creating a second debit."
+owner_domain = 11
+
+[finding.038]
+file = "docs/site/docs/protocol/xweb.md"
+line = 169
+class = "doc-drift"
+severity = "medium"
+observed = "The page says the call bridge persists pending web requests, kernel intake validates attestor thresholds, and a sequencer folds observations into a web root at lines 169 through 172, despite retirement of kernel web storage and oracle/web batch roots."
+expected = "The current xweb node module, its query and event interfaces, and committed-block evidence must define answer validation and restart behavior; retired kernel intake and batch-root services must not be presented as live."
+proposal = "Replace the kernel-oracle pipeline and related payment/finality guidance in docs/site/docs/protocol/xweb.md with the maintained modules/xweb query and native event path, including request binding, duplicate refusal and persisted recovery."
+owner_domain = 17
+
+[finding.039]
+file = "include/layerx/lx_asset.h"
+line = 113
+class = "doc-drift"
+severity = "low"
+observed = "Registry row 1.c-lx-asset-transfer-request still includes a payer_grant pointer, while the current public transfer request and native send consumer omit that retired field."
+expected = "The registry must describe the current transfer request layout so external callers use the same fields and do not attempt to restore the removed RECEIVE/payer-grant execution path."
+proposal = "Reconcile 1.c-lx-asset-transfer-request in spec/layerx-merge/interfaces.kvx with include/layerx/lx_asset.h and current asset send callers; remove the obsolete payer_grant field from the registry contract."
+owner_domain = 1
+interface = "1.c-lx-asset-transfer-request"
+
+[finding.040]
+file = "include/layerx/lx_asset.h"
+line = 122
+class = "doc-drift"
+severity = "low"
+observed = "Registry row 1.c-lx-asset-runtime says binding_authority is absent and planned, but the public lx_asset_runtime now contains that boolean and the host can enable bound authority checks."
+expected = "The registry must represent the landed runtime authority flag and its meaning to the native host, rather than describe the security wiring as an unimplemented addition."
+proposal = "Update the lx_asset_runtime signature and status notes in spec/layerx-merge/interfaces.kvx to include binding_authority and name the current host initialization path; retain the public authority checks."
+owner_domain = 1
+interface = "1.c-lx-asset-runtime"
+
+[finding.041]
+file = "include/layerx/lx_asset.h"
+line = 0
+class = "doc-drift"
+severity = "low"
+observed = "Registry row 1.c-lx-asset-receive-execute remains stable and advertises lx_asset_receive_execute even though the header and asset transfer implementation no longer declare or define that retired operation."
+expected = "The interface catalogue must identify kernel RECEIVE as retired under requirements 1047.1 and 1047.2, directing integrations to the native payment producer instead."
+proposal = "Retire 1.c-lx-asset-receive-execute in spec/layerx-merge/interfaces.kvx and reconcile its callers to current native layerxpay ownership; keep the removed kernel function absent."
+owner_domain = 1
+interface = "1.c-lx-asset-receive-execute"
+
+[finding.042]
+file = "include/layerx/lx_budget.h"
+line = 13
+class = "doc-drift"
+severity = "low"
+observed = "Registry 1.c-enum-lx-budget-store-capacity and 1.c-enum-lx-budget-record-fixed-bytes still include Budget PULL constants, while the public header deliberately ends at DELEGATE_SPEND and has no pull payload length."
+expected = "The registry constants must match the post-retirement header and live budget module registration, with historical pull ordinal 0x0003000b explicitly unavailable."
+proposal = "Reconcile both Budget constant rows in spec/layerx-merge/interfaces.kvx to include/layerx/lx_budget.h and record the pull retirement separately; preserve supported delegated spending."
+owner_domain = 1
+interface = "1.c-enum-lx-budget-store-capacity"
+
+[finding.043]
+file = "include/layerx/lx_budget.h"
+line = 0
+class = "doc-drift"
+severity = "low"
+observed = "Registry row 1.c-lx-budget-pull-decode still advertises lx_budget_pull_decode as stable or changing, while the current budget header has removed the pull interface together with its payer-grant dependency."
+expected = "The interface catalogue must mark the removed Budget PULL contract retired and identify the retained native delegated-spend path as the supported payment behavior."
+proposal = "Retire 1.c-lx-budget-pull-decode in spec/layerx-merge/interfaces.kvx, reconcile any listed callers with requirements 1048.1 and 1048.2, and keep include/layerx/lx_budget.h free of the removed pull interface."
+owner_domain = 1
+interface = "1.c-lx-budget-pull-decode"
+
+[finding.044]
+file = "include/layerx/lx_budget.h"
+line = 0
+class = "doc-drift"
+severity = "low"
+observed = "Registry row 1.c-lx-budget-pull-execute still advertises lx_budget_pull_execute as stable or changing, while the current budget header has removed the pull interface together with its payer-grant dependency."
+expected = "The interface catalogue must mark the removed Budget PULL contract retired and identify the retained native delegated-spend path as the supported payment behavior."
+proposal = "Retire 1.c-lx-budget-pull-execute in spec/layerx-merge/interfaces.kvx, reconcile any listed callers with requirements 1048.1 and 1048.2, and keep include/layerx/lx_budget.h free of the removed pull interface."
+owner_domain = 1
+interface = "1.c-lx-budget-pull-execute"
+
+[finding.045]
+file = "include/layerx/lx_budget.h"
+line = 0
+class = "doc-drift"
+severity = "low"
+observed = "Registry row 1.c-lx-budget-pull-payload still advertises lx_budget_pull_payload as stable or changing, while the current budget header has removed the pull interface together with its payer-grant dependency."
+expected = "The interface catalogue must mark the removed Budget PULL contract retired and identify the retained native delegated-spend path as the supported payment behavior."
+proposal = "Retire 1.c-lx-budget-pull-payload in spec/layerx-merge/interfaces.kvx, reconcile any listed callers with requirements 1048.1 and 1048.2, and keep include/layerx/lx_budget.h free of the removed pull interface."
+owner_domain = 1
+interface = "1.c-lx-budget-pull-payload"
+
+[finding.046]
+file = "include/layerx/lx_budget.h"
+line = 0
+class = "doc-drift"
+severity = "low"
+observed = "Registry row 1.c-lx-budget-pull-request still advertises lx_budget_pull_request as stable or changing, while the current budget header has removed the pull interface together with its payer-grant dependency."
+expected = "The interface catalogue must mark the removed Budget PULL contract retired and identify the retained native delegated-spend path as the supported payment behavior."
+proposal = "Retire 1.c-lx-budget-pull-request in spec/layerx-merge/interfaces.kvx, reconcile any listed callers with requirements 1048.1 and 1048.2, and keep include/layerx/lx_budget.h free of the removed pull interface."
+owner_domain = 1
+interface = "1.c-lx-budget-pull-request"
+
+[finding.047]
+file = "include/layerx/programs.h"
+line = 0
+class = "doc-drift"
+severity = "low"
+observed = "Registry row 1.c-enum-lx-programs-state-feed-max-notices remains stable and advertises state-feed queue limits, but programs.h no longer contains that enum or the retired feed runtime."
+expected = "The registry must describe Programs execution and publication without a kernel state-feed store, consistent with the public runtime and retirement absence tests."
+proposal = "Retire 1.c-enum-lx-programs-state-feed-max-notices in spec/layerx-merge/interfaces.kvx and point publication consumers to the retained native host path; do not restore feed storage."
+owner_domain = 1
+interface = "1.c-enum-lx-programs-state-feed-max-notices"
+
+[finding.048]
+file = "include/layerx/lxp_kernel.h"
+line = 17
+class = "doc-drift"
+severity = "low"
+observed = "Registry row 1.c-enum-lxp-kernel-max-module-registrations still records MODULE_KV=512 and STAGED_WRITES=64 as pending increases, while the header now declares 4096 and 512 respectively."
+expected = "Capacity contracts used by host sizing and diagnostics must state the current compiled bounds, with producer and consumer limits traceable to the same header."
+proposal = "Refresh the kernel capacity signature and landed notes in spec/layerx-merge/interfaces.kvx from include/layerx/lxp_kernel.h and retain existing bounded allocation and staging checks."
+owner_domain = 1
+interface = "1.c-enum-lxp-kernel-max-module-registrations"
+
+[finding.049]
+file = "include/layerx/programs.h"
+line = 494
+class = "doc-drift"
+severity = "low"
+observed = "The public arbiter-authority begin/check prototypes name their final scalar expected_batch, while src/modules/programs/call.c and the Rust consumer require a native receipt block_height and explicitly distinguish it from a batch number."
+expected = "Callers must pass the native committed receipt block height; the C declaration and registry rows must name that unit consistently with the V2 authority transport and consumer."
+proposal = "Rename the documented parameter to expected_height in include/layerx/programs.h and reconcile 1.c-layerx-programs-call-arbiter-authority-begin, 1.c-layerx-programs-call-arbiter-authority-check and the matching domain-13 registry row without changing the scalar ABI."
+owner_domain = 1
+interface = "1.c-layerx-programs-call-arbiter-authority-begin"
+
+[finding.050]
+file = "include/layerx/lxp_gateway.h"
+line = 46
+class = "dead-code"
+severity = "low"
+observed = "lxp_gateway_receive_context remains a public complete struct, but the header exposes only send_settle and no receive settlement function; the context has no source or test use outside its own declaration after RECEIVE retirement."
+expected = "The supported gateway settlement interface must describe its retained send and invoice lifecycle without exposing an unused context for the removed kernel RECEIVE path."
+proposal = "Remove the unused lxp_gateway_receive_context declaration from include/layerx/lxp_gateway.h in the owning gateway retirement repair and reconcile its registry entry; preserve send settlement, invoice lifecycle and canonical receipt APIs."
+owner_domain = 1
+
+[doc.001]
+path = "docs/site/docs/overview/unified-network.md"
+status = "misleading"
+notes = "Lines 11, 69-86 and 120-171 describe separate daemon/guarantor finality, retired precompiles and a /rpc router/schema; current network endpoints and finality need a rewrite. Findings: 025, 027."
+
+[doc.002]
+path = "docs/wiki/UnifiedNetwork.md"
+status = "misleading"
+notes = "Lines 11, 69-86 and 202-206 describe a separate LayerX daemon and guarantor/challenge finality; architecture and evidence guidance lag the merged paxd network. Findings: 026."
+
+[doc.003]
+path = "README.md"
+status = "misleading"
+notes = "Lines 47, 79 and 83 present layerxd, a draft merge and retired precompiles as current; daemon build/operation instructions need the merged node entry point. Findings: 028."
+
+[doc.004]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "Lines 3 and 70-71 retain the layerxd component and guarantor/checkpoint trust boundaries; repository ownership and operational boundaries need the merged host model. Findings: 029."
+
+[doc.005]
+path = "docs/site/docs/operators/settlement-evidence.md"
+status = "misleading"
+notes = "Lines 34, 54 and 93-95 require retired guarantor replay/certificate and publication-input workflows; preserve proof and owner-signature principles in a current node procedure. Findings: 030."
+
+[doc.006]
+path = "docs/site/docs/operators/porting.md"
+status = "accurate"
+notes = "The ABI-v2 porting kits describe exact monetary conversion, owner-bound native accounts, scoped authority, typed refusals and release guest/reference workflows; later ABI additions do not invalidate that explicit ABI-v2 target."
+
+[doc.007]
+path = "docs/site/docs/agents/sdk-verification.md"
+status = "stale"
+notes = "The V4 inclusion recipe at lines 93-104 imports BatchHeader and ReceiptInclusion even though current export checks require their removal; retain independent committed-chain evidence and key-pinning checks. Findings: 031."
+
+[doc.008]
+path = "docs/site/docs/programs/index.md"
+status = "stale"
+notes = "Lines 48-58, 113-115, 137, 292-310 and 418-438 retain fee relay, an obsolete ABI ceiling, daemon simulation and replica occupancy finalization. Findings: 032, 033."
+
+[doc.009]
+path = "docs/site/docs/programs/workspace.md"
+status = "stale"
+notes = "Lines 24-37 document only ABI vectors 1-2 and ABI_VERSION=2; lines 151-156 retain replay/daemon regression inputs. Current vectors include 1-5. Findings: 036."
+
+[doc.010]
+path = "docs/site/docs/interop/x402.md"
+status = "misleading"
+notes = "Lines 83-105 and the later metered examples use retired payer-grant/RECEIVE encodings, POST /rpc and guarantor finality; exact settlement/recovery principles must be carried to native payment paths. Findings: 037."
+
+[doc.011]
+path = "docs/site/docs/protocol/xweb.md"
+status = "misleading"
+notes = "Lines 169-172 retain pending kernel web request storage, kernel attestor intake and sequencer web roots; the live xweb module/query/event lifecycle must replace that pipeline. Findings: 038."
+
+[doc.012]
+path = "docs/wiki/Programs.md"
+status = "stale"
+notes = "Lines 47-57, 112-114, 136, 294-351 and 459-478 describe retired fee relay/daemon/replay paths and an outdated guest/module ABI catalogue. Findings: 034, 035."

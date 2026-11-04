@@ -3,9 +3,14 @@ import { chakra, Badge as ChakraBadge } from '@chakra-ui/react';
 import React from 'react';
 
 import { TruncatedTextTooltip } from '../components/truncation/TruncatedTextTooltip';
+import { recipe as badgeRecipe } from '../theme/recipes/badge.recipe';
+import { withRecipe, type WithRecipeProps } from './recipe-props';
 import { Skeleton } from './skeleton';
 
-export interface BadgeProps extends Omit<ChakraBadgeProps, 'colorScheme'> {
+type RecipeProps = WithRecipeProps<ChakraBadgeProps, typeof badgeRecipe>;
+const RecipeComponent = withRecipe(ChakraBadge, badgeRecipe);
+
+export interface BadgeProps extends Omit<RecipeProps, 'colorScheme'> {
   loading?: boolean;
   startElement?: React.ReactNode;
   endElement?: React.ReactNode;
@@ -26,11 +31,11 @@ export const Badge = React.forwardRef<HTMLDivElement, BadgeProps>(
 
     return (
       <Skeleton loading={ loading } asChild={ asChild } ref={ ref }>
-        <ChakraBadge display="inline-flex" alignItems="center" whiteSpace="nowrap" { ...rest }>
+        <RecipeComponent display="inline-flex" alignItems="center" whiteSpace="nowrap" { ...rest }>
           { startElement }
           { childrenElement }
           { endElement }
-        </ChakraBadge>
+        </RecipeComponent>
       </Skeleton>
     );
   });

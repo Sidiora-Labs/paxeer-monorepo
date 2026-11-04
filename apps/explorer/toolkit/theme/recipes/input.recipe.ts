@@ -28,6 +28,9 @@ export const recipe = defineRecipe({
 
   variants: {
     size: {
+      xs: {},
+
+      '2xl': {},
       sm: {
         textStyle: 'sm',
         px: '2',

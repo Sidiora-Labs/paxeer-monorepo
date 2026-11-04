@@ -1,0 +1,1251 @@
+[audit.22.30.9]
+task = "22.30.9"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 128
+findings = 33
+docs_reviewed = 16
+upgrade_ready = false
+blocking = ["1", "3", "4", "5", "6", "7"]
+review_basis = "Full source review of non-generated members; generator provenance for oracle archives. Proposals only; no runtime or historical gate result is claimed by the review."
+requirements = ["22011.1", "22998.1", "2056.2", "13253.1", "13253.2", "2058.4", "13250.1", "13250.2", "1001.1", "1001.2", "1002.1", "1002.2", "1004.1", "1004.2", "1999.1", "1005.1", "1005.2", "1006.1", "1006.2", "1007.1", "1007.2", "1008.1", "1008.2", "1009.1", "1010.1", "1010.2", "1010.3", "126.1", "1011.1", "1011.2", "1012.1", "1012.2", "1013.1", "1013.2", "1014.1", "1014.2", "1015.1", "1015.2", "1015.3", "1016.1", "1016.2", "1017.1", "1017.2", "1018.1", "1020.1", "1020.2", "1023.1", "1023.2", "1025.1", "1025.2", "1026.1", "1026.2", "1027.1", "1028.1", "1029.1", "1029.2", "1030.1", "1030.2", "1031.1", "1031.2", "1035.1", "1035.2", "1044.1", "1044.2", "1044.3", "1045.1", "1045.2", "1046.1", "1046.2", "1044.4", "1045.3", "1047.1", "1047.2", "1048.1", "1048.2", "1049.1", "1049.2", "1050.1", "1050.2", "1051.1"]
+
+[file.1]
+path = "api/layerxauth/genesis.proto"
+lines = 11
+verdict = "clean"
+note = "Params-only auth genesis matches module ownership; host records are exported by the shared host, not duplicated here."
+
+[file.2]
+path = "api/layerxauth/tx.proto"
+lines = 41
+verdict = "clean"
+note = "Reviewed UpdateParams authority/Params messages and all 16 LayerXScopeAuthorization fields against the keeper/authz schema."
+
+[file.3]
+path = "api/layerxledger/genesis.proto"
+lines = 11
+verdict = "clean"
+note = "Ledger genesis carries non-nullable Params only, consistent with shared host state ownership."
+
+[file.4]
+path = "api/layerxledger/tx.proto"
+lines = 27
+verdict = "issues"
+note = "Wire field tags and governance message shape agree; the pause comment has the documentation issue recorded below."
+
+[file.5]
+path = "api/layerxpay/query.proto"
+lines = 20
+verdict = "clean"
+note = "Params request/response and REST annotation agree with the pay query service; no record query is implied."
+
+[file.6]
+path = "api/layerxpay/tx.proto"
+lines = 25
+verdict = "clean"
+note = "Governance update carries five non-nullable pay Params flags with stable tags and matching Go module package."
+
+[file.7]
+path = "modules/layerxagent/client/cli/query.go"
+lines = 97
+verdict = "clean"
+note = "Reviewed argument parsing, uint64 job IDs, creator address validation and query-client responses for job/params/pending."
+
+[file.8]
+path = "modules/layerxagent/client/cli/query_test.go"
+lines = 88
+verdict = "clean"
+note = "Argument and output cases cover the CLI query inputs using registered protobuf query responses."
+
+[file.9]
+path = "modules/layerxagent/integration/endblock_test.go"
+lines = 257
+verdict = "clean"
+note = "Application end-block tests exercise activation, actual EVM target effects, typed job outcomes and block gas accounting."
+
+[file.10]
+path = "modules/layerxagent/integration/genesis_test.go"
+lines = 136
+verdict = "clean"
+note = "Application export/import carries pending jobs and params with funded escrow and subsequent execution checks."
+
+[file.11]
+path = "modules/layerxagent/integration/gov_test.go"
+lines = 221
+verdict = "clean"
+note = "Governance parameter and pause routes exercise module authority, paused execution and permitted cancellation."
+
+[file.12]
+path = "modules/layerxagent/keeper/blockgas_bound_test.go"
+lines = 83
+verdict = "clean"
+note = "Worst-case admitted gas accounting uses real scheduler execution and verifies the declared aggregate gas bound."
+
+[file.13]
+path = "modules/layerxagent/keeper/genesis.go"
+lines = 67
+verdict = "clean"
+note = "Import validates genesis and escrow before storing jobs; export detaches proto records and next ID in deterministic order. Lost terminal obligations are a scheduler finding."
+
+[file.14]
+path = "modules/layerxagent/keeper/genesis_test.go"
+lines = 153
+verdict = "clean"
+note = "Round-trip and underfunded genesis cases cover current persisted jobs, next ID and escrow checks."
+
+[file.15]
+path = "modules/layerxagent/keeper/grpc_query.go"
+lines = 45
+verdict = "clean"
+note = "Reviewed nil requests, canonical creator parsing, missing job responses and params/pending query shapes."
+
+[file.16]
+path = "modules/layerxagent/keeper/grpc_query_test.go"
+lines = 119
+verdict = "clean"
+note = "Query cases check actual keeper records, detached jobs, missing IDs and invalid creator addresses."
+
+[file.17]
+path = "modules/layerxagent/keeper/job_proto.go"
+lines = 53
+verdict = "clean"
+note = "Canonical hex addresses, deposit decimal strings, calldata copies and uint64 fields map between Job and protobuf."
+
+[file.18]
+path = "modules/layerxagent/keeper/job_proto_test.go"
+lines = 147
+verdict = "clean"
+note = "Job round-trip and malformed proto cases assert canonical addresses, nonnegative deposits and detached bytes."
+
+[file.19]
+path = "modules/layerxagent/keeper/keeper.go"
+lines = 332
+verdict = "issues"
+note = "Reviewed activation, indexed storage, admission bounds, deposits, ownership, cancellation and rescheduling; parameter reduction issue is recorded."
+
+[file.20]
+path = "modules/layerxagent/keeper/msg_server.go"
+lines = 38
+verdict = "clean"
+note = "UpdateParams checks the configured governance authority and validates parameters before mutation."
+
+[file.21]
+path = "modules/layerxagent/keeper/msg_server_test.go"
+lines = 62
+verdict = "clean"
+note = "Authority and parameter update tests exercise the real Msg server and preserve params on refusal."
+
+[file.22]
+path = "modules/layerxagent/keeper/params_test.go"
+lines = 169
+verdict = "clean"
+note = "Calldata caps, default aliases, pause behavior and cancellation exemption agree with declared parameters."
+
+[file.23]
+path = "modules/layerxagent/keeper/proof_layerxagent_module_test.go"
+lines = 294
+verdict = "clean"
+note = "Module proof covers protobuf jobs, activation, params/query wiring, genesis and escrow conservation on existing paths."
+
+[file.24]
+path = "modules/layerxagent/keeper/scheduler.go"
+lines = 201
+verdict = "issues"
+note = "Full execution/settlement/recovery review found stale admitted jobs and deleted unpaid obligations; findings describe concrete merged-network consequences."
+
+[file.25]
+path = "modules/layerxagent/keeper/scheduler_gas_test.go"
+lines = 193
+verdict = "clean"
+note = "Gas-cap, pause and actual gas reporting assertions cover normal admission; mutation of a later due job is addressed in the scheduler repair proposal."
+
+[file.26]
+path = "modules/layerxagent/keeper/scheduler_test.go"
+lines = 486
+verdict = "clean"
+note = "Reviewed successful/reverted EVM jobs, fees, refunds, ordering and caps; no claim of cancellation-inside-due-snapshot coverage."
+
+[file.27]
+path = "modules/layerxagent/module.go"
+lines = 117
+verdict = "clean"
+note = "Registers codec, services, genesis and CLI; intentionally has no independent end-block so application scheduling is not duplicated."
+
+[file.28]
+path = "modules/layerxagent/module_test.go"
+lines = 249
+verdict = "clean"
+note = "Service registration, genesis and no-own-end-block assertions match module/application responsibility split."
+
+[file.29]
+path = "modules/layerxagent/types/codec.go"
+lines = 28
+verdict = "clean"
+note = "Amino and interface registry names resolve MsgUpdateParams through the declared Msg service descriptor."
+
+[file.30]
+path = "modules/layerxagent/types/genesis.go"
+lines = 49
+verdict = "clean"
+note = "Validates params, unique nonzero jobs, addresses, deposits and next-job monotonicity before keeper import."
+
+[file.31]
+path = "modules/layerxagent/types/genesis_test.go"
+lines = 152
+verdict = "clean"
+note = "Malformed jobs, duplicate IDs and next-ID validation cases match the genesis contract."
+
+[file.32]
+path = "modules/layerxagent/types/keys.go"
+lines = 8
+verdict = "clean"
+note = "ModuleName, StoreKey, RouterKey and QuerierRoute agree on layerxagent; RouterKey is a Cosmos module identifier, not a retired network router."
+
+[file.33]
+path = "modules/layerxagent/types/msgs.go"
+lines = 26
+verdict = "clean"
+note = "Governance Msg validation checks authority address and parameter validity with stable message routing."
+
+[file.34]
+path = "modules/layerxagent/types/msgs_test.go"
+lines = 91
+verdict = "clean"
+note = "Authority parsing, signer and parameter validation cases agree with MsgUpdateParams behavior."
+
+[file.35]
+path = "modules/layerxagent/types/params.go"
+lines = 52
+verdict = "clean"
+note = "Default nine-field params and positive/cross-limit validation agree with keeper aliases; admission-time validation is distinct from existing-job reconciliation."
+
+[file.36]
+path = "modules/layerxagent/types/params_test.go"
+lines = 66
+verdict = "clean"
+note = "Defaults and each invalid bound are asserted without weakening parameter limits."
+
+[file.37]
+path = "modules/store/handler.go"
+lines = 11
+verdict = "clean"
+note = "GetCachedContext wraps the same multistore with CacheMultiStore and returns the commit handle without mutating its parent."
+
+[file.38]
+path = "precompiles/layerxauth/abi.go"
+lines = 18
+verdict = "clean"
+note = "Embeds and parses the single authority ABI consumed by constructor and tests."
+
+[file.39]
+path = "precompiles/layerxauth/abi.json"
+lines = 192
+verdict = "clean"
+note = "Reviewed ten methods and lifecycle/grant events; deprecated resultByIdempotency is absent and identity event declaration is valid; missing emission is in lifecycle.go."
+
+[file.40]
+path = "precompiles/layerxauth/abi_test.go"
+lines = 214
+verdict = "clean"
+note = "Selectors, mutability, outputs, event topics and canonical grant decoder shapes match the published ABI."
+
+[file.41]
+path = "precompiles/layerxauth/activation_test.go"
+lines = 88
+verdict = "clean"
+note = "Merge activation and application-shared keeper identity are exercised at the actual precompile address."
+
+[file.42]
+path = "precompiles/layerxauth/client_test.go"
+lines = 200
+verdict = "clean"
+note = "Real EVM transaction delivery checks returned grant state and committed grant/revoke logs through the application."
+
+[file.43]
+path = "precompiles/layerxauth/errors.go"
+lines = 63
+verdict = "clean"
+note = "Maps registered module and kernel failures to shared LXP reasons, preserving exact refusal codes and unknown-error behavior."
+
+[file.44]
+path = "precompiles/layerxauth/errors_test.go"
+lines = 160
+verdict = "clean"
+note = "Error cases cover kernel/module mappings and shared Error(string) transport; stale mandatory-detail prose is a contract doc finding."
+
+[file.45]
+path = "precompiles/layerxauth/gas.go"
+lines = 16
+verdict = "clean"
+note = "All active methods, including recordLifecycle and grantSessionSuccessor, have explicit write/read surcharges."
+
+[file.46]
+path = "precompiles/layerxauth/gas_conformance_test.go"
+lines = 204
+verdict = "clean"
+note = "Signed EVM calls exercise the full active gas table and receipt gas; manually established fee policy is setup, not proof of cumulative fee spending."
+
+[file.47]
+path = "precompiles/layerxauth/gas_test.go"
+lines = 65
+verdict = "clean"
+note = "RequiredGas rows, write flags and input-byte charging align with GasTable and ABI membership."
+
+[file.48]
+path = "precompiles/layerxauth/grants.go"
+lines = 118
+verdict = "clean"
+note = "Canonical ABI repack, actor-scoped key derivation, kernel grant receipt validation and all grant/identity logs are wired."
+
+[file.49]
+path = "precompiles/layerxauth/grants_test.go"
+lines = 367
+verdict = "issues"
+note = "Grant/session/capability event cases reviewed; fee successor spend setup has the producer-shape gap recorded below."
+
+[file.50]
+path = "precompiles/layerxauth/harness_test.go"
+lines = 126
+verdict = "clean"
+note = "Harness mounts real auth/host stores and keeper context for dispatcher tests; fixture helpers do not replace production grant execution."
+
+[file.51]
+path = "precompiles/layerxauth/layerxauth.go"
+lines = 103
+verdict = "clean"
+note = "Constructor self-registers; delegate/static/value guards, actor resolution and cached commit/rollback wrap every active handler."
+
+[file.52]
+path = "precompiles/layerxauth/layerxauth_test.go"
+lines = 131
+verdict = "clean"
+note = "Dispatcher, nil keeper, address and guard tests use the published ABI and shared context contract."
+
+[file.53]
+path = "precompiles/layerxauth/lifecycle.go"
+lines = 32
+verdict = "issues"
+note = "Registration/recovery receipts lose their declared identity update logs; see blocking finding."
+
+[file.54]
+path = "precompiles/layerxauth/lifecycle_test.go"
+lines = 96
+verdict = "issues"
+note = "Host state and sequence assertions omit lifecycle log transport and thus mask the missing emission."
+
+[file.55]
+path = "precompiles/layerxauth/parity_test.go"
+lines = 307
+verdict = "issues"
+note = "Native/EVM grant parity reviewed; hand-written predecessor charge state prevents a real fee producer-to-successor proof."
+
+[file.56]
+path = "precompiles/layerxauth/pause_test.go"
+lines = 133
+verdict = "clean"
+note = "Views and revoke exit remain usable under pause while grants refuse with the registered scope code."
+
+[file.57]
+path = "precompiles/layerxauth/proof_layerxauth_0x101c_test.go"
+lines = 296
+verdict = "clean"
+note = "Application activation, binding, canonical grants, revocation and readback checks use the real 0x101C dispatcher."
+
+[file.58]
+path = "precompiles/layerxauth/proof_layerxauth_errors_test.go"
+lines = 164
+verdict = "clean"
+note = "Unbound and kernel refusals verify ABI Error(string) payload and registered code, including code-only reasons."
+
+[file.59]
+path = "precompiles/layerxauth/revoke.go"
+lines = 74
+verdict = "clean"
+note = "Revoke uses kernel events and authz revocation through the keeper, emitting GrantRevoked and IdentityStateUpdated logs."
+
+[file.60]
+path = "precompiles/layerxauth/revoke_test.go"
+lines = 191
+verdict = "clean"
+note = "Known/missing grant refusal and revocation events compare real receipt bodies and verify paused exit behavior."
+
+[file.61]
+path = "precompiles/layerxauth/surface_test.go"
+lines = 101
+verdict = "clean"
+note = "Active ABI handler and gas coverage excludes retired resultByIdempotency and includes recordLifecycle."
+
+[file.62]
+path = "precompiles/layerxauth/views.go"
+lines = 111
+verdict = "clean"
+note = "Canonical grant bytes, live reason, session summary and capability/activity read shapes agree with keeper reads; views write no state."
+
+[file.63]
+path = "precompiles/layerxauth/views_test.go"
+lines = 271
+verdict = "clean"
+note = "Known/unknown/revoked grant views, pause independence and storage snapshots check current authority read shapes."
+
+[file.64]
+path = "precompiles/layerxledger/abi.go"
+lines = 15
+verdict = "clean"
+note = "Embedded ledger ABI is parsed once for the registered precompile and public consumers."
+
+[file.65]
+path = "precompiles/layerxledger/abi.json"
+lines = 29
+verdict = "issues"
+note = "All functions/events and return fields reviewed; semantic input names conflict with active handlers as recorded."
+
+[file.66]
+path = "precompiles/layerxledger/abi_published_views_test.go"
+lines = 75
+verdict = "clean"
+note = "Published output decoders and recordLifecycle signature checks match present ABI outputs, distinct from stale generated documentation."
+
+[file.67]
+path = "precompiles/layerxledger/abi_test.go"
+lines = 123
+verdict = "clean"
+note = "Selector, mutability and output checks agree with ABI bytes; semantic account/expiry failures have separate path findings."
+
+[file.68]
+path = "precompiles/layerxledger/activation_test.go"
+lines = 91
+verdict = "clean"
+note = "Actual merge height and shared ledger keeper are checked through application precompile refresh."
+
+[file.69]
+path = "precompiles/layerxledger/assets.go"
+lines = 159
+verdict = "issues"
+note = "Asset writes decode keeper receipts into logs; duplicate shadowed read-handler implementation is recorded as dead code."
+
+[file.70]
+path = "precompiles/layerxledger/assets_test.go"
+lines = 217
+verdict = "clean"
+note = "Register/pause/unpause/mint/burn cases check real keeper writes, receipt events and issuer refusals."
+
+[file.71]
+path = "precompiles/layerxledger/client_test.go"
+lines = 248
+verdict = "issues"
+note = "Signed transaction proof uses a fabricated main-account asset fixture; current public account composition is not proven."
+
+[file.72]
+path = "precompiles/layerxledger/completion_gate_test.go"
+lines = 43
+verdict = "clean"
+note = "Bounded conformance entry references current behavior cases; no deleted or skipped check was introduced by this audit."
+
+[file.73]
+path = "precompiles/layerxledger/errors.go"
+lines = 54
+verdict = "clean"
+note = "Registered ledger and kernel errors map to shared LXP codes, including intentional no-payer-grant refusals."
+
+[file.74]
+path = "precompiles/layerxledger/errors_test.go"
+lines = 128
+verdict = "clean"
+note = "ABI revert assertions cover known and unknown mappings, including code-only registered errors."
+
+[file.75]
+path = "precompiles/layerxledger/gas.go"
+lines = 24
+verdict = "clean"
+note = "Eighteen ABI methods have matching read/write gas rows, including retained typed-refusal selectors."
+
+[file.76]
+path = "precompiles/layerxledger/gas_conformance_test.go"
+lines = 263
+verdict = "issues"
+note = "Gas checks exercise ABI rows, but successful send fixtures bypass production per-asset source creation."
+
+[file.77]
+path = "precompiles/layerxledger/gas_test.go"
+lines = 73
+verdict = "clean"
+note = "Exact surcharge, input-size and mutability assertions match current GasTable declarations."
+
+[file.78]
+path = "precompiles/layerxledger/harness_test.go"
+lines = 129
+verdict = "clean"
+note = "Real host/ledger stores, keeper and EVM StateDB support tests; account fixture shortcomings are owned by transfers_test.go."
+
+[file.79]
+path = "precompiles/layerxledger/layerxledger.go"
+lines = 108
+verdict = "clean"
+note = "Merge self-registration, shared keeper lookup, write guards and cached commits are correctly dispatched by active method names."
+
+[file.80]
+path = "precompiles/layerxledger/layerxledger_test.go"
+lines = 128
+verdict = "clean"
+note = "Constructors and dispatcher guards agree with activation/access requirements and published ABI."
+
+[file.81]
+path = "precompiles/layerxledger/mirror_app_test.go"
+lines = 205
+verdict = "issues"
+note = "Application mirror assertions share a fabricated main-account source, masking the canonical send mismatch."
+
+[file.82]
+path = "precompiles/layerxledger/parity_test.go"
+lines = 200
+verdict = "issues"
+note = "Receipt and host-state parity compare shared setup, which fabricates the main-account source for successful sends."
+
+[file.83]
+path = "precompiles/layerxledger/pause_test.go"
+lines = 171
+verdict = "clean"
+note = "Pause rejects current writes and preserves views and typed retired-grant exit refusals without host mutation."
+
+[file.84]
+path = "precompiles/layerxledger/payments.go"
+lines = 142
+verdict = "issues"
+note = "Retired grant/draw handlers correctly refuse; payExact expiry naming and surviving wallet grant-read consumer are recorded separately."
+
+[file.85]
+path = "precompiles/layerxledger/payments_test.go"
+lines = 255
+verdict = "clean"
+note = "Real payExact uses future millisecond expiry, checks transfer events and retired-grant refusals; the misleading published name is recorded in the implementation and ABI."
+
+[file.86]
+path = "precompiles/layerxledger/proof_layerxledger_0x101a_test.go"
+lines = 374
+verdict = "clean"
+note = "EVM activation, asset/account/mirror operations, refusal codes and host-state snapshots cover existing production dispatch paths."
+
+[file.87]
+path = "precompiles/layerxledger/proof_layerxledger_errors_test.go"
+lines = 162
+verdict = "clean"
+note = "Unbound, scope, amount and kernel errors are asserted as actual ABI reverts with exact registered LXP code."
+
+[file.88]
+path = "precompiles/layerxledger/surface_test.go"
+lines = 73
+verdict = "clean"
+note = "Active ABI/gas handler coverage includes retained refusal methods without claiming legacy grant support."
+
+[file.89]
+path = "precompiles/layerxledger/transfers.go"
+lines = 80
+verdict = "issues"
+note = "openAccount returns the kernel asset account, but send delegates to a main-account-only keeper gate; blocking composition finding records the mismatch."
+
+[file.90]
+path = "precompiles/layerxledger/transfers_test.go"
+lines = 249
+verdict = "issues"
+note = "Raw host account seeding creates a source the production account-open path does not emit; proposal replaces this integration shortcut."
+
+[file.91]
+path = "precompiles/layerxledger/views.go"
+lines = 106
+verdict = "issues"
+note = "Asset/balance/owner reads match host shapes; nextSequence incorrectly treats its advertised account ID as a DID key."
+
+[file.92]
+path = "precompiles/layerxledger/views_test.go"
+lines = 317
+verdict = "issues"
+note = "Read-only and pause/storage checks reviewed; nextSequence fixture passes a key instead of its advertised account ID."
+
+[file.93]
+path = "precompiles/oracle/Oracle.sol"
+lines = 30
+verdict = "clean"
+note = "Historical oracle ABI remains a callable compatibility surface; current executor intentionally answers its retirement refusal, not oracle prices."
+
+[file.94]
+path = "precompiles/oracle/abi.json"
+lines = 1
+verdict = "clean"
+note = "Reviewed two legacy query signatures and tuple outputs; retained metadata is compatibility ABI, not evidence of live data."
+
+[file.95]
+path = "precompiles/oracle/legacy/v552/abi.json"
+lines = 1
+verdict = "generated"
+note = "Generated historical oracle archive produced by scripts/bump_version archiveModule: package/common imports are version-rewritten and ABI is copied for historical replay; not a current query producer."
+
+[file.96]
+path = "precompiles/oracle/legacy/v552/oracle.go"
+lines = 177
+verdict = "generated"
+note = "Generated historical oracle archive produced by scripts/bump_version archiveModule: package/common imports are version-rewritten and ABI is copied for historical replay; not a current query producer."
+
+[file.97]
+path = "precompiles/oracle/legacy/v555/abi.json"
+lines = 1
+verdict = "generated"
+note = "Generated historical oracle archive produced by scripts/bump_version archiveModule: package/common imports are version-rewritten and ABI is copied for historical replay; not a current query producer."
+
+[file.98]
+path = "precompiles/oracle/legacy/v555/oracle.go"
+lines = 183
+verdict = "generated"
+note = "Generated historical oracle archive produced by scripts/bump_version archiveModule: package/common imports are version-rewritten and ABI is copied for historical replay; not a current query producer."
+
+[file.99]
+path = "precompiles/oracle/legacy/v562/abi.json"
+lines = 1
+verdict = "generated"
+note = "Generated historical oracle archive produced by scripts/bump_version archiveModule: package/common imports are version-rewritten and ABI is copied for historical replay; not a current query producer."
+
+[file.100]
+path = "precompiles/oracle/legacy/v562/oracle.go"
+lines = 147
+verdict = "generated"
+note = "Generated historical oracle archive produced by scripts/bump_version archiveModule: package/common imports are version-rewritten and ABI is copied for historical replay; not a current query producer."
+
+[file.101]
+path = "precompiles/oracle/legacy/v600/abi.json"
+lines = 1
+verdict = "generated"
+note = "Generated historical oracle archive produced by scripts/bump_version archiveModule: package/common imports are version-rewritten and ABI is copied for historical replay; not a current query producer."
+
+[file.102]
+path = "precompiles/oracle/legacy/v600/oracle.go"
+lines = 133
+verdict = "generated"
+note = "Generated historical oracle archive produced by scripts/bump_version archiveModule: package/common imports are version-rewritten and ABI is copied for historical replay; not a current query producer."
+
+[file.103]
+path = "precompiles/oracle/legacy/v601/abi.json"
+lines = 1
+verdict = "generated"
+note = "Generated historical oracle archive produced by scripts/bump_version archiveModule: package/common imports are version-rewritten and ABI is copied for historical replay; not a current query producer."
+
+[file.104]
+path = "precompiles/oracle/legacy/v601/oracle.go"
+lines = 139
+verdict = "generated"
+note = "Generated historical oracle archive produced by scripts/bump_version archiveModule: package/common imports are version-rewritten and ABI is copied for historical replay; not a current query producer."
+
+[file.105]
+path = "precompiles/oracle/legacy/v603/abi.json"
+lines = 1
+verdict = "generated"
+note = "Generated historical oracle archive produced by scripts/bump_version archiveModule: package/common imports are version-rewritten and ABI is copied for historical replay; not a current query producer."
+
+[file.106]
+path = "precompiles/oracle/legacy/v603/oracle.go"
+lines = 146
+verdict = "generated"
+note = "Generated historical oracle archive produced by scripts/bump_version archiveModule: package/common imports are version-rewritten and ABI is copied for historical replay; not a current query producer."
+
+[file.107]
+path = "precompiles/oracle/legacy/v605/abi.json"
+lines = 1
+verdict = "generated"
+note = "Generated historical oracle archive produced by scripts/bump_version archiveModule: package/common imports are version-rewritten and ABI is copied for historical replay; not a current query producer."
+
+[file.108]
+path = "precompiles/oracle/legacy/v605/oracle.go"
+lines = 146
+verdict = "generated"
+note = "Generated historical oracle archive produced by scripts/bump_version archiveModule: package/common imports are version-rewritten and ABI is copied for historical replay; not a current query producer."
+
+[file.109]
+path = "precompiles/oracle/legacy/v606/abi.json"
+lines = 1
+verdict = "generated"
+note = "Generated historical oracle archive produced by scripts/bump_version archiveModule: package/common imports are version-rewritten and ABI is copied for historical replay; not a current query producer."
+
+[file.110]
+path = "precompiles/oracle/legacy/v606/oracle.go"
+lines = 146
+verdict = "generated"
+note = "Generated historical oracle archive produced by scripts/bump_version archiveModule: package/common imports are version-rewritten and ABI is copied for historical replay; not a current query producer."
+
+[file.111]
+path = "precompiles/oracle/legacy/v610/abi.json"
+lines = 1
+verdict = "generated"
+note = "Generated historical oracle archive produced by scripts/bump_version archiveModule: package/common imports are version-rewritten and ABI is copied for historical replay; not a current query producer."
+
+[file.112]
+path = "precompiles/oracle/legacy/v610/oracle.go"
+lines = 146
+verdict = "generated"
+note = "Generated historical oracle archive produced by scripts/bump_version archiveModule: package/common imports are version-rewritten and ABI is copied for historical replay; not a current query producer."
+
+[file.113]
+path = "precompiles/oracle/legacy/v614/abi.json"
+lines = 1
+verdict = "generated"
+note = "Generated historical oracle archive produced by scripts/bump_version archiveModule: package/common imports are version-rewritten and ABI is copied for historical replay; not a current query producer."
+
+[file.114]
+path = "precompiles/oracle/legacy/v614/oracle.go"
+lines = 146
+verdict = "generated"
+note = "Generated historical oracle archive produced by scripts/bump_version archiveModule: package/common imports are version-rewritten and ABI is copied for historical replay; not a current query producer."
+
+[file.115]
+path = "precompiles/oracle/legacy/v620/abi.json"
+lines = 1
+verdict = "generated"
+note = "Generated historical oracle archive produced by scripts/bump_version archiveModule: package/common imports are version-rewritten and ABI is copied for historical replay; not a current query producer."
+
+[file.116]
+path = "precompiles/oracle/legacy/v620/oracle.go"
+lines = 146
+verdict = "generated"
+note = "Generated historical oracle archive produced by scripts/bump_version archiveModule: package/common imports are version-rewritten and ABI is copied for historical replay; not a current query producer."
+
+[file.117]
+path = "precompiles/oracle/legacy/v630/abi.json"
+lines = 1
+verdict = "generated"
+note = "Generated historical oracle archive produced by scripts/bump_version archiveModule: package/common imports are version-rewritten and ABI is copied for historical replay; not a current query producer."
+
+[file.118]
+path = "precompiles/oracle/legacy/v630/oracle.go"
+lines = 146
+verdict = "generated"
+note = "Generated historical oracle archive produced by scripts/bump_version archiveModule: package/common imports are version-rewritten and ABI is copied for historical replay; not a current query producer."
+
+[file.119]
+path = "precompiles/oracle/legacy/v640/abi.json"
+lines = 1
+verdict = "generated"
+note = "Generated historical oracle archive produced by scripts/bump_version archiveModule: package/common imports are version-rewritten and ABI is copied for historical replay; not a current query producer."
+
+[file.120]
+path = "precompiles/oracle/legacy/v640/oracle.go"
+lines = 125
+verdict = "generated"
+note = "Generated historical oracle archive produced by scripts/bump_version archiveModule: package/common imports are version-rewritten and ABI is copied for historical replay; not a current query producer."
+
+[file.121]
+path = "precompiles/oracle/legacy/v65/abi.json"
+lines = 1
+verdict = "generated"
+note = "Generated historical oracle archive produced by scripts/bump_version archiveModule: package/common imports are version-rewritten and ABI is copied for historical replay; not a current query producer."
+
+[file.122]
+path = "precompiles/oracle/legacy/v65/oracle.go"
+lines = 125
+verdict = "generated"
+note = "Generated historical oracle archive produced by scripts/bump_version archiveModule: package/common imports are version-rewritten and ABI is copied for historical replay; not a current query producer."
+
+[file.123]
+path = "precompiles/oracle/oracle.go"
+lines = 125
+verdict = "clean"
+note = "Current exchange-rate/TWAP methods return deterministic ABI Error(string) retirement responses with nonpayable/argument validation."
+
+[file.124]
+path = "precompiles/oracle/oracle_test.go"
+lines = 72
+verdict = "clean"
+note = "Retirement tests check exact revert bytes and forbid legacy keeper access for both current oracle selectors."
+
+[file.125]
+path = "precompiles/oracle/setup.go"
+lines = 47
+verdict = "generated"
+note = "Generated by scripts/bump_version from oracle versions: dispatch maps historical upgrades to preserved implementations and latest to the intentional retirement executor."
+
+[file.126]
+path = "precompiles/proof_activation_test.go"
+lines = 253
+verdict = "clean"
+note = "Merge constructor inventory and height behavior cover served precompiles and retained retired oracle dispatch."
+
+[file.127]
+path = "precompiles/proof_precompile_go_api_test.go"
+lines = 230
+verdict = "clean"
+note = "Go API shape, activation, real storage/tracing and exported type/constructor use agree with current application interfaces."
+
+[file.128]
+path = "tests/codec/lxp_test_binding_budget_signer.c"
+lines = 267
+verdict = "clean"
+note = "Reviewed canonical codec writer/reader tags, lengths, u128/u64 widths, sorted sequences and refusal cases for binding-budget signer wire data."
+
+[finding.1]
+file = "precompiles/layerxledger/views.go"
+line = 102
+class = "interface-mismatch"
+severity = "high"
+observed = "nextSequence forwards ABI accountId to Keeper.NextSequence, whose modules/layerxledger/keeper/views.go:31 derives AssetAccountID from a DID public key. Passing the accountId returned by openAccount or accountId therefore derives a second, nonexistent account; balanceOf accepts the actual accountId."
+expected = "The declared nextSequence(accountId, assetId) view must read the same persisted account produced by openAccount and accepted by balanceOf, so an integrator can obtain its next debit sequence."
+proposal = "In modules/layerxledger/keeper/views.go and precompiles/layerxledger/views.go, resolve the supplied account ID directly and validate its asset. Keep any owner-key convenience helper separately named. Prove openAccount output through ABI nextSequence before and after committing and reopening the host."
+owner_domain = 2
+interface = "6.pc-0x101a-nextsequence"
+
+[finding.2]
+file = "precompiles/layerxledger/abi.json"
+line = 8
+class = "interface-mismatch"
+severity = "medium"
+observed = "The published payExact fifth argument is named sequence although payments.go maps it to ExpiresAt, and nextSequence names its first argument accountId although views.go supplies it to a DID-key derivation. ABI-driven clients receive misleading names and units; findings 1 and 3 describe the failing calls."
+expected = "The ABI metadata must identify the actual semantic input and unit of every value, consistently with the handler, keeper, SDK and public reference."
+proposal = "Publish expiresAtMs for the existing payExact uint64 without changing its selector, reconcile nextSequence account semantics with finding 1, and update Solidity bindings, SDK parameter names and generated documentation together."
+owner_domain = 2
+interface = "2.fmt-layerxledger-abi-j23"
+
+[finding.3]
+file = "precompiles/layerxledger/payments.go"
+line = 114
+class = "interface-mismatch"
+severity = "high"
+observed = "payExact binds ExpiresAt with abi:sequence and passes it as PayExactArgs.ExpiresAt. The keeper compares it with BlockTime().UnixMilli() and independently reads the actual sequence. A caller supplying the advertised next account sequence is refused as expired; the receipt-vector caller already calls the value expiresAt."
+expected = "A declared sequence must retain its account replay meaning across ABI and keeper, or the public contract must explicitly declare an expiry in milliseconds and explain that the keeper chooses the account sequence."
+proposal = "Align precompiles/layerxledger/abi.json, payments.go, the Solidity interface and SDK wrappers on expiresAtMs, documenting automatic account-sequence selection. Add a real bound, funded payExact call using a current expiry and prove expired timestamp refusal and persisted sequence advancement."
+owner_domain = 2
+interface = "6.pc-0x101a-payexact"
+
+[finding.4]
+file = "precompiles/layerxledger/transfers.go"
+line = 51
+class = "interface-mismatch"
+severity = "high"
+observed = "The send handler delegates to Keeper.Send, which at modules/layerxledger/keeper/send.go:21 requires envelope.from to equal MainAccountID(actor.DIDKey). openAccount produces AssetAccountID, and the kernel source_matches_actor in src/modules/asset/lx_asset_registry.c explicitly accepts actor-owned asset accounts. A legitimately opened and minted asset account cannot send through 0x101A."
+expected = "An account created by the ledger openAccount interface and funded by mint must be usable as the source of its supported asset transfer; ownership validation must agree with the kernel canonical account rules."
+proposal = "Replace the main-account-only check in modules/layerxledger/keeper/send.go with canonical source ownership and asset validation through the shared host. Prove bind/register/openAccount/mint/send over the EVM path, refusing a foreign owner and checking bank, kernel balances and persisted sequences after reopening."
+owner_domain = 2
+interface = "6.pc-0x101a-send"
+
+[finding.5]
+file = "modules/layerxagent/keeper/scheduler.go"
+line = 56
+class = "runtime-risk"
+severity = "high"
+observed = "RunDue snapshots all admitted Job values before execution and never reloads them. Job A can target 0x0905 cancel(B) as the same creator: B is refunded and deleted, then the stale B still executes and settles its deposit again from pooled escrow. If A reschedules B, stale execution deletes B but leaves its new due index; IterateDue later panics on the missing job."
+expected = "Cancel and reschedule must take effect before a later due job executes, deposits must settle once, and due indexes must never reference a deleted obligation after a restart."
+proposal = "In modules/layerxagent/keeper/scheduler.go, reload and validate each admitted job immediately before execution, including its stored due block or version, and skip canceled or moved jobs without consuming their deposit. Add real scheduled EVM cancel and reschedule calls against another admitted job, check escrow conservation, then reopen and run beyond the moved height."
+owner_domain = 2
+interface = "2.go-layerxagent-keeper-rundue-j24"
+
+[finding.6]
+file = "modules/layerxagent/keeper/scheduler.go"
+line = 67
+class = "restart-recovery"
+severity = "high"
+observed = "runJob deletes the job before execution; fee and refund transfers then commit independently. A failed transfer only becomes text in EventJobFailed, while the return value reports event encoding errors. No durable outstanding refund or fee remains for export or retry. The overdraw reachable through finding 5 can leave another creator unpaid with no recoverable job record."
+expected = "Committed target effects and every remaining deposit obligation must have a durable, exactly-once settlement lifecycle; a failed payment must remain recoverable across restart without executing the target twice."
+proposal = "Persist execution outcome and pending fee/refund obligations in modules/layerxagent/keeper before deleting the runnable job. Settle each leg idempotently, retain failures for retry, and include obligations in genesis export/import. Exercise a real bank refusal, reopen the keeper, and prove eventual payment without repeating target effects."
+owner_domain = 2
+interface = "2.evt-layerxagent-event-job-failed"
+
+[finding.7]
+file = "precompiles/layerxauth/lifecycle.go"
+line = 27
+class = "interface-mismatch"
+severity = "high"
+observed = "recordLifecycle receives a successful kernel receipt but returns only GlobalSequence and ignores Receipt.Events. Registration and recovery updates emit kernel event 0x7110 in src/modules/governance/lxp_governance.c and lxp_governance_onboarding.c. Unlike grantResult and revokeGrant, this handler emits no declared IdentityStateUpdated EVM log."
+expected = "Successful identity lifecycle writes must carry their committed IdentityStateUpdated event from the kernel receipt into the declared 0x101C log so consumers observing identity history see registration and recovery changes."
+proposal = "Decode AuthEvents in precompiles/layerxauth/lifecycle.go, validate lifecycle event shapes and emit IdentityStateUpdated through the shared log encoder before committing the branch. Add real EVM registration and recovery calls asserting topic, DID, exact LXGI1 body and receipt inclusion, with no log on refusal."
+owner_domain = 2
+interface = "6.pc-0x101c-evt-identitystateupdated"
+
+[finding.8]
+file = "modules/layerxagent/keeper/keeper.go"
+line = 113
+class = "config-drift"
+severity = "medium"
+observed = "SetParams validates only the new parameter values. Governance can lower MaxJobGasLimit and MaxBlockGas below an already persisted job GasLimit. RunDue then stops at that first oversized due job on every block, preventing all subsequent due jobs from progressing until its creator cancels or governance raises the cap."
+expected = "A valid governance limit change must preserve scheduler progress and provide an explicit disposition for deposits of jobs that no longer fit the execution budget."
+proposal = "In modules/layerxagent/keeper/keeper.go and scheduler.go, reject an incompatible reduction or implement a bounded, deterministic refund or migration of oversized jobs. Add a governance-path case with a preexisting large job followed by a smaller job and verify progress and escrow conservation after restart."
+owner_domain = 2
+interface = "2.go-layerxagent-keeper-keeper-setparams-j24"
+
+[finding.9]
+file = "precompiles/layerxledger/assets.go"
+line = 30
+class = "dead-code"
+severity = "low"
+observed = "assets.go registers getAsset, balanceOf and totalUnits to assetView, but views.go init overwrites all three keys with the dedicated view handlers. assetView duplicates their implementations and is unreachable through the final production method table."
+expected = "Each declared ledger method should have one explicit active handler so interface fixes cannot silently affect only an unused implementation."
+proposal = "Remove the superseded assetView registrations and duplicate method from precompiles/layerxledger/assets.go in its owning repair, retaining the dedicated views.go handlers and asserting a unique dispatcher mapping."
+owner_domain = 2
+
+[finding.10]
+file = "precompiles/layerxauth/grants_test.go"
+line = 264
+class = "test-gap"
+severity = "medium"
+observed = "TestPrecompileGrantSessionSuccessor writes a fabricated spent counter directly under host prefix 1,0,7,8 and installs fee-policy records by hand. It proves successor behavior against those bytes but never demonstrates that actual fee-bearing execution produces the same cumulative record."
+expected = "The successor fee-budget contract must preserve spending produced by the real charge path through revoke and replacement, including persistence; fabricated counters cannot prove that integration."
+proposal = "Extend precompiles/layerxauth/grants_test.go with governance-established fees and a real fee-bearing activity, then revoke and issue the successor using the resulting commitment. Reopen the persisted host and assert total/period spend and refusal at exhausted limits."
+owner_domain = 2
+interface = "6.pc-0x101c-grantsessionsuccessor"
+
+[finding.11]
+file = "precompiles/layerxauth/parity_test.go"
+line = 246
+class = "test-gap"
+severity = "medium"
+observed = "The fee successor parity path synthesizes predecessorCharge=65840 and writes two counters into kernel KV before revocation. Both compared paths inherit that handcrafted state, so parity can pass even if the production charging record is incompatible with successor decoding."
+expected = "Parity for fee-budget successors must start from the actual predecessor charge producer and carry its persisted result into the replacement consumer."
+proposal = "In precompiles/layerxauth/parity_test.go, drive an admitted fee-bearing activity through the predecessor grant, use the produced counters and predecessor commitment, and compare native and EVM successor results after a persisted reopen rather than writing the counter record directly."
+owner_domain = 2
+interface = "6.pc-0x101c-grantsessionsuccessor"
+
+[finding.12]
+file = "precompiles/layerxauth/lifecycle_test.go"
+line = 45
+class = "test-gap"
+severity = "medium"
+observed = "TestPrecompileRecordLifecycleRegistersDid checks ABI sequence and host identity state for registration and recovery but never inspects db logs. It succeeds when recordLifecycle drops every IdentityStateUpdated event, as finding 7 describes."
+expected = "A successful lifecycle test must assert the observable event transport as well as persisted state, and a refused lifecycle must leave both unchanged."
+proposal = "Extend precompiles/layerxauth/lifecycle_test.go to compare actual EVM logs with AuthEvents from the real lifecycle receipt for both registration and recovery, including exact DID topic, body bytes, log ordering and rollback on refusal."
+owner_domain = 2
+interface = "6.pc-0x101c-evt-identitystateupdated"
+
+[finding.13]
+file = "precompiles/layerxledger/transfers_test.go"
+line = 118
+class = "test-gap"
+severity = "medium"
+observed = "transferMainAccount writes a raw 0x06 account record with the chosen test asset assigned to a main account. Tests then mint and send through that fabricated source, avoiding the asset account actually returned by openAccount and hiding the main-only rejection in finding 4."
+expected = "Ledger transfer tests must use accounts produced by binding, identity onboarding and openAccount, with asset membership and balances established by real transactions."
+proposal = "Replace the raw account seeding in precompiles/layerxledger/transfers_test.go with the production onboarding/openAccount path and transfer from its returned asset account. Keep foreign-source refusal and assert native receipts, bank mirrors and sequences after reopening."
+owner_domain = 2
+interface = "6.pc-0x101a-send"
+
+[finding.14]
+file = "precompiles/layerxledger/client_test.go"
+line = 167
+class = "test-gap"
+severity = "medium"
+observed = "The signed EVM transaction receipt test uses transferMainAccount to install a custom-asset main account directly in host KV. That fixture bypasses the source account returned by the real openAccount producer, so successful sends do not expose the rejection described in finding 4."
+expected = "The signed EVM transaction receipt proof must exercise a supported account produced by the application and prove the same asset, account, sequence and balance shapes accepted by the kernel."
+proposal = "In precompiles/layerxledger/client_test.go, obtain source accounts through real binding/onboarding, register and openAccount calls, mint to the returned account, then run the existing receipt, gas, mirror or parity assertions on that source without raw account KV seeding."
+owner_domain = 2
+interface = "6.pc-0x101a-send"
+
+[finding.15]
+file = "precompiles/layerxledger/gas_conformance_test.go"
+line = 186
+class = "test-gap"
+severity = "medium"
+observed = "The gas conformance test uses transferMainAccount to install a custom-asset main account directly in host KV. That fixture bypasses the source account returned by the real openAccount producer, so successful sends do not expose the rejection described in finding 4."
+expected = "The gas conformance proof must exercise a supported account produced by the application and prove the same asset, account, sequence and balance shapes accepted by the kernel."
+proposal = "In precompiles/layerxledger/gas_conformance_test.go, obtain source accounts through real binding/onboarding, register and openAccount calls, mint to the returned account, then run the existing receipt, gas, mirror or parity assertions on that source without raw account KV seeding."
+owner_domain = 2
+interface = "6.pc-0x101a-send"
+
+[finding.16]
+file = "precompiles/layerxledger/mirror_app_test.go"
+line = 95
+class = "test-gap"
+severity = "medium"
+observed = "The application bank-mirror test uses transferMainAccount to install a custom-asset main account directly in host KV. That fixture bypasses the source account returned by the real openAccount producer, so successful sends do not expose the rejection described in finding 4."
+expected = "The application bank-mirror proof must exercise a supported account produced by the application and prove the same asset, account, sequence and balance shapes accepted by the kernel."
+proposal = "In precompiles/layerxledger/mirror_app_test.go, obtain source accounts through real binding/onboarding, register and openAccount calls, mint to the returned account, then run the existing receipt, gas, mirror or parity assertions on that source without raw account KV seeding."
+owner_domain = 2
+interface = "6.pc-0x101a-send"
+
+[finding.17]
+file = "precompiles/layerxledger/parity_test.go"
+line = 145
+class = "test-gap"
+severity = "medium"
+observed = "The native/EVM parity test uses transferMainAccount to install a custom-asset main account directly in host KV. That fixture bypasses the source account returned by the real openAccount producer, so successful sends do not expose the rejection described in finding 4."
+expected = "The native/EVM parity proof must exercise a supported account produced by the application and prove the same asset, account, sequence and balance shapes accepted by the kernel."
+proposal = "In precompiles/layerxledger/parity_test.go, obtain source accounts through real binding/onboarding, register and openAccount calls, mint to the returned account, then run the existing receipt, gas, mirror or parity assertions on that source without raw account KV seeding."
+owner_domain = 2
+interface = "6.pc-0x101a-send"
+
+[finding.18]
+file = "precompiles/layerxledger/views_test.go"
+line = 190
+class = "test-gap"
+severity = "medium"
+observed = "The nextSequence table supplies f.key, while balanceOf supplies f.account from the same fixture. This asserts the keeper implementation shortcut instead of the published accountId argument and never composes openAccount or accountId output with nextSequence."
+expected = "A public-view test must use the advertised input meaning and establish that actual producer output is accepted by the next consumer."
+proposal = "Change the owning test in precompiles/layerxledger/views_test.go to feed the actual opened account ID into nextSequence, increment that account through a real debit and re-read after persisted reopen. Keep a refusal case for an unknown account ID."
+owner_domain = 2
+interface = "6.pc-0x101a-nextsequence"
+
+[finding.19]
+file = "api/layerxledger/tx.proto"
+line = 16
+class = "doc-drift"
+severity = "low"
+observed = "Params.paused is documented as refusing every ledger write, while the declared pause policy exempts revokeGrant and the served compatibility selector continues to answer its typed retirement refusal while paused."
+expected = "The parameter comment must state the module pause rule, including the explicit exit or compatibility behavior seen by clients."
+proposal = "Update the comment in api/layerxledger/tx.proto to describe pause-scoped writes and the revokeGrant exemption, noting that retired payer-grant selectors still refuse LXP_NO_PAYER_GRANT rather than becoming supported operations."
+owner_domain = 2
+
+[finding.20]
+file = "precompiles/layerxledger/payments.go"
+line = 136
+class = "wiring-gap"
+severity = "medium"
+observed = "getPayerGrant correctly refuses LXP_NO_PAYER_GRANT under decision 2340, but registry consumer sdk/wallet/src/modules/web-data.ts:232 still calls it and decodes a seven-word live grant answer. apps/wallet/src/surfaces/useSurface.ts:897 uses that result for web caps, so any discovered old grant ID makes this read fail."
+expected = "Consumers of the intentionally retired payer-grant surface must present the current supported web payment model and must not depend on a successful grant-state response."
+proposal = "Domain 12 should migrate sdk/wallet/src/modules/web-data.ts and apps/wallet/src/surfaces/useSurface.ts away from payer-grant discovery and caps. Add a real node-backed read proving typed retirement handling and current web payment availability; preserve the refusal in payments.go."
+owner_domain = 12
+interface = "6.pc-0x101a-getpayergrant"
+
+[finding.21]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "The overview describes layerxd as a separately running kernel daemon whose checkpoints settle through layerxAnchor, and line 181 says the merge remains a draft with separate execution."
+expected = "The finished network is one paxd BFT chain with an integrated proposing kernel and receipt finality on committed blocks; no live layerxd or checkpoint settlement plane remains."
+proposal = "Rewrite README.md architecture and merge-status paragraphs around the integrated chain, root-path node JSON-RPC and committed block finality; keep any former daemon discussion explicitly historical."
+owner_domain = 16
+
+[finding.22]
+file = "docs/system/precompiles.md"
+line = 1363
+class = "doc-drift"
+severity = "medium"
+observed = "The generated ledger list omits outputs for issueGrant, openAccount and register although ABI outputs contain bytes32 IDs, and copies sequence and accountId metadata without identifying the semantic inconsistencies in findings 1 and 3."
+expected = "The public ABI reference must preserve output shapes and explain the current input meanings used by actual clients and handlers."
+proposal = "Correct output extraction in tools/docs/gen-system-docs.sh and regenerate docs/system/precompiles.md from the reconciled ABI; verify register/openAccount returned IDs and payExact expiry units against real receipt return data."
+owner_domain = 16
+
+[finding.23]
+file = "docs/system/precompiles.md"
+line = 1360
+class = "doc-drift"
+severity = "medium"
+observed = "The function and event catalog presents draw, payer grants and the current oracle queries alongside supported methods without retirement/refusal status. Oracle execution is intentionally retired and payer-grant calls cannot return the advertised successful results."
+expected = "Integrators need to distinguish active operations from retained ABI selectors that always refuse and events that remain historical compatibility declarations."
+proposal = "Add lifecycle metadata to tools/docs/gen-system-docs.sh and regenerate docs/system/precompiles.md with typed refusal reasons and supported replacements for retired ledger and oracle rows, preserving historical signatures as compatibility information."
+owner_domain = 16
+
+[finding.24]
+file = "docs/site/docs/programs/workspace.md"
+line = 15
+class = "doc-drift"
+severity = "medium"
+observed = "The workspace catalog lists the deleted layerx-programs-protocol-adapter crate. Lines 151 and 156 describe a removed test-replay-golden-local dependency and deleted cmd/layerxd/lxp_daemon_batch_wal.c input; the current Makefile no longer uses either."
+expected = "Programs workspace and qualification documentation must describe the existing crates and current build graph without instructing readers to depend on retired daemon artifacts."
+proposal = "Update docs/site/docs/programs/workspace.md from programs/Cargo.toml and the current Makefile recipes, remove the retired adapter and daemon/golden dependencies, and maintain the site/wiki mirrors from one reviewed source."
+owner_domain = 13
+
+[finding.25]
+file = "docs/wiki/ProgramsWorkspace.md"
+line = 15
+class = "doc-drift"
+severity = "medium"
+observed = "The workspace catalog lists the deleted layerx-programs-protocol-adapter crate. Lines 151 and 156 describe a removed test-replay-golden-local dependency and deleted cmd/layerxd/lxp_daemon_batch_wal.c input; the current Makefile no longer uses either."
+expected = "Programs workspace and qualification documentation must describe the existing crates and current build graph without instructing readers to depend on retired daemon artifacts."
+proposal = "Update docs/wiki/ProgramsWorkspace.md from programs/Cargo.toml and the current Makefile recipes, remove the retired adapter and daemon/golden dependencies, and maintain the site/wiki mirrors from one reviewed source."
+owner_domain = 13
+
+[finding.26]
+file = "docs/site/docs/protocol/xweb.md"
+line = 40
+class = "doc-drift"
+severity = "medium"
+observed = "The payment flow prescribes a payer grant, a draw activity and its sequencer receipt, while the served ledger draw and payer-grant selectors refuse LXP_NO_PAYER_GRANT. The page also describes the retired kernel web import alongside live sidecar guidance."
+expected = "Web payment instructions must use the supported merged-chain operation and committed receipt verification, clearly distinguishing the disabled legacy kernel import."
+proposal = "Rewrite the payment sequence in docs/site/docs/protocol/xweb.md with the x-websearch and interop owners using the current non-grant payment path; state supported assets, units, retry binding, committed evidence and explicit retirement of the old draw flow."
+owner_domain = 14
+
+[finding.27]
+file = "docs/site/docs/operators/settlement-evidence.md"
+line = 30
+class = "doc-drift"
+severity = "medium"
+observed = "The consumer sequence instructs operators to register guarantor checkpoint certificates, publish signed owner balance/deposit vectors and use custody/exit proof paths; lines 93-95 describe an autonomous guarantor publication producer and its inputs directory."
+expected = "The merged network settles execution in committed BFT blocks and retires checkpoint/guarantor publication and custody exit workflows as live operating procedures."
+proposal = "Replace docs/site/docs/operators/settlement-evidence.md with committed-block and receipt evidence collection for paxd. Move any needed legacy wire-format reference into an explicitly historical section and remove live guarantor publication setup steps."
+owner_domain = 10
+
+[finding.28]
+file = "docs/site/docs/programs/index.md"
+line = 119
+class = "doc-drift"
+severity = "medium"
+observed = "The simulate section specifies a live LNI capability and cmd/layerxd/lxp_daemon_lni.c implementation. Lines 144-146 also say the LXT-20 SDK, example and pay5 fixture are absent, although all three paths exist in this tree."
+expected = "Programs integration must describe the current node transport and actual buildable examples, without directing users to a retired daemon protocol."
+proposal = "Update docs/site/docs/programs/index.md simulate/deploy guidance to current integrated-node entry points and refresh the LXT-20 availability statement against programs/sdk/rust and programs/fixtures/pay5, linking the maintained example and its real constraints."
+owner_domain = 13
+
+[finding.29]
+file = "docs/site/docs/interop/x402.md"
+line = 90
+class = "doc-drift"
+severity = "medium"
+observed = "The public transport section instructs POST /rpc and lx_sendActivity/lx_getReceipt recovery, and defines finalised using a guarantor checkpoint certificate. Its native settlement flow still relies on payer grants and receive/draw behavior retired by the ledger."
+expected = "The public node uses root JSON-RPC on chain 125, supported hosted methods follow the gateway contract, and committed BFT evidence defines finality without a separate guarantor plane."
+proposal = "Rewrite docs/site/docs/interop/x402.md native payment submission, recovery and finality sections from the supported EVM/hosted producer and verifier paths. Remove live /rpc, lx_ daemon methods and payer-grant instructions, retaining explicit receipt trust and binding checks."
+owner_domain = 11
+
+[finding.30]
+file = "docs/site/docs/protocol/modules.md"
+line = 73
+class = "doc-drift"
+severity = "medium"
+observed = "The Asset section presents receive and payer grants as current behavior, and combines a live withdraw transition with a statement that ordinal 9 refuses. The page also describes checkpoint settlement and signed batch maintenance as the running two-plane model."
+expected = "The module catalog must distinguish supported merged-chain asset transitions from retired ordinals and describe the integrated block lifecycle consistently."
+proposal = "Rewrite docs/site/docs/protocol/modules.md Asset and epoch/lifecycle sections from the active dispatch tables and retirement decisions, document typed refusals for receive/grants/withdraw, and replace separate checkpoint publication language with chain commitment."
+owner_domain = 1
+
+[finding.31]
+file = "spec/layerx-merge/contracts/ledger-auth.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The contract says neither precompile is served and repeatedly labels existing implementations planned. It still lists resultByIdempotency as a new auth method at line 448, prescribes mandatory code:detail error strings, and describes old payer-grant encoders despite the retirement paragraph."
+expected = "The ledger/auth contract must describe the served ABI, retired query removal and stable actual Error(string) code forms, while preserving the explicit payer-grant refusal policy."
+proposal = "Refresh spec/layerx-merge/contracts/ledger-auth.md from the active constructors, ABIs, error encoders and decisions 2340/2354; remove stale planned and live-idempotency claims and specify actual argument units, outputs, lifecycle events and optional error details."
+owner_domain = 2
+
+[finding.32]
+file = "spec/layerx-merge/contracts/agent-functions.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The opening says production imports register none of the merge constructors and that 0x0905 has no package, while the scheduler implementation is present and activated in the application. Scheduler and CLI implementation tables still mark existing paths planned."
+expected = "The agent contract must clearly identify currently served scheduler/module interfaces and their real activation, typed outcome events and deposit lifecycle."
+proposal = "Refresh spec/layerx-merge/contracts/agent-functions.md from the live merge registry, scheduler ABI and layerxagent module paths. Preserve intended typed outcome events, document current behavior and link the scheduler obligation repairs proposed by this audit."
+owner_domain = 2
+
+[finding.33]
+file = "spec/layerx-merge/contracts/pay.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The pay contract states no executor or merge constructor serves 0x101B and lists landed keeper/precompile paths as planned. Its budget section still describes pull against a live payer grant, contrary to the merged retirement policy."
+expected = "The contract describing the package pay protos must match the served pay module and distinguish currently supported writes from compatibility refusals."
+proposal = "Update spec/layerx-merge/contracts/pay.md with current activation and implementations, regenerate method/state tables from the landed paths and annotate retired payer-grant dependent operations with their exact refusal behavior."
+owner_domain = 2
+
+[doc.1]
+path = "docs/system/chain-modules.md"
+status = "accurate"
+notes = "Generated inventory of declared Params/messages matches this slice: agent 9 fields, auth 2, ledger 1 and pay 5. It is a type inventory, not a claim that retained settlement operations are enabled."
+
+[doc.2]
+path = "docs/system/precompiles.md"
+status = "misleading"
+notes = "Lines 1363-1369 omit declared outputs and present misleading input semantics; current oracle and payer-grant refusal selectors lack lifecycle annotations. Two findings assign generator/reference repairs."
+
+[doc.3]
+path = "README.md"
+status = "stale"
+notes = "Lines 47 and 181 describe a separate live daemon and draft merge, conflicting with the finished integrated BFT chain."
+
+[doc.4]
+path = "docs/site/docs/programs/workspace.md"
+status = "stale"
+notes = "Lines 15, 88, 151 and 156 retain the deleted protocol adapter and daemon/golden build dependencies; current recipes and crate inventory differ."
+
+[doc.5]
+path = "docs/site/docs/protocol/xweb.md"
+status = "stale"
+notes = "Payment steps near lines 40-49 still prescribe payer grants and draw despite the typed ledger refusals; current sidecar/web import distinctions need a coherent rewrite."
+
+[doc.6]
+path = "docs/wiki/ProgramsWorkspace.md"
+status = "stale"
+notes = "Read the mirrored body and link differences; it shares the site workspace stale adapter, golden gate and daemon compilation inputs."
+
+[doc.7]
+path = "docs/site/docs/operators/settlement-evidence.md"
+status = "stale"
+notes = "Live consumer/publication instructions at lines 30-38 and 93-95 use retired guarantor, checkpoint registry and custody-exit workflows."
+
+[doc.8]
+path = "docs/site/docs/operators/porting.md"
+status = "accurate"
+notes = "Porting guidance distinguishes historical fixtures and reference material from executable current adapters; audited ledger/receipt references and LXT-20 source availability agree."
+
+[doc.9]
+path = "docs/site/docs/agents/sdk-verification.md"
+status = "accurate"
+notes = "Explains submitted/receipted/committed evidence, independent trusted receipt pins, raw-transaction and log binding, and separate chain inclusion proofs; no separate running sequencer service is required."
+
+[doc.10]
+path = "docs/site/docs/programs/index.md"
+status = "stale"
+notes = "Lines 119-138 prescribe retired LNI simulation and lines 144-146 deny three source/example paths that now exist."
+
+[doc.11]
+path = "docs/site/docs/interop/x402.md"
+status = "stale"
+notes = "Lines 90-104 prescribe /rpc, lx_ daemon reads and guarantor finality; the native grant flow also conflicts with current ledger refusal behavior."
+
+[doc.12]
+path = "docs/site/docs/protocol/modules.md"
+status = "stale"
+notes = "Asset transition and epoch/settlement descriptions retain payer grants, receive and checkpoint-plane assumptions and contradictory withdraw availability."
+
+[doc.13]
+path = "spec/layerx-merge/contracts/ledger-auth.md"
+status = "stale"
+notes = "Reviewed all sections and decision table: initial unserved/planned claims, resultByIdempotency row 448 and mandatory error-detail wording lag the active implementations; decision 2340 refusal paragraph is valid."
+
+[doc.14]
+path = "spec/layerx-merge/contracts/agent-functions.md"
+status = "stale"
+notes = "Reviewed framework through decisions: opening and planned scheduler/module path tables lag actual imports/constructors. Typed end-block events and once-only deposit invariant remain the intended contract."
+
+[doc.15]
+path = "spec/layerx-merge/contracts/pay.md"
+status = "stale"
+notes = "Reviewed method, events, state, proto, genesis and decision sections; opening denies existing service implementation and live payer-grant budget text needs retirement reconciliation."
+
+[doc.16]
+path = "scripts/bump_version/README.md"
+status = "accurate"
+notes = "Documents archiveModule package/import rewrites, ABI copying and generated setup.go version mapping. This establishes generated provenance for the 28 oracle archive members and setup.go."
+
+[interface_review.produces-agent]
+direction = "produces"
+rows = ["2.cli-layerxagent-query-job-j24", "2.cli-layerxagent-query-params-j24", "2.cli-layerxagent-query-pending-j24", "2.evt-layerxagent-event-job-executed", "2.evt-layerxagent-event-job-failed", "2.go-layerxagent-appmodule-j24", "2.go-layerxagent-keeper-defaultmaxjobgaslimit-j24", "2.go-layerxagent-keeper-defaultmaxjobsperblock-j24", "2.go-layerxagent-keeper-defaultmaxjobspercreator-j24", "2.go-layerxagent-keeper-defaultmaxreasonbytes-j24", "2.go-layerxagent-keeper-defaultmaxschedulehorizon-j24", "2.go-layerxagent-keeper-defaultmindepositfactor-j24", "2.go-layerxagent-keeper-defaultparams-j24", "2.go-layerxagent-keeper-exportgenesis-j24", "2.go-layerxagent-keeper-initgenesis-j24", "2.go-layerxagent-keeper-job-j24", "2.go-layerxagent-keeper-keeper-active-j24", "2.go-layerxagent-keeper-keeper-cancel-j24", "2.go-layerxagent-keeper-keeper-deletejob-j24", "2.go-layerxagent-keeper-keeper-endblocker-j24", "2.go-layerxagent-keeper-keeper-getjob-j24", "2.go-layerxagent-keeper-keeper-getparams-j24", "2.go-layerxagent-keeper-keeper-iteratedue-j24", "2.go-layerxagent-keeper-keeper-j24", "2.go-layerxagent-keeper-keeper-moduleaddress-j24", "2.go-layerxagent-keeper-keeper-nextjobid-j24", "2.go-layerxagent-keeper-keeper-pending-j24", "2.go-layerxagent-keeper-keeper-reschedule-j24", "2.go-layerxagent-keeper-keeper-schedule-j24", "2.go-layerxagent-keeper-keeper-setjob-j24", "2.go-layerxagent-keeper-keeper-setparams-j24", "2.go-layerxagent-keeper-modulename-j24", "2.go-layerxagent-keeper-msgserver-j24", "2.go-layerxagent-keeper-newkeeper-j24", "2.go-layerxagent-keeper-params-j24", "2.go-layerxagent-keeper-params-validate-j24", "2.go-layerxagent-keeper-queryserver-j24", "2.go-layerxagent-keeper-rundue-j24", "2.go-layerxagent-keeper-storekey-j24", "2.go-layerxagent-types-defaultparams-j24", "2.go-layerxagent-types-genesisvalidate-j24", "2.go-layerxagent-types-modulename-j24", "2.go-layerxagent-types-registerinterfaces-j24", "2.key-layerxagent-keeper-creatorkeyprefix-j24", "2.key-layerxagent-keeper-duekeyprefix-j24", "2.key-layerxagent-keeper-jobkeyprefix-j24", "2.key-layerxagent-keeper-nextjobidkey-j24", "2.key-layerxagent-keeper-paramskey-j24"]
+notes = "Producer: modules/layerxagent keeper/types/module/CLI. Transports: JSON persisted Job/deposit decimal, BE(block,id) indexes, protobuf Job decimal deposit and copied calldata, gRPC/CLI responses and typed Cosmos outcomes. Consumer: registered app genesis/services and EVM end-block RunDue. Governance authority, activation, pause, owner checks, caps and export/import inspected. Stale job and settlement lifecycle exceptions are findings 5-6 and limit reduction is finding 8."
+
+[interface_review.produces-proto]
+direction = "produces"
+rows = ["2.msg-layerxauth-updateparams", "2.msg-layerxledger-updateparams", "2.msg-layerxpay-updateparams", "2.proto-layerxauth-genesisstate-j23", "2.proto-layerxauth-layerxscopeauthorization", "2.proto-layerxauth-msgupdateparams", "2.proto-layerxauth-msgupdateparamsresponse", "2.proto-layerxauth-params", "2.proto-layerxledger-genesisstate-j23", "2.proto-layerxledger-msgupdateparams", "2.proto-layerxledger-msgupdateparamsresponse", "2.proto-layerxledger-params", "2.proto-layerxpay-msgupdateparams", "2.proto-layerxpay-msgupdateparamsresponse", "2.proto-layerxpay-params", "2.proto-layerxpay-queryparamsrequest-j24", "2.proto-layerxpay-queryparamsresponse-j24", "2.qry-layerxpay-params-j24"]
+notes = "Producer: six package proto files. Transport: stable numeric tags, non-nullable Params and decimal integer strings in scope authorization. Consumer: module Msg/query/genesis and authz generated Go types. Auth/ledger genesis contains params only, host owns state; pay Params query route and five flags agree. Pause comment drift is recorded."
+
+[interface_review.produces-oracle-store]
+direction = "produces"
+rows = ["3.go-oracle-erroracleprecompileretired-j25", "3.go-oracle-getversioned-j25", "3.go-oracle-oracleaddress-j25", "3.go-precompiles-oracle-newprecompile-j64", "3.pc-0x1008-getexchangerates", "3.pc-0x1008-getoracletwaps", "5.go-modules-store-get-cached-context"]
+notes = "Oracle address/ABI signatures preserved for historical callers; latest constructor returns canonical Error(string) retirement and archived imports use their matching common versions. Generated setup maps historical upgrade names, never upgrades old replay semantics. GetCachedContext produces the same sdk.Context over CacheMultiStore and returns its real write handle to EVM consumers."
+
+[interface_review.produces-auth]
+direction = "produces"
+rows = ["2.fmt-layerxauth-abi-j23", "2.go-pc-layerxauth-address-j23", "2.go-pc-layerxauth-gastable-j23", "2.go-pc-layerxauth-getabi-j23", "2.go-pc-layerxauth-keepers-j23", "2.go-pc-layerxauth-newmergeprecompile-j23", "2.go-pc-layerxauth-newprecompile-j23", "2.go-pc-layerxauth-reverterror-j23", "6.pc-0x101c-capabilityscope", "6.pc-0x101c-checkactivity", "6.pc-0x101c-evt-capabilitygranted", "6.pc-0x101c-evt-grantbody", "6.pc-0x101c-evt-grantrevoked", "6.pc-0x101c-evt-identitystateupdated", "6.pc-0x101c-evt-sessiongranted", "6.pc-0x101c-getgrant", "6.pc-0x101c-grantcapability", "6.pc-0x101c-grantsession", "6.pc-0x101c-grantsessionsuccessor", "6.pc-0x101c-islive", "6.pc-0x101c-resultbyidempotency", "6.pc-0x101c-revokegrant", "6.pc-0x101c-sessionkey"]
+notes = "Producer: embedded 0x101C ABI, handlers, gas and error maps. Transport: canonical bytes/bytes32, uint64 sequence, ABI Error(string), grant chunks and identity logs. Consumer: keeper shared host/authz and real EVM receipt/state tests. Session summary LXGS2, capability body, grant bytes and revoked/live reason paths inspected; resultByIdempotency is retired and intentionally absent. Lifecycle event loss and fabricated successor counter proof are findings 7, 10-12."
+
+[interface_review.produces-ledger]
+direction = "produces"
+rows = ["2.fmt-layerxledger-abi-j23", "2.go-pc-layerxledger-address-j23", "2.go-pc-layerxledger-gastable-j23", "2.go-pc-layerxledger-getabi-j23", "2.go-pc-layerxledger-keepers-j23", "2.go-pc-layerxledger-newmergeprecompile-j23", "2.go-pc-layerxledger-newprecompile-j23", "2.go-pc-layerxledger-reverterror-j23", "2.pc-0x101a-err-lxp-j23", "2.pc-0x101c-err-lxp-j23", "6.pc-0x101a-accountid", "6.pc-0x101a-accountowner", "6.pc-0x101a-balanceof", "6.pc-0x101a-burn", "6.pc-0x101a-draw", "6.pc-0x101a-evt-accountopened", "6.pc-0x101a-evt-assetpaused", "6.pc-0x101a-evt-assetregistered", "6.pc-0x101a-evt-assetunpaused", "6.pc-0x101a-evt-payergrantissued", "6.pc-0x101a-evt-payergrantrevoked", "6.pc-0x101a-evt-paymentdrawn", "6.pc-0x101a-evt-paymentexact", "6.pc-0x101a-evt-transfer", "6.pc-0x101a-getasset", "6.pc-0x101a-getpayergrant", "6.pc-0x101a-issuegrant", "6.pc-0x101a-mint", "6.pc-0x101a-nextsequence", "6.pc-0x101a-openaccount", "6.pc-0x101a-pause", "6.pc-0x101a-payexact", "6.pc-0x101a-register", "6.pc-0x101a-revokegrant", "6.pc-0x101a-send", "6.pc-0x101a-totalunits", "6.pc-0x101a-unpause"]
+notes = "Producer: embedded 0x101A ABI, asset/account/payment handlers, errors and gas. Transport: bytes32 IDs, uint128 amounts, uint64 values, canonical kernel envelope, ABI logs and bank mirror legs. Consumer: shared host records, EVM transaction clients, custody/gateway/indexer and wallet reads named by registry. Findings cover canonical source composition, sequence/expiry semantics and surviving grant-read consumer. Retired issue/revoke/getPayerGrant/draw deliberately refuse LXP_NO_PAYER_GRANT; retained grant events are historical ABI, not restoration proposals."
+
+[interface_review.consumes-codec]
+direction = "consumes"
+rows = ["1.c-lxp-arena-init", "1.c-lxp-codec-finish", "1.c-lxp-codec-read-bytes", "1.c-lxp-codec-read-i32", "1.c-lxp-codec-read-struct-header", "1.c-lxp-codec-read-tag", "1.c-lxp-codec-read-u128", "1.c-lxp-codec-read-u16", "1.c-lxp-codec-read-u32", "1.c-lxp-codec-read-u64", "1.c-lxp-codec-read-u8", "1.c-lxp-codec-reader", "1.c-lxp-codec-reader-init", "1.c-lxp-codec-reject-unknown-field", "1.c-lxp-codec-seq-check-sorted", "1.c-lxp-codec-write-bytes", "1.c-lxp-codec-write-i32", "1.c-lxp-codec-write-seq", "1.c-lxp-codec-write-struct-header", "1.c-lxp-codec-write-tag", "1.c-lxp-codec-write-text", "1.c-lxp-codec-write-u128", "1.c-lxp-codec-write-u64", "1.c-lxp-codec-write-u8", "1.c-lxp-codec-writer", "1.c-lxp-codec-writer-init", "1.err-c-lxp-err-invalid-tag", "1.err-c-lxp-err-trailing-bytes", "1.err-c-lxp-err-truncated", "1.err-c-lxp-err-unknown-field", "1.err-c-lxp-err-unsorted-sequence", "1.err-c-lxp-err-version-unsupported"]
+notes = "C codec declarations and test consumption use caller-owned arenas, canonical tag/struct framing, explicit byte counts, BE integer widths and sorted sequence checks; exact decoder error enums match the package C assertion cases. No network transport or persistent state is introduced."
+
+[interface_review.consumes-legacy]
+direction = "consumes"
+rows = ["6.go-pc-common-legacy-v552-extractmethodid-j34", "6.go-pc-common-legacy-v552-precompile-j34", "6.go-pc-common-legacy-v552-precompile-prepare-j34", "6.go-pc-common-legacy-v552-precompile-requiredgas-j34", "6.go-pc-common-legacy-v552-unknownmethodcallgas-j34", "6.go-pc-common-legacy-v555-extractmethodid-j34", "6.go-pc-common-legacy-v555-precompile-prepare-j34", "6.go-pc-common-legacy-v555-precompile-requiredgas-j34", "6.go-pc-common-legacy-v562-defaultgascost-j34", "6.go-pc-common-legacy-v562-newprecompile-j34", "6.go-pc-common-legacy-v562-precompile-j34", "6.go-pc-common-legacy-v600-defaultgascost-j34", "6.go-pc-common-legacy-v600-mustgetabi-j34", "6.go-pc-common-legacy-v600-newprecompile-j34", "6.go-pc-common-legacy-v600-precompile-j34", "6.go-pc-common-legacy-v600-validateargslength-j34", "6.go-pc-common-legacy-v600-validatenonpayable-j34", "6.go-pc-common-legacy-v605-defaultgascost-j34", "6.go-pc-common-legacy-v605-dynamicgasprecompile-j34", "6.go-pc-common-legacy-v605-mustgetabi-j34", "6.go-pc-common-legacy-v605-newdynamicgasprecompile-j34", "6.go-pc-common-legacy-v606-defaultgascost-j34", "6.go-pc-common-legacy-v606-dynamicgasprecompile-j34", "6.go-pc-common-legacy-v606-mustgetabi-j34", "6.go-pc-common-legacy-v606-newdynamicgasprecompile-j34", "6.go-pc-common-legacy-v614-defaultgascost-j34", "6.go-pc-common-legacy-v614-dynamicgasprecompile-j34", "6.go-pc-common-legacy-v614-mustgetabi-j34", "6.go-pc-common-legacy-v614-newdynamicgasprecompile-j34", "6.go-pc-common-legacy-v620-defaultgascost-j34", "6.go-pc-common-legacy-v620-dynamicgasprecompile-j34", "6.go-pc-common-legacy-v620-mustgetabi-j34", "6.go-pc-common-legacy-v620-newdynamicgasprecompile-j34", "6.go-pc-common-legacy-v630-defaultgascost-j34", "6.go-pc-common-legacy-v630-dynamicgasprecompile-j34", "6.go-pc-common-legacy-v630-mustgetabi-j34", "6.go-pc-common-legacy-v630-newdynamicgasprecompile-j34", "6.go-pc-common-legacy-v640-defaultgascost-j34", "6.go-pc-common-legacy-v640-dynamicgasprecompile-j34", "6.go-pc-common-legacy-v640-mustgetabi-j34", "6.go-pc-common-legacy-v640-newdynamicgasprecompile-j34", "6.go-pc-common-legacy-v65-defaultgascost-j34", "6.go-pc-common-legacy-v65-dynamicgasprecompile-j34", "6.go-pc-common-legacy-v65-mustgetabi-j34", "6.go-pc-common-legacy-v65-newdynamicgasprecompile-j34"]
+notes = "Generated historical oracle archives consume matching versioned common helpers and oracle protobuf rate records through preserved ABI signatures. These imports are archival replay dependencies, not current oracle service wiring."
+
+[interface_review.consumes-cosmos]
+direction = "consumes"
+rows = ["15.go-store-cachemulti-new-store-j76", "15.go-store-dbadapter-store-j76", "15.go-store-types-cache-wrapper-j76", "15.go-store-types-multi-store-j76", "15.go-types-cache-multi-store-j76", "15.go-types-new-infinite-gas-meter-with-multiplier-j76", "15.go-types-parse-typed-event-j76", "15.go-x-auth-types-fee-collector-name-j76", "15.go-x-auth-types-new-module-address-j76"]
+notes = "SDK cache/multistore and bank address/fee collector interfaces feed scheduler cached execution and settlement. Typed event parse consumes the same protobuf event descriptors emitted by RunDue. Current SDK bank transfer refuses insufficient balances; failed obligations are the lifecycle finding, not an invented alternate transport."
+
+[interface_review.consumes-current]
+direction = "consumes"
+rows = ["2.go-layerxagent-common-errorcode-j24", "2.proto-layerxagent-eventjobexecuted", "2.proto-layerxagent-eventjobfailed", "3.proto-oracle-oracleexchangerate", "5.go-node-app-get-precompile-keepers", "5.go-node-setup", "6.cfg-merge-upgrade-node", "6.cfg-merge-upgrade-precompiles", "6.err-rev-lxp-agent-scheduler-max-jobs", "6.go-evm-keeper-keeper-bankkeeper-j34", "6.go-evm-keeper-keeper-getbasefee-j34", "6.go-evm-keeper-keeper-getparams-j34", "6.go-evm-keeper-keeper-getpaxaddressordefault-j34", "6.go-evm-keeper-keeper-j34", "6.go-evm-keeper-keeper-upgradekeeper-j34", "6.go-evm-keeper-tracedb-close-j34", "6.go-evm-keeper-tracedb-get-j34", "6.go-evm-keeper-tracesnapshotstore-close-j34", "6.go-evm-keeper-tracesnapshotstore-get-j34", "6.go-evm-state-dbimpl-empty-j34", "6.go-evm-state-dbimpl-finalize-j34", "6.go-evm-state-dbimpl-getbalance-j34", "6.go-evm-state-dbimpl-setcode-j34", "6.go-evm-state-dbimpl-settxcontext-j34", "6.go-evm-state-dbimpl-txindex-j34", "6.go-evm-state-getcoinbaseaddress-j34", "6.go-evm-state-newdbimpl-j34", "6.go-evm-state-splituhpxweiamount-j34", "6.go-evm-types-chainconfig-ethereumconfigwithsstore-j34", "6.go-evm-types-defaultchainconfig-j34", "6.go-pc-common-defaultgascost-j34", "6.go-pc-common-dynamicgasprecompile-j34", "6.go-pc-common-newdynamicgasprecompile-j34", "6.go-pc-utils-emptykeepers-oraclek-j34", "6.go-pc-utils-oraclekeeper-j34"]
+notes = "Current node setup/keeper access, merge config and activation gates, EVM state/context/tracing/gas interfaces and modern precompile framework declarations agree with their direct package calls. Job outcome protobuf fields match emitted ID/creator/gas/refund or reason. StateDB finalization and cache writes occur on successful execution; escrow errors and stale admitted records remain the explicit exceptions. Oracle keeper/rate types are retained constructor/ABI dependencies, not live price reads."

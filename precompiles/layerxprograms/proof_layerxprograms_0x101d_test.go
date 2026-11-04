@@ -109,8 +109,13 @@ func simulateCall(t *testing.T, h *harness, args []interface{}) []byte {
 	before := h.dump(h.stateDB.Ctx())
 	input, err := lp.ProgramsABI.Pack("simulateCall", args...)
 	require.NoError(t, err)
-	output, _, err := h.evm.StaticCall(h.caller, lp.Address, input, 20000000)
+	decodedArgs, err := lp.ProgramsABI.Methods["simulateCall"].Inputs.Unpack(input[4:])
 	require.NoError(t, err)
+	t.Logf("simulateCall decoded arguments: %#v; expected: %#v", decodedArgs, args)
+	require.Equal(t, args, decodedArgs)
+	output, _, err := h.evm.StaticCall(h.caller, lp.Address, input, 20000000)
+	reason, _ := abi.UnpackRevert(output)
+	require.NoError(t, err, "simulateCall output=%x reason=%s", output, reason)
 	require.Equal(t, before, h.dump(h.stateDB.Ctx()))
 	return output
 }

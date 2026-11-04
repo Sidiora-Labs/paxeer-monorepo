@@ -131,7 +131,7 @@ fn scoped_projection_exchange(
     operation: &[u8],
     principal: &str,
 ) -> Vec<u8> {
-    use layerx_client::lni::transport::{ConnectionGate, FrameTransport, Limits, Uds};
+    use layerx_client::frame::transport::{ConnectionGate, FrameTransport, Limits, Uds};
     fn field(output: &mut Vec<u8>, value: &[u8]) {
         output.extend_from_slice(
             &u32::try_from(value.len())

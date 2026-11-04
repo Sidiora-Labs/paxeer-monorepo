@@ -1,0 +1,491 @@
+[audit.22.30.10]
+task = "22.30.10"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 17
+findings = 29
+docs_reviewed = 10
+upgrade_ready = false
+blocking = ["collateral-account-binding"]
+
+[file.1]
+path = "apps/perps/src/app/index.ts"
+lines = 3
+verdict = "clean"
+note = "Whole file read: boundary comment and export only, with no transport, state or retired reference."
+
+[file.2]
+path = "apps/perps/src/app/modals/ConnectWalletModal.tsx"
+lines = 438
+verdict = "issues"
+note = "Whole file read: Radix props, OAuth names, returnTo storage key and embedded connector identifier agree with producers. Authentication/connection lifecycle gaps remain; ramp config consumer edges are false matches."
+
+[file.3]
+path = "apps/perps/src/app/modals/DepositWithdrawModal.tsx"
+lines = 339
+verdict = "issues"
+note = "Whole file read: 0x1015 nine-field AccountState and five-field AccountView agree with Go/Solidity/TS producers. Collateral and withdrawable are six-decimal USDL; equity and margins use eighteen decimals. safeParseUnits preserves units. Lifecycle, recovery and dialog issues remain."
+
+[file.4]
+path = "apps/perps/src/app/modals/SettingsModal.md"
+lines = 301
+verdict = "issues"
+note = "Whole page read: theme/animation overview broadly agrees, but control inventory, state recipe and dependency imports are stale."
+
+[file.5]
+path = "apps/perps/src/app/modals/SettingsModal.tsx"
+lines = 485
+verdict = "issues"
+note = "Whole file read: next-themes, UI atom props, mobile hook and gradient-only preview agree. No Paxify.png reference remains, matching 18963.1. Local non-theme controls, saving and drawer lifecycle have recorded gaps."
+
+[file.6]
+path = "apps/perps/src/app/modals/WalletControlPanel.tsx"
+lines = 288
+verdict = "issues"
+note = "Whole file read: Radix props and transfer callbacks agree, balance uses chain 125 and explorer address links agree. Mixed-session identity labelling is wrong."
+
+[file.7]
+path = "apps/perps/src/app/providers/PaxscanProvider.tsx"
+lines = 12
+verdict = "clean"
+note = "Whole file read: forwards configured PAXSCAN_WS_URL and children to PaxscanSocketProvider; mounted through the application provider barrel. Producer owns lazy socket subscriptions; no retired endpoint or dependency."
+
+[file.8]
+path = "apps/perps/src/app/shell/AppShell.tsx"
+lines = 80
+verdict = "issues"
+note = "Whole file read: AppProps and page shell flags agree, Toaster and responsive layout wiring are present. Header import is unused. Next router is application navigation rather than a retired network router."
+
+[file.9]
+path = "apps/perps/src/app/shell/CookieBanner.tsx"
+lines = 79
+verdict = "clean"
+note = "Whole file read: shared consent hydration, accept/reject actions and manage-consent reopening agree with useCookieConsent; cookie/privacy routes exist. Persistent consent store is the real consumer and no retired reference remains."
+
+[file.10]
+path = "apps/perps/src/app/shell/DesktopSidebar.tsx"
+lines = 190
+verdict = "clean"
+note = "Whole file read: NAV_ITEMS surfaces, group order/labels and routes agree; collapse uses shared persisted sidebar state. Local explorer navigation is valid; false gateway registry linkage is recorded as documentation drift."
+
+[file.11]
+path = "apps/perps/src/app/shell/ErrorBoundary.tsx"
+lines = 78
+verdict = "clean"
+note = "Whole file read: React lifecycle, UserFacingError classifier, reporting and ErrorPanel props agree. Retry remounts children and raw error details are not rendered; no retired network dependency."
+
+[file.12]
+path = "apps/perps/src/app/shell/Footer.tsx"
+lines = 74
+verdict = "issues"
+note = "Whole file read: HTTPS bare-origin status URL validation agrees with startup validation and deployment build args; blank URL is supported. Legal routes and external-link attributes agree. Configured status falsely starts healthy."
+
+[file.13]
+path = "apps/perps/src/app/shell/FooterSettings.tsx"
+lines = 97
+verdict = "issues"
+note = "Whole file read: callback types and none/all/favorites options agree internally, but no application consumer mounts these controls."
+
+[file.14]
+path = "apps/perps/src/app/shell/Header.tsx"
+lines = 153
+verdict = "issues"
+note = "Whole file read: navigation, search, NetworkPill, wallet store, portfolio fields and popover/modal props agree structurally; Withdraw loses requested action at the modal boundary."
+
+[file.15]
+path = "apps/perps/src/app/shell/MobileNav.tsx"
+lines = 90
+verdict = "issues"
+note = "Whole file read: mobileDrawer surfaces, Next routes and useMobileNav open/close shapes agree; modal focus, dismissal and close-control accessibility are incomplete."
+
+[file.16]
+path = "apps/perps/src/app/shell/MobileTradeHeader.tsx"
+lines = 288
+verdict = "issues"
+note = "Whole file read: catalog lookup supports DOGE beyond the seed and resolves enabled identities. Numeric tickers, optional enriched ticker and SidPax bid/ask/trade shapes agree with hooks. Dormant controls, category values and disabled selection have recorded gaps."
+
+[file.17]
+path = "apps/perps/src/app/shell/SplashScreen.tsx"
+lines = 58
+verdict = "issues"
+note = "Whole file read: session key, timer cleanup and PaxSpinner props agree; server/client initial visibility diverges on fresh sessions."
+
+[finding.collateral-account-binding]
+file = "apps/perps/src/app/modals/DepositWithdrawModal.tsx"
+line = 93
+class = "interface-mismatch"
+severity = "high"
+observed = "deposit(address, amountUnits) and withdrawAll(address) read the displayed account, but useAccount.ts obtains a fresh current wallet client for each write through useContract.ts. Switching from wallet A to B during allowance lookup, approval receipt waiting or account lookup can execute the remaining transfer with B while the modal reports the operation started for A."
+expected = "The account accepted by the account hook must identify the account whose allowance, withdrawable collateral and signed transfer belong to one operation, including asynchronous approval and deposit steps."
+proposal = "Bind the expected address and chain through apps/perps/src/hooks/perps/useAccount.ts, useContract.ts and core/viem/clients.ts for every read, simulation and signature. Stop on a changed session before another write and show the bound identity in DepositWithdrawModal. Add a real delayed-approval/account-switch proof that never submits a step from another wallet."
+owner_domain = 3
+interface = "3.ts-perps-hooks-perps-useaccount-useaccount"
+
+[finding.collateral-overlapping-submissions]
+file = "apps/perps/src/app/modals/DepositWithdrawModal.tsx"
+line = 52
+class = "runtime-risk"
+severity = "medium"
+observed = "Closing resets isProcessing and txStep while handleSubmit continues chain work; reopening permits another submission. The primary button at line 288 also omits isWithdrawingAll although withdraw-all excludes isProcessing, allowing a transfer during withdraw-all."
+expected = "Only one collateral mutation per account should be offered until its pending operation settles, including when the form closes and reopens."
+proposal = "In apps/perps/src/app/modals/DepositWithdrawModal.tsx keep shared pending state outside form reset, enforce the same mutual exclusion in both handlers, and disable action and amount changes and both submission paths while pending."
+owner_domain = 3
+interface = "3.ts-perps-app-modals-depositwithdrawmodal-depositwithdrawmodal"
+
+[finding.collateral-read-errors]
+file = "apps/perps/src/app/modals/DepositWithdrawModal.tsx"
+line = 64
+class = "runtime-risk"
+severity = "medium"
+observed = "refreshBalances converts rejected wallet reads to 0n and rejected getAccount reads to null through Promise.allSettled, with no read error or retry; RPC failure looks like an empty wallet or missing collateral."
+expected = "Unavailable balance information must remain distinguishable from a successfully observed zero before users decide how much collateral to transfer."
+proposal = "In apps/perps/src/app/modals/DepositWithdrawModal.tsx track loading, available and failed states per balance, expose retry and prevent amount-dependent actions until their required read is available."
+owner_domain = 3
+interface = "3.ts-perps-app-modals-depositwithdrawmodal-depositwithdrawmodal"
+
+[finding.collateral-session-staleness]
+file = "apps/perps/src/app/modals/DepositWithdrawModal.tsx"
+line = 71
+class = "runtime-risk"
+severity = "medium"
+observed = "The balance effect returns on disconnect without clearing account or walletBalance. Post-transfer refreshBalances calls use the default non-cancelled callback and can publish an old address result after a wallet change; previous values also remain while the new address loads."
+expected = "Balances, Max amounts and account statistics must belong to the current wallet, and responses from previous wallet sessions must not replace current state."
+proposal = "In apps/perps/src/app/modals/DepositWithdrawModal.tsx key balances by chain and address, clear on disconnect or address change and apply session generation checks to effect reads and post-transfer refreshes."
+owner_domain = 3
+interface = "3.ts-perps-app-modals-depositwithdrawmodal-depositwithdrawmodal"
+
+[finding.collateral-pending-recovery]
+file = "apps/perps/src/app/modals/DepositWithdrawModal.tsx"
+line = 93
+class = "restart-recovery"
+severity = "medium"
+observed = "Transfer results are discarded and pending state is local to the component. useContract.waitForTx stops after 30 seconds and throws with the transaction hash; reload or timeout leaves no durable operation for this UI to reconcile before a retry."
+expected = "A broadcast transfer must remain identifiable until its committed receipt or failure is known, and reopening or reloading must resume receipt reconciliation before offering an ambiguous repeat transfer."
+proposal = "Expose the broadcast hash immediately from apps/perps/src/hooks/perps/useContract.ts, persist pending operations by chain/account/hash, and have DepositWithdrawModal resume read-only receipt reconciliation before permitting a new transfer."
+owner_domain = 3
+interface = "3.ts-perps-app-modals-depositwithdrawmodal-depositwithdrawmodal"
+
+[finding.collateral-dialog-access]
+file = "apps/perps/src/app/modals/DepositWithdrawModal.tsx"
+line = 137
+class = "runtime-risk"
+severity = "medium"
+observed = "The plain div overlay lacks dialog semantics, title association, Escape handling, focus containment and focus restoration; its icon-only close button also lacks an accessible name."
+expected = "Keyboard and assistive-technology users must be able to enter, operate and dismiss the collateral dialog without focus moving into obscured trading controls."
+proposal = "In apps/perps/src/app/modals/DepositWithdrawModal.tsx adopt the existing Radix dialog pattern from ConnectWalletModal, label the title and close control, and keep transaction state independent of dialog dismissal."
+owner_domain = 3
+interface = "3.ts-perps-app-modals-depositwithdrawmodal-depositwithdrawmodal"
+
+[finding.email-rejection-state]
+file = "apps/perps/src/app/modals/ConnectWalletModal.tsx"
+line = 208
+class = "runtime-risk"
+severity = "medium"
+observed = "submitEmail sets emailState to sending and awaits signInWithEmail without catch or finally. PaxeerProvider resets authBusy in finally but propagates rejected SDK promises, leaving the local form stuck sending."
+expected = "Every email authentication attempt must reach a sent or actionable error state, including thrown transport and SDK failures."
+proposal = "Catch rejected calls in apps/perps/src/app/modals/ConnectWalletModal.tsx, render a classified failure and restore retry controls; make core/wallet/embedded/PaxeerProvider.tsx consistently expose its result or a handled rejection."
+owner_domain = 3
+interface = "3.ts-perps-core-wallet-embedded-paxeerprovider-usepaxeer"
+
+[finding.wallet-connection-errors]
+file = "apps/perps/src/app/modals/ConnectWalletModal.tsx"
+line = 106
+class = "runtime-risk"
+severity = "medium"
+observed = "The embedded wagmi onError only clears postSignInBusy and injected callbacks only clear busyConnector onSettled. Neither renders connector failures; these callbacks do not set paxeer.authError."
+expected = "Unsuccessful wallet connection must explain the failure and offer a retry without implying that provisioning or connection succeeded."
+proposal = "In apps/perps/src/app/modals/ConnectWalletModal.tsx retain and display classified errors from both wagmi paths, clear them on a deliberate new attempt and provide a retry of the chosen connector."
+owner_domain = 3
+interface = "3.ts-perps-app-modals-connectwalletmodal-connectwalletmodal"
+
+[finding.wallet-chooser-wrong-connection]
+file = "apps/perps/src/app/modals/ConnectWalletModal.tsx"
+line = 94
+class = "runtime-risk"
+severity = "medium"
+observed = "The embedded effect calls onDone when paxeer.isAuthenticated and wagmiConnected are true without checking the connector or matching publicWallet address. An existing embedded session plus an injected connection immediately dismisses the chooser."
+expected = "The chooser must close after the intended connection succeeds and remain usable when an authenticated embedded identity differs from the connected wallet."
+proposal = "In apps/perps/src/app/modals/ConnectWalletModal.tsx scope embedded auto-connect to an explicit sign-in attempt, compare connector and address with the provisioned wallet and preserve deliberate wallet switching."
+owner_domain = 3
+interface = "3.ts-perps-app-modals-connectwalletmodal-connectwalletmodal"
+
+[finding.settings-without-consumers]
+file = "apps/perps/src/app/modals/SettingsModal.tsx"
+line = 36
+class = "wiring-gap"
+severity = "medium"
+observed = "hidePnL, hideSize, showAllWarnings, soundForFills, lowPowerMode, persistConnection and skipConfirmations are local state used only by switches. No portfolio, trading, audio, connection or confirmation consumer receives these values."
+expected = "Controls promising to hide financial information or change risk warnings, confirmations and connection behavior must govern that behavior in the running product."
+proposal = "In apps/perps/src/app/modals/SettingsModal.tsx connect supported controls to a shared preference store and real portfolio, trading, wallet and audio consumers; remove unsupported promises until those consumers exist."
+owner_domain = 3
+interface = "3.ts-perps-app-modals-settingsmodal-settingsmodal"
+
+[finding.settings-save-promise]
+file = "apps/perps/src/app/modals/SettingsModal.tsx"
+line = 472
+class = "restart-recovery"
+severity = "medium"
+observed = "The footer claims Settings are automatically saved, but seven non-theme settings use local useState without storage or account persistence. Reloading resets them; next-themes persists only the theme."
+expected = "A saved preference must be restored after application restart and the save message must reflect the persistence status of the controls it describes."
+proposal = "Persist supported preferences from apps/perps/src/app/modals/SettingsModal.tsx through a shared versioned store, restore them before applying dependent behavior and report successful persistence accurately."
+owner_domain = 3
+interface = "3.ts-perps-app-modals-settingsmodal-settingsmodal"
+
+[finding.settings-dialog-access]
+file = "apps/perps/src/app/modals/SettingsModal.tsx"
+line = 123
+class = "runtime-risk"
+severity = "medium"
+observed = "The portal motion.div drawer lacks a dialog role, title association, focus trap, Escape handling and focus restoration. Body scroll locking does not prevent keyboard focus entering obscured controls."
+expected = "The settings drawer must expose its identity, confine keyboard interaction while open and restore focus when dismissed."
+proposal = "In apps/perps/src/app/modals/SettingsModal.tsx use the established accessible dialog primitive with the existing responsive motion, associated title, labelled close control and complete focus lifecycle."
+owner_domain = 3
+interface = "3.ts-perps-app-modals-settingsmodal-settingsmodal"
+
+[finding.settings-guide-drift]
+file = "apps/perps/src/app/modals/SettingsModal.md"
+line = 54
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 54-75 describe notifications, soundEffects, privateMode, analytics and advanced controls absent from SettingsModal. Lines 203-208 use obsolete components/ui and hooks/use-mobile imports; the state recipe does not connect runtime consumers."
+expected = "The settings guide must describe the actual controls, import paths and behavioral and persistence contracts present in the application."
+proposal = "Rewrite apps/perps/src/app/modals/SettingsModal.md around supported controls and current ui/atoms and hooks/ui/useMobile paths, documenting shared consumers, persistence and accessible operation after the proposed implementation repairs."
+owner_domain = 3
+
+[finding.wallet-panel-identity-label]
+file = "apps/perps/src/app/modals/WalletControlPanel.tsx"
+line = 155
+class = "runtime-risk"
+severity = "medium"
+observed = "The account header prefers paxeer.user.email regardless of isEmbedded. An authenticated embedded session left active while a different injected wallet connects labels that injected signer with the embedded email."
+expected = "The wallet panel must identify the connected signer accurately and display an embedded email only when it belongs to the connected embedded wallet."
+proposal = "In apps/perps/src/app/modals/WalletControlPanel.tsx gate email on the embedded connector and a matching provisioned address, and label other wallets with their connector name and connected address."
+owner_domain = 3
+interface = "3.ts-perps-app-modals-walletcontrolpanel-walletcontrolpanel"
+
+[finding.withdraw-entry-opens-deposit]
+file = "apps/perps/src/app/shell/Header.tsx"
+line = 110
+class = "wiring-gap"
+severity = "medium"
+observed = "onDeposit and onWithdraw both only set isDepositOpen(true). DepositWithdrawModal accepts no requested action, starts in deposit mode and retains its last tab, so Withdraw can open Deposit or a stale action."
+expected = "Choosing Deposit or Withdraw from the wallet panel must open the matching action on every invocation."
+proposal = "In apps/perps/src/app/shell/Header.tsx retain the requested action beside open state and extend apps/perps/src/app/modals/DepositWithdrawModal.tsx to initialize that action on every opening."
+owner_domain = 3
+interface = "3.ts-perps-app-modals-walletcontrolpanel-walletcontrolpanel"
+
+[finding.unused-mobile-header-import]
+file = "apps/perps/src/app/shell/AppShell.tsx"
+line = 5
+class = "dead-code"
+severity = "low"
+observed = "AppShell imports MobileTradeHeader without rendering it. Its mobile trade branch delegates to the page; the perps page also only imports this component and renders MobileAppLayout with MobileHeader and MobileTickerBar instead."
+expected = "Shell imports and registry callers should describe the header actually mounted on supported mobile routes."
+proposal = "Remove unused header imports from apps/perps/src/app/shell/AppShell.tsx and page-modules/perps/index.tsx if MobileAppLayout remains the supported path, or deliberately mount MobileTradeHeader with working callbacks and update registry callers."
+owner_domain = 3
+interface = "3.ts-perps-app-shell-mobiletradeheader-mobiletradeheader"
+
+[finding.status-assumes-health]
+file = "apps/perps/src/app/shell/Footer.tsx"
+line = 35
+class = "runtime-risk"
+severity = "medium"
+observed = "With a configured status origin the footer initially shows a green dot and Operational before the embed script responds. A blocked or failing script leaves that healthy status indefinitely without an error, timeout or stale-data state."
+expected = "Service health must remain unknown until confirmed by a fresh successful response; failure to load health must not be presented as operational."
+proposal = "In apps/perps/src/app/shell/Footer.tsx initialize health as unknown, update only on confirmed status data and expose unavailable or stale state on load failure or timeout while retaining the status-page link."
+owner_domain = 3
+interface = "3.env-perps-next-public-status-page-url"
+
+[finding.unreachable-footer-settings]
+file = "apps/perps/src/app/shell/FooterSettings.tsx"
+line = 19
+class = "dead-code"
+severity = "low"
+observed = "FooterSettings exports ticker display, pause and price controls but has no importing application caller, also reflected in the registry. Its callbacks agree internally but no running footer exposes the component."
+expected = "Maintained ticker controls should be reachable with real ticker state or explicitly retired from the application surface."
+proposal = "At apps/perps/src/app/shell/FooterSettings.tsx and the supported ticker owner decide whether to mount the controls against live state or remove the unused component and its registry declaration."
+owner_domain = 3
+interface = "3.ts-perps-app-shell-footersettings-footersettings"
+
+[finding.mobile-navigation-focus]
+file = "apps/perps/src/app/shell/MobileNav.tsx"
+line = 28
+class = "runtime-risk"
+severity = "medium"
+observed = "The drawer paints a modal backdrop without focus containment, Escape handling, restoration or body scroll management. Its icon-only close button at line 37 has no accessible name."
+expected = "Mobile navigation must be operable by keyboard and screen reader without interacting with obscured page controls or losing the opening control on dismissal."
+proposal = "In apps/perps/src/app/shell/MobileNav.tsx use an accessible dialog primitive, retain the Main navigation landmark, name the close button and restore focus to MobileNavTrigger."
+owner_domain = 3
+interface = "3.ts-perps-app-shell-mobilenav-mobilenavdrawer"
+
+[finding.mobile-inactive-account-controls]
+file = "apps/perps/src/app/shell/MobileTradeHeader.tsx"
+line = 44
+class = "dead-code"
+severity = "low"
+observed = "This unmounted header never sets isDepositOpen true, so its collateral modal is unreachable. Its Total value eye button only changes an icon; computed portfolio stats are never displayed or hidden."
+expected = "A supported header must connect account actions and privacy controls to visible account information and an accessible transfer entry."
+proposal = "In apps/perps/src/app/shell/MobileTradeHeader.tsx retire the dormant account controls with the unused header or wire transfer and portfolio display to shared wallet and privacy state before mounting it."
+owner_domain = 3
+interface = "3.ts-perps-app-shell-mobiletradeheader-mobiletradeheader"
+
+[finding.mobile-rwa-category]
+file = "apps/perps/src/app/shell/MobileTradeHeader.tsx"
+line = 71
+class = "wiring-gap"
+severity = "medium"
+observed = "The RWA tab compares category to rwa, while marketCatalog emits new or getMarketCategory values crypto, stocks, indices and commodities. The advertised tab is empty; the defect is latent while the header is unmounted."
+expected = "Selector categories must agree with the catalog producer and include eligible stocks, indices and commodities under the RWA filter."
+proposal = "In apps/perps/src/app/shell/MobileTradeHeader.tsx map RWA to catalog non-crypto categories or introduce a shared category enum in core/perps/marketCatalog.ts, then prove producer-to-selector behavior."
+owner_domain = 3
+interface = "3.ts-perps-app-shell-mobiletradeheader-mobiletradeheader"
+
+[finding.mobile-disabled-market-selection]
+file = "apps/perps/src/app/shell/MobileTradeHeader.tsx"
+line = 70
+class = "runtime-risk"
+severity = "medium"
+observed = "mktFiltered copies the catalog without checking enabled and each row invokes onSelectMarket at line 238. The same file mobileTradeMarket rejects disabled entries, so the dormant selector offers markets its selected-header consumer treats as unavailable."
+expected = "A selectable market must resolve to an enabled supported market in the receiving trading path, or be explicitly disabled without submitting a selection."
+proposal = "In apps/perps/src/app/shell/MobileTradeHeader.tsx exclude disabled markets or render them disabled with a reason and no callback; prove selection through the mounted trading route before enabling this header."
+owner_domain = 3
+interface = "3.ts-perps-app-shell-mobiletradeheader-mobiletradeheader"
+
+[finding.splash-hydration-divergence]
+file = "apps/perps/src/app/shell/SplashScreen.tsx"
+line = 12
+class = "runtime-risk"
+severity = "medium"
+observed = "The shouldRender initializer returns false on the server but true on the first browser render if the session key is absent or storage throws. A fresh session therefore starts with a client overlay absent from server markup."
+expected = "Server markup and the first client render must agree before browser-only session state controls splash visibility."
+proposal = "In apps/perps/src/app/shell/SplashScreen.tsx initialize visibility identically on server and client, read sessionStorage after mount and retain timer cleanup and the one-session policy."
+owner_domain = 3
+interface = "3.ts-perps-app-shell-splashscreen-splashscreen"
+
+[finding.registry-false-ramp-consumers]
+file = "spec/layerx-merge/interfaces.kvx"
+line = 316302
+class = "doc-drift"
+severity = "medium"
+observed = "Rows 8.cfg-ramp-reference-config-paxeer and 8.cfg-ramps-paxeer list ConnectWalletModal as a ramp configuration consumer. Its paxeer variable is the usePaxeer authentication context and neither reads nor transports the ramp config object."
+expected = "Registry edges must identify actual configuration readers and transports rather than unrelated identifiers with the same spelling."
+proposal = "Remove false ConnectWalletModal edges from both ramp rows in spec/layerx-merge/interfaces.kvx, preserve its actual usePaxeer dependency and regenerate corresponding package metadata from verified edges."
+owner_domain = 8
+interface = "8.cfg-ramp-reference-config-paxeer"
+
+[finding.registry-false-explorer-route]
+file = "spec/layerx-merge/interfaces.kvx"
+line = 376903
+class = "doc-drift"
+severity = "medium"
+observed = "Row 8.http-gateway-any-explorer and contracts/platform-gateway.md line 421 classify a same_origin_referer predicate in explorer_proxy.rs as an HTTP route. DesktopSidebar navigates to the local Next /explorer page rather than calling this predicate or declaring a gateway transport."
+expected = "Route contracts must distinguish gateway dispatch handlers, referer admission checks and application-local navigation so the real producer and consumer can be identified."
+proposal = "In spec/layerx-merge/interfaces.kvx and contracts/platform-gateway.md replace the predicate-derived route with the actual hosted explorer dispatch contract and remove the false DesktopSidebar edge while retaining the local perps route."
+owner_domain = 8
+interface = "8.http-gateway-any-explorer"
+
+[finding.registry-obsolete-ticker-edge]
+file = "spec/layerx-merge/interfaces.kvx"
+line = 51341
+class = "doc-drift"
+severity = "low"
+observed = "The REST tickers row lists MobileTradeHeader as a caller, but the header uses useRealtimePrices backed by useMarketsSnapshot and the markets stream. The separate fetchTickers helper makes imperative REST requests and is not called here."
+expected = "The registry must describe the actual price transport used by the header and retain the REST contract for its imperative consumers."
+proposal = "In spec/layerx-merge/interfaces.kvx replace the obsolete header REST edge with its real hook/stream dependency and associate actual fetchTickers consumers with the existing REST ticker row."
+owner_domain = 3
+interface = "3.http-perps-data-rest-get-api-tickers-and-get-api-markets-tickers-j27"
+
+[finding.current-mobile-contract-drift]
+file = "spec/layerx-merge/contracts/perps-client.md"
+line = 27
+class = "doc-drift"
+severity = "low"
+observed = "The historical pinned MobileTradeHeader signature omits optional catalog input and does not describe mobileTradeMarket, while the current component and requirement 3522 use live catalog resolution. The snapshot alone is incomplete current integration guidance."
+expected = "Current integration guidance must explain catalog identity, enabled state and public props while preserving the provenance of historical pinned declarations."
+proposal = "Add a current contract section to spec/layerx-merge/contracts/perps-client.md covering MobileTradeHeader catalog injection and mobileTradeMarket enabled lookup, clearly identifying the existing pinned table as historical reference."
+owner_domain = 3
+
+[finding.retirement-replacement-transport]
+file = "spec/layerx-merge/programme/data/retired.kvx"
+line = 159
+class = "doc-drift"
+severity = "medium"
+observed = "Replacement text still directs writes through the unified router at line 159 and reads through the router at line 247, conflicting with the brief declaring no router and root-path public node JSON-RPC."
+expected = "Replacement guidance must direct clients to merged-chain root JSON-RPC on declared mainnet-beta nodes without a separate router or sequencer service."
+proposal = "Rewrite affected replacement instructions in spec/layerx-merge/programme/data/retired.kvx around paxd BFT commit finality and root-path node RPC, preserving historical deleted paths and separating those names from live components."
+owner_domain = 1
+
+[doc.1]
+path = "apps/perps/src/app/modals/SettingsModal.md"
+status = "stale"
+notes = "Entire member page read. Lines 54-75 describe absent settings and lines 203-208 use obsolete imports; settings-guide-drift proposes the rewrite."
+
+[doc.2]
+path = "spec/layerx-merge/contracts/perps-client.md"
+status = "stale"
+notes = "Reviewed relevant app/core/env/hooks/routes/ui/widgets rows. Pinned line 27 lacks current catalog input; current guidance is needed while preserving historical provenance."
+
+[doc.3]
+path = "spec/layerx-merge/contracts/perps-data.md"
+status = "accurate"
+notes = "Reviewed REST ticker declaration around line 965 against producer and parsed hook fields. Funding decimal-string encoding is distinct from the parsed bigint type; the obsolete header REST edge is in the registry."
+
+[doc.4]
+path = "spec/layerx-merge/contracts/markets.md"
+status = "accurate"
+notes = "Reviewed 0x1015 account/deposit/withdraw sections against ABI and hooks. Nine-field state and six/eighteen-decimal units agree; expected account continuity fails as recorded."
+
+[doc.5]
+path = "spec/layerx-merge/contracts/platform-ramps.md"
+status = "accurate"
+notes = "Reviewed paxeer config declarations around lines 196 and 639 against Rust and JSON producers. Neither declaration creates a ConnectWalletModal consumer; false edges are recorded against the registry."
+
+[doc.6]
+path = "spec/layerx-merge/contracts/platform-gateway.md"
+status = "misleading"
+notes = "Reviewed explorer HTTP table and referenced registry contract. Line 421 presents a referer predicate as a route; registry-false-explorer-route covers the table and false caller edge."
+
+[doc.7]
+path = "apps/perps/deploy/README.md"
+status = "accurate"
+notes = "Entire deployment guide read. Build-time wallet configuration around line 138 agrees with embedded availability; relevant public configuration and deployment build arguments were reviewed."
+
+[doc.8]
+path = "spec/layerx-merge/programme/audit/BRIEF.kvx"
+status = "accurate"
+notes = "Authoritative merged-network behavior and all nine checks applied: BFT chain 125, committed receipt finality, root node RPC and no separate router, daemon or sequencer service."
+
+[doc.9]
+path = "spec/layerx-merge/programme/data/retired.kvx"
+status = "misleading"
+notes = "Retirement inventory reviewed for member references; historical deleted names remain valid inventory but replacement prose at lines 159 and 247 incorrectly directs clients through a router."
+
+[doc.10]
+path = "spec/layerx-merge/interfaces.kvx"
+status = "stale"
+notes = "All 19 produced and 63 consumed package rows reviewed with declarations, callers, transport dependencies and relevant contract sections. False ramp/explorer edges and obsolete REST caller are recorded separately."
+
+[coverage.produced]
+interfaces = ["3.env-perps-next-public-status-page-url", "3.ts-perps-app-modals-connectwalletmodal-connectwalletmodal", "3.ts-perps-app-modals-depositwithdrawmodal-depositwithdrawmodal", "3.ts-perps-app-modals-settingsmodal-settingsmodal", "3.ts-perps-app-modals-walletcontrolpanel-walletcontrolpanel", "3.ts-perps-app-providers-paxscanprovider-paxscanprovider", "3.ts-perps-app-shell-appshell-appshell", "3.ts-perps-app-shell-cookiebanner-cookiebanner", "3.ts-perps-app-shell-desktopsidebar-desktopsidebar", "3.ts-perps-app-shell-errorboundary-errorboundary", "3.ts-perps-app-shell-footer-footer", "3.ts-perps-app-shell-footer-parsestatuspageurl", "3.ts-perps-app-shell-footersettings-footersettings", "3.ts-perps-app-shell-header-header", "3.ts-perps-app-shell-mobilenav-mobilenavdrawer", "3.ts-perps-app-shell-mobilenav-mobilenavtrigger", "3.ts-perps-app-shell-mobilenav-usemobilenav", "3.ts-perps-app-shell-mobiletradeheader-mobiletradeheader", "3.ts-perps-app-shell-splashscreen-splashscreen"]
+note = "All 19 declarations reviewed in member files and traced to consumers. Function/class/prop types agree except recorded lifecycle and wiring gaps. Status URL startup and deployment configuration agree. FooterSettings and MobileTradeHeader have no mounted application caller."
+
+[coverage.consumed]
+interfaces = ["3.http-perps-data-rest-get-api-tickers-and-get-api-markets-tickers-j27", "3.http-perps-get-analytics", "3.http-perps-get-cookies", "3.http-perps-get-explorer", "3.http-perps-get-leaderboard", "3.http-perps-get-markets", "3.http-perps-get-perps", "3.http-perps-get-portfolio", "3.http-perps-get-privacy", "3.http-perps-get-referrals", "3.http-perps-get-spot", "3.http-perps-get-terms", "3.pc-0x1015-getaccount", "3.ts-perps-core-chain-paxeerchain", "3.ts-perps-core-errors-classify-classifyerror", "3.ts-perps-core-errors-report-reporterror", "3.ts-perps-core-errors-types-userfacingerror", "3.ts-perps-core-nav-nav-group-labels", "3.ts-perps-core-nav-nav-group-order", "3.ts-perps-core-nav-nav-items", "3.ts-perps-core-nav-navgroup", "3.ts-perps-core-nav-navitem", "3.ts-perps-core-paxscan-config-paxscan-ws-url", "3.ts-perps-core-paxscan-socket-context-paxscansocketprovider", "3.ts-perps-core-perps-accountview-accountview", "3.ts-perps-core-perps-amounts-safeparseunits", "3.ts-perps-core-perps-config-coinlogourl", "3.ts-perps-core-perps-config-collateral-tokens", "3.ts-perps-core-perps-config-perps-markets", "3.ts-perps-core-wallet-embedded-paxeerconnector-paxeer-connector-id", "3.ts-perps-core-wallet-embedded-paxeerprovider-signinprovider", "3.ts-perps-core-wallet-embedded-paxeerprovider-useembeddedwalletavailable", "3.ts-perps-core-wallet-embedded-paxeerprovider-usepaxeer", "3.ts-perps-hooks-perps-useaccount-useaccount", "3.ts-perps-hooks-perps-useenrichedstats-useenrichedmarketstats", "3.ts-perps-hooks-perps-useperpswallet-useperpswallet", "3.ts-perps-hooks-perps-useportfoliostats-useportfoliostats", "3.ts-perps-hooks-perps-userealtimeprices-userealtimeprices", "3.ts-perps-hooks-perps-usesidpaxmarketstream-usesidpaxorderbook", "3.ts-perps-hooks-perps-usesidpaxmarketstream-usesidpaxtrades", "3.ts-perps-hooks-ui-usecookieconsent-usecookieconsent", "3.ts-perps-hooks-ui-usemobile-useismobile", "3.ts-perps-hooks-ui-usesidebar-usesidebar", "3.ts-perps-hooks-wallet-usewalletstore-usewalletstore", "3.ts-perps-ui-atoms-button-button", "3.ts-perps-ui-atoms-custom-icon-icosettings", "3.ts-perps-ui-atoms-custom-icon-icowallet", "3.ts-perps-ui-atoms-hyperpaxwordmark-hyperpaxwordmark", "3.ts-perps-ui-atoms-label-label", "3.ts-perps-ui-atoms-paxspinner-paxspinner", "3.ts-perps-ui-atoms-switch-switch", "3.ts-perps-ui-atoms-toaster-toaster", "3.ts-perps-ui-atoms-use-toast-toast", "3.ts-perps-ui-utils-cn-cn", "3.ts-perps-ui-utils-format-fmtprice", "3.ts-perps-ui-utils-format-fmtusdcompact", "3.ts-perps-widgets-errors-errorpanel-errorpanel", "3.ts-perps-widgets-errors-errortoast-toasterror", "3.ts-perps-widgets-network-pill-networkpill-networkpill", "3.ts-perps-widgets-paxscan-search-paxscansearch-paxscansearch", "8.cfg-ramp-reference-config-paxeer", "8.cfg-ramps-paxeer", "8.http-gateway-any-explorer"]
+note = "All 63 dependencies reviewed against source producers and consumers: chain/account units, connector/auth lifecycle, stream ticker numbers and optional enriched data, UI props, consent/sidebar persistence, error classification/reporting, navigation surfaces and routes. Ramp/explorer edges are false matches, header REST edge is obsolete and expected account identity is lost during asynchronous writes."
+
+[coverage.requirements]
+requirements = ["22108.1", "21136.1", "18963.1", "3522.1"]
+note = "22108.1 is a wider dependency inventory requirement; this record does not replace its build evidence. 21136.1 has a real core catalog proof in tests/proof_core.test.ts. 18963.1 removed the Paxify image reference here. 3522.1 has current catalog lookup and DOGE static-render proof in tests/mobile-markets.test.ts, but the header is not mounted. No executable tests are declared for audit task 22.30.10."
+
+[coverage.tests]
+note = "Reviewed account-hook.test.ts amount, calldata and source-string checks and mobile-markets.test.ts static rendering. Their shapes agree with the reviewed account ABI and catalog producer, but they do not prove interrupted account-switch transfers, pending receipt recovery or production header mounting. Those real-path proofs belong with the proposed lifecycle and wiring repairs; no application gate result is inferred from source review."
+
+[finding.collateral-lifecycle-proof]
+file = "apps/perps/src/app/modals/DepositWithdrawModal.tsx"
+line = 87
+class = "test-gap"
+severity = "medium"
+observed = "The reviewed account-hook.test.ts verifies AccountView projection, calldata encoding, six-decimal parsing and source strings. It never executes modal to useAccount to wallet signing and committed receipt handling across an account switch, close/reopen or reload with a pending transfer."
+expected = "The account interface must be proven through the real producer, transport and consumer path, including recovery where pending financial operations outlive the component."
+proposal = "Extend apps/perps/tests with a real development-node account transfer proof using actual wallet adapters and the mounted collateral form. Delay approval confirmation, change the connected account, close/reopen and reload pending operations, then assert no wrong-account or duplicate transfer and resumed receipt reconciliation."
+owner_domain = 3
+interface = "3.ts-perps-hooks-perps-useaccount-useaccount"
