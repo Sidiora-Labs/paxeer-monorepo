@@ -29675,3 +29675,115 @@ symbol = "repair_22_33_596.rs"
 observed = "Attempts 1 and 2: build and verify passed; five files were reported outside the paths."
 assumption = "Path declaration under the wrong tree, not a defect."
 severity = "low"
+
+[finding.22.33.63.4]
+task = "22.33.63"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_63.rs"
+symbol = "repair_22_33_63.rs"
+observed = "Attempt 4: the build passed; 7 of 9 cases passed; both rotation cases were refused by the disclosure binder before custody."
+assumption = "Producer and consumer disagree on the rotation payload (decision 2540); not a defect of the human service tests."
+severity = "low"
+
+[finding.22.31.487.1]
+task = "22.31.487"
+file = "services/agent/crates/layerx-sdk/src/agent_envelope.rs"
+symbol = "agent_envelope.rs"
+observed = "Attempt 1: the build passed; the dependent-crate check failed compiling the hosted core and indexer against the current asset entry type; the verify never ran."
+assumption = "Pre-existing consumer drift fixed by 22.31.485, not a defect of this task."
+severity = "low"
+
+[finding.9.98.4.5]
+task = "9.98.4"
+file = "services/agent/crates/layerx-agentd/src/ops/program.rs"
+symbol = "program.rs"
+observed = "Attempt 3: the build passed; the dependent-crate check failed compiling the hosted core and indexer against the current asset entry type; the verify never ran."
+assumption = "Pre-existing consumer drift fixed by 22.31.485, not a defect of this task."
+severity = "low"
+
+[finding.22.33.593.2]
+task = "22.33.593"
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_33_593.rs"
+symbol = "repair_22_33_593.rs"
+observed = "Attempt 2: the build failed on an unresolved verification_metrics module in the attempt's own verifier change; four files lay outside the paths."
+assumption = "Module declaration inside the task's own change and paths under the wrong crate; not a defect of the verifier."
+severity = "low"
+
+[finding.22.33.810.4]
+task = "22.33.810"
+file = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+symbol = "test_repair_22_33_810.py"
+observed = "Attempt 4: collection failed on a missing module that attempt 3 had written and whose result had dropped it."
+assumption = "Dropped files (gotcha 3031), not a defect."
+severity = "low"
+
+[finding.22.33.449.3]
+task = "22.33.449"
+file = "apps/explorer/pages/api/tokens/[hash]/instances/[id]/media-type.ts"
+symbol = "media-type.ts"
+observed = "Attempt 3: the type-check failed because the spec names route functions the route module in the tree does not define; the route change lived only in attempt 1."
+assumption = "Dropped file (gotcha 3031), not a defect."
+severity = "low"
+
+[finding.22.33.1323.3]
+task = "22.33.1323"
+file = "services/platform/hosted/paxeer/tests/repair_22_33_1323.rs"
+symbol = "repair_22_33_1323.rs"
+observed = "Attempt 4: the build failed on stale call signatures in the test support after the boundary crate gained a time argument."
+assumption = "Test support behind main, not a defect."
+severity = "low"
+
+[finding.22.33.1445.3]
+task = "22.33.1445"
+file = "services/platform/hosted/indexer/tests/repair_22_33_1445.rs"
+symbol = "repair_22_33_1445.rs"
+observed = "Attempt 3: 8 of 9 cases passed; the write path overran the total deadline by more than a second."
+assumption = "Write-side deadline enforcement inside the paths."
+severity = "high"
+
+[finding.22.33.1293.1]
+task = "22.33.1293"
+file = "rpc/repair_m1293_test.go"
+symbol = "repair_m1293_test.go"
+observed = "Attempt 1: the build passed; 6 of 7 cases passed; the lifecycle case failed without recorded assertion text."
+assumption = "Unknown assertion inside the task's own test; the full log is in the qualification environment."
+severity = "high"
+
+[finding.22.33.1446.3]
+task = "22.33.1446"
+file = "services/platform/hosted/indexer/tests/repair_22_33_1446.rs"
+symbol = "repair_22_33_1446.rs"
+observed = "Attempt 3: the build passed; 4 of 5 cases passed; the fallback case hit an unknown-chain integrity error."
+assumption = "Store bootstrap order on the fallback path; both the fixture and the source are inside the paths."
+severity = "high"
+
+[finding.22.33.1336.3]
+task = "22.33.1336"
+file = "services/platform/hosted/gateway/tests/repair_22_33_1336.rs"
+symbol = "repair_22_33_1336.rs"
+observed = "Attempt 5: the build failed on a Config literal missing three fields added on main."
+assumption = "Test behind main, not a defect."
+severity = "low"
+
+[finding.22.33.1438.3]
+task = "22.33.1438"
+file = "services/platform/hosted/gateway/tests/repair_22_33_1438.rs"
+symbol = "repair_22_33_1438.rs"
+observed = "Attempt 4: build and verify passed; the declared task record file was not written."
+assumption = "A declared path without a change, not a defect."
+severity = "low"
+
+[finding.22.33.14.2]
+task = "22.33.14"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_14.rs"
+symbol = "repair_22_33_14.rs"
+observed = "Attempt 2: 11 of 14 cases passed; three ingestion cases failed on fixture evidence and watermark recovery; the task record lay outside the paths."
+assumption = "Fixture evidence and recovery order in the task's own tests."
+severity = "medium"
+
+[finding.22.33.18.1]
+task = "22.33.18"
+file = "services/agent/sdk/python/tests/market_receipt_producer.c"
+symbol = "market_receipt_producer.c"
+observed = "Attempt 1: 190 of 201 suite cases passed; eight failures belong to other work; the task's three cases failed on the refusal code and the endpoint shape."
+assumption = "Gate scope (gotcha 3032) and the refusal order of the retired-payment path."
+severity = "high"
