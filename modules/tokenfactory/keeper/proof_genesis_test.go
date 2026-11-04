@@ -94,6 +94,7 @@ func TestProofGenesisProducerTransportConsumer(t *testing.T) {
 	require.NoError(t, err)
 	source.factory.SetParams(source.ctx, types.Params{DenomAllowlistMaxSize: 17})
 	expected := source.factory.ExportGenesis(source.ctx)
+	require.Equal(t, []string{paused.NewTokenDenom}, expected.GetPausedDenoms())
 	commit := source.store.Commit(true)
 	require.NoError(t, source.store.Close())
 
@@ -132,6 +133,7 @@ func TestProofGenesisProducerTransportConsumer(t *testing.T) {
 		result, err := consumer.factory.DenomPaused(sdk.WrapSDKContext(consumer.ctx), &types.QueryDenomPausedRequest{Denom: paused.NewTokenDenom})
 		require.NoError(t, err)
 		require.True(t, result.Paused)
+		require.False(t, consumer.factory.IsDenomPaused(consumer.ctx, active.NewTokenDenom))
 	}
 	consumerServer := keeper.NewMsgServerImpl(consumer.factory)
 	_, err = consumerServer.Mint(sdk.WrapSDKContext(consumer.ctx), types.NewMsgMint(creator.String(), sdk.NewInt64Coin(active.NewTokenDenom, 9)))
