@@ -122,7 +122,7 @@ impl ListRequestBuilder {
                 &query,
                 &headers,
                 body,
-                true,
+                crate::client::SecurityScheme::RestApiKey,
                 overrides,
             )
             .await
@@ -188,7 +188,15 @@ impl ListHealthRequestBuilder {
             max_retries: self.max_retries,
         };
         self.client
-            .send::<crate::models::FeedHealth, _>(http::Method::GET, &path, &query, &headers, body, true, overrides)
+            .send::<crate::models::FeedHealth, _>(
+                http::Method::GET,
+                &path,
+                &query,
+                &headers,
+                body,
+                crate::client::SecurityScheme::RestApiKey,
+                overrides,
+            )
             .await
     }
 }
@@ -252,7 +260,15 @@ impl ListSpotStyleStatsRequestBuilder {
             max_retries: self.max_retries,
         };
         self.client
-            .send::<crate::models::Stats, _>(http::Method::GET, &path, &query, &headers, body, true, overrides)
+            .send::<crate::models::Stats, _>(
+                http::Method::GET,
+                &path,
+                &query,
+                &headers,
+                body,
+                crate::client::SecurityScheme::RestApiKey,
+                overrides,
+            )
             .await
     }
 }
@@ -316,7 +332,15 @@ impl ListPerpetualStatsRequestBuilder {
             max_retries: self.max_retries,
         };
         self.client
-            .send::<crate::models::PerpStats, _>(http::Method::GET, &path, &query, &headers, body, true, overrides)
+            .send::<crate::models::PerpStats, _>(
+                http::Method::GET,
+                &path,
+                &query,
+                &headers,
+                body,
+                crate::client::SecurityScheme::RestApiKey,
+                overrides,
+            )
             .await
     }
 }
@@ -386,7 +410,7 @@ impl ListTradeTapeStatusRequestBuilder {
                 &query,
                 &headers,
                 body,
-                true,
+                crate::client::SecurityScheme::RestApiKey,
                 overrides,
             )
             .await
@@ -466,7 +490,15 @@ impl RetrieveRecentSpotTradesRequestBuilder {
             max_retries: self.max_retries,
         };
         self.client
-            .send::<crate::models::SpotTrades, _>(http::Method::GET, &path, &query, &headers, body, true, overrides)
+            .send::<crate::models::SpotTrades, _>(
+                http::Method::GET,
+                &path,
+                &query,
+                &headers,
+                body,
+                crate::client::SecurityScheme::RestApiKey,
+                overrides,
+            )
             .await
     }
 }
@@ -544,7 +576,15 @@ impl RetrieveRecentPerpetualTradesRequestBuilder {
             max_retries: self.max_retries,
         };
         self.client
-            .send::<crate::models::PerpTrades, _>(http::Method::GET, &path, &query, &headers, body, true, overrides)
+            .send::<crate::models::PerpTrades, _>(
+                http::Method::GET,
+                &path,
+                &query,
+                &headers,
+                body,
+                crate::client::SecurityScheme::RestApiKey,
+                overrides,
+            )
             .await
     }
 }

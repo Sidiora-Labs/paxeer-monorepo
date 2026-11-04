@@ -228,14 +228,14 @@ func TestProductionUniverseCompletesAndPublishes(t *testing.T) {
 		t.Fatal(err)
 	}
 	heavy, err := coordinator.Refresh(ctx, uuid.NewString(), cutoff, false)
-	if err != nil || len(heavy) != 5 {
+	if err != nil || len(heavy) != len(ranker.HeavyCategoryNames()) {
 		t.Fatalf("heavy run: %v", err)
 	}
 	newest, err := coordinator.Refresh(ctx, uuid.NewString(), cutoff, true)
 	if err != nil || len(newest) != 1 {
 		t.Fatalf("new run: %v", err)
 	}
-	want := map[string][]string{"trending": {poolA}, "volume": {poolA}, "unusual": {poolA}, "breakout": {poolA}, "movers": {}, "new": {poolB, poolA}}
+	want := map[string][]string{"trending": {poolA}, "volume": {poolA}, "unusual": {poolA}, "breakout": {poolA}, "movers": {}, "gainers": {poolA}, "losers": {poolA}, "new": {poolB, poolA}}
 	for category, addresses := range want {
 		head, err := publication.Current(ctx, category)
 		if err != nil {
@@ -276,8 +276,8 @@ func TestProductionUniverseCompletesAndPublishes(t *testing.T) {
 		}
 		committed++
 	}
-	if committed != 6 {
-		t.Fatalf("committed %d ranking frames, want 6", committed)
+	if committed != len(ranker.Categories) {
+		t.Fatalf("committed %d ranking frames, want %d", committed, len(ranker.Categories))
 	}
 	var frame []byte
 	var streamSequence int64
@@ -292,7 +292,7 @@ func TestProductionUniverseCompletesAndPublishes(t *testing.T) {
 		t.Fatalf("trending event: %+v", event)
 	}
 	var outboxRows int
-	if err = pool.QueryRow(ctx, `SELECT count(*) FROM api_stream.stream_delivery_outbox`).Scan(&outboxRows); err != nil || outboxRows != 6 {
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM api_stream.stream_delivery_outbox`).Scan(&outboxRows); err != nil || outboxRows != len(ranker.Categories) {
 		t.Fatalf("api_stream outbox rows %d: %v", outboxRows, err)
 	}
 	if _, err = delivery.ParseCommittedStreamFrame(frame); err != nil {
@@ -314,7 +314,7 @@ func TestProductionUniverseCompletesAndPublishes(t *testing.T) {
 	}
 	_ = tx.Rollback(ctx)
 
-	// A later heavy run (5 heads) supersedes the first and commits as the next stream
+	// A later heavy run (all heavy heads) supersedes the first and commits as the next stream
 	// sequence; once committed and older than the 900 s cursor horizon the
 	// superseded snapshots are pruned while the current heads stay readable.
 	if _, err = coordinator.Refresh(ctx, uuid.NewString(), cutoff.Add(time.Second), false); err != nil {
@@ -333,7 +333,7 @@ func TestProductionUniverseCompletesAndPublishes(t *testing.T) {
 		t.Fatalf("trending stream sequence %d: %v", streamSequence, err)
 	}
 	pruned, err := publication.Prune(ctx, cutoff.Add(902*time.Second), 100)
-	if err != nil || pruned != 5 {
+	if err != nil || pruned != int64(len(ranker.HeavyCategoryNames())) {
 		t.Fatalf("pruned %d superseded snapshots: %v", pruned, err)
 	}
 	if _, err = publication.Current(ctx, "trending"); err != nil {
@@ -375,7 +375,7 @@ func TestProductionUniverseCompletesAndPublishes(t *testing.T) {
 		t.Fatal(err)
 	}
 	info, err := stream.Info(ctx)
-	if err != nil || info.State.Msgs != 11 {
+	if err != nil || info.State.Msgs != uint64(len(ranker.Categories)+len(ranker.HeavyCategoryNames())) {
 		t.Fatalf("relayed messages: %v %v", info.State, err)
 	}
 	message, err := stream.GetLastMsgForSubject(ctx, "market.rankings.trending")

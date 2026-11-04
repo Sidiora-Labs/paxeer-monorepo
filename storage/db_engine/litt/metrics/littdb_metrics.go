@@ -51,6 +51,10 @@ type LittDBMetrics struct {
 	// The number of keys read from disk since startup.
 	keysReadCounter metric.Int64Counter
 
+	// Logical reads include values served from caches and unflushed memory.
+	logicalBytesReadCounter metric.Int64Counter
+	logicalKeysReadCounter  metric.Int64Counter
+
 	// The number of cache hits since startup.
 	cacheHitCounter metric.Int64Counter
 
@@ -131,6 +135,18 @@ func NewLittDBMetrics() *LittDBMetrics {
 	keysReadCounter, _ := meter.Int64Counter(
 		"litt_keys_read",
 		metric.WithDescription("The number of keys read from disk since startup."),
+		metric.WithUnit("{count}"),
+	)
+
+	logicalBytesReadCounter, _ := meter.Int64Counter(
+		"litt_logical_bytes_read",
+		metric.WithDescription("The number of bytes read since startup, including cache hits and unflushed values."),
+		metric.WithUnit("By"),
+	)
+
+	logicalKeysReadCounter, _ := meter.Int64Counter(
+		"litt_logical_keys_read",
+		metric.WithDescription("The number of keys read since startup, including cache hits and unflushed values."),
 		metric.WithUnit("{count}"),
 	)
 
@@ -228,6 +244,8 @@ func NewLittDBMetrics() *LittDBMetrics {
 		openIteratorCount:        openIteratorCount,
 		bytesReadCounter:         bytesReadCounter,
 		keysReadCounter:          keysReadCounter,
+		logicalBytesReadCounter:  logicalBytesReadCounter,
+		logicalKeysReadCounter:   logicalKeysReadCounter,
 		cacheHitCounter:          cacheHitCounter,
 		cacheMissCounter:         cacheMissCounter,
 		readLatency:              readLatency,
@@ -282,7 +300,8 @@ func (m *LittDBMetrics) ReportOpenIteratorCount(tableName string, count int64) {
 	m.openIteratorCount.Record(context.Background(), count, tableAttr(tableName))
 }
 
-// ReportReadOperation reports the results of a read operation.
+// ReportReadOperation reports a read that returned a value. cacheHit includes
+// read-cache, write-cache and unflushed-memory hits; only misses count as disk reads.
 func (m *LittDBMetrics) ReportReadOperation(
 	tableName string,
 	latency time.Duration,
@@ -296,13 +315,15 @@ func (m *LittDBMetrics) ReportReadOperation(
 	ctx := context.Background()
 	attrs := tableAttr(tableName)
 
-	m.bytesReadCounter.Add(ctx, int64(dataSize), attrs) //nolint:gosec // data size fits int64
-	m.keysReadCounter.Add(ctx, 1, attrs)
+	m.logicalBytesReadCounter.Add(ctx, int64(dataSize), attrs) //nolint:gosec // data size fits int64
+	m.logicalKeysReadCounter.Add(ctx, 1, attrs)
 	m.readLatency.Record(ctx, latency.Seconds(), attrs)
 
 	if cacheHit {
 		m.cacheHitCounter.Add(ctx, 1, attrs)
 	} else {
+		m.bytesReadCounter.Add(ctx, int64(dataSize), attrs) //nolint:gosec // data size fits int64
+		m.keysReadCounter.Add(ctx, 1, attrs)
 		m.cacheMissCounter.Add(ctx, 1, attrs)
 		m.cacheMissLatency.Record(ctx, latency.Seconds(), attrs)
 	}

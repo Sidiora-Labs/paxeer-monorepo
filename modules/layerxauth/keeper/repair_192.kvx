@@ -1,0 +1,11 @@
+[repair.22.31.192]
+finding = "22.30.8/capability-message-url"
+proof = ["TestRepair_192_CapabilityMessageURLMsgExec", "TestRepair_192_OverlappingCapabilitiesAreAtomic", "TestRepair_192_UnsupportedScopesDoNotPublish"]
+mapping = "SDK bank MsgSend and MsgMultiSend map to asset module 1 SEND ordinal 5; the scope must contain both the module bit and ordinal. LayerX ledger messages remain owner-only; all other SDK mappings are unsupported and issuance refuses atomically."
+composition = "Disjoint executable message keys compose by union; overlapping keys are refused without replacement, including re-mirroring the same grant, to preserve authority and spending. Expired keys may be reclaimed. The entire mirror and kernel issuance publish atomically."
+baseline = "No baseline verify ran: the task's ordered gate rules prohibit tests before complete implementation and require hf-build before hf-done; no prior gate ledger or keeper changes existed at session start. No baseline failures are claimed."
+evidence = "The runner records the exact candidate revision, command, exit and private log in /out/run/gates.jsonl; the final hf-done record qualifies this task."
+wiring_request = "modules/layerxauth/types/authorization.go — domain 2: the separately audited unscoped-message-bypasses-policy, grant-validity-not-enforced and period-budget-not-enforced findings must supply real bank scope extraction and shared budget enforcement; this repair changes only routing and collision semantics."
+wiring_request_programs = "modules/layerxauth/types and the Programs SDK message owner — domain 2: define executable message contracts for program scopes before adding a keeper mapping; no executable SDK message implements the existing program 9 ordinals 4..5 scope."
+gotcha = "The legacy proof manually saved a bank authorization after issuance; it now consumes the producer's bank mirror directly. The former test-only authorization URL alias names MsgSend, and supported bank-scope fixtures assert both real message keys."
+first_qualification = "590b7c16efb0705c489767383fa0280475e13642; cg spec done 22.31.192 -f layerx-merge --root /work/paxeer-monorepo; exit 1; /out/logs/verify-1.log: overlap proof reused the kernel's unique (grantor, key); repair rotates the real EVM binding before the second issuance and preserves all collision assertions."

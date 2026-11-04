@@ -1,0 +1,14 @@
+[repair.22.31.113]
+finding = "cache-expiry-visibility"
+test = "TestRepair_113_CacheExpiryVisibility"
+proof = "Real cached and disk tables, Put and PutBatch, primary and whole/slice aliases, both cache layers and uncached reads, independent and wrapper GC, forward/reverse iteration, close/reopen and GC of recovered entries."
+baseline = "Not run: the ordered gate instructions prohibit verification before complete implementation and allow verification only through hf-done after hf-build; no unchanged-tree failures are claimed."
+wiring = "None; the repair uses the existing ManagedTable.Exists interface within scope."
+qualification = "Exact verified revision, command, exit and private log are recorded by the hf-done gate ledger and the final task evidence line."
+
+[qualification.initial]
+revision = "bf65753da41fcecb91788493c2f6383d09b0c62f"
+command = "cg spec done 22.31.113 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Initial GC assertions passed; restart helper tried to recreate the existing keymap type file; repaired by loading and checking its persisted type on reopen."

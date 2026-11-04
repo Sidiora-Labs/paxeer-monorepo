@@ -1,0 +1,16 @@
+[package]
+name = "perfdb-repair-139"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[[bin]]
+name = "repair139"
+path = "main.rs"
+
+[dependencies]
+perfdb = { path = "../../.." }
+crc32fast = "1"
+bincode = "1"
+
+[workspace]

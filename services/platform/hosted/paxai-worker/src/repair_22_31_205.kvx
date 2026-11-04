@@ -1,0 +1,31 @@
+[repair.22.31.205]
+audit = "22.30.84"
+base_revision = "a2c1b83e1c3e7ecd65fa771738df55e7e34f56fd"
+implementation = "Current finalized bindings, durable replay, protected delegate retention, committed evaluator access and exact authorized cancellation records."
+qualification = "The runner records the verified candidate revision, exact command, exit and private log in its hf-build/hf-done ledger."
+baseline = "Not run: the explicit numbered order and allowed-gate limit prohibit verification before implementation; no baseline failures are claimed."
+wiring_request = "spec/layerx-merge/contracts/platform-hosted.md, domain 8: document staging <evaluation_access hex>.access with EvaluationAccess::encode and commitment before submit, persistent state/jobs/delegates protection, and atomic delegate_seed updates before finalized rotation refresh."
+
+[finding.worker-drain-blocks-existing-jobs]
+test = "worker_drain_preserves_tls_redelivery_query_cancel_and_admitted_execution_after_restart"
+
+[finding.worker-startup-binding-stale]
+test = "worker_current_metadata_refresh_accepts_tls_submit_and_signs_current_status"
+rotation_test = "worker_delegate_value_rotation_recovers_old_job_completion_under_original_identity"
+
+[finding.worker-evaluator-grants-unwired]
+test = "worker_verified_evaluator_access_reaches_tls_result_consumer_after_restart"
+
+[finding.worker-cancel-cross-customer-ack]
+test = "worker_cancel_returns_exact_customer_acknowledgment_for_shared_request_id"
+
+[finding.worker-old-generation-signing]
+test = "worker_delegate_value_rotation_recovers_old_job_completion_under_original_identity"
+
+[qualification.first]
+revision = "92707293d3a72f87847f20e5f1fc7f14908741e6"
+command = "cg spec done 22.31.205 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Four cases passed; three fixture failures used nonconsecutive native role sequences or changed finalized bytes without advancing the observation height."
+repair = "Use the actual next native role sequence and advance finalized heights for metadata, rotation and drain observations; retain every behavioral assertion."

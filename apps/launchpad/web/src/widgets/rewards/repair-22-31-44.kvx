@@ -1,0 +1,10 @@
+[repair.22.31.44]
+finding = "reward-claim-route"
+test = "repair-22-31-44.test.ts:reward_claim_route_reaches_registered_handler"
+base_revision = "7a46d90eecc4435aea1d78bdd9590421997ccc7e"
+change = "RewardsView prepares claims at the exact served IF_REWARD_CLAIM path with its existing authenticated scope, recipient, rewardIds and fresh Idempotency-Key."
+proof = "Real widget request producer -> accountRequest -> loopback HTTP -> app.registerRewardRoutes -> l18.HTTP.PrepareClaim; real frozen request decoder validates emitted bytes; unavailable dependencies return the actual handler's 503, while the legacy slash route returns 404."
+baseline = "Not run: the task's mandatory implementation/build/hf-done order forbids running verify_cmd on the unchanged tree; no baseline failure is claimed."
+evidence = "The exact qualified candidate revision, command, exit and private log are recorded by hf-done in /out/run/gates.jsonl."
+wiring_requests = []
+qualification_note = "The initial hf-done returned zero but Vitest registered test(function) as todo; registration now supplies the declared function's name and callback so the proof must execute."

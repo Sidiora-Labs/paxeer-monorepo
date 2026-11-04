@@ -1,0 +1,8 @@
+[repair.22.31.122]
+finding = "validator-power-width"
+test = "TestRepair_122_ValidatorPowerWidth"
+path = "Manifest.Save -> LoadTestnet -> MakeAppConfig -> TOML file -> LoadConfig -> Config.App -> NewApplication -> InitChain / FinalizeBlock"
+cases = "0, 255, 256, MaxTotalVotingPower, MaxInt64; node, application and ABCI powers and public keys are preserved"
+baseline = "Not run: ordered implementation/build/hf-done instructions prohibit running verify_cmd by hand before implementation; no baseline test failures claimed."
+wiring_requests = "None; producer and consumer are exercised from their actual source without out-of-scope changes."
+evidence = "Verified revision, command, exit and private log location are recorded by hf-build and hf-done in the runner gate ledger."

@@ -8,8 +8,10 @@ import (
 	"path/filepath"
 
 	tmcfg "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/config"
+	tmed25519 "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/crypto/ed25519"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/cli"
 	tmos "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/os"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/privval"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/params"
 	"github.com/cosmos/go-bip39"
@@ -126,10 +128,11 @@ For validator or seed nodes, pass --mode validator or --mode seed so RPC and P2P
 			recoverFlag, _ := cmd.Flags().GetBool(FlagRecover)
 			if recoverFlag {
 				inBuf := bufio.NewReader(cmd.InOrStdin())
-				mnemonic, err := input.GetString("Enter your bip39 mnemonic", inBuf)
+				value, err := input.GetString("Enter your bip39 mnemonic", inBuf)
 				if err != nil {
 					return err
 				}
+				mnemonic = value
 
 				if !bip39.IsMnemonicValid(mnemonic) {
 					return errors.New("invalid mnemonic")
@@ -139,6 +142,12 @@ For validator or seed nodes, pass --mode validator or --mode seed so RPC and P2P
 			nodeID, _, err := genutil.InitializeNodeValidatorFilesFromMnemonic(tmConfig, mnemonic)
 			if err != nil {
 				return err
+			}
+			if recoverFlag {
+				validator := privval.NewFilePV(tmed25519.TestSecretKey([]byte(mnemonic)), tmConfig.PrivValidator.KeyFile(), tmConfig.PrivValidator.StateFile())
+				if err := validator.Save(); err != nil {
+					return errors.Wrap(err, "failed to save recovered validator")
+				}
 			}
 
 			tmConfig.Moniker = args[0]

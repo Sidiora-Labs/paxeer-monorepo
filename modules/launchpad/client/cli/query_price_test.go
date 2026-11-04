@@ -72,7 +72,7 @@ func TestCmdQueryPriceArgs(t *testing.T) {
 			})
 		}
 	}
-	for _, value := range []string{"", "abc", "-1", "1.5", "0x10", "18446744073709551616"} {
+	for _, value := range []string{"", "abc", "-1", "1.5", "0x10", "0", "000", "115792089237316195423570985008687907853269984665640564039457584007913129639936"} {
 		t.Run("amount="+value, func(t *testing.T) {
 			_, err := clitestutil.ExecTestCLICmd(client.Context{}, cli.CmdQueryQuote(), []string{"--", "unknown-denom", "buy", value})
 			var numberError *strconv.NumError

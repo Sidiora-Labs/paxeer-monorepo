@@ -375,6 +375,9 @@ pub struct Item {
     pub refusal: Option<String>,
     pub recipient: Option<Recipient>,
     pub releases: Vec<ReleaseSubmission>,
+    /// Volatile serving policy, populated only on a relayer snapshot. Journal
+    /// replay never authenticates a destination policy and leaves this absent.
+    pub attestation_policy: Option<crate::attestation_api::AuthenticatedPolicy>,
 }
 
 impl Item {
@@ -387,6 +390,7 @@ impl Item {
             refusal: None,
             recipient: None,
             releases: Vec::new(),
+            attestation_policy: None,
         }
     }
 

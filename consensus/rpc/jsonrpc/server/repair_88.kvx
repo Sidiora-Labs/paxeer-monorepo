@@ -1,0 +1,8 @@
+[repair.22.31.88]
+audit = "22.30.46"
+finding = "16"
+proofs = ["TestRepair_88_SingleRequestBatch", "TestRepair_88_BatchNotifications"]
+change = "Retain parsed batch framing through HTTP response encoding, including batches with one remaining response after notifications."
+baseline = "Not run: the ordered task instructions prohibit tests before complete implementation and prohibit running verify_cmd outside hf-done. No baseline failures are claimed."
+evidence = "The final hf-done receipt records the verified revision, command, exit code and private log location."
+wiring_requests = []

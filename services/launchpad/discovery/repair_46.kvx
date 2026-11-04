@@ -1,0 +1,35 @@
+[task]
+id = "22.31.46"
+audit = "22.30.31"
+status = "implementation-record; qualification is recorded by hf-done in its private ledger"
+baseline = "Not run: the ordered implementation-before-gates rule and hf-done-only verification supersede step 10's contradictory request for a preliminary verify; no baseline failures are claimed."
+policy = "Connected creates default to private; connected patches preserve stored description/visibility. Frozen squads admit open/request/invite and at most 500 Unicode characters. Open request actions join immediately; banned and invite-only memberships remain protected."
+invitation_policy = "Invitation authorization is delivered atomically to a recipient-only durable inbox, expires after 24 hours for frozen invites, and is redeemed once through authenticated HTTP; legacy internal Accept callers retain their existing idempotent transition."
+price_policy = "Save the full threshold and its provenance; require matching assets, decimals, chain and pricing authority against a pool-bound canonical committed price before evaluation. Unqualified legacy rules are held with price_context_missing."
+
+[finding.legacy-squad-contract]
+test = "TestRepair_46_legacy_squad_contract"
+[finding.frozen-squad-validation]
+test = "TestRepair_46_frozen_squad_validation"
+[finding.invitation-token-lost]
+test = "TestRepair_46_invitation_token_lost"
+[finding.membership-squad-revision]
+test = "TestRepair_46_membership_squad_revision"
+[finding.alert-price-context-lost]
+test = "TestRepair_46_alert_price_context_lost"
+[finding.alert-evaluator-unwired]
+test = "TestRepair_46_alert_evaluator_unwired"
+
+[wiring.contract-owner]
+request = "Domain 4 contract owner: reconcile launchpad/spec/interfaces and sdk/launchpad generated clients with the 500-character/open-join squad policy, recipient invitation inbox/accept routes and explicit squad revision adapter argument; regenerate through the owner."
+[wiring.notifications]
+request = "Domain 4 notifications owner: mount /v2/me/squad-invitations and its child routes in services/launchpad/notifications/runtime.go; its existing discovery.Runtime.Run now evaluates price rules before publishing threshold-crossing-v2."
+[wiring.price-grant]
+request = "Domain 4 stream/data owner: grant discovery's runtime role EXECUTE on api_stream.market_projection_head(text) in launchpad/spec/production-system/integration/migrations/grants.json; the existing canonical owner function supplies pool-bound committed price and asset provenance."
+
+[proof-boundary]
+observed = "The scoped runtime test proves real canonical SQL producer -> committed frame -> Runtime.Run -> durable checkpoint/threshold-crossing-v2 outbox across restart and delivery failure; downstream in-app delivery uses the existing notifications publisher and requires its owning domain's integration qualification."
+request = "Domain 4 notifications owner: qualify Runtime.Run with the production eventPublisher/TriggerConsumer and real D11 target authority through services/launchpad/notifications to prove final in-app delivery and duplicate suppression."
+
+[wiring.schema-owner]
+request = "Domain 4 data owner: register the new invitation_deliveries/evaluation_cursor DDL and runtime privileges in launchpad/spec/production-system/integration/migrations/210000.sql and grants.json; the scoped source remains services/launchpad/discovery/schema.sql."

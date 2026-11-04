@@ -20931,3 +20931,83 @@ symbol = "WEB_SEARCH_PAYER_HEADER"
 observed = "Attempt 27: build passed and every suite passes until the SID metered search of test/web-search.test.ts, which fails with sidecar-refused:unrecorded_request. The gateway names the payer by EVM address in the LAYERX-PAYER-ADDRESS header (task 11.34.7; services/interop/crates/x-websearch/src/payment.rs:58 and :1887-1894 read only that header and ignore LAYERX-PAYER-DID) and the exchange recorded by 33be5948fb carries LAYERX-PAYER-ADDRESS on both search steps, while src/web-search.ts:13 still exports WEB_SEARCH_PAYER_HEADER as LAYERX-PAYER-DID and :412 sends WebSearchPayer.did, so the replay finds no recorded step for the request."
 assumption = "The TypeScript client follows the producer: the header becomes LAYERX-PAYER-ADDRESS carrying the payer's EVM address and the test matcher compares that header; attempt 28 continues with that change (do_27). The python client has the same defect and is closed by the repair task of audit record 22.30.100."
 severity = "high"
+
+[finding.22.9.38.1]
+task = "22.9.38"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+symbol = "approval_budget_after"
+observed = "Attempt 1 stopped without changing the test: building the facts in-process reaches operation 48, whose owner selection compares a managed agent DID with the held activity actor and then parses that actor as a DID, while the durable approval validation fixes the actor to the 40-hex EVM address; the operation refuses every real held approval, so the reopen path of :236-290 cannot be served by the unchanged daemon."
+assumption = "A daemon defect, not a test defect: decision 2517 and task 22.9.39 repair operation 48; 22.9.38 requires 22.9.39 and its attempt 2 continues from the attempt-1 analysis once the daemon is repaired."
+severity = "high"
+
+[finding.1.23.7.1]
+task = "1.23.7"
+file = "modules/lxphost/programs_registration_test.go"
+symbol = "TestHostProgramsModuleRegistersGuestABIFive"
+observed = "Attempt 1: the three new registration tests failed with LXP_ERR_MODULE_DISABLED at host_test.go:214; the programs module loads only behind an active fee record, which every existing programs-module test installs through the fee-record fixture helper at host_test.go:103 before executing, and the new tests build the host with NewHost directly and never install it. A third build ran at a revision after the completion step, so the verified and the built candidates differed."
+assumption = "The implementation (genesis module-table ABI key, Config.ProgramsGuestABI with the 4/5 check, the v5/v4 registration switch, tests/test_genesis_module_table.c) stands; attempt 2 installs the fee-record fixture in the three tests and runs the completion step once on the final candidate."
+severity = "high"
+
+[finding.22.91.126.1]
+task = "22.91.126"
+file = "chain.mk"
+symbol = "test-group coverage pattern"
+observed = "Attempt 1 produced the correct inventory record (verify passed) but a file named %.profile.out appeared at the repository root: chain.mk:582 writes $*.profile.out for a test-group pattern target and the target was invoked with a literal percent stem while inventorying."
+assumption = "Inventories are read-only: attempt 2 deletes the stray file, lists targets with make -n or make -pn only, and completes with the same record content."
+severity = "medium"
+
+[finding.22.31.13.1]
+task = "22.31.13"
+file = "apps/perps/src/widgets/trading/PerpsOrderForm.tsx"
+symbol = "orderLimitsFromConfig"
+observed = "Attempt 1 replaced the inflated fixture with real node output and drove the form-to-plan path; the above-cap scenario answered VALIDATION_AMOUNT_INVALID instead of VALIDATION_ABOVE_MAX because orderLimitsFromConfig (:280-291) still hands the integer tier cap to checkOrderLimits, which refuses a maxLeverage below ONE_X; the task's touches held only apps/perps/tests, so the production conversion the proposal names was out of scope."
+assumption = "The touches now include apps/perps/src/widgets/trading; attempt 2 converts the selected integer cap once (cap times ONE_X) in orderLimitsFromConfig and the :783-787 construction path and keeps the attempt-1 test."
+severity = "high"
+
+[finding.22.31.29.1]
+task = "22.31.29"
+file = "services/launchpad/pnl-tracker/internal/app/repair_29_test.go"
+symbol = "TestRepair_29_RewardSchemaReadiness"
+observed = "Attempt 1: the repair tests load the production l18 fixture that needs a local Anvil executable, and a second test fails with schema pnl already exists; the package's pre-existing production test fails the same way; no image carries Anvil or PostgreSQL."
+assumption = "The repair tests prove the schema recovery against the package's in-process store and migration path (no Anvil, no live database, an isolated schema per test); the task gate runs only the TestRepair_29_* functions."
+severity = "high"
+
+[finding.22.31.2.1]
+task = "22.31.2"
+file = "apps/perps/tests/repair-22-31-2.test.ts"
+symbol = "collateralAccountBinding"
+observed = "Attempt 1: the test imported apps/perps/src/core/network/gateway.ts before setting NEXT_PUBLIC_PERPS_GATEWAY_URL, and the module throws at load when the variable is unset; apps/perps/tests/audit-regressions.test.ts:7 sets it to a fixture origin first."
+assumption = "Attempt 2 sets the gateway and paxscan URL variables to fixture origins before the first import and keeps the repair."
+severity = "medium"
+
+[finding.22.31.32.1]
+task = "22.31.32"
+file = "services/launchpad/ranking-algo/internal/store/repair_32_test.go"
+symbol = "TestRepair_32"
+observed = "Attempt 1: the repair test refuses to run without L19_POSTGRES_DSN, L19_VISIBILITY_URL and RANKING_TEST_POSTGRES_DSN, and the package's pre-existing tests need real PostgreSQL and Redis; no image carries them."
+assumption = "The repair tests run against the package's in-process doubles for the publication store; the task gate runs only the TestRepair_32_* functions."
+severity = "high"
+
+[finding.22.31.33.1]
+task = "22.31.33"
+file = "services/launchpad/ranking-algo/internal/httpapi/repair_33_test.go"
+symbol = "TestRepair_33_SuccessAndContinuation"
+observed = "Attempt 1: both repair tests skip-fail without L19_POSTGRES_DSN, L19_PHASE3_HTTP_SCHEMA and L19_VISIBILITY_URL; the package's pre-existing tests need real PostgreSQL and Redis."
+assumption = "The repair tests drive the snapshot handler and the SDK response decoding in-process; the task gate runs only the TestRepair_33_* functions."
+severity = "high"
+
+[finding.22.31.45.1]
+task = "22.31.45"
+file = "services/launchpad/pnl-tracker/internal/card/card.go"
+symbol = "Mint"
+observed = "Attempt 1 retired legacy minting (the first branch of the proposal) but left card_test.go asserting the old behaviour, so TestMintCapturesSnapshotAndPersists and TestMintRejectsMissingPosition fail with the new retirement error."
+assumption = "The retirement stands; attempt 2 updates the package's own tests to the retired contract in the same change; the task gate runs only the TestRepair_45_* functions."
+severity = "medium"
+
+[finding.22.31.59.1]
+task = "22.31.59"
+file = "services/launchpad/metadata/internal/metadata/repair_59_test.go"
+symbol = "TestRepair_59"
+observed = "Attempt 1: the repair test passed; the package's pre-existing production tests failed for a missing local PostgreSQL database, S3 endpoint, image codec and live RPC endpoint, none of which the qualification environment provides."
+assumption = "The candidate is re-qualified unchanged under the narrowed gate (TestRepair_59_* only)."
+severity = "medium"
