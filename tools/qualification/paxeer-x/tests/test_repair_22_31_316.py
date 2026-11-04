@@ -1,7 +1,6 @@
 """Focused wire qualification with artifact-bound release-kit integration cases."""
 import copy
 from contextlib import contextmanager
-import importlib
 import importlib.util
 import json
 import os
@@ -152,11 +151,7 @@ def real_owner(directory):
     # When a manifest is supplied, every native qualification prerequisite is mandatory.
     built = ENVELOPE.load_manifest()
     config, credential = ENVELOPE.load_config()
-    runtime_module = importlib.import_module('paxeer_x_runtime_fixture')
-    ENVELOPE.fixture = runtime_module
-    bundle = runtime_module.artifacts(os.environ.get('PAXEER_X_RUNTIME_ARTIFACTS'))
-    client = runtime_module.client_artifact(os.environ.get('PAXEER_X_RUNTIME_CLIENT_MANIFEST'))
-    runtime = runtime_module.RuntimeFixture(directory, bundle, client)
+    runtime = ENVELOPE.fixture.RuntimeFixture(directory, config['merged_runtime'], built['source_revision'])
     qualification = None
     try:
         runtime.generate()
@@ -241,6 +236,7 @@ def test_proof_bundle_wire_before_after_restart(tmp_path):
             if not case.startswith('proof_bundle.refusal.'):
                 before[case] = read(owner, entry['operation'], entry['request'], 'repair.' + case + '.pre')
         assert owner.proof_bundle_kinds == {1, 2, 3}
+        assert owner.proof_bundle_cases == {'proof_bundle.' + name for name in ENVELOPE.PROOF_CASES}
         restart_owner(owner)
         owner.proof_bundle_post_restart()
         for case in before:

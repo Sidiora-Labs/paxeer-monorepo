@@ -19,9 +19,11 @@ func (r *errorRegistry) add(err *Error) {
 	defer r.mu.Unlock()
 	if r.sealed {
 		_, _ = fmt.Fprintln(os.Stderr, "[ROSETTA] WARNING: attempts to register errors after seal will be ignored")
+		return
 	}
 	if _, ok := r.errors[err.rosErr.Code]; ok {
 		_, _ = fmt.Fprintln(os.Stderr, "[ROSETTA] WARNING: attempts to register an already registered error will be ignored, code: ", err.rosErr.Code)
+		return
 	}
 	r.errors[err.rosErr.Code] = err.rosErr
 }

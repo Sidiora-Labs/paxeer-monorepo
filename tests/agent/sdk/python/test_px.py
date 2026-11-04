@@ -106,6 +106,9 @@ NETWORK_UNAVAILABLE = {
 def gateway_handler(observed: list[dict[str, object]]) -> type[BaseHTTPRequestHandler]:
     class Handler(BaseHTTPRequestHandler):
         def do_POST(self) -> None:
+            if self.path != "/":
+                self.send_error(404)
+                return
             length = int(self.headers["Content-Length"])
             body = json.loads(self.rfile.read(length).decode("utf-8"))
             observed.append({
@@ -280,7 +283,7 @@ class UnifiedNetworkReadTest(unittest.TestCase):
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         try:
-            client = PxClient(f"http://127.0.0.1:{server.server_port}/rpc")
+            client = PxClient(f"http://127.0.0.1:{server.server_port}/")
             table = client.call("px_getBalances", [px_account_key(EVM.upper())])
             self.assertEqual(table, BALANCES)
             self.assertEqual(set(table), set(PX_SCHEMAS["px_getBalances"]["required"]))
@@ -288,7 +291,7 @@ class UnifiedNetworkReadTest(unittest.TestCase):
             self.assertEqual(px_quantity(table["balances"][0]["amount"]), 30)
             self.assertEqual(table["balances"][0]["denom"], "ulxp")
             self.assertEqual(table["height"], 11111)
-            self.assertEqual(observed[0]["path"], "/rpc")
+            self.assertEqual(observed[0]["path"], "/")
             self.assertEqual(observed[0]["content_type"], "application/json")
             self.assertEqual(observed[0]["jsonrpc"], "2.0")
             self.assertEqual(observed[0]["method"], "px_getBalances")
@@ -325,11 +328,11 @@ class UnifiedNetworkReadTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 PxClient(endpoint)
         with self.assertRaises(ValueError):
-            PxClient("https://example.com/rpc", timeout=0)
+            PxClient("https://example.com/", timeout=0)
         with self.assertRaises(ValueError):
-            PxClient("https://example.com/rpc").call("px_unknown", [])
+            PxClient("https://example.com/").call("px_unknown", [])
         with self.assertRaises(ValueError):
-            PxClient("https://example.com/rpc").get_balances("not-an-account")
+            PxClient("https://example.com/").get_balances("not-an-account")
 
 
 # A px_getUnifiedHistory answer recorded from the gateway history read over a
@@ -352,6 +355,9 @@ NATIVE_ROW, POINTER_ROW = ROWS[0], ROWS[1]
 def history_handler(observed: list[dict[str, object]]) -> type[BaseHTTPRequestHandler]:
     class Handler(BaseHTTPRequestHandler):
         def do_POST(self) -> None:
+            if self.path != "/":
+                self.send_error(404)
+                return
             length = int(self.headers["Content-Length"])
             body = json.loads(self.rfile.read(length).decode("utf-8"))
             observed.append({"method": body["method"], "params": body["params"]})
@@ -632,7 +638,7 @@ class HistoryReadTest(unittest.TestCase):
             }),
             lambda: decode_unified_history_page(RECORDED_UNIFIED, 3),
             lambda: decode_history_asset_metadata({**NATIVE_ROW["asset_metadata"], "decimals": 256}),
-            lambda: PxClient("https://example.com/rpc").call("lx_getHistory", [EVE]),
+            lambda: PxClient("https://example.com/").call("lx_getHistory", [EVE]),
         )
         for refusal in refusals:
             with self.assertRaises(ValueError):
@@ -645,7 +651,7 @@ class HistoryReadTest(unittest.TestCase):
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         try:
-            client = PxClient(f"http://127.0.0.1:{server.server_port}/rpc")
+            client = PxClient(f"http://127.0.0.1:{server.server_port}/")
             unified = client.get_unified_history(DID.upper().replace("DID:LAYERX:", "did:layerx:"), limit=4)
             self.assertEqual([row.id for row in unified.items], ["3", "6", "9", "11"])
             paxeer = client.get_history(DID, cursor=CURSOR, kind="erc20_transfer")

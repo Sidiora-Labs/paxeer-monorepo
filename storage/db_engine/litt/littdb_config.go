@@ -33,7 +33,7 @@ type Config struct {
 	// Default is keymap.PebbleDBKeymapType.
 	KeymapType keymap.KeymapType
 
-	// The size of the control channel for the segment manager. The default is 64.
+	// The size of the control channel for the segment manager. Must be positive. The default is 64.
 	ControlChannelSize int
 
 	// The target size for segments. The default is math.MaxUint32.
@@ -53,7 +53,7 @@ type Config struct {
 	// garbage collection (since no kv-pair in a segment can be deleted until the entire segment is deleted).
 	TargetSegmentKeyFileSize uint64
 
-	// The period between garbage collection runs. The default is 5 minutes.
+	// The period between garbage collection runs. Must be positive. The default is 5 minutes.
 	GCPeriod time.Duration
 
 	// The size of the keymap deletion batch for garbage collection. The default is 10,000.
@@ -85,7 +85,8 @@ type Config struct {
 	// The port to use for the metrics server. Ignored if MetricsEnabled is false. The default is 9101.
 	MetricsPort int
 
-	// The interval at which various DB metrics are updated. The default is 1 second.
+	// The interval at which various DB metrics are updated. Must be positive when MetricsEnabled is true;
+	// ignored when metrics are disabled. The default is 1 second.
 	MetricsUpdateInterval time.Duration
 
 	// If empty, snapshotting is disabled. If not empty, then this directory is used by the database to publish a
@@ -111,6 +112,7 @@ type Config struct {
 
 	// If Flush() is called more frequently than this interval, the flushes may be batched together to improve
 	// performance. If this is set to zero, then no batching is performed and all flushes are executed immediately.
+	// Negative intervals are invalid.
 	MinimumFlushInterval time.Duration
 }
 
@@ -176,7 +178,7 @@ func (c *Config) Validate() error {
 	if c.GCBatchSize == 0 {
 		return fmt.Errorf("gc batch size must be at least 1")
 	}
-	if c.ControlChannelSize == 0 {
+	if c.ControlChannelSize <= 0 {
 		return fmt.Errorf("control channel size must be at least 1")
 	}
 	if c.TargetSegmentFileSize == 0 {
@@ -188,11 +190,14 @@ func (c *Config) Validate() error {
 	if c.TargetSegmentKeyFileSize == 0 {
 		return fmt.Errorf("target segment key file size must be at least 1")
 	}
-	if c.GCPeriod == 0 {
+	if c.GCPeriod <= 0 {
 		return fmt.Errorf("gc period must be at least 1")
 	}
-	if c.MetricsEnabled && c.MetricsUpdateInterval == 0 {
+	if c.MetricsEnabled && c.MetricsUpdateInterval <= 0 {
 		return fmt.Errorf("metrics update interval must be at least 1 if metrics are enabled")
+	}
+	if c.MinimumFlushInterval < 0 {
+		return fmt.Errorf("minimum flush interval must not be negative")
 	}
 
 	return nil
