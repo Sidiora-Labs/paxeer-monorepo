@@ -1,11 +1,35 @@
 package evmrpc_test
 
 import (
+	"crypto/sha256"
+	"encoding/json"
+	"fmt"
+	"math/big"
+	"net/http"
+	"net/http/httptest"
 	"strconv"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
+	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/coretypes"
+	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/ante"
+	evmkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
+	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types/ethtx"
+	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
+	rpcfixtures "github.com/Sidiora-Labs/Paxeer-X-Network/rpc/tests"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
+	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	receiptstore "github.com/Sidiora-Labs/Paxeer-X-Network/storage/ledger_db/receipt"
+	wasmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/wasm/x/wasm/types"
 	"github.com/ethereum/go-ethereum/common"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
+	gethrpc "github.com/ethereum/go-ethereum/rpc"
 	"github.com/stretchr/testify/require"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/rpc"
@@ -199,12 +223,10 @@ func getCommonFilterLogTests() []GetFilterLogTests {
 }
 
 func TestFilterGetLogs(t *testing.T) {
-	t.Skip()
 	testFilterGetLogs(t, "eth", getCommonFilterLogTests())
 }
 
 func TestFilterPaxGetLogs(t *testing.T) {
-	t.Skip()
 	// make sure we pass all the eth_ namespace tests
 	testFilterGetLogs(t, "pax", getCommonFilterLogTests())
 
@@ -245,8 +267,8 @@ func TestFilterPaxGetLogs(t *testing.T) {
 }
 
 func TestFilterEthEndpointReturnsNormalEvmLogEvenIfSyntheticLogIsInSameBlock(t *testing.T) {
-	t.Skip()
-	testFilterGetLogs(t, "eth", []GetFilterLogTests{
+	f := newCurrentFilterFixture(t, 100)
+	testFilterGetLogsWithFixture(t, f, "eth", []GetFilterLogTests{
 		{
 			name:      "normal evm log is returned even if synthetic log is in the same block",
 			fromBlock: "0x64", // 100
@@ -254,7 +276,7 @@ func TestFilterEthEndpointReturnsNormalEvmLogEvenIfSyntheticLogIsInSameBlock(t *
 			wantErr:   false,
 			check: func(t *testing.T, log map[string]interface{}) {
 				// check that none of the events have the synthetic hash
-				syntheticHash := multiTxBlockSynthTx.Hash()
+				syntheticHash := f.syntheticHash
 				require.NotEqual(t, syntheticHash.Hex(), log["transactionHash"].(string))
 			},
 			wantLen: 2,
@@ -263,6 +285,11 @@ func TestFilterEthEndpointReturnsNormalEvmLogEvenIfSyntheticLogIsInSameBlock(t *
 }
 
 func testFilterGetLogs(t *testing.T, namespace string, tests []GetFilterLogTests) {
+	f := newCurrentFilterFixture(t, 100)
+	testFilterGetLogsWithFixture(t, f, namespace, tests)
+}
+
+func testFilterGetLogsWithFixture(t *testing.T, f *currentFilterFixture, namespace string, tests []GetFilterLogTests) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			filterCriteria := map[string]interface{}{
@@ -278,9 +305,9 @@ func testFilterGetLogs(t *testing.T, namespace string, tests []GetFilterLogTests
 			}
 			var resObj map[string]interface{}
 			if namespace == "eth" {
-				resObj = sendRequestGood(t, "getLogs", filterCriteria)
+				resObj = f.request(t, namespace+"_getLogs", filterCriteria)
 			} else if namespace == "pax" {
-				resObj = sendPaxRequestGood(t, "getLogs", filterCriteria)
+				resObj = f.request(t, namespace+"_getLogs", filterCriteria)
 			} else {
 				panic("unknown namespace")
 			}
@@ -288,6 +315,7 @@ func testFilterGetLogs(t *testing.T, namespace string, tests []GetFilterLogTests
 				_, ok := resObj["error"]
 				require.True(t, ok)
 			} else {
+				require.NotContains(t, resObj, "error")
 				got := resObj["result"].([]interface{})
 				for _, log := range got {
 					logObj := log.(map[string]interface{})
@@ -300,15 +328,15 @@ func testFilterGetLogs(t *testing.T, namespace string, tests []GetFilterLogTests
 }
 
 func TestFilterGetFilterLogs(t *testing.T) {
-	t.Skip()
+	f := newCurrentFilterFixture(t, 100)
 	filterCriteria := map[string]interface{}{
 		"fromBlock": "0x2",
 		"toBlock":   "0x2",
 	}
-	resObj := sendRequestGood(t, evmrpc.NewFilterMethod, filterCriteria)
+	resObj := f.request(t, "eth_"+evmrpc.NewFilterMethod, filterCriteria)
 	filterId := resObj["result"].(string)
 
-	resObj = sendRequest(t, TestPort, evmrpc.GetFilterLogsMethod, filterId)
+	resObj = f.request(t, "eth_"+evmrpc.GetFilterLogsMethod, filterId)
 	logs := resObj["result"].([]interface{})
 	require.Equal(t, 4, len(logs))
 	for _, log := range logs {
@@ -318,29 +346,32 @@ func TestFilterGetFilterLogs(t *testing.T) {
 
 	// error: filter id does not exist
 	nonexistentFilterId := 1000
-	resObj = sendRequest(t, TestPort, evmrpc.GetFilterLogsMethod, nonexistentFilterId)
+	resObj = f.request(t, "eth_"+evmrpc.GetFilterLogsMethod, nonexistentFilterId)
 	_, ok := resObj["error"]
 	require.True(t, ok)
 }
 
 func TestFilterGetFilterChanges(t *testing.T) {
-	t.Skip()
+	f := newCurrentFilterFixture(t, 8)
 	filterCriteria := map[string]interface{}{
 		"fromBlock": "0x2",
 	}
-	resObj := sendRequest(t, TestPort, evmrpc.NewFilterMethod, filterCriteria)
+	resObj := f.request(t, "eth_"+evmrpc.NewFilterMethod, filterCriteria)
 	filterId := resObj["result"].(string)
 
-	resObj = sendRequest(t, TestPort, evmrpc.GetFilterChangesMethod, filterId)
+	resObj = f.request(t, "eth_"+evmrpc.GetFilterChangesMethod, filterId)
 	logs := resObj["result"].([]interface{})
 	// After tightening block/receipt matching, fromBlock=0x2 now yields 5 logs total
 	require.Equal(t, 5, len(logs))
 	logObj := logs[0].(map[string]interface{})
 	require.Equal(t, "0x2", logObj["blockNumber"].(string))
 
+	resObj = f.request(t, "eth_"+evmrpc.GetFilterChangesMethod, filterId)
+	require.Empty(t, resObj["result"], "polling must advance its cursor")
+
 	// error: filter id does not exist
 	nonExistingFilterId := 1000
-	resObj = sendRequest(t, TestPort, evmrpc.GetFilterChangesMethod, nonExistingFilterId)
+	resObj = f.request(t, "eth_"+evmrpc.GetFilterChangesMethod, nonExistingFilterId)
 	_, ok := resObj["error"]
 	require.True(t, ok)
 }
@@ -417,18 +448,17 @@ func TestFilterGetFilterChangesKeepsFilterAlive(t *testing.T) {
 }
 
 func TestGetLogsBlockHashIsNotZero(t *testing.T) {
-	t.Skip()
-	t.Parallel()
+	f := newCurrentFilterFixture(t, 100)
 	// Test that eth_getLogs returns logs with correct blockHash (not zero hash)
 	filterCriteria := map[string]interface{}{
 		"fromBlock": "0x2",
 		"toBlock":   "0x2",
 	}
-	resObj := sendRequestGood(t, "getLogs", filterCriteria)
+	resObj := f.request(t, "eth_"+"getLogs", filterCriteria)
 	logs := resObj["result"].([]interface{})
 	require.Greater(t, len(logs), 0, "should have at least one log")
 
-	expectedBlockHash := "0x0000000000000000000000000000000000000000000000000000000000000002" // MultiTxBlockHash
+	expectedBlockHash := f.hashes[2].Hex()
 	zeroBlockHash := "0x0000000000000000000000000000000000000000000000000000000000000000"
 
 	for i, logInterface := range logs {
@@ -645,4 +675,182 @@ func TestFilterGetFilterLogsEmptyResultIsArray(t *testing.T) {
 	logs, ok := resObj["result"].([]interface{})
 	require.True(t, ok, "getFilterLogs result should be an array")
 	require.Empty(t, logs)
+}
+
+// currentFilterFixture records receipts produced by the EVM message server and
+// the native CallEVM entry point. Consensus is the committed transcript peer;
+// the registered FilterAPI, codec, HTTP stack and client are production code.
+type currentFilterFixture struct {
+	url           string
+	hashes        map[int64]common.Hash
+	syntheticHash common.Hash
+}
+
+func filterLogCode(topics ...[]common.Hash) []byte {
+	var code []byte
+	for _, group := range topics {
+		for i := len(group) - 1; i >= 0; i-- {
+			code = append(code, 0x7f)
+			code = append(code, group[i].Bytes()...)
+		}
+		code = append(code, 0x60, 0x00, 0x60, 0x00, byte(0xa0+len(group)))
+	}
+	return append(code, 0x00)
+}
+
+func newCurrentFilterFixture(t *testing.T, latest int64) *currentFilterFixture {
+	t.Helper()
+	a := app.Setup(t, false, false, false)
+	t.Cleanup(func() { require.NoError(t, a.Close()) })
+	k := &a.EvmKeeper
+	ctx := a.GetContextForDeliverTx(nil).WithBlockHeight(latest).WithChainID("hyperpax_125-1").WithClosestUpgradeName(LatestCtxUpgradeName)
+	ctx = ctx.WithConsensusParams(a.GetConsensusParams(ctx))
+	consensus := &rpcfixtures.MockClient{}
+	f := &currentFilterFixture{hashes: make(map[int64]common.Hash)}
+	topic1, topic2 := common.HexToHash("0x123"), common.HexToHash("0x456")
+	address := func(n byte) common.Address {
+		return common.HexToAddress(fmt.Sprintf("0x11111111111111111111111111111111111111%02x", n))
+	}
+	records := []receiptstore.ReceiptRecord{}
+	contexts := make(map[int64]sdk.Context, latest)
+	for height := int64(1); height <= latest; height++ {
+		// Current bloom keys are version-local, so each recorded block needs its
+		// own store view rather than only a different context height.
+		blockCtx, _ := ctx.WithBlockHeight(height).WithBlockTime(mockBlockHeader(height).Time).CacheContext()
+		contexts[height] = blockCtx
+		block := tmtypes.MakeBlock(height, nil, &tmtypes.Commit{Height: height - 1}, nil)
+		block.Header = mockBlockHeader(height)
+		var result []*abci.ExecTxResult
+		var blooms, evmBlooms []ethtypes.Bloom
+		emit := func(to common.Address, code []byte) {
+			k.SetCode(blockCtx, to, code)
+			k.SetNonce(blockCtx, to, 1)
+			key, err := crypto.GenerateKey()
+			require.NoError(t, err)
+			from := crypto.PubkeyToAddress(key.PublicKey)
+			coins := sdk.NewCoins(sdk.NewInt64Coin(k.GetBaseDenom(blockCtx), 10000000))
+			require.NoError(t, a.BankKeeper.MintCoins(blockCtx, "evm", coins))
+			require.NoError(t, a.BankKeeper.SendCoinsFromModuleToAccount(blockCtx, "evm", sdk.AccAddress(from.Bytes()), coins))
+			chainID := k.ChainID(blockCtx)
+			tx, err := ethtypes.SignNewTx(key, ethtypes.LatestSignerForChainID(chainID), &ethtypes.DynamicFeeTx{
+				ChainID: chainID, Gas: 200000, GasFeeCap: big.NewInt(1000000000000), To: &to,
+			})
+			require.NoError(t, err)
+			data, err := ethtx.NewDynamicFeeTx(tx)
+			require.NoError(t, err)
+			msg, err := evmtypes.NewMsgEVMTransaction(data)
+			require.NoError(t, err)
+			builder := TxConfig.NewTxBuilder()
+			require.NoError(t, builder.SetMsgs(msg))
+			raw, err := Encoder(builder.GetTx())
+			require.NoError(t, err)
+			index := len(block.Txs)
+			execution := blockCtx.WithTxIndex(index).WithIsEVM(true).WithEVMNonce(0).WithEVMSenderAddress(from).WithEVMTxHash(tx.Hash())
+			require.NoError(t, ante.Preprocess(execution, msg, chainID, false))
+			execution, err = ante.NewEVMFeeCheckDecorator(k, &a.UpgradeKeeper).AnteHandle(execution, builder.GetTx(), false,
+				func(next sdk.Context, _ sdk.Tx, _ bool) (sdk.Context, error) { return next, nil })
+			require.NoError(t, err)
+			response, err := evmkeeper.NewMsgServerImpl(k).EVMTransaction(sdk.WrapSDKContext(execution), msg)
+			require.NoError(t, err)
+			require.Empty(t, response.VmError)
+			receipt, err := k.GetTransientReceipt(execution, tx.Hash(), uint64(index))
+			require.NoError(t, err)
+			require.Equal(t, uint32(1), receipt.Status)
+			records = append(records, receiptstore.ReceiptRecord{TxHash: tx.Hash(), Receipt: receipt})
+			bloom := ethtypes.BytesToBloom(receipt.LogsBloom)
+			blooms = append(blooms, bloom)
+			evmBlooms = append(evmBlooms, bloom)
+			block.Txs = append(block.Txs, raw)
+			result = append(result, &abci.ExecTxResult{Code: abci.CodeTypeOK, GasUsed: int64(response.GasUsed)})
+		}
+		switch height {
+		case 2:
+			emit(address(0x12), filterLogCode([]common.Hash{topic1, topic2}, []common.Hash{topic1}))
+			emit(address(0x13), filterLogCode([]common.Hash{topic1, topic2}))
+			emit(address(0x14), filterLogCode([]common.Hash{topic1, topic2}))
+		case 8:
+			emit(address(0x15), filterLogCode([]common.Hash{common.HexToHash("0x1111111111111111111111111111111111111111111111111111111111111111")}))
+		case 100:
+			emit(address(0x12), filterLogCode([]common.Hash{topic1}))
+			emit(address(0x13), filterLogCode([]common.Hash{topic1}))
+			to := address(0x16)
+			k.SetCode(blockCtx, to, filterLogCode([]common.Hash{common.HexToHash("0x234")}))
+			native := &wasmtypes.MsgExecuteContract{Sender: sdk.AccAddress(to.Bytes()).String(), Contract: sdk.AccAddress(to.Bytes()).String(), Msg: []byte(`{}`)}
+			builder := TxConfig.NewTxBuilder()
+			require.NoError(t, builder.SetMsgs(native))
+			raw, err := Encoder(builder.GetTx())
+			require.NoError(t, err)
+			sum := sha256.Sum256(raw)
+			f.syntheticHash = common.Hash(sum)
+			nativeCtx := blockCtx.WithIsEVM(false).WithTxIndex(len(block.Txs)).WithTxSum(sum)
+			_, err = k.CallEVM(nativeCtx, common.HexToAddress("0x1292"), &to, nil, nil)
+			require.NoError(t, err)
+			receipt, err := k.GetTransientReceipt(nativeCtx, sum, uint64(len(block.Txs)))
+			require.NoError(t, err)
+			require.Len(t, receipt.Logs, 1)
+			records = append(records, receiptstore.ReceiptRecord{TxHash: sum, Receipt: receipt})
+			blooms = append(blooms, ethtypes.BytesToBloom(receipt.LogsBloom))
+			block.Txs = append(block.Txs, raw)
+			result = append(result, &abci.ExecTxResult{Code: abci.CodeTypeOK, GasUsed: int64(receipt.GasUsed)})
+		}
+		k.SetBlockBloom(blockCtx, blooms)
+		k.SetEvmOnlyBlockBloom(blockCtx, evmBlooms)
+		// MakeBlock's cached data hash predates the appended producer transactions.
+		block.DataHash = block.Txs.Hash()
+		hash := common.BytesToHash(block.Hash())
+		f.hashes[height] = hash
+		consensus.RecordCommittedBlock(&coretypes.ResultBlock{BlockID: tmtypes.BlockID{Hash: hash.Bytes()}, Block: block},
+			&coretypes.ResultBlockResults{Height: height, TxsResults: result})
+	}
+	require.NoError(t, k.ReceiptStore().SetReceipts(ctx, records))
+	require.Eventually(t, func() bool {
+		for _, record := range records {
+			if _, err := k.GetReceipt(ctx, record.TxHash); err != nil {
+				return false
+			}
+		}
+		return true
+	}, 5*time.Second, time.Millisecond)
+	require.NoError(t, k.ReceiptStore().SetLatestVersion(latest))
+	require.NoError(t, k.ReceiptStore().SetEarliestVersion(1))
+	provider := func(height int64) sdk.Context {
+		if height == evmrpc.LatestCtxHeight {
+			return contexts[latest]
+		}
+		return contexts[height]
+	}
+	wm := evmrpc.NewWatermarkManager(consensus, provider, nil, k.ReceiptStore())
+	apis := []gethrpc.API{}
+	for _, namespace := range []string{"eth", "pax"} {
+		api := evmrpc.NewFilterAPI(consensus, k, provider, func(int64) client.TxConfig { return TxConfig }, evmrpc.NewFilterConfig(time.Minute, 0, 0),
+			evmrpc.ConnectionTypeHTTP, namespace, make(chan struct{}, evmrpc.MaxDBReadConcurrency), evmrpc.NewBlockCache(3000), &sync.Mutex{}, evmrpc.NewLogSlicePool(), wm)
+		t.Cleanup(func() { evmrpc.ShutdownFilterAPIForTest(api) })
+		apis = append(apis, gethrpc.API{Namespace: namespace, Service: api, Public: true})
+	}
+	server := evmrpc.NewHTTPServer(gethrpc.HTTPTimeouts{})
+	require.NoError(t, server.EnableRPC(apis, evmrpc.HTTPConfig{Modules: []string{"eth", "pax"}, Vhosts: []string{"*"}, PaxLegacyAllowlist: evmrpc.BuildPaxLegacyEnabledSet(evmrpc.PaxLegacyAllGatedMethodNames())}))
+	t.Cleanup(server.Stop)
+	transport := httptest.NewServer(server)
+	t.Cleanup(transport.Close)
+	f.url = transport.URL
+	return f
+}
+
+func (f *currentFilterFixture) request(t *testing.T, method string, params ...any) map[string]interface{} {
+	t.Helper()
+	if params == nil {
+		params = []any{}
+	}
+	raw, err := json.Marshal(map[string]any{"jsonrpc": "2.0", "id": 1, "method": method, "params": params})
+	require.NoError(t, err)
+	request, err := http.NewRequest(http.MethodPost, f.url, strings.NewReader(string(raw)))
+	require.NoError(t, err)
+	request.Header.Set("Content-Type", "application/json")
+	response, err := (&http.Client{Timeout: 10 * time.Second}).Do(request)
+	require.NoError(t, err)
+	defer response.Body.Close()
+	require.Equal(t, http.StatusOK, response.StatusCode)
+	var result map[string]interface{}
+	require.NoError(t, json.NewDecoder(response.Body).Decode(&result))
+	return result
 }

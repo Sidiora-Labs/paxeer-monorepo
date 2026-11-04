@@ -15005,3 +15005,23 @@ fix = "Tests create store roots with mode 0o700 and open the canonicalised path,
 title = "The outbox hands out bytes for transmission only while a submission is Queued"
 symptom = "services/agent/crates/layerx-agentd/src/outbox/mod.rs bytes_for_transmission returns NotQueued once a submission has left Queued. 22.33.1571 attempt 2 (2026-11-04 19:13Z) restored a submission recorded Unknown after a lost response and asked for its bytes to re-send it; both node-recovery cases failed on NotQueued."
 fix = "Recovery of an unknown submission goes through the resolver (admin resolve_unknown or the degraded resolver) that looks the hash up on the node first; tests follow that path."
+
+[gotcha.3037]
+title = "The explorer's transaction tag lookup crashes on a transaction without a recipient"
+symptom = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/account/api/v2/tags_controller.ex tags_transaction passes transaction.to_address_hash to GetAddressTags.get_public_tags, whose only clause requires a non-nil hash; a contract-creation transaction has none, so GET /api/account/v2/tags/transaction/:hash answers 500 with a FunctionClauseError. 22.33.478 attempt 2 (2026-11-04 19:18Z) hit it with the recorded transaction example; 7 of 8 cases passed."
+fix = "Decision 2542 and the 478 ruling: the controller answers the sender's public tags and an empty recipient side for such a transaction; the controller joins the task's paths."
+
+[gotcha.3038]
+title = "22.33.517 tightened the archive receipt types without their explorer consumers"
+symptom = "Attempt 2 of 22.33.517 (2026-11-04 19:27Z) made payload_hash required and block_number nullable in apps/explorer/types/api/paxeerXArchive.ts; the explorer type-check then failed with fifteen errors in ten consumer files under ui/paxeerX/receipts, ui/pages, stubs and lib/api/services, none of them in the task's four paths, and the verify never ran."
+fix = "The ten consumer files join the task's paths and the attempt continues porting them in the same change (decision 2521 class)."
+
+[gotcha.3039]
+title = "Unknown-submission fixtures still serve the single-step receipt lookup"
+symptom = "The client's authenticated lookup asks pax_sequencerReceipt and then eth_getTransactionReceipt (services/agent/crates/layerx-client/src/rpc/receipt.rs, tolerant of a failing second call since 22.31.222). The loopback nodes of services/agent/crates/layerx-agentd/tests/unknown_receipt_lookup.rs assert one method per exchange, so the second request tripped the fixture and the client saw a malformed answer; 22.33.1538 attempt 2 (2026-11-04 19:26Z) failed 8 of 22 cases this way or on the resulting state."
+fix = "The fixtures serve the current exchange sequence; a case that still resolves a receipt with a missing or changed payment denomination is a resolver finding to record."
+
+[gotcha.3040]
+title = "A declared runtime module the scripts call was never written"
+symptom = "22.33.761 attempt 3 (2026-11-04 19:27Z) rewrote the upgrade-module shell scripts to exec tests/integration/upgrade_module/scripts/upgrade_runtime.py and made its test import that module, but the module is neither in the change set nor in the attempt's recorded tree; the verify failed at collection."
+fix = "The attempt continues and writes the declared module; a path a change calls must be in the change."

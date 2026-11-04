@@ -29907,3 +29907,51 @@ symbol = "repair_22_33_1571.rs"
 observed = "Attempt 2: 2 of 4 cases passed; both node-recovery cases requested transmission bytes of an Unknown submission and were refused NotQueued."
 assumption = "Recovery contract of the outbox (gotcha 3036); the test drives a path the daemon does not take."
 severity = "high"
+
+[finding.22.95.1.6]
+task = "22.95.1"
+file = "services/agent/crates/layerx-agentd/tests/human_node.rs"
+symbol = "human_node.rs"
+observed = "Attempt 11: the daemon test build failed on two targets broken on main; the verify never ran."
+assumption = "Pre-existing consumer break (gotcha 3033), not a defect of this task."
+severity = "low"
+
+[finding.22.33.478.2]
+task = "22.33.478"
+file = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_33_478_test.exs"
+symbol = "repair_22_33_478_test.exs"
+observed = "Attempt 2: 7 of 8 cases passed; the transaction tag lookup crashed on the recorded contract-creation transaction."
+assumption = "A consumer-path defect in the explorer controller (gotcha 3037)."
+severity = "medium"
+
+[finding.22.33.517.2]
+task = "22.33.517"
+file = "apps/explorer/types/api/repair-22-33-517.spec.ts"
+symbol = "repair-22-33-517.spec.ts"
+observed = "Attempt 2: the type-check failed in ten consumer files outside the four paths; the verify never ran."
+assumption = "An interface change that did not carry its consumers (gotcha 3038)."
+severity = "medium"
+
+[finding.22.33.1538.2]
+task = "22.33.1538"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1538.rs"
+symbol = "repair_22_33_1538.rs"
+observed = "Attempt 2: 14 of 22 cases passed; the fixtures served one exchange per lookup and the client sent two; one case resolved a receipt with a changed payment denomination."
+assumption = "Fixtures behind the lookup contract (gotcha 3039); the denomination case may be a resolver defect."
+severity = "high"
+
+[finding.22.33.761.3]
+task = "22.33.761"
+file = "tools/qualification/audit_repairs/test_repair_22_33_761.py"
+symbol = "test_repair_22_33_761.py"
+observed = "Attempt 3: the test could not import the runtime module the change calls; it was not in the change."
+assumption = "A declared path never written (gotcha 3040)."
+severity = "low"
+
+[finding.22.9.10.22]
+task = "22.9.10"
+file = "services/agent/sdk/typescript/src/ai_market.ts"
+symbol = "ai_market.ts"
+observed = "Attempt 36: 50 of 52 cases passed; two plan-leg cases outside the paths encoded the retired nested call shape."
+assumption = "A verify target outside the paths encoding a retired shape; the task owns the decoder it exercises."
+severity = "low"
