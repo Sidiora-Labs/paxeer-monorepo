@@ -1,0 +1,54 @@
+[repair.22.33.221]
+mode = "BUILD"
+acceptance = "22998.1"
+baseline_revision = "0ba7cfa54c7f07b37201b1f12fcc2f1dd7ed0ed7"
+baseline = "No prior gate ledger or repair_22_33_221.rs exists in this checkout. The earlier attempt's dependent-crate build failure is recorded by do_14; no baseline test failures are claimed. The explicit implementation-first, hf-build then hf-done order supersedes do_11's historical instruction to run verify by hand."
+qualification = "hf-build then hf-done on the unchanged candidate; the runner's private gate ledger records the exact candidate revision, command, exit code and log location."
+producer = "Pinned committed repair_22_31_256.hex node TxRaw, EVM ABI, deterministic TxResult, ctx.go export/restore, descriptor and migration-accounting bytes; bootstrap_headers.json Go consensus header/commit vectors."
+transport = "Production LXCP, DeploymentExecutionProof, DeploymentProof, DeploymentEnvelope, DeploymentJournalEntry and TrustRoot codecs; committed in-process IAVL/multistore peer supplies membership and absence operations for exact exported rows."
+
+[finding.chain-upgrade-restart-test]
+test = "chain_upgrade_restart_test"
+repair = "Initial deployment H+1 is byte-identical to upgrade H; persist both canonical hosted envelopes and trust root, stop registry/verifier/store producers, reopen and reverify, then compare complete contiguous history, transaction identities, resolution, interfaces and real runtime migration accounting."
+
+[finding.account-proof-fixture]
+test = "account_proof_fixture"
+repair = "Replace the fabricated 01/0009/04 positive with exact Go-host 06 account export and restored bytes; authenticate its full value with ICS23, reopen canonical proof and trust bytes, verify the balance and asset again, and retain field/key/operation/root/legacy-layout mutation refusals."
+
+[finding.deployment-interface-fixture]
+test = "deployment_interface_fixture"
+repair = "Separate authenticated presence and absence states for real Lifecycle records and exported descriptors; reject omission, same-WASM schema/discriminator substitution and cross-version values over unchanged authenticated roots."
+
+[finding.header-bootstrap-test]
+test = "header_bootstrap_test"
+repair = "Reuse every existing Go bootstrap vector and signature assertion through shared test support, accept real nil/default predecessor and result fields with the expected Go hash, and make legacy malformed tests field-specific while preserving invalid lengths, duplicates and ordering refusals."
+
+[finding.verifier-interface-coverage]
+test = "verifier_interface_coverage"
+repair = "Drive both public deployment verifier entrypoints through canonical transport; reject hidden interfaces, substituted same-code schemas, cross-version descriptors and absence proofs borrowed from a different root."
+
+[finding.native-interface-transport-test]
+test = "native_interface_transport_test"
+repair = "Consume exported node transaction, result and descriptor bytes unchanged through canonical admission; authenticate H/H+1 linkage, result index/total and host interface membership, then use the real public interface reader; authenticated failure and mutation cases refuse. Existing ABI and capability tests remain intact."
+
+[finding.registry-proof-restart-coverage]
+test = "registry_proof_restart_coverage"
+repair = "Persist deployment and upgrade with the shared hosted envelope contract, close all live components, recover with DeploymentEnvelope::decode, reverify and replay typed journal entries, and compare full history, original transaction identity and both deployment resolutions; truncated or corrupt envelopes, history gaps and duplicate replay refuse."
+
+[wiring.host-proof-export]
+request = "modules/lxphost and node RPC/proof publisher owning domain: export full committed account/interface membership and absence proof transcripts alongside the existing host row export/restore vectors; these tests use the committed in-process ICS23 store peer without invoking Go or a live node."
+
+[wiring.account-balance-consumer]
+request = "programs/crates/layerx-programs-registry/src/lib.rs, Programs registry owning domain: add a registry balance consumer for VerifiedChainAccountSnapshot; read_value_accounts currently accepts only the legacy VerifiedAccountSnapshot and cannot consume the authenticated host snapshot."
+
+[wiring.hosted-recovery]
+request = "services/platform/hosted/registry/src/journal.rs, hosted registry owning domain: exercise FileDeploymentJournal::replay_deployments with these admission bytes in the hosted crate's gate; this crate exercises its shared production DeploymentEnvelope::decode recovery contract and public Registry::replay_journal."
+
+[wiring.absent-interface-execution]
+request = "node deployment serializer and RPC/proof publisher owning domain: export an initial transaction with no descriptor and its interface-absence proof; the available committed node transactions publish descriptors, so successful absence is proven at the state consumer and inconsistent absence is refused by both execution verifier entrypoints."
+
+[gotcha.scope]
+observed = "GOTCHA.kvx and spec task records are outside the permitted paths; durable task findings and wiring requests are recorded here."
+
+[gotcha.retained-attempt]
+observed = "The continuation has no prior task implementation to retain in this checkout; the prerequisite producer transcripts and production repairs are already present and are reused unchanged."
