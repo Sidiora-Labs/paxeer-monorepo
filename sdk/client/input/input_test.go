@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"io"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -18,6 +19,40 @@ func (f fakeReader) Read(p []byte) (int, error) {
 }
 
 var _ io.Reader = fakeReader{}
+
+func TestGetConfirmation(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		response  string
+		confirmed bool
+		err       error
+	}{
+		{name: "short lowercase", response: "y\n", confirmed: true},
+		{name: "short uppercase", response: "Y\n", confirmed: true},
+		{name: "full lowercase", response: "yes\n", confirmed: true},
+		{name: "full uppercase", response: "YES\n", confirmed: true},
+		{name: "mixed case", response: "YeS\n", confirmed: true},
+		{name: "surrounding whitespace", response: " \tYes\t \r\n", confirmed: true},
+		{name: "prefix word", response: "yesterday\n"},
+		{name: "full word prefix", response: "yesplease\n"},
+		{name: "negative", response: "no\n"},
+		{name: "blank", response: "\n"},
+		{name: "whitespace", response: " \t\r\n"},
+		{name: "affirmative at EOF", response: "yes", confirmed: true},
+		{name: "prefix at EOF", response: "yellow"},
+		{name: "empty EOF", err: io.EOF},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			confirmed, err := GetConfirmation("Confirm", bufio.NewReader(strings.NewReader(tc.response)), io.Discard)
+			if tc.err != nil {
+				require.ErrorIs(t, err, tc.err)
+			} else {
+				require.NoError(t, err)
+			}
+			require.Equal(t, tc.confirmed, confirmed)
+		})
+	}
+}
 
 func TestReadLineFromBuf(t *testing.T) {
 	var fr fakeReader
