@@ -829,7 +829,14 @@ func TestRunTaskSyncSuppressesErrorUnderCancellation(t *testing.T) {
 	const id = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // the task's context is already cancelled, as after RemoveResult
-	eng.runTaskSync(WithTaskID(ctx, id), id, TaskConfigPatch, eng.handlers[TaskConfigPatch], nil, time.Now().UTC(), 1, 1)
+	tr := &TaskResult{ID: id, Type: string(TaskConfigPatch), Status: TaskStatusRunning, Run: 1, SubmittedAt: time.Now().UTC()}
+	if err := eng.store.Save(tr); err != nil {
+		t.Fatal(err)
+	}
+	if deleted, err := eng.store.Delete(id); err != nil || !deleted {
+		t.Fatalf("delete: found=%v err=%v", deleted, err)
+	}
+	eng.runTaskSync(WithTaskID(ctx, id), id, TaskConfigPatch, eng.handlers[TaskConfigPatch], nil, tr.SubmittedAt, 1, 1, tr.Generation)
 
 	if r := eng.GetResult(id); r != nil {
 		t.Fatalf("non-context error under a cancelled ctx must not persist; got %q row", r.Status)
@@ -869,8 +876,12 @@ func TestRunTaskSyncPersistsFailedOnDeadlineExceeded(t *testing.T) {
 				},
 			})
 
+			tr := &TaskResult{ID: tc.id, Type: string(TaskConfigPatch), Status: TaskStatusRunning, Run: 1, SubmittedAt: time.Now().UTC()}
+			if err := eng.store.Save(tr); err != nil {
+				t.Fatal(err)
+			}
 			ctx := WithTaskID(tc.ctx(t), tc.id)
-			eng.runTaskSync(ctx, tc.id, TaskConfigPatch, eng.handlers[TaskConfigPatch], nil, time.Now().UTC(), 1, 1)
+			eng.runTaskSync(ctx, tc.id, TaskConfigPatch, eng.handlers[TaskConfigPatch], nil, tr.SubmittedAt, 1, 1, tr.Generation)
 
 			r := eng.GetResult(tc.id)
 			if r == nil {

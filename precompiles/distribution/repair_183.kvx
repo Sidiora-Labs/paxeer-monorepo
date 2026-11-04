@@ -1,0 +1,11 @@
+[repair.22.31.183]
+finding = "rewards-accepts-value"
+activation = "ValidateNonPayable applies to the current rewards route from the recorded v7.0 done height, inclusive; absent activation and heights below it retain historical value acceptance. Legacy executors are unchanged."
+tests = ["TestRepair_183_PositiveValueRawCALL", "TestRepair_183_ZeroValueRealRewards", "TestRepair_183_HistoricalReplay", "TestRepair_183_RawTransactionReverts"]
+proof = "Signed raw transactions carry ABI-produced rewards calldata into the real EVM, distribution keeper and SDK store. Raw CALL rollback preserves both balances exactly; the full transaction preserves value balances after accounting for its real gas fee. Zero-value CALL and STATICCALL return the complete nonzero keeper rewards tuple."
+baseline = "Not run: the explicit task order prohibits testing before implementation and requires verification only through hf-done after hf-build; no earlier gate ledger exists. No baseline failure is claimed."
+wiring_requests = []
+evidence = "The hf-done private gate ledger and final task evidence identify the exact verified candidate revision, command, exit code and log location."
+gotcha = "The merge gate must use the recorded done height rather than a scheduled plan or current binary version, and must read it without charging rewards execution gas."
+qualification_repair = "Preserve the prior node package alias fix. Decode the ABI rewards tuple into exact wire-order test types: ConvertType copies nested fields positionally, whereas the executor structs use a different field order. The full keeper rewards equality assertion remains intact. The prior attempt failure is retained in the private /out/run/gate.json seed record."
+decoder_gotcha = "ABI packing maps struct fields by name, but abi.ConvertType copies nested tuple fields by position; decoder structs must match the ABI field order, including Coin amount/decimals/denom and Reward coins/validator_address."
