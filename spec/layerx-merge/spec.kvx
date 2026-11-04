@@ -146713,7 +146713,7 @@ do_19 = "The candidate carries only sources under the touches and the test file:
 
 [task.22.31.273]
 title = "Repair audit record 22.30.146 findings in services/explorer/services/libs/blockscout-client/crate/src/models: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -147356,7 +147356,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.254]
 title = "Repair audit record 22.30.123 findings in programs/crates/layerx-programs-ai-market/tests: config-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -147719,7 +147719,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.224]
 title = "Repair audit record 22.30.97 findings in services/agent/crates/layerx-mcp/src/tools: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -148896,7 +148896,7 @@ do_10 = "The candidate carries only sources under the touches and the test file:
 
 [task.22.31.163]
 title = "Repair audit record 22.30.109 findings in services/interop/crates/layerx-migrate/src: interface-mismatch, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -148969,7 +148969,7 @@ do_9 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.161]
 title = "Repair audit record 22.30.108 findings in services/interop/crates/layerx-bridge-relayer/src/solana: runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -160289,7 +160289,7 @@ do_12 = "The candidate carries only sources under the touches and the test file:
 
 [task.22.31.309]
 title = "Repair audit record 22.30.167 findings in sdk/x/gov/client/utils: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -162963,7 +162963,7 @@ do_8 = "Verification runs only the TestRepair_124_* functions of repair_124_test
 
 [task.22.31.123]
 title = "Repair audit record 22.30.55 findings in consensus/test/e2e/runner: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
