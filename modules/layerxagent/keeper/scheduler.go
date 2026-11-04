@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"math/big"
@@ -10,12 +11,33 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/state"
 	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxagent/types"
+	agentcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxagent/common"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/prefix"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	authtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/types"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/vm"
 )
+
+// validatePendingGasLimits preserves FIFO admission across parameter reductions,
+// including jobs that are not due yet. Rejection leaves their escrow untouched.
+func (k Keeper) validatePendingGasLimits(ctx sdk.Context, params Params) error {
+	iterator := prefix.NewStore(k.store(ctx), JobKeyPrefix).Iterator(nil, nil)
+	defer func() { _ = iterator.Close() }()
+	for ; iterator.Valid(); iterator.Next() {
+		id := binary.BigEndian.Uint64(iterator.Key())
+		job, found := k.GetJob(ctx, id)
+		if !found {
+			panic(fmt.Errorf("layerxagent missing job %d", id))
+		}
+		if job.Active && (job.GasLimit > params.MaxJobGasLimit || job.GasLimit > params.MaxBlockGas) {
+			return fmt.Errorf("%w: job %d gas limit %d exceeds proposed max job gas limit %d or max block gas %d",
+				agentcommon.ErrSchedulerInvalidGasLimit, id, job.GasLimit, params.MaxJobGasLimit, params.MaxBlockGas)
+		}
+	}
+	return nil
+}
 
 // EndBlocker reads the current due index on every call, runs its admitted jobs
 // and returns their outcome event encoding and settlement errors. Outcomes

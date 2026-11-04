@@ -1,0 +1,7 @@
+[repair.22.33.687]
+finding = "distribution-parameter-sum"
+tests = ["TestRepairM_687_KeeperRejectsInvalidSet", "TestRepairM_687_ProposalRejectsCombinedRates", "TestRepairM_687_ProposalRollsBackAllChanges", "TestRepairM_687_ProposalAcceptsFinalSet", "TestRepairM_687_ProposalPreservesIndividualValidation", "TestRepairM_687_ProposalPreservesOtherSubspaces"]
+baseline = "Not run: the explicit ordered gate instructions require implementation before qualification and prohibit running verify_cmd by hand. No baseline failures are claimed."
+wiring_request = "node/app.go (owning domain: node/application composition): wrap the existing parameter proposal handler chain in app.DistrKeeper.ParamChangeProposalHandler before registering paramproposal.RouterKey; this task cannot edit that path."
+qualification = "The runner records the candidate revision, command, exit code and private log through hf-build and hf-done. Application route wiring remains with the owning domain."
+gotcha = "Amino requires quoted JSON for uint64 parameter values; generate every proposal value with LegacyAmino.MarshalAsJSON rather than hand-writing numeric JSON."
