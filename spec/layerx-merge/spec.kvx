@@ -324893,7 +324893,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.861]
 title = "Repair audit record 22.30.182 medium findings in tools/qualification/paxeer-x (part 2 of 3): retired-reference, security, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.430", "22.31.431", "22.31.432"]
@@ -325711,7 +325711,7 @@ do_13 = "Attempt 3 (requalify): the only failure was test collection: the test l
 
 [task.22.33.809]
 title = "Repair audit record 22.30.178 medium findings in tools/qualification (part 1 of 1): retired-reference, test-gap, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.320"]
