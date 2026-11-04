@@ -41,13 +41,15 @@ func (s *configTestSuite) TestConfig_SetCoinType() {
 }
 
 func (s *configTestSuite) TestConfig_SetTxEncoder() {
-	mockErr := errors.New("test")
+	sentinel := errors.New("encoder failed")
+	payload := []byte("encoded transaction")
 	config := sdk.NewConfig()
 	s.Require().Nil(config.GetTxEncoder())
-	encFunc := sdk.TxEncoder(func(tx sdk.Tx) ([]byte, error) { return nil, nil })
+	encFunc := sdk.TxEncoder(func(tx sdk.Tx) ([]byte, error) { return payload, sentinel })
 	config.SetTxEncoder(encFunc)
-	_, err := config.GetTxEncoder()(sdk.Tx(nil))
-	s.Require().Error(mockErr, err)
+	actual, err := config.GetTxEncoder()(sdk.Tx(nil))
+	s.Require().ErrorIs(err, sentinel)
+	s.Require().Equal(payload, actual)
 
 	config.Seal()
 	s.Require().Panics(func() { config.SetTxEncoder(encFunc) })

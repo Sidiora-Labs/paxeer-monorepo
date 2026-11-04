@@ -1,0 +1,10 @@
+[repair.22.33.322]
+finding = "utilization_localized_css"
+test = "repair-22-33-322.spec.ts:utilizationLocalizedCss"
+coverage = "Real Utilization, Intl number formatting, Chakra theme/provider and DOM CSS consumer; decimal-comma labels, numeric widths, precision and clamping."
+locale = "Optional explicit locale selects real Intl formatting without mocking globals or requiring environment variables; omitted locale retains runtime default."
+baseline = "Not run: the ordered gate instructions prohibit verification before implementation and require hf-build before hf-done. No baseline failure is claimed."
+wiring_requests = "None."
+evidence = "The bounded hf-build/hf-done ledger records the exact candidate revision, command, exit and private log path."
+previous_attempt = "Candidate 64e3937382e01c9f6a79c6b50f3757e4a939e4e5 failed before compilation with ERR_PNPM_OTHER_PM_EXPECTED; no test result was produced."
+qualification_setup = "Install Explorer's declared dependencies with its pinned Yarn release and use pnpm 8.15.9 for the unchanged declared gate commands, without changing manifests or disabling checks."

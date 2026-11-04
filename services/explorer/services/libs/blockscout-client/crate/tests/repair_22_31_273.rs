@@ -733,8 +733,8 @@ fn native_feed_item() -> Value {
 
 #[test]
 fn transaction_feed_native_items() {
+    use blockscout_client::apis::feed::{FeedItem, TransactionFeedPage};
     use blockscout_client::apis::transactions_api::GetTxsSuccess;
-    use get_txs_200_response::TransactionFeedItem;
     let evm = recording(TX);
     let native = native_feed_item();
     // PriceUpdateList.paging_params adds its 1_000_000 native index offset.
@@ -744,7 +744,7 @@ fn transaction_feed_native_items() {
     assert!(transport.try_as_success().is_some());
     let model = transport.try_parse_as_success_model().unwrap();
     match &model.items[0] {
-        TransactionFeedItem::PriceUpdate(update) => {
+        FeedItem::Native(update) => {
             assert_eq!(update.price_update.observation_count, 2);
             assert_eq!(update.price_update.observations[1].symbol, None);
             assert!(!update.price_update.observations[1].accepted);
@@ -756,25 +756,16 @@ fn transaction_feed_native_items() {
         }
         _ => panic!("native feed item lost"),
     }
-    assert!(matches!(
-        &model.items[1],
-        TransactionFeedItem::Transaction(_)
-    ));
+    assert!(matches!(&model.items[1], FeedItem::Evm(_)));
     assert_eq!(model.next_page_params, cursor);
     let next_page = json!({"items": [evm, native], "next_page_params": null});
-    let next: GetTxs200Response = decode(&next_page);
-    assert!(matches!(
-        &next.items[0],
-        TransactionFeedItem::Transaction(_)
-    ));
-    assert!(matches!(
-        &next.items[1],
-        TransactionFeedItem::PriceUpdate(_)
-    ));
+    let next: TransactionFeedPage = decode(&next_page);
+    assert!(matches!(&next.items[0], FeedItem::Evm(_)));
+    assert!(matches!(&next.items[1], FeedItem::Native(_)));
     assert!(next.next_page_params.is_null());
     let mut malformed = native.clone();
     malformed.as_object_mut().unwrap().remove("price_update");
-    assert!(serde_json::from_value::<TransactionFeedItem>(malformed).is_err());
+    assert!(serde_json::from_value::<FeedItem>(malformed).is_err());
 }
 
 #[test]

@@ -1,0 +1,22 @@
+[repair.22.33.654]
+audit = "22.30.166"
+acceptance = "22998.1"
+baseline = "Not run: the explicit gate order requires full implementation before hf-build and permits verification only through hf-done; no pre-change test failure is claimed."
+evidence = "The runner hf-build/hf-done ledger records the exact candidate revision, commands, exit codes and private log locations."
+wiring_task_record = "spec/layerx-merge/spec.kvx — fm-cosmos-fork: copy the finding-to-test mappings below into the task record; this task forbids spec edits."
+wiring_cli = "sdk/x/auth/client/cli/validate_sigs.go — fm-cosmos-fork domain 15: propagate GetSignaturesV2 errors from printAndValidateSigs instead of panicking and add decoded short-signature CLI coverage; this path is outside scope."
+
+[finding.wrapper-signature-cardinality]
+test = "TestRepairM_654_WrapperSignatureCardinality"
+path = "sdk/x/auth/tx/repair_m654_test.go"
+proof = "Real signing handler and keys produce a two-signer TxRaw; shortened, missing, extra and orphan signature arrays pass through the real decoder and builder and return typed errors without panic; unsigned simulation shapes and signed cryptographic verification remain covered."
+
+[finding.empty-block-query-rejected]
+test = "TestRepairM_654_EmptyBlockQuery"
+path = "sdk/x/auth/tx/repair_m654_test.go"
+proof = "Real consensus block producer, committed local block store, local client, registered query service and protobuf query client return the empty block identity and zero transaction total; invalid offsets and limits still fail."
+
+[finding.multisig-mode-shape-panic]
+test = "TestRepairM_654_MultisigModeShape"
+path = "sdk/x/auth/tx/repair_m654_test.go"
+proof = "Malformed multisig wire bytes traverse TxRaw encoding, the real transaction decoder and wrapper conversion; invalid modes, pointers, bitarrays and counts return typed errors without panic, while the real nested signature producer round-trips intact."

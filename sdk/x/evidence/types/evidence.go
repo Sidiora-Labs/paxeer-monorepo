@@ -6,10 +6,12 @@ import (
 	"time"
 
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/crypto"
 	tmbytes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/bytes"
 	"gopkg.in/yaml.v2"
 
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/evidence/exported"
 )
 
@@ -53,18 +55,33 @@ func (e *Equivocation) ValidateBasic() error {
 	if e.Power < 1 {
 		return fmt.Errorf("invalid equivocation validator power: %d", e.Power)
 	}
-	if e.ConsensusAddress == "" {
-		return fmt.Errorf("invalid equivocation validator consensus address: %s", e.ConsensusAddress)
+	if _, err := e.consensusAddress(); err != nil {
+		return err
 	}
 
 	return nil
 }
 
 // GetConsensusAddress returns the validator's consensus address at time of the
-// Equivocation infraction.
+// Equivocation infraction. It panics if the address is invalid; callers must
+// validate evidence before using it.
 func (e Equivocation) GetConsensusAddress() sdk.ConsAddress {
-	addr, _ := sdk.ConsAddressFromBech32(e.ConsensusAddress)
+	addr, err := e.consensusAddress()
+	if err != nil {
+		panic(err)
+	}
 	return addr
+}
+
+func (e Equivocation) consensusAddress() (sdk.ConsAddress, error) {
+	addr, err := sdk.ConsAddressFromBech32(e.ConsensusAddress)
+	if err != nil {
+		return nil, sdkerrors.Wrapf(ErrInvalidEvidence, "invalid equivocation validator consensus address: %s", err)
+	}
+	if len(addr) != crypto.AddressSize {
+		return nil, sdkerrors.Wrapf(ErrInvalidEvidence, "invalid equivocation validator consensus address length: expected %d, got %d", crypto.AddressSize, len(addr))
+	}
+	return addr, nil
 }
 
 // GetHeight returns the height at time of the Equivocation infraction.
