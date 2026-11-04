@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"math"
 	"os"
 	"os/signal"
 	"strings"
@@ -58,8 +59,10 @@ func syncCommand(ctx *cli.Context) error {
 	threads := ctx.Uint64("threads")
 	verbose := !ctx.Bool("quiet")
 	throttleMB := ctx.Float64("throttle")
-	periodSeconds := ctx.Int64("period")
-	period := time.Duration(periodSeconds) * time.Second
+	period, err := syncPeriod(ctx)
+	if err != nil {
+		return err
+	}
 
 	maxAgeSeconds := ctx.Uint64("max-age")
 	remoteLittBinary := ctx.String("litt-binary")
@@ -88,6 +91,14 @@ func syncCommand(ctx *cli.Context) error {
 		maxAgeSeconds,
 		remoteLittBinary,
 		verbose).run()
+}
+
+func syncPeriod(ctx *cli.Context) (time.Duration, error) {
+	seconds := ctx.Uint64("period")
+	if seconds == 0 || seconds > uint64(math.MaxInt64/int64(time.Second)) {
+		return 0, fmt.Errorf("period must be between 1 and %d seconds", math.MaxInt64/int64(time.Second))
+	}
+	return time.Duration(seconds) * time.Second, nil
 }
 
 // A utility that periodically transfers data from a local database to a remote backup using rsync.
