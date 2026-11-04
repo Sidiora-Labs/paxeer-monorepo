@@ -92,9 +92,10 @@ func TestCreate(t *testing.T) {
 }
 
 func TestSelfDestructAssociated(t *testing.T) {
-	k := &testkeeper.EVMTestApp.EvmKeeper
-	ctx := testkeeper.EVMTestApp.GetContextForDeliverTx([]byte{}).WithBlockTime(time.Now())
+	fixture := newRepairM1246Fixture(t)
+	k, ctx := fixture.k, fixture.ctx
 	paxAddr, evmAddr := testkeeper.MockAddressPair()
+	castAddr := sdk.AccAddress(evmAddr[:])
 	k.SetAddressMapping(ctx, paxAddr, evmAddr)
 	statedb := state.NewDBImpl(ctx, k, false)
 	statedb.CreateAccount(evmAddr)
@@ -106,35 +107,59 @@ func TestSelfDestructAssociated(t *testing.T) {
 	statedb.SetCode(evmAddr, []byte("code"))
 	statedb.SetTransientState(evmAddr, tkey, tval)
 	amt := sdk.NewCoins(sdk.NewCoin(k.GetBaseDenom(ctx), sdk.NewInt(10)))
-	k.BankKeeper().MintCoins(statedb.Ctx(), types.ModuleName, amt)
-	k.BankKeeper().SendCoinsFromModuleToAccount(statedb.Ctx(), types.ModuleName, paxAddr, amt)
+	require.NoError(t, k.BankKeeper().MintCoins(statedb.Ctx(), types.ModuleName, amt))
+	require.NoError(t, k.BankKeeper().SendCoinsFromModuleToAccount(statedb.Ctx(), types.ModuleName, paxAddr, amt))
+	funded := uint256.NewInt(10_000_000_000_000)
+	require.Equal(t, funded, statedb.GetBalance(evmAddr))
+	require.Equal(t, sdk.NewInt(10), k.BankKeeper().GetBalance(statedb.Ctx(), paxAddr, k.GetBaseDenom(ctx)).Amount)
+	require.Zero(t, k.GetBalance(statedb.Ctx(), castAddr).Sign())
 
 	// Selfdestruct6780 should only act if the account is created in the same block
 	statedb.MarkAccount(evmAddr, nil)
-	statedb.SelfDestruct6780(evmAddr)
+	amount, destroyed := statedb.SelfDestruct6780(evmAddr)
+	require.False(t, destroyed)
+	require.True(t, amount.IsZero())
+	require.Equal(t, funded, statedb.GetBalance(evmAddr))
 	require.Equal(t, val, statedb.GetState(evmAddr, key))
 	statedb.MarkAccount(evmAddr, state.AccountCreated)
 	require.False(t, statedb.HasSelfDestructed(evmAddr))
 
 	// Selfdestruct6780 is equivalent to SelfDestruct if account is created in the same block
-	statedb.SelfDestruct6780(evmAddr)
+	amount, destroyed = statedb.SelfDestruct6780(evmAddr)
+	require.True(t, destroyed)
+	require.Equal(t, *funded, amount)
+	require.NoError(t, statedb.Error())
 	require.Equal(t, tval, statedb.GetTransientState(evmAddr, tkey))
 	require.NotEqual(t, common.Hash{}, statedb.GetState(evmAddr, key))
 	require.Equal(t, uint256.NewInt(0), statedb.GetBalance(evmAddr))
-	require.Equal(t, big.NewInt(0), k.BankKeeper().GetBalance(ctx, paxAddr, k.GetBaseDenom(ctx)).Amount.BigInt())
+	require.Equal(t, big.NewInt(0), k.BankKeeper().GetBalance(statedb.Ctx(), paxAddr, k.GetBaseDenom(ctx)).Amount.BigInt())
+	require.Zero(t, k.GetBalance(statedb.Ctx(), castAddr).Sign())
 	require.True(t, statedb.HasSelfDestructed(evmAddr))
 	require.False(t, statedb.Created(evmAddr))
 	statedb.AddBalance(evmAddr, uint256.NewInt(1), tracing.BalanceChangeUnspecified)
+	require.NoError(t, statedb.Error())
 	require.Equal(t, uint256.NewInt(1), statedb.GetBalance(evmAddr))
-	statedb.Finalize()
+	_, err := statedb.Finalize()
+	require.NoError(t, err)
 	require.Equal(t, common.Hash{}, statedb.GetState(evmAddr, key))
 	// association should also be removed
 	_, ok := k.GetPaxAddress(statedb.Ctx(), evmAddr)
 	require.False(t, ok)
 	// balance in destructed account should be cleared and transferred to coinbase
 	require.Equal(t, uint256.NewInt(0), statedb.GetBalance(evmAddr))
-	fc, _ := k.GetFeeCollectorAddress(statedb.Ctx())
+	fc, err := k.GetFeeCollectorAddress(statedb.Ctx())
+	require.NoError(t, err)
 	require.Equal(t, uint256.NewInt(1), statedb.GetBalance(fc))
+	statedb.Cleanup()
+	fixture.commitAndReopen(t)
+	reloaded := state.NewDBImpl(fixture.ctx, k, false)
+	require.Zero(t, k.GetBalance(reloaded.Ctx(), paxAddr).Sign())
+	require.Zero(t, k.GetBalance(reloaded.Ctx(), castAddr).Sign())
+	require.True(t, reloaded.GetBalance(evmAddr).IsZero())
+	require.Equal(t, uint256.NewInt(1), reloaded.GetBalance(fc))
+	require.Equal(t, common.Hash{}, reloaded.GetState(evmAddr, key))
+	_, ok = k.GetPaxAddress(reloaded.Ctx(), evmAddr)
+	require.False(t, ok)
 }
 
 // TestEIP6780WithPrefundedAddress verifies that EIP-6780 selfdestruct works correctly
