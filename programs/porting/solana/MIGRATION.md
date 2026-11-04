@@ -273,13 +273,46 @@ price and limit to `i64::MAX`.
 
 ### Escrow, vaults and refunds
 
-A vault can port to a registered program-derived account. Use
+A vault can accumulate funds and pay them out in a later invocation through a
+registered program-derived account. Record the migration mapping explicitly:
+
+| Source identifier | Destination identifier |
+| --- | --- |
+| SOL or SPL mint | authenticated native asset ID selected by the port; amounts are exact asset units |
+| Solana program ID | deployed Paxeer `ProgramId` owning the vault |
+| Solana vault PDA and its seeds/bump | native account from `derive_program_account(owner_program, seed)`; the public seed is at most 128 bytes |
+| Payer or refund beneficiary public key | authenticated principal and explicitly mapped native recipient account |
+
+The native derivation replaces the PDA's value-holding role; the original
+Solana PDA bytes and bump are not native transfer authority. Use
 [`PreparedProgramAccount`](../../sdk/rust/src/payments.rs) to derive it and
 produce its registration payload. Submit that payload through the signed
-native registration path under deployment authority. Funding uses a bounded
-transfer grant; payouts use an owner-bound `ProgramSpend` grant with the seed,
-source, asset, recipient and amount ceiling. The runtime and kernel validate
-the account and authority before applying the effects atomically.
+native registration path under deployment authority, binding the owning
+program, seed and asset before funding. A bounded `Transfer402` grant and
+`fund_program_account(prepared.deposit(amount)?)` fund the account from the
+invoking principal. Registration alone neither funds it nor grants a payout.
+
+For a later refund, check the stored liability and beneficiary in the owner
+program, then construct the porting plan:
+
+```rust
+let source = derive_program_account(owner_program, seed)?.bytes();
+let plan = ProgramAccountTransferPlan::new(
+    owner_program, seed, source, asset, refund_account, refund_amount,
+)?;
+let grant = plan.capability(); // ProgramSpend, capped at refund_amount
+```
+
+`reference::program_account_payout` builds the same plan. Carry its grant in
+the authorized call; the guest requests the corresponding transfer with
+`pay_from_program_account(prepared.payment(recipient, amount)?)`. The plan
+rederives the source and refuses mismatched owner/seed/source or reserved
+monetary fields with `InvalidProgramAccount`. The host checks the executing
+owner-program frame and the exact source, asset, recipient and amount ceiling;
+a grant for another program cannot authorize this frame. The kernel also
+checks the registered account and available funds before atomic settlement.
+This bounded owner payout does not provide an `invoke_signed` signature to a
+callee or authorize arbitrary writes to lamports.
 
 Keep liabilities and refund eligibility in program storage and request an
 exact bounded payout when the owner frame executes. Deleting a storage cell
@@ -315,8 +348,21 @@ entrypoints can also carry typed refusals; see the
 | `invoke_signed` | bounded owner-account payout where applicable; no borrowed PDA signature |
 | Account reallocation and closure for rent | bounded writes/deletes, with payments authorized separately |
 | `remaining_accounts` fan-out | explicit application inputs and capabilities |
-| Ed25519 / secp256k1 verification | typed guest crypto bindings; verification does not authorize a debit |
+| SHA-256 / Keccak-256 / BLAKE3 | guest `crypto::hash(HashAlgorithm, HashInput)` returns `[u8; 32]`; input is at most 1,048,576 bytes |
+| Ed25519 verification | guest `ed25519_verify(Ed25519Message, &[u8; 32], &[u8; 64])`; message is at most 64 bytes |
+| secp256k1 verification | guest `secp256k1_verify(&[u8; 32], &Secp256k1PublicKey, &[u8; 64])`; key is `Compressed([u8; 33])` or `Uncompressed([u8; 65])` |
+| secp256k1 recovery | guest `secp256k1_recover(&[u8; 32], &[u8; 64], RecoveryId)` returns `[u8; 65]`; recovery ID is `0..=3` |
 | Floating point and ambient randomness | deterministic-subset restrictions; do not use ambient entropy |
+
+These deterministic SDK operations are available to `wasm32` guests at ABI v2
+and later admitted versions. Signatures use fixed 64-byte encodings (`r || s`
+for secp256k1), not DER. Bounded input constructors refuse oversized buffers
+or an invalid recovery ID; host calls refuse malformed keys/signatures,
+failed verification/recovery and resource exhaustion as `ProgramError`.
+Propagate refusals rather than treating them as successful verification.
+Transaction signatures, invoking-principal authentication and spending
+capabilities remain host authority checks. A valid application signature
+does not add a capability or authorize a native debit.
 
 ## The reference port, line by line
 
@@ -391,20 +437,28 @@ authority or a committed block receipt.
 
 ## SPL tokens, LXT-20 and native assets
 
-The [LXT-20 request codec](../../sdk/rust/src/lxt20.rs) defines seven requests.
-The [token guest](../../sdk/rust/examples/token-lxt20/src/lib.rs) exports those
-seven methods **plus `initialize`**, for eight exported token operations:
+The current token interface has eight operations, including initialization
+before funding and transfers. The
+[LXT-20 request codec](../../sdk/rust/src/lxt20.rs) defines seven `Request`
+variants (selectors 1–7); the
+[token guest](../../sdk/rust/examples/token-lxt20/src/lib.rs) also exports the
+separately encoded `initialize` (selector 0). The
+[native interface fixture](../../fixtures/pay5/token-lxt20.interface) binds all
+eight exports:
 
-| SPL flow | Reference mapping |
+| Selector / export | SPL flow and reference mapping |
 | --- | --- |
-| Establish the fixed supply | issuer-only `initialize`, staging full-supply funding |
-| Transfer / transfer checked | `Transfer` with exact `u128` units and explicit backing asset |
-| Approve / revoke delegate | `Approve` for a spender principal; zero revokes the stored allowance |
-| Delegated transfer | `TransferFrom`, requiring both stored allowance and native spend authority |
-| Read token balance | `BalanceOf`, reading shared token accounting |
-| Read delegated amount | `Allowance` |
-| Read supply / metadata | `TotalSupply` / `Metadata`; native asset facts remain registry facts |
-| PDA custody / CPI payout | registered derived account and `ProgramSpend`; this token guest requires direct calls |
+| 0 / `initialize` | Establish fixed supply; issuer-only, staging full-supply funding |
+| 1 / `transfer` (`Transfer`) | Transfer / transfer checked; exact `u128` units and explicit backing asset |
+| 2 / `approve` (`Approve`) | Approve / revoke delegate; zero revokes the stored allowance |
+| 3 / `transfer_from` (`TransferFrom`) | Delegated transfer; requires stored allowance and native spend authority |
+| 4 / `balance_of` (`BalanceOf`) | Read shared token accounting |
+| 5 / `allowance` (`Allowance`) | Read delegated amount |
+| 6 / `total_supply` (`TotalSupply`) | Read initialized supply |
+| 7 / `metadata` (`Metadata`) | Read token metadata; native asset facts remain registry facts |
+
+PDA custody uses a registered derived account and `ProgramSpend`. This token
+guest requires direct calls and refuses an immediate program caller.
 
 Each request starts with `[b'L', b'X', 20, method]`, where methods 1 through 7
 follow the codec's enum order. It then carries convention byte `0x01`, bounded
@@ -420,8 +474,19 @@ account derivations for this interface. The related
 4c 58 14 00 01 20 00 00 00 00
 ```
 
-It requires the configured issuer, zero existing supply and funding authority
-for `REFERENCE_SUPPLY`. The reference derives each owner's native account from
+It requires the configured `REFERENCE_ISSUER`, zero existing supply, shared
+storage read/write capabilities and a `Transfer402` grant for
+`REFERENCE_ASSET` to the issuer's derived account capped at least at
+`REFERENCE_SUPPLY` (1,000,000 units). On success it stages one program-account
+funding leg, registers the issuer in token storage, records the full issuer
+balance and supply, and returns canonical empty response bytes
+`01 20 00 00 00 00`. A different caller, missing or insufficient funding grant,
+wrong asset/recipient, malformed input or repeated initialization is refused;
+no token storage or payment effects commit. A full grant does not override the
+issuer check. Native account registration and sufficient payer funds are also
+required for settlement.
+
+The reference derives each owner's native account from
 the program and the owner's 32-byte principal identity. Owners register in
 token storage by calling `approve` (zero is sufficient); deployment authority
 must separately register their native accounts. `PreparedProgramAccount`
@@ -439,6 +504,13 @@ uses receipt-bound `BalanceView` authority rather than reading token storage.
 The fixture replay entrypoint is
 [`run_native_roundtrip.py`](../../fixtures/pay5/run_native_roundtrip.py); it
 replays isolated token and merchant activities and compares canonical artifacts.
+The committed `native-token/05-initialize.*` artifacts record successful
+initialization before approve and transfer calls; `08-transfer_from.*` records
+the refused missing-spend-authority case, `09-transfer_from.*` the paused-asset
+refusal and `10-transfer_from.*` the authorized delegated payment. The focused
+[repair integration test](tests/repair_22_33_241.rs) executes the committed token
+WASM in-process, including positive and refused initialization and later
+owner-bound payouts; it needs no native harness or live endpoint.
 Fixtures and runtime tests are not certification of a live deployment.
 
 Native asset registration, account opening, mint and burn are separate signed
