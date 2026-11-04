@@ -110,15 +110,49 @@ func CollectTxs(cdc codec.JSONCodec, txJSONDecoder sdk.TxDecoder, moniker, genTx
 		// get the genTx
 		jsonRawTx, err := os.ReadFile(filepath.Clean(filepath.Join(genTxsDir, fo.Name())))
 		if err != nil {
-			return appGenTxs, persistentPeers, err
+			return appGenTxs, persistentPeers, fmt.Errorf("%s: %w", fo.Name(), err)
 		}
 
 		var genTx sdk.Tx
 		if genTx, err = txJSONDecoder(jsonRawTx); err != nil {
-			return appGenTxs, persistentPeers, err
+			return appGenTxs, persistentPeers, fmt.Errorf("%s: %w", fo.Name(), err)
 		}
 
-		appGenTxs = append(appGenTxs, genTx)
+		if genTx == nil {
+			return appGenTxs, persistentPeers, fmt.Errorf("%s: nil genesis transaction", fo.Name())
+		}
+		msgs := genTx.GetMsgs()
+		if len(msgs) != 1 {
+			return appGenTxs, persistentPeers, fmt.Errorf("%s: must provide genesis Tx with exactly 1 CreateValidator message, got %d", fo.Name(), len(msgs))
+		}
+		msg, ok := msgs[0].(*stakingtypes.MsgCreateValidator)
+		if !ok || msg == nil {
+			return appGenTxs, persistentPeers, fmt.Errorf("%s: expected MsgCreateValidator, got %T", fo.Name(), msgs[0])
+		}
+		if msg.MinSelfDelegation.IsNil() {
+			return appGenTxs, persistentPeers, fmt.Errorf("%s: invalid MsgCreateValidator: missing min_self_delegation", fo.Name())
+		}
+		if err := validateGenTxCommission(jsonRawTx); err != nil {
+			return appGenTxs, persistentPeers, fmt.Errorf("%s: invalid MsgCreateValidator: %w", fo.Name(), err)
+		}
+		for _, field := range []struct {
+			name string
+			rate sdk.Dec
+		}{
+			{"commission.rate", msg.Commission.Rate},
+			{"commission.max_rate", msg.Commission.MaxRate},
+			{"commission.max_change_rate", msg.Commission.MaxChangeRate},
+		} {
+			if field.rate.IsNil() {
+				return appGenTxs, persistentPeers, fmt.Errorf("%s: invalid MsgCreateValidator: missing %s", fo.Name(), field.name)
+			}
+		}
+		if err := msg.ValidateBasic(); err != nil {
+			return appGenTxs, persistentPeers, fmt.Errorf("%s: invalid MsgCreateValidator: %w", fo.Name(), err)
+		}
+		if err := genTx.ValidateBasic(); err != nil {
+			return appGenTxs, persistentPeers, fmt.Errorf("%s: invalid genesis transaction: %w", fo.Name(), err)
+		}
 
 		// the memo flag is used to store
 		// the ip and node-id, for example this may be:
@@ -126,24 +160,18 @@ func CollectTxs(cdc codec.JSONCodec, txJSONDecoder sdk.TxDecoder, moniker, genTx
 
 		memoTx, ok := genTx.(sdk.TxWithMemo)
 		if !ok {
-			return appGenTxs, persistentPeers, fmt.Errorf("expected TxWithMemo, got %T", genTx)
+			return appGenTxs, persistentPeers, fmt.Errorf("%s: expected TxWithMemo, got %T", fo.Name(), genTx)
 		}
 		nodeAddrIP := memoTx.GetMemo()
 		if len(nodeAddrIP) == 0 {
 			return appGenTxs, persistentPeers, fmt.Errorf("failed to find node's address and IP in %s", fo.Name())
 		}
 
-		// genesis transactions must be single-message
-		msgs := genTx.GetMsgs()
-
-		// TODO abstract out staking message validation back to staking
-		msg := msgs[0].(*stakingtypes.MsgCreateValidator)
-
 		// validate delegator and validator addresses and funds against the accounts in the state
 		delAddr := msg.DelegatorAddress
 		valAddr, err := sdk.ValAddressFromBech32(msg.ValidatorAddress)
 		if err != nil {
-			return appGenTxs, persistentPeers, err
+			return appGenTxs, persistentPeers, fmt.Errorf("%s: %w", fo.Name(), err)
 		}
 
 		delBal, delOk := balancesMap[delAddr]
@@ -153,7 +181,7 @@ func CollectTxs(cdc codec.JSONCodec, txJSONDecoder sdk.TxDecoder, moniker, genTx
 				fmt.Printf("CollectTxs-1, called from %s#%d\n", file, no)
 			}
 
-			return appGenTxs, persistentPeers, fmt.Errorf("account %s balance not in genesis state: %+v", delAddr, balancesMap)
+			return appGenTxs, persistentPeers, fmt.Errorf("%s: account %s balance not in genesis state: %+v", fo.Name(), delAddr, balancesMap)
 		}
 
 		_, valOk := balancesMap[sdk.AccAddress(valAddr).String()]
@@ -162,15 +190,17 @@ func CollectTxs(cdc codec.JSONCodec, txJSONDecoder sdk.TxDecoder, moniker, genTx
 			if ok {
 				fmt.Printf("CollectTxs-2, called from %s#%d - %s\n", file, no, sdk.AccAddress(msg.ValidatorAddress).String())
 			}
-			return appGenTxs, persistentPeers, fmt.Errorf("account %s balance not in genesis state: %+v", valAddr, balancesMap)
+			return appGenTxs, persistentPeers, fmt.Errorf("%s: account %s balance not in genesis state: %+v", fo.Name(), valAddr, balancesMap)
 		}
 
 		if delBal.GetCoins().AmountOf(msg.Value.Denom).LT(msg.Value.Amount) {
 			return appGenTxs, persistentPeers, fmt.Errorf(
-				"insufficient fund for delegation %v: %v < %v",
-				delBal.GetAddress().String(), delBal.GetCoins().AmountOf(msg.Value.Denom), msg.Value.Amount,
+				"%s: insufficient fund for delegation %v: %v < %v",
+				fo.Name(), delBal.GetAddress().String(), delBal.GetCoins().AmountOf(msg.Value.Denom), msg.Value.Amount,
 			)
 		}
+
+		appGenTxs = append(appGenTxs, genTx)
 
 		// exclude itself from persistent peers
 		if msg.Description.Moniker != moniker {
@@ -182,4 +212,44 @@ func CollectTxs(cdc codec.JSONCodec, txJSONDecoder sdk.TxDecoder, moniker, genTx
 	persistentPeers = strings.Join(addressesIPs, ",")
 
 	return appGenTxs, persistentPeers, nil
+}
+
+func validateGenTxCommission(encoded []byte) error {
+	// Non-nullable protobuf decimals can acquire zero values while unpacking Any.
+	// Check the ceremony input before those defaults erase field presence.
+	var tx struct {
+		Body struct {
+			Messages []struct {
+				Commission map[string]json.RawMessage `json:"commission"`
+			} `json:"messages"`
+		} `json:"body"`
+	}
+	if err := json.Unmarshal(encoded, &tx); err != nil {
+		return fmt.Errorf("invalid commission: %w", err)
+	}
+	if len(tx.Body.Messages) != 1 || tx.Body.Messages[0].Commission == nil {
+		return errors.New("missing commission")
+	}
+	commission := tx.Body.Messages[0].Commission
+	for _, field := range []struct{ name, jsonName string }{
+		{"rate", "rate"},
+		{"max_rate", "maxRate"},
+		{"max_change_rate", "maxChangeRate"},
+	} {
+		raw, ok := commission[field.name]
+		if !ok {
+			raw = commission[field.jsonName]
+		}
+		if len(raw) == 0 {
+			return fmt.Errorf("missing commission.%s", field.name)
+		}
+		var rate *sdk.Dec
+		if err := json.Unmarshal(raw, &rate); err != nil {
+			return fmt.Errorf("invalid commission.%s: %w", field.name, err)
+		}
+		if rate == nil || rate.IsNil() {
+			return fmt.Errorf("missing commission.%s", field.name)
+		}
+	}
+	return nil
 }
