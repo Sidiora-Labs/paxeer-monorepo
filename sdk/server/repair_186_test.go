@@ -79,8 +79,7 @@ func repair186Export(t *testing.T, app *baseapp.BaseApp, streaming bool) *tmtype
 	err := cmd.ExecuteContext(ctx)
 	var encoded []byte
 	if streaming {
-		// Audit finding export-stream-error is separate from export-consensus-loss.
-		require.EqualError(t, err, "error writing genesis state to file: <nil>")
+		require.NoError(t, err)
 		encoded, err = os.ReadFile(streamFile)
 		require.NoError(t, err)
 	} else {

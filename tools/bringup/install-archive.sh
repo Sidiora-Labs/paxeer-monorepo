@@ -10,7 +10,7 @@ touching what is already right: paxd installed through hpx as a full node at
 the release the mirror publishes, min-retain-blocks and ss-keep-recent at 0 so
 the node keeps every block, receipt and state version from its first synced
 block on, and nginx serving the node's JSON-RPC and WebSocket at the public
-RPC name over a Let's Encrypt certificate, like the other fifteen public RPC
+RPC name over a Let's Encrypt certificate, like the other published RPC
 hosts. Every step is skipped when its result is already in place; only a
 changed app.toml restarts paxd, only a new vhost reloads nginx, and only a
 paxd that differs from the published release is updated. A fresh node syncs
@@ -18,15 +18,16 @@ from the snapshot the mirror's trust anchor admits; the explorer's history
 copy covers the blocks before it.
 
 From the operator host, with the host map loaded:
-  ssh -- "$ARCHIVE_HOST" bash -s -- <public-rpc-name> <acme-email> \
+  ssh -- "$ARCHIVE_HOST" BRINGUP_RPC_INVENTORY=/usr/local/share/paxeer/public-rpc.md bash -s -- <public-rpc-name> <acme-email> \
     <tools/bringup/install-archive.sh
 
 Arguments:
-  public-rpc-name   one of api1 to api16 .mainnet-beta.paxeer.network
+  public-rpc-name   a numbered node from the published public RPC inventory
   acme-email        the Let's Encrypt account address, used only when the
                     name has no certificate yet
 
 Environment:
+  BRINGUP_RPC_INVENTORY  installed public-rpc.md inventory (required for stdin SSH installs)
   HPX_MIRROR   the hpx mirror, default https://node.hyperpaxeer.com
   HPX_HOME     the node home, default /root/.paxeer
 
@@ -49,7 +50,9 @@ fi
 name="$1"
 email="$2"
 
-if ! [[ "$name" =~ ^api([1-9]|1[0-6])\.mainnet-beta\.paxeer\.network$ ]] || [[ "$email" != *@* ]]; then
+inspector="${BRINGUP_INSPECT_BIN:-bringup-inspect}"
+inventory="${BRINGUP_RPC_INVENTORY:-$(dirname "${BASH_SOURCE[0]:-$0}")/../../docs/site/docs/reference/public-rpc.md}"
+if ! "$inspector" archive-name "$inventory" "$name" || [[ "$email" != *@* ]]; then
 	usage >&2
 	exit 2
 fi
@@ -62,8 +65,6 @@ fi
 mirror="${HPX_MIRROR:-https://node.hyperpaxeer.com}"
 home="${HPX_HOME:-/root/.paxeer}"
 app="$home/config/app.toml"
-vhost="/etc/nginx/sites-available/$name.conf"
-enabled="/etc/nginx/sites-enabled/$name.conf"
 webroot=/var/www/certbot
 
 say() {
@@ -127,75 +128,32 @@ fi
 systemctl is-enabled --quiet paxd || systemctl enable paxd
 systemctl is-active --quiet paxd || systemctl start paxd
 
-# public name: the vhost the other public RPC hosts run, proxying 443 to the
-# node's JSON-RPC and WebSocket ports on loopback, written only when absent.
-write_vhost() {
-	{
-		cat <<EOF
-server {
-    listen 80;
-    listen [::]:80;
-    server_name $name;
-    location /.well-known/acme-challenge/ { root $webroot; }
-    location / { return 301 https://\$host\$request_uri; }
+# Progress is reconciled from the certificate and rendered state on every run.
+# The lock stays outside the replaceable vhost and spans issuance and reload.
+exec 8>/etc/nginx/.archive-operation.lock
+flock -x 8
+mkdir -p "$webroot"
+archive_reconcile() {
+	"$inspector" archive-reconcile "$inventory" /etc/nginx /etc/letsencrypt/live "$webroot" "$name" v1
 }
-EOF
-		if [ "$1" = tls ]; then
-			cat <<EOF
-
-map \$http_upgrade \$api_connection_upgrade { default upgrade; '' close; }
-map \$http_upgrade \$api_backend { default 127.0.0.1:8645; websocket 127.0.0.1:8646; }
-
-server {
-    listen 443 ssl http2;
-    listen [::]:443 ssl http2;
-    server_name $name;
-
-    ssl_certificate     /etc/letsencrypt/live/$name/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/$name/privkey.pem;
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_session_cache shared:api_ssl:10m;
-
-    client_max_body_size 10m;
-    proxy_http_version 1.1;
-    proxy_set_header Host \$host;
-    proxy_set_header X-Real-IP \$remote_addr;
-    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto https;
-    proxy_set_header Upgrade \$http_upgrade;
-    proxy_set_header Connection \$api_connection_upgrade;
-
-    location = /health { access_log off; return 200 'ok'; add_header Content-Type text/plain; }
-    location /ws {
-        proxy_pass http://127.0.0.1:8646/;
-        proxy_read_timeout 3600s;
-        proxy_send_timeout 3600s;
-    }
-    location / {
-        proxy_pass http://\$api_backend;
-        proxy_read_timeout 300s;
-        proxy_send_timeout 300s;
-    }
-}
-EOF
-		fi
-	} >"$vhost"
-	ln -sf "$vhost" "$enabled"
+archive_reload() {
 	nginx -t
 	systemctl enable --now nginx
 	systemctl reload nginx
 }
-
-if [ ! -e "$enabled" ]; then
-	mkdir -p "$webroot"
-	if [ ! -f "/etc/letsencrypt/live/$name/fullchain.pem" ]; then
-		write_vhost http
-		certbot certonly --webroot -w "$webroot" -d "$name" -m "$email" --agree-tos --non-interactive
-		say "issued certificate for $name"
-	fi
-	write_vhost tls
-	say "serving $name"
+state="$(archive_reconcile)"
+case "$state" in *' changed') archive_reload ;; esac
+if [[ "$state" = certificate* ]]; then
+	certbot certonly --webroot -w "$webroot" -d "$name" -m "$email" --agree-tos --non-interactive --keep-until-expiring
+	state="$(archive_reconcile)"
+	[[ "$state" = tls* ]] || { echo 'install-archive: ACME did not install a valid certificate/key' >&2; exit 1; }
 fi
+case "$state" in *' changed') archive_reload ;; esac
+if ! "$inspector" archive-health "https://$name"; then
+	archive_reload
+	"$inspector" archive-health "https://$name"
+fi
+say "serving $name over HTTPS"
 
 # release: paxd at the sha256 the mirror publishes, updated through hpx.
 published="$(curl -fsS --max-time 15 "$mirror/chain-info.json" | jq -r '.paxd_sha256 // empty')"

@@ -33,23 +33,43 @@ Related applications and contracts:
 
 ## Transaction and evidence boundaries
 
-`layerx-intents` compiles the retained typed protocol intents and their
-disclosures. It is not the encoder for every transaction byte: the shared
-`layerx-crypto` EIP-1559 codecs and the KMS attestor path handle unsigned calls,
-signatures and signed type-2 transactions. Bank sends target the bank precompile
-at `0x0000000000000000000000000000000000001001`; KMS checks the recipient,
-denomination and amount against the disclosed call before signing.
+The kernel executes inside the chain-125 node; Human does not connect to a
+separately running LayerX network or deploy a chain for each tenant.
 
-The service binds custody and authorizations to the authenticated principal and
-tenant. EVM wallets use configured attestor key identities; their secp256k1
-private material is not returned to the Human service. Onboarding includes a
-gas-station sponsorship path, with successful matching binding evidence required
-before that path reports completion. See the [service guide](crates/layerx-human-service/README.md)
-and [KMS guide](crates/layerx-human-kms/README.md) for the corresponding configuration.
+`layerx-intents` remains the authority for typed protocol intent compilation and
+disclosure checks. The [agent runtime adapter](crates/layerx-human-service/src/server/agent_runtime.rs)
+checks the prepared precompile target, calldata, nonce and fee ceiling against
+the authorized intent before signing. This intent authority is separate from
+transaction encoding: shared `layerx-crypto` EIP-1559 codecs and the
+[KMS attestor path](crates/layerx-human-kms/src/attestor.rs) encode unsigned calls,
+verify signatures and assemble signed type-2 transactions.
+
+[Bank sends](crates/layerx-human-service/src/custody/evm.rs) are zero-value calls
+to `0x0000000000000000000000000000000000001001`, using
+`send(address,address,string,uint256)`. The disclosure binds sender, recipient,
+denomination and amount. Custody validates the authenticated principal, tenant,
+wallet and exact plan; KMS reserves the nonce and journals the signed transaction
+for recovery. EVM wallets resolve to configured attestor key identities and
+public addresses. Their secp256k1 private material is not returned to the Human
+service. See the [KMS guide](crates/layerx-human-kms/README.md) for protected
+attestor bindings and owner assertions.
+
+The [onboarding sponsor](crates/layerx-human-service/src/server/onboarding_sponsor.rs)
+reads a chain-125 registry and requests gas-station sponsorship for
+`bindLayerX(bytes32,bytes)` at `0x0000000000000000000000000000000000001004`.
+A `submitted` reply remains incomplete. A `receipted` or `committed` reply must
+have status `1` and a matching, non-removed `LayerXBound` log for the account and
+DID public key before sponsorship reports completion. Completion at `receipted`
+does not itself establish block commitment. Configuration is in the
+[service guide](crates/layerx-human-service/README.md).
 
 Submission acknowledgement, a verified execution receipt and committed block
 evidence are distinct observations. A submitted transaction hash alone does not
-prove execution or commitment. Hosted gateway reads are explicitly labeled
+prove execution or commitment. [Journey commitment verification](crates/layerx-human-service/src/journeys/bank_commit.rs)
+authenticates the governed receipt key and signed execution receipt, then checks
+the signed sequence batch, validator quorum and transaction inclusion against
+the committed block. An ordinary EVM landing receipt or an RPC rung label alone
+cannot establish that proof. Hosted gateway reads are explicitly labeled
 `gateway-reported`, not promoted to cryptographically verified evidence.
 
 Public node JSON-RPC uses the root path of

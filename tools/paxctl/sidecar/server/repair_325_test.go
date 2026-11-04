@@ -90,7 +90,11 @@ func TestRepair_325_UnsafeDefaultAuth(t *testing.T) {
 			t.Fatalf("headers %q: status %d", header, rec.Code)
 		}
 	}
-	if got := eng.RecentResults(); len(got) != 0 {
+	got, err := eng.RecentResults()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 0 {
 		t.Fatalf("unauthorized calls persisted tasks: %+v", got)
 	}
 	if rec := serveHTTP(srv, http.MethodPost, "/v0/tasks", `{"type":"mark-ready"}`); rec.Code != http.StatusCreated {
@@ -191,7 +195,7 @@ func repair325Recover(t *testing.T, request sidecar.TaskRequest, consumer engine
 	select {
 	case first = <-consumed:
 	case <-stopped:
-		t.Fatalf("consumer failed: %+v", waitForTaskResult(eng, id))
+		t.Fatalf("consumer failed: %+v", waitForTaskResult(t, eng, id))
 	case <-time.After(5 * time.Second):
 		t.Fatal("consumer did not receive the HTTP request")
 	}
@@ -241,7 +245,7 @@ func repair325Recover(t *testing.T, request sidecar.TaskRequest, consumer engine
 	t.Cleanup(stopRecovery)
 	recovery := engine.NewEngine(recoveryCtx, map[engine.TaskType]engine.TaskHandler{engine.TaskType(request.Type): consumer}, reopened)
 	recovery.RehydrateStaleTasks()
-	result := waitForTaskResult(recovery, id)
+	result := waitForTaskResult(t, recovery, id)
 	if result == nil || result.Status != engine.TaskStatusCompleted {
 		t.Fatalf("recovered consumer failed: %+v", result)
 	}
@@ -368,7 +372,11 @@ func TestRepair_325_RejectInvalidTaskJSON(t *testing.T) {
 			t.Fatalf("invalid JSON accepted: %s, status=%d", body, rec.Code)
 		}
 	}
-	if results := eng.RecentResults(); len(results) != 0 {
+	results, err := eng.RecentResults()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != 0 {
 		t.Fatalf("invalid requests persisted tasks: %+v", results)
 	}
 }
