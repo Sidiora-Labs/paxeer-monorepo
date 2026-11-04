@@ -150,12 +150,12 @@ done:
     return failed;
 }
 
-int main(void)
+static int retained_system_transfer_set(void)
 {
     lx_account_registry registry;
     lx_account *accounts[4];
     const char *names[4] = { "system:liquidity:btc-usd", "system:insurance",
-                             "system:fees", "system:paxeer-reserve" };
+                             "system:fees", "system:funding:btc-usd:long" };
     uint8_t asset_id[32] = { 7U };
     lxp_transfer_asset_state asset;
     lxp_transfer_leg legs[4];
@@ -168,6 +168,8 @@ int main(void)
     for (i = 0U; i < 4U; ++i)
         if (open_system(&registry, names[i], 100U, asset_id, &accounts[i]) !=
             LXP_OK) return 1;
+    if (accounts[3]->kind != LX_ACCOUNT_SYSTEM_FUNDING_LONG ||
+        lx_account_validate_canonical(accounts[3]) != LXP_OK) return 1;
     (void)memset(&asset, 0, sizeof(asset));
     (void)memcpy(asset.asset_id, asset_id, 32U);
     asset.registered = true;
@@ -255,4 +257,9 @@ int main(void)
         accounts[3]->next_sequence != 0U) return 1;
     if (allowance_set_checks() != 0) return 1;
     return 0;
+}
+
+int main(void)
+{
+    return retained_system_transfer_set();
 }
