@@ -145680,7 +145680,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.230]
 title = "Repair audit record 22.30.99 findings in services/agent/tests/qualify: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -146185,7 +146185,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.216]
 title = "Repair audit record 22.30.90 findings in services/agent/crates/layerx-agentd/src/policy: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -146951,7 +146951,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.165]
 title = "Repair audit record 22.30.111 findings in services/interop/crates/layerx-x402/src: interface-mismatch, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -147122,7 +147122,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.160]
 title = "Repair audit record 22.30.108 findings in services/interop/crates/layerx-bridge-relayer/src: interface-mismatch, restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -159542,7 +159542,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.210]
 title = "Repair audit record 22.30.87 findings in services/platform/perps-data/internal/delivery: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -159610,7 +159610,7 @@ do_7 = "Verification runs only the TestRepair_209_* functions of repair_209_test
 
 [task.22.31.204]
 title = "Repair audit record 22.30.84 findings in sdk/client/tx: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -160097,7 +160097,7 @@ do_7 = "Verification runs only the TestRepair_177_* functions of repair_177_test
 
 [task.22.31.176]
 title = "Repair audit record 22.30.45 findings in storage/state_db/ss/composite: interface-mismatch, restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -160132,7 +160132,7 @@ do_8 = "Verification runs only the TestRepair_176_* functions of repair_176_test
 
 [task.22.31.175]
 title = "Repair audit record 22.30.45 findings in daemon/paxd/cmd: restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -219219,7 +219219,7 @@ do_7 = "Verification runs only the TestRepair_194_* functions of repair_194_test
 
 [task.22.31.192]
 title = "Repair audit record 22.30.8 findings in modules/layerxauth/keeper: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
