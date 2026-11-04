@@ -1,0 +1,34 @@
+[repair]
+id = "22.33.769"
+requirement = "22998.1"
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+implementation = "Create fixed unprivileged pax UID/GID 10001, private node home/config/data, Go module/build caches and generated build/log directories; keep checkout parents and installed launch scripts root-owned, with scripts explicitly executable and non-writable. Remove recursive world-write access and run the image as pax:pax. Update the real deploy launcher to export the relocated Go paths directly without root shell profiles and set umask 077 before any build/init/start subprocess creates state, keys, logs or artifacts."
+source_proof = "Tests parse Dockerfile instructions and RUN/COPY arguments to prove the dedicated account, runtime USER, HOME/GOPATH/GOCACHE/PATH, exact ownership and modes of every created directory, root-owned 0555 scripts and CMD/WORKDIR linkage. All four copied production shell scripts pass bash -n syntax checking; source assertions follow the guarded build, binary copy, config initialization and node startup path and confirm private umask inheritance without privilege escalation or root-profile access. These are security source facts, not runtime interface-mismatch or restart-recovery proofs."
+review_only = "Docker image construction, native compilation, live initialization/state sync, effective container filesystem permissions, bind-mount ownership, node startup and restart are not executed by this Python source gate. Review must confirm host-mounted source/build/cache permissions allow UID/GID 10001 to perform existing build operations; image-layer ownership cannot repair an externally mounted checkout. No Docker, Go, make, network endpoint or credential is used by the gate. bash -n is syntax-only, as explicitly required for shell script source checks."
+baseline = "No pre-change verification was run: the explicit task order forbids formatting/build/testing before implementation is complete and requires hf-build then hf-done without a manual verify_cmd run. Therefore no already-failing baseline tests are claimed. Initial gate.json had zero builds and verifications and /out/run/gates.jsonl was absent."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_769.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The last hf-done JSON and private /out/run/gates.jsonl name the verified revision, exact command, exit and log path. Build and verify must identify the same candidate revision. This record is finalized before gates because embedding its own content-derived revision would change that revision. The final response copies the exact gate evidence; the runner publishes the qualified candidate."
+wiring_requests = []
+format = "No Python, Dockerfile, shell or KVX formatter is configured for these paths. Preserve existing style and apply .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions to touched files only after implementation."
+
+[finding.rpc-root-permissions]
+audit = "22.30.174"
+file = "docker/rpcnode/Dockerfile"
+line = 10
+class = "security"
+severity = "medium"
+owner_domain = 16
+observed = "The RPC node image grants recursive a+rwX permission to /root and has no non-root USER. Files later placed below that directory can inherit an unnecessarily broad writable trust boundary."
+expected = "A deployed RPC node should expose only the permissions needed for its state and build artifacts, while protecting node configuration and keys from unrelated local processes."
+tests = ["test_rpc_root_permissions_dedicated_nonroot_identity", "test_rpc_root_permissions_narrow_owned_state_and_build_directories", "test_rpc_root_permissions_root_owned_executable_launch_scripts", "test_rpc_root_permissions_launcher_build_init_start_path", "test_rpc_root_permissions_record_maps_proof_and_limits"]
+closure = "Qualified only when hf-done passes and records revision, command, exit and private evidence log. No tests are deleted, skipped, ignored, expected-failure or weakened. The proposal requests no step outside the authorized paths."
+
+[gotcha.baseline_order]
+observed = "The inherited unchanged-tree baseline instruction conflicts with the explicit implementation-first and wrapper-only gate order."
+resolution = "Follow the explicit order and claim no baseline result; GOTCHA.kvx and spec files are outside the authorized scope."
+
+[gotcha.stale_graph]
+observed = "cg brief reports thousands of unrelated changes and an unrelated next task, while Git initially shows only runner-prepared .cgignore and spec task-state changes."
+resolution = "Use the user-assigned task, Git and private gate ledger; preserve all initial changes."

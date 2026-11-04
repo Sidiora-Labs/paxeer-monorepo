@@ -197,6 +197,37 @@ Liquidity share pointers use the [share ABI](../precompiles/spot/abi/share.json)
 Discover a token's pointer with `shareTokens(token)` on the vault; it is not a
 sixth fixed rail. `ShareTokenCreated` supplies the token and pointer addresses.
 
+[CreateShareToken](../modules/spot/keeper/shares.go) deploys a
+`NativePaxTokensERC20` pointer with an immutable share-specific delegate boundary.
+Its bank denomination is `spot/share/<lowercase token address>`. `balanceOf`
+and `totalSupply` read bank state; the pointer's decimals match the underlying
+registered token. Names are `Spot Vault Share <symbol>` and symbols are
+`s<symbol>`. A missing pointer is the zero address; do not send share calls to it.
+The pointer mapping and balances are chain-store state, not client cache state.
+After reconnect, read the vault mapping and balances again at the selected
+committed height.
+
+The deployed interface serves `allowance`, `approve`, `balanceOf`, `decimals`,
+`name`, `symbol`, `totalSupply`, `transfer` and `transferFrom`, plus native
+getters `BankPrecompile`, `ddecimals`, `denom`, `nname` and `ssymbol`.
+`approve`, `transfer` and `transferFrom` return a Solidity `bool`.
+Only keeper `MintShares` and `BurnShares` change supply, through the spot bank
+module account. Their `Transfer` logs use the pointer as emitter and the zero
+address as mint source or burn destination. The other served event is `Approval`.
+
+`mint(address,uint256)`, `burn(address,uint256)`, `owner()`,
+`renounceOwnership()` and `transferOwnership(address)` revert with empty data
+for every caller, including governance and the vault. There is no Solidity
+owner. [share-solidity.json](../precompiles/spot/abi/share-solidity.json) is a
+historical snapshot, not the deployed interface. The exact deployment and
+refusal contract is [share-deployment.kvx](../precompiles/spot/abi/share-deployment.kvx).
+
+An otherwise valid transfer exceeding the bank balance returns
+`ERC20InsufficientBalance(address,uint256,uint256)` (`0xe450d38c`), with sender,
+current balance and needed amount. Native allowance and invalid-address checks
+retain their error precedence. A refusal preserves balances, supply and
+allowance; decode it with the deployed share ABI.
+
 ### Spot resting
 
 [End-block processing](../modules/spot/keeper/execute.go) handles resting

@@ -3,7 +3,9 @@ package wasm
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"math/rand"
+	"strconv"
 
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
@@ -77,28 +79,37 @@ func (b AppModuleBasic) ValidateGenesis(marshaler codec.JSONCodec, config client
 }
 
 func (am AppModuleBasic) ValidateGenesisStream(cdc codec.JSONCodec, config client.TxEncodingConfig, genesisCh <-chan json.RawMessage) error {
-	var err error
-	doneCh := make(chan struct{})
+	// The caller owns decoding and the first decode error. Keep consuming the
+	// input after failure so a producer can finish and close its channel.
+	resultCh := make(chan error, 1)
 	genesisStateCh := make(chan GenesisState)
 	go func() {
-		err = types.ValidateGenesisStream(genesisStateCh)
-		doneCh <- struct{}{}
-	}()
-	go func() {
-		defer close(genesisStateCh)
-		for genesis := range genesisCh {
-			var data GenesisState
-			err_ := cdc.UnmarshalAsJSON(genesis, &data)
-			if err_ != nil {
-				err = err_
-				doneCh <- struct{}{}
-				return
-			}
-			genesisStateCh <- data
+		validationErr := types.ValidateGenesisStream(genesisStateCh)
+		// Also drain if the validator ever returns before consuming the stream.
+		for range genesisStateCh {
 		}
+		resultCh <- validationErr
 	}()
-	<-doneCh
-	return err
+
+	var decodeErr error
+	for genesis := range genesisCh {
+		if decodeErr != nil {
+			continue
+		}
+		var data GenesisState
+		if err := cdc.UnmarshalAsJSON(genesis, &data); err != nil {
+			decodeErr = err
+			continue
+		}
+		genesisStateCh <- data
+	}
+	close(genesisStateCh)
+	validationErr := <-resultCh // join the validator even when decoding failed
+	// A malformed transport takes precedence over validation of a partial state.
+	if decodeErr != nil {
+		return decodeErr
+	}
+	return validationErr
 }
 
 // RegisterRESTRoutes registers the REST routes for the wasm module.
@@ -244,7 +255,7 @@ func AddModuleInitFlags(startCmd *cobra.Command) {
 	defaults := DefaultWasmConfig()
 	startCmd.Flags().Uint32(flagWasmMemoryCacheSize, defaults.MemoryCacheSize, "Sets the size in MiB (NOT bytes) of an in-memory cache for Wasm modules. Set to 0 to disable.")
 	startCmd.Flags().Uint64(flagWasmQueryGasLimit, defaults.SmartQueryGasLimit, "Set the max gas that can be spent on executing a query with a Wasm contract")
-	startCmd.Flags().String(flagWasmSimulationGasLimit, "", "Set the max gas that can be spent when executing a simulation TX")
+	startCmd.Flags().String(flagWasmSimulationGasLimit, "", "Set a positive decimal gas limit for simulation TXs; empty uses the consensus block gas limit")
 }
 
 // ReadWasmConfig reads the wasm specifig configuration
@@ -262,10 +273,19 @@ func ReadWasmConfig(opts servertypes.AppOptions) (types.WasmConfig, error) {
 		}
 	}
 	if v := opts.Get(flagWasmSimulationGasLimit); v != nil {
-		if raw, ok := v.(string); ok && raw != "" {
-			limit, err := cast.ToUint64E(v) // non empty string set
+		raw, ok := v.(string)
+		if !ok {
+			return cfg, fmt.Errorf("%s: expected a quoted positive decimal integer or an empty string, got %T", flagWasmSimulationGasLimit, v)
+		}
+		// An empty string (including the generated template default) means
+		// unset. Zero is invalid: the simulation decorator requires a bound > 0.
+		if raw != "" {
+			limit, err := strconv.ParseUint(raw, 10, 64)
 			if err != nil {
-				return cfg, err
+				return cfg, fmt.Errorf("%s: expected a quoted positive decimal integer: %w", flagWasmSimulationGasLimit, err)
+			}
+			if limit == 0 {
+				return cfg, fmt.Errorf("%s: must be greater than zero; use an empty string for the block gas limit", flagWasmSimulationGasLimit)
 			}
 			cfg.SimulationGasLimit = &limit
 		}

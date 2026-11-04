@@ -205,6 +205,47 @@ pub struct RequestTracker {
 }
 
 impl RequestTracker {
+    /// Rebuilds resolver ownership from a restored durable outbox, never from caller flags.
+    pub fn recover_submission(
+        &mut self,
+        request_id: u64,
+        outbox: &crate::outbox::Outbox,
+        submission_id: [u8; 32],
+        now: u64,
+    ) -> Result<(), DeadlineError> {
+        let state = outbox
+            .status(submission_id)
+            .ok_or(DeadlineError::InvalidTransition)?
+            .state;
+        if !matches!(
+            state,
+            crate::outbox::SubmissionState::Submitted
+                | crate::outbox::SubmissionState::Unknown
+                | crate::outbox::SubmissionState::Executed
+        ) {
+            return Err(DeadlineError::InvalidTransition);
+        }
+        let deadline =
+            RequestDeadline::new(now, now.checked_add(1).ok_or(DeadlineError::Arithmetic)?)?;
+        self.insert(
+            request_id,
+            deadline,
+            TrackedWork::Write {
+                submission_id,
+                stage: WriteStage::UnknownResolving,
+                reservation_held: true,
+            },
+        )?;
+        let request = self
+            .requests
+            .get_mut(&request_id)
+            .ok_or(DeadlineError::UnknownRequest(request_id))?;
+        request.owner = WorkOwner::DaemonResolver;
+        request.caller_connected = false;
+        request.unknown_since_ms = Some(now);
+        Ok(())
+    }
+
     /// Tracks one cancellable read for the life of its request deadline.
     ///
     /// # Errors

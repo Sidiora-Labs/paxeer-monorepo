@@ -4,19 +4,23 @@ use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::{self, Read as _};
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
 use sha2::{Digest as _, Sha256};
 
 use crate::budget::ReconciliationState;
 use crate::capability::CapabilityId;
-use crate::protocol_evidence::{AuthenticatedCoreTime, AuthenticatedCumulativeUse, AuthenticatedTimeWindowUse};
+use crate::protocol_evidence::{
+    AuthenticatedCoreTime, AuthenticatedCumulativeUse, AuthenticatedTimeWindowUse,
+};
 use crate::session::{SessionId, SessionRecord};
-use crate::store::TenantId;
+use crate::store::{Store, TenantId};
 
 use super::eval::{CapabilityView, PolicyIntentRequest, Purpose};
 use super::{
-    dry_run, Decision, DryRunResult, EvaluationInput, PolicyRegistry, PolicyRequest, PolicySnapshot,
-    PolicySourceError, PolicyValidationError, MAX_POLICY_SOURCE_BYTES,
+    dry_run, Decision, DryRunResult, EvaluationInput, PolicyHistoryError, PolicyRegistry,
+    PolicyRequest, PolicyRetentionQuotas, PolicySnapshot, PolicySourceError, PolicyValidationError,
+    MAX_POLICY_SOURCE_BYTES,
 };
 
 const REQUEST_ID_DOMAIN: &[u8] = b"layerx-agentd/policy-dry-run/v1\0";
@@ -29,6 +33,10 @@ pub type TenantPolicyRegistries = BTreeMap<TenantId, PolicyRegistry>;
 /// Startup failure while loading a configured tenant policy source.
 #[derive(Debug)]
 pub enum PolicyLoadError {
+    History {
+        tenant: TenantId,
+        error: PolicyHistoryError,
+    },
     Read {
         tenant: TenantId,
         kind: io::ErrorKind,
@@ -52,27 +60,75 @@ pub enum PolicyLoadError {
 pub fn load_tenant_registries(
     sources: &BTreeMap<TenantId, PathBuf>,
 ) -> Result<TenantPolicyRegistries, PolicyLoadError> {
-    let limit =
-        u64::try_from(MAX_POLICY_SOURCE_BYTES).map_or(u64::MAX, |bytes| bytes.saturating_add(1));
     let mut registries = BTreeMap::new();
     for (tenant, path) in sources {
-        let read = |error: io::Error| PolicyLoadError::Read {
-            tenant: tenant.clone(),
-            kind: error.kind(),
-        };
-        let mut source = Vec::new();
-        File::open(path)
-            .map_err(read)?
-            .take(limit)
-            .read_to_end(&mut source)
-            .map_err(read)?;
-        let registry = PolicyRegistry::from_source(&source).map_err(|error| PolicyLoadError::Source {
+        let source = read_source(tenant, path)?;
+        let mut history_path = path.as_os_str().to_os_string();
+        history_path.push(".history");
+        let tenant_component: String = tenant
+            .as_str()
+            .as_bytes()
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect();
+        let store =
+            Store::open(PathBuf::from(history_path).join(tenant_component)).map_err(|_| {
+                PolicyLoadError::History {
+                    tenant: tenant.clone(),
+                    error: PolicyHistoryError::Unavailable,
+                }
+            })?;
+        let registry = PolicyRegistry::open(
+            Arc::new(Mutex::new(store)),
+            tenant.clone(),
+            &source,
+            PolicyRetentionQuotas::default(),
+        )
+        .map_err(|error| PolicyLoadError::History {
             tenant: tenant.clone(),
             error,
         })?;
         registries.insert(tenant.clone(), registry);
     }
     Ok(registries)
+}
+
+pub fn load_tenant_registries_with_store(
+    sources: &BTreeMap<TenantId, PathBuf>,
+    store: Arc<Mutex<Store>>,
+    quotas: PolicyRetentionQuotas,
+) -> Result<TenantPolicyRegistries, PolicyLoadError> {
+    let mut registries = BTreeMap::new();
+    for (tenant, path) in sources {
+        let source = read_source(tenant, path)?;
+        let registry = PolicyRegistry::open(Arc::clone(&store), tenant.clone(), &source, quotas)
+            .map_err(|error| PolicyLoadError::History {
+                tenant: tenant.clone(),
+                error,
+            })?;
+        registries.insert(tenant.clone(), registry);
+    }
+    Ok(registries)
+}
+
+fn read_source(tenant: &TenantId, path: &PathBuf) -> Result<Vec<u8>, PolicyLoadError> {
+    let limit =
+        u64::try_from(MAX_POLICY_SOURCE_BYTES).map_or(u64::MAX, |bytes| bytes.saturating_add(1));
+    let read = |error: io::Error| PolicyLoadError::Read {
+        tenant: tenant.clone(),
+        kind: error.kind(),
+    };
+    let mut source = Vec::new();
+    File::open(path)
+        .map_err(read)?
+        .take(limit)
+        .read_to_end(&mut source)
+        .map_err(read)?;
+    super::load_policy_source(&source).map_err(|error| PolicyLoadError::Source {
+        tenant: tenant.clone(),
+        error,
+    })?;
+    Ok(source)
 }
 
 /// Verified cumulative context available to the owner; each variant selects exactly one existing
@@ -240,6 +296,57 @@ pub fn evaluate_timed_admission_with_context(
     budget: Option<&ReconciliationState>,
 ) -> Decision {
     super::eval::evaluate_timed_admission(
-        snapshot.policy(), intent, session, capability, observed, usage, budget,
+        snapshot.policy(),
+        intent,
+        session,
+        capability,
+        observed,
+        usage,
+        budget,
     )
+}
+
+pub fn evaluate_admission_and_record(
+    registry: &mut PolicyRegistry,
+    request_id: [u8; 32],
+    intent: &PolicyIntentRequest,
+    session: &SessionRecord,
+    capability: CapabilityView,
+    context: VerifiedPolicyContext<'_>,
+) -> Result<Decision, PolicyHistoryError> {
+    if registry
+        .tenant()
+        .is_some_and(|tenant| tenant != &session.request.tenant)
+    {
+        return Err(PolicyHistoryError::TenantMismatch);
+    }
+    let snapshot = registry.begin_request();
+    let decision = evaluate_admission_with_context(&snapshot, intent, session, capability, context);
+    registry.record_decision(request_id, decision.clone())?;
+    Ok(decision)
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn evaluate_timed_admission_and_record(
+    registry: &mut PolicyRegistry,
+    request_id: [u8; 32],
+    intent: &PolicyIntentRequest,
+    session: &SessionRecord,
+    capability: &crate::capability::timed::TimedCapability,
+    observed: &AuthenticatedCoreTime,
+    usage: &[AuthenticatedTimeWindowUse],
+    budget: Option<&ReconciliationState>,
+) -> Result<Decision, PolicyHistoryError> {
+    if registry
+        .tenant()
+        .is_some_and(|tenant| tenant != &session.request.tenant)
+    {
+        return Err(PolicyHistoryError::TenantMismatch);
+    }
+    let snapshot = registry.begin_request();
+    let decision = evaluate_timed_admission_with_context(
+        &snapshot, intent, session, capability, observed, usage, budget,
+    );
+    registry.record_decision(request_id, decision.clone())?;
+    Ok(decision)
 }

@@ -101,6 +101,11 @@ Environment:
   CHECK_LIVE_TIMEOUT  seconds per request or short remote command, default 30
   SYNC_FLEET_JOURNAL private durable source journal, default
                       /var/lib/paxeer-bringup/resync.json
+  SYNC_FLEET_CONNECT_TIMEOUT seconds for transfer connections, default 10
+  SYNC_FLEET_TRANSFER_TIMEOUT seconds for each transfer/mutation, default 1800
+  SYNC_FLEET_RECOVERY_TIMEOUT seconds for durable reconciliation, default 120
+  SYNC_FLEET_STATE    private durable owner directory; reuse it after a timeout
+                      or interrupted resync, default $HOME/.local/state/bringup-fleet
   SYNC_FLEET_SETTLE   seconds to wait for a restarted node to come within ten
                       blocks of the head, default 1800
   HPX_HOME            the node home on every host, default /root/.paxeer
@@ -132,6 +137,17 @@ stamp="$(date -u +%Y%m%dT%H%M%SZ)"
 report="${SYNC_FLEET_REPORT:-$HOME/sync-fleet-rollout-$stamp.txt}"
 dry_run=0
 failures=0
+transfer_connect="${SYNC_FLEET_CONNECT_TIMEOUT:-10}"
+transfer_total="${SYNC_FLEET_TRANSFER_TIMEOUT:-1800}"
+fleet_state="${SYNC_FLEET_STATE:-$HOME/.local/state/bringup-fleet}"
+for deadline in "$transfer_connect" "$transfer_total" "${SYNC_FLEET_RECOVERY_TIMEOUT:-120}"; do
+	[[ "$deadline" =~ ^[1-9][0-9]*$ ]] && [ "$deadline" -le 86400 ] || { echo "sync-fleet: invalid transfer deadline" >&2; exit 2; }
+done
+[ "$transfer_connect" -le "$transfer_total" ] || { echo "sync-fleet: connection deadline exceeds transfer deadline" >&2; exit 2; }
+
+fleet_scp() {
+	timeout --signal=TERM --kill-after=5s "${transfer_total}s" scp -q -o BatchMode=yes -o "ConnectTimeout=$transfer_connect" -o ServerAliveInterval=5 -o ServerAliveCountMax=2 -- "$@"
+}
 
 # say <line>: one result line on stdout.
 say() {
@@ -154,7 +170,8 @@ remote() {
 		echo "ssh -- $label $shown"
 		return 0
 	fi
-	ssh -n -o BatchMode=yes -- "$dest" "$cmd"
+	timeout --signal=TERM --kill-after=5s "${transfer_total}s" ssh -n -o BatchMode=yes -o "ConnectTimeout=$transfer_connect" -o ServerAliveInterval=5 -o ServerAliveCountMax=2 -- "$dest" \
+		"timeout --signal=TERM --kill-after=5s ${transfer_total}s sh -c $(printf '%q' "$cmd")"
 }
 
 # poll_heads: asks the sixteen public names for eth_blockNumber at once and
@@ -375,6 +392,23 @@ resync_target() {
 		fail "resync $label $name source=$sname free=$free need=$need"
 		return 0
 	fi
+	if [ "$dry_run" -eq 0 ]; then
+		# The installed owner durably records original unit states before stopping
+		# either host. Its SSH streams and remote descendants share the deadlines.
+		if ! python3 - "$src" "$dest" "$home" "$paxd" "$bin" "$release_sha256" <<'PYPLAN' | bringup_inspect fleet-resync "$fleet_state"; then
+import json,os,sys,uuid
+print(json.dumps(dict(zip(('Source','Target','Home','Binary','Asset','SHA256'), (*sys.argv[1:5],os.path.abspath(sys.argv[5]),sys.argv[6])), ID=uuid.uuid4().hex)))
+PYPLAN
+			fail "resync $label $name transfer failed; recovery state=$fleet_state; rerun resync to reconcile before another target"
+			return 0
+		fi
+		if ! lag="$(wait_within "$sname")" || ! lag="$(wait_within "$name")"; then
+			fail "resync $label $name committed-head wait lag=$lag"
+		else
+			say "resync $label $name source=$sname mode=stream binary=installed unit=original-state-restored lag=$lag"
+		fi
+		return 0
+	fi
 	mode=stream
 	if ssh_read "$src" "ssh -n -o BatchMode=yes -o ConnectTimeout=8 -- $dest true" >/dev/null; then
 		mode=rsync
@@ -394,8 +428,8 @@ resync_target() {
 	elif [ "$dry_run" -eq 1 ]; then
 		say "ssh -n -- $slabel tar -C $home $excludes -cf - data | ssh -- $label mkdir -p $home/$inc && tar -C $home/$inc --strip-components=1 -xf -"
 	else
-		ssh -n -o BatchMode=yes -- "$src" "tar -C $home $excludes -cf - data" |
-			ssh -o BatchMode=yes -- "$dest" "mkdir -p $home/$inc && tar -C $home/$inc --strip-components=1 -xf -" || status=$?
+		timeout --signal=TERM --kill-after=5s "${transfer_total}s" ssh -n -o BatchMode=yes -o "ConnectTimeout=$transfer_connect" -- "$src" "timeout ${transfer_total}s tar -C $home $excludes -cf - data" |
+			timeout --signal=TERM --kill-after=5s "${transfer_total}s" ssh -o BatchMode=yes -o "ConnectTimeout=$transfer_connect" -- "$dest" "timeout ${transfer_total}s sh -c 'mkdir -p $home/$inc && tar -C $home/$inc --strip-components=1 -xf -'" || status=$?
 	fi
 	if [ "$dry_run" -eq 1 ]; then
 		remote "$slabel" "$src" "systemctl start $unit" || status=$?
@@ -420,7 +454,7 @@ resync_target() {
 		if [ "$dry_run" -eq 1 ]; then
 			say "scp -q -- $bin $label:$paxd.new-$stamp"
 		else
-			scp -q -o BatchMode=yes -- "$bin" "$dest:$paxd.new-$stamp" || status=$?
+			fleet_scp "$bin" "$dest:$paxd.new-$stamp" || status=$?
 		fi
 		[ "$status" -ne 0 ] || remote "$label" "$dest" "set -e; [ \"\$(sha256sum $paxd.new-$stamp | cut -d' ' -f1)\" = $release_sha256 ]; cp -p $paxd $paxd.pre-$stamp; chmod 0755 $paxd.new-$stamp; mv -f $paxd.new-$stamp $paxd" || status=$?
 	fi
@@ -461,6 +495,10 @@ cmd_resync() {
 	local -a dests names ssh_status targets=()
 	local -A heads
 	local top k lag src="" best=-1
+	if [ "$dry_run" -eq 0 ] && ! bringup_inspect fleet-recover "$fleet_state"; then
+		fail "resync pending recovery refused; reuse state=$fleet_state before another destination"
+		return 0
+	fi
 	survey
 	for k in "${!dests[@]}"; do
 		[ "${names[$k]}" != none ] || continue
@@ -510,7 +548,7 @@ rollout_steps() {
 		if [ "$dry_run" -eq 1 ]; then
 			say "scp -q -- $bin $label:$staged"
 		else
-			scp -q -o BatchMode=yes -- "$bin" "$dest:$staged" || status=$?
+			fleet_scp "$bin" "$dest:$staged" || status=$?
 		fi
 		if [ "$status" -ne 0 ]; then
 			fail "rollout $label $name stage scp=$status"
@@ -639,22 +677,14 @@ verify_asset() {
 # from PAXD_RELEASE_URL into PAXD_RELEASE_DIR, verifies the asset and sets
 # bin and want_sha; status 1 with the reason on stderr otherwise.
 release_asset() {
-	local asset="paxd-$1-linux-amd64" dir="${PAXD_RELEASE_DIR:-$HOME/paxd-release-$1}" f
+	local dir="${PAXD_RELEASE_DIR:-$HOME/paxd-release-$1}" result
 	if [ -z "${PAXD_RELEASE_URL:-}" ]; then
 		echo "sync-fleet: PAXD_RELEASE_URL is unset" >&2
 		return 1
 	fi
-	mkdir -p "$dir"
-	for f in SHA256SUMS "$asset"; do
-		if ! curl -fsSL --retry 3 -o "$dir/$f.part" -- "${PAXD_RELEASE_URL%/}/$f"; then
-			echo "sync-fleet: could not fetch $f of $1" >&2
-			return 1
-		fi
-		mv -f "$dir/$f.part" "$dir/$f"
-	done
-	want_sha="$(verify_asset "$dir" "$asset")" || return 1
-	chmod 0755 "$dir/$asset"
-	bin="$dir/$asset"
+	result="$(bringup_inspect fleet-release "$PAXD_RELEASE_URL" "$1" "$dir")" || return 1
+	bin="${result%$'\n'*}" want_sha="${result##*$'\n'}"
+	[ -f "$bin" ] && [[ "$want_sha" =~ ^[0-9a-f]{64}$ ]] || return 1
 }
 
 # The dispatch below runs only when this file is executed.

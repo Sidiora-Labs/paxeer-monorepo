@@ -1,0 +1,74 @@
+[repair.22.33.964]
+audit = "22.30.29"
+base_revision = "90c597177fcfcac6653ca7effb29d994ae45b128"
+verify_cmd = "python3 -m pytest -q tools/launchpad/production/interfaces/test_repair_22_33_964.py"
+verified_revision_evidence = "hf-done records the exact candidate revision, command, exit and private log in /out/run/gates.jsonl and its final JSON line; a failing gate does not close the task."
+baseline = "Not run: the explicit task order requires implementation before gates and forbids a manual verify run. The previous attempt records test_capability_test_authority and test_materializer_test_authority failing on the missing catalog; that evidence is retained below, not rerun as a baseline."
+proof_boundary = "Run every original unittest case in-process through production JSON file producers and consumers; capability peers reuse the committed 22.33.963 SDK source record with pinned schemas/routes and current repository source checks. The materializer authority proof derives its full schema-exercise catalog and supplementary input from the admitted pinned SDK operation record, then generates and reopens the resulting catalog through the full suite. A separate selected-fixture CLI proof compares spec-produced and catalog-replayed bytes, without replacing the full-suite authority. No provider, deployment or live browser qualification is claimed."
+status = "implemented_pending_qualification"
+authority_ruling = "Attempt 5: the historical production-system spec and committed inputs/catalog.json never existed on main. Derive explicit test authority from the admitted operation catalog and existing frozen schemas; no nonexistent input is opened and no production semantic authority is claimed."
+wiring_bundle = "Domain 4 / fm-launchpad: publish reviewed sdk/launchpad/protocol/contracts/v1 schema-definitions.json, catalog-map.json, openapi.json, asyncapi.json and missing chain artifacts, retaining provenance and source hashes."
+wiring_sources = "Domain 4 / fm-launchpad: migrate sdk/launchpad/protocol/contracts/v1/capabilities.json source and artifact paths to current repository authorities; the recorded register still names historical workspace and frozen implementation paths."
+wiring_command = "Domain 4 / fm-launchpad: update tools/launchpad/production/bootstrap/check-registry.json to invoke python3 -m unittest tools.launchpad.production.interfaces.test_materialize for the admitted source-derived suite, or supply explicit --catalog and --supplementary bindings to its CLI; bind capability tests to explicit bundle, catalog and fresh evidence inputs."
+wiring_evidence = "Domain 4 / fm-launchpad: supply admitted fresh capability and chain evidence for runtime qualification; regression tests use an explicit empty temporary evidence authority and cannot admit historical proof as fresh."
+required_touch_conflict = "sdk/launchpad/shared/interfaces/v1/types.gen.go is a declared graph touch, but the drift-target repair changes only a temporary emitted artifact; no production type change is proposed by these findings, so the immutable generated types are preserved."
+
+[finding.capability-test-authority]
+tests = ["test_capability_test_authority"]
+repair = "Bind the current source root, contract root, programme spec, reviewed catalog and bundle explicitly, and bind an explicit isolated evidence authority without environment defaults; retain source digest, catalog and freshness validation."
+fixture_authority = "Reuse testdata/repair_22_33_963/capabilities.json and sdk-placement.json; bind the selected source digest and artifact locations, resolve all 59 catalog IDs against the pinned real SDK declarations, retain every source hash and frozen provenance record, and run every existing positive and negative regression. The production CLI additionally rejects this source-only bundle as runtime evidence; a copied real source register with an old timestamp proves both stale-file and kind/scope refusals."
+
+[finding.codegen-drift-test-target]
+tests = ["test_codegen_drift_test_target"]
+repair = "Mutate the emitted sdk/launchpad/shared/interfaces/v1/types.gen.go in an isolated root; assert nonzero drift, exact stale bytes and preservation of every output. Seed the synthetic immutable manifest from the real producer, retain mismatch refusal, and use the existing no-format path without external binaries. Pass the schema and co-located manifest explicitly as required by task 22.33.963 on the current base."
+
+[finding.materializer-test-authority]
+tests = ["test_materializer_test_authority", "test_materializer_recorded_file_path"]
+repair = "Preserve explicit mutually exclusive --spec/--catalog and --supplementary CLI bindings. With neither bound, setUpClass derives the complete admitted source selection in temporary storage, runs the real materializer CLI, and reopens its generated catalog. Run every original schema assertion unchanged through default derivation and explicit catalog replay, with identical artifact bytes, deterministic regeneration, version isolation and provenance. Independently retain exact spec-to-catalog replay with the committed selected fixture."
+derivation = "testdata/repair_22_33_963/sdk-placement.json pins schemas.gen.json and operations.gen.ts. Resolve all 59 schema IDs, translate their bounded fields into the real materializer DSL, project all 108 admitted v2 operation routes to the suite v1 namespace, and recover all 12 stream topics/payloads from frozen event schemas. Named supplementary objects retain source field requirements, nullable unions, arrays and scalar bounds; unsupported shapes fail explicitly."
+error_derivation = "services/launchpad/api/internal/rest/primitives.go SHA256 87bb6e3de16019446a2a527dd98bb38bef9d977b5c73aebaa4782e5e91633bf1: select its sixteen contract-error rows, excluding QUERY_INVALID and INTERNAL_ERROR wrapper rows. Copy each selected code and status without inventing a row; this test selection does not claim the absent historical semantic catalog was restored."
+provenance_test = "test_materializer_source_digest_is_required rejects changed source bindings before any artifact write; test_materializer_test_authority asserts full catalog counts and exact admitted route/method coverage."
+
+[gotcha.missing-interface-authority]
+symptom = "The current repository retains frozen generated SDK schemas and a capability register but omits the production-system spec, supplementary input and materialized API bundle; the catalog itself is generated output."
+do = "Generate a temporary catalog from the reviewed spec; require the owning domain to restore missing reviewed inputs, never reverse-engineer normative schemas from outputs, substitute evidence, skip tests or claim qualification."
+
+[qualification.initial]
+revision = "ec475727382599fe020573315250e977b16aed29"
+command = "cg spec done 22.33.964 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Codegen proof passed; capability and materializer proofs failed on missing sdk/launchpad/protocol/contracts/v1/inputs/catalog.json, an authority absent before implementation."
+
+[gotcha.build-bytecode-candidate]
+symptom = "py_compile wrote three bytecode files under the scoped directory, so the first build and verify candidate revisions differed."
+do = "Remove the generated bytecode and direct Python caches outside the candidate for both gates; never publish compiled caches as test fixtures."
+
+[wiring.materializer-suite]
+request = "Domain 4 / fm-launchpad: bind tools/launchpad/production/bootstrap/check-registry.json to python3 -m unittest tools.launchpad.production.interfaces.test_materialize for the admitted source-derived suite; production qualification must separately supply an explicitly reviewed catalog and supplementary input."
+
+[gotcha.explicit-codegen-cli]
+symptom = "The current base includes task 22.33.963, whose codegen CLI requires --schema and --manifest; the seed attempt predates that interface."
+do = "Pass the real selected schema and its co-located immutable manifest in every codegen regression; preserve the missing-schema, drift and exact-byte checks."
+
+[gotcha.generated-catalog-authority]
+symptom = "Attempt 2 read a nonexistent committed inputs/catalog.json even though materialize.generate emits that file from the selected normative spec."
+do = "Start with the explicit spec and supplementary authority, generate into temporary storage and reopen the emitted catalog through the real consumer; keep all full-suite schema checks intact."
+
+[qualification.attempt-2-supplied]
+revision = "4835799c53006c19b0dd8dd59816c5477dec397b"
+observed = "The supplied attempt-2 ruling records 1 failed and 4 passed: test_materializer_test_authority read absent sdk/launchpad/protocol/contracts/v1/inputs/catalog.json."
+evidence = "Previous-attempt gate output supplied in the task; not rerun as a baseline."
+
+[gotcha.continuation-authorities]
+symptom = "The continued tree already generates a temporary catalog, but neither the reviewed production-system spec nor its supplementary bundle exists at base b2c2d3ccfc9cd9dd9e34bca67b07b7b55a9bcc51."
+do = "Retain both explicit input bindings and all full-suite assertions; record the owning-domain wiring above and the bounded gate evidence in /out/run/gates.jsonl. Do not substitute the small selected fixture for the full authority."
+
+[qualification.attempt-4-supplied]
+revision = "ddff56c5de80db1838ed320240607ea82c77aa0f"
+observed = "The supplied attempt-4 output records 1 failed and 4 passed: test_materializer_test_authority opened launchpad/spec/production-system/spec.kvx, a file that never existed on main."
+evidence = "Previous-attempt gate output supplied in the task; retained without rerunning the unchanged baseline."
+
+[gotcha.admitted-operation-authority]
+symptom = "Both assumed historical materializer authorities never existed on main; requesting restoration prevented the full suite from executing."
+do = "Follow the attempt-5 ruling: derive explicit bounded test inputs from the admitted pinned SDK operation record and existing source table, generate the catalog temporarily, and retain every original assertion."

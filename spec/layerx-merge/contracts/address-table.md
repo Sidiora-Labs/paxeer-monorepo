@@ -195,6 +195,8 @@ These five constructs have no owning construct contract in 1.0.1; their ABI is o
 
 
 ## (b) Error code registry (D6)
+SDK registry snapshot: audit-22.30.101-v1 — 392 codes, 54 retryable; SHA-256 of the registry rows including trailing LF: `33b199cc9d053de8bf9753bacb5f9e34687a0fded7c15f051f27f5b62b9ec155`. Synchronize this snapshot and `services/agent/sdk/typescript/test/revert.test.ts` on registry changes; retain `scripts/ci/result-codes-gen.py --check` in CI.
+
 Encoding rules first, then every code; kernel codes are the lxp_result enum (include/layerx/lxp_result.h:29-157), Go codes are the registered module errors and precompile error sites.
 
 | Rule | Value | Source |

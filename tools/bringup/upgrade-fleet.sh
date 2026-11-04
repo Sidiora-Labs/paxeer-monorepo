@@ -67,7 +67,7 @@ stage_unit() {
 		ustatus[k]=staged
 		return 0
 	fi
-	scp -q -o BatchMode=yes -- "$bin" "${udests[$k]}:$staged" || status=$?
+	fleet_scp "$bin" "${udests[$k]}:$staged" || status=$?
 	if [ "$status" -ne 0 ]; then
 		ustatus[k]="fail stage scp=$status"
 		return 0
