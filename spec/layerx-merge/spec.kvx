@@ -156207,7 +156207,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.127]
 title = "Repair audit record 22.30.114 medium findings in apps/wallet/src/lib/locale (part 1 of 1): runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.234", "22.31.235", "22.31.236", "22.31.237"]
@@ -176892,7 +176892,7 @@ do_9 = "Attempt 2 (continue): the typed hash parser changes the return type that
 
 [task.22.33.1374]
 title = "Repair audit record 22.30.75 medium findings in services/platform/perf-db/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.138", "22.31.139", "22.31.140"]
@@ -197949,7 +197949,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1347]
 title = "Repair audit record 22.30.73 medium findings in sdk/crypto/types/multisig (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.134", "22.31.135", "22.31.136", "22.31.137"]
