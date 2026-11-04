@@ -325344,7 +325344,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.850]
 title = "Repair audit record 22.30.181 medium findings in tools/paxeer-x/gates (part 4 of 5): retired-reference, test-gap, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.428", "22.31.429"]
@@ -328727,7 +328727,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.597]
 title = "Repair audit record 22.30.161 medium findings in services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/config (part 1 of 1): config-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.281", "22.31.282"]
