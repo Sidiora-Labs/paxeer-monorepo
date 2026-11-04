@@ -137625,7 +137625,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.440]
 title = "Replace the undeclared ganache import in the revoke hooks repair test of apps/explorer with an in-process JSON-RPC fixture so the explorer type-check passes again"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -163844,7 +163844,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.66]
 title = "Repair audit record 22.30.108 medium findings in services/interop/crates/layerx-bridge-relayer/src (part 1 of 1): runtime-risk, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.160", "22.31.161"]
@@ -179882,7 +179882,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.251]
 title = "Repair audit record 22.30.13 medium findings in modules/oracle/types (part 1 of 1): runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.10", "22.31.11", "22.31.12", "22.31.13"]
@@ -242437,7 +242437,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.245]
 title = "Repair audit record 22.30.129 medium findings in programs/sdk/c/tools (part 1 of 1): wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.264", "22.31.265", "22.31.374", "22.31.375"]
