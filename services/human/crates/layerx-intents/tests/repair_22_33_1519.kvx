@@ -1,0 +1,9 @@
+[repair.22.33.1519]
+finding = "intent_proof_chain_domain"
+base_revision = "e3d7e5828b39e4182e9559fb6bc28d74c2f37e0f"
+producer_repair = "The existing signed_send producer now signs network 125; its independent binder decoding and every existing payload mutation assertion remain in the focused integration target."
+tests = ["intent_proof_chain_domain_merged_network_producer_and_consumer_agree", "intent_proof_chain_domain_network_77_signature_cannot_be_relabelled_as_125", "proof_human_intents::signed_send_crosses_the_real_ledger_call_and_agent_disclosure_consumer_twice"]
+baseline = "Not run: the ordered gate policy forbids tests before complete implementation and manual verify runs; the new repair integration target did not exist at the base revision, and the gate ledger contained no earlier runs. No baseline failure is claimed."
+verified_revision = "Recorded by hf-done in its private gate ledger together with the exact command, exit code and log; no verification is claimed by this record alone."
+wiring_request = "Domain 10 owns precompiles/layerxledger/transfers_test.go and modules/lxphost/host.go: drive unchanged SendDebit network-77 and network-125 producer payloads through the real ledger precompile and host configured for network 125, assert refusal without state changes for 77 and successful transfer for 125; Go/C host execution is unavailable to this Rust-only gate without a prohibited subprocess or native artifact."
+closure = "Producer mismatch and signature relabelling are covered here; unchanged network-77 refusal at the actual ledger host remains dependent on the domain-10 wiring request, and binder acceptance is not claimed as evidence of host acceptance or refusal."

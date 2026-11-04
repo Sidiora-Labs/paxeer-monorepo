@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-usage: topology-check.sh [--yaml-parser auto|pyyaml|builtin] [--strict] [--namespace namespace] [manifest ...]
+usage: topology-check.sh [--external-host host] [--yaml-parser auto|pyyaml|builtin] [--strict] [--namespace namespace] [manifest ...]
 
 Parses the hosted Kubernetes manifests, resolves every in-cluster URL that a
 workload configures (container env values, ConfigMap-sourced env values and
@@ -41,7 +41,7 @@ EOF
 }
 
 topology_check() {
-  local parser=auto strict=0 manifest namespace=default
+  local parser=auto strict=0 manifest namespace=default external_hosts="${TOPOLOGY_EXTERNAL_HOSTS:-}"
   local -a manifests=() namespaces=() inputs=()
   while [ $# -gt 0 ]; do
     case "$1" in
@@ -55,6 +55,10 @@ topology_check() {
         ;;
       --namespace)
         namespace="${2:?topology-check: --namespace needs a value}"
+        shift 2
+        ;;
+      --external-host)
+        external_hosts="${external_hosts:+$external_hosts,}${2:?topology-check: --external-host needs a value}"
         shift 2
         ;;
       --strict)
@@ -123,7 +127,7 @@ topology_check() {
   for index in "${!manifests[@]}"; do
     inputs+=("${namespaces[$index]}" "${manifests[$index]}")
   done
-  TOPOLOGY_YAML_PARSER="$parser" TOPOLOGY_STRICT="$strict" python3 - "${inputs[@]}" <<'PY'
+  PYTHONPATH="$(dirname "${BASH_SOURCE[0]}")${PYTHONPATH:+:$PYTHONPATH}" TOPOLOGY_EXTERNAL_HOSTS="$external_hosts" TOPOLOGY_YAML_PARSER="$parser" TOPOLOGY_STRICT="$strict" python3 - "${inputs[@]}" <<'PY'
 import json
 import os
 import re
@@ -683,17 +687,8 @@ class Topology:
         if not match:
             return None
         scheme, host, port = match.group(1), match.group(2), match.group(3)
-        service_match = SERVICE_HOST.match(host)
-        if not service_match:
-            return {"caller": workload, "source": source, "host": host, "kind": "offcluster", "listed": listed, "port": port or DEFAULT_PORTS[scheme]}
-        return {
-            "caller": workload,
-            "source": source,
-            "host": host,
-            "kind": "service",
-            "service": (service_match.group(2), service_match.group(1)),
-            "port": port or DEFAULT_PORTS[scheme],
-        }
+        return {"caller": workload, "source": source, "host": host,
+                "listed": listed, "port": port or DEFAULT_PORTS[scheme]}
 
     def selected_policies(self, ns, labels, direction):
         return [policy for policy in self.policies if policy["ns"] == ns and direction in policy["types"] and label_selector_matches(policy["selector"], labels)]
@@ -773,87 +768,26 @@ def describe(workload):
 
 
 def check(topology):
-    results = []
-    for edge in topology.edges():
-        caller = edge["caller"]
-        label = "%s -> %s:%s [%s]" % (describe(caller), edge["host"], edge["port"], edge["source"])
-        if edge["kind"] == "offcluster" and edge["listed"]:
-            results.append(("offcluster", label, "listed URL entry names a host outside the cluster; not checked against NetworkPolicy"))
-            continue
-        if edge["kind"] == "offcluster":
-            results.append(("note", label, "host is not an in-cluster Service name; not checked"))
-            continue
-        ns, name = edge["service"]
-        service = topology.services.get((ns, name))
-        if service is None:
-            external = SEPARATELY_OPERATED.get((ns, name))
-            if external is None:
-                results.append(("FAIL", label, "no Service %s/%s is declared in the manifests and it is not a declared separately operated service" % (ns, name)))
-                continue
-            if edge["port"] != external["port"]:
-                results.append(("FAIL", label, "separately operated service %s/%s is declared on port %s, not %s" % (ns, name, external["port"], edge["port"])))
-                continue
-            ok, detail = topology.egress_admits(caller, ns, external["labels"], external["port"], "TCP", {})
-            if not ok:
-                results.append(("FAIL", label, detail))
-                continue
-            results.append(("external", label, "separately operated; %s; callee policy is not in this repository" % detail))
-            continue
-        aliases = set()
-        while service["type"] == "ExternalName":
-            if (ns, name) in aliases:
-                results.append(("FAIL", label, "ExternalName cycle at %s/%s" % (ns, name)))
-                service = None
-                break
-            aliases.add((ns, name))
-            target = SERVICE_HOST.fullmatch(service["externalName"])
-            if target is None:
-                results.append(("FAIL", label, "ExternalName %s/%s target %s has no declared in-cluster Service" % (ns, name, service["externalName"])))
-                service = None
-                break
-            ns, name = target.group(2), target.group(1)
-            service = topology.services.get((ns, name))
-            if service is None:
-                results.append(("FAIL", label, "ExternalName target Service %s/%s is not declared" % (ns, name)))
-                break
-        if service is None:
-            continue
-        ports = [port for port in service["ports"] if edge["port"] in (port["port"], port["name"])]
-        if not ports:
-            results.append(("FAIL", label, "Service %s/%s exposes %s, not %s" % (ns, name, ", ".join("%s(%s)" % (port["port"], port["name"] or "-") for port in service["ports"]), edge["port"])))
-            continue
-        port = ports[0]
-        selected = [workload for workload in topology.workloads if workload["ns"] == ns and service["selector"] and all(workload["labels"].get(key) == value for key, value in service["selector"].items())]
-        if not selected:
-            results.append(("FAIL", label, "Service %s/%s selects no workload declared in the manifests (selector %s)" % (ns, name, service["selector"])))
-            continue
-        failed = False
-        details = []
-        for callee in selected:
-            if port["targetPort"].isdigit():
-                pod_port = port["targetPort"]
-                protocol = port["protocol"]
-            elif port["targetPort"] in callee["ports"]:
-                pod_port, protocol = callee["ports"][port["targetPort"]]
-            else:
-                results.append(("FAIL", label, "Service %s/%s targetPort %s is not a container port of %s" % (ns, name, port["targetPort"], describe(callee))))
-                failed = True
-                continue
-            ok, detail = topology.ingress_admits(callee, pod_port, protocol, caller)
-            if not ok:
-                results.append(("FAIL", label, detail))
-                failed = True
-                continue
-            details.append("pod %s:%s/%s %s" % (describe(callee), pod_port, protocol, detail))
-            ok, detail = topology.egress_admits(caller, ns, callee["labels"], pod_port, protocol, callee["ports"])
-            if not ok:
-                results.append(("FAIL", label, detail))
-                failed = True
-                continue
-            details.append(detail)
-        if not failed:
-            results.append(("ok", label, "; ".join(details)))
-    return results
+    import beta_tool
+
+    # Both YAML parsers project the same real Services, workloads, edges and
+    # policies into the shared resolver and policy consumer.
+    external = {"localhost", "paxportwallet.com"}
+    external.update("api%d.mainnet-beta.paxeer.network" % i for i in range(1, 17))
+    external.update(host for host in os.environ.get("TOPOLOGY_EXTERNAL_HOSTS", "").split(",") if host)
+    value = {
+        "edges": list(topology.edges()),
+        "workloads": topology.workloads,
+        "services": [dict(service, ns=ns, name=name)
+                     for (ns, name), service in topology.services.items()],
+        "policies": topology.policies,
+        "namespaces": topology.namespaces,
+        "external_hosts": sorted(external),
+        "separately_operated": [dict(service, ns=ns, name=name)
+                                for (ns, name), service in SEPARATELY_OPERATED.items()],
+    }
+    return [tuple(row) for row in json.loads(beta_tool.run(
+        ["topology-check"], json.dumps(value).encode()))]
 
 
 def main():

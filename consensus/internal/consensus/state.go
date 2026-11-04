@@ -34,6 +34,7 @@ import (
 
 // Consensus sentinel errors
 var (
+	ErrInvalidBlockWire             = errors.New("invalid proposal block wire encoding")
 	ErrInvalidProposalSignature     = errors.New("error invalid proposal signature")
 	ErrInvalidProposer              = errors.New("error invalid proposer")
 	ErrInvalidHeaderProposer        = errors.New("error invalid header proposer")
@@ -931,7 +932,7 @@ func (cs *State) handleTimeout(
 		cs.enterNewRound(ctx, ti.Height, 0, "timeout")
 
 	case cstypes.RoundStepNewRound:
-		cs.enterPropose(ctx, ti.Height, 0, "timeout")
+		cs.enterPropose(ctx, ti.Height, ti.Round, "timeout")
 
 	case cstypes.RoundStepPropose:
 		if err := cs.eventBus.PublishEventTimeoutPropose(cs.roundState.RoundStateEvent()); err != nil {
@@ -2223,7 +2224,7 @@ func (cs *State) getBlockFromBlockParts() (*types.Block, error) {
 	}
 
 	if err := tmproto.SchemaForBlock.Scan(bz); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %w", ErrInvalidBlockWire, err)
 	}
 
 	var pbb = new(tmproto.Block)

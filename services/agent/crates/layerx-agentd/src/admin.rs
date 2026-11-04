@@ -42,7 +42,7 @@ pub enum OperatorCommand {
         expiry_sequence: u64,
         preparation: [u8; 32],
         signer_public_key: [u8; 32],
-        signature: [u8; 64],
+        signature: [u8; 65],
     },
     AttemptProtectedMutation {
         target: [u8; 32],

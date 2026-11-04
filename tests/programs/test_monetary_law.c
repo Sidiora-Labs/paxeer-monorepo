@@ -571,10 +571,109 @@ static int monetary_exact_fee(lxp_u128 actor_before, lxp_u128 treasury_before,
         exact_fee_applied(after_principal, treasury_before, actor, treasury, fee) == 0 ? 0 : 1;
 }
 
-static int monetary_real_failure(int line, lxp_result dispatch_result, lxp_result receipt_result)
+static int monetary_failure_detail(const lxp_receipt *receipt,
+                                   lxp_byte_span *detail)
 {
-    (void)fprintf(stderr, "Real mixed program transfer failed line=%d dispatch=%d receipt=%d\n",
-                  line, (int)dispatch_result, (int)receipt_result);
+    static const uint8_t domain[] = "LXP/programs/terminal-applied-legs/v1";
+    static const uint8_t no_applied_legs[4] = {0};
+    const lxp_program_outcome *outcome = &receipt->program_outcome;
+    const lxp_byte_span terminal = outcome->terminal_payload;
+    const size_t prefix = sizeof(domain) + 4U;
+    uint32_t length;
+    if (receipt->result_code != LXP_ERR_PROGRAM_REFUSED || !outcome->present ||
+        outcome->terminal_kind != LXP_PROGRAM_TERMINAL_FAILURE ||
+        outcome->result_code != LXP_ERR_PROGRAM_REFUSED ||
+        outcome->abi_version != LX_PROGRAMS_GUEST_ABI_V5_VERSION ||
+        terminal.bytes == NULL || terminal.length < prefix + 4U ||
+        memcmp(terminal.bytes, domain, sizeof(domain)) != 0)
+        return 1;
+    length = ((uint32_t)terminal.bytes[sizeof(domain)] << 24U) |
+             ((uint32_t)terminal.bytes[sizeof(domain) + 1U] << 16U) |
+             ((uint32_t)terminal.bytes[sizeof(domain) + 2U] << 8U) |
+             terminal.bytes[sizeof(domain) + 3U];
+    if ((size_t)length != terminal.length - prefix - 4U ||
+        memcmp(terminal.bytes + prefix + length, no_applied_legs,
+               sizeof(no_applied_legs)) != 0)
+        return 1;
+    *detail = (lxp_byte_span){terminal.bytes + prefix, length};
+    return 0;
+}
+
+static int monetary_authority_refusal(const lxp_receipt *receipt,
+                                     const uint8_t program[32],
+                                     const uint8_t principal[32])
+{
+    static const uint8_t execution_domain[] = "LXP/program-execution/v5";
+    static const uint8_t graph_domain[] = "LayerX/programs/call-graph/v1";
+    static const uint8_t reason[] = "LXP/programs/authority-refusal/v1\0\x05";
+    const lxp_byte_span graph = receipt->program_outcome.call_graph_payload;
+    lxp_byte_span detail;
+    uint8_t expected[32U + 2U + 1U + 8U + 32U + 4U + 4U +
+                     sizeof(reason) - 1U + 8U];
+    const size_t failure_length = 32U + 4U + 4U + sizeof(reason) - 1U;
+    size_t cursor = 0U;
+    if (monetary_failure_detail(receipt, &detail) != 0 ||
+        graph.bytes == NULL || graph.length < sizeof(graph_domain) + 32U ||
+        memcmp(graph.bytes, graph_domain, sizeof(graph_domain)) != 0 ||
+        memcmp(graph.bytes + sizeof(graph_domain), principal, 32U) != 0 ||
+        detail.length < sizeof(execution_domain) + sizeof(expected) + graph.length ||
+        memcmp(detail.bytes, execution_domain, sizeof(execution_domain)) != 0)
+        return 1;
+    (void)memcpy(expected + cursor, program, 32U);
+    cursor += 32U;
+    write_u16(expected + cursor, LX_PROGRAMS_GUEST_ABI_V5_VERSION);
+    cursor += 2U;
+    expected[cursor++] = 1U;
+    write_u64(expected + cursor, failure_length);
+    cursor += 8U;
+    (void)memcpy(expected + cursor, program, 32U);
+    cursor += 32U;
+    write_u32(expected + cursor, 3U);
+    cursor += 4U;
+    write_u32(expected + cursor, (uint32_t)(sizeof(reason) - 1U));
+    cursor += 4U;
+    (void)memcpy(expected + cursor, reason, sizeof(reason) - 1U);
+    cursor += sizeof(reason) - 1U;
+    write_u64(expected + cursor, graph.length);
+    cursor += 8U;
+    return cursor != sizeof(expected) ||
+        memcmp(detail.bytes + detail.length - graph.length - sizeof(expected),
+               expected, sizeof(expected)) != 0 ||
+        memcmp(detail.bytes + detail.length - graph.length,
+               graph.bytes, graph.length) != 0 ? 1 : 0;
+}
+
+static int monetary_kernel_refusal(const lxp_receipt *receipt)
+{
+    static const uint8_t domain[] = "LXP/programs/settlement-failure/v1";
+    lxp_byte_span detail;
+    return monetary_failure_detail(receipt, &detail) != 0 ||
+        detail.length != sizeof(domain) + 1U ||
+        memcmp(detail.bytes, domain, sizeof(domain)) != 0 ||
+        detail.bytes[sizeof(domain)] != 7U ? 1 : 0;
+}
+
+static int monetary_real_failure(int line, lxp_result dispatch_result,
+                                 const lxp_receipt *receipt)
+{
+    const lxp_program_outcome *outcome = &receipt->program_outcome;
+    (void)fprintf(stderr,
+                  "Real mixed program transfer failed line=%d dispatch=%d receipt=%d terminal=%u abi=%u detail_bytes=%zu detail=",
+                  line, (int)dispatch_result, (int)receipt->result_code,
+                  (unsigned)outcome->terminal_kind, (unsigned)outcome->abi_version,
+                  outcome->terminal_payload.length);
+    for (size_t index = 0U; index < outcome->terminal_payload.length; ++index)
+        (void)fprintf(stderr, "%02x",
+                      (unsigned)outcome->terminal_payload.bytes[index]);
+    (void)fputc('\n', stderr);
+    return 1;
+}
+
+static int monetary_fixture_step(const char *step, lxp_result status)
+{
+    if (status == LXP_OK) return 0;
+    (void)fprintf(stderr, "Real mixed program fixture step=%s status=%d\n",
+                  step, (int)status);
     return 1;
 }
 
@@ -598,9 +697,11 @@ static int real_mixed_program_authority_kernel_case(void)
     uint8_t fee_asset[32] = {9U};
     uint8_t source_id[32];
     uint8_t code_hash[32];
+    uint8_t account_profile[33];
+    uint16_t recorded_abi = 0U;
     uint8_t wasm[PROGRAM_SPEND_WASM_BYTES];
     uint8_t capabilities[PROGRAM_SPEND_CAPABILITY_BYTES + 81U];
-    static uint8_t payload[104U + PROGRAM_SPEND_WASM_BYTES];
+    static uint8_t payload[106U + PROGRAM_SPEND_WASM_BYTES];
     static uint8_t call[CALL_FIXED_BYTES + 64U +
                         PROGRAM_SPEND_CAPABILITY_BYTES + 81U + 64U];
     static uint8_t arena_bytes[2U * LXP_MAX_ACTIVITY_BYTES + 4096U];
@@ -609,7 +710,7 @@ static int real_mixed_program_authority_kernel_case(void)
     lxp_arena register_arena;
     lxp_state_store state;
     lxp_state_journal journal;
-    lxp_kernel kernel;
+    static lxp_kernel kernel;
     lxp_module_ctx register_ctx;
     lxp_effect_buffer register_effects;
     lxp_identity_store identities = {0};
@@ -640,7 +741,7 @@ static int real_mixed_program_authority_kernel_case(void)
     (void)memset(program_id, 0x37, sizeof(program_id));
     (void)memset(&authority, 0, sizeof(authority));
     if (executed_public_key(actor_seed, primary_key) != 0)
-        return monetary_real_failure(__LINE__, call_result, receipt.result_code);
+        return monetary_real_failure(__LINE__, call_result, &receipt);
     if (lx_account_registry_init(&accounts) != LXP_OK ||
         lx_account_id_from_string(actor_name, sizeof(actor_name) - 1U,
                                   actor_id) != LXP_OK ||
@@ -665,9 +766,9 @@ static int real_mixed_program_authority_kernel_case(void)
                                      (lxp_u128){0U, 0U}, 0U) != LXP_OK ||
         lxp_programs_account_derive(program_id, spend_seed,
                                     sizeof(spend_seed), source_id) != LXP_OK)
-        return monetary_real_failure(__LINE__, call_result, receipt.result_code);
+        return monetary_real_failure(__LINE__, call_result, &receipt);
     if (lxp_did_id_derive(did, sizeof(did) - 1U, authority.principal) != LXP_OK)
-        return monetary_real_failure(__LINE__, call_result, receipt.result_code);
+        return monetary_real_failure(__LINE__, call_result, &receipt);
     (void)memcpy(authority.actor, authority.principal, 32U);
     (void)memcpy(authority.verified_key, primary_key, 32U);
     authority.kind = LXP_AUTHORITY_OWNER;
@@ -680,7 +781,7 @@ static int real_mixed_program_authority_kernel_case(void)
     authority.scope = &spend_scope;
     if (lxp_authority_hash(authority.kind, grant_id, primary_key,
                            authority.authority_hash) != LXP_OK)
-        return monetary_real_failure(__LINE__, call_result, receipt.result_code);
+        return monetary_real_failure(__LINE__, call_result, &receipt);
     (void)memset(&fee_asset_state, 0, sizeof(fee_asset_state));
     (void)memcpy(fee_asset_state.asset_id, fee_asset, sizeof(fee_asset));
     fee_asset_state.registered = true;
@@ -709,7 +810,7 @@ static int real_mixed_program_authority_kernel_case(void)
         lxp_kernel_create(&kernel, &state, &journal, &parameters, 0U) != LXP_OK ||
         install_metering_v1(&kernel) != LXP_OK ||
         lxp_kernel_register_module(&kernel,
-                                   programs_module_registration_v4()) != LXP_OK ||
+                                   programs_module_registration_v5()) != LXP_OK ||
         lxp_kernel_bind_module_runtime(&kernel, LXP_MODULE_PROGRAMS,
                                        &runtime) != LXP_OK ||
         lxp_programs_bind_fee_transaction(&kernel) != LXP_OK ||
@@ -717,15 +818,16 @@ static int real_mixed_program_authority_kernel_case(void)
                                     lxp_kernel_canonical_ledger_apply) != LXP_OK ||
         lxp_state_root(&kernel, kernel.current_state_root) != LXP_OK ||
         lxp_arena_init(&arena, arena_bytes, sizeof(arena_bytes)) != LXP_OK)
-        return monetary_real_failure(__LINE__, call_result, receipt.result_code);
+        return monetary_real_failure(__LINE__, call_result, &receipt);
     (void)memset(&execution, 0, sizeof(execution));
     execution.network_id = 7U;
     execution.batch_number = 1U;
     execution.batch_timestamp_ms = 10U;
     execution.maximum_timestamp_window = 100U;
-    execution.recorded_module_version = LX_PROGRAMS_SANDBOX_DESTROY_ABI_VERSION;
+    execution.recorded_module_version = LX_PROGRAMS_GUEST_ABI_V5_VERSION;
     execution.parameter_version = 1U;
     execution.signature_valid = true;
+    execution.binding_authority = true;
     execution.identities = &identities;
     execution.authority = &authority;
     execution.fee_parameters = &fees;
@@ -741,42 +843,99 @@ static int real_mixed_program_authority_kernel_case(void)
                                           &receipt)) != LXP_OK ||
         receipt.result_code != LXP_OK ||
         identity->next_sequence != ++identity_sequence)
-        return monetary_real_failure(__LINE__, call_result, receipt.result_code);
-    if (lxp_state_journal_open(&state, state.next_sequence,
-                               &journal) != LXP_OK ||
-        lxp_arena_init(&register_arena, register_arena_bytes,
-                       sizeof(register_arena_bytes)) != LXP_OK ||
-        lxp_module_ctx_init(&register_ctx, &kernel, LXP_MODULE_PROGRAMS, 10U,
+        return monetary_real_failure(__LINE__, call_result, &receipt);
+
+    (void)memset(payload, 0, 73U);
+    (void)memcpy(payload, program_id, 32U);
+    (void)memcpy(payload + 32U, "LXPA2", 5U);
+    (void)memcpy(payload + 37U, fee_asset, 32U);
+    fill_activity(&activity, LX_PROGRAMS_ACCOUNT, payload, 73U,
+                  did, sizeof(did) - 1U, primary_key);
+    activity.protocol_version = LXP_PROTOCOL_VERSION_STATE_COMMITMENT;
+    activity.account_sequence = identity_sequence;
+    activity.idempotency_key[31] = 0x35U;
+    execution.fee_balance = actor->balance;
+    execution.global_sequence = state.next_sequence;
+    if (monetary_fixture_step("profile arena reset", lxp_arena_reset(&arena, 0U)) ||
+        monetary_fixture_step("profile execution",
+            (call_result = execute_artifact_fixture_activity(
+                &kernel, &activity, &execution, &receipt))) ||
+        monetary_fixture_step("profile receipt", receipt.result_code) ||
+        identity->next_sequence != ++identity_sequence)
+        return monetary_real_failure(__LINE__, call_result, &receipt);
+
+    (void)memset(payload, 0, 106U);
+    (void)memcpy(payload, program_id, 32U);
+    write_u16(payload + 32U, LX_PROGRAMS_GUEST_ABI_V5_VERSION);
+    (void)memcpy(payload + 36U, code_hash, 32U);
+    (void)memcpy(payload + 68U, code_hash, 32U);
+    write_u32(payload + 102U, (uint32_t)wasm_length);
+    (void)memcpy(payload + 106U, wasm, wasm_length);
+    fill_activity(&activity, LX_PROGRAMS_UPGRADE, payload, 106U + wasm_length,
+                  did, sizeof(did) - 1U, primary_key);
+    activity.protocol_version = LXP_PROTOCOL_VERSION_STATE_COMMITMENT;
+    activity.account_sequence = identity_sequence;
+    activity.idempotency_key[31] = 0x36U;
+    execution.fee_balance = actor->balance;
+    execution.global_sequence = state.next_sequence;
+    if (monetary_fixture_step("upgrade arena reset", lxp_arena_reset(&arena, 0U)) ||
+        monetary_fixture_step("ABI 5 upgrade execution",
+            (call_result = execute_artifact_fixture_activity(
+                &kernel, &activity, &execution, &receipt))) ||
+        monetary_fixture_step("ABI 5 upgrade receipt", receipt.result_code) ||
+        identity->next_sequence != ++identity_sequence)
+        return monetary_real_failure(__LINE__, call_result, &receipt);
+
+    if (monetary_fixture_step("registration journal open",
+            lxp_state_journal_open(&state, state.next_sequence, &journal)) ||
+        monetary_fixture_step("registration arena init",
+            lxp_arena_init(&register_arena, register_arena_bytes,
+                          sizeof(register_arena_bytes))) ||
+        monetary_fixture_step("registration context init",
+            lxp_module_ctx_init(&register_ctx, &kernel, LXP_MODULE_PROGRAMS, 10U,
                             0U, state.next_sequence, 100000U, &register_arena,
-                            true) != LXP_OK)
-        return monetary_real_failure(__LINE__, call_result, receipt.result_code);
+                            true)))
+        return monetary_real_failure(__LINE__, call_result, &receipt);
     register_ctx.protocol_version = LXP_PROTOCOL_VERSION_STATE_COMMITMENT;
-    if (lxp_effect_buffer_init(&register_effects) != LXP_OK ||
-        lxp_module_ctx_bind_effects(&register_ctx,
-                                    &register_effects) != LXP_OK ||
-        lxp_programs_account_register(&register_ctx, program_id, spend_seed,
+    if (monetary_fixture_step("registered program ABI",
+            lxp_programs_program_abi(&register_ctx, program_id, &recorded_abi)) ||
+        recorded_abi != LX_PROGRAMS_GUEST_ABI_V5_VERSION ||
+        monetary_fixture_step("registered program profile",
+            lxp_programs_account_profile_read(&register_ctx, program_id,
+                                             account_profile)) ||
+        account_profile[0] != 2U ||
+        memcmp(account_profile + 1U, authority.principal, 32U) != 0 ||
+        monetary_fixture_step("registration effects init",
+            lxp_effect_buffer_init(&register_effects)) ||
+        monetary_fixture_step("registration effects bind",
+            lxp_module_ctx_bind_effects(&register_ctx, &register_effects)) ||
+        monetary_fixture_step("program account register",
+            lxp_programs_account_register(&register_ctx, program_id, spend_seed,
                                       sizeof(spend_seed), fee_asset, &source,
-                                      &created) != LXP_OK ||
+                                      &created)) ||
         !created || source == NULL || register_effects.count != 1U ||
         register_effects.effects[0].event_type !=
             LX_PROGRAMS_EVENT_ACCOUNT_REGISTERED ||
-        lxp_module_ctx_prepare_commit(&register_ctx) != LXP_OK ||
-        lxp_state_journal_commit(&journal) != LXP_OK ||
-        lxp_module_ctx_commit(&register_ctx) != LXP_OK)
-        return monetary_real_failure(__LINE__, call_result, receipt.result_code);
+        monetary_fixture_step("registration prepare commit",
+            lxp_module_ctx_prepare_commit(&register_ctx)) ||
+        monetary_fixture_step("registration journal commit",
+            lxp_state_journal_commit(&journal)) ||
+        monetary_fixture_step("registration context commit",
+            lxp_module_ctx_commit(&register_ctx)))
+        return monetary_real_failure(__LINE__, call_result, &receipt);
     source = program_spend_account(&accounts, source_id);
     if (source == NULL || source->kind != LX_ACCOUNT_MODULE_VALUE ||
         lxp_ledger_bootstrap_balance(
             source, fee_asset,
             (lxp_u128){0U, PROGRAM_SPEND_SOURCE_BALANCE}, 0U) != LXP_OK ||
         lxp_state_root(&kernel, kernel.current_state_root) != LXP_OK)
-        return monetary_real_failure(__LINE__, call_result, receipt.result_code);
+        return monetary_real_failure(__LINE__, call_result, &receipt);
     payload_length = call_payload_with_capabilities(
         call, program_id, capabilities,
         monetary_mixed_capabilities(capabilities, program_id, spend_seed,
                                    sizeof(spend_seed), source_id, fee_asset,
                                    payee_id, PROGRAM_SPEND_GRANT_CEILING));
-    write_u16(call + 32U, LX_PROGRAMS_ACCOUNT_ABI_VERSION);
+    write_u16(call + 32U, LX_PROGRAMS_GUEST_ABI_V5_VERSION);
     fill_activity(&activity, LX_PROGRAMS_CALL, call, payload_length,
                   did, sizeof(did) - 1U, primary_key);
     activity.protocol_version = LXP_PROTOCOL_VERSION_STATE_COMMITMENT;
@@ -803,7 +962,7 @@ static int real_mixed_program_authority_kernel_case(void)
         lxp_ct_is_zero(receipt.program_outcome.transfer_root, 32U) ||
         memcmp(receipt.transfer_set_root,
                receipt.program_outcome.transfer_root, 32U) != 0)
-        return monetary_real_failure(__LINE__, call_result, receipt.result_code);
+        return monetary_real_failure(__LINE__, call_result, &receipt);
     source_before = source->balance;
     payee_before = payee->balance;
     actor_before = actor->balance;
@@ -814,7 +973,7 @@ static int real_mixed_program_authority_kernel_case(void)
         payload_length = call_payload_with_capabilities(
             call, program_id, capabilities, 83U);
     }
-    write_u16(call + 32U, LX_PROGRAMS_ACCOUNT_ABI_VERSION);
+    write_u16(call + 32U, LX_PROGRAMS_GUEST_ABI_V5_VERSION);
     fill_activity(&activity, LX_PROGRAMS_CALL, call, payload_length,
                   did, sizeof(did) - 1U, primary_key);
     activity.protocol_version = LXP_PROTOCOL_VERSION_STATE_COMMITMENT;
@@ -826,23 +985,24 @@ static int real_mixed_program_authority_kernel_case(void)
     if (lxp_arena_reset(&arena, 0U) != LXP_OK ||
         (call_result = execute_artifact_fixture_activity(&kernel, &activity, &execution,
                                           &receipt)) != LXP_OK ||
-        receipt.result_code != LXP_ERR_NON_CANONICAL ||
+        receipt.result_code != LXP_ERR_PROGRAM_REFUSED ||
         actor->next_sequence != actor_sequence_before ||
         monetary_exact_fee(actor_before, treasury_before, actor, treasury, receipt.fee_charged, 0U) != 0 ||
         !receipt.program_outcome.present ||
         receipt.program_outcome.terminal_kind != LXP_PROGRAM_TERMINAL_FAILURE ||
-        receipt.program_outcome.result_code != LXP_ERR_NON_CANONICAL ||
+        receipt.program_outcome.result_code != LXP_ERR_PROGRAM_REFUSED ||
+        monetary_authority_refusal(&receipt, program_id, authority.principal) != 0 ||
         !lxp_ct_is_zero(receipt.program_outcome.transfer_root, 32U) ||
         identity->next_sequence != ++identity_sequence ||
         lxp_u128_cmp(source->balance, source_before) != 0 ||
         lxp_u128_cmp(payee->balance, payee_before) != 0)
-        return monetary_real_failure(__LINE__, call_result, receipt.result_code);
+        return monetary_real_failure(__LINE__, call_result, &receipt);
     payload_length = call_payload_with_capabilities(
         call, program_id, capabilities,
         monetary_mixed_capabilities(capabilities, program_id, spend_seed,
                                    sizeof(spend_seed), source_id, fee_asset,
                                    payee_id, PROGRAM_SPEND_AMOUNT - 1U));
-    write_u16(call + 32U, LX_PROGRAMS_ACCOUNT_ABI_VERSION);
+    write_u16(call + 32U, LX_PROGRAMS_GUEST_ABI_V5_VERSION);
     fill_activity(&activity, LX_PROGRAMS_CALL, call, payload_length,
                   did, sizeof(did) - 1U, primary_key);
     activity.protocol_version = LXP_PROTOCOL_VERSION_STATE_COMMITMENT;
@@ -857,22 +1017,23 @@ static int real_mixed_program_authority_kernel_case(void)
     if (lxp_arena_reset(&arena, 0U) != LXP_OK ||
         (call_result = execute_artifact_fixture_activity(&kernel, &activity, &execution,
                                           &receipt)) != LXP_OK ||
-        receipt.result_code != LXP_ERR_NON_CANONICAL ||
+        receipt.result_code != LXP_ERR_PROGRAM_REFUSED ||
         actor->next_sequence != actor_sequence_before ||
         monetary_exact_fee(actor_before, treasury_before, actor, treasury, receipt.fee_charged, 0U) != 0 ||
         !receipt.program_outcome.present ||
         receipt.program_outcome.terminal_kind != LXP_PROGRAM_TERMINAL_FAILURE ||
-        receipt.program_outcome.result_code != LXP_ERR_NON_CANONICAL ||
+        receipt.program_outcome.result_code != LXP_ERR_PROGRAM_REFUSED ||
+        monetary_authority_refusal(&receipt, program_id, authority.principal) != 0 ||
         !lxp_ct_is_zero(receipt.program_outcome.transfer_root, 32U) ||
         identity->next_sequence != ++identity_sequence ||
         lxp_u128_cmp(source->balance, source_before) != 0 ||
         lxp_u128_cmp(payee->balance, payee_before) != 0)
-        return monetary_real_failure(__LINE__, call_result, receipt.result_code);
+        return monetary_real_failure(__LINE__, call_result, &receipt);
     payload_length = call_payload_with_capabilities(
         call, program_id, capabilities,
         monetary_mixed_capabilities(capabilities, program_id, spend_seed,
             sizeof(spend_seed), source_id, fee_asset, payee_id, PROGRAM_SPEND_GRANT_CEILING));
-    write_u16(call + 32U, LX_PROGRAMS_ACCOUNT_ABI_VERSION);
+    write_u16(call + 32U, LX_PROGRAMS_GUEST_ABI_V5_VERSION);
     while (source->balance.lo >= PROGRAM_SPEND_AMOUNT) {
         fill_activity(&activity, LX_PROGRAMS_CALL, call, payload_length,
                       did, sizeof(did) - 1U, primary_key);
@@ -885,7 +1046,7 @@ static int real_mixed_program_authority_kernel_case(void)
         source_before = source->balance;
         payee_before = payee->balance;
         actor_before = actor->balance;
-    actor_sequence_before = actor->next_sequence;
+        actor_sequence_before = actor->next_sequence;
         treasury_before = treasury->balance;
         if (lxp_arena_reset(&arena, 0U) != LXP_OK ||
             (call_result = execute_artifact_fixture_activity(&kernel, &activity, &execution, &receipt)) != LXP_OK ||
@@ -896,8 +1057,12 @@ static int real_mixed_program_authority_kernel_case(void)
             payee->balance.hi != payee_before.hi ||
             payee->balance.lo != payee_before.lo + PROGRAM_SPEND_AMOUNT + 3U ||
             monetary_exact_fee(actor_before, treasury_before, actor, treasury, receipt.fee_charged, 3U) != 0)
-            return monetary_real_failure(__LINE__, call_result, receipt.result_code);
+            return monetary_real_failure(__LINE__, call_result, &receipt);
     }
+    if (source->balance.hi != 0U || source->balance.lo >= PROGRAM_SPEND_AMOUNT ||
+        program_leg_insufficient_balance_refusal(actor, source, payee,
+                                                 &fee_asset_state) != 0)
+        return monetary_real_failure(__LINE__, call_result, &receipt);
     fill_activity(&activity, LX_PROGRAMS_CALL, call, payload_length,
                   did, sizeof(did) - 1U, primary_key);
     activity.protocol_version = LXP_PROTOCOL_VERSION_STATE_COMMITMENT;
@@ -913,7 +1078,8 @@ static int real_mixed_program_authority_kernel_case(void)
     treasury_before = treasury->balance;
     if (lxp_arena_reset(&arena, 0U) != LXP_OK ||
         (call_result = execute_artifact_fixture_activity(&kernel, &activity, &execution, &receipt)) != LXP_OK ||
-        receipt.result_code != LXP_ERR_INSUFFICIENT_BALANCE ||
+        receipt.result_code != LXP_ERR_PROGRAM_REFUSED ||
+        monetary_kernel_refusal(&receipt) != 0 ||
         actor->next_sequence != actor_sequence_before ||
         (receipt.fee_charged.hi == 0U && receipt.fee_charged.lo == 0U) ||
         identity->next_sequence != ++identity_sequence ||
@@ -923,7 +1089,7 @@ static int real_mixed_program_authority_kernel_case(void)
         lxp_u128_cmp(source->balance, source_before) != 0 ||
         lxp_u128_cmp(payee->balance, payee_before) != 0 ||
         monetary_exact_fee(actor_before, treasury_before, actor, treasury, receipt.fee_charged, 0U) != 0)
-        return monetary_real_failure(__LINE__, call_result, receipt.result_code);
+        return monetary_real_failure(__LINE__, call_result, &receipt);
     if (program_spend_kernel_refusals(&kernel, source, payee, fee_asset) != 0)
         return 1;
     while (kernel.blob_count != 0U)
@@ -943,7 +1109,7 @@ int main(void)
     lx_programs_transfer_runtime runtime;
     lxp_state_store state;
     lxp_state_journal journal;
-    lxp_kernel kernel;
+    static lxp_kernel kernel;
     lxp_authority_resolved authority;
     lxp_identity_store identities = {0};
     lxp_identity *identity;

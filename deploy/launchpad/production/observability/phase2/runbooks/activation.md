@@ -19,3 +19,26 @@ Capture all four denied actions in `control_adversaries`: action, unassigned act
 Interrupted activation capture fields are before, after, recovered, active_binding_sha256, activation_records, bundle_sha256, journal and bundle_manifest. Keep authoritative application state unchanged, capture an authenticated native SQLite journal with exactly one activation for this revision, and hash the recovered native render manifest against the activation record. A complete closed SQLite backup is required; do not copy a live database without its journal. Rehearse on a separate admitted isolated controller before promoting the phase3 controller. Restore artifacts reference before, after and completed_at. Database-effect artifacts contain identity, committed_rows and outbox_rows; both inventories must have the expected count and no duplicate persisted row.
 
 Phase4 release measurement reuses these native failure/security/recovery captures and requires the same namespace and current candidate identity as its D16 run. Missing restore records, duplicate database effects, absent capacity invoices and unowned critical alerts fail the release measurement; green HTTP process health cannot replace them. The resulting lane report is a measurement input to9.1, not authority to activate a production controller. Preserve the prior activated bundle and its journal while recording actual allocation and SLO observations.
+
+The runtime binding now requires `synthetic` and `alertmanager`. `synthetic` names
+`url` (an explicit port and `/metrics`), `textfile_directory`, `zone`, `token_file`,
+`ca_file`, `cert_file`, and `key_file`. `alertmanager` names `url`, `token_file`,
+`ca_file`, and `receivers`; each alert owner has one receiver with `url`,
+`token_file`, and `ca_file`. Receiver names bind the owner to the assigned identity
+in `responders`. Use HTTPS with mounted CA files outside isolated loopback
+qualification; only that loopback mode permits null TLS mounts. The synthetic
+certificate and key terminate HTTPS at the exporter. Token mounts contain only
+the Bearer token; the Alertmanager URL must terminate at its authenticated gateway.
+
+Adopt every component mount in the admitted `transport.json`. Run `probes.py` with
+its existing binding/config/root arguments and `--output` equal to the bound
+textfile directory; schedule observations every 30 seconds. Run `synthetic.py`
+with `--binding`, `--config`, and `--bundle` pointing at that same admitted bundle.
+The exporter reads only `synthetic.prom`, requires private regular files and the
+bound Bearer token, and exposes the expected, success and observed-time series.
+Mount the directory read only in the exporter and read write in the probe runner;
+keep all credentials outside it. Mount the rendered `prometheus.json` and rule
+file into Prometheus and `alertmanager.json` into Alertmanager. The bundle binds
+the synthetic scrape, Alertmanager path prefix, authenticated responder webhook,
+TLS trust files and mount permissions to its hashes. A missing transport requires
+a new reviewed binding and admission; an external default does not supply it.

@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use crate::core::market::{MARKET_COUNT, MarketId};
+use crate::core::market::{MarketId, MARKET_COUNT};
 use crate::core::timeframe::Timeframe;
 use crate::core::types::CandleRecord;
 use crate::error::PerfDbError;
@@ -52,7 +52,7 @@ impl CandleStore {
                 let path = file_path(&base_dir, mid, tf);
                 if path.exists() {
                     let idx = flat_index(mid, tf);
-                    files[idx] = Some(MmapFile::open(&path, false)?);
+                    files[idx] = Some(MmapFile::open_records::<CandleRecord>(&path, false)?);
                 }
             }
         }
@@ -150,7 +150,7 @@ impl CandleStore {
         }
         let file = self.ensure_file(candle.market_id, tf)?;
 
-        let count = file.record_count::<CandleRecord>();
+        let count = file.record_count::<CandleRecord>()?;
         if count > 0 {
             let last_offset = (count - 1) * size_of::<CandleRecord>() as u64;
             if let Some(last) = file.read_record::<CandleRecord>(last_offset) {
@@ -172,7 +172,9 @@ impl CandleStore {
             return markets.get(idx).map_or(&[], Vec::as_slice);
         }
         match self.files.get(idx).and_then(|f| f.as_ref()) {
-            Some(file) => file.as_slice::<CandleRecord>(),
+            Some(file) => file
+                .as_slice::<CandleRecord>()
+                .expect("candle layout validated on open and append"),
             None => &[],
         }
     }
@@ -184,7 +186,9 @@ impl CandleStore {
         }
         let idx = flat_index(market_id, tf);
         match self.files.get(idx).and_then(|f| f.as_ref()) {
-            Some(file) => file.record_count::<CandleRecord>(),
+            Some(file) => file
+                .record_count::<CandleRecord>()
+                .expect("candle layout validated on open and append"),
             None => 0,
         }
     }
@@ -219,7 +223,7 @@ impl CandleStore {
         }
         if self.files[idx].is_none() {
             let path = file_path(&self.base_dir, market_id, tf);
-            self.files[idx] = Some(MmapFile::open(&path, true)?);
+            self.files[idx] = Some(MmapFile::open_records::<CandleRecord>(&path, true)?);
         }
         Ok(self.files[idx].as_mut().unwrap())
     }
