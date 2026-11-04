@@ -162,7 +162,7 @@ for dest in ${EDGE_SECONDARIES:-}; do
 	# A certificate-only change still starts a transaction before its rerender.
 	printf -v receiver 'result=$(%q edge-import %q) || exit; if [ "$result" = changed ]; then EDGE_LOCAL=1 EDGE_NGINX_DIR=%q EDGE_CERT_DIR=%q %q rerender --imported; elif [ %q = 1 ] || [ %q = 1 ]; then EDGE_LOCAL=1 EDGE_NGINX_DIR=%q EDGE_CERT_DIR=%q %q rerender --locked; else echo unchanged; fi' \
 		"${BRINGUP_INSPECT_BIN:-bringup-inspect}" "$nginx_dir" "$nginx_dir" "$cert_dir" "$state/edge.sh" "$renewed" "$([ -z "$changes" ] || echo 1)" "$nginx_dir" "$cert_dir" "$state/edge.sh"
-	printf -v command 'mkdir -p %q && flock -x %q sh -c %q' "$nginx_dir" "$nginx_dir/.edge-operation.lock" "$receiver"
+	printf -v command 'mkdir -p %q && (flock -x 8 && sh -c %q) 8>%q' "$nginx_dir" "$receiver" "$nginx_dir/.edge-operation.lock"
 	run ssh -o BatchMode=yes -- "$dest" "$command" <"$transfer" || die "generation transfer or reload on $dest failed"
 	echo "synced $dest"
 done

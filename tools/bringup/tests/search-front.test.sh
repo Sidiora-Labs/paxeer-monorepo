@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Integration target: BRINGUP_HOSTS_FILE must name the disposable serving fleet.
+# The standalone Go task gate uses loopback readiness peers instead.
 # Renders the search front's upstream list and the serving sidecar
 # configuration from a fixture env, and runs nginx -t on
 # services/interop/deploy/search-front/nginx.conf with the rendered list included.
@@ -22,8 +24,13 @@ check() {
 	fi
 }
 
+: "${BRINGUP_HOSTS_FILE:?the serving-discovery integration target requires a disposable host map}"
+listing="$("$front" names)"
+selection="$(printf '%s\n' "$listing" | "${BRINGUP_INSPECT_BIN:-bringup-inspect}" search-selection "$repo_root/docs/site/docs/reference/public-rpc.md" "" "")"
+read -r expected_primary expected_backup <<<"$selection"
+
 fixture_env=(
-	-u BRINGUP_HOSTS_FILE -u SEARCH_FRONT_PRIMARY -u SEARCH_FRONT_BACKUP
+	 -u SEARCH_FRONT_PRIMARY -u SEARCH_FRONT_BACKUP
 	https_proxy=http://127.0.0.1:9 HTTPS_PROXY=http://127.0.0.1:9 no_proxy= NO_PROXY=
 	SEARCH_FRONT_READINESS_TIMEOUT=2
 	X_WEBSEARCH_SEED_URL=https://paxeer.network/
@@ -47,16 +54,16 @@ fixture_env=(
 status=0
 env "${fixture_env[@]}" "$front" render >"$work/upstreams.conf" 2>"$work/render.err" || status=$?
 check render_exit '[ "$status" -eq 0 ]'
-check render_pins_primary_unadmitted 'diff - <(grep -v "^#" "$work/upstreams.conf") <<"WANT"
-split_clients "${xweb_client}" $xweb_node {
-    * api1.mainnet-beta.paxeer.network;
+check render_pins_primary_unadmitted 'diff - <(grep -v "^#" "$work/upstreams.conf") <<WANT
+split_clients "\${xweb_client}" \$xweb_node {
+    * $expected_primary;
 }
-map $xweb_node $xweb_eligible {
+map \$xweb_node \$xweb_eligible {
     default 0;
-    api1.mainnet-beta.paxeer.network 0;
+    $expected_primary 0;
 }
 WANT'
-check render_names_both_unready 'grep -Fq "neither api1.mainnet-beta.paxeer.network nor api2.mainnet-beta.paxeer.network" "$work/render.err"'
+check render_names_both_unready 'grep -Fq "neither $expected_primary nor $expected_backup" "$work/render.err"'
 
 deploy_prints_upstreams_and_edge_registration() {
 	local status=0
@@ -80,7 +87,7 @@ deploy_prints_upstreams_and_edge_registration() {
 check deploy_prints_upstreams_and_edge_registration deploy_prints_upstreams_and_edge_registration
 
 status=0
-env "${fixture_env[@]}" SEARCH_FRONT_BACKUP=api1.mainnet-beta.paxeer.network "$front" render >/dev/null 2>&1 || status=$?
+env "${fixture_env[@]}" SEARCH_FRONT_PRIMARY="$expected_primary" SEARCH_FRONT_BACKUP="$expected_primary" "$front" render >/dev/null 2>&1 || status=$?
 check render_refuses_repeated_backup '[ "$status" -eq 1 ]'
 status=0
 env "${fixture_env[@]}" SEARCH_FRONT_PRIMARY=api15.mainnet-beta.paxeer.network "$front" render >/dev/null 2>&1 || status=$?

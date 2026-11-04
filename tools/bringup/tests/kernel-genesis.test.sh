@@ -46,7 +46,7 @@ ENV
 }
 { fixture; echo "LAYERX_GENESIS_MODULES=${modules[*]}"; } >"$work/genesis.env"
 
-bash "$script" render "$work/genesis.env" "$work/out" >"$work/render.out" ||
+bash "$script" offline-render "$work/genesis.env" "$work/out" >"$work/render.out" ||
 	fail "render refused the fixture: $(cat "$work/render.out")"
 manifest=$work/out/genesis/genesis.manifest
 [ -s "$manifest" ] || fail "no genesis manifest"
@@ -82,11 +82,11 @@ PY
 # Refusals: an unknown module, a sequencer key that is not the declared one,
 # and bootstrap.sh's beta profile admits web but not beside explicit modules.
 { fixture; echo "LAYERX_GENESIS_MODULES=${modules[*]} asset"; } >"$work/unknown.env"
-! bash "$script" render "$work/unknown.env" "$work/unknown" 2>"$work/unknown.err" || fail "render accepted an unknown module"
+! bash "$script" offline-render "$work/unknown.env" "$work/unknown" 2>"$work/unknown.err" || fail "render accepted an unknown module"
 grep -q 'not asset' "$work/unknown.err" || fail "unknown module refusal: $(cat "$work/unknown.err")"
 [ ! -e "$work/unknown" ] || fail "a refused render left output"
 openssl rand -hex 32 | tr -d '\n' >"$work/sequencer.key"
-! bash "$script" render "$work/genesis.env" "$work/mismatch" 2>"$work/mismatch.err" || fail "render accepted a foreign sequencer key"
+! bash "$script" offline-render "$work/genesis.env" "$work/mismatch" 2>"$work/mismatch.err" || fail "render accepted a foreign sequencer key"
 grep -q 'does not hold the key' "$work/mismatch.err" || fail "sequencer refusal: $(cat "$work/mismatch.err")"
 ! bash "$root/services/platform/hosted/node/bootstrap.sh" --module-profile beta --enable-module web 2>"$work/profile.err" ||
 	fail "bootstrap accepted --module-profile beside --enable-module"
