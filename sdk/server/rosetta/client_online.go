@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/version"
@@ -32,6 +33,7 @@ import (
 	bank "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
 
 	tmrpc "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/client"
+	rpctypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/jsonrpc/types"
 )
 
 // interface assertion
@@ -261,6 +263,20 @@ func (c *Client) GetTx(ctx context.Context, hash string) (*rosettatypes.Transact
 
 	// construct rosetta tx
 	switch txType {
+	case DeliverTxTx:
+		result, err := c.tmRPC.Tx(ctx, hashBytes, false)
+		if err != nil {
+			var rpcErr *rpctypes.RPCError
+			if errors.As(err, &rpcErr) && rpcErr.Code == int(rpctypes.CodeInternalError) &&
+				strings.HasPrefix(rpcErr.Data, fmt.Sprintf("tx (%X) not found, err:", hashBytes)) {
+				return nil, crgerrs.WrapError(crgerrs.ErrNotFound, err.Error())
+			}
+			return nil, crgerrs.WrapError(crgerrs.ErrBadGateway, err.Error())
+		}
+		if result == nil {
+			return nil, crgerrs.WrapError(crgerrs.ErrNotFound, "transaction not found: "+hash)
+		}
+		return c.converter.ToRosetta().Tx(result.Tx, executionResultToDeliverTx(&result.TxResult))
 	// handle begin block hash
 	case BeginBlockTx:
 		// get block height by hash
@@ -456,7 +472,7 @@ func (c *Client) blockTxs(ctx context.Context, height *int64) (crgtypes.BlockTra
 	deliverTx := make([]*rosettatypes.Transaction, len(blockInfo.Block.Txs))
 	// process normal txs
 	for i, tx := range blockInfo.Block.Txs {
-		rosTx, err := c.converter.ToRosetta().Tx(tx, &abcitypes.ResponseDeliverTx{})
+		rosTx, err := c.converter.ToRosetta().Tx(tx, executionResultToDeliverTx(blockResults.TxsResults[i]))
 		if err != nil {
 			return crgtypes.BlockTransactionsResponse{}, err
 		}
@@ -472,6 +488,20 @@ func (c *Client) blockTxs(ctx context.Context, height *int64) (crgtypes.BlockTra
 		BlockResponse: c.converter.ToRosetta().BlockResponse(blockInfo),
 		Transactions:  finalTxs,
 	}, nil
+}
+
+func executionResultToDeliverTx(result *abcitypes.ExecTxResult) *abcitypes.ResponseDeliverTx {
+	return &abcitypes.ResponseDeliverTx{
+		Code:      result.Code,
+		Data:      result.Data,
+		Log:       result.Log,
+		Info:      result.Info,
+		GasWanted: result.GasWanted,
+		GasUsed:   result.GasUsed,
+		Events:    result.Events,
+		Codespace: result.Codespace,
+		EvmTxInfo: result.EvmTxInfo,
+	}
 }
 
 func (c *Client) getHeight(ctx context.Context, height *int64) (realHeight *int64, err error) {
