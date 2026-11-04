@@ -1,0 +1,29 @@
+[repair.22.33.1506]
+audit = "22.30.90"
+base_revision = "90c597177fcfcac6653ca7effb29d994ae45b128"
+qualification = "Only hf-build then hf-done qualify the unchanged candidate; the runner records the exact candidate revision, command, exit and private log."
+baseline = "No baseline verify ran: the explicit gate order prohibits tests before complete implementation and permits verification only through hf-done; the new integration target did not exist on the base tree."
+
+[finding.paused-delivery]
+tests = ["paused_delivery_after_buffering_has_no_effect_and_resumes_once", "pause_waits_for_inflight_acknowledgement_and_retains_its_delivery", "pause_during_connection_establishment_is_rechecked_before_routing"]
+semantics = "Dequeue reads durable pause state; routing and pause transitions share a per-subscription lease. Pause waits for an already routed exchange to finish or time out. Transport acceptance is recorded before the lease is released; cursor acknowledgements remain allowed while paused. A timeout retains the front item for at-least-once replay after resume."
+
+[finding.outbound-connect-deadline]
+tests = ["outbound_connect_deadline_bounds_real_saturated_backlog_and_preserves_retry", "outbound_connect_revocation_interrupts_real_saturated_backlog"]
+semantics = "A nonblocking socket, including full-listener EAGAIN retries and pending-connect completion checks, shares one monotonic deadline and cancellation polling with writes and acknowledgement reads."
+
+[finding.outbound-peer]
+tests = ["outbound_peer_authenticates_cross_uid_and_refuses_wrong_uid_processes"]
+semantics = "Kernel SO_PEERCRED identifies the connected receiver before any bound frame is written; unavailable or mismatched credentials refuse explicitly. HMAC and receiver-bound acknowledgement checks remain enforced. The receiver fixture reexecutes this integration-test binary under another UID without external tools."
+
+[finding.unacknowledged-window]
+tests = ["unacknowledged_window_survives_reopen_and_replays_in_order_with_slow_cursor_ack"]
+semantics = "A durable tenant/subscription quota defaults to 256; a positive configured window may not drop existing outstanding records. New delivery stops before receiver effects at the window; already outstanding cursors replay in order after reopen, and cumulative cursor acknowledgement frees capacity."
+
+[finding.subscription-upgrade-recovery]
+tests = ["subscription_upgrade_recovery_identifies_records_backs_up_reset_and_reopens"]
+semantics = "Refusal identifies tenant and subscription. Store::recover_legacy requires direct mutable operator access to the durable store, validates the old identity and record, and atomically backs up all original bytes plus the replacement in a tenant audit while resetting only the selected cursor boundary. The migrated subscription is paused; explicit resume replays retained events after the operator-selected boundary, including previously accepted events. Consumers must deduplicate. Other subscriptions and backups remain intact across reopen."
+wiring_request = "Domain 9: services/agent/crates/layerx-agentd/tests/subscription.rs and tests/subscription_cursor_v3.rs retain old unit CursorResetRequired expectations; update their refusal assertions to the identified UpgradeRequired interface in their owning task."
+
+[gotcha.scope]
+observed = "The root gotcha ledger and spec records are outside this task's explicit scope; task-local notes are retained here instead."

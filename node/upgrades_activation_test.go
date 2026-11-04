@@ -11,6 +11,7 @@ import (
 	launchpadtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/types"
 	layerxanchortypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxanchor/types"
 	layerxbridgetypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxbridge/types"
+	layerxchainstypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxchains/types"
 	layerxcustodytypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/types"
 	layerxexchangetypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxexchange/types"
 	perpstypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/perps/types"
@@ -102,9 +103,9 @@ func TestActivationUpgradeIsRegisteredBesideTheTagList(t *testing.T) {
 	require.NoError(t, err)
 	names := parseUpgradesList(string(tags))
 	require.NotContains(t, names, ActivationUpgrade)
-	require.Equal(t, xwebUpgrade, LatestUpgrade)
-	require.Equal(t, xwebUpgrade, names[len(names)-1])
-	require.Equal(t, 1, semver.Compare(ActivationUpgrade, LatestUpgrade))
+	require.Equal(t, MergeUpgrade, LatestUpgrade)
+	require.Equal(t, MergeUpgrade, names[len(names)-1])
+	require.Equal(t, 1, semver.Compare(LatestUpgrade, ActivationUpgrade))
 
 	a := NewTestWrapper(t, time.Now().UTC(), secp256k1.GenPrivKey().PubKey(), false).App
 	require.True(t, a.UpgradeKeeper.HasHandler(ActivationUpgrade))
@@ -114,13 +115,13 @@ func TestActivationUpgradeIsRegisteredBesideTheTagList(t *testing.T) {
 
 func TestMergePlanIsRegisteredBesideTheTagList(t *testing.T) {
 	require.Equal(t, "v7.0", MergeUpgrade)
-	require.Equal(t, []string{"v6.9", "v6.10", "v6.12.0", "v7.0"}, knownUpgradePlans())
+	require.Equal(t, []string{"v6.9", "v6.10", "v6.12.0", "v7.0", "v7.0-anchor-store-delete"}, knownUpgradePlans())
 
 	tags, err := f.ReadFile("tags")
 	require.NoError(t, err)
 	names := parseUpgradesList(string(tags))
-	require.NotContains(t, names, MergeUpgrade)
-	require.Equal(t, xwebUpgrade, LatestUpgrade)
+	require.Contains(t, names, MergeUpgrade)
+	require.Equal(t, MergeUpgrade, LatestUpgrade)
 	require.Equal(t, LatestUpgrade, names[len(names)-1])
 	require.Equal(t, 1, semver.Compare(MergeUpgrade, V6120Upgrade))
 
@@ -131,6 +132,7 @@ func TestMergePlanIsRegisteredBesideTheTagList(t *testing.T) {
 		common.HexToAddress("0x101B"),
 		common.HexToAddress("0x101C"),
 		common.HexToAddress("0x101D"),
+		common.HexToAddress("0x101E"),
 		common.HexToAddress("0x0901"),
 		common.HexToAddress("0x0902"),
 		common.HexToAddress("0x0903"),
@@ -147,6 +149,11 @@ func TestMergePlanIsRegisteredBesideTheTagList(t *testing.T) {
 		require.NotContains(t, activation.Modules, addr)
 	}
 	require.ElementsMatch(t, want, got)
+	require.Equal(t, []string{layerxchainstypes.ModuleName}, gate.Modules[common.HexToAddress("0x101E")])
+}
+
+func expectedMergeStores() []string {
+	return []string{keys.SequencerStoreKey, keys.LayerXLedgerStoreKey, keys.LayerXAuthStoreKey, keys.LayerXPayStoreKey, keys.LayerXChainsStoreKey, keys.LayerXProgramsStoreKey, keys.LayerXAgentStoreKey, keys.LayerXHostStoreKey}
 }
 
 func TestActivationStoreUpgradesMountEveryForkStore(t *testing.T) {
@@ -174,7 +181,7 @@ func TestActivationStoreUpgradesMountEveryForkStore(t *testing.T) {
 	merge, ok := layerxStoreUpgrades(MergeUpgrade)
 	require.True(t, ok)
 	require.Equal(t, mergeStoreUpgrades(), merge)
-	require.Equal(t, []string{keys.SequencerStoreKey}, merge.Added)
+	require.Equal(t, expectedMergeStores(), merge.Added)
 	require.Empty(t, merge.Deleted)
 	require.Empty(t, merge.Renamed)
 	v6120Stores := []string{perpstypes.StoreKey, spottypes.StoreKey, pricefeedtypes.StoreKey}

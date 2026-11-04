@@ -1,6 +1,6 @@
 use crate::{
     solidity,
-    verify::{SolcInput, VyperInput},
+    verify::{validate_source_name, SolcInput, VyperInput},
     vyper, OnChainCode, OnChainContract, RequestParseError,
 };
 use anyhow::Context;
@@ -32,7 +32,7 @@ impl TryFrom<Contract> for OnChainContract {
             }
         };
 
-        let (chain_id, address) = helpers::decode_verification_metadata(value.metadata);
+        let (chain_id, address) = helpers::decode_verification_metadata(value.metadata)?;
 
         Ok(Self {
             code: on_chain_code,
@@ -46,6 +46,7 @@ impl TryFrom<VerifySolidityMultiPartRequest> for solidity::multi_part::Verificat
     type Error = RequestParseError;
 
     fn try_from(request: VerifySolidityMultiPartRequest) -> Result<Self, Self::Error> {
+        validate_solidity_post_actions(&request.post_actions)?;
         let contract =
             build_on_chain_contract(&request.bytecode, request.bytecode_type(), request.metadata)?;
         let compiler_version = helpers::decode_compiler_version(&request.compiler_version)?;
@@ -67,6 +68,7 @@ impl TryFrom<VerifySolidityStandardJsonRequest> for solidity::standard_json::Ver
     type Error = RequestParseError;
 
     fn try_from(request: VerifySolidityStandardJsonRequest) -> Result<Self, Self::Error> {
+        validate_solidity_post_actions(&request.post_actions)?;
         let contract =
             build_on_chain_contract(&request.bytecode, request.bytecode_type(), request.metadata)?;
         let compiler_version = helpers::decode_compiler_version(&request.compiler_version)?;
@@ -78,6 +80,33 @@ impl TryFrom<VerifySolidityStandardJsonRequest> for solidity::standard_json::Ver
             content,
         })
     }
+}
+
+impl solidity::multi_part::VerificationRequest {
+    pub fn try_from_with_post_actions(
+        request: VerifySolidityMultiPartRequest,
+    ) -> Result<(Self, Vec<String>), RequestParseError> {
+        let post_actions = request.post_actions.clone();
+        Ok((Self::try_from(request)?, post_actions))
+    }
+}
+
+impl solidity::standard_json::VerificationRequest {
+    pub fn try_from_with_post_actions(
+        request: VerifySolidityStandardJsonRequest,
+    ) -> Result<(Self, Vec<String>), RequestParseError> {
+        let post_actions = request.post_actions.clone();
+        Ok((Self::try_from(request)?, post_actions))
+    }
+}
+
+fn validate_solidity_post_actions(post_actions: &[String]) -> Result<(), RequestParseError> {
+    for action in post_actions {
+        if action != "lookup-methods" {
+            return Err(anyhow::anyhow!("unsupported post-action: {action}").into());
+        }
+    }
+    Ok(())
 }
 
 impl TryFrom<BatchVerifySolidityMultiPartRequest>
@@ -172,6 +201,9 @@ fn build_solidity_multi_part_content(
     evm_version: Option<String>,
     optimization_runs: Option<u32>,
 ) -> Result<solidity::multi_part::Content, RequestParseError> {
+    for name in sources.keys() {
+        validate_source_name(std::path::Path::new(name)).map_err(anyhow::Error::new)?;
+    }
     let sources: BTreeMap<PathBuf, String> = sources
         .into_iter()
         .map(|(name, content)| (PathBuf::from(name), content))
@@ -196,7 +228,11 @@ fn build_solidity_standard_json_content(
     solc_input: String,
 ) -> Result<SolcInput, RequestParseError> {
     let deserializer = &mut serde_json::Deserializer::from_str(&solc_input);
-    Ok(serde_path_to_error::deserialize(deserializer)?)
+    let input: SolcInput = serde_path_to_error::deserialize(deserializer)?;
+    for name in input.0.sources.0.keys() {
+        validate_source_name(name).map_err(anyhow::Error::new)?;
+    }
+    Ok(input)
 }
 
 fn build_vyper_multi_part_content(
@@ -240,7 +276,7 @@ fn build_on_chain_contract(
     metadata: Option<VerificationMetadata>,
 ) -> Result<OnChainContract, RequestParseError> {
     let on_chain_code = helpers::decode_on_chain_code_from_value_and_type(bytecode, bytecode_type)?;
-    let (chain_id, address) = helpers::decode_verification_metadata(metadata);
+    let (chain_id, address) = helpers::decode_verification_metadata(metadata)?;
     Ok(OnChainContract {
         code: on_chain_code,
         chain_id,
@@ -271,18 +307,17 @@ mod helpers {
 
     pub fn decode_verification_metadata(
         maybe_value: Option<VerificationMetadata>,
-    ) -> (Option<String>, Option<Address>) {
+    ) -> anyhow::Result<(Option<String>, Option<Address>)> {
         match maybe_value {
-            None => (None, None),
+            None => Ok((None, None)),
             Some(metadata) => {
                 let chain_id = metadata.chain_id;
                 let contract_address = metadata
                     .contract_address
                     .map(|value| alloy_core::primitives::Address::from_str(&value))
                     .transpose()
-                    .ok()
-                    .flatten();
-                (chain_id, contract_address)
+                    .context("invalid metadata contract_address")?;
+                Ok((chain_id, contract_address))
             }
         }
     }

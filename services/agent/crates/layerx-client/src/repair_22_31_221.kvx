@@ -1,0 +1,54 @@
+[repair]
+task = "22.31.221"
+audit = "22.30.96"
+requirement = "22998.1"
+status = "implemented; qualification is determined exclusively by the bounded gate ledger"
+evidence = "hf-build/hf-done retain the exact candidate revision, command, exit and private log; no source declaration substitutes for that evidence"
+baseline = "Not executed: explicit user gate order prohibits running verify before implementation; repair_22_31_221.rs did not exist in the starting tree."
+
+[finding.f01]
+test = "receipt_sequence_and_height_survive_reopen"
+repair = "PAXAIOP3 persists authenticated execution height, signed receipt digest/root and exact verified batch coverage. Finalization binds receipt identity, sequence, root and execution height to the verified covering commit. PAXAIOP2 migration revokes unsupported finality without inventing evidence."
+
+[finding.f04]
+test = "market_finality_requires_same_root_node_evidence"
+repair = "Opaque VerifiedProgramState verifies the lxphost progstor namespace head, manifest and exact AI state under a verified Comet app hash. Finalization binds domain, program, host store root, captured digest/revision/size, block and H-1 state height. Digest-only CommitFinality remains explicitly unverified."
+
+[finding.f06]
+test = "gateway_bank_coins_round_trip"
+repair = "Decode account/height/bank coin lists with exact decimal uint256 amounts; prove the production gateway ABI codec and committed producer vectors through loopback JSON-RPC, including empty balances and explicit refusals."
+
+[finding.f07]
+test = "gateway_flat_assets_round_trip"
+repair = "Decode flat string asset identifiers, kind, nullable denom/name/symbol/decimals/supply, optional paused/verification, height and the producer limit. payments::get_asset uses the declared string identifier. A metadata label never authorizes an unsupported withdrawal custody configuration."
+
+[finding.f08]
+test = "gateway_history_preserves_envelope"
+repair = "Preserve gateway account, items, cursor, indexedHeight, chainHeight and readiness freshness. Validate readiness without sampling a conflicting node head."
+
+[finding.f09]
+test = "gateway_uint256_boundaries"
+repair = "Checked Uint256 retains all 32 bytes and renders exact canonical decimal. Gateway quantity/decimal paths preserve 2^128 and uint256 maximum and reject overflow."
+
+[consumer_migration]
+paths = "tests/px_reads.rs, tests/payments_rpc.rs, tests/proof_client.rs, tests/history_rpc.rs, tests/sequencer_reads.rs, services/agent/crates/layerx-agentd/tests/repair_22_31_218.rs, services/platform/hosted/authority/src/human/budget_state.rs"
+repair = "Update the existing tests to exact uint256 balances, flat assets and history account/readiness/height envelopes; retain every test function and malformed/refusal checks against the current contract. Bank producer vectors are decoded with the production gateway ABI codec and readiness comes from its committed envelope transcript."
+previous_attempt = "The supplied attempt-2 client build passed; dependent checking failed on daemon HistoryPage literals and authority Uint256 Display/retired balance fields. This continuation retains those history fields, restores exact Display, and migrates both consumers before qualification."
+consumer_test = "budget_ledger_balance_keeps_asset_height_and_protocol_width"
+consumer_contract = "Authority budgets carry ledger asset IDs, not bank denoms: retain the account-binding check and read the exact asset through rpc::account::balance at the session committed height, preserving the protocol u128 overflow refusal. px_getBalances remains the full-width bank coin API; no ledger/bank mapping is invented."
+
+[wiring.agent_consumers]
+owner = "agent domain"
+request = "Migrate services/agent/crates/layerx-sdk and services/agent/crates/layerx-agentd asset/balance/history consumers to the flat gateway schema and exact quantities."
+
+[wiring.node_evidence]
+owner = "node domain"
+request = "Expose modules/lxphost/read_program.go namespace head, manifest and ICS23 proof at the ProgramRead boundary; carry the authenticated lxphost store root and Comet H/state H-1 coordinates."
+
+[wiring.gateway_custody]
+owner = "gateway domain"
+request = "Expose verified custody configuration separately in services/platform/hosted/gateway/src/paxeer.rs before enabling withdrawal registry operations; flat asset metadata carries no pointer or custody authorization."
+
+[gotcha.consumer_interfaces]
+observed = "The task build compiles all integration targets, so changing a public balance, asset or history carrier requires migrating its test consumers before qualification."
+action = "Attempt 2 explicitly includes the tests directory; migrate those consumers in scope and leave the bounded gate ledger as the only qualification authority."

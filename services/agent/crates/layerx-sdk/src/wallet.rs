@@ -187,66 +187,26 @@ impl<'Wallet> Wallet<'Wallet> {
     }
     /// # Errors
     /// Returns pending or refuses any missing or invalid commitment evidence.
+    /// Uses the RPC client's injected clock and bounded deadline for the entire wait;
+    /// an unavailable or regressing clock is an error, including during polling.
     pub fn wait_for(
         &self,
         activity: [u8; 32],
         commitment: Commitment,
         timeout: Duration,
     ) -> Result<VerifiedRpcReceipt, RpcError> {
-        if timeout > Duration::from_secs(300) || activity == [0; 32] {
-            return Err(RpcError::InvalidRequest);
-        }
-        if commitment == Commitment::Finalised {
-            return Err(RpcError::MissingFinalityTrust);
-        }
-        let deadline = std::time::Instant::now() + timeout;
-        loop {
-            let remaining = deadline.saturating_duration_since(std::time::Instant::now());
-            if remaining.is_zero() {
-                return Err(RpcError::Pending {
-                    activity_id: activity,
-                });
-            }
-            let result = self.rpc.sequencer_receipt_bounded(activity, remaining)?;
-            if result.get("txHash").and_then(Value::as_str)
-                != Some(&format!("0x{}", crate::rpc::encode_hex(&activity)))
-            {
-                return Err(RpcError::InvalidResponse);
-            }
-            let rung = result["rung"].as_str().ok_or(RpcError::InvalidResponse)?;
-            if !matches!(
-                rung,
-                "submitted"
-                    | "receipted"
-                    | "included"
-                    | "executed"
-                    | "batched"
-                    | "committed"
-                    | "finalised"
-            ) {
-                return Err(RpcError::InvalidResponse);
-            }
-            if matches!(
-                rung,
-                "receipted" | "included" | "executed" | "batched" | "committed" | "finalised"
-            ) {
-                crate::rpc::check_transaction_revert(&result)?;
-                if commitment == Commitment::Executed
-                    || matches!(rung, "batched" | "committed" | "finalised")
-                {
-                    return self.rpc.wait_for(
-                        activity,
-                        commitment,
-                        self.policy,
-                        deadline.saturating_duration_since(std::time::Instant::now()),
-                    );
-                }
-            }
-            std::thread::sleep(
-                Duration::from_millis(20)
-                    .min(deadline.saturating_duration_since(std::time::Instant::now())),
-            );
-        }
+        self.rpc
+            .wait_for(activity, commitment, self.policy, timeout)
+    }
+
+    pub fn wait_for_with_commit(
+        &self,
+        activity: [u8; 32],
+        timeout: Duration,
+        evidence: &layerx_client::rpc::receipt_commit::ReceiptCommitEvidence<'_>,
+    ) -> Result<VerifiedRpcReceipt, RpcError> {
+        self.rpc
+            .wait_for_with_commit(activity, self.policy, timeout, evidence)
     }
 
     /// # Errors
@@ -278,11 +238,6 @@ impl<'Wallet> Wallet<'Wallet> {
             || options.wait_timeout > Duration::from_secs(300)
         {
             return Err(RpcError::InvalidRequest);
-        }
-        if options.commitment == Commitment::Finalised
-            && self.policy.trusted_checkpoint_context_digest.is_none()
-        {
-            return Err(RpcError::MissingFinalityTrust);
         }
         let from = self
             .signer

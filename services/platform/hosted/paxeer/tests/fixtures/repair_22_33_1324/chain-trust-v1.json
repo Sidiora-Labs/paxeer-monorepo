@@ -1,0 +1,7 @@
+{
+  "schema": "layerx/chain-trust/1",
+  "chain_id": 125,
+  "comet_chain_id": "hyperpax_125-1",
+  "height": 23869863,
+  "validator_set_hash": "0x61df0b3c1835b345b36485a587a72a4948aee376264e67f826237b8786539bbd"
+}

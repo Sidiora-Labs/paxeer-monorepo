@@ -55,11 +55,14 @@ pub fn list_assets(endpoint: &PxEndpoint) -> Result<PxAssetTable, SequencerError
     endpoint.list_assets()
 }
 
-pub fn get_asset(endpoint: &PxEndpoint, asset: [u8; 32]) -> Result<PxAssetEntry, SequencerError> {
+pub fn get_asset(
+    endpoint: &PxEndpoint,
+    asset: impl AsRef<str>,
+) -> Result<PxAssetEntry, SequencerError> {
     list_assets(endpoint)?
         .assets
         .into_iter()
-        .find(|entry| entry.asset_id == asset)
+        .find(|entry| entry.asset_id == asset.as_ref())
         .ok_or(SequencerError::Unavailable)
 }
 

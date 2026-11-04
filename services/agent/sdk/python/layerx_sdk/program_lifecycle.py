@@ -8,6 +8,10 @@ from .generated.receipt import supports_program_guest_abi
 from .program_wire import DecodedSignedProgramCall, bind_signed_program_lifecycle
 
 
+MAX_DEPLOY_PAYLOAD_BYTES = 524_288
+DEPLOY_ENVELOPE_BYTES = 104
+
+
 @dataclass(frozen=True)
 class NativeProgramLifecycleRequest:
     ordinal: int
@@ -61,12 +65,23 @@ class NativeProgramDeploy:
     interface: bytes | None = None
     policy: int = 0
 
+    @property
+    def wasm_budget(self) -> int:
+        return MAX_DEPLOY_PAYLOAD_BYTES - DEPLOY_ENVELOPE_BYTES - (
+            0 if self.interface is None else 4 + len(self.interface)
+        )
+
     def encode(self) -> bytes:
-        _code(self.program_id, self.guest_abi, self.wasm, self.new_hash)
         if (type(self.policy) is not int or self.policy not in (0, 1)
                 or (self.policy == 0) != (_fixed(self.authority) == bytes(32))
                 or self.interface is not None and not 0 < len(self.interface) <= 952):
             raise ValueError("invalid deploy policy or interface")
+        if len(self.wasm) > self.wasm_budget:
+            raise ValueError(
+                f"deployment payload exceeds {MAX_DEPLOY_PAYLOAD_BYTES} bytes; "
+                f"remaining WASM budget is {self.wasm_budget} bytes after envelope/interface"
+            )
+        _code(self.program_id, self.guest_abi, self.wasm, self.new_hash)
         return (self.program_id + struct.pack(">HBB", self.guest_abi, self.policy, 0)
                 + self.authority + self.new_hash + struct.pack(">I", len(self.wasm))
                 + (b"" if self.interface is None else struct.pack(">I", len(self.interface)) + self.interface) + self.wasm)
@@ -178,3 +193,57 @@ class NativeProgramWindDown:
         if value.encode() != payload:
             raise ValueError("noncanonical wind-down")
         return value
+
+
+def decode_lifecycle_calldata(calldata: bytes, ordinal: int):
+    from .evm_transaction import encode_call
+    signatures = {
+        1: (("deploy", ("bytes32", "uint16", "uint8", "bytes32", "bytes32", "bytes", "bytes")),),
+        2: (("upgrade", ("bytes32", "uint16", "uint8", "bytes32", "bytes32", "bytes", "bytes", "bytes", "uint128")),),
+        7: (("setExitRoute", ("bytes32", "bytes32", "bytes32", "bytes32", "bytes")),
+            ("deprecate", ("bytes32", "bytes32", "uint64")),
+            ("tombstone", ("bytes32",)), ("exitValue", ("bytes32", "bytes32"))),
+    }
+    for name, types in signatures.get(ordinal, ()):
+        zeros = tuple(b"" if kind == "bytes" else bytes(32) if kind == "bytes32" else 0 for kind in types)
+        if calldata[:4] != encode_call(name, types, zeros)[:4]:
+            continue
+        body = calldata[4:]
+        if len(body) < len(types) * 32 or len(body) % 32:
+            raise ValueError("lifecycle ABI framing")
+        values = []
+        for index, kind in enumerate(types):
+            word = body[index * 32:(index + 1) * 32]
+            number = int.from_bytes(word, "big")
+            if kind == "bytes32":
+                values.append(word)
+            elif kind == "bytes":
+                if number + 32 > len(body):
+                    raise ValueError("lifecycle ABI offset")
+                size = int.from_bytes(body[number:number + 32], "big")
+                if size > len(body) - number - 32:
+                    raise ValueError("lifecycle ABI length")
+                values.append(body[number + 32:number + 32 + size])
+            else:
+                values.append(number)
+        if encode_call(name, types, values) != calldata:
+            raise ValueError("noncanonical lifecycle ABI")
+        if ordinal == 1:
+            program, abi, policy, authority, digest, interface, wasm = values
+            value = NativeProgramDeploy(program, abi, authority, digest, wasm, interface or None, policy)
+        elif ordinal == 2:
+            program, abi, flags, old, digest, hook, interface, wasm, fee = values
+            if flags & ~3 or bool(flags & 1) != bool(hook):
+                raise ValueError("lifecycle upgrade flags")
+            value = NativeProgramUpgrade(program, abi, old, digest, wasm, hook, interface if interface or flags & 2 else None, bool(flags & 2))
+        elif name == "setExitRoute":
+            value = NativeProgramWindDown(values[0], 1, *values[1:])
+        elif name == "deprecate":
+            value = NativeProgramWindDown(values[0], 2, exit_program=values[1], deadline_batch=values[2])
+        elif name == "tombstone":
+            value = NativeProgramWindDown(values[0], 3)
+        else:
+            value = NativeProgramWindDown(values[0], 4, account=values[1])
+        value.encode()
+        return value
+    raise ValueError("lifecycle method mismatch")

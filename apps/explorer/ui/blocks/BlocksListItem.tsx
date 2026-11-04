@@ -6,12 +6,10 @@ import React from 'react';
 import type { Block } from 'types/api/block';
 import type { ClusterChainConfig } from 'types/multichain';
 
-import { route } from 'nextjs-routes';
+import { route } from 'nextjs/routes';
 
 import config from 'configs/app';
-import getBlockTotalReward from 'lib/block/getBlockTotalReward';
 import getNetworkValidatorTitle from 'lib/networks/getNetworkValidatorTitle';
-import { currencyUnits } from 'lib/units';
 import { Link } from 'toolkit/chakra/link';
 import { Skeleton } from 'toolkit/chakra/skeleton';
 import { Tooltip } from 'toolkit/chakra/tooltip';
@@ -25,6 +23,8 @@ import Utilization from 'ui/shared/Utilization/Utilization';
 import NativeCoinValue from 'ui/shared/value/NativeCoinValue';
 import SimpleValue from 'ui/shared/value/SimpleValue';
 
+import { getBlockTotalReward, getBlockNativeValueProps } from './blockValues';
+
 interface Props {
   data: Block;
   isLoading?: boolean;
@@ -33,10 +33,11 @@ interface Props {
   chainData?: ClusterChainConfig;
 }
 
-const isRollup = config.features.rollup.isEnabled;
-
 const BlocksListItem = ({ data, isLoading, enableTimeIncrement, animation, chainData }: Props) => {
-  const totalReward = getBlockTotalReward(data);
+  const appConfig = chainData?.app_config ?? config;
+  const currency = appConfig.chain.currency;
+  const isRollup = appConfig.features.rollup.isEnabled;
+  const totalReward = getBlockTotalReward(data, currency);
   const burntFees = BigNumber(data.burnt_fees || 0);
   const txFees = BigNumber(data.transaction_fees || 0);
 
@@ -75,7 +76,7 @@ const BlocksListItem = ({ data, isLoading, enableTimeIncrement, animation, chain
           </Skeleton>
         </Flex>
       ) }
-      { !config.UI.views.block.hiddenFields?.miner && (
+      { !appConfig.UI.views.block.hiddenFields?.miner && (
         <Flex columnGap={ 2 } w="100%">
           <Text fontWeight={ 500 }>{ capitalize(getNetworkValidatorTitle()) }</Text>
           <AddressEntity
@@ -89,7 +90,7 @@ const BlocksListItem = ({ data, isLoading, enableTimeIncrement, animation, chain
         <Text fontWeight={ 500 }>Txn</Text>
         { data.transactions_count > 0 ? (
           <Skeleton loading={ isLoading } display="inline-block">
-            <Link href={ route({ pathname: '/block/[height_or_hash]', query: { height_or_hash: String(data.height), tab: 'txs' } }) }>
+            <Link href={ route({ pathname: '/block/[height_or_hash]', query: { height_or_hash: String(data.height), tab: 'txs' } }, { chain: chainData }) }>
               { data.transactions_count }
             </Link>
           </Skeleton>
@@ -111,17 +112,18 @@ const BlocksListItem = ({ data, isLoading, enableTimeIncrement, animation, chain
           />
         </Flex>
       </Box>
-      { !isRollup && !config.UI.views.block.hiddenFields?.total_reward && (
+      { !isRollup && !appConfig.UI.views.block.hiddenFields?.total_reward && (
         <Flex columnGap={ 2 }>
-          <Text fontWeight={ 500 }>Reward { currencyUnits.ether }</Text>
+          <Text fontWeight={ 500 }>Reward { currency.symbol || 'ETH' }</Text>
           <SimpleValue value={ totalReward } loading={ isLoading } color="text.secondary"/>
         </Flex>
       ) }
-      { !isRollup && !config.UI.views.block.hiddenFields?.burnt_fees && (
+      { !isRollup && !appConfig.UI.views.block.hiddenFields?.burnt_fees && (
         <Box>
           <Text fontWeight={ 500 }>Burnt fees</Text>
           <Flex columnGap={ 4 } mt={ 2 }>
             <NativeCoinValue
+              { ...getBlockNativeValueProps(currency, data.burnt_fees) }
               amount={ data.burnt_fees }
               noSymbol
               startElement={ <IconSvg name="flame" mr={ 2 } boxSize={ 5 } color="text.secondary" isLoading={ isLoading }/> }
@@ -133,10 +135,11 @@ const BlocksListItem = ({ data, isLoading, enableTimeIncrement, animation, chain
           </Flex>
         </Box>
       ) }
-      { !isRollup && !config.UI.views.block.hiddenFields?.base_fee && data.base_fee_per_gas && (
+      { !isRollup && !appConfig.UI.views.block.hiddenFields?.base_fee && data.base_fee_per_gas && (
         <Flex columnGap={ 2 }>
           <Text fontWeight={ 500 }>Base fee</Text>
           <NativeCoinValue
+            { ...getBlockNativeValueProps(currency, data.base_fee_per_gas, 'wei', 4) }
             amount={ data.base_fee_per_gas }
             loading={ isLoading }
             gweiThreshold={ 4 }

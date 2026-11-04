@@ -1,9 +1,24 @@
 - name: Test rpc node should be able to state sync from the snapshots
   inputs:
-    # Check if rpc node is up and running
-    - cmd: paxd status |jq -M -r .SyncInfo.latest_block_height
-      env: HEIGHT
+    - cmd: >-
+        set -euo pipefail;
+        python3 tests/integration/chain_operation/snapshot_probe.py prepare
+        --snapshot-dir ./build/generated/node_0/snapshots
+      env: BOOTSTRAP
+      node: pax-node-0
+    - cmd: >-
+        set -euo pipefail;
+        python3 tests/integration/chain_operation/snapshot_probe.py restore
+        --bootstrap "$BOOTSTRAP"
+      env: IMPORT
       node: pax-rpc-node
+    - cmd: >-
+        set -euo pipefail;
+        python3 tests/integration/chain_operation/snapshot_probe.py compare
+        --bootstrap "$BOOTSTRAP" --evidence "$IMPORT"
+        --snapshot-dir ./build/generated/node_0/snapshots
+      env: RESTORED
+      node: pax-node-0
   verifiers:
-  - type: eval
-    expr: HEIGHT > 0
+    - type: eval
+      expr: RESTORED == "verified"

@@ -13,7 +13,7 @@ task=''
 ledger=''
 directory=${PAXEER_X_EVIDENCE_DIR:-}
 timeout=600
-kind=file
+kind=directory
 while [ "$#" -gt 0 ]; do
     case $1 in
     --job|--spec|--task|--ledger|--evidence-root|--timeout|--evidence-kind)
@@ -51,7 +51,10 @@ esac
 [ "$1" = make ] || { echo 'release-gate: expected make targets' >&2; exit 2; }
 
 root=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)
-echo "release-gate: $job; task $task; private ledger $ledger" >&2
+case $task in
+*[!0-9.]*|'') echo 'release-gate: numeric task id required' >&2; exit 2 ;;
+esac
+echo "release-gate: $job; task $task; private source evidence" >&2
 exec bash "$root/scripts/ci/beta-ledger-check.sh" --source-run --root "$root" \
     --spec "$spec" --task "$task" --ledger "$ledger" --evidence-root "$directory" \
     --timeout "$timeout" --evidence-kind "$kind" -- "$*"

@@ -14790,3 +14790,83 @@ fix = "Gates for that module change into it first (cd services/launchpad/user &&
 title = "The middleware conformance package stopped compiling after the seller payment union"
 symptom = "services/platform/middleware/conformance/src/scenarios.ts line 447 reads paymentReference from verification.payment, whose type became PaymentExactEvent | PaymentDrawnEvent when the seller repair of audit record 22.30.86 landed (5a468c4b87); PaymentDrawnEvent (seller ledger.ts line 37) has no paymentReference, so every gate that builds the conformance package (22.33.1479, 22.33.1480, 22.33.1481) fails before its tests run."
 fix = "Repair task 22.31.477 narrows the union in the committed-rung scenario (decision 2530); the three consumers require it."
+
+[gotcha.2994]
+title = "A root workspace member manifest changed without the root lockfile"
+symptom = "The repair of audit record 22.30.74 in services/platform/examples/agent-spend (ea2e88ad0a, task 22.33.1364, 12:11Z) added viem, @sidiora/layerx-agent-integrations and two devDependencies to the example's package.json, a member of the root npm workspace, without regenerating package-lock.json; since then every gate that runs npm ci at the repository root (and npm --prefix <member> ci, which resolves the same root lock) fails with EUSAGE before compiling: 22.31.477, 22.33.612, 22.33.619, 22.33.1478, 22.33.1480 and more."
+fix = "Repair task 22.31.479 regenerates the root lock, drops the unused devDependencies and adds a test proving every workspace member's declared dependencies resolve in the root lock; the root-npm tasks require it."
+
+[gotcha.2995]
+title = "Medium-wave repair tasks held the whole audit-repairs directory as a touch"
+symptom = "138 pending tasks of the medium wave declared tools/qualification/audit_repairs (the directory) as a touch while their gates only read and write test_repair_<id>.py and repair_<id>.kvx inside it; because two tasks that touch a directory and a file inside it exclude each other, at most one of them could be live at a time and the eligible pool fell to single digits with over a hundred eligible tasks."
+fix = "The touches of every pending task of that shape are narrowed to its own two files; the directory touch stays only on tasks that already published."
+
+[gotcha.2996]
+title = "The root README rewrite and an earlier README repair conflicted at publication"
+symptom = "22.33.33 (doc-drift of audit record 22.30.102) changed README.md and reached the human domain integration first; 22.31.470 then rewrote the root README on main and, as its do_3 required, reconciled the 22.33.33 changes into the rewrite; the later merge of the human domain into main conflicted on README.md and stalled every human-domain publication for ninety minutes."
+fix = "The merge keeps the 22.31.470 README (33e39ac9e2), which already carries the 22.33.33 facts; tasks whose README changes later conflict re-apply them on top of the rewrite."
+
+[gotcha.2997]
+title = "Installed binaries under apps/perps/node_modules are tracked"
+symptom = "Nine executable files under apps/perps/node_modules/.bin (autoprefixer, esbuild, next, webpack and five more) are committed although apps/perps/.gitignore lists /node_modules. A dependency install anywhere in the repository rewrites them, and the qualification gate then counts the rewritten file as a change outside the task's declared paths: 22.31.447 attempt 3 passed every gate and was rejected for apps/perps/node_modules/.bin/webpack."
+fix = "22.31.480 removes the nine files from the index so the ignore rule takes effect. Until it lands, a task whose gates run a dependency install restores the directory with git checkout -- apps/perps/node_modules before finishing."
+
+[gotcha.2998]
+title = "Two parallel hosted-platform repairs crossed on the maintained node manifest"
+symptom = "22.33.1319 (relay retirement, committed 08:38Z, merged 10:23Z) wrote four Go tests that encode the native deployment as the manifest services/platform/hosted/node/deployment.yaml stood in its own tree: image ghcr.io/sidiora-labs/layerx-kernel:0.1.0, service targets chain-rpc and consensus-rpc, a --receipt-key-file argument and a shell provisioning loop. One minute later 22.33.1319's neighbour 22.30.76 part 1 (5b49dd0528, hosted/tests config-drift) rewrote that manifest into one kernel container ghcr.io/sidiora-labs/kernel:0.1.0 with targets rpc, consensus and health and a Python provisioning map. Both passed their gates in their own trees; on main the four 1319 tests fail, and 22.31.465, whose verify runs them, cannot qualify."
+fix = "Decision 2532 names the manifest the producer; 22.31.481 reconciles the four tests with it; 22.31.465's verify no longer runs the 1319 tests. A test that asserts a deployment fact reads it from the maintained document rather than repeating the literal."
+
+[gotcha.2999]
+title = "A repair planted a second install root under apps/wallet/src/lib/swap"
+symptom = "22.33.121 (published 2026-11-04 14:15Z) added apps/wallet/src/lib/swap/package.json and npm-shrinkwrap.json declaring @ethereumjs/block, common, tx, util and vm 10.1.3, solc 0.8.27 and prettier for its fixture evm-22-33-121.fixture.ts, installed into an ignored node_modules beside them. apps/wallet/package.json declares none of these, so the app type-check (tsc --noEmit -p apps/wallet/tsconfig.json) fails with TS2307 on the five imports for every later wallet task; 22.33.123 attempt 2 (14:40Z) was the first."
+fix = "22.31.482 moves the five @ethereumjs packages and solc into the devDependencies of apps/wallet/package.json with the pnpm lock, removes the nested manifests and fixes the fixture's implicit any; 22.33.123, 22.33.133 and 22.33.186 require it. One install root per application: a fixture never carries its own manifest."
+
+[gotcha.3000]
+title = "The embedded precompile ABI inventory of sig-provider drifted from its generator"
+symptom = "services/explorer/services/sig-provider/sig-provider/src/sources/precompiles.json no longer equals the inventory the production ABI generator emits when it is executed in-process: the abi section differs (the BackstopLiquidation event among others). 22.33.312 attempt 1 (2026-11-04 14:49Z) asserted the equality and failed; its other five documentation checks passed."
+fix = "22.33.312 regenerates the embedded inventory from the real generator in the same change and keeps the equality assertion; the inventory file is in its paths and the Rust integration cases join its verify."
+
+[gotcha.3001]
+title = "Un-ignoring a package directory in .cgignore drags its install root into the recorded change set"
+symptom = "22.33.246 attempt 1 (2026-11-04 14:59Z) edited .cgignore outside its paths and installed programs/sdk/assemblyscript; the recorded change set then listed 122 files under programs/sdk/assemblyscript/node_modules although the directory's own .gitignore excludes node_modules, and the build ran at an earlier revision than the verify (build_on_verified unmet), so the passing tests did not qualify."
+fix = "The attempt continues: .cgignore reverts, the install root leaves the change, and build and verify run at the same revision. An install root is never part of a change (gotchas 2997, 2999); a repair that needs a package installed installs it in its build command."
+
+[gotcha.3002]
+title = "The Paxeer boundary manifest was retired while five consumers still read it"
+symptom = "Task 22.33.1319 (065d0370da) deleted services/platform/hosted/paxeer/deployment.yaml and made the deployment command re-emit the node manifest instead. services/platform/hosted/gateway/tests/repair_22_31_345.rs line 12 still includes the file at compile time, so every build of the gateway tests fails (22.31.208 attempt 4, 22.33.1336 attempt 4, 22.33.1445 attempt 2, 22.33.1550 attempt 2 on 2026-11-04); services/platform/hosted/human/test_material.py, services/platform/hosted/node/tests/node-topology-test.py, services/platform/hosted/tests/topology-check.sh and services/platform/hosted/testnet/README.md still describe the paxeer workload the file declared."
+fix = "Task 22.31.483 restores the tracked boundary manifest and reconciles the consumers (decision 2533); the blocked tasks require it and requalify when it is on main."
+
+[gotcha.3003]
+title = "The AI-market hosted service decodes the joint reputation-admission section without splitting it"
+symptom = "programs/crates/layerx-programs-ai-market/src/reputation_transition.rs writes the ReputationAdmission section as a joint section (encode_joint, split_joint) since the epoch and registry producers were repaired; the hosted service's discovery.rs line 134 and membership.rs line 289 still hand the whole section to AdmissionTable::decode and fail with UnsupportedVersion. 22.33.1465 attempt 3 (2026-11-04) recorded the break as the authority-joint-section wiring request."
+fix = "Task 22.31.484 splits the section with split_joint before decoding in FinalizedAuthority::bind and MembershipObserver::observe and proves the producer to consumer path with a joint section from encode_joint; 22.33.1465 requires it."
+
+[gotcha.3004]
+title = "Two consumers of layerx-client were never ported to the retired px and committed-block types"
+symptom = "services/platform/hosted/core/src/public_reads.rs still calls Uint256::to_be_bytes, reads the layerx field of PxAssetEntry and compares string asset ids with byte asset ids (lines 96, 105, 137, 384), and services/agent/crates/layerx-agent-api/src/read.rs line 715 reads chain_sequence from CommittedBlockContext; both stopped compiling when 22.31.221 (fe2e725ea8) and 9.25.1 (036a1da1b6) retired those fields. The dependent-crate check of every layerx-client and programs-sdk task fails on them (22.33.1544, 1545, 1547, 222, 249 on 2026-11-04; public_reads.rs appears in 57 dependents logs of 39 tasks)."
+fix = "Task 22.31.485 ports both consumers to the current layerx-client API with tests; the five blocked tasks require it and requalify when it is on main."
+
+[gotcha.3005]
+title = "A bracketed route segment in a touched path is read as a glob character class by the done gate"
+symptom = "Touches such as apps/web/src/app/explorer/accounts/[accountId] are matched as a glob, so [accountId] stands for one character and never matches the real directory: 22.33.348 attempt 1, 22.33.361 attempt 1 and 22.33.362 attempt 1 (2026-11-04) passed their type-check and tests and were refused with touched ... no matching change although the directory changed."
+fix = "Touches never contain a bracketed segment: the four affected tasks (348, 361, 362, 449) now touch the parent route directory, and the three finished attempts requalify."
+
+[gotcha.3006]
+title = "apps/perps/tsconfig.tsbuildinfo is tracked, so every perps type-check changes a file outside the paths"
+symptom = "The root .gitignore ignores only apps/web/tsconfig.tsbuildinfo; the incremental type-check of apps/perps rewrites the tracked apps/perps/tsconfig.tsbuildinfo and the result is refused as a change outside the paths (22.33.190, 192, 193, 194, 195, 199, 200 on 2026-11-04, after 22.31.479 cleared their earlier refusal)."
+fix = "22.31.480 removes the file from the index together with the install binaries and ignores it in apps/perps/.gitignore; the perps tasks require 22.31.480 and relaunch when it is on main."
+
+[gotcha.3007]
+title = "The committed receipt recording was signed under the retired default chain id 713714"
+symptom = "daemon/committed-fixture/vectors/vector-v4-committed.json carries a legacy raw transaction whose EIP-155 chain id decodes to 713714: it was recorded while modules/evm/config/config.go still defaulted an unmapped application chain id to that inherited test network (gotcha 2991; 22.31.476 moved the default to 125). The production wallet authenticator refuses any recording whose transaction is not on chain 125 (sdk/wallet/src/receipt.ts line 455, transaction or receipt layout), so 22.33.338 attempt 7 (2026-11-04 16:03Z) could not authenticate the committed pair through the production path, and apps/wallet/src/surfaces/repair-22-33-205.test.ts line 116 pins the retired id instead. The receipted vectors v1 and v2 of the same directory already decode to chain 125."
+fix = "22.31.486 re-records the committed vector with the recorder as it stands (the unmapped committed-fixture id now answers eth_chainId 125), refreshes the derived conformance, explorer, wallet and human-service copies and every consumer that pins the recording's hashes, and asserts the chain id in the recorder's own test; 22.33.338 requires it. A recording that the production verifier refuses is a producer defect, never a reason to bypass the verifier."
+
+[gotcha.3008]
+title = "The explorer client's merged OpenAPI document carries legacy v1 health schemas its merge script does not produce"
+symptom = "services/explorer/services/libs/blockscout-client/swaggers/blockscout-api-final.yaml defines v1HealthCheckResponse with status, healthy and data, and v1Data with four block fields, although ts-src/merge-overrides.ts builds that document from swaggers/blockscout-api-v2.yaml (status only) plus the overrides under swaggers/overrides, none of which defines those two schemas; the generated models crate/src/models/v1_health_check_response.rs and v1_data.rs carry the committed shape. 22.33.360 attempt 2 (2026-11-04 16:44Z) asserted equality with the upstream snapshot for those two names and failed on it while its other five checks passed."
+fix = "The committed document and its generated models are the contract the client ships: a test checks each schema against its generated model, not against the upstream snapshot, and the divergence from the merge script's output is recorded in the task record for the next intentional regeneration (README procedure). 22.33.360 attempt 3 applies it."
+
+[gotcha.3009]
+title = "Comparing maps of EVM precompile instances with require.Equal panics in the diff printer"
+symptom = "node/upgrades_activation_test.go line 353 (22.33.1142 attempt 1, 2026-11-04 16:33Z) compared two map[common.Address]vm.PrecompiledContract values with require.Equal after ApplyUpgrade; the restored contracts are fresh instances whose keeper and function fields never compare deeply equal, and the diff printer then panicked with reflect.Value.Interface on their unexported fields, so the test reported a panic instead of the mismatch."
+fix = "A served precompile set is compared by address (sorted keys), with require.Same for every instance that must be preserved and a behavioural check for every restored one; 22.33.1142 attempt 2 applies it and the other node upgrade test tasks follow the same shape."

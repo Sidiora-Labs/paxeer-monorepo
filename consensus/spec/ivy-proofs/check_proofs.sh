@@ -3,37 +3,38 @@
 # returns non-zero error code if any proof fails
 
 success=0
-log_dir=$(cat /dev/urandom | tr -cd 'a-f0-9' | head -c 6)
-cmd="ivy_check seed=$RANDOM"
-mkdir -p output/$log_dir
-
-echo "Checking classic safety:"
-res=$($cmd classic_safety.ivy | tee "output/$log_dir/classic_safety.txt" | tail -n 1)
-if [ "$res" = "OK" ]; then
-  echo "OK"
-else
-  echo "FAILED"
-  success=1
+umask 077 || exit 1
+mkdir -p output || exit 1
+if ! log_dir=$(mktemp -d output/proofs-XXXXXX); then
+  exit 1
 fi
+cmd=(ivy_check "seed=$RANDOM")
 
-echo "Checking accountable safety 1:"
-res=$($cmd accountable_safety_1.ivy | tee "output/$log_dir/accountable_safety_1.txt" | tail -n 1)
-if [ "$res" = "OK" ]; then
-  echo "OK"
-else
-  echo "FAILED"
-  success=1
-fi
+check_proof() {
+  local label=$1 proof=$2
+  shift 2
+  local log_file="$log_dir/${proof%.ivy}.txt"
+  local res
+  local -a pipeline_status
 
-echo "Checking accountable safety 2:"
-res=$($cmd complete=fo accountable_safety_2.ivy | tee "output/$log_dir/accountable_safety_2.txt" | tail -n 1)
-if [ "$res" = "OK" ]; then
-  echo "OK"
-else
-  echo "FAILED"
-  success=1
-fi
+  echo "Checking $label:"
+  "${cmd[@]}" "$@" "$proof" 2>&1 | tee -- "$log_file"
+  pipeline_status=("${PIPESTATUS[@]}")
+  if [ "${pipeline_status[0]}" -eq 0 ] &&
+     [ "${pipeline_status[1]}" -eq 0 ] &&
+     res=$(tail -n 1 -- "$log_file") &&
+     [ "$res" = "OK" ]; then
+    echo "OK"
+  else
+    echo "FAILED"
+    success=1
+  fi
+}
+
+check_proof "classic safety" classic_safety.ivy
+check_proof "accountable safety 1" accountable_safety_1.ivy
+check_proof "accountable safety 2" accountable_safety_2.ivy complete=fo
 
 echo
-echo "See ivy_check output in the output/ folder"
-exit $success
+echo "See ivy_check output in $log_dir"
+exit "$success"

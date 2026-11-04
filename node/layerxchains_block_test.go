@@ -12,6 +12,7 @@ import (
 	"time"
 
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/crypto"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/privval"
 	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/state"
@@ -55,7 +56,7 @@ func newChainsBlockHarness(t *testing.T) *chainsBlockHarness {
 		database, err := dbm.NewGoLevelDB("application", directory)
 		require.NoError(t, err)
 		a := app.New(database, nil, true, map[int64]bool{}, home, 1, true, nil,
-			app.MakeEncodingConfig(), wasm.EnableAllProposals, app.TestAppOpts{}, app.EmptyWasmOpts, nil)
+			app.MakeEncodingConfig(), wasm.EnableAllProposals, app.TestAppOpts{UseSc: true}, app.EmptyWasmOpts, nil)
 		if a.LastBlockHeight() > 0 {
 			queryCtx := a.NewContext(true, tmproto.Header{ChainID: chainsBlockChainID, Height: a.LastBlockHeight(),
 				Time: h.at.Add(time.Duration(a.LastBlockHeight()) * time.Second)})
@@ -119,7 +120,7 @@ func newChainsBlockHarness(t *testing.T) *chainsBlockHarness {
 	_, err = h.a.Commit(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, int64(1), h.a.LastBlockHeight())
-	h.exec, err = sequencer.NewExecutor(h.a, sequencer.Options{ChainID: chainsBlockChainID, ProposerAddress: sequencerLeader[:20]})
+	h.exec, err = sequencer.NewExecutor(h.a, sequencer.Options{ChainID: chainsBlockChainID, ProposerAddress: crypto.AddressHash(sequencerLeader[:])})
 	require.NoError(t, err)
 	keyDir := t.TempDir()
 	consensusKey := filepath.Join(keyDir, "consensus.json")
@@ -191,10 +192,17 @@ func (h *chainsBlockHarness) commit(t *testing.T, height int64) {
 	require.NoError(t, err)
 	sealed := h.source.Sealed()
 	require.NotNil(t, sealed)
+	header := &tmproto.Header{ChainID: chainsBlockChainID, Height: height,
+		Time: h.at.Add(time.Duration(height) * time.Second), ProposerAddress: crypto.AddressHash(sequencerLeader[:])}
+	proposal, err := h.a.ProcessProposal(context.Background(), &abci.RequestProcessProposal{
+		Hash: []byte(t.Name()), Header: header, Txs: sealed.Txs,
+	})
+	require.NoError(t, err)
+	require.Equal(t, abci.ResponseProcessProposal_ACCEPT, proposal.Status)
 	response, err := h.a.FinalizeBlock(context.Background(), &abci.RequestFinalizeBlock{
 		Hash: []byte(t.Name()), Txs: sealed.Txs,
 		Header: &tmproto.Header{ChainID: chainsBlockChainID, Height: height,
-			Time: h.at.Add(time.Duration(height) * time.Second), ProposerAddress: sequencerLeader[:20]},
+			Time: h.at.Add(time.Duration(height) * time.Second), ProposerAddress: crypto.AddressHash(sequencerLeader[:])},
 	})
 	require.NoError(t, err)
 	require.Len(t, response.TxResults, len(sealed.Txs))

@@ -36,6 +36,10 @@ type FoundationArtifact struct {
 // It checks the caller's independently calculated source closure and every
 // produced byte before the consumer is allowed to install any material.
 func QualifyFoundation(directory, revision, binding, consumer string, raw []byte) error {
+	return qualifyFoundation(directory, revision, binding, consumer, raw, 1)
+}
+
+func qualifyFoundation(directory, revision, binding, consumer string, raw []byte, version int) error {
 	if consumer != "foundation" && consumer != "registry-material" && consumer != "policy-graph" {
 		return errors.New("unknown foundation consumer")
 	}
@@ -57,7 +61,7 @@ func QualifyFoundation(directory, revision, binding, consumer string, raw []byte
 	}
 	hex40 := regexp.MustCompile(`^[0-9a-f]{40}$`)
 	hex64 := regexp.MustCompile(`^[0-9a-f]{64}$`)
-	if json.Unmarshal(raw, &manifest) != nil || manifest.Version != 1 || manifest.Stage != "dependency-foundation" || manifest.Purpose != "disposable-test-only" || !hex40.MatchString(revision) || manifest.Revision != revision || !hex64.MatchString(binding) || manifest.Binding != binding || len(manifest.Paths) == 0 || len(manifest.Producers) == 0 || len(manifest.Artifacts) == 0 || len(manifest.Inputs) == 0 {
+	if json.Unmarshal(raw, &manifest) != nil || manifest.Version != version || manifest.Stage != "dependency-foundation" || manifest.Purpose != "disposable-test-only" || !hex40.MatchString(revision) || manifest.Revision != revision || !hex64.MatchString(binding) || manifest.Binding != binding || len(manifest.Paths) == 0 || len(manifest.Producers) == 0 || len(manifest.Artifacts) == 0 || len(manifest.Inputs) == 0 {
 		return errors.New("foundation source or producer provenance refused")
 	}
 	paths := map[string]bool{}
@@ -251,7 +255,7 @@ func runQualificationInspector(ctx context.Context, args []string, input io.Read
 		}
 		return true, e
 	case "committed-transaction":
-		if len(args) != 4 {
+		if len(args) != 4 && len(args) != 5 {
 			return true, invalid
 		}
 		if !isHexWord(args[2]) {
@@ -263,7 +267,16 @@ func runQualificationInspector(ctx context.Context, args []string, input io.Read
 		}
 		defer client.CloseIdleConnections()
 		client.Timeout = 15 * time.Second
-		receipt, e := ReadCommittedTransaction(ctx, client, args[1], args[2])
+		var receipt CommittedTransaction
+		if len(args) == 5 {
+			raw, err := io.ReadAll(io.LimitReader(input, 1048577))
+			if err != nil || len(raw) == 0 || len(raw) > 1048576 {
+				return true, invalid
+			}
+			receipt, e = ReadValueLoopTransaction(ctx, client, args[1], args[2], args[4], raw)
+		} else {
+			receipt, e = ReadCommittedTransaction(ctx, client, args[1], args[2])
+		}
 		if e != nil {
 			return true, e
 		}

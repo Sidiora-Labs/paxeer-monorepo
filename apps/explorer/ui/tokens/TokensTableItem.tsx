@@ -37,7 +37,17 @@ export function getOnchainMarketCap(token: TokensTableToken): BigNumber | undefi
     return undefined;
   }
 
-  const supply = BigNumber(totalSupply).div(BigNumber(10).pow(Number(decimals) || 0));
+  if (decimals === null || decimals.trim() === '') {
+    return undefined;
+  }
+
+  const precision = Number(decimals);
+
+  if (!Number.isFinite(precision) || !Number.isInteger(precision) || precision < 0) {
+    return undefined;
+  }
+
+  const supply = BigNumber(totalSupply).div(BigNumber(10).pow(precision));
   const marketCap = supply.multipliedBy(BigNumber(exchangeRate));
 
   return marketCap.isFinite() ? marketCap : undefined;

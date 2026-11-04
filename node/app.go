@@ -385,7 +385,7 @@ var (
 		// this line is used by starport scaffolding # stargate/app/storeKey
 	}
 
-	// WasmProposalsEnabled enables all x/wasm proposals when it's value is "true"
+	// WasmProposalsEnabled selects all ten x/wasm proposal kinds when its value is "true"
 	// and EnableSpecificWasmProposals is empty. Otherwise, all x/wasm proposals
 	// are disabled.
 	// Used as a flag to turn it on and off
@@ -435,7 +435,8 @@ func init() {
 
 // GetWasmEnabledProposals parses the WasmProposalsEnabled and
 // EnableSpecificWasmProposals values to produce a list of enabled proposals to
-// pass into the application.
+// pass into the application. Callers must pass this result to honor the build
+// overrides; passing wasm.EnableAllProposals directly bypasses this selection.
 func GetWasmEnabledProposals() []wasm.ProposalType {
 	if EnableSpecificWasmProposals == "" {
 		if WasmProposalsEnabled == "true" {
@@ -605,6 +606,7 @@ type App struct {
 	adminConfig           admin.Config
 	adminServer           *grpc.Server
 	lightInvarianceConfig LightInvarianceConfig
+	lightInvarianceErr    error
 
 	genesisImportConfig genesistypes.GenesisImportConfig
 
@@ -688,8 +690,9 @@ func (app *App) refreshHostedKernelProgramsABI(ctx sdk.Context) {
 	}
 	previous := app.LayerXHost
 	app.LayerXHost = host
-	*app.LayerXLedgerKeeper = *layerxledgerkeeper.NewKeeper(app.appCodec, app.keys[storekeys.LayerXLedgerStoreKey],
-		host, app.BankKeeper, &app.EvmKeeper, authority)
+	*app.LayerXLedgerKeeper = *layerxledgerkeeper.NewKeeperWithIssuer(app.appCodec, app.keys[storekeys.LayerXLedgerStoreKey],
+		host, app.BankKeeper, &app.EvmKeeper, authority,
+		layerxledgerkeeper.NewTokenfactoryIssuerKeeper(app.TokenFactoryKeeper))
 	*app.LayerXAuthKeeper = *layerxauthkeeper.NewKeeper(app.appCodec, app.keys[storekeys.LayerXAuthStoreKey],
 		host, &app.AuthzKeeper, &app.EvmKeeper, authority)
 	*app.LayerXPayKeeper = pay
@@ -961,8 +964,9 @@ func New(
 	if err != nil {
 		panic(fmt.Sprintf("error creating shared LayerX host: %s", err))
 	}
-	app.LayerXLedgerKeeper = layerxledgerkeeper.NewKeeper(appCodec, keys[storekeys.LayerXLedgerStoreKey],
-		app.LayerXHost, app.BankKeeper, &app.EvmKeeper, authority)
+	app.LayerXLedgerKeeper = layerxledgerkeeper.NewKeeperWithIssuer(appCodec, keys[storekeys.LayerXLedgerStoreKey],
+		app.LayerXHost, app.BankKeeper, &app.EvmKeeper, authority,
+		layerxledgerkeeper.NewTokenfactoryIssuerKeeper(app.TokenFactoryKeeper))
 	app.LayerXAuthKeeper = layerxauthkeeper.NewKeeper(appCodec, keys[storekeys.LayerXAuthStoreKey],
 		app.LayerXHost, &app.AuthzKeeper, &app.EvmKeeper, authority)
 	app.LayerXAgentKeeper = LayerXAgentKeeper{
@@ -2015,7 +2019,9 @@ func (app *App) FinalizeBlocker(ctx sdk.Context, req *abci.RequestFinalizeBlock)
 			}
 			consensusParamUpdates := app.GetConsensusParamsForStateToCommit()
 			cms := app.WriteState()
-			app.LightInvarianceChecks(ctx.Context(), cms, app.lightInvarianceConfig)
+			if err := app.LightInvarianceChecks(ctx.Context(), cms, app.lightInvarianceConfig); err != nil {
+				return nil, err
+			}
 			resp := app.getFinalizeBlockResponse(app.GetWorkingHash(), sealed.Events, sealed.Results, sealed.EndBlock, consensusParamUpdates)
 			if hasHeadNotifier {
 				if err := app.stashBlockHeader(headNotifier, req, &resp); err != nil {
@@ -2046,7 +2052,9 @@ func (app *App) FinalizeBlocker(ctx sdk.Context, req *abci.RequestFinalizeBlock)
 			}
 			consensusParamUpdates := app.GetConsensusParamsForStateToCommit()
 			cms := app.WriteState()
-			app.LightInvarianceChecks(ctx.Context(), cms, app.lightInvarianceConfig)
+			if err := app.LightInvarianceChecks(ctx.Context(), cms, app.lightInvarianceConfig); err != nil {
+				return nil, err
+			}
 			appHash := app.GetWorkingHash()
 			resp := app.getFinalizeBlockResponse(appHash, events, txRes, endBlockResp, consensusParamUpdates)
 			if hasHeadNotifier {
@@ -2074,7 +2082,9 @@ func (app *App) FinalizeBlocker(ctx sdk.Context, req *abci.RequestFinalizeBlock)
 	}
 	consensusParamUpdates := app.GetConsensusParamsForStateToCommit()
 	cms := app.WriteState()
-	app.LightInvarianceChecks(ctx.Context(), cms, app.lightInvarianceConfig)
+	if err := app.LightInvarianceChecks(ctx.Context(), cms, app.lightInvarianceConfig); err != nil {
+		return nil, err
+	}
 	appHash := app.GetWorkingHash()
 	resp := app.getFinalizeBlockResponse(appHash, events, txResults, endBlockResp, consensusParamUpdates)
 	if hasHeadNotifier {

@@ -75,6 +75,7 @@ pub enum AbiType {
     Uint(usize),
     Int(usize),
     FixedBytes(usize),
+    Function,
     Bytes,
     String,
     Array(Box<AbiType>),
@@ -128,7 +129,7 @@ impl AbiType {
             "bool" => Self::Bool,
             "bytes" => Self::Bytes,
             "string" => Self::String,
-            "function" => Self::FixedBytes(24),
+            "function" => Self::Function,
             "tuple" => {
                 let list = components
                     .and_then(Value::as_array)
@@ -161,7 +162,7 @@ impl AbiType {
             Self::Bool => "bool".to_owned(),
             Self::Uint(bits) => format!("uint{bits}"),
             Self::Int(bits) => format!("int{bits}"),
-            Self::FixedBytes(24) => "function".to_owned(),
+            Self::Function => "function".to_owned(),
             Self::FixedBytes(size) => format!("bytes{size}"),
             Self::Bytes => "bytes".to_owned(),
             Self::String => "string".to_owned(),
@@ -583,14 +584,18 @@ fn decode_value(data: &[u8], position: usize, kind: &AbiType) -> Result<Value, I
             }
             Value::String(be_signed_decimal(bytes))
         }
-        AbiType::FixedBytes(size) => {
+        AbiType::FixedBytes(_) | AbiType::Function => {
+            let size = match kind {
+                AbiType::FixedBytes(size) => *size,
+                _ => 24,
+            };
             let bytes = word(data, position)?;
-            if !is_zero(&bytes[*size..]) {
+            if !is_zero(&bytes[size..]) {
                 return Err(IndexError::Decode(
                     "fixed bytes have trailing bits".to_owned(),
                 ));
             }
-            Value::String(hex0x(&bytes[..*size]))
+            Value::String(hex0x(&bytes[..size]))
         }
         AbiType::Bytes | AbiType::String => {
             let length = bounded_count(data, position, 1)?;

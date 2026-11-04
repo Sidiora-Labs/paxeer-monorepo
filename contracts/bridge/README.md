@@ -22,6 +22,28 @@ This page is the operator runbook: what to deploy, in what order, with which env
 | [contracts/bridge/ATTESTATION-SOLANA.md](ATTESTATION-SOLANA.md) | how Solana keys, mints and transactions enter the attestation digests |
 | [modules/layerxbridge/ATTESTATION.md](../../modules/layerxbridge/ATTESTATION.md) | the byte-exact specification of both preimages and the signature rules |
 
+## Interface contracts
+
+This maintained runbook is the bridge deployment contract. The
+[configuration](#fill-in-the-configuration), [order of operations](#order-of-operations)
+and [post-deploy checklist](../../services/bridge/deploy/checklist.sh) describe operator inputs
+and the readbacks required before opening admission. See also:
+
+- [Attestation fields and signature rules](../../modules/layerxbridge/ATTESTATION.md)
+  for the byte-exact deposit and burn preimages, digest domains and signatures.
+- [Solana encodings](ATTESTATION-SOLANA.md) and the
+  [committed digest vectors](vectors/solana_test.go) for foreign identities.
+- [Deposit recipients](#deposit-recipients) for accepted address bytes and
+  the disposition of deposits rejected by Paxeer.
+- [Cap changes and pending burns](#outbound-admission-and-coordinated-cap-changes) and
+  [the relayer](#the-relayer) for pause ordering, durable obligations,
+  retries and operator-visible failure/recovery states.
+- [SDK package and transport contracts](../../sdk/js/README.md#package),
+  [explorer HTTP schema](../../apps/explorer/public/openapi.yaml) and
+  [explorer WebSocket payloads](../../apps/explorer/lib/socket/types.ts)
+  for their respective consumers. Explorer responses do not authorize a
+  release; the attestation, destination policy and nullifier checks do.
+
 ## The chains
 
 | Chain | Chain id | Pair | Page |
@@ -260,6 +282,8 @@ A vault deployed before this rule is not upgradeable and keeps accepting the oth
 `services/interop/crates/layerx-bridge-relayer` observes the vaults, has attestations signed through the remote signer and submits both directions. It runs as `layerx-bridge-relayer --config <path>` against one JSON file: `journal_path`, optional `cosign_directory`, `poll_interval_ms`, `max_submissions`, `signer`, `attestor`, `paxeer`, `chains` and optional `solana`. Unknown fields, including nested fields, are refused by the production `RelayerConfig` loader in `services/interop/crates/layerx-bridge-relayer/src/config.rs`. Each `chains` entry is an EVM chain carrying `chain_id`, `vault`, `finality_depth`, `start_block`, `max_block_range`, `rpc`, `submitter` and `gas`; the current validator requires at least one such entry. Omitting `solana` leaves only the EVM destinations configured. The file carries public keys, opaque signer handles and protected-file references, never private keys or bearer-token values.
 
 `services/bridge/deploy/relayer-solana.example.json` is a complete, deliberately non-production configuration instance of this schema. Every `EXAMPLE_ONLY` handle/path/backend name, `.invalid` endpoint, EVM vault, public key, program identity and mint is a fixture value, not an approved deployment. Its program and vault handle are the existing public PDA test vector from `services/interop/crates/layerx-bridge-relayer/src/solana/release.rs`; its mint decodes to 32 bytes of `01`. The public signing keys are test vectors with no provisioned signer handles. Do not fund them or use them as operator identities. The example can pass offline configuration loading without any of those paths or services existing; that is not evidence of signer access, an RPC quorum, custody or outbound readiness.
+
+Replace `paxeer.endpoints[].url` (`https://paxeer.example.invalid/` in the example) with an approved Paxeer node origin using the root path `/`. The relayer passes this URL unchanged to its HTTP transport; do not append `/rpc`. Supply that node's approved DER trust anchor through `trust_anchor_der` and retain TLS verification. Foreign EVM and Solana endpoint paths belong to their respective providers; the Paxeer root-path rule does not change them. Domain 11 owns the relayer loader and transport in `services/interop/crates/layerx-bridge-relayer`.
 
 The optional `solana` object has this contract:
 

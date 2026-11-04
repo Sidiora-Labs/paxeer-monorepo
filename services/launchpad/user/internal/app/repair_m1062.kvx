@@ -1,0 +1,32 @@
+[repair]
+task = "22.33.1062"
+audit = "22.30.42"
+finding = "notification-quiet-timezone"
+tests = ["TestRepairM_1062_DifferingZonesAndDST", "TestRepairM_1062_WorkerPersistsQuietHours", "TestRepairM_1062_ExplicitInvalidZoneAndLegacyWire"]
+change = "Carry the saved QuietHours.Timezone from account preferences through the private HTTP response into notifications.Decide; evaluate its IANA zone independently from the display timezone."
+compatibility = "Legacy responses that omit QuietHours.Timezone retain the existing display-zone interpretation; explicit invalid zone names return ErrInvalid. Existing model tests keep their original assertions."
+proof = "Production preference mutation and store, mTLS authority handler, strict AccountClient decoder, RecipientConsumer, Decide and Worker.Once run in-process against committed schemas in embedded SQL peers. Fixed timestamps cover distinct zones, overnight boundaries, spring DST jumps and both repeated fall hours; the real worker persists a quiet_hours retry before provider selection."
+baseline = "Not run: the explicit task order forbids pre-implementation testing and permits verification only through hf-done after implementation and hf-build. No pre-change test failure is claimed."
+evidence = "The runner records the exact candidate revision, command, exit and private log in /out/run/gates.jsonl; the final response copies the last gate evidence."
+wiring_requests = []
+continuation = "Attempt 3 retains the timezone propagation and delivery-path tests. Prerequisites 22.31.461 and 22.31.471 have raised the shared launchpad workspace to Go 1.27.0 and supplied maxSealedExportBytes to the storage caller; qualify against the current tree without disabling the workspace."
+
+[gotcha.module_workspace]
+observed = "The production participants belong to separate Go modules."
+resolution = "Import the production notifications package through the tracked services/launchpad/go.work; do not use the older repair harness's go-run subprocess or copy production code."
+
+[qualification.build_blocker]
+revision = "2106a2c26c43d9c1fe865a6f9aedf6127e0483bc"
+command = "cd services/launchpad/user && go build ./internal/app/..."
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "Go refused the pre-existing workspace version mismatch before compilation: notifications requires Go 1.27.0 but go.work declares Go 1.25.0."
+assumption = "Historical attempt-1 evidence: verification did not run. Prerequisite 22.31.461 resolves the workspace mismatch; attempt 2 uses the repaired workspace and records new gate evidence through the runner."
+
+[qualification.attempt_2_build_blocker]
+revision = "b5e7af9ba8724302a5c1c9286a425adc9464acef"
+command = "cd services/launchpad/user && go build ./internal/app/..."
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "Pre-existing internal/account/jobs_http.go:346 calls h.Runtime.Objects.GetBytes with two arguments, but its interface requires a third int64 argument; compilation stops before the repair tests can run."
+assumption = "Historical attempt-2 evidence: verification did not run. Prerequisite 22.31.471 repairs the out-of-scope caller; attempt 3 uses the repaired caller and records new gate evidence through the runner."

@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 pub mod kernel_payloads;
+pub mod signing;
 
 // Compile the maintained producer directly: this task cannot change the dev-dependency manifest.
 #[path = "../../../layerx-client/src/paxeer_binding.rs"]

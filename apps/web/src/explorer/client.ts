@@ -1,17 +1,23 @@
 import "server-only";
 
+import { ethTransactionReceipt } from "../api/gateway.ts";
 import { explorerLinkPath, parseExplorerBaseUrl, type ExplorerLinkTarget } from "./links.ts";
+import {
+  decodeNativeIndexedHeight,
+  decodeNativeTransactionStatus,
+  nativeFreshnessFromPositions,
+  validExplorerIdentifier,
+  validExplorerName,
+  type NameResolutionRecord,
+  type ProgramRecord,
+} from "./model.ts";
 import {
   decodeReceipt,
   decodeRecord,
-  validExplorerIdentifier,
-  validExplorerName,
   type ExplorerRecord,
-  type NameResolutionRecord,
-  type ProgramRecord,
   type ReceiptRecord,
   type UnifiedAccountAvailabilityRecord,
-} from "./model.ts";
+} from "./historical-model.ts";
 import {
   decodeNativeArchiveReceipt,
   decodeNativeCursorRefusal,
@@ -75,6 +81,17 @@ export function explorerLink(target: ExplorerLinkTarget): string {
   return new URL(explorerLinkPath(target), explorerBaseUrl()).toString();
 }
 
+// Native receipts are read by transaction hash; archive receipt digests are a separate contract.
+export async function currentReceiptLink(transactionHash: string): Promise<string | undefined> {
+  const destination = explorerLink({ kind: "transaction", transactionHash });
+  const receipt = await ethTransactionReceipt(transactionHash);
+  if (receipt === undefined) return undefined;
+  if (receipt.transactionHash.toLowerCase() !== transactionHash.toLowerCase()) {
+    throw new TypeError("Native receipt names another transaction");
+  }
+  return destination;
+}
+
 async function nativeGet(path: string, cursor?: string): Promise<unknown | undefined> {
   const url = new URL(path, explorerBaseUrl());
   if (cursor !== undefined) url.searchParams.set("cursor", nativeCursor(cursor));
@@ -104,6 +121,18 @@ async function nativeGet(path: string, cursor?: string): Promise<unknown | undef
   }
   if (!response.ok) throw new ExplorerHttpError(response.status, value);
   return value;
+}
+
+export async function nativeExplorerFreshness(transactionHash: string) {
+  explorerLinkPath({ kind: "transaction", transactionHash });
+  const [status, blocks] = await Promise.all([
+    nativeGet(`/api/v2/transactions/${transactionHash.toLowerCase()}/status`),
+    nativeGet("/api/v2/blocks?type=block"),
+  ]);
+  return nativeFreshnessFromPositions(
+    status === undefined ? null : decodeNativeTransactionStatus(status).committedHeight,
+    blocks === undefined ? null : decodeNativeIndexedHeight(blocks),
+  );
 }
 
 export async function nativeUnifiedAccount(identifier: string, cursor?: string): Promise<NativeUnifiedAccount | undefined> {

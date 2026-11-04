@@ -1,0 +1,6 @@
+{
+  "source": "contracts/bridge/solana/src/recipient.rs::the_recipient_handle_is_the_handle_of_its_key; layout fixture, not a register_recipient execution capture",
+  "destination": "59TLtNdRpCZysEHkGDMPFHkHiHXkBqQVqAVxAupzNoQb",
+  "handle": "0xfb02125a3275d53a9f6538626b49894d2aae80cc",
+  "data": "UFhCUlJFQzAAAfsCEloyddU6n2U4YmtJiU0qroDMPZkuHcnRzBxTEdecaaOAHUAJkEYJTRJfxofGxXw5Xog="
+}

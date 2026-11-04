@@ -61,7 +61,7 @@ pub struct SmartContract {
     #[serde(default)]
     pub optimization_enabled: Option<bool>,
 
-    #[serde(default)]
+    #[serde(default, serialize_with = "serialize_optimization_runs")]
     pub optimization_runs: Option<Decimal>,
 
     #[serde(default)]
@@ -122,4 +122,25 @@ pub struct ProxyImplementation {
 pub struct ConflictingImplementations {
     pub proxy_type: String,
     pub implementations: Vec<ProxyImplementation>,
+}
+
+fn serialize_optimization_runs<S: serde::Serializer>(
+    runs: &Option<Decimal>,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    use rust_decimal::prelude::ToPrimitive;
+    match runs {
+        None => serializer.serialize_none(),
+        Some(runs) => {
+            if !runs.fract().is_zero() || runs.is_sign_negative() {
+                return Err(serde::ser::Error::custom(
+                    "optimization_runs must be a nonnegative integer",
+                ));
+            }
+            let runs = runs.to_u128().ok_or_else(|| {
+                <S::Error as serde::ser::Error>::custom("invalid optimization_runs")
+            })?;
+            serializer.serialize_some(&runs)
+        }
+    }
 }

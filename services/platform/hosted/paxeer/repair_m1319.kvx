@@ -2,54 +2,54 @@
 audit = "spec/layerx-merge/programme/audit/records/22.30.70.kvx"
 base_revision = "72c91077cb966f1c4c640ded61b4b259f41cad90"
 scope = "services/platform/hosted/paxeer"
-decision = "Remove the historical deployment runner; retain no contract broadcasting, signing command or phase resumption interface. Resolve the native deployment from its maintained node owner instead of copying a second chain configuration."
+decision = "The native deployment handoff refuses contract broadcasting, signing commands and phase resumption, and resolves its manifest from the maintained node owner. Decision 2524 and repair 22.31.467 preserve the historical deployment files at their original paths for existing consumers; their presence does not change the handoff interface."
 entrypoint = "go run ./services/platform/hosted/paxeer/cmd/deployment manifest services/platform/hosted/paxeer/deployment-profile.json; apply the resulting maintained node manifest. The profile subcommand emits the validated native-node and tenant-domain inputs."
 initialization = "init-chain.sh forwards explicit native bootstrap arguments to ../node/bootstrap.sh and refuses legacy environment configuration; prepare-beta.py refuses the removed deployment-input consumer before generating keys or writing artifacts. Existing fixture encoder/key-helper imports are preserved for their separately scoped retirement tasks."
-historical_support = "Not retained: deployment-key-argv and deployment-phase-recovery are eliminated by deleting deploy-contracts.sh, not by inventing a replacement historical signer or receipt journal. No historical deployment, receipt reconciliation or chain restart qualification is claimed."
+historical_support = "The native Go handoff exposes no historical signing or phase recovery. Repair 22.31.467 restores deploy-contracts.sh and its companion files byte-identically to 065d0370da^ for existing consumers; no historical deployment, receipt reconciliation or chain restart qualification is claimed."
 baseline = "Not run: the task's ordered gate instructions prohibit verification before implementation and prohibit running verify_cmd by hand. repair_m1319_test.go and a Go package were absent at the base; no baseline failure or passing baseline is claimed."
 qualification = "Run only hf-build then hf-done on the unchanged candidate; the runner's final hf-done JSON and private gate ledger name the exact verified revision, command, exit and log. The runner publishes the task; this record makes no pre-gate success claim."
 
 [finding.relay-retirement-1]
-repair = "Deleted the relay Cargo manifest and binary declaration; the native handoff resolves the one maintained node deployment. Parent-workspace and image consumers are wiring requests below."
+repair = "Retain the boundary Cargo manifest and layerx-paxeer-boundary binary declaration per decision 2524. Decision 2532 deploys exactly one maintained chain and one kernel container, ghcr.io/sidiora-labs/kernel:0.1.0; the rendered node, provisioner and node fixture images must agree, and no relay binary is deployed. The workspace wiring request is withdrawn."
 test = "TestRepairM_1319_RelayWorkspaceRetirement"
 
 [finding.relay-retirement-3]
-repair = "Deleted custody-genesis.py and the relay-owned genesis mutations; retained initialization delegates to the native node bootstrap with authoritative genesis inputs, not custody parameters."
+repair = "Restored custody-genesis.py for existing consumers in 22.31.467; the native handoff initialization still delegates to the native node bootstrap. Decision 2532 provisions genesis.json, config.toml, app.toml, priv_validator_key.json and receipt.key through the rendered native-home paths map; tests decode that map rather than searching an obsolete init-container name."
 test = "TestRepairM_1319_CustodyGenesisRetirement"
 
 [finding.relay-retirement-4]
-repair = "Deleted deploy-contracts.sh; the rendering handler refuses every historical phase before opening a profile, key or endpoint. There is no current settlement deployment or checkpoint-domain writer in the handoff."
+repair = "Restored deploy-contracts.sh for existing consumers in 22.31.467; the native rendering handler refuses every historical phase before opening a profile, key or endpoint. There is no current settlement deployment or checkpoint-domain writer in the handoff."
 test = "TestRepairM_1319_RelayDeployerRetirement"
 
 [finding.deployment-key-argv]
-repair = "Deleted the cast wallet/send signing commands with the unsupported runner. The new handoff accepts no signing operation or raw-key flag; node signing remains with the maintained protected-file/socket interfaces."
+repair = "The compatibility runner is restored in 22.31.467; the native handoff refuses signing operations and raw-key flags without leaking keys. Decision 2532 keeps raw signing material out of both node command and args and provisions receipt.key as config/receipt.key; no receipt-key command-line flag is required or accepted by the deployment assertion."
 test = "TestRepairM_1319_DeploymentKeyArgv"
 
 [finding.deployment-phase-recovery]
-repair = "Deleted the nonrecoverable runner rather than retaining historical deployment support. Closing and reopening the real read-only handoff preserves its native manifest, leaves a committed recorded broadcast transcript untouched, publishes no legacy phase record and refuses phase resumption."
+repair = "Restored the historical runner for existing consumers in 22.31.467; the native handoff has no deployment phase state. Closing and reopening the real read-only handoff preserves its native manifest, leaves a committed recorded broadcast transcript untouched, publishes no legacy phase record and refuses phase resumption."
 test = "TestRepairM_1319_DeploymentPhaseRecovery"
-limit = "The test qualifies retirement across a handoff restart, not interruption/reconciliation of an executable historical contract broadcast: that component has been removed."
+limit = "The test qualifies retirement across a handoff restart, not interruption/reconciliation of an executable historical contract broadcast: the restored compatibility runner is outside this native handoff test."
 
 [finding.relay-retirement-5]
-repair = "Deleted deployment-input.beta.json; deployment-profile.json contains only schema, maintained native node identity/routes and tenant gateway routing. The production profile codec rejects legacy settlement and phase fields."
+repair = "Restored deployment-input.beta.json for existing consumers in 22.31.467; the native deployment-profile.json contains only schema, maintained native node identity/routes and tenant gateway routing. The production profile codec rejects legacy settlement and phase fields."
 test = "TestRepairM_1319_SettlementInputRetirement"
 
 [finding.relay-retirement-6]
-repair = "Deleted the relay StatefulSet, custody mounts, TLS sidecar, relay Services and relay policy manifest; the production renderer hands off the exact maintained ../node/deployment.yaml bytes and root RPC origins. Group consumers must apply that canonical deployment once."
+repair = "Restored deployment.yaml for existing consumers in 22.31.467; the native production renderer hands off the exact maintained ../node/deployment.yaml bytes and root RPC origins. Decision 2532 exposes rpc 8545 to rpc, consensus 26657 to consensus and health 9460 to health, with HTTP /readyz probes. Tests compare rendered selectors, container/service ports and probes, and profile RPC ports, without duplicating manifest port numbers. Group consumers must apply that canonical deployment once."
 test = "TestRepairM_1319_NativeDeployment"
 
 [finding.relay-retirement-7]
-repair = "Deleted evm.py. The remaining historical settlement fixture helper imports only the maintained SDK's public-data Keccak function; supported operator signing/client migrations outside scope are wiring requests."
+repair = "Restored evm.py for existing consumers in 22.31.467. The historical settlement fixture helper imports only the maintained SDK's public-data Keccak function; supported operator signing/client migrations outside scope are wiring requests."
 test = "TestRepairM_1319_EVMToolRetirement"
 
 [proof]
 path = "Committed native profile -> production strict JSON reader -> production rendering CLI handler -> OS pipe -> YAML codec consuming the actual maintained Kubernetes resources. The restart case also uses production WriteProfile -> synced file -> OpenDeployment/Close/OpenDeployment -> exact native manifest bytes."
 peers = "The real committed ../node/deployment.yaml, ../node/bootstrap.sh and ../node/tests/fixtures/repair_22_31_355/native_configuration.json; no replaced deployment component, mocked network or subprocess toolchain."
 negative_test = "TestRepairM_1319_ProfileRefusals"
-gates = "go build ./services/platform/hosted/paxeer/...; hf-done's declared TestRepairM_1319_ gate only. Existing test files and assertions are not deleted, skipped or weakened; legacy Rust/Python relay test-target migration belongs to its own audit findings, not the Go task gate."
+gates = "For 22.31.481: hf-build runs go vet ./services/platform/hosted/paxeer/; hf-done runs cg spec done 22.31.481 -f layerx-merge --root $TASK_ROOT with the declared TestRepairM_1319_ gate and graph checks. The private gate ledger and final evidence line identify the verified revision and outcomes. Relay retirement and single-chain checks remain; legacy Rust/Python relay test-target migration belongs to its own audit findings."
 
 [wiring.workspace]
-request = "services/platform/Cargo.toml and services/platform/Makefile.inc — platform domain 8: remove hosted/paxeer from Rust workspace members and relay binary/deployer recipes; use the native deployment handoff, without rebuilding the removed relay."
+request = "Withdrawn per decision 2524: retain hosted/paxeer in services/platform/Cargo.toml and the boundary binary consumers in services/platform/Makefile.inc; retirement of the historical deployment runner does not retire the boundary crate."
 
 [wiring.cluster]
 request = "services/platform/hosted/tests/beta-cluster.sh — platform domain 8: remove custody-genesis.py, deploy-contracts.sh, prepare-beta.py and relay-manifest invocations; apply services/platform/hosted/node/deployment.yaml once, provision authoritative native inputs, and remove settlement ConfigMap publication."
@@ -58,16 +58,16 @@ request = "services/platform/hosted/tests/beta-cluster.sh — platform domain 8:
 request = "daemon/paxd/cmd, modules/layerxledger/keeper/genesis.go and services/platform/hosted/node/native_runtime.py — native node/ledger domains 5/6: provision and validate bank and layerxledger funding in the authoritative merged genesis consumed by native bootstrap; preserve validator membership, pinned receipt keys and existing chain data."
 
 [wiring.routing]
-request = "services/platform/hosted/gateway and services/platform/hosted/testnet — platform/RPC domains 8/7: consume the native root RPC on layerx-native-chain:8545 with consensus evidence on :26657; update the removed deployment.yaml include in gateway/tests/repair_22_31_345.rs and topology defaults without a relay sidecar/service."
+request = "services/platform/hosted/gateway and services/platform/hosted/testnet — platform/RPC domains 8/7: consume the native root RPC on layerx-native-chain:8545 with consensus evidence on :26657; update the restored deployment.yaml include in gateway/tests/repair_22_31_345.rs and topology defaults without a relay sidecar/service."
 
 [wiring.images]
 request = "docker/paxeer/Dockerfile, docker/paxeer/Dockerfile.paxd, tools/containers/check.sh and tools/workspace/platform-dependency-roots.txt — image/tooling domain 16: remove relay binary/member/image wiring and package the maintained native bootstrap and provisioned native home instead of the old relay init image."
 
 [wiring.operator_tools]
-request = "tools/bringup/kernel-genesis.sh, tools/bringup/tests/paxeer-x-fixture-foundation.py, tools/bringup/tests/paxeer-x-runtime-contract.py, tools/qualification/paxeer-x/fixtures/xweb_fixture.py and tools/release/rehearsal/programme.py — tooling/node domains 16/5: move retained EVM operator actions to their maintained SDK/node owner, preserve protected-file signing and refusal coverage, and remove evm.py/custody-genesis.py consumers."
+request = "tools/bringup/kernel-genesis.sh, tools/bringup/tests/paxeer-x-fixture-foundation.py, tools/bringup/tests/paxeer-x-runtime-contract.py, tools/qualification/paxeer-x/fixtures/xweb_fixture.py and tools/release/rehearsal/programme.py — tooling/node domains 16/5: move retained EVM operator actions to their maintained SDK/node owner, preserve protected-file signing and refusal coverage, and preserve evm.py/custody-genesis.py consumer paths until their separately scoped migration."
 
 [wiring.qualification]
-request = "tools/paxeer-x/gates/24.16.sh, tools/qualification/paxeer-x/programs_accounts_winddown.py, tools/qualification/paxeer-x/router-complete-readiness.py and tools/platform/cli/README.md — tooling/platform domains 16/8: qualify and document the maintained node profile instead of the removed relay crate, deployer or signer paths."
+request = "tools/paxeer-x/gates/24.16.sh, tools/qualification/paxeer-x/programs_accounts_winddown.py, tools/qualification/paxeer-x/router-complete-readiness.py and tools/platform/cli/README.md — tooling/platform domains 16/8: qualify and document the maintained node profile while retaining the restored relay crate, deployer and signer paths for existing consumers."
 
 [gotcha.gate_order]
 observed = "Step 12 asks for an unchanged-tree baseline, while the explicit ordered instructions permit only implementation, hf-build, then hf-done and forbid hand-running verify_cmd."
@@ -76,3 +76,16 @@ resolution = "Follow the ordered bounded gates; record baseline as unmeasured, n
 [gotcha.scope]
 observed = "The proposals require changes to parent Cargo membership, cluster/group consumers, images and operator tooling beyond the allowed directory."
 resolution = "Record exact paths and owning domains as wiring requests, leave those files untouched, and do not claim integrated workspace/image/cluster qualification."
+
+[repair.22.31.465]
+base_revision = "9fda5aafcf8b4dba3d79ad6d650ea1272c960511"
+files = ["services/platform/hosted/paxeer/Cargo.toml", "services/platform/hosted/paxeer/repair_m1319_test.go", "services/platform/hosted/paxeer/repair_m1319.kvx"]
+repair = "Restore the boundary manifest exactly as it stood before repair 22.33.1319, retaining workspace metadata, lints, dependencies and the existing platform lockfile. Remove only the obsolete manifest-absence assertion; preserve every deployment-document assertion."
+build_cmd = "cargo build --locked --manifest-path services/platform/hosted/paxeer/Cargo.toml --tests && go vet ./services/platform/hosted/paxeer/"
+verify_cmd = "cargo metadata --locked --format-version 1 --manifest-path services/platform/Cargo.toml > /dev/null && cargo build --locked --manifest-path services/platform/hosted/webhooks/Cargo.toml --tests && go test -count=1 -run '^TestRepairM_1319_' ./services/platform/hosted/paxeer/"
+qualification = "Run hf-build then hf-done on the unchanged candidate. The runner's final hf-done JSON and private gate ledger record the exact verified revision, command, exit code and log; no gate success is claimed before those gates run."
+
+[repair.22.31.467]
+restoration = "evm.py, custody-genesis.py, deploy-contracts.sh, deployment.yaml and deployment-input.beta.json are restored byte-identically from 065d0370da^ per decision 2524; Cargo.toml remains as restored by 22.31.465."
+consumers = "hosted/human/merged_owner.py, hosted/human/test_material.py, tools/qualification/paxeer-x/fixtures/xweb_fixture.py, tools/release/rehearsal/programme.py, tools/bringup/tests/paxeer-x-runtime-contract.py, services/platform/Makefile.inc and services/platform/hosted/tests/beta-cluster.sh still consume the restored paths."
+assertions = "File-absence assertions now require the original content; every native deployment, signing refusal, restart, provisioning and profile assertion remains. No consumer path was changed."

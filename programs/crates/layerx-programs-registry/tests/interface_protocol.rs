@@ -801,3 +801,11 @@ fn verify_native_case(root: &Path, name: &str, expected: ProgramInterface) {
     bad[2].data[0] ^= 1;
     assert!(VerifiedInterfaceRead::verify_at_head(&chain_head, program, &witness, &bad).is_err());
 }
+
+#[path = "support/repair_22_33_221.rs"]
+mod repair_22_33_221;
+
+#[test]
+fn node_transaction_result_and_interface_transport() {
+    repair_22_33_221::native_interface_transport();
+}

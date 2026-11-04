@@ -56,6 +56,8 @@ index=$LAYERX_BRIDGE_ATTESTOR_INDEX
 [ $((threshold * 2)) -gt "$set_size" ] && [ "$threshold" -le "$set_size" ] ||
 	fail "threshold $threshold of $set_size is not a majority of the set"
 attestor_key=${LAYERX_BRIDGE_ATTESTOR_KEY_FILE:-}
+[ "$attestor_key" = "$secrets/signer/attestor-$index.key" ] ||
+	fail "attestor key mount does not match attestor index $index"
 [ -n "$attestor_key" ] && [ -f "$attestor_key" ] || fail "attestor key file '$attestor_key' is missing"
 [ -f "$signer_keys" ] || fail "signer key manifest $signer_keys is missing"
 jq -e --arg key "$attestor_key" '[.keys[] | select(.handle == "bridge/attestor")] | length == 1 and .[0].key_file == $key' \

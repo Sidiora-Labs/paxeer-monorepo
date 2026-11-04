@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 pub mod attestor;
+pub use attestor::call;
 mod config;
 mod evm;
 mod evm_types;
@@ -8,6 +9,7 @@ mod send;
 mod server;
 mod store;
 mod wire;
+pub use wire::signing_contract;
 
 /// Runs the protected Human LXKP provider using its explicit environment configuration.
 ///

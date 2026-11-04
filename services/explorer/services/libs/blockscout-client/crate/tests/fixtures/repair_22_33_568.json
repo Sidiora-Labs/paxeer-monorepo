@@ -1,0 +1,81 @@
+{
+  "provenance": {
+    "kind": "producer-schema-branch-fixtures",
+    "version": "blockscout-api-1.0.0/client-0.2.0-blockscout-9.0.0",
+    "source_revision": "a6e13301f7b88430085bf3b76edaa7b5bf140f4e",
+    "source": "services/explorer/backend/apps/block_scout_web",
+    "capture": "Not a runtime capture; branches transcribed from committed controller tests and schemas."
+  },
+  "refusals": [
+    {
+      "name": "invalid-address",
+      "path": "/api/v2/addresses/0x",
+      "status": 422,
+      "body": {
+        "errors": [
+          {
+            "detail": "Invalid format. Expected ~r/^0x([A-Fa-f0-9]{40})$/",
+            "source": {
+              "pointer": "/address_hash_param"
+            },
+            "title": "Invalid value"
+          }
+        ]
+      },
+      "source": "test/block_scout_web/controllers/api/v2/address_controller_test.exs"
+    },
+    {
+      "name": "unknown-token",
+      "path": "/api/v2/tokens/0x0000000000000000000000000000000000000001",
+      "status": 404,
+      "body": {
+        "message": "Not found"
+      },
+      "source": "test/block_scout_web/controllers/api/v2/token_controller_test.exs"
+    },
+    {
+      "name": "restricted-address",
+      "path": "/api/v2/addresses/0x0000000000000000000000000000000000000002",
+      "status": 403,
+      "body": {
+        "message": "Restricted access"
+      },
+      "source": "lib/block_scout_web/controllers/api/v2/fallback_controller.ex"
+    },
+    {
+      "name": "unhealthy-indexing",
+      "path": "/api/health",
+      "status": 500,
+      "body": {
+        "healthy": false,
+        "metadata": {
+          "blocks": {
+            "healthy": false,
+            "latest_block": {
+              "db": {
+                "number": "",
+                "timestamp": ""
+              },
+              "cache": {
+                "number": "",
+                "timestamp": ""
+              },
+              "node": {
+                "number": "7"
+              }
+            },
+            "error": {
+              "code": 5002,
+              "message": "There are no blocks in the DB."
+            }
+          }
+        },
+        "error": {
+          "code": 5002,
+          "message": "There are no blocks in the DB."
+        }
+      },
+      "source": "lib/block_scout_web/controllers/api/health_controller.ex"
+    }
+  ]
+}
