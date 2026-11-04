@@ -1,0 +1,7 @@
+[repair.22.31.447]
+acceptance = "22998.1"
+baseline = "No fresh pre-change gate was run: the explicit gate order requires implementation before building or testing. Existing qualification findings 22.33.179.1, 22.33.181.1 and 22.33.184.1 record the unresolved PGlite imports before this repair."
+repair = "Declare @electric-sql/pglite 0.5.15 (including its contrib/pgcrypto export) and @electric-sql/pglite-socket 0.2.18 in the gateway devDependencies and wallet workspace lockfile; remove the nested source manifest and workspace configuration."
+proof = "test/db/repair-22-31-447.test.ts opens the unchanged testDatabase exports in process, connects a real pg client through PGLiteSocketServer, installs pgcrypto, and checks persisted query data and a SHA-256 digest against node:crypto."
+evidence = "The runner's hf-done receipt records the exact verified candidate revision, command, exit code and private log location."
+gotcha = "The gateway Vitest configuration includes only test/**/*.test.ts; the proof was moved from src/db to test/db with its assertions preserved and its relative imports and nested-manifest checks updated."
