@@ -27747,3 +27747,179 @@ symbol = "repair-22-33-302.spec.ts"
 observed = "Attempt 3: the SVG geometry setup was added; the build stopped on the 299 spec's TS2769 outside this task's paths; no test ran."
 assumption = "A defect published by a neighbouring task, repaired by 22.31.474."
 severity = "low"
+
+[finding.22.31.477.1]
+task = "22.31.477"
+file = "services/platform/middleware/conformance/src"
+symbol = "src"
+observed = "Attempt 1: the implementation was written; the build failed on the stale root lockfile before compiling; no test ran."
+assumption = "A lockfile defect published by a neighbouring task, repaired by 22.31.479."
+severity = "low"
+
+[finding.22.33.1480.3]
+task = "22.33.1480"
+file = "services/platform/middleware/conformance/test/repair-22-33-1480.test.mjs"
+symbol = "repair-22-33-1480.test.mjs"
+observed = "Attempt 3: the implementation was written; the build failed on the stale root lockfile before compiling; no test ran."
+assumption = "A lockfile defect published by a neighbouring task, repaired by 22.31.479."
+severity = "low"
+
+[finding.22.33.1478.3]
+task = "22.33.1478"
+file = "services/platform/middleware/seller/test/repair-22-33-1478.test.mjs"
+symbol = "repair-22-33-1478.test.mjs"
+observed = "Attempt 5: the implementation was written; the build failed on the stale root lockfile before compiling; no test ran."
+assumption = "A lockfile defect published by a neighbouring task, repaired by 22.31.479."
+severity = "low"
+
+[finding.22.33.612.4]
+task = "22.33.612"
+file = "sdk/integrations/agents/test/repair-22-33-612.test.mjs"
+symbol = "repair-22-33-612.test.mjs"
+observed = "Attempt 4: the implementation was written; the build failed on the stale root lockfile before compiling; no test ran."
+assumption = "A lockfile defect published by a neighbouring task, repaired by 22.31.479."
+severity = "low"
+
+[finding.22.33.619.7]
+task = "22.33.619"
+file = "sdk/integrations/next/example/test/repair-22-33-619.test.mjs"
+symbol = "repair-22-33-619.test.mjs"
+observed = "Attempt 7: the build failed with EUSAGE on the stale root lockfile before compiling; no test ran."
+assumption = "A lockfile defect published by a neighbouring task, repaired by 22.31.479."
+severity = "low"
+
+[finding.22.31.227.4]
+task = "22.31.227"
+file = "services/agent/crates/layerx-sdk/tests/repair_22_31_227.rs"
+symbol = "repair_22_31_227.rs"
+observed = "Attempt 3: build passed; the dependent-crate check failed on a human-service test that main had already repaired after the attempt's base; the verify never ran."
+assumption = "A dependent defect already repaired on main."
+severity = "low"
+
+[finding.22.33.1425.3]
+task = "22.33.1425"
+file = "precompiles/layerxagent/oracle/repair_m1425_test.go"
+symbol = "repair_m1425_test.go"
+observed = "Attempt 4: build passed; the verify failed because the test package did not compile (pointer versus value mismatch at repair_m1425_test.go line 353)."
+assumption = "A one-line type mismatch inside the task's own test."
+severity = "low"
+
+[finding.22.33.23.6]
+task = "22.33.23"
+file = "services/agent/sdk/typescript/test/repair-22-33-23.test.ts"
+symbol = "repair-22-33-23.test.ts"
+observed = "Attempt 6: build passed; 19 of 20 cases passed; the remaining case asserted a handler gap that the handler on main does not have."
+assumption = "A test assertion contradicting the committed producer."
+severity = "medium"
+
+[finding.22.33.1265.3]
+task = "22.33.1265"
+file = "precompiles/ibc/repair_m1265_test.go"
+symbol = "repair_m1265_test.go"
+observed = "Attempt 5: build passed; the two timeout subtests failed on a missing counterparty consensus state at the proof height."
+assumption = "A fixture gap inside the task's own test."
+severity = "medium"
+
+[finding.22.33.338.4]
+task = "22.33.338"
+file = "apps/web/e2e/repair-22-33-338.test.ts"
+symbol = "repair-22-33-338.test.ts"
+observed = "Attempt 5: build passed; one of five cases passed; the sponsored case asserted an outcome the fixture could not produce and two cases compared against text the task was meant to change."
+assumption = "Fixture and expectation defects inside the task's own component."
+severity = "medium"
+
+[finding.22.34.4.2]
+task = "22.34.4"
+file = "rpc/px_node_root_kernel_test.go"
+symbol = "px_node_root_kernel_test.go"
+observed = "Attempt 3: build passed; three tests failed on a chain-id mismatch between the fixture's context and its uninitialised application."
+assumption = "A fixture initialisation gap inside the task's own test."
+severity = "medium"
+
+[finding.22.31.475.1]
+task = "22.31.475"
+file = "node/sequencer"
+symbol = "sequencer"
+observed = "Attempt 1: build passed; the tests failed on a fixture header without the block protocol version."
+assumption = "A fixture header defect inside the task's own test."
+severity = "low"
+
+[finding.22.33.1000.2]
+task = "22.33.1000"
+file = "services/launchpad/indexer/internal/processor/repair_m1000_test.go"
+symbol = "repair_m1000_test.go"
+observed = "Attempt 2: build passed; two tests failed because they replayed against a public node whose history is pruned instead of committed fixtures."
+assumption = "Tests that depended on a live endpoint against the task's own rule."
+severity = "medium"
+
+[finding.22.31.147.7]
+task = "22.31.147"
+file = "tests/agent/sdk/python/test_repair_22_31_147.py"
+symbol = "test_repair_22_31_147.py"
+observed = "Attempt 7: the gates passed; publication stopped on a merge conflict in services/agent/sdk/python/layerx_sdk/web_search.py."
+assumption = "A publication-order conflict with a neighbouring task."
+severity = "low"
+
+[finding.22.33.123.1]
+task = "22.33.123"
+file = "apps/wallet/src/lib/repair-22-33-123.test.ts"
+symbol = "repair-22-33-123.test.ts"
+observed = "Attempt 1: the gates passed; publication stopped on a merge conflict in apps/wallet/src/lib/push.ts."
+assumption = "A publication-order conflict with a neighbouring task."
+severity = "low"
+
+[finding.22.33.43.1]
+task = "22.33.43"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_43.rs"
+symbol = "repair_22_33_43.rs"
+observed = "Attempt 1: the gates passed; publication stopped on a merge conflict in README.md."
+assumption = "A publication-order conflict with a neighbouring task."
+severity = "low"
+
+[finding.22.33.1540.2]
+task = "22.33.1540"
+file = "services/human/crates/layerx-human-kms/tests/repair_22_33_1540.rs"
+symbol = "repair_22_33_1540.rs"
+observed = "Attempt 3: the gates passed; publication stopped on a merge conflict in README.md."
+assumption = "A publication-order conflict with a neighbouring task."
+severity = "low"
+
+[finding.22.33.766.2]
+task = "22.33.766"
+file = "tools/benchmark/loadtest/repair_m766_test.go"
+symbol = "repair_m766_test.go"
+observed = "Attempt 2: the gates passed; publication stopped on a merge conflict in tools/benchmark/loadtest/evm.go."
+assumption = "A publication-order conflict with a neighbouring task."
+severity = "low"
+
+[finding.22.33.1208.2]
+task = "22.33.1208"
+file = "precompiles/staking/legacy/v614/repair_m1208_test.go"
+symbol = "repair_m1208_test.go"
+observed = "Attempt 3: the gates passed; publication stopped on a merge conflict in precompiles/staking/staking.go."
+assumption = "A publication-order conflict with a neighbouring task."
+severity = "low"
+
+[finding.22.33.1278.2]
+task = "22.33.1278"
+file = "interchain/testing/simapp/repair_m1278_test.go"
+symbol = "repair_m1278_test.go"
+observed = "Attempt 3: the gates passed; publication stopped on a merge conflict in interchain/testing/simapp/test_helpers.go."
+assumption = "A publication-order conflict with a neighbouring task."
+severity = "low"
+
+[finding.22.33.714.2]
+task = "22.33.714"
+file = "precompiles/spot/abi/repair_m714_test.go"
+symbol = "repair_m714_test.go"
+observed = "Attempt 2: the gates passed; publication stopped on a merge conflict in contracts/perps-client.md."
+assumption = "A publication-order conflict with a neighbouring task."
+severity = "low"
+
+[finding.22.33.1321.1]
+task = "22.33.1321"
+file = "services/platform/hosted/paxeer/tests/repair_22_33_1321.rs"
+symbol = "repair_22_33_1321.rs"
+observed = "Attempt 1: the gates passed; publication was held on a lock file outside the declared paths."
+assumption = "A declared-paths gap for a lock the task's manifest change regenerates."
+severity = "low"
