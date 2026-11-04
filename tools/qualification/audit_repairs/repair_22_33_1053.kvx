@@ -1,0 +1,21 @@
+[repair.22.33.1053]
+audit = "22.30.41"
+finding_27 = "test_finding_27_complete_provenance_without_deployment_defaults; test_finding_27_authoritative_source_artifact_and_export (all five roles); test_finding_27_erc20_provenance_uses_current_role"
+repair = "Regenerated provenance.json from the committed contracts/launchpad/contracts role sources and precompiles/launchpad/abi role artifacts; refreshed Router and Quoter artifact digests while retaining repository-relative paths, SidioraERC20 identity, explicit SPDX provenance and no deployment defaults."
+baseline_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+baseline = "No baseline test ran: the explicit implementation-first gate order forbids running verify_cmd by hand or before implementation; the initial gate ledger had no runs and the declared pytest module did not exist. No baseline test failure is claimed."
+observed = "Initial source inspection found Router and Quoter artifact hashes stale; the other artifact hashes, all source hashes, source paths and SidioraERC20 identity were already repaired in the supplied checkout."
+proof = "Pytest parses production provenance, all five committed source files, role ABI JSON arrays, package exports and actual TypeScript ABI literal initializers; it checks exact role identities, contained repository-relative files, byte digests, source contract declarations, SPDX markers, complete exported ABI equality and current ERC20 role functions."
+review_only = "The gate does not compile Solidity or TypeScript, execute EVM calls or establish compiler reproducibility; artifact generation correctness beyond the committed source/artifact identity and contents is a review concern. No interface or restart behavior changes in this repair."
+wiring_request = "None: existing tracked role ABI arrays are the authoritative package inputs; no out-of-path artifact regeneration or deployment change is required."
+verified_revision = "The candidate revision in the passing hf-done evidence entry at $HF_RUN_DIR/gates.jsonl; this ledger also records exact command, exit code and private log location. No qualification is claimed without that entry."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1053.py"
+
+[gotcha.unchanged_tree_verification]
+observed = "Step 5 requests unchanged-tree verification, but the explicit gate order requires implementation first and forbids invoking verify_cmd by hand."
+resolution = "Followed the explicit gate order and recorded the missing baseline evidence without claiming a run."
+
+[gotcha.artifact_bytes]
+observed = "A matching role ABI identity does not guarantee a current artifact digest; Router and Quoter provenance retained stale byte hashes."
+resolution = "Recomputed all recorded hashes from committed bytes and included exact digest and full ABI equality assertions for every role."
