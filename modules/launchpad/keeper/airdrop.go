@@ -114,8 +114,8 @@ func (k *Keeper) writePoolAirdropEpoch(ctx sdk.Context, record types.PoolAirdrop
 	if err != nil {
 		return fmt.Errorf("%w: %s/%d: %v", types.ErrAirdropBasis, record.Pool, record.Epoch, err)
 	}
-	k.store(ctx).Set(poolAirdropEpochKey(common.HexToAddress(record.Pool), record.Epoch), bz)
-	return nil
+	return k.setFeeAccountingEntry(ctx, poolAirdropEpochKey(common.HexToAddress(record.Pool), record.Epoch), bz,
+		feeAccountingEpochCountKey)
 }
 
 // SetPoolAirdropEpoch writes the epoch fields of an epoch the pool's market
@@ -341,7 +341,9 @@ func (k *Keeper) ClaimLegacyAirdrop(ctx sdk.Context, caller NestedCaller, pool c
 func (k *Keeper) payAirdrop(ctx sdk.Context, caller NestedCaller, market types.Market, accumulator, holder common.Address,
 	epoch uint64, amount sdk.Int) (sdk.Context, sdk.Int, error) {
 	pool := common.HexToAddress(market.PoolAddress)
-	k.store(ctx).Set(poolAirdropClaimKey(pool, holder, epoch), []byte{1})
+	if err := k.setFeeAccountingEntry(ctx, poolAirdropClaimKey(pool, holder, epoch), []byte{1}, feeAccountingClaimCountKey); err != nil {
+		return ctx, sdk.Int{}, err
+	}
 	k.setMarket(ctx, market)
 	if err := k.subLedgerAmount(ctx, totalLiabilitiesKey, amount); err != nil {
 		return ctx, sdk.Int{}, err
