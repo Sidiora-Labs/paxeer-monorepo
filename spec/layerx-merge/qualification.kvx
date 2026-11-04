@@ -22571,3 +22571,75 @@ symbol = "Repair2231415Tests.swift"
 observed = "Attempt 3: test019ConfiguredWalletPaymentVerifiesRecordedReceipt fails with verification-failure; two tests pass."
 assumption = "Fixture halves recorded from different runs."
 severity = "high"
+
+[finding.22.31.380.1]
+task = "22.31.380"
+file = "apps/explorer/lib/api/services/general/repair-22-31-380.spec.ts"
+symbol = "repair-22-31-380.spec.ts"
+observed = "Attempt 1: the package manager refused the command because the project is configured for yarn; build exit 1, verify never ran."
+assumption = "The gate named the wrong package manager for the directory (gotcha 2969); corrected."
+severity = "high"
+
+[finding.22.31.405.1]
+task = "22.31.405"
+file = "apps/explorer/ui/tx/repair-22-31-405.spec.ts"
+symbol = "repair-22-31-405.spec.ts"
+observed = "Attempt 3: yarn tsc --noEmit fails on the undeclared ganache import of another task's published test; the verify never ran."
+assumption = "A published test broke the shared type-check of the package; repaired by its own task."
+severity = "high"
+
+[finding.22.31.407.2]
+task = "22.31.407"
+file = "services/explorer/backend/apps/explorer/test/repair/repair_22_31_407_test.exs"
+symbol = "repair_22_31_407_test.exs"
+observed = "Attempt 2: launchpad_code_probe_malformed, _live and _refused fail; Capabilities.probe still sends eth_getCode."
+assumption = "Producer-consumer defect: the production probe was left outside the first scope."
+severity = "high"
+
+[finding.22.31.410.2]
+task = "22.31.410"
+file = "services/explorer/backend/apps/explorer/test/repair/repair_22_31_410_test.exs"
+symbol = "repair_22_31_410_test.exs"
+observed = "Attempt 2: 23 tests, 10 failures; stored contract_code disagrees with the committed eth_getCode for pre- and post-Cancun selfdestruct cases."
+assumption = "The test gap exposed a real migrator defect that sat outside the first scope."
+severity = "high"
+
+[finding.22.31.411.2]
+task = "22.31.411"
+file = "services/explorer/backend/apps/explorer/test/repair/repair_22_31_411_test.exs"
+symbol = "repair_22_31_411_test.exs"
+observed = "Attempt 2: 11 tests, 7 failures; verify returns :committed or :r7 where :r8 is required and the controller returns not_found."
+assumption = "Test gap exposing verifier and controller defects outside the first scope."
+severity = "high"
+
+[finding.22.31.3.3]
+task = "22.31.3"
+file = "services/human/crates/layerx-human-service/tests/repair_22_31_3.rs"
+symbol = "repair_22_31_3.rs"
+observed = "Attempt 2: repair_3_export_challenge_wire and repair_3_export_handoff fail with Io WouldBlock on the store lock; two pass."
+assumption = "Store-lock contention between tests, already repaired but not re-verified."
+severity = "high"
+
+[finding.22.31.24.3]
+task = "22.31.24"
+file = "src/modules/programs"
+symbol = "programs"
+observed = "Attempt 3: five audit regression cases pass; original_lifecycle returns failure and make programs-core-test exits 1."
+assumption = "An inherited case owned by the verify target."
+severity = "high"
+
+[finding.22.31.221.2]
+task = "22.31.221"
+file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+symbol = "repair_22_31_221.rs"
+observed = "Attempt 2: dependents check reports five errors in the agent daemon test and the hosted authority budget state after the client type changes."
+assumption = "Producer-consumer defect: the client changed shapes its consumers still read."
+severity = "high"
+
+[finding.22.31.269.3]
+task = "22.31.269"
+file = "services/explorer/services/libs/blockscout-client/crate/tests/repair_22_31_269.rs"
+symbol = "repair_22_31_269.rs"
+observed = "Attempt 3: cargo build of the libs workspace fails on type errors in repair_22_31_273.rs; the agent reports the client regeneration needs excluded paths."
+assumption = "Wrong build target and a consumer test of the regenerated models left outside scope."
+severity = "high"
