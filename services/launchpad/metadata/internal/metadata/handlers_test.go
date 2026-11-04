@@ -66,8 +66,13 @@ func newHarness(t *testing.T) *harness {
 	clamHost, clamPort := internaltest.NewClamd(t)
 	gateway := internaltest.NewGateway(t, dsn, redisURL, objects, webOrigin)
 
+	if _, err := pool.Exec(context.Background(), metadata.LegacyPublicationDDL); err != nil {
+		t.Fatal(err)
+	}
+
 	deps := metadata.Deps{
 		Queries:            sqlcdb.New(pool),
+		LegacyDB:           pool,
 		Redis:              rdb,
 		Store:              objects.Store,
 		PublicURL:          publicURL,
@@ -245,10 +250,13 @@ func TestMetadataService(t *testing.T) {
 		}
 
 		// The objects exist in the bucket with the sniffed content types.
-		for key, mime := range map[string]string{"logos/logo-" + addr + ".png": "image/png", "banners/banner-" + addr + ".jpg": "image/jpeg"} {
-			info, err := h.store.Head(context.Background(), key)
-			if err != nil || info.ContentType != mime {
-				t.Fatalf("bucket object %s: %+v %v", key, info, err)
+		for _, row := range h.imageRows(t, addr) {
+			if !strings.HasPrefix(row.StorageKey, "legacy/") {
+				t.Fatal(row.StorageKey)
+			}
+			info, err := h.store.Head(context.Background(), row.StorageKey)
+			if err != nil || info.ContentType != row.MimeType {
+				t.Fatalf("bucket object %s: %+v %v", row.StorageKey, info, err)
 			}
 		}
 		row, ok := h.metadataRow(t, addr)
@@ -298,6 +306,7 @@ func TestMetadataService(t *testing.T) {
 		if _, code, raw := h.upload(t, addr, nil, map[string]uploadFile{"logo": pngFile(t)}); code != http.StatusOK {
 			t.Fatalf("png upload %d %s", code, raw)
 		}
+		oldKey := h.imageRows(t, addr)[0].StorageKey
 		first, ok := h.metadataRow(t, addr)
 		if !ok || first.Name.Valid || first.PoolAddress != tokenAddr(1016) || first.CreatedBy != h.wallet {
 			t.Fatalf("image-only row %+v (found %v)", first, ok)
@@ -310,10 +319,19 @@ func TestMetadataService(t *testing.T) {
 		if second.UpdatedAt <= first.UpdatedAt || second.CreatedAt != first.CreatedAt {
 			t.Fatalf("revision did not advance: %d -> %d", first.UpdatedAt, second.UpdatedAt)
 		}
-		if _, err := h.store.Head(context.Background(), "logos/logo-"+addr+".png"); err != storage.ErrNotFound {
-			t.Fatalf("replaced png object still present: %v", err)
+		if _, err := h.store.Head(context.Background(), oldKey); err != nil {
+			t.Fatalf("old object must survive reader grace period: %v", err)
 		}
-		if rows := h.imageRows(t, addr); len(rows) != 1 || rows[0].StorageKey != "logos/logo-"+addr+".jpg" || rows[0].MimeType != "image/jpeg" {
+		if _, err := h.pool.Exec(context.Background(), "UPDATE metadata.legacy_publications SET created_at=clock_timestamp()-interval '2 hours'"); err != nil {
+			t.Fatal(err)
+		}
+		if err := metadata.New(h.deps).RecoverLegacyPublications(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := h.store.Head(context.Background(), oldKey); err != storage.ErrNotFound {
+			t.Fatalf("retired object survived recovery: %v", err)
+		}
+		if rows := h.imageRows(t, addr); len(rows) != 1 || !strings.HasPrefix(rows[0].StorageKey, "legacy/") || !strings.HasSuffix(rows[0].StorageKey, ".jpg") || rows[0].MimeType != "image/jpeg" {
 			t.Fatalf("image rows %+v", rows)
 		}
 	})
@@ -526,7 +544,7 @@ func TestMetadataService(t *testing.T) {
 		if _, code, raw := h.upload(t, addr, nil, map[string]uploadFile{"logo": pngFile(t)}); code != http.StatusOK {
 			t.Fatalf("upload status = %d %s", code, raw)
 		}
-		if err := h.store.Delete(context.Background(), "logos/logo-"+addr+".png"); err != nil {
+		if err := h.store.Delete(context.Background(), h.imageRows(t, addr)[0].StorageKey); err != nil {
 			t.Fatalf("delete object: %v", err)
 		}
 		resp, err := http.Get(h.baseURL + "/logo/" + addr + ".png")
