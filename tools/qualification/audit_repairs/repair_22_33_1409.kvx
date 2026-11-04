@@ -1,0 +1,36 @@
+[task.22.33.1409]
+audit = "spec/layerx-merge/programme/audit/records/22.30.79.kvx"
+requirement = "22998.1"
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+repair = "Limit the default probe success message and help to daemon health and authentication; preserve verified-read claims exclusively after the authenticated tenant readiness journey."
+source_proof = "The pytest module reads the production probe, parses its guarded curl commands and final success branches with shlex, checks default credential selection, request coordinates, gateway authentication, TLS client credentials, HTTP and readiness refusal guards and validator-before-success ordering. It executes the unmodified embedded production response validator in-process for read/write admission and unavailable transport/read cases. The declared hf-build parses the full shell script with bash -n exactly once, separately from pytest."
+review_only = "Live TLS handshakes, bearer rejection by the hosted daemon, gateway/owner request production and network transport are not executed by this offline gate; agreement of these source facts with deployment requires review. Validator inputs are committed contract cases, not a claimed end-to-end owner response. No interface or durable state is changed; finding 025 is neither restart-recovery nor interface-mismatch."
+baseline = "Initial git status/diff showed only runner-prepared .cgignore and spec task status changes; the scoped repair files and gate ledger were absent, with zero builds and verifies used. Baseline source contained the unsupported default 'transport and verified reads only' claim in help and success output. Baseline verify was not executed: the explicit implementation-first, hf-done-only gate order overrides step 5's conflicting baseline instruction. No pre-change failing test is claimed."
+build_cmd = "bash -n services/platform/hosted/agentd/probe.sh"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1409.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private gate ledger identify the exact verified content-derived revision, command, exit and log location; build and verify must pass on the same candidate revision. The gate receipt names the verified revision externally because inserting a candidate hash into its own source changes the candidate. This record makes no qualification claim before that receipt; publication belongs to the runner."
+
+[finding.025]
+audit = "22.30.79"
+file = "services/platform/hosted/agentd/probe.sh"
+line = 323
+class = "test-gap"
+severity = "medium"
+owner_domain = 8
+observed = "The default health-only journey claimed transport and verified reads without a tenant.readiness request."
+expected = "Health proves daemon availability and authentication; verified tenant reads require the authenticated owner readiness result."
+resolution = "Default help and success output now claim daemon health and authentication only, with no tenant read or write claim. Existing authenticated tenant read/write branches retain their verified-read statements behind credential validation, authenticated HTTP success and owner readiness validation. Closure depends on the declared gate receipt."
+tests = ["test_025_default_help_and_success_claim_only_health_authentication", "test_025_health_claim_follows_authenticated_health_and_rejection_guards", "test_025_verified_read_claim_requires_credentialed_tenant_journey", "test_025_production_validator_gates_tenant_read_and_write_claims"]
+wiring_requests = []
+
+[format]
+policy = "No Python, shell or KVX formatter is configured for these paths; preserve existing indentation and normalize UTF-8, LF, final newline and trailing whitespace after implementation."
+
+[gotcha.1]
+observed = "The task's baseline verify instruction conflicts with the explicit implementation-first and hf-done-only gate order."
+resolution = "Record baseline source facts without inventing a failing run; follow only the declared bounded gates. Root GOTCHA.kvx and spec files are outside task scope."
+
+[gotcha.2]
+observed = "cg brief reports unrelated cached task and uncommitted context."
+resolution = "Use the actual git status/diff and private gate ledger to continue this claimed task; do not edit unrelated paths."
