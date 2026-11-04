@@ -219,15 +219,16 @@ async fn wrong_default_origin() {
     assert_eq!(config.request_timeout, DEFAULT_REQUEST_TIMEOUT);
     assert_eq!(config.max_response_bytes, DEFAULT_MAX_RESPONSE_BYTES);
     assert_eq!(DEFAULT_CONNECT_TIMEOUT, Duration::from_secs(5));
-    assert!(ApiClient::new(config)
-        .health_api()
-        .health()
-        .await
-        .unwrap()
-        .try_as_success()
-        .unwrap()
-        .healthy
-        .unwrap());
+    assert!(
+        ApiClient::new(config)
+            .health_api()
+            .health()
+            .await
+            .unwrap()
+            .try_as_success()
+            .unwrap()
+            .healthy
+    );
     server.request().await;
 }
 
@@ -309,9 +310,9 @@ async fn current_health_producer_envelopes() {
         assert_eq!(response.status, 200);
         assert_eq!(response.content, body);
         let model = response.try_as_success().unwrap();
-        assert_eq!(model.healthy, Some(true));
+        assert_eq!(model.healthy, true);
         if let Some(metadata) = &model.metadata {
-            assert!(metadata.blocks.as_ref().unwrap().healthy);
+            assert!(metadata.blocks.healthy);
         }
         server.request().await;
     }
@@ -323,11 +324,11 @@ async fn current_health_producer_envelopes() {
             assert_eq!(response.content, body);
             match response.entity.unwrap() {
                 HealthError::Status500(health) => {
-                    assert_eq!(health.healthy, Some(false));
-                    assert_eq!(health.error.unwrap().code, 5002);
-                    let blocks = health.metadata.unwrap().blocks.unwrap();
+                    assert_eq!(health.healthy, false);
+                    assert_eq!(health.error.code, 5002);
+                    let blocks = health.metadata.blocks;
                     assert!(!blocks.healthy);
-                    assert_eq!(blocks.latest_block.node.unwrap().number, "110");
+                    assert_eq!(blocks.latest_block.node.number, "110");
                     assert_eq!(blocks.error.unwrap().code, 5002);
                 }
                 other => panic!("lost typed unhealthy response: {other:?}"),

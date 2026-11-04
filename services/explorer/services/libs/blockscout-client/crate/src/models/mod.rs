@@ -393,3 +393,27 @@ pub use self::watchlist_name::WatchlistName;
 
 pub mod withdrawal;
 pub use self::withdrawal::Withdrawal;
+
+pub mod batch_indexing_status;
+pub use self::batch_indexing_status::BatchIndexingStatus;
+
+pub mod batch_indexing_status_latest_batch;
+pub use self::batch_indexing_status_latest_batch::BatchIndexingStatusLatestBatch;
+
+pub mod batch_indexing_status_latest_batch_db;
+pub use self::batch_indexing_status_latest_batch_db::BatchIndexingStatusLatestBatchDb;
+
+pub mod block_indexing_status;
+pub use self::block_indexing_status::BlockIndexingStatus;
+
+pub mod health_check_error;
+pub use self::health_check_error::HealthCheckError;
+
+pub mod health_check_response_data;
+pub use self::health_check_response_data::HealthCheckResponseData;
+
+pub mod latest_block_node;
+pub use self::latest_block_node::LatestBlockNode;
+
+pub mod unhealthy_health_check_response;
+pub use self::unhealthy_health_check_response::UnhealthyHealthCheckResponse;
