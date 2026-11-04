@@ -1,0 +1,11 @@
+[repair.22.33.49]
+audit = "22.30.106"
+acceptance = "22998.1"
+baseline = "Not run: the task's ordered gate rules prohibit testing before implementation and prohibit running verify_cmd directly; no pre-change failure result is claimed."
+qualification = "The runner's hf-build and hf-done evidence ledger records the exact candidate revision, command, exit code and private log path; completion requires hf-done passing."
+finding_10 = "finding_10_completed_journey_ignores_delayed_tracking_after_restart: committed completion survives delayed Submitted, Unknown, Expired and unavailable observations, conflicts are refused, and the principal store is stopped and reopened with identical activation evidence and audit events."
+finding_8 = "finding_8_receipt_only_adapter_is_retired_and_native_activation_requires_commit: the obsolete Executed adapter returns NativeOutcomeRequired, real transported Receipted native evidence cannot activate either stage or add audits, and committed native outcomes retain evidence_rung across reopen."
+finding_9 = "finding_9_failed_did_and_recovery_registrations_stay_refused_after_restart: signed, authenticated nonzero DID/recovery outcomes retain their result, receipt digest, activity id and committed rung as Refused, survive delayed tracking and reopen, and cannot be replaced with success."
+finding_11 = "finding_11_runtime_nonce_matches_both_durable_preparation_fields_after_restart: an advanced runtime nonce replaces both stale caller values, is returned through both preparation fields, and replays identically after stopping the runtime and reopening the store."
+wiring_request = "services/human/crates/layerx-human-service/tests/onboarding.rs (human domain 10): migrate legacy Executed activation fixtures to the production accept_bootstrap_owner committed native evidence path; this file is outside this task's scope."
+stored_evidence = "New authenticated native outcomes persist the evidence rung and receipt identity for both success and failure; historical Verified records without a durable rung are refused by invariant validation rather than assigned unproven commitment."
