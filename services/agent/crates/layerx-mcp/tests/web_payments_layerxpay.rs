@@ -408,19 +408,11 @@ fn web_fetch_pay_exact_expiry_is_the_disclosure_expiry_in_milliseconds() {
     }
 }
 
+#[path = "support/payment_binding.rs"]
+mod payment_binding;
+
 fn document() -> Value {
-    json!({
-        "mode": "full", "tenant": "tenant-a", "store": "/tmp/web-store", "audit_root": "/tmp/web-audit",
-        "session_id": "07".repeat(32), "session_token_file": "/tmp/web-session-token", "session_generation": 1,
-        "capability_id": "09".repeat(32), "core_sequence": 7, "deadline_ms": 5000,
-        "agent": {"endpoint": "http://127.0.0.1:9500", "bearer_file": "/tmp/web-agent-bearer", "probe_program": "55".repeat(32)},
-        "limit": {"id": "09".repeat(16), "name": "mcp-limit", "scope": "tenant", "scope_id": "01".repeat(32), "ceiling": "1000", "consumed": "0"},
-        "web": {"endpoint": "http://127.0.0.1:9450", "payer_address": format!("0x{}", "ab".repeat(20)),
-            "receiver_address": format!("0x{}", "cd".repeat(20)), "network": "eip155:125",
-            "receipt_key_index": [{"keyId": "2a".repeat(32), "publicKey": "5e".repeat(32), "firstHeight": 1, "lastHeight": 100}],
-            "sequencer_id": "2a".repeat(32), "first_batch_number": 1, "last_batch_number": 100,
-            "timeout_ms": 5000, "pending_attempts": 3, "approval_threshold": "1000"}
-    })
+    payment_binding::document()
 }
 
 #[test]
