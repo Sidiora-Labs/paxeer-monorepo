@@ -1,0 +1,41 @@
+[repair.22.31.381]
+finding = "nft-token-revoke"
+tests = ["nftTokenRevokeClearsOnlySelectedToken", "nftOperatorRevokeClearsOnlyCollectionPermission", "nftTokenRevokeRejectsSuccessfulOperatorOnlyReceipt", "nftOperatorRevokeRejectsSuccessfulTokenOnlyReceipt", "nftRevocationChecksTheCommittedBlock", "nftRevocationPropagatesReadFailure"]
+test_file = "apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/repair-22-31-381.spec.ts"
+producer = "contracts/src/ERC721.sol:MyNFT, compiled and executed on Ganache through viem"
+consumer = "useRevoke uses getRevokeContractParameters and verifyNftRevocation before returning success"
+baseline = "Not executed: the ordered qualification instructions forbid testing before implementation and running verify_cmd outside hf-done. No baseline failures are claimed."
+wiring_requests = ["apps/explorer/toolkit/components/charts/parts/tooltip/pointerTracker.ts — explorer toolkit/charts owning domain: repair the recorded D3 TouchEvent/PointerEvent callback mismatch so the declared explorer typecheck can qualify this repair."]
+evidence = "The runner records the exact candidate revision, commands, exit codes and private logs in /out/run/gates.jsonl."
+
+[gotcha.tooling]
+observed = "The sandbox dependency warm-up installed only root packages; its explorer pnpm install stopped because the application declares yarn."
+action = "Install the declared explorer dependencies without changing its manifest, and retain the prescribed pnpm gate commands."
+
+[gotcha.formatter]
+observed = "The repository formatter's Vitest lint rules require string titles and inline assertions, while this task explicitly requires test(namedFunction) registration."
+action = "Preserve the required named function registration and real assertions; leave lint rules enabled and use only the declared qualification gates."
+
+[qualification.unrelated]
+revision = "ca79644cfc59687d4d5aa7c6650b7863f4b39f6e"
+command = "pnpm --dir apps/explorer exec tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "Unchanged toolkit/components/charts/parts/tooltip/pointerTracker.ts:37 rejects a PointerEvent callback for the D3 TouchEvent listener type (TS2345); this is outside the task scope."
+assumption = "The charts owning domain must qualify its event listener independently; this task preserves its code and checks."
+
+[gotcha.relative-path]
+observed = "A dependency relocation using a repository-relative path failed while the command was running from the explorer directory."
+action = "Resolve dependency paths relative to the command working directory; no source files were affected."
+
+[gotcha.continuation-tooling]
+observed = "The continuation sandbox ships pnpm 12, which refuses even version queries for this npm/yarn repository; pnpm 10 also refuses the npm package-manager declaration, and no explorer dependencies were restored."
+action = "Restore the explorer's frozen Yarn dependency graph and use pnpm 8 for the prescribed gate commands; keep installed dependencies outside the source candidate."
+
+[qualification.continuation-dependencies]
+revision = "736bc913f1125c01064dcd3b175f75d840db53f9"
+command = "cg spec done 22.31.381 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The suite could not load solc because relocating dependencies to a directory whose basename was not node_modules broke Node's sibling dependency resolution."
+assumption = "Preserving the node_modules basename when relocating installed dependencies restores normal package resolution without changing production code, tests or checks."
