@@ -16,11 +16,15 @@ import { TradeExecutionProvider } from '@/widgets/trading/transaction-controls/p
 import { paxeer } from '@/core/wagmi-config';
 import { PRIVATE_FIXTURE_WAGMI_STORAGE_KEY } from '@/core/network/deployment';
 
+export function createPrivateFixtureWagmiStorage() {
+  return createStorage({ key: PRIVATE_FIXTURE_WAGMI_STORAGE_KEY, storage: cookieStorage });
+}
+
 export function createPrivateFixtureWagmiConfig(profile: PrivateFixtureAuthorityProfileV1) {
   return createConfig({
     chains: [{ ...paxeer, rpcUrls: { default: { http: [profile.publicRPC] } }, blockExplorers: { default: { name: 'Paxscan', url: profile.explorerBase } } }],
     connectors: [injected()],
-    storage: createStorage({ key: PRIVATE_FIXTURE_WAGMI_STORAGE_KEY, storage: cookieStorage }),
+    storage: createPrivateFixtureWagmiStorage(),
     transports: { 125: http(profile.publicRPC, { batch: { batchSize: 1024, wait: 16 }, retryCount: 0 }) },
     ssr: true,
   });
