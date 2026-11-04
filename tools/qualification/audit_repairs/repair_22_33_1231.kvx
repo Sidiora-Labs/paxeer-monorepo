@@ -1,0 +1,45 @@
+[meta]
+task = "22.33.1231"
+acceptance = "22998.1"
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+repair = "Replace all three obsolete devtools go get installers with version-qualified go install using the discovered GO binary and explicit GOBIN at the absolute TOOLS_DESTDIR prerequisite directory. Pin statik v0.1.8, retain runsim v1.0.0, and upgrade golangci-lint to its Go-1.25-capable v2.5.0 module. Remove the obsolete temporary-directory workaround and document installation, PATH and refreshing existing binaries."
+wiring_requests = []
+
+[finding.17]
+audit = "22.30.59"
+file = "wasm/contrib/devtools/Makefile"
+line = 64
+class = "config-drift"
+severity = "medium"
+owner_domain = 16
+tests = ["test_finding_17_pinned_install_recipes", "test_finding_17_destination_matches_binary_prerequisites", "test_finding_17_tools_target_and_cleanup_share_destinations", "test_finding_17_obsolete_get_workaround_is_removed", "test_finding_17_supported_go_and_linter_consumer", "test_finding_17_readme_matches_real_installation_path", "test_repair_record_maps_finding_17_to_proof_and_evidence"]
+
+[baseline]
+inspection = "Initial git status/diff showed only runner-prepared .cgignore and task-status bookkeeping. Neither scoped repair file existed. gate.json recorded zero builds and verifies, and /out/run/gates.jsonl did not exist. All three production recipes used go get from /tmp, and README documented the broken installation."
+verification = "No pre-change verification was run: the explicit implementation-first task order and wrapper-only hf-build then hf-done gates supersede the older unchanged-tree baseline clause. No pre-existing failing test is claimed. Source inspection establishes that the original recipes fail the new pinned-install, destination, obsolete-workaround and README assertions; this is not an executed baseline result."
+
+[proof]
+source_facts = "The Python-only pytest module reads the actual production Makefile and README. It parses Make assignments, explicit target/prerequisite/recipe structure and shell words to prove all three version-qualified installs, quoted discovered GO, explicit absolute GOBIN, destination defaults and overrides, tools-stamp aggregation, cleanup alignment, no obsolete workaround, exact documented package pins and install/PATH/refresh commands. It traces the producer recipes through GOBIN to the binary prerequisites and the wasm Makefile include and PATH-based lint consumer, checking the current root Go declaration and v2 linter configuration."
+review_only = "Go compilation, module downloading, Make expansion, shell execution, installed-tool behavior and filesystem creation are not executed by this offline source-fact gate. No stateful component or interface changes, so restart-recovery and interface-mismatch tests do not apply. There are no repaired shell scripts, service units or manifests; the build file is parsed in Python without an external toolchain."
+version_review = "Read-only upstream review: proxy.golang.org/github.com/rakyll/statik/@v/v0.1.8.mod declares Go 1.12 and its source uses supported standard-library APIs; github.com/cosmos/tools/cmd/runsim@v1.0.0 is its own module declaring Go 1.13 with versioned dependencies and no replace directives. github.com/golangci/golangci-lint/v2@v2.5.0 declares Go 1.24.0 without replace/exclude directives; its tagged CHANGELOG records Go 1.25 support in v2.4.0. The root .golangci.yml already declares version 2. These facts support pin selection by review, not a claim of executed Go builds. No network access is needed by pytest."
+
+[qualification]
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1231.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private evidence_ledger name the exact verified content-derived candidate revision, command, exit code and private log path. Build and verify must pass on the same candidate revision. This record is finalized before qualification; embedding its own candidate hash would change that hash. The runner retains exact revision evidence and commits the result."
+
+[gotcha.1]
+observed = "The older unchanged-tree baseline instruction conflicts with the explicit implementation-first and wrapper-only gate order."
+resolution = "Follow the explicit order and record that no baseline verification ran; GOTCHA.kvx and spec records are outside scope."
+
+[gotcha.2]
+observed = "Codify brief/survey report stale unrelated tasks and changes and the scoped Makefile is absent from content searches; broad ledger output exceeds tool response limits."
+resolution = "Use the exact task block, Git status/diff, private gate ledger and bounded source reads; preserve runner bookkeeping."
+
+[gotcha.3]
+observed = "There is no wasm/go.mod, and github.com/cosmos/tools@v1.0.0 contains no runsim package."
+resolution = "Read the supported Go version from root go.mod and review the separate github.com/cosmos/tools/cmd/runsim@v1.0.0 module."
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths. After full implementation, apply the repository .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions only to the four touched files, preserving Make recipe tabs."

@@ -61,22 +61,17 @@ tools-stamp: statik runsim golangci-lint
 statik: $(STATIK)
 $(STATIK):
 	@echo "Installing statik..."
-	@(cd /tmp && go get github.com/rakyll/statik@v0.1.6)
+	@GOBIN="$(abspath $(TOOLS_DESTDIR))" "$(GO)" install github.com/rakyll/statik@v0.1.8
 
-# Install the runsim binary with a temporary workaround of entering an outside
-# directory as the "go get" command ignores the -mod option and will polute the
-# go.{mod, sum} files.
-#
-# ref: https://github.com/golang/go/issues/30515
 runsim: $(RUNSIM)
 $(RUNSIM):
 	@echo "Installing runsim..."
-	@(cd /tmp && go get github.com/cosmos/tools/cmd/runsim@v1.0.0)
+	@GOBIN="$(abspath $(TOOLS_DESTDIR))" "$(GO)" install github.com/cosmos/tools/cmd/runsim@v1.0.0
 
 golangci-lint: $(GOLANGCI_LINT)
 $(GOLANGCI_LINT):
 	@echo "Installing golangci-lint..."
-	@(cd /tmp && go get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.28.0)
+	@GOBIN="$(abspath $(TOOLS_DESTDIR))" "$(GO)" install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.5.0
 
 tools-clean:
 	rm -f $(STATIK) $(GOLANGCI_LINT) $(RUNSIM)

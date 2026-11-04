@@ -17,7 +17,6 @@ use std::thread;
 use std::time::Duration;
 
 use ed25519_dalek::SigningKey;
-use layerx_proof::receipt::verify_sequencer_signature;
 use layerx_types::ids::Did;
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
@@ -48,28 +47,6 @@ const RECOVERY_SNAPSHOT_DIGEST_DOMAIN: &[u8] = b"layerx-emulator-recovery-snapsh
 const MOVE_JOURNEY_DOMAIN: &[u8] = b"layerx-emulator-move-journey-v1\0";
 
 #[repr(C)]
-struct CoreHead {
-    state_root: [u8; 32],
-    receipt_digest: [u8; 32],
-    sequencer_id: [u8; 32],
-    sequencer_public_key: [u8; 32],
-    header_signature: [u8; 64],
-    observed_sequence: u64,
-    observed_at: u64,
-    batch_number: u64,
-    authorization_first_batch: u64,
-    authorization_last_batch: u64,
-    receipt_bytes: *const u8,
-    receipt_length: usize,
-    header_bytes: *const u8,
-    header_length: usize,
-    proof_bytes: *const u8,
-    proof_length: usize,
-    activity_receipt_bytes: *const u8,
-    activity_receipt_length: usize,
-}
-
-#[repr(C)]
 struct CoreState {
     canonical_state_root: [u8; 32],
     receipt_state_root: [u8; 32],
@@ -88,7 +65,6 @@ unsafe extern "C" {
         protocol_version: u16,
     ) -> *mut c_void;
     fn platform_emulator_destroy(emulator: *mut c_void);
-    fn platform_emulator_head_read(emulator: *mut c_void, head: *mut CoreHead) -> c_int;
     fn platform_emulator_error_name(result: c_int) -> *const c_char;
     fn platform_emulator_set_time(emulator: *mut c_void, timestamp_ms: c_ulonglong) -> c_int;
     fn platform_emulator_advance_time(emulator: *mut c_void, delta_ms: c_ulonglong) -> c_int;
@@ -146,7 +122,6 @@ struct Emulator {
     core: *mut c_void,
     signing_key: SigningKey,
     network_id: u32,
-    protocol_version: u16,
     receipts: HashMap<String, String>,
     receipt_order: VecDeque<String>,
     program_operations: HashMap<String, ProgramOperation>,
@@ -691,112 +666,13 @@ fn sequencer_identity_body(network_id: u32, sequencer_public_key: &[u8; 32]) -> 
     .to_string()
 }
 
-fn current_head(emulator: &mut Emulator, trace: u64) -> Response {
-    let mut head: CoreHead = unsafe { std::mem::zeroed() };
-    let code = unsafe { platform_emulator_head_read(emulator.core, &raw mut head) };
-    if code != 0 {
-        return refusal(
-            trace,
-            503,
-            "principal_state_proof_unavailable",
-            &core_error(code),
-        );
-    }
-    if head.receipt_bytes.is_null()
-        || head.header_bytes.is_null()
-        || head.proof_bytes.is_null()
-        || head.activity_receipt_bytes.is_null()
-        || head.receipt_length == 0
-        || head.receipt_length > 524_288
-        || head.header_length == 0
-        || head.header_length > 65_536
-        || head.proof_length == 0
-        || head.proof_length > 65_536
-        || head.activity_receipt_length == 0
-        || head.activity_receipt_length > MAX_RECEIPT_BYTES
-    {
-        return refusal(
-            trace,
-            503,
-            "core_invalid_output",
-            "invalid current-head evidence buffer",
-        );
-    }
-    let receipt =
-        unsafe { slice::from_raw_parts(head.receipt_bytes, head.receipt_length) }.to_vec();
-    let header = unsafe { slice::from_raw_parts(head.header_bytes, head.header_length) }.to_vec();
-    let proof = unsafe { slice::from_raw_parts(head.proof_bytes, head.proof_length) }.to_vec();
-    let activity_receipt =
-        unsafe { slice::from_raw_parts(head.activity_receipt_bytes, head.activity_receipt_length) }
-            .to_vec();
-    let key = emulator.signing_key.verifying_key().to_bytes();
-    let id: [u8; 32] = Sha256::digest(key).into();
-    let authorization = layerx_proof::inclusion::SequencerAuthorization::new(id, key, 1, u64::MAX);
-    let verified = (|| {
-        if head.sequencer_public_key != key
-            || head.sequencer_id != id
-            || head.authorization_first_batch != 1
-            || head.authorization_last_batch != u64::MAX
-        {
-            return Err(());
-        }
-        let path = layerx_wire::receipt::decode_merkle_proof(&proof).map_err(|_| ())?;
-        let path = layerx_proof::merkle::Proof::new(
-            path.leaf_index(),
-            path.leaf_count(),
-            path.siblings().to_vec(),
-        )
-        .map_err(|_| ())?;
-        let evidence = layerx_proof::inclusion::verify_receipt(
-            &receipt,
-            &path,
-            &header,
-            &head.header_signature,
-            &authorization,
-        )
-        .map_err(|_| ())?;
-        let signed = evidence.header().header();
-        let maintenance =
-            layerx_wire::batch_maintenance::decode_maintenance(&receipt).map_err(|_| ())?;
-        maintenance.verify_header(signed).map_err(|_| ())?;
-        if signed.network_id() != emulator.network_id
-            || signed.protocol_version() != emulator.protocol_version
-            || signed.resulting_state_root() != head.state_root
-            || signed.last_sequence() != head.observed_sequence
-            || signed.timestamp_ms() != head.observed_at
-            || signed.batch_number() != head.batch_number
-            || <[u8; 32]>::from(Sha256::digest(&receipt)) != head.receipt_digest
-        {
-            return Err(());
-        }
-        let live = inspect_state(emulator).map_err(|_| ())?;
-        if live.canonical_state_root != head.state_root
-            || live.next_sequence.checked_sub(1) != Some(head.observed_sequence)
-            || live.batch_number != head.batch_number
-        {
-            return Err(());
-        }
-        Ok(())
-    })();
-    if verified.is_err() {
-        return refusal(
-            trace,
-            503,
-            "state_proof_unverified",
-            "current-head batch evidence failed verification",
-        );
-    }
-    success(trace, &serde_json::json!({
-        "current": true, "receipt_hex": hex_encode(&receipt), "receipt_digest": hex_encode(&head.receipt_digest),
-        "state_root": hex_encode(&head.state_root), "observed_sequence": head.observed_sequence,
-        "observed_at": head.observed_at,
-        "batch_evidence": { "header_hex": hex_encode(&header), "header_signature": hex_encode(&head.header_signature),
-            "receipt_proof_hex": hex_encode(&proof), "batch_identity": {
-                "kind": "occupancy_maintenance_v2", "receipt_hex": hex_encode(&receipt),
-                "receipt_proof_hex": hex_encode(&proof), "activity_receipts_hex": [hex_encode(&activity_receipt)]
-            }
-        }
-    }).to_string())
+fn current_head(trace: u64) -> Response {
+    refusal(
+        trace,
+        503,
+        "principal_state_proof_unavailable",
+        "legacy batch head evidence is retired; use merged-node block-commit evidence",
+    )
 }
 
 fn health(emulator: &Emulator, trace: u64) -> Response {
@@ -1294,92 +1170,34 @@ fn advance_trace(trace: &mut u64) -> Option<u64> {
     Some(next)
 }
 
-fn receipt_read(emulator: &Emulator, activity_id: &str, receipt_hex: &str, trace: u64) -> Response {
-    let sequencer_public_key = emulator.signing_key.verifying_key().to_bytes();
-    let Ok(bytes) = hex_decode(receipt_hex) else {
-        return refusal(
-            trace,
-            503,
-            "core_invalid_output",
-            "the retained receipt is not hexadecimal",
-        );
-    };
-    let Ok(receipt) = verify_sequencer_signature(&bytes, sequencer_public_key) else {
-        return refusal(
-            trace,
-            503,
-            "receipt_verification_failed",
-            "the retained receipt does not verify under this emulator sequencer key",
-        );
-    };
-    let Some(protocol) = receipt.protocol() else {
-        return refusal(
-            trace,
-            503,
-            "core_invalid_output",
-            "the retained receipt carries no protocol body",
-        );
-    };
-    success(
+fn receipt_read(trace: u64) -> Response {
+    refusal(
         trace,
-        &serde_json::json!({
-            "activity_id": activity_id,
-            "receipt": receipt_hex,
-            "authority": {
-                "batch_id": hex_encode(&protocol.batch_id()),
-                "asset": hex_encode(&protocol.asset()),
-                "previous_state_root": hex_encode(&protocol.previous_state_root()),
-                "resulting_state_root": hex_encode(&protocol.resulting_state_root()),
-                "sequencer_public_key": hex_encode(&sequencer_public_key),
-            },
-        })
-        .to_string(),
+        410,
+        "legacy_receipt_verification_retired",
+        "historical receipts remain in snapshots; use pax_sequencerReceipt with pinned node keys for merged transaction evidence",
     )
 }
 
-fn evidence_read(emulator: &Emulator, evidence_id: &str, trace: u64) -> Response {
-    let Some(digest) = evidence_id
+fn evidence_read(evidence_id: &str, trace: u64) -> Response {
+    if evidence_id
         .strip_prefix("evd_")
         .filter(|hex| hex.len() == 64)
         .and_then(|hex| hex_decode(hex).ok())
-    else {
+        .is_none()
+    {
         return refusal(
             trace,
             400,
             "invalid_evidence_id",
             "evidence id must be evd_ followed by a 64-character hex digest",
         );
-    };
-    let sequencer_public_key = emulator.signing_key.verifying_key().to_bytes();
-    for receipt_hex in emulator.receipts.values() {
-        let Ok(bytes) = hex_decode(receipt_hex) else {
-            continue;
-        };
-        let Ok(receipt) = verify_sequencer_signature(&bytes, sequencer_public_key) else {
-            continue;
-        };
-        let Ok(unsigned) = layerx_wire::receipt::encode_unsigned(&receipt) else {
-            continue;
-        };
-        if layerx_wire::hash::receipt_digest(&unsigned).is_ok_and(|value| value[..] == digest[..]) {
-            return success(
-                trace,
-                &serde_json::json!({
-                    "evidence_id": evidence_id,
-                    "class": "layerx-receipt",
-                    "verification": "receipt-verified",
-                    "content_type": "application/vnd.layerx.receipt",
-                    "bytes_base64": base64_encode(&bytes),
-                })
-                .to_string(),
-            );
-        }
     }
     refusal(
         trace,
-        404,
-        "not_found",
-        "evidence is not present in this emulator process",
+        410,
+        "legacy_receipt_verification_retired",
+        "legacy receipt digest lookup is retired; use pax_sequencerReceipt with pinned node keys for merged transaction evidence",
     )
 }
 
@@ -1418,33 +1236,6 @@ fn journey_read(emulator: &Emulator, journey_id: &str, trace: u64) -> Response {
     )
 }
 
-fn base64_encode(bytes: &[u8]) -> String {
-    const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let mut encoded = String::with_capacity(bytes.len().div_ceil(3) * 4);
-    for chunk in bytes.chunks(3) {
-        let first = chunk[0];
-        let second = chunk.get(1).copied().unwrap_or(0);
-        let third = chunk.get(2).copied().unwrap_or(0);
-        encoded.push(char::from(ALPHABET[usize::from(first >> 2)]));
-        encoded.push(char::from(
-            ALPHABET[usize::from(((first & 0x03) << 4) | (second >> 4))],
-        ));
-        if chunk.len() > 1 {
-            encoded.push(char::from(
-                ALPHABET[usize::from(((second & 0x0f) << 2) | (third >> 6))],
-            ));
-        } else {
-            encoded.push('=');
-        }
-        if chunk.len() > 2 {
-            encoded.push(char::from(ALPHABET[usize::from(third & 0x3f)]));
-        } else {
-            encoded.push('=');
-        }
-    }
-    encoded
-}
-
 fn route(emulator: &mut Emulator, request: &Request) -> Response {
     let Some(trace) = advance_trace(&mut emulator.trace) else {
         let result = refusal(
@@ -1459,7 +1250,7 @@ fn route(emulator: &mut Emulator, request: &Request) -> Response {
         ("GET", "/healthz") => health(emulator, trace),
         ("GET", "/v1/surface") => success(trace, &surface::document()),
         ("GET", "/v1/sequencer") => sequencer_identity(emulator, trace),
-        ("GET", "/v1/protocol/account-state/head") => current_head(emulator, trace),
+        ("GET", "/v1/protocol/account-state/head") => current_head(trace),
         (_, "/v1/settle") => refusal(
             trace,
             410,
@@ -1476,16 +1267,14 @@ fn route(emulator: &mut Emulator, request: &Request) -> Response {
         ("POST", "/__emulator/faults") => inject_fault(emulator, request, trace),
         ("GET", "/__emulator/snapshot") => export_snapshot(emulator, trace),
         ("PUT", "/__emulator/snapshot") => import_snapshot(emulator, &request.body, trace),
-        ("GET", path) if path.starts_with("/v1/evidence/") => {
-            evidence_read(emulator, &path[13..], trace)
-        }
+        ("GET", path) if path.starts_with("/v1/evidence/") => evidence_read(&path[13..], trace),
         ("GET", path) if path.starts_with("/v1/journeys/") => {
             journey_read(emulator, &path[13..], trace)
         }
         ("GET", path) if path.starts_with("/v1/receipts/") => {
             let id = &path[13..];
             match emulator.receipts.get(id) {
-                Some(receipt) => receipt_read(emulator, id, receipt, trace),
+                Some(_) => receipt_read(trace),
                 None => refusal(
                     trace,
                     404,
@@ -1552,7 +1341,7 @@ fn parse_config(arguments: impl IntoIterator<Item = String>) -> Result<Config, S
     let mut config = Config {
         listen: SocketAddr::from(([127, 0, 0, 1], DEFAULT_PORT)),
         network_id: DEFAULT_NETWORK_ID,
-        protocol_version: layerx_wire::limits::PROTOCOL_VERSION,
+        protocol_version: 2,
         timestamp_ms: DEFAULT_TIME_MS,
         prefunds: Vec::new(),
         sequencer_seed: None,
@@ -1634,7 +1423,6 @@ fn platform_emulator(config: &Config, shutdown: Arc<AtomicBool>) -> Result<(), S
         core,
         signing_key: SigningKey::from_bytes(&seed),
         network_id: config.network_id,
-        protocol_version: config.protocol_version,
         receipts: HashMap::new(),
         receipt_order: VecDeque::new(),
         program_operations: HashMap::new(),

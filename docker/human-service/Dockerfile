@@ -28,6 +28,7 @@ COPY --from=build /src/services/human/target/release/layerx-human-security-provi
 COPY --from=build /src/cmd/layerxctl/target/release/layerxctl /usr/local/bin/layerxctl
 COPY services/platform/hosted/human/provision.py services/platform/hosted/human/owner_native.py services/platform/hosted/human/owner_kms.py services/platform/hosted/human/onboarding_socket.py services/platform/hosted/human/onboarding_bootstrap.py services/platform/hosted/human/onboarding_material.py services/platform/hosted/human/material.py services/platform/hosted/human/recipient_binding.py /usr/local/lib/layerx-human/
 COPY --chmod=0555 docker/human-service/entrypoint.sh /usr/local/bin/human-entrypoint
+COPY docker/human-service/journal_bootstrap.py /usr/local/lib/layerx-human/journal_bootstrap.py
 COPY services/platform/hosted/human/recipient_check.py /usr/local/lib/layerx-human/recipient_check.py
 USER 4020:4020
 ENTRYPOINT ["/usr/local/bin/human-entrypoint", "service"]

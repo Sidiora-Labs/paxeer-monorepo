@@ -1,3 +1,5 @@
+# Historical example only: executable image target withdrawn (22.33.1357).
+# Do not build with docker -f; the simapp source tree is absent in this checkout.
 FROM golang:1.18-alpine as build
 
 RUN apk add --no-cache tar

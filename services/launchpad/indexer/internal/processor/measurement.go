@@ -233,6 +233,49 @@ func processRSS() (uint64, error) {
 	}
 	return 0, errors.New("actual process RSS observation unavailable")
 }
+func validateMeasurementProviders(h *IngestMeasurementHarness) error {
+	if h == nil {
+		return errors.New("measurement harness required")
+	}
+	if h.SQLTrace == nil {
+		return errors.New("measurement SQL tracer required")
+	}
+	if h.Pool == nil {
+		return errors.New("measurement database pool required")
+	}
+	if h.Pool.Config().ConnConfig.Tracer != h.SQLTrace {
+		return errors.New("measurement database tracer binding required")
+	}
+	if h.Processor == nil {
+		return errors.New("measurement processor required")
+	}
+	if h.Processor.readyFence == nil {
+		return errors.New("measurement processor readiness fence required")
+	}
+	if h.Store == nil {
+		return errors.New("measurement store required")
+	}
+	if !h.Store.LifecycleEnabled() {
+		return errors.New("measurement guarded store required")
+	}
+	if h.Processor.deps.QualifiedBatchSource == nil {
+		return errors.New("measurement qualified source required")
+	}
+	if h.Processor.deps.Head == nil {
+		return errors.New("measurement committed head required")
+	}
+	if h.Processor.deps.Store != h.Store {
+		return errors.New("measurement processor store binding required")
+	}
+	if h.Processor.deps.CanonicalStreamID == "" {
+		return errors.New("measurement canonical stream required")
+	}
+	if h.Processor.deps.CanonicalOwner == "" {
+		return errors.New("measurement canonical owner required")
+	}
+	return nil
+}
+
 func (h *IngestMeasurementHarness) Run(ctx context.Context, spec IngestMeasurementSpec) (report IngestMeasurementReport, result error) {
 	report = IngestMeasurementReport{RunID: spec.RunID, CandidateSHA256: spec.CandidateSHA256, Profile: spec.Profile, Region: spec.Region, TopologySHA256: spec.TopologySHA256, Violations: []string{}, FinalSharedAcceptanceDeferred: true, TargetEventsPerSecond: 2000}
 	if spec.Profile == "burst" {
@@ -241,8 +284,8 @@ func (h *IngestMeasurementHarness) Run(ctx context.Context, spec IngestMeasureme
 	if err := validateMeasurementSource(spec); err != nil {
 		return report, err
 	}
-	if h == nil || h.SQLTrace == nil || h.Pool == nil || h.Pool.Config().ConnConfig.Tracer != h.SQLTrace || h.Processor == nil || h.Processor.readyFence == nil || h.Store == nil || !h.Store.LifecycleEnabled() || h.Pool == nil || h.Processor.deps.QualifiedBatchSource == nil || h.Processor.deps.Head == nil || h.Processor.deps.Store != h.Store || h.Processor.deps.CanonicalStreamID == "" || h.Processor.deps.CanonicalOwner == "" {
-		return report, errors.New("measurement requires actual integrated guarded processor, committed head, qualified source and database")
+	if err := validateMeasurementProviders(h); err != nil {
+		return report, err
 	}
 	if !strings.HasPrefix(spec.HotPool, "0x") || len(spec.HotPool) != 42 {
 		return report, errors.New("actual hot pool identity required")
