@@ -1,0 +1,30 @@
+[meta]
+task = "22.33.736"
+audit = "22.30.171"
+base_revision = "caa8b41ee668274ee1e5c1df6691288455c46278"
+qualification = "hf-build then hf-done; /out/run/gates.jsonl binds the verified candidate revision, exact command, exit code and private evidence log. The final gate evidence line names the verified revision; no qualification is claimed before that gate passes."
+baseline = "No unchanged-tree verify ran: explicit Order 1 and 4 prohibit tests before complete implementation and hand-running verify_cmd. No pre-change failed tests are claimed; static inspection confirms the CLI already refuses but its help omits the ignored environment lifecycle."
+proof_boundary = "Execute the production __main__ entry point repeatedly in fresh Python namespaces with actual argv, argparse parsing, exit status and captured stdout/stderr. Retirement has no server, header, payload codec or retained runtime state; the observable consumer is the CLI caller and the artifact paths must stay absent or byte-identical. No server or producer substitute is introduced, and registry regeneration is not claimed."
+
+[finding.020]
+tests = ["test_retired_help_describes_environment_and_artifact_lifecycle", "test_retired_modes_refuse_on_each_fresh_invocation_without_artifacts", "test_retired_environment_neither_enables_production_nor_changes_evidence", "test_retired_cli_keeps_strict_parser_refusals"]
+repair = "Keep explicit exit-2 refusal for default, build and prepare-fixture modes and strict mutually exclusive, non-abbreviated argument parsing; describe both options as refusing compatibility flags and explicitly state the ignored environment and absence of artifact reads or production in real CLI help."
+closure = "Scoped CLI behavior and regression proof are implemented; source registry lifecycle and generated contract updates are out-of-path wiring requests, not completed registry work."
+
+[wiring.1]
+request = "Domain 16 tools/ops, spec/layerx-merge/interfaces.kvx: set interface.16.env-qual-qualification-paxeer-x-replay-authority-layerx-replay-authority-evidence, interface.16.cli-qual-qualification-paxeer-x-replay-authority-opt-build and interface.16.cli-qual-qualification-paxeer-x-replay-authority-opt-prepare-fixture to status retire; update the parent interface.16.cli-qual-qualification-paxeer-x-replay-authority notes to describe the current refusal-only compatibility CLI and ignored environment, preserving historical declarations without advertising artifact production."
+
+[wiring.2]
+request = "Domain 16 tools/ops contract owner, spec/layerx-merge/contracts/operations.md: regenerate from the corrected source operations registry so qual-cli and qual-env distinguish pinned historical declarations from current retired environment and artifact-producing modes; retain explicit CLI refusal."
+
+[gotcha.1]
+observed = "The unchanged-tree baseline instruction conflicts with the explicit implementation-first and hf-done-only gate order."
+resolution = "Follow the explicit Order, record static observations only and do not invent a baseline result."
+
+[gotcha.2]
+observed = "py_compile emits bytecode even when PYTHONDONTWRITEBYTECODE is set, and a directory-scoped gate candidate can include that cache."
+resolution = "Use the same external PYTHONPYCACHEPREFIX for both bounded gates so the candidate contains only source changes."
+
+[gotcha.3]
+observed = "Acceptance 22998.1 is stored as ac_1 under req.22998 rather than a req.22998.1 section; the operations registry is interfaces.kvx rather than interfaces/operations.kvx."
+resolution = "Read the existing requirement and source registry directly; do not create alternate spec paths or edit any out-of-scope file."

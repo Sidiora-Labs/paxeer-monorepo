@@ -36,6 +36,16 @@ interface TradePanelProps { poolAddress: string; }
 
 const EXECUTION_DEADLINE_SECONDS = 120;
 
+export function useAlternateTradeAmount(toNative: (text: string) => string | null, setAmount: (text: string) => void) {
+  const [altText, setAltText] = useState('');
+  const invalid = altText !== '' && toNative(altText) === null;
+  const change = (text: string) => {
+    setAltText(text);
+    setAmount(text === '' ? '' : (toNative(text) ?? 'invalid alternate amount'));
+  };
+  return { altText, setAltText, invalid, change };
+}
+
 export default function TradePanel({ poolAddress }: TradePanelProps) {
   const t = useTradePanel({ poolAddress });
   const snapshot = usePoolSnapshot(poolAddress);
@@ -58,12 +68,12 @@ export default function TradePanel({ poolAddress }: TradePanelProps) {
       : null;
 
   const [unit, setUnit] = useState<'native' | 'alt'>('native');
-  const [altText, setAltText] = useState('');
-
   const toNative = useCallback((text: string) => {
     if (!priceUsable || !lastPrice) return null;
     return convertByPrice(text, lastPrice, t.isBuy ? 'token' : 'usdl', t.inputDecimals);
   }, [priceUsable, lastPrice, t.isBuy, t.inputDecimals]);
+  const alternate = useAlternateTradeAmount(toNative, t.setAmount);
+  const { altText, setAltText } = alternate;
   const toAlt = useCallback((text: string) => {
     if (!priceUsable || !lastPrice) return null;
     return convertByPrice(text, lastPrice, t.isBuy ? 'usdl' : 'token', t.isBuy ? t.tokenDecimals : 6);
@@ -75,8 +85,7 @@ export default function TradePanel({ poolAddress }: TradePanelProps) {
 
   const onAmountChange = (text: string) => {
     if (unit === 'native') { t.setAmount(text); return; }
-    setAltText(text);
-    t.setAmount(text.trim() === '' ? '' : (toNative(text.trim()) ?? text));
+    alternate.change(text);
   };
   const syncAltFromNative = (native: string) => { if (unit === 'alt') setAltText(native === '' ? '' : (toAlt(native) ?? '')); };
   const onPreset = (preset: string) => { t.setAmount(preset); syncAltFromNative(preset); };
@@ -91,17 +100,19 @@ export default function TradePanel({ poolAddress }: TradePanelProps) {
   };
   const cycleUnit = () => {
     if (unit === 'native') { setAltText(t.amount === '' ? '' : (toAlt(t.amount) ?? '')); setUnit('alt'); }
-    else { setUnit('native'); setAltText(''); }
+    else { if (alternate.invalid) t.setAmount(''); setUnit('native'); setAltText(''); }
   };
 
+  const alternateInvalid = unit === 'alt' && alternate.invalid;
+  const validAmount = t.hasAmount && !alternateInvalid;
   const displayValue = unit === 'native' ? t.amount : altText;
   const displayUnit = unit === 'native' ? nativeUnit : altUnit;
   const hint = useMemo(() => {
     if (displayValue.trim() === '' || !priceUsable) return null;
-    if (unit === 'alt') return t.amount ? `≈ ${t.amount} ${nativeUnit}` : null;
+    if (unit === 'alt') return !alternateInvalid && t.amount ? `≈ ${t.amount} ${nativeUnit}` : null;
     const alt = toAlt(t.amount);
     return alt ? `≈ ${alt} ${altUnit}` : null;
-  }, [displayValue, priceUsable, unit, t.amount, nativeUnit, altUnit, toAlt]);
+  }, [displayValue, priceUsable, unit, t.amount, nativeUnit, altUnit, toAlt, alternateInvalid]);
 
   const action: TradeActionState = !t.walletConnected
     ? { kind: 'connect' }
@@ -113,7 +124,7 @@ export default function TradePanel({ poolAddress }: TradePanelProps) {
           ? { kind: 'deployment-unavailable' }
           : t.insufficientBalance
             ? { kind: 'insufficient', assetSymbol: spendSymbol }
-            : !t.hasAmount
+            : !validAmount
               ? { kind: 'enter-amount' }
               : t.approveConfirming
                 ? { kind: 'approving', assetSymbol: spendSymbol }
@@ -128,13 +139,13 @@ export default function TradePanel({ poolAddress }: TradePanelProps) {
   const onAction = () => {
     if (action.kind === 'connect' || action.kind === 'sign-in') { openAuthModal('trade'); return; }
     if (action.kind === 'switch-network') { void t.switchToPaxeer(); return; }
-    void t.handleTrade();
+    if (!alternateInvalid) void t.handleTrade();
   };
 
   const tradeReady = t.isConnected && t.signedIn;
-  const showSteps = tradeReady && t.hasAmount;
+  const showSteps = tradeReady && validAmount;
   const minOutRaw = t.minOut ? BigInt(t.minOut) : null;
-  const quoteLoading = t.hasAmount && !t.quote && !t.staleQuote && tradeReady;
+  const quoteLoading = validAmount && !t.quote && !t.staleQuote && tradeReady;
 
   return (
     <>
@@ -161,7 +172,7 @@ export default function TradePanel({ poolAddress }: TradePanelProps) {
             unitLabel={displayUnit}
             onCycleUnit={cycleUnit}
             unitToggleDisabledReason={unitToggleDisabledReason}
-            errorCode={t.amountError}
+            errorCode={alternateInvalid ? 'invalid_decimal' : t.amountError}
             hint={hint}
           />
 
@@ -186,7 +197,7 @@ export default function TradePanel({ poolAddress }: TradePanelProps) {
 
         {showSteps ? <TradeSteps side={side} assetSymbol={spendSymbol} needsApproval={t.needsApproval} /> : null}
 
-        {tradeReady && t.hasAmount ? (
+        {tradeReady && validAmount ? (
           <TradePreview
             side={side}
             tokenSymbol={tokenSymbol}
@@ -199,7 +210,7 @@ export default function TradePanel({ poolAddress }: TradePanelProps) {
           />
         ) : null}
 
-        {t.needsApproval && t.hasAmount && tradeReady ? (
+        {t.needsApproval && validAmount && tradeReady ? (
           <ApprovalCheckbox unlimited={t.approveUnlimited} onChange={t.setApproveUnlimited} assetSymbol={spendSymbol} />
         ) : null}
 
@@ -223,7 +234,7 @@ export default function TradePanel({ poolAddress }: TradePanelProps) {
           ) : null}
         </div>
 
-        {tradeReady && t.hasAmount && !t.quote && !t.isPending && !t.staleQuote ? (
+        {tradeReady && validAmount && !t.quote && !t.isPending && !t.staleQuote ? (
           <div className="flex justify-end">
             <Button size="sm" variant="link" onClick={t.retryQuote}>Refresh price</Button>
           </div>
@@ -233,7 +244,7 @@ export default function TradePanel({ poolAddress }: TradePanelProps) {
 
         <FeeFooter feePercent={t.feePercent} slippageBps={t.slippageBps} feeComponentsRaw={t.feeAmt} />
 
-        {tradeReady && t.hasAmount ? (
+        {tradeReady && validAmount ? (
           <details className="group rounded-sm bg-surface-2 text-xs text-text-muted">
             <summary className="cursor-pointer select-none px-2.5 py-2 font-bold text-text-muted transition-colors duration-fast hover:text-text">Details</summary>
             <div className="space-y-1.5 px-2.5 pb-2.5">
@@ -280,7 +291,7 @@ export default function TradePanel({ poolAddress }: TradePanelProps) {
         />
       ) : null}
 
-      {t.showHighImpact && t.quote ? (
+      {!alternateInvalid && t.showHighImpact && t.quote ? (
         <TradeRiskReview
           key={`${quoteFingerprint(t.quote)}:${t.slippageBps}`}
           slippageBps={t.slippageBps}

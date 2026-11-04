@@ -1,13 +1,18 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, test } from 'vitest';
+import { decodeFunctionData, encodeFunctionData } from 'viem';
+import { erc20Abi } from 'sidiora-launchpad-v3';
+import { BountyRpcTranscript, transcriptProvider, preparedTokenRequest, bounty, selection, attacker } from './repair-22-33-985.fixtures';
+import { prepareBountyReview, sendReviewedBountyTransaction } from './bounty-transaction-attempt';
+import { getPublicClient } from '@/core/wallet-sdk/client';
 import { CORE_DEPLOYMENT } from '@/core/network/deployment';
-import { PreparedTransactionError, deploymentRole, gasCostUpperBound, validatePreparedTransaction, type TransactionRequest } from './prepared-transaction';
+import { createFundingIntent, createSettlementIntent, PreparedTransactionError, deploymentRole, gasCostUpperBound, validatePreparedTransaction, type TransactionRequest } from './prepared-transaction';
 
 const wallet = '0x1111111111111111111111111111111111111111';
 const intent = { action: 'funding' as const, bounty: { bountyId: 'b-1', creatorWallet: wallet, assetAddress: CORE_DEPLOYMENT.usdl, budgetRaw: '25000000' } };
 const deployment = { Router: CORE_DEPLOYMENT.router, USDL: CORE_DEPLOYMENT.usdl, FeesRouter: CORE_DEPLOYMENT.feesRouter };
 
 function request(overrides: Partial<TransactionRequest> = {}): TransactionRequest {
-  return { chainId: '125', from: wallet, to: CORE_DEPLOYMENT.usdl, data: '0x095ea7b3' + '0'.repeat(128), valueRaw: '0', gasLimitRaw: '65000', maxFeePerGasRaw: '1000000000', maxPriorityFeePerGasRaw: null, ...overrides };
+  return { chainId: '125', from: wallet, to: CORE_DEPLOYMENT.usdl, data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [CORE_DEPLOYMENT.router, 25_000_000n] }), valueRaw: '0', gasLimitRaw: '65000', maxFeePerGasRaw: '1000000000', maxPriorityFeePerGasRaw: null, ...overrides };
 }
 
 function reason(run: () => unknown): string | null {
@@ -52,3 +57,35 @@ describe('deploymentRole and gas bound', () => {
     expect(() => gasCostUpperBound(0n, 2n)).toThrow(PreparedTransactionError);
   });
 });
+
+export async function prepared_call_tests_no_intent_refuse_deployed_calls_before_wallet() {
+  const transcript = new BountyRpcTranscript();
+  const client = getPublicClient(await transcript.open());
+  const provider = transcriptProvider(client);
+  try {
+    const funding = createFundingIntent(bounty);
+    const settlement = createSettlementIntent(bounty, selection);
+    const exact = preparedTokenRequest();
+    expect(decodeFunctionData({ abi: erc20Abi, data: exact.data as `0x${string}` })).toEqual({ functionName: 'transfer', args: [selection.winnerWallet, 5_000_000n] });
+    const cases = [
+      { intent: settlement, request: preparedTokenRequest({ data: encodeFunctionData({ abi: erc20Abi, functionName: 'transfer', args: [attacker, 5_000_000n] }) }), reason: 'intent' },
+      { intent: settlement, request: preparedTokenRequest({ data: encodeFunctionData({ abi: erc20Abi, functionName: 'transfer', args: [selection.winnerWallet as `0x${string}`, 5_000_001n] }) }), reason: 'amount' },
+      { intent: settlement, request: preparedTokenRequest({ to: CORE_DEPLOYMENT.router }), reason: 'operation' },
+      { intent: createSettlementIntent({ ...bounty, assetAddress: CORE_DEPLOYMENT.feesRouter }, selection), request: exact, reason: 'operation' },
+      { intent: funding, request: preparedTokenRequest({ data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [attacker, 25_000_000n] }) }), reason: 'operation' },
+      { intent: settlement, request: preparedTokenRequest({ data: encodeFunctionData({ abi: erc20Abi, functionName: 'balanceOf', args: [wallet] }) }), reason: 'operation' },
+      { intent: settlement, request: exact, reason: 'operation' },
+    ];
+    for (const entry of cases) {
+      const prepareThenSign = async () => {
+        const review = await prepareBountyReview(entry.request, { wallet, deployment, intent: entry.intent }, client);
+        return sendReviewedBountyTransaction(review, review.tx, provider);
+      };
+      await expect(prepareThenSign()).rejects.toMatchObject({ reason: entry.reason });
+      expect(transcript.calls.filter(call => call.method === 'eth_sendTransaction')).toHaveLength(0);
+    }
+    expect(transcript.calls).toHaveLength(0);
+  } finally { await transcript.close(); }
+}
+
+test(prepared_call_tests_no_intent_refuse_deployed_calls_before_wallet.name, prepared_call_tests_no_intent_refuse_deployed_calls_before_wallet);

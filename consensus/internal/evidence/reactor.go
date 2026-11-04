@@ -12,6 +12,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/internal/p2p"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/service"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/utils"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/utils/scope"
 	pb "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 )
@@ -54,6 +55,7 @@ type Reactor struct {
 
 	peerRoutines map[types.NodeID]context.CancelFunc
 	channel      *p2p.Channel[*pb.Evidence]
+	workersDone  chan struct{}
 }
 
 // NewReactor returns a reference to a new evidence reactor, which implements the
@@ -84,14 +86,23 @@ func NewReactor(
 // messages on that p2p channel accordingly. The caller must be sure to execute
 // OnStop to ensure the outbound p2p Channels are closed. No error is returned.
 func (r *Reactor) OnStart(ctx context.Context) error {
-	r.SpawnCritical("processEvidenceCh", func(ctx context.Context) error { return r.processEvidenceCh(ctx) })
-	r.SpawnCritical("processPeerUpdates", func(ctx context.Context) error { return r.processPeerUpdates(ctx) })
+	r.workersDone = make(chan struct{})
+	r.SpawnCritical("evidence workers", func(ctx context.Context) error {
+		defer close(r.workersDone)
+		return scope.Run(ctx, func(ctx context.Context, workers scope.Scope) error {
+			workers.SpawnNamed("processEvidenceCh", func() error { return r.processEvidenceCh(ctx) })
+			return r.processPeerUpdates(ctx, workers)
+		})
+	})
 	return nil
 }
 
 // OnStop stops the reactor by signaling to all spawned goroutines to exit and
 // blocking until they all exit.
-func (r *Reactor) OnStop() { _ = r.evpool.Close() }
+func (r *Reactor) OnStop() {
+	<-r.workersDone
+	_ = r.evpool.Close()
+}
 
 // handleEvidenceMessage handles envelopes sent from peers on the EvidenceChannel.
 // It returns an error only if the Envelope.Message is unknown for this channel
@@ -150,7 +161,7 @@ func (r *Reactor) processEvidenceCh(ctx context.Context) error {
 // connects/disconnects frequently from the broadcasting peer(s).
 //
 // REF: https://github.com/tendermint/tendermint/issues/4727
-func (r *Reactor) processPeerUpdate(ctx context.Context, peerUpdate p2p.PeerUpdate) {
+func (r *Reactor) processPeerUpdate(ctx context.Context, workers scope.Scope, peerUpdate p2p.PeerUpdate) {
 	evidenceCh := r.channel
 	logger.Debug("received peer update", "peer", peerUpdate.NodeID, "status", peerUpdate.Status)
 
@@ -162,26 +173,27 @@ func (r *Reactor) processPeerUpdate(ctx context.Context, peerUpdate p2p.PeerUpda
 		// Do not allow starting new evidence broadcast loops after reactor shutdown
 		// has been initiated. This can happen after we've manually closed all
 		// peer broadcast loops, but the router still sends in-flight peer updates.
-		if !r.IsRunning() {
+		if ctx.Err() != nil {
 			return
 		}
 
 		// Check if we've already started a goroutine for this peer, if not we create
-		// a new done channel so we can explicitly close the goroutine if the peer
-		// is later removed, we increment the waitgroup so the reactor can stop
-		// safely, and finally start the goroutine to broadcast evidence to that peer.
+		// a child context so we can cancel it if the peer is later removed.
+		// The scope joins all peer workers before the pool is closed.
 		_, ok := r.peerRoutines[peerUpdate.NodeID]
 		if !ok {
 			pctx, pcancel := context.WithCancel(ctx)
 			r.peerRoutines[peerUpdate.NodeID] = pcancel
-			go r.broadcastEvidenceLoop(pctx, peerUpdate.NodeID, evidenceCh)
+			workers.SpawnBgNamed("broadcastEvidenceLoop", func() error {
+				defer pcancel()
+				r.broadcastEvidenceLoop(pctx, peerUpdate.NodeID, evidenceCh)
+				return nil
+			})
 		}
 
 	case p2p.PeerStatusDown:
 		// Check if we've started an evidence broadcasting goroutine for this peer.
-		// If we have, we signal to terminate the goroutine via the channel's closure.
-		// This will internally decrement the peer waitgroup and remove the peer
-		// from the map of peer evidence broadcasting goroutines.
+		// If we have, cancel its context. The worker removes itself from the map.
 		closer, ok := r.peerRoutines[peerUpdate.NodeID]
 		if ok {
 			closer()
@@ -192,14 +204,14 @@ func (r *Reactor) processPeerUpdate(ctx context.Context, peerUpdate p2p.PeerUpda
 // processPeerUpdates initiates a blocking process where we listen for and handle
 // PeerUpdate messages. When the reactor is stopped, we will catch the signal and
 // close the p2p PeerUpdatesCh gracefully.
-func (r *Reactor) processPeerUpdates(ctx context.Context) error {
+func (r *Reactor) processPeerUpdates(ctx context.Context, workers scope.Scope) error {
 	recv := r.router.Subscribe()
 	for {
 		update, err := recv.Recv(ctx)
 		if err != nil {
 			return err
 		}
-		r.processPeerUpdate(ctx, update)
+		r.processPeerUpdate(ctx, workers, update)
 	}
 }
 

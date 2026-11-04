@@ -1,5 +1,5 @@
 // eslint-disable-next-line no-restricted-imports
-import { Dialog as ChakraDialog } from '@chakra-ui/react';
+import { Box, Dialog as ChakraDialog } from '@chakra-ui/react';
 import React from 'react';
 
 import type { TokenInstance } from 'types/api/token';
@@ -9,6 +9,7 @@ import { DialogContent, DialogRoot, DialogCloseTrigger } from 'toolkit/chakra/di
 import NftHtml from './NftHtml';
 import NftImage from './NftImage';
 import NftVideo from './NftVideo';
+import useNftMediaIdentity from './useNftMediaIdentity';
 import useNftMediaInfo from './useNftMediaInfo';
 import type { MediaType } from './utils';
 
@@ -20,8 +21,15 @@ interface Props {
   field: 'animation_url' | 'image_url';
 }
 
-const NftMediaFullscreenModal = ({ open, onOpenChange, data, allowedTypes, field }: Props) => {
+const NftMediaFullscreenModal = (props: Props) => {
+  const identity = useNftMediaIdentity(props.data);
+  return <NftMediaFullscreenViewer key={ JSON.stringify([ ...identity, props.field, props.open ]) } { ...props }/>;
+};
+
+const NftMediaFullscreenViewer = ({ open, onOpenChange, data, allowedTypes, field }: Props) => {
   const [ mediaInfoIndex, setMediaInfoIndex ] = React.useState(0);
+  const [ isMediaLoading, setIsMediaLoading ] = React.useState(true);
+  const [ isMediaLoadingError, setIsMediaLoadingError ] = React.useState(false);
 
   const mediaInfoQuery = useNftMediaInfo({ data, size: 'original', allowedTypes, field, isEnabled: true });
 
@@ -32,10 +40,21 @@ const NftMediaFullscreenModal = ({ open, onOpenChange, data, allowedTypes, field
         return;
       }
     }
-    // FIXME: maybe we should display something if the media is not loaded
+    setIsMediaLoading(false);
+    setIsMediaLoadingError(true);
   }, [ mediaInfoIndex, mediaInfoQuery.data ]);
 
+  const handleMediaLoaded = React.useCallback(() => {
+    setIsMediaLoading(false);
+  }, []);
+
+  const hasFailed = isMediaLoadingError || mediaInfoQuery.isError || (!mediaInfoQuery.isPending && !mediaInfoQuery.data?.length);
+
   const content = (() => {
+    if (hasFailed) {
+      return <Box role="alert" p={ 6 } bg="bg.primary">NFT media is unavailable. Close this preview and reopen it to retry.</Box>;
+    }
+
     const mediaInfo = mediaInfoQuery.data?.[mediaInfoIndex];
 
     switch (mediaInfo?.mediaType) {
@@ -45,6 +64,7 @@ const NftMediaFullscreenModal = ({ open, onOpenChange, data, allowedTypes, field
             src={ mediaInfo.src }
             transport={ mediaInfo.transport }
             onError={ handleMediaLoadError }
+            onLoad={ handleMediaLoaded }
             maxW="90vw"
             maxH="90vh"
             objectFit="contain"
@@ -58,6 +78,7 @@ const NftMediaFullscreenModal = ({ open, onOpenChange, data, allowedTypes, field
             src={ mediaInfo.src }
             transport={ mediaInfo.transport }
             onError={ handleMediaLoadError }
+            onLoad={ handleMediaLoaded }
             w="90vw"
             h="90vh"
             fullscreen
@@ -70,6 +91,7 @@ const NftMediaFullscreenModal = ({ open, onOpenChange, data, allowedTypes, field
             srcSet={ mediaInfo.srcSet }
             transport={ mediaInfo.transport }
             onError={ handleMediaLoadError }
+            onLoad={ handleMediaLoaded }
             maxW="90vw"
             maxH="90vh"
             objectFit="contain"
@@ -91,6 +113,7 @@ const NftMediaFullscreenModal = ({ open, onOpenChange, data, allowedTypes, field
             right={ 6 }
           />
         </ChakraDialog.Header>
+        { !hasFailed && isMediaLoading && <Box role="status" p={ 6 } bg="bg.primary">Loading NFT media…</Box> }
         { content }
       </DialogContent>
     </DialogRoot>

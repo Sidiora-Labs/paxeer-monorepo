@@ -1,0 +1,8 @@
+[repair.22.33.1243]
+findings = ["016", "017"]
+finding_016_test = "TestRepairM_1243_MaxBaseFeePersistence"
+finding_017_test = "TestRepairM_1243_Eip1559ParamsPersistence"
+implementation = "The original migration tests store nondefault governed parameters with the real keeper SetParams and assert GetParams after migration. Full parameter equality checks every preserved field. Each test closes and reopens the committed LevelDB-backed SDK multistore before migration and after the migrated commit, reconstructing the keeper, parameter subspace and codecs. The focused repair tests execute these same scenarios."
+baseline = "Not run: the ordered task instructions prohibit testing before complete implementation and require hf-build then hf-done without a manual verify run. No pre-change failures are claimed. No earlier gate ledger existed at session start."
+wiring_requests = []
+evidence = "The runner hf-build and hf-done gate ledger records the exact candidate revision, command, exit code and private log location; the final evidence line copies the bounded gate result."

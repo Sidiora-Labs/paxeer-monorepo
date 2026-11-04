@@ -156,6 +156,12 @@ pub struct ValidatedModule {
 }
 
 impl ValidatedModule {
+    /// Whether the complete admitted mutable state fits the continuation contract.
+    #[must_use]
+    pub fn supports_continuation(&self) -> bool {
+        self.resumable_globals.is_some()
+    }
+
     /// Reports whether the module exports an ABI-callable program entry point.
     ///
     /// Interface publication uses this after ordinary deterministic module
@@ -182,6 +188,8 @@ impl ValidatedModule {
         self.preflight_entrypoint(entrypoint, false).is_ok()
     }
 
+    /// Required capabilities for a discriminator-prefixed interface invocation,
+    /// including instantiation and nonempty-input reservation.
     #[must_use]
     pub fn required_interface_capability_mask(&self, entrypoint: &str) -> Option<u16> {
         self.interface_entry_capability_masks
@@ -574,7 +582,9 @@ fn validate_original_module(
     let mut exported_functions = BTreeMap::new();
     let mut exported_globals = BTreeMap::<u32, Vec<String>>::new();
     let mut mutable_globals = Vec::new();
+    let mut unsupported_continuation_state = false;
     let mut function_calls: Vec<(Vec<u32>, bool)> = Vec::new();
+    let mut start_function = None;
     for payload in Parser::new(0).parse_all(wasm) {
         let payload = payload.map_err(|error| ValidationRefusal::MalformedModule {
             reason: error.to_string(),
@@ -623,10 +633,32 @@ fn validate_original_module(
                     mutable_globals.push(entry.ty.mutable);
                 }
             }
+            Payload::TableSection(reader) => {
+                unsupported_continuation_state |= reader.count() != 0;
+            }
+            Payload::DataSection(reader) => {
+                for segment in reader {
+                    let segment = segment.map_err(|error| ValidationRefusal::MalformedModule {
+                        reason: error.to_string(),
+                    })?;
+                    unsupported_continuation_state |=
+                        matches!(segment.kind, wasmparser_nostd::DataKind::Passive);
+                }
+            }
+            Payload::ElementSection(reader) => {
+                for segment in reader {
+                    let segment = segment.map_err(|error| ValidationRefusal::MalformedModule {
+                        reason: error.to_string(),
+                    })?;
+                    unsupported_continuation_state |=
+                        matches!(segment.kind, wasmparser_nostd::ElementKind::Passive);
+                }
+            }
             Payload::CodeSectionEntry(body) => {
                 refuse_float_code(&body)?;
                 function_calls.push(interface_calls(&body)?);
             }
+            Payload::StartSection { func, .. } => start_function = Some(func),
             _ => {}
         }
     }
@@ -643,12 +675,17 @@ fn validate_original_module(
     })?;
     let interface_entry_capability_masks = entry_capability_masks(
         exported_functions,
+        start_function,
         imported_function_count,
         &imported_function_masks,
         &function_calls,
         all_imported_capability_mask,
     );
-    let resumable_globals = resumable_global_names(&mutable_globals, &exported_globals)?;
+    let resumable_globals = if unsupported_continuation_state {
+        None
+    } else {
+        resumable_global_names(&mutable_globals, &exported_globals)?
+    };
     Ok(OriginalValidation {
         module,
         byte_size,
@@ -698,11 +735,28 @@ fn collect_exports(
 
 fn entry_capability_masks(
     exported_functions: BTreeMap<String, u32>,
+    start_function: Option<u32>,
     imported_function_count: u32,
     imported_function_masks: &[u16],
     function_calls: &[(Vec<u32>, bool)],
     all_imported_capability_mask: u16,
 ) -> BTreeMap<String, u16> {
+    let pre_entry_mask = start_function
+        .into_iter()
+        .chain(
+            exported_functions
+                .get(crate::calls::CALL_RESERVE_EXPORT)
+                .copied(),
+        )
+        .fold(0, |mask, root| {
+            mask | reachable_interface_capabilities(
+                root,
+                imported_function_count,
+                imported_function_masks,
+                function_calls,
+                all_imported_capability_mask,
+            )
+        });
     exported_functions
         .into_iter()
         .map(|(name, function_index)| {
@@ -713,7 +767,7 @@ fn entry_capability_masks(
                 function_calls,
                 all_imported_capability_mask,
             );
-            (name, mask)
+            (name, mask | pre_entry_mask)
         })
         .collect()
 }
@@ -1301,11 +1355,25 @@ mod linker_invariant_tests {
         engine: &WasmEngine,
         chain: &DeepChain,
     ) -> crate::AuthorizedExecutionRecord {
+        execute_deep_chain_with_linkers(engine, chain, false)
+    }
+
+    fn execute_deep_chain_with_linkers(
+        engine: &WasmEngine,
+        chain: &DeepChain,
+        rebuild_children: bool,
+    ) -> crate::AuthorizedExecutionRecord {
         let mut catalog = ProgramCatalog::new();
         for (program, wasm) in &chain.children {
-            let child = engine
+            let mut child = engine
                 .validate(wasm)
                 .unwrap_or_else(|error| panic!("deep child validation refused: {error}"));
+            if rebuild_children {
+                child.linker = Arc::new(
+                    host::linker(engine.inner())
+                        .unwrap_or_else(|error| panic!("child linker rebuild refused: {error}")),
+                );
+            }
             assert!(catalog.insert(*program, child).is_none());
         }
         let payer = crate::PrincipalId::new([0x09; 32])
@@ -1329,18 +1397,6 @@ mod linker_invariant_tests {
                 },
             )
             .unwrap_or_else(|error| panic!("deep composition refused: {error}"))
-    }
-
-    fn median_nanos(samples: usize, mut operation: impl FnMut()) -> u128 {
-        let mut timings: Vec<u128> = (0..samples)
-            .map(|_| {
-                let started = std::time::Instant::now();
-                operation();
-                started.elapsed().as_nanos()
-            })
-            .collect();
-        timings.sort_unstable();
-        timings[timings.len() / 2]
     }
 
     #[test]
@@ -1372,46 +1428,29 @@ mod linker_invariant_tests {
 
     #[test]
     fn deep_composition_measures_the_avoided_per_frame_linker_rebuild() {
-        const SAMPLES: usize = 31;
+        let before = host::linker_constructions_on_current_thread();
         let engine = WasmEngine::declared()
             .unwrap_or_else(|error| panic!("declared engine refused: {error}"));
-        let chain = deep_chain(&engine);
+        let mut chain = deep_chain(&engine);
         let reference = execute_deep_chain(&engine, &chain);
-        let hoisted = median_nanos(SAMPLES, || {
-            assert_eq!(execute_deep_chain(&engine, &chain), reference);
-        });
-        let shared_instantiation = median_nanos(SAMPLES, || {
-            chain
-                .root
-                .instantiate_for_qualification()
-                .unwrap_or_else(|error| panic!("shared instantiation refused: {error}"));
-        });
-        let rebuilt_instantiation = median_nanos(SAMPLES, || {
-            let rebuilt = host::linker(engine.inner())
-                .unwrap_or_else(|error| panic!("linker rebuild refused: {error}"));
-            let mut store = wasmi::Store::new(
-                engine.inner(),
-                RuntimeState::isolated(crate::Meter::declared()),
-            );
-            store.limiter(|state| state.meter_mut() as &mut dyn wasmi::ResourceLimiter);
-            rebuilt
-                .instantiate(&mut store, &chain.root.module)
-                .unwrap_or_else(|error| panic!("rebuilt instantiation refused: {error}"))
-                .start(&mut store)
-                .unwrap_or_else(|error| panic!("rebuilt start refused: {error}"));
-        });
-        let frames = u128::from(DEEP_FRAMES);
-        let per_frame_rebuild = rebuilt_instantiation.saturating_sub(shared_instantiation);
-        let avoided = per_frame_rebuild * frames;
-        let per_call_rebuild = hoisted + avoided;
-        println!(
-            "linker-hoist deep-composition frames={frames} hoisted_ns={hoisted} \
-             shared_instantiation_ns={shared_instantiation} \
-             rebuilt_instantiation_ns={rebuilt_instantiation} avoided_ns={avoided} \
-             per_call_rebuild_ns={per_call_rebuild} speedup_permille={}",
-            per_call_rebuild * 1000 / hoisted.max(1)
+        assert_eq!(reference.execution.outputs, vec![crate::WasmValue::I32(0)]);
+        assert_eq!(
+            reference.call_graph.edges().len(),
+            usize::from(DEEP_FRAMES - 1)
         );
-        assert!(rebuilt_instantiation > shared_instantiation);
-        assert!(per_call_rebuild > hoisted);
+        assert_eq!(execute_deep_chain(&engine, &chain), reference);
+        assert_eq!(host::linker_constructions_on_current_thread(), before + 1);
+        chain.root.linker = Arc::new(
+            host::linker(engine.inner())
+                .unwrap_or_else(|error| panic!("root linker rebuild refused: {error}")),
+        );
+        assert_eq!(
+            execute_deep_chain_with_linkers(&engine, &chain, true),
+            reference
+        );
+        assert_eq!(
+            host::linker_constructions_on_current_thread(),
+            before + 1 + usize::from(DEEP_FRAMES)
+        );
     }
 }

@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useCallback } from "react";
 import type { Address } from "viem";
 
 import { pickCollateral } from "@/core/perps/accountView";
 import { useAccount } from "./useAccount";
 import { usePerpsWallet } from "./usePerpsWallet";
+import { useSelectionRequest } from "./useSelectionRequest";
 
 export interface AutoCollateralResult {
   selectedToken: Address;
@@ -24,35 +25,14 @@ export interface AutoCollateralResult {
 export function useAutoCollateral(): AutoCollateralResult {
   const { isConnected, address } = usePerpsWallet();
   const { getAccount } = useAccount();
-  const [collateral, setCollateral] = useState(0n);
-  const [isLoading, setIsLoading] = useState(false);
-  const mountedRef = useRef(true);
-
-  const fetchCollateral = useCallback(async () => {
-    if (!isConnected || !address) {
-      setCollateral(0n);
-      return;
-    }
-    setIsLoading(true);
-    try {
-      const picked = pickCollateral(await getAccount(address as Address));
-      if (mountedRef.current) setCollateral(picked.collateral);
-    } catch {
-      // Keep the last collateral read; the next poll retries.
-    } finally {
-      if (mountedRef.current) setIsLoading(false);
-    }
-  }, [isConnected, address, getAccount]);
-
-  useEffect(() => {
-    mountedRef.current = true;
-    fetchCollateral();
-    const id = setInterval(fetchCollateral, 30_000);
-    return () => {
-      mountedRef.current = false;
-      clearInterval(id);
-    };
-  }, [fetchCollateral]);
+  const account =
+    isConnected && address ? (address.toLowerCase() as Address) : undefined;
+  const load = useCallback(async () => {
+    if (!account) throw new Error("Wallet not connected");
+    return pickCollateral(await getAccount(account)).collateral;
+  }, [account, getAccount]);
+  const { data, isLoading } = useSelectionRequest(account, load, 30_000);
+  const collateral = data ?? 0n;
 
   const picked = pickCollateral({ collateral });
 

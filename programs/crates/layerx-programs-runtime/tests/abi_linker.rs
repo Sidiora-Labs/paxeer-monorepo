@@ -1,3 +1,6 @@
+#[path = "support/abi_versions.rs"]
+mod abi_versions;
+
 use layerx_programs_runtime::test_support::{
     import_section, module, type_section, TYPE_I32, TYPE_I64,
 };
@@ -171,4 +174,102 @@ fn wrong_signatures_duplicates_and_extra_imports_are_rejected() {
         engine.validate_v2(&extra),
         Err(ValidationRefusal::ForbiddenImport { .. })
     ));
+}
+
+#[test]
+fn every_supported_abi_links_exact_frozen_imports_and_refuses_invalid_imports() {
+    use layerx_programs_runtime::{ABI_V5_HOST_FUNCTIONS, ABI_V5_MODULE};
+    let engine = WasmEngine::declared().unwrap_or_else(|error| panic!("engine: {error}"));
+    let versions = abi_versions::supported_abi_versions();
+    assert!(versions.contains(&layerx_programs_runtime::ABI_V5_VERSION));
+    for (introduced, namespace, functions) in [
+        (1, ABI_MODULE, &HOST_FUNCTIONS[..]),
+        (2, ABI_V2_MODULE, &ABI_V2_HOST_FUNCTIONS[..]),
+        (3, ABI_V3_MODULE, &ABI_V3_HOST_FUNCTIONS[..]),
+        (4, ABI_V4_MODULE, &ABI_V4_HOST_FUNCTIONS[..]),
+        (5, ABI_V5_MODULE, &ABI_V5_HOST_FUNCTIONS[..]),
+    ] {
+        for &version in &versions {
+            let unknown = module(&[
+                type_section(&[(&[], &[TYPE_I32])]),
+                import_section(&[(namespace, "undeclared", 0)]),
+            ]);
+            assert_eq!(
+                engine.validate_versioned(version, &unknown).err(),
+                Some(ValidationRefusal::ForbiddenImport {
+                    import_module: namespace.into(),
+                    import_name: "undeclared".into(),
+                }),
+            );
+            for &function in functions {
+                let wasm = importing(namespace, function);
+                if version < introduced {
+                    assert_eq!(
+                        engine.validate_versioned(version, &wasm).err(),
+                        Some(ValidationRefusal::ForbiddenImport {
+                            import_module: namespace.into(),
+                            import_name: function.name.into(),
+                        }),
+                    );
+                    continue;
+                }
+                engine
+                    .validate_versioned(version, &wasm)
+                    .unwrap_or_else(|error| {
+                        panic!("ABI {version}/{namespace}/{}: {error}", function.name)
+                    })
+                    .instantiate_for_qualification()
+                    .unwrap_or_else(|error| {
+                        panic!(
+                            "ABI {version}/{namespace}/{} linking: {error}",
+                            function.name
+                        )
+                    });
+                let (parameters, results) = value_types(function.signature);
+                let mut wrong_parameters = parameters.clone();
+                if let Some(first) = wrong_parameters.first_mut() {
+                    *first = if *first == TYPE_I32 {
+                        TYPE_I64
+                    } else {
+                        TYPE_I32
+                    };
+                } else {
+                    wrong_parameters.push(TYPE_I32);
+                }
+                let wrong_results = vec![if results == [TYPE_I32] {
+                    TYPE_I64
+                } else {
+                    TYPE_I32
+                }];
+                for (parameters, results) in
+                    [(&wrong_parameters, &results), (&parameters, &wrong_results)]
+                {
+                    let wrong = module(&[
+                        type_section(&[(parameters, results)]),
+                        import_section(&[(namespace, function.name, 0)]),
+                    ]);
+                    assert!(
+                        matches!(
+                            engine.validate_versioned(version, &wrong),
+                            Err(ValidationRefusal::WrongImportSignature { .. })
+                        ),
+                        "ABI {version}/{namespace}/{} wrong signature",
+                        function.name
+                    );
+                }
+                let duplicate = module(&[
+                    type_section(&[(&parameters, &results)]),
+                    import_section(&[(namespace, function.name, 0), (namespace, function.name, 0)]),
+                ]);
+                assert!(
+                    matches!(
+                        engine.validate_versioned(version, &duplicate),
+                        Err(ValidationRefusal::DuplicateImport { .. })
+                    ),
+                    "ABI {version}/{namespace}/{} duplicate",
+                    function.name
+                );
+            }
+        }
+    }
 }

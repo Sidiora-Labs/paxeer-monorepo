@@ -1,0 +1,26 @@
+[repair.22.33.993]
+audit = "22.30.32"
+base_revision = "caa8b41ee668274ee1e5c1df6691288455c46278"
+tombstone_replay_batch = "TestRepairM_993_tombstone_replay_batch"
+inventory_cursor = "TestRepairM_993_inventory_cursor; TestRepairM_993_inventory_multi_page_limit; TestRepairM_993_inventory_cursor_scope_and_page_budget"
+media_observer_unwired = "TestRepairM_993_media_observer_unwired"
+recovery = "Authority.ReplayTombstones uses the production recovery loop to drain independently committed batches of at most 256 tombstones; restriction restoration and idempotent delete/purge insertion share each transaction. A closed and reopened storage peer recovers 769 durable tombstones with missing operations, retaining existing operation identity and completion proof."
+inventory = "Authority.ReconcileInventory uses the production inventory reconciler with a PostgreSQL transaction and scope-specific advisory lock; bucket/prefix continuation is committed only after every returned object is checked. S3 MaxKeys never exceeds the remaining run budget. Completion resets the cursor; a failed page retains it for retry."
+observability = "The production observer schedules bounded scanner probes through outages and recovery; Health and HealthFrom use the same readiness and alert calculation with real storage backlog ages. A stopped loopback scanner disables write readiness and raises the timed alert while the real approved handler still serves permitted bytes; persisted restrictions still deny reads."
+proof_peers = "Committed testdata/reconciliation supplies an in-memory transactional repository with atomic committed snapshots and a loopback S3 protocol fixture. Actual SDK PutObject produces objects consumed by actual ListObjectsV2/GetObject, digest verification and the approved serve handler. Scanner peers exchange the recorded ClamAV version transcript over TCP. No environment variable, live service, external binary or subprocess is required."
+baseline = "Not run: the explicit task gate order prohibits formatting/building/testing before full implementation and reserves initial verification for hf-done; no pre-change failure is claimed."
+evidence = "The runner-owned /out/run/gates.jsonl records the exact candidate revision, command, exit and private log for hf-build and hf-done; the last hf-done record is the qualification authority and is copied verbatim into the final response."
+
+[wiring.inventory_cursor]
+request = "launchpad/spec/production-system/integration/migrations/410000.sql; serial migration coordinator / gateway domain 4: deploy the table defined by Authority.InventoryCursorSchemaDDL (bucket,prefix,continuation with primary key bucket,prefix) with the gateway role permissions before enabling this inventory consumer."
+
+[wiring.media_observer_unwired]
+request = "services/launchpad/gateway/internal/app/app.go; gateway domain 4: create one MediaObserver, pass it to serve.Deps.Observer and upload.ConnectedDeps.Observer, run RunScannerProbes with validated scanner options and the runtime cancellation context, join the probe loop on shutdown, and publish Health/Snapshot via runtime readiness and protected health/metrics routes; readiness must retain permitted reads during scanner outages."
+
+[gotcha.task_gate_order]
+observed = "The audit step requests unchanged-tree verification, but the explicit ordered gate contract forbids it and permits verification only through hf-done after full implementation."
+action = "Follow the explicit gate order and record that no baseline was run."
+
+[gotcha.scope_records]
+observed = "The repository workflow asks for GOTCHA.kvx and spec record edits, but this task authorizes only storage paths."
+action = "Keep finding proofs and out-of-path wiring requests in this storage-local task record; leave root and spec records to the runner."

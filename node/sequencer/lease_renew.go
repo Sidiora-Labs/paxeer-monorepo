@@ -9,22 +9,33 @@ import (
 )
 
 func (l *LeaseHolder) RenewAt(now time.Time) error {
+	return l.renew(context.Background(), now)
+}
+
+func (l *LeaseHolder) renew(ctx context.Context, now time.Time) error {
+	l.renewMu.Lock()
+	defer l.renewMu.Unlock()
 	l.mu.Lock()
-	defer l.mu.Unlock()
-	if l.epoch == 0 {
+	epoch, expiry, keyID, duration := l.epoch, l.expiry, l.keyID, l.duration
+	l.mu.Unlock()
+	if epoch == 0 {
 		return errors.New("sequencer: lease holder not started")
 	}
-	if l.expiry.Sub(now) > l.duration/2 {
+	if !now.Before(expiry) {
+		return ErrLeaseFenced
+	}
+	if expiry.Sub(now) > duration/2 {
 		return nil
 	}
-	lease := &wal.Lease{
-		Epoch:    l.epoch,
-		KeyID:    l.keyID,
-		ExpiryMs: uint64(now.Add(l.duration).UnixMilli()),
-	}
-	if _, err := l.replicator.Release(context.Background(), lease); err != nil {
+	lease := &wal.Lease{Epoch: epoch, KeyID: keyID, ExpiryMs: uint64(now.Add(duration).UnixMilli())}
+	if _, err := l.replicator.Release(ctx, lease); err != nil {
 		return err
 	}
+	if !time.Now().Before(expiry) {
+		return ErrLeaseFenced
+	}
+	l.mu.Lock()
 	l.expiry = time.UnixMilli(int64(lease.ExpiryMs))
+	l.mu.Unlock()
 	return nil
 }

@@ -775,7 +775,11 @@ fn engine_violations(wasm: &[u8], abi_version: u16) -> Vec<DeterminismViolation>
             }]
         }
     };
-    let validated = engine.validate_versioned(abi_version, wasm);
+    let validated = if abi_version == ABI_V5_VERSION {
+        engine.validate_v5(wasm)
+    } else {
+        engine.validate_versioned(abi_version, wasm)
+    };
     match validated {
         Ok(_) => Vec::new(),
         Err(refusal) => vec![from_validation(&refusal)],

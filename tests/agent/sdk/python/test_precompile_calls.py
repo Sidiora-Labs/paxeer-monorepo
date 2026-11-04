@@ -107,6 +107,7 @@ def text(value: str) -> str:
 
 FROM = address("12")
 SWAP = address_word("aa") + word(100) + word(90) + word(1700000000)
+# Legacy exchange entries prove encoding compatibility only, never activation.
 WRITES = [
     ("layerxexchange", "placeOrder(bytes32,uint8,uint256,uint256,uint8)",
      exchange_place_order_call(ident("11"), 2, 18446744073709551618, 5000, 0), LAYERX_EXCHANGE_PRECOMPILE,
@@ -177,6 +178,14 @@ class PrecompileCallsTest(unittest.TestCase):
                 declared += 1
         self.assertEqual(declared, 19)
 
+    def test_launchpad_generated_write_mutability_matches_abi(self) -> None:
+        launchpad_writes = {
+            signature_of(entry): entry.get("stateMutability") == "payable"
+            for entry in abi("launchpad")
+            if entry["type"] == "function" and entry.get("stateMutability") not in ("view", "pure")
+        }
+        self.assertEqual(LAUNCHPAD_WRITES, launchpad_writes)
+
     def test_every_write_encodes_its_abi_calldata(self) -> None:
         self.assertEqual(abi_selector("transfer(address,uint256)"), "0xa9059cbb")
         for directory, signature, call, to, body in WRITES:
@@ -186,12 +195,6 @@ class PrecompileCallsTest(unittest.TestCase):
             self.assertTrue(
                 any(item["type"] == "function" and signature_of(item) == signature for item in abi(directory)), signature
             )
-        launchpad_writes = {
-            signature_of(entry): entry.get("stateMutability") == "payable"
-            for entry in abi("launchpad")
-            if entry["type"] == "function" and entry.get("stateMutability") not in ("view", "pure")
-        }
-        self.assertEqual(LAUNCHPAD_WRITES, launchpad_writes)
         perps_writes = {
             signature_of(entry): entry.get("stateMutability") == "payable"
             for entry in abi("perps")

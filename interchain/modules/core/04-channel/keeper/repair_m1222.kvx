@@ -1,0 +1,8 @@
+[task.22.33.1222]
+finding = "receive-sequence-test-getter"
+proof = "TestRepairM_1222_ReceiveSequenceExportImport"
+repair = "TestSetSequence uses distinct send/receive/ack values and the matching receive getter; the focused proof checks real store getters, genesis export, JSON codec transport and import into an independent keeper without value changes."
+baseline = "Not run: the task's ordered gate instructions prohibit verification before complete implementation and reserve the single verification for hf-done; no pre-change test failure is claimed."
+wiring_requests = []
+qualification_record = "/out/run/gates.jsonl (hf-build and hf-done record the exact candidate revision, command, exit and private log location)."
+qualification_repair = "The first verification found nil versus empty unused genesis lists after JSON decoding; populated those lists through real keeper writes without changing any assertion."

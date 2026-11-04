@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"log/slog"
+	"reflect"
 	"testing"
 	"time"
 
@@ -173,5 +174,118 @@ func TestProcessSellLegSplit(t *testing.T) {
 	}
 	if pos.TotalUsdlSpent != "1000000" || pos.TotalUsdlReceived != "6000000" || pos.CurrentHoldings != "0" || pos.TradeCount != 2 {
 		t.Fatalf("sell legs or prior inventory lost: %+v", pos)
+	}
+}
+
+func TestProcessIndexerWebhookAfterStoreReopen(t *testing.T) {
+	repairM1015Restart(t)
+}
+
+func repairM1015Restart(t *testing.T) {
+	t.Helper()
+	h := repairM1015NewHarness(t)
+	buy := repairM1015Fixture(t, "buy.json")
+	sell := repairM1015Fixture(t, "sell.json")
+	h.seedCache(t)
+	h.deliver(t, buy)
+	h.assertCache(t, "")
+	h.notification(t, 1)
+
+	assertBuy := func() *store.PositionRow {
+		t.Helper()
+		pos, err := h.store.GetPosition(h.ctx, repairM1015User, repairM1015Pool)
+		if err != nil || pos == nil {
+			t.Fatalf("indexed buy position: %+v, %v", pos, err)
+		}
+		if pos.UserAddress != repairM1015User || pos.PoolAddress != repairM1015Pool || pos.TokenAddress != repairM1015Token ||
+			pos.TotalUsdlSpent != "100000000" || pos.TotalTokensBought != "9606813905120" ||
+			pos.CurrentHoldings != "9606813905120" || pos.AvgCostBasis != "10409278350515" ||
+			pos.TotalUsdlReceived != "0" || pos.TotalTokensSold != "0" || pos.RealizedPnlUsdl != "0" ||
+			pos.TradeCount != 1 || pos.FirstBuyTs == nil || *pos.FirstBuyTs != 1791875553 || pos.LastTradeTs != 1791875553 {
+			t.Fatalf("buy units, token resolution or aggregates: %+v", pos)
+		}
+		trades, err := h.store.ListTrades(h.ctx, repairM1015User, store.TradeFilter{})
+		if err != nil || len(trades) != 1 {
+			t.Fatalf("one trade per emitted buy: %+v, %v", trades, err)
+		}
+		if trade := trades[0]; trade.ID != "0x3d28a4d088c87b4eca7507e74b47bdc01ae30ff4b1e478dc404a1caa9921a503-8" ||
+			!trade.IsBuy || trade.UsdlAmount != "100000000" || trade.TokenAmount != "9606813905120" ||
+			trade.TokenAddress != repairM1015Token || trade.UserAddress != repairM1015User || trade.PoolAddress != repairM1015Pool ||
+			trade.Price != "10194940899999" || trade.Fee != "3000000" || trade.BlockNumber != 33963733 ||
+			trade.BlockTimestamp != 1791875553 || trade.TxHash != "0x3d28a4d088c87b4eca7507e74b47bdc01ae30ff4b1e478dc404a1caa9921a503" {
+			t.Fatalf("persisted producer buy: %+v", trade)
+		}
+		return pos
+	}
+	beforeBuy := assertBuy()
+	oldPool, oldStore := h.pool, h.store
+	h.reopen(t)
+	if h.pool == oldPool || h.store == oldStore {
+		t.Fatal("restart reused the consumer's pool or store")
+	}
+	if got := assertBuy(); !reflect.DeepEqual(got, beforeBuy) {
+		t.Fatalf("buy state lost on reopen: got %+v, want %+v", got, beforeBuy)
+	}
+	h.seedCache(t)
+	h.deliver(t, buy)
+	if got := assertBuy(); !reflect.DeepEqual(got, beforeBuy) {
+		t.Fatalf("buy redelivery changed recovered state: %+v", got)
+	}
+	h.assertCache(t, "stale")
+	if n := h.redisPeer.publishCount(); n != 1 {
+		t.Fatalf("buy redelivery published %d updates, want one original update", n)
+	}
+
+	h.deliver(t, sell)
+	h.assertCache(t, "")
+	h.notification(t, 2)
+	assertSell := func() *store.PositionRow {
+		t.Helper()
+		pos, err := h.store.GetPosition(h.ctx, repairM1015User, repairM1015Pool)
+		if err != nil || pos == nil {
+			t.Fatalf("indexed sell position: %+v, %v", pos, err)
+		}
+		if pos.TotalUsdlSpent != "100000000" || pos.TotalTokensBought != "9606813905120" ||
+			pos.TotalUsdlReceived != "47278912" || pos.TotalTokensSold != "4803406952560" ||
+			pos.CurrentHoldings != "4803406952560" || pos.RealizedPnlUsdl != "-2721088" ||
+			pos.AvgCostBasis != "10409278350515" || pos.TradeCount != 2 || pos.TokenAddress != repairM1015Token ||
+			pos.FirstBuyTs == nil || *pos.FirstBuyTs != 1791875553 || pos.LastTradeTs != 1791875556 {
+			t.Fatalf("sell units or remaining basis: %+v", pos)
+		}
+		trades, err := h.store.ListTrades(h.ctx, repairM1015User, store.TradeFilter{})
+		if err != nil || len(trades) != 2 {
+			t.Fatalf("one trade per emitted swap: %+v, %v", trades, err)
+		}
+		counts := map[bool]int{}
+		for _, trade := range trades {
+			counts[trade.IsBuy]++
+			if !trade.IsBuy && (trade.ID != "0xf5f9ed1136e71f03ffd44ae7f80ee192998b80fccd96ad3f75824fa9ef3c2845-2" ||
+				trade.UsdlAmount != "47278912" || trade.TokenAmount != "4803406952560" ||
+				trade.Fee != "144102208576" || trade.Price != "10098226981692" ||
+				trade.BlockNumber != 33963749 || trade.BlockTimestamp != 1791875556 ||
+				trade.TxHash != "0xf5f9ed1136e71f03ffd44ae7f80ee192998b80fccd96ad3f75824fa9ef3c2845" ||
+				trade.UserAddress != repairM1015User || trade.PoolAddress != repairM1015Pool || trade.TokenAddress != repairM1015Token) {
+				t.Fatalf("persisted producer sell: %+v", trade)
+			}
+		}
+		if counts[true] != 1 || counts[false] != 1 {
+			t.Fatalf("wrong buy/sell counts: %v", counts)
+		}
+		return pos
+	}
+	beforeSell := assertSell()
+	h.reopen(t)
+	if got := assertSell(); !reflect.DeepEqual(got, beforeSell) {
+		t.Fatalf("sell state lost on reopen: got %+v, want %+v", got, beforeSell)
+	}
+	h.seedCache(t)
+	h.deliver(t, sell)
+	h.deliver(t, buy)
+	if got := assertSell(); !reflect.DeepEqual(got, beforeSell) {
+		t.Fatalf("redelivery changed recovered sell state: %+v", got)
+	}
+	h.assertCache(t, "stale")
+	if n := h.redisPeer.publishCount(); n != 2 {
+		t.Fatalf("redelivery published %d updates, want two original updates", n)
 	}
 }

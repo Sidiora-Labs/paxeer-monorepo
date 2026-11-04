@@ -51,7 +51,11 @@ once() {
 		printf '%s\n' "$value" >"$file.new"
 		mv "$file.new" "$file"
 	fi
-	cat "$file"
+	value="$(cat "$file")"
+	case "$value" in
+	'' | *[!0-9]*) echo "indexer-env-init: retained height is invalid" >&2; exit 1 ;;
+	esac
+	printf '%s\n' "$value"
 }
 
 earliest() {
@@ -62,7 +66,9 @@ earliest() {
 head_height() {
 	hex="$(post "$LAYERX_INDEXER_EVM_URL" "$LAYERX_INDEXER_EVM_CA_DER" '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}' | jq -r .result)"
 	case "$hex" in
-	0x[0-9a-fA-F]*) echo "$((hex))" ;;
+	0x[0-9a-fA-F]*)
+		if printf '%s' "$hex" | jq -eR 'test("^0x[0-9a-fA-F]+$")' >/dev/null; then printf '%d\n' "$hex"; fi
+		;;
 	esac
 }
 
@@ -75,7 +81,11 @@ if [ "$1" = backfill ]; then
 	rm -f "$state_dir/pin.pem.new"
 	chown -R 4020:4020 "$state_dir"
 	setpriv --reuid=4020 --regid=4020 --clear-groups --no-new-privs /usr/local/bin/layerx-indexer backfill --cutover-height "$cutover"
-	: >"$state_dir/backfill-done"
+	# The marker names the cutover whose real database cursor finished.
+	position="$(sqlite3 -readonly "$LAYERX_INDEXER_DB" "SELECT position FROM backfill_cursors WHERE chain = 'paxeer';")"
+	[ "$position" = "$cutover" ] || { echo "indexer-env-init: backfill cursor differs from cutover" >&2; exit 1; }
+	printf '%s\n' "$cutover" >"$state_dir/backfill-done.new"
+	mv "$state_dir/backfill-done.new" "$state_dir/backfill-done"
 	echo "indexer-env-init: the backfill reached the cutover $cutover"
 	exit 0
 fi
@@ -86,6 +96,16 @@ if [ ! -e "$state_dir/backfill-done" ]; then
 		sleep 5
 	done
 fi
+cutover="$(cat "$state_dir/cutover-height")"
+case "$cutover" in
+'' | *[!0-9]*) echo "indexer-env-init: cutover is invalid" >&2; exit 1 ;;
+esac
+[ "$(cat "$state_dir/backfill-done")" = "$cutover" ] || {
+	echo "indexer-env-init: completed backfill marker differs from cutover" >&2
+	exit 1
+}
+position="$(sqlite3 -readonly "$LAYERX_INDEXER_DB" "SELECT position FROM backfill_cursors WHERE chain = 'paxeer';")"
+[ "$position" = "$cutover" ] || { echo "indexer-env-init: retained backfill cursor differs from cutover" >&2; exit 1; }
 if [ ! -s "$LAYERX_INDEXER_TLS_CERT_DER" ] || [ ! -s "$LAYERX_INDEXER_TLS_KEY_DER" ]; then
 	echo "indexer-env-init: waiting for $tls_dir from tools/bringup/ca.sh issue indexer"
 	until [ -s "$LAYERX_INDEXER_TLS_CERT_DER" ] && [ -s "$LAYERX_INDEXER_TLS_KEY_DER" ]; do

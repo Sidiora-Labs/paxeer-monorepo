@@ -13,6 +13,7 @@ import subprocess
 import sys
 import time
 from fractions import Fraction
+from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[4]
 LOAD = ROOT / 'tools/launchpad/production/load'
@@ -421,6 +422,205 @@ def scenario_facts(scenario, facts, raw_paths):
         raise ValueError('unregistered security scenario')
 
 
+
+def scenario_observation(configuration, scenario_id, request_id, producer, kind, payload, observed_utc_ns):
+    """Encode an owning capture observation; the join key never enters the artifact."""
+    identifier(request_id)
+    identifier(producer)
+    identifier(kind)
+    if scenario_id not in SCENARIOS or not isinstance(payload, dict):
+        raise ValueError('registered native scenario payload required')
+    reference = hmac.new(configuration['join_key'], b'request-id\x00'+request_id.encode(), hashlib.sha256).hexdigest()
+    record = {'version': 1, 'bindings': configuration['bindings'].__dict__,
+              'run_id': configuration['authority']['run_id'], 'scenario_id': scenario_id,
+              'request_reference': reference, 'observed_utc_ns': integer(observed_utc_ns, 1),
+              'producer': producer, 'kind': kind, 'payload': payload}
+    record['mac'] = hmac.new(configuration['join_key'], canonical(record), hashlib.sha256).hexdigest()
+    return record
+
+
+def native_scenario_observations(configuration, row):
+    observations = {}
+    exchanges = {}
+    for artifact in row['raw_artifacts']:
+        if artifact['kind'] != 'native_scenario':
+            continue
+        for record in rows(artifact['path'], artifact['sha256']):
+            exact(record, ('version', 'bindings', 'run_id', 'scenario_id', 'request_reference',
+                           'observed_utc_ns', 'producer', 'kind', 'payload', 'mac'))
+            if record['version'] != 1 or record['bindings'] != configuration['bindings'].__dict__ or record['run_id'] != configuration['authority']['run_id'] or record['scenario_id'] != row['scenario_id']:
+                raise ValueError('foreign native scenario observation')
+            if not row['started_utc_ns'] <= integer(record['observed_utc_ns'], 1) < row['ended_utc_ns']:
+                raise ValueError('native scenario observation outside actual interval')
+            unsigned = {key: value for key, value in record.items() if key != 'mac'}
+            expected = hmac.new(configuration['join_key'], canonical(unsigned), hashlib.sha256).hexdigest()
+            if not isinstance(record['mac'], str) or not hmac.compare_digest(record['mac'], expected):
+                raise ValueError('native scenario observation authentication failed')
+            reference = record['request_reference']
+            if not isinstance(reference, str) or not HEX.fullmatch(reference) or not isinstance(record['payload'], dict):
+                raise ValueError('native scenario request/payload absent')
+            identity = (reference, record['producer'], record['kind'])
+            if identity in observations:
+                raise ValueError('duplicate native scenario observation')
+            observations[identity] = record['payload']
+            if record['producer'] == 'security.http' and record['kind'] == 'exchange':
+                payload = record['payload']
+                exact(payload, ('request_id', 'method', 'path', 'body_bytes', 'http_status'))
+                request_id = identifier(payload['request_id'])
+                if not re.fullmatch(r'[A-Z]{3,16}', payload['method']) or not payload['path'].startswith('/'):
+                    raise ValueError('native HTTP request shape differs')
+                integer(payload['body_bytes'])
+                if not 100 <= integer(payload['http_status'], 100) <= 599:
+                    raise ValueError('native HTTP response status invalid')
+                expected_reference = hmac.new(configuration['join_key'], b'request-id\x00'+request_id.encode(), hashlib.sha256).hexdigest()
+                if reference != expected_reference:
+                    raise ValueError('native HTTP request identity differs')
+                exchanges[reference] = payload
+    if not exchanges or any(reference not in exchanges for reference, _, _ in observations):
+        raise ValueError('native outcomes lack matching sent HTTP requests')
+    return observations, exchanges
+
+
+def native_scenario_facts(configuration, row):
+    observations, exchanges = native_scenario_observations(configuration, row)
+    number = row['scenario_id']
+
+    def payload(reference, producer, kind):
+        try:
+            return observations[(reference, producer, kind)]
+        except KeyError as error:
+            raise ValueError('owning native producer observation absent') from error
+
+    def one():
+        if len(exchanges) != 1:
+            raise ValueError('one exact scenario exchange required')
+        return next(iter(exchanges))
+
+    def states(reference, producer='security.database'):
+        before = payload(reference, producer, 'state_before')
+        after = payload(reference, producer, 'state_after')
+        exact(before, ('records',))
+        exact(after, ('records',))
+        if not isinstance(before['records'], dict) or not isinstance(after['records'], dict):
+            raise ValueError('durable queried records required')
+        return before['records'], after['records']
+
+    facts = {}
+    if number in (1, 2, 3, 7, 11, 13):
+        reference = one()
+        before, after = states(reference, 'security.queue' if number == 3 else 'security.database')
+        facts = {'before_sha256': hashlib.sha256(canonical(before)).hexdigest(),
+                 'after_sha256': hashlib.sha256(canonical(after)).hexdigest()}
+        if number != 11:
+            facts['http_status'] = exchanges[reference]['http_status']
+        if number == 2:
+            facts['replay_jobs_delta'] = len(after['jobs'])-len(before['jobs'])
+        elif number == 3:
+            facts.update(queue_before=len(before['queue']), queue_after=len(after['queue']))
+        elif number == 7:
+            facts['body_bytes'] = exchanges[reference]['body_bytes']
+        elif number == 13:
+            facts['audit_rows_delta'] = len(after['audit'])-len(before['audit'])
+        elif number == 11:
+            role = payload(reference, 'security.database', 'role')
+            exact(role, ('sqlstate', 'rolsuper', 'owns_schema'))
+            facts.update(sqlstate=role['sqlstate'], database_superuser=role['rolsuper'],
+                         database_owner=role['owns_schema'], stats_schema_unchanged=before['stats'] == after['stats'],
+                         identity_schema_unchanged=before['identity'] == after['identity'])
+    elif number == 4:
+        events = []
+        for reference in exchanges:
+            event = payload(reference, 'security.redis', 'admission')
+            exact(event, ('redis_ms', 'admitted', 'replica_id', 'principal_reference', 'policy_class', 'cost'))
+            if event['policy_class'] != 'account-write' or event['cost'] != 1 or exchanges[reference]['http_status'] not in ((200, 204) if event['admitted'] is True else (429,)):
+                raise ValueError('native admission contradicts HTTP outcome')
+            events.append({key: event[key] for key in ('redis_ms', 'admitted', 'replica_id', 'principal_reference')})
+        facts = {'redis_admissions': events, 'policy_class': 'account-write', 'cost': 1}
+    elif number == 5:
+        reference = one()
+        before = payload(reference, 'security.redis', 'before_restart')
+        after = payload(reference, 'security.redis', 'after_restart')
+        exact(before, ('instance_id', 'storage_id'))
+        exact(after, ('instance_id', 'storage_id', 'ping', 'counter_ttls_ms'))
+        cache = payload(reference, 'security.policy', 'cache')
+        exact(cache, ('entries',))
+        ttls = after['counter_ttls_ms']
+        if not isinstance(ttls, list) or not isinstance(cache['entries'], list):
+            raise ValueError('actual counter/cache enumeration absent')
+        facts = {'redis_recovered': identifier(before['instance_id']) != identifier(after['instance_id']) and identifier(before['storage_id']) == identifier(after['storage_id']) and after['ping'] == 'PONG',
+                 'permanent_keys': sum(ttl == -1 for ttl in ttls), 'local_cache_entries': len(cache['entries']),
+                 'counter_ttls_ms': ttls}
+    elif number in (6, 15):
+        native = timings(configuration, configuration['authority']['run_id'], configuration['authority']['replica_ids'])
+        classes = set()
+        for reference, exchange in exchanges.items():
+            event = payload(reference, 'security.policy', 'admission')
+            exact(event, ('allowed', 'backend_unavailable', 'route_class'))
+            decision = native.get((reference, 'limiter'))
+            if decision is None or event['allowed'] != decision['allowed'] or event['backend_unavailable'] is not True or decision['backend_unavailable'] is not True or not row['started_utc_ns'] <= decision['observed_utc_ns'] < row['ended_utc_ns']:
+                raise ValueError('Redis-loss scenario is detached from native arrivals')
+            classes.add(event['route_class'])
+            if event['route_class'] != 'cached-public-read' and (event['allowed'] is not False or exchange['http_status'] not in (429, 503)):
+                raise ValueError('Redis-loss write/attack was admitted')
+            if event['route_class'] == 'cached-public-read' and (event['allowed'] is not True or exchange['http_status'] != 200):
+                raise ValueError('supported cached read lost during Redis outage')
+        if 'account-write' not in classes or (number == 15 and not {'account-write', 'cached-public-read', 'replay-attack'}.issubset(classes)):
+            raise ValueError('shared Redis-loss scenario coverage absent')
+        facts = {'native_arrivals_bound': True}
+    elif number == 8:
+        event = payload(one(), 'security.egress', 'redirect')
+        exact(event, ('location', 'connected_addresses', 'error'))
+        if not isinstance(event['connected_addresses'], list):
+            raise ValueError('native connection enumeration absent')
+        target = urlsplit(event['location']).hostname
+        facts = {'redirect_target': target, 'connected_to_target': target in event['connected_addresses'],
+                 'typed_denial': event['error'] == 'policy: denied'}
+    elif number == 9:
+        event = payload(one(), 'security.secrets', 'startup')
+        exact(event, ('configured_provider', 'loaded_provider', 'exit_code', 'ready'))
+        facts = {'provider': event['configured_provider'], 'startup_exit_code': event['exit_code'],
+                 'ready': event['ready'], 'env_fallback': event['loaded_provider'] == 'env'}
+        if event['loaded_provider'] != '':
+            raise ValueError('unavailable configured provider loaded an alternate provider')
+    elif number == 10:
+        event = payload(one(), 'security.rotation', 'rotation')
+        exact(event, ('activated_utc_ns', 'retired_utc_ns', 'cache_refreshed_utc_ns', 'revoked_utc_ns',
+                      'revocation_observed_utc_ns', 'retirement_checks', 'unsigned_checks', 'outgoing_version',
+                      'newest_active_version', 'audiences'))
+        for name in ('activated_utc_ns', 'retired_utc_ns', 'cache_refreshed_utc_ns', 'revoked_utc_ns', 'revocation_observed_utc_ns'):
+            integer(event[name], 1)
+        for name in ('retirement_checks', 'unsigned_checks'):
+            if not event[name] or {check['audience'] for check in event[name]} != set(event['audiences']):
+                raise ValueError('every native rotation audience needs verification results')
+            for check in event[name]:
+                exact(check, ('audience', 'accepted', 'observed_utc_ns'))
+                if type(check['accepted']) is not bool or integer(check['observed_utc_ns'], 1) < event['retired_utc_ns']:
+                    raise ValueError('native rotation verification is not after retirement')
+        facts = {'overlap_ns': event['retired_utc_ns']-event['activated_utc_ns'],
+                 'refresh_ns': event['cache_refreshed_utc_ns']-event['activated_utc_ns'],
+                 'revoke_ns': event['revocation_observed_utc_ns']-event['revoked_utc_ns'],
+                 'old_accepted_after_retirement': any(check['accepted'] for check in event['retirement_checks']),
+                 'unsigned_accepted': any(check['accepted'] for check in event['unsigned_checks']),
+                 'outgoing_version': event['outgoing_version'], 'newest_active_version': event['newest_active_version'],
+                 'audiences': event['audiences']}
+        integer(facts['refresh_ns'])
+        integer(facts['revoke_ns'])
+    elif number == 12:
+        event = payload(one(), 'security.telemetry', 'canaries')
+        exact(event, ('canary_env',))
+        facts = {'canary_env': event['canary_env'], 'request_references': list(exchanges)}
+    elif number == 14:
+        event = payload(one(), 'security.registry', 'validation')
+        exact(event, ('exit_code', 'unclassified_routes', 'manifest_routes'))
+        if not isinstance(event['unclassified_routes'], list) or not isinstance(event['manifest_routes'], list):
+            raise ValueError('native route registry enumeration absent')
+        facts = {'policy_validation_exit_code': event['exit_code'], 'unclassified_endpoint': bool(event['unclassified_routes']),
+                 'entered_release_manifest': bool(set(event['unclassified_routes']) & set(event['manifest_routes']))}
+    else:
+        raise ValueError('unregistered native scenario')
+    return facts
+
+
 def runtime_scenarios(configuration):
     document = bound_document(ordinary(configuration['runtime_scenarios_path']), configuration['runtime_scenarios_sha256'])
     exact(document, ('version','run_id','bindings','scenarios'))
@@ -442,7 +642,10 @@ def runtime_scenarios(configuration):
                 raise ValueError('raw scenario provider artifact differs')
             seen.add(path)
             paths.append((artifact['kind'],path))
-        scenario_facts(number,row['facts'],paths)
+        derived = native_scenario_facts(configuration, row)
+        if canonical(row['facts']) != canonical(derived):
+            raise ValueError('authored scenario facts contradict owning native outcomes')
+        scenario_facts(number, derived, paths)
         for artifact in row['raw_artifacts']:
             if sha_file(ordinary(artifact['path'])) != artifact['sha256']:
                 raise ValueError('raw scenario artifact changed during validation')
@@ -463,12 +666,16 @@ def source_binding(path,checksum):
             raise ValueError('native source differs from admitted candidate')
     required = {str(p.relative_to(ROOT)) for p in (ROOT/'services/launchpad/security/policy').glob('*.go')}
     required |= {str(p.relative_to(ROOT)) for p in (ROOT/'sdk/launchpad/shared/secrets').glob('*.go')}
-    required |= {'services/launchpad/security/policy/release_harness.py','services/launchpad/security/policy/test_release_harness.py','services/launchpad/security/go.mod','services/launchpad/security/go.sum','sdk/launchpad/shared/go.mod','sdk/launchpad/shared/go.sum','services/launchpad/go.work','tools/launchpad/production/load/capture.py','tools/launchpad/production/load/phase2_types.py','tools/launchpad/production/load/workload.py','tools/launchpad/production/load/final-shared-capture.schema.json'}
+    required |= {'services/launchpad/security/policy/release_harness.py','services/launchpad/security/policy/test_release_harness.py','services/launchpad/security/policy/test_repair_22_33_1021.py','services/launchpad/security/go.mod','services/launchpad/security/go.sum','sdk/launchpad/shared/go.mod','sdk/launchpad/shared/go.sum','services/launchpad/go.work','tools/launchpad/production/load/capture.py','tools/launchpad/production/load/phase2_types.py','tools/launchpad/production/load/workload.py','tools/launchpad/production/load/final-shared-capture.schema.json'}
     required |= {str(p.relative_to(ROOT)) for p in (ROOT/'sdk/launchpad/shared/auth').glob('*.go')}
     if not required.issubset(value['files']):
         raise ValueError('security implementation/test binding incomplete')
     return value
 
+
+
+def component_tests(group):
+    return sorted({test for package,test in SCENARIOS.values() if package==group} | ({'TestNativeAuthorizationCaptureUsesRealPrivateIdentity','TestNativeLimiterCaptureUsesActualBackendOutcome','TestMeasuredAdmissionCaptureFailureDeniesRequest','TestRepairColumnGrantsAndOwnerViews','TestRepairNestedMutationCaseAliases','TestRepairActiveBodyDeadlinePreservesReadStreams','TestRepairRetainedExportRecoveryAndCommittedCoverage','TestRepairAuditSchedulerStartupCatchUpAndAlerts'} if group=='policy' else set()))
 
 def components(binding_path,binding_sha,go_binary,go_sha,output):
     binding = source_binding(binding_path,binding_sha)
@@ -482,7 +689,7 @@ def components(binding_path,binding_sha,go_binary,go_sha,output):
     summaries = {}
     deadline = time.monotonic()+1500
     for name,directory in groups.items():
-        names = sorted({test for package,test in SCENARIOS.values() if package==name} | ({'TestNativeAuthorizationCaptureUsesRealPrivateIdentity','TestNativeLimiterCaptureUsesActualBackendOutcome','TestMeasuredAdmissionCaptureFailureDeniesRequest'} if name=='policy' else set()))
+        names = component_tests(name)
         command = [str(program),'test','-json','-count=1','./'+name,'-run','^('+'|'.join(names)+')$']
         log_path = output/(name+'-native.ndjson')
         started = time.time_ns()

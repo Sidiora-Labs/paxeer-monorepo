@@ -1,0 +1,33 @@
+[repair]
+task = "22.33.935"
+audit = "22.30.23"
+acceptance = "22998.1"
+build = "hf-build"
+verify = "hf-done"
+evidence = "/out/run/gates.jsonl records the exact candidate revision, command, exit and private log for both gates; the final response copies the last gate evidence."
+baseline = "Not executed: the ordered gate instructions require full implementation before testing and prohibit running verify_cmd by hand; no pre-change failure or gate pass is claimed."
+wiring_requests = []
+
+[finding.accordion-storage-fallback]
+tests = ["accordionStorageFallbackSurvivesBlockedReadsAndRemount", "accordionStorageFallbackPreservesObservedStorageBaseline"]
+proof = "Real accordion interactions and snapshots under native jsdom SecurityError and storage-quota refusal, including unmount and reopen during the current visit."
+
+[finding.position-pagination]
+tests = ["positionPaginationFindsPageTwoAndStops", "positionPaginationStopsOnPageOne", "positionPaginationReportsAbsenceAfterLastPage", "positionPaginationResetsOnSnapshotChangeAndIgnoresLatePages", "positionPaginationRejectsMismatchedSnapshotAndRefreshes", "positionPaginationSurfacesContinuationFailureAndRetries", "positionPaginationClearsAmountsOnSignOut", "positionPaginationDiscardsPendingPageOnSignOut"]
+proof = "Real PositionSummary, account session store, account HTTP transport and snapshot-bound accumulator; loopback v3 pages and the committed swap-chain wallet recording, with no live endpoint or external process."
+
+[finding.window-snapshot-test-gap]
+tests = ["windowSnapshotExcludesNewerLiveFills", "windowSnapshotDeduplicatesEvents", "windowSnapshotMissingInRangeHistoryStaysPartial"]
+proof = "The repair gate imports window-stats.test.ts so all existing complete, empty, partial-history and partial-candle assertions execute with the new regressions."
+
+[finding.window-snapshot-boundary]
+tests = ["windowSnapshotExcludesNewerLiveFills", "windowSnapshotDeduplicatesEvents", "windowSnapshotMissingInRangeHistoryStaysPartial", "windowSnapshotExcludesGapsAndPartialCoverage"]
+proof = "Production deriveWindowStats fences each candle at both position boundaries and deduplicates event identities; exact per-bucket trade counts establish completeness while candle USDL and trade totals stay unchanged."
+
+[qualification_notes]
+status = "Continued implementation: all fourteen named regression functions are registered with test(function.name, function), with real component interactions and production derivation assertions; final qualification is recorded by hf-build and hf-done in the private evidence ledger."
+continuation = "Preserved the prior production repairs and regression bodies, checked the real account transport and snapshot accumulator, added reopen assertions after quota refusal and exact transaction/log-position boundary assertions. No prior TODO result is claimed as regression proof."
+verification_repair = "Vitest 4 registers test(function) as TODO: the initial verify returned zero with 7 existing tests passed and all 14 named regressions TODO. Register each declared function as test(function.name, function) so its assertions execute; the initial zero exit is not behavioral qualification. Evidence: revision 38a17b97bd542339c55d9f0ce9f0c5478015f256, command cg spec done 22.33.935 -f layerx-merge --root /work/paxeer-monorepo, exit 0, /out/logs/verify-1.log."
+build_repair = "The first build reported TS2554 at the opaque-origin jsdom constructor; pass an empty options object, preserving its native opaque origin. Evidence: revision 88d5a63c0a862ac437cefa89f8e27d7aaf837b97, command pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json, exit 2, /out/logs/build-1.log."
+formatter = "The launchpad workspace has no configured source formatter; touched TypeScript follows the existing local style."
+scope = "The runner's pre-existing .cgignore and task-start bookkeeping were preserved. No spec, global gotcha ledger, commit or push was edited or performed by the implementation."

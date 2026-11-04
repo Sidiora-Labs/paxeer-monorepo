@@ -8,10 +8,6 @@ from pathlib import Path
 import subprocess
 import sys
 import time
-import uuid
-
-SOURCE_NAMES = ('advanced-provider.ts', 'best-route-swap.tsx', 'capability-gates.test.tsx', 'connected-journeys.test.tsx', 'custom-route.tsx', 'domain.test.ts', 'domain.ts', 'liquidity-position.tsx', 'measurement-harness.ts', 'measurement-harness.test.ts', 'open-orders-list.tsx', 'order-form.tsx', 'run-connected-chain.py', 'token-universe.ts', 'vitest.l28.config.ts', 'write-gates.test.tsx')
-
 
 def digest(path):
     if not path.is_file() or path.is_symlink():
@@ -31,34 +27,27 @@ def main():
     parser.add_argument('--measure', action='store_true')
     parser.add_argument('--timeout-seconds', type=int, default=300)
     args = parser.parse_args()
-    if args.timeout_seconds < 1 or args.timeout_seconds > 1800:
-        raise ValueError('Native execution cap must be1..1800seconds')
-    if digest(args.fixture) != args.fixture_sha256:
-        raise ValueError('Advanced fixture descriptor digest mismatch')
+    # Input admission is shared with the process-free repair gate. It covers
+    # advanced-provider.ts (including custom routes) and apps/launchpad/pnpm-lock.yaml.
+    admitted = subprocess.run(
+        ['node', str(Path(__file__).resolve().with_name('connected-chain-inputs.mjs'))],
+        input=json.dumps({'fixtureFile': str(args.fixture.absolute()),
+                          'fixtureSha256': args.fixture_sha256,
+                          'output': str(args.output.resolve()),
+                          'measure': args.measure,
+                          'timeoutSeconds': args.timeout_seconds}),
+        text=True, capture_output=True, check=True)
+    plan = json.loads(admitted.stdout)
+    root, web = Path(plan['root']), Path(plan['web'])
+    files = [Path(path) for path in plan['files']]
+    sources = plan['sources']
+    manifest_file, manifest_sha = Path(plan['manifestFile']), plan['manifestSha']
+    run_id, run = plan['runId'], Path(plan['run'])
+    source_manifest_sha = plan['sourceManifestSha']
     fixture = json.loads(args.fixture.read_text())
-    if fixture.get('realm') != 'private_fixture':
-        raise ValueError('Only an admitted private fixture may run funded qualification')
-    if args.measure and (not isinstance(fixture.get('measurement'), dict) or type(fixture['measurement'].get('durationMs')) is not int or not 0 < fixture['measurement']['durationMs'] <= 120000):
-        raise ValueError('Measurement requires explicit funded accounts and1..120000ms workload within the preserved240second lifecycle gate')
-    source = Path(__file__).resolve().parent
-    web = source.parents[2]
-    root = web.parents[2]
-    files = [source / name for name in SOURCE_NAMES] + [web / 'src/core/clients/meta-ag.ts', web / 'src/widgets/trading/transaction-controls/recovery.ts', web / 'src/widgets/trading/transaction-controls/domain.ts', web / 'src/core/network/deployment.ts', web / 'src/core/network/abis/MetaAGRouter.json', web / 'src/core/network/abis/MetaAGQuoter.json', web / 'src/core/network/abis/PECOROrders.json', web / 'vitest.config.ts', root / 'client/pnpm-lock.yaml']
-    sources = {str(path.relative_to(root)): digest(path) for path in files}
-    manifest_file = Path(fixture['manifestFile'])
-    manifest_sha = digest(manifest_file)
-    if manifest_sha != fixture['manifestSha256']:
-        raise ValueError('Advanced deployment manifest digest mismatch')
-    run_id = str(uuid.uuid4())
-    args.output.mkdir(parents=True, exist_ok=True, mode=0o700)
-    run = args.output / run_id
-    run.mkdir(mode=0o700)
-    source_manifest = run / 'source-manifest.json'
-    source_manifest.write_text(json.dumps({'version': 1, 'runId': run_id, 'sourceRoot': str(root), 'scope': 'lane_and_direct_dependency_sources', 'files': sources}, indent=2) + '\n')
-    source_manifest_sha = digest(source_manifest)
-    command = ['pnpm', 'exec', 'vitest', 'run', 'src/widgets/meta-ag/connected-journeys.test.tsx', 'src/widgets/meta-ag/domain.test.ts', 'src/widgets/meta-ag/write-gates.test.tsx', 'src/widgets/meta-ag/capability-gates.test.tsx', 'src/widgets/meta-ag/measurement-harness.test.ts', '--config', 'src/widgets/meta-ag/vitest.l28.config.ts', '--reporter=json', '--outputFile', str((run / 'native.json').resolve())]
+    command = plan['command']
     env = os.environ.copy()
-    env.update({'L28_CHAIN_FIXTURE_JSON': str(args.fixture.resolve()), 'L28_OBSERVATION_DIRECTORY': str(run.resolve()), 'L28_SOURCE_MANIFEST_JSON': str(source_manifest.resolve()), 'L28_MEASURE': '1' if args.measure else '0', 'L28_PRIVATE_CACHE_DIRECTORY': str((run / 'cache').resolve())})
+    env.update(plan['environment'])
     started_at = time.time_ns()
     native_exit = None
     failure = None
@@ -198,6 +187,6 @@ def main():
 if __name__ == '__main__':
     try:
         sys.exit(main())
-    except (OSError, ValueError, KeyError, TypeError) as error:
+    except (OSError, ValueError, KeyError, TypeError, subprocess.CalledProcessError) as error:
         print(f'Advanced measurement failed input: {error}', file=sys.stderr)
         sys.exit(1)

@@ -1,0 +1,7 @@
+[repair.22.33.1185]
+finding = "metric-label-order"
+tests = ["TestRepairM_1185_ReorderedLabels", "TestRepairM_1185_ChangedLabels"]
+proof = "Prometheus MetricFamilyToText producer through in-memory exposition readers into DiffFromReaders and Diff.String; reordered labels yield no changes, and added, removed or replaced labels yield exactly those changes."
+baseline = "Not run: the task's ordered gate instructions require complete implementation before testing and prohibit running verify_cmd by hand; no pre-change test failure is claimed."
+wiring_requests = []
+evidence = "The runner's hf-build and hf-done ledger records the exact qualified candidate revision, commands, exits and private log paths."

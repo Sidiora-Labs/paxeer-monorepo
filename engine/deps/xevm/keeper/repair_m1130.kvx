@@ -1,0 +1,7 @@
+[task.22.33.1130]
+audit = "22.30.49"
+finding_020 = "TestRepairM_1130_NilMinimumFeeFixtures and TestRepairM_1130_ConfiguredMinimumFee: actual missing next-fee key and minimum parameter, nonnil default fallback and stored-value precedence through the keeper."
+finding_019 = "TestRepairM_1130_InvalidAttempts, TestRepairM_1130_MissingReceipt, TestRepairM_1130_StoreFailure, TestRepairM_1130_ReceiptAvailableAfterRetry, TestRepairM_1130_Cancellation and TestRepairM_1130_LegacyReceipt: real configured receipt store and keeper lookup."
+baseline = "Not run: the ordered task instructions prohibit verification before complete implementation and require verification only through hf-done after hf-build; no pre-change failure is claimed."
+wiring_requests = "None: both repair proposals are wholly within keeper scope."
+evidence = "The runner's hf-build and hf-done ledger records the exact candidate revision, command, exit code and private log location; no qualification is claimed by this record."

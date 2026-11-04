@@ -256,6 +256,8 @@ enum StoredPhase {
 struct StoredEvidenceRef {
     table: u8,
     key: String,
+    #[serde(default)]
+    content_digest: [u8; 32],
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -346,7 +348,11 @@ impl ArchiveJourney {
             did: request.did.as_bytes().to_vec(),
             disposition_digest,
             reclaim_receipts,
-            history: request.history.iter().map(stored_reference).collect(),
+            history: request
+                .history
+                .iter()
+                .map(|reference| stored_reference(scope, reference))
+                .collect::<Result<_, _>>()?,
             phase: StoredPhase::AwaitingConfirmation,
             step_up_digest: None,
             requested_at: None,
@@ -458,6 +464,7 @@ impl ArchiveJourney {
             if !remaining.is_empty() {
                 return Err(ArchiveError::FundsRemain(remaining));
             }
+            self.checked_history(scope)?;
             let outcome = boundary.archive_authority(&principal, &did, requested_at)?;
             validate_outcome(&outcome, requested_at)?;
             self.record.suspended_at = Some(outcome.suspended_at);
@@ -505,6 +512,13 @@ impl ArchiveJourney {
         if self.record.phase != StoredPhase::Archived {
             return Err(ArchiveError::NotArchived);
         }
+        self.checked_history(scope)
+    }
+
+    fn checked_history(
+        &self,
+        scope: &PrincipalScope<'_>,
+    ) -> Result<Vec<ArchivedHistoryEntry>, ArchiveError> {
         self.record
             .history
             .iter()
@@ -513,6 +527,11 @@ impl ArchiveJourney {
                 let row = scope
                     .get(reference.table(), reference.key())
                     .ok_or(ArchiveError::HistoryMissing)?;
+                if stored.content_digest == [0; 32]
+                    || stored.content_digest != history_digest(row.written_at(), row.bytes())
+                {
+                    return Err(ArchiveError::HistoryChanged);
+                }
                 Ok(ArchivedHistoryEntry {
                     table: reference.table(),
                     key: reference.key().clone(),
@@ -788,11 +807,63 @@ fn table_from_code(code: u8) -> Result<Table, ArchiveError> {
     }
 }
 
-fn stored_reference(reference: &EvidenceRef) -> StoredEvidenceRef {
-    StoredEvidenceRef {
+fn history_digest(written_at: u64, bytes: &[u8]) -> [u8; 32] {
+    let mut hash = Sha256::new();
+    hash.update(b"layerx-human/archive-history/v1\0");
+    hash.update(written_at.to_be_bytes());
+    hash.update(bytes);
+    hash.finalize().into()
+}
+
+pub(crate) fn check_retained_history_write(
+    scope: &PrincipalScope<'_>,
+    table: Table,
+    key: &RowKey,
+    written_at: u64,
+    bytes: &[u8],
+) -> Result<(), StoreError> {
+    for archive_key in scope.keys(Table::Journeys) {
+        if !archive_key.as_str().starts_with(RECORD_PREFIX) {
+            continue;
+        }
+        let row = scope
+            .get(Table::Journeys, &archive_key)
+            .ok_or(StoreError::MissingEvidence)?;
+        let record = decode(row.bytes())
+            .map_err(|_| StoreError::Corrupt("invalid retained archive record"))?;
+        if record.phase != StoredPhase::Archived {
+            continue;
+        }
+        for stored in &record.history {
+            let reference = evidence_reference(stored)
+                .map_err(|_| StoreError::Corrupt("invalid retained archive reference"))?;
+            if reference.table() == table && reference.key() == key {
+                let existing = scope.get(table, key).ok_or(StoreError::MissingEvidence)?;
+                if stored.content_digest == [0; 32]
+                    || stored.content_digest
+                        != history_digest(existing.written_at(), existing.bytes())
+                    || stored.content_digest != history_digest(written_at, bytes)
+                {
+                    return Err(StoreError::ArchiveHistoryChanged);
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+fn stored_reference(
+    scope: &PrincipalScope<'_>,
+    reference: &EvidenceRef,
+) -> Result<StoredEvidenceRef, ArchiveError> {
+    let row = scope
+        .get(reference.table(), reference.key())
+        .ok_or(ArchiveError::HistoryMissing)?;
+    Ok(StoredEvidenceRef {
         table: table_code(reference.table()),
         key: reference.key().as_str().to_owned(),
-    }
+        content_digest: history_digest(row.written_at(), row.bytes()),
+    })
 }
 
 fn evidence_reference(stored: &StoredEvidenceRef) -> Result<EvidenceRef, ArchiveError> {
@@ -890,6 +961,7 @@ pub enum ArchiveError {
     TimeRegressed,
     NotArchived,
     HistoryMissing,
+    HistoryChanged,
     Corrupt(&'static str),
 }
 
@@ -922,6 +994,7 @@ impl Display for ArchiveError {
             }
             Self::TimeRegressed => formatter.write_str("archive time regressed"),
             Self::NotArchived => formatter.write_str("agent history is not archived yet"),
+            Self::HistoryChanged => formatter.write_str("archive history evidence changed"),
             Self::HistoryMissing => formatter.write_str("archive history evidence is missing"),
             Self::Corrupt(reason) => write!(formatter, "corrupt archive: {reason}"),
         }

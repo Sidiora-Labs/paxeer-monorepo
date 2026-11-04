@@ -272,116 +272,52 @@ func TestNewInnerLoadedCommitQCsNoAppQC(t *testing.T) {
 func TestNewInnerLoadedCommitQCsWithAppQC(t *testing.T) {
 	rng := utils.TestRng()
 	committee, keys := types.GenCommittee(rng, 4)
-
-	// AppQC at road index 2.
-	roadIdx := types.RoadIndex(2)
-	globalNum := types.GlobalBlockNumber(10)
-	appProposal := types.NewAppProposal(globalNum, roadIdx, types.GenAppHash(rng))
-	appQC := types.NewAppQC(makeAppVotes(keys, appProposal))
-
-	// Create 5 sequential CommitQCs (indices 0-4).
-	qcs := make([]*types.CommitQC, 5)
-	prev := utils.None[*types.CommitQC]()
-	for i := range qcs {
-		qcs[i] = makeCommitQC(committee, keys, prev, nil, utils.None[*types.AppQC]())
-		prev = utils.Some(qcs[i])
-	}
-
-	// Pre-filtered: only commitQCs >= anchor road index (2).
-	loadedQCs := []persist.LoadedCommitQC{
-		{Index: 2, QC: qcs[2]},
-		{Index: 3, QC: qcs[3]},
-		{Index: 4, QC: qcs[4]},
-	}
-
-	loaded := &loadedAvailState{
-		pruneAnchor: utils.Some(&PruneAnchor{AppQC: appQC, CommitQC: qcs[2]}),
-		commitQCs:   loadedQCs,
-	}
-
-	inner, err := newInner(committee, utils.Some(loaded))
+	dir := utils.Some(t.TempDir())
+	f := repairM1080CertifiedProgress(t, rng, committee, keys, 5, dir)
+	appQC := repairM1080AppQC(rng, committee, keys, f.qcs[2])
+	repairM1080PersistLiveAnchor(t, f.state, appQC, f.qcs[2])
+	require.NoError(t, f.state.persisters.commitQCs.Close())
+	loaded, pers, err := loadPersistedState(committee, dir)
 	require.NoError(t, err)
-
-	// latestAppQC should be set by prune.
-	aq, ok := inner.latestAppQC.Get()
-	require.True(t, ok)
-	require.Equal(t, roadIdx, aq.Proposal().RoadIndex())
-
-	// inner.prune(appQC@2, commitQC@2) sets commitQCs.first = 2.
-	// Indices 2, 3 and 4 remain; earlier ones are pruned.
-	require.Equal(t, types.RoadIndex(2), inner.commitQCs.first)
-	require.Equal(t, types.RoadIndex(5), inner.commitQCs.next)
-	require.NoError(t, utils.TestDiff(qcs[2], inner.commitQCs.q[2]))
-	require.NoError(t, utils.TestDiff(qcs[3], inner.commitQCs.q[3]))
-	require.NoError(t, utils.TestDiff(qcs[4], inner.commitQCs.q[4]))
-
-	// latestCommitQC should be the last restored one (index 4).
-	latest, ok := inner.latestCommitQC.Load().Get()
-	require.True(t, ok)
-	require.NoError(t, utils.TestDiff(qcs[4], latest))
+	defer func() { require.NoError(t, pers.commitQCs.Close()) }()
+	i, err := newInner(committee, loaded)
+	require.NoError(t, err)
+	require.NoError(t, utils.TestDiff(utils.Some(appQC), i.latestAppQC))
+	require.Equal(t, types.RoadIndex(2), i.commitQCs.first)
+	require.Equal(t, types.RoadIndex(5), i.commitQCs.next)
+	for n := types.RoadIndex(2); n < 5; n++ {
+		require.NoError(t, utils.TestDiff(f.qcs[n], i.commitQCs.q[n]))
+		require.Equal(t, f.qcs[n].GlobalRange(committee), i.commitQCs.q[n].GlobalRange(committee))
+	}
+	require.NoError(t, utils.TestDiff(utils.Some(f.qcs[4]), i.latestCommitQC.Load()))
 }
 
 func TestNewInnerLoadedAllThree(t *testing.T) {
 	rng := utils.TestRng()
 	committee, keys := types.GenCommittee(rng, 4)
 	lane := keys[0].Public()
-
-	// AppQC at road index 2.
-	roadIdx := types.RoadIndex(2)
-	appProposal := types.NewAppProposal(10, roadIdx, types.GenAppHash(rng))
-	appQC := types.NewAppQC(makeAppVotes(keys, appProposal))
-
-	// CommitQCs 0-4.
-	qcs := make([]*types.CommitQC, 5)
-	prev := utils.None[*types.CommitQC]()
-	for i := range qcs {
-		qcs[i] = makeCommitQC(committee, keys, prev, nil, utils.None[*types.AppQC]())
-		prev = utils.Some(qcs[i])
-	}
-	// Pre-filtered: only commitQCs >= anchor road index (2).
-	loadedQCs := []persist.LoadedCommitQC{
-		{Index: 2, QC: qcs[2]},
-		{Index: 3, QC: qcs[3]},
-		{Index: 4, QC: qcs[4]},
-	}
-
-	// Blocks 0-2 on one lane (nil laneQCs → lr.First()=0 after prune).
-	var parent types.BlockHeaderHash
-	var bs []persist.LoadedBlock
-	for n := range types.BlockNumber(3) {
-		b := testSignedBlock(keys[0], lane, n, parent, rng)
-		parent = b.Msg().Block().Header().Hash()
-		bs = append(bs, persist.LoadedBlock{Number: n, Proposal: b})
-	}
-
-	loaded := &loadedAvailState{
-		pruneAnchor: utils.Some(&PruneAnchor{AppQC: appQC, CommitQC: qcs[2]}),
-		commitQCs:   loadedQCs,
-		blocks:      map[types.LaneID][]persist.LoadedBlock{lane: bs},
-	}
-
-	inner, err := newInner(committee, utils.Some(loaded))
+	dir := utils.Some(t.TempDir())
+	f := repairM1080CertifiedProgress(t, rng, committee, keys, 5, dir)
+	appQC := repairM1080AppQC(rng, committee, keys, f.qcs[2])
+	repairM1080PersistLiveAnchor(t, f.state, appQC, f.qcs[2])
+	require.NoError(t, f.state.persisters.commitQCs.Close())
+	loaded, pers, err := loadPersistedState(committee, dir)
 	require.NoError(t, err)
-
-	// AppQC restored.
-	aq, ok := inner.latestAppQC.Get()
-	require.True(t, ok)
-	require.Equal(t, roadIdx, aq.Proposal().RoadIndex())
-
-	// CommitQCs: prune pushed qcs[2], loading skipped it, added 3 and 4.
-	require.Equal(t, types.RoadIndex(2), inner.commitQCs.first)
-	require.Equal(t, types.RoadIndex(5), inner.commitQCs.next)
-
-	// Blocks loaded.
-	q := inner.blocks[lane]
-	require.Equal(t, types.BlockNumber(0), q.first)
-	require.Equal(t, types.BlockNumber(3), q.next)
-	require.Equal(t, types.BlockNumber(3), inner.nextBlockToPersist[lane])
-
-	// latestCommitQC is the last loaded one.
-	latest, ok := inner.latestCommitQC.Load().Get()
-	require.True(t, ok)
-	require.NoError(t, utils.TestDiff(qcs[4], latest))
+	defer func() { require.NoError(t, pers.commitQCs.Close()) }()
+	i, err := newInner(committee, loaded)
+	require.NoError(t, err)
+	require.NoError(t, utils.TestDiff(utils.Some(appQC), i.latestAppQC))
+	require.Equal(t, types.RoadIndex(2), i.commitQCs.first)
+	require.Equal(t, types.RoadIndex(5), i.commitQCs.next)
+	q := i.blocks[lane]
+	require.Equal(t, types.BlockNumber(2), q.first)
+	require.Equal(t, types.BlockNumber(5), q.next)
+	require.Equal(t, types.BlockNumber(5), i.nextBlockToPersist[lane])
+	for n := q.first; n < q.next; n++ {
+		require.NoError(t, utils.TestDiff(f.blocks[n], q.q[n]))
+	}
+	require.Equal(t, f.qcs[2].GlobalRange(committee), i.commitQCs.q[2].GlobalRange(committee))
+	require.NoError(t, utils.TestDiff(utils.Some(f.qcs[4]), i.latestCommitQC.Load()))
 }
 
 func TestPruneAdvancesNextBlockToPersist(t *testing.T) {
@@ -426,7 +362,7 @@ func TestPruneAdvancesNextBlockToPersist(t *testing.T) {
 		"CommitQC lane range should reference blocks for this test to be meaningful")
 
 	// AppQC at index 2 → prune will fast-forward blocks past the cursor.
-	appProposal := types.NewAppProposal(10, 2, types.GenAppHash(rng))
+	appProposal := types.NewAppProposal(qcs[2].GlobalRange(committee).First, 2, types.GenAppHash(rng))
 	appQC := types.NewAppQC(makeAppVotes(keys, appProposal))
 
 	updated, err := i.prune(committee, appQC, qcs[2])
@@ -450,15 +386,11 @@ func TestNewInnerLoadedCommitQCsAllBeforeAppQCArePruned(t *testing.T) {
 	// Build 6 CommitQCs (indices 0-5). Anchor at index 5.
 	// All stale commitQCs (0-4) were already filtered by loadPersistedState,
 	// so newInner receives an empty commitQC slice.
-	qcs := make([]*types.CommitQC, 6)
-	prev := utils.None[*types.CommitQC]()
-	for i := range qcs {
-		qcs[i] = makeCommitQC(committee, keys, prev, nil, utils.None[*types.AppQC]())
-		prev = utils.Some(qcs[i])
-	}
+	f := repairM1080CertifiedProgress(t, rng, committee, keys, 6, utils.None[string]())
+	qcs := f.qcs
 
-	appProposal := types.NewAppProposal(20, 5, types.GenAppHash(rng))
-	appQC := types.NewAppQC(makeAppVotes(keys, appProposal))
+	appQC := repairM1080AppQC(rng, committee, keys, qcs[5])
+	require.NoError(t, f.state.PushAppQC(appQC, qcs[5]))
 
 	loaded := &loadedAvailState{
 		pruneAnchor: utils.Some(&PruneAnchor{AppQC: appQC, CommitQC: qcs[5]}),
@@ -479,15 +411,11 @@ func TestNewInnerAnchorWithNoCommitQCFiles(t *testing.T) {
 
 	// Simulate crash between anchor write and CommitQC file write:
 	// anchor has AppQC@3 + CommitQC@3, but no CommitQC files on disk.
-	qcs := make([]*types.CommitQC, 4)
-	prev := utils.None[*types.CommitQC]()
-	for i := range qcs {
-		qcs[i] = makeCommitQC(committee, keys, prev, nil, utils.None[*types.AppQC]())
-		prev = utils.Some(qcs[i])
-	}
+	f := repairM1080CertifiedProgress(t, rng, committee, keys, 4, utils.None[string]())
+	qcs := f.qcs
 
-	appProposal := types.NewAppProposal(20, 3, types.GenAppHash(rng))
-	appQC := types.NewAppQC(makeAppVotes(keys, appProposal))
+	appQC := repairM1080AppQC(rng, committee, keys, qcs[3])
+	require.NoError(t, f.state.PushAppQC(appQC, qcs[3]))
 
 	loaded := &loadedAvailState{
 		pruneAnchor: utils.Some(&PruneAnchor{AppQC: appQC, CommitQC: qcs[3]}),
@@ -565,15 +493,11 @@ func TestNewInnerLoadedCommitQCsGapWithAppQCAnchor(t *testing.T) {
 	// Simulate crash scenario: disk had stale QCs [0,1,2] and a new QC at
 	// index 10. loadPersistedState pre-filters stale entries, so newInner
 	// only receives [10].
-	qcs := make([]*types.CommitQC, 11)
-	prev := utils.None[*types.CommitQC]()
-	for i := range qcs {
-		qcs[i] = makeCommitQC(committee, keys, prev, nil, utils.None[*types.AppQC]())
-		prev = utils.Some(qcs[i])
-	}
+	f := repairM1080CertifiedProgress(t, rng, committee, keys, 11, utils.None[string]())
+	qcs := f.qcs
 
-	appProposal := types.NewAppProposal(50, 10, types.GenAppHash(rng))
-	appQC := types.NewAppQC(makeAppVotes(keys, appProposal))
+	appQC := repairM1080AppQC(rng, committee, keys, qcs[10])
+	require.NoError(t, f.state.PushAppQC(appQC, qcs[10]))
 
 	loadedQCs := []persist.LoadedCommitQC{
 		{Index: 10, QC: qcs[10]},
@@ -610,15 +534,11 @@ func TestNewInnerLoadedCommitQCsBelowAnchorSkipped(t *testing.T) {
 	// Loaded list includes stale entries [1, 2] below the anchor plus [3, 4, 5].
 	// In production loadPersistedState filters these, but newInner should
 	// handle them gracefully via the lqc.Index < commitQCs.next skip.
-	qcs := make([]*types.CommitQC, 6)
-	prev := utils.None[*types.CommitQC]()
-	for i := range qcs {
-		qcs[i] = makeCommitQC(committee, keys, prev, nil, utils.None[*types.AppQC]())
-		prev = utils.Some(qcs[i])
-	}
+	f := repairM1080CertifiedProgress(t, rng, committee, keys, 6, utils.None[string]())
+	qcs := f.qcs
 
-	appProposal := types.NewAppProposal(20, 3, types.GenAppHash(rng))
-	appQC := types.NewAppQC(makeAppVotes(keys, appProposal))
+	appQC := repairM1080AppQC(rng, committee, keys, qcs[3])
+	require.NoError(t, f.state.PushAppQC(appQC, qcs[3]))
 
 	loadedQCs := []persist.LoadedCommitQC{
 		{Index: 1, QC: qcs[1]},
@@ -651,15 +571,11 @@ func TestNewInnerLoadedCommitQCsGapAfterAnchorReturnsError(t *testing.T) {
 	// Anchor at index 2. Loaded commitQCs are [2, 3, 5] — gap at 4.
 	// After prune(2), next=3. Index 2 is skipped, 3 pushed (next=4),
 	// then 5 != 4 → error.
-	qcs := make([]*types.CommitQC, 6)
-	prev := utils.None[*types.CommitQC]()
-	for i := range qcs {
-		qcs[i] = makeCommitQC(committee, keys, prev, nil, utils.None[*types.AppQC]())
-		prev = utils.Some(qcs[i])
-	}
+	f := repairM1080CertifiedProgress(t, rng, committee, keys, 6, utils.None[string]())
+	qcs := f.qcs
 
-	appProposal := types.NewAppProposal(10, 2, types.GenAppHash(rng))
-	appQC := types.NewAppQC(makeAppVotes(keys, appProposal))
+	appQC := repairM1080AppQC(rng, committee, keys, qcs[2])
+	require.NoError(t, f.state.PushAppQC(appQC, qcs[2]))
 
 	loadedQCs := []persist.LoadedCommitQC{
 		{Index: 2, QC: qcs[2]},
@@ -758,31 +674,23 @@ func TestNewInnerLoadedBlocksOverCapacityReturnsError(t *testing.T) {
 func TestNewInnerPruneAnchorPrunesBlockQueues(t *testing.T) {
 	rng := utils.TestRng()
 	committee, keys := types.GenCommittee(rng, 4)
-	initialBlock := committee.FirstBlock()
 
 	// Build CommitQCs 0-2.
-	qcs := make([]*types.CommitQC, 3)
-	prev := utils.None[*types.CommitQC]()
-	for i := range qcs {
-		qcs[i] = makeCommitQC(committee, keys, prev, nil, utils.None[*types.AppQC]())
-		prev = utils.Some(qcs[i])
-	}
+	f := repairM1080CertifiedProgress(t, rng, committee, keys, 3, utils.None[string]())
+	qcs := f.qcs
 
 	// AppQC at road index 2, prune anchor is CommitQC[2].
-	appProposal := types.NewAppProposal(initialBlock, 2, types.GenAppHash(rng))
-	appQC := types.NewAppQC(makeAppVotes(keys, appProposal))
+	appQC := repairM1080AppQC(rng, committee, keys, qcs[2])
+	require.NoError(t, f.state.PushAppQC(appQC, qcs[2]))
 	pruneQC := qcs[2]
 
 	lane := keys[0].Public()
 
 	// Persist some blocks starting at the lane range for the prune CommitQC.
 	lrFirst := pruneQC.LaneRange(lane).First()
-	var parent types.BlockHeaderHash
 	var bs []persist.LoadedBlock
-	for n := lrFirst; n < lrFirst+3; n++ {
-		b := testSignedBlock(keys[0], lane, n, parent, rng)
-		parent = b.Msg().Block().Header().Hash()
-		bs = append(bs, persist.LoadedBlock{Number: n, Proposal: b})
+	for n := lrFirst; n < types.BlockNumber(len(f.blocks)); n++ {
+		bs = append(bs, persist.LoadedBlock{Number: n, Proposal: f.blocks[n]})
 	}
 
 	loaded := &loadedAvailState{
@@ -807,19 +715,14 @@ func TestNewInnerPruneAnchorPrunesBlockQueues(t *testing.T) {
 func TestNewInnerPruneAnchorCommitQCUsedForPrune(t *testing.T) {
 	rng := utils.TestRng()
 	committee, keys := types.GenCommittee(rng, 4)
-	initialBlock := committee.FirstBlock()
 
 	// Build CommitQCs 0-2.
-	qcs := make([]*types.CommitQC, 3)
-	prev := utils.None[*types.CommitQC]()
-	for i := range qcs {
-		qcs[i] = makeCommitQC(committee, keys, prev, nil, utils.None[*types.AppQC]())
-		prev = utils.Some(qcs[i])
-	}
+	f := repairM1080CertifiedProgress(t, rng, committee, keys, 3, utils.None[string]())
+	qcs := f.qcs
 
 	// AppQC at road index 1, prune anchor is CommitQC[1].
-	appProposal := types.NewAppProposal(initialBlock, 1, types.GenAppHash(rng))
-	appQC := types.NewAppQC(makeAppVotes(keys, appProposal))
+	appQC := repairM1080AppQC(rng, committee, keys, qcs[1])
+	require.NoError(t, f.state.PushAppQC(appQC, qcs[1]))
 
 	loaded := &loadedAvailState{
 		pruneAnchor: utils.Some(&PruneAnchor{AppQC: appQC, CommitQC: qcs[1]}),

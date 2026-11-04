@@ -20,7 +20,9 @@ defaults; query the running chain for its current values using
 | `DisableSeqnoCheck` | `disable_seqno_check` | `KeyDisableSeqnoCheck` | `bool` | `false` |
 
 `KeyDisableSeqnoCheck` is both the Go key variable's name and the exact stored
-string. The stored string includes the `Key` prefix, unlike the other keys.
+string. The stored string includes the `Key` prefix, unlike the other keys. It
+is stored in the params store under the auth subspace as
+`auth/KeyDisableSeqnoCheck`; it is not an account-store key.
 
 Memo validation uses the byte length of the memo string despite the field's
 `Characters` name. Signature counting includes the underlying keys of multisig

@@ -1,0 +1,9 @@
+[repair.22.33.955]
+audit = "22.30.28"
+finding = "browser-source-inventory"
+implementation = "The producer inventoryBrowserSources and consumer readBrowserManifest share the four current apps/launchpad/web paths; every source digest, additional source entry, artifact binding and browser measurement check remains enforced."
+proving_tests = ["browser_source_inventory_roundtrip", "browser_source_inventory_rejects_drift", "browser_source_inventory_retains_evidence_checks"]
+verify_cmd = "npm --prefix apps/launchpad/web install --no-audit --no-fund && node --test apps/launchpad/web/test/repair-22-33-955.test.mjs"
+baseline = "Not run: the explicit implementation-first order and hf-build/hf-done-only gate limits prohibit the contradictory unchanged-tree verify step; no baseline failures are claimed."
+evidence = "The runner records the exact candidate revision, command, exit and private log in its hf-done ledger; browser playback and deployment are not qualified by the source admission test."
+wiring_request = "Domain 4 (fm-launchpad): wire the external L40 browser manifest producer owned by tools/launchpad/production/load to inventoryBrowserSources in apps/launchpad/web/src/page-modules/live/production-measurement.mjs; no tracked browser manifest producer was found, and out-of-scope tooling is unchanged."

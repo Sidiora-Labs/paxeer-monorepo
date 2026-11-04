@@ -22,76 +22,11 @@ final class ProgramsContractTests: XCTestCase {
   }
 
   func testPendingReceiptMayOmitRetainedBytesButMustBindExpectedActivity() async throws {
-    let key = String(repeating: "a", count: 64)
-    let activity = Data(repeating: 0x11, count: 32)
-    let value: JSONValue = .object([
-      "state": .string("unknown"), "activity_id": .string(activity.hexString),
-      "idempotency_key": .string(key),
-    ])
-    let programs = try ProgramsClient(
-      client: PlatformClient(transport: ProgramTransport(value)),
-      sequencerPublicKey: Data(repeating: 1, count: 32))
-    let pending = try await programs.receipt(
-      idempotencyKey: IdempotencyKey(key), expectedActivityID: activity,
-      verificationLevel: "sequencer-signed")
-    XCTAssertTrue(pending.isUnknown)
-    XCTAssertNil(pending.retainedSignedActivity)
-    do {
-      _ = try await programs.receipt(
-        idempotencyKey: IdempotencyKey(key),
-        expectedActivityID: Data(repeating: 0x12, count: 32), verificationLevel: "sequencer-signed")
-      XCTFail("mismatched activity selector was accepted")
-    } catch let error as PlatformSDKError {
-      XCTAssertEqual(error.code, .verificationFailure)
-    }
+    try await Self.proveRetainedPending1398()
   }
 
-  func testOperationValueVerificationStatusMatrixIsExact() {
-    let achieved: JSONValue = .object([
-      "state": .string("Achieved"), "level": .string("SequencerSigned"),
-    ])
-    let discovery: JSONValue = .object([
-      "state": .string("Unverified"), "requested": .string("SequencerSigned"),
-      "achieved": .string("Unverified"),
-      "reason": .string("server_side_receipt_verification_only"),
-    ])
-    let pending: JSONValue = .object([
-      "state": .string("Unverified"), "requested": .string("SequencerSigned"),
-      "achieved": .string("Unverified"),
-      "reason": .string("receipt_pending"),
-    ])
-    let oldUnverified: JSONValue = .object([
-      "state": .string("Unverified"), "level": .string("SequencerSigned"),
-      "reason": .string("server_side_receipt_verification_only"),
-    ])
-    let unknown: JSONValue = .object(["state": .string("unknown")])
-    let inFlight: JSONValue = .object(["state": .string("pending")])
-    let terminal: JSONValue = .object(["state": .string("executed")])
-    XCTAssertTrue(
-      AgentHTTPTransport.validVerification(
-        "program.discover", value: .emptyObject, status: discovery))
-    XCTAssertFalse(
-      AgentHTTPTransport.validVerification(
-        "program.discover", value: .emptyObject, status: achieved))
-    XCTAssertFalse(
-      AgentHTTPTransport.validVerification(
-        "program.discover", value: .emptyObject, status: oldUnverified))
-    XCTAssertTrue(
-      AgentHTTPTransport.validVerification("program.receipt", value: unknown, status: pending))
-    XCTAssertTrue(
-      AgentHTTPTransport.validVerification("program.activity", value: inFlight, status: pending))
-    XCTAssertFalse(
-      AgentHTTPTransport.validVerification("program.receipt", value: unknown, status: achieved))
-    XCTAssertFalse(
-      AgentHTTPTransport.validVerification("program.call", value: inFlight, status: achieved))
-    XCTAssertTrue(
-      AgentHTTPTransport.validVerification("program.call", value: terminal, status: achieved))
-    XCTAssertTrue(
-      AgentHTTPTransport.validVerification(
-        "program.simulate", value: .emptyObject, status: achieved))
-    XCTAssertFalse(
-      AgentHTTPTransport.validVerification(
-        "program.simulate", value: .emptyObject, status: discovery))
+  func testOperationValueVerificationStatusMatrixIsExact() throws {
+    try Self.proveCurrentDaemonStatuses1398()
   }
 
   func testTransferSetV1AndV2ProduceTheSameCanonicalKernelRoot() throws {
@@ -131,13 +66,13 @@ final class ProgramsContractTests: XCTestCase {
     let fixture = try nativeCallFixture()
     let payload = try nativeTransportHex(fixture["payload_hex"] as? String)
     let native = try NativeProgramCall.decode(payload)
-    for abi in [ProgramGuestABI.v1, .v2, .v3, .v4] {
+    for abi in [ProgramGuestABI.v1, .v2, .v3, .v4, .v5] {
       XCTAssertEqual(abi.capabilityEncoding, abi == .v1 ? 1 : 2)
       XCTAssertEqual(abi.accountProfile2Supported, abi != .v1)
       let call = nativeCall(native, abi: abi.rawValue)
       XCTAssertEqual(try NativeProgramCall.decode(call.encode()).guestABI, abi.rawValue)
     }
-    for abi: UInt16 in [0, 5, UInt16.max] {
+    for abi: UInt16 in [0, 6, UInt16.max] {
       XCTAssertNil(ProgramGuestABI(rawValue: abi))
       XCTAssertThrowsError(try nativeCall(native, abi: abi).encode())
     }
@@ -156,17 +91,19 @@ final class ProgramsContractTests: XCTestCase {
     let program = Data(payload.prefix(32))
     let hash = Data(payload[68..<100])
     let authority = Data(payload[36..<68])
-    for abi: UInt16 in [1, 2, 3, 4] {
+    for abi: UInt16 in [1, 2, 3, 4, 5] {
       let deploy = try NativeProgramDeploy(
         programID: program, guestABI: abi, policy: 1,
-        authority: authority, newHash: hash, wasm: wasm)
+        authority: authority, newHash: hash,
+        programInterface: abi >= 3 ? lifecycleInterface(abi: abi) : nil, wasm: wasm)
       XCTAssertEqual(try NativeProgramDeploy.decode(deploy.encode()).encode(), deploy.encode())
       let upgrade = try NativeProgramUpgrade(
         programID: program, guestABI: abi,
-        oldHash: hash, newHash: hash, wasm: wasm)
+        oldHash: hash, newHash: hash,
+        programInterface: abi >= 3 ? lifecycleInterface(abi: abi) : nil, wasm: wasm)
       XCTAssertEqual(try NativeProgramUpgrade.decode(upgrade.encode()).encode(), upgrade.encode())
     }
-    for abi: UInt16 in [0, 5, UInt16.max] {
+    for abi: UInt16 in [0, 6, UInt16.max] {
       XCTAssertThrowsError(
         try NativeProgramDeploy(
           programID: program, guestABI: abi, policy: 1,
@@ -187,15 +124,16 @@ final class ProgramsContractTests: XCTestCase {
         oldHash: hash, newHash: Data(repeating: 0, count: 32), wasm: wasm))
   }
 
-  func testSignedDiscoveryRequiresExactCanonicalProofAndIndependentPin() throws {
+  func testSignedDiscoveryRequiresExactCanonicalProofAndIndependentPin() async throws {
+    try await Self.proveCurrentRegistry1398()
     let signer = try Curve25519.Signing.PrivateKey(
       rawRepresentation: Data(repeating: 0x42, count: 32))
     let pin = signer.publicKey.rawRepresentation
     let program = Data(repeating: 0x11, count: 32).hexString
     let achieved: JSONValue = .object([
-      "state": .string("Achieved"), "level": .string("SequencerSigned"),
+      "state": .string("achieved"), "rung": .string("receipted"),
     ])
-    for abi: UInt16 in [1, 2, 3, 4] {
+    for abi: UInt16 in [1, 2, 3, 4, 5] {
       let object = try discoveryDocument(abi: abi, signer: signer)
       let verified = try XCTUnwrap(
         verifiedDiscovery(
@@ -203,13 +141,15 @@ final class ProgramsContractTests: XCTestCase {
           interface: false, now: 150, pinnedKey: pin
         ).discovery)
       XCTAssertEqual(verified.abiVersion, abi)
-      XCTAssertEqual(verified.verification, "sequencer-signed")
+      XCTAssertEqual(
+        verified.receiptDigest, try nativeTransportHex(object["receipt_digest"]?.stringValue))
       XCTAssertTrue(
-        AgentHTTPTransport.validVerification(
-          "program.discover", value: .object(object), status: achieved))
+        AgentEnvelopeTransport.validVerification(achieved))
       XCTAssertFalse(
-        AgentHTTPTransport.validVerification(
-          "program.interface", value: .object(object), status: achieved))
+        AgentEnvelopeTransport.validVerification(
+          .object([
+            "state": .string("Achieved"), "level": .string("SequencerSigned"),
+          ])))
       XCTAssertThrowsError(
         try verifiedDiscovery(
           .object(object), programID: program,
@@ -261,7 +201,7 @@ final class ProgramsContractTests: XCTestCase {
     let signer = try Curve25519.Signing.PrivateKey(
       rawRepresentation: Data(repeating: 0x42, count: 32))
     let pin = signer.publicKey.rawRepresentation
-    for abi: UInt16 in [3, 4] {
+    for abi: UInt16 in [3, 4, 5] {
       let document = try discoveryDocument(abi: abi, signer: signer)
       let program = try XCTUnwrap(document["program_id"]?.stringValue)
       let discovery = try XCTUnwrap(
@@ -343,6 +283,16 @@ final class ProgramsContractTests: XCTestCase {
     encoded.replaceSubrange(domainBytes..<domainBytes + 32, with: Data(repeating: 0x22, count: 32))
     encoded.replaceSubrange(domainBytes + 32..<domainBytes + 34, with: word(abi.bigEndian))
     return encoded
+  }
+
+  private func lifecycleInterface(abi: UInt16) throws -> Data {
+    let fixture = try fixtureDocument("native-program-deploy-v3.json")
+    let payload = try nativeTransportHex(fixture["payload_hex"] as? String)
+    let length = payload[104..<108].reduce(UInt32(0)) { ($0 << 8) | UInt32($1) }
+    var bytes = Data(payload[108..<108 + Int(length)])
+    let offset = Data("LayerX/program-interface/v1\0".utf8).count + 32
+    bytes.replaceSubrange(offset..<offset + 2, with: word(abi.bigEndian))
+    return bytes
   }
 
   private func nativeCall(_ value: NativeProgramCall, abi: UInt16, capacity: UInt32? = nil)
@@ -478,4 +428,328 @@ final class ProgramsContractTests: XCTestCase {
 
 extension Data {
   fileprivate var hexString: String { map { String(format: "%02x", $0) }.joined() }
+}
+
+extension ProgramsContractTests {
+  static func proveRetainedPending1398() async throws {
+    typealias E = RecordedProgramEvidence1398
+    let (vector, _) = try E.recordedCommitted()
+    let view = try E.object(vector, "receiptJson")
+    let hashText = try E.text(view, "txHash")
+    let hash = try E.hex(hashText)
+    let key = try IdempotencyKey(String(hashText.dropFirst(2)))
+    // rpc/sequencer_receipt.go's submitted branch: the transaction is retained but
+    // no sequencer execution receipt exists yet. No old kernel receipt is invented.
+    let submitted: JSONValue = .object([
+      "rung": .string("submitted"), "txHash": .string(hashText),
+      "nonce": try XCTUnwrap(view["nonce"]),
+    ])
+    let steps: [ProgramReplayServer1398.Exchange] = [
+      .init("eth_getTransactionByHash", [.string(hashText)], .object(["hash": .string(hashText)])),
+      .init("pax_sequencerReceipt", [.string(hashText)], submitted),
+    ]
+    let server = try ProgramReplayServer1398(steps)
+    defer { server.stop() }
+    let pending = try await E.client(server).receipt(
+      idempotencyKey: key,
+      expectedActivityID: hash, verificationLevel: "pending")
+    XCTAssertEqual(pending.state, "pending")
+    XCTAssertFalse(pending.isUnknown)
+    XCTAssertEqual(pending.transactionHash, hash)
+    XCTAssertEqual(pending.idempotencyKey, key.rawValue)
+    XCTAssertNil(pending.retainedSignedActivity)
+    XCTAssertNil(pending.sequencerReceipt)
+    XCTAssertNil(pending.execution)
+    server.assertConsumed(2)
+
+    let wrongHash = Data(repeating: 0x12, count: 32)
+    let wrongText = E.wireHex(wrongHash)
+    let mismatch = try ProgramReplayServer1398([
+      .init("eth_getTransactionByHash", [.string(wrongText)], .object(["hash": .string(hashText)]))
+    ])
+    defer { mismatch.stop() }
+    do {
+      _ = try await E.client(mismatch).receipt(
+        idempotencyKey: key,
+        expectedActivityID: wrongHash, verificationLevel: "pending")
+      XCTFail("Accepted a retained transaction for another expected activity")
+    } catch let error as PlatformSDKError {
+      XCTAssertEqual(error.code, .verificationFailure)
+    }
+    mismatch.assertConsumed(1)
+    let unknown = try ProgramReplayServer1398([
+      .init("eth_getTransactionByHash", [.string(hashText)], .null)
+    ])
+    defer { unknown.stop() }
+    let absent = try await E.client(unknown).receipt(
+      idempotencyKey: key,
+      expectedActivityID: hash, verificationLevel: "pending")
+    XCTAssertTrue(absent.isUnknown)
+    XCTAssertNil(absent.sequencerReceipt)
+    unknown.assertConsumed(1)
+    for oldLevel in ["sequencer-signed", "SequencerSigned"] {
+      do {
+        _ = try await E.client(server).receipt(
+          idempotencyKey: key,
+          expectedActivityID: hash, verificationLevel: oldLevel)
+        XCTFail("Accepted retired verification level")
+      } catch let error as PlatformSDKError {
+        XCTAssertEqual(error.code, .invalidArgument)
+      }
+    }
+    server.assertConsumed(2)
+  }
+
+  static func proveCurrentDaemonStatuses1398() throws {
+    typealias E = RecordedProgramEvidence1398
+    let directory = "services/agent/schema/agent-api/golden/"
+    for name in ["agent-http-success", "agent-http-success-pending", "agent-http-success-absent"] {
+      let url = E.root.appendingPathComponent(directory + name + ".json")
+      let data = try Data(contentsOf: url)
+      let envelope = try JSONDecoder().decode(E.Record.self, from: data)
+      let requestID = try E.text(envelope, "request_id")
+      let result = try AgentEnvelopeTransport.decodeResponse(
+        status: 200, data: data, requestID: requestID)
+      XCTAssertEqual(result.value, envelope["value"])
+      XCTAssertEqual(result.verificationStatus, envelope["verification_status"])
+      XCTAssertEqual(result.requestID, requestID)
+      let status = try E.object(envelope, "verification_status")
+      XCTAssertTrue(AgentEnvelopeTransport.validVerification(.object(status)))
+      var invalid: [E.Record] = [
+        ["state": .string("Achieved"), "level": .string("SequencerSigned")],
+        [
+          "state": .string("Unverified"), "requested": .string("SequencerSigned"),
+          "achieved": .string("Unverified"), "reason": .string("receipt_pending"),
+        ],
+        [
+          "state": .string("Unverified"), "level": .string("SequencerSigned"),
+          "reason": .string("server_side_receipt_verification_only"),
+        ],
+      ]
+      for field in status.keys {
+        var missing = status
+        missing.removeValue(forKey: field)
+        invalid.append(missing)
+      }
+      var extra = status
+      extra["unexpected"] = .null
+      invalid.append(extra)
+      for changedStatus in invalid {
+        var changed = envelope
+        changed["verification_status"] = .object(changedStatus)
+        XCTAssertFalse(AgentEnvelopeTransport.validVerification(.object(changedStatus)))
+        XCTAssertThrowsError(
+          try AgentEnvelopeTransport.decodeResponse(
+            status: 200, data: E.encode(changed), requestID: requestID)
+        ) {
+          XCTAssertEqual(($0 as? PlatformSDKError)?.code, .decodeFailure)
+        }
+      }
+    }
+    for rung in ["submitted", "receipted", "committed"] {
+      XCTAssertTrue(
+        AgentEnvelopeTransport.validVerification(
+          .object([
+            "state": .string("achieved"), "rung": .string(rung),
+          ])))
+    }
+    for (requested, achieved) in [("receipted", "submitted"), ("committed", "receipted")] {
+      XCTAssertTrue(
+        AgentEnvelopeTransport.validVerification(
+          .object([
+            "state": .string("unverified"), "requested": .string(requested),
+            "achieved": .string(achieved), "reason": .string("verification.pending"),
+          ])))
+      XCTAssertFalse(
+        AgentEnvelopeTransport.validVerification(
+          .object([
+            "state": .string("unverified"), "requested": .string(achieved),
+            "achieved": .string(requested), "reason": .string("verification.pending"),
+          ])))
+    }
+  }
+
+  static func proveCurrentRegistry1398() async throws {
+    typealias E = RecordedProgramEvidence1398
+    let document = try E.fixture("native-program-deploy-v4")
+    let payload = try nativeTransportHex(E.text(document, "payload_hex"))
+    let operation = try NativeProgramDeploy.decode(payload)
+    let calldata = try NativeProgramLifecycleRequest.calldata(operation: operation)
+    let program = Data(payload.prefix(32))
+    let authority = Data(payload[36..<68])
+    let codeHash = Data(payload[68..<100])
+    XCTAssertEqual(calldata, try E.bytes(E.object(document, "evm"), "calldata"))
+    let interface = try lifecycleDynamicFields1398(calldata, offsets: [160, 192], headSize: 224)[0]
+    // ABI-encoded registry return values use the deployed fixture's real code and interface.
+    // The ABI encoder is production code; these are pending reads and claim no receipt proof.
+    let registry = try ProgramABI.encode(
+      selector: "00000000",
+      fields: [
+        .word(ProgramABI.word(1)), .word(authority), .word(codeHash),
+        .word(ProgramABI.word(2)), .word(ProgramABI.word(1)), .word(ProgramABI.word(1)),
+      ]
+    ).dropFirst(4)
+    let interfaceResult = try ProgramABI.encode(
+      selector: "00000000",
+      fields: [
+        .word(ProgramABI.word(1)), .word(Data(SHA256.hash(data: interface))), .bytes(interface),
+      ]
+    ).dropFirst(4)
+    func params(_ selector: String) throws -> [JSONValue] {
+      let data = try ProgramABI.encode(selector: selector, fields: [.word(program)])
+      return [
+        .object([
+          "from": .string("0x" + String(repeating: "55", count: 20)),
+          "to": .string(Programs.address), "data": .string(E.wireHex(data)),
+        ]),
+        .string("pending"),
+      ]
+    }
+    let server = try ProgramReplayServer1398([
+      .init("eth_call", try params("b1ffb3d4"), .string(E.wireHex(Data(registry)))),
+      .init("eth_call", try params("8efc7240"), .string(E.wireHex(Data(interfaceResult)))),
+    ])
+    defer { server.stop() }
+    let client = try E.client(server)
+    let record = try await client.discover(programID: program)
+    XCTAssertEqual(record.programID, program)
+    XCTAssertEqual(record.codeHash, codeHash)
+    XCTAssertEqual(record.authority, authority)
+    XCTAssertEqual(record.policy, 1)
+    XCTAssertEqual(record.abiVersion, 2)
+    XCTAssertEqual(record.version, 1)
+    XCTAssertTrue(record.active)
+    let publishedInterface = try await client.interface(programID: program)
+    XCTAssertEqual(publishedInterface.programID, record.programID)
+    XCTAssertEqual(publishedInterface.version, record.version)
+    XCTAssertEqual(publishedInterface.encoding, interface)
+    XCTAssertEqual(publishedInterface.digest, Data(SHA256.hash(data: interface)))
+    for level in ["sequencer-signed", "SequencerSigned", "receipted", "committed"] {
+      do {
+        _ = try await client.discover(programID: program, verificationLevel: level)
+        XCTFail("A pending registry read claimed authenticated discovery")
+      } catch let error as PlatformSDKError { XCTAssertEqual(error.code, .invalidArgument) }
+      do {
+        _ = try await client.interface(programID: program, verificationLevel: level)
+        XCTFail("A pending interface read claimed authenticated discovery")
+      } catch let error as PlatformSDKError { XCTAssertEqual(error.code, .invalidArgument) }
+    }
+    server.assertConsumed(2)
+  }
+
+  private static func lifecycleDynamicFields1398(_ calldata: Data, offsets: [Int], headSize: Int)
+    throws -> [Data]
+  {
+    let body = Data(calldata.dropFirst(4))
+    var position = headSize
+    var fields: [Data] = []
+    for offset in offsets {
+      let declaredPosition = try ProgramABI.integer(body, at: offset)
+      guard declaredPosition == UInt64(position) else { throw NativeProgramCallError.invalid }
+      let length = try ProgramABI.integer(body, at: position)
+      guard length <= 1_048_576 else { throw NativeProgramCallError.invalid }
+      let end = position + 32 + ((Int(length) + 31) / 32) * 32
+      guard end <= body.count else { throw NativeProgramCallError.invalid }
+      // dynamic() intentionally accepts one final tail. Frame that tail exactly;
+      // retain its production offset, length and zero-padding checks for every field.
+      fields.append(try ProgramABI.dynamic(Data(body.prefix(end)), at: offset, headSize: position))
+      position = end
+    }
+    guard position == body.count else { throw NativeProgramCallError.invalid }
+    return fields
+  }
+
+  static func proveABIFiveRegistration1398() async throws {
+    typealias E = RecordedProgramEvidence1398
+    let document = try E.fixture("native-program-deploy-v4")
+    let payload = try nativeTransportHex(E.text(document, "payload_hex"))
+    let decoded = try NativeProgramDeploy.decode(payload)
+    let originalCalldata = try NativeProgramLifecycleRequest.calldata(operation: decoded)
+    XCTAssertEqual(originalCalldata, try E.bytes(E.object(document, "evm"), "calldata"))
+    let originalFields = try lifecycleDynamicFields1398(
+      originalCalldata, offsets: [160, 192], headSize: 224)
+    let wasm = originalFields[1]
+    var interface = originalFields[0]
+    let abiOffset = Data("LayerX/program-interface/v1\0".utf8).count + 32
+    interface.replaceSubrange(abiOffset..<abiOffset + 2, with: [0, 5])
+    let program = Data(payload.prefix(32))
+    let authority = Data(payload[36..<68])
+    let hash = Data(SHA256.hash(data: wasm))
+    XCTAssertEqual(hash, Data(payload[68..<100]))
+    XCTAssertEqual(Data(interface[abiOffset - 32..<abiOffset]), hash)
+    XCTAssertEqual(ProgramGuestABI.v5.rawValue, 5)
+    XCTAssertEqual(ProgramGuestABI.v5.capabilityEncoding, 2)
+    XCTAssertTrue(ProgramGuestABI.v5.accountProfile2Supported)
+    let operation = try NativeProgramDeploy(
+      programID: program, guestABI: ProgramGuestABI.v5.rawValue,
+      policy: 1, authority: authority, newHash: hash, programInterface: interface, wasm: wasm)
+    XCTAssertEqual(try NativeProgramDeploy.decode(operation.encode()).encode(), operation.encode())
+    let calldata = try NativeProgramLifecycleRequest.calldata(operation: operation)
+    let abiBody = Data(calldata.dropFirst(4))
+    XCTAssertEqual(calldata.prefix(4), try E.hex("0xbde3ff66"))
+    XCTAssertEqual(try ProgramABI.integer(abiBody, at: 32, width: 2), 5)
+    let fields = try lifecycleDynamicFields1398(calldata, offsets: [160, 192], headSize: 224)
+    XCTAssertEqual(fields[0], interface)
+    XCTAssertEqual(fields[1], wasm)
+    let sender = Data(repeating: 0x55, count: 20)
+    let unsigned = UnsignedProgramTransaction(
+      sender: sender, nonce: 7, gas: 0,
+      maxFeePerGas: 100, maxPriorityFeePerGas: 2, calldata: calldata)
+    let server = try ProgramReplayServer1398([
+      .init(
+        "eth_getTransactionCount", [.string(E.wireHex(sender)), .string("pending")], .string("0x7")),
+      .init(
+        "eth_estimateGas", [unsigned.rpcValue(includeGas: false), .string("pending")],
+        .string("0x186a0")),
+    ])
+    defer { server.stop() }
+    let transaction = try await E.client(server).deploy(operation)
+    XCTAssertEqual(transaction.calldata, calldata)
+    XCTAssertEqual(transaction.chainID, 125)
+    XCTAssertEqual(transaction.to, Programs.address)
+    XCTAssertEqual(transaction.nonce, 7)
+    XCTAssertEqual(transaction.gas, 100_000)
+    server.assertConsumed(2)
+    let upgrade = try NativeProgramUpgrade(
+      programID: program, guestABI: 5,
+      oldHash: hash, newHash: hash, programInterface: interface, wasm: wasm)
+    XCTAssertEqual(try NativeProgramUpgrade.decode(upgrade.encode()).encode(), upgrade.encode())
+    let upgradeCalldata = try NativeProgramLifecycleRequest.calldata(
+      operation: upgrade,
+      feeLimit: ProtocolAmount("1000"))
+    XCTAssertEqual(upgradeCalldata.prefix(4), try E.hex("0xa860929f"))
+    XCTAssertEqual(try ProgramABI.integer(Data(upgradeCalldata.dropFirst(4)), at: 32, width: 2), 5)
+    let upgradeFields = try lifecycleDynamicFields1398(
+      upgradeCalldata, offsets: [160, 192, 224], headSize: 288)
+    XCTAssertTrue(upgradeFields[0].isEmpty)
+    XCTAssertEqual(upgradeFields[1], interface)
+    XCTAssertEqual(upgradeFields[2], wasm)
+    for abi: UInt16 in [0, 6, UInt16.max] {
+      XCTAssertNil(ProgramGuestABI(rawValue: abi))
+      XCTAssertThrowsError(
+        try NativeProgramDeploy(
+          programID: program, guestABI: abi,
+          policy: 1, authority: authority, newHash: hash, programInterface: interface, wasm: wasm))
+      XCTAssertThrowsError(
+        try NativeProgramUpgrade(
+          programID: program, guestABI: abi,
+          oldHash: hash, newHash: hash, programInterface: interface, wasm: wasm))
+    }
+    XCTAssertThrowsError(
+      try NativeProgramDeploy(
+        programID: program, guestABI: 5,
+        policy: 1, authority: authority, newHash: hash,
+        programInterface: Data(repeating: 1, count: 953), wasm: wasm))
+    XCTAssertThrowsError(
+      try NativeProgramUpgrade(
+        programID: program, guestABI: 5,
+        oldHash: hash, newHash: Data(repeating: 0, count: 32), programInterface: interface,
+        wasm: wasm))
+    let oversizedWasm = wasm + Data(repeating: 0, count: 1_048_577 - wasm.count)
+    XCTAssertThrowsError(
+      try NativeProgramDeploy(
+        programID: program, guestABI: 5,
+        policy: 1, authority: authority, newHash: Data(SHA256.hash(data: oversizedWasm)),
+        programInterface: interface, wasm: oversizedWasm))
+  }
 }

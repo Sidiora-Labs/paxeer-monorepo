@@ -47,14 +47,16 @@ use layerx_visa_tap::{
     KeyStatus, MerchantOperationResult, RegisteredAgentKey, TapError, TapRequest, TapVerifier,
     TrustedAgentRegistry,
 };
-use layerx_x402::buyer::{BuyerPaymentPlane, PaymentBuildRequest, SupportedKind};
+use layerx_x402::buyer::{BoundBuyerPaymentPlane, SupportedKind};
 use layerx_x402::facilitator::{
     FacilitatorPaymentRequest, FacilitatorPlane, FacilitatorRequest, FacilitatorSettlementOutcome,
     PlaneVerifyOutcome, SettlementStep,
 };
 use layerx_x402::model::{PaymentRequirements, X402Error};
 use layerx_x402::transport::encode_payment_required;
-use layerx_x402::transport::{decode_facilitator_request, TransportKind, TransportValue};
+use layerx_x402::transport::{
+    decode_facilitator_request, decode_json_slice, TransportKind, TransportValue,
+};
 use layerx_x402::{Buyer, Facilitator, PaymentRequired, Seller};
 use p256::ecdsa::VerifyingKey as P256Key;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -969,7 +971,7 @@ fn x402_buyer(
     trace: &TraceId,
     operation: &str,
 ) -> Dispatch {
-    let body: BuyerRequest = match typed_body(request, transport) {
+    let body: BuyerRequest = match x402_body(request) {
         Ok(value) => value,
         Err(()) => return Dispatch::error(400, "refused", "invalid_x402_buyer_request"),
     };
@@ -991,9 +993,7 @@ fn x402_buyer(
     let Ok(buyer) = Buyer::new(supported) else {
         return Dispatch::error(503, "pending", "adapter_configuration_invalid");
     };
-    let mut plane = BuyerPlane {
-        payload: Some(body.scheme_payload),
-    };
+    let mut plane = BoundBuyerPaymentPlane::new(body.scheme_payload);
     let Ok(idempotency) = parse_hex32(operation) else {
         return Dispatch::error(503, "pending", "operation_identity_invalid");
     };
@@ -1012,24 +1012,8 @@ fn x402_buyer(
     }
 }
 
-struct BuyerPlane {
-    payload: Option<Value>,
-}
-
-impl BuyerPaymentPlane for BuyerPlane {
-    fn construct(
-        &mut self,
-        _request: PaymentBuildRequest,
-    ) -> Result<Value, layerx_x402::model::X402Error> {
-        self.payload
-            .take()
-            .filter(Value::is_object)
-            .ok_or(layerx_x402::model::X402Error::InvalidPayload)
-    }
-}
-
 fn x402_seller(request: &IncomingRequest, transport: IngressTransport) -> Dispatch {
-    let required: PaymentRequired = match typed_body(request, transport) {
+    let required: PaymentRequired = match x402_body(request) {
         Ok(value) => value,
         Err(()) => return Dispatch::error(400, "refused", "invalid_x402_offer"),
     };
@@ -1055,9 +1039,16 @@ fn x402_request(
     request: &IncomingRequest,
     transport: IngressTransport,
 ) -> Result<FacilitatorRequest, ()> {
-    let value: Value = typed_body(request, transport)?;
+    let value: Value = x402_body(request)?;
     decode_facilitator_request(transport_kind(transport), &TransportValue::Json(value))
         .map_err(|_| ())
+}
+
+fn x402_body<T: DeserializeOwned>(request: &IncomingRequest) -> Result<T, ()> {
+    if request.headers.get("content-type").map(String::as_str) != Some("application/json") {
+        return Err(());
+    }
+    decode_json_slice(&request.body).map_err(|_| ())
 }
 
 fn gateway_core(config: &Config, trace: &TraceId, now: u64) -> Result<GatewayCore, ()> {

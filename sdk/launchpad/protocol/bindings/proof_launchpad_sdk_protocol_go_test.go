@@ -1,7 +1,10 @@
 // Proves: bindings.*MetaData -> bind.MetaData.GetAbi / abi.ABI codecs -> protocol.LookupEvent, decode.Decoder.Decode and chain.ReadAdapter.identifyPool's decoder.
 //
 // The eight metadata objects are the producers under this contract: they carry
-// ABI definitions, not chain or database state. The proof creates fresh encoded
+// ABI definitions, not chain or database state. Initialized round trips below
+// are schema checks; native lifecycle evidence must come from executor logs.
+// Retained interfaces run reviewed Solidity artifacts in the focused proofs.
+// The metadata proof creates fresh encoded
 // results on each observation and invokes the actual indexer and chain consumer
 // tests as subprocesses from their owning modules, without replacing a codec,
 // registry, RPC layer or consumer with a test double. No service is required.
@@ -34,7 +37,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-func TestProofLaunchpadSdkProtocolGo(t *testing.T) {
+func proofLaunchpadRoleMetadata(t *testing.T) {
+	t.Helper()
 	root, err := filepath.Abs("../../../..")
 	if err != nil {
 		t.Fatal(err)
@@ -120,6 +124,18 @@ func TestProofLaunchpadSdkProtocolGo(t *testing.T) {
 	}
 	if observed, ok := protocol.LookupEvent(common.HexToHash("0xdeadbeef")); ok || observed != nil {
 		t.Fatalf("unknown producer identifier was accepted: %+v", observed)
+	}
+}
+
+func TestProofLaunchpadSdkProtocolGo(t *testing.T) {
+	proofLaunchpadRoleMetadata(t)
+	t.Run("RetainedEmitterV2", TestRepairM_948_RetainedEmitterV2)
+	t.Run("BeaconOwnershipHandoff", TestRepairM_948_BeaconOwnershipHandoff)
+	t.Run("NativeExecutorTransport", TestRepairM_948_NativeExecutorTransport)
+	t.Run("NativeExecutorNode", TestRepairM_948_NativeExecutorNode)
+	root, err := filepath.Abs("../../../..")
+	if err != nil {
+		t.Fatal(err)
 	}
 	// These modules own internal consumer functions and their dependency graphs.
 	// Invoke their real Go tests rather than copying their implementations into

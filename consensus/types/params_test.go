@@ -358,6 +358,16 @@ func TestConsensusParamsUpdate_AppVersion(t *testing.T) {
 }
 
 func TestConsensusParamsUpdate_VoteExtensionsEnableHeight(t *testing.T) {
+	t.Run("schedule first enablement from disabled", func(t *testing.T) {
+		initialParams := DefaultConsensusParams()
+		update := &tmproto.ConsensusParams{Abci: &tmproto.ABCIParams{VoteExtensionsEnableHeight: 11}}
+		require.NoError(t, initialParams.ValidateUpdate(update, 10))
+		require.Error(t, initialParams.ValidateUpdate(update, 11))
+		require.Error(t, initialParams.ValidateUpdate(update, 12))
+		updated := initialParams.UpdateConsensusParams(update)
+		require.EqualValues(t, 11, updated.ABCI.VoteExtensionsEnableHeight)
+		require.Zero(t, initialParams.ABCI.VoteExtensionsEnableHeight)
+	})
 	t.Run("set to height but initial height already run", func(*testing.T) {
 		initialParams := makeParams(makeParamsArgs{
 			abciExtensionHeight: 1,

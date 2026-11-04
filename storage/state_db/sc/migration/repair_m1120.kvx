@@ -1,0 +1,27 @@
+[repair.22.33.1120]
+audit = "22.30.48"
+base_revision = "4299cb15eced23eb9a839162acd11e9a937edd05"
+verification = "hf-done records the verified candidate revision, command, exit and private log in /out/run/gates.jsonl; this record does not claim a gate before it runs."
+baseline = "No prior gate ledger or task implementation was present; the explicit implementation-first order and one verify gate prohibit step 8's contradictory unchanged-tree run, so no baseline failure is claimed."
+scope = "Only storage/state_db/sc/migration; existing setup edits to .cgignore and spec.kvx left intact."
+
+[finding.migration-partition-doc]
+proof = "TestRepairM_1120_Partition"
+change = "Name the original brand-new-key example and require logical union/value checks; exercise production routing, fresh keys above cursor, overlaid values, deletes and completion without chasing the new-key tail."
+
+[finding.migration-crash-doc]
+proof = ["TestRepairM_1120_CrashReopen", "TestRepairM_1120_OldWriterFailureStopsDispatch", "TestRepairM_1120_VersionZeroMigrationEntry"]
+change = "Document ordered apply and commits, nonzero latest-load reconciliation, version-zero and first-commit limits, and interruption/reopen evidence before destructive repair guidance."
+limits = "The restart test interrupts between actual synchronous backend commits, closes and reopens via the composite store, checks rollback, replay, durable metadata and resumed progress; host/media failure, async durability and version-zero interrupted-commit recovery remain unproven questions."
+
+[finding.migration-terminal-doc]
+proof = "TestRepairM_1120_TerminalRouting"
+change = "Show the composite BuildRouter call and single-backend PassthroughRouter in MemiavlOnly and FlatKVOnly; prove composite commit/reopen and direct builder reads/writes with the unused backend absent."
+
+[finding.boundary-metric-cardinality]
+proof = "TestRepairM_1120_BoundaryMetricCardinality"
+change = "Export fixed unlabeled numeric version/status and run-local key/byte gauges; log serialized cursors with structured fields; share the builders' 10-second interval and document metric and log retention separately."
+cardinality = "Collect the real OTel SDK after each of 4096 distinct production-router migration boundaries and assert exactly four unlabeled gauge series and exact numeric progress, then completion and a later target version."
+
+[wiring.telemetry]
+request = "spec/layerx-merge/interfaces.kvx, owning domain 5: update the boundary-snapshot metric contract to numeric status without boundary_hex and register run-local key/byte progress gauges; migrate any external dashboard cursor-label query to status/progress plus structured logs."

@@ -1,9 +1,15 @@
 package testutil
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
+	"sort"
+	"strings"
 
 	tmcli "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/cli"
+	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
+	oracletypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/oracle/types"
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/suite"
 
@@ -15,13 +21,16 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/query"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/client/cli"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
+	paramtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/params/types"
 )
 
 type IntegrationTestSuite struct {
 	suite.Suite
 
-	cfg     network.Config
-	network *network.Network
+	cfg       network.Config
+	network   *network.Network
+	genesis   types.GenesisState
+	validFees sdk.Coins
 }
 
 func NewIntegrationTestSuite(cfg network.Config) *IntegrationTestSuite {
@@ -81,6 +90,75 @@ func (s *IntegrationTestSuite) SetupSuite() {
 	s.cfg.GenesisState = genesisState
 
 	s.network = network.New(s.T(), s.cfg)
+
+	genDoc, err := tmtypes.GenesisDocFromFile(s.network.Validators[0].Ctx.Config.GenesisFile())
+	s.Require().NoError(err)
+	var appState map[string]json.RawMessage
+	s.Require().NoError(json.Unmarshal(genDoc.AppState, &appState))
+	s.Require().NoError(s.cfg.Codec.UnmarshalAsJSON(appState[types.ModuleName], &s.genesis))
+	supply := sdk.NewCoins()
+	for _, balance := range s.genesis.Balances {
+		supply = supply.Add(balance.Coins...)
+	}
+	wei := sdk.ZeroInt()
+	for _, balance := range s.genesis.WeiBalances {
+		wei = wei.Add(balance.Amount)
+	}
+	whole, remainder := types.SplitUhpxWeiAmount(wei)
+	s.Require().True(remainder.IsZero())
+	if !whole.IsZero() {
+		baseDenom, err := sdk.GetBaseDenom()
+		s.Require().NoError(err)
+		supply = supply.Add(sdk.NewCoin(baseDenom, whole))
+	}
+	if !s.genesis.Supply.Empty() {
+		s.Require().Equal(s.genesis.Supply, supply)
+	}
+	s.genesis.Supply = supply
+
+	// Oracle InitGenesis registers metadata for whitelisted denoms missing from bank genesis.
+	var oracleGenesis oracletypes.GenesisState
+	s.Require().NoError(s.cfg.Codec.UnmarshalAsJSON(appState[oracletypes.ModuleName], &oracleGenesis))
+	metadataByDenom := make(map[string]types.Metadata)
+	for _, metadata := range s.genesis.DenomMetadata {
+		metadataByDenom[metadata.Base] = metadata
+	}
+	for _, denom := range oracleGenesis.Params.Whitelist {
+		if _, exists := metadataByDenom[denom.Name]; exists {
+			continue
+		}
+		display := denom.Name[1:]
+		metadata := types.Metadata{
+			Description: display, Base: denom.Name, Display: display,
+			Name: strings.ToUpper(display), Symbol: strings.ToUpper(display),
+			DenomUnits: []*types.DenomUnit{
+				{Denom: denom.Name, Exponent: 0, Aliases: []string{"micro" + display}},
+				{Denom: "m" + display, Exponent: 3, Aliases: []string{"milli" + display}},
+				{Denom: display, Exponent: 6},
+			},
+		}
+		metadataByDenom[denom.Name] = metadata
+		s.genesis.DenomMetadata = append(s.genesis.DenomMetadata, metadata)
+	}
+	sort.Slice(s.genesis.DenomMetadata, func(i, j int) bool {
+		return s.genesis.DenomMetadata[i].Base < s.genesis.DenomMetadata[j].Base
+	})
+	// Match the CLI JSON codec's representation of empty repeated fields.
+	metadataJSON, err := s.cfg.Codec.MarshalAsJSON(&types.QueryDenomsMetadataResponse{Metadatas: s.genesis.DenomMetadata})
+	s.Require().NoError(err)
+	var metadataResponse types.QueryDenomsMetadataResponse
+	s.Require().NoError(s.cfg.Codec.UnmarshalAsJSON(metadataJSON, &metadataResponse))
+	s.genesis.DenomMetadata = metadataResponse.Metadatas
+
+	var paramsGenesis paramtypes.GenesisState
+	s.Require().NoError(s.cfg.Codec.UnmarshalAsJSON(appState[paramtypes.ModuleName], &paramsGenesis))
+	validatorPrices, err := sdk.ParseDecCoins(s.cfg.MinGasPrices)
+	s.Require().NoError(err)
+	prices := paramsGenesis.FeesParams.GlobalMinimumGasPrices.UnionMax(validatorPrices)
+	for _, price := range prices {
+		fee := price.Amount.MulInt64(int64(flags.DefaultGasLimit)).Ceil().RoundInt()
+		s.validFees = s.validFees.Add(sdk.NewCoin(price.Denom, fee))
+	}
 
 	_, err = s.network.WaitForHeight(1)
 	s.Require().NoError(err)
@@ -180,10 +258,7 @@ func (s *IntegrationTestSuite) TestGetCmdQueryTotalSupply() {
 			},
 			respType: &types.QueryTotalSupplyResponse{},
 			expected: &types.QueryTotalSupplyResponse{
-				Supply: sdk.NewCoins(
-					sdk.NewCoin(fmt.Sprintf("%stoken", val.Moniker), s.cfg.AccountTokens),
-					sdk.NewCoin(s.cfg.BondDenom, s.cfg.StakingTokens.Add(sdk.NewInt(10))),
-				),
+				Supply:     s.genesis.Supply,
 				Pagination: &query.PageResponse{Total: 0},
 			},
 		},
@@ -197,7 +272,7 @@ func (s *IntegrationTestSuite) TestGetCmdQueryTotalSupply() {
 			respType: &sdk.Coin{},
 			expected: &sdk.Coin{
 				Denom:  s.cfg.BondDenom,
-				Amount: s.cfg.StakingTokens.Add(sdk.NewInt(10)),
+				Amount: s.genesis.Supply.AmountOf(s.cfg.BondDenom),
 			},
 		},
 		{
@@ -236,6 +311,30 @@ func (s *IntegrationTestSuite) TestGetCmdQueryTotalSupply() {
 
 func (s *IntegrationTestSuite) TestGetCmdQueryDenomsMetadata() {
 	val := s.network.Validators[0]
+	var atomMetadata types.Metadata
+	for _, metadata := range s.genesis.DenomMetadata {
+		if metadata.Base == "uatom" {
+			atomMetadata = metadata
+			break
+		}
+	}
+	s.Require().Equal("uatom", atomMetadata.Base)
+
+	s.Run("all denoms metadata with total count", func() {
+		queryClient := types.NewQueryClient(val.ClientCtx.WithHeight(1))
+		metadata, err := queryClient.DenomsMetadata(context.Background(), &types.QueryDenomsMetadataRequest{
+			Pagination: &query.PageRequest{CountTotal: true},
+		})
+		s.Require().NoError(err)
+		metadataJSON, err := val.ClientCtx.Codec.MarshalAsJSON(metadata)
+		s.Require().NoError(err)
+		var response types.QueryDenomsMetadataResponse
+		s.Require().NoError(val.ClientCtx.Codec.UnmarshalAsJSON(metadataJSON, &response))
+		s.Require().Equal(&types.QueryDenomsMetadataResponse{
+			Metadatas:  s.genesis.DenomMetadata,
+			Pagination: &query.PageResponse{Total: uint64(len(s.genesis.DenomMetadata))},
+		}, &response)
+	})
 
 	testCases := []struct {
 		name      string
@@ -252,47 +351,20 @@ func (s *IntegrationTestSuite) TestGetCmdQueryDenomsMetadata() {
 			},
 			respType: &types.QueryDenomsMetadataResponse{},
 			expected: &types.QueryDenomsMetadataResponse{
-				Metadatas: []types.Metadata{
-					{
-						Name:        "Cosmos Hub Atom",
-						Symbol:      "ATOM",
-						Description: "The native staking token of the Cosmos Hub.",
-						DenomUnits: []*types.DenomUnit{
-							{
-								Denom:    "uatom",
-								Exponent: 0,
-								Aliases:  []string{"microatom"},
-							},
-							{
-								Denom:    "atom",
-								Exponent: 6,
-								Aliases:  []string{"ATOM"},
-							},
-						},
-						Base:    "uatom",
-						Display: "atom",
-					},
-					{
-						Name:        "Ethereum",
-						Symbol:      "ETH",
-						Description: "Ethereum mainnet token",
-						DenomUnits: []*types.DenomUnit{
-							{
-								Denom:    "wei",
-								Exponent: 0,
-								Aliases:  []string{},
-							},
-							{
-								Denom:    "eth",
-								Exponent: 6,
-								Aliases:  []string{"ETH"},
-							},
-						},
-						Base:    "wei",
-						Display: "eth",
-					},
-				},
-				Pagination: &query.PageResponse{Total: 2},
+				Metadatas:  s.genesis.DenomMetadata,
+				Pagination: &query.PageResponse{},
+			},
+		},
+		{
+			name: "all denoms client metadata with default pagination",
+			args: []string{
+				fmt.Sprintf("--%s=1", flags.FlagHeight),
+				fmt.Sprintf("--%s=json", tmcli.OutputFlag),
+			},
+			respType: &types.QueryDenomsMetadataResponse{},
+			expected: &types.QueryDenomsMetadataResponse{
+				Metadatas:  s.genesis.DenomMetadata,
+				Pagination: &query.PageResponse{},
 			},
 		},
 		{
@@ -304,25 +376,7 @@ func (s *IntegrationTestSuite) TestGetCmdQueryDenomsMetadata() {
 			},
 			respType: &types.QueryDenomMetadataResponse{},
 			expected: &types.QueryDenomMetadataResponse{
-				Metadata: types.Metadata{
-					Name:        "Cosmos Hub Atom",
-					Symbol:      "ATOM",
-					Description: "The native staking token of the Cosmos Hub.",
-					DenomUnits: []*types.DenomUnit{
-						{
-							Denom:    "uatom",
-							Exponent: 0,
-							Aliases:  []string{"microatom"},
-						},
-						{
-							Denom:    "atom",
-							Exponent: 6,
-							Aliases:  []string{"ATOM"},
-						},
-					},
-					Base:    "uatom",
-					Display: "atom",
-				},
+				Metadata: atomMetadata,
 			},
 		},
 		{
@@ -375,7 +429,7 @@ func (s *IntegrationTestSuite) TestNewSendTxCmdGenOnly() {
 	args := []string{
 		fmt.Sprintf("--%s=true", flags.FlagSkipConfirmation),
 		fmt.Sprintf("--%s=%s", flags.FlagBroadcastMode, flags.BroadcastBlock),
-		fmt.Sprintf("--%s=%s", flags.FlagFees, sdk.NewCoins(sdk.NewCoin(s.cfg.BondDenom, sdk.NewInt(10))).String()),
+		fmt.Sprintf("--%s=%s", flags.FlagFees, s.validFees.String()),
 		fmt.Sprintf("--%s=true", flags.FlagGenerateOnly),
 	}
 
@@ -409,7 +463,7 @@ func (s *IntegrationTestSuite) TestNewSendTxCmd() {
 			[]string{
 				fmt.Sprintf("--%s=true", flags.FlagSkipConfirmation),
 				fmt.Sprintf("--%s=%s", flags.FlagBroadcastMode, flags.BroadcastBlock),
-				fmt.Sprintf("--%s=%s", flags.FlagFees, sdk.NewCoins(sdk.NewCoin(s.cfg.BondDenom, sdk.NewInt(10))).String()),
+				fmt.Sprintf("--%s=%s", flags.FlagFees, s.validFees.String()),
 			},
 			false, 0, &sdk.TxResponse{},
 		},
@@ -441,7 +495,7 @@ func (s *IntegrationTestSuite) TestNewSendTxCmd() {
 			[]string{
 				fmt.Sprintf("--%s=true", flags.FlagSkipConfirmation),
 				fmt.Sprintf("--%s=%s", flags.FlagBroadcastMode, flags.BroadcastBlock),
-				fmt.Sprintf("--%s=%s", flags.FlagFees, sdk.NewCoins(sdk.NewCoin(s.cfg.BondDenom, sdk.NewInt(10))).String()),
+				fmt.Sprintf("--%s=%s", flags.FlagFees, s.validFees.String()),
 				"--gas=10",
 			},
 			false,

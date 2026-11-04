@@ -1,4 +1,4 @@
-import { NativeModules } from 'react-native';
+import { DeviceEventEmitter, NativeModules } from 'react-native';
 import type { CredentialStore } from '../runtime/session.ts';
 interface SecureModule {
   get(key: string): Promise<string | null>;
@@ -150,6 +150,13 @@ export async function protectedCookieFetch(
 }
 
 export const nativePush = {
+  listenTokenChanged(listener: () => void) {
+    const subscription = DeviceEventEmitter.addListener(
+      'SidioraPushTokenChanged',
+      listener,
+    );
+    return () => subscription.remove();
+  },
   permission: () => module().pushPermission(),
   requestPermission: () => module().requestPushPermission(),
   registration: () => module().nativePushRegistration(),

@@ -142,17 +142,24 @@ defmodule Explorer.ThirdPartyIntegrations.Auth0.Legacy do
     Internal.update_user(user_id, %{"user_metadata" => %{"email" => email}}, "Failed to update user email")
   end
 
+  defp maybe_link_email(%{"app_metadata" => %{"explorer_email_link" => intent}})
+       when is_map(intent) do
+    with %{"user_ids" => user_ids, "identity_id" => identity_id, "provider" => provider} <- intent,
+         true <- is_list(user_ids),
+         {:ok, users} <- load_link_users(user_ids) do
+      merge_email_users(users, identity_id, provider)
+    else
+      {:error, _} = error -> error
+      _ -> :error
+    end
+  end
+
   defp maybe_link_email(%{"email" => email, "user_id" => "email|" <> identity_id = user_id} = user) do
     case Internal.find_users(
            ~s(email:"#{email}" AND NOT user_id:"#{user_id}"),
            "Failed to find legacy users by email"
          ) do
       {:ok, []} ->
-        {:ok, user}
-
-      {:ok, [%{"user_id" => primary_user_id} = user]} ->
-        link_users(primary_user_id, identity_id, "email")
-        maybe_verify_email(user)
         {:ok, user}
 
       {:ok, users} ->
@@ -167,6 +174,15 @@ defmodule Explorer.ThirdPartyIntegrations.Auth0.Legacy do
     {:ok, user}
   end
 
+  defp load_link_users(user_ids) do
+    Enum.reduce_while(user_ids, {:ok, []}, fn id, {:ok, users} ->
+      case Internal.get_user_by_id(id) do
+        {:ok, user} -> {:cont, {:ok, users ++ [user]}}
+        error -> {:halt, error}
+      end
+    end)
+  end
+
   defp maybe_verify_email(%{"email_verified" => false, "user_id" => user_id}) do
     with {:ok, _} <-
            Internal.update_user(user_id, %{"email_verified" => true}, "Failed to patch email_verified to true") do
@@ -176,25 +192,70 @@ defmodule Explorer.ThirdPartyIntegrations.Auth0.Legacy do
 
   defp maybe_verify_email(_), do: :ok
 
-  defp merge_email_users([primary_user | _] = users, identity_id_to_link, provider_for_linking) do
+  defp merge_email_users([first_user | _] = users, identity_id_to_link, provider_for_linking) do
     identity_map = get_identity_map(users)
+    pending = Enum.filter(users, &is_map(get_in(&1, ["app_metadata", "explorer_email_link"])))
 
-    users_map = users |> Enum.map(&{&1["user_id"], &1}) |> Map.new()
+    primary =
+      case pending do
+        [user] -> user
+        [] -> Enum.find(users, &Map.has_key?(identity_map, &1["user_id"])) || first_user
+        _ -> nil
+      end
 
-    case users |> Enum.map(&identity_map[&1["user_id"]]) |> Enum.reject(&is_nil(&1)) |> Account.merge() do
-      {{:ok, 0}, nil} ->
-        link_users(primary_user["user_id"], identity_id_to_link, provider_for_linking)
-        maybe_verify_email(primary_user)
-        {:ok, primary_user}
+    intent = %{
+      "identity_id" => identity_id_to_link,
+      "provider" => provider_for_linking,
+      "user_ids" => users |> Enum.map(& &1["user_id"]) |> Enum.sort()
+    }
 
-      {{:ok, _}, primary_identity} ->
-        link_users(primary_identity.uid, identity_id_to_link, provider_for_linking)
-        maybe_verify_email(users_map[primary_identity.uid])
-        {:ok, users_map[primary_identity.uid]}
+    with %{"user_id" => primary_id} <- primary,
+         :ok <- persist_email_link(primary, intent),
+         ordered_users = [primary | Enum.reject(users, &(&1["user_id"] == primary_id))],
+         identities = ordered_users |> Enum.map(&identity_map[&1["user_id"]]) |> Enum.reject(&is_nil/1),
+         {{:ok, _}, _} <- Account.merge(identities),
+         :ok <- ensure_linked(primary_id, identity_id_to_link, provider_for_linking),
+         :ok <- maybe_verify_email(primary),
+         {:ok, user} <-
+           Internal.update_user(primary_id, %{"app_metadata" => %{"explorer_email_link" => nil}}) do
+      {:ok, user}
+    else
+      {:error, _} = error ->
+        error
 
       error ->
         Logger.error(["Error while merging users with the same email: ", inspect(error)])
         :error
+    end
+  end
+
+  defp persist_email_link(user, intent) do
+    case get_in(user, ["app_metadata", "explorer_email_link"]) do
+      ^intent ->
+        :ok
+
+      nil ->
+        with {:ok, updated} <-
+               Internal.update_user(user["user_id"], %{"app_metadata" => %{"explorer_email_link" => intent}}),
+             ^intent <- get_in(updated, ["app_metadata", "explorer_email_link"]) do
+          :ok
+        else
+          {:error, _} = error -> error
+          _ -> :error
+        end
+
+      _ ->
+        {:error, "Another email link is pending"}
+    end
+  end
+
+  defp ensure_linked(primary_id, secondary_id, provider) do
+    with {:ok, primary} <- Internal.get_user_by_id(primary_id) do
+      if Enum.any?(primary["identities"] || [], &(&1["provider"] == provider and &1["user_id"] == secondary_id)) do
+        :ok
+      else
+        link_users(primary_id, secondary_id, provider)
+      end
     end
   end
 

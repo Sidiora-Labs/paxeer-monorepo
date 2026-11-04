@@ -60,6 +60,27 @@ type HostContext struct {
 	config          HostContextConfig
 	sstoreGasMu     sync.Mutex
 	sstoreGasFrames []sstoreGasFrame
+	abortErr        error
+	staticFrames    []bool
+}
+
+type UnsupportedEVMRevisionError struct{}
+
+func (*UnsupportedEVMRevisionError) Error() string {
+	return "evmone does not support the active Prague, Osaka or Verkle rules"
+}
+
+func (*UnsupportedEVMRevisionError) IsAbortError() bool { return true }
+
+func (h *HostContext) beginTransaction() int {
+	h.abortErr = nil
+	return h.evm.StateDB.Snapshot()
+}
+
+func (h *HostContext) endTransaction(snapshot int) {
+	if h.abortErr != nil {
+		h.evm.StateDB.RevertToSnapshot(snapshot)
+	}
 }
 
 type sstoreGasFrame struct {
@@ -124,33 +145,34 @@ func (h *HostContext) SetStorage(addr evmc.Address, key evmc.Hash, value evmc.Ha
 	current := h.evm.StateDB.GetState(gethAddr, gethKey)
 	original := h.evm.StateDB.GetCommittedState(gethAddr, gethKey)
 
-	dirty := original.Cmp(current) != 0
-	restored := original.Cmp(common.Hash(value)) == 0
-	currentIsZero := current.Cmp(common.Hash{}) == 0
-	valueIsZero := common.Hash(value).Cmp(common.Hash{}) == 0
-
+	newValue := common.Hash(value)
 	status := evmc.StorageAssigned
-	if !dirty && !restored {
-		if currentIsZero {
-			status = evmc.StorageAdded
-		} else if valueIsZero {
-			status = evmc.StorageDeleted
-		} else {
-			status = evmc.StorageModified
-		}
-	} else if dirty && !restored {
-		if currentIsZero && valueIsZero {
-			status = evmc.StorageDeletedAdded
-		} else if !currentIsZero && valueIsZero {
-			status = evmc.StorageModifiedDeleted
-		}
-	} else if dirty {
-		if currentIsZero {
-			status = evmc.StorageDeletedRestored
-		} else if valueIsZero {
-			status = evmc.StorageAddedDeleted
-		} else {
-			status = evmc.StorageModifiedRestored
+	if current != newValue {
+		switch {
+		case original == current:
+			switch {
+			case original == (common.Hash{}):
+				status = evmc.StorageAdded
+			case newValue == (common.Hash{}):
+				status = evmc.StorageDeleted
+			default:
+				status = evmc.StorageModified
+			}
+		case original == newValue:
+			switch {
+			case original == (common.Hash{}):
+				status = evmc.StorageAddedDeleted
+			case current == (common.Hash{}):
+				status = evmc.StorageDeletedRestored
+			default:
+				status = evmc.StorageModifiedRestored
+			}
+		case original != (common.Hash{}):
+			if current == (common.Hash{}) {
+				status = evmc.StorageDeletedAdded
+			} else if newValue == (common.Hash{}) {
+				status = evmc.StorageModifiedDeleted
+			}
 		}
 	}
 
@@ -249,50 +271,61 @@ func (h *HostContext) EmitLog(addr evmc.Address, topics []evmc.Hash, data []byte
 	h.evm.StateDB.AddLog(&ethtypes.Log{Address: common.Address(addr), Topics: gethTopics, Data: data})
 }
 
-func (h *HostContext) Execute(kind evmc.CallKind, recipient evmc.Address, sender evmc.Address, value evmc.Hash, input []byte, gas int64,
+func (h *HostContext) Execute(kind evmc.CallKind, recipient evmc.Address, sender evmc.Address, value evmc.Hash, input, code []byte, gas int64,
 	depth int, static bool) ([]byte, int64, int64, evmc.Address, error) {
-	evmRevision := h.getEVMRevision()
-	delegated := kind == evmc.DelegateCall || kind == evmc.CallCode
-
-	// For CREATE/CREATE2, the input contains the initcode (constructor bytecode)
-	// For regular calls, fetch the code from the target address
-	var code []byte
-	if kind == evmc.Create || kind == evmc.Create2 {
-		code = input // initcode is passed as input for contract creation
-	} else {
-		code = h.evm.StateDB.GetCode(common.Address(recipient))
-	}
-
-	executionResult, err := h.vm.Execute(
-		h, evmRevision, kind, static, delegated, depth,
-		gas, recipient, sender, input, value, code,
-	)
-
+	evmRevision, err := h.getEVMRevision()
 	if err != nil {
 		return nil, 0, 0, evmc.Address{}, err
 	}
-
-	// todo(pdrobnjak): calculate/propagate created address
-	var createAddr evmc.Address
-	if kind == evmc.Create || kind == evmc.Create2 {
-		// The created address should be set in the execution result
-		// For now, return empty - this needs to be populated from evmone's result
-		createAddr = evmc.Address{}
+	if h.abortErr != nil {
+		return nil, 0, 0, evmc.Address{}, h.abortErr
 	}
+	if h.vm == nil {
+		return nil, 0, 0, evmc.Address{}, fmt.Errorf("evmone runtime is unavailable")
+	}
+	h.staticFrames = append(h.staticFrames, static)
+	defer func() { h.staticFrames = h.staticFrames[:len(h.staticFrames)-1] }()
+	// contract.Code is already resolved by geth, including DELEGATECALL and
+	// EIP-7702. The storage recipient is not necessarily the code account.
+	result, err := h.vm.Execute(h, evmRevision, kind, static, false, depth,
+		gas, recipient, sender, input, value, code)
+	if h.abortErr != nil {
+		return nil, 0, 0, evmc.Address{}, h.abortErr
+	}
+	if err != nil && !errors.Is(err, evmc.Revert) {
+		return nil, 0, 0, evmc.Address{}, err
+	}
+	return result.Output, result.GasLeft, result.GasRefund, evmc.Address{}, err
+}
 
-	return executionResult.Output, executionResult.GasLeft, executionResult.GasRefund, createAddr, nil
+func (h *HostContext) callbackError(err error) error {
+	var abort vm.AbortError
+	if errors.As(err, &abort) && abort.IsAbortError() && h.abortErr == nil {
+		h.abortErr = abort
+	}
+	return toEvmcError(err)
 }
 
 func (h *HostContext) Call(
 	kind evmc.CallKind, recipient evmc.Address, sender evmc.Address, value evmc.Hash, input []byte, gas int64,
-	_ int, static bool, salt evmc.Hash, _ evmc.Address,
+	_ int, static bool, salt evmc.Hash, codeAddress evmc.Address,
 ) ([]byte, int64, int64, evmc.Address, error) {
+	if h.abortErr != nil {
+		return nil, 0, 0, evmc.Address{}, evmc.Failure
+	}
 	if gas < 0 {
 		return nil, 0, 0, evmc.Address{}, evmc.Failure
 	}
 	recipientAddr := common.Address(recipient)
 	senderAddr := common.Address(sender)
 	valueUint256 := new(uint256.Int).SetBytes(value[:])
+	if len(h.staticFrames) > 0 && h.staticFrames[len(h.staticFrames)-1] {
+		static = true
+	}
+	if static && (kind == evmc.Create || kind == evmc.Create2 ||
+		(kind == evmc.Call && !valueUint256.IsZero())) {
+		return nil, 0, 0, evmc.Address{}, evmc.Error(11) // EVMC_STATIC_MODE_VIOLATION
+	}
 	var ret []byte
 	var leftoverGas uint64
 	var err error
@@ -307,25 +340,24 @@ func (h *HostContext) Call(
 			ret, leftoverGas, err = h.evm.Call(senderAddr, recipientAddr, input, uint64(gas), valueUint256)
 		}
 	case evmc.DelegateCall:
-		// todo(pdrobnjak): sender and recipient might not be correctly propagated in case of DELEGATECALL
 		ret, leftoverGas, err = h.evm.DelegateCall(
-			h.evm.Origin, senderAddr, recipientAddr, input, uint64(gas), valueUint256,
+			senderAddr, recipientAddr, common.Address(codeAddress), input, uint64(gas), valueUint256,
 		)
 	case evmc.CallCode:
-		ret, leftoverGas, err = h.evm.CallCode(senderAddr, recipientAddr, input, uint64(gas), valueUint256)
+		ret, leftoverGas, err = h.evm.CallCode(recipientAddr, common.Address(codeAddress), input, uint64(gas), valueUint256)
 	case evmc.Create:
 		ret, createAddr, leftoverGas, err = h.evm.Create(senderAddr, input, uint64(gas), valueUint256)
-		return ret, int64(leftoverGas), 0, evmc.Address(createAddr), toEvmcError(err)
+		return ret, int64(leftoverGas), 0, evmc.Address(createAddr), h.callbackError(err)
 	case evmc.Create2:
 		saltUint256 := new(uint256.Int).SetBytes(salt[:])
 		ret, createAddr, leftoverGas, err = h.evm.Create2(senderAddr, input, uint64(gas), valueUint256, saltUint256)
-		return ret, int64(leftoverGas), 0, evmc.Address(createAddr), toEvmcError(err)
+		return ret, int64(leftoverGas), 0, evmc.Address(createAddr), h.callbackError(err)
 	default:
 		return nil, 0, 0, evmc.Address{}, evmc.Failure
 	}
 
 	//nolint:gosec // G115: safe, leftoverGas won't exceed int64 max
-	return ret, int64(leftoverGas), 0, evmc.Address{}, toEvmcError(err)
+	return ret, int64(leftoverGas), 0, evmc.Address{}, h.callbackError(err)
 }
 
 func (h *HostContext) AccessAccount(addr evmc.Address) evmc.AccessStatus {
@@ -360,7 +392,7 @@ func (h *HostContext) SetTransientStorage(addr evmc.Address, key evmc.Hash, valu
 }
 
 // getEVMRevision determines the EVM revision based on the current chain configuration
-func (h *HostContext) getEVMRevision() evmc.Revision {
+func (h *HostContext) getEVMRevision() (evmc.Revision, error) {
 	chainConfig := h.evm.ChainConfig()
 	blockNumber := h.evm.Context.BlockNumber
 	time := h.evm.Context.Time
@@ -369,46 +401,48 @@ func (h *HostContext) getEVMRevision() evmc.Revision {
 	// Get the rules for the current block
 	rules := chainConfig.Rules(blockNumber, isMerge, time)
 
-	// Check from newest to oldest using rules
-	// NOTE: Prague support in evmone 0.12.0 may have incomplete gas rules,
-	// so we cap at Cancun for now until evmone is updated
-	if rules.IsPrague || rules.IsCancun {
-		return evmc.Cancun
+	// The packaged runtime targets revisions through Cancun. Never execute a
+	// newer consensus revision using an older schedule.
+	if rules.IsPrague || rules.IsOsaka || rules.IsVerkle {
+		return 0, &UnsupportedEVMRevisionError{}
+	}
+	if rules.IsCancun {
+		return evmc.Cancun, nil
 	}
 	if rules.IsShanghai {
-		return evmc.Shanghai
+		return evmc.Shanghai, nil
 	}
 	if rules.IsMerge {
-		return evmc.Paris
+		return evmc.Paris, nil
 	}
 	if rules.IsLondon {
-		return evmc.London
+		return evmc.London, nil
 	}
 	if rules.IsBerlin {
-		return evmc.Berlin
+		return evmc.Berlin, nil
 	}
 	if rules.IsIstanbul {
-		return evmc.Istanbul
+		return evmc.Istanbul, nil
 	}
 	if rules.IsPetersburg {
-		return evmc.Petersburg
+		return evmc.Petersburg, nil
 	}
 	if rules.IsConstantinople {
-		return evmc.Constantinople
+		return evmc.Constantinople, nil
 	}
 	if rules.IsByzantium {
-		return evmc.Byzantium
+		return evmc.Byzantium, nil
 	}
 	if rules.IsEIP158 {
-		return evmc.SpuriousDragon
+		return evmc.SpuriousDragon, nil
 	}
 	if rules.IsEIP150 {
-		return evmc.TangerineWhistle
+		return evmc.TangerineWhistle, nil
 	}
 	if rules.IsHomestead {
-		return evmc.Homestead
+		return evmc.Homestead, nil
 	}
-	return evmc.Frontier
+	return evmc.Frontier, nil
 }
 
 // toEvmcError converts a Go error to an evmc.Error.

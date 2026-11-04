@@ -57,7 +57,7 @@ CUSTODY = {
     "released": "0",
     "pending": "0",
 }
-BALANCES = {
+LEGACY_BALANCES = {
     "account": IDENTITIES,
     "balances": [
         {
@@ -70,6 +70,36 @@ BALANCES = {
         {"asset_id": UNJOINED, "denom": None, "custody": None, "paxeer": None, "layerx": None},
     ],
     "joined_limit": 16,
+}
+
+
+# Chain-only get_balances result from gateway/src/paxeer.rs. Custody and
+# kernel joins below remain explicitly historical decoder compatibility cases.
+BALANCES = {
+    "account": IDENTITIES,
+    "height": 11111,
+    "balances": [{"denom": "ulxp", "amount": "30"}],
+}
+
+
+# These are unmodified node answers, captured once at the documented root URLs.
+ROOT_RECORDINGS = json.loads(
+    (Path(__file__).with_name("fixtures_22_33_701") / "chain-125-root.json").read_text()
+)["nodes"]
+OPENRPC = json.loads(
+    (Path(__file__).resolve().parents[4] / "services/platform/hosted/gateway/openrpc.json").read_text()
+)
+PX_SCHEMAS = {method["name"]: method["result"]["schema"] for method in OPENRPC["methods"]}
+ROOT_ANSWERS = {row["request"]["method"]: row["response"] for row in ROOT_RECORDINGS[0]["exchanges"]}
+
+# The gateway's network_result contract preserves chain reads when consensus
+# cannot answer. This is a schema vector, not a recorded gateway response.
+NETWORK_UNAVAILABLE = {
+    "network_id": "paxeer-x",
+    "paxeer": {"chain_id": ROOT_ANSWERS["eth_chainId"]["result"],
+               "latest_block": ROOT_ANSWERS["eth_blockNumber"]["result"]},
+    "consensus": None,
+    "reason": "consensus_unavailable",
 }
 
 
@@ -132,8 +162,23 @@ class UnifiedNetworkReadTest(unittest.TestCase):
         self.assertIsNone(px_optional_quantity(None))
         self.assertEqual(px_optional_quantity("0x00"), 0)
 
+    def test_chain_quantities_decode_exactly_and_never_as_floats(self) -> None:
+        """Current bank amounts are uint256, as declared by OpenRPC and the ABI."""
+        maximum = (1 << 256) - 1
+        for amount in (0, 16, (1 << 128), maximum):
+            self.assertEqual(px_quantity(amount), amount)
+            self.assertEqual(px_quantity(str(amount)), amount)
+            self.assertEqual(px_quantity(hex(amount)), amount)
+        for refused in ("", "0x", "-1", "1.5", "007", "0xgg", "0x" + "f" * 65,
+                        str(1 << 256), 1 << 256, 1.5, -1, None, True, {}):
+            with self.subTest(refused=refused), self.assertRaises(ValueError):
+                px_quantity(refused)
+        self.assertIsNone(px_optional_quantity(None))
+        self.assertEqual(px_optional_quantity("0x00"), 0)
+
     def test_balances_decode_keeps_an_unknown_half_unknown(self) -> None:
-        decoded = decode_px_account_balances(BALANCES)
+        """Historical custody codec coverage, not a current gateway response."""
+        decoded = decode_px_account_balances(LEGACY_BALANCES)
         self.assertEqual(decoded.account.evm_address, EVM)
         self.assertEqual(decoded.account.layerx_did, DID)
         self.assertEqual(decoded.account.layerx_account, ACCOUNT)
@@ -161,13 +206,13 @@ class UnifiedNetworkReadTest(unittest.TestCase):
         self.assertNotEqual(unknown.layerx, 0)
 
         with self.assertRaises(ValueError):
-            decode_px_account_balances({**BALANCES, "balances": [{"asset_id": NATIVE, "denom": None, "custody": None, "paxeer": None}]})
+            decode_px_account_balances({**LEGACY_BALANCES, "balances": [{"asset_id": NATIVE, "denom": None, "custody": None, "paxeer": None}]})
         with self.assertRaises(ValueError):
-            decode_px_account_balances({**BALANCES, "joined_limit": None})
+            decode_px_account_balances({**LEGACY_BALANCES, "joined_limit": None})
         with self.assertRaises(ValueError):
             decode_px_account_balances({"account": IDENTITIES, "joined_limit": 16})
         with self.assertRaises(ValueError):
-            decode_px_account_balances({**BALANCES, "balances": [BALANCES["balances"][1]] * (PX_MAXIMUM_JOINED_ASSETS + 1)})
+            decode_px_account_balances({**LEGACY_BALANCES, "balances": [LEGACY_BALANCES["balances"][1]] * (PX_MAXIMUM_JOINED_ASSETS + 1)})
         with self.assertRaises(ValueError):
             decode_px_resolved_identities({**IDENTITIES, "bound": "true"})
         with self.assertRaises(ValueError):
@@ -202,50 +247,32 @@ class UnifiedNetworkReadTest(unittest.TestCase):
         self.assertIsNone(assets.assets[1].paxeer)
         self.assertIsNone(assets.assets[1].layerx)
 
-        network = decode_px_network_head({
-            "network_id": "layerx-beta",
-            "paxeer": {"chain_id": "0x1a4", "latest_block": "0x2b67"},
-            "layerx": {"node_info": {"network": "layerx-beta"}},
-            "anchor": {
-                "latest_finalized_batch": 41,
-                "status": 2,
-                "status_name": "final",
-                "status_ladder": {"0": "unknown", "1": "submitted", "2": "final"},
-            },
-        })
-        self.assertEqual(network.network_id, "layerx-beta")
-        self.assertEqual(network.paxeer.chain_id, 420)
+        current = {
+            "network_id": "paxeer-x",
+            "paxeer": {"chain_id": "0x7d", "latest_block": "0x2b67"},
+            "consensus": {"latest_height": "11110", "latest_block_hash": "AB" * 32,
+                          "latest_app_hash": "CD" * 32, "catching_up": False},
+        }
+        network = decode_px_network_head(current)
+        self.assertEqual(network.network_id, "paxeer-x")
+        self.assertEqual(network.paxeer.chain_id, 125)
         self.assertEqual(network.paxeer.latest_block, 11111)
-        self.assertEqual(network.layerx, {"node_info": {"network": "layerx-beta"}})
-        self.assertEqual(network.anchor.latest_finalized_batch, 41)
-        self.assertEqual(network.anchor.status, 2)
-        self.assertEqual(network.anchor.status_name, "final")
-        self.assertEqual(network.anchor.status_ladder["1"], "submitted")
-
-        quiet = decode_px_network_head({
-            "network_id": "layerx-beta",
-            "paxeer": {"chain_id": "0x1a4", "latest_block": "0x2b67"},
-            "layerx": {"node_info": None},
-            "anchor": {"latest_finalized_batch": None, "status": None, "status_name": None, "status_ladder": None},
-        })
-        self.assertIsNone(quiet.anchor.latest_finalized_batch)
-        self.assertNotEqual(quiet.anchor.latest_finalized_batch, 0)
-        self.assertIsNone(quiet.anchor.status)
-        self.assertNotEqual(quiet.anchor.status, 0)
-        self.assertIsNone(quiet.anchor.status_name)
-        self.assertNotEqual(quiet.anchor.status_name, "")
-        self.assertIsNone(quiet.anchor.status_ladder)
-        self.assertEqual(quiet.layerx, {"node_info": None})
-        self.assertIsNone(decode_px_network_head({
-            "network_id": "layerx-beta",
-            "paxeer": {"chain_id": "0x1a4", "latest_block": "0x2b67"},
-            "layerx": None,
-            "anchor": None,
-        }).anchor)
-        with self.assertRaises(ValueError):
-            decode_px_network_head({"network_id": "layerx-beta", "paxeer": {"chain_id": "0x1a4"}, "layerx": None, "anchor": None})
-        with self.assertRaises(ValueError):
-            decode_px_network_head({"network_id": "", "paxeer": {"chain_id": "0x1a4", "latest_block": "0x1"}, "layerx": None, "anchor": None})
+        self.assertEqual(network.latest_committed_height, 11110)
+        self.assertIsNone(network.layerx)
+        for height in ("0", "11111", str((1 << 64) - 1)):
+            maximum = {**current, "paxeer": {"chain_id": "125", "latest_block": height},
+                       "consensus": {**current["consensus"], "latest_height": height}}
+            self.assertEqual(decode_px_network_head(maximum).latest_committed_height, int(height))
+        for consensus in (None, {}, {"latest_height": "11112"}, {"latest_height": "01"},
+                          {"latest_height": str(1 << 64)}, {"latest_height": True}):
+            with self.subTest(consensus=consensus), self.assertRaises(ValueError):
+                decode_px_network_head({**current, "consensus": consensus})
+        for anchor in (None, {}, {"latest_finalized_batch": 41}):
+            with self.subTest(anchor=anchor), self.assertRaises(ValueError):
+                decode_px_network_head({**current, "anchor": anchor})
+        for changed in ({**current, "network_id": ""}, {**current, "paxeer": {"chain_id": "125"}}):
+            with self.assertRaises(ValueError):
+                decode_px_network_head(changed)
 
     def test_gateway_reads_and_json_rpc_errors_over_loopback(self) -> None:
         observed: list[dict[str, object]] = []
@@ -254,16 +281,18 @@ class UnifiedNetworkReadTest(unittest.TestCase):
         thread.start()
         try:
             client = PxClient(f"http://127.0.0.1:{server.server_port}/rpc")
-            table = client.get_balances(ACCOUNT.upper())
-            self.assertEqual(len(table.balances), 2)
-            self.assertEqual(table.balances[0].paxeer.amount, 30)
-            self.assertIsNone(table.balances[1].paxeer)
-            self.assertIsNone(table.balances[1].denom)
+            table = client.call("px_getBalances", [px_account_key(EVM.upper())])
+            self.assertEqual(table, BALANCES)
+            self.assertEqual(set(table), set(PX_SCHEMAS["px_getBalances"]["required"]))
+            self.assertEqual(len(table["balances"]), 1)
+            self.assertEqual(px_quantity(table["balances"][0]["amount"]), 30)
+            self.assertEqual(table["balances"][0]["denom"], "ulxp")
+            self.assertEqual(table["height"], 11111)
             self.assertEqual(observed[0]["path"], "/rpc")
             self.assertEqual(observed[0]["content_type"], "application/json")
             self.assertEqual(observed[0]["jsonrpc"], "2.0")
             self.assertEqual(observed[0]["method"], "px_getBalances")
-            self.assertEqual(observed[0]["params"], [ACCOUNT])
+            self.assertEqual(observed[0]["params"], [EVM])
 
             with self.assertRaises(PxRpcError) as caught:
                 client.get_network()
@@ -390,6 +419,7 @@ class HistoryReadTest(unittest.TestCase):
         self.assertEqual(decode_paxeer_history_page({**RECORDED_PAXEER, "next_cursor": CURSOR}).next_cursor, CURSOR)
 
     def test_history_boundary_rows_decode(self) -> None:
+        """Historical multi-chain codec bounds; current pages are recorded above."""
         first = {
             "id": "explorer:1",
             "height_or_seq": "10",

@@ -127,7 +127,7 @@ function authorizeBountyCall(tx: ValidatedTransaction, intent: BountyTransaction
   throw new PreparedTransactionError('operation', 'Bounty funding and settlement are unavailable without a deployed escrow operation');
 }
 
-function validateEnvelope(request: TransactionRequest, context: PreparedTransactionContext): ValidatedTransaction {
+export function validatePreparedEnvelope(request: TransactionRequest, context: Omit<PreparedTransactionContext, 'intent'>): ValidatedTransaction {
   if (request.chainId !== '125') throw new PreparedTransactionError('chain', 'Prepared transaction targets another chain');
   if (!ADDRESS.test(context.wallet) || !ADDRESS.test(request.from) || request.from.toLowerCase() !== context.wallet.toLowerCase()) {
     throw new PreparedTransactionError('from', 'Prepared transaction signer is not the connected wallet');
@@ -153,7 +153,7 @@ function validateEnvelope(request: TransactionRequest, context: PreparedTransact
 
 /** Validate the envelope and bind it to the local review before any wallet access. */
 export function validatePreparedTransaction(request: TransactionRequest, context: PreparedTransactionContext): ValidatedTransaction {
-  const tx = validateEnvelope(request, context);
+  const tx = validatePreparedEnvelope(request, context);
   authorizeBountyCall(tx, context.intent);
 }
 

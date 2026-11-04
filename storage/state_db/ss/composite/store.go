@@ -216,14 +216,27 @@ func (s *CompositeStateStore) ReverseIterator(storeKey string, version int64, st
 }
 
 func (s *CompositeStateStore) RawIterate(storeKey string, fn func([]byte, []byte, int64) bool) (bool, error) {
-	return s.cosmosStore.RawIterate(storeKey, fn)
+	if s.evmRouted(storeKey) {
+		return s.evmStore.RawIterate(storeKey, fn)
+	}
+	stopped, err := s.cosmosStore.RawIterate(storeKey, fn)
+	if stopped || err != nil || storeKey != "" || s.evmStore == nil {
+		return stopped, err
+	}
+	return s.evmStore.RawIterate(storeKey, fn)
 }
 
 func (s *CompositeStateStore) GetLatestVersion() int64 {
+	if s.evmStore != nil {
+		return min(s.cosmosStore.GetLatestVersion(), s.evmStore.GetLatestVersion())
+	}
 	return s.cosmosStore.GetLatestVersion()
 }
 
 func (s *CompositeStateStore) GetEarliestVersion() int64 {
+	if s.evmStore != nil {
+		return max(s.cosmosStore.GetEarliestVersion(), s.evmStore.GetEarliestVersion())
+	}
 	return s.cosmosStore.GetEarliestVersion()
 }
 
@@ -253,25 +266,28 @@ func (s *CompositeStateStore) Close() error {
 // =============================================================================
 
 func (s *CompositeStateStore) SetLatestVersion(version int64) error {
-	if err := s.cosmosStore.SetLatestVersion(version); err != nil {
-		return err
-	}
 	if s.evmStore != nil {
 		if err := s.evmStore.SetLatestVersion(version); err != nil {
-			logger.Error("failed to set EVM store latest version", "error", err)
+			return fmt.Errorf("failed to set EVM store latest version %d: %w", version, err)
 		}
+	}
+	if err := s.cosmosStore.SetLatestVersion(version); err != nil {
+		return fmt.Errorf("failed to set Cosmos store latest version %d: %w", version, err)
 	}
 	return nil
 }
 
 func (s *CompositeStateStore) SetEarliestVersion(version int64, ignoreVersion bool) error {
-	if err := s.cosmosStore.SetEarliestVersion(version, ignoreVersion); err != nil {
-		return err
-	}
 	if s.evmStore != nil {
-		if err := s.evmStore.SetEarliestVersion(version, ignoreVersion); err != nil {
-			logger.Error("failed to set EVM store earliest version", "error", err)
+		if s.cosmosStore.GetLatestVersion() != s.evmStore.GetLatestVersion() && version > s.GetLatestVersion() {
+			return fmt.Errorf("cannot advance earliest version to %d beyond joint latest version %d: preserve split SS recovery history", version, s.GetLatestVersion())
 		}
+		if err := s.evmStore.SetEarliestVersion(version, ignoreVersion); err != nil {
+			return fmt.Errorf("failed to set EVM store earliest version %d: %w", version, err)
+		}
+	}
+	if err := s.cosmosStore.SetEarliestVersion(version, ignoreVersion); err != nil {
+		return fmt.Errorf("failed to set Cosmos store earliest version %d: %w", version, err)
 	}
 	return nil
 }
@@ -503,11 +519,17 @@ func (s *CompositeStateStore) Import(version int64, ch <-chan types.SnapshotNode
 
 func (s *CompositeStateStore) Prune(version int64) error {
 	if s.evmStore != nil {
+		if version >= s.GetLatestVersion() {
+			return fmt.Errorf("cannot prune through version %d at or beyond joint latest version %d: preserve split SS recovery history", version, s.GetLatestVersion())
+		}
 		if err := s.evmStore.Prune(version); err != nil {
-			logger.Error("failed to prune EVM store", "error", err)
+			return fmt.Errorf("failed to prune EVM store through version %d: %w", version, err)
 		}
 	}
-	return s.cosmosStore.Prune(version)
+	if err := s.cosmosStore.Prune(version); err != nil {
+		return fmt.Errorf("failed to prune Cosmos store through version %d: %w", version, err)
+	}
+	return nil
 }
 
 // =============================================================================

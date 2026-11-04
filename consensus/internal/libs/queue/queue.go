@@ -115,9 +115,7 @@ func (q *Queue) Add(item interface{}) error {
 	q.back.link = e
 	q.back = e
 	q.queueLen++
-	if q.queueLen == 1 { // was empty
-		q.nempty.Signal()
-	}
+	q.nempty.Signal()
 	return nil
 }
 
@@ -139,24 +137,26 @@ func (q *Queue) Remove() (interface{}, bool) {
 // returns a nil value and a context error. If the queue is closed while it is
 // still empty, Wait returns nil, ErrQueueClosed.
 func (q *Queue) Wait(ctx context.Context) (interface{}, error) {
-	// If the context terminates, wake the waiter.
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	go func() { <-ctx.Done(); q.nempty.Broadcast() }()
-
 	q.mu.Lock()
 	defer q.mu.Unlock()
+
+	// Serialize cancellation with the predicate check and Cond.Wait so that
+	// cancellation cannot broadcast before the waiter has registered.
+	stop := context.AfterFunc(ctx, func() {
+		q.mu.Lock()
+		defer q.mu.Unlock()
+		q.nempty.Broadcast()
+	})
+	defer stop()
 
 	for q.queueLen == 0 {
 		if q.closed {
 			return nil, ErrQueueClosed
 		}
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		default:
-			q.nempty.Wait()
+		if err := ctx.Err(); err != nil {
+			return nil, err
 		}
+		q.nempty.Wait()
 	}
 	return q.popFront(), nil
 }

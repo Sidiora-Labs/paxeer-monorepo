@@ -1,0 +1,9 @@
+[repair.22.33.773]
+finding = "shared-evm-fixture"
+tests = ["TestRepairM_773_SequentialFixtures", "TestRepairM_773_ConcurrentFixtures"]
+implementation = "Each MockEVMKeeperWithPrecompiles call owns a fresh application, keeper, store and context; construction remains serialized and the v6.12.0 precompile selection and initial funding are preserved."
+proof = "Sequential mutations remain private and ABI bank queries observe fixture-local balances; concurrent callers retain their own nonce, storage, code and events."
+baseline = "Not run: the task's ordered gate instructions prohibit verification before implementation and require hf-build followed by hf-done without a manual verify run. No baseline failures are claimed."
+qualification_repair = "The first verify rejected NotSame on the value-type multistore; the assertion now compares the underlying EVM KV store pointers, retaining the store identity check."
+wiring_requests = []
+evidence = "The runner's hf-build and hf-done ledger records the exact candidate revision, command, exit and private log location."

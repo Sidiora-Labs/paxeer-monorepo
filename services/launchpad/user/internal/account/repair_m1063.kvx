@@ -1,0 +1,38 @@
+[repair.22.33.1063]
+audit = "22.30.42"
+base_revision = "caa8b41ee668274ee1e5c1df6691288455c46278"
+mode = "BUILD"
+baseline = "Not run: the explicit ordered gate instructions prohibit testing before complete implementation and running verify_cmd directly; no baseline failure is claimed. The named repair test file did not exist in the initial tree."
+evidence = "The runner's private gates.jsonl records exact candidate revision, command, exit and log; this record makes no unrun qualification claim."
+
+[finding.export-failed-read-consumes-token]
+tests = ["TestRepairM_1063_export_failed_read_consumes_token", "TestRepairM_1063_abandoned_claim_recovery_and_fencing", "TestRepairM_1063_claim_refusals_and_concurrent_delivery"]
+repair = "Serialize account and export job locks; persist a one-minute claim bounded by export expiry using existing lease_owner, lease_until and monotonic fence. Fetch and authenticate ciphertext before committing consumption immediately before response bytes; cleanup releases failed retrieval claims, expiry recovers abandoned claims and fencing rejects stale completion/cleanup."
+proof = "Production worker encrypted-object publication, storage.Client over loopback HTTP, production download keeper and HTTP handler, durable record file close/reopen, outage and decryption recovery, retained credential, stale-fence refusal, expiry/deletion/state/account refusals and twelve concurrent requests with exactly one successful delivery."
+delivery_boundary = "Consumption commits after the entire encrypted object is retrieved and authenticated and before the first HTTP response byte. A crash after this commit or a failed/partial response write remains consumed; retry after this boundary would permit a duplicate delivery."
+
+[finding.provisioned-privacy-default]
+test = "TestRepairM_1063_provisioned_privacy_default"
+repair = "Gateway, store and both backfill producers use the timestamped DefaultPreferences initializer. Provisioning reconciles only a nondeleted revision-zero blank auto-provisioned profile whose complete preference shape matches the old defaults and has no preference/consent mutation history; every explicit later choice is preserved."
+proof = "Production initialization and reconciliation, preference serialization, privacy and quiet-hour defaults, all preference/profile/history refusal cases, idempotent reconciliation and source-call checks of all four provisioning entry points."
+integration_test = "TestConnectedRepairM1063ProvisionedPrivacyDefaults compares actual gateway and legacy-range backfill outputs, reconciles a legacy row and preserves a user privacy choice across pool reopen; external PostgreSQL execution is outside this focused gate."
+
+[finding.deletion-fixture-schema-source]
+test = "TestRepairM_1063_deletion_fixture_schema_source"
+repair = "v2OwnerDeletionFixture delegates to connectedLegacyFixture, which applies tracked embedded user migrations and connectedIdentityDDL; no integration migration files are read. Identity assertions use the fixture's actual schema search path."
+proof = "Fixture declaration points to connectedLegacyFixture; tracked user/identity schema checks, real recovery receipt production and authentication after record close/reopen, real v2 deletion adapter/generated decoder and other-job refusal. Existing deletion creation/revocation/outbox/recovery assertions remain."
+limitation = "The tracked development identity fixture explicitly omits users.consume_account_deletion_reauth and users.revoke_account_sessions, which RequestDeletionOperation calls. The external deletion-creation test still requires the owning domain to supply that production interface; no replacement SQL, stub or weakened assertion is introduced."
+
+[finding.completed-export-fixture]
+test = "TestRepairM_1063_completed_export_fixture"
+repair = "The completed wire case now uses production worker metadata and exportStatusProjection, including its real credential. A full worker-publication/status/generated-decoder/download participant test preserves authorization and enforces one-use consumption across reopen; every prior malformed-input rejection remains."
+proof = "The focused test runs the participant test and all existing job adapter schema/rejection assertions. TLS status transport supplies the only download credential used by the generated consumer; absent, conflicting, duplicate and other-account credentials are refused before one successful download and a durable replay refusal."
+
+[wiring]
+identity_functions = "services/launchpad/gateway/internal/devidentity/migrations and services/launchpad/user/migrations (identity and user domains): provide tracked production deletion reauthentication/session-revocation functions compatible with the connected fixture's schema, so the retained real deletion-creation transaction test can execute without the retired integration-DDL source."
+sdk = "sdk/launchpad/shared/interfaces/v2/types.gen.go and source contracts (SDK/interfaces domain): retain the earlier repair_76 request to generate downloadAuthorization; this task proves usable authorization through the existing generated downloadUrl field."
+postgres_recovery = "services/launchpad/user integration qualification (user domain): execute connected PostgreSQL deletion/defaults/export proofs; the focused gate proves production claim logic against a durable file-backed persistence peer and does not claim PostgreSQL crash or lock qualification."
+
+[observations]
+gotcha = "Original gateway profile and preference timestamps are sampled separately; legacy-default detection compares the complete legacy preference shape using its own nonzero timestamp, while revision and mutation history protect explicit choices."
+fixture = "The loopback object server and opaque durable record file are committed peers. They do not implement download decisions; production exportDownloads and downloadHandler perform authorization, claim, recovery, fencing and consumption. No external environment, database, object service, subprocess or live endpoint is required."

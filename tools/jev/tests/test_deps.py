@@ -49,6 +49,9 @@ AGENT_CAPTURE = FIXTURES / "agent-advisories.jsonl"
 INTEROP_CAPTURE = FIXTURES / "interop-advisories.jsonl"
 PASTE_ADVISORY = "RUSTSEC-2024-0436"
 RUSTLS_ADVISORY = "RUSTSEC-2026-0285"
+LIVE_WORKSPACES = (
+    "services/agent", "services/human", "services/platform", "programs", "services/interop"
+)
 DIGEST = "0" * 64
 RESPONSE = {
     "model": "typesafe/jev-1.13-20260917",
@@ -82,7 +85,7 @@ def captured(path: Path, workspace: str) -> list:
 
 
 def grouped() -> dict[str, Advisory]:
-    diagnostics = captured(AGENT_CAPTURE, "agent") + captured(INTEROP_CAPTURE, "interop")
+    diagnostics = captured(AGENT_CAPTURE, "services/agent") + captured(INTEROP_CAPTURE, "services/interop")
     advisories = group_advisories(diagnostics, DependencyIndex(repo_root=ROOT))
     return {advisory.advisory_id: advisory for advisory in advisories}
 
@@ -96,7 +99,7 @@ def parsed_args(argv: list[str]) -> argparse.Namespace:
 def deny_digests() -> dict[str, str]:
     return {
         workspace: hashlib.sha256((ROOT / workspace / "deny.toml").read_bytes()).hexdigest()
-        for workspace in WORKSPACES
+        for workspace in LIVE_WORKSPACES
     }
 
 
@@ -104,24 +107,24 @@ class ParseDiagnosticsTests(unittest.TestCase):
     def test_capture_yields_only_the_advisory_diagnostics(self) -> None:
         lines = INTEROP_CAPTURE.read_text(encoding="utf-8").splitlines()
         self.assertEqual(len(lines), 4)
-        diagnostics = captured(INTEROP_CAPTURE, "interop")
+        diagnostics = captured(INTEROP_CAPTURE, "services/interop")
         self.assertEqual(
             sorted(diagnostic.advisory_id for diagnostic in diagnostics),
             [PASTE_ADVISORY, RUSTLS_ADVISORY],
         )
-        self.assertTrue(all(diagnostic.workspace == "interop" for diagnostic in diagnostics))
+        self.assertTrue(all(diagnostic.workspace == "services/interop" for diagnostic in diagnostics))
 
     def test_unmaintained_diagnostic_keeps_crate_anchor_and_graph(self) -> None:
         diagnostic = next(
             item
-            for item in captured(INTEROP_CAPTURE, "interop")
+            for item in captured(INTEROP_CAPTURE, "services/interop")
             if item.advisory_id == PASTE_ADVISORY
         )
         self.assertEqual(diagnostic.code, "unmaintained")
         self.assertEqual(diagnostic.severity, "error")
         self.assertEqual(diagnostic.crate, "paste")
         self.assertEqual(diagnostic.version, "1.0.15")
-        self.assertEqual(diagnostic.anchor, "services/interop/Cargo.lock:109")
+        self.assertEqual(diagnostic.anchor, "services/interop/Cargo.lock:1982")
         self.assertEqual(diagnostic.message, "paste - no longer maintained")
         self.assertIn("archived the repository", diagnostic.description)
         self.assertEqual(diagnostic.graph_path[0], "paste 1.0.15")
@@ -131,29 +134,29 @@ class ParseDiagnosticsTests(unittest.TestCase):
     def test_vulnerability_diagnostic_keeps_its_own_lock_line(self) -> None:
         interop = next(
             item
-            for item in captured(INTEROP_CAPTURE, "interop")
+            for item in captured(INTEROP_CAPTURE, "services/interop")
             if item.advisory_id == RUSTLS_ADVISORY
         )
         agent = next(
             item
-            for item in captured(AGENT_CAPTURE, "agent")
+            for item in captured(AGENT_CAPTURE, "services/agent")
             if item.advisory_id == RUSTLS_ADVISORY
         )
         self.assertEqual(interop.code, "vulnerability")
         self.assertEqual(interop.crate, "rustls")
         self.assertEqual(interop.version, "0.23.43")
-        self.assertEqual(interop.anchor, "services/interop/Cargo.lock:128")
-        self.assertEqual(agent.anchor, "services/agent/Cargo.lock:119")
+        self.assertEqual(interop.anchor, "services/interop/Cargo.lock:2351")
+        self.assertEqual(agent.anchor, "services/agent/Cargo.lock:1447")
         self.assertEqual(agent.graph_path[0], "rustls 0.23.43")
 
     def test_blank_summary_and_malformed_lines_are_skipped(self) -> None:
         text = "\n   \nnot json\n{\"type\": \"summary\", \"fields\": {\"advisories\": {}}}\n"
-        self.assertEqual(parse_diagnostics(text, "agent"), [])
+        self.assertEqual(parse_diagnostics(text, "services/agent"), [])
 
 
 class DependencyScanTests(unittest.TestCase):
     def test_manifests_cover_the_declared_workspace_members(self) -> None:
-        root = ROOT / "agent"
+        root = ROOT / "services/agent"
         manifests = workspace_manifests(root)
         document = tomllib.loads((root / "Cargo.toml").read_text(encoding="utf-8"))
         expected = {root / "Cargo.toml"}
@@ -165,21 +168,48 @@ class DependencyScanTests(unittest.TestCase):
 
     def test_direct_dev_and_transitive_crates_are_separated(self) -> None:
         index = DependencyIndex(repo_root=ROOT)
-        self.assertEqual(index.classify("agent", "rustls"), PRODUCTION)
-        self.assertEqual(index.classify("agent", "native-tls"), DEV_ONLY)
-        self.assertEqual(index.classify("agent", "paste"), UNKNOWN)
-        self.assertEqual(index.classify("interop", "rustls"), PRODUCTION)
+        self.assertEqual(index.classify("services/agent", "rustls"), PRODUCTION)
+        self.assertEqual(index.classify("services/agent", "native-tls"), DEV_ONLY)
+        self.assertEqual(index.classify("services/agent", "paste"), UNKNOWN)
+        self.assertEqual(index.classify("services/interop", "rustls"), PRODUCTION)
 
     def test_renamed_dependency_is_indexed_by_its_package_name(self) -> None:
         index = DependencyIndex(repo_root=ROOT)
-        self.assertEqual(index.classify("agent", "layerx-programs-registry"), PRODUCTION)
-        self.assertEqual(index.classify("agent", "layerx-programs"), UNKNOWN)
+        self.assertEqual(index.classify("services/agent", "layerx-programs-registry"), PRODUCTION)
+        self.assertEqual(index.classify("services/agent", "layerx-programs"), UNKNOWN)
 
     def test_every_workspace_scans_into_disjoint_sets(self) -> None:
-        for workspace in WORKSPACES:
-            deps = scan_workspace(ROOT / workspace)
-            self.assertTrue(deps.normal, workspace)
-            self.assertEqual(deps.normal & deps.dev, frozenset(), workspace)
+        index = DependencyIndex(repo_root=ROOT)
+        for workspace in LIVE_WORKSPACES:
+            with self.subTest(workspace=workspace):
+                self.assertTrue((ROOT / workspace / "Cargo.toml").is_file())
+                self.assertTrue((ROOT / workspace / "Cargo.lock").is_file())
+                deps = index.workspace(workspace)
+                self.assertEqual(deps, scan_workspace(ROOT / workspace))
+                self.assertTrue(deps.normal, workspace)
+                self.assertEqual(deps.normal & deps.dev, frozenset(), workspace)
+        self.assertEqual(set(index.scans), set(LIVE_WORKSPACES))
+
+    def test_default_scanner_selects_all_five_live_graphs(self) -> None:
+        self.assertEqual(WORKSPACES, LIVE_WORKSPACES)
+        args = parsed_args(["--out", "reports"])
+        from tools.jev.checks.deps import selected_workspaces
+
+        self.assertEqual(selected_workspaces(args.workspace), LIVE_WORKSPACES)
+
+    def test_captured_anchors_resolve_to_the_real_lockfile_crate_lines(self) -> None:
+        for path, workspace in (
+            (AGENT_CAPTURE, "services/agent"),
+            (INTEROP_CAPTURE, "services/interop"),
+        ):
+            diagnostics = captured(path, workspace)
+            self.assertEqual(len(diagnostics), 2)
+            for diagnostic in diagnostics:
+                with self.subTest(workspace=workspace, crate=diagnostic.crate):
+                    file_name, line = diagnostic.anchor.rsplit(":", 1)
+                    self.assertEqual(file_name, f"{workspace}/Cargo.lock")
+                    lines = (ROOT / file_name).read_text(encoding="utf-8").splitlines()
+                    self.assertEqual(lines[int(line) - 1], f'name = "{diagnostic.crate}"')
 
     def test_missing_workspace_is_unknown(self) -> None:
         index = DependencyIndex(repo_root=ROOT)
@@ -193,19 +223,19 @@ class GroupingTests(unittest.TestCase):
         self.assertEqual(sorted(groups), [PASTE_ADVISORY, RUSTLS_ADVISORY])
         paste = groups[PASTE_ADVISORY]
         self.assertEqual(paste.crate, "paste")
-        self.assertEqual(paste.workspaces, ("agent", "interop"))
+        self.assertEqual(paste.workspaces, ("services/agent", "services/interop"))
         self.assertEqual(paste.versions, ("1.0.15",))
-        self.assertEqual(paste.anchors, ("services/agent/Cargo.lock:101", "services/interop/Cargo.lock:109"))
-        self.assertEqual(paste.anchor, "services/agent/Cargo.lock:101")
-        self.assertEqual(paste.dev_by_workspace, {"agent": UNKNOWN, "interop": UNKNOWN})
+        self.assertEqual(paste.anchors, ("services/agent/Cargo.lock:1261", "services/interop/Cargo.lock:1982"))
+        self.assertEqual(paste.anchor, "services/agent/Cargo.lock:1261")
+        self.assertEqual(paste.dev_by_workspace, {"services/agent": UNKNOWN, "services/interop": UNKNOWN})
         self.assertEqual(paste.dev_flag, UNKNOWN)
 
     def test_production_usage_decides_the_group_flag(self) -> None:
         rustls = grouped()[RUSTLS_ADVISORY]
         self.assertEqual(rustls.code, "vulnerability")
         self.assertEqual(rustls.versions, ("0.23.43",))
-        self.assertEqual(rustls.workspaces, ("agent", "interop"))
-        self.assertEqual(rustls.dev_by_workspace, {"agent": PRODUCTION, "interop": PRODUCTION})
+        self.assertEqual(rustls.workspaces, ("services/agent", "services/interop"))
+        self.assertEqual(rustls.dev_by_workspace, {"services/agent": PRODUCTION, "services/interop": PRODUCTION})
         self.assertEqual(rustls.dev_flag, PRODUCTION)
 
     def test_flag_precedence_prefers_production_then_dev(self) -> None:
@@ -238,9 +268,9 @@ class QuestionTests(unittest.TestCase):
         self.assertEqual(state["kind"], "unmaintained")
         self.assertEqual(state["dependency_kind"], UNKNOWN)
         self.assertEqual(
-            state["dependency_kind_by_workspace"], {"agent": UNKNOWN, "interop": UNKNOWN}
+            state["dependency_kind_by_workspace"], {"services/agent": UNKNOWN, "services/interop": UNKNOWN}
         )
-        self.assertEqual(state["workspaces"], ["agent", "interop"])
+        self.assertEqual(state["workspaces"], ["services/agent", "services/interop"])
         self.assertEqual(state["crate_versions"], ["1.0.15"])
         self.assertIn("archived the repository", state["advisory_text"])
         self.assertLessEqual(len(state["advisory_text"]), ADVISORY_TEXT_LIMIT)
@@ -272,7 +302,7 @@ class FindingTests(unittest.TestCase):
         findings = findings_for(advisory, self.evaluation())
         self.assertEqual([finding.question for finding in findings], ["priority", "urgency"])
         self.assertTrue(all(finding.check == CHECK_NAME for finding in findings))
-        self.assertTrue(all(finding.anchor == "services/agent/Cargo.lock:119" for finding in findings))
+        self.assertTrue(all(finding.anchor == "services/agent/Cargo.lock:1447" for finding in findings))
         self.assertTrue(
             all(finding.subject == f"{RUSTLS_ADVISORY} rustls" for finding in findings)
         )
@@ -282,7 +312,7 @@ class FindingTests(unittest.TestCase):
         self.assertEqual(priority.route, route_for(0.91))
         self.assertEqual(priority.route, "auto")
         self.assertEqual(priority.detail["dependency_kind"], PRODUCTION)
-        self.assertEqual(priority.detail["workspaces"], ["agent", "interop"])
+        self.assertEqual(priority.detail["workspaces"], ["services/agent", "services/interop"])
         self.assertEqual(priority.detail["probabilities"]["production_reachable"], 0.91)
         self.assertEqual(urgency.answer, "high")
         self.assertEqual(urgency.route, route_for(0.58))
@@ -302,7 +332,7 @@ class FindingTests(unittest.TestCase):
         self.assertEqual(document["check"], CHECK_NAME)
         self.assertEqual(len(document["findings"]), 2)
         self.assertEqual(
-            {item["anchor"] for item in document["findings"]}, {"services/agent/Cargo.lock:101"}
+            {item["anchor"] for item in document["findings"]}, {"services/agent/Cargo.lock:1261"}
         )
         self.assertIn(PASTE_ADVISORY, report.to_markdown())
 
@@ -317,8 +347,8 @@ class RegistrationTests(unittest.TestCase):
 
 class ArgumentTests(unittest.TestCase):
     def test_input_pairs_need_a_workspace(self) -> None:
-        self.assertEqual(input_pair("out.jsonl=agent"), (Path("out.jsonl"), "agent"))
-        for raw in ("out.jsonl", "=agent", "out.jsonl="):
+        self.assertEqual(input_pair("out.jsonl=services/agent"), (Path("out.jsonl"), "services/agent"))
+        for raw in ("out.jsonl", "=services/agent", "out.jsonl="):
             with self.assertRaises(argparse.ArgumentTypeError):
                 input_pair(raw)
 
@@ -329,7 +359,7 @@ class ArgumentTests(unittest.TestCase):
                     "--out",
                     directory,
                     "--input",
-                    f"{INTEROP_CAPTURE}=interop",
+                    f"{INTEROP_CAPTURE}=services/interop",
                     "--repo-root",
                     str(ROOT),
                 ]
@@ -338,8 +368,8 @@ class ArgumentTests(unittest.TestCase):
             self.assertIsNone(args.workspace)
             sources = collect_sources(args, ROOT)
         self.assertEqual(len(sources), 1)
-        self.assertEqual(sources[0][0], "interop")
-        self.assertEqual(len(parse_diagnostics(sources[0][1], "interop")), 2)
+        self.assertEqual(sources[0][0], "services/interop")
+        self.assertEqual(len(parse_diagnostics(sources[0][1], "services/interop")), 2)
 
 
 class DryRunTests(unittest.TestCase):
@@ -353,9 +383,9 @@ class DryRunTests(unittest.TestCase):
                     "--out",
                     str(out_dir),
                     "--input",
-                    f"{AGENT_CAPTURE}=agent",
+                    f"{AGENT_CAPTURE}=services/agent",
                     "--input",
-                    f"{INTEROP_CAPTURE}=interop",
+                    f"{INTEROP_CAPTURE}=services/interop",
                     "--repo-root",
                     str(ROOT),
                     "--dry-run",
@@ -378,9 +408,9 @@ class LiveDepsTests(unittest.TestCase):
                     "--out",
                     str(out_dir),
                     "--input",
-                    f"{AGENT_CAPTURE}=agent",
+                    f"{AGENT_CAPTURE}=services/agent",
                     "--input",
-                    f"{INTEROP_CAPTURE}=interop",
+                    f"{INTEROP_CAPTURE}=services/interop",
                     "--repo-root",
                     str(ROOT),
                 ]
@@ -401,7 +431,7 @@ class LiveDepsTests(unittest.TestCase):
                 self.assertIn(finding.route, ("auto", "review", "escalate"))
                 self.assertGreaterEqual(finding.confidence, 0.0)
                 self.assertLessEqual(finding.confidence, 1.0)
-                self.assertRegex(finding.anchor, r"^(agent|interop)/Cargo\.lock:\d+$")
+                self.assertRegex(finding.anchor, r"^services/(agent|interop)/Cargo\.lock:\d+$")
                 if finding.question == PRIORITY_QUESTION:
                     self.assertIn(finding.answer, PRIORITY_OPTIONS)
                 else:

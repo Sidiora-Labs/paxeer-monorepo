@@ -1,0 +1,212 @@
+{
+  "node": "Geth/v1.15.11-stable-36b2371c/linux-amd64/go1.24.2",
+  "runtime": "0x6001601260053960a5600160056007f55000fe",
+  "tx": {
+    "blockHash": "0x27bb258460535d02b2bdc799a429ea84d3b77b0414dd28ca2e3fb4f2c1b0e7e0",
+    "blockNumber": "0x13",
+    "from": "0x64951db68abc1c7c37977fc068ed51cf1173adcd",
+    "gas": "0x300000",
+    "gasPrice": "0x4d30bb6",
+    "maxFeePerGas": "0xb06f631",
+    "maxPriorityFeePerGas": "0x1",
+    "hash": "0x0cffe3f41720a51c8265371ac6d6ad6fd69d351134d3671843944b1cfa3d8564",
+    "input": "0x",
+    "nonce": "0x10",
+    "to": "0x0fcd1dbd798e2a93937768fd272be7a320b79212",
+    "transactionIndex": "0x0",
+    "value": "0x7",
+    "type": "0x2",
+    "accessList": [],
+    "chainId": "0x539",
+    "v": "0x1",
+    "r": "0x3d07eb45bb05c140c393563e93644ee924cb677ed9352a72147233591dce8013",
+    "s": "0x64993fdf44c5f0178030da1308809156ff1c90ac0c722996b82c28a7354c2906",
+    "yParity": "0x1"
+  },
+  "receipt": {
+    "blockHash": "0x27bb258460535d02b2bdc799a429ea84d3b77b0414dd28ca2e3fb4f2c1b0e7e0",
+    "blockNumber": "0x13",
+    "contractAddress": null,
+    "cumulativeGasUsed": "0x2f433f",
+    "effectiveGasPrice": "0x4d30bb6",
+    "from": "0x64951db68abc1c7c37977fc068ed51cf1173adcd",
+    "gasUsed": "0x2f433f",
+    "logs": [],
+    "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "status": "0x1",
+    "to": "0x0fcd1dbd798e2a93937768fd272be7a320b79212",
+    "transactionHash": "0x0cffe3f41720a51c8265371ac6d6ad6fd69d351134d3671843944b1cfa3d8564",
+    "transactionIndex": "0x0",
+    "type": "0x2"
+  },
+  "result": {
+    "gas": 3097407,
+    "failed": false,
+    "returnValue": "0x",
+    "structLogs": [
+      {
+        "pc": 0,
+        "op": "PUSH1",
+        "gas": 3124728,
+        "gasCost": 3,
+        "depth": 1,
+        "stack": []
+      },
+      {
+        "pc": 2,
+        "op": "PUSH1",
+        "gas": 3124725,
+        "gasCost": 3,
+        "depth": 1,
+        "stack": [
+          "0x1"
+        ]
+      },
+      {
+        "pc": 4,
+        "op": "PUSH1",
+        "gas": 3124722,
+        "gasCost": 3,
+        "depth": 1,
+        "stack": [
+          "0x1",
+          "0x12"
+        ]
+      },
+      {
+        "pc": 6,
+        "op": "CODECOPY",
+        "gas": 3124719,
+        "gasCost": 9,
+        "depth": 1,
+        "stack": [
+          "0x1",
+          "0x12",
+          "0x5"
+        ]
+      },
+      {
+        "pc": 7,
+        "op": "PUSH1",
+        "gas": 3124710,
+        "gasCost": 3,
+        "depth": 1,
+        "stack": [],
+        "memory": [
+          "0000000000fe0000000000000000000000000000000000000000000000000000"
+        ]
+      },
+      {
+        "pc": 9,
+        "op": "PUSH1",
+        "gas": 3124707,
+        "gasCost": 3,
+        "depth": 1,
+        "stack": [
+          "0xa5"
+        ],
+        "memory": [
+          "0000000000fe0000000000000000000000000000000000000000000000000000"
+        ]
+      },
+      {
+        "pc": 11,
+        "op": "PUSH1",
+        "gas": 3124704,
+        "gasCost": 3,
+        "depth": 1,
+        "stack": [
+          "0xa5",
+          "0x1"
+        ],
+        "memory": [
+          "0000000000fe0000000000000000000000000000000000000000000000000000"
+        ]
+      },
+      {
+        "pc": 13,
+        "op": "PUSH1",
+        "gas": 3124701,
+        "gasCost": 3,
+        "depth": 1,
+        "stack": [
+          "0xa5",
+          "0x1",
+          "0x5"
+        ],
+        "memory": [
+          "0000000000fe0000000000000000000000000000000000000000000000000000"
+        ]
+      },
+      {
+        "pc": 15,
+        "op": "CREATE2",
+        "gas": 3124698,
+        "gasCost": 32008,
+        "depth": 1,
+        "stack": [
+          "0xa5",
+          "0x1",
+          "0x5",
+          "0x7"
+        ],
+        "memory": [
+          "0000000000fe0000000000000000000000000000000000000000000000000000"
+        ]
+      },
+      {
+        "pc": 0,
+        "op": "INVALID",
+        "gas": 3044367,
+        "gasCost": 0,
+        "depth": 2,
+        "stack": []
+      },
+      {
+        "pc": 16,
+        "op": "POP",
+        "gas": 48323,
+        "gasCost": 2,
+        "depth": 1,
+        "stack": [
+          "0x0"
+        ],
+        "memory": [
+          "0000000000fe0000000000000000000000000000000000000000000000000000"
+        ]
+      },
+      {
+        "pc": 17,
+        "op": "STOP",
+        "gas": 48321,
+        "gasCost": 0,
+        "depth": 1,
+        "stack": [],
+        "memory": [
+          "0000000000fe0000000000000000000000000000000000000000000000000000"
+        ]
+      }
+    ]
+  },
+  "callTracer": {
+    "from": "0x64951db68abc1c7c37977fc068ed51cf1173adcd",
+    "gas": "0x300000",
+    "gasUsed": "0x2f433f",
+    "to": "0x0fcd1dbd798e2a93937768fd272be7a320b79212",
+    "input": "0x",
+    "calls": [
+      {
+        "from": "0x0fcd1dbd798e2a93937768fd272be7a320b79212",
+        "gas": "0x2e740f",
+        "gasUsed": "0x2e740f",
+        "input": "0xfe",
+        "error": "invalid opcode: INVALID",
+        "value": "0x7",
+        "type": "CREATE2"
+      }
+    ],
+    "value": "0x7",
+    "type": "CALL"
+  },
+  "codes": {}
+}

@@ -1,7 +1,9 @@
 package privval
 
 import (
+	"context"
 	"fmt"
+	"net"
 	"testing"
 	"time"
 
@@ -10,6 +12,12 @@ import (
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/crypto/ed25519"
 	tmnet "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/net"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/utils/scope"
+)
+
+var (
+	testSocketListenerKey = ed25519.TestSecretKey([]byte("privval listener fixture"))
+	testSocketDialerKey   = ed25519.TestSecretKey([]byte("privval dialer fixture"))
 )
 
 // getFreeLocalhostAddrPort returns a free localhost:port address
@@ -30,7 +38,7 @@ func getDialerTestCases(t *testing.T) []dialerTestCase {
 	return []dialerTestCase{
 		{
 			addr:   tcpAddr,
-			dialer: DialTCPFn(tcpAddr, testTimeoutReadWrite, ed25519.GenerateSecretKey()),
+			dialer: DialTCPFn(tcpAddr, testTimeoutReadWrite, testSocketDialerKey, testSocketListenerKey.Public()),
 		},
 		{
 			addr:   unixAddr,
@@ -40,19 +48,60 @@ func getDialerTestCases(t *testing.T) []dialerTestCase {
 }
 
 func TestIsConnTimeoutForFundamentalTimeouts(t *testing.T) {
-	// Generate a networking timeout
-	tcpAddr := getFreeLocalhostAddrPort(t)
-	dialer := DialTCPFn(tcpAddr, time.Millisecond, ed25519.GenerateSecretKey())
-	_, err := dialer()
-	assert.Error(t, err)
+	err := stalledHandshakeError(t)
 	assert.True(t, IsConnTimeout(err))
 }
 
+func TestIsConnTimeoutForConnectionRefusal(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	addr := ln.Addr().String()
+	require.NoError(t, ln.Close())
+	conn, err := DialTCPFn(addr, time.Second, testSocketDialerKey, testSocketListenerKey.Public())()
+	require.Error(t, err)
+	require.Nil(t, conn)
+	assert.False(t, IsConnTimeout(err))
+}
+
+// stalledHandshakeError accepts the TCP connection but never participates in
+// SecretConnection, so the dialer's real handshake deadline must expire.
+func stalledHandshakeError(t *testing.T) error {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer ln.Close()
+	accepted := make(chan struct{})
+	var dialErr error
+	err = scope.Run(t.Context(), func(ctx context.Context, s scope.Scope) error {
+		s.SpawnBg(func() error {
+			conn, err := ln.Accept()
+			if err != nil {
+				return err
+			}
+			defer conn.Close()
+			close(accepted)
+			<-ctx.Done()
+			return nil
+		})
+		conn, err := DialTCPFn(ln.Addr().String(), 50*time.Millisecond, testSocketDialerKey, testSocketListenerKey.Public())()
+		dialErr = err
+		if conn != nil {
+			conn.Close()
+		}
+		select {
+		case <-accepted:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	})
+	require.NoError(t, err)
+	require.Error(t, dialErr)
+	return dialErr
+}
+
 func TestIsConnTimeoutForWrappedConnTimeouts(t *testing.T) {
-	tcpAddr := getFreeLocalhostAddrPort(t)
-	dialer := DialTCPFn(tcpAddr, time.Millisecond, ed25519.GenerateSecretKey())
-	_, err := dialer()
-	assert.Error(t, err)
+	err := stalledHandshakeError(t)
 	err = fmt.Errorf("%v: %w", err, ErrConnectionTimeout)
 	assert.True(t, IsConnTimeout(err))
 }

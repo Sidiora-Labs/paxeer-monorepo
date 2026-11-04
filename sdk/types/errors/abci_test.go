@@ -75,7 +75,7 @@ func (s *abciTestSuite) TestABCInfo() {
 		"custom error": {
 			err:       customErr{},
 			debug:     false,
-			wantLog:   "custom",
+			wantLog:   "internal error",
 			wantCode:  999,
 			wantSpace: "extern",
 		},

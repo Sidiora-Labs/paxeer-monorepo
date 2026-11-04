@@ -127,6 +127,14 @@ func CreateSegment(
 	if err != nil {
 		return nil, fmt.Errorf("failed to open key file: %v", err)
 	}
+	keepKeys := false
+	defer func() {
+		if !keepKeys {
+			if err := keys.file.Close(); err != nil {
+				logger.Error("failed to close key file after segment creation failed", "error", err)
+			}
+		}
+	}()
 
 	keyFileSize := keys.Size()
 
@@ -185,6 +193,7 @@ func CreateSegment(
 
 	go segment.keyFileControlLoop()
 
+	keepKeys = true
 	return segment, nil
 }
 

@@ -358,7 +358,7 @@ func (s Store) BackfillLegacyRange(ctx context.Context, r BackfillRange) (Backfi
 		if e != nil {
 			return out, e
 		}
-		pf, e := json.Marshal(DefaultPreferences())
+		pf, e := json.Marshal(initialPreferences(s.now()))
 		if e != nil {
 			return out, e
 		}
