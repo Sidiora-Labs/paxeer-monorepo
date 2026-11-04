@@ -59,6 +59,7 @@ export interface WebSearchMeteredPayment {
 export interface WebSearchExactPayment {
   readonly idempotencyKey?: string;
   readonly receipt: Uint8Array;
+  /** Required at runtime before a payment header is sent; omission is refused. */
   readonly rawTransaction?: Uint8Array;
 }
 
@@ -81,9 +82,12 @@ export interface WebSearchClientOptions {
   readonly nativeAsset: string;
   readonly assets: Partial<Readonly<Record<WebSearchCurrency, WebSearchAssetTerms>>>;
   readonly payer: WebSearchPayer;
+  /** Nonempty, height-bounded receipt pins are required at construction. */
   readonly receiptKeys?: readonly ReceiptKey[];
   readonly ledgerRpc?: JsonRpcClient;
+  /** @deprecated Always refused. Configure receiptKeys instead. */
   readonly authority?: (receipt: Uint8Array, offer: WebSearchOffer) => Promise<import("./verifier.js").AuthorizedReceiptBatch>;
+  /** @deprecated Always refused. Receipt versions are authenticated by the verifier. */
   readonly protocolVersion?: SelectableProtocolVersion;
   readonly now?: () => bigint;
   readonly pendingAttempts?: number;
@@ -400,6 +404,15 @@ export class WebSearchClient {
   readonly #now: () => bigint;
 
   public constructor(options: WebSearchClientOptions) {
+    if ("authority" in options || "protocolVersion" in options) throw new WebSearchError("obsolete-trust-configuration");
+    if (options.receiptKeys === undefined || options.receiptKeys.length === 0) throw new WebSearchError("receipt-keys-required");
+    for (const key of options.receiptKeys) {
+      if (!(key.keyId instanceof Uint8Array) || key.keyId.length !== 32
+        || !(key.publicKey instanceof Uint8Array) || key.publicKey.length !== 32
+        || typeof key.first_height !== "bigint" || typeof key.last_height !== "bigint"
+        || key.first_height < 0n || key.last_height > 0xffff_ffff_ffff_ffffn
+        || key.first_height > key.last_height) throw new WebSearchError("invalid-receipt-key");
+    }
     const endpoint = new URL(options.endpoint);
     if (!["https:", "http:"].includes(endpoint.protocol) || endpoint.username || endpoint.password || endpoint.search || endpoint.hash
       || (endpoint.protocol === "http:" && !["localhost", "127.0.0.1", "[::1]"].includes(endpoint.hostname))) throw new WebSearchError("invalid-endpoint");
@@ -416,7 +429,9 @@ export class WebSearchClient {
     if (!Number.isSafeInteger(pendingAttempts) || pendingAttempts < 1 || pendingAttempts > 60) throw new WebSearchError("invalid-pending-attempts");
     this.#basePath = endpoint.pathname.replace(/\/+$/u, "");
     this.#endpoint = endpoint;
-    this.#options = options;
+    this.#options = { ...options, receiptKeys: options.receiptKeys.map(key => ({
+      ...key, keyId: new Uint8Array(key.keyId), publicKey: new Uint8Array(key.publicKey),
+    })) };
     this.#pendingAttempts = pendingAttempts;
     this.#now = options.now ?? (() => BigInt(Math.floor(Date.now() / 1000)));
   }
@@ -548,10 +563,10 @@ export class WebSearchClient {
     }
     if (payer.exact === undefined) throw new WebSearchError("exact-payer-unavailable");
     const payment = await payer.exact(offer, target);
+    if (!(payment.rawTransaction instanceof Uint8Array) || payment.rawTransaction.length === 0) throw new WebSearchError("exact-raw-transaction-required");
     const receipt = new Uint8Array(payment.receipt);
-    const rawTransaction = payment.rawTransaction === undefined ? undefined : new Uint8Array(payment.rawTransaction);
+    const rawTransaction = new Uint8Array(payment.rawTransaction);
     const verified = await verifyWebSearchPayment(receipt, rawTransaction, offer, this.#options.receiptKeys, payment.idempotencyKey);
-    if (rawTransaction === undefined) throw new WebSearchError("receipt-unverified");
     bindLedgerPayment(rawTransaction, offer, hex(verified.payment.from), payment.idempotencyKey);
     if (payment.idempotencyKey !== undefined && (!hex32(payment.idempotencyKey) || payment.idempotencyKey === ZERO32)) throw new WebSearchError("invalid-idempotency-key");
     const payload = { txHash: `0x${hex(keccak_256(rawTransaction))}`, receiptDigest: receiptDigest(receipt), verificationLevel: "receipted",
