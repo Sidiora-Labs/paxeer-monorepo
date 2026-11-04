@@ -1,0 +1,44 @@
+[task]
+id = "22.33.78"
+audit = "22.30.11"
+acceptance = "22998.1"
+verified_revision_source = "The bounded runner records the exact candidate revision, command, exit and private evidence log in /out/run/gates.jsonl."
+baseline = "Not run: the explicit ordered implementation-before-qualification rule and single bounded verification prohibit the contradictory pre-change verify instruction; no baseline test failures are claimed."
+
+[finding.dynamic-candle-symbols]
+test = "dynamicCatalogReachesChartHistory; missingProducerFeedIsExplicit; catalogRegistrationPreservesRouteValidation"
+repair = "Use the validated gateway catalog registration for chart search and route membership; verify producer symbol identity and surface missing-feed refusals through the real chart error callbacks."
+proof = "Committed in-memory gateway and UDF fixtures served over loopback HTTP drive loadPerpsMarkets, gqlQuery, catalog decoding, venue registration, PerpsDatafeed symbol resolution and candle history without replaced transports or live endpoints."
+
+[finding.public-rpc-defaults]
+test = "publicRpcDefaultsReachChainConsumer; operatorOverridesPreserveLegacyFiltering"
+repair = "Declare fourteen numbered root-path nodes plus the public alias; preserve multi-URL override, single-URL priority, deduplication and retired-host filtering; document selection in feeds.md."
+
+[wiring.candle-producer]
+request = "Chainflow candle-service owner: provision the existing /api/<symbol>/{config,symbols,history} UDF contract for newly catalog-listed symbols; services/platform/perps-data/internal/graphql/schema.go remains owned by domain 9 and has no candle capability field, so this task uses explicit UDF producer responses rather than inventing a gateway field."
+
+[wiring.operator-docs]
+request = "Domain 3 deployment documentation owner: keep apps/perps/deploy/README.md and apps/perps/data_api.md aligned with core/feeds.md; both already name the fourteen numbered RPC nodes and public alias and are outside this task's edit scope."
+
+[wiring.historical-test]
+request = "Domain 3 test owner: apps/perps/tests/feeds.test.ts still asserts sixteen numbered RPC defaults; update that superseded configuration assertion in its owning task, outside this task's allowed test path."
+
+[gotcha.feed-fixture-origin]
+observed = "The feed host configuration previously prepended HTTPS unconditionally, preventing a real HTTP loopback producer from exercising chart transport."
+resolution = "Accept and validate a bare HTTP(S) producer origin while preserving HTTPS for existing host-only configuration; set every fixture origin before importing application modules."
+
+[qualification.pre-existing-wallet-dependencies]
+revision = "616f5dc31ce7c87159e54a88f9153c3e469e7244"
+command = "pnpm --dir apps/perps exec tsc --noEmit"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "The declared build reports TS2307 for viem in sdk/wallet/src/provider.ts and receipt.ts and @sidiora/layerx-sdk/browser in receipt.ts, followed by four dependent TS7006 errors; the task's changed TypeScript files have no reported errors."
+assumption = "The runner must prepare existing wallet dependencies and the linked agent SDK browser build outside this task's allowed gates; no SDK files or checks are changed, no unchanged gate is rerun, and hf-done cannot run until hf-build passes."
+
+[continuation.attempt-2]
+implementation = "Preserve the prior chart/catalog repair and five declared regression tests; retain the current base's fourteen-node RPC defaults and integrate the seed's configuration-only availability clarification."
+qualification = "The current declared build and verify commands now install the root workspace, build the agent SDK and install the wallet workspace before the perps type-check; the earlier dependency finding above is historical evidence."
+
+[gotcha.seed-comment-conflict]
+observed = "The continued repair conflicted with a newer RPC documentation change even though both sides already agreed on the endpoint set."
+resolution = "Retain the current base's documentation and defaults, add the seed's configuration-versus-availability clarification, and remove all conflict markers before qualification."
