@@ -783,7 +783,13 @@
             "python3",
             "tools/launchpad/production/interfaces/materialize.py",
             "--check",
-            "--validate"
+            "--validate",
+            "--catalog",
+            "{interface_catalog}",
+            "--out",
+            "{interface_root}",
+            "--frozen-v1-out",
+            "{interface_root}"
           ],
           "cwd": ".",
           "timeout_seconds": 300,
@@ -798,7 +804,11 @@
             "tools/launchpad/production/interfaces/codegen.py",
             "--root",
             "{source_root}",
-            "--check"
+            "--check",
+            "--schema",
+            "{interface_root}/schema-definitions.json",
+            "--manifest",
+            "{interface_root}/codegen-manifest.json"
           ],
           "cwd": ".",
           "timeout_seconds": 300,
@@ -812,12 +822,12 @@
             "python3",
             "tools/launchpad/production/interfaces/examples_check.py",
             "--check",
-            "--spec",
-            "launchpad/spec/production-system/spec.kvx",
+            "--catalog",
+            "{interface_catalog}",
             "--contracts",
-            "launchpad/spec/production-system/integration/contracts/v1",
+            "{interface_root}",
             "--examples",
-            "launchpad/spec/production-system/integration/contracts/v1/examples.json",
+            "{interface_root}/examples.json",
             "--materializer",
             "tools/launchpad/production/interfaces/materialize.py"
           ],
@@ -833,11 +843,13 @@
             "python3",
             "tools/launchpad/production/interfaces/accounting_check.py",
             "--cases",
-            "launchpad/spec/production-system/integration/contracts/v1/accounting-cases.json",
+            "sdk/launchpad/protocol/contracts/v1/accounting-cases.json",
             "--schema",
-            "launchpad/spec/production-system/integration/contracts/v1/schema-definitions.json",
+            "{interface_root}/schema-definitions.json",
             "--spec",
-            "launchpad/spec/production-system/spec.kvx"
+            "{reviewed_spec}",
+            "--catalog",
+            "{interface_catalog}"
           ],
           "cwd": ".",
           "timeout_seconds": 300,
@@ -854,9 +866,9 @@
             "--root",
             "{source_root}",
             "--manifest",
-            "launchpad/spec/production-system/integration/contracts/v1/compatibility.json",
+            "{interface_root}/compatibility.json",
             "--schemas",
-            "launchpad/spec/production-system/integration/contracts/v1/schema-definitions.json",
+            "{interface_root}/schema-definitions.json",
             "--schemas-required"
           ],
           "cwd": ".",
@@ -871,7 +883,11 @@
             "python3",
             "tools/launchpad/production/interfaces/persistence_check.py",
             "--compose",
-            "deploy/launchpad/production/bootstrap/compose.yml"
+            "deploy/launchpad/production/bootstrap/compose.yml",
+            "--register",
+            "{interface_root}/migration-register.json",
+            "--runtime-source",
+            "sdk/launchpad/shared/db/production/migrations.go"
           ],
           "cwd": ".",
           "timeout_seconds": 300,
@@ -1127,7 +1143,15 @@
             "--not-before",
             "{qualification_started_at}",
             "--report",
-            "{evidence_dir}/capability-report.json"
+            "{evidence_dir}/capability-report.json",
+            "--spec",
+            "{reviewed_spec}",
+            "--catalog",
+            "{interface_catalog}",
+            "--bundle",
+            "{interface_root}",
+            "--chain-bundle",
+            "sdk/launchpad/protocol/contracts/v1"
           ],
           "cwd": ".",
           "timeout_seconds": 300,
@@ -1139,7 +1163,7 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
+          "{interface_root}/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -1152,15 +1176,16 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "{interface_root}/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "{interface_root}/examples.json",
+          "{interface_root}/schemas",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
-        "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
+        "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925",
+        "migration_note": "Historical expected_sha256 is intentionally retained until the owning domain approves the complete semantic bundle and repins its digest; restored chain fixtures are not that bundle."
       }
     },
     "0.3": {
@@ -1169,7 +1194,7 @@
           "tools/launchpad/production/interfaces/*.py",
           "tools/launchpad/production/interfaces/contracts/*.cjs",
           "tools/launchpad/production/interfaces/contracts/run.sh",
-          "launchpad/spec/production-system/integration/contracts/v1/inputs",
+          "{interface_root}/inputs",
           "sdk/launchpad/shared/go.mod",
           "sdk/launchpad/shared/go.sum",
           "apps/launchpad/package.json",
@@ -1182,15 +1207,16 @@
           "tools/launchpad/production/interfaces/contracts/*.sol"
         ],
         "outputs": [
-          "launchpad/spec/production-system/integration/contracts/v1/*.json",
-          "launchpad/spec/production-system/integration/contracts/v1/chain",
+          "{interface_root}/*.json",
+          "sdk/launchpad/protocol/contracts/v1/chain",
           "sdk/launchpad/shared/interfaces/v1",
           "sdk/launchpad/packages/production-contracts/src",
-          "launchpad/spec/production-system/integration/contracts/v1/examples.json",
-          "launchpad/spec/production-system/integration/contracts/v1/schemas",
+          "{interface_root}/examples.json",
+          "{interface_root}/schemas",
           "apps/launchpad/web/src/core/network/deployment.ts"
         ],
-        "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925"
+        "expected_sha256": "2c395c9d054965c4fb57d1fdc7432122fbd820d3f0973e9f8120589b441a6925",
+        "migration_note": "Historical expected_sha256 is intentionally retained until the owning domain approves the complete semantic bundle and repins its digest; restored chain fixtures are not that bundle."
       },
       "checks": [
         {
@@ -1203,9 +1229,9 @@
             "python3",
             "tools/launchpad/production/dispatcher/qualification.py",
             "--spec",
-            "launchpad/spec/production-system/spec.kvx",
+            "{reviewed_spec}",
             "--plan",
-            "launchpad/spec/production-system/execution-plan.json",
+            "{reviewed_plan}",
             "--state-dir",
             "{evidence_dir}/dispatcher-state",
             "--evidence-dir",
@@ -9642,7 +9668,7 @@
           "launchpad/spec/production-system/integration/contracts/v2/schemas/IF_WITHDRAWAL_PREPARATION.json"
         ]
       },
-      "policy_sha256": "74b2ab66d995b3b066d72e6e4bf1dad12130dc8968e4f411e46ece80b08abaea",
+      "policy_sha256": "8f331c4a9e2e3547978ea143b369cb54fd7596d10ca626418ae3807be301a424",
       "serial_gate_policy": {
         "accepted_ids": {
           "1.01": "b9b3a6be-8701-4930-b03b-a0a92f87366c",
@@ -10096,7 +10122,7 @@
           "source_policy": {
             "kind": "reviewed-exact-serial-source-prelude",
             "ownership_artifact": "/tmp/mk-falcon-finish/source-ownership-repair2.json",
-            "ownership_sha256": "9f4fc356c8d3dd5ecf24d2024daee7280679c49e8fc4a50e118b1e6db9a2d4ad",
+            "ownership_sha256": "dde9c9101e5fc5ac6e6eb612d9c33fd95af0d00e39f167aa053eeae77dd5cc78",
             "task": "1.99",
             "version": 4
           }
@@ -13105,5 +13131,27 @@
         "wave": 1
       }
     }
+  },
+  "retained_inputs": {
+    "authority": "spec/layerx-merge/spec.kvx",
+    "files": {
+      "sdk/launchpad/protocol/contracts/v1/accounting-cases.json": "871cd5f812cf143f8a2b6688de8992cbc352ef098f44e46f858fc66128b178c1",
+      "sdk/launchpad/protocol/contracts/v1/capabilities.json": "7a084a3cb425a6195d192d8cb7564dd1795deab6a8ffdaca61dd17519b13d40a",
+      "sdk/launchpad/protocol/contracts/v1/chain/abi-catalog.json": "8ac70f904a048bca6fbc193c0667fea65b3f5e3d51446c0d5a434ccbbb79103f",
+      "sdk/launchpad/protocol/contracts/v1/chain/client-deployment.json": "c7a839b43baf6110ef7f1a4a47af1e71a36c9c3870a0cd1fda6455c4e289b030",
+      "sdk/launchpad/protocol/contracts/v1/chain/event-authorities.json": "7812672058fd4aac1b8f0a54d1e5619ff4c6a4fa2ecc6dd412eb0dc8d6553c18",
+      "sdk/launchpad/protocol/contracts/v1/chain/golden-fixtures.json": "b7538134b931cf24a04d3d18d8545d8865306f703ff5c421f7cff8424e99a993",
+      "sdk/launchpad/packages/sdk/src/operations.gen.ts": "b7763579cac0429a3bf507370fcf055b0839b642c9c9d33c8488791fe3fcd42b",
+      "sdk/launchpad/packages/production-contracts-v2/src/schemas.gen.json": "b4a27915f9025e6d2a282a10eb119a8897a5fe7d0362852a304d795479ff7eae"
+    },
+    "sha256": "f7c9ca35bb68850016a6f02c78befe181443bd89d43d874f45d3be4d8ce9ecaa"
+  },
+  "control_plane": {
+    "schema_version": 1,
+    "status": "awaiting-owner-review",
+    "authority": "decision.1803; decision.421; task.22.33.973",
+    "approval": null,
+    "bindings": null,
+    "required_review": "An approval must bind the retained inventory, a complete qualification specification and matching execution plan/layout, nonempty authentic semantic catalogue and manifest, runner/dispatcher source digests, and migrated lane and exact serial ownership. Historical signed policies and their digests are preserved; they are not evidence for a moved graph."
   }
 }
