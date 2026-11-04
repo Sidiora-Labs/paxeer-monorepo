@@ -41,11 +41,7 @@ function addressTopic(address: string): string {
   return `0x${"00".repeat(12)}${address.slice(2).toLowerCase()}`;
 }
 
-async function recentLogs(address: string, topics: readonly (string | null)[]): Promise<readonly GatewayLog[]> {
-  const head = await ethBlockNumber();
-  const fromBlock = head > PRECOMPILE_LOG_WINDOW ? head - PRECOMPILE_LOG_WINDOW : 0n;
-  return ethGetLogs({ address, topics, fromBlock });
-}
+export const PRECOMPILE_LOG_CHUNK = 100n;
 
 export interface ObservedEvent {
   readonly event: DecodedPrecompileEvent;
@@ -72,7 +68,9 @@ function newestFirst(events: readonly (ObservedEvent | undefined)[]): readonly O
     .filter((entry): entry is ObservedEvent => entry !== undefined)
     .sort((left, right) =>
       left.blockNumber === right.blockNumber
-        ? Number(right.logIndex - left.logIndex)
+        ? left.logIndex === right.logIndex
+          ? left.transactionHash.toLowerCase().localeCompare(right.transactionHash.toLowerCase())
+          : left.logIndex < right.logIndex ? 1 : -1
         : right.blockNumber > left.blockNumber
           ? 1
           : -1,
@@ -388,19 +386,112 @@ function bridgeTopic(name: string): string {
   return abiEventTopic(precompileEventSignature(spec));
 }
 
-/** Inbound attestations credited to `recipient` and outbound requests paying `recipient`, newest first. */
+export interface BridgeActivityPage {
+  readonly items: readonly ObservedEvent[];
+  readonly nextCursor: string | null;
+  readonly status: "complete" | "partial" | "unavailable";
+  readonly detail: string | null;
+  readonly head: bigint;
+}
+
+interface BridgeLogPosition { head: bigint; floor: bigint; upper: bigint }
+
+function historyCursor(recipient: string, position: BridgeLogPosition): string {
+  return ["v1", recipient.toLowerCase(), position.head, position.floor, position.upper].join(":");
+}
+
+function logPosition(recipient: string, cursor: string): BridgeLogPosition {
+  const parts = cursor.split(":");
+  if (parts.length !== 5 || parts[0] !== "v1" || parts[1] !== recipient.toLowerCase() ||
+      !parts.slice(2).every((value) => /^(0|[1-9][0-9]{0,77})$/u.test(value))) {
+    throw new RangeError("invalid bridge history cursor");
+  }
+  const head = BigInt(parts[2]!);
+  const floor = BigInt(parts[3]!);
+  const upper = BigInt(parts[4]!);
+  const expectedFloor = head >= PRECOMPILE_LOG_WINDOW ? head - PRECOMPILE_LOG_WINDOW + 1n : 0n;
+  if (head >= 1n << 256n || floor !== expectedFloor || upper < floor || upper > head ||
+      (head - upper) % PRECOMPILE_LOG_CHUNK !== 0n) throw new RangeError("invalid bridge history position");
+  return { head, floor, upper };
+}
+
+/** One bounded block window at a pinned head; retries retain the same coverage cursor. */
+export async function bridgeActivityPage(recipient: string, cursor?: string): Promise<BridgeActivityPage> {
+  const accountTopic = addressTopic(recipient);
+  let position: BridgeLogPosition;
+  if (cursor === undefined) {
+    const head = await ethBlockNumber();
+    position = { head, floor: head >= PRECOMPILE_LOG_WINDOW ? head - PRECOMPILE_LOG_WINDOW + 1n : 0n, upper: head };
+  } else {
+    position = logPosition(recipient, cursor);
+  }
+  const fromBlock = position.upper - position.floor + 1n > PRECOMPILE_LOG_CHUNK
+    ? position.upper - PRECOMPILE_LOG_CHUNK + 1n : position.floor;
+  const filters = [
+    [bridgeTopic("BridgeIn"), null, null, accountTopic],
+    [bridgeTopic("BridgeOut")],
+  ];
+  const answers = await Promise.allSettled(filters.map((topics) => ethGetLogs({
+    address: LAYERX_BRIDGE_PRECOMPILE, topics, fromBlock, toBlock: position.upper,
+  })));
+  const events = new Map<string, ObservedEvent>();
+  const failures: string[] = [];
+  for (const [index, answer] of answers.entries()) {
+    if (answer.status === "rejected") {
+      if (!(answer.reason instanceof GatewayUnavailableError || answer.reason instanceof GatewayRpcError)) throw answer.reason;
+      failures.push(answer.reason.message);
+      continue;
+    }
+    for (const log of answer.value) {
+      if (log.blockNumber < fromBlock || log.blockNumber > position.upper ||
+          log.address.toLowerCase() !== LAYERX_BRIDGE_PRECOMPILE || log.topics[0] !== filters[index]?.[0]) {
+        failures.push("bridge history answered outside the requested window or event filter");
+        continue;
+      }
+      const entry = observed(log, decodeBridgeEvent);
+      if (entry === undefined) {
+        failures.push("bridge history answered a malformed event");
+        continue;
+      }
+      if (entry.event.fields.recipient !== recipient.toLowerCase()) continue;
+      const key = `${entry.blockNumber}:${entry.transactionHash.toLowerCase()}:${entry.logIndex}`;
+      const previous = events.get(key);
+      if (previous !== undefined && (previous.event.event !== entry.event.event ||
+          JSON.stringify(previous.event.fields, (_, value: unknown) => typeof value === "bigint" ? value.toString() : value) !==
+          JSON.stringify(entry.event.fields, (_, value: unknown) => typeof value === "bigint" ? value.toString() : value))) {
+        failures.push("bridge history answered conflicting duplicate events");
+        continue;
+      }
+      events.set(key, entry);
+    }
+  }
+  const unavailable = failures.length > 0;
+  const nextCursor = unavailable ? historyCursor(recipient, position)
+    : fromBlock === position.floor ? null
+    : historyCursor(recipient, { ...position, upper: fromBlock - 1n });
+  return {
+    items: newestFirst([...events.values()]), nextCursor,
+    status: unavailable ? "unavailable" : nextCursor === null ? "complete" : "partial",
+    detail: unavailable ? failures.join("; ") : nextCursor === null ? null
+      : `Bridge history covers blocks ${fromBlock}–${position.upper}; older activity requires continuation.`,
+    head: position.head,
+  };
+}
+
+export class BridgeActivityIncompleteError extends GatewayUnavailableError {
+  readonly page: BridgeActivityPage;
+  constructor(page: BridgeActivityPage) {
+    super(page.detail ?? "Bridge history requires continuation");
+    this.name = "BridgeActivityIncompleteError";
+    this.page = page;
+  }
+}
+
+/** Compatibility reader refuses incomplete coverage so existing screens show their unavailable state. */
 export async function bridgeActivity(recipient: string): Promise<readonly ObservedEvent[]> {
-  const [inbound, outbound] = await Promise.all([
-    recentLogs(LAYERX_BRIDGE_PRECOMPILE, [bridgeTopic("BridgeIn"), null, null, addressTopic(recipient)]),
-    recentLogs(LAYERX_BRIDGE_PRECOMPILE, [bridgeTopic("BridgeOut")]),
-  ]);
-  const lowered = recipient.toLowerCase();
-  return newestFirst([
-    ...inbound.map((log) => observed(log, decodeBridgeEvent)),
-    ...outbound
-      .map((log) => observed(log, decodeBridgeEvent))
-      .filter((entry) => entry !== undefined && entry.event.fields.recipient === lowered),
-  ]);
+  const page = await bridgeActivityPage(recipient);
+  if (page.status !== "complete") throw new BridgeActivityIncompleteError(page);
+  return page.items;
 }
 
 /* Perps (0x1015) */
