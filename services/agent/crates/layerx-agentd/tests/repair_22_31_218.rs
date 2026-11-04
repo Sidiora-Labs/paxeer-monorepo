@@ -163,11 +163,18 @@ fn history_policy_shape_consumes_actual_hosted_business_rows() {
     .unwrap();
     let result = &document["result"];
     let hosted = layerx_client::sequencer::HistoryPage {
+        account: result["account"]["evm_address"]
+            .as_str()
+            .unwrap()
+            .to_owned(),
+        freshness: result["freshness"].clone(),
         items: result["items"].as_array().unwrap().clone(),
         next_cursor: result["next_cursor"].as_str().map(str::to_owned),
         indexed_height: result["indexedHeight"].as_u64(),
         chain_height: result["chainHeight"].as_u64(),
     };
+    assert_eq!(hosted.account, result["items"][0]["account"]);
+    assert_eq!(hosted.freshness, result["freshness"]);
     let limits = HistoryLimits {
         maximum_items: 100,
         maximum_response_bytes: 240 * 1024,
@@ -1000,6 +1007,12 @@ fn native_history_keeps_position_groups_and_authenticates_reverse_windows() {
     // A forward page cannot overflow into a later position, even if its byte
     // size is within the response ceiling.
     let invalid = layerx_client::sequencer::HistoryPage {
+        account: "account".to_owned(),
+        freshness: serde_json::from_str::<Value>(include_str!(
+            "../../../../../apps/web/e2e/fixtures/px-get-unified-history.json"
+        ))
+        .unwrap()["result"]["freshness"]
+            .clone(),
         items: first["items"]
             .as_array()
             .unwrap()

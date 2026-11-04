@@ -1,0 +1,83 @@
+[repair.22.31.227]
+audit = "22.30.99"
+status = "implementation-awaiting-bounded-qualification"
+findings = ["wallet-account-address", "wallet-public-balance", "node-summary-receipt", "committed-finality", "not-ready-envelope", "unsigned-preparation", "retired-disclosure-codec", "signature-length", "program-request-constructor", "retired-program-http", "program-abi-five"]
+wallet-account-address = "repair_22_31_227::wallet_native_token_and_node_summary_round_trip_after_reopen"
+wallet-public-balance = "repair_22_31_227::wallet_native_token_and_node_summary_round_trip_after_reopen"
+node-summary-receipt = "repair_22_31_227::wallet_native_token_and_node_summary_round_trip_after_reopen"
+committed-finality = "repair_22_31_227::committed_wait_uses_live_block_authority_after_reopen"
+not-ready-envelope = "repair_22_31_227::daemon_not_ready_goldens_preserve_value_and_rung_order; repair_22_31_227::daemon_not_ready_lookup_crosses_authenticated_transport"
+unsigned-preparation = "repair_22_31_227::native_owner_preview_prepare_disclose_external_sign_and_submit"
+retired-disclosure-codec = "repair_22_31_227::native_owner_preview_prepare_disclose_external_sign_and_submit"
+signature-length = "repair_22_31_227::native_owner_preview_prepare_disclose_external_sign_and_submit"
+program-request-constructor = "repair_22_31_227::program_abi_constructor_retains_c_producer_transaction; repair_22_31_227::program_constructors_share_live_abi_submit_retry_and_recovery"
+retired-program-http = "repair_22_31_227::program_constructors_share_live_abi_submit_retry_and_recovery"
+program-abi-five = "repair_22_31_227::abi5_reward_authority_receipt_recovers_after_node_reopen"
+baseline = "Attempt 1 evidence supplied by the runner: 2 tests passed and 6 failed on PAXD, LAYERX_SDK_ABI5_REWARD_CASE or LAYERX_SDK_NATIVE_OWNER_CASE; unchanged-tree verification was not repeated because this continuation permits only hf-build and hf-done after implementation."
+continuation_baseline = "Attempt 2 runner evidence: 4 tests passed and 4 failed; wallet_native_token_and_node_summary_round_trip_after_reopen, committed_wait_uses_live_block_authority_after_reopen, program_constructors_share_live_abi_submit_retry_and_recovery and abi5_reward_authority_receipt_recovers_after_node_reopen failed on address spelling or verification; no unchanged gate was repeated."
+evidence = "The runner records candidate revision, exact command, exit code and private log in /out/run/gates.jsonl; findings are not declared closed without a passing hf-done record."
+
+[wiring.committed-authority]
+request = "Node RPC / agent client domain: rpc/ and services/agent/crates/layerx-client/src/sequencer.rs must expose raw MsgSequenceBatch inclusion and ordered activity IDs to automatically populate NodeCommitCoverage; with_node_commit_authority supplies these today, and wait_for acquires px_getCommit and verifies the pinned quorum, header, inclusion and receipt sequence roots without a checkpoint service."
+
+[wiring.daemon-signature]
+request = "Agent daemon domain: services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs SignRequestWire and NativeSendSubmitV1Wire must accept exactly SignatureBytes/65 bytes; the SDK retains the recovery byte and does not bypass the daemon's current 64-byte rejection."
+
+[wiring.native-owner]
+request = "Agent daemon domain: services/agent/crates/layerx-agentd/src/human_runtime.rs native prepare/disclose must persist and return the unsigned call and bind_call audit from the same independently resolved EVM sender, reconcile logical expiry/idempotency and execution/per-gas fee policy, and provide the native owner preview session case; current prepare_evm_write_at_nonce only supports Asset/5 while the native Programs adapter requests Programs/3."
+
+[wiring.shared-not-ready]
+request = "Agent API domain: services/agent/crates/layerx-agent-api/src/error.rs RungStatus must represent Pending and Absent successes; the SDK's EnvelopeOutcome and send_operation_status preserve their value and exact status without promoting them through the older ApiSuccess carrier."
+
+[wiring.program-reads]
+request = "Node RPC / Programs domain: precompiles/layerxprograms and rpc/ must expose independently authenticated registry/interface/simulation state evidence for the existing VerifiedProgramDiscovery/Interface/Simulation contract; SDK node_read returns explicit block-consistent observations and the verified adapters refuse MissingNodeReadAuthority instead of calling retired REST routes or inventing signatures."
+
+[wiring.reward-producer]
+request = "AI Programs domain: programs/crates/layerx-programs-ai-market/tests/rewards_native.rs owns reward execution semantics; SDK qualification uses the published Funded response layout in a signed ABI5 node-protocol fixture, with real SDK constructor, transport, receipt codec, capacity verification and reopened transcript recovery, and needs no installed producer."
+
+[wiring.existing-tests]
+request = "Agent SDK test domain: services/agent/crates/layerx-sdk/tests/native_programs.rs and legacy Programs HTTP tests must migrate raw-payload/hash-idempotency and retired REST expectations to signed ABI transactions and explicit node trust; these files are outside this task's scope and remain unchanged."
+
+[gotcha.preparation-sender]
+observed = "An unsigned EIP-1559 call has no recoverable sender, and the native authority reference carries an Ed25519 owner key rather than an EVM address."
+action = "Pin the independently resolved owner-to-EVM mapping with with_native_authority and authenticate the owner's canonical purpose separately."
+
+[gotcha.abi-versions]
+observed = "Guest ABI 5 and Programs module ABI are different version namespaces; module CURRENT is generated from the registered module header."
+action = "Use generated guest support and module support independently; keep signature, terminal encoding and capacity verification intact."
+
+[gotcha.lifecycle-upgrade]
+observed = "The live upgrade ABI orders hook, interface and wasm separately and carries an execution fee, unlike the native payload constructor."
+action = "Encode all nine ABI arguments canonically and derive retry identity from transaction hash, message ordinal and selector."
+
+[gotcha.edit-command]
+observed = "An intermediate Python source-edit command had invalid quoting and exited before mutation."
+action = "Use bounded edits and inspect the resulting diff before qualification."
+
+[continuation.offline-peers]
+node = "The declared Rust integration target starts its own loopback JSON-RPC peer, uses production EIP-1559/disclosure/wire codecs and retains signed receipt transcripts in a reopened store; no environment, external endpoint, installed node, toolchain subprocess or device is read."
+owner = "A test-owned TLS peer uses committed CA/certificate fixtures, canonical owner-purpose and unsigned-call codecs, the actual SignatureBytes carrier and recoverable transaction assembly; fixture keys are public test inputs."
+committed = "repair_22_31_227_fixture/committed.json is copied byte-for-byte from the explorer recorded local-node/Comet transcript, preserving its source digest and provenance; the validator key is pinned independently in the test."
+
+[gotcha.merge-continuation]
+observed = "The seed overlapped a landed authenticated lifecycle transport and its connect_node API."
+action = "Preserve connect_node and its lifecycle checks; expose the added policy-based transport as connect_node_with_policy and share the lifecycle event bindings."
+
+[gotcha.qualification-merge-helpers]
+observed = "First bounded build found duplicate lifecycle ABI helpers from the merged seed and an undefined historical-test retry key."
+action = "Dispatch lifecycle payloads through the landed deploy/upgrade/wind-down encoders and retain the request-bound idempotency key."
+
+[gotcha.qualification-fixture-types]
+observed = "Second bounded build reached integration fixtures and found a borrowed JSON comparison and an owned disclosure used as a borrowed native call."
+action = "Compare borrowed values and use the production DisclosedProgramCall::native adapter without changing assertions."
+
+[gotcha.comet-transaction-leaf]
+observed = "The SDK folded the raw sequence-batch transaction into its Merkle leaf, while the real Comet transcript and production chain-proof verifier fold SHA256(transaction)."
+action = "Hash the transaction before applying the leaf domain, retaining the pinned header, quorum, batch signature and receipt state-root checks."
+
+[gotcha.address-spelling]
+observed = "The fixture compared checksummed owner text with lowercase RPC address text, stopping submissions before SDK verification."
+action = "Decode both address spellings into EvmAddress values and compare the complete 20-byte identities."
+
+[continuation.reopened-authority]
+recovery = "LocalNode stops its loopback server, persists node.json in the same state directory, decodes the persisted state and starts a fresh server; the committed test now also reads px_getCommit from that reopened server and compares the complete signed header with the recorded producer transcript before SDK wait verification."
