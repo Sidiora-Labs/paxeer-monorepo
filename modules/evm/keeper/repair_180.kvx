@@ -1,0 +1,29 @@
+[repair.22.31.180]
+audit = "22.30.60"
+source_revision = "4273de5e86f58f8212e00898cbfeb995efcb85b5"
+previous_attempt_revision = "7737fbbdb6e81cfd89eb360c62000f72fb2d818c"
+findings = ["011", "012"]
+baseline = "Not run: the explicit gate order prohibits verification before implementation and prohibits running verify_cmd by hand; no prior gate ledger existed. No baseline failures are claimed."
+evidence = "The runner's final hf-done record identifies the verified candidate revision, exact command, exit code and private log; reproduced in the task's final response."
+wiring_requests = []
+
+[finding.011]
+test = "TestRepair_180_011_ExactCoinAndWeiShare"
+repair = "Use whole wei per gas actually charged, receipt gas used and the pre-adjustment domain base fee; aggregate paid base fees and split the share into uhpx and wei for an exact bank transfer."
+existing_test = "TestOperatorReceivesTheFeeShareAtEndBlock now asserts 69993 wei from 210000 wei of charged base fees, rather than 69999 uhpx, checks the collector's settled fee income, and covers an initially empty collector."
+
+[finding.012]
+test = "TestRepair_180_012_EmptyCollectorSettlesPaidDenominations"
+repair = "Pay after deferred coinbase settlement; pay fee-token base fees in the recorded charge denomination using its execution rate, excluding tips and other chains; transfer errors fail EndBlock instead of silently discarding payment."
+
+[qualification_note.1]
+observed = "Initial build exposed an incorrect assumption that MsgEVMTransaction.AsTransaction returns an error; its second return value is ethtx.TxData."
+repair = "Use the transaction return value, as the existing deferred transaction reader does."
+
+[qualification_note.2]
+observed = "First verification exposed inherited coinbase funding in the shared test app and full-share cases above the fixture's governed cap."
+repair = "Use fresh real apps and configure domains with permitted fee-share caps and gas targets that exercise base-fee adjustment."
+
+[qualification_note.3]
+observed = "The continuation carries all four prior implementation paths; no current gate ledger or original verification log is present, and the supplied previous attempt ended unqualified."
+repair = "Retain the prior implementation and fixture corrections; additionally assert every real transaction leaves the collector unchanged until EndBlock and no operator share is paid early, then qualify through hf-build and hf-done."

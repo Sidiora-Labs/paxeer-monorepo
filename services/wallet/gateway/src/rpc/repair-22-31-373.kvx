@@ -1,0 +1,13 @@
+[repair.22.31.373]
+finding = "send-transport-uncertainty"
+base_revision = "4273de5e86f58f8212e00898cbfeb995efcb85b5"
+test_file = "services/wallet/gateway/test/repair-22-31-373.test.ts"
+proving_tests = ["sendTransportUncertaintyAfterNodeAcceptance", "sendHttpFailureRetainsCanonicalHashAndNonce", "sendLostJsonBodyRequiresReceiptPolling", "sendTimeoutPreservesUncertainOutcome", "sendBodyTimeoutPreservesUncertainOutcome"]
+regression_tests = ["definitiveNodeRefusalRemainsRejected", "missingSequencerRemainsUnavailableBeforeSend"]
+proof = "A viem account signs a payment; the existing in-process chain fixture validates and applies it through HTTP, a forwarding HTTP server loses the response, and the real RpcPool and outcomeUnknownBody consumer retain canonical hash and nonce for receipt polling with exactly one submission."
+nonce_reservation = "The uncertain error remains distinct from TransactionRejectedError, so the existing services/wallet/gateway/src/nonce/store.ts broadcastReserved path tracks the signed hash instead of releasing the nonce."
+baseline = "No pre-change gate ran: the explicit implementation-first and hf-build then hf-done order prohibits the conflicting do_5 baseline verification; no baseline failures are claimed."
+qualification = "The runner records the verified candidate revision, command, exit and private log through hf-build and hf-done."
+qualification_gotcha = "Vitest 4 treats test(namedFunction) as TODO; register test(namedFunction.name, namedFunction) so the named function executes. The initial gate returned zero with seven TODO tests; only the corrected candidate is eligible for qualification."
+wiring_request = "Wallet domain 12: services/wallet/gateway/src/routes/owner.ts fund and sweep catch handlers must return HTTP 202 with outcomeUnknownBody for BroadcastOutcomeUnknownError instead of send_failed; the human services/wallet/gateway/src/routes/sign.ts handler already supports this error."
+wiring_request_nonce = "Wallet domain 12: services/wallet/gateway/src/nonce/store.ts broadcastReserved should retain the accepting sequencer member for uncertain broadcasts as well as the canonical hash; it currently retains the hash with member null."

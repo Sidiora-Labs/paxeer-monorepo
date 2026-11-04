@@ -1,6 +1,7 @@
 package keeper_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"testing"
@@ -676,10 +677,29 @@ func TestMsgServiceRegistersTheSidioraPair(t *testing.T) {
 
 func TestSidioraPairIsRefusedOnceACapBoundItElsewhere(t *testing.T) {
 	s := newSuite(t, false)
+	key := sdk.NewKVStoreKey(types.StoreKey)
+	s.ctx = bridgetestutil.WithBridgeStore(s.ctx, key)
+	s.k = keeper.NewKeeper(key, s.app.BankKeeper, &s.app.EvmKeeper, s.app.TokenFactoryKeeper)
+	s.k.InitGenesis(s.ctx, *types.DefaultGenesis())
 	router := s.router()
 	require.NoError(t, s.route(router, &types.MsgRegisterChain{Authority: authority, Chain: solanaChain}))
-	require.NoError(t, s.route(router, sidioraCap(authority)))
+	// Restore the persisted mapping left by the former cap-first producer.
+	// SetCap now refuses to create this state; registration must still refuse it.
+	denom, err := s.app.TokenFactoryKeeper.CreateDenom(s.ctx, s.k.ModuleAddress().String(),
+		types.Subdenom(types.SidioraHomeChainID, sidioraAsset()))
+	require.NoError(t, err)
+	require.Equal(t, types.Denom(types.SidioraHomeChainID, sidioraAsset()), denom)
+	record, err := json.Marshal(types.BridgedAsset{ChainID: types.SidioraHomeChainID, Asset: sidioraAsset(), Denom: denom})
+	require.NoError(t, err)
+	store := s.ctx.KVStore(key)
+	store.Set(types.AssetKey(types.SidioraHomeChainID, sidioraAsset()), record)
+	store.Set(types.DenomKey(denom), record)
+	cap, err := json.Marshal(types.Cap{Denom: denom, MaxInFlight: sdk.NewInt(1500), MaxPerTx: sdk.NewInt(1000)})
+	require.NoError(t, err)
+	store.Set(types.CapKey(denom), cap)
 	before := s.k.ExportGenesis(s.ctx)
+	require.ErrorIs(t, s.route(router, sidioraCap(authority)), types.ErrInvalidRequest)
+	require.Equal(t, before, s.k.ExportGenesis(s.ctx))
 	require.ErrorIs(t, s.route(router, &types.MsgRegisterSidioraPair{Authority: authority, ChainID: types.SidioraHomeChainID}),
 		types.ErrInvalidRequest)
 	require.Equal(t, before, s.k.ExportGenesis(s.ctx))

@@ -14650,3 +14650,13 @@ fix = "Rust crates get a cargo integration test, Python or manifest-only directo
 title = "go test -run with a pattern that selects no test exits 0"
 symptom = "A repair proof named TestMobileRepairLive was not selected by the gate pattern TestRepair_30_, so the gate would have passed with no test executed."
 fix = "Every Go repair gate runs with -v, keeps its log and requires a PASS line for a TestRepair_N_ function before accepting exit 0."
+
+[gotcha.2966]
+title = "A repair candidate carries only sources under its touches and its test: no helper project of another toolchain, no compiled cache, no ignore-file edit"
+symptom = "Candidates committed Python bytecode caches, Rust probe crates under deploy and test directories, Go producers inside Rust and Python packages, and .cgignore edits that exposed a cargo target directory as 6963 changed paths; each failed the scope or same-candidate check."
+fix = "Delete helper projects and caches before the gate runs; the proof lives in the test file of the directory toolchain (gotcha 2964); a repair task never edits .cgignore."
+
+[gotcha.2967]
+title = "The gate runs last, on the final candidate tree"
+symptom = "Several attempts passed their verify command on a tree that differed from the committed candidate because files were edited or generated after the run, so the recorded run qualified nothing."
+fix = "Run the verify command as the last action and change nothing afterwards; if any file changes, run the gate again and record that run."
