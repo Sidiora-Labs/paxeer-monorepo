@@ -1,0 +1,77 @@
+{
+  "provenance": {
+    "native": "Source-derived FeedView.prepare_update example already used in crate/tests/repair_22_31_274.rs; not a live backend recording.",
+    "unhealthy": "Source-derived HealthController.health(false) and blocks_indexing_status 5002 example; not a live backend recording."
+  },
+  "native": {
+    "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "block_number": 23116936,
+    "block_hash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "timestamp": "2025-08-11T09:33:11.000000Z",
+    "index": 3,
+    "from": {
+      "hash": "0xc0De20A37E2dAC848F81A93BD85FE4ACDdE7C0DE",
+      "is_contract": false
+    },
+    "to": null,
+    "value": "0",
+    "fee": {
+      "type": "actual",
+      "value": "0"
+    },
+    "gas_used": "12500",
+    "gas_limit": "20000",
+    "status": "ok",
+    "result": "success",
+    "method": "submitPrices",
+    "transaction_types": [
+      "price_update"
+    ],
+    "type": 127,
+    "confirmations": 3,
+    "price_update": {
+      "feeder_bech32": "paxeer1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqn2m7av",
+      "observation_count": 1,
+      "observations": [
+        {
+          "market_id": 7,
+          "accepted": true,
+          "symbol": "ETH/USD",
+          "index_price": "4273590000000000000000",
+          "mark_price": "4273550000000000000000",
+          "source_timestamp_ms": 1754904780000,
+          "sequence": 42
+        }
+      ]
+    }
+  },
+  "unhealthy": {
+    "healthy": false,
+    "metadata": {
+      "blocks": {
+        "healthy": false,
+        "latest_block": {
+          "db": {
+            "number": "100",
+            "timestamp": "2025-08-11 09:32:59Z"
+          },
+          "cache": {
+            "number": "102",
+            "timestamp": "2025-08-11 09:32:59Z"
+          },
+          "node": {
+            "number": "110"
+          }
+        },
+        "error": {
+          "code": 5002,
+          "message": "There are no blocks in the DB."
+        }
+      }
+    },
+    "error": {
+      "code": 5002,
+      "message": "There are no blocks in the DB."
+    }
+  }
+}

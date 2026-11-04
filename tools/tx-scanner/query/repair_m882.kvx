@@ -1,0 +1,8 @@
+[repair.22.33.882]
+audit = "22.30.183"
+f036 = "TestRepairM_882_BlockResponses; TestRepairM_882_CallerDeadlineAndRetry; TestRepairM_882_ScanCancellation; TestRepairM_882_DefaultRequestDeadlines"
+f035 = "TestRepairM_882_CompletePagination; TestRepairM_882_IncompleteSetReturnsError; TestRepairM_882_CallerDeadlineAndRetry; TestRepairM_882_ScanCancellation; TestRepairM_882_DefaultRequestDeadlines; TestRepairM_882_LaterPageDeadline; TestRepairM_882_PerPageDeadlines"
+baseline = "Not run: the ordered gate rules prohibit verification before implementation and require hf-done to run the verify command; no previous gate ledger or repair tests existed at session start."
+qualification_repair = "The first hf-done failed to compile the loopback peer connection because the pinned gRPC version lacks grpc.NewClient; use its supported grpc.DialContext with an explicit connection deadline."
+wiring_request = "tools/tx-scanner/cmd/scan.go; domain 16 (fm-tools-ops): pass cmd.Context through processBlock and getLatestBlockHeight to the query *Context APIs, propagate hash-query timeout errors to the batch retry path, and compare the complete canonical block hash set against the fully paginated indexed hash set (22.33.881/f033)."
+evidence = "hf-done records the candidate revision, exact command, exit code and private log location in its final JSON line and the runner gate ledger."

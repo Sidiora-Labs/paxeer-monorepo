@@ -13,10 +13,15 @@ export interface ImageProps extends ChakraImageProps {
 
 export const Image = React.forwardRef<HTMLImageElement, ImageProps>(
   function Image(props, ref) {
-    const { fallback, src, onLoad, onError, skeletonWidth, skeletonHeight, alt, ...rest } = props;
+    const { fallback, src, srcSet, onLoad, onError, skeletonWidth, skeletonHeight, alt, ...rest } = props;
 
     const [ loading, setLoading ] = React.useState(true);
     const [ error, setError ] = React.useState(false);
+
+    React.useEffect(() => {
+      setLoading(true);
+      setError(false);
+    }, [ src, srcSet ]);
 
     const handleLoadError = React.useCallback((event: React.SyntheticEvent<HTMLImageElement>) => {
       setError(true);
@@ -53,8 +58,10 @@ export const Image = React.forwardRef<HTMLImageElement, ImageProps>(
       <>
         { loading && <Skeleton loading { ...skeletonProps }/> }
         <ChakraImage
+          key={ JSON.stringify([ src, srcSet ]) }
           ref={ ref }
           src={ src }
+          srcSet={ srcSet }
           alt={ alt }
           onError={ handleLoadError }
           onLoad={ handleLoadSuccess }
