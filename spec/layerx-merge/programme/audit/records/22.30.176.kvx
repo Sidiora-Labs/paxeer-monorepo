@@ -1,0 +1,1020 @@
+[audit.22.30.176]
+task = "22.30.176"
+revision = "9d9e94b1751d89ba849d2d3d0f89b48fabce9756"
+files_reviewed = 92
+findings = 34
+docs_reviewed = 23
+upgrade_ready = false
+blocking = ["1", "2", "3", "4"]
+
+[file.1]
+path = ".coderabbit.yaml"
+lines = 169
+verdict = "clean"
+note = "Review policy covers the monorepo languages and security/conservation checks; no deployed RPC or daemon configuration is defined here."
+
+[file.2]
+path = ".golangci.yml"
+lines = 34
+verdict = "clean"
+note = "The v2 linter config enables explicit Go checks with a bounded run and generated-protobuf exclusions; it defines no runtime wire interface."
+
+[file.3]
+path = ".markdownlint.yaml"
+lines = 3
+verdict = "clean"
+note = "Markdown lint policy only; no network interface, deployment setting or secret material."
+
+[file.4]
+path = ".mcp.json"
+lines = 5
+verdict = "clean"
+note = "The codify MCP server invokes the local cg mcp command and carries no credentials or public network endpoint."
+
+[file.5]
+path = ".pre-commit-config.yaml"
+lines = 31
+verdict = "clean"
+note = "Pinned pre-commit hooks check the retained Rust source workspaces, including the still-present cmd/layerxctl manifest; formatting a source tree does not launch a separate network runtime."
+
+[file.6]
+path = ".yamllint.yaml"
+lines = 9
+verdict = "clean"
+note = "YAML formatting policy only; no runtime product endpoint or state lifecycle."
+
+[file.7]
+path = "AGENTS.md"
+lines = 25
+verdict = "generated"
+note = "Generated workflow pointer from spec/workflow.kvx, identified by its hyperfide-owned generated-spec header; source workflow owns changes."
+
+[file.8]
+path = "CLAUDE.md"
+lines = 25
+verdict = "generated"
+note = "Generated workflow pointer from spec/workflow.kvx; generated-spec ownership means the workflow source owns any regeneration."
+
+[file.9]
+path = "CODE_OF_CONDUCT.md"
+lines = 83
+verdict = "clean"
+note = "Contributor conduct, reporting and enforcement policy; no separate runtime, RPC or settlement claims."
+
+[file.10]
+path = "CONTRIBUTORS.md"
+lines = 13
+verdict = "clean"
+note = "Contributor attribution page; no executable, transport or runtime lifecycle contract."
+
+[file.11]
+path = "GOVERNANCE.md"
+lines = 31
+verdict = "clean"
+note = "Repository governance and decision/review process; no replacement consensus or settlement authority is prescribed."
+
+[file.12]
+path = "Makefile"
+lines = 3186
+verdict = "issues"
+note = "Native source membership, release sandbox panic unwinding and vector prerequisites are wired; findings cover remaining CLI, retired-source and guest-size drift. PAXAI_CHAIN_DOMAIN matches the req.16983.1 boundary golden for 229."
+
+[file.13]
+path = "RELEASE.md"
+lines = 196
+verdict = "issues"
+note = "Current release provenance guidance coexists with obsolete optional layerxd packaging; see documentation finding."
+
+[file.14]
+path = "SECURITY.md"
+lines = 68
+verdict = "clean"
+note = "Private reporting, response targets and bounty tiers agree with req.3538.1 and req.181232.1. Scope includes the source still present in cmd/layerxctl; it does not instruct an operator to deploy it."
+
+[file.15]
+path = "SUPPORT.md"
+lines = 22
+verdict = "clean"
+note = "Support routes separate usage questions, bugs and private security reports without defining a second node interface."
+
+[file.16]
+path = "buf.gen.yaml"
+lines = 44
+verdict = "clean"
+note = "Generator plugin paths and type output configuration concern protobuf production; no new network listener or secret default is introduced."
+
+[file.17]
+path = "chain.mk"
+lines = 588
+verdict = "clean"
+note = "Node/loadtest linkage binds the native archive digest, with sha256sum/shasum refusal behavior; forwarded targets keep the chain build boundary."
+
+[file.18]
+path = "foundry.paxeer.toml"
+lines = 16
+verdict = "clean"
+note = "The Paxeer Foundry project selects contracts/src, contracts/test, pinned solc 0.8.27 and explicit local library remappings."
+
+[file.19]
+path = "foundry.toml"
+lines = 52
+verdict = "issues"
+note = "Root names/governance profiles isolate Paxeer contract trees and retain names/build permissions; the registry permission description is stale."
+
+[file.20]
+path = "package.json"
+lines = 46
+verdict = "clean"
+note = "The npm workspace build has explicit dependency preparation and security overrides; workspaces match the pnpm workspace list."
+
+[file.21]
+path = "pnpm-workspace.yaml"
+lines = 20
+verdict = "clean"
+note = "Workspace membership matches the root package.json SDK, middleware, integration and example trees."
+
+[file.22]
+path = "rust-toolchain.toml"
+lines = 4
+verdict = "clean"
+note = "Minimal Rust 1.91.1 toolchain pins clippy and rustfmt consistently with the Programs workspace rust-version."
+
+[file.23]
+path = "scripts/ci/beta-ci-inputs.sh"
+lines = 134
+verdict = "clean"
+note = "Historical archive inputs are kept distinct from fresh task-bound evidence, with explicit protected evidence/export paths."
+
+[file.24]
+path = "scripts/ci/beta-ledger-check.sh"
+lines = 1000
+verdict = "clean"
+note = "Current merged-ledger reader validates exact record keys, private source sidecars, clean revision identity and source monitoring; release-gate producer disagreement is recorded on that producer."
+
+[file.25]
+path = "scripts/ci/beta-qualify.sh"
+lines = 33
+verdict = "clean"
+note = "Requires explicit spec/task/private ledger/evidence and delegates to source-run; the outdated Makefile caller is recorded on Makefile."
+
+[file.26]
+path = "scripts/ci/codeql-build-mode-check.sh"
+lines = 417
+verdict = "clean"
+note = "Constrained workflow parser checks build mode and manual-build wiring rather than accepting arbitrary matching text."
+
+[file.27]
+path = "scripts/ci/developer-dashboard-lock.mjs"
+lines = 20
+verdict = "clean"
+note = "Dashboard lock handling validates the intended shared-lock boundary with explicit Node assertions."
+
+[file.28]
+path = "scripts/ci/human-web-image-build.sh"
+lines = 83
+verdict = "clean"
+note = "Image build arguments, owned work-directory selection, build failure propagation and optional image retention are explicit."
+
+[file.29]
+path = "scripts/ci/layout-check.sh"
+lines = 114
+verdict = "clean"
+note = "Indexed old paths and root-anchored references are checked separately; git search errors retain a distinct failure exit."
+
+[file.30]
+path = "scripts/ci/no-float-scan.sh"
+lines = 59
+verdict = "issues"
+note = "The object inventory hides find failures with || true, and objdump/nm failures inside conditional pipelines are treated like grep finding no forbidden text. A missing object tree or unavailable inspection tool can therefore print the unconditional no-floating-point success claim without a completed binary inspection."
+
+[file.31]
+path = "scripts/ci/path-length-check.sh"
+lines = 94
+verdict = "clean"
+note = "Tracked path and output-prefix length accounting is bounded and handles its root/path selection explicitly."
+
+[file.32]
+path = "scripts/ci/public-repo-audit.sh"
+lines = 195
+verdict = "issues"
+note = "audit_rg ends its publication-file search pipeline with || true and treats an empty output file as no private reference. File read or rg execution failures are indistinguishable from a clean search, so the outer public repository audit may overlook uninspected inputs."
+
+[file.33]
+path = "scripts/ci/release-artifact-record.sh"
+lines = 77
+verdict = "clean"
+note = "Artifact records require digest/signature/SBOM/attestation inputs and reject malformed supplied path fields."
+
+[file.34]
+path = "scripts/ci/release-gate.sh"
+lines = 116
+verdict = "issues"
+note = "release-gate.sh says its emitted gate entry obeys beta-ledger-check.sh, but writes no source_evidence field. The consumer at beta-ledger-check.sh:843 requires that field and at 916 validates its private source sidecar; every record from this producer fails that contract even if its make command passes. The release gate writes the raw command log and its record under spec/layerx-beta/evidence in the source checkout, without an owner-only evidence directory. A repeated job and revision also reuses command.log and record.kvx, overwriting prior execution evidence."
+
+[file.35]
+path = "scripts/ci/release-version.py"
+lines = 226
+verdict = "clean"
+note = "Version synchronization maps retained release packages and omits the retired wire crate."
+
+[file.36]
+path = "scripts/ci/restore-build-ownership.py"
+lines = 166
+verdict = "clean"
+note = "Ownership restoration validates captured identity, repository containment and no-follow inode metadata before changing owned outputs."
+
+[file.37]
+path = "scripts/ci/result-codes-gen.py"
+lines = 165
+verdict = "clean"
+note = "Result-code tables are generated from the declared canonical result-code source with explicit check/write modes."
+
+[file.38]
+path = "scripts/ci/run-tests.sh"
+lines = 12
+verdict = "clean"
+note = "Runs the retained make test target with separate -O0 and -O2 build directories and returns failure if either run fails."
+
+[file.39]
+path = "scripts/ci/runner-routing-check.sh"
+lines = 222
+verdict = "clean"
+note = "Workflow checks preserve runner exclusion and container constraints without restoring the removed replay-matrix job."
+
+[file.40]
+path = "scripts/ci/secret-scan.sh"
+lines = 90
+verdict = "issues"
+note = "run_rg suppresses all xargs/rg errors with || true and the private-key scan similarly hides failures. Even when the scanner self-test passes, an unreadable or removed publication file can be skipped and the actual scan can return success without examining it."
+
+[file.41]
+path = "scripts/ci/solidity-state-surface.sh"
+lines = 39
+verdict = "issues"
+note = "The state-surface script strips each ABI entry to its bare function name and accepts any matching token in a .t.sol file. A comment, an unrelated assertion or a different overload satisfies it; no passing test result is consumed even though it prints selectors have test evidence."
+
+[file.42]
+path = "scripts/ci/symbol-allowlist.sh"
+lines = 46
+verdict = "issues"
+note = "symbol-allowlist.sh exits zero when its object search yields nothing, hides find errors, and does not propagate nm failures through its grep pipelines. Its operating-system, SQLite and balance-writer checks can grant success after inspecting no usable binary symbols."
+
+[file.43]
+path = "scripts/ci/vendor-verify.sh"
+lines = 262
+verdict = "clean"
+note = "The vendor comparison explicitly concerns the Git index against declared upstream provenance, not a claim that arbitrary working files are clean."
+
+[file.44]
+path = "scripts/ci/xweb-forge-libs.sh"
+lines = 38
+verdict = "issues"
+note = "xweb-forge-libs.sh compares origin and HEAD to a tag but never checks tracked or untracked working-tree contents. An existing clone with modified Solidity files retains the expected HEAD and is accepted as the pinned library used by Forge."
+
+[file.45]
+path = "scripts/ci/xweb-workflow-check.sh"
+lines = 1260
+verdict = "issues"
+note = "DECLARED_PATHS still contains deleted cmd/layerxd process/protocol sources and other retired feature paths. present_or_declared explicitly blesses absent entries as added by a task of the retired paxeer-x-web feature instead of requiring a live source or current task."
+
+[file.46]
+path = "tests/occ/fixture_test.go"
+lines = 31
+verdict = "clean"
+note = "Real cw20_base fixture checksum and creator are checked through WasmKeeper.GetCodeInfo for both CodeID fields."
+
+[file.47]
+path = "tests/occ/messages/test_msgs.go"
+lines = 185
+verdict = "clean"
+note = "WasmInstantiate uses the CW20-compatible message, EVM transactions are signed, and the pointer harness supplies current merge keepers through precompiletest.Install."
+
+[file.48]
+path = "tests/occ/occ_test.go"
+lines = 300
+verdict = "issues"
+note = "assertEqualEventAttributes converts attributes to a boolean set, and assertEqualExecTxResults searches without consuming a match. Equal-length multisets [A,A,B] and [A,B,B] can therefore compare equal, hiding repeated or missing event/result effects in OCC versus sequential execution. assertEqualState compares store-key counts and compares contents only inside equal-name pairs. Two stores with the same count but a replaced store name leave that name unmatched and its contents unexamined."
+
+[file.49]
+path = "tests/occ/utils/utils.go"
+lines = 396
+verdict = "clean"
+note = "The node wrapper stores only supported cw20_base wasm, uses real accounts/transaction encoding and node ProcessBlock; fixture CodeID aliases CW20CodeID as req.16301 requires."
+
+[file.50]
+path = "tools/benchmark/loadtest/contracts/evm/lib/solmate/src/auth/Auth.sol"
+lines = 64
+verdict = "vendored"
+note = "Vendored Solmate dependency under the benchmark EVM project. setup.sh pins the complete lib/solmate content tree to b92432abfecaf534c50837d0868430a72b3fabcc3d548a9c850b5c75650739f1; classified under the brief vendor exception, not asserted as first-party merged-network code or independently security-qualified."
+
+[file.51]
+path = "tools/benchmark/loadtest/contracts/evm/lib/solmate/src/auth/authorities/MultiRolesAuthority.sol"
+lines = 123
+verdict = "vendored"
+note = "Vendored Solmate dependency under the benchmark EVM project. setup.sh pins the complete lib/solmate content tree to b92432abfecaf534c50837d0868430a72b3fabcc3d548a9c850b5c75650739f1; classified under the brief vendor exception, not asserted as first-party merged-network code or independently security-qualified."
+
+[file.52]
+path = "tools/benchmark/loadtest/contracts/evm/lib/solmate/src/auth/authorities/RolesAuthority.sol"
+lines = 108
+verdict = "vendored"
+note = "Vendored Solmate dependency under the benchmark EVM project. setup.sh pins the complete lib/solmate content tree to b92432abfecaf534c50837d0868430a72b3fabcc3d548a9c850b5c75650739f1; classified under the brief vendor exception, not asserted as first-party merged-network code or independently security-qualified."
+
+[file.53]
+path = "tools/benchmark/loadtest/contracts/evm/lib/solmate/src/test/Auth.t.sol"
+lines = 190
+verdict = "vendored"
+note = "Vendored Solmate dependency under the benchmark EVM project. setup.sh pins the complete lib/solmate content tree to b92432abfecaf534c50837d0868430a72b3fabcc3d548a9c850b5c75650739f1; classified under the brief vendor exception, not asserted as first-party merged-network code or independently security-qualified."
+
+[file.54]
+path = "tools/benchmark/loadtest/contracts/evm/lib/solmate/src/test/Bytes32AddressLib.t.sol"
+lines = 22
+verdict = "vendored"
+note = "Vendored Solmate dependency under the benchmark EVM project. setup.sh pins the complete lib/solmate content tree to b92432abfecaf534c50837d0868430a72b3fabcc3d548a9c850b5c75650739f1; classified under the brief vendor exception, not asserted as first-party merged-network code or independently security-qualified."
+
+[file.55]
+path = "tools/benchmark/loadtest/contracts/evm/lib/solmate/src/test/CREATE3.t.sol"
+lines = 74
+verdict = "vendored"
+note = "Vendored Solmate dependency under the benchmark EVM project. setup.sh pins the complete lib/solmate content tree to b92432abfecaf534c50837d0868430a72b3fabcc3d548a9c850b5c75650739f1; classified under the brief vendor exception, not asserted as first-party merged-network code or independently security-qualified."
+
+[file.56]
+path = "tools/benchmark/loadtest/contracts/evm/lib/solmate/src/test/DSTestPlus.t.sol"
+lines = 48
+verdict = "vendored"
+note = "Vendored Solmate dependency under the benchmark EVM project. setup.sh pins the complete lib/solmate content tree to b92432abfecaf534c50837d0868430a72b3fabcc3d548a9c850b5c75650739f1; classified under the brief vendor exception, not asserted as first-party merged-network code or independently security-qualified."
+
+[file.57]
+path = "tools/benchmark/loadtest/contracts/evm/lib/solmate/src/test/ERC1155.t.sol"
+lines = 1777
+verdict = "vendored"
+note = "Vendored Solmate dependency under the benchmark EVM project. setup.sh pins the complete lib/solmate content tree to b92432abfecaf534c50837d0868430a72b3fabcc3d548a9c850b5c75650739f1; classified under the brief vendor exception, not asserted as first-party merged-network code or independently security-qualified."
+
+[file.58]
+path = "tools/benchmark/loadtest/contracts/evm/lib/solmate/src/test/ERC20.t.sol"
+lines = 517
+verdict = "vendored"
+note = "Vendored Solmate dependency under the benchmark EVM project. setup.sh pins the complete lib/solmate content tree to b92432abfecaf534c50837d0868430a72b3fabcc3d548a9c850b5c75650739f1; classified under the brief vendor exception, not asserted as first-party merged-network code or independently security-qualified."
+
+[file.59]
+path = "tools/benchmark/loadtest/contracts/evm/lib/solmate/src/test/ERC721.t.sol"
+lines = 748
+verdict = "vendored"
+note = "Vendored Solmate dependency under the benchmark EVM project. setup.sh pins the complete lib/solmate content tree to b92432abfecaf534c50837d0868430a72b3fabcc3d548a9c850b5c75650739f1; classified under the brief vendor exception, not asserted as first-party merged-network code or independently security-qualified."
+
+[file.60]
+path = "tools/benchmark/loadtest/contracts/evm/lib/solmate/src/test/FixedPointMathLib.t.sol"
+lines = 131
+verdict = "vendored"
+note = "Vendored Solmate dependency under the benchmark EVM project. setup.sh pins the complete lib/solmate content tree to b92432abfecaf534c50837d0868430a72b3fabcc3d548a9c850b5c75650739f1; classified under the brief vendor exception, not asserted as first-party merged-network code or independently security-qualified."
+
+[file.61]
+path = "tools/benchmark/loadtest/contracts/evm/lib/solmate/src/test/MultiRolesAuthority.t.sol"
+lines = 321
+verdict = "vendored"
+note = "Vendored Solmate dependency under the benchmark EVM project. setup.sh pins the complete lib/solmate content tree to b92432abfecaf534c50837d0868430a72b3fabcc3d548a9c850b5c75650739f1; classified under the brief vendor exception, not asserted as first-party merged-network code or independently security-qualified."
+
+[file.62]
+path = "tools/benchmark/loadtest/contracts/evm/lib/solmate/src/test/ReentrancyGuard.t.sol"
+lines = 56
+verdict = "vendored"
+note = "Vendored Solmate dependency under the benchmark EVM project. setup.sh pins the complete lib/solmate content tree to b92432abfecaf534c50837d0868430a72b3fabcc3d548a9c850b5c75650739f1; classified under the brief vendor exception, not asserted as first-party merged-network code or independently security-qualified."
+
+[file.63]
+path = "tools/benchmark/loadtest/contracts/evm/lib/solmate/src/test/RolesAuthority.t.sol"
+lines = 148
+verdict = "vendored"
+note = "Vendored Solmate dependency under the benchmark EVM project. setup.sh pins the complete lib/solmate content tree to b92432abfecaf534c50837d0868430a72b3fabcc3d548a9c850b5c75650739f1; classified under the brief vendor exception, not asserted as first-party merged-network code or independently security-qualified."
+
+[file.64]
+path = "tools/benchmark/loadtest/contracts/evm/lib/solmate/src/test/SSTORE2.t.sol"
+lines = 124
+verdict = "vendored"
+note = "Vendored Solmate dependency under the benchmark EVM project. setup.sh pins the complete lib/solmate content tree to b92432abfecaf534c50837d0868430a72b3fabcc3d548a9c850b5c75650739f1; classified under the brief vendor exception, not asserted as first-party merged-network code or independently security-qualified."
+
+[file.65]
+path = "tools/benchmark/loadtest/contracts/evm/lib/solmate/src/test/SafeCastLib.t.sol"
+lines = 113
+verdict = "vendored"
+note = "Vendored Solmate dependency under the benchmark EVM project. setup.sh pins the complete lib/solmate content tree to b92432abfecaf534c50837d0868430a72b3fabcc3d548a9c850b5c75650739f1; classified under the brief vendor exception, not asserted as first-party merged-network code or independently security-qualified."
+
+[file.66]
+path = "tools/benchmark/loadtest/contracts/evm/lib/solmate/src/test/SafeTransferLib.t.sol"
+lines = 298
+verdict = "vendored"
+note = "Vendored Solmate dependency under the benchmark EVM project. setup.sh pins the complete lib/solmate content tree to b92432abfecaf534c50837d0868430a72b3fabcc3d548a9c850b5c75650739f1; classified under the brief vendor exception, not asserted as first-party merged-network code or independently security-qualified."
+
+[file.67]
+path = "tools/benchmark/loadtest/contracts/evm/lib/solmate/src/test/WETH.t.sol"
+lines = 146
+verdict = "vendored"
+note = "Vendored Solmate dependency under the benchmark EVM project. setup.sh pins the complete lib/solmate content tree to b92432abfecaf534c50837d0868430a72b3fabcc3d548a9c850b5c75650739f1; classified under the brief vendor exception, not asserted as first-party merged-network code or independently security-qualified."
+
+[file.68]
+path = "tools/benchmark/loadtest/contracts/evm/lib/solmate/src/test/utils/DSInvariantTest.sol"
+lines = 16
+verdict = "vendored"
+note = "Vendored Solmate dependency under the benchmark EVM project. setup.sh pins the complete lib/solmate content tree to b92432abfecaf534c50837d0868430a72b3fabcc3d548a9c850b5c75650739f1; classified under the brief vendor exception, not asserted as first-party merged-network code or independently security-qualified."
+
+[file.69]
+path = "tools/benchmark/loadtest/contracts/evm/lib/solmate/src/test/utils/DSTestPlus.sol"
+lines = 146
+verdict = "vendored"
+note = "Vendored Solmate dependency under the benchmark EVM project. setup.sh pins the complete lib/solmate content tree to b92432abfecaf534c50837d0868430a72b3fabcc3d548a9c850b5c75650739f1; classified under the brief vendor exception, not asserted as first-party merged-network code or independently security-qualified."
+
+[file.70]
+path = "tools/benchmark/loadtest/contracts/evm/lib/solmate/src/test/utils/Hevm.sol"
+lines = 28
+verdict = "vendored"
+note = "Vendored Solmate dependency under the benchmark EVM project. setup.sh pins the complete lib/solmate content tree to b92432abfecaf534c50837d0868430a72b3fabcc3d548a9c850b5c75650739f1; classified under the brief vendor exception, not asserted as first-party merged-network code or independently security-qualified."
+
+[file.71]
+path = "tools/benchmark/loadtest/contracts/evm/lib/solmate/src/test/utils/mocks/MockAuthChild.sol"
+lines = 12
+verdict = "vendored"
+note = "Vendored Solmate dependency under the benchmark EVM project. setup.sh pins the complete lib/solmate content tree to b92432abfecaf534c50837d0868430a72b3fabcc3d548a9c850b5c75650739f1; classified under the brief vendor exception, not asserted as first-party merged-network code or independently security-qualified."
+
+[file.72]
+path = "tools/benchmark/loadtest/contracts/evm/lib/solmate/src/test/utils/mocks/MockAuthority.sol"
+lines = 20
+verdict = "vendored"
+note = "Vendored Solmate dependency under the benchmark EVM project. setup.sh pins the complete lib/solmate content tree to b92432abfecaf534c50837d0868430a72b3fabcc3d548a9c850b5c75650739f1; classified under the brief vendor exception, not asserted as first-party merged-network code or independently security-qualified."
+
+[file.73]
+path = "tools/benchmark/loadtest/contracts/evm/lib/solmate/src/test/utils/mocks/MockERC1155.sol"
+lines = 42
+verdict = "vendored"
+note = "Vendored Solmate dependency under the benchmark EVM project. setup.sh pins the complete lib/solmate content tree to b92432abfecaf534c50837d0868430a72b3fabcc3d548a9c850b5c75650739f1; classified under the brief vendor exception, not asserted as first-party merged-network code or independently security-qualified."
+
+[file.74]
+path = "tools/benchmark/loadtest/contracts/evm/lib/solmate/src/test/utils/mocks/MockERC20.sol"
+lines = 20
+verdict = "vendored"
+note = "Vendored Solmate dependency under the benchmark EVM project. setup.sh pins the complete lib/solmate content tree to b92432abfecaf534c50837d0868430a72b3fabcc3d548a9c850b5c75650739f1; classified under the brief vendor exception, not asserted as first-party merged-network code or independently security-qualified."
+
+[file.75]
+path = "tools/benchmark/loadtest/contracts/evm/lib/solmate/src/test/utils/mocks/MockERC721.sol"
+lines = 30
+verdict = "vendored"
+note = "Vendored Solmate dependency under the benchmark EVM project. setup.sh pins the complete lib/solmate content tree to b92432abfecaf534c50837d0868430a72b3fabcc3d548a9c850b5c75650739f1; classified under the brief vendor exception, not asserted as first-party merged-network code or independently security-qualified."
+
+[file.76]
+path = "tools/benchmark/loadtest/contracts/evm/lib/solmate/src/test/utils/users/ERC1155User.sol"
+lines = 56
+verdict = "vendored"
+note = "Vendored Solmate dependency under the benchmark EVM project. setup.sh pins the complete lib/solmate content tree to b92432abfecaf534c50837d0868430a72b3fabcc3d548a9c850b5c75650739f1; classified under the brief vendor exception, not asserted as first-party merged-network code or independently security-qualified."
+
+[file.77]
+path = "tools/benchmark/loadtest/contracts/evm/lib/solmate/src/test/utils/users/ERC20User.sol"
+lines = 40
+verdict = "vendored"
+note = "Vendored Solmate dependency under the benchmark EVM project. setup.sh pins the complete lib/solmate content tree to b92432abfecaf534c50837d0868430a72b3fabcc3d548a9c850b5c75650739f1; classified under the brief vendor exception, not asserted as first-party merged-network code or independently security-qualified."
+
+[file.78]
+path = "tools/benchmark/loadtest/contracts/evm/lib/solmate/src/test/utils/users/ERC721User.sol"
+lines = 54
+verdict = "vendored"
+note = "Vendored Solmate dependency under the benchmark EVM project. setup.sh pins the complete lib/solmate content tree to b92432abfecaf534c50837d0868430a72b3fabcc3d548a9c850b5c75650739f1; classified under the brief vendor exception, not asserted as first-party merged-network code or independently security-qualified."
+
+[file.79]
+path = "tools/benchmark/loadtest/contracts/evm/lib/solmate/src/test/utils/users/GenericUser.sol"
+lines = 24
+verdict = "vendored"
+note = "Vendored Solmate dependency under the benchmark EVM project. setup.sh pins the complete lib/solmate content tree to b92432abfecaf534c50837d0868430a72b3fabcc3d548a9c850b5c75650739f1; classified under the brief vendor exception, not asserted as first-party merged-network code or independently security-qualified."
+
+[file.80]
+path = "tools/benchmark/loadtest/contracts/evm/lib/solmate/src/tokens/ERC1155.sol"
+lines = 253
+verdict = "vendored"
+note = "Vendored Solmate dependency under the benchmark EVM project. setup.sh pins the complete lib/solmate content tree to b92432abfecaf534c50837d0868430a72b3fabcc3d548a9c850b5c75650739f1; classified under the brief vendor exception, not asserted as first-party merged-network code or independently security-qualified."
+
+[file.81]
+path = "tools/benchmark/loadtest/contracts/evm/lib/solmate/src/tokens/ERC20.sol"
+lines = 195
+verdict = "vendored"
+note = "Vendored Solmate dependency under the benchmark EVM project. setup.sh pins the complete lib/solmate content tree to b92432abfecaf534c50837d0868430a72b3fabcc3d548a9c850b5c75650739f1; classified under the brief vendor exception, not asserted as first-party merged-network code or independently security-qualified."
+
+[file.82]
+path = "tools/benchmark/loadtest/contracts/evm/lib/solmate/src/tokens/ERC721.sol"
+lines = 220
+verdict = "vendored"
+note = "Vendored Solmate dependency under the benchmark EVM project. setup.sh pins the complete lib/solmate content tree to b92432abfecaf534c50837d0868430a72b3fabcc3d548a9c850b5c75650739f1; classified under the brief vendor exception, not asserted as first-party merged-network code or independently security-qualified."
+
+[file.83]
+path = "tools/benchmark/loadtest/contracts/evm/lib/solmate/src/tokens/WETH.sol"
+lines = 35
+verdict = "vendored"
+note = "Vendored Solmate dependency under the benchmark EVM project. setup.sh pins the complete lib/solmate content tree to b92432abfecaf534c50837d0868430a72b3fabcc3d548a9c850b5c75650739f1; classified under the brief vendor exception, not asserted as first-party merged-network code or independently security-qualified."
+
+[file.84]
+path = "tools/benchmark/loadtest/contracts/evm/lib/solmate/src/utils/Bytes32AddressLib.sol"
+lines = 14
+verdict = "vendored"
+note = "Vendored Solmate dependency under the benchmark EVM project. setup.sh pins the complete lib/solmate content tree to b92432abfecaf534c50837d0868430a72b3fabcc3d548a9c850b5c75650739f1; classified under the brief vendor exception, not asserted as first-party merged-network code or independently security-qualified."
+
+[file.85]
+path = "tools/benchmark/loadtest/contracts/evm/lib/solmate/src/utils/CREATE3.sol"
+lines = 82
+verdict = "vendored"
+note = "Vendored Solmate dependency under the benchmark EVM project. setup.sh pins the complete lib/solmate content tree to b92432abfecaf534c50837d0868430a72b3fabcc3d548a9c850b5c75650739f1; classified under the brief vendor exception, not asserted as first-party merged-network code or independently security-qualified."
+
+[file.86]
+path = "tools/benchmark/loadtest/contracts/evm/lib/solmate/src/utils/FixedPointMathLib.sol"
+lines = 206
+verdict = "vendored"
+note = "Vendored Solmate dependency under the benchmark EVM project. setup.sh pins the complete lib/solmate content tree to b92432abfecaf534c50837d0868430a72b3fabcc3d548a9c850b5c75650739f1; classified under the brief vendor exception, not asserted as first-party merged-network code or independently security-qualified."
+
+[file.87]
+path = "tools/benchmark/loadtest/contracts/evm/lib/solmate/src/utils/ReentrancyGuard.sol"
+lines = 19
+verdict = "vendored"
+note = "Vendored Solmate dependency under the benchmark EVM project. setup.sh pins the complete lib/solmate content tree to b92432abfecaf534c50837d0868430a72b3fabcc3d548a9c850b5c75650739f1; classified under the brief vendor exception, not asserted as first-party merged-network code or independently security-qualified."
+
+[file.88]
+path = "tools/benchmark/loadtest/contracts/evm/lib/solmate/src/utils/SSTORE2.sol"
+lines = 99
+verdict = "vendored"
+note = "Vendored Solmate dependency under the benchmark EVM project. setup.sh pins the complete lib/solmate content tree to b92432abfecaf534c50837d0868430a72b3fabcc3d548a9c850b5c75650739f1; classified under the brief vendor exception, not asserted as first-party merged-network code or independently security-qualified."
+
+[file.89]
+path = "tools/benchmark/loadtest/contracts/evm/lib/solmate/src/utils/SafeCastLib.sol"
+lines = 37
+verdict = "vendored"
+note = "Vendored Solmate dependency under the benchmark EVM project. setup.sh pins the complete lib/solmate content tree to b92432abfecaf534c50837d0868430a72b3fabcc3d548a9c850b5c75650739f1; classified under the brief vendor exception, not asserted as first-party merged-network code or independently security-qualified."
+
+[file.90]
+path = "tools/benchmark/loadtest/contracts/evm/lib/solmate/src/utils/SafeTransferLib.sol"
+lines = 140
+verdict = "vendored"
+note = "Vendored Solmate dependency under the benchmark EVM project. setup.sh pins the complete lib/solmate content tree to b92432abfecaf534c50837d0868430a72b3fabcc3d548a9c850b5c75650739f1; classified under the brief vendor exception, not asserted as first-party merged-network code or independently security-qualified."
+
+[file.91]
+path = "tools/qualification/paxeer-x/event-delivery-contract.py"
+lines = 2757
+verdict = "issues"
+note = "Credential snapshots, ownership, mTLS, refusal codes, durable redelivery and restarts are exercised by real-process code; missing deployment inputs and retired authority vocabulary remain findings."
+
+[file.92]
+path = "tools/qualification/paxeer-x/paid-web-contract.py"
+lines = 3862
+verdict = "issues"
+note = "Real process identity, owned crash injection and payment-journal recovery assertions exist; obsolete SDK/transaction formats and incomplete source identity prevent accepting this as current merged-node qualification."
+
+[finding.1]
+file = "Makefile"
+line = 3087
+class = "interface-mismatch"
+severity = "high"
+observed = "beta-qualify-focused passes a list of bare make command strings to scripts/ci/beta-qualify.sh. The script at lines 24-27 requires explicit --spec, --task, --ledger and --evidence-root before it executes anything, so this caller receives exit 2 without qualifying a command."
+expected = "Registry row 16.cli-scr-ci-beta-qualify declares a task-bound command with explicit private evidence locations; the Makefile consumer must supply that exact CLI and preserve the selected task verify_cmd."
+proposal = "Change Makefile beta-qualify-focused to invoke scripts/ci/beta-qualify.sh with the current spec, one eligible task, private ledger and evidence root, and its exact command after --; provide separate task-bound records for further commands and prove the real caller reaches source-run."
+owner_domain = 16
+interface = "16.cli-scr-ci-beta-qualify"
+
+[finding.2]
+file = "scripts/ci/release-gate.sh"
+line = 111
+class = "interface-mismatch"
+severity = "high"
+observed = "release-gate.sh says its emitted gate entry obeys beta-ledger-check.sh, but writes no source_evidence field. The consumer at beta-ledger-check.sh:843 requires that field and at 916 validates its private source sidecar; every record from this producer fails that contract even if its make command passes."
+expected = "The declared release gate CLI must produce a gate record the current ledger accepts, binding revision, command, outcome and private evidence to the actual source used throughout execution."
+proposal = "Port scripts/ci/release-gate.sh to the source-run producer in scripts/ci/beta-ledger-check.sh and update its platform workflow and release-tool callers together; retain the source sidecar and demonstrate one actual emitted record is accepted without rewriting fields."
+owner_domain = 16
+interface = "16.cli-scr-ci-release-gate"
+
+[finding.3]
+file = "tools/qualification/paxeer-x/paid-web-contract.py"
+line = 808
+class = "interface-mismatch"
+severity = "high"
+observed = "Harness.success, KernelHarness.receipt and OperationalHarness.observed import _decode_protocol_receipt, which does not exist anywhere in the current Python SDK. verifier.py declares _decode_sequencer_receipt and its receipt type has no program_outcome. The normal success/recovery paths therefore fail at the SDK boundary before validating the node receipt."
+expected = "The pax_sequencerReceipt producer in rpc/sequencer_receipt.go returns the current signed sequencer layout and authenticated keyId/signingKey fields; qualification must consume the matching SDK verifier and its actual result type."
+proposal = "Migrate the receipt consumers in tools/qualification/paxeer-x/paid-web-contract.py to the current authenticated sequencer receipt verifier in services/agent/sdk/python/layerx_sdk/verifier.py, obtain program outcome from the declared execution result, and prove real node JSON through signature verification across a restart."
+owner_domain = 16
+interface = "7.rpc-pax-sequencerreceipt"
+
+[finding.4]
+file = "tools/qualification/paxeer-x/paid-web-contract.py"
+line = 1802
+class = "interface-mismatch"
+severity = "high"
+observed = "KernelHarness.signed constructs a legacy LXP v3 envelope beginning 00 03 10 01. KernelHarness.send and receipt pass those bytes to transaction_hash, which explicitly permits only EVM type bytes 2 or 4. reference_deployment similarly requires an LXP envelope and immediately feeds it to receipt, so the kernel recovery case refuses its own required input."
+expected = "Registry schema 16.fmt-schema-paxeer-x-kernel-web-recovery-v1 must carry a deployment and calls that can round-trip through the merged node EVM submission, transaction hash and receipt path without contradictory encodings."
+proposal = "Replace the KernelHarness legacy envelope builder and deployment fixture in tools/qualification/paxeer-x/paid-web-contract.py with real chain-125 signed EVM transactions to the current program and web precompiles; bind the metadata to those bytes and retain restart, exact retry and fee-conservation assertions."
+owner_domain = 16
+interface = "16.fmt-schema-paxeer-x-kernel-web-recovery-v1"
+
+[finding.5]
+file = "Makefile"
+line = 3170
+class = "retired-reference"
+severity = "medium"
+observed = "The layerx-archive-codec target still declares cmd/layerx-archive-codec/main.c as its source, although that command directory is absent. Its advertised build rule cannot produce a binary from this tree."
+expected = "Brief fact 2 and req.16016.2 retire daemon-era archive tooling; public build surfaces must name live merged-network tools and no deleted command sources."
+proposal = "Remove the orphan archive-codec recipes and their registry entries from Makefile and spec/layerx-merge/interfaces.kvx, and route any retained archive use to its current node-backed producer without restoring the retired daemon."
+owner_domain = 16
+
+[finding.6]
+file = "Makefile"
+line = 2921
+class = "retired-reference"
+severity = "medium"
+observed = "The blob-admission and paxai-native-gaps binary rules at lines 2920-2934 still expand LAYERXD_SOURCES and add -Icmd/layerxd, but the source variable has no definition and cmd/layerxd no longer exists. These remaining rules retain a deleted daemon build dependency."
+expected = "The merged kernel runs inside paxd; req.22003.1 and the retirement requirements require qualification build inputs to exist and use the real node boundary."
+proposal = "Port the two Makefile recipes and their tests/programs consumers to the retained kernel or real paxd API owned by their current domain, then remove the undefined LAYERXD_SOURCES and deleted include path while preserving each admission refusal assertion."
+owner_domain = 16
+
+[finding.7]
+file = "Makefile"
+line = 2914
+class = "config-drift"
+severity = "medium"
+observed = "paxai-host-boundary-build invokes a release AI market guest build and copies its output directly. It supplies no opt-level z override, inherits programs/Cargo.toml opt-level 3, performs no wasm-opt post-pass, and checks no 524288-byte deployment bound including the 104-byte envelope."
+expected = "Brief fact 6 requires the release opt-level z guest to fit the deployment payload; decision.94 also requires wasm-opt -Oz --strip-debug --strip-producers before the payload-minus-envelope check and refusal when the tool is unavailable."
+proposal = "Make Makefile paxai-host-boundary-build select the guest size profile, run the required binaryen pass and reject a final guest larger than 524184 bytes before publishing its manifest; preserve the configured chain-domain binding and exercise the same bytes through deployment."
+owner_domain = 16
+
+[finding.8]
+file = "scripts/ci/no-float-scan.sh"
+line = 46
+class = "test-gap"
+severity = "medium"
+observed = "The object inventory hides find failures with || true, and objdump/nm failures inside conditional pipelines are treated like grep finding no forbidden text. A missing object tree or unavailable inspection tool can therefore print the unconditional no-floating-point success claim without a completed binary inspection."
+expected = "A consensus binary scan must distinguish no forbidden instructions from no inspectable artifacts or a failed tool, and must cover the current built source inventory."
+proposal = "In scripts/ci/no-float-scan.sh require the expected object inventory and successful objdump/nm exit statuses before matching output; report source-only inspection separately and add negative cases for missing artifacts and failed inspection tools."
+owner_domain = 16
+
+[finding.9]
+file = "scripts/ci/symbol-allowlist.sh"
+line = 9
+class = "test-gap"
+severity = "medium"
+observed = "symbol-allowlist.sh exits zero when its object search yields nothing, hides find errors, and does not propagate nm failures through its grep pipelines. Its operating-system, SQLite and balance-writer checks can grant success after inspecting no usable binary symbols."
+expected = "The declared consensus symbol boundary must be checked against the actual built objects, with unavailable or unreadable inputs refused rather than credited as a clean symbol inventory."
+proposal = "Require the expected object set and successful nm extraction in scripts/ci/symbol-allowlist.sh before evaluating forbidden names; cover empty inventory and nm failure as refused checks while preserving all current forbidden symbols."
+owner_domain = 16
+
+[finding.10]
+file = "scripts/ci/solidity-state-surface.sh"
+line = 28
+class = "test-gap"
+severity = "medium"
+observed = "The state-surface script strips each ABI entry to its bare function name and accepts any matching token in a .t.sol file. A comment, an unrelated assertion or a different overload satisfies it; no passing test result is consumed even though it prints selectors have test evidence."
+expected = "Req.6975.1 requires schedule, execute and cancel to appear in passing Foundry tests and every state-changing selector to have real evidence, including each overload."
+proposal = "Bind each full ABI selector to an executed Foundry test for contracts/governance/SidioraProxyTimelock.sol in scripts/ci/solidity-state-surface.sh; require a successful result and a real state transition or refusal, and reject name-only mentions as coverage."
+owner_domain = 16
+
+[finding.11]
+file = "scripts/ci/xweb-forge-libs.sh"
+line = 28
+class = "security"
+severity = "medium"
+observed = "xweb-forge-libs.sh compares origin and HEAD to a tag but never checks tracked or untracked working-tree contents. An existing clone with modified Solidity files retains the expected HEAD and is accepted as the pinned library used by Forge."
+expected = "The library bytes compiled by qualification must match the reviewed immutable dependency, not merely share its repository metadata and HEAD commit."
+proposal = "In scripts/ci/xweb-forge-libs.sh bind each dependency to a reviewed commit digest and refuse a modified tracked tree or unexpected untracked source before Forge; keep the existing repository and revision checks and record the verified source identity."
+owner_domain = 16
+
+[finding.12]
+file = "scripts/ci/secret-scan.sh"
+line = 17
+class = "security"
+severity = "medium"
+observed = "run_rg suppresses all xargs/rg errors with || true and the private-key scan similarly hides failures. Even when the scanner self-test passes, an unreadable or removed publication file can be skipped and the actual scan can return success without examining it."
+expected = "A publication scan must fail closed when any selected file cannot be inspected; passing its synthetic pattern self-test is not evidence that every real publication input was read."
+proposal = "Preserve no-match as a successful scan but propagate unreadable-file and tool errors in scripts/ci/secret-scan.sh; retain safe redacted diagnostics and prove a selected inaccessible input refuses publication."
+owner_domain = 16
+
+[finding.13]
+file = "scripts/ci/public-repo-audit.sh"
+line = 134
+class = "security"
+severity = "medium"
+observed = "audit_rg ends its publication-file search pipeline with || true and treats an empty output file as no private reference. File read or rg execution failures are indistinguishable from a clean search, so the outer public repository audit may overlook uninspected inputs."
+expected = "Every selected publication file must be inspected successfully for private infrastructure references before the repository is declared publishable."
+proposal = "Change scripts/ci/public-repo-audit.sh audit_rg to retain and classify rg/xargs failures separately from a genuine no-match result, and refuse publication when any selected file could not be searched."
+owner_domain = 16
+
+[finding.14]
+file = "scripts/ci/release-gate.sh"
+line = 75
+class = "security"
+severity = "medium"
+observed = "The release gate writes the raw command log and its record under spec/layerx-beta/evidence in the source checkout, without an owner-only evidence directory. A repeated job and revision also reuses command.log and record.kvx, overwriting prior execution evidence."
+expected = "Qualification evidence belongs in an explicit private evidence root with distinct execution identities, and the merged feature owns the current sanitized ledger rather than the retired beta spec tree."
+proposal = "Move scripts/ci/release-gate.sh raw output into a unique owner-only run directory outside the checkout, refuse collisions and emit only sanitized references for the layerx-merge ledger; keep earlier logs immutable and source-bound."
+owner_domain = 16
+
+[finding.15]
+file = "scripts/ci/xweb-workflow-check.sh"
+line = 71
+class = "retired-reference"
+severity = "medium"
+observed = "DECLARED_PATHS still contains deleted cmd/layerxd process/protocol sources and other retired feature paths. present_or_declared explicitly blesses absent entries as added by a task of the retired paxeer-x-web feature instead of requiring a live source or current task."
+expected = "Req.16027.1 and req.16971 require retired daemon and obsolete harness paths removed from workflow expectations; a deleted feature cannot authorize a future file."
+proposal = "Replace the hard-coded retired declaration authority in scripts/ci/xweb-workflow-check.sh with the kept xweb path inventory and current layerx-merge task authority; remove deleted daemon, custody and core-kernel harness paths and require actual current build inputs."
+owner_domain = 16
+
+[finding.16]
+file = "tests/occ/occ_test.go"
+line = 40
+class = "test-gap"
+severity = "medium"
+observed = "assertEqualEventAttributes converts attributes to a boolean set, and assertEqualExecTxResults searches without consuming a match. Equal-length multisets [A,A,B] and [A,B,B] can therefore compare equal, hiding repeated or missing event/result effects in OCC versus sequential execution."
+expected = "The OCC comparison must preserve multiplicity of every produced attribute and execution result so duplicate, lost or substituted effects cannot satisfy the equivalence proof."
+proposal = "Use occurrence counts or a one-to-one consumed-match comparison in tests/occ/occ_test.go for attributes and transaction results; add unequal-duplicate cases while retaining real OCC/sequential execution and zero-result-code checks."
+owner_domain = 16
+
+[finding.17]
+file = "tests/occ/occ_test.go"
+line = 18
+class = "test-gap"
+severity = "medium"
+observed = "assertEqualState compares store-key counts and compares contents only inside equal-name pairs. Two stores with the same count but a replaced store name leave that name unmatched and its contents unexamined."
+expected = "OCC equivalence requires the identical named store set and equal contents for every retained store, not only equal store counts."
+proposal = "Require identical sorted store names before comparing each pair in tests/occ/occ_test.go; preserve the documented ignored-store policy and prove a replaced store name is rejected."
+owner_domain = 16
+
+[finding.18]
+file = "tools/qualification/paxeer-x/paid-web-contract.py"
+line = 92
+class = "test-gap"
+severity = "medium"
+observed = "source_identity hashes only tracked Rust/C/C++/proto sources and Cargo files. It excludes the Go node implementation, Go module inputs, Makefiles and Python consumers, and the harness trusts the candidate dirty flag without checking the actual checkout status."
+expected = "Candidate-bound recovery evidence must bind the executable and all relevant producer, transport and consumer sources actually used, including the merged Go node and build inputs."
+proposal = "Use the shared complete clean-candidate source identity and build sidecar in tools/qualification/paxeer-x/paid-web-contract.py, bind every artifact to that identity and refuse an actual dirty or changed checkout before collecting qualification evidence."
+owner_domain = 16
+
+[finding.19]
+file = "tools/qualification/paxeer-x/event-delivery-contract.py"
+line = 1296
+class = "test-gap"
+severity = "medium"
+observed = "The webhook-ingress-roles wiring check reads services/platform/hosted/webhooks/fly.toml, which is absent. Principal provisioning and producer readiness also read the absent hosted/internal/fly.toml. Those cases fail on deleted deployment inputs before finishing their real-process assertions."
+expected = "Req.16056.1 and the brief require qualification of current deployed interfaces, with no dependency on removed topology files or retired feature authority."
+proposal = "Port the topology assertions in tools/qualification/paxeer-x/event-delivery-contract.py to the current deployment inventory, keeping private listeners, separate webhook roles, protected credential mounts and independent durable volumes as tested product requirements."
+owner_domain = 16
+
+[finding.20]
+file = "tools/qualification/paxeer-x/event-delivery-contract.py"
+line = 1724
+class = "retired-reference"
+severity = "medium"
+observed = "provisioning_inputs still permits layerxd, layerx-guarantor and the retired human provider executables, and requires a separate sequencer identity/key/batch-window configuration for webhook ingress. The fixture vocabulary can still describe the removed two-domain runtime."
+expected = "Brief facts 1-2 and req.16056.1 require one paxd network without a separate daemon, guarantor runtime or sequencer authority; event qualification must bind to the merged receipt authority."
+proposal = "Replace the provisioning executable allowlist and sequencer authority fixture fields in tools/qualification/paxeer-x/event-delivery-contract.py with current paxd-backed receipt-key and event producers; retain real enrollment, authorization, redelivery and restart proofs."
+owner_domain = 16
+
+[finding.21]
+file = "foundry.toml"
+line = 16
+class = "config-drift"
+severity = "low"
+observed = "The current root profile correctly grants names-vector/build permissions, but registry row 16.cfg-foundry-toml-profile-default-fs-permissions-j16 still declares reads of contracts/config and tests/vectors/checkpoint and describes the retired custody/settlement project."
+expected = "Req.16066.1 deliberately removes checkpoint/settlement permissions; the interface registry and its generated address-inventory contract must reflect the retained names and governance profiles."
+proposal = "Update the source row for 16.cfg-foundry-toml-profile-default-fs-permissions-j16 in spec/layerx-merge/interfaces.kvx and regenerate its contract page to describe foundry.toml as implemented, without restoring retired permissions."
+owner_domain = 16
+interface = "16.cfg-foundry-toml-profile-default-fs-permissions-j16"
+
+[finding.22]
+file = "RELEASE.md"
+line = 31
+class = "doc-drift"
+severity = "medium"
+observed = "RELEASE.md lines 31, 49 and 188 advertise PAXD_RELEASE_LAYERXD=1, an optional layerxd release binary and its publication in a release package, although the daemon and its build surface are retired."
+expected = "The release guide must describe the supported paxd merged-network artifact set and its actual current packaging inputs, with no separate kernel-daemon deployment."
+proposal = "Rewrite RELEASE.md artifact and environment sections from tools/release/build-paxd.sh and the current release manifest; remove the retired optional daemon and show the merged node verification and rollback procedure."
+owner_domain = 16
+
+[finding.23]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "The repository introduction describes layerxd, separate checkpoints, retired precompiles and make layerxd as current, then says the merge remains a draft."
+expected = "Brief facts 1-4 define a single chain-125 Paxeer network, an embedded kernel, committed-block finality and root node RPC; operator and integrator documentation must describe those shipped surfaces."
+proposal = "Rewrite README.md architecture, precompile table and build examples for one chain-125 paxd network with the kernel embedded and receipts final at committed blocks."
+owner_domain = 17
+
+[finding.24]
+file = "docs/README.md"
+line = 21
+class = "doc-drift"
+severity = "medium"
+observed = "The documentation index still directs node integrators to LNI v1.7 as the node interface."
+expected = "Brief facts 1-4 define a single chain-125 Paxeer network, an embedded kernel, committed-block finality and root node RPC; operator and integrator documentation must describe those shipped surfaces."
+proposal = "Replace the LNI index row in docs/README.md with links to the current root JSON-RPC contract and the distinct hosted gateway OpenRPC contract."
+owner_domain = 17
+
+[finding.25]
+file = "docs/paxeer-network.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The network guide describes ordinary LayerX activity outside Paxeer and periodic checkpoint settlement, lists retired custody/anchor modules and advertises a public faucet inconsistent with the site allocation policy."
+expected = "Brief facts 1-4 define a single chain-125 Paxeer network, an embedded kernel, committed-block finality and root node RPC; operator and integrator documentation must describe those shipped surfaces."
+proposal = "Rewrite docs/paxeer-network.md for one network, active modules/precompiles, root api1-api14 and api-mainnet-beta endpoints, and the approved funding policy; preserve the correct EVM chain id 125."
+owner_domain = 17
+
+[finding.26]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The monorepo guide presents layerxd as a subsystem and assigns custody, checkpoints and guarantor bonds to a separate settlement boundary."
+expected = "Brief facts 1-4 define a single chain-125 Paxeer network, an embedded kernel, committed-block finality and root node RPC; operator and integrator documentation must describe those shipped surfaces."
+proposal = "Update docs/MONOREPO.md architecture and trust boundaries to the embedded kernel and current service ownership; derive paths and commands from the retained build inventory."
+owner_domain = 17
+
+[finding.27]
+file = "docs/runbooks/paxeer-x-fork.md"
+line = 7
+class = "doc-drift"
+severity = "medium"
+observed = "The fork runbook says custody 0x1013 and anchor 0x1014 come live and later asks operators to require successful calls to them while rehearsing the merged upgrade."
+expected = "Brief facts 1-4 define a single chain-125 Paxeer network, an embedded kernel, committed-block finality and root node RPC; operator and integrator documentation must describe those shipped surfaces."
+proposal = "Version docs/runbooks/paxeer-x-fork.md procedures explicitly, document the v7.0 merged upgrade and assert retired custody/anchor typed refusals alongside live precompile and committed block checks."
+owner_domain = 17
+
+[finding.28]
+file = "docs/site/docs/index.md"
+line = 12
+class = "doc-drift"
+severity = "medium"
+observed = "The site landing page separates LayerX execution from Paxeer custody and checkpoint settlement and promotes guarantor attestations and the retired settlement roles."
+expected = "Brief facts 1-4 define a single chain-125 Paxeer network, an embedded kernel, committed-block finality and root node RPC; operator and integrator documentation must describe those shipped surfaces."
+proposal = "Rewrite docs/site/docs/index.md architecture and component table around paxd, its embedded kernel, tenant namespaces and the actual committed receipt lifecycle."
+owner_domain = 17
+
+[finding.29]
+file = "docs/site/docs/overview/quickstart.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "The quickstart repeatedly directs public clients to /rpc and /rpc/ws and asks for retired checkpoint and guarantor contract inputs, so following its bootstrap and request examples targets the pre-merge product."
+expected = "Brief facts 1-4 define a single chain-125 Paxeer network, an embedded kernel, committed-block finality and root node RPC; operator and integrator documentation must describe those shipped surfaces."
+proposal = "Rewrite docs/site/docs/overview/quickstart.md examples against root node RPC and services/platform/hosted/gateway/openrpc.json, current authentication and real chain funding; demonstrate a current transaction through committed receipt verification without retired contract inputs."
+owner_domain = 17
+
+[finding.30]
+file = "docs/site/docs/overview/i18n/zh-cn.md"
+line = 98
+class = "doc-drift"
+severity = "medium"
+observed = "The zh-cn introduction retains the two-network explanation at lines 18-20 and the layerxd and settlement-contract build inventory at lines 100-106, contradicting the merged product described by the brief."
+expected = "Translated getting-started material must agree with the same single-network architecture, active runtime and endpoint inventory as the canonical product documentation."
+proposal = "Retranslate docs/site/docs/overview/i18n/zh-cn.md from the corrected canonical introduction, remove the daemon and separate settlement roles and verify that its build and interface links resolve to the retained product."
+owner_domain = 17
+
+[finding.31]
+file = "docs/site/docs/overview/i18n/ru.md"
+line = 98
+class = "doc-drift"
+severity = "medium"
+observed = "The ru introduction retains the two-network explanation at lines 18-20 and the layerxd and settlement-contract build inventory at lines 100-106, contradicting the merged product described by the brief."
+expected = "Translated getting-started material must agree with the same single-network architecture, active runtime and endpoint inventory as the canonical product documentation."
+proposal = "Retranslate docs/site/docs/overview/i18n/ru.md from the corrected canonical introduction, remove the daemon and separate settlement roles and verify that its build and interface links resolve to the retained product."
+owner_domain = 17
+
+[finding.32]
+file = "docs/site/docs/overview/i18n/es.md"
+line = 98
+class = "doc-drift"
+severity = "medium"
+observed = "The es introduction retains the two-network explanation at lines 18-20 and the layerxd and settlement-contract build inventory at lines 100-106, contradicting the merged product described by the brief."
+expected = "Translated getting-started material must agree with the same single-network architecture, active runtime and endpoint inventory as the canonical product documentation."
+proposal = "Retranslate docs/site/docs/overview/i18n/es.md from the corrected canonical introduction, remove the daemon and separate settlement roles and verify that its build and interface links resolve to the retained product."
+owner_domain = 17
+
+[finding.33]
+file = "docs/site/docs/overview/i18n/pt-br.md"
+line = 98
+class = "doc-drift"
+severity = "medium"
+observed = "The pt-br introduction retains the two-network explanation at lines 18-20 and the layerxd and settlement-contract build inventory at lines 100-106, contradicting the merged product described by the brief."
+expected = "Translated getting-started material must agree with the same single-network architecture, active runtime and endpoint inventory as the canonical product documentation."
+proposal = "Retranslate docs/site/docs/overview/i18n/pt-br.md from the corrected canonical introduction, remove the daemon and separate settlement roles and verify that its build and interface links resolve to the retained product."
+owner_domain = 17
+
+[finding.34]
+file = "docs/site/docs/overview/i18n/ja.md"
+line = 98
+class = "doc-drift"
+severity = "medium"
+observed = "The ja introduction retains the two-network explanation at lines 18-20 and the layerxd and settlement-contract build inventory at lines 100-106, contradicting the merged product described by the brief."
+expected = "Translated getting-started material must agree with the same single-network architecture, active runtime and endpoint inventory as the canonical product documentation."
+proposal = "Retranslate docs/site/docs/overview/i18n/ja.md from the corrected canonical introduction, remove the daemon and separate settlement roles and verify that its build and interface links resolve to the retained product."
+owner_domain = 17
+
+[doc.1]
+path = "README.md"
+status = "stale"
+notes = "Lines 45-48 describe a separate layerxd kernel and checkpoint settlement; 83 lists retired custody/anchor surfaces as current; 145-146 prescribe daemon/CLI builds; 181 calls the merge a draft. Rewrite architecture, active precompile inventory and build examples for one paxd chain."
+
+[doc.2]
+path = "docs/README.md"
+status = "stale"
+notes = "Line 21 links wiki/LNI.md as Node interface v1.7. Replace this retired-interface entry with current root node JSON-RPC and hosted gateway contracts."
+
+[doc.3]
+path = "docs/paxeer-network.md"
+status = "stale"
+notes = "Lines 3-7, 16-20, 38-40, 82 and 93 describe separate custody/checkpoint networks and retired modules; line 9 advertises a public faucet while the site limits funding to approved allocations. Rewrite with one network and the actual funding policy."
+
+[doc.4]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "Line 3 calls layerxd the running kernel and lines 69-72 preserve custody/checkpoint/guarantor trust boundaries. Replace these with the embedded paxd kernel, current paths and committed-block finality."
+
+[doc.5]
+path = "docs/runbooks/paxeer-x-fork.md"
+status = "misleading"
+notes = "Lines 3-8 frame v6.6 activation of custody/anchor as the operating procedure, whereas the merge rehearsal later invokes v7.0; lines 310-321 demand successful retired 0x1013/0x1014 calls. Split historical notes from the v7.0 runbook and assert the actual retired-surface refusals."
+
+[doc.6]
+path = "docs/site/docs/index.md"
+status = "stale"
+notes = "Lines 11-14 and 24-26 describe periodic LayerX checkpoints settling on another network; lines 44-48 promote guarantor/replica settlement architecture. Rewrite the landing page around one Paxeer network and committed block finality."
+
+[doc.7]
+path = "docs/site/docs/overview/quickstart.md"
+status = "misleading"
+notes = "Lines 20, 167-168, 214-215, 302, 497, 518 and 596-597 prescribe /rpc or /rpc/ws; lines 65 and 131-132 require guarantor/checkpoint contracts at 0x1014. Replace endpoint and bootstrap examples with root node RPC and the actual hosted gateway contract; remove retired funding/settlement prerequisites."
+
+[doc.8]
+path = "docs/site/docs/overview/i18n/zh-cn.md"
+status = "stale"
+notes = "Lines 18-20 describe independent LayerX activity and two networks; lines 100-106 prescribe layerxd and retired settlement-contract roots. Retranslate the corrected single-network introduction, current build commands and product surface list."
+
+[doc.9]
+path = "docs/site/docs/overview/i18n/ru.md"
+status = "stale"
+notes = "Lines 18-20 describe independent LayerX activity and two networks; lines 100-106 prescribe layerxd and retired settlement-contract roots. Retranslate the corrected single-network introduction, current build commands and product surface list."
+
+[doc.10]
+path = "docs/site/docs/overview/i18n/es.md"
+status = "stale"
+notes = "Lines 18-20 describe independent LayerX activity and two networks; lines 100-106 prescribe layerxd and retired settlement-contract roots. Retranslate the corrected single-network introduction, current build commands and product surface list."
+
+[doc.11]
+path = "docs/site/docs/overview/i18n/pt-br.md"
+status = "stale"
+notes = "Lines 18-20 describe independent LayerX activity and two networks; lines 100-106 prescribe layerxd and retired settlement-contract roots. Retranslate the corrected single-network introduction, current build commands and product surface list."
+
+[doc.12]
+path = "docs/site/docs/overview/i18n/ja.md"
+status = "stale"
+notes = "Lines 18-20 describe independent LayerX activity and two networks; lines 100-106 prescribe layerxd and retired settlement-contract roots. Retranslate the corrected single-network introduction, current build commands and product surface list."
+
+[doc.13]
+path = "AGENTS.md"
+status = "accurate"
+notes = "Generated workflow pointer from spec/workflow.kvx, identified by its hyperfide-owned generated-spec header; source workflow owns changes."
+
+[doc.14]
+path = "CLAUDE.md"
+status = "accurate"
+notes = "Generated workflow pointer from spec/workflow.kvx; generated-spec ownership means the workflow source owns any regeneration."
+
+[doc.15]
+path = "CODE_OF_CONDUCT.md"
+status = "accurate"
+notes = "Contributor conduct, reporting and enforcement policy; no separate runtime, RPC or settlement claims."
+
+[doc.16]
+path = "CONTRIBUTORS.md"
+status = "accurate"
+notes = "Contributor attribution page; no executable, transport or runtime lifecycle contract."
+
+[doc.17]
+path = "GOVERNANCE.md"
+status = "accurate"
+notes = "Repository governance and decision/review process; no replacement consensus or settlement authority is prescribed."
+
+[doc.18]
+path = "SUPPORT.md"
+status = "accurate"
+notes = "Support routes separate usage questions, bugs and private security reports without defining a second node interface."
+
+[doc.19]
+path = "RELEASE.md"
+status = "stale"
+notes = "Lines 31, 49 and 188 still prescribe optional layerxd builds and release publication; rewrite from the current paxd packaging manifest."
+
+[doc.20]
+path = "SECURITY.md"
+status = "accurate"
+notes = "Response targets and bounty tiers satisfy req.3538.1 and req.181232.1; the security scope covers retained source trees, including cmd/layerxctl, without promising a deployed daemon."
+
+[doc.21]
+path = "spec/layerx-merge/contracts/operations.md"
+status = "stale"
+notes = "Read the introduction, bench setup binding, relevant scripts-cli rows at 13042 onward and package interface contracts. This frozen historical snapshot still describes daemon-dependent Makefile interfaces; current operator contracts must be regenerated from the merged inventory."
+
+[doc.22]
+path = "spec/layerx-merge/contracts/evm-rpc.md"
+status = "accurate"
+notes = "The pax-sequencerreceipt section at 2715-2727 correctly declares the HTTP method, transaction-hash argument and three rungs; the audited paid-web consumer is obsolete. This status applies to the linked section read, not unreviewed sections."
+
+[doc.23]
+path = "tools/benchmark/loadtest/contracts/evm/lib/solmate/LICENSE"
+status = "accurate"
+notes = "Vendored AGPL-3.0 license notice accompanies this dependency tree; vendor status is provenance classification and grants no first-party protocol correctness claim."

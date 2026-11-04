@@ -1,0 +1,1691 @@
+# Pre-upgrade audit, decision 2515. Static product findings; repairs belong to domain 5.
+
+[audit.22.30.47]
+task = "22.30.47"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 103
+findings = 35
+docs_reviewed = 75
+upgrade_ready = false
+blocking = ["carried-app-state", "full-commit-header-limit", "committee-wire-limit", "consensus-message-size", "future-consensus-time"]
+method = "Static review of the Autobahn types, event bus and Buf configuration, tracing emitted messages into peer, application and persistence consumers. Inherited upstream specifications and research artifacts are marked vendored, as documented in consensus/README.md, with provenance/applicability notes instead of a current-network clean claim."
+qualification_boundary = "The audit proposes repairs and changes no runtime behavior. The declared audit gate checks record coverage, line counts and finding grammar; it is not a runtime exploit, model-checking proof, paxd build or restart test."
+requirement = "22998.1"
+requirement_note = "The package declares no requirement-specific behavior tests or mandatory documentation list. Only the declared audit command is qualified by this task, with actual revision and private evidence retained by the gate runner; no unrelated inventory target is claimed repaired."
+produces_reviewed = 100
+consumes_reviewed = 109
+
+[file.001]
+path = "consensus/autobahn/types/app_proposal.go"
+lines = 75
+verdict = "issues"
+note = "Reviewed constructor, optional wire fields, arbitrary-length ABCI AppHash and road/global-height relationship. The state-hash storage alias is recorded; carried-state validation is owned by proposal.go."
+produces = ["15.go-consensus-autobahn-types-app-hash-j57", "15.go-consensus-autobahn-types-app-proposal-j57", "15.go-consensus-autobahn-types-new-app-proposal-j57"]
+
+[file.002]
+path = "consensus/autobahn/types/app_qc.go"
+lines = 62
+verdict = "clean"
+note = "Reviewed application vote construction, committee-weighted quorum verification and AppQC protobuf conversion against app data, proposal and WAL consumers. Committee admission and shared AppProposal storage blockers remain in the named owning files."
+produces = ["15.go-consensus-autobahn-types-app-qc-conv-j57", "15.go-consensus-autobahn-types-app-qc-j57", "15.go-consensus-autobahn-types-new-app-qc-j57"]
+
+[file.003]
+path = "consensus/autobahn/types/app_vote.go"
+lines = 37
+verdict = "clean"
+note = "Reviewed AppProposal wrapping, required vote decoding, signable Msg variant and AppQC consumer; fields preserve global number, road index and arbitrary application hash without inventing a fixed hash length."
+produces = ["15.go-consensus-autobahn-types-app-vote-j57", "15.go-consensus-autobahn-types-new-app-vote-j57"]
+
+[file.004]
+path = "consensus/autobahn/types/block.go"
+lines = 304
+verdict = "issues"
+note = "Reviewed block header, payload builder/converters, transaction count/byte limits, fixed commitment sizes and global execution block. Findings cover mutable transaction ownership and an unused alternate identity helper."
+produces = ["15.go-consensus-autobahn-types-block-conv-j57", "15.go-consensus-autobahn-types-block-header-hash-j57", "15.go-consensus-autobahn-types-block-header-j57", "15.go-consensus-autobahn-types-block-j57", "15.go-consensus-autobahn-types-block-number-j57", "15.go-consensus-autobahn-types-global-block-j57", "15.go-consensus-autobahn-types-global-block-number-j57", "15.go-consensus-autobahn-types-lane-id-j57", "15.go-consensus-autobahn-types-max-block-proto-size-j57", "15.go-consensus-autobahn-types-max-txs-bytes-per-block-j57", "15.go-consensus-autobahn-types-max-txs-per-block-j57", "15.go-consensus-autobahn-types-new-block-j57", "15.go-consensus-autobahn-types-payload-builder-j57", "15.go-consensus-autobahn-types-payload-hash-j57", "15.go-consensus-autobahn-types-payload-j57"]
+
+[file.005]
+path = "consensus/autobahn/types/commit_qc.go"
+lines = 161
+verdict = "issues"
+note = "Reviewed commit quorum, signed proposal binding, executable height limit, full certificate header-chain validation and recovery converter. FullCommitQC's unbounded finalized header count conflicts with its wire scanner."
+produces = ["15.go-consensus-autobahn-types-commit-qc-conv-j57", "15.go-consensus-autobahn-types-commit-qc-j57", "15.go-consensus-autobahn-types-full-commit-qc-conv-j57", "15.go-consensus-autobahn-types-full-commit-qc-j57", "15.go-consensus-autobahn-types-new-commit-qc-j57", "15.go-consensus-autobahn-types-new-full-commit-qc-j57"]
+
+[file.006]
+path = "consensus/autobahn/types/commit_vote.go"
+lines = 37
+verdict = "clean"
+note = "Reviewed Proposal wrapping and required protobuf decoding, signable commit-vote discrimination and CommitQC consumer. Vote construction preserves the exact proposal committed by the quorum."
+produces = ["15.go-consensus-autobahn-types-commit-vote-j57", "15.go-consensus-autobahn-types-new-commit-vote-j57"]
+
+[file.007]
+path = "consensus/autobahn/types/committee.go"
+lines = 201
+verdict = "issues"
+note = "Reviewed chain/committee domain, sorted replicas, cloned weights, zero-weight filtering, overflow, thresholds, leader and EVM sharding. Admitted cardinality exceeds the wire protocol's supported committee size."
+produces = ["15.go-consensus-autobahn-types-committee-j57", "15.go-consensus-autobahn-types-new-round-robin-election-j57"]
+
+[file.008]
+path = "consensus/autobahn/types/committee_test.go"
+lines = 223
+verdict = "clean"
+note = "Read every test: zero/overflow weights, chain/epoch binding, unbound-key rejection, domain-specific leader election and weighted Lane/Prepare/Commit/App/Timeout quorum assertions. No local wrong-shape expectation found; these checks do not qualify protocol cardinality limits."
+
+[file.009]
+path = "consensus/autobahn/types/consensus.go"
+lines = 90
+verdict = "clean"
+note = "Reviewed all five request variants through ConsensusReqConv, live giga sender/receiver dispatch and State push methods. Empty/incorrect typed messages return errors; message-budget blockers originate in proposal and committee producers."
+produces = ["15.go-consensus-autobahn-types-consensus-req-commit-vote-j57", "15.go-consensus-autobahn-types-consensus-req-conv-j57", "15.go-consensus-autobahn-types-consensus-req-j57", "15.go-consensus-autobahn-types-consensus-req-prepare-vote-j57"]
+
+[file.010]
+path = "consensus/autobahn/types/lane_proposal.go"
+lines = 42
+verdict = "clean"
+note = "Reviewed Block wrapping, required decoding, payload/header validation and lane-owner signature relationship through availability and peer consumers."
+produces = ["15.go-consensus-autobahn-types-lane-proposal-j57", "15.go-consensus-autobahn-types-new-lane-proposal-j57"]
+
+[file.011]
+path = "consensus/autobahn/types/lane_qc.go"
+lines = 63
+verdict = "clean"
+note = "Reviewed nonempty vote assembly, LaneVote verification and weighted availability quorum against real availability selection. Cross-cutting committee admission and aggregate proposal size defects are recorded at their producers."
+produces = ["15.go-consensus-autobahn-types-lane-qc-j57", "15.go-consensus-autobahn-types-new-lane-qc-j57"]
+
+[file.012]
+path = "consensus/autobahn/types/lane_vote.go"
+lines = 42
+verdict = "clean"
+note = "Reviewed block-header vote, lane membership validation, required converter fields and shared signed-message variant against LaneQC and availability consumers."
+produces = ["15.go-consensus-autobahn-types-lane-vote-j57", "15.go-consensus-autobahn-types-new-lane-vote-j57"]
+
+[file.013]
+path = "consensus/autobahn/types/msg.go"
+lines = 347
+verdict = "clean"
+note = "Reviewed all seven signable variants, cached canonical hashes, chain/committee-bound signing preimages, member and duplicate-signer checks, weighted QC verification and exact Ed25519 key/signature lengths. Mutable byte ownership defects are recorded at AppProposal and Payload."
+produces = ["15.go-consensus-autobahn-types-hash-j57", "15.go-consensus-autobahn-types-public-key-from-bytes-j57", "15.go-consensus-autobahn-types-public-key-j57", "15.go-consensus-autobahn-types-secret-key-from-ed25519-j57", "15.go-consensus-autobahn-types-secret-key-j57", "15.go-consensus-autobahn-types-sign-j57", "15.go-consensus-autobahn-types-signed-j57", "15.go-consensus-autobahn-types-signed-msg-conv-j57"]
+
+[file.014]
+path = "consensus/autobahn/types/opt.go"
+lines = 67
+verdict = "clean"
+note = "Reviewed optional proposal/index/view/lane/global-range extraction and genesis defaults against fresh and recovering consumers. Helpers preserve the caller's explicit committee offset and absent optional values."
+produces = ["15.go-consensus-autobahn-types-global-range-opt-j57", "15.go-consensus-autobahn-types-lane-range-opt-j57", "15.go-consensus-autobahn-types-next-index-opt-j57", "15.go-consensus-autobahn-types-next-opt-j57", "15.go-consensus-autobahn-types-next-view-opt-j57"]
+
+[file.015]
+path = "consensus/autobahn/types/prepare_qc.go"
+lines = 67
+verdict = "clean"
+note = "Reviewed proposal-carrying prepare QC, committee-weighted unique signatures, required vote decoding and timeout/reproposal consumers."
+produces = ["15.go-consensus-autobahn-types-new-prepare-qc-j57", "15.go-consensus-autobahn-types-prepare-qc-conv-j57", "15.go-consensus-autobahn-types-prepare-qc-j57"]
+
+[file.016]
+path = "consensus/autobahn/types/prepare_vote.go"
+lines = 37
+verdict = "clean"
+note = "Reviewed Proposal wrapping, required protobuf decoding, prepare-vote signable discriminator and PrepareQC consumer; no local shape disagreement found."
+produces = ["15.go-consensus-autobahn-types-new-prepare-vote-j57", "15.go-consensus-autobahn-types-prepare-vote-j57"]
+
+[file.017]
+path = "consensus/autobahn/types/proposal.go"
+lines = 632
+verdict = "issues"
+note = "Reviewed every range/view helper, overflow check, timestamp assignment, fresh/reproposal branch and converter against lane/app certificates, State voting, execution and recovery. Findings cover application-state carry, aggregate transport size and timeliness."
+produces = ["15.go-consensus-autobahn-types-full-proposal-j57", "15.go-consensus-autobahn-types-global-range-j57", "15.go-consensus-autobahn-types-lane-range-j57", "15.go-consensus-autobahn-types-new-proposal-j57", "15.go-consensus-autobahn-types-new-reproposal-j57", "15.go-consensus-autobahn-types-proposal-j57", "15.go-consensus-autobahn-types-road-index-j57", "15.go-consensus-autobahn-types-view-j57", "15.go-consensus-autobahn-types-view-spec-j57"]
+
+[file.018]
+path = "consensus/autobahn/types/proposal_test.go"
+lines = 797
+verdict = "issues"
+note = "Read every setup and assertion, including lane validation, range overflow, timestamp offsets, optional AppQC, weighted signatures and reproposals. Two named AppQC tests reach unnecessary-certificate rejection instead of their intended branch."
+
+[file.019]
+path = "consensus/autobahn/types/testonly.go"
+lines = 300
+verdict = "clean"
+note = "Read all generators and signing helpers. Random converter fixtures are intentionally not verified production histories; GenSigned binds a private test domain, whereas GenCommittee returns committee-bound keys. Production-path proof gaps are recorded in types_test.go."
+produces = ["15.go-consensus-autobahn-types-gen-app-hash-j57", "15.go-consensus-autobahn-types-gen-app-qc-j57", "15.go-consensus-autobahn-types-gen-app-vote-j57", "15.go-consensus-autobahn-types-gen-block-header-hash-j57", "15.go-consensus-autobahn-types-gen-block-j57", "15.go-consensus-autobahn-types-gen-block-number-j57", "15.go-consensus-autobahn-types-gen-commit-qc-j57", "15.go-consensus-autobahn-types-gen-commit-vote-j57", "15.go-consensus-autobahn-types-gen-committee-j57", "15.go-consensus-autobahn-types-gen-full-timeout-vote-j57", "15.go-consensus-autobahn-types-gen-global-block-number-j57", "15.go-consensus-autobahn-types-gen-lane-proposal-j57", "15.go-consensus-autobahn-types-gen-lane-vote-j57", "15.go-consensus-autobahn-types-gen-payload-j57", "15.go-consensus-autobahn-types-gen-prepare-qc-j57", "15.go-consensus-autobahn-types-gen-prepare-vote-j57", "15.go-consensus-autobahn-types-gen-proposal-for-at-j57", "15.go-consensus-autobahn-types-gen-secret-key-j57", "15.go-consensus-autobahn-types-gen-signed-j57", "15.go-consensus-autobahn-types-gen-timeout-qc-j57", "15.go-consensus-autobahn-types-test-keys-with-weight-j57"]
+
+[file.020]
+path = "consensus/autobahn/types/time.go"
+lines = 67
+verdict = "issues"
+note = "Reviewed timestamp and duration presence checks, seconds/nanos encoding and duration overflow handling. Timestamp decode normalizes noncanonical values rather than enforcing the schema's published range."
+
+[file.021]
+path = "consensus/autobahn/types/timeout.go"
+lines = 289
+verdict = "clean"
+note = "Reviewed full timeout votes, latest prepare-QC selection, signed view consistency, weighted timeout thresholds, reproposal justification and all converters against the consensus receiver and persisted inner state."
+produces = ["15.go-consensus-autobahn-types-full-timeout-vote-conv-j57", "15.go-consensus-autobahn-types-full-timeout-vote-j57", "15.go-consensus-autobahn-types-new-full-timeout-vote-j57", "15.go-consensus-autobahn-types-new-timeout-qc-j57", "15.go-consensus-autobahn-types-timeout-qc-conv-j57", "15.go-consensus-autobahn-types-timeout-qc-j57"]
+
+[file.022]
+path = "consensus/autobahn/types/types_test.go"
+lines = 248
+verdict = "issues"
+note = "Read converter, malformed-message, payload-limit, identity/signature and request-variant tests. Codec fixtures do not demonstrate valid producer messages at live transport and WAL boundaries."
+
+[file.023]
+path = "consensus/internal/buf.gen.yaml"
+lines = 21
+verdict = "clean"
+note = "Reviewed full Buf v2 configuration: pinned protocolbuffers/go v1.36.10 and local hashable/wireguard plugins emit under the consensus/internal module prefix, matching generated Autobahn imports/scanners. This is source configuration, not generated output."
+
+[file.024]
+path = "consensus/internal/eventbus/event_bus.go"
+lines = 198
+verdict = "issues"
+note = "Reviewed in full; owning-domain repair proposals: event-reserved-keys."
+produces = ["15.go-consensus-internal-eventbus-event-bus-j57", "15.go-consensus-internal-eventbus-new-default-j57", "15.go-consensus-internal-eventbus-subscription-j57"]
+
+[file.025]
+path = "consensus/internal/eventbus/event_bus_test.go"
+lines = 542
+verdict = "issues"
+note = "Reviewed in full; owning-domain repair proposals: event-tests-no-reserved-collision."
+
+[file.026]
+path = "consensus/spec/README.md"
+lines = 81
+verdict = "issues"
+note = "Reviewed in full; owning-domain repair proposals: missing-autobahn-spec-map."
+
+[file.027]
+path = "consensus/spec/abci++/README.md"
+lines = 42
+verdict = "vendored"
+note = "Vendored upstream ABCI++ draft README.md. The fork's in-process Application API and FinalizeBlock lifecycle are authoritative; no current-network conformance is asserted for the archival draft."
+
+[file.028]
+path = "consensus/spec/abci++/abci++_app_requirements_002_draft.md"
+lines = 1003
+verdict = "vendored"
+note = "Vendored upstream ABCI++ draft abci++_app_requirements_002_draft.md. The fork's in-process Application API and FinalizeBlock lifecycle are authoritative; no current-network conformance is asserted for the archival draft."
+
+[file.029]
+path = "consensus/spec/abci++/abci++_basic_concepts_002_draft.md"
+lines = 404
+verdict = "vendored"
+note = "Vendored upstream ABCI++ draft abci++_basic_concepts_002_draft.md. The fork's in-process Application API and FinalizeBlock lifecycle are authoritative; no current-network conformance is asserted for the archival draft."
+
+[file.030]
+path = "consensus/spec/abci++/abci++_client_server_002_draft.md"
+lines = 102
+verdict = "issues"
+note = "Reviewed in full; owning-domain repair proposals: abci-plus-transports-legacy."
+
+[file.031]
+path = "consensus/spec/abci++/abci++_methods_002_draft.md"
+lines = 906
+verdict = "vendored"
+note = "Vendored upstream ABCI++ draft abci++_methods_002_draft.md. The fork's in-process Application API and FinalizeBlock lifecycle are authoritative; no current-network conformance is asserted for the archival draft."
+
+[file.032]
+path = "consensus/spec/abci++/abci++_tmint_expected_behavior_002_draft.md"
+lines = 218
+verdict = "vendored"
+note = "Vendored upstream ABCI++ draft abci++_tmint_expected_behavior_002_draft.md. The fork's in-process Application API and FinalizeBlock lifecycle are authoritative; no current-network conformance is asserted for the archival draft."
+
+[file.033]
+path = "consensus/spec/abci++/v0.md"
+lines = 156
+verdict = "vendored"
+note = "Vendored upstream v0.md ABCI++ evolution pseudocode, retained as a historical design variant. It is not the active in-process Application API or an Autobahn execution/recovery contract."
+
+[file.034]
+path = "consensus/spec/abci++/v1.md"
+lines = 162
+verdict = "vendored"
+note = "Vendored upstream v1.md ABCI++ evolution pseudocode, retained as a historical design variant. It is not the active in-process Application API or an Autobahn execution/recovery contract."
+
+[file.035]
+path = "consensus/spec/abci++/v2.md"
+lines = 180
+verdict = "vendored"
+note = "Vendored upstream v2.md ABCI++ evolution pseudocode, retained as a historical design variant. It is not the active in-process Application API or an Autobahn execution/recovery contract."
+
+[file.036]
+path = "consensus/spec/abci++/v3.md"
+lines = 201
+verdict = "vendored"
+note = "Vendored upstream v3.md ABCI++ evolution pseudocode, retained as a historical design variant. It is not the active in-process Application API or an Autobahn execution/recovery contract."
+
+[file.037]
+path = "consensus/spec/abci++/v4.md"
+lines = 199
+verdict = "vendored"
+note = "Vendored upstream v4.md ABCI++ evolution pseudocode, retained as a historical design variant. It is not the active in-process Application API or an Autobahn execution/recovery contract."
+
+[file.038]
+path = "consensus/spec/abci/README.md"
+lines = 30
+verdict = "vendored"
+note = "Vendored upstream ABCI page README.md. Retained for protocol history; current in-process Application/FinalizeBlock code governs this fork rather than the legacy transport and lifecycle prose."
+
+[file.039]
+path = "consensus/spec/abci/abci.md"
+lines = 756
+verdict = "vendored"
+note = "Vendored upstream ABCI page abci.md. Retained for protocol history; current in-process Application/FinalizeBlock code governs this fork rather than the legacy transport and lifecycle prose."
+
+[file.040]
+path = "consensus/spec/abci/apps.md"
+lines = 670
+verdict = "vendored"
+note = "Vendored upstream ABCI page apps.md. Retained for protocol history; current in-process Application/FinalizeBlock code governs this fork rather than the legacy transport and lifecycle prose."
+
+[file.041]
+path = "consensus/spec/abci/client-server.md"
+lines = 113
+verdict = "issues"
+note = "Reviewed in full; owning-domain repair proposals: abci-transports-legacy, abci-framing-contradiction."
+
+[file.042]
+path = "consensus/spec/consensus/bft-time.md"
+lines = 55
+verdict = "issues"
+note = "Reviewed in full; owning-domain repair proposals: time-units-and-mode."
+
+[file.043]
+path = "consensus/spec/consensus/consensus-paper/README.md"
+lines = 24
+verdict = "vendored"
+note = "Vendored upstream Tendermint consensus-paper build instructions. Research provenance does not qualify this fork's Autobahn transport, execution or crash recovery."
+
+[file.044]
+path = "consensus/spec/consensus/consensus.md"
+lines = 352
+verdict = "vendored"
+note = "Vendored upstream Tendermint protocol page consensus.md, identified as inherited material by consensus/README.md. Retained as classic-protocol reference; not a current-network or Autobahn clean claim."
+
+[file.045]
+path = "consensus/spec/consensus/creating-proposal.md"
+lines = 43
+verdict = "issues"
+note = "Reviewed in full; owning-domain repair proposals: proposal-sizing-legacy."
+
+[file.046]
+path = "consensus/spec/consensus/evidence.md"
+lines = 199
+verdict = "issues"
+note = "Reviewed in full; owning-domain repair proposals: evidence-finalize-lifecycle."
+
+[file.047]
+path = "consensus/spec/consensus/light-client/README.md"
+lines = 9
+verdict = "vendored"
+note = "Vendored upstream light-client research/specification artifact README.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed."
+
+[file.048]
+path = "consensus/spec/consensus/light-client/accountability.md"
+lines = 3
+verdict = "vendored"
+note = "Vendored upstream light-client research/specification artifact accountability.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed."
+
+[file.049]
+path = "consensus/spec/consensus/light-client/detection.md"
+lines = 3
+verdict = "vendored"
+note = "Vendored upstream light-client research/specification artifact detection.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed."
+
+[file.050]
+path = "consensus/spec/consensus/light-client/verification.md"
+lines = 3
+verdict = "vendored"
+note = "Vendored upstream light-client research/specification artifact verification.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed."
+
+[file.051]
+path = "consensus/spec/consensus/proposer-based-timestamp/README.md"
+lines = 157
+verdict = "vendored"
+note = "Vendored upstream PBTS model/design page README.md. Versioned drafts and their clock/synchrony assumptions are retained as research; they do not establish Autobahn timeliness or current runtime qualification."
+
+[file.052]
+path = "consensus/spec/consensus/proposer-based-timestamp/pbts-algorithm_002_draft.md"
+lines = 148
+verdict = "vendored"
+note = "Vendored upstream PBTS model/design page pbts-algorithm_002_draft.md. Versioned drafts and their clock/synchrony assumptions are retained as research; they do not establish Autobahn timeliness or current runtime qualification."
+
+[file.053]
+path = "consensus/spec/consensus/proposer-based-timestamp/pbts-sysmodel_002_draft.md"
+lines = 357
+verdict = "vendored"
+note = "Vendored upstream PBTS model/design page pbts-sysmodel_002_draft.md. Versioned drafts and their clock/synchrony assumptions are retained as research; they do not establish Autobahn timeliness or current runtime qualification."
+
+[file.054]
+path = "consensus/spec/consensus/proposer-based-timestamp/v1/pbts-algorithm_001_draft.md"
+lines = 162
+verdict = "vendored"
+note = "Vendored upstream PBTS model/design page pbts-algorithm_001_draft.md. Versioned drafts and their clock/synchrony assumptions are retained as research; they do not establish Autobahn timeliness or current runtime qualification."
+
+[file.055]
+path = "consensus/spec/consensus/proposer-based-timestamp/v1/pbts-sysmodel_001_draft.md"
+lines = 194
+verdict = "vendored"
+note = "Vendored upstream PBTS model/design page pbts-sysmodel_001_draft.md. Versioned drafts and their clock/synchrony assumptions are retained as research; they do not establish Autobahn timeliness or current runtime qualification."
+
+[file.056]
+path = "consensus/spec/consensus/proposer-based-timestamp/v1/pbts_001_draft.md"
+lines = 267
+verdict = "vendored"
+note = "Vendored upstream PBTS model/design page pbts_001_draft.md. Versioned drafts and their clock/synchrony assumptions are retained as research; they do not establish Autobahn timeliness or current runtime qualification."
+
+[file.057]
+path = "consensus/spec/consensus/proposer-selection.md"
+lines = 323
+verdict = "issues"
+note = "Reviewed in full; owning-domain repair proposals: proposer-selection-mode."
+
+[file.058]
+path = "consensus/spec/consensus/readme.md"
+lines = 32
+verdict = "vendored"
+note = "Vendored upstream Tendermint protocol page readme.md, identified as inherited material by consensus/README.md. Retained as classic-protocol reference; not a current-network or Autobahn clean claim."
+
+[file.059]
+path = "consensus/spec/consensus/signing.md"
+lines = 229
+verdict = "vendored"
+note = "Vendored upstream Tendermint protocol page signing.md, identified as inherited material by consensus/README.md. Retained as classic-protocol reference; not a current-network or Autobahn clean claim."
+
+[file.060]
+path = "consensus/spec/consensus/wal.md"
+lines = 32
+verdict = "issues"
+note = "Reviewed in full; owning-domain repair proposals: wal-mode-recovery-gap."
+
+[file.061]
+path = "consensus/spec/core/data_structures.md"
+lines = 479
+verdict = "issues"
+note = "Reviewed in full; owning-domain repair proposals: part-and-round-shapes."
+
+[file.062]
+path = "consensus/spec/core/encoding.md"
+lines = 300
+verdict = "issues"
+note = "Reviewed in full; owning-domain repair proposals: block-part-encoding-limit."
+
+[file.063]
+path = "consensus/spec/core/genesis.md"
+lines = 35
+verdict = "vendored"
+note = "Vendored upstream Tendermint protocol page genesis.md, identified as inherited material by consensus/README.md. Retained as classic-protocol reference; not a current-network or Autobahn clean claim."
+
+[file.064]
+path = "consensus/spec/core/readme.md"
+lines = 13
+verdict = "vendored"
+note = "Vendored upstream Tendermint protocol page readme.md, identified as inherited material by consensus/README.md. Retained as classic-protocol reference; not a current-network or Autobahn clean claim."
+
+[file.065]
+path = "consensus/spec/core/state.md"
+lines = 121
+verdict = "issues"
+note = "Reviewed in full; owning-domain repair proposals: state-finalize-apphash."
+
+[file.066]
+path = "consensus/spec/ivy-proofs/Dockerfile"
+lines = 37
+verdict = "vendored"
+note = "Vendored upstream Ivy proof tooling Dockerfile, identified as upstream model infrastructure by consensus/README.md. It is not a production node startup dependency or a newly executed proof."
+
+[file.067]
+path = "consensus/spec/ivy-proofs/README.md"
+lines = 33
+verdict = "vendored"
+note = "Vendored upstream Ivy proof tooling README.md, identified as upstream model infrastructure by consensus/README.md. It is not a production node startup dependency or a newly executed proof."
+
+[file.068]
+path = "consensus/spec/ivy-proofs/check_proofs.sh"
+lines = 39
+verdict = "issues"
+note = "Reviewed in full; owning-domain repair proposals: ivy-exit-status-lost."
+
+[file.069]
+path = "consensus/spec/ivy-proofs/count_lines.sh"
+lines = 13
+verdict = "vendored"
+note = "Vendored upstream Ivy proof tooling count_lines.sh, identified as upstream model infrastructure by consensus/README.md. It is not a production node startup dependency or a newly executed proof."
+
+[file.070]
+path = "consensus/spec/ivy-proofs/docker-compose.yml"
+lines = 7
+verdict = "vendored"
+note = "Vendored upstream Ivy proof tooling docker-compose.yml, identified as upstream model infrastructure by consensus/README.md. It is not a production node startup dependency or a newly executed proof."
+
+[file.071]
+path = "consensus/spec/light-client/README.md"
+lines = 206
+verdict = "vendored"
+note = "Vendored upstream light-client research/specification artifact README.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed."
+
+[file.072]
+path = "consensus/spec/light-client/accountability/README.md"
+lines = 308
+verdict = "vendored"
+note = "Vendored upstream light-client research/specification artifact README.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed."
+
+[file.073]
+path = "consensus/spec/light-client/accountability/Synopsis.md"
+lines = 105
+verdict = "vendored"
+note = "Vendored upstream light-client research/specification artifact Synopsis.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed."
+
+[file.074]
+path = "consensus/spec/light-client/accountability/results/001indinv-apalache-report.md"
+lines = 61
+verdict = "vendored"
+note = "Vendored upstream light-client research/specification artifact 001indinv-apalache-report.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed."
+
+[file.075]
+path = "consensus/spec/light-client/accountability/run.sh"
+lines = 9
+verdict = "issues"
+note = "Reviewed in full; owning-domain repair proposals: accountability-local-harness."
+
+[file.076]
+path = "consensus/spec/light-client/attacks/isolate-attackers_001_draft.md"
+lines = 222
+verdict = "vendored"
+note = "Vendored upstream light-client research/specification artifact isolate-attackers_001_draft.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed."
+
+[file.077]
+path = "consensus/spec/light-client/attacks/isolate-attackers_002_reviewed.md"
+lines = 225
+verdict = "vendored"
+note = "Vendored upstream light-client research/specification artifact isolate-attackers_002_reviewed.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed."
+
+[file.078]
+path = "consensus/spec/light-client/attacks/notes-on-evidence-handling.md"
+lines = 219
+verdict = "vendored"
+note = "Vendored upstream light-client research/specification artifact notes-on-evidence-handling.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed."
+
+[file.079]
+path = "consensus/spec/light-client/detection/README.md"
+lines = 75
+verdict = "vendored"
+note = "Vendored upstream light-client research/specification artifact README.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed."
+
+[file.080]
+path = "consensus/spec/light-client/detection/detection_001_reviewed.md"
+lines = 790
+verdict = "vendored"
+note = "Vendored upstream light-client research/specification artifact detection_001_reviewed.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed."
+
+[file.081]
+path = "consensus/spec/light-client/detection/detection_003_reviewed.md"
+lines = 841
+verdict = "vendored"
+note = "Vendored upstream light-client research/specification artifact detection_003_reviewed.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed."
+
+[file.082]
+path = "consensus/spec/light-client/detection/discussions.md"
+lines = 178
+verdict = "vendored"
+note = "Vendored upstream light-client research/specification artifact discussions.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed."
+
+[file.083]
+path = "consensus/spec/light-client/detection/draft-functions.md"
+lines = 289
+verdict = "vendored"
+note = "Vendored upstream light-client research/specification artifact draft-functions.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed."
+
+[file.084]
+path = "consensus/spec/light-client/detection/req-ibc-detection.md"
+lines = 347
+verdict = "vendored"
+note = "Vendored upstream light-client research/specification artifact req-ibc-detection.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed."
+
+[file.085]
+path = "consensus/spec/light-client/supervisor/supervisor_001_draft.md"
+lines = 639
+verdict = "vendored"
+note = "Vendored upstream light-client research/specification artifact supervisor_001_draft.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed."
+
+[file.086]
+path = "consensus/spec/light-client/supervisor/supervisor_002_draft.md"
+lines = 131
+verdict = "vendored"
+note = "Vendored upstream light-client research/specification artifact supervisor_002_draft.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed."
+
+[file.087]
+path = "consensus/spec/light-client/verification/README.md"
+lines = 577
+verdict = "vendored"
+note = "Vendored upstream light-client research/specification artifact README.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed."
+
+[file.088]
+path = "consensus/spec/light-client/verification/verification_001_published.md"
+lines = 1180
+verdict = "vendored"
+note = "Vendored upstream light-client research/specification artifact verification_001_published.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed."
+
+[file.089]
+path = "consensus/spec/light-client/verification/verification_002_draft.md"
+lines = 1063
+verdict = "vendored"
+note = "Vendored upstream light-client research/specification artifact verification_002_draft.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed."
+
+[file.090]
+path = "consensus/spec/light-client/verification/verification_003_draft.md"
+lines = 76
+verdict = "vendored"
+note = "Vendored upstream light-client research/specification artifact verification_003_draft.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed."
+
+[file.091]
+path = "consensus/spec/p2p/config.md"
+lines = 49
+verdict = "issues"
+note = "Reviewed in full; owning-domain repair proposals: p2p-cli-spelling."
+
+[file.092]
+path = "consensus/spec/p2p/connection.md"
+lines = 111
+verdict = "issues"
+note = "Reviewed in full; owning-domain repair proposals: p2p-amino-packets."
+
+[file.093]
+path = "consensus/spec/p2p/messages/README.md"
+lines = 19
+verdict = "vendored"
+note = "Vendored upstream Tendermint protocol page README.md, identified as inherited material by consensus/README.md. Retained as classic-protocol reference; not a current-network or Autobahn clean claim."
+
+[file.094]
+path = "consensus/spec/p2p/messages/block-sync.md"
+lines = 68
+verdict = "issues"
+note = "Reviewed in full; owning-domain repair proposals: blocksync-base-field."
+
+[file.095]
+path = "consensus/spec/p2p/messages/consensus.md"
+lines = 149
+verdict = "issues"
+note = "Reviewed in full; owning-domain repair proposals: consensus-wire-tables."
+
+[file.096]
+path = "consensus/spec/p2p/messages/evidence.md"
+lines = 23
+verdict = "vendored"
+note = "Vendored upstream Tendermint protocol page evidence.md, identified as inherited material by consensus/README.md. Retained as classic-protocol reference; not a current-network or Autobahn clean claim."
+
+[file.097]
+path = "consensus/spec/p2p/messages/mempool.md"
+lines = 33
+verdict = "vendored"
+note = "Vendored upstream Tendermint protocol page mempool.md, identified as inherited material by consensus/README.md. Retained as classic-protocol reference; not a current-network or Autobahn clean claim."
+
+[file.098]
+path = "consensus/spec/p2p/messages/pex.md"
+lines = 47
+verdict = "vendored"
+note = "Vendored upstream Tendermint protocol page pex.md, identified as inherited material by consensus/README.md. Retained as classic-protocol reference; not a current-network or Autobahn clean claim."
+
+[file.099]
+path = "consensus/spec/p2p/messages/state-sync.md"
+lines = 134
+verdict = "issues"
+note = "Reviewed in full; owning-domain repair proposals: snapshot-chunk-field."
+
+[file.100]
+path = "consensus/spec/p2p/node.md"
+lines = 65
+verdict = "vendored"
+note = "Vendored upstream Tendermint protocol page node.md, identified as inherited material by consensus/README.md. Retained as classic-protocol reference; not a current-network or Autobahn clean claim."
+
+[file.101]
+path = "consensus/spec/p2p/peer.md"
+lines = 130
+verdict = "issues"
+note = "Reviewed in full; owning-domain repair proposals: p2p-handshake-amino."
+
+[file.102]
+path = "consensus/spec/p2p/readme.md"
+lines = 16
+verdict = "vendored"
+note = "Vendored upstream Tendermint protocol page readme.md, identified as inherited material by consensus/README.md. Retained as classic-protocol reference; not a current-network or Autobahn clean claim."
+
+[file.103]
+path = "consensus/spec/rpc/README.md"
+lines = 1384
+verdict = "issues"
+note = "Reviewed in full; owning-domain repair proposals: rpc-invalid-examples."
+
+[finding.carried-app-state]
+file = "consensus/autobahn/types/proposal.go"
+line = 467
+class = "security"
+severity = "high"
+interface = "15.go-consensus-autobahn-types-full-proposal-j57"
+observed = "FullProposal.Verify compares carried AppProposal values only through NextOpt (RoadIndex+1). When the road index equals the previous CommitQC's, it rejects an extra appQC but never compares GlobalNumber or AppHash. An elected faulty leader can sign a different carried application hash without an AppQC; consensus/inner.go:192 accepts it for prepare voting and data/state.go:550 exposes it as GlobalBlock.FinalAppState. That certified metadata is no longer backed by the earlier application quorum."
+expected = "Carrying a previously certified application state forward must preserve the exact certified height, road index and state hash; a leader signature alone cannot replace application-quorum evidence."
+proposal = "In consensus/autobahn/types/proposal.go require complete equality with the previous certified AppProposal in the equal-index branch. Add a real signed proposal through ConsensusReqConv and State.Push demonstrating rejection of same-index changes to AppHash and GlobalNumber and preservation after WAL recovery."
+owner_domain = 5
+
+[finding.full-commit-header-limit]
+file = "consensus/autobahn/types/commit_qc.go"
+line = 70
+class = "interface-mismatch"
+severity = "high"
+interface = "15.go-consensus-autobahn-types-full-commit-qc-conv-j57"
+observed = "NewFullCommitQC and FullCommitQC.Verify accept one header for every finalized block without a 100-header cap. WaitForLaneQCs in consensus/internal/autobahn/avail/state.go:550 may select ten blocks per lane; eleven lanes can yield 110 headers. FullCommitQCConv.Marshal emits them, but autobahn.proto:152 and pb/autobahn.wireguard.go:68 cap headers at 100. protoutils.Unmarshal applies that scanner both on peer sync and when FullCommitQCPersister reopens its WAL."
+expected = "Every locally finalized FullCommitQC must be readable by peer synchronization and by the node's own WAL decoder after restart under the same protocol limits."
+proposal = "Make proposal admission and lane selection in consensus/autobahn/types/proposal.go and internal/autobahn/avail/state.go enforce the existing total certificate header limit before signing, with fair progress across lanes. Prove a busy eleven-lane producer through FullCommitQCConv, the real sync stream and persisted WAL reopening; retain rejection of oversized certificates."
+owner_domain = 5
+
+[finding.committee-wire-limit]
+file = "consensus/autobahn/types/committee.go"
+line = 154
+class = "interface-mismatch"
+severity = "high"
+interface = "15.go-consensus-autobahn-types-committee-j57"
+observed = "NewCommittee validates nonempty chain ID, positive total weight and overflow but accepts more than 100 positive-weight replicas. NewProposal emits a lane range for every replica and QC constructors can collect more than 100 signatures, while autobahn.proto caps lane_ranges, lane_qcs, sigs and timeout votes at 100. A committee accepted in memory can therefore produce messages its peer and recovery decoders reject."
+expected = "An admitted validator committee must be able to encode, transmit and recover its ordinary consensus artifacts within the declared wire limits."
+proposal = "Validate the supported committee size against the existing protocol bounds in consensus/autobahn/types/committee.go and consensus/config/autobahn.go before startup. Add boundary coverage using a real committee producer, serialized proposal and QC transports and persisted replay; do not bypass the wire scanner."
+owner_domain = 5
+
+[finding.consensus-message-size]
+file = "consensus/autobahn/types/proposal.go"
+line = 303
+class = "interface-mismatch"
+severity = "high"
+interface = "15.go-consensus-autobahn-types-new-proposal-j57"
+observed = "NewProposal includes every supplied laneQC without budgeting the serialized ConsensusReq. With thirty-two equal-weight replicas, thirty-two nonempty lanes and the minimum eleven signatures per LaneQC, signature bytes alone occupy 22 KiB, before signer keys, proposal and timeout evidence. The producer accepts this structure, while the Consensus RPC in consensus/internal/p2p/giga/api.go:63 admits only 10 KiB messages."
+expected = "A valid proposal produced for an admitted committee must traverse the registered Consensus RPC without exceeding its message budget, including all required justification."
+proposal = "In consensus/autobahn/types/proposal.go and the consensus configuration, establish a supported committee and justification budget that fits the existing transport bound before signing. Select a bounded fair subset of lanes where sufficient, and explicitly reject unsupported configurations. Prove the largest admitted fresh and timeout proposals over the real Consensus stream."
+owner_domain = 5
+
+[finding.future-consensus-time]
+file = "consensus/autobahn/types/proposal.go"
+line = 402
+class = "runtime-risk"
+severity = "high"
+interface = "15.go-consensus-autobahn-types-proposal-j57"
+observed = "FullProposal.Verify checks that proposal.Timestamp is no earlier than the previous proposal or genesis, but imposes no timeliness upper bound. An elected Byzantine leader can choose a far-future timestamp, obtain honest prepare votes through consensus/inner.go:192 and force following proposals to remain beyond it. data/state.go:547 assigns that timestamp to blocks and giga_router.go passes it to application execution."
+expected = "The BFT time-validity property described in consensus/spec/consensus/bft-time.md must prevent one faulty proposer from arbitrarily advancing application time and affecting expiry, unlocking or evidence age; proposer-based timestamp documentation likewise requires a timeliness check."
+proposal = "Specify and implement an Autobahn timeliness rule using the consensus clock and synchrony assumptions in consensus/autobahn/types/proposal.go and consensus/internal/autobahn/consensus. Have validators decline far-future proposals before voting, while retaining justified reproposal safety. Prove a faulty-leader transition and recovery without allowing application time to jump."
+owner_domain = 5
+
+[finding.timestamp-canonical-range]
+file = "consensus/autobahn/types/time.go"
+line = 31
+class = "runtime-risk"
+severity = "medium"
+observed = "TimeConv.Decode checks presence of Seconds and Nanos and then calls time.Unix, which normalizes negative or billion-plus nanos and accepts seconds outside years 0001..9999. consensus/internal/autobahn/autobahn.proto:18-25 explicitly specifies those bounds. Malformed wire timestamps are silently changed during decoding and can later fail JSON timestamp serialization or change on re-encoding."
+expected = "Consensus timestamp decoders must reject values outside their declared canonical range instead of silently normalizing signed message fields."
+proposal = "Validate seconds and nanos against the declared Timestamp bounds in consensus/autobahn/types/time.go before constructing time.Time, and apply the same supported range when encoding locally produced values. Cover malformed proposal and payload bytes through the real decoder and RPC serialization."
+owner_domain = 5
+
+[finding.mutable-hashed-payload]
+file = "consensus/autobahn/types/block.go"
+line = 188
+class = "runtime-risk"
+severity = "medium"
+interface = "15.go-consensus-autobahn-types-payload-builder-j57"
+observed = "PayloadBuilder.Build stores the caller's [][]byte directly; Payload.Txs and ToBuilder expose the same backing storage. NewBlock caches PayloadHash and NewHashed in msg.go:66 caches a signature hash. Mutating the builder or an accessor after hashing changes the serialized transactions without updating these cached commitments, despite the ReadOnly marker."
+expected = "Published and signed consensus payloads must retain their transaction bytes and commitments for their entire transport and persistence lifetime."
+proposal = "Make transaction ownership explicit in consensus/autobahn/types/block.go: copy transaction slices and bytes at the immutable boundary and avoid returning mutable backing storage. Prove that changes to the original builder and returned values cannot change a signed block's wire bytes or persisted replay."
+owner_domain = 5
+
+[finding.unused-alternate-block-hash]
+file = "consensus/autobahn/types/block.go"
+line = 295
+class = "dead-code"
+severity = "low"
+interface = "15.go-consensus-autobahn-types-global-block-j57"
+observed = "GlobalBlock.CalculateBlockHash has no Go caller in the repository. It hashes a synthetic Ethereum header containing only payload creation time, global number and gas, whereas the live GigaRouter uses b.Header.Hash for application execution and block identity. The unused helper also omits transactions and parent commitment from that synthetic identity."
+expected = "The consensus types API should expose an unambiguous block identity matching the value consumed by execution and RPC."
+proposal = "Remove the unused CalculateBlockHash helper from consensus/autobahn/types/block.go in an owning-domain repair, or give any required Ethereum-header projection an explicit distinct contract and real consumer. Keep Header.Hash as the documented live identity."
+owner_domain = 5
+
+[finding.app-qc-tests-wrong-branch]
+file = "consensus/autobahn/types/proposal_test.go"
+line = 594
+class = "test-gap"
+severity = "medium"
+interface = "15.go-consensus-autobahn-types-new-proposal-j57"
+observed = "TestProposalVerifyRejectsAppQCMismatch and TestProposalVerifyRejectsInvalidAppQCSignature construct an AppQC at committee.FirstBlock with an empty ViewSpec. NewProposal clears it as future at proposal.go:341. Attaching the replacement AppQC then produces 'unnecessary appQC', so require.Error succeeds without reaching the hash-mismatch or signature-validation branch named by either test."
+expected = "Application-certificate negative tests must start from a valid producer-emitted committed history and demonstrate rejection for the intended mismatch or invalid signature."
+proposal = "In consensus/autobahn/types/proposal_test.go first produce and commit a real block, certify that finalized application state, and assert the untampered proposal verifies. Then change only the certificate content or signer and assert the precise failure, driving its serialized transport into the verifier."
+owner_domain = 5
+
+[finding.codec-tests-miss-production-bounds]
+file = "consensus/autobahn/types/types_test.go"
+line = 32
+class = "test-gap"
+severity = "medium"
+interface = "15.go-consensus-autobahn-types-full-commit-qc-conv-j57"
+observed = "TestConv exercises converters with GenFullCommitQC and GenFullProposal assembled from independent random parts in testonly.go, with signatures bound to a private test domain. These fixtures do not exercise a verified committee-produced certificate at the real 100-header or 10-KiB transport boundaries, nor reopen that certificate from its production WAL."
+expected = "The interface proof must use the actual committee, producer, bounded transport and persisted consumer rather than converter-only fixtures that cannot represent a valid finalized history."
+proposal = "Keep the existing codec checks and add producer-to-sync and producer-to-WAL-recovery cases in consensus/autobahn/types/types_test.go and the owning internal/autobahn tests, using a real busy committee at each supported limit and asserting every finalized block remains readable."
+owner_domain = 5
+
+[finding.event-reserved-keys]
+file = "consensus/internal/eventbus/event_bus.go"
+line = 129
+class = "interface-mismatch"
+severity = "medium"
+interface = "15.go-consensus-internal-eventbus-event-bus-j57"
+observed = "PublishEventTx promises to overwrite reserved tm.event, tx.hash and tx.height keys, but appends reserved events to data.Result.Events without removing conflicting application attributes. pubsub.Server.send passes all values to query.Matches. A Tx can therefore match a supplied false tx.height or a different tm.event in addition to the actual reserved values."
+expected = "Reserved event metadata delivered by EventBus must identify the actual event type, transaction hash and height unambiguously, as required by consumers of the registered event queries."
+proposal = "Strip or reject reserved application attributes in consensus/internal/eventbus/event_bus.go before appending authoritative metadata, preserving unrelated duplicate application keys. Prove conflicting tm.event, tx.hash and tx.height values cannot route a real execution event to an incorrect subscriber."
+owner_domain = 5
+
+[finding.event-tests-no-reserved-collision]
+file = "consensus/internal/eventbus/event_bus_test.go"
+line = 126
+class = "test-gap"
+severity = "medium"
+interface = "15.go-consensus-internal-eventbus-event-bus-j57"
+observed = "TestEventBusPublishEventTxDuplicateKeys covers repeated transfer.sender values but never collisions with tm.event, tx.hash or tx.height, although PublishEventTx documents overwrite semantics. All payloads are constructed directly, so this suite also cannot establish that application-produced metadata is sanitized on its live path."
+expected = "Event bus tests should prove the documented reserved-key behavior with actual producer output and subscriber matching, including application attributes that collide with reserved keys."
+proposal = "Extend consensus/internal/eventbus/event_bus_test.go with a real application execution producer and event bus subscription asserting authoritative reserved values, no false-height matches and unchanged legitimate duplicate transfer attributes; retain the existing duplicate-application-key cases."
+owner_domain = 5
+
+[finding.mutable-app-hash]
+file = "consensus/autobahn/types/app_proposal.go"
+line = 24
+class = "runtime-risk"
+severity = "medium"
+interface = "15.go-consensus-autobahn-types-app-proposal-j57"
+observed = "NewAppProposal retains the caller's AppHash byte slice, AppHash returns it directly, and AppProposalConv also shares it. AppVote and its QC retain this proposal while NewHashed caches the signed commitment. A caller can therefore alter an application-state hash after certification and change subsequent encoded content without changing the cached signature preimage."
+expected = "An application-state certificate must retain exactly the state hash that validators signed throughout transport, retention and recovery."
+proposal = "Establish byte ownership in consensus/autobahn/types/app_proposal.go by copying AppHash at immutable construction and decode boundaries and returning independent bytes from accessors and encoders. Prove that mutation of input and returned buffers cannot change a signed application's serialized certificate or its persisted replay."
+owner_domain = 5
+
+[finding.retired-daemon-in-overview]
+file = "consensus/README.md"
+line = 16
+class = "doc-drift"
+severity = "medium"
+observed = "The engine overview describes the LayerX kernel as a separate C17 layerxd execution domain. BRIEF.network.fact_2 retires that daemon and specifies the kernel as part of the single paxd network."
+expected = "Operators must understand that the merged kernel runs within the network and that there is no separately running layerxd service."
+proposal = "Rewrite consensus/README.md:16 to describe the kernel's integration into paxd and link to the merged-network architecture without a separate daemon or interface."
+owner_domain = 5
+
+[finding.missing-autobahn-spec-map]
+file = "consensus/spec/README.md"
+line = 17
+class = "doc-drift"
+severity = "medium"
+observed = "The canonical specification table links classic Tendermint block, proposer, time and WAL descriptions but has no Autobahn mode applicability or protocol entry. consensus/README.md documents autobahn-config-file, and the audited types use lane certificates, committee-bound signatures and indexed persistence unlike these pages."
+expected = "A reader enabling Autobahn must be able to identify its actual block identity, quorum, time, application-state and recovery contracts rather than infer classic Tendermint semantics."
+proposal = "Add an Autobahn applicability map under consensus/spec/README.md and an owning protocol page covering the actual types, giga transport limits and durable restart path; label inherited classic and research material by mode."
+owner_domain = 5
+
+[finding.abci-transports-legacy]
+file = "consensus/spec/abci/client-server.md"
+line = 30
+class = "doc-drift"
+severity = "medium"
+observed = "The integration guide offers ABCI-socket and GRPC servers and abci-cli --abci socket/grpc, although consensus/abci/types/application.go and internal/proxy call the Go application in process and consensus/README.md explicitly says those transports are absent."
+expected = "Application integration instructions for this fork must describe the available in-process interface and distinguish unavailable upstream transports."
+proposal = "Rewrite consensus/spec/abci/client-server.md around the in-process Application API, or clearly archive the socket/gRPC material and point integrators to the supported paxd embedding and current request lifecycle."
+owner_domain = 5
+
+[finding.abci-plus-transports-legacy]
+file = "consensus/spec/abci++/abci++_client_server_002_draft.md"
+line = 35
+class = "doc-drift"
+severity = "medium"
+observed = "The ABCI++ client/server draft says the repository supports socket and GRPC servers and abci-cli transport selection. The ABCI++ index already warns those transports are not implemented in this fork, leaving a contradictory linked integration recipe."
+expected = "A linked client/server guide must carry the same supported-transport boundary as consensus/spec/abci++/README.md and the in-process Application implementation."
+proposal = "Mark consensus/spec/abci++/abci++_client_server_002_draft.md as an upstream transport draft and provide a current in-process integration guide that names actual Application methods and their execution order."
+owner_domain = 5
+
+[finding.abci-framing-contradiction]
+file = "consensus/spec/abci/client-server.md"
+line = 70
+class = "doc-drift"
+severity = "medium"
+observed = "The historical socket section calls its length prefix a signed protobuf Varint, then defines a length-of-length big-endian prefix and gives 0x0104DEADBEEF for four bytes. Line 91 explicitly says the latter framing was replaced by varint. The linked ABCI++ client/server draft repeats both incompatible descriptions at lines 71 and 79-87."
+expected = "Even archived protocol material must distinguish incompatible framing versions so an implementer does not construct a third wire shape."
+proposal = "Correct the framing example in consensus/spec/abci/client-server.md and the paired ABCI++ draft to the cited upstream version, explicitly naming signed or unsigned varint behavior and keeping the fork's in-process-only warning."
+owner_domain = 5
+
+[finding.proposal-sizing-legacy]
+file = "consensus/spec/consensus/creating-proposal.md"
+line = 16
+class = "doc-drift"
+severity = "medium"
+observed = "The proposal guide budgets Amino overhead using MaxAminoOverheadForBlock and an evidence-count formula. consensus/types/block.go:332 instead implements MaxDataBytes(maxBytes, evidenceBytes, valsCount), using protobuf overhead and actual evidence byte size; Autobahn has its separate payload limits."
+expected = "Proposal sizing guidance must use the actual encoding and byte limits enforced by the selected consensus mode."
+proposal = "Update consensus/spec/consensus/creating-proposal.md to describe current protobuf and evidence-byte accounting and separately state Autobahn's transaction-count, payload-byte and certificate transport budgets."
+owner_domain = 5
+
+[finding.time-units-and-mode]
+file = "consensus/spec/consensus/bft-time.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "BFT Time describes int64 Unix milliseconds and a classic weighted-median voting algorithm. core/data_structures.md and internal/autobahn/autobahn.proto encode seconds plus nanos, and Autobahn proposal.go assigns consensus time with one-microsecond offsets and a lower-bound check instead of that median."
+expected = "Time documentation must state the actual wire units, precision and time-validation rule for each enabled consensus mode."
+proposal = "Correct consensus/spec/consensus/bft-time.md's wire representation and mark the weighted-median algorithm's applicability; link the Autobahn timestamp and timeliness contract, including its treatment of certified reproposals."
+owner_domain = 5
+
+[finding.evidence-finalize-lifecycle]
+file = "consensus/spec/consensus/evidence.md"
+line = 143
+class = "doc-drift"
+severity = "medium"
+observed = "The evidence guide says committed evidence is delivered to the application via EndBlock. consensus/internal/state/execution.go:390 sends Misbehavior in RequestFinalizeBlock, and the current Application interface has FinalizeBlock rather than an EndBlock method."
+expected = "Application developers must receive the correct evidence-bearing request and understand when evidence becomes committed and actionable."
+proposal = "Rewrite consensus/spec/consensus/evidence.md's commit lifecycle around RequestFinalizeBlock.Misbehavior and the current execution order, clearly distinguishing classic evidence handling from Autobahn's supported behavior."
+owner_domain = 5
+
+[finding.wal-mode-recovery-gap]
+file = "consensus/spec/consensus/wal.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The sole WAL guide describes autofile.Group, last-height message replay and private-validator LastSignBytes. It does not identify that Autobahn uses PersistedInner, indexed FullCommitQC/block WALs and an A/B availability prune anchor under persistent_state_dir."
+expected = "Operators enabling Autobahn must have mode-specific recovery instructions that preserve vote safety, certified data and pruning boundaries after a crash."
+proposal = "Extend consensus/spec/consensus/wal.md with Autobahn's persistence directory, startup invariants and supported recovery procedure; link the consensus/persist and data recovery paths and explicitly scope classic WAL replay guidance."
+owner_domain = 5
+
+[finding.state-finalize-apphash]
+file = "consensus/spec/core/state.md"
+line = 50
+class = "doc-drift"
+severity = "medium"
+observed = "The state guide derives AppHash from ResponseCommit.Data and validators/parameters from ResponseEndBlock. consensus/internal/state/execution.go:571 uses ResponseFinalizeBlock.AppHash and lines 730-745 apply FinalizeBlock updates; Commit makes state durable and returns retention information."
+expected = "The documented application-state transition must match the actual producer of AppHash and validator/consensus parameter updates and its durable commit ordering."
+proposal = "Rewrite consensus/spec/core/state.md using ResponseFinalizeBlock and the in-process Commit lifecycle, showing which fields feed next-state and how saved responses and application state recover after restart."
+owner_domain = 5
+
+[finding.block-part-encoding-limit]
+file = "consensus/spec/core/encoding.md"
+line = 102
+class = "doc-drift"
+severity = "medium"
+observed = "The encoding specification states a 65,536-byte part size and maximum 1,601 parts. consensus/types/params.go:20 sets BlockPartSizeBytes to 1,048,576 and derives MaxBlockPartsCount from MaxBlockSizeBytes; Part.ValidateBasic and the event-bus tests consume that current limit."
+expected = "A peer implementation must use the block part sizes and derived count limit accepted by the running classic protocol, separately from Autobahn payload transport."
+proposal = "Correct consensus/spec/core/encoding.md's part sizing from consensus/types/params.go and document the derived maximum count and current protobuf messages; identify which rules apply only to classic block gossip."
+owner_domain = 5
+
+[finding.part-and-round-shapes]
+file = "consensus/spec/core/data_structures.md"
+line = 172
+class = "doc-drift"
+severity = "medium"
+observed = "The Part table describes index as a positive int32 and payload/proof as 32-byte Merkle roots. The producer uses a zero-based uint32 index, variable block bytes and a structured Merkle proof. The Proposal table at lines 295-297 also requires positive Round/POLRound, whereas types/proposal.go accepts round zero and POLRound -1 or an earlier round."
+expected = "Core data-structure tables must accept the fields emitted by real part and proposal producers, including first-part index zero and an initial proposal with no proof-of-lock round."
+proposal = "Rewrite consensus/spec/core/data_structures.md's Part and Proposal tables from the protobuf and ValidateBasic implementations, naming variable bytes, structured proof and the exact round/POLRound ranges."
+owner_domain = 5
+
+[finding.p2p-cli-spelling]
+file = "consensus/spec/p2p/config.md"
+line = 22
+class = "doc-drift"
+severity = "medium"
+observed = "The peer configuration recipes use --p2p.persistent_peers and --p2p.private_peer_ids. consensus/cmd/tendermint/commands/run_node.go registers p2p.persistent-peers and p2p.private-peer-ids, so those documented flag names are not accepted by the command."
+expected = "Operator recipes must use the registered CLI spelling and distinguish it from configuration-file key names."
+proposal = "Correct consensus/spec/p2p/config.md to use the hyphenated registered flags through paxd's supported command and keep TOML key spelling in a separately identified configuration example."
+owner_domain = 5
+
+[finding.p2p-amino-packets]
+file = "consensus/spec/p2p/connection.md"
+line = 21
+class = "doc-drift"
+severity = "medium"
+observed = "The connection guide defines raw 0x01/0x02 ping/pong packets and at line 64 says messages use go-amino WriteBinary. consensus/internal/p2p/conn/oldmux.go emits protobuf PacketPing/PacketPong inside pb.Packet and marshals the packet, while the current connection API is context-aware."
+expected = "Peer wire guidance must match the current packet envelopes and serialization and distinguish the compatibility multiplexer from other supported transports."
+proposal = "Rewrite consensus/spec/p2p/connection.md against conn/oldmux.go and the packet protobuf, identifying actual framing, packet variants, channel limits and context/error lifecycle for the fork."
+owner_domain = 5
+
+[finding.p2p-handshake-amino]
+file = "consensus/spec/p2p/peer.md"
+line = 59
+class = "doc-drift"
+severity = "medium"
+observed = "The peer guide says persistent keys and challenge signatures are sent in an Amino message. The running fork negotiates an ephemeral protobuf Preface in conn/secret_connection.go and uses the node handshake messages in internal/p2p for authentication; the guide gives no mapping to that current wire path."
+expected = "A third-party peer must know the actual ephemeral and authenticated handshake stages, encodings and key checks used by paxd."
+proposal = "Update consensus/spec/p2p/peer.md from conn/secret_connection.go and internal/p2p handshake consumers, replacing the Amino description with current protobuf message shapes and exact authentication ordering."
+owner_domain = 5
+
+[finding.blocksync-base-field]
+file = "consensus/spec/p2p/messages/block-sync.md"
+line = 56
+class = "doc-drift"
+severity = "medium"
+observed = "The StatusResponse table assigns both height and base protobuf field number 1. consensus/proto/tendermint/blocksync/types.proto assigns height=1 and base=2, which lets receivers distinguish the lowest retained block from the tip."
+expected = "The documented block-sync wire shape must give base its actual field number and preserve pruning semantics in peer implementations."
+proposal = "Correct consensus/spec/p2p/messages/block-sync.md to show StatusResponse.base as field 2, and derive the table from the current protobuf alongside its retained-height meaning."
+owner_domain = 5
+
+[finding.consensus-wire-tables]
+file = "consensus/spec/p2p/messages/consensus.md"
+line = 86
+class = "doc-drift"
+severity = "medium"
+observed = "The consensus message table calls NewValidBlock.block_parts an int32, omits VoteSetMaj23.block_id, and calls oneof field 7 ReceivedVote. consensus/proto/tendermint/consensus/types.proto uses BitArray, block_id=4 and HasVote/has_vote respectively."
+expected = "Classic gossip message documentation must preserve the exact field types and variant names accepted by its protobuf transport and consumers."
+proposal = "Correct consensus/spec/p2p/messages/consensus.md from the current consensus protobuf and describe BitArray contents, VoteSetMaj23's certified block ID, and the HasVote variant; label this protocol separately from Autobahn RPC."
+owner_domain = 5
+
+[finding.snapshot-chunk-field]
+file = "consensus/spec/p2p/messages/state-sync.md"
+line = 63
+class = "doc-drift"
+severity = "medium"
+observed = "The ChunkResponse table calls field 4 hash and describes field 5 missing as arbitrary application data. consensus/proto/tendermint/statesync/types.proto defines bytes chunk=4 and bool missing=5, which the consumer uses as snapshot contents and absence indication."
+expected = "Snapshot transport documentation must identify chunk bytes and the absence boolean rather than instruct a peer to send a snapshot digest in place of recoverable data."
+proposal = "Rewrite consensus/spec/p2p/messages/state-sync.md's ChunkResponse table to match the live protobuf and snapshot consumer, including empty-chunk versus missing behavior and application verification of actual bytes."
+owner_domain = 5
+
+[finding.rpc-invalid-examples]
+file = "consensus/spec/rpc/README.md"
+line = 1028
+class = "doc-drift"
+severity = "medium"
+observed = "The unconfirmed_txs JSON-RPC curl example lacks a closing quote on the method. The ABCIQuery examples at lines 1321-1327 contain path=...=IHAVENOIDEA and params.bool as a string instead of prove; several POST examples also select HTTPS despite the ordinary HTTP local listener used elsewhere."
+expected = "Copyable local RPC examples must be syntactically valid, use the registered route's parameter names and types, and match the listener scheme."
+proposal = "Repair consensus/spec/rpc/README.md's local request examples using current routes.go and ABCIQuery signatures: correctly quote URLs and JSON, pass data separately and prove as the accepted boolean, and use the configured local scheme."
+owner_domain = 5
+
+[finding.proposer-selection-mode]
+file = "consensus/spec/consensus/proposer-selection.md"
+line = 10
+class = "doc-drift"
+severity = "medium"
+observed = "The proposer-selection guide describes validator updates through ABCI EndBlock and presents weighted round-robin as the protocol's selection procedure. Current state execution uses FinalizeBlock updates, and Autobahn's Committee.Leader hashes the committee domain with road index and view before weighted selection."
+expected = "Readers must know which proposer-election rule applies to classic versus Autobahn and which application response can update the classic validator set."
+proposal = "Update consensus/spec/consensus/proposer-selection.md's lifecycle names and mode applicability, documenting Autobahn's committee-bound deterministic weighted selection and its supported committee-change lifecycle separately."
+owner_domain = 5
+
+[finding.ivy-exit-status-lost]
+file = "consensus/spec/ivy-proofs/check_proofs.sh"
+line = 11
+class = "test-gap"
+severity = "medium"
+observed = "All three proof invocations pipe ivy_check through tee and tail and accept only a final stdout line equal to OK. Without pipefail or an explicit checker-status capture, a nonzero ivy_check exit accompanied by that line, or a tee output failure, can still lead to exit 0 and an apparent successful proof."
+expected = "A proof helper that promises a nonzero result on failure must retain the checker's exit status and evidence-writing errors as well as its expected success marker."
+proposal = "Repair consensus/spec/ivy-proofs/check_proofs.sh to capture every ivy_check and logging exit reliably and require both successful execution and the expected proof result; preserve all three proof invocations and complete private logs."
+owner_domain = 5
+
+[finding.accountability-local-harness]
+file = "consensus/spec/light-client/accountability/run.sh"
+line = 5
+class = "config-drift"
+severity = "medium"
+observed = "The accountability experiment runner hardcodes both SCRIPTS_DIR and the makefile to ~/devl/apalache-tests and chooses BUILDS=unstable. Those files are not supplied by this repository, so the documented ./run.sh entry point depends on an author's private checkout and an unversioned external toolchain."
+expected = "A published research runner must identify reproducible external prerequisites and allow their actual installed locations without depending on one author's home layout."
+proposal = "Parameterize and document the pinned Apalache experiment harness path in consensus/spec/light-client/accountability/run.sh and Synopsis.md, validate prerequisites explicitly, and retain the full benchmark set with revision-tagged results."
+owner_domain = 5
+
+[doc.001]
+path = "consensus/spec/README.md"
+status = "stale"
+notes = "Read complete page; rewrite targets: missing-autobahn-spec-map at line 17. Concrete owning-domain proposals are recorded above."
+
+[doc.002]
+path = "consensus/spec/abci++/README.md"
+status = "accurate"
+notes = "Correctly identifies the in-process Application boundary and explicitly excludes socket/gRPC transports; contradictory linked integration recipes have separate findings."
+
+[doc.003]
+path = "consensus/spec/abci++/abci++_app_requirements_002_draft.md"
+status = "stale"
+notes = "Vendored upstream ABCI++ draft abci++_app_requirements_002_draft.md. The fork's in-process Application API and FinalizeBlock lifecycle are authoritative; no current-network conformance is asserted for the archival draft. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[doc.004]
+path = "consensus/spec/abci++/abci++_basic_concepts_002_draft.md"
+status = "stale"
+notes = "Vendored upstream ABCI++ draft abci++_basic_concepts_002_draft.md. The fork's in-process Application API and FinalizeBlock lifecycle are authoritative; no current-network conformance is asserted for the archival draft. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[doc.005]
+path = "consensus/spec/abci++/abci++_client_server_002_draft.md"
+status = "stale"
+notes = "Read complete page; rewrite targets: abci-plus-transports-legacy at line 35. Concrete owning-domain proposals are recorded above."
+
+[doc.006]
+path = "consensus/spec/abci++/abci++_methods_002_draft.md"
+status = "stale"
+notes = "Vendored upstream ABCI++ draft abci++_methods_002_draft.md. The fork's in-process Application API and FinalizeBlock lifecycle are authoritative; no current-network conformance is asserted for the archival draft. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[doc.007]
+path = "consensus/spec/abci++/abci++_tmint_expected_behavior_002_draft.md"
+status = "stale"
+notes = "Vendored upstream ABCI++ draft abci++_tmint_expected_behavior_002_draft.md. The fork's in-process Application API and FinalizeBlock lifecycle are authoritative; no current-network conformance is asserted for the archival draft. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[doc.008]
+path = "consensus/spec/abci++/v0.md"
+status = "stale"
+notes = "Vendored upstream v0.md ABCI++ evolution pseudocode, retained as a historical design variant. It is not the active in-process Application API or an Autobahn execution/recovery contract. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[doc.009]
+path = "consensus/spec/abci++/v1.md"
+status = "stale"
+notes = "Vendored upstream v1.md ABCI++ evolution pseudocode, retained as a historical design variant. It is not the active in-process Application API or an Autobahn execution/recovery contract. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[doc.010]
+path = "consensus/spec/abci++/v2.md"
+status = "stale"
+notes = "Vendored upstream v2.md ABCI++ evolution pseudocode, retained as a historical design variant. It is not the active in-process Application API or an Autobahn execution/recovery contract. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[doc.011]
+path = "consensus/spec/abci++/v3.md"
+status = "stale"
+notes = "Vendored upstream v3.md ABCI++ evolution pseudocode, retained as a historical design variant. It is not the active in-process Application API or an Autobahn execution/recovery contract. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[doc.012]
+path = "consensus/spec/abci++/v4.md"
+status = "stale"
+notes = "Vendored upstream v4.md ABCI++ evolution pseudocode, retained as a historical design variant. It is not the active in-process Application API or an Autobahn execution/recovery contract. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[doc.013]
+path = "consensus/spec/abci/README.md"
+status = "accurate"
+notes = "Correctly identifies the in-process Application boundary. Linked historical method and transport descriptions must be interpreted using that explicit fork qualification."
+
+[doc.014]
+path = "consensus/spec/abci/abci.md"
+status = "stale"
+notes = "Vendored upstream ABCI page abci.md. Retained for protocol history; current in-process Application/FinalizeBlock code governs this fork rather than the legacy transport and lifecycle prose. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[doc.015]
+path = "consensus/spec/abci/apps.md"
+status = "stale"
+notes = "Vendored upstream ABCI page apps.md. Retained for protocol history; current in-process Application/FinalizeBlock code governs this fork rather than the legacy transport and lifecycle prose. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[doc.016]
+path = "consensus/spec/abci/client-server.md"
+status = "stale"
+notes = "Read complete page; rewrite targets: abci-transports-legacy at line 30; abci-framing-contradiction at line 70. Concrete owning-domain proposals are recorded above."
+
+[doc.017]
+path = "consensus/spec/consensus/bft-time.md"
+status = "stale"
+notes = "Read complete page; rewrite targets: time-units-and-mode at line 18. Concrete owning-domain proposals are recorded above."
+
+[doc.018]
+path = "consensus/spec/consensus/consensus-paper/README.md"
+status = "accurate"
+notes = "LaTeX build instructions identify an upstream research paper; retained as provenance rather than a proof of this fork's Autobahn implementation."
+
+[doc.019]
+path = "consensus/spec/consensus/consensus.md"
+status = "stale"
+notes = "Vendored upstream Tendermint protocol page consensus.md, identified as inherited material by consensus/README.md. Retained as classic-protocol reference; not a current-network or Autobahn clean claim. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[doc.020]
+path = "consensus/spec/consensus/creating-proposal.md"
+status = "stale"
+notes = "Read complete page; rewrite targets: proposal-sizing-legacy at line 16. Concrete owning-domain proposals are recorded above."
+
+[doc.021]
+path = "consensus/spec/consensus/evidence.md"
+status = "stale"
+notes = "Read complete page; rewrite targets: evidence-finalize-lifecycle at line 143. Concrete owning-domain proposals are recorded above."
+
+[doc.022]
+path = "consensus/spec/consensus/light-client/README.md"
+status = "accurate"
+notes = "Explicitly deprecated redirect resolves to the newer upstream light-client research directory."
+
+[doc.023]
+path = "consensus/spec/consensus/light-client/accountability.md"
+status = "accurate"
+notes = "Deprecated redirect resolves to the fork-accountability research page and introduces no live service dependency."
+
+[doc.024]
+path = "consensus/spec/consensus/light-client/detection.md"
+status = "accurate"
+notes = "Deprecated redirect resolves to the detection research index; it does not specify current Autobahn certificates."
+
+[doc.025]
+path = "consensus/spec/consensus/light-client/verification.md"
+status = "accurate"
+notes = "Deprecated redirect reaches verification/README.md despite an imprecise accountability link label; retained as navigation."
+
+[doc.026]
+path = "consensus/spec/consensus/proposer-based-timestamp/README.md"
+status = "stale"
+notes = "Vendored upstream PBTS model/design page README.md. Versioned drafts and their clock/synchrony assumptions are retained as research; they do not establish Autobahn timeliness or current runtime qualification. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[doc.027]
+path = "consensus/spec/consensus/proposer-based-timestamp/pbts-algorithm_002_draft.md"
+status = "stale"
+notes = "Vendored upstream PBTS model/design page pbts-algorithm_002_draft.md. Versioned drafts and their clock/synchrony assumptions are retained as research; they do not establish Autobahn timeliness or current runtime qualification. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[doc.028]
+path = "consensus/spec/consensus/proposer-based-timestamp/pbts-sysmodel_002_draft.md"
+status = "stale"
+notes = "Vendored upstream PBTS model/design page pbts-sysmodel_002_draft.md. Versioned drafts and their clock/synchrony assumptions are retained as research; they do not establish Autobahn timeliness or current runtime qualification. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[doc.029]
+path = "consensus/spec/consensus/proposer-based-timestamp/v1/pbts-algorithm_001_draft.md"
+status = "stale"
+notes = "Vendored upstream PBTS model/design page pbts-algorithm_001_draft.md. Versioned drafts and their clock/synchrony assumptions are retained as research; they do not establish Autobahn timeliness or current runtime qualification. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[doc.030]
+path = "consensus/spec/consensus/proposer-based-timestamp/v1/pbts-sysmodel_001_draft.md"
+status = "stale"
+notes = "Vendored upstream PBTS model/design page pbts-sysmodel_001_draft.md. Versioned drafts and their clock/synchrony assumptions are retained as research; they do not establish Autobahn timeliness or current runtime qualification. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[doc.031]
+path = "consensus/spec/consensus/proposer-based-timestamp/v1/pbts_001_draft.md"
+status = "stale"
+notes = "Vendored upstream PBTS model/design page pbts_001_draft.md. Versioned drafts and their clock/synchrony assumptions are retained as research; they do not establish Autobahn timeliness or current runtime qualification. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[doc.032]
+path = "consensus/spec/consensus/proposer-selection.md"
+status = "stale"
+notes = "Read complete page; rewrite targets: proposer-selection-mode at line 10. Concrete owning-domain proposals are recorded above."
+
+[doc.033]
+path = "consensus/spec/consensus/readme.md"
+status = "accurate"
+notes = "Explicitly warns consensus.md is stale; this classic Tendermint overview is historical reference, not an Autobahn or merged-network qualification claim."
+
+[doc.034]
+path = "consensus/spec/consensus/signing.md"
+status = "stale"
+notes = "Vendored upstream Tendermint protocol page signing.md, identified as inherited material by consensus/README.md. Retained as classic-protocol reference; not a current-network or Autobahn clean claim. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[doc.035]
+path = "consensus/spec/consensus/wal.md"
+status = "stale"
+notes = "Read complete page; rewrite targets: wal-mode-recovery-gap at line 3. Concrete owning-domain proposals are recorded above."
+
+[doc.036]
+path = "consensus/spec/core/data_structures.md"
+status = "stale"
+notes = "Read complete page; rewrite targets: part-and-round-shapes at line 172. Concrete owning-domain proposals are recorded above."
+
+[doc.037]
+path = "consensus/spec/core/encoding.md"
+status = "stale"
+notes = "Read complete page; rewrite targets: block-part-encoding-limit at line 102. Concrete owning-domain proposals are recorded above."
+
+[doc.038]
+path = "consensus/spec/core/genesis.md"
+status = "stale"
+notes = "Vendored upstream Tendermint protocol page genesis.md, identified as inherited material by consensus/README.md. Retained as classic-protocol reference; not a current-network or Autobahn clean claim. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[doc.039]
+path = "consensus/spec/core/readme.md"
+status = "accurate"
+notes = "Inherited index links encoding and data-structure material; concrete wire and lifecycle drift is recorded on its linked target pages."
+
+[doc.040]
+path = "consensus/spec/core/state.md"
+status = "stale"
+notes = "Read complete page; rewrite targets: state-finalize-apphash at line 50. Concrete owning-domain proposals are recorded above."
+
+[doc.041]
+path = "consensus/spec/ivy-proofs/README.md"
+status = "stale"
+notes = "Inherited Ivy research instructions use a legacy Docker harness; ivy-exit-status-lost records the lost checker status. No model checker was executed by this audit."
+
+[doc.042]
+path = "consensus/spec/light-client/README.md"
+status = "accurate"
+notes = "Explicit work-in-progress upstream research with multiple protocol revisions; not an assertion of current Autobahn light-client compatibility."
+
+[doc.043]
+path = "consensus/spec/light-client/accountability/README.md"
+status = "stale"
+notes = "Vendored upstream light-client research/specification artifact README.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[doc.044]
+path = "consensus/spec/light-client/accountability/Synopsis.md"
+status = "stale"
+notes = "Read the complete one-height, equal-weight TLA+ synopsis. Its ./run.sh entry assumes private ~/devl Apalache checkouts; accountability-local-harness records reproducibility drift."
+
+[doc.045]
+path = "consensus/spec/light-client/accountability/results/001indinv-apalache-report.md"
+status = "accurate"
+notes = "Historical model-checking report concerns fixed small Tendermint model instances; retained upstream evidence, not a current revision's consensus proof or gate."
+
+[doc.046]
+path = "consensus/spec/light-client/attacks/isolate-attackers_001_draft.md"
+status = "stale"
+notes = "Vendored upstream light-client research/specification artifact isolate-attackers_001_draft.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[doc.047]
+path = "consensus/spec/light-client/attacks/isolate-attackers_002_reviewed.md"
+status = "stale"
+notes = "Vendored upstream light-client research/specification artifact isolate-attackers_002_reviewed.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[doc.048]
+path = "consensus/spec/light-client/attacks/notes-on-evidence-handling.md"
+status = "stale"
+notes = "Vendored upstream light-client research/specification artifact notes-on-evidence-handling.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[doc.049]
+path = "consensus/spec/light-client/detection/README.md"
+status = "accurate"
+notes = "Explicitly marks detection work in progress and links research revisions; appropriate as an archival index, not a current-network guarantee."
+
+[doc.050]
+path = "consensus/spec/light-client/detection/detection_001_reviewed.md"
+status = "stale"
+notes = "Vendored upstream light-client research/specification artifact detection_001_reviewed.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[doc.051]
+path = "consensus/spec/light-client/detection/detection_003_reviewed.md"
+status = "stale"
+notes = "Vendored upstream light-client research/specification artifact detection_003_reviewed.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[doc.052]
+path = "consensus/spec/light-client/detection/discussions.md"
+status = "stale"
+notes = "Vendored upstream light-client research/specification artifact discussions.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[doc.053]
+path = "consensus/spec/light-client/detection/draft-functions.md"
+status = "stale"
+notes = "Vendored upstream light-client research/specification artifact draft-functions.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[doc.054]
+path = "consensus/spec/light-client/detection/req-ibc-detection.md"
+status = "stale"
+notes = "Vendored upstream light-client research/specification artifact req-ibc-detection.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[doc.055]
+path = "consensus/spec/light-client/supervisor/supervisor_001_draft.md"
+status = "stale"
+notes = "Vendored upstream light-client research/specification artifact supervisor_001_draft.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[doc.056]
+path = "consensus/spec/light-client/supervisor/supervisor_002_draft.md"
+status = "stale"
+notes = "Inherited trusted-store initialization pseudocode is a research proposal, not the current Go API or Autobahn recovery specification; applicability gap is recorded at the index."
+
+[doc.057]
+path = "consensus/spec/light-client/verification/README.md"
+status = "stale"
+notes = "Vendored upstream light-client research/specification artifact README.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[doc.058]
+path = "consensus/spec/light-client/verification/verification_001_published.md"
+status = "stale"
+notes = "Vendored upstream light-client research/specification artifact verification_001_published.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[doc.059]
+path = "consensus/spec/light-client/verification/verification_002_draft.md"
+status = "stale"
+notes = "Vendored upstream light-client research/specification artifact verification_002_draft.md. Retained with its Tendermint trust, timing and validator assumptions; no equivalence to Autobahn certificates or recovery is claimed. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[doc.060]
+path = "consensus/spec/light-client/verification/verification_003_draft.md"
+status = "stale"
+notes = "Inherited early-signature-verification fragments are design pseudocode, not executable Go tests or the active Autobahn certificate consumer."
+
+[doc.061]
+path = "consensus/spec/p2p/config.md"
+status = "stale"
+notes = "Read complete page; rewrite targets: p2p-cli-spelling at line 22. Concrete owning-domain proposals are recorded above."
+
+[doc.062]
+path = "consensus/spec/p2p/connection.md"
+status = "stale"
+notes = "Read complete page; rewrite targets: p2p-amino-packets at line 21. Concrete owning-domain proposals are recorded above."
+
+[doc.063]
+path = "consensus/spec/p2p/messages/README.md"
+status = "stale"
+notes = "Lists classic gossip channels without Autobahn streaming RPCs or mode applicability; missing-autobahn-spec-map records that documentation gap."
+
+[doc.064]
+path = "consensus/spec/p2p/messages/block-sync.md"
+status = "stale"
+notes = "Read complete page; rewrite targets: blocksync-base-field at line 56. Concrete owning-domain proposals are recorded above."
+
+[doc.065]
+path = "consensus/spec/p2p/messages/consensus.md"
+status = "stale"
+notes = "Read complete page; rewrite targets: consensus-wire-tables at line 86. Concrete owning-domain proposals are recorded above."
+
+[doc.066]
+path = "consensus/spec/p2p/messages/evidence.md"
+status = "accurate"
+notes = "Classic evidence-channel protobuf wrapper is retained as historical reference; this does not assert Autobahn implements classic evidence gossip."
+
+[doc.067]
+path = "consensus/spec/p2p/messages/mempool.md"
+status = "accurate"
+notes = "Inherited classic transaction-list gossip shape is distinguished from Autobahn lane availability; no local field mismatch found."
+
+[doc.068]
+path = "consensus/spec/p2p/messages/pex.md"
+status = "accurate"
+notes = "Classic PEX request/address response tables are retained as reference; current authenticated handshake drift has a separate finding."
+
+[doc.069]
+path = "consensus/spec/p2p/messages/state-sync.md"
+status = "stale"
+notes = "Read complete page; rewrite targets: snapshot-chunk-field at line 63. Concrete owning-domain proposals are recorded above."
+
+[doc.070]
+path = "consensus/spec/p2p/node.md"
+status = "accurate"
+notes = "Read inherited peer identity, seed and sentry topology guidance as architecture reference; no separate merged-network service or public JSON-RPC endpoint is implied."
+
+[doc.071]
+path = "consensus/spec/p2p/peer.md"
+status = "stale"
+notes = "Read complete page; rewrite targets: p2p-handshake-amino at line 59. Concrete owning-domain proposals are recorded above."
+
+[doc.072]
+path = "consensus/spec/p2p/readme.md"
+status = "accurate"
+notes = "Fork-aware index points to internal/p2p and node peer networking; specific flag and encoding drift is recorded on linked pages."
+
+[doc.073]
+path = "consensus/spec/rpc/README.md"
+status = "stale"
+notes = "Read complete page; rewrite targets: rpc-invalid-examples at line 1028. Concrete owning-domain proposals are recorded above."
+
+[doc.074]
+path = "consensus/README.md"
+status = "misleading"
+notes = "Read complete page; rewrite targets: retired-daemon-in-overview at line 16. Concrete owning-domain proposals are recorded above."
+
+[doc.075]
+path = "spec/layerx-merge/contracts/consensus-fork.md"
+status = "accurate"
+notes = "Consulted relevant pinned go-api, Autobahn event and RPC inventory sections. Its older source revision and planned statuses are explicit; these are not current acceptance-gate results."
+
+[interface_review.001]
+declaration_path = "consensus/abci/types/types.pb.go"
+produces = []
+consumes = ["5.go-consensus-abci-types-event", "5.go-consensus-abci-types-event-attribute"]
+assessment = "EventData and ABCI event/attribute arrays agree with classic/Autobahn execution, EventBus, RPC and indexer consumers. The reserved tm.event/tx.hash/tx.height publication behavior disagrees with its overwrite promise; see event-reserved-keys."
+findings = []
+
+[interface_review.002]
+declaration_path = "consensus/autobahn/types/app_proposal.go"
+produces = ["15.go-consensus-autobahn-types-app-hash-j57", "15.go-consensus-autobahn-types-app-proposal-j57", "15.go-consensus-autobahn-types-new-app-proposal-j57"]
+consumes = []
+assessment = "Reviewed constructor, optional wire fields, arbitrary-length ABCI AppHash and road/global-height relationship. The state-hash storage alias is recorded; carried-state validation is owned by proposal.go."
+findings = ["mutable-app-hash"]
+
+[interface_review.003]
+declaration_path = "consensus/autobahn/types/app_qc.go"
+produces = ["15.go-consensus-autobahn-types-app-qc-conv-j57", "15.go-consensus-autobahn-types-app-qc-j57", "15.go-consensus-autobahn-types-new-app-qc-j57"]
+consumes = []
+assessment = "Reviewed application vote construction, committee-weighted quorum verification and AppQC protobuf conversion against app data, proposal and WAL consumers. Committee admission and shared AppProposal storage blockers remain in the named owning files."
+findings = []
+
+[interface_review.004]
+declaration_path = "consensus/autobahn/types/app_vote.go"
+produces = ["15.go-consensus-autobahn-types-app-vote-j57", "15.go-consensus-autobahn-types-new-app-vote-j57"]
+consumes = []
+assessment = "Reviewed AppProposal wrapping, required vote decoding, signable Msg variant and AppQC consumer; fields preserve global number, road index and arbitrary application hash without inventing a fixed hash length."
+findings = []
+
+[interface_review.005]
+declaration_path = "consensus/autobahn/types/block.go"
+produces = ["15.go-consensus-autobahn-types-block-conv-j57", "15.go-consensus-autobahn-types-block-header-hash-j57", "15.go-consensus-autobahn-types-block-header-j57", "15.go-consensus-autobahn-types-block-j57", "15.go-consensus-autobahn-types-block-number-j57", "15.go-consensus-autobahn-types-global-block-j57", "15.go-consensus-autobahn-types-global-block-number-j57", "15.go-consensus-autobahn-types-lane-id-j57", "15.go-consensus-autobahn-types-max-block-proto-size-j57", "15.go-consensus-autobahn-types-max-txs-bytes-per-block-j57", "15.go-consensus-autobahn-types-max-txs-per-block-j57", "15.go-consensus-autobahn-types-new-block-j57", "15.go-consensus-autobahn-types-payload-builder-j57", "15.go-consensus-autobahn-types-payload-hash-j57", "15.go-consensus-autobahn-types-payload-j57"]
+consumes = []
+assessment = "Reviewed block header, payload builder/converters, transaction count/byte limits, fixed commitment sizes and global execution block. Findings cover mutable transaction ownership and an unused alternate identity helper."
+findings = ["mutable-hashed-payload", "unused-alternate-block-hash"]
+
+[interface_review.006]
+declaration_path = "consensus/autobahn/types/commit_qc.go"
+produces = ["15.go-consensus-autobahn-types-commit-qc-conv-j57", "15.go-consensus-autobahn-types-commit-qc-j57", "15.go-consensus-autobahn-types-full-commit-qc-conv-j57", "15.go-consensus-autobahn-types-full-commit-qc-j57", "15.go-consensus-autobahn-types-new-commit-qc-j57", "15.go-consensus-autobahn-types-new-full-commit-qc-j57"]
+consumes = []
+assessment = "Reviewed commit quorum, signed proposal binding, executable height limit, full certificate header-chain validation and recovery converter. FullCommitQC's unbounded finalized header count conflicts with its wire scanner."
+findings = ["full-commit-header-limit", "codec-tests-miss-production-bounds"]
+
+[interface_review.007]
+declaration_path = "consensus/autobahn/types/commit_vote.go"
+produces = ["15.go-consensus-autobahn-types-commit-vote-j57", "15.go-consensus-autobahn-types-new-commit-vote-j57"]
+consumes = []
+assessment = "Reviewed Proposal wrapping and required protobuf decoding, signable commit-vote discrimination and CommitQC consumer. Vote construction preserves the exact proposal committed by the quorum."
+findings = []
+
+[interface_review.008]
+declaration_path = "consensus/autobahn/types/committee.go"
+produces = ["15.go-consensus-autobahn-types-committee-j57", "15.go-consensus-autobahn-types-new-round-robin-election-j57"]
+consumes = []
+assessment = "Reviewed chain/committee domain, sorted replicas, cloned weights, zero-weight filtering, overflow, thresholds, leader and EVM sharding. Admitted cardinality exceeds the wire protocol's supported committee size."
+findings = ["committee-wire-limit"]
+
+[interface_review.009]
+declaration_path = "consensus/autobahn/types/consensus.go"
+produces = ["15.go-consensus-autobahn-types-consensus-req-commit-vote-j57", "15.go-consensus-autobahn-types-consensus-req-conv-j57", "15.go-consensus-autobahn-types-consensus-req-j57", "15.go-consensus-autobahn-types-consensus-req-prepare-vote-j57"]
+consumes = []
+assessment = "Reviewed all five request variants through ConsensusReqConv, live giga sender/receiver dispatch and State push methods. Empty/incorrect typed messages return errors; message-budget blockers originate in proposal and committee producers."
+findings = []
+
+[interface_review.010]
+declaration_path = "consensus/autobahn/types/lane_proposal.go"
+produces = ["15.go-consensus-autobahn-types-lane-proposal-j57", "15.go-consensus-autobahn-types-new-lane-proposal-j57"]
+consumes = []
+assessment = "Reviewed Block wrapping, required decoding, payload/header validation and lane-owner signature relationship through availability and peer consumers."
+findings = []
+
+[interface_review.011]
+declaration_path = "consensus/autobahn/types/lane_qc.go"
+produces = ["15.go-consensus-autobahn-types-lane-qc-j57", "15.go-consensus-autobahn-types-new-lane-qc-j57"]
+consumes = []
+assessment = "Reviewed nonempty vote assembly, LaneVote verification and weighted availability quorum against real availability selection. Cross-cutting committee admission and aggregate proposal size defects are recorded at their producers."
+findings = []
+
+[interface_review.012]
+declaration_path = "consensus/autobahn/types/lane_vote.go"
+produces = ["15.go-consensus-autobahn-types-lane-vote-j57", "15.go-consensus-autobahn-types-new-lane-vote-j57"]
+consumes = []
+assessment = "Reviewed block-header vote, lane membership validation, required converter fields and shared signed-message variant against LaneQC and availability consumers."
+findings = []
+
+[interface_review.013]
+declaration_path = "consensus/autobahn/types/msg.go"
+produces = ["15.go-consensus-autobahn-types-hash-j57", "15.go-consensus-autobahn-types-public-key-from-bytes-j57", "15.go-consensus-autobahn-types-public-key-j57", "15.go-consensus-autobahn-types-secret-key-from-ed25519-j57", "15.go-consensus-autobahn-types-secret-key-j57", "15.go-consensus-autobahn-types-sign-j57", "15.go-consensus-autobahn-types-signed-j57", "15.go-consensus-autobahn-types-signed-msg-conv-j57"]
+consumes = []
+assessment = "Reviewed all seven signable variants, cached canonical hashes, chain/committee-bound signing preimages, member and duplicate-signer checks, weighted QC verification and exact Ed25519 key/signature lengths. Mutable byte ownership defects are recorded at AppProposal and Payload."
+findings = []
+
+[interface_review.014]
+declaration_path = "consensus/autobahn/types/opt.go"
+produces = ["15.go-consensus-autobahn-types-global-range-opt-j57", "15.go-consensus-autobahn-types-lane-range-opt-j57", "15.go-consensus-autobahn-types-next-index-opt-j57", "15.go-consensus-autobahn-types-next-opt-j57", "15.go-consensus-autobahn-types-next-view-opt-j57"]
+consumes = []
+assessment = "Reviewed optional proposal/index/view/lane/global-range extraction and genesis defaults against fresh and recovering consumers. Helpers preserve the caller's explicit committee offset and absent optional values."
+findings = []
+
+[interface_review.015]
+declaration_path = "consensus/autobahn/types/prepare_qc.go"
+produces = ["15.go-consensus-autobahn-types-new-prepare-qc-j57", "15.go-consensus-autobahn-types-prepare-qc-conv-j57", "15.go-consensus-autobahn-types-prepare-qc-j57"]
+consumes = []
+assessment = "Reviewed proposal-carrying prepare QC, committee-weighted unique signatures, required vote decoding and timeout/reproposal consumers."
+findings = []
+
+[interface_review.016]
+declaration_path = "consensus/autobahn/types/prepare_vote.go"
+produces = ["15.go-consensus-autobahn-types-new-prepare-vote-j57", "15.go-consensus-autobahn-types-prepare-vote-j57"]
+consumes = []
+assessment = "Reviewed Proposal wrapping, required protobuf decoding, prepare-vote signable discriminator and PrepareQC consumer; no local shape disagreement found."
+findings = []
+
+[interface_review.017]
+declaration_path = "consensus/autobahn/types/proposal.go"
+produces = ["15.go-consensus-autobahn-types-full-proposal-j57", "15.go-consensus-autobahn-types-global-range-j57", "15.go-consensus-autobahn-types-lane-range-j57", "15.go-consensus-autobahn-types-new-proposal-j57", "15.go-consensus-autobahn-types-new-reproposal-j57", "15.go-consensus-autobahn-types-proposal-j57", "15.go-consensus-autobahn-types-road-index-j57", "15.go-consensus-autobahn-types-view-j57", "15.go-consensus-autobahn-types-view-spec-j57"]
+consumes = []
+assessment = "Reviewed every range/view helper, overflow check, timestamp assignment, fresh/reproposal branch and converter against lane/app certificates, State voting, execution and recovery. Findings cover application-state carry, aggregate transport size and timeliness."
+findings = ["carried-app-state", "consensus-message-size", "future-consensus-time", "app-qc-tests-wrong-branch"]
+
+[interface_review.018]
+declaration_path = "consensus/autobahn/types/testonly.go"
+produces = ["15.go-consensus-autobahn-types-gen-app-hash-j57", "15.go-consensus-autobahn-types-gen-app-qc-j57", "15.go-consensus-autobahn-types-gen-app-vote-j57", "15.go-consensus-autobahn-types-gen-block-header-hash-j57", "15.go-consensus-autobahn-types-gen-block-j57", "15.go-consensus-autobahn-types-gen-block-number-j57", "15.go-consensus-autobahn-types-gen-commit-qc-j57", "15.go-consensus-autobahn-types-gen-commit-vote-j57", "15.go-consensus-autobahn-types-gen-committee-j57", "15.go-consensus-autobahn-types-gen-full-timeout-vote-j57", "15.go-consensus-autobahn-types-gen-global-block-number-j57", "15.go-consensus-autobahn-types-gen-lane-proposal-j57", "15.go-consensus-autobahn-types-gen-lane-vote-j57", "15.go-consensus-autobahn-types-gen-payload-j57", "15.go-consensus-autobahn-types-gen-prepare-qc-j57", "15.go-consensus-autobahn-types-gen-prepare-vote-j57", "15.go-consensus-autobahn-types-gen-proposal-for-at-j57", "15.go-consensus-autobahn-types-gen-secret-key-j57", "15.go-consensus-autobahn-types-gen-signed-j57", "15.go-consensus-autobahn-types-gen-timeout-qc-j57", "15.go-consensus-autobahn-types-test-keys-with-weight-j57"]
+consumes = []
+assessment = "Read all generators and signing helpers. Random converter fixtures are intentionally not verified production histories; GenSigned binds a private test domain, whereas GenCommittee returns committee-bound keys. Production-path proof gaps are recorded in types_test.go."
+findings = []
+
+[interface_review.019]
+declaration_path = "consensus/autobahn/types/timeout.go"
+produces = ["15.go-consensus-autobahn-types-full-timeout-vote-conv-j57", "15.go-consensus-autobahn-types-full-timeout-vote-j57", "15.go-consensus-autobahn-types-new-full-timeout-vote-j57", "15.go-consensus-autobahn-types-new-timeout-qc-j57", "15.go-consensus-autobahn-types-timeout-qc-conv-j57", "15.go-consensus-autobahn-types-timeout-qc-j57"]
+consumes = []
+assessment = "Reviewed full timeout votes, latest prepare-QC selection, signed view consistency, weighted timeout thresholds, reproposal justification and all converters against the consensus receiver and persisted inner state."
+findings = []
+
+[interface_review.020]
+declaration_path = "consensus/crypto/ed25519/conv.go"
+produces = []
+consumes = ["15.go-consensus-crypto-ed25519-public-key-from-bytes-j57", "15.go-consensus-crypto-ed25519-public-key-from-string-j57", "15.go-consensus-crypto-ed25519-signature-from-bytes-j57"]
+assessment = "Typed signing/tag helpers and exact 32-byte public key/64-byte signature decoders agree with Autobahn converters. Secret key string formatting is log-safe; committee-bound signing is enforced in msg.go."
+findings = []
+
+[interface_review.021]
+declaration_path = "consensus/crypto/ed25519/ed25519.go"
+produces = []
+consumes = ["15.go-consensus-crypto-ed25519-new-tag-j57", "15.go-consensus-crypto-ed25519-public-key-j57", "15.go-consensus-crypto-ed25519-secret-key-j57", "15.go-consensus-crypto-ed25519-signature-j57", "15.go-consensus-crypto-ed25519-test-secret-key-j57"]
+assessment = "Typed signing/tag helpers and exact 32-byte public key/64-byte signature decoders agree with Autobahn converters. Secret key string formatting is log-safe; committee-bound signing is enforced in msg.go."
+findings = []
+
+[interface_review.022]
+declaration_path = "consensus/internal/eventbus/event_bus.go"
+produces = ["15.go-consensus-internal-eventbus-event-bus-j57", "15.go-consensus-internal-eventbus-new-default-j57", "15.go-consensus-internal-eventbus-subscription-j57"]
+consumes = []
+assessment = "EventBus is constructed and started in node assembly, passes typed execution events to pubsub and the RPC/indexer subscribers, and preserves subscription/cancellation options. event-reserved-keys and event-tests-no-reserved-collision record its reserved-metadata disagreement."
+findings = ["event-reserved-keys", "event-tests-no-reserved-collision"]
+
+[interface_review.023]
+declaration_path = "consensus/internal/hashable/hashable.go"
+produces = []
+consumes = ["15.go-consensus-internal-hashable-hash-j57", "15.go-consensus-internal-hashable-parse-hash-j57", "15.go-consensus-internal-hashable-to-hash-j57"]
+assessment = "Typed canonical protobuf hashing and exact hash byte parsing agree with message/header/payload commitments. Cached signature hashes depend on immutable source bytes; mutable-app-hash and mutable-hashed-payload record the ownership defects."
+findings = []
+
+[interface_review.024]
+declaration_path = "consensus/internal/hashable/testonly.go"
+produces = []
+consumes = ["15.go-consensus-internal-hashable-gen-hash-j57"]
+assessment = "Typed canonical protobuf hashing and exact hash byte parsing agree with message/header/payload commitments. Cached signature hashes depend on immutable source bytes; mutable-app-hash and mutable-hashed-payload record the ownership defects."
+findings = []
+
+[interface_review.025]
+declaration_path = "consensus/internal/protoutils/conv.go"
+produces = []
+consumes = ["15.go-consensus-internal-protoutils-conv-j57"]
+assessment = "Required fields reject nil, optional fields preserve absence and typed slices report indexed errors. Unmarshal scans declared collection limits before decoding, but Marshal does not enforce matching producer cardinality; full-commit-header-limit and committee-wire-limit apply."
+findings = []
+
+[interface_review.026]
+declaration_path = "consensus/internal/protoutils/msg.go"
+produces = []
+consumes = ["15.go-consensus-internal-protoutils-message-j57", "15.go-consensus-internal-protoutils-size-j57"]
+assessment = "Required fields reject nil, optional fields preserve absence and typed slices report indexed errors. Unmarshal scans declared collection limits before decoding, but Marshal does not enforce matching producer cardinality; full-commit-header-limit and committee-wire-limit apply."
+findings = []
+
+[interface_review.027]
+declaration_path = "consensus/internal/pubsub/pubsub.go"
+produces = []
+consumes = ["15.go-consensus-internal-pubsub-buffer-capacity-j57", "15.go-consensus-internal-pubsub-new-server-j57", "15.go-consensus-internal-pubsub-server-j57", "15.go-consensus-internal-pubsub-subscribe-args-j57", "15.go-consensus-internal-pubsub-unsubscribe-args-j57"]
+assessment = "Event arrays, query matching, subscription capacities, cancellation and unsubscribe parameters agree with EventBus callers. Query matching retains all duplicate values, exposing the reserved-key disagreement recorded in event-reserved-keys."
+findings = []
+
+[interface_review.028]
+declaration_path = "consensus/internal/pubsub/query/query.go"
+produces = []
+consumes = ["15.go-consensus-internal-pubsub-query-all-j57", "15.go-consensus-internal-pubsub-query-must-compile-j57", "15.go-consensus-internal-pubsub-query-query-j57"]
+assessment = "Event arrays, query matching, subscription capacities, cancellation and unsubscribe parameters agree with EventBus callers. Query matching retains all duplicate values, exposing the reserved-key disagreement recorded in event-reserved-keys."
+findings = []
+
+[interface_review.029]
+declaration_path = "consensus/internal/pubsub/subscription.go"
+produces = []
+consumes = ["15.go-consensus-internal-pubsub-message-j57"]
+assessment = "Event arrays, query matching, subscription capacities, cancellation and unsubscribe parameters agree with EventBus callers. Query matching retains all duplicate values, exposing the reserved-key disagreement recorded in event-reserved-keys."
+findings = []
+
+[interface_review.030]
+declaration_path = "consensus/libs/service/service.go"
+produces = []
+consumes = ["15.go-consensus-libs-service-base-service-j57", "15.go-consensus-libs-service-new-base-service-j57"]
+assessment = "EventBus owns the BaseService lifecycle and starts/stops its pubsub service; node assembly shares the started bus with RPC and indexer consumers. No local start/stop type mismatch was found."
+findings = []
+
+[interface_review.031]
+declaration_path = "consensus/libs/utils/math.go"
+produces = []
+consumes = ["15.go-consensus-libs-utils-max-j57"]
+assessment = "In-process allocation, option, arithmetic, parallel verification and assertion helpers agree with their typed callers. Random test fixtures remain codec utilities, not evidence of valid producer transport/recovery; see codec-tests-miss-production-bounds."
+findings = []
+
+[interface_review.032]
+declaration_path = "consensus/libs/utils/option.go"
+produces = []
+consumes = ["15.go-consensus-libs-utils-map-opt-j57", "15.go-consensus-libs-utils-none-j57", "15.go-consensus-libs-utils-option-j57", "15.go-consensus-libs-utils-some-j57"]
+assessment = "In-process allocation, option, arithmetic, parallel verification and assertion helpers agree with their typed callers. Random test fixtures remain codec utilities, not evidence of valid producer transport/recovery; see codec-tests-miss-production-bounds."
+findings = []
+
+[interface_review.033]
+declaration_path = "consensus/libs/utils/panic.go"
+produces = []
+consumes = ["15.go-consensus-libs-utils-or-panic1-j57"]
+assessment = "In-process allocation, option, arithmetic, parallel verification and assertion helpers agree with their typed callers. Random test fixtures remain codec utilities, not evidence of valid producer transport/recovery; see codec-tests-miss-production-bounds."
+findings = []
+
+[interface_review.034]
+declaration_path = "consensus/libs/utils/proto.go"
+produces = []
+consumes = ["15.go-consensus-libs-utils-alloc-j57", "15.go-consensus-libs-utils-zero-j57"]
+assessment = "In-process allocation, option, arithmetic, parallel verification and assertion helpers agree with their typed callers. Random test fixtures remain codec utilities, not evidence of valid producer transport/recovery; see codec-tests-miss-production-bounds."
+findings = []
+
+[interface_review.035]
+declaration_path = "consensus/libs/utils/require/require.go"
+produces = []
+consumes = ["15.go-consensus-libs-utils-require-equal-j57", "15.go-consensus-libs-utils-require-error-j57", "15.go-consensus-libs-utils-require-false-j57", "15.go-consensus-libs-utils-require-no-error-j57", "15.go-consensus-libs-utils-require-not-equal-j57", "15.go-consensus-libs-utils-require-panics-j57", "15.go-consensus-libs-utils-require-true-j57"]
+assessment = "In-process allocation, option, arithmetic, parallel verification and assertion helpers agree with their typed callers. Random test fixtures remain codec utilities, not evidence of valid producer transport/recovery; see codec-tests-miss-production-bounds."
+findings = []
+
+[interface_review.036]
+declaration_path = "consensus/libs/utils/scope/parallel.go"
+produces = []
+consumes = ["15.go-consensus-libs-utils-scope-parallel-j57", "15.go-consensus-libs-utils-scope-parallel-scope-j57"]
+assessment = "In-process allocation, option, arithmetic, parallel verification and assertion helpers agree with their typed callers. Random test fixtures remain codec utilities, not evidence of valid producer transport/recovery; see codec-tests-miss-production-bounds."
+findings = []
+
+[interface_review.037]
+declaration_path = "consensus/libs/utils/testonly.go"
+produces = []
+consumes = ["15.go-consensus-libs-utils-gen-bytes-j57", "15.go-consensus-libs-utils-gen-slice-j57", "15.go-consensus-libs-utils-gen-slice-n-j57", "15.go-consensus-libs-utils-gen-string-j57", "15.go-consensus-libs-utils-gen-timestamp-j57", "15.go-consensus-libs-utils-read-only-j57", "15.go-consensus-libs-utils-rng-j57", "15.go-consensus-libs-utils-test-diff-j57", "15.go-consensus-libs-utils-test-rng-j57"]
+assessment = "In-process allocation, option, arithmetic, parallel verification and assertion helpers agree with their typed callers. Random test fixtures remain codec utilities, not evidence of valid producer transport/recovery; see codec-tests-miss-production-bounds."
+findings = []
+
+[interface_review.038]
+declaration_path = "consensus/types/block.go"
+produces = []
+consumes = ["15.go-consensus-types-make-block-j57"]
+assessment = "Classic block/evidence test constructors and Tx.Hash agree with EventBus event payloads and uppercase hexadecimal tx.hash metadata. Fixture use is separate from the missing real application collision coverage."
+findings = []
+
+[interface_review.039]
+declaration_path = "consensus/types/events.go"
+produces = []
+consumes = ["15.go-consensus-types-event-block-sync-status-value-j57", "15.go-consensus-types-event-complete-proposal-value-j57", "15.go-consensus-types-event-data-block-sync-status-j57", "15.go-consensus-types-event-data-complete-proposal-j57", "15.go-consensus-types-event-data-evidence-validated-j57", "15.go-consensus-types-event-data-j57", "15.go-consensus-types-event-data-new-block-header-j57", "15.go-consensus-types-event-data-new-block-j57", "15.go-consensus-types-event-data-new-evidence-j57", "15.go-consensus-types-event-data-new-round-j57", "15.go-consensus-types-event-data-round-state-j57", "15.go-consensus-types-event-data-state-sync-status-j57", "15.go-consensus-types-event-data-string-j57", "15.go-consensus-types-event-data-tx-j57", "15.go-consensus-types-event-data-validator-set-updates-j57", "15.go-consensus-types-event-data-vote-j57", "15.go-consensus-types-event-evidence-validated-value-j57", "15.go-consensus-types-event-lock-value-j57", "15.go-consensus-types-event-new-block-header-j57", "15.go-consensus-types-event-new-block-header-value-j57", "15.go-consensus-types-event-new-block-j57", "15.go-consensus-types-event-new-block-value-j57", "15.go-consensus-types-event-new-evidence-value-j57", "15.go-consensus-types-event-new-round-step-value-j57", "15.go-consensus-types-event-new-round-value-j57", "15.go-consensus-types-event-polka-value-j57", "15.go-consensus-types-event-query-block-sync-status-j57", "15.go-consensus-types-event-query-complete-proposal-j57", "15.go-consensus-types-event-query-lock-j57", "15.go-consensus-types-event-query-new-block-header-j57", "15.go-consensus-types-event-query-new-block-j57", "15.go-consensus-types-event-query-new-round-j57", "15.go-consensus-types-event-query-new-round-step-j57", "15.go-consensus-types-event-query-polka-j57", "15.go-consensus-types-event-query-relock-j57", "15.go-consensus-types-event-query-state-sync-status-j57", "15.go-consensus-types-event-query-timeout-propose-j57", "15.go-consensus-types-event-query-timeout-wait-j57", "15.go-consensus-types-event-query-vote-j57", "15.go-consensus-types-event-relock-value-j57", "15.go-consensus-types-event-state-sync-status-value-j57", "15.go-consensus-types-event-timeout-propose-value-j57", "15.go-consensus-types-event-timeout-wait-value-j57", "15.go-consensus-types-event-tx-j57", "15.go-consensus-types-event-type-key-j57", "15.go-consensus-types-event-valid-block-value-j57", "15.go-consensus-types-event-validator-set-updates-value-j57", "15.go-consensus-types-event-vote-value-j57", "15.go-consensus-types-tx-hash-key-j57", "15.go-consensus-types-tx-height-key-j57"]
+assessment = "EventData and ABCI event/attribute arrays agree with classic/Autobahn execution, EventBus, RPC and indexer consumers. The reserved tm.event/tx.hash/tx.height publication behavior disagrees with its overwrite promise; see event-reserved-keys."
+findings = []
+
+[interface_review.040]
+declaration_path = "consensus/types/evidence.go"
+produces = []
+consumes = ["15.go-consensus-types-new-mock-duplicate-vote-evidence-j57"]
+assessment = "Classic block/evidence test constructors and Tx.Hash agree with EventBus event payloads and uppercase hexadecimal tx.hash metadata. Fixture use is separate from the missing real application collision coverage."
+findings = []
+
+[interface_review.041]
+declaration_path = "consensus/types/params.go"
+produces = []
+consumes = ["15.go-consensus-types-block-part-size-bytes-j57"]
+assessment = "Event-bus tests consume the live 1,048,576-byte BlockPartSizeBytes constant; the upstream encoding page instead states 65,536 bytes, recorded in block-part-encoding-limit."
+findings = []
+
+[interface_review.042]
+declaration_path = "consensus/types/tx.go"
+produces = []
+consumes = ["15.go-consensus-types-tx-j57"]
+assessment = "Classic block/evidence test constructors and Tx.Hash agree with EventBus event payloads and uppercase hexadecimal tx.hash metadata. Fixture use is separate from the missing real application collision coverage."
+findings = []
+
+[interface_review.043]
+declaration_path = "services/platform/hosted/node/guarantor.sh"
+produces = []
+consumes = ["8.env-node-pythonpath"]
+assessment = "The package's retired hosted-node PYTHONPATH row is reused by variable name. Ivy Dockerfile:29 sets only its upstream Python-2 site-packages path and does not consume the retired hosted LayerX service or /opt/layerx runtime."
+findings = []

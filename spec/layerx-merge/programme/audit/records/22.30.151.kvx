@@ -1,0 +1,2280 @@
+# Pre-upgrade audit: proposals only; audited source revision is the task base.
+
+[audit.22.30.151]
+task = "22.30.151"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 247
+findings = 71
+docs_reviewed = 15
+upgrade_ready = false
+blocking = ["migration-dry-run-writes", "migration-unverified-email", "receipt-commit-inclusion", "retired-router-wiring"]
+
+[file.001]
+path = "apps/explorer/deploy/scripts/build_sprite.sh"
+lines = 71
+verdict = "clean"
+note = "Full file reviewed. Sprite generation invokes the existing SVG pipeline and preserves its exit result; no retired network endpoint is embedded."
+
+[file.002]
+path = "apps/explorer/deploy/scripts/collect_envs.sh"
+lines = 45
+verdict = "clean"
+note = "Full file reviewed. Public environment collection restricts exposure to NEXT_PUBLIC keys; its output is consumed by the deployment asset pipeline."
+
+[file.003]
+path = "apps/explorer/deploy/scripts/download_assets.sh"
+lines = 140
+verdict = "issues"
+note = "Full file reviewed. Findings: asset-copy-failure-hidden. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.004]
+path = "apps/explorer/deploy/scripts/entrypoint.sh"
+lines = 95
+verdict = "issues"
+note = "Full file reviewed. Findings: entrypoint-env-failure. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.005]
+path = "apps/explorer/deploy/scripts/favicon_generator.sh"
+lines = 22
+verdict = "clean"
+note = "Full file reviewed. Favicon wrapper invokes its declared generator and output layout; remote fetch risk belongs to the generator finding."
+
+[file.006]
+path = "apps/explorer/deploy/scripts/make_envs_script.sh"
+lines = 39
+verdict = "issues"
+note = "Full file reviewed. Findings: runtime-env-precedence, runtime-env-js-encoding. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.007]
+path = "apps/explorer/deploy/scripts/og_image_generator.js"
+lines = 68
+verdict = "clean"
+note = "Full file reviewed. Open-graph generation uses the declared image inputs and local output contract, without a node RPC dependency."
+
+[file.008]
+path = "apps/explorer/deploy/scripts/sitemap_generator.sh"
+lines = 2
+verdict = "clean"
+note = "Full file reviewed. Sitemap wrapper reaches the configured generator and carries its completion result."
+
+[file.009]
+path = "apps/explorer/deploy/scripts/validate_envs.sh"
+lines = 13
+verdict = "clean"
+note = "Full file reviewed. Environment validation invokes the declared schema tool; duplicate-key compilation risk is recorded in schema.ts."
+
+[file.010]
+path = "apps/explorer/deploy/tools/affected-tests/index.js"
+lines = 208
+verdict = "issues"
+note = "Full file reviewed. Findings: affected-tests-repository-paths, affected-tests-package-hyphens. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.011]
+path = "apps/explorer/deploy/tools/affected-tests/package.json"
+lines = 17
+verdict = "clean"
+note = "Full manifest reviewed. Package scripts, dependencies and declared entrypoints match adjacent tool sources; implementation defects are recorded against their owning source files."
+
+[file.012]
+path = "apps/explorer/deploy/tools/envs-validator/external-json.spec.ts"
+lines = 118
+verdict = "clean"
+note = "Full file reviewed. External JSON validation scenarios match the validators and expected rejected inputs."
+
+[file.013]
+path = "apps/explorer/deploy/tools/envs-validator/index.ts"
+lines = 161
+verdict = "clean"
+note = "Full file reviewed. Validator input parsing, schema selection and error reporting agree with the declared environment validation path."
+
+[file.014]
+path = "apps/explorer/deploy/tools/envs-validator/package.json"
+lines = 25
+verdict = "clean"
+note = "Full manifest reviewed. Package scripts, dependencies and declared entrypoints match adjacent tool sources; implementation defects are recorded against their owning source files."
+
+[file.015]
+path = "apps/explorer/deploy/tools/envs-validator/schema.ts"
+lines = 172
+verdict = "issues"
+note = "Full file reviewed. Findings: env-schema-duplicate-key. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.016]
+path = "apps/explorer/deploy/tools/envs-validator/schema_multichain.ts"
+lines = 76
+verdict = "clean"
+note = "Full file reviewed. Multichain schema preserves chain-list shape and optional configuration semantics."
+
+[file.017]
+path = "apps/explorer/deploy/tools/envs-validator/schemas/apis.ts"
+lines = 37
+verdict = "clean"
+note = "Full file reviewed. API environment validation preserves URL and API-key option names consumed by frontend configuration."
+
+[file.018]
+path = "apps/explorer/deploy/tools/envs-validator/schemas/chain.ts"
+lines = 54
+verdict = "clean"
+note = "Full file reviewed. Chain validation agrees on chain identifier, currency, decimals and RPC URL list types."
+
+[file.019]
+path = "apps/explorer/deploy/tools/envs-validator/schemas/features/account.ts"
+lines = 37
+verdict = "clean"
+note = "Full file reviewed. Feature validator account preserves its declared environment names, optionality and JSON value shape for the corresponding frontend configuration reader."
+
+[file.020]
+path = "apps/explorer/deploy/tools/envs-validator/schemas/features/address3rdPartyWidgets.ts"
+lines = 43
+verdict = "clean"
+note = "Full file reviewed. Feature validator address3rdPartyWidgets preserves its declared environment names, optionality and JSON value shape for the corresponding frontend configuration reader."
+
+[file.021]
+path = "apps/explorer/deploy/tools/envs-validator/schemas/features/ads.ts"
+lines = 39
+verdict = "clean"
+note = "Full file reviewed. Feature validator ads preserves its declared environment names, optionality and JSON value shape for the corresponding frontend configuration reader."
+
+[file.022]
+path = "apps/explorer/deploy/tools/envs-validator/schemas/features/apiDocs.ts"
+lines = 13
+verdict = "clean"
+note = "Full file reviewed. Feature validator apiDocs preserves its declared environment names, optionality and JSON value shape for the corresponding frontend configuration reader."
+
+[file.023]
+path = "apps/explorer/deploy/tools/envs-validator/schemas/features/beaconChain.ts"
+lines = 35
+verdict = "clean"
+note = "Full file reviewed. Feature validator beaconChain preserves its declared environment names, optionality and JSON value shape for the corresponding frontend configuration reader."
+
+[file.024]
+path = "apps/explorer/deploy/tools/envs-validator/schemas/features/bridgedToken.ts"
+lines = 39
+verdict = "clean"
+note = "Full file reviewed. Feature validator bridgedToken preserves its declared environment names, optionality and JSON value shape for the corresponding frontend configuration reader."
+
+[file.025]
+path = "apps/explorer/deploy/tools/envs-validator/schemas/features/crossChainTxs.ts"
+lines = 19
+verdict = "clean"
+note = "Full file reviewed. Feature validator crossChainTxs preserves its declared environment names, optionality and JSON value shape for the corresponding frontend configuration reader."
+
+[file.026]
+path = "apps/explorer/deploy/tools/envs-validator/schemas/features/defiDropdown.ts"
+lines = 25
+verdict = "clean"
+note = "Full file reviewed. Feature validator defiDropdown preserves its declared environment names, optionality and JSON value shape for the corresponding frontend configuration reader."
+
+[file.027]
+path = "apps/explorer/deploy/tools/envs-validator/schemas/features/highlights.ts"
+lines = 25
+verdict = "clean"
+note = "Full file reviewed. Feature validator highlights preserves its declared environment names, optionality and JSON value shape for the corresponding frontend configuration reader."
+
+[file.028]
+path = "apps/explorer/deploy/tools/envs-validator/schemas/features/index.ts"
+lines = 17
+verdict = "clean"
+note = "Full file reviewed. Feature schema exports include the declared feature validators under their actual configuration names."
+
+[file.029]
+path = "apps/explorer/deploy/tools/envs-validator/schemas/features/marketplace.ts"
+lines = 174
+verdict = "clean"
+note = "Full file reviewed. Feature validator marketplace preserves its declared environment names, optionality and JSON value shape for the corresponding frontend configuration reader."
+
+[file.030]
+path = "apps/explorer/deploy/tools/envs-validator/schemas/features/megaEth.ts"
+lines = 9
+verdict = "clean"
+note = "Full file reviewed. Feature validator megaEth preserves its declared environment names, optionality and JSON value shape for the corresponding frontend configuration reader."
+
+[file.031]
+path = "apps/explorer/deploy/tools/envs-validator/schemas/features/multichainButton.ts"
+lines = 21
+verdict = "clean"
+note = "Full file reviewed. Feature validator multichainButton preserves its declared environment names, optionality and JSON value shape for the corresponding frontend configuration reader."
+
+[file.032]
+path = "apps/explorer/deploy/tools/envs-validator/schemas/features/nameServices.ts"
+lines = 37
+verdict = "clean"
+note = "Full file reviewed. Feature validator nameServices preserves its declared environment names, optionality and JSON value shape for the corresponding frontend configuration reader."
+
+[file.033]
+path = "apps/explorer/deploy/tools/envs-validator/schemas/features/rollup.ts"
+lines = 157
+verdict = "clean"
+note = "Full file reviewed. Feature validator rollup preserves its declared environment names, optionality and JSON value shape for the corresponding frontend configuration reader."
+
+[file.034]
+path = "apps/explorer/deploy/tools/envs-validator/schemas/features/tac.ts"
+lines = 19
+verdict = "clean"
+note = "Full file reviewed. Feature validator tac preserves its declared environment names, optionality and JSON value shape for the corresponding frontend configuration reader."
+
+[file.035]
+path = "apps/explorer/deploy/tools/envs-validator/schemas/features/userOps.ts"
+lines = 16
+verdict = "clean"
+note = "Full file reviewed. Feature validator userOps preserves its declared environment names, optionality and JSON value shape for the corresponding frontend configuration reader."
+
+[file.036]
+path = "apps/explorer/deploy/tools/envs-validator/schemas/features/zetaChain.ts"
+lines = 64
+verdict = "clean"
+note = "Full file reviewed. Feature validator zetaChain preserves its declared environment names, optionality and JSON value shape for the corresponding frontend configuration reader."
+
+[file.037]
+path = "apps/explorer/deploy/tools/envs-validator/schemas/meta.ts"
+lines = 10
+verdict = "clean"
+note = "Full file reviewed. Metadata schema keeps optional metadata keys and value types aligned with configuration consumers."
+
+[file.038]
+path = "apps/explorer/deploy/tools/envs-validator/schemas/services.ts"
+lines = 29
+verdict = "clean"
+note = "Full file reviewed. Service schema URL and enabled-flag validation agrees with service configuration readers."
+
+[file.039]
+path = "apps/explorer/deploy/tools/envs-validator/schemas/ui.ts"
+lines = 343
+verdict = "clean"
+note = "Full file reviewed. UI schema preserves declared layout, links and display option shapes."
+
+[file.040]
+path = "apps/explorer/deploy/tools/envs-validator/test.sh"
+lines = 53
+verdict = "clean"
+note = "Full file reviewed. Focused validator shell entry selects the existing test target and propagates its status."
+
+[file.041]
+path = "apps/explorer/deploy/tools/envs-validator/tsconfig.json"
+lines = 30
+verdict = "clean"
+note = "Full TypeScript configuration reviewed. Inheritance, compiler options and included source paths agree with the adjacent package build contract."
+
+[file.042]
+path = "apps/explorer/deploy/tools/envs-validator/utils.ts"
+lines = 31
+verdict = "clean"
+note = "Full file reviewed. Validation utilities preserve parse errors and optional JSON configuration semantics."
+
+[file.043]
+path = "apps/explorer/deploy/tools/envs-validator/vite.config.ts"
+lines = 33
+verdict = "clean"
+note = "Full build configuration reviewed. Declared source entry, output layout and dependency handling agree with the adjacent package scripts."
+
+[file.044]
+path = "apps/explorer/deploy/tools/essential-dapps-chains-config-generator/dev.sh"
+lines = 12
+verdict = "clean"
+note = "Full file reviewed. Development wrapper starts the declared essential-apps generator target."
+
+[file.045]
+path = "apps/explorer/deploy/tools/essential-dapps-chains-config-generator/index.ts"
+lines = 169
+verdict = "clean"
+note = "Full file reviewed. Essential-app chain generation preserves expected chain configuration shape and worker completion handling."
+
+[file.046]
+path = "apps/explorer/deploy/tools/essential-dapps-chains-config-generator/package.json"
+lines = 29
+verdict = "clean"
+note = "Full manifest reviewed. Package scripts, dependencies and declared entrypoints match adjacent tool sources; implementation defects are recorded against their owning source files."
+
+[file.047]
+path = "apps/explorer/deploy/tools/essential-dapps-chains-config-generator/tsconfig.json"
+lines = 30
+verdict = "clean"
+note = "Full TypeScript configuration reviewed. Inheritance, compiler options and included source paths agree with the adjacent package build contract."
+
+[file.048]
+path = "apps/explorer/deploy/tools/essential-dapps-chains-config-generator/vite.config.ts"
+lines = 33
+verdict = "clean"
+note = "Full build configuration reviewed. Declared source entry, output layout and dependency handling agree with the adjacent package scripts."
+
+[file.049]
+path = "apps/explorer/deploy/tools/essential-dapps-chains-config-generator/worker.ts"
+lines = 59
+verdict = "clean"
+note = "Full file reviewed. Essential-app worker reports fetch and processing outcomes using the parent worker message shape."
+
+[file.050]
+path = "apps/explorer/deploy/tools/favicon-generator/index.js"
+lines = 71
+verdict = "issues"
+note = "Full file reviewed. Findings: favicon-fetch-unbounded. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.051]
+path = "apps/explorer/deploy/tools/favicon-generator/package.json"
+lines = 27
+verdict = "clean"
+note = "Full manifest reviewed. Package scripts, dependencies and declared entrypoints match adjacent tool sources; implementation defects are recorded against their owning source files."
+
+[file.052]
+path = "apps/explorer/deploy/tools/feature-reporter/dev.sh"
+lines = 6
+verdict = "clean"
+note = "Full file reviewed. Feature reporter development invocation matches its package entry; bundler entry-path defect is recorded separately."
+
+[file.053]
+path = "apps/explorer/deploy/tools/feature-reporter/entry.js"
+lines = 23
+verdict = "clean"
+note = "Full file reviewed. Feature reporter reads declared feature configuration and emits the expected report payload."
+
+[file.054]
+path = "apps/explorer/deploy/tools/feature-reporter/package.json"
+lines = 28
+verdict = "clean"
+note = "Full manifest reviewed. Package scripts, dependencies and declared entrypoints match adjacent tool sources; implementation defects are recorded against their owning source files."
+
+[file.055]
+path = "apps/explorer/deploy/tools/feature-reporter/tsconfig.json"
+lines = 17
+verdict = "clean"
+note = "Full TypeScript configuration reviewed. Inheritance, compiler options and included source paths agree with the adjacent package build contract."
+
+[file.056]
+path = "apps/explorer/deploy/tools/feature-reporter/webpack.config.js"
+lines = 13
+verdict = "issues"
+note = "Full file reviewed. Findings: feature-reporter-root-entry. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.057]
+path = "apps/explorer/deploy/tools/llms-txt-generator/index.ts"
+lines = 579
+verdict = "issues"
+note = "Full file reviewed. Findings: llms-beacon-route. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.058]
+path = "apps/explorer/deploy/tools/llms-txt-generator/package.json"
+lines = 29
+verdict = "clean"
+note = "Full manifest reviewed. Package scripts, dependencies and declared entrypoints match adjacent tool sources; implementation defects are recorded against their owning source files."
+
+[file.059]
+path = "apps/explorer/deploy/tools/llms-txt-generator/tsconfig.json"
+lines = 30
+verdict = "clean"
+note = "Full TypeScript configuration reviewed. Inheritance, compiler options and included source paths agree with the adjacent package build contract."
+
+[file.060]
+path = "apps/explorer/deploy/tools/llms-txt-generator/vite.config.ts"
+lines = 32
+verdict = "clean"
+note = "Full build configuration reviewed. Declared source entry, output layout and dependency handling agree with the adjacent package scripts."
+
+[file.061]
+path = "apps/explorer/deploy/tools/multichain-config-generator/index.ts"
+lines = 165
+verdict = "issues"
+note = "Full file reviewed. Findings: multichain-fetch-unbounded. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.062]
+path = "apps/explorer/deploy/tools/multichain-config-generator/package.json"
+lines = 23
+verdict = "clean"
+note = "Full manifest reviewed. Package scripts, dependencies and declared entrypoints match adjacent tool sources; implementation defects are recorded against their owning source files."
+
+[file.063]
+path = "apps/explorer/deploy/tools/multichain-config-generator/tsconfig.json"
+lines = 31
+verdict = "clean"
+note = "Full TypeScript configuration reviewed. Inheritance, compiler options and included source paths agree with the adjacent package build contract."
+
+[file.064]
+path = "apps/explorer/deploy/tools/multichain-config-generator/vite.config.ts"
+lines = 33
+verdict = "clean"
+note = "Full build configuration reviewed. Declared source entry, output layout and dependency handling agree with the adjacent package scripts."
+
+[file.065]
+path = "apps/explorer/deploy/tools/multichain-config-generator/worker.ts"
+lines = 59
+verdict = "clean"
+note = "Full file reviewed. Multichain worker response shape agrees with the parent and its bounded per-worker lifecycle."
+
+[file.066]
+path = "apps/explorer/deploy/tools/sitemap-generator/next-sitemap.config.js"
+lines = 236
+verdict = "clean"
+note = "Full file reviewed. Sitemap paths, exclusions and configured site origin match the sitemap consumer contract."
+
+[file.067]
+path = "apps/explorer/deploy/tools/sitemap-generator/package.json"
+lines = 15
+verdict = "clean"
+note = "Full manifest reviewed. Package scripts, dependencies and declared entrypoints match adjacent tool sources; implementation defects are recorded against their owning source files."
+
+[file.068]
+path = "apps/explorer/ui/paxeerX/account/ActivityList.spec.tsx"
+lines = 114
+verdict = "issues"
+note = "Full file reviewed. Findings: activity-test-retired-copy. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.069]
+path = "apps/explorer/ui/paxeerX/account/ActivityList.tsx"
+lines = 87
+verdict = "issues"
+note = "Full file reviewed. Findings: activity-retired-copy. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.070]
+path = "apps/explorer/ui/paxeerX/account/ActivityListItem.spec.tsx"
+lines = 100
+verdict = "clean"
+note = "Full file reviewed. Activity item scenarios use the current activity discriminants and producer-shaped identifiers."
+
+[file.071]
+path = "apps/explorer/ui/paxeerX/account/ActivityListItem.tsx"
+lines = 63
+verdict = "clean"
+note = "Full file reviewed. Activity rendering dispatches current activity shapes and preserves account/transaction links."
+
+[file.072]
+path = "apps/explorer/ui/paxeerX/account/AssetList.spec.tsx"
+lines = 74
+verdict = "issues"
+note = "Full file reviewed. Findings: asset-test-retired-copy. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.073]
+path = "apps/explorer/ui/paxeerX/account/AssetList.tsx"
+lines = 77
+verdict = "clean"
+note = "Full file reviewed. Native per-asset list rendering matches the unified-account balance array, including loading and empty states."
+
+[file.074]
+path = "apps/explorer/ui/paxeerX/account/AssetListItem.spec.tsx"
+lines = 89
+verdict = "issues"
+note = "Full file reviewed. Findings: asset-item-fixture-mismatch. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.075]
+path = "apps/explorer/ui/paxeerX/account/AssetListItem.tsx"
+lines = 44
+verdict = "clean"
+note = "Full file reviewed. Asset row renders the supplied native asset amount and identifier without restoring a custody/kernel breakdown."
+
+[file.076]
+path = "apps/explorer/ui/paxeerX/account/IdentityList.spec.tsx"
+lines = 84
+verdict = "clean"
+note = "Full file reviewed. Identity list scenarios agree with the evm, pax and did identity order."
+
+[file.077]
+path = "apps/explorer/ui/paxeerX/account/IdentityList.tsx"
+lines = 103
+verdict = "clean"
+note = "Full file reviewed. Identity list renders supported native identities and does not expose the retired identity categories."
+
+[file.078]
+path = "apps/explorer/ui/paxeerX/account/placeholderData.ts"
+lines = 37
+verdict = "clean"
+note = "Full file reviewed. Account placeholder balances, identities and activities carry the current native response shapes; stale assertions are recorded in the consuming specs."
+
+[file.079]
+path = "apps/explorer/ui/paxeerX/account/testWrapper.tsx"
+lines = 37
+verdict = "clean"
+note = "Full file reviewed. Account test wrapper supplies the same query and configuration context used by its component scenarios."
+
+[file.080]
+path = "apps/explorer/ui/paxeerX/account/utils.spec.ts"
+lines = 68
+verdict = "clean"
+note = "Full file reviewed. Identity utility scenarios exercise supported identity ordering and existing unknown/empty handling."
+
+[file.081]
+path = "apps/explorer/ui/paxeerX/account/utils.ts"
+lines = 68
+verdict = "clean"
+note = "Full file reviewed. IDENTITY_ORDER contains evm, pax and did only, matching requirement 14288 and the current identity response."
+
+[file.082]
+path = "apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsListItem.spec.tsx"
+lines = 72
+verdict = "clean"
+note = "Full file reviewed. Mobile archive anchor scenarios use the frozen archive field shape and explicit null historical values."
+
+[file.083]
+path = "apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsListItem.tsx"
+lines = 81
+verdict = "clean"
+note = "Full file reviewed. Mobile archive item reads the frozen checkpoint/sealed-height/root/block/time fields; no live anchor writer is invoked."
+
+[file.084]
+path = "apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTable.spec.tsx"
+lines = 88
+verdict = "clean"
+note = "Full file reviewed. Archive table scenarios use archive pagination and retained historical fields."
+
+[file.085]
+path = "apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTable.tsx"
+lines = 46
+verdict = "clean"
+note = "Full file reviewed. Archive table consumes the frozen anchor list and delegates rows to the item component; visible checkpoint-id gap is recorded against the item."
+
+[file.086]
+path = "apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTableItem.spec.tsx"
+lines = 81
+verdict = "issues"
+note = "Full file reviewed. Findings: anchor-table-id-test. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.087]
+path = "apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTableItem.tsx"
+lines = 78
+verdict = "issues"
+note = "Full file reviewed. Findings: anchor-table-id-invisible. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.088]
+path = "apps/explorer/ui/paxeerX/chains/ChainDetail.tsx"
+lines = 214
+verdict = "issues"
+note = "Full file reviewed. Findings: chains-full-history-pagination. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.089]
+path = "apps/explorer/ui/paxeerX/chains/ChainsList.tsx"
+lines = 75
+verdict = "issues"
+note = "Full file reviewed. Findings: chain-list-detail-link. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.090]
+path = "apps/explorer/ui/paxeerX/chains/detail.spec.ts"
+lines = 112
+verdict = "issues"
+note = "Full file reviewed. Findings: chain-detail-retired-rpc-fixture. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.091]
+path = "apps/explorer/ui/paxeerX/chains/detail.ts"
+lines = 98
+verdict = "clean"
+note = "Full file reviewed. Transfer stability decodes depth_stable and reversible, matching the actual indexer transfer_document producer."
+
+[file.092]
+path = "apps/explorer/ui/paxeerX/chains/model.spec.ts"
+lines = 64
+verdict = "issues"
+note = "Full file reviewed. Findings: chain-model-retired-rpc-fixture. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.093]
+path = "apps/explorer/ui/paxeerX/chains/model.ts"
+lines = 60
+verdict = "clean"
+note = "Full file reviewed. Tenant model preserves chain id parameters, endpoint joining and native balance/bridge shapes."
+
+[file.094]
+path = "apps/explorer/ui/paxeerX/feed/PaxeerXFeedMarketUpdatesTable.spec.tsx"
+lines = 46
+verdict = "clean"
+note = "Full file reviewed. Feed update table fixtures preserve market id, signed price, exponent, sequence and time fields emitted by the API."
+
+[file.095]
+path = "apps/explorer/ui/paxeerX/feed/PaxeerXFeedMarketUpdatesTable.tsx"
+lines = 101
+verdict = "clean"
+note = "Full file reviewed. Feed update rendering uses producer price units and stable market/update identifiers."
+
+[file.096]
+path = "apps/explorer/ui/paxeerX/feed/PaxeerXFeedMarketsTable.spec.tsx"
+lines = 57
+verdict = "clean"
+note = "Full file reviewed. Market table scenarios match the feed market response and supported loading/empty states."
+
+[file.097]
+path = "apps/explorer/ui/paxeerX/feed/PaxeerXFeedMarketsTable.tsx"
+lines = 92
+verdict = "clean"
+note = "Full file reviewed. Market list renders current feed market metadata and links to the corresponding market detail."
+
+[file.098]
+path = "apps/explorer/ui/paxeerX/feed/PaxeerXFeedObservationsTable.tsx"
+lines = 48
+verdict = "clean"
+note = "Full file reviewed. Observation table renders observer and observation fields from the declared feed response."
+
+[file.099]
+path = "apps/explorer/ui/paxeerX/feed/PaxeerXFeedUpdateDetails.spec.tsx"
+lines = 52
+verdict = "clean"
+note = "Full file reviewed. Feed update detail scenarios use the same encoded price and provenance fields as the API response."
+
+[file.100]
+path = "apps/explorer/ui/paxeerX/feed/PaxeerXFeedUpdateDetails.tsx"
+lines = 82
+verdict = "clean"
+note = "Full file reviewed. Update detail preserves observation provenance and numeric representation without changing signed price units."
+
+[file.101]
+path = "apps/explorer/ui/paxeerX/feed/PriceValue.tsx"
+lines = 18
+verdict = "clean"
+note = "Full file reviewed. Price display applies the declared exponent to integer price values and preserves unavailable-value behavior."
+
+[file.102]
+path = "apps/explorer/ui/paxeerX/feed/applyPriceUpdates.spec.ts"
+lines = 120
+verdict = "clean"
+note = "Full file reviewed. Price update reducer scenarios cover ordered replacement and producer-shaped update identity."
+
+[file.103]
+path = "apps/explorer/ui/paxeerX/feed/applyPriceUpdates.ts"
+lines = 57
+verdict = "clean"
+note = "Full file reviewed. Price reducer applies incoming updates using sequence and market identity without inventing a second response shape."
+
+[file.104]
+path = "apps/explorer/ui/paxeerX/feed/useFeedSocket.ts"
+lines = 41
+verdict = "issues"
+note = "Full file reviewed. Findings: feed-socket-joined-lifecycle. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.105]
+path = "apps/explorer/ui/paxeerX/feed/utils.spec.ts"
+lines = 26
+verdict = "clean"
+note = "Full file reviewed. Feed utility scenarios cover the declared encoded values and display conversions."
+
+[file.106]
+path = "apps/explorer/ui/paxeerX/feed/utils.ts"
+lines = 32
+verdict = "clean"
+note = "Full file reviewed. Feed formatting preserves integer/exponent conventions and explicit missing values."
+
+[file.107]
+path = "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptDetails.spec.tsx"
+lines = 163
+verdict = "clean"
+note = "Full file reviewed. Archive receipt detail scenarios use the frozen receipt shape without treating history as live settlement."
+
+[file.108]
+path = "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptDetails.tsx"
+lines = 163
+verdict = "clean"
+note = "Full file reviewed. Archive receipt detail renders retained historical fields and does not attach a live status ladder."
+
+[file.109]
+path = "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsListItem.spec.tsx"
+lines = 59
+verdict = "clean"
+note = "Full file reviewed. Mobile receipt archive scenarios use the current archive response shape."
+
+[file.110]
+path = "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsListItem.tsx"
+lines = 64
+verdict = "clean"
+note = "Full file reviewed. Mobile archive receipt rendering has no live finality badge and consumes retained historical fields."
+
+[file.111]
+path = "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsTable.spec.tsx"
+lines = 77
+verdict = "clean"
+note = "Full file reviewed. Receipt archive table scenarios match pagination and the frozen response shape."
+
+[file.112]
+path = "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsTable.tsx"
+lines = 38
+verdict = "clean"
+note = "Full file reviewed. Receipt table passes the archive response to archive item renderers without a live ingestion path."
+
+[file.113]
+path = "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsTableItem.spec.tsx"
+lines = 81
+verdict = "clean"
+note = "Full file reviewed. Receipt archive item scenarios verify historical fields and absence of a status ladder badge."
+
+[file.114]
+path = "apps/explorer/ui/paxeerX/receipts/PaxeerXReceiptsTableItem.tsx"
+lines = 58
+verdict = "clean"
+note = "Full file reviewed. Archive receipt row renders the frozen receipt fields without a current settlement ladder."
+
+[file.115]
+path = "apps/web/packages/layerx-ui/README.md"
+lines = 81
+verdict = "clean"
+note = "Full file reviewed. Package usage documentation matches platform provider, installation and responsive primitives; source-specific component defects have their own findings."
+
+[file.116]
+path = "apps/web/packages/layerx-ui/format-commonjs.ts"
+lines = 44
+verdict = "clean"
+note = "Full file reviewed. CommonJS postprocessing preserves the package output contract used by declared consumers."
+
+[file.117]
+path = "apps/web/packages/layerx-ui/package.json"
+lines = 80
+verdict = "clean"
+note = "Full manifest reviewed. Package scripts, dependencies and declared entrypoints match adjacent tool sources; implementation defects are recorded against their owning source files."
+
+[file.118]
+path = "apps/web/packages/layerx-ui/src/components/amount.tsx"
+lines = 44
+verdict = "clean"
+note = "Full file reviewed. Amount primitive formats supplied amount and asset metadata under the declared platform options."
+
+[file.119]
+path = "apps/web/packages/layerx-ui/src/components/app-shell.tsx"
+lines = 361
+verdict = "issues"
+note = "Full file reviewed. Findings: bottom-tabs-navigation-length. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.120]
+path = "apps/web/packages/layerx-ui/src/components/avatar.tsx"
+lines = 71
+verdict = "issues"
+note = "Full file reviewed. Findings: avatar-source-recovery. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.121]
+path = "apps/web/packages/layerx-ui/src/components/badge.tsx"
+lines = 35
+verdict = "clean"
+note = "Full file reviewed. Badge variants and component props match their exported primitive contract."
+
+[file.122]
+path = "apps/web/packages/layerx-ui/src/components/balance-header.tsx"
+lines = 78
+verdict = "clean"
+note = "Full file reviewed. Balance header accepts and displays the declared amount, labels and actions."
+
+[file.123]
+path = "apps/web/packages/layerx-ui/src/components/bank-card.tsx"
+lines = 131
+verdict = "clean"
+note = "Full file reviewed. Bank-card presentation uses declared display props and local interaction state."
+
+[file.124]
+path = "apps/web/packages/layerx-ui/src/components/button.tsx"
+lines = 106
+verdict = "issues"
+note = "Full file reviewed. Findings: button-slot-loading-children. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.125]
+path = "apps/web/packages/layerx-ui/src/components/calendar-range-picker.tsx"
+lines = 94
+verdict = "clean"
+note = "Full file reviewed. Date-range picker maintains its controlled range and selection callbacks."
+
+[file.126]
+path = "apps/web/packages/layerx-ui/src/components/card.tsx"
+lines = 36
+verdict = "issues"
+note = "Full file reviewed. Findings: card-aschild-ignored. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.127]
+path = "apps/web/packages/layerx-ui/src/components/code-entry.tsx"
+lines = 98
+verdict = "clean"
+note = "Full file reviewed. Code-entry presentation preserves declared value and change semantics."
+
+[file.128]
+path = "apps/web/packages/layerx-ui/src/components/code-input.tsx"
+lines = 171
+verdict = "clean"
+note = "Full file reviewed. Code input maintains the supported character and focus flow using its public input contract."
+
+[file.129]
+path = "apps/web/packages/layerx-ui/src/components/detail.tsx"
+lines = 106
+verdict = "clean"
+note = "Full file reviewed. Detail rows preserve labels, values and declared actions without network assumptions."
+
+[file.130]
+path = "apps/web/packages/layerx-ui/src/components/drawer.tsx"
+lines = 83
+verdict = "clean"
+note = "Full file reviewed. Drawer delegates open/close state and content to the existing dialog primitive."
+
+[file.131]
+path = "apps/web/packages/layerx-ui/src/components/empty-state.tsx"
+lines = 40
+verdict = "clean"
+note = "Full file reviewed. Empty-state presentation preserves optional description and action semantics."
+
+[file.132]
+path = "apps/web/packages/layerx-ui/src/components/feedback.tsx"
+lines = 25
+verdict = "clean"
+note = "Full file reviewed. Feedback presentation exposes the declared variants and live text semantics."
+
+[file.133]
+path = "apps/web/packages/layerx-ui/src/components/filters.tsx"
+lines = 200
+verdict = "clean"
+note = "Full file reviewed. Filter components preserve controlled values and callback types."
+
+[file.134]
+path = "apps/web/packages/layerx-ui/src/components/input.tsx"
+lines = 83
+verdict = "clean"
+note = "Full file reviewed. Input variants preserve native input attributes and declared visual state."
+
+[file.135]
+path = "apps/web/packages/layerx-ui/src/components/list.tsx"
+lines = 166
+verdict = "clean"
+note = "Full file reviewed. List composition preserves supplied row and interaction props."
+
+[file.136]
+path = "apps/web/packages/layerx-ui/src/components/modal.tsx"
+lines = 81
+verdict = "clean"
+note = "Full file reviewed. Modal open state and dismissal flow match the underlying accessible dialog API."
+
+[file.137]
+path = "apps/web/packages/layerx-ui/src/components/money-list.tsx"
+lines = 276
+verdict = "clean"
+note = "Full file reviewed. MoneyList exports through the shared downloadCsv helper; spreadsheet text risk is recorded at that helper."
+
+[file.138]
+path = "apps/web/packages/layerx-ui/src/components/notifications.tsx"
+lines = 229
+verdict = "clean"
+note = "Full file reviewed. Notification primitives preserve declared presentation and dismissal interactions."
+
+[file.139]
+path = "apps/web/packages/layerx-ui/src/components/option-list.tsx"
+lines = 67
+verdict = "clean"
+note = "Full file reviewed. Option list selection and disabled states match the exported item shape."
+
+[file.140]
+path = "apps/web/packages/layerx-ui/src/components/popover.tsx"
+lines = 31
+verdict = "clean"
+note = "Full file reviewed. Popover composes the existing trigger/content lifecycle and supported controlled state."
+
+[file.141]
+path = "apps/web/packages/layerx-ui/src/components/primary-action.tsx"
+lines = 51
+verdict = "clean"
+note = "Full file reviewed. Primary action uses declared action and disabled/loading props."
+
+[file.142]
+path = "apps/web/packages/layerx-ui/src/components/quick-actions.tsx"
+lines = 45
+verdict = "clean"
+note = "Full file reviewed. Quick actions render supplied destinations and callbacks without separate kernel assumptions."
+
+[file.143]
+path = "apps/web/packages/layerx-ui/src/components/responsive-dialog.tsx"
+lines = 166
+verdict = "clean"
+note = "Full file reviewed. Responsive dialog preserves equivalent open/close semantics across viewport modes."
+
+[file.144]
+path = "apps/web/packages/layerx-ui/src/components/search.tsx"
+lines = 307
+verdict = "clean"
+note = "Full file reviewed. Search keeps controlled value and input event semantics."
+
+[file.145]
+path = "apps/web/packages/layerx-ui/src/components/segmented-control.tsx"
+lines = 65
+verdict = "clean"
+note = "Full file reviewed. Segmented control keeps declared option values and change callbacks."
+
+[file.146]
+path = "apps/web/packages/layerx-ui/src/components/sheet.tsx"
+lines = 135
+verdict = "clean"
+note = "Full file reviewed. Sheet composition preserves the underlying dialog lifecycle and content contract."
+
+[file.147]
+path = "apps/web/packages/layerx-ui/src/components/stat.tsx"
+lines = 46
+verdict = "clean"
+note = "Full file reviewed. Stat display preserves label, value and optional delta props."
+
+[file.148]
+path = "apps/web/packages/layerx-ui/src/components/switch.tsx"
+lines = 32
+verdict = "clean"
+note = "Full file reviewed. Switch forwards its controlled checked state and supported disabled interaction."
+
+[file.149]
+path = "apps/web/packages/layerx-ui/src/components/wizard.tsx"
+lines = 179
+verdict = "issues"
+note = "Full file reviewed. Findings: wizard-empty-steps. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.150]
+path = "apps/web/packages/layerx-ui/src/index.ts"
+lines = 65
+verdict = "clean"
+note = "Full file reviewed. Public exports resolve to the declared component, platform, type and formatting modules."
+
+[file.151]
+path = "apps/web/packages/layerx-ui/src/lib/format.ts"
+lines = 67
+verdict = "issues"
+note = "Full file reviewed. Findings: csv-formula-injection. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.152]
+path = "apps/web/packages/layerx-ui/src/lib/platform.tsx"
+lines = 65
+verdict = "clean"
+note = "Full file reviewed. Platform provider and hook expose consistent platform options to child primitives."
+
+[file.153]
+path = "apps/web/packages/layerx-ui/src/lib/types.ts"
+lines = 46
+verdict = "clean"
+note = "Full file reviewed. Shared type declarations match the component props and callback shapes examined in the package."
+
+[file.154]
+path = "apps/web/packages/layerx-ui/src/lib/utils.ts"
+lines = 6
+verdict = "clean"
+note = "Full file reviewed. Class composition utility preserves the existing conditional and Tailwind merge behavior."
+
+[file.155]
+path = "apps/web/packages/layerx-ui/tsconfig.json"
+lines = 19
+verdict = "clean"
+note = "Full TypeScript configuration reviewed. Inheritance, compiler options and included source paths agree with the adjacent package build contract."
+
+[file.156]
+path = "apps/web/packages/layerx-ui/tsup.config.ts"
+lines = 53
+verdict = "clean"
+note = "Full build configuration reviewed. Declared source entry, output layout and dependency handling agree with the adjacent package scripts."
+
+[file.157]
+path = "services/explorer/backend/apps/explorer/lib/explorer/account/api/key.ex"
+lines = 203
+verdict = "clean"
+note = "Full file reviewed. Account API key schema and validation preserve key ownership and plan association semantics."
+
+[file.158]
+path = "services/explorer/backend/apps/explorer/lib/explorer/account/api/plan.ex"
+lines = 13
+verdict = "clean"
+note = "Full file reviewed. Account plan fields and limits match the API key plan consumer."
+
+[file.159]
+path = "services/explorer/backend/apps/explorer/lib/explorer/account/auth0_to_keycloak_migration.ex"
+lines = 885
+verdict = "issues"
+note = "Full file reviewed. Findings: migration-dry-run-writes, migration-unverified-email, migration-error-shape, migration-provider-restart, migration-revocation-errors. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.160]
+path = "services/explorer/backend/apps/explorer/lib/explorer/account/authentication.ex"
+lines = 323
+verdict = "clean"
+note = "Full file reviewed. Authentication provider selection and response dispatch match configured providers; migration restart selection risk is recorded in its caller."
+
+[file.161]
+path = "services/explorer/backend/apps/explorer/lib/explorer/account/custom_abi.ex"
+lines = 336
+verdict = "clean"
+note = "Full file reviewed. Custom ABI validation and ownership acquisition preserve declared account data limits and shape."
+
+[file.162]
+path = "services/explorer/backend/apps/explorer/lib/explorer/account/identity.ex"
+lines = 369
+verdict = "issues"
+note = "Full file reviewed. Findings: identity-watchlist-atomicity. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.163]
+path = "services/explorer/backend/apps/explorer/lib/explorer/account/notifier/email.ex"
+lines = 137
+verdict = "issues"
+note = "Full file reviewed. Findings: notification-erc7984-amount. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.164]
+path = "services/explorer/backend/apps/explorer/lib/explorer/account/notifier/forbidden_address.ex"
+lines = 72
+verdict = "clean"
+note = "Full file reviewed. Forbidden-address filtering matches notifier address normalization and configured deny entries."
+
+[file.165]
+path = "services/explorer/backend/apps/explorer/lib/explorer/account/notifier/notify.ex"
+lines = 161
+verdict = "issues"
+note = "Full file reviewed. Findings: notification-erc7984-dispatch. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.166]
+path = "services/explorer/backend/apps/explorer/lib/explorer/account/notifier/summary.ex"
+lines = 236
+verdict = "clean"
+note = "Full file reviewed. Notification summary can emit ERC-7984; the missing dispatch and email cases are recorded against those consumers."
+
+[file.167]
+path = "services/explorer/backend/apps/explorer/lib/explorer/account/notify.ex"
+lines = 42
+verdict = "clean"
+note = "Full file reviewed. Notification delivery catches rendering failures at the transaction-list level; unsupported token dispatch is recorded at its origin."
+
+[file.168]
+path = "services/explorer/backend/apps/explorer/lib/explorer/account/tag_address.ex"
+lines = 255
+verdict = "issues"
+note = "Full file reviewed. Findings: tag-address-encrypted-lookup. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.169]
+path = "services/explorer/backend/apps/explorer/lib/explorer/account/tag_transaction.ex"
+lines = 270
+verdict = "issues"
+note = "Full file reviewed. Findings: tag-transaction-error-shape. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.170]
+path = "services/explorer/backend/apps/explorer/lib/explorer/account/watchlist.ex"
+lines = 93
+verdict = "clean"
+note = "Full file reviewed. Watchlist ownership and name validation agree with account identity association fields."
+
+[file.171]
+path = "services/explorer/backend/apps/explorer/lib/explorer/account/watchlist_address.ex"
+lines = 447
+verdict = "clean"
+note = "Full file reviewed. Watchlist address preferences and account linkage match current declared notification fields; ERC-7984 extension is proposed with dispatcher coverage."
+
+[file.172]
+path = "services/explorer/backend/apps/explorer/lib/explorer/account/watchlist_notification.ex"
+lines = 151
+verdict = "issues"
+note = "Full file reviewed. Findings: notification-latent-changeset. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.173]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/accounts.ex"
+lines = 73
+verdict = "clean"
+note = "Full file reviewed. Top-account cache maintains its configured bounded response and refresh behavior."
+
+[file.174]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/background_migrations.ex"
+lines = 393
+verdict = "issues"
+note = "Full file reviewed. Findings: migration-cache-key-suffix. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.175]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/block_number.ex"
+lines = 58
+verdict = "clean"
+note = "Full file reviewed. Block number cache handles minimum/maximum canonical heights through the declared consolidation path."
+
+[file.176]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/blocks.ex"
+lines = 68
+verdict = "clean"
+note = "Full file reviewed. Blocks cache uses its bounded ordered window and canonical block update path."
+
+[file.177]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/celo_core_contracts.ex"
+lines = 275
+verdict = "clean"
+note = "Full file reviewed. Celo core-contract cache is chain-type-specific and uses its declared contract address mapping."
+
+[file.178]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/celo_epochs.ex"
+lines = 98
+verdict = "clean"
+note = "Full file reviewed. Celo epoch cache preserves chain-specific epoch values and refresh semantics."
+
+[file.179]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/chain_id.ex"
+lines = 45
+verdict = "clean"
+note = "Full file reviewed. Chain-id cache reads the node chain id and supplies the same scalar to its consumers."
+
+[file.180]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/address_gas_usage_sum.ex"
+lines = 87
+verdict = "issues"
+note = "Full file reviewed. Findings: unbounded-address-gas. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.181]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/address_tabs_elements_count.ex"
+lines = 139
+verdict = "issues"
+note = "Full file reviewed. Findings: unbounded-address-tab-state. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.182]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/address_token_transfers_count.ex"
+lines = 85
+verdict = "issues"
+note = "Full file reviewed. Findings: unbounded-address-token-transfers. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.183]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/address_tokens_usd_sum.ex"
+lines = 87
+verdict = "issues"
+note = "Full file reviewed. Findings: unbounded-address-usd. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.184]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/address_transactions_count.ex"
+lines = 85
+verdict = "issues"
+note = "Full file reviewed. Findings: unbounded-address-transactions. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.185]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/addresses_coin_balance_sum.ex"
+lines = 66
+verdict = "clean"
+note = "Full file reviewed. Global address coin balance sum uses a fixed counter identity and persisted consolidation state."
+
+[file.186]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/addresses_coin_balance_sum_minus_burnt.ex"
+lines = 69
+verdict = "clean"
+note = "Full file reviewed. Coin balance sum excluding burn addresses preserves configured exclusions and fixed counter identity."
+
+[file.187]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/addresses_count.ex"
+lines = 131
+verdict = "clean"
+note = "Full file reviewed. Global address count uses the declared fixed aggregate counter and refresh path."
+
+[file.188]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/average_block_time.ex"
+lines = 156
+verdict = "issues"
+note = "Full file reviewed. Findings: average-block-period-drift. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.189]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/blackfort/validators_count.ex"
+lines = 95
+verdict = "clean"
+note = "Full file reviewed. Blackfort validator count is isolated behind its chain-specific configuration and fixed counter."
+
+[file.190]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/block_burnt_fee_count.ex"
+lines = 71
+verdict = "issues"
+note = "Full file reviewed. Findings: unbounded-block-burnt-fee. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.191]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/block_priority_fee_count.ex"
+lines = 71
+verdict = "issues"
+note = "Full file reviewed. Findings: unbounded-block-priority-fee. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.192]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/blocks_count.ex"
+lines = 95
+verdict = "clean"
+note = "Full file reviewed. Block count aggregate preserves canonical block filtering and fixed-key caching."
+
+[file.193]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/contracts_count.ex"
+lines = 109
+verdict = "clean"
+note = "Full file reviewed. Contract count aggregate uses the declared contract predicate and persisted fixed counter."
+
+[file.194]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/gas_usage_sum.ex"
+lines = 96
+verdict = "clean"
+note = "Full file reviewed. Gas usage aggregate preserves the producer gas unit and fixed counter identity."
+
+[file.195]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/helper.ex"
+lines = 284
+verdict = "clean"
+note = "Full file reviewed. ETS helper creates plain tables and supplies defaults consistently; unbounded caller cardinality is recorded against the callers."
+
+[file.196]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/helper/average_block_time_duration_format.ex"
+lines = 104
+verdict = "clean"
+note = "Full file reviewed. Average-block-time duration protocol formats the cached duration using supported units."
+
+[file.197]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/last_fetched_counter.ex"
+lines = 154
+verdict = "clean"
+note = "Full file reviewed. LastFetchedCounter persists counter identifiers and values for restart-safe aggregate readers."
+
+[file.198]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/new_contracts_count.ex"
+lines = 115
+verdict = "clean"
+note = "Full file reviewed. New-contract count uses its configured period and fixed aggregate key."
+
+[file.199]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/new_pending_transactions_count.ex"
+lines = 96
+verdict = "clean"
+note = "Full file reviewed. New-pending-transaction count preserves its time window and fixed aggregate key."
+
+[file.200]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/new_verified_contracts_count.ex"
+lines = 109
+verdict = "clean"
+note = "Full file reviewed. New-verified-contract count uses its declared verification-time window and fixed counter."
+
+[file.201]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/optimism/last_output_root_size_counter.ex"
+lines = 113
+verdict = "clean"
+note = "Full file reviewed. Optimism output-root size counter is chain-specific and preserves fixed aggregate state."
+
+[file.202]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/pending_block_operation_count.ex"
+lines = 85
+verdict = "clean"
+note = "Full file reviewed. Pending block-operation count reflects the declared operation table and fixed cache key."
+
+[file.203]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/pending_transaction_operation_count.ex"
+lines = 90
+verdict = "clean"
+note = "Full file reviewed. Pending transaction-operation count uses the declared work table and fixed cache key."
+
+[file.204]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/rootstock/locked_btc_count.ex"
+lines = 31
+verdict = "clean"
+note = "Full file reviewed. Rootstock locked-BTC count remains a chain-specific counter rather than a retired LayerX custody reference."
+
+[file.205]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/shibarium/deposits_and_withdrawals_count.ex"
+lines = 58
+verdict = "clean"
+note = "Full file reviewed. Shibarium deposit/withdrawal counts are chain-specific bridge aggregates with fixed keys."
+
+[file.206]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/stability/validators_count.ex"
+lines = 103
+verdict = "clean"
+note = "Full file reviewed. Stability validator count uses its declared chain-specific source and fixed aggregate key."
+
+[file.207]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/token_holders_count.ex"
+lines = 100
+verdict = "issues"
+note = "Full file reviewed. Findings: unbounded-token-holders. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.208]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/token_transfers_count.ex"
+lines = 100
+verdict = "issues"
+note = "Full file reviewed. Findings: unbounded-token-transfers. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.209]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/transactions_24h_count.ex"
+lines = 155
+verdict = "clean"
+note = "Full file reviewed. Twenty-four-hour transaction counter preserves the declared time window and aggregate units."
+
+[file.210]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/transactions_count.ex"
+lines = 79
+verdict = "clean"
+note = "Full file reviewed. Transaction count preserves its fixed aggregate and persisted refresh contract."
+
+[file.211]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/verified_contracts_count.ex"
+lines = 100
+verdict = "clean"
+note = "Full file reviewed. Verified-contract count maintains the declared verification predicate and fixed-key cache."
+
+[file.212]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/withdrawals_sum.ex"
+lines = 96
+verdict = "clean"
+note = "Full file reviewed. Withdrawal sum uses the declared withdrawal value units and aggregate persistence path."
+
+[file.213]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/gas_price_oracle.ex"
+lines = 413
+verdict = "clean"
+note = "Full file reviewed. Gas price oracle uses bounded samples and chain gas-price response units with explicit unavailable behavior."
+
+[file.214]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/latest_l1_block_number.ex"
+lines = 17
+verdict = "clean"
+note = "Full file reviewed. Latest L1 block cache is rollup-specific and preserves its declared scalar height contract."
+
+[file.215]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/min_missing_block.ex"
+lines = 74
+verdict = "issues"
+note = "Full file reviewed. Findings: minimum-gap-never-clears. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.216]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/optimism_finalization_period.ex"
+lines = 54
+verdict = "clean"
+note = "Full file reviewed. Optimism finalization period is rollup-specific and does not establish a second Paxeer finality ladder."
+
+[file.217]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/state_changes.ex"
+lines = 32
+verdict = "clean"
+note = "Full file reviewed. State-change cache preserves the configured bounded cache lifetime and transaction identity keys."
+
+[file.218]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/transaction_action_tokens_data.ex"
+lines = 61
+verdict = "clean"
+note = "Full file reviewed. Transaction action token metadata uses its declared bounded cache behavior and token fields."
+
+[file.219]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/transaction_action_uniswap_pools.ex"
+lines = 44
+verdict = "issues"
+note = "Full file reviewed. Findings: unbounded-uniswap-pools. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.220]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/transactions.ex"
+lines = 27
+verdict = "clean"
+note = "Full file reviewed. Transactions cache keeps the configured bounded recent transaction window."
+
+[file.221]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/uncles.ex"
+lines = 48
+verdict = "clean"
+note = "Full file reviewed. Uncles cache preserves its bounded block list and update path."
+
+[file.222]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/hash.ex"
+lines = 246
+verdict = "issues"
+note = "Full file reviewed. Findings: hash-integer-truncation. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.223]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/account_binding.ex"
+lines = 106
+verdict = "clean"
+note = "Full file reviewed. Account binding schema is archive/read-only as required and does not expose a new write path."
+
+[file.224]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/anchor.ex"
+lines = 120
+verdict = "issues"
+note = "Full file reviewed. Findings: anchor-live-module-doc. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.225]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/capabilities.ex"
+lines = 365
+verdict = "issues"
+note = "Full file reviewed. Findings: capability-transient-errors. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.226]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/comet_commit.ex"
+lines = 391
+verdict = "issues"
+note = "Full file reviewed. Findings: commit-router-module-doc. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.227]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/finality.ex"
+lines = 33
+verdict = "clean"
+note = "Full file reviewed. Finality heights derive committed-block state without a live checkpoint ladder, matching requirement 14264."
+
+[file.228]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/identity.ex"
+lines = 294
+verdict = "clean"
+note = "Full file reviewed. Native identity response preserves evm, pax and did variants and associated value encoding."
+
+[file.229]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/market_event.ex"
+lines = 117
+verdict = "clean"
+note = "Full file reviewed. Market-event schema preserves event discriminants and historical payload fields; bridge custody wording refers to an actual bridge concept."
+
+[file.230]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/price_feed.ex"
+lines = 627
+verdict = "issues"
+note = "Full file reviewed. Findings: feed-compaction-health. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.231]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/price_feed_scanned_block.ex"
+lines = 19
+verdict = "clean"
+note = "Full file reviewed. Scan marker schema preserves block number/hash and error status used by retry and compaction."
+
+[file.232]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/price_market.ex"
+lines = 16
+verdict = "clean"
+note = "Full file reviewed. Price-market schema preserves market identity and integer/exponent metadata."
+
+[file.233]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/price_observation.ex"
+lines = 41
+verdict = "clean"
+note = "Full file reviewed. Price-observation schema preserves observer, update identity and signed price provenance."
+
+[file.234]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/price_update.ex"
+lines = 48
+verdict = "clean"
+note = "Full file reviewed. Price-update schema preserves market/update keys and integer price fields used by API and socket consumers."
+
+[file.235]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/receipt.ex"
+lines = 238
+verdict = "issues"
+note = "Full file reviewed. Findings: receipt-live-module-doc. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.236]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/sequencer_receipt.ex"
+lines = 877
+verdict = "issues"
+note = "Full file reviewed. Findings: receipt-commit-inclusion. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.237]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/status.ex"
+lines = 90
+verdict = "clean"
+note = "Full file reviewed. Status projects committed consensus blocks into current finality; historical receipt verification is delegated to the audited verifier."
+
+[file.238]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/unified_account.ex"
+lines = 188
+verdict = "clean"
+note = "Full file reviewed. Unified account produces native per-asset balances and supported identities without retired custody/kernel balance partitions."
+
+[file.239]
+path = "services/explorer/backend/config/config.exs"
+lines = 29
+verdict = "clean"
+note = "Full file reviewed. Application defaults and supervision/config declarations agree with their readers; retired-router runtime override is recorded separately."
+
+[file.240]
+path = "services/explorer/backend/config/config_helper.exs"
+lines = 621
+verdict = "clean"
+note = "Full file reviewed. Configuration helpers consistently parse booleans, integers, durations, URLs and JSON with declared error handling."
+
+[file.241]
+path = "services/explorer/backend/config/dev.exs"
+lines = 9
+verdict = "clean"
+note = "Full file reviewed. Development configuration maintains local repositories, endpoint and logging setup without a public retired endpoint."
+
+[file.242]
+path = "services/explorer/backend/config/prod.exs"
+lines = 14
+verdict = "clean"
+note = "Full file reviewed. Production compile-time configuration defers runtime deployment settings to the declared runtime file."
+
+[file.243]
+path = "services/explorer/backend/config/runtime.exs"
+lines = 2221
+verdict = "issues"
+note = "Full file reviewed. Findings: retired-router-wiring. Related producer, transport, consumer and recovery behavior are described in those findings."
+
+[file.244]
+path = "services/explorer/backend/config/runtime/dev.exs"
+lines = 162
+verdict = "clean"
+note = "Full file reviewed. Development runtime overrides match local endpoint and repository readers."
+
+[file.245]
+path = "services/explorer/backend/config/runtime/prod.exs"
+lines = 123
+verdict = "clean"
+note = "Full file reviewed. Production runtime overrides preserve declared production transport and persistence settings."
+
+[file.246]
+path = "services/explorer/backend/config/runtime/test.exs"
+lines = 31
+verdict = "clean"
+note = "Full file reviewed. Test runtime settings preserve isolated service and repository behavior."
+
+[file.247]
+path = "services/explorer/backend/config/test.exs"
+lines = 6
+verdict = "clean"
+note = "Full file reviewed. Backend test configuration agrees with test repositories, endpoint setup and enabled test-only facilities."
+
+[finding.migration-dry-run-writes]
+file = "services/explorer/backend/apps/explorer/lib/explorer/account/auth0_to_keycloak_migration.ex"
+line = 375
+class = "security"
+severity = "high"
+observed = "run_phases builds migration items before execute_or_dry_run checks dry_run. merge_duplicate_emails calls Account.merge, transferring associations and deleting secondary identities even during a dry run."
+expected = "An operator preview must leave identity ownership, associated account data and authentication state unchanged; only an explicitly applied migration may merge identities."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/account/auth0_to_keycloak_migration.ex, separate a read-only migration plan from execution, and perform approved duplicate merges only in the non-dry apply phase with rollback and a dry-run database invariance test."
+owner_domain = 14
+
+[finding.migration-unverified-email]
+file = "services/explorer/backend/apps/explorer/lib/explorer/account/auth0_to_keycloak_migration.ex"
+line = 487
+class = "security"
+severity = "high"
+observed = "Auth0 export requests email_verified, but build_migration_item drops that value; merge_duplicate_emails groups by email alone and build_keycloak_user sets emailVerified true for every email. User-data-bearing unverified identities can therefore share ownership with another account."
+expected = "Moving authentication providers must preserve verified ownership evidence and must never grant verified email status or merge private account data merely because email text matches."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/account/auth0_to_keycloak_migration.ex, carry the source verification flag through the plan, preserve false in Keycloak, merge only identities with proven common ownership and require explicit resolution for unverified collisions."
+owner_domain = 14
+
+[finding.migration-error-shape]
+file = "services/explorer/backend/apps/explorer/lib/explorer/account/auth0_to_keycloak_migration.ex"
+line = 380
+class = "restart-recovery"
+severity = "medium"
+observed = "The failure branch expects {{:error, reason}, primary}, whereas Account.merge returns {{:error, operation, value, changes}, primary} for an Ecto.Multi failure. A real failed merge raises CaseClauseError after earlier groups may already have committed and account access was disabled."
+expected = "A failed migration step must return an actionable failure and preserve a durable record of completed steps so an operator can resume without silently repeating or abandoning earlier merges."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/account/auth0_to_keycloak_migration.ex, handle the actual Multi failure tuple, halt the apply phase with the failing identity group and persist completed merges and an explicit recoverable account-access state."
+owner_domain = 14
+
+[finding.migration-provider-restart]
+file = "services/explorer/backend/apps/explorer/lib/explorer/account/auth0_to_keycloak_migration.ex"
+line = 803
+class = "restart-recovery"
+severity = "medium"
+observed = "disable_auth0 clears the OAuth domain only with Application.put_env after persisting replacement identity UIDs. Authentication.responsible_module prefers configured Auth0, so restarting with the original deployment environment restores the old provider against migrated identities."
+expected = "A completed authentication cutover must select the new provider after restart and retain enough original-to-target identity mapping to recover a partially completed cutover."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/account/auth0_to_keycloak_migration.ex and authentication.ex, persist migration checkpoints and require the durable provider configuration transition before reporting success and reopening account access."
+owner_domain = 14
+
+[finding.migration-revocation-errors]
+file = "services/explorer/backend/apps/explorer/lib/explorer/account/auth0_to_keycloak_migration.ex"
+line = 840
+class = "security"
+severity = "medium"
+observed = "scan_and_delete ignores Redis DEL failures and converts SCAN failures into a successful-looking count; finalize then enables accounts and reports migration success even when old session validation keys remain."
+expected = "Authentication cutover must confirm that all old sessions are revoked before access is reopened, and an incomplete revocation must remain visible and recoverable."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/account/auth0_to_keycloak_migration.ex, propagate SCAN and DEL errors, retain a resumable revocation checkpoint and keep cutover incomplete until deletion is acknowledged for the whole namespace."
+owner_domain = 14
+
+[finding.receipt-commit-inclusion]
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/sequencer_receipt.ex"
+line = 749
+class = "security"
+severity = "high"
+observed = "committed verifies a signed receipt and a Comet commit at a matching height, but r7 accepts an unsigned eth_receipt and a from_seq/to_seq range. The transaction-status controller discards px_getSequenceBatch proof and roots; no inclusion check binds that batch or receipt to signed header.data_hash. A valid unrelated commit can accompany fabricated inclusion evidence."
+expected = "A committed receipt must be cryptographically tied to the batch included in the signed block, including the sequence range, receipt result and roots, with a configured chain identity and trusted validator context."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/sequencer_receipt.ex and block_scout_web/controllers/api/v2/paxeer_x/transaction_status_controller.ex, preserve px_getSequenceBatch transaction and proof, verify inclusion against the signed data hash, bind receipt roots and sequence to that transaction and reject an unrelated valid commit."
+owner_domain = 14
+interface = "8.rpc-gateway-px-getsequencebatch"
+
+[finding.retired-router-wiring]
+file = "services/explorer/backend/config/runtime.exs"
+line = 298
+class = "wiring-gap"
+severity = "high"
+observed = "PAXEER_X_ROUTER_URL is the only SequencerReceipt endpoint. The live transaction-status path sends node pax_sequencerReceipt and eth_getTransactionReceipt calls and hosted-gateway px_getCommit, px_getValidators, px_getSequenceBatch and px_receiptKeys calls to this same URL, requiring the retired unified router."
+expected = "Brief facts 2 and 3 require node JSON-RPC at the public root and px_ methods at the hosted gateway; a finished-network receipt lookup must reach both actual producers without a router."
+proposal = "In services/explorer/backend/config/runtime.exs, SequencerReceipt and the transaction-status controller, declare separate node-root and hosted-gateway endpoints, dispatch each namespace to its producer and qualify committed and unavailable responses through both real transports."
+owner_domain = 14
+interface = "14.cfg-explorer-explorer-chain-paxeerx-sequencerreceipt"
+
+[finding.identity-watchlist-atomicity]
+file = "services/explorer/backend/apps/explorer/lib/explorer/account/identity.ex"
+line = 129
+class = "restart-recovery"
+severity = "medium"
+observed = "create_identity inserts the identity before add_watchlist in a separate operation. A watchlist insertion failure leaves a persistent identity, while session_info later destructures its watchlists as a nonempty list and can crash on login."
+expected = "Creating a usable account must establish its default watchlist atomically or repair an existing incomplete identity before returning a session."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/account/identity.ex, transact identity and initial watchlist creation together and make login recover a legacy identity without a watchlist before constructing session information."
+owner_domain = 14
+
+[finding.notification-erc7984-dispatch]
+file = "services/explorer/backend/apps/explorer/lib/explorer/account/notifier/notify.ex"
+line = 140
+class = "runtime-risk"
+severity = "medium"
+observed = "Summary can produce token type ERC-7984, but watched? handles coin, ERC-20, ERC-721, ERC-1155 and ERC-404 only. A confidential-token notification raises CaseClauseError; the outer Account.Notify rescue abandons the rest of that notification batch."
+expected = "Every token type emitted by the summary producer must have an explicit notification preference and safe dispatch behavior without interrupting other watched transactions."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/account/notifier/notify.ex and watchlist_address.ex, define ERC-7984 preference semantics, add exhaustive dispatch and verify a mixed batch continues after a confidential-token transfer."
+owner_domain = 14
+
+[finding.notification-erc7984-amount]
+file = "services/explorer/backend/apps/explorer/lib/explorer/account/notifier/email.ex"
+line = 50
+class = "runtime-risk"
+severity = "medium"
+observed = "Email.amount has no ERC-7984 case although Summary emits that token type. Once such notifications reach email generation the amount renderer raises rather than rendering the confidential amount semantics."
+expected = "Notification rendering must handle every summary token type and must preserve confidentiality when the amount is not publicly available."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/account/notifier/email.ex, add an explicit confidential-token amount presentation coordinated with notification preferences and verify the actual Summary output reaches a safe email."
+owner_domain = 14
+
+[finding.tag-address-encrypted-lookup]
+file = "services/explorer/backend/apps/explorer/lib/explorer/account/tag_address.ex"
+line = 175
+class = "runtime-risk"
+severity = "medium"
+observed = "The tag lookup compares tag.address_hash, a randomized Cloak AES.GCM encrypted column, to the requested address. The changeset already maintains address_hash_hash for deterministic lookup, so ciphertext equality can miss an existing private tag."
+expected = "Looking up a private address tag must match the same normalized address used when it was saved without relying on randomized ciphertext equality."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/account/tag_address.ex, query the deterministic address_hash_hash column using the same normalization as its changeset and verify a saved encrypted tag can be retrieved after a fresh encryption operation."
+owner_domain = 14
+
+[finding.tag-transaction-error-shape]
+file = "services/explorer/backend/apps/explorer/lib/explorer/account/tag_transaction.ex"
+line = 80
+class = "runtime-risk"
+severity = "medium"
+observed = "create handles :not_found only under failed Multi operation :tag_transaction, but Identity.acquire_identity reports it under :acquire_identity. The general error branch can return the bare atom instead of the declared changeset-shaped failure."
+expected = "The account-tag API must return the documented validation error shape when the owning identity no longer exists, including during concurrent account deletion."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/account/tag_transaction.ex, translate the actual :acquire_identity failure into the existing identity validation error and cover identity deletion on the real Multi path."
+owner_domain = 14
+
+[finding.notification-latent-changeset]
+file = "services/explorer/backend/apps/explorer/lib/explorer/account/watchlist_notification.ex"
+line = 52
+class = "dead-code"
+severity = "low"
+observed = "WatchlistNotification.changeset casts and requires :value and :decimals although neither field exists in its schema. The live notifier inserts structs directly, so this broken changeset is a latent API rather than evidence that current delivery always fails."
+expected = "An exposed changeset must validate fields present in its schema, and stored notification amount semantics must agree with the insertion path."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/account/watchlist_notification.ex, reconcile the changeset with amount and subject fields actually stored, and either use that supported path for insertion or remove the unused invalid API."
+owner_domain = 14
+
+[finding.migration-cache-key-suffix]
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/background_migrations.ex"
+line = 282
+class = "runtime-risk"
+severity = "medium"
+observed = "The cache declares migration keys with a _finished suffix, but three fallback clauses for those migrations omit that suffix. Fetching a declared key on a cache miss can reach no matching fallback clause and raise FunctionClauseError."
+expected = "Every declared migration-completion cache key must have a fallback that returns the persisted migration state, including the first request after restart."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/chain/cache/background_migrations.ex, use the declared _finished key in each corresponding fallback and verify cold-cache reads of all three migration flags."
+owner_domain = 14
+
+[finding.unbounded-address-gas]
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/address_gas_usage_sum.ex"
+line = 30
+class = "runtime-risk"
+severity = "medium"
+observed = "The counter stores one ETS entry per requested address or token through Helper.create_cache_table. TTL decides when to recompute a value but neither the module nor the plain ETS helper removes old keys, so a long-running public explorer accumulates every distinct lookup."
+expected = "A cache exposed to arbitrary address or token lookups must have bounded retained cardinality and reclaim expired entries without requiring a process restart."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/address_gas_usage_sum.ex, add a bounded eviction policy or scheduled deletion of expired keys, coordinate refreshes with eviction and verify that many distinct requests leave retained entries within the configured limit."
+owner_domain = 14
+
+[finding.unbounded-address-token-transfers]
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/address_token_transfers_count.ex"
+line = 30
+class = "runtime-risk"
+severity = "medium"
+observed = "The counter stores one ETS entry per requested address or token through Helper.create_cache_table. TTL decides when to recompute a value but neither the module nor the plain ETS helper removes old keys, so a long-running public explorer accumulates every distinct lookup."
+expected = "A cache exposed to arbitrary address or token lookups must have bounded retained cardinality and reclaim expired entries without requiring a process restart."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/address_token_transfers_count.ex, add a bounded eviction policy or scheduled deletion of expired keys, coordinate refreshes with eviction and verify that many distinct requests leave retained entries within the configured limit."
+owner_domain = 14
+
+[finding.unbounded-address-usd]
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/address_tokens_usd_sum.ex"
+line = 30
+class = "runtime-risk"
+severity = "medium"
+observed = "The counter stores one ETS entry per requested address or token through Helper.create_cache_table. TTL decides when to recompute a value but neither the module nor the plain ETS helper removes old keys, so a long-running public explorer accumulates every distinct lookup."
+expected = "A cache exposed to arbitrary address or token lookups must have bounded retained cardinality and reclaim expired entries without requiring a process restart."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/address_tokens_usd_sum.ex, add a bounded eviction policy or scheduled deletion of expired keys, coordinate refreshes with eviction and verify that many distinct requests leave retained entries within the configured limit."
+owner_domain = 14
+
+[finding.unbounded-address-transactions]
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/address_transactions_count.ex"
+line = 30
+class = "runtime-risk"
+severity = "medium"
+observed = "The counter stores one ETS entry per requested address or token through Helper.create_cache_table. TTL decides when to recompute a value but neither the module nor the plain ETS helper removes old keys, so a long-running public explorer accumulates every distinct lookup."
+expected = "A cache exposed to arbitrary address or token lookups must have bounded retained cardinality and reclaim expired entries without requiring a process restart."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/address_transactions_count.ex, add a bounded eviction policy or scheduled deletion of expired keys, coordinate refreshes with eviction and verify that many distinct requests leave retained entries within the configured limit."
+owner_domain = 14
+
+[finding.unbounded-token-holders]
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/token_holders_count.ex"
+line = 30
+class = "runtime-risk"
+severity = "medium"
+observed = "The counter stores one ETS entry per requested address or token through Helper.create_cache_table. TTL decides when to recompute a value but neither the module nor the plain ETS helper removes old keys, so a long-running public explorer accumulates every distinct lookup."
+expected = "A cache exposed to arbitrary address or token lookups must have bounded retained cardinality and reclaim expired entries without requiring a process restart."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/token_holders_count.ex, add a bounded eviction policy or scheduled deletion of expired keys, coordinate refreshes with eviction and verify that many distinct requests leave retained entries within the configured limit."
+owner_domain = 14
+
+[finding.unbounded-token-transfers]
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/token_transfers_count.ex"
+line = 30
+class = "runtime-risk"
+severity = "medium"
+observed = "The counter stores one ETS entry per requested address or token through Helper.create_cache_table. TTL decides when to recompute a value but neither the module nor the plain ETS helper removes old keys, so a long-running public explorer accumulates every distinct lookup."
+expected = "A cache exposed to arbitrary address or token lookups must have bounded retained cardinality and reclaim expired entries without requiring a process restart."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/token_transfers_count.ex, add a bounded eviction policy or scheduled deletion of expired keys, coordinate refreshes with eviction and verify that many distinct requests leave retained entries within the configured limit."
+owner_domain = 14
+
+[finding.unbounded-address-tab-state]
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/address_tabs_elements_count.ex"
+line = 107
+class = "runtime-risk"
+severity = "medium"
+observed = "AddressTabsElementsCount retains per-address ETS counters and GenServer state. Completed work uses Map.put(address_hash, nil) or :limit_value instead of deleting a key, and staleness changes only a return status; distinct requested addresses remain resident indefinitely."
+expected = "Address counter work and cached values must be reclaimed after completion or expiry so public address exploration cannot grow the server heap and ETS without a bound."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/address_tabs_elements_count.ex, delete completed progress entries and expire or cap cached counters and terminal markers while preserving in-flight task coordination."
+owner_domain = 14
+
+[finding.unbounded-block-burnt-fee]
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/block_burnt_fee_count.ex"
+line = 41
+class = "runtime-risk"
+severity = "medium"
+observed = "Each queried block hash is stored permanently in a plain ETS table. The module has no expiry, capacity limit or consolidation cleanup, so browsing more historical blocks continually increases memory usage."
+expected = "Historical block counter caches must retain a bounded working set while allowing old values to be recomputed when they are requested again."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/block_burnt_fee_count.ex, cap the block-hash working set with explicit eviction and verify entries are reclaimed as queries move across a long block history."
+owner_domain = 14
+
+[finding.unbounded-block-priority-fee]
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/block_priority_fee_count.ex"
+line = 41
+class = "runtime-risk"
+severity = "medium"
+observed = "Each queried block hash is stored permanently in a plain ETS table. The module has no expiry, capacity limit or consolidation cleanup, so browsing more historical blocks continually increases memory usage."
+expected = "Historical block counter caches must retain a bounded working set while allowing old values to be recomputed when they are requested again."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/block_priority_fee_count.ex, cap the block-hash working set with explicit eviction and verify entries are reclaimed as queries move across a long block history."
+owner_domain = 14
+
+[finding.unbounded-uniswap-pools]
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/transaction_action_uniswap_pools.ex"
+line = 42
+class = "runtime-risk"
+severity = "medium"
+observed = "put_to_cache inserts each discovered Uniswap pool into a plain ETS table without a capacity or expiry policy; the table grows with every distinct pool encountered over the lifetime of the explorer."
+expected = "Pool metadata caching must have a documented finite memory policy and allow evicted metadata to be fetched again without losing indexed transaction data."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/chain/cache/transaction_action_uniswap_pools.ex, introduce a bounded pool metadata cache with safe refetch after eviction and qualify behavior across more pools than the configured capacity."
+owner_domain = 14
+
+[finding.average-block-period-drift]
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/average_block_time.ex"
+line = 65
+class = "config-drift"
+severity = "medium"
+observed = "init schedules using :cache_period, while recurring consolidation schedules using :period. runtime.exs derives cache_period from CACHE_AVERAGE_BLOCK_PERIOD but gives period a fixed ten-minute value, so the configured refresh interval controls only the first tick."
+expected = "An operator-selected average-block cache refresh interval must govern recurring refreshes consistently after startup."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/chain/cache/counters/average_block_time.ex and config/runtime.exs, define one authoritative recurring interval or explicitly separate documented startup and refresh settings, then verify two consecutive scheduled refreshes."
+owner_domain = 14
+
+[finding.minimum-gap-never-clears]
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/cache/min_missing_block.ex"
+line = 58
+class = "restart-recovery"
+severity = "medium"
+observed = "A discovered gap is persisted as min_missing_block_number, but reaching the chain head without finding a gap merely reschedules and resets the scan cursor. The previously persisted missing block survives even after it has been indexed."
+expected = "Indexing progress must clear or advance the persisted minimum missing block once a complete scan confirms that the former gap has been repaired."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/chain/cache/min_missing_block.ex, persist an explicit no-gap or current-frontier state after a complete successful scan and verify a repaired gap is no longer reported after restart."
+owner_domain = 14
+
+[finding.hash-integer-truncation]
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/hash.ex"
+line = 195
+class = "runtime-risk"
+severity = "medium"
+observed = "byte_count_to_max_integer computes 2^(8*byte_count+1)-1. cast_integer therefore accepts integers needing one extra bit and encodes them into only 8*byte_count bits, silently truncating the leading bit and aliasing distinct inputs."
+expected = "A fixed-width hash cast must reject every integer outside 0 through 2^(8*byte_count)-1 and preserve every accepted integer exactly."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/chain/hash.ex, correct the maximum to the actual encoded width and add boundary coverage for maximum, maximum plus one and both sides of the former truncation range."
+owner_domain = 14
+
+[finding.capability-transient-errors]
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/capabilities.ex"
+line = 337
+class = "runtime-risk"
+severity = "medium"
+observed = "read_view and read_unified_account collapse all per-call JSON-RPC errors into an absent capability. A transient server error or rate limit can therefore replace a previously known supported capability with false in the persisted snapshot."
+expected = "The documented discovery contract preserves the last known snapshot on transient RPC failures and marks a capability absent only for a proven unsupported interface."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/capabilities.ex, classify unsupported-method or contract responses separately from transient transport and server failures and retain the prior snapshot until a complete successful discovery."
+owner_domain = 14
+
+[finding.feed-compaction-health]
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/price_feed.ex"
+line = 487
+class = "restart-recovery"
+severity = "medium"
+observed = "scanned_recently? checks successful scan-marker rows, while compact_scanned_blocks deletes successful rows at or below the persisted watermark. The API-only capability check can report no recent successful scan immediately after healthy compaction."
+expected = "Feed availability must survive compaction and restart; the durable watermark or equivalent persisted success evidence must remain sufficient for the API-only node to identify a healthy feed."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/price_feed.ex and the capabilities controller, base recent-success health on durable watermark or retained success metadata and verify availability after marker compaction on an API-only process."
+owner_domain = 14
+
+[finding.anchor-live-module-doc]
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/anchor.ex"
+line = 3
+class = "retired-reference"
+severity = "low"
+observed = "The Anchor module documentation describes a live checkpoint anchor ladder and bulk-import writer even though the implemented schema is the frozen archive and intentionally exposes no changeset."
+expected = "Requirement 14263 and the audit brief require pre-merge anchor history to be described as archived data rather than a current settlement writer."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/anchor.ex, rewrite the module description around the immutable archive, retained historical fields and archive read path, removing claims about a live bulk-import writer."
+owner_domain = 14
+
+[finding.receipt-live-module-doc]
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/receipt.ex"
+line = 13
+class = "retired-reference"
+severity = "low"
+observed = "The Receipt module documentation describes relay/archive ingestion, a current settlement lattice and a bulk-import writer although its implementation is a read-only historical archive schema."
+expected = "The merged explorer must distinguish retained historical receipt vocabulary from the current single committed-block finality model and must not advertise retired ingestion paths."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/receipt.ex, document the frozen receipt archive and historical enum semantics explicitly and remove the description of a live relay and writer."
+owner_domain = 14
+
+[finding.commit-router-module-doc]
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/comet_commit.ex"
+line = 5
+class = "retired-reference"
+severity = "low"
+observed = "CometCommit describes px_getCommit and px_getValidators as router calls. Its hashing and signature adapter match the hosted gateway wrappers, but the named running component is retired."
+expected = "Brief fact 3 assigns px_ commit and validator methods to the hosted gateway and reserves node namespaces for the node root endpoint."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/comet_commit.ex, name the hosted gateway as the transport producer and document the required chain identity and validator trust supplied by its caller."
+owner_domain = 14
+
+[finding.asset-copy-failure-hidden]
+file = "apps/explorer/deploy/scripts/download_assets.sh"
+line = 91
+class = "runtime-risk"
+severity = "medium"
+observed = "A local asset copy or generated value write can fail, but later source_name assignments overwrite its shell exit status; FAILED_DOWNLOADS is updated for curl failure only. The script may exit zero with a missing required deployment asset."
+expected = "Deployment asset preparation must return failure whenever a required copy, write or download fails so startup cannot publish an incomplete asset bundle."
+proposal = "In apps/explorer/deploy/scripts/download_assets.sh, check each copy and generated-file write explicitly, collect all failed required assets and return nonzero when any preparation step failed."
+owner_domain = 14
+
+[finding.entrypoint-env-failure]
+file = "apps/explorer/deploy/scripts/entrypoint.sh"
+line = 69
+class = "wiring-gap"
+severity = "medium"
+observed = "entrypoint invokes make_envs_script.sh without checking its exit status and later execs the application. Failure to create the browser environment script can therefore start the server with missing or stale client configuration."
+expected = "The explorer must start only after required runtime browser configuration has been successfully generated and validated."
+proposal = "In apps/explorer/deploy/scripts/entrypoint.sh, stop startup on a failed environment-script generation and report its failing output path before executing the application process."
+owner_domain = 14
+
+[finding.runtime-env-precedence]
+file = "apps/explorer/deploy/scripts/make_envs_script.sh"
+line = 12
+class = "config-drift"
+severity = "medium"
+observed = "make_envs_script sources every assignment from a packaged .env after the container environment is already supplied, overwriting injected NEXT_PUBLIC values. Runtime deployment values can silently revert to the values present in the image."
+expected = "An operator-provided runtime browser configuration must retain its explicit values; bundled defaults should fill only values that were not supplied by the deployment."
+proposal = "In apps/explorer/deploy/scripts/make_envs_script.sh, load defaults only for unset keys, define and document precedence with collect_envs and verify an injected endpoint survives a conflicting packaged default."
+owner_domain = 14
+
+[finding.runtime-env-js-encoding]
+file = "apps/explorer/deploy/scripts/make_envs_script.sh"
+line = 30
+class = "runtime-risk"
+severity = "medium"
+observed = "Environment values are emitted inside JavaScript double-quoted strings after replacing quotes with apostrophes, without escaping backslashes, carriage returns or newlines. Valid configuration values can produce invalid JavaScript or a value different from the supplied string."
+expected = "The browser environment transport must preserve arbitrary supported string values exactly and always produce syntactically valid JavaScript."
+proposal = "In apps/explorer/deploy/scripts/make_envs_script.sh, serialize the complete object using a JSON encoder and write atomically, then verify quotes, backslashes and multiline public configuration round-trip unchanged."
+owner_domain = 14
+
+[finding.affected-tests-repository-paths]
+file = "apps/explorer/deploy/tools/affected-tests/index.js"
+line = 58
+class = "test-gap"
+severity = "medium"
+observed = "git diff emits repository-root paths such as apps/explorer/ui/..., but getChangedFiles joins each path beneath ROOT_DIR, which already resolves to apps/explorer. The duplicated prefix prevents real dependency paths from matching changed files."
+expected = "Affected-test selection in the monorepo must resolve git paths against the repository root and select every test that depends on a changed explorer file."
+proposal = "In apps/explorer/deploy/tools/affected-tests/index.js, resolve diff output against git rev-parse --show-toplevel or request paths relative to the app root and verify a real changed UI file selects its dependent Playwright tests."
+owner_domain = 14
+
+[finding.affected-tests-package-hyphens]
+file = "apps/explorer/deploy/tools/affected-tests/index.js"
+line = 107
+class = "test-gap"
+severity = "medium"
+observed = "getPackageJsonUpdatedProps removes every hyphen from diff lines, including hyphens in package names. A dependency such as a hyphenated npm module no longer matches package.json and its dependent tests can be omitted."
+expected = "Package change detection must preserve exact npm dependency identifiers while removing only the leading diff marker and JSON punctuation."
+proposal = "In apps/explorer/deploy/tools/affected-tests/index.js, parse added and removed dependency entries without altering the package key and verify scoped and hyphenated dependency updates select their real consumer tests."
+owner_domain = 14
+
+[finding.env-schema-duplicate-key]
+file = "apps/explorer/deploy/tools/envs-validator/schema.ts"
+line = 137
+class = "wiring-gap"
+severity = "medium"
+observed = "The schema object declares NEXT_PUBLIC_PAXEER_X_ENABLED twice at lines 134 and 137. TypeScript rejects duplicate object-literal properties with TS1117, obstructing the deployment environment validator compilation."
+expected = "The environment schema must declare each key exactly once and remain compilable so deployment validation can execute before explorer startup."
+proposal = "In apps/explorer/deploy/tools/envs-validator/schema.ts, retain one authoritative NEXT_PUBLIC_PAXEER_X_ENABLED declaration and qualify the existing validator target without weakening its accepted values."
+owner_domain = 14
+
+[finding.favicon-fetch-unbounded]
+file = "apps/explorer/deploy/tools/favicon-generator/index.js"
+line = 17
+class = "runtime-risk"
+severity = "medium"
+observed = "Favicon generation fetches the configured logo without a request deadline or an HTTP success check. An upstream that never completes can block the startup asset stage, and an HTTP error body can be passed to image processing."
+expected = "Optional remote branding must have a bounded preparation time and expose an actionable failure when the source is unavailable or not an image."
+proposal = "In apps/explorer/deploy/tools/favicon-generator/index.js, enforce a request deadline, require a successful response and validate the downloaded image before conversion; make the caller choose explicit startup failure or documented optional branding behavior."
+owner_domain = 14
+
+[finding.feature-reporter-root-entry]
+file = "apps/explorer/deploy/tools/feature-reporter/webpack.config.js"
+line = 5
+class = "wiring-gap"
+severity = "medium"
+observed = "Webpack resolves path.resolve(__dirname, /entry.js), where the second argument is an absolute path. The configured entry becomes /entry.js instead of the adjacent feature-reporter/entry.js source."
+expected = "The feature reporter bundle must compile the checked-in entry module from its own tool directory on every deployment host."
+proposal = "In apps/explorer/deploy/tools/feature-reporter/webpack.config.js, resolve a relative entry.js path under __dirname and verify the existing reporter build reads the checked-in entry module."
+owner_domain = 14
+
+[finding.llms-beacon-route]
+file = "apps/explorer/deploy/tools/llms-txt-generator/index.ts"
+line = 82
+class = "doc-drift"
+severity = "medium"
+observed = "The generated API description advertises /api/v2/block/{block_number}/beacon/deposits with singular block, while the registered backend interface uses /api/v2/blocks/{block_hash_or_number_param}/beacon/deposits."
+expected = "Machine-readable explorer guidance must publish the actual registered path and parameter semantics so generated clients can reach beacon deposits."
+proposal = "In apps/explorer/deploy/tools/llms-txt-generator/index.ts, generate the plural blocks route and matching hash-or-number parameter from the backend route contract and verify the emitted link against the registered handler."
+owner_domain = 14
+interface = "14.http-get-api-v2-blocks-block-hash-or-number-param-beacon-deposits"
+
+[finding.multichain-fetch-unbounded]
+file = "apps/explorer/deploy/tools/multichain-config-generator/index.ts"
+line = 92
+class = "runtime-risk"
+severity = "medium"
+observed = "The initial multichain configuration fetch has no deadline before the bounded worker jobs are started. A stalled configuration host can block explorer startup indefinitely despite the later worker timeout handling."
+expected = "Every remote dependency in startup configuration generation must finish within a declared bound or return an explicit startup error."
+proposal = "In apps/explorer/deploy/tools/multichain-config-generator/index.ts, add a deadline and response validation to the initial fetch and propagate timeout failure to the entrypoint before workers are launched."
+owner_domain = 14
+
+[finding.activity-retired-copy]
+file = "apps/explorer/ui/paxeerX/account/ActivityList.tsx"
+line = 54
+class = "retired-reference"
+severity = "low"
+observed = "The account activity note still describes chain-side and kernel-side entries as separate sources even though the merged account view represents native activity within one network."
+expected = "Requirement 14291 and brief fact 1 require account wording to describe the unified native network rather than a separate kernel-side execution domain."
+proposal = "In apps/explorer/ui/paxeerX/account/ActivityList.tsx, replace the chain-side/kernel-side note with an explanation of native account activity and its actual available record types."
+owner_domain = 14
+
+[finding.activity-test-retired-copy]
+file = "apps/explorer/ui/paxeerX/account/ActivityList.spec.tsx"
+line = 90
+class = "test-gap"
+severity = "medium"
+observed = "The ActivityList test asserts the chain-side and kernel-side explanatory note, preserving retired product wording rather than checking the merged account view."
+expected = "Account component tests must assert the native-network wording required by requirement 14291 and use the actual activity response shape."
+proposal = "In apps/explorer/ui/paxeerX/account/ActivityList.spec.tsx, update the assertion alongside the native activity copy and retain coverage of real producer-shaped empty, loading and populated states."
+owner_domain = 14
+
+[finding.asset-test-retired-copy]
+file = "apps/explorer/ui/paxeerX/account/AssetList.spec.tsx"
+line = 62
+class = "test-gap"
+severity = "medium"
+observed = "The AssetList spec expects a chain, custody and kernel balance-breakdown note, but AssetList now renders the native per-asset balances without that retired explanatory text."
+expected = "Requirement 14291 requires tests to match the native asset list rendered from the unified-account producer rather than an obsolete three-domain balance model."
+proposal = "In apps/explorer/ui/paxeerX/account/AssetList.spec.tsx, assert the actual native per-asset list and its empty/loading behavior using the current producer-shaped fixture."
+owner_domain = 14
+
+[finding.asset-item-fixture-mismatch]
+file = "apps/explorer/ui/paxeerX/account/AssetListItem.spec.tsx"
+line = 67
+class = "test-gap"
+severity = "medium"
+observed = "tokenBalance is mock balances[1], HPX amount 1, while expectations assert USDX amount 2.5. custodyBalance is the USDX amount 2.5 row, while its test expects an unknown asset amount 1200. These assertions do not describe the imported producer-shaped fixture."
+expected = "Each asset-item test must exercise and assert the exact asset identifier, symbol and amount supplied by its selected current unified-account balance row."
+proposal = "In apps/explorer/ui/paxeerX/account/AssetListItem.spec.tsx, select fixtures by asset identity, name the scenarios for native per-asset balances and verify each displayed symbol and amount against that selected row."
+owner_domain = 14
+
+[finding.anchor-table-id-invisible]
+file = "apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTableItem.tsx"
+line = 26
+class = "wiring-gap"
+severity = "medium"
+observed = "PaxeerXAnchorsTableItem places checkpoint_id only in the data-anchor DOM attribute. It displays batch_number, but no visible or copyable checkpoint identifier is rendered for a user inspecting archive history."
+expected = "Requirement 14287.1 requires the archive anchor row to render its batch number and checkpoint id so historical records can be identified by an explorer user."
+proposal = "In apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTableItem.tsx and PaxeerXAnchorsTable.tsx, add a readable checkpoint-id cell with shortening and copy behavior and retain the batch-number cell."
+owner_domain = 14
+
+[finding.anchor-table-id-test]
+file = "apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTableItem.spec.tsx"
+line = 37
+class = "test-gap"
+severity = "medium"
+observed = "The archive anchor item test treats the data-anchor attribute as checkpoint-id coverage; it never asserts a checkpoint identifier that the user can read or copy, allowing the required visible field to be absent."
+expected = "The test for requirement 14287.1 must verify the batch number and checkpoint identifier in the rendered archive row as product-visible content."
+proposal = "In apps/explorer/ui/paxeerX/anchors/PaxeerXAnchorsTableItem.spec.tsx, assert the visible checkpoint id and its copy control using the current archive API fixture rather than relying only on a DOM bookkeeping attribute."
+owner_domain = 14
+
+[finding.chains-full-history-pagination]
+file = "apps/explorer/ui/paxeerX/chains/ChainDetail.tsx"
+line = 32
+class = "runtime-risk"
+severity = "medium"
+observed = "ChainDetail follows every ascending transfer page and only then retains the last twenty transfers. The indexer really emits ascending id order, so the displayed result is correct but opening an old active tenant requires downloading its full history."
+expected = "A tenant detail page should fetch the latest bounded transfer window with work proportional to the visible page rather than the lifetime of the tenant."
+proposal = "In apps/explorer/ui/paxeerX/chains/ChainDetail.tsx and services/platform/hosted/indexer transfer pagination, add a latest-first or reverse-cursor query and request only the twenty rows displayed, preserving the real producer ordering contract."
+owner_domain = 14
+
+[finding.chain-list-detail-link]
+file = "apps/explorer/ui/paxeerX/chains/ChainsList.tsx"
+line = 53
+class = "wiring-gap"
+severity = "medium"
+observed = "The tenant chain list renders each chain name as plain text and provides no navigation to the implemented ChainDetail view from the row."
+expected = "Requirement 20007 requires chain detail navigation so an operator can select a tenant and inspect that tenant balances, transfers and bridges."
+proposal = "In apps/explorer/ui/paxeerX/chains/ChainsList.tsx, link the tenant identifier or name to the registered chain detail route and verify the selected tenant id reaches its detail queries."
+owner_domain = 14
+
+[finding.chain-detail-retired-rpc-fixture]
+file = "apps/explorer/ui/paxeerX/chains/detail.spec.ts"
+line = 65
+class = "retired-reference"
+severity = "low"
+observed = "The tenant endpoint fixture includes the retired /rpc/chain/<id> base. The /chain/<id> tenant suffix is valid, but this example still teaches callers to prepend a unified /rpc endpoint."
+expected = "Brief facts 2 and 3 require examples to start from the real node root or hosted service base while preserving the tenant domain parameter."
+proposal = "In apps/explorer/ui/paxeerX/chains/detail.spec.ts, replace the retired /rpc base with the actual configured service root and retain assertions that the tenant id is encoded and joined correctly."
+owner_domain = 14
+
+[finding.chain-model-retired-rpc-fixture]
+file = "apps/explorer/ui/paxeerX/chains/model.spec.ts"
+line = 54
+class = "retired-reference"
+severity = "low"
+observed = "The tenant endpoint fixture includes the retired /rpc/chain/<id> base. The /chain/<id> tenant suffix is valid, but this example still teaches callers to prepend a unified /rpc endpoint."
+expected = "Brief facts 2 and 3 require examples to start from the real node root or hosted service base while preserving the tenant domain parameter."
+proposal = "In apps/explorer/ui/paxeerX/chains/model.spec.ts, replace the retired /rpc base with the actual configured service root and retain assertions that the tenant id is encoded and joined correctly."
+owner_domain = 14
+
+[finding.feed-socket-joined-lifecycle]
+file = "apps/explorer/ui/paxeerX/feed/useFeedSocket.ts"
+line = 19
+class = "restart-recovery"
+severity = "medium"
+observed = "isJoined becomes true after one channel joins but is not reset when topic or enabled changes. useSocketChannel leaves the old channel without closing the socket, so an open socket plus stale isJoined can disable polling before the replacement channel has joined; join timeout also has no state-reset handler."
+expected = "Polling fallback must remain active until the current enabled topic has joined, and topic changes, timeout, disable and reconnect must invalidate the former subscription state."
+proposal = "In apps/explorer/ui/paxeerX/feed/useFeedSocket.ts, key join state to the current channel/topic, clear it on cleanup and timeout and verify a failed replacement join keeps the HTTP polling fallback running."
+owner_domain = 14
+
+[finding.bottom-tabs-navigation-length]
+file = "apps/web/packages/layerx-ui/src/components/app-shell.tsx"
+line = 87
+class = "runtime-risk"
+severity = "medium"
+observed = "BottomTabBar accepts an arbitrary NavItem array, slices it and dereferences four fixed positions. Fewer than four entries can dereference undefined, while entries beyond the selected four disappear without an overflow destination."
+expected = "The shared navigation component must safely represent its declared input lengths and preserve access to every supplied destination."
+proposal = "In apps/web/packages/layerx-ui/src/components/app-shell.tsx, render the actual available items with explicit overflow behavior or enforce a documented four-item input type at the public boundary and verify supported short and long navigation lists."
+owner_domain = 14
+
+[finding.avatar-source-recovery]
+file = "apps/web/packages/layerx-ui/src/components/avatar.tsx"
+line = 50
+class = "runtime-risk"
+severity = "low"
+observed = "Avatar remembers imgFailed after an image error but does not reset that state when src changes. A valid replacement profile image remains hidden until the component is remounted."
+expected = "Updating a profile image must retry the new source and display it when it succeeds without requiring a full page reload."
+proposal = "In apps/web/packages/layerx-ui/src/components/avatar.tsx, reset the image-failure state for each new source and verify a failed URL followed by a valid URL recovers the image."
+owner_domain = 14
+
+[finding.button-slot-loading-children]
+file = "apps/web/packages/layerx-ui/src/components/button.tsx"
+line = 61
+class = "runtime-risk"
+severity = "medium"
+observed = "Button allows asChild and loading together. In that combination the Slot receives both the loading spinner and the consumer child, violating its single-child requirement and causing React.Children.only to throw."
+expected = "Every combination allowed by the public Button props must render safely and preserve the loading and disabled interaction semantics."
+proposal = "In apps/web/packages/layerx-ui/src/components/button.tsx, keep exactly one slotted element and compose loading content inside that element, or make the unsupported combination explicit in the prop contract and its callers."
+owner_domain = 14
+
+[finding.card-aschild-ignored]
+file = "apps/web/packages/layerx-ui/src/components/card.tsx"
+line = 26
+class = "wiring-gap"
+severity = "low"
+observed = "Card publicly accepts asChild but always renders a div without consuming the prop, unlike the polymorphic behavior that the declared property implies."
+expected = "A shared component prop must either implement its promised child composition semantics or be absent from the supported component API."
+proposal = "In apps/web/packages/layerx-ui/src/components/card.tsx, implement asChild with the shared single-child composition primitive or remove the unsupported prop and update consumers explicitly."
+owner_domain = 14
+
+[finding.wizard-empty-steps]
+file = "apps/web/packages/layerx-ui/src/components/wizard.tsx"
+line = 56
+class = "runtime-risk"
+severity = "medium"
+observed = "Wizard accepts an unrestricted steps array and indexes the current entry without checking for an empty list or a current step beyond a shortened replacement list. Rendering such an input dereferences missing step fields."
+expected = "A wizard must represent an empty or changed workflow safely or enforce a nonempty stable step contract before rendering the current step."
+proposal = "In apps/web/packages/layerx-ui/src/components/wizard.tsx, validate nonempty steps, reconcile the current index when steps change and render an explicit empty-workflow state where the public API permits it."
+owner_domain = 14
+
+[finding.csv-formula-injection]
+file = "apps/web/packages/layerx-ui/src/lib/format.ts"
+line = 54
+class = "security"
+severity = "medium"
+observed = "downloadCsv quotes delimiters and newline characters but emits leading =, +, - and @ text unchanged, and does not quote a standalone carriage return. MoneyList can export arbitrary item titles, allowing spreadsheet formula interpretation of untrusted labels."
+expected = "Exporting account and money-list text must preserve fields as inert text and must not turn user-controlled labels into spreadsheet formulas or additional records."
+proposal = "In apps/web/packages/layerx-ui/src/lib/format.ts and money-list export handling, apply an explicit spreadsheet-safe text encoding policy and correct CR/LF CSV quoting, with coverage for formula prefixes, quotes and carriage returns."
+owner_domain = 14
+
+[finding.doc-cluster-daemon]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 50
+class = "doc-drift"
+severity = "medium"
+observed = "The beta cluster guide starts layerxd with --custody-profile and describes a separate custody bootstrap as the running operator topology."
+expected = "Brief facts 1 and 2 define one merged paxd network with its kernel and retire layerxd as a running component."
+proposal = "Rewrite docs/site/docs/operators/beta-cluster.md around merged paxd deployment, current account funding and restart procedures, labeling any retained pre-merge bootstrap instructions as historical."
+owner_domain = 8
+
+[finding.doc-root-two-domains]
+file = "README.md"
+line = 44
+class = "doc-drift"
+severity = "medium"
+observed = "The repository overview describes two execution domains, a separate kernel daemon and checkpoint settlement, and later calls the merge draft work."
+expected = "The repository introduction must explain the finished single BFT network and finality at block commitment rather than an upcoming separate interface."
+proposal = "Rewrite README.md execution and roadmap sections for the merged paxd network, native accounts and root node RPC, linking archived architecture only as historical background."
+owner_domain = 8
+
+[finding.doc-quickstart-router]
+file = "docs/site/docs/overview/quickstart.md"
+line = 167
+class = "doc-drift"
+severity = "medium"
+observed = "The quickstart repeatedly directs callers through /rpc and router endpoints and includes retired custody funding and checkpoint finality guidance."
+expected = "Public node RPC must use the node root; px_ calls belong to the hosted gateway and ordinary receipts become final when their blocks commit."
+proposal = "Rewrite docs/site/docs/overview/quickstart.md commands and examples using actual node-root and hosted-gateway endpoints, native funding and committed-block finality, checking every copyable command."
+owner_domain = 8
+
+[finding.doc-quickstart-faucet]
+file = "docs/site/docs/overview/quickstart.md"
+line = 308
+class = "doc-drift"
+severity = "medium"
+observed = "The quickstart says there is no layerx faucet command, while the dedicated faucet guide provides layerx faucet commands at lines 20-28."
+expected = "The onboarding and faucet guides must agree on available supported funding commands and their required configuration."
+proposal = "Reconcile docs/site/docs/overview/quickstart.md funding instructions with docs/site/docs/platform/faucet.md and the current CLI command registry so new users receive one executable funding procedure."
+owner_domain = 8
+
+[finding.doc-control-router]
+file = "docs/site/docs/operators/beta-control.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The beta control guide describes public funding through the router and a separately hosted LayerX component in its introductory deployment model."
+expected = "Operator control guidance must identify node-root public RPC and the separate hosted gateway within the one merged network."
+proposal = "Rewrite docs/site/docs/operators/beta-control.md endpoint and topology guidance to name current running components and show a funding request through its actual producer."
+owner_domain = 8
+
+[finding.doc-agent-finality]
+file = "docs/site/docs/agents/agentd.md"
+line = 469
+class = "doc-drift"
+severity = "medium"
+observed = "The agent guide presents checkpoint finality and CHECKPOINT_FINALISED as live authority signals without distinguishing them from current block finality."
+expected = "A receipt in the merged network is final at BFT block commitment; local agent workflow milestones must not establish a second network finality ladder."
+proposal = "Rewrite docs/site/docs/agents/agentd.md finality and authority sections to distinguish local workflow events from committed network state and label historical checkpoint events explicitly."
+owner_domain = 8
+
+[finding.doc-faucet-router]
+file = "docs/site/docs/platform/faucet.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The faucet guide describes its funding transport as a router even though that public endpoint has been retired from the finished topology."
+expected = "The funding guide must identify the actual current faucet service and node-root RPC checks and must not require a unified router."
+proposal = "Update docs/site/docs/platform/faucet.md transport and verification examples to the current faucet and node producers, preserving the implemented funding command and its errors."
+owner_domain = 8
+
+[finding.doc-cli-rpc-base]
+file = "docs/site/docs/platform/cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The CLI guide requires the global RPC URL to end in /rpc, which routes users to a retired unified endpoint instead of the node root."
+expected = "CLI endpoint examples must use public node root JSON-RPC and configure hosted gateway calls separately where the command needs px_ methods."
+proposal = "Update docs/site/docs/platform/cli.md global endpoint guidance and every copyable example to the current node-root and hosted-service split, including the tenant suffix only where supported."
+owner_domain = 8
+
+[finding.doc-cli-command-conflict]
+file = "docs/site/docs/platform/cli.md"
+line = 106
+class = "doc-drift"
+severity = "medium"
+observed = "The command table advertises commands and JSON options while later sections say those same commands are unimplemented and JSON is global-only."
+expected = "A CLI reference must give one consistent account of supported commands and option placement based on the actual command parser."
+proposal = "Reconcile docs/site/docs/platform/cli.md availability and option sections against the current CLI registry and replace contradictory statements with verified invocation examples."
+owner_domain = 8
+
+[finding.doc-agent-boundary-daemon]
+file = "docs/site/docs/platform/agent-boundary.md"
+line = 297
+class = "doc-drift"
+severity = "medium"
+observed = "The boundary page names a layerxd socket and later describes a standalone sequencer and authority replica as real deployment components."
+expected = "The merged network kernel belongs to paxd and there is no separate sequencer service or retired layerxd daemon in the finished deployment."
+proposal = "Rewrite docs/site/docs/platform/agent-boundary.md IPC, lifecycle and authority topology for the merged node boundary, labeling any preserved old protocol descriptions as archival."
+owner_domain = 8
+
+[finding.doc-gateway-unified-router]
+file = "docs/site/docs/platform/hosted-gateway.md"
+line = 39
+class = "doc-drift"
+severity = "medium"
+observed = "The hosted gateway guide calls the router the unified eth/lx/px endpoint and retains /rpc examples, obscuring which service implements each namespace."
+expected = "Brief fact 3 assigns node namespaces to node root JSON-RPC and px_ methods to the hosted gateway OpenRPC contract, without a unified router."
+proposal = "Rewrite docs/site/docs/platform/hosted-gateway.md routing and examples around actual hosted px_ methods and distinct public node RPC, retaining gateway error and response shapes from openrpc.json."
+owner_domain = 8
+
+[doc.01]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "stale"
+notes = "Lines 3 and 50 describe a separate layerxd daemon and --custody-profile; lines 36-42 use the old custody bootstrap. Rewrite the operator topology for one merged paxd network and distinguish historical bootstrap material."
+
+[doc.02]
+path = "contracts/bridge/README.md"
+status = "accurate"
+notes = "The lock/release bridge, 0x1016 capability readback, threshold attestors, recipient encodings and restart journal describe the actual bridge contract; this bridge is distinct from the retired native custody module."
+
+[doc.03]
+path = "README.md"
+status = "misleading"
+notes = "Lines 44-47 present two execution domains, a separate kernel daemon and checkpoint settlement; lines 75 and 180 frame the merge as future or draft behavior. The repository overview must describe the finished single network."
+
+[doc.04]
+path = "docs/site/docs/overview/quickstart.md"
+status = "misleading"
+notes = "Lines 20, 167-168, 214-217, 302, 497, 518 and 596 retain router or /rpc guidance and old funding/finality vocabulary. Line 308 denies the faucet command documented in platform/faucet.md lines 20-28."
+
+[doc.05]
+path = "docs/site/docs/concepts/paxeer-boundary.md"
+status = "accurate"
+notes = "The private TLS node boundary uses the root JSON-RPC transport and chain id 125, validates genesis and identity, and preserves typed failure behavior. Its private bootstrap context does not establish a public unified router."
+
+[doc.06]
+path = "docs/site/docs/operators/beta-control.md"
+status = "stale"
+notes = "Lines 5 and 8 describe router funding and a separately hosted LayerX component. Rewrite the public funding entrypoint and deployment description around node root JSON-RPC and the distinct hosted gateway."
+
+[doc.07]
+path = "docs/site/docs/agents/agentd.md"
+status = "stale"
+notes = "Lines 469-483 describe checkpoint finality and CHECKPOINT_FINALISED as a live authority signal. Separate local agent control milestones from network finality, which follows the committed BFT block."
+
+[doc.08]
+path = "docs/site/docs/platform/faucet.md"
+status = "stale"
+notes = "Line 5 describes funding through the router, which is retired. The concrete faucet command at lines 20-28 also exposes the conflicting no-command claim in overview/quickstart.md line 308."
+
+[doc.09]
+path = "docs/site/docs/platform/cli.md"
+status = "misleading"
+notes = "Line 8 requires a global RPC URL ending in /rpc. Lines 106-139 contradict the command table about implemented commands and JSON availability. Rewrite endpoint and command availability against the current CLI implementation."
+
+[doc.10]
+path = "docs/site/docs/platform/agent-boundary.md"
+status = "stale"
+notes = "Line 297 names a layerxd LNI socket and lines 419-420 describe a standalone sequencer and authority replica. Document the merged node kernel boundary and distinguish retained local agent control concepts from retired deployment roles."
+
+[doc.11]
+path = "docs/site/docs/platform/identity.md"
+status = "accurate"
+notes = "Hosted principal/session authentication, identity keys and durable state are internally consistent with the hosted identity interface. This service is distinct from the explorer account Auth0-to-Keycloak migration and its local watchlists."
+
+[doc.12]
+path = "docs/site/docs/platform/hosted-gateway.md"
+status = "misleading"
+notes = "Lines 39-42, 50-51 and 198-200 describe a unified router for eth/lx/px; line 609 retains a /rpc route. The px_ gateway contract remains real, but node root JSON-RPC must be documented as a separate producer."
+
+[doc.13]
+path = "apps/web/packages/layerx-ui/README.md"
+status = "accurate"
+notes = "The responsive UI primitives, platform provider, installation and build examples match this package. The four-item navigation example is valid; broader component input defects are recorded against their owning source files."
+
+[doc.14]
+path = "spec/layerx-merge/contracts/explorer-config.md"
+status = "stale"
+notes = "This generated contract explicitly freezes revision 2a1033aa2. Relevant config rows at lines 142-143 and 305-306 retain obsolete finality settings and the router URL; they are historical evidence, not current merged-network deployment guidance. Relevant sections were inspected; no full-page currentness claim is made."
+
+[doc.15]
+path = "spec/layerx-merge/contracts/explorer-frontend-config.md"
+status = "accurate"
+notes = "This generated contract explicitly freezes revision 2a1033aa2. The examined NEXT_PUBLIC_PAXEER_X_ENABLED flag rows at lines 1005-1009 agree with the frontend contract; status is limited to these relevant frozen sections, not an assertion that every historical row is current."

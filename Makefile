@@ -2912,6 +2912,7 @@ $(BUILD_DIR)/tests/paxai_host_boundary: tests/programs/test_ai_host_boundary.c \
 paxai-host-boundary: paxai-host-boundary-build
 
 paxai-host-boundary-build: $(BUILD_DIR)/tests/paxai_host_boundary
+	@printf '%s\n' '$(PAXAI_CHAIN_DOMAIN)' | LC_ALL=C grep -Eq '^[0-9a-f]{64}$$'
 	cd programs && PAXAI_CHAIN_DOMAIN=$(PAXAI_CHAIN_DOMAIN) $(PROGRAMS_CARGO) build --locked --release --target wasm32-unknown-unknown -p layerx-programs-ai-market
 	@mkdir -p $(PAXAI_HOST_BOUNDARY_DIR)
 	cp $(if $(CARGO_TARGET_DIR),$(CARGO_TARGET_DIR),programs/target)/wasm32-unknown-unknown/release/layerx_programs_ai_market.wasm $(PAXAI_HOST_BOUNDARY_DIR)/ai_market.wasm

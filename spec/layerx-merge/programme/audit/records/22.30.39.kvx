@@ -1,0 +1,1037 @@
+[audit.22.30.39]
+task = "22.30.39"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 103
+findings = 32
+docs_reviewed = 14
+upgrade_ready = false
+blocking = ["1", "2", "3", "4", "8", "9", "10", "21"]
+note = "Decision 2515 pre-upgrade source audit against package requirements, 255 produced and 420 consumed registry rows and the merged-network brief. All non-generated members were read in full; four sqlc outputs take generated verdicts from their headers. Findings propose repairs only; this record does not qualify service behavior."
+
+[file.1]
+path = "apps/launchpad/package.json"
+lines = 61
+verdict = "clean"
+note = "Full manifest, package overrides and script review; retired bot commands are absent and web/package commands retain their declared names."
+
+[file.2]
+path = "apps/launchpad/web/postcss.config.mjs"
+lines = 7
+verdict = "clean"
+note = "Full Tailwind v4 PostCSS object review; plugin registration agrees with Next and Vite config loader expectations."
+
+[file.3]
+path = "services/launchpad/pnl-tracker/internal/devreads/account.go"
+lines = 100
+verdict = "clean"
+note = "Full account authority, public/private portfolio privacy and revision lookup review; unauthorized reads refuse explicitly."
+
+[file.4]
+path = "services/launchpad/pnl-tracker/internal/devreads/chain.go"
+lines = 162
+verdict = "clean"
+note = "Full chain-125 header/block RPC validation review; client uses root RPC with bounded responses and timeouts."
+
+[file.5]
+path = "services/launchpad/pnl-tracker/internal/devreads/devreads_test.go"
+lines = 388
+verdict = "clean"
+note = "Full real PostgreSQL/RPC projection, canonical-amount, privacy and refusal fixture review; it does not claim concurrent-snapshot coverage."
+
+[file.6]
+path = "services/launchpad/pnl-tracker/internal/devreads/history.go"
+lines = 380
+verdict = "issues"
+note = "Read in full; findings below identify the concrete interface, runtime, recovery, configuration or test disagreements in this member."
+
+[file.7]
+path = "services/launchpad/pnl-tracker/internal/devreads/http.go"
+lines = 279
+verdict = "clean"
+note = "Full read route, authentication, request bounds and frozen envelope/error review; snapshot/history consistency findings are attributed to their producers."
+
+[file.8]
+path = "services/launchpad/pnl-tracker/internal/devreads/mount.go"
+lines = 45
+verdict = "clean"
+note = "Full development read registration and authority injection review; unavailable write capabilities remain explicit refusals."
+
+[file.9]
+path = "services/launchpad/pnl-tracker/internal/devreads/snapshot.go"
+lines = 241
+verdict = "issues"
+note = "Read in full; findings below identify the concrete interface, runtime, recovery, configuration or test disagreements in this member."
+
+[file.10]
+path = "services/launchpad/pnl-tracker/internal/devreads/unserved.go"
+lines = 44
+verdict = "clean"
+note = "Full unsupported portfolio card/export/share route review; authenticated dependency refusal creates no fictional job or success."
+
+[file.11]
+path = "services/launchpad/pnl-tracker/internal/devreads/unserved_test.go"
+lines = 60
+verdict = "clean"
+note = "Full unsupported-template, authentication and frozen refusal assertion review; fixtures do not fabricate unavailable portfolio capabilities."
+
+[file.12]
+path = "services/launchpad/social/cmd/sociald/main.go"
+lines = 21
+verdict = "clean"
+note = "Full entrypoint review: process lifecycle, error reporting and exit handling delegate to the actual app runtime."
+
+[file.13]
+path = "services/launchpad/social/internal/app/app.go"
+lines = 1632
+verdict = "issues"
+note = "Read in full; findings below identify the concrete interface, runtime, recovery, configuration or test disagreements in this member."
+
+[file.14]
+path = "services/launchpad/social/internal/app/dev_v2_test.go"
+lines = 461
+verdict = "clean"
+note = "Full real PostgreSQL/Redis development v2 fixture review: HTTP/schema, WebSocket persistence, idempotency, refused writes and restart match that profile."
+
+[file.15]
+path = "services/launchpad/social/internal/app/platform.go"
+lines = 315
+verdict = "clean"
+note = "Full platform identity/mTLS, session cache, ingress and message projection review; TicketAuthenticator accepts the gateway ticket-only path."
+
+[file.16]
+path = "services/launchpad/social/internal/app/platform_private.go"
+lines = 200
+verdict = "clean"
+note = "Full private listener and peer pinning review; public listener isolation and transaction-backed canonical ranking visibility preserve the authority boundary."
+
+[file.17]
+path = "services/launchpad/social/internal/app/platform_test.go"
+lines = 803
+verdict = "clean"
+note = "Full real platform identity, PostgreSQL/Redis, private listener, single-use ticket and restart fixture review; profile-specific assertions match the producer."
+
+[file.18]
+path = "services/launchpad/social/internal/common/common.go"
+lines = 73
+verdict = "clean"
+note = "Full address/content, DM identity and generated message-ID helper review; pagination order disagreement is recorded at SQL queries."
+
+[file.19]
+path = "services/launchpad/social/internal/common/common_test.go"
+lines = 93
+verdict = "clean"
+note = "Read the full common test file and its registered functions, fixtures, assertions and teardown. Cases agree with the implementation and real dependency boundary they exercise; omitted cross-profile/recovery coverage is proposed at the responsible implementation finding."
+
+[file.20]
+path = "services/launchpad/social/internal/config/config.go"
+lines = 687
+verdict = "clean"
+note = "Full environment/profile, schema/budget, secrets, TLS/identity and production runtime binding review; input names match registry declarations."
+
+[file.21]
+path = "services/launchpad/social/internal/config/config_test.go"
+lines = 120
+verdict = "clean"
+note = "Read the full config test file and its registered functions, fixtures, assertions and teardown. Cases agree with the implementation and real dependency boundary they exercise; omitted cross-profile/recovery coverage is proposed at the responsible implementation finding."
+
+[file.22]
+path = "services/launchpad/social/internal/config/platform_test.go"
+lines = 196
+verdict = "clean"
+note = "Read the full config test file and its registered functions, fixtures, assertions and teardown. Cases agree with the implementation and real dependency boundary they exercise; omitted cross-profile/recovery coverage is proposed at the responsible implementation finding."
+
+[file.23]
+path = "services/launchpad/social/internal/db/external.sql"
+lines = 13
+verdict = "clean"
+note = "Full sqlc-only external indexer pool declaration review; creator lookup columns match the query and do not grant runtime schema ownership."
+
+[file.24]
+path = "services/launchpad/social/internal/db/query.sql"
+lines = 165
+verdict = "issues"
+note = "Read in full; findings below identify the concrete interface, runtime, recovery, configuration or test disagreements in this member."
+
+[file.25]
+path = "services/launchpad/social/internal/db/sqlcdb/db.go"
+lines = 32
+verdict = "generated"
+note = "Generated by sqlc v1.31.1 (DO NOT EDIT header); generated row/adapter definitions are exempt from source review. Source query.sql and external.sql were read; the pagination proposal must regenerate this output."
+
+[file.26]
+path = "services/launchpad/social/internal/db/sqlcdb/models.go"
+lines = 84
+verdict = "generated"
+note = "Generated by sqlc v1.31.1 (DO NOT EDIT header); generated row/adapter definitions are exempt from source review. Source query.sql and external.sql were read; the pagination proposal must regenerate this output."
+
+[file.27]
+path = "services/launchpad/social/internal/db/sqlcdb/querier.go"
+lines = 59
+verdict = "generated"
+note = "Generated by sqlc v1.31.1 (DO NOT EDIT header); generated row/adapter definitions are exempt from source review. Source query.sql and external.sql were read; the pagination proposal must regenerate this output."
+
+[file.28]
+path = "services/launchpad/social/internal/db/sqlcdb/query.sql.go"
+lines = 784
+verdict = "generated"
+note = "Generated by sqlc v1.31.1 (DO NOT EDIT header); generated row/adapter definitions are exempt from source review. Source query.sql and external.sql were read; the pagination proposal must regenerate this output."
+
+[file.29]
+path = "services/launchpad/social/internal/devsocial/bounties.go"
+lines = 520
+verdict = "clean"
+note = "Full bounty create/list, submissions and accept lifecycle review; canonical decimal amounts, idempotent request hashes and creator authorization are preserved."
+
+[file.30]
+path = "services/launchpad/social/internal/devsocial/callouts.go"
+lines = 150
+verdict = "clean"
+note = "Full callout create/list review; settlement asset/pool checks, canonical amounts, profile-independent shapes and request identity are explicit."
+
+[file.31]
+path = "services/launchpad/social/internal/devsocial/comments.go"
+lines = 216
+verdict = "clean"
+note = "Full frozen comment adapter review: revision/idempotency mapping, authority calls and response validation; platform safety propagation is recorded at assembly."
+
+[file.32]
+path = "services/launchpad/social/internal/devsocial/envelope.go"
+lines = 196
+verdict = "clean"
+note = "Full frozen schema/envelope, request ID, bounded decode, error mapping and idempotency helper review."
+
+[file.33]
+path = "services/launchpad/social/internal/devsocial/policy.go"
+lines = 164
+verdict = "issues"
+note = "Read in full; findings below identify the concrete interface, runtime, recovery, configuration or test disagreements in this member."
+
+[file.34]
+path = "services/launchpad/social/internal/devsocial/reports.go"
+lines = 121
+verdict = "issues"
+note = "Read in full; findings below identify the concrete interface, runtime, recovery, configuration or test disagreements in this member."
+
+[file.35]
+path = "services/launchpad/social/internal/devsocial/runtime.go"
+lines = 293
+verdict = "clean"
+note = "Full route assembly, durable cursor-key, authority context and Redis outbox loop review; platform policy/worker gaps are recorded at their assembly or policy call sites."
+
+[file.36]
+path = "services/launchpad/social/internal/devsocial/runtime_test.go"
+lines = 137
+verdict = "clean"
+note = "Read the full devsocial test file and its registered functions, fixtures, assertions and teardown. Cases agree with the implementation and real dependency boundary they exercise; omitted cross-profile/recovery coverage is proposed at the responsible implementation finding."
+
+[file.37]
+path = "services/launchpad/social/internal/devsocial/social.go"
+lines = 172
+verdict = "clean"
+note = "Full compatibility follow/comment route and pagination review; graph storage sharing is explicit and unsupported privacy/reference capabilities are not faked."
+
+[file.38]
+path = "services/launchpad/social/internal/fanout/conn.go"
+lines = 200
+verdict = "clean"
+note = "Full connection lifecycle review: bounded frames/bytes, deadlines, principal validation, write accounting and close behavior."
+
+[file.39]
+path = "services/launchpad/social/internal/fanout/conn_test.go"
+lines = 90
+verdict = "clean"
+note = "Read the full fanout test file and its registered functions, fixtures, assertions and teardown. Cases agree with the implementation and real dependency boundary they exercise; omitted cross-profile/recovery coverage is proposed at the responsible implementation finding."
+
+[file.40]
+path = "services/launchpad/social/internal/fanout/connected_protocol_test.go"
+lines = 512
+verdict = "clean"
+note = "Read the full fanout test file and its registered functions, fixtures, assertions and teardown. Cases agree with the implementation and real dependency boundary they exercise; omitted cross-profile/recovery coverage is proposed at the responsible implementation finding."
+
+[file.41]
+path = "services/launchpad/social/internal/fanout/durable.go"
+lines = 699
+verdict = "clean"
+note = "Full transactional membership/message, idempotency, replay cursor, revision, outbox and projection review; destructive moderation/restoration disagreement is recorded at app.applyVisibility."
+
+[file.42]
+path = "services/launchpad/social/internal/fanout/durable_test.go"
+lines = 427
+verdict = "clean"
+note = "Read the full fanout test file and its registered functions, fixtures, assertions and teardown. Cases agree with the implementation and real dependency boundary they exercise; omitted cross-profile/recovery coverage is proposed at the responsible implementation finding."
+
+[file.43]
+path = "services/launchpad/social/internal/fanout/http.go"
+lines = 228
+verdict = "clean"
+note = "Full authenticated history, conversations, read-marker and revision handler review, including bounds and durable store/error propagation."
+
+[file.44]
+path = "services/launchpad/social/internal/fanout/http_test.go"
+lines = 71
+verdict = "clean"
+note = "Read the full fanout test file and its registered functions, fixtures, assertions and teardown. Cases agree with the implementation and real dependency boundary they exercise; omitted cross-profile/recovery coverage is proposed at the responsible implementation finding."
+
+[file.45]
+path = "services/launchpad/social/internal/fanout/hub.go"
+lines = 566
+verdict = "issues"
+note = "Read in full; findings below identify the concrete interface, runtime, recovery, configuration or test disagreements in this member."
+
+[file.46]
+path = "services/launchpad/social/internal/fanout/hub_membership_test.go"
+lines = 106
+verdict = "clean"
+note = "Read the full fanout test file and its registered functions, fixtures, assertions and teardown. Cases agree with the implementation and real dependency boundary they exercise; omitted cross-profile/recovery coverage is proposed at the responsible implementation finding."
+
+[file.47]
+path = "services/launchpad/social/internal/fanout/hub_test.go"
+lines = 269
+verdict = "clean"
+note = "Read the full fanout test file and its registered functions, fixtures, assertions and teardown. Cases agree with the implementation and real dependency boundary they exercise; omitted cross-profile/recovery coverage is proposed at the responsible implementation finding."
+
+[file.48]
+path = "services/launchpad/social/internal/fanout/identity.go"
+lines = 121
+verdict = "clean"
+note = "Full ticket binding and conditional extra credential review; topic/origin/session checks and continuous validation agree with the gateway ticket producer."
+
+[file.49]
+path = "services/launchpad/social/internal/fanout/identity_test.go"
+lines = 39
+verdict = "clean"
+note = "Read the full fanout test file and its registered functions, fixtures, assertions and teardown. Cases agree with the implementation and real dependency boundary they exercise; omitted cross-profile/recovery coverage is proposed at the responsible implementation finding."
+
+[file.50]
+path = "services/launchpad/social/internal/fanout/message.go"
+lines = 208
+verdict = "issues"
+note = "Read in full; findings below identify the concrete interface, runtime, recovery, configuration or test disagreements in this member."
+
+[file.51]
+path = "services/launchpad/social/internal/fanout/notification.go"
+lines = 487
+verdict = "clean"
+note = "Full transactional intent, recipient bounds and lease/retry review; notification delivery retains the committed event identity."
+
+[file.52]
+path = "services/launchpad/social/internal/interactions/cache.go"
+lines = 156
+verdict = "clean"
+note = "Full viewer/revision-scoped cache identity review; visibility-sensitive response handling preserves private/no-store boundaries."
+
+[file.53]
+path = "services/launchpad/social/internal/interactions/contract.go"
+lines = 210
+verdict = "issues"
+note = "Read in full; findings below identify the concrete interface, runtime, recovery, configuration or test disagreements in this member."
+
+[file.54]
+path = "services/launchpad/social/internal/interactions/contract_test.go"
+lines = 95
+verdict = "clean"
+note = "Full real follow/profile contract fixture review; current success/status assertions match the producer, while frozen error-schema coverage is proposed in finding 8."
+
+[file.55]
+path = "services/launchpad/social/internal/interactions/erasure.go"
+lines = 304
+verdict = "clean"
+note = "Full durable erasure job review: bounded batches, idempotency, content tombstones and replay purge are persisted."
+
+[file.56]
+path = "services/launchpad/social/internal/interactions/http.go"
+lines = 466
+verdict = "clean"
+note = "Full interaction endpoints, revision handling and transaction-backed snapshots review; platform safety overlay omission is recorded at its absent worker assembly."
+
+[file.57]
+path = "services/launchpad/social/internal/interactions/integration_test.go"
+lines = 1252
+verdict = "clean"
+note = "Full real-authority integration suite review: follows/comments/reactions, privacy/blocks, receipts, durable publication and erasure/recovery."
+
+[file.58]
+path = "services/launchpad/social/internal/interactions/outbox.go"
+lines = 220
+verdict = "clean"
+note = "Full durable publication review: canonical source order, event identity, transactional enqueue and replay retention."
+
+[file.59]
+path = "services/launchpad/social/internal/interactions/policy.go"
+lines = 563
+verdict = "clean"
+note = "Full verified session/account/creator, bilateral block, DM inbox/ban, privacy mutation and committed receipt authority review."
+
+[file.60]
+path = "services/launchpad/social/internal/interactions/projection.go"
+lines = 172
+verdict = "clean"
+note = "Full authoritative content/profile projection review: source/revision checks and idempotent projection updates."
+
+[file.61]
+path = "services/launchpad/social/internal/interactions/schema_sources_test.go"
+lines = 95
+verdict = "clean"
+note = "Read the full interactions test file and its registered functions, fixtures, assertions and teardown. Cases agree with the implementation and real dependency boundary they exercise; omitted cross-profile/recovery coverage is proposed at the responsible implementation finding."
+
+[file.62]
+path = "services/launchpad/social/internal/interactions/store.go"
+lines = 535
+verdict = "clean"
+note = "Full transaction, authority, idempotency/revision, comment/follow mutation and outbox consistency review."
+
+[file.63]
+path = "services/launchpad/social/internal/interactions/store_test.go"
+lines = 352
+verdict = "clean"
+note = "Read the full interactions test file and its registered functions, fixtures, assertions and teardown. Cases agree with the implementation and real dependency boundary they exercise; omitted cross-profile/recovery coverage is proposed at the responsible implementation finding."
+
+[file.64]
+path = "services/launchpad/social/internal/interactions/views.go"
+lines = 23
+verdict = "clean"
+note = "Full graph/list/attachment view review with deterministic pagination, receipt visibility and revision handling."
+
+[file.65]
+path = "services/launchpad/social/internal/internaltest/containers.go"
+lines = 129
+verdict = "clean"
+note = "Full disposable PostgreSQL/Redis provisioning and cleanup review; fixtures use real persistence rather than representing substitute stores as proof."
+
+[file.66]
+path = "services/launchpad/social/internal/migrate/migrate.go"
+lines = 42
+verdict = "clean"
+note = "Full embedded development migration runner review; production schema authority is delegated to coordinator readiness by app assembly."
+
+[file.67]
+path = "services/launchpad/social/internal/safety/appeal.go"
+lines = 69
+verdict = "clean"
+note = "Full revisioned appeal lifecycle review: actor/grant authorization, audit records and outbox transitions."
+
+[file.68]
+path = "services/launchpad/social/internal/safety/auth.go"
+lines = 135
+verdict = "clean"
+note = "Full principal/grant resolution review, including scope/expiry and fail-closed authority handling."
+
+[file.69]
+path = "services/launchpad/social/internal/safety/http_test.go"
+lines = 136
+verdict = "clean"
+note = "Read the full safety test file and its registered functions, fixtures, assertions and teardown. Cases agree with the implementation and real dependency boundary they exercise; omitted cross-profile/recovery coverage is proposed at the responsible implementation finding."
+
+[file.70]
+path = "services/launchpad/social/internal/safety/list.go"
+lines = 112
+verdict = "clean"
+note = "Full moderator enumeration review: case/ban scope, expiry, bounded pages and deterministic ordering."
+
+[file.71]
+path = "services/launchpad/social/internal/safety/phase2_test.go"
+lines = 237
+verdict = "clean"
+note = "Read the full safety test file and its registered functions, fixtures, assertions and teardown. Cases agree with the implementation and real dependency boundary they exercise; omitted cross-profile/recovery coverage is proposed at the responsible implementation finding."
+
+[file.72]
+path = "services/launchpad/social/internal/safety/qualify_phase4.py"
+lines = 339
+verdict = "clean"
+note = "Full real-environment measurement/fault/recovery runner review, including evidence/source binding, raw observation checks and cleanup; this audit did not execute that deployment gate."
+
+[file.73]
+path = "services/launchpad/social/internal/safety/rate_limit.go"
+lines = 117
+verdict = "clean"
+note = "Full bounded Redis abuse limiter review, with failure-closed authority; platform omission is attributed to send assembly."
+
+[file.74]
+path = "services/launchpad/social/internal/safety/reversal.go"
+lines = 242
+verdict = "clean"
+note = "Full authorized revisioned reversal/restoration producer review, audit and outbox; missing restoration effect is attributed to app.applyVisibility."
+
+[file.75]
+path = "services/launchpad/social/internal/safety/store.go"
+lines = 417
+verdict = "clean"
+note = "Full report/case/ban lifecycle, target resolver, actor authority, locks, audit and durable event review."
+
+[file.76]
+path = "services/launchpad/social/internal/safety/store_test.go"
+lines = 367
+verdict = "clean"
+note = "Read the full safety test file and its registered functions, fixtures, assertions and teardown. Cases agree with the implementation and real dependency boundary they exercise; omitted cross-profile/recovery coverage is proposed at the responsible implementation finding."
+
+[file.77]
+path = "services/launchpad/social/internal/safety/visibility.go"
+lines = 150
+verdict = "clean"
+note = "Full visibility revision/state and removed/restored event review; lookup dependency failures refuse explicitly."
+
+[file.78]
+path = "services/launchpad/social/internal/social/comments.go"
+lines = 252
+verdict = "clean"
+note = "Full legacy comment handler review: owned-handler delegation, actor/creator authorization and reaction validation."
+
+[file.79]
+path = "services/launchpad/social/internal/social/contract.go"
+lines = 109
+verdict = "issues"
+note = "Read in full; findings below identify the concrete interface, runtime, recovery, configuration or test disagreements in this member."
+
+[file.80]
+path = "services/launchpad/social/internal/social/contract_test.go"
+lines = 116
+verdict = "clean"
+note = "Full frozen follow success and refusal fixture review; missing frozen error-schema assertions are proposed in finding 9."
+
+[file.81]
+path = "services/launchpad/social/internal/social/follows.go"
+lines = 149
+verdict = "clean"
+note = "Full legacy follow handlers and bound authority delegation review, including wallet and self-follow validation."
+
+[file.82]
+path = "services/launchpad/social/internal/social/handlers.go"
+lines = 423
+verdict = "issues"
+note = "Read in full; findings below identify the concrete interface, runtime, recovery, configuration or test disagreements in this member."
+
+[file.83]
+path = "services/launchpad/social/internal/social/handlers_test.go"
+lines = 622
+verdict = "issues"
+note = "Read in full; findings below identify the concrete interface, runtime, recovery, configuration or test disagreements in this member."
+
+[file.84]
+path = "services/launchpad/social/internal/social/helpers.go"
+lines = 117
+verdict = "clean"
+note = "Full trusted actor, address normalization, SQL null helper and page-limit parsing review."
+
+[file.85]
+path = "services/launchpad/social/internal/social/moderation.go"
+lines = 876
+verdict = "issues"
+note = "Read in full; findings below identify the concrete interface, runtime, recovery, configuration or test disagreements in this member."
+
+[file.86]
+path = "services/launchpad/social/internal/social/proof_launchpad_social_test.go"
+lines = 499
+verdict = "clean"
+note = "Full real social authority proof review; private guest tickets are correctly denied without creating participant state."
+
+[file.87]
+path = "services/launchpad/social/internal/social/voice_catalog_test.go"
+lines = 73
+verdict = "clean"
+note = "Full frozen catalog review against actual chi route methods and templates."
+
+[file.88]
+path = "services/launchpad/social/internal/social/voice_v2_actions_test.go"
+lines = 410
+verdict = "issues"
+note = "Read in full; findings below identify the concrete interface, runtime, recovery, configuration or test disagreements in this member."
+
+[file.89]
+path = "services/launchpad/social/internal/social/voice_v2_errors_test.go"
+lines = 128
+verdict = "clean"
+note = "Full frozen body error review: unknown fields, trailing data, null/shape and numeric/type bounds match the decoder."
+
+[file.90]
+path = "services/launchpad/social/internal/social/voice_v2_read_test.go"
+lines = 248
+verdict = "clean"
+note = "Full real PostgreSQL voice create/read fixture review, including metadata, host and private room admission."
+
+[file.91]
+path = "services/launchpad/social/internal/social/voice_v2_wire.go"
+lines = 134
+verdict = "clean"
+note = "Full frozen voice adapters and schema review; internal provider fields are excluded and error IDs correlate with requests."
+
+[file.92]
+path = "services/launchpad/social/internal/social/voice_v2_wire_test.go"
+lines = 215
+verdict = "clean"
+note = "Full create/read/end/leave/ticket/error frozen schema assertions and internal-field refusal review."
+
+[file.93]
+path = "services/launchpad/social/internal/voice/control.go"
+lines = 518
+verdict = "clean"
+note = "Full room/provider lifecycle, permission, revision locks and participant grant/cleanup review; frozen metadata atomicity is recorded at the create caller."
+
+[file.94]
+path = "services/launchpad/social/internal/voice/control_test.go"
+lines = 220
+verdict = "clean"
+note = "Read the full voice test file and its registered functions, fixtures, assertions and teardown. Cases agree with the implementation and real dependency boundary they exercise; omitted cross-profile/recovery coverage is proposed at the responsible implementation finding."
+
+[file.95]
+path = "services/launchpad/social/internal/voice/phase2_test.go"
+lines = 414
+verdict = "clean"
+note = "Read the full voice test file and its registered functions, fixtures, assertions and teardown. Cases agree with the implementation and real dependency boundary they exercise; omitted cross-profile/recovery coverage is proposed at the responsible implementation finding."
+
+[file.96]
+path = "services/launchpad/social/internal/voice/provider.go"
+lines = 369
+verdict = "clean"
+note = "Full bounded HTTPS LiveKit session/token, ejection, reconciliation and recording egress transport review, including credential and response validation."
+
+[file.97]
+path = "services/launchpad/social/internal/voice/reconcile.go"
+lines = 439
+verdict = "issues"
+note = "Read in full; findings below identify the concrete interface, runtime, recovery, configuration or test disagreements in this member."
+
+[file.98]
+path = "services/launchpad/social/internal/voice/recording.go"
+lines = 374
+verdict = "clean"
+note = "Full explicit consent, purpose/version/retention, restricted storage, state transition and durable cleanup-intent review."
+
+[file.99]
+path = "services/launchpad/social/internal/voice/schema_sources_test.go"
+lines = 80
+verdict = "clean"
+note = "Read the full voice test file and its registered functions, fixtures, assertions and teardown. Cases agree with the implementation and real dependency boundary they exercise; omitted cross-profile/recovery coverage is proposed at the responsible implementation finding."
+
+[file.100]
+path = "services/launchpad/social/migrations/migrations.go"
+lines = 11
+verdict = "clean"
+note = "Full migration embedding/fs exposure review; production does not run a second runtime-owned schema authority."
+
+[file.101]
+path = "services/launchpad/social/migrations/migrations_test.go"
+lines = 107
+verdict = "clean"
+note = "Read the full migrations test file and its registered functions, fixtures, assertions and teardown. Cases agree with the implementation and real dependency boundary they exercise; omitted cross-profile/recovery coverage is proposed at the responsible implementation finding."
+
+[file.102]
+path = "services/launchpad/social/pkg/types/types.go"
+lines = 240
+verdict = "issues"
+note = "Read in full; findings below identify the concrete interface, runtime, recovery, configuration or test disagreements in this member."
+
+[file.103]
+path = "services/launchpad/social/sqlc.yaml"
+lines = 31
+verdict = "clean"
+note = "Full PostgreSQL query/schema input, output path, pgx v5 and JSON/SQL mapping configuration review."
+
+[finding.1]
+file = "services/launchpad/social/internal/app/app.go"
+line = 295
+class = "wiring-gap"
+severity = "high"
+observed = "The container/owned_local production branch registers connected chat, interaction and safety handlers but creates no devsocial.Runtime. Frozen comments, callouts, bounties and report routes are registered only when dev != nil. For example POST /v2/callouts is absent although registry 4.http-social-post-v2-callouts, gateway FrozenConnectedSurface and SDK createCallout advertise it. Production topology.py selects RUNTIME_PROFILE=container."
+expected = "Frozen social operations must reach authoritative stores in the deployed production profile. The SDK producer, gateway route and service consumer must agree on reachable templates and behavior, including restart (21069.1)."
+proposal = "In services/launchpad/social/internal/app/app.go mount frozen comments, callout, bounty and report adapters over bound production stores and authorities; align services/launchpad/gateway/internal/proxy/connected.go registration and prove actual SDK-to-gateway-to-social operations and restart in the container profile."
+owner_domain = 4
+interface = "4.http-social-post-v2-callouts"
+
+[finding.2]
+file = "services/launchpad/social/internal/app/app.go"
+line = 885
+class = "interface-mismatch"
+severity = "high"
+observed = "authenticateTicket consumes the single-use topic-bound ticket then unconditionally calls r.identity.AuthenticateRequest on the upgrade request. Gateway ConnectedWS deliberately forwards a ticket-only cross-site browser without a session credential, and web chat-ws.ts opens a socket with only sidiora.v2 and ticket subprotocols. The valid ticket is spent before the upgrade is rejected."
+expected = "The ticket is a complete browser upgrade credential. gateway/internal/proxy/connected_ws.go authenticates an additional cookie/bearer only when present; the bound social consumer must accept that ticket-only path and continuously check the resolved session."
+proposal = "Use internal/fanout/identity.go TicketAuthenticator in app.go: redeem once, preserve topic/origin/session binding, and compare a separately authenticated identity only when credentials were supplied. Prove a real bound gateway/browser ticket-only upgrade, replay refusal and revoked-session shutdown."
+owner_domain = 4
+interface = "4.ws-social-get-v2-stream-app-2"
+
+[finding.3]
+file = "services/launchpad/social/internal/app/app.go"
+line = 1289
+class = "restart-recovery"
+severity = "high"
+observed = "applyVisibility returns nil for restored visibility. Removal calls DurableStore.ModerateTx, clearing message content/reply_to, or clears interaction_comments.body and sets removed=true. RestoreAppealedVisibility later records status=restored and emits an event, but the consumer cannot recover those bodies or clear the tombstones. An upheld appeal permanently loses the original content."
+expected = "The declared POST /v2/safety/cases/{caseId}/restore operation must restore eligible appealed content in current reads, history and replay after restart; moderation removal must remain distinct from author deletion or account erasure."
+proposal = "In internal/app/app.go and internal/fanout/durable.go use a reversible moderation overlay or retain restricted originals under an explicit retention policy. Apply restoration transactionally with a new revision/replay event; prove remove, reversed appeal, restore, restart and history through the real consumer."
+owner_domain = 4
+interface = "4.http-social-post-v2-safety-cases-case-id-restore"
+
+[finding.4]
+file = "services/launchpad/social/internal/app/app.go"
+line = 423
+class = "wiring-gap"
+severity = "high"
+observed = "The production platform branch mounts safety.Store routes but Run starts only Hub.Run and dev.Run. stageSafetyOutbox/consumePolicy/applyVisibility run only for app.connected. Platform comment lists filter interaction_comments.removed without consulting safety_visibility, so accepted safety removals remain visible via frozen and /v2/social comment lists."
+expected = "A persisted safety removal must affect every served content surface and remain effective after restart. PlatformMessageProjection already checks safety_visibility for chat messages; comment reads and caches need the same authoritative decision (21069.1)."
+proposal = "Wire a durable safety visibility consumer into the platform assembly or enforce the safety overlay in internal/interactions/http.go comment snapshots and cache revisions. Share bound-runtime authority and prove removal/restoration on frozen and interaction reads across restart."
+owner_domain = 4
+interface = "4.http-social-get-v2-pools-pool-address-comments"
+
+[finding.5]
+file = "services/launchpad/social/internal/fanout/message.go"
+line = 124
+class = "wiring-gap"
+severity = "medium"
+observed = "persistSend skips h.allow when protocolVersion == 2. app.go selects version 2 for production platform, but devsocial.New supplies only Policy.SendChat without safety.AbuseLimiter; that policy performs no rate accounting. MAX_POOL_MSGS_PER_WINDOW and MAX_DM_MSGS_PER_WINDOW do not bound platform WebSocket messages."
+expected = "Every new production message needs per-actor abuse enforcement with idempotent retry semantics. Limiting an HTTP upgrade cannot account for subsequent WebSocket frames."
+proposal = "Inject the shared send-policy and safety.AbuseLimiter path into platform DurableStore assembly in internal/app/app.go and internal/devsocial/runtime.go. Prove quota refusal, repeated client-message identity and Redis dependency failure through the actual platform socket."
+owner_domain = 4
+interface = "4.env-social-max-pool-msgs-per-window"
+
+[finding.6]
+file = "services/launchpad/social/internal/devsocial/policy.go"
+line = 144
+class = "security"
+severity = "medium"
+observed = "Production platform reuses Policy.SendChat. Its DM branch checks only peer erasure, while denied checks sender global/pool bans. It ignores bilateral interaction_blocks, recipient inbox preferences and DM-scoped bans, unlike interactions.PGPolicy.SendPolicy. Persisted privacy restrictions are bypassed by this production profile."
+expected = "Blocked peers, inbox=nobody/followed_only and DM-specific moderation restrictions must yield the same refusal across production profiles and after restart, before a message or delivery intent commits."
+proposal = "Make platform assembly and internal/devsocial/policy.go use the authoritative PGPolicy DM checks and read authorization with the necessary identity guards. Prove persisted bilateral blocks, inbox modes, DM bans and reconnect/restart on the real platform socket."
+owner_domain = 4
+interface = "4.http-social-put-v2-social-me-social-blocks-wallet"
+
+[finding.7]
+file = "services/launchpad/social/internal/devsocial/reports.go"
+line = 115
+class = "wiring-gap"
+severity = "medium"
+observed = "IF_REPORT_CREATE inserts an open report into chat.v2_reports and returns a tracking ID. safety.Store.ListCases and admin moderation read safety_cases. No code consumes v2_reports into safety_cases or emits a moderation intake event, so a frozen report succeeds without entering the moderator queue."
+expected = "An accepted POST /v2/reports must enter the moderation workflow under a traceable identity and preserve its idempotent result; user-facing open status must refer to work moderators can find."
+proposal = "Adapt frozen reports into safety intake in internal/devsocial/reports.go or transactionally enqueue a durable bridge to safety_cases. Preserve report-to-case identity and reason/evidence mapping; prove duplicate submission, moderator listing and delivery after restart through the gateway."
+owner_domain = 4
+interface = "4.http-social-post-v2-reports"
+
+[finding.8]
+file = "services/launchpad/social/internal/interactions/contract.go"
+line = 145
+class = "interface-mismatch"
+severity = "high"
+observed = "Bound frozen follow handlers call interactions.httpError, which emits only code and retryable. shared/interfaces/v2 Error and the SDK transport decoder also require requestId, message, details, fieldErrors and retryAfterMs. Invalid follow, authorization and dependency responses fail that decoder and lose declared structured error information."
+expected = "Frozen v2 follow errors must validate against the same complete Error schema as the other frozen social adapters, preserving request identity and declared error codes through producer, gateway and SDK."
+proposal = "Add a schema-validated frozen error writer to internal/interactions/contract.go, map internal failures to frozen codes and propagate the request ID. Extend contract_test.go with invalid-wallet, self-follow, denied, missing and dependency cases passed through the real SDK transport decoder."
+owner_domain = 4
+interface = "4.http-social-put-v2-me-following-wallet-contract"
+
+[finding.9]
+file = "services/launchpad/social/internal/social/contract.go"
+line = 45
+class = "interface-mismatch"
+severity = "high"
+observed = "The non-connected frozen follow adapter uses sharedhttp.WriteError for invalid wallets, missing actors and self-follow. It emits the legacy problem envelope rather than v2.Error. Production platform registers this adapter, and SDK transport.ts cannot decode its refusal body against the frozen Error contract."
+expected = "Frozen follow mutations and follow-stats reads need one complete v2 error envelope across platform and bound profiles; success-only shape tests do not demonstrate refusal compatibility."
+proposal = "Replace legacy error writes in internal/social/contract.go with a schema-validated frozen adapter and correlated request ID. Extend internal/social/contract_test.go to verify real authority refusals and SDK decoding for each error branch."
+owner_domain = 4
+interface = "4.http-social-put-v2-me-following-wallet-contract-2"
+
+[finding.10]
+file = "services/launchpad/social/internal/social/moderation.go"
+line = 716
+class = "security"
+severity = "high"
+observed = "GET /v2/voice-rooms/{roomId}/prompt authenticates any principal and checks only a pool ban, then returns recording metadata and up to 50 participant wallets. It never reads private visibility or checks host/participant admission. Frozen room GET explicitly denies the same uninvited private-room reader at lines 450-463."
+expected = "Private-room membership and recording information must obey one authorization decision across room reads, tickets and prompt. Knowing a room UUID must not bypass private admission or a room-specific voice restriction."
+proposal = "Extract the frozen room-read authorization into a shared guard in internal/social/moderation.go and apply it before prompt reads roster/recording metadata, including voice-scoped bans. Prove uninvited denial on both routes and permitted views for host/admitted members."
+owner_domain = 4
+interface = "4.http-social-get-v2-voice-rooms-room-id-prompt"
+
+[finding.11]
+file = "services/launchpad/social/internal/social/moderation.go"
+line = 374
+class = "restart-recovery"
+severity = "medium"
+observed = "Frozen create commits control.Create before a separate DB.Exec inserts voice_room_created_v2 metadata into safety_outbox. A crash or insert error leaves a persisted room without scope/title/visibility metadata. Frozen reads and ticket admission require that payload and become unavailable; retry allocates a second room."
+expected = "Room creation and its authoritative frozen metadata must have one atomic durable identity. An uncertain create must recover without orphaning rooms or altering private/public admission after restart."
+proposal = "Move room creation and durable metadata into one transaction in internal/voice/control.go, separating authoritative metadata from delivery retention. Use a stable create operation identity and prove recovery across interruption before/after metadata persistence."
+owner_domain = 4
+interface = "4.http-social-post-v2-voice-rooms-frozen-j29"
+
+[finding.12]
+file = "services/launchpad/social/internal/voice/reconcile.go"
+line = 26
+class = "restart-recovery"
+severity = "medium"
+observed = "Reconcile always selects the first 100 draft/live/ending rooms ordered by updated_at,id. Examining healthy live rooms or empty drafts does not advance updated_at. Those old rows can monopolize every minute and starve newer ending rooms/revocations; one provider error also aborts later rooms and recording cleanup."
+expected = "Bounded reconciliation must make progress through every durable cleanup intent after restart. Healthy old rooms and one failed provider session must not indefinitely block newer ejections or recording stops."
+proposal = "Implement a rotating or durable scan cursor and per-room retry accounting in internal/voice/reconcile.go, keeping lifecycle timestamps separate from scheduling progress. Prove more than 100 healthy old rooms plus newer pending cleanup and one failed provider session recover fairly."
+owner_domain = 4
+
+[finding.13]
+file = "services/launchpad/social/internal/app/app.go"
+line = 955
+class = "restart-recovery"
+severity = "medium"
+observed = "fail stores only the first error in an atomic pointer and ready returns it forever. NATS DisconnectErrHandler and the retrying durable-work loop call fail on transient outages. Neither reconnect nor a later successful relay iteration clears it, so dependency recovery cannot restore readiness without restarting the service."
+expected = "The service must stay unready during dependency/durable-work failure and recover readiness after verified repair. Terminal worker exits and secret changes can have a separate restart condition."
+proposal = "Separate terminal faults from recoverable broker/relay status in internal/app/app.go, clearing each transient status after its own successful probe/work cycle. Prove outage, reconnect, durable replay and readiness recovery without a process restart."
+owner_domain = 4
+interface = "4.go-shared-delivery-relay-run-once"
+
+[finding.14]
+file = "services/launchpad/pnl-tracker/internal/devreads/snapshot.go"
+line = 237
+class = "runtime-risk"
+severity = "medium"
+observed = "ProjectionRevision is trades+1 and Snapshot.ID hashes wallet plus that revision. loadPositions counts unresolved-token positions before omitting them and joins indexer.pools on every read. Late pool metadata makes an omitted position appear without changing trade count, revision or snapshot ID; watermark progress also reuses the ID."
+expected = "A snapshot identity must identify a stable projection. Clients must not receive different portfolio positions under one snapshot ID simply because a token was resolved after the earlier response."
+proposal = "Derive snapshot identity from all immutable projection inputs, including resolved token identities and source watermark, in internal/devreads/snapshot.go, or persist a revision covering those changes. Prove a real late pool-metadata arrival changes snapshot identity."
+owner_domain = 4
+interface = "4.http-pnl-tracker-get-v3-me-portfolio-http"
+
+[finding.15]
+file = "services/launchpad/pnl-tracker/internal/devreads/history.go"
+line = 185
+class = "runtime-risk"
+severity = "medium"
+observed = "intervalHistory and valueHistory call Reader.Snapshot, which commits its repeatable-read transaction, then loadTrades through a separate pool query. A concurrent folded trade can enter history under the earlier snapshot ID and chain watermark; the replay query has no watermark cutoff."
+expected = "History entries must belong to the snapshot and watermark advertised by the response. Concurrent indexer progress must produce a consistent view or an explicit retry/refusal."
+proposal = "Share one repeatable-read transaction for positions, cursor and trade replay in internal/devreads/history.go and snapshot.go, or constrain replay to an immutable projection version. Prove concurrent folding cannot contribute a trade beyond the returned watermark."
+owner_domain = 4
+interface = "4.http-pnl-tracker-get-v3-me-pnl-history-http"
+
+[finding.16]
+file = "services/launchpad/social/internal/db/query.sql"
+line = 13
+class = "runtime-risk"
+severity = "medium"
+observed = "ListPoolMessages, ListDmMessages and ListComments filter by id < before but sort only by created_at DESC. IDs contain millisecond time and random suffix while created_at uses seconds. Equal-timestamp rows can appear in arbitrary ID order, making the last-item cursor skip unseen rows or repeat entries."
+expected = "Pagination must use one total order shared by cursor filtering and result ordering, including equal timestamps, so each row appears exactly once while reading stable history."
+proposal = "Use a matching ordered tuple/cursor or consistently ordered immutable ID in internal/db/query.sql and regenerate sqlc outputs. Add equal-second and reverse-random-suffix page fixtures for pool messages, DMs and comments."
+owner_domain = 4
+
+[finding.17]
+file = "services/launchpad/social/internal/social/handlers_test.go"
+line = 500
+class = "test-gap"
+severity = "medium"
+observed = "TestModeration uses newHarness with only sqlc Queries and AdminAPIKey, but expects unauthenticated /report to return 401 and header-only reports to return 200. Current moderation.go returns unavailable whenever safety.Store is absent; later expectations also assume static-key-only bans and legacy report shapes."
+expected = "Tests must use the producer's real verified principal, safety store, target resolver and expected revisions. Missing moderation authority must continue to fail closed rather than accepting header-only writes."
+proposal = "Rebuild the fixture in internal/social/handlers_test.go around the real safety store and verified moderation ingress, preserving strict missing-authority refusals. Use real targets and revisions for lifecycle success and assert the actual emitted schemas."
+owner_domain = 4
+interface = "4.http-social-post-report"
+
+[finding.18]
+file = "services/launchpad/social/internal/social/voice_v2_actions_test.go"
+line = 209
+class = "test-gap"
+severity = "medium"
+observed = "TestPostgresV2VoiceEndLeaveAndTicket creates a private room at line 135, then expects an uninvited guest ticket to return 503 and create an active participant. Current handler returns 403 before JoinWithConsent. proof_launchpad_social_test.go correctly asserts that denial and zero participant rows."
+expected = "The voice action suite must preserve private-room admission and agree with the actual producer. Provider-failure cleanup needs a legitimately admitted participant, as required by 4295.1 and 21069.1."
+proposal = "Assert guest denial and unchanged participant state in internal/social/voice_v2_actions_test.go, then arrange legitimate owner admission before provider-failure and leave/recovery cases. Keep the existing privacy proof and all cleanup invariants strict."
+owner_domain = 4
+interface = "4.http-social-post-v2-voice-rooms-room-id-tickets-frozen-j29"
+
+[finding.19]
+file = "services/launchpad/social/internal/fanout/hub.go"
+line = 137
+class = "config-drift"
+severity = "medium"
+observed = "Hub.New stores MAX_MESSAGE_LENGTH as h.maxMsgLen with default 500, but neither onPoolMessage nor onDM reads it. DurableStore.Send and Revise use a fixed 2000-rune limit. Changing the declared MAX_MESSAGE_LENGTH control has no effect on socket admission."
+expected = "A declared message-length limit must be enforced consistently by HTTP, WebSocket persistence and edits with an explicit unit matching the client contract."
+proposal = "Choose the product message-length unit/bound, pass it into internal/fanout/DurableStore sends and revisions, and align internal/config/config.go/deployment settings. Prove real send/edit boundaries including multibyte text."
+owner_domain = 4
+interface = "4.env-social-max-message-length"
+
+[finding.20]
+file = "services/launchpad/social/internal/fanout/hub.go"
+line = 497
+class = "restart-recovery"
+severity = "medium"
+observed = "h.allow issues INCR and EXPIRE separately and discards the expiry result. Failure after the first increment can leave a key without TTL. Subsequent increments never retry expiry because n != 1, eventually denying that wallet indefinitely beyond the configured window."
+expected = "A temporary rate window must expire despite connection interruption or process restart; a failed expiry cannot become a permanent actor ban."
+proposal = "Use an atomic increment-and-expire operation in internal/fanout/hub.go and report dependency refusal if no window can be established. Prove recovery from a missing TTL and interruption at first-window creation without clearing unrelated counters."
+owner_domain = 4
+interface = "4.env-social-rate-window-seconds"
+
+[finding.21]
+file = "services/launchpad/social/internal/social/handlers.go"
+line = 137
+class = "interface-mismatch"
+severity = "high"
+observed = "Still-mounted /pool/{poolAddress}/messages and /dm/* handlers read chat.pool_messages/chat.dm_messages/chat.dm_conversations via sqlc. All fanout sends now persist only chat.chat_messages/chat.chat_conversations through DurableStore.Send, including /ws. A socket message acknowledged as persisted cannot round-trip through these declared history/edit/delete routes."
+expected = "Live send, history and message mutations must address the same durable identities. Supported legacy routes must adapt the actual producer instead of silently exposing an independent empty history."
+proposal = "Adapt supported legacy chat reads/mutations in internal/social/handlers.go to DurableStore authorization and replay semantics, or explicitly retire the routes and migrate registered consumers. Prove a real socket send, REST history/edit/delete and restart using one committed message."
+owner_domain = 4
+interface = "4.http-social-get-pool-pool-address-messages"
+
+[finding.22]
+file = "services/launchpad/social/pkg/types/types.go"
+line = 213
+class = "dead-code"
+severity = "low"
+observed = "OutgoingPoolMessage and OutgoingDM are documented as current server/Redis fanout envelopes but have no producing caller; durable events use fanout.DurableMessage with sequence, revision and deletion state. IncomingWS omits client_message_id, which message.go separately decodes and DurableStore requires for sends."
+expected = "The public wire package should identify the supported stream contract so typed clients can encode a valid idempotent send and decode persistence, revision and deletion information."
+proposal = "Publish and consume durable request/event DTOs in pkg/types or explicitly retire the obsolete outgoing compatibility types and their registry entries. Include client_message_id in the supported send DTO and prove typed encoding/decoding against actual frames."
+owner_domain = 4
+interface = "4.go-social-pkg-types-outgoing-pool-message"
+
+[finding.23]
+file = "README.md"
+line = 44
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 44-47 describe two execution domains and a separate cmd/layerxd daemon whose checkpoints settle through layerxAnchor; line 181 calls the merge a draft with a separately running kernel. Navigation still sends operators to an old kernel cluster."
+expected = "The finished network is one paxd BFT chain 125 with the kernel in block production and finality at committed block; separate daemon/checkpoint settlement is retired."
+proposal = "Rewrite README.md network overview, relevant build/navigation instructions and line 181 for merged paxd, root public RPC and commit finality. Distinguish retained kernel-library development from running-network bring-up."
+owner_domain = 16
+
+[finding.24]
+file = "docs/README.md"
+line = 21
+class = "doc-drift"
+severity = "medium"
+observed = "The index advertises wiki/LNI.md as Node interface v1.7 without a historical label among current integration references. The retired inventory removes LNI and the daemon-local interface transport."
+expected = "The documentation entry point must direct integrators to merged network interfaces and root node RPC, while clearly labelling retired interface material as migration history."
+proposal = "Replace the LNI node-interface entry at docs/README.md line 21 with supported merged RPC/precompile documentation, or mark it historical and link the active replacement."
+owner_domain = 16
+
+[finding.25]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Line 3 describes layerxd as a separate kernel node; lines 61-64 prescribe old kernel gates, and lines 70-72 retain separate custody, checkpoint, guarantor and emergency-exit settlement authority as the live trust model."
+expected = "The repository guide must describe the kept kernel library within paxd, retired daemon targets and single committed-block finality, with current build/ownership boundaries."
+proposal = "Revise docs/MONOREPO.md overview, build and trust-boundary sections for the merged node lifecycle and native balance/commit model; remove live operation directions for retired daemon, guarantor and checkpoint paths."
+owner_domain = 16
+
+[finding.26]
+file = "docs/site/docs/overview/unified-network.md"
+line = 129
+class = "doc-drift"
+severity = "medium"
+observed = "The page treats custody 0x1013 and checkpoint/guarantor finality 0x1014 as live services. Lines 129-171 advertise the unified router /rpc, /rpc/ws, /rpc/schema and lx_* methods, with numbered public node hosts described as EVM-only."
+expected = "There is one commit-final chain and no separate router/LayerX interface. Public node JSON-RPC uses api1..api14.mainnet-beta.paxeer.network and api-mainnet-beta.paxeer.network at root; px_ belongs to the hosted gateway only."
+proposal = "Rewrite overview/unified-network.md for paxd chain 125, native bank/ledger balances and committed headers/proofs. Use root public endpoints, describe hosted px_ separately and replace retired custody/checkpoint/router procedures."
+owner_domain = 16
+
+[finding.27]
+file = "docs/site/docs/overview/quickstart.md"
+line = 167
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 20, 167-168 and 214-217 direct clients to POST /rpc and GET /rpc/ws and fund through custody credit to a router. Lines 302, 497, 518 and 596 repeat that transport; the commitment flow assumes separate checkpoint settlement."
+expected = "The quickstart must provide merged-network instructions using chain 125 root node RPC and final committed receipts; funding no longer crosses a separate custody-credit domain."
+proposal = "Replace retired transport/custody/checkpoint steps throughout overview/quickstart.md with a disposable merged paxd flow, derived native sub-account funding and commit verification; keep hosted authentication and px_ examples explicitly on the hosted service."
+owner_domain = 16
+
+[finding.28]
+file = "docs/site/docs/operators/beta-control.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The opening public-network advice calls funding a custody credit submitted to the router. Public integration paragraphs around lines 291-315 retain separate core/LNI transport and custody assumptions, alongside the correctly scoped private control service."
+expected = "Operators must distinguish private beta control from the merged public chain, using native balance funding and root node RPC without the retired LNI or custody-credit bridge."
+proposal = "Rewrite operators/beta-control.md public funding/integration advice at lines 3-5 and 291-315 for the merged chain. Retain the explicit private control authority and ensure private allocation procedures are not described as a public faucet."
+owner_domain = 16
+
+[finding.29]
+file = "docs/site/docs/platform/cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "Line 8 requires --rpc to end in /rpc, repeated around lines 131, 278 and 298. Lines 106 onward also call wallet/token groups unimplemented immediately after listing shipped commands and their source locations."
+expected = "CLI guidance must use merged root RPC and describe shipped command behavior consistently; operators must not be directed to a retired router or contradictory command inventory."
+proposal = "Update platform/cli.md endpoint examples and transport table for root node RPC, and reconcile the obsolete unimplemented wallet/token inventory against tools/platform/cli/src before publishing."
+owner_domain = 8
+
+[finding.30]
+file = "docs/site/docs/platform/hosted-gateway.md"
+line = 39
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 39-52 describe one unified router and EVM-only public node hosts; route-table lines 198-200 advertise /rpc, /rpc/schema and /rpc/ws. The final section at 609-632 retains retired daemon/LNI preparation and separate receipt authority."
+expected = "Hosted gateway is a separate product with declared px_ methods. Public node JSON-RPC uses root endpoints and the merged chain provides commit finality without separate daemon/router authority."
+proposal = "Rewrite platform/hosted-gateway.md routing, endpoint/route tables and core preparation against services/platform/hosted/gateway/openrpc.json and merged node authority. Retain supported hosted authentication and remove public /rpc instructions."
+owner_domain = 8
+
+[finding.31]
+file = "docs/site/docs/platform/webhooks.md"
+line = 249
+class = "doc-drift"
+severity = "medium"
+observed = "The role-specific introduction requires internal-CA client certificates for ingress at lines 49-53, but lines 249-251 say inbound TLS has no client authentication and use older credential names. Line 77 derives network ID from a retired router service reference."
+expected = "Operators need one consistent public/ingress listener and credential matrix. Internal webhook ingress must require its declared mTLS authority, and network configuration must name the merged owner rather than a router."
+proposal = "Reconcile platform/webhooks.md TLS, credential and deployment tables with role-specific env-init/service configuration; limit no-client-auth advice to the intended public role. Replace the router network-ID reference with the supported deployment source."
+owner_domain = 8
+
+[finding.32]
+file = "docs/site/docs/programs/workspace.md"
+line = 151
+class = "doc-drift"
+severity = "medium"
+observed = "The recipe table lists test-replay-golden-local at line 151 and cmd/layerxd/lxp_daemon_batch_wal.c in programs-differential at line 156. Both replay-golden and batch WAL are explicitly retired in programme/data/retired.kvx."
+expected = "The Programs development guide must describe retained runtime tests and merged host integration without prescribing deleted daemon/WAL/replay components as qualification prerequisites."
+proposal = "Update programs/workspace.md recipe/prerequisite tables for retained Programs and host-determinism gates plus merged lifecycle evidence; reconcile the owning Makefile and remove instructions to link retired daemon batch WAL."
+owner_domain = 13
+
+[doc.1]
+path = "README.md"
+status = "stale"
+notes = "Rewrite lines 44-47 and 181 for merged paxd/commit finality; update old cluster navigation and build advice. Finding 23."
+
+[doc.2]
+path = "docs/README.md"
+status = "stale"
+notes = "Line 21 presents retired LNI v1.7 as current node interface; replace or label historical and link merged public interfaces. Finding 24."
+
+[doc.3]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "Lines 3, 61-64 and 70-72 retain separate daemon/gates and custody-guarantor-checkpoint boundaries. Finding 25."
+
+[doc.4]
+path = "docs/site/docs/overview/unified-network.md"
+status = "misleading"
+notes = "Lines 52-84, 106-171 describe retired custody/finality/router paths and incorrect public host roles; rewrite the network model. Finding 26."
+
+[doc.5]
+path = "docs/site/docs/overview/quickstart.md"
+status = "stale"
+notes = "Rewrite lines 20, 167-168, 214-217, 302, 497, 518 and 596: retired router/custody credit and separate checkpoint finality. Finding 27."
+
+[doc.6]
+path = "docs/site/docs/operators/porting.md"
+status = "accurate"
+notes = "Read the full page: ABI v2 byte preservation, host/guest compatibility, strict authority boundaries and explicit refusal guidance remain applicable to retained Programs porting."
+
+[doc.7]
+path = "docs/site/docs/operators/beta-control.md"
+status = "stale"
+notes = "Rewrite public funding/router advice at lines 3-5 and separate core/LNI custody assumptions around 291-315; retain private control scope. Finding 28."
+
+[doc.8]
+path = "docs/site/docs/agents/sdks.md"
+status = "accurate"
+notes = "Read the full page: generated SDK languages, canonical-byte preservation and authenticated receipt verification remain applicable. The retained pax_sequencerReceipt method name does not imply a separately deployed sequencer."
+
+[doc.9]
+path = "docs/site/docs/platform/cli.md"
+status = "stale"
+notes = "Lines 8, 131, 278, 298 require /rpc; line 106 onward contradicts the preceding shipped wallet/token command inventory. Finding 29."
+
+[doc.10]
+path = "docs/site/docs/platform/hosted-gateway.md"
+status = "misleading"
+notes = "Lines 39-52, 198-200, 609-632 retain unified router paths and daemon/LNI preparation; separate root public RPC from hosted px_. Finding 30."
+
+[doc.11]
+path = "docs/site/docs/platform/webhooks.md"
+status = "stale"
+notes = "Line 77 references router configuration; lines 249-251 conflict with ingress mTLS requirements at 49-53 and use older TLS names. Finding 31."
+
+[doc.12]
+path = "docs/site/docs/programs/workspace.md"
+status = "stale"
+notes = "Lines 151 and 156 prescribe retired replay-golden and cmd/layerxd batch-WAL prerequisites; replace qualification recipe rows. Finding 32."
+
+[doc.13]
+path = "spec/layerx-merge/contracts/services.md"
+status = "accurate"
+notes = "Reviewed launchpad-social section 3394-3456 and launchpad-pnl-tracker section 3301 onward as interface ownership/reference tables. Compared registry declarations to actual profile assembly; runtime disagreements are recorded separately."
+
+[doc.14]
+path = "spec/layerx-merge/contracts/clients.md"
+status = "accurate"
+notes = "Reviewed the launchpad-web-app section and command/config change inventory. apps/launchpad/package.json has removed retired bot commands; actual SDK operations and browser transport were read to check social consumers."
