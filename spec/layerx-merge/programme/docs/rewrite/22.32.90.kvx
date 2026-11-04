@@ -1,0 +1,35 @@
+[manifest]
+task = "22.32.90"
+domain = 9
+owner_role = "fm-agent"
+pages = 5
+
+[page.1]
+path = "services/agent/COMPATIBILITY.md"
+status = "stale"
+bytes = 903
+source_1 = "record 22.30.99 [doc.d02] (stale): Lines 10 and 12-14 disagree on contract major 2 versus 1.1/1.0. Reconcile approval compatibility and node-interface wording with the canonical major-2 schema."
+
+[page.2]
+path = "services/agent/README.md"
+status = "stale"
+bytes = 4302
+source_1 = "record 22.30.99 [doc.d01] (stale): Lines 4-11 and 24-25 describe layerxd/LNI and checkpoint verification; lines 47-52 name the removed ABI allowlist and lines 59-77 describe obsolete daemon/credit/custody test setup. Rewrite against the current node script."
+
+[page.3]
+path = "services/agent/crates/layerx-agentd/README.md"
+status = "stale"
+bytes = 2357
+source_1 = "record 22.30.94 [doc.13] (stale): Reviewed all 45 lines. Credential separation agrees with code; LNI startup and TLS test registration claims are stale. See readme_startup and readme_tls_registration."
+
+[page.4]
+path = "services/agent/crates/layerx-mcp/README.md"
+status = "stale"
+bytes = 7103
+source_1 = "record 22.30.97 [doc.13] (stale): Read in full; stale topology, commands, binding or catalogue statements and a concrete rewrite proposal are recorded in doc_crate."
+
+[page.5]
+path = "services/agent/sdk/COMPATIBILITY.md"
+status = "stale"
+bytes = 3041
+source_1 = "record 22.30.93 [doc.13] (stale): Read all 39 lines; generated-source verdict applies. Contract-major 2 matrix is current, but line 35 still promises batch headers and checkpoint certificates. Domain 9 should update its generator/schema source and regenerate portable-v2, receipt-key and validator-set offline guidance."

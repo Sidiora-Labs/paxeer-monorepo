@@ -1,0 +1,28 @@
+[manifest]
+task = "22.32.48"
+domain = 5
+owner_role = "fm-node-runtime"
+pages = 1
+
+[page.1]
+path = "docs/runbooks/paxeer-x-fork.md"
+status = "misleading"
+bytes = 20128
+source_1 = "record 22.30.11 [doc.05] (stale): Lines 4, 28, 138 and 318 conflict with the merged rehearsal at line 252 and current precompile behavior; finding fork-runbook-upgrade-plan identifies the required plan/probe reconciliation."
+source_2 = "record 22.30.121 [doc.06] (stale): Lines 4-8, 28, 126-138 and 310-318 retain v6.6, deleted hosted/paxeer tooling and retired smoke calls; lines 252-258 describe v7.0 rehearsals."
+source_3 = "record 22.30.134 [doc.4] (stale): Lines 4-7, 28, 138 and 318 mix the v6.6 plan with later merge instructions and probe retired anchor state."
+source_4 = "record 22.30.135 [doc.011] (misleading): Lines 3-7 and 315-318 present the old v6.6 custody/anchor deployment and successful calls to 0x1013/0x1014 as upgrade checks. Archive that procedure and supply a merged-network upgrade/recovery procedure."
+source_5 = "record 22.30.140 [doc.011] (misleading): Lines 5-8 frame the old activation, while section 4 rehearses the merge and line 318 still requires 0x1014 anchor success. Split historical versions and use one consistent merge acceptance checklist."
+source_6 = "record 22.30.162 [doc.003] (stale): Current operating guidance conflicts with the merged network; exact locations and rewrite proposals are recorded in fork-runbook."
+source_7 = "record 22.30.163 [doc.011] (stale): Lines 3-8, 28 and 138 prescribe the v6.6 store loader while lines 252-258 describe v7.0 merge and the later anchor-store deletion."
+source_8 = "record 22.30.165 [doc.001] (stale): Lines 3-8, 126-130, 183-186 and 313-318 describe pre-merge custody/anchor or hosted components; 353-355 gives signing-state reset advice. PaxDB backend context elsewhere is useful."
+source_9 = "record 22.30.173 [doc.5] (stale): Lines 4-8, 28 and 138 select v6.6 custody/anchor activation; lines 252-259 separately describe v7 merge rehearsal; lines 313-318 require successful custody and anchor probes after upgrade."
+source_10 = "record 22.30.175 [doc.03] (misleading): Lines 4,28,138,314-318 prescribe v6.6 and custody/anchor activation while lines 252-259 rehearse the merge and anchor deletion; see finding.fork-runbook-plan-drift. No operational command from this page was run."
+source_11 = "record 22.30.176 [doc.5] (misleading): Lines 3-8 frame v6.6 activation of custody/anchor as the operating procedure, whereas the merge rehearsal later invokes v7.0; lines 310-321 demand successful retired 0x1013/0x1014 calls. Split historical notes from the v7.0 runbook and assert the actual retired-surface refusals."
+source_12 = "record 22.30.179 [doc.006] (misleading): Lines 3-8, 28 and the older upgrade sections describe the v6.6 rehearsal; the v7.0 section around 240-267 differs, while lines 323-328 still expect successful retired custody/anchor calls."
+source_13 = "record 22.30.31 [doc.004] (stale): Lines 4-8 prescribe v6.6 custody/anchor activation, while 252-259 prescribe v7.0 and anchor deletion. Make one current upgrade plan and label historical steps."
+source_14 = "record 22.30.43 [doc.001] (stale): Lines 4-8, 28 and 138 prescribe v6.6 and custody/anchor activation, while lines 252-260 rehearse v7.0 and anchor retirement; the current upgrade procedure needs a single version-specific plan."
+source_15 = "record 22.30.48 [doc.3] (stale): Read in full; rewrite the obsolete architecture or interface statements identified by findings fork-runbook-mixed-upgrades."
+source_16 = "record 22.30.54 [doc.03] (misleading): The current-looking validator runbook instructs activation of layerxcustody/layerxanchor stores and precompiles 0x1013/0x1014, and later probes their old success methods. Appended merge-export checks do not clearly separate this older fork plan from the merged upgrade."
+source_17 = "record 22.30.55 [doc.1] (stale): Read all 382 lines; operational instructions mix the historical v6.6 addition and current v7.0/anchor-delete rehearsal. See runbook-plan."
+source_18 = "record 22.30.56 [doc.1] (stale): Read in full. Lines 4-8, 28, 138 and 318 conflict with the later v7.0 merge/anchor-delete procedure; see runbook-retired-upgrade."

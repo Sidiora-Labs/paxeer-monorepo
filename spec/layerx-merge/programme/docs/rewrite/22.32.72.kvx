@@ -1,0 +1,12 @@
+[manifest]
+task = "22.32.72"
+domain = 7
+owner_role = "fm-rpc-api"
+pages = 1
+
+[page.1]
+path = "docs/evm_jsonrpc_unsupported.md"
+status = "misleading"
+bytes = 1622
+source_1 = "record 22.30.67 [doc.6] (misleading): Read the entire page. The -32000 versus -32601 distinction agrees with rpc_unsupported.go, but lines 12 and 20 omit receipt-feed pending-filter support and lines 16 and 21 incorrectly classify debug_getRawTransaction as unsupported."
+source_2 = "record 22.30.69 [doc.02] (stale): Full package page read. Lines 12/20 deny pending support on every role and lines 16/21 deny the implemented raw-transaction method."

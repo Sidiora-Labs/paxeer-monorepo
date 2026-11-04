@@ -141,25 +141,21 @@ fn balance(parsed: &BTreeMap<String, String>) -> Result<String, String> {
     ))
 }
 
-fn did_accounts(parsed: &BTreeMap<String, String>) -> Result<String, String> {
+/// List native bound accounts as JSON, following `did-accounts.schema.json`.
+/// Empty and unbound listings have `count: 0` and `accounts: []`; unavailable
+/// reads remain errors rather than being reported as empty listings.
+pub fn did_accounts(parsed: &BTreeMap<String, String>) -> Result<String, String> {
     let did = required(parsed, "did")?;
     Did::new(did.as_bytes()).map_err(|error| format!("--did: {error:?}"))?;
     let (_, px, _) = rpc_session(parsed)?;
     let values = history::did_accounts(&px, did)
         .map_err(|error| format!("did account listing failed: {error:?}"))?;
-    let mut names = Vec::with_capacity(values.len());
-    for value in &values {
-        let name = value
-            .get("name")
-            .and_then(|name| name.as_str())
-            .ok_or_else(|| "malformed account name in listing".to_owned())?;
-        names.push(public_json_string(name));
-    }
+    let accounts: Vec<String> = values.iter().map(ToString::to_string).collect();
     Ok(format!(
         "{{\"did\":{},\"count\":{},\"accounts\":[{}]}}",
         public_json_string(did),
         values.len(),
-        names.join(","),
+        accounts.join(","),
     ))
 }
 
@@ -212,16 +208,9 @@ fn write_send(parsed: &BTreeMap<String, String>) -> Result<String, String> {
     let source_did = layerx_platform_core::treasury_did(&seed);
     let (endpoint, px, network) = rpc_session(parsed)?;
     let address = layerx_platform_core::custody_source_address(&px, &source_did)?;
-    let state = rpc_account::account(
-        &endpoint,
-        address,
-        ReadContext {
-            committed_height: network.latest_committed_height,
-            requested: Requested::new(Rung::Committed)
-                .map_err(|error| format!("preparation rung: {error:?}"))?,
-        },
-    )
-    .map_err(|error| format!("preparation account: {error:?}"))?;
+    let nonce = endpoint
+        .nonce_at(&address, network.latest_committed_height)
+        .map_err(|error| format!("preparation account: {error:?}"))?;
     let timestamp = endpoint
         .block_by_number(network.latest_committed_height)
         .map_err(|error| format!("preparation block: {error:?}"))?
@@ -237,7 +226,7 @@ fn write_send(parsed: &BTreeMap<String, String>) -> Result<String, String> {
             destination_did: required(parsed, "destination-did")?.to_owned(),
             asset: hex32(required(parsed, "asset")?)?,
             amount: 1,
-            account_sequence: state.nonce.checked_add(1).ok_or("sequence exhausted")?,
+            account_sequence: nonce.checked_add(1).ok_or("sequence exhausted")?,
             idempotency_key: [0x61; 32],
             not_before_ms: timestamp,
             expires_at_ms: timestamp

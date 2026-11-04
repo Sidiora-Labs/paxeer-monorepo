@@ -1,0 +1,11 @@
+[manifest]
+task = "22.32.178"
+domain = 17
+owner_role = "fm-programme"
+pages = 1
+
+[page.1]
+path = "spec/layerx-merge/contracts/agent-cli.md"
+status = "stale"
+bytes = 41061
+source_1 = "record 22.30.99 [doc.d16] (stale): Reviewed command declarations, frozen criteria and invocation notes. Boundary/parity descriptions retain LNI-era language alongside current JSON-RPC requirements; regenerate current declarations and identify historical criteria without presenting them as live topology."

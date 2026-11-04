@@ -1,0 +1,33 @@
+[manifest]
+task = "22.32.133"
+domain = 14
+owner_role = "fm-web-explorer-bridge"
+pages = 1
+
+[page.1]
+path = "docs/site/docs/platform/faucet.md"
+status = "misleading"
+bytes = 27888
+source_1 = "record 22.30.114 [doc.7] (stale): Read in full. Bounded grant/identity behavior is described, but public lx_requestFunds and router funding guidance are retired."
+source_2 = "record 22.30.12 [doc.007] (stale): Line 5 directs public custody credit to a router. Replace the public funding instructions with the merged chain/gateway contract and keep the disposable private faucet limits separately documented."
+source_3 = "record 22.30.127 [doc.12] (stale): Full page read. Router funding line 5 and mainnet allocations at 13-16 conflict with private-only scope. Finding 23 preserves authenticated durable private claims while correcting deployment/funding guidance."
+source_4 = "record 22.30.129 [doc.012] (stale): Replace retired custody/router public-funding guidance in the opening while preserving the private-network restriction."
+source_5 = "record 22.30.131 [doc.5] (misleading): Retired router at line 5; private-only opening conflicts with mainnet-beta approved allocations at lines 13-15. Site also carries starter-credit refusal details absent from the wiki."
+source_6 = "record 22.30.132 [doc.08] (stale): Finding faucet-router-funding: The page calls custody credit through the router the public funding path and advertises lx_requestFunds via the public gateway, interleaving private faucet deployment with public integration advice."
+source_7 = "record 22.30.137 [doc.009] (misleading): The faucet page begins private-network only but sends public custody credit to the router, then calls the service a mainnet-beta funds surface and advertises public gateway lx_requestFunds in lines 21-29. Rewrite proposal: Reconcile docs/site/docs/platform/faucet.md around private faucet operations and current funding guidance; remove the public router/lx_requestFunds onboarding claim and link the actual hosted gateway method contract."
+source_8 = "record 22.30.139 [doc.07] (stale): The faucet guide sends the reader through a router, custody-credit operation and lx_requestFunds, including line 24. Rewrite: Document only a currently registered faucet/funding path with its actual request, refusal and account-credit semantics; use direct merged-network account balances."
+source_9 = "record 22.30.142 [doc.11] (stale): Lines 5 and 21-29 present router/lx_requestFunds gateway usage alongside private-only funding policy, obscuring which network supports the procedure."
+source_10 = "record 22.30.144 [doc.7] (stale): Stale at lines 3-5 and the public lx_requestFunds paragraph; the private/disposable-only availability restriction itself is accurate."
+source_11 = "record 22.30.147 [doc.06] (stale): line 5: faucet-network — The faucet introduction routes public funding through custody credit and the router; its service-claim section still publishes lx_requestFunds instead of the hosted gateway px_ namespace."
+source_12 = "record 22.30.148 [doc.10] (misleading): Entire page reviewed. Its private-only opening conflicts with mainnet/public router faucet guidance at lines 13-29; see faucet-public-private-drift."
+source_13 = "record 22.30.151 [doc.08] (stale): Line 5 describes funding through the router, which is retired. The concrete faucet command at lines 20-28 also exposes the conflicting no-command claim in overview/quickstart.md line 308."
+source_14 = "record 22.30.153 [doc.7] (misleading): Lines 5 onward describe obsolete operating behavior; finding faucet-router-credit records the exact contradiction and concrete rewrite proposal."
+source_15 = "record 22.30.154 [doc.7] (misleading): Line 5 recommends retired custody funding through a router; finding faucet_retired_funding. Private and approved-allocation policies need current native-funding language."
+source_16 = "record 22.30.157 [doc.10] (stale): Line 5 routes custody credit through a router; lines 22-34 advertise lx_requestFunds and its old public JSON-RPC error contract as the common CLI, SDK and MCP funding surface."
+source_17 = "record 22.30.158 [doc.009] (stale): Read the complete faucet page. The public funding description at line 5 still requires custody credit submitted to a router; later sections retain independent core funding dependencies."
+source_18 = "record 22.30.16 [doc.03] (stale): Read in full; funding at line 5 requires retired router and later legacy lx_requestFunds flow needs reconciliation with actual hosted OpenRPC. Preserve private faucet restrictions."
+source_19 = "record 22.30.170 [doc.009] (stale): Line 5 directs public funding through custody credit submitted to a router although the opening declares the faucet private-only; examples retain the former hosted payment flow. See finding.package_doc_09 for the concrete rewrite."
+source_20 = "record 22.30.28 [doc.007] (stale): The private faucet page tells public accounts to use custody credit submitted to the router, contradicting merged-network funding despite correctly labeling the faucet private only."
+source_21 = "record 22.30.46 [doc.9] (stale): Line 5 retains router custody funding and lines 22-35 name legacy lx_requestFunds; reconcile with the merged gateway OpenRPC method and supported public/private funding boundary."
+source_22 = "record 22.30.56 [doc.12] (misleading): Read in full. Private-only scope conflicts with real-value mainnet and public lx_requestFunds examples; public funding still references a router."
+source_23 = "record 22.30.84 [doc.11] (stale): Read all hosted faucet configuration, claims and refusals. Lines 5 and 23-31 retain router funding and lx_requestFunds as the gateway contract; see faucet-retired-gateway-contract."

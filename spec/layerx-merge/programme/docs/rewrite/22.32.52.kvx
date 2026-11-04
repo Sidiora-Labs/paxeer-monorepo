@@ -1,0 +1,11 @@
+[manifest]
+task = "22.32.52"
+domain = 5
+owner_role = "fm-node-runtime"
+pages = 1
+
+[page.1]
+path = "node/wasmbinding/README.md"
+status = "stale"
+bytes = 776
+source_1 = "record 22.30.54 [doc.17] (stale): Read complete binding inventory; pause query/message features are implemented but omitted from the documented Token Factory surface."

@@ -1,0 +1,45 @@
+[manifest]
+task = "22.32.122"
+domain = 14
+owner_role = "fm-web-explorer-bridge"
+pages = 6
+
+[page.1]
+path = "contracts/explorer-http-api.md"
+status = "missing"
+bytes = 0
+source_1 = "record 22.30.140 [doc.022] (missing): The package's interface registry references this contract page and anchors, but the page is absent from the audited tree. Rebind active contracts to maintained documentation and retire obsolete references."
+source_2 = "record 22.30.144 [doc.16] (missing): The explorer HTTP registry contract target does not exist at this revision. missing-explorer-http-contract proposes publication or retargeting to maintained documentation."
+
+[page.2]
+path = "contracts/explorer-metrics.md"
+status = "missing"
+bytes = 0
+source_1 = "record 22.30.140 [doc.023] (missing): The package's interface registry references this contract page and anchors, but the page is absent from the audited tree. Rebind active contracts to maintained documentation and retire obsolete references."
+source_2 = "record 22.30.153 [doc.20] (missing): Linked from reviewed stable explorer registry rows but absent at this revision; see registry-missing-explorer-contract-pages."
+
+[page.3]
+path = "contracts/explorer-services-config.md"
+status = "missing"
+bytes = 0
+source_1 = "record 22.30.148 [doc.16] (missing): The shared launcher configuration contract page referenced by stable interface-registry rows is absent from this revision; corresponding missing-contract finding names the owning page and registry row."
+
+[page.4]
+path = "contracts/explorer-ws.md"
+status = "missing"
+bytes = 0
+source_1 = "record 22.30.140 [doc.024] (missing): The package's interface registry references this contract page and anchors, but the page is absent from the audited tree. Rebind active contracts to maintained documentation and retire obsolete references."
+source_2 = "record 22.30.143 [doc.14] (missing): The reviewed websocket registry rows cite this path for channels, topics and pushes, but it is absent in this revision. Domain 14 should restore a canonical websocket contract and align registry links. Actual channel, notifier and homepage consumer source was inspected directly."
+source_3 = "record 22.30.153 [doc.19] (missing): Linked from reviewed stable explorer registry rows but absent at this revision; see registry-missing-explorer-contract-pages."
+
+[page.5]
+path = "contracts/kernel.md"
+status = "missing"
+bytes = 0
+source_1 = "record 22.30.145 [doc.24] (missing): Registry 1.fmt-batch-header points to this absent format-contract page. The retained header codec is reviewed against its real declarations; archive-codec-contract-link proposes restoring an existing documentation target and reconciling the registry link."
+
+[page.6]
+path = "contracts/platform-cli.md"
+status = "missing"
+bytes = 0
+source_1 = "record 22.30.140 [doc.026] (missing): The package's interface registry references this contract page and anchors, but the page is absent from the audited tree. Rebind active contracts to maintained documentation and retire obsolete references."

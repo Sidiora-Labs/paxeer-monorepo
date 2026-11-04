@@ -1,0 +1,12 @@
+[manifest]
+task = "22.32.186"
+domain = 17
+owner_role = "fm-programme"
+pages = 1
+
+[page.1]
+path = "spec/layerx-merge/contracts/web.md"
+status = "stale"
+bytes = 98691
+source_1 = "record 22.30.61 [doc.06] (stale): Read in full. Implementation notes at lines 51-60, 491 and 518-519 describe program methods, genesis fields, CLI and queries as absent/planned despite live implementations; update current behavior and remaining codec/lifecycle limits."
+source_2 = "record 22.30.65 [doc.14] (stale): Read the xweb surface, origin-two rules and associated method/ABI sections used by this slice. It is explicitly pinned to 2a1033aa2; tables 43-63 and linked origin-two rows need a current counterpart, including the new program-request event. No claim of reviewing unrelated sections in full."

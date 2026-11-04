@@ -1,0 +1,11 @@
+[manifest]
+task = "22.32.182"
+domain = 17
+owner_role = "fm-programme"
+pages = 1
+
+[page.1]
+path = "spec/layerx-merge/contracts/explorer-services-config.md"
+status = "stale"
+bytes = 99333
+source_1 = "record 22.30.161 [doc.05] (stale): Reviewed cfg-verifier and env-verifier tables and their frozen-rule context for all package configuration/env rows. Leaf names, types and environment spelling agree with Settings; local launcher provenance is not the registry 0.17.0 dependency actually resolved by the server."

@@ -1,0 +1,11 @@
+[manifest]
+task = "22.32.107"
+domain = 12
+owner_role = "fm-wallet"
+pages = 1
+
+[page.1]
+path = "services/wallet/demo/README.md"
+status = "stale"
+bytes = 2079
+source_1 = "record 22.30.116 [doc.24] (stale): Read complete demo setup and source inventory; current send component and lint command documentation drift are recorded."

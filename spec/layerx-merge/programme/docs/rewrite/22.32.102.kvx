@@ -1,0 +1,23 @@
+[manifest]
+task = "22.32.102"
+domain = 11
+owner_role = "fm-interop"
+pages = 3
+
+[page.1]
+path = "services/interop/crates/x-websearch/README.md"
+status = "misleading"
+bytes = 4188
+source_1 = "record 22.30.113 [doc.04] (misleading): Read all 34 lines. Lines 9/28 promise retired metered draws, lines 13/16/22 misassign settlement endpoint responsibility, and line 32 claims peer-answer persistence absent before signing transactions."
+
+[page.2]
+path = "services/interop/deploy/gateway/README.md"
+status = "stale"
+bytes = 15387
+source_1 = "record 22.30.112 [doc.14] (stale): Read all 216 lines. Current suite claims differ from the example and separate authority/sequencer guidance remains; see gateway_readme_manifest."
+
+[page.3]
+path = "services/interop/specs/conformance/x402/README.md"
+status = "stale"
+bytes = 4468
+source_1 = "record 22.30.110 [doc.016] (stale): Wire-only limits and source provenance are accurate; LayerX Profile section retains obsolete commitment terminology."

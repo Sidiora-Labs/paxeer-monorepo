@@ -1,0 +1,11 @@
+[manifest]
+task = "22.32.97"
+domain = 11
+owner_role = "fm-interop"
+pages = 1
+
+[page.1]
+path = "contracts/bridge/ATTESTATION-SOLANA.md"
+status = "stale"
+bytes = 11965
+source_1 = "record 22.30.108 [doc.15] (stale): Mapping formulas and worked digests agree with producer and relayer vectors; lines 43-46 and 125-129 still claim unique or not-yet-implemented Rust derivations and tests."
