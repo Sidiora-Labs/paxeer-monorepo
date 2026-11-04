@@ -21,7 +21,7 @@ import (
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/lxwire"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/store"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/dealer"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/dealershare"
 	tssecdsa "github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/ecdsa"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/eddsa"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/refresh"
@@ -840,6 +840,9 @@ func (s *Server) doRefresh(r *http.Request, body []byte) (KeyResponse, *Error) {
 		e = newError(CodeSessionFailed, "refresh aborted at epoch %d: %v", epoch, err)
 		_, _ = s.audit("keys.refresh", req.KeyID, payload.Owner, "failed", "aborted before commit", req.SessionID)
 		return KeyResponse{}, e
+	}
+	if s.beforeRefreshCommit != nil {
+		s.beforeRefreshCommit(req.KeyID)
 	}
 	if err := s.opts.Store.CommitStaged(req.KeyID, epoch); err != nil {
 		_, _ = s.audit("keys.refresh", req.KeyID, payload.Owner, "failed", "commit failed after the coordinator committed", req.SessionID)

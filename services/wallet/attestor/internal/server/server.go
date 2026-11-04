@@ -76,16 +76,17 @@ type Options struct {
 }
 
 type Server struct {
-	opts       Options
-	mux        *http.ServeMux
-	reporter   *health.Reporter
-	keyMu      sync.Mutex
-	keyLocks   map[string]*keyLock
-	spends     *policy.SpendLedger
-	votesMu    sync.Mutex
-	votes      map[string]*refreshVote
-	afterStage func(keyID string)
-	ceremony   *ceremonyImports
+	opts                Options
+	mux                 *http.ServeMux
+	reporter            *health.Reporter
+	keyMu               sync.Mutex
+	keyLocks            map[string]*keyLock
+	spends              *policy.SpendLedger
+	votesMu             sync.Mutex
+	votes               map[string]*refreshVote
+	afterStage          func(keyID string)
+	beforeRefreshCommit func(keyID string)
+	ceremony            *ceremonyImports
 }
 
 type keyLock struct {
