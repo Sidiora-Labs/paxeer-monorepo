@@ -21,6 +21,10 @@ var (
 	ErrDisconnected        = errors.New("dispatcher disconnected")
 )
 
+type pendingLightBlockCall struct {
+	response chan *types.LightBlock
+}
+
 // A Dispatcher multiplexes concurrent requests by multiple peers for light blocks.
 // Only one request per peer can be sent at a time. Subsequent concurrent requests will
 // report an error from the LightBlock method.
@@ -30,13 +34,14 @@ type Dispatcher struct {
 	requestCh *p2p.Channel[*pb.Message]
 
 	// all pending calls that have been dispatched and are awaiting an answer
-	calls utils.Mutex[map[types.NodeID]chan *types.LightBlock]
+	calls  utils.Mutex[map[types.NodeID]*pendingLightBlockCall]
+	closed bool // protected by calls
 }
 
 func NewDispatcher(requestChannel *p2p.Channel[*pb.Message]) *Dispatcher {
 	return &Dispatcher{
 		requestCh: requestChannel,
-		calls:     utils.NewMutex(map[types.NodeID]chan *types.LightBlock{}),
+		calls:     utils.NewMutex(map[types.NodeID]*pendingLightBlockCall{}),
 	}
 }
 
@@ -50,19 +55,17 @@ func (d *Dispatcher) LightBlock(ctx context.Context, height int64, peer types.No
 		return nil, err
 	}
 
-	// clean up the call after a response is returned
+	// Complete only this call: a response may already have freed the peer for
+	// another request before this caller returns.
 	defer func() {
 		for calls := range d.calls.Lock() {
-			if call, ok := calls[peer]; ok {
-				delete(calls, peer)
-				close(call)
-			}
+			d.complete(calls, peer, callCh, nil)
 		}
 	}()
 
 	// wait for a response, cancel or timeout
 	select {
-	case resp := <-callCh:
+	case resp := <-callCh.response:
 		return resp, nil
 
 	case <-ctx.Done():
@@ -72,26 +75,25 @@ func (d *Dispatcher) LightBlock(ctx context.Context, height int64, peer types.No
 
 // dispatch takes a peer and allocates it a channel so long as it's not already
 // busy and the receiving channel is still running. It then dispatches the message
-func (d *Dispatcher) dispatch(ctx context.Context, peer types.NodeID, height int64) (chan *types.LightBlock, error) {
+func (d *Dispatcher) dispatch(ctx context.Context, peer types.NodeID, height int64) (*pendingLightBlockCall, error) {
 	if height < 0 {
 		return nil, fmt.Errorf("invalid height: %d", height)
 	}
 	for calls := range d.calls.Lock() {
-		if ctx.Err() != nil {
+		if d.closed || ctx.Err() != nil {
 			return nil, ErrDisconnected
 		}
-		ch := make(chan *types.LightBlock, 1)
+		call := &pendingLightBlockCall{response: make(chan *types.LightBlock, 1)}
 
 		// check if a request for the same peer has already been made
 		if _, ok := calls[peer]; ok {
-			close(ch)
-			return ch, ErrPeerAlreadyBusy
+			return nil, ErrPeerAlreadyBusy
 		}
-		calls[peer] = ch
+		calls[peer] = call
 
 		// send request
 		d.requestCh.Send(wrap(&pb.LightBlockRequest{Height: uint64(height)}), peer) //nolint:gosec // height is a validated positive block height
-		return ch, nil
+		return call, nil
 	}
 	panic("unreachable")
 }
@@ -110,8 +112,12 @@ func (d *Dispatcher) Respond(ctx context.Context, lb *tmproto.LightBlock, peer t
 
 		// If lb is nil we take that to mean that the peer didn't have the requested light
 		// block and thus pass on the nil to the caller.
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		if lb == nil {
-			return utils.Send(ctx, answerCh, nil)
+			d.complete(calls, peer, answerCh, nil)
+			return nil
 		}
 
 		block, err := types.LightBlockFromProto(lb)
@@ -119,20 +125,30 @@ func (d *Dispatcher) Respond(ctx context.Context, lb *tmproto.LightBlock, peer t
 			return err
 		}
 
-		return utils.Send(ctx, answerCh, block)
+		d.complete(calls, peer, answerCh, block)
+		return nil
 	}
 	panic("unreachable")
+}
+
+// complete is the single completion path for response, cancellation and Close.
+// The calls lock must be held. Each call has room for exactly one outcome.
+func (d *Dispatcher) complete(calls map[types.NodeID]*pendingLightBlockCall, peer types.NodeID, call *pendingLightBlockCall, block *types.LightBlock) {
+	if calls[peer] != call {
+		return
+	}
+	delete(calls, peer)
+	call.response <- block
+	close(call.response)
 }
 
 // Close shuts down the dispatcher and cancels any pending calls awaiting responses.
 // Peers awaiting responses that have not arrived are delivered a nil block.
 func (d *Dispatcher) Close() {
 	for calls := range d.calls.Lock() {
-		for peer := range calls {
-			delete(calls, peer)
-			// don't close the channel here as it's closed in
-			// other handlers, and would otherwise get garbage
-			// collected.
+		d.closed = true
+		for peer, call := range calls {
+			d.complete(calls, peer, call, nil)
 		}
 	}
 }

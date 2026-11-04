@@ -268,17 +268,24 @@ func (s *Server) UnsubscribeAll(ctx context.Context, clientID string) error {
 	return nil
 }
 
-// NumClients returns the number of clients.
+// NumClients returns the number of clients, or zero after shutdown.
 func (s *Server) NumClients() int {
 	s.subs.RLock()
 	defer s.subs.RUnlock()
+	if s.subs.index == nil {
+		return 0
+	}
 	return len(s.subs.index.byClient)
 }
 
-// NumClientSubscriptions returns the number of subscriptions the client has.
+// NumClientSubscriptions returns the number of subscriptions the client has,
+// or zero after shutdown.
 func (s *Server) NumClientSubscriptions(clientID string) int {
 	s.subs.RLock()
 	defer s.subs.RUnlock()
+	if s.subs.index == nil {
+		return 0
+	}
 	return len(s.subs.index.findClientID(clientID))
 }
 

@@ -1,0 +1,9 @@
+[repair.22.33.1187]
+findings = ["snapshot-prune-reopen", "app-state-rollback"]
+snapshot_prune_reopen = "TestRepairM_1187_SnapshotPruneReopen; TestRepairM_1187_SnapshotInterruptedPrune"
+app_state_rollback = "TestRepairM_1187_AppStateRollback; TestRepairM_1187_RollbackRefusesInvalidTarget; TestRepairM_1187_RollbackInstallFailure"
+path = "State.Set/Finalize -> SnapshotStore.Create -> durable files/journal -> Prune -> reopen -> List/LoadChunk -> State.Import/reopen; State.Commit -> previous JSON -> Rollback -> current JSON -> NewState"
+baseline = "Not run: the explicit ordered implementation/build/hf-done instructions prohibit baseline verification before implementation or running verify_cmd by hand; no baseline failures claimed."
+wiring_requests = "None; all repairs and proving tests are within consensus/test/e2e/app."
+evidence = "The runner gate ledger records the exact candidate revision, command, exit and private log location for hf-build and hf-done."
+gotcha = "A metadata replacement obstruction must leave the prune intent durable so constructor recovery and same-handle retry can finish deleting files without advertising missing chunks."

@@ -1,9 +1,11 @@
 package config
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
+	"os"
 	"strings"
 
 	atypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/autobahn/types"
@@ -145,4 +147,29 @@ func (fc *AutobahnFileConfig) Validate() error {
 		return errors.New("dial_interval must be > 0")
 	}
 	return fc.validatePersistence()
+}
+
+// LoadAutobahnPersistentStateDir loads the validated persistence setting and
+// resolves it against the node home, matching the startup loader's boundary.
+// The config file path itself is used as supplied, as it is at startup.
+func LoadAutobahnPersistentStateDir(path, root string) (utils.Option[string], error) {
+	data, err := os.ReadFile(path) //nolint:gosec // path is operator-controlled config
+	if err != nil {
+		return utils.None[string](), err
+	}
+	var fc AutobahnFileConfig
+	if err := json.Unmarshal(data, &fc); err != nil {
+		return utils.None[string](), err
+	}
+	if err := fc.Validate(); err != nil {
+		return utils.None[string](), err
+	}
+	dir, err := fc.ConsensusPersistentStateDir()
+	if err != nil {
+		return utils.None[string](), err
+	}
+	if path, ok := dir.Get(); ok {
+		return utils.Some(rootify(path, root)), nil
+	}
+	return utils.None[string](), nil
 }

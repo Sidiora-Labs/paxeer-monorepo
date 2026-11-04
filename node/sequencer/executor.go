@@ -106,6 +106,7 @@ type Accepted struct {
 	TxIndex        int
 	TimestampMs    int64
 	Result         *abci.ExecTxResult
+	BeforeContext  sdk.Context
 	ReceiptContext sdk.Context
 }
 

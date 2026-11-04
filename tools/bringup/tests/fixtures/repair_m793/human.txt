@@ -1,0 +1,5 @@
+pass live http=200 live=true service=layerx-human-service
+pass preflight http=204 allow-origin=https://paxportwallet.com
+pass plan http=401 code=unauthenticated trace=present
+pass human-evidence checks=live,preflight,plan
+check-live: all checks passed

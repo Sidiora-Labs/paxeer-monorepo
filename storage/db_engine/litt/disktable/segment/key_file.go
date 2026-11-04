@@ -3,6 +3,7 @@ package segment
 import (
 	"bufio"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -272,17 +273,18 @@ func (k *keyFile) seal() error {
 		return fmt.Errorf("key file is already sealed")
 	}
 
-	err := k.flush()
-	if err != nil {
-		return fmt.Errorf("failed to flush key file: %w", err)
-	}
-	if err := k.file.Close(); err != nil {
-		return fmt.Errorf("failed to close key file: %w", err)
-	}
+	flushErr := k.flush()
+	closeErr := k.file.Close()
 	k.writer = nil
 	k.file = nil
 
-	return nil
+	if flushErr != nil {
+		flushErr = fmt.Errorf("failed to flush key file: %w", flushErr)
+	}
+	if closeErr != nil {
+		closeErr = fmt.Errorf("failed to close key file: %w", closeErr)
+	}
+	return errors.Join(flushErr, closeErr)
 }
 
 // readKeys reads all keys from the key file. This method returns an error if the key file is not sealed.

@@ -14730,3 +14730,8 @@ fix = "For services/platform/perps-data the PostgreSQL database named by PERPS_D
 title = "python test runs write bytecode caches beside the tests and the candidate stops matching the built revision"
 symptom = "pytest writes __pycache__/*.pyc next to the test files it runs; the publication check swept them into the candidate of 22.33.776 a1 (all 11 tests passed, built and verified revisions differed) and of 22.33.727 a2 (a requalification run with no edits at all), and three bytecode files under tools/qualification/audit_repairs/__pycache__ were committed by 22.34.1, 22.31.425 and 22.31.427 because the root .gitignore has no bytecode rule."
 fix = "The qualification environment runs Python with bytecode writing disabled, the root .gitignore ignores __pycache__/ and *.pyc (task 22.31.458 removes the three committed files), and a verified revision that differs from the built one only by bytecode caches is a qualification-environment effect, not an attempt defect: the attempt is requalified."
+
+[gotcha.2982]
+title = "a touches entry given as a bare string was iterated character by character and shredded four scope lists"
+symptom = "The touches lists of 22.31.275, 22.31.280, 22.31.281, 22.31.282 and 22.95.1 carried one path split into single characters (an earlier ruling passed the swagger output path as a string, not a list), so the attempts of 22.31.275 and 22.31.280 were refused for changing the regenerated swagger file outside scope although the ruling had meant to admit it."
+fix = "List fields are set from lists only (the helper now refuses a bare string); the five lists are rewritten whole, and a scope refusal on a path a ruling meant to admit is checked against the raw touches list before the attempt is blamed."

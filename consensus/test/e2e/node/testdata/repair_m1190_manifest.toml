@@ -1,0 +1,7 @@
+abci_protocol = "builtin"
+prepare_proposal_delay_ms = 30
+process_proposal_delay_ms = 50
+check_tx_delay_ms = 70
+finalize_block_delay_ms = 90
+
+[node.validator01]

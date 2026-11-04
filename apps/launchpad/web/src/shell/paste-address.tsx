@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import { Button, IconButton } from '@/ui/primitives';
 import { useDismiss } from '@/ui/primitives/use-popover';
 
-const ADDRESS = /0x[0-9a-fA-F]{40}/;
+const ADDRESS = /(?<![0-9a-fA-F])0x[0-9a-fA-F]{40}(?![0-9a-fA-F])/;
 
 /** First 0x address found in free text (a bare address, an explorer URL or a coin page URL), lowercased. */
 export function addressFromText(text: string): string | null {

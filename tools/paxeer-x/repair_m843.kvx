@@ -1,0 +1,18 @@
+[repair.22.33.843]
+audit = "22.30.181"
+base_revision = "0d67b10a1307bd87573ba79cf46b7f9c0337f7e3"
+f001 = "TestRepairM_843_RPCFoundation: the maintained route catalogue produces the candidate foundation over the production JSON contract and rejects old or incomplete rosters."
+f002 = "TestRepairM_843_CanonicalDependencies, TestRepairM_843_MissingDependencies, TestRepairM_843_DependencyReadiness, TestRepairM_843_UnresolvedDeclarations, TestRepairM_843_DeploymentDecisions: canonical catalogue dependencies are produced, transported and consumed before deployment decisions; missing identities refuse and unresolved declarations never preserve."
+f032 = "TestRepairM_843_LNIGuidance: decode the maintained retirement catalogue, require direct root RPC writes and committed-height reads, and retain all historical scanning names and trees."
+baseline = "Not run: the explicit gate order forbids verification before implementation and permits only hf-build followed by hf-done. No baseline test failures are claimed."
+qualification = "The runner gate ledger records the exact candidate revision, command, exit code and private evidence location for the bounded build and hf-done verification."
+policy_runtime = "candidate.py invokes the production standard-library Go policy helper over JSON; the Go gate exercises that same handler in process without external binaries or subprocess toolchains. Candidate CLI operations require the repository Go toolchain and refuse if it is unavailable."
+wiring_request = "spec/layerx-merge/spec.kvx [service.*].dependencies — domain 16 and the owning service domains must replace prose and non-catalogue dependencies (including archive-node and monitoring) with authoritative canonical service identities before those services can claim readiness."
+
+[gotcha.1]
+observed = "The service catalogue includes prose dependency declarations and list entries without a matching service identity."
+action = "Retain unresolved declarations explicitly and block preserved deployment; an opaque evidence reference cannot replace canonical running identities."
+
+[gotcha.2]
+observed = "The baseline candidate Python corpus still refers to the removed kernel service in its inventory and shell-selection cases."
+action = "This pre-existing catalogue mismatch is outside the three findings; the declared Go gate does not invoke that historical corpus."

@@ -1,0 +1,8 @@
+[repair.22.33.1179]
+finding = "input-allocation-unbounded"
+implementation = "utils.go bounds binary keys at 1 MiB and values at 64 MiB, checks remaining regular-file bytes before allocation, and exposes KVRecordLengthError with errors.Is support."
+tests = ["TestRepairM_1179_OversizedLengths", "TestRepairM_1179_OversizedCompletePayloads", "TestRepairM_1179_TruncatedFiles", "TestRepairM_1179_TruncationBeforeAllocation", "TestRepairM_1179_BoundaryEntries", "TestRepairM_1179_StreamLengths", "TestRepairM_1179_LoadConsumer"]
+baseline = "Not run: the task's explicit gate order prohibits verification before complete implementation and permits verification only through hf-done; no pre-change test failures are claimed."
+wiring_requests = []
+evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit and private log; completion requires passing hf-done on the built revision."
+gotcha = "The task requests spec-record and root-gotcha updates but prohibits edits outside storage/tools/utils; this scoped record retains the finding-to-test mapping and the baseline instruction conflict."

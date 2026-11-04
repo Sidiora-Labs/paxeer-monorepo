@@ -14,6 +14,7 @@ def stage(baseline, patches, destination, verify=None):
     return stage_raw(baseline, patches, destination, verify, {m['patch_digest']: m['owned'] for m in patches})
 
 class PatchTests(unittest.TestCase):
+    spec_path = Path(__file__).resolve().parents[5]/'launchpad/spec/production-system/spec.kvx'
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
@@ -137,7 +138,7 @@ class PatchTests(unittest.TestCase):
         stage(self.base,[patch],self.root/'s',lambda _:True)
         self.assertEqual(sorted(x.name for x in (self.root/'s').iterdir()),['svc'])
     def test_canonical_fifty_lane_ownership(self):
-        spec_path = Path('/root/mk-falcon/KindleLaunch/spec/production-system/spec.kvx')
+        spec_path = self.spec_path
         data=tomllib.loads(spec_path.read_text())
         lanes=data['lane']
         self.assertEqual(len(lanes),50)
@@ -145,15 +146,19 @@ class PatchTests(unittest.TestCase):
             with self.subTest(lane=lane):
                 patterns=declaration['write_paths']
                 a=self.candidate('candidate-'+lane)
-                path='spec/production-system/handoffs/'+lane+'/phase1/result.json'
+                path='launchpad/spec/production-system/handoffs/'+lane+'/phase1/result.json'
                 target=a/path; target.parent.mkdir(parents=True); target.write_text('{}')
                 patch=p.build_patch(self.base,a,patterns,self.root/('patch-'+lane))
                 self.assertEqual([entry['path'] for entry in patch['entries']],[path])
-                result=stage_raw(self.base,[patch],self.root/('stage-'+lane),lambda _:True,{patch['patch_digest']:patterns})
+                result=stage_raw(self.base,[self.root/('patch-'+lane)],self.root/('stage-'+lane),lambda tree:(tree/path).read_text()=='{}',{patch['patch_digest']:patterns})
                 self.assertTrue(result['qualified'])
                 self.assertTrue((self.root/('stage-'+lane)/path).exists())
+                foreign=lanes['L02' if lane=='L01' else 'L01']['write_paths']
+                with self.assertRaises(p.PatchError):p.build_patch(self.base,a,foreign,self.root/('foreign-'+lane))
+                with self.assertRaises(p.PatchError):stage_raw(self.base,[self.root/('patch-'+lane)],self.root/('foreign-stage-'+lane),lambda tree:self.fail('foreign lane reached verifier'),{patch['patch_digest']:foreign})
+                self.assertFalse((self.root/('foreign-stage-'+lane)).exists())
     def test_handoff_exception_bounded(self):
-        for path in ('spec/production-system/handoffs/L00/a','spec/production-system/handoffs/L51/a','spec/production-system/handoffs/L1/a','spec/production-system/handoffs/**','spec/production-system/spec.kvx'):
+        for path in ('launchpad/spec/production-system/handoffs/L00/a','launchpad/spec/production-system/handoffs/L51/a','launchpad/spec/production-system/handoffs/L1/a','launchpad/spec/production-system/handoffs/**','launchpad/spec/production-system/spec.kvx','spec/production-system/handoffs/L00/a','spec/production-system/handoffs/L51/a','spec/production-system/handoffs/L1/a','spec/production-system/handoffs/**','spec/production-system/spec.kvx'):
             with self.subTest(path=path): self.assertTrue(p._reserved(path))
     def test_empty_patch(self):
         with self.assertRaises(p.PatchError): self.patch(self.candidate())
