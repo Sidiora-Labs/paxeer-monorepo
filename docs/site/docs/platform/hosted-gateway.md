@@ -26,8 +26,9 @@ The image is `ghcr.io/sidiora-labs/layerx-gateway:0.1.0`, user
 (`docker/platform-gateway/Dockerfile:5-11`;
 `services/platform/hosted/gateway/deployment.yaml:67-69`). The Deployment has
 three replicas, listens on `0.0.0.0:9443`, exposes Service port `443`
-to container `9443`, and is reached as Ingress host
-`api-mainnet-beta.paxeer.network`
+to container `9443`. The checked-in Ingress names
+`api-mainnet-beta.paxeer.network`, which currently serves the public node,
+not this gateway
 (`services/platform/hosted/gateway/deployment.yaml:60`;
 `services/platform/hosted/gateway/deployment.yaml:70-72`;
 `services/platform/hosted/gateway/deployment.yaml:123-126`;
@@ -36,10 +37,15 @@ to container `9443`, and is reached as Ingress host
 (`services/platform/hosted/gateway/deployment.yaml:131`;
 `services/platform/hosted/gateway/deployment.yaml:138-143`).
 
-The router URL `https://api-mainnet-beta.paxeer.network` is the
-network's only unified endpoint: `eth_*`, `lx_*` and `px_*` methods answer
-there. The block explorer is `paxscan.io` and the wallet is
-`paxportwallet.com`; the sixteen public RPC names serve the EVM domain alone.
+The public JSON-RPC is served at the root of
+`https://api-mainnet-beta.paxeer.network` and `api1` through
+`api14.mainnet-beta.paxeer.network`, EVM chain ID `125`. The node names serve
+the merged network and have no separate public LayerX interface. Node-root
+`px_getReceiptKeys` and `px_getHistory` return `-32601`; `/rpc` returns HTTP 404.
+This gateway is operator-deployed: obtain its origin from the operator for
+`lx_*` and `px_*` methods. The checked-in configuration does not establish a
+separate public gateway endpoint. The block explorer is `paxscan.io` and the
+wallet is `paxportwallet.com`.
 
 This page covers that binary, its Redis, and the tests in
 `services/platform/hosted/gateway/`. It does not document the emulator
@@ -47,8 +53,8 @@ administration surface. `production_route` never accepts emulator
 paths (`services/platform/hosted/gateway/src/lib.rs:804-808`;
 `services/platform/hosted/gateway/src/lib.rs:880-881`).
 
-The gateway serves public JSON-RPC at `POST /rpc`, `GET /rpc/schema`, and
-`GET /rpc/ws`. The exact 15-method contract, authenticated submission rules,
+An operator-deployed gateway serves JSON-RPC at `POST /rpc`,
+`GET /rpc/schema`, and `GET /rpc/ws`. The exact 15-method contract, authenticated submission rules,
 result shapes, and WebSocket behavior are in [Public JSON-RPC](gateway-rpc.md).
 
 ---

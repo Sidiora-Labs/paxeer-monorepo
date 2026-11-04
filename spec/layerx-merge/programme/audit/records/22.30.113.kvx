@@ -1,0 +1,553 @@
+[audit.22.30.113]
+task = "22.30.113"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 46
+findings = 23
+docs_reviewed = 4
+upgrade_ready = false
+blocking = ["metered-retired", "fulfilment-nonces", "program-answer-recovery"]
+
+[file.01]
+path = "services/interop/crates/x-websearch/Cargo.toml"
+lines = 37
+verdict = "clean"
+note = "Read in full: Library/binary targets, inherited dependencies and lints, pinned Tantivy and Unicode versions agree with the live imports."
+
+[file.02]
+path = "services/interop/crates/x-websearch/README.md"
+lines = 34
+verdict = "issues"
+note = "Read in full: Payment capability, settlement endpoint instructions and peer-answer persistence claims disagree with the running code."
+
+[file.03]
+path = "services/interop/crates/x-websearch/config.example.json"
+lines = 59
+verdict = "clean"
+note = "Read in full: Four distinct asset placeholders, positive price placeholders, nested snake_case receipt keys and chain id 125 match the loader; placeholders require operator substitution."
+
+[file.04]
+path = "services/interop/crates/x-websearch/src/api.rs"
+lines = 1936
+verdict = "issues"
+note = "Read in full: Payload codec, credential envelopes, field selection and TLS client reviewed; framing overhead escapes the decoded body cap."
+
+[file.05]
+path = "services/interop/crates/x-websearch/src/assets.rs"
+lines = 130
+verdict = "clean"
+note = "Read in full: Exactly four supported symbols, distinct nonzero asset ids and positive base-unit prices; lookup and refusals match configuration and payment consumers."
+
+[file.06]
+path = "services/interop/crates/x-websearch/src/attest.rs"
+lines = 1324
+verdict = "clean"
+note = "Read in full: Origin-1 digest, API/storage/fetch/search answers, signatures, sorted quorum and durable ordinary exchange reviewed; implemented storage kind 4 needs documentation."
+
+[file.07]
+path = "services/interop/crates/x-websearch/src/canonical.rs"
+lines = 408
+verdict = "clean"
+note = "Read in full: UTF-8, NFC, canonical JSON, content domains, kinds and byte lengths match content-store and attestation consumers."
+
+[file.08]
+path = "services/interop/crates/x-websearch/src/config.rs"
+lines = 970
+verdict = "issues"
+note = "Read in full: Strict keys, secret/placeholder refusal, receipt authorization windows, optional network id and resource limits reviewed; receipt-key registry schema is stale."
+
+[file.09]
+path = "services/interop/crates/x-websearch/src/content.rs"
+lines = 272
+verdict = "clean"
+note = "Read in full: Content-addressed writes/reopen, corrupt-file detection and digest-checked peer retrieval reviewed; peer-origin requests remain local to prevent loops."
+
+[file.10]
+path = "services/interop/crates/x-websearch/src/crawl.rs"
+lines = 481
+verdict = "clean"
+note = "Read in full: Bounded traversal, host budgets/politeness, deferrals, robots, extraction and committed index writes agree with crawler consumers."
+
+[file.11]
+path = "services/interop/crates/x-websearch/src/extract.rs"
+lines = 485
+verdict = "clean"
+note = "Read in full: Supported media/charsets, deterministic HTML text/links, excluded elements and entity decoding reviewed with explicit unsupported-input refusals."
+
+[file.12]
+path = "services/interop/crates/x-websearch/src/fetch.rs"
+lines = 973
+verdict = "issues"
+note = "Read in full: URL/address restrictions, pinned destinations, redirects, robots, TLS and HTTP decoding reviewed; DNS and framing risks violate resource bounds."
+
+[file.13]
+path = "services/interop/crates/x-websearch/src/index.rs"
+lines = 199
+verdict = "clean"
+note = "Read in full: Persisted Tantivy schema, URL replacement, writer serialization, commit and reader reload match search field consumers."
+
+[file.14]
+path = "services/interop/crates/x-websearch/src/keys.rs"
+lines = 266
+verdict = "clean"
+note = "Read in full: Environment names, private-file checks, scalar validation and role loading reviewed; receiver/submitter separation prevents payment-account nonce collision."
+
+[file.15]
+path = "services/interop/crates/x-websearch/src/lib.rs"
+lines = 61
+verdict = "clean"
+note = "Read in full: Exports, route documentation and conformance descriptor reviewed; its pinned recording descriptor does not establish live ledger grant execution."
+
+[file.16]
+path = "services/interop/crates/x-websearch/src/main.rs"
+lines = 1421
+verdict = "issues"
+note = "Read in full: Startup, network probes, route mounting, crawler and both attestation loops reviewed; settlement authority and duplicate watcher ownership require alignment."
+
+[file.17]
+path = "services/interop/crates/x-websearch/src/payment.rs"
+lines = 2876
+verdict = "issues"
+note = "Read in full: Exact/metered offers, decoders, durable payment/delivery journals, receipt authentication and replay reviewed; advertised metered grants are intentionally retired at the producer."
+
+[file.18]
+path = "services/interop/crates/x-websearch/src/program.rs"
+lines = 916
+verdict = "issues"
+note = "Read in full: Origin-2 codec, attestation, peer validation, quorum and EVM relay reviewed; emitted answers and collected signatures disappear before signed-transaction recovery begins."
+
+[file.19]
+path = "services/interop/crates/x-websearch/src/robots.rs"
+lines = 199
+verdict = "clean"
+note = "Read in full: User-agent groups, path rules, Allow precedence and caching agree with fetch/crawl refusal behavior."
+
+[file.20]
+path = "services/interop/crates/x-websearch/src/search.rs"
+lines = 345
+verdict = "issues"
+note = "Read in full: Query validation, ranking, URL ties, snippets, canonical bytes and HTTP route reviewed; complete score-tie expansion loads too many stored bodies."
+
+[file.21]
+path = "services/interop/crates/x-websearch/src/server.rs"
+lines = 945
+verdict = "issues"
+note = "Read in full: HTTP bounds, worker lifecycle, GET-only routing, free content before readiness and program-key parsing reviewed; registry registration notes are stale."
+
+[file.22]
+path = "services/interop/crates/x-websearch/src/settlement.rs"
+lines = 426
+verdict = "clean"
+note = "Read in full: Chain-checked transport, canonical quantities, rung fields and malformed receipt/log refusal agree with actual receipt serialization; authentication remains the payment consumer responsibility."
+
+[file.23]
+path = "services/interop/crates/x-websearch/src/submit.rs"
+lines = 1416
+verdict = "issues"
+note = "Read in full: ABI encoding, signatures, fees, source checks, journals and outcomes reviewed; ordinary/program submission lacks shared account nonce allocation."
+
+[file.24]
+path = "services/interop/crates/x-websearch/src/watch.rs"
+lines = 997
+verdict = "issues"
+note = "Read in full: Both log topics, source validation, confirmed scan and durable pending reopen reviewed; getKernelNetworkId registry notes incorrectly claim the served view is absent."
+
+[file.25]
+path = "services/interop/crates/x-websearch/tests/api.rs"
+lines = 1292
+verdict = "clean"
+note = "Read in full: Payload/credential codecs, TLS transport, response selection, API attestation and refusal cases reviewed against production client and consumer types."
+
+[file.26]
+path = "services/interop/crates/x-websearch/tests/attest.rs"
+lines = 2072
+verdict = "issues"
+note = "Read in full: Digest/quorum, API/storage, durable exchange, malformed peers and application proof reviewed; the stdin-dependent application test lacks a default-harness producer."
+
+[file.27]
+path = "services/interop/crates/x-websearch/tests/binary.rs"
+lines = 875
+verdict = "clean"
+note = "Read in full: Spawned binary, configuration/keys, crawl, readiness and paid routes reviewed; gateway probe assertions reflect req.11394 but do not establish payment endpoint identity."
+
+[file.28]
+path = "services/interop/crates/x-websearch/tests/canonical.rs"
+lines = 284
+verdict = "clean"
+note = "Read in full: Shared byte/digest vectors, normalization, JSON and malformed-input assertions agree with canonical producers."
+
+[file.29]
+path = "services/interop/crates/x-websearch/tests/config.rs"
+lines = 961
+verdict = "clean"
+note = "Read in full: Strict fields, assets, receipt-key windows, retired-key refusal and optional network-id tests agree with req.11361 and the loader."
+
+[file.30]
+path = "services/interop/crates/x-websearch/tests/content.rs"
+lines = 407
+verdict = "clean"
+note = "Read in full: Disk reopen, canonical bytes, corrupt content, peer hash verification and loop prevention exercise production storage and routes."
+
+[file.31]
+path = "services/interop/crates/x-websearch/tests/crawl.rs"
+lines = 602
+verdict = "clean"
+note = "Read in full: Traversal budgets, host scheduling, robots, extraction, configuration and index visibility use the production crawler paths."
+
+[file.32]
+path = "services/interop/crates/x-websearch/tests/example_config.rs"
+lines = 97
+verdict = "clean"
+note = "Read in full: Placeholder refusal and valid substitution exercise the committed example and strict parser."
+
+[file.33]
+path = "services/interop/crates/x-websearch/tests/fetch.rs"
+lines = 1024
+verdict = "clean"
+note = "Read in full: HTTP/TLS, robots, redirects, SSRF, charset and body/time-bound cases reviewed; current vectors do not cover DNS blocking or aggregate framing overhead."
+
+[file.34]
+path = "services/interop/crates/x-websearch/tests/keys.rs"
+lines = 359
+verdict = "clean"
+note = "Read in full: Environment lookup, permissions, missing/malformed secrets, scalar range and role separation match the live key loader."
+
+[file.35]
+path = "services/interop/crates/x-websearch/tests/payment.rs"
+lines = 4425
+verdict = "issues"
+note = "Read in full: All payment, journal, receipt, nonce and replay scenarios reviewed; constructed successful metered responses disagree with the actual ledger producer."
+
+[file.36]
+path = "services/interop/crates/x-websearch/tests/program.rs"
+lines = 676
+verdict = "clean"
+note = "Read in full: Attestation, peer records, observation bytes, EVM submission and signed-transaction reopen reviewed; later transaction recovery does not cover pre-quorum answer recovery."
+
+[file.37]
+path = "services/interop/crates/x-websearch/tests/program_server.rs"
+lines = 209
+verdict = "clean"
+note = "Read in full: Actual program route mounting, exact key parsing, unknown-record refusal and peer-record response agree with the EVM exchange."
+
+[file.38]
+path = "services/interop/crates/x-websearch/tests/program_watch.rs"
+lines = 431
+verdict = "clean"
+note = "Read in full: Mixed log topics, malformed/foreign/removed logs, source identity and watcher reopen reviewed; request persistence does not persist exchange signatures."
+
+[file.39]
+path = "services/interop/crates/x-websearch/tests/proof_x_websearch_payment.rs"
+lines = 280
+verdict = "clean"
+note = "Read in full: Authenticated Go-produced receipt vectors and public decoder crossings reviewed; the proof explicitly acknowledges retired grant lookup and does not claim successful live grants."
+
+[file.40]
+path = "services/interop/crates/x-websearch/tests/proof_x_websearch_program_requests.rs"
+lines = 352
+verdict = "issues"
+note = "Read in full: Real watcher/attestor/exchange/observation crossing reviewed; restart rounds re-sign the same request with changed content instead of recovering an emitted answer."
+
+[file.41]
+path = "services/interop/crates/x-websearch/tests/search.rs"
+lines = 401
+verdict = "clean"
+note = "Read in full: Query, ranking/ties, snippets, canonical route and reopened-index assertions reviewed; small vectors leave corpus-sized tie materialization uncovered."
+
+[file.42]
+path = "services/interop/crates/x-websearch/tests/sequencer_vectors.rs"
+lines = 623
+verdict = "clean"
+note = "Read in full: Producer receipt vectors, signature/log authentication and malformed refusals reviewed; sequencer names describe receipt formats rather than a separate running service."
+
+[file.43]
+path = "services/interop/crates/x-websearch/tests/server.rs"
+lines = 539
+verdict = "clean"
+note = "Read in full: Request/header limits, methods/routes, readiness, workers and shutdown assertions agree with RouteTable and HTTP refusals."
+
+[file.44]
+path = "services/interop/crates/x-websearch/tests/settlement.rs"
+lines = 438
+verdict = "clean"
+note = "Read in full: Actual rung schemas, quantities, chain binding and invalid field/log cases reviewed, including refusal of signing material in submitted answers."
+
+[file.45]
+path = "services/interop/crates/x-websearch/tests/submit.rs"
+lines = 897
+verdict = "clean"
+note = "Read in full: Independent ABI encodings, transaction signatures, journal-before-broadcast and ordinary recovery/source checks reviewed; sequential cases miss shared-account concurrency."
+
+[file.46]
+path = "services/interop/crates/x-websearch/tests/support/gateway.rs"
+lines = 212
+verdict = "clean"
+note = "Read in full: Local recording transport, chain/network and receipt probes and call rejection reviewed; replay utilities do not prove live retired grant success."
+
+[finding.metered-retired]
+file = "services/interop/crates/x-websearch/src/payment.rs"
+line = 1361
+class = "interface-mismatch"
+severity = "high"
+observed = "payment_required offers METERED for each asset when a payer is named; Plane::draw calls read_payer_grant. The actual precompiles/layerxledger/payments.go getPayerGrant (line 136) and draw (line 92) unconditionally return ErrNoPayerGrant, so the advertised settlement cannot succeed."
+expected = "Every offered scheme must execute on the merged ledger. Decision 2340 retires receive and payer-grant activities; req.11392-11395 and the served/planned grant registry wording conflict with that retirement."
+proposal = "In services/interop/crates/x-websearch/src/payment.rs remove unusable grant offers and align buyers/sellers with supported exact settlement or an explicitly specified replacement. Reconcile grant requirements and registry rows with domain 6 without restoring retired activities, and prove an offered payment on the actual ledger."
+owner_domain = 11
+interface = "6.pc-0x101a-getpayergrant"
+
+[finding.fulfilment-nonces]
+file = "services/interop/crates/x-websearch/src/submit.rs"
+line = 1025
+class = "runtime-risk"
+severity = "high"
+observed = "main.rs opens program-submit and submit with the same keys.submitter() account in separate loops. submit_program and submit independently read the pending nonce before signing; without shared reservations they can journal distinct transactions at one nonce and endlessly rebroadcast the losing transaction."
+expected = "Concurrent ordinary/program fulfilments from one account must allocate distinct nonces, including uncertain broadcast and restart recovery, so one valid request cannot strand another."
+proposal = "In services/interop/crates/x-websearch/src/submit.rs share a durable chain/account nonce coordinator between both main.rs loops, covering reservation, journal publication and uncertain sends. Exercise simultaneous request kinds and reopen after allocation before broadcast."
+owner_domain = 11
+interface = "7.rpc-eth-gettransactioncount"
+
+[finding.program-answer-recovery]
+file = "services/interop/crates/x-websearch/src/program.rs"
+line = 477
+class = "restart-recovery"
+severity = "high"
+observed = "ProgramExchange::open initializes an empty answers map. record/accept retain answers and peer signatures only in memory; snapshot/restore have no live ProgramRelay caller. Restart before transaction signing makes prepare_program reattest the same key against changed content, permitting conflicting signatures and a split quorum."
+expected = "Req.11371 one-answer-per-program/request behavior and the brief recovery rule must survive the whole signing, peer transport and quorum lifecycle, before transaction journalling begins."
+proposal = "In services/interop/crates/x-websearch/src/program.rs atomically persist an answer before publishing it and persist quorum updates; restore with chain/request/signer checks and retire only with durable completion. Reopen after emission before quorum and prove unchanged digest/bytes despite changed web/index content."
+owner_domain = 11
+interface = "11.http-xws-program-attestations"
+
+[finding.settlement-authority]
+file = "services/interop/crates/x-websearch/src/main.rs"
+line = 344
+class = "config-drift"
+severity = "medium"
+observed = "ReadinessProbe checks settlement_usable at gateway.endpoint as req.11394 directs, but PaymentGate::new_with_network_id constructs SettlementRpc from evm.endpoint (payment.rs:1209). Different URLs can report ready while actual payment lacks receipts or block working payment on an unused gateway."
+expected = "Paid-delivery readiness must check the same configured chain and receipt authority used by payment, with one unambiguous endpoint responsibility."
+proposal = "Align services/interop/crates/x-websearch/src/main.rs, src/payment.rs and req.11394 on a named settlement authority; share that client with readiness. Exercise distinct watcher/settlement URLs where only the selected authority implements pax_sequencerReceipt and assert paid-route eligibility."
+owner_domain = 11
+interface = "11.cfg-xws-gateway-endpoint"
+
+[finding.watcher-ownership]
+file = "services/interop/crates/x-websearch/src/main.rs"
+line = 579
+class = "runtime-risk"
+severity = "medium"
+observed = "relay and pipeline open separate RequestWatchers. Each poll journals both event topics, but the ordinary loop retires only ordinary work and ProgramRelay retires only program work. Each opposite-kind queue accumulates permanently and is cloned and serialized on further polls."
+expected = "Every durable watched item must have an active completion/retirement owner; normal mixed network traffic must not create an ever-growing duplicate pending queue."
+proposal = "In services/interop/crates/x-websearch/src/main.rs use one durable dispatcher for both kinds or explicitly assign and retire foreign-kind work per watcher, preserving req.11366 both-topic discovery. Prove sustained mixed traffic and reopen leave no orphan queue."
+owner_domain = 11
+interface = "11.rs-xws-kernel-relay-step"
+
+[finding.fetch-dns-deadline]
+file = "services/interop/crates/x-websearch/src/fetch.rs"
+line = 779
+class = "runtime-risk"
+severity = "medium"
+observed = "Fetcher::destination synchronously calls to_socket_addrs with no resolver timeout. Fetch, robots and API paths cannot interrupt that resolution, so unavailable DNS can hold workers beyond total_timeout_ms despite the subsequent socket deadlines."
+expected = "The advertised absolute fetch deadline must bound DNS as well as connect, TLS, redirects, robots and body reads while retaining destination restrictions."
+proposal = "In services/interop/crates/x-websearch/src/fetch.rs introduce bounded cancellable resolution under the caller deadline, preserving all-address SSRF checks and address pinning. Exercise slow resolution through the production client and assert timely refusal without weakening destination checks."
+owner_domain = 11
+interface = "11.rs-xws-fetcher-destination"
+
+[finding.fetch-framing-memory]
+file = "services/interop/crates/x-websearch/src/fetch.rs"
+line = 416
+class = "security"
+severity = "medium"
+observed = "Wire::fill appends all bytes while consumed bytes only advance start. Tiny chunks, extensions, unlimited trailers or repeated 1xx can retain excessive framing despite a small decoded body. line/head return a found delimiter before checking its offset against the maximum, accepting oversized completed frames at read boundaries."
+expected = "Untrusted wire overhead needs strict per-frame and aggregate limits, independently of decoded body size, with consumed data released during the transfer."
+proposal = "In services/interop/crates/x-websearch/src/fetch.rs compact consumed buffers, check delimiter offsets, and bound aggregate informational headers, chunk metadata and trailers. Exercise many tiny chunks and oversized completed lines within the existing total time limit."
+owner_domain = 11
+interface = "11.rs-xws-http-client-get"
+
+[finding.api-framing-memory]
+file = "services/interop/crates/x-websearch/src/api.rs"
+line = 1558
+class = "security"
+severity = "medium"
+observed = "The API TLS Wire parser similarly retains all consumed bytes. until accepts a completed header/chunk line before checking maximum and chunked permits excessive aggregate trailers and metadata, allowing small JSON responses to consume disproportionate memory."
+expected = "The API attestation client must bound untrusted wire overhead separately from accepted body bytes and enforce lengths when delimiters arrive in the same read."
+proposal = "In services/interop/crates/x-websearch/src/api.rs use a bounded framing parser with compaction, delimiter-offset checks and aggregate head/chunk/trailer budgets, sharing the corrected HTTP primitive where appropriate. Exercise the real TLS client with adversarial framing while preserving credential checks."
+owner_domain = 11
+interface = "11.rs-xws-api-client-call"
+
+[finding.search-tie-expansion]
+file = "services/interop/crates/x-websearch/src/search.rs"
+line = 176
+class = "runtime-risk"
+severity = "medium"
+observed = "search doubles TopDocs until it includes the complete boundary score tie, then retrieves every TantivyDocument including full body into ranked before truncating to ten. Equal-score common queries can materialize the matching corpus, affecting paid workers and readiness probes."
+expected = "Ten-result searches must preserve deterministic score/URL ordering while retaining bounded candidates and materializing full bodies only for selected results."
+proposal = "In services/interop/crates/x-websearch/src/search.rs collect the best ten using URL as a deterministic tie key during collection and load stored bodies only for winners. Exercise a large tied corpus and establish stable ordering and bounded retained candidates."
+owner_domain = 11
+interface = "11.fmt-xws-search-result"
+
+[finding.receipt-key-registry]
+file = "services/interop/crates/x-websearch/src/config.rs"
+line = 847
+class = "config-drift"
+severity = "medium"
+observed = "The registry declares receipt_keys with keyId/publicKey/firstHeight/lastHeight. gateway() actually accepts nested gateway.receipt_keys with key_id/public_key/first_height/last_height and rejects unknown fields; req.11361 and config.example.json match the code."
+expected = "The configuration registry must state the same exact nesting and field names accepted by the strict loader and produced by operator tooling."
+proposal = "Correct spec/layerx-merge/interfaces.kvx row 11.cfg-xws-receipt-keys and contracts/interop-websearch.md#cfg-xws-receipt-keys to req.11361 nested snake_case keys. Preserve strict refusal and prove generated configuration parses without translation."
+owner_domain = 11
+interface = "11.cfg-xws-receipt-keys"
+
+[finding.program-route-registry]
+file = "services/interop/crates/x-websearch/src/server.rs"
+line = 330
+class = "config-drift"
+severity = "low"
+observed = "The registry says the program-attestations handler is registered only from retired kernel.rs. Current main.rs:593 calls program::register and serves the EVM ProgramExchange through this handler, contradicting that lifecycle description."
+expected = "The registry must name the live program.rs/main.rs registration and distinguish the served EVM route from the intentionally retired kernel relay."
+proposal = "Update spec/layerx-merge/interfaces.kvx row 11.http-xws-program-attestations with current producer and caller paths, retaining exact key parsing, error responses and the production route assertions in tests/program_server.rs."
+owner_domain = 11
+interface = "11.http-xws-program-attestations"
+
+[finding.network-id-registry]
+file = "services/interop/crates/x-websearch/src/watch.rs"
+line = 184
+class = "config-drift"
+severity = "low"
+observed = "The registry notes say getKernelNetworkId has no Go constant or Execute case and calls are refused. The current precompile serves the view, and this consumer uses it for network binding; the lifecycle notes incorrectly describe a required startup dependency as absent."
+expected = "The view registry must match actual precompile dispatch and req.11362 optional local network-id discovery without implying a missing implementation."
+proposal = "Reconcile spec/layerx-merge/interfaces.kvx row 6.pc-0x1019-getkernelnetworkid with current precompiles/xweb/xweb.go dispatch and view; name watch.rs::kernel_network_id as a live consumer and remove the absent-method claim."
+owner_domain = 11
+interface = "6.pc-0x1019-getkernelnetworkid"
+
+[finding.metered-test-producer]
+file = "services/interop/crates/x-websearch/tests/payment.rs"
+line = 1244
+class = "test-gap"
+severity = "medium"
+observed = "metered_draws_settle_in_each_asset asserts four successful settlements against gateway_recording, which constructs grants and successful signed draw receipts. The actual ledger cannot emit those successful results because grant lookup and draw unconditionally refuse retired grants."
+expected = "Payment conformance must distinguish historical replay/codec coverage from supported node behavior and prove every advertised successful scheme through the real producer."
+proposal = "In services/interop/crates/x-websearch/tests/payment.rs exercise actual ledger refusal and the supported offered-scheme path. Replace retired-scheme success as a product expectation while preserving signature, receipt binding, one-release and recovery assertions; label retained legacy decoder cases explicitly."
+owner_domain = 11
+interface = "6.pc-0x101a-getpayergrant"
+
+[finding.program-reopen-proof]
+file = "services/interop/crates/x-websearch/tests/proof_x_websearch_program_requests.rs"
+line = 197
+class = "test-gap"
+severity = "medium"
+observed = "Both rounds reopen watcher/index state and fresh exchanges for the same request key, change indexed content and assert a different signed digest. They do not restart after local answer emission before quorum, and the changed-digest assertion legitimizes conflicting answers after restart."
+expected = "The real-path recovery proof must reopen after an answer crosses the peer transport and preserve the already emitted answer for that exact request key."
+proposal = "In services/interop/crates/x-websearch/tests/proof_x_websearch_program_requests.rs restart local/peer exchanges after signing before quorum and assert identical bytes/digest after index changes. Use a distinct producer-issued request id to test fresh content and preserve all malformed-observation refusals."
+owner_domain = 11
+interface = "11.http-xws-program-attestations"
+
+[finding.application-proof-harness]
+file = "services/interop/crates/x-websearch/tests/attest.rs"
+line = 2003
+class = "test-gap"
+severity = "medium"
+observed = "The unconditional test xweb_0x1019_application_proof reads process stdin JSON before arranging a producer. A Go-fed invocation supplies its endpoint, but the default Rust integration-test harness supplies no JSON, making the registered test fail on EOF or wait for input."
+expected = "Tests selected by the default harness must arrange their actual producers, or expose an explicit dedicated producer-owned entrypoint instead of depending on ambient stdin."
+proposal = "In services/interop/crates/x-websearch/tests/attest.rs and the precompiles/xweb Go proof create a dedicated producer-driven invocation or launch that actual producer from the test. Preserve the real application EVM crossing and all assertions; do not skip it or substitute recordings."
+owner_domain = 11
+
+[finding.readme-metered]
+file = "services/interop/crates/x-websearch/README.md"
+line = 9
+class = "doc-drift"
+severity = "medium"
+observed = "The README says the receiver signs metered draws on 0x101A and line 28 recommends a key for that capability. The actual ledger intentionally refuses all payer grants and draws, so these operating instructions promise an unavailable payment product."
+expected = "Operators must see only payment schemes the merged node executes, with supported exact settlement distinguished from intentionally retired payer grants."
+proposal = "Rewrite services/interop/crates/x-websearch/README.md payment and receiver-key guidance alongside the supported-scheme repair, describing actual receipt verification and refusals without directing operators to restore retired kernel activity types."
+owner_domain = 11
+interface = "6.pc-0x101a-getpayergrant"
+
+[finding.readme-endpoint]
+file = "services/interop/crates/x-websearch/README.md"
+line = 13
+class = "doc-drift"
+severity = "medium"
+observed = "The README names gateway.endpoint as settlement URL and evm.endpoint for watching/fulfilment, repeated at line 22. PaymentGate actually connects to evm.endpoint, so an operator can configure receipt support at a URL never used by payment."
+expected = "Documented endpoint roles must match payment and readiness so an operator can configure one functioning receipt authority even when watcher and settlement URLs differ."
+proposal = "Update services/interop/crates/x-websearch/README.md endpoint table and substitutions together with main.rs/payment.rs authority alignment. State which endpoint must serve pax_sequencerReceipt and whether distinct configured URLs are supported."
+owner_domain = 11
+interface = "11.cfg-xws-gateway-endpoint"
+
+[finding.readme-peer-recovery]
+file = "services/interop/crates/x-websearch/README.md"
+line = 32
+class = "doc-drift"
+severity = "medium"
+observed = "The README says peer answers are kept under program-attest. The directory currently keeps discard logs while ProgramExchange::open restores no answers or signatures; only the later signed transaction has durable submission recovery."
+expected = "Recovery guidance must distinguish persisted watcher work, emitted answers/quorum state and signed transactions, accurately naming which stages survive a restart."
+proposal = "Correct services/interop/crates/x-websearch/README.md state guidance with the program.rs persistence repair and describe the actual persisted answer/quorum records and their retirement boundary, linked to the pre-quorum restart proof."
+owner_domain = 11
+interface = "11.http-xws-program-attestations"
+
+[finding.protocol-payment-doc]
+file = "docs/site/docs/protocol/xweb.md"
+line = 41
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 41-48 prescribe LAYERX-PAYER-DID, lx_sendActivity/lx_getActivityStatus/lx_getReceipt and lxp:<receipt_digest>. The active gate uses EVM payer addresses and EVM transaction/receipt transport, and the grant producer is intentionally retired."
+expected = "Integrators need exact merged payment headers, supported schemes, network binding, settlement encoding and durable EVM retry semantics matching the running sidecar."
+proposal = "Rewrite docs/site/docs/protocol/xweb.md payment instructions around LAYERX-PAYER-ADDRESS, supported exact settlement, eth_sendRawTransaction and authenticated pax_sequencerReceipt. Remove live lx_ activity instructions and reconcile grant capability with decision 2340."
+owner_domain = 11
+interface = "11.cfg-xws-payment-payer-address-j48"
+
+[finding.protocol-program-doc]
+file = "docs/site/docs/protocol/xweb.md"
+line = 154
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 154-166 describe gateway-watched program requests, submitted web observation activities and a sequencer-folded web root; the closing v6.8 story repeats the old path. The live relay watches XWebProgramRequested via eth_getLogs and sends fulfilProgram(bytes) on the integrated chain."
+expected = "The page must describe integrated paxd/kernel execution and the actual origin-2 EVM event, quorum and fulfilment lifecycle, retaining the explicit retirement of web_read."
+proposal = "Rewrite docs/site/docs/protocol/xweb.md program and release-status sections around current event ABI, fulfilProgram transactions, root node JSON-RPC and committed-result queries. Remove the separate-interface/sequencer operating model and obsolete upgrade directions."
+owner_domain = 11
+interface = "11.http-xws-program-attestations"
+
+[finding.protocol-storage-kind]
+file = "docs/site/docs/protocol/xweb.md"
+line = 114
+class = "doc-drift"
+severity = "medium"
+observed = "The request description lists only fetch/search/api kinds 1/2/3. Attestor::content also implements kind 4: decode a digest/base URL, fetch a storage manifest, verify SHA-256 and attest a pns-receipt/v1 response."
+expected = "The public request-kind description must cover every active kind and its payload, bounds, endpoint, digest and refusal semantics, including req.19006 storage receipt attestation."
+proposal = "Extend docs/site/docs/protocol/xweb.md with kind 4, 32-byte digest plus bounded HTTPS base URL, manifest path, SHA-256 check and canonical response. Reference the actual storage producer and existing storage attestation assertions."
+owner_domain = 11
+
+[finding.operator-retired-daemon]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The operator page describes a Paxeer chain plus a separate LayerX Network daemon and at line 50 instructs layerxd --custody-profile. It directs operators to provision a retired runtime alongside the merged node."
+expected = "Brief network facts require one BFT paxd network with an integrated kernel and node JSON-RPC at the root; layerxd is not a runtime component to start."
+proposal = "Rewrite docs/site/docs/operators/beta-cluster.md topology, image and custody instructions for integrated paxd/kernel deployment and root RPC; remove live layerxd commands and distinguish hosted services from consensus components."
+owner_domain = 16
+
+[finding.wiki-retired-daemon]
+file = "docs/wiki/BetaCluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki also describes the separate LayerX daemon beside Paxeer and at line 42 prescribes layerxd --custody-profile, preserving retired bring-up instructions duplicated from the operator page."
+expected = "Both guides must describe one integrated network and current custody initialization without prescribing an extra LayerX daemon beside paxd."
+proposal = "Update docs/wiki/BetaCluster.md together with docs/site/docs/operators/beta-cluster.md for merged paxd/kernel deployment and custody inputs; replace retired startup commands and maintain synchronized operating instructions."
+owner_domain = 16
+
+[doc.01]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "stale"
+notes = "Read all 128 lines. Lines 3 and 50 prescribe a separate LayerX daemon and retired custody startup; topology and deployment instructions need an integrated-node rewrite."
+
+[doc.02]
+path = "docs/site/docs/protocol/xweb.md"
+status = "stale"
+notes = "Read all 292 lines. Lines 41-48 give retired payer/activity settlement; lines 154-166 and closing upgrade narrative retain the old program path; line 114 omits active storage kind 4."
+
+[doc.03]
+path = "docs/wiki/BetaCluster.md"
+status = "stale"
+notes = "Read all 114 lines. Lines 3 and 42 repeat the retired separate-daemon topology and layerxd custody startup; synchronize the rewrite with the operator page."
+
+[doc.04]
+path = "services/interop/crates/x-websearch/README.md"
+status = "misleading"
+notes = "Read all 34 lines. Lines 9/28 promise retired metered draws, lines 13/16/22 misassign settlement endpoint responsibility, and line 32 claims peer-answer persistence absent before signing transactions."

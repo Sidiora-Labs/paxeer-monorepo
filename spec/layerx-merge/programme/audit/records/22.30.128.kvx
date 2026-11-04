@@ -1,0 +1,1084 @@
+[audit.22.30.128]
+task = "22.30.128"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 74
+findings = 53
+docs_reviewed = 17
+upgrade_ready = false
+blocking = ["live-registration", "included-transaction", "usage-state-shape", "activation-receipt", "terminal-key", "restore-authority", "shared-supply-namespace"]
+interface_review = "Reviewed the package produced and consumed rows against source declarations and actual chain/native/SDK callers: C token/refusal widths, module versus guest ABI, lease/escrow/usage canonical state, chain inclusion and ICS23 state proofs, sandbox authority, scoped porting storage, generated guest calls and recovery. Native transport disagreements and stale registry declarations are findings; missing contracts/programs.md is not treated as a successful contract check."
+requirements_review = "Compared the package acceptance criteria for staticlib exports and 128 sweep bound, mounted module-9 keys, successful included sandbox work, proven lifecycle and final destruction, retired proof dependencies, restore continuity, FFI refusal/panic boundaries, six-item pagination, lxphost proof selection, funding evidence, real AI downstream consumer/reopen and deployment payload budget. This is a source audit; historical failed inventory commands and release guest size are not claimed as executed gates."
+
+[file.1]
+path = "programs/crates/layerx-programs-ai-market/tests/proof_ai_market_guest.rs"
+lines = 495
+verdict = "issues"
+note = "Read all guest routing, fresh capture, canonical encoding, refusal and filesystem-reopen assertions; actual named downstream consumers are not called (finding ai-real-consumer-proof)."
+
+[file.2]
+path = "programs/crates/layerx-programs-sandbox/Cargo.toml"
+lines = 31
+verdict = "clean"
+note = "Reviewed rlib/staticlib outputs, host-ffi feature, runtime/registry dependencies and workspace lints; no retired proof/wire/adapter dependency is declared."
+
+[file.3]
+path = "programs/crates/layerx-programs-sandbox/src/activity.rs"
+lines = 923
+verdict = "issues"
+note = "Reviewed every canonical operation, call envelope, protocol/version guard, chain inclusion/result proof, state proof, receipt binding and refusal branch; blockers distinguish native transaction, lease and usage record shapes."
+
+[file.4]
+path = "programs/crates/layerx-programs-sandbox/src/chain_keys.rs"
+lines = 14
+verdict = "clean"
+note = "Reviewed the complete key encoder: module 9 prefix, s-kind byte and 32-byte lease match the mounted lease/escrow/ledger key family; kind >2 refuses. Terminal lookup disagreement belongs to its expiry consumer."
+
+[file.5]
+path = "programs/crates/layerx-programs-sandbox/src/escrow.rs"
+lines = 994
+verdict = "clean"
+note = "Reviewed canonical round-trip, funding/settlement roots, exact amount arithmetic, staged charge/refund candidates and negative/replay tests against lease accounting and transfer authority."
+
+[file.6]
+path = "programs/crates/layerx-programs-sandbox/src/execute.rs"
+lines = 1252
+verdict = "clean"
+note = "Reviewed execution capability derivation, resource budgets, candidate execution, cumulative usage, settlement and intrinsic bound closure; ordinary execution derives lease-principal storage-only authority and refuses escape families."
+
+[file.7]
+path = "programs/crates/layerx-programs-sandbox/src/expiry.rs"
+lines = 1465
+verdict = "issues"
+note = "Reviewed authenticated terminal decoding, teardown accounting/refund, bounded sweep pagination, queue persistence encoding and all inline tests; native terminal location and lifetime queue capacity disagree with consumers."
+
+[file.8]
+path = "programs/crates/layerx-programs-sandbox/src/host_ffi.rs"
+lines = 1179
+verdict = "issues"
+note = "Reviewed each exported C signature, refusal mapping, guarded panic boundary, state staging, reservation lifecycle, native charges/refunds and terminal publication; token/result consumption defect recorded separately."
+
+[file.9]
+path = "programs/crates/layerx-programs-sandbox/src/lease.rs"
+lines = 2792
+verdict = "issues"
+note = "Reviewed all state tags/edges, request bounds, canonical decoder/encoder, request binding, chain-proven transitions, replay/history checks, usage and lease-book slot accounting; registry still describes the old evidence signature."
+
+[file.10]
+path = "programs/crates/layerx-programs-sandbox/src/lib.rs"
+lines = 75
+verdict = "issues"
+note = "Reviewed feature-gated native exports and the public reexports against declared symbols; missing authoritative registry contract recorded here without treating a string link as implementation."
+
+[file.11]
+path = "programs/crates/layerx-programs-sandbox/src/snapshot.rs"
+lines = 897
+verdict = "issues"
+note = "Reviewed capture, canonical state, persisted manifest/chunks, digest/owner checks, metering, atomic candidate restore, namespace rebinding and continuation; decode allocation and resumed authority findings apply."
+
+[file.12]
+path = "programs/crates/layerx-programs-sandbox/src/usage.rs"
+lines = 2067
+verdict = "clean"
+note = "Reviewed bounded usage-ledger and receipt encodings, version domains, sequence/digest bindings, complete fee arithmetic, occupancy and settlement roots, durable decoder and reopen/replay tests; writer shape is consistent internally."
+
+[file.13]
+path = "programs/crates/layerx-programs-sandbox/tests/activity_chain.rs"
+lines = 472
+verdict = "issues"
+note = "Reviewed all committed head/result and wrong-store/failed-code/foreign-lease cases; independently built transaction and usage bytes mask the native mismatches recorded in activity-third-shape."
+
+[file.14]
+path = "programs/crates/layerx-programs-sandbox/tests/chain_keys.rs"
+lines = 20
+verdict = "clean"
+note = "Read the exact module-9 and kind-0/1/2 key bytes and kind-3 refusal assertions; they agree with the lease/escrow/usage state key encoder."
+
+[file.15]
+path = "programs/crates/layerx-programs-sandbox/tests/expiry_chain.rs"
+lines = 356
+verdict = "issues"
+note = "Read every terminal proof, trusted chain, staleness, wrong-store, wrong-key and malformed-value assertion; positive fixtures select a key unlike native teardown."
+
+[file.16]
+path = "programs/crates/layerx-programs-sandbox/tests/host_ffi_link.rs"
+lines = 120
+verdict = "clean"
+note = "Read every retained C export and unknown-token refusal assertion and the exported 128 maximum assertion; tests do not claim positive terminal-token or native proof coverage."
+
+[file.17]
+path = "programs/crates/layerx-programs-sandbox/tests/lease.rs"
+lines = 1000
+verdict = "clean"
+note = "Read all transition matrix, principal concurrency, bound, history, replay and restart assertions; resulting lease-state fixtures exercise the chain-proof interface without claiming receipt-transport production coverage."
+
+[file.18]
+path = "programs/crates/layerx-programs-sandbox/tests/lease_chain.rs"
+lines = 289
+verdict = "clean"
+note = "Read mounted lxphost state-proof acceptance, layerx-store rejection and all lifecycle edge/destroyed-finality cases; proof uses the same kind-0 canonical lease shape as the writer."
+
+[file.19]
+path = "programs/crates/layerx-programs-sandbox/tests/snapshot.rs"
+lines = 982
+verdict = "issues"
+note = "Read capture, chunk persistence, destruction, reopen, ownership, bounds, failure rollback and continuation tests; pure-memory continuation fails to exercise the restored storage authority."
+
+[file.20]
+path = "programs/porting/cosmwasm/Cargo.toml"
+lines = 19
+verdict = "clean"
+note = "Reviewed package metadata, dependency paths, workspace lints and library targets against the workspace and owning guest/runtime APIs; no retired transport dependency or external runtime service is introduced."
+
+[file.21]
+path = "programs/porting/cosmwasm/MIGRATION.md"
+lines = 424
+verdict = "issues"
+note = "Read the complete migration guide, examples, source mappings, caveats and test instructions; outdated restrictions and method inventory are recorded as documentation findings."
+
+[file.22]
+path = "programs/porting/cosmwasm/guest/Cargo.toml"
+lines = 11
+verdict = "clean"
+note = "Reviewed wasm guest crate features and direct SDK dependency against its authenticated context/crypto wrapper imports; no additional runtime host surface is assumed."
+
+[file.23]
+path = "programs/porting/cosmwasm/guest/src/lib.rs"
+lines = 35
+verdict = "clean"
+note = "Read all authenticated guest context, crypto and refusal wrappers against the SDK types and fixed byte widths; context facts come from host imports rather than caller-supplied claims."
+
+[file.24]
+path = "programs/porting/cosmwasm/reference-v2/Cargo.toml"
+lines = 19
+verdict = "clean"
+note = "Reviewed isolated ABI-v2 guest manifest, SDK path and deployment target against the descriptor; source uses the declared macro entrypoint and SDK ABI."
+
+[file.25]
+path = "programs/porting/cosmwasm/reference-v2/layerx-program.json"
+lines = 1
+verdict = "clean"
+note = "Read every descriptor field, entrypoint/interface declaration and ABI version against the reference-v2 guest source and deployment envelope; no endpoint or service configuration is embedded."
+
+[file.26]
+path = "programs/porting/cosmwasm/reference-v2/src/lib.rs"
+lines = 10
+verdict = "clean"
+note = "Read complete ABI-v2 reference entrypoint, authenticated caller/context use, narrowed storage and transfer operations, response bounds and typed refusal paths; compared request layouts with the porting descriptor."
+
+[file.27]
+path = "programs/porting/cosmwasm/src/error.rs"
+lines = 193
+verdict = "clean"
+note = "Read every refusal variant, Display message and From conversion against actual runtime/registry/SDK error types; no error is silently converted to success."
+
+[file.28]
+path = "programs/porting/cosmwasm/src/hash.rs"
+lines = 148
+verdict = "clean"
+note = "Read complete bounded SHA-256/domain helper and its vectors against SDK/runtime digest conventions; digest width and byte order agree."
+
+[file.29]
+path = "programs/porting/cosmwasm/src/json.rs"
+lines = 576
+verdict = "issues"
+note = "Read full bounded schema/JSON parser, canonical record transcoder and tests; supplementary Unicode escape pairs do not round-trip."
+
+[file.30]
+path = "programs/porting/cosmwasm/src/lib.rs"
+lines = 60
+verdict = "issues"
+note = "Read crate exports and source mapping claims against the shared-state and guest modules; introductory shared-state refusal is stale."
+
+[file.31]
+path = "programs/porting/cosmwasm/src/messages.rs"
+lines = 389
+verdict = "clean"
+note = "Read variant/field framing, derived authenticated fields, fixed values and dispatch tests against the generated reference guest; this is a bounded canonical message subset rather than a general JSON execution engine."
+
+[file.32]
+path = "programs/porting/cosmwasm/src/monetary.rs"
+lines = 366
+verdict = "clean"
+note = "Read all principal and registered program-account transfer plans, limb conversion, explicit source ownership and refusal mappings; bounded program-owned payouts are supported despite stale migration prose."
+
+[file.33]
+path = "programs/porting/cosmwasm/src/qualify.rs"
+lines = 410
+verdict = "issues"
+note = "Read source archive/build provenance, immutable deployment, verification, execution settlement, query and import paths; the per-cell importer has a partial-commit recovery defect."
+
+[file.34]
+path = "programs/porting/cosmwasm/src/reference.rs"
+lines = 980
+verdict = "clean"
+note = "Read descriptor parse/encode, deployment-pinned terms, generated guest operations, checked host statuses, bounded keys and payment/rollback tests against the corresponding qualification caller."
+
+[file.35]
+path = "programs/porting/cosmwasm/src/shared_orderbook.rs"
+lines = 201
+verdict = "issues"
+note = "Read all shared/principal binding selectors, key helpers and inline tests; no executable read/match settlement demonstrates the shared-state claim."
+
+[file.36]
+path = "programs/porting/cosmwasm/src/storage.rs"
+lines = 215
+verdict = "issues"
+note = "Read Item/Map key encoding, bounds, StateBinding scope selection, migration cells and tests; code supports Shared while module documentation still denies it."
+
+[file.37]
+path = "programs/porting/cosmwasm/src/wasm.rs"
+lines = 410
+verdict = "clean"
+note = "Read full WebAssembly section/LEB/code emitter and helper bodies, including memory declarations and host result guards; lengths and signatures agree with their generated reference callers."
+
+[file.38]
+path = "programs/porting/evm/Cargo.toml"
+lines = 19
+verdict = "clean"
+note = "Reviewed package metadata, dependency paths, workspace lints and library targets against the workspace and owning guest/runtime APIs; no retired transport dependency or external runtime service is introduced."
+
+[file.39]
+path = "programs/porting/evm/MIGRATION.md"
+lines = 390
+verdict = "issues"
+note = "Read the complete migration guide, examples, source mappings, caveats and test instructions; outdated restrictions and method inventory are recorded as documentation findings."
+
+[file.40]
+path = "programs/porting/evm/guest/Cargo.toml"
+lines = 11
+verdict = "clean"
+note = "Reviewed wasm guest crate features and direct SDK dependency against its authenticated context/crypto wrapper imports; no additional runtime host surface is assumed."
+
+[file.41]
+path = "programs/porting/evm/guest/src/lib.rs"
+lines = 46
+verdict = "clean"
+note = "Read all authenticated guest context, crypto and refusal wrappers against the SDK types and fixed byte widths; context facts come from host imports rather than caller-supplied claims."
+
+[file.42]
+path = "programs/porting/evm/reference-v2/Cargo.toml"
+lines = 19
+verdict = "clean"
+note = "Reviewed isolated ABI-v2 guest manifest, SDK path and deployment target against the descriptor; source uses the declared macro entrypoint and SDK ABI."
+
+[file.43]
+path = "programs/porting/evm/reference-v2/layerx-program.json"
+lines = 1
+verdict = "clean"
+note = "Read every descriptor field, entrypoint/interface declaration and ABI version against the reference-v2 guest source and deployment envelope; no endpoint or service configuration is embedded."
+
+[file.44]
+path = "programs/porting/evm/reference-v2/src/lib.rs"
+lines = 16
+verdict = "clean"
+note = "Read complete ABI-v2 reference entrypoint, authenticated caller/context use, narrowed storage and transfer operations, response bounds and typed refusal paths; compared request layouts with the porting descriptor."
+
+[file.45]
+path = "programs/porting/evm/src/error.rs"
+lines = 171
+verdict = "clean"
+note = "Read every refusal variant, Display message and From conversion against actual runtime/registry/SDK error types; no error is silently converted to success."
+
+[file.46]
+path = "programs/porting/evm/src/hash.rs"
+lines = 147
+verdict = "clean"
+note = "Read complete bounded SHA-256/domain helper and its vectors against SDK/runtime digest conventions; digest width and byte order agree."
+
+[file.47]
+path = "programs/porting/evm/src/keccak.rs"
+lines = 123
+verdict = "clean"
+note = "Read all Keccak rounds, lane encoding, padding and selector vectors against the Solidity layout/signature callers; Ethereum Keccak is intentionally distinct from SHA3."
+
+[file.48]
+path = "programs/porting/evm/src/layout.rs"
+lines = 161
+verdict = "clean"
+note = "Read static slots, mapping/nested mapping key derivation, caller-indexed collapse and shared key helper against namespace consumers; shared_key returns bytes and does not itself change scope."
+
+[file.49]
+path = "programs/porting/evm/src/lib.rs"
+lines = 53
+verdict = "clean"
+note = "Read the porting surface exports and documented scope against the EVM layout, semantics, monetary and reference modules; public helper types are wired to their actual modules."
+
+[file.50]
+path = "programs/porting/evm/src/monetary.rs"
+lines = 344
+verdict = "clean"
+note = "Read all principal and registered program-account transfer plans, limb conversion, explicit source ownership and refusal mappings; bounded program-owned payouts are supported despite stale migration prose."
+
+[file.51]
+path = "programs/porting/evm/src/qualify.rs"
+lines = 400
+verdict = "issues"
+note = "Read source archive/build provenance, immutable deployment, verification, execution settlement, query and import paths; the per-cell importer has a partial-commit recovery defect."
+
+[file.52]
+path = "programs/porting/evm/src/reference.rs"
+lines = 854
+verdict = "clean"
+note = "Read descriptor parse/encode, deployment-pinned terms, generated guest operations, checked host statuses, bounded keys and payment/rollback tests against the corresponding qualification caller."
+
+[file.53]
+path = "programs/porting/evm/src/semantics.rs"
+lines = 273
+verdict = "issues"
+note = "Read signature/selector/topic generation, argument encoding, derived envelope fields and failure mapping; unsupported Solidity type grammar is accepted by the fixed-word encoder."
+
+[file.54]
+path = "programs/porting/evm/src/shared_supply.rs"
+lines = 371
+verdict = "issues"
+note = "Read complete descriptor, grants, emitted imports/mint/query functions, word loads and inline assertions; shared scope, paid mint behavior and overflow limits are not established by the current generator."
+
+[file.55]
+path = "programs/porting/evm/src/value.rs"
+lines = 134
+verdict = "clean"
+note = "Read all Word/Address constructors and checked integer conversions, byte order and zero-address/boundary tests against EVM storage and calldata encoding."
+
+[file.56]
+path = "programs/porting/evm/src/wasm.rs"
+lines = 407
+verdict = "clean"
+note = "Read full WebAssembly section/LEB/code emitter and helper bodies, including memory declarations and host result guards; lengths and signatures agree with their generated reference callers."
+
+[file.57]
+path = "programs/porting/solana/Cargo.toml"
+lines = 19
+verdict = "clean"
+note = "Reviewed package metadata, dependency paths, workspace lints and library targets against the workspace and owning guest/runtime APIs; no retired transport dependency or external runtime service is introduced."
+
+[file.58]
+path = "programs/porting/solana/MIGRATION.md"
+lines = 422
+verdict = "issues"
+note = "Read the complete migration guide, examples, source mappings, caveats and test instructions; outdated restrictions and method inventory are recorded as documentation findings."
+
+[file.59]
+path = "programs/porting/solana/guest/Cargo.toml"
+lines = 11
+verdict = "clean"
+note = "Reviewed wasm guest crate features and direct SDK dependency against its authenticated context/crypto wrapper imports; no additional runtime host surface is assumed."
+
+[file.60]
+path = "programs/porting/solana/guest/src/lib.rs"
+lines = 29
+verdict = "clean"
+note = "Read all authenticated guest context, crypto and refusal wrappers against the SDK types and fixed byte widths; context facts come from host imports rather than caller-supplied claims."
+
+[file.61]
+path = "programs/porting/solana/reference-v2/Cargo.toml"
+lines = 19
+verdict = "clean"
+note = "Reviewed isolated ABI-v2 guest manifest, SDK path and deployment target against the descriptor; source uses the declared macro entrypoint and SDK ABI."
+
+[file.62]
+path = "programs/porting/solana/reference-v2/layerx-program.json"
+lines = 1
+verdict = "clean"
+note = "Read every descriptor field, entrypoint/interface declaration and ABI version against the reference-v2 guest source and deployment envelope; no endpoint or service configuration is embedded."
+
+[file.63]
+path = "programs/porting/solana/reference-v2/src/lib.rs"
+lines = 10
+verdict = "clean"
+note = "Read complete ABI-v2 reference entrypoint, authenticated caller/context use, narrowed storage and transfer operations, response bounds and typed refusal paths; compared request layouts with the porting descriptor."
+
+[file.64]
+path = "programs/porting/solana/src/account.rs"
+lines = 338
+verdict = "clean"
+note = "Read field schemas, Anchor-compatible account framing, checked decode, account-role translation and tests; SharedCell is an explicit mapping rather than principal-key rewriting."
+
+[file.65]
+path = "programs/porting/solana/src/anchor.rs"
+lines = 306
+verdict = "clean"
+note = "Read complete instruction discriminator, canonical argument encoder, authenticated envelope-field derivation and refusal mapping against the reference guest instruction decoder."
+
+[file.66]
+path = "programs/porting/solana/src/error.rs"
+lines = 186
+verdict = "clean"
+note = "Read every refusal variant, Display message and From conversion against actual runtime/registry/SDK error types; no error is silently converted to success."
+
+[file.67]
+path = "programs/porting/solana/src/hash.rs"
+lines = 148
+verdict = "clean"
+note = "Read complete bounded SHA-256/domain helper and its vectors against SDK/runtime digest conventions; digest width and byte order agree."
+
+[file.68]
+path = "programs/porting/solana/src/lib.rs"
+lines = 55
+verdict = "clean"
+note = "Read public module exports, source account/context mapping and stated constraints against actual account, monetary, guest and reference modules."
+
+[file.69]
+path = "programs/porting/solana/src/monetary.rs"
+lines = 365
+verdict = "clean"
+note = "Read all principal and registered program-account transfer plans, limb conversion, explicit source ownership and refusal mappings; bounded program-owned payouts are supported despite stale migration prose."
+
+[file.70]
+path = "programs/porting/solana/src/pubkey.rs"
+lines = 240
+verdict = "clean"
+note = "Read base58/Pubkey validation, seed lengths/order, PDA derivation and collapsed principal seed paths with their vectors; retained shared seeds stay explicit and bounded."
+
+[file.71]
+path = "programs/porting/solana/src/qualify.rs"
+lines = 404
+verdict = "issues"
+note = "Read source archive/build provenance, immutable deployment, verification, execution settlement, query and import paths; the per-cell importer has a partial-commit recovery defect."
+
+[file.72]
+path = "programs/porting/solana/src/reference.rs"
+lines = 912
+verdict = "clean"
+note = "Read descriptor parse/encode, deployment-pinned terms, generated guest operations, checked host statuses, bounded keys and payment/rollback tests against the corresponding qualification caller."
+
+[file.73]
+path = "programs/porting/solana/src/shared_pool.rs"
+lines = 254
+verdict = "issues"
+note = "Read pool and participant schemas, key derivation, initial record codec, role mapping and every test; no native contribution/query path proves shared storage and deposit accounting."
+
+[file.74]
+path = "programs/porting/solana/src/wasm.rs"
+lines = 407
+verdict = "clean"
+note = "Read full WebAssembly section/LEB/code emitter and helper bodies, including memory declarations and host result guards; lengths and signatures agree with their generated reference callers."
+
+[finding.truncated-submission]
+file = "programs/crates/layerx-programs-sandbox/src/activity.rs"
+line = 161
+class = "runtime-risk"
+severity = "medium"
+observed = "SandboxSubmission::decode accepts a valid four-byte header and then slices payload[4..36] before checking the operation length; inputs of 4 through 35 bytes panic."
+expected = "Malformed public submission bytes must return NonCanonical without panicking, including a truncated lease identifier."
+proposal = "In programs/crates/layerx-programs-sandbox/src/activity.rs, check the minimum lease prefix before slicing and cover every truncated operation prefix with refusal assertions."
+owner_domain = 13
+
+[finding.live-registration]
+file = "programs/crates/layerx-programs-sandbox/src/activity.rs"
+line = 62
+class = "interface-mismatch"
+severity = "high"
+observed = "SandboxProtocolContext::new accepts only protocol 2 and Programs registration ABI 3. precompiles/layerxprograms/submit.go emits StateCommitmentProtocolVersion=3, while modules/lxphost/host.go:175 mounts programs_module_registration_v4_storage_retirement; src/protocol/lxp_genesis.c also selects Programs v4."
+expected = "The canonical sandbox submission surface must accept the authenticated protocol and module registration used by the merged node, while preserving the distinction between module ABI and guest ABI."
+proposal = "Update compatibility selection in programs/crates/layerx-programs-sandbox/src/activity.rs to the live protocol-3/Programs-v4 registration and prove funding, activation and execution through the actual native registration path."
+owner_domain = 13
+interface = "13.rs-sbx-activity-sandboxprotocolcontext-new"
+
+[finding.included-transaction]
+file = "programs/crates/layerx-programs-sandbox/src/activity.rs"
+line = 364
+class = "interface-mismatch"
+severity = "high"
+observed = "SandboxSubmissionReceipt::verify requires evidence.tx to equal the bare sandbox payload. verify_tx hashes those bytes into the Comet transaction tree. The real precompile receives ABI arguments inside an EVM transaction and submit.go wraps the sandbox payload in an lxphost.Activity; that bare payload is not the chain transaction."
+expected = "Requirement 13046 requires proof of the real included sandboxExecute transaction and a successful result, with its sandbox call bound to the requested lease and payload."
+proposal = "In programs/crates/layerx-programs-sandbox/src/activity.rs, verify inclusion of the actual chain transaction, decode and authenticate its sandbox invocation and bind the result, signer, target, payload and native activity identifier. Exercise the precompile-produced transaction rather than treating payload bytes as a transaction."
+owner_domain = 13
+interface = "13.rs-sbx-activity-sandboxsubmissionreceipt-verify"
+
+[finding.usage-state-shape]
+file = "programs/crates/layerx-programs-sandbox/src/activity.rs"
+line = 398
+class = "interface-mismatch"
+severity = "high"
+observed = "Nonfunding receipt verification reads sandbox_state_key(1, lease) and authenticated_usage_receipt expects LXUR plus one receipt and digest. host_ffi.rs:927-929 stages lease at kind 0, escrow at kind 1 and UsageLedger at kind 2. The ledger uses the usage-ledger/v2 domain; sandbox.c:493 emits LXUR only as a chunked event with a 52-byte header."
+expected = "The authenticated usage consumer must accept the exact committed ledger key and encoding emitted by the settlement producer; an event fragment is not a stored ledger value."
+proposal = "Align programs/crates/layerx-programs-sandbox/src/activity.rs with the kind-2 UsageLedger writer and decode its bound latest receipt. If event verification is required, separately verify and assemble the native LXUR chunk framing. Prove both paths using captured native store and event bytes."
+owner_domain = 13
+interface = "13.rs-sbx-activity-sandboxsubmissionreceipt-authenticated-usage-receipt"
+
+[finding.activation-receipt]
+file = "programs/crates/layerx-programs-sandbox/src/activity.rs"
+line = 398
+class = "interface-mismatch"
+severity = "high"
+observed = "Only OP_FUND selects a lease-state proof; OP_ACTIVATE follows the usage receipt path. The activation producer in host_ffi.rs:1101-1140 advances Funded to Active and stages kind-0 lease state without creating a usage receipt, so activate_lease cannot accept the emitted activation state."
+expected = "Requirement 13047 requires lifecycle consumers to authenticate the actual resulting lease transition, including Funded to Active, independently of execution usage."
+proposal = "Give activation an explicit proven lease-state branch in programs/crates/layerx-programs-sandbox/src/activity.rs, validating the requested previous digest, next history entry, tenant, native activity binding and Active state. Drive it with a native funded-then-activated lease proof."
+owner_domain = 13
+interface = "13.rs-sbx-activity-activate-lease"
+
+[finding.terminal-key]
+file = "programs/crates/layerx-programs-sandbox/src/expiry.rs"
+line = 72
+class = "interface-mismatch"
+severity = "high"
+observed = "AuthenticatedTerminalRecord::verify reads sandbox_state_key(2, lease), but sandbox_expiry.c:296-298 deletes all three s-kind records and :312-314 writes LXSD1 at the separate ts||lease key. Before destruction kind 2 holds UsageLedger, and after destruction it is absent. ReadSandbox in modules/lxphost/read_program.go exposes only the s-kind family."
+expected = "Requirement 13048 and the terminal verifier must name the same mounted key as the native terminal producer, preserving final destruction evidence across reopen."
+proposal = "Coordinate programs/crates/layerx-programs-sandbox/src/expiry.rs, src/modules/programs/sandbox_expiry.c, modules/lxphost/read_program.go and requirement 13048 around one dedicated terminal key. Prove the exact native terminal after destruction and node-store reopen, and reject usage-ledger values as terminals."
+owner_domain = 13
+interface = "13.rs-sbx-expiry-authenticatedterminalrecord-verify"
+
+[finding.restore-authority]
+file = "programs/crates/layerx-programs-sandbox/src/snapshot.rs"
+line = 617
+class = "security"
+severity = "high"
+observed = "restore copies cells into the target lease execution-principal namespace, but passes the caller-supplied AuthorizationContext unchanged into Abi::new. validate_restore requires that principal to equal the tenant. Normal execute.rs:29-39 instead derives the lease principal with only StorageRead and StorageWrite; restore neither derives that principal nor restricts its grants."
+expected = "A resumed sandbox must read its restored lease namespace and retain the same restricted authority as ordinary lease execution, even when its tenant can grant transfers, shared storage, events or calls."
+proposal = "In programs/crates/layerx-programs-sandbox/src/snapshot.rs, use tenant authorization only for the outer ownership check, then derive LeaseCapabilities from the activated target for the resumed ABI. Prove restored storage reads and writes and refusals of transfer, event, shared-storage and callee authority after reopen."
+owner_domain = 13
+interface = "13.rs-sbx-snapshot-restore"
+
+[finding.snapshot-allocation-bounds]
+file = "programs/crates/layerx-programs-sandbox/src/snapshot.rs"
+line = 92
+class = "runtime-risk"
+severity = "medium"
+observed = "SandboxState::from_canonical passes attacker-controlled globals_count, argument_count and cell_count to Vec::with_capacity before Self::new enforces MAX_SANDBOX_GLOBALS, MAX_SANDBOX_OPERAND_STACK and MAX_SANDBOX_NAMESPACE_CELLS. A short malformed record can request a capacity overflow or enormous allocation before decoding fails."
+expected = "Snapshot decoding must reject declared counts and lengths outside lease and protocol bounds before allocating memory or iterating over them."
+proposal = "Bound each count against its declared maximum and remaining encoded bytes in programs/crates/layerx-programs-sandbox/src/snapshot.rs before allocation; use fallible reservation and cover extreme counts and truncated bodies without panics."
+owner_domain = 13
+
+[finding.terminal-token-lifecycle]
+file = "programs/crates/layerx-programs-sandbox/src/host_ffi.rs"
+line = 264
+class = "interface-mismatch"
+severity = "medium"
+observed = "layerx_programs_sandbox_destroy_terminal ignores _token and takes the thread-local terminal before checking capacity. A wrong-token call can consume another pending result; an undersized output irreversibly discards it. Unlike the other host entrypoints this export is outside guarded."
+expected = "The C/Rust teardown result must remain bound to the creating call token, survive a refused read, and return typed refusals without an unwind crossing the ABI as required by 18887."
+proposal = "Store the producing token with DestroyTerminal in programs/crates/layerx-programs-sandbox/src/host_ffi.rs, validate token and capacity before consumption, and guard the export. Add native ABI assertions for wrong-token reads, undersized retry and valid single consumption."
+owner_domain = 13
+interface = "13.rs-sbx-host-ffi-layerx-programs-sandbox-destroy-terminal"
+
+[finding.expiry-lifetime-capacity]
+file = "programs/crates/layerx-programs-sandbox/src/expiry.rs"
+line = 696
+class = "runtime-risk"
+severity = "medium"
+observed = "ExpiryQueue retains every terminal record forever and rejects record_destroyed once terminal.len()==4096. schedule checks only scheduled length, so later leases remain admissible although their terminal cannot be recorded. sweep invokes the destructive callback before discovering this refusal."
+expected = "The bounded active queue must remain usable over more than 4096 lifetime leases, and any terminal-capacity refusal must happen before destructive work."
+proposal = "In programs/crates/layerx-programs-sandbox/src/expiry.rs, separate durable terminal history from the bounded due queue and reserve any required terminal capacity before invoking destroy_due. Cover repeated batches beyond the lifetime threshold, replay and durable recovery."
+owner_domain = 13
+
+[finding.activity-third-shape]
+file = "programs/crates/layerx-programs-sandbox/tests/activity_chain.rs"
+line = 88
+class = "test-gap"
+severity = "medium"
+observed = "usage_value fabricates an unchunked LXUR state value, evidence_in_store places it at kind 1, and both execution and funding evidence treat submission.payload() as the included chain transaction. These fixtures agree with the consumer but differ from the real host escrow/ledger writer and transaction transport."
+expected = "Requirements 13046, 13047, 181288 and 181291 require real included successful transactions and mounted lxphost state, not an independently invented record shape."
+proposal = "Extend programs/crates/layerx-programs-sandbox/tests/activity_chain.rs with native precompile funding, activation and execution, capturing the real transaction and committed store bytes for proof verification. Preserve all negative assertions while replacing the fabricated transport path."
+owner_domain = 13
+
+[finding.terminal-third-key]
+file = "programs/crates/layerx-programs-sandbox/tests/expiry_chain.rs"
+line = 104
+class = "test-gap"
+severity = "medium"
+observed = "The terminal fixture constructs its proven key with sandbox_state_key(kind, lease) and positive cases use kind 2. The native teardown writes ts||lease after deleting the s-kind family, so these signatures and ICS23 proofs authenticate a key the producer never emits for a terminal."
+expected = "Requirements 13048 and 181291 require terminal proofs built from the mounted native destroy record and recovery of that same record after reopen."
+proposal = "In programs/crates/layerx-programs-sandbox/tests/expiry_chain.rs, perform native teardown, capture its actual terminal key and value and verify them through the public reader after store reopen, retaining wrong-store, wrong-lease and malformed-proof refusals."
+owner_domain = 13
+
+[finding.restore-test-authority]
+file = "programs/crates/layerx-programs-sandbox/tests/snapshot.rs"
+line = 455
+class = "test-gap"
+severity = "medium"
+observed = "The successful restore passes target.tenant() with CapabilitySet::empty(), and running_instance uses tenant authority as well. The continuation guest checks memory and a global counter but never reads or writes a restored cell through the guest ABI, so the tenant-versus-lease namespace defect and injected grants remain invisible."
+expected = "Requirement 13065 requires continuation in a new lease to preserve storage and restrictions as well as memory; restart verification must exercise the same lease authority as ordinary execution."
+proposal = "Extend programs/crates/layerx-programs-sandbox/tests/snapshot.rs with a guest that reads and updates captured lease storage after restoration and reopen. Derive ordinary execution authority and assert tenant storage stays untouched and hostile grants cannot reach guest execution."
+owner_domain = 13
+
+[finding.ai-real-consumer-proof]
+file = "programs/crates/layerx-programs-ai-market/tests/proof_ai_market_guest.rs"
+line = 246
+class = "test-gap"
+severity = "medium"
+observed = "The proof invokes SnapshotBinding::decode directly, with read_proof and finality supplied as local facts. The saved-binding test reopens two plain files and calls the same codec; it never invokes layerx-client::ai_market::decode_snapshot_binding, hosted indexer rebind, retention CommitFinality::of or webhook certify named in its header."
+expected = "Requirement 21064 requires the real producer through the public interface into the actual named consumer, with consumer recovery where state crosses a restart; shared codec identity alone does not establish that wiring."
+proposal = "Keep these codec assertions in programs/crates/layerx-programs-ai-market/tests/proof_ai_market_guest.rs and add an integration proof that calls the actual client or hosted consumer with freshly emitted guest bytes, authenticated read facts and the consumer own persisted state reopened after shutdown."
+owner_domain = 13
+
+[finding.shared-supply-namespace]
+file = "programs/porting/evm/src/shared_supply.rs"
+line = 119
+class = "wiring-gap"
+severity = "high"
+observed = "SharedSupplyPort imports v1 storage_read/storage_write for both totalSupply and balances. shared_key only returns key bytes and cannot select StorageNamespace::shared. Consequently the advertised global supply is actually per principal, and supply_query_capabilities grants only SharedStorageRead while the emitted query requests principal StorageRead."
+expected = "The declared shared total supply must be the same cell for every holder and executable using its advertised shared-read grant; only balances are principal-scoped."
+proposal = "Change programs/porting/evm/src/shared_supply.rs to emit the scoped ABI with Shared storage for supply and Principal storage for balances, with matching capabilities and deployment ABI. Prove two principals observe one supply and isolated balances through native execution and reopen."
+owner_domain = 13
+interface = "13.rs-rt-storage-namespace-storagenamespace-shared"
+
+[finding.shared-supply-payment]
+file = "programs/porting/evm/src/shared_supply.rs"
+line = 111
+class = "wiring-gap"
+severity = "medium"
+observed = "SharedSupplyPort::code is an associated function that cannot read the deployment terms. Its module imports only storage calls, so mint never charges price_per_token or emits an event despite mint_capabilities advertising Transfer402 and EmitEvent. The grant destination also reuses the asset id rather than a separately declared beneficiary."
+expected = "A priced token port must pin its asset, price and recipient and apply the authorized payment atomically with minting; granting a maximum is not a payment."
+proposal = "In programs/porting/evm/src/shared_supply.rs, make generated code use validated deployment terms including an explicit recipient, emit and check the actual transfer and event operations, and prove paid mint, insufficient authorization and rollback on the native path."
+owner_domain = 13
+
+[finding.shared-supply-overflow]
+file = "programs/porting/evm/src/shared_supply.rs"
+line = 244
+class = "runtime-risk"
+severity = "medium"
+observed = "emit_mint accepts any positive i64 amount, adds it to supply with wrapping I64_ADD and checks only signed result > MAX_SUPPLY. A positive existing supply plus i64::MAX wraps negative and passes. emit_read_word also discards the upper 24 bytes of stored words without checking width."
+expected = "Supply and balances must remain nonnegative bounded integers; oversized amounts and migrated words must refuse before any write."
+proposal = "In programs/porting/evm/src/shared_supply.rs, validate stored word width and require amount <= MAX_SUPPLY - current before adding, with an independent balance overflow check. Execute boundary and malformed-state cases and assert transactional rollback."
+owner_domain = 13
+
+[finding.evm-partial-import]
+file = "programs/porting/evm/src/qualify.rs"
+line = 367
+class = "runtime-risk"
+severity = "medium"
+observed = "import_state commits each migration cell immediately; a later zero principal returns Err after earlier cells have already changed storage. The error exposes neither a committed prefix count nor a durable cursor for recovery."
+expected = "A failed migration must leave the target unchanged or provide an explicit durable, idempotent resumable contract that tells the operator what was committed."
+proposal = "In programs/porting/evm/src/qualify.rs, validate the complete plan and commit through a storage candidate, or introduce a durable import cursor with exact committed-prefix reporting. Cover an invalid final cell and reopen before retry."
+owner_domain = 13
+
+[finding.cosmwasm-partial-import]
+file = "programs/porting/cosmwasm/src/qualify.rs"
+line = 377
+class = "runtime-risk"
+severity = "medium"
+observed = "import_state commits each migration cell immediately; a later zero principal or malformed JSON record returns Err after earlier cells have already changed storage. The error exposes neither a committed prefix count nor a durable cursor for recovery."
+expected = "A failed migration must leave the target unchanged or provide an explicit durable, idempotent resumable contract that tells the operator what was committed."
+proposal = "In programs/porting/cosmwasm/src/qualify.rs, validate the complete plan and commit through a storage candidate, or introduce a durable import cursor with exact committed-prefix reporting. Cover an invalid final cell and reopen before retry."
+owner_domain = 13
+
+[finding.solana-partial-import]
+file = "programs/porting/solana/src/qualify.rs"
+line = 372
+class = "runtime-risk"
+severity = "medium"
+observed = "import_accounts commits each migration cell immediately; a later zero principal or oversized account returns Err after earlier cells have already changed storage. The error exposes neither a committed prefix count nor a durable cursor for recovery."
+expected = "A failed migration must leave the target unchanged or provide an explicit durable, idempotent resumable contract that tells the operator what was committed."
+proposal = "In programs/porting/solana/src/qualify.rs, validate the complete plan and commit through a storage candidate, or introduce a durable import cursor with exact committed-prefix reporting. Cover an invalid final cell and reopen before retry."
+owner_domain = 13
+
+[finding.unsupported-solidity-signatures]
+file = "programs/porting/evm/src/semantics.rs"
+line = 19
+class = "runtime-risk"
+severity = "medium"
+observed = "parameter_count splits on commas without parsing Solidity types; MethodAbi accepts signatures such as f(bytes) or tuple/array forms while calldata always emits one fixed Word per argument. Dynamic values lack offsets and tails and nested tuples are miscounted, so accepted signatures can produce invalid Solidity calldata."
+expected = "An accepted canonical Solidity signature must have a matching encoder; unsupported dynamic or compound types must be explicitly refused before migration."
+proposal = "Restrict programs/porting/evm/src/semantics.rs to the supported canonical scalar grammar or implement the complete corresponding ABI encoding. Add dynamic, tuple, array and malformed-signature refusals alongside known selector and calldata vectors."
+owner_domain = 13
+
+[finding.json-surrogate-pairs]
+file = "programs/porting/cosmwasm/src/json.rs"
+line = 506
+class = "runtime-risk"
+severity = "medium"
+observed = "code_point decodes each JSON Unicode escape independently with char::from_u32. A valid supplementary character written as a high/low surrogate pair is rejected, whereas the same character written directly as UTF-8 is accepted, so a valid CosmWasm state export can fail migration solely because of JSON escaping."
+expected = "Equivalent valid JSON string encodings must transcode to the same canonical stored string, including supplementary Unicode characters within the declared text limit."
+proposal = "Implement paired-surrogate decoding in programs/porting/cosmwasm/src/json.rs and continue refusing unpaired or reversed surrogates. Compare escaped and UTF-8 forms of the same exported record and retain text-bound checks."
+owner_domain = 13
+
+[finding.orderbook-execution-proof]
+file = "programs/porting/cosmwasm/src/shared_orderbook.rs"
+line = 1
+class = "wiring-gap"
+severity = "medium"
+observed = "The module advertises a contract whose open orders traders can read and match, but implements only key derivation, StateBinding selectors and data structs. Its tests assert those selectors and byte keys; no guest operation performs a shared read, match or settlement."
+expected = "A shared-state reference described as a usable order book must demonstrate the scoped host operations and an observable cross-trader result, rather than only classify a key as shared."
+proposal = "Complete programs/porting/cosmwasm/src/shared_orderbook.rs with a bounded executable order path and atomic settlement, and drive two traders through native shared storage and reopen. Clearly label the current schema-only surface until that path exists."
+owner_domain = 13
+
+[finding.pool-execution-proof]
+file = "programs/porting/solana/src/shared_pool.rs"
+line = 1
+class = "wiring-gap"
+severity = "medium"
+observed = "The module describes participants reading and contributing to a shared reserve, but provides account schemas, keys and encoding helpers only. Its tests check AccountMapping::SharedCell and codecs without an executing deposit or query using shared-scoped host storage."
+expected = "A shared pool reference must prove the real contribution and shared-read path with principal deposit isolation, monetary authorization and restart continuity."
+proposal = "Complete programs/porting/solana/src/shared_pool.rs with bounded deposit and query operations using scoped shared storage and atomic transfers; execute two participants and reopen the pool. Label the existing helpers as a schema until this path is wired."
+owner_domain = 13
+
+[finding.cosmwasm-crate-shared-doc]
+file = "programs/porting/cosmwasm/src/lib.rs"
+line = 11
+class = "doc-drift"
+severity = "low"
+observed = "The crate introduction says state shared across senders is refused by name, although it exports shared_orderbook and StateBinding::Shared with portable()==true."
+expected = "The porting crate introduction must distinguish supported shared storage from source patterns that remain unsupported."
+proposal = "Update programs/porting/cosmwasm/src/lib.rs to describe principal and shared namespaces and their separate grants, and identify which reference paths currently execute them."
+owner_domain = 13
+
+[finding.cosmwasm-storage-shared-doc]
+file = "programs/porting/cosmwasm/src/storage.rs"
+line = 9
+class = "doc-drift"
+severity = "medium"
+observed = "The storage module introduction says every program map is fixed to (program, principal) and a map readable by everyone is refused. StateBinding::Shared below instead selects shared storage and is declared portable."
+expected = "Migration guidance must preserve source global state by explicitly selecting the supported shared namespace rather than directing it into one copy per principal."
+proposal = "Rewrite programs/porting/cosmwasm/src/storage.rs introduction around both namespace scopes, showing global Item and shared Map bindings and the required scoped host operations."
+owner_domain = 13
+
+[finding.registry-activate-verifier]
+file = "programs/crates/layerx-programs-sandbox/src/activity.rs"
+line = 606
+class = "doc-drift"
+severity = "low"
+observed = "Registry row 13.rs-sbx-activity-activate-lease still declares a ProtocolDeploymentVerifier parameter, while activate_lease now takes ChainProofVerifier; callers following the declared Rust signature cannot use the current function."
+expected = "The interface registry must publish the exact current verifier type and chain-proof contract used by each sandbox submission function."
+proposal = "Update spec/layerx-merge/interfaces.kvx row 13.rs-sbx-activity-activate-lease to the current function signature and callers, and describe the chain-proof inputs in the owning Programs contract."
+owner_domain = 13
+interface = "13.rs-sbx-activity-activate-lease"
+
+[finding.registry-execute-verifier]
+file = "programs/crates/layerx-programs-sandbox/src/activity.rs"
+line = 560
+class = "doc-drift"
+severity = "low"
+observed = "Registry row 13.rs-sbx-activity-execute still declares a ProtocolDeploymentVerifier parameter, while execute now takes ChainProofVerifier; callers following the declared Rust signature cannot use the current function."
+expected = "The interface registry must publish the exact current verifier type and chain-proof contract used by each sandbox submission function."
+proposal = "Update spec/layerx-merge/interfaces.kvx row 13.rs-sbx-activity-execute to the current function signature and callers, and describe the chain-proof inputs in the owning Programs contract."
+owner_domain = 13
+interface = "13.rs-sbx-activity-execute"
+
+[finding.registry-fund-verifier]
+file = "programs/crates/layerx-programs-sandbox/src/activity.rs"
+line = 586
+class = "doc-drift"
+severity = "low"
+observed = "Registry row 13.rs-sbx-activity-fund-lease still declares a ProtocolDeploymentVerifier parameter, while fund_lease now takes ChainProofVerifier; callers following the declared Rust signature cannot use the current function."
+expected = "The interface registry must publish the exact current verifier type and chain-proof contract used by each sandbox submission function."
+proposal = "Update spec/layerx-merge/interfaces.kvx row 13.rs-sbx-activity-fund-lease to the current function signature and callers, and describe the chain-proof inputs in the owning Programs contract."
+owner_domain = 13
+interface = "13.rs-sbx-activity-fund-lease"
+
+[finding.registry-receipt-verifier]
+file = "programs/crates/layerx-programs-sandbox/src/activity.rs"
+line = 358
+class = "doc-drift"
+severity = "low"
+observed = "Registry row 13.rs-sbx-activity-sandboxsubmissionreceipt-verify still declares a ProtocolDeploymentVerifier parameter, while SandboxSubmissionReceipt::verify now takes ChainProofVerifier; callers following the declared Rust signature cannot use the current function."
+expected = "The interface registry must publish the exact current verifier type and chain-proof contract used by each sandbox submission function."
+proposal = "Update spec/layerx-merge/interfaces.kvx row 13.rs-sbx-activity-sandboxsubmissionreceipt-verify to the current function signature and callers, and describe the chain-proof inputs in the owning Programs contract."
+owner_domain = 13
+interface = "13.rs-sbx-activity-sandboxsubmissionreceipt-verify"
+
+[finding.registry-transition-proof]
+file = "programs/crates/layerx-programs-sandbox/src/lease.rs"
+line = 402
+class = "doc-drift"
+severity = "medium"
+observed = "Registry row 13.rs-sbx-lease-transitionevidence-verify-call describes VerifiedProtocolHead, canonical_activity, a kernel Proof and canonical_header. The function instead takes VerifiedChainHead, canonical_lease and lease ProofOps and verifies lxphost state; the declared transport remains the retired one."
+expected = "The transition contract must describe the actual chain state proof and resulting lease record required by 13047 and the legacy-proof refusals of 13050."
+proposal = "Update spec/layerx-merge/interfaces.kvx and contracts/programs.md for TransitionEvidence::verify_call, documenting the lxphost key, canonical lease bytes and chain authority, and remove obsolete activity/header proof parameters."
+owner_domain = 13
+interface = "13.rs-sbx-lease-transitionevidence-verify-call"
+
+[finding.registry-sweep-limit]
+file = "programs/crates/layerx-programs-sandbox/src/expiry.rs"
+line = 30
+class = "doc-drift"
+severity = "low"
+observed = "Registry row 13.rs-sbx-expiry-max-sweep-leases-per-batch declares the constant as 6 although the source exports 128 and the host-link and sweep tests assert 128. Six is an explicit pagination test limit, not the production maximum."
+expected = "Requirement 13003 and the public registry must state the same production maximum while preserving the explicit six-lease pagination scenario of 18975."
+proposal = "Refresh spec/layerx-merge/interfaces.kvx to declare MAX_SWEEP_LEASES_PER_BATCH=128 and document the caller-selected limit independently of the maximum."
+owner_domain = 13
+interface = "13.rs-sbx-expiry-max-sweep-leases-per-batch"
+
+[finding.missing-programs-contract]
+file = "programs/crates/layerx-programs-sandbox/src/lib.rs"
+line = 0
+class = "doc-drift"
+severity = "medium"
+observed = "The package interface rows link their contract to contracts/programs.md and its sandbox-crate anchor, but contracts/programs.md is absent. Integrators cannot retrieve the normative state-key, ABI, refusal and recovery contract from the registry."
+expected = "Every declared Programs interface must resolve to an existing authoritative contract describing its producer, transport, consumer and lifecycle."
+proposal = "Create the owning contracts/programs.md with the actual merged-node ABI, state keys, error meanings and restart behavior, or retarget the interface rows to an existing authoritative page with equivalent explicit contracts."
+owner_domain = 13
+
+[finding.readme-network]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "The architecture says layerxd runs as a separate daemon and settles checkpoints through layerxAnchor; line 181 still calls the merge a draft and says the current kernel runs separately."
+expected = "The finished product is one Paxeer BFT network whose node runs the kernel and finalizes ordinary transactions on committed blocks, as brief network facts 1 and 2 specify."
+proposal = "Rewrite README.md architecture and status around paxd kernel execution, root-path public JSON-RPC and committed-block finality; identify separate-daemon checkpoint instructions as retired."
+owner_domain = 13
+
+[finding.site-network]
+file = "docs/site/docs/index.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "The landing page separates LayerX execution from Paxeer custody and periodic checkpoint settlement, and lines 24-26 explicitly say ordinary activities are not Paxeer transactions."
+expected = "The site landing page must introduce the single merged chain and its actual transaction and finality model."
+proposal = "Rewrite docs/site/docs/index.md around native node execution, ordinary chain transactions and BFT commit finality, replacing the separate-network checkpoint architecture and settlement role table."
+owner_domain = 13
+
+[finding.overview-de]
+file = "docs/site/docs/overview/i18n/de.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The translated introduction describes Periodische Checkpoints settling on Paxeer and says an ordinary LayerX action does not require a Paxeer transaction; line 98 also lists layerxd as the native daemon."
+expected = "Translated introductions must describe the same single merged chain and node runtime as the canonical network brief."
+proposal = "Update docs/site/docs/overview/i18n/de.md to the merged paxd execution and committed-transaction model, including the daemon layout table and obsolete settlement instructions."
+owner_domain = 13
+
+[finding.overview-fr]
+file = "docs/site/docs/overview/i18n/fr.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The translated introduction describes points de contrôle périodiques settling on Paxeer and says an ordinary LayerX action does not require a Paxeer transaction; line 98 also lists layerxd as the native daemon."
+expected = "Translated introductions must describe the same single merged chain and node runtime as the canonical network brief."
+proposal = "Update docs/site/docs/overview/i18n/fr.md to the merged paxd execution and committed-transaction model, including the daemon layout table and obsolete settlement instructions."
+owner_domain = 13
+
+[finding.operator-roles]
+file = "docs/site/docs/operators/index.md"
+line = 10
+class = "doc-drift"
+severity = "medium"
+observed = "The operator navigation presents Guarantor checkpoint producer and settlement evidence publication as current bring-up roles for the running network."
+expected = "Operator entry points must lead to the merged BFT node and hosted gateway responsibilities rather than a separate checkpoint-production service."
+proposal = "Update docs/site/docs/operators/index.md role labels and bring-up navigation for paxd validators and gateway operators, marking guarantor checkpoint production as retired material."
+owner_domain = 13
+
+[finding.module-runtime-binding]
+file = "docs/site/docs/protocol/modules.md"
+line = 115
+class = "doc-drift"
+severity = "medium"
+observed = "The module guide says layerxd and the guarantor bind the live module host runtimes, and line 25 describes modules checkpointing to a Paxeer settlement stack."
+expected = "Programs and the other kernel modules execute inside the mounted paxd host on the same chain; the retired daemon is not the production binder."
+proposal = "Rewrite docs/site/docs/protocol/modules.md runtime binding around modules/lxphost and the node registration path, with chain-commit finality and removal of the separate-daemon settlement description."
+owner_domain = 13
+
+[finding.workspace-site]
+file = "docs/site/docs/programs/workspace.md"
+line = 15
+class = "doc-drift"
+severity = "medium"
+observed = "The workspace table presents layerx-programs-protocol-adapter as a live crate; line 20 still says the README names only three crates. The frozen ABI section enumerates only vectors 1 and 2 and describes a current ABI_VERSION=2 gate, while the runtime admits versions 1 through 5."
+expected = "Workspace guidance must name current crates and the current frozen guest ABI versions without directing maintainers to a retired adapter or obsolete drift expectations."
+proposal = "Refresh docs/site/docs/programs/workspace.md from programs/Cargo.toml, the frozen ABI manifest and current generator, replacing the retired adapter and three-crate description and documenting each admitted ABI version."
+owner_domain = 13
+
+[finding.workspace-wiki]
+file = "docs/wiki/ProgramsWorkspace.md"
+line = 15
+class = "doc-drift"
+severity = "medium"
+observed = "The workspace table presents layerx-programs-protocol-adapter as a live crate; line 20 still says the README names only three crates. The frozen ABI section enumerates only vectors 1 and 2 and describes a current ABI_VERSION=2 gate, while the runtime admits versions 1 through 5."
+expected = "Workspace guidance must name current crates and the current frozen guest ABI versions without directing maintainers to a retired adapter or obsolete drift expectations."
+proposal = "Refresh docs/wiki/ProgramsWorkspace.md from programs/Cargo.toml, the frozen ABI manifest and current generator, replacing the retired adapter and three-crate description and documenting each admitted ABI version."
+owner_domain = 13
+
+[finding.programs-page-inventory]
+file = "docs/site/docs/programs/index.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The page says LXT-20 request codecs and payments-merchant are not in the tree and repeats the absence of pay5 fixtures at lines 145 and 282. The repository now contains the codec, merchant example and native fixture path documented in programs/README.md."
+expected = "Program integration guidance must link to the existing canonical codecs, runnable references and committed native fixtures."
+proposal = "Update docs/site/docs/programs/index.md inventory and token sections to the actual SDK and programs/fixtures/pay5 paths, current methods and native registration behavior."
+owner_domain = 13
+
+[finding.programs-page-lni]
+file = "docs/site/docs/programs/index.md"
+line = 119
+class = "doc-drift"
+severity = "medium"
+observed = "The simulate section presents LNI simulate and cmd/layerxd/lxp_daemon_lni.c as the current external invocation surface and says the SDK sends committed CALL bytes over LNI."
+expected = "Public invocation guidance must follow the merged node precompiles and declared JSON-RPC surface; retired daemon transport must not be presented as the running interface."
+proposal = "Replace the public simulate and committed CALL transport instructions in docs/site/docs/programs/index.md with the supported merged-node path, marking any retained LNI details as historical."
+owner_domain = 13
+
+[finding.sandbox-proof-contract]
+file = "docs/site/docs/programs/sandbox.md"
+line = 0
+class = "doc-drift"
+severity = "medium"
+observed = "The sandbox page documents local state transitions, capability helpers and snapshot metering but omits the production chain-proof receipt, usage-ledger and terminal-key contracts. Its real-receipts test descriptions do not disclose that the fixtures construct records independently of the native writer."
+expected = "Sandbox integrators need the actual included transaction, mounted lxphost keys, canonical state shapes and restart contract required by 13046 through 13051 and 181291."
+proposal = "Extend docs/site/docs/programs/sandbox.md with native funding, activation, usage and destruction proof flows and exact state schemas, and distinguish local fixture coverage from proven native end-to-end behavior."
+owner_domain = 13
+
+[finding.porting-lxt20-methods]
+file = "docs/site/docs/operators/porting.md"
+line = 178
+class = "doc-drift"
+severity = "medium"
+observed = "The operator porting guide calls LXT-20 a seven-method ABI-v2 reference and line 332 again lists seven canonical requests. The current interface includes initialize in addition to the seven transfer, allowance and query methods, as programs/README.md:233-235 records."
+expected = "Porting instructions must include initialization and its authorization before any transfer or balance workflow, with the current full request set."
+proposal = "Update docs/site/docs/operators/porting.md LXT-20 method list and round-trip instructions to include initialize, the actual canonical request codec and the initialized native fixture lifecycle."
+owner_domain = 13
+
+[finding.programs-readme-retired]
+file = "programs/README.md"
+line = 28
+class = "doc-drift"
+severity = "medium"
+observed = "The workspace README still says periodic checkpoints settle execution on a separate chain and lists layerx-programs-protocol-adapter as the live read bridge at lines 47 and 99."
+expected = "The workspace overview must describe one chain with mounted lxphost proofs and current crates, consistent with the sandbox dependency retirement requirement 13058."
+proposal = "Update programs/README.md chain model and crate/read-bridge inventory to the merged node and chain-proof registry, removing the retired protocol adapter from current integration instructions."
+owner_domain = 13
+
+[finding.evm-custody-guide]
+file = "programs/porting/evm/MIGRATION.md"
+line = 205
+class = "doc-drift"
+severity = "medium"
+observed = "Escrow guidance says holding value does not exist and requires the payer to be present at payout; the checklist repeats that rule. The crate now exposes registered program-derived account transfers for contract-funded flows."
+expected = "Migration guidance must distinguish unavailable ambient contract authority from supported bounded transfers out of an explicitly registered program-owned account."
+proposal = "Rewrite programs/porting/evm/MIGRATION.md escrow and checklist sections around the existing ProgramAccountTransferPlan, account registration and explicit source authority, with a bounded later payout example."
+owner_domain = 13
+
+[finding.cosmwasm-storage-guide]
+file = "programs/porting/cosmwasm/MIGRATION.md"
+line = 171
+class = "doc-drift"
+severity = "medium"
+observed = "The unsupported table says there is no storage cursor, shared secondary indexes have no equivalent and a global Item necessarily becomes per principal. ABI v2 provides storage_scan_scoped and the crate now exposes StateBinding::Shared."
+expected = "The guide must explain supported bounded shared and principal scans and explicitly classify remaining source indexing restrictions rather than deny the current host features."
+proposal = "Update programs/porting/cosmwasm/MIGRATION.md storage migration table with scoped storage and scan bounds, cursor behavior, shared grants and a global Item example preserving cross-sender state."
+owner_domain = 13
+
+[finding.cosmwasm-custody-guide]
+file = "programs/porting/cosmwasm/MIGRATION.md"
+line = 290
+class = "doc-drift"
+severity = "medium"
+observed = "The vault section calls accumulated funds followed by owner withdraw unportable as a monetary law, despite the earlier derived-account BankSend support and the crate ProgramAccountTransferPlan implementation."
+expected = "A port may use a registered program-derived value account with bounded explicit authority; unsupported attached-funds facts must be described separately from later payouts."
+proposal = "Revise programs/porting/cosmwasm/MIGRATION.md vault guidance to show registration, explicit funding and bounded derived-account withdraw, retaining the truthful restriction on unauthenticated MessageInfo.funds."
+owner_domain = 13
+
+[finding.solana-custody-guide]
+file = "programs/porting/solana/MIGRATION.md"
+line = 244
+class = "doc-drift"
+severity = "medium"
+observed = "The vault section says a program accumulating lamports in a PDA vault and paying later has no port, despite the kit derived-account transfer support. That blanket instruction discards a supported explicitly authorized program-owned account pattern."
+expected = "The guide must distinguish unsupported PDA signatures from the supported registered program-derived source with bounded transfer authority."
+proposal = "Rewrite programs/porting/solana/MIGRATION.md vault and refund section around the current program-account transfer plan, explicit asset/account mapping and owner-program checks, including a later payout."
+owner_domain = 13
+
+[finding.solana-crypto-guide]
+file = "programs/porting/solana/MIGRATION.md"
+line = 278
+class = "doc-drift"
+severity = "medium"
+observed = "The unavailable-constructs table says ed25519/secp256k1 signature verification is protocol authority rather than program logic, while the guide introduction and guest crate expose deterministic SDK signature verification."
+expected = "The porting table must distinguish guest cryptographic verification from transaction authorization and accurately list supported deterministic crypto calls."
+proposal = "Update programs/porting/solana/MIGRATION.md crypto row to the available guest SDK operations, fixed input types and refusal behavior, while keeping transaction authority checks in the host."
+owner_domain = 13
+
+[finding.evm-lxt20-guide]
+file = "programs/porting/evm/MIGRATION.md"
+line = 332
+class = "doc-drift"
+severity = "medium"
+observed = "The migration guide says the LXT-20 SDK and token guest implement seven methods; the current canonical interface additionally includes initialize, which is required before the stateful token lifecycle."
+expected = "A token port must enumerate the complete current method set and explain initialization and its authority before funding and transfers."
+proposal = "Refresh programs/porting/evm/MIGRATION.md token section from the current lxt20 codec and native pay5 fixtures, including initialize and its positive and refused authorization paths."
+owner_domain = 13
+
+[finding.solana-lxt20-guide]
+file = "programs/porting/solana/MIGRATION.md"
+line = 368
+class = "doc-drift"
+severity = "medium"
+observed = "The migration guide says the LXT-20 SDK and token guest implement seven methods; the current canonical interface additionally includes initialize, which is required before the stateful token lifecycle."
+expected = "A token port must enumerate the complete current method set and explain initialization and its authority before funding and transfers."
+proposal = "Refresh programs/porting/solana/MIGRATION.md token section from the current lxt20 codec and native pay5 fixtures, including initialize and its positive and refused authorization paths."
+owner_domain = 13
+
+[doc.1]
+path = "docs/site/docs/programs/workspace.md"
+status = "stale"
+notes = "Lines 15/20 retain the retired adapter and three-crate inventory; lines 24-37 describe only ABI 1/2 and the obsolete ABI_VERSION=2 expectation. Reviewed all gate and storage-scan sections."
+
+[doc.2]
+path = "docs/wiki/ProgramsWorkspace.md"
+status = "stale"
+notes = "Same stale adapter, inventory and ABI gate claims as the site page at lines 15/20/24-37; reviewed full text and the wiki-specific link differences."
+
+[doc.3]
+path = "README.md"
+status = "stale"
+notes = "Lines 47 and 181 describe the separate layerxd/checkpoint network and draft merge; reviewed full repository architecture, public APIs, layout and build instructions."
+
+[doc.4]
+path = "docs/site/docs/index.md"
+status = "stale"
+notes = "Lines 11-26 present separate LayerX execution and checkpoint settlement rather than ordinary transactions on the merged BFT chain; full page reviewed."
+
+[doc.5]
+path = "docs/site/docs/overview/i18n/de.md"
+status = "stale"
+notes = "Line 18 denies ordinary Paxeer transactions and line 98 lists the retired daemon; full German overview and repository instructions reviewed."
+
+[doc.6]
+path = "docs/site/docs/overview/i18n/fr.md"
+status = "stale"
+notes = "Line 18 describes periodic checkpoint settlement and line 98 lists the retired daemon; full French overview and repository instructions reviewed."
+
+[doc.7]
+path = "docs/site/docs/operators/index.md"
+status = "stale"
+notes = "Line 10 presents Guarantor checkpoint production as a current role; full operator navigation and beta/deployment qualification caveats reviewed."
+
+[doc.8]
+path = "docs/site/docs/operators/porting.md"
+status = "stale"
+notes = "Lines 178 and 332 omit initialize from the LXT-20 method count; reviewed every source mapping, typed refusal, qualification pipeline and token fixture instruction."
+
+[doc.9]
+path = "docs/site/docs/agents/sdk-verification.md"
+status = "accurate"
+notes = "Read complete receipt signature, activity id, successful result, transaction/batch/result inclusion and trusted consensus check order; the internal sequencer receipt name does not by itself assert a separate runtime service."
+
+[doc.10]
+path = "docs/site/docs/programs/index.md"
+status = "stale"
+notes = "Lines 18/145/282 deny existing codecs and fixtures; lines 119-138 present retired daemon LNI invocation. Reviewed activity layouts, module versions, ABI, custody, query and receipt sections."
+
+[doc.11]
+path = "docs/site/docs/programs/sandbox.md"
+status = "stale"
+notes = "Full lifecycle, capabilities and snapshot metering page reviewed; missing production chain-proof/key contracts and undisclosed native-fixture limitations prevent treating it as the current integration contract."
+
+[doc.12]
+path = "docs/site/docs/protocol/modules.md"
+status = "stale"
+notes = "Lines 25 and 115 retain separate settlement and layerxd/guarantor runtime binding. Read all module ids, ordinals, authority and maintenance sections against the merged host."
+
+[doc.13]
+path = "programs/porting/evm/MIGRATION.md"
+status = "stale"
+notes = "Lines 205/324 deny supported later program-owned payouts; line 332 omits initialize. Read full Solidity layouts, shared storage, context, money, failure and reference qualification guide."
+
+[doc.14]
+path = "programs/porting/cosmwasm/MIGRATION.md"
+status = "stale"
+notes = "Line 171 denies scoped cursors/shared globals and line 290 denies derived-account vault payouts. Read full key/JSON/message, context, crypto, money and donation-reference guide."
+
+[doc.15]
+path = "programs/porting/solana/MIGRATION.md"
+status = "stale"
+notes = "Lines 244 and 278 deny supported account payouts and guest crypto; line 368 omits initialize. Read full account/seed/schema, instruction, context, money and mint-reference guide."
+
+[doc.16]
+path = "programs/README.md"
+status = "stale"
+notes = "Lines 28/47/99 retain checkpoint settlement and the retired adapter. Read full workspace, guest ABI 1-5, account authority, native fixtures, LXT20 initialization and gate descriptions."
+
+[doc.17]
+path = "contracts/programs.md"
+status = "missing"
+notes = "All package interface contract links target this absent page; the sandbox-crate and other normative anchors cannot be resolved in the audited tree."
+

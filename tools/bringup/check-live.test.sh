@@ -328,7 +328,7 @@ chmod +x "$work/bin/railway"
 # and /rpc want the bearer CHECK_LIVE_TEST_AGENT_BEARER in the --config file,
 # and /rpc answers a program.discover of CHECK_LIVE_TEST_AGENT_PROGRAM with
 # CHECK_LIVE_TEST_AGENT_RPC_CODE and CHECK_LIVE_TEST_AGENT_RPC.
-# With CHECK_LIVE_TEST_GAS set, the chain name and the router's /rpc answer
+# With CHECK_LIVE_TEST_GAS set, the chain name and the node's root answer
 # from the files of that directory, as the gas cases below describe.
 # CHECK_LIVE_TEST_AGENT_RPC_CODE and CHECK_LIVE_TEST_AGENT_RPC. A process-group
 # .internal name answers /readyz ready to a request with a client certificate.
@@ -357,7 +357,7 @@ esac
 # fixture file named after the request's method and /readyz from
 # readyz-<fly-force-instance-id>, whose first line is the status code the -w
 # format appends.
-if [ -n "${CHECK_LIVE_TEST_ROUTER:-}" ] && [ "$name" = api-mainnet-beta ]; then
+if [ -n "${CHECK_LIVE_TEST_ROUTER:-}" ] && [ "$name" = layerx-gateway ]; then
 	data=""
 	instance=""
 	write=0
@@ -379,7 +379,7 @@ if [ -n "${CHECK_LIVE_TEST_ROUTER:-}" ] && [ "$name" = api-mainnet-beta ]; then
 	esac
 	exit 0
 fi
-if [ -n "${CHECK_LIVE_TEST_GAS:-}" ] && { [ "$name" = chain ] || [ "$url" = https://api-mainnet-beta.paxeer.network/rpc ]; }; then
+if [ -n "${CHECK_LIVE_TEST_GAS:-}" ] && { [ "$name" = chain ] || [ "$url" = https://api-mainnet-beta.paxeer.network ]; }; then
 	out=/dev/stdout
 	data=""
 	wout=""
@@ -1090,7 +1090,7 @@ https://api7.mainnet-beta.paxeer.network/comet)
 	[ -n "$data" ] || reply "${CHECK_LIVE_TEST_COMET_GET:-403}" '<html>403 Forbidden</html>'
 	reply 200 '{"jsonrpc":"2.0","id":1,"result":{"sync_info":{"earliest_block_height":"25000000"}}}'
 	;;
-https://api-mainnet-beta.paxeer.network/rpc)
+https://layerx-gateway.layerx-testnet.svc.cluster.local/rpc)
 	method="$(python3 -c 'import json, sys; r = json.loads(sys.argv[1]); print(r["method"], r["params"][0])' "$data")"
 	case "$method" in
 	"px_getUnifiedHistory 0x00000000000000000000000000000000000000aa")
@@ -1148,6 +1148,7 @@ rm "$fx/services/platform/hosted/indexer/fly.toml"
 export CHECK_LIVE_TEST_OUTER_CURL="$work/bin/curl"
 export CHECK_LIVE_TEST_INDEXER_METHODS="$ix/methods.log"
 export CHECK_LIVE_TEST_LAYERX=1111111111111111111111111111111111111111111111111111111111111111
+export CHECK_LIVE_INDEXER_RPC=https://layerx-gateway.layerx-testnet.svc.cluster.local/rpc
 export CHECK_LIVE_INDEXER_CONNECT="127.0.0.1:$archive_port"
 export CHECK_LIVE_TEST_MACHINES='[{"state":"started","config":{"mounts":[{"path":"/data","volume":"vol_fixture"}]}}]'
 sqlite3 "$ix/state/indexer.sqlite" "CREATE TABLE cursors(chain TEXT PRIMARY KEY, position INTEGER NOT NULL, hash TEXT NOT NULL, finalized_position INTEGER, finalized_boundary INTEGER, updated_at INTEGER NOT NULL);
@@ -1278,7 +1279,7 @@ check_live_indexer_failing() {
 		"check-live: 6 check(s) failed"
 }
 check_live_indexer_failing
-unset CHECK_LIVE_TEST_INDEXER_PUBLIC CHECK_LIVE_TEST_IPS CHECK_LIVE_TEST_MACHINES CHECK_LIVE_INDEXER_ACCOUNT CHECK_LIVE_INDEXER_CONNECT CHECK_LIVE_TEST_OUTER_CURL CHECK_LIVE_TEST_LAYERX CHECK_LIVE_TEST_INDEXER_METHODS
+unset CHECK_LIVE_INDEXER_RPC CHECK_LIVE_TEST_INDEXER_PUBLIC CHECK_LIVE_TEST_IPS CHECK_LIVE_TEST_MACHINES CHECK_LIVE_INDEXER_ACCOUNT CHECK_LIVE_INDEXER_CONNECT CHECK_LIVE_TEST_OUTER_CURL CHECK_LIVE_TEST_LAYERX CHECK_LIVE_TEST_INDEXER_METHODS
 
 # Seven ways a certificate fails: absent on the box, signed by another CA,
 # short of its SANs, inside thirty days of expiry, its box unassigned in the
@@ -1758,7 +1759,7 @@ kill -TERM -- "-$kernel_init_pgid" 2>/dev/null || true
 # The gas cases run the probe of the fixture tree against the gas station
 # app's fixture machine, whose volume holds the rendered station.json, with a
 # real cast keystore as the check account; the curl stand-in answers the
-# chain name's /quote and /submit and the router's JSON-RPC from the files of
+# chain name's /quote and /submit and the node's JSON-RPC from the files of
 # CHECK_LIVE_TEST_GAS, and keeps each request the station received.
 gas="$(fx_app services/interop/deploy/gas-station/fly.toml)"
 gas_sid=0x21f7b20a555199fa73A238B1a91FD0f549068fEe
@@ -1783,7 +1784,7 @@ CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_gas_toml_absent "$work/h
 
 mkdir -p "$fx/services/interop/deploy/gas-station" "$work/fly/$gas/app/data/gas-station"
 printf 'app = "%s"\n' "$gas" >"$fx/services/interop/deploy/gas-station/fly.toml"
-printf '{"listen":"[::]:8080","chain_id":125,"endpoints":["https://api-mainnet-beta.paxeer.network/rpc","https://api4.mainnet-beta.paxeer.network","https://api5.mainnet-beta.paxeer.network"],"paymaster":"%s","token":"%s","decimals":6,"gas_limit":200000,"max_priority_fee_per_gas":1000000000,"max_rate_age":300}\n' \
+printf '{"listen":"[::]:8080","chain_id":125,"endpoints":["https://api-mainnet-beta.paxeer.network","https://api4.mainnet-beta.paxeer.network","https://api5.mainnet-beta.paxeer.network"],"paymaster":"%s","token":"%s","decimals":6,"gas_limit":200000,"max_priority_fee_per_gas":1000000000,"max_rate_age":300}\n' \
 	"$gas_paymaster" "$gas_sid" >"$work/fly/$gas/app/data/gas-station/station.json"
 export CHECK_LIVE_TEST_MACHINES='[{"state":"started","config":{"mounts":[{"volume":"vol_fixture"}]}}]'
 printf '"0xef0100%s"' "${gas_paymaster#0x}" >"$CHECK_LIVE_TEST_GAS/eth_getCode"
@@ -1808,7 +1809,7 @@ printf '{"status":"0x1","logs":[{"address":"%s","topics":["0xddf252ad1be2c89b69c
 : >"$CHECK_LIVE_TEST_STDIN"
 CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_gas_passing "$work/hosts-good.env" 0 gas -- \
 	"pass machines app=$gas machines=1 started=1 volumes=1" \
-	"pass config app=$gas chain_id=125 token=SID endpoints=3 first=router paymaster=$gas_paymaster" \
+	"pass config app=$gas chain_id=125 token=SID endpoints=3 first=node paymaster=$gas_paymaster" \
 	"pass rate-age paymaster=$gas_paymaster updated_at=1899999880 age=120 max_rate_age=300" \
 	"pass delegation account=$gas_account delegate=$gas_paymaster" \
 	"pass quote https://chain.paxeer.network/quote http=200 rate=3114000 token_amount=1869 expected=1869 max=5000 sponsor=$gas_sponsor" \
@@ -1914,7 +1915,7 @@ export CHECK_LIVE_ROUTER_CONNECT="127.0.0.1:$router_port"
 CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_internal_nothing_running "$work/hosts-good.env" 1 internal -- \
 	"pass public-ips app=$internal count=0" \
 	"pass public-ips app=$(fx_app services/platform/hosted/internal/redis.toml) count=0" \
-	"pass router-root host=api-mainnet-beta.paxeer.network root=X1" \
+	"pass node-root host=api-mainnet-beta.paxeer.network root=X1" \
 	"fail upstream-ca group=payments process=none" \
 	"fail upstream-ca group=programs process=none" \
 	"pass readiness group=kms url=https://kms.process.$internal.internal:9443/readyz from=$kernel http=200 ready=true" \
@@ -1928,7 +1929,7 @@ for group in payments programs; do
 done
 : >"$CHECK_LIVE_TEST_STDIN"
 CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_internal_passing "$work/hosts-good.env" 0 internal -- \
-	"pass router-root host=api-mainnet-beta.paxeer.network root=X1" \
+	"pass node-root host=api-mainnet-beta.paxeer.network root=X1" \
 	"pass upstream-ca group=payments url=https://api-mainnet-beta.paxeer.network root=X1 verifies=yes" \
 	"pass upstream-ca group=programs url=https://api-mainnet-beta.paxeer.network root=X1 verifies=yes" \
 	"pass readiness group=kms url=https://kms.process.$internal.internal:9443/readyz from=$kernel http=200 ready=true" \
@@ -1966,7 +1967,7 @@ unset CHECK_LIVE_TEST_IPS
 
 export CHECK_LIVE_ROUTER_CONNECT="127.0.0.1:1"
 CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_internal_router_unreadable "$work/hosts-good.env" 1 internal -- \
-	"fail router-root host=api-mainnet-beta.paxeer.network root=unreadable" \
+	"fail node-root host=api-mainnet-beta.paxeer.network root=unreadable" \
 	"fail upstream-ca group=payments url=https://api-mainnet-beta.paxeer.network pin=ISRG-Root-X1 served=unreadable" \
 	"check-live: 3 check(s) failed"
 unset CHECK_LIVE_ROUTER_CONNECT
@@ -2703,6 +2704,8 @@ CHECK_LIVE_TEST_DEV_BEARER=another-token CHECK_LIVE_DEVELOPERS_DELIVERY_ATTEMPTS
 	"check-live: 3 check(s) failed"
 unset CHECK_LIVE_TEST_BIN CHECK_LIVE_TEST_DEV_BEARER CHECK_LIVE_DEVELOPERS_RECEIVER CHECK_LIVE_DEVELOPERS_TOKEN_FILE
 
+export CHECK_LIVE_ROUTER_URL=https://layerx-gateway.layerx-testnet.svc.cluster.local
+
 # The router cases run the fixture tree's checker: the endpoint app's machines
 # come from the flyctl stand-in, /rpc and /readyz from the curl stand-in's
 # router fixtures and the wallet gateway's readiness from the node stand-in.
@@ -2713,7 +2716,7 @@ printf '%s\n' '{"jsonrpc":"2.0","id":1,"result":{"network_id":"local","paxeer":{
 printf '%s\n' '{"jsonrpc":"2.0","id":1,"result":{"account":"fixture","sequence":"0"}}' >"$work/router-good/lx_getAccount"
 printf '200\n%s\n' "$router_ready" >"$work/router-good/readyz-m-ams-1"
 printf '200\n%s\n' "$router_ready" >"$work/router-good/readyz-m-fra-1"
-printf '%s\n' '{"ready":true,"components":{"rpc_pool":{"state":"up","healthy":3,"endpoints":[{"url":"https://api-mainnet-beta.paxeer.network","state":"healthy"},{"url":"https://api1.mainnet-beta.paxeer.network","state":"healthy"}]}}}' >"$work/router-good/wallet-readyz"
+printf '%s\n' '{"ready":true,"components":{"rpc_pool":{"state":"up","healthy":3,"endpoints":[{"url":"https://layerx-gateway.layerx-testnet.svc.cluster.local","state":"healthy"},{"url":"https://api1.mainnet-beta.paxeer.network","state":"healthy"}]}}}' >"$work/router-good/wallet-readyz"
 printf '%s\n' '[{"id":"m-ams-1","region":"ams","state":"started"},{"id":"m-ams-2","region":"ams","state":"started"},{"id":"m-fra-1","region":"fra","state":"started"},{"id":"m-fra-0","region":"fra","state":"stopped"}]' >"$CHECK_LIVE_TEST_FLY/$endpoint/machines.json"
 mkdir -p -m 0700 "$work/stages-passed"
 : "${CHECK_LIVE_TEST_STAGE_DIR:?real retained material and registry-bootstrap records required}"
@@ -2936,7 +2939,7 @@ CHECK_LIVE_SEARCH_PAYER_DID="" PATH="$work/search-bin:$PATH" expect check_live_s
 PATH="$work/search-bin:$PATH" expect check_live_search_unmapped "$work/hosts-down.env" 1 search -- \
 	"fail names names=unreadable" \
 	"check-live: 1 check(s) failed"
-unset CHECK_LIVE_SEARCH_PAYER_KEY_FILE CHECK_LIVE_SEARCH_PAYER_DID
+unset CHECK_LIVE_ROUTER_URL CHECK_LIVE_SEARCH_PAYER_KEY_FILE CHECK_LIVE_SEARCH_PAYER_DID
 
 # The registry cases put a curl of their own ahead of the stand-in: the
 # registry's private app ingress answers /healthz ready to a request with a client

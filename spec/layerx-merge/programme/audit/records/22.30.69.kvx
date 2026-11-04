@@ -1,0 +1,1387 @@
+# Pre-upgrade audit of rpc-api sdk/proto. Repairs are proposals only.
+
+[audit.22.30.69]
+task = "22.30.69"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 159
+findings = 32
+docs_reviewed = 17
+upgrade_ready = false
+blocking = ["receipt-read-log-loss", "silent-log-limit", "tagged-filter-never-polls", "moving-filter-start", "snapshot-consumes-poll-cursor"]
+
+[file.001]
+path = "api/README.md"
+lines = 15
+verdict = "issues"
+note = "Full generation guide read; the programs go_package exception is recorded below."
+
+[file.002]
+path = "api/bank_http_rules_test.go"
+lines = 77
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.003]
+path = "api/bank_rest_test.go"
+lines = 121
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.004]
+path = "api/buf_apidir_test.go"
+lines = 74
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.005]
+path = "api/buf_breaking_test.go"
+lines = 79
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.006]
+path = "api/buf_build_test.go"
+lines = 59
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.007]
+path = "api/buf_generate_test.go"
+lines = 217
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.008]
+path = "api/buf_lint_test.go"
+lines = 81
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.009]
+path = "api/cosmos_auth_vesting_parity_test.go"
+lines = 46
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.010]
+path = "api/cosmos_authz_parity_test.go"
+lines = 37
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.011]
+path = "api/cosmos_bank_parity_test.go"
+lines = 59
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.012]
+path = "api/cosmos_base_parity_test.go"
+lines = 55
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.013]
+path = "api/cosmos_crypto_capability_genutil_parity_test.go"
+lines = 83
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.014]
+path = "api/cosmos_distribution_parity_test.go"
+lines = 38
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.015]
+path = "api/cosmos_evidence_parity_test.go"
+lines = 37
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.016]
+path = "api/cosmos_feegrant_parity_test.go"
+lines = 38
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.017]
+path = "api/cosmos_gov_parity_test.go"
+lines = 37
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.018]
+path = "api/cosmos_params_parity_test.go"
+lines = 47
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.019]
+path = "api/cosmos_slashing_parity_test.go"
+lines = 38
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.020]
+path = "api/cosmos_staking_parity_test.go"
+lines = 37
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.021]
+path = "api/cosmos_tx_parity_test.go"
+lines = 43
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.022]
+path = "api/cosmos_upgrade_parity_test.go"
+lines = 74
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.023]
+path = "api/epoch_parity_test.go"
+lines = 34
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.024]
+path = "api/eth_tx_parity_test.go"
+lines = 47
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.025]
+path = "api/evm_parity_test.go"
+lines = 70
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.026]
+path = "api/evm_reserved_test.go"
+lines = 106
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.027]
+path = "api/gateway_mount_test.go"
+lines = 150
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.028]
+path = "api/launchpad_parity_test.go"
+lines = 44
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.029]
+path = "api/layerx_agent_parity_test.go"
+lines = 43
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.030]
+path = "api/layerx_anchor_parity_test.go"
+lines = 44
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.031]
+path = "api/layerx_auth_parity_test.go"
+lines = 43
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.032]
+path = "api/layerx_bridge_parity_test.go"
+lines = 45
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.033]
+path = "api/layerx_custody_parity_test.go"
+lines = 34
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.034]
+path = "api/layerx_exchange_parity_test.go"
+lines = 34
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.035]
+path = "api/layerx_gov_parity_test.go"
+lines = 45
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.036]
+path = "api/layerx_ledger_parity_test.go"
+lines = 35
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.037]
+path = "api/layerx_programs_parity_test.go"
+lines = 107
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.038]
+path = "api/mint_parity_test.go"
+lines = 34
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.039]
+path = "api/oracle_parity_test.go"
+lines = 34
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.040]
+path = "api/oracle_reserved_test.go"
+lines = 73
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.041]
+path = "api/pax_admin_parity_test.go"
+lines = 49
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.042]
+path = "api/perps_parity_test.go"
+lines = 70
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.043]
+path = "api/pricefeed_parity_test.go"
+lines = 34
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.044]
+path = "api/protosource_helpers_test.go"
+lines = 240
+verdict = "issues"
+note = "Full descriptor decoding, comparison and gateway helpers read; semantic comparison omissions are recorded below."
+
+[file.045]
+path = "api/spot_parity_test.go"
+lines = 45
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.046]
+path = "api/tokenfactory_parity_test.go"
+lines = 35
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.047]
+path = "api/tokenfactory_paused_rest_test.go"
+lines = 120
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.048]
+path = "api/tokenfactory_rest_test.go"
+lines = 79
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.049]
+path = "api/xbank_shadow_test.go"
+lines = 140
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.050]
+path = "api/xevm_shadow_test.go"
+lines = 184
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.051]
+path = "api/xweb_parity_test.go"
+lines = 44
+verdict = "clean"
+note = "Full test setup, fixtures and assertions read against source schemas and registered/generated packages; field/route ownership and expected refusals agree. Shared descriptor semantic coverage limitation is recorded on api/protosource_helpers_test.go."
+
+[file.052]
+path = "rpc/block.go"
+lines = 861
+verdict = "clean"
+note = "Full pending/committed block lookup, receipt encoding, tenant views and legacy exclusions read; block-receipt keeper errors propagate and missing blocks preserve declared null behavior."
+
+[file.053]
+path = "rpc/config/bind_test.go"
+lines = 24
+verdict = "clean"
+note = "Complete test/helper file read against producer, transport and consumer expectations; no additional disagreement or retired runtime dependency found. Integration harness metadata limitation is recorded on rpc/tests/utils.go."
+
+[file.054]
+path = "rpc/config/config.go"
+lines = 750
+verdict = "issues"
+note = "Every key, default, conversion and template field read; timing consumer bounds disagree. CheckTxTimeout is correctly retired with legacy input ignored; rendered keys and deny-list arrays match implemented template tests."
+
+[file.055]
+path = "rpc/config/config_test.go"
+lines = 554
+verdict = "clean"
+note = "Complete test/helper file read against producer, transport and consumer expectations; no additional disagreement or retired runtime dependency found. Integration harness metadata limitation is recorded on rpc/tests/utils.go."
+
+[file.056]
+path = "rpc/config/proof_config_test.go"
+lines = 182
+verdict = "clean"
+note = "Complete test/helper file read against producer, transport and consumer expectations; no additional disagreement or retired runtime dependency found. Integration harness metadata limitation is recorded on rpc/tests/utils.go."
+
+[file.057]
+path = "rpc/config/template_denylist_test.go"
+lines = 70
+verdict = "clean"
+note = "Complete test/helper file read against producer, transport and consumer expectations; no additional disagreement or retired runtime dependency found. Integration harness metadata limitation is recorded on rpc/tests/utils.go."
+
+[file.058]
+path = "rpc/config/template_flags_test.go"
+lines = 80
+verdict = "clean"
+note = "Complete test/helper file read against producer, transport and consumer expectations; no additional disagreement or retired runtime dependency found. Integration harness metadata limitation is recorded on rpc/tests/utils.go."
+
+[file.059]
+path = "rpc/config/template_test.go"
+lines = 49
+verdict = "clean"
+note = "Complete test/helper file read against producer, transport and consumer expectations; no additional disagreement or retired runtime dependency found. Integration harness metadata limitation is recorded on rpc/tests/utils.go."
+
+[file.060]
+path = "rpc/filter.go"
+lines = 1940
+verdict = "issues"
+note = "All cache, feed, pending/committed filter, range, worker and domain-scoping paths read; completeness, cursor and cleanup defects recorded below. Feed overflow fails explicitly; RPC subscriptions are process-local rather than durable chain state."
+
+[file.061]
+path = "rpc/pax_legacy_test.go"
+lines = 890
+verdict = "clean"
+note = "All legacy registration, allow-list, fail-closed, transport and receipt-exemption assertions read; gated names and exclusions agree with current implementation."
+
+[file.062]
+path = "rpc/sequencer_receipt.go"
+lines = 625
+verdict = "issues"
+note = "Full receipt decoding, consistency/signature/pin validation, forwarding, governed-key lookup and committed-range resolution read; malformed committed-view validation order is recorded below."
+
+[file.063]
+path = "rpc/sequencer_receipt_test.go"
+lines = 1096
+verdict = "clean"
+note = "Full signer, JSON, forwarding, commit/refusal, governed-pin and recovery tests read; no additional disagreement beyond the implementation finding."
+
+[file.064]
+path = "rpc/sequencer_receipt_vectors_test.go"
+lines = 1194
+verdict = "issues"
+note = "All generation, positive/refusal vectors and assertions read; fee-token conformance shape differs from the production receipter."
+
+[file.065]
+path = "rpc/setup_test.go"
+lines = 1426
+verdict = "clean"
+note = "Complete consensus/RPC fixture and initialization code read; typed envelopes and landed committed-receipt regressions remain represented. Synthetic unit fixtures are not evidence of producer consensus metadata."
+
+[file.066]
+path = "rpc/simulate_test.go"
+lines = 1203
+verdict = "issues"
+note = "All simulation, state override, typed-envelope, block-context and concurrency scenarios read; method-specific limiter enforcement coverage is incomplete."
+
+[file.067]
+path = "rpc/subscribe_test.go"
+lines = 1061
+verdict = "issues"
+note = "All WebSocket, committed-header, receipt-log, lag and cleanup scenarios read; address/topic scenario remains unconditionally skipped."
+
+[file.068]
+path = "rpc/tests/README.md"
+lines = 19
+verdict = "clean"
+note = "Full harness, signing, initialization and working-directory guide read; synthetic-header limitation is recorded on utils.go."
+
+[file.069]
+path = "rpc/tests/block_test.go"
+lines = 241
+verdict = "clean"
+note = "Complete test/helper file read against producer, transport and consumer expectations; no additional disagreement or retired runtime dependency found. Integration harness metadata limitation is recorded on rpc/tests/utils.go."
+
+[file.070]
+path = "rpc/tests/feehistory_test.go"
+lines = 30
+verdict = "clean"
+note = "Complete test/helper file read against producer, transport and consumer expectations; no additional disagreement or retired runtime dependency found. Integration harness metadata limitation is recorded on rpc/tests/utils.go."
+
+[file.071]
+path = "rpc/tests/gas_price_test.go"
+lines = 75
+verdict = "clean"
+note = "Complete test/helper file read against producer, transport and consumer expectations; no additional disagreement or retired runtime dependency found. Integration harness metadata limitation is recorded on rpc/tests/utils.go."
+
+[file.072]
+path = "rpc/tests/log_test.go"
+lines = 77
+verdict = "clean"
+note = "Complete test/helper file read against producer, transport and consumer expectations; no additional disagreement or retired runtime dependency found. Integration harness metadata limitation is recorded on rpc/tests/utils.go."
+
+[file.073]
+path = "rpc/tests/logindex_test.go"
+lines = 111
+verdict = "clean"
+note = "Complete test/helper file read against producer, transport and consumer expectations; no additional disagreement or retired runtime dependency found. Integration harness metadata limitation is recorded on rpc/tests/utils.go."
+
+[file.074]
+path = "rpc/tests/mock_accounts.go"
+lines = 142
+verdict = "clean"
+note = "Complete test/helper file read against producer, transport and consumer expectations; no additional disagreement or retired runtime dependency found. Integration harness metadata limitation is recorded on rpc/tests/utils.go."
+
+[file.075]
+path = "rpc/tests/mock_client.go"
+lines = 291
+verdict = "clean"
+note = "Full captured/synthetic consensus responses and pagination read; producer metadata gap is recorded on utils.go. Single-page validator replay is explicitly fixture-local, not production validator-set evidence."
+
+[file.076]
+path = "rpc/tests/mock_client_test.go"
+lines = 56
+verdict = "clean"
+note = "Full response and pagination assertions read; they describe captured-page fixture semantics, not complete production validator-set proof."
+
+[file.077]
+path = "rpc/tests/mock_contracts.go"
+lines = 152
+verdict = "clean"
+note = "Complete test/helper file read against producer, transport and consumer expectations; no additional disagreement or retired runtime dependency found. Integration harness metadata limitation is recorded on rpc/tests/utils.go."
+
+[file.078]
+path = "rpc/tests/mock_upgrade.go"
+lines = 12
+verdict = "clean"
+note = "Complete test/helper file read against producer, transport and consumer expectations; no additional disagreement or retired runtime dependency found. Integration harness metadata limitation is recorded on rpc/tests/utils.go."
+
+[file.079]
+path = "rpc/tests/receipt_test.go"
+lines = 22
+verdict = "clean"
+note = "Complete test/helper file read against producer, transport and consumer expectations; no additional disagreement or retired runtime dependency found. Integration harness metadata limitation is recorded on rpc/tests/utils.go."
+
+[file.080]
+path = "rpc/tests/solidity/ERC20.sol"
+lines = 61
+verdict = "clean"
+note = "Complete Solidity contract/interface read; ABI signatures and emitted event shapes agree with corresponding native/precompile interfaces. No additional disagreement or retired runtime dependency found."
+
+[file.081]
+path = "rpc/tests/solidity/IAddr.sol"
+lines = 14
+verdict = "clean"
+note = "Complete Solidity contract/interface read; ABI signatures and emitted event shapes agree with corresponding native/precompile interfaces. No additional disagreement or retired runtime dependency found."
+
+[file.082]
+path = "rpc/tests/solidity/IJson.sol"
+lines = 17
+verdict = "clean"
+note = "Complete Solidity contract/interface read; ABI signatures and emitted event shapes agree with corresponding native/precompile interfaces. No additional disagreement or retired runtime dependency found."
+
+[file.083]
+path = "rpc/tests/solidity/IWasmd.sol"
+lines = 28
+verdict = "clean"
+note = "Complete Solidity contract/interface read; ABI signatures and emitted event shapes agree with corresponding native/precompile interfaces. No additional disagreement or retired runtime dependency found."
+
+[file.084]
+path = "rpc/tests/solidity/MixedLogTester.sol"
+lines = 67
+verdict = "clean"
+note = "Complete Solidity contract/interface read; ABI signatures and emitted event shapes agree with corresponding native/precompile interfaces. No additional disagreement or retired runtime dependency found."
+
+[file.085]
+path = "rpc/tests/state_test.go"
+lines = 26
+verdict = "clean"
+note = "Complete test/helper file read against producer, transport and consumer expectations; no additional disagreement or retired runtime dependency found. Integration harness metadata limitation is recorded on rpc/tests/utils.go."
+
+[file.086]
+path = "rpc/tests/tracers_test.go"
+lines = 290
+verdict = "clean"
+note = "Complete test/helper file read against producer, transport and consumer expectations; no additional disagreement or retired runtime dependency found. Integration harness metadata limitation is recorded on rpc/tests/utils.go."
+
+[file.087]
+path = "rpc/tests/tx.go"
+lines = 204
+verdict = "clean"
+note = "Complete test/helper file read against producer, transport and consumer expectations; no additional disagreement or retired runtime dependency found. Integration harness metadata limitation is recorded on rpc/tests/utils.go."
+
+[file.088]
+path = "rpc/tests/tx_test.go"
+lines = 369
+verdict = "clean"
+note = "Complete test/helper file read against producer, transport and consumer expectations; no additional disagreement or retired runtime dependency found. Integration harness metadata limitation is recorded on rpc/tests/utils.go."
+
+[file.089]
+path = "rpc/tests/utils.go"
+lines = 292
+verdict = "issues"
+note = "Full finalize/commit setup, request helpers and lifecycle read; returned consensus metadata differs from producer headers used to finalize state."
+
+[file.090]
+path = "rpc/tracers.go"
+lines = 820
+verdict = "issues"
+note = "Complete cache/profile paths, tag resolution, historical guards, raw-envelope methods and legacy exclusions read; inconsistent legacy lookback checks are recorded below."
+
+[file.091]
+path = "rpc/tx_test.go"
+lines = 1724
+verdict = "issues"
+note = "All transaction, pending, receipt and encoding tests read; conditional success assertions and invalid hashes are recorded below."
+
+[file.092]
+path = "rpc/utils_test.go"
+lines = 20
+verdict = "clean"
+note = "Complete test/helper file read against producer, transport and consumer expectations; no additional disagreement or retired runtime dependency found. Integration harness metadata limitation is recorded on rpc/tests/utils.go."
+
+[file.093]
+path = "rpc/worker_pool_metrics.go"
+lines = 978
+verdict = "issues"
+note = "All metric registration, atomic accounting, snapshots, exporter and printer lifecycle code read; invalid intervals can crash startup."
+
+[file.094]
+path = "sdk/proto/cosmos/auth/v1beta1/auth.proto"
+lines = 60
+verdict = "clean"
+note = "Full cosmos.auth.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.095]
+path = "sdk/proto/cosmos/auth/v1beta1/genesis.proto"
+lines = 17
+verdict = "clean"
+note = "Full cosmos.auth.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.096]
+path = "sdk/proto/cosmos/auth/v1beta1/query.proto"
+lines = 88
+verdict = "clean"
+note = "Full cosmos.auth.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.097]
+path = "sdk/proto/cosmos/authz/v1beta1/authz.proto"
+lines = 45
+verdict = "clean"
+note = "Full cosmos.authz.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.098]
+path = "sdk/proto/cosmos/authz/v1beta1/event.proto"
+lines = 25
+verdict = "clean"
+note = "Full cosmos.authz.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.099]
+path = "sdk/proto/cosmos/authz/v1beta1/genesis.proto"
+lines = 13
+verdict = "clean"
+note = "Full cosmos.authz.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.100]
+path = "sdk/proto/cosmos/authz/v1beta1/query.proto"
+lines = 81
+verdict = "clean"
+note = "Full cosmos.authz.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.101]
+path = "sdk/proto/cosmos/authz/v1beta1/tx.proto"
+lines = 68
+verdict = "clean"
+note = "Full cosmos.authz.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.102]
+path = "sdk/proto/cosmos/bank/v1beta1/authz.proto"
+lines = 21
+verdict = "clean"
+note = "Full cosmos.bank.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.103]
+path = "sdk/proto/cosmos/bank/v1beta1/bank.proto"
+lines = 109
+verdict = "clean"
+note = "Full cosmos.bank.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.104]
+path = "sdk/proto/cosmos/bank/v1beta1/genesis.proto"
+lines = 63
+verdict = "clean"
+note = "Full cosmos.bank.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.105]
+path = "sdk/proto/cosmos/bank/v1beta1/query.proto"
+lines = 219
+verdict = "clean"
+note = "Full cosmos.bank.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.106]
+path = "sdk/proto/cosmos/bank/v1beta1/tx.proto"
+lines = 44
+verdict = "clean"
+note = "Full cosmos.bank.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.107]
+path = "sdk/proto/cosmos/base/abci/v1beta1/abci.proto"
+lines = 169
+verdict = "clean"
+note = "Full cosmos.base.abci.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.108]
+path = "sdk/proto/cosmos/base/kv/v1beta1/kv.proto"
+lines = 17
+verdict = "clean"
+note = "Full cosmos.base.kv.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.109]
+path = "sdk/proto/cosmos/base/query/v1beta1/pagination.proto"
+lines = 55
+verdict = "clean"
+note = "Full cosmos.base.query.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.110]
+path = "sdk/proto/cosmos/base/reflection/v1beta1/reflection.proto"
+lines = 45
+verdict = "clean"
+note = "Full cosmos.base.reflection.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.111]
+path = "sdk/proto/cosmos/base/reflection/v2alpha1/reflection.proto"
+lines = 224
+verdict = "clean"
+note = "Full cosmos.base.reflection.v2alpha1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.112]
+path = "sdk/proto/cosmos/base/store/v1beta1/commit_info.proto"
+lines = 29
+verdict = "clean"
+note = "Full cosmos.base.store.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.113]
+path = "sdk/proto/cosmos/base/store/v1beta1/listening.proto"
+lines = 16
+verdict = "clean"
+note = "Full cosmos.base.store.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.114]
+path = "sdk/proto/cosmos/base/tendermint/v1beta1/query.proto"
+lines = 137
+verdict = "clean"
+note = "Full cosmos.base.tendermint.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.115]
+path = "sdk/proto/cosmos/base/v1beta1/coin.proto"
+lines = 52
+verdict = "clean"
+note = "Full cosmos.base.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.116]
+path = "sdk/proto/cosmos/capability/v1beta1/capability.proto"
+lines = 30
+verdict = "clean"
+note = "Full cosmos.capability.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.117]
+path = "sdk/proto/cosmos/capability/v1beta1/genesis.proto"
+lines = 29
+verdict = "clean"
+note = "Full cosmos.capability.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.118]
+path = "sdk/proto/cosmos/crypto/ed25519/keys.proto"
+lines = 23
+verdict = "clean"
+note = "Full cosmos.crypto.ed25519 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.119]
+path = "sdk/proto/cosmos/crypto/multisig/keys.proto"
+lines = 20
+verdict = "clean"
+note = "Full cosmos.crypto.multisig source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.120]
+path = "sdk/proto/cosmos/crypto/multisig/v1beta1/multisig.proto"
+lines = 25
+verdict = "clean"
+note = "Full cosmos.crypto.multisig.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.121]
+path = "sdk/proto/cosmos/crypto/secp256k1/keys.proto"
+lines = 22
+verdict = "issues"
+note = "Both key declarations read; compressed-prefix documentation differs from the serializer."
+
+[file.122]
+path = "sdk/proto/cosmos/crypto/secp256r1/keys.proto"
+lines = 23
+verdict = "clean"
+note = "Full cosmos.crypto.secp256r1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.123]
+path = "sdk/proto/cosmos/crypto/sr25519/keys.proto"
+lines = 16
+verdict = "issues"
+note = "Full key declaration, cast and options read; algorithm naming in the comment is incorrect."
+
+[file.124]
+path = "sdk/proto/cosmos/distribution/v1beta1/distribution.proto"
+lines = 173
+verdict = "clean"
+note = "Full cosmos.distribution.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.125]
+path = "sdk/proto/cosmos/distribution/v1beta1/genesis.proto"
+lines = 188
+verdict = "clean"
+note = "Full cosmos.distribution.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.126]
+path = "sdk/proto/cosmos/distribution/v1beta1/query.proto"
+lines = 228
+verdict = "clean"
+note = "Full cosmos.distribution.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.127]
+path = "sdk/proto/cosmos/distribution/v1beta1/tx.proto"
+lines = 81
+verdict = "clean"
+note = "Full cosmos.distribution.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.128]
+path = "sdk/proto/cosmos/evidence/v1beta1/evidence.proto"
+lines = 24
+verdict = "clean"
+note = "Full cosmos.evidence.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.129]
+path = "sdk/proto/cosmos/evidence/v1beta1/genesis.proto"
+lines = 12
+verdict = "clean"
+note = "Full cosmos.evidence.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.130]
+path = "sdk/proto/cosmos/evidence/v1beta1/query.proto"
+lines = 51
+verdict = "clean"
+note = "Full cosmos.evidence.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.131]
+path = "sdk/proto/cosmos/evidence/v1beta1/tx.proto"
+lines = 32
+verdict = "clean"
+note = "Full cosmos.evidence.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.132]
+path = "sdk/proto/cosmos/feegrant/v1beta1/feegrant.proto"
+lines = 90
+verdict = "clean"
+note = "Full cosmos.feegrant.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.133]
+path = "sdk/proto/cosmos/feegrant/v1beta1/genesis.proto"
+lines = 13
+verdict = "clean"
+note = "Full cosmos.feegrant.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.134]
+path = "sdk/proto/cosmos/feegrant/v1beta1/query.proto"
+lines = 77
+verdict = "clean"
+note = "Full cosmos.feegrant.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.135]
+path = "sdk/proto/cosmos/feegrant/v1beta1/tx.proto"
+lines = 47
+verdict = "clean"
+note = "Full cosmos.feegrant.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.136]
+path = "sdk/proto/cosmos/genutil/v1beta1/genesis.proto"
+lines = 16
+verdict = "clean"
+note = "Full cosmos.genutil.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.137]
+path = "sdk/proto/cosmos/gov/v1beta1/genesis.proto"
+lines = 44
+verdict = "clean"
+note = "Full cosmos.gov.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.138]
+path = "sdk/proto/cosmos/gov/v1beta1/gov.proto"
+lines = 260
+verdict = "clean"
+note = "Full cosmos.gov.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.139]
+path = "sdk/proto/cosmos/gov/v1beta1/query.proto"
+lines = 190
+verdict = "clean"
+note = "Full cosmos.gov.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.140]
+path = "sdk/proto/cosmos/gov/v1beta1/tx.proto"
+lines = 111
+verdict = "clean"
+note = "Full cosmos.gov.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.141]
+path = "sdk/proto/cosmos/params/types/types.proto"
+lines = 27
+verdict = "clean"
+note = "Full cosmos.params.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.142]
+path = "sdk/proto/cosmos/params/v1beta1/params.proto"
+lines = 28
+verdict = "clean"
+note = "Full cosmos.params.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.143]
+path = "sdk/proto/cosmos/params/v1beta1/query.proto"
+lines = 32
+verdict = "clean"
+note = "Full cosmos.params.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.144]
+path = "sdk/proto/cosmos/slashing/v1beta1/genesis.proto"
+lines = 109
+verdict = "clean"
+note = "All current and legacy wire shapes read against registered descriptors. Legacy declarations preserve compatibility; current GenesisState is the live genesis path and store migrations explicitly decode historical signing-info types."
+
+[file.145]
+path = "sdk/proto/cosmos/slashing/v1beta1/query.proto"
+lines = 63
+verdict = "clean"
+note = "Full cosmos.slashing.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.146]
+path = "sdk/proto/cosmos/slashing/v1beta1/slashing.proto"
+lines = 97
+verdict = "clean"
+note = "Full cosmos.slashing.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.147]
+path = "sdk/proto/cosmos/slashing/v1beta1/tx.proto"
+lines = 29
+verdict = "clean"
+note = "Full cosmos.slashing.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.148]
+path = "sdk/proto/cosmos/staking/v1beta1/authz.proto"
+lines = 47
+verdict = "clean"
+note = "Full cosmos.staking.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.149]
+path = "sdk/proto/cosmos/staking/v1beta1/genesis.proto"
+lines = 57
+verdict = "clean"
+note = "Full cosmos.staking.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.150]
+path = "sdk/proto/cosmos/staking/v1beta1/query.proto"
+lines = 353
+verdict = "clean"
+note = "Full cosmos.staking.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.151]
+path = "sdk/proto/cosmos/staking/v1beta1/staking.proto"
+lines = 390
+verdict = "clean"
+note = "Full cosmos.staking.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.152]
+path = "sdk/proto/cosmos/staking/v1beta1/tx.proto"
+lines = 128
+verdict = "clean"
+note = "Full cosmos.staking.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.153]
+path = "sdk/proto/cosmos/tx/signing/v1beta1/signing.proto"
+lines = 91
+verdict = "clean"
+note = "Full cosmos.tx.signing.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.154]
+path = "sdk/proto/cosmos/tx/v1beta1/service.proto"
+lines = 165
+verdict = "clean"
+note = "Full cosmos.tx.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.155]
+path = "sdk/proto/cosmos/tx/v1beta1/tx.proto"
+lines = 189
+verdict = "clean"
+note = "Full cosmos.tx.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.156]
+path = "sdk/proto/cosmos/upgrade/v1beta1/query.proto"
+lines = 103
+verdict = "clean"
+note = "Full cosmos.upgrade.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.157]
+path = "sdk/proto/cosmos/upgrade/v1beta1/upgrade.proto"
+lines = 84
+verdict = "clean"
+note = "Full cosmos.upgrade.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.158]
+path = "sdk/proto/cosmos/vesting/v1beta1/tx.proto"
+lines = 34
+verdict = "clean"
+note = "Full cosmos.vesting.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[file.159]
+path = "sdk/proto/cosmos/vesting/v1beta1/vesting.proto"
+lines = 94
+verdict = "clean"
+note = "Full cosmos.vesting.v1beta1 source schema read: imports, wire tags, options and service/HTTP bindings compared with registry and generated consumer descriptors. Fork-maintained schema source, not generated or vendored. No additional interface or retired-reference disagreement found."
+
+[finding.receipt-read-log-loss]
+file = "rpc/filter.go"
+line = 1678
+class = "interface-mismatch"
+severity = "high"
+observed = "collectLogs logs every GetReceipt error and continues; normalizeRangeQueryLogs also turns the error into found=false. getTxHashesFromBlock can discard the transaction on an earlier receipt lookup. The successful partial answer advances GetFilterChanges.lastToHeight past the failed receipt."
+expected = "The receipt-store producer distinguishes ErrNotFound from storage and decoding failures. Log queries must return all matching committed logs with stable indices or fail without consuming the range."
+proposal = "In rpc/filter.go and rpc/utils.go, preserve receipt errors through transaction selection, log collection and workers; return an RPC error without advancing the cursor. Add a real receipt-store failure and recovery test proving all logs are delivered on retry."
+owner_domain = 7
+interface = "6.go-evm-keeper-keeper-getreceipt-j34"
+
+[finding.silent-log-limit]
+file = "rpc/filter.go"
+line = 1463
+class = "interface-mismatch"
+severity = "high"
+observed = "GetLogsByFilters slices open-ended fallback results to maxLog and returns the full scanned end with nil error. GetFilterChanges stores end+1, permanently skipping omitted logs. The production Pebble store uses this fallback; the efficient path returns before the limit."
+expected = "A successful log query must contain its complete matching range. Limits must produce an explicit error or lossless continuation; receipt backend changes must not change completeness."
+proposal = "In rpc/filter.go, reject overflow before publishing results or changing filter state, consistently on both paths. Test more than maxLog matches, including a single block exceeding the cap, through the real HTTP filter lifecycle."
+owner_domain = 7
+interface = "7.rpc-eth-getlogs"
+
+[finding.tagged-filter-never-polls]
+file = "rpc/filter.go"
+line = 972
+class = "interface-mismatch"
+severity = "high"
+observed = "GetFilterChanges compares the next-height cursor directly with fc.ToBlock.Int64(). Explicit latest (-2), safe and finalized tags satisfy the exhausted comparison before the first fetch and return empty forever. Since the cursor is end+1, >= also treats a numeric end as consumed when the next unread cursor equals it."
+expected = "Installed filters accept dynamic tags and inclusive numeric bounds. Polling must resolve dynamic ends on each query and stop only after the final inclusive block is delivered."
+proposal = "In rpc/filter.go, distinguish dynamic tags from numeric bounds and use a consistent next-unread-height invariant. Test latest, safe, finalized and the exact inclusive-end cursor with producer blocks and repeated HTTP polls."
+owner_domain = 7
+interface = "7.rpc-eth-getfilterchanges"
+
+[finding.moving-filter-start]
+file = "rpc/filter.go"
+line = 1301
+class = "interface-mismatch"
+severity = "high"
+observed = "NewFilter leaves ordinary latest or absent fromBlock unfrozen and initializes lastToHeight to zero. ComputeBlockBounds starts begin at current latest, then only raises it to lastToHeight. Several blocks between polls leave begin at the newest block, omitting intervening logs."
+expected = "An installed log filter must retain its installation boundary and resume from its next unread height, including every committed block accumulated between polls."
+proposal = "In rpc/filter.go, resolve the initial dynamic start once at installation and retain its next unread cursor as the subsequent lower bound. Test several real commits between polls and require all matching logs exactly once."
+owner_domain = 7
+interface = "7.rpc-eth-getfilterchanges"
+
+[finding.snapshot-consumes-poll-cursor]
+file = "rpc/filter.go"
+line = 1086
+class = "interface-mismatch"
+severity = "high"
+observed = "GetFilterLogs overwrites lastToHeight with its snapshot end although GetFilterChanges uses that field as its polling cursor. A snapshot between changes polls can skip unread blocks below that end and cause its end block to be delivered again."
+expected = "eth_getFilterLogs is a repeatable snapshot. Only a successful changes poll consumes the filter change stream; a snapshot read must not move that cursor."
+proposal = "In rpc/filter.go, keep GetFilterLogs read-only with respect to lastToHeight. Interleave HTTP snapshot reads, real commits and changes polls in a lifecycle test and require every changes log exactly once."
+owner_domain = 7
+interface = "7.rpc-eth-getfilterlogs"
+
+[finding.filter-expiry-race]
+file = "rpc/filter.go"
+line = 740
+class = "runtime-risk"
+severity = "medium"
+observed = "cleanupExpiredFilters selects expired IDs under RLock, releases it, then deletes each existing ID under the write lock without rechecking lastAccess. A successful poll refreshing a selected filter between locks still loses the filter and its feed subscription."
+expected = "A successful poll before removal must renew filter lifetime. Cleanup must evaluate the current access time while applying its removal decision."
+proposal = "In rpc/filter.go, recheck current lastAccess under the removal lock and cancel only a still-expired entry. Add a coordinated cleanup-versus-poll test proving a refreshed filter remains installed."
+owner_domain = 7
+interface = "7.cfg-evm-filter-timeout"
+
+[finding.filter-ticker-panic]
+file = "rpc/filter.go"
+line = 703
+class = "runtime-risk"
+severity = "medium"
+observed = "cleanupLoop constructs time.NewTicker(timeout/2) before its recovery defer. ReadConfig accepts zero, negative and 1ns filter_timeout values, which panic before recovery in the background goroutine and terminate the node."
+expected = "Operator timing input must be rejected with an actionable startup error when it cannot produce a positive cleanup ticker; it must not crash the node asynchronously."
+proposal = "Validate filter_timeout in rpc/config/config.go and enforce the precondition at the rpc/filter.go constructor before starting the goroutine. Cover negative, zero, 1ns and the smallest supported positive duration."
+owner_domain = 7
+interface = "7.cfg-evm-filter-timeout"
+
+[finding.metrics-ticker-panic]
+file = "rpc/worker_pool_metrics.go"
+line = 318
+class = "runtime-risk"
+severity = "medium"
+observed = "StartMetricsPrinter launches time.NewTicker(interval) without validation or recovery. ReadConfig permits nonpositive rpc_stats_interval and server construction starts the printer, causing an asynchronous process-wide panic."
+expected = "Unsupported metrics intervals must fail during configuration or server construction before starting background workers; metrics must not terminate the RPC node."
+proposal = "In rpc/config/config.go and rpc/worker_pool_metrics.go, reject nonpositive rpc_stats_interval with a named error and validate direct printer callers. Cover zero, negative and valid intervals on the actual startup path."
+owner_domain = 7
+interface = "7.cfg-evm-rpc-stats-interval"
+
+[finding.config-duration-contract]
+file = "rpc/config/config.go"
+line = 394
+class = "config-drift"
+severity = "medium"
+observed = "ReadConfig uses cast.ToDurationE for filter_timeout and rpc_stats_interval at lines 395 and 470 without bounds. Consumers require timeout/2 > 0 and interval > 0, so parsing succeeds for settings that panic at startup."
+expected = "Configuration producers and runtime consumers must agree on supported durations and reject values the consumers cannot use before returning a usable Config."
+proposal = "In rpc/config/config.go, validate both fields before returning Config, document minimums in ConfigTemplate, and extend rpc/config/config_test.go with invalid values that identify the exact key in the error."
+owner_domain = 7
+interface = "7.go-evmrpcconfig-readconfig-j38"
+
+[finding.committed-receipt-nil-view]
+file = "rpc/sequencer_receipt.go"
+line = 197
+class = "runtime-risk"
+severity = "medium"
+observed = "SequencerReceiptResult.Verify checks committed block pointers then dereferences embedded r.Height before checking SequencerReceiptView for nil. Forwarded committed JSON with blockNumber and blockHash but no receipt view panics instead of returning ErrSequencerReceiptMismatch."
+expected = "Forwarded receipt validation must reject malformed upstream JSON with a typed error before reading optional embedded receipt fields."
+proposal = "In rpc/sequencer_receipt.go, validate the receiver and required view before promoted-field access while retaining submitted-rung rules. Cover malformed committed JSON through actual RPC forwarding and a direct Verify call in rpc/sequencer_receipt_test.go."
+owner_domain = 7
+interface = "7.rpc-pax-sequencerreceipt"
+
+[finding.legacy-trace-lookback]
+file = "rpc/tracers.go"
+line = 536
+class = "runtime-risk"
+severity = "medium"
+observed = "TraceBlockByNumberExcludeTraceFail compares raw BlockNumber tags with latest-maxBlockLookback, rejecting latest and safe after the lookback window. TraceBlockByHashExcludeTraceFail has no equivalent guard and bypasses the historical bound."
+expected = "Explicitly enabled legacy trace methods must resolve tags before comparing heights and apply the configured historical bound to number and hash selectors consistently."
+proposal = "In rpc/tracers.go, reuse resolveDebugTraceBlockNumber and guardHistoricalDebugTraceHeight, resolving hash height before the same guard. Test recent tags and an old block selected both ways with legacy methods enabled."
+owner_domain = 7
+interface = "7.cfg-evm-max-trace-lookback-blocks"
+
+[finding.fee-token-vector-reversed]
+file = "rpc/sequencer_receipt_vectors_test.go"
+line = 961
+class = "test-gap"
+severity = "medium"
+observed = "TestSequencerReceiptFeeTokenVector sets paymentDenom to usid, feeDenom to base and asserts an unconverted base fee, without served receipt JSON. node/sequencer/receipt.go:350 sets PaymentDenom to GetBaseDenom; afterEVM sets FeeDenom to charge.Denom and converts FeeCharged."
+expected = "Fee-token conformance evidence must come from the real receipter: the transferred payment asset remains base, while fee denomination and amount reflect the selected token and conversion rate."
+proposal = "In rpc/sequencer_receipt_vectors_test.go, execute a signed transaction through node/sequencer.Receipter, serve pax_sequencerReceipt and verify bytes and JSON with a real SDK consumer. Regenerate the fee-token fixture from that producer and assert converted fees."
+owner_domain = 7
+interface = "5.go-node-sequencer-receipt-input"
+
+[finding.transaction-tests-vacuous]
+file = "rpc/tx_test.go"
+line = 1624
+class = "test-gap"
+severity = "medium"
+observed = "TestEncodeReceiptFullPath passes invalid hexadecimal containing gh to HexToHash, stores a zero-hash receipt, and checks fields only if result != nil. Other success tests repeat conditional assertions; TestGetTransactionByHashFromMempool at line 745 discards result for an unrelated fixed hash."
+expected = "Successful receipt and transaction lookup tests must require a non-null successful answer bound to an actual signed transaction and assert its observable fields."
+proposal = "In rpc/tx_test.go, derive hashes from real signed and accepted transactions and require no RPC error plus a non-null typed result before success assertions. Make the mempool test submit and retrieve its own transaction; preserve explicit unknown-hash null tests."
+owner_domain = 7
+interface = "7.rpc-eth-gettransactionreceipt"
+
+[finding.estimate-limiter-not-proven]
+file = "rpc/simulate_test.go"
+line = 574
+class = "test-gap"
+severity = "medium"
+observed = "TestEstimateGasRateLimiting allows rejectedCount == 0, so removing admission still satisfies it. TestEstimateGasAfterCallsRateLimiting sends only two requests at a two-slot limit and requires no rejections, proving no saturation refusal for that method."
+expected = "Each exposed simulation method must prove its concurrent-call bound by refusing excess real work while the allowed calls occupy their slots, then admitting work after release."
+proposal = "In rpc/simulate_test.go, coordinate actual EVM executions to occupy configured permits, assert excess EstimateGas and EstimateGasAfterCalls calls return the declared busy error, and prove successful reuse after release without timing-only bursts."
+owner_domain = 7
+
+[finding.log-subscription-skipped]
+file = "rpc/subscribe_test.go"
+line = 392
+class = "test-gap"
+severity = "medium"
+observed = "TestSubscribeNewLogs starts with unconditional t.Skip and never checks its alternative-topic and address-filtered WebSocket notification scenario. Later receipt-log tests do not execute this declared scenario."
+expected = "The address and alternative-topic subscription scenario must run against actual emitted logs and assert both acknowledgement and matching delivery."
+proposal = "In rpc/subscribe_test.go, implement the scenario with a real transaction emitting matching and nonmatching logs, remove the skip after implementation, and assert acknowledgement, filtering, delivery and unsubscribe behavior."
+owner_domain = 7
+interface = "7.go-receiptlogfeed-j38"
+
+[finding.descriptor-shape-blind-spots]
+file = "api/protosource_helpers_test.go"
+line = 149
+class = "test-gap"
+severity = "medium"
+observed = "shapeOf omits JSONName, oneof declarations and membership, proto3_optional, and message/enum reserved numbers and names. Different oneof or explicit JSON-name semantics can therefore compare equal."
+expected = "Descriptor parity must protect field shapes and retired wire numbers, including mutually exclusive alternatives, presence and JSON encodings under the proto-api descriptor-parity invariant."
+proposal = "Extend shapeOf and focused tests in api/protosource_helpers_test.go to compare JSON names, oneof structure, optional presence and reserved ranges/names. Add distinct descriptor pairs proving detection and retain byte-for-byte regeneration as a separate check."
+owner_domain = 7
+
+[finding.fixture-block-metadata-diverges]
+file = "rpc/tests/utils.go"
+line = 62
+class = "test-gap"
+severity = "medium"
+observed = "SetupBlocks and SetupTestServer finalize using mockHash(height,0), time.Now and the application chain ID, retaining result arrays only. MockClient.getBlock instead emits chain ID test, fixed time and unrelated synthetic roots with header.Hash as BlockID, so returned block facts differ from the producer of state and receipts."
+expected = "RPC integration tests must bind finalized state, receipts, IDs and returned headers to the same producer block so metadata disagreement is observable."
+proposal = "In rpc/tests/utils.go and rpc/tests/mock_client.go, retain actual finalized headers and committed app/result hashes and return those from Block, Header and BlockByHash. Assert receipt blockHash, timestamp, chain identity and stateRoot against captured producer values."
+owner_domain = 7
+
+[finding.secp256k1-prefix-doc]
+file = "sdk/proto/cosmos/crypto/secp256k1/keys.proto"
+line = 9
+class = "doc-drift"
+severity = "low"
+observed = "The PubKey comment assigns compressed prefix 0x02 to the lexicographically larger y-coordinate. sdk/crypto/keys/secp256k1/secp256k1.go uses SerializeCompressed, whose SEC1 prefix depends on y parity."
+expected = "The public schema must describe the actual 33-byte SEC1 encoding: 0x02 for even y and 0x03 for odd y followed by the 32-byte x-coordinate."
+proposal = "Correct the comment in sdk/proto/cosmos/crypto/secp256k1/keys.proto and regenerate derived documentation/comments through the existing protobuf toolchain while preserving wire tags and key bytes."
+owner_domain = 7
+interface = "7.proto-cosmos-crypto-secp256k1-pubkey-j39"
+
+[finding.sr25519-algorithm-doc]
+file = "sdk/proto/cosmos/crypto/sr25519/keys.proto"
+line = 11
+class = "doc-drift"
+severity = "low"
+observed = "The cosmos.crypto.sr25519 PubKey comment says secp256r1 ECDSA although package, go_package and its custom cast select sr25519/internal.PubKey."
+expected = "Public key schema algorithm names must agree with the actual sr25519 implementation so clients select the correct codec and signature verifier."
+proposal = "Correct the PubKey comment in sdk/proto/cosmos/crypto/sr25519/keys.proto to identify sr25519 and its representation, then regenerate affected comments without changing the existing wire type."
+owner_domain = 7
+interface = "7.proto-cosmos-crypto-sr25519-pubkey-j39"
+
+[finding.api-readme-package-path]
+file = "api/README.md"
+line = 3
+class = "doc-drift"
+severity = "low"
+observed = "The overview places every go_package under modules. api/layerxprograms instead uses precompiles/layerxprograms/types and TestLayerxProgramsDescriptorParity verifies that registration package."
+expected = "Regeneration guidance must identify actual programs protobuf ownership so maintainers do not move generated files or registrations to the wrong module."
+proposal = "Update api/README.md with the precompiles/layerxprograms/types exception and links to its parity test and source package while retaining root Buf generation instructions."
+owner_domain = 7
+
+[finding.unsupported-pending-doc]
+file = "docs/evm_jsonrpc_unsupported.md"
+line = 12
+class = "doc-drift"
+severity = "medium"
+observed = "The table and behavior notes unconditionally call eth_newPendingTransactionFilter unsupported. rpc/filter.go serves hash-only filters when the proposer or standby has a ReceiptLogFeed."
+expected = "Client guidance must distinguish proposer/standby support from not-served errors elsewhere and describe hash-only pending delivery and lifecycle."
+proposal = "Update docs/evm_jsonrpc_unsupported.md with conditional support, fullTx refusal, overflow/reinstallation behavior and the node roles that serve the pending feed."
+owner_domain = 7
+interface = "7.rpc-eth-newpendingtransactionfilter"
+
+[finding.unsupported-raw-tx-doc]
+file = "docs/evm_jsonrpc_unsupported.md"
+line = 16
+class = "doc-drift"
+severity = "medium"
+observed = "The table marks debug_getRawTransaction unsupported and its notes exclude raw transaction payloads, but DebugAPI.GetRawTransaction delegates to RawTransactionAPI.GetRawTransactionByHash and returns the envelope."
+expected = "Requirement 7018.1 and the served interface require the binary transaction envelope for known hashes and null for unknown hashes."
+proposal = "Remove debug_getRawTransaction from the unsupported table in docs/evm_jsonrpc_unsupported.md, document envelope/null behavior and distinguish still-unsupported raw block, header and receipt methods."
+owner_domain = 7
+interface = "7.rpc-debug-getrawtransaction"
+
+[finding.x402-site]
+file = "docs/site/docs/interop/x402.md"
+line = 90
+class = "doc-drift"
+severity = "medium"
+observed = "The transport section prescribes POST /rpc with lx_sendActivity, lx_getActivityStatus, lx_getReceipt and lx_getProof, signed receive activities, kernel idempotency keys and guarantor checkpoint finality."
+expected = "The merged network has no unified /rpc or separate activity submission. Writes use signed EVM transactions, execution evidence uses pax_sequencerReceipt, and finality requires BFT block commitment and inclusion."
+proposal = "Rewrite docs/site/docs/interop/x402.md for root-path node RPC, EVM transaction hashes/nonces, native payment precompiles and submitted/receipted/committed recovery. Replace guarantor/checkpoint and old activity examples with actual current producer and SDK shapes."
+owner_domain = 11
+
+[finding.x402-wiki]
+file = "docs/wiki/X402Transport.md"
+line = 91
+class = "doc-drift"
+severity = "medium"
+observed = "The transport section prescribes POST /rpc with lx_sendActivity, lx_getActivityStatus, lx_getReceipt and lx_getProof, signed receive activities, kernel idempotency keys and guarantor checkpoint finality."
+expected = "The merged network has no unified /rpc or separate activity submission. Writes use signed EVM transactions, execution evidence uses pax_sequencerReceipt, and finality requires BFT block commitment and inclusion."
+proposal = "Rewrite docs/wiki/X402Transport.md for root-path node RPC, EVM transaction hashes/nonces, native payment precompiles and submitted/receipted/committed recovery. Replace guarantor/checkpoint and old activity examples with actual current producer and SDK shapes."
+owner_domain = 11
+
+[finding.boundary-site]
+file = "docs/site/docs/concepts/paxeer-boundary.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The page presents layerx-paxeer-boundary, services/platform/hosted/paxeer, its TLS relay, custody client and settlement bootstrap as the live topology. The retired inventory deletes the eth-relay tree and human custody-boundary client."
+expected = "The merged network exposes paxd RPC directly at the root path. Retired relay processes, custody hops, guarantor bonds and checkpoint settlement are not operator prerequisites."
+proposal = "Replace docs/site/docs/concepts/paxeer-boundary.md with direct paxd endpoints and the current hosted gateway boundary, distinguishing node namespaces from px gateway methods. Remove retired containers, relay settings, custody clients and settlement bootstrap instructions."
+owner_domain = 8
+
+[finding.boundary-wiki]
+file = "docs/wiki/PaxeerBoundary.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The page presents layerx-paxeer-boundary, services/platform/hosted/paxeer, its TLS relay, custody client and settlement bootstrap as the live topology. The retired inventory deletes the eth-relay tree and human custody-boundary client."
+expected = "The merged network exposes paxd RPC directly at the root path. Retired relay processes, custody hops, guarantor bonds and checkpoint settlement are not operator prerequisites."
+proposal = "Replace docs/wiki/PaxeerBoundary.md with direct paxd endpoints and the current hosted gateway boundary, distinguishing node namespaces from px gateway methods. Remove retired containers, relay settings, custody clients and settlement bootstrap instructions."
+owner_domain = 8
+
+[finding.running-site-endpoint]
+file = "docs/site/docs/agents/running.md"
+line = 512
+class = "doc-drift"
+severity = "medium"
+observed = "The A2A tool description sends eth_sendRawTransaction to /rpc, directing agents to the retired unified endpoint while the merged node serves JSON-RPC at the origin root."
+expected = "Agent submission instructions must use the node root endpoint, reserve px names for the hosted gateway, and describe chain ID 125 and current receipt recovery."
+proposal = "Update docs/site/docs/agents/running.md with root-path node submission and recovery by transaction hash through pax_sequencerReceipt; align A2A adapter examples with the actual configured transport."
+owner_domain = 9
+
+[finding.running-site-verification-defaults]
+file = "docs/site/docs/agents/running.md"
+line = 701
+class = "doc-drift"
+severity = "medium"
+observed = "The configuration table advertises checkpoint-finalised and settlement-anchored verification defaults and a layerx-sequencer-authority-v1 file, alongside batch/checkpoint CLI recovery as the operational path."
+expected = "Merged receipt verification uses governed receipt-key ranges at the receipt height and independent BFT commitment; retired checkpoint/settlement levels must not remain current operator targets."
+proposal = "Rewrite verification/configuration sections of docs/site/docs/agents/running.md for submitted, receipted and committed progress, governed key pins and independent chain evidence. Remove retired settlement/checkpoint options and document migrated agentd configuration."
+owner_domain = 9
+
+[finding.running-wiki-endpoint]
+file = "docs/wiki/RunningAnAgent.md"
+line = 512
+class = "doc-drift"
+severity = "medium"
+observed = "The A2A tool description sends eth_sendRawTransaction to /rpc, directing agents to the retired unified endpoint while the merged node serves JSON-RPC at the origin root."
+expected = "Agent submission instructions must use the node root endpoint, reserve px names for the hosted gateway, and describe chain ID 125 and current receipt recovery."
+proposal = "Update docs/wiki/RunningAnAgent.md with root-path node submission and recovery by transaction hash through pax_sequencerReceipt; align A2A adapter examples with the actual configured transport."
+owner_domain = 9
+
+[finding.running-wiki-verification-defaults]
+file = "docs/wiki/RunningAnAgent.md"
+line = 701
+class = "doc-drift"
+severity = "medium"
+observed = "The configuration table advertises checkpoint-finalised and settlement-anchored verification defaults and a layerx-sequencer-authority-v1 file, alongside batch/checkpoint CLI recovery as the operational path."
+expected = "Merged receipt verification uses governed receipt-key ranges at the receipt height and independent BFT commitment; retired checkpoint/settlement levels must not remain current operator targets."
+proposal = "Rewrite verification/configuration sections of docs/wiki/RunningAnAgent.md for submitted, receipted and committed progress, governed key pins and independent chain evidence. Remove retired settlement/checkpoint options and document migrated agentd configuration."
+owner_domain = 9
+
+[finding.sdk-catalogue-const-fn]
+file = "docs/system/sdk.md"
+line = 916
+class = "doc-drift"
+severity = "low"
+observed = "The generated Rust inventory lists an item literally named fn with kind const. The source contains const fn declarations whose real identifiers were lost by modifier parsing."
+expected = "The SDK reference must list callable exported symbols by their actual Rust identifiers and distinguish const functions from constant values."
+proposal = "Fix Rust extraction in tools/docs/gen-system-docs.sh to parse pub const fn identifiers, add a representative generation assertion and regenerate docs/system/sdk.md through that generator."
+owner_domain = 13
+
+[finding.rpc-catalogue-unserved-helper]
+file = "docs/system/rpc.md"
+line = 13
+class = "doc-drift"
+severity = "medium"
+observed = "The catalogue advertises debug_asRawJSON and counts it as served. DebugAPI.AsRawJSON returns ([]byte,bool); core/deps/geth/rpc/service.go rejects two-result callbacks unless the second result is error."
+expected = "The public RPC catalogue must reflect actual callback eligibility and transport/gate availability so integrators do not call a method that exists only as a Go helper."
+proposal = "Fix tools/docs/gen-system-docs.sh to derive eligibility from actual callback rules or registered methods, exclude AsRawJSON, and regenerate docs/system/rpc.md with the corrected count."
+owner_domain = 7
+
+[doc.01]
+path = "docs/system/rpc.md"
+status = "misleading"
+notes = "Full package page read. Line 13 advertises unregistered AsRawJSON; served-method extraction and count need correction."
+
+[doc.02]
+path = "docs/evm_jsonrpc_unsupported.md"
+status = "stale"
+notes = "Full package page read. Lines 12/20 deny pending support on every role and lines 16/21 deny the implemented raw-transaction method."
+
+[doc.03]
+path = "docs/site/docs/concepts/paxeer-boundary.md"
+status = "stale"
+notes = "Full page read, including shared site/wiki text and link differences. Lines 3 onward describe retired relay/custody topology and settlement bootstrap as operational prerequisites."
+
+[doc.04]
+path = "docs/site/docs/agents/running.md"
+status = "stale"
+notes = "Full page read, including site/wiki wording and link differences. Line 512 uses /rpc; line 701 retains retired verification levels and authority-file settings."
+
+[doc.05]
+path = "docs/site/docs/agents/sdk-verification.md"
+status = "accurate"
+notes = "Full page read, including site/wiki link differences. Correctly separates signature, execution success and committed inclusion, requiring independent pins and separate Comet evidence without equating a signature with finality."
+
+[doc.06]
+path = "docs/site/docs/interop/x402.md"
+status = "stale"
+notes = "Full page read, including site/wiki shared text and link differences. Site lines 90-104 (wiki +1) prescribe /rpc, lx activity recovery and guarantor checkpoint finality instead of merged EVM submission and BFT commitment."
+
+[doc.07]
+path = "docs/wiki/X402Transport.md"
+status = "stale"
+notes = "Full page read, including site/wiki shared text and link differences. Site lines 90-104 (wiki +1) prescribe /rpc, lx activity recovery and guarantor checkpoint finality instead of merged EVM submission and BFT commitment."
+
+[doc.08]
+path = "docs/wiki/PaxeerBoundary.md"
+status = "stale"
+notes = "Full page read, including shared site/wiki text and link differences. Lines 3 onward describe retired relay/custody topology and settlement bootstrap as operational prerequisites."
+
+[doc.09]
+path = "docs/wiki/SdkTerminalVerification.md"
+status = "accurate"
+notes = "Full page read, including site/wiki link differences. Correctly separates signature, execution success and committed inclusion, requiring independent pins and separate Comet evidence without equating a signature with finality."
+
+[doc.10]
+path = "docs/wiki/RunningAnAgent.md"
+status = "stale"
+notes = "Full page read, including site/wiki wording and link differences. Line 512 uses /rpc; line 701 retains retired verification levels and authority-file settings."
+
+[doc.11]
+path = "docs/wiki/VirtualChains.md"
+status = "accurate"
+notes = "Full page read. Explicitly describes feature-20 contract/availability limits, shared EVM state, chain-ID/domain mapping and scoped reads rather than independent validators or private storage."
+
+[doc.12]
+path = "docs/system/sdk.md"
+status = "stale"
+notes = "Full catalogue read. Rust item fn at line 916 is a generator parsing defect; actual const-function identifiers must be preserved."
+
+[doc.13]
+path = "api/README.md"
+status = "stale"
+notes = "Full page read. Line 3 incorrectly places every go_package under modules; programs types live under precompiles/layerxprograms/types."
+
+[doc.14]
+path = "rpc/tests/README.md"
+status = "accurate"
+notes = "Full page read. SetupTestServer, signing/encoding and fixture working-directory guidance agree with the harness; producer-header provenance weakness is recorded on utils.go."
+
+[doc.15]
+path = "spec/layerx-merge/programme/audit/BRIEF.kvx"
+status = "accurate"
+notes = "Full brief read; merged-network, interface, retired-reference, runtime, recovery, configuration, test, security and documentation checks applied to this slice."
+
+[doc.16]
+path = "spec/layerx-merge/contracts/evm-rpc.md"
+status = "accurate"
+notes = "Relevant configuration, filter, retirement and receipt sections read. Explicit historical frozen snapshot; planned statuses and pinned lines are historical metadata, with landed changes resolved by current registry/dispositions."
+
+[doc.17]
+path = "spec/layerx-merge/contracts/proto-api.md"
+status = "accurate"
+notes = "Descriptor/gateway acceptance sections and descriptor-parity context read. Explicit historical snapshot binds source/registered shape parity, reserved field numbers and unique file registrations; runtime availability follows current implementations."
