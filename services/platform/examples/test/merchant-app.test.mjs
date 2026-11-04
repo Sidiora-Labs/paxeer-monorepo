@@ -1,6 +1,7 @@
+import "./support/source-loader.mjs";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { createHash, generateKeyPairSync, sign } from "node:crypto";
+import { generateKeyPairSync, sign } from "node:crypto";
 import { once } from "node:events";
 import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
@@ -8,106 +9,33 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import { secp256k1 } from "@noble/curves/secp256k1.js";
-import { decodeRawEip1559, keccak256 } from "@sidiora/layerx-sdk";
+import { keccak256 } from "@sidiora/layerx-sdk";
 import {
-  LAYERX_LEDGER_ADDRESS,
+  decodePaymentExactLog,
   decodePaymentRequiredHeader,
   decodeSettlementHeader,
   encodePaymentPayloadHeader,
+  importPortableNodeReceipt,
   verifyPaymentReceipt,
 } from "@sidiora/layerx-seller-middleware";
 
-const hex = (value) => `0x${Buffer.from(value).toString("hex")}`;
-const bytes = (value) => Buffer.from(value.slice(2), "hex");
-const sha256 = (value) => createHash("sha256").update(value).digest();
-const word = (value) => Buffer.alloc(32, value);
-const asset = word(0x11);
-const payee = word(0x22);
-const payer = word(0x33);
-const reference = word(0x44);
-const keyId = word(0x55);
-const pair = generateKeyPairSync("ed25519");
-const publicKey = new Uint8Array(pair.publicKey.export({ type: "spki", format: "der" }).subarray(-32));
-const pin = { keyId: new Uint8Array(keyId), publicKey, first_height: 1n, last_height: 1000n };
-const exactTopic = keccak256(new TextEncoder().encode("PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)"));
+import { bytes, hex, nodeReceipt, portableReceipt } from "./support/node-receipts.mjs";
+import { merchantReceipt } from "./support/merchant-receipt.mjs";
+import { SequencerReceiptClient } from "../support/runtime.mjs";
 
-function uint(value, width) {
-  assert.ok(value >= 0n && value < 1n << BigInt(width * 8));
-  return Buffer.from(value.toString(16).padStart(width * 2, "0"), "hex");
-}
-
-function bounded(value) {
-  return Buffer.concat([uint(BigInt(value.length), 4), value]);
-}
-
-function integer(value) {
-  if (value === 0n) return Buffer.alloc(0);
-  const digits = value.toString(16);
-  return Buffer.from(digits.padStart(digits.length + digits.length % 2, "0"), "hex");
-}
-
-function rlp(value) {
-  const list = Array.isArray(value);
-  const payload = list ? Buffer.concat(value.map(rlp)) : value;
-  if (!list && payload.length === 1 && payload[0] < 128) return payload;
-  const prefix = list ? 192 : 128;
-  if (payload.length < 56) return Buffer.concat([Buffer.of(prefix + payload.length), payload]);
-  const length = integer(BigInt(payload.length));
-  return Buffer.concat([Buffer.of(prefix + 55 + length.length), length, payload]);
-}
-
-function transaction(amount, paymentReference) {
-  const selector = keccak256(new TextEncoder().encode("payExact(bytes32,bytes32,bytes32,uint128,uint64,bytes32)")).slice(0, 4);
-  const data = Buffer.concat([selector, payer, payee, asset, uint(amount, 32), uint(1n, 32), paymentReference]);
-  const fields = [integer(125n), integer(0n), integer(1n), integer(2n), integer(200000n),
-    bytes(LAYERX_LEDGER_ADDRESS), integer(0n), data, []];
-  const unsigned = Buffer.concat([Buffer.of(2), rlp(fields)]);
-  const signature = secp256k1.sign(keccak256(unsigned), new Uint8Array(32).fill(1), { prehash: false, format: "recovered" });
-  const parsed = secp256k1.Signature.fromBytes(signature, "recovered");
-  const raw = Buffer.concat([Buffer.of(2), rlp([...fields, integer(BigInt(signature[0])), integer(parsed.r), integer(parsed.s)])]);
-  const decoded = decodeRawEip1559(raw);
-  assert.equal(decoded.chainId, 125n);
-  assert.deepEqual(Buffer.from(decoded.data), data);
-  return raw;
-}
-
-function effect(ordinal, kind, body) {
-  return Buffer.concat([uint(12n, 2), uint(BigInt(ordinal), 2), uint(0n, 2), Buffer.of(kind, 0), bounded(Buffer.alloc(32)), bounded(body)]);
-}
-
-function signedProof({ amount = 25n, height = 7n, signingPin = pin, paymentReference = reference,
-  paymentTo = payee, logAddress = LAYERX_LEDGER_ADDRESS, count = 1, resultCode = 0n } = {}) {
-  const rawTransaction = transaction(amount, paymentReference);
-  const txHash = keccak256(rawTransaction);
-  const logData = Buffer.concat([asset, uint(amount, 32)]);
-  const logBody = Buffer.concat([bytes(logAddress), Buffer.of(4), exactTopic, paymentReference, payer, paymentTo, sha256(logData)]);
-  const summary = Buffer.concat([
-    uint(50000n, 8), uint(50000n, 8), uint(2n, 8), uint(0n, 4), Buffer.alloc(40), sha256(Buffer.alloc(0)),
-    uint(0n, 4), uint(BigInt(count), 4), Buffer.of(4), Buffer.from("uhpx"),
-  ]);
-  const effects = [effect(0, 1, summary), ...Array.from({ length: count }, (_, i) => effect(i + 1, 3, logBody))];
-  const from = Buffer.from("0000000000000000000000001a642f0e3c3af545e7acbd38b07251b3990914f1", "hex");
-  const to = Buffer.concat([Buffer.alloc(12), bytes(LAYERX_LEDGER_ADDRESS)]);
-  const prefix = Buffer.concat([
-    uint(2n, 2), uint(0x5201n, 2), uint(2n, 2), bounded(txHash), uint(1n, 8),
-    bounded(Buffer.alloc(32)), bounded(sha256(Buffer.concat([uint(1n, 8), txHash]))), bounded(sha256(Buffer.alloc(0))),
-    uint(resultCode, 4), uint(BigInt(effects.length), 4), ...effects,
-    uint(100000n, 16), bounded(uint(height, 32)), uint(12n, 2), uint(1n, 4), uint(0n, 4), Buffer.of(2),
-    bounded(sha256(Buffer.from("uhpx"))), uint(0n, 16), bounded(from), uint(1000000n, 16), uint(900000n, 16),
-    uint(0n, 8), bounded(to), uint(0n, 16), uint(0n, 16), bounded(Buffer.alloc(32)), bounded(Buffer.alloc(32)),
-    bounded(keyId), uint(1n, 8),
-  ]);
-  const unsignedReceipt = Buffer.concat([prefix, Buffer.of(0)]);
-  const signingDigest = sha256(Buffer.concat([Buffer.from("LXP/v1/receipt\0"), unsignedReceipt]));
-  const signedReceipt = Buffer.concat([prefix, Buffer.of(1), bounded(sign(null, signingDigest, pair.privateKey))]);
-  return {
-    format: "layerx-receipt-proof-v2", verificationLevel: "receipted", rawTransaction: hex(rawTransaction),
-    signedReceipt: hex(signedReceipt), receiptDigest: hex(keccak256(signedReceipt)),
-    receiptKey: { keyId: hex(signingPin.keyId), publicKey: hex(signingPin.publicKey),
-      firstHeight: `0x${signingPin.first_height.toString(16)}`, lastHeight: `0x${signingPin.last_height.toString(16)}` },
-  };
-}
+const vector = nodeReceipt("V1-layerxledger-pay-exact");
+const log = vector.receiptJson.logs[0];
+const paymentFacts = decodePaymentExactLog({ address: log.address, topics: log.topics.map(bytes), data: bytes(log.data) });
+const asset = paymentFacts.assetId;
+const payee = paymentFacts.to;
+const keyId = vector.key.keyId;
+const publicKey = vector.key.publicKey;
+const pin = vector.key;
+const customer = {
+  token: "merchant-customer-receipt-test-credential",
+  tenant: "merchant-test",
+  principal: "merchant-customer",
+};
 
 async function listen(server) {
   server.listen(0, "127.0.0.1");
@@ -141,14 +69,19 @@ async function startMerchant(t) {
         response.end(JSON.stringify({ state: "settled", transaction }));
         return;
       }
-      assert.equal(request.url, "/rpc");
+      assert.equal(request.url, "/");
+      assert.equal(request.method, "POST");
+      assert.deepEqual(Object.keys(message).sort(), ["id", "jsonrpc", "method", "params"]);
+      assert.equal(message.jsonrpc, "2.0");
+      assert.equal(message.id, 1);
+      assert.equal(message.params.length, 1);
       requests.push(message);
       const proof = transactions.get(message.params[0]);
       assert.ok(proof);
       assert.ok(["eth_getRawTransactionByHash", "pax_sequencerReceipt"].includes(message.method));
       response.end(JSON.stringify({ jsonrpc: "2.0", id: message.id, result:
         message.method === "eth_getRawTransactionByHash" ? proof.rawTransaction : {
-          txHash: message.params[0], rung: "receipted", receipt: proof.signedReceipt,
+          ...proof.receiptJson,
         } }));
     } catch (error) {
       response.writeHead(500).end(JSON.stringify({ error: error.message }));
@@ -163,9 +96,10 @@ async function startMerchant(t) {
     ...config.environments.emulator,
     publicUrl: url,
     port: reservation.address().port,
-    rpcUrl: `${authorityUrl}/rpc`,
+    rpcUrl: authorityUrl,
     settlementUrl: `${authorityUrl}/settle`,
     receiptKeysEnvironment: "LAYERX_MERCHANT_TEST_RECEIPT_KEYS_JSON",
+    customerCredentialsEnvironment: "LAYERX_MERCHANT_TEST_CUSTOMERS_JSON",
   };
   const configPath = join(root, "config.json");
   await writeFile(configPath, JSON.stringify(config));
@@ -180,9 +114,10 @@ async function startMerchant(t) {
     LAYERX_EMULATOR_MERCHANT: hex(payee),
     LAYERX_EMULATOR_MERCHANT_ACCOUNT: "agent:merchant:main",
     LAYERX_EMULATOR_CURRENCY: "USD",
-    LAYERX_EMULATOR_PRICE: "25",
+    LAYERX_EMULATOR_PRICE: paymentFacts.amount.toString(),
+    LAYERX_MERCHANT_TEST_CUSTOMERS_JSON: JSON.stringify([customer]),
     LAYERX_MERCHANT_TEST_RECEIPT_KEYS_JSON: JSON.stringify([{
-      keyId: hex(keyId), publicKey: hex(publicKey), firstHeight: "1", lastHeight: "1000",
+      keyId: hex(keyId), publicKey: hex(publicKey), firstHeight: vector.pinnedKey.firstHeight, lastHeight: vector.pinnedKey.lastHeight,
     }]),
   };
   let child;
@@ -194,7 +129,7 @@ async function startMerchant(t) {
   }
   t.after(stop);
   async function start() {
-    child = spawn(process.execPath, [fileURLToPath(new URL("../merchant-checkout/index.mjs", import.meta.url)),
+    child = spawn(process.execPath, ["--import", fileURLToPath(new URL("./support/source-loader.mjs", import.meta.url)), fileURLToPath(new URL("../merchant-checkout/index.mjs", import.meta.url)),
       "--environment", "emulator"], { env, stdio: ["ignore", "pipe", "pipe"] });
     await new Promise((resolve, reject) => {
       let output = "";
@@ -218,17 +153,30 @@ async function startMerchant(t) {
   async function checkout(key, payment) {
     return fetch(`${url}/checkout`, {
       method: "POST",
-      headers: { "content-type": "application/json", ...(payment === undefined ? {} : { "payment-signature": payment }) },
+      headers: { "content-type": "application/json", authorization: `Bearer ${customer.token}`,
+        ...(payment === undefined ? {} : { "payment-signature": payment }) },
       body: JSON.stringify({ principal: "merchant-customer", checkout_key: key, lines: [{ sku: "metered-report", quantity: 1 }] }),
     });
   }
-  function receiptFor(offer) {
-    const proof = signedProof({ paymentReference: bytes(`0x${offer.accepts[0].extra.layerx.purposeHash}`) });
-    const transaction = hex(keccak256(bytes(proof.rawTransaction)));
-    transactions.set(transaction, proof);
+  async function receiptFor(offer) {
+    assert.equal(offer.accepts[0].amount, paymentFacts.amount.toString());
+    assert.equal(offer.accepts[0].asset, hex(asset));
+    assert.equal(offer.accepts[0].payTo, hex(payee));
+    const recording = await merchantReceipt(offer);
+    const recorded = portableReceipt(recording);
+    const transaction = recording.txHash;
+    transactions.set(transaction, recorded);
+    const proof = importPortableNodeReceipt(await new SequencerReceiptClient(authorityUrl, [pin]).resolve(recording.raw));
+    assert.deepEqual(proof, recorded);
+    assert.notEqual(proof.receiptJson.logs[0].topics[1], vector.receiptJson.logs[0].topics[1]);
+    await assert.rejects(verifyPaymentReceipt(proof, {
+      ...offer.accepts[0], extra: { ...offer.accepts[0].extra, layerx: {
+        ...offer.accepts[0].extra.layerx, purposeHash: vector.receiptJson.logs[0].topics[1].slice(2),
+      } },
+    }, [pin]), { name: "MiddlewareError", code: "verification-failure" });
     return { proof, transaction };
   }
-  async function webhook(order, proof, transaction, id) {
+  async function webhook(order, proof, transaction, id, corruptSignature = false) {
     const body = Buffer.from(JSON.stringify({
       order_id: order.orderId, request_digest: order.requestDigest,
       receipt_digest: proof.receiptDigest.slice(2), receipt_ref: hex(keccak256(bytes(proof.rawTransaction))),
@@ -236,6 +184,7 @@ async function startMerchant(t) {
     }));
     const timestamp = Math.floor(Date.now() / 1000).toString();
     const signature = sign(null, Buffer.concat([Buffer.from(`${id}.${timestamp}.`), body]), webhookKey.privateKey);
+    if (corruptSignature) signature[0] ^= 1;
     return fetch(`${url}/webhooks/settlement`, {
       method: "POST",
       headers: {
@@ -245,7 +194,8 @@ async function startMerchant(t) {
       body,
     });
   }
-  return { root, url, checkout, receiptFor, webhook, requests, settlements, restart: async () => { await stop(); await start(); } };
+  const order = (id) => fetch(`${url}/orders/${id}`, { headers: { authorization: `Bearer ${customer.token}` } });
+  return { root, url, checkout, order, receiptFor, webhook, requests, settlements, restart: async () => { await stop(); await start(); } };
 }
 
 async function merchantCheckoutOfferUsesReceiptedRung(t) {
@@ -258,7 +208,9 @@ async function merchantCheckoutOfferUsesReceiptedRung(t) {
   assert.equal(offer.accepts[0].network, "eip155:125");
   assert.equal(offer.accepts[0].extra.layerx.commitment, "receipted");
   assert.equal((await response.json()).order.state, "awaiting-payment");
-  const { proof, transaction } = app.receiptFor(offer);
+  const { proof, transaction } = await app.receiptFor(offer);
+  const imported = await verifyPaymentReceipt(proof, offer.accepts[0], [pin]);
+  assert.equal(imported.txHash, transaction);
   const payment = encodePaymentPayloadHeader({
     x402Version: 2, resource: offer.resource, accepted: offer.accepts[0], payload: { transaction },
   });
@@ -278,13 +230,13 @@ async function merchantCheckoutOfferUsesReceiptedRung(t) {
   for (const [key, value] of Object.entries(proof)) assert.deepEqual(stored[key], value);
   assert.equal(stored.txHash, transaction);
   assert.equal(app.settlements.length, 1);
-  assert.deepEqual(app.requests.map((request) => request.method), ["eth_getRawTransactionByHash", "pax_sequencerReceipt"]);
+  assert.deepEqual(app.requests.map((request) => request.method), ["pax_sequencerReceipt", "eth_getRawTransactionByHash", "pax_sequencerReceipt"]);
   await app.restart();
   const replay = await app.checkout("checkout-offer", payment);
   assert.equal(replay.status, 200, JSON.stringify(await replay.clone().json()));
   assert.deepEqual(decodeSettlementHeader(replay.headers.get("payment-response")), settlement);
   assert.equal(app.settlements.length, 1);
-  assert.equal(app.requests.length, 2);
+  assert.equal(app.requests.length, 3);
 }
 
 async function merchantWebhookRefusesTransactionMismatch(t) {
@@ -293,7 +245,7 @@ async function merchantWebhookRefusesTransactionMismatch(t) {
   assert.equal(checkout.status, 402);
   const offer = decodePaymentRequiredHeader(checkout.headers.get("payment-required"));
   const { order } = await checkout.json();
-  const { proof, transaction } = app.receiptFor(offer);
+  const { proof, transaction } = await app.receiptFor(offer);
   const verified = await verifyPaymentReceipt(proof, offer.accepts[0], [pin]);
   assert.equal(verified.txHash, transaction);
   const wrongTransaction = hex(Buffer.alloc(32, 0x99));
@@ -301,18 +253,36 @@ async function merchantWebhookRefusesTransactionMismatch(t) {
   const refused = await app.webhook(order, proof, wrongTransaction, "delivery-mismatch");
   assert.equal(refused.status, 400);
   assert.deepEqual(await refused.json(), { state: "refused", error: "invalid-webhook" });
-  assert.deepEqual(await (await fetch(`${app.url}/orders/${order.orderId}`)).json(), order);
+  assert.deepEqual(await (await app.order(order.orderId)).json(), order);
   const stored = JSON.parse(await readFile(join(app.root, "merchant-checkout", "state", "orders", `${order.orderId}.json`), "utf8"));
   assert.equal(stored.state, "awaiting-payment");
   assert.equal(stored.transaction, undefined);
-  assert.deepEqual(app.requests.map((request) => request.method), ["eth_getRawTransactionByHash", "pax_sequencerReceipt"]);
+  assert.deepEqual(app.requests.map((request) => request.method), ["pax_sequencerReceipt", "eth_getRawTransactionByHash", "pax_sequencerReceipt"]);
   const paid = await app.webhook(order, proof, transaction, "delivery-matching");
   assert.equal(paid.status, 200, JSON.stringify(await paid.clone().json()));
   assert.deepEqual(await paid.json(), { state: "processed" });
-  const paidOrder = await (await fetch(`${app.url}/orders/${order.orderId}`)).json();
+  const paidOrder = await (await app.order(order.orderId)).json();
   assert.equal(paidOrder.state, "paid-verified");
   assert.equal(paidOrder.transaction, transaction);
 }
 
 test(merchantCheckoutOfferUsesReceiptedRung);
 test(merchantWebhookRefusesTransactionMismatch);
+
+async function merchantWebhookRefusesInvalidSignature(t) {
+  const app = await startMerchant(t);
+  const response = await app.checkout("webhook-signature");
+  assert.equal(response.status, 402);
+  const offer = decodePaymentRequiredHeader(response.headers.get("payment-required"));
+  const { order } = await response.json();
+  const { proof, transaction } = await app.receiptFor(offer);
+  const rpcCount = app.requests.length;
+  const refused = await app.webhook(order, proof, transaction, "delivery-bad-signature", true);
+  assert.equal(refused.status, 400);
+  assert.deepEqual(await refused.json(), { state: "refused", error: "invalid-webhook" });
+  assert.deepEqual(await (await app.order(order.orderId)).json(), order);
+  assert.equal(app.requests.length, rpcCount, "invalid webhook signature is refused before receipt transport");
+  assert.equal(app.settlements.length, 0);
+}
+
+test(merchantWebhookRefusesInvalidSignature);

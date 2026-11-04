@@ -151449,7 +151449,7 @@ do_9 = "Attempt 2 (continue): the spec's setup hook timed out after 10 seconds. 
 
 [task.22.33.450]
 title = "Repair audit record 22.30.148 medium findings in apps/explorer/pages/api/monitoring (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.275", "22.31.276", "22.31.474"]
@@ -152028,7 +152028,7 @@ do_10 = "Attempt 3 (continue): the attempt ran on the gate as it stood before th
 
 [task.22.33.362]
 title = "Repair audit record 22.30.139 medium findings in apps/web/src/app/explorer/receipts/[receiptId] (part 1 of 1): retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.269", "22.31.383", "22.31.384", "22.31.385", "22.31.386", "22.31.387"]
@@ -152063,7 +152063,7 @@ do_8 = "Attempt 2 (requalify): the type-check and all tests of attempt 1 passed;
 
 [task.22.33.361]
 title = "Repair audit record 22.30.139 medium findings in apps/web/src/app/explorer/accounts/[accountId] (part 1 of 1): retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.269", "22.31.383", "22.31.384", "22.31.385", "22.31.386", "22.31.387"]
@@ -153516,7 +153516,7 @@ do_12 = "Attempt 4 (continue after 22.31.474): the type check failed on TS2769 i
 
 [task.22.33.301]
 title = "Repair audit record 22.30.135 medium findings in apps/explorer/ui/marketplace (part 1 of 1): wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.267", "22.31.381", "22.31.474"]
@@ -182829,7 +182829,7 @@ do_14 = "Attempt 3 (requalify): 14 of 15 cases passed; authenticated_routes_pres
 
 [task.22.33.43]
 title = "Repair audit record 22.30.105 medium findings in services/human/crates/layerx-human-service/src (part 1 of 1): doc-drift, restart-recovery, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.3", "22.31.443"]
@@ -199257,7 +199257,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1329]
 title = "Repair audit record 22.30.71 medium findings in services/platform/hosted/webhooks/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.188", "22.31.340", "22.31.341", "22.31.465"]
@@ -325780,7 +325780,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.803]
 title = "Repair audit record 22.30.178 medium findings in scripts (part 2 of 2): config-drift, runtime-risk, security, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.320"]
@@ -328590,7 +328590,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.567]
 title = "Repair audit record 22.30.159 medium findings in services/explorer/services/libs/blockscout-client/crate/tests/recorded/eth_blockscout_com (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.278", "22.31.279"]
@@ -328907,7 +328907,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.485]
 title = "Repair audit record 22.30.150 medium findings in services/bridge/deploy (part 1 of 1): restart-recovery, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.277"]
@@ -331152,7 +331152,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.16]
 title = "Repair audit record 22.30.100 medium findings in services/agent/sdk/python/layerx_sdk (part 1 of 2): restart-recovery, retired-reference, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.147"]
