@@ -85,19 +85,12 @@ func LookForRanges(conditions []syntax.Condition) (ranges QueryRanges, indexes [
 			}
 
 			switch c.Op {
-			case syntax.TGt:
-				r.LowerBound = conditionArg(c)
-
-			case syntax.TGeq:
-				r.IncludeLowerBound = true
-				r.LowerBound = conditionArg(c)
-
-			case syntax.TLt:
-				r.UpperBound = conditionArg(c)
-
-			case syntax.TLeq:
-				r.IncludeUpperBound = true
-				r.UpperBound = conditionArg(c)
+			case syntax.TGt, syntax.TGeq:
+				r.LowerBound, r.IncludeLowerBound = intersectBound(
+					r.LowerBound, r.IncludeLowerBound, conditionArg(c), c.Op == syntax.TGeq, true)
+			case syntax.TLt, syntax.TLeq:
+				r.UpperBound, r.IncludeUpperBound = intersectBound(
+					r.UpperBound, r.IncludeUpperBound, conditionArg(c), c.Op == syntax.TLeq, false)
 			}
 
 			ranges[c.Tag] = r
@@ -106,6 +99,31 @@ func LookForRanges(conditions []syntax.Condition) (ranges QueryRanges, indexes [
 	}
 
 	return ranges, indexes
+}
+
+// intersectBound retains the strongest same-side constraint. Consumers compare
+// integer values (including Unix seconds for dates/times), so compare in that
+// same domain without applying the exclusive-bound adjustment twice.
+func intersectBound(current interface{}, inclusive bool, candidate interface{}, candidateInclusive bool, lower bool) (interface{}, bool) {
+	if current == nil {
+		return candidate, candidateInclusive
+	}
+	oldValue, err := normalizedBound(current, true, lower)
+	if err != nil {
+		return current, inclusive // Preserve the invalid bound for the consumer's error.
+	}
+	newValue, err := normalizedBound(candidate, true, lower)
+	if err != nil {
+		return candidate, candidateInclusive
+	}
+	old, next := oldValue.(int64), newValue.(int64)
+	if (lower && next > old) || (!lower && next < old) {
+		return candidate, candidateInclusive
+	}
+	if next == old {
+		return current, inclusive && candidateInclusive
+	}
+	return current, inclusive
 }
 
 // IsRangeOperation returns a boolean signifying if a query Operator is a range
