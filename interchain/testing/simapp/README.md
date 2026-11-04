@@ -55,6 +55,9 @@ for this test network; it is unrelated to Paxeer's public EVM chain ID 125.
    For multiple validators, repeat `add-genesis-account` with each supplied
    address. The staking denomination is `uhpx`, from `sdk.DefaultBondDenom`,
    which the default staking genesis uses. Fund and delegate that denomination.
+   If reusing a customized genesis, check `app_state.staking.params.bond_denom`
+   in `config/genesis.json` before funding accounts or generating gentxs; both
+   amounts must use that configured denomination.
 
 5. Distribute this funded genesis file to every participant, replacing each
    participant's `config/genesis.json` under its test home. Each participant
