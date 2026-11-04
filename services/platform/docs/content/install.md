@@ -1,30 +1,49 @@
 # Install the tools
 
-Three things get you to a verified payment: an SDK for your language, the `layerx` command line tool, and an environment to talk to. Nothing here asks you to generate signing material by hand, encode a payload or handle a byte.
+Install the `layerx` CLI and the SDK your application uses, then configure the
+service it actually calls. Paxeer mainnet-beta is one BFT network: `paxd`
+contains the kernel, which executes transactions and proposes blocks. EVM chain
+ID is **125** (`0x7d`); a receipt is final when its block commits. Tenant domains
+are database namespaces and do not require another chain deployment.
 
-This page describes the install path at the source revision it is built from. The beta is not a qualified release: the canonical beta contract records `readiness_claim: false` and the beta artifact manifest is not emitted, so no hosted endpoint or package coordinate below is asserted live or installable until a release publishes it. The commands are checked against the CLI source; the local emulator path runs the real core transition from a source checkout.
+This page describes source-checkout tooling. Package publication and hosted
+service availability must be established by the release or deployment you use;
+installing the CLI does not provision a funded mainnet account.
 
 ## Install the command line tool
 
-```text
+From the repository root:
+
+```sh
 cargo install --path tools/platform/cli
 ```
 
-The binary is called `layerx`. Every subcommand accepts `--json` and will then emit exactly one JSON object, which is what you want in a script.
+The binary is `layerx`. The global `--json` flag emits command results as JSON;
+use `layerx --help` for the current command catalogue.
 
 ## Pick an environment
 
-| Environment | What it is | Money |
-|---|---|---|
-| Local emulator | The real transition function running on your machine | Freely prefunded, worthless |
-| Hosted beta | A shared network reset on a published schedule | Faucet-issued, worthless |
-| Production | The live network | Real |
+| Environment | Endpoint and purpose | Money |
+| --- | --- | --- |
+| Local emulator | Loopback development service, default port 9402 and network ID 402 | Disposable local balances |
+| Mainnet-beta node | `https://api-mainnet-beta.paxeer.network/` or `https://api1.mainnet-beta.paxeer.network/` through `https://api14.mainnet-beta.paxeer.network/` | Real value, chain ID 125 |
+| Hosted application services | Operator-provided authenticated origins for human payments, agent tools, or settlement | Determined by the configured network |
 
-Start on the emulator. It runs the same transition function as production, so a payment it accepts is a payment production would accept, and a refusal it gives you is a real refusal rather than a stub.
+Public node JSON-RPC uses the root path. Hosted gateway `px_*` methods are
+additional service APIs; a node URL does not supply human-payment credentials
+or every hosted method. See the [gateway source guide](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/5c65ff650b571b5294048762896e896aa35d11ae/services/platform/hosted/gateway/README.md)
+and [reference applications](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/5c65ff650b571b5294048762896e896aa35d11ae/services/platform/examples/README.md)
+for the distinct service bindings.
 
-The emulator signs receipts with a sequencer key it has no compiled-in copy of. `layerx emulator provision` generates that key once, under your profile directory (`~/.config/layerx/emulator/`, readable only by you), and publishes its trust anchor beside it. It prints the paths and the anchor, never the seed. Start the emulator with the seed, then bind the profile to the endpoint, the network id and the anchor file; the CLI checks the anchor against the identity the running emulator advertises before it saves anything:
+The emulator exercises local protocol transitions. A successful emulator
+payment does not establish native transaction submission, BFT commitment,
+mainnet funding, or hosted service availability.
 
-The canonical local bootstrap is supported on Linux, Android and Apple hosts, where the CLI can atomically publish the owner-only seed and anchor directory. Other host targets fail closed before writing profile material.
+### Local bootstrap
+
+`layerx emulator provision` generates an owner-only receipt-signing seed and
+trust anchor under the profile directory. It prints their paths and the anchor,
+never the seed. Keep the bootstrap sequence in this order:
 
 <!-- layerx:bootstrap-sequence -->
 ```bash
@@ -34,27 +53,41 @@ layerx environment use emulator --endpoint http://127.0.0.1:9402 --network-id 40
   --sequencer-trust-anchor-file "$HOME/.config/layerx/emulator/sequencer.anchor"
 ```
 
-If `XDG_CONFIG_HOME` or `LAYERX_CONFIG` is set, the profile directory moves with it; use the paths `layerx emulator provision` prints. Provisioning refuses to replace an existing seed unless you pass `--force`.
+Provisioning supports Linux, Android and Apple hosts with atomic owner-only
+profile publication. If `XDG_CONFIG_HOME` or `LAYERX_CONFIG` changes the profile
+location, use the printed paths. Provisioning refuses to replace existing seed
+material without `--force`. Environment selection checks the anchor against
+the running emulator before saving the profile.
 
-`layerx environment current` shows the active profile, and `layerx environment list` shows every profile you have configured.
+`layerx environment current` and `layerx environment list` show saved profiles.
+Configure a hosted profile with the operator's endpoint and network identity;
+use 125 for a profile that submits mainnet EVM transactions.
 
 ## Get credentials
 
-For the hosted beta network and for production you provision with a short-lived identity session. The CLI reads it from standard input and stores it in your operating system credential store, so it never lands in your shell history or a dotfile:
+Hosted provisioning uses a short-lived identity session read from standard
+input and retained in the configured credential store:
 
 ```text
 layerx auth set --environment beta
 layerx auth status --environment beta
 ```
 
-For the emulator you create a local account keyed by an Ed25519 seed the CLI generates from operating-system randomness. You never type key material:
+For local development, these commands create an Ed25519 CLI key and an
+emulator account:
 
 ```text
 layerx key create dev
 layerx account create --key dev --initial-amount 1000000
 ```
 
+That CLI key is distinct from a secp256k1 EVM transaction signer and from the
+network's pinned Ed25519 receipt-verification keys.
+
 ## Confirm it works before you write code
+
+Against a configured human-payment service, supply its account references,
+currency, amount and idempotency key:
 
 ```text
 layerx payment test --from "$LAYERX_SOURCE" --to "$LAYERX_DESTINATION" \
@@ -62,77 +95,91 @@ layerx payment test --from "$LAYERX_SOURCE" --to "$LAYERX_DESTINATION" \
   --idempotency-key "$LAYERX_PAYMENT_KEY" --json
 ```
 
-That performs a real quote and a real commit against the active endpoint and prints the journey. If it works, your language quickstart will work.
+This runs the quote/commit journey exposed by that service. Treat pending,
+unknown and refused results distinctly; a submission acknowledgement alone is
+not a committed payment.
 
-Native `layerx wallet` and `layerx token` commands are a separate surface,
-documented in the [CLI wallet quickstart](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/86fa9803386b75d1fea152cb40cacb3f1069cf4a/platform/cli/README.md#wallet-quickstart).
-Wallet creation on the emulator registers an identity and opens its main account.
-Hosted wallet send is implemented through the shared debit-authorization signer
-and verifies the returned receipt; it requires the RPC transport, a receipt policy,
-and a fee limit. Emulator send refuses because it cannot obtain the authenticated
-identity sequence. The hosted `wallet create` command still refuses without a
-published identity-and-main-account registration contract. These are distinct
-paths; the release candidate's executed journeys must qualify each supported one.
+Native wallet and token commands are documented in the
+[CLI wallet quickstart](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/5c65ff650b571b5294048762896e896aa35d11ae/tools/platform/cli/README.md#wallet-quickstart).
+Use its signing, receipt-policy and fee-limit requirements for the selected
+transport. Emulator and hosted registration paths have different prerequisites.
 
 ## Five-minute agent-runtime installation
 
-A2A uses the hosted gateway, not the emulator. Create or import the Ed25519 key already bound to your funded account, select the hosted environment, and keep the source account and asset identifiers nearby.
-
-MCP is daemon-bound, not gateway-bound. `layerx install mcp` registers a launch line for `layerx mcp serve` against the agent-daemon binding document that agent-daemon enrolment wrote; it opens that document and refuses when it is absent. No gateway key, environment or payment flag takes part, because the daemon holds every credential the tools need. Name one or more supported hosts:
+MCP installation binds to the enrolled agent runtime's local binding document.
+It registers a launch line for `layerx mcp serve`, opens the binding and refuses
+if it is absent. Credentials belong to that enrolled runtime. Name one or more
+supported hosts:
 
 ```text
 layerx install mcp --host claude-code --json
 ```
 
-The current binding document records `core_height`; the retired `core_sequence` field is refused with `mcp.binding_retired_key`. Installation and serving also require `agent.readiness` to name the authenticated HTTPS gateway and its protected credential file.
+The binding records `core_height`; the retired `core_sequence` field is refused
+with `mcp.binding_retired_key`. Installation and serving require
+`agent.readiness` to identify the authenticated HTTPS gateway and its protected
+credential file. `--daemon-binding <path>` selects a binding explicitly.
+`--read-only` narrows the live catalogue without rewriting the binding.
+Supported hosts are `layerx`, `claude-code`, `claude-desktop`, `cursor` and `vscode`.
 
-`--daemon-binding <path>` overrides the binding document the CLI resolves beside its configuration, and `--read-only` registers the read-only tool set. The CLI authenticates the declared daemon binding before narrowing its live catalogue and refusing write calls; narrowing does not rewrite the daemon binding. Supported hosts are `layerx`, `claude-code`, `claude-desktop`, `cursor` and `vscode`.
-
-For A2A, the already stored identity session provisions a separate least-scoped key and the command starts the loopback runtime:
+A2A installation selects a hosted environment, an existing CLI key and the
+stored identity session used to provision its scoped gateway credential:
 
 ```text
 layerx install a2a --environment beta --key agent-runtime \
-  --source-account "$LAYERX_SOURCE_ACCOUNT" --asset "$LAYERX_ASSET" \
   --listen 127.0.0.1:9433 --json
 layerx a2a status --json
 ```
 
-The A2A installation result also names an owner-only `authorization.credential_file`. Keep that file local and send its value as `Authorization: Bearer <value>` on every JSON-RPC POST. The public Agent Card stays readable without that credential. The installed runtime rejects missing or incorrect bearer values before it invokes a read or payment tool.
+Create or import `agent-runtime` before installing. Optional `--source-account`
+and `--asset` accept 32-byte hexadecimal identifiers only as a pair; these
+compatibility bindings do not sign or construct a payment. They are rejected
+in read-only mode. Payment submission requires the caller's **already signed
+EIP-1559 transaction**, including the correct chain ID, nonce, native payment
+calldata, gas limit and fee caps, signed by the authorised EVM account.
 
-The A2A installation JSON contains only the executable arguments, the configuration path, a non-secret gateway key identifier, an opaque credential alias and the path to that local authorization file. Gateway secrets and signing seeds stay in the operating-system credential store. A normal reinstall is idempotent; add `--rotate` to replace both the component's gateway key and its local A2A bearer before restarting the managed process. `--read-only` removes the payment tool and issues only `receipt:read` scope.
+The `activity.submit` skill's arguments object contains exactly
+`{"raw_transaction":"0x02..."}` (replace the ellipsis with complete signed
+transaction bytes). The runtime validates the transaction and active network,
+submits with `eth_sendRawTransaction`, and returns the transaction hash with
+`submitted` rung. After transport ambiguity it can report `unknown`; reconcile
+the same hash. `receipt.get` accepts exactly
+`{"activity_id":"0x<64 hex digits>"}` and fetches `pax_sequencerReceipt` material.
+Receipt verification requires independently pinned keys with height ranges;
+fetched bytes alone are not a verification or finality claim.
+
+The installation result names an owner-only `authorization.credential_file`.
+Send its value as `Authorization: Bearer <value>` on every loopback JSON-RPC
+POST. The Agent Card is readable without that bearer. Installation JSON exposes
+credential aliases, identifiers and file paths; secrets remain in credential
+storage. Reinstalling is idempotent; `--rotate` replaces the gateway credential
+and local bearer before restarting. `--read-only` serves only read tools with
+`receipt:read` scope.
 
 ## Install an SDK
 
-| Language | Install |
-|---|---|
-| TypeScript | `npm install @sidiora/layerx-sdk` |
-| Python | `python3 -m pip install layerx-sdk` |
-| Go | `go get github.com/Sidiora-Labs/LayerX-Network/sdk/platform/go` |
-| Java and Kotlin | Add `com.sidiora.layerx:layerx-sdk:0.1.0` to your build |
-| Swift | Add the `LayerXSDK` package to `Package.swift` |
-| C# | `dotnet add package LayerX.Sdk` |
-| Rust | `cargo add layerx-sdk` |
-
-Those coordinates are the beta artifact set declared in the canonical beta contract. This checkout does not provide a published artifact manifest that verifies their availability, so the install commands above are not qualified installation instructions. Build from `sdk/platform/*`, `services/agent/sdk/*` and `services/agent/crates/*` until a release publishes the coordinate.
+Build the package matching the API you call from `sdk/platform/*`,
+`services/agent/sdk/*` or `services/agent/crates/*` in this checkout until your
+release publishes verified package coordinates. Human-payment clients and
+native transaction/receipt clients have different configuration requirements;
+choose the corresponding language quickstart and package README.
 
 ## What your application reads from the environment
 
-A server-side integration needs exactly two values, both supplied to you:
+Human-payment samples use `LAYERX_API_URL` for the deployed human service and
+`LAYERX_API_TOKEN` for its bearer credential. These values do not configure a
+native transaction signer or receipt trust policy. The reference applications
+use per-profile environment bindings, including receipt keys; follow their
+[configuration guide](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/5c65ff650b571b5294048762896e896aa35d11ae/services/platform/examples/README.md).
 
-| Variable | What it is |
-|---|---|
-| `LAYERX_API_URL` | The base URL of the environment you chose |
-| `LAYERX_API_TOKEN` | A bearer token identifying your account |
-
-Every SDK wraps the token in a secret container that redacts itself in logs and zeroes its storage when destroyed. No quickstart on this site asks you to construct signing material.
-
-A mobile or browser application gets a different arrangement entirely: it holds no long-lived credential and exchanges a publishable configuration for short-lived session tokens through a broker you run. See [iOS](framework-ios.html) and [Android](framework-android.html).
+Mobile and browser clients use a broker for short-lived sessions. See
+[iOS](framework-ios.html) and [Android](framework-android.html).
 
 ## Enforced by
 
 | Capability | Layer | What that means here |
-|---|---|---|
-| Atomic settlement | `protocol` | True on the emulator, the beta network and production alike, because it is the same transition function. |
-| Refusal to publish a secret | `service` | The mobile configuration accepts publishable values only, and the Next.js bundle scanner fails a build whose client bundle contains a declared secret. |
-| Beta faucet funding | `hosted-surface` | Faucet eligibility is a hosted control. Once issued, test funds are ordinary protocol balances. |
-| Scheduled beta resets | `hosted-surface` | Nothing on the beta network is durable, and no protocol rule promises otherwise. |
+| --- | --- | --- |
+| Native payment execution and block finality | `protocol` | Transactions execute in the network; finality follows BFT block commit. |
+| A2A transaction validation and local bearer checks | `service` | The CLI runtime checks signed inputs and authenticates local requests. |
+| MCP binding and catalogue access | `agent-layer` | The enrolled runtime supplies credentials and readiness evidence. |
+| Hosted credentials and funding eligibility | `hosted-surface` | Deployment policy controls access and allocations; emulator balances confer no mainnet funds. |

@@ -1,6 +1,6 @@
-<h1 align="center">LayerX Network</h1>
+<h1 align="center">Paxeer X Network</h1>
 
-LayerX Network est un réseau déterministe d'exécution et de comptabilité pour agents autonomes.
+Paxeer X Network est un réseau BFT pour les agents autonomes, les paiements et l’exécution programmable. LayerX est intégré au nœud Paxeer, `paxd`.
 
 [English](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/README.md) · [Español](es.md) · [日本語](ja.md) · [Русский](ru.md) · [简体中文](zh-cn.md) · [Português](pt-br.md) · [Deutsch](de.md) · Français
 
@@ -9,111 +9,68 @@ LayerX Network est un réseau déterministe d'exécution et de comptabilité pou
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/LICENSE)
 [![CI](https://github.com/Sidiora-Labs/Paxeer-X-Network/actions/workflows/ci.yml/badge.svg)](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/.github/workflows/ci.yml)
 
-## Ce qu'est LayerX Network
+## Ce qu’est Paxeer X Network
 
-LayerX Network est un réseau déterministe d'exécution et de comptabilité pour agents autonomes. Toute opération qui modifie l'état entre sous la forme d'une `Activity` signée et encodée de façon canonique. Le protocole vérifie l'acteur et son autorité, consomme la séquence du compte, ordonne l'activité sur une séquence globale unique, applique une transition d'état déterministe, et renvoie un reçu signé lié à la racine d'état résultante.
+Paxeer mainnet-beta utilise l’identifiant de chaîne EVM **125** (`0x7d`). Le noyau fait partie du réseau et participe à la proposition de blocs. Les opérations des agents sont des transactions de cette même chaîne, notamment des appels aux précompilés EVM. Un reçu est final dès que son bloc est validé par le consensus BFT. L’acceptation d’un envoi ne prouve pas la réussite de son exécution.
 
-Le journal d'activités en ajout seul fait autorité. Les index de base de données sont des projections jetables et peuvent être reconstruits en rejouant ce journal. L'exécution critique pour le consensus exclut les flottants, les décisions d'horloge locale, l'ordre d'itération des bases de données, et les autres sources de non-déterminisme. `402LXP` est le seul composant autorisé à écrire les soldes. Les modules du protocole émettent des ensembles de transferts validés plutôt que de muter eux-mêmes les fonds.
+Le noyau natif est intégré à `paxd` par `modules/lxphost/`. Les mouvements monétaires passent par les chemins du registre comptable, de la banque et de l’état EVM de la chaîne. L’exécution native critique pour le consensus utilise un encodage canonique et une arithmétique entière vérifiée ; les suites de rejeu vérifient la reproductibilité.
 
-L'activité ordinaire des agents est exécutée et ordonnée dans LayerX. Des points de contrôle périodiques se règlent sur Paxeer, qui assure la garde, l'enregistrement des points de contrôle, les cautions de garants, les contestations, les retraits, les litiges et les sorties d'urgence. Une action LayerX ordinaire n'exige pas de transaction Paxeer.
+Les sous-chaînes sont des domaines locataires : des espaces de noms dans la base de données. Elles ne nécessitent ni réseau de validateurs ni infrastructure de nœuds supplémentaires. Ce monorepo contient les composants d’un seul réseau. Les spécifications en vigueur se trouvent dans [`spec/layerx-merge/`](https://github.com/Sidiora-Labs/Paxeer-X-Network/tree/main/spec/layerx-merge).
 
-Ce dépôt est le monorepo Sidiora Labs pour LayerX Network et le Paxeer Network. La colocalisation garde le protocole, le réseau de règlement, les contrats et les surfaces développeur auditables en un seul endroit. Chaque sous-système conserve sa propre compilation, publication, déploiement et frontière de confiance. Voir [`spec/layerx-protocol/design.md`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/spec/layerx-protocol/design.md).
+## Essayer la connexion
 
-## Essayer le réseau
-
-Le parcours complet est [`docs/wiki/Quickstart.md`](../quickstart.md) : installer le CLI `layerx` depuis `tools/platform/cli`, démarrer le cluster, sourcer `build/beta-cluster/env`, puis créer un identifiant, réclamer au faucet, soumettre une activité, vérifier le reçu, et déployer un programme.
+Le JSON-RPC public est servi en HTTPS à la racine de `api1.mainnet-beta.paxeer.network` à `api14.mainnet-beta.paxeer.network`, ainsi que de `api-mainnet-beta.paxeer.network`. Ces requêtes lisent uniquement l’identifiant de chaîne et la hauteur de bloc. `PAXEER_RPC_URL` est ici une variable shell locale.
 
 ```sh
-layerx key create quickstart
+PAXEER_RPC_URL=https://api-mainnet-beta.paxeer.network
+curl --fail --silent --show-error --max-time 30 "$PAXEER_RPC_URL" \
+  --header 'Content-Type: application/json' \
+  --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
+curl --fail --silent --show-error --max-time 30 "$PAXEER_RPC_URL" \
+  --header 'Content-Type: application/json' \
+  --data '{"jsonrpc":"2.0","id":2,"method":"eth_blockNumber","params":[]}'
 ```
 
-```sh
-jq -n --arg did "$LAYERX_TEST_SOURCE_DID" --arg public_key "$LAYERX_TEST_SOURCE_PUBLIC_KEY" \
-  '{did:$did, public_key:$public_key}' > faucet-request.json
-curl --fail --silent --show-error --max-time 30 --cacert "$LAYERX_TEST_CA_FILE" \
-  --header "Authorization: Bearer $(tr -d '\r\n' < "$LAYERX_TEST_AUTH_TOKEN_FILE")" \
-  --request POST "$LAYERX_FAUCET_URL/v1/faucet/claims" \
-  --header "Idempotency-Key: faucet-quickstart-01" \
-  --header 'Content-Type: application/json' --data-binary @faucet-request.json
-```
+`eth_chainId` doit renvoyer `"0x7d"`. Mainnet-beta utilise des actifs réels. Pour modifier l’état, l’application signe une transaction pour la chaîne 125 et l’envoie avec `eth_sendRawTransaction`. Elle consulte ensuite `eth_getTransactionReceipt` avec le hash de la transaction. `null` ne confirme pas l’inclusion ; si un reçu existe, vérifier `status`, `blockHash`, `blockNumber` et les logs. Une transaction en échec est également finale après la validation de son bloc.
 
-```sh
-layerx --json payment test \
-  --from "$LAYERX_TEST_SOURCE_DID" \
-  --to "$LAYERX_TEST_DESTINATION_DID" \
-  --currency "$LAYERX_TEST_ASSET" \
-  --amount "$LAYERX_TEST_AMOUNT" \
-  --idempotency-key paymentquickstart1
-```
+Programs s’appelle via le précompilé `0x000000000000000000000000000000000000101D` ; son ABI est dans `precompiles/layerxprograms/abi.json`. Voir [Programs](../../programs/index.md). Le [guide de démarrage](../quickstart.md) donne d’autres exemples ; la [présentation du réseau](../../index.md) décrit les points d’accès et la finalité.
 
-```sh
-layerx --json receipt verify \
-  --receipt receipt.hex \
-  --batch-id "$batch_id" \
-  --asset "$asset" \
-  --previous-state-root "$previous_root" \
-  --resulting-state-root "$resulting_root" \
-  --sequencer-public-key "$sequencer_key"
-```
-
-```sh
-layerx --json program deploy \
-  quickstart-program/target/wasm32-unknown-unknown/release/quickstart_program.wasm \
-  --program-id <program_id> \
-  --idempotency-key <idempotency_key> \
-  --key quickstart \
-  --account-sequence 0 \
-  --not-before-ms <not_before_ms> \
-  --expires-at-ms <expires_at_ms> \
-  --previous-state-root <previous_state_root>
-```
+Les méthodes hébergées `px_` sont déclarées dans `services/platform/hosted/gateway/openrpc.json`. Cela ne garantit pas leur disponibilité sur chaque nœud public.
 
 ## Compiler depuis les sources
 
-Le runtime cœur est en C17 (`-std=c17` dans le `Makefile` racine). Les espaces de travail agent, human et platform utilisent Rust 1.91.1 (`rust-toolchain.toml`). Les contrats de règlement LayerX utilisent Solidity 0.8.27 (`foundry.toml`). La qualification par rejeu nécessite GCC 13, Clang 18, Docker, un exécuteur musl amd64, et un compilateur croisé AArch64 plus QEMU ; voir [`docs/QUALIFICATION.md`](../../operators/qualification.md).
+Le runtime natif utilise C17, les espaces de travail Rust utilisent le compilateur 1.91.1 fixé dans `rust-toolchain.toml` et le module Go déclare Go 1.25.8. `make paxd-build` compile les bibliothèques natives et le nœud avec sa version de publication. `make build` compile le runtime natif et ses outils auxiliaires.
 
 ```sh
-make build
-make test
-make test-contracts
-make ci
+make paxd-build
+make paxd-version-check
 ```
 
-Cibles bornées Paxeer, sans changer de répertoire :
-
-```sh
-make paxeer-build
-make paxeer-lint
-make paxeer-test
-make paxeer-ci
-```
-
-`make ci` exécute `public-audit`, les tests natifs, une comparaison d'archives sur deux compilations, les contrôles de symboles de consensus, et les suites sanitizer. `make monorepo-ci` est une porte transversale distincte. Un succès local n'autorise pas à déployer des contrats, déplacer la garde, ou manipuler des actifs réels.
+Les tests natifs, l’intégration du nœud et les matrices de publication établissent des propriétés différentes du même réseau. Les commandes et prérequis figurent dans [Qualification](../../operators/qualification.md). La compilation d’un composant ne démontre pas le chemin complet d’une transaction.
 
 ## Organisation du dépôt
 
 | Chemin | Objet |
 | --- | --- |
-| `src/`, `include/` | Runtime protocole C17, machine d'état, stockage, séquencement, rejeu et intégration du règlement |
-| `cmd/` | Démons et outils natifs (`layerxd`, `layerxctl`, genesis, verify) |
-| `agent/` | Interface agent Rust, SDK, démon, serveur MCP, encodage, cryptographie et vérification de preuves |
-| `human/` | Plan de contrôle humain, compilateur d'intentions typées, client de frontière de garde, index explorateur et application web |
-| `services/platform/` | Plateforme développeur, services hébergés, intergiciels, SDK, émulateur, CLI et outillage de publication |
-| `programs/` | Runtime LayerX programmable et outillage des programmes |
-| `interop/` | Surfaces d'interopérabilité agent-commerce et inter-réseaux |
-| `contracts/` | Contrats Solidity pour la garde Paxeer, les points de contrôle, le cautionnement des garants, les réclamations, les litiges et les sorties |
-| `go.mod`, `chain.mk`, `daemon/`, `node/`, `modules/`, `consensus/`, `sdk/`, `rpc/`, `precompiles/`, `storage/`, `wasm/`, `docker/` | Nœud Paxeer Network, compatibilité EVM/RPC, moteurs de stockage, modules, contrats et compilations locales au sous-système |
-| `spec/` | Spécifications KVX normatives, conceptions générées, exigences et graphes de tâches |
-| `tests/`, `test/`, `tests/fuzz/` | Suites natives, contrats, rejeu, invariants, fautes et fuzz |
-| `migrations/` | Travail de genèse, migration, réconciliation et rejeu parallèle |
-| `docs/` | Wiki, notes du monorepo et documentation de qualification |
+| `daemon/`, `node/`, `consensus/` | Nœud, traitement des blocs et consensus BFT |
+| `src/`, `include/` | Noyau C17 et modules de protocole natifs |
+| `modules/lxphost/` | Intégration du noyau dans le nœud |
+| `modules/`, `precompiles/` | État de la chaîne et points d’entrée appelables depuis EVM |
+| `rpc/` | JSON-RPC du nœud |
+| `programs/` | Runtime Programs, sandbox et SDK |
+| `services/agent/` | SDK d’agents, démon d’agent et serveur MCP |
+| `services/human/`, `apps/web/` | Contrôle humain et application web |
+| `services/platform/`, `tools/platform/cli/` | Services hébergés de plateforme et CLI développeur |
+| `services/interop/`, `sdk/platform/` | Interopérabilité et SDK clients |
+| `spec/` | Spécifications normatives et graphes de tâches |
+| `docs/`, `tests/`, `tests/solidity/` | Documentation et suites de qualification |
 
 ## Documentation
 
-- Index du wiki : [`docs/wiki/Home.md`](../../index.md)
-- Organisation du monorepo et étiquettes de publication : [`docs/MONOREPO.md`](../monorepo.md)
-- Portes de qualification : [`docs/QUALIFICATION.md`](../../operators/qualification.md)
-- Spécifications : [`spec/`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/spec/)
+- [Présentation du réseau](../../index.md)
+- [Organisation du monorepo](../monorepo.md)
+- [Qualification](../../operators/qualification.md)
+- [Spécifications](https://github.com/Sidiora-Labs/Paxeer-X-Network/tree/main/spec/layerx-merge)
 
 ## SDK et intégrations
 
@@ -127,7 +84,7 @@ make paxeer-ci
 | .NET | `sdk/platform/dotnet` |
 | Swift | `sdk/platform/swift` |
 
-`layerx-agentd` est `services/agent/crates/layerx-agentd`. Le serveur MCP est `services/agent/crates/layerx-mcp`. Le CLI développeur dans `tools/platform/cli` installe ces transports avec `layerx install mcp` et `layerx install a2a`.
+`layerx-agentd` se trouve dans `services/agent/crates/layerx-agentd` et le serveur MCP dans `services/agent/crates/layerx-mcp`. Ce sont des clients du réseau. Le CLI développeur se trouve dans `tools/platform/cli`.
 
 ## Contribuer
 
@@ -141,4 +98,4 @@ Signaler les vulnérabilités via le reporting privé GitHub, comme décrit dans
 
 Distribué sous la licence Apache, version 2.0. Voir [`LICENSE`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/LICENSE) et [`NOTICE`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/NOTICE).
 
-LayerX Network est développé par Sidiora Labs.
+Paxeer X Network est développé par Sidiora Labs.

@@ -11,6 +11,7 @@ use crate::core::types::{Balance, DailyStats, Order, Position, TraderStats, User
 use crate::error::PerfDbError;
 use crate::relational::checkpoint::Checkpoint;
 use crate::state::market_state::MarketSnapshot;
+use crate::storage::wal::WalPosition;
 
 /// Complete serializable snapshot of all in-memory state.
 ///
@@ -136,6 +137,92 @@ pub struct CompleteStateSnapshot {
     pub relational: Option<RelationalSnapshot>,
 }
 
+/// Engine recovery is ordered by a WAL frame, never by block height. Keeping
+/// the event ledger in this same image makes deduplication atomic with state.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SnapshotRecovery {
+    pub position: WalPosition,
+    pub events: Vec<crate::core::types::IndexedEvent>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct EngineSnapshot {
+    version: u32,
+    complete: CompleteStateSnapshot,
+    recovery: SnapshotRecovery,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct TickCheckpoint {
+    pub version: u32,
+    pub position: WalPosition,
+    pub tick_counts: Vec<u64>,
+    pub candle_counts: Vec<u64>,
+    pub candle_tails: Vec<Option<crate::core::types::CandleRecord>>,
+    pub builder: crate::aggregation::candle_builder::CandleBuilder,
+}
+
+pub(crate) fn load_tick_checkpoint(dir: &Path) -> Result<Option<TickCheckpoint>, PerfDbError> {
+    let path = dir.join("tick_checkpoint.bin");
+    let data = match fs::read(path) {
+        Ok(data) => data,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) => return Err(super::wal::io_error("read tick checkpoint", e)),
+    };
+    let checkpoint: TickCheckpoint = decode_image(&data)?;
+    if checkpoint.version != 1
+        || checkpoint.tick_counts.len() != crate::core::market::MARKET_COUNT
+        || checkpoint.candle_counts.len() != crate::core::market::MARKET_COUNT * 16
+        || checkpoint.candle_tails.len() != crate::core::market::MARKET_COUNT * 16
+    {
+        return Err(PerfDbError::Corruption("invalid tick checkpoint".into()));
+    }
+    checkpoint.builder.validate_recovery_state()?;
+    for (index, (&count, tail)) in checkpoint
+        .candle_counts
+        .iter()
+        .zip(&checkpoint.candle_tails)
+        .enumerate()
+    {
+        if (count == 0) != tail.is_none()
+            || tail.is_some_and(|candle| {
+                candle.market_id as usize != index / 16 || candle.timeframe as usize != index % 16
+            })
+        {
+            return Err(PerfDbError::Corruption(
+                "invalid committed candle tail".into(),
+            ));
+        }
+    }
+    Ok(Some(checkpoint))
+}
+
+pub(crate) fn write_tick_checkpoint(
+    dir: &Path,
+    checkpoint: &TickCheckpoint,
+) -> Result<(), PerfDbError> {
+    atomic_publish(&dir.join("tick_checkpoint.bin"), &encode_image(checkpoint)?)
+}
+
+pub fn write_engine_snapshot(
+    dir: &Path,
+    state: &StateSnapshot,
+    recovery: SnapshotRecovery,
+) -> Result<PathBuf, PerfDbError> {
+    let image = EngineSnapshot {
+        version: 2,
+        complete: CompleteStateSnapshot {
+            version: 1,
+            state: state.clone(),
+            relational: None,
+        },
+        recovery,
+    };
+    let path = dir.join(format!("snapshot_{:012}.bin", state.checkpoint.last_block));
+    atomic_publish(&path, &encode_image(&image)?)?;
+    Ok(path)
+}
+
 pub fn write_snapshot(dir: &Path, snapshot: &StateSnapshot) -> Result<PathBuf, PerfDbError> {
     write_complete_snapshot(
         dir,
@@ -232,10 +319,20 @@ pub(crate) fn atomic_publish(path: &Path, data: &[u8]) -> Result<(), PerfDbError
     result
 }
 
-fn read_snapshot(path: &Path, block: u64) -> Result<CompleteStateSnapshot, PerfDbError> {
+fn read_snapshot_with_recovery(
+    path: &Path,
+    block: u64,
+) -> Result<(CompleteStateSnapshot, Option<SnapshotRecovery>), PerfDbError> {
     let data = fs::read(path).map_err(|e| super::wal::io_error("read snapshot", e))?;
+    let mut recovery = None;
     let image: CompleteStateSnapshot = if data.starts_with(SNAPSHOT_MAGIC) {
-        decode_image(&data)?
+        if data.get(20..24) == Some(&2u32.to_le_bytes()[..]) {
+            let engine: EngineSnapshot = decode_image(&data)?;
+            recovery = Some(engine.recovery);
+            engine.complete
+        } else {
+            decode_image(&data)?
+        }
     } else {
         let state = bincode::DefaultOptions::new()
             .with_fixint_encoding()
@@ -260,17 +357,27 @@ fn read_snapshot(path: &Path, block: u64) -> Result<CompleteStateSnapshot, PerfD
             "snapshot version or checkpoint does not match filename".into(),
         ));
     }
-    Ok(image)
+    Ok((image, recovery))
+}
+
+fn read_snapshot(path: &Path, block: u64) -> Result<CompleteStateSnapshot, PerfDbError> {
+    read_snapshot_with_recovery(path, block).map(|(image, _)| image)
 }
 
 pub fn load_latest_complete_snapshot(
     dir: &Path,
 ) -> Result<Option<CompleteStateSnapshot>, PerfDbError> {
+    load_latest_with_recovery(dir).map(|image| image.map(|(state, _)| state))
+}
+
+fn load_latest_with_recovery(
+    dir: &Path,
+) -> Result<Option<(CompleteStateSnapshot, Option<SnapshotRecovery>)>, PerfDbError> {
     let mut snapshots = list_snapshots(dir)?;
     snapshots.sort_by(|a, b| b.0.cmp(&a.0));
     let mut rejected_block = None;
     for (block, path) in snapshots {
-        match read_snapshot(&path, block) {
+        match read_snapshot_with_recovery(&path, block) {
             Ok(snapshot) => {
                 if let Some(through) = rejected_block {
                     let wal_dir = dir
@@ -294,6 +401,23 @@ pub fn load_latest_complete_snapshot(
         ));
     }
     Ok(None)
+}
+
+pub fn load_latest_engine_snapshot(
+    dir: &Path,
+) -> Result<Option<(StateSnapshot, SnapshotRecovery)>, PerfDbError> {
+    match load_latest_with_recovery(dir)? {
+        Some((image, _)) if image.relational.is_some() => Err(PerfDbError::InvalidArgument(
+            "relational snapshot requires engine restoration through load_latest_complete_snapshot"
+                .into(),
+        )),
+        Some((image, Some(recovery))) => Ok(Some((image.state, recovery))),
+        Some((_, None)) => Err(PerfDbError::Corruption(
+            "legacy snapshot has no exact WAL recovery cursor; explicit migration is required"
+                .into(),
+        )),
+        None => Ok(None),
+    }
 }
 
 pub fn load_latest_snapshot(dir: &Path) -> Result<Option<StateSnapshot>, PerfDbError> {

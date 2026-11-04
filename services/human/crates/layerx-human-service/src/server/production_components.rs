@@ -4706,7 +4706,7 @@ impl ProductionComponents {
             .asset(&denom)
             .ok_or_else(ApiFailure::forbidden)?
             .amount
-            < amount
+            < amount.into()
         {
             return Err(ApiFailure::forbidden());
         }
@@ -9041,7 +9041,7 @@ mod send_leg_denom_tests {
                 height: 16,
                 balances: vec![AssetBalance {
                     denom: "ulxp".to_owned(),
-                    amount: 100,
+                    amount: 100.into(),
                 }],
                 evidence: Evidence::GatewayReported,
             },

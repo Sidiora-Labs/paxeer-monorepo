@@ -1,65 +1,157 @@
 # Reference applications
 
-Node.js reference applications for Paxeer X Network.
+Node.js reference applications for Paxeer X Network. The network contains the
+kernel and uses EVM chain ID **125** (`0x7d`). Transactions execute in the node;
+receipts progress through `submitted`, `receipted` and `committed`. Block commit
+is finality. Tenant domains are database namespaces within this network.
 
-The beta profiles' `rpcUrl` is the public node JSON-RPC at
-`https://api-mainnet-beta.paxeer.network`, root path, EVM chain ID `125`.
-The other public node names are `api1` through `api14.mainnet-beta.paxeer.network`,
-also at the root. These nodes do not expose hosted gateway `px_*` or `lx_*`
-methods or a separate public LayerX interface. Flows requiring hosted services
-need an operator-deployed gateway and its credentials; obtain its URL from the
-operator and configure the profile for that deployment. The local emulator's
-`/rpc` path remains specific to the emulator.
+## Endpoints and prerequisites
 
-The four applications in `reference-apps.json` are complete Node.js projects selected by a checked-in environment profile. Clone this repository, install the locked workspace once with `npm ci`, compile every workspace in dependency order with `npm run build`, then use one declared command.
+Beta profiles use public node JSON-RPC at
+`https://api-mainnet-beta.paxeer.network/`. The other public names are
+`https://api1.mainnet-beta.paxeer.network/` through
+`https://api14.mainnet-beta.paxeer.network/`, also at the root path. Nodes and
+hosted application services have different APIs. `px_*` methods belong to the
+[hosted gateway](../hosted/gateway/README.md); human payments and merchant
+settlement additionally require operator-deployed services and credentials.
+Mainnet-beta carries real value; an environment label does not imply free funds
+or a reset schedule.
 
-Asset encodings, public RPC, and 402 commitment extras are documented on
-[`docs/wiki/PaymentsQuickstart.md`](../../../docs/wiki/PaymentsQuickstart.md)
-and [`docs/wiki/CommitmentLevels.md`](../../../docs/wiki/CommitmentLevels.md).
+Each `layerx.example.json` declares public configuration and the environment
+variable names for account-specific inputs. These are server-side Node.js
+applications. Keep credentials and signing material outside profile JSON.
 
-| Application | Emulator | Beta |
-|---|---|---|
-| Buyer agent | `npm run start:emulator --workspace @sidiora/layerx-example-buyer-agent` | `npm run start:beta --workspace @sidiora/layerx-example-buyer-agent` |
-| Paid API | `npm run start:emulator --workspace @sidiora/layerx-example-paid-api` | `npm run start:beta --workspace @sidiora/layerx-example-paid-api` |
-| Merchant shop | `npm run start:emulator --workspace @sidiora/layerx-example-merchant-shop` | `npm run start:beta --workspace @sidiora/layerx-example-merchant-shop` |
-| Programs marketplace | `npm run start:emulator --workspace @sidiora/layerx-example-marketplace` | `npm run start:beta --workspace @sidiora/layerx-example-marketplace` |
+Install the locked Node workspace from the repository root with `npm ci` and
+compile the SDK and middleware with `npm run build`. The four projects declared
+in [reference-apps.json](reference-apps.json) provide these launch commands:
 
-Each `layerx.example.json` contains public endpoints, network names, and the names of environment variables that supply account-specific values. Tokens and signing material are never stored in these files and every application runs on Node.js, not in a browser. The buyer, seller, and merchant applications resolve batch authority from the selected environment and independently verify canonical receipts. Pending, Unknown, and Refused remain distinct responses.
+| Application | Emulator profile | Beta profile |
+| --- | --- | --- |
+| [Buyer agent](buyer-agent/) | `npm run start:emulator --workspace @sidiora/layerx-example-buyer-agent` | `npm run start:beta --workspace @sidiora/layerx-example-buyer-agent` |
+| [Paid API](paid-api/) | `npm run start:emulator --workspace @sidiora/layerx-example-paid-api` | `npm run start:beta --workspace @sidiora/layerx-example-paid-api` |
+| [Merchant shop](merchant-shop/) | `npm run start:emulator --workspace @sidiora/layerx-example-merchant-shop` | `npm run start:beta --workspace @sidiora/layerx-example-merchant-shop` |
+| [Programs marketplace](marketplace/) | `npm run start:emulator --workspace @sidiora/layerx-example-marketplace` | `npm run start:beta --workspace @sidiora/layerx-example-marketplace` |
 
-`merchant-checkout` remains a workspace compatibility name for consumers created before the canonical `merchant-shop` name. It launches the same receipt-backed service and has its own declared profile.
+`merchant-checkout` remains a compatibility workspace for the merchant service.
+The marketplace has deploy, list and buy commands and a no-std guest under
+[marketplace/program](marketplace/program/). Its client checks deployment and
+call receipts before reporting success; preserve the actual receipt digest
+passed to the purchase step. Build the guest for the network's ABI and chain
+domain and keep the full deployment envelope within the payload limit.
 
-The marketplace is a real no-std LayerX Program. Its shared listing state, receipt-read grant, receipt replay record, bounded transfer, deletion, and events execute in the Programs runtime. Its launch command builds deterministic WASM with the LayerX CLI, deploys it directly to the endpoint selected by the checked-in profile, resolves the returned receipt, and verifies it before reporting completion. List and buy commands are also declared in its package.
+## Paid API configuration and verification
 
-`make platform-test-reference-apps` (from the repository root) runs `node services/platform/examples/run-reference-apps.mjs --check`, which checks the four project declarations against their packages and profiles. The build-and-check flow described below executes the four applications against real receipts.
+[paid-api/index.mjs](paid-api/index.mjs) serves `GET /paid` on loopback port
+8081. Its x402 v2 offer uses `scheme: exact`, `network: eip155:125`, the configured
+integer amount, asset and `payTo`, and `extra.layerx` fields `commitment:
+receipted`, `account` and `currency`. The released body comes from
+[paid-api/resource.json](paid-api/resource.json).
+
+For the beta profile, set these inputs to authentic values from the deployment:
+
+| Variable | Meaning |
+| --- | --- |
+| `LAYERX_TESTNET_ASSET` | Asset identifier accepted by the payment implementation |
+| `LAYERX_TESTNET_SELLER` | Advertised payee identifier |
+| `LAYERX_TESTNET_SELLER_ACCOUNT` | Human-service destination account reference |
+| `LAYERX_TESTNET_CURRENCY` | Currency advertised with that account |
+| `LAYERX_TESTNET_PRICE` | Exact integer amount, expressed as a string |
+| `LAYERX_RECEIPT_KEYS_JSON` | Nonempty receipt-key array pinned independently of the payment response |
+
+The emulator paid-API profile uses the corresponding `LAYERX_EMULATOR_*`
+variables for money fields, but still reads **`LAYERX_RECEIPT_KEYS_JSON`**. It
+currently selects JSON-RPC at `http://127.0.0.1:8545/`; the other applications'
+emulator profiles select port 9402. Choose compatible service coordinates in an
+external profile using `LAYERX_EXAMPLE_CONFIG`; starting the CLI emulator alone
+does not supply a native chain RPC at port 8545.
+
+Receipt-key JSON is an array of objects with `keyId`, `publicKey`, `firstHeight`
+and `lastHeight`. Identifiers and public keys encode 32 bytes in hexadecimal
+(with an optional `0x` prefix); heights accept safe nonnegative JSON integers or
+canonical decimal/hexadecimal strings, with `firstHeight <= lastHeight`. Use the
+operator's authentic keys and authorised ranges, never keys copied from a
+payment's untrusted response.
+
+The paid API computes the transaction hash from the x402 payload's
+`rawTransaction` and calls `pax_sequencerReceipt` at its configured `rpcUrl`.
+It verifies the signed receipt against the raw transaction and pinned keys,
+then returns a `layerx-receipt-proof-v2` proof. It does not resolve a legacy
+batch-authority object. Its resolver reports verification level `receipted`
+even when the node returns a committed receipt; it does not prove BFT finality.
+
+Fulfillment records bind the request digest and idempotency key and retain the
+resource and commitment evidence. Pending returns 202; unknown or unreachable
+evidence returns 503; refused evidence prevents release. Reusing an idempotency
+key with a different request remains a conflict.
+
+## Buyer, merchant and hosted bindings
+
+The buyer uses its profile's `receiptKeysEnvironment`: beta reads
+`LAYERX_TESTNET_RECEIPT_KEYS_JSON`, emulator reads
+`LAYERX_EMULATOR_RECEIPT_KEYS_JSON`. Supply matching trust material to the paid
+API's separately named variable. The buyer also needs its token, source and
+idempotency inputs. Beta `LAYERX_TESTNET_HUMAN_URL` must identify an HTTPS human
+service at the origin root, distinct from the node origin; a public node URL
+is refused. If you override the beta endpoint, explicitly supply that human URL.
+
+The merchant needs its profile's receipt keys, money fields, webhook public
+keys and settlement token. Beta settlement uses
+`LAYERX_TESTNET_SETTLEMENT_URL`, pointing at the deployed settlement service.
+`LAYERX_EXAMPLE_ENDPOINT` rebases endpoint fields present in beta profiles; it
+does not provision services or replace fields resolved through their own
+environment variables. `LAYERX_EXAMPLE_STATE_ROOT` moves retained application
+state outside the project directories.
+
+See [PaymentsQuickstart](../../../docs/wiki/PaymentsQuickstart.md),
+[CommitmentLevels](../../../docs/wiki/CommitmentLevels.md) and the
+[receipt authority](../hosted/authority/README.md) for related contracts.
 
 ## Running the whole journey
 
-`node services/platform/examples/run-reference-apps.mjs --scenario emulator` is self-contained on any host that has the `layerx` CLI built. It resolves the binary from the first of `$LAYERX_BIN`, `build/bin/layerx`, and `layerx` on `PATH`; runs `layerx emulator provision` into a scratch profile directory; creates four real signing keys with `layerx key create`; starts `layerx emulator up --protocol-version 3` (the protocol version production runs and `layerx program deploy` signs) on the loopback address the buyer profile names, prefunded against the published sequencer trust anchor; waits for `GET /healthz` to report `ready`; and terminates the emulator and deletes the scratch profile when the run ends, including on failure.
+`node services/platform/examples/run-reference-apps.mjs --check` checks project,
+package and profile declarations. `--scenario beta` runs the applications using
+the supplied `LAYERX_TESTNET_*` inputs and deployed services. The scenario
+attempts buyer payment, merchant checkout, then marketplace deploy/list/buy;
+only actual successful outcomes establish that journey.
 
-Every `LAYERX_EMULATOR_*` input is then derived from that run instead of being hand-set:
+`--scenario emulator` currently provisions a scratch CLI profile, four signing
+keys and a local emulator. It resolves the CLI from `$LAYERX_BIN`,
+`build/bin/layerx`, then `PATH`, waits for health, derives account and money
+inputs from local state and a seeding transfer, and stops the process and
+removes the scratch profile afterward. `LAYERX_EMULATOR_SEED_FILE` selects an
+existing seed and its adjacent trust anchor. Credential storage defaults to a
+per-run file store and passphrase unless overridden.
 
-| Input | Derived from |
-|---|---|
-| `LAYERX_EMULATOR_ASSET` | the `authority.asset` of a real seeding transfer receipt read back from `GET /v1/receipts/{id}` |
-| `LAYERX_EMULATOR_SOURCE` | `agent:<did>:main` for the key `layerx key create reference-buyer` produced |
-| `LAYERX_EMULATOR_SELLER`, `LAYERX_EMULATOR_MERCHANT` | the canonical account identifiers `GET /v1/state` reports for those DIDs |
-| `LAYERX_EMULATOR_SELLER_ACCOUNT`, `LAYERX_EMULATOR_MERCHANT_ACCOUNT` | `agent:<did>:main` for the seller and merchant keys, the human-API `destination` the offer advertises in `extra.layerx.account` |
-| `LAYERX_EMULATOR_CURRENCY` | the `money.currency` the seeding quote echoed, advertised in `extra.layerx.currency` |
-| `LAYERX_EMULATOR_MARKETPLACE_RECEIPT_DIGEST` | the verified merchant checkout receipt, passed directly to the marketplace buy step |
-| `LAYERX_EMULATOR_MARKETPLACE_PROGRAM_ID`, `LAYERX_EMULATOR_MARKETPLACE_LISTING_ID` | one value per run, reused across the deploy, list, and buy steps |
-| `LAYERX_EMULATOR_TOKEN`, `LAYERX_EMULATOR_PAYMENT_KEY`, `LAYERX_EMULATOR_MERCHANT_CHECKOUT_KEY`, `LAYERX_EMULATOR_MARKETPLACE_KEY` | operating-system randomness, fresh for every run |
-| `LAYERX_EMULATOR_WEBHOOK_PUBLIC_KEYS_JSON` | a generated Ed25519 key pair; the run publishes only its public key |
-| `LAYERX_EMULATOR_PRICE` | `1000`, the one value that is a seller's own choice rather than protocol material |
-
-Any of those variables that is already set in the environment is used verbatim, so an owner can override any single input. `LAYERX_EMULATOR_SEED_FILE` skips provisioning and starts the emulator from an existing seed, reading the trust anchor published beside it. `LAYERX_CREDENTIAL_STORE` defaults to `file` with a per-run passphrase so the run needs no operating-system keyring; set `LAYERX_CREDENTIAL_STORE` and `LAYERX_CREDENTIAL_PASSPHRASE` to use your own credential storage.
-
-Both scenarios run buyer payment, merchant checkout, and marketplace deploy, list, and buy. `--scenario beta` expects the `LAYERX_TESTNET_*` inputs, including the actual seller and merchant account references and advertised currency. `LAYERX_EXAMPLE_ENDPOINT` overrides the hosted endpoint every profile carries, so the same runner can be pointed at a beta cluster gateway URL.
-
+That bootstrap still uses local quote/commit, state and receipt routes. Its
+provided receipt-key variable is `LAYERX_EMULATOR_RECEIPT_KEYS_JSON`, while the
+paid API reads `LAYERX_RECEIPT_KEYS_JSON`; its chosen endpoint also differs from
+the paid API's native RPC profile. Those prerequisites must agree before this
+scenario can establish a native payment journey. The pre-merge `/rpc` paths retained in emulator profiles are retired network coordinates.
+Do not infer native compatibility from declaration checks or emulator health.
 
 ## Building and checking against real receipts
 
-Install the locked Node workspace with `npm ci`. From a clean checkout, provide `PAXEER_X_REFERENCE_APP_ARTIFACTS` as an absolute manifest filename in an owner-only directory outside the checkout, then run `node services/platform/examples/build-reference-apps.mjs`. This one build compiles the actual SDK and three middleware packages, builds the CLI, and builds the marketplace guest through that CLI. The private manifest binds the checked-out revision and hashes every compiled Node output, the CLI, and the guest.
+On a clean checkout, install dependencies with `npm ci`. Set
+`PAXEER_X_REFERENCE_APP_ARTIFACTS` to an absolute manifest filename in an
+owner-only directory outside the checkout, then run:
 
-Provide an owner-only external `PAXEER_X_EVIDENCE_DIR` and run `node services/platform/examples/qualify-reference-apps.mjs`. The default scenario is emulator; `PAXEER_X_REFERENCE_APPS_ENVIRONMENT=beta` selects the configured testnet and requires its authentic account and credential inputs. The check consumes the prebuilt artifacts, creates disposable service state under its evidence directory, and checks the actual released API resource, merchant order receipt, and separate marketplace deployment/listing/purchase receipts. Missing artifacts, authority, or successful receipts fail the run. It reports the receipt verifier's actual `sequencer-signed` level.
+```sh
+node services/platform/examples/build-reference-apps.mjs
+```
 
-`LAYERX_EXAMPLE_STATE_ROOT` optionally places standalone seller and merchant retained state outside their project directories. Leaving it unset preserves the standalone applications' declared state paths.
+The script compiles the SDK and three middleware packages, builds the CLI and
+marketplace guest, and records the source revision and artifact hashes. It
+requires the source tree to remain clean.
+
+Set `PAXEER_X_EVIDENCE_DIR` to an existing owner-only external directory, then run:
+
+```sh
+node services/platform/examples/qualify-reference-apps.mjs
+```
+
+This consumes the prebuilt artifacts and checks actual paid-resource, merchant
+and marketplace outcomes, retaining private process logs and state. It defaults
+to emulator; `PAXEER_X_REFERENCE_APPS_ENVIRONMENT=beta` selects deployed services.
+The prerequisites above still apply. Missing artifacts, authentic receipt keys,
+or successful receipts fail qualification; these commands do not create
+production credentials or prove a higher commitment than their verifiers check.

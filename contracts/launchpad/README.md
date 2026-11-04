@@ -1,266 +1,144 @@
 # Introducing KindleLaunch: The Architecture Behind the Next Generation AMM Launchpad
 
-*A deep dive into the design decisions, layered architecture, and novel mechanisms powering the KindleLaunch Launchpad AMM on HyperPaxeer.*
-
----
+KindleLaunch is the USDL-paired launchpad AMM implemented by the `Sidiora*` Solidity contracts in this directory. This page describes those contracts, their optional Meta-AG/PECOR integration, and the authority and recovery model used by the deployment scripts.
 
 ## Foreword
 
-Every protocol is a set of bets. Bets on what matters. Bets on what doesn't. Bets on what the next generation of DeFi users will actually need.
+Paxeer mainnet-beta is one BFT network running `paxd`; its kernel participates in the network and proposes blocks. EVM chain ID is **125** (`0x7d`). A transaction receipt is final when its block is committed.
 
-KindleLaunch is our bet.
-
-This paper is not a whitepaper. It's an honest, technical account of how KindleLaunch is built — what we borrowed, what we rejected, what we invented, and why. If you've shipped smart contracts, you'll find the tradeoffs familiar. If you haven't, you'll find the principles accessible.
-
-Let's get into it.
-
----
+Public JSON-RPC uses the root path on `api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`, or `api-mainnet-beta.paxeer.network`. The launchpad [Hardhat configuration](hardhat.config.js) selects `https://api5.mainnet-beta.paxeer.network` for `paxeer-x-network`. The `Router` and `MetaAGRouter` names below refer to on-chain trading contracts.
 
 ## The Problem Space
 
-Launchpads have a trust problem.
-
-The current generation suffers from one of two failure modes: they're either too permissive — allowing rug pulls, sniper bots, and whale manipulation to destroy communities before they form — or they're too restrictive, creating walled gardens where creativity and customization are sacrificed at the altar of safety.
-
-The AMM layer underneath most launchpads is similarly compromised. Static fees don't reflect market reality. Monolithic contracts make auditing a nightmare. And when something breaks, it breaks everything.
-
-KindleLaunch is designed to solve this at the architecture level — not the policy level. Good structure makes bad outcomes structurally harder to achieve.
-
----
+A launchpad needs market creation, pricing, fee accounting and controls that operators and integrators can inspect. These contracts separate those responsibilities, but their safety still depends on deployed implementations, token behavior, attached hooks and the actual authority configuration. Local tests establish behavior of the checked-out code; they do not certify an existing deployment.
 
 ## Standing on the Shoulders of Giants
 
-We're not here to reinvent everything. We studied five protocols in depth and borrowed the best ideas from each:
-
-**Uniswap V2** taught us the value of the Core/Periphery split: keep your mathematical heart minimal and immutable, and let a replaceable periphery handle user-facing complexity.
-
-**Uniswap V4** gave us hooks — the idea that pool behavior can be extended through lifecycle callbacks without touching core logic. We've adapted this into what we call *Opticals*.
-
-**Balancer V2** demonstrated that separating token accounting from pool math creates a cleaner, more auditable system. We took that lesson and applied it to fee accounting specifically.
-
-**Pump.fun** pioneered the dual-reserve model — virtual reserves for pricing, real reserves for actual holdings. This is central to how KindleLaunch manages liquidity at launch.
-
-**Aerodrome** showed how separating fee logic into a dedicated contract (rather than baking it into the pool itself) produces dramatically cleaner code and more flexible distribution strategies.
-
-We've synthesized these lessons into a single coherent architecture. But we also made one major deliberate departure.
-
----
+The design combines a core/periphery split, optical lifecycle hooks, separate fee accounting and virtual reserves. Its actual entrypoints and types are defined under [contracts/](contracts/); contract names, event signatures and deployment records should be taken from that source and the matching compiled artifacts.
 
 ## The Key Architectural Decision: No Singleton
 
-Uniswap V4 and Balancer use a singleton vault — one contract that manages all pools. It's elegant for multi-hop routing across arbitrary token pairs.
+The core AMM uses a separate beacon proxy for each USDL/token pool. Each pool has its own reserves and state, while pools sharing a beacon share its upgrade authority and implementation. A shared implementation defect can affect every pool using it.
 
-We chose not to do this.
-
-Here's why: every KindleLaunch pool is paired with USDL. There are no multi-token paths. No complex routing trees. When your entire design assumes a single base asset, a singleton adds enormous complexity without meaningful benefit.
-
-Instead, we use **per-pool Beacon Proxies**. Each pool is its own isolated contract instance. This gives us fault containment (a bug in one pool can't drain another), cleaner auditability, and — critically — atomic upgradability across all pools simultaneously via the Beacon pattern.
-
-More on that shortly.
-
----
+USDL pairing does not exclude multi-token trades. The core [Router](contracts/periphery/Router.sol) implements `swapTokenForToken` as token → USDL → token through two registered pools. The optional [MetaAGRouter](contracts/meta-ag/router/MetaAGRouter.sol) supports adapter selection and `swapMultiHop` across connected token paths, re-quoting each hop with the actual intermediate amount. The optional PECOR layer also has its own custody vault; the per-pool statement applies to the core AMM.
 
 ## The Virtual Reserve Model
 
-Before diving into architecture layers, it's worth understanding the core AMM innovation: KindleLaunch's virtual USDL reserve.
+[ProtocolConfig](contracts/protocol/ProtocolConfig.sol) initializes the virtual USDL default to 10,000 USDL and the token supply default to one billion six-decimal tokens. Each newly created pool starts with its configured virtual USDL reserve and zero real USDL. Existing pools retain their initialized virtual reserve when defaults change.
 
-Every pool launches with a *virtual* USDL reserve — a fixed amount (10,000 USDL by default) that exists for pricing purposes only, not actual holdings. The *real* USDL reserve starts at zero and grows as buys come in.
-
-The effective reserve used for price calculation is:
-
-```
+```text
 Effective USDL = virtualUsdlReserve + realUsdlBalance
+BUY:  amountOut = tokenReserve × amountInAfterFee / (effectiveUsdl + amountInAfterFee)
+SELL: amountOut = effectiveUsdl × amountInAfterFee / (tokenReserve + amountInAfterFee)
 ```
 
-This means a token pool has a defined starting price even with zero real liquidity behind it. Early buyers are pricing against the virtual reserve. As the real reserve grows, the virtual reserve becomes proportionally less significant, and the token graduates toward real market-discovered pricing.
-
-The math that flows from this is clean constant product:
-
-```
-BUY:   amountOut = (tokenReserve × amountInAfterFee) / (effectiveUsdl + amountInAfterFee)
-SELL:  amountOut = (effectiveUsdl × amountInAfterFee) / (tokenReserve + amountInAfterFee)
-```
-
-One important invariant: **the protocol can never pay out more real USDL than it holds.** The explicit `amountOut <= realUsdlBalance` check is essential: the curve prices against virtual plus real reserves, and sufficiently large sells can quote more USDL than the pool actually holds. Such sells revert at the real-liquidity limit.
-
----
+These are the integer constant-product calculations in [ReserveLib](contracts/libraries/ReserveLib.sol). The fee is taken from the input asset. Buy fees are USDL sent to FeeAccumulator; sell fees remain in the pool as tokens. A sell whose output exceeds real USDL reverts with `VirtualFloorBreached()`. Virtual reserves provide pricing depth, not redeemable USDL backing.
 
 ## The Six-Layer Architecture
 
-KindleLaunch is organized into six distinct layers. The dependency rule is absolute: **data flows strictly downward.** No layer may import from anything above it.
-
-```
-Periphery → Opticals → Core-Logic → Data → Protocol → Libraries/Bases
-```
-
-Here's what lives in each layer and why.
-
----
+The source groups protocol configuration, data, pool logic, optical extensions, periphery and shared libraries. The sections below describe responsibilities; calls also cross these groups for registry lookup, configuration, hooks and event emission.
 
 ### Layer 1: Protocol — The Rules of the Game
 
-The Protocol layer defines the global invariants that every other contract respects.
+**ProtocolConfig** stores virtual defaults, fee settings and the creation fee. Fresh deployments charge **1 USDL per pool creation** (1,000,000 base units), excluding network gas. Direct factory creation and periphery creation collect the fee once and credit Treasury. Core deployment requires six-decimal USDL; `ProtocolConfig.initialize` itself does not check decimals, so custom deployment tooling must do so.
 
-**ProtocolConfig** is the single source of truth for all protocol parameters: fee floors and ceilings, the virtual USDL default, the creation fee (an anti-spam mechanism), and the weights used in dynamic fee calculation. Every contract that needs a parameter reads it from here — there's no duplication, no drift.
+Upgrading an existing deployment does not rerun initialization or reset its fee. A fee change requires `ProtocolConfig.setCreationFee(1000000)` through its configured governance and Timelock process. The creation fee is denominated in USDL and does not use an oracle to maintain a dollar value.
 
-Fresh Sidiora deployments charge **1 USDL per pool creation** (1,000,000 base units of six-decimal USDL), excluding network gas. Factory and router creation paths collect this fee once and credit the treasury ledger. Core deployment rejects USDL tokens with other decimal counts. The fee is denominated in USDL; launchpad pricing does not use an oracle to track its dollar value. Existing deployments retain their stored fee: upgrading the implementation does not rerun initialization. Their administrator must call `ProtocolConfig.setCreationFee(1000000)` through the configured governance and Timelock process. The fee remains governable.
+The [creation-fee regressions](test/core/creation-fee.test.js), [ProtocolConfig tests](test/protocol/ProtocolConfig.test.js) and [deployment tests](test/remediation/Deployment.test.js) cover local charging, configuration, decimal validation and recovery behavior. They do not establish a live deployment’s current fee.
 
-Custom deployment tooling must enforce the same six-decimal USDL requirement: `ProtocolConfig.initialize` itself does not validate token decimals.
+**Treasury** accounts for protocol deposits and governed withdrawals. Authorized producers record deposits; administration and withdrawal authority must be checked on the deployed contract.
 
-The [creation-fee regressions](test/core/creation-fee.test.js) check payer, treasury and market state around all three entrypoints. Their `describe` groups use isolated `beforeEach` fixtures; the permit case covers the existing-allowance fallback with a bounded `deadline`. [ProtocolConfig tests](test/protocol/ProtocolConfig.test.js) check initialization and administrative controls, using the same six-decimal units as the `p6` helper in [test constants](test/helpers/constants.js). [Deployment tests](test/remediation/Deployment.test.js) exercise the `main` entrypoint in [deploy.js](scripts/deploy.js), including decimal rejection before transactions, fee preservation through governance handover and restart recovery. These are local tests; they do not establish a live deployment's current fee.
+**Timelock** is deployed without a proxy and enforces delayed governance operations. `TIMELOCK_DELAY` defaults to 172800 seconds (48 hours); deployment accepts 3600 through 2592000 seconds. The configured guardian can cancel queued operations.
 
-**Treasury** holds accumulated protocol revenue. It cannot modify config or interact with pools. Its only jobs are receiving and disbursing.
+**GovernanceModule** defaults to `GOVERNANCE_MODE=admin`. Deployment initializes administrator-only governance without a voting token, then retains `ADMIN_ROLE` for `GOVERNANCE_ADMIN_ADDRESS`, or the deployment wallet if unset. A multisig is an explicit operator choice. The administrator queues changes using `adminExecute`; execution still waits for Timelock. Timelock holds proxy `DEFAULT_ADMIN_ROLE` and proposer authority is handed to GovernanceModule. Administrator-only mode rejects token proposals and mode deactivation.
 
-**Timelock** is the trust anchor of the entire system, and uniquely, it is the only governance contract we chose to make *immutable*. If the Timelock could be upgraded, the security model would be self-referential. The Timelock enforces its configured delay on governance-approved actions; deployment defaults to 48 hours.
-
-**GovernanceModule** defaults to administrator-controlled governance through Timelock. The deployment uses `initializeAdmin(timelock, admin)` without a voting token; `SID_ADDRESS` is not required in this mode. The designated administrator queues changes with `adminExecute`, and Timelock enforces the delay before execution. Upgrade and role administration remain with Timelock. Set `GOVERNANCE_ADMIN_ADDRESS` to an administrator or multisig; otherwise the deployment wallet retains decision authority. Administrator-only deployments reject token proposals and administrator-mode deactivation. `GOVERNANCE_MODE=token` explicitly selects the existing SID checkpoint-voting path. See the [mainnet deployment instructions](operations/README.md#launchpad-mainnet-deployment).
-
----
+`GOVERNANCE_MODE=token` explicitly selects checkpoint voting with `SID_ADDRESS`. That deployment path disables bootstrap administrator decisions at handoff. It is not an automatic future transition of an administrator-only deployment. See [mainnet deployment](operations/README.md#launchpad-mainnet-deployment).
 
 ### Layer 2: Data — The Memory of the Protocol
 
-Three contracts form the protocol's persistent record-keeping.
+**EventEmitter** provides central typed and generic event channels. It is not a complete substitute for source-contract logs: some callers emit mirrors on a best-effort basis, while other configured hub calls propagate failure. Indexers must follow the source contracts and deployed wiring as well as the hub. Core pool events include `poolId`; configuration, transfer, governance and other events use their own identifiers. For example, `TokenTransfer` has a token address and no `poolId`. Emitted activity events include block timestamp and number; the administrative `TypedEmitterPermission` event does not. See the [IEventEmitter reference](docs/interfaces/IEventEmitter.md) for payloads, indexed fields and permissions.
 
-**EventEmitter** is the single event hub for the entire protocol. Inspired by GMX V2's design, every meaningful action in KindleLaunch — a swap, a market creation, a fee distribution, a config update — emits through this one contract. Every event carries a poolId, a block timestamp, and a block number. Indexers need to track exactly one address.
+**PoolRegistry** maps tokens to pools and stores creator, optical and NFT metadata. Factory registration requires `FACTORY_ROLE`; periphery contracts query it for discovery and validation.
 
-**PoolRegistry** handles on-chain pool discovery. It maps token addresses to pool addresses, creators to their pools, and stores creation metadata. The Router validates against it. The Quoter queries it. The Factory writes to it. Nobody else does.
-
-**FeeAccumulator** is where fee accounting lives — completely separated from the pool itself. After each swap, the pool records the fee amount here and then focuses on what it's good at: AMM math. The FeeAccumulator handles the four distribution strategies (more below), the protocol's cut, and the treasury sweep. Clean separation of concerns.
-
----
+**FeeAccumulator** tracks USDL pool fees, protocol revenue and distribution liabilities. It applies the selected fee-distribution path and optical fee hooks. Sell-side token fees remain in the pool instead of becoming USDL fee claims.
 
 ### Layer 3: Core-Logic — The Heart
 
-This is where value is created and traded.
+**SidioraFactory** creates the token with CREATE2 and a pool beacon proxy, authorizes fee recording, mints the fee-rights NFT, registers metadata, binds the token to the pool and transfers the initial supply to the pool. It emits creation information locally and through its configured EventEmitter. These operations occur in one transaction.
 
-**KindleLaunchFactory** orchestrates market creation in a single transaction. In sequence: read parameters from ProtocolConfig, collect the creation fee, deploy a new ERC20 token via CREATE2, deploy a new pool via Beacon Proxy, transfer the entire token supply to the pool, mint the fee rights NFT to the creator, register everything in PoolRegistry, emit MarketCreated. That's a complete market, atomically.
+**SidioraPool** implements swaps, reserve accounting, dynamic fees and optical swap hooks. It bounds sells by real USDL, checks prepaid input and output slippage, and checks reserve backing after callbacks. Its guardian initially is the creator; guardian transfer requires acceptance and is independent of NFT ownership.
 
-**KindleLaunchPool** is the AMM engine. It is deliberately narrow in scope: AMM math, state transitions, fee recording, and optical hooks. It does not manage fee strategies, mint tokens, or register itself. Dynamic fees are calculated via the FeeLib library, considering pool age, price volatility (tracked via an 8-slot circular price buffer), and whale concentration. After calculating the fee, it calls FeeAccumulator.recordFee() and moves on.
+**SidioraERC20** uses the in-house ERC20 base with permit and historical balance/supply checkpoints. Supply is minted once in the constructor. Its code is not upgradeable, but a bound pool’s optical can impose transfer policy through `beforeTokenTransfer`; immutable code does not imply unrestricted transfers.
 
-**KindleLaunchERC20** is intentionally the simplest contract in the system: a standard ERC20 with Permit support, minted once by the Factory, supply fixed forever. Users must be able to trust that their token code doesn't change. So it doesn't.
-
-**KindleLaunchNFT** represents fee rights. One NFT per pool, minted to the creator at launch. Transfer it, and you transfer all future fee rights. The NFT stores the chosen fee strategy and can be updated by whoever holds it. This is a fundamentally different model from liquidity position tokens — here, the NFT isn't about liquidity, it's about ongoing protocol revenue rights.
-
----
+**SidioraNFT** represents pool fee rights and the selected strategy. Transferring the NFT transfers control of those rights, including fees still accumulated for that pool. Ownership does not confer pool guardian authority. The NFT supports strategy changes by approved callers or its strategy-setter role, with additional owner checks at FeesRouter entrypoints.
 
 ### Layer 4: Opticals — Programmable Pool Behavior
 
-Opticals are plugin contracts that inject custom logic at defined points in a pool's lifecycle. The interface exposes four hooks: `beforeSwap`, `afterSwap`, `beforeFeeDistribution`, and `afterFeeDistribution`. A bitmap flags which hooks are active, so the pool skips unused callbacks without wasted gas.
+The [IOptical interface](contracts/opticals/interfaces/IOptical.sol) exposes `beforeSwap`, `afterSwap`, `beforeFeeDistribution` and `afterFeeDistribution`, selected by hook flags. The current token implementation also supports flag bit 4 for `beforeTokenTransfer`.
 
-Six preset Opticals ship with the protocol:
+Core deployment installs five preset contracts:
 
-| Optical | What It Does |
+| Optical | Behavior |
 |---|---|
-| **AntiSnipe** | Blocks buys above a supply percentage threshold in the first N blocks |
-| **MaxWallet** | Enforces a maximum token holding per wallet |
-| **BuybackBurn** | Redirects a portion of fees to buy back and permanently burn tokens |
-| **Tax** | Adds a configurable buy/sell tax routed to the NFT owner |
-| **Cooldown** | Enforces minimum time between trades per wallet (anti-bot) |
-| **Vesting** | Implements gradual token unlock for specified wallets |
+| **AntiSnipeOptical** | Limits early buys using a supply percentage and block window |
+| **MaxWalletOptical** | Enforces wallet limits through the token transfer hook, with owner-managed exemptions |
+| **BuybackBurnOptical** | Accumulates a fee portion for an explicit slippage-bounded buyback and token burn transfer |
+| **TaxOptical** | Reduces effective swap input; the taxed portion remains in the pool |
+| **CooldownOptical** | Enforces a per-wallet interval between swaps |
 
-Opticals are immutable once deployed. New behavior requires a new deployment. Audited once, trusted forever.
+[LaunchpadOptical](contracts/opticals/presets/LaunchpadOptical.sol) additionally implements pool-specific launch, vesting and capital-raise behavior; it is not one of those five shared presets. Presets are deployed without proxies, but some retain mutable owner-controlled state. Review both bytecode and configuration.
 
-The OpticalRegistry provides trust signaling — unregistered opticals are flagged as unverified to users and frontends, but they still function. This is freedom with transparency, not control.
-
----
+OpticalRegistry provides optional approval signaling tied to observed runtime identity and flags. An approval can become invalid and must be renewed after review. Deregistration does not detach a pool’s hooks. See [optical review identity](operations/README.md#optical-review-identity).
 
 ### Layer 5: Periphery — What Users Touch
 
-The Periphery layer is the public face of the protocol.
+**Router** provides market creation, buy, sell and two-pool token swaps, including permit variants and multicall. It validates registry membership and transfers input before invoking pools. Direct factory creation is also available; the periphery is not the only user entrypoint.
 
-**Router** is the single entry point for all user transactions: creating markets, buying, and selling. It's effectively stateless — it validates, routes, and delegates. It handles all token transfers into pools before triggering swaps. It inherits Multicall, meaning multiple actions can be batched into a single transaction.
+**Quoter** provides read-only quotes, fee breakdowns, price impact, pool statistics and discovery. Off-chain `eth_call` reads do not submit a transaction or pay network gas; on-chain callers still consume gas. Quotes reflect current state and can change before execution.
 
-**Quoter** is read-only and consumes no gas via staticcall. It provides exact input/output quotes with fee breakdowns and price impact, pool stats, market cap calculations, and paginated pool discovery. The frontend leans on this heavily.
-
-**FeesRouter** is the interface for NFT holders to manage their fee strategy: switch between CLAIM, BURN, AIRDROP, and LP_REWARDS, and execute each accordingly.
-
----
+**FeesRouter** checks NFT ownership and selected strategy for fee management. Holder airdrop claims use a separate path without NFT ownership requirements.
 
 ### Layer 6: Libraries and Bases — Zero External Dependencies
 
-Every mathematical and utility primitive in KindleLaunch is built in-house. No OpenZeppelin. No external library dependencies. This was a deliberate choice: fewer external contracts means fewer attack vectors, simpler audits, and full understanding of every line of code in the system.
-
-KindleLaunchMath handles fixed-point arithmetic. FeeLib encapsulates dynamic fee calculation. ReserveLib handles the constant product math. TransferHelper wraps token transfers safely. BitFlag manages the optical hook bitmap.
-
-The base contracts (ERC20Base, ERC721Base, Proxy patterns, AccessControl, ReentrancyGuard, etc.) are similarly in-house implementations of battle-tested patterns.
-
----
+The core Solidity primitives are implemented in this tree: SidioraMath, FeeLib, ReserveLib, TransferHelper and BitFlag, with in-house ERC20/ERC721, access control, reentrancy, pause and proxy bases. Build and deployment tooling has package dependencies listed in [package.json](package.json). In-house implementations still require review and qualification.
 
 ## Upgradeability Without Trust Compromise
 
-This is one of the harder problems in protocol design: how do you build something that can be improved over time without creating an upgrade backdoor that undermines user trust?
+Core singleton contracts use UUPS proxies; upgrade authorization requires `DEFAULT_ADMIN_ROLE`. Finalized deployment assigns that role to Timelock. Pool instances share PoolBeacon, whose ownership must also be accepted by Timelock through a delayed transaction. A beacon implementation change affects every attached pool.
 
-KindleLaunch's answer is layered and explicit:
-
-**Singleton contracts** (Factory, Router, NFT, etc.) use UUPS proxies. An upgrade can only be queued through the GovernanceModule and executed through the Timelock after its mandatory delay.
-
-**Pool instances** use Beacon Proxies. There is exactly one PoolBeacon contract. Every pool reads its implementation from this beacon. Upgrading the beacon's implementation upgrades all pools simultaneously — atomically, consistently, with no stragglers. The beacon itself is only upgradeable through the same Timelock.
-
-**User tokens** (KindleLaunchERC20) are immutable. No upgrade path, ever. Token holders need this guarantee.
-
-**The Timelock itself** is immutable. This is the root of the trust model.
-
-**Optical presets** are immutable. New behavior = new contract = new audit.
-
-The result: no EOA admin key holds upgrade power. No single developer can push a malicious upgrade in the middle of the night. Every change is delayed, observable, and cancellable by guardians.
-
----
+User tokens have no implementation upgrade path. Timelock and the deployed optical presets have no proxy upgrade path. Existing deployment authority must be inspected: temporary deployer privileges and pending beacon acceptance are real powers until handoff completes. Timelock delays provide review time; they do not guarantee a safe proposal or a multisig decision maker.
 
 ## Fee Strategy: Four Ways to Win
 
-When a creator launches a market on KindleLaunch, they mint an NFT that represents their fee rights. That NFT can be configured with one of four strategies at any time:
+Fee strategy values in the NFT and FeesRouter are:
 
-**CLAIM** — Fees accumulate in USDL and the NFT holder withdraws on demand. The purest form of protocol revenue sharing.
+- **CLAIM (0)**: the NFT owner withdraws accumulated USDL fees on demand.
+- **BURN (1)**: accumulated USDL fees are transferred to the dead address. This does not burn the pool token.
+- **AIRDROP (2)**: `executeAirdrop` creates an epoch using balances and total supply from the previous block. Pool and dead-address holdings are excluded from eligible supply. Holders claim USDL individually through `claimAirdrop` or `claimAirdropEpoch`; there is no holder-iteration payout. Claims close after 180 days, and `sweepExpiredAirdrop` returns the remainder to the pool’s accumulated fee balance. Tokens without supported historical checkpoints cannot receive new snapshot distributions; legacy epochs require explicit migration.
+- **LP_REWARDS (3)**: USDL fees move to the pool, then FeesRouter calls `syncReserves()` to include them in real liquidity.
 
-**BURN** — Accumulated fees are transferred to the dead address. A deflationary signal. A commitment mechanism.
-
-**AIRDROP** — Fees accumulate and are distributed proportionally to all current token holders. The gas cost of on-chain iteration is viable on HyperPaxeer's subsidized network. It turns fees into community rewards.
-
-**LP_REWARDS** — Fees are transferred to the pool as additional real USDL reserve. This increases the pool's real liquidity depth over time, compounding into tighter spreads and better prices for everyone. Mechanically clean: the pool simply calls syncReserves() and re-reads its own balance, avoiding any upward call across the layer boundary.
-
----
+Snapshot allocations are fixed for their epoch. Transferring tokens after the snapshot does not transfer that epoch’s entitlement. See [FeeAccumulator](contracts/data/FeeAccumulator.sol) and [FeesRouter](contracts/periphery/FeesRouter.sol) for claims and migration entrypoints.
 
 ## Dynamic Fees
 
-KindleLaunch's fee system is not static. It is calculated fresh on every swap, considering three inputs:
+[SidioraPool](contracts/core/SidioraPool.sol) calculates fees from the configured base, pool age in seconds and RMS relative price movement across up to eight chronological observations. Snapshot insertion is bounded by time and volume thresholds; these are not necessarily the last eight trades.
 
-**Pool Age** — New pools carry higher fees. This reflects genuine uncertainty about price discovery in the early blocks. Fees decay over time as the market matures.
-
-**Volatility** — A circular buffer of 8 recent price snapshots tracks short-term price movement. High volatility raises fees to compensate liquidity providers for increased risk.
-
-**Whale Concentration** — Large relative order sizes indicate concentrated buying or selling. Higher concentration raises fees proportionally.
-
-The three components combine with configurable weights defined in ProtocolConfig. The result is a fee that reflects actual market conditions — not a number someone picked at deployment and never changed.
-
-Fees are bounded by minFeeBps (0.10%) and maxFeeBps (3.00%), with a 0.30% base.
-
----
+The library has a concentration component, but the current pool supplies a zero holder metric and ProtocolConfig rejects nonzero concentration weights. Holder concentration does not currently raise fees. Fresh defaults are a 30 bps base (0.30%), clamped between 10 bps (0.10%) and 300 bps (3.00%). Age and volatility contributions can raise the actual fee above the base.
 
 ## Deployment Details
 
-- **Chain**: HyperPaxeer (EVM Chain ID 125)
-- **Solidity**: 0.8.27, viaIR enabled
-- **Upgrade Authority**: Timelock via GovernanceModule
-- **Governance Token**: SID (existing ERC20 on Paxeer)
-- **Initial Admin**: Network-owned multisig, transitioning to full SID-holder governance
-
----
+- **Chain**: Paxeer mainnet-beta, EVM chain ID 125 (`0x7d`)
+- **Hardhat network**: `paxeer-x-network`, using root-path JSON-RPC
+- **Solidity**: 0.8.27 with viaIR; compiler settings are in [hardhat.config.js](hardhat.config.js)
+- **Upgrade authority after handoff**: Timelock, with GovernanceModule as proposer
+- **Default decisions**: `GOVERNANCE_MODE=admin`; configured administrator or deployment wallet, with no SID requirement
+- **Optional token governance**: `GOVERNANCE_MODE=token` with `SID_ADDRESS` providing historical voting checkpoints
+- **Multisig**: supplied explicitly through `GOVERNANCE_ADMIN_ADDRESS`; not created or guaranteed by deployment
+- **Addresses**: read the reviewed `deployments/<network>-addresses.json`; this overview does not establish live contract addresses
 
 ## What We Are and Aren't
 
-KindleLaunch is a launchpad AMM — specifically designed for the one-sided USDL-paired model that launchpads require. It is not a general-purpose DEX. It is not trying to be Uniswap.
-
-It is designed for:
-- Projects that want to launch a token with real market mechanics from block one
-- Creators who want genuine fee rights, not just governance tokens
-- Communities that want protection from snipers and bots built into the protocol layer
-- Developers who want to extend pool behavior through a clean, auditable hook system
-
----
-
-
-
-
+The core launchpad creates USDL-paired markets with fee-rights NFTs and optional optical policy. Its two-pool swaps and the optional adapter layer extend trading routes. They do not change the core pool’s USDL pairing or establish oracle price quality. Integrators should use the matching deployed ABI, current authority inventory and [operations runbook](operations/README.md) when evaluating a deployment.
 
 ### Operator safety and upgrade qualification
 
@@ -268,28 +146,25 @@ The [production operations runbook](operations/README.md) covers limited emergen
 
 Run scripts with the connected Hardhat network; `NETWORK_TYPE`, if supplied, must agree. The canonical manifest is `deployments/<network>-addresses.json`, with flat `Name_proxy`/`Name_impl` keys and `_meta.network` as the chain ID. Legacy manifests require an explicit operator migration; no implicit network fallback is safe.
 
-Core deployment uses temporary deployer authority, hands administration to Timelock, disables governance bootstrap mode, and hands proposer authority to GovernanceModule. Core `ADMIN_ADDRESS` overrides fail before deployment. Beacon ownership acceptance is queued through Timelock and remains pending until its ETA: the deployment manifest records that outstanding step. A deployment is not finalized until delayed acceptance succeeds and owner/roles are checked. MetaAG likewise wires under temporary authority and hands administrative roles to the existing Timelock; relayer, keeper and fee collector remain explicit operational roles.
+Core deployment uses temporary deployer authority, hands proxy administration to Timelock, and hands proposer authority to GovernanceModule. In administrator mode it retains the selected administrator’s `ADMIN_ROLE` and active administrator decision path. Token mode disables bootstrap administrator decisions and removes the deployment wallet’s `ADMIN_ROLE`. Core `ADMIN_ADDRESS` overrides fail before deployment. Beacon ownership acceptance is queued through Timelock and remains pending until its ETA: the deployment manifest records that outstanding step. A deployment is not finalized until delayed acceptance succeeds and owner/roles are checked. MetaAG likewise wires under temporary authority and hands administrative roles to the existing Timelock; relayer, keeper and fee collector remain explicit operational roles.
 
 Upgrade commands require `UPGRADE_PLAN` pointing to a reviewed JSON plan: `chainId`, `migrationCalldata`, `simulation: {file, sha256}`, and `contracts` entries containing `contract`, `proxyKey`, `beacon`, `oldImplementation`, `oldCodeHash`, `baseline`, `baselineSha256`, and `newArtifactHash` (keccak256 creation bytecode). Preflight checks live implementation identity, pinned storage baseline, recursive type compatibility, artifact identity and simulation evidence hash before broadcasting. Evidence hashes establish identity, not quality: reviewers must verify the fork simulation and migration assertions. Retain baseline layouts and prior artifacts; incompatible layouts require a separately designed migration, not a refreshed baseline. Storage gaps are conservatively immutable in the automated checker.
 
 Documentation generation is opt-in: `RUN_DOCGEN=true` enables compile-time docgen. Install the pinned static analyzer in an isolated environment with `python -m venv .venv-audit`, `.venv-audit/bin/pip install -r requirements-audit.txt`, then `.venv-audit/bin/slither . --config-file slither.config.json`. Local tests, static analysis and code review do not constitute live deployment qualification.
 
-
 Beacon upgrade plans additionally require `tokenInventory: {file, sha256}` on the pool entry. The JSON inventory must cover every registered pool and contain `pool`, `token`, `runtimeHash`, and reviewed `transferHookSimulation` evidence. Preflight verifies token identity, pool binding, and historical balance/supply APIs. Existing immutable tokens lacking these capabilities require a separate migration design and cannot be made compatible by upgrading their pool beacon. Legacy FeeAccumulator upgrades additionally need bounded accounting migration and reviewed immutable legacy airdrop allocations; legacy NFTs need bounded pool-index migration before new mints. Preserve historical artifacts and audit the actual migration transaction sequence.
 
 Write helpers retain transaction hash, nonce, target, calldata and value before awaiting confirmation. They do not automatically resubmit ambiguous writes: reconcile the recorded receipt and operation-specific postcondition before retrying. Finalized core proxies and beacon are controlled by Timelock, so direct EOA upgrade scripts cannot bypass governance; prepare and execute upgrades through the governed proposal lifecycle.
 
-
 MetaAG deployment defaults the Sidiora spot adapter to disabled. `SIDIORA_MIN_LIQUIDITY_RAW` must be a positive USDL amount in token base units; default is 1,000 USDL scaled using its live decimals. Explicit `ENABLE_SIDIORA_SPOT_REFERENCE=true` additionally requires an independent `USDL_USD_ORACLE_ADDRESS` implementing a fresh positive `getPrice(USDL)`; this opts into instantaneous manipulable pool prices, not manipulation resistance. The adapter's disabled default is not evidence of healthy price availability.
-
 
 Interrupted deployments can resume with the same environment and `RESUME_DEPLOYMENT=true`. The manifest binds configuration, chain, deployer, constructor bytecode, confirmed transaction identities and runtime hashes. Confirmed implementations, proxies and immutable contracts are reused; wiring and administrative handoffs reconcile exact on-chain postconditions. Proxy and beacon implementation drift fails before new broadcasts. New creation intent, predicted address and nonce are persisted before broadcasting, so an ambiguous RPC response cannot silently cause duplicate deployment. Ambiguous pending or failed creation receipts require explicit operator reconciliation rather than automatic resubmission. Keep the original checkpoint; do not replace it with a newly generated manifest. Expired beacon acceptance requires a reviewed governance cancellation/requeue.
 
-For an existing local-node checkpoint, retain the original deployment variables and run:
+From `contracts/launchpad/`, for an existing checkpoint on the configured local `hardhat-network` (chain ID 31337), retain the original deployment variables and run:
 
 ```sh
-RESUME_DEPLOYMENT=true node node_modules/hardhat/internal/cli/cli.js run scripts/deploy.js --network localhost
-RESUME_DEPLOYMENT=true node node_modules/hardhat/internal/cli/cli.js run scripts/meta-ag/deploy-pecor-meta-ag.js --network localhost
+RESUME_DEPLOYMENT=true node node_modules/hardhat/internal/cli/cli.js run scripts/deploy.js --network hardhat-network
+RESUME_DEPLOYMENT=true node node_modules/hardhat/internal/cli/cli.js run scripts/meta-ag/deploy-pecor-meta-ag.js --network hardhat-network
 ```
 
 Select the intended connected network explicitly. Core and layered plans occupy separate `_deployment` and `_metaAgDeployment` sections of the same manifest; layered recovery preserves the inherited core identity. The layered repair script delegates to the bound deployment plan when present. An unknown broadcast, missing or failed receipt, configuration mismatch, or implementation drift stops recovery for review instead of creating replacement contracts.

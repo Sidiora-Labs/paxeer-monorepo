@@ -187,7 +187,7 @@ func (i *InfoAPI) FeeHistory(ctx context.Context, blockCount gmath.HexOrDecimal6
 	defer func() {
 		recordMetricsWithError(ctx, "eth_feeHistory", i.connectionType, startTime, returnErr, recover())
 	}()
-	result = &FeeHistoryResult{}
+	result = &FeeHistoryResult{OldestBlock: new(hexutil.Big)}
 
 	// logic consistent with go-ethereum's validation (block < 1 means no block)
 	if blockCount < 1 {

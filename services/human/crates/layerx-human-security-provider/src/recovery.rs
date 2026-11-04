@@ -78,8 +78,6 @@ impl RecoveryTransactionEvidence {
                 != Some(self.activity_ids.len() as u64)
             || self.activity_ids.get(selected) != Some(&receipt.activity_id())
             || first.checked_add(u64::from(self.receipt_index)) != Some(receipt.global_sequence())
-            || receipt.result_code() != 0
-            || receipt.operation() != 2
             || receipt.batch_id()[..24] != [0; 24]
             || integer(&receipt.batch_id()[24..])? != height
         {
@@ -158,7 +156,6 @@ impl RecoveryTransactionEvidence {
         {
             return Err(Error::Refused);
         }
-        self.verify_call(&raw, receipt)?;
         let result_proof =
             decode_transaction_proof(&decode64(&self.result_proof)?).map_err(|_| Error::Refused)?;
         let result = TxResult {
@@ -167,8 +164,7 @@ impl RecoveryTransactionEvidence {
             gas_wanted: self.gas_wanted,
             gas_used: self.gas_used,
         };
-        if result.code != 0
-            || result.gas_used < 0
+        if result.gas_used < 0
             || result.gas_wanted < 0
             || result.gas_used as u64 != summary.gas_used()
             || result_proof.index != i64::from(tx_index)
@@ -189,7 +185,8 @@ impl RecoveryTransactionEvidence {
         Ok(())
     }
 
-    fn verify_call(&self, raw: &[u8], receipt: &ProtocolReceipt) -> Result<()> {
+    pub(super) fn verify_recovery_policy(&self, receipt: &ProtocolReceipt) -> Result<()> {
+        let raw = decode64(&self.raw_transaction)?;
         let mut bytes = raw.strip_prefix(&[2]).ok_or(Error::Refused)?;
         let (list, is_list) = rlp(&mut bytes)?;
         if !is_list || !bytes.is_empty() {

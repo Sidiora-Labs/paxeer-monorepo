@@ -1,0 +1,11 @@
+[repair.22.33.52]
+audit = "22.30.106"
+finding = "14"
+proof = "repair_22_33_52.rs::finding14_real_paxd_receipt_crosses_node_rpc_and_human_store_restart"
+negative_proof = "repair_22_33_52.rs::finding14_malformed_and_foreign_recorded_evidence_is_refused"
+existing_suite = "proof_human_test_support.rs::proof_human_test_support_real_committed_receipt_recovers_after_human_restart"
+producer = "daemon/committed-fixture/vectors/vector-v4-committed.json; original source SHA-256 and receipt identity checked against the committed conformance vector"
+consumer = "NodeRpc receipt decoder -> EvidenceBundle consensus verifier -> PrincipalStore -> reopen -> EvidenceBundle decode and consensus verification"
+baseline = "No earlier gate ledger or repair target existed; unchanged-tree verification was not run because the explicit ordered gates require full implementation before hf-build and hf-done."
+wiring_request = "services/agent/crates/layerx-agentd/src/node_rpc.rs (agent domain): expose native sequence-batch inclusion/consensus proof retrieval; this test carries recorded receipt RPC through NodeRpc and independently supplies the recorded batch proof to the production human verifier."
+evidence = "Runner hf-build/hf-done ledger records the exact candidate revision, commands, exits and private log locations."

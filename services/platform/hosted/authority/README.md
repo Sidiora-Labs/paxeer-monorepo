@@ -1,14 +1,23 @@
 # Receipt authority
 
 `layerx-platform-authority` builds the `layerx-receipt-authority` binary. It
-serves verified authorised-batch facts for the LayerX kernel over TLS: receipt
-bytes come from the kernel's LNI unix socket, header and receipt signatures are
-checked against a pinned sequencer key, and inclusion evidence comes from an
-independent receipt-authority replica. The gateway, registry and webhooks
-services call it with their own bearer tokens. An optional, separately
+serves verified authorised-batch facts over TLS. Receipt bytes come from the
+node's `pax_sequencerReceipt` JSON-RPC method, identified by transaction hash;
+receipt signatures and signed batch evidence are checked against pinned keys
+and their authorised height ranges. An independent receipt-authority replica
+supplies inclusion evidence. The gateway, registry and webhooks services call
+it with their own bearer tokens. An optional, separately
 configured group of `/v1/agent/*` routes answers the human agent contract used
 by `RemoteHumanAuthority` in
 [`services/agent/crates/layerx-agentd/src/human_runtime.rs`](../../../../services/agent/crates/layerx-agentd/src/human_runtime.rs).
+
+Paxeer is one BFT network with EVM chain ID **125** (`0x7d`). Its kernel is part
+of `paxd` and proposes blocks. Block commit is finality; this verifier does not
+provide a second settlement domain. `submitted` is an acknowledgement,
+`receipted` is signed execution evidence, and `committed` carries block
+inclusion. Tenant domains are database namespaces within the network. See the
+[gateway](../gateway/README.md) for public node coordinates and the
+[reference applications](../../examples/README.md) for receipt consumers.
 
 Sources: [`src/main.rs`](src/main.rs) (service, routes, environment),
 [`src/human.rs`](src/human.rs) (human agent routes and principal policy),
@@ -27,9 +36,11 @@ cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platf
 
 Integration tests live in [`tests/`](tests): `human_tls.rs` starts the real
 binary and drives the real `RemoteHumanAuthority` client against it with a
-private CA; `real_node.rs`, `budget_proof_exports.rs` and
-`maintenance_identity.rs` exercise the service against recorded fixtures in
-[`tests/fixtures`](tests/fixtures).
+private CA; `chain_receipts.rs` covers the node receipt transport, `budget_proof_exports.rs`
+covers budget exports, and `maintenance_identity.rs` covers identity evidence.
+`repair_22_31_207.rs` drives native execution and reopened committed state.
+Recorded inputs live in [`tests/fixtures`](tests/fixtures); test scope and trust
+assumptions are defined by each test, not by a blanket production-readiness claim.
 
 ## Service routes and configuration
 
@@ -39,8 +50,8 @@ bearer-protected routes are:
 
 | Route | Purpose |
 | --- | --- |
-| `/v1/authorized-batches/by-activity/{activity_id}` | Verified authorised-batch facts for an activity |
-| `/v1/authorized-batches/wait-by-activity/{activity_id}` | Same, waiting for a publication notification |
+| `/v1/authorized-batches/by-activity/{activity_id}` | Verified authorised-batch facts for a transaction |
+| `/v1/authorized-batches/wait-by-activity/{activity_id}` | Same, polling receipt and replica evidence within a bounded deadline |
 | `/internal/v1/activities/{activity_id}/authority` | Internal authority lookup |
 | `/v1/batches/{batch_id}/receipt-authority?receipt_digest={digest}` | Relayed to the replica unchanged |
 
@@ -55,11 +66,40 @@ reads its configuration from the environment; `--help` prints the same list:
 | `LAYERX_AUTHORITY_TOKEN_FILES` | Colon-separated files, one service bearer token each |
 | `LAYERX_AUTHORITY_REPLICA_URL`, `LAYERX_AUTHORITY_REPLICA_BEARER_TOKEN_FILE`, `LAYERX_AUTHORITY_REPLICA_ID` | Loopback receipt-authority replica, its bearer token and its 64-hex identity |
 | `LAYERX_AUTHORITY_EVIDENCE_READ_TOKEN_FILE` | Optional distinct bearer allowed only on the receipt-authority relay route |
-| `LAYERX_AUTHORITY_LNI_SOCKET` | LNI unix socket used as the receipt source |
-| `LAYERX_AUTHORITY_PROTOCOL_NETWORK_ID` | Protocol network id expected in the LNI handshake |
+| `LAYERX_AUTHORITY_CHAIN_RPC_URL` | Required loopback HTTP node endpoint serving receipt and committed-state evidence; use the root JSON-RPC path |
+| `LAYERX_AUTHORITY_RECEIPT_KEYS_FILE` | Required protected JSON array of pinned receipt keys and height ranges |
+| `LAYERX_AUTHORITY_PROTOCOL_NETWORK_ID` | Nonzero 32-bit protocol network ID checked in signed evidence |
 | `LAYERX_AUTHORITY_NETWORK_ID`, `LAYERX_AUTHORITY_WIRE_VERSION` | Values echoed in every answer; the wire version must equal the built protocol version |
-| `LAYERX_AUTHORITY_SEQUENCER_ID`, `LAYERX_AUTHORITY_SEQUENCER_PUBLIC_KEY` | Pinned sequencer identity and key |
-| `LAYERX_AUTHORITY_FIRST_BATCH`, `LAYERX_AUTHORITY_LAST_BATCH` | Inclusive authorised batch range |
+| `LAYERX_AUTHORITY_SEQUENCER_ID`, `LAYERX_AUTHORITY_SEQUENCER_PUBLIC_KEY` | Compatibility identity/key pins still required by startup parsing |
+| `LAYERX_AUTHORITY_FIRST_BATCH`, `LAYERX_AUTHORITY_LAST_BATCH` | Compatibility inclusive range still required by startup parsing |
+
+The receipt-key file is a nonempty array with `keyId`, `publicKey`,
+`firstHeight` and `lastHeight` per entry (snake-case aliases are accepted).
+Keys and IDs encode 32 bytes as standard padded base64 (44 characters);
+heights are u64 JSON integers. IDs must be unique and nonzero, keys nonzero,
+and ranges ordered. Active trust verification also requires the key ID to
+match SHA-256 of its public key. This file supplies verification keys; the
+compatibility environment pins do not replace it. Protect it as described below.
+
+The route's `activity_id` is the transaction's 32-byte hexadecimal identifier
+without `0x`; the upstream JSON-RPC call adds the prefix. Null or submitted-only
+upstream evidence yields 404 `unknown_activity`. Key mismatch yields 502
+`sequencer_key_mismatch`; unavailable or malformed receipt-source evidence yields
+503 `receipt_source_unavailable`; rejected replica evidence yields 502
+`evidence_refused`. A valid signed receipt alone does not establish commitment.
+
+[`src/chain_receipt.rs`](src/chain_receipt.rs) owns receipt transport and key
+selection. [`src/trust.rs`](src/trust.rs) verifies receipt-key history and batch
+headers. Human state evidence additionally binds receipts to committed blocks
+and validates native-store membership through [`src/committed.rs`](src/committed.rs):
+it checks chain ID 125, the node's Comet commit and EVM block projection, and
+ICS23 membership against the committed app root. A header at H authenticates
+state at H-1. The configured loopback node is the committed-header trust boundary;
+this is not an independently bootstrapped light client. LNI receipt sourcing is retired.
+
+`/readyz` returns 200 only when both chain and replica probes are ready, otherwise
+503 with retry guidance. It does not assert that all optional human-state proofs
+or downstream services are available.
 
 ## Human agent contract
 
@@ -89,7 +129,7 @@ All paths have the prefix `/v1/agent/`.
 
 | Route | Additional query parameters | Response fields |
 | --- | --- | --- |
-| `registry` | None | `modules`: array of `{module_id: U16, activity_types: [U32]}` |
+| `registry` | None | `modules`: array of `{module_id: U16, activity_types: [U32]}`; `revision`: H32 |
 | `authorized-batch` | `activity_id`: H32 | `batch_id`, `asset`, `previous_state_root`, `resulting_state_root`, `sequencer_public_key`: H32 |
 | `balance-context` | None | `account_id`, `asset_id`, `sequencer_id`, `sequencer_public_key`: H32; `currency`, `observed_at`: strings; `age_seconds`, `maximum_age_seconds`, `first_batch_number`, `last_batch_number`: U64 |
 | `identity` | `did` | `authorities`: array of `{kind, id: H32}`; `canonical_core_bytes`: HEX; `head_sequence`, `revocation_sequence`: U64; `verification_level`: string; `frozen`: boolean |
@@ -152,11 +192,18 @@ compares the digest, and a missing, invalid or changed policy returns 503
 activity lookups are retained as JSON records under the state root.
 
 Server-side 503 refusal codes include
-`budget_revocation_and_checkpoint_evidence_unavailable` (budget state with no
-LNI-backed proof), `identity_state_proof_unavailable`,
+`budget_revocation_and_checkpoint_evidence_unavailable` (missing authenticated
+budget evidence), `identity_state_proof_unavailable`,
 `capability_state_proof_unavailable`,
 `key_policy_checkpoint_evidence_unavailable`, `budget_state_proof_unavailable`
 and `budget_proof_export_unavailable`.
+
+Budget state and export use native `getBudget` and `budgetRemaining` calls at
+the pay precompile `0x000000000000000000000000000000000000101b`, bound to a
+stable committed block and authenticated account state. The export schema is
+`layerx.human.budget-proof.v2` and includes tenant/principal bindings, committed
+height/hash, calls, account join and finality facts. The identity binding socket,
+when enabled, resolves subject ownership; it is not a receipt-source socket.
 
 ### Principal policy schema
 
