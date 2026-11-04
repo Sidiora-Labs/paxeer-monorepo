@@ -21,6 +21,8 @@ import {
   spotTradeHistory,
 } from "@/core/spot/trade-history";
 import { paxeerChain } from "@/core/perps/config";
+import { getTokenByAddress } from "@/core/spot/addresses";
+import { formatPrice } from "@/core/spot/slippage";
 import { classifyError } from "@/core/errors/classify";
 import { reportError } from "@/core/errors/report";
 
@@ -178,6 +180,7 @@ export function SpotPositionsPanel() {
             initial={portfolio.tradeHistory}
             initialError={portfolio.tradeHistoryError}
             refresh={portfolio.refresh}
+            tokenMetadata={portfolio.positions}
           />
         ) : (
           <ClosedLegsTab address={address ?? null} />
@@ -527,17 +530,28 @@ function OrderHistoryTab({ address }: { address: string | null }) {
 
 // ── Trade History tab ────────────────────────────────────────────────
 
-function TradeHistoryTab({
+export function TradeHistoryTab({
   address,
   initial,
   initialError,
   refresh,
+  tokenMetadata = [],
 }: {
   address: string | null;
   initial: SpotTradesResponse | null;
   initialError: Error | null;
   refresh: () => void;
+  tokenMetadata?: ReadonlyArray<Pick<SpotPosition, "token" | "decimals">>;
 }) {
+  const decimalsByToken = new Map(
+    tokenMetadata.map((token) => [token.token.toLowerCase(), token.decimals]),
+  );
+  const tokenAmount = (raw: string, token: string): number | null => {
+    const decimals =
+      decimalsByToken.get(token.toLowerCase()) ??
+      getTokenByAddress(token)?.decimals;
+    return decimals == null ? null : dStrToToken(raw, decimals);
+  };
   const [history, setHistory] = useState(() => spotTradeHistory(initial));
   const page = history.snapshot === initial ? history.page : initial;
   const trades = page?.items ?? [];
@@ -628,10 +642,10 @@ function TradeHistoryTab({
           </thead>
           <tbody>
             {trades.map((t) => {
-              const exec = dStr(t.executionPrice, 0);
+              const exec = Number(formatPrice(BigInt(t.executionPrice)));
               const vol = dStrToUsd(t.volumeUsd, 0);
-              const inAmt = dStr(t.amountIn, 0);
-              const outAmt = dStr(t.amountOut, 0);
+              const inAmt = tokenAmount(t.amountIn, t.tokenIn);
+              const outAmt = tokenAmount(t.amountOut, t.tokenOut);
               return (
                 <tr
                   key={String(t.id)}
@@ -644,18 +658,22 @@ function TradeHistoryTab({
                     {`${t.tokenIn.slice(0, 6)}… → ${t.tokenOut.slice(0, 6)}…`}
                   </td>
                   <td className="px-4 py-2.5 text-right tabular-nums font-mono">
-                    {inAmt > 0
-                      ? inAmt.toLocaleString("en-US", {
-                          maximumFractionDigits: 6,
-                        })
-                      : "—"}
+                    {inAmt == null
+                      ? "Amount unavailable"
+                      : inAmt > 0
+                        ? inAmt.toLocaleString("en-US", {
+                            maximumFractionDigits: 6,
+                          })
+                        : "—"}
                   </td>
                   <td className="px-4 py-2.5 text-right tabular-nums font-mono">
-                    {outAmt > 0
-                      ? outAmt.toLocaleString("en-US", {
-                          maximumFractionDigits: 6,
-                        })
-                      : "—"}
+                    {outAmt == null
+                      ? "Amount unavailable"
+                      : outAmt > 0
+                        ? outAmt.toLocaleString("en-US", {
+                            maximumFractionDigits: 6,
+                          })
+                        : "—"}
                   </td>
                   <td className="px-4 py-2.5 text-right tabular-nums font-mono">
                     {exec > 0 ? fmtUsd(exec) : "—"}
