@@ -10,7 +10,11 @@ block is committed. See [README.md](README.md) for the interface guide and
 
 Do not equate `pending` with `latest` universally. The committed tags `latest`,
 `safe` and `finalized` resolve through the available-height watermarks.
-`pending` depends on the method and the node's configured provider:
+`pending` depends on the method and the node's configured provider. Proposer
+capability means a wired open-state provider, including while that provider is
+idle; it is not inferred from whether a block happens to be open. Omitted tags
+for `eth_call`, `eth_estimateGas` and `eth_createAccessList` use pending with
+that capability and latest on a full node without it:
 
 - **State and simulation:** With a `PendingSnapshot`, balance, code, storage
   and simulation reads use a frozen view after the last accepted transaction
@@ -39,6 +43,12 @@ Do not equate `pending` with `latest` universally. The committed tags `latest`,
   network. It does not make pending a committed tag.
 - **Proofs:** `eth_getProof` refuses `pending` on every node with `-32000`,
   `pending state has no committed root`.
+
+Pending consumer regressions live in [pending_state_test.go](pending_state_test.go),
+[pending_simulate_test.go](pending_simulate_test.go) and
+[repair_m1147_test.go](repair_m1147_test.go). The repair tests cover omitted
+access-list tags on full nodes and open/idle proposers, explicit pending
+refusal, cancellation, and the HTTP consumer path.
 
 Keep accepted logs at the signed receipt's height even after the next block
 opens. Commit must wait for in-flight sends to record their logs before the

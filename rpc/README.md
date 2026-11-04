@@ -4,7 +4,9 @@ This package (`evmrpc`) serves the EVM JSON-RPC interface inside `paxd`.
 Paxeer mainnet-beta is one BFT network with EVM chain ID `125` (`0x7d`). The
 kernel is part of the network and proposes blocks. Receipts become final when
 their block is committed; an open block can already contain executed,
-receipted transactions before that commitment.
+receipted transactions before that commitment. Select `latest` for committed
+state; select `pending` for an open proposal view on a node with an open-state
+provider, subject to the method-specific idle and refusal behavior below.
 
 Public JSON-RPC uses the root path of
 `https://api-mainnet-beta.paxeer.network` and the numbered nodes
@@ -79,7 +81,12 @@ Root-path mainnet requests retain chain ID `125`.
 for `latest`. In [watermark_manager.go](watermark_manager.go), `latest`, `safe`
 and `finalized` resolve to the latest queryable committed height. A node wired
 with `NewPendingOption` can additionally expose the proposer or standby's
-open execution snapshot.
+open execution snapshot. This is a provider capability, retained during the
+idle seal-to-open interval, rather than a promise that a block is always open.
+Omitting the block tag (or passing null) to `eth_call`, `eth_estimateGas` or
+`eth_createAccessList` selects pending on that node and latest on a full node
+without the provider. An explicit pending tag on a full node still refuses;
+clients requiring committed state should pass `latest`.
 
 ### State and simulation reads
 
@@ -94,7 +101,9 @@ If the provider reports that no block is open, `pendingSnapshot` waits up to
 expires, these reads resolve to the latest queryable committed state and
 header. When the next block opens, they use its snapshot. A node without a
 pending provider returns `-32000`, `pending served by sequencer`, for these
-explicit pending requests.
+explicit pending requests: `eth_getBalance`, `eth_getCode`, `eth_getStorageAt`,
+`eth_call`, `eth_estimateGas` and `eth_createAccessList`. Cancellation ends the
+wait with the request error; it does not trigger the idle committed fallback.
 
 ### Block, nonce and send behavior
 
@@ -132,6 +141,11 @@ through the SDK app root, not Ethereum trie proofs. Pending tracing is also
 refused; use a committed block for historical traces. See [state.go](state.go),
 [simulate.go](simulate.go) and [tracers.go](tracers.go).
 
+The consumer regression coverage is [repair_m1147_test.go](repair_m1147_test.go),
+with further open/idle state and header checks in
+[pending_simulate_test.go](pending_simulate_test.go) and
+[pending_state_test.go](pending_state_test.go).
+
 ## Legacy gate and deprecation
 
 The legacy methods listed in [pax_legacy.go](pax_legacy.go) are deprecated
@@ -159,7 +173,25 @@ server does not register the legacy `pax` or `pax2` APIs.
 - The [Docker localnet config](../docker/localnode/config/app.toml) enables
   all gated methods except `pax_sign`; it is not the production default.
 
-The legacy endpoints below require operator enablement.
+### Migration by method
+
+| Legacy method(s) | Supported migration and limits |
+| --- | --- |
+| `pax_getBlockByNumber`, `pax_getBlockByHash`, and the `pax2_*` equivalents | `eth_getBlockByNumber`, `eth_getBlockByHash` for the EVM view; Cosmos-sourced synthetic transactions and added bank transfers remain legacy-only block payloads |
+| `pax_getBlockTransactionCountByNumber`, `pax_getBlockTransactionCountByHash`, and the `pax2_*` equivalents | The matching `eth_getBlockTransactionCountByNumber` or `eth_getBlockTransactionCountByHash`; counts follow the EVM view |
+| `pax_getBlockReceipts`, `pax2_getBlockReceipts`, `pax_getTransactionReceipt` | `eth_getBlockReceipts`, `eth_getTransactionReceipt` for EVM-visible receipts; no standard replacement supplies the combined Cosmos receipt view |
+| `pax_getLogs`, `pax_getFilterLogs`, `pax_getFilterChanges`, `pax_newFilter`, `pax_newBlockFilter`, `pax_uninstallFilter` | The matching `eth_*` log/filter methods; Cosmos-originating synthetic logs remain legacy-only |
+| `pax_getTransactionByHash`, `pax_getTransactionByBlockHashAndIndex`, `pax_getTransactionByBlockNumberAndIndex`, `pax_getTransactionCount` | The matching `eth_*` transaction methods, using EVM indices and account nonce semantics |
+| `pax_traceBlockByNumberExcludeTraceFail`, `pax_traceBlockByHashExcludeTraceFail` | `debug_traceBlockByNumber`, `debug_traceBlockByHash`; handle untraceable entries explicitly and retain executed failures |
+| `pax_getBlockByNumberExcludeTraceFail`, `pax_getBlockByHashExcludeTraceFail`, and the `pax2_*` variants | Standard `eth_getBlockByNumber` or `eth_getBlockByHash`; no standard flag reproduces the legacy exclusion view |
+| `pax_getTransactionReceiptExcludeTraceFail`, `pax_getTransactionErrorByHash`, `pax_getVMError` | `eth_getTransactionReceipt` for status/gas and `debug_traceTransaction` for execution errors; no identical legacy error/exclusion shape |
+| `pax_getPaxAddress`, `pax_getEVMAddress`, `pax_getCosmosTx`, `pax_getEvmTx`, `pax_associate` | No direct standard Ethereum equivalent for address association or Cosmos/EVM hash mapping; existing clients require the method-specific legacy allowlist |
+| `pax_sign` | Sign locally with the application's signer; do not migrate to an unsafe node signing API |
+
+Allowlist defaults do not make legacy methods supported migration targets.
+`pax_sequencerReceipt` is the explicit receipt-progress exception, not a
+replacement for historical combined receipts or logs. The legacy-only views
+below describe compatibility for existing clients and require operator enablement.
 
 ## Pax_ Endpoints
 

@@ -1,0 +1,23 @@
+[repair.22.33.458]
+findings = ["postgres-component-encoding"]
+baseline = "The start tree has no repair_22_33_458 test target and /out/run/gates.jsonl did not exist at inspection. No baseline failures are claimed: the explicit implementation-first gate order forbids the conflicting pre-change verification step."
+evidence = "Exact candidate revision, command, exit and private log are recorded by hf-build/hf-done in /out/run/gates.jsonl; qualification requires both gates on the same unchanged candidate."
+
+[finding.postgres-component-encoding]
+tests = ["postgres_component_encoding_reserved_credentials_and_database", "postgres_component_encoding_literal_escapes_and_unicode", "postgres_component_encoding_plain_settings_preserve_query_options", "postgres_component_encoding_url_settings_remain_exact", "postgres_component_encoding_create_database_decodes_name_and_preserves_query"]
+repair = "DatabaseKvConnection uses URL component setters, escapes literal credential percent signs, treats the database as one encoded path segment and sets query options separately. Database creation decodes the database identity, escapes SQL identifier quotes and changes the maintenance path without appending it to the query. The integration target uses the production settings, URL builder, connect/create functions and SeaORM/SQLx against a bounded loopback PostgreSQL v3 startup/password/synchronization/CREATE transcript; no driver or repaired component is mocked."
+wiring_request = "Domain 14: services/explorer/services/libs/blockscout-service-launcher/Cargo.toml and the task build/verify commands must enable database-1 for the declared integration target; the current default features exclude database, url, serde_with and the SeaORM/SQLx driver, and the manifest/gates are outside the permitted edit scope. Retain all real-path test assertions."
+qualification = "Not yet qualified; no test is disabled, ignored, feature-skipped or replaced with a stand-in to conceal the missing driver wiring."
+
+[continuation.attempt_4]
+repair = "Imported the production database ConnectionTrait required by get_database_backend; retained every existing integration assertion."
+wiring = "The runner now enables database,database-1 in both declared gates, resolving the earlier out-of-path feature wiring request."
+evidence = "The hf-build and hf-done ledger records the verified candidate revision and private command logs; no baseline gate is repeated."
+
+[qualification.build_1]
+revision = "31721ea721ce68fe1a3dbfc1755948999a457757"
+command = "cargo build --locked --manifest-path services/explorer/services/libs/blockscout-service-launcher/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "The declared build exits 101 with E0432: blockscout_service_launcher::database is configured out by the existing database feature gate; no integration test executes, and hf-done requires a passing build."
+assumption = "The owning domain must enable the production database driver in Cargo.toml or the declared gates; neither edit is permitted here, and feature-skipping the proof or substituting a driver would violate the task."

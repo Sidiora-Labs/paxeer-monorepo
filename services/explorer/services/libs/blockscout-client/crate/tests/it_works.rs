@@ -1,12 +1,10 @@
 use blockscout_client::{Api, ApiClient, Configuration};
-use lazy_static::lazy_static;
 use pretty_assertions::assert_eq;
 use rstest::*;
-use std::{
-    sync::{Arc, Mutex, Once},
-    time::Duration,
-};
-use stubr::Stubr;
+use std::time::Duration;
+
+mod support;
+use support::OwnedApiClient;
 
 const DEFAULT_TOKEN_HASH: &str = "0xD4416b13d2b3a9aBae7AcD5D6C2BbDBE25686401";
 const DEFAULT_CONTRACT_HASH: &str = "0x8FD4596d4E7788a71F82dAf4119D069a84E7d3f3";
@@ -17,39 +15,16 @@ const DEFAULT_ADDRESS_HASH: &str = "0xc0De20A37E2dAC848F81A93BD85FE4ACDdE7C0DE";
 const BLOCK_VALIDATOR_ADDRESS_HASH: &str = "0x4838B106FCe9647Bdf1E7877BF73cE8B0BAD5f97";
 const DEFAULT_SEARCH_QUERY: &str = "USDT";
 
-lazy_static! {
-    static ref STUBR_SERVER: Arc<Mutex<Option<Stubr>>> = Arc::new(Mutex::new(None));
-    static ref INIT: Once = Once::new();
-}
-
-// NOTE: little hack, I do not know how to make it work without this.
-// Stubr::start_blocking does not work, because it uses async_std::task::block_on,
-// and it make tests flaky, because it drops the server before the test is finished :(
-// TODO: find a better way to do this.
 #[fixture]
-async fn api_client() -> ApiClient {
-    INIT.call_once(|| {
-        tokio::spawn(async {
-            let server = Stubr::try_start("tests/recorded/eth_blockscout_com")
-                .await
-                .unwrap();
-            *STUBR_SERVER.lock().unwrap() = Some(server);
-        });
-    });
-    tokio::time::sleep(Duration::from_secs(1)).await;
-
-    let server = STUBR_SERVER.lock().unwrap();
-    let server = server.as_ref().expect("Server not initialized");
-    api_client_from_uri(server.uri().as_str())
-}
-
-fn api_client_from_uri(uri: &str) -> ApiClient {
-    ApiClient::new(Configuration::builder().base_path(uri).build())
+async fn api_client() -> OwnedApiClient {
+    OwnedApiClient::start()
+        .await
+        .expect("start and await this test's owned recording server")
 }
 
 #[rstest]
 #[tokio::test]
-async fn health(#[future] api_client: ApiClient) {
+async fn health(#[future] api_client: OwnedApiClient) {
     let api_client = api_client.await;
     let health_api = api_client.health_api();
     let health = health_api.health().await.expect("Failed to get health");
@@ -70,10 +45,34 @@ async fn health(#[future] api_client: ApiClient) {
         assert_eq!(number, "23116935");
     }
 
-    let health_v1 = health_api.health_v1().await.expect("Failed to get health");
-    let success = health_v1.try_as_success().cloned().unwrap_or_else(|| {
-        panic!("failed to get health: {:?}", &health_v1.entity);
-    });
+    assert!(matches!(
+        health_api.health_v1().await,
+        Err(blockscout_client::apis::Error::UnsupportedCapability(
+            "upstream /api/v1/health is not mounted; use health() at /api/health"
+        ))
+    ));
+}
+
+#[test]
+fn legacy_upstream_health_v1_2025_02_19() {
+    let recording: serde_json::Value = serde_json::from_str(include_str!(
+        "recorded/eth_blockscout_com/_api_v1_health.json"
+    ))
+    .expect("historical upstream recording");
+    assert_eq!(
+        recording["metadata"]["compatibility_version"],
+        "upstream-v1-2025-02-19"
+    );
+    assert_eq!(recording["metadata"]["merged_explorer_supported"], false);
+    assert_eq!(recording["request"]["method"], "GET");
+    assert_eq!(recording["request"]["urlPath"], "/api/v1/health");
+    assert_eq!(recording["response"]["status"], 200);
+    let success: blockscout_client::models::V1HealthCheckResponse = serde_json::from_str(
+        recording["response"]["body"]
+            .as_str()
+            .expect("historical body"),
+    )
+    .expect("historical v1 model");
     assert_eq!(success.healthy, Some(true));
     assert_eq!(
         success
@@ -85,9 +84,145 @@ async fn health(#[future] api_client: ApiClient) {
     );
 }
 
+// Replay committed response bytes; assert every request at the HTTP boundary.
+async fn recording_peer(
+    requests: Vec<(String, &'static str)>,
+) -> (ApiClient, tokio::task::JoinHandle<()>) {
+    use tokio::{
+        io::{AsyncReadExt, AsyncWriteExt},
+        net::TcpListener,
+    };
+
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let origin = format!("http://{}", listener.local_addr().unwrap());
+    let server = tokio::spawn(async move {
+        tokio::time::timeout(Duration::from_secs(10), async move {
+            for (target, recording) in requests {
+                let (mut stream, _) = listener.accept().await.unwrap();
+                let mut headers = Vec::new();
+                while !headers.ends_with(b"\r\n\r\n") {
+                    assert!(headers.len() < 8192, "oversized HTTP request");
+                    headers.push(stream.read_u8().await.unwrap());
+                }
+                let request = std::str::from_utf8(&headers).unwrap();
+                assert_eq!(
+                    request.lines().next().unwrap(),
+                    format!("GET {target} HTTP/1.1")
+                );
+                let envelope: serde_json::Value = serde_json::from_str(recording).unwrap();
+                let body = envelope["response"]["body"].as_str().unwrap();
+                let status = envelope["response"]["status"].as_u64().unwrap();
+                let content_type = envelope["response"]["headers"]["Content-Type"]
+                    .as_str()
+                    .unwrap();
+                let response = format!(
+                    "HTTP/1.1 {status} OK\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                );
+                stream.write_all(response.as_bytes()).await.unwrap();
+                stream.shutdown().await.unwrap();
+            }
+        })
+        .await
+        .expect("recording peer timed out");
+    });
+    let http = reqwest::Client::builder()
+        .no_proxy()
+        .timeout(Duration::from_secs(10))
+        .build()
+        .unwrap();
+    let client = ApiClient::new(
+        Configuration::builder()
+            .base_path(origin)
+            .client(reqwest_middleware::ClientBuilder::new(http).build())
+            .build(),
+    );
+    (client, server)
+}
+
+#[tokio::test]
+async fn supported_health_http_and_legacy_refusal() {
+    let (client, server) = recording_peer(vec![(
+        "/api/health".to_owned(),
+        include_str!("recorded/eth_blockscout_com/_api_health.json"),
+    )])
+    .await;
+    // Refusal happens before transport: the peer's only request must be /api/health.
+    assert!(matches!(
+        client.health_api().health_v1().await,
+        Err(blockscout_client::apis::Error::UnsupportedCapability(
+            "upstream /api/v1/health is not mounted; use health() at /api/health"
+        ))
+    ));
+    let response = client.health_api().health().await.unwrap();
+    server.await.unwrap();
+    assert_eq!(response.status.as_u16(), 200);
+    let typed = response.try_parse_as_success_model().unwrap();
+    assert_eq!(typed.healthy, true);
+    let metadata = serde_json::to_value(typed.metadata.unwrap()).unwrap();
+    assert_eq!(metadata["blocks"]["healthy"], true);
+    for source in ["db", "cache", "node"] {
+        assert_eq!(
+            metadata["blocks"]["latest_block"][source]["number"],
+            "23116935"
+        );
+    }
+}
+
+#[tokio::test]
+async fn nft_full_width_cursor_survives_real_client_http() {
+    use blockscout_client::apis::tokens_api::GetNftInstancesParams;
+
+    const LAST_ID: &str =
+        "115785665443821794889628784622978168165342723005226866880138161782244014770980";
+    const RECORDING: &str = include_str!(
+        "recorded/eth_blockscout_com/_api_v2_tokens_0xD4416b13d2b3a9aBae7AcD5D6C2BbDBE25686401_instances.json"
+    );
+    let path = format!("/api/v2/tokens/{DEFAULT_TOKEN_HASH}/instances");
+    // The second replay checks cursor forwarding only; it is not a captured next page.
+    let (client, server) = recording_peer(vec![
+        (path.clone(), RECORDING),
+        (format!("{path}?unique_token={LAST_ID}"), RECORDING),
+    ])
+    .await;
+    let first = client
+        .tokens_api()
+        .get_nft_instances(
+            GetNftInstancesParams::builder()
+                .address_hash(DEFAULT_TOKEN_HASH.to_owned())
+                .build(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(first.status.as_u16(), 200);
+    let typed = first.try_parse_as_success_model().unwrap();
+    assert_eq!(typed.items.last().unwrap().id, LAST_ID);
+    let cursor = first
+        .next_page_cursor()
+        .unwrap()
+        .expect("nonterminal cursor");
+    assert_eq!(
+        cursor.query_pairs().collect::<Vec<_>>(),
+        vec![("unique_token", LAST_ID)]
+    );
+    let forwarded = client
+        .tokens_api()
+        .get_nft_instances(
+            GetNftInstancesParams::builder()
+                .address_hash(DEFAULT_TOKEN_HASH.to_owned())
+                .cursor(cursor)
+                .build(),
+        )
+        .await
+        .unwrap();
+    server.await.unwrap();
+    assert_eq!(forwarded.status.as_u16(), 200);
+    assert_eq!(forwarded.content, first.content);
+}
+
 #[rstest]
 #[tokio::test]
-async fn blocks(#[future] api_client: ApiClient) {
+async fn blocks(#[future] api_client: OwnedApiClient) {
     let api_client = api_client.await;
     let blocks_api = api_client.blocks_api();
     let blocks = blocks_api
@@ -100,7 +235,7 @@ async fn blocks(#[future] api_client: ApiClient) {
 
 #[rstest]
 #[tokio::test]
-async fn transactions(#[future] api_client: ApiClient) {
+async fn transactions(#[future] api_client: OwnedApiClient) {
     let api_client = api_client.await;
     let transactions_api = api_client.transactions_api();
     let transactions = transactions_api
@@ -113,7 +248,7 @@ async fn transactions(#[future] api_client: ApiClient) {
 
 #[rstest]
 #[tokio::test]
-async fn internal_transactions(#[future] api_client: ApiClient) {
+async fn internal_transactions(#[future] api_client: OwnedApiClient) {
     let api_client = api_client.await;
     let transactions_api = api_client.transactions_api();
     let internal_transactions = transactions_api
@@ -130,7 +265,7 @@ async fn internal_transactions(#[future] api_client: ApiClient) {
 
 #[rstest]
 #[tokio::test]
-async fn smart_contracts(#[future] api_client: ApiClient) {
+async fn smart_contracts(#[future] api_client: OwnedApiClient) {
     let api_client = api_client.await;
     let smart_contracts_api = api_client.smart_contracts_api();
     let smart_contracts = smart_contracts_api
@@ -154,7 +289,7 @@ async fn smart_contracts(#[future] api_client: ApiClient) {
 
 #[rstest]
 #[tokio::test]
-async fn tokens(#[future] api_client: ApiClient) {
+async fn tokens(#[future] api_client: OwnedApiClient) {
     let api_client = api_client.await;
     let tokens_api = api_client.tokens_api();
     let tokens = tokens_api
@@ -201,7 +336,7 @@ async fn tokens(#[future] api_client: ApiClient) {
 
 #[rstest]
 #[tokio::test]
-async fn get_transaction(#[future] api_client: ApiClient) {
+async fn get_transaction(#[future] api_client: OwnedApiClient) {
     let api_client = api_client.await;
     let transactions_api = api_client.transactions_api();
     let response = transactions_api
@@ -218,7 +353,7 @@ async fn get_transaction(#[future] api_client: ApiClient) {
 
 #[rstest]
 #[tokio::test]
-async fn token_counters(#[future] api_client: ApiClient) {
+async fn token_counters(#[future] api_client: OwnedApiClient) {
     let api_client = api_client.await;
     let tokens_api = api_client.tokens_api();
     let response = tokens_api
@@ -235,7 +370,7 @@ async fn token_counters(#[future] api_client: ApiClient) {
 
 #[rstest]
 #[tokio::test]
-async fn token_holders(#[future] api_client: ApiClient) {
+async fn token_holders(#[future] api_client: OwnedApiClient) {
     let api_client = api_client.await;
     let tokens_api = api_client.tokens_api();
     let response = tokens_api
@@ -252,7 +387,7 @@ async fn token_holders(#[future] api_client: ApiClient) {
 
 #[rstest]
 #[tokio::test]
-async fn token_transfers(#[future] api_client: ApiClient) {
+async fn token_transfers(#[future] api_client: OwnedApiClient) {
     let api_client = api_client.await;
     let tokens_api = api_client.tokens_api();
     let response = tokens_api
@@ -269,7 +404,7 @@ async fn token_transfers(#[future] api_client: ApiClient) {
 
 #[rstest]
 #[tokio::test]
-async fn token_instance_holders(#[future] api_client: ApiClient) {
+async fn token_instance_holders(#[future] api_client: OwnedApiClient) {
     let api_client = api_client.await;
     let tokens_api = api_client.tokens_api();
     let response = tokens_api
@@ -287,7 +422,7 @@ async fn token_instance_holders(#[future] api_client: ApiClient) {
 
 #[rstest]
 #[tokio::test]
-async fn address_details(#[future] api_client: ApiClient) {
+async fn address_details(#[future] api_client: OwnedApiClient) {
     let api_client = api_client.await;
     let addresses_api = api_client.addresses_api();
     let response = addresses_api
@@ -304,7 +439,7 @@ async fn address_details(#[future] api_client: ApiClient) {
 
 #[rstest]
 #[tokio::test]
-async fn address_blocks_validated(#[future] api_client: ApiClient) {
+async fn address_blocks_validated(#[future] api_client: OwnedApiClient) {
     let api_client = api_client.await;
     let addresses_api = api_client.addresses_api();
     let response = addresses_api
@@ -321,7 +456,7 @@ async fn address_blocks_validated(#[future] api_client: ApiClient) {
 
 #[rstest]
 #[tokio::test]
-async fn address_counters(#[future] api_client: ApiClient) {
+async fn address_counters(#[future] api_client: OwnedApiClient) {
     let api_client = api_client.await;
     let addresses_api = api_client.addresses_api();
     let response = addresses_api
@@ -338,7 +473,7 @@ async fn address_counters(#[future] api_client: ApiClient) {
 
 #[rstest]
 #[tokio::test]
-async fn address_logs(#[future] api_client: ApiClient) {
+async fn address_logs(#[future] api_client: OwnedApiClient) {
     let api_client = api_client.await;
     let addresses_api = api_client.addresses_api();
     let response = addresses_api
@@ -355,7 +490,7 @@ async fn address_logs(#[future] api_client: ApiClient) {
 
 #[rstest]
 #[tokio::test]
-async fn address_nft_collections(#[future] api_client: ApiClient) {
+async fn address_nft_collections(#[future] api_client: OwnedApiClient) {
     let api_client = api_client.await;
     let addresses_api = api_client.addresses_api();
     let response = addresses_api
@@ -372,7 +507,7 @@ async fn address_nft_collections(#[future] api_client: ApiClient) {
 
 #[rstest]
 #[tokio::test]
-async fn address_token_balances(#[future] api_client: ApiClient) {
+async fn address_token_balances(#[future] api_client: OwnedApiClient) {
     let api_client = api_client.await;
     let addresses_api = api_client.addresses_api();
     let response = addresses_api
@@ -389,7 +524,7 @@ async fn address_token_balances(#[future] api_client: ApiClient) {
 
 #[rstest]
 #[tokio::test]
-async fn address_token_transfers(#[future] api_client: ApiClient) {
+async fn address_token_transfers(#[future] api_client: OwnedApiClient) {
     let api_client = api_client.await;
     let addresses_api = api_client.addresses_api();
     let response = addresses_api
@@ -406,7 +541,7 @@ async fn address_token_transfers(#[future] api_client: ApiClient) {
 
 #[rstest]
 #[tokio::test]
-async fn address_tokens(#[future] api_client: ApiClient) {
+async fn address_tokens(#[future] api_client: OwnedApiClient) {
     let api_client = api_client.await;
     let addresses_api = api_client.addresses_api();
     let response = addresses_api
@@ -423,7 +558,7 @@ async fn address_tokens(#[future] api_client: ApiClient) {
 
 #[rstest]
 #[tokio::test]
-async fn stats(#[future] api_client: ApiClient) {
+async fn stats(#[future] api_client: OwnedApiClient) {
     let api_client = api_client.await;
     let stats_api = api_client.stats_api();
     let response = stats_api.get_stats().await.expect("Failed to get stats");
@@ -445,7 +580,7 @@ async fn stats(#[future] api_client: ApiClient) {
 
 #[rstest]
 #[tokio::test]
-async fn search(#[future] api_client: ApiClient) {
+async fn search(#[future] api_client: OwnedApiClient) {
     let api_client = api_client.await;
     let search_api = api_client.search_api();
     let params = blockscout_client::apis::search_api::SearchParams::builder()

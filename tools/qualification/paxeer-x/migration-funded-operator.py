@@ -18,7 +18,84 @@ ramp = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(ramp)
 
 
+C = sys.modules.get('human_committed_projections')
+if C is None:
+    spec = importlib.util.spec_from_file_location('human_committed_projections', Path(__file__).with_name('human-canonical-projections.py'))
+    C = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = C
+    spec.loader.exec_module(C)
+LEDGER = '0x' + '00' * 18 + '101a'
+
+
+def verify_destination_record(value, order_digest, transaction_hash):
+    C.require(value['verified'] is True and value['rung'] == 'committed' and value['chain_id'] == 125
+              and value['order_digest'] == order_digest and value['transaction_hash'] == transaction_hash
+              and re.fullmatch('[0-9a-f]{64}', value['receipt_digest'])
+              and type(value['height']) is int and value['height'] > 0,
+              'committed native destination receipt binding differs')
+    return value
+
+
+class DestinationReceiptConsumer:
+    """Destination authority is the signed native payment and its committed block."""
+    def __init__(self, node):
+        self.node = node
+
+    def verify(self, transaction_hash, binding):
+        actual = self.node.committed(transaction_hash, owner=binding['operator_address'])
+        transaction, _ = C.merged.evm.decode_signed(bytes.fromhex(actual['raw_transaction'][2:]))
+        arguments = [bytes.fromhex(binding[name]) for name in ('from_account', 'to_account', 'asset')]
+        arguments += [int(binding['amount']), binding['expires_at_ms'], bytes.fromhex(binding['order_digest'])]
+        data = C.merged.evm.encode_call('payExact', ['bytes32', 'bytes32', 'bytes32', 'uint128', 'uint64', 'bytes32'], arguments)
+        C.require(transaction.chain_id == 125 and transaction.to.hex() == LEDGER[2:]
+                  and transaction.value == 0 and transaction.data == data,
+                  'committed native funding amount account asset or order differs')
+        receipt = self.node.call('eth_getTransactionReceipt', [transaction_hash])
+        topic = '0x' + C.merged.CHAIN.keccak256(b'PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)').hex()
+        logs = [log for log in receipt['logs'] if log['address'] == LEDGER and log['topics'][0] == topic]
+        C.require(len(logs) == 1 and logs[0]['topics'] == [topic, '0x' + binding['order_digest'],
+                  '0x' + binding['from_account'], '0x' + binding['to_account']]
+                  and C.merged.decode_abi(['bytes32', 'uint128'], logs[0]['data'])
+                  == [bytes.fromhex(binding['asset']), int(binding['amount'])],
+                  'committed native funding log differs from bound order')
+        value = {'verified': True, 'rung': 'committed', 'chain_id': 125,
+                 'order_digest': binding['order_digest'], 'transaction_hash': transaction_hash,
+                 'receipt_digest': actual['receipt_digest'], 'height': int(actual['block_number'], 16),
+                 'block_hash': actual['block_hash']}
+        return verify_destination_record(value, binding['order_digest'], transaction_hash)
+
+    def observe(self, source, transaction_hash, binding):
+        C.require(source['version'] == ramp.VERSION and source['order_digest'] == list(bytes.fromhex(binding['order_digest']))
+                  and len(ramp.byte32(source['source_evidence_digest'])) == 32
+                  and source['state'] in ('source_pending', 'source_settled', 'layerx_pending', 'layerx_refused', 'done'),
+                  'independent external source claim binding required')
+        if source['state'] == 'source_pending':
+            C.require(source['source_claim_id'] is None, 'unfinalized source cannot consume a claim')
+        else:
+            ramp.byte32(source['source_claim_id'])
+        if source['state'] != 'done':
+            return {'source': source, 'destination': None}
+        C.require(source['source_claim_id'] is not None, 'funding requires a separate finalized source claim')
+        return {'source': source, 'destination': self.verify(transaction_hash, binding)}
+
+
+def current_destination_receipt(contract, case, order, activity, output, expected_success=True):
+    transaction_hash = '0x' + bytes(activity).hex()
+    args = [contract.binaries['receipt_verifier'], '--config-file', contract.fixture['receipt_config_file'],
+            '--order-file', case['order_file'], '--transaction-hash', transaction_hash, '--output-file', str(output)]
+    result = subprocess.run(args, cwd=ROOT, capture_output=True, timeout=120)
+    if not expected_success:
+        ramp.require(result.returncode != 0 and not output.exists(), 'forged native receipt authority accepted')
+        return
+    ramp.require(result.returncode == 0, 'independent committed native funding verification refused')
+    return verify_destination_record(ramp.document(output), bytes(order['order_digest']).hex(), transaction_hash)
+
+
+
 class FundedOperatorContract(ramp.Contract):
+    def receipt(self, case, order, activity, output, expected_success=True):
+        return current_destination_receipt(self, case, order, activity, output, expected_success)
+
     def __init__(self, fixture):
         ramp.closed(fixture, ("version", "execution_domain", "ramp_fixture_file", "migrate_cli",
                               "gateway_config_file", "other_gateway_config_file"), "funded operator fixture")

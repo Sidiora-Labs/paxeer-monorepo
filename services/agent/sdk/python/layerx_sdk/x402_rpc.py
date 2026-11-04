@@ -11,7 +11,7 @@ from .account_derivation import keccak256
 from .evm_transaction import decode_signed_transaction
 from .production import PlatformSdkError, SdkErrorCode
 from .revert import decode_revert_reason, raise_for_receipt_status
-from .verifier import ReceiptKey, SequencerReceiptVerificationError
+from .verifier import ReceiptKey, SequencerReceiptVerificationError, verify_sequencer_receipt
 from .x402 import payment_commitment, refuse_payer_grant, verify_payment_receipt
 
 
@@ -168,14 +168,21 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 
 
 class PaymentRpc:
-    def __init__(self, endpoint: str, headers: Mapping[str, str] | None = None):
+    def __init__(self, endpoint: str, headers: Mapping[str, str] | None = None,
+                 *, hosted_gateway_endpoint: str | None = None):
+        if (not isinstance(endpoint, str) or not endpoint
+                or any(ord(character) <= 32 or ord(character) == 127 for character in endpoint)
+                or "\\" in endpoint):
+            raise ValueError("invalid-rpc-endpoint")
         url = urllib.parse.urlsplit(endpoint)
+        # Accessing port also refuses malformed and out-of-range authorities.
+        url.port
         if (
-            url.username
-            or url.password
+            url.username is not None
+            or url.password is not None
             or url.fragment
             or url.query
-            or url.path != "/rpc"
+            or url.path not in ("", "/") and endpoint != hosted_gateway_endpoint
             or not url.hostname
             or url.scheme != "https"
             and not (
@@ -317,9 +324,7 @@ def verify_rpc_payment(
     ):
         raise ValueError("payment-binding-mismatch")
     if commitment == "committed":
-        landing = finality[0].verify(raw_transaction, verified.height, finality[1])
-        if _transaction_bytes(result["blockHash"], 32) != landing.block_hash:
-            raise ValueError("committed-landing-mismatch")
+        rpc_committed_evidence(result, raw_transaction, receipt_keys, *finality)
     return {
         "txHash": "0x" + expected_hash.hex(),
         "rung": result["rung"],
@@ -328,33 +333,45 @@ def verify_rpc_payment(
     }
 
 
-def rpc_batch_evidence(result, activity_id, receipt, network_id, authorization):
-    from .verifier import MerkleProof
-    from .x402 import PaymentCommitmentEvidence
-
-    bundle = result["batch_evidence"]
-    signed = bundle["signed_header"]
-    proof = bundle["proof"]
-    if (
-        bundle["kind"] != "receipt"
-        or bundle["activity_id"] != activity_id
-        or rpc_hex(bundle["canonical_value"]) != receipt
-        or rpc_hex(signed["public_key"], 32) != authorization.public_key
-        or rpc_hex(signed["sequencer_id"], 32) != authorization.sequencer_id
-        or type(proof["leaf_index"]) is not int
-        or type(proof["leaf_count"]) is not int
-        or not isinstance(proof["siblings"], list)
-        or len(proof["siblings"]) > 64
-    ):
-        raise ValueError("batch-binding-mismatch")
-    return PaymentCommitmentEvidence(
-        network_id,
-        rpc_hex(signed["canonical_header"]),
-        rpc_hex(signed["signature"], 64),
-        authorization,
-        MerkleProof(
-            proof["leaf_index"],
-            proof["leaf_count"],
-            tuple(rpc_hex(v, 32) for v in proof["siblings"]),
-        ),
+def _verified_rpc_receipt(result, raw_transaction, receipt_keys):
+    expected_hash = keccak256(raw_transaction)
+    decode_signed_transaction(raw_transaction)
+    result = _sequencer_result(result, expected_hash)
+    if result is None or result["rung"] == "submitted":
+        return None
+    verified = verify_sequencer_receipt(
+        _transaction_bytes(result["receipt"]), raw_transaction, receipt_keys,
     )
+    if (result.get("height") != hex(verified.height)
+            or _transaction_bytes(result["keyId"], 32) != verified.receipt.context_hash):
+        raise ValueError("payment-binding-mismatch")
+    return verified
+
+
+def rpc_committed_evidence(result, raw_transaction, receipt_keys, commit_trust, evidence):
+    """Authenticate the live signed receipt and independently pinned block inclusion."""
+    from .committed import CommitTrust
+    verified = _verified_rpc_receipt(result, raw_transaction, receipt_keys)
+    if verified is None or result["rung"] != "committed":
+        raise ValueError("missing-committed-evidence")
+    if not isinstance(commit_trust, CommitTrust) or not isinstance(evidence, dict):
+        raise ValueError("missing-committed-evidence")
+    landing = commit_trust.verify(raw_transaction, verified.height, evidence)
+    if _transaction_bytes(result["blockHash"], 32) != landing.block_hash:
+        raise ValueError("committed-landing-mismatch")
+    return commit_trust, evidence
+
+
+def rpc_payment_evidence(result, raw_transaction, receipt_keys, *,
+                         commit_trust=None, committed_evidence=None):
+    """Return current receipt/transaction evidence, or None while submission is pending."""
+    from .x402 import PaymentEvidence
+    verified = _verified_rpc_receipt(result, raw_transaction, receipt_keys)
+    if verified is None:
+        return None
+    finality = None
+    if result["rung"] == "committed":
+        finality = rpc_committed_evidence(
+            result, raw_transaction, receipt_keys, commit_trust, committed_evidence,
+        )
+    return PaymentEvidence(verified.canonical_bytes, raw_transaction, finality)

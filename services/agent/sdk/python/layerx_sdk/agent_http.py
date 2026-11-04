@@ -57,16 +57,12 @@ class _Route:
 
 
 _ROUTES: Mapping[str, _Route] = {
-    "program.deploy": _Route("POST", "/v1/programs/deploy"),
-    "program.upgrade": _Route("POST", "/v1/programs/upgrade"),
-    "program.wind-down": _Route("POST", "/v1/programs/wind-down"),
     "program.discover": _Route("GET", "/v1/programs/registry/{program_id}", "program_id"),
     "program.interface": _Route("GET", "/v1/programs/registry/{program_id}/interface", "program_id"),
     "program.simulate": _Route("POST", "/v1/programs/simulate"),
-    "program.call": _Route("POST", "/v1/programs/call"),
-    "program.receipt": _Route("GET", "/v1/programs/receipts/by-idempotency/{idempotency_key}", "idempotency_key"),
-    "program.activity": _Route("GET", "/v1/programs/activities/{activity_id}", "activity_id"),
 }
+_PROGRAM_MUTATIONS = frozenset({"program.deploy", "program.upgrade", "program.wind-down", "program.call"})
+_PROGRAM_HASH_READS = frozenset({"program.receipt", "program.activity"})
 
 
 class LayerXKeyCredential:
@@ -128,10 +124,13 @@ class AgentHttpTransport(ProductionTransport):
         request: object,
         idempotency_key: IdempotencyKey | None,
     ) -> object:
-        if plane != "agent" or not isinstance(operation, str) or operation not in _ROUTES:
+        if (plane != "agent" or not isinstance(operation, str)
+                or operation not in _ROUTES and operation not in _PROGRAM_MUTATIONS | _PROGRAM_HASH_READS):
             raise _unavailable_capability()
         if not isinstance(request, Mapping) or any(not isinstance(key, str) for key in request):
             raise _invalid_argument()
+        if operation in _PROGRAM_MUTATIONS | _PROGRAM_HASH_READS:
+            return self._program_transaction(operation, request, idempotency_key)
         route = _ROUTES[operation]
         path = route.path
         if route.path_field is not None:
@@ -139,10 +138,7 @@ class AgentHttpTransport(ProductionTransport):
             if not isinstance(value, str) or not _hex32(value):
                 raise _invalid_argument()
             path = path.replace("{" + route.path_field + "}", quote(value, safe=""))
-        if operation in {"program.call", "program.deploy", "program.upgrade", "program.wind-down"}:
-            if idempotency_key is None or not _hex32(str(idempotency_key)):
-                raise _invalid_argument()
-        elif idempotency_key is not None:
+        if idempotency_key is not None:
             raise _invalid_argument()
         if operation in {"program.discover", "program.interface", "program.receipt", "program.activity"} and request.get("requested_verification_level") != "sequencer-signed":
             raise _invalid_argument()
@@ -156,12 +152,6 @@ class AgentHttpTransport(ProductionTransport):
             raise _invalid_argument() from None
         if len(body) > _MAX_REQUEST_BYTES:
             raise _invalid_argument()
-        if operation in {"program.deploy", "program.upgrade", "program.wind-down"}:
-            ordinal = {"program.deploy": 1, "program.upgrade": 2, "program.wind-down": 7}[operation]
-            try:
-                bind_signed_program_lifecycle(body, None, ordinal, str(idempotency_key))
-            except (TypeError, ValueError, OverflowError):
-                raise _invalid_argument() from None
         headers = {
             "Accept": "application/json",
             "Content-Type": "application/octet-stream" if route.method == "POST" else "application/json",
@@ -188,6 +178,107 @@ class AgentHttpTransport(ProductionTransport):
             finally:
                 error.close()
         except PlatformSdkError:
+            raise
+        except (TimeoutError, URLError, OSError, HTTPException):
+            raise _transport_failure(operation) from None
+
+    def _program_transaction(
+        self, operation: str, request: Mapping[str, object], key: IdempotencyKey | None,
+    ) -> object:
+        from .account_derivation import keccak256
+        from .ai_market import AiMarketError, _decode_programs_call
+        from .evm_transaction import decode_signed
+        from .x402_rpc import _send_result
+
+        _require_exact_request(operation, request)
+        if operation in _PROGRAM_HASH_READS:
+            identity = request.get("expected_activity_id" if operation == "program.receipt" else "activity_id")
+            if (key is not None or not isinstance(identity, str) or not _hex32(identity)
+                    or operation == "program.receipt" and request.get("idempotency_key") != identity
+                    or request.get("requested_verification_level") != "sequencer-signed"):
+                raise _invalid_argument()
+            result = self._node_rpc("pax_sequencerReceipt", ["0x" + identity], operation)
+            if result is None:
+                return {"state": "unknown", "activity_id": identity, "idempotency_key": identity}
+            if not isinstance(result, dict) or result.get("txHash") != "0x" + identity:
+                raise _decode_failure()
+            if result.get("rung") == "submitted":
+                nonce = result.get("nonce")
+                if (set(result) != {"txHash", "nonce", "rung"} or not isinstance(nonce, str)
+                        or not nonce.startswith("0x") or not 0 < len(nonce[2:]) <= 16
+                        or any(character not in _HEX for character in nonce[2:])
+                        or hex(int(nonce, 16)) != nonce):
+                    raise _decode_failure()
+                return {"state": "pending", "activity_id": identity, "idempotency_key": identity}
+            if result.get("rung") not in {"receipted", "committed"}:
+                raise _decode_failure()
+            return result
+        if key is None or not _hex32(str(key)):
+            raise _invalid_argument()
+        canonical = _encode_program_mutation_body(request.get("signed_activity"))
+        try:
+            if operation == "program.call":
+                from .program_wire import decode_signed_program_call
+                from .programs import NativeProgramRequest, _wire
+                transaction, _ = decode_signed(canonical)
+                native, fee = _decode_programs_call(transaction.data)
+                retained = NativeProgramRequest(native, fee, canonical)
+                decode_signed_program_call(retained, str(key))
+                if dict(_wire(retained)) != dict(request):
+                    raise ValueError("program transaction request binding")
+            else:
+                ordinal = {"program.deploy": 1, "program.upgrade": 2, "program.wind-down": 7}[operation]
+                bind_signed_program_lifecycle(canonical, None, ordinal, str(key))
+        except (ValueError, TypeError, OverflowError, AiMarketError):
+            raise _invalid_argument() from None
+        identity = keccak256(canonical).hex()
+        result = self._node_rpc("eth_sendRawTransaction", ["0x" + canonical.hex()], operation, key)
+        try:
+            _send_result(result, canonical)
+        except ValueError:
+            raise PlatformSdkError(SdkErrorCode.UNKNOWN_OUTCOME, "unknown-outcome") from None
+        return {"state": "submitted", "activity_id": identity, "idempotency_key": identity,
+                "retained_signed_activity": canonical.hex()}
+
+    def _node_rpc(
+        self, method: str, params: list[object], operation: str, key: IdempotencyKey | None = None,
+    ) -> object:
+        from .x402_rpc import PaymentRpcError, _decode_rpc_response, _submission_error
+
+        request_id = secrets.randbits(64)
+        body = json.dumps({"jsonrpc": "2.0", "id": request_id, "method": method, "params": params},
+                          allow_nan=False, separators=(",", ":")).encode("utf-8")
+        if len(body) > _MAX_REQUEST_BYTES:
+            raise _invalid_argument()
+        headers = {"Accept": "application/json", "Content-Type": "application/json",
+                   "User-Agent": "layerx-python/0.1.0"}
+        if self._credential is not None:
+            headers["Authorization"] = self._credential.use()
+        if key is not None:
+            headers["Idempotency-Key"] = str(key)
+        parsed = urlparse(self._endpoint)
+        endpoint = urlunparse((parsed.scheme, parsed.netloc, "/", "", "", ""))
+        outbound = Request(endpoint, data=body, headers=headers, method="POST")
+        try:
+            with self._opener.open(outbound, timeout=self._timeout) as response:
+                encoded = _bounded_read(response, self._maximum_response_bytes)
+                if response.status != 200 or response.headers.get("Content-Type") != "application/json":
+                    raise ValueError("node RPC response")
+            envelope = json.loads(encoded, parse_constant=_reject_constant, object_pairs_hook=_unique_object)
+            return _decode_rpc_response(envelope, request_id)
+        except PaymentRpcError as error:
+            if operation in _PROGRAM_MUTATIONS:
+                _submission_error(error)
+                if error.code not in {-32600, -32601, -32602}:
+                    raise PlatformSdkError(SdkErrorCode.UNKNOWN_OUTCOME, "unknown-outcome") from error
+            raise PlatformSdkError(SdkErrorCode.CORE_REJECTION, "never", protocol_result_code=error.code) from error
+        except (ValueError, RecursionError):
+            if operation in _PROGRAM_MUTATIONS:
+                raise PlatformSdkError(SdkErrorCode.UNKNOWN_OUTCOME, "unknown-outcome") from None
+            raise _decode_failure() from None
+        except PlatformSdkError as error:
+            if error.code == SdkErrorCode.DECODE_FAILURE and operation in _PROGRAM_MUTATIONS:
+                raise PlatformSdkError(SdkErrorCode.UNKNOWN_OUTCOME, "unknown-outcome") from None
             raise
         except (TimeoutError, URLError, OSError, HTTPException):
             raise _transport_failure(operation) from None

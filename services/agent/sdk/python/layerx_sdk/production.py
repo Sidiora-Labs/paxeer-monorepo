@@ -137,8 +137,10 @@ class ProtocolAmount(int):
             if not value.isascii() or not value.isdigit() or (value != "0" and value.startswith("0")):
                 raise PlatformSdkError(SdkErrorCode.INVALID_ARGUMENT, "never")
             parsed = int(value)
-        else:
+        elif isinstance(value, int):
             parsed = value
+        else:
+            raise PlatformSdkError(SdkErrorCode.INVALID_ARGUMENT, "never")
         if parsed < 0 or parsed > 340282366920938463463374607431768211455:
             raise PlatformSdkError(SdkErrorCode.INVALID_ARGUMENT, "never")
         return cast(Self, int.__new__(cls, parsed))
