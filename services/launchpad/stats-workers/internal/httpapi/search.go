@@ -144,7 +144,7 @@ func RegisterCanonicalSearch(r chi.Router, st canonicalsearch.Store) {
 		var next *string
 		if page.Next != nil {
 			body, err := json.Marshal(page.Next)
-			if err != nil {
+			if err != nil || len(body) > 2048 {
 				writeSearchError(w, r, 500, "INTERNAL_ERROR")
 				return
 			}
