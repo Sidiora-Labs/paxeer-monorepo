@@ -235,7 +235,8 @@ export async function resolveDaemonReceipt(
   }
   if (trusted === undefined) throw new PlatformSdkError({ code: "verification-failure", retry: "unknown-outcome" });
   const portableReceipt: PortableReceiptV2 = Object.freeze({
-    format: "layerx-receipt-proof-v2", verificationLevel: submission.verification_level === "Committed" ? "committed" : "receipted",
+    // The signature proves receipt execution; the observation rung is not a commitment proof.
+    format: "layerx-receipt-proof-v2", verificationLevel: "receipted",
     rawTransaction: `0x${Buffer.from(raw).toString("hex")}`, signedReceipt: `0x${submission.signed_receipt}`,
     receiptDigest: `0x${Buffer.from(keccak256(signedReceipt)).toString("hex")}`,
     receiptKey: Object.freeze({ keyId: `0x${Buffer.from(trusted.keyId).toString("hex")}`,
