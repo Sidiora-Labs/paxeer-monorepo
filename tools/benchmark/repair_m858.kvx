@@ -1,0 +1,14 @@
+[repair.22.33.858]
+base_revision = "fedbeb3bb47c5bb972f66afc8189f92f5395f3eb"
+baseline = "Not run: the explicit task gate order prohibits testing before complete implementation and hf-build; no pre-change failures are claimed."
+evidence = "hf-build and hf-done record the exact verified candidate revision, command, exit code and private log in /out/run/gates.jsonl."
+wiring_requests = []
+
+[finding.benchmark-custom-home]
+repair = "Preserve the prerequisite repair: direct initialization and genesis edits in validated PAX_HOME, explicit --home on every paxd command, exported home for the account producer, and no late move."
+tests = ["TestRepairM_858_CustomHomeProducerConsumer"]
+
+[finding.benchmark-node-exit]
+repair = "Exec paxd in every output mode so its exit status and signal identity belong to the benchmark process; filter normal output in a separate Bash reader instead of making grep the pipeline result."
+tests = ["TestRepairM_858_NodeFailureAfterMatchingLine", "TestRepairM_858_NodeExitWithoutMatchingLines", "TestRepairM_858_LogTransport", "TestRepairM_858_SignalsReachNode"]
+fixtures = "Committed shell peers exercise the unchanged production start block with an empty PATH; only /bin/bash is interpreted, without paxd, Python, Go, grep, live services or credentials."
