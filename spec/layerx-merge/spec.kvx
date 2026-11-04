@@ -321373,7 +321373,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1380]
 title = "Repair audit record 22.30.75 medium findings in sdk (part 1 of 1): doc-drift, test-gap, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.138", "22.31.139", "22.31.140"]
