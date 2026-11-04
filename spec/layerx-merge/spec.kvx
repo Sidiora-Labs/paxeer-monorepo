@@ -151131,7 +151131,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.517]
 title = "Repair audit record 22.30.153 medium findings in apps/explorer/types/api (part 1 of 1): interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.405", "22.31.406", "22.31.474"]
@@ -155494,7 +155494,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.196]
 title = "Repair audit record 22.30.12 medium findings in apps/perps/src/widgets/trading (part 1 of 2): config-drift, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.7", "22.31.8", "22.31.9", "22.31.479", "22.31.480"]
@@ -198116,7 +198116,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.31.500]
 title = "Make the load-test deploy-ten operation store the shipped cw20 artefact and check it from its implementation"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -281516,7 +281516,7 @@ do_16 = "Attempt 2 (continue): 6 of 8 cases pass. TestRepairM_751_AccountlessSil
 
 [task.22.33.750]
 title = "Repair audit record 22.30.172 medium findings in rpc (part 1 of 1): security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.421", "22.31.422", "22.31.423"]
