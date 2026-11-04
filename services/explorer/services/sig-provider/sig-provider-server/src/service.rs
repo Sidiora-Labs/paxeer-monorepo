@@ -76,10 +76,12 @@ impl SignatureService for Service {
                 .create_signatures(&request.abi)
                 .await
                 .map_err(|error| {
-                    tonic::Status::unavailable(format!("signature import failed: {error}"))
+                    tonic::Status::unavailable(format!(
+                        "signature import failed for {}: {error:#}",
+                        source.source()
+                    ))
                 })?;
-            // Source clients currently discard import HTTP statuses. A readback
-            // confirms delivery even when that response alone cannot be trusted.
+            // Confirm storage before acknowledging work that must survive restart.
             for (selector, signature) in &functions {
                 let signatures =
                     source
@@ -87,25 +89,29 @@ impl SignatureService for Service {
                         .await
                         .map_err(|error| {
                             tonic::Status::unavailable(format!(
-                                "signature import confirmation failed: {error}"
+                                "signature import confirmation failed for {}: {error:#}",
+                                source.source()
                             ))
                         })?;
                 if !signatures.contains(signature) {
-                    return Err(tonic::Status::unavailable(
-                        "function signature import is not confirmed",
-                    ));
+                    return Err(tonic::Status::unavailable(format!(
+                        "function signature import is not confirmed for {}",
+                        source.source()
+                    )));
                 }
             }
             for (topic, signature) in &events {
                 let signatures = source.get_event_signatures(topic).await.map_err(|error| {
                     tonic::Status::unavailable(format!(
-                        "signature import confirmation failed: {error}"
+                        "signature import confirmation failed for {}: {error:#}",
+                        source.source()
                     ))
                 })?;
                 if !signatures.contains(signature) {
-                    return Err(tonic::Status::unavailable(
-                        "event signature import is not confirmed",
-                    ));
+                    return Err(tonic::Status::unavailable(format!(
+                        "event signature import is not confirmed for {}",
+                        source.source()
+                    )));
                 }
             }
             Ok(())
