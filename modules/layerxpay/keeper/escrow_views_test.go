@@ -38,16 +38,20 @@ func TestEscrowViewsReadKernelRecord(t *testing.T) {
 		}
 		hostBefore := payStoreSnapshot(h.ctx, h.hostKey)
 		moduleBefore := payStoreSnapshot(h.ctx, h.storeKey)
-		record, found := h.keeper.GetEscrow(h.ctx, wantRecord.EscrowID)
+		record, found, err := h.keeper.GetEscrow(h.ctx, wantRecord.EscrowID)
+		require.NoError(t, err)
 		require.True(t, found)
 		require.Equal(t, wantRecord, record)
-		remaining, found := h.keeper.EscrowRemaining(h.ctx, wantRecord.EscrowID)
+		remaining, found, err := h.keeper.EscrowRemaining(h.ctx, wantRecord.EscrowID)
+		require.NoError(t, err)
 		require.True(t, found)
 		require.Equal(t, wantRecord.LockedAmount, remaining)
-		result, found := h.keeper.GetEscrowResult(h.ctx, idempotencyKey)
+		result, found, err := h.keeper.GetEscrowResult(h.ctx, idempotencyKey)
+		require.NoError(t, err)
 		require.True(t, found)
 		require.Equal(t, wantResult, result)
-		result, found = h.keeper.GetEscrowResult(h.ctx, wantRecord.EscrowID)
+		result, found, err = h.keeper.GetEscrowResult(h.ctx, wantRecord.EscrowID)
+		require.NoError(t, err)
 		require.False(t, found)
 		require.Equal(t, types.EscrowResult{}, result)
 		require.Equal(t, hostBefore, payStoreSnapshot(h.ctx, h.hostKey))
@@ -59,11 +63,13 @@ func TestEscrowViewsReadKernelRecord(t *testing.T) {
 		data[224] = state
 		clear(data[192:208])
 		h.ctx.KVStore(h.hostKey).Set(hostHoldKey, data)
-		record, found := h.keeper.GetEscrow(h.ctx, wantRecord.EscrowID)
+		record, found, err := h.keeper.GetEscrow(h.ctx, wantRecord.EscrowID)
+		require.NoError(t, err)
 		require.True(t, found)
 		require.Equal(t, state, record.State)
 		require.Equal(t, wantRecord.CapturedAmount, record.CapturedAmount)
-		remaining, found := h.keeper.EscrowRemaining(h.ctx, wantRecord.EscrowID)
+		remaining, found, err := h.keeper.EscrowRemaining(h.ctx, wantRecord.EscrowID)
+		require.NoError(t, err)
 		require.True(t, found)
 		require.Equal(t, codec.U128{}, remaining)
 	}
@@ -72,8 +78,14 @@ func TestEscrowViewsReadKernelRecord(t *testing.T) {
 		for _, data := range [][]byte{recordBytes[:len(recordBytes)-1], make([]byte, types.EscrowRecordBytes)} {
 			h.ctx.KVStore(h.hostKey).Set(hostHoldKey, data)
 			before := payStoreSnapshot(h.ctx, h.hostKey)
-			require.Panics(t, func() { h.keeper.GetEscrow(h.ctx, wantRecord.EscrowID) })
-			require.Panics(t, func() { h.keeper.EscrowRemaining(h.ctx, wantRecord.EscrowID) })
+			var found bool
+			var err error
+			require.NotPanics(t, func() { _, found, err = h.keeper.GetEscrow(h.ctx, wantRecord.EscrowID) })
+			require.False(t, found)
+			require.ErrorIs(t, err, ErrEscrowCorruptState)
+			require.NotPanics(t, func() { _, found, err = h.keeper.EscrowRemaining(h.ctx, wantRecord.EscrowID) })
+			require.False(t, found)
+			require.ErrorIs(t, err, ErrEscrowCorruptState)
 			require.Equal(t, before, payStoreSnapshot(h.ctx, h.hostKey))
 		}
 		badVersion := bytes.Clone(resultBytes)
@@ -81,7 +93,11 @@ func TestEscrowViewsReadKernelRecord(t *testing.T) {
 		for _, data := range [][]byte{resultBytes[:types.EscrowResultBytes-1], badVersion} {
 			h.ctx.KVStore(h.hostKey).Set(hostResultKey, data)
 			before := payStoreSnapshot(h.ctx, h.hostKey)
-			require.Panics(t, func() { h.keeper.GetEscrowResult(h.ctx, idempotencyKey) })
+			var found bool
+			var err error
+			require.NotPanics(t, func() { _, found, err = h.keeper.GetEscrowResult(h.ctx, idempotencyKey) })
+			require.False(t, found)
+			require.ErrorIs(t, err, ErrEscrowCorruptState)
 			require.Equal(t, before, payStoreSnapshot(h.ctx, h.hostKey))
 		}
 	})
@@ -104,13 +120,16 @@ func TestEscrowViewsUnknownIDEmpty(t *testing.T) {
 		moduleBefore := payStoreSnapshot(h.ctx, h.storeKey)
 		require.Equal(t, h.sequence, binary.BigEndian.Uint64(hostBefore[string([]byte{0x02})]))
 		for i := 0; i < 2; i++ {
-			got, found := h.keeper.GetEscrow(h.ctx, id)
+			got, found, err := h.keeper.GetEscrow(h.ctx, id)
+			require.NoError(t, err)
 			require.False(t, found)
 			require.Equal(t, types.EscrowRecord{}, got)
-			remaining, found := h.keeper.EscrowRemaining(h.ctx, id)
+			remaining, found, err := h.keeper.EscrowRemaining(h.ctx, id)
+			require.NoError(t, err)
 			require.False(t, found)
 			require.Equal(t, codec.U128{}, remaining)
-			result, found := h.keeper.GetEscrowResult(h.ctx, id)
+			result, found, err := h.keeper.GetEscrowResult(h.ctx, id)
+			require.NoError(t, err)
 			require.False(t, found)
 			require.Equal(t, types.EscrowResult{}, result)
 		}

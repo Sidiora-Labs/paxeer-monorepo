@@ -1,0 +1,19 @@
+[task]
+id = "22.33.1018"
+audit = "22.30.37"
+baseline_revision = "4b4896072f927b28618921285b3e3ae758bc467e"
+baseline = "No prior gate ledger or repair files existed in this sandbox. The requested unchanged-tree verification conflicts with the explicit implementation-first order and prohibition on running verify_cmd by hand; no baseline gate was run and no baseline test failure is claimed."
+evidence = "Exact candidate revision, command, exit and private log are retained by /out/run/gates.jsonl and copied from the final hf-done line. No qualification is claimed before that result; sources remain unchanged after verification."
+
+[finding.baseline-role-proof-skips-grants]
+tests = ["TestRepairM_1018_CoordinatorRuntimeWiring", "TestRepairM_1018_ProductionGrantRendering", "TestRepairM_1018_CompleteDependencyMigrations"]
+repair = "loadRealMarketStage requests indexer_runtime and pnl_runtime together from coordinatortest.Bootstrap, which computes their complete grant-schema/predecessor migration plan, executes every production grant with fatal error handling, provisions the login and records runtime readiness. The market fixture consumes db.Runtimes[pnl_runtime].DSN directly; reviewedPnlRuntime and its missing-object error suppression are removed."
+proof = "Offline gate binds the fixture's actual Bootstrap call and DSN consumption through Go AST, round-trips the real RoleManifest codec and exercises production GrantSQL for every runtime grant, rejects unsafe privileges, validates migration inputs with production.Checksum and registry predecessor order as Bootstrap does, and requires every granted object including serial-backed sequences to have a declaration in its schema's complete plan."
+limit = "The declared offline gate does not execute PostgreSQL DDL, grants, runtime readiness or baseline recovery. Existing database-backed baseline tests retain every behavioral assertion and now use strict coordinator provisioning; running those tests requires their separately owned service fixtures."
+wiring_request = "Domain 4 (fm-launchpad), launchpad/spec/production-system/integration/migrations/grants.json and sdk/launchpad/shared/db/production/coordinatortest/coordinatortest.go: retain the corrected PnL sequence manifest and strict all-grant bootstrap supplied by prerequisite 22.31.62; any future missing grant object must be repaired by these owners, never suppressed in the baseline fixture."
+gotcha = "Repository inputs resolve through coordinatortest.RepositoryRoot plus launchpad; never infer migration paths from the Go package working directory. Record limitations here because spec files and GOTCHA.kvx are outside the task's explicit scope."
+
+[qualification.repair_1]
+evidence = "revision=a81cc028c2e56089873159dff2fa28e23d9a3d6d; command=cg spec done 22.33.1018 -f layerx-merge --root /work/paxeer-monorepo; exit=1; log=/out/logs/verify-1.log"
+observed = "Wiring and all production grant-rendering checks passed; the dependency test incorrectly used MigrationManifest.Validate, a release-admission API whose required interface/approval metadata is null in the committed bootstrap registry (first dependency 60000)."
+repair = "Use the actual coordinator bootstrap contract: production.Checksum must equal each registered SQL checksum, and every predecessor must already have its exact registered checksum. Retain every dependency, grant-object declaration, serial sequence and grant-rendering assertion. The separate missing release-admission metadata is not changed."

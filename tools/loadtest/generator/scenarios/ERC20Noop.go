@@ -50,22 +50,7 @@ func (s *ERC20NoopScenario) SetContract(contract *bindings.ERC20Noop) {
 
 // Attach implements TxGenerator interface - attaches to an existing contract
 func (s *ERC20NoopScenario) Attach(config *config.LoadConfig, address common.Address) error {
-	// Call base Attach to set deployed flag and config
-	if err := s.ContractScenarioBase.Attach(config, address); err != nil {
-		return err
-	}
-
-	var client *ethclient.Client
-	var err error
-	if !config.MockDeploy {
-		client, err = ethclient.Dial(config.Endpoints[0])
-		if err != nil {
-			return err
-		}
-	}
-
-	s.contract, err = bindings.NewERC20Noop(address, client)
-	return err
+	return s.ContractScenarioBase.Attach(config, address)
 }
 
 // CreateContractTransaction implements ContractDeployer interface - creates ERC20Noop transaction

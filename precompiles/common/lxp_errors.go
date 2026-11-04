@@ -198,6 +198,7 @@ var lxpRevertTable = []lxpRevertEntry{
 	{code: "LXP_XWEB_INVALID_API", message: "invalid api payload", goErr: xwebtypes.ErrInvalidApi},
 	{code: "LXP_XWEB_INVALID_ENVELOPE", message: "invalid credential envelope", goErr: xwebtypes.ErrInvalidEnvelope},
 	{code: "LXP_XWEB_INVALID_LEVEL", message: "invalid attestation level", goErr: xwebtypes.ErrInvalidLevel},
+	{code: "LXP_XWEB_INVALID_PAYLOAD", message: "invalid storage receipt payload", goErr: xwebtypes.ErrInvalidPayload},
 	{code: "LXP_XWEB_DELEGATECALL", message: "cannot delegatecall xweb"},
 	{code: "LXP_XWEB_STATICCALL", message: "cannot call xweb <method> from staticcall"},
 	{code: "LXP_XWEB_KEEPER_MISSING", message: "xweb: the xweb keeper is not wired into this application"},

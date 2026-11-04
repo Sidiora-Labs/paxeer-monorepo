@@ -17,6 +17,11 @@ defmodule Explorer.Repo.Migrations.PriceAcceptanceBackfill do
   def step(server, batch_size) when is_integer(batch_size) and batch_size > 0,
     do: GenServer.call(server, {:step, batch_size}, :infinity)
 
+  def pending? do
+    %{rows: [[pending]]} = Repo.query!("SELECT EXISTS (SELECT 1 FROM #{@table} WHERE completed = false)")
+    pending
+  end
+
   @impl GenServer
   def init(options), do: {:ok, options}
 
@@ -41,13 +46,16 @@ defmodule Explorer.Repo.Migrations.PriceAcceptanceBackfill do
   end
 
   def handle_call({:step, batch_size}, _from, options) do
-    result =
-      case next_job() do
-        nil -> :complete
-        job -> replay(job, batch_size, options)
-      end
+    {:reply, run_step(batch_size, options), options}
+  end
 
-    {:reply, result, options}
+  defp run_step(batch_size, options) do
+    case next_job() do
+      nil -> :complete
+      job -> replay(job, batch_size, options)
+    end
+  rescue
+    error -> {:error, {:replay_failed, Exception.message(error)}}
   end
 
   defp next_job do
@@ -133,6 +141,21 @@ defmodule Explorer.Repo.Migrations.PriceAcceptanceBackfill do
       block = Repo.one(from(b in Block, where: b.hash == ^hash and b.consensus == true, lock: "FOR SHARE"))
       if is_nil(block), do: Repo.rollback(:non_consensus_block)
       if completed, do: Repo.rollback(:already_completed)
+
+      # A job that has not advanced its cursor yet resets this block's observations
+      # to unknown here, inside the same transaction as its first batch, so the
+      # reset is bounded to one block, never runs as a whole-table statement in a
+      # migration, and is redone with the batch if the transaction does not commit.
+      if through_index == -1 and through_market_id == -1 do
+        Repo.query!(
+          """
+          UPDATE paxeer_x_price_observations o SET accepted = NULL
+          FROM paxeer_x_price_updates u
+          WHERE u.hash = o.update_hash AND u.block_hash = $1
+          """,
+          [hash]
+        )
+      end
 
       %{rows: rows} =
         Repo.query!(

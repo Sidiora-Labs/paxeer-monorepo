@@ -1,0 +1,9 @@
+[repair.22.33.1279]
+audit = "22.30.64"
+simapp-init-test-home = "TestRepairM_1279_InitTestHome executes TestInitCmd with an explicit temporary home, overwrites its genesis, and preserves the isolated default-home sentinel and directory contents."
+simapp-key-seed-permissions = "Task label fixture value: TestRepairM_1279_PrivateSeedPermissions runs the testnet producer, reopens the keyring and seed, recovers the account, and checks its gentx and funded genesis balance with 0700/0600 modes for new, existing and legacy files."
+failure_test = "TestRepairM_1279_PrivateSeedWriteFailure proves a private-directory failure propagates without a public seed or transaction fallback."
+baseline = "Not run: the explicit gate order forbids verification before full implementation and permits verification only through hf-done after hf-build; no pre-change failing test result is claimed."
+wiring_requests = "None; all seed producers and consumers found for this command are in scope, and public configuration retains its separate writer."
+evidence = "The runner records the exact candidate revision, command, exit and private log for hf-build and hf-done in its gate ledger."
+qualification_note = "The first verification exposed a test codec method mismatch at revision 7504dbd43ddf3f15ac16cd4c71800837343e7bd4 (cg spec done 22.33.1279 -f layerx-merge --root /work/paxeer-monorepo, exit 1, /out/logs/verify-1.log); use this SDK's UnmarshalAsJSON method."

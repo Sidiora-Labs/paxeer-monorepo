@@ -1,0 +1,31 @@
+{
+  "endpoint": "https://api1.mainnet-beta.paxeer.network/",
+  "recordedOn": "2026-11-04",
+  "chainRequest": {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "eth_chainId",
+    "params": []
+  },
+  "chainResponse": {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "result": "0x7d"
+  },
+  "request": {
+    "jsonrpc": "2.0",
+    "id": 2,
+    "method": "pax_sequencerReceipt",
+    "params": [
+      "0xa52f2455a87ccb3b84a90ae4e3c9153e7122b66cd69cb080ae9ecd9732619277"
+    ]
+  },
+  "response": {
+    "jsonrpc": "2.0",
+    "id": 2,
+    "error": {
+      "code": -32000,
+      "message": "pax_sequencerReceipt served by sequencer"
+    }
+  }
+}

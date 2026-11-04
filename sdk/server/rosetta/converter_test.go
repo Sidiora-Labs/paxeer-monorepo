@@ -2,7 +2,10 @@ package rosetta_test
 
 import (
 	"encoding/hex"
-	"encoding/json"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/secp256k1"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/tx/signing"
+	"github.com/btcsuite/btcd/btcec/v2"
+	"github.com/btcsuite/btcd/btcec/v2/ecdsa"
 	"testing"
 
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
@@ -56,12 +59,25 @@ func (s *ConverterTestSuite) SetupTest() {
 	builder, err := txConfig.WrapTxBuilder(sdkTx)
 	s.Require().NoError(err)
 
+	// Keep the recorded transaction's keys, amounts and signer identities, while
+	// encoding its address bytes with the current chain prefix.
+	msgs := builder.GetTx().GetMsgs()
+	send := msgs[0].(*bank.MsgSend)
+	from, err := sdk.GetFromBech32(send.FromAddress, "cosmos")
+	s.Require().NoError(err)
+	to, err := sdk.GetFromBech32(send.ToAddress, "cosmos")
+	s.Require().NoError(err)
+	send.FromAddress = sdk.AccAddress(from).String()
+	send.ToAddress = sdk.AccAddress(to).String()
+	s.Require().NoError(builder.SetMsgs(msgs...))
 	s.unsignedTx = builder.GetTx()
+	s.unsignedTxBytes, err = txConfig.TxEncoder()(s.unsignedTx)
+	s.Require().NoError(err)
 }
 
 func (s *ConverterTestSuite) TestFromRosettaOpsToTxSuccess() {
-	addr1 := sdk.AccAddress("address1").String()
-	addr2 := sdk.AccAddress("address2").String()
+	addr1 := sdk.AccAddress("address1____________").String()
+	addr2 := sdk.AccAddress("address2____________").String()
 
 	msg1 := &bank.MsgSend{
 		FromAddress: addr1,
@@ -139,18 +155,35 @@ func (s *ConverterTestSuite) TestMsgToMetaMetaToMsg() {
 func (s *ConverterTestSuite) TestSignedTx() {
 
 	s.Run("success", func() {
-		const payloadsJSON = `[{"hex_bytes":"82ccce81a3e4a7272249f0e25c3037a316ee2acce76eb0c25db00ef6634a4d57303b2420edfdb4c9a635ad8851fe5c7a9379b7bc2baadc7d74f7e76ac97459b5","signing_payload":{"address":"cosmos147klh7th5jkjy3aajsj2rqvhtvh9mfde37wq5g","hex_bytes":"ed574d84b095250280de38bf8c254e4a1f8755e5bd300b1f6ca2671688136ecc","account_identifier":{"address":"cosmos147klh7th5jkjy3aajsj2rqvhtvh9mfde37wq5g"},"signature_type":"ecdsa"},"public_key":{"hex_bytes":"034c92046950c876f4a5cb6c7797d6eeb9ef80d67ced4d45fb62b1e859240ba9ad","curve_type":"secp256k1"},"signature_type":"ecdsa"}]`
-		const expectedSignedTxHex = "0a8e010a8b010a1c2f636f736d6f732e62616e6b2e763162657461312e4d736753656e64126b0a2d636f736d6f733134376b6c68377468356a6b6a793361616a736a3272717668747668396d666465333777713567122d636f736d6f73316d6e7670386c786b616679346c787777617175356561653764787630647a36687767797436331a0b0a057374616b651202313612620a4e0a460a1f2f636f736d6f732e63727970746f2e736563703235366b312e5075624b657912230a21034c92046950c876f4a5cb6c7797d6eeb9ef80d67ced4d45fb62b1e859240ba9ad12040a02087f12100a0a0a057374616b651201311090a10f1a4082ccce81a3e4a7272249f0e25c3037a316ee2acce76eb0c25db00ef6634a4d57303b2420edfdb4c9a635ad8851fe5c7a9379b7bc2baadc7d74f7e76ac97459b5"
-
-		var payloads []*rosettatypes.Signature
-		s.Require().NoError(json.Unmarshal([]byte(payloadsJSON), &payloads))
-
-		signedTx, err := s.c.ToSDK().SignedTx(s.unsignedTxBytes, payloads)
+		// Generate the opaque unsigned transaction and real signatures together;
+		// compare the exact signed encoding against an independently built SDK tx.
+		seed := make([]byte, 32)
+		seed[31] = 1
+		key := &secp256k1.PrivKey{Key: seed}
+		pubKey := &rosettatypes.PublicKey{Bytes: key.PubKey().Bytes(), CurveType: rosettatypes.Secp256k1}
+		msg := &bank.MsgSend{FromAddress: sdk.AccAddress(key.PubKey().Address()).String(), ToAddress: sdk.AccAddress("recipient___________").String(), Amount: sdk.NewCoins(sdk.NewInt64Coin("stake", 16))}
+		builder := s.txConf.NewTxBuilder()
+		s.Require().NoError(builder.SetMsgs(msg))
+		meta := &rosetta.ConstructionMetadata{ChainID: "converter-suite", GasLimit: 250000, GasPrice: "1stake", SignersData: []*rosetta.SignerData{{AccountNumber: 7, Sequence: 9}}}
+		unsigned, payloads, err := s.c.ToRosetta().SigningComponents(builder.GetTx(), meta, []*rosettatypes.PublicKey{pubKey})
 		s.Require().NoError(err)
-
-		signedTxHex := hex.EncodeToString(signedTx)
-
-		s.Require().Equal(signedTxHex, expectedSignedTxHex)
+		priv, _ := btcec.PrivKeyFromBytes(seed)
+		signature := ecdsa.SignCompact(priv, payloads[0].Bytes, true)[1:]
+		signedTx, err := s.c.ToSDK().SignedTx(unsigned, []*rosettatypes.Signature{{PublicKey: pubKey, SigningPayload: payloads[0], SignatureType: rosettatypes.Ecdsa, Bytes: signature}})
+		s.Require().NoError(err)
+		expected := s.txConf.NewTxBuilder()
+		s.Require().NoError(expected.SetMsgs(msg))
+		expected.SetGasLimit(250000)
+		expected.SetFeeAmount(sdk.NewCoins(sdk.NewInt64Coin("stake", 1)))
+		s.Require().NoError(expected.SetSignatures(signing.SignatureV2{PubKey: key.PubKey(), Sequence: 9, Data: &signing.SingleSignatureData{SignMode: signing.SignMode_SIGN_MODE_LEGACY_AMINO_JSON, Signature: signature}}))
+		expectedSignedTx, err := s.txConf.TxEncoder()(expected.GetTx())
+		s.Require().NoError(err)
+		s.Require().Equal(hex.EncodeToString(expectedSignedTx), hex.EncodeToString(signedTx))
+		decoded, err := s.txConf.TxDecoder()(signedTx)
+		s.Require().NoError(err)
+		sigs, err := decoded.(authsigning.Tx).GetSignaturesV2()
+		s.Require().NoError(err)
+		s.Require().NoError(authsigning.VerifySignature(sigs[0].PubKey, authsigning.SignerData{ChainID: meta.ChainID, AccountNumber: 7, Sequence: 9}, sigs[0].Data, s.txConf.SignModeHandler(), decoded.(authsigning.Tx)))
 	})
 
 	s.Run("signers data and signing payloads mismatch", func() {
@@ -161,8 +194,8 @@ func (s *ConverterTestSuite) TestSignedTx() {
 
 func (s *ConverterTestSuite) TestOpsAndSigners() {
 	s.Run("success", func() {
-		addr1 := sdk.AccAddress("address1").String()
-		addr2 := sdk.AccAddress("address2").String()
+		addr1 := sdk.AccAddress("address1____________").String()
+		addr2 := sdk.AccAddress("address2____________").String()
 
 		msg := &bank.MsgSend{
 			FromAddress: addr1,
@@ -306,12 +339,12 @@ func (s *ConverterTestSuite) TestBalanceOps() {
 
 	s.Run("multiple balance ops from 2 multicoins event", func() {
 		subBalanceOp := bank.NewCoinSpentEvent(
-			sdk.AccAddress("test"),
+			sdk.AccAddress("test________________"),
 			sdk.NewCoins(sdk.NewInt64Coin("test", 10), sdk.NewInt64Coin("utxo", 10)),
 		)
 
 		addBalanceOp := bank.NewCoinReceivedEvent(
-			sdk.AccAddress("test"),
+			sdk.AccAddress("test________________"),
 			sdk.NewCoins(sdk.NewInt64Coin("test", 10), sdk.NewInt64Coin("utxo", 10)),
 		)
 
@@ -347,6 +380,5 @@ func (s *ConverterTestSuite) TestBalanceOps() {
 }
 
 func TestConverterTestSuite(t *testing.T) {
-	t.Skip() // rosetta is deprecated
 	suite.Run(t, new(ConverterTestSuite))
 }

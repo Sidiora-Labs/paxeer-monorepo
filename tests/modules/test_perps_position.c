@@ -149,7 +149,7 @@ static int ctx_open(void)
     if (lxp_arena_init(&arena, arena_storage.bytes,
                        sizeof(arena_storage.bytes)) != LXP_OK ||
         lxp_module_ctx_init(&ctx, &kernel, LXP_MODULE_PERPS, batch_timestamp,
-                            0U, global_sequence, 1000000U, &arena,
+                            kernel.epoch, global_sequence, 1000000U, &arena,
                             true) != LXP_OK)
         return 1;
     ctx.protocol_version = fixture_protocol;
@@ -169,7 +169,7 @@ static lxp_result run(uint32_t activity_type, const char *did,
     lxp_result module_result = LXP_OK;
     lxp_result status;
     size_t did_length = strlen(did);
-    if (lxp_kernel_module_for_activity(&kernel, activity_type, 0U,
+    if (lxp_kernel_module_for_activity(&kernel, activity_type, kernel.epoch,
                                        &registration) != LXP_OK ||
         lxp_effect_buffer_init(&effects) != LXP_OK || ctx_open() != 0 ||
         lxp_module_ctx_bind_effects(&ctx, &effects) != LXP_OK)
@@ -617,5 +617,6 @@ int main(void)
            test_close_rollback_recovery() || test_close_with_funding() ||
            test_fill_reduction_pnl() ||
            test_fill_reversal_pnl() || test_liquidation_equity() ||
-           test_unfilled_margin_release() || test_liquidation_funding();
+           test_unfilled_margin_release() || test_liquidation_funding() ||
+           test_halted_margin_policy() || test_parallel_oracle_state();
 }

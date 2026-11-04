@@ -443,7 +443,9 @@ func TestQueryContractHistory(t *testing.T) {
 
 			// then
 			if spec.expContent == nil {
-				require.Error(t, types.ErrEmpty)
+				require.NoError(t, err)
+				require.NotNil(t, got)
+				require.Empty(t, got.Entries)
 				return
 			}
 			require.NoError(t, err)
