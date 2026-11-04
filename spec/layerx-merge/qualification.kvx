@@ -30579,3 +30579,11 @@ symbol = "repair_22_33_1510.rs"
 observed = "Attempt 3: 2 repair cycles; the build passed; 0 of 3 then 1 of 3 cases passed, the rest refused because the daemon recovery of the budget state failed with Unavailable."
 assumption = "Fixture transcript versus the daemon recovery contract; the daemon is the reference."
 severity = "high"
+
+[finding.22.34.5.1]
+task = "22.34.5"
+file = "services/agent/crates/layerx-client/tests/repair_22_34_5.rs"
+symbol = "repair_22_34_5.rs"
+observed = "Attempt 1: the build failed with E0432, E0433, E0425, E0422 and E0609 in tests/human_approval_budget_actor.rs and tests/human_projection_facts.rs against the authority's human module; no verify ran."
+assumption = "Red daemon test build on main since 22.31.208 (gotcha 3075); not the task's defect."
+severity = "low"

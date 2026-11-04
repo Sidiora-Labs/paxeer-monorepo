@@ -8493,6 +8493,12 @@ value = "The suites drive the production verifier (chain 125, the ledger address
 basis = "Gotcha 3071; decisions 1103 and 2538 fix the receipt digest and the payee binding."
 affects = ["22.31.514", "22.31.510"]
 
+[decision.2564]
+title = "Daemon tests consume the hosted authority through its library target, never by including its sources"
+value = "layerx-platform-authority exports the human budget-state producer (the read and record paths the two daemon fixtures use) from src/lib.rs; layerx-agentd lists the authority as a dev-dependency and the path includes with their stand-in crate roots are deleted. The real producer code runs in the daemon tests at every revision, so a producer change breaks the consumer test at the producer task, not later."
+basis = "Gotchas 3067 and 3075; decision 2560 asks producer tasks to run consumer targets, which a path include defeats because the consumer is not a dependent of the producer crate."
+affects = ["22.31.516", "22.34.5", "22.9.38", "22.9.39"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -37383,6 +37389,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.31.516]
+title = "Replace the path-included authority human module in the daemon tests with the authority library as a dev-dependency"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/authority/src/lib.rs", "services/agent/crates/layerx-agentd/Cargo.toml", "services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs", "services/agent/crates/layerx-agentd/tests/human_projection_facts.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_516.kvx"]
+tests = ["services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs", "services/agent/crates/layerx-agentd/tests/human_projection_facts.rs"]
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test human_approval_budget_actor --test human_projection_facts"
+do_1 = "do_1 Gotcha 3075, decision 2564. In services/platform/hosted/authority/src/lib.rs export the human budget-state producer the daemon fixtures use (the read and record paths of src/human/budget_state.rs and budget_state/native.rs together with the committed-header verification they call), keeping src/main.rs as the binary that wires it; the binary and the library share one implementation, nothing is duplicated."
+symbols = []
 
 [capability.22.31.515]
 title = "Carry the explicit decision time into the Human service and MCP consumers of the daemon approval service"
@@ -174162,6 +174177,37 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.31.516]
+title = "Replace the path-included authority human module in the daemon tests with the authority library as a dev-dependency"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.516"]
+interfaces = []
+do_1 = "do_1 Gotcha 3075, decision 2564. In services/platform/hosted/authority/src/lib.rs export the human budget-state producer the daemon fixtures use (the read and record paths of src/human/budget_state.rs and budget_state/native.rs together with the committed-header verification they call), keeping src/main.rs as the binary that wires it; the binary and the library share one implementation, nothing is duplicated."
+do_2 = "do_2 In services/agent/crates/layerx-agentd/Cargo.toml add layerx-platform-authority as a dev-dependency (the authority depends on layerx-client, not on the daemon, so no cycle arises); in tests/human_approval_budget_actor.rs and tests/human_projection_facts.rs delete the path include and the authority_producer stand-in (Config, Identity, PrincipalPolicy and the rest) and call the exported producer with the authority's own types. The fixtures keep recording the budget state the way they do today, now through the real producer code."
+do_3 = "do_3 Change no behaviour of the authority or the daemon; the two test files, the authority lib.rs and both Cargo manifests (and the lock file if it changes) are the change. Record in services/agent/crates/layerx-agentd/tests/repair_22_31_516.kvx the items exported, the stand-in removed and the two test runs."
+do_4 = "do_4 The gate needs no environment variable, credential or live endpoint (gotcha 2962); the build compiles every daemon test target and the verify runs the two tests that were red."
+symbols = []
+touches = ["services/platform/hosted/authority/src/lib.rs", "services/agent/crates/layerx-agentd/Cargo.toml", "services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs", "services/agent/crates/layerx-agentd/tests/human_projection_facts.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_516.kvx"]
+tests = ["services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs", "services/agent/crates/layerx-agentd/tests/human_projection_facts.rs"]
+planned_paths = ["services/platform/hosted/authority/src", "services/platform/hosted/authority/Cargo.toml", "services/agent/crates/layerx-agentd/tests", "services/agent/Cargo.lock", "services/agent/Cargo.toml"]
+build_cmd = "cargo build --locked --manifest-path services/platform/hosted/authority/Cargo.toml && cargo build --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test human_approval_budget_actor --test human_projection_facts"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.515]
 title = "Carry the explicit decision time into the Human service and MCP consumers of the daemon approval service"
 status = "pending"
@@ -179482,7 +179528,7 @@ title = "Point the Rust clients of the px_ methods at the node names at the root
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.34.2", "22.34.3", "22.34.4"]
+requires = ["22.34.2", "22.34.3", "22.34.4", "22.31.516"]
 reqs = ["22998.1"]
 capabilities = ["22.34.5"]
 interfaces = []
@@ -179506,6 +179552,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue after 22.31.516): attempt 1 implemented the node-root transport in layerx-client (px.rs, sequencer.rs), the daemon reads (config.rs, read/checkpoint.rs, read/committed.rs) and both repair tests, but the daemon --tests build failed in the two path-included authority tests (gotcha 3075) before anything of the task ran. Rebase on main once 22.31.516 is there, run the build at the final revision and then the two verify targets; fix inside the paths only what still fails in the task's own tests, and record the proof in the task record."
 
 [task.22.31.445]
 title = "Bring the feed model integration test of the blockscout client crate onto the FeedItem type its models now export"
