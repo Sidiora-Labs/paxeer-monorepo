@@ -1,19 +1,24 @@
-import { Box } from '@chakra-ui/react';
 import React from 'react';
 
 import { indexingStatus } from 'mocks/stats/index';
 import { test, expect } from 'playwright/lib';
+import AppError from 'ui/shared/AppError/AppError';
 
-import LayoutHome from './LayoutHome';
+import LayoutError from './LayoutError';
 
-// FIXME: at the moment, in the docker container playwright make screenshot before the page is completely loaded
-// I cannot figure out the reason, so I skip this test for now
-test.skip('base view +@mobile', async({ render, mockApiResponse }) => {
+test('base view +@mobile', async({ render, mockApiResponse }) => {
   await mockApiResponse('general:homepage_indexing_status', indexingStatus);
   const component = await render(
-    <LayoutHome>
-      <Box pt={ 10 }>Error</Box>
-    </LayoutHome>,
+    <LayoutError>
+      <AppError error={ new Error('An unexpected error has occurred') }/>
+    </LayoutError>,
   );
+  await expect(component.locator('main')).toBeVisible();
+  await expect(component.getByText('Oops! Something went wrong', { exact: true })).toBeVisible();
+  await expect(component.locator('footer')).toBeVisible();
+  await expect(component.getByText(/10% Blocks Indexed/)).toBeVisible();
+  await component.evaluate(async() => {
+    await document.fonts.ready;
+  });
   await expect(component).toHaveScreenshot();
 });

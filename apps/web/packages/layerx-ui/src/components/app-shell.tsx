@@ -25,8 +25,8 @@ const DEFAULT_ICONS: Record<string, React.ReactNode> = {
 /* ----------------------------------------------------------- BottomTabBar */
 
 /**
- * Mobile navigation: bottom tab bar (Home, Agents, Activity, More) with a
- * raised center action button at thumb reach.
+ * Mobile navigation with a raised center action button at thumb reach.
+ * All destinations remain available; long lists scroll horizontally.
  */
 export function BottomTabBar({
   items,
@@ -43,8 +43,9 @@ export function BottomTabBar({
   fabIcon?: React.ReactNode;
   className?: string;
 }) {
-  const left = items.slice(0, 2);
-  const right = items.slice(2, 4);
+  const middle = Math.ceil(items.length / 2);
+  const left = items.slice(0, middle);
+  const right = items.slice(middle);
 
   const Tab = ({ item }: { item: NavItem }) => {
     const active = item.id === activeId;
@@ -53,7 +54,7 @@ export function BottomTabBar({
         type="button"
         onClick={() => onNavigate?.(item.id)}
         aria-current={active ? "page" : undefined}
-        className="relative flex flex-col items-center gap-0.5 py-1 outline-none"
+        className="relative flex min-w-16 flex-1 shrink-0 flex-col items-center gap-0.5 py-1 outline-none"
       >
         <span className={cn("transition-colors", active ? "text-accent" : "text-faint-foreground")}>
           {item.icon ?? DEFAULT_ICONS[item.id] ?? <Grid2x2 className="size-[22px]" />}
@@ -79,13 +80,14 @@ export function BottomTabBar({
     <nav
       aria-label="Primary"
       className={cn(
-        "relative z-30 grid grid-cols-5 items-end border-t border-border bg-surface px-2 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))]",
+        "relative z-30 flex items-end overflow-x-auto border-t border-border bg-surface px-2 pt-8 pb-[max(0.5rem,env(safe-area-inset-bottom))]",
         className,
       )}
     >
-      <Tab item={left[0]} />
-      <Tab item={left[1]} />
-      <div className="flex justify-center">
+      {left.map((item) => (
+        <Tab key={item.id} item={item} />
+      ))}
+      <div className="flex min-w-16 flex-1 shrink-0 justify-center">
         <button
           type="button"
           onClick={onFab}
@@ -95,8 +97,9 @@ export function BottomTabBar({
           {fabIcon ?? <Plus className="size-6" />}
         </button>
       </div>
-      <Tab item={right[0]} />
-      <Tab item={right[1]} />
+      {right.map((item) => (
+        <Tab key={item.id} item={item} />
+      ))}
     </nav>
   );
 }
