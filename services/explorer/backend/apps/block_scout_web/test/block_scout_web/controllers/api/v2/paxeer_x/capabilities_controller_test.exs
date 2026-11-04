@@ -1,36 +1,15 @@
+Code.require_file("repair_evidence.exs", __DIR__)
+
 defmodule BlockScoutWeb.API.V2.PaxeerX.CapabilitiesControllerTest do
   use BlockScoutWeb.ConnCase, async: false
 
-  import Mox
-
   alias Explorer.Chain.PaxeerX.{Capabilities, PriceFeed}
+  alias BlockScoutWeb.API.V2.PaxeerX.Repair2233416Evidence, as: Evidence
 
   @price_feed_fetcher Indexer.Fetcher.PaxeerX.PriceUpdates.Supervisor
 
-  @head "0x16c1320"
-
-  # `EthereumJSONRPC.integer_to_quantity/1` spells the height back in uppercase
-  # hexadecimal, which is what the probe requests carry.
-  @head_quantity "0x16C1320"
-
-  @code_addresses [
-    "0x0000000000000000000000000000000000001015",
-    "0x0000000000000000000000000000000000001016",
-    "0x0000000000000000000000000000000000001017"
-  ]
-
-  @addr_precompile "0x0000000000000000000000000000000000001004"
-  @view_calls %{
-    "0x0000000000000000000000000000000000001015" => "0xb71d031c" <> String.duplicate("0", 64),
-    "0x0000000000000000000000000000000000001016" => "0xb187bd26"
-  }
-  @view_word "0x" <> String.duplicate("0", 64)
-
-  @unified_account_answer "0x" <> String.duplicate("0", 320)
-
-  @bytecode "0x60806040523480156100105760006000fd"
-
   @surfaces ~w(addr exchange bridge launchpad)
+  @valid_answers [:canonical, :nonempty_string, :word_aligned_string]
 
   describe "/api/v2/paxeer-x/capabilities" do
     setup do
@@ -115,57 +94,80 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.CapabilitiesControllerTest do
   end
 
   test "reports the surfaces of the last probe", %{conn: conn} do
-    set_mox_global()
+    prove_capability(conn, :canonical)
+  end
 
-    stub(EthereumJSONRPC.Mox, :json_rpc, fn
-      %{method: "eth_blockNumber"}, _options ->
-        {:ok, @head}
+  def prove_capability(conn, variant) do
+    canonical = Evidence.unified_account_answer()
+    bytes = Evidence.bytes(canonical)
 
-      requests, _options when is_list(requests) ->
-        {:ok, Enum.map(requests, &answer/1)}
-    end)
+    answer =
+      case variant do
+        :canonical ->
+          %{result: canonical}
 
+        :nonempty_string ->
+          %{result: string_answer(String.duplicate("p", 33))}
+
+        :word_aligned_string ->
+          %{result: string_answer(String.duplicate("p", 32))}
+
+        :refused ->
+          %{error: %{code: -32_000, message: "execution reverted"}}
+
+        :wrong_selector ->
+          %{result: "0x357feed6"}
+
+        :zero_offset ->
+          %{result: Evidence.hex(replace_word(bytes, 1, 0))}
+
+        :unaligned_offset ->
+          %{result: Evidence.hex(replace_word(bytes, 1, 129))}
+
+        :outside_offset ->
+          %{result: Evidence.hex(replace_word(bytes, 1, 192))}
+
+        :missing_tail ->
+          %{result: Evidence.hex(binary_part(bytes, 0, 128))}
+
+        :truncated_length ->
+          %{result: Evidence.hex(binary_part(bytes, 0, 159))}
+
+        :truncated_string ->
+          %{result: Evidence.hex(replace_word(bytes, 4, 1))}
+
+        :invalid_address_padding ->
+          %{result: Evidence.hex(replace_word(bytes, 0, Integer.pow(2, 160)))}
+
+        :invalid_string_padding ->
+          %{result: Evidence.hex(replace_word(bytes, 4, 1) <> <<"p", 0::240, 1::8>>)}
+
+        :extra_tail ->
+          %{result: Evidence.hex(bytes <> <<0::256>>)}
+      end
+
+    node = Evidence.capability_node(answer)
+    original = Application.fetch_env(:explorer, :json_rpc_named_arguments)
+    on_exit(fn -> Evidence.restore_env(:explorer, :json_rpc_named_arguments, original) end)
+    Application.put_env(:explorer, :json_rpc_named_arguments, Evidence.rpc_arguments(node))
     start_supervised!(Capabilities)
-
-    assert {:ok, _snapshot} = Capabilities.refresh()
-
-    response =
-      conn
-      |> get("/api/v2/paxeer-x/capabilities")
-      |> json_response(200)
-
-    for surface <- @surfaces do
-      assert response[surface] == true
-    end
+    assert {:ok, snapshot} = Capabilities.refresh()
+    assert snapshot.unified_account == variant in @valid_answers
+    assert_received :canonical_addr_call
+    response = conn |> get("/api/v2/paxeer-x/capabilities") |> json_response(200)
+    assert response["addr"] == variant in @valid_answers
+    for surface <- ~w(exchange bridge launchpad), do: assert(response[surface] == true)
+    assert response["checked_at"] != nil
   end
 
-  defp answer(%{id: id, method: "eth_getCode", params: [address, block]}) do
-    assert address in @code_addresses
-    assert address == "0x0000000000000000000000000000000000001017"
-    assert block == @head_quantity
-
-    %{id: id, jsonrpc: "2.0", result: @bytecode}
+  defp string_answer(value) do
+    [selector] = Evidence.abi() |> ABI.parse_specification() |> Enum.filter(&(&1.function == "getUnifiedAccount"))
+    Evidence.hex(ABI.TypeEncoder.encode([<<0::160>>, value, <<0::256>>, <<0::256>>], selector.returns))
   end
 
-  defp answer(%{
-         id: id,
-         method: "eth_call",
-         params: [%{to: to, data: data}, block]
-       })
-       when is_map_key(@view_calls, to) do
-    assert data == Map.fetch!(@view_calls, to)
-    assert block == @head_quantity
-
-    %{id: id, jsonrpc: "2.0", result: @view_word}
-  end
-
-  defp answer(%{
-         id: id,
-         method: "eth_call",
-         params: [%{to: @addr_precompile, data: _data}, block]
-       }) do
-    assert block == @head_quantity
-
-    %{id: id, jsonrpc: "2.0", result: @unified_account_answer}
+  defp replace_word(bytes, index, value) do
+    offset = index * 32
+    <<prefix::binary-size(offset), _word::256, rest::binary>> = bytes
+    prefix <> <<value::256>> <> rest
   end
 end

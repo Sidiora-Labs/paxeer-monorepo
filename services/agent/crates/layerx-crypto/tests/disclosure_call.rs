@@ -2,7 +2,7 @@ use layerx_crypto::disclosure::call::{bind_call, ConstructMethod};
 use layerx_crypto::disclosure::{AmountRole, CounterpartyRole, DisclosureError};
 use layerx_crypto::evm_transaction::Eip1559Call;
 use layerx_crypto::payments::Payment;
-use layerx_crypto::send::{encode_send_envelope, EnvelopeOptions};
+use layerx_crypto::send::{ledger_payment_call, CallOptions};
 use layerx_types::payload::ModuleId;
 
 const SENDER: [u8; 20] = [0xa1; 20];
@@ -237,18 +237,15 @@ fn ledger_send_call_discloses_the_send_payload_fields() -> Result<(), Box<dyn st
     let calls = fixtures()?;
     let send = &calls[0];
     let payload = hex(include_str!("fixtures/payments/native-1-5.hex"));
-    let options = EnvelopeOptions {
-        actor: "did:layerx:alice",
-        public_key: [0; 32],
-        protocol_version: 3,
-        network_id: 17,
-        identity_sequence: 7,
-        idempotency_key: [4; 32],
-        fee_limit: 20,
-        not_before: 10,
-        not_after: 100,
+    let options = CallOptions {
+        from: SENDER,
+        chain_id: send.chain_id,
+        nonce: send.nonce,
+        max_priority_fee_per_gas: send.max_priority_fee_per_gas,
+        max_fee_per_gas: send.max_fee_per_gas,
+        gas_limit: send.gas_limit,
     };
-    let activity = encode_send_envelope(&payload, &options)?.disclosure;
+    let activity = ledger_payment_call(&payload, &options)?.disclosure;
     let disclosure = bind_call(send, SENDER)?;
     assert_eq!(disclosure.counterparties, activity.counterparties);
     assert_eq!(disclosure.amounts, activity.amounts);

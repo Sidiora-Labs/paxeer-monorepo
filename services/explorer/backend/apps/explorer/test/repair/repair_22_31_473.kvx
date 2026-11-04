@@ -1,0 +1,11 @@
+[repair.22.31.473]
+finding = "explorer-release-build-time-function-terms"
+decision = "2527: Explorer.Repo ssl_opts remain exclusively in runtime configuration; the removal of the database_tls.exs import from build-time prod.exs is preserved."
+implementation = "Read the complete umbrella config/config.exs with env: :prod from the backend root, recursively reject functions and unwritable terms in list heads and tails, tuples, map keys and values, and round-trip the result through the Erlang term parser. Assert every configured Explorer.Repo lacks build-time ssl_opts."
+runtime_proof = "Read apps/explorer/config/runtime/prod.exs for both default and mounted CA paths; require exactly the build-time repo set, verify_peer and a two-arity hostname match_fun on every repo, and preserve these options through Config.Reader.merge. Existing repair_22_33_471 tests already read runtime configuration for TLS assertions."
+release_proof = "The declared hf-done command assembles the production release before either repair suite runs. The new suite reads start_erl.data and consults the generated sys.config, asserting every production repo is present without ssl_opts."
+release_output_path = "/build/rel/blockscout"
+release_configuration_path = "/build/rel/blockscout/releases/10.2.6/sys.config"
+verified_revision = "Exact candidate revision recorded by hf-done in its private gates.jsonl entry alongside command, exit and log; the runner commits that same candidate."
+verification = "MIX_ENV=prod services/explorer/deploy/tools/mix-in-builder.sh release blockscout --overwrite && services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/repair/repair_22_33_471_test.exs apps/explorer/test/repair/repair_22_31_473_test.exs"
+rollback = "Revert this task's commit; retain the build-time/runtime split from 9dabd5ce50."

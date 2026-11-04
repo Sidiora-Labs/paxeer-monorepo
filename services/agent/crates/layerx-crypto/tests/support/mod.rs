@@ -136,3 +136,125 @@ pub fn bridge_withdraw_registry() -> ModuleRegistry {
     };
     registry
 }
+
+// Archive fixtures have explicit names so the current transaction fixtures
+// remain unchanged for consumers migrated by other tasks.
+pub fn archived_send(amount: u128) -> Vec<u8> {
+    let (payload, key) = kernel_payloads::send(amount);
+    layerx_crypto::send::encode_send_envelope(
+        &payload,
+        &layerx_crypto::send::EnvelopeOptions {
+            actor: "did:layerx:alice",
+            public_key: key,
+            protocol_version: PROTOCOL_VERSION,
+            network_id: NETWORK_ID,
+            identity_sequence: SEQUENCE,
+            idempotency_key: IDEMPOTENCY_KEY,
+            fee_limit: 20,
+            not_before: NOT_BEFORE,
+            not_after: EXPIRES_AT,
+        },
+    )
+    .expect("legacy producer compatibility")
+    .canonical
+}
+
+fn archived_activity(payload: &[u8], kind: ActivityType, action_key: [u8; 32]) -> Vec<u8> {
+    use layerx_types::activity::{Authority, EnvelopeBuilder, TimestampBound};
+    use layerx_types::amount::Amount;
+    use layerx_types::ids::{Did, IdempotencyKey};
+    use layerx_types::payload::Payload;
+    use layerx_wire::hash::Domain;
+    use sha2::{Digest as _, Sha256};
+    let module = ModuleRegistration::new(kind.module(), &[kind]).expect("archive module");
+    let registry = ModuleRegistry::new(&[module]).expect("archive registry");
+    let mut hash = Sha256::new();
+    hash.update(Domain::PayloadHash.tag());
+    hash.update(payload);
+    let mut builder = EnvelopeBuilder::new();
+    builder
+        .protocol_version(PROTOCOL_VERSION)
+        .expect("protocol");
+    builder.network_id(NETWORK_ID).expect("network");
+    builder.activity_type(kind).expect("kind");
+    builder
+        .actor_did(Did::new(b"did:layerx:alice").expect("DID"))
+        .expect("actor");
+    builder
+        .authority(Authority::owner(&[0x55; 32]).expect("key"))
+        .expect("authority");
+    builder.account_sequence(SEQUENCE).expect("sequence");
+    builder
+        .timestamp_bound(TimestampBound::new(NOT_BEFORE, EXPIRES_AT).expect("bounds"))
+        .expect("time");
+    builder
+        .idempotency_key(IdempotencyKey::new(action_key))
+        .expect("retry identity");
+    builder.fee_limit(Amount::from_u128(20)).expect("fee");
+    builder
+        .payload_hash(hash.finalize().into())
+        .expect("commitment");
+    builder
+        .payload(Payload::new(&registry, kind, payload).expect("payload"))
+        .expect("payload field");
+    layerx_wire::activity::encode_unsigned_envelope(&builder.build().expect("archive envelope"))
+        .expect("archive bytes")
+}
+
+pub fn archived_bridge_credit(amount: u128) -> Vec<u8> {
+    use sha2::{Digest as _, Sha256};
+    let payload = kernel_payloads::bridge_credit(amount);
+    let mut nullifier = Sha256::new();
+    nullifier.update(b"LX:DEPOSIT:NULLIFIER:v1");
+    nullifier.update(&payload[43..75]);
+    archived_activity(
+        &payload,
+        ActivityType::new(ModuleId::Bridge, 1).expect("credit"),
+        nullifier.finalize().into(),
+    )
+}
+
+pub fn archived_bridge_withdraw(amount: u128) -> Vec<u8> {
+    archived_activity(
+        &kernel_payloads::bridge_withdraw(amount),
+        ActivityType::new(ModuleId::Bridge, 2).expect("withdraw"),
+        IDEMPOTENCY_KEY,
+    )
+}
+
+pub fn archived_native_withdraw(payload: &[u8], activity_type: u32) -> Vec<u8> {
+    assert_eq!(activity_type >> 16, ModuleId::Asset as u32);
+    archived_activity(
+        payload,
+        ActivityType::new(ModuleId::Asset, activity_type as u16).expect("native withdraw"),
+        IDEMPOTENCY_KEY,
+    )
+}
+
+pub fn debit(amount: u128) -> layerx_crypto::send::SendDebit {
+    kernel_payloads::send_debit(amount)
+}
+
+pub fn evm_signer() -> LocalSigner {
+    signer()
+}
+
+pub fn complete<F: std::future::Future>(future: F) -> F::Output {
+    use std::sync::Arc;
+    use std::task::{Context, Poll, Wake, Waker};
+    struct ThreadWake(std::thread::Thread);
+    impl Wake for ThreadWake {
+        fn wake(self: Arc<Self>) {
+            self.0.unpark();
+        }
+    }
+    let mut future = std::pin::pin!(future);
+    let waker = Waker::from(Arc::new(ThreadWake(std::thread::current())));
+    let mut context = Context::from_waker(&waker);
+    loop {
+        match future.as_mut().poll(&mut context) {
+            Poll::Ready(result) => return result,
+            Poll::Pending => std::thread::park(),
+        }
+    }
+}

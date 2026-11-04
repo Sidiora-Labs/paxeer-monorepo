@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	rpcclient "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/client"
+	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/client/cli"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/types"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
@@ -121,15 +122,50 @@ func TestCmdQueryPriceNetwork(t *testing.T) {
 			baseapp.SetPruning(storetypes.NewPruningOptionsFromString(val.AppConfig.Pruning)),
 			baseapp.SetMinGasPrices(val.AppConfig.MinGasPrices))
 	}
-	genesis, err := json.Marshal(types.DefaultGenesis())
+	defaultGenesis, err := json.Marshal(types.DefaultGenesis())
 	require.NoError(t, err)
-	require.JSONEq(t, string(genesis), string(cfg.GenesisState[types.ModuleName]))
+	require.JSONEq(t, string(defaultGenesis), string(cfg.GenesisState[types.ModuleName]))
+	genesis, evmGenesis, market := repair35State(t)
+	cfg.GenesisState[types.ModuleName], err = json.Marshal(genesis)
+	require.NoError(t, err)
+	cfg.GenesisState[evmtypes.ModuleName], err = cfg.Codec.MarshalAsJSON(evmGenesis)
+	require.NoError(t, err)
 	net := network.New(t, cfg)
 	t.Cleanup(net.Cleanup)
 	require.Len(t, net.Validators, 1)
-	_, err = net.WaitForHeight(1)
+	height, err := net.WaitForHeight(1)
 	require.NoError(t, err)
 	validator := net.Validators[0]
+	clientCtx := validator.ClientCtx.WithHeight(height)
+	service := types.NewQueryClient(clientCtx)
+	before, err := service.Market(t.Context(), &types.QueryMarketRequest{Denom: market.Denom})
+	require.NoError(t, err)
+	require.Equal(t, types.MarketInfoOf(market), before.Market)
+	held, err := service.QuoteLedger(t.Context(), &types.QueryQuoteLedgerRequest{Kind: "held", Address: market.PoolAddress})
+	require.NoError(t, err)
+	require.Equal(t, market.RealQuoteBalance.String(), held.Amount)
+	require.True(t, market.RealQuoteBalance.IsPositive())
+	for _, side := range []string{"buy", "sell"} {
+		t.Run("funded-uint256-"+side, func(t *testing.T) {
+			const amount = "18446744073709551616"
+			want, err := service.Quote(t.Context(), &types.QueryQuoteRequest{
+				Denom: market.Denom, IsBuy: side == "buy", AmountIn: amount,
+			})
+			require.NoError(t, err)
+			output, err := clitestutil.ExecTestCLICmd(clientCtx, cli.CmdQueryQuote(), []string{
+				market.Denom, side, amount, "--height=" + strconv.FormatInt(height, 10), "--output=json",
+			})
+			require.NoError(t, err)
+			var got types.QueryQuoteResponse
+			require.NoError(t, cfg.Codec.UnmarshalAsJSON(output.Bytes(), &got))
+			require.Equal(t, want, &got)
+			require.Equal(t, amount, got.Quote.AmountIn.String())
+			require.True(t, got.Quote.AmountOut.IsPositive())
+		})
+	}
+	after, err := service.Market(t.Context(), &types.QueryMarketRequest{Denom: market.Denom})
+	require.NoError(t, err)
+	require.Equal(t, before, after)
 
 	for _, tc := range []struct {
 		name    string

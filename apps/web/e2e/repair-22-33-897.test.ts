@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { createServer } from "node:http";
-import { registerHooks } from "node:module";
+import { createRequire, registerHooks } from "node:module";
 import test from "node:test";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import ts from "typescript";
-import { Window } from "../src/app/exchange/node_modules/happy-dom/lib/index.js";
+import { Window } from "happy-dom";
 import {
   decodeFunctionData, encodeFunctionResult, http, keccak256, parseAbi,
   parseTransaction, recoverTransactionAddress, type Abi, type Hex,
@@ -13,6 +13,20 @@ import {
 import { privateKeyToAccount } from "viem/accounts";
 import type { Eip1193Provider } from "../src/api/provider.ts";
 import type { PerpsCollateral } from "../src/app/exchange/exchange-client.tsx";
+
+function happy_dom_resolves_from_web_manifest() {
+  const manifestURL = new URL("../package.json", import.meta.url);
+  const manifest = JSON.parse(readFileSync(manifestURL, "utf8"));
+  assert.equal(manifest.devDependencies["happy-dom"], "21.0.4");
+  const resolveFromWeb = createRequire(manifestURL).resolve;
+  const dependencyManifestURL = pathToFileURL(resolveFromWeb("happy-dom/package.json"));
+  const dependencyManifest = JSON.parse(readFileSync(dependencyManifestURL, "utf8"));
+  assert.equal(dependencyManifest.name, "happy-dom");
+  assert.equal(dependencyManifest.version, manifest.devDependencies["happy-dom"]);
+  assert.equal(resolveFromWeb("happy-dom"), fileURLToPath(new URL(dependencyManifest.main, dependencyManifestURL)));
+  assert.equal(fileURLToPath(import.meta.resolve("happy-dom")), resolveFromWeb("happy-dom"));
+}
+test(happy_dom_resolves_from_web_manifest);
 
 registerHooks({
   resolve(specifier, context, nextResolve) {

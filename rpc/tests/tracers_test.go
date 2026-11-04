@@ -11,6 +11,7 @@ import (
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/export"
@@ -26,14 +27,15 @@ func mustMarshalJSON(t *testing.T, v interface{}) string {
 
 func TestTraceBlockByNumber(t *testing.T) {
 	txBz := signAndEncodeTx(send(0), mnemonic1)
-	SetupTestServer(t, [][][]byte{{txBz}}, mnemonicInitializer(mnemonic1)).Run(
+	ts := SetupTestServer(t, [][][]byte{{txBz}}, mnemonicInitializer(mnemonic1))
+	ts.Run(
 		func(port int) {
 			res := sendRequestWithNamespace("debug", port, "traceBlockByNumber", "0x2", map[string]interface{}{
 				"timeout": "60s", "tracer": "flatCallTracer",
 			})
 			blockHash := res["result"].([]interface{})[0].(map[string]interface{})["result"].([]interface{})[0].(map[string]interface{})["blockHash"]
 			// assert that the block hash has been overwritten instead of the RLP hash.
-			require.Equal(t, "0x6f2168eb453152b1f68874fe32cea6fcb199bfd63836acb72a8eb33e666613fe", blockHash.(string))
+			require.Equal(t, common.BytesToHash(ts.mockClient.headers[1].Hash()).Hex(), blockHash.(string))
 		},
 	)
 }
@@ -41,7 +43,8 @@ func TestTraceBlockByNumber(t *testing.T) {
 func TestTraceBlockByNumberExcludeTraceFail(t *testing.T) {
 	txBz := signAndEncodeTx(send(0), mnemonic1)
 	panicTxBz := signAndEncodeTx(send(100), mnemonic1)
-	SetupTestServer(t, [][][]byte{{txBz, panicTxBz}}, mnemonicInitializer(mnemonic1)).Run(
+	ts := SetupTestServer(t, [][][]byte{{txBz, panicTxBz}}, mnemonicInitializer(mnemonic1))
+	ts.Run(
 		func(port int) {
 			res := sendRequestWithNamespace("pax", port, "traceBlockByNumberExcludeTraceFail", "0x2", map[string]interface{}{
 				"timeout": "60s", "tracer": "flatCallTracer",
@@ -50,7 +53,7 @@ func TestTraceBlockByNumberExcludeTraceFail(t *testing.T) {
 			require.Len(t, txs, 1)
 			blockHash := txs[0].(map[string]interface{})["result"].([]interface{})[0].(map[string]interface{})["blockHash"]
 			// assert that the block hash has been overwritten instead of the RLP hash.
-			require.Equal(t, "0x6f2168eb453152b1f68874fe32cea6fcb199bfd63836acb72a8eb33e666613fe", blockHash.(string))
+			require.Equal(t, common.BytesToHash(ts.mockClient.headers[1].Hash()).Hex(), blockHash.(string))
 		},
 	)
 }
@@ -80,14 +83,15 @@ func TestTraceBlockByNumberExcludeTraceFail_AnteStub(t *testing.T) {
 
 func TestTraceBlockByHash(t *testing.T) {
 	txBz := signAndEncodeTx(send(0), mnemonic1)
-	SetupTestServer(t, [][][]byte{{txBz}}, mnemonicInitializer(mnemonic1)).Run(
+	ts := SetupTestServer(t, [][][]byte{{txBz}}, mnemonicInitializer(mnemonic1))
+	ts.Run(
 		func(port int) {
-			res := sendRequestWithNamespace("debug", port, "traceBlockByHash", "0x6f2168eb453152b1f68874fe32cea6fcb199bfd63836acb72a8eb33e666613fe", map[string]interface{}{
+			res := sendRequestWithNamespace("debug", port, "traceBlockByHash", common.BytesToHash(ts.mockClient.headers[1].Hash()).Hex(), map[string]interface{}{
 				"timeout": "60s", "tracer": "flatCallTracer",
 			})
 			blockHash := res["result"].([]interface{})[0].(map[string]interface{})["result"].([]interface{})[0].(map[string]interface{})["blockHash"]
 			// assert that the block hash has been overwritten instead of the RLP hash.
-			require.Equal(t, "0x6f2168eb453152b1f68874fe32cea6fcb199bfd63836acb72a8eb33e666613fe", blockHash.(string))
+			require.Equal(t, common.BytesToHash(ts.mockClient.headers[1].Hash()).Hex(), blockHash.(string))
 		},
 	)
 }
@@ -95,16 +99,17 @@ func TestTraceBlockByHash(t *testing.T) {
 func TestTraceBlockByHashExcludeTraceFail(t *testing.T) {
 	txBz := signAndEncodeTx(send(0), mnemonic1)
 	panicTxBz := signAndEncodeTx(send(100), mnemonic1)
-	SetupTestServer(t, [][][]byte{{txBz, panicTxBz}}, mnemonicInitializer(mnemonic1)).Run(
+	ts := SetupTestServer(t, [][][]byte{{txBz, panicTxBz}}, mnemonicInitializer(mnemonic1))
+	ts.Run(
 		func(port int) {
-			res := sendRequestWithNamespace("pax", port, "traceBlockByHashExcludeTraceFail", "0x6f2168eb453152b1f68874fe32cea6fcb199bfd63836acb72a8eb33e666613fe", map[string]interface{}{
+			res := sendRequestWithNamespace("pax", port, "traceBlockByHashExcludeTraceFail", common.BytesToHash(ts.mockClient.headers[1].Hash()).Hex(), map[string]interface{}{
 				"timeout": "60s", "tracer": "flatCallTracer",
 			})
 			txs := res["result"].([]interface{})
 			require.Len(t, txs, 1)
 			blockHash := txs[0].(map[string]interface{})["result"].([]interface{})[0].(map[string]interface{})["blockHash"]
 			// assert that the block hash has been overwritten instead of the RLP hash.
-			require.Equal(t, "0x6f2168eb453152b1f68874fe32cea6fcb199bfd63836acb72a8eb33e666613fe", blockHash.(string))
+			require.Equal(t, common.BytesToHash(ts.mockClient.headers[1].Hash()).Hex(), blockHash.(string))
 		},
 	)
 }
@@ -148,14 +153,15 @@ func TestTraceMultipleTransactionsShouldNotHang(t *testing.T) {
 		txBzList[nonce-1] = signAndEncodeTx(sendErc20(uint64(nonce)), erc20DeployerMnemonics)
 	}
 	txBzList = append(txBzList, signAndEncodeTx(callWasmIter(0, cwIter), mnemonic1))
-	SetupTestServer(t, [][][]byte{txBzList}, mnemonicInitializer(mnemonic1), multiCoinInitializer(mnemonic1), cwIterInitializer(mnemonic1), erc20Initializer()).Run(
+	ts := SetupTestServer(t, [][][]byte{txBzList}, mnemonicInitializer(mnemonic1), multiCoinInitializer(mnemonic1), cwIterInitializer(mnemonic1), erc20Initializer())
+	ts.Run(
 		func(port int) {
-			res := sendRequestWithNamespace("debug", port, "traceBlockByHash", "0x6f2168eb453152b1f68874fe32cea6fcb199bfd63836acb72a8eb33e666613fe", map[string]interface{}{
+			res := sendRequestWithNamespace("debug", port, "traceBlockByHash", common.BytesToHash(ts.mockClient.headers[1].Hash()).Hex(), map[string]interface{}{
 				"timeout": "60s", "tracer": "flatCallTracer",
 			})
 			blockHash := res["result"].([]interface{})[0].(map[string]interface{})["result"].([]interface{})[0].(map[string]interface{})["blockHash"]
 			// assert that the block hash has been overwritten instead of the RLP hash.
-			require.Equal(t, "0x6f2168eb453152b1f68874fe32cea6fcb199bfd63836acb72a8eb33e666613fe", blockHash.(string))
+			require.Equal(t, common.BytesToHash(ts.mockClient.headers[1].Hash()).Hex(), blockHash.(string))
 		},
 	)
 }

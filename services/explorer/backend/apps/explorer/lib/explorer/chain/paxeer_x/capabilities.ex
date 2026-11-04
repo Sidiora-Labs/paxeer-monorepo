@@ -17,7 +17,7 @@ defmodule Explorer.Chain.PaxeerX.Capabilities do
     * one `eth_call` of `getUnifiedAccount(address)` (selector `0x357feed6`) at
       the addr precompile `0x…1004`, which exists before the upgrade but only
       answers that method after it — the capability is live when the call
-      returns the declared four-word head instead of reverting.
+      returns the declared four-word head and complete ABI string tail.
 
   The first probe runs from the process's own message loop, scheduled by
   `init/1` for immediately, and every following one after
@@ -82,8 +82,7 @@ defmodule Explorer.Chain.PaxeerX.Capabilities do
   @probed_account "0x0000000000000000000000000000000000000000"
 
   # `(address evm, string paxAddr, bytes32 didPublicKey, bytes32 layerxMainAccountId)`
-  # occupies four head words; a node that does not know the method answers
-  # shorter than that or refuses outright.
+  # occupies four head words followed by the string length and padded contents.
   @unified_account_head_bytes 128
 
   @unified_account_request_id length(@surface_addresses)
@@ -321,8 +320,16 @@ defmodule Explorer.Chain.PaxeerX.Capabilities do
   # and the rest of the snapshot still stands.
   defp read_unified_account(%{result: "0x" <> digits}) do
     live? =
-      hexadecimal?(digits) and rem(String.length(digits), 2) == 0 and
-        div(String.length(digits), 2) >= @unified_account_head_bytes
+      with {:ok,
+            <<0::96, _evm::160, @unified_account_head_bytes::256, _did::binary-size(32), _account::binary-size(32),
+              length::256, tail::binary>>} <- Base.decode16(digits, case: :mixed),
+           padded_length = div(length + 31, 32) * 32,
+           true <- byte_size(tail) == padded_length,
+           <<_pax_address::binary-size(length), padding::binary>> <- tail do
+        padding == :binary.copy(<<0>>, padded_length - length)
+      else
+        _ -> false
+      end
 
     {:ok, live?}
   end
