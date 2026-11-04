@@ -22,7 +22,7 @@
 #    - All nodes are verified to be running smoothly post-upgrade.
 
 
-- name: Test Major Release Upgrade
+- name: Historical v2.0.0 Major Release Upgrade
   inputs:
     - cmd: echo "v2.0.0"
       env: VERSION

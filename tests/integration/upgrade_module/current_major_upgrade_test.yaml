@@ -1,0 +1,17 @@
+# Native release rehearsal in an isolated pax-node-0 container, from repository root.
+# The release owner mounts a private, digest-pinned kit and a disposable chain home
+# with the passed governance plan. See repair_22_33_760.kvx for proof limits/wiring.
+- name: Current merged-network major upgrade state and restart proof
+  inputs:
+    - cmd: >-
+        python3 tests/integration/upgrade_module/merge_upgrade_proof.py
+        --kind major
+        --kit /run/upgrade-proof/major.json
+        --kit-sha256 "$(cat /run/upgrade-proof/major.sha256)"
+        --evidence /run/upgrade-proof/major-evidence.json
+      node: pax-node-0
+      timeout: 1200
+      env: UPGRADE_STATE_PROOF
+  verifiers:
+    - type: eval
+      expr: UPGRADE_STATE_PROOF == "PASS"
