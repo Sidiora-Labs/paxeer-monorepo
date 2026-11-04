@@ -3,6 +3,9 @@ import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
 import { CandlesClient, CandlesHttpError, UdfResponseError, parseHistory, parseConfig, parseSymbol } from '../dist/index.js';
+import { finding3GoHandlerJourney } from './go-handler-journey.mjs';
+
+test(finding3GoHandlerJourney);
 
 const config = {
   supports_search: true, supports_group_request: false, supports_marks: false,
