@@ -1,5 +1,8 @@
 #!/bin/bash
 
+set +x
+set -eo pipefail
+
 paxdbin=$(which ~/go/bin/paxd | tr -d '"')
 keyname=$(printf "12345678\n" | $paxdbin keys list --output json | jq ".[0].name" | tr -d '"')
 chainid=$($paxdbin status | jq ".NodeInfo.network" | tr -d '"')
@@ -10,20 +13,24 @@ source "$(dirname "$0")/../utils/_tx_helpers.sh"
 
 # Prepare admin accounts
 echo "Preparing admin accounts..."
-printf "12345678\n" | $paxdbin keys add admin1
-printf "12345678\n" | $paxdbin keys add admin2
-printf "12345678\n" | $paxdbin keys add admin3
-printf "12345678\n" | $paxdbin keys add admin4
-printf "12345678\n" | $paxdbin keys add op
-printf "12345678\n" | $paxdbin keys add staking_reward_dest
-printf "12345678\n" | $paxdbin keys add unlocked_dest
-key_admin1=$(printf "12345678\n" |$paxdbin keys show admin1 -a)
-key_admin2=$(printf "12345678\n" |$paxdbin keys show admin2 -a)
-key_admin3=$(printf "12345678\n" |$paxdbin keys show admin3 -a)
-key_admin4=$(printf "12345678\n" |$paxdbin keys show admin4 -a)
-key_op=$(printf "12345678\n" |$paxdbin keys show op -a)
-key_staking=$(printf "12345678\n" |$paxdbin keys show staking_reward_dest -a)
-key_unlock=$(printf "12345678\n" |$paxdbin keys show unlocked_dest -a)
+# Keep disposable secrets off stdout/stderr and out of the operator keyring.
+set +x
+umask 077
+disposable_keyring=$(mktemp -d)
+trap 'rm -rf -- "$disposable_keyring"' EXIT
+new_public_address() {
+  local name=$1
+  "$paxdbin" keys add "$name" --keyring-backend test --keyring-dir "$disposable_keyring" \
+    --output json >/dev/null 2>&1 || return 1
+  "$paxdbin" keys show "$name" -a --keyring-backend test --keyring-dir "$disposable_keyring"
+}
+key_admin1=$(new_public_address admin1) || exit 1
+key_admin2=$(new_public_address admin2) || exit 1
+key_admin3=$(new_public_address admin3) || exit 1
+key_admin4=$(new_public_address admin4) || exit 1
+key_op=$(new_public_address op) || exit 1
+key_staking=$(new_public_address staking_reward_dest) || exit 1
+key_unlock=$(new_public_address unlocked_dest) || exit 1
 # bank_send_and_wait blocks until each tx commits (sender sequence
 # advance) so consecutive sends from `admin` don't race on a stale
 # sequence read.

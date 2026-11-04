@@ -3,15 +3,19 @@
 //! Repairs ai_market.rs::decode_snapshot_binding accepting a commit below the
 //! captured execution height. Malformed bytes come from the real binding encoder.
 //! The retired CheckpointFinality path is exercised as a refusal, not reintroduced.
-//! RPC production is hosted in-process on a loopback TcpListener. Recorded
-//! account, balance and asset bodies come unchanged from sdk/wallet/test/fixtures/
-//! endpoint/available.json; the current consensus head and history bodies are
-//! the responses in tests/px_reads.rs and tests/sequencer_reads.rs respectively.
+//! RPC production replays the registered gateway contract examples in
+//! tests/fixtures/repair_22_33_1546_gateway.json over a loopback listener.
 //! The public HTTP/JSON-RPC transport and consumer decoders run on every read;
 //! only refusal cases damage a producer result. No URL comes from the environment.
 //! Inventory finding: interfaces.kvx::rs-client-ai-market-checkpointfinality-j44
 //! names a removed type and ai_market_client.rs callers absent at this revision;
 //! the replacement exercised here is CommitFinality, as required by clients.md.
+
+#[path = "support/gateway_22_33_1546.rs"]
+mod gateway_repair;
+
+#[path = "support/market_22_33_1546.rs"]
+mod market_repair;
 
 use std::fmt;
 use std::fs;
@@ -47,7 +51,7 @@ use layerx_programs_ai_market::{MAX_ENVELOPE_BYTES, MAX_EVENT_BYTES};
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use layerx_types::program_call::Resources;
 
-const CHAIN: [u8; 32] = [10; 32];
+const CHAIN: [u8; 32] = layerx_programs_ai_market::MERGED_CHAIN_DOMAIN;
 const PROGRAM: [u8; 32] = [11; 32];
 const OWNER: [u8; 32] = [12; 32];
 const ASSET: [u8; 32] = [13; 32];
@@ -204,13 +208,15 @@ fn created_state() -> Checked<Vec<u8>> {
 
 fn state_chunks() -> Checked<Vec<(ReadProof, Vec<u8>)>> {
     let state = created_state()?;
+    let (_, commit) = market_repair::verified_market(&state, 9);
+    let (_, _, _, root, _) = market_repair::namespace_proof(&state);
     let proof = ReadProof {
         chain: chain()?,
         program: program()?,
-        native_state_root: digest(21)?,
-        observed_sequence: 91,
+        native_state_root: Digest32::new(root)?,
+        observed_sequence: 7,
         execution_height: 9,
-        block_hash: digest(22)?,
+        block_hash: commit.block_hash(),
     };
     let mut chunks = Vec::new();
     let mut offset = 0_u32;
@@ -238,8 +244,8 @@ fn state_chunks() -> Checked<Vec<(ReadProof, Vec<u8>)>> {
 }
 
 fn prepared_operation(registry: &ModuleRegistry) -> Checked<PreparedOperation> {
-    let commit = CommitFinality::new(9, [31; 32], [32; 32], [33; 32])?;
-    let snapshot = observed()?.finalize(Some(&commit), 5000)?;
+    let (observed, commit) = market_repair::verified_market(&created_state()?, 9);
+    let snapshot = observed.finalize(Some(&commit), 5000)?;
     let mut payload = vec![0; 57];
     let length = FundRequest {
         amount: 25,
@@ -326,7 +332,7 @@ fn observed() -> Checked<ObservedSnapshot> {
 fn real_market_state_reaches_finalized_consumer_twice() -> Checked {
     use layerx_client::ai_market::{decode_snapshot_binding, FinalizedSnapshot, Freshness};
     use layerx_programs_ai_market::queries::BINDING_MAX_BYTES;
-    let commit = CommitFinality::new(9, [22; 32], [32; 32], [33; 32])?;
+    let (_, commit) = market_repair::verified_market(&created_state()?, 9);
     let mut previous = None;
     for _ in 0..2 {
         let chunks = state_chunks()?;
@@ -334,10 +340,10 @@ fn real_market_state_reaches_finalized_consumer_twice() -> Checked {
         let captured = ObservedSnapshot::capture(&chunks)?;
         assert_eq!(captured.facts().proof.execution_height, 9);
         let snapshot: FinalizedSnapshot = captured.finalize(Some(&commit), 5000)?;
-        let consumer = snapshot.inspect(Some(9))?;
+        let consumer = snapshot.inspect(Some(10))?;
         assert_eq!(consumer.freshness, Freshness::Current);
         assert_eq!(consumer.binding.rank, FINALIZED_RANK);
-        assert_eq!(consumer.binding.block_height, 9);
+        assert_eq!(consumer.binding.block_height, 10);
         assert_eq!(consumer.binding.block_hash, commit.block_hash());
         assert_eq!(consumer.binding.app_hash, commit.app_hash());
         assert_eq!(
@@ -385,7 +391,7 @@ fn CheckpointFinality() -> Checked {
         observed()?.finalize(None, 5000),
         Err(AiClientError::Query(QueryError::FinalityUnavailable))
     );
-    let older = CommitFinality::new(8, [22; 32], [32; 32], [33; 32])?;
+    let (_, older) = market_repair::verified_market(&created_state()?, 7);
     assert_eq!(
         observed()?.finalize(Some(&older), 5000),
         Err(AiClientError::Query(QueryError::BindingMismatch))
@@ -466,41 +472,6 @@ use serde_json::{json, Value};
 #[path = "../../../../platform/hosted/gateway/src/evm.rs"]
 mod gateway_evm;
 
-fn gateway_recorded_coins() -> Value {
-    let vectors: Value = must(serde_json::from_str(include_str!(
-        "../../../../platform/hosted/gateway/tests/fixtures/paxeer-abi-vectors.json"
-    )));
-    let vector = vectors["cases"]
-        .as_array()
-        .expect("ABI cases")
-        .iter()
-        .find(|v| v["name"] == "bank.all_balances")
-        .expect("bank producer");
-    let raw = vector["result"]
-        .as_str()
-        .expect("ABI result")
-        .trim_start_matches("0x");
-    let bytes: Vec<_> = raw
-        .as_bytes()
-        .chunks_exact(2)
-        .map(|p| must(u8::from_str_radix(must(std::str::from_utf8(p)), 16)))
-        .collect();
-    let coins = must(gateway_evm::decode_coins(&bytes));
-    let result = json!(coins
-        .iter()
-        .map(|(denom, amount)| json!({"denom":denom,"amount":gateway_evm::uint256_decimal(amount)}))
-        .collect::<Vec<_>>());
-    assert_eq!(result, vector["out"]["response"]);
-    result
-}
-
-fn gateway_recorded_freshness() -> Value {
-    let transcript: Value = must(serde_json::from_str(include_str!(
-        "../../../../../apps/web/e2e/fixtures/px-get-unified-history.json"
-    )));
-    transcript["result"]["freshness"].clone()
-}
-
 #[derive(Clone, Debug)]
 struct Exchange {
     method: String,
@@ -525,38 +496,39 @@ impl RecordedProducer {
         let chain: Value = must(serde_json::from_str(include_str!(
             "../../../../../sdk/wallet/test/fixtures/gateway/rpc-chain-id.json"
         )));
+        let recorded = gateway_repair::records();
+        let mut records = records;
+        records.retain(|row| {
+            !matches!(
+                row["request"]["method"].as_str(),
+                Some("px_getAccount" | "px_getBalances" | "px_listAssets")
+            )
+        });
+        for (method, field, params) in [
+            (
+                "px_getAccount",
+                "account",
+                json!([recorded["account"]["account"]["evm_address"]]),
+            ),
+            (
+                "px_getBalances",
+                "balances",
+                json!([recorded["account"]["account"]["evm_address"]]),
+            ),
+            ("px_listAssets", "assets", json!([])),
+        ] {
+            records.push(json!({"request":{"method":method,"params":params}, "response":{"result":recorded[field]}}));
+        }
         Self {
             records,
             chain_id: chain["body"]["result"].clone(),
-            // Exact consensus response from px_reads.rs::network_reads_the_consensus_head.
-            // The older available.json network record carries a retired anchor;
-            // retain it separately as a refusal rather than rewriting that record.
-            network: json!({
-                "network_id": "paxeer:mainnet",
-                "paxeer": {"chain_id": "0x7d", "latest_block": "0x10"},
-                "consensus": {
-                    "latest_height": 9,
-                    "latest_block_hash": "12".repeat(32),
-                    "latest_app_hash": "34".repeat(32),
-                    "catching_up": false
-                }
-            }),
-            // Exact page from sequencer_reads.rs::history_sends_px_get_history_with_a_32_hex_cursor_and_refuses_other_forms.
-            history: json!({
-                "items": [
-                    {"kind": "transfer", "amount": "123", "nested": [1, null]},
-                    {"kind": "call"}
-                ],
-                "next_cursor": "000000000000abce0000000100000002",
-                "indexedHeight": 43982, "chainHeight": 44000,
-                "account": "0x1111111111111111111111111111111111111111",
-                "freshness": gateway_recorded_freshness()
-            }),
+            network: recorded["network"].clone(),
+            history: recorded["history"].clone(),
         }
     }
 
     fn result(&self, method: &str, params: &Value) -> Value {
-        let account = "0x1111111111111111111111111111111111111111";
+        let account = "0x102132435465768798a9bacbdcedfe0f1e2d3c4b";
         match method {
             "eth_chainId" => {
                 assert_eq!(*params, json!([]));
@@ -567,24 +539,8 @@ impl RecordedProducer {
                 self.network.clone()
             }
             "px_getHistory" => {
-                assert_eq!(*params, json!([account, null, 2]));
+                assert_eq!(*params, json!([self.history["account"], null, 2]));
                 self.history.clone()
-            }
-            "px_getBalances" => {
-                assert_eq!(*params, json!([account]));
-                let recorded = self
-                    .records
-                    .iter()
-                    .find(|r| r["request"]["method"] == "px_getAccount")
-                    .expect("identity transcript");
-                json!({"account":recorded["response"]["result"]["account"], "height":150,
-                    "balances": gateway_recorded_coins()})
-            }
-            "px_listAssets" => {
-                assert_eq!(*params, json!([]));
-                json!({"height":150,"joined_limit":16,"assets":[{
-                    "asset_id":"bank:ulxp","kind":"bank","denom":"ulxp", "name":"LayerX",
-                    "symbol":"LXP", "decimals":18,"supply":"250000000"}]})
             }
             _ => {
                 let record = self
@@ -602,9 +558,6 @@ impl RecordedProducer {
                     .get("result")
                     .unwrap_or_else(|| panic!("recorded producer refused: {method}"))
                     .clone();
-                if method == "px_getAccount" {
-                    result["paxeer"]["height"] = json!(150);
-                }
                 result
             }
         }
@@ -765,8 +718,12 @@ fn px_getNetwork() {
     let crossing = Crossing::start();
     let sequencer = must(SequencerEndpoint::new(&crossing.url, &[]));
     let px = must(PxEndpoint::new(&crossing.url, &[]));
-    let address = [0x11; 20];
-    let account = format!("0x{}", "11".repeat(20));
+    let account = "0x102132435465768798a9bacbdcedfe0f1e2d3c4b".to_owned();
+    let address: [u8; 20] = must(market_repair::unhex(&account).try_into());
+    let history_account = gateway_repair::records()["history"]["account"]
+        .as_str()
+        .expect("history account")
+        .to_owned();
     // Each iteration must reach the producer again, preserving the gateway history head.
     for iteration in 1..=2 {
         let chain = must(sequencer.chain_id());
@@ -784,7 +741,10 @@ fn px_getNetwork() {
             !exchange.result["paxeer"].is_null()
         );
         assert_eq!(joined.account.evm_address, Some(address));
-        assert_eq!(joined.account.layerx_account, Some([0x7c; 32]));
+        assert_eq!(
+            joined.account.layerx_account,
+            Some(word(&exchange.result["account"]["layerx_account"]))
+        );
         assert_eq!(
             joined.account.layerx_did.as_deref(),
             exchange.result["account"]["layerx_did"].as_str()
@@ -795,9 +755,9 @@ fn px_getNetwork() {
         );
         let paxeer = joined.paxeer.as_ref().expect("recorded Paxeer account");
         assert_eq!(paxeer.address, address);
-        assert_eq!(paxeer.balance.decimal(), "1000000000000000000");
+        assert_eq!(paxeer.balance.decimal(), "81985529216486895");
         assert_eq!(paxeer.height, exchange.result["paxeer"]["height"]);
-        assert_eq!(paxeer.nonce, 3);
+        assert_eq!(paxeer.nonce, 42);
         assert_eq!(
             joined.layerx.as_ref(),
             exchange.result["layerx"].as_object()
@@ -841,9 +801,9 @@ fn px_getNetwork() {
         );
         let asset = assets.assets.first().expect("recorded asset");
         assert_eq!(assets.height, number(&exchange.result["height"]));
-        assert_eq!(asset.asset_id, "bank:ulxp");
-        assert_eq!(asset.kind, "bank");
-        assert_eq!(asset.denom.as_deref(), Some(row.denom.as_str()));
+        assert_eq!(asset.asset_id, exchange.result["assets"][0]["asset_id"]);
+        assert_eq!(asset.kind, "layerx");
+        assert_eq!(asset.denom, None);
         assert_eq!(
             asset.name.as_deref(),
             exchange.result["assets"][0]["name"].as_str()
@@ -860,8 +820,11 @@ fn px_getNetwork() {
             asset.supply.expect("recorded supply").decimal(),
             exchange.result["assets"][0]["supply"]
         );
-        assert_eq!(asset.paused, None);
-        assert_eq!(asset.verification, None);
+        assert_eq!(asset.paused, Some(false));
+        assert_eq!(
+            asset.verification.as_deref(),
+            Some("authenticated_committed_snapshot")
+        );
         let head = must(px.network());
         let exchange = crossing.latest("px_getNetwork");
         assert_eq!(exchange.params, json!([]));
@@ -877,12 +840,12 @@ fn px_getNetwork() {
         );
         let history = must(consumer_history::history(
             &sequencer,
-            &account,
+            &history_account,
             None,
             Some(2),
         ));
         let exchange = crossing.latest("px_getHistory");
-        assert_eq!(exchange.params, json!([account, null, 2]));
+        assert_eq!(exchange.params, json!([history_account, null, 2]));
         assert_eq!(
             history.items,
             *exchange.result["items"]
@@ -901,7 +864,7 @@ fn px_getNetwork() {
             history.chain_height,
             exchange.result["chainHeight"].as_u64()
         );
-        assert_eq!(history.account, account);
+        assert_eq!(history.account, history_account);
         assert_eq!(history.freshness, exchange.result["freshness"]);
         let exchanges = must(crossing.exchanges.lock());
         assert!(exchanges

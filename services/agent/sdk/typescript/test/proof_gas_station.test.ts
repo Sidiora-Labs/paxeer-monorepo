@@ -21,6 +21,7 @@ import { keccak_256 } from "@noble/hashes/sha3.js";
 import * as sdk from "../src/index.js";
 import * as browser from "../src/browser.js";
 import type { GasQuote, GasResult, SponsoredBatch } from "../src/index.js";
+import { gas_nonce_root_route_uses_pending } from "./support/gas-root-route.js";
 
 function value<T>(answer: GasResult<T>): T {
   assert.equal(answer.ok, true, wire(answer));
@@ -62,7 +63,7 @@ function abiResult(
   return `0x${sdk.encodeAbiCall("result", types, values).slice(10)}`;
 }
 
-async function proof_gas_station_producer_transport_consumer(): Promise<void> {
+export async function proof_gas_station_producer_transport_consumer(): Promise<void> {
   for (const name of [
     "requestGasQuote",
     "discoverSponsoredNonce",
@@ -261,7 +262,7 @@ async function proof_gas_station_producer_transport_consumer(): Promise<void> {
         });
         return;
       }
-      if (path.pathname === "/rpc") {
+      if (path.pathname === "/") {
         assert.equal(incoming.method, "POST");
         const rpc = object(body);
         assert.equal(rpc.jsonrpc, "2.0");
@@ -343,6 +344,11 @@ async function proof_gas_station_producer_transport_consumer(): Promise<void> {
         reply({ jsonrpc: "2.0", id: rpc.id, result });
         return;
       }
+      if (path.pathname === "/rpc" || path.pathname === "/rpc/ws") {
+        outgoing.writeHead(404);
+        outgoing.end();
+        return;
+      }
       assert.equal(incoming.method, "GET");
       assert.equal(incoming.headers["x-cosmos-block-height"], "100");
       outgoing.setHeader("x-cosmos-block-height", "100");
@@ -394,6 +400,11 @@ async function proof_gas_station_producer_transport_consumer(): Promise<void> {
     const bound = server.address();
     assert.ok(bound && typeof bound !== "string", "producer must be listening");
     const base = `http://127.0.0.1:${bound.port}`;
+    for (const suffix of ["/rpc", "/rpc/ws"]) {
+      const response = await fetch(base + suffix, { method: "POST", body: "{}" });
+      assert.equal(response.status, 404);
+    }
+    assert.equal(counts.get("eth_call"), undefined);
     config.quoteUrl = `${base}/gas-station/quote`;
     let id = 0;
     const request = async (args: {
@@ -401,7 +412,7 @@ async function proof_gas_station_producer_transport_consumer(): Promise<void> {
       readonly params?: readonly unknown[];
     }): Promise<unknown> => {
       const rpcId = ++id;
-      const response = await fetch(`${base}/rpc`, {
+      const response = await fetch(base, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: wire({ jsonrpc: "2.0", id: rpcId, ...args }),
@@ -646,3 +657,4 @@ async function proof_gas_station_producer_transport_consumer(): Promise<void> {
 }
 
 test(proof_gas_station_producer_transport_consumer);
+test(gas_nonce_root_route_uses_pending);

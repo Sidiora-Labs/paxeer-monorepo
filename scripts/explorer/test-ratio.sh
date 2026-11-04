@@ -21,6 +21,8 @@
 set -eu
 
 program=test-ratio
+script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
+rust_classifier=$script_dir/rust-test-ranges.py
 
 log() {
     printf '%s: %s\n' "$program" "$*" >&2
@@ -44,11 +46,13 @@ the merge base of the two revisions, which is the range the pull request job
 passes.
 
 Source files: an Elixir .ex, a TypeScript .ts or .tsx that is not a test, and a
-Rust .rs that is not a test module.
+Rust .rs with changed production items, including files with inline tests.
 
 Test files: an Elixir *_test.exs, a TypeScript *.test.ts, *.test.tsx, *.spec.ts,
 *.spec.tsx or *.pw.tsx, and a Rust file under a tests/ directory or carrying a
-#[cfg(test)] module.
+changed #[cfg(test)] or #[test] items. A mixed Rust file can count as both;
+unchanged inline tests do not satisfy a production change. Rust classification
+requires Python 3 and compares the base and head blobs, not the working tree.
 
 Everything else - shell, YAML, JSON, environment presets, SVG and Markdown -
 counts as neither and carries no test requirement.
@@ -174,11 +178,10 @@ classify() {
                     return 0
                     ;;
             esac
-            if file_at_head "$classify_path" | grep -q '#\[cfg(test)\]'; then
-                printf 'test\n'
-            else
-                printf 'source\n'
-            fi
+            { git show "$base_rev:$classify_path" 2>/dev/null || true; } >"$work_dir/rust-base"
+            file_at_head "$classify_path" >"$work_dir/rust-head"
+            python3 "$rust_classifier" "$work_dir/rust-base" "$work_dir/rust-head" \
+                "$work_dir/rust/$classify_path" || return $?
             return 0
             ;;
     esac
@@ -224,6 +227,9 @@ build_tokens() {
     done
 
     file_at_head "$build_path" >"$source_body"
+    if [ -f "$work_dir/rust/$build_path/source" ]; then
+        cat "$work_dir/rust/$build_path/source" >"$source_body"
+    fi
 
     case $build_path in
         *.ex)
@@ -247,7 +253,7 @@ build_tokens() {
             build_stem=${build_path##*/}
             build_stem=${build_stem%.rs}
             {
-                { grep -oE '^[[:space:]]*pub([[:space:]]*\([^)]*\))?[[:space:]]+(async[[:space:]]+)?(unsafe[[:space:]]+)?(fn|struct|enum|trait|type|mod|const|static)[[:space:]]+[A-Za-z_][A-Za-z0-9_]*' "$source_body" || true; } |
+                { grep -oE '^[[:space:]]*(pub([[:space:]]*\([^)]*\))?[[:space:]]+)?(async[[:space:]]+)?(unsafe[[:space:]]+)?(fn|struct|enum|trait|type|mod|const|static)[[:space:]]+[A-Za-z_][A-Za-z0-9_]*' "$source_body" || true; } |
                     awk '{ print $NF }'
                 case $build_stem in
                     lib | main | mod) ;;
@@ -301,7 +307,8 @@ references() {
     reference_source_stem=${reference_source_stem%.*}
     reference_test_dir=${reference_test%/*}
     reference_test_stem=$(test_stem_of "$reference_test")
-    if [ "$reference_test_dir" = "$reference_source_dir" ] &&
+    if [ "$reference_test" != "$reference_source" ] &&
+        [ "$reference_test_dir" = "$reference_source_dir" ] &&
         [ "$reference_test_stem" = "$reference_source_stem" ]; then
         return 0
     fi
@@ -332,9 +339,14 @@ git diff --name-only --diff-filter=ACMR "$base_rev" "$head_rev" -- apps/explorer
 
 while IFS= read -r changed_path; do
     [ -n "$changed_path" ] || continue
-    case $(classify "$changed_path") in
+    changed_kind=$(classify "$changed_path") || die "cannot classify $changed_path"
+    case $changed_kind in
         source) printf '%s\n' "$changed_path" >>"$source_list" ;;
         test) printf '%s\n' "$changed_path" >>"$test_list" ;;
+        mixed)
+            printf '%s\n' "$changed_path" >>"$source_list"
+            printf '%s\n' "$changed_path" >>"$test_list"
+            ;;
         *) ;;
     esac
 done <"$work_dir/changed"
@@ -360,6 +372,9 @@ done <"$source_list"
 counted_tests=0
 while IFS= read -r test_path; do
     file_at_head "$test_path" >"$test_body"
+    if [ -f "$work_dir/rust/$test_path/test" ]; then
+        cat "$work_dir/rust/$test_path/test" >"$test_body"
+    fi
     test_hits=0
     source_index=0
     while IFS= read -r source_path; do

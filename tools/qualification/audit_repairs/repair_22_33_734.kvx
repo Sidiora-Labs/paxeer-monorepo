@@ -1,0 +1,62 @@
+[task.22.33.734]
+audit = "22.30.171"
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+mode = "BUILD"
+scope = ["tools/rollout/tests", "tools/qualification/audit_repairs/test_repair_22_33_734.py", "tools/qualification/audit_repairs/repair_22_33_734.kvx"]
+repair = "Replace successful router replay deployment with retained ai-evaluator; require explicit wake/health observations for the successful sleeping fixture and block unavailable/timed-out wake fixtures; rewrite obsolete standalone topology assertions against a committed retained paxd/hosted fixture, with negative router/sequencer selections and retained dependency, image, ledger, recovery and secret-redaction checks."
+baseline = "No pre-change verification was run: the explicit implementation-first order, exclusive hf-build/hf-done gates and ban on running verify_cmd by hand supersede the unchanged-tree baseline clause. No pre-change failing test is claimed. Initial Git status/diff contained only runner-prepared .cgignore and spec task-status changes, preserved unchanged; /out/run/gates.jsonl did not exist, so no earlier gate result or scoped implementation was repeated."
+source_proof = "Parse every replay manifest with production rollout.services and execute production main for a retained plan and all twelve retired single/mixed plan/apply refusals. Parse both embedded Python consumers with ast and check the shell's guarded commands, exact retained manifest target keys, image pins, dependency checks and failure assertions. hf-build performs the one bash -n parse of rollout.test.sh. The shell recovery/redaction/ledger scenario consumers remain present."
+transport_proof = "A loopback HTTP transcript server checks real production GraphQL operation names, variables and authorization, supplies the committed replies, and requires every recorded request to be consumed exactly once. Real railway_ids, apply_railway, apply_railway_image, runs, wait_deployment, image_ref, graphql_error and redact drive first apply, crash reruns, idempotence, old-image/old-health reconciliation, approval/service refusal and both secret/error-boundary cases. Each case loads a fresh production module and creates and closes its own HTTP server; no production function or transport is mocked or replaced."
+proof_limits = "The wake_health declarations are fixture contract evidence checked by the actual shell replay consumer; they are not HTTP observations made by rollout.py. The successful sleeping fixture records a successful wake followed by GET /healthz status 200 and a fresh Deployment SUCCESS; unavailable and timed-out fixtures remain SLEEPING and blocked. Real production status handling is executed over loopback, but production wake initiation and endpoint health observation require the domain 16 wiring request and remain review-only here. The production shipped manifest also still contains retired rows. This gate qualifies the scoped tests and fixture contract, not live readiness or production topology closure. Shell execution, ledger subprocesses, SSH, Docker, systemd recovery, native build targets, live Railway and endpoint health are not executed by pytest. No restart-recovery or interface-mismatch finding is assigned to this task; preserved crash reruns read the committed remote deployment snapshot through a freshly loaded production component rather than claiming systemd/WAL restart evidence."
+wiring_requests = ["deploy/rollout.kvx; owner domain 16: replace router, sequencer-primary and sequencer-standby deployment rows with the retained paxd target and reconcile its private host binding; tools/rollout/tests/retained.kvx expresses the test topology without changing this out-of-scope production manifest.", "tools/rollout/rollout.py; owner domain 16: implement a bounded wake and fresh configured HTTP health observation before reporting a sleeping deployment ready, with explicit unavailable and timeout refusal; consume the replay wake_health contract through the production interface once supplied. Current production safely blocks SLEEPING, but no wake/probe interface exists."]
+build_cmd = "bash -n tools/rollout/tests/rollout.test.sh"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_734.py"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision_record = "The final hf-done JSON row and private /out/run/gates.jsonl identify the exact content-derived candidate revision, command, exit code and log; qualification is claimed only for exit zero with build and verify on the same revision. The record is finalized before the gate because embedding its own candidate hash would change that hash. The runner retains gate evidence and commits the task; no manual commit or push is performed."
+
+[finding.016]
+file = "tools/rollout/tests/rollout.test.sh"
+class = "retired-reference"
+repair = "Use the explicit retained fixture instead of asserting the retired production manifest; require paxd image/unit/host/TCP health, archive and hosted services, dependency order including negative order fixtures, and absence/refusal of router and both sequencers. Keep manifest schema, image digest, selection, shipped-manifest project lookup, ledger append, crash rerun and redaction checks. The retained fixture has exactly 24 services: twenty-one hosted targets including gateway, plus paxd, program-registry and archive box targets. The existing deployment manifest actually contains 25 rows despite the old shell assertion requiring 26; this task defines the retained fixture explicitly rather than treating that stale assertion as the inventory. redis-router remains a stock Redis datastore, not the retired router deployment."
+tests = ["test_016_retained_manifest_and_real_plan", "test_016_shell_guards_keep_image_dependency_and_recovery_checks"]
+closure_basis = "Scoped shell source and retained fixture repaired; production manifest wiring explicitly requested from domain 16 rather than qualifying its retired topology."
+
+[finding.017]
+file = "tools/rollout/tests/replay.json"
+class = "retired-reference"
+repair = "All existing scenarios use retained ai-evaluator instead of router in manifest, project inventory and successful outcome; its commit deploy still uses the exact existing service id and requested revision. Add twelve explicit router/sequencer refusals for plan/apply, alone or with retained gateway. Preserve all nineteen original scenarios, crash/rerun behavior, digest image targets and seeded secret/redaction context and length-limit assertions."
+tests = ["test_017_all_replay_manifests_and_project_targets_are_retained", "test_017_real_retired_selection_refuses_before_transport", "test_017_real_recovery_idempotence_and_secret_redaction"]
+closure_basis = "Every manifest is parsed by the real parser; real selection refuses before credentials, digest file or transport, and retained deployment/recovery/redaction paths execute against exact committed HTTP transcripts."
+
+[finding.018]
+file = "tools/rollout/tests/replay.json"
+class = "test-gap"
+repair = "Keep the original sleeping refusal, add successful wake with a fresh health observation and fresh successful deployment, and add explicit unavailable and timed-out wake refusals. The replay consumer validates the wake_health evidence contract before replaying any sleeping case; status alone or missing wake/health evidence cannot qualify a successful sleeping fixture."
+tests = ["test_018_wake_health_contract_and_real_terminal_policy"]
+closure_basis = "The scoped fixture and replay consumer enforce explicit success evidence and refusal scenarios; the pytest module rejects missing, incomplete and unavailable evidence, and checks production terminal handling through real HTTP. Production wake/probe execution is an out-of-path wiring request, not a claimed runtime result."
+
+[format]
+policy = "No Python, shell or KVX formatter is configured for these paths; retain their existing indentation and apply .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions. JSON uses the repository's two-space indentation."
+
+[gotcha.baseline]
+observed = "The unchanged-tree baseline clause conflicts with the explicit implementation-first and exclusive wrapper gate order."
+resolution = "Follow the explicit order and claim no baseline failure; record the conflict here because root GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.graph]
+observed = "cg brief reports stale graph task and uncommitted-path counts that disagree with actual Git status."
+resolution = "Use actual Git status/diff, the exact task block and private gate ledger as authority; the task was already started by the runner."
+
+[gotcha.reads]
+observed = "A combined read of the root gotcha ledger and broad directory listings exceeded the output budget."
+resolution = "Read the applicable gotcha entries and named source sections in bounded calls; do not interpret truncated broad output as evidence."
+
+[qualification.initial]
+revision = "7ccc9cb18b6093e937766f95383d803061b7196d"
+command = "cg spec done 22.33.734 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "One of 32 tests failed because the retained fixture had 23 rows while its cardinality assertion required 24; add the retained hosted gateway from the replay instead of weakening the assertion."
+
+[gotcha.inventory]
+observed = "The original shell requires 26 services and an explorer-index target, while the production rollout manifest has 25 rows and no explorer-index row."
+resolution = "Do not chase that pre-existing production-manifest discrepancy; the retained fixture explicitly names its 24 retained services, and domain 16 owns the out-of-path deployment reconciliation."

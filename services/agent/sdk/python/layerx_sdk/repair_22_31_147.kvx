@@ -1,0 +1,115 @@
+[meta]
+task = "22.31.147"
+acceptance = "22998.1"
+status = "implementation; bounded hf-build and hf-done provide qualification evidence"
+baseline = "Inherited attempt 2 ran the declared verification: 15 passed, test_mirror_request_and_response_shapes_through_real_process and test_grant_receipt_kind_from_recorded_server_producer failed; no extra baseline gate is run."
+inherited_failure = "Attempt 1 verify at 30cf85b7d7d02e70746f660c849f3ce7099f1fd4 exited 2 during collection: ProgramsClient does not exist; the test now drives the actual ProgramOperations API."
+evidence = "The runner ledger records the exact qualified candidate revision, command, exit and private log; no gate is claimed before execution."
+
+[findings]
+unverified-market-finality = "test_unverified_market_finality_and_restart; test_commit_codec_matches_recorded_comet_producer"
+mirror-request-shape = "test_mirror_request_and_response_shapes_through_real_process"
+mirror-response-shape = "test_mirror_request_and_response_shapes_through_real_process"
+lifecycle-transaction-binding = "test_lifecycle_transaction_binding_and_retained_http_bytes"
+program-call-envelope = "test_program_call_envelope_against_node_producer"
+program-interface-transport = "test_program_interface_transport_from_registry_serializer"
+web-search-payer-header = "test_web_search_payer_header_and_ledger_accounts"
+web-search-account-derivation = "test_web_search_payer_header_and_ledger_accounts"
+web-search-payment-binding = "test_web_search_payment_binding_uses_ledger_event; test_grant_receipt_kind_from_recorded_server_producer"
+draw-send-contract = "test_draw_send_contract_and_restart_recovery"
+buyer-send-contract = "test_buyer_send_contract_and_restart_recovery"
+seller-commitment-downgrade = "test_seller_commitment_downgrade_and_verified_landing"
+empty-receipt-keys = "test_empty_receipt_keys_and_rotated_node_responses"
+grant-receipt-kind = "test_grant_receipt_kind_from_recorded_server_producer; test_draw_abi_decoder_and_binding_fields; retired grant schemes and all grant bindings refuse LXP_NO_PAYER_GRANT"
+
+[boundaries]
+committed = "Independently pinned Comet validator set at one explicit landing height; Comet header, vote, signature and transaction-inclusion codecs checked against the committed node transcript; no height/hash DTO authority."
+mirror = "Production MirrorVerifier request construction and result decoding traverse loopback HTTP via its explicit process-wire exchange boundary; the default subprocess implementation remains available. The peer uses the executable report schema and the committed block/receipt recording; no external executable runs in pytest."
+registry = "The registry serializer field contract is checked in source; its response schema traverses a loopback route, AgentHttpTransport and the actual ProgramOperations client with numeric freshness and deployment_receipt_digest intact."
+web-search = "Existing Rust server and gateway recordings preserve offer, header and account shapes; native PAX aliases remain separate from ledger accountId lookup. No recorded draw receipt is consumed."
+draw = "Decision 2340 retires payer grants. Registration, resolution, middleware and receipt consumers refuse LXP_NO_PAYER_GRANT before submission, reservation or verification; reopen preserves refusal and an empty durable draw store."
+
+[wiring]
+ledger = "precompiles/layerxledger/payments.go — ledger domain: preserve the decision 2340 refusal; prior requests to restore grant execution or record successful draws are withdrawn by continuation 7."
+consensus = "services/evm/rpc — EVM/consensus domain: expose committed Comet header, validator trust anchor and transaction proof; for wrapped Cosmos EVM transactions expose authenticated extraction/inclusion binding to the raw EVM transaction."
+raw-payment = "services/evm/rpc — EVM RPC domain: expose authenticated raw transaction retrieval for supported exact payments; the earlier server-submitted draw request is withdrawn."
+draw-context = "services/interop/crates/x-websearch/tests/payment.rs and tests/fixtures/gateway/metered.json — web-search domain: remove the retired successful-draw receipt recording; this out-of-scope file remains used only for offer/account/ABI metadata here, never as receipt evidence."
+
+[qualification_observation]
+first_verify = "ab959f40b0f64e87f808fe0b4fd271ff311a84a4; cg spec done 22.31.147 -f layerx-merge --root /work/paxeer-monorepo; exit 1; /out/logs/verify-1.log; new test collection bracket typo repaired."
+bytecode = "py_compile wrote bytecode inside the task directory; subsequent gates redirect Python bytecode to a temporary cache to preserve candidate identity."
+landing = "A transaction landing hash is retained at the receipted rung across reopen; only pinned validator signatures and inclusion evidence permit the committed rung, finalized state and matching checkpoint."
+draw_transport = "Recorded gateway draw transactions use EIP-155 legacy signatures; the RPC payment consumer uses the same validated payment decoder as its receipt verifier."
+
+[qualification.draw_context]
+revision = "318afa643439b041e7f51918eba4715be52614dc"
+command = "cg spec done 22.31.147 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The recorded gateway draw's signed PaymentDrawn event contains a zero contextHash while the signed draw calldata carries a nonzero contextHash; the success assertion fails because verification refuses this mismatch."
+
+[continuation]
+implementation = "Retained the inherited SDK repairs and all 17 test cases; replaced external Go, C and Rust test producers with in-process signing peers and loopback HTTP, removed the Go helper, and used the validated EVM payment decoder for both buyer and draw transaction binding."
+known_blocker = "The inherited grant receipt success assertion remains intact: the out-of-scope Rust recording signs a PaymentDrawn event with zero contextHash although its signed calldata contains a nonzero contextHash; weakening event verification or changing that assertion is prohibited."
+qualification = "Only hf-build and hf-done run the declared commands; the final gate ledger supplies the verified revision and private evidence location. The runner owns spec status and publishing."
+
+[gotchas]
+process_peers = "A Python gate must not compile Go/C/Rust fixture producers or require the mirror binary; production SDK entry points use in-process protocol peers and a real loopback HTTP boundary."
+candidate = "Set PYTHONPYCACHEPREFIX outside the repository for py_compile and verification so the build and verify candidate revisions stay equal; do not edit any source after the final verification."
+
+[continuation4]
+implementation = "Decode signed draw calldata using the SDK canonical static ABI decoder for both production verification and the recorded-producer test; derive grant ID, recipient, amount, idempotency key, sequence, purpose and context from its typed fields."
+diagnostics = "PaymentBindingError retains verification-failure and retry never, and identifies draw binding fields, receive/grant fields or the signed event data digest without exposing field values. The signed event digest check and recorded draw success assertion remain intact."
+tests = "test_draw_abi_decoder_and_binding_fields proves canonical draw vectors, malformed lengths/selectors, integer width bounds and individual grant binding diagnostics through the real signed receipt verifier."
+evidence = "The final hf-build/hf-done runner ledger records the exact candidate revision and private evidence location; this record makes no prospective passing claim."
+
+[qualification.continuation4_first]
+revision = "3596fe8e52fb9630adc13fb16488b8be7150fa21"
+command = "cg spec done 22.31.147 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "17 passed and the original draw success assertion failed at event.data_digest; canonical calldata decoding and all individual grant binding diagnostics passed."
+repair = "Decode recorded event data with the shared SDK ABI decoder as well, and attach the mismatching recorded event field to the existing verification failure; preserve the success assertion and signed digest check. The previously recorded producer context inconsistency still requires the owning web-search domain."
+
+[continuation5]
+implementation = "Reviewed and retained the inherited repairs and all 18 parametrized cases; preserved the signed event digest check and recorded draw success assertion."
+producer = "services/interop/crates/x-websearch/tests/payment.rs::recorded_draw hashes the serialized payment into draw calldata but hard-codes a zero event context at line 2639; the current producer still reproduces the recorded inconsistency."
+scope_conflict = "services/platform/hosted/registry/src/routes.rs contains registry deployment/interface routes and no PaymentDrawn producer; changing that file cannot repair the named draw producer."
+wiring_request = "services/interop/crates/x-websearch/tests/payment.rs and its gateway recording — web-search domain: retain the computed payment context and use it in both draw_calldata and PaymentDrawn event data, then regenerate the transcript into the allowed SDK directory."
+recording = "Re-recording was not run: the current source still emits the inconsistent event, and the only allowed build/verify gates do not invoke its Rust recording harness. No receipt was fabricated or re-signed to bypass the producer defect."
+qualification = "Run only hf-build and hf-done; their private ledger records exact revision, command, exit and log. The pending scope clarification is required to repair the actual producer."
+gotcha = "The continuation ruling names hosted registry routes as the PaymentDrawn producer, but the actual draw fixture producer is the web-search payment test outside this task's scope."
+
+[continuation6]
+baseline = "The inherited attempt 5 evidence records 17 passed and test_grant_receipt_kind_from_recorded_server_producer failed at event.data_digest; no extra baseline gate is run."
+producer = "The current authoritative path is precompiles/layerxledger/payments.go::draw -> modules/layerxledger/keeper/draw.go::Keeper.Draw -> paymentLogs -> modules/layerxledger/keeper/events.go::LedgerEvents; the earlier registry and web-search producer instructions are withdrawn."
+context = "payments.go forwards input.ContextHash unchanged to DrawArgs and EventArgs; events.go copies args.ContextHash unchanged into PaymentDrawn. The SDK already binds that exact calldata field in the signed event digest, so substituting zero or accepting the mismatching recording would weaken verification."
+blocker = "Keeper.Draw unconditionally returns ErrNoPayerGrant after pause and authority checks. TestPrecompileDraw asserts LXP_NO_PAYER_GRANT, unchanged balances and no logs for every draw; proof_layerxledger_0x101a_test.go additionally asserts that a refused draw must not invent PaymentDrawn or Transfer."
+recording = "No successful draw/event/receipt can be recorded from this producer's current Go harness. No recording run, fabricated receipt, re-signing, helper toolchain project, test weakening or out-of-scope ledger edit is used to hide that missing producer path."
+wiring_request = "modules/layerxledger/keeper/draw.go and precompiles/layerxledger/payments_test.go — ledger domain: provide an authorized successful draw path and its Go-harness recording of signed calldata, emitted events and receipt, or supply an existing authoritative recording, before the SDK success test can qualify."
+retained = "All inherited SDK repairs, all 18 parametrized cases, the failing recorded draw success assertion and its binding diagnostics remain intact; only this in-scope repair record changes in continuation 6."
+qualification = "Only hf-build followed by hf-done runs qualification; the runner ledger supplies the exact final candidate revision, command, exit and private log. The runner owns publication; no source changes follow the final verification."
+gotcha = "A declared ABI event and an event projection unit test do not establish successful execution: the real precompile exits before paymentLogs when the keeper refuses the retired payer-grant path."
+
+[continuation6.producer_sources]
+base_revision = "9e535b4932ba8111a729a5cef10e0ca2370ca435"
+precompile_sha256 = "19e64f6677d8a43e7b27b7144ceec6191319271da05fa820cec4a1069d48fe92"
+producer_harness_sha256 = "ed032334cb7053840ee0928d9cb98dc820fdfd8e28ff520b3e7fb9a929c8a169"
+keeper_sha256 = "68156604f4bd275a011b3f86d3dfb7bd056a5d7397d7bebca8e64ad893159cf3"
+event_projection_sha256 = "8a36d391e7f15c80fb25a3cd902965e1a58b1a1b186dbd89bdd42ca3f91c6700"
+
+[continuation7]
+baseline = "Inherited attempt 6: 17 passed, 1 failed at event.data_digest; the final ruling withdraws every successful-draw recording instruction, so no unchanged baseline gate is repeated."
+authority = "Decision 2340 and precompiles/common/lxp_errors.go register LXP_NO_PAYER_GRANT, no payer grant, kernel code -214, nonretryable; modules/layerxledger/keeper/draw.go refuses before any payment event is emitted."
+implementation = "verify_payment_receipt and verify_rpc_payment refuse any grant binding, metered scheme or subscription scheme before verification, including submitted RPC results. PreparedGrantDraws registration, resolution and calls refuse before any persistence or send. AgentGrantMiddleware refuses before reserving budget, and PaymentBudget refuses grant evidence before committing it. Only payExact and PaymentExact remain accepted payment method/event kinds."
+recording = "Removed recorded_web_draw and all consumption of the withdrawn signed draw receipt. No stale successful-draw recording exists inside the task paths; deletion of the shared external gateway recording is requested in wiring.draw-context."
+tests = "Retained every test function and every unrelated case. The recorded-server-producer case now proves the registered refusal through production verifiers, RPC, web-search and agent middleware while payExact still succeeds. Two grant-dependent cases adopt retirement: ABI bounds and individual transaction binding refusals remain asserted; RPC send preserves typed refusal, registration never sends, and reopening retains refusal without durable draws."
+gotcha = "The earlier instruction to keep all other cases unchanged conflicts with two cases that require grant verification or submission to succeed. Their positive retired-path assertions are replaced by the explicitly required refusal behavior; all codec, binding and exact-payment assertions remain enforced."
+qualification = "Only hf-build then hf-done qualify the final tree. The runner owns exact candidate revision and private evidence logs, spec status and publication; no source changes follow the final passing gate."
+
+[continuation8]
+baseline = "Attempt 7 qualified all 18 cases at 2ef5e454b1a5ffebe625b81b9b6636b97be94584; publication conflicted with later domain changes, so this continuation integrates onto base 76c050242a1edcad6212aa52fac15670ecb5612d without repeating an unchanged baseline gate."
+implementation = "Resolved all six seed/current conflict hunks. Preserve the published EIP-155/type-2 decoder in x402 and x402_rpc and the published web-search payer-address owner binding; integrate ledger accountId lookup for non-native assets while native PAX keeps the published compatibility alias."
+tests = "All inherited assertions remain. The four-currency loopback test now also resolves a registered DID distinct from the padded EVM owner, proving that payer accounts continue to bind the address owner on both native and non-native branches."
+gotcha = "The resolved address precompile DID may differ from the padded EVM owner used by the ledger producer; merging the seed's DID-based payer derivation verbatim would regress the published owner binding. The runner-provided .cgignore and spec status changes are bookkeeping outside the candidate sources and are left untouched."
+qualification = "Only hf-build and hf-done qualify the final unchanged source tree; their ledger records the exact candidate revision, command, exit and private log. Publication belongs to the runner."

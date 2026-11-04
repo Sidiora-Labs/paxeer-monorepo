@@ -1,0 +1,102 @@
+[repair]
+task = "22.33.699"
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+acceptance = "22998.1"
+source_proof = "Parse the real workflow YAML, Dockerfile directives, shared registry JSON and production shell syntax with bash -n; assert native prerequisites, digest checks, all existing node targets, image references and build arguments, publisher/consumer registry wiring, token owner guard, dry-run defaults, Slack masking before upload and nonsecret logging, embedded release artifacts and checksum publication transport. Execute the production GHCR producer/retention helpers over a loopback HTTP server with committed response documents, compare dry-run candidates to deletion paths and reject unproven runs before any delete. Execute the production checksum parser and evidence writer against canonical records, malformed/missing/duplicate records and mismatching download metadata; invalid input cannot create evidence."
+review_only = "Docker/Go/C/Rust builds, native linking and version execution, real ECR/GHCR publication and retention, remote token grants, Slack delivery, proxy installs and checksum-database availability are not executed by this offline gate. Image qualification proves source contracts: tag identities, regular/mock arguments, paxd entrypoint, native archive linkage and verified Wasm runtime libraries; it does not certify built container bytes or remote deployment. No restart-recovery finding applies. The owner mismatch is driven through the production image producer, HTTP registry transport and retention consumer; no external credential, environment configuration, live endpoint, subprocess toolchain, native artifact or device is required. Bash is used only as the explicitly required syntax parser, never to run build or workflow commands."
+baseline = "Initial git status/diff contained only runner-prepared .cgignore and task in_progress bookkeeping; preserved unchanged. Both scoped repair files were absent. gate.json reported zero builds and verify runs and no /out/run/gates.jsonl existed. The unchanged-tree verification clause conflicts with the explicit implementation-first and hf-done-only order, so no pre-change verification was run. No baseline failures are claimed."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_699.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The last hf-done JSON and private gate ledger supply exact revision, command, exit code and log path. Build and verify must pass on the same candidate revision. This record precedes qualification: embedding its own content-derived candidate revision would change that revision. The runner retains private evidence and commits the qualified candidate."
+wiring_requests = ["domain 16, tools/release/tests/build.test.sh, tools/release/tests/reproducible.test.sh and tools/release/tests/verify-release.test.sh: remove retired PAXD_RELEASE_LAYERXD inputs and the standalone layerxd inventory entries; keep complete paxd/native-library, sidecar, Wasm and upgrade-info checksum assertions.", "domain 16, spec/layerx-merge/interfaces.kvx and spec/layerx-merge/contracts/operations.md: refresh the release environment inventory to retire PAXD_RELEASE_LAYERXD and describe the shared integration registry configuration and validated retention plan; preserve the frozen inventory's historical revision labels."]
+
+[release_inventory]
+linux_amd64 = ["SHA256SUMS", "paxd-<version>-linux-amd64", "price-sidecar-<version>-linux-amd64", "libwasmvm.x86_64.so", "libwasmvm152.x86_64.so", "libwasmvm155.x86_64.so", "native-libs.sha256", "upgrade-info.json"]
+embedded_archives = ["build/liblayerx.a", "programs/target/release/liblayerx_programs_sandbox.a"]
+verification = "Build and verify the native-libs.sha256 manifest, stamp the combined archive digest into paxd, check paxd version JSON reports that digest, verify pinned Wasm copies and final SHA256SUMS, retain the native manifest and all assets through the existing reproducibility and publish paths. Static archives remain embedded in paxd; the native manifest records their exact bytes."
+
+[finding.node-pr-input-coverage]
+audit = "22.30.169"
+file = ".github/workflows/node-build.yml"
+class = "test-gap"
+severity = "medium"
+repair = "Remove the incomplete pull_request paths filter; every PR can reach the unchanged native, paxd, host and node test jobs and the all-jobs gate."
+tests = ["test_node_pr_input_coverage"]
+
+[finding.ecr-build-file]
+audit = "22.30.169"
+file = ".github/workflows/paxeer-ecr.yml"
+class = "wiring-gap"
+severity = "medium"
+repair = "Select docker/layerx/Dockerfile on all four builds; retain release reference, regular/mock tags and all GO_BUILD_TAGS variants. Check these inputs reach the native-linked paxd recipe, runtime library copies and entrypoint."
+tests = ["test_ecr_build_file"]
+
+[finding.nightly-build-file]
+audit = "22.30.169"
+file = ".github/workflows/paxeer-nightly-ecr.yml"
+class = "wiring-gap"
+severity = "medium"
+repair = "Select docker/layerx/Dockerfile on all three nightly builds and preserve SHA-derived references, nightly tag transport and regular/mock image contracts."
+tests = ["test_nightly_build_file"]
+
+[finding.ghcr-cleanup-owner]
+audit = "22.30.169"
+file = ".github/workflows/paxeer-ghcr-integration-test-cleanup.yml"
+producer = ".github/workflows/paxeer-integration-test.yml"
+configuration = ".github/workflows/integration-registry.json"
+implementation = ".github/workflows/scripts/integration_registry.py"
+class = "config-drift"
+severity = "medium"
+repair = "Share the existing sidiora-labs owner and exact package names across publisher, cluster pull consumer and cleanup. Refuse repository tokens from any other owner. Default scheduled and manual runs to dry-run; deletion requires explicit manual false. Validate every old numeric-tag candidate against a completed run of the integration publisher in this repository before logging the entire plan and optionally applying it. Preserve cache, mixed and empty tags and recent versions. Retain contents/actions read plus repository-scoped packages write permissions."
+tests = ["test_ghcr_cleanup_owner_wiring", "test_ghcr_cleanup_owner_dry_run_and_deletion", "test_ghcr_cleanup_rejects_unproven_run_before_delete"]
+
+[finding.review-upload-url-log]
+audit = "22.30.169"
+file = ".github/workflows/paxeer-pr-to-slack-codex.yml"
+class = "security"
+severity = "medium"
+repair = "Extract and mask the upload capability before use, escaping GitHub command percent/CR/LF characters. Print only projected ok/error/file_id fields, remove raw ticket/response diagnostics, require ticket success and identifiers, fail on upload HTTP errors and preserve completion failure propagation."
+tests = ["test_review_upload_url_log"]
+
+[finding.release-check-daemon]
+audit = "22.30.169"
+file = ".github/workflows/paxeer-release-check.yml"
+implementation = "tools/release/build-paxd.sh"
+class = "retired-reference"
+severity = "medium"
+repair = "Remove the standalone-daemon request and release-script branch; retain embedded paxd/native-library digest and reproducibility verification. The current release inventory is recorded above; out-of-scope historical test inventory updates are requested from domain 16."
+tests = ["test_release_check_daemon"]
+
+[finding.release-publish-daemon]
+audit = "22.30.169"
+file = ".github/workflows/paxeer-release-publish.yml"
+implementation = "tools/release/build-paxd.sh"
+class = "retired-reference"
+severity = "medium"
+repair = "Remove the standalone-daemon request and release-script branch. Publish the checksummed embedded paxd/native manifest, pinned Wasm libraries, price-sidecar and upgrade metadata through the existing complete-directory upload."
+tests = ["test_release_publish_daemon"]
+
+[finding.go-publication-checksum]
+audit = "22.30.169"
+file = ".github/workflows/platform.yml"
+implementation = ".github/workflows/scripts/go_publication_checksum.py"
+class = "runtime-risk"
+severity = "medium"
+repair = "Parse go.sum by fields, require exactly one selected module/version h1 archive checksum, validate its SHA-256 base64 encoding, match go mod download Path/Version/Sum and reject download Error. Append the unchanged original line to registry-digest.txt only after validation, and return it to the existing artifact record consumer."
+tests = ["test_go_publication_checksum_transport_and_evidence", "test_go_publication_checksum_rejects_invalid_evidence"]
+
+[gotcha.baseline_order]
+observed = "The inherited unchanged-tree verify step contradicts the explicit implementation-first wrapper-only gate order."
+resolution = "Follow the explicit order and claim no baseline result; GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.scope_inventory]
+observed = "Existing release test inventories still request and expect a separate layerxd artifact, but those files are outside scope."
+resolution = "Record the exact domain 16 wiring request instead of changing or running those tests."
+
+[gotcha.context_output]
+observed = "Combined repository context reads exceeded tool output limits."
+resolution = "Read task and finding sections and directly affected sources in bounded outputs; use the private gate ledger for qualification evidence."
+
+[format]
+policy = "The repository has no configured formatter for these scoped Python, shell, JSON, YAML or KVX paths. Apply .editorconfig UTF-8/LF, final newline, trailing-whitespace and two-space YAML/JSON conventions after implementation; preserve existing source style."

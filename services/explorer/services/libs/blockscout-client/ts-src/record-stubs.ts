@@ -1,103 +1,63 @@
 import fs from 'fs-extra';
 import fetch from 'node-fetch';
+import path from 'path';
 
-
-const baseHost = 'eth.blockscout.com';
-const baseName = baseHost.replace(/\./g, '_');
-const outputDir = './crate/tests/recorded/'
-const paths = [
-    // Health endpoints
-    "/api/health",
-    
-    // Blocks endpoints
-    "/api/v2/blocks",
-    "/api/v2/blocks/12345", // Example block number
-    
-    // Transactions endpoints
-    "/api/v2/transactions",
-    "/api/v2/transactions/0x4dd7e3f4522fcf2483ae422fd007492380051d87de6fdb17be71c7134e26857e",
-    "/api/v2/transactions/0x4dd7e3f4522fcf2483ae422fd007492380051d87de6fdb17be71c7134e26857e/internal-transactions",
-    
-    // Smart Contracts endpoints
-    "/api/v2/smart-contracts",
-    // "/api/v2/smart-contracts?q=contract",
-    // "/api/v2/smart-contracts?filter=verified",
-    "/api/v2/smart-contracts/0x8FD4596d4E7788a71F82dAf4119D069a84E7d3f3",
-    
-    // Tokens endpoints
-    "/api/v2/tokens",
-    // "/api/v2/tokens?q=token",
-    // "/api/v2/tokens?type=ERC-20",
-    "/api/v2/tokens/0xD4416b13d2b3a9aBae7AcD5D6C2BbDBE25686401",
-    "/api/v2/tokens/0xD4416b13d2b3a9aBae7AcD5D6C2BbDBE25686401/instances",
-    "/api/v2/tokens/0xD4416b13d2b3a9aBae7AcD5D6C2BbDBE25686401/instances/25625468407840116393736812939389551247551040926951238633020744494000165263268",
-    "/api/v2/tokens/0xD4416b13d2b3a9aBae7AcD5D6C2BbDBE25686401/counters",
-    "/api/v2/tokens/0xD4416b13d2b3a9aBae7AcD5D6C2BbDBE25686401/holders",
-    "/api/v2/tokens/0xD4416b13d2b3a9aBae7AcD5D6C2BbDBE25686401/transfers",
-    "/api/v2/tokens/0xD4416b13d2b3a9aBae7AcD5D6C2BbDBE25686401/instances/25625468407840116393736812939389551247551040926951238633020744494000165263268/holders",
-    
-    // Token Transfers endpoints
-    "/api/v2/token-transfers",
-    
-    // Addresses endpoints
-    "/api/v2/addresses/0xc0De20A37E2dAC848F81A93BD85FE4ACDdE7C0DE",
-    "/api/v2/addresses/0xc0De20A37E2dAC848F81A93BD85FE4ACDdE7C0DE/counters",
-    "/api/v2/addresses/0x8FD4596d4E7788a71F82dAf4119D069a84E7d3f3/logs",
-    "/api/v2/addresses/0xc0De20A37E2dAC848F81A93BD85FE4ACDdE7C0DE/nft/collections",
-    "/api/v2/addresses/0xc0De20A37E2dAC848F81A93BD85FE4ACDdE7C0DE/token-balances",
-    "/api/v2/addresses/0xc0De20A37E2dAC848F81A93BD85FE4ACDdE7C0DE/token-transfers",
-    "/api/v2/addresses/0xc0De20A37E2dAC848F81A93BD85FE4ACDdE7C0DE/tokens",
-    // Blocks validated
-    "/api/v2/addresses/0x4838B106FCe9647Bdf1E7877BF73cE8B0BAD5f97/blocks-validated",
-    
-    // Search endpoints
-    "/api/v2/search?q=USDT",
-    
-    // Stats endpoints
-    "/api/v2/stats",
-]
-
-
-
-async function main(): Promise<any> {
-    for (const path of paths) {
-        const url = new URL(`https://${baseHost}${path}`);
-        const queryParams = Object.fromEntries(url.searchParams);
-        const urlPath = url.pathname;
-        const requestObj: any = {
-            method: 'GET',
-            urlPath
-        };
-        if (Object.keys(queryParams).length > 0) {
-            requestObj['queryParameters'] = {};
-            for (const [key, value] of Object.entries(queryParams)) {
-                requestObj['queryParameters'][key] = {
-                    equalTo: value
-                };
-            }
-        }
-        console.log(`Making request to ${url}`);
-
-        const response = await fetch(url);
-
-        // write wiremock stubs
-        const responseJson = await response.json();
-        const stubs = {
-            request: requestObj,
-            response: {
-                status: 200,
-                body: JSON.stringify(responseJson),
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            }
-        };
-        const sanitazedPath = path.replace(/\//g, '_').replace(/\?/g, '_');
-        const outputFileName = `${outputDir}/${baseName}/${sanitazedPath}.json`;
-        await fs.ensureFile(outputFileName);
-        await fs.writeFile(outputFileName, JSON.stringify(stubs, null, 2));
+export async function recordResponses(
+  restOrigin: string,
+  sourceRevision: string,
+  outputDir: string,
+  paths: string[],
+): Promise<void> {
+  const origin = new URL(restOrigin);
+  if (
+    !['http:', 'https:'].includes(origin.protocol) ||
+    !['127.0.0.1', '[::1]'].includes(origin.hostname) ||
+    origin.pathname !== '/' || origin.search || origin.hash ||
+    origin.username || origin.password
+  ) {
+    throw new Error('Supply an explicit loopback REST origin without credentials or paths');
+  }
+  if (!/^[0-9a-f]{40}$/.test(sourceRevision)) {
+    throw new Error('Supply the full source backend revision');
+  }
+  for (const requestPath of paths) {
+    if (!requestPath.startsWith('/api/') || requestPath.includes('#')) {
+      throw new Error('Only mounted /api/ request paths and queries are accepted');
     }
-
+    const url = new URL(requestPath, origin);
+    if (url.origin !== origin.origin) {
+      throw new Error('Recording cannot leave the explicit local origin');
+    }
+    const response = await fetch(url, { redirect: 'error', timeout: 30000, size: 8 * 1024 * 1024 });
+    const body = await response.text();
+    const contentType = response.headers.get('content-type');
+    const recording = {
+      metadata: { source_revision: sourceRevision, rest_origin: origin.origin },
+      request: { method: 'GET', url: url.pathname + url.search },
+      response: {
+        status: response.status,
+        body,
+        headers: contentType === null ? {} : { 'Content-Type': contentType },
+      },
+    };
+    const destination = path.join(outputDir, `${encodeURIComponent(requestPath)}.json`);
+    await fs.outputJson(destination, recording, { spaces: 2, flag: 'wx' });
+  }
 }
 
-main().catch(console.error);
+async function main(): Promise<void> {
+  const args = process.argv.slice(2);
+  if (args.length < 3) {
+    throw new Error('usage: record-stubs REST_ORIGIN SOURCE_REVISION OUTPUT_DIR [PATH ...]');
+  }
+  const [origin, revision, output] = args;
+  const paths = args.length > 3 ? args.slice(3) : ['/api/health', '/api/v2/blocks'];
+  await recordResponses(origin, revision, output, paths);
+}
+
+if (require.main === module) {
+  main().catch((error: Error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
+}

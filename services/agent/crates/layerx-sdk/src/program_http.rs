@@ -1099,7 +1099,13 @@ fn valid_request_id(value: &str) -> bool {
         && value.bytes().all(|byte| byte.is_ascii_graphic())
 }
 
-fn decode_discovery(
+/// Verifies a signed registry discovery document under independently pinned authority.
+/// This codec does not upgrade an unproved live node read into verified discovery.
+///
+/// # Errors
+/// Refuses unsupported profiles, stale or future observations, unsigned documents,
+/// altered registry fields, and signatures from an authority other than the supplied pin.
+pub fn decode_discovery(
     value: &Value,
     expected_program: [u8; 32],
     now: u64,
@@ -1122,7 +1128,7 @@ fn decode_discovery(
     let observed_sequence = decimal_u64(value, "observed_sequence")?;
     let observed_at = decimal_u64(value, "observed_at")?;
     let valid_through = decimal_u64(value, "valid_through")?;
-    if valid_through < observed_at || now > valid_through {
+    if valid_through < observed_at || now < observed_at || now > valid_through {
         return Err(ProgramOperationError::Verification);
     }
     let discovery = VerifiedProgramDiscovery {
@@ -1137,9 +1143,7 @@ fn decode_discovery(
         observed_at,
         valid_through,
     };
-    if abi_version >= 3 {
-        verify_discovery_signature(value, &discovery, trusted_sequencer_public_key)?;
-    }
+    verify_discovery_signature(value, &discovery, trusted_sequencer_public_key)?;
     Ok(discovery)
 }
 
@@ -1154,7 +1158,11 @@ fn guest_abi(value: &Map<String, Value>, field: &str) -> Result<u16, ProgramOper
 fn discovery_digest(discovery: &VerifiedProgramDiscovery) -> [u8; 32] {
     let mut material = b"LayerX/program-discovery-proof/v1\0".to_vec();
     material.extend_from_slice(&discovery.program_id());
-    material.push(1);
+    material.push(match discovery.lifecycle() {
+        ProgramLifecycle::Active => 1,
+        ProgramLifecycle::Deprecated => 2,
+        ProgramLifecycle::Tombstoned => 3,
+    });
     material.extend_from_slice(&discovery.version().to_be_bytes());
     material.extend_from_slice(&discovery.code_hash());
     material.extend_from_slice(&discovery.abi_version().to_be_bytes());
@@ -2167,7 +2175,7 @@ mod source_contract {
     #[test]
     fn versioned_discovery_requires_pinned_canonical_signature() -> Result<(), ProgramOperationError>
     {
-        for abi in [3, 4] {
+        for abi in 1..=layerx_types::guest_abi::MAX_VERSION {
             let (value, key) = signed_discovery(abi, [0x22; 32])?;
             let verified = decode_discovery(&value, [0x11; 32], 1758200000000, key)?;
             assert_eq!(verified.abi_version(), abi);
@@ -2196,6 +2204,7 @@ mod source_contract {
             }
             for (field, changed) in [
                 ("version", json!(4)),
+                ("lifecycle", json!("deprecated")),
                 ("abi_version", json!(if abi == 3 { 4 } else { 3 })),
                 ("observed_sequence", json!("4243")),
                 ("observed_at", json!("1758200000001")),
@@ -2212,10 +2221,7 @@ mod source_contract {
             let object = value.as_object_mut().ok_or(ProgramOperationError::Decode)?;
             object.remove("discovery_public_key");
             object.remove("discovery_signature");
-            assert_eq!(
-                decode_discovery(&value, [0x11; 32], 1758200000000, key)?.abi_version(),
-                abi
-            );
+            assert!(decode_discovery(&value, [0x11; 32], 1758200000000, key).is_err());
         }
         for abi in [0, layerx_types::guest_abi::MAX_VERSION + 1, u16::MAX] {
             assert!(guest_abi(object(&json!({"abi_version":abi}))?, "abi_version").is_err());

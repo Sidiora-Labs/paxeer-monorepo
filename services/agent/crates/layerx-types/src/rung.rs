@@ -5,7 +5,8 @@
 /// Every caller uses these meanings:
 /// - `Submitted`: only the transaction hash is known.
 /// - `Receipted`: a sequencer receipt verified against the pinned `ReceiptKeys` entry.
-/// - `Committed`: a verified Comet commit at the receipt height.
+/// - `Committed`: verified coverage of the signed receipt by a Comet committed block.
+///   The covering block can follow execution; retain the receipt execution height separately.
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Hash)]
 #[repr(u8)]
 pub enum Rung {
@@ -13,7 +14,8 @@ pub enum Rung {
     Submitted = 0,
     /// A sequencer receipt verified against the pinned `ReceiptKeys` entry.
     Receipted = 1,
-    /// A verified Comet commit at the receipt height.
+    /// Verified coverage of the signed receipt by a Comet committed block.
+    /// Its height can be later than the receipt execution height.
     Committed = 2,
 }
 

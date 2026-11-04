@@ -21,7 +21,9 @@ fi
 # Constructor:
 #   sstore(0, 42)
 #   return runtime bytecode that returns 42 for any call.
-STORAGE_CONTRACT_INIT_CODE=0x602a600055600a600f600039600a6000f3602a60005260206000f3
+STORAGE_CONTRACT_INIT_CODE=0x602a600055600a6011600039600a6000f3602a60005260206000f3
+STORAGE_CONTRACT_RUNTIME_CODE=0x602a60005260206000f3
+STORAGE_SLOT_VALUE=0x000000000000000000000000000000000000000000000000000000000000002a
 STORAGE_SLOT_ZERO=0x0000000000000000000000000000000000000000000000000000000000000000
 
 paxhome=$(CDPATH= cd -- "$(dirname -- "$0")/../../.." && pwd)
@@ -222,6 +224,10 @@ fi
 contract_height=$(block_number)
 storage_expected=$(query_storage "$contract_addr" "$STORAGE_SLOT_ZERO" "$contract_height")
 code_expected=$(query_code "$contract_addr" "$contract_height")
+if [ "${storage_expected,,}" != "$STORAGE_SLOT_VALUE" ] || [ "${code_expected,,}" != "$STORAGE_CONTRACT_RUNTIME_CODE" ]; then
+  echo "Deployed fixture differs from embedded runtime or slot-zero value" >&2
+  exit 1
+fi
 
 write_fixture "flatkv_evm_contract_addr.txt" "$contract_addr"
 write_fixture "flatkv_evm_contract_block_height.txt" "$contract_height"
