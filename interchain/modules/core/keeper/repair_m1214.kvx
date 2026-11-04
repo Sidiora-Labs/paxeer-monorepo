@@ -1,0 +1,25 @@
+[repair.22.33.1214]
+audit = "22.30.58"
+findings = ["nil-query-embedding", "timeout-height-metric-contract", "timeout-close-metric-contract"]
+implementation = "Remove Keeper's uninitialized embedded QueryServer while retaining its compile-time assertion and the prerequisite UpgradedConsensusState forwarder; correct both timeout contract rows to the shared three-part name and five label dimensions."
+baseline = "Not run: the explicit ordered gate instructions prohibit testing before implementation and prohibit invoking verify_cmd by hand; the initial gate ledger has zero build and verify runs. No baseline failure is claimed."
+wiring_requests = ["Domain 17: update spec/layerx-merge/interfaces.kvx interface.15.met-ibc-interchain-modules-core-keeper-ibc-timeout-packet-height-j57 to keys ['ibc', 'timeout', 'packet'] with source_port, source_channel, destination_port, destination_channel and timeout_type=height labels.", "Domain 17: update spec/layerx-merge/interfaces.kvx interface.15.met-ibc-interchain-modules-core-keeper-ibc-timeout-packet-channel-closed-j57 to keys ['ibc', 'timeout', 'packet'] with source_port, source_channel, destination_port, destination_channel and timeout_type=channel-closed labels."]
+evidence = "Runner hf-build and hf-done private gate ledger records the exact candidate revision, command, exit code and log; closure requires matching build and verify revisions and hf-done exit zero."
+
+[finding.nil-query-embedding]
+test = "TestRepairM_1214_AggregateQueryRegistration"
+proof = "Production AppModule registration over in-process gRPC exercises every generated client, connection and channel query method against its concrete keeper response, including stored upgraded consensus state and typed missing-state errors; reflection rejects anonymous interface fallbacks."
+
+[finding.timeout-height-metric-contract]
+test = "TestRepairM_1214_TimeoutHeightMetricContract"
+proof = "Real ICS20 transfer transaction, emitted packet, committed nonreceipt proof, timeout handler, refund and real go-metrics in-memory sink; asserts contract row, exact name, all five labels, count one, and no emission for premature timeout or replay."
+
+[finding.timeout-close-metric-contract]
+test = "TestRepairM_1214_TimeoutCloseMetricContract"
+proof = "Real ICS20 transfer transaction, emitted packet, committed closed-channel and nonreceipt proofs, timeout-on-close handler, refund and real go-metrics in-memory sink; asserts contract row, exact name, all five labels, count one, and no emission for open-channel failure or replay."
+
+[qualification_notes]
+scope = "The runner owns task status and revision evidence. No spec source, root gotcha ledger, qualification ledger, commit or push is modified by this repair."
+first_verify = "3474717beb85dc7b9e4bad2cba96cb906e2073af; cg spec done 22.33.1214 -f layerx-merge --root /work/paxeer-monorepo; exit 1; /out/logs/verify-1.log"
+repair = "The gRPC consumer unpacks the upgraded consensus state's Any through the real interface registry and compares both the full response and decoded state as complete protobuf wire messages using google protobuf proto.Equal on standard Any envelopes; this preserves exact type and payload assertions without reflecting into SDK Any caches or time.Time internals. Both real timeout telemetry tests passed on the first verification."
+continuation = "Attempt 1's final aggregate query verification panicked in reflective protobuf equality at UpgradedConsensusState; the continuation retains the keeper and contract fixes and replaces protobuf comparisons without weakening their full-message assertions. The runner's final private gate ledger supplies the verified revision after qualification."

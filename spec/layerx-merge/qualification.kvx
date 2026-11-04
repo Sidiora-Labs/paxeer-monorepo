@@ -26203,3 +26203,179 @@ symbol = "Repair22331391Test.java"
 observed = "Attempt 2: five of seven cases pass; the fee-token recording and the program metadata failures of attempt 1 repeat."
 assumption = "A pre-ruling launch; the ruling of attempt 1 is repeated."
 severity = "low"
+
+[finding.22.33.1444.1]
+task = "22.33.1444"
+file = "services/platform/hosted/indexer/tests/repair_22_33_1444.rs"
+symbol = "repair_22_33_1444.rs"
+observed = "Attempt 1: 13 of 14 cases passed; the limiter churn case returned View CapacityExceeded and the budget was spent on its correction."
+assumption = "A test corrected after the budget ran out; the note was registered directly."
+severity = "low"
+
+[finding.22.33.1464.1]
+task = "22.33.1464"
+file = "services/platform/hosted/paxai-worker/tests/repair_22_33_1464.rs"
+symbol = "repair_22_33_1464.rs"
+observed = "Attempt 1: two cases are refused with ApplicationError(1) on hand-encoded fixture state and proofs."
+assumption = "Hand-encoded fixtures behind the production encoding; the note was registered directly."
+severity = "medium"
+
+[finding.22.33.25.3]
+task = "22.33.25"
+file = "services/human/crates/layerx-human-kms/tests/repair_22_33_25.rs"
+symbol = "repair_22_33_25.rs"
+observed = "Attempt 5: one of sixteen handshake permits is retained by a peer that keeps dripping fragments past the deadline."
+assumption = "A per-read deadline renewal instead of an absolute handshake deadline; the note was registered directly."
+severity = "medium"
+
+[finding.22.33.1423.1]
+task = "22.33.1423"
+file = "modules/layerxledger/keeper/repair_m1423_test.go"
+symbol = "repair_m1423_test.go"
+observed = "Attempt 1: two cases expect a reused payment reference to be accepted, which the host's replay check refuses by decision 2337."
+assumption = "A test expectation against a standing decision; the note was registered directly."
+severity = "low"
+
+[finding.22.33.1076.2]
+task = "22.33.1076"
+file = "tests/daemon/test_repair_22_33_1076.py"
+symbol = "test_repair_22_33_1076.py"
+observed = "Attempt 3: 16 of 18 cases pass; the node reopened by the recorder refuses its own last block with an app hash mismatch after replay, so the commitment and reopen recording could not be made."
+assumption = "Either a recorder that reopens a fresh application store against the persisted consensus store, or a determinism defect of the node; the note tells the two apart."
+severity = "high"
+
+[finding.22.33.1553.1]
+task = "22.33.1553"
+file = "services/agent/crates/layerx-mcp/tests/repair_22_33_1553.rs"
+symbol = "repair_22_33_1553.rs"
+observed = "Attempt 1: 20 cases panic in the fixture on an empty payload, one case uses a retired binding field and one case misreads a oneOf of closed schemas as open."
+assumption = "Three fixture defects and no source defect; the note was registered directly."
+severity = "medium"
+
+[finding.22.33.512.1]
+task = "22.33.512"
+file = "services/explorer/backend/apps/indexer/test/repair/repair_22_33_512_test.exs"
+symbol = "repair_22_33_512_test.exs"
+observed = "Attempt 1: the fixture violates the one-consensus-child-per-parent index while setting up sibling blocks."
+assumption = "A fixture that marks both siblings canonical; the note was registered directly."
+severity = "low"
+
+[finding.22.33.711.1]
+task = "22.33.711"
+file = "apps/perps/tests/repair-22-33-711.test.ts"
+symbol = "repair-22-33-711.test.ts"
+observed = "Attempt 1: the test file failed in its JSDOM setup and the budget was spent on the correction."
+assumption = "A test setup corrected after the budget ran out; the note was registered directly."
+severity = "low"
+
+[finding.22.33.1465.1]
+task = "22.33.1465"
+file = "services/platform/hosted/paxai-worker/tests/repair_22_33_1465.rs"
+symbol = "repair_22_33_1465.rs"
+observed = "Attempt 1: the fixture protocol mismatch was repaired after the budget was spent."
+assumption = "A fixture corrected after the budget ran out; the note was registered directly."
+severity = "low"
+
+[finding.22.33.683.1]
+task = "22.33.683"
+file = "sdk/x/gov/client/testutil/repair_m683_test.go"
+symbol = "repair_m683_test.go"
+observed = "Attempt 1: the after_finalization and after_index_reopen cases failed against a historical deposit list that still returned per-transaction fragments."
+assumption = "A base from before the utils repair 22.33.676; the note was registered directly and the task now requires 22.33.676."
+severity = "low"
+
+[finding.22.33.1446.1]
+task = "22.33.1446"
+file = "services/platform/hosted/indexer/tests/repair_22_33_1446.rs"
+symbol = "repair_22_33_1446.rs"
+observed = "Attempt 1: the cases fail on the observe_comet refusal that the source repair 22.33.1444 removes."
+assumption = "A consumer test launched ahead of its producer repair; the task now requires 22.33.1444 and the crate sources are in scope."
+severity = "medium"
+
+[finding.22.33.1479.1]
+task = "22.33.1479"
+file = "services/platform/middleware/conformance/test/repair-22-33-1479.test.mjs"
+symbol = "repair-22-33-1479.test.mjs"
+observed = "Attempt 1: npm install inside the conformance package tried to fetch the repository's own agent-integrations package from the registry and failed with E404."
+assumption = "A generated gate that installs a workspace member in isolation; the gate is corrected to the root workspace."
+severity = "low"
+
+[finding.22.33.1483.1]
+task = "22.33.1483"
+file = "services/platform/perps-data/internal/source/repair_m1483_test.go"
+symbol = "repair_m1483_test.go"
+observed = "Attempt 1: verification was held because do_9 said the tests run without PostgreSQL while the real store is PostgreSQL."
+assumption = "A do item contradicting gotcha 2980; do_9 is amended."
+severity = "low"
+
+[finding.22.33.1551.1]
+task = "22.33.1551"
+file = "services/agent/crates/layerx-mcp/tests/repair_22_33_1551.rs"
+symbol = "repair_22_33_1551.rs"
+observed = "Attempt 1: the hold could not carry the payExact preparation because the disclosure codec lacks that call shape."
+assumption = "A consumer waiting on the codec rewrite 22.33.1558; the task now requires it and the codec file is in scope."
+severity = "medium"
+
+[finding.22.33.1510.1]
+task = "22.33.1510"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_1510.rs"
+symbol = "repair_22_33_1510.rs"
+observed = "Attempt 1: the production decoder refused daemon-written budget state with Corrupt (invalid rung rank 4) at tests/support/approval_owner.rs line 979."
+assumption = "A producer-to-consumer wire mismatch repaired by 22.31.462, not a defect of this task."
+severity = "high"
+
+[finding.22.33.1558.1]
+task = "22.33.1558"
+file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+symbol = "repair_22_33_1558.rs"
+observed = "Attempt 1: the test build fails because three existing test files import the retired disclosure APIs."
+assumption = "In-crate tests of a changed API; the scope is widened to the crate's tests."
+severity = "medium"
+
+[finding.22.33.917.2]
+task = "22.33.917"
+file = "services/launchpad/pnl-tracker/internal/app/repair_m917_test.go"
+symbol = "repair_m917_test.go"
+observed = "Attempt 2: go test stopped before compiling because the module's go.mod needs updating for the new test dependencies."
+assumption = "A module manifest outside the generated scope; the scope is widened to the module root."
+severity = "low"
+
+[finding.22.33.718.1]
+task = "22.33.718"
+file = "deploy/launchpad/production/recovery/repair_m718_test.go"
+symbol = "repair_m718_test.go"
+observed = "Attempt 1: the build passed and verification was held because the Go gate could only reach the Python component through a subprocess the do items forbid."
+assumption = "A generated gate naming the wrong toolchain (gotcha 2984); the gate is corrected to Python."
+severity = "low"
+
+[finding.22.33.879.1]
+task = "22.33.879"
+file = "tools/benchmark/loadtest/repair_m879_test.go"
+symbol = "repair_m879_test.go"
+observed = "Attempt 1: the build failed in modules/tokenfactory/client/cli on the changed NewFactoryCLI signature before any test ran."
+assumption = "A producer-to-consumer signature break repaired by 22.31.463, not a defect of this task."
+severity = "low"
+
+[finding.22.33.1259.1]
+task = "22.33.1259"
+file = "precompiles/distribution/legacy/v620/repair_m1259_test.go"
+symbol = "repair_m1259_test.go"
+observed = "Attempt 1: the package's test binary could not build because dependency packages still call NewFactoryCLI as a single value."
+assumption = "A producer-to-consumer signature break repaired by 22.31.463, not a defect of this task."
+severity = "low"
+
+[finding.22.33.1261.1]
+task = "22.33.1261"
+file = "precompiles/distribution/legacy/v640/repair_m1261_test.go"
+symbol = "repair_m1261_test.go"
+observed = "Attempt 1: the package's test binary could not build because dependency packages still call NewFactoryCLI as a single value."
+assumption = "A producer-to-consumer signature break repaired by 22.31.463, not a defect of this task."
+severity = "low"
+
+[finding.22.99.77.10]
+task = "22.99.77"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 8: six test targets fail; the guest is 553,319 bytes over the payload limit so every native bring-up fails, the chain-domain case fails on the stale Makefile default, and the attempt's own link flags broke the final build."
+assumption = "A stale chain-domain default repaired by 22.31.464 plus a guest that must be shrunk through the workspace profile override, now in scope."
+severity = "high"

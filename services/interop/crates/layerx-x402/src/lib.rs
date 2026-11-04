@@ -5,6 +5,7 @@ mod codec;
 pub mod facilitator;
 pub mod model;
 pub mod seller;
+pub mod store;
 pub mod transport;
 
 pub use buyer::Buyer;

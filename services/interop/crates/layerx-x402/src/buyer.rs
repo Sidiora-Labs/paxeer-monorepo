@@ -609,13 +609,16 @@ impl Buyer {
         if !scheme_payload.is_object() {
             return Err(fail(X402Error::InvalidPayload));
         }
-        validate_payment_identity(
-            scheme_payload
-                .get("idempotencyKey")
-                .ok_or_else(|| fail(X402Error::InvalidPayload))?,
-            idempotency_key,
-        )
-        .map_err(fail)?;
+        let native_key = scheme_payload
+            .get("idempotencyKey")
+            .ok_or_else(|| fail(X402Error::PaymentIdentityMissing))?
+            .as_str()
+            .and_then(|value| parse_hex32(value).ok())
+            .filter(|key| *key != [0; 32])
+            .ok_or_else(|| fail(X402Error::PaymentIdentityMalformed))?;
+        if native_key != idempotency_key {
+            return Err(fail(X402Error::PaymentIdentityMismatch));
+        }
         let payload = PaymentPayload {
             x402_version: X402_VERSION,
             resource: Some(required.resource),
