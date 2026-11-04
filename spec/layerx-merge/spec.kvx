@@ -176805,7 +176805,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1471]
 title = "Repair audit record 22.30.85 medium findings in services/platform/hosted/authority/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.206", "22.31.207", "22.31.208", "22.31.358"]
@@ -178937,7 +178937,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.596]
 title = "Repair audit record 22.30.161 medium findings in services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.281", "22.31.282"]
@@ -178975,7 +178975,7 @@ do_11 = "Attempt 3 (requalify, from the attempt-1 tree): attempt 1 passed its ga
 
 [task.22.33.595]
 title = "Repair audit record 22.30.161 medium findings in services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/types (part 1 of 1): runtime-risk, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.281", "22.31.282"]
@@ -280060,7 +280060,7 @@ do_17 = "Attempt 3 (continue after 22.31.475 and 22.31.476): the empty-block and
 
 [task.22.33.1138]
 title = "Repair audit record 22.30.5 medium findings in tests/ledger (part 1 of 1): retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.98", "22.31.99", "22.31.100", "22.31.101"]
@@ -324885,7 +324885,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.886]
 title = "Repair audit record 22.30.183 medium findings in tests/conformance (part 1 of 1): retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.330"]
