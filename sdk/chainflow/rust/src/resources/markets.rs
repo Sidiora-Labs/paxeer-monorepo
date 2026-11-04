@@ -103,7 +103,15 @@ impl ListHealthRequestBuilder {
             max_retries: self.max_retries,
         };
         self.client
-            .send::<crate::models::MarketsHealth, _>(http::Method::GET, &path, &query, &headers, body, true, overrides)
+            .send::<crate::models::MarketsHealth, _>(
+                http::Method::GET,
+                &path,
+                &query,
+                &headers,
+                body,
+                crate::client::SecurityScheme::RestApiKey,
+                overrides,
+            )
             .await
     }
 }
@@ -168,7 +176,7 @@ impl ListRequestBuilder {
                 &query,
                 &headers,
                 body,
-                true,
+                crate::client::SecurityScheme::RestApiKey,
                 overrides,
             )
             .await
@@ -240,7 +248,7 @@ impl RetrieveRequestBuilder {
                 &query,
                 &headers,
                 body,
-                true,
+                crate::client::SecurityScheme::RestApiKey,
                 overrides,
             )
             .await
@@ -307,7 +315,7 @@ impl ListTotalsRequestBuilder {
                 &query,
                 &headers,
                 body,
-                true,
+                crate::client::SecurityScheme::RestApiKey,
                 overrides,
             )
             .await
@@ -374,7 +382,7 @@ impl ListTickersRequestBuilder {
                 &query,
                 &headers,
                 body,
-                true,
+                crate::client::SecurityScheme::RestApiKey,
                 overrides,
             )
             .await
@@ -443,7 +451,7 @@ impl RetrieveTickerRequestBuilder {
                 &query,
                 &headers,
                 body,
-                true,
+                crate::client::SecurityScheme::RestApiKey,
                 overrides,
             )
             .await
@@ -510,7 +518,7 @@ impl ListOpenInterestRequestBuilder {
                 &query,
                 &headers,
                 body,
-                true,
+                crate::client::SecurityScheme::RestApiKey,
                 overrides,
             )
             .await
