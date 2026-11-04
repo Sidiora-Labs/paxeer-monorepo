@@ -6,7 +6,9 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -60,62 +62,31 @@ func setupPeersInConfig(t *testing.T, homeDir string, peers []string) {
 }
 
 func TestStateSyncConfigurer_Success(t *testing.T) {
-	homeDir := t.TempDir()
-	setupPeersInConfig(t, homeDir, []string{"nodeId1@1.2.3.4:26656", "nodeId2@5.6.7.8:26656"})
-
-	hash := generateBlockHash()
-	mock := &mockHTTPDoer{
-		responses: map[string]*http.Response{
-			"http://1.2.3.4:26657/status": jsonResponse(wrapResult(`{
-				"sync_info": {"latest_block_height": "10000"}
-			}`)),
-			"http://5.6.7.8:26657/status": jsonResponse(wrapResult(`{
-				"sync_info": {"latest_block_height": "10000"}
-			}`)),
-			"http://1.2.3.4:26657/block?height=8000": jsonResponse(wrapResult(fmt.Sprintf(`{
-				"block_id": {"hash": %q}
-			}`, hash))),
-		},
+	home := t.TempDir()
+	eps, hash, _ := stateSyncFixture(t, home, 10000)
+	c := NewStateSyncConfigurer(home, nil)
+	if err := c.Configure(context.Background(), StateSyncRequest{RpcServers: eps}); err != nil {
+		t.Fatal(err)
 	}
-
-	configurer := NewStateSyncConfigurer(homeDir, mock)
-	if err := configurer.Configure(context.Background(), StateSyncRequest{}); err != nil {
-		t.Fatalf("Configure failed: %v", err)
+	if !markerExists(home, stateSyncMarkerFile) {
+		t.Fatal("completion missing")
 	}
-
-	if !markerExists(homeDir, stateSyncMarkerFile) {
-		t.Fatal("marker file should exist after successful configure")
-	}
-
-	configDoc := readTOML(t, filepath.Join(homeDir, "config", "config.toml"))
-	ss := configDoc["statesync"].(map[string]any)
-	if ss["enable"] != true {
-		t.Error("expected statesync.enable = true in config.toml")
-	}
-	if ss["trust-height"] != int64(8000) {
-		t.Errorf("expected statesync.trust-height = 8000, got %v", ss["trust-height"])
-	}
-	if ss["trust-hash"] != hash {
-		t.Errorf("expected trust-hash = %s, got %v", hash, ss["trust-hash"])
-	}
-	if ss["rpc-servers"] != "1.2.3.4:26657,5.6.7.8:26657" {
-		t.Errorf("expected rpc-servers, got %v", ss["rpc-servers"])
-	}
-	if ss["use-local-snapshot"] != false {
-		t.Errorf("expected use-local-snapshot = false, got %v", ss["use-local-snapshot"])
+	ss := readTOML(t, filepath.Join(home, "config", "config.toml"))["statesync"].(map[string]any)
+	if ss["enable"] != true || ss["trust-height"] != int64(8000) || ss["trust-hash"] != hash || ss["rpc-servers"] != strings.Join(eps, ",") || ss["use-local-snapshot"] != false {
+		t.Fatalf("wrong quorum config: %+v", ss)
 	}
 }
 
 func TestStateSyncConfigurer_MarkerSkips(t *testing.T) {
-	homeDir := t.TempDir()
-
-	if err := writeMarker(homeDir, stateSyncMarkerFile); err != nil {
-		t.Fatalf("writing marker: %v", err)
+	home := t.TempDir()
+	if err := writeMarker(home, stateSyncMarkerFile); err != nil {
+		t.Fatal(err)
 	}
-
-	configurer := NewStateSyncConfigurer(homeDir, &mockHTTPDoer{})
-	if err := configurer.Configure(context.Background(), StateSyncRequest{}); err != nil {
-		t.Fatalf("expected nil error when marker exists, got: %v", err)
+	if err := NewStateSyncConfigurer(home, nil).Configure(context.Background(), StateSyncRequest{}); err == nil {
+		t.Fatal("marker bypassed witness verification")
+	}
+	if exists(filepath.Join(home, "config", "config.toml")) {
+		t.Fatal("invalid request wrote configuration")
 	}
 }
 
@@ -131,74 +102,28 @@ func TestStateSyncConfigurer_NoPeers(t *testing.T) {
 }
 
 func TestStateSyncConfigurer_LowHeight(t *testing.T) {
-	homeDir := t.TempDir()
-	setupPeersInConfig(t, homeDir, []string{"nodeId1@10.0.0.1:26656"})
-
-	hash := generateBlockHash()
-	mock := &mockHTTPDoer{
-		responses: map[string]*http.Response{
-			"http://10.0.0.1:26657/status": jsonResponse(wrapResult(`{
-				"sync_info": {"latest_block_height": "500"}
-			}`)),
-			"http://10.0.0.1:26657/block?height=1": jsonResponse(wrapResult(fmt.Sprintf(`{
-				"block_id": {"hash": %q}
-			}`, hash))),
-		},
+	home := t.TempDir()
+	eps, hash, _ := stateSyncFixture(t, home, 500)
+	if err := NewStateSyncConfigurer(home, nil).Configure(context.Background(), StateSyncRequest{RpcServers: eps}); err != nil {
+		t.Fatal(err)
 	}
-
-	configurer := NewStateSyncConfigurer(homeDir, mock)
-	if err := configurer.Configure(context.Background(), StateSyncRequest{}); err != nil {
-		t.Fatalf("Configure failed: %v", err)
-	}
-
-	configDoc := readTOML(t, filepath.Join(homeDir, "config", "config.toml"))
-	ss := configDoc["statesync"].(map[string]any)
-	if ss["trust-height"] != int64(1) {
-		t.Errorf("expected trustHeight clamped to 1, got %v", ss["trust-height"])
-	}
-	if ss["trust-hash"] != hash {
-		t.Errorf("expected trustHash %s, got %v", hash, ss["trust-hash"])
-	}
-	// Single peer should be duplicated to satisfy Tendermint requirement.
-	if ss["rpc-servers"] != "10.0.0.1:26657,10.0.0.1:26657" {
-		t.Errorf("expected duplicated rpc-servers, got %v", ss["rpc-servers"])
+	ss := readTOML(t, filepath.Join(home, "config", "config.toml"))["statesync"].(map[string]any)
+	if ss["trust-height"] != int64(1) || ss["trust-hash"] != hash || ss["rpc-servers"] != strings.Join(eps, ",") {
+		t.Fatalf("low-height quorum: %+v", ss)
 	}
 }
 
 func TestStateSyncConfigurer_InvalidBlockHash(t *testing.T) {
-	tests := []struct {
-		name    string
-		hash    string
-		wantErr string
-	}{
-		{"empty hash", "", "empty block hash"},
-		{"short hash", "ABCDEF", "unexpected block hash length"},
-		{"long hash", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA00", "unexpected block hash length"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			homeDir := t.TempDir()
-			setupPeersInConfig(t, homeDir, []string{"nodeId1@1.2.3.4:26656"})
-
-			mock := &mockHTTPDoer{
-				responses: map[string]*http.Response{
-					"http://1.2.3.4:26657/status": jsonResponse(wrapResult(`{
-						"sync_info": {"latest_block_height": "10000"}
-					}`)),
-					"http://1.2.3.4:26657/block?height=8000": jsonResponse(wrapResult(fmt.Sprintf(`{
-						"block_id": {"hash": %q}
-					}`, tt.hash))),
-				},
-			}
-
-			configurer := NewStateSyncConfigurer(homeDir, mock)
-			err := configurer.Configure(context.Background(), StateSyncRequest{})
-			if err == nil {
-				t.Fatal("expected error")
-			}
-			if !strings.Contains(err.Error(), tt.wantErr) {
-				t.Errorf("error %q does not contain %q", err, tt.wantErr)
+	for _, tc := range []struct{ name, hash, want string }{{"empty", "", "empty block hash"}, {"short", "ABCDEF", "unexpected block hash length"}, {"long", strings.Repeat("A", 66), "unexpected block hash length"}} {
+		t.Run(tc.name, func(t *testing.T) {
+			home := t.TempDir()
+			t.Setenv("SEI_CHAIN_ID", repairChainID)
+			setupConfigFile(t, home, "mode = \"full\"\n")
+			first := repairWitness(t, repairChainID, tc.hash, 10000)
+			second := repairWitness(t, repairChainID, tc.hash, 10000)
+			err := NewStateSyncConfigurer(home, nil).Configure(context.Background(), StateSyncRequest{RpcServers: []string{strings.TrimPrefix(first.URL, "http://"), strings.TrimPrefix(second.URL, "http://")}})
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("expected %s: %v", tc.want, err)
 			}
 		})
 	}
@@ -265,149 +190,51 @@ func TestExtractRPCHosts(t *testing.T) {
 }
 
 func TestStateSyncConfigurer_Handler(t *testing.T) {
-	homeDir := t.TempDir()
-	setupPeersInConfig(t, homeDir, []string{"nodeId1@1.2.3.4:26656"})
-
-	hash := generateBlockHash()
-	mock := &mockHTTPDoer{
-		responses: map[string]*http.Response{
-			"http://1.2.3.4:26657/status": jsonResponse(wrapResult(`{
-				"sync_info": {"latest_block_height": "5000"}
-			}`)),
-			"http://1.2.3.4:26657/block?height=3000": jsonResponse(wrapResult(fmt.Sprintf(`{
-				"block_id": {"hash": %q}
-			}`, hash))),
-		},
+	home := t.TempDir()
+	eps, _, _ := stateSyncFixture(t, home, 5000)
+	if _, err := NewStateSyncConfigurer(home, nil).Handler()(context.Background(), map[string]any{"rpcServers": eps}); err != nil {
+		t.Fatal(err)
 	}
-
-	configurer := NewStateSyncConfigurer(homeDir, mock)
-	handler := configurer.Handler()
-
-	if _, err := handler(context.Background(), nil); err != nil {
-		t.Fatalf("Handler failed: %v", err)
-	}
-
-	configDoc := readTOML(t, filepath.Join(homeDir, "config", "config.toml"))
-	ss := configDoc["statesync"].(map[string]any)
+	ss := readTOML(t, filepath.Join(home, "config", "config.toml"))["statesync"].(map[string]any)
 	if ss["trust-height"] != int64(3000) {
-		t.Errorf("expected trustHeight 3000, got %v", ss["trust-height"])
+		t.Fatal(ss)
 	}
 }
 
 func TestStateSyncConfigurer_NetworkWithBackfill(t *testing.T) {
-	homeDir := t.TempDir()
-	setupPeersInConfig(t, homeDir, []string{"nodeId1@1.2.3.4:26656", "nodeId2@5.6.7.8:26656"})
-
-	hash := generateBlockHash()
-	mock := &mockHTTPDoer{
-		responses: map[string]*http.Response{
-			"http://1.2.3.4:26657/status": jsonResponse(wrapResult(`{
-				"sync_info": {"latest_block_height": "10000"}
-			}`)),
-			"http://5.6.7.8:26657/status": jsonResponse(wrapResult(`{
-				"sync_info": {"latest_block_height": "10000"}
-			}`)),
-			"http://1.2.3.4:26657/block?height=8000": jsonResponse(wrapResult(fmt.Sprintf(`{
-				"block_id": {"hash": %q}
-			}`, hash))),
-		},
+	home := t.TempDir()
+	eps, hash, _ := stateSyncFixture(t, home, 10000)
+	c := NewStateSyncConfigurer(home, nil)
+	if err := c.Configure(context.Background(), StateSyncRequest{RpcServers: eps, TrustPeriod: "168h0m0s", BackfillBlocks: 6000}); err != nil {
+		t.Fatal(err)
 	}
-
-	configurer := NewStateSyncConfigurer(homeDir, mock)
-	err := configurer.Configure(context.Background(), StateSyncRequest{
-		TrustPeriod:    "168h0m0s",
-		BackfillBlocks: 6000,
-	})
-	if err != nil {
-		t.Fatalf("Configure failed: %v", err)
-	}
-
-	configDoc := readTOML(t, filepath.Join(homeDir, "config", "config.toml"))
-	ss := configDoc["statesync"].(map[string]any)
-	if ss["trust-period"] != "168h0m0s" {
-		t.Errorf("expected trust-period = 168h0m0s, got %v", ss["trust-period"])
-	}
-	if ss["backfill-blocks"] != int64(6000) {
-		t.Errorf("expected backfill-blocks = 6000, got %v", ss["backfill-blocks"])
-	}
-	if ss["use-local-snapshot"] != false {
-		t.Errorf("expected use-local-snapshot = false, got %v", ss["use-local-snapshot"])
+	ss := readTOML(t, filepath.Join(home, "config", "config.toml"))["statesync"].(map[string]any)
+	if ss["trust-period"] != "168h0m0s" || ss["backfill-blocks"] != int64(6000) || ss["use-local-snapshot"] != false || ss["trust-hash"] != hash {
+		t.Fatal(ss)
 	}
 }
 
 func TestStateSyncConfigurer_LocalSnapshot(t *testing.T) {
-	homeDir := t.TempDir()
-	setupPeersInConfig(t, homeDir, []string{"nodeId1@1.2.3.4:26656", "nodeId2@5.6.7.8:26656"})
-
-	snapshotHeight := int64(198030000)
-	snapshotDir := filepath.Join(homeDir, "data", "snapshots", "198030000", "1")
-	if err := os.MkdirAll(snapshotDir, 0o755); err != nil {
-		t.Fatalf("creating snapshot dir: %v", err)
+	home := t.TempDir()
+	eps, hash, _ := stateSyncFixture(t, home, 198030000)
+	if err := os.MkdirAll(filepath.Join(home, "data", "snapshots", "198030000", "1"), 0700); err != nil {
+		t.Fatal(err)
 	}
-
-	hash := generateBlockHash()
-	mock := &mockHTTPDoer{
-		responses: map[string]*http.Response{
-			"http://1.2.3.4:26657/status": jsonResponse(wrapResult(`{
-				"sync_info": {"latest_block_height": "198030000"}
-			}`)),
-			"http://5.6.7.8:26657/status": jsonResponse(wrapResult(`{
-				"sync_info": {"latest_block_height": "198030000"}
-			}`)),
-			"http://1.2.3.4:26657/block?height=198030000": jsonResponse(wrapResult(fmt.Sprintf(`{
-				"block_id": {"hash": %q}
-			}`, hash))),
-		},
+	if err := NewStateSyncConfigurer(home, nil).Configure(context.Background(), StateSyncRequest{RpcServers: eps, UseLocalSnapshot: true, TrustPeriod: "9999h0m0s"}); err != nil {
+		t.Fatal(err)
 	}
-
-	configurer := NewStateSyncConfigurer(homeDir, mock)
-	err := configurer.Configure(context.Background(), StateSyncRequest{
-		UseLocalSnapshot: true,
-		TrustPeriod:      "9999h0m0s",
-		BackfillBlocks:   0,
-	})
-	if err != nil {
-		t.Fatalf("Configure with local snapshot failed: %v", err)
-	}
-
-	configDoc := readTOML(t, filepath.Join(homeDir, "config", "config.toml"))
-	ss := configDoc["statesync"].(map[string]any)
-
-	if ss["trust-height"] != snapshotHeight {
-		t.Errorf("expected trust-height = %d (snapshot height), got %v", snapshotHeight, ss["trust-height"])
-	}
-	if ss["trust-hash"] != hash {
-		t.Errorf("expected trust-hash = %s, got %v", hash, ss["trust-hash"])
-	}
-	if ss["use-local-snapshot"] != true {
-		t.Errorf("expected use-local-snapshot = true, got %v", ss["use-local-snapshot"])
-	}
-	if ss["trust-period"] != "9999h0m0s" {
-		t.Errorf("expected trust-period = 9999h0m0s, got %v", ss["trust-period"])
-	}
-	if ss["enable"] != true {
-		t.Error("expected statesync.enable = true")
+	ss := readTOML(t, filepath.Join(home, "config", "config.toml"))["statesync"].(map[string]any)
+	if ss["trust-height"] != int64(198030000) || ss["trust-hash"] != hash || ss["use-local-snapshot"] != true || ss["trust-period"] != "9999h0m0s" || ss["enable"] != true {
+		t.Fatal(ss)
 	}
 }
 
 func TestStateSyncConfigurer_LocalSnapshotNoDir(t *testing.T) {
-	homeDir := t.TempDir()
-	setupPeersInConfig(t, homeDir, []string{"nodeId1@1.2.3.4:26656"})
-
-	mock := &mockHTTPDoer{
-		responses: map[string]*http.Response{
-			"http://1.2.3.4:26657/status": jsonResponse(wrapResult(`{
-				"sync_info": {"latest_block_height": "100"}
-			}`)),
-		},
-	}
-	configurer := NewStateSyncConfigurer(homeDir, mock)
-	err := configurer.Configure(context.Background(), StateSyncRequest{UseLocalSnapshot: true})
-	if err == nil {
-		t.Fatal("expected error when no snapshot directory exists")
-	}
-	if !strings.Contains(err.Error(), "discovering local snapshot height") {
-		t.Errorf("unexpected error: %v", err)
+	home := t.TempDir()
+	eps, _, _ := stateSyncFixture(t, home, 10000)
+	err := NewStateSyncConfigurer(home, nil).Configure(context.Background(), StateSyncRequest{RpcServers: eps, UseLocalSnapshot: true})
+	if err == nil || !strings.Contains(err.Error(), "discovering local snapshot height") {
+		t.Fatalf("missing snapshot directory: %v", err)
 	}
 }
 
@@ -485,35 +312,15 @@ func TestReadPeersFromConfig_NoConfigFile(t *testing.T) {
 // Caller-provided RpcServers are used verbatim, independent of persistent-peers
 // (here there are none).
 func TestStateSyncConfigurer_ExplicitRpcServers(t *testing.T) {
-	homeDir := t.TempDir()
-	setupPeersInConfig(t, homeDir, nil)
-
-	const witness = "syncer-0-0-0.syncer-0-0.arctic-1.svc.cluster.local:26657"
-	hash := generateBlockHash()
-	mock := &mockHTTPDoer{
-		responses: map[string]*http.Response{
-			"http://" + witness + "/status": jsonResponse(wrapResult(`{
-				"sync_info": {"latest_block_height": "10000"}
-			}`)),
-			"http://" + witness + "/block?height=8000": jsonResponse(wrapResult(fmt.Sprintf(`{
-				"block_id": {"hash": %q}
-			}`, hash))),
-		},
+	home := t.TempDir()
+	eps, hash, _ := stateSyncFixture(t, home, 10000)
+	c := NewStateSyncConfigurer(home, nil)
+	if err := c.Configure(context.Background(), StateSyncRequest{RpcServers: eps}); err != nil {
+		t.Fatal(err)
 	}
-
-	configurer := NewStateSyncConfigurer(homeDir, mock)
-	if err := configurer.Configure(context.Background(), StateSyncRequest{
-		RpcServers: []string{witness},
-	}); err != nil {
-		t.Fatalf("Configure failed: %v", err)
-	}
-
-	ss := readTOML(t, filepath.Join(homeDir, "config", "config.toml"))["statesync"].(map[string]any)
-	if ss["rpc-servers"] != witness+","+witness {
-		t.Errorf("expected explicit witness padded to two, got %v", ss["rpc-servers"])
-	}
-	if ss["trust-height"] != int64(8000) {
-		t.Errorf("expected trust-height 8000, got %v", ss["trust-height"])
+	ss := readTOML(t, filepath.Join(home, "config", "config.toml"))["statesync"].(map[string]any)
+	if ss["rpc-servers"] != strings.Join(eps, ",") || ss["trust-height"] != int64(8000) || ss["trust-hash"] != hash {
+		t.Fatal(ss)
 	}
 }
 
@@ -521,33 +328,18 @@ func TestStateSyncConfigurer_ExplicitRpcServers(t *testing.T) {
 // (an external NLB hostname). The reachable witness is kept; the dead one is
 // dropped instead of being written and crashlooping seid.
 func TestStateSyncConfigurer_DropsUnreachableWitness(t *testing.T) {
-	homeDir := t.TempDir()
-	setupPeersInConfig(t, homeDir, []string{
-		"nodeId1@1.2.3.4:26656",
-		"nodeId2@syncer-0-0-p2p.arctic-1.prod.platform.sei.io:26656",
-	})
-
-	hash := generateBlockHash()
-	mock := &mockHTTPDoer{
-		responses: map[string]*http.Response{
-			// Only 1.2.3.4 serves RPC; the p2p NLB host has no /status entry.
-			"http://1.2.3.4:26657/status": jsonResponse(wrapResult(`{
-				"sync_info": {"latest_block_height": "10000"}
-			}`)),
-			"http://1.2.3.4:26657/block?height=8000": jsonResponse(wrapResult(fmt.Sprintf(`{
-				"block_id": {"hash": %q}
-			}`, hash))),
-		},
+	home := t.TempDir()
+	eps, _, servers := stateSyncFixture(t, home, 10000)
+	servers[1].Close()
+	if err := NewStateSyncConfigurer(home, nil).Configure(context.Background(), StateSyncRequest{RpcServers: eps}); err == nil {
+		t.Fatal("single authority accepted")
 	}
-
-	configurer := NewStateSyncConfigurer(homeDir, mock)
-	if err := configurer.Configure(context.Background(), StateSyncRequest{}); err != nil {
-		t.Fatalf("Configure failed: %v", err)
+	if markerExists(home, stateSyncMarkerFile) {
+		t.Fatal("under-witnessed request completed")
 	}
-
-	ss := readTOML(t, filepath.Join(homeDir, "config", "config.toml"))["statesync"].(map[string]any)
-	if ss["rpc-servers"] != "1.2.3.4:26657,1.2.3.4:26657" {
-		t.Errorf("expected unreachable witness dropped, got %v", ss["rpc-servers"])
+	ss := readTOML(t, filepath.Join(home, "config", "config.toml"))
+	if _, ok := ss["statesync"]; ok {
+		t.Fatal("under-witnessed request wrote config")
 	}
 }
 
@@ -555,38 +347,18 @@ func TestStateSyncConfigurer_DropsUnreachableWitness(t *testing.T) {
 // P2P-only NLB host), so the trust query must fall through to the reachable
 // second one — reachable[0] is the post-probe slice, not the raw peer list.
 func TestStateSyncConfigurer_PrimaryUnreachableFallsThrough(t *testing.T) {
-	homeDir := t.TempDir()
-	setupPeersInConfig(t, homeDir, []string{
-		"nodeId1@syncer-0-0-p2p.arctic-1.prod.platform.sei.io:26656", // P2P-only, no RPC
-		"nodeId2@1.2.3.4:26656", // serves RPC
-	})
-
-	hash := generateBlockHash()
-	mock := &mockHTTPDoer{
-		responses: map[string]*http.Response{
-			"http://1.2.3.4:26657/status": jsonResponse(wrapResult(`{
-				"sync_info": {"latest_block_height": "10000"}
-			}`)),
-			"http://1.2.3.4:26657/block?height=8000": jsonResponse(wrapResult(fmt.Sprintf(`{
-				"block_id": {"hash": %q}
-			}`, hash))),
-		},
+	home := t.TempDir()
+	eps, _, servers := stateSyncFixture(t, home, 10000)
+	servers[0].Close()
+	if err := NewStateSyncConfigurer(home, nil).Configure(context.Background(), StateSyncRequest{RpcServers: eps}); err == nil {
+		t.Fatal("single authority accepted")
 	}
-
-	configurer := NewStateSyncConfigurer(homeDir, mock)
-	if err := configurer.Configure(context.Background(), StateSyncRequest{}); err != nil {
-		t.Fatalf("Configure failed: %v", err)
+	if markerExists(home, stateSyncMarkerFile) {
+		t.Fatal("under-witnessed request completed")
 	}
-
-	ss := readTOML(t, filepath.Join(homeDir, "config", "config.toml"))["statesync"].(map[string]any)
-	if ss["trust-height"] != int64(8000) {
-		t.Errorf("expected trust query to fall through to the reachable witness, trust-height = %v", ss["trust-height"])
-	}
-	if ss["trust-hash"] != hash {
-		t.Errorf("expected trust-hash %s, got %v", hash, ss["trust-hash"])
-	}
-	if ss["rpc-servers"] != "1.2.3.4:26657,1.2.3.4:26657" {
-		t.Errorf("expected only the reachable witness, got %v", ss["rpc-servers"])
+	ss := readTOML(t, filepath.Join(home, "config", "config.toml"))
+	if _, ok := ss["statesync"]; ok {
+		t.Fatal("under-witnessed request wrote config")
 	}
 }
 
@@ -615,83 +387,62 @@ func TestWitnessScheme(t *testing.T) {
 // only answers the https URL — an http probe would fall through as an
 // "unexpected request" and the configure would fail.
 func TestStateSyncConfigurer_TLSWitnessUsesHTTPS(t *testing.T) {
-	homeDir := t.TempDir()
-	setupPeersInConfig(t, homeDir, nil)
-
-	const witness = "archive-0-rpc.arctic-1.platform.sei.io:443"
-	hash := generateBlockHash()
-	mock := &mockHTTPDoer{
-		responses: map[string]*http.Response{
-			"https://" + witness + "/status": jsonResponse(wrapResult(`{
-				"sync_info": {"latest_block_height": "10000"}
-			}`)),
-			"https://" + witness + "/block?height=8000": jsonResponse(wrapResult(fmt.Sprintf(`{
-				"block_id": {"hash": %q}
-			}`, hash))),
-		},
+	home := t.TempDir()
+	eps, hash, servers := stateSyncFixture(t, home, 10000)
+	tlsServer := httptest.NewUnstartedServer(servers[0].Config.Handler)
+	tlsServer.Listener.Close()
+	listener, err := net.Listen("tcp", "127.0.0.1:443")
+	if err != nil {
+		t.Fatal(err)
 	}
-
-	configurer := NewStateSyncConfigurer(homeDir, mock)
-	if err := configurer.Configure(context.Background(), StateSyncRequest{
-		RpcServers: []string{witness},
-	}); err != nil {
-		t.Fatalf("Configure failed: %v", err)
+	tlsServer.Listener = listener
+	tlsServer.StartTLS()
+	defer tlsServer.Close()
+	eps[0] = "127.0.0.1:443"
+	if err := NewStateSyncConfigurer(home, tlsServer.Client()).Configure(context.Background(), StateSyncRequest{RpcServers: eps}); err != nil {
+		t.Fatal(err)
 	}
-
-	ss := readTOML(t, filepath.Join(homeDir, "config", "config.toml"))["statesync"].(map[string]any)
-	// rpc-servers is written as the bare host:port (seid attaches the scheme).
-	if ss["rpc-servers"] != witness+","+witness {
-		t.Errorf("expected TLS witness padded to two, got %v", ss["rpc-servers"])
-	}
-	if ss["trust-height"] != int64(8000) {
-		t.Errorf("expected trust-height 8000, got %v", ss["trust-height"])
+	ss := readTOML(t, filepath.Join(home, "config", "config.toml"))["statesync"].(map[string]any)
+	if ss["rpc-servers"] != strings.Join(eps, ",") || ss["trust-height"] != int64(8000) || ss["trust-hash"] != hash {
+		t.Fatal(ss)
 	}
 }
 
 // The in-cluster plaintext path (a syncer's internal Service on :26657) must
 // stay on http — the forward-compatible counterpart to the TLS guard above.
 func TestStateSyncConfigurer_InternalWitnessUsesHTTP(t *testing.T) {
-	homeDir := t.TempDir()
-	setupPeersInConfig(t, homeDir, nil)
-
-	const witness = "syncer-0-internal.arctic-1.svc.cluster.local:26657"
-	hash := generateBlockHash()
-	mock := &mockHTTPDoer{
-		responses: map[string]*http.Response{
-			"http://" + witness + "/status": jsonResponse(wrapResult(`{
-				"sync_info": {"latest_block_height": "10000"}
-			}`)),
-			"http://" + witness + "/block?height=8000": jsonResponse(wrapResult(fmt.Sprintf(`{
-				"block_id": {"hash": %q}
-			}`, hash))),
-		},
+	home := t.TempDir()
+	eps, hash, _ := stateSyncFixture(t, home, 10000)
+	c := NewStateSyncConfigurer(home, nil)
+	if err := c.Configure(context.Background(), StateSyncRequest{RpcServers: eps}); err != nil {
+		t.Fatal(err)
 	}
-
-	configurer := NewStateSyncConfigurer(homeDir, mock)
-	if err := configurer.Configure(context.Background(), StateSyncRequest{
-		RpcServers: []string{witness},
-	}); err != nil {
-		t.Fatalf("Configure failed: %v", err)
-	}
-
-	ss := readTOML(t, filepath.Join(homeDir, "config", "config.toml"))["statesync"].(map[string]any)
-	if ss["trust-height"] != int64(8000) {
-		t.Errorf("expected trust-height 8000, got %v", ss["trust-height"])
+	ss := readTOML(t, filepath.Join(home, "config", "config.toml"))["statesync"].(map[string]any)
+	if ss["trust-height"] != int64(8000) || ss["trust-hash"] != hash {
+		t.Fatal(ss)
 	}
 }
 
 // When no candidate witness is reachable, fail at configure time with a clear
 // error rather than writing a config that makes seid exit on "no witnesses".
 func TestStateSyncConfigurer_NoReachableWitness(t *testing.T) {
-	homeDir := t.TempDir()
-	setupPeersInConfig(t, homeDir, []string{"nodeId1@1.2.3.4:26656"})
+	home := t.TempDir()
+	eps, _, servers := stateSyncFixture(t, home, 10000)
+	for _, server := range servers {
+		server.Close()
+	}
+	err := NewStateSyncConfigurer(home, nil).Configure(context.Background(), StateSyncRequest{RpcServers: eps})
+	if err == nil || !strings.Contains(err.Error(), "two distinct reachable RPC witnesses") {
+		t.Fatalf("unreachable quorum: %v", err)
+	}
+}
 
-	configurer := NewStateSyncConfigurer(homeDir, &mockHTTPDoer{})
-	err := configurer.Configure(context.Background(), StateSyncRequest{})
-	if err == nil {
-		t.Fatal("expected error when no witness is reachable")
-	}
-	if !strings.Contains(err.Error(), "no reachable RPC witness") {
-		t.Errorf("unexpected error: %v", err)
-	}
+func stateSyncFixture(t *testing.T, home string, height int64) ([]string, string, []*httptest.Server) {
+	t.Helper()
+	t.Setenv("SEI_CHAIN_ID", repairChainID)
+	setupConfigFile(t, home, "mode = \"full\"\n")
+	hash := generateBlockHash()
+	first := repairWitness(t, repairChainID, hash, height)
+	second := repairWitness(t, repairChainID, hash, height)
+	return []string{strings.TrimPrefix(first.URL, "http://"), strings.TrimPrefix(second.URL, "http://")}, hash, []*httptest.Server{first, second}
 }

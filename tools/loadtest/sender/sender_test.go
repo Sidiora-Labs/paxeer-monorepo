@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -61,11 +62,25 @@ func NewMockServer() *MockServer {
 		ms.requests = append(ms.requests, req)
 		ms.mu.Unlock()
 
-		// Send a mock response
+		// Preserve the raw-transaction hash contract at this existing peer.
+		if len(req.Params) != 1 {
+			http.Error(w, "expected one raw transaction", http.StatusBadRequest)
+			return
+		}
+		payload, err := hexutil.Decode(req.Params[0])
+		if err != nil {
+			http.Error(w, "invalid transaction encoding", http.StatusBadRequest)
+			return
+		}
+		var tx ethtypes.Transaction
+		if err := tx.UnmarshalBinary(payload); err != nil {
+			http.Error(w, "invalid raw transaction", http.StatusBadRequest)
+			return
+		}
 		response := map[string]interface{}{
 			"jsonrpc": "2.0",
 			"id":      req.ID,
-			"result":  "0x1234567890abcdef", // Mock transaction hash
+			"result":  tx.Hash().Hex(),
 		}
 
 		w.Header().Set("Content-Type", "application/json")
