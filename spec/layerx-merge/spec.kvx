@@ -173363,7 +173363,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1575]
 title = "Repair audit record 22.30.99 medium findings in services/agent/tests/qualify (part 1 of 1): config-drift, test-gap, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.227", "22.31.228", "22.31.229", "22.31.230"]
@@ -176680,7 +176680,7 @@ do_10 = "Attempt 2 (continue after 22.31.465): the build could not load the plat
 
 [task.22.33.1444]
 title = "Repair audit record 22.30.82 medium findings in services/platform/hosted/indexer/src (part 1 of 2): restart-recovery, retired-reference, runtime-risk, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.350", "22.31.351", "22.31.352", "22.31.465"]
@@ -328371,7 +328371,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.569]
 title = "Repair audit record 22.30.159 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.278", "22.31.279", "22.31.470"]
@@ -330781,7 +330781,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.30]
 title = "Repair audit record 22.30.102 medium findings in services/human/schema/human-api/golden (part 2 of 2): retired-reference, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.150"]
