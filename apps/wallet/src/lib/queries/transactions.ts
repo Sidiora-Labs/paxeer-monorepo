@@ -10,6 +10,7 @@
 
 import { useQuery, type UseQueryOptions } from '@tanstack/react-query';
 import { fetchPortfolioTransactions } from '@/lib/api';
+import type { WalletTransactionsResponse } from '../data';
 import { queryKeys } from './keys';
 
 export interface TxHistoryRow {
@@ -25,6 +26,8 @@ export interface TxHistoryRow {
 export interface TxHistoryResult {
   transactions: TxHistoryRow[];
   transfers: TxHistoryRow[];
+  nextPageParams: WalletTransactionsResponse['next_page_params'];
+  nextTransferPageParams: WalletTransactionsResponse['next_transfer_page_params'];
 }
 
 const PAX_DECIMALS = 18;
@@ -57,15 +60,17 @@ const normalizeTransfer = (t: any): TxHistoryRow => ({
 export function useTxHistoryQuery(
   address: string | undefined,
   limit: number = 50,
-  options?: Partial<UseQueryOptions<TxHistoryResult>>,
+  options?: Partial<UseQueryOptions<TxHistoryResult>>
 ) {
   return useQuery<TxHistoryResult>({
-    queryKey: queryKeys.txHistory(address ?? ''),
+    queryKey: queryKeys.txHistory(address ?? '', limit),
     queryFn: async () => {
       const data = await fetchPortfolioTransactions(address as string, limit);
       return {
         transactions: (data.transactions || []).map(normalizeTx),
         transfers: (data.token_transfers || []).map(normalizeTransfer),
+        nextPageParams: data.next_page_params,
+        nextTransferPageParams: data.next_transfer_page_params,
       };
     },
     enabled: Boolean(address),
