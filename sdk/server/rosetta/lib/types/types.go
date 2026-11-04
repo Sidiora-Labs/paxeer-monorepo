@@ -7,8 +7,8 @@ import (
 	"github.com/coinbase/rosetta-sdk-go/types"
 )
 
-// SpecVersion defines the specification of rosetta
-const SpecVersion = ""
+// SpecVersion defines the Rosetta API specification supported by rosetta-sdk-go v0.7.0.
+const SpecVersion = "1.4.10"
 
 // NetworkInformationProvider defines the interface used to provide information regarding
 // the network and the version of the cosmos sdk used
