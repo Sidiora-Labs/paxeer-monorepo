@@ -134,6 +134,21 @@ defmodule Explorer.Repo.Migrations.PriceAcceptanceBackfill do
       if is_nil(block), do: Repo.rollback(:non_consensus_block)
       if completed, do: Repo.rollback(:already_completed)
 
+      # A job that has not advanced its cursor yet resets this block's observations
+      # to unknown here, inside the same transaction as its first batch, so the
+      # reset is bounded to one block, never runs as a whole-table statement in a
+      # migration, and is redone with the batch if the transaction does not commit.
+      if through_index == -1 and through_market_id == -1 do
+        Repo.query!(
+          """
+          UPDATE paxeer_x_price_observations o SET accepted = NULL
+          FROM paxeer_x_price_updates u
+          WHERE u.hash = o.update_hash AND u.block_hash = $1
+          """,
+          [hash]
+        )
+      end
+
       %{rows: rows} =
         Repo.query!(
           """

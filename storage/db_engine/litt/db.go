@@ -12,8 +12,12 @@ package litt
 //   - tables with non-overlapping namespaces
 //   - thread safety: all methods are safe to call concurrently, and all key-value pair modifications are
 //     individually atomic
-//   - dynamic multi-drive support (data can be spread across multiple physical volumes, and
-//     volume membership can be changed at runtime without stopping the DB)
+//   - multi-drive support (data can be spread across multiple physical volumes)
+//     To change Config.Paths, stop and join writers, check DB.Close, reconfigure the roots and
+//     restart. Before removing roots, use the offline litt rebase command to move their files to
+//     the destination roots; reopen with every destination root in Config.Paths. Adding roots
+//     requires a restart but no rebase. Table.SetShardingFactor is a separate runtime operation:
+//     it starts a new segment without changing the storage roots.
 //   - incremental backups (both local and remote)
 //
 // Unsupported features:
