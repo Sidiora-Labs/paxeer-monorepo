@@ -154247,7 +154247,7 @@ do_9 = "Attempt 2 (continue): besides the explorer environment blockers (fixed: 
 
 [task.22.33.272]
 title = "Repair audit record 22.30.131 medium findings in apps/explorer/toolkit/components/charts/parts (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.376", "22.31.474"]
@@ -154467,7 +154467,7 @@ do_8 = "Attempt 2 (continue): the attempt ran on the gate as it stood before the
 
 [task.22.33.266]
 title = "Repair audit record 22.30.131 medium findings in apps/bridge/src/test (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.376"]
@@ -182535,7 +182535,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.51]
 title = "Repair audit record 22.30.106 medium findings in services/human/crates/layerx-human-service/tests/support (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.155", "22.31.156", "22.31.443"]
@@ -278972,7 +278972,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1212]
 title = "Repair audit record 22.30.57 medium findings in precompiles/staking/legacy/v65 (part 1 of 1): runtime-risk, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.126"]
@@ -321815,7 +321815,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1331]
 title = "Repair audit record 22.30.71 medium findings in services/platform/hosted/webhooks (part 1 of 1): retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.188", "22.31.340", "22.31.341"]
