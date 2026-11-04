@@ -3,6 +3,7 @@ package db
 import (
 	"encoding/binary"
 	"fmt"
+	"math"
 	"sync"
 
 	"github.com/google/orderedcode"
@@ -73,18 +74,30 @@ func (s *dbs) SaveLightBlock(lb *types.LightBlock) error {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
+	exists, err := s.db.Has(s.lbKey(lb.Height))
+	if err != nil {
+		return err
+	}
+	size := s.size
+	if !exists {
+		if size == math.MaxUint16 {
+			return fmt.Errorf("light block store is full (maximum %d heights)", math.MaxUint16)
+		}
+		size++
+	}
+
 	b := s.db.NewBatch()
 	defer func() { _ = b.Close() }()
 	if err = b.Set(s.lbKey(lb.Height), lbBz); err != nil {
 		return err
 	}
-	if err = b.Set(s.sizeKey(), marshalSize(s.size+1)); err != nil {
+	if err = b.Set(s.sizeKey(), marshalSize(size)); err != nil {
 		return err
 	}
 	if err = b.WriteSync(); err != nil {
 		return err
 	}
-	s.size++
+	s.size = size
 
 	return nil
 }
@@ -101,18 +114,30 @@ func (s *dbs) DeleteLightBlock(height int64) error {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
+	exists, err := s.db.Has(s.lbKey(height))
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return nil
+	}
+	if s.size == 0 {
+		return fmt.Errorf("light block store size is zero with a persisted height")
+	}
+	size := s.size - 1
+
 	b := s.db.NewBatch()
 	defer func() { _ = b.Close() }()
 	if err := b.Delete(s.lbKey(height)); err != nil {
 		return err
 	}
-	if err := b.Set(s.sizeKey(), marshalSize(s.size-1)); err != nil {
+	if err := b.Set(s.sizeKey(), marshalSize(size)); err != nil {
 		return err
 	}
 	if err := b.WriteSync(); err != nil {
 		return err
 	}
-	s.size--
+	s.size = size
 
 	return nil
 }
@@ -248,14 +273,17 @@ func (s *dbs) Prune(size uint16) error {
 		return err
 	}
 
-	// 3) // update size
-	s.size = size
+	// 3) update persisted size
 	if err := b.Set(s.sizeKey(), marshalSize(size)); err != nil {
 		return fmt.Errorf("failed to persist size: %w", err)
 	}
 
 	// 4) write batch deletion to disk
-	return b.WriteSync()
+	if err := b.WriteSync(); err != nil {
+		return err
+	}
+	s.size = size
+	return nil
 }
 
 // Size returns the number of header & validator set pairs.

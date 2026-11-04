@@ -1,0 +1,34 @@
+[task.22.31.21]
+audit = "22.30.18"
+mode = "BUILD"
+baseline = "No extra baseline run: the bounded execution order permits verification only through hf-done after implementation. The supplied previous-attempt evidence records TestRepair_21_SpotReplayReopen and TestRepair_21_ReplayKeyUnionReopen failing on immutable delivery identities at revision 1b167d2feecbe4929c1052f4dddb3a36b32de293; this is not an unchanged pre-implementation baseline."
+qualification = "Exact candidate revision and gate evidence are recorded by hf-build and hf-done in the private runner ledger."
+environment_conflict = "Step 8 requests no PostgreSQL, but the retained real store and HTTP recovery tests use PostgreSQL-specific production SQL and PERPS_DATA_TEST_DATABASE_URL. The runner provisions that database; no dependency-free database interface exists in this scope, and the tests neither fake it nor skip when it is absent."
+
+[finding.1]
+test = "TestRepair_21_SpotReplayReopen"
+repair = "Rebuild refolds spot history, removes accounts with no remaining legs, and reranks pnl, volume and win-rate in its transaction; the test drives decoded facts through WriteBlock and the replay WriteFacts/Rebuild path, closes and reopens Postgres, and compares the real leaderboard HTTP route to a fresh live fold."
+
+[finding.2]
+tests = ["TestRepair_21_RewindReopen", "TestRepair_21_ReplayKeyUnionReopen"]
+repair = "CaptureRecovery retains deleted keys and time; Rebuild unions retained and replacement keys, restores projections through the surviving head even when the removed range is empty, and clears keys without history, including an empty chain."
+
+[wiring.indexer]
+request = "Domain 3 (markets): services/platform/perps-data/internal/indexer/indexer.go must pass source.Affected.Accounts, Markets and FromTime as store.Recovery to store.Rebuild in the rewind callback instead of discarding them."
+
+[wiring.replay]
+request = "Domain 3 (markets): services/platform/perps-data/internal/replay/replay.go must call store.CaptureRecovery before deleting each batch and pass the result to store.Rebuild after WriteFacts; include spot_account_legs and spot_leaderboard in projection snapshots/diffs."
+
+[qualification.first]
+revision = "8d19968c67dfa34e6752c5ae3c248746bcee8748"
+command = "cg spec done 22.31.21 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The new test deletion helper selected the account_ledger view; restrict discovery to base tables as the production replay consumer does."
+
+[qualification.seed]
+revision = "1b167d2feecbe4929c1052f4dddb3a36b32de293"
+command = "cg spec done 22.31.21 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/run/gate.json (seed.reason, supplied previous-attempt output)"
+observed = "Replacement fixtures reused immutable event identities for different payloads; newly discovered source logs now have distinct positions, with assertions that all previously enqueued envelopes survive unchanged."

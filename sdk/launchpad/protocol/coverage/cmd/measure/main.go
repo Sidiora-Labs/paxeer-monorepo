@@ -142,7 +142,7 @@ func run() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	source := &coverage.RPCSource{RPC: client, Registry: registry, PoolRegistry: input.PoolRegistry, Permissions: input.Permissions}
+	source := &coverage.RPCSource{RPC: client, Registry: registry, PoolRegistry: input.PoolRegistry, Permissions: input.Permissions, Traces: &coverage.RPCTraceSource{RPC: client.Client()}, NativeReceipts: &coverage.RPCNativeReceiptSource{RPC: client}}
 	replay, err := coverage.ReplayHistorical(ctx, source, input, capture)
 	if err != nil {
 		return false, err
