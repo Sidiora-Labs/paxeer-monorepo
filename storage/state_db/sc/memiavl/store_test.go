@@ -1042,7 +1042,7 @@ func TestCommitStoreGetValidation(t *testing.T) {
 func TestCommitStoreGetMissingStore(t *testing.T) {
 	cs := setupCS(t)
 	val, ok, err := cs.Get("nonexistent", []byte("k1"))
-	require.NoError(t, err)
+	require.ErrorContains(t, err, `store "nonexistent" not found`)
 	require.False(t, ok)
 	require.Nil(t, val)
 }
@@ -1085,7 +1085,7 @@ func TestCommitStoreHasValidation(t *testing.T) {
 func TestCommitStoreHasMissingStore(t *testing.T) {
 	cs := setupCS(t)
 	ok, err := cs.Has("nonexistent", []byte("k1"))
-	require.NoError(t, err)
+	require.ErrorContains(t, err, `store "nonexistent" not found`)
 	require.False(t, ok)
 }
 
@@ -1147,7 +1147,7 @@ func TestCommitStoreIteratorNilBounds(t *testing.T) {
 func TestCommitStoreIteratorMissingStore(t *testing.T) {
 	cs := setupCS(t)
 	iter, err := cs.Iterator("nonexistent", []byte("k1"), []byte("k9"), true)
-	require.NoError(t, err)
+	require.ErrorContains(t, err, `store "nonexistent" not found`)
 	require.Nil(t, iter)
 }
 
@@ -1259,7 +1259,7 @@ func TestCommitStoreGetProofValidation(t *testing.T) {
 func TestCommitStoreGetProofMissingStore(t *testing.T) {
 	cs := setupCS(t)
 	proof, err := cs.GetProof("nonexistent", []byte("k1"))
-	require.NoError(t, err)
+	require.ErrorContains(t, err, `store "nonexistent" not found`)
 	require.Nil(t, proof)
 }
 
