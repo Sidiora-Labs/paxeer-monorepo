@@ -29,12 +29,15 @@ needlessly defining many placeholder functions
 package module
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"sort"
 	"time"
 
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
+	consensuscrypto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/crypto"
 	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 	"github.com/gorilla/mux"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
@@ -371,15 +374,92 @@ type ModuleState struct {
 }
 
 func parseModule(jsonStr string) (*ModuleState, error) {
-	var module ModuleState
-	err := json.Unmarshal([]byte(jsonStr), &module)
+	record, err := genesisStreamObject([]byte(jsonStr))
 	if err != nil {
+		return nil, err
+	}
+	if len(record) != 1 || record["app_state"] == nil {
+		return nil, fmt.Errorf("module record must contain only app_state")
+	}
+	state, err := genesisStreamObject(record["app_state"])
+	if err != nil {
+		return nil, err
+	}
+	if len(state) != 2 || state["module"] == nil || state["data"] == nil {
+		return nil, fmt.Errorf("app_state must contain module and data")
+	}
+	var module ModuleState
+	if err := json.Unmarshal(record["app_state"], &module.AppState); err != nil {
 		return nil, err
 	}
 	if module.AppState.Module == "" {
 		return nil, fmt.Errorf("module name is empty")
 	}
+	data := bytes.TrimSpace(module.AppState.Data)
+	if len(data) == 0 || data[0] != '{' {
+		return nil, fmt.Errorf("module %s data must be a JSON object", module.AppState.Module)
+	}
 	return &module, nil
+}
+
+func genesisStreamObject(data []byte) (map[string]json.RawMessage, error) {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	token, err := decoder.Token()
+	if err != nil {
+		return nil, err
+	}
+	if token != json.Delim('{') {
+		return nil, fmt.Errorf("genesis record must be a JSON object")
+	}
+	fields := make(map[string]json.RawMessage)
+	for decoder.More() {
+		token, err := decoder.Token()
+		if err != nil {
+			return nil, err
+		}
+		name, ok := token.(string)
+		if !ok {
+			return nil, fmt.Errorf("invalid genesis record field")
+		}
+		if _, exists := fields[name]; exists {
+			return nil, fmt.Errorf("duplicate genesis record field %q", name)
+		}
+		var value json.RawMessage
+		if err := decoder.Decode(&value); err != nil {
+			return nil, err
+		}
+		fields[name] = value
+	}
+	if _, err := decoder.Token(); err != nil {
+		return nil, err
+	}
+	if _, err := decoder.Token(); err != io.EOF {
+		return nil, fmt.Errorf("unexpected data after genesis record")
+	}
+	return fields, nil
+}
+
+func validateGenesisStreamHeader(data []byte, fields map[string]json.RawMessage) error {
+	for _, name := range []string{"genesis_time", "chain_id", "initial_height", "app_hash"} {
+		if fields[name] == nil || bytes.Equal(bytes.TrimSpace(fields[name]), []byte("null")) {
+			return fmt.Errorf("genesis metadata missing %s", name)
+		}
+	}
+	var header tmtypes.GenesisDoc
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&header); err != nil {
+		return fmt.Errorf("invalid genesis metadata: %w", err)
+	}
+	if header.GenesisTime.IsZero() {
+		return fmt.Errorf("genesis metadata has zero genesis_time")
+	}
+	for _, validator := range header.Validators {
+		if validator.PubKey == (consensuscrypto.PubKey{}) {
+			return fmt.Errorf("genesis metadata validator has no public key")
+		}
+	}
+	return header.ValidateAndComplete()
 }
 
 // InitGenesis performs init genesis functionality for modules
@@ -420,21 +500,46 @@ func (m *Manager) InitGenesisStream(ctx sdk.Context, cdc codec.JSONCodec, stream
 	cachedCtx, write := ctx.CacheContext()
 	var validatorUpdates []abci.ValidatorUpdate
 	headerSeen := false
+	seen := make(map[string]bool)
+	current := ""
+	next := 0
+	lineNumber := 0
 	err := stream.Consume(func(line string) error {
-		moduleState, err := parseModule(line)
+		lineNumber++
+		if headerSeen {
+			return fmt.Errorf("genesis record %d follows terminal metadata", lineNumber)
+		}
+		fields, err := genesisStreamObject([]byte(line))
 		if err != nil {
-			if _, headerErr := tmtypes.GenesisDocFromJSON([]byte(line)); headerErr != nil {
-				return fmt.Errorf("invalid genesis record: %w", headerErr)
-			}
-			if headerSeen {
-				return fmt.Errorf("multiple genesis docs found in stream")
+			return fmt.Errorf("genesis record %d: %w", lineNumber, err)
+		}
+		if _, isModule := fields["app_state"]; !isModule {
+			// The exporter appends metadata after all ordered module chunks.
+			if err := validateGenesisStreamHeader([]byte(line), fields); err != nil {
+				return fmt.Errorf("genesis record %d: %w", lineNumber, err)
 			}
 			headerSeen = true
 			return nil
 		}
-		mod, ok := m.Modules[moduleState.AppState.Module]
-		if !ok {
-			return nil
+		moduleState, err := parseModule(line)
+		if err != nil {
+			return fmt.Errorf("genesis record %d: %w", lineNumber, err)
+		}
+		name := moduleState.AppState.Module
+		mod, known := m.Modules[name]
+		if !known {
+			return fmt.Errorf("unknown genesis module %q", name)
+		}
+		if name != current {
+			if seen[name] {
+				return fmt.Errorf("repeated genesis module group %q", name)
+			}
+			if next >= len(m.OrderInitGenesis) || m.OrderInitGenesis[next] != name {
+				return fmt.Errorf("genesis module %q is out of initialization order", name)
+			}
+			seen[name] = true
+			current = name
+			next++
 		}
 		updates := mod.InitGenesis(cachedCtx, cdc, moduleState.AppState.Data)
 		if len(updates) > 0 {
@@ -450,6 +555,9 @@ func (m *Manager) InitGenesisStream(ctx sdk.Context, cdc codec.JSONCodec, stream
 	}
 	if !headerSeen {
 		panic("genesis stream is missing a valid genesis header")
+	}
+	if next != len(m.OrderInitGenesis) {
+		panic(fmt.Errorf("genesis stream is missing module groups: %v", m.OrderInitGenesis[next:]))
 	}
 	write()
 	ctx.EventManager().EmitEvents(cachedCtx.EventManager().Events())
