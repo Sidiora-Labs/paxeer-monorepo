@@ -1,5 +1,16 @@
 #![forbid(unsafe_code)]
 
+//! Committed receipt views and consensus batch-inclusion proofs have distinct entry points:
+//!
+//! - [`layerx_committed_proof::verify_committed`](crate::verify_committed) takes
+//!   `(raw_transaction, signed_receipt, receipt_json, prev_seq_hash, keys, block_hash)`
+//!   and returns the authenticated receipt digest. This receipt-view helper checks
+//!   the supplied block hash against the JSON view; it does not prove batch inclusion.
+//! - [`layerx_committed_proof::committed::verify_committed`](committed::verify_committed)
+//!   takes `(receipt_digest, proof, set, chain_id)` and returns a [`CommittedBlock`]
+//!   after verifying consensus and batch inclusion. Supply an authenticated receipt
+//!   digest, such as the result of the crate-root helper, to bind the two checks.
+
 use ed25519_dalek::{Signature, VerifyingKey};
 use sha2::{Digest, Sha256};
 
@@ -103,7 +114,11 @@ pub mod committed {
 
     /// Establish batch inclusion for a digest already authenticated by receipt verification.
     /// The committed successor header authenticates the execution header through LastBlockID.
-    /// This namespace preserves the existing receipt-view verifier at the crate root.
+    /// The public path is `layerx_committed_proof::committed::verify_committed`.
+    /// Its four arguments bind an authenticated receipt digest to a consensus-backed
+    /// [`CommittedBlock`]. The distinct six-argument
+    /// [`layerx_committed_proof::verify_committed`](crate::verify_committed) helper
+    /// authenticates a receipt and checks its JSON view against a supplied block hash.
     ///
     /// # Errors
     /// Returns an error for invalid commits, header links, receipt bindings or batch proofs.
@@ -332,6 +347,12 @@ pub fn verify_receipted(
 
 /// Verify a committed receipt view using the block hash returned by [`verify_header`].
 /// The view's block number must equal the signed receipt's height.
+///
+/// The public path is `layerx_committed_proof::verify_committed`. This six-argument
+/// helper returns an authenticated receipt digest, not a batch-inclusion proof.
+/// Pass the digest to the four-argument
+/// [`layerx_committed_proof::committed::verify_committed`](committed::verify_committed)
+/// to establish consensus-backed batch inclusion and obtain a [`CommittedBlock`].
 ///
 /// # Errors
 /// Returns the same errors as [`verify_receipted`], including
