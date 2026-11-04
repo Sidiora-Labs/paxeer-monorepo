@@ -1,0 +1,195 @@
+// Implementation-time forwarding recorder: every payload comes from the node.
+type recordRun struct {
+	name    string
+	cleanup []func()
+}
+
+func (r *recordRun) Helper()                      {}
+func (r *recordRun) Name() string                 { return r.name }
+func (r *recordRun) Cleanup(f func())             { r.cleanup = append(r.cleanup, f) }
+func (r *recordRun) Fatal(args ...any)            { panic(fmt.Sprint(args...)) }
+func (r *recordRun) Fatalf(f string, args ...any) { panic(fmt.Sprintf(f, args...)) }
+func (r *recordRun) Error(args ...any)            { panic(fmt.Sprint(args...)) }
+func (r *recordRun) close() {
+	for i := len(r.cleanup) - 1; i >= 0; i-- {
+		r.cleanup[i]()
+	}
+}
+func repair37Root(r *recordRun) string {
+	root, err := filepath.Abs("../../../..")
+	if err != nil {
+		r.Fatal(err)
+	}
+	return root
+}
+
+type repairM948RPCCall struct {
+	Method        string
+	Params        json.RawMessage `json:",omitempty"`
+	Result        json.RawMessage
+	Error         json.RawMessage
+	Notifications []json.RawMessage
+}
+type repairM948Replay struct {
+	mu       sync.Mutex
+	calls    []*repairM948RPCCall
+	server   *httptest.Server
+	endpoint string
+	peers    map[*websocket.Conn]bool
+	name     string
+}
+
+func newRepairM948Replay(r *recordRun) *repairM948Replay {
+	s := &repairM948Replay{peers: map[*websocket.Conn]bool{}, name: "emitter-rpc.json"}
+	if strings.Contains(r.Name(), "BeaconOwnershipHandoff") {
+		s.name = "beacon-rpc.json"
+	} else if strings.Contains(r.Name(), "NativeExecutorNode") {
+		s.name = "native-node-rpc.json"
+	}
+	upgrader := websocket.Upgrader{}
+	s.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		downstream, err := upgrader.Upgrade(w, req, nil)
+		if err != nil {
+			r.Fatal(err)
+		}
+		upstream, _, err := websocket.DefaultDialer.Dial(os.Args[1], nil)
+		if err != nil {
+			r.Fatal(err)
+		}
+		s.mu.Lock()
+		s.peers[downstream] = true
+		s.mu.Unlock()
+		defer func() { downstream.Close(); upstream.Close(); s.mu.Lock(); delete(s.peers, downstream); s.mu.Unlock() }()
+		pending := map[string]*repairM948RPCCall{}
+		var last *repairM948RPCCall
+		go func() {
+			for {
+				_, raw, err := upstream.ReadMessage()
+				if err != nil {
+					downstream.Close()
+					return
+				}
+				var response struct {
+					ID     json.RawMessage `json:"id"`
+					Result json.RawMessage `json:"result"`
+					Error  json.RawMessage `json:"error"`
+				}
+				if err = json.Unmarshal(raw, &response); err != nil {
+					r.Fatal(err)
+				}
+				s.mu.Lock()
+				if len(response.ID) > 0 {
+					call := pending[string(response.ID)]
+					if call == nil {
+						r.Fatal("unmatched upstream response")
+					}
+					call.Result = response.Result
+					call.Error = response.Error
+					last = call
+					delete(pending, string(response.ID))
+				} else {
+					if last == nil {
+						r.Fatal("notification without preceding call")
+					}
+					last.Notifications = append(last.Notifications, json.RawMessage(append([]byte(nil), raw...)))
+				}
+				s.mu.Unlock()
+				if err = downstream.WriteMessage(websocket.TextMessage, raw); err != nil {
+					return
+				}
+			}
+		}()
+		for {
+			_, raw, err := downstream.ReadMessage()
+			if err != nil {
+				return
+			}
+			var request struct {
+				ID     json.RawMessage `json:"id"`
+				Method string          `json:"method"`
+				Params json.RawMessage `json:"params"`
+			}
+			if err = json.Unmarshal(raw, &request); err != nil {
+				r.Fatal(err)
+			}
+			call := &repairM948RPCCall{Method: request.Method, Params: request.Params}
+			s.mu.Lock()
+			s.calls = append(s.calls, call)
+			pending[string(request.ID)] = call
+			s.mu.Unlock()
+			if err = upstream.WriteMessage(websocket.TextMessage, raw); err != nil {
+				r.Fatal(err)
+			}
+		}
+	}))
+	s.endpoint = "ws" + strings.TrimPrefix(s.server.URL, "http")
+	return s
+}
+func (s *repairM948Replay) Close() error {
+	s.mu.Lock()
+	for p := range s.peers {
+		p.Close()
+	}
+	s.mu.Unlock()
+	s.server.Close()
+	hashes := map[string]string{}
+	for _, name := range []string{"EventEmitter", "ERC1967Proxy", "PoolBeacon"} {
+		raw, err := os.ReadFile(filepath.Join("testdata", "repair37", name+".json"))
+		if err != nil {
+			return err
+		}
+		hashes[name] = fmt.Sprintf("%x", sha256.Sum256(raw))
+	}
+	revision, err := os.ReadFile("testdata/repair_m948/producer-revision.txt")
+	if err != nil {
+		return err
+	}
+	sourceHashes := map[string]string{}
+	if s.name == "native-node-rpc.json" {
+		root, err := filepath.Abs("../../../..")
+		if err != nil {
+			return err
+		}
+		for _, path := range []string{"precompiles/launchpad/events.go", "precompiles/launchpad/router.go", "precompiles/launchpad/fees.go", "precompiles/launchpad/nft.go", "precompiles/launchpad/run.go", "modules/launchpad/keeper/keeper.go", "node/testdata/v6120-halt-export.json"} {
+			raw, err := os.ReadFile(filepath.Join(root, path))
+			if err != nil {
+				return err
+			}
+			sourceHashes[path] = fmt.Sprintf("%x", sha256.Sum256(raw))
+		}
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, call := range s.calls {
+		if len(call.Result) == 0 && len(call.Error) == 0 {
+			return fmt.Errorf("incomplete %s", call.Method)
+		}
+	}
+	raw, err := json.MarshalIndent(struct {
+		Revision       string
+		ArtifactHashes map[string]string
+		SourceHashes   map[string]string
+		Calls          []*repairM948RPCCall
+	}{strings.TrimSpace(string(revision)), hashes, sourceHashes, s.calls}, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join("testdata", "repair_m948", s.name), append(raw, '\n'), 0644)
+}
+func main() {
+	for _, scenario := range []struct {
+		name string
+		run  func(*recordRun)
+	}{
+		{"BeaconOwnershipHandoff", recordBeaconOwnershipHandoff},
+		{"RetainedEmitterV2", recordRetainedEmitterV2},
+		{"NativeExecutorNode", recordNativeExecutorNode},
+	} {
+		if len(os.Args) > 2 && os.Args[2] != scenario.name {
+			continue
+		}
+		r := &recordRun{name: scenario.name}
+		func() { defer r.close(); scenario.run(r) }()
+		fmt.Println("recorded", scenario.name)
+	}
+}

@@ -216,6 +216,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	var replay *processor.ReplayRunner
 	var webhookTransport *http.Transport
 	workers := newRuntimeWorkers(logger)
+	var selectionAuthority *source.SelectionAuthority
 	defer func() {
 		if !secretOwned {
 			workers.Close()
@@ -368,10 +369,18 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		lifecycle.Committed.HistoricalConcurrency = archiveTuning.Concurrency
 		lifecycle.Committed.HistoricalReadahead = archiveTuning.Readahead
 		lifecycle.Committed.HistoricalAttemptTimeout = archiveTuning.AttemptTimeout
+		if len(lifecycle.SourceSelectionKeys) > 0 {
+			selectionAuthority, e = source.NewSelectionAuthority(d.CanonicalStreamID, lifecycle.SourceSelectionKeys)
+			if e != nil {
+				return nil, e
+			}
+			lifecycle.Committed.SelectionAuthority = selectionAuthority
+		}
 		history, e = source.CreateHistorical(ctx, lifecycle.Committed, cfg.PaxscanDatabaseURL, lifecycle.Explorer)
 		if e != nil {
 			return nil, e
 		}
+		workers.AddPeriodic("source_recovery", 5*time.Second, false, history.RPC.RecoverEndpoints)
 		if e = seedCanonicalWatermark(ctx, pool, d.CanonicalStreamID, lifecycle); e != nil {
 			return nil, e
 		}
@@ -605,6 +614,9 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		StartTime: time.Now(),
 	})
 
+	if selectionAuthority != nil {
+		router.Handle("/internal/source-selection", selectionAuthority.Handler(history.RPC))
+	}
 	if metrics != nil {
 		router.Handle("/metrics", metrics)
 	}
@@ -942,6 +954,7 @@ type lifecycleRebuildDocument struct {
 type lifecycleRuntimeDocument struct {
 	Version                    int                                       `json:"version"`
 	Committed                  source.CommittedOptions                   `json:"committed"`
+	SourceSelectionKeys        map[string][]byte                         `json:"sourceSelectionKeys,omitempty"`
 	EndpointSecretReferences   map[string]string                         `json:"endpointSecretReferences"`
 	Explorer                   *source.CommittedPaxscanOptions           `json:"explorer,omitempty"`
 	OptionalEmitterTopics      map[string]processor.OptionalFamilyPolicy `json:"optionalEmitterTopics"`
