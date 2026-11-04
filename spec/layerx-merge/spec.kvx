@@ -146920,7 +146920,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.480]
 title = "Stop tracking the installed binaries under apps/perps/node_modules so dependency installs no longer change committed files"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -151530,7 +151530,7 @@ do_9 = "Attempt 2 (requalify): lint, type-check and the four cases passed; the d
 
 [task.22.33.448]
 title = "Repair audit record 22.30.148 medium findings in apps/explorer/pages/api (part 1 of 1): security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.275", "22.31.276", "22.31.474"]
@@ -156639,7 +156639,7 @@ do_11 = "Attempt 3 (continue): the build now passes with the workspace installs;
 
 [task.22.33.133]
 title = "Repair audit record 22.30.114 medium findings in apps/wallet/src/lib/swap/sdk (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.234", "22.31.235", "22.31.236", "22.31.237", "22.31.482"]
@@ -173373,7 +173373,7 @@ do_5 = "Next attempt (after 22.31.483): the gateway test repair_22_31_345.rs rea
 
 [task.22.31.484]
 title = "Split the joint reputation-admission section before decoding it in the AI-market hosted service"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -178831,7 +178831,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.568]
 title = "Repair audit record 22.30.159 medium findings in services/explorer/services/libs/blockscout-client/crate/tests (part 1 of 1): runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.278", "22.31.279", "22.31.445"]
@@ -277833,7 +277833,7 @@ do_16 = "Attempt 3 (continue after 22.31.463): the Go build or test binary could
 
 [task.22.33.1302]
 title = "Repair audit record 22.30.7 medium findings in modules/layerxpay/types (part 1 of 1): restart-recovery, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.131", "22.31.132"]
@@ -279481,7 +279481,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1141]
 title = "Repair audit record 22.30.50 medium findings in node (part 2 of 4): config-drift, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.102", "22.31.476", "22.31.475"]
@@ -371634,7 +371634,7 @@ do_8 = "Attempt 2 (requalify): the build and the three tests passed at e35804d4,
 
 [task.22.33.280]
 title = "Repair audit record 22.30.132 medium findings in services/explorer/backend (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
