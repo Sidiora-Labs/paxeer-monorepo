@@ -214768,7 +214768,7 @@ do_10 = "The candidate carries only sources under the touches and the test file:
 
 [task.22.31.308]
 title = "Repair audit record 22.30.167 findings in sdk/x/gov/client/cli: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -336469,7 +336469,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.313]
 title = "Repair audit record 22.30.170 findings in deploy/launchpad/production/topology/phase2: wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
