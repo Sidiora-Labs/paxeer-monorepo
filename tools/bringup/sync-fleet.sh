@@ -99,6 +99,8 @@ Environment:
                       BRINGUP_NEVER_PLACE and RETAINED_ON_VALIDATOR lists
                       name hosts and public names the rollout skips
   CHECK_LIVE_TIMEOUT  seconds per request or short remote command, default 30
+  SYNC_FLEET_JOURNAL private durable source journal, default
+                      /var/lib/paxeer-bringup/resync.json
   SYNC_FLEET_SETTLE   seconds to wait for a restarted node to come within ten
                       blocks of the head, default 1800
   HPX_HOME            the node home on every host, default /root/.paxeer
@@ -319,13 +321,40 @@ cmd_restart() {
 	done
 }
 
+# The operator journal records the source before stop, and is reconciled
+# before survey or another destination. Its directory must survive a rerun.
+resync_journal="${SYNC_FLEET_JOURNAL:-/var/lib/paxeer-bringup/resync.json}"
+resync_inspector="${BRINGUP_INSPECT_BIN:-bringup-inspect}"
+resync_record() { "$resync_inspector" resync-journal "$resync_journal" "$@"; }
+resync_restore_source() {
+	local pending source original phase actual action
+	pending="$(resync_record pending)" || return 1
+	[ -n "$pending" ] || return 0
+	read -r source original phase <<<"$pending"
+	resync_record phase restoring || return 1
+	actual="$(timeout 15s ssh -n -o BatchMode=yes -o ConnectTimeout=8 -- "$source" "systemctl show $unit -p ActiveState --value")" || return 1
+	action="$(resync_record recovery "$actual")" || return 1
+	# Bound the entire restoration, including a hung SSH or systemd operation.
+	# The shared state machine never starts an originally inactive/failed unit.
+	if [ "$action" = start ]; then
+		actual="$(timeout 45s ssh -n -o BatchMode=yes -o ConnectTimeout=8 -- "$source" "systemctl start --no-block $unit && timeout 30s sh -c 'until systemctl is-active --quiet $unit; do sleep 1; done' && systemctl show $unit -p ActiveState --value")" || return 1
+	fi
+	resync_record restored "$actual"
+}
+resync_exit() {
+	local status=$?
+	trap - EXIT INT TERM HUP
+	resync_restore_source || status=1
+	exit "$status"
+}
+
 # resync_target <k> <source k>: the whole copy for one target; prints its
 # line. The source is started again whatever the copy did, and the target is
 # started again whatever the swap did.
 resync_target() {
 	local k="$1" label="RPC_HOSTS[$1]" dest="${dests[$1]}" src="${dests[$2]}" slabel="RPC_HOSTS[$2]"
 	local name="${names[$1]}" sname="${names[$2]}" inc="data.incoming-$stamp" stale="data.stale-$stamp"
-	local size free need mode status=0 lag sha binary=kept state
+	local size free need mode status=0 lag sha binary=kept state original=active
 	local excludes="--exclude=priv_validator_state.json --exclude=snapshots"
 	if [ "$dest" = "$ARCHIVE_HOST" ]; then
 		fail "resync $label $name the archive host keeps its history"
@@ -350,10 +379,16 @@ resync_target() {
 	if ssh_read "$src" "ssh -n -o BatchMode=yes -o ConnectTimeout=8 -- $dest true" >/dev/null; then
 		mode=rsync
 	fi
-	if ! remote "$slabel" "$src" "systemctl stop $unit"; then
+	if [ "$dry_run" -eq 0 ]; then
+		original="$(ssh_read "$src" "systemctl show $unit -p ActiveState --value")" || { fail "resync $label source state unavailable"; return 1; }
+		resync_record prepare "$src" "$dest" "$original" || return 1
+	fi
+	if [ "$original" = active ] && ! remote "$slabel" "$src" "systemctl stop $unit"; then
 		fail "resync $label $name source=$sname the source unit did not stop"
+		resync_restore_source || return 1
 		return 0
 	fi
+	if [ "$dry_run" -eq 0 ]; then resync_record phase copying || return 1; fi
 	if [ "$mode" = rsync ]; then
 		remote "$slabel" "$src" "rsync -a --partial $excludes $home/data/ $dest:$home/$inc/" "$dest" "$label" || status=$?
 	elif [ "$dry_run" -eq 1 ]; then
@@ -362,14 +397,19 @@ resync_target() {
 		ssh -n -o BatchMode=yes -- "$src" "tar -C $home $excludes -cf - data" |
 			ssh -o BatchMode=yes -- "$dest" "mkdir -p $home/$inc && tar -C $home/$inc --strip-components=1 -xf -" || status=$?
 	fi
-	remote "$slabel" "$src" "systemctl start $unit" || status=$?
+	if [ "$dry_run" -eq 1 ]; then
+		remote "$slabel" "$src" "systemctl start $unit" || status=$?
+	elif ! resync_restore_source; then
+		fail "resync $label $name source=$sname recovery pending; refusing another destination"
+		return 1
+	fi
 	if [ "$status" -ne 0 ]; then
 		fail "resync $label $name source=$sname mode=$mode copy failed exit=$status"
 		return 0
 	fi
 	if [ "$dry_run" -eq 1 ]; then
 		say "wait until $sname is within $rpc_max_lag blocks of the head"
-	elif ! lag="$(wait_within "$sname")"; then
+	elif [ "$original" = active ] && ! lag="$(wait_within "$sname")"; then
 		fail "resync $label $name source=$sname lag=$lag the source did not return to the head"
 		return 0
 	fi
@@ -401,6 +441,23 @@ resync_target() {
 }
 
 cmd_resync() {
+	mkdir -p "$(dirname "$resync_journal")"
+	chmod 0700 "$(dirname "$resync_journal")"
+	exec 8>"$resync_journal.lock"
+	flock -x 8
+	# Recovery is required even for a later dry-run; it is an explicit retained
+	# obligation, never admitted as a new simulated destination.
+	if [ "$dry_run" -eq 1 ] && [ -e "$resync_journal" ]; then
+		fail "resync retained source needs recovery; rerun without --dry-run"
+		return 1
+	fi
+	if [ "$dry_run" -eq 0 ]; then
+		trap resync_exit EXIT
+		trap 'exit 130' INT
+		trap 'exit 143' TERM
+		trap 'exit 129' HUP
+		resync_restore_source || { fail "resync retained source recovery failed"; return 1; }
+	fi
 	local -a dests names ssh_status targets=()
 	local -A heads
 	local top k lag src="" best=-1
@@ -426,7 +483,7 @@ cmd_resync() {
 		return 0
 	fi
 	for k in "${targets[@]}"; do
-		resync_target "$k" "$src"
+		resync_target "$k" "$src" || return 1
 	done
 }
 

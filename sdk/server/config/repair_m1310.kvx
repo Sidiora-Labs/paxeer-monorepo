@@ -1,0 +1,14 @@
+[task.22.33.1310]
+audit = "22.30.70"
+baseline_revision = "ccd003394e03ec2e54bf3c38d1e6242ca25bd572"
+baseline = "Not run: task order prohibits testing before implementation and permits verification only through hf-done after hf-build; no baseline test failure is claimed."
+evidence = "The runner records the verified candidate revision, exact command, exit code and private log in its hf-done ledger."
+wiring_requests = []
+
+[finding.config-label-panic]
+tests = ["TestRepairM_1310_LabelValidation", "TestRepairM_1310_ValidLabelsRoundtrip"]
+repair = "Reject malformed pairs and nonstring elements with the failing label index; preserve valid labels through the production TOML writer, file reader and both configuration loaders."
+
+[finding.config-pruning-roundtrip]
+tests = ["TestRepairM_1310_PruningRoundtrip"]
+repair = "Preserve pruning-keep-every and compare both loaders' complete BaseConfig results for nondefault pruning settings; exercise existing pruning and snapshot validity checks."

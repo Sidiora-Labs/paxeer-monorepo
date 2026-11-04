@@ -676,6 +676,7 @@ type pnlJourneys struct {
 	referralHTTP referral.HTTP
 	referrals    []*referral.ProductionService
 	community    *l18.CommunityWatcher
+	rewardOutbox *l18.OutboxBridge
 	exports      l17.ExportWorker
 	cards        l17.CardWorker
 	relay        delivery.Relay
@@ -751,6 +752,7 @@ func newPnLJourneys(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, 
 		}
 	}()
 	policy := delivery.Policy{Subjects: map[string]bool{inventory.RebuildSubject: true, "portfolio.snapshot.v2": true}, EventTypes: map[string]bool{inventory.RebuildSubject: true, "portfolio.snapshot.v2": true}}
+	policy = l18.RewardDeliveryPolicy(policy)
 	outbox, err := delivery.NewStoreWithEpochGuard(pool, runtime.Schema, policy, guard.Assert)
 	if err != nil {
 		return nil, err
@@ -797,6 +799,10 @@ func newPnLJourneys(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, 
 		return nil, err
 	}
 	ledger, err := newRewardLedger(ctx, pool, runtime.Schema, "pnld", rewardAuthority, guard.Assert)
+	if err != nil {
+		return nil, err
+	}
+	rewardOutbox, err := l18.NewOutboxBridge(ctx, ledger, outbox, 32)
 	if err != nil {
 		return nil, err
 	}
@@ -852,7 +858,7 @@ func newPnLJourneys(ctx context.Context, cfg config.Config, pool *pgxpool.Pool, 
 	}
 	relay := delivery.Relay{Store: outbox, Publisher: publisher, Owner: runtime.Owner, Batch: 16, LeaseDuration: 30 * time.Second, PublishTimeout: 5 * time.Second, RetryDelay: time.Second, MaxAttempts: 8}
 	owned = true
-	return &pnlJourneys{accounting: accounting, inventory: inventoryService, live: live, shares: shares, shareWorker: l17.ShareWorkerV3{Repository: repository, Owner: runtime.Owner, FontDir: d.FontDirectory, Purger: sharePurger}, second: second, portfolio: portfolio, rewardsHTTP: rewardsHTTP, rewards: rewards, rewardLedger: ledger, settlement: settlement, community: community, referralHTTP: referralHTTP, referrals: referralServices, exports: l17.ExportWorker{Repository: repository, Directory: d.ExportsDirectory, Owner: runtime.Owner}, cards: l17.CardWorker{Repository: repository, Owner: runtime.Owner, FontDir: cfg.FontDir, Purger: cardPurger}, relay: relay, document: d, sourceStream: runtime.SourceStream, generation: runtime.Generation, pool: pool, guard: guard.Assert, schema: runtime.Schema}, nil
+	return &pnlJourneys{accounting: accounting, inventory: inventoryService, live: live, shares: shares, shareWorker: l17.ShareWorkerV3{Repository: repository, Owner: runtime.Owner, FontDir: d.FontDirectory, Purger: sharePurger}, second: second, portfolio: portfolio, rewardsHTTP: rewardsHTTP, rewards: rewards, rewardLedger: ledger, settlement: settlement, community: community, rewardOutbox: rewardOutbox, referralHTTP: referralHTTP, referrals: referralServices, exports: l17.ExportWorker{Repository: repository, Directory: d.ExportsDirectory, Owner: runtime.Owner}, cards: l17.CardWorker{Repository: repository, Owner: runtime.Owner, FontDir: cfg.FontDir, Purger: cardPurger}, relay: relay, document: d, sourceStream: runtime.SourceStream, generation: runtime.Generation, pool: pool, guard: guard.Assert, schema: runtime.Schema}, nil
 }
 
 func (a *App) startJourneyJobs(ctx context.Context) {
@@ -862,6 +868,7 @@ func (a *App) startJourneyJobs(ctx context.Context) {
 		run      func(context.Context) error
 	}{
 		{"portfolio outbox", 100 * time.Millisecond, a.journeys.relay.RunOnce},
+		{"reward outbox handoff", 100 * time.Millisecond, a.journeys.rewardOutbox.RunOnce},
 		{"portfolio exports", time.Second, a.journeys.exports.RunOnce},
 		{"portfolio export cleanup", time.Minute, a.journeys.exports.CleanupOnce},
 		{"portfolio cards", time.Second, a.journeys.cards.RunOnce},

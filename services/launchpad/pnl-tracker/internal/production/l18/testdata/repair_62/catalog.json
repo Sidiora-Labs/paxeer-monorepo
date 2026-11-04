@@ -1,6 +1,6 @@
 {
   "description": "Reviewed coordinator bootstrap catalog transcript: complete dependency-ordered DDL inventory; source hashes bind every input. It supplies the database peer for the focused in-process gate, not a substitute PostgreSQL engine.",
-  "registry_sha256": "71cb53f797b20d51c6135bae3c855e9d3de95f0e200bbf4fb6283299f8bd82d7",
+  "registry_sha256": "48b8fc519e7d4ffcc4511e2bda58143a2859b7787287c96483438f59cfcc6f1f",
   "applied": {
     "160000": "d0e14e39b91a41d8efb75108e39922e5541ed12d261a857a5c2e83faeb194318",
     "80000": "9c1645ffdf7df49058eb2c67c0b498590a59c624b29d41726422caa0a7d099cc",

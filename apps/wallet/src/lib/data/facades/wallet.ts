@@ -6,6 +6,8 @@
  * with a single Blockscout backend as the source of truth.
  */
 
+import { selectedWalletChainId, type WalletReadOptions } from '../../wallet-read-contract';
+
 import {
   getAddress,
   getAddressCounters,
@@ -19,15 +21,30 @@ import {
   getAddressLogs,
   getAddressTokens,
 } from '../api/addresses';
-import type { AddressTxsParams, AddressTokenTransfersParams, AddressNftParams } from '../api/addresses';
+import type {
+  AddressTxsParams,
+  AddressTokenTransfersParams,
+  AddressNftParams,
+} from '../api/addresses';
 import { getToken, getTokens, getTokenHolders } from '../api/tokens';
 import type { TokenListParams } from '../api/tokens';
-import { getTransaction, getTransactionTokenTransfers, getTransactionLogs } from '../api/transactions';
+import {
+  getTransaction,
+  getTransactionTokenTransfers,
+  getTransactionLogs,
+} from '../api/transactions';
 import { search } from '../api/search';
 import { getStats } from '../api/stats';
 
 import type { AddressResponse, AddressCounters, CoinBalanceHistoryByDay } from '../types/address';
-import type { Token, TokenBalance, TokenTransfer, TokenInstanceInList, NFTCollection, Log } from '../types/token';
+import type {
+  Token,
+  TokenBalance,
+  TokenTransfer,
+  TokenInstanceInList,
+  NFTCollection,
+  Log,
+} from '../types/token';
 import type { Transaction } from '../types/transaction';
 import type { PaginatedResponse } from '../types/common';
 
@@ -161,6 +178,7 @@ export interface WalletTransactionsResponse {
   transactions: WalletTransaction[];
   token_transfers: WalletTokenTransferItem[];
   next_page_params: Record<string, unknown> | null;
+  next_transfer_page_params: Record<string, unknown> | null;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -179,7 +197,11 @@ interface UsdAmount {
   scale: number;
 }
 
-function computeUsdAmount(balanceRaw: string, decimals: number, exchangeRate: string | null): UsdAmount | null {
+function computeUsdAmount(
+  balanceRaw: string,
+  decimals: number,
+  exchangeRate: string | null
+): UsdAmount | null {
   if (!Number.isSafeInteger(decimals) || decimals < 0 || !/^\d+$/.test(balanceRaw)) return null;
   const match = exchangeRate?.match(/^\+?(?:(\d+)(?:\.(\d*))?|\.(\d+))(?:[eE]([+-]?\d+))?$/);
   if (!match) return null;
@@ -194,12 +216,10 @@ function formatUsdAmount(amount: UsdAmount | null): string | null {
   if (amount === null) return null;
   const shift = amount.scale - 2;
   const divisor = shift > 0 ? 10n ** BigInt(shift) : 1n;
-  const cents = shift > 0
-    ? (amount.units + divisor / 2n) / divisor
-    : amount.units * 10n ** BigInt(-shift);
+  const cents =
+    shift > 0 ? (amount.units + divisor / 2n) / divisor : amount.units * 10n ** BigInt(-shift);
   return `${cents / 100n}.${(cents % 100n).toString().padStart(2, '0')}`;
 }
-
 
 function tokenUsdAmount(balance: TokenBalance): UsdAmount | null {
   const decimals = balance.token?.decimals;
@@ -211,7 +231,10 @@ function sumUsdAmounts(amounts: UsdAmount[]): UsdAmount {
   const scale = Math.max(0, ...amounts.map((amount) => amount.scale));
   return {
     scale,
-    units: amounts.reduce((sum, amount) => sum + amount.units * 10n ** BigInt(scale - amount.scale), 0n),
+    units: amounts.reduce(
+      (sum, amount) => sum + amount.units * 10n ** BigInt(scale - amount.scale),
+      0n
+    ),
   };
 }
 
@@ -224,12 +247,13 @@ function completeUsdTotal(amounts: (UsdAmount | null)[]): string | null {
 function walletValuation(
   amounts: (UsdAmount | null)[],
   fetchedAt: string,
-  nativeBalanceBlock: number | null,
+  nativeBalanceBlock: number | null
 ): WalletValuation {
   const priced = amounts.filter((amount): amount is UsdAmount => amount !== null);
   return {
     status: priced.length > 0 ? 'partial' : 'unavailable',
-    spot_status: priced.length === amounts.length ? 'complete' : priced.length > 0 ? 'partial' : 'unavailable',
+    spot_status:
+      priced.length === amounts.length ? 'complete' : priced.length > 0 ? 'partial' : 'unavailable',
     priced_assets: priced.length,
     total_assets: amounts.length,
     priced_value_usd: priced.length > 0 ? formatUsdAmount(sumUsdAmounts(priced)) : null,
@@ -254,12 +278,9 @@ function inferTxType(tx: Transaction): WalletTxType {
   return 'unknown';
 }
 
-function mapTokenTransfer(
-  tt: TokenTransfer,
-  walletAddress: string,
-): WalletTokenTransferItem {
+function mapTokenTransfer(tt: TokenTransfer, walletAddress: string): WalletTokenTransferItem {
   const decimals = tt.token?.decimals ? parseInt(tt.token.decimals, 10) : 18;
-  const rawAmount = (tt.total && 'value' in tt.total && tt.total.value) ? tt.total.value || '0' : '0';
+  const rawAmount = tt.total && 'value' in tt.total && tt.total.value ? tt.total.value || '0' : '0';
   return {
     tx_hash: tt.transaction_hash,
     token_address: tt.token?.address_hash || '',
@@ -283,7 +304,7 @@ function mapTransaction(tx: Transaction, walletAddress: string): WalletTransacti
   const gasPrice = tx.gas_price || '0';
   const gasFee = tx.fee?.value || '0';
   const tokenTransfers = (tx.token_transfers || []).map((tt) =>
-    mapTokenTransfer(tt, walletAddress),
+    mapTokenTransfer(tt, walletAddress)
   );
 
   return {
@@ -307,16 +328,21 @@ function mapTransaction(tx: Transaction, walletAddress: string): WalletTransacti
 
 // ── Facade: Portfolio ───────────────────────────────────────────────────────
 
-export async function getWalletPortfolio(addressHash: string): Promise<WalletPortfolio> {
+export async function getWalletPortfolio(
+  addressHash: string,
+  options: WalletReadOptions = {}
+): Promise<WalletPortfolio> {
+  options = { ...options, chainId: options.chainId ?? selectedWalletChainId() };
   const [addrInfo, tokenBalances, counters] = await Promise.all([
-    getAddress(addressHash),
-    getAddressTokenBalances(addressHash),
-    getAddressCounters(addressHash),
+    getAddress(addressHash, options),
+    getAddressTokenBalances(addressHash, options),
+    getAddressCounters(addressHash, options),
   ]);
 
   const nativeRaw = addrInfo.coin_balance || '0';
   const nativeRate = addrInfo.exchange_rate;
-  const nativeAmount = addrInfo.coin_balance === null ? null : computeUsdAmount(nativeRaw, 18, nativeRate);
+  const nativeAmount =
+    addrInfo.coin_balance === null ? null : computeUsdAmount(nativeRaw, 18, nativeRate);
   const nativeValueUsd = formatUsdAmount(nativeAmount);
 
   const holdings: WalletTokenHolding[] = tokenBalances.map((tb) => {
@@ -363,8 +389,12 @@ export async function getWalletPortfolio(addressHash: string): Promise<WalletPor
 
 // ── Facade: Holdings ────────────────────────────────────────────────────────
 
-export async function getWalletHoldings(addressHash: string): Promise<WalletTokenHolding[]> {
-  const tokenBalances = await getAddressTokenBalances(addressHash);
+export async function getWalletHoldings(
+  addressHash: string,
+  options: WalletReadOptions = {}
+): Promise<WalletTokenHolding[]> {
+  options = { ...options, chainId: options.chainId ?? selectedWalletChainId() };
+  const tokenBalances = await getAddressTokenBalances(addressHash, options);
   return tokenBalances.map((tb) => {
     const decimals = tb.token?.decimals ? parseInt(tb.token.decimals, 10) : 18;
     return {
@@ -384,15 +414,20 @@ export async function getWalletHoldings(addressHash: string): Promise<WalletToke
 
 // ── Facade: Balance summary ─────────────────────────────────────────────────
 
-export async function getWalletBalance(addressHash: string): Promise<WalletBalanceSummary> {
+export async function getWalletBalance(
+  addressHash: string,
+  options: WalletReadOptions = {}
+): Promise<WalletBalanceSummary> {
+  options = { ...options, chainId: options.chainId ?? selectedWalletChainId() };
   const [addrInfo, tokenBalances] = await Promise.all([
-    getAddress(addressHash),
-    getAddressTokenBalances(addressHash),
+    getAddress(addressHash, options),
+    getAddressTokenBalances(addressHash, options),
   ]);
 
   const nativeRaw = addrInfo.coin_balance || '0';
   const nativeRate = addrInfo.exchange_rate;
-  const nativeAmount = addrInfo.coin_balance === null ? null : computeUsdAmount(nativeRaw, 18, nativeRate);
+  const nativeAmount =
+    addrInfo.coin_balance === null ? null : computeUsdAmount(nativeRaw, 18, nativeRate);
   const tokenAmounts = tokenBalances.map(tokenUsdAmount);
   const computedAt = new Date().toISOString();
   const valuation = walletValuation(
@@ -421,20 +456,24 @@ export async function getWalletBalance(addressHash: string): Promise<WalletBalan
 export async function getWalletTransactions(
   addressHash: string,
   params?: AddressTxsParams,
+  transferParams?: AddressTokenTransfersParams,
+  options: WalletReadOptions = {}
 ): Promise<WalletTransactionsResponse> {
+  options = { ...options, chainId: options.chainId ?? selectedWalletChainId() };
   const [txResult, transferResult] = await Promise.all([
-    getAddressTransactions(addressHash, params),
-    getAddressTokenTransfers(addressHash),
+    getAddressTransactions(addressHash, params, options),
+    getAddressTokenTransfers(addressHash, transferParams, options),
   ]);
   const mappedTxs = txResult.items.map((tx) => mapTransaction(tx, addressHash));
   const mappedTransfers: WalletTokenTransferItem[] = transferResult.items.map((tt) =>
-    mapTokenTransfer(tt, addressHash),
+    mapTokenTransfer(tt, addressHash)
   );
   return {
     address: addressHash,
     transactions: mappedTxs,
     token_transfers: mappedTransfers,
     next_page_params: txResult.next_page_params,
+    next_transfer_page_params: transferResult.next_page_params,
   };
 }
 
@@ -536,8 +575,11 @@ export async function getWalletTxLogs(txHash: string) {
 
 // ── Facade: Address token balances (replaces fetchAddressTokenBalances) ─────
 
-export async function getWalletAddressTokenBalances(addressHash: string) {
-  return getAddressTokenBalances(addressHash);
+export async function getWalletAddressTokenBalances(
+  addressHash: string,
+  options?: WalletReadOptions
+) {
+  return getAddressTokenBalances(addressHash, options);
 }
 
 // ── Facade: Token holders (replaces fetchTokenHolders) ──────────────────────
@@ -576,7 +618,7 @@ export async function getWalletNftCollections(addressHash: string, params?: Addr
 
 export async function getWalletTokenTransfers(
   addressHash: string,
-  params?: AddressTokenTransfersParams,
+  params?: AddressTokenTransfersParams
 ) {
   return getAddressTokenTransfers(addressHash, params);
 }
@@ -595,9 +637,4 @@ export async function getWalletChainStats() {
 
 // ── Re-exports for convenience ──────────────────────────────────────────────
 
-export type {
-  AddressTxsParams,
-  AddressTokenTransfersParams,
-  AddressNftParams,
-  TokenListParams,
-};
+export type { AddressTxsParams, AddressTokenTransfersParams, AddressNftParams, TokenListParams };

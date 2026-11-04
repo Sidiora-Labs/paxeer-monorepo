@@ -1,3 +1,5 @@
+import { reportBackgroundFailure } from '@/platform/status/background-failures';
+
 // ── Native Push Notification Helpers ─────────────────────────────────────────
 // Manages Web Push subscriptions without any third-party service.
 // To send push from your backend, use the subscription object with web-push lib.
@@ -63,7 +65,7 @@ export async function subscribeToPush(): Promise<PushSubscription | null> {
 
   // Check existing subscription
   const existing = await registration.pushManager.getSubscription();
-  if (existing) return existing;
+  if (existing) return confirmPushRegistration(existing);
 
   if (!VAPID_PUBLIC_KEY) {
     console.warn('[Push] No VAPID public key configured');
@@ -77,11 +79,16 @@ export async function subscribeToPush(): Promise<PushSubscription | null> {
     });
 
     // Send subscription to backend
-    await sendSubscriptionToServer(subscription);
-    return subscription;
+    return await confirmPushRegistration(subscription);
   } catch (err) {
-    console.error('[Push] Subscribe failed:', err);
-    return null;
+    if (err instanceof PushRegistrationError) throw err;
+    const failure: PushRegistrationResult = {
+      ok: false,
+      code: 'BROWSER_UNAVAILABLE',
+      retryable: true,
+    };
+    reportPushRegistrationFailure(failure);
+    throw new PushRegistrationError(failure);
   }
 }
 
@@ -107,7 +114,8 @@ export async function unsubscribeFromPush(): Promise<boolean> {
 export async function getCurrentSubscription(): Promise<PushSubscription | null> {
   const registration = await getServiceWorkerRegistration();
   if (!registration) return null;
-  return registration.pushManager.getSubscription();
+  const subscription = await registration.pushManager.getSubscription();
+  return subscription && isPushSubscriptionEnabled(subscription.endpoint) ? subscription : null;
 }
 
 // ── Notification Permission ─────────────────────────────────────────────────
@@ -156,39 +164,145 @@ export function setWalletAddressForPush(
   address: string,
   signMessage: (text: string) => Promise<string>
 ): void {
+  if (!/^0x[0-9a-fA-F]{40}$/.test(address)) throw new TypeError('Push wallet address is invalid');
+  acknowledgedEndpoint = null;
+  acknowledgedWallet = null;
   pushWallet = { address, signMessage };
 }
 
 export function clearWalletAddressForPush(): void {
   pushWallet = null;
+  acknowledgedEndpoint = null;
+  acknowledgedWallet = null;
 }
 
-async function sendSubscriptionToServer(subscription: PushSubscription): Promise<void> {
+export interface PushSubscriptionRecord {
+  endpoint: string;
+  keys: { p256dh: string; auth: string };
+}
+
+export type PushRegistrationResult =
+  | { ok: true; endpoint: string; walletAddress: string }
+  | {
+      ok: false;
+      code:
+        | 'WALLET_UNAVAILABLE'
+        | 'WALLET_CHANGED'
+        | 'SIGNING_FAILED'
+        | 'SERVER_REFUSED'
+        | 'ACK_INVALID'
+        | 'NETWORK_UNAVAILABLE'
+        | 'BROWSER_UNAVAILABLE';
+      retryable: true;
+      status?: number;
+    };
+
+let acknowledgedEndpoint: string | null = null;
+let acknowledgedWallet: string | null = null;
+
+export function isPushSubscriptionEnabled(endpoint: string): boolean {
+  return (
+    acknowledgedEndpoint === endpoint &&
+    acknowledgedWallet !== null &&
+    acknowledgedWallet === pushWallet?.address.toLowerCase()
+  );
+}
+
+export class PushRegistrationError extends Error {
+  constructor(readonly result: Extract<PushRegistrationResult, { ok: false }>) {
+    super('Notifications could not be enabled. Please retry.');
+    this.name = 'PushRegistrationError';
+  }
+}
+
+function reportPushRegistrationFailure(
+  result: Extract<PushRegistrationResult, { ok: false }>
+): void {
+  acknowledgedEndpoint = null;
+  acknowledgedWallet = null;
+  reportBackgroundFailure({
+    domain: 'platform',
+    kind: 'unavailable',
+    code: 'PUSH_SUBSCRIBE_FAILED',
+    message: `Notifications could not be enabled (${result.code}).`,
+    retryable: result.retryable,
+  });
+}
+
+function subscriptionRecord(subscription: PushSubscription): PushSubscriptionRecord {
+  const json = subscription.toJSON();
+  if (!json.keys?.p256dh || !json.keys.auth)
+    throw new TypeError('Push subscription keys are missing');
+  return {
+    endpoint: subscription.endpoint,
+    keys: { p256dh: json.keys.p256dh, auth: json.keys.auth },
+  };
+}
+
+export async function sendSubscriptionToServer(
+  subscription: PushSubscriptionRecord
+): Promise<PushRegistrationResult> {
+  const wallet = pushWallet;
+  const fail = (
+    code: Extract<PushRegistrationResult, { ok: false }>['code'],
+    status?: number
+  ): PushRegistrationResult => {
+    const result = {
+      ok: false,
+      code,
+      retryable: true,
+      ...(status === undefined ? {} : { status }),
+    } as const;
+    reportPushRegistrationFailure(result);
+    return result;
+  };
+  if (!wallet) return fail('WALLET_UNAVAILABLE');
+  const issuedAt = Math.floor(Date.now() / 1_000);
+  let signature: string;
   try {
-    const wallet = pushWallet;
-    if (!wallet) throw new Error('Push subscription requires a connected wallet');
-    const subJson = subscription.toJSON();
-    const endpoint = subscription.endpoint;
-    const issuedAt = Math.floor(Date.now() / 1_000);
-    const signature = await wallet.signMessage(
-      pushOwnershipMessage(endpoint, wallet.address, issuedAt)
+    signature = await wallet.signMessage(
+      pushOwnershipMessage(subscription.endpoint, wallet.address, issuedAt)
     );
-    if (pushWallet !== wallet) throw new Error('Push subscription wallet changed while signing');
-    const response = await fetch(`${PUSH_API_BASE}/subscribe`, {
+  } catch {
+    return fail('SIGNING_FAILED');
+  }
+  if (pushWallet !== wallet) return fail('WALLET_CHANGED');
+  try {
+    const url = new URL(`${PUSH_API_BASE}/subscribe`, window.location.origin);
+    const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        endpoint,
-        keys: subJson.keys,
-        walletAddress: wallet.address,
-        signature,
-        issuedAt,
-      }),
+      body: JSON.stringify({ ...subscription, walletAddress: wallet.address, signature, issuedAt }),
+      signal: AbortSignal.timeout(10_000),
+      cache: 'no-store',
     });
-    if (!response.ok) throw new Error(`Push subscription refused (${response.status})`);
-  } catch (err) {
-    console.warn('[Push] Failed to send subscription to server:', err);
+    if (!response.ok) return fail('SERVER_REFUSED', response.status);
+    const body: unknown = await response.json();
+    if (!body || typeof body !== 'object' || !('ok' in body) || body.ok !== true)
+      return fail('ACK_INVALID');
+    if (pushWallet !== wallet) return fail('WALLET_CHANGED');
+    acknowledgedEndpoint = subscription.endpoint;
+    acknowledgedWallet = wallet.address.toLowerCase();
+    return { ok: true, endpoint: subscription.endpoint, walletAddress: acknowledgedWallet };
+  } catch {
+    return fail('NETWORK_UNAVAILABLE');
   }
+}
+
+function normalizePushSubscription(
+  subscription: PushSubscriptionRecord | PushSubscription
+): PushSubscriptionRecord {
+  if ('keys' in subscription) return subscription;
+  return subscriptionRecord(subscription);
+}
+
+export async function confirmPushRegistration<T extends PushSubscriptionRecord | PushSubscription>(
+  subscription: T
+): Promise<T> {
+  const record = normalizePushSubscription(subscription);
+  const result = await sendSubscriptionToServer(record);
+  if (!result.ok) throw new PushRegistrationError(result);
+  return subscription;
 }
 
 async function removeSubscriptionFromServer(subscription: PushSubscription): Promise<void> {
@@ -204,9 +318,16 @@ async function removeSubscriptionFromServer(subscription: PushSubscription): Pro
 }
 
 /** Update the server that this subscription is still active (heartbeat). */
-export async function heartbeat(): Promise<void> {
-  const sub = await getCurrentSubscription();
-  if (!sub || !pushWallet) return;
-  // Re-upsert refreshes lastActiveAt on the server
-  await sendSubscriptionToServer(sub);
+export async function heartbeat(
+  subscription?: PushSubscriptionRecord
+): Promise<PushRegistrationResult> {
+  if (subscription) return sendSubscriptionToServer(subscription);
+  const registration = await getServiceWorkerRegistration();
+  const current = await registration?.pushManager.getSubscription();
+  if (!current) {
+    const result = { ok: false, code: 'BROWSER_UNAVAILABLE', retryable: true } as const;
+    reportPushRegistrationFailure(result);
+    return result;
+  }
+  return sendSubscriptionToServer(subscriptionRecord(current));
 }

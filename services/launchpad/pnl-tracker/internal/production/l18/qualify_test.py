@@ -1,5 +1,6 @@
 """Actual-process lifecycle checks; no simulated provider success."""
 import importlib.util
+import os
 import pathlib
 import socket
 import subprocess
@@ -91,11 +92,52 @@ class Lifecycle(unittest.TestCase):
             old.write_text('previous failed result\n')
             result = subprocess.run([sys.executable, str(pathlib.Path(module.__file__)),
                                      '--run', 'repeat', '--output-dir', private],
-                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10)
+                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10,
+                                    env={**os.environ, 'L18_POSTGRES_DSN': 'postgresql://localhost/disposable'})
             self.assertNotEqual(result.returncode, 0)
             self.assertIn(b'historical output will not be reused', result.stderr)
             self.assertEqual(old.read_text(), 'previous failed result\n')
             self.assertEqual(list(pathlib.Path(private).iterdir()), [old])
+
+
+class InputRequirements(unittest.TestCase):
+    def test_database_input_is_required_before_evidence_is_written(self):
+        with tempfile.TemporaryDirectory() as private:
+            output = pathlib.Path(private) / 'evidence'
+            for environ in ({}, {'L18_POSTGRES_DSN': ''}, {'L18_POSTGRES_DSN': '  '},
+                            {'L18_POSTGRES_DSN': 'postgresql://localhost/'},
+                            {'L18_POSTGRES_DSN': 'https://localhost/disposable'}):
+                with self.subTest(environ=environ):
+                    with self.assertRaisesRegex(RuntimeError, 'L18_POSTGRES_DSN'):
+                        module.qualification_inputs(output, environ)
+                    self.assertFalse(output.exists())
+
+    def test_output_input_is_explicit_and_private(self):
+        environ = {'L18_POSTGRES_DSN': 'postgresql://localhost/disposable'}
+        with self.assertRaisesRegex(RuntimeError, 'explicit private --output-dir'):
+            module.qualification_inputs(None, environ)
+        with self.assertRaisesRegex(RuntimeError, 'absolute private'):
+            module.qualification_inputs(pathlib.Path('relative-evidence'), environ)
+        with tempfile.TemporaryDirectory() as private:
+            output = pathlib.Path(private) / 'evidence'
+            output.mkdir(mode=0o755)
+            with self.assertRaisesRegex(RuntimeError, 'private --output-dir'):
+                module.qualification_inputs(output, environ)
+            link = pathlib.Path(private) / 'link'
+            link.symlink_to(output, target_is_directory=True)
+            with self.assertRaisesRegex(RuntimeError, 'without symlinks'):
+                module.qualification_inputs(link, environ)
+            self.assertEqual(list(output.iterdir()), [])
+
+    def test_operator_database_is_preserved_and_new_directory_is_private(self):
+        dsn = 'postgresql://operator@localhost:6543/disposable?sslmode=require'
+        with tempfile.TemporaryDirectory() as private:
+            output = pathlib.Path(private) / 'evidence'
+            evidence, admitted = module.qualification_inputs(output, {'L18_POSTGRES_DSN': dsn})
+            self.assertEqual(admitted, dsn)
+            self.assertEqual(evidence, output)
+            self.assertEqual(output.stat().st_mode & 0o777, 0o700)
+            self.assertEqual(list(output.iterdir()), [])
 
 
 if __name__ == '__main__':

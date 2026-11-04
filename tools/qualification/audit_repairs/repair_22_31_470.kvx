@@ -1,0 +1,720 @@
+[task.22.31.470]
+base_revision = "76bd4ca9414014055f61431cd0c7be0dc9ac5fe2"
+repair = "Rewrite architecture, topology diagrams, quick start and transaction/committed receipt flows for one chain-125 paxd BFT network with its block-proposing kernel embedded. State root public JSON-RPC, no router or separate interface, optional hosted contracts, tenant namespaces and mirror-only hpx hosting. Retire daemon/checkpoint deployment guidance and isolate retained executor names in the explicit refusal paragraph. Preserve account binding, native funding, proof trust, active precompile inventory, source layout and linked-library builds."
+source_proof = "The focused Python module checks actual README text and diagrams against production node registrations, root-path dispatch, transaction acceptance/forwarding, WAL acknowledgement before receipt publication, receipt rungs and committed coverage, host and consensus wiring, account ABIs, bank mapping, proof consumers, retirement gates and build targets. It checks all root RPC URLs and the documented curl payload without executing a request, resolves repository links, rejects retired symbols using the retirement inventory and maps all 97 medium README findings to declared checks."
+review_only = "Native Go/C/Rust builds, node startup, transaction execution, cryptographic operations, WAL restart/recovery, actual endpoint availability and BFT consensus are not executed by this documentation gate. Source checks establish documented producer/transport/consumer connections, not runtime or deployment certification. No production interface or stateful component changes."
+baseline = "Initial Git status/diff showed only runner-prepared .cgignore and spec task-start bookkeeping, no changes to any scoped file. gate.json recorded zero builds and verifies, two repair cycles left, and no gates.jsonl existed. No pre-change test was run: explicit implementation-first ordering and the exclusive hf-done verification gate supersede older audit task baseline instructions."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_31_470.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The last hf-done JSON and private /out/run/gates.jsonl name the exact verified content-derived candidate revision, command, exit code and log path. Build and verification must pass on the same candidate revision. The record is finalized before qualification: embedding the candidate hash into its own content would change that hash. The runner retains evidence and publishes the task; no manual commit or push is performed."
+wiring_requests = []
+
+[reconciliation]
+prior_work = "Task 22.33.9 is done at this base and its repair record and eight source checks were read; preserve its dual-consent binding bytes, ABI signatures and nonpayability, native bank sub-accounts and gas separation, expiry units, derivation/recovery context, ProtocolReceipt v2 key pinning, authenticated commitment proofs, historical formats, and paxd native library prerequisites. Task 22.33.33 is pending in this checkout, its repair record and test file are absent, and README history contains no published change attributed to it. Preserve every existing README fact and satisfy its architecture-root audit expectation with the new topology and receipt diagrams; do not invent absent publication evidence."
+coverage = "95 pending medium-wave tasks require 22.31.470 at this base. Their complete task text and root README audit findings were read, including three findings named root-readme-topology, and all existing repair_22_33 records were inspected for root README claims. Only repair_22_33_9.kvx exists for README. Two additional root findings are audit 22.30.1/39 and 22.30.176/23; all 97 medium README findings are mapped below."
+
+[conflict.px_methods]
+observed = "Some audit expectations and BRIEF fact 3 reserve all px_ methods to the hosted gateway and list fewer node namespaces."
+authority = "rpc/server.go registers native pxAccountAPI, pxHistoryAPI and receiptKeysAPI on the node; rpc/sequencer_receipt.go defines px_getReceiptKeys, and services/platform/hosted/gateway/openrpc.json declares the gateway contract. rpc/server.go also registers web3/pax2 and restricts test to non-live chain IDs."
+resolution = "Document each server's method contract and the node's explicit px_ subset. The hosted contract never implies public endpoint availability; hosting remains optional, with no router or separate LayerX execution interface."
+
+[conflict.anchor_reads]
+observed = "Several findings call all checkpoint interfaces retired at merge, while prior work explicitly preserves historical reads."
+authority = "precompiles/layerxanchor/layerxanchor.go gates non-view calls at MergeUpgrade and all calls at StoreDeleteUpgrade; node/upgrades.go names the later store-deletion plan."
+resolution = "Describe checkpoint writes as retired refusal surfaces, historical views as archive-only before v7.0-anchor-store-delete, and current finality as authenticated BFT block commitment. Keep the external native bridge distinct from retired kernel custody."
+
+[conflict.retired_names]
+observed = "The task asks that no retired construct name remain while also requiring retired refusal surfaces and preservation of 22.33.9's explicit ABI retirement facts."
+authority = "The retained precompile implementations and 22.33.9 require the three historical ABI names, addresses and source links to identify their actual upgrade-gated refusals."
+resolution = "Remove the retired daemon name and every retired runtime, route and inventory symbol from current guidance. Permit only the three retained executor ABI names and their source links in one explicit pre-merge refusal paragraph; assert the entire remaining README contains no inventory symbol or deleted tree. Historical codec and witness prose explicitly states it adds no settlement step."
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths; Markdown has a lint hook, not a formatter. After the complete implementation, apply only .editorconfig UTF-8, LF, final-newline and non-Markdown trailing-whitespace conventions to the three scoped files."
+
+[gotcha.1]
+observed = "Broad combined context reads exceeded output limits; the Codify brief/survey cache reports unrelated tasks or changes, and guessed documentation/source paths may be absent."
+resolution = "Use bounded task/record sections, actual Git status/diff, discovered production paths and the private gate ledger. Task-specific notes live here because GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.2]
+observed = "The prompt describes 22.33.33 as already published, but the base task is pending and its repair artifacts are absent."
+resolution = "Record the checkout's evidence, preserve inherited facts, and satisfy its architecture-root proposal without claiming an absent gate or publication."
+
+[coverage.audit_22_30_1]
+audit = "22.30.1"
+finding = "39"
+file = "README.md"
+consumer_tasks = ["22.33.9"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_hosted_contract_and_native_px_registrations_are_distinguished", "test_submission_and_committed_receipt_follow_real_node_path", "test_diagrams_keep_execution_inside_the_network_and_commit_finality", "test_binding_native_funding_and_recovery_facts_are_preserved", "test_signed_execution_and_authenticated_commit_proofs_are_preserved", "test_active_interfaces_retired_refusals_and_historical_formats", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance", "test_paxd_build_start_and_source_navigation_match_current_layout"]
+
+[coverage.audit_22_30_3]
+audit = "22.30.3"
+finding = "readme-network"
+file = "README.md"
+consumer_tasks = ["22.33.968"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_4]
+audit = "22.30.4"
+finding = "028"
+file = "README.md"
+consumer_tasks = ["22.33.1037"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_5]
+audit = "22.30.5"
+finding = "22.30.5.29"
+file = "README.md"
+consumer_tasks = ["22.33.1139"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_6]
+audit = "22.30.6"
+finding = "readme-retired-daemon"
+file = "README.md"
+consumer_tasks = ["22.33.1239"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_7]
+audit = "22.30.7"
+finding = "doc-root-architecture"
+file = "README.md"
+consumer_tasks = ["22.33.1305"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_8]
+audit = "22.30.8"
+finding = "readme-separate-kernel-network"
+file = "README.md"
+consumer_tasks = ["22.33.1427"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_9]
+audit = "22.30.9"
+finding = "21"
+file = "README.md"
+consumer_tasks = ["22.33.1504"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_11]
+audit = "22.30.11"
+finding = "readme-merged-network"
+file = "README.md"
+consumer_tasks = ["22.33.85"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_12]
+audit = "22.30.12"
+finding = "f048"
+file = "README.md"
+consumer_tasks = ["22.33.202"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_13]
+audit = "22.30.13"
+finding = "034"
+file = "README.md"
+consumer_tasks = ["22.33.257"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_15]
+audit = "22.30.15"
+finding = "root-readme-retired-daemon"
+file = "README.md"
+consumer_tasks = ["22.33.483"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_16]
+audit = "22.30.16"
+finding = "readme-premerge-network"
+file = "README.md"
+consumer_tasks = ["22.33.581"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_17]
+audit = "22.30.17"
+finding = "readme-network"
+file = "README.md"
+consumer_tasks = ["22.33.713"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_18]
+audit = "22.30.18"
+finding = "22"
+file = "README.md"
+consumer_tasks = ["22.33.834"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_28]
+audit = "22.30.28"
+finding = "readme-two-domains"
+file = "README.md"
+consumer_tasks = ["22.33.959"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_30]
+audit = "22.30.30"
+finding = "readme-merge-topology"
+file = "README.md"
+consumer_tasks = ["22.33.982"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_32]
+audit = "22.30.32"
+finding = "readme_network"
+file = "README.md"
+consumer_tasks = ["22.33.994"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_38]
+audit = "22.30.38"
+finding = "root-network-model"
+file = "README.md"
+consumer_tasks = ["22.33.1024"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_39]
+audit = "22.30.39"
+finding = "23"
+file = "README.md"
+consumer_tasks = ["22.33.1033"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_43]
+audit = "22.30.43"
+finding = "f025"
+file = "README.md"
+consumer_tasks = ["22.33.1077"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_45]
+audit = "22.30.45"
+finding = "readme-retired-daemon"
+file = "README.md"
+consumer_tasks = ["22.33.1096"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_48]
+audit = "22.30.48"
+finding = "readme-retired-network"
+file = "README.md"
+consumer_tasks = ["22.33.1121"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_57]
+audit = "22.30.57"
+finding = "readme-network-model"
+file = "README.md"
+consumer_tasks = ["22.33.1213"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_58]
+audit = "22.30.58"
+finding = "readme-retired-topology"
+file = "README.md"
+consumer_tasks = ["22.33.1224"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_59]
+audit = "22.30.59"
+finding = "22"
+file = "README.md"
+consumer_tasks = ["22.33.1233"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_61]
+audit = "22.30.61"
+finding = "readme-retired-runtime"
+file = "README.md"
+consumer_tasks = ["22.33.1250"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_62]
+audit = "22.30.62"
+finding = "readme-retired-architecture"
+file = "README.md"
+consumer_tasks = ["22.33.1270"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_63]
+audit = "22.30.63"
+finding = "016"
+file = "README.md"
+consumer_tasks = ["22.33.1274"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_64]
+audit = "22.30.64"
+finding = "readme-separated-network"
+file = "README.md"
+consumer_tasks = ["22.33.1281"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_65]
+audit = "22.30.65"
+finding = "readme-separated-network"
+file = "README.md"
+consumer_tasks = ["22.33.1285"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_68]
+audit = "22.30.68"
+finding = "readme-architecture-drift"
+file = "README.md"
+consumer_tasks = ["22.33.1296"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_70]
+audit = "22.30.70"
+finding = "docs-root-readme"
+file = "README.md"
+consumer_tasks = ["22.33.1325"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_72]
+audit = "22.30.72"
+finding = "readme-separate-daemon"
+file = "README.md"
+consumer_tasks = ["22.33.1337"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_74]
+audit = "22.30.74"
+finding = "repository-topology"
+file = "README.md"
+consumer_tasks = ["22.33.1367"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_75]
+audit = "22.30.75"
+finding = "root-network-overview"
+file = "README.md"
+consumer_tasks = ["22.33.1382"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_77]
+audit = "22.30.77"
+finding = "root-overview"
+file = "README.md"
+consumer_tasks = ["22.33.1396"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_78]
+audit = "22.30.78"
+finding = "root-doc-two-domains"
+file = "README.md"
+consumer_tasks = ["22.33.1403"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_79]
+audit = "22.30.79"
+finding = "051"
+file = "README.md"
+consumer_tasks = ["22.33.1419"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_81]
+audit = "22.30.81"
+finding = "doc-readme"
+file = "README.md"
+consumer_tasks = ["22.33.1442"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_86]
+audit = "22.30.86"
+finding = "doc-root-readme"
+file = "README.md"
+consumer_tasks = ["22.33.1482"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_88]
+audit = "22.30.88"
+finding = "root-overview-retired-daemon"
+file = "README.md"
+consumer_tasks = ["22.33.1491"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_92]
+audit = "22.30.92"
+finding = "doc_9"
+file = "README.md"
+consumer_tasks = ["22.33.1524"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_96]
+audit = "22.30.96"
+finding = "f59"
+file = "README.md"
+consumer_tasks = ["22.33.1549"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_97]
+audit = "22.30.97"
+finding = "doc_root"
+file = "README.md"
+consumer_tasks = ["22.33.1555"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_99]
+audit = "22.30.99"
+finding = "root-readme-topology"
+file = "README.md"
+consumer_tasks = ["22.33.1578"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_102]
+audit = "22.30.102"
+finding = "architecture-root"
+file = "README.md"
+consumer_tasks = ["22.33.33"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_hosted_contract_and_native_px_registrations_are_distinguished", "test_submission_and_committed_receipt_follow_real_node_path", "test_diagrams_keep_execution_inside_the_network_and_commit_finality", "test_binding_native_funding_and_recovery_facts_are_preserved", "test_signed_execution_and_authenticated_commit_proofs_are_preserved", "test_active_interfaces_retired_refusals_and_historical_formats", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance", "test_paxd_build_start_and_source_navigation_match_current_layout"]
+
+[coverage.audit_22_30_114]
+audit = "22.30.114"
+finding = "54"
+file = "README.md"
+consumer_tasks = ["22.33.134"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_115]
+audit = "22.30.115"
+finding = "readme-english"
+file = "README.md"
+consumer_tasks = ["22.33.144"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_117]
+audit = "22.30.117"
+finding = "15"
+file = "README.md"
+consumer_tasks = ["22.33.159"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_118]
+audit = "22.30.118"
+finding = "doc-01"
+file = "README.md"
+consumer_tasks = ["22.33.178"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_119]
+audit = "22.30.119"
+finding = "readme-separate-kernel"
+file = "README.md"
+consumer_tasks = ["22.33.187"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_120]
+audit = "22.30.120"
+finding = "readme-architecture"
+file = "README.md"
+consumer_tasks = ["22.33.211"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_121]
+audit = "22.30.121"
+finding = "doc-03"
+file = "README.md"
+consumer_tasks = ["22.33.216"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_128]
+audit = "22.30.128"
+finding = "readme-network"
+file = "README.md"
+consumer_tasks = ["22.33.237"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_131]
+audit = "22.30.131"
+finding = "root-network-description"
+file = "README.md"
+consumer_tasks = ["22.33.273"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_132]
+audit = "22.30.132"
+finding = "root-network-description"
+file = "README.md"
+consumer_tasks = ["22.33.279"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_133]
+audit = "22.30.133"
+finding = "root-readme-topology"
+file = "README.md"
+consumer_tasks = ["22.33.287"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_134]
+audit = "22.30.134"
+finding = "doc_1"
+file = "README.md"
+consumer_tasks = ["22.33.296"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_135]
+audit = "22.30.135"
+finding = "root-readme-network-model"
+file = "README.md"
+consumer_tasks = ["22.33.313"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_136]
+audit = "22.30.136"
+finding = "readme-separate-daemon"
+file = "README.md"
+consumer_tasks = ["22.33.317"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_137]
+audit = "22.30.137"
+finding = "readme_topology"
+file = "README.md"
+consumer_tasks = ["22.33.335"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_139]
+audit = "22.30.139"
+finding = "doc-01"
+file = "README.md"
+consumer_tasks = ["22.33.359"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_140]
+audit = "22.30.140"
+finding = "root-retired-daemon"
+file = "README.md"
+consumer_tasks = ["22.33.380"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_141]
+audit = "22.30.141"
+finding = "root-readme-standalone-kernel"
+file = "README.md"
+consumer_tasks = ["22.33.392"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_142]
+audit = "22.30.142"
+finding = "46"
+file = "README.md"
+consumer_tasks = ["22.33.404"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_143]
+audit = "22.30.143"
+finding = "root-readme-topology"
+file = "README.md"
+consumer_tasks = ["22.33.414"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_144]
+audit = "22.30.144"
+finding = "readme-two-domains"
+file = "README.md"
+consumer_tasks = ["22.33.418"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_145]
+audit = "22.30.145"
+finding = "root-readme-separate-kernel"
+file = "README.md"
+consumer_tasks = ["22.33.425"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_146]
+audit = "22.30.146"
+finding = "docs-root-architecture"
+file = "README.md"
+consumer_tasks = ["22.33.429"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_147]
+audit = "22.30.147"
+finding = "root-network"
+file = "README.md"
+consumer_tasks = ["22.33.446"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_148]
+audit = "22.30.148"
+finding = "readme-retired-topology"
+file = "README.md"
+consumer_tasks = ["22.33.462"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_151]
+audit = "22.30.151"
+finding = "doc-root-two-domains"
+file = "README.md"
+consumer_tasks = ["22.33.508"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_153]
+audit = "22.30.153"
+finding = "readme-separate-daemon"
+file = "README.md"
+consumer_tasks = ["22.33.522"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_154]
+audit = "22.30.154"
+finding = "readme_split_execution"
+file = "README.md"
+consumer_tasks = ["22.33.526"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_156]
+audit = "22.30.156"
+finding = "readme_retired_architecture"
+file = "README.md"
+consumer_tasks = ["22.33.539"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_157]
+audit = "22.30.157"
+finding = "documentation-4"
+file = "README.md"
+consumer_tasks = ["22.33.550"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_158]
+audit = "22.30.158"
+finding = "042"
+file = "README.md"
+consumer_tasks = ["22.33.565"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_159]
+audit = "22.30.159"
+finding = "readme-network"
+file = "README.md"
+consumer_tasks = ["22.33.569"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_160]
+audit = "22.30.160"
+finding = "doc-root-readme"
+file = "README.md"
+consumer_tasks = ["22.33.592"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_163]
+audit = "22.30.163"
+finding = "051"
+file = "README.md"
+consumer_tasks = ["22.33.629"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_167]
+audit = "22.30.167"
+finding = "readme-network-doc"
+file = "README.md"
+consumer_tasks = ["22.33.686"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_168]
+audit = "22.30.168"
+finding = "readme-retired-runtime"
+file = "README.md"
+consumer_tasks = ["22.33.698"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_169]
+audit = "22.30.169"
+finding = "doc-index-7"
+file = "README.md"
+consumer_tasks = ["22.33.707"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_171]
+audit = "22.30.171"
+finding = "021"
+file = "README.md"
+consumer_tasks = ["22.33.737"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_172]
+audit = "22.30.172"
+finding = "root-separate-daemon"
+file = "README.md"
+consumer_tasks = ["22.33.763"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_173]
+audit = "22.30.173"
+finding = "doc-1"
+file = "README.md"
+consumer_tasks = ["22.33.767"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_174]
+audit = "22.30.174"
+finding = "doc-1"
+file = "README.md"
+consumer_tasks = ["22.33.786"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_175]
+audit = "22.30.175"
+finding = "readme-premerge-network"
+file = "README.md"
+consumer_tasks = ["22.33.787"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_176]
+audit = "22.30.176"
+finding = "23"
+file = "README.md"
+consumer_tasks = ["22.33.788"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_178]
+audit = "22.30.178"
+finding = "61"
+file = "README.md"
+consumer_tasks = ["22.33.813"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_179]
+audit = "22.30.179"
+finding = "doc-readme"
+file = "README.md"
+consumer_tasks = ["22.33.824"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_180]
+audit = "22.30.180"
+finding = "network-overview-retired-daemon"
+file = "README.md"
+consumer_tasks = ["22.33.838"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_181]
+audit = "22.30.181"
+finding = "f048"
+file = "README.md"
+consumer_tasks = ["22.33.854"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_182]
+audit = "22.30.182"
+finding = "root-network-guide"
+file = "README.md"
+consumer_tasks = ["22.33.869"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_183]
+audit = "22.30.183"
+finding = "f051"
+file = "README.md"
+consumer_tasks = ["22.33.888"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]
+
+[coverage.audit_22_30_184]
+audit = "22.30.184"
+finding = "readme-two-domains"
+file = "README.md"
+consumer_tasks = ["22.33.894"]
+tests = ["test_single_network_embeds_the_block_proposing_kernel", "test_root_rpc_hosts_chain_probe_and_library_mirror", "test_submission_and_committed_receipt_follow_real_node_path", "test_retired_construct_names_and_routes_do_not_leak_into_current_guidance"]

@@ -314,13 +314,13 @@ static int reserve_lines(const uint8_t asset_id[32])
     (void)memcpy(attestation.asset_id, asset_id, 32U);
     attestation.custody_amount = (lxp_u128){ 0U, 60U };
     attestation.finalized = true;
-    if (lx_asset_reserve_report(&accounts, &attestation, &report) != LXP_OK ||
+    if (lx_asset_historical_reserve_report_v1(&accounts, &attestation, &report) != LXP_OK ||
         report.escrow.lo != 50U || report.escrow_line_count != 2U ||
         memcmp(report.escrow_lines[0].account_id, first->id, 32U) != 0 ||
         report.escrow_lines[0].balance.lo != 20U ||
         memcmp(report.escrow_lines[1].account_id, second->id, 32U) != 0 ||
         report.escrow_lines[1].balance.lo != 30U ||
-        lx_asset_reserve_report_encode(&report, encoded, sizeof(encoded),
+        lx_asset_historical_reserve_encode_v1(&report, encoded, sizeof(encoded),
                                        &length) != LXP_OK || length != 370U)
         return 1;
     return 0;

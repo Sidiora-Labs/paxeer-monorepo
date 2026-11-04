@@ -41,6 +41,7 @@ type Server struct {
 	// this mutex to avoid data races.
 	mtx      sync.Mutex
 	listener net.Listener
+	closed   bool
 }
 
 // CustomGRPCHeaderMatcher for mapping request headers to
@@ -91,6 +92,10 @@ func New(clientCtx client.Context) *Server {
 // non-blocking, so an external signal handler must be used.
 func (s *Server) Start(cfg config.Config, apiMetrics *telemetry.Metrics) error {
 	s.mtx.Lock()
+	if s.closed {
+		s.mtx.Unlock()
+		return net.ErrClosed
+	}
 	if cfg.Telemetry.Enabled {
 		s.metrics = apiMetrics
 		s.registerMetrics()
@@ -128,6 +133,7 @@ func (s *Server) Start(cfg config.Config, apiMetrics *telemetry.Metrics) error {
 func (s *Server) Close() error {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
+	s.closed = true
 	if s.listener != nil {
 		return s.listener.Close()
 	}

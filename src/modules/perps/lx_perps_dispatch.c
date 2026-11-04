@@ -260,38 +260,6 @@ static lxp_result quote_asset_state(lxp_module_ctx *ctx,
     return lx_asset_transfer_state(base, state);
 }
 
-static void oracle_market_project(const lx_perps_market *market,
-                                  lx_oracle_market *projected)
-{
-    size_t i;
-    (void)memset(projected, 0, sizeof(*projected));
-    (void)memcpy(projected->market_id, market->market_id, 32U);
-    for (i = 0U; i < market->permitted_oracle_key_count &&
-                 i < (size_t)LX_ORACLE_MAX_KEYS; ++i)
-        (void)memcpy(projected->permitted_keys[i],
-                     market->permitted_oracle_keys[i], 32U);
-    projected->permitted_key_count = market->permitted_oracle_key_count;
-    projected->maximum_staleness = market->maximum_oracle_staleness_ms;
-    projected->minimum_price = market->minimum_price;
-    projected->maximum_price = market->maximum_price;
-    projected->maximum_deviation_basis_points =
-        market->maximum_deviation_basis_points;
-    projected->halted = market->halted;
-}
-
-static void oracle_observation_project(const lx_perps_oracle_state *state,
-                                       lx_oracle_observation *observation)
-{
-    (void)memset(observation, 0, sizeof(*observation));
-    (void)memcpy(observation->market_id, state->market_id, 32U);
-    observation->observation_sequence = state->observation_sequence;
-    observation->price = state->price;
-    observation->observed_at = state->observed_at;
-    observation->source_identifier = state->source_identifier;
-    (void)memcpy(observation->oracle_public_key, state->oracle_public_key,
-                 32U);
-}
-
 static lxp_result oracle_price_current(lxp_module_ctx *ctx,
                                        const lx_perps_market *market,
                                        lxp_u128 *price)
@@ -495,42 +463,11 @@ static lxp_result oracle_admission_check(lxp_module_ctx *ctx,
                                          const lxp_authority_resolved *authority,
                                          lx_perps_oracle_command *command)
 {
-    lx_perps_market market;
-    lx_perps_oracle_state previous;
-    lx_oracle_market projected;
-    lx_oracle_observation observation;
-    lx_oracle_observation latest;
-    lxp_result status = oracle_command_bind(value, activity, authority,
-                                            command);
+    lxp_result status = oracle_command_bind(value, activity, authority, command);
     if (status != LXP_OK) return status;
-    status = lx_perps_market_lookup(ctx, command->market_id, &market);
-    if (status != LXP_OK) return status;
-    oracle_market_project(&market, &projected);
-    (void)memset(&observation, 0, sizeof(observation));
-    (void)memcpy(observation.market_id, command->market_id, 32U);
-    observation.observation_sequence = command->observation_sequence;
-    observation.price = command->price;
-    observation.observed_at = command->observed_at;
-    observation.source_identifier = command->source_identifier;
-    (void)memcpy(observation.oracle_public_key, command->oracle_public_key,
-                 32U);
-    (void)memcpy(observation.signature, command->signature, 64U);
-    status = lx_oracle_key_set_check(&projected, &observation,
+    return lx_perps_oracle_admit(ctx, command,
         command->transport_version == 1U ? value->payload + 1U : value->payload,
         command->transport_version == 1U ? LX_PERPS_ORACLE_PAYLOAD_BYTES : value->payload_length);
-    if (status == LXP_OK)
-        status = lx_oracle_staleness_check(&projected, &observation,
-                                           lxp_ctx_batch_timestamp_ms(ctx));
-    if (status == LXP_OK)
-        status = lx_oracle_bounds_check(&projected, &observation);
-    if (status != LXP_OK) return status;
-    status = lx_perps_oracle_state_lookup(ctx, command->market_id, &previous);
-    if (status == LXP_ERR_UNKNOWN_FIELD) return LXP_OK;
-    if (status != LXP_OK) return status;
-    if (command->observation_sequence <= previous.observation_sequence)
-        return LXP_ERR_ORACLE_SEQUENCE;
-    oracle_observation_project(&previous, &latest);
-    return lx_oracle_deviation_check(&projected, &latest, &observation);
 }
 
 static lxp_result market_loaded(lxp_module_ctx *ctx,
@@ -540,7 +477,8 @@ static lxp_result market_loaded(lxp_module_ctx *ctx,
 {
     lxp_result status = lx_perps_market_lookup(ctx, market_id, market);
     if (status != LXP_OK) return status;
-    return refuse_halted && market->halted ? LXP_ERR_MARKET_HALTED : LXP_OK;
+    return refuse_halted ? lx_perps_oracle_action_check(ctx, market,
+        LX_ORACLE_ACTION_ORDER_PLACE) : LXP_OK;
 }
 
 static lxp_result position_loaded(lxp_module_ctx *ctx,
@@ -704,6 +642,8 @@ static lxp_result validate_order_cancel(lxp_module_ctx *ctx,
     lx_account *owner;
     lxp_result status = market_loaded(ctx, command->market_id, false, &market);
     if (status != LXP_OK) return status;
+    status = lx_perps_oracle_action_check(ctx, &market, LX_ORACLE_ACTION_ORDER_CANCEL);
+    if (status != LXP_OK) return status;
     status = lx_perps_order_lookup(ctx, command->market_id, command->order_id,
                                    &order);
     if (status != LXP_OK) return status;
@@ -775,10 +715,10 @@ static lxp_result increase_reservation_check(
     lxp_u128 held;
     lxp_result status;
     if (!lxp_u128_is_zero(command->notional_delta) ||
-        lxp_u128_is_zero(command->size_delta) ||
         lxp_u128_is_zero(command->margin_amount))
         return LXP_ERR_NON_CANONICAL;
     if (!position->open) return LXP_ERR_AGREEMENT_STATE;
+    if (lxp_u128_is_zero(command->size_delta)) return LXP_OK;
     status = multiple_check(command->size_delta, market->lot_size);
     if (status != LXP_OK) return status;
     if (lxp_u128_is_zero(market->price_scale)) return LXP_ERR_PARAMETER_BOUNDS;
@@ -805,11 +745,17 @@ static lxp_result validate_position_increase(
     lx_perps_position position;
     lx_account *owner_main;
     lx_account *margin_account;
-    lxp_u128 price;
-    lxp_result status = market_loaded(ctx, command->market_id, true, &market);
+    lxp_u128 price = { 0U, 0U };
+    bool margin_only = lxp_u128_is_zero(command->size_delta);
+    lxp_result status = market_loaded(ctx, command->market_id, false, &market);
     if (status != LXP_OK) return status;
-    status = oracle_price_current(ctx, &market, &price);
+    status = lx_perps_oracle_action_check(ctx, &market, margin_only ?
+        LX_ORACLE_ACTION_MARGIN_ADD : LX_ORACLE_ACTION_POSITION_INCREASE);
     if (status != LXP_OK) return status;
+    if (!margin_only) {
+        status = oracle_price_current(ctx, &market, &price);
+        if (status != LXP_OK) return status;
+    }
     if (!lxp_u128_is_zero(command->notional_delta))
         return LXP_ERR_NON_CANONICAL;
     status = position_loaded(ctx, activity, command->market_id,
@@ -1014,7 +960,7 @@ static lxp_result execute_oracle_push(lxp_module_ctx *ctx,
     state.observed_at = command.observed_at;
     state.source_identifier = command.source_identifier;
     (void)memcpy(state.oracle_public_key, command.oracle_public_key, 32U);
-    status = lx_perps_oracle_state_put(ctx, &state);
+    status = lx_perps_oracle_accept(ctx, &state);
     if (status != LXP_OK) return status;
     lx_perps_put_u64(tail, state.observation_sequence);
     status = lxp_u128_to_be(state.price, tail + 8U);
@@ -1403,12 +1349,18 @@ static lxp_result execute_position_increase(
     lxp_receipt *receipt = NULL;
     lx_account *owner_main;
     lx_account *margin_account;
-    lxp_u128 price;
+    lxp_u128 price = { 0U, 0U };
+    bool margin_only = lxp_u128_is_zero(command->size_delta);
     uint8_t side_byte;
-    lxp_result status = market_loaded(ctx, command->market_id, true, &market);
+    lxp_result status = market_loaded(ctx, command->market_id, false, &market);
     if (status != LXP_OK) return status;
-    status = oracle_price_current(ctx, &market, &price);
+    status = lx_perps_oracle_action_check(ctx, &market, margin_only ?
+        LX_ORACLE_ACTION_MARGIN_ADD : LX_ORACLE_ACTION_POSITION_INCREASE);
     if (status != LXP_OK) return status;
+    if (!margin_only) {
+        status = oracle_price_current(ctx, &market, &price);
+        if (status != LXP_OK) return status;
+    }
     status = position_loaded(ctx, activity, command->market_id,
                              command->position_id, &position, &owner_main,
                              &margin_account);
@@ -2128,8 +2080,7 @@ static lxp_result module_epoch(lxp_module_ctx *ctx, uint64_t epoch,
                                uint64_t timestamp)
 {
     (void)epoch;
-    (void)timestamp;
-    return ctx == NULL ? LXP_ERR_NON_CANONICAL : LXP_OK;
+    return lx_perps_oracle_epoch(ctx, timestamp);
 }
 
 static lxp_result module_state_root(lxp_module_ctx *ctx, uint8_t root[32])

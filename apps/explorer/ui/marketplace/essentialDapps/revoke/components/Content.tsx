@@ -25,7 +25,7 @@ type Props = {
   selectedChain: EssentialDappsChainConfig | undefined;
   isAddressMatch: boolean;
   coinBalanceQuery: ReturnType<typeof useCoinBalanceQuery>;
-  approvalsQuery: ReturnType<typeof useApprovalsQuery>;
+  approvalsQuery: ReturnType<typeof useApprovalsQuery> & { isIncomplete?: boolean };
 };
 
 const Content = ({
@@ -36,11 +36,19 @@ const Content = ({
   approvalsQuery,
 }: Props) => {
   const isMobile = useIsMobile();
+  const { refetch: refetchApprovals } = approvalsQuery;
   const [ hiddenApprovals, setHiddenApprovals ] = useState<Array<AllowanceType>>([]);
+  const isScanError = approvalsQuery.isError || (
+    approvalsQuery.isFetching && approvalsQuery.errorUpdatedAt > 0 &&
+    (approvalsQuery.data === undefined || approvalsQuery.isPlaceholderData)
+  );
+  const isScanIncomplete = isScanError || Boolean(approvalsQuery.isIncomplete);
 
   const approvals = useMemo(() => {
+    if (isScanError && approvalsQuery.isPlaceholderData) return undefined;
+
     return approvalsQuery.data?.filter((approval) => !hiddenApprovals.includes(approval));
-  }, [ approvalsQuery.data, hiddenApprovals ]);
+  }, [ approvalsQuery.data, approvalsQuery.isPlaceholderData, hiddenApprovals, isScanError ]);
 
   const totalValueAtRiskUsd = useMemo(() => {
     if (approvalsQuery.isPlaceholderData || !approvals) return 0;
@@ -68,6 +76,15 @@ const Content = ({
   const hideApproval = useCallback((approval: AllowanceType) => {
     setHiddenApprovals((prev) => [ ...prev, approval ]);
   }, []);
+
+  const retryScan = useCallback(() => {
+    void refetchApprovals();
+  }, [ refetchApprovals ]);
+
+  const totalsUnavailable = isScanIncomplete && !approvals?.length;
+  const totalsPrefix = isScanIncomplete ? 'At least ' : '';
+  const approvalsTotal = totalsUnavailable ? 'Unavailable' : `${ totalsPrefix }${ approvals?.length || 0 }`;
+  const valueAtRiskTotal = totalsUnavailable ? 'Unavailable' : `${ totalsPrefix }$${ totalValueAtRiskUsd }`;
 
   return (
     <Flex flexDir="column" w="full">
@@ -170,12 +187,12 @@ const Content = ({
               Total approvals
             </Text>
             <Skeleton
-              loading={ approvalsQuery.isPlaceholderData }
+              loading={ approvalsQuery.isPlaceholderData && !isScanIncomplete }
               minW="40px"
               textAlign="center"
             >
               <Heading level="3">
-                { approvals?.length || 0 }
+                { approvalsTotal }
               </Heading>
             </Skeleton>
           </Flex>
@@ -194,12 +211,12 @@ const Content = ({
               Total value at risk
             </Text>
             <Skeleton
-              loading={ approvalsQuery.isPlaceholderData }
+              loading={ approvalsQuery.isPlaceholderData && !isScanIncomplete }
               minW="40px"
               textAlign="center"
             >
               <Heading level="3">
-                ${ totalValueAtRiskUsd }
+                { valueAtRiskTotal }
               </Heading>
             </Skeleton>
           </Flex>
@@ -208,7 +225,11 @@ const Content = ({
       <Approvals
         selectedChain={ selectedChain }
         approvals={ approvals || [] }
-        isLoading={ approvalsQuery.isPlaceholderData }
+        isLoading={ approvalsQuery.isPlaceholderData && !isScanIncomplete }
+        isError={ isScanError }
+        isIncomplete={ approvalsQuery.isIncomplete }
+        isRetrying={ approvalsQuery.isFetching }
+        onRetry={ retryScan }
         isAddressMatch={ isAddressMatch }
         hideApproval={ hideApproval }
       />

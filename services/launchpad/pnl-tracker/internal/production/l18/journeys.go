@@ -413,10 +413,18 @@ func (s *JourneyService) Rewards(ctx context.Context, actor Actor, program, curs
 		claimed := relevant.claimed
 		claimableRaw := "0"
 		if p.Owner == who {
-			if !p.Capability.Available || p.Capability.Strategy != "CLAIM" {
+			switch p.Capability.Strategy {
+			case "CLAIM":
+				if !p.Capability.Available {
+					return out, ErrUnavailable
+				}
+				claimableRaw = p.ClaimableRaw
+			case "BURN", "AIRDROP", "LP_REWARDS":
+				// These fees have a different disposition. Keep creator claim
+				// history, but leave epoch entitlements on the epoch route.
+			default:
 				return out, ErrUnavailable
 			}
-			claimableRaw = p.ClaimableRaw
 		}
 		earned, _ := new(big.Int).SetString(claimed, 10)
 		claimable, _ := amount(claimableRaw)
@@ -832,13 +840,13 @@ func (w *CommunityWatcher) RunOnce(ctx context.Context) error {
 		if e != nil {
 			return e
 		}
-		var owner string
-		e = checked.QueryRow(ctx, `SELECT owner FROM l18_community_history WHERE nft_id=$1::numeric ORDER BY revision DESC LIMIT 1`, item.ID).Scan(&owner)
+		var owner, policyDigest string
+		e = checked.QueryRow(ctx, `SELECT owner,policy_digest FROM l18_community_history WHERE nft_id=$1::numeric ORDER BY revision DESC LIMIT 1`, item.ID).Scan(&owner, &policyDigest)
 		if e != nil && e != pgx.ErrNoRows {
 			checked.Rollback(ctx)
 			return e
 		}
-		changed := e == pgx.ErrNoRows || owner != preview.Owner
+		changed := e == pgx.ErrNoRows || owner != preview.Owner || policyDigest != w.policyDigest
 		if e = checked.Commit(ctx); e != nil {
 			return e
 		}

@@ -11,58 +11,61 @@ import useApiFetch from 'lib/api/useApiFetch';
 import { ZERO_ADDRESS } from 'toolkit/utils/consts';
 
 import getLogs from '../lib/getLogs';
+import { checkScanCancellation, latestPermissionEvents } from './approvalScan';
 import useGetBlockTimestamp from './useGetBlockTimestamp';
 
 async function getLimitedNftAllowancesFromApprovals(
   tokenAddress: `0x${ string }`,
+  ownerAddress: string,
   approvals: Array<Log>,
   publicClient: PublicClient,
 ) {
-  const deduplicatedApprovals = approvals.filter(
-    (approval, i) =>
-      i ===
-      approvals.findIndex((other) => approval.topics[2] === other.topics[2]),
-  );
+  const deduplicatedApprovals = latestPermissionEvents(approvals, (approval) => nftTokenId(approval).toString());
 
   const allowances: Array<ContractAllowanceType | undefined> = await Promise.all(
     deduplicatedApprovals.map((approval) =>
-      getLimitedNftAllowanceFromApproval(tokenAddress, approval, publicClient),
+      getLimitedNftAllowanceFromApproval(tokenAddress, ownerAddress, approval, publicClient),
     ),
   );
 
   return allowances;
 }
 
+function nftTokenId(approval: Log): bigint {
+  // Non-indexed token IDs are emitted in data by some NFT contracts.
+  return BigInt(approval.topics.length === 4 ? approval.topics[3] as `0x${ string }` : approval.data);
+}
+
 async function getLimitedNftAllowanceFromApproval(
   tokenAddress: `0x${ string }`,
+  ownerAddress: string,
   approval: Log,
   publicClient: PublicClient,
 ) {
-  try {
-    // Some contracts (like CryptoStrikers) may not implement Nft correctly
-    // by making tokenId a non-indexed parameter, in which case it needs to be
-    // taken from the event data rather than topics
-    const tokenId =
-      approval.topics.length === 4 ? approval.topics[3] : approval.data;
+  const tokenId = nftTokenId(approval);
+  const owner = await publicClient.readContract({
+    address: tokenAddress,
+    abi: NftArtifact.abi,
+    functionName: 'ownerOf',
+    args: [ tokenId ],
+  }) as `0x${ string }`;
+  if (getAddress(owner) !== getAddress(ownerAddress)) return undefined;
 
-    const spender = (await publicClient.readContract({
-      address: tokenAddress,
-      abi: NftArtifact.abi,
-      functionName: 'getApproved',
-      args: [ tokenId ],
-    })) as `0x${ string }`;
-    if (spender === ZERO_ADDRESS) return undefined;
+  const spender = await publicClient.readContract({
+    address: tokenAddress,
+    abi: NftArtifact.abi,
+    functionName: 'getApproved',
+    args: [ tokenId ],
+  }) as `0x${ string }`;
+  if (getAddress(spender) === ZERO_ADDRESS) return undefined;
 
-    return {
-      spender,
-      transactionId: approval.transactionHash,
-      allowance: BigInt(-1),
-      tokenId,
-      blockNumber: approval.blockNumber as bigint,
-    };
-  } catch {
-    return undefined;
-  }
+  return {
+    spender,
+    transactionId: approval.transactionHash,
+    allowance: BigInt(-1),
+    tokenId: tokenId.toString(),
+    blockNumber: approval.blockNumber as bigint,
+  };
 }
 
 async function getNftUnlimitedAllowancesFromApprovals(
@@ -71,11 +74,7 @@ async function getNftUnlimitedAllowancesFromApprovals(
   approvals: Array<Log>,
   publicClient: PublicClient,
 ) {
-  const deduplicatedApprovals = approvals.filter(
-    (approval, i) =>
-      i ===
-      approvals.findIndex((other) => approval.topics[2] === other.topics[2]),
-  );
+  const deduplicatedApprovals = latestPermissionEvents(approvals, (approval) => approval.topics[2] as string);
 
   const allowances: Array<ContractAllowanceType | undefined> = await Promise.all(
     deduplicatedApprovals.map((approval) =>
@@ -162,6 +161,7 @@ function useGetNftAllowances() {
               );
             const limitedAllowances = await getLimitedNftAllowancesFromApprovals(
               tokenAddress,
+              searchQuery,
               tokenApprovals,
               publicClient,
             );
@@ -199,10 +199,12 @@ function useGetNftAllowances() {
           return undefined;
         }),
       );
-    } catch {
-      return [];
+    } catch (error) {
+      checkScanCancellation(signal, error);
+      throw error;
     }
 
+    checkScanCancellation(signal);
     return allowances;
   }, [ apiFetch, getBlockTimestamp ]);
 }
@@ -259,13 +261,7 @@ export default function useSearchNftAllowances() {
         ...nftTransferEvents,
       ];
 
-      const nftAddresses = nftEvents
-        .filter(
-          (event, i) =>
-            i ===
-            approvalEvents.findIndex((other) => event.address === other.address),
-        )
-        .map((event) => getAddress(event.address));
+      const nftAddresses = Array.from(new Set(nftEvents.map((event) => getAddress(event.address))));
 
       return getNftAllowances(
         nftAddresses,
@@ -276,8 +272,9 @@ export default function useSearchNftAllowances() {
         chain,
         signal,
       );
-    } catch {
-      return [];
+    } catch (error) {
+      checkScanCancellation(signal, error);
+      throw error;
     }
   }, [ getNftAllowances ]);
 }
