@@ -1,0 +1,9 @@
+{
+  "name": "@perps/resize-handle-test-support",
+  "private": true,
+  "packageManager": "pnpm@10.34.9",
+  "devDependencies": {
+    "@types/jsdom": "30.0.0",
+    "jsdom": "30.1.3"
+  }
+}
