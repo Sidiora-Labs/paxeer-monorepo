@@ -1,11 +1,12 @@
 import Config
 
+import_config "database_tls.exs"
+
 # Configures the database
 config :explorer, Explorer.Repo,
   prepare: :unnamed,
   timeout: :timer.seconds(60),
-  migration_lock: nil,
-  ssl_opts: [verify: :verify_none]
+  migration_lock: nil
 
 for repo <- [
       # Configures API the database
@@ -38,8 +39,7 @@ for repo <- [
     ] do
   config :explorer, repo,
     prepare: :unnamed,
-    timeout: :timer.seconds(60),
-    ssl_opts: [verify: :verify_none]
+    timeout: :timer.seconds(60)
 end
 
 config :explorer, Explorer.Tracer, env: "production", disabled?: true
@@ -57,3 +57,4 @@ config :logger, :token_instances,
   path: Path.absname("logs/prod/explorer/tokens/token_instances.log"),
   metadata_filter: [fetcher: :token_instances],
   rotate: %{max_bytes: 52_428_800, keep: 19}
+

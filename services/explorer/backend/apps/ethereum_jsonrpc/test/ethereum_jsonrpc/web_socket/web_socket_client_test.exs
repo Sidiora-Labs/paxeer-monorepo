@@ -1,3 +1,5 @@
+Code.require_file("lifecycle.exs", __DIR__)
+
 defmodule EthereumJSONRPC.WebSocket.WebSocketClientTest do
   use ExUnit.Case
 
@@ -75,19 +77,14 @@ defmodule EthereumJSONRPC.WebSocket.WebSocketClientTest do
   end
 
   describe "reconnect" do
-    setup do
-      dispatch = :cowboy_router.compile([{:_, [{"/websocket", EthereumJSONRPC.WebSocket.Cowboy.WebSocketHandler, []}]}])
-      {:ok, _} = :cowboy.start_tls(EthereumJSONRPC.WebSocket.Cowboy, [], env: [dispatch: dispatch])
+    @tag timeout: 60_000
+    test "preserves the public handle through fallback and cancels on the recovered primary" do
+      EthereumJSONRPC.WebSocket.Lifecycle.assert_primary_recovery()
+    end
 
-      on_exit(fn ->
-        :ranch.stop_listener(EthereumJSONRPC.WebSocket.Cowboy)
-      end)
-
-      port = :ranch.get_port(EthereumJSONRPC.WebSocket.Cowboy)
-
-      pid = start_supervised!({WebSocketClient, ["ws://localhost:#{port}/websocket", [keepalive: :timer.hours(1)], []]})
-
-      %{pid: pid, port: port}
+    @tag timeout: 60_000
+    test "reconnects over verified TLS and cancels the replacement subscription" do
+      EthereumJSONRPC.WebSocket.Lifecycle.assert_tls_reconnect()
     end
   end
 
