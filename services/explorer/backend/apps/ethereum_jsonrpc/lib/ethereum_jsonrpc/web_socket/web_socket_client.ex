@@ -18,6 +18,7 @@ defmodule EthereumJSONRPC.WebSocket.WebSocketClient do
             subscription_id_to_subscription_reference: %{},
             subscription_reference_to_subscription_id: %{},
             subscription_reference_to_subscription: %{},
+            web_socket: __MODULE__,
             url: nil,
             fallback?: false,
             fallback_url: nil,
@@ -35,12 +36,14 @@ defmodule EthereumJSONRPC.WebSocket.WebSocketClient do
      `t:EthereumJSONRPC.Subscription.t/0`, so that the `subscriber_pid` can be notified of subscription messages.
    * `subscription_reference_to_subscription_id` - maps `t:reference/0` in `t:EthereumJSONRPC.Subscription.t/0  to id of
      the subscription on the server, so that the subscriber can unsubscribe with the `t:reference/0`.
+   * `web_socket` - the registered owner name retained when a recovered primary replaces the fallback client.
   """
   @type t :: %__MODULE__{
           request_id_to_registration: %{EthereumJSONRPC.request_id() => Registration.t()},
           subscription_id_to_subscription_reference: %{Subscription.id() => reference()},
           subscription_reference_to_subscription: %{reference() => Subscription.t()},
-          subscription_reference_to_subscription_id: %{reference() => Subscription.id()}
+          subscription_reference_to_subscription_id: %{reference() => Subscription.id()},
+          web_socket: WebSocket.name()
         }
 
   @impl WebSocket
@@ -55,6 +58,7 @@ defmodule EthereumJSONRPC.WebSocket.WebSocketClient do
         init_state =
           options[:init_state] ||
             %__MODULE__{
+              web_socket: options[:name] || __MODULE__,
               url: url,
               fallback_url: options[:fallback_url],
               fallback_conn: build_fallback_conn(options[:fallback_url], options)
@@ -451,6 +455,7 @@ defmodule EthereumJSONRPC.WebSocket.WebSocketClient do
            subscription_id_to_subscription_reference: subscription_id_to_subscription_reference,
            subscription_reference_to_subscription: subscription_reference_to_subscription,
            subscription_reference_to_subscription_id: subscription_reference_to_subscription_id,
+           web_socket: web_socket,
            url: url
          } = state
        ) do
@@ -484,7 +489,7 @@ defmodule EthereumJSONRPC.WebSocket.WebSocketClient do
             transport: EthereumJSONRPC.WebSocket,
             transport_options: %EthereumJSONRPC.WebSocket{
               web_socket: __MODULE__,
-              web_socket_options: %Options{web_socket: self(), event: event, params: params},
+              web_socket_options: %Options{web_socket: web_socket, event: event, params: params},
               url: url
             }
           }

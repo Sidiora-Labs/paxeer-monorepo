@@ -1,0 +1,73 @@
+[manifest]
+task = "22.32.75"
+domain = 8
+owner_role = "fm-platform"
+pages = 4
+
+[page.1]
+path = "docs/site/docs/concepts/activities.md"
+status = "stale"
+bytes = 3052
+source_1 = "record 22.30.81 [doc.activities] (stale): Lines 53-67 instruct authenticated lx_sendActivity on POST /rpc and a separate LayerX Node Interface, while gateway dispatch refuses lx_* and those activity production routes are retired. Rewrite proposal: Rewrite docs/site/docs/concepts/activities.md around the merged node transaction and committed receipt lifecycle; move legacy activity envelopes to an archival compatibility reference and link to current hosted methods."
+
+[page.2]
+path = "docs/site/docs/operators/hosted-internal.md"
+status = "misleading"
+bytes = 30336
+source_1 = "record 22.30.102 [doc.09] (stale): Read in full. Rewrite the exact locations in hosted-events-site: The event-source section says no layerx-human workload is declared and no source under services/human/crates or hosted sources issues POST /internal/v1/observe (232-250). Hosted human/deployment.yaml now declares the Human service and node-pod selector, and human-service/src/event_producer.rs builds the internal producer client and durable observation outbox. The blanket missing-producer statement is stale."
+source_2 = "record 22.30.103 [doc.03] (stale): Read in full. KMS tables at 196-198 and summary at 416 omit secp256k1; lines 352-380 misstate event enrollment, empty-start readiness and required authentication-key configuration."
+source_3 = "record 22.30.105 [doc.12] (stale): Lines 232-233 say Human is declared only as a policy peer/upstream. services/platform/hosted/human/deployment.yaml now declares its Service selecting layerx-node and Human-specific policies; web-deployment.yaml declares web workloads."
+source_4 = "record 22.30.106 [doc.3] (stale): Full page read. Lines 232-233 incorrectly say the human workload is undeclared; current hosted human and node manifests declare the service/components and should be referenced."
+source_5 = "record 22.30.127 [doc.8] (stale): Full page read, including principal binding, KMS sealing and durable journals. Programs source at 229-233 and derived facts at 277-302 depend on refused production gateway routes. Finding 19 requires reachable current observations and matching documentation."
+source_6 = "record 22.30.146 [doc.008] (misleading): Lines 67-81 claim beta images/apply omit internal workloads; beta-images.sh includes layerx-internal and beta-cluster.sh:1765,1979 renders/applies internal.yaml. Reconcile later Human workload absence claims too."
+source_7 = "record 22.30.165 [doc.011] (stale): Topology at lines 70-84 and payment/receipt descriptions later retain retired standalone hosted node/paxeer and old protocol assumptions; KMS and journal principles remain useful."
+source_8 = "record 22.30.170 [doc.006] (stale): Lines 71-81 say beta-cluster IMAGE_NAMES omits internal images and apply omits internal workloads; lines 225-233 say no layerx-human workload is declared. The package beta-cluster page describes its applied Human manifest and service. See finding.package_doc_06 for the concrete rewrite."
+source_9 = "record 22.30.183 [doc.10] (stale): Lines 71-81 incorrectly deny installation of internal workloads; lines 232-233 incorrectly deny the hosted Human workload. The current beta image table and apply path contain both."
+source_10 = "record 22.30.31 [doc.007] (stale): Lines 45-47 retain the internal-authority topology; 289 and 296-301 describe protocol-receipt/program registry event sources without the merged receipt boundary."
+source_11 = "record 22.30.32 [doc.01] (stale): Read complete page; line 69 in internal_site identifies the stale statements and owning rewrite proposal."
+source_12 = "record 22.30.42 [doc.11] (stale): Lines 71-80 contradict internal image/install inventory and retain split authorities; see internal-cluster-install-drift."
+source_13 = "record 22.30.71 [doc.2] (stale): KMS lines 196-198 and 416 omit the supported secp256k1 signing/key contract and its digest and encoding requirements. Mirrored operator content was compared with the real KMS producer."
+source_14 = "record 22.30.77 [doc.08] (stale): Hosted internal says IMAGE_NAMES omits the internal image and the cluster renderer does not read the internal manifest; beta-cluster.md lists layerx-internal and documents the internal namespace and workloads in current bring-up. Reconcile both operator pages with services/platform/hosted/tests/beta-cluster.sh and beta-images.sh, clearly separating known missing observe producers from actual manifest installation and restart responsibilities."
+source_15 = "record 22.30.79 [doc.011] (stale): Lines 71-81 claim the internal image is absent, while lines 232-233 deny a layerx-human workload. Reconcile these instructions with current beta cluster rendering and the deployed human workload; replace retired Programs event upstream instructions."
+source_16 = "record 22.30.83 [doc.internal] (stale): Reviewed internal page: Ed25519-only at 3, no-producer claim at 250, empty-map refusal at 355 and credential map at 380 lag current signer/enrollment paths; see internal-operator-page."
+source_17 = "record 22.30.85 [doc.11] (stale): Lines 249-252 falsely omit the observe caller; review Program fact shape at 289-294 against current versioned registry events."
+
+[page.3]
+path = "docs/site/docs/overview/monorepo.md"
+status = "stale"
+bytes = 3834
+source_1 = "record 22.30.179 [doc.007] (stale): Lines 3-9 and the layout/trust-boundary material around line 29 retain the separate-daemon LayerX assembly and obsolete paths."
+source_2 = "record 22.30.185 [doc.3] (stale): Read the page; rewrite starts at line 3. Lines 3 and 14 describe two networks and independent release boundaries; line 9 uses obsolete agent/, human/ and platform/ paths, and line 29 advertises retired custody, bonds and emergency exits."
+source_3 = "record 22.30.45 [doc.012] (stale): Read complete page. Separate execution/checkpoint operating model or retired layerxd instructions conflict with the integrated network brief; exact lines and owning rewrite are recorded."
+source_4 = "record 22.30.70 [doc.7] (stale): Lines 3 onward describe pre-merge behavior; rewrite the cited passage and matching examples for the single merged network."
+source_5 = "record 22.30.72 [doc.07] (stale): Read in full; Line 9: The table uses old root agent/, human/, platform/ and interop/ locations and describes independent LayerX/Paxeer deployment trust domains; lines 28-29 retain checkpoint, bond and emergency-exit settlement. See site-monorepo-old-layout."
+source_6 = "record 22.30.77 [doc.05] (stale): The layout page assigns custody, checkpoint registration, guarantor bonds and emergency exits to a separate settlement trust boundary and still lists agent/, human/ and platform/ at the repository root. Correct the live services/ and sdk/ layout and describe embedded kernel execution under the chain consensus boundary, retaining only independently justified build and release distinctions."
+
+[page.4]
+path = "docs/site/docs/overview/payments.md"
+status = "misleading"
+bytes = 11758
+source_1 = "record 22.30.121 [doc.10] (stale): Lines 18-21 publish the router; lines 33-36, 99-165 and 229-252 retain old activity signing and grants. Lines 194-200 build merchant while claiming LXT20."
+source_2 = "record 22.30.126 [doc.8] (misleading): Read in full; lines 18-36 retain router endpoint and pre-merge receipt trust policy; LXT20 build command at 195 is also wrong."
+source_3 = "record 22.30.127 [doc.6] (stale): Full page read. Router origin at 18-22 and old submission/commitment instructions need replacement under finding 17. Seven-method LXT20 request encodings agree with SDK/runtime tests in this slice."
+source_4 = "record 22.30.129 [doc.006] (misleading): The origin and custody-credit guidance is pre-merge; line 195 builds a merchant while promising the token exports and must build token-lxt20."
+source_5 = "record 22.30.134 [doc.7] (misleading): Lines 17-35 publish a /rpc router and sequencer/batch receipt policy; the payment sequence retains retired commitment stages."
+source_6 = "record 22.30.143 [doc.11] (misleading): Read in full, including examples and operator or route tables. Operational pre-merge topology, endpoint, funding or finality guidance conflicts with the finished merged network. Exact source locations and owning-domain rewrite proposals are recorded in this page's finding."
+source_7 = "record 22.30.159 [doc.4] (stale): Stale /rpc setup at line 21 and standalone batch/activity payment flow at lines 33-36, 138-144, 224-247. Section 6 builds the merchant while describing LXT20 at line 195, and lines 258-260 contradict earlier CLI examples. See the four payments findings."
+source_8 = "record 22.30.165 [doc.004] (stale): Lines 18-36, 138-153 and 224-247 describe router /rpc, legacy activities, grant ordinals and batch finality."
+source_9 = "record 22.30.3 [doc.8] (stale): Read the complete page. Finding payments-network: Lines 18-21 advertise a published router at /rpc. Lines 33-36 require sequencer_id/key, batch ranges and checkpoint_context_digest; later verification and watches retain executed/batched/finalised/checkpoint semantics."
+source_10 = "record 22.30.35 [doc.7] (stale): Lines 18-21 export a retired router URL; lines 139, 178-179 and 225 build payments on retired lx_ calls. Finding 22."
+source_11 = "record 22.30.46 [doc.7] (stale): Lines 18-21 name the retired router /rpc origin; funding and receipt guidance retains the separate-network model and conflicts with the maintained CLI/faucet descriptions."
+source_12 = "record 22.30.54 [doc.07] (stale): The payments guide explains receipt/batch inclusion and checkpoint settlement as the trust/finality sequence for payment consumers, preserving the former separate LayerX settlement model."
+source_13 = "record 22.30.56 [doc.5] (stale): Read in full. Router endpoint and checkpoint finality prerequisites require replacement; retain idempotent retry and unverified-watch distinctions."
+source_14 = "record 22.30.6 [doc.8] (misleading): Read all 262 lines. /rpc at 21 and positive grant/receive and MCP recipes at 229-258 contradict current transport and retired payer grants; see payments-router and payments-retired-grants."
+source_15 = "record 22.30.70 [doc.9] (stale): Lines 21 onward describe pre-merge behavior; rewrite the cited passage and matching examples for the single merged network."
+source_16 = "record 22.30.72 [doc.11] (stale): Read in full; Line 21: The payments guide exports /rpc, configures first_batch/last_batch/checkpoint_context_digest policy and teaches lx_ activity submission, sequence and receipt watches using the pre-merge commitment ladder. See payments-guide-old-envelope."
+source_17 = "record 22.30.77 [doc.07] (stale): The payments path points integrations at a router /rpc endpoint and teaches lx_ activity calls and old batch/finalised evidence instead of the current EVM transaction and sequencer receipt lifecycle. Update payment construction, submission and verification examples to root node RPC and the current live precompile contract, then show submitted, receipted and committed outcomes from real responses."
+source_18 = "record 22.30.81 [doc.payments] (misleading): Lines 18-22 publish a router /rpc origin and the payment, funding and issuance examples rely on lx_* Asset activities and the former standalone LXT20/402 execution path. Rewrite proposal: Rewrite docs/site/docs/overview/payments.md using the merged chain payment and program entry points, live funding configuration and merchant committed-receipt settlement. Verify each command through producer, transport and merchant consumer before publishing the examples."
+source_19 = "record 22.30.84 [doc.04] (stale): Read all identity, submission, recovery and client examples. Lines 18-21, 139, 178-184 and 225 retain router/activity/checkpoint semantics; see payments-retired-client-flow."
+source_20 = "record 22.30.85 [doc.06] (stale): Lines 18-22 publish the retired router; 34-36 retain checkpoint policy context and later watches need current finality guidance."
+source_21 = "record 22.30.89 [doc.payments] (misleading): Read in full. Lines19,33,140,178,226 and257 retain router URLs, old receipt policy, retired methods and false CLI availability claims; signing and destination examples need current syntax."
+source_22 = "record 22.30.94 [doc.06] (stale): Reviewed the complete page, including mirror differences where applicable. Exact drift and rewrite proposals are recorded in payments_site_rpc."
+source_23 = "record 22.30.96 [doc.d12] (misleading): Lines 18: The payments guide uses router /rpc endpoints and later lx_getSequence/lx_sendActivity reads and writes; its receipt policy still names sequencer-key and checkpoint/settlement evidence rather than the merged receipt rungs. Rewrite payment examples with signed type-2 writes to root node JSON-RPC, the current gateway asset/balance shape, pinned receipt keys and verified block-commit rungs. Reconcile the MCP tool count and availability claims with the registered catalogue."
+source_24 = "record 22.30.97 [doc.04] (stale): Read in full; stale topology, commands, binding or catalogue statements and a concrete rewrite proposal are recorded in doc_payments."

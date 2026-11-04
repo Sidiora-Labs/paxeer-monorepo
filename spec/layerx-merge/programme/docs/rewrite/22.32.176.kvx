@@ -1,0 +1,11 @@
+[manifest]
+task = "22.32.176"
+domain = 17
+owner_role = "fm-programme"
+pages = 1
+
+[page.1]
+path = "CONTRIBUTING.md"
+status = "stale"
+bytes = 6963
+source_1 = "record 22.30.185 [doc.14] (stale): Read the complete contribution page. The working rules are useful; line 18 advertises retired layerxd and needs the architecture rewrite in contributor-daemon."

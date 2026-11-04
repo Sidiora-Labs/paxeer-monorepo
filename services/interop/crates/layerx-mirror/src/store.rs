@@ -576,20 +576,15 @@ fn validate_transition(
                 | PublicationPhase::Pending
                 | PublicationPhase::PermanentRefusal
         ),
-        PublicationPhase::BroadcastUnknown => matches!(
-            next.phase,
+        PublicationPhase::BroadcastUnknown | PublicationPhase::Pending => match next.phase {
             PublicationPhase::BroadcastUnknown
-                | PublicationPhase::BroadcastExpired
-                | PublicationPhase::Pending
-                | PublicationPhase::Finalized
-                | PublicationPhase::PermanentRefusal
-        ),
-        PublicationPhase::Pending => matches!(
-            next.phase,
-            PublicationPhase::Pending
-                | PublicationPhase::Finalized
-                | PublicationPhase::PermanentRefusal
-        ),
+            | PublicationPhase::Pending
+            | PublicationPhase::Finalized
+            | PublicationPhase::PermanentRefusal => true,
+            PublicationPhase::Reorged => previous.chain == MirrorChain::Ethereum,
+            PublicationPhase::BroadcastExpired => previous.chain == MirrorChain::Solana,
+            _ => false,
+        },
         PublicationPhase::Finalized => matches!(
             next.phase,
             PublicationPhase::Finalized

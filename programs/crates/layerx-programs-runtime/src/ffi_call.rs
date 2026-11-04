@@ -1,8 +1,8 @@
 //! Scalar-only C ingress for one real Programs CALL activity.
 
 use crate::occupancy::{
-    OccupancyAuthority, OccupancyLedger, OccupancyUsage, MAX_OCCUPANCY_EVIDENCE_BYTES,
-    MAX_OCCUPANCY_LEDGER_BYTES, MAX_OCCUPANCY_POSITIONS,
+    OccupancyAuthority, OccupancyDebitAuthority, OccupancyError, OccupancyLedger, OccupancyUsage,
+    MAX_OCCUPANCY_EVIDENCE_BYTES, MAX_OCCUPANCY_LEDGER_BYTES, MAX_OCCUPANCY_POSITIONS,
 };
 use crate::validate::AbiRevision;
 use crate::{
@@ -2029,6 +2029,7 @@ fn import_occupancy_activation_positions(
     if count > MAX_OCCUPANCY_POSITIONS {
         return Err(LENGTH_LIMIT);
     }
+    let mut records = Vec::with_capacity(count);
     let mut previous = None;
     for index in 0..count {
         let index = u16::try_from(index).map_err(|_| LENGTH_LIMIT)?;
@@ -2076,11 +2077,14 @@ fn import_occupancy_activation_positions(
                 .try_into()
                 .map_err(|_| NON_CANONICAL)?,
         );
-        ledger
-            .import_activation_position(namespace, payer, bytes)
-            .map_err(|_| NON_CANONICAL)?;
+        records.push((namespace, payer, bytes));
     }
-    Ok(())
+    ledger
+        .import_activation_records(records)
+        .map_err(|error| match error {
+            OccupancyError::LengthLimit => LENGTH_LIMIT,
+            _ => NON_CANONICAL,
+        })
 }
 
 fn publish_occupancy(
@@ -2090,11 +2094,13 @@ fn publish_occupancy(
     ledger: &OccupancyLedger,
 ) -> Result<(), i32> {
     let payer_dispositions = settlement.payer_dispositions().map_err(|_| NON_CANONICAL)?;
-    let ledger = ledger.canonical_state();
-    let evidence = settlement.canonical_evidence();
-    if ledger.len() > MAX_OCCUPANCY_LEDGER_BYTES || evidence.len() > MAX_OCCUPANCY_EVIDENCE_BYTES {
-        return Err(LENGTH_LIMIT);
-    }
+    let (ledger, evidence) =
+        ledger
+            .canonical_publication(settlement)
+            .map_err(|error| match error {
+                OccupancyError::LengthLimit => LENGTH_LIMIT,
+                _ => NON_CANONICAL,
+            })?;
     let (units_hi, units_lo) = split_u128(settlement.usage().byte_batches);
     let (fee_hi, fee_lo) = split_u128(settlement.usage().fee_units);
     let (paid_hi, paid_lo) = split_u128(settlement.usage().paid_fee_units);
@@ -2158,20 +2164,26 @@ fn publish_occupancy(
     Ok(())
 }
 
-fn unavailable_occupancy_payers(
+struct NativeOccupancyDebits {
     token: u64,
-    settlement: &crate::OccupancySettlement,
-) -> Result<BTreeSet<PrincipalId>, i32> {
-    let mut unavailable = BTreeSet::new();
-    for (payer, (_, paid, _, _)) in settlement.payer_dispositions().map_err(|_| NON_CANONICAL)? {
-        if paid == 0 {
-            continue;
+    batch: u64,
+}
+
+impl OccupancyDebitAuthority for NativeOccupancyDebits {
+    fn can_debit(
+        &mut self,
+        batch: u64,
+        payer: PrincipalId,
+        amount: u128,
+    ) -> Result<bool, OccupancyError> {
+        if batch != self.batch {
+            return Err(OccupancyError::MalformedEvidence);
         }
         let principal = words(payer.bytes());
-        let (fee_hi, fee_lo) = split_u128(paid);
+        let (fee_hi, fee_lo) = split_u128(amount);
         let status = unsafe {
             layerx_programs_occupancy_payer_available(
-                token,
+                self.token,
                 principal[0],
                 principal[1],
                 principal[2],
@@ -2180,13 +2192,12 @@ fn unavailable_occupancy_payers(
                 fee_lo,
             )
         };
-        if status == INSUFFICIENT_BALANCE {
-            unavailable.insert(payer);
-        } else {
-            c_ok(status)?;
+        match status {
+            OK => Ok(true),
+            INSUFFICIENT_BALANCE => Ok(false),
+            code => Err(OccupancyError::DebitAuthorityRefused(code)),
         }
     }
-    Ok(unavailable)
 }
 
 struct CallOccupancySettlement<'a> {
@@ -3602,20 +3613,19 @@ pub extern "C" fn layerx_programs_occupancy_finalize_rust(
         }
         let mut ledger = occupancy_ledger(token, batch_number)?;
         import_occupancy_activation_positions(token, &mut ledger)?;
-        let mut prepared = ledger
-            .prepare_unchanged_batch(batch_number, schedule)
-            .map_err(|_| NON_CANONICAL)?;
-        let unavailable = unavailable_occupancy_payers(token, prepared.settlement())?;
-        prepared
-            .defer_unpaid(&unavailable)
-            .map_err(|_| NON_CANONICAL)?;
-        let settlement = prepared.settlement().clone();
-        let committed = ledger
-            .commit_unchanged_after_debits(prepared)
-            .map_err(|_| NON_CANONICAL)?;
-        if committed != settlement {
-            return Err(FATAL_INVARIANT);
-        }
+        let settlement = ledger
+            .finalize_unchanged_batch(
+                batch_number,
+                schedule,
+                &mut NativeOccupancyDebits {
+                    token,
+                    batch: batch_number,
+                },
+            )
+            .map_err(|error| match error {
+                OccupancyError::DebitAuthorityRefused(code) => code,
+                _ => NON_CANONICAL,
+            })?;
         publish_occupancy(token, parameter_version, &settlement, &ledger)?;
         Ok(OK)
     };

@@ -1,0 +1,11 @@
+[manifest]
+task = "22.32.181"
+domain = 17
+owner_role = "fm-programme"
+pages = 1
+
+[page.1]
+path = "spec/layerx-merge/contracts/agent-human-peer.md"
+status = "stale"
+bytes = 45005
+source_1 = "record 22.30.93 [doc.14] (stale): Consulted the opcode/interface sections through line 187, especially journey, lifecycle and owner-rotated. The owner-rotated note at line 145 incorrectly claims no producer opcode 43; preserve opcode numbers and refresh the registry note, then regenerate."

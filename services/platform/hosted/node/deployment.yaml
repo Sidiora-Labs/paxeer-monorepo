@@ -6,13 +6,21 @@ data:
   network-name: layerx-testnet
   asset-id: "b5a32b12029f8ddfb905f90f280f664b46390de0fc62770fc197dd87b18cd898"
   replica-id: "6c61796572782d626574612d726563656970742d617574686f726974792d3031"
-  paxeer-relay-port: "18545"
+  chain-id: "hyperpax_125-1"
+  gateway-endpoint: "https://layerx-gateway.layerx-testnet.svc.cluster.local:9443"
   paxeer-chain-id: "125"
 ---
 apiVersion: v1
 kind: Service
 metadata: {name: layerx-node, namespace: layerx-testnet}
 spec: {clusterIP: None, selector: {app: layerx-node}, ports: [{name: core-tls, port: 9443, targetPort: core-tls}]}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: layerx-native-chain, namespace: layerx-testnet}
+spec:
+  selector: {app: layerx-node}
+  ports: [{name: rpc, port: 8545, targetPort: chain-rpc}, {name: consensus, port: 26657, targetPort: consensus-rpc}]
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -29,6 +37,41 @@ spec:
       shareProcessNamespace: false
       terminationGracePeriodSeconds: 60
       initContainers:
+        - name: treasury-key
+          image: ghcr.io/sidiora-labs/layerx-node:0.1.0
+          command: [python3, /opt/layerx/projected_secret.py]
+          args: [--source, /run/treasury-input/treasury.key, --destination, /run/treasury-private/owner/treasury.key]
+          securityContext: {runAsUser: 4020, runAsGroup: 4020, allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+          volumeMounts:
+            - {name: treasury-material, mountPath: /run/treasury-input, readOnly: true}
+            - {name: treasury-private, mountPath: /run/treasury-private}
+        - name: native-material
+          image: ghcr.io/sidiora-labs/layerx-node:0.1.0
+          command: [/bin/sh, -ec]
+          args:
+            - |
+              umask 077
+              install -d -m 0700 /run/native-private/owner
+              for name in genesis.json config.toml app.toml; do
+                install -m 0600 "/run/native-input/$name" "/run/native-private/owner/$name"
+              done
+              install -m 0600 /run/native-key-input/priv_validator_key.json /run/native-private/owner/priv_validator_key.json
+              install -m 0600 /run/native-key-input/receipt.key /run/native-private/owner/receipt.key
+              install -m 0600 /run/native-trust/ca.crt.der /run/native-private/owner/rpc-ca.der
+          securityContext: {runAsUser: 4020, runAsGroup: 4020, allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+          volumeMounts:
+            - {name: native-inputs, mountPath: /run/native-input, readOnly: true}
+            - {name: native-keys, mountPath: /run/native-key-input, readOnly: true}
+            - {name: trust, mountPath: /run/native-trust, readOnly: true}
+            - {name: native-private, mountPath: /run/native-private}
+        - name: funding-key
+          image: ghcr.io/sidiora-labs/layerx-node:0.1.0
+          command: [python3, /opt/layerx/projected_secret.py]
+          args: [--source, /run/funding-input/sender.key, --destination, /run/funding-private/owner/sender.key]
+          securityContext: {runAsUser: 4021, runAsGroup: 4020, allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+          volumeMounts:
+            - {name: funding-material, mountPath: /run/funding-input, readOnly: true}
+            - {name: funding-private, mountPath: /run/funding-private}
         - name: core-storage
           image: ghcr.io/sidiora-labs/layerx-node:0.1.0
           imagePullPolicy: Always
@@ -144,73 +187,62 @@ spec:
             - {name: human-module-registry, mountPath: /run/module-registry, readOnly: true}
             - {name: explorer-authority-evidence, mountPath: /run/explorer-evidence-input, readOnly: true}
       containers:
-        - name: layerxd
-          image: ghcr.io/sidiora-labs/layerx-node:0.1.0
+        - name: paxd
+          image: ghcr.io/sidiora-labs/layerx-kernel:0.1.0
           imagePullPolicy: Always
           command: [/opt/layerx/supervisor.sh]
           args:
-            - --role
-            - sequencer
+            - --paxd
+            - /usr/local/bin/paxd
             - --data-dir
             - /var/lib/layerx/node
             - --run-dir
             - /run/layerx/node
-            - --
+            - --state-dir
+            - /var/lib/layerx/supervisor-state
+            - --rpc-bind-address
+            - 0.0.0.0
+            - --native-inputs
+            - /run/native-private/owner
             - --network-id
             - $(LAYERX_NODE_NETWORK_ID)
+            - --chain-id
+            - $(LAYERX_NODE_CHAIN_ID)
+            - --evm-chain-id
+            - $(LAYERX_NODE_EVM_CHAIN_ID)
             - --asset
             - $(LAYERX_NODE_ASSET_ID)
-            - --genesis-metadata
-            - /run/layerx/genesis/metadata.lxgb
-            - --withdrawal-fee
-            - "0"
-            - --module-fees
-            - /opt/layerx/genesis-module-fees.json
-            - --replica-id
-            - $(LAYERX_NODE_REPLICA_ID)
-            - --sequencer-key
-            - /run/layerx/keys/sequencer.key
+            - --gateway-endpoint
+            - $(LAYERX_CORE_SEQUENCER_ENDPOINT)
+            - --receipt-key-file
+            - /run/native-private/owner/receipt.key
             - --treasury-signer-socket
             - /run/layerx/node/treasury-signer.sock
-            - --program-token-file
-            - /run/layerx/tokens/program-token
-            - --replica-token-file
-            - /run/layerx/tokens/replica-token
-            - --program-port
-            - "9401"
-            - --replica-port
-            - "9402"
-            - --lni-uid
-            - "4021"
-            - --lni-gid
-            - "4020"
+            - --funding-sender-key-file
+            - /run/funding-private/owner/sender.key
           env:
-            - {name: LAYERX_NODE_REGISTRY_MATERIAL, value: "1"}
-            - {name: LAYERX_NODE_RESET_STAGED_GENERATIONS, value: "1"}
-            - {name: LAYERX_NODE_GENERATION_TRANSPORT, value: "1"}
-            - name: LAYERX_NODE_HANDOVER_AUTHORITY_PUBLIC_KEY
-              valueFrom:
-                configMapKeyRef:
-                  name: layerx-node-config
-                  key: handover-authority
-                  optional: true
+            - {name: PYTHONDONTWRITEBYTECODE, value: "1"}
             - {name: LAYERX_NODE_NETWORK_ID, valueFrom: {configMapKeyRef: {name: layerx-node-config, key: network-id}}}
+            - {name: LAYERX_NODE_CHAIN_ID, valueFrom: {configMapKeyRef: {name: layerx-node-config, key: chain-id}}}
+            - {name: LAYERX_NODE_EVM_CHAIN_ID, valueFrom: {configMapKeyRef: {name: layerx-node-config, key: paxeer-chain-id}}}
             - {name: LAYERX_NODE_ASSET_ID, valueFrom: {configMapKeyRef: {name: layerx-node-config, key: asset-id}}}
-            - {name: LAYERX_NODE_REPLICA_ID, valueFrom: {configMapKeyRef: {name: layerx-node-config, key: replica-id}}}
-            - {name: LAYERX_NODE_PAXEER_CHAIN_ID, valueFrom: {configMapKeyRef: {name: layerx-node-config, key: paxeer-chain-id}}}
-            - {name: LAYERX_NODE_PAXEER_RELAY_PORT, valueFrom: {configMapKeyRef: {name: layerx-node-config, key: paxeer-relay-port}}}
-            - {name: LAYERX_NODE_PAXEER_RPC_URL, value: "http://127.0.0.1:$(LAYERX_NODE_PAXEER_RELAY_PORT)"}
-            - {name: LAYERX_NODE_REGISTRY_PRECOMPILE, value: "0x0000000000000000000000000000000000001004"}
-            - {name: LAYERX_NODE_CUSTODY_PRECOMPILE, value: "0x0000000000000000000000000000000000001013"}
-            - {name: LAYERX_NODE_ANCHOR_PRECOMPILE, value: "0x0000000000000000000000000000000000001014"}
+            - {name: LAYERX_CORE_SEQUENCER_ENDPOINT, valueFrom: {configMapKeyRef: {name: layerx-node-config, key: gateway-endpoint}}}
+          ports: [{name: chain-p2p, containerPort: 26656}, {name: chain-rpc, containerPort: 8545}, {name: consensus-rpc, containerPort: 26657}]
+          readinessProbe:
+            exec: {command: [python3, /opt/layerx/native_runtime.py, health, --data-dir, /var/lib/layerx/node, --run-dir, /run/layerx/node]}
+            periodSeconds: 5
+            timeoutSeconds: 10
+          startupProbe:
+            exec: {command: [python3, /opt/layerx/native_runtime.py, health, --data-dir, /var/lib/layerx/node, --run-dir, /run/layerx/node]}
+            periodSeconds: 5
+            timeoutSeconds: 10
+            failureThreshold: 60
           resources: {requests: {cpu: 500m, memory: 512Mi}, limits: {cpu: "2", memory: 2Gi}}
           securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
           volumeMounts:
             - {name: data, mountPath: /var/lib/layerx}
             - {name: run, mountPath: /run/layerx}
-            - {name: keys, mountPath: /run/layerx/keys, readOnly: true}
-            - {name: genesis-metadata, mountPath: /run/layerx/genesis/metadata.lxgb, subPath: metadata.lxgb, readOnly: true}
-            - {name: tokens, mountPath: /run/layerx/tokens, readOnly: true}
+            - {name: native-private, mountPath: /run/native-private, readOnly: true}
             - {name: tmp, mountPath: /tmp}
         - name: treasury-signer
           image: ghcr.io/sidiora-labs/layerx-node:0.1.0
@@ -223,7 +255,7 @@ spec:
             - --provider
             - file
             - --key-file
-            - /run/layerx/treasury/treasury.key
+            - /run/treasury-private/owner/treasury.key
             - --allowed-uid
             - "4020,4021"
             - --socket-group
@@ -236,7 +268,7 @@ spec:
           resources: {requests: {cpu: 10m, memory: 32Mi}, limits: {cpu: 200m, memory: 128Mi}}
           volumeMounts:
             - {name: run, mountPath: /run/layerx}
-            - {name: treasury-material, mountPath: /run/layerx/treasury, readOnly: true}
+            - {name: treasury-private, mountPath: /run/treasury-private, readOnly: true}
         - name: mirror-signer
           image: ghcr.io/sidiora-labs/layerx-mirror:0.1.0
           imagePullPolicy: Always
@@ -270,37 +302,6 @@ spec:
             - {name: data, mountPath: /var/lib/layerx-mirror, subPath: mirror}
             - {name: run, mountPath: /run/layerx}
             - {name: tmp, mountPath: /tmp}
-        - name: paxeer-relay
-          image: ghcr.io/sidiora-labs/layerx-node:0.1.0
-          imagePullPolicy: Always
-          command: [/bin/sh, -ec]
-          args:
-            - |
-              : "${LAYERX_NODE_PAXEER_RELAY_PORT:?relay port is required}"
-              : "${LAYERX_NODE_PAXEER_BOUNDARY:?boundary host is required}"
-              exec socat -T 120 "TCP4-LISTEN:${LAYERX_NODE_PAXEER_RELAY_PORT},bind=127.0.0.1,reuseaddr,fork" \
-                "OPENSSL:${LAYERX_NODE_PAXEER_BOUNDARY}:9443,cafile=/run/layerx/trust/ca.crt,verify=1,commonname=${LAYERX_NODE_PAXEER_BOUNDARY}"
-          env:
-            - {name: LAYERX_NODE_PAXEER_RELAY_PORT, valueFrom: {configMapKeyRef: {name: layerx-node-config, key: paxeer-relay-port}}}
-            - {name: LAYERX_NODE_PAXEER_BOUNDARY, value: paxeer-boundary.layerx-testnet.svc.cluster.local}
-          resources: {requests: {cpu: 50m, memory: 32Mi}, limits: {cpu: 500m, memory: 128Mi}}
-          securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
-          volumeMounts:
-            - {name: trust, mountPath: /run/layerx/trust, readOnly: true}
-        - name: layerxd-authority
-          image: ghcr.io/sidiora-labs/layerx-node:0.1.0
-          imagePullPolicy: Always
-          command: [/opt/layerx/supervisor.sh]
-          args: [--role, replica, --data-dir, /var/lib/layerx/node, --run-dir, /run/layerx/node]
-          env:
-            - {name: LAYERX_NODE_RESET_STAGED_GENERATIONS, value: "1"}
-            - {name: LAYERX_NODE_GENERATION_TRANSPORT, value: "1"}
-          resources: {requests: {cpu: 250m, memory: 256Mi}, limits: {cpu: "1", memory: 1Gi}}
-          securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
-          volumeMounts:
-            - {name: data, mountPath: /var/lib/layerx}
-            - {name: run, mountPath: /run/layerx}
-            - {name: tmp, mountPath: /tmp}
         - name: core-boundary
           image: ghcr.io/sidiora-labs/layerx-core-boundary:0.1.0
           imagePullPolicy: Always
@@ -324,11 +325,14 @@ spec:
             - {name: LAYERX_CORE_ADMIN_TLS_CERT_DER, value: /run/layerx/core-admin-tls/server.crt.der}
             - {name: LAYERX_CORE_ADMIN_TLS_KEY_DER, value: /run/layerx/core-admin-tls/server.key.der}
             - {name: LAYERX_CORE_CLIENT_CA_DER, value: /run/layerx/trust/ca.crt.der}
-            - {name: LAYERX_CORE_LNI_SOCKET, value: /run/layerx/node/layerxd.lni.sock}
+            - {name: LAYERX_CORE_SEQUENCER_ENDPOINT, valueFrom: {configMapKeyRef: {name: layerx-node-config, key: gateway-endpoint}}}
+            - {name: LAYERX_CORE_SEQUENCER_TRUST_ANCHOR_DER, value: /run/layerx/trust/ca.crt.der}
+            - {name: LAYERX_CORE_CHAIN_RPC_URL, value: "http://127.0.0.1:8545"}
+            - {name: LAYERX_CORE_FUNDING_SENDER_KEY_FILE, value: /run/funding-private/owner/sender.key}
             - {name: LAYERX_CORE_SUPERVISOR_SOCKET, value: /run/layerx/node/supervisor.sock}
-            - {name: LAYERX_CORE_NODE_URL, value: "http://127.0.0.1:9401"}
+            - {name: LAYERX_CORE_NODE_URL, value: "http://127.0.0.1:8545"}
             - {name: LAYERX_CORE_NODE_BEARER_TOKEN_FILE, value: /run/layerx/tokens/program-token}
-            - {name: LAYERX_CORE_REPLICA_URL, value: "http://127.0.0.1:9402"}
+            - {name: LAYERX_CORE_REPLICA_URL, value: "http://127.0.0.1:8545"}
             - {name: LAYERX_CORE_REPLICA_BEARER_TOKEN_FILE, value: /run/layerx/tokens/replica-token}
             - {name: LAYERX_CORE_ADMIN_TOKEN_FILE, value: /run/layerx/backend-admin/token}
             - {name: LAYERX_CORE_RECEIPT_EVENTS_TOKEN_FILE, value: /run/layerx/gateway-component/token}
@@ -338,6 +342,7 @@ spec:
           livenessProbe: {httpGet: {scheme: HTTPS, path: /livez, port: core-tls}, periodSeconds: 15}
           resources: {requests: {cpu: 250m, memory: 128Mi}, limits: {cpu: "1", memory: 512Mi}}
           volumeMounts:
+            - {name: funding-private, mountPath: /run/funding-private, readOnly: true}
             - {name: data, mountPath: /var/lib/layerx/core, subPath: core}
             - {name: run, mountPath: /run/layerx}
             - {name: tokens, mountPath: /run/layerx/tokens, readOnly: true}
@@ -355,8 +360,8 @@ spec:
             - |
               exec /usr/bin/python3 /opt/layerx/node/generation_client.py core --socket /run/layerx/node/generation.sock --watch-seconds 1 -- /bin/sh -ec '
               : "${LAYERX_CORE_SEQUENCER_ID:?generated sequencer identity is required}"
-              : "${LAYERX_AUTHORITY_SEQUENCER_ID:?generation sequencer identity is required}"
-              : "${LAYERX_AUTHORITY_SEQUENCER_PUBLIC_KEY:?generation sequencer public key is required}"
+              export LAYERX_AUTHORITY_SEQUENCER_ID="$LAYERX_CORE_SEQUENCER_ID"
+              export LAYERX_AUTHORITY_SEQUENCER_PUBLIC_KEY="$LAYERX_NODE_SEQUENCER_PUBLIC_KEY"
               : "${LAYERX_AUTHORITY_REPLICA_ID:?generation replica identity is required}"
               [ "$LAYERX_AUTHORITY_SEQUENCER_ID" = "$LAYERX_CORE_SEQUENCER_ID" ]
               exec /usr/local/bin/layerx-runtime-clock --runtime-dir /run/layerx/human/authority-clock -- /usr/local/bin/layerx-receipt-authority
@@ -380,7 +385,7 @@ spec:
             - {name: LAYERX_AUTHORITY_CORE_CLOCK_HORIZON, valueFrom: {secretKeyRef: {name: layerx-human-authority-config, key: core-clock-horizon}}}
             - {name: LAYERX_AUTHORITY_STATE_ROOT, value: /var/lib/layerx/human/authority}
             - {name: LAYERX_AUTHORITY_TOKEN_FILES, value: /run/layerx/gateway-authority/token:/run/layerx/registry-authority/token:/run/layerx/webhooks-authority/token}
-            - {name: LAYERX_AUTHORITY_REPLICA_URL, value: "http://127.0.0.1:9402"}
+            - {name: LAYERX_AUTHORITY_REPLICA_URL, value: "http://127.0.0.1:8545"}
             - {name: LAYERX_AUTHORITY_REPLICA_BEARER_TOKEN_FILE, value: /run/layerx/tokens/replica-token}
             - {name: LAYERX_AUTHORITY_REPLICA_ID, valueFrom: {configMapKeyRef: {name: layerx-node-config, key: replica-id}}}
             - {name: LAYERX_AUTHORITY_FIRST_BATCH, value: "1"}
@@ -413,7 +418,7 @@ spec:
             - {name: LAYERX_AGENT_BOUNDARY_GATEWAY_TOKEN_FILE, value: /run/layerx/gateway-component/token}
             - {name: LAYERX_AGENT_BOUNDARY_WEBHOOK_TOKEN_FILE, value: /run/layerx/webhooks-component/token}
             - {name: LAYERX_AGENT_BOUNDARY_REGISTRY_TOKEN_FILE, value: /run/layerx/registry-component/token}
-            - {name: LAYERX_AGENT_BOUNDARY_NODE_URL, value: "http://127.0.0.1:9401"}
+            - {name: LAYERX_AGENT_BOUNDARY_NODE_URL, value: "http://127.0.0.1:8545"}
             - {name: LAYERX_AGENT_BOUNDARY_NODE_BEARER_TOKEN_FILE, value: /run/layerx/tokens/program-token}
             - {name: LAYERX_AGENT_BOUNDARY_STATE_DIR, value: /var/lib/layerx/agent-boundary}
           ports: [{name: agent-tls, containerPort: 9446}]
@@ -877,11 +882,14 @@ spec:
         - {name: mirror-signer-material, secret: {secretName: layerx-mirror-signer, defaultMode: 0440}}
         - {name: mirror-signer-run, emptyDir: {medium: Memory, sizeLimit: 1Mi}}
         - {name: tmp, emptyDir: {medium: Memory, sizeLimit: 64Mi}}
-        - {name: keys, secret: {secretName: layerx-node-keys, defaultMode: 0440, items: [{key: sequencer.key, path: sequencer.key}]}}
-        - {name: genesis-metadata, configMap: {name: layerx-node-genesis-metadata, defaultMode: 0444, items: [{key: metadata.lxgb, path: metadata.lxgb}]}}
+        - {name: native-inputs, configMap: {name: layerx-node-native-genesis, defaultMode: 0444}}
+        - {name: native-keys, secret: {secretName: layerx-node-native-keys, defaultMode: 0440}}
+        - {name: native-private, emptyDir: {medium: Memory, sizeLimit: 16Mi}}
         - {name: treasury-material, secret: {secretName: layerx-node-keys, defaultMode: 0440, items: [{key: treasury.key, path: treasury.key}]}}
+        - {name: treasury-private, emptyDir: {medium: Memory, sizeLimit: 1Mi}}
+        - {name: funding-material, secret: {secretName: layerx-node-native-funding, defaultMode: 0440, items: [{key: sender.key, path: sender.key}]}}
+        - {name: funding-private, emptyDir: {medium: Memory, sizeLimit: 1Mi}}
         - {name: tokens, secret: {secretName: layerx-node-tokens, defaultMode: 0440}}
-        - {name: settlement, configMap: {name: layerx-node-settlement, optional: true}}
         - {name: backend-admin, secret: {secretName: layerx-testnet-backend-admin}}
         - {name: trust, secret: {secretName: layerx-internal-ca}}
         - {name: core-tls, secret: {secretName: layerx-pending-core-tls}}
@@ -971,6 +979,10 @@ spec:
   podSelector: {matchLabels: {app: layerx-node}}
   policyTypes: [Ingress]
   ingress:
+    - from: [{podSelector: {matchLabels: {app: layerx-gateway}}}]
+      ports: [{protocol: TCP, port: 8545}, {protocol: TCP, port: 26657}]
+    - from: [{podSelector: {matchLabels: {app: layerx-native-validator}}}]
+      ports: [{protocol: TCP, port: 26656}]
     - from: [{podSelector: {matchLabels: {app: layerx-node}}}]
       ports: [{protocol: TCP, port: 9445}]
     - from: [{podSelector: {matchLabels: {app: layerx-testnet-control}}}]
@@ -993,6 +1005,8 @@ spec:
   podSelector: {matchLabels: {app: layerx-node}}
   policyTypes: [Egress]
   egress:
+    - to: [{podSelector: {matchLabels: {app: layerx-native-validator}}}]
+      ports: [{protocol: TCP, port: 26656}]
     - to: [{namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}, podSelector: {matchLabels: {k8s-app: kube-dns}}}]
       ports: [{protocol: UDP, port: 53}, {protocol: TCP, port: 53}]
     - to: [{podSelector: {matchLabels: {app: paxeer}}}]

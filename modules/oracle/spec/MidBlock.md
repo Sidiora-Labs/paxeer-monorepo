@@ -2,14 +2,68 @@
 
 ## Context
 
-Currently, the oracle module processes oracle pricing votes from validators via transactions, and executes them as part of the normal DeliverTx. Then, the oracle module calculates the oracle asset pricing in End Block once it has processed all oracle vote transactions for the block. This has the behavior where new oracle prices are stored as part of EndBlock, and so aren’t used by transactions or contracts until the following block.
+The `oracle` module is part of the Paxeer network's node application. Validators,
+or their authorized feeders, submit `MsgAggregateExchangeRateVote` transactions.
+The [message server](../keeper/msg_server.go) validates the feeder and vote
+targets and stores each validator's aggregate vote. Price calculation is
+implemented by [`MidBlocker`](../abci.go), exposed through
+[`AppModule.MidBlock`](../module.go).
 
-When working with a voting period of 1 we can make further optimizations to improve the freshness of oracle asset pricing. We would like to have oracle votes finalized BEFORE the execution of non-oracle vote txs, such that the newest oracle asset pricing is finalized WITHIN the block so that transactions and contracts are utilizing the freshest oracle prices possible.
+The default `VotePeriod` is **2 blocks**. MidBlock runs at every block's
+completion, but the oracle tallies only when
+`(height + 1) % VotePeriod == 0`, as defined by
+[`IsPeriodLastBlock`](../utils/period.go). Setting `VotePeriod` to 1 makes every
+block a tally block. See [Parameters](06_params.md) for current defaults.
 
 ## Design
 
-Currently, transaction execution is performed as part of ProcessTxs, which is performed after BeginBlock and before EndBlock. The approach to improve oracle data freshness is to first filter the transactions into oracle votes and non-oracle votes. Then, we initially begin ProcessTxs specifically for the oracle votes. Then, we introduce a new stage called MidBlock, which modules can implement in order to perform some logic after ProcessOracleTxs and before other transactions.
+The implemented order in [`App.ProcessBlock` and `App.CompleteBlock`](../../../node/app.go)
+is:
 
-Practically, this is a fairly straightforward solution because we can use the same DeliverTx logic to execute the two groups of transactions, and would only need to partition the transactions appropriately. Additionally, because we can use the existing DeliverTx logic, we get parallelization for the oracle transactions out of the box, which is a slight performance improvement since all oracle votes can be executed in parallel (although practically not significantly different performance due to low oracle vote volume).
+1. Run `BeginBlock`.
+2. Execute transactions at their block positions. For a sequenced block,
+   validate and apply the sequence batch at transaction position zero before
+   executing the remaining transactions. Oracle votes use this transaction
+   execution path along with other transactions.
+3. Run `CompleteBlock`, which calls `MidBlock`. The module manager invokes
+   the oracle hook first and the pricefeed hook second.
+4. Complete deferred balance writes and run `EndBlock`.
 
-With this approach, an oracle vote for block N would be processed separately from other TXs in block N, and the MidBlock function that separates the two can be used to calculate oracle consensus based on validators votes. This way, any transaction in block N would utilize the oracle price updated in the block N midblock IFF the oracle vote had enough total voting power.
+The proposer also calls `CompleteBlock` when sealing an already executed block
+through [`node/sequencer/seal.go`](../../../node/sequencer/seal.go).
+There is no oracle-only transaction phase before ordinary transactions in this
+path. The earlier proposal to partition votes, tally them, and then execute
+other transactions does not describe the current implementation.
+
+### Tally and cleanup
+
+On the last block of each vote period, [`MidBlocker`](../abci.go):
+
+1. Builds claims for the active bonded validator set and organizes stored votes
+   into sorted ballots per denom. Non-positive exchange-rate votes have zero
+   voting power.
+2. Checks ballots for current vote targets against `VoteThreshold` of total
+   bonded voting power. The passing ballot with the greatest power supplies
+   the reference denom, with alphabetical order breaking ties.
+3. Computes the reference ballot's weighted median, converts other passing
+   ballots to cross rates, tallies them, and converts them back to base rates.
+   Each nonzero result is stored by `SetBaseExchangeRateWithEvent`, emitting
+   `exchange_rate_update`.
+4. Updates validator success, abstain, and miss counters. Votes in ballots below
+   the threshold count toward participation without producing a new price.
+5. Clears aggregate ballots and synchronizes vote targets with `Whitelist`.
+
+[`EndBlocker`](../abci.go) performs the separate slash-window work: on the last
+block of `SlashWindow`, it calls `SlashAndResetCounters` and `RemoveExcessFeeds`.
+The [node end-block wiring](../../../node/legacyabci/end_block.go) invokes this
+hook; EndBlock does not perform the oracle price tally.
+
+### Price visibility
+
+For a tally block N, the new rates are stored during completion of N, after its
+ordinary transactions have executed. Later hooks can read those updates, and
+transactions in the following block can use them. An ordinary transaction in
+N cannot rely on prices derived from N's votes, even with `VotePeriod = 1`.
+A denom whose ballot fails the voting-power threshold receives no new price
+from that tally; an existing rate can therefore remain older than the latest
+vote period.

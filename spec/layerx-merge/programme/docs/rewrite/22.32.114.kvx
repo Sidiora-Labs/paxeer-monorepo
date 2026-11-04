@@ -1,0 +1,11 @@
+[manifest]
+task = "22.32.114"
+domain = 13
+owner_role = "fm-programs"
+pages = 1
+
+[page.1]
+path = "programs/README.md"
+status = "stale"
+bytes = 17574
+source_1 = "record 22.30.128 [doc.16] (stale): Lines 28/47/99 retain checkpoint settlement and the retired adapter. Read full workspace, guest ABI 1-5, account authority, native fixtures, LXT20 initialization and gate descriptions."

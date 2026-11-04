@@ -1,0 +1,1022 @@
+{
+  "sources": [
+    "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/unified_account_controller.ex",
+    "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/unified_account_controller_test.exs",
+    "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/archive_controller_test.exs",
+    "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/paxeer_x/archive_view.ex"
+  ],
+  "provenance": "Native response contract snapshots transcribed from the controller and its producer tests with fixed identifiers and timestamps. Cursor strings are opaque fixture values; native signing, expiry clocks and consensus are owned and tested by the native producer.",
+  "address": "0x1111111111111111111111111111111111111111",
+  "missingAddress": "0x3333333333333333333333333333333333333333",
+  "unavailableAddress": "0x4444444444444444444444444444444444444444",
+  "otherAddress": "0x5555555555555555555555555555555555555555",
+  "cursors": {
+    "first": "native-snapshot:first+account/bound=1&position%51",
+    "next": "native-snapshot:next+account/bound=2&position%2",
+    "expired": "native-snapshot:expired+account/bound=1&age%3601",
+    "reorg": "native-snapshot:reorg+account/bound=1&anchor%changed"
+  },
+  "firstPage": {
+    "identities": {
+      "evm": "0x1111111111111111111111111111111111111111",
+      "pax": "pax1005qwm6w5jj26zq8tsjs3eyp6my5d5fthrlqk3",
+      "did": "did:layerx:3f1a9b0c5d2e4f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8"
+    },
+    "balances": [
+      {
+        "asset": {
+          "id": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "denom": "TOKEN",
+          "symbol": "TOKEN",
+          "decimals": 6
+        },
+        "total": "250"
+      },
+      {
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "total": "3000000000000000000"
+      }
+    ],
+    "activity": [
+      {
+        "kind": "transaction",
+        "hash": "0x0000000000000000000000000000000000000000000000000000000000000033",
+        "block_number": 51,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x0000000000000000000000000000000000000000000000000000000000000032",
+        "block_number": 50,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "error",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "0",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x0000000000000000000000000000000000000000000000000000000000000031",
+        "block_number": 49,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x0000000000000000000000000000000000000000000000000000000000000030",
+        "block_number": 48,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x000000000000000000000000000000000000000000000000000000000000002f",
+        "block_number": 47,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x000000000000000000000000000000000000000000000000000000000000002e",
+        "block_number": 46,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x000000000000000000000000000000000000000000000000000000000000002d",
+        "block_number": 45,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x000000000000000000000000000000000000000000000000000000000000002c",
+        "block_number": 44,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x000000000000000000000000000000000000000000000000000000000000002b",
+        "block_number": 43,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x000000000000000000000000000000000000000000000000000000000000002a",
+        "block_number": 42,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x0000000000000000000000000000000000000000000000000000000000000029",
+        "block_number": 41,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x0000000000000000000000000000000000000000000000000000000000000028",
+        "block_number": 40,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x0000000000000000000000000000000000000000000000000000000000000027",
+        "block_number": 39,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x0000000000000000000000000000000000000000000000000000000000000026",
+        "block_number": 38,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x0000000000000000000000000000000000000000000000000000000000000025",
+        "block_number": 37,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x0000000000000000000000000000000000000000000000000000000000000024",
+        "block_number": 36,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x0000000000000000000000000000000000000000000000000000000000000023",
+        "block_number": 35,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x0000000000000000000000000000000000000000000000000000000000000022",
+        "block_number": 34,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x0000000000000000000000000000000000000000000000000000000000000021",
+        "block_number": 33,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x0000000000000000000000000000000000000000000000000000000000000020",
+        "block_number": 32,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x000000000000000000000000000000000000000000000000000000000000001f",
+        "block_number": 31,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x000000000000000000000000000000000000000000000000000000000000001e",
+        "block_number": 30,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x000000000000000000000000000000000000000000000000000000000000001d",
+        "block_number": 29,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x000000000000000000000000000000000000000000000000000000000000001c",
+        "block_number": 28,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x000000000000000000000000000000000000000000000000000000000000001b",
+        "block_number": 27,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x000000000000000000000000000000000000000000000000000000000000001a",
+        "block_number": 26,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x0000000000000000000000000000000000000000000000000000000000000019",
+        "block_number": 25,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x0000000000000000000000000000000000000000000000000000000000000018",
+        "block_number": 24,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x0000000000000000000000000000000000000000000000000000000000000017",
+        "block_number": 23,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x0000000000000000000000000000000000000000000000000000000000000016",
+        "block_number": 22,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x0000000000000000000000000000000000000000000000000000000000000015",
+        "block_number": 21,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x0000000000000000000000000000000000000000000000000000000000000014",
+        "block_number": 20,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x0000000000000000000000000000000000000000000000000000000000000013",
+        "block_number": 19,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x0000000000000000000000000000000000000000000000000000000000000012",
+        "block_number": 18,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x0000000000000000000000000000000000000000000000000000000000000011",
+        "block_number": 17,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x0000000000000000000000000000000000000000000000000000000000000010",
+        "block_number": 16,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x000000000000000000000000000000000000000000000000000000000000000f",
+        "block_number": 15,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x000000000000000000000000000000000000000000000000000000000000000e",
+        "block_number": 14,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x000000000000000000000000000000000000000000000000000000000000000d",
+        "block_number": 13,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x000000000000000000000000000000000000000000000000000000000000000c",
+        "block_number": 12,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x000000000000000000000000000000000000000000000000000000000000000b",
+        "block_number": 11,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x000000000000000000000000000000000000000000000000000000000000000a",
+        "block_number": 10,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x0000000000000000000000000000000000000000000000000000000000000009",
+        "block_number": 9,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x0000000000000000000000000000000000000000000000000000000000000008",
+        "block_number": 8,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x0000000000000000000000000000000000000000000000000000000000000007",
+        "block_number": 7,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x0000000000000000000000000000000000000000000000000000000000000006",
+        "block_number": 6,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x0000000000000000000000000000000000000000000000000000000000000005",
+        "block_number": 5,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x0000000000000000000000000000000000000000000000000000000000000004",
+        "block_number": 4,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x0000000000000000000000000000000000000000000000000000000000000003",
+        "block_number": 3,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      },
+      {
+        "kind": "transaction",
+        "hash": "0x0000000000000000000000000000000000000000000000000000000000000002",
+        "block_number": 2,
+        "ordinal": 0,
+        "status": "committed",
+        "result": "ok",
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": "0x2222222222222222222222222222222222222222"
+      }
+    ],
+    "next_page_params": {
+      "cursor": "native-snapshot:next+account/bound=2&position%2"
+    },
+    "page_cursor": "native-snapshot:first+account/bound=1&position%51",
+    "first_page_cursor": "native-snapshot:first+account/bound=1&position%51",
+    "page_number": 1,
+    "activity_total": null
+  },
+  "secondPage": {
+    "identities": {
+      "evm": "0x1111111111111111111111111111111111111111",
+      "pax": "pax1005qwm6w5jj26zq8tsjs3eyp6my5d5fthrlqk3",
+      "did": "did:layerx:3f1a9b0c5d2e4f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8"
+    },
+    "balances": [
+      {
+        "asset": {
+          "id": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "denom": "TOKEN",
+          "symbol": "TOKEN",
+          "decimals": 6
+        },
+        "total": "250"
+      },
+      {
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "total": "3000000000000000000"
+      }
+    ],
+    "activity": [
+      {
+        "kind": "transaction",
+        "hash": "0x0000000000000000000000000000000000000000000000000000000000000001",
+        "block_number": 1,
+        "ordinal": 0,
+        "status": "committed",
+        "result": null,
+        "timestamp": "2026-01-01T00:00:00.000000Z",
+        "asset": {
+          "id": "native",
+          "denom": "PAX",
+          "symbol": "PAX",
+          "decimals": 18
+        },
+        "amount": "42",
+        "counterparty": null
+      }
+    ],
+    "next_page_params": null,
+    "page_cursor": "native-snapshot:next+account/bound=2&position%2",
+    "first_page_cursor": "native-snapshot:first+account/bound=1&position%51",
+    "page_number": 2,
+    "activity_total": null
+  },
+  "evmReceipt": {
+    "id": "0x0000000000000000000000000000000000000000000000000000000000000032",
+    "account": "0x0000000000000000000000000000000000000000000000000000000000000063",
+    "block_number": 600,
+    "origin": "evm",
+    "verification": "state_proven",
+    "verification_status": "state_proven",
+    "payload_hash": "0x0000000000000000000000000000000000000000000000000000000000000064",
+    "transaction_hash": "0x00000000000000000000000000000000000000000000000000000000000000c8",
+    "timestamp": "2026-01-01T00:00:00.000000Z",
+    "frozen": true,
+    "provenance": {
+      "evm": {
+        "transaction_hash": "0x00000000000000000000000000000000000000000000000000000000000000c8",
+        "log_index": 0,
+        "block_hash": "0x000000000000000000000000000000000000000000000000000000000000012c",
+        "block_number": 600
+      }
+    }
+  },
+  "kernelReceipt": {
+    "id": "0x0000000000000000000000000000000000000000000000000000000000000033",
+    "account": "0x0000000000000000000000000000000000000000000000000000000000000063",
+    "block_number": null,
+    "origin": "kernel",
+    "verification": "sequencer_verified",
+    "verification_status": "batch_included",
+    "payload_hash": "0x0000000000000000000000000000000000000000000000000000000000000064",
+    "transaction_hash": null,
+    "timestamp": null,
+    "frozen": true,
+    "provenance": {
+      "kernel": {
+        "batch_number": "51",
+        "batch_id": "0x0000000000000000000000000000000000000000000000000000000000000065",
+        "sequence": "1",
+        "activity_id": "0x0000000000000000000000000000000000000000000000000000000000000033",
+        "result_code": 0,
+        "receipt_sha256": "0x0000000000000000000000000000000000000000000000000000000000000066",
+        "canonical_sha256": "0x0000000000000000000000000000000000000000000000000000000000000067",
+        "batch_raw_sha256": "0x0000000000000000000000000000000000000000000000000000000000000068",
+        "state_root": "0x0000000000000000000000000000000000000000000000000000000000000069",
+        "proof": {
+          "header_hex": "0a0b",
+          "signature_hex": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+        }
+      }
+    }
+  },
+  "expiredRefusal": {
+    "message": "Invalid activity cursor",
+    "reason": "expired"
+  },
+  "snapshotRefusal": {
+    "message": "Invalid activity cursor",
+    "reason": "malformed, wrong account, changed binding or reorganized snapshot"
+  },
+  "notFound": {
+    "message": "Not found"
+  },
+  "unavailable": {
+    "message": "Service unavailable"
+  },
+  "invalidParameters": {
+    "message": "Invalid parameter(s)"
+  }
+}

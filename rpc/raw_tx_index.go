@@ -3,6 +3,7 @@ package evmrpc
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/coretypes"
@@ -32,6 +33,23 @@ func (r *RawTransactionAPI) GetRawTransactionByBlockNumberAndIndex(ctx context.C
 	if err != nil {
 		return nil, err
 	}
+	if blockNr == rpc.PendingBlockNumber && t.watermarks != nil && t.watermarks.pending != nil {
+		snapshot, err := t.watermarks.pending.Snapshot()
+		if err != nil {
+			return nil, fmt.Errorf("pending block unavailable: %w", err)
+		}
+		hashes, err := pendingBlockTxHashes(snapshot)
+		if err != nil {
+			return nil, err
+		}
+		if uint64(idx) >= uint64(len(hashes)) {
+			return nil, nil
+		}
+		if _, ok := t.watermarks.pending.PendingTx(hashes[idx]); !ok {
+			return nil, fmt.Errorf("pending transaction %s unavailable", hashes[idx].Hex())
+		}
+		return r.GetRawTransactionByHash(ctx, hashes[idx])
+	}
 	blockNumber, err := getBlockNumber(ctx, t.tmClient, t.watermarks, blockNr)
 	if err != nil {
 		return nil, err
@@ -40,7 +58,7 @@ func (r *RawTransactionAPI) GetRawTransactionByBlockNumberAndIndex(ctx context.C
 	if err != nil || block == nil {
 		return nil, err
 	}
-	return r.rawTransactionWithBlock(block, idx)
+	return r.rawTransactionWithBlock(ctx, block, idx)
 }
 
 func (r *RawTransactionAPI) GetRawTransactionByBlockHashAndIndex(ctx context.Context, blockHash common.Hash, index hexutil.Uint) (result hexutil.Bytes, returnErr error) {
@@ -61,10 +79,10 @@ func (r *RawTransactionAPI) GetRawTransactionByBlockHashAndIndex(ctx context.Con
 	if err != nil {
 		return nil, err
 	}
-	return r.rawTransactionWithBlock(block, idx)
+	return r.rawTransactionWithBlock(ctx, block, idx)
 }
 
-func (r *RawTransactionAPI) rawTransactionWithBlock(block *coretypes.ResultBlock, index uint32) (hexutil.Bytes, error) {
+func (r *RawTransactionAPI) rawTransactionWithBlock(ctx context.Context, block *coretypes.ResultBlock, index uint32) (hexutil.Bytes, error) {
 	msgs := r.transactions.getFilteredMsgs(block)
 	if uint64(index) >= uint64(len(msgs)) {
 		return nil, nil
@@ -76,6 +94,9 @@ func (r *RawTransactionAPI) rawTransactionWithBlock(block *coretypes.ResultBlock
 	tx, _ := msg.AsTransaction()
 	if tx == nil {
 		return nil, errors.New("transaction contains malformed EVM message data")
+	}
+	if !domainAllowsTransaction(ctx, r.transactions.domainIndex, tx) {
+		return nil, nil
 	}
 	return tx.MarshalBinary()
 }
