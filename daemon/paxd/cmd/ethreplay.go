@@ -1,9 +1,15 @@
 package cmd
 
 import (
+	"context"
+	"errors"
+	"fmt"
+	"net"
 	"net/http"
 	//nolint:gosec
 	_ "net/http/pprof"
+	"strconv"
+	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/wasm/x/wasm"
 	wasmkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/wasm/x/wasm/keeper"
@@ -30,13 +36,11 @@ func ReplayCmd(defaultNodeHome string) *cobra.Command {
 			if err := serverCtx.Viper.BindPFlags(cmd.Flags()); err != nil {
 				return err
 			}
-			go func() {
-				logger.Info("Listening for profiling at http://localhost:6060/debug/pprof/")
-				err := http.ListenAndServe(":6060", nil)
-				if err != nil {
-					logger.Error("Error from profiling server", "error", err)
-				}
-			}()
+			profiler, err := startReplayProfiler(cmd.Context(), 6060)
+			if err != nil {
+				return err
+			}
+			defer profiler.Close()
 
 			home := serverCtx.Viper.GetString(flags.FlagHome)
 
@@ -77,4 +81,28 @@ func ReplayCmd(defaultNodeHome string) *cobra.Command {
 	cmd.Flags().String(flags.FlagChainID, "pax-chain", "chain ID")
 
 	return cmd
+}
+
+func startReplayProfiler(ctx context.Context, port uint16) (*http.Server, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	listener, err := net.Listen("tcp4", net.JoinHostPort("127.0.0.1", strconv.Itoa(int(port))))
+	if err != nil {
+		return nil, fmt.Errorf("start replay profiling: %w", err)
+	}
+	profiler := &http.Server{
+		Addr:              listener.Addr().String(),
+		Handler:           http.DefaultServeMux,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+	stop := context.AfterFunc(ctx, func() { _ = profiler.Close() })
+	go func() {
+		defer stop()
+		if err := profiler.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			logger.Error("Error from profiling server", "error", err)
+		}
+	}()
+	logger.Info("Listening for profiling", "address", "http://"+profiler.Addr+"/debug/pprof/")
+	return profiler, nil
 }
