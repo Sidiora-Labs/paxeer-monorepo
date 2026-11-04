@@ -1,6 +1,6 @@
-<h1 align="center">LayerX Network</h1>
+<h1 align="center">Paxeer X Network</h1>
 
-LayerX Network は自律エージェント向けの決定的実行および会計ネットワークです。
+Paxeer X Network は、自律エージェント、決済、プログラム実行を支える単一の BFT ネットワークです。LayerX は Paxeer ノード `paxd` に統合されています。
 
 [English](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/README.md) · [Español](es.md) · 日本語 · [Русский](ru.md) · [简体中文](zh-cn.md) · [Português](pt-br.md) · [Deutsch](de.md) · [Français](fr.md)
 
@@ -9,115 +9,72 @@ LayerX Network は自律エージェント向けの決定的実行および会�
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/LICENSE)
 [![CI](https://github.com/Sidiora-Labs/Paxeer-X-Network/actions/workflows/ci.yml/badge.svg)](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/.github/workflows/ci.yml)
 
-## LayerX Network とは
+## Paxeer X Network とは
 
-LayerX Network は自律エージェント向けの決定的実行および会計ネットワークです。状態を変更する操作はすべて、署名済みで正規符号化された `Activity` として投入されます。プロトコルは行為者と権限を検証し、アカウントシーケンスを消費し、単一のグローバルシーケンス上で Activity を順序付け、決定的な状態遷移を適用し、結果の状態ルートに紐付く署名済みレシートを返します。
+Paxeer mainnet-beta の EVM チェーン ID は **125**（`0x7d`）です。カーネルはネットワークの一部としてブロックの提案に参加します。エージェントの操作は、EVM プリコンパイルへの呼び出しを含め、このチェーン上のトランザクションとして実行されます。レシートは、そのブロックが BFT コンセンサスによってコミットされた時点で確定します。送信が受理されただけでは、実行の成功を証明できません。
 
-追記専用の Activity ログが権威です。データベース索引は破棄可能な射影であり、そのログをリプレイすれば再構築できます。コンセンサスに関わる実行は浮動小数点、ローカル時計による判断、データベースの反復順、その他の非決定性の源を排除します。残高の書き込みが許されるコンポーネントは `402LXP` のみです。プロトコルモジュールは資金を自ら変更せず、検証済みの転送集合を発行します。
+ネイティブカーネルは `modules/lxphost/` を通じて `paxd` に組み込まれています。資金の移動は、チェーンの台帳、bank、EVM 状態の処理経路に反映されます。コンセンサスに関わるネイティブ実行では正規エンコーディングと検査付き整数演算を使い、リプレイの検証で再現性を確認します。
 
-通常のエージェント Activity は LayerX 内で実行および順序付けされます。定期チェックポイントは Paxeer に決済され、Paxeer はカストディ、チェックポイント登録、保証人ボンド、チャレンジ、出金、紛争、緊急退出を保持します。通常の LayerX 操作に Paxeer トランザクションは不要です。
+サブチェーンはデータベース内の名前空間であるテナントドメインです。独自のバリデーターネットワークや新しいノード基盤は必要ありません。このモノレポには単一ネットワークの構成要素が収められています。現在の仕様は [`spec/layerx-merge/`](https://github.com/Sidiora-Labs/Paxeer-X-Network/tree/main/spec/layerx-merge) にあります。
 
-本リポジトリは LayerX Network および Paxeer Network 向けの Sidiora Labs モノレポです。同一配置により、プロトコル、決済ネットワーク、コントラクト、開発者向け面を一箇所で監査できます。各サブシステムは独自のビルド、リリース、デプロイ、信頼境界を維持します。[`spec/layerx-protocol/design.md`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/spec/layerx-protocol/design.md) を参照してください。
+## 接続を試す
 
-## テストネットを試す
-
-全手順は [`docs/wiki/Quickstart.md`](../quickstart.md) です。`tools/platform/cli` から `layerx` CLI をインストールし、クラスタを起動し、`build/beta-cluster/env` を source したうえで、クレデンシャルを作成し、faucet から請求し、Activity を送信し、レシートを検証し、プログラムをデプロイします。
+公開 JSON-RPC は、`api1.mainnet-beta.paxeer.network` から `api14.mainnet-beta.paxeer.network`、および `api-mainnet-beta.paxeer.network` のルートで HTTPS により提供されます。次のクエリはチェーン ID とブロック高を読み取るだけです。`PAXEER_RPC_URL` は、この例で使うローカルのシェル変数です。
 
 ```sh
-layerx key create quickstart
+PAXEER_RPC_URL=https://api-mainnet-beta.paxeer.network
+curl --fail --silent --show-error --max-time 30 "$PAXEER_RPC_URL" \
+  --header 'Content-Type: application/json' \
+  --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
+curl --fail --silent --show-error --max-time 30 "$PAXEER_RPC_URL" \
+  --header 'Content-Type: application/json' \
+  --data '{"jsonrpc":"2.0","id":2,"method":"eth_blockNumber","params":[]}'
 ```
 
-```sh
-jq -n --arg did "$LAYERX_TEST_SOURCE_DID" --arg public_key "$LAYERX_TEST_SOURCE_PUBLIC_KEY" \
-  '{did:$did, public_key:$public_key}' > faucet-request.json
-curl --fail --silent --show-error --max-time 30 --cacert "$LAYERX_TEST_CA_FILE" \
-  --header "Authorization: Bearer $(tr -d '\r\n' < "$LAYERX_TEST_AUTH_TOKEN_FILE")" \
-  --request POST "$LAYERX_FAUCET_URL/v1/faucet/claims" \
-  --header "Idempotency-Key: faucet-quickstart-01" \
-  --header 'Content-Type: application/json' --data-binary @faucet-request.json
-```
+`eth_chainId` の結果は `"0x7d"` です。mainnet-beta は実資産を扱います。状態を変更するには、アプリケーションがチェーン 125 用のトランザクションに署名し、`eth_sendRawTransaction` で送信します。その後、トランザクションハッシュを指定して `eth_getTransactionReceipt` を照会します。`null` はブロックへの収録を確認するものではありません。レシートが得られたら `status`、`blockHash`、`blockNumber`、ログを確認してください。実行が失敗したトランザクションも、ブロックのコミット後は確定しています。
 
-```sh
-layerx --json payment test \
-  --from "$LAYERX_TEST_SOURCE_DID" \
-  --to "$LAYERX_TEST_DESTINATION_DID" \
-  --currency "$LAYERX_TEST_ASSET" \
-  --amount "$LAYERX_TEST_AMOUNT" \
-  --idempotency-key paymentquickstart1
-```
+Programs はプリコンパイル `0x000000000000000000000000000000000000101D` を通じて呼び出します。ABI は `precompiles/layerxprograms/abi.json` にあります。[Programs](../../programs/index.md) を参照してください。[クイックスタート](../quickstart.md) に追加の例があり、接続先とファイナリティは[ネットワーク概要](../../index.md)で説明しています。
 
-```sh
-layerx --json receipt verify \
-  --receipt receipt.hex \
-  --batch-id "$batch_id" \
-  --asset "$asset" \
-  --previous-state-root "$previous_root" \
-  --resulting-state-root "$resulting_root" \
-  --sequencer-public-key "$sequencer_key"
-```
-
-```sh
-layerx --json program deploy \
-  quickstart-program/target/wasm32-unknown-unknown/release/quickstart_program.wasm \
-  --program-id <program_id> \
-  --idempotency-key <idempotency_key> \
-  --key quickstart \
-  --account-sequence 0 \
-  --not-before-ms <not_before_ms> \
-  --expires-at-ms <expires_at_ms> \
-  --previous-state-root <previous_state_root>
-```
+ホスト型の `px_` メソッドは `services/platform/hosted/gateway/openrpc.json` に定義されています。すべての公開ノードがこれらのメソッドを提供するという意味ではありません。
 
 ## ソースからビルドする
 
-コアランタイムは C17 です（ルート `Makefile` の `-std=c17`）。agent、human、platform の各ワークスペースは Rust 1.91.1（`rust-toolchain.toml`）を使用します。LayerX 決済コントラクトは Solidity 0.8.27（`foundry.toml`）を使用します。リプレイ適格化には GCC 13、Clang 18、Docker、amd64 musl ランナー、AArch64 クロスコンパイラと QEMU が必要です。[`docs/QUALIFICATION.md`](../../operators/qualification.md) を参照してください。
+ネイティブランタイムは C17、Rust ワークスペースは `rust-toolchain.toml` で固定されたコンパイラ 1.91.1 を使い、Go モジュールは Go 1.25.8 を指定しています。`make paxd-build` はネイティブライブラリとリリースバージョン付きノードをビルドします。`make build` はネイティブランタイムと補助ツールをビルドします。
 
 ```sh
-make build
-make test
-make test-contracts
-make ci
+make paxd-build
+make paxd-version-check
 ```
 
-ディレクトリを変更せずに、Paxeer の範囲付きターゲット:
-
-```sh
-make paxeer-build
-make paxeer-lint
-make paxeer-test
-make paxeer-ci
-```
-
-`make ci` は `public-audit`、ネイティブテスト、2 回ビルドのアーカイブ比較、コンセンサスシンボル検査、サニタイザスイートを実行します。`make monorepo-ci` は別のクロスサブシステムゲートです。ローカルでの合格は、コントラクトのデプロイ、カストディの移動、実資産の取り扱いを許可するものではありません。
+ネイティブテスト、ノード統合テスト、リリース検証は、同じネットワークの異なる性質を検証します。コマンドと前提条件は[適格性検証](../../operators/qualification.md)を参照してください。単一コンポーネントのビルドでは、トランザクションの処理経路全体を検証できません。
 
 ## リポジトリ構成
 
-| Path | 用途 |
+| パス | 用途 |
 | --- | --- |
-| `src/`, `include/` | C17 プロトコルランタイム、ステートマシン、ストレージ、シーケンシング、リプレイ、決済統合 |
-| `cmd/` | ネイティブデーモンとツール（`layerxd`、`layerxctl`、genesis、verify） |
-| `agent/` | Rust エージェントインタフェース、SDK、デーモン、MCP サーバ、エンコーディング、暗号、証明検証 |
-| `human/` | 人間向けコントロールプレーン、型付きインテントコンパイラ、カストディ境界クライアント、エクスプローラ索引、Web アプリケーション |
-| `services/platform/` | 開発者プラットフォーム、ホスト型サービス、ミドルウェア、SDK、エミュレータ、CLI、リリーストール |
-| `programs/` | プログラマブル LayerX ランタイムおよびプログラムツール |
-| `interop/` | エージェントコマースおよびクロスネットワーク相互運用面 |
-| `contracts/` | Paxeer のカストディ、チェックポイント、保証人ボンディング、請求、紛争、退出向け Solidity コントラクト |
-| `go.mod`, `chain.mk`, `daemon/`, `node/`, `modules/`, `consensus/`, `sdk/`, `rpc/`, `precompiles/`, `storage/`, `wasm/`, `docker/` | Paxeer Network ノード、EVM/RPC 互換、ストレージエンジン、モジュール、コントラクト、サブシステムローカルビルド |
-| `spec/` | 規範的 KVX 仕様、生成された設計、要件、タスクグラフ |
-| `tests/`, `test/`, `tests/fuzz/` | ネイティブ、コントラクト、リプレイ、不変条件、フォルト、ファズの各スイート |
-| `migrations/` | ジェネシス、マイグレーション、突合、シャドウリプレイの作業 |
-| `docs/` | Wiki、モノレポ注記、適格化ドキュメント |
+| `daemon/`, `node/`, `consensus/` | ノード、ブロック処理、BFT コンセンサス |
+| `src/`, `include/` | C17 カーネルとネイティブプロトコルモジュール |
+| `modules/lxphost/` | ノードへのカーネル組み込み |
+| `modules/`, `precompiles/` | チェーン状態と EVM から呼び出せる処理 |
+| `rpc/` | ノードの JSON-RPC |
+| `programs/` | Programs ランタイム、サンドボックス、SDK |
+| `services/agent/` | エージェント SDK、エージェントデーモン、MCP サーバー |
+| `services/human/`, `apps/web/` | 人間向け制御と Web アプリケーション |
+| `services/platform/`, `tools/platform/cli/` | ホスト型プラットフォームサービスと開発者 CLI |
+| `services/interop/`, `sdk/platform/` | 相互運用とクライアント SDK |
+| `spec/` | 規範的仕様とタスクグラフ |
+| `docs/`, `tests/`, `tests/solidity/` | ドキュメントと適格性検証スイート |
 
 ## ドキュメント
 
-- Wiki 索引: [`docs/wiki/Home.md`](../../index.md)
-- モノレポ構成とリリースタグ: [`docs/MONOREPO.md`](../monorepo.md)
-- 適格化ゲート: [`docs/QUALIFICATION.md`](../../operators/qualification.md)
-- 仕様: [`spec/`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/spec/)
+- [ネットワーク概要](../../index.md)
+- [モノレポ構成](../monorepo.md)
+- [適格性検証](../../operators/qualification.md)
+- [仕様](https://github.com/Sidiora-Labs/Paxeer-X-Network/tree/main/spec/layerx-merge)
 
 ## SDK と統合
 
-| 言語 | Path |
+| 言語 | パス |
 | --- | --- |
 | Rust | `services/agent/crates/layerx-sdk` |
 | Python | `services/agent/sdk/python` |
@@ -127,7 +84,7 @@ make paxeer-ci
 | .NET | `sdk/platform/dotnet` |
 | Swift | `sdk/platform/swift` |
 
-`layerx-agentd` は `services/agent/crates/layerx-agentd` です。MCP サーバは `services/agent/crates/layerx-mcp` です。`tools/platform/cli` の開発者 CLI は `layerx install mcp` および `layerx install a2a` でこれらのトランスポートをインストールします。
+`layerx-agentd` は `services/agent/crates/layerx-agentd`、MCP サーバーは `services/agent/crates/layerx-mcp` にあります。どちらもネットワークのクライアントです。開発者 CLI は `tools/platform/cli` にあります。
 
 ## コントリビューション
 
@@ -141,4 +98,4 @@ make paxeer-ci
 
 Apache License, Version 2.0 のもとでライセンスされます。[`LICENSE`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/LICENSE) および [`NOTICE`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/NOTICE) を参照してください。
 
-LayerX Network は Sidiora Labs が開発しています。
+Paxeer X Network は Sidiora Labs が開発しています。

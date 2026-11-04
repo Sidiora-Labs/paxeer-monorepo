@@ -139,6 +139,15 @@ func (k Keeper) OpenAgentStream(ctx sdk.Context, payer, payee, token common.Addr
 	if startTime > math.MaxUint64/1000 || stopTime > math.MaxUint64/1000 {
 		return nil, agentcommon.ErrOverflow
 	}
+	metadataCount := 0
+	iterator := sdk.KVStorePrefixIterator(ctx.KVStore(k.storeKey), []byte(agentStreamMetadataPrefix))
+	for ; iterator.Valid() && metadataCount < types.MaxKernelRecords; iterator.Next() {
+		metadataCount++
+	}
+	iterator.Close()
+	if metadataCount == types.MaxKernelRecords {
+		return nil, fmt.Errorf("LXP_LENGTH_LIMIT: agent stream metadata count: %w", lxphost.Code(-5))
+	}
 	branch, commit := ctx.CacheContext()
 	txHash := [32]byte(ctx.EVMTxHash())
 	ordinal, err := nextPayCallOrdinal(branch, txHash)

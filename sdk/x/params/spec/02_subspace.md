@@ -4,35 +4,61 @@ order: 2
 
 # Subspace
 
-`Subspace` is a prefixed subspace of the parameter store. Each module which uses the
-parameter store will take a `Subspace` to isolate permission to access.
+A `Subspace` provides a module with a named prefix in the shared parameter store.
+Its implementation is in [`types/subspace.go`](../types/subspace.go). Giving a
+keeper its own subspace isolates its parameter keys from those of other modules;
+code holding the subspace can use the methods it exposes.
 
 ## Key
 
-Parameter keys are human readable alphanumeric strings. A parameter for the key
-`"ExampleParameter"` is stored under `[]byte("SubspaceName" + "/" + "ExampleParameter")`,
-	where `"SubspaceName"` is the name of the subspace.
+Parameter keys registered through `KeyTable.RegisterType` must be non-empty,
+alphanumeric strings. A key `ExampleParameter` in subspace `SubspaceName` is
+stored at `[]byte("SubspaceName/ExampleParameter")` in the persistent `params`
+store. Values are encoded using legacy Amino JSON. Writes through `SetRaw`,
+including those made by `Set` and `Update`, also record the same prefixed key in
+`transient_params`; `Modified` checks this block-local marker.
 
-Subkeys are secondary parameter keys those are used along with a primary parameter key.
-Subkeys can be used for grouping or dynamic parameter key generation during runtime.
+Keys are exact byte strings. Constructing a longer key from a registered key
+does not create an inherited subkey or a nested parameter namespace. Every key
+used by the typed accessors or `Update` needs its own registration. Fields in a
+stored object, such as the [governance parameters](../../gov/spec/06_params.md),
+are decoded as part of that object, not looked up as subkeys.
 
 ## KeyTable
 
-All of the parameter keys that will be used should be registered at the compile
-time. `KeyTable` is essentially a `map[string]attribute`, where the `string` is a parameter key.
+[`KeyTable`](../types/table.go) maps each exact key string to an attribute
+containing a `reflect.Type` and a `ValueValidatorFn`. Modules normally construct
+the table during keeper initialization and attach it with `WithKeyTable`.
+Registration rejects duplicate keys, invalid key strings and nil validators.
+`WithKeyTable` rejects a nil table or replacement of an already populated table.
 
-Currently, `attribute` consists of a `reflect.Type`, which indicates the parameter
-type to check that provided key and value are compatible and registered, as well as a function `ValueValidatorFn` to validate values.
+`checkType` performs an exact map lookup and panics for an unregistered key or a
+type mismatch. `Get` decodes into the supplied pointer and panics on a missing or
+undecodable value. `GetIfExists` leaves the destination unchanged when the value
+is absent. `Set` checks the registered type and encodes the value; it does not
+invoke the registered validator itself.
 
-Only primary keys have to be registered on the `KeyTable`. Subkeys inherit the
-attribute of the primary key.
+`Validate` returns an error for an unregistered key or an invalid value.
+`Update` panics on an unregistered key, loads the existing value if present,
+decodes the supplied JSON into that value, validates the result, and calls `Set`.
+This preserves omitted fields when updating an existing object. JSON decoding
+and validation failures are returned as errors.
+
+`GetRaw`, `SetRaw` and `Has` operate directly on the prefixed store without the
+typed registration checks. They do not provide subkey inheritance or automatic
+validation.
 
 ## ParamSet
 
-Modules often define parameters as a proto message. The generated struct can implement
-`ParamSet` interface to be used with the following methods:
+A module's parameter struct can implement the
+[`ParamSet`](../types/paramset.go) interface by returning `ParamSetPairs`, each
+with a key, field pointer and validator.
 
-* `KeyTable.RegisterParamSet()`: registers all parameters in the struct
-* `Subspace.{Get, Set}ParamSet()`: Get to & Set from the struct
+- `KeyTable.RegisterParamSet` registers each pair's exact key and type.
+- `Subspace.GetParamSet` loads each value into its field pointer.
+- `Subspace.GetParamSetIfExists` loads only the values present in the store.
+- `Subspace.SetParamSet` validates each dereferenced field, then stores it with
+  `Set`; invalid values cause a panic.
 
-The implementor should be a pointer in order to use `GetParamSet()`.
+Use a pointer to the parameter struct so reads can populate its fields. The
+[slashing parameter type](../../slashing/types/params.go) implements this pattern.

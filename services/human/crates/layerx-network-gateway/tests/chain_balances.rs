@@ -1,7 +1,7 @@
 use layerx_network_gateway::{
-    AssetBalance, Evidence, GatewayError, decode_account, decode_account_balances,
+    decode_account, decode_account_balances, AssetBalance, Evidence, GatewayError,
 };
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 fn account_document() -> Value {
     json!({
@@ -43,11 +43,11 @@ fn balances_decode_bank_coins_at_one_height() {
         vec![
             AssetBalance {
                 denom: "upax".to_owned(),
-                amount: 5000
+                amount: 5000.into()
             },
             AssetBalance {
                 denom: "uusdc".to_owned(),
-                amount: 7
+                amount: 7.into()
             },
         ]
     );
@@ -67,16 +67,29 @@ fn balances_decode_bank_coins_at_one_height() {
         .expect("recorded all_balances answer used by task 8.5.1");
     answer["height"] = json!(16);
     answer["balances"] = bank["out"]["response"].clone();
+    let recorded = decode_account_balances(&answer).expect("recorded uint256 balances decode");
+    assert_eq!(recorded.height, 16);
+    assert_eq!(recorded.balances.len(), 2);
+    for (row, expected) in recorded
+        .balances
+        .iter()
+        .zip(bank["out"]["response"].as_array().unwrap())
+    {
+        assert_eq!(row.denom, expected["denom"].as_str().unwrap());
+        assert_eq!(row.amount.to_string(), expected["amount"].as_str().unwrap());
+    }
     assert_eq!(
-        decode_account_balances(&answer),
-        Err(GatewayError::MalformedAnswer)
+        recorded.balances[1].amount.for_operation("native-send"),
+        Err(GatewayError::AmountOutOfRange {
+            operation: "native-send"
+        })
     );
 
     answer["height"] = json!(u64::MAX.to_string());
     answer["balances"] = json!([{"denom": "upax", "amount": u128::MAX.to_string()}]);
     let maximum = decode_account_balances(&answer).expect("exact integer bounds decode");
     assert_eq!(maximum.height, u64::MAX);
-    assert_eq!(maximum.balances[0].amount, u128::MAX);
+    assert_eq!(maximum.balances[0].amount, u128::MAX.into());
     answer["balances"] = json!([]);
     let empty = decode_account_balances(&answer).expect("empty bank answer decodes");
     assert_eq!(empty.height, u64::MAX);
@@ -112,6 +125,19 @@ fn balances_refuse_row_without_denom() {
     );
     answer = balance_answer();
     answer["balances"][1]["amount"] = json!("340282366920938463463374607431768211456");
+    let large = decode_account_balances(&answer).expect("uint256 read remains available");
+    assert_eq!(
+        large.balances[1].amount.to_string(),
+        "340282366920938463463374607431768211456"
+    );
+    assert_eq!(
+        large.balances[1].amount.for_operation("native-send"),
+        Err(GatewayError::AmountOutOfRange {
+            operation: "native-send"
+        })
+    );
+    answer["balances"][1]["amount"] =
+        json!("115792089237316195423570985008687907853269984665640564039457584007913129639936");
     assert_eq!(
         decode_account_balances(&answer),
         Err(GatewayError::MalformedAnswer)
@@ -141,7 +167,7 @@ fn account_decodes_paxeer_account_with_height() {
     assert_eq!(account.evidence, Evidence::GatewayReported);
     let paxeer = account.paxeer.expect("Paxeer chain account");
     assert_eq!(Some(paxeer.address), account.account.evm_address);
-    assert_eq!(paxeer.balance, 9);
+    assert_eq!(paxeer.balance, 9.into());
     assert_eq!(paxeer.nonce, 3);
     assert_eq!(paxeer.height, 812);
 
@@ -150,7 +176,7 @@ fn account_decodes_paxeer_account_with_height() {
     answer["paxeer"]["height"] = json!(16);
     let recorded = decode_account(&answer).expect("task 8.5.1 account answer decodes");
     let recorded = recorded.paxeer.expect("recorded Paxeer account");
-    assert_eq!(recorded.balance, 0x123456789abcdef);
+    assert_eq!(recorded.balance, 0x123456789abcdef.into());
     assert_eq!(recorded.nonce, 42);
     assert_eq!(recorded.height, 16);
 
