@@ -196714,7 +196714,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.463]
 title = "Carry the fallible transaction factory constructor through every command-line caller so the auth, genutil, staking, EVM and token-factory command packages compile again"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -201864,7 +201864,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1165]
 title = "Repair audit record 22.30.53 medium findings in storage/db_engine/litt (part 1 of 2): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.110", "22.31.111", "22.31.112", "22.31.113", "22.31.114", "22.31.115", "22.31.116", "22.31.117", "22.31.118"]
@@ -209783,7 +209783,7 @@ do_11 = "Attempt 2 was claimed before the attempt-1 ruling was recorded and repe
 
 [task.22.33.718]
 title = "Repair audit record 22.30.170 medium findings in deploy/launchpad/production/recovery (part 1 of 1): config-drift, doc-drift, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.313", "22.31.314"]
