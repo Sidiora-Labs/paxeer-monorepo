@@ -1232,34 +1232,83 @@ test-wave-8: test-service-offer test-service-commit test-service-attest \
 
 
 $(BUILD_DIR)/tests/lxp_test_codec_primitives: \
-		tests/codec/lxp_test_codec_primitives.c $(LIBRARY)
+		tests/codec/lxp_test_codec_primitives.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(EXTRA_LDFLAGS) -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+		$(LIBRARY) $(EXTRA_LDFLAGS) \
+		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
-test-codec: $(BUILD_DIR)/tests/lxp_test_codec_primitives
+# Task 22.33.1034 audit 22.30.4 proof record:
+# 001: binding_authority_substitutes_receiver_signature,
+#      native_receive_verifies_receiver_signature, receive_environment_copies_binding,
+#      binding_receive_retired_ordinals_refused.
+# 017: bridge_credit_symbols_absent; 004: budget_pull_type_refused,
+#      budget_delegate_spend_unchanged; 016: codec_malformed_envelope_admission.
+# 005: lxp_codec_vector_run; 006: builder_header_without_custody.
+# 007: fee_schedule_golden_bytes, fee_per_activity_golden_table.
+# 008: execute_refuses_host_fee_meter, prepare_refuses_host_fee_meter.
+# Prior attempt revision 3b9662dce1cc1e6a55ccc10007979f1f37511383:
+# make -s test-codec test-codec-limits test-codec-vectors test-codec-version
+# exited 2 at prepare_refuses_host_fee_meter's decoded receipt verification.
+# Wiring request: modules/layerxpay (pay domain) owns native payment producer
+# coverage; the C binding tests exercise the retained SEND consumer contract.
+CODEC_AUDIT_TESTS := $(addprefix $(BUILD_DIR)/tests/, \
+	lxp_test_binding_authority_receive lxp_test_bridge_credit_absent \
+	lxp_test_budget_pull_retired lxp_test_custody_builder_header \
+	lxp_test_fee_golden lxp_test_fee_meter_refused)
+
+$(CODEC_AUDIT_TESTS): $(BUILD_DIR)/tests/%: tests/codec/%.c \
+		tests/codec/lxp_kernel_case.h $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
+	@mkdir -p $(@D)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+		$(LIBRARY) $(EXTRA_LDFLAGS) \
+		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
+
+test-codec: $(BUILD_DIR)/tests/lxp_test_codec_primitives $(CODEC_AUDIT_TESTS)
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_codec_primitives
+	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_binding_authority_receive \
+		binding_authority_substitutes_receiver_signature \
+		native_receive_verifies_receiver_signature receive_environment_copies_binding \
+		binding_receive_retired_ordinals_refused
+	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_bridge_credit_absent \
+		"$(abspath $(LIBRARY))" bridge_credit_symbols_absent deposit_nullifier_kept
+	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_budget_pull_retired \
+		budget_pull_type_refused budget_delegate_spend_unchanged
+	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_custody_builder_header \
+		builder_header_without_custody
+	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_fee_golden \
+		fee_schedule_golden_bytes fee_per_activity_golden_table
+	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_fee_meter_refused \
+		execute_refuses_host_fee_meter prepare_refuses_host_fee_meter
 
 $(BUILD_DIR)/tests/lxp_test_codec_composite: \
-		tests/codec/lxp_test_codec_composite.c $(LIBRARY)
+		tests/codec/lxp_test_codec_composite.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(EXTRA_LDFLAGS) -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+		$(LIBRARY) $(EXTRA_LDFLAGS) \
+		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 test-codec-limits: $(BUILD_DIR)/tests/lxp_test_codec_composite
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_codec_composite
 
 $(BUILD_DIR)/tests/lxp_test_codec_strict: \
-		tests/codec/lxp_test_codec_strict.c $(LIBRARY)
+		tests/codec/lxp_test_codec_strict.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(EXTRA_LDFLAGS) -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+		$(LIBRARY) $(EXTRA_LDFLAGS) \
+		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 test-codec-version: $(BUILD_DIR)/tests/lxp_test_codec_strict
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_codec_strict
 
 $(BUILD_DIR)/tests/lxp_test_codec_vectors: \
 		tests/codec/lxp_test_codec_vectors.c $(LIBRARY) \
-		tests/vectors/codec/valid.lxv tests/vectors/codec/adversarial.lxv
+		tests/vectors/codec/valid.lxv tests/vectors/codec/adversarial.lxv \
+		$(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(EXTRA_LDFLAGS) -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+		$(LIBRARY) $(EXTRA_LDFLAGS) \
+		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 test-codec-vectors: $(BUILD_DIR)/tests/lxp_test_codec_vectors
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_codec_vectors
