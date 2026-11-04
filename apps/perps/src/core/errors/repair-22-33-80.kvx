@@ -1,0 +1,19 @@
+[repair.22.33.80]
+audit = "22.30.11"
+test_file = "apps/perps/tests/repair-22-33-80.test.ts"
+baseline = "Not run: the task's explicit gate order forbids verification before implementation and requires hf-build before hf-done."
+evidence = "The bounded runner records the candidate revision, command, exit code and private log for hf-build and hf-done."
+
+[finding.fetch-error-classification]
+tests = ["fetch_timeout_classification", "fetch_cancellation_classification", "fetch_transport_failure_classification"]
+proof = "Real fetchWithPolicy failures from loopback timeout, caller cancellation and disconnected HTTP transport reach their catalog entries with causes preserved."
+
+[finding.perps-refusal-guidance]
+tests = ["perps_refusal_guidance"]
+proof = "Production ABI encodings travel over loopback JSON-RPC through viem, classifyError and alertErrorText; the original node code and revert bytes remain intact."
+wiring_request = "apps/perps/tests/classify-precompile.test.ts — perps tests owning domain (3): replace the stale PerpsDeadlineExpired slippage expectation with the dedicated deadline mapping."
+
+[finding.sentry-initialization-race]
+tests = ["simultaneous_first_sentry_reports"]
+proof = "Concurrent initial reports use the real Sentry SDK and HTTP envelope transport; both events and a concurrent breadcrumb reach the initialized reporter."
+retry_policy = "Concurrent callers share one pending import; import failure returns null for those callers and clears the promise so the next call retries; success stays cached."
