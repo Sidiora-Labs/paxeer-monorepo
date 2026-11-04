@@ -30,6 +30,7 @@ import (
 	banktypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
 	distributiontypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/distribution/types"
 	stakingtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/staking/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/tools/benchmark/loadtest/operations"
 	wasmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/wasm/x/wasm/types"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -654,6 +655,16 @@ func ReadConfig(path string) Config {
 }
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "benchmark-ops" {
+		ctx, stop := operations.SignalContext()
+		err := operations.RunCLI(ctx, os.Args[2:], os.Stdin, os.Stdout, operations.Executables{})
+		stop()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
 	configFilePath := flag.String("config-file", GetDefaultConfigFilePath(), "Path to the config.json file to use for this run")
 	flag.Parse()
 

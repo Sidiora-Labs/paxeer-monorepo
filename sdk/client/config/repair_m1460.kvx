@@ -1,0 +1,9 @@
+[repair.22.33.1460]
+audit = "22.30.84"
+finding_config_string_roundtrip = "TestRepairM_1460_StringRoundTrip; TestRepairM_1460_InvalidStringPreservesConfig; TestRepairM_1460_AtomicReplacementRecovery"
+finding_config_interrupted_write = "TestRepairM_1460_AtomicReplacementRecovery; TestRepairM_1460_RefusedReplacementRecovery"
+implementation = "Canonical TOML string encoding and consumer validation precede all filesystem writes; replacement uses a mode-0600 sibling, file sync, atomic rename and directory sync."
+baseline = "Not run: the task's ordered gate instructions prohibit testing before full implementation and prohibit running verify_cmd outside hf-done. No baseline failure is claimed."
+wiring_requests = "None; both proposals are confined to sdk/client/config."
+qualification = "The hf-build and hf-done ledgers and final evidence report record the exact qualified candidate revision, command, exit code and private log location."
+gotcha = "A nonempty directory supplies a deterministic real rename refusal under root; permission-bit-only refusal tests do not."

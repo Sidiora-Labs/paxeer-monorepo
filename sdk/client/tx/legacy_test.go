@@ -3,8 +3,6 @@ package tx_test
 import (
 	"testing"
 
-	"github.com/Sidiora-Labs/Paxeer-X-Network/node"
-	appparams "github.com/Sidiora-Labs/Paxeer-X-Network/node/params"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
@@ -55,13 +53,13 @@ func buildTestTx(t *testing.T, builder client.TxBuilder) {
 
 type TestSuite struct {
 	suite.Suite
-	encCfg   appparams.EncodingConfig
+	encCfg   txTestEncodingConfig
 	protoCfg client.TxConfig
 	aminoCfg client.TxConfig
 }
 
 func (s *TestSuite) SetupSuite() {
-	encCfg := app.MakeEncodingConfig()
+	encCfg := makeTxEncodingConfig()
 	s.encCfg = encCfg
 	s.protoCfg = tx.NewTxConfig(codec.NewProtoCodec(encCfg.InterfaceRegistry), tx.DefaultSignModes)
 	s.aminoCfg = legacytx.StdTxConfig{Cdc: encCfg.Amino}

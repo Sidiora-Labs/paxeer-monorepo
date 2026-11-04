@@ -1,0 +1,43 @@
+[repair.22.33.1170]
+audit = "spec/layerx-merge/programme/audit/records/22.30.53.kvx"
+acceptance = "22998.1"
+baseline = "No baseline verification was run: the explicit gate order forbids verification before implementation and forbids running verify_cmd by hand; there was no previous gate ledger or in-scope change."
+evidence = "The runner records the exact candidate revision, command, exit and private log in the hf-build/hf-done ledger and cg spec done record."
+wiring_requests = "None: the CLI and all repaired producer and consumer paths are inside storage/db_engine/litt/benchmark."
+
+[finding.benchmark-error-result]
+tests = ["TestRepairM_1170_ErrorResult", "TestRepairM_1170_CLIErrorStatus"]
+repair = "Run observes the monitor failure, cancels and joins workers, retains the recorded error, and the standalone main uses the tested CLI exit status."
+
+[finding.benchmark-shutdown-drain]
+tests = ["TestRepairM_1170_ShutdownDrainRestart", "TestRepairM_1170_CloseError"]
+repair = "Interruptible admission and quota waits stop new work; writers flush accepted partial batches; Run joins workers, closes the DB, drains tracker reports, and returns workload and close errors. Reopen checks every acknowledged value and recovered completed metadata."
+
+[finding.benchmark-missing-read-success]
+tests = ["TestRepairM_1170_MissingReadSuccess", "TestRepairM_1170_CorruptReadSuccess", "TestRepairM_1170_ReadSafetyDeadline", "TestRepairM_1170_ShutdownDrainRestart"]
+repair = "Read throughput includes only verified values. Missing and corrupt values have explicit counters and fail either legacy flag setting. Read requests carry cohort safety deadlines checked after quota waits and reads; expired cohorts never produce fresh reads. The startup maximum value size is immutable rather than racing the generator's cohort map."
+
+[finding.cohort-durability-restart]
+tests = ["TestRepairM_1170_CohortDurabilityRestart"]
+repair = "Tracker discovery supplies the current fsync policy to every loaded cohort and successors inherit it, including when the policy was enabled after a prior run."
+
+[finding.generator-seed]
+alias = "fixture value"
+tests = ["TestRepairM_1170_GeneratorSeed"]
+repair = "The constructor retains its seed for deterministic keys, pooled values and values larger than the pool."
+
+[finding.generator-exact-pool]
+tests = ["TestRepairM_1170_GeneratorExactPool"]
+repair = "Zero-length values are explicit and valid pooled starts include both endpoints, including the sole start for an exact pool-sized value."
+
+[finding.cohort-gap-recovery]
+tests = ["TestRepairM_1170_CohortGapRecovery", "TestRepairM_1170_CohortRangeRecovery"]
+repair = "Discovery sorts IDs, rejects missing interior cohorts and inconsistent key ranges with directory and cohort context, and preserves neighboring files."
+
+[finding.genesis-cohort-count]
+tests = ["TestRepairM_1170_GenesisCohortCount"]
+repair = "Positive CohortSize defines inclusive genesis 0..CohortSize-1 and every later or restarted cohort contains exactly that count. The existing singleton restart expectations now use its exact key 1."
+
+[gotcha.read-safety]
+observed = "A read request can remain queued or wait for rate quota beyond its cohort's safety TTL; serialized cohort timestamps have second precision."
+resolution = "Carry and recheck the producer's deadline at consumption; the regression allows for timestamp precision and uses real producer output."

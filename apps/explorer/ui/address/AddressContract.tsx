@@ -27,18 +27,11 @@ interface Props extends Pick<RoutedTabsProps, 'leftSlot' | 'leftSlotProps'> {
 }
 
 const AddressContract = ({ addressData, isLoading = false, hasMudTab, ...rest }: Props) => {
-  const [ isQueryEnabled, setIsQueryEnabled ] = React.useState(false);
   const [ autoVerificationStatus, setAutoVerificationStatus ] = React.useState<TContractAutoVerificationStatus | null>(null);
 
   const router = useRouter();
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
-  const handleChannelJoin = React.useCallback(() => {
-    setIsQueryEnabled(true);
-  }, []);
-  const handleChannelError = React.useCallback(() => {
-    setIsQueryEnabled(true);
-  }, []);
 
   const tab = getQueryParamString(router.query.tab);
   const isSocketEnabled = Boolean(addressData?.hash) && addressData?.is_contract && !isLoading && CONTRACT_TAB_IDS.concat('contract' as never).includes(tab);
@@ -46,13 +39,11 @@ const AddressContract = ({ addressData, isLoading = false, hasMudTab, ...rest }:
   const channel = useSocketChannel({
     topic: `addresses:${ addressData?.hash?.toLowerCase() }`,
     isDisabled: !isSocketEnabled,
-    onJoin: handleChannelJoin,
-    onSocketError: handleChannelError,
   });
 
   const contractTabs = useContractTabs({
     addressData,
-    isEnabled: isQueryEnabled && !isLoading,
+    isEnabled: Boolean(addressData?.hash) && !isLoading,
     hasMudTab,
     channel,
   });

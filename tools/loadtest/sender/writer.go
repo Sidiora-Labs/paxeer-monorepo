@@ -26,6 +26,7 @@ type TxsWriter struct {
 	txBuffer        []*types.LoadTx
 	startHeight     uint64
 	initialized     bool
+	closed          bool
 }
 
 func NewTxsWriter(gasPerBlock uint64, txsDir string, startHeight uint64, numBlocks uint64) *TxsWriter {
@@ -42,6 +43,9 @@ func NewTxsWriter(gasPerBlock uint64, txsDir string, startHeight uint64, numBloc
 var ErrWriterComplete = errors.New("transaction writer completed requested blocks")
 
 func (w *TxsWriter) Send(ctx context.Context, tx *types.LoadTx) error {
+	if w.closed {
+		return errors.New("transaction writer is closed")
+	}
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -314,5 +318,18 @@ func (w *TxsWriter) Flush() error {
 	w.bufferGas = 0
 	w.nextHeight++
 	w.blocksGenerated++
+	return nil
+}
+
+// Close publishes the accepted tail after generation has stopped. Failed
+// publication remains retryable; only successful finalization closes admission.
+func (w *TxsWriter) Close() error {
+	if w.closed {
+		return nil
+	}
+	if err := w.Flush(); err != nil {
+		return err
+	}
+	w.closed = true
 	return nil
 }

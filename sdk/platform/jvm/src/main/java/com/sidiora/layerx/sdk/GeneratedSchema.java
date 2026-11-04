@@ -2916,7 +2916,7 @@ public final class GeneratedSchema {
             }
         }
         public static final SchemaTypes.TypedOperation<ProgramActivityRequest, ProgramActivityResponse> PROGRAM_ACTIVITY = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, "program.activity", false, ProgramActivityRequest.class, ProgramActivityResponse.class);
-        public static final ProgramTransport PROGRAM_ACTIVITY_TRANSPORT = new ProgramTransport("eth_getLogs", "0x000000000000000000000000000000000000101d", List.of("layerxprograms.ProgramCallOutcome(bytes32,bytes32,bytes32,uint64,uint8,uint16,uint16,uint32,uint32,int32,bytes32,bytes32,bytes32,bytes32)"));
+        public static final ProgramTransport PROGRAM_ACTIVITY_TRANSPORT = new ProgramTransport("eth_getTransactionByHash", "", List.of("eth_getTransactionByHash(retainedTransactionHash)"));
         public record ProgramCallRequest(JsonNode idempotency_key) implements SchemaTypes.GeneratedRequest {
             public ProgramCallRequest {
                 Objects.requireNonNull(idempotency_key, "idempotency_key");
@@ -3011,7 +3011,7 @@ public final class GeneratedSchema {
             @JsonValue public AgentModels.ProgramReceiptResponse wireValue() { return value; }
         }
         public static final SchemaTypes.TypedOperation<ProgramReceiptRequest, ProgramReceiptResponse> PROGRAM_RECEIPT = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.AGENT, "program.receipt", false, ProgramReceiptRequest.class, ProgramReceiptResponse.class);
-        public static final ProgramTransport PROGRAM_RECEIPT_TRANSPORT = new ProgramTransport("eth_getLogs", "0x000000000000000000000000000000000000101d", List.of("layerxprograms.ProgramCallOutcome(bytes32,bytes32,bytes32,uint64,uint8,uint16,uint16,uint32,uint32,int32,bytes32,bytes32,bytes32,bytes32)"));
+        public static final ProgramTransport PROGRAM_RECEIPT_TRANSPORT = new ProgramTransport("pax_sequencerReceipt", "", List.of("pax_sequencerReceipt(retainedTransactionHash)"));
         public record ProgramSimulateRequest() implements SchemaTypes.GeneratedRequest {
         }
         public record ProgramSimulateResponse(JsonNode committed, JsonNode program_id, JsonNode terminal_result, JsonNode terminal_kind, JsonNode response, JsonNode block, JsonNode rung) implements SchemaTypes.GeneratedResponse {

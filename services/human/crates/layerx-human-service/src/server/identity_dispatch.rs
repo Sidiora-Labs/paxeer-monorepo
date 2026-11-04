@@ -9,7 +9,7 @@ use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use crate::auth::OperationDigest;
+use crate::auth::{OperationDigest, StepUpChallenge, StepUpEvidence};
 use crate::onboarding::{
     OnboardingJourney, OnboardingStage, OnboardingStart, OnboardingStatus, RecoveryPolicy,
 };
@@ -20,7 +20,16 @@ use layerx_types::intent::{ApprovalThreshold, RecoveryRoot};
 
 #[path = "identity_projection.rs"]
 mod api_projection;
-pub(crate) use api_projection::{step_up_challenge, step_up_evidence};
+pub(crate) fn step_up_challenge(value: &StepUpChallenge) -> Result<Value, IdentityDispatchError> {
+    api_projection::step_up_challenge(value)
+}
+
+pub(crate) fn step_up_evidence(value: &StepUpEvidence) -> Result<Value, IdentityDispatchError> {
+    if value.completed_at() >= value.expires_at() {
+        return Err(IdentityDispatchError::Corrupt);
+    }
+    api_projection::step_up_evidence(value)
+}
 
 fn onboarding_stage_copy_key(stage: OnboardingStage) -> &'static str {
     match stage {

@@ -106,31 +106,57 @@ Authenticate with the separate WS API key, not the REST key. Lifetime is 300 sec
 | Request | [`GatewayNewWebSocketTokenParams`](./gateway.go) |
 | Response | [`WsToken`](./gateway.go) |
 
-```go
-credential, err := client.Gateway.NewWebSocketToken(
-	context.Background(),
-	sdk.GatewayNewWebSocketTokenParams{Symbol: sdk.F(sdk.WsScopeBtc)},
-	option.WithWsMintKey(os.Getenv("WS_MINT_KEY")),
-)
-if err != nil {
-	var apiErr *sdk.Error
-	if errors.As(err, &apiErr) {
-		fmt.Println("token mint failed with status", apiErr.StatusCode)
-	}
-	return
-}
+Use a WebSocket transport such as `github.com/gorilla/websocket` (install it in
+your consumer with `go get github.com/gorilla/websocket@v1.5.3`). This helper mints
+and uses the token in the upgrade request, then prints only scope and expiry.
+Its imports are `"context"`, `"errors"`, `"fmt"`, `"io"`, `"net/url"`, `"time"`,
+`sdk "chainflow-data-gateway"`, `"chainflow-data-gateway/option"`, and
+`"github.com/gorilla/websocket"`.
 
-fmt.Println(credential.Symbol, credential.ExpiresAt, credential.ExpiresIn)
-// Keep credential.Token in memory for the matching WebSocket handshake.
-// Additional import: "errors".
+```go
+func ConnectBTC(ctx context.Context, client *sdk.Client, mintKey, endpoint string, dialer *websocket.Dialer, output io.Writer) (*websocket.Conn, error) {
+	credential, err := client.Gateway.NewWebSocketToken(
+		ctx,
+		sdk.GatewayNewWebSocketTokenParams{Symbol: sdk.F(sdk.WsScopeBtc)},
+		option.WithWsMintKey(mintKey),
+		option.WithQueryDel("token"),
+	)
+	if err != nil {
+		return nil, errors.New("WebSocket token mint failed")
+	}
+
+	u, err := url.Parse(endpoint)
+	if err != nil || u.Scheme != "wss" || u.Host == "" || u.Path != "/ws/btc" {
+		return nil, errors.New("expected a trusted wss endpoint for /ws/btc")
+	}
+	query := u.Query()
+	query.Set("token", credential.Token)
+	u.RawQuery = query.Encode()
+	conn, response, err := dialer.DialContext(ctx, u.String(), nil)
+	if err != nil {
+		if response != nil {
+			response.Body.Close()
+		}
+		// Dial errors can contain the token-bearing URL; return only a safe message.
+		return nil, errors.New("WebSocket handshake failed")
+	}
+	if _, err := fmt.Fprintf(output, "scope=%s expires_at=%s expires_in=%d\n", credential.Symbol, credential.ExpiresAt.UTC().Format(time.RFC3339), credential.ExpiresIn); err != nil {
+		conn.Close()
+		return nil, errors.New("WebSocket metadata output failed")
+	}
+	return conn, nil
+}
 ```
 
-The per-request minting option above overrides the REST header. Send
-`credential.Token` as the `token` query parameter when your WebSocket transport
-opens `wss://data.feed.chainflowtrading.com/ws/btc`. URL-encode the query value;
-never print the URL. Use a fresh token for a new handshake after expiry, with
-`symbol="markets"` for `/ws/markets` or `symbol="explorer"` for `/ws/explorer`.
-Do not send long-lived API keys on the WebSocket handshake.
+Call `ConnectBTC(ctx, client, os.Getenv("WS_MINT_KEY"),
+"wss://data.feed.chainflowtrading.com/ws/btc", websocket.DefaultDialer, os.Stdout)`
+and close the returned connection when finished. The per-request minting option
+overrides the REST header; the handshake sends only the opaque credential.
+Keep it in memory and never print the response, raw JSON, handshake URL or raw
+transport error. Use a fresh token for a new handshake after expiry. For other
+streams, change both the mint scope and the matching endpoint: `symbol="markets"`
+for `/ws/markets` or `symbol="explorer"` for `/ws/explorer`. Do not send long-lived
+API keys on the WebSocket handshake.
 
 ## `PriceFeeds`
 

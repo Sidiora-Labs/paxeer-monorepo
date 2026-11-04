@@ -1,0 +1,17 @@
+[repair.22.31.313]
+finding = "topology_adapter_path"
+implementation = "connected_plan loads tools/launchpad/production/integration/adapters.py below the admitted source root with unchanged regular-file and SHA256 checks. The canonical adapter derives all twelve ROLES from the topology producer, re-exports its DOCUMENT_ENV and implements bounded, strict-JSON document_binding with a digest of the exact admitted bytes."
+proving_tests = ["test_topology_adapter_path_preserves_digest_verification", "test_topology_adapter_path_real_runtime_contract_all_twelve_roles", "test_topology_adapter_path_actual_client_transports_compiler_output", "test_topology_adapter_path_connected_render_capacity_and_recovery", "test_topology_adapter_path_changed_document_rejected", "test_topology_adapter_path_changed_chain_rejected", "test_topology_adapter_path_invalid_document_rejected", "test_topology_adapter_path_nonregular_document_rejected"]
+baseline_revision = "bd24ba69c766cd8404e62462774bf048cbcb1647"
+baseline_tests = "The supplied attempt-3 gate failed test_topology_adapter_path_real_runtime_contract_all_twelve_roles because the canonical adapter lacked ROLES, DOCUMENT_ENV and document_binding; the other two tests passed. Continued the supplied changes without rerunning that unchanged failing gate."
+qualification = "Qualification is exclusively hf-build followed by hf-done on the final unchanged source tree; no pass is claimed before those gates execute. The runner records the exact verified candidate revision, command, exit and private log in /out/run/gates.jsonl and /out/logs/verify-1.log."
+wiring_requests = []
+proof = "Committed topology document fixtures and reviewed role grants pass through the actual adapter into connected_plan for all twelve roles. LocalHTTP fetches the real compiler's canonical connected output from an in-process HTTP server; validate_connected_plan consumes it and the SQLite Journal preserves identical role bindings and capacity after close and reopen."
+limitation = "Fixtures prove topology document byte admission, connected rendering, arithmetic capacity planning and durable proposal recovery. They do not establish application schema readiness against a live database, measured capacity or cluster activation."
+scope_resolution = "The continuation admits tools/launchpad/production/integration/adapters.py; its missing topology exports are implemented in scope and no owning-domain wiring request remains."
+
+[gotcha.22.31.313]
+area = "test"
+symptom = "The canonical adapter path alone cannot connect topology while the adapter lacks the role/document contract."
+do = "Export the existing topology producer's role and environment bindings from the admitted canonical adapter; retain digest and document admission checks and drive connected rendering with real codec and HTTP paths."
+cache_cleanup = "Earlier continuation removed phase2 bytecode caches; no tracked cache or bytecode remains in this task's paths before qualification."
