@@ -1,0 +1,7 @@
+[repair.22.33.464]
+finding = "metadata-redirect-filter-bypass"
+test = "Explorer.Repair2233464Test: metadata_redirect_filter_bypass is blocked from recorded chain URI through HTTP into the instance schema"
+proof = "Recorded ERC-721 eth_call response decoded by EthereumJSONRPC.NFT, trusted IPFS gateway replay over the pinned Tesla Mint adapter, redirect rejected before the private server, error retained by Explorer.Chain.Token.Instance."
+baseline = "Not run: the ordered task instructions prohibit tests before implementation and require verification only through hf-done after hf-build; the embedded baseline step conflicts with that order."
+wiring_requests = "None; implementation and proof are within the authorized paths."
+fixture = "The loopback gateway uses the existing initial IPFS gateway exemption; redirect destinations receive the full configured destination policy. No public endpoint or weakened blacklist is required."
