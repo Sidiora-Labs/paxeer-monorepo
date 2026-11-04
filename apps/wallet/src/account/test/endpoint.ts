@@ -4,6 +4,7 @@ import type { AddressInfo } from 'node:net';
 import path from 'node:path';
 import type { IntentPlan, PlanIntentRequest, SubmitPlanRequest } from '@paxeer/wallet';
 import type { AccountConfig } from '../config';
+import mergedHuman from './merged-human.json';
 
 type Exchange = {
   request: { method: string; params: unknown[] };
@@ -30,6 +31,9 @@ export const SCENARIOS = [
   'kernel-not-configured',
   'deposit',
   'merged',
+  'chain',
+  'consensus-unavailable',
+  'consensus-catching-up',
 ] as const;
 export type Scenario = (typeof SCENARIOS)[number];
 
@@ -42,12 +46,88 @@ function readJson<T>(file: string): T {
 }
 
 export function golden(name: string): Golden {
+  if (Object.hasOwn(mergedHuman, name)) return mergedHuman[name as keyof typeof mergedHuman];
   return readJson<Golden>(path.join(GOLDEN_DIR, `${name}.json`));
 }
 
 export function recordings(scenario: Scenario): Exchange[] {
+  if (
+    scenario === 'chain' ||
+    scenario === 'consensus-unavailable' ||
+    scenario === 'consensus-catching-up'
+  ) {
+    const legacy = recordings('available');
+    const account = legacy.find((entry) => entry.request.method === 'px_resolveAccount')?.response
+      .result;
+    const overrides: Exchange[] = [
+      {
+        request: { method: 'px_getNetwork', params: [] },
+        response: {
+          result: {
+            network_id: 'paxeer',
+            paxeer: { chain_id: '0x7d', latest_block: '0x3e8' },
+            consensus:
+              scenario === 'consensus-unavailable'
+                ? null
+                : {
+                    latest_height: '1000',
+                    latest_block_hash: 'aa'.repeat(32),
+                    latest_app_hash: 'bb'.repeat(32),
+                    catching_up: scenario === 'consensus-catching-up',
+                  },
+            ...(scenario === 'consensus-unavailable' ? { reason: 'consensus_unavailable' } : {}),
+          },
+        },
+      },
+      {
+        request: { method: 'px_getAccount', params: [OWNER] },
+        response: {
+          result: {
+            account,
+            paxeer: { address: OWNER, balance: '0xde0b6b3a7640000', nonce: '0x3', height: 1000 },
+          },
+        },
+      },
+      {
+        request: { method: 'px_getBalances', params: [OWNER] },
+        response: {
+          result: {
+            account,
+            height: 1000,
+            balances: [{ denom: 'ulxp', amount: '125000' }],
+          },
+        },
+      },
+    ];
+    const replaced = new Set(overrides.map((entry) => entry.request.method));
+    return [
+      ...mergedRecordings().filter((entry) => !replaced.has(entry.request.method)),
+      ...overrides,
+    ];
+  }
   if (scenario === 'merged' || scenario === 'deposit') return mergedRecordings();
-  return readJson<Exchange[]>(path.join(SDK_ENDPOINT_DIR, `${scenario}.json`));
+  const entries = readJson<Exchange[]>(path.join(SDK_ENDPOINT_DIR, `${scenario}.json`));
+  if (
+    scenario === 'kernel-unreachable' ||
+    scenario === 'no-finalised-checkpoint' ||
+    scenario === 'kernel-not-configured'
+  )
+    return entries.map((entry) =>
+      entry.request.method !== 'px_getNetwork'
+        ? entry
+        : {
+            request: entry.request,
+            response: {
+              result: {
+                network_id: 'paxeer',
+                paxeer: { chain_id: '0x7d', latest_block: '0x3e8' },
+                consensus: null,
+                reason: 'consensus_unavailable',
+              },
+            },
+          }
+    );
+  return entries;
 }
 
 function mergedRecordings(): Exchange[] {
@@ -200,7 +280,7 @@ function submitRefusal(body: unknown, now: number): string | null {
       return `leg ${leg.index} window exceeds the deadline`;
     if (now < binding.not_before || now > binding.not_after)
       return `leg ${leg.index} window does not contain the submission time`;
-    if (leg.domain === 'layerx') sequence += 1;
+    sequence += 1;
   }
   return null;
 }
@@ -388,6 +468,7 @@ export async function startAccountEndpoint(): Promise<AccountEndpoint> {
     config(scenario: Scenario): AccountConfig {
       return {
         endpointUrl: origin(scenarioServers.get(scenario)!),
+        hostedUrl: origin(scenarioServers.get(scenario)!),
         humanUrl: `${base}/human`,
         explorerUrl: `${base}/explorer`,
       };
