@@ -1,0 +1,15 @@
+{
+  "ghsa_id": "GHSA-55f3-3qvg-8pv5",
+  "summary": "Symlink bypasses filesystem sandbox",
+  "vulnerabilities": [
+    {
+      "first_patched_version": null,
+      "package": {
+        "ecosystem": "rust",
+        "name": "wasmer"
+      },
+      "vulnerable_functions": [],
+      "vulnerable_version_range": "<= 4.3.1"
+    }
+  ]
+}
