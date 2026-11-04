@@ -25891,3 +25891,275 @@ symbol = "repair_22_33_552_test.exs"
 observed = "Attempt 3: seven of eight cases read a nil call type on the imported internal transactions; the single-block case passed."
 assumption = "An incomplete recording or an in-domain trace transform defect; the attempt decides from the imported record."
 severity = "medium"
+
+[finding.22.31.454.1]
+task = "22.31.454"
+file = "tools/qualification/audit_repairs/test_repair_22_31_454.py"
+symbol = "test_repair_22_31_454.py"
+observed = "Attempt 1: the attempt stopped to ask whether the stun import path change belonged to the task."
+assumption = "A dependency bump carries the import moves of its own module; the scope is widened to the nat package."
+severity = "medium"
+
+[finding.22.31.455.1]
+task = "22.31.455"
+file = "tools/qualification/audit_repairs/test_repair_22_31_455.py"
+symbol = "test_repair_22_31_455.py"
+observed = "Attempt 1: the verify passed, but the verified revision differed from the built one by a package lock file rewritten by the dependency reinstall."
+assumption = "A qualification-environment effect, not an attempt defect."
+severity = "low"
+
+[finding.22.33.1008.2]
+task = "22.33.1008"
+file = "services/launchpad/api/internal/rest/repair_m1008_test.go"
+symbol = "repair_m1008_test.go"
+observed = "Attempt 2: the build fails on the Go workspace version mismatch repaired by 22.31.461."
+assumption = "A workspace defect repaired by the required task; the kept rulings stand."
+severity = "low"
+
+[finding.22.33.1028.3]
+task = "22.33.1028"
+file = "services/launchpad/social/internal/devsocial/repair_m1028_test.go"
+symbol = "repair_m1028_test.go"
+observed = "Attempt 3: the build fails on the Go workspace version mismatch repaired by 22.31.461."
+assumption = "A workspace defect repaired by the required task; the kept rulings stand."
+severity = "low"
+
+[finding.22.33.1049.2]
+task = "22.33.1049"
+file = "services/launchpad/trading-charts/internal/app/repair_m1049_test.go"
+symbol = "repair_m1049_test.go"
+observed = "Attempt 2: the versioned history case receives an integrity quarantine for a malformed stored candle."
+assumption = "A stored-format disagreement between migration and fixture inside the task's own service."
+severity = "medium"
+
+[finding.22.33.1205.1]
+task = "22.33.1205"
+file = "interchain/modules/apps/transfer/keeper/repair_m1205_test.go"
+symbol = "repair_m1205_test.go"
+observed = "Attempt 1: the multi-hop denom-hash case fails because the route parameter cannot carry slashes."
+assumption = "An in-scope route definition defect of the transfer module."
+severity = "medium"
+
+[finding.22.33.1228.1]
+task = "22.33.1228"
+file = "modules/layerxcustody/keeper/repair_m1228_test.go"
+symbol = "repair_m1228_test.go"
+observed = "Attempt 1: the retirement recovery case is refused with an invalid bond action because the guarantor is not pending."
+assumption = "A fixture sequence or keeper transition defect inside the task's own module."
+severity = "medium"
+
+[finding.22.33.1240.1]
+task = "22.33.1240"
+file = "modules/evm/client/cli/repair_m1240_test.go"
+symbol = "repair_m1240_test.go"
+observed = "Attempt 1: the final revision carries a fixture correction made after the last verify run."
+assumption = "Unverified final revision, not a known defect."
+severity = "low"
+
+[finding.22.33.1242.1]
+task = "22.33.1242"
+file = "modules/evm/keeper/repair_m1242_test.go"
+symbol = "repair_m1242_test.go"
+observed = "Attempt 1: the fee case fails because the fixture's minimum fee per gas exceeds the module's validated maximum."
+assumption = "A fixture outside the parameter bounds, not a parameter defect."
+severity = "medium"
+
+[finding.22.33.1271.1]
+task = "22.33.1271"
+file = "wasm/benchmarks/repair_m1271_test.go"
+symbol = "repair_m1271_test.go"
+observed = "Attempt 1: the benchmark's zero-fee transactions are refused and the attempt asked for a backend selection hook."
+assumption = "Fee-less fixtures and an option the app already exposes; both in scope."
+severity = "medium"
+
+[finding.22.33.1276.1]
+task = "22.33.1276"
+file = "interchain/testing/repair_m1276_test.go"
+symbol = "repair_m1276_test.go"
+observed = "Attempt 1: the final revision has a passing build and no verify record."
+assumption = "Unverified final revision; any remaining legacy REST case is in scope."
+severity = "low"
+
+[finding.22.33.1288.1]
+task = "22.33.1288"
+file = "wasm/x/wasm/keeper/repair_m1288_test.go"
+symbol = "repair_m1288_test.go"
+observed = "Attempt 1: the snapshot fixture correction was never verified because the repair budget was exhausted."
+assumption = "Unverified final revision, not a known defect."
+severity = "low"
+
+[finding.22.33.1309.1]
+task = "22.33.1309"
+file = "sdk/server/repair_m1309_test.go"
+symbol = "repair_m1309_test.go"
+observed = "Attempt 1: the rollback case collides on P2P addresses and the unsupported-app case asserts a legacy hash."
+assumption = "Fixture address reservation and an outdated assertion, both in scope."
+severity = "medium"
+
+[finding.22.33.1368.1]
+task = "22.33.1368"
+file = "sdk/platform/dotnet/repair_m1368_test.go"
+symbol = "repair_m1368_test.go"
+observed = "Attempt 1: the gate found no TestRepairM_1368_ functions because no Go test was written for the C# repairs."
+assumption = "The precedent gate of this directory proves the repairs at source level."
+severity = "medium"
+
+[finding.22.33.1397.1]
+task = "22.33.1397"
+file = "sdk/platform/swift/Tests/LayerXSDKTests/Repair22331397Tests.swift"
+symbol = "Repair22331397Tests.swift"
+observed = "Attempt 1: two corrections were unverified and the lifecycle fixture lacks a payment denom."
+assumption = "Unverified corrections plus an in-domain fixture gap; the scope is widened to the Swift tests."
+severity = "medium"
+
+[finding.22.33.1410.1]
+task = "22.33.1410"
+file = "services/platform/hosted/dashboard/tests/repair_22_33_1410.rs"
+symbol = "repair_22_33_1410.rs"
+observed = "Attempt 1: the fixture-order repair has no verify record."
+assumption = "Unverified final revision; any producer output is recorded, not requested."
+severity = "low"
+
+[finding.22.33.1418.1]
+task = "22.33.1418"
+file = "services/platform/tools/workspace-gate/tests/repair_22_33_1418.rs"
+symbol = "repair_22_33_1418.rs"
+observed = "Attempt 1: the workspace gate finds none of the manifest's paths because the manifest names the pre-merge layout."
+assumption = "A manifest left at the pre-merge layout; the scope covers manifest and gate."
+severity = "medium"
+
+[finding.22.33.1422.1]
+task = "22.33.1422"
+file = "modules/layerxauth/types/repair_m1422_test.go"
+symbol = "repair_m1422_test.go"
+observed = "Attempt 1: the amount comparison fails because proto.Equal is applied to SDK amount types."
+assumption = "A comparison method defect in the task's own test."
+severity = "medium"
+
+[finding.22.33.1436.1]
+task = "22.33.1436"
+file = "tools/platform/release/tests/repair_22_33_1436.rs"
+symbol = "repair_22_33_1436.rs"
+observed = "Attempt 1: the test fails to build because the included TLS boundary helper requires a binary no crate provides."
+assumption = "A pre-existing helper dependency the task must not include; the missing crate is a separate finding."
+severity = "medium"
+
+[finding.22.33.1477.1]
+task = "22.33.1477"
+file = "services/platform/middleware/buyer/test/repair-22-33-1477.test.mjs"
+symbol = "repair-22-33-1477.test.mjs"
+observed = "Attempt 1: the per-package install fails with a registry 404 for the workspace SDK and the native-draw correction was filed as a wiring request."
+assumption = "A per-package install of a workspace member, plus an in-scope correction."
+severity = "medium"
+
+[finding.22.33.1481.1]
+task = "22.33.1481"
+file = "services/platform/middleware/conformance/test/repair-22-33-1481.test.mjs"
+symbol = "repair-22-33-1481.test.mjs"
+observed = "Attempt 1: the conformance build fails on a seller middleware type error."
+assumption = "A producer type break repaired by 22.31.457, not a defect of this task."
+severity = "low"
+
+[finding.22.33.1484.1]
+task = "22.33.1484"
+file = "services/platform/perps-data/internal/publish/repair_m1484_test.go"
+symbol = "repair_m1484_test.go"
+observed = "Attempt 1: the attempt stopped to ask whether PostgreSQL may be used when the task text forbids it."
+assumption = "The environment provides the database; the ruling is the decision."
+severity = "medium"
+
+[finding.22.31.461.1]
+task = "22.31.461"
+file = "services/launchpad/go.work"
+symbol = "go.work"
+observed = "Attempt 1: the build and the verify passed; the verified revision differs from the built one by the regenerated workspace checksum file."
+assumption = "A generated file committed before the build regenerated it, not a repair defect."
+severity = "low"
+
+[finding.22.33.1557.1]
+task = "22.33.1557"
+file = "services/agent/crates/layerx-proof/tests/repair_22_33_1557.rs"
+symbol = "repair_22_33_1557.rs"
+observed = "Attempt 1: the build fails because two existing tests of the same crate import the retired modules."
+assumption = "An in-crate consumer of the retired modules; the scope covers the crate's tests."
+severity = "medium"
+
+[finding.22.33.175.2]
+task = "22.33.175"
+file = "services/wallet/ceremony/internal/testsupport/repair_m175_test.go"
+symbol = "repair_m175_test.go"
+observed = "Attempt 2: two cases pass; the real-protocol case fails on 404 describe answers and unchanged shares, and the attestor constructor was filed as out of scope."
+assumption = "The producer is in the same domain; the scope is widened to the attestor."
+severity = "medium"
+
+[finding.22.33.24.1]
+task = "22.33.24"
+file = "services/agent/sdk/typescript/test/repair-22-33-24.test.ts"
+symbol = "repair-22-33-24.test.ts"
+observed = "Attempt 2: thirty-eight cases pass and nine fail on an unrecorded accountId call to the ledger precompile."
+assumption = "A recording that predates the client's current calls, not a producer defect."
+severity = "medium"
+
+[finding.22.33.47.4]
+task = "22.33.47"
+file = "services/human/crates/layerx-human-security-provider/tests/repair_22_33_47.rs"
+symbol = "repair_22_33_47.rs"
+observed = "Attempt 6: one case passes; two cases are refused because the receipt-key proof root mismatches the signed app hash of the recorded header."
+assumption = "A proof paired with the wrong header in the recorder, or a verifier defect in the same crate; both in scope."
+severity = "high"
+
+[finding.22.33.619.4]
+task = "22.33.619"
+file = "sdk/integrations/next/example/test/repair-22-33-619.test.mjs"
+symbol = "repair-22-33-619.test.mjs"
+observed = "Attempt 4: the build fails on a seller middleware type error raised while installing the example."
+assumption = "A producer type break repaired by 22.31.457, not a defect of this task."
+severity = "low"
+
+[finding.22.33.690.1]
+task = "22.33.690"
+file = "sdk/x/staking/repair_m690_test.go"
+symbol = "repair_m690_test.go"
+observed = "Attempt 2: the client examples case fails on nil versus empty redelegation entries after the repair budget was exhausted."
+assumption = "A documentation-versus-output mismatch inside the task's own module."
+severity = "medium"
+
+[finding.22.33.702.1]
+task = "22.33.702"
+file = "tests/agent/sdk/python/test_repair_22_33_702.py"
+symbol = "test_repair_22_33_702.py"
+observed = "Attempt 1: forty-seven cases pass; the committed transaction identity and the derived payer account differ from the recorded vectors."
+assumption = "A consumer that disagrees with the producer's recorded definition; the scope is widened to the SDK."
+severity = "medium"
+
+[finding.22.33.839.1]
+task = "22.33.839"
+file = "tools/paxctl/repair_m839_test.go"
+symbol = "repair_m839_test.go"
+observed = "Attempt 1: the module build fails on two assignment mismatches in the sidecar server."
+assumption = "An in-scope compile break the attempt mislabelled as pre-existing."
+severity = "medium"
+
+[finding.22.33.1047.3]
+task = "22.33.1047"
+file = "sdk/launchpad/packages/sdk/test/repair-22-33-1047.test.mjs"
+symbol = "repair-22-33-1047.test.mjs"
+observed = "Attempt 3: seven cases pass; three fail demanding a manifest bundle that has never existed in the repository."
+assumption = "A test demanding an input that never existed; the proof uses the generated catalog."
+severity = "medium"
+
+[finding.22.33.964.1]
+task = "22.33.964"
+file = "tools/launchpad/production/interfaces/test_repair_22_33_964.py"
+symbol = "test_repair_22_33_964.py"
+observed = "Attempt 2: four cases pass; the authority case fails on a missing catalog file."
+assumption = "A generated output mistaken for a committed input."
+severity = "medium"
+
+[finding.22.33.1072.2]
+task = "22.33.1072"
+file = "storage/db_engine/rocksdb/mvcc/repair_m1072_test.go"
+symbol = "repair_m1072_test.go"
+observed = "Attempt 3: the cgo build fails because the installed RocksDB library lacks rocksdb_delete_file, which the pinned grocksdb binds."
+assumption = "A library pairing mismatch of the qualification environment; the gate builds the paired RocksDB."
+severity = "medium"
