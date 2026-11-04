@@ -1,0 +1,71 @@
+{
+  "cw20": {
+    "source": "modules/evm/artifacts/cw20/CW20ERC20Pointer.bin",
+    "source_sha256": "dad5e200c20188ec12d9f37eb2e548c3b386c098509e284a35149797633bd5ca",
+    "runtime_offset": 1699,
+    "original_runtime_sha256": "5c6e3016ffe900e2d17ccf35cac92e48520a294f15223d070f71a20f88dfc210",
+    "corrected_runtime_sha256": "1d359026c046329c0b83ac60f08e7505f859ed4ad76bcf67fedc7c68c152e442",
+    "solc": "0.8.21",
+    "selector_offsets": [
+      1022,
+      1515,
+      2569,
+      2798,
+      3903,
+      4794,
+      5451,
+      5680
+    ]
+  },
+  "cw721": {
+    "source": "modules/evm/artifacts/cw721/CW721ERC721Pointer.bin",
+    "source_sha256": "0edd017a6b920824fae411981994b82b38310740ce9ac0bb5bd5e17daac44599",
+    "runtime_offset": 775,
+    "original_runtime_sha256": "3a49b800fbc19c2cf248acbce3b4bf9f1fa11ae8d0f3923d56c259f9e096233c",
+    "corrected_runtime_sha256": "5f1c98ae8a9ca9e579e3bfd891b43c42353591e2cf311ca447bb5182baeadf29",
+    "solc": "0.8.26",
+    "selector_offsets": [
+      1716,
+      1757,
+      2444,
+      2485,
+      4625,
+      4662,
+      5948,
+      5992,
+      6532,
+      6574
+    ]
+  },
+  "cw1155": {
+    "source": "modules/evm/artifacts/cw1155/CW1155ERC1155Pointer.bin",
+    "source_sha256": "e71b4f7a491be65ef6c677e34abd1745d3962db24b7fabd665a8527bd26be0ed",
+    "runtime_offset": 812,
+    "original_runtime_sha256": "4067d051a726572c0323d0b7c412a6adda64a5030be189d32b781040afaebd60",
+    "corrected_runtime_sha256": "b59aeba5768531643f2df9d7f2652f59417c5785e6d456f10f4c7cbb1d9608d2",
+    "solc": "0.8.26",
+    "selector_offsets": [
+      853,
+      894,
+      3781,
+      3811,
+      3955,
+      3989,
+      5017,
+      6443,
+      6473,
+      7444,
+      7488,
+      7978,
+      8020,
+      8068,
+      8110,
+      8718,
+      8760,
+      8803,
+      8845,
+      9499,
+      9541
+    ]
+  }
+}
