@@ -1,167 +1,182 @@
 'use client';
 
-/**
- * Debounced swap-quote fetcher.
- *
- * Re-runs when any of the inputs change (token pair, amount, slippage,
- * recipient). 600ms debounce keeps the quote API quiet while the user types.
- *
- * Returns `quotes`, the highest-output `bestQuote`, plus `quoting` and
- * `quoteError` flags so the orchestrator can render busy / error states.
- */
-
 import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-    getSwapQuotes,
-    getBestQuote,
-    type SwapToken,
-    type SwapQuote,
-    type SwapParams,
-} from '@/lib/swap';
-import { parseAmountToWei } from './util';
+import { getSwapQuotes, getBestQuote, type SwapToken, type SwapQuote } from '@/lib/swap';
+import { parseAmountToWei, supportedTokenDecimals } from './util';
 
-/** How long a quote stays valid before an automatic re-fetch is triggered. */
 const QUOTE_TTL_MS = 30_000;
 
 export interface UseSwapQuotesResult {
-    quotes: SwapQuote[];
-    bestQuote: SwapQuote | null;
-    quoting: boolean;
-    quoteError: string;
-    /** Seconds until the current quote auto-refreshes (0 when no valid quote). */
-    quoteSecondsLeft: number;
-    /** Reset the quote state — useful after a successful execution. */
-    clear: () => void;
-    /** Force an immediate re-fetch of quotes. */
-    refresh: () => void;
+  quotes: SwapQuote[];
+  bestQuote: SwapQuote | null;
+  quoting: boolean;
+  quoteError: string;
+  quoteSecondsLeft: number;
+  quoteExpiresAt: number;
+  clear: () => void;
+  refresh: () => void;
 }
 
 export interface UseSwapQuotesOptions {
-    fromToken: SwapToken;
-    toToken: SwapToken;
-    fromAmount: string;
-    slippageBps: number;
-    recipient: string | undefined;
-    /** Debounce delay in ms (default 600ms). */
-    debounceMs?: number;
+  fromToken: SwapToken;
+  toToken: SwapToken;
+  fromAmount: string;
+  slippageBps: number;
+  recipient: string | undefined;
+  debounceMs?: number;
+  paused?: boolean;
 }
 
-export function useSwapQuotes({
+export function swapQuoteInputIdentity(options: UseSwapQuotesOptions): string {
+  return JSON.stringify([
+    options.fromToken,
+    options.toToken,
+    options.fromAmount,
+    options.slippageBps,
+    options.recipient,
+  ]);
+}
+
+interface QuoteState {
+  identity: string;
+  quotes: SwapQuote[];
+  bestQuote: SwapQuote | null;
+  quoting: boolean;
+  quoteError: string;
+  quoteExpiresAt: number;
+}
+
+function emptyQuoteState(identity: string): QuoteState {
+  return {
+    identity,
+    quotes: [],
+    bestQuote: null,
+    quoting: false,
+    quoteError: '',
+    quoteExpiresAt: 0,
+  };
+}
+
+export function useSwapQuotes(options: UseSwapQuotesOptions): UseSwapQuotesResult {
+  const {
     fromToken,
     toToken,
     fromAmount,
     slippageBps,
     recipient,
     debounceMs = 600,
-}: UseSwapQuotesOptions): UseSwapQuotesResult {
-    const [quotes, setQuotes] = useState<SwapQuote[]>([]);
-    const [bestQuote, setBestQuote] = useState<SwapQuote | null>(null);
-    const [quoting, setQuoting] = useState(false);
-    const [quoteError, setQuoteError] = useState('');
-    const [quoteSecondsLeft, setQuoteSecondsLeft] = useState(0);
+    paused = false,
+  } = options;
+  const identity = swapQuoteInputIdentity(options);
+  const currentInput = useRef({ identity, paused });
+  currentInput.current = { identity, paused };
+  const [state, setState] = useState<QuoteState>(() => emptyQuoteState(identity));
+  const [now, setNow] = useState(Date.now);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const requestSeqRef = useRef(0);
+  const expiryRef = useRef(0);
+  const fetchQuotesRef = useRef<(() => void) | null>(null);
 
-    const debounceRef = useRef<ReturnType<typeof setTimeout>>();
-    const ttlIntervalRef = useRef<ReturnType<typeof setInterval>>();
-    const requestSeqRef = useRef(0);
-    const quoteAtRef = useRef<number>(0);
-    // Stable ref to the fetch function — filled in below, avoids dependency loops.
-    const fetchQuotesRef = useRef<() => void>(() => { });
+  const clear = useCallback(() => {
+    ++requestSeqRef.current;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    expiryRef.current = 0;
+    setState(emptyQuoteState(currentInput.current.identity));
+  }, []);
 
-    const clear = useCallback(() => {
-        setQuotes([]);
-        setBestQuote(null);
-        setQuoteError('');
-        setQuoting(false);
-        setQuoteSecondsLeft(0);
-        quoteAtRef.current = 0;
-        if (ttlIntervalRef.current) clearInterval(ttlIntervalRef.current);
-    }, []);
+  const doFetch = useCallback(
+    async (seq: number) => {
+      const isCurrent = () =>
+        seq === requestSeqRef.current &&
+        identity === currentInput.current.identity &&
+        !currentInput.current.paused;
+      if (!isCurrent()) return;
+      const wei = parseAmountToWei(fromAmount, fromToken.decimals);
+      if (!wei || !recipient || supportedTokenDecimals(toToken.decimals) === null) {
+        if (isCurrent()) setState(emptyQuoteState(identity));
+        return;
+      }
+      try {
+        const quotes = await getSwapQuotes({
+          tokenIn: fromToken,
+          tokenOut: toToken,
+          amountIn: wei,
+          slippageBps,
+          recipient,
+        });
+        if (!isCurrent()) return;
+        const quoteExpiresAt = quotes.length ? Date.now() + QUOTE_TTL_MS : 0;
+        expiryRef.current = quoteExpiresAt;
+        setNow(Date.now());
+        setState({
+          identity,
+          quotes,
+          bestQuote: getBestQuote(quotes),
+          quoting: false,
+          quoteError: quotes.length ? '' : 'No routes found for this pair',
+          quoteExpiresAt,
+        });
+      } catch (error) {
+        if (!isCurrent()) return;
+        expiryRef.current = 0;
+        setState({
+          ...emptyQuoteState(identity),
+          quoteError: error instanceof Error ? error.message : 'Quote failed',
+        });
+      }
+    },
+    [identity, fromAmount, fromToken, toToken, slippageBps, recipient]
+  );
 
-    // ── Core fetch logic ──────────────────────────────────────────────────────
-    const doFetch = useCallback(async (seq: number) => {
-        const wei = parseAmountToWei(fromAmount, fromToken.decimals);
-        if (!wei || !recipient) { setQuoting(false); return; }
-        try {
-            const params: SwapParams = {
-                tokenIn: fromToken,
-                tokenOut: toToken,
-                amountIn: wei,
-                slippageBps,
-                recipient,
-            };
-            const q = await getSwapQuotes(params);
-            if (seq !== requestSeqRef.current) return;
-            setQuotes(q);
-            setBestQuote(getBestQuote(q));
-            if (q.length === 0) {
-                setQuoteError('No routes found for this pair');
-                setQuoteSecondsLeft(0);
-            } else {
-                setQuoteError('');
-                quoteAtRef.current = Date.now();
-                setQuoteSecondsLeft(Math.round(QUOTE_TTL_MS / 1000));
-            }
-        } catch (e: any) {
-            if (seq !== requestSeqRef.current) return;
-            setQuoteError(e.message || 'Quote failed');
-            setQuoteSecondsLeft(0);
-        } finally {
-            if (seq === requestSeqRef.current) setQuoting(false);
-        }
-    }, [fromAmount, fromToken, toToken, slippageBps, recipient]);
+  useEffect(() => {
+    const start = (delay: number) => {
+      const seq = ++requestSeqRef.current;
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      expiryRef.current = 0;
+      setState(emptyQuoteState(identity));
+      if (
+        paused ||
+        !recipient ||
+        !parseAmountToWei(fromAmount, fromToken.decimals) ||
+        supportedTokenDecimals(toToken.decimals) === null
+      )
+        return;
+      setState({ ...emptyQuoteState(identity), quoting: true });
+      if (delay === 0) void doFetch(seq);
+      else debounceRef.current = setTimeout(() => void doFetch(seq), delay);
+    };
+    fetchQuotesRef.current = () => start(0);
+    start(debounceMs);
+    return () => {
+      ++requestSeqRef.current;
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      expiryRef.current = 0;
+      fetchQuotesRef.current = null;
+    };
+  }, [
+    identity,
+    paused,
+    debounceMs,
+    doFetch,
+    recipient,
+    fromAmount,
+    fromToken.decimals,
+    toToken.decimals,
+  ]);
 
-    // Keep the ref in sync with latest doFetch so the TTL interval always calls
-    // the current version without re-registering the interval on every render.
-    useEffect(() => {
-        fetchQuotesRef.current = () => {
-            if (debounceRef.current) clearTimeout(debounceRef.current);
-            setQuoting(true);
-            setBestQuote(null);
-            setQuotes([]);
-            setQuoteError('');
-            const seq = ++requestSeqRef.current;
-            doFetch(seq);
-        };
-    });
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNow(Date.now());
+      if (expiryRef.current && Date.now() >= expiryRef.current) {
+        expiryRef.current = 0;
+        fetchQuotesRef.current?.();
+      }
+    }, 1_000);
+    return () => clearInterval(timer);
+  }, []);
 
-    // ── TTL countdown + auto-refresh ─────────────────────────────────────────
-    useEffect(() => {
-        if (ttlIntervalRef.current) clearInterval(ttlIntervalRef.current);
-
-        ttlIntervalRef.current = setInterval(() => {
-            if (!quoteAtRef.current) return;
-            const elapsed = Date.now() - quoteAtRef.current;
-            const left = Math.max(0, Math.round((QUOTE_TTL_MS - elapsed) / 1000));
-            setQuoteSecondsLeft(left);
-            if (left === 0) {
-                quoteAtRef.current = 0;
-                fetchQuotesRef.current();
-            }
-        }, 1_000);
-
-        return () => { if (ttlIntervalRef.current) clearInterval(ttlIntervalRef.current); };
-    }, []); // intentionally empty — interval is stable, ref keeps it current
-
-    // ── Debounced fetch on input change ───────────────────────────────────────
-    useEffect(() => {
-        if (debounceRef.current) clearTimeout(debounceRef.current);
-        setBestQuote(null);
-        setQuotes([]);
-        setQuoteError('');
-        setQuoteSecondsLeft(0);
-        quoteAtRef.current = 0;
-
-        const wei = parseAmountToWei(fromAmount, fromToken.decimals);
-        if (!wei || !recipient) { setQuoting(false); return; }
-
-        setQuoting(true);
-        const seq = ++requestSeqRef.current;
-
-        debounceRef.current = setTimeout(() => doFetch(seq), debounceMs);
-        return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-    }, [fromAmount, fromToken, toToken, slippageBps, recipient, debounceMs, doFetch]);
-
-    const refresh = useCallback(() => fetchQuotesRef.current(), []);
-
-    return { quotes, bestQuote, quoting, quoteError, quoteSecondsLeft, clear, refresh };
+  const refresh = useCallback(() => fetchQuotesRef.current?.(), []);
+  const visible = state.identity === identity && !paused ? state : emptyQuoteState(identity);
+  const quoteSecondsLeft = Math.max(0, Math.ceil((visible.quoteExpiresAt - now) / 1000));
+  return { ...visible, quoteSecondsLeft, clear, refresh };
 }
