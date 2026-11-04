@@ -1,57 +1,90 @@
 # Human web application
 
-The platform specification (`spec/layerx-platform/spec.kvx`, decisions
-`two_shells` and `v1_scope`) requires one Next.js application with a public
-`/explorer` plane and an authenticated `/app` plane, plus mobile and desktop
-shells that share state and journey logic.
+The Human web application is the Next.js package `@layerx/human-web` at
+`apps/web`. It uses the local `@layerx/ui` package and the Human API contract
+under `services/human/schema/human-api`. Its authenticated application and
+public explorer present the same merged Paxeer network, EVM chain ID `125`.
 
-The application lives at `apps/web`. It must use the owner-supplied
-`@layerx/ui` package. The browser never assembles protocol payloads and never
-receives LayerX private key material. The TypeScript client is generated from
-`services/human/schema/human-api`.
-
-Hosted Human material and KMS seal handling are
-[Hosted Human](hosted.md). Custody credit at the protocol boundary is
-[Custody](custody.md). Journeys are [Journeys](journeys.md).
+See [Journeys](journeys.md) for movement and recovery behavior,
+[Identity and authority](../concepts/identity.md) for wallet ownership, and
+[Hosted Human](hosted.md) for service and KMS configuration.
 
 ## Planes in this tree
 
-Authenticated `/app` routes present in `apps/web/src/app/app/` include
-home, deposit, move, withdraw, agents, approvals, notifications, activity,
-settings (including wallet, security, devices, and exit), support, journeys,
-and recovery. Public `/explorer` routes include the explorer home, accounts,
-batches, checkpoints, programs, receipts, and verify.
+These routes have page modules under `apps/web/src/app/`:
 
-Those paths are source-tree routes. They are not a claim that a public
-hostname is deployed.
+| Plane | Routes |
+| --- | --- |
+| Application | `/app`, `/app/move`, `/app/activity`, `/app/activity/[entryId]` |
+| Managed agents | `/app/agents`, `/app/agents/new`, `/app/agents/[agentId]` |
+| Approvals and notifications | `/app/approvals`, `/app/approvals/[approvalId]`, `/app/notifications` |
+| Settings | `/app/settings`, `/app/settings/wallet`, `/app/settings/security`, `/app/settings/devices` |
+| Security and support | `/app/security/devices`, `/app/security/recovery`, `/app/support` |
+| Public explorer | `/explorer`, `/explorer/accounts/[accountId]`, `/explorer/programs/[programId]`, `/explorer/receipts/[receiptId]` |
+| Market workspaces | `/exchange`, `/bridge`, `/launchpad` |
 
-## What the plane may not do
+Bracketed names are Next.js dynamic segments. These are source routes, not a
+claim that any particular public hostname serves the application. Market
+workspaces use connected-wallet operations and their own availability checks.
 
-Requirement 1 of `spec/layerx-platform/spec.kvx` requires the human plane to
-change protocol state only by compiling a typed intent through
-`layerx-intents`, preparing through the agent layer, obtaining a
-disclosure-bound signature from the custody service, and submitting through
-the agent layer. Success or Done is rendered only from a verified LayerX
-receipt or a verified Paxeer finality proof. Unknown outcomes are
-still-checking.
+The former deposit, withdrawal, journey-claim and emergency-exit pages are
+retired. Batch, checkpoint and standalone verify pages are also removed from
+the explorer. Historical journey records remain available through the Human
+API and activity history; their existence does not restore an initiation page.
 
-The default authenticated surfaces expose exactly five ideas: log in, add
-money, move money, manage agents, see what happened (requirement 2). Protocol
-words such as DID, checkpoint, and idempotency are banned on those default
-surfaces. Technical details and the public explorer are exempt.
+## Review, approval and signing
+
+The service-backed movement flow requests a quote, shows the recipient,
+amount, fee estimate and ceiling, then commits the reviewed operation. Managed
+signing uses the custody EVM authorization and attestor path, which binds the
+principal and wallet to the exact transaction and retains its nonce and signed
+bytes. Passkey login alone does not grant an unrestricted right to spend.
+
+The browser receives no managed private keys. For connected-wallet market
+operations, the app uses the wallet and SDK to prepare precompile calls,
+request approval and submit them. Gas-station sponsorship uses a quoted batch
+and wallet authorization. The old rule that every browser action must compile
+a canonical activity through `layerx-intents` is retired; the current EVM review
+and signing path is implemented in `apps/web/src/api/wallet.ts` and the Human
+service's `src/custody/evm.rs`.
+
+## Honest outcomes
+
+For Human journeys, Done requires successful `Committed` evidence for all
+required stages. `Submitted` and `Receipted` are progress states. The embedded
+kernel proposes and executes within the same BFT network; completion does not
+depend on a second settlement proof.
+
+Connected-wallet sends distinguish submission from a confirmed outcome. The
+market `SendOutcome` component shows a transaction hash without a receipt as
+awaiting confirmation. A successful matching receipt supports Sent; a reverted
+receipt is a failure. Missing confirmation remains unconfirmed, with the
+original transaction hash available for lookup before another send.
+
+Unknown journey outcomes remain `still-checking`, with duplicate-capable
+controls disabled. Evidence references let activity and receipt details explain
+what happened. A refusal must state whether money left the account. User-facing
+copy should describe the action and outcome plainly; technical identifiers and
+proof details belong in detail views and the explorer.
 
 ## Hosted wiring
 
-The Human HTTPS API is an in-cluster Service `layerx-human` on the node pod's
-`human` container. The disposable cluster forwards it on host port `19453`
-([Hosted gateway](../platform/hosted-gateway.md),
-[Quickstart](../overview/quickstart.md)).
-That origin is a cluster port-forward, not a public product URL.
+`apps/web/next.config.mjs` configures standalone Next.js output and the
+`/human-ui` asset prefix. With `LAYERX_HUMAN_SERVICE_URL` set, it rewrites
+`/human/v1/:path*` and `/v1/:path*` to the configured Human service's `/v1/`
+operations and `/readyz` to Human readiness. The value must be an HTTPS URL
+without credentials, query or fragment, with a root or `/human` path. Without
+it, those Next.js rewrites are absent.
+
+An operator must supply the matching API, sessions, signing providers and
+gateway dependencies. Page source or a built web bundle does not establish
+their readiness. Public node RPC and operator-hosted `px_*` methods have
+different contracts; see [Gateway JSON-RPC](../platform/gateway-rpc.md).
 
 ## Status
 
-The web application source and hosted Human provisioning exist. The platform
-specification's usability, visual-regression, and performance gates are named
-as polish and are not required for the beta
-(`spec/layerx-beta/spec.kvx`, decision `polish_boundary`). Production
-certification of the hosted human plane is outside the beta bar.
+The checked-in pages and clients implement the surfaces listed above. Specific
+journeys can still be unavailable or retired in the configured service; the UI
+must preserve that response rather than render a completed setup or transfer.
+Visual, usability and performance certification are separate from these source
+and API contracts.

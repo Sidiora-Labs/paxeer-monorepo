@@ -8,7 +8,7 @@
 [![badge](https://shieldcn.dev/github/Sidiora-Labs/paxeer-monorepo/license.svg?variant=outline&size=lg&font=geist&logo=github&logoColor=dadee6&height=56&padX=15&iconSize=21&gap=4&labelGap=12)](https://github.com/Sidiora-Labs/paxeer-monorepo)
 [![badge](https://shieldcn.dev/badge/GOLANG.svg?variant=outline&size=lg&font=geist&logo=go&logoColor=1363e6&labelTextColor=1c3e76&height=56&padX=15&iconSize=28&gap=4&labelGap=12)](#)
 [![badge](https://shieldcn.dev/badge/RUST.svg?variant=outline&size=lg&font=geist&logo=rust&logoColor=ffffff&labelTextColor=1c3e76&height=56&padX=15&iconSize=28&gap=4&labelGap=12)](#)
-[![badge](https://shieldcn.dev/badge/LANGUAGE%20C117.svg?variant=outline&size=lg&font=geist&logo=lu%3ACpu&logoColor=f4f4f2&labelTextColor=1c3e76&height=56&padX=15&iconSize=28&gap=4&labelGap=12)](#)
+[![badge](https://shieldcn.dev/badge/LANGUAGE%20C17.svg?variant=outline&size=lg&font=geist&logo=lu%3ACpu&logoColor=f4f4f2&labelTextColor=1c3e76&height=56&padX=15&iconSize=28&gap=4&labelGap=12)](#)
 [![badge](https://shieldcn.dev/badge/SIDIORA%20LABS.svg?variant=outline&size=lg&font=geist&logo=lu%3AGlobe&logoColor=0043e6&labelTextColor=1c3e76&height=56&padX=15&iconSize=21&gap=4&labelGap=12)](https://github.com/org/Sidiora-Labs)
 [![badge](https://shieldcn.dev/github/Sidiora-Labs/paxeer-monorepo/ci.svg?variant=outline&size=lg&font=geist&logo=github&logoColor=dadee6&height=56&padX=15&iconSize=21&gap=4&labelGap=12)](https://github.com/Sidiora-Labs/paxeer-monorepo/actions)
 
@@ -37,14 +37,18 @@
 
 ## What is Paxeer X Network?
 
-[Paxeer X Network](https://paxeer.network/) is a distributed HyperState Machine for payments, code execution and intent routing, developed by Sidiora Labs. It connects an EVM-compatible chain with a deterministic execution and accounting domain for autonomous agents.
+[Paxeer X Network](https://paxeer.network/) is a distributed HyperState Machine for payments, code execution and intent routing, developed by Sidiora Labs. Paxeer mainnet-beta is one BFT network with EVM chain ID **125** (`0x7d`). The LayerX kernel is embedded in the node and participates in block proposal and deterministic execution.
 
 In this repository you’ll find the core components of the network: the Paxeer X chain, the LayerX kernel, on-chain contracts, off-chain services, client SDKs and user-facing applications. Together, they provide the infrastructure for developers to build applications and agents on a shared network.
 
-The network has two execution domains:
+The node integrates the following components:
 
-- **Paxeer X chain.** `paxd` is the Go node, with BFT consensus and an EVM execution layer using chain ID **125**. The main package is `daemon/paxd`, with state machine modules in `modules/` and RPC servers in `rpc/`.
-- **LayerX kernel.** `layerxd` is the C17 daemon that executes and accounts for agent activity deterministically, returning a signed receipt for each activity. `layerxctl` provides the operator CLI, and `programs/` contains the kernel programs runtime. The kernel runs as a separate daemon built from `cmd/layerxd`; its checkpoints settle on the chain through the `layerxAnchor` precompile.
+- **Node and consensus.** `paxd` is built from [`daemon/paxd`](daemon/paxd/), with the application in [`node/`](node/), BFT consensus in [`consensus/`](consensus/), state machine modules in [`modules/`](modules/) and JSON-RPC servers in [`rpc/`](rpc/).
+- **Kernel and programs.** The C17 kernel in `src/` and `include/` runs inside `paxd` through [`modules/lxphost`](modules/lxphost/). The node links `build/liblayerx.a` and the programs sandbox from [`programs/`](programs/). [`node/sequencer`](node/sequencer/) supplies execution ordering and the consensus block source within the node.
+
+A receipt is final once its block is committed. A signed execution receipt can arrive before that commitment; [`pax_sequencerReceipt`](rpc/sequencer_receipt.go) distinguishes `submitted`, `receipted` and `committed`. See [committed block evidence](docs/site/docs/concepts/checkpoints.md) for verification. The standalone kernel daemon and external checkpoint settlement model are retired.
+
+Sub-chains are tenant domains stored in the database, managed by [`modules/layerxchains`](modules/layerxchains/). Creating a domain namespaces state within the shared network and does not require new node infrastructure.
 
 The monorepo also includes the agent daemon and MCP server, interop gateway and bridge relayer, hosted developer platform, human control plane, embedded wallet service, explorer and launchpad services. Applications include the Hyperpax perps frontend, wallet, web app, explorer and launchpad web and mobile apps.
 
@@ -53,10 +57,21 @@ The monorepo also includes the agent daemon and MCP server, interop gateway and 
 - To build on Paxeer X Network, start with the [Paxeer documentation](https://docs.paxeer.app/) and the [developer wiki](docs/wiki/Home.md).
 - To connect to the chain, see the [public JSON-RPC endpoints](docs/site/docs/reference/public-rpc.md) and [beta endpoint checklist](docs/wiki/Getting-Started-Beta.md).
 - For wallets, funding and payments, follow the [Payments Quickstart](docs/wiki/PaymentsQuickstart.md).
-- To run a local kernel cluster, follow the [Kernel Quickstart](docs/wiki/Quickstart.md).
-- For protocol references, see [assets](docs/wiki/Assets.md), [RPC methods](docs/wiki/PublicRpc.md), [commitment levels](docs/wiki/CommitmentLevels.md) and the [public payment API](docs/wiki/PublicAPI.md).
+- For hosted tooling and disposable integration environments, see the [hosted quickstart](docs/wiki/Quickstart.md). Build the merged node using the [commands below](#build).
+- For protocol references, see [assets](docs/wiki/Assets.md), [committed block evidence](docs/site/docs/concepts/checkpoints.md) and [hosted gateway methods](docs/site/docs/platform/gateway-rpc.md). Hosted payment examples are in the [payment API guide](docs/wiki/PublicAPI.md).
 
-The limited beta has not opened yet. The gateway API becomes available when it does. The beta runs on mainnet with real value; there is no faucet for general use. Approved developers receive test allocations from the team.
+Public node JSON-RPC uses the root URL: `https://api-mainnet-beta.paxeer.network` or the numbered nodes `https://api1.mainnet-beta.paxeer.network` through `https://api14.mainnet-beta.paxeer.network`. The public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test` and `txpool`; method availability depends on node configuration. Confirm the chain ID before signing or broadcasting:
+
+```sh
+curl --max-time 10 -sS https://api1.mainnet-beta.paxeer.network \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
+# Expected result: "0x7d"
+```
+
+Configure more than one node and compare `eth_blockNumber` when selecting one near the head. `node.hyperpaxeer.com` is only the hpx library mirror used by build and installation tooling, never a JSON-RPC endpoint.
+
+The hosted gateway's `px_` API is defined by [`services/platform/hosted/gateway/openrpc.json`](services/platform/hosted/gateway/openrpc.json). Obtain its deployment URL and credentials from the operator; the gateway contract does not establish method availability at public node URLs. Mainnet-beta uses real value; hosted funding and private test-environment faucets have their own access policies.
 
 ### Client SDKs
 
@@ -76,11 +91,35 @@ The agent daemon is `services/agent/crates/layerx-agentd` and the MCP server is 
 
 Detailed feature specifications live in [`spec/`](spec/). Each feature’s `spec.kvx` defines its requirements, acceptance criteria and dependency-ordered task list. The [specification workflow](spec/workflow.kvx) describes how work is planned and tracked. `spec/specgen` runs `tools/specgen` to generate agent instruction files, including `CLAUDE.md` and `AGENTS.md`.
 
-The proposed integration of the LayerX kernel into the chain is described in the [LayerX merge specification](spec/layerx-merge/spec.kvx), which remains a draft. The [monorepo layout specification](spec/monorepo-layout/spec.kvx) describes the target repository structure.
+The [LayerX merge specification](spec/layerx-merge/spec.kvx) tracks the integrated network's requirements and implementation tasks. Runtime behavior is implemented in the node, kernel host and native modules; activation is controlled by the upgrade handlers in [`node/upgrades.go`](node/upgrades.go). The [monorepo layout specification](spec/monorepo-layout/spec.kvx) describes the target repository structure.
 
 ### EVM and Native Precompiles
 
-Contracts reach the native modules through stateful precompiles under `precompiles/`. `precompiles/setup.go` registers `bank`, `wasmd`, `json`, `addr`, `staking`, `gov`, `distribution`, `oracle`, `ibc`, `pointer`, `pointerview`, `p256Verify`, `solo`, `layerxVerify` (`0x1012`), `layerxCustody` (`0x1013`), `layerxAnchor` (`0x1014`), `layerxExchange` (`0x1015`), `layerxBridge` (`0x1016`), `launchpad` (`0x1017`), `feeToken` (`0x1018`) and `xweb` (`0x1019`). The `MergeAddressTable` set (`precompiles/setup.go:66-79`) activates at the `v7.0` `MergeUpgrade` plan (`precompiles/common/precompiles.go:29`): `layerxledger` (`0x101A`), `layerxpay` (`0x101B`), `layerxauth` (`0x101C`), `layerxprograms` (`0x101D`), `orob` (`0x0901`), `clearing` (`0x0902`), `oracle aggregator` (`0x0903`), `pofq` (`0x0904`), `scheduler` (`0x0905`), `streams` (`0x0906`), `tee attestor` (`0x0907`) and `eip712` (`0x0908`). The v6.12.0 set built in `node/app.go` and served once that upgrade activates adds `perps` at `0x1015` ahead of `layerxExchange`, the second-generation `launchpad` at `0x1017`, `pricefeed` at `0x1020`, and the spot set `spot_pecor`, `spot_orders`, `spot_stoporders`, `spot_quoter` and `spot_vault` at `0x1021`-`0x1025`.
+Contracts reach native modules and helpers through [`precompiles/`](precompiles/). [`precompiles/setup.go`](precompiles/setup.go) defines the base set, constructor registry and `MergeAddressTable`; [`node/upgrades.go`](node/upgrades.go) gates activation by upgrade and module state. The merge plan is `v7.0`, named by `MergeUpgrade` in [`precompiles/common/precompiles.go`](precompiles/common/precompiles.go).
+
+The merge address table contains thirteen entries. Addresses below use short hex notation, left-padded to 20 bytes by EVM clients:
+
+| Address | Merge precompile name |
+| --- | --- |
+| `0x101A` | `layerxledger` |
+| `0x101B` | `layerxpay` |
+| `0x101C` | `layerxauth` |
+| `0x101D` | `layerxprograms` |
+| `0x101E` | `layerxchains` |
+| `0x0901` | `orob` |
+| `0x0902` | `clearing` |
+| `0x0903` | `oracle aggregator` |
+| `0x0904` | `pofq` |
+| `0x0905` | `scheduler` |
+| `0x0906` | `streams` |
+| `0x0907` | `tee attestor` |
+| `0x0908` | `eip712` |
+
+The base set includes `bank`, `wasmd`, `json`, `addr`, `staking`, `gov`, `distribution`, `oracle`, `ibc`, `pointer`, `pointerview`, `p256Verify` and `solo`. Other versioned interfaces include `layerxBridge` (`0x1016`), `feeToken` (`0x1018`, introduced at `v6.7`) and `xweb` (`0x1019`, introduced at `v6.8`).
+
+The `v6.12.0` set built by `v6120Contracts` in [`node/app.go`](node/app.go) serves `perps` at `0x1015` in place of the earlier `layerxExchange`, the second-generation `launchpad` at `0x1017`, `pricefeed` at `0x1020`, and `spot_pecor`, `spot_orders`, `spot_stoporders`, `spot_quoter` and `spot_vault` at `0x1021`–`0x1025`. Constructor and ABI inventories include historical versions; select the interface for the upgrade active at the queried height.
+
+The pre-merge `layerxVerify` (`0x1012`) and `layerxCustody` (`0x1013`) interfaces are retired at the merge. `layerxAnchor` (`0x1014`) rejects writes after the merge; its remaining historical views retire at `v7.0-anchor-store-delete`. See the retirement gates in [`precompiles/layerxverify`](precompiles/layerxverify/), [`precompiles/layerxcustody`](precompiles/layerxcustody/) and [`precompiles/layerxanchor`](precompiles/layerxanchor/). These historical interfaces do not provide current funding or finality paths.
 
 ## Community
 
@@ -118,7 +157,7 @@ Please follow [SECURITY.md](SECURITY.md) to report vulnerabilities privately. **
 | `spec/` | Feature specifications and the kvx workflow |
 | `scripts/` | CI, qualification, release and workspace scripts |
 
-The chain and kernel trees stay at the root in this release and move under `core/` in a later one: `src`, `include`, `cmd` and `migrations` (the kernel), `modules`, `precompiles`, `engine`, `consensus`, `node`, `rpc`, `storage`, `wasm`, `wasm-runtime`, `daemon`, `admin`, `custodyproof`, `layerxproof`, `utils`, `interchain`, the framework fork in `sdk`, and `programs` (whose guest SDK moves to `sdk/programs`). [`docs/MONOREPO.md`](docs/MONOREPO.md) describes the layout and the destinations of the trees that move; the target layout is specified in [`spec/monorepo-layout/spec.kvx`](spec/monorepo-layout/spec.kvx).
+The node and kernel source trees currently remain at the root: `src`, `include`, `cmd` and `migrations` (kernel sources and tools), `modules`, `precompiles`, `engine`, `consensus`, `node`, `rpc`, `storage`, `wasm`, `wasm-runtime`, `daemon`, `admin`, `custodyproof`, `layerxproof`, `utils`, `interchain`, the framework fork in `sdk`, and `programs`. Source directory names describe code organization, not separate network deployments. [`docs/MONOREPO.md`](docs/MONOREPO.md) maps these paths; planned destinations under `core/` and `sdk/programs` are specified in [`spec/monorepo-layout/spec.kvx`](spec/monorepo-layout/spec.kvx).
 
 ## Development and Release Process
 
@@ -130,21 +169,21 @@ Toolchains: Go 1.25.8 (`go.mod`), a C17 compiler for the kernel (root `Makefile`
 
 ### Build
 
-The node, from the repository root:
+Build the merged node from the repository root:
 
 ```sh
-make paxeer-build      # build/paxd through chain.mk
-make paxd-build        # also builds the kernel library and programs runtime the node links, and stamps the release version
-make -f chain.mk build # the chain.mk target directly
+make paxd-build        # build/paxd, linked native libraries and release version stamp
 ```
 
-The LayerX kernel and its tools:
+`paxd-build` builds `build/liblayerx.a` and `programs/target/release/liblayerx_programs_sandbox.a` before invoking `chain.mk`. It stamps the version from [`tools/release/version.json`](tools/release/version.json). `make paxeer-build` and `make -f chain.mk build` also build the linked native prerequisites and produce `build/paxd`, using the chain makefile's version defaults.
+
+For kernel library and development tools without rebuilding the node:
 
 ```sh
 make build
-make layerxd
-make layerxctl
 ```
+
+This builds the kernel archive, genesis builder and module registry. The running network entry point is `paxd`.
 
 The services and workspaces:
 
@@ -154,7 +193,7 @@ make interop-build
 make platform-build
 make human-build
 make programs-build
-make workspace-build   # every workspace above plus the node and the root Foundry tree
+make workspace-build   # kernel, services, node, app/tooling targets and root Foundry tree
 ```
 
 ### Test
@@ -178,21 +217,21 @@ make monorepo-ci           # every workspace: build, test and lint
 
 See [CHANGELOG.md](CHANGELOG.md) for release notes. Network upgrades determine which native interfaces are active; refer to the precompile registrations and upgrade definitions when working with version-dependent functionality.
 
-The LayerX merge remains a draft specification. The current kernel runs separately and settles checkpoints on the chain. Likewise, the directory layout above describes the current tree; planned moves under `core/` are documented in the monorepo guide and layout specification.
+The merged runtime executes kernel activity inside `paxd` and commits it with the BFT chain state. The `v7.0` merge handler activates the merged interfaces and retires the old custody/checkpoint write paths; `v7.0-anchor-store-delete` removes the historical anchor store. Consult the code and the network's recorded upgrade height when interpreting historical blocks. Planned directory moves under `core/` change source organization, not this runtime model.
 
 ## Downloading and Shallow-Cloning the Monorepo
 
 To fetch the default branch without downloading the full Git history:
 
 ```sh
-git clone --depth 1 https://github.com/Sidiora-Labs/Paxeer-X-Network.git
-cd Paxeer-X-Network
+git clone --depth 1 https://github.com/Sidiora-Labs/paxeer-monorepo.git
+cd paxeer-monorepo
 ```
 
 For a specific branch or tag, replace `<ref>` with the desired reference:
 
 ```sh
-git clone --depth 1 --branch <ref> https://github.com/Sidiora-Labs/Paxeer-X-Network.git
+git clone --depth 1 --branch <ref> https://github.com/Sidiora-Labs/paxeer-monorepo.git
 ```
 
 ## License
