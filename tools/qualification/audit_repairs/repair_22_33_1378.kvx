@@ -1,0 +1,91 @@
+[repair]
+task = "22.33.1378"
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+implementation = "Repair only benchmark.yml, ci.yml and security.yml: use services/platform/perf-db for Cargo run steps, crate-prefixed change filters and Rust cache workspaces, a repository-relative coverage upload path and cargo-deny manifest input, and Rust 1.85 matching Cargo.toml for MSRV. Preserve existing jobs, command flags, branch selection, matrix, dispatch and schedule behavior. Repository-root registration belongs to domain 16 and is explicitly requested below, not claimed implemented."
+baseline = "Pre-change verify was not run: the mandatory implementation-first order and exclusive hf-done gate supersede step 7 baseline verification. No tests are claimed to have failed before the change. Initial git status/diff showed only runner-prepared .cgignore and spec task-start changes; no task repair files existed. /out/run/gate.json showed zero build and verify runs, two repair cycles available, and /out/run/gates.jsonl did not exist. Those existing changes were preserved."
+source_proof = "Four offline pytest tests parse the actual workflow YAML with BaseLoader (preserving the GitHub on key), crate manifest/lock and deny policy with tomllib, and Cargo run strings with shlex. They connect checkout to inherited run directory and actual crate targets, check all unchanged Cargo commands and job coverage, evaluate crate and workflow path filters including negative unrelated paths, compare MSRV to rust-version, connect llvm-cov output to the root-relative codecov input, and connect cargo-deny action manifest to the crate and deny policy. Audit fields and each finding-to-test mapping and domain-16 root wiring request are asserted."
+review_only = "GitHub discovery, trigger delivery, third-party action execution, dependency resolution, Rust compilation, MSRV compatibility, benchmark results, vulnerability database checks and coverage uploads are not executed by this Python source gate. Actual automation remains dependent on the three out-of-scope root workflow registrations requested below; no full operational closure is claimed. These config-drift findings change neither runtime interfaces nor persistent state, so restart-recovery and interface-driving tests do not apply. No shell script or unit file is changed. The gate requires no environment variable, credential, endpoint, subprocess toolchain, external binary, native artifact or device."
+scope = ["services/platform/perf-db/.github/workflows", "tools/qualification/audit_repairs/repair_22_33_1378.kvx", "tools/qualification/audit_repairs/test_repair_22_33_1378.py"]
+
+[finding.perf-benchmark-workflow-location]
+audit = "22.30.75"
+file = "services/platform/perf-db/.github/workflows/benchmark.yml"
+line = 3
+class = "config-drift"
+severity = "medium"
+observed = "The benchmark workflow resides under services/platform/perf-db/.github/workflows, which GitHub does not discover. Its Cargo commands assume repository-root execution even though the crate manifest is nested; the declared automation does not qualify this crate."
+expected = "The monorepo must actually run the advertised database benchmark checks from root-discovered workflows with the correct crate directory and path filters."
+proposal = "Register the benchmark workflow under the repository-root .github/workflows and set services/platform/perf-db as its Cargo working directory; align manifest paths and filters."
+owner_domain = 8
+resolution = "In-scope workflow configuration repaired and proven by the named test; root-discovered workflow registration is requested from domain 16 below."
+tests = ["test_perf_benchmark_workflow_location"]
+
+[wiring.benchmark]
+path = ".github/workflows/perf-db-benchmark.yml"
+source = "services/platform/perf-db/.github/workflows/benchmark.yml"
+owner_domain = 16
+status = "requested; outside task scope"
+request = ".github/workflows/perf-db-benchmark.yml -> domain 16 (tools-ops, coordinating with domain 8): register the corrected services/platform/perf-db/.github/workflows/benchmark.yml contents at this root-discovered path, retaining its crate working directory, scoped filters and action inputs; do not merely call a nested workflow, which GitHub cannot discover."
+
+[finding.perf-ci-workflow-location]
+audit = "22.30.75"
+file = "services/platform/perf-db/.github/workflows/ci.yml"
+line = 3
+class = "config-drift"
+severity = "medium"
+observed = "The ci workflow resides under services/platform/perf-db/.github/workflows, which GitHub does not discover. Its Cargo commands assume repository-root execution even though the crate manifest is nested; the declared automation does not qualify this crate."
+expected = "The monorepo must actually run the advertised database ci checks from root-discovered workflows with the correct crate directory and path filters."
+proposal = "Register the ci workflow under the repository-root .github/workflows and set services/platform/perf-db as its Cargo working directory; align manifest paths and filters, and pin the MSRV job to Cargo.toml's declared Rust 1.85 instead of 1.120.0."
+owner_domain = 8
+resolution = "In-scope workflow configuration repaired and proven by the named test; root-discovered workflow registration is requested from domain 16 below."
+tests = ["test_perf_ci_workflow_location"]
+
+[wiring.ci]
+path = ".github/workflows/perf-db-ci.yml"
+source = "services/platform/perf-db/.github/workflows/ci.yml"
+owner_domain = 16
+status = "requested; outside task scope"
+request = ".github/workflows/perf-db-ci.yml -> domain 16 (tools-ops, coordinating with domain 8): register the corrected services/platform/perf-db/.github/workflows/ci.yml contents at this root-discovered path, retaining its crate working directory, scoped filters and action inputs; do not merely call a nested workflow, which GitHub cannot discover."
+
+[finding.perf-security-workflow-location]
+audit = "22.30.75"
+file = "services/platform/perf-db/.github/workflows/security.yml"
+line = 3
+class = "config-drift"
+severity = "medium"
+observed = "The security workflow resides under services/platform/perf-db/.github/workflows, which GitHub does not discover. Its Cargo commands assume repository-root execution even though the crate manifest is nested; the declared automation does not qualify this crate."
+expected = "The monorepo must actually run the advertised database security checks from root-discovered workflows with the correct crate directory and path filters."
+proposal = "Register the security workflow under the repository-root .github/workflows and set services/platform/perf-db as its Cargo working directory; align manifest paths and filters."
+owner_domain = 8
+resolution = "In-scope workflow configuration repaired and proven by the named test; root-discovered workflow registration is requested from domain 16 below."
+tests = ["test_perf_security_workflow_location"]
+
+[wiring.security]
+path = ".github/workflows/perf-db-security.yml"
+source = "services/platform/perf-db/.github/workflows/security.yml"
+owner_domain = 16
+status = "requested; outside task scope"
+request = ".github/workflows/perf-db-security.yml -> domain 16 (tools-ops, coordinating with domain 8): register the corrected services/platform/perf-db/.github/workflows/security.yml contents at this root-discovered path, retaining its crate working directory, scoped filters and action inputs; do not merely call a nested workflow, which GitHub cannot discover."
+
+[evidence]
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1378.py"
+gate_cmd = "cg spec done 22.33.1378 -f layerx-merge --root /work/paxeer-monorepo"
+ledger = "/out/run/gates.jsonl"
+verified_revision = "The last hf-done JSON and private /out/run/gates.jsonl name the exact verified revision, command, exit code and log. Build and verification must pass on the same candidate revision. This record is finalized before qualification because embedding its own content-derived revision would change that revision; evidence is retained externally by the runner."
+publication = "Runner owns publication; no manual commit or push, and no edits after passing hf-done."
+
+[gotcha.baseline_order]
+observed = "Step 7 requests pre-change verification while the explicit order forbids tests until implementation is complete and permits verify only through hf-done."
+resolution = "Follow explicit gate order and disclose the unexecuted baseline without claiming baseline failures."
+
+[gotcha.scope]
+observed = "Root .github/workflows and GOTCHA.kvx are outside scope, although inherited instructions request editing them."
+resolution = "Record root workflow registration requests to owning domain 16 and gotchas here; preserve all out-of-scope files and runner setup changes."
+
+[gotcha.read_budget]
+observed = "Broad combined reads exceeded output budgets; a lookup of optional ownership files found no matching paths."
+resolution = "Use exact task and audit blocks, gate implementation sections, current source files and feature.16 ownership in bounded reads; no missing optional file is treated as authority."
+
+[format]
+policy = "No Python, YAML or KVX formatter is configured for these paths; apply .editorconfig and pre-commit whitespace/final-newline conventions to the five touched files only, retaining YAML two-space indentation. yamllint is a linter and is outside the declared gates."
