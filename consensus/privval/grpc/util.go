@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -60,27 +61,24 @@ func DefaultDialOptions(
 	return dialOpts
 }
 
-func GenerateTLS(certPath, keyPath, ca string) grpc.DialOption {
+func GenerateTLS(certPath, keyPath, ca string) (grpc.DialOption, error) {
 	certificate, err := tls.LoadX509KeyPair(
 		certPath,
 		keyPath,
 	)
 	if err != nil {
-		logger.Error("Failed to generate TLS", "err", err)
-		os.Exit(1)
+		return nil, fmt.Errorf("load signer TLS certificate and key: %w", err)
 	}
 
 	certPool := x509.NewCertPool()
 	bs, err := os.ReadFile(filepath.Clean(ca))
 	if err != nil {
-		logger.Error("failed to read ca cert:", "error", err)
-		os.Exit(1)
+		return nil, fmt.Errorf("read signer TLS root CA: %w", err)
 	}
 
 	ok := certPool.AppendCertsFromPEM(bs)
 	if !ok {
-		logger.Error("failed to append certs")
-		os.Exit(1)
+		return nil, fmt.Errorf("invalid signer TLS root CA PEM in %q", ca)
 	}
 
 	transportCreds := credentials.NewTLS(&tls.Config{
@@ -89,7 +87,7 @@ func GenerateTLS(certPath, keyPath, ca string) grpc.DialOption {
 		MinVersion:   tls.VersionTLS13,
 	})
 
-	return grpc.WithTransportCredentials(transportCreds)
+	return grpc.WithTransportCredentials(transportCreds), nil
 }
 
 // DialRemoteSigner is  a generalized function to dial the gRPC server.
@@ -99,11 +97,21 @@ func DialRemoteSigner(
 	chainID string,
 	usePrometheus bool,
 ) (*SignerClient, error) {
+	if err := cfg.ValidateBasic(); err != nil {
+		return nil, err
+	}
 	var transportSecurity grpc.DialOption
 	if cfg.AreSecurityOptionsPresent() {
-		transportSecurity = GenerateTLS(cfg.ClientCertificateFile(),
+		var err error
+		transportSecurity, err = GenerateTLS(cfg.ClientCertificateFile(),
 			cfg.ClientKeyFile(), cfg.RootCAFile())
+		if err != nil {
+			return nil, err
+		}
 	} else {
+		if !cfg.Insecure {
+			return nil, fmt.Errorf("signer gRPC requires TLS or explicit insecure transport")
+		}
 		transportSecurity = grpc.WithTransportCredentials(insecure.NewCredentials())
 		logger.Info("Using an insecure gRPC connection!")
 	}
@@ -119,7 +127,7 @@ func DialRemoteSigner(
 	_, address := tmnet.ProtocolAndAddress(cfg.ListenAddr)
 	conn, err := grpc.DialContext(ctx, address, dialOptions...)
 	if err != nil {
-		logger.Error("unable to connect to server", "target", address, "err", err)
+		return nil, fmt.Errorf("dial signer %q: %w", address, err)
 	}
 
 	return NewSignerClient(conn, chainID)
