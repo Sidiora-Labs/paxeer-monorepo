@@ -1,0 +1,7 @@
+[repair.22.33.831]
+audit = "22.30.18"
+finding = "17"
+tests = ["TestRepairM_831_ConfigToPages", "TestRepairM_831_RejectInvalidURLs"]
+baseline = "Not run: the explicit gate order forbids verification before complete implementation and permits only hf-build followed by hf-done. No pre-change test failure is claimed."
+wiring_requests = []
+evidence = "The runner records the exact candidate revision, command, exit and private log in its hf-done ledger."

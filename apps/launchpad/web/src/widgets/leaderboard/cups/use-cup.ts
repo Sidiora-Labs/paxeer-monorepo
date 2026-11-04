@@ -1,10 +1,10 @@
 'use client';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/core/query-keys';
 import { marketCachePolicy } from '@/core/cache-policy';
 import { useOperations } from '@/core/market/operations';
 import { loadable, type Loadable } from '@/core/market/unsupported';
-import { cupOperations, cupStandingsLimit, fetchCupResults, fetchCupStandings, fetchCurrentCup, type Cup, type CupResults, type CupStandingsPage } from './cups-contract';
+import { cupOperations, cupStandingsLimit, fetchCupResults, fetchCupStandings, fetchCurrentCup, validateStandings, type Cup, type CupResults, type CupStanding, type CupStandingsPage } from './cups-contract';
 
 
 /**
@@ -40,6 +40,36 @@ export function useCupStandings(cupId: string, cursor: string | null = null, lim
     ...marketCachePolicy.cups,
   });
   return loadable(query, cupOperations.standings);
+}
+
+interface StandingsContinuation {
+  cursor: string | null;
+  items: CupStanding[];
+  cursors: string[];
+}
+
+export function useCupStandingsPages(cupId: string) {
+  const operations = useOperations();
+  return useInfiniteQuery({
+    queryKey: [...queryKeys.cupStandings(cupId, null, cupStandingsLimit), 'pages'],
+    initialPageParam: { cursor: null, items: [], cursors: [] } as StandingsContinuation,
+    queryFn: async ({ pageParam, signal }) => {
+      const page = await fetchCupStandings(operations, cupId, pageParam.cursor, cupStandingsLimit, signal);
+      validateStandings([...pageParam.items, ...page.items], Number.MAX_SAFE_INTEGER);
+      const previousRank = pageParam.items[pageParam.items.length - 1]?.rank ?? 0;
+      if (page.items.some(row => row.rank <= previousRank)) throw new Error('Cup standings page order disagreement');
+      if (page.nextCursor !== null && (page.nextCursor.length === 0 || page.nextCursor === pageParam.cursor || pageParam.cursors.includes(page.nextCursor))) {
+        throw new Error('Cup standings cursor disagreement');
+      }
+      return page;
+    },
+    getNextPageParam: (page, pages, _lastParam, params): StandingsContinuation | undefined => page.nextCursor === null ? undefined : ({
+      cursor: page.nextCursor,
+      items: pages.flatMap(item => item.items),
+      cursors: params.flatMap(param => param.cursor === null ? [] : [param.cursor]),
+    }),
+    ...marketCachePolicy.cups,
+  });
 }
 
 /** Re-request every cup query (the Unsupported marker has no refetch handle of its own). */

@@ -34,11 +34,11 @@ function ConsentControls() {
 
 export default function CookiePolicy() {
   return (
-    <LegalLayout title="Cookie Policy" lastUpdated="12 May 2026">
+    <LegalLayout title="Cookie Policy" lastUpdated="4 November 2026">
       <p>
         This Cookie Policy explains what cookies are, how <strong>Paxeer Network Foundation</strong>{" "}
         ("we", "us", or "our") uses them on the HyperPax Interface, and how you can control them.
-        By using the Interface you consent to cookies in accordance with this policy.
+        Optional cookie choices are separate from the operational error reporting described below.
       </p>
 
       <h2>What Are Cookies?</h2>
@@ -81,23 +81,36 @@ export default function CookiePolicy() {
         </li>
       </ul>
 
-      <h2>2. Performance &amp; Analytics Cookies</h2>
+      <h2>2. Cookie Choices and Operational Error Reporting</h2>
       <p>
-        With your consent, we use analytics cookies to understand how users interact with the
-        Interface. This helps us prioritise improvements and fix bugs. All data collected is
-        anonymised and aggregated — no wallet addresses or identifying information is included.
+        The cookie controls save your preference for optional cookies. They do not switch operational
+        error reporting on or off. When Sentry is configured, browser and server exceptions may be
+        sent before you choose a preference, after "Accept all cookies", after "Essential only", and
+        after you withdraw optional consent by selecting "Essential only" again. Error-event
+        transmission is separate from placing cookies or storing a consent preference in your browser.
       </p>
-      <ul>
-        <li>
-          <strong>Page view analytics.</strong> Records which pages and features are visited and for
-          how long. Retention: up to 24 months.
-        </li>
-        <li>
-          <strong>Error tracking.</strong> Captures anonymised information about JavaScript errors and
-          performance issues to help us diagnose problems.
-        </li>
-      </ul>
-      <p>These cookies are only placed if you click "Accept all cookies" below or in the banner.</p>
+      <p>
+        Sentry helps diagnose failures. Reports may include error messages, stack traces, page or
+        request URLs, browser and device information, breadcrumbs, environment and release identifiers,
+        error codes, context, tags and additional diagnostic fields. If you submit error feedback,
+        your message and any name or email you provide may also be sent. Network requests expose
+        connection metadata, including your IP address, to the receiving service. Reports are not
+        guaranteed to be anonymous or aggregated; diagnostic text or URLs may contain wallet-linked
+        information. Do not include private keys or seed phrases in feedback.
+      </p>
+      <p>
+        Default personal-information collection is disabled. The browser configuration applies
+        best-effort redaction to error messages and exception text; this does not sanitise every field,
+        and the server configuration does not apply that same redaction. Performance tracing and
+        browser session replay are disabled in the current configuration.
+      </p>
+      <p>
+        Error reports are retained according to the deployed Sentry project's retention settings; the
+        Interface does not configure a fixed retention period or automatically delete reports when
+        you change cookie preferences. Contact <a href="mailto:privacy@paxeer.network">privacy@paxeer.network</a>{" "}
+        for the applicable retention period or to request access or deletion. Optional cookie consent
+        is not a control for stopping this operational capture or erasing reports already sent.
+      </p>
 
       <h2>3. Third-Party Cookies</h2>
       <p>
@@ -126,7 +139,8 @@ export default function CookiePolicy() {
       <h2>Manage Your Preferences</h2>
       <p>
         You can update your cookie consent at any time using the controls below. Changes take effect
-        immediately. Selecting "Essential only" will not delete cookies already placed — you may need
+        immediately for the stored preference. Selecting "Essential only" withdraws optional consent,
+        but does not stop Sentry error reporting or delete cookies already placed — you may need
         to clear them manually via your browser settings.
       </p>
 

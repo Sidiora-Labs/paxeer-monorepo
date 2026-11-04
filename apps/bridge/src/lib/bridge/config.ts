@@ -29,7 +29,9 @@ function readAddress(value: string | undefined): Address | undefined {
   return raw && raw !== zeroAddress && isAddress(raw, { strict: false }) ? getAddress(raw) : undefined;
 }
 
-export function readConfig(env: Record<string, string | undefined>) {
+export type BridgeEnvironment = Record<string, string | undefined>;
+
+export function readConfig(env: BridgeEnvironment) {
   const solanaProgramId = env.NEXT_PUBLIC_BRIDGE_SOLANA_PROGRAM_ID?.trim();
   return {
 

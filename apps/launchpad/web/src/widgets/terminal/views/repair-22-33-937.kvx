@@ -1,0 +1,9 @@
+[repair.22.33.937]
+finding = "following-pagination"
+implementation = "track.tsx sends opaque cursors, joins and deduplicates infinite-query pages, offers explicit continuation and retry, and cancels and discards pages on account/session epoch changes."
+tests = ["following_pagination_pages_and_deduplication", "following_pagination_account_and_session_resets", "following_pagination_continuation_failures", "following_pagination_rejects_late_session_response"]
+test_file = "apps/launchpad/web/src/widgets/terminal/views/repair-22-33-937.test.ts"
+baseline = "Not run: the task's ordered instructions prohibit testing before implementation and permit verification only through hf-done after hf-build. No baseline failure is claimed."
+fixture_note = "The first verification exposed a test fixture timestamp without milliseconds; the fixture now uses the SDK's required canonical UTC millisecond format and retains every identity assertion."
+wiring_requests = []
+evidence = "The runner's hf-build/hf-done ledger records the verified candidate revision, exact command, exit code and private log location."

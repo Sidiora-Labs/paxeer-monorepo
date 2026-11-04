@@ -46,8 +46,8 @@ func newRPCEndpointConfig(config evmrpcconfig.Config) RPCEndpointConfig {
 }
 
 // ServerOption configures NewEVMHTTPServer (a TraceContextProvider, SequencerReceiptOption,
-// SequencerOption, PendingOption or SequencerForwardOption) and NewEVMWebSocketServer
-// (a SequencerReceiptOption, SequencerOption, PendingOption or SequencerForwardOption).
+// SequencerOption, PendingOption, pxIndexerOption or SequencerForwardOption) and NewEVMWebSocketServer
+// (a SequencerReceiptOption, SequencerOption, PendingOption, pxIndexerOption or SequencerForwardOption).
 type ServerOption interface{ serverOption() }
 
 func (TraceContextProvider) serverOption()   {}
@@ -153,6 +153,10 @@ func NewEVMHTTPServer(
 ) (EVMServer, error) {
 	if tmClient == nil || k == nil || ctxProvider == nil || txConfigProvider == nil || app == nil {
 		return nil, errors.New("EVM HTTP server dependencies are not configured")
+	}
+	pxIndexer, err := pxIndexerForServer(config.PxIndexerURL, opts)
+	if err != nil {
+		return nil, err
 	}
 	domainResolver, err := domainResolverForServer(app, k, ctxProvider, opts)
 	if err != nil {
@@ -284,7 +288,11 @@ func NewEVMHTTPServer(
 		httpServer.addStopHook(api.shutdown)
 		return api
 	}
+	stateAPI := NewStateAPI(tmClient, k, ctxProvider, ConnectionTypeHTTP, watermarks, app.CommitMultiStore().(storetypes.Queryable))
+	simulationAPI := NewSimulationAPI(ctxProvider, k, beginBlockKeepers, txConfigProvider, tmClient, simulateConfig, app, antehandler, ConnectionTypeHTTP, globalBlockCache, cacheCreationMutex, watermarks)
+	pxAPI := &pxAccountAPI{state: stateAPI, tx: txAPI, simulation: simulationAPI, indexer: pxIndexer, methods: httpServer.HTTPMethods}
 	apis := []rpc.API{
+		{Namespace: "px", Service: pxAPI},
 		{
 			Namespace: "echo",
 			Service:   NewEchoAPI(),
@@ -327,7 +335,7 @@ func NewEVMHTTPServer(
 		},
 		{
 			Namespace: "eth",
-			Service:   NewStateAPI(tmClient, k, ctxProvider, ConnectionTypeHTTP, watermarks, app.CommitMultiStore().(storetypes.Queryable)),
+			Service:   stateAPI,
 		},
 		{
 			Namespace: "eth",
@@ -339,7 +347,7 @@ func NewEVMHTTPServer(
 		},
 		{
 			Namespace: "eth",
-			Service:   NewSimulationAPI(ctxProvider, k, beginBlockKeepers, txConfigProvider, tmClient, simulateConfig, app, antehandler, ConnectionTypeHTTP, globalBlockCache, cacheCreationMutex, watermarks),
+			Service:   simulationAPI,
 		},
 		{
 			Namespace: "net",
@@ -415,6 +423,10 @@ func NewEVMWebSocketServer(
 	if tmClient == nil || k == nil || ctxProvider == nil || txConfigProvider == nil || app == nil {
 		return nil, errors.New("EVM WebSocket server dependencies are not configured")
 	}
+	pxIndexer, err := pxIndexerForServer(config.PxIndexerURL, opts)
+	if err != nil {
+		return nil, err
+	}
 	domainResolver, err := domainResolverForServer(app, k, ctxProvider, opts)
 	if err != nil {
 		return nil, err
@@ -425,7 +437,7 @@ func NewEVMWebSocketServer(
 	var sequencerReceipts SequencerReceiptOption
 	for _, opt := range opts {
 		switch o := opt.(type) {
-		case domainResolverOption:
+		case domainResolverOption, pxIndexerOption:
 		case SequencerReceiptOption:
 			sequencerReceipts = o
 		case PendingOption:
@@ -523,7 +535,12 @@ func NewEVMWebSocketServer(
 	if seq != nil {
 		subscriptionAPI.receiptLogs = seq.receiptLogs
 	}
+	txAPI := NewTransactionAPI(tmClient, k, ctxProvider, txConfigProvider, homeDir, ConnectionTypeWS, methodTimeout, watermarks, globalBlockCache, cacheCreationMutex, config.EnableUnsafeKeyringRPC)
+	stateAPI := NewStateAPI(tmClient, k, ctxProvider, ConnectionTypeWS, watermarks, app.CommitMultiStore().(storetypes.Queryable))
+	simulationAPI := NewSimulationAPI(ctxProvider, k, beginBlockKeepers, txConfigProvider, tmClient, simulateConfig, app, antehandler, ConnectionTypeWS, globalBlockCache, cacheCreationMutex, watermarks)
+	pxAPI := &pxAccountAPI{state: stateAPI, tx: txAPI, simulation: simulationAPI, indexer: pxIndexer, methods: httpServer.WSMethods}
 	apis := []rpc.API{
+		{Namespace: "px", Service: pxAPI},
 		{
 			Namespace: "echo",
 			Service:   NewEchoAPI(),
@@ -534,7 +551,7 @@ func NewEVMWebSocketServer(
 		},
 		{
 			Namespace: "eth",
-			Service:   NewTransactionAPI(tmClient, k, ctxProvider, txConfigProvider, homeDir, ConnectionTypeWS, methodTimeout, watermarks, globalBlockCache, cacheCreationMutex, config.EnableUnsafeKeyringRPC),
+			Service:   txAPI,
 		},
 		{
 			Namespace: "eth",
@@ -546,7 +563,7 @@ func NewEVMWebSocketServer(
 		},
 		{
 			Namespace: "eth",
-			Service:   NewStateAPI(tmClient, k, ctxProvider, ConnectionTypeWS, watermarks, app.CommitMultiStore().(storetypes.Queryable)),
+			Service:   stateAPI,
 		},
 		{
 			Namespace: "eth",
@@ -558,7 +575,7 @@ func NewEVMWebSocketServer(
 		},
 		{
 			Namespace: "eth",
-			Service:   NewSimulationAPI(ctxProvider, k, beginBlockKeepers, txConfigProvider, tmClient, simulateConfig, app, antehandler, ConnectionTypeWS, globalBlockCache, cacheCreationMutex, watermarks),
+			Service:   simulationAPI,
 		},
 		{
 			Namespace: "net",

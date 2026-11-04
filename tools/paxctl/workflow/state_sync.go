@@ -48,7 +48,8 @@ func preflightPhaseError(ns, name, phase string) error {
 	case phaseFailed:
 		return cliutil.UsageError(
 			"workflow %s/%s previously Failed and still holds the node. Recovery is a "+
-				"force-delete (annotate it %s=<reason>, see docs) then re-run, or --name for a fresh run.",
+				"force-delete (annotate it %s=<reason>, see docs), remove it, then re-run. "+
+				"--name alone does not recover a Failed run; deletion releases the hold, so first verify paxd can restart safely.",
 			ns, name, forceDeleteAnnotation)
 	}
 	return nil
@@ -183,7 +184,7 @@ func stateSyncAction(ctx context.Context, c *cli.Command) error {
 // was released; the resync runs after Complete, so catch-up is the operator's
 // verification, via the SDK-backed readiness watch.
 func emitCompleteHandoff(w io.Writer, ns, node string) {
-	_, _ = fmt.Fprintf(w, "seictl: workflow Complete: node %s released, seid is restarting and the resync begins now\n", node)
+	_, _ = fmt.Fprintf(w, "seictl: workflow Complete: node %s released, paxd is restarting and the resync begins now\n", node)
 	_, _ = fmt.Fprintf(w, "seictl: Complete means the recipe's mutations landed, not that the node caught up. Verify catch-up:\n")
 	_, _ = fmt.Fprintf(w, "seictl:   seictl node watch %s --until=caught-up -n %s\n", node, ns)
 }
@@ -213,13 +214,16 @@ var stateSyncCmd = cli.Command{
 		"--migration GigaStore --backend <pebbledb|rocksdb> instead requests a " +
 		"typed store migration: a DESTRUCTIVE, irreversible, slow wipe-and-resync " +
 		"that discards local state and re-bootstraps on the chosen backend — both " +
-		"tokens are required. --rpc-servers overrides witness resolution (>=2 or " +
-		"the controller fails the plan closed). " +
+		"tokens are required. --rpc-servers overrides witness resolution (at least two distinct " +
+		"host:port endpoints). The sidecar requires distinct reachable witnesses on the configured " +
+		"chain with an agreed trust hash before reset-data and checks again during configuration. " +
+		"A failed witness check retains the hold; plan-time endpoint count is not a reachability guarantee. " +
 		"\n\n" +
 		"Re-run semantics: spec params are immutable, so re-running over a " +
 		"same-named workflow already in a terminal phase is refused — delete a " +
-		"Complete run, force-delete a Failed one (it holds the node), or pass " +
-		"--name for a fresh run. " +
+		"Complete run or pass --name for a fresh run. A Failed run must be force-deleted " +
+		"before re-running; --name alone cannot recover its hold. Deletion releases paxd, " +
+		"so verify it can restart safely first. " +
 		"\n\n" +
 		"Cluster + namespace resolve from --kubeconfig and -n exactly as " +
 		"`node apply`; the resolved target prints on stderr before applying.",
@@ -251,7 +255,7 @@ var stateSyncCmd = cli.Command{
 		},
 		&cli.StringSliceFlag{
 			Name:  "rpc-servers",
-			Usage: "State-sync witness RPC endpoints (host:port). Overrides the node's resolved syncers; must carry >=2 or the plan refuses to compile. Repeatable.",
+			Usage: "State-sync witness RPC endpoints (host:port). Overrides the node's resolved syncers; requires at least two distinct endpoints, with runtime quorum checked by the sidecar before reset-data and configuration. Repeatable.",
 		},
 		&cli.StringFlag{
 			Name:  "require-phase",

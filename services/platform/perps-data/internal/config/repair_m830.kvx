@@ -1,0 +1,10 @@
+[repair.22.33.830]
+audit = "22.30.18"
+finding_15 = "TestRepairM_830_ChainID: Load, Service.Load and Validate reject every unsupported chain before startup; 125 is admitted and reloading after refusal recovers."
+finding_16 = "TestRepairM_830_PortalHTTP and TestRepairM_830_GatewaySchemes: accepted HTTP/HTTPS portal configurations construct real NewPages and render records over loopback; Loadtest retains http/https/ws/wss via SocketURL and origin discovery."
+finding_14 = "TestRepairM_830_EndpointRedaction: real service loads through String, GoString, slog text/JSON handlers and JSON encoding remove endpoint credentials without changing live client endpoints."
+finding_18 = "TestRepairM_830_GatewaySchemes: updated TestConfig and the repair proof use an HTTP portal origin, construct NewPages and assert service-specific socket acceptance and refusal."
+baseline = "Not run: the explicit gate order forbids tests before complete implementation and permits verification only through hf-done after hf-build; no unchanged-tree failure is claimed."
+wiring_request = "Owning domain 3 (Go perps-data portal): services/platform/perps-data/internal/portal/pages.go NewPages must explicitly support an absent explorer transaction base before Portal config may make it optional; current startup validation refuses that unsupported consumer shape."
+future_network_wiring = "Owning domain 3 (Go perps-data): services/platform/perps-data/internal/store/facts.go WriteFacts, event IDs, publication policy and gateway consumers must jointly thread any future chain identity and prove end-to-end delivery before lifting the chain-125 validation."
+qualification = "Exact candidate revision, command, exit and private log are emitted by hf-build and hf-done into the runner's gate ledger; the runner publishes that evidence without editing this record after qualification."

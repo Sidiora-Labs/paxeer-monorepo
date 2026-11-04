@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"regexp"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/ogrender"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/pnlmath"
@@ -45,15 +46,17 @@ type Market struct {
 
 // Snapshot is the immutable card payload (pnl.ts CardSnapshot).
 type Snapshot struct {
-	Version      int      `json:"version"`
-	OwnerAddress string   `json:"ownerAddress"`
-	PoolAddress  string   `json:"poolAddress"`
-	TokenAddress string   `json:"tokenAddress"`
-	TokenSymbol  string   `json:"tokenSymbol,omitempty"`
-	TokenName    string   `json:"tokenName,omitempty"`
-	Position     Position `json:"position"`
-	Market       Market   `json:"market"`
-	CapturedAt   int64    `json:"capturedAt"`
+	Version        int      `json:"version"`
+	OwnerAddress   string   `json:"ownerAddress"`
+	PoolAddress    string   `json:"poolAddress"`
+	TokenAddress   string   `json:"tokenAddress"`
+	TokenSymbol    string   `json:"tokenSymbol,omitempty"`
+	TokenName      string   `json:"tokenName,omitempty"`
+	Position       Position `json:"position"`
+	Market         Market   `json:"market"`
+	CapturedAt     int64    `json:"capturedAt"`
+	BasisQuality   string   `json:"basisQuality,omitempty"`
+	PricingQuality string   `json:"pricingQuality,omitempty"`
 }
 
 // Minted is the archived hydrate response (pnl.ts MintedCard).
@@ -129,9 +132,14 @@ func BuildRenderInput(snap Snapshot, footer string) ogrender.Input {
 		priceWad = *snap.Market.PriceWad
 	}
 	pnlText, positive := formatSignedUsdl(snap.Position.RealizedPnlUsdl, snap.Position.AvgCostBasis, snap.Position.CurrentHoldings, priceWad)
+	multiple := formatMultiple(snap.Position, priceWad)
+	if (snap.BasisQuality != "" && snap.BasisQuality != "complete") ||
+		(snap.PricingQuality != "" && snap.PricingQuality != "priced" && snap.PricingQuality != "complete") {
+		pnlText, positive, multiple = unavailable, false, unavailable
+	}
 	return ogrender.Input{
 		Title:       titleFor(snap),
-		Multiple:    formatMultiple(snap.Position, priceWad),
+		Multiple:    multiple,
 		Pnl:         pnlText,
 		PnlPositive: positive,
 		Holdings:    formatHoldings(snap.Position.CurrentHoldings, snap.TokenSymbol),
@@ -149,18 +157,56 @@ func titleFor(snap Snapshot) string {
 	return snap.PoolAddress
 }
 
+const unavailable = "Unavailable"
+
+var integerPattern = regexp.MustCompile(`^(0|-?[1-9][0-9]*)$`)
+
+func renderInteger(raw string, signed bool) (*big.Int, bool) {
+	if len(raw) > 157 || !integerPattern.MatchString(raw) {
+		return nil, false
+	}
+	v, ok := new(big.Int).SetString(raw, 10)
+	if !ok || (!signed && v.Sign() < 0) {
+		return nil, false
+	}
+	return v, true
+}
+
+func renderMark(priceWad string, holdings *big.Int) (string, bool) {
+	// A closed position has no mark exposure; absence is not a zero-price claim.
+	if priceWad == "" && holdings.Sign() == 0 {
+		return "0", true
+	}
+	_, ok := renderInteger(priceWad, false)
+	return priceWad, ok
+}
+
 // formatMultiple renders (received + unrealized) / spent as "N.NNx".
 func formatMultiple(p Position, priceWad string) string {
-	spent, ok := new(big.Int).SetString(orZero(p.TotalUsdlSpent), 10)
+	spent, ok := renderInteger(p.TotalUsdlSpent, false)
 	if !ok || spent.Sign() == 0 {
-		return "0.00x"
+		return unavailable
 	}
-	received, _ := new(big.Int).SetString(orZero(p.TotalUsdlReceived), 10)
+	received, ok := renderInteger(p.TotalUsdlReceived, false)
+	if !ok {
+		return unavailable
+	}
+	holdings, ok := renderInteger(p.CurrentHoldings, false)
+	if !ok {
+		return unavailable
+	}
+	priceWad, ok = renderMark(priceWad, holdings)
+	if !ok {
+		return unavailable
+	}
 	unrealizedStr, err := pnlmath.HoldingValue(priceWad, p.CurrentHoldings)
 	if err != nil {
-		unrealizedStr = "0"
+		return unavailable
 	}
-	unrealized, _ := new(big.Int).SetString(orZero(unrealizedStr), 10)
+	unrealized, ok := renderInteger(unrealizedStr, false)
+	if !ok {
+		return unavailable
+	}
 
 	// milli = (received + unrealized) * 1000 / spent.
 	num := new(big.Int).Add(received, unrealized)
@@ -174,13 +220,27 @@ func formatMultiple(p Position, priceWad string) string {
 
 // formatSignedUsdl renders the total PnL as "+$D.CC" / "-$D.CC" and its sign.
 func formatSignedUsdl(realized, avgCost, holdings, priceWad string) (string, bool) {
+	if _, ok := renderInteger(realized, true); !ok {
+		return unavailable, false
+	}
+	if _, ok := renderInteger(avgCost, false); !ok {
+		return unavailable, false
+	}
+	h, ok := renderInteger(holdings, false)
+	if !ok {
+		return unavailable, false
+	}
+	priceWad, ok = renderMark(priceWad, h)
+	if !ok {
+		return unavailable, false
+	}
 	total, err := pnlmath.TotalPnl(realized, avgCost, holdings, priceWad)
 	if err != nil {
-		return "$0.00", true
+		return unavailable, false
 	}
-	v, _ := new(big.Int).SetString(total, 10)
-	if v == nil {
-		return "$0.00", true
+	v, ok := renderInteger(total, true)
+	if !ok {
+		return unavailable, false
 	}
 	positive := v.Sign() >= 0
 	abs := new(big.Int).Abs(v)
@@ -197,9 +257,9 @@ func formatSignedUsdl(realized, avgCost, holdings, priceWad string) (string, boo
 
 // formatHoldings renders a token balance (18-dec raw) as "N.NN SYMBOL held".
 func formatHoldings(holdings, symbol string) string {
-	v, ok := new(big.Int).SetString(orZero(holdings), 10)
+	v, ok := renderInteger(holdings, false)
 	if !ok {
-		v = new(big.Int)
+		return "Holdings unavailable"
 	}
 	whole := new(big.Int).Quo(v, wad)
 	frac := new(big.Int).Mod(v, wad)
@@ -210,11 +270,4 @@ func formatHoldings(holdings, symbol string) string {
 		sym = "tokens"
 	}
 	return fmt.Sprintf("%s.%02d %s held", whole.String(), cents.Int64(), sym)
-}
-
-func orZero(s string) string {
-	if s == "" {
-		return "0"
-	}
-	return s
 }

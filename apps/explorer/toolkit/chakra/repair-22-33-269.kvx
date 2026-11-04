@@ -1,0 +1,56 @@
+[task]
+id = "22.33.269"
+acceptance = "22998.1"
+evidence = "/out/run/gates.jsonl; hf-build and hf-done record the exact candidate revision, command, exit and private log"
+baseline = "Not run: the ordered implementation-first instructions prohibit testing before implementation and require hf-build before hf-done; no pre-change failures are claimed."
+wiring_requests = "None; all three repairs are local to the explorer Chakra toolkit (domain 14)."
+
+[finding.explorer-image-retry]
+tests = ["explorerImageRetry"]
+repair = "Reset loading and error for src or srcSet changes and replace the underlying image element when source identity changes."
+
+[finding.async-select-controlled-value]
+tests = ["asyncSelectControlledValue", "asyncSelectUncontrolledValue"]
+repair = "Use the controlled selection or internally managed default selection consistently in the option producer and SelectRoot; preserve change notifications."
+
+[finding.async-select-race]
+tests = ["asyncSelectRace", "asyncSelectRejectionRecovery", "asyncSelectUnmount"]
+repair = "Invalidate pending requests on dependency changes and unmount; expose loading and recoverable errors while retaining the previous collection."
+
+[qualification_note]
+observed = "Environment preparation reported ERR_PNPM_OTHER_PM_EXPECTED and apps/explorer/node_modules is absent before implementation."
+assumption = "Use the prescribed gates to establish the exact qualification result; do not change out-of-scope package metadata or weaken checks."
+format = "pnpm --dir apps/explorer exec eslint --fix toolkit/chakra/image.tsx toolkit/chakra/select.tsx toolkit/chakra/repair-22-33-269.spec.ts exited 1 with ERR_PNPM_OTHER_PM_EXPECTED before formatting."
+previous_attempt_revision = "ee67cc491a0468d9998d88d25a540c0b67975486"
+continued_attempt = "Reviewed and preserved the existing production repairs and all six real-component tests; the current gates use corepack yarn as required by the explorer package manager pin. No pre-change test failures or passing gates are claimed."
+previous_wiring_request = "Resolved by the current task runner: build_cmd and verify_cmd now install and type-check through corepack yarn; no out-of-scope edit is required."
+gate_evidence = "The current attempt's exact candidate revision, command, exit and private log are recorded by hf-build and hf-done in /out/run/gates.jsonl; build and verify must pass on the same candidate."
+
+[continuation_note]
+observed = "A relative task-record path was initially resolved under apps/explorer instead of the repository root; the write failed without modifying a file and was corrected."
+
+[continuation_format]
+command = "cd apps/explorer && yarn eslint --fix --fix-type layout toolkit/chakra/image.tsx toolkit/chakra/select.tsx toolkit/chakra/repair-22-33-269.spec.ts"
+observed = "Layout formatting ran; ESLint exited 1 for import grouping (corrected) and expect-expect diagnostics on named test registrations whose assertions are inside the registered functions. All assertions and registrations are retained; ESLint is not a declared gate."
+
+[continuation_repair]
+revision = "70de9fcf0f501d5583a91841e7850e104d6dc28b"
+command = "cg spec done 22.33.269 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Four tests passed; explorerImageRetry read inline style rather than Chakra CSS, and asyncSelectControlledValue asserted before the selection callback was delivered."
+repair = "Assert the same display values using computed styles and await the unchanged controlled-selection callback and DOM-value assertions; retain all six tests and all expected values."
+
+[attempt_4]
+observed = "The prior attempt passed five tests; asyncSelectControlledValue changed Chakra's hidden native control directly, which Chakra initializes with defaultValue and only resynchronizes when the effective selection changes."
+repair = "Choose Gamma through the production combobox and option instead; preserve every existing assertion and additionally assert the visible placeholder after the controlled parent declines the change."
+evidence = "The verified revision, exact commands, exits and private logs for this candidate are recorded by the required hf-build and hf-done gates in /out/run/gates.jsonl; no passing gate is claimed in advance."
+scope_note = "No root gotcha or spec ledger is edited because the direct task instructions restrict all edits to the Chakra toolkit."
+
+[attempt_4_repair]
+revision = "fd168360e4643371a1b050cdc9929cdf201388fb"
+command = "cg spec done 22.33.269 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Five tests passed; opening the menu mounted InputGroup, whose IntersectionObserver dependency is unavailable in jsdom."
+repair = "Select Gamma through the real combobox's supported End-key handler; retain every prior assertion and additionally assert that the menu remains closed, without observer mocks or changes to InputGroup."

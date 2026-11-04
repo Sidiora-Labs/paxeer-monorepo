@@ -2,7 +2,7 @@ import { LegalLayout } from "./LegalLayout";
 
 export default function TermsOfService() {
   return (
-    <LegalLayout title="Terms of Service" lastUpdated="12 May 2026">
+    <LegalLayout title="Terms of Service" lastUpdated="4 November 2026">
       <p>
         These Terms of Service ("Terms") govern your access to and use of the HyperPax interface
         (the "Interface") provided by <strong>Paxeer Network Foundation</strong> ("Foundation", "we",
@@ -17,17 +17,31 @@ export default function TermsOfService() {
 
       <h2>1. The Interface and the Protocol</h2>
       <p>
-        The Interface is a web application that provides a graphical front-end through which users may
-        interact with the Hyperpax-os decentralised perpetual futures protocol (the "Protocol") deployed
-        on the Paxeer Network blockchain (Chain ID 125). The Foundation does not operate, control, or
-        have custody over the Protocol. The Protocol consists of open-source, audited smart contracts
-        running autonomously on the blockchain.
+        The Interface provides access to the HyperPax perpetual futures venue (the "Protocol") on
+        the Paxeer Network blockchain (Chain ID 125). Perpetuals execute in native Go chain software
+        in <code>modules/perps</code>, accessed from EVM transactions through the perps precompile
+        at <code>0x0000000000000000000000000000000000001015</code>. The Solidity
+        <code>Perps.sol</code> file defines the calling interface; it is not the venue's execution
+        implementation. USDL is a separate ERC20 collateral token.
       </p>
       <p>
-        <strong>The Interface is one of many means by which the Protocol can be accessed.</strong> You
-        may interact with the Protocol directly via its smart contract addresses, through other
-        interfaces, or via the Paxeer Network command-line tools. These Terms apply only to your use
-        of this Interface, not to your direct interaction with the Protocol's smart contracts.
+        Chain governance can change venue parameters, including fees, margin requirements, market
+        configuration and pause controls. Network software upgrades can change native execution rules.
+        These controls and the separate USDL token contract create dependencies and risks beyond
+        the Interface; open-source code does not mean the venue is immutable or free of governance
+        control.
+      </p>
+      <p>
+        These Terms make no claim that any particular release or component has been independently
+        audited. Any audit report you rely on must identify its exact release or code revision and
+        component scope. A review of the Solidity calling interface alone does not establish review
+        of native execution, upgrade controls or the USDL token contract.
+      </p>
+      <p>
+        <strong>The Interface is one means of accessing the Protocol.</strong> Other clients and
+        command-line tools may submit transactions to the native venue through its supported
+        interfaces. These Terms govern use of this Interface; direct Protocol access remains subject
+        to the chain's execution rules and applicable law.
       </p>
 
       <h2>2. Eligibility and Prohibited Use</h2>
@@ -52,12 +66,20 @@ export default function TermsOfService() {
         at any time in our sole discretion.
       </p>
 
-      <h2>3. Non-Custodial Nature</h2>
+      <h2>3. Wallet Keys and USDL Custody</h2>
       <p>
-        The Interface is strictly non-custodial. We do not take custody, control, or possession of
-        your digital assets at any time. Your private keys, seed phrases, and wallet credentials remain
-        solely in your possession. We have no ability to recover assets, reverse transactions, or
-        freeze funds. You are solely responsible for the security of your wallet.
+        The Interface does not hold your private keys, seed phrases or wallet credentials. You are
+        responsible for their security. Depositing USDL transfers ERC20 collateral to the perps module
+        account's EVM address, where it backs native account balances and trading obligations.
+        Deposited collateral is no longer held in your wallet. Withdrawals depend on available margin,
+        venue rules and successful chain execution; holding your keys does not guarantee immediate
+        withdrawal of collateral committed to trading.
+      </p>
+      <p>
+        Interface support cannot recover lost keys or reverse confirmed transactions. Native execution,
+        governance and upgrade controls, and the separate USDL token contract can affect access to or
+        movement of collateral. Do not treat the Interface's lack of key custody as a guarantee that
+        deposited funds cannot be restricted or lost.
       </p>
 
       <h2>4. Risk Disclosures</h2>
@@ -77,9 +99,10 @@ export default function TermsOfService() {
           in volatile market conditions.
         </li>
         <li>
-          <strong>Smart contract risk.</strong> Despite audits, the Protocol's smart contracts may
-          contain bugs, vulnerabilities, or be subject to exploits that could result in total loss of
-          funds.
+          <strong>Execution and custody risk.</strong> Native venue software, precompile integration,
+          upgrades and the separate USDL ERC20 contract may contain bugs or vulnerabilities or be
+          exploited, resulting in total loss of funds. Governance changes or pauses can affect trading
+          and withdrawals. No audit eliminates these risks.
         </li>
         <li>
           <strong>Oracle risk.</strong> The Protocol relies on oracle price feeds that may be
@@ -102,7 +125,8 @@ export default function TermsOfService() {
         <li>
           <strong>Frontend risk.</strong> The Interface may become unavailable, be subject to DNS
           attacks, or serve malicious content if its delivery infrastructure is compromised. Always
-          verify the URL and consider interacting directly with smart contracts for critical operations.
+          verify the URL and independently verify transaction details and the native venue interface
+          before critical operations.
         </li>
       </ul>
       <p>
@@ -154,8 +178,8 @@ export default function TermsOfService() {
       <p>
         The Interface, including its design, code (to the extent not open-sourced), trademarks, and
         content, is the property of Paxeer Network Foundation and is protected by applicable
-        intellectual property laws. The underlying Protocol smart contracts are open source and
-        governed by their respective licences. Nothing in these Terms transfers any intellectual
+        intellectual property laws. The underlying native venue software and contract interfaces are
+        open source and governed by their respective licences. Nothing in these Terms transfers any intellectual
         property rights to you.
       </p>
 

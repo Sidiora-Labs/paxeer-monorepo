@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useMemo } from 'react';
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Operations, V2ContractTypes } from '@kindle/sdk';
 import { queryKeys } from '@/core/query-keys';
 import { getLivePage, type StreamDirectoryEntry, type StreamViewerQuality } from '@/core/clients/livestream-api';
@@ -233,9 +233,14 @@ export interface UseLiveDirectoryOptions {
 /** Shared live directory: hero, ranked rows and show-all pages read one object so counts never disagree. */
 export function useLiveDirectory(options: UseLiveDirectoryOptions = {}): LiveDirectory {
   const operations = useOperations();
+  const queryClient = useQueryClient();
   const query = useQuery({
     queryKey: queryKeys.liveDirectory(),
-    queryFn: ({ signal }) => loadLiveDirectory(operations, signal),
+    queryFn: async ({ signal }) => {
+      const data = await loadLiveDirectory(operations, signal);
+      void queryClient.invalidateQueries({ queryKey: [...queryKeys.liveDirectory(), 'continuation'] });
+      return data;
+    },
     enabled: options.enabled ?? true,
     staleTime: 5_000,
     gcTime: 60_000,

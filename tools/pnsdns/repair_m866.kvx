@@ -1,0 +1,9 @@
+[repair.22.33.866]
+audit = "22.30.182"
+acceptance = "22998.1"
+pns-tcp-capacity = "TestRepairM_866_TCPCapacity: real loopback admission saturation, overload closure, pipelining, UDP availability and slot reuse after EOF, partial frames, malformed DNS and half-close."
+pns-real-contract-coverage = "TestRepairM_866_RealContractRPC: source-bound committed contract creation code, signed deployment and setter transactions, in-process production geth node HTTP JSON-RPC, real TCP/UDP DNS, ownerless NXDOMAIN, A/AAAA, TXT contenthash and height, then changed and owner-cleared committed state."
+fixture_origin = "tests/solidity/names/PaxPublicResolver.t.sol:testResolverLayoutVectorIsCurrent produces tests/vectors/names/resolver_layout_v1.json; testdata/names_sources.json binds contract sources, imports, compiler settings, producer test and vector bytes."
+baseline = "No baseline gate ran: the explicit implement-before-testing order and bounded hf-build/hf-done gates supersede step 6's contradictory unchanged-tree verify request. No pre-change failures are claimed."
+wiring_requests = "None; existing contract sources and creation-code vector are read without changes."
+evidence = "The runner's /out/run/gates.jsonl records the exact candidate revision, command, exit and private log for hf-build and hf-done; final task evidence copies the last gate record."
