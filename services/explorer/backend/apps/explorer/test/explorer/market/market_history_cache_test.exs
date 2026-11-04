@@ -4,13 +4,22 @@ defmodule Explorer.Market.MarketHistoryCacheTest do
   alias Explorer.Market.MarketHistoryCache
   alias Explorer.Market.MarketHistory
 
-  setup do
-    Supervisor.terminate_child(Explorer.Supervisor, {ConCache, MarketHistoryCache.cache_name()})
-    Supervisor.restart_child(Explorer.Supervisor, {ConCache, MarketHistoryCache.cache_name()})
+  setup :isolate_market_history_cache
+
+  def isolate_market_history_cache(_context) do
+    cache_name = MarketHistoryCache.cache_name()
+    original_entries = :ets.tab2list(ConCache.ets(cache_name))
+
+    :ok = Supervisor.terminate_child(Explorer.Supervisor, {ConCache, cache_name})
+    {:ok, _} = Supervisor.restart_child(Explorer.Supervisor, {ConCache, cache_name})
 
     on_exit(fn ->
-      Supervisor.terminate_child(Explorer.Supervisor, Explorer.Chain.Cache.Blocks.child_id())
-      Supervisor.restart_child(Explorer.Supervisor, Explorer.Chain.Cache.Blocks.child_id())
+      :ok = Supervisor.terminate_child(Explorer.Supervisor, {ConCache, cache_name})
+      {:ok, _} = Supervisor.restart_child(Explorer.Supervisor, {ConCache, cache_name})
+
+      Enum.each(original_entries, fn {key, value} ->
+        :ok = ConCache.put(cache_name, key, value)
+      end)
     end)
 
     :ok

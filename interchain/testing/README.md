@@ -145,7 +145,9 @@ func TestMockPacketRelay(t *testing.T) {
 
 The literal identifiers above apply to the first client, connection and channel
 on fresh chains. They belong to three different fields and may differ when a
-chain already has IBC state.
+chain already has IBC state. `TestRepairM_1276_ReadmeIdentifiers` in
+[repair_m1276_test.go](repair_m1276_test.go) executes these assertions and relays
+the example packet against the coordinator and real keepers.
 
 Configure the endpoints before starting their handshakes. The defaults in
 [config.go](config.go) select Tendermint clients, the mock port, `mock-version` and
@@ -213,9 +215,10 @@ its port and scoped capability keeper before registering it with
 
 The simapp exposes `ICAAuthModule`, the mock authentication application under
 the interchain accounts controller middleware. For example, a test can inject a
-channel-open-try refusal using the current callback signature:
+channel-open-try callback using the current signature:
 
 ```go
+called := false
 chainA.GetSimApp().ICAAuthModule.IBCApp.OnChanOpenTry = func(
 	ctx sdk.Context,
 	order channeltypes.Order,
@@ -225,6 +228,7 @@ chainA.GetSimApp().ICAAuthModule.IBCApp.OnChanOpenTry = func(
 	counterparty channeltypes.Counterparty,
 	counterpartyVersion string,
 ) (string, error) {
+	called = true
 	return "", fmt.Errorf("mock authentication application rejected OnChanOpenTry")
 }
 ```
@@ -233,6 +237,14 @@ This snippet uses `fmt`, `sdk/types` as `sdk`, `sdk/x/capability/types` as
 `capabilitytypes`, and the `channeltypes` import from the packet example.
 An `OnChanOpenInit` override receives the same arguments but ends with
 `version string` and returns only `error`.
+
+The controller rejects open-try before calling the authentication application:
+its handshake must begin on the controller with open-init. Through the real
+controller route, assert `called == false` and `icatypes.ErrInvalidChannelFlow`.
+Calling `chainA.GetSimApp().ICAAuthModule.OnChanOpenTry` directly with those same
+arguments invokes the base callback, sets `called` and returns its version and
+error. `TestRepairM_1276_ReadmeCallback` compiles this example and exercises both
+calls with a channel and capability created by the real controller keeper.
 
 Install an override before the operation under test, then assert the outcome
 through the middleware path being exercised. A non-nil callback replaces the

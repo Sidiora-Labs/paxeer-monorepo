@@ -123,6 +123,35 @@ quotes, writes and receipt handling to UI state. Refresh indexed views after
 chain writes, while allowing for indexer lag after a committed receipt.
 An empty or unavailable history response does not undo chain commitment.
 
+[`usePerpsMarkets()`](../apps/perps/src/hooks/perps/usePerpsMarkets.ts) takes
+no arguments and returns `{ catalog, tradeable, isLoading, error, refetch }`.
+`catalog: GatewayCatalogEntry[]` includes disabled markets and preserves nullable
+precision, tick/lot, tier and leverage fields. Entries contain `marketId`,
+`symbol`, `name`, `szDecimals`, `pxDecimals`, `maxLeverage`, `enabled`, `listedAt`,
+`category`, `baseToken`, `oracleSymbol`, `tickSize`, `lotSize` and `tierClass`.
+`baseToken` is the gateway symbol string. `tradeable` contains only enabled
+entries, each with non-null numeric `maxLeverage`; it also satisfies
+`TradeableMarket`. No catalog or risk limits are invented for missing data.
+
+The hook loads the gateway `GetMarkets` GraphQL query through React Query with
+key `["perps", "markets"]` and no automatic retry. Before the first response,
+`catalog` and `tradeable` are empty, `isLoading` is true and `error` is null.
+A valid empty response has empty arrays, false `isLoading` and null `error`.
+Network, GraphQL and decoder errors expose `error` and empty arrays, including
+on a failed refresh with older data in React Query's cache. `isLoading` is
+`query.isPending`, so a background refetch retains available arrays while
+pending and does not restore the initial loading flag. `refetch` is React
+Query's refetch function. Consumers use the existing `catalog`/`tradeable`
+fields; unavailable data must not be treated as a supported trading market.
+Successful catalog loads also register venue symbols. Default React Query
+staleness, mount/focus/reconnect and cache policies apply; this hook adds no
+polling interval.
+
+Task 22.33.711 wiring request: domain 3 owns
+`spec/layerx-merge/interfaces.kvx`; reconcile row
+`3.ts-perps-hooks-useperpsmarkets-j27` with the signature and behavior above.
+The registry path is outside this task's permitted scope.
+
 [`useFeeTier(address: string | undefined)`](../apps/perps/src/hooks/perps/useFeeTier.ts)
 returns `{ view, isLoading, error }`. `view` contains `tier`, `takerBps`,
 `makerBps` (including negative maker rebates), and exact `volume14dUsd: bigint`.
@@ -145,6 +174,36 @@ Config and margin tiers refresh as one query, with 30-second freshness and
 polling while active, stale reads on mount/focus/reconnect, stream-resync
 invalidation, and five-minute unused-cache retention. Governance changes become
 visible to mounted consumers through those reads without a reload.
+
+`usePerfdbTraderStats(address)` and `usePerfdbUser(address)` normalize the
+selected address and return `{ stats, isLoading, error }` and
+`{ user, isLoading, error }`, respectively. Replacement clears prior-account
+data and errors immediately; disconnect returns null data, false loading and
+null error. Successes and failures from earlier request generations cannot
+modify the current selection, including a reconnect to the same account.
+
+`usePortfolioStats()` scopes snapshots to one account session. A full-list
+`positionChanged` push supersedes all position snapshots already pending in
+that session. Older overlapping snapshots and responses from stopped sessions
+are discarded. Reopening the consumer starts a fresh snapshot/subscription;
+reconnect resync follows the same ordering rule.
+
+`useQuoter(marketDataUrl?)` uses the normalized HTTP(S) base URL, including its
+path, for both ticker and open-interest requests. It shares open-interest
+cache/in-flight work only within that base URL. A quote's `openInterest`
+metadata is `{ origin, source, fetchedAt, ageMs }`: `origin` is the normalized
+base URL, times are epoch milliseconds/elapsed milliseconds, and `source` is
+`fresh`, `cache`, `stale` or `unavailable`. Cached rows are fresh for sixty
+seconds; failed refreshes may use same-origin rows for at most five minutes
+since their successful fetch. Unavailable OI has no rows; `fetchedAt`/`ageMs`
+are null if no successful fetch exists. A whole-quote on-chain fallback uses
+`source: "on-chain"`, null origin and null times. Consumers can distinguish
+absent or stale OI from an observed zero.
+
+`useRealtimePrices({ enabled? })` expires each price and ticker thirty seconds
+after its `price_updated_at`. A cancellable deadline wakes the consumer even
+when its shared market WebSocket remains open without sending frames. Expired
+rows are omitted from both maps; a newer frame establishes a new deadline.
 
 [venueStream.ts](../apps/perps/src/core/net/venueStream.ts) multiplexes topics
 on a shared socket per origin. Perps use `<SYMBOL>@perp_orderbook` and

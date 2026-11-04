@@ -2,13 +2,10 @@ package l16
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
-	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -17,13 +14,11 @@ import (
 	"time"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
-	"github.com/Sidiora-Technologies/KindleLaunch/shared/db/production"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/db/production/coordinatortest"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery/natsdriver"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/queue"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
@@ -62,14 +57,14 @@ type realMarketStage struct {
 
 // loadRealMarketStage bootstraps the production schema exactly as the
 // migration coordinator does (registered migrations, reviewed grants, the
-// least-privilege indexer_runtime and the reviewed pnl_runtime grants) and loads one
+// least-privilege indexer_runtime and pnl_runtime logins) and loads one
 // recorded indexer stage as the indexer left it. The stage's
 // pnl.inventory_l16_baselines row (the indexer test's mirror of pnl's
 // attestation) is withheld: pnl must issue its own. The recorded source lease
 // is renewed, as the live indexer's heartbeat does.
 func loadRealMarketStage(t *testing.T, ctx context.Context, stage string) *realMarketStage {
 	t.Helper()
-	db := coordinatortest.Bootstrap(t, realMarketEnv(t, "PNL_TEST_POSTGRES_DSN"), "indexer_runtime")
+	db := coordinatortest.Bootstrap(t, realMarketEnv(t, "PNL_TEST_POSTGRES_DSN"), "indexer_runtime", "pnl_runtime")
 	raw, err := os.ReadFile(filepath.Join("testdata", "indexer_real_market", stage+".json"))
 	if err != nil {
 		t.Fatal(err)
@@ -108,7 +103,7 @@ func loadRealMarketStage(t *testing.T, ctx context.Context, stage string) *realM
 	if _, err = admin.Exec(ctx, `UPDATE indexer.indexer_ingest_leases SET expires_at=clock_timestamp()+interval '10 minutes',last_heartbeat_at=clock_timestamp() WHERE chain_id=125 AND stream_id=$1`, realMarketStream); err != nil {
 		t.Fatal(err)
 	}
-	for dsn, target := range map[string]**pgxpool.Pool{reviewedPnlRuntime(t, ctx, db, admin): &s.runtime, db.Runtimes["indexer_runtime"].DSN: &s.indexer} {
+	for dsn, target := range map[string]**pgxpool.Pool{db.Runtimes["pnl_runtime"].DSN: &s.runtime, db.Runtimes["indexer_runtime"].DSN: &s.indexer} {
 		pool, e := pgxpool.New(ctx, dsn)
 		if e != nil {
 			t.Fatal(e)
@@ -117,77 +112,6 @@ func loadRealMarketStage(t *testing.T, ctx context.Context, stage string) *realM
 		*target = pool
 	}
 	return s
-}
-
-// reviewedPnlRuntime logs in a least-privilege role holding exactly the
-// reviewed pnl_runtime grants (grants.json) that exist in this bootstrap.
-// coordinatortest cannot bootstrap pnl_runtime itself: grants.json grants it
-// USAGE on sequences migration 180000 never creates (l18_funding_sequence_seq
-// and the other l18_*_sequence_seq/revision_seq of tables without a serial),
-// so the coordinator's GRANT fails. Those statements, and the ones on schemas
-// this indexer-scoped plan does not create (api_stream), are skipped and
-// logged; every privilege the inventory baseline path uses is applied as
-// reviewed.
-func reviewedPnlRuntime(t *testing.T, ctx context.Context, db coordinatortest.Database, admin *pgxpool.Pool) string {
-	t.Helper()
-	raw, err := os.ReadFile(filepath.Join(coordinatortest.RepositoryRoot(t), "launchpad", "spec", "production-system", "integration", "migrations", "grants.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var doc struct {
-		Roles []production.RoleManifest `json:"roles"`
-	}
-	if err = json.Unmarshal(raw, &doc); err != nil {
-		t.Fatal(err)
-	}
-	var manifest *production.RoleManifest
-	for i := range doc.Roles {
-		if doc.Roles[i].RuntimeRole == "pnl_runtime" && doc.Roles[i].Service == "core/pnl-tracker" {
-			manifest = &doc.Roles[i]
-		}
-	}
-	if manifest == nil {
-		t.Fatal("grants.json has no core/pnl-tracker pnl_runtime manifest")
-	}
-	role := db.Rename("pnl_runtime")
-	var secret [24]byte
-	if _, err = rand.Read(secret[:]); err != nil {
-		t.Fatal(err)
-	}
-	password := hex.EncodeToString(secret[:])
-	var literal string
-	if err = admin.QueryRow(ctx, "SELECT quote_literal($1)", password).Scan(&literal); err != nil {
-		t.Fatal(err)
-	}
-	// coordinatortest provisions every reviewed role (NOLOGIN, suffixed) and
-	// drops them with the database.
-	if _, err = admin.Exec(ctx, "ALTER ROLE "+pgx.Identifier{role}.Sanitize()+" LOGIN PASSWORD "+literal); err != nil {
-		t.Fatal(err)
-	}
-	scoped := *manifest
-	scoped.RuntimeRole, scoped.OwnerReadGrants, scoped.SchemaCapabilities = role, nil, nil
-	statements, err := scoped.GrantSQL()
-	if err != nil {
-		t.Fatal(err)
-	}
-	skipped := []string{}
-	for _, statement := range statements {
-		if _, err = admin.Exec(ctx, statement); err != nil {
-			var pgErr *pgconn.PgError
-			if errors.As(err, &pgErr) && (pgErr.Code == "42P01" || pgErr.Code == "3F000" || pgErr.Code == "42883") {
-				skipped = append(skipped, pgErr.Message)
-				continue
-			}
-			t.Fatalf("reviewed pnl_runtime grant %q: %v", statement, err)
-		}
-	}
-	t.Logf("reviewed pnl_runtime grants applied; %d reference objects absent here: %s", len(skipped), strings.Join(skipped, "; "))
-	u, err := url.Parse(db.AdminDSN)
-	if err != nil {
-		t.Fatal(err)
-	}
-	u.User = url.UserPassword(role, password)
-	return u.String()
 }
 
 func insertRecordedTable(ctx context.Context, admin *pgxpool.Pool, name string, rows json.RawMessage) error {

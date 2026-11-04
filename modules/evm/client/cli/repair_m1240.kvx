@@ -1,0 +1,15 @@
+[repair.22.33.1240]
+audit = "22.30.60"
+finding_005 = "TestRepairM_1240_IntegerBounds"
+finding_006 = "TestRepairM_1240_ERC20ArgumentCounts"
+finding_007 = "TestRepairM_1240_TokenPayloadValidation"
+finding_004 = "TestRepairM_1240_DeployBinaryErrorsAndConventions"
+finding_003 = "TestRepairM_1240_RPCCancellationAndBounds; TestRepairM_1240_RPCFiniteTimeout"
+finding_002 = "TestRepairM_1240_RPCResponseValidation; TestRepairM_1240_RPCMetadataFailureStopsSubmission"
+path = "Cobra command -> production ABI/protobuf encoder -> real SDK or Ethereum HTTP transport -> loopback transcript peer -> production response/transaction/ABI decoder; invalid metadata never reaches transaction submission."
+baseline = "Not run: the explicit ordered gate instructions require complete implementation before qualification and prohibit running verify_cmd by hand. No pre-change test failures are claimed."
+qualification = "hf-build and hf-done retain the candidate revision, exact command, exit code and private log path in the runner gate ledger. The final evidence line names the qualified revision."
+wiring_requests = []
+gotcha = "The persisted key must be reloaded through Key before asserting LocalInfo, as the production CLI does. RPC response bodies must be closed before replacing them with bounded buffers."
+repair_1 = "Initial build f9138502e95a7488b19e3180dceece2885647325: go build ./modules/evm/client/cli/... exited 1 (/out/logs/build-1.log) on the now-unused sdk import after replacing token integer parsing; removed that import."
+repair_2 = "Verification 2a4b584a8377f06623372313c488d59c6ee011e9: cg spec done 22.33.1240 -f layerx-merge --root /work/paxeer-monorepo exited 1 (/out/logs/verify-1.log); only RPCResponseValidation failed because its zero big.Int fixture used a nil word slice while the hex codec returns an allocated empty slice. Constructed the expected value with the production quantity encoder and decoder, retaining exact equality."

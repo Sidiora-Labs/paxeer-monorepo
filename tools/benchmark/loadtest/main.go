@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"flag"
@@ -88,18 +87,25 @@ func init() {
 	http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 100
 }
 
-// deployEvmContract executes a bash script and returns its output as a string.
-//
-//nolint:gosec
+// deployEvmContract executes the deployment entry point and validates its address.
 func deployEvmContract(scriptPath string, config *Config) (common.Address, error) {
-	cmd := exec.Command(scriptPath, config.EVMRpcEndpoint())
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	err := cmd.Run()
+	return deployEvmContractWithCommands(context.Background(), operations.Executables{}, scriptPath, config)
+}
+
+func deployEvmContractWithCommands(ctx context.Context, commands operations.Commands, scriptPath string, config *Config) (common.Address, error) {
+	raw, err := commands.Run(ctx, operations.Command{Args: []string{scriptPath, config.EVMRpcEndpoint()}})
 	if err != nil {
 		return common.Address{}, err
 	}
-	return common.HexToAddress(strings.TrimSpace(out.String())), nil
+	encoded, err := json.Marshal(map[string]string{"deployedTo": strings.TrimSpace(string(raw))})
+	if err != nil {
+		return common.Address{}, err
+	}
+	address, err := operations.DeploymentAddress(encoded)
+	if err != nil {
+		return common.Address{}, err
+	}
+	return common.HexToAddress(address), nil
 }
 
 //nolint:gosec
@@ -134,7 +140,11 @@ func run(config *Config) {
 	metricsServer := MetricsServer{}
 	go metricsServer.StartMetricsClient(*config)
 
-	client := NewLoadTestClient(*config)
+	client, err := NewLoadTestClient(*config)
+	if err != nil {
+		panic(err)
+	}
+	defer client.Close()
 	client.SetValidators()
 	deployEvmContracts(config)
 

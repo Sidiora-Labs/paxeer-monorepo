@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useEffect } from "react";
+import { usePerfdbSelection } from "./usePerfdbSelection";
 import { perfdbQuery } from "@/core/perfdb/client";
 
 // ── Types ────────────────────────────────────────────────────────────
@@ -38,44 +39,21 @@ export function usePerfdbUser(address: string | undefined): {
   isLoading: boolean;
   error: Error | null;
 } {
-  const [user, setUser] = useState<PerfdbUser | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(Boolean(address));
-  const [error, setError] = useState<Error | null>(null);
-  const mountedRef = useRef<boolean>(true);
-
-  const fetchUser = useCallback(async (addr: string): Promise<void> => {
-    try {
-      const res = await perfdbQuery<UserResponse>(USER_QUERY, {
-        address: addr,
-      });
-      if (!mountedRef.current) return;
-      setUser(res.user ?? null);
-      setError(null);
-    } catch (err) {
-      if (!mountedRef.current) return;
-      setError(err instanceof Error ? err : new Error(String(err)));
-      setUser(null);
-    } finally {
-      if (mountedRef.current) setIsLoading(false);
-    }
-  }, []);
-
+  const account = address?.trim().toLowerCase() || null;
+  const {
+    value: user,
+    isLoading,
+    error,
+    run,
+  } = usePerfdbSelection<PerfdbUser | null>(account, null);
   useEffect(() => {
-    mountedRef.current = true;
-    if (!address) {
-      setUser(null);
-      setIsLoading(false);
-      setError(null);
-      return () => {
-        mountedRef.current = false;
-      };
-    }
-    setIsLoading(true);
-    fetchUser(address);
-    return () => {
-      mountedRef.current = false;
-    };
-  }, [address, fetchUser]);
-
-  return { user, isLoading, error };
+    void run(async () => {
+      if (!account) return null;
+      const res = await perfdbQuery<UserResponse>(USER_QUERY, {
+        address: account,
+      });
+      return res.user ?? null;
+    }, null);
+  }, [account, run]);
+  return { user, isLoading: Boolean(account) && isLoading, error };
 }

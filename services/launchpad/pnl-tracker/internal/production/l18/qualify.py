@@ -9,6 +9,7 @@ import socket
 import subprocess
 import sys
 import time
+from urllib.parse import urlsplit
 
 PORT = 21800
 
@@ -83,10 +84,10 @@ def wait_ready(child, attempts=100):
     raise RuntimeError('owned Anvil readiness deadline exhausted; mutation refused')
 
 
-def run_bounded(cmd, **kwargs):
+def run_bounded(cmd, timeout=900, **kwargs):
     child = subprocess.Popen(cmd, start_new_session=True, **kwargs)
     try:
-        return child.wait(timeout=930)
+        return child.wait(timeout=timeout)
     finally:
         stop(child)
 
@@ -98,26 +99,47 @@ def install_signal_handlers():
     signal.signal(signal.SIGINT, interrupted)
 
 
-def main():
+def qualification_inputs(output_dir, environ):
+    """Admit operator inputs before starting a process or writing evidence."""
+    dsn = environ.get('L18_POSTGRES_DSN', '')
+    try:
+        parsed = urlsplit(dsn)
+        valid = (parsed.scheme in ('postgres', 'postgresql') and parsed.hostname
+                 and parsed.path not in ('', '/') and not parsed.fragment)
+        parsed.port  # Validate any supplied port without connecting.
+    except ValueError:
+        valid = False
+    if not dsn.strip() or not valid:
+        raise RuntimeError('explicit L18_POSTGRES_DSN for a disposable database required')
+    if output_dir is None:
+        raise RuntimeError('explicit private --output-dir required')
+    evidence = pathlib.Path(output_dir)
+    if not evidence.is_absolute() or evidence.resolve() != evidence:
+        raise RuntimeError('absolute private --output-dir without symlinks required')
+    evidence.mkdir(mode=0o700, parents=True, exist_ok=True)
+    info = evidence.lstat()
+    if not evidence.is_dir() or info.st_mode & 0o077 or info.st_uid != os.getuid():
+        raise RuntimeError('private --output-dir owned by the current user required')
+    return evidence, dsn
+
+
+def main(argv=None):
     install_signal_handlers()
     parser = argparse.ArgumentParser()
     parser.add_argument('--run', default='qualification')
-    parser.add_argument('--output-dir', type=pathlib.Path,
+    parser.add_argument('--output-dir', type=pathlib.Path, required=True,
                         help='Private evidence directory; existing run names are refused')
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     if len(args.run) > 64 or not args.run.replace('-', '').isalnum():
         raise RuntimeError('invalid run name')
     base = pathlib.Path(__file__).resolve().parents[6]
-    evidence = args.output_dir or base / 'launchpad/evidence/production-system/L18'
-    evidence.mkdir(parents=True, exist_ok=True)
-    evidence = evidence.resolve()
+    evidence, dsn = qualification_inputs(args.output_dir, os.environ)
     refuse_occupied_port()
     if list(evidence.glob(args.run + '-*')):
         raise RuntimeError('run name already has evidence; historical output will not be reused')
     # Exclusive marker prevents concurrent callers using the same evidence label.
     with (evidence / (args.run + '-run.json')).open('x') as marker:
         json.dump({'run': args.run, 'started_ns': time.time_ns()}, marker)
-    runner = '/tmp/kindle-implementation-20261009/wave1/run-bounded-check.py'
     results = []
     child = None
     try:
@@ -130,8 +152,7 @@ def main():
             identity = json.dumps({'pid': child.pid, 'starttime': process_start(child.pid)})
             fixture_env = os.environ.copy()
             fixture_env['L18_ANVIL_IDENTITY'] = identity
-            cmd = ['python3', runner, '--pool', 'frontend', '--timeout', '900', '--',
-                   'node', str(pathlib.Path(__file__).with_name('fixture.cjs'))]
+            cmd = ['node', str(pathlib.Path(__file__).with_name('fixture.cjs'))]
             with fixture.open('x') as out, (evidence / (args.run + '-fixture-error.log')).open('x') as err:
                 # Last check immediately before starting the mutating fixture.
                 assert_owned(child)
@@ -141,9 +162,9 @@ def main():
                 raise RuntimeError('fixture failed')
             env = os.environ.copy()
             env.update(GOWORK='off', GOMAXPROCS='2', GOFLAGS='-mod=readonly',
-                       L18_POSTGRES_DSN='postgres://kindle_fixture:kindle_fixture_password@127.0.0.1:25432/kindle_fixture?sslmode=disable',
+                       L18_POSTGRES_DSN=dsn, PNL_TEST_POSTGRES_DSN=dsn,
                        L18_CHAIN_FIXTURE=str(fixture), L18_ANVIL_IDENTITY=identity)
-            cmd = ['python3', runner, '--pool', 'go', '--timeout', '900', '--', 'go', 'test',
+            cmd = ['go', 'test',
                    '-p', '1', '-count=1', '-json', './internal/production/l18', './internal/referral']
             with (evidence / (args.run + '-go.jsonl')).open('x') as out:
                 assert_owned(child)

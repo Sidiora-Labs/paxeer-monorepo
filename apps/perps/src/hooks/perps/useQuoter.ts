@@ -94,36 +94,108 @@ export type { MarketQuote, PartialCloseQuote };
  */
 export interface QuoterMarketQuote extends MarketQuote {
   lastSettledFundingRate1h: bigint | null;
+  openInterest: OpenInterestProvenance;
 }
 
-// ── Open-interest singleton cache ──────────────────────────────────
+export interface OpenInterestProvenance {
+  /** Normalized venue base URL; null for the on-chain quote. */
+  origin: string | null;
+  source: "fresh" | "cache" | "stale" | "unavailable" | "on-chain";
+  fetchedAt: number | null;
+  ageMs: number | null;
+}
+
+// Open-interest data and in-flight work belong to one normalized venue base URL.
 interface OiEntry {
   paxeerSymbol: string;
   long_oi: number;
   short_oi: number;
 }
-let _oiCache: OiEntry[] | null = null;
-let _oiLastFetch = 0;
-let _oiInflight: Promise<OiEntry[]> | null = null;
+interface OiResult {
+  rows: OiEntry[];
+  provenance: OpenInterestProvenance;
+}
+interface OiCache {
+  rows: OiEntry[] | null;
+  fetchedAt: number | null;
+  inflight: Promise<OiResult> | null;
+}
+const oiCaches = new Map<string, OiCache>();
 const OI_CACHE_TTL = 60_000;
+const OI_FALLBACK_MAX_AGE = 300_000;
+const oiResponse = z.object({
+  success: z.literal(true),
+  data: z.array(
+    z.object({
+      paxeerSymbol: z.string().min(1),
+      long_oi: z.number().finite().nonnegative(),
+      short_oi: z.number().finite().nonnegative(),
+    }),
+  ),
+});
 
-async function _fetchOi(marketDataUrl: string): Promise<OiEntry[]> {
-  if (_oiCache && Date.now() - _oiLastFetch < OI_CACHE_TTL) return _oiCache;
-  if (_oiInflight) return _oiInflight;
-  _oiInflight = fetch(`${marketDataUrl}/open-interest`)
-    .then((r) => r.json())
-    .then((json) => {
-      if (json.success) {
-        _oiCache = json.data ?? [];
-        _oiLastFetch = Date.now();
-      }
-      return _oiCache ?? [];
+function normalizeMarketDataUrl(value: string): string {
+  const url = new URL(value);
+  if (
+    !["http:", "https:"].includes(url.protocol) ||
+    url.username ||
+    url.password ||
+    url.search ||
+    url.hash
+  ) {
+    throw new Error("Invalid market-data base URL");
+  }
+  return url.href.replace(/\/+$/, "");
+}
+
+async function _fetchOi(origin: string): Promise<OiResult> {
+  let cache = oiCaches.get(origin);
+  if (!cache) {
+    cache = { rows: null, fetchedAt: null, inflight: null };
+    oiCaches.set(origin, cache);
+  }
+  const selected = cache;
+  const result = (source: OpenInterestProvenance["source"]): OiResult => ({
+    rows: source === "unavailable" ? [] : (selected.rows ?? []),
+    provenance: {
+      origin,
+      source,
+      fetchedAt: selected.fetchedAt,
+      ageMs:
+        selected.fetchedAt === null
+          ? null
+          : Math.max(0, Date.now() - selected.fetchedAt),
+    },
+  });
+  if (
+    selected.rows &&
+    selected.fetchedAt !== null &&
+    Date.now() - selected.fetchedAt < OI_CACHE_TTL
+  )
+    return result("cache");
+  if (selected.inflight) return selected.inflight;
+  selected.inflight = fetch(`${origin}/open-interest`)
+    .then(async (response) => {
+      if (!response.ok)
+        throw new Error(`Open-interest fetch failed: ${response.status}`);
+      const json = oiResponse.parse(await response.json());
+      selected.rows = json.data;
+      selected.fetchedAt = Date.now();
+      return result("fresh");
     })
-    .catch(() => _oiCache ?? [])
+    .catch(() =>
+      result(
+        selected.rows &&
+          selected.fetchedAt !== null &&
+          Date.now() - selected.fetchedAt <= OI_FALLBACK_MAX_AGE
+          ? "stale"
+          : "unavailable",
+      ),
+    )
     .finally(() => {
-      _oiInflight = null;
+      selected.inflight = null;
     });
-  return _oiInflight;
+  return selected.inflight;
 }
 
 function getSymbolForMarket(marketId: bigint, config: MarketConfig): string {
@@ -150,6 +222,7 @@ const partialQuoteSchema = z.tuple([
 ]);
 
 export function useQuoter(marketDataUrl = REST_API_URL) {
+  const origin = normalizeMarketDataUrl(marketDataUrl);
   /**
    * Fetches market data from the REST /api/ticker/:symbol endpoint.
    * Returns a MarketQuote with values scaled to 18 decimals (bigint)
@@ -167,7 +240,7 @@ export function useQuoter(marketDataUrl = REST_API_URL) {
     const symbol = getSymbolForMarket(marketId, config);
     try {
       const [res, tiers, markDetails] = await Promise.all([
-        fetch(`${marketDataUrl}/ticker/${encodeURIComponent(symbol)}`),
+        fetch(`${origin}/ticker/${encodeURIComponent(symbol)}`),
         readContract(reads.tiers),
         readContract(reads.mark),
       ]);
@@ -188,14 +261,12 @@ export function useQuoter(marketDataUrl = REST_API_URL) {
       // Also fetch OI breakdown — cached, refreshed at most every 60 s
       let longOI = 0;
       let shortOI = 0;
-      try {
-        const oiData = await _fetchOi(marketDataUrl);
-        const entry = oiData.find((d) => d.paxeerSymbol === symbol);
-        if (entry) {
-          longOI = entry.long_oi ?? 0;
-          shortOI = entry.short_oi ?? 0;
-        }
-      } catch {}
+      const oiData = await _fetchOi(origin);
+      const entry = oiData.rows.find((d) => d.paxeerSymbol === symbol);
+      if (entry) {
+        longOI = entry.long_oi;
+        shortOI = entry.short_oi;
+      }
 
       return {
         ...tickerQuoteWithConfig(
@@ -207,6 +278,9 @@ export function useQuoter(marketDataUrl = REST_API_URL) {
           shortOI,
         ),
         lastSettledFundingRate1h,
+        openInterest: entry
+          ? oiData.provenance
+          : { ...oiData.provenance, source: "unavailable" },
       };
     } catch (err) {
       // Fallback to on-chain if REST fails
@@ -223,6 +297,12 @@ export function useQuoter(marketDataUrl = REST_API_URL) {
       return {
         ...marketQuoteFromPrecompile(result as PrecompileMarketQuote),
         lastSettledFundingRate1h: null,
+        openInterest: {
+          origin: null,
+          source: "on-chain",
+          fetchedAt: null,
+          ageMs: null,
+        },
       };
     }
   }

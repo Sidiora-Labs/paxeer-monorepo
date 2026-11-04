@@ -37,9 +37,9 @@ func TestRepair_129_ProgramKindPolicy(t *testing.T) {
 				decoded, decodeErr := keeper.DecodeProgramPendingRecord(raw)
 				g := types.DefaultGenesis()
 				g.ProgramPending = []types.ProgramPendingEntry{{ProgramID: types.Hash32{1}, RequestID: 7, Record: raw}}
+				g.ProgramFeeDenoms = []types.ProgramFeeDenomEntry{{Asset: record.FeeAsset, Denom: types.ProgramFeeDenomPAX}}
 				if fulfilled {
 					g.ProgramCommittedCount = 1
-					g.ProgramFeeDenoms = []types.ProgramFeeDenomEntry{{Asset: record.FeeAsset, Denom: types.ProgramFeeDenomPAX}}
 					g.ProgramAnswers = []types.ProgramAnswerEntry{{ProgramID: types.Hash32{1}, RequestID: 7, Value: make([]byte, types.ProgramAnswerHeaderBytes)}}
 				} else {
 					g.ProgramPendingCount = 1

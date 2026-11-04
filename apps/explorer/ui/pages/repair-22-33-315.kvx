@@ -1,0 +1,12 @@
+[repair.22.33.315]
+finding = "token-chain-cache-key"
+implementation = "Token.tsx uses the multichain token query key for socket reads, writes and buffered supply updates; buffered values are discarded after chain or token navigation."
+tests = ["tokenChainCacheKeyLiveUpdatesIsolateTwoChainsWithTheSameHash", "tokenChainCacheKeyBuffersLatestSupplyUntilItsOwnHttpResponse", "tokenChainCacheKeyDiscardsPendingSupplyWhenTheActiveChainChanges"]
+proof = "The production token page reads chain-specific HTTP fixtures and consumes committed total-supply transcripts through real Phoenix socket hooks, asserting displayed supplies and isolation of both chains and the root cache."
+baseline = "Not run: the task's explicit qualification order prohibits testing before implementation and running verify_cmd by hand; no baseline failure is claimed."
+wiring_requests = []
+evidence = "The hf-build and hf-done private ledger records the candidate revision, command, exit code and log location."
+qualification_note = "The previous attempt failed all five cases and reported a TokenDetails resource-load error; qualification continues with real HTTP and socket peers, a committed empty transfer-list cache to avoid unrelated placeholder-row rendering, and cancellation before releasing held responses during teardown. No assertion or timeout was changed."
+repair_cycle = "First bounded verification passed four of five cases; the first live event updated the cache before React committed the display, so live transport delivery now waits for the exact cache value inside React act before asserting the same displayed supply and isolation. All five cases and their original timeout bounds remain intact."
+tooling_note = "Formatting encountered existing conflicting async-arrow spacing rules and lint rules that do not recognize the required named-test registrations; no check was disabled."
+gotcha = "Run Yarn from apps/explorer: the repository root declares a different package manager, so root-level Yarn commands refuse before reaching the explorer package."

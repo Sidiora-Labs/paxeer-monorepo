@@ -1,46 +1,45 @@
-import json
+"""Compatibility API for the production benchmark transaction decoder."""
+import subprocess
 import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+from operations_cli import executable
+
+
+def _identifier(kind, raw_response):
+    completed = subprocess.run(
+        [executable(), "benchmark-ops", "parse-transaction", kind],
+        input=raw_response, text=True, capture_output=True, timeout=60, check=False,
+    )
+    if completed.returncode:
+        raise ValueError(completed.stderr or "transaction identifier rejected")
+    return completed.stdout.strip()
+
 
 def get_code_id(raw_response):
-    response = json.loads(raw_response)
-    log = json.loads(response["raw_log"].replace("\\",""))[0]
-    for event in log["events"]:
-        if event["type"] == "store_code":
-            for attribute in event["attributes"]:
-                if attribute["key"] == "code_id":
-                    return int(attribute["value"])
-    return -1
+    return int(_identifier("code_id", raw_response))
+
 
 def get_contract_address(raw_response):
-    response = json.loads(raw_response)
-    log = response["logs"][0]
-    for event in log["events"]:
-        if event["type"] == "instantiate":
-            for attribute in event["attributes"]:
-                if attribute["key"] == "_contract_address":
-                    return attribute["value"]
-    return ""
+    return _identifier("contract_address", raw_response)
+
 
 def get_proposal_id(raw_response):
-    response = json.loads(raw_response)
-    log = response["logs"][0]
-    for event in log["events"]:
-        if event["type"] == "submit_proposal":
-            for attribute in event["attributes"]:
-                if attribute["key"] == "proposal_id":
-                    return int(attribute["value"])
-    return -1
+    return int(_identifier("proposal_id", raw_response))
+
 
 def main():
-    args = sys.argv[1:]
-    if args[0] == "code_id":
-        print(get_code_id(args[1]))
-    elif args[0] == "contract_address":
-        print(get_contract_address(args[1]))
-    elif args[0] == "proposal_id":
-        print(get_proposal_id(args[1]))
-    else:
-        print("Unknown args")
+    readers = {"code_id": get_code_id, "contract_address": get_contract_address,
+               "proposal_id": get_proposal_id}
+    if len(sys.argv) != 3 or sys.argv[1] not in readers:
+        raise ValueError("expected identifier kind and one complete JSON response")
+    print(readers[sys.argv[1]](sys.argv[2]))
+
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except (ValueError, OSError, subprocess.SubprocessError) as error:
+        print(str(error), file=sys.stderr)
+        sys.exit(1)

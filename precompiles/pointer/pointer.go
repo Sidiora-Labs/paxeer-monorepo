@@ -26,6 +26,16 @@ const (
 	AddCW1155Pointer = "addCW1155Pointer"
 )
 
+// CW token metadata is bounded in UTF-8 bytes before any EVM deployment.
+const (
+	MaxMetadataNameBytes   = 256
+	MaxMetadataSymbolBytes = 128
+)
+
+// ErrInvalidMetadata identifies malformed JSON, missing/non-string fields, and
+// empty or oversized names/symbols returned by a CW smart query.
+var ErrInvalidMetadata = errors.New("invalid pointer metadata")
+
 const PointerAddress = "0x000000000000000000000000000000000000100b"
 
 // Embed abi json file to the executable binary. Needed when importing as dependency.
@@ -147,13 +157,11 @@ func (p PrecompileExecutor) AddCW20(ctx sdk.Context, method *ethabi.Method, call
 	if err != nil {
 		return nil, 0, err
 	}
-	formattedRes := map[string]interface{}{}
-	if err := json.Unmarshal(res, &formattedRes); err != nil {
+	metadata, err := parsePointerMetadata(res)
+	if err != nil {
 		return nil, 0, err
 	}
-	name := formattedRes["name"].(string)
-	symbol := formattedRes["symbol"].(string)
-	contractAddr, err := p.evmKeeper.UpsertERCCW20Pointer(ctx, evm, cwAddr, utils.ERCMetadata{Name: name, Symbol: symbol})
+	contractAddr, err := p.evmKeeper.UpsertERCCW20Pointer(ctx, evm, cwAddr, metadata)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -179,13 +187,11 @@ func (p PrecompileExecutor) AddCW721(ctx sdk.Context, method *ethabi.Method, cal
 	if err != nil {
 		return nil, 0, err
 	}
-	formattedRes := map[string]interface{}{}
-	if err := json.Unmarshal(res, &formattedRes); err != nil {
+	metadata, err := parsePointerMetadata(res)
+	if err != nil {
 		return nil, 0, err
 	}
-	name := formattedRes["name"].(string)
-	symbol := formattedRes["symbol"].(string)
-	contractAddr, err := p.evmKeeper.UpsertERCCW721Pointer(ctx, evm, cwAddr, utils.ERCMetadata{Name: name, Symbol: symbol})
+	contractAddr, err := p.evmKeeper.UpsertERCCW721Pointer(ctx, evm, cwAddr, metadata)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -211,13 +217,11 @@ func (p PrecompileExecutor) AddCW1155(ctx sdk.Context, method *ethabi.Method, ca
 	if err != nil {
 		return nil, 0, err
 	}
-	formattedRes := map[string]interface{}{}
-	if err := json.Unmarshal(res, &formattedRes); err != nil {
+	metadata, err := parsePointerMetadata(res)
+	if err != nil {
 		return nil, 0, err
 	}
-	name := formattedRes["name"].(string)
-	symbol := formattedRes["symbol"].(string)
-	contractAddr, err := p.evmKeeper.UpsertERCCW1155Pointer(ctx, evm, cwAddr, utils.ERCMetadata{Name: name, Symbol: symbol})
+	contractAddr, err := p.evmKeeper.UpsertERCCW1155Pointer(ctx, evm, cwAddr, metadata)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -225,4 +229,34 @@ func (p PrecompileExecutor) AddCW1155(ctx sdk.Context, method *ethabi.Method, ca
 	ret, err = method.Outputs.Pack(contractAddr)
 	remainingGas = pcommon.GetRemainingGas(ctx, p.evmKeeper)
 	return
+}
+
+func parsePointerMetadata(response []byte) (utils.ERCMetadata, error) {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(response, &fields); err != nil {
+		return utils.ERCMetadata{}, fmt.Errorf("%w: expected a JSON object: %v", ErrInvalidMetadata, err)
+	}
+	readString := func(field string, limit int) (string, error) {
+		raw, exists := fields[field]
+		if !exists {
+			return "", fmt.Errorf("%w: missing %s", ErrInvalidMetadata, field)
+		}
+		var value string
+		if err := json.Unmarshal(raw, &value); err != nil {
+			return "", fmt.Errorf("%w: %s must be a string", ErrInvalidMetadata, field)
+		}
+		if len(value) == 0 || len(value) > limit {
+			return "", fmt.Errorf("%w: %s must contain 1 to %d bytes", ErrInvalidMetadata, field, limit)
+		}
+		return value, nil
+	}
+	name, err := readString("name", MaxMetadataNameBytes)
+	if err != nil {
+		return utils.ERCMetadata{}, err
+	}
+	symbol, err := readString("symbol", MaxMetadataSymbolBytes)
+	if err != nil {
+		return utils.ERCMetadata{}, err
+	}
+	return utils.ERCMetadata{Name: name, Symbol: symbol}, nil
 }

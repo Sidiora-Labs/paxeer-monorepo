@@ -1,6 +1,9 @@
 package types
 
 import (
+	"bytes"
+	"encoding/binary"
+
 	authtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/types"
 	govtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/gov/types"
 )
@@ -10,6 +13,7 @@ const (
 	ProgramCommittedCapacity  = 64
 	ProgramPendingRecordBytes = 123
 	ProgramAnswerHeaderBytes  = 40
+	ProgramAnswerChunkBytes   = 1024
 )
 
 type ProgramPendingEntry struct {
@@ -131,14 +135,18 @@ func (g GenesisState) Validate() error {
 		}
 		fulfilled := record[122] == 1
 		programRecords[key] = fulfilled
-		if fulfilled {
-			committed++
+		// Historical zero-fee pending fixtures have no denomination mapping.
+		// Paid requests need it before settlement; fulfilled records retain it.
+		if fulfilled || !bytes.Equal(record[98:114], make([]byte, 16)) {
 			var asset Hash32
 			copy(asset[:], record[34:66])
 			if _, found := feeDenoms[asset]; !found {
-				return ErrInvalidGenesis.Wrapf("fulfilled program record %s/%d has no fee denom for %s",
+				return ErrInvalidGenesis.Wrapf("program record %s/%d has no fee denom for %s",
 					entry.ProgramID.Hex(), entry.RequestID, asset.Hex())
 			}
+		}
+		if fulfilled {
+			committed++
 		} else {
 			pending++
 		}
@@ -153,7 +161,7 @@ func (g GenesisState) Validate() error {
 		programRequestKey
 		part uint8
 	}
-	answerParts := make(map[programAnswerKey]bool, len(g.ProgramAnswers))
+	answerParts := make(map[programAnswerKey][]byte, len(g.ProgramAnswers))
 	var headers uint64
 	for _, entry := range g.ProgramAnswers {
 		key := programRequestKey{entry.ProgramID, entry.RequestID}
@@ -161,10 +169,10 @@ func (g GenesisState) Validate() error {
 			return ErrInvalidGenesis.Wrapf("program answer %s/%d has no fulfilled record", entry.ProgramID.Hex(), entry.RequestID)
 		}
 		partKey := programAnswerKey{key, entry.Part}
-		if answerParts[partKey] {
+		if _, duplicate := answerParts[partKey]; duplicate {
 			return ErrInvalidGenesis.Wrapf("duplicate program answer %s/%d part %d", entry.ProgramID.Hex(), entry.RequestID, entry.Part)
 		}
-		answerParts[partKey] = true
+		answerParts[partKey] = entry.Value
 		if entry.Part == 0 {
 			if len(entry.Value) != ProgramAnswerHeaderBytes {
 				return ErrInvalidGenesis.Wrapf("malformed program answer header %s/%d", entry.ProgramID.Hex(), entry.RequestID)
@@ -174,6 +182,33 @@ func (g GenesisState) Validate() error {
 	}
 	if g.ProgramCommittedCount != headers {
 		return ErrInvalidGenesis.Wrapf("program committed count %d disagrees with %d answer headers", g.ProgramCommittedCount, headers)
+	}
+	expectedParts := 0
+	for key, fulfilled := range programRecords {
+		if !fulfilled {
+			continue
+		}
+		header := answerParts[programAnswerKey{key, 0}]
+		// Ownership, uniqueness and header count above ensure one header per
+		// fulfilled record. Decode the same lengths consumed by GetProgramResult.
+		fullLength := binary.BigEndian.Uint32(header[32:36])
+		responseLength := binary.BigEndian.Uint32(header[36:40])
+		if responseLength > MaxResponseBytes || responseLength > fullLength {
+			return ErrInvalidGenesis.Wrapf("invalid program answer lengths %s/%d: response %d, full %d",
+				key.programID.Hex(), key.requestID, responseLength, fullLength)
+		}
+		expectedParts++
+		for part, offset := uint8(1), uint32(0); offset < responseLength; part, offset = part+1, offset+ProgramAnswerChunkBytes {
+			expected := min(uint32(ProgramAnswerChunkBytes), responseLength-offset)
+			if chunk := answerParts[programAnswerKey{key, part}]; uint32(len(chunk)) != expected {
+				return ErrInvalidGenesis.Wrapf("malformed program answer %s/%d part %d: want %d bytes",
+					key.programID.Hex(), key.requestID, part, expected)
+			}
+			expectedParts++
+		}
+	}
+	if len(answerParts) != expectedParts {
+		return ErrInvalidGenesis.Wrap("unexpected program answer parts")
 	}
 	return nil
 }
