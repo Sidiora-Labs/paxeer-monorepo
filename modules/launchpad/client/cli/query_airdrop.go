@@ -13,7 +13,7 @@ import (
 func CmdQueryAirdropEpoch() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "airdrop-epoch [pool] [epoch]",
-		Example: "layerxd query launchpad airdrop-epoch 0x0000000000000000000000000000000000000001 1 --output json",
+		Example: "paxd query launchpad airdrop-epoch 0x0000000000000000000000000000000000000001 1 --output json",
 		Short:   "Query a launchpad pool's airdrop epoch",
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -42,7 +42,7 @@ func CmdQueryAirdropEpoch() *cobra.Command {
 func CmdQueryAirdropClaimed() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "airdrop-claimed [pool] [holder] [epoch]",
-		Example: "layerxd query launchpad airdrop-claimed 0x0000000000000000000000000000000000000001 0x0000000000000000000000000000000000000002 1 --output json",
+		Example: "paxd query launchpad airdrop-claimed 0x0000000000000000000000000000000000000001 0x0000000000000000000000000000000000000002 1 --output json",
 		Short:   "Query whether a holder claimed a launchpad pool's airdrop",
 		Args:    cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {

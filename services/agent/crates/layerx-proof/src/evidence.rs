@@ -4,7 +4,8 @@ use layerx_types::{rung::Rung, verify::VerificationLevel};
 
 use crate::level::Achieved;
 
-/// Evidence identifiers inseparably paired with an achieved level.
+/// Receipt, inclusion and state identifiers inseparably paired with an achieved
+/// level. These verifiers establish at most [`Rung::Receipted`].
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Evidence {
     achieved: Achieved,
@@ -56,6 +57,7 @@ impl Evidence {
         self.achieved.level()
     }
 
+    /// Returns the rung established by this evidence's verifier, capped at Receipted.
     #[must_use]
     pub const fn rung(&self) -> Rung {
         self.achieved.rung()

@@ -311,6 +311,9 @@ func (h HTTP) DownloadHandler() http.Handler {
 	return h.downloadHandler(h.Store.exportDownloads())
 }
 
+// Allow a 16 MiB JSON export plus the AES-GCM nonce and authentication tag.
+const maxSealedExportBytes int64 = (16 << 20) + 12 + 16
+
 func (h HTTP) downloadHandler(downloads exportDownloads) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "private, no-store")
@@ -343,7 +346,7 @@ func (h HTTP) downloadHandler(downloads exportDownloads) http.Handler {
 			WriteError(w, e, requestID(r))
 			return
 		}
-		sealed, _, e := h.Runtime.Objects.GetBytes(r.Context(), v.EncryptedObject)
+		sealed, _, e := h.Runtime.Objects.GetBytes(r.Context(), v.EncryptedObject, maxSealedExportBytes)
 		if e != nil {
 			WriteError(w, e, requestID(r))
 			return

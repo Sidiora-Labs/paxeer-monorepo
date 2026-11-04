@@ -4,39 +4,50 @@ use layerx_types::{rung::Rung, verify::VerificationLevel};
 
 use crate::evidence::Evidence;
 
-/// A level token constructible only by proof routines in this crate.
+/// Evidence kinds constructible only by proof routines in this crate.
+/// None authenticates a BFT commit.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) struct Achieved(VerificationLevel, bool);
+pub(crate) enum Achieved {
+    SequencerSigned,
+    PinnedSequencerSigned,
+    BatchIncluded,
+    StateProven,
+}
 
 impl Achieved {
     pub(crate) const fn sequencer_signed() -> Self {
-        Self(VerificationLevel::SEQUENCER_SIGNED, false)
+        Self::SequencerSigned
     }
 
     pub(crate) const fn pinned_sequencer_signed() -> Self {
-        Self(VerificationLevel::SEQUENCER_SIGNED, true)
+        Self::PinnedSequencerSigned
     }
 
     pub(crate) const fn rung(self) -> Rung {
-        if self.1 {
-            return Rung::Receipted;
-        }
-        match self.0.rung() {
-            Some(rung) => rung,
-            None => panic!("settlement anchoring cannot produce an achieved token"),
+        match self {
+            Self::SequencerSigned => Rung::Submitted,
+            Self::PinnedSequencerSigned | Self::BatchIncluded | Self::StateProven => {
+                Rung::Receipted
+            }
         }
     }
 
     pub(crate) const fn batch_included() -> Self {
-        Self(VerificationLevel::BATCH_INCLUDED, false)
+        Self::BatchIncluded
     }
 
     pub(crate) const fn state_proven() -> Self {
-        Self(VerificationLevel::STATE_PROVEN, false)
+        Self::StateProven
     }
 
     pub(crate) const fn level(self) -> VerificationLevel {
-        self.0
+        match self {
+            Self::SequencerSigned | Self::PinnedSequencerSigned => {
+                VerificationLevel::SEQUENCER_SIGNED
+            }
+            Self::BatchIncluded => VerificationLevel::BATCH_INCLUDED,
+            Self::StateProven => VerificationLevel::STATE_PROVEN,
+        }
     }
 }
 

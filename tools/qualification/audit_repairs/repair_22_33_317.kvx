@@ -1,0 +1,42 @@
+[task]
+id = "22.33.317"
+audit = "22.30.136"
+criterion = "22998.1"
+base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
+source_revision = "d33bc652926d4e2fd7efeddebb4c03a427ab10f7"
+repair = "Consume the root README rewrite owned by 22.31.470 under decision 2525; add focused offline regression checks for readme-separate-daemon without changing README.md."
+baseline = "Initial git status/diff contained only runner-prepared .cgignore and spec task bookkeeping; neither scoped file existed. /out/run/gate.json recorded zero builds, zero verifies and two repair cycles available; no /out/run/gates.jsonl existed. No baseline tests ran and no pre-change failure is claimed: the explicit implementation-first order and hf-done-only verification override step 5's older unchanged-tree instruction."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_317.py"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision = "The final hf-done JSON and private evidence_ledger record the exact content-derived revision, command, exit code and private log path; build and verify must qualify the same revision. A literal self-referential candidate hash cannot be embedded here without changing that revision."
+source_proof = "Tests read the actual README and production sources: embedded host and consensus source, root RPC routing and parsed curl JSON, send acceptance/forwarding, durable WAL acknowledgement before publication, receipt rungs and committed-block coverage, parsed Makefile prerequisites/recipes and linked paxd output, and upgrade-gated retired executors. Markdown diagrams must show the same transaction-to-commit path."
+review_only = "No native build, node startup, endpoint availability, transaction execution, cryptographic proof validation, BFT finality or WAL restart/recovery is executed by this documentation gate; those require component qualification and review. This doc-drift repair changes no runtime interface or persistent state. There are no shell-script, unit-file or manifest findings requiring separate parsers."
+missing_facts = []
+
+[finding.readme-separate-daemon]
+file = "README.md"
+class = "doc-drift"
+severity = "medium"
+owner_domain = 17
+owner_task = "22.31.470"
+resolution = "The inherited README describes one BFT chain-125 paxd node with its proposing kernel embedded, root node JSON-RPC, transaction and committed receipt flows, linked paxd builds and retired custody/checkpoint execution. Historical executor compatibility is explicitly labelled pre-merge, retired and archive-only; no separate daemon or checkpoint deployment command remains."
+tests = ["test_readme_separate_daemon_merged_topology", "test_readme_separate_daemon_root_rpc", "test_readme_separate_daemon_transaction_and_commit", "test_readme_separate_daemon_paxd_build", "test_readme_separate_daemon_retired_history"]
+
+[wiring.root_readme]
+request = "README.md — domain 17 / task 22.31.470 owns the merged topology, root RPC, receipt lifecycle, paxd build and historical retirement rewrite; the inherited source supplies all expected facts, so no missing-fact wiring request remains."
+
+[format]
+policy = "No Python or KVX formatter is configured for audit_repairs; follow adjacent Python modules and .editorconfig UTF-8, LF, final newline and trailing-whitespace rules after implementation."
+
+[gotcha.context]
+observed = "Combined broad reads exceeded output limits, and cg brief reported unrelated graph changes; the acceptance section was not named req.22998.1 in this spec."
+resolution = "Use bounded named sections, actual git status/diff and the runner ledger; the user-provided acceptance criterion is authoritative. Record task-local notes here because GOTCHA.kvx and spec files are outside scope."
+
+[qualification.repair_1]
+revision = "f362cea36dc7aac11c6c53f03e1d8c9a03cd19e6"
+command = "cg spec done 22.33.317 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The Markdown section helper mistook the fenced curl comment '# Expected result' for a heading, truncating the quickstart before the mirror fact; five tests passed and one failed."
+repair = "Make section extraction fence-aware while preserving every fact assertion; rebuild and verify the same repaired candidate."

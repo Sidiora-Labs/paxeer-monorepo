@@ -13,9 +13,8 @@ use std::time::Duration;
 mod support;
 
 use ed25519_dalek::{Signer as _, SigningKey};
-use layerx_crypto::disclosure::bind;
 use layerx_crypto::remote::RemoteSigner;
-use layerx_crypto::signer::{sign_disclosed, SignError};
+use layerx_crypto::signer::{SignError, Signer};
 use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod, SslVerifyMode};
 
 static FIXTURE_SEQUENCE: AtomicU64 = AtomicU64::new(1);
@@ -277,12 +276,12 @@ fn remote_with_name(
 }
 
 fn sign(signer: &RemoteSigner) -> Result<layerx_crypto::signer::DidSignature, SignError> {
-    let canonical = support::canonical_send(25);
-    let registry = support::registry();
-    let Ok(disclosure) = bind(&canonical, &registry) else {
-        panic!("canonical disclosure rejected");
-    };
-    ready(sign_disclosed(signer, &canonical, &disclosure, &registry))
+    let debit = support::debit(25);
+    let canonical = debit.authorization_message().expect("native payer message");
+    let request = debit
+        .signing_request(&canonical)
+        .expect("typed payer request");
+    ready(signer.sign(request))
 }
 
 #[test]

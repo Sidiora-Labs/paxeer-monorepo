@@ -764,8 +764,11 @@ type accountDeliveryPreference struct {
 	Revision                      uint64
 	Categories, Channels          map[string]bool
 	CategoryChannels              map[string]map[string]bool
-	QuietHours                    *struct{ StartMinute, EndMinute int }
-	Linked                        bool
+	QuietHours                    *struct {
+		StartMinute, EndMinute int
+		Timezone               string
+	}
+	Linked bool
 }
 
 func accountNotificationAuthority(store account.Store, runtime *account.Runtime, token, pin string) http.Handler {
@@ -881,7 +884,10 @@ func accountNotificationAuthority(store account.Store, runtime *account.Runtime,
 			account.WriteError(w, account.ErrInvalid, uuid.New())
 			return
 		}
-		out.QuietHours = &struct{ StartMinute, EndMinute int }{start, end}
+		out.QuietHours = &struct {
+			StartMinute, EndMinute int
+			Timezone               string
+		}{StartMinute: start, EndMinute: end, Timezone: preferences.QuietHours.Timezone}
 		write(w, out)
 	})
 	mux.HandleFunc("GET /internal/v2/accounts/{accountId}/targets", func(w http.ResponseWriter, r *http.Request) {

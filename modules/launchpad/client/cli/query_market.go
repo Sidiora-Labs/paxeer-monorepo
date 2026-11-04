@@ -10,7 +10,7 @@ import (
 func CmdQueryMarket() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "market [denom]",
-		Example: "layerxd query launchpad market launchpad/0x0000000000000000000000000000000000000001 --output json",
+		Example: "paxd query launchpad market launchpad/0x0000000000000000000000000000000000000001 --output json",
 		Short:   "Query a launchpad market by denomination",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -33,7 +33,7 @@ func CmdQueryMarket() *cobra.Command {
 func CmdQueryMarketByAddress() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "market-by-address [address]",
-		Example: "layerxd query launchpad market-by-address 0x0000000000000000000000000000000000000001 --output json",
+		Example: "paxd query launchpad market-by-address 0x0000000000000000000000000000000000000001 --output json",
 		Short:   "Query a launchpad market by pool or token address",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

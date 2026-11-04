@@ -1,0 +1,47 @@
+[task.22.33.1270]
+base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
+input_revision = "b14e9329b0930774a1f05364c4669281d0264e30"
+readme_owner_task = "22.31.470"
+repair = "Decision 2525 assigns the README rewrite to prerequisite 22.31.470. Preserve its production README unchanged and close audit 22.30.62/readme-retired-architecture with a dedicated offline source regression module and this finding-to-test record. No production interface or stateful component changes."
+source_proof = "Read actual README architecture and Mermaid topology, parse public RPC URLs and the curl argv/JSON payload, parse documented build/start argv and Makefile prerequisite declarations, and check the chain-125 transaction-to-committed-receipt sequence against production host, root-path dispatcher, send/forward, WAL release, consensus-source and receipt-coverage connections. Parse the external bridge ABI and check its keeper call; check retired verify/custody/anchor guards and the later anchor-store deletion plan. Reject separate daemon build/launch and live checkpoint/custody funding guidance."
+review_only = "Native Go/C/Rust builds, node startup, endpoint availability, signing, EVM execution, durable WAL restart/recovery, BFT consensus and runtime precompile refusals are not executed by this Python-only documentation gate. Source assertions establish documented producer/transport/consumer connections, not runtime behavior or deployment certification. No restart-recovery or interface-mismatch finding is assigned to this task. No shell script, unit file or manifest is repaired; README shell examples are parsed with shlex and their JSON with json.loads without executing commands or requiring bash."
+baseline = "Initial git status/diff contained only pre-existing runner .cgignore and spec task-status changes; both scoped files were absent. /out/run/gate.json reported zero builds and verifies, zero repairs used and two repair cycles available; /out/run/gates.jsonl did not exist. No pre-change test was run and no baseline failure is claimed: the explicit implementation-first order and exclusive hf-done gate supersede the older step requesting a separate unchanged-tree verify. The gate reads the same README left by 22.31.470."
+readme_input_sha256 = "689aad1724d426309d059d9a3b0085214078d35f756e19b396142a751f84ba98"
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1270.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The last hf-done JSON and private /out/run/gates.jsonl name the exact verified content-derived candidate revision, command, exit code and private log path. Build and verification must pass on the same candidate revision. This record is finalized before qualification because embedding its own candidate hash would change that hash. The runner records qualification and publishes; this task performs no manual commit or push."
+wiring_requests = ["README.md | domain 1 | task 22.31.470 | Rewrite architecture, paxd build/start and precompile overview for chain 125 root JSON-RPC, committed receipts and retired 0x1012-0x1014, preserving the external native bridge; satisfied by the prerequisite README, with no missing source fact found during implementation review."]
+
+[finding.readme-retired-architecture]
+audit = "spec/layerx-merge/programme/audit/records/22.30.62.kvx"
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+owner_domain = 1
+observed = "The audit recorded a separate layerxd daemon, checkpoint settlement through layerxAnchor, make layerxd instructions and custody/anchor/verify listed without their merge refusal lifecycle."
+resolution = "The prerequisite README now describes one paxd BFT network with an embedded kernel, chain 125 root JSON-RPC, transaction submission and committed-block finality. Build/start instructions use paxd, the three retired executors are retained refusal surfaces with archive-only anchor reads until store deletion, and the external native bridge remains distinct from retired kernel custody. This task asserts those facts directly."
+tests = ["test_readme_one_paxd_network_embeds_kernel_and_commits_blocks", "test_readme_chain_125_probe_and_numbered_hosts_use_root_json_rpc", "test_readme_transaction_transport_and_committed_receipt_consumer", "test_readme_build_and_launch_use_paxd_with_linked_native_libraries", "test_readme_retirement_lifecycle_keeps_external_native_bridge_distinct", "test_readme_has_no_separate_daemon_build_or_checkpoint_funding_guidance"]
+
+[wiring.readme]
+path = "README.md"
+owner_domain = 1
+owner_task = "22.31.470"
+status = "satisfied-by-prerequisite"
+missing_facts = []
+request = "README.md | domain 1 / 22.31.470 | Maintain the merged paxd architecture, chain-125 root public RPC hosts, committed receipt sequence, paxd build/start and retired executor lifecycle; all requested facts are already present and README is outside this task's edit scope."
+
+[qualification]
+acceptance = "22998.1"
+criterion = "The declared pytest command must exit zero with every source assertion executed and no deleted, skipped, ignored, expected-failure or weakened test; authoritative revision, command, exit and log are the final private hf-done ledger entry."
+record_test = "test_repair_record_maps_the_audit_finding_to_every_source_proof"
+gotcha = "The local Codify graph is restricted by runner .cgignore and returns zero candidates for production source paths; direct read-only file inspection is required. Preserve runner bookkeeping and keep this note here because GOTCHA.kvx and spec files are outside the explicit scope."
+
+[qualification.repair_1]
+revision = "797c84a0fca164f3c1c7ab75648f758c668995ec"
+command = "cg spec done 22.33.1270 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Six tests passed; the RPC example test failed because the section extractor mistook a fenced shell '# Expected result' comment for a Markdown heading and truncated the code block."
+repair = "Make section extraction track Markdown fences so the entire real shell example reaches the existing argv/JSON assertions; every assertion remains intact."

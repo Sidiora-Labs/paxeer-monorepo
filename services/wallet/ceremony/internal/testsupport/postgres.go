@@ -1025,12 +1025,26 @@ func ExternalAttestorConfig(certFile, keyFile, caFile string, nodes []attestor.N
 		return attestor.Config{}, attestor.ErrConfig
 	}
 	seen := make(map[string]bool, len(nodes))
+	endpoints := make(map[string]bool, len(nodes))
+	pins := make(map[[32]byte]bool, len(nodes))
 	for _, node := range nodes {
 		endpoint, err := url.Parse(node.URL)
 		if err != nil || endpoint.Scheme != "https" || endpoint.Host == "" || node.ID == "" || seen[node.ID] || node.Pin == ([32]byte{}) {
 			return attestor.Config{}, attestor.ErrConfig
 		}
+		address := strings.ToLower(endpoint.Host)
+		if endpoint.User != nil || endpoint.RawQuery != "" || endpoint.Fragment != "" || (endpoint.Path != "" && endpoint.Path != "/") || endpoints[address] || pins[node.Pin] {
+			return attestor.Config{}, attestor.ErrConfig
+		}
 		seen[node.ID] = true
+		endpoints[address] = true
+		pins[node.Pin] = true
 	}
-	return attestor.Config{CertFile: certFile, KeyFile: keyFile, CAFile: caFile, Nodes: append([]attestor.NodeConfig(nil), nodes...)}, nil
+	cfg := attestor.Config{CertFile: certFile, KeyFile: keyFile, CAFile: caFile, Nodes: append([]attestor.NodeConfig(nil), nodes...)}
+	client, err := attestor.New(cfg)
+	if err != nil {
+		return attestor.Config{}, err
+	}
+	client.Close()
+	return cfg, nil
 }

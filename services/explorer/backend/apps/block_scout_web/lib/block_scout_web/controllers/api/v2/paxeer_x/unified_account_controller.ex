@@ -5,6 +5,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.UnifiedAccountController do
   import BlockScoutWeb.Chain, only: [split_list_by_page: 1]
 
   alias BlockScoutWeb.AccessHelper
+  alias BlockScoutWeb.Schemas.API.V2.ErrorResponses.NotFoundResponse
   alias Explorer.Chain
   alias Explorer.Chain.{Block, Hash}
   alias Explorer.Chain.PaxeerX.{Identity, UnifiedAccount}
@@ -136,7 +137,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.UnifiedAccountController do
 
   tags(["paxeer-x"])
 
-  operation :unified,
+  operation(:unified,
     summary: "Retrieve the native address page on Paxeer X Network",
     description:
       "Retrieves the address's EVM, Paxeer and DID identities, bank and ERC-20 balances, " <>
@@ -154,8 +155,10 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.UnifiedAccountController do
     responses: [
       ok: {"The native address page.", "application/json", @native_schema},
       forbidden: ForbiddenResponse.response(),
+      not_found: NotFoundResponse.response(),
       unprocessable_entity: {"Invalid parameter(s).", "application/json", @invalid_response_schema}
     ]
+  )
 
   @spec unified(Plug.Conn.t(), map()) :: Plug.Conn.t() | {atom(), any()}
   def unified(conn, %{"address_hash_param" => address_hash_string} = params) do

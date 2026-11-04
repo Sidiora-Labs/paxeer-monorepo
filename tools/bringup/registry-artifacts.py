@@ -417,7 +417,7 @@ def cleanup(directory):
             image = directory / 'quota/slot-0.ext4'
             require(not run(['losetup', '-j', image]).stdout.strip(), 'owned loop remains attached')
             state['phase'] = 'cleaned'
-            state['cleanup'] = {'mount_absent': True, 'loop_absent': True, 'containers_absent': True}
+            state['cleanup'] = {'mount_absent': True, 'loop_absent': True, 'containers_absent': True, 'cgroups_absent': True}
         except BaseException as error:
             state['phase'] = 'cleanup_failed'
             state['cleanup_error'] = str(error)
