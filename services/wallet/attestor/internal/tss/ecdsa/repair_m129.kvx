@@ -1,0 +1,7 @@
+[repair.22.33.129]
+audit = "22.30.114"
+finding_33 = ["TestRepairM_129_PendingDuplicateAndRelay", "TestRepairM_129_PendingParticipantBudget", "TestRepairM_129_UnexpectedPhaseAndParticipant", "TestRepairM_129_PublicKeygenCancellation"]
+finding_34 = ["TestRepairM_129_ReplayAndDirectRejection", "TestRepairM_129_QueuedMessageOwnership", "TestRepairM_129_RealDKG"]
+baseline = "No baseline gate run: the ordered task instructions prohibit verification before implementation and reserve the one verify run for hf-done; no pre-change failures are claimed."
+wiring_requests = []
+qualification = "The runner's hf-build/hf-done ledger records the verified candidate revision, command, exit code and private evidence path."

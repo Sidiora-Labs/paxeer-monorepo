@@ -35,6 +35,11 @@ from layerx_sdk import (
     xweb_get_attestors_call_data,
 )
 from layerx_sdk.account_derivation import keccak256
+from layerx_sdk.evm_transaction import encode_call
+from layerx_sdk.perps import (
+    perps_call, perps_cancel_order_call, perps_close_position_call,
+    perps_open_position_call,
+)
 from layerx_sdk.exchange import (
     LAYERX_EXCHANGE_PRECOMPILE,
     PrecompileAbiError,
@@ -144,7 +149,8 @@ class XWebApiVectorTests(unittest.TestCase):
             },
         )
 
-    def test_exchange_writes_match_the_typescript_legacy_signatures(self) -> None:
+    def test_historical_exchange_writes_match_the_typescript_legacy_signatures(self) -> None:
+        """Historical byte compatibility only; these vectors prove no live write."""
         market = "0x" + "11" * 32
         account = "0x" + "22" * 32
         order = "0x" + "33" * 32
@@ -178,6 +184,46 @@ class XWebApiVectorTests(unittest.TestCase):
                 self.assertEqual(
                     call, PrecompileCall(LAYERX_EXCHANGE_PRECOMPILE, data, value)
                 )
+
+    def test_current_direct_order_and_position_calldata(self) -> None:
+        root = Path(__file__).resolve().parents[4]
+        abi = json.loads((root / "precompiles/perps/abi/abi.json").read_text())
+        token = "0x" + "55" * 20
+        for name, values, call in (
+            ("openPosition", [7, token, 50_000, 3, True],
+             perps_open_position_call(7, token, 50_000, 3, True)),
+            ("cancelOrder", [23], perps_cancel_order_call(23)),
+            ("closePosition", [29], perps_close_position_call(29)),
+        ):
+            entry = next(item for item in abi if item.get("name") == name)
+            types = [item["type"] for item in entry["inputs"]]
+            signature = name + "(" + ",".join(types) + ")"
+            abi_values = [
+                bytes.fromhex(value[2:]) if kind == "address" else value
+                for kind, value in zip(types, values, strict=True)
+            ]
+            expected = encode_call(name, types, abi_values)
+            self.assertEqual(call.to, LAYERX_EXCHANGE_PRECOMPILE)
+            self.assertEqual(call.data, "0x" + expected.hex())
+            self.assertEqual(bytes.fromhex(call.data[2:10]), keccak256(signature.encode())[:4])
+            self.assertEqual(call.value, 0)
+            self.assertEqual(precompile_transaction_request("0x" + "12" * 20, call), {
+                "from": "0x" + "12" * 20, "to": LAYERX_EXCHANGE_PRECOMPILE,
+                "data": "0x" + expected.hex(), "value": "0x0",
+            })
+        for name in ("getOrder", "getPosition"):
+            entry = next(item for item in abi if item.get("name") == name)
+            self.assertEqual(entry["stateMutability"], "view")
+            self.assertEqual([item["type"] for item in entry["inputs"]], ["uint256"])
+            self.assertEqual(encode_call(name, ["uint256"], [29]),
+                             keccak256((name + "(uint256)").encode())[:4] + (29).to_bytes(32, "big"))
+        for retired in (
+            "requestSettlement(bytes32)", "placeOrder(bytes32,uint8,uint256,uint256,uint8)",
+            "placeOrder(bytes32,bytes32,uint8,uint256,uint256,uint8)", "depositMargin(bytes32)",
+        ):
+            with self.assertRaises(PrecompileAbiError) as caught:
+                perps_call(retired, [])
+            self.assertEqual(caught.exception.code, "invalid_value")
 
     def test_exchange_argument_refusals(self) -> None:
         market = "0x" + "11" * 32

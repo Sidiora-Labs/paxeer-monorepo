@@ -1,3 +1,4 @@
+mod directory_http;
 pub mod eth_bytecode_db;
 pub mod fourbyte;
 pub mod precompiles;
@@ -54,6 +55,42 @@ pub trait CompleteSignatureSource {
 
     // for errors
     fn source(&self) -> String;
+}
+
+pub(crate) fn decode_complete_event(
+    event: &ethabi::Event,
+    raw: &ethabi::RawLog,
+) -> Option<ethabi::Log> {
+    // Positional names keep unnamed and repeated parameter names distinct in ethabi.
+    let mut positional = event.clone();
+    for (index, input) in positional.inputs.iter_mut().enumerate() {
+        input.name = index.to_string();
+    }
+    let mut decoded = positional.parse_log(raw.clone()).ok()?;
+    let mut data = Vec::new();
+    let mut topics = Vec::new();
+    for (input, param) in event.inputs.iter().zip(&decoded.params) {
+        if input.indexed {
+            topics.extend(ethabi::encode(std::slice::from_ref(&param.value)));
+        } else {
+            data.push(param.value.clone());
+        }
+    }
+    let raw_topics: Vec<_> = raw
+        .topics
+        .iter()
+        .skip(usize::from(!event.anonymous))
+        .flat_map(|topic| topic.as_bytes().iter().copied())
+        .collect();
+    // decode_whole in ethabi 18 counts only heads for dynamic types. Round-trip
+    // validation checks the entire encoding, including dynamic tails and padding.
+    if ethabi::encode(&data) != raw.data || topics != raw_topics {
+        return None;
+    }
+    for (input, param) in event.inputs.iter().zip(&mut decoded.params) {
+        param.name = input.name.clone();
+    }
+    Some(decoded)
 }
 
 pub fn new_client() -> ClientWithMiddleware {

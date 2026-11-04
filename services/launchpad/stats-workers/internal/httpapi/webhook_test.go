@@ -166,16 +166,17 @@ func TestWebhookDispatch(t *testing.T) {
 					"amountIn": "1", "amountOut": "1", "price": "not-a-number", "fee": "0"}},
 		}})
 		rec := serve(t, r, http.MethodPost, "/webhooks/events", body, hmacHeaders(testSecret, body))
-		if rec.Code != http.StatusOK {
-			t.Fatalf("status = %d, want 200", rec.Code)
+		if rec.Code != http.StatusServiceUnavailable {
+			t.Fatalf("status = %d, want 503", rec.Code)
 		}
 		var resp struct {
-			Processed int `json:"processed"`
-			Errors    int `json:"errors"`
+			OK        bool `json:"ok"`
+			Processed int  `json:"processed"`
+			Errors    int  `json:"errors"`
 		}
 		decode(t, rec, &resp)
-		if resp.Processed != 0 || resp.Errors != 1 {
-			t.Fatalf("resp = %+v, want processed=0 errors=1", resp)
+		if resp.OK || resp.Processed != 0 || resp.Errors != 1 {
+			t.Fatalf("resp = %+v, want ok=false processed=0 errors=1", resp)
 		}
 	})
 

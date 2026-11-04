@@ -3597,6 +3597,45 @@
         },
         {
           "schema": "pnl",
+          "object": "inventory_l16_active_v2",
+          "object_kind": "table",
+          "privileges": [
+            "UPDATE"
+          ],
+          "columns": [
+            "generation",
+            "snapshot_digest",
+            "height"
+          ],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "pnl",
+          "object": "inventory_l16_wallet_ranges_v3",
+          "object_kind": "table",
+          "privileges": [
+            "SELECT",
+            "INSERT"
+          ],
+          "columns": [],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "pnl",
+          "object": "inventory_l16_wallet_intervals_v3",
+          "object_kind": "table",
+          "privileges": [
+            "SELECT",
+            "INSERT"
+          ],
+          "columns": [],
+          "argument_types": [],
+          "grant_option": false
+        },
+        {
+          "schema": "pnl",
           "object": "inventory_l16_checkpoints_v2",
           "object_kind": "table",
           "privileges": [
@@ -9982,6 +10021,44 @@
           "argument_types": [],
           "grant_option": false,
           "view": true
+        },
+        {
+          "schema": "pnl",
+          "object": "inventory_l16_wallet_ranges_read_v3",
+          "object_kind": "view",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "snapshot_id",
+            "wallet",
+            "generation",
+            "start_at",
+            "end_at",
+            "release_digest",
+            "input_digest",
+            "watermark"
+          ],
+          "argument_types": [],
+          "grant_option": false,
+          "view": true
+        },
+        {
+          "schema": "pnl",
+          "object": "inventory_l16_wallet_intervals_read_v3",
+          "object_kind": "view",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "snapshot_id",
+            "interval",
+            "bucket",
+            "payload"
+          ],
+          "argument_types": [],
+          "grant_option": false,
+          "view": true
         }
       ],
       "owner_login": false,
@@ -11200,6 +11277,44 @@
             "text"
           ],
           "grant_option": false
+        },
+        {
+          "schema": "pnl",
+          "object": "inventory_l16_wallet_ranges_read_v3",
+          "object_kind": "view",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "snapshot_id",
+            "wallet",
+            "generation",
+            "start_at",
+            "end_at",
+            "release_digest",
+            "input_digest",
+            "watermark"
+          ],
+          "argument_types": [],
+          "grant_option": false,
+          "view": true
+        },
+        {
+          "schema": "pnl",
+          "object": "inventory_l16_wallet_intervals_read_v3",
+          "object_kind": "view",
+          "privileges": [
+            "SELECT"
+          ],
+          "columns": [
+            "snapshot_id",
+            "interval",
+            "bucket",
+            "payload"
+          ],
+          "argument_types": [],
+          "grant_option": false,
+          "view": true
         }
       ],
       "owner_login": false,

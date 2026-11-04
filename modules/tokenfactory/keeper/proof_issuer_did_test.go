@@ -17,6 +17,8 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/tokenfactory/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/baseapp"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
+	govtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/gov/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -146,4 +148,53 @@ func TestProofIssuerDid(t *testing.T) {
 func TestProofIssuerDidAdminConsumers(t *testing.T) {
 	t.Run("validation", TestIssuerDidValidate)
 	t.Run("change_admin", TestIssuerDidSurvivesChangeAdmin)
+}
+
+func TestProofIssuerMintBlockedDestinationAtomic(t *testing.T) {
+	s := adminsIssuerSuite(t)
+	t.Cleanup(func() { require.NoError(t, s.App.Close()) })
+	var issuer types.IssuerKeeper = s.App.TokenFactoryKeeper
+	did := adminsIssuerDid(0xab)
+	denom := s.defaultDenom
+	bank := s.App.BankKeeper
+	recipient := s.TestAccs[1]
+	module := s.App.AccountKeeper.GetModuleAddress(types.ModuleName)
+	blocked := s.App.AccountKeeper.GetModuleAddress(govtypes.ModuleName)
+	require.NotEmpty(t, blocked)
+	decoded, err := sdk.AccAddressFromBech32(blocked.String())
+	require.NoError(t, err)
+	require.Equal(t, blocked, decoded)
+	require.True(t, bank.BlockedAddr(blocked))
+	require.NoError(t, issuer.SetIssuerDid(s.Ctx, denom, did))
+	require.NoError(t, issuer.MintByIssuer(s.Ctx, did, sdk.NewInt64Coin(denom, 50), recipient.String()))
+	// Keep a nonzero module balance so refusal must preserve existing funds too.
+	require.NoError(t, bank.MintCoins(s.Ctx, types.ModuleName, sdk.NewCoins(sdk.NewInt64Coin(denom, 7))))
+	ctx := s.Ctx.WithEventManager(sdk.NewEventManager())
+	ctx.EventManager().EmitEvent(sdk.NewEvent("before_issuer_mint"))
+	events := append(sdk.Events(nil), ctx.EventManager().Events()...)
+	evmEvents := ctx.EVMEventManager().Events()
+	supply := bank.GetSupply(ctx, denom)
+	moduleBalance := bank.GetBalance(ctx, module, denom)
+	recipientBalance := bank.GetBalance(ctx, recipient, denom)
+	blockedBalance := bank.GetBalance(ctx, blocked, denom)
+	for attempt := 0; attempt < 2; attempt++ {
+		err := issuer.MintByIssuer(ctx, did, sdk.NewInt64Coin(denom, 11), blocked.String())
+		require.ErrorIs(t, err, sdkerrors.ErrUnauthorized)
+		require.Equal(t, supply, bank.GetSupply(ctx, denom))
+		require.Equal(t, moduleBalance, bank.GetBalance(ctx, module, denom))
+		require.Equal(t, recipientBalance, bank.GetBalance(ctx, recipient, denom))
+		require.Equal(t, blockedBalance, bank.GetBalance(ctx, blocked, denom))
+		require.Equal(t, events, ctx.EventManager().Events())
+		require.Equal(t, evmEvents, ctx.EVMEventManager().Events())
+		adminsRequireIssuerDid(s, issuer, s.TestAccs[0].String(), did)
+	}
+	successCtx := ctx.WithEventManager(sdk.NewEventManager())
+	amount := sdk.NewInt64Coin(denom, 13)
+	require.NoError(t, issuer.MintByIssuer(successCtx, did, amount, recipient.String()))
+	require.Equal(t, supply.Add(amount), bank.GetSupply(successCtx, denom))
+	require.Equal(t, recipientBalance.Add(amount), bank.GetBalance(successCtx, recipient, denom))
+	require.Equal(t, moduleBalance, bank.GetBalance(successCtx, module, denom))
+	require.Equal(t, blockedBalance, bank.GetBalance(successCtx, blocked, denom))
+	requireIssuerSupplyEvent(t, successCtx, types.TypeMsgMint, types.AttributeMintToAddress, recipient.String(), amount)
+	require.Equal(t, events, ctx.EventManager().Events())
 }

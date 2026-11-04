@@ -1,0 +1,26 @@
+[repair.22.33.310]
+mode = "BUILD"
+base_revision = "117197c811684e097104c96b29e872d45034cebb"
+scope = "services/explorer/deploy/tools"
+build = "hf-build: python3 -m py_compile services/explorer/deploy/tools/test_repair_22_33_310.py"
+verify = "hf-done: cg spec done 22.33.310 -f layerx-merge --root $TASK_ROOT"
+evidence = "The private runner gates.jsonl and final hf-done JSON name the exact candidate revision, command, exit code and log; this record is part of that candidate."
+baseline = "Not run: the prescribed implementation-first, wrapper-only gate order overrides the historical unchanged-tree verification step; no proving Python test existed at the base revision, and no prior gate ledger existed."
+planned_path_mapping = "repair_m310_test.go maps to test_repair_22_33_310.py under the task's corrected Python gate (gotcha 2984); no Go subprocess or additional toolchain is required."
+
+[finding.copy-stage-concurrency]
+tests = ["test_TestRepairM_310_copy_stage_concurrency", "test_TestRepairM_310_session_loss_refuses_progress", "test_TestRepairM_310_failed_copy_cannot_commit_progress", "test_TestRepairM_310_rpc_uses_production_sessions", "test_TestRepairM_310_shell_routes_every_write_through_owner"]
+repair = "A database-scoped advisory lock is held by the same persistent destination psql connection that executes every stage, COPY and atomic progress write; acquisition refuses a contender before any mutation, connection loss refuses all subsequent writes, and closing/reopening requires fresh ownership."
+
+[finding.copy-content-verification]
+tests = ["test_TestRepairM_310_restart_recovers_snapshot_and_content", "test_TestRepairM_310_restart_refuses_changed_source", "test_TestRepairM_310_equal_counts_do_not_verify_divergence", "test_TestRepairM_310_failed_copy_cannot_commit_progress", "test_TestRepairM_310_success_allows_a_new_boundary", "test_TestRepairM_310_restart_refuses_a_different_owner_boundary", "test_TestRepairM_310_derived_projection_hashes_copied_values"]
+repair = "One source repeatable-read transaction covers all source metadata, cuts, projections and COPY. The destination persists the cuts, source connection identity hash, exported snapshot identity and per-table SHA-256 fingerprints with progress. A restart takes a new snapshot, retains the interrupted cuts and refuses changed source keys or values. Final comparison hashes ordered COPY text of every projected row, including identity columns, and rejects equal-count divergence without modifying conflicting rows."
+policy = "A completed run admits a new source boundary on the next invocation; an interrupted run retains its table list and source connection identity. Source divergence during recovery requires operator reconciliation, and changing credentials or endpoint spelling changes the identity and is refused. JSON/COPY canonicalization pins UTC, ISO dates, interval/bytea output and float precision; incompatible serialized source/destination values are refused rather than silently accepted."
+
+[finding.swagger-retired-description]
+tests = ["test_TestRepairM_310_swagger_retained_surfaces"]
+repair = "The generator names node-backed capabilities, price feed, native activity and committed chain receipts; the test builds the real route document and round-trips its publication YAML while retaining the exact capability body equality checks."
+wiring_request = "services/explorer/swagger.yaml — owning domain 14 (web-explorer-bridge): regenerate with python3 services/explorer/deploy/tools/gen-swagger.py after this repair lands; the published artifact is outside this task's allowed paths."
+
+[qualification.notes]
+fixtures = "The Python gate exercises the production PsqlSession, CopyRun, SHA-256 verifier, socket RPC handler/client and Swagger generator. Committed COPY/psql protocol fixtures are replayed over loopback sockets; all SQL and COPY inputs are asserted exactly, and restart peers consume progress emitted by the first production run. Live PostgreSQL/container integration remains the existing copy-blockscout-test.sh suite, outside this task's allowed gates."

@@ -145,11 +145,11 @@ with tempfile.TemporaryDirectory(prefix="testnet-chain-id-") as directory:
             assert parameters["package_semver"] == package_version
             assert parameters["lxp_wire_protocol_version"] == int(wire_version)
             arguments = [
-                "--gateway", origin, "--did", "did:layerx:" + "01" * 32,
+                "--gateway", origin, "--node", origin, "--did", "did:layerx:" + "01" * 32,
                 "--destination", "did:layerx:" + "02" * 32,
                 "--asset", "uhpx", "--amount", "1", "--sequencer-key", "03" * 32,
                 "--ca", str(root / "cert.pem"), "--auth-config", str(root / "session.curl"),
-                "--signer", str(root / "signer.key"), "--output", str(root / "payment"),
+                "--signer", str(root / "signer.key"), "--accounts", str(root / "accounts.json"), "--output", str(root / "payment"),
             ]
             args = payment.parse_args(arguments + ["--evm-chain-id", str(parameters["evm_chain_id"])])
             chain_id = payment.validate_evm_chain_id(args.evm_chain_id, "0x7d")

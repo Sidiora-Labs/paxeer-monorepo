@@ -1,3 +1,5 @@
+Code.require_file("repair_22_33_555_support.exs", __DIR__)
+
 defmodule Indexer.Fetcher.BlockRewardTest do
   # MUST be `async: false` so that {:shared, pid} is set for connection to allow CoinBalanceFetcher's self-send to have
   # connection allowed immediately.
@@ -451,25 +453,7 @@ defmodule Indexer.Fetcher.BlockRewardTest do
   end
 
   defp wait_until(timeout, producer) do
-    parent = self()
-    ref = make_ref()
-
-    spawn(fn -> do_wait_until(parent, ref, producer) end)
-
-    receive do
-      {^ref, :ok} -> :ok
-    after
-      timeout -> :ok
-    end
-  end
-
-  defp do_wait_until(parent, ref, producer) do
-    if producer.() do
-      send(parent, {ref, :ok})
-    else
-      :timer.sleep(100)
-      do_wait_until(parent, ref, producer)
-    end
+    Indexer.Fetcher.Repair2233555.wait_until(timeout, producer)
   end
 
   defp trace_block_expectation(block_quantity, miner_hash, block_hash, block_number, value) do

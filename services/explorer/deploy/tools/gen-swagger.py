@@ -1375,7 +1375,7 @@ def build(args):
                 if t not in used_tags:
                     used_tags.append(t)
     tag_desc = {
-        "paxeer-x": "Paxeer X Network surfaces: capabilities, anchors, kernel receipts, price feed, settlement status and sequencer signatures",
+        "paxeer-x": "Paxeer X explorer surfaces: node-backed capabilities, price feed, native activity and committed chain receipts",
         "account": "My-account API (watchlists, tags, API keys, custom ABIs) and authentication; session cookie required",
         "rpc": "Etherscan-compatible module/action API (/api and /api/v1)",
         "eth-rpc": "Ethereum JSON-RPC served from the explorer database",

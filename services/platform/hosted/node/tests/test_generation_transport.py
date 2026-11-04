@@ -4,7 +4,6 @@ import hashlib
 import json
 import os
 from pathlib import Path
-import secrets
 import socket
 import stat
 import sys
@@ -37,15 +36,7 @@ class GenerationTransportTests(unittest.TestCase):
             directory.mkdir(mode=0o700)
         Store(str(self.state), str(self.data), str(self.run), 1, {}).initialize()
         self.broker = transport.Broker(str(self.data), str(self.state), str(self.run), os.geteuid(), os.getegid())
-        self.capabilities = self.state / 'generation-authorizations'
-        self.capabilities.mkdir(mode=0o700)
-        self.capability = secrets.token_bytes(32)
-        for slot in (1, 2):
-            descriptor = os.open(self.capabilities / ('slot-' + str(slot) + '.cap'), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
-            try:
-                os.write(descriptor, self.capability if slot == 1 else secrets.token_bytes(32))
-            finally:
-                os.close(descriptor)
+        self.capability = bytes(range(32))
 
     def tearDown(self):
         self.temporary.cleanup()
@@ -92,9 +83,10 @@ class GenerationTransportTests(unittest.TestCase):
             self.broker.request(self.request(), (os.geteuid(), os.getegid()))
 
     def test_unsafe_capability_permissions_refuse(self):
-        os.chmod(self.capabilities / 'slot-1.cap', 0o640)
+        # No capability file is opened: the retired operation is refused first.
         self.refusal(self.request(operation='identity', slot=1,
                                   capability=base64.b64encode(self.capability).decode()), 'invalid_request')
+        self.assertFalse((self.state / 'generation-authorizations').exists())
 
     def test_nofollow_file_and_directory_opens(self):
         real = self.data / 'real'

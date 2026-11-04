@@ -10,9 +10,11 @@ import (
 	"net/http"
 	_ "net/http/pprof" //nolint:gosec
 	"os"
+	"os/signal"
 	"path/filepath"
 	"runtime/pprof"
 	"sync"
+	"syscall"
 	"time"
 
 	tcmd "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/cmd/tendermint/commands"
@@ -178,7 +180,10 @@ is performed. Note, when enabled, gRPC will also be automatically enabled.
 				return fmt.Errorf("failed to initialize telemetry: %w", err)
 			}
 			if !config.Genesis.StreamImport {
-				genesisFile, _ := tmtypes.GenesisDocFromFile(serverCtx.Config.GenesisFile())
+				genesisFile, err := tmtypes.GenesisDocFromFile(serverCtx.Config.GenesisFile())
+				if err != nil {
+					return fmt.Errorf("load genesis: %w", err)
+				}
 				if genesisFile.ChainID != clientCtx.ChainID {
 					panic(fmt.Sprintf("genesis file chain-id=%s does not equal config.toml chain-id=%s", genesisFile.ChainID, clientCtx.ChainID))
 				}
@@ -266,7 +271,7 @@ func startInProcess(
 ) error {
 	cfg := ctx.Config
 	home := cfg.RootDir
-	goCtx, cancel := context.WithCancel(context.Background())
+	goCtx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 	if cpuProfile := ctx.Viper.GetString(flagCPUProfile); cpuProfile != "" {
 		f, err := os.Create(filepath.Clean(cpuProfile))
@@ -298,9 +303,12 @@ func startInProcess(
 	}
 
 	if err := config.ValidateBasic(ctx.Config); err != nil {
-		logger.Error("WARNING: The minimum-gas-prices config in app.toml is set to the empty string. " +
-			"This defaults to 0 in the current version, but will error in the next version " +
-			"(SDK v0.45). Please explicitly put the desired minimum-gas-prices in your app.toml.")
+		return fmt.Errorf("invalid application configuration: %w", err)
+	}
+	if _, err := os.Stat(rollbackIntentPath(cfg)); err == nil {
+		return fmt.Errorf("unfinished rollback: run the rollback command to recover before starting")
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("check rollback intent: %w", err)
 	}
 	app := appCreator(nil, traceWriter, ctx.Config, ctx.Viper)
 	defer func() {
@@ -357,6 +365,7 @@ func startInProcess(
 			if tmNode.IsRunning() {
 				tmNode.Stop()
 			}
+			tmNode.Wait()
 		}()
 		// Add the tx service to the gRPC router. We only need to register this
 		// service if API or gRPC is enabled, and avoid doing so in the general
@@ -371,25 +380,30 @@ func startInProcess(
 		}
 	}
 
+	serviceErrors := make(chan error, 2)
+
 	if config.API.Enable {
 		var apiSrv *api.Server
 		clientCtx := clientCtx.WithHomeDir(home).WithChainID(clientCtx.ChainID)
 		apiSrv = api.New(clientCtx)
 		defer func() { _ = apiSrv.Close() }()
 		app.RegisterAPIRoutes(apiSrv, config.API)
-		errCh := make(chan error)
 
 		go func() {
 			if err := apiSrv.Start(config, apiMetrics); err != nil {
-				errCh <- err
+				serviceErrors <- fmt.Errorf("api server: %w", err)
 			}
 		}()
 
 		select {
-		case err := <-errCh:
+		case err := <-serviceErrors:
 			return fmt.Errorf("error starting api server: %w", err)
 
-		case <-time.After(types.ServerStartTime): // assume server started successfully
+		case <-goCtx.Done():
+			return nil
+		case <-restartCh:
+			return ErrShouldRestart
+		case <-time.After(types.ServerStartTime): // continue supervising after startup
 		}
 	}
 
@@ -414,7 +428,7 @@ func startInProcess(
 	// we do not need to start Rosetta or handle any Tendermint related processes.
 	if gRPCOnly {
 		// wait for signal capture and gracefully return
-		return WaitForQuitSignals(goCtx, restartCh)
+		return waitForServices(goCtx, restartCh, serviceErrors)
 	}
 
 	var rosettaSrv crgserver.Server
@@ -443,24 +457,47 @@ func startInProcess(
 		if err != nil {
 			return err
 		}
+		defer func() {
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := rosettaSrv.Shutdown(shutdownCtx); err != nil {
+				logger.Error("failed to shut down Rosetta server", "err", err)
+			}
+		}()
 
-		errCh := make(chan error)
 		go func() {
 			if err := rosettaSrv.Start(); err != nil {
-				errCh <- err
+				serviceErrors <- fmt.Errorf("rosetta server: %w", err)
 			}
 		}()
 
 		select {
-		case err := <-errCh:
+		case err := <-serviceErrors:
 			return err
 
-		case <-time.After(types.ServerStartTime): // assume server started successfully
+		case <-goCtx.Done():
+			return nil
+		case <-restartCh:
+			return ErrShouldRestart
+		case <-time.After(types.ServerStartTime): // continue supervising after startup
 		}
 	}
 
 	// wait for signal capture and gracefully return
-	return WaitForQuitSignals(goCtx, restartCh)
+	return waitForServices(goCtx, restartCh, serviceErrors)
+}
+
+func waitForServices(ctx context.Context, restartCh chan struct{}, serviceErrors <-chan error) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	quit := make(chan error, 1)
+	go func() { quit <- WaitForQuitSignals(ctx, restartCh) }()
+	select {
+	case err := <-serviceErrors:
+		return err
+	case err := <-quit:
+		return err
+	}
 }
 
 // LoadStreamingGenesisDoc waits for the complete export before allowing node

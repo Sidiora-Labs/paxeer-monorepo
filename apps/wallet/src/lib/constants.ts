@@ -171,12 +171,7 @@ export const TOKENS: Record<
     decimals: 18,
     address: SWAP_SDK_TOKENS.WPAX9.address,
   },
-  SID: {
-    symbol: 'SID',
-    name: 'Sidiora',
-    decimals: 6,
-    address: process.env.NEXT_PUBLIC_SID || '0x21f7b20a555199fa73A238B1a91FD0f549068fEe',
-  },
+  SID: { ...SWAP_SDK_TOKENS.SID },
   MTX: {
     symbol: 'MTX',
     name: 'Matrix  Token',

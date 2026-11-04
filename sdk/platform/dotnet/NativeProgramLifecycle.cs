@@ -18,6 +18,7 @@ public sealed class NativeProgramDeploy : INativeProgramLifecycle
         byte[] newHash, byte[]? programInterface, byte[] wasm)
     {
         LifecycleWire.Code(programId, guestAbi, newHash, wasm); LifecycleWire.Bytes32(authority);
+        LifecycleWire.PayloadSize(104L + wasm.Length + (programInterface is null ? 0L : 4L + programInterface.Length));
         LifecycleWire.Require(policy <= 1 && (policy == 0) == authority.All(value => value == 0) &&
             (programInterface is null || programInterface.Length is > 0 and <= 952));
         using var output = new MemoryStream();
@@ -29,6 +30,7 @@ public sealed class NativeProgramDeploy : INativeProgramLifecycle
     public byte[] Encode() => _payload.ToArray();
     public static NativeProgramDeploy Decode(byte[] payload)
     {
+        LifecycleWire.PayloadSize(payload.Length);
         LifecycleWire.Require(payload.Length >= 104 && payload[35] == 0);
         var wasm = LifecycleWire.Get(payload, 100, 4); var offset = 104; byte[]? programInterface = null;
         if (wasm != (ulong)(payload.Length - 104))
@@ -51,6 +53,7 @@ public sealed class NativeProgramUpgrade : INativeProgramLifecycle
         byte[] migrationHook, bool clearInterface, byte[]? programInterface, byte[] wasm)
     {
         LifecycleWire.Code(programId, guestAbi, newHash, wasm); LifecycleWire.Bytes32(oldHash);
+        LifecycleWire.PayloadSize(106L + migrationHook.Length + wasm.Length + (programInterface is null ? 0L : 4L + programInterface.Length));
         LifecycleWire.Require(migrationHook.Length <= ushort.MaxValue && (!clearInterface || programInterface is not null) &&
             (programInterface is null || programInterface.Length <= 952 && (programInterface.Length > 0 || clearInterface)));
         using var output = new MemoryStream();
@@ -64,6 +67,7 @@ public sealed class NativeProgramUpgrade : INativeProgramLifecycle
     public byte[] Encode() => _payload.ToArray();
     public static NativeProgramUpgrade Decode(byte[] payload)
     {
+        LifecycleWire.PayloadSize(payload.Length);
         LifecycleWire.Require(payload.Length >= 106 && payload[35] == 0 && (payload[34] & 0xfc) == 0);
         var hook = (int)LifecycleWire.Get(payload, 100, 2); var wasm = LifecycleWire.Get(payload, 102, 4);
         var clear = (payload[34] & 2) != 0; var offset = 106; var length = 0; byte[]? programInterface = null;
@@ -196,6 +200,8 @@ public sealed class NativeProgramLifecycleRequest
 internal static class LifecycleWire
 {
     internal static void Require(bool valid) { if (!valid) throw new ArgumentException("Non-canonical Programs lifecycle"); }
+    internal const int MaximumPayloadBytes = 524288;
+    internal static void PayloadSize(long length) => Require(length <= MaximumPayloadBytes);
     internal static void Bytes32(byte[] value) { Require(value.Length == 32); }
     internal static byte[] Hash(params byte[][] parts)
     {
@@ -205,7 +211,7 @@ internal static class LifecycleWire
     internal static void Code(byte[] program, ushort abi, byte[] hash, byte[] wasm)
     {
         Bytes32(program); Bytes32(hash);
-        Require(program.Any(value => value != 0) && GeneratedReceiptContract.SupportsProgramGuestAbi(abi) && wasm.Length is >= 8 and <= 1048576 &&
+        Require(program.Any(value => value != 0) && GeneratedReceiptContract.SupportsProgramGuestAbi(abi) && wasm.Length is >= 8 and <= MaximumPayloadBytes &&
             wasm.AsSpan(0, 8).SequenceEqual(new byte[] { 0, 97, 115, 109, 1, 0, 0, 0 }) && CryptographicOperations.FixedTimeEquals(hash, SHA256.HashData(wasm)));
     }
     internal static ulong Get(byte[] bytes, int offset, int length)

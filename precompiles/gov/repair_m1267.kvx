@@ -1,0 +1,10 @@
+[repair.22.33.1267]
+finding = "gov-parameter-test-is-text"
+base_revision = "9e535b4932ba8111a729a5cef10e0ca2370ca435"
+continuation_base_revision = "ca3015b61333a7ebcaedf0914337d4460107fe1a"
+previous_attempt = "Attempt 2 verification could not compile the test binary because transaction-factory callers used the old single-value interface; this continuation retains its implementation on a base containing caller repair 22.31.463."
+proving_tests = ["TestRepairM_1267_ParameterChange", "TestRepairM_1267_EmptyTypeTextDefault", "TestRepairM_1267_OmittedTypeTextDefault"]
+path = "Signed ABI submitProposal transaction -> real EVM message server -> governance proposal store and codec -> registered parameter handler -> tally parameter store"
+baseline = "Not run: the ordered gate rules prohibit pre-implementation testing and manual verify_cmd execution; no pre-change failing tests are claimed."
+wiring_requests = []
+evidence = "The runner records the exact built and verified candidate revisions, commands, exits and private log paths in its gate ledger; final task evidence is the last hf-done record."

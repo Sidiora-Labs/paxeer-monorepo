@@ -373,42 +373,85 @@ pub struct ReferralInfo {
     pub tier: String,
 }
 
-/// Parse a decimal string (representing a wei-scale i256/u256) into i128.
-/// Returns 0 on parse failure (caller should log).
-pub fn parse_fixed(s: &str) -> FixedI128 {
-    s.parse::<i128>().unwrap_or(0)
+/// A decimal quantity was malformed or exceeded the supported signed 128-bit width.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+pub enum ParseFixedError {
+    #[error("expected a signed decimal integer at 18-decimal scale")]
+    InvalidDecimal,
+    #[error("decimal integer is outside the signed 128-bit range")]
+    OutOfRange,
 }
 
-/// Parse a hex address string "0x..." into [u8; 20].
-pub fn parse_address(s: &str) -> [u8; 20] {
+/// Parse an already scaled decimal integer into a signed 128-bit quantity.
+///
+/// Accepts an optional leading `+` or `-` followed by ASCII decimal digits.
+/// No scaling, trimming, saturation or conversion from a 256-bit value occurs.
+/// The supported range is exactly `i128::MIN..=i128::MAX`, including genuine zero.
+pub fn parse_fixed(s: &str) -> Result<FixedI128, ParseFixedError> {
+    let digits = s
+        .strip_prefix('+')
+        .or_else(|| s.strip_prefix('-'))
+        .unwrap_or(s);
+    if digits.is_empty() || !digits.bytes().all(|b| b.is_ascii_digit()) {
+        return Err(ParseFixedError::InvalidDecimal);
+    }
+    s.parse::<i128>().map_err(|error| match error.kind() {
+        std::num::IntErrorKind::PosOverflow | std::num::IntErrorKind::NegOverflow => {
+            ParseFixedError::OutOfRange
+        }
+        _ => ParseFixedError::InvalidDecimal,
+    })
+}
+
+/// An identifier must contain exactly its declared number of ASCII hex bytes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+pub enum ParseIdentifierError {
+    #[error("expected {expected_bytes} bytes ({expected_digits} hex digits), got {actual_digits} digits")]
+    InvalidLength {
+        expected_bytes: usize,
+        expected_digits: usize,
+        actual_digits: usize,
+    },
+    #[error("identifier contains a non-ASCII-hex byte at offset {index}")]
+    InvalidHex { index: usize },
+}
+
+/// Parse exactly 20 bytes of ASCII hex, with an optional lowercase `0x` prefix.
+/// Both uppercase and lowercase hex digits are accepted; padding and truncation are refused.
+pub fn parse_address(s: &str) -> Result<[u8; 20], ParseIdentifierError> {
+    hex_decode(s)
+}
+
+/// Parse exactly 32 bytes of ASCII hex, with an optional lowercase `0x` prefix.
+/// Both uppercase and lowercase hex digits are accepted; padding and truncation are refused.
+pub fn parse_hash(s: &str) -> Result<[u8; 32], ParseIdentifierError> {
+    hex_decode(s)
+}
+
+fn hex_decode<const N: usize>(s: &str) -> Result<[u8; N], ParseIdentifierError> {
     let s = s.strip_prefix("0x").unwrap_or(s);
-    let mut buf = [0u8; 20];
-    if let Ok(bytes) = hex_decode(s) {
-        let len = bytes.len().min(20);
-        buf[20 - len..].copy_from_slice(&bytes[..len]);
+    // Validate bytes before decoding; never slice arbitrary UTF-8 at byte offsets.
+    if let Some(index) = s.bytes().position(|b| !b.is_ascii_hexdigit()) {
+        return Err(ParseIdentifierError::InvalidHex { index });
     }
-    buf
-}
-
-/// Parse a hex hash string "0x..." into [u8; 32].
-pub fn parse_hash(s: &str) -> [u8; 32] {
-    let s = s.strip_prefix("0x").unwrap_or(s);
-    let mut buf = [0u8; 32];
-    if let Ok(bytes) = hex_decode(s) {
-        let len = bytes.len().min(32);
-        buf[32 - len..].copy_from_slice(&bytes[..len]);
+    if s.len() != N * 2 {
+        return Err(ParseIdentifierError::InvalidLength {
+            expected_bytes: N,
+            expected_digits: N * 2,
+            actual_digits: s.len(),
+        });
     }
-    buf
-}
-
-fn hex_decode(s: &str) -> Result<Vec<u8>, ()> {
-    if s.len() % 2 != 0 {
-        return Err(());
+    let nibble = |b: u8| match b {
+        b'0'..=b'9' => b - b'0',
+        b'a'..=b'f' => b - b'a' + 10,
+        b'A'..=b'F' => b - b'A' + 10,
+        _ => unreachable!("ASCII hex was validated above"),
+    };
+    let mut bytes = [0; N];
+    for (output, pair) in bytes.iter_mut().zip(s.as_bytes().chunks_exact(2)) {
+        *output = (nibble(pair[0]) << 4) | nibble(pair[1]);
     }
-    (0..s.len())
-        .step_by(2)
-        .map(|i| u8::from_str_radix(&s[i..i + 2], 16).map_err(|_| ()))
-        .collect()
+    Ok(bytes)
 }
 
 #[cfg(test)]
@@ -429,15 +472,15 @@ mod tests {
     fn parse_fixed_basic() {
         assert_eq!(
             parse_fixed("1000000000000000000"),
-            1_000_000_000_000_000_000
+            Ok(1_000_000_000_000_000_000)
         );
-        assert_eq!(parse_fixed("-500"), -500);
-        assert_eq!(parse_fixed("invalid"), 0);
+        assert_eq!(parse_fixed("-500"), Ok(-500));
+        assert_eq!(parse_fixed("invalid"), Err(ParseFixedError::InvalidDecimal));
     }
 
     #[test]
     fn parse_address_basic() {
-        let addr = parse_address("0xdead000000000000000000000000000000001234");
+        let addr = parse_address("0xdead000000000000000000000000000000001234").unwrap();
         assert_eq!(addr[0], 0xde);
         assert_eq!(addr[1], 0xad);
         assert_eq!(addr[18], 0x12);
@@ -446,7 +489,8 @@ mod tests {
 
     #[test]
     fn parse_hash_basic() {
-        let h = parse_hash("0x0000000000000000000000000000000000000000000000000000000000000001");
+        let h = parse_hash("0x0000000000000000000000000000000000000000000000000000000000000001")
+            .unwrap();
         assert_eq!(h[31], 1);
         assert_eq!(h[0], 0);
     }

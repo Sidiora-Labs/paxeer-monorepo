@@ -1,3 +1,5 @@
+Code.require_file("repair_22_33_555_support.exs", __DIR__)
+
 defmodule Indexer.Fetcher.EmptyBlocksSanitizerTest do
   # `async: false` due to use of named GenServer
   use EthereumJSONRPC.Case, async: false
@@ -14,10 +16,7 @@ defmodule Indexer.Fetcher.EmptyBlocksSanitizerTest do
   # in order to make it faster and to prevent filling the database with lots of trash.
   # Otherwise, with default offset of `1000`, the tests start to flake periodically.
   setup_all do
-    opts = Application.get_env(:indexer, EmptyBlocksSanitizer)
-    new_opts = Keyword.put(opts, :head_offset, @head_offset)
-    Application.put_env(:indexer, EmptyBlocksSanitizer, new_opts)
-    :ok
+    Indexer.Fetcher.Repair2233555.configure_sanitizer()
   end
 
   setup :set_mox_global

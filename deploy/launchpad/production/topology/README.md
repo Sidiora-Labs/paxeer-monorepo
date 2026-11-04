@@ -6,7 +6,7 @@ The application consumes one Paxeer network: `paxd` runs the BFT chain, the kern
 
 `production-input.template.json` deliberately fails validation. Fill every null using reviewed provider inputs and measured resource budgets. `fixtures/synthetic-config.json` contains explicitly synthetic, unpullable `example.invalid` images, provider names and test-only digests. It is only an offline validator fixture. Its 4 TiB PostgreSQL allocation illustrates expansion beyond the provisional 2 TiB; it is not an approved purchasing recommendation or measured production allocation. Derived streams and overhead values in that fixture are test assumptions.
 
-Commands, from the repository root:
+Commands, from the monorepo root containing `deploy/launchpad/production` and `tools/launchpad/production` (not from this directory). Keep that root as `--source-root` when following the connected operator runbook:
 
 ```sh
 python3 deploy/launchpad/production/topology/topology.py validate --config /reviewed/topology.json
