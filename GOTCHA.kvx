@@ -14680,3 +14680,8 @@ fix = "Before writing a cargo -p command read the workspace members list and the
 title = "The tail of a go test log hides why the package failed"
 symptom = "Two repair tasks printed every one of their TestRepair_ tests as PASS and still reported FAIL for the package: the cause (a sibling test in the same file from an earlier attempt, a vet refusal or a panic outside the matched tests) sat above the eighty-line tail the gate shows, and the agents called it out of scope."
 fix = "A go verify prints the RUN, PASS, FAIL and panic lines of the whole log before its tail, and every test matched by the run filter belongs to the task that owns the filter: it is fixed or removed, never declared out of scope."
+
+[gotcha.2972]
+title = "A test reaches repository files through the helpers the production tests use"
+symptom = "A repair test typed the migrations directory from the repository layout (spec/production-system at the root) while the production tests of the same package build it from the coordinator test helper, which already knows the real directory (launchpad/spec/production-system/integration/migrations) and the repository root; the attempt then called its own path bug an out-of-scope fixture defect. A second test compared a checksummed address the producer emits against a lowercase literal and called the mismatch a fixture problem."
+fix = "A test derives paths, addresses and other shapes through the production helpers and types (the root helper, the address type's parser, the encoder), never from literals typed by hand; a mismatch between the literal and the producer is a test defect the task fixes, not a scope limit."

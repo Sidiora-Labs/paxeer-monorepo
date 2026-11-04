@@ -1,28 +1,39 @@
 # Solana identity in the Paxeer X Network bridge attestations
 
-The bridge has one attestation contract and every destination speaks it. An
-attestor signs `keccak256` of a packed preimage with secp256k1 and hands over 65
-bytes of `r || s || v`; the EVM vault recovers it with `ecrecover`, the
-layerxBridge precompile recovers it in the keeper, and the Solana custody program
-has it recovered for it by the native secp256k1 program. The preimages, the
-digest and the signature rules are specified byte for byte in
-`modules/layerxbridge/ATTESTATION.md` and built by
-`modules/layerxbridge/types.InboundPreimage` and `OutboundPreimage`. Those are
-the fixed inputs of this document. The Paxeer-side copy under `modules/` is read
-by this feature and edited by nothing in it.
+Paxeer mainnet-beta is one BFT network, with EVM chain id `125` (`0x7d`). Its
+kernel is part of the network and proposes blocks; a Paxeer transaction receipt
+is final when its block is committed. Solana is a foreign custody destination
+of the bridge.
 
-This document adds **no** second domain, no second hash and no second signature
-format for Solana. The domains stay `PAXEERX_BRIDGE_IN_V1` (196-byte preimage)
-and `PAXEERX_BRIDGE_OUT_V1` (185-byte preimage), the digest stays plain
-`keccak256` of the preimage with no EIP-191 prefix and no EIP-712 domain, and an
-attestation stays a secp256k1 signature with `v` in `{27, 28}`, `s` at or below
-half the curve order, ordered by strictly ascending recovered signer, every
-signer a current attestor and at least `threshold` of them. The ed25519 keys on
-Solana pay transaction fees and nothing else; the program never accepts an
-ed25519 signature as an attestation.
+The bridge uses the same attestation layouts across destinations. An attestor
+signs `keccak256` of a packed preimage with secp256k1 and returns 65 bytes of
+`r || s || v`. The EVM vault uses `ecrecover`, the `layerxBridge` precompile
+delegates recovery to the keeper, and the Solana custody program checks the
+native secp256k1 program's verification. The byte layouts and signature rules
+are specified in [modules/layerxbridge/ATTESTATION.md](../../modules/layerxbridge/ATTESTATION.md)
+and implemented by `InboundPreimage`, `OutboundPreimage` and `RecoverSigner` in
+[the Paxeer types package](../../modules/layerxbridge/types/attestation.go).
 
-What Solana needs, and all this document adds, is a mapping: a Solana key is 32
-bytes and the digests carry 20.
+The domains are `PAXEERX_BRIDGE_IN_V1` (196-byte preimage) and
+`PAXEERX_BRIDGE_OUT_V1` (185-byte preimage). The digest is plain `keccak256` of
+the preimage with no EIP-191 prefix and no EIP-712 domain. Signatures use `v` in
+`{27, 28}` and `s` at or below half the curve order, with strictly ascending
+recovered signer addresses, every signer a current attestor and at least
+`threshold` of them.
+
+For Solana release transactions, the relayer's
+[`secp256k1_instruction_data`](../../services/interop/crates/layerx-bridge-relayer/src/solana/release.rs)
+converts `v` to recovery id `0` or `1` and supplies the full 185-byte preimage
+to the native secp256k1 instruction, which hashes it during verification. That
+instruction must immediately precede the release. The custody program's
+[`verify_attestation`](solana/src/attestation.rs) reads it through the
+instructions sysvar and checks the message, low `s`, signer membership, order
+and threshold. Solana ed25519 signatures authorize transactions and account
+operations, including fee payment and recipient registration; they do not
+serve as bridge attestations.
+
+The Solana identity mapping below connects 32-byte keys to the 20-byte fields
+in those shared layouts.
 
 ## The mapping
 
@@ -33,17 +44,21 @@ bytes and the digests carry 20.
 | asset        | the 20-byte asset id the program's asset registry holds for the mint, whose default is the handle of the mint |
 | txHash (inbound) | `keccak256` of the 64-byte Solana transaction signature that carried the deposit |
 | logIndex (inbound) | the deposit nonce recorded in the deposit-receipt PDA |
-| recipient (inbound) | the 32-byte Paxeer recipient of the deposit, an EVM address in its low 20 bytes with its high 12 bytes zero |
+| recipient (inbound) | the 32-byte Paxeer recipient of the deposit, a nonzero EVM address in its low 20 bytes with its high 12 bytes zero |
 | recipient (outbound) | the handle of the full 32-byte Solana pubkey the release instruction names |
 
 ### The handle of a 32-byte key
 
     handle(key) = keccak256(key)[12:32]
 
-The last 20 bytes of `keccak256` of the key's 32 raw bytes: the same truncation
-an EVM address is to a public key. `contracts/bridge/vectors.Handle` is the only Go
-implementation. The custody program is to carry the only Rust one, in its
-`identity` module, so that no second derivation of a handle exists anywhere.
+The last 20 bytes of `keccak256` of the key's 32 raw bytes. The Go vector
+package implements this as [`Handle`](vectors/solana.go). The custody program
+implements it as `identity::handle` and `pubkey_handle` in
+[`solana/src/identity.rs`](solana/src/identity.rs); the relayer implements
+`solana::handle` in its
+[`solana` module](../../services/interop/crates/layerx-bridge-relayer/src/solana/mod.rs).
+These implementations use the same derivation and have tests against the
+worked vectors below.
 
 ### The vault
 
@@ -54,32 +69,39 @@ under the custody program's id:
     vault_authority, bump = find_program_address([b"vault-authority"], program_id)
     vault                 = handle(vault_authority)
 
-That PDA holds every bridged token on Solana and signs their transfers, so the
-identity that custodies the funds is the identity the attestors sign for. A
-deployment's program id, its vault-authority PDA and that PDA's handle are
-written down by `services/bridge/deploy/deploy-solana-program.sh`, and governance
-registers the handle through `MsgRegisterChain` like any other chain's vault.
+That PDA is the authority of the SPL token accounts holding the bridged tokens
+and signs releases from them, so its handle identifies the custody authority
+in the signed preimage. A deployment's program id, its vault-authority PDA and
+that PDA's handle are written down by
+[deploy-solana-program.sh](../../services/bridge/deploy/deploy-solana-program.sh).
+Governance registers the handle through `MsgRegisterChain` like any other
+chain's vault.
 
 ### The asset
 
 An asset's 20 bytes come from the program's owner-set asset registry, one PDA per
 mint. Registering a mint without an explicit id defaults it to `handle(mint)`;
-the owner may register an explicit 20-byte id instead. An unregistered or
+the owner may register an explicit nonzero 20-byte id instead. An unregistered or
 disabled mint is refused, so no asset reaches a digest without the owner having
 recorded it.
 
-Sidiora is the one asset with an explicit id, because the chain fixed the pair
-first. `EnsureSidioraDenom` in `modules/layerxbridge/keeper/sidiora.go` registers
-the bridged asset (chain id, `0x21f7b20a555199fa73A238B1a91FD0f549068fEe`, the
-`usid` denom), and governance calls it with the Solana chain id. Registering
-Sidiora's mint with that id is therefore what makes an inbound SID deposit
-resolve to the denom the bridge module already administers, with no alias and no
-chain change. Solana is Sidiora's foreign home: it exists on exactly two chains,
-Paxeer X and Solana.
+Sidiora requires the explicit id `0x21f7b20a555199fa73A238B1a91FD0f549068fEe`.
+The custody program's `require_sidiora_binding` enforces this in both directions:
+Sidiora's mint must use that id, and no other mint may use it. On Paxeer,
+governance submits `MsgRegisterSidioraPair` after registering the Solana chain
+and before setting the Sidiora cap. The handler calls `EnsureSidioraDenom` in
+[`sidiora.go`](../../modules/layerxbridge/keeper/sidiora.go) to register the pair
+against `SidioraDenom()`, the bridge-owned tokenfactory denom with subdenom
+`usid` and display symbol `SID` (6 decimals). The mapping makes inbound SID
+deposits resolve to that denom; Solana is its configured foreign home.
 
-Native SOL bridges as the wrapped SOL mint, registered with its derived handle,
-so one code path serves every asset and the default pair PAX against SOL works
-the moment the chain is opened.
+SOL uses the wrapped SOL mint, registered with its derived handle. Custody
+deposits and releases transfer SPL tokens, so native SOL must be wrapped before
+deposit and may be unwrapped after release. The
+[Solana chain configuration](solana/chains/solana/config.json) lists wrapped
+SOL and Sidiora; registration, caps, attestors and the Paxeer chain registration
+must be configured before bridging. See the [bridge runbook](README.md) and
+[Solana deployment page](solana/chains/solana/README.md).
 
 ### The inbound transaction hash and log index
 
@@ -97,10 +119,16 @@ logIndex)` is the nullifier the precompile consumes once.
 ### The outbound recipient
 
 A release instruction names the recipient's **full 32-byte pubkey** and the
-program derives `handle(pubkey)` for the digest it verifies. The attestors sign
-20 bytes; the program can only pay the key whose handle is those 20 bytes. A
-release to any other account rebuilds a different preimage and fails
-verification.
+program derives `handle(pubkey)` for the digest it verifies. It also checks that
+the destination is an SPL token account for the specified mint owned by that
+pubkey. Changing the pubkey changes the signed recipient handle unless the
+keys collide under the 160-bit mapping.
+
+The relayer cannot reverse a handle into a pubkey. The recipient first signs
+`register_recipient` to publish its key in the recipient PDA derived from its
+handle; anyone may pay the rent. The program checks that the declared handle
+matches the registrant's key. The relayer reads this record to resolve the
+Paxeer burn's 20-byte recipient to the full key used in the release.
 
 ### The chain id
 
@@ -110,28 +138,41 @@ Solana's chain id on the Paxeer side is the reserved `uint64`:
     left-padded to eight bytes -> 0x0000534f4c414e41
     big-endian                 -> 91600046870081
 
-It cannot collide with an EIP-155 id. EIP-155 ids in use are small integers - the
-bridge's own configurations use 1, 10, 56, 137, 999, 8453, 42161 and 43114 - and
-the reserved value is above 9.1e13, nine orders of magnitude clear of the largest
-of them; nothing assigns EIP-155 ids in that range, and the padded-ASCII scheme
-keeps any future non-EVM chain in the same unreachable band. Governance registers
-it through `MsgRegisterChain` exactly like an EVM chain.
+This is Solana's remote-chain identity in the bridge, distinct from Paxeer's
+EVM chain id `125`. It differs from every EVM chain id in the bridge's current
+configurations: 1, 10, 56, 137, 999, 8453, 42161 and 43114. The padded-ASCII
+convention does not guarantee uniqueness against all possible EIP-155 ids;
+operators must keep this reserved identity distinct in their configurations.
+Governance registers it through `MsgRegisterChain` like other remote chains.
 
 ## Worked vectors
 
-`contracts/bridge/vectors/solana.go` holds these values and `contracts/bridge/vectors/solana_test.go`
-recomputes every digest below through `modules/layerxbridge/types.InboundPreimage`
-and `OutboundPreimage`, the chain's own builders, so this document cannot claim a
-digest the chain would not produce. That Go check is the only one in place
-today. The custody program's tests and the relayer's Solana tests are to assert
-these same values as they are written, and from then on changing one of the
-three implementations fails the other two; until then this document and
-`contracts/bridge/vectors` are the record they must be written against.
+[`vectors/solana.go`](vectors/solana.go) holds these values.
+[`vectors/solana_test.go`](vectors/solana_test.go) recomputes both digests through
+the chain's `InboundPreimage` and `OutboundPreimage` builders and checks that
+this page contains the pinned identities and digests. Rust coverage is also
+implemented:
 
-Every example input is derived from a documented ASCII label with `keccak256`,
-so each of the three implementations can recompute it instead of copying an
-unexplained value. The labels stand in for what a deployment produces - a program id, a
-transaction signature, an account - and none of them is a deployment value:
+- The custody program's [`core` tests](solana/tests/core.rs) check identity and
+  vault-PDA derivation. Its [`attestation` tests](solana/src/attestation.rs)
+  check the outbound preimage and digest, and its
+  [`release` tests](solana/src/release.rs) check the outbound nullifier.
+- The relayer's [`solana` module tests](../../services/interop/crates/layerx-bridge-relayer/src/solana/mod.rs)
+  check the pinned handles. Its [`inbound tests](../../services/interop/crates/layerx-bridge-relayer/tests/solana.rs)
+  check the observed deposit against the inbound digest, and its
+  [`release tests](../../services/interop/crates/layerx-bridge-relayer/tests/solana_release.rs)
+  check the outbound digest, nullifier and program-derived addresses.
+
+The tables retain the shared inputs and expected outputs. Integers in the
+packed preimages are big-endian, with `chainId` and `amount` widened to 32 bytes
+and nonces encoded in 8 bytes. Solana token amounts are bounded by `uint64`
+even though the attestation amount field is 32 bytes.
+
+The synthetic program, transaction signature, recipient and burn inputs are
+derived from documented ASCII labels with `keccak256`, so implementations can
+recompute them. The mint identities are the configured values in the identity
+table. The labels and their derived keys and signature are test inputs, not
+deployment values:
 
 | Label | Derives |
 |-------|---------|
@@ -209,5 +250,6 @@ Domain `PAXEERX_BRIDGE_OUT_V1`, preimage 185 bytes.
 
 The release consumes the nullifier `keccak256(paxeerTxHash || paxeerNonce)` =
 `0xd653f4968eb9b70e1eaef15fb134f2f7da8c15c38335af0069c94585e521ea3a`, which the
-custody program records as a PDA: a replayed release fails because the account
-already exists.
+custody program records as a PDA. Here `paxeerNonce` is an 8-byte big-endian
+integer. A replayed release is rejected with `BridgeError::Replayed` when that
+PDA is already owned by the custody program or has non-empty data.

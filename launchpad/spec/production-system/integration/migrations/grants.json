@@ -3674,7 +3674,8 @@
           "object": "portfolio_history_rows",
           "object_kind": "table",
           "privileges": [
-            "SELECT"
+            "SELECT",
+            "INSERT"
           ],
           "columns": [],
           "argument_types": [],

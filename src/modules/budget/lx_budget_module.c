@@ -786,7 +786,10 @@ static lxp_result budget_execute_revoke(lxp_module_ctx *ctx,
     if (status != LXP_OK) return status;
     record.revocation_sequence = payload->revocation_sequence;
     record.revoked = true;
-    record.per_period_limit = record.spent_this_period;
+    /* Revocation, rather than a zero live limit, disables the allowance.
+     * Preserve the canonical historical limit when nothing was spent. */
+    if (!lxp_u128_is_zero(record.spent_this_period))
+        record.per_period_limit = record.spent_this_period;
     status = budget_save(ctx, &record);
     if (status != LXP_OK) return status;
     (void)memcpy(event, record.budget_id, 32U);

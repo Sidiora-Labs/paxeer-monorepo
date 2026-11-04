@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import * as c from './creation-domain.ts';
 const a=n=>'0x'+n.toString(16).padStart(40,'0'), h=n=>'0x'+n.toString(16).padStart(64,'0');
-const deployment={revision:'r1',chainId:125,usdl:a(1),router:a(2),factory:a(3)};
+const deployment={revision:'r1',chainId:125,usdl:a(1),router:a(2),usdlSpender:a(2),factory:a(3)};
 const now=1700000000000;
 const cost=c.verifyCost(deployment,{revision:'r1',decimals:6,feeRaw:'1000000',gasRaw:'10'});
 const draft={draftId:'d1',version:1,creator:a(4),chainId:125,name:'Token',symbol:'TKN',description:'',tags:[],socialLinks:[],uploadRefs:[],firstBuyRaw:'0',opticalSelection:'standard',updatedAt:now};

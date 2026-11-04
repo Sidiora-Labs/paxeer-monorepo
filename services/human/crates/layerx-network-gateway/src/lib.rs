@@ -276,13 +276,86 @@ impl ResolvedIdentities {
     }
 }
 
+/// An exact unsigned on-chain amount, including the full uint256 domain.
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct Quantity([u8; 32]);
+
+impl Quantity {
+    /// Preserves a complete big-endian uint256 word.
+    #[must_use]
+    pub const fn from_be_bytes(bytes: [u8; 32]) -> Self {
+        Self(bytes)
+    }
+
+    /// Returns the complete big-endian uint256 word.
+    #[must_use]
+    pub const fn to_be_bytes(self) -> [u8; 32] {
+        self.0
+    }
+
+    /// Narrows an amount only for the explicitly named business operation.
+    ///
+    /// # Errors
+    /// Refuses amounts that the operation's 128-bit amount cannot represent.
+    pub fn for_operation(self, operation: &'static str) -> Result<u128, GatewayError> {
+        if self.0[..16].iter().any(|byte| *byte != 0) {
+            return Err(GatewayError::AmountOutOfRange { operation });
+        }
+        let mut bytes = [0; 16];
+        bytes.copy_from_slice(&self.0[16..]);
+        Ok(u128::from_be_bytes(bytes))
+    }
+
+    fn counted(self) -> Result<u64, GatewayError> {
+        if self.0[..24].iter().any(|byte| *byte != 0) {
+            return Err(GatewayError::MalformedAnswer);
+        }
+        let mut bytes = [0; 8];
+        bytes.copy_from_slice(&self.0[24..]);
+        Ok(u64::from_be_bytes(bytes))
+    }
+}
+
+impl From<u128> for Quantity {
+    fn from(value: u128) -> Self {
+        let mut bytes = [0; 32];
+        bytes[16..].copy_from_slice(&value.to_be_bytes());
+        Self(bytes)
+    }
+}
+
+impl fmt::Display for Quantity {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut value = self.0;
+        let mut digits = [b'0'; 78];
+        let mut start = digits.len();
+        loop {
+            let mut remainder = 0_u16;
+            for byte in &mut value {
+                let current = (remainder << 8) | u16::from(*byte);
+                *byte = (current / 10) as u8;
+                remainder = current % 10;
+            }
+            start -= 1;
+            digits[start] = b'0' + remainder as u8;
+            if value.iter().all(|byte| *byte == 0) {
+                break;
+            }
+        }
+        for byte in &digits[start..] {
+            write!(formatter, "{}", char::from(*byte))?;
+        }
+        Ok(())
+    }
+}
+
 /// The Paxeer half of one account as `px_getAccount` reports it.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PaxeerAccount {
     /// The EVM address the balance and nonce were read at.
     pub address: [u8; 20],
     /// The native balance at the reported block height.
-    pub balance: u128,
+    pub balance: Quantity,
     /// The transaction count at the reported block height.
     pub nonce: u64,
     /// The block height at which the balance and nonce were read.
@@ -306,7 +379,7 @@ pub struct AssetBalance {
     /// The bank denomination.
     pub denom: String,
     /// The exact balance at the answer height.
-    pub amount: u128,
+    pub amount: Quantity,
 }
 
 /// The bounded bank balance table for one account at one height.
@@ -372,8 +445,23 @@ impl WalletObservation {
 
     /// The exact bank amount, absent when the producer supplied no row.
     #[must_use]
-    pub fn balance(&self, denom: &str) -> Option<u128> {
+    pub fn balance(&self, denom: &str) -> Option<Quantity> {
         self.balances.asset(denom).map(|row| row.amount)
+    }
+
+    /// Reads a balance for a named operation with a 128-bit business amount.
+    ///
+    /// # Errors
+    /// Refuses an existing balance too large for that operation; absence stays
+    /// distinct from both refusal and an observed zero.
+    pub fn balance_for_operation(
+        &self,
+        denom: &str,
+        operation: &'static str,
+    ) -> Result<Option<u128>, GatewayError> {
+        self.balance(denom)
+            .map(|amount| amount.for_operation(operation))
+            .transpose()
     }
 
     /// The original joined result, including its evidence and height.
@@ -399,7 +487,7 @@ pub struct AssetEntry {
     /// The chain decimal precision, absent when the metadata read failed.
     pub decimals: Option<u8>,
     /// The chain supply, absent when the metadata read failed.
-    pub supply: Option<u128>,
+    pub supply: Option<Quantity>,
 }
 
 /// The bounded chain asset table at one height.
@@ -461,6 +549,11 @@ pub enum GatewayError {
     Unbound,
     /// The answer is not the documented gateway document.
     MalformedAnswer,
+    /// A valid chain amount exceeds a named operation's business amount.
+    AmountOutOfRange {
+        /// The operation that requested the narrower amount.
+        operation: &'static str,
+    },
 }
 
 impl fmt::Display for GatewayError {
@@ -473,6 +566,12 @@ impl fmt::Display for GatewayError {
             }
             Self::Unbound => formatter.write_str("gateway answer is bound to another request"),
             Self::MalformedAnswer => formatter.write_str("gateway answer is malformed"),
+            Self::AmountOutOfRange { operation } => {
+                write!(
+                    formatter,
+                    "chain amount exceeds the 128-bit amount for {operation}"
+                )
+            }
         }
     }
 }
@@ -836,34 +935,51 @@ pub fn boolean(value: &Value) -> Result<bool, GatewayError> {
     value.as_bool().ok_or(GatewayError::MalformedAnswer)
 }
 
-/// Decodes a gateway quantity: an unsigned decimal string, a `0x` quantity or
-/// a JSON integer. Nothing else is admitted.
+/// Decodes an unsigned decimal string, a `0x` quantity or a JSON integer
+/// without narrowing an on-chain amount.
 ///
 /// # Errors
-/// Refuses every other spelling and any value beyond 128 bits.
-pub fn quantity(value: &Value) -> Result<u128, GatewayError> {
+/// Refuses malformed quantities and values beyond 256 bits. JSON numbers
+/// must be exact unsigned integers representable by the JSON decoder.
+pub fn quantity(value: &Value) -> Result<Quantity, GatewayError> {
     match value {
         Value::Number(number) => number
             .as_u64()
-            .map(u128::from)
+            .map(|value| Quantity::from(u128::from(value)))
             .ok_or(GatewayError::MalformedAnswer),
         Value::String(text) => {
             let trimmed = text.trim();
-            if let Some(body) = trimmed
+            let (digits, radix) = if let Some(body) = trimmed
                 .strip_prefix("0x")
                 .or_else(|| trimmed.strip_prefix("0X"))
             {
-                if body.is_empty()
-                    || body.len() > 32
-                    || !body.bytes().all(|byte| byte.is_ascii_hexdigit())
-                {
+                if body.len() > 64 {
                     return Err(GatewayError::MalformedAnswer);
                 }
-                return u128::from_str_radix(body, 16).map_err(|_| GatewayError::MalformedAnswer);
+                (body, 16_u16)
+            } else {
+                (trimmed, 10_u16)
+            };
+            if digits.is_empty() {
+                return Err(GatewayError::MalformedAnswer);
             }
-            trimmed
-                .parse::<u128>()
-                .map_err(|_| GatewayError::MalformedAnswer)
+            let mut bytes = [0_u8; 32];
+            for byte in digits.bytes() {
+                let digit = nibble(byte).ok_or(GatewayError::MalformedAnswer)?;
+                if u16::from(digit) >= radix {
+                    return Err(GatewayError::MalformedAnswer);
+                }
+                let mut carry = u16::from(digit);
+                for byte in bytes.iter_mut().rev() {
+                    let current = u16::from(*byte) * radix + carry;
+                    *byte = (current & 0xff) as u8;
+                    carry = current >> 8;
+                }
+                if carry != 0 {
+                    return Err(GatewayError::MalformedAnswer);
+                }
+            }
+            Ok(Quantity(bytes))
         }
         _ => Err(GatewayError::MalformedAnswer),
     }
@@ -873,7 +989,7 @@ pub fn quantity(value: &Value) -> Result<u128, GatewayError> {
 ///
 /// # Errors
 /// Refuses every spelling [`quantity`] refuses.
-pub fn optional_quantity(value: &Value) -> Result<Option<u128>, GatewayError> {
+pub fn optional_quantity(value: &Value) -> Result<Option<Quantity>, GatewayError> {
     if value.is_null() {
         return Ok(None);
     }
@@ -885,7 +1001,7 @@ pub fn optional_quantity(value: &Value) -> Result<Option<u128>, GatewayError> {
 /// # Errors
 /// Refuses every spelling [`quantity`] refuses and any value beyond 64 bits.
 pub fn counted(value: &Value) -> Result<u64, GatewayError> {
-    u64::try_from(quantity(value)?).map_err(|_| GatewayError::MalformedAnswer)
+    quantity(value)?.counted()
 }
 
 /// Decodes the `px_resolveAccount` result.
@@ -1005,9 +1121,10 @@ pub fn decode_assets(result: &Value) -> Result<AssetTable, GatewayError> {
             name: asset_metadata_text(&row["name"])?,
             symbol: asset_metadata_text(&row["symbol"])?,
             decimals: optional_quantity(&row["decimals"])?
-                .map(u8::try_from)
-                .transpose()
-                .map_err(|_| GatewayError::MalformedAnswer)?,
+                .map(|quantity| {
+                    u8::try_from(quantity.counted()?).map_err(|_| GatewayError::MalformedAnswer)
+                })
+                .transpose()?,
             supply: optional_quantity(&row["supply"])?,
         });
     }
@@ -1117,7 +1234,7 @@ mod tests {
             .asset("upax")
             .unwrap_or_else(|| panic!("asset row"));
         assert_eq!(row.denom, "upax");
-        assert_eq!(row.amount, 250);
+        assert_eq!(row.amount, Quantity::from(250));
         assert_eq!(balances.evidence, Evidence::GatewayReported);
     }
 
@@ -1170,9 +1287,9 @@ mod tests {
 
     #[test]
     fn a_malformed_quantity_is_refused_rather_than_defaulted() {
-        assert_eq!(quantity(&json!("12")), Ok(12));
-        assert_eq!(quantity(&json!("0x0c")), Ok(12));
-        assert_eq!(quantity(&json!(12)), Ok(12));
+        assert_eq!(quantity(&json!("12")), Ok(Quantity::from(12)));
+        assert_eq!(quantity(&json!("0x0c")), Ok(Quantity::from(12)));
+        assert_eq!(quantity(&json!(12)), Ok(Quantity::from(12)));
         for refused in [json!("-1"), json!("0x"), json!("zz"), json!(true)] {
             assert_eq!(quantity(&refused), Err(GatewayError::MalformedAnswer));
         }

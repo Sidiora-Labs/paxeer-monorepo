@@ -1076,7 +1076,7 @@ func New(
 	}
 	app.GigaExecutorEnabled = gigaExecutorConfig.Enabled
 	app.GigaOCCEnabled = gigaExecutorConfig.OCCEnabled
-	tmtypes.SkipLastResultsHashValidation.Store(gigaExecutorConfig.Enabled)
+
 	if gigaExecutorConfig.Enabled {
 		// evmone is loaded best-effort
 		if evmoneVM, err := gigalib.InitEvmoneVM(); err == nil {
@@ -1408,6 +1408,26 @@ func New(
 		// only now; BeginBlock observes it again through applyNamedUpgrade.
 		ctx := app.NewUncachedContext(true, tmproto.Header{})
 		app.refreshHostedKernelProgramsABI(ctx)
+		if bz := ctx.KVStore(app.GetKey(upgradetypes.StoreKey)).Get(committedBlockIdentityKey); len(bz) != 0 {
+			if err := app.committedBlockID.Unmarshal(bz); err != nil {
+				return fmt.Errorf("load committed block identity: %w", err)
+			}
+		} else if height := app.LastBlockHeight(); height > 0 {
+			// A database committed by an older binary has no identity key. Its
+			// staking history carries the decided header of the committed tip.
+			historical, found := app.StakingKeeper.GetHistoricalInfo(ctx, height)
+			if !found {
+				return fmt.Errorf("committed block identity missing at height %d", height)
+			}
+			header, err := tmtypes.HeaderFromProto(&historical.Header)
+			if err != nil {
+				return fmt.Errorf("recover committed block identity: %w", err)
+			}
+			app.committedBlockID.Hash = header.Hash()
+			if len(app.committedBlockID.Hash) == 0 {
+				return fmt.Errorf("committed header hash missing at height %d", height)
+			}
+		}
 		if err := app.WasmKeeper.InitializePinnedCodes(ctx); err != nil {
 			tmos.Exit(fmt.Sprintf("failed initialize pinned codes %s", err))
 		}
@@ -1510,16 +1530,24 @@ func (app *App) Close() error {
 	return app.BaseApp.Close()
 }
 
+var committedBlockIdentityKey = []byte("node/committed-block-id")
+
 // HandlePreCommit happens right before the block is committed
 func (app *App) HandlePreCommit(ctx sdk.Context) error {
 	if err := app.EvmKeeper.FlushTransientReceipts(ctx); err != nil {
 		return err
 	}
+	id := tmproto.BlockID{Hash: ctx.HeaderHash()}
+	bz, err := id.Marshal()
+	if err != nil {
+		return fmt.Errorf("persist committed block identity: %w", err)
+	}
+	ctx.KVStore(app.GetKey(upgradetypes.StoreKey)).Set(committedBlockIdentityKey, bz)
 	committed := app.LastBlockID()
 	app.lastBlockIDMutex.Lock()
 	defer app.lastBlockIDMutex.Unlock()
 	app.committedBlockID = committed
-	app.committingBlockID = tmproto.BlockID{Hash: ctx.HeaderHash()}
+	app.committingBlockID = id
 	app.committingBlockHeight = ctx.BlockHeight()
 	return nil
 }
@@ -1648,6 +1676,34 @@ func (app *App) SetStoreUpgradeHandlers() {
 	}
 
 	if storeUpgrades, ok := layerxStoreUpgrades(upgradeInfo.Name); ok && !app.UpgradeKeeper.IsSkipHeight(upgradeInfo.Height) {
+		if upgradeInfo.Name == MergeUpgrade {
+			app.SetStoreLoader(func(ms sdk.CommitMultiStore) error {
+				reporter, reportsPending := ms.(pendingStoreReporter)
+				if !reportsPending {
+					return upgradetypes.UpgradeStoreLoader(upgradeInfo.Height, &storeUpgrades)(ms)
+				}
+				// Load the committed tree inventory before deciding what to add:
+				// full genesis already carries these stores, while an older
+				// database exposes the missing trees as pending stores.
+				if err := baseapp.DefaultStoreLoader(ms); err != nil {
+					return err
+				}
+				if upgradeInfo.Height != ms.LastCommitID().Version+1 {
+					return nil
+				}
+				missing := storetypes.StoreUpgrades{}
+				for _, name := range storeUpgrades.Added {
+					if reporter.IsPendingStore(name) {
+						missing.Added = append(missing.Added, name)
+					}
+				}
+				if len(missing.Added) == 0 {
+					return nil
+				}
+				return upgradetypes.UpgradeStoreLoader(upgradeInfo.Height, &missing)(ms)
+			})
+			return
+		}
 		// configure store loader that checks if version == upgradeHeight and applies store upgrades
 		app.SetStoreLoader(upgradetypes.UpgradeStoreLoader(upgradeInfo.Height, &storeUpgrades))
 	}
@@ -2120,7 +2176,7 @@ func (app *App) ProcessTxsSynchronousV2(ctx sdk.Context, txs [][]byte, typedTxs 
 
 // ProcessTxsSynchronousGiga runs txs[firstTx:] in order through the Giga executor, each at its
 // block position, and returns their results; the txs before firstTx are not executed.
-func (app *App) ProcessTxsSynchronousGiga(ctx sdk.Context, txs [][]byte, typedTxs []sdk.Tx, firstTx int) []*abci.ExecTxResult {
+func (app *App) ProcessTxsSynchronousGiga(ctx sdk.Context, txs [][]byte, typedTxs []sdk.Tx, firstTx int) ([]*abci.ExecTxResult, error) {
 	blockProcessGigaStart := time.Now()
 	defer func() {
 		utilmetrics.BlockProcessLatency(blockProcessGigaStart, utilmetrics.Synchronous) // TODO(PLT-327): remove once app_block_process_duration_seconds verified
@@ -2128,15 +2184,23 @@ func (app *App) ProcessTxsSynchronousGiga(ctx sdk.Context, txs [][]byte, typedTx
 			otelmetric.WithAttributes(attribute.String("type", utilmetrics.SynchronousGiga)))
 	}()
 
+	ctx, blockCache := app.CacheContext(ctx)
+	if app.hasDomainTransactions(ctx, typedTxs[firstTx:]) {
+		results := app.ProcessTxsSynchronousV2(ctx, txs, typedTxs, firstTx)
+		if err := validateExecutionResults(results, len(txs)-firstTx); err != nil {
+			return nil, err
+		}
+		blockCache.Write()
+		return results, nil
+	}
 	ms := ctx.MultiStore().CacheMultiStore()
-	defer ms.Write()
 	ctx = ctx.WithMultiStore(ms)
 
 	// Cache block-level constants (identical for all txs in this block).
 	cache, cacheErr := newGigaBlockCache(ctx, &app.GigaEvmKeeper)
 	if cacheErr != nil {
 		logger.Error("failed to build giga block cache", "error", cacheErr, "height", ctx.BlockHeight())
-		return nil
+		return nil, fmt.Errorf("giga block cache: %w", cacheErr)
 	}
 
 	txResults := make([]*abci.ExecTxResult, len(txs)-firstTx)
@@ -2154,6 +2218,7 @@ func (app *App) ProcessTxsSynchronousGiga(ctx sdk.Context, txs [][]byte, typedTx
 
 		// Execute EVM transaction through giga executor with panic recovery.
 		// Matches V2's recover behavior in legacyabci/deliver_tx.go.
+		gigaCtx, gigaCache := app.CacheContext(ctx)
 		var result *abci.ExecTxResult
 		var execErr error
 		// fallbackToV2: store-iteration panic; re-run this tx via v2 to match v2.
@@ -2179,11 +2244,7 @@ func (app *App) ProcessTxsSynchronousGiga(ctx sdk.Context, txs [][]byte, typedTx
 					}
 					// For other panics (e.g., nil deref from malformed protobuf), log and return ErrPanic
 					logger.Error("panic in giga synchronous executor", "panic", r, "stack", string(debug.Stack()))
-					result = &abci.ExecTxResult{
-						Codespace: sdkerrors.UndefinedCodespace,
-						Code:      sdkerrors.ErrPanic.ABCICode(),
-						Log:       fmt.Sprintf("panic recovered: %v", r),
-					}
+					execErr = fmt.Errorf("giga synchronous panic: %v", r)
 				}
 			}()
 
@@ -2199,7 +2260,7 @@ func (app *App) ProcessTxsSynchronousGiga(ctx sdk.Context, txs [][]byte, typedTx
 				return
 			}
 
-			result, execErr = app.executeEVMTxWithGigaExecutor(ctx, evmMsg, cache)
+			result, execErr = app.executeEVMTxWithGigaExecutor(gigaCtx, evmMsg, cache)
 		}()
 
 		// Store-iteration panic: re-run via v2 so the result matches v2 exactly.
@@ -2220,21 +2281,24 @@ func (app *App) ProcessTxsSynchronousGiga(ctx sdk.Context, txs [][]byte, typedTx
 				ms.Write()
 				continue
 			}
-			txResults[slot] = &abci.ExecTxResult{
-				Code: 1,
-				Log:  fmt.Sprintf("[BUG] giga executor error: %v", execErr),
-			}
-			continue
+			return nil, fmt.Errorf("giga transaction %d: %w", i, execErr)
 		}
 
 		txResults[slot] = result
-		ctx.GigaMultiStore().WriteGiga()
+		gigaCtx.GigaMultiStore().WriteGiga()
+		gigaCache.Write()
 		utilmetrics.IncrTxProcessTypeCounter(utilmetrics.Synchronous) // TODO(PLT-327): remove once app_tx_process_type_total verified
 		appMetrics.txProcessType.Add(ctx.Context(), 1,
 			otelmetric.WithAttributes(attribute.String("type", utilmetrics.SynchronousGiga)))
 	}
 
-	return txResults
+	if err := validateExecutionResults(txResults, len(txs)-firstTx); err != nil {
+		return nil, err
+	}
+	ctx.GigaMultiStore().WriteGiga()
+	ms.Write()
+	blockCache.Write()
+	return txResults, nil
 }
 
 func (app *App) shouldProcessSingleRecipientEVMTransfersSynchronously(typedTxs []sdk.Tx) bool {
@@ -2271,25 +2335,79 @@ func (app *App) shouldProcessSingleRecipientEVMTransfersSynchronously(typedTxs [
 func (app *App) CacheContext(ctx sdk.Context) (sdk.Context, sdk.CacheMultiStore) {
 	ms := ctx.MultiStore()
 	msCache := ms.CacheMultiStore()
+	if giga, ok := msCache.(sdk.GigaMultiStore); ok {
+		// Both engines must publish into this branch. The default Giga cache
+		// chain points at its parent's Giga stores, which can bypass the
+		// ordinary branch when a later execution stage fails.
+		giga.SetGigaKVStores(func(key sdk.StoreKey, _ sdk.KVStore) sdk.KVStore {
+			return gigastore.NewStore(msCache.GetKVStore(key), key, storetypes.DefaultCacheSizeLimit)
+		})
+	}
 	return ctx.WithMultiStore(msCache), msCache
 }
 
 // ExecuteTxsConcurrently calls the appropriate function for processing transacitons. Only
 // txs[firstTx:] are executed, each at its block position; the results are theirs, in order.
-func (app *App) ExecuteTxsConcurrently(ctx sdk.Context, txs [][]byte, typedTxs []sdk.Tx, firstTx int) ([]*abci.ExecTxResult, sdk.Context) {
-	processSynchronously := app.shouldProcessSingleRecipientEVMTransfersSynchronously(typedTxs[firstTx:])
-	if app.GigaExecutorEnabled && app.GigaOCCEnabled && !processSynchronously {
-		return app.ProcessTXsWithOCCGiga(ctx, txs, typedTxs, firstTx)
-	} else if app.GigaExecutorEnabled {
-		return app.ProcessTxsSynchronousGiga(ctx, txs, typedTxs, firstTx), ctx
-	} else if !ctx.IsOCCEnabled() {
-		return app.ProcessTxsSynchronousV2(ctx, txs, typedTxs, firstTx), ctx
+func validateExecutionResults(results []*abci.ExecTxResult, expected int) error {
+	if len(results) != expected {
+		return fmt.Errorf("incomplete execution results: got %d, want %d", len(results), expected)
 	}
-	if processSynchronously {
-		return app.ProcessTxsSynchronousV2(ctx, txs, typedTxs, firstTx), ctx
+	for i, result := range results {
+		if result == nil {
+			return fmt.Errorf("nil execution result at index %d", i)
+		}
+		if result.Codespace == gigaInfrastructureCodespace ||
+			((result.Codespace == sdkerrors.RootCodespace || result.Codespace == sdkerrors.UndefinedCodespace) &&
+				(result.Code == sdkerrors.ErrPanic.ABCICode() || result.Code == sdkerrors.ErrOCCAbort.ABCICode())) {
+			return fmt.Errorf("execution infrastructure failure at index %d: %s", i, result.Log)
+		}
 	}
+	return nil
+}
 
-	return app.ProcessTXsWithOCCV2(ctx, txs, typedTxs, firstTx)
+func (app *App) hasDomainTransactions(ctx sdk.Context, txs []sdk.Tx) bool {
+	root := app.EvmKeeper.ChainID(ctx)
+	for _, tx := range txs {
+		if msg := app.GetEVMMsg(tx); msg != nil {
+			etx, _ := msg.AsTransaction()
+			if etx.Protected() && etx.ChainId().Cmp(root) != 0 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (app *App) ExecuteTxsConcurrently(ctx sdk.Context, txs [][]byte, typedTxs []sdk.Tx, firstTx int) ([]*abci.ExecTxResult, sdk.Context, error) {
+	original := ctx
+	ctx, branch := app.CacheContext(ctx)
+	processSynchronously := app.shouldProcessSingleRecipientEVMTransfersSynchronously(typedTxs[firstTx:])
+	var results []*abci.ExecTxResult
+	var err error
+	if app.hasDomainTransactions(ctx, typedTxs[firstTx:]) {
+		// Domain routing includes registry liveness, signature recovery, VM context,
+		// fee handling and activity accounting in the ordinary handler.
+		results = app.ProcessTxsSynchronousV2(ctx, txs, typedTxs, firstTx)
+	} else if app.GigaExecutorEnabled && app.GigaOCCEnabled && !processSynchronously {
+		results, ctx, err = app.ProcessTXsWithOCCGiga(ctx, txs, typedTxs, firstTx)
+	} else if app.GigaExecutorEnabled {
+		results, err = app.ProcessTxsSynchronousGiga(ctx, txs, typedTxs, firstTx)
+	} else if !ctx.IsOCCEnabled() || processSynchronously {
+		results = app.ProcessTxsSynchronousV2(ctx, txs, typedTxs, firstTx)
+	} else {
+		results, ctx = app.ProcessTXsWithOCCV2(ctx, txs, typedTxs, firstTx)
+	}
+	if err == nil {
+		err = validateExecutionResults(results, len(txs)-firstTx)
+	}
+	if err != nil {
+		return nil, original, err
+	}
+	if app.GigaExecutorEnabled {
+		ctx.GigaMultiStore().WriteGiga()
+	}
+	branch.Write()
+	return results, original, nil
 }
 
 func (app *App) GetDeliverTxEntry(ctx sdk.Context, txIndex int, bz []byte, tx sdk.Tx) (res *sdk.DeliverTxEntry) {
@@ -2376,7 +2494,7 @@ func (app *App) ProcessTXsWithOCCV2(ctx sdk.Context, txs [][]byte, typedTxs []sd
 
 // ProcessTXsWithOCCGiga runs txs[firstTx:] concurrently via OCC, using the Giga executor, each
 // with its block position as AbsoluteIndex
-func (app *App) ProcessTXsWithOCCGiga(ctx sdk.Context, txs [][]byte, typedTxs []sdk.Tx, firstTx int) ([]*abci.ExecTxResult, sdk.Context) {
+func (app *App) ProcessTXsWithOCCGiga(ctx sdk.Context, txs [][]byte, typedTxs []sdk.Tx, firstTx int) ([]*abci.ExecTxResult, sdk.Context, error) {
 	blockProcessStart := time.Now()
 	delegatedToV2 := false
 	defer func() {
@@ -2386,6 +2504,16 @@ func (app *App) ProcessTXsWithOCCGiga(ctx sdk.Context, txs [][]byte, typedTxs []
 		}
 	}()
 
+	original := ctx
+	ctx, blockCache := app.CacheContext(ctx)
+	if app.hasDomainTransactions(ctx, typedTxs[firstTx:]) {
+		results := app.ProcessTxsSynchronousV2(ctx, txs, typedTxs, firstTx)
+		if err := validateExecutionResults(results, len(txs)-firstTx); err != nil {
+			return nil, original, err
+		}
+		blockCache.Write()
+		return results, original, nil
+	}
 	evmEntries := make([]*sdk.DeliverTxEntry, 0, len(txs)-firstTx)
 	v2Entries := make([]*sdk.DeliverTxEntry, 0, len(txs)-firstTx)
 	firstCosmosSeen := false
@@ -2396,7 +2524,12 @@ func (app *App) ProcessTXsWithOCCGiga(ctx sdk.Context, txs [][]byte, typedTxs []
 				logger.Error("Giga OCC cannot execute block due to tx ordering, falling back to V2")
 				// Oops! This isn't "all EVM txs, then all Cosmos txs" - we need to fallback to V2.
 				delegatedToV2 = true
-				return app.ProcessTXsWithOCCV2(ctx, txs, typedTxs, firstTx)
+				results, _ := app.ProcessTXsWithOCCV2(ctx, txs, typedTxs, firstTx)
+				if err := validateExecutionResults(results, len(txs)-firstTx); err != nil {
+					return nil, original, err
+				}
+				blockCache.Write()
+				return results, original, nil
 			}
 
 			evmEntries = append(evmEntries, app.GetDeliverTxEntry(ctx, txIndex, tx, typedTxs[txIndex]))
@@ -2420,7 +2553,7 @@ func (app *App) ProcessTXsWithOCCGiga(ctx sdk.Context, txs [][]byte, typedTxs []
 		cache, cacheErr := newGigaBlockCache(evmCtx, &app.GigaEvmKeeper)
 		if cacheErr != nil {
 			logger.Error("failed to build giga block cache", "error", cacheErr, "height", ctx.BlockHeight())
-			return nil, ctx
+			return nil, original, fmt.Errorf("giga execution: %w", cacheErr)
 		}
 
 		// Create OCC scheduler with giga executor deliverTx capturing the cache.
@@ -2434,10 +2567,13 @@ func (app *App) ProcessTXsWithOCCGiga(ctx sdk.Context, txs [][]byte, typedTxs []
 		evmBatchResult, evmSchedErr = evmScheduler.ProcessAll(evmCtx, evmEntries)
 		if evmSchedErr != nil {
 			logger.Error("benchmark OCC scheduler error (EVM txs)", "error", evmSchedErr, "height", ctx.BlockHeight(), "txCount", len(evmEntries))
-			return nil, ctx
+			return nil, original, fmt.Errorf("giga execution: %w", evmSchedErr)
 		}
 
 		for _, r := range evmBatchResult {
+			if r.Codespace == gigaInfrastructureCodespace {
+				return nil, original, errors.New(r.Log)
+			}
 			if r.Code == gigautils.GigaAbortCode && r.Codespace == gigautils.GigaAbortCodespace {
 				fallbackToV2 = true
 				break
@@ -2455,8 +2591,8 @@ func (app *App) ProcessTXsWithOCCGiga(ctx sdk.Context, txs [][]byte, typedTxs []
 			}
 		} else {
 			// Commit EVM cache to main store before processing non-EVM txs.
-			evmCache.Write()
 			evmCtx.GigaMultiStore().WriteGiga()
+			evmCache.Write()
 		}
 	}
 
@@ -2472,7 +2608,7 @@ func (app *App) ProcessTXsWithOCCGiga(ctx sdk.Context, txs [][]byte, typedTxs []
 		v2BatchResult, v2SchedErr = v2Scheduler.ProcessAll(ctx, v2Entries)
 		if v2SchedErr != nil {
 			logger.Error("benchmark OCC scheduler error", "error", v2SchedErr, "height", ctx.BlockHeight(), "txCount", len(v2Entries))
-			return nil, ctx
+			return nil, original, fmt.Errorf("giga execution: %w", v2SchedErr)
 		}
 	}
 
@@ -2504,7 +2640,12 @@ func (app *App) ProcessTXsWithOCCGiga(ctx sdk.Context, txs [][]byte, typedTxs []
 		})
 	}
 
-	return execResults, ctx
+	if err := validateExecutionResults(execResults, len(txs)-firstTx); err != nil {
+		return nil, original, err
+	}
+	ctx.GigaMultiStore().WriteGiga()
+	blockCache.Write()
+	return execResults, original, nil
 }
 
 // NewBlockProcessRequest carries the finalize request metadata into direct block execution.
@@ -2541,6 +2682,7 @@ func (app *App) ProcessBlock(ctx sdk.Context, txs [][]byte, req *BlockProcessReq
 	}()
 
 	defer app.sendEVMServerStartSignals()
+	ctx, blockCache := app.CacheContext(ctx)
 
 	ctx = ctx.WithIsOCCEnabled(app.OccEnabled())
 
@@ -2592,7 +2734,10 @@ func (app *App) ProcessBlock(ctx sdk.Context, txs [][]byte, req *BlockProcessReq
 
 	// Execute all transactions behind the batch; txResults[0] of a sequenced block is the batch
 	// result, code 0 with zero gas.
-	txResults, ctx = app.ExecuteTxsConcurrently(ctx, txs, typedTxs, firstTx)
+	txResults, ctx, err = app.ExecuteTxsConcurrently(ctx, txs, typedTxs, firstTx)
+	if err != nil {
+		return nil, nil, abci.ResponseEndBlock{}, err
+	}
 	if firstTx == 1 {
 		txResults = append([]*abci.ExecTxResult{{}}, txResults...)
 	}
@@ -2602,10 +2747,14 @@ func (app *App) ProcessBlock(ctx sdk.Context, txs [][]byte, req *BlockProcessReq
 		return nil, nil, abci.ResponseEndBlock{}, err
 	}
 	events = append(events, blockEvents...)
+	blockCache.Write()
 	return events, txResults, endBlockResp, nil
 }
 
 func (app *App) CompleteBlock(ctx sdk.Context, height int64, txResults []*abci.ExecTxResult, evmTxs []*evmtypes.MsgEVMTransaction) (events []abci.Event, endBlockResp abci.ResponseEndBlock, err error) {
+	if err := validateExecutionResults(txResults, len(evmTxs)); err != nil {
+		return nil, abci.ResponseEndBlock{}, err
+	}
 	midBlockEvents := app.MidBlock(ctx, height)
 	events = append(events, midBlockEvents...)
 
@@ -2669,10 +2818,7 @@ func (app *App) executeEVMTxWithGigaExecutor(ctx sdk.Context, msg *evmtypes.MsgE
 	// Recover sender using the same logic as preprocess.go (version-based signer selection)
 	sender, paxAddr, _, recoverErr := evmante.RecoverSenderFromEthTx(ctx, ethTx, chainID)
 	if recoverErr != nil {
-		return &abci.ExecTxResult{
-			Code: 1,
-			Log:  fmt.Sprintf("failed to recover sender from signature: %v", recoverErr),
-		}, nil
+		return nil, gigaCanonicalExecutionRequired{recoverErr}
 	}
 
 	_, isAssociated := app.GigaEvmKeeper.GetEVMAddress(ctx, paxAddr)
@@ -2684,19 +2830,7 @@ func (app *App) executeEVMTxWithGigaExecutor(ctx sdk.Context, msg *evmtypes.MsgE
 	ctx = ctx.WithGasMeter(sdk.NewInfiniteGasMeterWithMultiplier(ctx))
 
 	if validation.err != nil {
-		// Validation failed - bump nonce via keeper if it was valid (matches V2's DeliverTxCallback
-		// behavior where nonce is incremented even on fee validation failures).
-		// For successful txs, the nonce is bumped by the EVM during execution.
-		if validation.bumpNonce {
-			app.GigaEvmKeeper.SetNonce(ctx, sender, validation.currentNonce+1)
-			app.EvmKeeper.SetNonceBumped(ctx)
-		}
-		// V2 reports intrinsic gas as gasUsed even on validation failure (for metrics),
-		// but no actual balance is deducted
-		intrinsicGas, _ := core.IntrinsicGas(ethTx.Data(), ethTx.AccessList(), ethTx.SetCodeAuthorizations(), ethTx.To() == nil, true, true, true)
-		validation.err.GasUsed = int64(intrinsicGas)  //nolint:gosec
-		validation.err.GasWanted = int64(ethTx.Gas()) //nolint:gosec
-		return validation.err, nil
+		return nil, gigaCanonicalExecutionRequired{errors.New(validation.err.Log)}
 	}
 
 	if !isAssociated {
@@ -2731,13 +2865,7 @@ func (app *App) executeEVMTxWithGigaExecutor(ctx sdk.Context, msg *evmtypes.MsgE
 			err = app.EvmKeeper.SetAnteFeeTokenCharge(stateDB.Ctx(), ethTx.Hash(), charge)
 		}
 		if err != nil {
-			codespace, code, log := sdkerrors.ABCIInfo(err, false)
-			return &abci.ExecTxResult{
-				Codespace: codespace,
-				Code:      code,
-				GasWanted: int64(ethTx.Gas()), //nolint:gosec
-				Log:       log,
-			}, nil
+			return nil, gigaCanonicalExecutionRequired{err}
 		}
 		feeCollector, _ := app.GigaEvmKeeper.GetFeeCollectorAddress(ctx)
 		feeTokenStateDB = &gigaFeeTokenStateDB{
@@ -2761,7 +2889,7 @@ func (app *App) executeEVMTxWithGigaExecutor(ctx sdk.Context, msg *evmtypes.MsgE
 	cfg := cache.chainConfig
 
 	// Create Giga executor VM
-	gigaExecutor := gigaexecutor.NewGethExecutor(blockCtx, execStateDB, cfg, vm.Config{}, gigaCustomPrecompiles(ctx.BlockHeight()))
+	gigaExecutor := gigaexecutor.NewGethExecutor(blockCtx, execStateDB, cfg, vm.Config{}, app.gigaCustomPrecompiles(ctx))
 
 	// Execute with feeAlreadyCharged=true — matching V2's msg_server behavior
 	execResult, execErr := gigaExecutor.ExecuteTransactionFeeCharged(ethTx, sender, cache.baseFee, &gp)
@@ -2772,61 +2900,7 @@ func (app *App) executeEVMTxWithGigaExecutor(ctx sdk.Context, msg *evmtypes.MsgE
 	}
 
 	if execErr != nil {
-		// Match V2 error handling: bump nonce, commit fee deduction, track surplus
-		stateDB.SetNonce(sender, stateDB.GetNonce(sender)+1, tracing.NonceChangeEoACall)
-		surplus, ferr := stateDB.Finalize()
-		if ferr != nil {
-			// stateDB.Finalize is not expected to fail in practice. If it
-			// does, the nonce bump above may not have been persisted, so per
-			// the receipt-iff-nonce-bumped invariant we cannot claim the tx
-			// happened: skip the receipt + deferred-info writes and return.
-			logger.Error("giga: failed to finalize stateDB on consensus error",
-				"tx-hash", ethTx.Hash(),
-				"error", ferr,
-			)
-			return &abci.ExecTxResult{
-				Code:      1,
-				GasWanted: int64(ethTx.Gas()), //nolint:gosec
-				Log:       fmt.Sprintf("giga: failed to finalize stateDB on consensus error: %v", ferr),
-			}, nil
-		}
-
-		// Receipt-iff-nonce-bumped invariant: this tx bumped the sender's
-		// nonce on the line above, so it must produce a receipt. State-
-		// transition errors land here when Execute() bails before any
-		// opcode ran (notably EIP-7623's floor-data-gas check, which
-		// happens inside go-ethereum's Execute() rather than the Pax
-		// antehandler). Without an explicit WriteReceipt the receipt
-		// store stays empty for this tx hash — Giga's
-		// AppendToEvmTxDeferredInfo call below doesn't propagate the
-		// error, so EndBlock's synthetic-receipt path skips it — and
-		// eth_getTransactionReceipt returns null forever, hanging any
-		// client that polls for it.
-		evmMsg := &core.Message{
-			Nonce:     ethTx.Nonce(),
-			GasLimit:  ethTx.Gas(),
-			GasPrice:  effectiveGasPrice, // EIP-1559 effective gas price (not GasFeeCap)
-			GasFeeCap: ethTx.GasFeeCap(),
-			GasTipCap: ethTx.GasTipCap(),
-			To:        ethTx.To(),
-			Value:     ethTx.Value(),
-			Data:      ethTx.Data(),
-			From:      sender,
-		}
-		if _, rerr := app.GigaEvmKeeper.WriteReceipt(ctx, stateDB, evmMsg, uint32(ethTx.Type()), ethTx.Hash(), ethTx.Gas(), execErr.Error()); rerr != nil {
-			logger.Error("giga: failed to write failed-tx receipt",
-				"tx-hash", ethTx.Hash(),
-				"error", rerr,
-			)
-		}
-		bloom := ethtypes.Bloom{}
-		app.EvmKeeper.AppendToEvmTxDeferredInfo(ctx, bloom, ethTx.Hash(), surplus)
-
-		return &abci.ExecTxResult{
-			Code:      1,
-			GasWanted: int64(ethTx.Gas()), //nolint:gosec
-			Log:       fmt.Sprintf("giga executor apply message error: %v", execErr),
-		}, nil
+		return nil, gigaCanonicalExecutionRequired{execErr}
 	}
 
 	// Check if the execution hit a fail-fast precompile (Cosmos interop detected)
@@ -2836,19 +2910,13 @@ func (app *App) executeEVMTxWithGigaExecutor(ctx sdk.Context, msg *evmtypes.MsgE
 	}
 
 	if feeTokenStateDB != nil && feeTokenStateDB.err != nil {
-		return &abci.ExecTxResult{
-			Code: 1,
-			Log:  fmt.Sprintf("failed to finalize state: %v", feeTokenStateDB.err),
-		}, nil
+		return nil, fmt.Errorf("finalize fee-token state: %w", feeTokenStateDB.err)
 	}
 
 	// Finalize state changes — captures surplus (fee deduction + execution balance changes)
 	surplus, ferr := stateDB.Finalize()
 	if ferr != nil {
-		return &abci.ExecTxResult{
-			Code: 1,
-			Log:  fmt.Sprintf("failed to finalize state: %v", ferr),
-		}, nil
+		return nil, fmt.Errorf("finalize state: %w", ferr)
 	}
 
 	// Write receipt
@@ -2876,10 +2944,7 @@ func (app *App) executeEVMTxWithGigaExecutor(ctx sdk.Context, msg *evmtypes.MsgE
 	}
 	receipt, rerr := app.GigaEvmKeeper.WriteReceipt(ctx, stateDB, evmMsg, uint32(ethTx.Type()), ethTx.Hash(), execResult.UsedGas, vmError)
 	if rerr != nil {
-		return &abci.ExecTxResult{
-			Code: 1,
-			Log:  fmt.Sprintf("failed to write receipt: %v", rerr),
-		}, nil
+		return nil, fmt.Errorf("write receipt: %w", rerr)
 	}
 
 	// Append deferred info for EndBlock processing
@@ -2895,8 +2960,11 @@ func (app *App) executeEVMTxWithGigaExecutor(ctx sdk.Context, msg *evmtypes.MsgE
 
 	// GasWanted should be set to the transaction's gas limit to match standard executor behavior.
 	// This is critical for LastResultsHash computation which uses Code, Data, GasWanted, and GasUsed.
-	gasWanted := int64(ethTx.Gas())      //nolint:gosec // G115: safe, Gas() won't exceed int64 max
-	gasUsed := int64(execResult.UsedGas) //nolint:gosec // G115: safe, UsedGas won't exceed int64 max
+	normalizer := app.EvmKeeper.GetPriorityNormalizer(ctx)
+	gasWanted := normalizer.MulInt64(int64(ethTx.Gas())).TruncateInt().Int64()                                 //nolint:gosec
+	meter := sdk.NewGasMeterWithMultiplier(ctx, uint64(gasWanted))                                             //nolint:gosec
+	meter.ConsumeGas(normalizer.MulInt64(int64(execResult.UsedGas)).TruncateInt().Uint64(), "evm transaction") //nolint:gosec
+	gasUsed := int64(meter.GasConsumed())                                                                      //nolint:gosec
 
 	// Build Data field to match standard executor format.
 	// Standard path wraps MsgEVMTransactionResponse in TxMsgData.
@@ -2910,10 +2978,7 @@ func (app *App) executeEVMTxWithGigaExecutor(ctx sdk.Context, msg *evmtypes.MsgE
 	}
 	evmResponseBytes, marshalErr := evmResponse.Marshal()
 	if marshalErr != nil {
-		return &abci.ExecTxResult{
-			Code: 1,
-			Log:  fmt.Sprintf("failed to marshal evm response: %v", marshalErr),
-		}, nil
+		return nil, fmt.Errorf("marshal evm response: %w", marshalErr)
 	}
 
 	// Wrap in TxMsgData like the standard path does
@@ -2927,10 +2992,7 @@ func (app *App) executeEVMTxWithGigaExecutor(ctx sdk.Context, msg *evmtypes.MsgE
 	}
 	txMsgDataBytes, txMarshalErr := proto.Marshal(txMsgData)
 	if txMarshalErr != nil {
-		return &abci.ExecTxResult{
-			Code: 1,
-			Log:  fmt.Sprintf("failed to marshal tx msg data: %v", txMarshalErr),
-		}, nil
+		return nil, fmt.Errorf("marshal tx msg data: %w", txMarshalErr)
 	}
 
 	return &abci.ExecTxResult{
@@ -2940,9 +3002,10 @@ func (app *App) executeEVMTxWithGigaExecutor(ctx sdk.Context, msg *evmtypes.MsgE
 		GasUsed:   gasUsed,
 		Log:       vmError,
 		EvmTxInfo: &abci.EvmTxInfo{
-			TxHash:  ethTx.Hash().Hex(),
-			VmError: vmError,
-			Nonce:   ethTx.Nonce(),
+			SenderAddress: sender.Hex(),
+			TxHash:        ethTx.Hash().Hex(),
+			VmError:       vmError,
+			Nonce:         ethTx.Nonce(),
 		},
 	}, nil
 }
@@ -2962,6 +3025,27 @@ func gigaCustomPrecompiles(height int64) map[common.Address]vm.PrecompiledContra
 	}
 	return gigaprecompiles.AllCustomPrecompilesFailFast
 }
+
+func (app *App) gigaCustomPrecompiles(ctx sdk.Context) map[common.Address]vm.PrecompiledContract {
+	result := make(map[common.Address]vm.PrecompiledContract)
+	for address, contract := range gigaCustomPrecompiles(ctx.BlockHeight()) {
+		result[address] = contract
+	}
+	for address := range app.EvmKeeper.CustomPrecompiles(ctx) {
+		if contract, ok := gigaV6120FailFast[address]; ok {
+			result[address] = contract
+		}
+	}
+	return result
+}
+
+// gigaCanonicalExecutionRequired routes rejected or unsupported transitions to
+// the complete handler so fee callbacks and consensus error encoding agree.
+type gigaCanonicalExecutionRequired struct{ error }
+
+func (gigaCanonicalExecutionRequired) IsAbortError() bool { return true }
+
+const gigaInfrastructureCodespace = "giga-infrastructure"
 
 // gigaDeliverTx is the OCC-compatible deliverTx function for the giga executor.
 // makeGigaDeliverTx returns an OCC-compatible deliverTx callback that captures the given
@@ -3000,7 +3084,7 @@ func (app *App) makeGigaDeliverTx(cache *gigaBlockCache) func(sdk.Context, abci.
 				// For other panics (e.g., nil deref from malformed protobuf), log and return ErrPanic
 				logger.Error("panic in gigaDeliverTx", "panic", r, "stack", string(debug.Stack()))
 				resp = abci.ResponseDeliverTx{
-					Codespace: sdkerrors.UndefinedCodespace,
+					Codespace: gigaInfrastructureCodespace,
 					Code:      sdkerrors.ErrPanic.ABCICode(),
 					Log:       fmt.Sprintf("recovered: %v\nstack:\n%v", r, string(debug.Stack())),
 				}
@@ -3036,7 +3120,7 @@ func (app *App) makeGigaDeliverTx(cache *gigaBlockCache) func(sdk.Context, abci.
 				}
 			}
 
-			return abci.ResponseDeliverTx{Code: 1, Log: fmt.Sprintf("giga executor error: %v", err)}
+			return abci.ResponseDeliverTx{Code: 1, Codespace: gigaInfrastructureCodespace, Log: fmt.Sprintf("giga executor error: %v", err)}
 		}
 
 		return abci.ResponseDeliverTx{
@@ -3864,7 +3948,7 @@ func (app *App) checkTotalBlockGas(ctx sdk.Context, typedTxs []sdk.Tx) (_result 
 		blockParams := ctx.ConsensusParams().Block
 		maxGasWanted := uint64(blockParams.MaxGasWanted) //nolint:gosec
 		maxGas := uint64(blockParams.MaxGas)             //nolint:gosec
-		if totalGasWanted > maxGasWanted || totalGas > maxGas {
+		if (blockParams.MaxGasWanted > 0 && totalGasWanted > maxGasWanted) || totalGas > maxGas {
 			return false
 		}
 	}

@@ -1,0 +1,27 @@
+[repair.22.31.177]
+finding = "separate-evm-iterator-range"
+proof = ["TestRepair_177_SeparateEVMIteratorRangeReopen", "TestRepair_177_EmptyRangesAndInvalidBounds", "TestRepair_177_IteratorEarlyClose", "TestRepair_177_OpenErrors"]
+path = "storage/state_db/ss/evm/repair_177_test.go"
+implementation = "Merge bounded per-family reverse MVCC iterators in full-key order, preserving nil and prefix-only bounds, historical visibility, tombstones, iterator errors and resource ownership. Forward iteration copies that reverse snapshot and traverses it backward in increasing byte order in both storage configurations."
+baseline = "Attempt 1 reported TestRepair_177_SeparateEVMIteratorRangeReopen failing; its evidence is retained below. No additional unchanged-tree baseline is run because the task's gate order prohibits testing before implementation or running verify_cmd by hand."
+continuation = "Sort all live inserted key/value pairs by key bytes before selecting each bounded range; reverse the selected sequence for reverse iteration. Assert strict byte order on the real iterator output independently of full pair equality. Preserve every historical visibility and backend comparison assertion."
+open_path = "Each empty-range and invalid-bound leaf subtest owns a fresh temporary directory and asserts both initial open and reopen errors. Reject negative open configuration before creating backend resources; propagate backend open and partial-open cleanup errors. Real blocked-directory tests assert failure returns nil store and a contextual error, then remove the obstruction and reopen to prove partial-open resources were released."
+prior_attempt = "Attempt 2 failed the declared verify command: TestRepair_177_EmptyRangesAndInvalidBounds stopped after Found 0 WALs without a failure line, as reported by the continuation ruling. Its evidence belongs to the earlier sandbox; no unchanged-tree verification is repeated here."
+wiring_requests = ["storage/db_engine/pebbledb/mvcc/iterator.go (fm-node-runtime, domain 5): fix forward historical iteration advancing past the live key reached by an unsuccessful future-version seek, so the EVM adapter can later avoid buffering the requested forward range."]
+attempt_4 = "The unchanged carried candidate failed four unified forward version-2 subtests of TestRepair_177_SeparateEVMIteratorRangeReopen; all assertions remain. EVM forward iteration now uses the correct reverse visibility path and releases all backend iterators before returning its copied snapshot; memory is proportional to the requested range. Add a live key after each future key within the same family and compare every returned value with Get; test early close and invalid access in both configurations."
+gotcha = "A successful later test hides earlier subtest failures in the gate tail; inspect the whole retained log, whose four failures here occur at repair_177_test.go:188. Error must be read before closing backend cursors; the EVM adapter caches it and owns child cleanup."
+qualification = "The bounded hf-build and hf-done ledger and final evidence line record the exact candidate revision, command, exit code and private log location."
+
+[qualification.22.31.177]
+revision = "4de418a44eb3472751bdd653109783067a996d70"
+command = "cg spec done 22.31.177 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Four unified-backend forward version-2 range assertions omit live keys; all separate-backend assertions pass. The unified iterator delegates unchanged to the out-of-scope MVCC backend; recorded without further investigation or rerun."
+
+[qualification.22.31.177.attempt_4_initial]
+revision = "09a52b33b8d4701c65405dd7ff4db37e61e3a469"
+command = "cg spec done 22.31.177 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "TestRepair_177_SeparateEVMIteratorRangeReopen fails v2 forward unified unbounded, nil-end, cross-prefix and cross-full-key ranges; the complete Go test log is /tmp/repair-177.log for this initial run."

@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use crate::core::market::{MarketId, MARKET_COUNT};
+use crate::core::market::{MARKET_COUNT, MarketId};
 use crate::core::types::PriceTick;
 use crate::error::PerfDbError;
 use crate::storage::mmap::MmapFile;
@@ -24,6 +24,7 @@ pub struct TickStore {
     base_dir: PathBuf,
     /// One MmapFile per market. `None` = not yet opened (lazy).
     files: Vec<Option<MmapFile>>,
+    inspection: Option<Vec<Vec<PriceTick>>>,
 }
 
 impl TickStore {
@@ -48,7 +49,89 @@ impl TickStore {
             }
         }
 
-        Ok(Self { base_dir, files })
+        Ok(Self {
+            base_dir,
+            files,
+            inspection: None,
+        })
+    }
+
+    /// Copy only the immutable, committed tick prefix using read-only handles.
+    /// An active writer may append beyond these counts while inspection runs.
+    pub(crate) fn inspect(base_dir: &Path, counts: &[u64]) -> Result<Self, PerfDbError> {
+        use std::io::Read;
+        if counts.len() != MARKET_COUNT {
+            return Err(PerfDbError::Corruption(
+                "invalid tick recovery counts".into(),
+            ));
+        }
+        let mut markets = vec![Vec::new(); MARKET_COUNT];
+        for (mid, &count) in counts.iter().enumerate() {
+            if count == 0 {
+                continue;
+            }
+            let mut file = std::fs::File::open(market_path(base_dir, mid as MarketId))
+                .map_err(|e| crate::storage::wal::io_error("inspect tick prefix", e))?;
+            let bytes = count
+                .checked_mul(size_of::<PriceTick>() as u64)
+                .ok_or_else(|| PerfDbError::Corruption("tick recovery count overflow".into()))?;
+            if file
+                .metadata()
+                .map_err(|e| crate::storage::wal::io_error("inspect tick metadata", e))?
+                .len()
+                < bytes.saturating_add(8)
+            {
+                return Err(PerfDbError::Corruption(
+                    "tick prefix shorter than recovery boundary".into(),
+                ));
+            }
+            let mut header = [0; 8];
+            file.read_exact(&mut header)
+                .map_err(|e| crate::storage::wal::io_error("inspect tick header", e))?;
+            let mut record = [0; size_of::<PriceTick>()];
+            for _ in 0..count {
+                file.read_exact(&mut record)
+                    .map_err(|e| crate::storage::wal::io_error("inspect tick record", e))?;
+                markets[mid].push(bytemuck::pod_read_unaligned(&record));
+            }
+        }
+        Ok(Self {
+            base_dir: base_dir.to_path_buf(),
+            files: (0..MARKET_COUNT).map(|_| None).collect(),
+            inspection: Some(markets),
+        })
+    }
+
+    pub(crate) fn counts(&self) -> Vec<u64> {
+        (0..MARKET_COUNT as MarketId)
+            .map(|mid| self.tick_count(mid))
+            .collect()
+    }
+
+    pub(crate) fn rewind(&mut self, counts: &[u64]) -> Result<(), PerfDbError> {
+        if counts.len() != MARKET_COUNT {
+            return Err(PerfDbError::Corruption(
+                "invalid tick recovery counts".into(),
+            ));
+        }
+        for (mid, &count) in counts.iter().enumerate() {
+            match self.files[mid].as_mut() {
+                Some(file) => file.truncate_to(
+                    count
+                        .checked_mul(size_of::<PriceTick>() as u64)
+                        .ok_or_else(|| {
+                            PerfDbError::Corruption("tick recovery count overflow".into())
+                        })?,
+                )?,
+                None if count != 0 => {
+                    return Err(PerfDbError::Corruption(
+                        "missing committed tick file".into(),
+                    ));
+                }
+                None => {}
+            }
+        }
+        Ok(())
     }
 
     /// Append a tick to the appropriate market file.
@@ -62,6 +145,11 @@ impl TickStore {
             )));
         }
 
+        if let Some(markets) = &mut self.inspection {
+            markets[mid].push(*tick);
+            return Ok(());
+        }
+
         let file = self.ensure_file(tick.market_id)?;
         file.append_record(tick)?;
         Ok(())
@@ -69,6 +157,9 @@ impl TickStore {
 
     /// Zero-copy slice of all ticks for a market, sorted by `timestamp_ns`.
     pub fn ticks(&self, market_id: MarketId) -> &[PriceTick] {
+        if let Some(markets) = &self.inspection {
+            return markets.get(market_id as usize).map_or(&[], Vec::as_slice);
+        }
         match self.files.get(market_id as usize).and_then(|f| f.as_ref()) {
             Some(file) => file.as_slice::<PriceTick>(),
             None => &[],
@@ -77,6 +168,9 @@ impl TickStore {
 
     /// Number of stored ticks for a market.
     pub fn tick_count(&self, market_id: MarketId) -> u64 {
+        if self.inspection.is_some() {
+            return self.ticks(market_id).len() as u64;
+        }
         match self.files.get(market_id as usize).and_then(|f| f.as_ref()) {
             Some(file) => file.record_count::<PriceTick>(),
             None => 0,
@@ -92,6 +186,9 @@ impl TickStore {
     pub fn flush(&self) -> Result<(), PerfDbError> {
         for file in self.files.iter().flatten() {
             file.flush()?;
+        }
+        if self.inspection.is_none() {
+            crate::storage::wal::sync_directory(&self.base_dir)?;
         }
         Ok(())
     }
@@ -184,7 +281,9 @@ mod tests {
         {
             let mut store = TickStore::open(&store_dir).unwrap();
             for i in 0..100u64 {
-                store.append(&make_tick(i * 1_000, 0, 60_000.0 + i as f64)).unwrap();
+                store
+                    .append(&make_tick(i * 1_000, 0, 60_000.0 + i as f64))
+                    .unwrap();
             }
             store.flush().unwrap();
         }
@@ -221,7 +320,9 @@ mod tests {
 
         for i in 0..10_000u64 {
             let mid = (i % 3) as u16;
-            store.append(&make_tick(i * 1_000, mid, 50_000.0 + i as f64)).unwrap();
+            store
+                .append(&make_tick(i * 1_000, mid, 50_000.0 + i as f64))
+                .unwrap();
         }
 
         let total: u64 = (0..3).map(|mid| store.tick_count(mid)).sum();
