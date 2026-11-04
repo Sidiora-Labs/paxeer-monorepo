@@ -5,6 +5,8 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
+	"encoding/json"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -15,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/stretchr/testify/require"
 )
 
 func TestVectorV1ReceiptedPositiveVerifies(t *testing.T) {
@@ -110,5 +113,56 @@ func TestVectorV1ReceiptedPositiveVerifies(t *testing.T) {
 	tampered[len(tampered)-1] ^= 1
 	if _, err := verify.ReceiptSignature(tampered, pin.PublicKey); err == nil {
 		t.Fatal("changed receipt signature must be refused")
+	}
+}
+
+func TestVectorV1ProgramsRecorder(t *testing.T) {
+	runtime := repairM1092Recorder(t, true)
+	v, err := recordV1ProgramsRPC(runtime.node, runtime.payer, runtime.pins, vectorV2Provenance{
+		Revision: "4299cb15eced23eb9a839162acd11e9a937edd05", ChainID: "pax-test", Generator: "daemon/committed-fixture/vector_v1.go", Command: "committed-fixture record --vector " + v1ProgramsName,
+	})
+	require.NoError(t, err)
+	require.NoError(t, verifyV1Programs(v))
+	require.Len(t, v.Receipt.Logs, 1)
+	require.Equal(t, v1ProgramsABI.Events["ProgramCallOutcome"].ID, v.Receipt.Logs[0].Topics[0])
+	signed, err := verify.ReceiptSignature(v.Receipt.Receipt, [32]byte(v.Receipt.SigningKey))
+	require.NoError(t, err)
+	require.Zero(t, signed.Receipt.ResultCode)
+	require.Equal(t, [32]byte(v.Receipt.TxHash), signed.Receipt.ActivityID)
+	out := t.TempDir()
+	require.NoError(t, writeV1ProgramsCopies(out, v))
+	var source v1ProgramsSource
+	require.NoError(t, readJSON(filepath.Join(out, "conformance", "sequencer-receipt-v1-programs.json"), &source))
+	require.Len(t, source.Cases, 1)
+	canonical, err := v1ProgramsFromSource(&source)
+	require.NoError(t, err)
+	require.Equal(t, v, canonical)
+	for _, path := range []string{filepath.Join(out, v1ProgramsName+".json"), filepath.Join(out, "conformance", v1ProgramsName+".json")} {
+		var copy v1ProgramsVector
+		require.NoError(t, readJSON(path, &copy))
+		require.Equal(t, v, &copy)
+		require.Equal(t, source.Cases[0].Receipt.TxHash, copy.Receipt.TxHash)
+		require.Equal(t, source.Cases[0].Deployment.TxHash, copy.Deployment.TxHash)
+	}
+	encoded, err := json.Marshal(v)
+	require.NoError(t, err)
+	for _, mutation := range []string{"call", "deployment", "log", "signature", "pin"} {
+		t.Run(mutation, func(t *testing.T) {
+			var altered v1ProgramsVector
+			require.NoError(t, json.Unmarshal(encoded, &altered))
+			switch mutation {
+			case "call":
+				altered.RawTransaction[len(altered.RawTransaction)-1] ^= 1
+			case "deployment":
+				altered.DeploymentRaw[len(altered.DeploymentRaw)-1] ^= 1
+			case "log":
+				altered.Receipt.Logs[0].Data[0] ^= 1
+			case "signature":
+				altered.Receipt.Receipt[len(altered.Receipt.Receipt)-1] ^= 1
+			case "pin":
+				altered.ReceiptKeys[0].LastHeight = 0
+			}
+			require.Error(t, verifyV1Programs(&altered))
+		})
 	}
 }

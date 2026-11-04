@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/stretchr/testify/assert"
@@ -19,6 +20,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/internal/test/factory"
 	tmtimemocks "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/time/mocks"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/utils"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/utils/scope"
 	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 )
@@ -721,4 +723,70 @@ func TestTooFarInTheFutureProposal(t *testing.T) {
 	results := pbtsTest.run(ctx, t)
 
 	require.Nil(t, results.height2.prevote.BlockID.Hash)
+}
+
+func testRepairM1082NonzeroProposerTimeout(t *testing.T) {
+	t.Helper()
+	synctest.Test(t, func(t *testing.T) {
+		future := time.Now().Add(250 * time.Millisecond)
+		f := newRepairM1082Fixture(t, false, future)
+		local := f.honest[0]
+		cs, _ := f.state(t, local)
+		pin, err := cstypes.NewLeaderPin(1, []crypto.PubKey{f.keys[f.leader].Public(), f.keys[local].Public()})
+		require.NoError(t, err)
+		cs.SetLeaderPin(pin)
+		cs.enterNewRound(t.Context(), 1, 1, "repair-m1082-standby")
+		waiting := cs.GetRoundState()
+		require.Equal(t, cstypes.RoundStepNewRound, waiting.Step)
+		require.EqualValues(t, 1, waiting.Round)
+		require.Equal(t, f.keys[local].Public(), waiting.Leader())
+		require.Nil(t, waiting.Proposal)
+		require.Empty(t, cs.internalMsgQueue)
+		ctx, cancel := context.WithCancel(t.Context())
+		err = scope.Run(ctx, func(ctx context.Context, s scope.Scope) error {
+			defer cancel()
+			s.Spawn(func() error { return cs.timeoutTicker.Run(ctx) })
+			timeout, err := utils.Recv(ctx, cs.timeoutTicker.Chan())
+			require.NoError(t, err)
+			require.EqualValues(t, 1, timeout.Height)
+			require.EqualValues(t, 1, timeout.Round)
+			require.Equal(t, cstypes.RoundStepNewRound, timeout.Step)
+			require.Equal(t, 250*time.Millisecond, timeout.Duration)
+			require.False(t, time.Now().Before(future))
+			cs.handleTimeout(ctx, timeout, *cs.GetRoundState())
+			proposing := cs.GetRoundState()
+			require.EqualValues(t, 1, proposing.Round)
+			require.Equal(t, cstypes.RoundStepPropose, proposing.Step)
+			scheduled, ok := cs.timeoutTicker.(*timeoutTicker).tickSubscribe().Load().Get()
+			require.True(t, ok)
+			require.EqualValues(t, 1, scheduled.Round)
+			require.Equal(t, cstypes.RoundStepPropose, scheduled.Step)
+			first := repair80NextMessage(t, cs)
+			message, ok := first.Msg.(*ProposalMessage)
+			require.True(t, ok)
+			proposal := message.Proposal
+			require.EqualValues(t, 1, proposal.Round)
+			require.False(t, proposal.Timestamp.Before(future))
+			require.NoError(t, waiting.Leader().Verify(types.ProposalSignBytes(f.genesis.ChainID, proposal.ToProto()), proposal.Signature))
+			messages := []msgInfo{first}
+			for range proposal.BlockID.PartSetHeader.Total {
+				messages = append(messages, repair80NextMessage(t, cs))
+			}
+			for _, mi := range messages {
+				cs.handleMsg(ctx, repairM1082Transport(t, mi), false)
+			}
+			require.Equal(t, cstypes.RoundStepPrevote, cs.GetRoundState().Step)
+			require.NotNil(t, cs.GetRoundState().ProposalBlock)
+			vote := repair80NextMessage(t, cs).Msg.(*VoteMessage).Vote
+			require.EqualValues(t, 1, vote.Round)
+			require.True(t, proposal.BlockID.Equals(vote.BlockID))
+			require.NoError(t, vote.Verify(f.genesis.ChainID, f.keys[local].Public()))
+			return nil
+		})
+		require.NoError(t, utils.IgnoreCancel(err))
+	})
+}
+
+func TestPBTSStandbyProposerResumesScheduledRound(t *testing.T) {
+	testRepairM1082NonzeroProposerTimeout(t)
 }

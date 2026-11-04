@@ -81,6 +81,14 @@ impl Smtp {
     /// server accepted. Returns how many were sent; the first failure stops
     /// the pass and leaves that file and the rest queued for the next pass.
     pub fn drain(&self, outbox: &Path) -> Result<usize, String> {
+        self.drain_confirmed(outbox, |_| Ok(()))
+    }
+
+    pub fn drain_confirmed(
+        &self,
+        outbox: &Path,
+        mut accepted: impl FnMut(&str) -> Result<(), String>,
+    ) -> Result<usize, String> {
         let entries = match fs::read_dir(outbox) {
             Ok(entries) => entries,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(0),
@@ -110,7 +118,15 @@ impl Smtp {
             let result = self.send(&verification);
             verification.token.zeroize();
             result?;
+            let digest = path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .ok_or("invalid delivery filename")?;
+            accepted(digest)?;
             fs::remove_file(&path).map_err(|error| format!("{}: {error}", path.display()))?;
+            fs::File::open(outbox)
+                .and_then(|f| f.sync_all())
+                .map_err(|e| e.to_string())?;
             sent += 1;
         }
         Ok(sent)

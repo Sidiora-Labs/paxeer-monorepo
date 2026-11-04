@@ -1,0 +1,23 @@
+[task.22.33.1168]
+audit = "22.30.53"
+base_revision = "e3d7e5828b39e4182e9559fb6bc28d74c2f37e0f"
+evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, commands, exits and private logs."
+baseline = "Not run: the explicit ordered gate contract requires complete implementation before qualification and forbids a separate manual verify invocation; no baseline failure is claimed."
+
+[finding.boundary-index-range]
+tests = ["TestRepairM_1168_BoundaryIndexRange"]
+repair = "Parse decimal uint32 indices with strconv.ParseUint at 32 bits; the loader retains whitespace normalization."
+proof = "Real boundary writes and file loads cover zero, MaxUint32 and adjacent valid values, whitespace, negative values and overflow; rejected decoding preserves the previous index."
+
+[finding.nil-batch-request]
+tests = ["TestRepairM_1168_NilBatchRequest"]
+repair = "Reject nil PutRequest entries within whole-batch prevalidation before any dereference, cache write or enqueue."
+proof = "Real memory and Pebble tables reject nil entries at the start, middle and end, including after valid primary/secondary groups; reads, caches, keymaps, counts, file bytes and reopened state remain unchanged, and subsequent valid writes survive restart."
+
+[finding.v3-truncation-fixture]
+tests = ["TestRepairM_1168_V3TruncationFixture", "TestTruncatedValueFile"]
+repair = "Use widened Address.Offset plus ValueSize extents and construct the interrupted durable state before opening, with no mutation of the recovered keymap."
+proof = "The real segment writer checkpoints complete groups to real keymaps, then produces an unacknowledged tail; raw V3 truncations at the complete-group boundary and inside the tail preserve every complete primary/secondary group and discard the entire torn group across two opens, for memory/Pebble and single/multiple shards."
+
+[wiring]
+request = "None: all repairs, fixture construction and proving tests are inside storage/db_engine/litt/disktable."

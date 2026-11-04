@@ -1,0 +1,10 @@
+[repair.22.33.1327]
+audit = "22.30.71"
+finding = "8"
+baseline_revision = "9d1a06c7f3635f5556023760af7a75ee9755efdd"
+implementation = "Both production connection managers already call the shared _redact_url before logging and pass the original authenticated URL to the transport; preserve that existing repair."
+proofs = ["test_finding_8_connection_and_reconnect_logs_redact_tokens", "test_finding_8_rejected_upgrade_logs_redact_tokens"]
+coverage = "Both sync and async real clients mint scope-bound tokens over HTTP, consume production Price frames over loopback WebSockets, reconnect with refreshed tokens, and receive actual 401/403 upgrade refusals; SDK DEBUG messages and raw logging arguments contain no credential while retaining endpoint, feed scope and connection-option diagnostics."
+baseline = "No baseline verification ran: the explicit implementation-first and bounded hf-build/hf-done order takes precedence over step 5; there was no earlier gate ledger and no baseline failure is claimed."
+evidence = "The runner's private hf-done gate record and the final JSON receipt name the exact verified candidate revision, command, exit code and log location."
+wiring_request = "Domain 15 (Scalar Python SDK generator owner): preserve _redact_url and _redact_log_data at both connection-manager logging sites in the upstream Scalar 0.36.5 WebSocket template producing sdk/chainflow/python/src/chainflow_data_gateway/resources/web_sockets/ws.py, tracked by sdk/chainflow/python/scalar-sdk.manifest.json; generator sources are outside this task's paths."

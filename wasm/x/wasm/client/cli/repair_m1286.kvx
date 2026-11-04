@@ -1,0 +1,20 @@
+[repair.22.33.1286]
+audit = "22.30.66"
+baseline = "No baseline gate was run: the explicit task order forbids tests before complete implementation and permits verification only through hf-done after hf-build; there was no prior gate ledger or repair test."
+evidence = "hf-build and hf-done record the exact candidate revision, command, exit code and private log in the runner gate ledger; the final response copies the last gate receipt."
+
+[finding.genesis-code-hash]
+repair = "GetAllCodes uses the same ioutils.Uncompress and MaxWasmSize bound as keeper.create before hashing pending uploads."
+tests = ["TestRepairM_1286_GenesisCodeHash", "TestRepairM_1286_GenesisNormalizationBounds"]
+wiring = "None: the existing shared normalizer in wasm/x/wasm/ioutils/ioutil.go already serves keeper upload handling (domain 6); no out-of-path change is required."
+
+[finding.cli-migration-error]
+repair = "MigrateContractCmd returns the MsgMigrateContract.ValidateBasic error before transaction submission."
+tests = ["TestRepairM_1286_MigrationValidation"]
+
+[finding.cli-page-key-panic]
+repair = "withPageKeyDecoded returns flag and decoding errors, propagated by all five paginated query commands."
+tests = ["TestRepairM_1286_PageKeyRoundTrip", "TestRepairM_1286_PageKeyErrors"]
+
+[gotcha.codec-interface]
+observed = "The SDK codec.Codec interface exposes UnmarshalAsJSON; UnmarshalJSON calls in the new cursor test did not compile. Both calls now use the declared interface method. No assertion changed."

@@ -95,7 +95,8 @@ pub fn encode_pay_exact(
     )
 }
 
-/// Encodes the seven native `draw` arguments in ABI order. The asset and
+/// Historical codec only: the native draw execution route is retired.
+/// Encodes the seven legacy `draw` arguments in ABI order. The asset and
 /// payer are determined by the grant; the second argument is the recipient.
 #[must_use]
 pub fn encode_draw(

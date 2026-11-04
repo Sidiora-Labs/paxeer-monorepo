@@ -20,6 +20,7 @@ import TokenTransferFilter from 'ui/shared/TokenTransfer/TokenTransferFilter';
 
 import AddressAdvancedFilterLink from './AddressAdvancedFilterLink';
 import AddressCsvExportLink from './AddressCsvExportLink';
+import AddressPageCsvExport from './AddressPageCsvExport';
 import AddressTokenTransfersLocal from './AddressTokenTransfersLocal';
 import useAddressTokenTransfersQuery from './useAddressTokenTransfersQuery';
 
@@ -113,10 +114,10 @@ const AddressTokenTransfers = ({ shouldRender = true, overloadCount, isQueryEnab
         typeFilter={ localQuery.filters.type }
         directionFilter={ localQuery.filters.filter }
       />
-      <AddressCsvExportLink
+      <AddressPageCsvExport
         address={ hash }
-        label="Download Page Data"
-        params={{ type: 'token-transfers', filterType: 'address', filterValue: localQuery.filters.filter }}
+        type="token-transfers"
+        items={ localQuery.query.data?.items }
         isLoading={ localQuery.query.isPlaceholderData }
       />
     </>
@@ -146,7 +147,7 @@ const AddressTokenTransfers = ({ shouldRender = true, overloadCount, isQueryEnab
           <Flex justifyContent="flex-end" mt={ 3 }>
             <AddressCsvExportLink
               address={ hash }
-              label="CSV Export"
+              label={ localQuery.filters.type.length || localQuery.filters.token ? 'Date-range CSV Export (all tokens)' : 'Date-range CSV Export' }
               params={{ type: 'token-transfers', filterType: 'address', filterValue: localQuery.filters.filter }}
               isLoading={ localQuery.query.isPlaceholderData }
             />

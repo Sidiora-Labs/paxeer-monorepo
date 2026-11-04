@@ -1,0 +1,46 @@
+[repair.22.33.684]
+audit = "22.30.167"
+source_revision = "ce0ae313d951470852be033a27706292da6bfc05"
+qualification = "hf-build then hf-done; the private gate ledger records the exact candidate revision, command, exit code and evidence log."
+baseline = "No pre-change tests ran: the explicit gate order requires complete implementation before testing and forbids manual verification; no baseline failures are claimed."
+wiring_requests = "None: all four proposals are implemented within sdk/x/gov/simulation."
+
+[finding.gov-decoder-endian]
+test = "TestRepairM_684_DecoderEndian"
+repair = "Use the canonical proposal-ID decoder; decode non-palindromic IDs written by the real keeper to the counter and both proposal queues."
+
+[finding.gov-simulation-vote-id]
+test = "TestRepairM_684_ScheduledVotesTargetSubmittedProposal"
+repair = "Capture the ID before transaction delivery advances the counter; deliver the generated signed submission and scheduled votes through BaseApp to the real governance keeper and assert votes belong to the accepted proposal."
+
+[finding.gov-simulation-empty-operation]
+test = "TestRepairM_684_ScheduleThroughExecutor"
+repair = "Allocate exactly numVotes entries; run the generated schedule through the production simulation executor, commit its stores and assert the number of persisted votes and queued log entries."
+
+[finding.gov-simulation-veto-field]
+test = "TestRepairM_684_VetoFieldThroughProposalHandler"
+repair = "Generate veto_threshold; apply generated tally objects through the registered parameter proposal handler and assert the real keeper's stored veto threshold."
+
+[gotcha.baseline-order]
+observed = "Step 8 requests a baseline verify while the explicit ordered gates forbid tests before complete implementation and manual verification."
+action = "Follow the ordered gates and record baseline as unrun."
+
+[gotcha.graph-scope]
+observed = "The local graph omits simulation peers outside its indexed scope, so cg searches do not expose the executor and transaction fixtures."
+action = "Read the real on-disk package after graph context and search; use its production executor and keeper interfaces."
+
+[qualification.repair1]
+revision = "ceb9ab753b2642cdec0654659d3eb80ab59089bb"
+command = "cg spec done 22.33.684 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The same-package test imports gov, whose module imports simulation, creating a test import cycle."
+repair = "Use an external test package and complete the real keeper fixture's required staking module accounts and post-genesis delivery height without altering assertions."
+
+[gotcha.test-import-cycle]
+observed = "The gov module imports gov/simulation, so integration tests importing gov must use simulation_test."
+action = "Exercise exported simulation functions from the external test package."
+
+[gotcha.keeper-fixture]
+observed = "The real staking keeper requires both pool module accounts and signature verification uses account number zero at genesis height."
+action = "Configure the real pool accounts and advance the direct-delivery fixture to height one."

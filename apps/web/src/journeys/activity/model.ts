@@ -33,6 +33,8 @@ export const STATUS_KEY_BY_STATE: Readonly<Record<JourneyState, StatusKey>> = Ob
   "still-checking": "still_checking",
   refused: "refused",
   "waiting-for-you": "waiting_for_you",
+  "awaiting-approval": "waiting_for_you",
+  closed: "refused",
 });
 
 const KIND_TOKENS: Readonly<Record<ActivityEntryKind, string>> = Object.freeze({

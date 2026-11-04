@@ -18,12 +18,17 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { PaxeerWallet, type OAuthProvider, type PublicWallet } from "./sdk";
-import { getAuthRedirectUrl, getPaxeerWallet, resolvePaxeerConfig } from "./client";
+import {
+  getAuthRedirectUrl,
+  getPaxeerWallet,
+  resolvePaxeerConfig,
+} from "./client";
 import { reportUserFacingError } from "@/core/user-facing-error";
 
 const SIGN_IN_FAILED = "Sign-in did not work, try again";
@@ -69,13 +74,36 @@ export type { PaxeerContextValue };
 export function PaxeerProvider({ children }: PaxeerProviderProps) {
   const wallet = useMemo<PaxeerWallet | null>(() => getPaxeerWallet(), []);
 
-  const [session, setSession] = useState<Session | null>(null);
-  const [user, setUser] = useState<User | null>(null);
-  const [publicWallet, setPublicWallet] = useState<PublicWallet | null>(null);
+  const generation = useRef(0);
+  const [identity, setIdentity] = useState<{
+    session: Session | null;
+    generation: number;
+  }>({ session: null, generation: 0 });
+  const session = identity.session;
+  const user: User | null = session?.user ?? null;
+  const [walletRecord, setWalletRecord] = useState<{
+    wallet: PublicWallet;
+    userId: string;
+    generation: number;
+  } | null>(null);
+  const publicWallet =
+    walletRecord?.userId === user?.id &&
+    walletRecord?.generation === identity.generation &&
+    identity.generation === generation.current
+      ? (walletRecord?.wallet ?? null)
+      : null;
   const [isLoading, setIsLoading] = useState(true);
   const [authBusy, setAuthBusy] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [refreshTick, setRefreshTick] = useState(0);
+
+  const replaceSession = useCallback((next: Session | null) => {
+    generation.current += 1;
+    setWalletRecord(null);
+    setAuthError(null);
+    setIsLoading(Boolean(next));
+    setIdentity({ session: next, generation: generation.current });
+  }, []);
 
   // Hydrate session + subscribe to auth state changes.
   useEffect(() => {
@@ -84,22 +112,20 @@ export function PaxeerProvider({ children }: PaxeerProviderProps) {
       return;
     }
     let alive = true;
+    const initialGeneration = generation.current;
     void (async () => {
       const s = await wallet.getSession();
-      if (!alive) return;
-      setSession(s);
-      setUser(s?.user ?? null);
+      if (!alive || generation.current !== initialGeneration) return;
+      replaceSession(s);
     })();
     const unsub = wallet.onAuthStateChange((_event, s) => {
-      setSession(s);
-      setUser(s?.user ?? null);
-      if (!s) setPublicWallet(null);
+      if (alive) replaceSession(s);
     });
     return () => {
       alive = false;
       unsub();
     };
-  }, [wallet]);
+  }, [wallet, replaceSession]);
 
   // Provision/fetch the wallet record whenever we have an auth session.
   useEffect(() => {
@@ -108,30 +134,46 @@ export function PaxeerProvider({ children }: PaxeerProviderProps) {
       return;
     }
     let alive = true;
+    const isCurrent = () => alive && generation.current === identity.generation;
     setIsLoading(true);
     void (async () => {
       try {
         if (!session) {
-          if (alive) {
-            setPublicWallet(null);
+          if (isCurrent()) {
+            setWalletRecord(null);
             setIsLoading(false);
           }
           return;
         }
-        const r = await wallet.getWallet();
-        if (!alive) return;
-        setPublicWallet(r.wallet);
+        const r = await wallet.getWallet({
+          userId: session.user.id,
+          accessToken: session.access_token,
+          assertCurrent() {
+            if (!isCurrent()) throw new Error("the wallet session changed");
+          },
+        });
+        if (!isCurrent()) return;
+        setWalletRecord({
+          wallet: r.wallet,
+          userId: session.user.id,
+          generation: identity.generation,
+        });
         setAuthError(null);
       } catch (err) {
-        if (alive) setAuthError(reportUserFacingError(err, SIGN_IN_FAILED, "embedded-session"));
+        if (isCurrent()) {
+          setWalletRecord(null);
+          setAuthError(
+            reportUserFacingError(err, SIGN_IN_FAILED, "embedded-session"),
+          );
+        }
       } finally {
-        if (alive) setIsLoading(false);
+        if (isCurrent()) setIsLoading(false);
       }
     })();
     return () => {
       alive = false;
     };
-  }, [wallet, session, refreshTick]);
+  }, [wallet, session, identity.generation, refreshTick]);
 
   const signInWithEmail = useCallback(
     async (email: string): Promise<{ ok: boolean; error?: string }> => {
@@ -139,9 +181,16 @@ export function PaxeerProvider({ children }: PaxeerProviderProps) {
       setAuthBusy(true);
       setAuthError(null);
       try {
-        const { error } = await wallet.signInWithEmail(email, getAuthRedirectUrl());
+        const { error } = await wallet.signInWithEmail(
+          email,
+          getAuthRedirectUrl(),
+        );
         if (error) {
-          const message = reportUserFacingError(error, "Could not send the sign-in link, check your email and try again", "email-sign-in");
+          const message = reportUserFacingError(
+            error,
+            "Could not send the sign-in link, check your email and try again",
+            "email-sign-in",
+          );
           setAuthError(message);
           return { ok: false, error: message };
         }
@@ -165,7 +214,9 @@ export function PaxeerProvider({ children }: PaxeerProviderProps) {
         await wallet.signInWithOAuth(provider, getAuthRedirectUrl());
         // Browser redirects away — control never returns here on success.
       } catch (err) {
-        setAuthError(reportUserFacingError(err, SIGN_IN_FAILED, "oauth-sign-in"));
+        setAuthError(
+          reportUserFacingError(err, SIGN_IN_FAILED, "oauth-sign-in"),
+        );
         setAuthBusy(false);
         throw err;
       }
@@ -176,13 +227,13 @@ export function PaxeerProvider({ children }: PaxeerProviderProps) {
   const signOut = useCallback(async () => {
     if (!wallet) return;
     setAuthBusy(true);
+    replaceSession(null);
     try {
       await wallet.signOut();
-      setPublicWallet(null);
     } finally {
       setAuthBusy(false);
     }
-  }, [wallet]);
+  }, [wallet, replaceSession]);
 
   const refresh = useCallback(() => setRefreshTick((t) => t + 1), []);
 
@@ -216,7 +267,9 @@ export function PaxeerProvider({ children }: PaxeerProviderProps) {
     ],
   );
 
-  return <PaxeerContext.Provider value={value}>{children}</PaxeerContext.Provider>;
+  return (
+    <PaxeerContext.Provider value={value}>{children}</PaxeerContext.Provider>
+  );
 }
 
 // ─── Hooks ────────────────────────────────────────────────────────────────────

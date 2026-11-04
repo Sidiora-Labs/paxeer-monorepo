@@ -15,6 +15,13 @@ import time
 import unittest
 
 
+from test_repair_22_31_355 import (
+    broker, client, directory as generation_directory, native, native_arguments,
+    native_configuration, paths, receive, request, reset_client, staged_store,
+    tls, traced_activation, reset as native_reset,
+)
+import pytest
+
 HELPER = Path(__file__).resolve().parents[1] / 'reset_state.py'
 SPEC = importlib.util.spec_from_file_location('reset_state', HELPER)
 reset_state = importlib.util.module_from_spec(SPEC)
@@ -465,6 +472,107 @@ print('EACCES state_unavailable')
         finally:
             first.close()
             second.close()
+
+
+
+
+@pytest.mark.parametrize('interrupted', [False, True])
+def test_staged_native_reset_success_and_interrupted_reopen(tmp_path, native_configuration, interrupted):
+    config = native_configuration
+    data, state, run = paths(tmp_path)
+    args = native.parser().parse_args(['supervise', *native_arguments(config, data, state, run)])
+    baseline = native.bootstrap(args, commands=config['peer'])
+    store = staged_store(data, state, run)
+    assert reset_client(store, request()) == reset_state.error_response('reset_timeout')
+    record = store.active()
+    identity = record['reset_id']
+    assert record['phase'] == 'admitted' and record['generation'] == 2
+    assert native.generation_binding(data) == baseline
+    stage = Path(generation_directory.prepare_stage(data, state, identity)) / 'data'
+    store.transition(identity, 'admitted', 'stopping')
+    store.transition(identity, 'stopping', 'bootstrapping')
+    binding = native.bootstrap(args, data=stage, commands=config['peer'])
+    generation_directory.seal_generation(data, stage, identity, 2, binding)
+    store.transition(identity, 'bootstrapping', 'prepared', {'genesis': binding})
+    store.transition(identity, 'prepared', 'activating')
+    with pytest.raises(native_reset.StoreError) as error:
+        store.transition(identity, 'activating', 'completed')
+    assert error.value.code == 'activation_not_ready'
+    if interrupted:
+        import signal
+        code, synced, injected = traced_activation(data, stage, binding, ('kill', 0))
+        assert code == -signal.SIGKILL and injected and synced == [str(data.parent)]
+        assert not (data / generation_directory.ACTIVATION_MARKER).exists()
+    else:
+        assert generation_directory.activate_generation(data, stage, identity, 2, binding) == 'activated'
+    reopened = staged_store(data, state, run)
+    assert reopened.active()['phase'] == 'activating'
+    assert reopened.generation() == 1
+    assert reset_client(reopened, request('status'))['state'] == 'activating'
+    assert generation_directory.activate_generation(data, stage, identity, 2, binding) == 'active'
+    selected_inode = data.stat().st_ino
+    assert not reopened._activated_ready(reopened.active())
+    process = native.start_native(args, reopened, reopened.active(), commands=config['peer'])
+    try:
+        expected = {'state': 'reset', 'reset_id': identity, 'generation': 2}
+        assert reset_client(reopened, request('status')) == expected
+        assert reopened.generation() == 2 and reopened.active() is None
+        assert native.generation_binding(data) == binding
+        assert data.stat().st_ino == selected_inode
+        with broker(data, state, run) as socket_path:
+            result, descriptors = receive(socket_path, 2)
+            try:
+                adopted = client.child_environment(result, descriptors, 'core')
+                assert adopted['LAYERX_CORE_CHAIN_RPC_URL'] == config['chain_rpc_url']
+                assert adopted['LAYERX_GENERATION_NUMBER'] == '2'
+                assert result['reset_id'] == identity
+            finally:
+                client.close_descriptors(descriptors)
+    finally:
+        native.stop_process(process)
+    durable = (state / 'state.json').read_bytes()
+    # Reopening the real store and native peer must preserve the original response.
+    reopened = staged_store(data, state, run)
+    assert reset_client(reopened, request()) == expected
+    assert reopened.completed()['response'] == expected
+    process = native.start_native(args, reopened, reopened.completed(), commands=config['peer'])
+    try:
+        assert reset_client(reopened, request('status')) == expected
+        assert (state / 'state.json').read_bytes() == durable
+        assert data.stat().st_ino == selected_inode
+        assert native.generation_binding(data) == binding
+    finally:
+        native.stop_process(process)
+
+
+def test_staged_native_reset_refuses_corruption_without_success(tmp_path, native_configuration):
+    config = native_configuration
+    data, state, run = paths(tmp_path)
+    args = native.parser().parse_args(['supervise', *native_arguments(config, data, state, run)])
+    native.bootstrap(args, commands=config['peer'])
+    store = staged_store(data, state, run)
+    record = store.admit(request(), (os.geteuid(), os.getegid()))
+    stage = Path(generation_directory.prepare_stage(data, state, record['reset_id'])) / 'data'
+    store.transition(record['reset_id'], 'admitted', 'stopping')
+    store.transition(record['reset_id'], 'stopping', 'bootstrapping')
+    binding = native.bootstrap(args, data=stage, commands=config['peer'])
+    generation_directory.seal_generation(data, stage, record['reset_id'], 2, binding)
+    store.transition(record['reset_id'], 'bootstrapping', 'prepared', {'genesis': binding})
+    store.transition(record['reset_id'], 'prepared', 'activating')
+    generation_directory.activate_generation(data, stage, record['reset_id'], 2, binding)
+    process = native.start_native(args, store, record=dict(store.active()), commands=config['peer'])
+    try:
+        # Corrupt a real committed artifact before allowing the store to materialize success.
+        native.write_file(data / 'config/genesis.json', b'{"chain_id":"corrupted"}')
+        reopened = staged_store(data, state, run)
+        assert reopened.active()['phase'] == 'activating'
+        assert reopened.generation() == 1
+        assert reset_client(reopened, request('status'))['state'] == 'activating'
+        assert reopened.completed() is None
+        with pytest.raises(ValueError, match='canonical generation artifact changed'):
+            generation_directory.activate_generation(data, stage, record['reset_id'], 2, binding)
+    finally:
+        native.stop_process(process)
 
 
 if __name__ == '__main__':

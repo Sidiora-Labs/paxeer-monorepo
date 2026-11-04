@@ -590,7 +590,7 @@ fn await_authenticated_receipt(
     config: &Config,
     tx_hash: [u8; 32],
     deadline: Duration,
-) -> Result<Option<layerx_client::rpc::receipt::AuthenticatedReceipt>, String> {
+) -> Result<layerx_client::rpc::receipt::Lookup, String> {
     use layerx_client::rpc::receipt::{lookup_authenticated, Lookup, LookupContext};
     let started = Instant::now();
     let keys = config
@@ -598,25 +598,46 @@ fn await_authenticated_receipt(
         .receipt_keys()
         .map_err(|error| format!("receipt keys unavailable: {error:?}"))?;
     loop {
-        match lookup_authenticated(
+        let outcome = lookup_authenticated(
             &config.sequencer,
             tx_hash,
             LookupContext {
                 receipt_keys: &keys,
             },
         )
-        .map_err(|error| format!("receipt lookup failed: {error:?}"))?
-        {
-            Lookup::Verified(receipt) => return Ok(Some(receipt)),
-            Lookup::Absent | Lookup::Submitted { .. } => {}
+        .map_err(|error| format!("receipt lookup failed: {error:?}"))?;
+        if let Lookup::Verified(receipt) = &outcome {
+            if !keys.iter().any(|key| {
+                key.key_id == receipt.execution().key_id
+                    && key.public_key == receipt.execution().signing_key
+                    && (key.first_height..=key.last_height).contains(&receipt.height())
+            }) {
+                return Err("receipt signing key differs".to_owned());
+            }
+            return Ok(outcome);
         }
         let Some(remaining) = deadline
             .checked_sub(started.elapsed())
             .filter(|remaining| !remaining.is_zero())
         else {
-            return Err("receipt_unavailable".to_owned());
+            return Ok(outcome);
         };
         thread::sleep(remaining.min(Duration::from_millis(250)));
+    }
+}
+
+enum ReceiptRead {
+    Absent,
+    Submitted { tx_hash: [u8; 32], nonce: u64 },
+    Verified(ReceiptFacts),
+}
+
+impl ReceiptRead {
+    fn into_verified(self) -> Option<ReceiptFacts> {
+        match self {
+            Self::Verified(facts) => Some(facts),
+            Self::Absent | Self::Submitted { .. } => None,
+        }
     }
 }
 
@@ -624,15 +645,20 @@ fn await_receipt(
     config: &Config,
     tx_hash: [u8; 32],
     deadline: Duration,
-) -> Result<Option<ReceiptFacts>, String> {
-    let Some(receipt) = await_authenticated_receipt(config, tx_hash, deadline)? else {
-        return Ok(None);
+) -> Result<ReceiptRead, String> {
+    use layerx_client::rpc::receipt::Lookup;
+    let receipt = match await_authenticated_receipt(config, tx_hash, deadline)? {
+        Lookup::Absent => return Ok(ReceiptRead::Absent),
+        Lookup::Submitted { tx_hash, nonce } => {
+            return Ok(ReceiptRead::Submitted { tx_hash, nonce });
+        }
+        Lookup::Verified(receipt) => receipt,
     };
     let landing = receipt.landing().ok_or("native receipt has not landed")?;
     let (batch, state_root) =
         layerx_platform_core::native_committed_state(&config.sequencer, landing.block_number)?;
     validate_receipt_landing(&receipt, &batch)?;
-    Ok(Some(ReceiptFacts {
+    Ok(ReceiptRead::Verified(ReceiptFacts {
         activity_id: receipt.activity_id(),
         global_sequence: receipt.global_sequence(),
         result_code: receipt.result_code().raw(),
@@ -779,13 +805,20 @@ fn receipt_route(config: &Config, activity_hex: &str) -> Response {
         return refusal(400, "invalid_argument", None);
     }
     match await_receipt(config, activity_id, Duration::ZERO) {
-        Ok(Some(facts)) => success(&serde_json::json!({
+        Ok(ReceiptRead::Verified(facts)) => success(&serde_json::json!({
             "activity_id": activity_hex,
             "receipt": hex_encode(&facts.canonical),
             "block_hash": hex_encode(&facts.batch_id),
             "state_root": hex_encode(&facts.state_root),
         })),
-        Ok(None) => refusal(404, "not_found", None),
+        Ok(ReceiptRead::Absent) => refusal(404, "not_found", None),
+        Ok(ReceiptRead::Submitted { tx_hash, nonce }) => json_response(
+            202,
+            &serde_json::json!({"result": {
+                "state": "pending", "rung": "submitted",
+                "activity_id": hex_encode(&tx_hash), "nonce": nonce.to_string()
+            }}),
+        ),
         Err(error) => {
             eprintln!("layerx-core-boundary: {error}");
             refusal(503, "receipt_unavailable", Some(5))
@@ -1364,6 +1397,7 @@ fn fund_send(
                 config.receipt_deadline,
             )
             .map_err(|_| refusal(503, "receipt_unavailable", Some(5)))?
+            .into_verified()
             .ok_or_else(|| refusal(503, "receipt_unavailable", Some(5)))?;
             return intent_funding_response(config, &intent, &facts, true);
         }
@@ -2003,10 +2037,12 @@ fn retain_funding_receipts(config: &Config) -> Result<(), Response> {
                     .receipt_deadline
                     .checked_sub(started.elapsed())
                     .ok_or_else(|| refusal(503, "receipt_unavailable", Some(5)))?;
-                let receipt =
+                let lookup =
                     await_authenticated_receipt(config, intent.signed.transaction_hash, remaining)
-                        .map_err(|_| refusal(503, "receipt_unavailable", Some(5)))?
-                        .ok_or_else(|| refusal(503, "receipt_unavailable", Some(5)))?;
+                        .map_err(|_| refusal(503, "receipt_unavailable", Some(5)))?;
+                let layerx_client::rpc::receipt::Lookup::Verified(receipt) = lookup else {
+                    return Err(refusal(503, "receipt_unavailable", Some(5)));
+                };
                 if receipt.execution().signing_key != intent.sequencer_key {
                     return Err(refusal(503, "receipt_unavailable", Some(5)));
                 }

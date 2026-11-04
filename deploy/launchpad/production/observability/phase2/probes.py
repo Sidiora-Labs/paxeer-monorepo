@@ -144,12 +144,19 @@ def run_once_concurrent(binding, config, root):
 def exposition(binding, observations):
     rows=[]
     for probe in binding['probes']:
-        labels='journey="'+probe['journey']+'",environment="'+binding['environment']+'",zone="zone-a"'
+        labels='journey="'+probe['journey']+'",environment="'+binding['environment']+'",zone="'+binding['synthetic']['zone']+'"'
         rows.append('synthetic_journey_expected{'+labels+'} 1')
     for item in observations:
-        labels='journey="'+item['journey']+'",environment="'+item['environment']+'",zone="zone-a"'
+        labels='journey="'+item['journey']+'",environment="'+item['environment']+'",zone="'+binding['synthetic']['zone']+'"'
         rows.extend(['synthetic_journey_success{'+labels+'} '+str(item['success']),'synthetic_journey_last_observed_timestamp_seconds{'+labels+'} '+str(item['observed_at'])])
     return ('\n'.join(rows)+'\n').encode()
+
+
+def write_observations(binding, config, observations, output):
+    validate_binding(binding, config)
+    require(Path(output).absolute() == Path(binding['synthetic']['textfile_directory']),
+            'probe output differs from admitted synthetic mount')
+    atomic_write(Path(output)/'synthetic.prom', exposition(binding, observations))
 
 
 def main():
@@ -158,7 +165,7 @@ def main():
     binding,config=load(a.binding),load(a.config)
     for cycle in range(a.cycles):
         started=time.monotonic();observations=run_once(binding,config,a.root)
-        atomic_write(Path(a.output)/'synthetic.prom',exposition(binding,observations))
+        write_observations(binding, config, observations, a.output)
         atomic_write(Path(a.output)/('cycle-%04d.json'%cycle),canonical(observations))
         if cycle+1<a.cycles:time.sleep(max(0,30-(time.monotonic()-started)))
 

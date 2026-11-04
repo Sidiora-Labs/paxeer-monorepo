@@ -131,7 +131,7 @@ func main() {
 	if *strct == "" {
 		log.Fatal("You must specify a non-empty -struct")
 	}
-	td, err := ParseMetricsDir(".", *strct)
+	td, err := ParseMetricsDir(*dir, *strct)
 	if err != nil {
 		log.Fatalf("Parsing file: %v", err)
 	}

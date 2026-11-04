@@ -1,0 +1,48 @@
+[repair.22.33.1486]
+audit = "22.30.88"
+base = "e3d7e5828b39e4182e9559fb6bc28d74c2f37e0f"
+baseline = "No prior gate ledger or repair_22_33_1486.rs existed. No baseline test ran: the explicit gate order forbids a direct verify run before hf-build and hf-done. No pre-change test failure is claimed."
+evidence = "hf-build and hf-done retain the exact candidate revision, command, exit code and private log; the final response copies the last gate evidence."
+constraints = "No spec bookkeeping, registry, reference binary, manifest, unrelated test, commit or push is changed by this implementation; the runner owns publication."
+
+[finding.secret-file-open]
+test = "secret_file_open_refuses_symlinks_replacement_and_unprotected_descriptors"
+change = "SecretFile opens with NOFOLLOW and NONBLOCK, validates descriptor type, private mode, effective owner, single link and bounded length, and binds subsequent reads to the original device/inode. TLS, provider credentials and CLI protected files use the same reader."
+
+[finding.anchor-registry-optionality]
+test = "anchor_registry_optionality_round_trips_required_pin_and_protected_credential"
+additional_tests = "config_proof::Option; config_proof::String; config_proof::Vec; config_proof::u64; config_proof::u128"
+change = "The platform-ramps contract requires PathBuf and documents the mandatory DER pin; actual typed producer serialization, decoding and client construction keep missing/null/malformed anchor and symlink credential refusals. Committed test-only TLS identity removes subprocess prerequisites."
+wiring = "Domain 8: spec/layerx-merge/interfaces.kvx interface 8.cfg-ramp-toolkit-layerxconfig-rpc-trust-anchor-der-j41 must publish rpc_trust_anchor_der: PathBuf, not Option<PathBuf>, matching the corrected platform-ramps contract."
+
+[finding.transaction-cache-growth]
+test = "transaction_cache_growth_uses_durable_ownership_across_terminal_orders_and_restart"
+change = "LayerxClient retains no transaction map; PreparedLayerx transfers owned signed bytes through submission to durable journal evidence. Receipt-only lookup has no hidden preparation cache; recovery supplies journal bytes or authenticated committed block inclusion. Twelve successive prepared orders reach six refusals and six authenticated committed completions; journal and client reopen and recover the same exact bytes and terminal evidence."
+
+[finding.draw-registry-signature]
+test = "draw_registry_signature_preserves_historical_authority_and_destination"
+additional_test = "evm_order::off_ramp_draw_follows_the_native_ledger_abi"
+change = "The ledger-auth contract explicitly retires draw execution and publishes grant_id, recipient, amount, idempotency_key, sequence, purpose_hash, context_hash with their exact Rust types; signed transaction transport preserves the seven historical words. Maintained off-ramp compilation selects typed customer budget authority and 0x101B."
+wiring = "Domain 8: spec/layerx-merge/interfaces.kvx interface 8.rs-ramp-toolkit-evm-encode-draw-j41 must use the seven corrected argument meanings and mark execution retired, retaining only historical codec availability."
+
+[finding.presentation-legacy-identifier]
+test = "presentation_legacy_identifier_versions_wire_and_recovers_transaction_hash"
+change = "Presentation v2, GET order response producer and serialized verifier legs publish transaction_hash as identical 0x-prefixed hex; current presentation never substitutes a legacy activity identifier. Explicit presentation_v1 reads only historical activity evidence, and the deprecated Rust compatibility member is absent from v2 JSON. Journal record field names and hashes remain unchanged."
+wiring = "Domain 8: services/platform/ramps/reference/src/main.rs::order_response must consume OrderSnapshot::response() so its hand-written GET evidence envelope adopts transaction_hash; HTTP consumers must select version 2."
+wiring_2 = "Domain 8: services/platform/ramps/toolkit/tests/engine_legs.rs must migrate its deprecated presentation().activity_id assertion to transaction_hash when that test is in scope; the Rust compatibility member preserves compilation and behavior meanwhile."
+
+[finding.offramp-account-disagreement]
+test = "offramp_account_disagreement_binds_compiler_signed_transport_and_receipt_destination"
+additional_test = "evm_order::verify_order_receipt_accepts_matching_payment_log"
+change = "PaymentAccounts centralizes maintained protocol-three account derivation for compilers and verifier. Customer budgetSpend targets the operator main account, and signed calldata plus pinned signed-log verification refuse another destination, amount, budget, emitter or topic shape. The retired PaymentDrawn success fixture is replaced with the maintained BudgetSpent shape."
+wiring = "Domain 2: precompiles/layerxpay native proof owners must publish a recorded budgetSpend execution transcript for the Rust-only gate; this scope exercises the production Rust compiler, transaction codec, signed receipt/log verifier and journal with loopback fixture peers, and does not claim native Go execution or manufacture a native recording."
+
+[fixtures]
+tls = "ca.pem, ca.der and identity.p12 are committed localhost test-only credentials, password ramp-config-proof; no live service, environment variable, device, external binary or native artifact is needed at verification time."
+
+[qualification.repair_1]
+revision = "93b833c2c488ef9af980103965c9f40562c3220b"
+command = "cg spec done 22.33.1486 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Fifteen cases passed; the ownership test's first prepare_payment returned Provider because localhost resolved to IPv6 while the fixture listener bound IPv4. Bind the loopback listener through the same localhost hostname; no assertion or production transport check changes."

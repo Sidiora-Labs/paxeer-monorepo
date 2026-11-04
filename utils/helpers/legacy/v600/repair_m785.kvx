@@ -1,0 +1,25 @@
+[task.22.33.785]
+mode = "BUILD"
+scope = ["utils/helpers/associate.go", "utils/helpers/legacy/v600"]
+base_revision = "e3d7e5828b39e4182e9559fb6bc28d74c2f37e0f"
+baseline = "Not run: the explicit implementation-first gate order prohibits the unchanged-tree verify requested by step 6; no baseline failure is claimed."
+evidence = "hf-build and hf-done record the exact qualified candidate revision, command, exit and private log in /out/run/gates.jsonl."
+wiring_request = "precompiles/addr/legacy/v600/addr.go, owning domain 16: pass the owning selector's sdk.Context to helpers.GetAddressesForContext and helpers.GetAddressesFromPubkeyBytesForContext for historical conversion; retain precompiles/addr/setup.go selection of v600 only in [v6.0.0, v6.0.1) and current execution on precompiles/addr/addr.go with utils/helpers/associate.go."
+
+[finding.legacy-key-125]
+tests = ["TestRepairM_785_KeyRoutingAndReplay", "TestRepairM_785_InvalidNewKeys", "TestRepairM_785_AssociationRejectsNewInvalidKey"]
+repair = "Context-free public conversion validates secp256k1 points; the public Pax key parser returns errors instead of ignoring them; signature recovery refuses nil and invalid integers. Unchecked conversion is private and selected only for tracing with a valid upgrade in [v6.0.0, v6.0.1)."
+proof = "Real geth signing, transaction encoding and decoding, recovery and address derivation preserve replay identities at routing boundaries. Malformed new input returns no partial identity and cannot mutate real keeper stores. The historical malformed-key panic is asserted explicitly inside its replay range."
+
+[finding.legacy-association-126]
+tests = ["TestRepairM_785_AssociationCurrentRouting", "TestRepairM_785_AssociationHistoricalReplay", "TestRepairM_785_AssociationRejectsNewInvalidKey"]
+repair = "Legacy association and direct migration delegate to the current helper outside the historical tracing range. Current association requires a valid compressed SDK key before any state writes. Original historical association and migration semantics are retained inside the range."
+proof = "Real account, bank and EVM keepers over in-memory stores prove missing-target creation, coin and wei migration, current account number and sequence preservation, current self-migration retention, and historical missing-target and identical-account outcomes. Routed current stores and events equal direct current execution."
+
+[gotcha.gate-order]
+observed = "The baseline-verify step contradicts the explicit implementation-first order and bounded gates; spec and GOTCHA files are outside the user-authorized scope."
+resolution = "Follow the explicit gate order and keep the task record and wiring request inside the scoped legacy directory."
+
+[gotcha.real-mapping]
+observed = "The production EVM SetAddressMapping creates a missing target account before historical association reads it."
+resolution = "Assert the actual historical missing-target outcome through real keepers rather than inventing a nil-returning peer."

@@ -75,16 +75,26 @@ public final class ProgramsClient {
     }
 
     public static final class Programs implements AutoCloseable {
+        static final int MAXIMUM_RESPONSE_BYTES = 8 * 1024 * 1024;
         private final java.net.URI endpoint;
         private final java.net.http.HttpClient http;
+        private final Duration timeout;
         private final com.fasterxml.jackson.databind.ObjectMapper json = new com.fasterxml.jackson.databind.ObjectMapper();
         private final java.util.concurrent.atomic.AtomicLong ids = new java.util.concurrent.atomic.AtomicLong();
 
+        /** Use HTTPS in production; HTTP development origins must explicitly name loopback. */
         public Programs(java.net.URI endpoint) {
-            this.endpoint = Objects.requireNonNull(endpoint, "endpoint");
-            if (!Set.of("http", "https").contains(endpoint.getScheme()) || endpoint.getHost() == null
-                    || endpoint.getUserInfo() != null || endpoint.getFragment() != null) invalid();
-            this.http = java.net.http.HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
+            this(HttpProductionTransport.requireHttpUri(endpoint), java.net.http.HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build(),
+                Duration.ofSeconds(30));
+        }
+
+        /** The supplied client defines certificate trust; redirects must remain disabled. */
+        public Programs(java.net.URI endpoint, java.net.http.HttpClient http, Duration timeout) {
+            this.endpoint = HttpProductionTransport.requireHttpUri(endpoint);
+            this.http = Objects.requireNonNull(http, "http");
+            this.timeout = Objects.requireNonNull(timeout, "timeout");
+            if (http.followRedirects() != java.net.http.HttpClient.Redirect.NEVER
+                    || timeout.isZero() || timeout.isNegative()) invalid();
         }
 
         @Override public void close() { http.close(); }
@@ -93,10 +103,20 @@ public final class ProgramsClient {
             long id = ids.incrementAndGet();
             ObjectNode body = object().put("jsonrpc", "2.0").put("id", id).put("method", method);
             body.set("params", params);
-            var request = java.net.http.HttpRequest.newBuilder(endpoint).timeout(Duration.ofSeconds(30))
+            var request = java.net.http.HttpRequest.newBuilder(endpoint).timeout(timeout)
                 .header("Content-Type", "application/json")
                 .POST(java.net.http.HttpRequest.BodyPublishers.ofString(body.toString())).build();
-            return http.sendAsync(request, java.net.http.HttpResponse.BodyHandlers.ofString()).thenApply(response -> {
+            return BoundedHttpResponse.send(http, request, MAXIMUM_RESPONSE_BYTES, timeout).handle((response, failure) -> {
+                if (failure != null) {
+                    Throwable cause = failure;
+                    while (cause.getCause() != null) cause = cause.getCause();
+                    if (cause instanceof BoundedHttpResponse.LimitExceeded) throw decodeFailure();
+                    boolean mutating = "eth_sendRawTransaction".equals(method);
+                    throw new PlatformSdkException(mutating ? PlatformSdkException.Code.UNKNOWN_OUTCOME
+                            : PlatformSdkException.Code.TRANSPORT_FAILURE,
+                        mutating ? PlatformSdkException.Retry.UNKNOWN_OUTCOME : PlatformSdkException.Retry.SAFE,
+                        null, null, null);
+                }
                 if (response.statusCode() != 200) throw new PlatformSdkException(PlatformSdkException.Code.TRANSPORT_FAILURE,
                     PlatformSdkException.Retry.SAFE, null, null, null);
                 try {

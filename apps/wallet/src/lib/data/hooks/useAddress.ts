@@ -1,6 +1,6 @@
 /** React hook — fetch address info + counters from Blockscout */
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { getAddress, getAddressCounters } from '../api/addresses';
 import type { AddressResponse, AddressCounters } from '../types/address';
 
@@ -19,10 +19,27 @@ export function useAddress(): UseAddressResult {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const lastHashRef = useRef<string>('');
+  const requestIdRef = useRef(0);
+
+  useEffect(
+    () => () => {
+      requestIdRef.current += 1;
+    },
+    []
+  );
 
   const fetchData = useCallback(async (addressHash: string) => {
-    if (!addressHash) return;
+    const requestId = ++requestIdRef.current;
+    if (lastHashRef.current !== addressHash) {
+      setAddress(null);
+      setCounters(null);
+    }
     lastHashRef.current = addressHash;
+    if (!addressHash) {
+      setLoading(false);
+      setError(null);
+      return;
+    }
     setLoading(true);
     setError(null);
 
@@ -31,12 +48,16 @@ export function useAddress(): UseAddressResult {
         getAddress(addressHash),
         getAddressCounters(addressHash),
       ]);
+      if (requestId !== requestIdRef.current) return;
       setAddress(addrRes);
       setCounters(countersRes);
     } catch (err) {
+      if (requestId !== requestIdRef.current) return;
       setError(err instanceof Error ? err : new Error(String(err)));
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) {
+        setLoading(false);
+      }
     }
   }, []);
 

@@ -120,8 +120,17 @@ func (sk *PrivKey) Unmarshal(bz []byte, curve elliptic.Curve, expectedSize int) 
 		return fmt.Errorf("wrong ECDSA SK bytes, expecting %d bytes", expectedSize)
 	}
 
-	sk.Curve = curve
-	sk.D = new(big.Int).SetBytes(bz)
-	sk.X, sk.Y = curve.ScalarBaseMult(bz)
+	d := new(big.Int).SetBytes(bz)
+	if d.Sign() <= 0 || d.Cmp(curve.Params().N) >= 0 {
+		return fmt.Errorf("invalid ECDSA private scalar: must satisfy 0 < D < N")
+	}
+	x, y := curve.ScalarBaseMult(bz)
+	if x == nil || y == nil || !curve.IsOnCurve(x, y) {
+		return fmt.Errorf("invalid ECDSA private key public point")
+	}
+	sk.PrivateKey = ecdsa.PrivateKey{
+		PublicKey: ecdsa.PublicKey{Curve: curve, X: x, Y: y},
+		D:         d,
+	}
 	return nil
 }
