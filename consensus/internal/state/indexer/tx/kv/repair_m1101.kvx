@@ -1,0 +1,27 @@
+[task]
+id = "22.33.1101"
+audit = "22.30.46"
+acceptance = "22998.1"
+evidence = "The hf-done receipt records the verified candidate revision, command, exit code and private log location."
+
+[finding.6]
+tests = ["TestRepairM_1101_HashConjunctions", "TestRepairM_1101_UnsupportedHashOperators", "TestRepairM_1101_InvalidHashes"]
+repair = "Seed candidate hashes only for equality, intersect every remaining predicate, and return UnsupportedHashOperatorError for other hash operators before searching."
+path = "Production Index writes serialized results and secondary indexes into a real tm-db store; Search consumes parsed queries and retrieves the complete expected transaction set."
+
+[finding.26]
+tests = ["TestRepairM_1101_LegacyIndexRecovery", "TestTxSearchDeprecatedIndexing"]
+repair = "Require exact result counts and transaction sets, close and reopen GoLevelDB before all compatibility searches, and read the deprecated raw-hash and slash-delimited equality indexes those assertions expose."
+path = "Production Index writes current records; the retained deprecated fixture uses the production protobuf encoder and a synchronous real database batch; a reopened TxIndex searches both formats."
+
+[baseline]
+status = "not_run"
+observed_failures = "None measured; no claim of a baseline failure."
+reason = "The explicit gate order requires complete implementation before any build or test, and forbids invoking verify_cmd by hand before hf-done; it takes precedence over step 6's unchanged-tree verification request."
+
+[gotcha]
+observed = "The deprecated test's nested loops accepted empty results, hiding incompatible raw-hash primary keys and slash-delimited secondary keys."
+repair = "Retain the full legacy expectations, add exact set assertions and reopen the store, and support the formats exercised by the fixture without swallowing storage errors."
+
+[wiring]
+requests = []
