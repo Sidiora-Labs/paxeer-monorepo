@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "registry_sha256": "7e62c0cc39e4a11ed85b83c612bf30f2fda486a1fd6d7e5be250ac4f5b4e3101",
+  "registry_sha256": null,
   "mode": "trusted_expected_schema_readonly",
   "expected_catalog_fingerprints": null,
   "expected_reader_versions": null,

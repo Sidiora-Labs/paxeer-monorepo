@@ -1,3 +1,6 @@
+#[path = "support/gateway_22_33_1546.rs"]
+mod producer_repair;
+
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpListener;
 use std::thread::JoinHandle;
@@ -111,6 +114,8 @@ impl<T> Must<T> for Option<T> {
 
 #[test]
 fn account_and_balances_read_px_methods_and_decode_every_field() {
+    producer_repair::balances();
+    producer_repair::assets();
     let account = format!("0x{}", "12".repeat(20));
     let native = json!({
         "account_id": "56".repeat(32), "name": "agent:main", "sequence": "17",

@@ -80,38 +80,57 @@ if [ -f "$allow_file" ]; then
 fi
 
 allowed() {
-  local file="$1" content="$2" i
+  local file="$1" content="$2" i status
   for i in "${!allow_paths[@]}"; do
     case "$file" in
       "${allow_paths[$i]}"|*/"${allow_paths[$i]}") ;;
       *) continue ;;
     esac
-    if printf '%s\n' "$content" | grep -Eq -e "${allow_res[$i]}"; then
-      return 0
-    fi
+    status=0
+    printf '%s\n' "$content" | grep -E -e "${allow_res[$i]}" > /dev/null || status=$?
+    case "$status" in
+      0) return 0 ;;
+      1) ;;
+      *)
+        printf 'scan-secrets: allowlist error for %s (exit %s)\n' "$file" "$status" >&2
+        printf '%s\n' "$file" >> "$work/errors"
+        return 2
+        ;;
+    esac
   done
   return 1
 }
 
 report_matches() {
-  local rule="$1" list="$2" re="$3" flags="$4" file rest line content
+  local rule="$1" list="$2" re="$3" flags="$4" file rest line content status
   local -a opts=(-HnIZE)
   [ -s "$list" ] || return 0
   if [ -n "$flags" ]; then
     opts+=("$flags")
   fi
-  xargs -0 grep "${opts[@]}" -e "$re" -- < "$list" > "$work/matches" 2>/dev/null || true
-  while IFS= read -r -d '' file && IFS= read -r rest; do
-    line="${rest%%:*}"
-    content="${rest#*:}"
-    if allowed "$file" "$content"; then
-      continue
-    fi
-    printf '%s:%s: %s\n' "$file" "$line" "$rule" >> "$work/findings"
-  done < "$work/matches"
+  while IFS= read -r -d '' file; do
+    status=0
+    grep "${opts[@]}" -e "$re" -- "$file" > "$work/matches" || status=$?
+    case "$status" in
+      0|1) ;;
+      *)
+        printf 'scan-secrets: could not inspect %s for %s (exit %s)\n' "$file" "$rule" "$status" >&2
+        printf '%s\n' "$file" >> "$work/errors"
+        ;;
+    esac
+    while IFS= read -r -d '' file && IFS= read -r rest; do
+      line="${rest%%:*}"
+      content="${rest#*:}"
+      if allowed "$file" "$content"; then
+        continue
+      fi
+      printf '%s:%s: %s\n' "$file" "$line" "$rule" >> "$work/findings"
+    done < "$work/matches"
+  done < "$list"
 }
 
 : > "$work/findings"
+: > "$work/errors"
 for i in "${!rule_names[@]}"; do
   report_matches "${rule_names[$i]}" "$work/files" "${rule_res[$i]}" "${rule_flags[$i]}"
 done
@@ -120,4 +139,9 @@ report_matches "env-file-hex-key" "$work/envfiles" "(^|[^0-9a-fA-F])${hex64}" ""
 found="$(sort -u "$work/findings" | tee "$work/sorted" | wc -l | tr -d ' ')"
 cat "$work/sorted"
 echo "scan-secrets: scanned $scanned files, $found findings"
+if [ -s "$work/errors" ]; then
+  echo "scan-secrets: incomplete scan; affected paths:" >&2
+  sort -u "$work/errors" >&2
+  exit 2
+fi
 [ "$found" -eq 0 ]
