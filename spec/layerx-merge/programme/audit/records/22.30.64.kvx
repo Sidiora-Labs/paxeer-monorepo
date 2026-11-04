@@ -1,0 +1,1420 @@
+[audit.22.30.64]
+task = "22.30.64"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 170
+findings = 29
+docs_reviewed = 18
+upgrade_ready = true
+blocking = []
+note = "No high production defect was established in this slice. Readiness is the brief severity decision for these reviewed members, not release certification or a claim that the Go integration suite ran. Existing coverage gaps and documentation drift remain repair proposals."
+interface_review = "Reviewed the package listed 373 produces and 400 consumes rows against declarations and real paths; consumes_total states 752, while the supplied consumes list contains 400. Stable registry status is not treated as route activation. Bank and wasmd historical versions remain replay contracts; unregistered ICA schemas remain distinct from active node services."
+requirements = "Reviewed 21077.1, 6031.1-3, 6026.1, 6034.1-2, 6039.1-2, 6010.1, 6055.1-2, 6012.1, 6018.1, 6016.1, 6060.1, 6066.1, 6064.1, 6865.1-2, 22011.1 and task acceptance 22998.1. The declared audit gate validates the record and does not replace the source packages runtime qualification."
+
+[file.001]
+path = "interchain/proto/ibc/applications/interchain_accounts/controller/v1/controller.proto"
+lines = 14
+verdict = "clean"
+note = "Controller Params enables the controller module; protobuf bool and generated controller parameter query agree, with activation confined to registered ICA applications."
+
+[file.002]
+path = "interchain/proto/ibc/applications/interchain_accounts/controller/v1/query.proto"
+lines = 42
+verdict = "clean"
+note = "Controller queries preserve the owner/connection_id request, address response and nullable Params response at the declared ICA REST paths; registry notes distinguish absent node registration from simapp-only services."
+
+[file.003]
+path = "interchain/proto/ibc/applications/interchain_accounts/host/v1/host.proto"
+lines = 16
+verdict = "clean"
+note = "Host Params preserves host_enabled and allow_messages as the authorization configuration consumed by the ICA host; the repeated message allowlist remains a string list."
+
+[file.004]
+path = "interchain/proto/ibc/applications/interchain_accounts/host/v1/query.proto"
+lines = 25
+verdict = "clean"
+note = "Host Params query and REST annotation match the generated host query service; schema availability does not imply that the production node registers ICA host routes."
+
+[file.005]
+path = "interchain/proto/ibc/applications/interchain_accounts/v1/account.proto"
+lines = 22
+verdict = "clean"
+note = "InterchainAccount keeps owner and account address strings with its embedded SDK BaseAccount; gogoproto embedding agrees with the generated account consumer."
+
+[file.006]
+path = "interchain/proto/ibc/applications/interchain_accounts/v1/genesis.proto"
+lines = 63
+verdict = "clean"
+note = "ICA genesis carries controller and host channel, account and port mappings plus separate Params; nonnullable repeated records and field numbers agree with the generated genesis types."
+
+[file.007]
+path = "interchain/proto/ibc/applications/interchain_accounts/v1/metadata.proto"
+lines = 25
+verdict = "clean"
+note = "ICA Metadata retains version, controller and host connection ids, address, encoding and tx_type strings; handshake metadata consumers use the same JSON names."
+
+[file.008]
+path = "interchain/proto/ibc/applications/interchain_accounts/v1/packet.proto"
+lines = 31
+verdict = "clean"
+note = "ICA packet Type enum, raw transaction data and memo agree with packet decoding; CosmosTx carries repeated Any messages rather than an invented JSON transaction body."
+
+[file.009]
+path = "interchain/proto/ibc/applications/transfer/v1/genesis.proto"
+lines = 19
+verdict = "clean"
+note = "Transfer genesis preserves port_id, nonnullable denom_traces and Params with field numbers 1 through 3; the generated types and import/export consumers use this same schema."
+
+[file.010]
+path = "interchain/proto/ibc/applications/transfer/v1/query.proto"
+lines = 108
+verdict = "clean"
+note = "Transfer query routes, pagination, denom trace and hash responses, Params and escrow-address string fields agree with generated service definitions and handlers."
+
+[file.011]
+path = "interchain/proto/ibc/applications/transfer/v1/transfer.proto"
+lines = 30
+verdict = "clean"
+note = "DenomTrace and transfer Params preserve base-denom/path strings and send_enabled/receive_enabled defaults; emitted trace hashing uses the same denom identity."
+
+[file.012]
+path = "interchain/proto/ibc/applications/transfer/v1/tx.proto"
+lines = 51
+verdict = "issues"
+note = "MsgTransfer wire fields and uint64 sequence response agree with keeper transport; its relative-height prose disagrees with the absolute packet timeout and is recorded separately."
+
+[file.013]
+path = "interchain/proto/ibc/applications/transfer/v2/packet.proto"
+lines = 21
+verdict = "clean"
+note = "FungibleTokenPacketData keeps amount as decimal string, sender/receiver/denom and optional memo; JSON packet producers and receive consumers use this same shape."
+
+[file.014]
+path = "interchain/proto/ibc/core/channel/v1/channel.proto"
+lines = 150
+verdict = "clean"
+note = "Channel state/order enums, packet source/destination identifiers, uint64 sequence and absolute Height/timestamp fields agree with channel processing; acknowledgement uses the declared result/error oneof."
+
+[file.015]
+path = "interchain/proto/ibc/core/channel/v1/genesis.proto"
+lines = 41
+verdict = "clean"
+note = "Channel genesis includes channel ends, receipts, acknowledgements, commitments and send/receive/ack sequence counters; generated field tags preserve recovery state."
+
+[file.016]
+path = "interchain/proto/ibc/core/channel/v1/query.proto"
+lines = 386
+verdict = "clean"
+note = "Channel query RPC and REST annotations preserve identified-channel lists, pagination, byte proofs and proof heights; receipt presence and acknowledgement bytes retain distinct response types."
+
+[file.017]
+path = "interchain/proto/ibc/core/channel/v1/tx.proto"
+lines = 262
+verdict = "clean"
+note = "Channel Msg service preserves handshake, recv, acknowledgement and timeout request fields, signer strings, byte proofs and packet data; response Result enums agree with generated processing."
+
+[file.018]
+path = "interchain/proto/ibc/core/client/v1/client.proto"
+lines = 105
+verdict = "clean"
+note = "Client IdentifiedClientState, ConsensusStateWithHeight, Height and Params preserve Any payloads, revision-number/revision-height values and allowed client type strings."
+
+[file.019]
+path = "interchain/proto/ibc/core/client/v1/genesis.proto"
+lines = 54
+verdict = "clean"
+note = "Client genesis includes client states, consensus states, metadata, Params and next client sequence; repeated wrappers and uint64 fields agree with recovery consumers."
+
+[file.020]
+path = "interchain/proto/ibc/core/client/v1/query.proto"
+lines = 210
+verdict = "clean"
+note = "Client query request and response shapes retain packed Any state, proof bytes/heights and pagination; upgraded client/consensus states remain distinct RPCs."
+
+[file.021]
+path = "interchain/proto/ibc/core/client/v1/tx.proto"
+lines = 99
+verdict = "clean"
+note = "Client creation, update, upgrade and misbehaviour Msg methods use the declared Any messages and signer strings; generated consumers preserve proof byte fields."
+
+[file.022]
+path = "interchain/proto/ibc/core/commitment/v1/commitment.proto"
+lines = 41
+verdict = "clean"
+note = "Commitment MerkleRoot, MerklePrefix, MerklePath and MerkleProof keep bytes/string/ICS23 representations distinct, matching proof construction and verification consumers."
+
+[file.023]
+path = "interchain/proto/ibc/core/connection/v1/connection.proto"
+lines = 114
+verdict = "clean"
+note = "ConnectionEnd, Counterparty, IdentifiedConnection and Version retain client ids, commitment prefix, feature lists, delay period and state enum without scalar type drift."
+
+[file.024]
+path = "interchain/proto/ibc/core/connection/v1/genesis.proto"
+lines = 20
+verdict = "clean"
+note = "Connection genesis restores identified connections, client connection paths and next connection sequence with generated field tags unchanged."
+
+[file.025]
+path = "interchain/proto/ibc/core/connection/v1/query.proto"
+lines = 139
+verdict = "clean"
+note = "Connection query service preserves connection/client/consensus state distinctions, pagination, proof bytes and Height fields in generated responses."
+
+[file.026]
+path = "interchain/proto/ibc/core/connection/v1/tx.proto"
+lines = 129
+verdict = "clean"
+note = "Connection handshake Msg fields match client state, counterparty, version, delay and proof requirements; Try and Ack carry the declared consensus and proof heights."
+
+[file.027]
+path = "interchain/proto/ibc/core/types/v1/genesis.proto"
+lines = 31
+verdict = "clean"
+note = "Core GenesisState field 4 carries optional Params while fields 1 through 3 retain client, connection and channel state; generated decode and genesis defaulting preserve old genesis compatibility."
+
+[file.028]
+path = "interchain/proto/ibc/core/types/v1/params.proto"
+lines = 13
+verdict = "clean"
+note = "Core Params uses inbound_enabled and outbound_enabled bool fields matching InboundEnabled/OutboundEnabled parameter keys and generated JSON tags required by 6865.1; absent genesis Params defaults both flags to true."
+
+[file.029]
+path = "interchain/proto/ibc/lightclients/localhost/v1/localhost.proto"
+lines = 18
+verdict = "clean"
+note = "Localhost ClientState retains chain_id and Height fields for its local client implementation; no separate network daemon or RPC transport is introduced."
+
+[file.030]
+path = "interchain/proto/ibc/lightclients/solomachine/v1/solomachine.proto"
+lines = 189
+verdict = "clean"
+note = "Solomachine v1 state, signature, timestamped data and sign bytes preserve field numbers and byte payloads for historical proof compatibility; v2 is a distinct package."
+
+[file.031]
+path = "interchain/proto/ibc/lightclients/solomachine/v2/solomachine.proto"
+lines = 189
+verdict = "clean"
+note = "Solomachine v2 keeps current public key Any, diversifier, sequence and timestamp shapes aligned with signing and verification; migration identity remains separate from v1."
+
+[file.032]
+path = "interchain/proto/ibc/lightclients/tendermint/v1/tendermint.proto"
+lines = 145
+verdict = "clean"
+note = "Tendermint ClientState, ConsensusState, Header and Misbehaviour preserve durations, heights, signed headers, validator sets and upgrade paths consumed by the light client."
+
+[file.033]
+path = "interchain/testing/README.md"
+lines = 319
+verdict = "issues"
+note = "Full guide reviewed against TestingApp, NewSimApp, Endpoint and callback declarations; constructors agree, but the OnChanOpenTry example has an obsolete signature and connection/channel assertions use ClientID."
+
+[file.034]
+path = "interchain/testing/app.go"
+lines = 44
+verdict = "clean"
+note = "TestingApp additions and SetupTestingApp use the current simapp constructor with tmConfig and real default genesis, providing the expected keeper and encoding accessors."
+
+[file.035]
+path = "interchain/testing/chain.go"
+lines = 678
+verdict = "clean"
+note = "TestChain creates validators, accounts and clients and signs real SDK messages; proof queries, commit heights and header updates agree with coordinator and endpoint consumers. Delivery-error preservation is assigned to its helper finding."
+
+[file.036]
+path = "interchain/testing/chain_test.go"
+lines = 47
+verdict = "clean"
+note = "CreateSortedSignerArray tests verify validator ordering by voting power and by address for equal power, including reversed input order with real consensus validator objects."
+
+[file.037]
+path = "interchain/testing/config.go"
+lines = 65
+verdict = "clean"
+note = "Tendermint, connection and channel configuration types match their intended protocol fields; ConnectionConfig.Version exists but its ignored handshake use is recorded on endpoint.go."
+
+[file.038]
+path = "interchain/testing/coordinator.go"
+lines = 265
+verdict = "clean"
+note = "Coordinator chain lookup, time advancement, commit, client setup and connection/channel ordering agree with TestChain and Path lifecycle; this remains test infrastructure."
+
+[file.039]
+path = "interchain/testing/endpoint.go"
+lines = 575
+verdict = "issues"
+note = "Client and handshake helpers, proofs, packet send/receive/ack and closure reviewed throughout; asymmetric timeout identifiers and ignored connection Version are recorded."
+
+[file.040]
+path = "interchain/testing/events.go"
+lines = 203
+verdict = "clean"
+note = "Event decoders consume the actual client, connection, channel and packet attribute names, parse integer timeout/sequence values and propagate malformed or absent-event errors."
+
+[file.041]
+path = "interchain/testing/mock/README.md"
+lines = 6
+verdict = "issues"
+note = "The test-only purpose remains correct; its assertion of unconditional nil and error-free callbacks disagrees with configurable implementation behavior."
+
+[file.042]
+path = "interchain/testing/mock/ack.go"
+lines = 23
+verdict = "clean"
+note = "MockEmptyAcknowledgement explicitly implements successful acknowledgement with empty bytes for empty-ack test cases; its response agrees with its declared test-only interface."
+
+[file.043]
+path = "interchain/testing/mock/doc.go"
+lines = 9
+verdict = "clean"
+note = "Package comment correctly scopes the mock to IBC tests and describes its channel callback role without a production-network claim."
+
+[file.044]
+path = "interchain/testing/mock/ibc_app.go"
+lines = 96
+verdict = "clean"
+note = "Configurable callback function fields match current IBCModule method parameters, error returns and packet acknowledgement interface."
+
+[file.045]
+path = "interchain/testing/mock/ibc_module.go"
+lines = 168
+verdict = "clean"
+note = "Callback forwarding preserves capability, channel, packet and relayer arguments; default capability claims and acknowledgement behavior match the application callback interfaces."
+
+[file.046]
+path = "interchain/testing/mock/ibc_module_test.go"
+lines = 33
+verdict = "clean"
+note = "Receive, acknowledgement and timeout canary capability-name tests use real Packet identifiers and assert the exact names produced by the helper functions."
+
+[file.047]
+path = "interchain/testing/mock/mock.go"
+lines = 172
+verdict = "issues"
+note = "Module registration, port binding and stateless genesis hooks reviewed; ExportGenesisStream returns a nil channel that blocks the module manager stream consumer."
+
+[file.048]
+path = "interchain/testing/mock/privval.go"
+lines = 51
+verdict = "clean"
+note = "Test-only private validator generates an ed25519 key and signs canonical consensus vote and proposal bytes; the no-safety/no-persistence caveat explicitly limits its lifecycle."
+
+[file.049]
+path = "interchain/testing/mock/privval_test.go"
+lines = 44
+verdict = "clean"
+note = "Private validator tests verify the ed25519 public key and canonical vote/proposal signatures with the actual consensus signing-byte and signature verification functions."
+
+[file.050]
+path = "interchain/testing/path.go"
+lines = 92
+verdict = "clean"
+note = "Path pairs counterparty endpoints and relays packets in their source direction; receive and acknowledgement order agrees with endpoint helpers."
+
+[file.051]
+path = "interchain/testing/sdk_test.go"
+lines = 279
+verdict = "issues"
+note = "CLI signing and transaction/query assertions read in full; the suite entry point skips all integration execution and retains a pre-merge TODO."
+
+[file.052]
+path = "interchain/testing/simapp/README.md"
+lines = 50
+verdict = "issues"
+note = "The simd purpose is correctly restricted to tests and distinguishes paxd; the stake-denominated setup example disagrees with this fork default bond denom."
+
+[file.053]
+path = "interchain/testing/simapp/ante_handler.go"
+lines = 61
+verdict = "clean"
+note = "Ante construction checks required keepers and routes real authentication, gas, fees and IBC ante decorators using current SDK interfaces."
+
+[file.054]
+path = "interchain/testing/simapp/app.go"
+lines = 726
+verdict = "clean"
+note = "All keeper construction, stores, IBC/transfer/ICA routing, module ordering, service registration and genesis paths reviewed; ICA routes here are test-app routes, not evidence of paxd availability."
+
+[file.055]
+path = "interchain/testing/simapp/config.go"
+lines = 75
+verdict = "clean"
+note = "Simulator flag names, defaults and NewConfigFromFlags field mapping agree with simulation.Config; these are test-run controls rather than chain address-prefix or public RPC settings."
+
+[file.056]
+path = "interchain/testing/simapp/encoding.go"
+lines = 20
+verdict = "clean"
+note = "Test encoding registration composes SDK, application and IBC interface registries into the expected codec, amino and transaction configuration."
+
+[file.057]
+path = "interchain/testing/simapp/export.go"
+lines = 189
+verdict = "clean"
+note = "Export writes auth, staking, distribution and IBC state through module genesis paths and zero-height handling; the nonterminating mock export stream is recorded at its producer."
+
+[file.058]
+path = "interchain/testing/simapp/genesis.go"
+lines = 21
+verdict = "clean"
+note = "Default genesis is assembled from ModuleBasics with the declared codec and module names rather than a hand-built alternate schema."
+
+[file.059]
+path = "interchain/testing/simapp/genesis_account.go"
+lines = 47
+verdict = "clean"
+note = "SimGenesisAccount embeds BaseAccount and validates vesting time ordering and module-account identity before base-account validation; SDK coin, time and permission field types agree with its genesis consumers."
+
+[file.060]
+path = "interchain/testing/simapp/genesis_account_test.go"
+lines = 88
+verdict = "clean"
+note = "Genesis account cases cover base and vesting account validation, preserving invalid-account assertions and real SDK coin shapes."
+
+[file.061]
+path = "interchain/testing/simapp/helpers/test_helpers.go"
+lines = 80
+verdict = "clean"
+note = "Transaction generation uses the configured sign mode, account numbers, sequences and real private keys; account generation and signatures match SDK transaction encoding."
+
+[file.062]
+path = "interchain/testing/simapp/params/amino.go"
+lines = 27
+verdict = "clean"
+note = "Amino registration includes SDK and cryptographic types consumed by legacy transaction and genesis encoding; no endpoint or execution-domain assumptions."
+
+[file.063]
+path = "interchain/testing/simapp/params/doc.go"
+lines = 19
+verdict = "clean"
+note = "Package comment scopes the encoding and configuration parameters to the simulation application and its test consumers."
+
+[file.064]
+path = "interchain/testing/simapp/params/encoding.go"
+lines = 16
+verdict = "clean"
+note = "EncodingConfig fields carry the concrete InterfaceRegistry, Codec, TxConfig and Amino types consumed by app construction and command handling."
+
+[file.065]
+path = "interchain/testing/simapp/params/params.go"
+lines = 7
+verdict = "clean"
+note = "Simulation parameter constants are locally scoped and agree with the package consumers; no live network configuration surface is introduced."
+
+[file.066]
+path = "interchain/testing/simapp/params/proto.go"
+lines = 27
+verdict = "clean"
+note = "Non-amino MakeTestEncodingConfig constructs a fresh interface registry, ProtoCodec, default-sign-mode TxConfig and Amino codec; outer simapp registration populates the application interfaces."
+
+[file.067]
+path = "interchain/testing/simapp/params/weights.go"
+lines = 28
+verdict = "clean"
+note = "Default simulation weights retain explicit per-module values and expected simulation option keys without a mismatch to current consumers."
+
+[file.068]
+path = "interchain/testing/simapp/simd/cmd/cmd_test.go"
+lines = 24
+verdict = "issues"
+note = "The init-command test calls the real CLI but enables overwrite in the default node home; filesystem isolation risk is recorded."
+
+[file.069]
+path = "interchain/testing/simapp/simd/cmd/genaccounts.go"
+lines = 178
+verdict = "clean"
+note = "Genesis account command parses addresses and coins, handles vesting account forms and updates canonical auth/bank genesis through registered codecs."
+
+[file.070]
+path = "interchain/testing/simapp/simd/cmd/genaccounts_test.go"
+lines = 85
+verdict = "clean"
+note = "Genesis-account command cases cover invalid and valid addresses and multiple coin denoms with temporary test homes and the actual configured codec."
+
+[file.071]
+path = "interchain/testing/simapp/simd/cmd/root.go"
+lines = 301
+verdict = "clean"
+note = "Root command configures simd home, codecs, keyring, genesis and server commands with current app constructor types; it is not the production paxd entry point."
+
+[file.072]
+path = "interchain/testing/simapp/simd/cmd/testnet.go"
+lines = 396
+verdict = "issues"
+note = "Local testnet genesis, validator keys, peer configuration and account generation reviewed; mnemonic seed files inherit public configuration permissions."
+
+[file.073]
+path = "interchain/testing/simapp/simd/main.go"
+lines = 25
+verdict = "clean"
+note = "simd delegates CLI construction and server execution to the simapp root command and reports errors; its binary remains test-only."
+
+[file.074]
+path = "interchain/testing/simapp/test_access.go"
+lines = 73
+verdict = "clean"
+note = "Testing accessors expose concrete keepers, codec, TxConfig and scoped capabilities required by TestingApp and existing IBC tests."
+
+[file.075]
+path = "interchain/testing/simapp/test_helpers.go"
+lines = 453
+verdict = "issues"
+note = "Genesis setup, transaction signing/delivery and account helpers use real module state; SignAndDeliver overwrites the delivery error with a successful commit result."
+
+[file.076]
+path = "interchain/testing/simapp/types.go"
+lines = 39
+verdict = "clean"
+note = "App interface preserves codec access, begin/end/init lifecycle, height loading, genesis export and module-account map signatures consumed by simulation helpers."
+
+[file.077]
+path = "interchain/testing/simapp/utils.go"
+lines = 96
+verdict = "clean"
+note = "Simulation setup uses a temporary LevelDB when enabled; export errors propagate and state/parameter files use mode 0600. Store-diff logging uses registered decoders or an explicit hexadecimal representation."
+
+[file.078]
+path = "interchain/testing/simapp/utils_test.go"
+lines = 59
+verdict = "clean"
+note = "GetSimulationLog cases assert empty values, registered auth-store decoding and the hexadecimal representation for an unregistered store using concrete KV pairs."
+
+[file.079]
+path = "interchain/testing/solomachine.go"
+lines = 321
+verdict = "clean"
+note = "Sequence, timestamp, diversifier, public-key Any and signature helpers match solomachine v2 sign bytes and proof envelopes; signed sequence progression remains explicit."
+
+[file.080]
+path = "interchain/testing/values.go"
+lines = 63
+verdict = "clean"
+note = "IBC fixture constants preserve client/channel/connection identifiers, trust periods, clock drift, version, port, commitment prefix and acknowledgement defaults; no production endpoint is implied."
+
+[file.081]
+path = "precompiles/bank/Bank.sol"
+lines = 69
+verdict = "clean"
+note = "Solidity overloads, Coin tuple ordering, payable sendNative and LayerXReceipt indexed fields agree with the nine-method embedded bank ABI and dispatcher."
+
+[file.082]
+path = "precompiles/bank/abi.json"
+lines = 1
+verdict = "clean"
+note = "Complete ABI reviewed: nine selectors, overloaded send with contextHash, Coin amount/denom ordering and one LayerXReceipt event match Solidity and Go encoding."
+
+[file.083]
+path = "precompiles/bank/abi_freeze_test.go"
+lines = 66
+verdict = "clean"
+note = "Selector and event-topic freeze asserts the nine-method bank ABI and exact event fields required by 6012.1."
+
+[file.084]
+path = "precompiles/bank/bank.go"
+lines = 546
+verdict = "clean"
+note = "Full latest implementation reviewed: upgrade-gated refusal codes, nil-safe PlanActive, paused assets, native value units, pointer authority, send overloads, receipts and queries match declared bank interfaces."
+
+[file.085]
+path = "precompiles/bank/bank_call_kind_test.go"
+lines = 83
+verdict = "clean"
+note = "Real bank executor assertions pin staticcall and delegatecall refusal strings across the merge plan, preserving 6039.1 and 6039.2 behavior."
+
+[file.086]
+path = "precompiles/bank/bank_gate_test.go"
+lines = 79
+verdict = "clean"
+note = "Nil upgrade-keeper and plan-boundary checks cover the below-plan path and gated revert behavior required by 6026.1 and 6031.2."
+
+[file.087]
+path = "precompiles/bank/bank_paused_test.go"
+lines = 94
+verdict = "clean"
+note = "Paused-denom tests assert LXP_ASSET_PAUSED from the plan height and legacy refusal below it, retaining the same real bank producer."
+
+[file.088]
+path = "precompiles/bank/bank_send_native_test.go"
+lines = 112
+verdict = "clean"
+note = "sendNative tests preserve zero-value, invalid receiver and call-kind refusals with exact ABI revert decoding at the plan boundary."
+
+[file.089]
+path = "precompiles/bank/bank_test.go"
+lines = 769
+verdict = "clean"
+note = "All bank method, metadata, amount, receipt, address and failure cases reviewed; integer amounts, tuple order and ABI response decoding agree with current producers."
+
+[file.090]
+path = "precompiles/bank/bank_v6120_test.go"
+lines = 14
+verdict = "clean"
+note = "Exported bank upgrade name is compared directly with the node V6120Upgrade constant required by 6010.1."
+
+[file.091]
+path = "precompiles/bank/gas_golden_test.go"
+lines = 99
+verdict = "clean"
+note = "Every bank selector is ABI-packed and prepared below/at activation, then executor RequiredGas is compared with a literal table; this pins the bare quote, not execution-dependent store gas."
+
+[file.092]
+path = "precompiles/bank/legacy/v552/abi.json"
+lines = 1
+verdict = "clean"
+note = "Reviewed complete embedded bank v552 ABI: 8 function entries; argument order, tuple components and return types match its historical executor. The versioned registration preserves this historical ABI for replay."
+
+[file.093]
+path = "precompiles/bank/legacy/v552/bank.go"
+lines = 390
+verdict = "clean"
+note = "Reviewed complete bank v552 implementation and adjacent-version changes, including ABI dispatch, address and coin validation, call-kind restrictions, gas and keeper effects. Historical behavior is selected by the version map and must remain stable for replay; current merge-plan refusal changes belong to the latest implementation."
+
+[file.094]
+path = "precompiles/bank/legacy/v555/abi.json"
+lines = 1
+verdict = "clean"
+note = "Reviewed complete embedded bank v555 ABI: 8 function entries; argument order, tuple components and return types match its historical executor. The versioned registration preserves this historical ABI for replay."
+
+[file.095]
+path = "precompiles/bank/legacy/v555/bank.go"
+lines = 390
+verdict = "clean"
+note = "Reviewed complete bank v555 implementation and adjacent-version changes, including ABI dispatch, address and coin validation, call-kind restrictions, gas and keeper effects. Historical behavior is selected by the version map and must remain stable for replay; current merge-plan refusal changes belong to the latest implementation."
+
+[file.096]
+path = "precompiles/bank/legacy/v562/abi.json"
+lines = 1
+verdict = "clean"
+note = "Reviewed complete embedded bank v562 ABI: 8 function entries; argument order, tuple components and return types match its historical executor. The versioned registration preserves this historical ABI for replay."
+
+[file.097]
+path = "precompiles/bank/legacy/v562/bank.go"
+lines = 362
+verdict = "clean"
+note = "Reviewed complete bank v562 implementation and adjacent-version changes, including ABI dispatch, address and coin validation, call-kind restrictions, gas and keeper effects. Historical behavior is selected by the version map and must remain stable for replay; current merge-plan refusal changes belong to the latest implementation."
+
+[file.098]
+path = "precompiles/bank/legacy/v580/abi.json"
+lines = 1
+verdict = "clean"
+note = "Reviewed complete embedded bank v580 ABI: 8 function entries; argument order, tuple components and return types match its historical executor. The versioned registration preserves this historical ABI for replay."
+
+[file.099]
+path = "precompiles/bank/legacy/v580/bank.go"
+lines = 348
+verdict = "clean"
+note = "Reviewed complete bank v580 implementation and adjacent-version changes, including ABI dispatch, address and coin validation, call-kind restrictions, gas and keeper effects. Historical behavior is selected by the version map and must remain stable for replay; current merge-plan refusal changes belong to the latest implementation."
+
+[file.100]
+path = "precompiles/bank/legacy/v600/abi.json"
+lines = 1
+verdict = "clean"
+note = "Reviewed complete embedded bank v600 ABI: 8 function entries; argument order, tuple components and return types match its historical executor. The versioned registration preserves this historical ABI for replay."
+
+[file.101]
+path = "precompiles/bank/legacy/v600/bank.go"
+lines = 348
+verdict = "clean"
+note = "Reviewed complete bank v600 implementation and adjacent-version changes, including ABI dispatch, address and coin validation, call-kind restrictions, gas and keeper effects. Historical behavior is selected by the version map and must remain stable for replay; current merge-plan refusal changes belong to the latest implementation."
+
+[file.102]
+path = "precompiles/bank/legacy/v601/abi.json"
+lines = 1
+verdict = "clean"
+note = "Reviewed complete embedded bank v601 ABI: 8 function entries; argument order, tuple components and return types match its historical executor. The versioned registration preserves this historical ABI for replay."
+
+[file.103]
+path = "precompiles/bank/legacy/v601/bank.go"
+lines = 379
+verdict = "clean"
+note = "Reviewed complete bank v601 implementation and adjacent-version changes, including ABI dispatch, address and coin validation, call-kind restrictions, gas and keeper effects. Historical behavior is selected by the version map and must remain stable for replay; current merge-plan refusal changes belong to the latest implementation."
+
+[file.104]
+path = "precompiles/bank/legacy/v603/abi.json"
+lines = 1
+verdict = "clean"
+note = "Reviewed complete embedded bank v603 ABI: 8 function entries; argument order, tuple components and return types match its historical executor. The versioned registration preserves this historical ABI for replay."
+
+[file.105]
+path = "precompiles/bank/legacy/v603/bank.go"
+lines = 385
+verdict = "clean"
+note = "Reviewed complete bank v603 implementation and adjacent-version changes, including ABI dispatch, address and coin validation, call-kind restrictions, gas and keeper effects. Historical behavior is selected by the version map and must remain stable for replay; current merge-plan refusal changes belong to the latest implementation."
+
+[file.106]
+path = "precompiles/bank/legacy/v605/abi.json"
+lines = 1
+verdict = "clean"
+note = "Reviewed complete embedded bank v605 ABI: 8 function entries; argument order, tuple components and return types match its historical executor. The versioned registration preserves this historical ABI for replay."
+
+[file.107]
+path = "precompiles/bank/legacy/v605/bank.go"
+lines = 386
+verdict = "clean"
+note = "Reviewed complete bank v605 implementation and adjacent-version changes, including ABI dispatch, address and coin validation, call-kind restrictions, gas and keeper effects. Historical behavior is selected by the version map and must remain stable for replay; current merge-plan refusal changes belong to the latest implementation."
+
+[file.108]
+path = "precompiles/bank/legacy/v606/abi.json"
+lines = 1
+verdict = "clean"
+note = "Reviewed complete embedded bank v606 ABI: 8 function entries; argument order, tuple components and return types match its historical executor. The versioned registration preserves this historical ABI for replay."
+
+[file.109]
+path = "precompiles/bank/legacy/v606/bank.go"
+lines = 386
+verdict = "clean"
+note = "Reviewed complete bank v606 implementation and adjacent-version changes, including ABI dispatch, address and coin validation, call-kind restrictions, gas and keeper effects. Historical behavior is selected by the version map and must remain stable for replay; current merge-plan refusal changes belong to the latest implementation."
+
+[file.110]
+path = "precompiles/bank/legacy/v610/abi.json"
+lines = 1
+verdict = "clean"
+note = "Reviewed complete embedded bank v610 ABI: 8 function entries; argument order, tuple components and return types match its historical executor. The versioned registration preserves this historical ABI for replay."
+
+[file.111]
+path = "precompiles/bank/legacy/v610/bank.go"
+lines = 386
+verdict = "clean"
+note = "Reviewed complete bank v610 implementation and adjacent-version changes, including ABI dispatch, address and coin validation, call-kind restrictions, gas and keeper effects. Historical behavior is selected by the version map and must remain stable for replay; current merge-plan refusal changes belong to the latest implementation."
+
+[file.112]
+path = "precompiles/bank/legacy/v614/abi.json"
+lines = 1
+verdict = "clean"
+note = "Reviewed complete embedded bank v614 ABI: 8 function entries; argument order, tuple components and return types match its historical executor. The versioned registration preserves this historical ABI for replay."
+
+[file.113]
+path = "precompiles/bank/legacy/v614/bank.go"
+lines = 386
+verdict = "clean"
+note = "Reviewed complete bank v614 implementation and adjacent-version changes, including ABI dispatch, address and coin validation, call-kind restrictions, gas and keeper effects. Historical behavior is selected by the version map and must remain stable for replay; current merge-plan refusal changes belong to the latest implementation."
+
+[file.114]
+path = "precompiles/bank/legacy/v620/abi.json"
+lines = 1
+verdict = "clean"
+note = "Reviewed complete embedded bank v620 ABI: 8 function entries; argument order, tuple components and return types match its historical executor. The versioned registration preserves this historical ABI for replay."
+
+[file.115]
+path = "precompiles/bank/legacy/v620/bank.go"
+lines = 386
+verdict = "clean"
+note = "Reviewed complete bank v620 implementation and adjacent-version changes, including ABI dispatch, address and coin validation, call-kind restrictions, gas and keeper effects. Historical behavior is selected by the version map and must remain stable for replay; current merge-plan refusal changes belong to the latest implementation."
+
+[file.116]
+path = "precompiles/bank/legacy/v630/abi.json"
+lines = 1
+verdict = "clean"
+note = "Reviewed complete embedded bank v630 ABI: 8 function entries; argument order, tuple components and return types match its historical executor. The versioned registration preserves this historical ABI for replay."
+
+[file.117]
+path = "precompiles/bank/legacy/v630/bank.go"
+lines = 386
+verdict = "clean"
+note = "Reviewed complete bank v630 implementation and adjacent-version changes, including ABI dispatch, address and coin validation, call-kind restrictions, gas and keeper effects. Historical behavior is selected by the version map and must remain stable for replay; current merge-plan refusal changes belong to the latest implementation."
+
+[file.118]
+path = "precompiles/bank/legacy/v640/abi.json"
+lines = 1
+verdict = "clean"
+note = "Reviewed complete embedded bank v640 ABI: 8 function entries; argument order, tuple components and return types match its historical executor. The versioned registration preserves this historical ABI for replay."
+
+[file.119]
+path = "precompiles/bank/legacy/v640/bank.go"
+lines = 386
+verdict = "clean"
+note = "Reviewed complete bank v640 implementation and adjacent-version changes, including ABI dispatch, address and coin validation, call-kind restrictions, gas and keeper effects. Historical behavior is selected by the version map and must remain stable for replay; current merge-plan refusal changes belong to the latest implementation."
+
+[file.120]
+path = "precompiles/bank/legacy/v65/abi.json"
+lines = 1
+verdict = "clean"
+note = "Reviewed complete embedded bank v65 ABI: 8 function entries; argument order, tuple components and return types match its historical executor. This unserved copy belongs to the v65 constructor disposition finding."
+
+[file.121]
+path = "precompiles/bank/legacy/v65/bank.go"
+lines = 386
+verdict = "issues"
+note = "Reviewed complete bank v65 implementation and adjacent-version changes, including ABI dispatch, address and coin validation, call-kind restrictions, gas and keeper effects. This constructor has no serving registration; disposition recorded below."
+
+[file.122]
+path = "precompiles/bank/proof_0x1001_bank_test.go"
+lines = 290
+verdict = "issues"
+note = "Real bank mutations, ABI output and refusal fixtures are checked, but the claimed reopen reconstructs only StateDB over the same context rather than restarting persistent application storage."
+
+[file.123]
+path = "precompiles/bank/resolution_reason_test.go"
+lines = 118
+verdict = "clean"
+note = "Exact Error(string) decoding covers bank refusal codes, the canonical WEI_REMAINDER spelling and derived kernel-account address resolution through the real bank balance query."
+
+[file.124]
+path = "precompiles/bank/setup.go"
+lines = 49
+verdict = "generated"
+note = "Generated by scripts/bump_version; version map links latest bank and historical v5.5.2 through v6.4.0 constructors. v65 is absent and its disposition is recorded on that source."
+
+[file.125]
+path = "precompiles/feetoken/FeeToken.sol"
+lines = 11
+verdict = "clean"
+note = "Three nonpayable preference methods and getFeeDenom address/string types match the ABI and wallet preference consumer at 0x1018."
+
+[file.126]
+path = "precompiles/feetoken/abi.json"
+lines = 5
+verdict = "clean"
+note = "All three preference selectors and empty write outputs match Solidity, Go dispatch and sdk/wallet fee-token encoding and decoding."
+
+[file.127]
+path = "precompiles/feetoken/abi_freeze_test.go"
+lines = 65
+verdict = "clean"
+note = "Frozen feetoken selectors and zero-event surface agree with requirement 6016.1 and the actual embedded ABI."
+
+[file.128]
+path = "precompiles/feetoken/feetoken.go"
+lines = 207
+verdict = "clean"
+note = "Preference authority is caller-bound; value, delegatecall, static writes and missing keeper are refused, set delegates allowlist/switch checks, clear is unconditional, and Error(string) is upgrade-gated."
+
+[file.129]
+path = "precompiles/feetoken/feetoken_test.go"
+lines = 339
+verdict = "clean"
+note = "Real keeper preference writes, reads, clears and refusal cases preserve nonpayable, call-kind, switch and allowlist behavior with ABI decoding."
+
+[file.130]
+path = "precompiles/feetoken/gas_golden_test.go"
+lines = 78
+verdict = "clean"
+note = "Three methods retain fixed base, calldata-byte and write gas costs across the plan height, matching RequiredGas and 6064.1."
+
+[file.131]
+path = "precompiles/feetoken/setup.go"
+lines = 21
+verdict = "generated"
+note = "Generated by scripts/bump_version; latest fee-token constructor is installed at its declared address, without invented legacy version mappings."
+
+[file.132]
+path = "precompiles/wasmd/Wasmd.sol"
+lines = 36
+verdict = "clean"
+note = "Four method signatures, payable mutation methods, string/bytes payloads and ExecuteMsg tuple order agree with the embedded ABI and Go dispatcher."
+
+[file.133]
+path = "precompiles/wasmd/abi.json"
+lines = 1
+verdict = "clean"
+note = "All four ABI methods reviewed, including uint64 code id, execute_batch tuple array and bytes-array response; CW pointer execute signatures agree."
+
+[file.134]
+path = "precompiles/wasmd/abi_freeze_test.go"
+lines = 60
+verdict = "clean"
+note = "Method selectors and zero-event shape are frozen for all four wasmd methods as required by 6018.1."
+
+[file.135]
+path = "precompiles/wasmd/gas_golden_test.go"
+lines = 121
+verdict = "clean"
+note = "All four wasm calls compare gas through actual keeper-backed execution across activation with stable ABI payloads and no event shape change."
+
+[file.136]
+path = "precompiles/wasmd/legacy/v552/abi.json"
+lines = 1
+verdict = "clean"
+note = "Reviewed complete embedded wasmd v552 ABI: 4 function entries; argument order, tuple components and return types match its historical executor. The versioned registration preserves this historical ABI for replay."
+
+[file.137]
+path = "precompiles/wasmd/legacy/v552/wasmd.go"
+lines = 516
+verdict = "clean"
+note = "Reviewed complete wasmd v552 implementation and adjacent-version changes, including ABI dispatch, address and coin validation, call-kind restrictions, gas and keeper effects. Historical behavior is selected by the version map and must remain stable for replay; current merge-plan refusal changes belong to the latest implementation."
+
+[file.138]
+path = "precompiles/wasmd/legacy/v555/abi.json"
+lines = 1
+verdict = "clean"
+note = "Reviewed complete embedded wasmd v555 ABI: 4 function entries; argument order, tuple components and return types match its historical executor. The versioned registration preserves this historical ABI for replay."
+
+[file.139]
+path = "precompiles/wasmd/legacy/v555/wasmd.go"
+lines = 523
+verdict = "clean"
+note = "Reviewed complete wasmd v555 implementation and adjacent-version changes, including ABI dispatch, address and coin validation, call-kind restrictions, gas and keeper effects. Historical behavior is selected by the version map and must remain stable for replay; current merge-plan refusal changes belong to the latest implementation."
+
+[file.140]
+path = "precompiles/wasmd/legacy/v562/abi.json"
+lines = 1
+verdict = "clean"
+note = "Reviewed complete embedded wasmd v562 ABI: 4 function entries; argument order, tuple components and return types match its historical executor. The versioned registration preserves this historical ABI for replay."
+
+[file.141]
+path = "precompiles/wasmd/legacy/v562/wasmd.go"
+lines = 466
+verdict = "clean"
+note = "Reviewed complete wasmd v562 implementation and adjacent-version changes, including ABI dispatch, address and coin validation, call-kind restrictions, gas and keeper effects. Historical behavior is selected by the version map and must remain stable for replay; current merge-plan refusal changes belong to the latest implementation."
+
+[file.142]
+path = "precompiles/wasmd/legacy/v575/abi.json"
+lines = 1
+verdict = "clean"
+note = "Reviewed complete embedded wasmd v575 ABI: 4 function entries; argument order, tuple components and return types match its historical executor. The versioned registration preserves this historical ABI for replay."
+
+[file.143]
+path = "precompiles/wasmd/legacy/v575/wasmd.go"
+lines = 456
+verdict = "clean"
+note = "Reviewed complete wasmd v575 implementation and adjacent-version changes, including ABI dispatch, address and coin validation, call-kind restrictions, gas and keeper effects. Historical behavior is selected by the version map and must remain stable for replay; current merge-plan refusal changes belong to the latest implementation."
+
+[file.144]
+path = "precompiles/wasmd/legacy/v580/abi.json"
+lines = 1
+verdict = "clean"
+note = "Reviewed complete embedded wasmd v580 ABI: 4 function entries; argument order, tuple components and return types match its historical executor. The versioned registration preserves this historical ABI for replay."
+
+[file.145]
+path = "precompiles/wasmd/legacy/v580/wasmd.go"
+lines = 466
+verdict = "clean"
+note = "Reviewed complete wasmd v580 implementation and adjacent-version changes, including ABI dispatch, address and coin validation, call-kind restrictions, gas and keeper effects. Historical behavior is selected by the version map and must remain stable for replay; current merge-plan refusal changes belong to the latest implementation."
+
+[file.146]
+path = "precompiles/wasmd/legacy/v600/abi.json"
+lines = 1
+verdict = "clean"
+note = "Reviewed complete embedded wasmd v600 ABI: 4 function entries; argument order, tuple components and return types match its historical executor. The versioned registration preserves this historical ABI for replay."
+
+[file.147]
+path = "precompiles/wasmd/legacy/v600/wasmd.go"
+lines = 466
+verdict = "clean"
+note = "Reviewed complete wasmd v600 implementation and adjacent-version changes, including ABI dispatch, address and coin validation, call-kind restrictions, gas and keeper effects. Historical behavior is selected by the version map and must remain stable for replay; current merge-plan refusal changes belong to the latest implementation."
+
+[file.148]
+path = "precompiles/wasmd/legacy/v601/abi.json"
+lines = 1
+verdict = "clean"
+note = "Reviewed complete embedded wasmd v601 ABI: 4 function entries; argument order, tuple components and return types match its historical executor. The versioned registration preserves this historical ABI for replay."
+
+[file.149]
+path = "precompiles/wasmd/legacy/v601/wasmd.go"
+lines = 466
+verdict = "clean"
+note = "Reviewed complete wasmd v601 implementation and adjacent-version changes, including ABI dispatch, address and coin validation, call-kind restrictions, gas and keeper effects. Historical behavior is selected by the version map and must remain stable for replay; current merge-plan refusal changes belong to the latest implementation."
+
+[file.150]
+path = "precompiles/wasmd/legacy/v603/abi.json"
+lines = 1
+verdict = "clean"
+note = "Reviewed complete embedded wasmd v603 ABI: 4 function entries; argument order, tuple components and return types match its historical executor. The versioned registration preserves this historical ABI for replay."
+
+[file.151]
+path = "precompiles/wasmd/legacy/v603/wasmd.go"
+lines = 467
+verdict = "clean"
+note = "Reviewed complete wasmd v603 implementation and adjacent-version changes, including ABI dispatch, address and coin validation, call-kind restrictions, gas and keeper effects. Historical behavior is selected by the version map and must remain stable for replay; current merge-plan refusal changes belong to the latest implementation."
+
+[file.152]
+path = "precompiles/wasmd/legacy/v605/abi.json"
+lines = 1
+verdict = "clean"
+note = "Reviewed complete embedded wasmd v605 ABI: 4 function entries; argument order, tuple components and return types match its historical executor. The versioned registration preserves this historical ABI for replay."
+
+[file.153]
+path = "precompiles/wasmd/legacy/v605/wasmd.go"
+lines = 468
+verdict = "clean"
+note = "Reviewed complete wasmd v605 implementation and adjacent-version changes, including ABI dispatch, address and coin validation, call-kind restrictions, gas and keeper effects. Historical behavior is selected by the version map and must remain stable for replay; current merge-plan refusal changes belong to the latest implementation."
+
+[file.154]
+path = "precompiles/wasmd/legacy/v606/abi.json"
+lines = 1
+verdict = "clean"
+note = "Reviewed complete embedded wasmd v606 ABI: 4 function entries; argument order, tuple components and return types match its historical executor. The versioned registration preserves this historical ABI for replay."
+
+[file.155]
+path = "precompiles/wasmd/legacy/v606/wasmd.go"
+lines = 468
+verdict = "clean"
+note = "Reviewed complete wasmd v606 implementation and adjacent-version changes, including ABI dispatch, address and coin validation, call-kind restrictions, gas and keeper effects. Historical behavior is selected by the version map and must remain stable for replay; current merge-plan refusal changes belong to the latest implementation."
+
+[file.156]
+path = "precompiles/wasmd/legacy/v610/abi.json"
+lines = 1
+verdict = "clean"
+note = "Reviewed complete embedded wasmd v610 ABI: 4 function entries; argument order, tuple components and return types match its historical executor. The versioned registration preserves this historical ABI for replay."
+
+[file.157]
+path = "precompiles/wasmd/legacy/v610/wasmd.go"
+lines = 468
+verdict = "clean"
+note = "Reviewed complete wasmd v610 implementation and adjacent-version changes, including ABI dispatch, address and coin validation, call-kind restrictions, gas and keeper effects. Historical behavior is selected by the version map and must remain stable for replay; current merge-plan refusal changes belong to the latest implementation."
+
+[file.158]
+path = "precompiles/wasmd/legacy/v614/abi.json"
+lines = 1
+verdict = "clean"
+note = "Reviewed complete embedded wasmd v614 ABI: 4 function entries; argument order, tuple components and return types match its historical executor. The versioned registration preserves this historical ABI for replay."
+
+[file.159]
+path = "precompiles/wasmd/legacy/v614/wasmd.go"
+lines = 468
+verdict = "clean"
+note = "Reviewed complete wasmd v614 implementation and adjacent-version changes, including ABI dispatch, address and coin validation, call-kind restrictions, gas and keeper effects. Historical behavior is selected by the version map and must remain stable for replay; current merge-plan refusal changes belong to the latest implementation."
+
+[file.160]
+path = "precompiles/wasmd/legacy/v620/abi.json"
+lines = 1
+verdict = "clean"
+note = "Reviewed complete embedded wasmd v620 ABI: 4 function entries; argument order, tuple components and return types match its historical executor. The versioned registration preserves this historical ABI for replay."
+
+[file.161]
+path = "precompiles/wasmd/legacy/v620/wasmd.go"
+lines = 468
+verdict = "clean"
+note = "Reviewed complete wasmd v620 implementation and adjacent-version changes, including ABI dispatch, address and coin validation, call-kind restrictions, gas and keeper effects. Historical behavior is selected by the version map and must remain stable for replay; current merge-plan refusal changes belong to the latest implementation."
+
+[file.162]
+path = "precompiles/wasmd/legacy/v630/abi.json"
+lines = 1
+verdict = "clean"
+note = "Reviewed complete embedded wasmd v630 ABI: 4 function entries; argument order, tuple components and return types match its historical executor. The versioned registration preserves this historical ABI for replay."
+
+[file.163]
+path = "precompiles/wasmd/legacy/v630/wasmd.go"
+lines = 468
+verdict = "clean"
+note = "Reviewed complete wasmd v630 implementation and adjacent-version changes, including ABI dispatch, address and coin validation, call-kind restrictions, gas and keeper effects. Historical behavior is selected by the version map and must remain stable for replay; current merge-plan refusal changes belong to the latest implementation."
+
+[file.164]
+path = "precompiles/wasmd/legacy/v640/abi.json"
+lines = 1
+verdict = "clean"
+note = "Reviewed complete embedded wasmd v640 ABI: 4 function entries; argument order, tuple components and return types match its historical executor. The versioned registration preserves this historical ABI for replay."
+
+[file.165]
+path = "precompiles/wasmd/legacy/v640/wasmd.go"
+lines = 468
+verdict = "clean"
+note = "Reviewed complete wasmd v640 implementation and adjacent-version changes, including ABI dispatch, address and coin validation, call-kind restrictions, gas and keeper effects. Historical behavior is selected by the version map and must remain stable for replay; current merge-plan refusal changes belong to the latest implementation."
+
+[file.166]
+path = "precompiles/wasmd/legacy/v65/abi.json"
+lines = 1
+verdict = "clean"
+note = "Reviewed complete embedded wasmd v65 ABI: 4 function entries; argument order, tuple components and return types match its historical executor. This unserved copy belongs to the v65 constructor disposition finding."
+
+[file.167]
+path = "precompiles/wasmd/legacy/v65/wasmd.go"
+lines = 468
+verdict = "issues"
+note = "Reviewed complete wasmd v65 implementation and adjacent-version changes, including ABI dispatch, address and coin validation, call-kind restrictions, gas and keeper effects. This constructor has no serving registration; disposition recorded below."
+
+[file.168]
+path = "precompiles/wasmd/setup.go"
+lines = 51
+verdict = "generated"
+note = "Generated by scripts/bump_version; historical v5.5.2 through v6.4.0, including v5.7.5, and latest constructors are mapped. The unserved v65 copy is recorded separately."
+
+[file.169]
+path = "precompiles/wasmd/wasmd.go"
+lines = 468
+verdict = "clean"
+note = "Full implementation reviewed: JSON coins and messages remain bytes at the ABI edge; value/uhpx scaling, pointer delegatecall authorization, result packing and EVM-managed rollback agree with consumers."
+
+[file.170]
+path = "precompiles/wasmd/wasmd_test.go"
+lines = 563
+verdict = "issues"
+note = "All instantiate, execute, query and batch cases reviewed; negative query selectors, allowed delegate flags, value success assertion and real EVM rollback evidence have separate findings."
+
+[finding.wasmd-query-selector]
+file = "precompiles/wasmd/wasmd_test.go"
+line = 261
+class = "test-gap"
+severity = "medium"
+observed = "TestQuery packs query(string,bytes) arguments but prefixes ExecuteID in all three negative cases at lines 261, 267 and 271; execute expects three arguments, so an ABI decode refusal satisfies the assertions without reaching query validation."
+expected = "The 0x1002 query consumer must observe the real missing-contract, invalid-bech32 and invalid-query refusals from the query producer, rather than an unrelated selector refusal."
+proposal = "In precompiles/wasmd/wasmd_test.go prefix QueryID for each negative query case, assert its actual refusal and gas outcome, and verify that contract state and emitted logs remain unchanged."
+owner_domain = 6
+interface = "6.pc-0x1002-query"
+
+[finding.wasmd-delegatecall-success]
+file = "precompiles/wasmd/wasmd_test.go"
+line = 193
+class = "test-gap"
+severity = "medium"
+observed = "The allowed delegatecall cases at lines 193, 338 and 506 pass false for isFromDelegateCall; only their disallowed counterparts pass true, so successful pointer authorization is never exercised by those cases."
+expected = "Registered CW20, CW721 and CW1155 pointers must be able to execute the intended CosmWasm call through the same delegatecall path that refuses an unregistered pointer."
+proposal = "Exercise real EVM delegatecalls from the registered pointer contracts to 0x1002 in precompiles/wasmd tests; check returned ABI bytes, caller authority and state changes, alongside the unregistered-pointer refusals."
+owner_domain = 6
+interface = "6.pc-0x1002-execute"
+
+[finding.wasmd-value-success]
+file = "precompiles/wasmd/wasmd_test.go"
+line = 418
+class = "test-gap"
+severity = "medium"
+observed = "TestExecuteBatchValueImmutability ignores every return value from RunAndCalculateGas and checks only the input big.Int; an early refusal before execution would pass the test just as a successful batch would."
+expected = "The value-immutability regression must demonstrate that a successful batch consumed the intended coins and returned the expected responses without changing the caller-owned value object."
+proposal = "Capture the result and error in TestExecuteBatchValueImmutability, require success, decode the batch response and assert sender and contract balances before checking that value equals valueCopy."
+owner_domain = 6
+interface = "6.pc-0x1002-execute-batch"
+
+[finding.wasmd-batch-rollback-proof]
+file = "precompiles/wasmd/wasmd_test.go"
+line = 528
+class = "test-gap"
+severity = "medium"
+observed = "The multiple-message batch cases put a valid execution before an invalid contract, address or coins payload, then assert only an error and zero remaining gas; they do not inspect the earlier execution state or its events after failure."
+expected = "A failed EVM transaction must discard every earlier CosmWasm write, coin transfer and log in its batch; the EVM Call and StateDB snapshot machinery is present, but these direct-executor tests do not prove that boundary."
+proposal = "Add a real EVM Call regression in precompiles/wasmd tests with a successful first message and failing second message; assert storage, balances and logs are unchanged, commit and reopen the application, and repeat the observations."
+owner_domain = 6
+interface = "6.pc-0x1002-execute-batch"
+
+[finding.ibc-integration-skipped]
+file = "interchain/testing/sdk_test.go"
+line = 79
+class = "test-gap"
+severity = "medium"
+observed = "TestIntegrationTestSuite unconditionally calls t.Skip before suite.Run, leaving the signed CLI, consensus and query integration suite unreachable; its comment still describes the monorepo merge as future work."
+expected = "The existing integration assertions must execute on the merged SDK and IBC application so that signed transaction and query compatibility is established rather than inferred from isolated helpers."
+proposal = "Restore the integration suite in interchain/testing/sdk_test.go against the current simapp and SDK APIs, retaining all assertions and exercising the real signed transaction and committed-query paths without skips."
+owner_domain = 15
+
+[finding.ibc-timeout-destination]
+file = "interchain/testing/endpoint.go"
+line = 459
+class = "runtime-risk"
+severity = "medium"
+observed = "TimeoutPacket and TimeoutOnClose query a destination-key proof on the counterparty, but fetch NextSequenceRecv there using the source endpoint PortID and ChannelID at lines 459 and 489; unequal endpoint identifiers can select a missing or unrelated counterparty channel."
+expected = "The next receive sequence and its proof must describe the same packet destination channel on the counterparty, even when source and destination port or channel identifiers differ."
+proposal = "Use packet.GetDestPort and packet.GetDestChannel for counterparty sequence reads in interchain/testing/endpoint.go, and cover ordered timeouts and timeout-on-close with deliberately asymmetric endpoint identifiers."
+owner_domain = 15
+interface = "15.go-interchain-testing-endpoint-j57"
+
+[finding.ibc-connection-version]
+file = "interchain/testing/endpoint.go"
+line = 167
+class = "config-drift"
+severity = "medium"
+observed = "ConnectionConfig exposes Version, but ConnOpenInit uses DefaultOpenInitVersion and ConnOpenTry and ConnOpenAck use the global ConnectionVersion; changing the per-path version does not change those handshake messages."
+expected = "A test path configured with a connection version must negotiate or refuse that version through the actual handshake, so callers can test compatibility independently of global defaults."
+proposal = "Wire the proposed and negotiated ConnectionConfig.Version values through the connection handshake helpers in interchain/testing/endpoint.go, with distinct compatible and incompatible version configurations on the two endpoints."
+owner_domain = 15
+interface = "15.go-interchain-testing-endpoint-j57"
+
+[finding.ibc-mock-genesis-stream]
+file = "interchain/testing/mock/mock.go"
+line = 159
+class = "restart-recovery"
+severity = "medium"
+observed = "AppModule.ExportGenesisStream returns a nil channel; the registered simapp mock module reaches sdk/types/module/module.go ProcessGenesisPerModule, which ranges each module stream without a nil guard and therefore cannot finish this export."
+expected = "A stateless test module must produce a terminating empty export so a simapp genesis export and subsequent restart can finish; this is a test-application recovery defect, not a claim that paxd registers the mock module."
+proposal = "Return an already closed empty channel from interchain/testing/mock/mock.go and add a bounded full-simapp export and re-import check that verifies completion and preservation of the stateful IBC modules."
+owner_domain = 15
+
+[finding.ibc-delivery-error]
+file = "interchain/testing/simapp/test_helpers.go"
+line = 367
+class = "runtime-risk"
+severity = "medium"
+observed = "SignAndDeliver assigns the Deliver failure to err and verifies an expected refusal, but overwrites err with app.Commit and returns the commit result; an intentionally refused transaction is returned to its caller as a nil error after a successful commit."
+expected = "The transaction helper must preserve the delivery outcome for callers while independently requiring the block commit to succeed; a successful commit does not make a refused message successful."
+proposal = "Keep separate deliveryErr and commitErr values in interchain/testing/simapp/test_helpers.go, preserve the documented transaction result on return, and cover a real refused message followed by a successful commit."
+owner_domain = 15
+interface = "15.go-interchain-testing-simapp-sign-and-deliver-j57"
+
+[finding.simapp-key-seed-permissions]
+file = "interchain/testing/simapp/simd/cmd/testnet.go"
+line = 193
+class = "security"
+severity = "medium"
+observed = "Testnet generation writes the mnemonic secret to key_seed.json via writeFile, which ensures a 0755 directory and creates the file with mode 0644 at line 390; under an ordinary 022 umask other local users can read the signing seed."
+expected = "Local testnet validator and funded-account signing material must remain readable only by its owner, even when the generated public configuration is intended to be shared."
+proposal = "Give key_seed.json a dedicated private writer in interchain/testing/simapp/simd/cmd/testnet.go using mode 0600 and a private seed directory, enforce restrictive modes on existing seed files, and retain separate handling for public configuration."
+owner_domain = 15
+
+[finding.simapp-init-test-home]
+file = "interchain/testing/simapp/simd/cmd/cmd_test.go"
+line = 20
+class = "runtime-risk"
+severity = "medium"
+observed = "TestInitCmd requests overwrite=true and executes the root command with simapp.DefaultNodeHome instead of a temporary home; running the test can overwrite a developer existing simapp genesis.json."
+expected = "A repeatable init-command test must confine every generated key and configuration file to an isolated test directory and preserve the developer existing node home."
+proposal = "Pass t.TempDir as the command home in interchain/testing/simapp/simd/cmd/cmd_test.go, keep overwrite coverage within that directory, and assert that only the chosen test home receives the genesis file."
+owner_domain = 15
+
+[finding.bank-v65-unserved]
+file = "precompiles/bank/legacy/v65/bank.go"
+line = 67
+class = "dead-code"
+severity = "low"
+observed = "The v65 bank constructor and embedded ABI have no importing caller, and the generated bank GetVersioned map stops at v6.4.0 before its latest implementation entry; this legacy copy is not a served historical version."
+expected = "Every retained historical precompile implementation should have an explicit replay purpose or a clear archival disposition, so maintainers do not mistake an orphan copy for an activated compatibility branch."
+proposal = "Establish the historical activation disposition for precompiles/bank/legacy/v65; remove the orphan source and ABI if no replay height requires them, or add the precise historical mapping and replay coverage if an activation is documented."
+owner_domain = 6
+
+[finding.wasmd-v65-unserved]
+file = "precompiles/wasmd/legacy/v65/wasmd.go"
+line = 63
+class = "dead-code"
+severity = "low"
+observed = "The v65 wasmd NewPrecompile has zero callers, as the registry also records, and is absent from wasmd GetVersioned; the embedded implementation and ABI cannot be selected by node precompile registration."
+expected = "Retained historical wasmd code should be selected by a documented activation history or explicitly archived, while already activated legacy semantics remain unchanged for replay."
+proposal = "Resolve the activation disposition of precompiles/wasmd/legacy/v65 and its ABI; remove the unserved copy if never activated, or register only its documented historical mapping with replay coverage if it was required."
+owner_domain = 6
+interface = "6.go-pc-wasmd-legacy-v65-new-precompile"
+
+[finding.bank-durable-reopen-proof]
+file = "precompiles/bank/proof_0x1001_bank_test.go"
+line = 95
+class = "test-gap"
+severity = "medium"
+observed = "The bank path proof reopens state.NewDBImpl around the same application keeper and ctx after Finalize and Cleanup; it never stops the application or reopens its committed backing database between the producer and consumer observations."
+expected = "Requirement 21077.1 explicitly requires a stop and reopen for persistent state on the real bank producer, transport and consumer path; recreating a StateDB view alone cannot establish durable recovery."
+proposal = "Extend precompiles/bank/proof_0x1001_bank_test.go with a committed persistent application database, close and reopen the application before the real consumer observes balances and refusal data, and retain the existing ABI and error assertions."
+owner_domain = 6
+
+[finding.transfer-height-comment]
+file = "interchain/proto/ibc/applications/transfer/v1/tx.proto"
+line = 34
+class = "doc-drift"
+severity = "medium"
+observed = "MsgTransfer describes timeout_height as relative to the current block height, while transfer keeper Transfer passes msg.TimeoutHeight unchanged into sendTransfer and then the packet timeout height; the wire field is an absolute destination revision height."
+expected = "An integrator constructing MsgTransfer must supply the absolute destination height used by IBC packet timeout validation; relative CLI convenience arguments must not redefine the protobuf wire contract."
+proposal = "Correct the timeout_height field documentation in interchain/proto/ibc/applications/transfer/v1/tx.proto and regenerated reference prose to state absolute destination revision height, distinguishing any CLI conversion of relative input."
+owner_domain = 15
+
+[finding.readme-separated-network]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "The network overview calls layerxd a running separate C17 daemon and says its checkpoints settle through layerxAnchor, with a two-execution-domain description immediately above it."
+expected = "The merged network runs paxd with the kernel proposing BFT blocks; a committed receipt is final and there is no separate sequencer daemon or checkpoint-settlement service."
+proposal = "Rewrite README.md network and component descriptions around the integrated paxd block lifecycle, remove layerxd startup and anchor-settlement claims, and direct operators to committed-block finality."
+owner_domain = 17
+
+[finding.monorepo-daemon-topology]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The layout introduction identifies layerxd as the LayerX kernel component with an independent subsystem trust boundary, preserving the pre-merge separate-daemon topology."
+expected = "The current tree description must distinguish retained historical source from the kernel integrated into paxd, whose block commitment supplies merged-network finality."
+proposal = "Update docs/MONOREPO.md introduction and component descriptions to describe the integrated node and label any retained legacy daemon paths as historical rather than runnable network infrastructure."
+owner_domain = 17
+
+[finding.precompile-retirement-labels]
+file = "docs/system/precompiles.md"
+line = 1170
+class = "doc-drift"
+severity = "medium"
+observed = "The generated ABI inventory lists layerxanchor, layerxcustody, layerxverify and oracle functions at their fixed addresses without stating the merged-plan retirement refusals; its bank, feetoken and wasmd selector inventories otherwise agree with their ABIs."
+expected = "Integrator documentation must distinguish historical ABI retention from methods that work after activation: anchor is retired, custody and verify return disabled errors, and oracle methods return a retired error."
+proposal = "Teach tools/docs/gen-system-docs.sh to render activation and retirement status from node registration and the retired-component contract, then regenerate docs/system/precompiles.md with replacement finality, funding and proof paths."
+owner_domain = 6
+
+[finding.checkpoint-finality-page]
+file = "docs/site/docs/concepts/checkpoints.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The page describes separate LayerX activity batches, bonded guarantor replay and a later Paxeer checkpoint registration, followed by a finality ladder ending in settled status."
+expected = "Merged-network activity belongs to the paxd BFT chain and a receipt is final at block commit; retired guarantor and checkpoint settlement infrastructure is not part of its operational finality."
+proposal = "Rewrite docs/site/docs/concepts/checkpoints.md around committed block headers and proofs, explicitly identify any preserved checkpoint description as historical, and replace operational guarantor and settlement guidance."
+owner_domain = 17
+
+[finding.da-site-retired-transport]
+file = "docs/site/docs/protocol/data-availability.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The page presents standalone daemon data-availability bundles, tag-18 fetch requests, tag-19 chunks and checkpoint-candidate retrieval as the protocol read, including qualification of real-daemon recovery paths."
+expected = "The merged-network documentation must describe data availability and recovery in the integrated node and avoid directing clients to retired standalone daemon transports."
+proposal = "Replace docs/site/docs/protocol/data-availability.md operational protocol with the integrated node retention and retrieval contract; place any retained tag-18/tag-19 format description in an explicitly historical section."
+owner_domain = 17
+
+[finding.da-wiki-retired-transport]
+file = "docs/wiki/DataAvailability.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki copy presents the same daemon tag-18/tag-19 availability transport and checkpoint-candidate lifecycle as the site page, without separating it from the merged-network node lifecycle."
+expected = "The developer wiki and site must give the same current integrated-node availability and recovery model instead of presenting a retired daemon transport as a live integration surface."
+proposal = "Rewrite docs/wiki/DataAvailability.md with the same integrated-node retrieval and retention guidance as the site page and label retained historical wire details explicitly."
+owner_domain = 17
+
+[finding.sidiora-native-units]
+file = "docs/site/docs/protocol/sidiora.md"
+line = 21
+class = "doc-drift"
+severity = "medium"
+observed = "The Sidiora page says the network coin base denom uhpx carries eighteen decimals; modules/evm/state/utils.go instead converts one uhpx into 10^12 EVM base units to provide the EVM eighteen-decimal representation."
+expected = "Native uhpx amounts and EVM eighteen-decimal amounts must be distinguished explicitly; one whole network coin is 10^6 uhpx and 10^18 EVM base units, and SID has its own six-decimal base units."
+proposal = "Correct docs/site/docs/protocol/sidiora.md to state both native and EVM scales, include a one-coin conversion example, and keep governed SID fee rates expressed per whole network coin rather than per EVM or native base unit."
+owner_domain = 6
+
+[finding.sequencing-independent-finality]
+file = "docs/wiki/Sequencing.md"
+line = 109
+class = "doc-drift"
+severity = "medium"
+observed = "The sequencing page says ordinary LayerX activity continues if Paxeer is unreachable, after defining separate sequencer batches, checkpoint registrations, custody payouts and guarantor finality."
+expected = "There is one BFT network: kernel execution and receipt finality belong to the committed paxd block, and loss of the chain cannot be represented as an independent settled LayerX execution service."
+proposal = "Rewrite docs/wiki/Sequencing.md with in-node proposal, consensus commitment and recovery behavior, replacing the separate-Paxeer outage claim and retired checkpoint/custody operational model."
+owner_domain = 17
+
+[finding.porting-site-shared-state]
+file = "docs/site/docs/operators/porting.md"
+line = 393
+class = "doc-drift"
+severity = "medium"
+observed = "The CosmWasm purpose paragraph says state shared across senders is refused at translation time, but the same page later says StateBinding.Shared is portable and storage.rs maps it to the program-shared namespace; the public guidance contradicts the implementation."
+expected = "A porting guide must distinguish supported program-shared storage from actual translation refusals, so developers can port shared registries and order books using the implemented StateBinding.Shared behavior."
+proposal = "Update the CosmWasm purpose and limitations text in docs/site/docs/operators/porting.md to describe StateBinding.Shared and its program namespace, reconcile the copied crate introduction, and retain only refusal claims that have a real translation path."
+owner_domain = 13
+
+[finding.porting-wiki-shared-state]
+file = "docs/wiki/Porting.md"
+line = 393
+class = "doc-drift"
+severity = "medium"
+observed = "The CosmWasm purpose paragraph says state shared across senders is refused at translation time, but the same page later says StateBinding.Shared is portable and storage.rs maps it to the program-shared namespace; the public guidance contradicts the implementation."
+expected = "A porting guide must distinguish supported program-shared storage from actual translation refusals, so developers can port shared registries and order books using the implemented StateBinding.Shared behavior."
+proposal = "Update the CosmWasm purpose and limitations text in docs/wiki/Porting.md to describe StateBinding.Shared and its program namespace, reconcile the copied crate introduction, and retain only refusal claims that have a real translation path."
+owner_domain = 13
+
+[finding.testing-readme-callback]
+file = "interchain/testing/README.md"
+line = 302
+class = "doc-drift"
+severity = "medium"
+observed = "The middleware example assigns OnChanOpenTry a function accepting only context and three strings and returning error; the declared callback also requires order, connection hops, channel capability and counterparty and returns a version string plus error."
+expected = "A copyable middleware test callback must implement the current MockIBCApp.OnChanOpenTry signature so the example can be assigned and can assert whether the base application is invoked."
+proposal = "Refresh the OnChanOpenTry example in interchain/testing/README.md with the exact callback arguments and (string, error) return type from mock/ibc_app.go, and compile the example in its real middleware-test context."
+owner_domain = 15
+
+[finding.testing-readme-identifiers]
+file = "interchain/testing/README.md"
+line = 219
+class = "doc-drift"
+severity = "medium"
+observed = "The basic example compares connection-0 and channel-0 to path.EndpointA.ClientID at lines 219 and 220, immediately after requiring that same ClientID to equal 07-tendermint-0."
+expected = "A working example must check each allocated client, connection and channel identifier against its corresponding Endpoint field; the three identifiers are distinct IBC names."
+proposal = "Change the connection and channel assertions in interchain/testing/README.md to ConnectionID and ChannelID respectively, and exercise the example against a real coordinator path setup."
+owner_domain = 15
+interface = "15.go-interchain-testing-endpoint-j57"
+
+[finding.mock-readme-errors]
+file = "interchain/testing/mock/README.md"
+line = 5
+class = "doc-drift"
+severity = "low"
+observed = "The mock README promises nil in all cases and no errors, but configurable callbacks can return errors, channel capability claims can fail, and packet callbacks produce success or error acknowledgements."
+expected = "Test authors must understand that the mock is a configurable IBC application with real capability and acknowledgement behavior, not an unconditional success adapter."
+proposal = "Rewrite interchain/testing/mock/README.md to describe default callbacks, callback overrides, capability ownership and error acknowledgements while retaining its test-only scope and simapp dependency restriction."
+owner_domain = 15
+
+[finding.simapp-readme-bond-denom]
+file = "interchain/testing/simapp/README.md"
+line = 24
+class = "doc-drift"
+severity = "medium"
+observed = "The local-network recipe suggests funding an account with a stake-denominated amount before gentx, while the simapp default staking genesis uses sdk.DefaultBondDenom, which is uhpx in this fork."
+expected = "The documented account funding and validator self-delegation must use the same configured bond denomination, otherwise a reader following the recipe cannot form the intended validator set."
+proposal = "Update interchain/testing/simapp/README.md with a consistent uhpx funding and gentx example, or explicitly instruct how to change the staking bond denomination before generating validator transactions."
+owner_domain = 15
+
+[doc.01]
+path = "README.md"
+status = "stale"
+notes = "Read in full. Lines 44-47 describe two execution domains, a separate layerxd daemon and anchor checkpoint settlement; finding readme-separated-network proposes the merged paxd topology."
+
+[doc.02]
+path = "docs/system/precompiles.md"
+status = "misleading"
+notes = "Read the complete ABI inventory. Bank, feetoken and wasmd signatures agree; retired anchor/custody/verify/oracle entries at lines 1170, 1285, 1552 and 1565 lack lifecycle labels; generator repair proposed."
+
+[doc.03]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "Read in full. The introduction at line 3 still presents layerxd as a running subsystem; distinguish integrated paxd and retained historical source."
+
+[doc.04]
+path = "docs/site/docs/concepts/checkpoints.md"
+status = "stale"
+notes = "Read in full. Lines 3-26 describe separate checkpoint registration and guarantors, and lines 33-37 use a later-settlement finality ladder inconsistent with BFT block commit."
+
+[doc.05]
+path = "docs/site/docs/operators/porting.md"
+status = "stale"
+notes = "Read in full. ABI version 2 entry points remain documented; lines 392-394 falsely include shared state among refusals, contradicting lines 408-411 and supported StateBinding.Shared."
+
+[doc.06]
+path = "docs/site/docs/protocol/data-availability.md"
+status = "stale"
+notes = "Read in full. Standalone daemon tag-18/tag-19 transport and checkpoint-candidate retrieval are presented as current protocol rather than historical implementation details."
+
+[doc.07]
+path = "docs/site/docs/protocol/sidiora.md"
+status = "stale"
+notes = "Read in full. Native preference switch, allowlist, fee conversion and governance behavior agree with the current feetoken surface; line 21 confuses native uhpx and EVM unit scales."
+
+[doc.08]
+path = "docs/wiki/Sequencing.md"
+status = "stale"
+notes = "Read in full. Lines 3-5 separate sequencing from chain custody; lines 109-111 claim independent LayerX operation during Paxeer unavailability; rewrite for one BFT network."
+
+[doc.09]
+path = "docs/wiki/Porting.md"
+status = "stale"
+notes = "Read in full against the site copy. The shared-state refusal at lines 392-394 contradicts both its later portable Shared binding and the implementation."
+
+[doc.10]
+path = "docs/wiki/DataAvailability.md"
+status = "stale"
+notes = "Read in full against the site copy. The same standalone daemon availability transport and checkpoint lifecycle require the integrated-node rewrite."
+
+[doc.11]
+path = "contracts/launchpad/docs/test/MockPoolForOptical.md"
+status = "accurate"
+notes = "Read complete generated Solidity test-contract reference. Listed constructor, snapshot/balance methods and test events describe the test helper API; no production precompile availability claim."
+
+[doc.12]
+path = "contracts/launchpad/docs/test/SidioraMathWrapper.md"
+status = "accurate"
+notes = "Read complete generated Solidity wrapper reference. Math helper input/output types and public methods remain consistent with the wrapper contract used by launchpad tests."
+
+[doc.13]
+path = "interchain/testing/README.md"
+status = "stale"
+notes = "Read in full. NewSimApp snippets and TestingApp match current declarations; line 302 has an obsolete OnChanOpenTry callback signature and lines 219-220 compare ClientID to connection/channel identifiers."
+
+[doc.14]
+path = "interchain/testing/mock/README.md"
+status = "stale"
+notes = "Read in full. Lines 4-5 promise nil and no errors, unlike configurable callback refusals, capability checks and error acknowledgements."
+
+[doc.15]
+path = "interchain/testing/simapp/README.md"
+status = "stale"
+notes = "Read in full. Correctly describes simd as test-only and paxd as the chain; line 24 funds stake while default genesis expects uhpx for staking."
+
+[doc.16]
+path = "spec/layerx-merge/contracts/ibc.md"
+status = "accurate"
+notes = "Read selected pinned contract header and proto/genesis interface sections as reference, not a fresh whole-document runtime certification. Source revision is explicit; compared core Params and field-4 compatibility with current declarations."
+
+[doc.17]
+path = "spec/layerx-merge/contracts/cosmwasm.md"
+status = "accurate"
+notes = "Read selected pinned contract introduction and message/query interface sections as reference. Historical source revision is explicit; compared current ABI edge and keeper message shapes rather than assuming every historical task is activated."
+
+[doc.18]
+path = "spec/layerx-merge/contracts/programme.md"
+status = "accurate"
+notes = "Read the pinned introduction and selected decision context rows. The document explicitly freezes a historical revision and distinguishes unrun acceptance qualification, so it is not a claim that current runtime gates passed."

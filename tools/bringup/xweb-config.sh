@@ -50,8 +50,8 @@ register  registers the Ed25519 key of XWEB_REGISTER_KEY_FILE (32 hex bytes
 render serve <directory>
           writes <directory>/<apiN name>.json for every serving RPC name that
           XWEB_SERVE_NAMES or search-front.sh names lists: listen 127.0.0.1:8482,
-          gateway.endpoint the router's /rpc with the kernel's sequencer id
-          and public key, the four assets with their prices, evm the node's
+          gateway.endpoint the configured hosted gateway's /rpc with the
+          kernel's sequencer id and public key, the four assets with their prices, evm the node's
           loopback JSON-RPC on chain 125, kernel_network_id 125, peers the
           https names of the other serving RPC names, the crawl seeds of
           XWEB_SEEDS and no kernel block.
@@ -59,13 +59,14 @@ render serve <directory>
 render attestor <directory>
           writes <directory>/attestor-<N>.json for the four Fly attestor apps
           of services/interop/deploy/x-websearch/attestor-<N>.toml: listen [::]:8480,
-          data_dir /data/state, gateway.endpoint the router's /rpc with the
-          kernel's sequencer id and public key, the four assets with their
+          data_dir /data/state, gateway.endpoint the configured hosted
+          gateway's /rpc with the kernel's sequencer id and public key, the four assets with their
           prices, evm the https name of a serving RPC name (attestor N takes
           the (N-1)th of the list, wrapping) on chain 125, kernel_network_id
           125, peers the loopback hops http://127.0.0.1:849<M> of the other
           three, the crawl seeds of XWEB_SEEDS and the kernel block: endpoint
-          the router's /rpc, the program web request topic, submitter_did
+          the configured hosted gateway's /rpc, the program web request topic,
+          submitter_did
           XWEB_ATTESTOR_<N>_RECEIVER_DID and fee_limit XWEB_KERNEL_FEE_LIMIT.
           Also needs:
   XWEB_ATTESTOR_1_RECEIVER_DID .. XWEB_ATTESTOR_4_RECEIVER_DID
@@ -83,7 +84,8 @@ Inputs (all required, none printed but the ids and prices):
                           the kernel's sequencer id and ed25519 public key, 64 hex
   XWEB_SEEDS              the space-separated https URLs the sidecar crawls from
   XWEB_SID_PER_PAX        SID per PAX, default the owner-set 3.114
-  XWEB_GATEWAY_ENDPOINT   default https://api-mainnet-beta.paxeer.network/rpc
+  XWEB_GATEWAY_ENDPOINT   required operator-deployed hosted gateway JSON-RPC
+                          endpoint for px_* methods; no public node default
   XWEB_EVM_ENDPOINT       the node's loopback JSON-RPC, default http://127.0.0.1:8545
   XWEB_PAX_USD_PRICE      when set, must be the approved 13.44
 
@@ -93,7 +95,7 @@ EOF
 }
 
 xweb_symbols=(SID PAX USDC USDL)
-xweb_gateway="${XWEB_GATEWAY_ENDPOINT:-https://api-mainnet-beta.paxeer.network/rpc}"
+xweb_gateway="${XWEB_GATEWAY_ENDPOINT:-}"
 xweb_evm="${XWEB_EVM_ENDPOINT:-http://127.0.0.1:8545}"
 xweb_sid_per_pax="${XWEB_SID_PER_PAX:-3.114}"
 
@@ -130,6 +132,10 @@ def rpc(endpoint, method, params):
 
 # xweb_prices: one "<symbol> <asset id> <price>" line per asset.
 xweb_prices() {
+	if [ -z "$xweb_gateway" ]; then
+		echo "xweb-config: hosted gateway endpoint is not configured (XWEB_GATEWAY_ENDPOINT)" >&2
+		return 2
+	fi
 	local sym
 	for sym in "${xweb_symbols[@]}"; do
 		xweb_need "XWEB_ASSET_ID_$sym"
@@ -335,6 +341,10 @@ PY
 # submitter and payout DIDs, the web signers and the EVM submitters, one line
 # each, and an "input <NAME> absent" line per input it lacks.
 xweb_inventory() {
+	if [ -z "$xweb_gateway" ]; then
+		echo "xweb-config: hosted gateway endpoint is not configured (XWEB_GATEWAY_ENDPOINT)" >&2
+		return 2
+	fi
 	local listing prices="" sym id decimals ready=1
 	local -a names=()
 	for sym in "${xweb_symbols[@]}"; do
@@ -498,6 +508,10 @@ sys.exit(1 if failures else 0)
 # xweb_register: registers XWEB_REGISTER_KEY_FILE's key with px_register and
 # checks the answer names exactly it.
 xweb_register() {
+	if [ -z "$xweb_gateway" ]; then
+		echo "xweb-config: hosted gateway endpoint is not configured (XWEB_GATEWAY_ENDPOINT)" >&2
+		return 2
+	fi
 	xweb_need XWEB_REGISTER_KEY_FILE
 	python3 -c "$xweb_rpc_py"'
 import hashlib

@@ -1,0 +1,1519 @@
+# Pre-upgrade source audit; repairs are proposals for owning domains.
+
+[audit.22.30.171]
+task = "22.30.171"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 167
+lines_reviewed = 23468
+findings = 35
+docs_reviewed = 18
+upgrade_ready = false
+blocking = ["004"]
+first_party_files = 149
+vendored_files = 18
+package = "spec/layerx-merge/programme/audit/packages/22.30.171.kvx"
+requirements_reviewed = ["22010.1", "16011.1", "16012.1", "22006.1", "16015.1", "16015.2", "16972.1", "16972.2", "16972.3", "16972.4", "16972.5", "16241.1", "16241.2", "16241.3", "16966.4", "1012.1", "1012.2", "1044.1", "1047.1", "1047.2", "1262.1", "1263.1", "1267.1", "1271.1", "1272.1", "1277.1", "1283.1", "1284.1", "1285.1", "1286.1", "1287.1", "181561.1", "21165.1", "22012.1", "9975.1", "22119.1", "181513.1", "22070.1", "16012.2", "16014.1", "16014.2", "16983.1", "16999.1", "16010.1", "16982.1", "16011.2", "16013.1", "16013.2", "16016.1", "16016.2", "16984.1", "16984.2", "16984.3", "16022.1", "16023.1", "16024.1", "16025.1", "16067.1", "16026.1", "16027.1", "16028.1", "16029.1", "16030.1", "16068.1", "16031.1", "16046.1", "16051.1", "16066.1", "16242.1", "16242.2", "16244.1", "16258.1", "16261.1", "16262.1", "16263.1", "16264.1", "16265.1", "16266.1", "16267.1", "16268.1"]
+produced_interfaces_reviewed = 69
+consumed_interface_ids_reviewed = 400
+inventory_note = "The package lists 400 consumed interface IDs while consumes_total is 935; coverage refers to the explicit IDs, not 535 unlisted rows. All 69 produced IDs and additional live boundary declarations were inspected."
+qualification_note = "This source audit records proposals. Runtime suites and inventory sweep commands are not claimed as executed; the declared audit gate qualifies record coverage and graph consistency."
+
+[file.001]
+path = "tests/ci/ci-recipe-contract.py"
+lines = 228
+verdict = "clean"
+note = "Read the complete recipe-contract producer, deep-copy handling and command classifications against its CI callers and tracked qualification inputs."
+
+[file.002]
+path = "tests/ci/focused-source-identity.py"
+lines = 325
+verdict = "clean"
+note = "Read the complete focused-source identity producer, path and digest handling, error propagation and consumer evidence shape."
+
+[file.003]
+path = "tests/ci/retired_tests.py"
+lines = 78
+verdict = "clean"
+note = "Read all retirement helper functions; checked path absence, whole-symbol diagnostics, exclusions and build-before-execute behavior against req 16241."
+
+[file.004]
+path = "tests/ci/test_agent_codec_corpus.py"
+lines = 116
+verdict = "issues"
+note = "Read the entire clean-checkout corpus test; the positive activity-envelope dependency is recorded separately from the retained wire crate."
+
+[file.005]
+path = "tests/ci/test_claims_and_replay_removed.py"
+lines = 47
+verdict = "clean"
+note = "Read all assertions removing claims and replay surfaces; retired names occur as negative checks."
+
+[file.006]
+path = "tests/ci/test_deploy_scripts_cw20.py"
+lines = 33
+verdict = "clean"
+note = "Read CW20 deployment-script checks and retained script inputs; inspected target paths and assertions for removed custody deployment."
+
+[file.007]
+path = "tests/ci/test_disposition_budget_pull_removed.py"
+lines = 23
+verdict = "issues"
+note = "Read both retirement cases; the terminal-rejection read contradicts the required source deletion."
+
+[file.008]
+path = "tests/ci/test_kernel_suite_retired_uses.py"
+lines = 77
+verdict = "clean"
+note = "Read every retained-kernel retirement assertion and suite invocation; checked source scopes, type-table count and unknown retired symbols."
+
+[file.009]
+path = "tests/ci/test_kernel_test_rule.py"
+lines = 32
+verdict = "clean"
+note = "Read the kernel test-rule checks against declared targets and harness compilation ownership."
+
+[file.010]
+path = "tests/ci/test_native_archive_membership.py"
+lines = 124
+verdict = "clean"
+note = "Read the archive-membership regression, source deletion, object timestamps and production/testing archive symbol assertions against req 181513."
+
+[file.011]
+path = "tests/ci/test_paxai_chain_domain.py"
+lines = 41
+verdict = "clean"
+note = "Read the chain-domain derivation check, big-endian network identifier and 64-character digest comparison against req 16983."
+
+[file.012]
+path = "tests/ci/test_programs_capacity_feed_removed.py"
+lines = 44
+verdict = "clean"
+note = "Read the capacity-feed retirement assertions; obsolete identifiers are negative checks."
+
+[file.013]
+path = "tests/ci/test_programs_suite_references.py"
+lines = 18
+verdict = "clean"
+note = "Read programs-suite source references and retained rule checks; inspected exclusions and missing-input behavior."
+
+[file.014]
+path = "tests/ci/test_qualification_producers_exist.py"
+lines = 51
+verdict = "clean"
+note = "Read qualification-producer existence checks and declared help-entrypoint expectations."
+
+[file.015]
+path = "tests/ci/test_real_node_build_ownership.py"
+lines = 136
+verdict = "clean"
+note = "Read node build ownership checks against retained paxd producer and build-script paths."
+
+[file.016]
+path = "tests/ci/test_receipt_fixture_readers.py"
+lines = 87
+verdict = "clean"
+note = "Read all receipt-fixture reader checks, real Python consumer invocation and fixed execution-receipt byte assertions."
+
+[file.017]
+path = "tests/ci/test_requested_retirements_absent.py"
+lines = 63
+verdict = "clean"
+note = "Read requested-retirement path checks and owning deletion expectations; obsolete path strings are intentional negative assertions."
+
+[file.018]
+path = "tests/ci/test_requested_suites_absent.py"
+lines = 38
+verdict = "clean"
+note = "Read all requested-suite absence checks and their retained target expectations."
+
+[file.019]
+path = "tests/ci/test_retired_batch_identity.py"
+lines = 8
+verdict = "clean"
+note = "Read batch-identity and terminal-rejection absence assertions; compared them with the conflicting disposition test."
+
+[file.020]
+path = "tests/ci/test_retired_batch_publication.py"
+lines = 30
+verdict = "clean"
+note = "Read batch-publication retirement path and symbol assertions; historical names are negative checks."
+
+[file.021]
+path = "tests/ci/test_retired_batch_seal.py"
+lines = 5
+verdict = "clean"
+note = "Read batch-seal retirement checks and the retained test-source scan boundary."
+
+[file.022]
+path = "tests/ci/test_retired_batch_wal.py"
+lines = 9
+verdict = "clean"
+note = "Read batch-WAL retirement assertions and removed recovery-suite paths."
+
+[file.023]
+path = "tests/ci/test_retired_da_bundle.py"
+lines = 29
+verdict = "clean"
+note = "Read DA-bundle retirement assertions and every declared removed symbol."
+
+[file.024]
+path = "tests/ci/test_retired_da_challenge.py"
+lines = 55
+verdict = "clean"
+note = "Read DA-challenge retirement assertions, source roots and excluded retired trees."
+
+[file.025]
+path = "tests/ci/test_retired_da_retrieval.py"
+lines = 28
+verdict = "clean"
+note = "Read DA-retrieval retirement assertions and retained source scan coverage."
+
+[file.026]
+path = "tests/ci/test_retired_daemon_lni.py"
+lines = 11
+verdict = "clean"
+note = "Read daemon LNI retirement assertions and retained harness ownership checks."
+
+[file.027]
+path = "tests/ci/test_retired_emergency_exit.py"
+lines = 5
+verdict = "clean"
+note = "Read emergency-exit retirement assertions; historical names are negative checks."
+
+[file.028]
+path = "tests/ci/test_retired_equivocation_bond.py"
+lines = 26
+verdict = "clean"
+note = "Read equivocation and bond retirement assertions, removed paths and symbol boundaries."
+
+[file.029]
+path = "tests/ci/test_retired_finality_evidence.py"
+lines = 19
+verdict = "clean"
+note = "Read finality-evidence retirement assertions and absence of the retired vector consumer."
+
+[file.030]
+path = "tests/ci/test_retired_gateway_receive.py"
+lines = 28
+verdict = "clean"
+note = "Read gateway-receive retirement assertions and removed claim producer names."
+
+[file.031]
+path = "tests/ci/test_retired_guarantor_bond_custody.py"
+lines = 28
+verdict = "clean"
+note = "Read guarantor bond and custody retirement assertions and negative native symbol references."
+
+[file.032]
+path = "tests/ci/test_retired_guarantor_cert.py"
+lines = 21
+verdict = "clean"
+note = "Read guarantor certificate retirement assertions and removed augmentation symbols."
+
+[file.033]
+path = "tests/ci/test_retired_guarantor_duties.py"
+lines = 67
+verdict = "clean"
+note = "Read guarantor duties retirement assertions against the retained scan boundary."
+
+[file.034]
+path = "tests/ci/test_retired_layerxd.py"
+lines = 10
+verdict = "clean"
+note = "Read layerxd retirement assertions and retained aggregate command checks."
+
+[file.035]
+path = "tests/ci/test_retired_loadtest_workflows.py"
+lines = 10
+verdict = "clean"
+note = "Read retired nested loadtest-workflow assertions against root workflow ownership."
+
+[file.036]
+path = "tests/ci/test_retired_log_batch_header.py"
+lines = 15
+verdict = "clean"
+note = "Read log batch-header retirement assertions; negative header and symbol checks retain word boundaries."
+
+[file.037]
+path = "tests/ci/test_retired_make_rules.py"
+lines = 55
+verdict = "issues"
+note = "Read every Makefile retirement check; the differential-link case only performs a dry run."
+
+[file.038]
+path = "tests/ci/test_retired_module_drivers.py"
+lines = 15
+verdict = "clean"
+note = "Read removed module-driver assertions and retained module test entrypoints."
+
+[file.039]
+path = "tests/ci/test_retired_oracle.py"
+lines = 32
+verdict = "clean"
+note = "Read oracle retirement assertions and retained kernel test source checks."
+
+[file.040]
+path = "tests/ci/test_retired_paxeer_anchor.py"
+lines = 26
+verdict = "clean"
+note = "Read Paxeer anchor retirement assertions and removed client paths."
+
+[file.041]
+path = "tests/ci/test_retired_paxeer_membership.py"
+lines = 32
+verdict = "clean"
+note = "Read Paxeer membership retirement assertions and retained-source scan expectations."
+
+[file.042]
+path = "tests/ci/test_retired_programs_batch.py"
+lines = 33
+verdict = "clean"
+note = "Read programs batch retirement assertions and removed declarations."
+
+[file.043]
+path = "tests/ci/test_retired_protocol_cases.py"
+lines = 37
+verdict = "clean"
+note = "Read retired protocol-case assertions and retained protocol suite calls."
+
+[file.044]
+path = "tests/ci/test_retired_qual_faults.py"
+lines = 22
+verdict = "clean"
+note = "Read qualification-fault retirement assertions, retained source checks and build/run helper usage."
+
+[file.045]
+path = "tests/ci/test_retired_qualification_drivers.py"
+lines = 27
+verdict = "clean"
+note = "Read qualification-driver retirement assertions and current help-entrypoint expectations."
+
+[file.046]
+path = "tests/ci/test_retired_relay_archive.py"
+lines = 26
+verdict = "clean"
+note = "Read relay-archive retirement assertions and absence of removed target producers."
+
+[file.047]
+path = "tests/ci/test_retired_replay_crossarch.py"
+lines = 29
+verdict = "clean"
+note = "Read replay cross-architecture retirement assertions and deleted fixture producer names."
+
+[file.048]
+path = "tests/ci/test_retired_replay_support.py"
+lines = 48
+verdict = "clean"
+note = "Read replay-support retirement assertions and retained scan boundaries."
+
+[file.049]
+path = "tests/ci/test_retired_replica.py"
+lines = 32
+verdict = "clean"
+note = "Read replica retirement assertions and all removed initialization, eligibility and ingest names."
+
+[file.050]
+path = "tests/ci/test_retired_sequencer.py"
+lines = 31
+verdict = "clean"
+note = "Read sequencer retirement assertions and removed recovery and sequence suites."
+
+[file.051]
+path = "tests/ci/test_retired_solidity_checkpoint.py"
+lines = 22
+verdict = "clean"
+note = "Read Solidity checkpoint-suite retirement assertions and removed import references."
+
+[file.052]
+path = "tests/ci/test_retired_solidity_deployment.py"
+lines = 18
+verdict = "clean"
+note = "Read Solidity deployment retirement assertions and deleted deployment/manager/timelock suite paths."
+
+[file.053]
+path = "tests/ci/test_retired_state_withdraw_web.py"
+lines = 44
+verdict = "clean"
+note = "Read state withdraw and web retirement assertions and retained source scopes."
+
+[file.054]
+path = "tests/ci/test_retired_tests.py"
+lines = 158
+verdict = "clean"
+note = "Read retirement helper self-tests for symlinks, exact symbol boundaries, diagnostic locations, exclusions and failing build/run evidence."
+
+[file.055]
+path = "tests/ci/test_retired_testutil_network.py"
+lines = 17
+verdict = "clean"
+note = "Read testutil network and fuzzing retirement assertions and Go import checks."
+
+[file.056]
+path = "tests/ci/test_retired_verify_cli.py"
+lines = 5
+verdict = "clean"
+note = "Read verify CLI retirement assertions and retained reader paths."
+
+[file.057]
+path = "tests/ci/test_retired_web.py"
+lines = 31
+verdict = "clean"
+note = "Read web retirement assertions and removed adapter/root symbols."
+
+[file.058]
+path = "tests/ci/test_retired_websearch_settlement.py"
+lines = 18
+verdict = "clean"
+note = "Read websearch settlement retirement assertions and retained context producer references."
+
+[file.059]
+path = "tests/ci/test_runner_routing_container_runtime.py"
+lines = 103
+verdict = "clean"
+note = "Read runner-routing and container-runtime checks and their command and environment inputs."
+
+[file.060]
+path = "tests/ci/test_trading_vectors_generator.py"
+lines = 34
+verdict = "clean"
+note = "Read the trading-vector generator comparison; all 17 names, activity types and complete encoded bytes are compared with the fixture."
+
+[file.061]
+path = "tests/ci/test_wave_gate_scripts.py"
+lines = 77
+verdict = "clean"
+note = "Read wave-gate script checks, target routing and the required shell command shapes."
+
+[file.062]
+path = "tests/ci/websearch-context.py"
+lines = 305
+verdict = "clean"
+note = "Read the entire websearch context producer and its source identities, digest checks, failure paths and evidence encoding."
+
+[file.063]
+path = "tests/modules/dump_trading_vectors.c"
+lines = 418
+verdict = "clean"
+note = "Read the complete C vector producer, all 17 payload encodings, numeric widths and JSON output fields against its fixture consumer."
+
+[file.064]
+path = "tests/modules/test_asset_deposit.c"
+lines = 111
+verdict = "clean"
+note = "Read transfer validation and weak-symbol retirement checks against the current asset request and removed deposit/receive/grant producers."
+
+[file.065]
+path = "tests/modules/test_asset_registry.c"
+lines = 846
+verdict = "clean"
+note = "Read all registry, custody-kind, runtime authority, dispatch, malformed payload and retained supply assertions against lx_asset.h."
+
+[file.066]
+path = "tests/modules/test_budget_delegate.c"
+lines = 936
+verdict = "clean"
+note = "Read all delegate authorization, limit, owner spend and savepoint cases against the retained budget dispatcher; direct capability seeding is a unit fixture."
+
+[file.067]
+path = "tests/protocol/lxp_check_no_clock.sh"
+lines = 15
+verdict = "issues"
+note = "Read both deterministic-source scans; scanner errors are accepted as no forbidden references."
+
+[file.068]
+path = "tests/protocol/lxp_test_activity_codec.c"
+lines = 66
+verdict = "clean"
+note = "Read canonical activity codec byte and refusal assertions against retained C codec declarations."
+
+[file.069]
+path = "tests/protocol/lxp_test_arena.c"
+lines = 68
+verdict = "clean"
+note = "Read arena allocation, bounds and alignment assertions against the arena implementation."
+
+[file.070]
+path = "tests/protocol/lxp_test_dispatch.c"
+lines = 193
+verdict = "clean"
+note = "Read dispatch registration, type routing, limits and refusal cases against retained kernel dispatch interfaces."
+
+[file.071]
+path = "tests/protocol/lxp_test_envelope.c"
+lines = 50
+verdict = "clean"
+note = "Read envelope encode/decode and malformed-input checks against the retained C activity envelope."
+
+[file.072]
+path = "tests/protocol/lxp_test_fee_gate.c"
+lines = 44
+verdict = "clean"
+note = "Read fee-gate arithmetic and refusal cases against retained fee policy declarations."
+
+[file.073]
+path = "tests/protocol/lxp_test_genesis_storage_retirement.h"
+lines = 27
+verdict = "clean"
+note = "Read weak declarations and explicit null-reference checks proving removed genesis storage producers are absent."
+
+[file.074]
+path = "tests/protocol/lxp_test_kernel.c"
+lines = 429
+verdict = "clean"
+note = "Read the complete kernel lifecycle, genesis, registration, execution, fee and retired-genesis storage tests."
+
+[file.075]
+path = "tests/protocol/lxp_test_kernel_symbol_isolation.sh"
+lines = 11
+verdict = "clean"
+note = "Read the archive symbol-isolation scan and its retained kernel/library boundary."
+
+[file.076]
+path = "tests/protocol/lxp_test_module_ctx.c"
+lines = 432
+verdict = "clean"
+note = "Read module-context access, state mutation, transfer and dispatch assertions against current context and journal interfaces."
+
+[file.077]
+path = "tests/protocol/lxp_test_owner_rotation.c"
+lines = 200
+verdict = "clean"
+note = "Read owner-rotation tests, signed governance dispatch and authority refresh behavior against retained governance producers."
+
+[file.078]
+path = "tests/protocol/lxp_test_protocol.c"
+lines = 57
+verdict = "clean"
+note = "Read protocol constants, version and compatibility checks against current protocol declarations."
+
+[file.079]
+path = "tests/protocol/lxp_test_receipts.c"
+lines = 216
+verdict = "clean"
+note = "Read receipt creation, signing, canonical encoding and refusal assertions against retained receipt producers."
+
+[file.080]
+path = "tests/protocol/lxp_test_result.c"
+lines = 66
+verdict = "clean"
+note = "Read result-code enumeration, names and classification assertions against the declared result table."
+
+[file.081]
+path = "tests/protocol/lxp_test_sanitizer_smoke.c"
+lines = 29
+verdict = "clean"
+note = "Read sanitizer smoke code for bounded arena and protocol primitives; no sanitizer gate was executed by this audit."
+
+[file.082]
+path = "tests/protocol/lxp_test_smoke.c"
+lines = 40
+verdict = "clean"
+note = "Read all registered harness cases and --run behavior against lxp_test_main and lxp_test_run_one; unknown names return 2."
+
+[file.083]
+path = "tests/protocol/paxeer_x_rejection_policy.py"
+lines = 183
+verdict = "issues"
+note = "Read the complete archived rejection-policy driver; it still requires a removed terminal-rejection executable."
+
+[file.084]
+path = "tests/state/lxp_test_allowance.c"
+lines = 359
+verdict = "clean"
+note = "Read allowance resolution and scoped-charge assertions against retained authority types; inspected direct grant-cell fixtures and refusal paths."
+
+[file.085]
+path = "tests/state/lxp_test_authority_resolve.c"
+lines = 359
+verdict = "clean"
+note = "Read the complete authority resolution suite and grant-cell encoding, scope and refusal assertions."
+
+[file.086]
+path = "tests/state/lxp_test_grants.c"
+lines = 307
+verdict = "clean"
+note = "Read grant creation, validation and governance authorization cases against retained authority declarations."
+
+[file.087]
+path = "tests/state/lxp_test_identity.c"
+lines = 42
+verdict = "clean"
+note = "Read identity creation, key and account-sequence checks against the retained identity helper."
+
+[file.088]
+path = "tests/state/lxp_test_journal.c"
+lines = 117
+verdict = "clean"
+note = "Read journal commit/abort, cell state and sequence assertions against the retained state store without the removed idempotency array."
+
+[file.089]
+path = "tests/state/lxp_test_revocation.c"
+lines = 296
+verdict = "clean"
+note = "Read revocation, authority and governance tests and their scope and sequence limits against retained APIs."
+
+[file.090]
+path = "tests/state/lxp_test_rotation.c"
+lines = 152
+verdict = "clean"
+note = "Read every low-level rotation/recovery case, competing pending keys, effective/lapse times and real secp256k1 binding signature checks."
+
+[file.091]
+path = "tests/state/lxp_test_state_proof.c"
+lines = 151
+verdict = "clean"
+note = "Read state-proof generation and verification, mutation/refusal cases and encoded proof constraints against retained proof APIs."
+
+[file.092]
+path = "tests/state/lxp_test_state_root.c"
+lines = 279
+verdict = "clean"
+note = "Read state-root, journal and kernel state comparisons, ordering and failure cases against retained hash and state interfaces."
+
+[file.093]
+path = "tests/wallet/check-deploy.test.sh"
+lines = 114
+verdict = "clean"
+note = "Read the complete wallet deployment-check fixture and its readiness, origin, configuration and rejection cases."
+
+[file.094]
+path = "tests/wallet/check-live.test.sh"
+lines = 905
+verdict = "issues"
+note = "Read every endpoint, account, human session, gateway and ramp fixture and assertion; the endpoint fixture preserves /rpc."
+
+[file.095]
+path = "tests/wallet/gate.test.sh"
+lines = 150
+verdict = "clean"
+note = "Read all wallet-gate command-routing, failure and evidence checks against the gate script."
+
+[file.096]
+path = "tests/wallet/scan-secrets.test.sh"
+lines = 97
+verdict = "clean"
+note = "Read all secret-scanner positive and negative fixtures, tracked-file selection and diagnostic assertions."
+
+[file.097]
+path = "tools/ci/beta-report.sh"
+lines = 216
+verdict = "clean"
+note = "Read beta-report ledger parsing, counts, check mode and error handling against its CLI and merge qualification ledger consumers."
+
+[file.098]
+path = "tools/ci/consensus_commit_gate.py"
+lines = 117
+verdict = "issues"
+note = "Read the full consensus gate including head-pinned ledger lookup, path selection and merge exclusion."
+
+[file.099]
+path = "tools/ci/tests/publish-images.test.sh"
+lines = 146
+verdict = "clean"
+note = "Read image publication fixtures, command arguments, commit/digest handling and credential boundaries."
+
+[file.100]
+path = "tools/ci/tests/test_beta_deploy_retired.py"
+lines = 41
+verdict = "clean"
+note = "Read beta-deploy retirement assertions and removed script paths."
+
+[file.101]
+path = "tools/ci/tests/test_beta_ledger_paths.py"
+lines = 60
+verdict = "clean"
+note = "Read beta ledger-path checks and the default merge qualification ledger contract."
+
+[file.102]
+path = "tools/ci/tests/test_bridge_workflow_app.py"
+lines = 43
+verdict = "clean"
+note = "Read bridge workflow app assertions and current root workflow input paths."
+
+[file.103]
+path = "tools/ci/tests/test_ci_loadtest_job.py"
+lines = 47
+verdict = "clean"
+note = "Read root loadtest job, Go build/test command and runner-routing assertions against req 16067."
+
+[file.104]
+path = "tools/ci/tests/test_completion_gate.py"
+lines = 411
+verdict = "clean"
+note = "Read the entire completion-gate suite, closed-disposition checks, retired surface scans and required planned path inventory."
+
+[file.105]
+path = "tools/ci/tests/test_consensus_commit_gate.py"
+lines = 158
+verdict = "issues"
+note = "Read every release-ledger gate regression; the merge-only case intentionally accepts an unlisted consensus rule."
+
+[file.106]
+path = "tools/ci/tests/test_deleted_harness_paths.py"
+lines = 63
+verdict = "clean"
+note = "Read deleted-harness path checks and live build/test target expectations."
+
+[file.107]
+path = "tools/ci/tests/test_dockerignore_vendor_secrets.py"
+lines = 111
+verdict = "clean"
+note = "Read Docker build-context secret exclusions and vendor credential path assertions."
+
+[file.108]
+path = "tools/ci/tests/test_emulator_build_target.py"
+lines = 37
+verdict = "clean"
+note = "Read emulator build-target command and dependency ownership assertions."
+
+[file.109]
+path = "tools/ci/tests/test_eth_blocktests_workflow.py"
+lines = 33
+verdict = "clean"
+note = "Read Ethereum block-test workflow input and command checks."
+
+[file.110]
+path = "tools/ci/tests/test_foundry_profile.py"
+lines = 31
+verdict = "clean"
+note = "Read Foundry profile assertions for removed Solidity test roots and filesystem permissions."
+
+[file.111]
+path = "tools/ci/tests/test_go_toolchain_pins.py"
+lines = 74
+verdict = "clean"
+note = "Read every Go version and toolchain pin assertion across the declared build inputs."
+
+[file.112]
+path = "tools/ci/tests/test_human_workflow.py"
+lines = 35
+verdict = "clean"
+note = "Read human workflow retirement scans and retained root job assertions."
+
+[file.113]
+path = "tools/ci/tests/test_layerx_image_libwasmvm.py"
+lines = 82
+verdict = "clean"
+note = "Read runtime image library checks, wasmvm artifact identities and declared build paths."
+
+[file.114]
+path = "tools/ci/tests/test_makefile_exchange_native.py"
+lines = 34
+verdict = "clean"
+note = "Read native exchange Makefile checks and all seven retained binary recipe expectations."
+
+[file.115]
+path = "tools/ci/tests/test_makefile_human_build.py"
+lines = 58
+verdict = "clean"
+note = "Read human build command, manifest and dependency assertions for retained services."
+
+[file.116]
+path = "tools/ci/tests/test_makefile_wave3.py"
+lines = 113
+verdict = "clean"
+note = "Read wave-3 target recipe and removed oracle/web/idempotency assertions."
+
+[file.117]
+path = "tools/ci/tests/test_makefile_wave4.py"
+lines = 87
+verdict = "clean"
+note = "Read wave-4 target recipe and removed DA/replica/gateway assertions."
+
+[file.118]
+path = "tools/ci/tests/test_makefile_wave5.py"
+lines = 83
+verdict = "clean"
+note = "Read wave-5 target recipe, retained harness compilation and removed LNI/wire-target assertions."
+
+[file.119]
+path = "tools/ci/tests/test_makefile_wave6.py"
+lines = 128
+verdict = "clean"
+note = "Read wave-6 target recipe, removed daemon/settlement commands and differential rule assertions."
+
+[file.120]
+path = "tools/ci/tests/test_node_build_workflow.py"
+lines = 27
+verdict = "clean"
+note = "Read node workflow checks and removed custody-deposit step assertions."
+
+[file.121]
+path = "tools/ci/tests/test_paxd_native_toolchain.py"
+lines = 67
+verdict = "clean"
+note = "Read native paxd Go/C toolchain and linker/runtime input checks."
+
+[file.122]
+path = "tools/ci/tests/test_program_http_producer.py"
+lines = 40
+verdict = "clean"
+note = "Read program HTTP producer checks for removed LNI steps and current help behavior."
+
+[file.123]
+path = "tools/ci/tests/test_replay_golden_ci.py"
+lines = 44
+verdict = "clean"
+note = "Read replay-golden CI retirement checks and removed replay-matrix references."
+
+[file.124]
+path = "tools/ci/tests/test_solidity_state_surface.py"
+lines = 20
+verdict = "clean"
+note = "Read retained Solidity state-surface gate assertions and its exact command invocation."
+
+[file.125]
+path = "tools/ci/tests/test_wallet_check_live.py"
+lines = 161
+verdict = "issues"
+note = "Read the complete endpoint probe and no-mode tests; fixture response, route and usage disagreements are recorded."
+
+[file.126]
+path = "tools/ci/tests/test_wallet_gate_targets.py"
+lines = 68
+verdict = "clean"
+note = "Read wallet Makefile gate target checks and exact retained script routing."
+
+[file.127]
+path = "tools/ci/tests/test_wallet_go_test_workflow.py"
+lines = 34
+verdict = "clean"
+note = "Read every workflow trigger filter; the wire crate and wallet fixture directory remain live under decisions 910/921 and the Go lxwire reader."
+
+[file.128]
+path = "tools/ci/tests/test_wire_codec_ci.py"
+lines = 44
+verdict = "clean"
+note = "Read wire-codec CI retirement assertions; retained wire-crate encodings are distinct from removed activity codec targets."
+
+[file.129]
+path = "tools/ci/tests/test_xweb_workflow.py"
+lines = 29
+verdict = "clean"
+note = "Read xweb workflow retirement scanner and current root job checks."
+
+[file.130]
+path = "tools/ci/tests/test_xweb_workflow_check.py"
+lines = 20
+verdict = "clean"
+note = "Read xweb workflow-check command and error propagation assertions."
+
+[file.131]
+path = "tools/ci/tests/workflow-runner-check.sh"
+lines = 42
+verdict = "clean"
+note = "Read runner workflow checking, declared input paths and failure reporting."
+
+[file.132]
+path = "tools/deploy/charting-library-image.sh"
+lines = 43
+verdict = "clean"
+note = "Read charting-library image source validation, isolated Docker configuration, pinned image naming and opt-in push behavior."
+
+[file.133]
+path = "tools/deploy/offchain-images.sh"
+lines = 196
+verdict = "clean"
+note = "Read all offchain image inventory, pinned base image, build argument and plan/matrix/check behavior."
+
+[file.134]
+path = "tools/deploy/railway-apply-variables.py"
+lines = 233
+verdict = "clean"
+note = "Read the complete Railway variable reconciler, redaction, desired/live values, registry credentials and no-op/update paths."
+
+[file.135]
+path = "tools/deploy/railway-perps-project.py"
+lines = 441
+verdict = "issues"
+note = "Read the full perps project reconciler, GraphQL payloads, variables, waves and status handling; raw API errors and sleeping readiness are recorded."
+
+[file.136]
+path = "tools/deploy/tests/charting-library-image.test.sh"
+lines = 36
+verdict = "clean"
+note = "Read chart image build fixture, source and output checks, Docker config isolation and refusal cases."
+
+[file.137]
+path = "tools/deploy/tests/dockerfile-web-args.test.sh"
+lines = 35
+verdict = "clean"
+note = "Read Dockerfile web-build argument and environment wiring fixtures."
+
+[file.138]
+path = "tools/deploy/tests/offchain-images.test.sh"
+lines = 197
+verdict = "clean"
+note = "Read all offchain image CLI, inventory, base-pin and build-plan fixture assertions."
+
+[file.139]
+path = "tools/deploy/tests/railway-apply-variables.test.sh"
+lines = 272
+verdict = "clean"
+note = "Read every Railway variable replay, redaction, credential, readiness and update assertion."
+
+[file.140]
+path = "tools/deploy/tests/railway-perps-project.test.sh"
+lines = 430
+verdict = "issues"
+note = "Read all perps project plan/apply and schema refusal fixtures; sleeping explorer passes without a readiness observation."
+
+[file.141]
+path = "tools/qualification/paxeer-x/gas-station-contract.py"
+lines = 1505
+verdict = "clean"
+note = "Read all 1505 lines of the gas-station contract driver, native producer materials, artifact hashes, loopback transports, rate/recovery, first-use, browser and liability evidence checks."
+
+[file.142]
+path = "tools/qualification/paxeer-x/replay-authority.py"
+lines = 26
+verdict = "issues"
+note = "Read the full retirement-only replay CLI; build/prepare-fixture flags always refuse, while registry evidence-production rows remain stale."
+
+[file.143]
+path = "tools/rollout/box-apply.sh"
+lines = 73
+verdict = "issues"
+note = "Read all box deployment paths, login and pull boundaries, image replacement, health settling and rollback; restart failure bypasses restoration."
+
+[file.144]
+path = "tools/rollout/ledger.sh"
+lines = 33
+verdict = "issues"
+note = "Read all ledger validation, private evidence path constraints, duplicate section allocation and append handling; no writer lock is present."
+
+[file.145]
+path = "tools/rollout/rollout.py"
+lines = 466
+verdict = "issues"
+note = "Read the entire rollout planner, manifest decoder, image/health reconciliation, GraphQL redaction, box command transport and terminal status handling."
+
+[file.146]
+path = "tools/rollout/rollout.sh"
+lines = 5
+verdict = "clean"
+note = "Read the complete shell entrypoint and Python exec forwarding contract."
+
+[file.147]
+path = "tools/rollout/tests/box_apply_login.test.sh"
+lines = 182
+verdict = "clean"
+note = "Read all registry-login regression cases, raw stdin byte transport, argv and output secrecy and early-refusal assertions; pull is deliberately stopped before host mutation."
+
+[file.148]
+path = "tools/rollout/tests/replay.json"
+lines = 2562
+verdict = "issues"
+note = "Read all 19 replay scenarios and response fields; repeated identical blocks and long padding were compared as data, including crash/rerun, health drift and redaction cases."
+
+[file.149]
+path = "tools/rollout/tests/rollout.test.sh"
+lines = 317
+verdict = "issues"
+note = "Read every manifest plan, service ordering, host ownership, dry-run, ledger and API replay assertion; retired topology is required by positive assertions."
+
+[file.150]
+path = "tools/uci/.github/dependabot.yml"
+lines = 6
+verdict = "vendored"
+note = "Vendored Paxeer-Network/pax-uci snapshot eb65d6d3f967c661f6af91cfac599fd355445f71 as declared in tools/uci/VENDOR.kvx; preserved upstream workflows and agent instructions, not active root Paxeer CI. Source review exempt under the brief."
+
+[file.151]
+path = "tools/uci/.github/seidroid/README.md"
+lines = 16
+verdict = "vendored"
+note = "Vendored Paxeer-Network/pax-uci snapshot eb65d6d3f967c661f6af91cfac599fd355445f71 as declared in tools/uci/VENDOR.kvx; preserved upstream workflows and agent instructions, not active root Paxeer CI. Source review exempt under the brief."
+
+[file.152]
+path = "tools/uci/.github/seidroid/ai-review/README.md"
+lines = 149
+verdict = "vendored"
+note = "Vendored Paxeer-Network/pax-uci snapshot eb65d6d3f967c661f6af91cfac599fd355445f71 as declared in tools/uci/VENDOR.kvx; preserved upstream workflows and agent instructions, not active root Paxeer CI. Source review exempt under the brief."
+
+[file.153]
+path = "tools/uci/.github/seidroid/ai-review/assistant.md"
+lines = 24
+verdict = "vendored"
+note = "Vendored Paxeer-Network/pax-uci snapshot eb65d6d3f967c661f6af91cfac599fd355445f71 as declared in tools/uci/VENDOR.kvx; preserved upstream workflows and agent instructions, not active root Paxeer CI. Source review exempt under the brief."
+
+[file.154]
+path = "tools/uci/.github/seidroid/ai-review/review.md"
+lines = 124
+verdict = "vendored"
+note = "Vendored Paxeer-Network/pax-uci snapshot eb65d6d3f967c661f6af91cfac599fd355445f71 as declared in tools/uci/VENDOR.kvx; preserved upstream workflows and agent instructions, not active root Paxeer CI. Source review exempt under the brief."
+
+[file.155]
+path = "tools/uci/.github/seidroid/ai-review/scout.md"
+lines = 57
+verdict = "vendored"
+note = "Vendored Paxeer-Network/pax-uci snapshot eb65d6d3f967c661f6af91cfac599fd355445f71 as declared in tools/uci/VENDOR.kvx; preserved upstream workflows and agent instructions, not active root Paxeer CI. Source review exempt under the brief."
+
+[file.156]
+path = "tools/uci/.github/workflows/ai-assist.yml"
+lines = 22
+verdict = "vendored"
+note = "Vendored Paxeer-Network/pax-uci snapshot eb65d6d3f967c661f6af91cfac599fd355445f71 as declared in tools/uci/VENDOR.kvx; preserved upstream workflows and agent instructions, not active root Paxeer CI. Source review exempt under the brief."
+
+[file.157]
+path = "tools/uci/.github/workflows/ai-assistant.yml"
+lines = 242
+verdict = "vendored"
+note = "Vendored Paxeer-Network/pax-uci snapshot eb65d6d3f967c661f6af91cfac599fd355445f71 as declared in tools/uci/VENDOR.kvx; preserved upstream workflows and agent instructions, not active root Paxeer CI. Source review exempt under the brief."
+
+[file.158]
+path = "tools/uci/.github/workflows/ai-review-self.yml"
+lines = 26
+verdict = "vendored"
+note = "Vendored Paxeer-Network/pax-uci snapshot eb65d6d3f967c661f6af91cfac599fd355445f71 as declared in tools/uci/VENDOR.kvx; preserved upstream workflows and agent instructions, not active root Paxeer CI. Source review exempt under the brief."
+
+[file.159]
+path = "tools/uci/.github/workflows/ai-review.yml"
+lines = 1143
+verdict = "vendored"
+note = "Vendored Paxeer-Network/pax-uci snapshot eb65d6d3f967c661f6af91cfac599fd355445f71 as declared in tools/uci/VENDOR.kvx; preserved upstream workflows and agent instructions, not active root Paxeer CI. Source review exempt under the brief."
+
+[file.160]
+path = "tools/uci/.github/workflows/backport.yml"
+lines = 70
+verdict = "vendored"
+note = "Vendored Paxeer-Network/pax-uci snapshot eb65d6d3f967c661f6af91cfac599fd355445f71 as declared in tools/uci/VENDOR.kvx; preserved upstream workflows and agent instructions, not active root Paxeer CI. Source review exempt under the brief."
+
+[file.161]
+path = "tools/uci/.github/workflows/go-lint.yml"
+lines = 54
+verdict = "vendored"
+note = "Vendored Paxeer-Network/pax-uci snapshot eb65d6d3f967c661f6af91cfac599fd355445f71 as declared in tools/uci/VENDOR.kvx; preserved upstream workflows and agent instructions, not active root Paxeer CI. Source review exempt under the brief."
+
+[file.162]
+path = "tools/uci/.github/workflows/go-test.yml"
+lines = 52
+verdict = "vendored"
+note = "Vendored Paxeer-Network/pax-uci snapshot eb65d6d3f967c661f6af91cfac599fd355445f71 as declared in tools/uci/VENDOR.kvx; preserved upstream workflows and agent instructions, not active root Paxeer CI. Source review exempt under the brief."
+
+[file.163]
+path = "tools/uci/.github/workflows/goreleaser-release.yml"
+lines = 110
+verdict = "vendored"
+note = "Vendored Paxeer-Network/pax-uci snapshot eb65d6d3f967c661f6af91cfac599fd355445f71 as declared in tools/uci/VENDOR.kvx; preserved upstream workflows and agent instructions, not active root Paxeer CI. Source review exempt under the brief."
+
+[file.164]
+path = "tools/uci/.github/workflows/release-check.yml"
+lines = 270
+verdict = "vendored"
+note = "Vendored Paxeer-Network/pax-uci snapshot eb65d6d3f967c661f6af91cfac599fd355445f71 as declared in tools/uci/VENDOR.kvx; preserved upstream workflows and agent instructions, not active root Paxeer CI. Source review exempt under the brief."
+
+[file.165]
+path = "tools/uci/.github/workflows/release-publish.yml"
+lines = 139
+verdict = "vendored"
+note = "Vendored Paxeer-Network/pax-uci snapshot eb65d6d3f967c661f6af91cfac599fd355445f71 as declared in tools/uci/VENDOR.kvx; preserved upstream workflows and agent instructions, not active root Paxeer CI. Source review exempt under the brief."
+
+[file.166]
+path = "tools/uci/.github/workflows/stale-check.yml"
+lines = 84
+verdict = "vendored"
+note = "Vendored Paxeer-Network/pax-uci snapshot eb65d6d3f967c661f6af91cfac599fd355445f71 as declared in tools/uci/VENDOR.kvx; preserved upstream workflows and agent instructions, not active root Paxeer CI. Source review exempt under the brief."
+
+[file.167]
+path = "tools/uci/README.md"
+lines = 17
+verdict = "vendored"
+note = "Vendored Paxeer-Network/pax-uci snapshot eb65d6d3f967c661f6af91cfac599fd355445f71 as declared in tools/uci/VENDOR.kvx; preserved upstream workflows and agent instructions, not active root Paxeer CI. Source review exempt under the brief."
+
+[finding.001]
+file = "tests/ci/test_agent_codec_corpus.py"
+line = 78
+class = "retired-reference"
+severity = "medium"
+observed = "The clean-checkout test positively requires activity::replay_registry_tests::replay_registry_tracks_kernel_budget_and_stream_declarations, which decodes signed kernel Activity envelopes in layerx-wire/src/activity.rs."
+expected = "Decision 921 retains the layerx-wire crate for receipts, budgets and approvals but retires its Activity, encode_signed and decode_signed envelope path in favor of EIP-1559 writes."
+proposal = "Replace the activity registry subcase in tests/ci/test_agent_codec_corpus.py with retained EIP-1559 producer and consumer conformance coverage, preserving unsupported-version, unknown-class and excluded budget-pull checks."
+owner_domain = 16
+
+[finding.002]
+file = "tests/ci/test_disposition_budget_pull_removed.py"
+line = 9
+class = "test-gap"
+severity = "medium"
+observed = "test_no_queue_disposition_codec_case unconditionally reads tests/protocol/lxp_test_terminal_rejection.c, while test_retired_batch_identity.py requires that path to be absent."
+expected = "Retirement regression cases must agree on the absence of the terminal-rejection suite and continue checking retained sources for disposition references."
+proposal = "Move the no-disposition assertion to retained protocol sources in tests/ci/test_disposition_budget_pull_removed.py and assert absence of the retired suite explicitly."
+owner_domain = 16
+
+[finding.003]
+file = "tests/ci/test_retired_make_rules.py"
+line = 42
+class = "test-gap"
+severity = "medium"
+observed = "test_parallel_differential_links_without_batch_wal only repeats a make -n recipe inspection; it never links or runs programs_parallel_differential."
+expected = "Requirement 16984.2 explicitly requires the differential binary to build without the daemon WAL and exit zero."
+proposal = "Have tests/ci/test_retired_make_rules.py build the actual differential target and execute it, asserting both exit statuses and retained differential case execution."
+owner_domain = 16
+
+[finding.004]
+file = "tools/rollout/box-apply.sh"
+line = 58
+class = "restart-recovery"
+severity = "high"
+observed = "After replacing the image file, systemctl restart runs under set -e outside a conditional; a restart failure exits before the previous image restoration block."
+expected = "A failed deployment must restore the last working image and attempt service recovery whether restart or subsequent health checks fail."
+proposal = "Route restart errors and health failures through one rollback path in tools/rollout/box-apply.sh, persist the previous image durably, and cover restart failure with a recovery regression."
+owner_domain = 16
+interface = "16.cli-rollout-rollout-box-apply"
+
+[finding.005]
+file = "tools/deploy/railway-perps-project.py"
+line = 131
+class = "security"
+severity = "medium"
+observed = "http_transport raises raw GraphQL error JSON and main prints the exception without rollout.redact; echoed registryCredentials.password and secret environment variables can reach deployment output."
+expected = "Railway errors must redact registry passwords, API tokens and resolved secret variables before printing or retaining evidence."
+proposal = "Use the shared graphql_error, mask and redact transport in tools/deploy/railway-perps-project.py and cover API errors echoing nested registry credentials and variables."
+owner_domain = 16
+interface = "16.env-tdeploy-deploy-railway-perps-project-ghcr-token"
+
+[finding.006]
+file = "tools/rollout/rollout.py"
+line = 29
+class = "runtime-risk"
+severity = "medium"
+observed = "TERMINAL maps SLEEPING to pass, so wait_deployment reports successful rollout for a sleeping service without demonstrating that its health path can serve requests."
+expected = "A deployment pass must establish that the target service is running and meets its declared health contract."
+proposal = "Treat sleeping deployments as blocked or explicitly wake and probe the service before declaring pass in tools/rollout/rollout.py and the perps project consumer."
+owner_domain = 16
+interface = "16.cli-rollout-rollout-rollout"
+
+[finding.007]
+file = "tools/rollout/ledger.sh"
+line = 24
+class = "restart-recovery"
+severity = "medium"
+observed = "The duplicate-section count and append are unlocked; concurrent rollouts of the same service and revision can select the same section id and interleave ledger writes."
+expected = "Concurrent and retried rollout attempts must each retain one complete uniquely identified evidence record."
+proposal = "Serialize section allocation and complete-block append with a file lock in tools/rollout/ledger.sh and test simultaneous attempts against the same ledger."
+owner_domain = 16
+interface = "16.cli-rollout-rollout-ledger"
+
+[finding.008]
+file = "tests/protocol/lxp_check_no_clock.sh"
+line = 4
+class = "test-gap"
+severity = "medium"
+observed = "The forbidden-clock scans use rg as an if condition and only reject exit 0; a missing rg executable or an unreadable source directory returns an error that is accepted as a clean scan."
+expected = "Consensus determinism qualification must distinguish an exhaustive scan with no matches from a scan that could not inspect its declared source roots."
+proposal = "Make tests/protocol/lxp_check_no_clock.sh distinguish rg exits 0, 1 and errors, refusing unavailable tools or unreadable inputs, and add prerequisite-failure coverage."
+owner_domain = 16
+
+[finding.009]
+file = "tests/protocol/paxeer_x_rejection_policy.py"
+line = 19
+class = "retired-reference"
+severity = "medium"
+observed = "PROGRAM requires build/tests/lxp_test_terminal_rejection and the policy table still expects RECEIPT_QUEUE_DISPOSITION, ordering sequences and the archived two-class batch admission program."
+expected = "Requirements 16015.1 and 16279.1 retire the terminal-rejection target and source; the merged node qualifies retained transaction admission and committed execution behavior."
+proposal = "Rebase tests/protocol/paxeer_x_rejection_policy.py on retained node admission, fee and execution evidence, preserving applicable historical replay assertions without requiring a retired executable."
+owner_domain = 16
+
+[finding.010]
+file = "tools/ci/consensus_commit_gate.py"
+line = 82
+class = "runtime-risk"
+severity = "medium"
+observed = "unlisted_consensus_commits uses git rev-list --no-merges; a consensus change introduced only while resolving or creating a merge is never examined or required in the release ledger."
+expected = "Every released consensus-changing revision, including a merge result with new state-machine behavior, must be associated with reviewable release evidence."
+proposal = "Inspect consensus changes introduced by merge results in tools/ci/consensus_commit_gate.py and require their ledger entries while distinguishing changes already covered by parent commits."
+owner_domain = 16
+
+[finding.011]
+file = "tools/ci/tests/test_consensus_commit_gate.py"
+line = 139
+class = "test-gap"
+severity = "medium"
+observed = "The merge-only scenario writes a new consensus rule into modules/layerxcustody/keeper/claims.go at the merge commit and explicitly asserts that the unlisted change is accepted."
+expected = "The consensus release gate regression must refuse a consensus rule introduced exclusively by an unlisted merge, as well as ordinary unlisted commits."
+proposal = "Change tools/ci/tests/test_consensus_commit_gate.py to assert refusal of the merge-only rule and acceptance only after that merge revision is recorded, retaining head-pinned and dirty-ledger coverage."
+owner_domain = 16
+
+[finding.012]
+file = "tools/ci/tests/test_wallet_check_live.py"
+line = 25
+class = "test-gap"
+severity = "medium"
+observed = "The success fixture for px_getNetwork emits only kernel.available and kernel.reason, but paxeer.rs::network_result emits network_id, paxeer and consensus and check-live.sh requires paxeer.chain_id plus consensus."
+expected = "The endpoint fixture must follow openrpc.json and the real gateway producer; account success cases must not introduce an unrelated network-head failure."
+proposal = "Build the fixture in tools/ci/tests/test_wallet_check_live.py from the current network result shape, covering both consensus data and explicit consensus_unavailable without weakening account assertions."
+owner_domain = 16
+interface = "8.rpc-gateway-px-getnetwork"
+
+[finding.013]
+file = "tools/ci/tests/test_wallet_check_live.py"
+line = 61
+class = "retired-reference"
+severity = "medium"
+observed = "The account probe regression positively asserts four POST requests to /rpc, preserving the retired shared endpoint instead of the merged root JSON-RPC contract."
+expected = "Brief facts 2 and 3 remove the unified /rpc path and expose the merged network JSON-RPC at its root while hosted px_ reads retain their declared method shapes."
+proposal = "Update tools/ci/tests/test_wallet_check_live.py and the owning endpoint probe to exercise the retained root route and verify hosted px_ routing explicitly, including refusal of retired paths."
+owner_domain = 16
+
+[finding.014]
+file = "tools/ci/tests/test_wallet_check_live.py"
+line = 155
+class = "test-gap"
+severity = "medium"
+observed = "The no-mode assertion requires the usage line to end with human-session followed immediately by a newline, but the current checker appends the supported ramp mode before that newline."
+expected = "Requirement 16029.1 requires exit 2 and truthful usage; the regression must agree with every supported checker mode."
+proposal = "Update the exact usage assertion in tools/ci/tests/test_wallet_check_live.py to include ramp and verify its dispatch, retaining the nonzero usage and retired-method checks."
+owner_domain = 16
+
+[finding.015]
+file = "tests/wallet/check-live.test.sh"
+line = 331
+class = "retired-reference"
+severity = "medium"
+observed = "The endpoint responder accepts only POST /rpc and drives the checker through that retired route; a conforming root-path probe would be rejected by the fixture."
+expected = "The merged public endpoint has no unified /rpc or router; endpoint regressions must exercise the retained route and current gateway network result."
+proposal = "Replace the endpoint fixture route and associated requests in tests/wallet/check-live.test.sh with the merged root contract, preserving wrong-chain, unavailable-consensus and account-refusal coverage."
+owner_domain = 16
+
+[finding.016]
+file = "tools/rollout/tests/rollout.test.sh"
+line = 35
+class = "retired-reference"
+severity = "medium"
+observed = "The plan assertions require router, sequencer-primary and sequencer-standby, including separate units, receipt keys, WAL files and sequencing order ahead of the router."
+expected = "Brief facts 1 and 2 define one paxd BFT network with commit finality and no standalone router or sequencer service."
+proposal = "Rewrite tools/rollout/tests/rollout.test.sh around the retained paxd and hosted services, assert retired router and sequencer services are absent, and keep dependency, image and recovery checks."
+owner_domain = 16
+
+[finding.017]
+file = "tools/rollout/tests/replay.json"
+line = 28
+class = "retired-reference"
+severity = "medium"
+observed = "The deployment replay manifests repeatedly declare service.router with image layerx-router and require pass router from successful apply scenarios."
+expected = "The rollout fixture must describe retained merged-network services and must not qualify creation or successful recovery of the retired router."
+proposal = "Replace the router service in tools/rollout/tests/replay.json with a retained deployment target and add explicit retired-service refusal scenarios while preserving idempotent rerun and secret-redaction cases."
+owner_domain = 16
+interface = "16.fmt-rollout-rollout-tests-replay-json"
+
+[finding.018]
+file = "tools/rollout/tests/replay.json"
+line = 846
+class = "test-gap"
+severity = "medium"
+observed = "The sleeping deployment scenario returns SLEEPING and expects successful rollout without evidence that the configured health endpoint answers after wake-up."
+expected = "A deployment result used as health evidence must establish readiness for its declared service contract, including services suspended by the hosting platform."
+proposal = "Extend the sleeping case in tools/rollout/tests/replay.json to require a successful wake and health observation, and refuse unavailable or timed-out wake-up instead of accepting status alone."
+owner_domain = 16
+interface = "16.fmt-rollout-rollout-tests-replay-json"
+
+[finding.019]
+file = "tools/deploy/tests/railway-perps-project.test.sh"
+line = 384
+class = "test-gap"
+severity = "medium"
+observed = "The explorer scenario sets SLEEPING and requires the apply to pass wave 5 solely from that deployment status, without a successful health request."
+expected = "Later deployment waves must rely on evidence that their prerequisite services can serve their declared health path, including a sleeping explorer."
+proposal = "Make tools/deploy/tests/railway-perps-project.test.sh cover successful wake-up readiness and refusal on a sleeping service that remains unavailable before later waves proceed."
+owner_domain = 16
+interface = "16.cli-tdeploy-deploy-railway-perps-project"
+
+[finding.020]
+file = "tools/qualification/paxeer-x/replay-authority.py"
+line = 19
+class = "config-drift"
+severity = "medium"
+observed = "The executable now always refuses retired batch-WAL qualification, but its published registry still advertises a stable LAYERX_REPLAY_AUTHORITY_EVIDENCE reader and operational build and prepare-fixture modes."
+expected = "Requirement 16051.1 removes the retired replay producer; registry lifecycle and operations guidance must describe the refusal rather than advertise evidence production that no longer occurs."
+proposal = "Retire the obsolete environment and artifact-producing rows owned by tools/qualification/paxeer-x/replay-authority.py in the operations registry and regenerate its contract, retaining explicit CLI refusal."
+owner_domain = 16
+interface = "16.env-qual-qualification-paxeer-x-replay-authority-layerx-replay-authority-evidence"
+
+[finding.021]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "The kernel overview describes layerxd as a separate daemon whose checkpoints settle on Paxeer; line 145 builds layerxd and line 181 repeats separate-kernel settlement as the current architecture."
+expected = "The finished network is one paxd BFT chain with kernel execution in the node and final receipts at block commit; there is no standalone layerxd deployment."
+proposal = "Rewrite README.md architecture, build commands and release notes for the merged paxd network and retained hosted services, removing the standalone daemon and checkpoint-settlement instructions."
+owner_domain = 17
+
+[finding.022]
+file = "docs/paxeer-network.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The network overview says ordinary activity stays on LayerX while periodic checkpoints settle on Paxeer, and presents custody, guarantor bonds, challenges and emergency exits as the operating settlement boundary."
+expected = "Paxeer mainnet-beta is one chain with EVM chain ID 125, tenant domains and commit finality; the retired separate settlement network is not the current product boundary."
+proposal = "Rewrite docs/paxeer-network.md around paxd block execution, committed receipts, root JSON-RPC and tenant namespaces, and replace the obsolete settlement and guarantor component map."
+owner_domain = 17
+
+[finding.023]
+file = "docs/site/docs/index.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "The landing page says checkpoints settle to Paxeer while execution remains inside LayerX; lines 24-27 describe ordinary activity separately from Paxeer transactions and the component table retains settlement machinery."
+expected = "The public overview must describe the single merged BFT network and committed-block finality without a separate LayerX execution or checkpoint settlement domain."
+proposal = "Update docs/site/docs/index.md architecture and component table to the merged network, retained modules and hosted gateway, removing obsolete replica, DA and settlement claims."
+owner_domain = 17
+
+[finding.024]
+file = "docs/site/docs/overview/quickstart.md"
+line = 167
+class = "doc-drift"
+severity = "medium"
+observed = "The maintained client instructions prescribe POST /rpc and GET /rpc/ws, while the examples also rely on payer-grant settlement receipts and custody/checkpoint addresses 0x1013 and 0x1014."
+expected = "The finished network has no unified /rpc routes or separate settlement workflow; public root JSON-RPC uses api1.mainnet-beta.paxeer.network through api14.mainnet-beta.paxeer.network and api-mainnet-beta.paxeer.network."
+proposal = "Rewrite docs/site/docs/overview/quickstart.md examples against the retained root JSON-RPC at api-mainnet-beta.paxeer.network and hosted px_ contract, with EIP-1559 writes and finality at commit; remove obsolete custody, grant-receive and checkpoint steps."
+owner_domain = 17
+
+[finding.025]
+file = "docs/site/docs/overview/i18n/zh-cn.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The zh-cn overview says ordinary activity is ordered inside LayerX, periodic checkpoints settle to Paxeer and an ordinary LayerX action needs no Paxeer transaction; its repository layout also retains layerxd."
+expected = "Translations must describe the same merged paxd BFT chain, committed-block finality and retained module and hosted-service boundaries as the canonical overview."
+proposal = "Rewrite docs/site/docs/overview/i18n/zh-cn.md together with the canonical overview, replacing the separate-network settlement paragraph and retired daemon layout with translated merged-network facts."
+owner_domain = 17
+
+[finding.026]
+file = "docs/site/docs/overview/i18n/ru.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The ru overview says ordinary activity is ordered inside LayerX, periodic checkpoints settle to Paxeer and an ordinary LayerX action needs no Paxeer transaction; its repository layout also retains layerxd."
+expected = "Translations must describe the same merged paxd BFT chain, committed-block finality and retained module and hosted-service boundaries as the canonical overview."
+proposal = "Rewrite docs/site/docs/overview/i18n/ru.md together with the canonical overview, replacing the separate-network settlement paragraph and retired daemon layout with translated merged-network facts."
+owner_domain = 17
+
+[finding.027]
+file = "docs/site/docs/overview/i18n/es.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The es overview says ordinary activity is ordered inside LayerX, periodic checkpoints settle to Paxeer and an ordinary LayerX action needs no Paxeer transaction; its repository layout also retains layerxd."
+expected = "Translations must describe the same merged paxd BFT chain, committed-block finality and retained module and hosted-service boundaries as the canonical overview."
+proposal = "Rewrite docs/site/docs/overview/i18n/es.md together with the canonical overview, replacing the separate-network settlement paragraph and retired daemon layout with translated merged-network facts."
+owner_domain = 17
+
+[finding.028]
+file = "docs/site/docs/overview/i18n/pt-br.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The pt-br overview says ordinary activity is ordered inside LayerX, periodic checkpoints settle to Paxeer and an ordinary LayerX action needs no Paxeer transaction; its repository layout also retains layerxd."
+expected = "Translations must describe the same merged paxd BFT chain, committed-block finality and retained module and hosted-service boundaries as the canonical overview."
+proposal = "Rewrite docs/site/docs/overview/i18n/pt-br.md together with the canonical overview, replacing the separate-network settlement paragraph and retired daemon layout with translated merged-network facts."
+owner_domain = 17
+
+[finding.029]
+file = "docs/site/docs/overview/i18n/ja.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The ja overview says ordinary activity is ordered inside LayerX, periodic checkpoints settle to Paxeer and an ordinary LayerX action needs no Paxeer transaction; its repository layout also retains layerxd."
+expected = "Translations must describe the same merged paxd BFT chain, committed-block finality and retained module and hosted-service boundaries as the canonical overview."
+proposal = "Rewrite docs/site/docs/overview/i18n/ja.md together with the canonical overview, replacing the separate-network settlement paragraph and retired daemon layout with translated merged-network facts."
+owner_domain = 17
+
+[finding.030]
+file = "docs/site/docs/overview/i18n/de.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The de overview says ordinary activity is ordered inside LayerX, periodic checkpoints settle to Paxeer and an ordinary LayerX action needs no Paxeer transaction; its repository layout also retains layerxd."
+expected = "Translations must describe the same merged paxd BFT chain, committed-block finality and retained module and hosted-service boundaries as the canonical overview."
+proposal = "Rewrite docs/site/docs/overview/i18n/de.md together with the canonical overview, replacing the separate-network settlement paragraph and retired daemon layout with translated merged-network facts."
+owner_domain = 17
+
+[finding.031]
+file = "docs/site/docs/overview/i18n/fr.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The fr overview says ordinary activity is ordered inside LayerX, periodic checkpoints settle to Paxeer and an ordinary LayerX action needs no Paxeer transaction; its repository layout also retains layerxd."
+expected = "Translations must describe the same merged paxd BFT chain, committed-block finality and retained module and hosted-service boundaries as the canonical overview."
+proposal = "Rewrite docs/site/docs/overview/i18n/fr.md together with the canonical overview, replacing the separate-network settlement paragraph and retired daemon layout with translated merged-network facts."
+owner_domain = 17
+
+[finding.032]
+file = "docs/site/docs/operators/qualification.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "The qualification matrix treats DA withholding, guarantor disagreement and settlement gates as live fault coverage; the deployment section requires sequencer-offline emergency exits from finalized checkpoints."
+expected = "Operators qualify the merged paxd network and real retained producer-to-consumer recovery paths; retired settlement, guarantor and standalone sequencer gates cannot establish release readiness."
+proposal = "Replace docs/site/docs/operators/qualification.md retired matrix rows and deployment instructions with the actual merged-node, hosted-service and committed-state recovery evidence and their current commands."
+owner_domain = 16
+
+[finding.033]
+file = "spec/layerx-merge/contracts/operations.md"
+line = 11952
+class = "doc-drift"
+severity = "medium"
+observed = "The qual-env table advertises stable LAYERX_REPLAY_AUTHORITY_EVIDENCE configuration and evidence production for replay-authority.py, which now only reports retirement and accepts no evidence environment input."
+expected = "The operations interface guide must distinguish historical pinned declarations from the current retired replay lifecycle and must not offer an unsupported evidence producer as operational."
+proposal = "Update the source operations registry lifecycle for replay-authority.py and regenerate spec/layerx-merge/contracts/operations.md so current CLI refusal and retired environment behavior are explicit."
+owner_domain = 16
+interface = "16.env-qual-qualification-paxeer-x-replay-authority-layerx-replay-authority-evidence"
+
+[finding.034]
+file = "spec/layerx-merge/contracts/kernel.md"
+line = 1791
+class = "doc-drift"
+severity = "medium"
+observed = "The asset runtime declaration omits bool binding_authority and its notes at line 1857 say that field is absent, while include/layerx/lx_asset.h:129 now contains it and registry tests construct the extended runtime."
+expected = "Requirement 1044.1 and the current asset producer and tests agree on binding_authority as the last runtime field and preserve payload, actor and authority checks."
+proposal = "Refresh the asset runtime row and notes in the kernel interface registry and regenerate spec/layerx-merge/contracts/kernel.md from the implemented header without removing the authority checks."
+owner_domain = 1
+interface = "1.c-lx-asset-runtime"
+
+[finding.035]
+file = "spec/layerx-merge/contracts/kernel.md"
+line = 1798
+class = "doc-drift"
+severity = "medium"
+observed = "The stable lx_asset_transfer_request signature includes const lxp_payer_grant *payer_grant, but the current header removes that member and retained transfer tests use the smaller request."
+expected = "Retained asset transfer documentation must agree with the compiled request type and distinguish removed payer-grant and native receive interfaces from live transfer inputs."
+proposal = "Update the lx_asset_transfer_request registry declaration and regenerate spec/layerx-merge/contracts/kernel.md to remove the obsolete member and explain the retained authorization path."
+owner_domain = 1
+interface = "1.c-lx-asset-transfer-request"
+
+[doc.001]
+path = "README.md"
+status = "stale"
+notes = "Lines 47, 145 and 181 describe standalone layerxd, its build command and checkpoint settlement; replace the separate daemon architecture with merged paxd."
+
+[doc.002]
+path = "docs/paxeer-network.md"
+status = "stale"
+notes = "Lines 3-20 and the component map describe separate execution and checkpoint settlement, custody, guarantors and exits instead of the merged network."
+
+[doc.003]
+path = "docs/site/docs/index.md"
+status = "misleading"
+notes = "Lines 11-14 and 24-27 separate execution and settlement; component tables retain DA and settlement machinery instead of committed-block finality."
+
+[doc.004]
+path = "docs/site/docs/overview/quickstart.md"
+status = "misleading"
+notes = "Lines 20, 131-132 and 167-168 and later examples prescribe /rpc routes, retired grant-receive settlement and checkpoint/custody configuration."
+
+[doc.005]
+path = "docs/site/docs/overview/i18n/zh-cn.md"
+status = "stale"
+notes = "Line 18 and the repository layout translate separate-network checkpoint settlement and layerxd topology; rewrite together with the canonical merged-network overview."
+
+[doc.006]
+path = "docs/site/docs/overview/i18n/ru.md"
+status = "stale"
+notes = "Line 18 and the repository layout translate separate-network checkpoint settlement and layerxd topology; rewrite together with the canonical merged-network overview."
+
+[doc.007]
+path = "docs/site/docs/overview/i18n/es.md"
+status = "stale"
+notes = "Line 18 and the repository layout translate separate-network checkpoint settlement and layerxd topology; rewrite together with the canonical merged-network overview."
+
+[doc.008]
+path = "docs/site/docs/overview/i18n/pt-br.md"
+status = "stale"
+notes = "Line 18 and the repository layout translate separate-network checkpoint settlement and layerxd topology; rewrite together with the canonical merged-network overview."
+
+[doc.009]
+path = "docs/site/docs/overview/i18n/ja.md"
+status = "stale"
+notes = "Line 18 and the repository layout translate separate-network checkpoint settlement and layerxd topology; rewrite together with the canonical merged-network overview."
+
+[doc.010]
+path = "docs/site/docs/overview/i18n/de.md"
+status = "stale"
+notes = "Line 18 and the repository layout translate separate-network checkpoint settlement and layerxd topology; rewrite together with the canonical merged-network overview."
+
+[doc.011]
+path = "docs/site/docs/overview/i18n/fr.md"
+status = "stale"
+notes = "Line 18 and the repository layout translate separate-network checkpoint settlement and layerxd topology; rewrite together with the canonical merged-network overview."
+
+[doc.012]
+path = "docs/site/docs/operators/qualification.md"
+status = "stale"
+notes = "Lines 20-21 and 77-82 prescribe live DA/guarantor/settlement gates and sequencer-offline checkpoint exits instead of current network qualification."
+
+[doc.013]
+path = "tools/uci/README.md"
+status = "accurate"
+notes = "Read as upstream UCI documentation rather than a Paxeer deployment contract; tools/uci/VENDOR.kvx pins upstream eb65d6d3f967c661f6af91cfac599fd355445f71."
+
+[doc.014]
+path = "tools/uci/.github/seidroid/README.md"
+status = "accurate"
+notes = "Read as upstream UCI documentation rather than a Paxeer deployment contract; tools/uci/VENDOR.kvx pins upstream eb65d6d3f967c661f6af91cfac599fd355445f71."
+
+[doc.015]
+path = "tools/uci/.github/seidroid/ai-review/README.md"
+status = "accurate"
+notes = "Read as upstream UCI documentation rather than a Paxeer deployment contract; tools/uci/VENDOR.kvx pins upstream eb65d6d3f967c661f6af91cfac599fd355445f71."
+
+[doc.016]
+path = "spec/layerx-merge/contracts/operations.md"
+status = "stale"
+notes = "Reviewed relevant CLI, environment, deployment and rollout sections of the historical 2a1033aa2 snapshot. Line 11952 advertises an evidence environment reader removed from replay-authority.py; unrelated sections are outside this package review."
+
+[doc.017]
+path = "spec/layerx-merge/contracts/test-harness.md"
+status = "accurate"
+notes = "Reviewed relevant C harness and retirement acceptance sections as a frozen 2a1033aa2 specification snapshot. Retained --run and unknown-case behavior agrees; line 443 requires terminal-rejection deletion. Historical UNRUN entries do not claim audit runtime qualification."
+
+[doc.018]
+path = "spec/layerx-merge/contracts/kernel.md"
+status = "stale"
+notes = "Reviewed package-linked declarations and relevant asset, context and identity sections, not the unrelated generated catalogue. Lines 1791 and 1798 disagree with current asset runtime and transfer request fields; snapshot revision is 2a1033aa2."
+
+[boundary.inventory]
+produces = ["16.cli-lxp-test-harness-list-j59", "16.cli-lxp-test-harness-run-j59", "16.cli-qual-qualification-paxeer-x-gas-station-contract", "16.cli-qual-qualification-paxeer-x-gas-station-contract-opt-candidate-manifest", "16.cli-qual-qualification-paxeer-x-gas-station-contract-opt-case", "16.cli-qual-qualification-paxeer-x-replay-authority", "16.cli-qual-qualification-paxeer-x-replay-authority-opt-build", "16.cli-qual-qualification-paxeer-x-replay-authority-opt-prepare-fixture", "16.cli-rollout-rollout-box-apply", "16.cli-rollout-rollout-ledger", "16.cli-rollout-rollout-rollout", "16.cli-rollout-rollout-rollout-2", "16.cli-rollout-rollout-rollout-opt-argv1", "16.cli-tci-ci-beta-report", "16.cli-tci-ci-beta-report-opt-check", "16.cli-tci-ci-beta-report-opt-h", "16.cli-tci-ci-beta-report-opt-help", "16.cli-tci-ci-beta-report-opt-ledger", "16.cli-tdeploy-deploy-charting-library-image", "16.cli-tdeploy-deploy-charting-library-image-opt-image", "16.cli-tdeploy-deploy-charting-library-image-opt-push", "16.cli-tdeploy-deploy-charting-library-image-opt-source", "16.cli-tdeploy-deploy-offchain-images", "16.cli-tdeploy-deploy-offchain-images-opt-check", "16.cli-tdeploy-deploy-offchain-images-opt-matrix", "16.cli-tdeploy-deploy-offchain-images-opt-plan", "16.cli-tdeploy-deploy-railway-apply-variables", "16.cli-tdeploy-deploy-railway-apply-variables-opt-argv1", "16.cli-tdeploy-deploy-railway-perps-project", "16.cli-tdeploy-deploy-railway-perps-project-opt-argv1", "16.env-qual-qualification-paxeer-x-gas-station-contract-paxeer-x-evidence-dir", "16.env-qual-qualification-paxeer-x-gas-station-contract-paxeer-x-rate-recovery-material", "16.env-qual-qualification-paxeer-x-gas-station-contract-paxeer-x-station-browser-material", "16.env-qual-qualification-paxeer-x-gas-station-contract-paxeer-x-station-first-use-material", "16.env-qual-qualification-paxeer-x-gas-station-contract-paxeer-x-station-liability-material", "16.env-qual-qualification-paxeer-x-gas-station-contract-paxeer-x-station-recovery-material", "16.env-qual-qualification-paxeer-x-replay-authority-layerx-replay-authority-evidence", "16.env-rollout-rollout-box-apply-layerx-health-port", "16.env-rollout-rollout-box-apply-rollout-health-timeout", "16.env-rollout-rollout-ledger-rollout-evidence-root", "16.env-rollout-rollout-ledger-rollout-ledger-dir", "16.env-rollout-rollout-rollout-ghcr-actor", "16.env-rollout-rollout-rollout-railway-api-token", "16.env-rollout-rollout-rollout-railway-project-id", "16.env-rollout-rollout-rollout-registry-token-file", "16.env-rollout-rollout-rollout-rollout-dry-run", "16.env-rollout-rollout-rollout-rollout-hosts-file", "16.env-rollout-rollout-rollout-rollout-log-dir", "16.env-rollout-rollout-rollout-rollout-manifest", "16.env-rollout-rollout-rollout-rollout-poll", "16.env-rollout-rollout-rollout-rollout-timeout", "16.env-tdeploy-deploy-charting-library-image-docker-config", "16.env-tdeploy-deploy-offchain-images-build-sha", "16.env-tdeploy-deploy-offchain-images-perps-build-image", "16.env-tdeploy-deploy-offchain-images-perps-runtime-image", "16.env-tdeploy-deploy-offchain-images-reviewed-build-image", "16.env-tdeploy-deploy-offchain-images-reviewed-runtime-image", "16.env-tdeploy-deploy-railway-apply-variables-ghcr-token", "16.env-tdeploy-deploy-railway-apply-variables-ghcr-username", "16.env-tdeploy-deploy-railway-apply-variables-railway-api-token", "16.env-tdeploy-deploy-railway-perps-project-ghcr-token", "16.env-tdeploy-deploy-railway-perps-project-ghcr-username", "16.env-tdeploy-deploy-railway-perps-project-railway-api-token", "16.env-tdeploy-deploy-railway-perps-project-railway-workspace-id", "16.env-tdeploy-deploy-railway-perps-project-rollout-poll", "16.env-tdeploy-deploy-railway-perps-project-rollout-timeout", "16.fmt-rollout-rollout-tests-replay-json", "16.fmt-tdeploy-deploy-charting-library-dockerfile", "16.fmt-tdeploy-deploy-tests-fixtures-railway-apply-variables-replay-json"]
+consumes = ["1.c-enum-lx-account-id-bytes", "1.c-enum-lx-asset-registry-capacity", "1.c-enum-lx-budget-record-fixed-bytes", "1.c-enum-lx-budget-store-capacity", "1.c-enum-lx-checkpoint-capacity", "1.c-enum-lx-escrow-hold-prefix-bytes", "1.c-enum-lx-escrow-open", "1.c-enum-lx-escrow-record-bytes", "1.c-enum-lx-oracle-push-activity", "1.c-enum-lx-perps-market-create", "1.c-enum-lx-programs-deploy", "1.c-enum-lx-service-event-offer-published", "1.c-enum-lx-service-max-deliverables", "1.c-enum-lx-service-payload-version-bytes", "1.c-enum-lx-service-record-version", "1.c-enum-lx-spot-market-create", "1.c-enum-lx-stream-max-meter-authorities", "1.c-enum-lx-web-module-id", "1.c-enum-lx-withdrawal-state-key-bytes", "1.c-enum-lxp-batch-header-encoded-size", "1.c-enum-lxp-batch-identity-activity-preimage-size", "1.c-enum-lxp-domain-activity-id", "1.c-enum-lxp-fee-two-class-parameter-version", "1.c-enum-lxp-guarantor-duty-none", "1.c-enum-lxp-kernel-max-module-registrations", "1.c-enum-lxp-program-metering-schedule-version-v1", "1.c-enum-lxp-queue-disposition-magic", "1.c-enum-lxp-send-max-conditions", "1.c-enum-lxp-state-max-cells", "1.c-enum-lxp-state-witness-version", "1.c-enum-lxp-transfer-conserved", "1.c-lx-account-id-from-string", "1.c-lx-account-kind", "1.c-lx-account-kind-of", "1.c-lx-account-lookup", "1.c-lx-account-open", "1.c-lx-account-open-authority", "1.c-lx-account-registry", "1.c-lx-account-registry-index-lookup", "1.c-lx-account-registry-init", "1.c-lx-account-registry-proof", "1.c-lx-account-registry-proofs", "1.c-lx-account-registry-release", "1.c-lx-account-registry-slot-insert", "1.c-lx-account-validate-canonical", "1.c-lx-asset-account-open", "1.c-lx-asset-account-open-decode", "1.c-lx-asset-account-open-payload", "1.c-lx-asset-amount-decode", "1.c-lx-asset-balance-get", "1.c-lx-asset-custody-attestation", "1.c-lx-asset-custody-kind", "1.c-lx-asset-deposit-credit", "1.c-lx-asset-grant-revoke-decode", "1.c-lx-asset-grant-revoke-payload", "1.c-lx-asset-lookup", "1.c-lx-asset-module-iface", "1.c-lx-asset-nullifier-seen", "1.c-lx-asset-pause", "1.c-lx-asset-payer-grant-read", "1.c-lx-asset-receive-execute", "1.c-lx-asset-record", "1.c-lx-asset-record-decode", "1.c-lx-asset-record-encode", "1.c-lx-asset-register", "1.c-lx-asset-register-decode", "1.c-lx-asset-register-payload", "1.c-lx-asset-registry", "1.c-lx-asset-registry-init", "1.c-lx-asset-reserve-reconcile", "1.c-lx-asset-reserve-report", "1.c-lx-asset-reserve-report-encode", "1.c-lx-asset-reserve-report-record", "1.c-lx-asset-runtime", "1.c-lx-asset-send-execute", "1.c-lx-asset-state-root", "1.c-lx-asset-supply-check", "1.c-lx-asset-supply-decode", "1.c-lx-asset-supply-payload", "1.c-lx-asset-total-units", "1.c-lx-asset-transfer-request", "1.c-lx-asset-transfer-state", "1.c-lx-asset-unpause", "1.c-lx-asset-validate", "1.c-lx-asset-withdraw-request", "1.c-lx-asset-withdraw-settle", "1.c-lx-batch-header", "1.c-lx-batch-header-set-web-root", "1.c-lx-budget-batch-maintenance", "1.c-lx-budget-close-execute", "1.c-lx-budget-close-request", "1.c-lx-budget-create-execute", "1.c-lx-budget-defund-decode", "1.c-lx-budget-defund-execute", "1.c-lx-budget-defund-payload", "1.c-lx-budget-delegate-add-execute", "1.c-lx-budget-delegate-capability", "1.c-lx-budget-delegate-remove-execute", "1.c-lx-budget-delegate-spend-execute", "1.c-lx-budget-delegate-spend-request", "1.c-lx-budget-fund-execute", "1.c-lx-budget-fund-request", "1.c-lx-budget-module-iface", "1.c-lx-budget-periods-elapsed", "1.c-lx-budget-pull-execute", "1.c-lx-budget-pull-request", "1.c-lx-budget-record", "1.c-lx-budget-record-decode", "1.c-lx-budget-record-encode", "1.c-lx-budget-remaining", "1.c-lx-budget-revoke-decode", "1.c-lx-budget-revoke-execute", "1.c-lx-budget-revoke-payload", "1.c-lx-budget-rollover-policy", "1.c-lx-budget-runtime", "1.c-lx-budget-spend-execute", "1.c-lx-budget-spend-prepare", "1.c-lx-budget-spend-request", "1.c-lx-budget-state-key", "1.c-lx-budget-state-put", "1.c-lx-budget-store", "1.c-lx-checkpoint-registry", "1.c-lx-checkpoint-registry-create", "1.c-lx-checkpoint-registry-destroy", "1.c-lx-checkpoint-registry-register-deposit-root", "1.c-lx-deposit-proof", "1.c-lx-escrow-authority-check", "1.c-lx-escrow-capture-execute", "1.c-lx-escrow-capture-request", "1.c-lx-escrow-dispute-open-execute", "1.c-lx-escrow-dispute-request", "1.c-lx-escrow-dispute-resolve-execute", "1.c-lx-escrow-economic-result", "1.c-lx-escrow-invariant-check", "1.c-lx-escrow-lookup", "1.c-lx-escrow-module-iface", "1.c-lx-escrow-open-execute", "1.c-lx-escrow-open-request", "1.c-lx-escrow-partial-capture-execute", "1.c-lx-escrow-receipt-replay", "1.c-lx-escrow-record", "1.c-lx-escrow-record-decode", "1.c-lx-escrow-record-encode", "1.c-lx-escrow-release-execute", "1.c-lx-escrow-release-request", "1.c-lx-escrow-remaining", "1.c-lx-escrow-result-decode", "1.c-lx-escrow-result-encode", "1.c-lx-escrow-result-encode-v2", "1.c-lx-escrow-result-key", "1.c-lx-escrow-result-lookup", "1.c-lx-escrow-runtime", "1.c-lx-escrow-split-bps", "1.c-lx-escrow-state-iter", "1.c-lx-escrow-state-put", "1.c-lx-escrow-state-update", "1.c-lx-escrow-status", "1.c-lx-escrow-timeout-execute", "1.c-lx-escrow-timeout-key", "1.c-lx-finalized-checkpoint", "1.c-lx-oracle-accepted", "1.c-lx-oracle-activity-encode-signed", "1.c-lx-oracle-adapter-config", "1.c-lx-oracle-bounds-check", "1.c-lx-oracle-deviation-check", "1.c-lx-oracle-fail-closed-eval", "1.c-lx-oracle-key-set-check", "1.c-lx-oracle-market", "1.c-lx-oracle-market-action", "1.c-lx-oracle-market-action-check", "1.c-lx-oracle-market-halted", "1.c-lx-oracle-market-store", "1.c-lx-oracle-observation", "1.c-lx-oracle-observation-encode", "1.c-lx-oracle-observation-sign", "1.c-lx-oracle-push-execute", "1.c-lx-oracle-push-request", "1.c-lx-oracle-staleness-check", "1.c-lx-oracle-store", "1.c-lx-oracle-store-latest", "1.c-lx-oracle-store-put", "1.c-lx-oracle-transport-encode", "1.c-lx-paxeer-deposit-leaf-hash", "1.c-lx-paxeer-deposit-root-message", "1.c-lx-paxeer-deposit-root-registration", "1.c-lx-perps-adl-command", "1.c-lx-perps-adl-command-encode", "1.c-lx-perps-book", "1.c-lx-perps-book-init", "1.c-lx-perps-book-iter", "1.c-lx-perps-cancel-command", "1.c-lx-perps-cancel-command-encode", "1.c-lx-perps-close-command", "1.c-lx-perps-close-command-encode", "1.c-lx-perps-deficit", "1.c-lx-perps-deficit-lookup", "1.c-lx-perps-deficit-record", "1.c-lx-perps-deficit-store", "1.c-lx-perps-funding-index-update", "1.c-lx-perps-funding-rate", "1.c-lx-perps-funding-state", "1.c-lx-perps-funding-state-lookup", "1.c-lx-perps-funding-tick-execute", "1.c-lx-perps-funding-tick-request", "1.c-lx-perps-halt-command", "1.c-lx-perps-halt-command-encode", "1.c-lx-perps-increase-command", "1.c-lx-perps-increase-command-decode", "1.c-lx-perps-increase-command-encode", "1.c-lx-perps-insurance-cover", "1.c-lx-perps-liquidate-command", "1.c-lx-perps-liquidate-command-encode", "1.c-lx-perps-liquidation-fee-split", "1.c-lx-perps-maintenance-check", "1.c-lx-perps-market", "1.c-lx-perps-market-decode", "1.c-lx-perps-market-encode", "1.c-lx-perps-market-iter", "1.c-lx-perps-market-lookup", "1.c-lx-perps-module-iface", "1.c-lx-perps-open-command", "1.c-lx-perps-open-command-decode", "1.c-lx-perps-open-command-encode", "1.c-lx-perps-oracle-command", "1.c-lx-perps-oracle-command-decode", "1.c-lx-perps-oracle-command-encode", "1.c-lx-perps-oracle-command-sign", "1.c-lx-perps-oracle-state", "1.c-lx-perps-oracle-state-lookup", "1.c-lx-perps-oracle-transport-decode", "1.c-lx-perps-oracle-transport-module-iface", "1.c-lx-perps-order", "1.c-lx-perps-order-book-load", "1.c-lx-perps-order-command", "1.c-lx-perps-order-command-encode", "1.c-lx-perps-order-lookup", "1.c-lx-perps-pnl-compute", "1.c-lx-perps-position", "1.c-lx-perps-position-get", "1.c-lx-perps-position-lookup", "1.c-lx-perps-position-store", "1.c-lx-perps-side", "1.c-lx-perps-tick-command", "1.c-lx-perps-tick-command-encode", "1.c-lx-programs-fee-genesis-parameters", "1.c-lx-programs-fee-schedule", "1.c-lx-programs-state-feed-store", "1.c-lx-programs-transfer-runtime", "1.c-lx-service-accept-execute", "1.c-lx-service-acceptance-default", "1.c-lx-service-agreement", "1.c-lx-service-agreement-accept-execute", "1.c-lx-service-agreement-decode", "1.c-lx-service-agreement-encode", "1.c-lx-service-agreement-lookup", "1.c-lx-service-agreement-propose-execute", "1.c-lx-service-agreement-request", "1.c-lx-service-agreement-state", "1.c-lx-service-attest-request", "1.c-lx-service-attestation-bytes", "1.c-lx-service-attestor-grant", "1.c-lx-service-attestor-verify", "1.c-lx-service-commitment", "1.c-lx-service-commitment-decode", "1.c-lx-service-commitment-encode", "1.c-lx-service-commitment-lookup", "1.c-lx-service-default-outcome", "1.c-lx-service-deliverable-check", "1.c-lx-service-delivery", "1.c-lx-service-delivery-latest", "1.c-lx-service-delivery-lookup", "1.c-lx-service-dispute", "1.c-lx-service-dispute-decode", "1.c-lx-service-dispute-encode", "1.c-lx-service-dispute-lookup", "1.c-lx-service-dispute-open-execute", "1.c-lx-service-dispute-request", "1.c-lx-service-dispute-resolve-execute", "1.c-lx-service-effect-audit", "1.c-lx-service-epoch-begin", "1.c-lx-service-execution", "1.c-lx-service-execution-decode", "1.c-lx-service-execution-encode", "1.c-lx-service-execution-lookup", "1.c-lx-service-module-iface", "1.c-lx-service-offer", "1.c-lx-service-offer-decode", "1.c-lx-service-offer-encode", "1.c-lx-service-offer-lookup", "1.c-lx-service-offer-publish-execute", "1.c-lx-service-offer-request", "1.c-lx-service-offer-withdraw-execute", "1.c-lx-service-outcome-request", "1.c-lx-service-progress", "1.c-lx-service-progress-decode", "1.c-lx-service-progress-encode", "1.c-lx-service-progress-high-water", "1.c-lx-service-progress-lookup", "1.c-lx-service-reject-execute", "1.c-lx-service-tool-exec-attest-execute", "1.c-lx-spot-cancel-command", "1.c-lx-spot-cancel-command-encode", "1.c-lx-spot-escrow-id", "1.c-lx-spot-market", "1.c-lx-spot-market-command", "1.c-lx-spot-market-command-encode", "1.c-lx-spot-market-encode", "1.c-lx-spot-market-lookup", "1.c-lx-spot-module-iface", "1.c-lx-spot-order", "1.c-lx-spot-order-command", "1.c-lx-spot-order-command-encode", "1.c-lx-spot-order-kind", "1.c-lx-spot-order-lookup", "1.c-lx-spot-side", "1.c-lx-spot-time-in-force", "1.c-lx-stream-accrue", "1.c-lx-stream-amount-decode", "1.c-lx-stream-amount-encode", "1.c-lx-stream-amount-payload", "1.c-lx-stream-carry-apply", "1.c-lx-stream-close-execute", "1.c-lx-stream-economic-result", "1.c-lx-stream-elapsed-ms", "1.c-lx-stream-id-decode", "1.c-lx-stream-id-encode", "1.c-lx-stream-id-payload", "1.c-lx-stream-iter", "1.c-lx-stream-keyed-decode", "1.c-lx-stream-keyed-encode", "1.c-lx-stream-keyed-payload", "1.c-lx-stream-lifecycle-request", "1.c-lx-stream-load", "1.c-lx-stream-meter-attestation", "1.c-lx-stream-meter-attestation-bytes", "1.c-lx-stream-meter-authority-check", "1.c-lx-stream-meter-decode", "1.c-lx-stream-meter-encode", "1.c-lx-stream-meter-execute", "1.c-lx-stream-metered-accrue", "1.c-lx-stream-mode", "1.c-lx-stream-module-iface", "1.c-lx-stream-open-decode", "1.c-lx-stream-open-encode", "1.c-lx-stream-open-payload", "1.c-lx-stream-rate-change-decode", "1.c-lx-stream-rate-change-execute", "1.c-lx-stream-rate-change-payload", "1.c-lx-stream-record", "1.c-lx-stream-record-decode", "1.c-lx-stream-record-encode", "1.c-lx-stream-record-validate", "1.c-lx-stream-result-key", "1.c-lx-stream-result-load", "1.c-lx-stream-result-receipt", "1.c-lx-stream-runtime", "1.c-lx-stream-settle-execute", "1.c-lx-stream-settle-request", "1.c-lx-stream-state-key", "1.c-lx-web-answer", "1.c-lx-web-attestor", "1.c-lx-web-attestor-lookup", "1.c-lx-web-attestor-set", "1.c-lx-web-attestor-set-decode", "1.c-lx-web-attestor-set-encode", "1.c-lx-web-attestor-set-execute", "1.c-lx-web-attestor-set-validate", "1.c-lx-web-committed", "1.c-lx-web-committed-lookup", "1.c-lx-web-committed-read", "1.c-lx-web-intake", "1.c-lx-web-intake-request", "1.c-lx-web-module-iface", "1.c-lx-web-observation", "1.c-lx-web-observation-digest", "1.c-lx-web-observation-encode", "1.c-lx-web-pending-add", "1.c-lx-web-preimage-encode", "1.c-lx-web-request-record-decode", "1.c-lx-web-root", "1.c-lx-web-store", "1.c-lx-withdrawal-nullifier", "1.c-lx-withdrawal-record", "1.c-lx-withdrawal-request", "1.c-lx-withdrawal-state-decode", "1.c-lx-withdrawal-state-encode", "1.c-lx-withdrawal-store", "1.c-lxp-account-id-derive", "1.c-lxp-activity-check-envelope", "1.c-lxp-activity-check-timestamp-bound", "1.c-lxp-activity-decode", "1.c-lxp-activity-encode", "1.c-lxp-activity-id", "1.c-lxp-activity-module-id", "1.c-lxp-activity-signing-preimage", "1.c-lxp-activity-type-ordinal", "1.c-lxp-activity-verify-signature", "1.c-lxp-admission-context", "1.c-lxp-admission-result", "1.c-lxp-admit-activity"]
+notes = "Rows include historical retirement declarations. Negative assertions and weak-null references intentionally mention removed symbols and do not make them live consumers. Decisions 910/921 preserve wire-crate receipt, budget, approval and maintenance encodings while retiring its kernel Activity envelope."
+
+[boundary.harness]
+interfaces = ["16.cli-lxp-test-harness-list-j59", "16.cli-lxp-test-harness-run-j59"]
+producer = "tests/lxp_test_harness.c"
+consumer = "tests/protocol/lxp_test_smoke.c"
+notes = "Registered names reach lxp_test_run_one through lxp_test_main. --list lists registrations, --run selects one case, unknown cases return 2, and PASS/FAIL output and results agree with the declared helper contract."
+
+[boundary.asset]
+interfaces = ["1.c-lx-asset-runtime", "1.c-lx-asset-transfer-request"]
+producer = "include/layerx/lx_asset.h"
+consumer = "tests/modules/test_asset_registry.c; tests/modules/test_asset_deposit.c"
+notes = "Current tests use the compiled runtime with binding_authority and transfer request without payer_grant. These producer and consumer types agree; historical registry and kernel contract declarations need the recorded updates. Removed receive/grant/deposit symbols are absence checks."
+
+[boundary.kernel-state]
+producer = "include/layerx/lxp_kernel.h; include/layerx/lxp_authority.h; src/state/lxp_identity.c"
+consumer = "tests/protocol; tests/state; tests/modules/test_budget_delegate.c"
+notes = "Reviewed registration and dispatch, scalar widths, canonical bytes, result enums, state journal commit/abort, sequence handling, scoped authorization, transfer savepoints and recovery helper assertions. Direct struct fixtures are unit evidence, not proof of external transport or restart qualification. Retained C codecs are distinct from retired agent envelope writes."
+
+[boundary.wallet]
+interfaces = ["8.rpc-gateway-px-getnetwork"]
+producer = "services/platform/hosted/gateway/src/paxeer.rs; services/platform/hosted/gateway/openrpc.json"
+consumer = "scripts/wallet/check-live.sh; tools/ci/tests/test_wallet_check_live.py; tests/wallet/check-live.test.sh"
+notes = "network_result emits network_id, paxeer.chain_id/latest_block and consensus or null with consensus_unavailable. The shell checker consumes paxeer and consensus; the Python fixture supplies a third kernel-only shape. Both endpoint suites positively retain /rpc. Findings separate response-shape test drift from route retirement."
+
+[boundary.deployment]
+interfaces = ["16.cli-tdeploy-deploy-railway-apply-variables", "16.cli-tdeploy-deploy-railway-perps-project", "16.fmt-tdeploy-deploy-charting-library-dockerfile", "16.fmt-tdeploy-deploy-tests-fixtures-railway-apply-variables-replay-json"]
+producer = "tools/deploy; deploy/railway-perps-project.kvx"
+consumer = "tools/deploy/tests; tools/deploy/tests/fixtures/railway-apply-variables-replay.json"
+notes = "Checked desired/live variables, service/environment IDs, GraphQL inputs and data envelopes, registry username/password nesting, health configuration, digest pins and waves. The chart Dockerfile copies the two validated directories. Variable reconciliation uses shared redaction; the project transport prints raw API errors."
+
+[boundary.rollout]
+interfaces = ["16.cli-rollout-rollout-box-apply", "16.cli-rollout-rollout-ledger", "16.cli-rollout-rollout-rollout", "16.cli-rollout-rollout-rollout-2", "16.fmt-rollout-rollout-tests-replay-json"]
+producer = "tools/rollout/rollout.py; tools/rollout/box-apply.sh; tools/rollout/ledger.sh"
+consumer = "tools/rollout/tests; tools/deploy/railway-perps-project.py"
+notes = "Checked exact manifest keys and target enums, image/health reconciliation, polling statuses, shell quoting, token-file bytes on stdin, private evidence paths and ledger fields. Restart failure bypasses rollback; concurrent appends can collide; SLEEPING alone supplies no fresh readiness observation. Replay preserves crash/rerun and redaction but qualifies retired topology."
+
+[boundary.qualification]
+interfaces = ["16.cli-qual-qualification-paxeer-x-gas-station-contract", "16.cli-qual-qualification-paxeer-x-replay-authority", "16.env-qual-qualification-paxeer-x-replay-authority-layerx-replay-authority-evidence"]
+producer = "tools/qualification/paxeer-x/gas-station-contract.py; tools/qualification/paxeer-x/replay-authority.py"
+consumer = "qualification material readers and declared CLI callers"
+notes = "Gas-station qualification reads the merge catalogue and checks producer material identities, fields, hashes, bounded loopback requests, authorization/refusals, recovery counters and evidence linkage. The replay CLI explicitly refuses retired qualification and does not produce the stable evidence environment row advertised by the registry."

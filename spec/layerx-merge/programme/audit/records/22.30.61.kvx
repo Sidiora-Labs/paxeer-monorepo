@@ -1,0 +1,1150 @@
+[audit.22.30.61]
+task = "22.30.61"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 158
+findings = 15
+docs_reviewed = 7
+upgrade_ready = false
+blocking = ["program-result-grpc", "program-genesis-kind", "committed-capacity-lifetime"]
+
+[file.001]
+path = "interchain/README.md"
+lines = 45
+verdict = "clean"
+note = "Provenance identifies the integrated IBC core and ICS20 code, explicitly labels ICA as unwired and localhost as nonfunctional, and does not promise those unsupported paths."
+
+[file.002]
+path = "modules/xweb/ATTESTATION.md"
+lines = 108
+verdict = "issues"
+note = "Frozen attestation preimage remains useful, but live origin-2 ownership and storage receipt kinds are stale and have a documentation finding."
+
+[file.003]
+path = "modules/xweb/client/cli/query.go"
+lines = 75
+verdict = "clean"
+note = "Query root registers params, attestors, origin-1 request/result and the program request/result/counters commands; command names agree with query services."
+
+[file.004]
+path = "modules/xweb/client/cli/query_program.go"
+lines = 108
+verdict = "clean"
+note = "Program CLI validates 32-byte program IDs and uint64 request IDs, invokes the generated query client and prints canonical responses; successful result transport is tracked at its producer."
+
+[file.005]
+path = "modules/xweb/client/cli/query_program_test.go"
+lines = 66
+verdict = "clean"
+note = "Covers program ID/request ID parsing, command registration and query call arguments; transport success has a separate finding on the real API proof."
+
+[file.006]
+path = "modules/xweb/client/cli/query_requests.go"
+lines = 62
+verdict = "clean"
+note = "Origin-1 query commands parse request IDs, use QueryClient Request/Result and propagate query/print errors without synthesizing result state."
+
+[file.007]
+path = "modules/xweb/client/cli/query_requests_test.go"
+lines = 59
+verdict = "clean"
+note = "Exercises origin-1 request/result command wiring and argument validation against generated request types."
+
+[file.008]
+path = "modules/xweb/client/cli/query_test.go"
+lines = 36
+verdict = "clean"
+note = "Checks params and attestors CLI wiring and registered subcommands with the declared query client methods."
+
+[file.009]
+path = "modules/xweb/client/cli/tx.go"
+lines = 276
+verdict = "clean"
+note = "Governance CLI constructs the declared messages, parses fees/settings/attestors and uses the SDK transaction broadcaster; authority remains checked by the keeper."
+
+[file.010]
+path = "modules/xweb/client/cli/tx_test.go"
+lines = 103
+verdict = "clean"
+note = "Covers transaction command argument conversion and generated message fields for governed settings, pause and attestor updates."
+
+[file.011]
+path = "modules/xweb/keeper/activation.go"
+lines = 20
+verdict = "clean"
+note = "Activation reads persisted applied-v7 height and xweb parameters; nil or absent readers fail closed and the check leaves caller gas unchanged."
+
+[file.012]
+path = "modules/xweb/keeper/activation_test.go"
+lines = 71
+verdict = "clean"
+note = "Checks absent/scheduled/applied upgrade state, persisted activation and gas-neutral reads against the same activation predicate."
+
+[file.013]
+path = "modules/xweb/keeper/fulfil.go"
+lines = 205
+verdict = "clean"
+note = "Origin-1 fulfilment checks status, pause, exact context, threshold and sorted low-s signatures; cached settlement persists fulfilment even when callback failure is recorded."
+
+[file.014]
+path = "modules/xweb/keeper/fulfil_test.go"
+lines = 300
+verdict = "clean"
+note = "Exercises genuine signature verification, threshold and context rejection, fee distribution and callback result semantics along the keeper path."
+
+[file.015]
+path = "modules/xweb/keeper/genesis.go"
+lines = 67
+verdict = "clean"
+note = "Exports and imports xweb requests, answers, denomination mappings and counters through real stores; validation/import disagreements are anchored on types/genesis.go."
+
+[file.016]
+path = "modules/xweb/keeper/genesis_entries_test.go"
+lines = 154
+verdict = "clean"
+note = "Covers deterministic state entry export/import and origin-1 state preservation with the real keeper encodings."
+
+[file.017]
+path = "modules/xweb/keeper/genesis_program_test.go"
+lines = 124
+verdict = "clean"
+note = "Covers origin-2 pending/answer/counter export and recovery; missing canonical validation cases are recorded on the owning genesis validator."
+
+[file.018]
+path = "modules/xweb/keeper/grpc_query.go"
+lines = 32
+verdict = "clean"
+note = "Params and Attestors query handlers return keeper-owned settings/set and reject nil requests; successful custom-type transport proof is tracked separately."
+
+[file.019]
+path = "modules/xweb/keeper/grpc_query_program.go"
+lines = 76
+verdict = "issues"
+note = "Program query validates identifiers and maps keeper lookup failures; successful ProgramResult response cannot marshal through the registered default codec."
+
+[file.020]
+path = "modules/xweb/keeper/grpc_query_program_test.go"
+lines = 198
+verdict = "clean"
+note = "Covers program request/result/counter server conversion, missing IDs and malformed keys; direct handler success does not close the separately recorded wire defect."
+
+[file.021]
+path = "modules/xweb/keeper/grpc_query_requests.go"
+lines = 32
+verdict = "clean"
+note = "Request and Result queries reject nil, distinguish unknown requests and expose the producer state without altering lifecycle."
+
+[file.022]
+path = "modules/xweb/keeper/grpc_query_requests_test.go"
+lines = 82
+verdict = "clean"
+note = "Exercises known/unknown origin-1 requests and result query field conversion against persisted keeper state."
+
+[file.023]
+path = "modules/xweb/keeper/grpc_query_test.go"
+lines = 102
+verdict = "clean"
+note = "Covers params and sorted attestor query views and nil request handling at the server interface."
+
+[file.024]
+path = "modules/xweb/keeper/invariants.go"
+lines = 41
+verdict = "clean"
+note = "Checks origin-1 escrow/status and origin-2 pending/committed counts and readable answers; validation gaps that can import bad state are recorded on the validator."
+
+[file.025]
+path = "modules/xweb/keeper/invariants_test.go"
+lines = 90
+verdict = "clean"
+note = "Asserts the registered state invariants reject corrupted counts, answers and escrow rather than silently accepting mismatched state."
+
+[file.026]
+path = "modules/xweb/keeper/inventory_sweep_test.go"
+lines = 15
+verdict = "clean"
+note = "Retains the inventory qualification coverage and assertions for the module interfaces; no weakened, skipped or expected-failure cases introduced by this audit."
+
+[file.027]
+path = "modules/xweb/keeper/keeper.go"
+lines = 279
+verdict = "clean"
+note = "Keeper wiring uses the registered store key, bank/EVM dependencies, parameter and attestor persistence, and explicit authority checks with canonical denomination handling."
+
+[file.028]
+path = "modules/xweb/keeper/keeper_test.go"
+lines = 257
+verdict = "clean"
+note = "Exercises persisted parameters, authority and attestor set state through the real in-memory SDK store helpers."
+
+[file.029]
+path = "modules/xweb/keeper/msg_server.go"
+lines = 220
+verdict = "clean"
+note = "Governance messages unwrap SDK context and delegate to keeper authority and settings checks; mutation errors propagate to the transaction caller."
+
+[file.030]
+path = "modules/xweb/keeper/msg_server_test.go"
+lines = 802
+verdict = "clean"
+note = "Checks message dispatch, unauthorized rejection and successful governed mutations using real keeper state."
+
+[file.031]
+path = "modules/xweb/keeper/program.go"
+lines = 279
+verdict = "clean"
+note = "Origin-2 request admission validates supported fetch/search records, activation, payload/fee and pending capacity before cached escrow; lifetime capacity and genesis kind disagreements have separate findings."
+
+[file.032]
+path = "modules/xweb/keeper/program_denom.go"
+lines = 26
+verdict = "clean"
+note = "Resolves canonical PAX/SID/USDC/USDL assets and persists asset-to-denom mappings; historical zero-fee policy is explicit rather than silently changing paid assets."
+
+[file.033]
+path = "modules/xweb/keeper/program_denom_test.go"
+lines = 65
+verdict = "clean"
+note = "Exercises canonical asset/denomination mapping, invalid mappings and persisted lookup behavior."
+
+[file.034]
+path = "modules/xweb/keeper/program_fulfil.go"
+lines = 230
+verdict = "issues"
+note = "Verifies network, record context, signer order/threshold and atomic payout/answer updates, but the committed counter has no lifetime reclamation path."
+
+[file.035]
+path = "modules/xweb/keeper/program_fulfil_denom_test.go"
+lines = 148
+verdict = "clean"
+note = "Uses real bank balances to assert program fees settle in the recorded denomination and mismatched assets do not partially mutate state."
+
+[file.036]
+path = "modules/xweb/keeper/program_fulfil_gate_test.go"
+lines = 79
+verdict = "clean"
+note = "Checks fulfilment activation and paused gates with real observations; denied calls leave the pending record and escrow intact."
+
+[file.037]
+path = "modules/xweb/keeper/program_fulfil_test.go"
+lines = 669
+verdict = "clean"
+note = "Covers signed observations, replay, chunked answers and atomic splits; its capacity case explicitly demonstrates the permanent 65th-request blockage recorded on the keeper."
+
+[file.038]
+path = "modules/xweb/keeper/program_gate_test.go"
+lines = 108
+verdict = "clean"
+note = "Exercises nil/missing/scheduled/applied activation state for program admission and confirms denied requests do not mutate escrow or counters."
+
+[file.039]
+path = "modules/xweb/keeper/program_kernel_parity_test.go"
+lines = 198
+verdict = "clean"
+note = "Uses retained historical kernel parity vectors for origin-2 wire/error semantics; these are comparison vectors rather than a live retired intake dependency."
+
+[file.040]
+path = "modules/xweb/keeper/program_read_parity_test.go"
+lines = 38
+verdict = "clean"
+note = "Checks pending/answer read encodings and counters against historical canonical vectors without invoking a retired runtime."
+
+[file.041]
+path = "modules/xweb/keeper/program_record_parity_test.go"
+lines = 78
+verdict = "clean"
+note = "Checks raw 123-byte record layout, version, fields and canonical round trips for supported origin-2 kinds."
+
+[file.042]
+path = "modules/xweb/keeper/program_request_denom_test.go"
+lines = 96
+verdict = "clean"
+note = "Exercises real paid request admission and persisted fee denomination, including denomination mismatch rejection and state conservation."
+
+[file.043]
+path = "modules/xweb/keeper/program_result.go"
+lines = 45
+verdict = "clean"
+note = "Reads the 40-byte answer header and exact 1024-byte chunks, enforces response/full-length bounds and returns copied response data; malformed genesis acceptance is recorded on validation."
+
+[file.044]
+path = "modules/xweb/keeper/program_result_test.go"
+lines = 167
+verdict = "clean"
+note = "Covers empty and multipart answers, malformed header/chunk state and canonical length checks at the result reader."
+
+[file.045]
+path = "modules/xweb/keeper/program_test.go"
+lines = 455
+verdict = "clean"
+note = "Exercises real origin-2 admission, pending limits, record bytes, fees, invalid kinds and unchanged state on rejection."
+
+[file.046]
+path = "modules/xweb/keeper/proof_go_api_test.go"
+lines = 323
+verdict = "issues"
+note = "Uses real bank/EVM and LevelDB reopen/genesis replay paths, but explicitly expects successful ProgramResult protobuf marshaling to panic instead of proving client delivery."
+
+[file.047]
+path = "modules/xweb/keeper/refund.go"
+lines = 48
+verdict = "clean"
+note = "Refund requires requester ownership, pending state and elapsed timeout, operates while paused and atomically returns escrow without enabling replay."
+
+[file.048]
+path = "modules/xweb/keeper/refund_test.go"
+lines = 67
+verdict = "clean"
+note = "Checks early/foreign/double refund rejection, timeout success, paused recovery and conserved bank balances."
+
+[file.049]
+path = "modules/xweb/keeper/request.go"
+lines = 96
+verdict = "issues"
+note = "Origin-1 admission validates kind/payload/fee/callback and caches escrow, but unchecked uint64 timeout conversion can create invalid deadlines."
+
+[file.050]
+path = "modules/xweb/keeper/request_test.go"
+lines = 240
+verdict = "clean"
+note = "Covers origin-1 request state and event fields, fee/callback/payload rejection and nonce conservation; timeout overflow coverage is proposed on the producer."
+
+[file.051]
+path = "modules/xweb/keeper/storage_receipt_request_test.go"
+lines = 77
+verdict = "clean"
+note = "Uses the real origin-1 kind-4 request path and validates storage receipt payload/hash behavior; missing public error naming is recorded on the converter."
+
+[file.052]
+path = "modules/xweb/merge_plan_test.go"
+lines = 270
+verdict = "clean"
+note = "Checks xweb activation and merge plan wiring against the node upgrade contract rather than a separate daemon service."
+
+[file.053]
+path = "modules/xweb/module.go"
+lines = 133
+verdict = "clean"
+note = "Registers codecs, query/message services, genesis import/export and invariants under the xweb store/module name; validation disagreements are recorded on the validator."
+
+[file.054]
+path = "modules/xweb/module_services_test.go"
+lines = 33
+verdict = "clean"
+note = "Checks service registration and query/message reachability through module configurator wiring."
+
+[file.055]
+path = "modules/xweb/module_test.go"
+lines = 143
+verdict = "clean"
+note = "Exercises app module registration, default/validated genesis and module lifecycle integration."
+
+[file.056]
+path = "modules/xweb/testutil/attestors.go"
+lines = 69
+verdict = "clean"
+note = "Creates deterministic test signers and canonical sorted attestor sets for real signature verification; helpers are confined to tests."
+
+[file.057]
+path = "modules/xweb/testutil/store.go"
+lines = 68
+verdict = "clean"
+note = "Creates SDK contexts, real KV stores and keeper dependencies used by tests, with explicit parameter/balance setup."
+
+[file.058]
+path = "modules/xweb/types/api.go"
+lines = 510
+verdict = "clean"
+note = "API policy parsing enforces the allowed single-API form and canonical identifiers for origin-1 calls."
+
+[file.059]
+path = "modules/xweb/types/api_test.go"
+lines = 320
+verdict = "clean"
+note = "Covers supported API forms and malformed/unsupported policy input without bypassing admission validation."
+
+[file.060]
+path = "modules/xweb/types/attestation.go"
+lines = 75
+verdict = "clean"
+note = "Encodes the exact 188-byte domain-separated preimage and validates canonical signatures, identity and origin context."
+
+[file.061]
+path = "modules/xweb/types/attestation_test.go"
+lines = 252
+verdict = "clean"
+note = "Checks frozen preimage vectors, recovered signers and malformed/high-s signature rejection."
+
+[file.062]
+path = "modules/xweb/types/codec.go"
+lines = 171
+verdict = "clean"
+note = "Registers all xweb governance messages and interfaces consistently with the SDK message server and module codec."
+
+[file.063]
+path = "modules/xweb/types/envelope.go"
+lines = 208
+verdict = "clean"
+note = "Decodes the versioned payload envelope with explicit length/type checks and origin-1 policy constraints."
+
+[file.064]
+path = "modules/xweb/types/envelope_test.go"
+lines = 195
+verdict = "clean"
+note = "Exercises envelope canonical encoding, malformed lengths and supported policy/kind combinations."
+
+[file.065]
+path = "modules/xweb/types/errors.go"
+lines = 93
+verdict = "issues"
+note = "SDK errors and named LXP conversion agree for codes 2..25, but the storage receipt payload code 26 has no named conversion."
+
+[file.066]
+path = "modules/xweb/types/events.go"
+lines = 42
+verdict = "clean"
+note = "Event names and attributes match keeper emission for request, fulfil, refund, callback and governance lifecycle."
+
+[file.067]
+path = "modules/xweb/types/expected_keepers.go"
+lines = 26
+verdict = "clean"
+note = "Narrow bank and EVM keeper interfaces match the actual escrow, balance, address mapping and callback consumers."
+
+[file.068]
+path = "modules/xweb/types/genesis.go"
+lines = 179
+verdict = "issues"
+note = "Validates origin-1 and program counts/ownership, but accepts an unimportable program kind, incomplete answer chunks and paid pending state without denomination recovery."
+
+[file.069]
+path = "modules/xweb/types/genesis_test.go"
+lines = 211
+verdict = "clean"
+note = "Exercises genesis parameter, duplicate and count rejection; its paid pending helper omits fee-denom mapping, exposing the validator gap recorded on genesis.go."
+
+[file.070]
+path = "modules/xweb/types/keys.go"
+lines = 57
+verdict = "clean"
+note = "Store prefixes and key widths separate settings, origin-1 and program records/answers/counters without collision."
+
+[file.071]
+path = "modules/xweb/types/msgs.go"
+lines = 124
+verdict = "clean"
+note = "Governance message validation enforces sender/address/attestor/settings shapes before keeper authority checks."
+
+[file.072]
+path = "modules/xweb/types/msgs_test.go"
+lines = 310
+verdict = "clean"
+note = "Checks governance ValidateBasic errors and canonical message field conversion."
+
+[file.073]
+path = "modules/xweb/types/observation.go"
+lines = 101
+verdict = "clean"
+note = "Origin-2 observation decoding enforces fixed 146-byte header, response bound, network/kind fields and canonical signature section before keeper use."
+
+[file.074]
+path = "modules/xweb/types/observation_test.go"
+lines = 249
+verdict = "clean"
+note = "Covers real observation encoding/decoding vectors, truncated/oversized data and signature/response boundaries."
+
+[file.075]
+path = "modules/xweb/types/query_test.go"
+lines = 130
+verdict = "clean"
+note = "Checks generated query types and direct shape conversions; successful custom-type wire delivery is tracked by the transport and proof findings."
+
+[file.076]
+path = "modules/xweb/types/state.go"
+lines = 400
+verdict = "clean"
+note = "Defines strict-majority attestor settings, bounded sets and canonical origin-1 records; timeout representability defect is anchored at request height construction."
+
+[file.077]
+path = "modules/xweb/types/storage_receipt.go"
+lines = 67
+verdict = "clean"
+note = "Validates the versioned storage receipt payload and digest/length constraints; the new code-26 public error mapping defect is anchored on errors.go."
+
+[file.078]
+path = "modules/xweb/types/storage_receipt_test.go"
+lines = 72
+verdict = "clean"
+note = "Checks storage receipt valid payload/digest vectors and invalid version, length and content rejection."
+
+[file.079]
+path = "precompiles/common/erc20_abi.json"
+lines = 1
+verdict = "clean"
+note = "ERC20 event declarations retain indexed address topics and uint256 amounts matching EVM event emitters."
+
+[file.080]
+path = "precompiles/common/evm_events.go"
+lines = 302
+verdict = "clean"
+note = "Builds canonical indexed topics and ABI payloads for staking-related EVM logs through state DB AddLog; errors propagate."
+
+[file.081]
+path = "precompiles/common/evm_events_test.go"
+lines = 363
+verdict = "clean"
+note = "Checks event signature hashes, indexed fields and decoded payload values against emitted logs."
+
+[file.082]
+path = "precompiles/common/legacy/v552/precompiles.go"
+lines = 139
+verdict = "generated"
+note = "Generated historical upgrade/replay snapshot archived by scripts/bump_version package/import rewrites and ABI copying; retained for historical execution compatibility, not a new implementation."
+
+[file.083]
+path = "precompiles/common/legacy/v555/precompiles.go"
+lines = 139
+verdict = "generated"
+note = "Generated historical upgrade/replay snapshot archived by scripts/bump_version package/import rewrites and ABI copying; retained for historical execution compatibility, not a new implementation."
+
+[file.084]
+path = "precompiles/common/legacy/v562/precompiles.go"
+lines = 261
+verdict = "generated"
+note = "Generated historical upgrade/replay snapshot archived by scripts/bump_version package/import rewrites and ABI copying; retained for historical execution compatibility, not a new implementation."
+
+[file.085]
+path = "precompiles/common/legacy/v575/precompiles.go"
+lines = 301
+verdict = "generated"
+note = "Generated historical upgrade/replay snapshot archived by scripts/bump_version package/import rewrites and ABI copying; retained for historical execution compatibility, not a new implementation."
+
+[file.086]
+path = "precompiles/common/legacy/v580/precompiles.go"
+lines = 293
+verdict = "generated"
+note = "Generated historical upgrade/replay snapshot archived by scripts/bump_version package/import rewrites and ABI copying; retained for historical execution compatibility, not a new implementation."
+
+[file.087]
+path = "precompiles/common/legacy/v600/precompiles.go"
+lines = 295
+verdict = "generated"
+note = "Generated historical upgrade/replay snapshot archived by scripts/bump_version package/import rewrites and ABI copying; retained for historical execution compatibility, not a new implementation."
+
+[file.088]
+path = "precompiles/common/legacy/v605/expected_keepers.go"
+lines = 136
+verdict = "generated"
+note = "Generated historical upgrade/replay snapshot archived by scripts/bump_version package/import rewrites and ABI copying; retained for historical execution compatibility, not a new implementation."
+
+[file.089]
+path = "precompiles/common/legacy/v605/precompiles.go"
+lines = 299
+verdict = "generated"
+note = "Generated historical upgrade/replay snapshot archived by scripts/bump_version package/import rewrites and ABI copying; retained for historical execution compatibility, not a new implementation."
+
+[file.090]
+path = "precompiles/common/legacy/v606/expected_keepers.go"
+lines = 136
+verdict = "generated"
+note = "Generated historical upgrade/replay snapshot archived by scripts/bump_version package/import rewrites and ABI copying; retained for historical execution compatibility, not a new implementation."
+
+[file.091]
+path = "precompiles/common/legacy/v606/precompiles.go"
+lines = 299
+verdict = "generated"
+note = "Generated historical upgrade/replay snapshot archived by scripts/bump_version package/import rewrites and ABI copying; retained for historical execution compatibility, not a new implementation."
+
+[file.092]
+path = "precompiles/common/legacy/v610/expected_keepers.go"
+lines = 136
+verdict = "generated"
+note = "Generated historical upgrade/replay snapshot archived by scripts/bump_version package/import rewrites and ABI copying; retained for historical execution compatibility, not a new implementation."
+
+[file.093]
+path = "precompiles/common/legacy/v610/precompiles.go"
+lines = 299
+verdict = "generated"
+note = "Generated historical upgrade/replay snapshot archived by scripts/bump_version package/import rewrites and ABI copying; retained for historical execution compatibility, not a new implementation."
+
+[file.094]
+path = "precompiles/common/legacy/v614/precompiles.go"
+lines = 301
+verdict = "generated"
+note = "Generated historical upgrade/replay snapshot archived by scripts/bump_version package/import rewrites and ABI copying; retained for historical execution compatibility, not a new implementation."
+
+[file.095]
+path = "precompiles/common/legacy/v620/precompiles.go"
+lines = 301
+verdict = "generated"
+note = "Generated historical upgrade/replay snapshot archived by scripts/bump_version package/import rewrites and ABI copying; retained for historical execution compatibility, not a new implementation."
+
+[file.096]
+path = "precompiles/common/legacy/v630/evm_events.go"
+lines = 261
+verdict = "generated"
+note = "Generated historical upgrade/replay snapshot archived by scripts/bump_version package/import rewrites and ABI copying; retained for historical execution compatibility, not a new implementation."
+
+[file.097]
+path = "precompiles/common/legacy/v630/precompiles.go"
+lines = 300
+verdict = "generated"
+note = "Generated historical upgrade/replay snapshot archived by scripts/bump_version package/import rewrites and ABI copying; retained for historical execution compatibility, not a new implementation."
+
+[file.098]
+path = "precompiles/common/legacy/v640/evm_events.go"
+lines = 302
+verdict = "generated"
+note = "Generated historical upgrade/replay snapshot archived by scripts/bump_version package/import rewrites and ABI copying; retained for historical execution compatibility, not a new implementation."
+
+[file.099]
+path = "precompiles/common/legacy/v640/precompiles.go"
+lines = 300
+verdict = "generated"
+note = "Generated historical upgrade/replay snapshot archived by scripts/bump_version package/import rewrites and ABI copying; retained for historical execution compatibility, not a new implementation."
+
+[file.100]
+path = "precompiles/common/legacy/v65/evm_events.go"
+lines = 302
+verdict = "generated"
+note = "Generated historical upgrade/replay snapshot archived by scripts/bump_version package/import rewrites and ABI copying; retained for historical execution compatibility, not a new implementation."
+
+[file.101]
+path = "precompiles/common/legacy/v65/precompiles.go"
+lines = 300
+verdict = "generated"
+note = "Generated historical upgrade/replay snapshot archived by scripts/bump_version package/import rewrites and ABI copying; retained for historical execution compatibility, not a new implementation."
+
+[file.102]
+path = "precompiles/common/legacy/v68/evm_events.go"
+lines = 304
+verdict = "generated"
+note = "Generated historical upgrade/replay snapshot archived by scripts/bump_version package/import rewrites and ABI copying; retained for historical execution compatibility, not a new implementation."
+
+[file.103]
+path = "precompiles/common/legacy/v68/precompiles.go"
+lines = 323
+verdict = "generated"
+note = "Generated historical upgrade/replay snapshot archived by scripts/bump_version package/import rewrites and ABI copying; retained for historical execution compatibility, not a new implementation."
+
+[file.104]
+path = "precompiles/common/lxp_agent_pay_rows_test.go"
+lines = 61
+verdict = "clean"
+note = "Checks agent payment error registry rows and stable names/codes shared with consumers."
+
+[file.105]
+path = "precompiles/common/lxp_da_missing_row_test.go"
+lines = 25
+verdict = "clean"
+note = "Asserts the named DA-missing classification deliberately does not alias the kernel numeric 804 meaning."
+
+[file.106]
+path = "precompiles/common/lxp_errors.go"
+lines = 495
+verdict = "clean"
+note = "Shared registry retains stable named/retry classifications and excludes fatal codes from normal reverts; absent xweb storage-payload naming is recorded at its converter."
+
+[file.107]
+path = "precompiles/common/lxp_errors_test.go"
+lines = 244
+verdict = "clean"
+note = "Checks registry uniqueness, canonical lookup and unknown/fatal behavior without silently converting fatal states into ordinary errors."
+
+[file.108]
+path = "precompiles/common/lxp_market_rows_test.go"
+lines = 129
+verdict = "clean"
+note = "Checks market error rows and classifications against their declared names and numeric identities."
+
+[file.109]
+path = "precompiles/common/lxp_python_parity_test.go"
+lines = 65
+verdict = "clean"
+note = "Compares shared error table with Python consumer mappings and preserves canonical named distinctions."
+
+[file.110]
+path = "precompiles/common/lxp_site_rows_test.go"
+lines = 30
+verdict = "clean"
+note = "Checks site error row identities and classification parity with served contracts."
+
+[file.111]
+path = "precompiles/common/lxp_typescript_parity_test.go"
+lines = 76
+verdict = "clean"
+note = "Compares TypeScript error consumers with the same canonical shared registry rows."
+
+[file.112]
+path = "precompiles/common/merge_plan.go"
+lines = 24
+verdict = "clean"
+note = "Centralizes merge upgrade identity and activation semantics for precompile callers, using applied upgrade state."
+
+[file.113]
+path = "precompiles/common/merge_plan_test.go"
+lines = 54
+verdict = "clean"
+note = "Checks merge plan activation against upgrade schedule/applied state and nil-safe lookup behavior."
+
+[file.114]
+path = "precompiles/common/precompile_stdout_test.go"
+lines = 57
+verdict = "clean"
+note = "Guards against precompile stdout leakage along runtime execution paths."
+
+[file.115]
+path = "precompiles/common/precompiles.go"
+lines = 512
+verdict = "clean"
+note = "Dynamic gas execution, cached state/log propagation, payment splitting and revert encoding retain errors and gas semantics rather than swallowing failures."
+
+[file.116]
+path = "precompiles/common/precompiles_test.go"
+lines = 200
+verdict = "clean"
+note = "Exercises method dispatch, payment conversion, gas bounds and cached EVM execution with declared ABI errors."
+
+[file.117]
+path = "precompiles/common/proof_error_registry_test.go"
+lines = 278
+verdict = "clean"
+note = "Proves common error registry producer/consumer identities through the shared decoding contract."
+
+[file.118]
+path = "precompiles/common/resolution_reason_test.go"
+lines = 195
+verdict = "clean"
+note = "Checks stable resolution reasons and retry classification without replacing named refusals with generic unavailable results."
+
+[file.119]
+path = "precompiles/common/retire.go"
+lines = 53
+verdict = "clean"
+note = "Retired precompiles preserve registered addresses and deterministic refusal data, using nil-safe applied upgrade detection rather than creating another runtime."
+
+[file.120]
+path = "precompiles/common/retire_reader_test.go"
+lines = 47
+verdict = "clean"
+note = "Checks missing and persisted upgrade readers, scheduled-versus-applied state and fail-closed refusal behavior."
+
+[file.121]
+path = "precompiles/common/retire_test.go"
+lines = 140
+verdict = "clean"
+note = "Checks retired address calls return stable refusal semantics after activation while preserving pre-activation behavior."
+
+[file.122]
+path = "precompiles/common/retirement_option_test.go"
+lines = 137
+verdict = "clean"
+note = "Exercises retirement wrapper options and compatibility behavior without losing fixed address registration."
+
+[file.123]
+path = "precompiles/json/Json.sol"
+lines = 45
+verdict = "issues"
+note = "Published Solidity array extractor gives uint16 an invalid memory location although its embedded ABI and Go uint16 signature agree."
+
+[file.124]
+path = "precompiles/json/abi.json"
+lines = 1
+verdict = "clean"
+note = "All four methods match the Go dispatcher argument/output shapes and frozen selectors; no events are declared."
+
+[file.125]
+path = "precompiles/json/abi_freeze_test.go"
+lines = 58
+verdict = "clean"
+note = "Freezes all four method selectors and the no-event contract against the embedded ABI."
+
+[file.126]
+path = "precompiles/json/gas_golden_test.go"
+lines = 87
+verdict = "clean"
+note = "Retains exact gas goldens for the JSON methods and input-dependent execution paths."
+
+[file.127]
+path = "precompiles/json/json.go"
+lines = 224
+verdict = "clean"
+note = "Dispatches four ABI methods with input/type/array bounds and uint256 sign/range checks; frozen string extraction semantics agree with existing consumers."
+
+[file.128]
+path = "precompiles/json/json_test.go"
+lines = 341
+verdict = "clean"
+note = "Covers valid extraction, malformed JSON/types, negative and overflow uint256 rejection and out-of-range array indices."
+
+[file.129]
+path = "precompiles/json/legacy/v552/abi.json"
+lines = 1
+verdict = "generated"
+note = "Generated historical upgrade/replay snapshot archived by scripts/bump_version package/import rewrites and ABI copying; retained for historical execution compatibility, not a new implementation."
+
+[file.130]
+path = "precompiles/json/legacy/v552/json.go"
+lines = 219
+verdict = "generated"
+note = "Generated historical upgrade/replay snapshot archived by scripts/bump_version package/import rewrites and ABI copying; retained for historical execution compatibility, not a new implementation."
+
+[file.131]
+path = "precompiles/json/legacy/v555/abi.json"
+lines = 1
+verdict = "generated"
+note = "Generated historical upgrade/replay snapshot archived by scripts/bump_version package/import rewrites and ABI copying; retained for historical execution compatibility, not a new implementation."
+
+[file.132]
+path = "precompiles/json/legacy/v555/json.go"
+lines = 227
+verdict = "generated"
+note = "Generated historical upgrade/replay snapshot archived by scripts/bump_version package/import rewrites and ABI copying; retained for historical execution compatibility, not a new implementation."
+
+[file.133]
+path = "precompiles/json/legacy/v562/abi.json"
+lines = 1
+verdict = "generated"
+note = "Generated historical upgrade/replay snapshot archived by scripts/bump_version package/import rewrites and ABI copying; retained for historical execution compatibility, not a new implementation."
+
+[file.134]
+path = "precompiles/json/legacy/v562/json.go"
+lines = 193
+verdict = "generated"
+note = "Generated historical upgrade/replay snapshot archived by scripts/bump_version package/import rewrites and ABI copying; retained for historical execution compatibility, not a new implementation."
+
+[file.135]
+path = "precompiles/json/legacy/v603/abi.json"
+lines = 1
+verdict = "generated"
+note = "Generated historical upgrade/replay snapshot archived by scripts/bump_version package/import rewrites and ABI copying; retained for historical execution compatibility, not a new implementation."
+
+[file.136]
+path = "precompiles/json/legacy/v603/json.go"
+lines = 176
+verdict = "generated"
+note = "Generated historical upgrade/replay snapshot archived by scripts/bump_version package/import rewrites and ABI copying; retained for historical execution compatibility, not a new implementation."
+
+[file.137]
+path = "precompiles/json/legacy/v605/abi.json"
+lines = 1
+verdict = "generated"
+note = "Generated historical upgrade/replay snapshot archived by scripts/bump_version package/import rewrites and ABI copying; retained for historical execution compatibility, not a new implementation."
+
+[file.138]
+path = "precompiles/json/legacy/v605/json.go"
+lines = 217
+verdict = "generated"
+note = "Generated historical upgrade/replay snapshot archived by scripts/bump_version package/import rewrites and ABI copying; retained for historical execution compatibility, not a new implementation."
+
+[file.139]
+path = "precompiles/json/legacy/v606/abi.json"
+lines = 1
+verdict = "generated"
+note = "Generated historical upgrade/replay snapshot archived by scripts/bump_version package/import rewrites and ABI copying; retained for historical execution compatibility, not a new implementation."
+
+[file.140]
+path = "precompiles/json/legacy/v606/json.go"
+lines = 217
+verdict = "generated"
+note = "Generated historical upgrade/replay snapshot archived by scripts/bump_version package/import rewrites and ABI copying; retained for historical execution compatibility, not a new implementation."
+
+[file.141]
+path = "precompiles/json/legacy/v610/abi.json"
+lines = 1
+verdict = "generated"
+note = "Generated historical upgrade/replay snapshot archived by scripts/bump_version package/import rewrites and ABI copying; retained for historical execution compatibility, not a new implementation."
+
+[file.142]
+path = "precompiles/json/legacy/v610/json.go"
+lines = 217
+verdict = "generated"
+note = "Generated historical upgrade/replay snapshot archived by scripts/bump_version package/import rewrites and ABI copying; retained for historical execution compatibility, not a new implementation."
+
+[file.143]
+path = "precompiles/json/legacy/v614/abi.json"
+lines = 1
+verdict = "generated"
+note = "Generated historical upgrade/replay snapshot archived by scripts/bump_version package/import rewrites and ABI copying; retained for historical execution compatibility, not a new implementation."
+
+[file.144]
+path = "precompiles/json/legacy/v614/json.go"
+lines = 217
+verdict = "generated"
+note = "Generated historical upgrade/replay snapshot archived by scripts/bump_version package/import rewrites and ABI copying; retained for historical execution compatibility, not a new implementation."
+
+[file.145]
+path = "precompiles/json/legacy/v620/abi.json"
+lines = 1
+verdict = "generated"
+note = "Generated historical upgrade/replay snapshot archived by scripts/bump_version package/import rewrites and ABI copying; retained for historical execution compatibility, not a new implementation."
+
+[file.146]
+path = "precompiles/json/legacy/v620/json.go"
+lines = 217
+verdict = "generated"
+note = "Generated historical upgrade/replay snapshot archived by scripts/bump_version package/import rewrites and ABI copying; retained for historical execution compatibility, not a new implementation."
+
+[file.147]
+path = "precompiles/json/legacy/v630/abi.json"
+lines = 1
+verdict = "generated"
+note = "Generated historical upgrade/replay snapshot archived by scripts/bump_version package/import rewrites and ABI copying; retained for historical execution compatibility, not a new implementation."
+
+[file.148]
+path = "precompiles/json/legacy/v630/json.go"
+lines = 217
+verdict = "generated"
+note = "Generated historical upgrade/replay snapshot archived by scripts/bump_version package/import rewrites and ABI copying; retained for historical execution compatibility, not a new implementation."
+
+[file.149]
+path = "precompiles/json/legacy/v640/abi.json"
+lines = 1
+verdict = "generated"
+note = "Generated historical upgrade/replay snapshot archived by scripts/bump_version package/import rewrites and ABI copying; retained for historical execution compatibility, not a new implementation."
+
+[file.150]
+path = "precompiles/json/legacy/v640/json.go"
+lines = 217
+verdict = "generated"
+note = "Generated historical upgrade/replay snapshot archived by scripts/bump_version package/import rewrites and ABI copying; retained for historical execution compatibility, not a new implementation."
+
+[file.151]
+path = "precompiles/json/legacy/v65/abi.json"
+lines = 1
+verdict = "generated"
+note = "Generated historical upgrade/replay snapshot archived by scripts/bump_version package/import rewrites and ABI copying; retained for historical execution compatibility, not a new implementation."
+
+[file.152]
+path = "precompiles/json/legacy/v65/json.go"
+lines = 217
+verdict = "generated"
+note = "Generated historical upgrade/replay snapshot archived by scripts/bump_version package/import rewrites and ABI copying; retained for historical execution compatibility, not a new implementation."
+
+[file.153]
+path = "precompiles/json/setup.go"
+lines = 43
+verdict = "generated"
+note = "Generated JSON precompile version dispatch/setup from scripts/bump_version; preserves historical upgrade selection and current implementation registration."
+
+[file.154]
+path = "wasm/scripts/README.md"
+lines = 7
+verdict = "clean"
+note = "Accurately identifies upstream script provenance and root go.mod replacement; executable generation path drift is recorded separately on both scripts."
+
+[file.155]
+path = "wasm/scripts/protoc-swagger-gen.sh"
+lines = 19
+verdict = "issues"
+note = "Local proto include roots cannot resolve current wasm dependencies; the root also lacks the assumed ./proto layout."
+
+[file.156]
+path = "wasm/scripts/protocgen.sh"
+lines = 38
+verdict = "issues"
+note = "Upstream generator assumes local go.mod, foreign Any/output paths and latest plugin installation instead of the root pinned monorepo pipeline."
+
+[file.157]
+path = "wasm/staticarchive/archive.go"
+lines = 380
+verdict = "clean"
+note = "Validates regular-file manifest members, 64KB manifest/50MB compressed/128MB original bounds, digests, decompression limits and GNU/BSD symbol bindings; preserves archive GROUP ordering and fat-architecture identity."
+
+[file.158]
+path = "wasm/staticarchive/archive_test.go"
+lines = 202
+verdict = "clean"
+note = "Uses real archives to cover digest, truncation, retargeted index, duplicate/ordering and malformed symbol/member rejection without replacing validation with mocks."
+
+[finding.program-result-grpc]
+file = "modules/xweb/keeper/grpc_query_program.go"
+line = 61
+class = "interface-mismatch"
+severity = "high"
+observed = "ProgramResult returns QueryProgramResultResponse.ContentDigest as the SDK custom types.Hash32 array. The Google protobuf codec selected by sdk/baseapp/grpcrouter.go cannot marshal that successful producer response: proof_go_api_test.go:254-257 explicitly expects the panic \"invalid Go type types.Hash32 for field paxprotocol.paxchain.xweb.QueryProgramResultResponse.content_digest\". The direct keeper result therefore does not round-trip through the declared gRPC transport."
+expected = "The declared ProgramResult query and requirements 6819.2 and 6820.1 must return the persisted digest, lengths and response to the actual QueryClient, including after reopening state; a successful keeper call alone does not provide that interface."
+proposal = "In sdk/baseapp/grpcrouter.go and the shared gRPC codec registration, support the generated SDK custom marshal/unmarshal methods while preserving the declared protobuf bytes encoding. Coordinate modules/xweb generated query types with that codec and prove a successful ProgramResult through the registered query transport after disk reopen."
+owner_domain = 15
+interface = "6.qry-xweb-programresult-j37"
+
+[finding.program-result-proof]
+file = "modules/xweb/keeper/proof_go_api_test.go"
+line = 254
+class = "test-gap"
+severity = "medium"
+observed = "The proof reads a successful ProgramResult directly from NewQueryServer and asserts that the actual producer response panics when marshalled by the transport codec. ProgramResult wire coverage exercises missing or malformed requests instead of successfully decoding the persisted answer. Other real bank, EVM, LevelDB reopen and genesis replay assertions in this proof are valuable but do not close this transport gap."
+expected = "Brief fact_7 and the Go API acceptance criteria require agreement along producer, transport and consumer, with a successful response and durable recovery rather than an expected transport panic."
+proposal = "After the shared SDK codec repair, update modules/xweb/keeper/proof_go_api_test.go to retrieve successful ProgramResult, Params, Attestors, Request and Result through their actual query clients and registered transport. Preserve the existing real disk reopen, genesis replay, payout, EVM and replay-protection assertions."
+owner_domain = 6
+interface = "6.qry-xweb-programresult-j37"
+
+[finding.program-genesis-kind]
+file = "modules/xweb/types/genesis.go"
+line = 125
+class = "interface-mismatch"
+severity = "high"
+observed = "GenesisState.Validate accepts a version-1 123-byte ProgramPending record with KindStorageReceipt (4), and ProgramPendingRecord.Bytes can encode that kind. keeper/program.go programKind only accepts fetch (1) and search (2), so DecodeProgramPendingRecord rejects the validated record. keeper/genesis.go InitGenesis then panics when importing it."
+expected = "The program-pending genesis producer, validator and importer must accept the same origin-2 kind set and restore every validated record without panic. Origin-1 storage receipt support must remain intact."
+proposal = "Define one origin-2 kind policy shared by modules/xweb/types/genesis.go and modules/xweb/keeper/program.go. Either reject kind 4 at origin-2 encoding and validation or implement its entire origin-2 lifecycle. Keep origin-1 kind 4 working and prove the actual module JSON export/validate/import path for all supported kinds."
+owner_domain = 6
+interface = "6.gen-xweb-program-pending-j37"
+
+[finding.program-answer-genesis]
+file = "modules/xweb/types/genesis.go"
+line = 168
+class = "restart-recovery"
+severity = "medium"
+observed = "ProgramAnswers validation checks ownership, duplicate parts, the 40-byte part-0 header size and the number of headers, but never decodes header lengths or checks chunk coverage and sizes. A fulfilled record and header declaring one response byte with no part 1 passes validation and import, then GetProgramResult returns NON_CANONICAL and the program invariant fails."
+expected = "The program-answers genesis interface must restore answers that its consumer can read: response length at most 4096 and no greater than full length, complete ordered 1024-byte chunks with the exact final remainder, and no unreferenced parts."
+proposal = "In modules/xweb/types/genesis.go validate decoded answer lengths and the exact required part set against the canonical keeper writer and reader. Reject missing, extra or malformed chunks before any import writes, and add producer-built JSON recovery cases for empty, boundary and multipart answers."
+owner_domain = 6
+interface = "6.gen-xweb-program-answers-j37"
+
+[finding.pending-genesis-fee-denom]
+file = "modules/xweb/types/genesis.go"
+line = 134
+class = "restart-recovery"
+severity = "medium"
+observed = "Validate requires a ProgramFeeDenoms mapping only when a program record is fulfilled. A positive-fee pending record without that mapping passes validation and imports, but ProgramRequest returns NotFound and signed fulfilment cannot split its fee because programFeeDenom returns ASSET_MISMATCH. The helper in types/genesis_test.go also constructs paid pending state without the mapping."
+expected = "The program fee-denomination genesis interface must retain the asset-to-denomination identity for every paid pending request so that queries and fulfilment recover in the original denomination."
+proposal = "Require a valid mapping for every positive-fee pending and fulfilled record in modules/xweb/types/genesis.go, while explicitly preserving any supported historical zero-fee fixture policy. Build genesis fixtures from the real request producer and prove query and payout in the original denomination after JSON import and reopen."
+owner_domain = 6
+interface = "6.gen-xweb-program-feedenoms-j37"
+
+[finding.committed-capacity-lifetime]
+file = "modules/xweb/keeper/program_fulfil.go"
+line = 149
+class = "runtime-risk"
+severity = "high"
+observed = "FulfilProgram increments persisted ProgramCommittedCount and refuses every fulfilment once it reaches ProgramCommittedCapacity (64). There is no normal decrement, acknowledgement or reclamation path. RequestFromProgram checks pending capacity (256), continues accepting paid requests after the committed limit, and has no program timeout/refund recovery. TestFulfilProgramCommittedCapacity explicitly leaves request 65 pending with its fee escrowed; restart preserves the permanent saturation."
+expected = "A running merged network must continue serving paid program requests across its lifetime and restarts. The bounded answer arena must have a defined durable retention/reclamation policy, admission must respect available capacity, and accepted fees must have a completion or recovery path."
+proposal = "Define and implement a bounded hot-answer retention or acknowledgement lifecycle in modules/xweb/keeper/program_fulfil.go, program_result.go and program.go, preserving durable answer availability and replay tombstones. Reserve capacity before paid admission and provide recovery or cancellation for already accepted requests. Prove more than 64 sequential requests across restart without widening the bound or dropping replay checks."
+owner_domain = 6
+interface = "6.key-xweb-program-count-committed-j37"
+
+[finding.timeout-height-overflow]
+file = "modules/xweb/keeper/request.go"
+line = 71
+class = "runtime-risk"
+severity = "medium"
+observed = "Request sets TimeoutHeight to ctx.BlockHeight()+int64(params.TimeoutBlocks). ValidateSettings accepts any nonzero uint64 timeout, so a governed value at or above 2^63 or an overflowing height sum becomes a past or negative deadline. The request can be immediately refundable and its exported Request can violate state validation after the fee was accepted."
+expected = "The timeout-blocks parameter must produce a representable future block height for each accepted request, and invalid configuration or overflow must be rejected before escrow or nonce changes."
+proposal = "Bound TimeoutBlocks in modules/xweb/types/state.go and use checked height addition in modules/xweb/keeper/request.go before escrow and nonce allocation. Add boundary cases at the maximum safe timeout and height and assert that rejected requests leave state and balances unchanged."
+owner_domain = 6
+interface = "6.gen-xweb-param-timeout-blocks-j37"
+
+[finding.storage-receipt-error-name]
+file = "modules/xweb/types/errors.go"
+line = 90
+class = "interface-mismatch"
+severity = "medium"
+observed = "storage_receipt.go registers ErrInvalidPayload as SDK xweb code 26, but LXPName maps only codes 2 through 25 and the shared common error registry has no corresponding row. Malformed storage receipt payloads reach the 0x1019 precompile through lxpError and WithRevertReasons as bare error text rather than an agreed named LXP error, leaving clients without the declared stable classification."
+expected = "The LXPName interface and shared SDK/revert registry must identify every public xweb validation error consistently across Go, EVM Error(string) transport and SDK consumers."
+proposal = "Agree a stable storage-payload error name and add it to modules/xweb/types/errors.go, precompiles/common/lxp_errors.go, the precompile address-table contract and consumer SDK maps. Prove malformed 0x1019 kind-4 payloads through the actual precompile and decode the resulting Error(string) into the same retry classification."
+owner_domain = 6
+interface = "6.go-xweb-types-lxpname-j37"
+
+[finding.json-solidity-value-location]
+file = "precompiles/json/Json.sol"
+line = 44
+class = "interface-mismatch"
+severity = "medium"
+observed = "IJson.extractAsBytesFromArray declares uint16 memory arrayIndex. Solidity does not permit a memory data location on a uint16 value parameter, so a consumer importing the supplied interface cannot compile. The embedded ABI and Go implementation correctly accept uint16 with selector 0xb0bf8a47."
+expected = "The published Solidity consumer interface for precompile 0x1003 must compile and express the same argument types and selectors as the served ABI, including extractAsBytesFromArray(bytes,uint16)."
+proposal = "Remove the invalid memory location from the uint16 argument in precompiles/json/Json.sol and compile a consumer importing that exact interface. Preserve all four frozen selectors, the no-event contract and the existing gas golden assertions."
+owner_domain = 6
+interface = "6.pc-0x1003-extractasbytesfromarray"
+
+[finding.readme-retired-runtime]
+file = "README.md"
+line = 46
+class = "doc-drift"
+severity = "medium"
+observed = "The architecture section describes two execution domains, a separate layerxd process and LayerX checkpoint settlement through layerxAnchor. Build instructions include make layerxd and the closing release description still presents a draft separate LayerX settlement model."
+expected = "Brief network facts specify one paxd network with the kernel embedded in block production, EVM chain id 125, root-path public RPC and finality at block commit. Retired daemons and checkpoint settlement are not operating components."
+proposal = "The chain-modules owner should supply the corrected runtime and compatibility boundaries to the documentation owner for README.md: describe one paxd process, embedded kernel execution and block-commit finality; replace layerxd build guidance and identify any retained compatibility surfaces as refusal paths rather than separate deployments."
+owner_domain = 6
+
+[finding.monorepo-retired-boundaries]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The opening and service inventory describe layerxd and relay archive roles, while Trust boundaries describes active vault custody, checkpoint, guarantor, challenge and exit machinery. This presents retired settlement components as the current operational system."
+expected = "The merged network uses one native bank/ledger and an in-process kernel, with committed blocks and their proofs defining finality. Operators must be able to distinguish current services from retained historical compatibility code."
+proposal = "The chain-modules owner should give the documentation owner a corrected service and trust-boundary inventory for docs/MONOREPO.md. Explain native bank accounting, kernel integration and commit proofs, and remove deployment guidance for retired daemon, relay and checkpoint/challenge/exit roles."
+owner_domain = 6
+
+[finding.attestation-doc-retired-intake]
+file = "modules/xweb/ATTESTATION.md"
+line = 16
+class = "doc-drift"
+severity = "medium"
+observed = "The origin table and text around lines 37-40 assign origin-2 commitment and enforcement to kernel web intake, which is retired as an intake path. The kind table lists fetch, search and image but omits the implemented origin-1 storage receipt kind 4. The 713714 value is an explicit historical test vector, not a production network setting."
+expected = "Attestation documentation must identify the live keeper.FulfilProgram and 0x1019 paths, their shared governed attestor set, and the supported kind set separately for each origin while retaining the exact 188-byte signing preimage."
+proposal = "Update modules/xweb/ATTESTATION.md with the documentation owner to describe keeper.FulfilProgram and the xweb precompile as the current enforcement paths. Document origin-specific kind policy and storage receipt digest/payload validation, retain the frozen preimage and label historical vectors as vectors."
+owner_domain = 6
+
+[finding.web-contract-stale-implementation]
+file = "spec/layerx-merge/contracts/web.md"
+line = 51
+class = "doc-drift"
+severity = "medium"
+observed = "Implementation notes at lines 51-60, 491 and 518-519 say origin-2 precompile methods are unimplemented, genesis omits program state, the CLI lacks the request/result pair and queries are planned. Those methods, genesis fields, CLI commands and query servers now exist in the reviewed implementation."
+expected = "The web contract must distinguish the current served functionality and encoding from remaining integration defects, including the real query codec and committed-capacity lifecycle limitations."
+proposal = "Have the chain-modules and documentation owners amend or regenerate spec/layerx-merge/contracts/web.md from the live keeper, precompile, genesis, CLI and query declarations. Replace obsolete absence claims, describe storage receipts and record the remaining transport and lifecycle limitations without claiming unproven successful paths."
+owner_domain = 6
+
+[finding.wasm-protoc-generation-drift]
+file = "wasm/scripts/protocgen.sh"
+line = 6
+class = "config-drift"
+severity = "medium"
+observed = "The script requires a local go.mod, installs protoc-gen-gocosmos with @latest, maps Any to github.com/cosmos/cosmos-sdk/codec/types and copies output from github.com/CosmWasm/wasmd. In this monorepo wasm has proto but no local go.mod; the root has go.mod but no ./proto, and current go_package declarations use monorepo paths. wasm/Makefile still exposes this upstream generation route."
+expected = "Generation of the monorepo wasm protocol must use the pinned root tooling, actual local import paths and current output ownership so regenerated consumers retain the served SDK types and wire declarations."
+proposal = "Retire or delegate wasm/scripts/protocgen.sh and the wasm/Makefile proto-gen target to the root scripts/protoc.sh and buf pipeline. Use the root pinned generator versions and current monorepo Any mapping/output paths, then prove regenerated wasm types retain the declared service and message shapes."
+owner_domain = 6
+
+[finding.wasm-swagger-import-roots]
+file = "wasm/scripts/protoc-swagger-gen.sh"
+line = 15
+class = "config-drift"
+severity = "medium"
+observed = "Swagger generation supplies only local proto and third_party/proto include roots. wasm/third_party/proto is absent, while wasm query protos import Cosmos pagination and Google annotations from the root SDK dependency layout. Running from the root does not repair this because the script assumes a root ./proto directory that does not exist."
+expected = "The documented wasm Swagger generation path must resolve the same imported schemas as the canonical protobuf pipeline and generate the routes and response shapes actually served by the merged node."
+proposal = "Move or delegate Swagger generation from wasm/scripts/protoc-swagger-gen.sh to root-owned generation using the pinned plugin and correct buf dependencies/include roots. Compare generated routes and message shapes with the registered wasm query service and document the supported root command."
+owner_domain = 6
+
+[doc.01]
+path = "README.md"
+status = "stale"
+notes = "Read in full. Architecture at lines 46-49, make layerxd build guidance and the closing release description retain separate-domain/checkpoint settlement assumptions; see readme-retired-runtime."
+
+[doc.02]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "Read in full. Opening at line 3, service inventory and Trust boundaries retain layerxd, relay archive, vault/checkpoint/guarantor/challenge/exit deployment assumptions; see monorepo-retired-boundaries."
+
+[doc.03]
+path = "interchain/README.md"
+status = "accurate"
+notes = "Read in full. Describes upstream provenance and integrated core/ICS20, while explicitly marking ICA unwired and localhost nonfunctional; supported scope agrees with module wiring."
+
+[doc.04]
+path = "modules/xweb/ATTESTATION.md"
+status = "stale"
+notes = "Read in full. Line 16 and lines 37-40 assign origin-2 enforcement to retired kernel intake; kind table around line 28 omits origin-1 storage receipts. The historical network-ID vector and 188-byte preimage remain valid vectors."
+
+[doc.05]
+path = "wasm/scripts/README.md"
+status = "accurate"
+notes = "Read in full. Upstream provenance and the root go.mod replacement are accurate; operational drift in the two executable generators is recorded on those files, with root pinned generation proposed."
+
+[doc.06]
+path = "spec/layerx-merge/contracts/web.md"
+status = "stale"
+notes = "Read in full. Implementation notes at lines 51-60, 491 and 518-519 describe program methods, genesis fields, CLI and queries as absent/planned despite live implementations; update current behavior and remaining codec/lifecycle limits."
+
+[doc.07]
+path = "scripts/bump_version/README.md"
+status = "accurate"
+notes = "Read in full to establish generated-file provenance. Documents package/import rewriting, ABI copying and setup/version dispatch generation for historical precompile snapshots; agrees with generator implementation."
