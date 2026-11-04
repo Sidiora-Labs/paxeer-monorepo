@@ -1,6 +1,13 @@
 import os, pathlib, subprocess, time, urllib.request, json, socket, sys, argparse, hashlib, datetime, signal, shutil
-root=pathlib.Path(__file__).resolve().parents[6]
 owned=pathlib.Path(__file__).resolve().parent
+layout=json.loads((owned/'creation-chain-layout.json').read_text())
+root=(owned/layout['repositoryFromWidget']).resolve()
+contract_root=(root/layout['contracts']).resolve()
+web_root=(root/layout['web']).resolve()
+
+
+def creation_environment(environment):
+    return {**environment, 'L27_SOURCE_ROOT':str(root), 'CONTRACT_SOURCE_ROOT':str(contract_root), 'L27_WEB_ROOT':str(web_root)}
 
 
 def anvil_binary(env):
@@ -24,7 +31,7 @@ if __name__ == '__main__':
         if output.exists() and any(output.iterdir()):
             raise SystemExit('Phase4 output must be a fresh directory; stale evidence is rejected')
         output.mkdir(parents=True,exist_ok=True,mode=0o700)
-        environment={**os.environ,'L27_PHASE4':'1','L27_PHASE4_CONFIG':str(args.config.resolve()),'L27_SOURCE_ROOT':str(root.resolve()),'L27_PHASE4_OUTPUT':str(output)}
+        environment={**creation_environment(os.environ),'L27_PHASE4':'1','L27_PHASE4_CONFIG':str(args.config.resolve()),'L27_SOURCE_ROOT':str(root.resolve()),'L27_PHASE4_OUTPUT':str(output)}
         started=datetime.datetime.now(datetime.timezone.utc).isoformat()
         try:
             with (output/'runner.log').open('wb') as phase4log:
@@ -74,13 +81,13 @@ if __name__ == '__main__':
         else: raise RuntimeError('Owned Anvil readiness timeout')
         time.sleep(.3)
         if child.poll() is not None: raise RuntimeError('Lost owned child before dispatch')
-        env={**os.environ,'CONTRACT_SOURCE_ROOT':str(root.parent/'contracts'),'L27_OWNED_ANVIL_PID':str(child.pid),'FIXTURE_OUTPUT':str(evidence/'actual-factory-receipts.json')}
+        env={**creation_environment(os.environ),'L27_OWNED_ANVIL_PID':str(child.pid),'FIXTURE_OUTPUT':str(evidence/'actual-factory-receipts.json')}
         phase2='--phase2' in sys.argv[1:]
         if phase2: env['L27_PHASE2']='1'
         result=subprocess.run(['node',str(owned/'creation-chain.fixture.cjs')],env=env,timeout=180)
         if result.returncode==0 and phase2:
             env['L27_PHASE2_FIXTURE']=env['FIXTURE_OUTPUT']
-            result=subprocess.run(['pnpm','exec','vitest','run','src/widgets/create/creation-journey.integration.test.tsx'],cwd=root/'client/apps/web',env=env,timeout=180)
+            result=subprocess.run(['pnpm','exec','vitest','run','src/widgets/create/creation-journey.integration.test.tsx'],cwd=web_root,env=env,timeout=180)
         if child.poll() is not None: raise RuntimeError('Lost owned child during checks')
         raise SystemExit(result.returncode)
     finally:

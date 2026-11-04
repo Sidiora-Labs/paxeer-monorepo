@@ -77,29 +77,71 @@ func (o *MediaObserver) Snapshot() map[string]any {
 	}
 	return map[string]any{"uploadOutcomes": outcomes, "scanCount": o.scanCount, "scanTotalSeconds": o.scanTotal.Seconds(), "originHitRatio": ratio}
 }
+
+type MediaHealthSource interface {
+	MediaBacklogAges(context.Context) (float64, float64, error)
+}
+
+func (a *Authority) MediaBacklogAges(ctx context.Context) (float64, float64, error) {
+	if a == nil || a.Pool == nil {
+		return 0, 0, ErrUnavailable
+	}
+	if err := a.Pool.Ping(ctx); err != nil {
+		return 0, 0, ErrUnavailable
+	}
+	var purge, quarantine float64
+	if err := a.Pool.QueryRow(ctx, "SELECT COALESCE(EXTRACT(EPOCH FROM (clock_timestamp()-min(requested_at))),0)::float8 FROM "+a.table("operations")+" WHERE kind='purge' AND state<>'complete'").Scan(&purge); err != nil {
+		return 0, 0, ErrUnavailable
+	}
+	if err := a.Pool.QueryRow(ctx, "SELECT COALESCE(EXTRACT(EPOCH FROM (clock_timestamp()-min(d.created_at))),0)::float8 FROM "+a.metadata("assets")+" asset JOIN "+a.metadata("asset_details_v2")+" d ON d.asset_id=asset.id WHERE asset.state IN ('QUARANTINED','VALIDATING')").Scan(&quarantine); err != nil {
+		return 0, 0, ErrUnavailable
+	}
+	return purge, quarantine, nil
+}
+
 func (o *MediaObserver) Health(ctx context.Context, a *Authority, now time.Time, uploadsEnabled bool) (MediaHealth, error) {
+	return o.HealthFrom(ctx, a, now, uploadsEnabled)
+}
+
+func (o *MediaObserver) HealthFrom(ctx context.Context, source MediaHealthSource, now time.Time, uploadsEnabled bool) (MediaHealth, error) {
 	o.mu.Lock()
 	failure := o.scannerFailure
 	o.mu.Unlock()
 	h := MediaHealth{ScannerUnavailableSince: failure, ScanAlert: uploadsEnabled && !failure.IsZero() && now.Sub(failure) >= 60*time.Second}
-	if a == nil {
+	if source == nil {
 		return h, ErrUnavailable
 	}
-	if e := a.Pool.Ping(ctx); e != nil {
+	purge, quarantine, err := source.MediaBacklogAges(ctx)
+	if err != nil {
 		return h, ErrUnavailable
 	}
 	h.ReadReady = true
 	h.WriteReady = !uploadsEnabled || failure.IsZero()
-	var seconds float64
-	if e := a.Pool.QueryRow(ctx, "SELECT COALESCE(EXTRACT(EPOCH FROM (clock_timestamp()-min(requested_at))),0)::float8 FROM "+a.table("operations")+" WHERE kind='purge' AND state<>'complete'").Scan(&seconds); e != nil {
-		return h, ErrUnavailable
-	}
-	h.PurgeBacklogAgeSeconds = seconds
-	h.PurgeAlert = seconds > 30
-	if e := a.Pool.QueryRow(ctx, "SELECT COALESCE(EXTRACT(EPOCH FROM (clock_timestamp()-min(d.created_at))),0)::float8 FROM "+a.metadata("assets")+" asset JOIN "+a.metadata("asset_details_v2")+" d ON d.asset_id=asset.id WHERE asset.state IN ('QUARANTINED','VALIDATING')").Scan(&h.QuarantineOldestSeconds); e != nil {
-		return h, ErrUnavailable
-	}
+	h.PurgeBacklogAgeSeconds = purge
+	h.PurgeAlert = purge > 30
+	h.QuarantineOldestSeconds = quarantine
 	return h, nil
+}
+
+// RunScannerProbes observes immediately and until cancellation, including recovery
+// after outages. Each network probe has its own one-second deadline.
+func (o *MediaObserver) RunScannerProbes(ctx context.Context, options sharedhttp.ScanOptions, interval time.Duration) error {
+	if interval < time.Millisecond || interval > 30*time.Second {
+		return ErrConflict
+	}
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		_ = o.ProbeScanner(ctx, options, time.Now().UTC())
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+		}
+	}
 }
 
 func (o *MediaObserver) ProbeScanner(ctx context.Context, options sharedhttp.ScanOptions, now time.Time) error {

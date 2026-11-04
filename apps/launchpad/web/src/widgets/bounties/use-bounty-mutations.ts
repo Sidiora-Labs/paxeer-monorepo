@@ -6,12 +6,14 @@ import { parseUnits, type Hex } from 'viem';
 import type { V2ContractTypes } from '@kindle/sdk';
 import { useGatewaySessionOperations } from '@/core/market/operations';
 import { useRuntimeAuthority } from '@/core/runtime-authority';
-import { connectorProvider, getWalletClient, isWalletProvider, PaxeerWallet } from '@/core/wallet-sdk/client';
+import { connectorProvider, isWalletProvider, PaxeerWallet } from '@/core/wallet-sdk/client';
 import { accountSession, readAccountAsset, subscribeAccount, uploadAccountAsset, type AccountAsset } from '@/widgets/profile/account-transport';
 import { queryKeys } from '@/core/query-keys';
 import { bountiesContract, type Bounty, type BountyFailure } from './bounties-contract';
 import { validateSubmission, type BountySubmission } from './use-bounty';
-import { gasCostUpperBound, validatePreparedTransaction, type BountyTransactionIntent, type TransactionRequest, type ValidatedTransaction } from './prepared-transaction';
+import { validatePreparedTransaction, type BountyTransactionIntent, type TransactionRequest, type ValidatedTransaction } from './prepared-transaction';
+
+import { assertBountyReview, bountyIntentId, BountyTransactionAttempt, prepareBountyReview, type BountyFeeReview } from './bounty-transaction-attempt';
 
 export type BountyCreateBody = V2ContractTypes['BountyCreateBody'];
 export type BountyCreateResponse = V2ContractTypes['BountyCreateResponse'];
@@ -188,29 +190,54 @@ function uploadError(error: unknown): string {
  * editor uses). Only approved assets with a public URL become evidenceUrls.
  */
 export function useEvidenceUploads() {
+  const session = useSyncExternalStore(subscribeAccount, accountSession, noSession);
   const [items, setItems] = useState<EvidenceItem[]>([]);
   const itemsRef = useRef(items);
-  useEffect(() => { itemsRef.current = items; }, [items]);
-  useEffect(() => () => { for (const item of itemsRef.current) URL.revokeObjectURL(item.previewUrl); }, []);
-
-  const patch = useCallback((id: string, next: Partial<EvidenceItem>) => {
-    setItems(previous => previous.map(item => (item.id === id ? { ...item, ...next } : item)));
+  const owner = useRef(session);
+  const mounted = useRef(true);
+  const clear = useCallback(() => {
+    for (const item of itemsRef.current) URL.revokeObjectURL(item.previewUrl);
+    itemsRef.current = [];
+    setItems([]);
+  }, []);
+  const syncOwner = useCallback(() => {
+    const next = accountSession();
+    if (owner.current !== next) { owner.current = next; clear(); }
+    return next;
+  }, [clear]);
+  useEffect(() => {
+    mounted.current = true;
+    syncOwner();
+    const stop = subscribeAccount(syncOwner);
+    return () => {
+      mounted.current = false;
+      stop();
+      for (const item of itemsRef.current) URL.revokeObjectURL(item.previewUrl);
+      itemsRef.current = [];
+    };
+  }, [syncOwner]);
+  const patch = useCallback((id: string, next: Partial<EvidenceItem>, scope: ReturnType<typeof accountSession>) => {
+    if (!mounted.current || scope !== accountSession() || scope !== owner.current || scope?.signal.aborted) return;
+    itemsRef.current = itemsRef.current.map(item => item.id === id ? { ...item, ...next } : item);
+    setItems(itemsRef.current);
   }, []);
 
   const transfer = useCallback(async (id: string, file: File) => {
-    const wallet = accountSession()?.session.wallet;
-    if (!wallet) { patch(id, { status: 'failed', error: 'Sign in to upload images' }); return; }
-    patch(id, { status: 'uploading', error: null });
+    const scope = syncOwner();
+    if (!scope) { patch(id, { status: 'failed', error: 'Sign in to upload images' }, scope); return; }
+    patch(id, { status: 'uploading', error: null }, scope);
     try {
-      const asset = await uploadAccountAsset(wallet, id, file);
+      const asset = await uploadAccountAsset(scope.session.wallet, id, file);
+      if (asset.ownerWallet.toLowerCase() !== scope.session.wallet.toLowerCase() || asset.assetId !== id) throw new Error('Evidence identity mismatch');
       const status = evidenceStatus(asset);
-      patch(id, { asset, status, error: status === 'rejected' ? "This image wasn't approved. Remove it or pick another" : null });
+      patch(id, { asset, status, error: status === 'rejected' ? "This image wasn't approved. Remove it or pick another" : null }, scope);
     } catch (error) {
-      patch(id, { status: 'failed', error: uploadError(error) });
+      patch(id, { status: 'failed', error: uploadError(error) }, scope);
     }
-  }, [patch]);
+  }, [patch, syncOwner]);
 
   const add = useCallback((files: readonly File[]): string | null => {
+    if (!syncOwner()) return 'Sign in to upload images';
     const room = EVIDENCE_MAX_FILES - itemsRef.current.length;
     if (room <= 0) return `Up to ${EVIDENCE_MAX_FILES} images per submission`;
     const accepted: EvidenceItem[] = [];
@@ -222,45 +249,43 @@ export function useEvidenceUploads() {
     }
     if (accepted.length > 0) {
       itemsRef.current = [...itemsRef.current, ...accepted];
-      setItems(previous => [...previous, ...accepted]);
+      setItems(itemsRef.current);
       for (const item of accepted) void transfer(item.id, item.file);
     }
     return problem;
-  }, [transfer]);
+  }, [transfer, syncOwner]);
 
   const remove = useCallback((id: string) => {
-    setItems(previous => {
-      const target = previous.find(item => item.id === id);
-      if (target) URL.revokeObjectURL(target.previewUrl);
-      return previous.filter(item => item.id !== id);
-    });
-  }, []);
+    syncOwner();
+    const target = itemsRef.current.find(item => item.id === id);
+    if (target) URL.revokeObjectURL(target.previewUrl);
+    itemsRef.current = itemsRef.current.filter(item => item.id !== id);
+    setItems(itemsRef.current);
+  }, [syncOwner]);
 
   const retry = useCallback((id: string) => {
+    syncOwner();
     const item = itemsRef.current.find(entry => entry.id === id);
     if (item) void transfer(id, item.file);
-  }, [transfer]);
+  }, [transfer, syncOwner]);
 
   const refresh = useCallback(async (id: string) => {
-    const wallet = accountSession()?.session.wallet;
-    if (!wallet) return;
+    const scope = syncOwner();
+    if (!scope || !itemsRef.current.some(item => item.id === id)) return;
     try {
-      const asset = await readAccountAsset(wallet, id);
+      const asset = await readAccountAsset(scope.session.wallet, id);
+      if (asset.ownerWallet.toLowerCase() !== scope.session.wallet.toLowerCase() || asset.assetId !== id) throw new Error('Evidence identity mismatch');
       const status = evidenceStatus(asset);
-      patch(id, { asset, status, error: status === 'rejected' ? "This image wasn't approved. Remove it or pick another" : null });
+      patch(id, { asset, status, error: status === 'rejected' ? "This image wasn't approved. Remove it or pick another" : null }, scope);
     } catch (error) {
-      patch(id, { error: uploadError(error) });
+      patch(id, { error: uploadError(error) }, scope);
     }
-  }, [patch]);
+  }, [patch, syncOwner]);
 
-  const clear = useCallback(() => {
-    for (const item of itemsRef.current) URL.revokeObjectURL(item.previewUrl);
-    setItems([]);
-  }, []);
-
-  const evidenceUrls = useMemo(() => items.flatMap(item => (item.status === 'approved' && item.asset?.publicUrl ? [item.asset.publicUrl] : [])), [items]);
-  const ready = items.every(item => item.status === 'approved');
-  return { items, evidenceUrls, ready, add, remove, retry, refresh, clear };
+  const visible = owner.current === session ? items : [];
+  const evidenceUrls = visible.flatMap(item => (item.status === 'approved' && item.asset?.publicUrl ? [item.asset.publicUrl] : []));
+  const ready = visible.every(item => item.status === 'approved');
+  return { items: visible, evidenceUrls, ready, add, remove, retry, refresh, clear };
 }
 
 /* ------------------------------------------------- prepared transaction */
@@ -269,7 +294,7 @@ export type SigningState =
   | { kind: 'idle' }
   | { kind: 'invalid'; error: string }
   | { kind: 'estimating'; tx: ValidatedTransaction }
-  | { kind: 'review'; tx: ValidatedTransaction; gas: bigint; feePerGas: bigint; costRaw: bigint }
+  | ({ kind: 'review' } & BountyFeeReview)
   | { kind: 'gas-unavailable'; tx: ValidatedTransaction; error: string }
   | { kind: 'wallet'; tx: ValidatedTransaction; costRaw: bigint }
   | { kind: 'pending'; tx: ValidatedTransaction; hash: Hex }
@@ -280,6 +305,30 @@ export type SigningState =
 
 function message(error: unknown, fallback: string): string {
   return error instanceof Error && error.message ? error.message : fallback;
+}
+
+export function useBountyAttemptRecovery(account: string | null, intent: BountyTransactionIntent, publicClient: import('./bounty-transaction-attempt').BountyReceiptClient | undefined) {
+  const [attempt, setAttempt] = useState<BountyTransactionAttempt | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const key = bountyIntentId(intent);
+  const intentRef = useRef(intent);
+  intentRef.current = intent;
+  useEffect(() => {
+    setAttempt(null);
+    setError(null);
+    if (!account || !publicClient) return;
+    let opened: BountyTransactionAttempt;
+    try {
+      opened = new BountyTransactionAttempt(window.localStorage, account, intentRef.current, publicClient);
+      setAttempt(opened);
+    } catch (failure) { setError(message(failure, 'Local recovery unavailable; check wallet activity')); return; }
+    return () => opened.close();
+  }, [account, key, publicClient]);
+  const subscribe = useCallback((notify: () => void) => attempt?.subscribe(notify) ?? (() => {}), [attempt]);
+  const snapshot = useCallback(() => attempt?.state ?? null, [attempt]);
+  const state = useSyncExternalStore(subscribe, snapshot, noSession);
+  const matches = attempt !== null && account !== null && attempt.account.toLowerCase() === account.toLowerCase() && bountyIntentId(attempt.intent) === key;
+  return { attempt: matches ? attempt : null, state: matches ? state : null, error };
 }
 
 /**
@@ -306,6 +355,9 @@ export function usePreparedTransaction(request: TransactionRequest | null, inten
   useEffect(() => { settled.current = ['wallet', 'pending', 'confirmed', 'reverted', 'uncertain'].includes(state.kind); }, [state.kind]);
   const address = wallet.address ?? null;
   const chainId = wallet.chainId ?? null;
+  const recovery = useBountyAttemptRecovery(address, reviewedIntent, publicClient);
+  const currentInputs = useRef({ request, intentKey, address, chainId, authority });
+  currentInputs.current = { request, intentKey, address, chainId, authority };
 
   useEffect(() => {
     if (busy.current || settled.current) return;
@@ -326,9 +378,8 @@ export function usePreparedTransaction(request: TransactionRequest | null, inten
     setState({ kind: 'estimating', tx });
     void (async () => {
       try {
-        const gas = tx.gas ?? await publicClient.estimateGas({ account: tx.from, to: tx.to, data: tx.data, value: tx.value });
-        const feePerGas = tx.maxFeePerGas ?? await publicClient.getGasPrice();
-        if (!cancelled) setState({ kind: 'review', tx, gas, feePerGas, costRaw: gasCostUpperBound(gas, feePerGas) });
+        const review = await prepareBountyReview(request, { wallet: address, deployment, intent: reviewedIntent }, publicClient);
+        if (!cancelled) setState({ kind: 'review', ...review });
       } catch (error) {
         console.error('[bounty fee estimate]', error);
         if (!cancelled) setState({ kind: 'gas-unavailable', tx, error: "Couldn't estimate the network fee, try again" });
@@ -338,7 +389,7 @@ export function usePreparedTransaction(request: TransactionRequest | null, inten
   }, [request, reviewedIntent, address, chainId, deployment, publicClient, unavailableReason, attempt]);
 
   const sign = useCallback(async () => {
-    if (state.kind !== 'review' || busy.current || !publicClient) return;
+    if (state.kind !== 'review' || busy.current || !publicClient || !recovery.attempt || recovery.state || recovery.error) return;
     busy.current = true;
     const reviewed = state;
     let invoked = false;
@@ -346,28 +397,22 @@ export function usePreparedTransaction(request: TransactionRequest | null, inten
     try {
       if (!request || !wallet.connector || !authority || authority.expiresAt <= Date.now()) throw new Error(unavailableReason ?? 'Network authority expired; refresh before signing');
       const tx = validatePreparedTransaction(request, { wallet: wallet.address ?? '', deployment: authority.network.network.addresses, intent: reviewedIntent });
-      if (tx.to !== reviewed.tx.to || tx.data !== reviewed.tx.data || tx.from !== reviewed.tx.from) throw new Error('Prepared transaction changed after review');
+      assertBountyReview(reviewed, tx);
+      recovery.attempt.assertCanSubmit();
       const provider = await connectorProvider(wallet.connector);
       if (!isWalletProvider(provider)) throw new Error('Wallet provider unavailable');
       const signer = new PaxeerWallet(provider);
       await signer.assertChain();
       const accounts = await signer.getAccounts();
-      if (!accounts.some(account => account.toLowerCase() === tx.from.toLowerCase())) throw new Error('The prepared signer is not available in this wallet');
+      if (accounts[0]?.toLowerCase() !== tx.from.toLowerCase()) throw new Error('The prepared signer is not selected in this wallet');
+      const latest = currentInputs.current;
+      if (!latest.request || latest.intentKey !== intentKey || latest.address !== address || latest.chainId !== 125 || !latest.authority || latest.authority.expiresAt <= Date.now()) throw new Error('Signing context changed; review again');
+      assertBountyReview(reviewed, validatePreparedTransaction(latest.request, { wallet: latest.address ?? '', deployment: latest.authority.network.network.addresses, intent: reviewedIntent }));
+      recovery.attempt.assertCanSubmit();
       setState({ kind: 'wallet', tx, costRaw: reviewed.costRaw });
       invoked = true;
-      hash = await getWalletClient(provider).sendTransaction({
-        account: tx.from,
-        to: tx.to,
-        data: tx.data,
-        value: tx.value,
-        gas: reviewed.gas,
-        ...(tx.maxFeePerGas !== null ? { maxFeePerGas: tx.maxFeePerGas } : {}),
-        ...(tx.maxPriorityFeePerGas !== null ? { maxPriorityFeePerGas: tx.maxPriorityFeePerGas } : {}),
-      });
+      hash = await recovery.attempt.broadcastReviewed(reviewed, tx, provider);
       setState({ kind: 'pending', tx, hash });
-      const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 1, timeout: 120_000 });
-      if (receipt.transactionHash.toLowerCase() !== hash.toLowerCase()) throw new Error('Receipt identity mismatch');
-      setState({ kind: receipt.status === 'success' ? 'confirmed' : 'reverted', tx, hash });
     } catch (error) {
       console.error('[bounty signing]', error);
       const text = message(error, 'Signing failed');
@@ -377,12 +422,13 @@ export function usePreparedTransaction(request: TransactionRequest | null, inten
     } finally {
       busy.current = false;
     }
-  }, [state, publicClient, request, reviewedIntent, wallet.connector, wallet.address, authority, unavailableReason]);
+  }, [state, publicClient, request, reviewedIntent, wallet.connector, wallet.address, authority, unavailableReason, recovery.attempt, recovery.state, recovery.error, intentKey, address]);
 
   /** Re-validate and re-estimate after a clean failure (never after an uncertain broadcast). */
   const retry = useCallback(() => {
+    if (recovery.state) { recovery.attempt?.retry(); return; }
     if (state.kind === 'failed' || state.kind === 'gas-unavailable' || state.kind === 'invalid') setAttempt(value => value + 1);
-  }, [state.kind]);
+  }, [state.kind, recovery.state, recovery.attempt]);
 
-  return { state, sign, retry };
+  return { state: recovery.state ?? (recovery.error ? { kind: 'invalid' as const, error: recovery.error } : state), sign, retry };
 }

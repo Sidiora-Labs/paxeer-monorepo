@@ -38,23 +38,13 @@ type Props<T> = {
 };
 
 const DateInput = ({ value, onChange, placeholder, max }: { value: string; onChange: (value: string) => void; placeholder: string; max: string }) => {
-  const [ tempValue, setTempValue ] = React.useState(value || '');
-
-  // reset
-  React.useEffect(() => {
-    if (!value) {
-      setTempValue('');
-    }
-  }, [ value ]);
-
   const handleChange = React.useCallback((event: ChangeEvent<HTMLInputElement>) => {
-    setTempValue(event.target.value);
     onChange(event.target.value);
   }, [ onChange ]);
 
   return (
     <Input
-      value={ tempValue }
+      value={ value }
       onChange={ handleChange }
       placeholder={ placeholder }
       type="date"
@@ -147,6 +137,7 @@ function BaseAgeFilter<T>({
 
     // Convert original values to date strings for comparison
     const originalValueAsDates = {
+      age: '',
       from: value.from ? dateConverter.getCurrentValue(value.from) : '',
       to: value.to ? dateConverter.getCurrentValue(value.to) : '',
     };

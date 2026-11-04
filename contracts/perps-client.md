@@ -132,6 +132,26 @@ baseline. Reconnects use backoff, and unavailable data remains unavailable.
 The server's exact frames and limits are in the
 [data WebSocket contract](perps-data.md#websocket).
 
+[useSpotTokenState](../apps/perps/src/hooks/spot/useSpotTokenState.ts) has the
+signature `useSpotTokenState(token: Address, native?: boolean): SpotTokenStateResult`.
+The token address is required; `native` defaults to `false`. Native reads resolve
+the PAX pointer before reading the vault. The return value is
+`{ state: SpotTokenState | null, error: string | null }`.
+`SpotTokenState` contains `tradeable`, `paused` and
+`reason: "TokenPaused" | "TokenNotRegistered" | null`.
+While the initial read is loading, both fields are null. Invalid addresses,
+failed reads and invalid response shapes yield null state and a classified
+error message, even if a previous read succeeded. Queries do not retry and
+refresh every eight seconds; a same-token background refresh retains cached
+state until a failed read makes it unavailable. `SpotOrderForm` consumes
+`state` and `error`, blocks submission for unavailable state, and displays the
+error or “Checking token trading status…” while unavailable.
+
+Task 22.33.712 wiring request: domain 3 owns
+`spec/layerx-merge/interfaces.kvx`; reconcile row
+`3.ts-perps-hooks-usespottokenstate-j27` with the signature and behavior above.
+The registry path is outside this task's permitted scope.
+
 ## Routes
 
 The [Pages Router](../apps/perps/src/pages) exposes `/perps`, `/spot`, `/markets`,

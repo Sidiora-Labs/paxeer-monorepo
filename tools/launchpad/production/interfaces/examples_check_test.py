@@ -1,10 +1,11 @@
 """Real JSONSchema instance and example-manifest regression checks."""
+import argparse
+import contextlib
 import copy
+import io
 import importlib.util
 import json
-import os
 import pathlib
-import subprocess
 import sys
 import tempfile
 import tomllib
@@ -15,14 +16,28 @@ HERE=pathlib.Path(__file__).resolve().parent
 spec=importlib.util.spec_from_file_location('examples_check',HERE/'examples_check.py')
 e=importlib.util.module_from_spec(spec);spec.loader.exec_module(e)
 ROOT=HERE.parents[3]
-CONTRACTS=pathlib.Path(os.environ.get('EXAMPLE_CONTRACTS',ROOT/'launchpad/spec/production-system/integration/contracts/v1'))
-SPEC=pathlib.Path(os.environ.get('EXAMPLE_SPEC',ROOT/'launchpad/spec/production-system/spec.kvx'))
-MATERIALIZER=pathlib.Path(os.environ.get('EXAMPLE_MATERIALIZER',HERE/'materialize.py'))
+CONTRACTS=None
+SPEC=None
+CATALOG=None
+MATERIALIZER=HERE/'materialize.py'
+
+def bind_inputs(contracts, spec=None, catalog=None, materializer=MATERIALIZER):
+    global CONTRACTS, SPEC, CATALOG, MATERIALIZER
+    if (spec is None)==(catalog is None):
+        raise ValueError('exactly one authoritative spec or catalog required')
+    CONTRACTS=pathlib.Path(contracts).resolve()
+    SPEC=pathlib.Path(spec).resolve() if spec is not None else None
+    CATALOG=pathlib.Path(catalog).resolve() if catalog is not None else None
+    MATERIALIZER=pathlib.Path(materializer).resolve()
+
 
 class ExamplesTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.catalog=tomllib.loads(SPEC.read_text())
+        if CONTRACTS is None or (SPEC is None and CATALOG is None):
+            raise ValueError('explicit spec/catalog and contracts required for example suite')
+        cls.catalog=json.loads(CATALOG.read_text()) if CATALOG else tomllib.loads(SPEC.read_text())
+        if 'sections' in cls.catalog:cls.catalog=cls.catalog['sections']
         cls.generated=e.generate(cls.catalog,CONTRACTS,e.load_materializer(MATERIALIZER))
         cls.samples=e.Samples(json.loads((CONTRACTS/'schema-definitions.json').read_bytes()))
         cls.openapi=json.loads((CONTRACTS/'openapi.json').read_bytes())
@@ -99,13 +114,23 @@ class ExamplesTests(unittest.TestCase):
     def test_check_read_only_and_rejects_mutated_bytes(self):
         with tempfile.TemporaryDirectory() as temp:
             path=pathlib.Path(temp)/'examples.json';path.write_bytes(e.encode(self.generated));before=path.read_bytes()
-            cmd=[sys.executable,str(HERE/'examples_check.py'),'--check','--spec',str(SPEC),'--contracts',str(CONTRACTS),'--materializer',str(MATERIALIZER),'--examples',str(path)]
-            result=subprocess.run(cmd,capture_output=True,text=True)
-            self.assertEqual(result.returncode,0,result.stderr)
+            cmd=['--check','--contracts',str(CONTRACTS),'--materializer',str(MATERIALIZER),'--examples',str(path)]
+            cmd+=['--catalog',str(CATALOG)] if CATALOG else ['--spec',str(SPEC)]
+            with contextlib.redirect_stdout(io.StringIO()):e.main(cmd)
             self.assertEqual(path.read_bytes(),before)
             path.write_bytes(before.replace(b'"IF_LOGIN":',b'"IF_LOGIN_CHANGED":',1));bad=path.read_bytes()
-            result=subprocess.run(cmd,capture_output=True,text=True)
-            self.assertNotEqual(result.returncode,0)
+            with self.assertRaises(e.ExampleError):e.main(cmd)
             self.assertEqual(path.read_bytes(),bad)
 
-if __name__=='__main__':unittest.main()
+def main(argv=None):
+    parser=argparse.ArgumentParser()
+    source=parser.add_mutually_exclusive_group(required=True)
+    source.add_argument('--spec',type=pathlib.Path)
+    source.add_argument('--catalog',type=pathlib.Path)
+    parser.add_argument('--contracts',type=pathlib.Path,required=True)
+    parser.add_argument('--materializer',type=pathlib.Path,default=MATERIALIZER)
+    args,remaining=parser.parse_known_args(argv)
+    bind_inputs(args.contracts,args.spec,args.catalog,args.materializer)
+    unittest.main(argv=[sys.argv[0],*remaining])
+
+if __name__=='__main__':main()

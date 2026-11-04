@@ -117,14 +117,6 @@ func (h *Hub) onDM(c *conn, msg types.IncomingWS, clientID string) {
 func (h *Hub) persistSend(c *conn, in SendInput) {
 	ctx, cancel := context.WithTimeout(WithPrincipal(context.Background(), c.principal), 5*time.Second)
 	defer cancel()
-	max := h.maxDmMsgs
-	if in.Kind == "pool" {
-		max = h.maxPoolMsgs
-	}
-	if h.protocolVersion != 2 && !h.allow(ctx, c.actor, in.Kind, max) {
-		h.sendSendError(c, in.ClientID, "Rate limited")
-		return
-	}
 	m, err := h.durable.Send(ctx, in)
 	if err != nil {
 		h.logErr("durable send", err)
