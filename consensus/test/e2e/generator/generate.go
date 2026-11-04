@@ -226,6 +226,9 @@ func generateTestnet(r *rand.Rand, opt map[string]interface{}) (e2e.Manifest, er
 		}
 	}
 
+	sort.Strings(seedNames)
+	sort.Strings(lightProviders)
+
 	for _, name := range seedNames {
 		for _, otherName := range seedNames {
 			if name != otherName {
