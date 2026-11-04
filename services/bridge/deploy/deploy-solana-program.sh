@@ -117,7 +117,7 @@ case ${1:-} in
 esac
 [ $# -eq 0 ] || usage
 
-for tool in jq python3 cast sha256sum; do
+for tool in jq python3 cast sha256sum flock; do
     command -v "$tool" > /dev/null 2>&1 || fail "$tool is required and is not on the PATH"
 done
 
@@ -339,11 +339,24 @@ for tool in "$SOLANA" "$KEYGEN" "$BUILD_SBF"; do
         || fail "$tool is not executable; $toolchain_variable must hold the pinned Solana toolchain (solana, solana-keygen, cargo-build-sbf)"
 done
 
+JOURNAL="$SCRIPT_DIR/solana-run-journal.py"
+if [ -n "$program_keypair" ]; then
+    supplied_program_id=$("$KEYGEN" pubkey "$program_keypair") \
+        || fail "PAXEER_BRIDGE_SOLANA_PROGRAM_KEYPAIR_FILE does not name a Solana keypair"
+    python3 "$JOURNAL" identity "$configured_program_id" "$supplied_program_id" > /dev/null \
+        || fail "the supplied program keypair does not identify the configured program"
+fi
+
 if [ "$preflight_only" -eq 1 ]; then
     printf 'deploy-solana-program: solana (chain %s) is ready to deploy: owner %s, %d attestors at threshold %s, %d assets, commitment %s\n' \
         "$chain_id" "$owner" "${#attestors[@]}" "$threshold" "${#asset_mints[@]}" "$commitment" >&2
     exit 0
 fi
+
+umask 077
+exec {journal_lock}> "${record}.lock"
+flock -n "$journal_lock" || fail "another deployment holds the record lock"
+journal="${record}.journal.json"
 
 [ -r "$PROGRAM_DIR/Cargo.toml" ] || fail "$PROGRAM_DIR/Cargo.toml is missing, so there is no program to build"
 
@@ -380,12 +393,31 @@ if [ -n "$kept_keypair" ]; then
         "$kept_keypair" >&2
 fi
 
-deploy=("$SOLANA" program deploy "$elf" --url "$rpc" --keypair "$keypair"
-    --upgrade-authority "$keypair" --output json --program-id "$program_keypair")
-"${deploy[@]}" > "$work/deploy.json" 2> "$work/deploy.log" || {
-    cat "$work/deploy.log" >&2
-    fail "solana program deploy failed"
-}
+supplied_program_id=$("$KEYGEN" pubkey "$program_keypair") \
+    || fail "the program keypair is not derivable"
+python3 "$JOURNAL" identity "$configured_program_id" "$supplied_program_id" > /dev/null \
+    || fail "the supplied program keypair does not identify the configured program"
+deployment_action=$(python3 "$JOURNAL" prepare "$journal" "$config" "$supplied_program_id" \
+    "$genesis_hash" "$publisher" "$elf_sha256" "$elf_bytes") \
+    || fail "the retained deployment intent could not be reconciled"
+case $deployment_action in
+deploy)
+    deploy=("$SOLANA" program deploy "$elf" --url "$rpc" --keypair "$keypair"
+        --upgrade-authority "$keypair" --output json --program-id "$program_keypair")
+    "${deploy[@]}" > "$work/deploy.json" 2> "$work/deploy.log" || {
+        cat "$work/deploy.log" >&2
+        fail "solana program deploy failed; its retained intent must be reconciled before retrying"
+    }
+    python3 "$JOURNAL" deployed "$journal" "$work/deploy.json" \
+        || fail "the deployment response could not be retained"
+    ;;
+resume)
+    python3 "$JOURNAL" deployment "$journal" > "$work/deploy.json" \
+        || fail "the retained deployment response could not be read"
+    ;;
+*) fail "unknown deployment action $deployment_action" ;;
+esac
+
 program_id=$(jq -r '.programId // empty' "$work/deploy.json")
 deployment_signature=$(jq -r '.signature // empty' "$work/deploy.json")
 [ -n "$program_id" ] || fail "solana program deploy reported no program id"
@@ -489,7 +521,9 @@ case $configured_program_id in
           rooted_slot: $rooted_slot, publisher: $publisher, upgrade_authority: $upgrade_authority,
           commitment: $commitment, vault_authority: $vault_authority, vault_handle: $vault_handle,
           program_keypair_file: $program_keypair_file}' \
-        > "$record"
+        > "$work/record.json"
+    python3 "$JOURNAL" publish "$journal" "$record" "$work/record.json" deployed \
+        || fail "the deployed checkpoint could not be published"
     printf 'deploy-solana-program: %s deployed and recorded in %s, vault authority %s, handle %s\n' \
         "$program_id" "$record" "$vault_authority" "$vault_handle" >&2
     printf 'deploy-solana-program: the keypair of %s is %s\n' "$program_id" "$program_keypair" >&2
@@ -501,23 +535,39 @@ attestor_list=$(
     IFS=,
     printf '%s' "${attestors[*]}"
 )
-"$admin" initialise --url "$rpc" --keypair "$keypair" --program-id "$program_id" \
-    --commitment "$commitment" --owner "$owner" --attestors "$attestor_list" \
-    --threshold "$threshold" > "$work/initialise.log" 2>&1 || {
-    cat "$work/initialise.log" >&2
-    fail "$admin could not initialise $program_id"
-}
+# Each planner call reads config and every asset at finalized commitment, then
+# fsyncs the exact next write intent before returning permission to submit it.
+while :; do
+    action=$(python3 "$JOURNAL" next "$journal" "$config" "$rpc" "$rooted_slot") \
+        || fail "custody reconciliation refused further writes"
+    case $action in
+    ready) break ;;
+    initialise)
+        "$admin" initialise --config "$config" --url "$rpc" --keypair "$keypair" --program-id "$program_id" \
+            --commitment "$commitment" --owner "$owner" --attestors "$attestor_list" \
+            --threshold "$threshold" > "$work/initialise.log" 2>&1 || {
+            cat "$work/initialise.log" >&2
+            fail "$admin could not initialise $program_id; intent retained for readback"
+        }
+        ;;
+    *)
+        [[ $action =~ ^[0-9]+$ ]] && [ "$action" -lt "${#asset_mints[@]}" ] \
+            || fail "unknown custody action $action"
+        index=$action
+        "$admin" register-asset --config "$config" --url "$rpc" --keypair "$keypair" --program-id "$program_id" \
+            --commitment "$commitment" --mint "${asset_mints[index]}" --asset-id "${asset_ids[index]}" \
+            --decimals "${asset_decimals[index]}" --per-tx-cap "${asset_per_tx[index]}" \
+            --total-cap "${asset_total[index]}" > "$work/register-$index.log" 2>&1 || {
+            cat "$work/register-$index.log" >&2
+            fail "$admin could not register ${asset_symbols[index]}; intent retained for readback"
+        }
+        ;;
+    esac
+done
 
 registered=$work/assets.json
 printf '[]' > "$registered"
 for index in "${!asset_mints[@]}"; do
-    "$admin" register-asset --url "$rpc" --keypair "$keypair" --program-id "$program_id" \
-        --commitment "$commitment" --mint "${asset_mints[index]}" --asset-id "${asset_ids[index]}" \
-        --decimals "${asset_decimals[index]}" --per-tx-cap "${asset_per_tx[index]}" \
-        --total-cap "${asset_total[index]}" > "$work/register-$index.log" 2>&1 || {
-        cat "$work/register-$index.log" >&2
-        fail "$admin could not register ${asset_symbols[index]} (${asset_mints[index]}) with $program_id"
-    }
     jq --arg symbol "${asset_symbols[index]}" --arg mint "${asset_mints[index]}" \
         --arg asset_id "${asset_ids[index]}" --argjson decimals "${asset_decimals[index]}" \
         --arg per_tx "${asset_per_tx[index]}" --arg total "${asset_total[index]}" \
@@ -547,7 +597,9 @@ jq -n --arg chain solana --argjson chain_id "$chain_id" --arg kind solana \
       rooted_slot: $rooted_slot, publisher: $publisher, upgrade_authority: $upgrade_authority,
       owner: $owner, threshold: $threshold, commitment: $commitment,
       vault_authority: $vault_authority, vault_handle: $vault_handle,
-      attestors: $attestors, assets: $assets[0]}' > "$record"
+      attestors: $attestors, assets: $assets[0]}' > "$work/record.json"
+python3 "$JOURNAL" publish "$journal" "$record" "$work/record.json" ready \
+    || fail "the reconciled deployment record could not be published"
 
 printf 'deploy-solana-program: %s (program data %s) deployed by %s, rooted at slot %s\n' \
     "$program_id" "$program_data" "$publisher" "$rooted_slot" >&2
