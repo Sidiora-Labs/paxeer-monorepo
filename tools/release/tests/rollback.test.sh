@@ -109,6 +109,8 @@ VALIDATOR_HOMES=$work/validator
 VALIDATOR_UNITS=validator.service
 FULLNODE_HOMES=$full
 FULLNODE_UNITS=$full_unit
+RECOVERY_BIN=$new_bin
+RECOVERY_SHA256=$(sha "$new_bin")
 ENV
 }
 
@@ -223,54 +225,100 @@ advance_candidate() {
   [ "$(sha "$work/bin/paxd")" = "$(sha "$new_bin")" ]
 }
 
-restored_state_is_pre_h1() {
-  invoke --execute --phase prepare
-  invoke --execute --phase stop
-  invoke --execute --phase restore
-  assert_halt_state "$work/validator/data/priv_validator_state.json" 20
-  assert_height "$work/validator/data.v6.12.0-r1/priv_validator_state.json" 25
-  cmp "$work/signing-at-h.json" "$work/validator/data/priv_validator_state.json"
-  cmp "$work/signing-after-h.json" "$work/validator/data.v6.12.0-r1/priv_validator_state.json"
-  tar --zstd -df "$work/snapshots/validator-pre-v6.12.0.tar.zst" -C "$work/validator"
-  [ "$(sha "$work/bin/paxd")" = "$(sha "$old_bin")" ]
-  [ ! -e "$work/validator/data/upgrade-info.json" ]
-  grep -qx 'halt-height = 0' "$work/validator/config/app.toml"
-  local pid args
-  while read -r pid args; do
-    [[ $args != *"$work/validator/data.v6.12.0-r1"* ]]
-  done < <(pgrep -a -x paxd || true)
+# Include every database, signer, key and config byte in the refusal assertion.
+state_manifest() {
+  python3 - "$work/validator" "${1:-all}" <<'PY_MANIFEST'
+import hashlib
+import json
+import os
+from pathlib import Path
+import sys
+
+home = Path(sys.argv[1])
+paths = list((home / "data").rglob("*"))
+if sys.argv[2] == "all":
+    paths += list((home / "config").rglob("*"))
+else:
+    paths += [home / "config/priv_validator_key.json"]
+manifest = {}
+for path in sorted(paths):
+    stat = path.lstat()
+    manifest[str(path.relative_to(home))] = [
+        stat.st_ino, stat.st_mode,
+        os.readlink(path) if path.is_symlink() else
+        hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else None,
+    ]
+print(json.dumps(manifest, sort_keys=True))
+PY_MANIFEST
 }
 
-execute_restores_snapshot_and_binary() {
-  invoke --execute --phase start --receipt "$work/rollback.json"
-  jq -e '. == {readiness:true, rollback_executed:true, result:"pass"}' "$work/rollback.json" >/dev/null
-  invoke --verify --receipt "$work/rollback.json"
-  jq -e '. == {readiness:true, rollback_executed:true, result:"pass"}' "$work/rollback.json" >/dev/null
-  local attempt height rc=0
+post_halt_rollback_is_refused() {
+  state_manifest >"$work/before-refusal.json"
+  local binary_before snapshot_before rc=0
+  binary_before=$(sha "$work/bin/paxd")
+  snapshot_before=$(sha "$work/snapshots/validator-pre-v6.12.0.tar.zst")
+  invoke --execute --phase prepare
+  invoke --execute --phase stop
+  invoke --execute --phase restore --receipt "$work/refused.json" \
+    >"$work/refused.out" 2>"$work/refused.err" || rc=$?
+  [ "$rc" -eq 1 ]
+  grep -qF 'post-halt signing:' "$work/refused.err"
+  grep -qF 'same-chain snapshot restore refused; use --forward' "$work/refused.err"
+  jq -e '.result == "fail" and .rollback_executed == false' "$work/refused.json" >/dev/null
+  state_manifest >"$work/after-refusal.json"
+  cmp "$work/before-refusal.json" "$work/after-refusal.json"
+  cmp "$work/signing-after-h.json" "$work/validator/data/priv_validator_state.json"
+  assert_height "$work/validator/data/priv_validator_state.json" 25
+  [ "$(sha "$work/bin/paxd")" = "$binary_before" ]
+  [ "$(sha "$work/snapshots/validator-pre-v6.12.0.tar.zst")" = "$snapshot_before" ]
+  [ ! -e "$work/validator/data.v6.12.0-r1" ]
+  [ ! -e "$work/validator/.rollback-r1" ]
+  [ -e "$work/validator/data/upgrade-info.json" ]
+  grep -qx 'halt-height = 25' "$work/validator/config/app.toml"
+}
+
+forward_recovery_reopens_same_chain() {
+  local data_inode attempt height
+  data_inode=$(stat -c %i "$work/validator/data")
+  state_manifest data >"$work/before-forward.json"
+  invoke --forward --execute --phase prepare
+  invoke --forward --execute --phase stop
+  invoke --forward --execute --phase restore
+  # Each invocation is a new process reopening the durable recovery journal.
+  invoke --forward --execute --phase restore
+  state_manifest data >"$work/after-forward.json"
+  cmp "$work/before-forward.json" "$work/after-forward.json"
+  cmp "$work/signing-after-h.json" "$work/validator/data/priv_validator_state.json"
+  cmp "$work/signing-after-h.json" "$work/validator/.forward-recovery-r1/priv_validator_state.json"
+  [ "$(stat -c %i "$work/validator/data")" = "$data_inode" ]
+  [ "$(sha "$work/bin/paxd")" = "$(sha "$new_bin")" ]
+  [ ! -e "$work/validator/data.v6.12.0-r1" ]
+  [ ! -e "$work/validator/.rollback-r1" ]
+  [ -e "$work/validator/data/upgrade-info.json" ]
+  grep -qx 'halt-height = 0' "$work/validator/config/app.toml"
+  invoke --forward --execute --phase start --receipt "$work/recovery.json"
+  invoke --forward --verify --receipt "$work/recovery.json"
+  jq -e '. == {readiness:true, rollback_executed:true, result:"pass"}' "$work/recovery.json" >/dev/null
   for ((attempt = 0; attempt < 120; attempt++)); do
     height=$(rpc status '{}' | jq -er '.result.sync_info.latest_block_height')
-    [ "$height" -gt 22 ] && break
+    [ "$height" -gt 27 ] && break
     sleep 1
   done
   [ "$attempt" -lt 120 ]
-  rpc block '{"height":"20"}' >"$work/restored-block.json"
-  jq -e '.result.block.header.height == "20"' "$work/restored-block.json" >/dev/null
-  cmp "$work/signing-at-h.json" "$work/validator/.rollback-r1/priv_validator_state.json"
-  cmp "$work/signing-after-h.json" "$work/validator/data.v6.12.0-r1/priv_validator_state.json"
-  [ "$(sha "$work/bin/paxd")" = "$(sha "$old_bin")" ]
-  [ ! -e "$work/validator/data/upgrade-info.json" ]
-  invoke --execute >"$work/repeat.out" 2>"$work/repeat.err" || rc=$?
-  [ "$rc" -eq 1 ]
-  [ "$(cat "$work/repeat.err")" = "rollback: rollback destination already exists for $work/validator" ]
-  [ -d "$work/validator/data.v6.12.0-r1" ]
-  cp -p "$old_bin" "$work/bin/paxd.pre-r2"
-  sed -i 's/^RELEASE_ID=r1$/RELEASE_ID=r2/' "$work/rollout.env"
-  invoke --execute --receipt "$work/rollback.json"
-  jq -e '. == {readiness:true, rollback_executed:true, result:"pass"}' "$work/rollback.json" >/dev/null
-  invoke --verify --receipt "$work/rollback.json"
-  cmp "$work/signing-at-h.json" "$work/validator/.rollback-r2/priv_validator_state.json"
-  cmp "$work/signing-after-h.json" "$work/validator/data.v6.12.0-r1/priv_validator_state.json"
-  [ -d "$work/validator/data.v6.12.0-r2" ]
+  rpc block '{"height":"25"}' >"$work/recovered-block.json"
+  jq -e '.result.block.header.height == "25"' "$work/recovered-block.json" >/dev/null
+  python3 - "$work/signing-after-h.json" "$work/validator/data/priv_validator_state.json" <<'PY_WATERMARK'
+import json
+import sys
+
+before, after = [json.load(open(path)) for path in sys.argv[1:]]
+def mark(state):
+    return int(state["height"]), state["round"], state["step"]
+assert mark(after) >= mark(before), (before, after)
+assert mark(after) != mark(before) or after == before, (before, after)
+PY_WATERMARK
+  [ "$(sha "$work/bin/paxd")" = "$(sha "$new_bin")" ]
+  cmp "$work/signing-after-h.json" "$work/validator/.forward-recovery-r1/priv_validator_state.json"
 }
 
 run_case() {
@@ -295,7 +343,7 @@ setup_chain
 run_case readiness_requires_material
 [ "$failed" -eq 0 ] || exit 1
 advance_candidate
-run_case restored_state_is_pre_h1
+run_case post_halt_rollback_is_refused
 [ "$failed" -eq 0 ] || exit 1
-run_case execute_restores_snapshot_and_binary
+run_case forward_recovery_reopens_same_chain
 [ "$failed" -eq 0 ]

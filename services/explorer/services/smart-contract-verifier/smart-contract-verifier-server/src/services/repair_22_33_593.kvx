@@ -1,0 +1,93 @@
+[repair.22.33.593]
+audit = "22.30.161"
+acceptance = "22998.1"
+mode = "BUILD"
+baseline = "The initial tree has no hf-build/hf-done ledger and no task implementation; no pre-change failures are claimed because the explicit ordered instructions require complete implementation before any gate and forbid running verify_cmd by hand."
+qualification = "The runner retains the exact candidate revision, command, exit and private evidence location in its hf-build/hf-done ledger; cg spec done names the verified revision."
+
+[finding.compiler-cache-trust-after-restart]
+test = "compiler_cache_trust_after_restart"
+implementation = "The inherited production DownloadCache already separates discovery from admission and calls Fetcher::validate_cached against catalogue digests and optional version validators before recovery; the existing ListFetcher installs private owned directories and regular executables. The test stops and reopens real pools, authenticates intact recovery without download, refuses altered persisted bytes and a corrupt replacement, admits only a checksum-verified replacement, and refuses an unlisted version directory."
+peer = "The loopback distribution serves committed opaque bytes with their pinned SHA-256; no compiler process, external binary or substitute compiler implementation participates in the cache proof."
+wiring_request = "Domain 14: smart-contract-verifier/src/compiler/fetcher.rs must close writable temporary executable handles before invoking SolcValidator and independently verify the effective service owner during cached admission; smart-contract-verifier/src/compiler/download_cache.rs and the fetcher API remain outside this task's permitted paths."
+
+[finding.negative-optimization-runs]
+test = "negative_optimization_runs_and_verification_counter_misses_routes"
+implementation = "The canonical proto conversion checks signed multipart runs and enforces the documented inclusive range 0..=1000000 in the shared multipart and standard-json content builders, covering solo and batch. Real HTTP and gRPC reject -1 and excessive runs before compiler discovery; the real JSON codec, canonical request conversion and compiler-input producer preserve zero and the upper boundary settings."
+
+[finding.sourcify-import-timeout-drift]
+test = "sourcify_import_timeout_drift"
+implementation = "Both service routes enforce request_timeout as a total operation deadline, cancelling the library future across preflight, import, retrieval and retry waits; zero is rejected. Loopback transcripts prove successful import and direct verification, each individually stalled import stage, and cumulative upstream latency exceeding the shared deadline."
+retry_semantics = "The existing upstream clients retain verification_attempts as their retry policy; retries and backoff consume the service's single total operation budget and never reset it. A timeout returns gRPC DEADLINE_EXCEEDED / HTTP 504. This service-level total limit is stricter than independent per-request timeouts."
+wiring_request = "Domain 14: smart-contract-verifier/src/sourcify/api_client.rs should inject request_timeout into the linked sourcify::ClientBuilder HTTP client so each upstream request also has the configured transport timeout; that library file is outside this task's scope."
+
+[finding.verification-counter-misses-routes]
+test = "negative_optimization_runs_and_verification_counter_misses_routes; sourcify_import_timeout_drift"
+implementation = "All registered verification handlers use a shared result boundary that observes conversion errors and normal results. Solo requests count once; batches count each submitted contract, including request-wide failures, with mixed results classified per item; an empty batch counts zero contracts. Lookup and list operations are excluded."
+labels = "chain_id is 125, unknown for absent/empty, or other; language is solidity or vyper; endpoint is one of multi-part, standard-json, batch-multi-part, batch-standard-json, sourcify, sourcify-from-etherscan, zksync-standard-json. No caller text or error message becomes a label."
+status_semantics = "SUCCESS and FAILURE describe verification outcomes, with compilation/invalid-content failures counted as FAILURE even on HTTP/gRPC success. Transport errors use bounded INVALID_ARGUMENT, INTERNAL, DEADLINE_EXCEEDED, CANCELLED, UNAVAILABLE or RESOURCE_EXHAUSTED labels. Requests rejected by a transport before handler dispatch and cancelled futures that never return are outside this completion counter."
+proof = "Real launched HTTP/gRPC services and their live metrics exporter prove solo error/failure counts, both batch endpoints with each contract's bounded chain label, Zksync compilation and parse failures, Vyper parse errors, and successful Sourcify import/direct calls plus deadline errors."
+wiring_request = "Domain 14: spec/layerx-merge/contracts/explorer-metrics.md must publish the labels, per-contract batch counting and completion/error semantics recorded here; direct edits to that document are outside scope."
+
+[gotcha.runner_scope]
+observed = "Runner changes to .cgignore and spec.kvx predate this implementation; they are preserved, and this repair record is in the permitted services directory because direct spec and GOTCHA edits are forbidden."
+
+[gotcha.linked_provenance]
+observed = "The local Sourcify client has migrated APIs; this workspace links revision c4261d0, whose actual import and retrieval endpoints are verify/etherscan and files/any. Tests use that linked producer's real transcripts."
+
+[gotcha.tooling]
+observed = "The sandbox initially has no Cargo source cache; launcher and actix-prost APIs were read from their exact registry versions before implementation, without running an undeclared cargo command."
+
+[gotcha.formatter]
+observed = "rustfmt reported trailing whitespace left inside the Solidity async wrappers; the first full build passed, and this qualification repair removes that whitespace and formats the wrappers before rebuilding the unchanged behavioral implementation."
+
+[qualification.repair]
+revision = "937464f2e505e71f43a7b78382b9ebd8e7dc8aac"
+command = "cg spec done 22.33.593 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Optimization/metrics and Sourcify tests passed; the cache test correctly received Internal/HashMismatch, but its assertion looked for the display phrase hashsum in a Debug representation that contains the variant name instead."
+repair = "Require the Internal variant and fetching evm compiler context, and assert its immediate error source debug shape is HashMismatch; retain every download-count, persisted-byte, restart and catalogue-identity assertion."
+
+[gotcha.attempt_2_scope]
+observed = "The continued implementation uses server src/services/{mod.rs,verification_metrics.rs,vyper_verifier.rs,repair_22_33_593.kvx}, but the listed scope and graph touches still name library src/services paths and an absent library test; the original server files are preserved without out-of-scope edits, and no unused duplicate implementation is introduced."
+wiring_request = "Task runner / Domain 14: map the four service module paths and the library test touch to the real server paths in the task graph and candidate allowlist; this record occupies the explicitly allowed library repair-record path."
+
+[qualification.attempt_2_build]
+revision = "06918a27a74707891ffc83ec94f2894d44e90d85"
+command = "cargo build --locked --manifest-path services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "Existing repair_22_33_598 includes zksync_solidity_verifier.rs outside the server services module, so its new super::verification_metrics reference fails with E0433; no verification ran."
+assumption = "Domain 14 must wire the real metrics and verification_metrics modules into smart-contract-verifier-server/tests/repair_22_33_598.rs under its own scope; this cross-task module contradiction is recorded without altering that test or weakening checks."
+
+[gotcha.error_chain]
+observed = "FetchError::HashMismatch itself wraps Mismatch as a source; inspect the immediate source below the fetching evm compiler context to assert HashMismatch, rather than root_cause(), which reaches the inner digest mismatch. The final assertion adjustment is not qualified because the build stopped on the recorded cross-task module contradiction."
+
+[continuation.attempt_3]
+implementation = "Restore the shared boundary and Vyper instrumentation in the now-authorized server paths. The Zksync source owns the helper module, re-exported by services/mod.rs, so standalone include-based integration targets resolve the same implementation without changes to their files. The helper reuses the existing allowlist source and configuration. Every target uses the linked server SolidityVerifierService collector accessor, including standalone include targets, so mixed included/linked services never register duplicate metric families."
+record = "The duplicate library task record is removed; all findings and historical evidence are retained here. No baseline verification is repeated because the continued implementation is already applied and the ordered gate instructions forbid a manual verify run."
+labels = "Configured decimal/hex chain IDs retain the existing bounded allowlist; absent or empty IDs map to unknown, and other supplied IDs map to other. The default allowlist is 125."
+
+[gotcha.embedded_metrics]
+observed = "A standalone target compiles an included Zksync service and a linked Solidity service in the same process. An independent lazy collector would register the same family twice; all boundaries therefore obtain the linked server collector through the service accessor, and no duplicate collector is initialized."
+
+[qualification.attempt_3_build_repair]
+revision = "427727dab23ff8695714ba7a0d2f4fc06e5225cf"
+command = "cargo build --locked --manifest-path services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "The standalone include target brings its root proto module into the boundary's scope; nested imports conflicted with the helper's macro-expanded proto alias (E0659)."
+repair = "Use the distinct verification_proto alias throughout the helper, preserving every handler, bound and assertion."
+
+[qualification.attempt_3_graph_repair]
+revision = "3286d4d1695a3e73fef2be4f682fe823194df2b4"
+command = "cg spec done 22.33.593 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All three integration tests passed, but the graph still requires the obsolete library repair-record path after instructions relocated the sole record to the server crate."
+repair = "Retain a one-line canonical_record relocation pointer at the graph's old path; it contains no duplicate findings, test claims or qualification record. The authoritative task record remains only here."
+
+[continuation.attempt_5]
+implementation = "The restored candidate already excludes the obsolete library-crate record, including its earlier relocation pointer; the server-crate record is the sole canonical record. Preserve every existing implementation and test assertion, format only the task-touched Rust files, and run hf-build followed by hf-done at the final candidate revision."
+scope = "The runner seeded nine permitted implementation paths and no obsolete record; inherited .cgignore and task-status bookkeeping are preserved without edits. No gate ledger exists for this attempt before qualification."

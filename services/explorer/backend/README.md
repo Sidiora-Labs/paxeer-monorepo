@@ -58,13 +58,14 @@ the current native account, transaction and feed APIs.
 | `/paxeer-x/feed/updates` | Paginated native submissions, optionally filtered by feeder or market |
 | `/paxeer-x/feed/updates/:hash` | One native submission |
 
-Historical archive APIs are separate from current transaction status (full paths):
+Historical archive APIs serve frozen items with no live settlement status
+(paths relative to `/api/v2`):
 
 | Path | Purpose |
 | --- | --- |
-| `/api/v2/paxeer-x/archive/anchors` | Frozen historical anchor checkpoints |
-| `/api/v2/paxeer-x/archive/receipts` | Frozen historical receipts |
-| `/api/v2/paxeer-x/archive/receipts/:id` | One frozen receipt by its full hash |
+| `/paxeer-x/archive/anchors` | Frozen historical anchor checkpoints |
+| `/paxeer-x/archive/receipts` | Frozen historical receipts |
+| `/paxeer-x/archive/receipts/:id` | One frozen receipt by its full hash |
 
 ### Frontend integration
 
@@ -149,9 +150,15 @@ stored historical `verification_status` (`unverified`, `sequencer_signed`,
 `batch_included`, `state_proven`, `checkpoint_finalised` or
 `settlement_anchored`), with no live `status` field. This frozen value does not
 advance as a current transaction progresses; do not poll it for settlement.
-Use `/api/v2/transactions/:transaction_hash_param/status` for current
-transaction observations. Use the returned
-pagination parameters. An invalid or
+Live transaction consumers should use the committed node's receipt interface:
+`pax_sequencerReceipt` with `px_getReceiptKeys` and native inclusion evidence,
+as verified by the explorer's
+[`SequencerReceipt`](apps/explorer/lib/explorer/chain/paxeer_x/sequencer_receipt.ex).
+Use `/api/v2/transactions/:transaction_hash_param/signature` for the verified
+receipt and evidence-backed rung, and
+`/api/v2/transactions/:transaction_hash_param/status` for current transaction
+observations. A signed receipt alone is `receipted`; verified native inclusion
+establishes `committed`. Follow the archive's returned pagination parameters. An invalid or
 unknown receipt ID returns HTTP `404`. The old unprefixed
 `/api/v2/paxeer-x/anchors` and `/api/v2/paxeer-x/receipts` routes were removed
 and return not-found; use the explicit `/archive/` paths above.

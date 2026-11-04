@@ -70,7 +70,7 @@ func RunCLI(ctx context.Context, args []string, input io.Reader, output io.Write
 		_, e = fmt.Fprintln(output, address)
 		return e
 	case "deploy-wasm":
-		root := flags.String("root", "", "contract root")
+		root := flags.String("root", "", "repository root")
 		paxd := flags.String("paxd", "", "paxd executable")
 		key := flags.String("key", "", "admin key")
 		chain := flags.String("chain-id", "", "chain id")
