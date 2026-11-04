@@ -176348,7 +176348,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1436]
 title = "Repair audit record 22.30.80 medium findings in tools/platform/release/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.198", "22.31.199", "22.31.200", "22.31.201"]
@@ -176383,7 +176383,7 @@ do_8 = "Attempt 2 (continue): the TLS boundary helper the test includes demands 
 
 [task.22.33.1435]
 title = "Repair audit record 22.30.80 medium findings in tools/platform/emulator/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.198", "22.31.199", "22.31.200", "22.31.201"]
@@ -176916,7 +176916,7 @@ do_11 = "Attempt 2 (continue): the typed referral-tier errors change signatures 
 
 [task.22.33.1375]
 title = "Repair audit record 22.30.75 medium findings in services/platform/perf-db/src/core (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.138", "22.31.139", "22.31.140"]
@@ -197694,7 +197694,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1385]
 title = "Repair audit record 22.30.76 medium findings in sdk/platform/go (part 2 of 2): retired-reference, runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.141", "22.31.142", "22.31.143"]
@@ -204679,7 +204679,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1049]
 title = "Repair audit record 22.30.41 medium findings in services/launchpad/trading-charts/internal/app (part 1 of 1): wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.72", "22.31.73", "22.31.74", "22.31.75", "22.31.461"]
@@ -219519,7 +219519,7 @@ do_10 = "The candidate carries only sources under the touches and the test file:
 
 [task.22.31.63]
 title = "Repair audit record 22.30.37 findings in services/launchpad/pnl-tracker/internal/production/l16: interface-mismatch, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.461"]
@@ -276495,7 +276495,7 @@ do_13 = "Attempt 2 (continue): the two key-reuse cases expect a reused payment r
 
 [task.22.33.1422]
 title = "Repair audit record 22.30.8 medium findings in modules/layerxauth/types (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.192", "22.31.193", "22.31.194", "22.31.195", "22.31.196", "22.31.197"]
@@ -278641,7 +278641,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1134]
 title = "Repair audit record 22.30.5 medium findings in src/modules/governance (part 1 of 1): runtime-risk, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.98", "22.31.99", "22.31.100", "22.31.101"]
