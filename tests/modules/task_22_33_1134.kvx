@@ -1,0 +1,40 @@
+[task.22.33.1134]
+mode = "BUILD"
+base_revision = "9e535b4932ba8111a729a5cef10e0ca2370ca435"
+verify_cmd = "make -s test-governance test-governance-activation test-governance-emergency"
+evidence = "The runner-owned /out/run/gates.jsonl records the exact built and verified candidate revisions, commands, exits and private logs; the final hf-done evidence line is authoritative."
+baseline = "Not run: the explicit implementation-first order and hf-done-only verification rule prohibit the audit step's unchanged-tree verification; no baseline failures are claimed."
+closure_status = "Repairs and proving cases are implemented; new cases cannot execute through the declared targets until the out-of-scope Makefile wiring is published. A passing existing gate alone does not prove these added cases or close their findings."
+wiring_requests = ["Makefile — fm-kernel/domain 1: include tests/modules/governance_audit.mk so test-governance-emergency executes tests/modules/test_governance_audit.c with the repository's existing real-kernel linkage.", "include/layerx/lxp_governance.h and modules/lxphost/host.go — fm-kernel/domain 1: expose and route emergency operations through lxp_gov_emergency_execute/lxp_gov_emergency_load, retaining LXP_GOV_EMERGENCY_EVENT in committed receipts; use the bounded state as the pause-check consumer input."]
+
+[finding.22.30.5.9]
+tests = ["audit_emergency_reuses_inactive_slots", "audit_emergency_committed_history_reopen"]
+path = "tests/modules/test_governance_audit.c"
+repair = "Halt reuses the first inactive pause slot and still refuses simultaneous capacity exhaustion and duplicate active scopes. The transactional emergency API loads a bounded header and at most 64 pause slots from real governance KV, stages only changed slots and the sequence/module-enabled header, and emits the complete canonical immutable audit event into the transaction's existing receipt effects. It adds no independent commit boundary or lifetime history array."
+proof = "The real kernel context commits 130 halt/resume cycles while retaining a separate market pause and disabled module in three KV records; disk snapshot destruction/reopen midway preserves all active controls, sequence and metadata, and execution continues. A second reopen preserves the resumed state. All 264 producer-built receipts are durably stored by the committed test fixture and decoded after log close/reopen with byte-identical emitted events and ordered sequences. Saturating all 64 active slots, refusing a 65th, resuming one and reusing it preserves other scopes and earlier audit events."
+limitation = "The original context-free API still has a bounded uncommitted event buffer and refuses overflow; callers needing committed long-lived control must use the transactional API. The host integration and root Makefile are outside this task's scope."
+
+[finding.22.30.5.8]
+test = "audit_emergency_resume_validation"
+additional_test = "audit_emergency_committed_history_reopen"
+path = "tests/modules/test_governance_audit.c"
+repair = "Halt and resume share scope, valid module-range and nonzero market validation before ordering or scope comparisons."
+proof = "NULL and zero market IDs are refused with an existing matching market pause, as are invalid scope/module combinations, with byte-identical state and ordered sequence. The real transaction-context path also refuses NULL without changing staged writes, effects, state or history; a valid retry resumes the pause and survives reopen."
+
+[finding.22.30.5.11]
+test = "audit_governance_proposal_admission_bounds"
+path = "tests/modules/test_governance_audit.c"
+repair = "The public admission boundary validates the fixed cohort bound and key length before any key lookup or cohort comparison, and independently checks every cohort member for nonzero identity and strict ordering."
+proof = "A directly supplied count of 33 with all 32 array entries sorted, SIZE_MAX count, invalid key lengths, every zero-member position, duplicates, descending members and scope/count mismatches are refused without changing the full table. The real staging producer supplies a valid maximum-length key and 32-member cohort; proposal admission, epoch activation and enactment deliver the new value to every selected member while preserving the outsider's value."
+
+[gotcha.1]
+symptom = "The audit step requests baseline verification while the explicit ordered gate instructions prohibit it."
+resolution = "Follow the explicit gate order and claim no baseline result; keep the record in scope because spec/ and GOTCHA.kvx may not be changed."
+
+[gotcha.2]
+symptom = "The three declared governance targets compile tests/test_governance_*.c directly and neither include nor discover tests/modules."
+resolution = "Provide the regression runner and its Makefile fragment within tests/modules, record the exact out-of-scope include request, and do not claim the new tests ran when only the declared existing targets ran."
+
+[gotcha.3]
+symptom = "The context-free emergency state has no kernel/storage pointer, and its public header and host callers are outside scope."
+resolution = "Provide a real transaction-context entry point within governance, keep its state bounded in KV and history in emitted receipt events, and record public-header/host wiring rather than adding an independent commit store or silently discarding audit history."
