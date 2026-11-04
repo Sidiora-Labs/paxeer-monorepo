@@ -119,18 +119,22 @@ last_mint_date: "2030-01-04"
 last_mint_height: "12345"
 ```
 
-then `40000uhpx` has already been issued. To raise the release total to `150000` and extend its end date, the proposal's complete `minter` object would be:
+then `40000uhpx` has already been issued. To raise the release total to `150000` and extend its end date, replace `minter_prop.json` with this complete proposal and use the same `update-minter` command:
 
 ```json
 {
-  "start_date": "2030-01-01",
-  "end_date": "2030-01-16",
-  "denom": "uhpx",
-  "total_mint_amount": "150000",
-  "remaining_mint_amount": "110000",
-  "last_mint_amount": "10000",
-  "last_mint_date": "2030-01-04",
-  "last_mint_height": "12345"
+  "title": "Extend the ongoing token release",
+  "description": "Add 50000uhpx while preserving the 40000uhpx already issued",
+  "minter": {
+    "start_date": "2030-01-01",
+    "end_date": "2030-01-16",
+    "denom": "uhpx",
+    "total_mint_amount": "150000",
+    "remaining_mint_amount": "110000",
+    "last_mint_amount": "10000",
+    "last_mint_date": "2030-01-04",
+    "last_mint_height": "12345"
+  }
 }
 ```
 

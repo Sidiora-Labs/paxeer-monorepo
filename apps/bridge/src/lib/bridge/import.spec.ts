@@ -188,7 +188,7 @@ function importDepositBuildsARecordFromTheVaultLog(): void {
   };
   const record = importDeposit(importChain, receipt);
   expect(record).toEqual({
-    id: `${ sourceReceipt.transactionHash }:in`,
+    id: `8453:${ sourceReceipt.transactionHash }:in:7`,
     direction: 'in',
     foreignChainKey: 'base',
     foreignChainId: '8453',
@@ -247,7 +247,7 @@ function importWithdrawalReadsTheBridgeOutLog(): void {
     logs: [ bridgeOutLog(other, 5n), depositLog(3, { address: LAYERX_BRIDGE_ADDRESS }), validLog ],
   };
   expect(importWithdrawal(receipt)).toEqual({
-    id: `${ sourceReceipt.transactionHash }:out`,
+    id: `8453:${ sourceReceipt.transactionHash }:out:42`,
     direction: 'out',
     foreignChainKey: 'base',
     foreignChainId: '8453',

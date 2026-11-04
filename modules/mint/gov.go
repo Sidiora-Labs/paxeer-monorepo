@@ -7,7 +7,7 @@ import (
 )
 
 func HandleUpdateMinterProposal(ctx sdk.Context, k *keeper.Keeper, p *types.UpdateMinterProposal) error {
-	err := types.ValidateMinter(*p.Minter)
+	err := p.ValidateContent()
 	if err != nil {
 		return err
 	}

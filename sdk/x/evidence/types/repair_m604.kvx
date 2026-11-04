@@ -1,0 +1,41 @@
+[repair.22.33.604]
+audit = "22.30.162"
+base_revision = "26bb0fe1436e9a72a6260976b19c445841ae7af0"
+evidence_address_validation = "TestRepairM_604_AddressValidation"
+evidence_type_genesis_fixture = "TestRepairM_604_GenesisFixture"
+evidence_submitter_validation = "TestRepairM_604_SubmitterValidation"
+evidence_message_fixture = "TestRepairM_604_MessageFixture"
+baseline = "Not executed: the ordered gate instructions prohibit verification before implementation and prohibit running verify_cmd by hand; no pre-change test failure is claimed."
+qualification = "The bounded hf-build and hf-done ledger at /out/run/gates.jsonl records the exact qualified candidate revision, command, exit and private evidence path."
+
+[finding.evidence-address-validation]
+test = "TestRepairM_604_AddressValidation"
+change = "Decode the configured consensus prefix, enforce the 20-byte consensus identity and return ErrInvalidEvidence; the accessor fails explicitly on invalid evidence instead of silently returning nil. Genesis initialization and the message service reject malformed evidence before persistence or handler dispatch."
+
+[finding.evidence-type-genesis-fixture]
+test = "TestRepairM_604_GenesisFixture"
+change = "The original valid and invalid-height fixtures use FromABCIEvidence; the valid fixture crosses JSON/Any, InitGenesis and keeper storage with address-byte equality, and hexadecimal addresses have an explicit rejection case."
+
+[finding.evidence-submitter-validation]
+test = "TestRepairM_604_SubmitterValidation"
+change = "ValidateBasic decodes the account address with SDK format validation and preserves ErrInvalidAddress. Signed protobuf transactions exercise real ante signature verification and the registered keeper Msg server route; invalid submitters are rejected without writes."
+
+[finding.evidence-message-fixture]
+test = "TestRepairM_604_MessageFixture"
+change = "The original positive and invalid-height fixtures use FromABCIEvidence; the positive fixture crosses protobuf/Any, MsgServiceRouter, the production equivocation handler and keeper storage with address-byte equality, and hexadecimal addresses have an explicit rejection case."
+
+[wiring.keeper-validation]
+request = "sdk/x/evidence/keeper/keeper.go and sdk/x/evidence/keeper/msg_server.go (owner: domain 15, evidence keeper): validate evidence and messages at direct keeper/server entry points for callers bypassing genesis and MsgServiceRouter validation; these files are outside this task's scope."
+
+[gotcha.baseline-order]
+observed = "The audit step asks for a pre-change verify run, but the task's ordered qualification instructions prohibit it; follow the ordered gates and do not claim baseline failures."
+
+[gotcha.ante-validation]
+observed = "The SDK ante ValidateBasicDecorator validates transaction structure, not each message: malformed submitters cause the signed transaction's signer-count rejection; the production MsgServiceRouter separately preserves ErrInvalidAddress before dispatch."
+
+[qualification.first-verification]
+revision = "194b8111122a7202642e14609c4666dca944715c"
+command = "cg spec done 22.33.604 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; compiler detail: /tmp/repair-m604.log"
+observed = "The new tests called UnmarshalJSON; this repository's ProtoCodec exposes UnmarshalAsJSON. Corrected both calls without changing assertions."

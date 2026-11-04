@@ -7,6 +7,7 @@ import React, {
   useCallback,
   useRef,
   useMemo,
+  useSyncExternalStore,
 } from "react";
 import { cn } from "@/ui/utils/cn";
 import { Tabs, TabsContent } from "@/ui/atoms/tabs";
@@ -34,16 +35,8 @@ import {
   markPriceWad,
   parsePositionRow,
   wadToDecimal,
+  type PositionRowInput,
 } from "@/core/perps/pnlHelpers";
-import {
-  subgraphQuery,
-  CLOSED_POSITIONS_QUERY,
-  ORDERS_QUERY,
-  ALL_ORDERS_V2_QUERY,
-  TRADES_QUERY,
-  LIQUIDATIONS_QUERY,
-  TPSL_ORDERS_QUERY,
-} from "@/hooks/perps/useSubgraph";
 import {
   EXPLORER_URL,
   coinLogoUrl,
@@ -79,6 +72,56 @@ import {
 import { subscribeStream } from "@/core/graphql/client";
 import { onStreamResync } from "@/core/net/realtime";
 import { INDEXER_GRAPHQL } from "@/core/perps/config";
+import { PositionsPanelData } from "./positionsPanelData";
+
+export interface PositionTpSlTarget {
+  positionId: string;
+  entryPrice: number;
+  isLong: boolean;
+  markPrice: number;
+  size: number;
+}
+
+export function PositionTpSlModal({
+  target,
+  onClose,
+  onSuccess,
+}: {
+  target: PositionTpSlTarget | null;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  return target ? (
+    <SetTpSlModal
+      positionId={target.positionId}
+      currentSize={target.size}
+      currentEntryPrice={target.entryPrice}
+      isLong={target.isLong}
+      markPrice={target.markPrice}
+      onClose={onClose}
+      onSuccess={onSuccess}
+    />
+  ) : null;
+}
+
+export function PanelDataFailure({
+  label,
+  error,
+  onRetry,
+}: {
+  label: string;
+  error?: string;
+  onRetry: () => void;
+}) {
+  return error ? (
+    <div role="alert" className="p-3 text-sm">
+      {label} unavailable. Previously loaded rows may be stale. {error}{" "}
+      <button type="button" onClick={onRetry}>
+        Retry
+      </button>
+    </div>
+  ) : null;
+}
 
 type TabKey =
   | "positions"
@@ -128,21 +171,20 @@ function tokenSymbol(addr: string): string {
   return t?.symbol ?? "USD";
 }
 
-const MobilePositionCard = React.memo(function MobilePositionCard({
-  pos,
-  markPrice,
-  tpsl,
-  onClose,
-  isClosing,
-  getMarketSymbol,
-}: {
+interface MobilePositionCardProps {
   getMarketSymbol: (marketId: number) => string;
-  pos: any;
+  pos: PositionRowInput & { positionId: string; marketId: number; openedAt: string };
   markPrice: number;
   tpsl?: { tp?: string; sl?: string };
   onClose: (id: string) => void;
+  onSetTpsl: (target: PositionTpSlTarget) => void;
   isClosing: boolean;
-}) {
+}
+
+const MobilePositionCard = React.memo(function MobilePositionCard(
+  props: MobilePositionCardProps,
+) {
+  const { pos, markPrice, getMarketSymbol } = props;
   const symbol = getMarketSymbol(pos.marketId);
   const parsed = parsePositionRow(pos, symbol);
   const { data: tiers, isError: tiersError } = useQuery({
@@ -163,6 +205,26 @@ const MobilePositionCard = React.memo(function MobilePositionCard({
     );
   }
   const pnlData = computePositionPnl(parsed, markPriceWad(markPrice), tiers);
+  return (
+    <MobilePositionCardContent {...props} parsed={parsed} pnlData={pnlData} />
+  );
+});
+
+export function MobilePositionCardContent({
+  pos,
+  markPrice,
+  tpsl,
+  onClose,
+  onSetTpsl,
+  isClosing,
+  getMarketSymbol,
+  parsed,
+  pnlData,
+}: MobilePositionCardProps & {
+  parsed: ReturnType<typeof parsePositionRow>;
+  pnlData: ReturnType<typeof computePositionPnl>;
+}) {
+  const symbol = getMarketSymbol(pos.marketId);
   const pnlColor =
     pnlData.unrealizedPnl >= 0n ? "var(--success)" : "var(--danger)";
 
@@ -374,7 +436,15 @@ const MobilePositionCard = React.memo(function MobilePositionCard({
       {/* Actions */}
       <div style={{ display: "flex", gap: 6 }}>
         <button
-          onClick={() => {}}
+          onClick={() =>
+            onSetTpsl({
+              positionId: pos.positionId,
+              entryPrice: weiToNumber(parsed.entryPrice),
+              isLong: pos.isLong,
+              markPrice,
+              size: weiToNumber(parsed.sizeUsd),
+            })
+          }
           style={{
             flex: 1,
             padding: 8,
@@ -412,7 +482,7 @@ const MobilePositionCard = React.memo(function MobilePositionCard({
       </div>
     </div>
   );
-});
+}
 
 /* ── Desktop position row (memoized; only re-renders on its own props) ── */
 interface DesktopPositionRowProps {
@@ -422,13 +492,7 @@ interface DesktopPositionRowProps {
   tpsl?: { tp?: string; sl?: string };
   closingId: string | null;
   onShare: (data: PnlCardData) => void;
-  onSetTpsl: (t: {
-    positionId: string;
-    entryPrice: number;
-    isLong: boolean;
-    markPrice: number;
-    size: number;
-  }) => void;
+  onSetTpsl: (target: PositionTpSlTarget) => void;
   onAdjust: (t: {
     positionId: string;
     mode: "add" | "remove" | "addSize";
@@ -965,13 +1029,29 @@ export async function quotePanelPartialClose(
 }
 
 export function PerpsPositionsPanel() {
+  const { address, isConnected } = usePerpsWallet();
+  return (
+    <WalletPositionsPanel
+      key={isConnected ? address?.toLowerCase() : "disconnected"}
+      address={isConnected ? address ?? undefined : undefined}
+      isConnected={isConnected}
+    />
+  );
+}
+
+function WalletPositionsPanel({
+  address,
+  isConnected,
+}: {
+  address: `0x${string}` | undefined;
+  isConnected: boolean;
+}) {
   const { catalog } = usePerpsMarkets();
   const labels = useMemo(() => positionMarketLabels(catalog), [catalog]);
   const getMarketSymbol = useCallback(
     (marketId: number) => marketLabel(BigInt(marketId), labels),
     [labels],
   );
-  const { address, isConnected } = usePerpsWallet();
   const isMobile = useIsMobile();
   const positionHook = usePosition();
   const ordersHook = usePerpsOrders();
@@ -985,15 +1065,25 @@ export function PerpsPositionsPanel() {
 
   const portfolioStats = usePortfolioStats();
   const [tab, setTab] = useState<TabKey>("positions");
-  const [allOrders, setAllOrders] = useState<any[]>([]);
-  const [closedPositions, setClosedPositions] = useState<any[]>([]);
-  const [trades, setTrades] = useState<any[]>([]);
-  const [liquidations, setLiquidations] = useState<any[]>([]);
-  const [tpslMap, setTpslMap] = useState<
-    Record<string, { tp?: string; sl?: string }>
-  >({});
+  const [data] = useState(() => new PositionsPanelData(address));
+  const {
+    allOrders,
+    closedPositions,
+    liquidations,
+    tpslMap,
+    errors,
+    loading,
+  } = useSyncExternalStore(data.subscribe, data.getSnapshot, data.getSnapshot);
   const { tickers } = useRealtimePrices();
-  const [loading, setLoading] = useState(false);
+  const active = useRef(false);
+  useEffect(() => {
+    active.current = true;
+    data.open();
+    return () => {
+      active.current = false;
+      data.close();
+    };
+  }, [data]);
   const [closingId, setClosingId] = useState<string | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [shareCard, setShareCard] = useState<PnlCardData | null>(null);
@@ -1006,13 +1096,7 @@ export function PerpsPositionsPanel() {
   );
 
   // Modal state for position actions
-  const [tpslTarget, setTpslTarget] = useState<{
-    positionId: string;
-    entryPrice: number;
-    isLong: boolean;
-    markPrice: number;
-    size: number;
-  } | null>(null);
+  const [tpslTarget, setTpslTarget] = useState<PositionTpSlTarget | null>(null);
   const [adjustTarget, setAdjustTarget] = useState<{
     positionId: string;
     mode: "add" | "remove" | "addSize";
@@ -1022,73 +1106,8 @@ export function PerpsPositionsPanel() {
   } | null>(null);
   const [topUpTarget, setTopUpTarget] = useState<string | null>(null);
 
-  // Fetch live subgraph data: pending orders + TP/SL only (10 s)
-  // Open positions come from usePortfolioStats singleton (already polling at 5 s)
-  const fetchData = useCallback(async () => {
-    if (!address) return;
-    setLoading(true);
-    try {
-      const [ordData, tpslData] = await Promise.allSettled([
-        subgraphQuery<{ orders: any[] }>(ALL_ORDERS_V2_QUERY, {
-          userAddress: address,
-          limit: 100,
-        }),
-        subgraphQuery<{ takeProfits: any[]; stopLosses: any[] }>(
-          TPSL_ORDERS_QUERY,
-          { userAddress: address },
-        ),
-      ]);
-      if (ordData.status === "fulfilled")
-        setAllOrders(ordData.value.orders ?? []);
-      if (tpslData.status === "fulfilled") {
-        const map: Record<string, { tp?: string; sl?: string }> = {};
-        for (const tp of tpslData.value.takeProfits ?? []) {
-          if (tp.positionId) {
-            if (!map[tp.positionId]) map[tp.positionId] = {};
-            map[tp.positionId].tp = tp.triggerPrice;
-          }
-        }
-        for (const sl of tpslData.value.stopLosses ?? []) {
-          if (sl.positionId) {
-            if (!map[sl.positionId]) map[sl.positionId] = {};
-            map[sl.positionId].sl = sl.triggerPrice;
-          }
-        }
-        setTpslMap(map);
-      }
-    } catch (err) {
-      console.error("Failed to fetch positions data:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, [address]);
-
-  // Fetch historical data once on mount (closed positions, trades, liquidations)
-  const fetchHistoryData = useCallback(async () => {
-    if (!address) return;
-    try {
-      const [histData, tradesData, liqData] = await Promise.allSettled([
-        subgraphQuery<{ positions: any[] }>(CLOSED_POSITIONS_QUERY, {
-          userAddress: address,
-          limit: 50,
-        }),
-        subgraphQuery<{ trades: any[] }>(TRADES_QUERY, {
-          userAddress: address,
-          limit: 50,
-        }),
-        subgraphQuery<{ liquidations: any[] }>(LIQUIDATIONS_QUERY, {
-          userAddress: address,
-          limit: 50,
-        }),
-      ]);
-      if (histData.status === "fulfilled")
-        setClosedPositions(histData.value.positions ?? []);
-      if (tradesData.status === "fulfilled")
-        setTrades(tradesData.value.trades ?? []);
-      if (liqData.status === "fulfilled")
-        setLiquidations(liqData.value.liquidations ?? []);
-    } catch {}
-  }, [address]);
+  const fetchData = data.refreshLive;
+  const fetchHistoryData = data.refreshHistory;
 
   // Live orders: fetch once on address change, then re-fetch on every
   // orderChanged push from the indexer subscription instead of polling.
@@ -1183,6 +1202,7 @@ export function PerpsPositionsPanel() {
   // list to refetch (with backoff retries) so closed/changed rows disappear
   // immediately instead of waiting for the WS positionChanged push.
   const refreshAll = useCallback(() => {
+    if (!active.current) return;
     fetchData();
     refreshPositions();
   }, [fetchData]);
@@ -1198,6 +1218,7 @@ export function PerpsPositionsPanel() {
         await positionRef.current.closePosition(BigInt(positionId));
         refreshAll();
       } catch (err) {
+        if (!active.current) return;
         // Roll back: surface the row again so the user can retry.
         unmarkPositionLocallyClosed(positionId);
         toastError(err, {
@@ -1231,9 +1252,11 @@ export function PerpsPositionsPanel() {
           },
           quoterRef.current,
         );
+        if (!active.current) return;
         await waitForTx(await writeContract(call));
         refreshAll();
       } catch (err) {
+        if (!active.current) return;
         toastError(err, {
           context: "position/partial-close",
           titleOverride: "Failed to partially close position",
@@ -1260,6 +1283,7 @@ export function PerpsPositionsPanel() {
         await ordersRef.current.cancelOrder(BigInt(orderId));
         refreshAll();
       } catch (err) {
+        if (!active.current) return;
         setOptimisticCancelled((prev) => {
           const n = new Set(prev);
           n.delete(orderId);
@@ -1395,6 +1419,11 @@ export function PerpsPositionsPanel() {
 
         {/* ── Positions ── */}
         <TabsContent value="positions" className="mt-0">
+          <PanelDataFailure
+            label="TP/SL"
+            error={errors.tpsl}
+            onRetry={() => { void fetchData(); }}
+          />
           {visiblePositions.length === 0 ? (
             <EmptyState text="No open positions" />
           ) : isMobile ? (
@@ -1409,6 +1438,7 @@ export function PerpsPositionsPanel() {
                   }
                   tpsl={tpslMap[pos.positionId]}
                   onClose={handleClose}
+                  onSetTpsl={setTpslTarget}
                   isClosing={closingId === pos.positionId}
                 />
               ))}
@@ -1483,6 +1513,11 @@ export function PerpsPositionsPanel() {
 
         {/* ── Pending ── */}
         <TabsContent value="pending" className="mt-0">
+          <PanelDataFailure
+            label="Orders"
+            error={errors.orders}
+            onRetry={() => { void fetchData(); }}
+          />
           {pendingOrders.length === 0 ? (
             <EmptyState text="No pending orders" />
           ) : (
@@ -1498,6 +1533,16 @@ export function PerpsPositionsPanel() {
 
         {/* ── TP/SL ── */}
         <TabsContent value="tpsl" className="mt-0">
+          <PanelDataFailure
+            label="Orders"
+            error={errors.orders}
+            onRetry={() => { void fetchData(); }}
+          />
+          <PanelDataFailure
+            label="TP/SL"
+            error={errors.tpsl}
+            onRetry={() => { void fetchData(); }}
+          />
           {tpslOrders.length === 0 ? (
             <EmptyState text="No TP/SL orders" />
           ) : (
@@ -1513,6 +1558,16 @@ export function PerpsPositionsPanel() {
 
         {/* ── Filled ── */}
         <TabsContent value="filled" className="mt-0">
+          <PanelDataFailure
+            label="Orders"
+            error={errors.orders}
+            onRetry={() => { void fetchData(); }}
+          />
+          <PanelDataFailure
+            label="Trades"
+            error={errors.trades}
+            onRetry={() => { void fetchHistoryData(); }}
+          />
           {filledOrders.length === 0 ? (
             <EmptyState text="No filled orders" />
           ) : (
@@ -1527,6 +1582,11 @@ export function PerpsPositionsPanel() {
 
         {/* ── Position History ── */}
         <TabsContent value="pos-history" className="mt-0">
+          <PanelDataFailure
+            label="Position history"
+            error={errors.positions}
+            onRetry={() => { void fetchHistoryData(); }}
+          />
           {closedPositions.length === 0 ? (
             <EmptyState text="No position history" />
           ) : (
@@ -1625,6 +1685,11 @@ export function PerpsPositionsPanel() {
 
         {/* ── Order History ── */}
         <TabsContent value="order-history" className="mt-0">
+          <PanelDataFailure
+            label="Orders"
+            error={errors.orders}
+            onRetry={() => { void fetchData(); }}
+          />
           {allOrders.length === 0 ? (
             <EmptyState text="No order history" />
           ) : (
@@ -1639,6 +1704,11 @@ export function PerpsPositionsPanel() {
 
         {/* ── Liquidation ── */}
         <TabsContent value="liquidation" className="mt-0">
+          <PanelDataFailure
+            label="Liquidations"
+            error={errors.liquidations}
+            onRetry={() => { void fetchHistoryData(); }}
+          />
           {liquidations.length === 0 ? (
             <EmptyState text="No liquidations" />
           ) : (
@@ -1709,17 +1779,11 @@ export function PerpsPositionsPanel() {
       )}
 
       {/* Position action modals */}
-      {tpslTarget && (
-        <SetTpSlModal
-          positionId={tpslTarget.positionId}
-          currentSize={tpslTarget.size}
-          currentEntryPrice={tpslTarget.entryPrice}
-          isLong={tpslTarget.isLong}
-          markPrice={tpslTarget.markPrice}
-          onClose={() => setTpslTarget(null)}
-          onSuccess={refreshAll}
-        />
-      )}
+      <PositionTpSlModal
+        target={tpslTarget}
+        onClose={() => setTpslTarget(null)}
+        onSuccess={refreshAll}
+      />
       {adjustTarget && (
         <AdjustCollateralModal
           positionId={adjustTarget.positionId}

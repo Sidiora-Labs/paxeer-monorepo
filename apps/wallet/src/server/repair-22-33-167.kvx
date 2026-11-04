@@ -1,0 +1,89 @@
+[repair.22.33.167]
+audit = "22.30.118"
+baseline = "Not run: the explicit implementation-first and hf-build/hf-done-only gate order prohibits unchanged-tree verification; no pre-change failing execution is claimed. The starting tree already locked read/migration and persisted corruption markers from task 22.31.246."
+paths = ["atomic-json-store.ts", "atomic-json-store.test.ts", "push-store.ts", "push-service.ts", "repair-22-33-167.test.ts", "repair-22-33-167.store-fixture.ts", "fixtures/repair-22-33-167"]
+wiring_requests = []
+evidence = "The private hf-build/hf-done ledger binds qualification to the exact candidate revision, commands, exit codes and log paths; completion is claimed only after hf-done passes."
+
+[finding.store-tests-reopen]
+proof = "store_corruption_reopen_refuses_empty_writes_and_verifies_backup; store_migration_and_insertion_serialize_in_separate_processes; store_publication_crash_boundaries_reopen_with_verified_generations; store_live_holder_dead_takeover_and_late_release_keep_ownership"
+change = "Extend atomic-json-store.test.ts using the same executable production-store lifecycle scenarios registered by the declared repair test."
+
+[finding.store-read-migration-lock]
+proof = "store_migration_and_insertion_serialize_in_separate_processes"
+change = "Retain the starting tree's file lock around mutation-capable reads and prove a blocked migration and insertion in independent Node processes, including reopened primary and backup."
+
+[finding.store-rename-durability]
+proof = "store_publication_crash_boundaries_reopen_with_verified_generations"
+change = "Sync completed private temporary files, atomically publish and directory-sync the verified previous generation before primary replacement, then directory-sync the primary; explicit recovery retains the marker and backup until the restored primary is durable."
+crash_model = "Process termination at each observable publication boundary verifies generations and backup recovery; file and directory fsync establish the local Linux filesystem durability contract, without claiming a simulated process kill is a physical power-loss test."
+
+[finding.store-lock-lease]
+proof = "store_live_holder_dead_takeover_and_late_release_keep_ownership"
+change = "Publish a prepared nonempty ownership directory atomically, retain live owners using Linux PID/start-tick identity, recover dead owners, assert ownership before publication, and unlink only the observed unique owner entry on release. A late rmdir cannot remove a nonempty successor."
+
+[finding.push-send-deadline]
+proof = "push_deadlines_bound_stalled_tls_and_trickling_batches"
+change = "Set the web-push socket timeout and an absolute shared routing deadline; destroy each request's private TLS agent at the deadline, including continuously trickling responses; retain rejected and uncertain outcomes distinctly."
+
+[finding.inactivity-cooldown]
+proof = "inactivity_atomic_cooldown_survives_concurrent_scans_and_reopen"
+change = "Select against lastNotifiedAt, atomically persist a cooldown reservation before delivery, and preserve the notification timestamp across subscription refresh; verify concurrent scans, reopened stores and the exact next window."
+
+[finding.campaign-concurrent-restart]
+proof = "campaign_concurrent_processes_recover_interrupted_send_without_blind_redelivery"
+change = "Persist a recipient snapshot, recoverable token claim, and in-flight record before routing; persist each outcome separately, convert expired in-flight attempts to exposed uncertain state, and require explicit reconciliation before any resend."
+
+[finding.campaign-transient-failure-loss]
+proof = "campaign_transient_rejections_remain_retryable_after_reopen_and_complete_only_terminal_recipients; campaign_retry_policy_persists_exhaustion_without_marking_transient_attempts_sent"
+change = "Persist attempts and exponential retry eligibility, retain subscriptions after transient rejection, distinguish terminal removal and bounded exhaustion, and complete campaigns only when every recipient is terminal."
+
+[qualification_notes]
+legacy_lock = "Unowned empty-file locks from old releases fail closed and require explicit operator recovery, since their live owner cannot be established; new ownership locks recover automatically."
+fixture_runtime = "Child fixtures execute production TypeScript using Node's native type stripping and a relative-import resolver; no subprocess compiler, credentials, environment setup or external service is required."
+fixture_transport = "Committed TLS material is isolated loopback test material; generated subscription and VAPID keys are ephemeral, and the HTTPS receiver decrypts actual web-push ciphertext with the library's codec."
+scope = "The task-specific prohibition on spec and out-of-scope edits takes precedence over generic instructions to append GOTCHA.kvx or qualification.kvx; workflow observations are retained here instead."
+
+[repair_cycle.1]
+revision = "4c7ca535d5cfca6af3d45fca60eb0022418513b4"
+command = "pnpm --dir apps/wallet exec tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "The TLS fixture incorrectly stored the HTTPS connection event's Duplex as a net.Socket; retain per-connection cleanup functions instead."
+
+[repair_cycle.2]
+revision = "5812a85943557939520e69bc1ec54730959fb8a8"
+command = "cg spec done 22.33.167 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Eight tests passed; the batch deadline test received only 31 of the asserted 50 requests before the fixed deadline. Replace the fixture's RSA TLS identity with a P-256 ECDSA identity to reduce handshake cost, retaining all deadlines and the exact 50-request assertion."
+
+[gate_budget_observation]
+observed = "hf-gate.py counts each extra build and extra verification separately: after build-2 and verify-1, the required build-3 consumes the final repair and verify-2 may be refused; no ledger or budget override is authorized."
+
+[continuation_integration]
+change = "Resolve the carried-over conflicts while retaining exact provider origins, direct-send validation, subscription ownership protection, and server-managed metadata; the production service owns a fresh HTTPS agent per attempt, with an explicit agent factory for the real loopback TLS peer."
+proof = "push_recovery_preserves_provider_validation_and_subscription_ownership"
+fixture = "Provider URLs remain valid production origins; the fixture agent connects real encrypted HTTPS requests to its loopback listener with certificate validation enabled, including child-process campaign participants."
+prior_attempt = "The inherited record above retains the earlier attempt's two gate repairs; this continuation starts with a fresh runner ledger and the already-applied P-256 TLS identity. No deadline or 50-recipient assertion is relaxed."
+gotcha = "Seed merges overlap a newer provider allowlist and server-owned subscription metadata; retain the current checks and adapt the committed TLS fixture transport rather than relaxing input validation."
+
+[continuation_repair.1]
+revision = "f9bf65748cbd064dcc56cead453feae4c4c65c41"
+command = "pnpm --dir apps/wallet exec tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "Node declares HTTPS createConnection arguments as ClientRequestArgs; configure the fixture TLS servername in AgentOptions instead of an inline request argument."
+
+[continuation_repair.2]
+revision = "568c93f983659de69de87a6d7087fb6c1bb3cfcf"
+command = "cg spec done 22.33.167 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Nine tests passed; the unchanged batch assertion received 43 of 50 requests. Yield to socket I/O between synchronous encryption/TLS launches to prevent batch preparation from consuming earlier requests' idle timeouts; retain all assertions and deadlines."
+
+[continuation_handshake_scheduling]
+inherited_failure = "The prior attempt's verify failed because only 43 of 50 first-batch requests reached the real TLS peer; the current runner starts with an empty gate ledger."
+change = "Limit pending TLS handshakes to four while retaining up to fifty active deliveries: launch more recipients after secureConnect or a settled failure, independently of response completion. Socket timeouts, the shared absolute routing deadline, and every existing assertion remain unchanged."
+proof = "push_deadlines_bound_stalled_tls_and_trickling_batches"
+gotcha = "A setImmediate yield does not ensure a TLS handshake progressed; observe secureConnect to bound handshake work instead of relying on event-loop turn count."

@@ -70,6 +70,7 @@ int main(void)
     lx_account_registry accounts;
     lx_account *owner;
     lx_account *escrow_account;
+    lx_account *second_escrow;
     lx_account *beneficiary;
     lx_escrow_runtime runtime;
     lx_escrow_record record;
@@ -95,6 +96,7 @@ int main(void)
     const char *owner_name = "agent:did:key:owner:main";
     const char *escrow_name = "agent:did:key:owner:escrow:hold-1";
     const char *beneficiary_name = "agent:did:key:provider:main";
+    const char *second_name = "agent:did:key:owner:escrow:hold-2";
 
     (void)memset(&asset, 0, sizeof(asset));
     asset.asset_id[0] = 1U;
@@ -133,6 +135,13 @@ int main(void)
                               strlen(beneficiary_name), 3U,
                               LX_ACCOUNT_OPEN_CREDIT, NULL,
                               &beneficiary) != LXP_OK ||
+        lx_asset_account_open(&assets, &accounts, asset.asset_id,
+                              (const uint8_t *)second_name,
+                              strlen(second_name), 4U,
+                              LX_ACCOUNT_OPEN_CREDIT, NULL,
+                              &second_escrow) != LXP_OK ||
+        lxp_ledger_bootstrap_balance(second_escrow, asset.asset_id,
+                                     (lxp_u128){ 0U, 100U }, 0U) != LXP_OK ||
         lxp_ledger_bootstrap_balance(escrow_account, asset.asset_id,
                                      (lxp_u128){ 0U, 100U }, 0U) != LXP_OK ||
         lxp_state_store_init(&state, 0U) != LXP_OK ||
@@ -309,17 +318,22 @@ int main(void)
         lx_escrow_record second = record;
         lx_escrow_record second_after;
         second.escrow_id[0] = 4U;
+        (void)memcpy(second.escrow_account, second_escrow->id, 32U);
         if (lx_escrow_state_put(&ctx, &second) != LXP_OK)
             return 1;
         request.escrow_id = second.escrow_id;
+        request.escrow_account = second_escrow;
         if (lx_escrow_partial_capture_execute(&ctx, &request, &scratch) !=
                 LXP_ERR_CONTEXT_MISMATCH || transfer_calls != 1U ||
             lx_escrow_lookup(&ctx, second.escrow_id, &second_after) !=
                 LXP_OK ||
             second_after.state != LX_ESCROW_STATE_OPEN ||
-            !lxp_u128_is_zero(second_after.captured_amount))
+            !lxp_u128_is_zero(second_after.captured_amount) ||
+            second_escrow->balance.lo != 100U ||
+            escrow_account->balance.lo != 70U)
             return 1;
         request.escrow_id = record.escrow_id;
+        request.escrow_account = escrow_account;
     }
     /* Routed: a fresh Activity reusing the inner key with a changed amount
      * fails and emits nothing; the exact retry emits the stored transition. */

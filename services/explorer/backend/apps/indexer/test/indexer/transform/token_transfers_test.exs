@@ -139,6 +139,8 @@ defmodule Indexer.Transform.TokenTransfersTest do
 
       env = Application.get_env(:explorer, Explorer.Chain.TokenTransfer)
 
+      on_exit(fn -> Application.put_env(:explorer, Explorer.Chain.TokenTransfer, env) end)
+
       Application.put_env(
         :explorer,
         Explorer.Chain.TokenTransfer,
@@ -148,8 +150,6 @@ defmodule Indexer.Transform.TokenTransfersTest do
       )
 
       assert TokenTransfers.parse(logs) == expected
-
-      Application.put_env(:explorer, Explorer.Chain.TokenTransfer, env)
     end
 
     test "parses ERC-721 transfer with addresses in data field" do
@@ -518,6 +518,8 @@ defmodule Indexer.Transform.TokenTransfersTest do
 
       env = Application.get_env(:explorer, Explorer.Chain.TokenTransfer)
 
+      on_exit(fn -> Application.put_env(:explorer, Explorer.Chain.TokenTransfer, env) end)
+
       Application.put_env(
         :explorer,
         Explorer.Chain.TokenTransfer,
@@ -527,8 +529,6 @@ defmodule Indexer.Transform.TokenTransfersTest do
       )
 
       assert TokenTransfers.parse(logs) == expected
-
-      Application.put_env(:explorer, Explorer.Chain.TokenTransfer, env)
     end
 
     test "Filters duplicates WETH transfers" do
@@ -625,6 +625,8 @@ defmodule Indexer.Transform.TokenTransfersTest do
 
       env = Application.get_env(:explorer, Explorer.Chain.TokenTransfer)
 
+      on_exit(fn -> Application.put_env(:explorer, Explorer.Chain.TokenTransfer, env) end)
+
       Application.put_env(
         :explorer,
         Explorer.Chain.TokenTransfer,
@@ -635,8 +637,6 @@ defmodule Indexer.Transform.TokenTransfersTest do
       )
 
       assert TokenTransfers.parse(logs) == expected
-
-      Application.put_env(:explorer, Explorer.Chain.TokenTransfer, env)
     end
   end
 

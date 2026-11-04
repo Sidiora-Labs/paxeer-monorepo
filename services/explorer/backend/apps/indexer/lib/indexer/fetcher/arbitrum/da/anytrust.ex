@@ -8,14 +8,19 @@ defmodule Indexer.Fetcher.Arbitrum.DA.Anytrust do
 
   import Indexer.Fetcher.Arbitrum.Utils.Logging, only: [log_error: 1, log_info: 1, log_debug: 1]
 
-  import Explorer.Helper, only: [decode_data: 2]
-
   alias Indexer.Fetcher.Arbitrum.Utils.Db.Settlement, as: Db
   alias Indexer.Fetcher.Arbitrum.Utils.Helper, as: ArbitrumHelper
   alias Indexer.Fetcher.Arbitrum.Utils.Rpc
   alias Indexer.Helper, as: IndexerHelper
 
   alias Explorer.Chain.Arbitrum
+
+  @max_keys 64
+  @public_key_size 192
+  @proof_size 96
+  @max_keyset_size 16 + @max_keys * (2 + 1 + @proof_size + @public_key_size)
+
+  @type import_error :: {:error, {:anytrust_keyset, binary(), term()}}
 
   @enforce_keys [
     :batch_number,
@@ -82,8 +87,8 @@ defmodule Indexer.Fetcher.Arbitrum.DA.Anytrust do
     * `pubkeys` - A list of public keys of the committee members.
   """
   @type keyset :: %{
-          :threshold => non_neg_integer(),
-          :pubkeys => [signer()]
+          :threshold => 1..64,
+          :pubkeys => nonempty_list(signer())
         }
 
   @doc """
@@ -175,6 +180,7 @@ defmodule Indexer.Fetcher.Arbitrum.DA.Anytrust do
           certificate (`data_type: 0`) and possibly a new keyset (`data_type: 1`)
         - Batch-to-blob associations list with the new mapping
       - Updated keyset cache
+    - `{:error, {:anytrust_keyset, hash, reason}}` if the keyset cannot be fetched or decoded.
   """
   @spec prepare_for_import(
           {%{binary() => Arbitrum.DaMultiPurposeRecord.to_import()}, [Arbitrum.BatchToDaBlob.to_import()]},
@@ -186,75 +192,77 @@ defmodule Indexer.Fetcher.Arbitrum.DA.Anytrust do
           MapSet.t()
         ) ::
           {{%{binary() => Arbitrum.DaMultiPurposeRecord.to_import()}, [Arbitrum.BatchToDaBlob.to_import()]}, MapSet.t()}
+          | import_error()
   def prepare_for_import({da_records_acc, batch_to_blob_acc}, %__MODULE__{} = da_info, l1_connection_config, cache) do
-    data = %{
-      keyset_hash: ArbitrumHelper.bytes_to_hex_str(da_info.keyset_hash),
-      data_hash: ArbitrumHelper.bytes_to_hex_str(da_info.data_hash),
-      timeout: da_info.timeout,
-      signers_mask: da_info.signers_mask,
-      bls_signature: ArbitrumHelper.bytes_to_hex_str(da_info.bls_signature)
-    }
+    with {check_result, keyset_map, updated_cache} when check_result in [:new_keyset, :existing_keyset] <-
+           check_if_new_keyset(da_info.keyset_hash, l1_connection_config, cache) do
+      data = %{
+        keyset_hash: ArbitrumHelper.bytes_to_hex_str(da_info.keyset_hash),
+        data_hash: ArbitrumHelper.bytes_to_hex_str(da_info.data_hash),
+        timeout: da_info.timeout,
+        signers_mask: da_info.signers_mask,
+        bls_signature: ArbitrumHelper.bytes_to_hex_str(da_info.bls_signature)
+      }
 
-    # Create `DaMultiPurposeRecord` record
-    da_record = %{
-      data_type: 0,
-      data_key: da_info.data_hash,
-      data: data,
-      # This field must be removed as soon as migration to a separate table for Batch-to-DA-record associations is completed.
-      batch_number: nil
-    }
+      # Create `DaMultiPurposeRecord` record
+      da_record = %{
+        data_type: 0,
+        data_key: da_info.data_hash,
+        data: data,
+        # This field must be removed as soon as migration to a separate table for Batch-to-DA-record associations is completed.
+        batch_number: nil
+      }
 
-    # Create `BatchToDaBlob` record
-    batch_to_blob_record = %{
-      batch_number: da_info.batch_number,
-      data_blob_id: da_info.data_hash
-    }
+      # Create `BatchToDaBlob` record
+      batch_to_blob_record = %{
+        batch_number: da_info.batch_number,
+        data_blob_id: da_info.data_hash
+      }
 
-    # Check if a record with the same data_key already exists
-    updated_da_records =
-      case Map.get(da_records_acc, da_info.data_hash) do
-        nil ->
-          # No duplicate, add the new record
-          Map.put(da_records_acc, da_info.data_hash, da_record)
-
-        duplicate_record ->
-          log_info("Found duplicate DA record #{ArbitrumHelper.bytes_to_hex_str(da_info.data_hash)}")
-          # Found duplicate, compare timeout values
-          timeout_in_duplicate = duplicate_record.data.timeout
-          timeout_in_candidate = da_record.data.timeout
-
-          if DateTime.compare(timeout_in_candidate, timeout_in_duplicate) == :gt do
-            # New record has higher timeout, replace the existing one
+      # Check if a record with the same data_key already exists
+      updated_da_records =
+        case Map.get(da_records_acc, da_info.data_hash) do
+          nil ->
+            # No duplicate, add the new record
             Map.put(da_records_acc, da_info.data_hash, da_record)
-          else
-            # Existing record has higher or equal timeout, keep it
-            da_records_acc
-          end
-      end
 
-    {check_result, keyset_map, updated_cache} = check_if_new_keyset(da_info.keyset_hash, l1_connection_config, cache)
+          duplicate_record ->
+            log_info("Found duplicate DA record #{ArbitrumHelper.bytes_to_hex_str(da_info.data_hash)}")
+            # Found duplicate, compare timeout values
+            timeout_in_duplicate = duplicate_record.data.timeout
+            timeout_in_candidate = da_record.data.timeout
 
-    # Add keyset record if it's new
-    final_da_records =
-      case check_result do
-        :new_keyset ->
-          # If the keyset is new, add a new keyset record to the DA records list.
-          # As per the nature of `DaMultiPurposeRecord` it can contain not only DA
-          # certificates but also keysets.
-          keyset_record = %{
-            data_type: 1,
-            data_key: da_info.keyset_hash,
-            data: keyset_map,
-            batch_number: nil
-          }
+            if DateTime.compare(timeout_in_candidate, timeout_in_duplicate) == :gt do
+              # New record has higher timeout, replace the existing one
+              Map.put(da_records_acc, da_info.data_hash, da_record)
+            else
+              # Existing record has higher or equal timeout, keep it
+              da_records_acc
+            end
+        end
 
-          Map.put(updated_da_records, da_info.keyset_hash, keyset_record)
+      # Add keyset record if it's new
+      final_da_records =
+        case check_result do
+          :new_keyset ->
+            # If the keyset is new, add a new keyset record to the DA records list.
+            # As per the nature of `DaMultiPurposeRecord` it can contain not only DA
+            # certificates but also keysets.
+            keyset_record = %{
+              data_type: 1,
+              data_key: da_info.keyset_hash,
+              data: keyset_map,
+              batch_number: nil
+            }
 
-        _ ->
-          updated_da_records
-      end
+            Map.put(updated_da_records, da_info.keyset_hash, keyset_record)
 
-    {{final_da_records, [batch_to_blob_record | batch_to_blob_acc]}, updated_cache}
+          _ ->
+            updated_da_records
+        end
+
+      {{final_da_records, [batch_to_blob_record | batch_to_blob_acc]}, updated_cache}
+    end
   end
 
   # Verifies the existence of an AnyTrust committee keyset in the database and fetches it from L1 if not found.
@@ -271,6 +279,7 @@ defmodule Indexer.Fetcher.Arbitrum.DA.Anytrust do
   # ## Returns
   # - `{:new_keyset, keyset_info, updated_cache}` if the keyset is not found and fetched from L1.
   # - `{:existing_keyset, nil, cache}` if the keyset is found in the cache or database.
+  # - `{:error, {:anytrust_keyset, hash, reason}}` if retrieval or decoding fails; the cache is unchanged.
   @spec check_if_new_keyset(
           binary(),
           %{
@@ -281,6 +290,7 @@ defmodule Indexer.Fetcher.Arbitrum.DA.Anytrust do
         ) ::
           {:new_keyset, __MODULE__.keyset(), MapSet.t()}
           | {:existing_keyset, nil, MapSet.t()}
+          | import_error()
   defp check_if_new_keyset(keyset_hash, l1_connection_config, cache) do
     if MapSet.member?(cache, keyset_hash) do
       {:existing_keyset, nil, cache}
@@ -292,7 +302,10 @@ defmodule Indexer.Fetcher.Arbitrum.DA.Anytrust do
           {:existing_keyset, nil, updated_cache}
 
         false ->
-          {:new_keyset, get_keyset_info_from_l1(keyset_hash, l1_connection_config), updated_cache}
+          case get_keyset_info_from_l1(keyset_hash, l1_connection_config) do
+            {:ok, keyset} -> {:new_keyset, keyset, updated_cache}
+            {:error, reason} -> {:error, {:anytrust_keyset, keyset_hash, reason}}
+          end
       end
     end
   end
@@ -310,14 +323,14 @@ defmodule Indexer.Fetcher.Arbitrum.DA.Anytrust do
   #   - `:json_rpc_named_arguments`: Configuration parameters for the JSON RPC connection.
   #
   # ## Returns
-  # - A map describing an AnyTrust committee.
+  # - `{:ok, keyset}` or a typed retrieval/decoding error.
   @spec get_keyset_info_from_l1(
           binary(),
           %{
             :sequencer_inbox_address => binary(),
             :json_rpc_named_arguments => EthereumJSONRPC.json_rpc_named_arguments()
           }
-        ) :: __MODULE__.keyset()
+        ) :: {:ok, __MODULE__.keyset()} | {:error, term()}
   defp get_keyset_info_from_l1(keyset_hash, %{
          sequencer_inbox_address: sequencer_inbox_address,
          json_rpc_named_arguments: json_rpc_named_arguments
@@ -327,10 +340,15 @@ defmodule Indexer.Fetcher.Arbitrum.DA.Anytrust do
 
     log_debug("Keyset applied block number: #{keyset_applied_block_number}")
 
-    raw_keyset_data =
-      get_keyset_raw_data(keyset_hash, keyset_applied_block_number, sequencer_inbox_address, json_rpc_named_arguments)
-
-    decode_keyset(raw_keyset_data)
+    with {:ok, raw_keyset_data} <-
+           get_keyset_raw_data(
+             keyset_hash,
+             keyset_applied_block_number,
+             sequencer_inbox_address,
+             json_rpc_named_arguments
+           ) do
+      decode_keyset(raw_keyset_data)
+    end
   end
 
   # Retrieves the raw data of a keyset by querying logs for the `SetValidKeyset` event.
@@ -345,38 +363,52 @@ defmodule Indexer.Fetcher.Arbitrum.DA.Anytrust do
   # - `json_rpc_named_arguments`: Configuration parameters for the JSON RPC connection.
   #
   # ## Returns
-  # - The raw data of the keyset if found, otherwise `nil`.
+  # - `{:ok, raw_data}` or a typed RPC/event error.
   @spec get_keyset_raw_data(
           binary(),
           non_neg_integer(),
           binary(),
           EthereumJSONRPC.json_rpc_named_arguments()
-        ) :: binary() | nil
+        ) :: {:ok, binary()} | {:error, term()}
   defp get_keyset_raw_data(keyset_hash, block_number, sequencer_inbox_address, json_rpc_named_arguments) do
-    {:ok, logs} =
-      IndexerHelper.get_logs(
-        block_number,
-        block_number,
-        sequencer_inbox_address,
-        [ArbitrumEvents.set_valid_keyset(), ArbitrumHelper.bytes_to_hex_str(keyset_hash)],
-        json_rpc_named_arguments
-      )
+    case IndexerHelper.get_logs(
+           block_number,
+           block_number,
+           sequencer_inbox_address,
+           [ArbitrumEvents.set_valid_keyset(), ArbitrumHelper.bytes_to_hex_str(keyset_hash)],
+           json_rpc_named_arguments
+         ) do
+      {:ok, []} ->
+        log_error("No SetValidKeyset logs found in the block #{block_number}")
+        {:error, :keyset_not_found}
 
-    if Enum.empty?(logs) do
-      log_error("No SetValidKeyset logs found in the block #{block_number}")
-      nil
-    else
-      log_info("Found #{length(logs)} SetValidKeyset logs")
+      {:ok, [event | _]} ->
+        set_valid_keyset_event_parse(event)
 
-      set_valid_keyset_event_parse(List.first(logs))
+      {:error, reason} ->
+        {:error, {:keyset_rpc, reason}}
+
+      {:ok, _} ->
+        {:error, :invalid_keyset_event}
     end
   end
 
-  defp set_valid_keyset_event_parse(event) do
-    [keyset_data] = decode_data(event["data"], ArbitrumEvents.set_valid_keyset_unindexed_params())
-
-    keyset_data
+  defp set_valid_keyset_event_parse(%{"data" => "0x" <> encoded})
+       when byte_size(encoded) <= 2 * (64 + @max_keyset_size + 31) do
+    with {:ok, <<32::unsigned-big-integer-size(256), size::unsigned-big-integer-size(256), rest::binary>>} <-
+           Base.decode16(encoded, case: :mixed),
+         true <- size <= @max_keyset_size,
+         padding_size = rem(32 - rem(size, 32), 32),
+         true <- byte_size(rest) == size + padding_size,
+         <<keyset_data::binary-size(size), padding::size(padding_size)-unit(8)>> <- rest,
+         true <- padding == 0 do
+      {:ok, keyset_data}
+    else
+      _ -> {:error, :invalid_keyset_event}
+    end
   end
+
+  defp set_valid_keyset_event_parse(_), do: {:error, :invalid_keyset_event}
 
   # Decodes an AnyTrust committee keyset from a binary input.
   #
@@ -391,21 +423,20 @@ defmodule Indexer.Fetcher.Arbitrum.DA.Anytrust do
   #   and the public keys themselves.
   #
   # ## Returns
-  # - A map describing an AnyTrust committee.
-  @spec decode_keyset(binary()) :: __MODULE__.keyset()
+  # - `{:ok, keyset}` or a typed decoding error.
+  @spec decode_keyset(binary()) :: {:ok, __MODULE__.keyset()} | {:error, atom()}
   defp decode_keyset(<<
          threshold::big-unsigned-integer-size(64),
          num_keys::big-unsigned-integer-size(64),
          rest::binary
        >>)
-       when num_keys <= 64 do
-    {pubkeys, _} = decode_pubkeys(rest, num_keys, [])
-
-    %{
-      threshold: threshold,
-      pubkeys: pubkeys
-    }
+       when num_keys > 0 and num_keys <= @max_keys and threshold > 0 and threshold <= num_keys do
+    with {:ok, pubkeys} when is_list(pubkeys) <- decode_pubkeys(rest, num_keys, []) do
+      {:ok, %{threshold: threshold, pubkeys: pubkeys}}
+    end
   end
+
+  defp decode_keyset(_), do: {:error, :invalid_keyset_header}
 
   # Decodes a list of AnyTrust committee member public keys from a binary input.
   #
@@ -418,25 +449,21 @@ defmodule Indexer.Fetcher.Arbitrum.DA.Anytrust do
   # - `acc`: An accumulator list to collect the decoded public keys.
   #
   # ## Returns
-  # - A tuple containing:
-  #   - `{:error, "Insufficient data to decode public keys"}` if the input is insufficient
-  #     to decode the specified number of keys.
-  #   - A list of decoded AnyTrust committee member public keys and a binary entity
-  #     of zero length, if successful.
-  @spec decode_pubkeys(binary(), non_neg_integer(), [
-          signer()
-        ]) :: {:error, String.t()} | {[signer()], binary()}
-  defp decode_pubkeys(<<>>, 0, acc), do: {Enum.reverse(acc), <<>>}
-  defp decode_pubkeys(<<>>, _num_keys, _acc), do: {:error, "Insufficient data to decode public keys"}
+  # - `{:ok, signers}` or a typed length/encoding error.
+  @spec decode_pubkeys(binary(), non_neg_integer(), [signer()]) :: {:ok, [signer()]} | {:error, atom()}
+  defp decode_pubkeys(<<>>, 0, acc), do: {:ok, Enum.reverse(acc)}
+  defp decode_pubkeys(_data, 0, _acc), do: {:error, :trailing_keyset_data}
 
-  defp decode_pubkeys(data, num_keys, acc) when num_keys > 0 do
-    <<high_byte, low_byte, rest::binary>> = data
-    pubkey_len = high_byte * 256 + low_byte
-
+  defp decode_pubkeys(<<pubkey_len::unsigned-big-integer-size(16), rest::binary>>, num_keys, acc)
+       when num_keys > 0 and byte_size(rest) >= pubkey_len do
     <<pubkey_data::binary-size(pubkey_len), remaining::binary>> = rest
-    pubkey = parse_pubkey(pubkey_data)
-    decode_pubkeys(remaining, num_keys - 1, [pubkey | acc])
+
+    with {:ok, pubkey} <- parse_pubkey(pubkey_data) do
+      decode_pubkeys(remaining, num_keys - 1, [pubkey | acc])
+    end
   end
+
+  defp decode_pubkeys(_, _, _), do: {:error, :truncated_public_keys}
 
   # Parses a public key of an AnyTrust AnyTrust committee member from a binary input.
   #
@@ -449,22 +476,22 @@ defmodule Indexer.Fetcher.Arbitrum.DA.Anytrust do
   # - A binary input containing the proof length and the rest of the data.
   #
   # ## Returns
-  # - A map describing an AnyTrust committee member public key.
-  @spec parse_pubkey(binary()) :: signer()
-  defp parse_pubkey(<<proof_len::size(8), rest::binary>>) do
-    if proof_len == 0 do
-      # Trusted source, no proof bytes, the rest is the key
-      %{trusted: true, key: ArbitrumHelper.bytes_to_hex_str(rest)}
-    else
-      <<proof_bytes::binary-size(proof_len), key_bytes::binary>> = rest
-
-      %{
-        trusted: false,
-        proof: ArbitrumHelper.bytes_to_hex_str(proof_bytes),
-        key: ArbitrumHelper.bytes_to_hex_str(key_bytes)
-      }
-    end
+  # - `{:ok, signer}` or a typed public key encoding error.
+  @spec parse_pubkey(binary()) :: {:ok, signer()} | {:error, atom()}
+  defp parse_pubkey(<<0, key::binary-size(@public_key_size)>>) do
+    {:ok, %{trusted: true, key: ArbitrumHelper.bytes_to_hex_str(key)}}
   end
+
+  defp parse_pubkey(<<@proof_size, proof::binary-size(@proof_size), key::binary-size(@public_key_size)>>) do
+    {:ok,
+     %{
+       trusted: false,
+       proof: ArbitrumHelper.bytes_to_hex_str(proof),
+       key: ArbitrumHelper.bytes_to_hex_str(key)
+     }}
+  end
+
+  defp parse_pubkey(_), do: {:error, :invalid_public_key}
 
   @doc """
     Resolves conflicts between existing database records and candidate DA records.

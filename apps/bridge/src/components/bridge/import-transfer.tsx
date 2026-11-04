@@ -6,33 +6,63 @@ import { toast } from '@/components/ui/sonner';
 import { Spinner } from '@/components/ui/spinner';
 import { BRIDGE_CHAINS, bridgeChainByKey, paxeer, PAXEER_ROUTE_KEY, type BridgeChain } from '@/lib/bridge/chains';
 import { importDeposit, importWithdrawal } from '@/lib/bridge/import';
-import { listTransfers, saveTransfer, type BridgeTransfer } from '@/lib/bridge/transfers';
+import { solanaRecipientHandle } from '@/lib/bridge/solana';
+import { listTransfers, type BridgeTransfer } from '@/lib/bridge/transfers';
 import { wagmiConfig } from '@/lib/bridge/wagmi';
 import type { FormEvent } from 'react';
 import { useState } from 'react';
 import { isHex } from 'viem';
 import type { Address, TransactionReceipt } from 'viem';
+import type { Config } from 'wagmi';
 import { useAccount } from 'wagmi';
 import { getTransactionReceipt } from 'wagmi/actions';
+
+import { resolveWithdrawalVault } from './transfer-actions';
+import { saveBridgeTransfer } from './transfer-ledger';
 
 export function importTransferReceipt(chain: BridgeChain | undefined, receipt: TransactionReceipt, address: Address): {
   transfer: BridgeTransfer;
   existing: boolean;
+  conflicts: Array<string>;
 } {
   const transfer = chain ? importDeposit(chain, receipt) : importWithdrawal(receipt);
+  return reconcileImportedTransfer(transfer, address);
+}
+
+function reconcileImportedTransfer(transfer: BridgeTransfer, address: Address) {
   if (transfer.account.toLowerCase() !== address.toLowerCase()) {
     throw new Error('Connect the wallet that started this transfer to import it.');
   }
-  const existing = listTransfers(address).find((entry) => entry.id === transfer.id);
-  const tracked = existing ? {
+  const existing = listTransfers().find((entry) => entry.id === transfer.id);
+  const conflicts: Array<string> = [];
+  if (existing) {
+    for (const field of [ 'account', 'direction', 'foreignChainId', 'assetId', 'amount', 'recipient', 'bridgeOutNonce', 'logIndex', 'nonce', 'vault' ] as const) {
+      const oldValue = existing[field];
+      const newValue = transfer[field];
+      const sameRecipient = field === 'recipient' && transfer.foreignChainKey === 'solana' &&
+        solanaRecipientHandle(existing.recipient)?.toLowerCase() === transfer.recipient.toLowerCase();
+      if (oldValue !== undefined && newValue !== undefined && String(oldValue).toLowerCase() !== String(newValue).toLowerCase() && !sameRecipient) conflicts.push(field);
+    }
+    if (conflicts.includes('account') || conflicts.includes('direction') ||
+      (conflicts.length > 0 && (existing.settlementStatus === 'confirmed' || existing.claimedAt !== undefined || existing.releasedAt !== undefined))) {
+      throw new Error(`Receipt conflicts with tracked settlement identity: ${ conflicts.join(', ') }. The saved record was retained.`);
+    }
+  }
+  const tracked = saveBridgeTransfer(existing ? {
     ...existing,
-    vault: existing.vault ?? transfer.vault,
-    logIndex: transfer.logIndex ?? existing.logIndex,
-    nonce: transfer.nonce ?? existing.nonce,
-    bridgeOutNonce: transfer.bridgeOutNonce ?? existing.bridgeOutNonce,
-  } : transfer;
-  saveTransfer(tracked);
-  return { transfer: tracked, existing: existing !== undefined };
+    ...transfer,
+    vault: transfer.vault ?? existing.vault,
+    recipient: transfer.foreignChainKey === 'solana' && solanaRecipientHandle(existing.recipient)?.toLowerCase() === transfer.recipient.toLowerCase() ? existing.recipient : transfer.recipient,
+    submittedAt: existing.submittedAt,
+  } : transfer);
+  return { transfer: tracked, existing: existing !== undefined, conflicts };
+}
+
+/** The import UI resolves registry-owned fields before committing any recovery. */
+export async function recoverTransferReceipt(chain: BridgeChain | undefined, receipt: TransactionReceipt, address: Address, config?: Config) {
+  const transfer = chain ? importDeposit(chain, receipt) : importWithdrawal(receipt);
+  if (transfer.account.toLowerCase() !== address.toLowerCase()) throw new Error('Connect the wallet that started this transfer to import it.');
+  return reconcileImportedTransfer(await resolveWithdrawalVault(transfer, config), address);
 }
 
 export function ImportTransfer({ onImported }: { onImported: () => void }) {
@@ -60,9 +90,10 @@ export function ImportTransfer({ onImported }: { onImported: () => void }) {
       const chainId = route === PAXEER_ROUTE_KEY ? paxeer.id : chain?.viemChain?.id;
       if (chainId === undefined) throw new Error('Select a configured source route.');
       const receipt = await getTransactionReceipt(wagmiConfig, { hash: sourceHash, chainId });
-      const { existing } = importTransferReceipt(chain, receipt, address);
+      const { existing, conflicts } = await recoverTransferReceipt(chain, receipt, address);
       onImported();
       setHash('');
+      if (conflicts.length) toast.info('Receipt repaired saved metadata', { description: conflicts.join(', ') });
       toast.success(existing ? 'Transfer already tracked' : 'Transfer imported');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not import the source transaction.');

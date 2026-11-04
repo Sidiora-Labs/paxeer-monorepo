@@ -1,0 +1,27 @@
+[task.22.33.631]
+audit = "22.30.164"
+base_revision = "26bb0fe1436e9a72a6260976b19c445841ae7af0"
+qualification = "The runner's /out/run/gates.jsonl and /out/logs/verify-1.log bind the verified candidate revision, command and exit code; the final evidence line is authoritative."
+baseline = "Not run: the explicit implementation-first order and hf-done-only verification rule supersede do_9's contradictory unchanged-tree request; no baseline test failure is claimed."
+wiring_requests = "None; every repair and proof is within sdk/tasks."
+
+[finding.cancelled-worker-hang]
+task_alias = "participant"
+tests = ["TestRepairM_631_CancelBeforeDispatch", "TestRepairM_631_CancelDuringExecutionJoinsWorkers"]
+repair = "Cancellation-aware submission, completion accounting for every accepted job, joined workers, explicit context errors and no publication of a cancelled speculative batch."
+
+[finding.scheduler-reuse]
+test = "TestRepairM_631_SchedulerReuse"
+repair = "Atomic single-use admission and SchedulerReuseError prevent parent-store leakage and stale metric re-emission; a fresh scheduler admits the next context."
+
+[finding.validation-order]
+test = "TestRepairM_631_ValidationOrder"
+repair = "Validate by absolute transaction index, stop on the first invalid predecessor, retry it, and preserve request response order; real trace spans prove ordered fail-fast validation for reads and iterators."
+
+[finding.rerun-driver-proof]
+test = "TestRepairM_631_RerunDriver"
+repair = "ProcessAll delays a predecessor until later snapshots exist, retries the lower index before validating the reader, and checks committed state while preserving direct invalidation assertions."
+
+[finding.mixed-conflict-no-assertions]
+test = "TestRepairM_631_MixedConflictResponses"
+repair = "The original workload and focused gate assert every shared predecessor value, every independent response, and the final parent-store shared value."

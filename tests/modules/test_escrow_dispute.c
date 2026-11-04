@@ -50,8 +50,10 @@ static lxp_result dispatch(lxp_module_ctx *ctx, lxp_effect_buffer *effects,
                            const lxp_authority_resolved *authority)
 {
     const lxp_module_iface *iface = lx_escrow_module_iface();
+    static lxp_effect_buffer activity_effects;
     lxp_activity activity;
     void *decoded = NULL;
+    size_t i;
     lxp_result status;
     (void)memset(&activity, 0, sizeof(activity));
     activity.activity_type = activity_type;
@@ -61,7 +63,23 @@ static lxp_result dispatch(lxp_module_ctx *ctx, lxp_effect_buffer *effects,
     if (status == LXP_OK)
         status = iface->validate(ctx, &activity, authority, decoded);
     if (status != LXP_OK) return status;
-    return iface->execute(ctx, &activity, authority, decoded, effects);
+    status = lxp_effect_buffer_init(&activity_effects);
+    if (status == LXP_OK)
+        status = lxp_module_ctx_bind_effects(ctx, &activity_effects);
+    if (status == LXP_OK)
+        status = iface->execute(ctx, &activity, authority, decoded,
+                               &activity_effects);
+    if (lxp_module_ctx_bind_effects(ctx, effects) != LXP_OK)
+        return LXP_FATAL_INVARIANT;
+    if (status != LXP_OK) return status;
+    if (activity_effects.count != 1U) return LXP_FATAL_INVARIANT;
+    for (i = 0U; i < activity_effects.count; ++i) {
+        lxp_effect event = activity_effects.effects[i];
+        event.ordinal = (uint16_t)effects->count;
+        status = lxp_effect_buffer_add(effects, &event);
+        if (status != LXP_OK) return status;
+    }
+    return LXP_OK;
 }
 
 int main(void)

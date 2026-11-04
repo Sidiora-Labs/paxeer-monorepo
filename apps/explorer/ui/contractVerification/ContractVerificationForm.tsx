@@ -4,20 +4,15 @@ import type { SubmitHandler } from 'react-hook-form';
 import { useForm, FormProvider } from 'react-hook-form';
 
 import type { FormFields } from './types';
-import type { SocketMessage } from 'lib/socket/types';
 import type { SmartContract, SmartContractVerificationMethodApi } from 'types/api/contract';
 import type { SmartContractVerificationConfig } from 'types/client/contract';
 
 import { route } from 'nextjs-routes';
 
 import useApiFetch from 'lib/api/useApiFetch';
-import capitalizeFirstLetter from 'lib/capitalizeFirstLetter';
-import delay from 'lib/delay';
 import getErrorObjStatusCode from 'lib/errors/getErrorObjStatusCode';
 import useRewardsActivity from 'lib/hooks/useRewardsActivity';
 import * as mixpanel from 'lib/mixpanel/index';
-import useSocketChannel from 'lib/socket/useSocketChannel';
-import useSocketMessage from 'lib/socket/useSocketMessage';
 import { Button } from 'toolkit/chakra/button';
 import { toaster } from 'toolkit/chakra/toaster';
 import { useUpdateEffect } from 'toolkit/hooks/useUpdateEffect';
@@ -35,7 +30,9 @@ import ContractVerificationStylusGitHubRepo from './methods/ContractVerification
 import ContractVerificationVyperContract from './methods/ContractVerificationVyperContract';
 import ContractVerificationVyperMultiPartFile from './methods/ContractVerificationVyperMultiPartFile';
 import ContractVerificationVyperStandardInput from './methods/ContractVerificationVyperStandardInput';
-import { prepareRequestBody, formatSocketErrors, getDefaultValues, METHOD_LABELS } from './utils';
+import type { VerificationSubmission } from './useVerificationSubmission';
+import useVerificationSubmission from './useVerificationSubmission';
+import { getDefaultValues, METHOD_LABELS } from './utils';
 
 interface Props {
   method?: SmartContractVerificationMethodApi;
@@ -48,118 +45,57 @@ const ContractVerificationForm = ({ method: methodFromQuery, config, hash }: Pro
     mode: 'onBlur',
     defaultValues: getDefaultValues(methodFromQuery, config, hash, []),
   });
-  const { handleSubmit, watch, formState, setError, reset, getFieldState, getValues, clearErrors } = formApi;
-  const submitPromiseResolver = React.useRef<((value: unknown) => void)>(undefined);
+  const { handleSubmit, watch, formState, setError, reset, getFieldState, clearErrors } = formApi;
+  const submissionRef = React.useRef<VerificationSubmission>(undefined);
   const methodNameRef = React.useRef<string>(undefined);
 
   const apiFetch = useApiFetch();
   const { trackContract } = useRewardsActivity();
-  const onFormSubmit: SubmitHandler<FormFields> = React.useCallback(async(data) => {
-    const body = prepareRequestBody(data);
-
-    if (!hash) {
-      try {
-        const response = await apiFetch<'general:contract', SmartContract>('general:contract', {
-          pathParams: { hash: data.address.toLowerCase() },
-        });
-
-        const isVerifiedContract = 'is_verified' in response && response?.is_verified && !response.is_partially_verified;
-        if (isVerifiedContract) {
-          setError('address', { message: 'Contract has already been verified' });
-          return Promise.resolve();
-        }
-      } catch (error) {
-        const statusCode = getErrorObjStatusCode(error);
-        const message = statusCode === 404 ? 'Address is not a smart contract' : 'Something went wrong';
-        setError('address', { message });
-        return Promise.resolve();
-      }
-    }
-
-    try {
-      await trackContract(data.address);
-      await apiFetch('general:contract_verification_via', {
-        pathParams: { method: data.method[0], hash: data.address.toLowerCase() },
-        fetchParams: {
-          method: 'POST',
-          body,
-        },
-      });
-    } catch (error) {
-      return;
-    }
-
-    return new Promise((resolve) => {
-      submitPromiseResolver.current = resolve;
-    });
-  }, [ apiFetch, hash, setError, trackContract ]);
-
-  const handleFormChange = React.useCallback(() => {
-    clearErrors('root');
-  }, [ clearErrors ]);
-
   const address = watch('address');
   const addressState = getFieldState('address');
-
-  const handleNewSocketMessage: SocketMessage.ContractVerification['handler'] = React.useCallback(async(payload) => {
-    if (payload.status === 'error') {
-      const errors = formatSocketErrors(payload.errors);
-
-      const existingErrors = errors.filter(Boolean).filter(([ field ]) => getValues(field));
-      if (existingErrors.length) {
-        existingErrors.forEach(([ field, error ]) => setError(field, error));
-      } else {
-        const globalErrors = Object.entries(payload.errors).map(([ , value ]) => value.join(', '));
-        const rootError = capitalizeFirstLetter(globalErrors.join('\n\n'));
-        setError('root', { message: rootError });
-      }
-
-      await delay(100); // have to wait a little bit, otherwise isSubmitting status will not be updated
-      submitPromiseResolver.current?.(null);
-      return;
-    }
-
+  const handleSuccess = React.useCallback((verifiedAddress: string) => {
     toaster.success({
       title: 'Success',
       description: 'Contract is successfully verified.',
     });
-
     mixpanel.logEvent(
       mixpanel.EventTypes.CONTRACT_VERIFICATION,
       { Status: 'Finished', Method: methodNameRef.current || '' },
       { send_immediately: true },
     );
+    window.location.assign('/explorer' + route({ pathname: '/address/[hash]', query: { hash: verifiedAddress, tab: 'contract' } }));
+  }, []);
+  const submitVerification = useVerificationSubmission({
+    submissionRef,
+    address,
+    isDisabled: !address || Boolean(addressState.error),
+    formApi,
+    onSuccess: handleSuccess,
+  });
 
-    window.location.assign('/explorer' + route({ pathname: '/address/[hash]', query: { hash: address, tab: 'contract' } }));
-  }, [ setError, address, getValues ]);
-
-  const handleSocketError = React.useCallback(() => {
-    if (!formState.isSubmitting) {
-      return;
+  const onFormSubmit: SubmitHandler<FormFields> = React.useCallback(async(data) => {
+    if (!hash) {
+      try {
+        const response = await apiFetch<'general:contract', SmartContract>('general:contract', {
+          pathParams: { hash: data.address.toLowerCase() },
+        });
+        if ('is_verified' in response && response.is_verified && !response.is_partially_verified) {
+          setError('address', { message: 'Contract has already been verified' });
+          return;
+        }
+      } catch (error) {
+        const statusCode = getErrorObjStatusCode(error);
+        setError('address', { message: statusCode === 404 ? 'Address is not a smart contract' : 'Something went wrong' });
+        return;
+      }
     }
+    await trackContract(data.address);
+    return submitVerification(data);
+  }, [ apiFetch, hash, setError, trackContract, submitVerification ]);
 
-    submitPromiseResolver.current?.(null);
-
-    toaster.error({
-      title: 'Error',
-      description: 'There was an error with socket connection. Try again later.',
-    });
-  // callback should not change when form is submitted
-  // otherwise it will resubscribe to channel, but we don't want that since in that case we might miss verification result message
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ ]);
-
-  const channel = useSocketChannel({
-    topic: `addresses:${ address?.toLowerCase() }`,
-    onSocketClose: handleSocketError,
-    onSocketError: handleSocketError,
-    isDisabled: !address || Boolean(address && addressState.error),
-  });
-  useSocketMessage({
-    channel,
-    event: 'verification_result',
-    handler: handleNewSocketMessage,
-  });
+  const handleFormChange = React.useCallback(() => {
+    clearErrors('root');
+  }, [ clearErrors ]);
 
   const methods = React.useMemo(() => {
     return {

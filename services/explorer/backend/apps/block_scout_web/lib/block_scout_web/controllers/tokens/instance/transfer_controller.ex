@@ -1,6 +1,7 @@
 defmodule BlockScoutWeb.Tokens.Instance.TransferController do
   use BlockScoutWeb, :controller
 
+  alias BlockScoutWeb.AccessHelper
   alias BlockScoutWeb.Tokens.Instance.Helper
   alias BlockScoutWeb.Tokens.TransferView
   alias Explorer.Chain
@@ -16,6 +17,7 @@ defmodule BlockScoutWeb.Tokens.Instance.TransferController do
 
   def index(conn, %{"token_id" => token_address_hash, "instance_id" => token_id_string, "type" => "JSON"} = params) do
     with {:ok, hash} <- Chain.string_to_address_hash(token_address_hash),
+         {:ok, false} <- AccessHelper.restricted_access?(token_address_hash, params),
          {:ok, token} <- Chain.token_from_address_hash(hash),
          false <- Chain.erc_20_token?(token) or Token.zrc_2_token?(token),
          {token_id, ""} <- Integer.parse(token_id_string),
@@ -58,10 +60,11 @@ defmodule BlockScoutWeb.Tokens.Instance.TransferController do
   end
 
   # credo:disable-for-next-line Credo.Check.Design.DuplicatedCode
-  def index(conn, %{"token_id" => token_address_hash, "instance_id" => token_id_string}) do
+  def index(conn, %{"token_id" => token_address_hash, "instance_id" => token_id_string} = params) do
     options = [necessity_by_association: %{[contract_address: :smart_contract] => :optional}]
 
     with {:ok, hash} <- Chain.string_to_address_hash(token_address_hash),
+         {:ok, false} <- AccessHelper.restricted_access?(token_address_hash, params),
          {:ok, token} <- Chain.token_from_address_hash(hash, options),
          false <- Chain.erc_20_token?(token) or Token.zrc_2_token?(token),
          {token_id, ""} <- Integer.parse(token_id_string) do

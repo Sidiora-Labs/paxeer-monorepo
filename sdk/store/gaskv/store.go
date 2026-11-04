@@ -168,12 +168,40 @@ func (gs *Store) VersionExists(version int64) bool {
 	return gs.parent.VersionExists(version)
 }
 
+// DeleteAll charges the same gas as a forward range scan followed by Delete
+// for each key. Enumeration finishes and closes before any mutation occurs.
 func (gs *Store) DeleteAll(start, end []byte) error {
-	return gs.parent.DeleteAll(start, end)
+	keys, err := gs.collectRangeKeys(start, end)
+	if err != nil {
+		return err
+	}
+	for _, key := range keys {
+		gs.Delete([]byte(key))
+	}
+	return nil
 }
 
-func (gs *Store) GetAllKeyStrsInRange(start, end []byte) (res []string) {
-	return gs.parent.GetAllKeyStrsInRange(start, end)
+// GetAllKeyStrsInRange charges the same seek and byte costs as a forward
+// iterator, including an empty range's initial seek, and traces the values read.
+func (gs *Store) GetAllKeyStrsInRange(start, end []byte) []string {
+	keys, err := gs.collectRangeKeys(start, end)
+	if err != nil {
+		panic(err)
+	}
+	return keys
+}
+
+func (gs *Store) collectRangeKeys(start, end []byte) (keys []string, err error) {
+	iterator := gs.Iterator(start, end)
+	defer func() { err = iterator.Close() }()
+	for ; iterator.Valid(); iterator.Next() {
+		// Strings own their bytes after Next or Close invalidates iterator keys.
+		keys = append(keys, string(iterator.Key()))
+		if gs.tracer != nil {
+			iterator.Value()
+		}
+	}
+	return keys, nil
 }
 
 type gasIterator struct {

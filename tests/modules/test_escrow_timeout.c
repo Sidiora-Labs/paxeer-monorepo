@@ -266,7 +266,7 @@ static int sweep_capacity(void)
     lxp_kernel kernel;
     lxp_module_ctx ctx;
     lxp_arena arena;
-    uint8_t arena_bytes[8192];
+    uint8_t arena_bytes[65536];
     uint64_t parameters = 1U;
     const char *owner_name = "agent:did:key:sweep:main";
     char escrow_name[40];
@@ -326,11 +326,13 @@ static int sweep_capacity(void)
         if ((i % 8U) == 7U && lxp_module_ctx_commit(&ctx) != LXP_OK) return 1;
     }
     if (lxp_module_ctx_commit(&ctx) != LXP_OK ||
-        lx_escrow_module_iface()->epoch_begin(&ctx, 0U, 2000U) !=
-            LXP_ERR_ARENA_EXHAUSTED ||
-        owner->balance.lo != 0U || effects.count != 0U ||
+        lxp_kernel_epoch_transition(&kernel, 1U, 2000U, &arena) != LXP_OK ||
+        owner->balance.lo != holds * 2U || kernel.epoch != 1U ||
+        state.next_sequence != 1U || journal.open ||
         lx_escrow_lookup(&ctx, record.escrow_id, &record) != LXP_OK ||
-        record.state != LX_ESCROW_STATE_OPEN ||
+        record.state != LX_ESCROW_STATE_TIMED_OUT ||
+        !lxp_u128_is_zero(record.locked_amount) ||
+        !lxp_u128_is_zero(escrow_account->balance) ||
         lxp_state_store_destroy(&state) != LXP_OK)
         return 1;
     return 0;

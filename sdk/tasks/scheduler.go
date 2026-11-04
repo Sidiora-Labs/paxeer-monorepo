@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
@@ -99,12 +100,20 @@ func (dt *deliverTxTask) Increment() {
 	dt.Incarnation++
 }
 
-// Scheduler processes tasks concurrently
+// Scheduler processes one batch concurrently. Create a new scheduler for each batch.
 type Scheduler interface {
 	ProcessAll(ctx sdk.Context, reqs []*sdk.DeliverTxEntry) ([]types.ResponseDeliverTx, error)
 }
 
+// SchedulerReuseError refuses a second ProcessAll call, including concurrent calls.
+type SchedulerReuseError struct{}
+
+func (*SchedulerReuseError) Error() string {
+	return "scheduler has already been used for a batch"
+}
+
 type scheduler struct {
+	used               atomic.Bool
 	deliverTx          func(ctx sdk.Context, req types.RequestDeliverTxV2, tx sdk.Tx, checksum [32]byte) (res types.ResponseDeliverTx)
 	workers            int
 	multiVersionStores map[sdk.StoreKey]multiversion.MultiVersionStore
@@ -112,7 +121,6 @@ type scheduler struct {
 	allTasksMap        map[int]*deliverTxTask
 	allTasks           []*deliverTxTask
 	executeCh          chan func()
-	validateCh         chan func()
 	metrics            *schedulerMetrics
 	synchronous        bool           // true if maxIncarnation exceeds threshold
 	maxIncarnation     int            // current highest incarnation
@@ -120,7 +128,7 @@ type scheduler struct {
 	conflictKeyMu      sync.Mutex
 }
 
-// NewScheduler creates a new scheduler
+// NewScheduler creates a single-use scheduler; even a cancelled batch consumes it.
 func NewScheduler(workers int, tracingInfo *tracing.Info, deliverTxFunc func(ctx sdk.Context, req types.RequestDeliverTxV2, tx sdk.Tx, checksum [32]byte) (res types.ResponseDeliverTx)) Scheduler {
 	return &scheduler{
 		workers:     workers,
@@ -138,35 +146,36 @@ func (s *scheduler) invalidateTask(task *deliverTxTask) {
 	}
 }
 
-func start(ctx context.Context, ch chan func(), workers int) {
+// Workers drain submitted jobs so every job accounts for its completion, even
+// after cancellation. The caller closes the queue and joins them before returning.
+func start(ch chan func(), workers int) *sync.WaitGroup {
+	wg := &sync.WaitGroup{}
+	wg.Add(workers)
 	for i := 0; i < workers; i++ {
 		go func() {
-			for {
-				select {
-				case <-ctx.Done():
-					return
-				case work := <-ch:
-					work()
-				}
+			defer wg.Done()
+			for work := range ch {
+				work()
 			}
 		}()
 	}
+	return wg
 }
 
-func (s *scheduler) DoValidate(work func()) {
+func (s *scheduler) DoExecute(ctx context.Context, work func()) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if s.synchronous {
 		work()
-		return
+		return nil
 	}
-	s.validateCh <- work
-}
-
-func (s *scheduler) DoExecute(work func()) {
-	if s.synchronous {
-		work()
-		return
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case s.executeCh <- work:
+		return nil
 	}
-	s.executeCh <- work
 }
 
 func (s *scheduler) findConflicts(task *deliverTxTask) (bool, []int, []string) {
@@ -270,16 +279,25 @@ func (s *scheduler) emitMetrics() {
 }
 
 func (s *scheduler) ProcessAll(ctx sdk.Context, reqs []*sdk.DeliverTxEntry) ([]types.ResponseDeliverTx, error) {
+	if !s.used.CompareAndSwap(false, true) {
+		return nil, &SchedulerReuseError{}
+	}
+	if err := ctx.Context().Err(); err != nil {
+		return nil, err
+	}
 	startTime := time.Now()
 	var iterations int
 	// initialize mutli-version stores if they haven't been initialized yet
 	s.tryInitMultiVersionStore(ctx)
-	tasks, tasksMap := toTasks(reqs)
+	responseTasks, tasksMap := toTasks(reqs)
+	tasks := append([]*deliverTxTask(nil), responseTasks...)
+	sort.SliceStable(tasks, func(i, j int) bool {
+		return tasks[i].AbsoluteIndex < tasks[j].AbsoluteIndex
+	})
 	s.allTasks = tasks
 	s.allTasksMap = tasksMap
 	s.conflictKeyCounts = make(map[string]int)
 	s.executeCh = make(chan func(), len(tasks))
-	s.validateCh = make(chan func(), len(tasks))
 	defer s.emitMetrics()
 
 	// default to number of tasks if workers is negative or 0 by this point
@@ -288,14 +306,11 @@ func (s *scheduler) ProcessAll(ctx sdk.Context, reqs []*sdk.DeliverTxEntry) ([]t
 		workers = len(tasks)
 	}
 
-	workerCtx, cancel := context.WithCancel(ctx.Context())
-	defer cancel()
-
-	// execution tasks are limited by workers
-	start(workerCtx, s.executeCh, workers)
-
-	// validation tasks uses length of tasks to avoid blocking on validation
-	start(workerCtx, s.validateCh, len(tasks))
+	workerWg := start(s.executeCh, workers)
+	defer func() {
+		close(s.executeCh)
+		workerWg.Wait()
+	}()
 
 	toExecute := tasks
 	for !allValidated(tasks) {
@@ -327,6 +342,9 @@ func (s *scheduler) ProcessAll(ctx sdk.Context, reqs []*sdk.DeliverTxEntry) ([]t
 		iterations++
 	}
 
+	if err := ctx.Context().Err(); err != nil {
+		return nil, err
+	}
 	for _, mv := range s.multiVersionStores {
 		mv.WriteLatestToStore()
 	}
@@ -349,7 +367,7 @@ func (s *scheduler) ProcessAll(ctx sdk.Context, reqs []*sdk.DeliverTxEntry) ([]t
 
 	logger.Info("occ scheduler", "height", ctx.BlockHeight(), "txs", len(tasks), "latency_ms", time.Since(startTime).Milliseconds(), "retries", s.metrics.retries, "maxIncarnation", s.maxIncarnation, "iterations", iterations, "sync", s.synchronous, "workers", s.workers)
 
-	return s.collectResponses(tasks), nil
+	return s.collectResponses(responseTasks), nil
 }
 
 func (s *scheduler) shouldRerun(task *deliverTxTask) bool {
@@ -416,67 +434,63 @@ func (s *scheduler) validateAll(ctx sdk.Context, tasks []*deliverTxTask) ([]*del
 	ctx, span := s.traceSpan(ctx, "SchedulerValidateAll", nil)
 	defer span.End()
 
-	var mx sync.Mutex
-	var res []*deliverTxTask
-
 	startIdx, anyLeft := s.findFirstNonValidated()
-
 	if !anyLeft {
-		return nil, nil
+		return nil, ctx.Context().Err()
 	}
 
-	wg := &sync.WaitGroup{}
-	for i := startIdx; i < len(tasks); i++ {
-		wg.Add(1)
-		t := tasks[i]
-		s.DoValidate(func() {
-			defer wg.Done()
-			if !s.validateTask(ctx, t) {
-				mx.Lock()
-				defer mx.Unlock()
-				t.Reset()
-				t.Increment()
-				// update max incarnation for scheduler
-				if t.Incarnation > s.maxIncarnation {
-					s.maxIncarnation = t.Incarnation
-				}
-				res = append(res, t)
+	// The validated prefix is stable. Stop at the first invalid predecessor;
+	// later read and iterator sets must wait until its retry has been validated.
+	for _, task := range tasks[startIdx:] {
+		if err := ctx.Context().Err(); err != nil {
+			return nil, err
+		}
+		if !s.validateTask(ctx, task) {
+			task.Reset()
+			task.Increment()
+			if task.Incarnation > s.maxIncarnation {
+				s.maxIncarnation = task.Incarnation
 			}
-		})
+			return []*deliverTxTask{task}, nil
+		}
+		if !task.IsStatus(statusValidated) {
+			return nil, nil
+		}
 	}
-	wg.Wait()
-
-	return res, nil
+	return nil, ctx.Context().Err()
 }
 
-// ExecuteAll executes all tasks concurrently
+// ExecuteAll executes all tasks concurrently and accounts for every submitted job.
 func (s *scheduler) executeAll(ctx sdk.Context, tasks []*deliverTxTask) error {
-	if len(tasks) == 0 {
-		return nil
-	}
 	ctx, span := s.traceSpan(ctx, "SchedulerExecuteAll", nil)
 	span.SetAttributes(attribute.Bool("synchronous", s.synchronous))
 	defer span.End()
 
-	// validationWg waits for all validations to complete
-	// validations happen in separate goroutines in order to wait on previous index
 	wg := &sync.WaitGroup{}
-	wg.Add(len(tasks))
-
+	var submitErr error
 	for _, task := range tasks {
 		t := task
-		s.DoExecute(func() {
+		wg.Add(1)
+		if err := s.DoExecute(ctx.Context(), func() {
 			s.prepareAndRunTask(wg, ctx, t)
-		})
+		}); err != nil {
+			wg.Done()
+			submitErr = err
+			break
+		}
 	}
-
 	wg.Wait()
-
-	return nil
+	if submitErr != nil {
+		return submitErr
+	}
+	return ctx.Context().Err()
 }
 
 func (s *scheduler) prepareAndRunTask(wg *sync.WaitGroup, ctx sdk.Context, task *deliverTxTask) {
 	defer wg.Done() // Must be deferred to prevent deadlock on panic
+	if ctx.Context().Err() != nil {
+		return
+	}
 
 	eCtx, eSpan := s.traceSpan(ctx, "SchedulerExecute", task)
 	defer eSpan.End()
