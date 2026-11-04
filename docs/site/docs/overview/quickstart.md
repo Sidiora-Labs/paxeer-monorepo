@@ -17,7 +17,8 @@ cited to the tree. Related pages: [CLI](../platform/cli.md), [Beta cluster](../o
 Funding, send, Asset, program, and 402 surfaces are on
 [Payments developer path](payments.md). The public endpoint
 checklist is [Getting started](getting-started.md).
-Asset encodings: [Assets](../concepts/assets.md). Public `POST /rpc`: [Public JSON-RPC](../platform/gateway-rpc.md).
+Asset encodings: [Assets](../concepts/assets.md).
+Operator-deployed gateway `POST /rpc`: [Public JSON-RPC](../platform/gateway-rpc.md).
 `executed` / `batched` / `finalised`:
 [Commitment levels](../protocol/commitment-levels.md).
 
@@ -162,7 +163,7 @@ and `reset_schedule` (`services/platform/hosted/testnet/src/main.rs:1155-1163`;
 
 ---
 
-## 2.1. Run a 402LXP payment through public RPC
+## 2.1. Run a 402LXP payment through a deployed gateway
 
 The maintained 402LXP client path uses JSON-RPC 2.0 at gateway `POST /rpc` and
 WebSocket subscriptions at `GET /rpc/ws`. The Node and Python examples accept
@@ -211,12 +212,16 @@ current identity sequence through `lx_getSequence`. The examples read
 [402LXP transport](../interop/x402.md) for the offer, grant and commitment
 contracts.
 
-The public hosted equivalents are `https://api-mainnet-beta.paxeer.network/rpc` and
-`wss://api-mainnet-beta.paxeer.network/rpc/ws`. There is no public
-faucet: a public account is funded through
-[custody credit](../human/custody.md) submitted to that router. See
-[Getting started](getting-started.md) for the public
-checklist and [Public JSON-RPC](../platform/gateway-rpc.md) for every method and typed error.
+The public node JSON-RPC is `https://api-mainnet-beta.paxeer.network` at the
+root path, with EVM chain ID `125`. The other public node names are `api1`
+through `api14.mainnet-beta.paxeer.network`, also at the root. WebSocket
+upgrades were observed at the mainnet-beta node's root and `/ws`.
+The `lx_*` and `px_*` methods in this flow require an operator-deployed
+hosted gateway. Obtain its JSON-RPC URL and authenticated `/rpc/ws` endpoint
+from the operator; there is no public gateway URL established by the checked-in
+configuration and no separate public LayerX interface. There is no public
+faucet. See [Getting started](getting-started.md) for the endpoint
+checklist and [Hosted gateway JSON-RPC](../platform/gateway-rpc.md) for methods and typed errors.
 
 ---
 
@@ -295,13 +300,12 @@ not include `/v1/accounts` (`services/platform/hosted/gateway/src/lib.rs:809-881
 
 ## 4. Fund the account
 
-On the public network there is no faucet. An account is funded through the
-custody-credit path: a deposit into the custody precompile
-`0x0000000000000000000000000000000000001013` on Paxeer chain `125`, then the
-signed credit activity submitted with `lx_sendActivity` at
-`https://api-mainnet-beta.paxeer.network/rpc`; the commands are in
-[Getting started](getting-started.md#wallet-and-funding) and every input is on
-[Custody credit](../human/custody.md).
+On the public network there is no faucet. Chain transactions use the public
+node JSON-RPC at `https://api-mainnet-beta.paxeer.network`, root path, chain
+ID `125`. Any `lx_sendActivity` funding flow requires an operator-deployed
+gateway URL; it is not served by those nodes. See
+[Getting started](getting-started.md#wallet-and-funding) and
+[Custody credit](../human/custody.md) for funding details and availability.
 
 The disposable cluster below also runs a private-network faucet with no
 public name; the rest of this section claims from it.

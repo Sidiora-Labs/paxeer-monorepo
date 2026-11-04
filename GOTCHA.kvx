@@ -14615,3 +14615,8 @@ fix = "22.99.160 refreshes the four lockfiles with cargo update --workspace; dec
 title = "Extending an exact receipt field set is a producer change that every consumer fixture must follow"
 symptom = "22.23.11 added paymentDenom to RECEIPTED_FIELDS and matched the receipted and committed rungs with Fields::exact; its verify ran only the layerx-client tests, so the daemon's receipt fixtures (ops/program.rs, human_runtime.rs, tests/support/mod.rs and the receipt mocks under tests/) kept decoding as Malformed and 9.35.19 attempt 8 failed seven unrelated tests on main."
 fix = "A task that adds a field to an exact field set lists every consumer crate's fixture files in its paths, adds the field there in the same change and runs those crates' tests in its verify; 9.98.4 repairs the fixtures."
+
+[gotcha.2959]
+title = "A header rename at a paid gateway is a producer change every client must follow"
+symptom = "The x-websearch gateway reads LAYERX-PAYER-ADDRESS (an EVM address) and ignores the former LAYERX-PAYER-DID header, so the TypeScript and python web-search clients kept sending the retired header and failed only through the replayed exchange the gateway recorded (400 unrecorded_request on the metered search)."
+fix = "When a producer renames or re-types a request header, git grep the old name across every client and queue one consumer task per owning domain; the recorded exchange is the contract both sides must match, and a header the producer silently ignores is still a defect."

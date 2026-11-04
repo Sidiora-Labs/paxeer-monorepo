@@ -5,8 +5,8 @@ The developer CLI binary is `layerx` (`tools/platform/cli/Cargo.toml:11-13`;
 stable graph anchor is `layerx-cli-v1`
 (`tools/platform/cli/src/main.rs:509-513`). Global `--json` emits one JSON object
 instead of human presentation (`tools/platform/cli/src/main.rs:35-40`). Global
-`--rpc` is a public gateway JSON-RPC URL that must end in `/rpc`; global
-`--gateway-credential` is a stored gateway alias
+`--rpc` is an operator-deployed gateway JSON-RPC URL that must end in `/rpc`.
+Global `--gateway-credential` is a stored gateway alias
 (`tools/platform/cli/src/main.rs:42-49`). Both apply only to `wallet`, `token` and
 `program` (`tools/platform/cli/src/main.rs:515-531`). Success
 envelopes are `{ok, kind, message, data}`; failures are `{ok: false, error:
