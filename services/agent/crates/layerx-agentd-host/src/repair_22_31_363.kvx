@@ -1,0 +1,9 @@
+[repair.22.31.363]
+finding = "payer_payment_asset"
+acceptance = "22998.1"
+implementation = "payer::receipt binds protocol.asset to execution.payment_denom; fee_denom and fee_amount retain their independent signed-summary checks."
+proving_tests = ["payer_payment_asset_accepts_node_payment", "payer_payment_asset_refuses_node_revert", "payer_payment_asset_retains_independent_bindings"]
+fixtures = "repair_22_31_363_receipts.json records the derivation from node receipt conformance vectors; the gate only reads committed bytes and uses the production codecs, authenticated JSON-RPC client and payer."
+baseline = "Attempt 1: all three tests failed because the Go producer link step could not find kernel libraries; no additional baseline gate was run under the ordered hf-build/hf-done instructions."
+wiring_requests = []
+evidence = "The runner gate ledger records the exact candidate revision, command, exit code and private log; cg spec done records qualification only after verification passes."

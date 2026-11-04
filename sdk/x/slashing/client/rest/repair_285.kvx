@@ -1,0 +1,47 @@
+[repair.22.31.285]
+finding = "slashing-rest-producer-encoding"
+implementation = "query.go serializes sdk.ConsAddress(pk.Address()).String() into QuerySigningInfoRequest.ConsAddress."
+proof = "TestRepair_285_SigningInfoHTTPABCI checks registered REST -> real JSON-RPC transport -> BaseApp legacy querier -> persisted keeper state, exact address bytes, record, height and gRPC agreement."
+error_proof = "TestRepair_285_UnknownValidator and TestRepair_285_InvalidRequests assert exact ABCI and HTTP errors and rejection before transport."
+baseline = "No baseline gate was run: the task-specific gate order requires complete implementation before hf-build and hf-done and forbids manual verify runs. No baseline failure is claimed."
+wiring_request = "sdk/x/slashing/keeper/querier.go; owning domain 15 (fm-cosmos-fork), task 22.31.284: decode ConsAddress using sdk.ConsAddressFromBech32, return a typed invalid-address error before lookup, and use decoded bytes for GetValidatorSigningInfo."
+qualification = "The runner's hf-build/hf-done ledger records the candidate revision, command, exit and private log; closure requires the unchanged real-path assertions to pass after the consumer wiring repair."
+
+[qualification.consumer_wiring]
+revision = "e5c825a09c303ce603489651dc4a5441f5324bb8"
+command = "cg spec done 22.31.285 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The real REST request carries the canonical Bech32 address, but the legacy consumer returns slashing code 8 for a record confirmed persisted under its raw address bytes."
+assumption = "The out-of-scope decoder wiring request must be fulfilled by domain 15 task 22.31.284; no keeper change or success-assertion weakening is authorized here."
+
+[continuation.22.31.285]
+status = "implemented_not_qualified"
+preserved = "Retained the canonical REST producer and all real HTTP-to-ABCI success, exact-address and error assertions from attempt 1."
+prior_failure = "Attempt 1 failed TestRepair_285_SigningInfoHTTPABCI for both default and explicit height: expected ABCI code 0, received slashing code 8; this was not an unchanged-tree baseline run."
+blocker = "The required legacy-consumer Bech32 decoder belongs to sdk/x/slashing/keeper/querier.go in domain 15 task 22.31.284, outside the only authorized paths."
+closure = "The finding remains open until the real registered HTTP-to-ABCI success test passes; the private hf-build/hf-done ledger is authoritative for continuation evidence."
+
+[gotcha.consumer_boundary]
+symptom = "A correct REST Bech32 request still cannot resolve signing info through the legacy ABCI route."
+cause = "The legacy consumer casts Bech32 text to address bytes instead of decoding it."
+do = "Land the domain 15 keeper decoder wiring request; preserve raw-byte persistence and exact HTTP-to-ABCI success assertions."
+
+[qualification.continuation_fixture]
+revision = "baa9819c76e020b42e26bf7a96be6b04bddd45b8"
+command = "cg spec done 22.31.285 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "CreateQueryContext rejects the fixture's legacy rootmulti versioned state before the HTTP assertions execute."
+repair = "Use the supported real sdk/storev2/rootmulti store with synchronous commits in the fixture; keep every existing assertion intact."
+
+[continuation.fixture_commit]
+prior_failure = "Attempt 2 failed TestRepair_285_SigningInfoHTTPABCI with slashing code 8 at latest and explicit height 1; this was a qualification failure, not an unchanged-tree baseline run."
+implementation = "The real slashing keeper stores both validator records before BaseApp commits block 1; the fixture checks staged state, committed height, exact persisted bytes and a fresh query context before starting either HTTP server."
+proof = "TestRepair_285_SigningInfoHTTPABCI retains the exact address, record and error assertions, queries latest with absent and zero heights and explicit height 1, and compares the legacy response with the real gRPC query."
+wiring = "The checkout already contains the domain 15 task 22.31.284 Bech32 decoder in sdk/x/slashing/keeper/querier.go; this continuation does not modify that path."
+evidence = "The final hf-done ledger records the verified candidate revision, command, exit code and private log; this record is finalized before qualification to preserve the candidate."
+
+[gotcha.fixture_commit]
+symptom = "An HTTP-to-ABCI success fixture must establish persisted state before serving signing-info requests."
+do = "Write through SetValidatorSigningInfo, commit block 1, and assert the raw-address store key and fresh query context contain the exact record before starting the loopback servers."
