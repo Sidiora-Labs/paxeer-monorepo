@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"math"
 	mrand "math/rand"
 	"os"
@@ -1443,6 +1444,8 @@ func TestCommit_ValidateBasic(t *testing.T) {
 	}
 }
 
+// TestHeaderHashVector retains the historical hash of malformed
+// ASCII digest fields. It is not a producer-valid client vector.
 func TestHeaderHashVector(t *testing.T) {
 	chainID := "test"
 	h := Header{
@@ -1472,7 +1475,40 @@ func TestHeaderHashVector(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
+		require.Error(t, tc.header.ValidateBasic())
+		_, err := HeaderFromProto(tc.header.ToProto())
+		require.Error(t, err)
 		hash := tc.header.Hash()
 		require.Equal(t, tc.expBytes, hex.EncodeToString(hash))
 	}
+}
+
+func TestHeaderHashVectorV2(t *testing.T) {
+	h := headerHashVectorV2(t)
+	require.NoError(t, h.ValidateBasic())
+	encoded, err := h.ToProto().Marshal()
+	require.NoError(t, err)
+	var transported tmproto.Header
+	require.NoError(t, transported.Unmarshal(encoded))
+	decoded, err := HeaderFromProto(&transported)
+	require.NoError(t, err)
+	require.Equal(t, h, decoded)
+	require.Equal(t, "d408adccc0ffde478eddda84c349482c61962cae22a930cee1e074631e9ebba3", hex.EncodeToString(decoded.Hash()))
+}
+
+func headerHashVectorV2(t *testing.T) Header {
+	t.Helper()
+	data, err := os.ReadFile("testdata/light_commit_v1.json")
+	require.NoError(t, err)
+	var vector struct {
+		HeaderProtobuf string `json:"header_protobuf"`
+	}
+	require.NoError(t, json.Unmarshal(data, &vector))
+	encoded, err := hex.DecodeString(vector.HeaderProtobuf)
+	require.NoError(t, err)
+	var pb tmproto.Header
+	require.NoError(t, pb.Unmarshal(encoded))
+	header, err := HeaderFromProto(&pb)
+	require.NoError(t, err)
+	return header
 }

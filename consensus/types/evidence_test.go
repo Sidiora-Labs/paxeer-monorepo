@@ -3,8 +3,10 @@ package types
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"math"
 	mrand "math/rand"
+	"os"
 	"testing"
 	"time"
 
@@ -381,6 +383,7 @@ func TestEvidenceProto(t *testing.T) {
 	}
 }
 
+// This preserves the original malformed-input vector as hash history only.
 func TestEvidenceVectors(t *testing.T) {
 	ctx := t.Context()
 
@@ -433,6 +436,11 @@ func TestEvidenceVectors(t *testing.T) {
 		Timestamp:           header.Time,
 		ByzantineValidators: valSet.Validators[:nValidators/2],
 	}
+	require.Error(t, lcae.ConflictingBlock.ValidateBasic(chainID))
+	pb, err := EvidenceToProto(lcae)
+	require.NoError(t, err)
+	_, err = EvidenceFromProto(pb)
+	require.Error(t, err)
 	testCases := []struct {
 		testName string
 		evList   EvidenceList
@@ -456,4 +464,52 @@ func TestEvidenceVectors(t *testing.T) {
 		hash := tc.evList.Hash()
 		require.Equal(t, tc.expBytes, hex.EncodeToString(hash), tc.testName)
 	}
+}
+
+func TestEvidenceVectorsV2(t *testing.T) {
+	header := headerHashVectorV2(t)
+	keys := make(map[string]crypto.PrivKey)
+	validators := make([]*Validator, 4)
+	for i := range validators {
+		key := ed25519.TestSecretKey([]byte{byte(i + 1)})
+		keys[string(key.Public().Address())] = key
+		validators[i] = NewValidator(key.Public(), 10)
+	}
+	vals := NewValidatorSet(validators)
+	require.Equal(t, []byte(header.ValidatorsHash), vals.Hash())
+	commit := &Commit{
+		Height: header.Height, Round: 2,
+		BlockID: BlockID{Hash: header.Hash(), PartSetHeader: PartSetHeader{
+			Total: 3, Hash: crypto.Checksum([]byte("light-vector-v1/block-parts")).Bytes(),
+		}},
+	}
+	for i, val := range vals.Validators {
+		vote := &Vote{Type: tmproto.PrecommitType, Height: commit.Height, Round: commit.Round,
+			BlockID: commit.BlockID, Timestamp: header.Time.Add(time.Duration(i+1) * time.Millisecond),
+			ValidatorAddress: val.Address, ValidatorIndex: int32(i)}
+		vote.Signature = utils.Some(keys[string(val.Address)].Sign(VoteSignBytes(header.ChainID, vote.ToProto())))
+		commit.Signatures = append(commit.Signatures, vote.CommitSig())
+	}
+	block := &LightBlock{SignedHeader: &SignedHeader{Header: &header, Commit: commit}, ValidatorSet: vals}
+	require.NoError(t, block.ValidateBasic(header.ChainID))
+	require.NoError(t, vals.VerifyCommitLight(header.ChainID, commit.BlockID, header.Height, commit))
+	evidence := &LightClientAttackEvidence{ConflictingBlock: block, CommonHeight: 41,
+		ByzantineValidators: vals.Validators[:2], TotalVotingPower: vals.TotalVotingPower(), Timestamp: header.Time}
+	require.NoError(t, evidence.ValidateBasic())
+	pb, err := EvidenceToProto(evidence)
+	require.NoError(t, err)
+	encoded, err := pb.Marshal()
+	require.NoError(t, err)
+	var transported tmproto.Evidence
+	require.NoError(t, transported.Unmarshal(encoded))
+	decoded, err := EvidenceFromProto(&transported)
+	require.NoError(t, err)
+	require.Equal(t, evidence.Bytes(), decoded.Bytes())
+	data, err := os.ReadFile("testdata/attack_evidence_v2.json")
+	require.NoError(t, err)
+	var vector struct {
+		EvidenceHash string `json:"evidence_hash"`
+	}
+	require.NoError(t, json.Unmarshal(data, &vector))
+	require.Equal(t, vector.EvidenceHash, hex.EncodeToString(decoded.Hash()))
 }
