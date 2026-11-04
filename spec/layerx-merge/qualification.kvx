@@ -22571,3 +22571,115 @@ symbol = "Repair2231415Tests.swift"
 observed = "Attempt 3: test019ConfiguredWalletPaymentVerifiesRecordedReceipt fails with verification-failure; two tests pass."
 assumption = "Fixture halves recorded from different runs."
 severity = "high"
+
+[finding.22.31.380.1]
+task = "22.31.380"
+file = "apps/explorer/lib/api/services/general/repair-22-31-380.spec.ts"
+symbol = "repair-22-31-380.spec.ts"
+observed = "Attempt 1: the package manager refused the command because the project is configured for yarn; build exit 1, verify never ran."
+assumption = "The gate named the wrong package manager for the directory (gotcha 2969); corrected."
+severity = "high"
+
+[finding.22.31.405.1]
+task = "22.31.405"
+file = "apps/explorer/ui/tx/repair-22-31-405.spec.ts"
+symbol = "repair-22-31-405.spec.ts"
+observed = "Attempt 3: yarn tsc --noEmit fails on the undeclared ganache import of another task's published test; the verify never ran."
+assumption = "A published test broke the shared type-check of the package; repaired by its own task."
+severity = "high"
+
+[finding.22.31.407.2]
+task = "22.31.407"
+file = "services/explorer/backend/apps/explorer/test/repair/repair_22_31_407_test.exs"
+symbol = "repair_22_31_407_test.exs"
+observed = "Attempt 2: launchpad_code_probe_malformed, _live and _refused fail; Capabilities.probe still sends eth_getCode."
+assumption = "Producer-consumer defect: the production probe was left outside the first scope."
+severity = "high"
+
+[finding.22.31.410.2]
+task = "22.31.410"
+file = "services/explorer/backend/apps/explorer/test/repair/repair_22_31_410_test.exs"
+symbol = "repair_22_31_410_test.exs"
+observed = "Attempt 2: 23 tests, 10 failures; stored contract_code disagrees with the committed eth_getCode for pre- and post-Cancun selfdestruct cases."
+assumption = "The test gap exposed a real migrator defect that sat outside the first scope."
+severity = "high"
+
+[finding.22.31.411.2]
+task = "22.31.411"
+file = "services/explorer/backend/apps/explorer/test/repair/repair_22_31_411_test.exs"
+symbol = "repair_22_31_411_test.exs"
+observed = "Attempt 2: 11 tests, 7 failures; verify returns :committed or :r7 where :r8 is required and the controller returns not_found."
+assumption = "Test gap exposing verifier and controller defects outside the first scope."
+severity = "high"
+
+[finding.22.31.3.3]
+task = "22.31.3"
+file = "services/human/crates/layerx-human-service/tests/repair_22_31_3.rs"
+symbol = "repair_22_31_3.rs"
+observed = "Attempt 2: repair_3_export_challenge_wire and repair_3_export_handoff fail with Io WouldBlock on the store lock; two pass."
+assumption = "Store-lock contention between tests, already repaired but not re-verified."
+severity = "high"
+
+[finding.22.31.24.3]
+task = "22.31.24"
+file = "src/modules/programs"
+symbol = "programs"
+observed = "Attempt 3: five audit regression cases pass; original_lifecycle returns failure and make programs-core-test exits 1."
+assumption = "An inherited case owned by the verify target."
+severity = "high"
+
+[finding.22.31.221.2]
+task = "22.31.221"
+file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+symbol = "repair_22_31_221.rs"
+observed = "Attempt 2: dependents check reports five errors in the agent daemon test and the hosted authority budget state after the client type changes."
+assumption = "Producer-consumer defect: the client changed shapes its consumers still read."
+severity = "high"
+
+[finding.22.31.269.3]
+task = "22.31.269"
+file = "services/explorer/services/libs/blockscout-client/crate/tests/repair_22_31_269.rs"
+symbol = "repair_22_31_269.rs"
+observed = "Attempt 3: cargo build of the libs workspace fails on type errors in repair_22_31_273.rs; the agent reports the client regeneration needs excluded paths."
+assumption = "Wrong build target and a consumer test of the regenerated models left outside scope."
+severity = "high"
+
+[finding.22.31.396.2]
+task = "22.31.396"
+file = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_31_396_test.exs"
+symbol = "repair_22_31_396_test.exs"
+observed = "Attempt 2: build passed; 49 tests, 36 failures; the agent reports the remaining producer fixes need files outside the allowed scope."
+assumption = "Producer-consumer defect: the verifier, the two controllers and the configuration were left outside the first scope."
+severity = "high"
+
+[finding.22.31.421.1]
+task = "22.31.421"
+file = "tools/qualification/audit_repairs/test_repair_22_31_421.py"
+symbol = "test_repair_22_31_421.py"
+observed = "Attempt 1: build and verify passed, done record written; the final commit differs from the qualified candidate and includes a compiled bytecode cache file."
+assumption = "A re-commit after qualification broke the candidate identity; the repair itself is sound."
+severity = "medium"
+
+[finding.22.9.10.17]
+task = "22.9.10"
+file = "services/agent/sdk/typescript/src/ai_market.ts"
+symbol = "ai_market.ts"
+observed = "Attempt 30: npm ci refuses because ganache 7.9.2 is missing from the lockfile; the SDK was never compiled."
+assumption = "A workspace member manifest changed without the root lockfile; repaired by its own task."
+severity = "high"
+
+[finding.22.31.269.4]
+task = "22.31.269"
+file = "services/explorer/services/libs/blockscout-client/crate/tests/repair_22_31_269.rs"
+symbol = "repair_22_31_269.rs"
+observed = "Attempt 4: the libs workspace build fails on two type mismatches in the 22.31.273 repair test (FeedItem fields); the agent reports the regeneration needs paths outside scope."
+assumption = "The attempt started before the corrected scope and target were in force."
+severity = "high"
+
+[finding.22.31.384.2]
+task = "22.31.384"
+file = "apps/web/e2e/repair-22-31-384.test.ts"
+symbol = "repair-22-31-384.test.ts"
+observed = "Attempt 3: approval_operation_digest_real_http fails; the generated ApprovalDetail codec returns undefined for the operation digest."
+assumption = "Producer-consumer defect: the schema and generated client were left outside the first scope."
+severity = "high"

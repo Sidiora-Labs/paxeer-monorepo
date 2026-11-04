@@ -1,0 +1,916 @@
+{
+  "source_hashes": {
+    "services/interop/deploy/mirror/render-config.py": "467cbc3be472530972b4a50b14bd9bb5c4ab43cdd30f8cb12fcb2a8a122499f9",
+    "services/interop/deploy/mirror/config.example.json": "72ea627f778dfebe610e6c590c6e28305452b33729d2ac6c192a690412e228d5",
+    "services/interop/deploy/mirror/testdata/repair_m110/receipt-keys.json": "291b3db747f812eca3f3dbd0e9a3b67687837981bb063e910151679d9a3a455d",
+    "services/interop/deploy/mirror/testdata/repair_m110/record.py": "0fcadc08c0f65d375e50bc7f365f825ba92a7b404bf01e233788a167ffb99cdb",
+    "services/interop/deploy/gateway/render.py": "651614c6a641ae9c4c63f5fff81c02ea5a219f5c8c2eca3dc12f61c3be11f11c",
+    "services/interop/crates/layerx-mirror/tests/fixtures/committed_blocks.json": "21e44e52aa99bd6cfa8db10aaff3da68dca2c1f39ec337b70e2104df1937f2fe",
+    "services/agent/crates/layerx-proof/src/receipt.rs": "11b3d5c202014972fb043a5ea90f038e3e0afdb7efd392729fcc8d5a4fa1034f",
+    "services/agent/crates/layerx-proof/src/inclusion.rs": "f439e617b47851cd742c6d6f06745aa758db8041003c424e015490fc45b03faf"
+  },
+  "renderings": [
+    {
+      "state_directory": "/var/lib/layerx-mirror",
+      "first_height": 1,
+      "poll_interval_ms": 5000,
+      "freshness_budget_blocks": 64,
+      "status_listen": "127.0.0.1:9091",
+      "paxeer": {
+        "rpc": {
+          "endpoints": [
+            {
+              "url": "https://paxeer-a.example/",
+              "ca_certificate_der": "/run/secrets/paxeer-a.ca.der",
+              "bearer_token_file": "/run/secrets/paxeer-a.token",
+              "independent_backend": "paxeer-a"
+            },
+            {
+              "url": "https://paxeer-b.example/",
+              "ca_certificate_der": "/run/secrets/paxeer-b.ca.der",
+              "bearer_token_file": "/run/secrets/paxeer-b.token",
+              "independent_backend": "paxeer-b"
+            },
+            {
+              "url": "https://paxeer-c.example/",
+              "ca_certificate_der": "/run/secrets/paxeer-c.ca.der",
+              "bearer_token_file": "/run/secrets/paxeer-c.token",
+              "independent_backend": "paxeer-c"
+            }
+          ],
+          "quorum": 2,
+          "connect_timeout_ms": 3000,
+          "request_timeout_ms": 15000,
+          "maximum_response_bytes": 16777216
+        },
+        "chain_id": 125,
+        "genesis_hash_hex": "1111111111111111111111111111111111111111111111111111111111111111",
+        "receipt_keys": [
+          {
+            "sequencer_id_hex": "0202020202020202020202020202020202020202020202020202020202020202",
+            "public_key_hex": "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+            "first_height": 1001,
+            "last_height": 18446744073709551615
+          },
+          {
+            "sequencer_id_hex": "6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 0,
+            "last_height": 1000
+          }
+        ]
+      },
+      "ethereum": {
+        "rpc": {
+          "endpoints": [
+            {
+              "url": "https://ethereum-a.example/rpc",
+              "ca_certificate_der": "/run/secrets/ethereum-a.ca.der",
+              "bearer_token_file": "/run/secrets/ethereum-a.token",
+              "independent_backend": "ethereum-a"
+            },
+            {
+              "url": "https://ethereum-b.example/rpc",
+              "ca_certificate_der": "/run/secrets/ethereum-b.ca.der",
+              "bearer_token_file": "/run/secrets/ethereum-b.token",
+              "independent_backend": "ethereum-b"
+            },
+            {
+              "url": "https://ethereum-c.example/rpc",
+              "ca_certificate_der": "/run/secrets/ethereum-c.ca.der",
+              "bearer_token_file": "/run/secrets/ethereum-c.token",
+              "independent_backend": "ethereum-c"
+            }
+          ],
+          "quorum": 2,
+          "connect_timeout_ms": 3000,
+          "request_timeout_ms": 15000,
+          "maximum_response_bytes": 16777216
+        },
+        "chain_id": 11155111,
+        "genesis_hash_hex": "1111111111111111111111111111111111111111111111111111111111111111",
+        "archive_contract_hex": "2222222222222222222222222222222222222222",
+        "archive_code_hash_hex": "3333333333333333333333333333333333333333333333333333333333333333",
+        "required_confirmations": 12,
+        "maximum_reorg_depth": 256,
+        "chunk_bytes": 24576,
+        "transaction_gas_limit": 30000000,
+        "maximum_fee_per_gas": 100000000000,
+        "maximum_priority_fee_per_gas": 5000000000,
+        "signer": {
+          "key_handle": "mirror/ethereum/beta",
+          "public_key": "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+          "timeout_ms": 5000,
+          "transport": {
+            "kind": "uds",
+            "socket": "/run/mirror-signer/signer.sock"
+          }
+        }
+      }
+    },
+    {
+      "state_directory": "/var/lib/layerx-mirror",
+      "first_height": 1,
+      "poll_interval_ms": 5000,
+      "freshness_budget_blocks": 64,
+      "status_listen": "127.0.0.1:9091",
+      "paxeer": {
+        "rpc": {
+          "endpoints": [
+            {
+              "url": "https://paxeer-a.example/",
+              "ca_certificate_der": "/run/secrets/paxeer-a.ca.der",
+              "bearer_token_file": "/run/secrets/paxeer-a.token",
+              "independent_backend": "paxeer-a"
+            },
+            {
+              "url": "https://paxeer-b.example/",
+              "ca_certificate_der": "/run/secrets/paxeer-b.ca.der",
+              "bearer_token_file": "/run/secrets/paxeer-b.token",
+              "independent_backend": "paxeer-b"
+            },
+            {
+              "url": "https://paxeer-c.example/",
+              "ca_certificate_der": "/run/secrets/paxeer-c.ca.der",
+              "bearer_token_file": "/run/secrets/paxeer-c.token",
+              "independent_backend": "paxeer-c"
+            }
+          ],
+          "quorum": 2,
+          "connect_timeout_ms": 3000,
+          "request_timeout_ms": 15000,
+          "maximum_response_bytes": 16777216
+        },
+        "chain_id": 125,
+        "genesis_hash_hex": "1111111111111111111111111111111111111111111111111111111111111111",
+        "receipt_keys": [
+          {
+            "sequencer_id_hex": "0202020202020202020202020202020202020202020202020202020202020202",
+            "public_key_hex": "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+            "first_height": 1001,
+            "last_height": 18446744073709551615
+          },
+          {
+            "sequencer_id_hex": "6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 0,
+            "last_height": 1000
+          }
+        ]
+      },
+      "ethereum": {
+        "rpc": {
+          "endpoints": [
+            {
+              "url": "https://ethereum-a.example/rpc",
+              "ca_certificate_der": "/run/secrets/ethereum-a.ca.der",
+              "bearer_token_file": "/run/secrets/ethereum-a.token",
+              "independent_backend": "ethereum-a"
+            },
+            {
+              "url": "https://ethereum-b.example/rpc",
+              "ca_certificate_der": "/run/secrets/ethereum-b.ca.der",
+              "bearer_token_file": "/run/secrets/ethereum-b.token",
+              "independent_backend": "ethereum-b"
+            },
+            {
+              "url": "https://ethereum-c.example/rpc",
+              "ca_certificate_der": "/run/secrets/ethereum-c.ca.der",
+              "bearer_token_file": "/run/secrets/ethereum-c.token",
+              "independent_backend": "ethereum-c"
+            }
+          ],
+          "quorum": 2,
+          "connect_timeout_ms": 3000,
+          "request_timeout_ms": 15000,
+          "maximum_response_bytes": 16777216
+        },
+        "chain_id": 11155111,
+        "genesis_hash_hex": "1111111111111111111111111111111111111111111111111111111111111111",
+        "archive_contract_hex": "2222222222222222222222222222222222222222",
+        "archive_code_hash_hex": "3333333333333333333333333333333333333333333333333333333333333333",
+        "required_confirmations": 12,
+        "maximum_reorg_depth": 256,
+        "chunk_bytes": 24576,
+        "transaction_gas_limit": 30000000,
+        "maximum_fee_per_gas": 100000000000,
+        "maximum_priority_fee_per_gas": 5000000000,
+        "signer": {
+          "key_handle": "mirror/ethereum/beta",
+          "public_key": "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+          "timeout_ms": 5000,
+          "transport": {
+            "kind": "uds",
+            "socket": "/run/mirror-signer/signer.sock"
+          }
+        }
+      },
+      "solana": {
+        "rpc": {
+          "endpoints": [
+            {
+              "url": "https://solana-a.example/rpc",
+              "ca_certificate_der": "/run/secrets/solana-a.ca.der",
+              "bearer_token_file": "/run/secrets/solana-a.token",
+              "independent_backend": "solana-a"
+            },
+            {
+              "url": "https://solana-b.example/rpc",
+              "ca_certificate_der": "/run/secrets/solana-b.ca.der",
+              "bearer_token_file": "/run/secrets/solana-b.token",
+              "independent_backend": "solana-b"
+            },
+            {
+              "url": "https://solana-c.example/rpc",
+              "ca_certificate_der": "/run/secrets/solana-c.ca.der",
+              "bearer_token_file": "/run/secrets/solana-c.token",
+              "independent_backend": "solana-c"
+            }
+          ],
+          "quorum": 2,
+          "connect_timeout_ms": 3000,
+          "request_timeout_ms": 15000,
+          "maximum_response_bytes": 16777216
+        },
+        "genesis_hash_base58": "11111111111111111111111111111112",
+        "archive_program_base58": "11111111111111111111111111111112",
+        "upgradeable_loader_base58": "11111111111111111111111111111112",
+        "program_data_account_base58": "11111111111111111111111111111112",
+        "program_code_hash_hex": "4444444444444444444444444444444444444444444444444444444444444444",
+        "required_rooted_slots": 32,
+        "maximum_ancestry": 4096,
+        "chunk_bytes": 640,
+        "signer": {
+          "key_handle": "mirror/solana/beta",
+          "public_key": "11111111111111111111111111111112",
+          "timeout_ms": 5000,
+          "transport": {
+            "kind": "uds",
+            "socket": "/run/mirror-signer/signer.sock"
+          }
+        }
+      }
+    }
+  ],
+  "policies": [
+    {
+      "name": "canonical",
+      "input": [
+        {
+          "keyId": "0x0202020202020202020202020202020202020202020202020202020202020202",
+          "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+          "firstHeight": 1001,
+          "lastHeight": 18446744073709551615
+        },
+        {
+          "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 0,
+          "lastHeight": 1000
+        }
+      ],
+      "mirror": {
+        "keys": [
+          {
+            "sequencer_id_hex": "0202020202020202020202020202020202020202020202020202020202020202",
+            "public_key_hex": "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+            "first_height": 1001,
+            "last_height": 18446744073709551615
+          },
+          {
+            "sequencer_id_hex": "6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 0,
+            "last_height": 1000
+          }
+        ]
+      },
+      "gateway": {
+        "keys": [
+          {
+            "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 0,
+            "lastHeight": 1000
+          },
+          {
+            "keyId": "0x0202020202020202020202020202020202020202020202020202020202020202",
+            "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+            "firstHeight": 1001,
+            "lastHeight": 18446744073709551615
+          }
+        ]
+      }
+    },
+    {
+      "name": "zero_only",
+      "input": [
+        {
+          "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 0,
+          "lastHeight": 0
+        }
+      ],
+      "mirror": {
+        "keys": [
+          {
+            "sequencer_id_hex": "6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 0,
+            "last_height": 0
+          }
+        ]
+      },
+      "gateway": {
+        "keys": [
+          {
+            "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 0,
+            "lastHeight": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "full_uint64",
+      "input": [
+        {
+          "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 0,
+          "lastHeight": 18446744073709551615
+        }
+      ],
+      "mirror": {
+        "keys": [
+          {
+            "sequencer_id_hex": "6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 0,
+            "last_height": 18446744073709551615
+          }
+        ]
+      },
+      "gateway": {
+        "keys": [
+          {
+            "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 0,
+            "lastHeight": 18446744073709551615
+          }
+        ]
+      }
+    },
+    {
+      "name": "max_only",
+      "input": [
+        {
+          "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 18446744073709551615,
+          "lastHeight": 18446744073709551615
+        }
+      ],
+      "mirror": {
+        "keys": [
+          {
+            "sequencer_id_hex": "6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+            "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "first_height": 18446744073709551615,
+            "last_height": 18446744073709551615
+          }
+        ]
+      },
+      "gateway": {
+        "keys": [
+          {
+            "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 18446744073709551615,
+            "lastHeight": 18446744073709551615
+          }
+        ]
+      }
+    },
+    {
+      "name": "duplicate_disjoint",
+      "input": [
+        {
+          "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 0,
+          "lastHeight": 1000
+        },
+        {
+          "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+          "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+          "firstHeight": 1001,
+          "lastHeight": 18446744073709551615
+        }
+      ],
+      "mirror": {
+        "error": "render-config: --receipt-keys-file entry 1 repeats keyId; receipt key identifiers must be unique"
+      },
+      "gateway": {
+        "error": "receipt keys file <keys> entry 1 repeats keyId 0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b; receipt key identifiers must be unique"
+      }
+    },
+    {
+      "name": "duplicate_normalized",
+      "input": [
+        {
+          "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 0,
+          "lastHeight": 1000
+        },
+        {
+          "keyId": "6B6B6B6B6B6B6B6B6B6B6B6B6B6B6B6B6B6B6B6B6B6B6B6B6B6B6B6B6B6B6B6B",
+          "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+          "firstHeight": 1001,
+          "lastHeight": 18446744073709551615
+        }
+      ],
+      "mirror": {
+        "error": "render-config: --receipt-keys-file entry 1 repeats keyId; receipt key identifiers must be unique"
+      },
+      "gateway": {
+        "error": "receipt keys file <keys> entry 1 keyId must be a 0x-prefixed 32-byte lowercase hexadecimal value"
+      }
+    },
+    {
+      "name": "overlap",
+      "input": [
+        {
+          "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 0,
+          "lastHeight": 1000
+        },
+        {
+          "keyId": "0x0202020202020202020202020202020202020202020202020202020202020202",
+          "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+          "firstHeight": 1000,
+          "lastHeight": 18446744073709551615
+        }
+      ],
+      "mirror": {
+        "error": "render-config: --receipt-keys-file contains overlapping height ranges"
+      },
+      "gateway": {
+        "error": "receipt keys file <keys> has overlapping height ranges for keys 0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b and 0x0202020202020202020202020202020202020202020202020202020202020202"
+      }
+    },
+    {
+      "name": "negative_first",
+      "input": [
+        {
+          "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": -1,
+          "lastHeight": 1000
+        }
+      ],
+      "mirror": {
+        "error": "render-config: --receipt-keys-file entry 0 must have an inclusive uint64 height range in order"
+      },
+      "gateway": {
+        "error": "receipt keys file <keys> entry 0 firstHeight must be an unsigned 64-bit integer"
+      }
+    },
+    {
+      "name": "negative_last",
+      "input": [
+        {
+          "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 0,
+          "lastHeight": -1
+        }
+      ],
+      "mirror": {
+        "error": "render-config: --receipt-keys-file entry 0 must have an inclusive uint64 height range in order"
+      },
+      "gateway": {
+        "error": "receipt keys file <keys> entry 0 lastHeight must be an unsigned 64-bit integer"
+      }
+    },
+    {
+      "name": "overflow_first",
+      "input": [
+        {
+          "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 18446744073709551616,
+          "lastHeight": 1000
+        }
+      ],
+      "mirror": {
+        "error": "render-config: --receipt-keys-file entry 0 must have an inclusive uint64 height range in order"
+      },
+      "gateway": {
+        "error": "receipt keys file <keys> entry 0 firstHeight must be an unsigned 64-bit integer"
+      }
+    },
+    {
+      "name": "overflow_last",
+      "input": [
+        {
+          "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 0,
+          "lastHeight": 18446744073709551616
+        }
+      ],
+      "mirror": {
+        "error": "render-config: --receipt-keys-file entry 0 must have an inclusive uint64 height range in order"
+      },
+      "gateway": {
+        "error": "receipt keys file <keys> entry 0 lastHeight must be an unsigned 64-bit integer"
+      }
+    },
+    {
+      "name": "reversed",
+      "input": [
+        {
+          "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 1001,
+          "lastHeight": 1000
+        }
+      ],
+      "mirror": {
+        "error": "render-config: --receipt-keys-file entry 0 must have an inclusive uint64 height range in order"
+      },
+      "gateway": {
+        "error": "receipt keys file <keys> entry 0 key 0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b has a reversed height range"
+      }
+    },
+    {
+      "name": "boolean_first",
+      "input": [
+        {
+          "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": false,
+          "lastHeight": 1000
+        }
+      ],
+      "mirror": {
+        "error": "render-config: --receipt-keys-file entry 0 must have an inclusive uint64 height range in order"
+      },
+      "gateway": {
+        "error": "receipt keys file <keys> entry 0 firstHeight must be an unsigned 64-bit integer"
+      }
+    },
+    {
+      "name": "boolean_last",
+      "input": [
+        {
+          "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 0,
+          "lastHeight": true
+        }
+      ],
+      "mirror": {
+        "error": "render-config: --receipt-keys-file entry 0 must have an inclusive uint64 height range in order"
+      },
+      "gateway": {
+        "error": "receipt keys file <keys> entry 0 lastHeight must be an unsigned 64-bit integer"
+      }
+    },
+    {
+      "name": "string_first",
+      "input": [
+        {
+          "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": "0",
+          "lastHeight": 1000
+        }
+      ],
+      "mirror": {
+        "error": "render-config: --receipt-keys-file entry 0 must have an inclusive uint64 height range in order"
+      },
+      "gateway": {
+        "error": "receipt keys file <keys> entry 0 firstHeight must be an unsigned 64-bit integer"
+      }
+    },
+    {
+      "name": "float_last",
+      "input": [
+        {
+          "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 0,
+          "lastHeight": 1000.0
+        }
+      ],
+      "mirror": {
+        "error": "render-config: --receipt-keys-file entry 0 must have an inclusive uint64 height range in order"
+      },
+      "gateway": {
+        "error": "receipt keys file <keys> entry 0 lastHeight must be an unsigned 64-bit integer"
+      }
+    },
+    {
+      "name": "zero_key",
+      "input": [
+        {
+          "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+          "publicKey": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "firstHeight": 0,
+          "lastHeight": 1000
+        }
+      ],
+      "mirror": {
+        "error": "render-config: --receipt-keys-file entry 0 publicKey is the zero identity"
+      },
+      "gateway": {
+        "error": "receipt keys file <keys> entry 0 publicKey must be a nonzero sequencer public key"
+      }
+    },
+    {
+      "name": "zero_id",
+      "input": [
+        {
+          "keyId": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 0,
+          "lastHeight": 1000
+        }
+      ],
+      "mirror": {
+        "error": "render-config: --receipt-keys-file entry 0 keyId is the zero identity"
+      },
+      "gateway": {
+        "keys": [
+          {
+            "keyId": "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+            "firstHeight": 0,
+            "lastHeight": 1000
+          }
+        ]
+      }
+    },
+    {
+      "name": "short_key",
+      "input": [
+        {
+          "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+          "publicKey": "0x11111111111111111111111111111111111111111111111111111111111111",
+          "firstHeight": 0,
+          "lastHeight": 1000
+        }
+      ],
+      "mirror": {
+        "error": "render-config: --receipt-keys-file entry 0 publicKey must be 32 hexadecimal bytes"
+      },
+      "gateway": {
+        "error": "receipt keys file <keys> entry 0 publicKey must be a 0x-prefixed 32-byte lowercase hexadecimal value"
+      }
+    },
+    {
+      "name": "malformed_id",
+      "input": [
+        {
+          "keyId": "0xzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 0,
+          "lastHeight": 1000
+        }
+      ],
+      "mirror": {
+        "error": "render-config: --receipt-keys-file entry 0 keyId must be 32 hexadecimal bytes"
+      },
+      "gateway": {
+        "error": "receipt keys file <keys> entry 0 keyId must be a 0x-prefixed 32-byte lowercase hexadecimal value"
+      }
+    },
+    {
+      "name": "empty",
+      "input": [],
+      "mirror": {
+        "error": "render-config: --receipt-keys-file must contain a nonempty JSON array"
+      },
+      "gateway": {
+        "error": "receipt keys file <keys> must contain a nonempty JSON array"
+      }
+    },
+    {
+      "name": "unknown_field",
+      "input": [
+        {
+          "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+          "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+          "firstHeight": 0,
+          "lastHeight": 1000,
+          "unexpected": true
+        }
+      ],
+      "mirror": {
+        "error": "render-config: --receipt-keys-file entry 0 must contain keyId, publicKey, firstHeight and lastHeight"
+      },
+      "gateway": {
+        "error": "receipt keys file <keys> entry 0 must declare exactly firstHeight, keyId, lastHeight, publicKey"
+      }
+    }
+  ],
+  "endpoint_refusals": [
+    {
+      "url": "https://paxeer-a.example/rpc",
+      "error": "render-config: --paxeer-endpoint endpoint 'https://paxeer-a.example/rpc' must use the root JSON-RPC URL"
+    },
+    {
+      "url": "https://paxeer-a.example/evm",
+      "error": "render-config: --paxeer-endpoint endpoint 'https://paxeer-a.example/evm' must use the root JSON-RPC URL"
+    },
+    {
+      "url": "https://paxeer-a.example/%2f",
+      "error": "render-config: --paxeer-endpoint endpoint 'https://paxeer-a.example/%2f' must use the root JSON-RPC URL"
+    },
+    {
+      "url": "https://paxeer-a.example/?rpc=1",
+      "error": "render-config: --paxeer-endpoint endpoint 'https://paxeer-a.example/?rpc=1' must use the root JSON-RPC URL"
+    },
+    {
+      "url": "https://paxeer-a.example/#rpc",
+      "error": "render-config: --paxeer-endpoint endpoint 'https://paxeer-a.example/#rpc' must use the root JSON-RPC URL"
+    },
+    {
+      "url": "https://user@paxeer-a.example/",
+      "error": "render-config: --paxeer-endpoint endpoint 'https://user@paxeer-a.example/' must use the root JSON-RPC URL"
+    }
+  ],
+  "gateway_keys": [
+    {
+      "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+      "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+      "firstHeight": 0,
+      "lastHeight": 1000
+    },
+    {
+      "keyId": "0x0202020202020202020202020202020202020202020202020202020202020202",
+      "publicKey": "0x3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+      "firstHeight": 1001,
+      "lastHeight": 18446744073709551615
+    }
+  ],
+  "gateway": {
+    "adapters": [
+      {
+        "id": "x402",
+        "specification": "x402",
+        "version": "2.0.0",
+        "specification_sha256": "7d9be66cbcf51d3593e17ac51a623395f8ccb86fd3d76a27919419e4ce83efef",
+        "conformance_suite": "layerx-x402-conformance-v1",
+        "conformance_vectors": 27,
+        "conformance_sha256": "fa0f81cd359feeca5d9df78e4fe73aac58249540dc795e171b36f8a733f2f692",
+        "evidence_policy": "layerx-receipt"
+      },
+      {
+        "id": "ap2",
+        "specification": "ap2",
+        "version": "1.0.0",
+        "specification_sha256": "32c3be5011f481d2760e56e7b9935b0842c3da0d5f7d7b8a68402a599f1e6aa3",
+        "conformance_suite": "layerx-ap2-conformance-v1",
+        "conformance_vectors": 6,
+        "conformance_sha256": "fc3f20f609e63327eed98bdb7984151faf459690514b0b9f9fa7a0d04b781698",
+        "evidence_policy": "verified-mandate+layerx-receipt"
+      },
+      {
+        "id": "ucp",
+        "specification": "ucp-checkout",
+        "version": "20260408",
+        "specification_sha256": "a579df10ae589a63f8f0d01e7b4f8e3183ba227025c692bb0385d92362b894b3",
+        "conformance_suite": "layerx-ucp-conformance-v1",
+        "conformance_vectors": 29,
+        "conformance_sha256": "2a1aaa7d7b24b1fc150a222f94aab28fe5e9db22299cb1d1cb8f5ac3c03dca80",
+        "evidence_policy": "layerx-receipt"
+      },
+      {
+        "id": "visa-tap",
+        "specification": "visa-tap",
+        "version": "1",
+        "specification_sha256": "5f5fbaef32d575d1f83a0a2c8051338c37f7224cd6afd464d638b8f2863cada5",
+        "conformance_suite": "layerx-visa-tap-conformance-v1",
+        "conformance_vectors": 23,
+        "conformance_sha256": "00e4bfeb2c0f897f1b3251e33ba5160a5c6f0cd802e6e79a52bfe1120e2b9fa9",
+        "evidence_policy": "trusted-agent-credential"
+      },
+      {
+        "id": "fiat",
+        "specification": "layerx-fiat-settlement",
+        "version": "1",
+        "specification_sha256": "78f39be4ad25d685a5ca633ddf0e896010ca207d07903fbc277e1af98c7287ea",
+        "conformance_suite": "layerx-fiat-conformance-v1",
+        "conformance_vectors": 31,
+        "conformance_sha256": "b8ab8eaa5885aa5e47da7bf91de0b4ece329bc3104e069e722603d8b3dbc93e8",
+        "evidence_policy": "external-settlement+layerx-receipt"
+      }
+    ],
+    "transports": [
+      {
+        "id": "http",
+        "version": "2",
+        "specification_sha256": "4f0298aaa23ac75de0eb49b1e96e6e67a5b910d7527b3a71c63e426b3bf5bdfb",
+        "conformance_sha256": "199c7351f47083cb9c99f92768a5edcd5a31207245fea2d63b0a749426759131"
+      },
+      {
+        "id": "mcp",
+        "version": "2",
+        "specification_sha256": "4f1e0bb50c60e3fe384142f589cd6323b8a9ec4432335ef29053d1220f9e2146",
+        "conformance_sha256": "32d731fd55bcb7e1a9ee8a95809db2cc19d9bf0652eb9ddd80f77dba47194999"
+      },
+      {
+        "id": "a2a",
+        "version": "2",
+        "specification_sha256": "bbf078363a2fc4eeeb8f6e9b66cf36033f5acfc3984c0e8f427143368979d878",
+        "conformance_sha256": "8a869441bb66ac99af142e84036db333cae9c61f54b98ab9a3f873e980c3ce9c"
+      }
+    ],
+    "x402_supported": {
+      "kinds": [
+        {
+          "x402Version": 2,
+          "scheme": "exact",
+          "network": "layerx:beta"
+        }
+      ],
+      "extensions": [],
+      "signers": {
+        "layerx:beta": [
+          "did:layerx:3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+          "did:layerx:8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e"
+        ]
+      }
+    },
+    "ap2_keys": [
+      {
+        "key_id": "layerx-beta-checkout-mandate-key",
+        "public_key_sec1": "04aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "use_case": "checkout-mandate"
+      },
+      {
+        "key_id": "layerx-beta-payment-mandate-key",
+        "public_key_sec1": "04bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "use_case": "payment-mandate"
+      },
+      {
+        "key_id": "layerx-beta-merchant-checkout-key",
+        "public_key_sec1": "04cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "use_case": "merchant-checkout"
+      }
+    ],
+    "ap2_assets": [
+      {
+        "asset": "b5a32b12029f8ddfb905f90f280f664b46390de0fc62770fc197dd87b18cd898",
+        "atomic_units_per_minor_unit": "1000000000000000000",
+        "audience": "https://layerx-interop-gateway.layerx-testnet.svc.cluster.local:9443",
+        "currency": "LXT",
+        "minor_unit_exponent": 0,
+        "payee_account": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "payee_merchant_id": "layerx-beta-merchant",
+        "payee_merchant_name": "LayerX Beta Testnet Merchant",
+        "payer_account": "1111111111111111111111111111111111111111111111111111111111111111",
+        "principal_digest": "3333333333333333333333333333333333333333333333333333333333333333"
+      }
+    ],
+    "ucp_payment_handler": {
+      "id": "layerx-ucp-handler",
+      "version": "2026-04-08",
+      "spec": "https://ucp.dev/2026-04-08/specification/checkout/",
+      "schema": "https://ucp.dev/2026-04-08/schemas/shopping/checkout.json"
+    },
+    "visa_agents": [
+      {
+        "agent_domain": "https://layerx-interop-gateway.layerx-testnet.svc.cluster.local:9443",
+        "agent_id": "layerx-beta-trusted-agent",
+        "algorithm": "ed25519",
+        "expires_at": 1893456000,
+        "key_id": "layerx-beta-tap-key-1",
+        "layerx_agent": "1111111111111111111111111111111111111111111111111111111111111111",
+        "public_key": "2222222222222222222222222222222222222222222222222222222222222222",
+        "status": "active"
+      }
+    ],
+    "visa_targets": [
+      {
+        "authority": "layerx-interop-gateway.layerx-testnet.svc.cluster.local:9443",
+        "path": "/checkout",
+        "principal_digest": "3333333333333333333333333333333333333333333333333333333333333333"
+      }
+    ],
+    "fiat_providers": [
+      {
+        "provider": "layerx-beta-fiat-provider",
+        "public_key_ed25519": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      }
+    ]
+  }
+}

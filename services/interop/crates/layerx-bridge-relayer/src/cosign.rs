@@ -22,6 +22,7 @@ use crate::journal::JournalError;
 const MAX_ENTRIES: usize = 256;
 const MAX_ENTRY_BYTES: u64 = 256;
 
+#[derive(Clone)]
 pub struct CosignDirectory {
     root: PathBuf,
 }

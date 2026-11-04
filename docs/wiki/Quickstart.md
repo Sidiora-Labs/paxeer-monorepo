@@ -1,674 +1,299 @@
 # Quickstart
 
-At the end of this path a developer has a disposable beta cluster from this
-repository, the env file `up` writes, a local Ed25519 key and a stored hosted
-session token, a claim from that cluster's private-network faucet, one Programs deploy
-submitted through the CLI command that exists (and the hosted
-`POST /v1/programs/deploy` route the gateway actually serves), one payment
-submitted through the CLI command that exists (and the hosted activity HTTP
-route the gateway actually serves), fetched receipt bytes, a local `layerx
-receipt verify` result, and a Paxeer-boundary observation of chain id `125`.
+Connect to Paxeer mainnet-beta, fund a wallet, submit a transaction and check
+its committed outcome. Paxeer is one BFT network run by `paxd`, with EVM chain
+ID `125` (`0x7d`). The kernel is part of the network and proposes blocks; a
+receipt is final when its block is committed. See
+[Unified network](UnifiedNetwork.md) for the execution and evidence model.
 
-This page covers that path. Commands, flags, printed fields, and HTTP routes are
-cited to the tree. Related pages: [CLI](Cli.md), [Beta cluster](BetaCluster.md),
-[Hosted gateway](HostedGateway.md), [Hosted identity](HostedIdentity.md),
-[Programs](Programs.md), [Finality](Finality.md).
+The public walkthrough below uses node JSON-RPC and an EVM signing wallet.
+The [private development section](#private-development-profiles) covers local
+credentials, program builds and disposable infrastructure separately.
 
-Funding, send, Asset, program, and 402 surfaces are on
-[Payments developer path](PaymentsQuickstart.md). The public endpoint
-checklist is [Getting started](Getting-Started-Beta.md).
-Asset encodings: [Assets](Assets.md).
-Operator-deployed gateway `POST /rpc`: [Public JSON-RPC](PublicRpc.md).
-`executed` / `batched` / `finalised`:
-[Commitment levels](CommitmentLevels.md).
+## 1. Connect to the public network
 
----
-
-## 1. Bring the beta cluster up
-
-The script is `services/platform/hosted/tests/beta-cluster.sh`. Its usage names `up`,
-`down`, and `render` (`services/platform/hosted/tests/beta-cluster.sh:4-7`). `main`
-dispatches `up`, `down`, `render`, and `images`; any other first argument
-prints that usage block to stderr and exits `64`
-(`services/platform/hosted/tests/beta-cluster.sh:3813-3843`). There is no `export`
-subcommand.
-
-Make:
+Use the root HTTPS JSON-RPC endpoint:
 
 ```sh
-make platform-beta-cluster-up
+export RPC_URL=https://api-mainnet-beta.paxeer.network
+
+curl --fail-with-body --silent --show-error --max-time 30 "$RPC_URL" \
+  --header 'Content-Type: application/json' \
+  --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
 ```
 
-That runs `bash services/platform/hosted/tests/beta-cluster.sh up $(PLATFORM_BETA_CLUSTER_FLAGS)`
-(`services/platform/Makefile.inc:184-185`). The only `up` flag the script accepts is
-`--boundary-checks` (`services/platform/hosted/tests/beta-cluster.sh:3829`).
+Require `result` to be `"0x7d"` before signing. The other public node names
+are `https://api1.mainnet-beta.paxeer.network` through
+`https://api14.mainnet-beta.paxeer.network`, also at the root path. Compare
+`eth_blockNumber` when choosing a current node. A lagging or unavailable node
+does not establish that a transaction failed.
 
-`up` calls `beta_cluster_up` (`services/platform/hosted/tests/beta-cluster.sh:3598-3743,
-3833`). After images, cluster, CA, secrets, render, trusted-boundary apply,
-Paxeer contract deploy, identity provisioning, and port-forwards, it writes
-the env file, writes cluster identity, and waits until testnet `GET /readyz`
-has `state == "ready"`, every journey `ready == true`, every dependency
-`ready == true`, four journeys, and the developer-plane deployments are
-ready (`services/platform/hosted/tests/beta-cluster.sh:2983-2992, 3735-3738`). On
-success it prints, on stderr via `log`:
+The pre-merge router and public `/rpc`, `/rpc/ws` and `/rpc/schema` paths are retired.
+`node.hyperpaxeer.com` is the hpx library mirror used by build scripts, not an RPC endpoint.
 
-- `every journey ready:` followed by the comma-joined `.journeys[].journey`
-  values from `build/beta-cluster/readyz.json`
-  (`services/platform/hosted/tests/beta-cluster.sh:292, 3738`)
-- `environment exported to` plus `build/beta-cluster/env`
-  (`services/platform/hosted/tests/beta-cluster.sh:201, 207, 3739`)
+The node namespace inventory is `debug`, `echo`, `eth`, `net`, `pax`, `test`
+and `txpool`; availability depends on node configuration. The hosted
+`px_*` workflow contract belongs to the operator-deployed gateway in
+`services/platform/hosted/gateway/openrpc.json`. Obtain the service endpoint
+from its operator when using that contract. A gateway method is not a promise
+that every public node serves it.
 
-`identity_write` prints `beta-cluster: cluster identity` and then each
-identity line prefixed `beta-cluster:   `
-(`services/platform/hosted/tests/beta-cluster.sh:3126-3127`). Those lines include
-`cluster_mode`, `cluster_name`, `revision`, `sequencer_public_key`,
-`sequencer_id`, `node_network_id`, `node_asset_id`, `paxeer_chain_id`,
-`paxeer_guarantor_bond`, `paxeer_checkpoint_registry`, `test_source_did`,
-`test_destination_did`, `faucet_host`, `developer_host`
-(`services/platform/hosted/tests/beta-cluster.sh:3095-3121`).
+## 2. Create and fund a wallet
 
-Render without applying:
+Connect an EVM signing wallet to chain `125`. Obtain native PAX for gas from
+an existing funded account or an operator-provided allocation. There is no
+public faucet. Read `eth_getBalance(address, "latest")` to check native funds.
+Opening a ledger account or binding a DID does not create a balance.
 
-```sh
-bash services/platform/hosted/tests/beta-cluster.sh render
+For applications that need a DID, bind the EVM address through the `addr`
+precompile at `0x0000000000000000000000000000000000001004`.
+`precompiles/addr/Addr.sol` declares the interface. The DID key signs the
+chain-bound message and the EVM owner submits `bindLayerX`; see
+[Account binding](UnifiedNetwork.md#account-binding) for the exact bytes and
+nonce. A standalone `layerx key create` credential is an Ed25519 key, not a
+funded EVM signing wallet.
+
+## 3. Submit a native PAX transfer
+
+For an application using ethers v6 and an injected EIP-1193 wallet, request
+approval for the intended recipient and amount:
+
+```ts
+import { BrowserProvider, parseEther } from "ethers";
+
+async function transferPax(
+  wallet: ConstructorParameters<typeof BrowserProvider>[0],
+  recipient: string,
+  amountPax: string,
+) {
+  const provider = new BrowserProvider(wallet);
+  if ((await provider.getNetwork()).chainId !== 125n) {
+    throw new Error("Connect to Paxeer mainnet-beta (chain 125)");
+  }
+  await provider.send("eth_requestAccounts", []);
+  const signer = await provider.getSigner();
+  const tx = await signer.sendTransaction({
+    to: recipient,
+    value: parseEther(amountPax),
+  });
+  const receipt = await tx.wait();
+  if (receipt === null || receipt.status !== 1) {
+    throw new Error(`Transfer did not succeed: ${tx.hash}`);
+  }
+  return { transactionHash: tx.hash, receipt };
+}
 ```
 
-prints `rendered manifests under` `$MANIFESTS_DIR` `and beta CA under`
-`$CA_DIR` `(nothing applied)` (`services/platform/hosted/tests/beta-cluster.sh:3773-3795`).
+Pass the browser's wallet provider as `wallet`. The wallet signs locally;
+the public node does not hold the user's key. Clients that sign their own
+EVM transactions submit the signed bytes with `eth_sendRawTransaction`.
+Retain those bytes and their transaction hash before broadcasting.
 
-Default host ports are testnet `19443`, gateway `19444`, faucet `19445`
-(`services/platform/hosted/tests/beta-cluster.sh:229-231`). `up` binds
-`TESTNET_URL=https://localhost:$TESTNET_PORT`,
-`GATEWAY_URL=https://localhost:$GATEWAY_PORT`,
-the private-network faucet at `https://localhost:$FAUCET_PORT`,
-`DEVELOPER_URL=https://localhost:19450`,
-`NODE_URL=https://localhost:19446`,
-`AGENT_URL=https://localhost:19447`,
-`PAXEER_URL=https://localhost:19449`,
-`PAXEER_OBSERVER_URL=https://localhost:19452`,
-`IDENTITY_URL=https://localhost:19451`,
-`HUMAN_URL=https://localhost:19453`
-(`services/platform/hosted/tests/beta-cluster.sh:3649-3661`). Port-forwards are
-Paxeer-boundary `19449`, Paxeer-observer-boundary `19452`, identity
-`19451`, testnet, gateway, faucet, developer `19450`, pending-core
-`19446`, and agent-boundary `19447`
-(`services/platform/hosted/tests/beta-cluster.sh:3636-3637, 3674, 3703-3718`). Human is forwarded on `19453` to port `9443`. There is no agentd port-forward.
+## 4. Use native ledger assets
 
-The kind cluster name defaults to `layerx-beta`
-(`services/platform/hosted/tests/beta-cluster.sh:18, 219`). Paxeer EVM chain id is
-`125` (`services/platform/hosted/tests/beta-cluster.sh:274`).
+Ledger assets and payments execute on the same chain through LayerXLedger at
+`0x000000000000000000000000000000000000101a`. Use the ABI in
+`precompiles/layerxledger/abi.json`, implemented by
+`precompiles/layerxledger/` and `modules/layerxledger/`.
 
----
+Bind the participating EVM owners to their DIDs first. Wait for a successful
+committed receipt after each prerequisite write:
 
-## 2. Exported endpoints
-
-`up` writes `build/beta-cluster/env` from `env_write`
-(`services/platform/hosted/tests/beta-cluster.sh:207, 3037-3088, 3735`). There is no
-separate export step. Source it:
-
-```sh
-. build/beta-cluster/env
-```
-
-`make platform-hosted-smoke` sources the same file when readable
-(`services/platform/Makefile.inc:3, 161-173`). The file contains `export` lines for:
-
-| Variable | Value written |
+| Step | Call and authority |
 | --- | --- |
-| `LAYERX_TESTNET_URL` | `$TESTNET_URL` |
-| `LAYERX_GATEWAY_URL` | `$GATEWAY_URL` |
-| `LAYERX_FAUCET_URL` | `https://localhost:$FAUCET_PORT` |
-| `LAYERX_TEST_AUTH_TOKEN_FILE` | `build/beta-cluster/secrets/test-auth.token` |
-| `LAYERX_TEST_CA_FILE` | `build/beta-cluster/ca/ca.crt` |
-| `LAYERX_TEST_SOURCE_DID` | smoke source DID |
-| `LAYERX_TEST_SOURCE_PUBLIC_KEY` | 64-hex Ed25519 public key |
-| `LAYERX_TEST_SOURCE_KEY_FILE` | PEM signer path |
-| `LAYERX_TEST_DESTINATION_DID` | smoke destination DID |
-| `LAYERX_TEST_ASSET` | node ConfigMap `asset-id` |
-| `LAYERX_TEST_AMOUNT` | default `1` |
-| `LAYERX_GATEWAY_CA_FILE` | same CA as `LAYERX_TEST_CA_FILE` |
-| `LAYERX_IDENTITY_URL` | identity port-forward |
-| `LAYERX_PAXEER_BOUNDARY_URL` | `$PAXEER_URL` |
-| `LAYERX_PAXEER_SETTLEMENT_CONTRACT` | layerxAnchor precompile `0x0000000000000000000000000000000000001014` (guarantor bond) |
-| `LAYERX_PAXEER_CHECKPOINT_REGISTRY` | layerxAnchor precompile `0x0000000000000000000000000000000000001014` (checkpoint settlement) |
-| `LAYERX_PAXEER_DEPLOYMENT_RECORD` | `build/beta-cluster/paxeer/deployment.json` |
-| `KUBECONFIG` | cluster kubeconfig |
-| `WEBHOOKS_URL` | developer port-forward |
-| `LAYERX_QUALIFICATION_NODE_URL` | `$NODE_URL` (`https://localhost:19446`, pending-core) unless `LAYERX_BETA_QUALIFICATION_NODE_URL` is set. Role: qualification node (`tools/qualification/release_runner.py:24`; `tools/qualification/beta_driver.py:41`). |
-| `LAYERX_AGENT_BOUNDARY_URL` | `$AGENT_URL` (`https://localhost:19447`, agent boundary). |
-| `LAYERX_QUALIFICATION_AGENT_URL` | `LAYERX_BETA_QUALIFICATION_AGENT_URL` when supplied for a real deployed agentd; otherwise explicitly unset. Bring-up does not start agentd. |
-| `LAYERX_QUALIFICATION_HUMAN_URL` | `LAYERX_BETA_QUALIFICATION_HUMAN_URL` when set; otherwise `$HUMAN_URL` (`https://localhost:19453`, Human HTTPS API). |
-| `LAYERX_QUALIFICATION_PAXEER_URL` | `$PAXEER_URL` unless `LAYERX_BETA_QUALIFICATION_PAXEER_URL` is set. Role: qualification Paxeer testnet (`tools/qualification/release_runner.py:27`; `tools/qualification/beta_driver.py:44`). |
+| Register | The issuer calls `register(assetId, salt, symbol, name, decimals, supplyCap, issuerKind, custodyReference)` with the asset's canonical parameters. |
+| Open | Each owner calls `openAccount(assetId)` for its per-asset account. |
+| Identify | Read `accountId(owner, assetId)`, where `owner` is the bound DID public key as `bytes32`. |
+| Mint | The authorized issuer calls `mint(assetId, accountId, amount)` within the asset's cap and issuance policy. |
+| Pay | The source owner calls `payExact(from, to, assetId, amount, expiresAtMs, paymentReference)`. |
+| Read | Read `balanceOf(accountId, assetId)`, `getAsset(assetId)` and `nextSequence(accountId, assetId)` with `eth_call`. |
 
-`env_write` in `services/platform/hosted/tests/beta-cluster.sh` exports the node,
-Human and Paxeer qualification origins, using their non-empty overrides
-when provided. It exports the agent boundary separately and unsets the
-agentd qualification variable unless a real agentd override is supplied.
-The missing agentd endpoint is recorded in the bring-up missing-input list.
-`LAYERX_TEST_AMOUNT` defaults to `1`.
+Amounts are integer asset units. For `payExact`, the amount is `uint128`,
+expiry is a future Unix timestamp in milliseconds (`uint64`), and
+`paymentReference` is `bytes32`. `from` and `to` are per-asset account IDs,
+not EVM addresses or DID strings. The keeper selects the next source-account
+sequence and emits `PaymentExact`.
 
-HTTP against those origins uses the cluster CA. Hosted smoke passes
-`--cacert "$LAYERX_TEST_CA_FILE"` (`services/platform/hosted/testnet/tests/hosted-smoke.sh:7,
-32-33`). The CLI HTTP client builds a ureq agent with a 30s timeout and no CA
-flag (`tools/platform/cli/src/http.rs:41-49`).
+The `send(bytes envelope)` entry point accepts a canonical signed SEND
+envelope; its encoding is different from `payExact` calldata. Use the ABI
+and canonical builders for the chosen entry point. The real-process lifecycle
+in `daemon/committed-fixture/vector_v4.go` binds two identities, registers an
+asset, opens accounts, mints and pays through EVM calls.
 
-Node network id is `402` (`services/platform/hosted/node/deployment.yaml:5`;
-`services/platform/hosted/testnet/src/lib.rs:4`). Node asset id is
-`b5a32b12029f8ddfb905f90f280f664b46390de0fc62770fc197dd87b18cd898`
-(`services/platform/hosted/node/deployment.yaml:7`). Testnet control
-`GET /v1/parameters` returns `network` `layerx-testnet`, `network_id`
-`TESTNET_NETWORK_ID` (`402`), `package_semver`, `lxp_wire_protocol_version`,
-and `reset_schedule` (`services/platform/hosted/testnet/src/main.rs:1155-1163`;
-`services/platform/hosted/testnet/src/lib.rs:4`).
+Native gas funding and ledger asset issuance are different operations within
+one network. Custody-credit funding and the legacy `lx_sendActivity` payment
+flow are retired; do not use their old instructions to fund this lifecycle.
 
----
+## 5. Fetch the receipt and establish commitment
 
-## 2.1. Run a 402LXP payment through a deployed gateway
-
-The maintained 402LXP client path uses JSON-RPC 2.0 at gateway `POST /rpc` and
-WebSocket subscriptions at `GET /rpc/ws`. The Node and Python examples accept
-the gateway origin and, on a disposable cluster, its private-network faucet
-origin explicitly:
+Set `TX_HASH` to the transaction hash returned by the wallet or node:
 
 ```sh
-node services/platform/middleware/examples/public-rpc.mjs --help
-PYTHONPATH=services/agent/sdk/python python3 services/platform/middleware/examples/public_rpc.py --help
+jq -n --arg hash "$TX_HASH" \
+  '{jsonrpc:"2.0",id:1,method:"eth_getTransactionReceipt",params:[$hash]}' |
+  curl --fail-with-body --silent --show-error --max-time 30 "$RPC_URL" \
+    --header 'Content-Type: application/json' --data-binary @-
 ```
 
-The payment sequence is challenge, payer grant, settlement receipt, then
-renewal. A metered or subscription `PAYMENT-REQUIRED` challenge fixes the
-registered asset, amount, recipient, payer, purpose and required commitment.
-The payer signs and issues the canonical ordinal-7 grant. The receiver submits
-the canonical signed ordinal-6 receive activity with
-`lx_sendActivity(canonical_hex, commitment)`. A subscription renewal is a new
-receive activity under the same recurring grant, with current sequences and a
-new period idempotency key.
+A null result means that node has no receipt available yet. Status `"0x0"`
+records failed execution; `"0x1"` records success. Check the transaction hash,
+block hash, status and expected effects. Commitment does not turn failed
+execution into a successful payment.
 
-If submission is pending or its outcome is unknown, retain the exact signed
-activity and query `lx_getActivityStatus(activity_id)` and
-`lx_getReceipt(activity_id)`. Verify the returned sequencer signature, successful
-result and exact activity binding. For a `batched` challenge, also obtain
-`lx_getProof("receipt", activity_id)`, match its canonical value to that receipt,
-and verify inclusion in the authorized signed batch header. Do not issue a
-replacement draw with a new key. Only evidence that verifies at the challenged
-`executed`, `batched` or `finalised` level authorizes fulfillment. The settlement reference remains
-`lxp:<receipt_digest>`; an HTTP success, admission acknowledgement, queue state
-or faucet response is not payment evidence.
+Where configured, the optional `pax_sequencerReceipt(transactionHash)` method
+reports signed execution progress. Its implementation is
+`rpc/sequencer_receipt.go`:
 
-The maintained disposable-network qualification exercises the same gateway
-path end to end: a canonical ordinal-7 grant, 20 ordinal-6 metered draws at
-`executed`, a recurring grant and first draw at `executed`, then a new-period
-renewal at `batched`. The verified draw submit-to-receipt measurements were
-p50 990,202 microseconds and p99 11,801,435 microseconds. The batched renewal's
-verified settlement reference was
-`lxp:21d0e81da67a7dac4d669d45b07f67b241c47285b120121e3d5700c8978233fd`.
-These measurements describe that qualification run, not a service-level target.
+| Rung | Meaning |
+| --- | --- |
+| `submitted` | A send record exists without a signed execution receipt. |
+| `receipted` | A signed execution receipt exists; commitment has not been established. |
+| `committed` | A committed block's `MsgSequenceBatch` covers the receipt's sequence. |
 
-Funding is separate. Confirm the funded account with `lx_getAccount`,
-`lx_getBalance` or `lx_getBalances(did)` before preparing a draw, and obtain the
-current identity sequence through `lx_getSequence`. The examples read
-`LAYERX_RPC_URL`, `LAYERX_FAUCET_URL` and `LAYERX_DID`; authentication uses
-`LAYERX_RPC_TOKEN` and `LAYERX_FAUCET_TOKEN`. See
-[402LXP transport](X402Transport.md) for the offer, grant and commitment
-contracts.
+A receipt signature alone does not prove block inclusion or BFT commitment.
+For independent verification, authenticate the receipt key ranges and chain
+trust, then verify the signed transaction, execution-result and sequence-batch
+inclusion proofs and validator commits. See
+[SDK terminal verification](SdkTerminalVerification.md). The legacy
+`layerx receipt verify` authorized-batch check is not the merged-chain
+commitment proof.
 
-The public node JSON-RPC is `https://api-mainnet-beta.paxeer.network` at the
-root path, with EVM chain ID `125`. The other public node names are `api1`
-through `api14.mainnet-beta.paxeer.network`, also at the root. WebSocket
-upgrades were observed at the mainnet-beta node's root and `/ws`.
-The `lx_*` and `px_*` methods in this flow require an operator-deployed
-hosted gateway. Obtain its JSON-RPC URL and authenticated `/rpc/ws` endpoint
-from the operator; there is no public gateway URL established by the checked-in
-configuration and no separate public LayerX interface. There is no public
-faucet. See [Getting started](Getting-Started-Beta.md) for the endpoint
-checklist and [Hosted gateway JSON-RPC](PublicRpc.md) for methods and typed errors.
+## 6. Recover an uncertain submission
 
----
+If a request times out, recover by the existing transaction hash. Query the
+receipt and account nonce before authorizing another debit. Rebroadcasting
+identical signed bytes preserves the hash; automatically signing a new payment
+can charge twice.
 
-## 3. Create a credential
+Inspect JSON-RPC `error` even when HTTP succeeds. Standard code `-32601`
+means the method is unavailable and `-32602` means invalid parameters. The
+optional receipt API returns `-32000` when it has neither a local receipt
+source nor a configured forwarding endpoint. Keep that absence explicit;
+an unavailable receipt is not a successful payment.
 
-For hosts without an OS Secret Service, first follow the
-[headless credential setup](../../tools/platform/cli/README.md#headless-credential-storage).
-Keep the store selection and passphrase environment available for all commands.
+## 7. Use supported hosted workflows
 
-The developer CLI binary is `layerx` (`tools/platform/cli/Cargo.toml:11-13`;
-`tools/platform/cli/src/main.rs:31-32`). Global `--json` emits one JSON object
-`{ok, kind, message, data}` (`tools/platform/cli/src/main.rs:34-39`;
-`tools/platform/cli/src/output.rs:18-30`).
+For gateway reads, use the operator's endpoint and its published OpenRPC
+contract:
+
+| Method | Use |
+| --- | --- |
+| `px_getNetwork` | Read network identity, EVM chain ID and head information. |
+| `px_resolveAccount`, `px_getAccount` | Resolve an EVM address or explicit DID and inspect its binding. |
+| `px_getBalances`, `px_listAssets` | Read the declared balance and asset views with their source metadata. |
+| `px_getHistory`, `px_getUnifiedHistory` | Read indexed history using the declared cursor and limit parameters. |
+| `px_getCapabilities` | Inspect native capability probes before choosing a workflow. |
+
+Keep the original EVM address or DID selector for later lookups; a native
+account ID is a different identifier. A bare 64-hex account selector is
+refused with `-32001` and
+`data.code = "native_account_reverse_resolution_unsupported"`.
+
+For service-managed payments, use [Human journeys](HumanJourneys.md) with the
+deployment's authentication and allowance policy. `layerx payment test`
+uses `/v1/moves/quote` followed by `/v1/moves` in
+`tools/platform/cli/src/payment.rs`; it requires a service implementing that
+Human contract. It is not a direct public-node payment command. A service
+acknowledgement or history entry is not evidence of a successful committed
+debit.
+
+## Private development profiles
+
+These instructions are for a local emulator or an explicitly provisioned
+private deployment. Profile names and private network IDs do not configure
+the public EVM chain.
+
+### Credentials and a local emulator
+
+Build/install instructions and headless credential-store setup are in the
+[CLI README](../../tools/platform/cli/README.md#headless-credential-storage).
+With `layerx` on `PATH`, provision and start the local emulator:
 
 ```sh
-layerx key create quickstart
+umask 077
+export LAYERX_CONFIG="$HOME/.config/layerx/config.json"
+mkdir -p "$(dirname "$LAYERX_CONFIG")"
+layerx emulator provision
+layerx emulator up \
+  --sequencer-seed-file "$HOME/.config/layerx/emulator/sequencer.seed"
 ```
 
-`name` is 1–128 ASCII alnum/`-`/`_` (`tools/platform/cli/src/credential.rs:294-303`).
-`--did` is optional (`tools/platform/cli/src/main.rs:131-134`). Without it the DID
-is `did:layerx:` plus the 64-hex public key
-(`tools/platform/cli/src/credential.rs:122`). Human output is `Created key {name} in
-credential storage` plus JSON `{name, did, public_key}`
-(`tools/platform/cli/src/main.rs:831-834`). `--json` sets `kind` to `key.created`.
-
-The seed is 32 OS-random bytes stored in the selected credential backend.
-The default OS backend uses keyring service `dev.layerx.cli`
-(`tools/platform/cli/src/credential.rs:11, 83-96`). Key metadata in config is `did`
-and `public_key` (`tools/platform/cli/src/config.rs:19-23`).
-
-Store the cluster session token (do not print the file contents):
+In another terminal using the same config and credential-store settings:
 
 ```sh
-tr -d '\r\n' < "$LAYERX_TEST_AUTH_TOKEN_FILE" | layerx auth set --environment beta
-```
-
-`auth set` reads stdin and saves it (`tools/platform/cli/src/main.rs:153-158,
-858-865`). Human output is `Saved {environment} API token in credential storage` with data `{environment, secret_storage:
-operating-system-credential-store}` by default, or
-`secret_storage: encrypted-file-credential-store` for the file backend.
-`kind` is `auth.saved`.
-`--environment` optional; else current (`tools/platform/cli/src/main.rs:1421-1449`).
-Bring-up mints that token as `ses_` plus 32 hex, `.`, 64 hex when the source
-is identity-provisioning (`services/platform/hosted/tests/beta-cluster.sh:2698-2705`).
-
-Bind the hosted profile. `name` must be `emulator`, `beta`, or `production`
-(`tools/platform/cli/src/config.rs:121-126`). `--endpoint`, `--network-id`, and one
-of `--sequencer-trust-anchor` / `--sequencer-trust-anchor-file` must be
-supplied together or omitted together (`tools/platform/cli/src/emulator.rs:751-791`).
-The anchor is 32-byte hex Ed25519 (`tools/platform/cli/src/emulator.rs:821-824`).
-`up` writes `sequencer_public_key` into `build/beta-cluster/identity`
-(`services/platform/hosted/tests/beta-cluster.sh:3103`). For `beta`, sequencer
-identity is not probed (`tools/platform/cli/src/main.rs:771-805`).
-
-```sh
-layerx environment use beta \
-  --endpoint "$LAYERX_GATEWAY_URL" \
+layerx environment use emulator \
+  --endpoint http://localhost:9402 \
   --network-id 402 \
-  --sequencer-trust-anchor "$(sed -n 's/^sequencer_public_key=//p' build/beta-cluster/identity)"
+  --sequencer-trust-anchor-file "$HOME/.config/layerx/emulator/sequencer.anchor"
+layerx key create quickstart
+layerx environment current
 ```
 
-Human output is `Using LayerX {name}` with data `{name, endpoint, network_id,
-sequencer_trust_anchor}` (`tools/platform/cli/src/main.rs:813-820`). `kind` is
-`environment.selected`.
+`tools/platform/cli/src/emulator.rs` requires endpoint, network ID and one
+trust-anchor input together when configuring a profile. The local emulator
+uses loopback port `9402` and private network ID `402`. Its trust-anchor flag
+is emulator configuration, not public-network finality. Credential creation
+stores a random Ed25519 seed in the selected backend; the default backend is
+the OS keyring. It does not register or fund an account.
 
-`layerx auth status --environment beta` prints whether a token exists
-without printing it (`tools/platform/cli/src/main.rs:159-163, 908-919`).
+For a private hosted session, store the operator-provided token via stdin
+with `layerx auth set --environment beta` and inspect availability with
+`layerx auth status --environment beta`. The `beta` profile must be configured
+for that deployment; a session token does not imply authorization for every
+gateway route.
 
-Hosted account create is a different command: `--email`, `--display-name`,
-`--idempotency-key`; `--initial-amount` must be `0`
-(`tools/platform/cli/src/account.rs:42-54`). It POSTs `/v1/accounts`
-(`tools/platform/cli/src/account.rs:56-63`). Hosted gateway `production_route` does
-not include `/v1/accounts` (`services/platform/hosted/gateway/src/lib.rs:809-881`).
+### Build and deploy a program
 
----
-
-## 4. Fund the account
-
-On the public network there is no faucet. Chain transactions use the public
-node JSON-RPC at `https://api-mainnet-beta.paxeer.network`, root path, chain
-ID `125`. Any `lx_sendActivity` funding flow requires an operator-deployed
-gateway URL; it is not served by those nodes. See
-[Getting started](Getting-Started-Beta.md#wallet-and-funding) and
-[Custody credit](Custody.md) for funding details and availability.
-
-The disposable cluster below also runs a private-network faucet with no
-public name; the rest of this section claims from it.
-
-There is no `layerx faucet` command (`tools/platform/cli/src/main.rs:53-99`). The
-faucet claim route is `POST /v1/faucet/claims`
-(`services/platform/hosted/faucet/src/main.rs:1025`).
-
-Required headers: `Content-Type: application/json`
-(`services/platform/hosted/faucet/src/main.rs:924-925`), `Idempotency-Key` 1–128
-alnum/`-`/`_`/`.`/`:` (`services/platform/hosted/faucet/src/main.rs:946-950, 180-186`),
-`Authorization: Bearer` session (`services/platform/hosted/faucet/src/main.rs:470-504`).
-Body fields are `did` and `public_key` only
-(`services/platform/hosted/faucet/src/main.rs:100-105`). `did` must start with `did:`
-(`services/platform/hosted/faucet/src/main.rs:197-199`); `public_key` is 64 hex
-(`services/platform/hosted/faucet/src/main.rs:201-203, 953-954`).
-
-Hosted smoke:
-
-```sh
-jq -n --arg did "$LAYERX_TEST_SOURCE_DID" --arg public_key "$LAYERX_TEST_SOURCE_PUBLIC_KEY" \
-  '{did:$did, public_key:$public_key}' > faucet-request.json
-curl --fail --silent --show-error --max-time 30 --cacert "$LAYERX_TEST_CA_FILE" \
-  --header "Authorization: Bearer $(tr -d '\r\n' < "$LAYERX_TEST_AUTH_TOKEN_FILE")" \
-  --request POST "$LAYERX_FAUCET_URL/v1/faucet/claims" \
-  --header "Idempotency-Key: faucet-quickstart-01" \
-  --header 'Content-Type: application/json' --data-binary @faucet-request.json
-```
-
-(`services/platform/hosted/testnet/tests/hosted-smoke.sh:101-109`).
-
-A 200 body has `funded` `true`, `funding_id`, optional `transaction_id`,
-`amount` as a decimal string of `LAYERX_FAUCET_CLAIM_AMOUNT` (default
-`1000000`), and `network` `layerx-testnet`
-(`services/platform/hosted/faucet/src/main.rs:255, 892-898`). Smoke asserts
-`.funded == true and .funding_id != null`
-(`services/platform/hosted/testnet/tests/hosted-smoke.sh:110`). A 202 body is
-`state` `still_checking`, `retry` `after`, `retry_after_seconds` `10`
-(`services/platform/hosted/faucet/src/main.rs:1125-1131`).
-
-For a complete request and response copied from a real faucet, hosted gateway,
-and native-node run, continue with
-[Public payment API](PublicAPI.md). The transcript covers asset registration,
-account opening, mint, SEND, balances, asset metadata, and receipt calls without
-shortening canonical bytes.
-
-Testnet control admits the funding journey at `GET /v1/journeys/funding`
-(`services/platform/hosted/testnet/src/main.rs:229, 1165-1171`). Smoke requires
-`.admitted == true and .ready == true and (.failing | length) == 0`
-(`services/platform/hosted/testnet/tests/hosted-smoke.sh:38-49, 101`).
-
----
-
-## 5. Deploy a program
-
-There is no `layerx programs` command (`tools/platform/cli/src/main.rs:53-99`).
-The command is `layerx program deploy <artifact>`
-(`tools/platform/cli/src/main.rs:263-272, 1101-1117`;
-`tools/platform/cli/src/programs.rs:245-279`).
-
-From the funded credential, scaffold and compile a WASM artifact:
+Scaffold and validate a local WASM artifact:
 
 ```sh
 layerx new quickstart-program
 layerx --json program build --manifest-path quickstart-program/Cargo.toml
 ```
 
-`name` is a lowercase Cargo package name, 1–64, digits/`-`, not starting
-with `-` (`tools/platform/cli/src/scaffold.rs:52-62`). `--directory` default `.`
-(`tools/platform/cli/src/main.rs:101-106`). `--json` `kind` is `project.created`
-(`tools/platform/cli/src/main.rs:543-547`). `program build` `--manifest-path`
-default `Cargo.toml`; `--artifact` optional
-(`tools/platform/cli/src/main.rs:241-247, 1083-1090`). Without `--artifact` the
-Rust toolchain must produce exactly one `.wasm` under
-`target/wasm32-unknown-unknown/release`
-(`tools/platform/cli/src/programs.rs:176-213, 1976-1995`). `--json` `kind` is
-`program.built`. Data includes `artifact`, `code_hash`, `byte_size`,
-`function_count`, `abi_version`, `deterministic_validation`
-(`tools/platform/cli/src/programs.rs:216-236`).
+Use the returned artifact path. The current `program deploy` command takes
+that artifact plus `--program-id`, `--evm-key-file` and optional `--fee-limit`;
+`--interface` and `--upgrade-authority` are optional. The lifecycle in
+`tools/platform/cli/src/programs.rs` encodes a native deployment and signs
+an EIP-1559 transaction to the Programs precompile at
+`0x000000000000000000000000000000000000101d`.
 
-The deploy path is the `artifact` field from `program.built`.
+Deployment requires a funded EVM signer and a configured service transport
+supporting that command. Check the deployed capability and current command
+help before submission. The old recipe using account-sequence, state-root
+and validity-window flags is retired. A local build does not deploy a program
+or prove commitment. Continue with [Programs](Programs.md) for lifecycle and
+interface details.
 
-```sh
-layerx --json program deploy \
-  quickstart-program/target/wasm32-unknown-unknown/release/quickstart_program.wasm \
-  --program-id <program_id> \
-  --idempotency-key <idempotency_key> \
-  --key quickstart \
-  --account-sequence 0 \
-  --not-before-ms <not_before_ms> \
-  --expires-at-ms <expires_at_ms> \
-  --previous-state-root <previous_state_root>
-```
+### Disposable beta infrastructure
 
-Required lifecycle flags: `--program-id`, `--idempotency-key`,
-`--account-sequence`, `--not-before-ms`, `--expires-at-ms`,
-`--previous-state-root` (`tools/platform/cli/src/main.rs:297-315, 1503-1569`).
-`--key` optional (else the configured default)
-(`tools/platform/cli/src/main.rs:304, 697-711, 1034`). `--fee-limit` default `0`
-(`tools/platform/cli/src/main.rs:311-312`). `--upgrade-authority` and
-`--interface` optional (`tools/platform/cli/src/main.rs:266-269`). Without
-`--upgrade-authority` the policy is immutable
-(`tools/platform/cli/src/programs.rs:263-269`). `--interface` is canonical
-encoded interface bytes, not KVX source
-(`tools/platform/cli/src/programs.rs:349-357`).
+Operators who need the repository's private integration harness can use
+`make platform-beta-cluster-up`, which invokes
+`services/platform/hosted/tests/beta-cluster.sh up`. Review that script's
+inputs and [Beta cluster](BetaCluster.md) before provisioning; this is a
+multi-service operator workflow, not a prerequisite for using mainnet-beta.
+It builds images and provisions infrastructure and requires the declared
+owner inputs and tools.
 
-`--program-id` and `--previous-state-root` are 32-byte hex
-(`tools/platform/cli/src/programs.rs:261, 429`;
-`tools/platform/cli/src/encoding.rs:29-33`). `--idempotency-key` is 32-byte hex
-at submit time (`tools/platform/cli/src/programs.rs:952`); clap and
-`validate_idempotency_key` also admit 16–128 alnum/`-`/`_`
-(`tools/platform/cli/src/http.rs:388-399`). Hosted `POST /v1/programs/deploy`
-requires `Idempotency-Key` of 64 lowercase hex
-(`services/platform/hosted/gateway/src/main.rs:1535-1545, 829-833`). Validity
-`expires_at_ms - not_before_ms` must be in `(0, 300000]`
-(`tools/platform/cli/src/programs.rs:944-950`). There is no CLI command that
-reads the current state root (`tools/platform/cli/src/main.rs:53-99`). Hosted
-`GET /v1/state` is `503` `principal_state_proof_unavailable`
-(`services/platform/hosted/gateway/src/lib.rs:816`;
-`services/platform/hosted/gateway/src/main.rs:2275`).
-
-The command POSTs canonical signed bytes to `/v1/programs/deploy`
-(`tools/platform/cli/src/programs.rs:436-442`). `--json` `kind` is
-`program.lifecycle`; human text is `Programs lifecycle outcome on
-{environment}` (`tools/platform/cli/src/main.rs:1064-1068`). On a completed
-receipt the data object has `activity_id`, `receipt` (hex), `result_code`,
-`outcome.status` `completed` or `refused`,
-`verified_previous_state_root`, `verified_resulting_state_root`,
-`verification`, and `artifact`
-(`tools/platform/cli/src/programs.rs:519-526, 276-278`). Hosted gateway 200 is
-`{ok: true, result: {activity_id, receipt, state, terminal_payload,
-call_graph}, trace}` (`services/platform/hosted/gateway/src/main.rs:1883-1911`).
-`state` is `completed` when `result_code == 0`, else `refused`.
-
-`active_client` sends the stored session as `Authorization: Bearer`
-(`tools/platform/cli/src/main.rs:1415-1418`; `tools/platform/cli/src/http.rs:240-246`).
-Hosted `POST /v1/programs/deploy` authenticates `LayerX-Key` with scope
-`program:call` (`services/platform/hosted/gateway/src/lib.rs:813`;
-`services/platform/hosted/gateway/src/main.rs:1077-1080, 1144-1153, 2413-2415`).
-Bearer on that route is `401 api_key_required`. Those sources disagree
-on how deploy reaches the gateway. The CLI command that issues a gateway
-key is `layerx install a2a`
-(`tools/platform/cli/src/install/mod.rs:603-632`); `layerx install mcp` binds
-to the agent daemon and issues no key
-(`tools/platform/cli/src/install/mcp.rs:33-56`).
-
----
-
-## 6. Submit one signed activity through the CLI
+After a successful `up`, source its generated environment:
 
 ```sh
-layerx --json payment test \
-  --from "$LAYERX_TEST_SOURCE_DID" \
-  --to "$LAYERX_TEST_DESTINATION_DID" \
-  --currency "$LAYERX_TEST_ASSET" \
-  --amount "$LAYERX_TEST_AMOUNT" \
-  --idempotency-key paymentquickstart1
+. build/beta-cluster/env
 ```
 
-`--from`, `--to`, `--currency` (alias `--asset`), `--amount` (>0),
-`--idempotency-key` (16–128 alnum/`-`/`_`) are required
-(`tools/platform/cli/src/main.rs:194-207`; `tools/platform/cli/src/payment.rs:5-14`;
-`tools/platform/cli/src/http.rs:388-399`). The command POSTs `/v1/moves/quote` then
-`/v1/moves` with `{quote_id}` (`tools/platform/cli/src/payment.rs:23-32`). It
-reads `quote_id` from `/result/quote_id` (`tools/platform/cli/src/payment.rs:24-27`).
-`--json` `kind` is `payment.started`; `data` has `quote`, `journey`,
-`idempotency_key` (`tools/platform/cli/src/main.rs:991-994`;
-`tools/platform/cli/src/payment.rs:33-37`). It does not run `verify_outcome`
-(`tools/platform/cli/src/payment.rs:5-37`). These two routes are Human-plane
-operations (`services/human/schema/human-api/movement.kvx:116-131`). The emulator serves
-that Human contract directly (`tools/platform/emulator/src/main.rs:2667-2668`).
+The file supplies deployment-specific origins such as `LAYERX_GATEWAY_URL`,
+`LAYERX_TESTNET_URL`, `LAYERX_FAUCET_URL` and `LAYERX_PAXEER_BOUNDARY_URL`, plus
+CA and token file paths. Use the supplied CA for private HTTPS and keep token
+files private. A private faucet, when provisioned, is limited to that
+harness; its response does not establish public funding or transaction
+commitment. Historical checkpoint/settlement variables in the harness do not
+change the merged network's BFT finality.
 
-The hosted smoke harness also posts the Human-plane `/v1/moves/quote` and
-`/v1/moves` contract with the session Bearer, then reads `.result.quote_id` and
-`.result.receipt_id` (`services/platform/hosted/testnet/tests/hosted-smoke.sh:113-132`).
-Those paths are not part of the hosted gateway's production route parser.
-`production_route` accepts `POST /v1/activities`,
-program call/deploy/upgrade/wind-down/simulate, `GET /v1/state`,
-`GET /v1/receipts/{id}`, and program registry/interface/activity/receipt reads
-(`services/platform/hosted/gateway/src/lib.rs:802-890`). Unknown production routes are
-`404 not_found`
-(`services/platform/hosted/gateway/src/main.rs:1760-1766`). Production routes
-authenticate `LayerX-Key`, not Bearer (`services/platform/hosted/gateway/src/main.rs:1162-1173,
-1748`). Bearer on those routes is `401 api_key_required`. Bearer is the
-session scheme for `/v1/keys` (`services/platform/hosted/gateway/src/main.rs:972-981,
-1081-1088`). Therefore `layerx payment test` is an emulator/Human-plane client
-path, not a hosted production-gateway payment command. Use the
-`lx_sendActivity` public RPC path for hosted canonical payment activities.
+When finished with the disposable deployment, use
+`make platform-beta-cluster-down`. The teardown removes harness resources;
+retain any needed local artifacts before running it.
 
-There is no `layerx activity` command (`tools/platform/cli/src/main.rs:53-99`).
-The A2A toolset's `activity.submit` takes one `raw_transaction` argument,
-a signed EIP-1559 transaction hex (`tools/platform/cli/src/toolset.rs:189-199`).
-It sends that transaction with `eth_sendRawTransaction` to `/rpc` and returns
-`txHash` with `rung: "submitted"` (`tools/platform/cli/src/toolset.rs:260-294`).
-
-The CLI command that issues a gateway key is `layerx install a2a`,
-which POSTs `/v1/keys` with the stored session
-(`tools/platform/cli/src/install/mod.rs:603-632`). Payment-capable install
-requires `--source-account` and `--asset` as 64-hex
-(`tools/platform/cli/src/install/a2a.rs:357-376`). `layerx install mcp` takes
-neither: it binds to the agent daemon and issues no key
-(`tools/platform/cli/src/install/mcp.rs:33-56`). There is no other CLI
-key-issue command. The HTTP issue body is `{signer_public_key, scopes, quota_requests,
-quota_window_seconds}` (`services/platform/hosted/gateway/src/main.rs:77-84`). Success
-JSON includes `ok`, `key.id`, `key.secret`, `key.authorization_scheme`
-`LayerX-Key`, `key.scopes` (`services/platform/hosted/gateway/src/main.rs:2354-2367`).
-`signer_public_key` must be in the session allow-list or the gateway returns
-`403 signer_not_owned` (`services/platform/hosted/gateway/src/main.rs:2308-2313`).
-Bring-up puts `$LAYERX_TEST_SOURCE_PUBLIC_KEY` on the smoke principal
-(`services/platform/hosted/tests/beta-cluster.sh:2684-2686`).
-
-For hosted submission, pass `{"raw_transaction": "<signed EIP-1559 transaction hex>"}`
-to the CLI toolset's `activity.submit` (`tools/platform/cli/src/toolset.rs:189-199`).
-The toolset POSTs a JSON-RPC `eth_sendRawTransaction` request to `/rpc` with the
-transaction as its sole parameter and returns `{"txHash": "<hash>", "rung": "submitted"}`
-(`tools/platform/cli/src/toolset.rs:260-294`).
-
----
-
-## 7. Fetch the receipt
-
-```sh
-layerx --json receipt get <id>
-```
-
-`id` is path-safe: 1–256 alnum/`-`/`_`/`:`/`.` (`tools/platform/cli/src/http.rs:372-383`;
-`tools/platform/cli/src/main.rs:212-213, 997-1005`). The command GETs
-`/v1/receipts/{id}` on the active endpoint. Human output is `Read receipt {id}
-from {environment}`. `--json` `kind` is `receipt.read`; `data` is the GET body.
-
-Hosted gateway GET `/v1/receipts/{id}` requires `LayerX-Key` and scope
-`receipt:read` (`services/platform/hosted/gateway/src/lib.rs:870-878`;
-`services/platform/hosted/gateway/src/main.rs:1072-1087, 1748`). The 200 body is
-`{ok: true, result: {activity_id, receipt}, trace}` where `receipt` is hex
-(`services/platform/hosted/gateway/src/main.rs:2526-2532`). `activity_id` in the path
-must be 64 hex (`services/platform/hosted/gateway/src/lib.rs:874-875`).
-
-Hosted smoke GETs `$LAYERX_GATEWAY_URL/v1/receipts/$receipt_id` with the
-session Bearer, writes `.result.receipt` as hex, and reads
-`.result.authority.batch_id`, `.result.authority.asset`,
-`.result.authority.previous_state_root`,
-`.result.authority.resulting_state_root`,
-`.result.authority.sequencer_public_key`
-(`services/platform/hosted/testnet/tests/hosted-smoke.sh:134-143`). The gateway GET
-body above has no `authority` object. Those two sources disagree.
-
-Authorised-batch facts with those five names plus `activity_id`,
-`network_id`, and `wire_version` are served by receipt-authority
-`GET /v1/authorized-batches/by-activity/{activity_id}`
-(`services/platform/hosted/authority/src/main.rs:46, 740-749, 656-667`). Routes other
-than `/livez` and `/readyz` require `Authorization: Bearer`
-(`services/platform/hosted/authority/src/main.rs:46-49, 747-749`).
-
----
-
-## 8. Verify the receipt locally
-
-```sh
-layerx --json receipt verify \
-  --receipt receipt.hex \
-  --batch-id "$batch_id" \
-  --asset "$asset" \
-  --previous-state-root "$previous_root" \
-  --resulting-state-root "$resulting_root" \
-  --sequencer-public-key "$sequencer_key"
-```
-
-All six flags are required (`tools/platform/cli/src/main.rs:214-232, 1007-1019`).
-The check is local; it does not contact the endpoint
-(`tools/platform/cli/src/main.rs:1011-1023`). The file is hex text or raw bytes
-(`tools/platform/cli/src/receipt.rs:54-64`). The five hex flags become
-`AuthorizedBatch`; the call is `layerx_proof::receipt::verify_outcome`
-(`tools/platform/cli/src/receipt.rs:25-34`).
-
-On success the data object has `verified` `true`, `verification_level`
-(wire rank), `receipt_digest`, `activity_id`, `batch_id`, `result_code`,
-`canonical_bytes` (length) (`tools/platform/cli/src/receipt.rs:43-51`). `--json`
-wraps that as `ok` `true`, `kind` `receipt.verified`
-(`tools/platform/cli/src/main.rs:1011-1013`; `tools/platform/cli/src/output.rs:20-25`).
-Smoke asserts `.ok == true and .kind == "receipt.verified" and
-.data.verified == true` (`services/platform/hosted/testnet/tests/hosted-smoke.sh:144-148`).
-
-Failure text is `receipt verification failed at {:?}`
-(`tools/platform/cli/src/receipt.rs:33-34`).
-
----
-
-## 9. Observe finality against the Paxeer boundary
-
-The CLI talks HTTP to the active environment endpoint
-(`tools/platform/cli/src/main.rs:1420-1424`; `tools/platform/cli/src/http.rs:24-50`).
-`layerx --rpc <url> wallet|token …` POSTs JSON-RPC 2.0 to the gateway `/rpc`
-surface (`tools/platform/cli/src/rpc.rs:14-15, 29-36`). That is not a `layerxd` node
-admin socket. `layerx receipt verify` is local `layerx_proof` against
-caller-supplied batch facts (`tools/platform/cli/src/receipt.rs:4, 25-34`).
-
-The Paxeer boundary is `$LAYERX_PAXEER_BOUNDARY_URL` (default
-`https://localhost:19449`). Routes (`services/platform/hosted/paxeer/src/main.rs:477-493`):
-
-```sh
-curl --fail --silent --show-error --max-time 10 --cacert "$LAYERX_TEST_CA_FILE" \
-  "$LAYERX_PAXEER_BOUNDARY_URL/readyz"
-```
-
-When the node `eth_chainId` equals the configured chain id, the 200 body is
-`status` `ready`, `service` `paxeer-boundary`, `chain_id` (decimal)
-(`services/platform/hosted/paxeer/src/main.rs:466-469`). Bring-up sets that chain id
-to `125` (`services/platform/hosted/tests/beta-cluster.sh:274`;
-`services/platform/hosted/paxeer/deployment.yaml:42`).
-
-```sh
-curl --fail --silent --show-error --max-time 30 --cacert "$LAYERX_TEST_CA_FILE" \
-  --dump-header - "$LAYERX_PAXEER_BOUNDARY_URL/genesis"
-```
-
-`GET /genesis` is served when `LAYERX_PAXEER_COMET_URL` is set: 200 body is
-the Comet genesis JSON; `X-LayerX-Genesis-SHA256` is the SHA-256 of those
-bytes (`services/platform/hosted/paxeer/src/main.rs:164-172, 484-488`;
-`services/platform/hosted/paxeer/src/genesis.rs:241-256`). The genesis JSON must
-carry a non-empty `chain_id` string (`services/platform/hosted/paxeer/src/genesis.rs:230-237`).
-Bring-up sets Comet chain id `hyperpax_125-1`
-(`services/platform/hosted/paxeer/init-chain.sh:39-42`). When the Comet URL is unset,
-`GET /genesis` is `404 not_found` (`services/platform/hosted/paxeer/src/main.rs:164-166,
-484-488`).
-
-```sh
-curl --fail --silent --show-error --max-time 15 --cacert "$LAYERX_TEST_CA_FILE" \
-  --header 'Content-Type: application/json' \
-  --request POST "$LAYERX_PAXEER_BOUNDARY_URL/" \
-  --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
-```
-
-`POST /` relays JSON-RPC methods that pass `method_allowed`: `eth_*` except
-the denied list, plus `net_version` and `web3_clientVersion`
-(`services/platform/hosted/paxeer/src/main.rs:28-39, 371-384, 490-491`). Denied
-methods include `eth_accounts`, `eth_sendTransaction`, `eth_sign`
-(`services/platform/hosted/paxeer/src/main.rs:30-38`). Readiness itself calls
-`eth_chainId` with `params` `[]` (`services/platform/hosted/paxeer/src/main.rs:448-449`).
-
-Env also exports `LAYERX_PAXEER_CHECKPOINT_REGISTRY` and
-`LAYERX_PAXEER_SETTLEMENT_CONTRACT` (`services/platform/hosted/tests/beta-cluster.sh`, `env_write`).
-Both carry the layerxAnchor precompile address `0x0000000000000000000000000000000000001014`.
-There is no CLI command that reads the precompile.
-
-Testnet control journey routes are `/v1/journeys/funding`,
-`/v1/journeys/payment`, `/v1/journeys/receipt-inspection`, and
-`/v1/journeys/programs` (`services/platform/hosted/testnet/src/main.rs:227-234`).
-`/v1/journeys/settlement` is not one of them
-(`services/platform/hosted/testnet/src/main.rs:1498`).
-
----
-
-## 10. Tear down
-
-```sh
-make platform-beta-cluster-down
-```
-
-runs `bash services/platform/hosted/tests/beta-cluster.sh down`
-(`services/platform/Makefile.inc:187-188`). `down` stops port-forwards, deletes the
-kind cluster when mode is kind or absent, removes labeled images, deletes
-`build/beta-cluster`, and unless `LAYERX_BETA_KEEP_TOOLS=1` removes pinned
-kind/kubectl/calico downloads (`services/platform/hosted/tests/beta-cluster.sh:3745-3771`).
-It prints `teardown complete` (`services/platform/hosted/tests/beta-cluster.sh:3770`).
-
+[Getting started](Getting-Started-Beta.md) ·
+[Unified network](UnifiedNetwork.md) ·
+[SDK terminal verification](SdkTerminalVerification.md) ·
 [Home](Home.md)

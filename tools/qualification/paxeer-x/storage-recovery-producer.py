@@ -104,6 +104,24 @@ def toolchain():
     return settings
 
 
+def build_command(settings):
+    return ['make', '-j3', 'PROGRAMS_TARGET_DIR=' + settings['PROGRAMS_TARGET_DIR'],
+            'PROGRAMS_RUNTIME_LIB=' + settings['PROGRAMS_RUNTIME_LIB']] + [
+                'build/tests/' + name for name in TESTS]
+
+
+def build_inputs(source, scoped, settings):
+    return {'schema': SCHEMA, **source, 'command': build_command(settings),
+            'cwd': str(ROOT), 'log': LOG, 'sources': scoped}
+
+
+def publish_manifest(directory, record):
+    record = dict(record, artifacts={name: artifact(directory, 'bin/' + name) for name in TESTS},
+                  log_sha256=digest(directory / LOG))
+    write_private(directory / 'manifest.json', record)
+    return directory / 'manifest.json'
+
+
 def build(output):
     source = identity()
     settings = toolchain()
@@ -112,11 +130,8 @@ def build(output):
             'build output must be absent or a fresh empty directory')
     directory = private_directory(directory, create=True)
     scoped = sources()
-    command = ['make', '-j3', 'PROGRAMS_TARGET_DIR=' + settings['PROGRAMS_TARGET_DIR'],
-               'PROGRAMS_RUNTIME_LIB=' + settings['PROGRAMS_RUNTIME_LIB']]
-    command += ['build/tests/' + name for name in TESTS]
-    record = {'schema': SCHEMA, **source, 'command': command, 'cwd': str(ROOT),
-              'log': LOG, 'sources': scoped}
+    record = build_inputs(source, scoped, settings)
+    command = record['command']
     print('BUILD ' + json.dumps(command), flush=True)
     fd = os.open(directory / LOG, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
     with os.fdopen(fd, 'wb') as stream:
@@ -140,17 +155,13 @@ def build(output):
     require(identity() == source and sources() == scoped, 'source changed during build')
     binaries = directory / 'bin'
     binaries.mkdir(mode=0o700)
-    artifacts = {}
     for name in TESTS:
         built = ROOT / 'build/tests' / name
         require(built.is_file() and os.access(built, os.X_OK),
                 'make did not produce executable ' + name)
         shutil.copyfile(built, binaries / name)
         (binaries / name).chmod(0o700)
-        artifacts[name] = artifact(directory, 'bin/' + name)
-    record['artifacts'] = artifacts
-    record['log_sha256'] = digest(directory / LOG)
-    write_private(directory / 'manifest.json', record)
+    publish_manifest(directory, record)
     print('STORAGE_RECOVERY_BUILD_MANIFEST ' + str(directory / 'manifest.json'))
 
 

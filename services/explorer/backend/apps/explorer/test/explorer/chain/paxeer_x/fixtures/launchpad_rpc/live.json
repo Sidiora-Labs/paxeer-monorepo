@@ -1,0 +1,117 @@
+{
+  "state": "LIVE",
+  "height": "0x16C1320",
+  "pool_count": 3,
+  "provenance": {
+    "view": "precompiles/launchpad/surface_test.go:446-448 returns uint256(3); precompiles/launchpad/views.go:getPoolCount uses method.Outputs.Pack",
+    "stored_code": "rpc/state.go:GetCode reads stored EVM code; native launchpad address has no forwarding runtime",
+    "negative_cases": "REFUSED is the JSON-RPC execution-reverted envelope; MALFORMED is a deliberately truncated ABI word, not a claimed successful native return"
+  },
+  "exchanges": [
+    {
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 0,
+        "method": "eth_blockNumber",
+        "params": []
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 0,
+        "result": "0x16C1320"
+      }
+    },
+    {
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "eth_getCode",
+        "params": [
+          "0x0000000000000000000000000000000000001017",
+          "0x16C1320"
+        ]
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": "0x"
+      }
+    },
+    {
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "method": "eth_call",
+        "params": [
+          {
+            "to": "0x0000000000000000000000000000000000001015",
+            "data": "0xb71d031c0000000000000000000000000000000000000000000000000000000000000000"
+          },
+          "0x16C1320"
+        ]
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "result": "0x0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    },
+    {
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 3,
+        "method": "eth_call",
+        "params": [
+          {
+            "to": "0x0000000000000000000000000000000000001016",
+            "data": "0xb187bd26"
+          },
+          "0x16C1320"
+        ]
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 3,
+        "result": "0x0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    },
+    {
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 4,
+        "method": "eth_call",
+        "params": [
+          {
+            "to": "0x0000000000000000000000000000000000001004",
+            "data": "0x357feed60000000000000000000000000000000000000000000000000000000000000000"
+          },
+          "0x16C1320"
+        ]
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 4,
+        "result": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+      }
+    },
+    {
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 5,
+        "method": "eth_call",
+        "params": [
+          {
+            "to": "0x0000000000000000000000000000000000001017",
+            "data": "0x8eec5d70"
+          },
+          "0x16C1320"
+        ]
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 5,
+        "result": "0x0000000000000000000000000000000000000000000000000000000000000003"
+      }
+    }
+  ]
+}

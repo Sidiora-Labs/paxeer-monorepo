@@ -1,0 +1,8 @@
+[repair.22.31.228]
+finding = "wallet-cli-balance"
+implementation = "The CLI reads the requested ledger asset with the production account balance reader at one committed height, preserving main/native versus token account derivation and exact uint128 amounts."
+proving_tests = ["wallet_cli_balance_native_and_token_match_production_reader", "wallet_cli_balance_preserves_remote_refusal", "wallet_cli_balance_preserves_configured_routes", "wallet_cli_balance_rejects_malformed_abi_amounts", "wallet_cli_balance_rejects_invalid_selectors_before_transport"]
+baseline = "No baseline gate was run: the explicit gate order forbids verification before complete implementation; no pre-change test failure is claimed."
+revision_evidence = "The final hf-done JSON records the exact verified candidate revision, command, exit code and private log."
+wiring_request = "Domain 9 (agent): services/agent/crates/layerx-sdk/src/rpc.rs::RpcWallet::balance and src/wallet.rs::Wallet::balance must use the ledger account balance reader rather than passing a ledger ID to eth_getBalance; these shared library paths are outside this task scope."
+qualification = "The test uses the real built CLI, production account mapping, ledger ABI reader and HTTP transport against a committed in-test funded ledger fixture; it does not claim live-chain execution."

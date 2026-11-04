@@ -3,24 +3,24 @@
     # Sleep 65 seconds to ensure that the mint event happens in the epoch end hook
     - cmd: sleep 65
     # At this point there should be one mint event
-    - cmd: paxd q mint minter --output --json | jq -r ".denom"
+    - cmd: set -o pipefail; value=$(paxd q mint minter --output json | jq -er ".denom") && printf "%s\n" "$value"
       env: DENOM
-    - cmd: paxd q mint minter --output --json | jq ".start_date" -r
+    - cmd: set -o pipefail; value=$(paxd q mint minter --output json | jq -er ".start_date") && printf "%s\n" "$value"
       env: START_DATE
-    - cmd: paxd q mint minter --output --json | jq ".end_date" -r
+    - cmd: set -o pipefail; value=$(paxd q mint minter --output json | jq -er ".end_date") && printf "%s\n" "$value"
       env: END_DATE
-    - cmd: paxd q mint minter --output --json | jq ".total_mint_amount" -r
+    - cmd: set -o pipefail; value=$(paxd q mint minter --output json | jq -er ".total_mint_amount") && printf "%s\n" "$value"
       env: TOTAL_MINT_AMOUNT
-    - cmd: paxd q mint minter --output --json | jq ".remaining_mint_amount" -r
+    - cmd: set -o pipefail; value=$(paxd q mint minter --output json | jq -er ".remaining_mint_amount") && printf "%s\n" "$value"
       env: REMAINING_MINT_AMOUNT
-    - cmd: paxd q mint minter --output --json | jq ".last_mint_amount" -r
+    - cmd: set -o pipefail; value=$(paxd q mint minter --output json | jq -er ".last_mint_amount") && printf "%s\n" "$value"
       env: LAST_MINT_AMOUNT
-    - cmd: paxd q mint minter --output --json | jq ".last_mint_date" -r
+    - cmd: set -o pipefail; value=$(paxd q mint minter --output json | jq -er ".last_mint_date") && printf "%s\n" "$value"
       env: LAST_MINT_DATE
-    - cmd: paxd q mint minter --output --json | jq ".last_mint_height" -r
+    - cmd: set -o pipefail; value=$(paxd q mint minter --output json | jq -er ".last_mint_height") && printf "%s\n" "$value"
       env: LAST_MINT_HEIGHT
     # Compare the total supply and make sure that it increased
-    - cmd: paxd q bank total --output json | jq -r -M ".supply[] | select(.denom==\"uhpx\").amount"
+    - cmd: set -o pipefail; value=$(paxd q bank total --output json | jq -er -M ".supply[] | select(.denom==\"uhpx\").amount") && printf "%s\n" "$value"
       env: TOTAL_SUPPLY
   verifiers:
     - type: eval

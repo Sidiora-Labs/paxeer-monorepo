@@ -744,7 +744,11 @@ pub fn unified_service_route(method: &str, target: &str) -> Option<&'static serd
         return None;
     }
     let wallet_contract = match path {
-        "/v1/wallet/sponsored/submit"
+        "/v1/wallet/sponsored/quote"
+        | "/v1/wallet/evm/review"
+        | "/v1/wallet/evm/approve"
+        | "/v1/wallet/evm/sign"
+        | "/v1/wallet/sponsored/submit"
         | "/v1/wallet/sponsored/status"
         | "/v1/wallet/sign-digest"
         | "/v1/wallet/sign-custody"
@@ -759,8 +763,12 @@ pub fn unified_service_route(method: &str, target: &str) -> Option<&'static serd
                     && id.strip_prefix("0x").is_some_and(canonical_program_id),
             )
         }
-        _ if path.starts_with("/v1/wallet/lx/approvals/") => {
-            let id = path.strip_prefix("/v1/wallet/lx/approvals/")?;
+        _ if path.starts_with("/v1/wallet/lx/approvals/")
+            || path.starts_with("/v1/wallet/evm/approvals/") =>
+        {
+            let id = path
+                .strip_prefix("/v1/wallet/lx/approvals/")
+                .or_else(|| path.strip_prefix("/v1/wallet/evm/approvals/"))?;
             Some(
                 method == "GET"
                     && query.is_none()
@@ -1324,6 +1332,36 @@ mod tests {
         production_route, router_method, GatewayError, IssuedKey, ProductionRoute, ReceiptKeyList,
         ROUTER_METHODS,
     };
+
+    #[test]
+    fn repair_22_31_370_wallet_routes_match_exact_contract() {
+        for path in [
+            "/v1/wallet/evm/review",
+            "/v1/wallet/evm/approve",
+            "/v1/wallet/evm/sign",
+            "/v1/wallet/sponsored/quote",
+        ] {
+            let row = super::unified_service_route("POST", path).expect("wallet route");
+            assert_eq!(row["upstream"], "wallet-gateway");
+            assert_eq!(row["authentication"], "requireAuth");
+            assert!(super::unified_service_route("GET", path).is_none());
+            assert!(super::unified_service_route("POST", &format!("{path}?extra=1")).is_none());
+        }
+        let status = "/v1/wallet/evm/approvals/12345678-1234-4234-8234-123456789abc";
+        assert!(super::unified_service_route("GET", status).is_some());
+        assert!(super::unified_service_route("POST", status).is_none());
+        for id in [
+            "bad",
+            "12345678-1234-4234-8234-123456789abZ",
+            "%2e%2e",
+            "../review",
+        ] {
+            assert!(
+                super::unified_service_route("GET", &format!("/v1/wallet/evm/approvals/{id}"))
+                    .is_none()
+            );
+        }
+    }
 
     #[test]
     fn router_methods_are_sorted_unique_and_namespaced() {

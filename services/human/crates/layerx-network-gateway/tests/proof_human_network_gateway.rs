@@ -122,7 +122,7 @@ impl ProducerState {
         assert_eq!(observed.joined(), &expected);
         assert_eq!(observed.wallet(), paxeer.address);
         assert_eq!(observed.balance("upax"), Some(paxeer.balance));
-        assert_eq!(observed.balance("uusdc"), Some(0));
+        assert_eq!(observed.balance("uusdc"), Some(0.into()));
         assert_eq!(observed.balance("unobserved"), None);
         assert_eq!(assets.assets.len(), 2);
         for entry in &assets.assets {
@@ -132,7 +132,7 @@ impl ProducerState {
             assert_eq!(observed.balance(denom), Some(row.amount));
             assert_eq!(entry.kind, "bank");
         }
-        assert_eq!(assets.assets[0].supply, Some(u128::MAX));
+        assert_eq!(assets.assets[0].supply, Some(u128::MAX.into()));
         assert_eq!(assets.assets[0].name.as_deref(), Some("Paxeer"));
         assert_eq!(assets.assets[0].symbol.as_deref(), Some("PAX"));
         assert_eq!(assets.assets[0].decimals, Some(18));
@@ -152,9 +152,9 @@ fn proof_human_network_gateway_observes_fresh_producer_results() {
     // snapshot remains intact. Neither producer nor consumer has a cache.
     let next = ProducerState::new(813, 4_096).observe();
     assert_eq!(next.joined().height, 813);
-    assert_eq!(next.balance("upax"), Some(4_096));
+    assert_eq!(next.balance("upax"), Some(4_096.into()));
     assert_eq!(first.joined().height, 812);
-    assert_eq!(first.balance("upax"), Some(u128::MAX - 1));
+    assert_eq!(first.balance("upax"), Some((u128::MAX - 1).into()));
     assert_ne!(first, next);
 }
 
@@ -182,7 +182,7 @@ fn proof_human_network_gateway_refuses_malformed_and_ambiguous_balances() {
     let mut direct = decode_account_balances(&producer.balances).unwrap();
     direct.balances.push(AssetBalance {
         denom: "upax".to_owned(),
-        amount: 1,
+        amount: 1.into(),
     });
     assert_eq!(
         WalletObservation::accept(direct),
@@ -225,6 +225,20 @@ fn proof_human_network_gateway_refuses_unbound_wallet_and_wrong_identity() {
     );
     let mut malformed_assets = producer.assets.clone();
     malformed_assets["assets"][0]["supply"] = json!("340282366920938463463374607431768211456");
+    let wide = decode_assets(&malformed_assets).expect("uint256 supply reaches the consumer");
+    let supply = wide.assets[0].supply.expect("observed supply");
+    assert_eq!(
+        supply.to_string(),
+        "340282366920938463463374607431768211456"
+    );
+    assert_eq!(
+        supply.for_operation("asset-issuance"),
+        Err(GatewayError::AmountOutOfRange {
+            operation: "asset-issuance"
+        })
+    );
+    malformed_assets["assets"][0]["supply"] =
+        json!("115792089237316195423570985008687907853269984665640564039457584007913129639936");
     assert_eq!(
         decode_assets(&malformed_assets),
         Err(GatewayError::MalformedAnswer)

@@ -41,7 +41,7 @@ fn request(stream: &mut TcpStream) -> Value {
     let mut reader = BufReader::new(stream);
     let mut line = String::new();
     reader.read_line(&mut line).unwrap();
-    assert_eq!(line, "POST /rpc HTTP/1.1\r\n");
+    assert_eq!(line, "POST / HTTP/1.1\r\n");
     let mut length = None;
     loop {
         line.clear();
@@ -64,7 +64,7 @@ fn request(stream: &mut TcpStream) -> Value {
 fn emulator(answers: Vec<Vec<u8>>) -> (PaxeerEndpoint, JoinHandle<Vec<Value>>) {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let endpoint = PaxeerEndpoint::new(
-        format!("http://{}/rpc", listener.local_addr().unwrap()),
+        format!("http://{}/", listener.local_addr().unwrap()),
         TIMEOUT,
         None,
         125,
@@ -210,21 +210,17 @@ fn a_wrong_chain_id_is_refused_before_the_method_is_sent() {
 #[test]
 fn a_plaintext_url_off_loopback_is_refused() {
     for url in [
-        "http://192.0.2.1/rpc",
-        "http://rpc.example/rpc",
-        "http://localhost.example/rpc",
-        "http://[2001:db8::1]/rpc",
+        "http://192.0.2.1/",
+        "http://.example/",
+        "http://localhost.example/",
+        "http://[2001:db8::1]/",
     ] {
         assert_eq!(
             PaxeerEndpoint::new(url, TIMEOUT, None, 125, true),
             Err(TransportFault::InsecureTransport)
         );
     }
-    for url in [
-        "http://127.0.0.1/rpc",
-        "http://localhost/rpc",
-        "http://[::1]/rpc",
-    ] {
+    for url in ["http://127.0.0.1/", "http://localhost/", "http://[::1]/"] {
         assert!(PaxeerEndpoint::new(url, TIMEOUT, None, 125, true).is_ok());
         assert_eq!(
             PaxeerEndpoint::new(url, TIMEOUT, None, 125, false),
@@ -233,15 +229,15 @@ fn a_plaintext_url_off_loopback_is_refused() {
     }
     for anchor in [None, Some(vec![]), Some(vec![1, 2, 3])] {
         assert_eq!(
-            PaxeerEndpoint::new("https://localhost/rpc", TIMEOUT, anchor, 125, true),
+            PaxeerEndpoint::new("https://localhost/", TIMEOUT, anchor, 125, true),
             Err(TransportFault::InsecureTransport)
         );
     }
     for url in [
-        "ftp://localhost/rpc",
-        "http://localhost:0/rpc",
-        "http://localhost/rpc\r\nInjected: yes",
-        "http://user@localhost/rpc",
+        "ftp://localhost/",
+        "http://localhost:0/",
+        "http://localhost/\r\nInjected: yes",
+        "http://user@localhost/",
     ] {
         assert_eq!(
             PaxeerEndpoint::new(url, TIMEOUT, None, 125, true),
@@ -249,16 +245,15 @@ fn a_plaintext_url_off_loopback_is_refused() {
         );
     }
     assert!(matches!(
-        PaxeerEndpoint::new("http://localhost/rpc", Duration::ZERO, None, 125, true),
+        PaxeerEndpoint::new("http://localhost/", Duration::ZERO, None, 125, true),
         Err(TransportFault::UnexpectedValue { .. })
     ));
     assert!(matches!(
-        PaxeerEndpoint::new("http://localhost/rpc", TIMEOUT, None, 0, true),
+        PaxeerEndpoint::new("http://localhost/", TIMEOUT, None, 0, true),
         Err(TransportFault::UnexpectedValue { .. })
     ));
-    let mut endpoint =
-        PaxeerEndpoint::new("http://localhost/rpc", TIMEOUT, None, 125, true).unwrap();
-    endpoint.url = "http://192.0.2.1/rpc".to_owned();
+    let mut endpoint = PaxeerEndpoint::new("http://localhost/", TIMEOUT, None, 125, true).unwrap();
+    endpoint.url = "http://192.0.2.1/".to_owned();
     assert_eq!(
         PaxeerTransport::call(&endpoint, "eth_blockNumber", &json!([])),
         Err(TransportFault::InsecureTransport)
@@ -288,14 +283,9 @@ fn certificate() -> Vec<u8> {
 #[test]
 fn an_https_endpoint_without_a_trust_anchor_is_refused() {
     let der = certificate();
-    assert!(PaxeerEndpoint::new(
-        "https://localhost/rpc",
-        TIMEOUT,
-        Some(der.clone()),
-        125,
-        false
-    )
-    .is_ok());
+    assert!(
+        PaxeerEndpoint::new("https://localhost/", TIMEOUT, Some(der.clone()), 125, false).is_ok()
+    );
     let mut trailing = der.clone();
     trailing.push(0);
     let mut two_certificates = der.clone();
@@ -310,12 +300,12 @@ fn an_https_endpoint_without_a_trust_anchor_is_refused() {
         Some(pem),
     ] {
         assert_eq!(
-            PaxeerEndpoint::new("https://localhost/rpc", TIMEOUT, anchor, 125, false),
+            PaxeerEndpoint::new("https://localhost/", TIMEOUT, anchor, 125, false),
             Err(TransportFault::InvalidTrustAnchor)
         );
     }
     assert_eq!(
-        PaxeerEndpoint::new("https://localhost/rpc", TIMEOUT, Some(der), 125, true),
+        PaxeerEndpoint::new("https://localhost/", TIMEOUT, Some(der), 125, true),
         Err(TransportFault::InsecureTransport)
     );
 }

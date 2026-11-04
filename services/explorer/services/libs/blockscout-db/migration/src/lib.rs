@@ -18,7 +18,7 @@ fn split(s: &str) -> Vec<&str> {
     let mut start = 0;
     let mut inside = false;
     let mut del_len = 0;
-    for (i, c) in s.chars().enumerate() {
+    for (i, c) in s.char_indices() {
         if c == '$' {
             if del_len == 0 {
                 del_len += 1;
