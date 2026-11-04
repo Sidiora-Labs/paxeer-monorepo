@@ -18,7 +18,8 @@ import {
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 
-import type { OrderFormState, OrderLimits } from "../src/core/perps/orderPlan";
+import { configuredLimitPlan } from "./fixtures/configured-limit-plan";
+import type { OrderFormState } from "../src/core/perps/orderPlan";
 
 const ENV_NAMES = ["LOCAL_NODE_RPC", "LOCAL_NODE_KEY", "NEXT_PUBLIC_PERPS_GATEWAY_URL"] as const;
 type EnvName = (typeof ENV_NAMES)[number];
@@ -34,11 +35,6 @@ function requireEnv(): Record<EnvName, string> {
     throw new Error("LOCAL_NODE_KEY is not a 32-byte hex private key");
   }
   return env;
-}
-
-async function buildOrderPlan(state: OrderFormState, limits: OrderLimits) {
-  const planner = await import("../src/core/perps/orderPlan");
-  return planner.buildOrderPlan(state, null, limits);
 }
 
 async function localOffTickOrderReverts() {
@@ -104,11 +100,7 @@ async function localOffTickOrderReverts() {
     fok: false,
     ladderId: (await publicClient.getBlock()).timestamp,
   };
-  const plan = await buildOrderPlan(state, {
-    tickSize: config.tickSize,
-    lotSize: config.lotSize,
-    maxLeverage: config.maxLeverage * 10n ** 18n,
-  });
+  const plan = await configuredLimitPlan(publicClient, state);
   assert.equal(plan.error, null);
   assert.equal(plan.calls.length, 1);
   const aligned = plan.calls[0];
@@ -146,6 +138,8 @@ async function localOffTickOrderReverts() {
   assert.equal(getAddress(placed[0].args.user), account.address);
   assert.equal(placed[0].args.marketId, marketId);
   assert.equal(placed[0].args.triggerPrice, alignedPrice);
+  const storedOrder = await publicClient.readContract(calls.buildGetOrder(placed[0].args.orderId));
+  assert.equal(storedOrder[7], 20n * 10n ** 18n, "supported form leverage reaches stored chain state");
   const orderIds = await publicClient.readContract(calls.buildGetUserOrderIds(account.address));
   assert.ok(orderIds.includes(placed[0].args.orderId), "aligned order must rest on the book");
 
