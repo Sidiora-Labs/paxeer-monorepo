@@ -20923,3 +20923,11 @@ symbol = "programs_module_registration_v4_storage_retirement"
 observed = "Attempt 9: the test now deploys at ABI 2, upgrades to ABI 5 and asserts record.ABIVersion is 5 (passes), then the create call at rpc/sequencer_receipt_vectors_test.go:720 (from :1399) is refused with LXP_VERSION_UNSUPPORTED because src/modules/programs/call.c:2438 refuses a call whose abi_version exceeds the registered module's and the hosted kernel registers the programs module at ABI 4 (host.go:174-175, read.go:184-185); nothing outside the C harness registers programs_module_registration_v5. The same refusal would meet every AI market call on the network after the upgrade."
 assumption = "1.23.7 adds the ABI-5 registration to the hosted kernel behind lxphost.Config.ProgramsGuestABI and 5.99.1 switches the network at the merge upgrade (decision 2516); 18.1562.1 requires 1.23.7 and its host fixture selects ABI 5."
 severity = "high"
+
+[finding.22.9.10.14]
+task = "22.9.10"
+file = "services/agent/sdk/typescript/src/web-search.ts"
+symbol = "WEB_SEARCH_PAYER_HEADER"
+observed = "Attempt 27: build passed and every suite passes until the SID metered search of test/web-search.test.ts, which fails with sidecar-refused:unrecorded_request. The gateway names the payer by EVM address in the LAYERX-PAYER-ADDRESS header (task 11.34.7; services/interop/crates/x-websearch/src/payment.rs:58 and :1887-1894 read only that header and ignore LAYERX-PAYER-DID) and the exchange recorded by 33be5948fb carries LAYERX-PAYER-ADDRESS on both search steps, while src/web-search.ts:13 still exports WEB_SEARCH_PAYER_HEADER as LAYERX-PAYER-DID and :412 sends WebSearchPayer.did, so the replay finds no recorded step for the request."
+assumption = "The TypeScript client follows the producer: the header becomes LAYERX-PAYER-ADDRESS carrying the payer's EVM address and the test matcher compares that header; attempt 28 continues with that change (do_27). The python client has the same defect and is closed by the repair task of audit record 22.30.100."
+severity = "high"
