@@ -1,8 +1,8 @@
-import { chakra, Center } from '@chakra-ui/react';
+import { Box, chakra, Center } from '@chakra-ui/react';
 import type { DragEvent } from 'react';
 import React from 'react';
 
-import { getAllFileEntries, convertFileEntryToFile } from './utils';
+import { FileSelectionReadError, getAllFileEntries, convertFileEntryToFile } from './utils';
 
 interface Props {
   children: React.ReactNode;
@@ -15,6 +15,7 @@ interface Props {
 
 export const DragAndDropArea = chakra(({ onDrop, children, className, isDisabled, fullFilePath, isInvalid }: Props) => {
   const [ isDragOver, setIsDragOver ] = React.useState(false);
+  const [ selectionError, setSelectionError ] = React.useState<string>();
 
   const handleDrop = React.useCallback(async(event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -23,11 +24,18 @@ export const DragAndDropArea = chakra(({ onDrop, children, className, isDisabled
       return;
     }
 
-    const fileEntries = await getAllFileEntries(event.dataTransfer.items);
-    const files = await Promise.all(fileEntries.map((fileEntry) => convertFileEntryToFile(fileEntry, fullFilePath)));
+    setSelectionError(undefined);
+    try {
+      const fileEntries = await getAllFileEntries(event.dataTransfer.items);
+      const files = await Promise.all(fileEntries.map((fileEntry) => convertFileEntryToFile(fileEntry, fullFilePath)));
 
-    onDrop(files);
-    setIsDragOver(false);
+      onDrop(files);
+    } catch (error) {
+      const reason = error instanceof FileSelectionReadError ? error.message : 'Could not read the dropped selection.';
+      setSelectionError(`${ reason } Selection incomplete; no dropped files were added. Check access and drop the selection again.`);
+    } finally {
+      setIsDragOver(false);
+    }
   }, [ isDisabled, onDrop, fullFilePath ]);
 
   const handleDragOver = React.useCallback((event: DragEvent<HTMLDivElement>) => {
@@ -62,6 +70,8 @@ export const DragAndDropArea = chakra(({ onDrop, children, className, isDisabled
       borderColor={ isDragOver ? 'input.border.hover' : 'input.border' }
       cursor="pointer"
       textAlign="center"
+      flexDirection={ selectionError ? 'column' : undefined }
+      data-drag-over={ isDragOver ? true : undefined }
       { ...(isDisabled ? { 'data-disabled': true } : {}) }
       { ...(isInvalid ? { 'data-invalid': true } : {}) }
       color="input.placeholder"
@@ -75,6 +85,7 @@ export const DragAndDropArea = chakra(({ onDrop, children, className, isDisabled
       onDragLeave={ handleDragLeave }
     >
       { children }
+      { selectionError && <Box role="alert" color="text.error">{ selectionError }</Box> }
     </Center>
   );
 });
