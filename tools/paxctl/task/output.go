@@ -15,6 +15,10 @@ func commonFlags() []cli.Flag {
 			Aliases: []string{"n"},
 			Usage:   "Target namespace (defaults to kubeconfig context or in-cluster SA)",
 		},
+		&cli.StringFlag{
+			Name:  "proxy-ca-file",
+			Usage: "PEM CA bundle for the sidecar TLS proxy (required; independent of kubeconfig API-server trust)",
+		},
 		&cli.IntFlag{
 			Name:  "port",
 			Value: int(sidecarProxyPort),
