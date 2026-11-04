@@ -1,0 +1,42 @@
+[task.22.33.1442]
+inspected_revision = "38471f735e624a7c9ac2f28e4aa811685d7c8ca2"
+readme_revision = "8bf61db751e381e8aa0c128a5704f7b6e33d8b22"
+readme_owner_task = "22.31.470"
+repair = "Decision 2525 assigns the root README rewrite to task 22.31.470. Its maintained README already supplies the doc-readme expected facts. This task preserves README.md and adds finding-specific regression assertions and this repair record within its two allowed paths."
+source_proof = "Seven pytest tests prove source facts in the actual README: one chain-125 paxd BFT network with a linked kernel; api1..api14 HTTPS root JSON-RPC hosts and a parsed curl/JSON chain probe; signed transaction submission, durable receipt publication and committed-block finality; the hosted OpenRPC contract distinguished from native px registrations; retired custody/checkpoint executors and historical evidence; and linked paxd build/start and upgrade guidance. The module reads the real producer rpc/send.go, transport/publication node/sequencer/accepter.go and consumer rpc/sequencer_receipt.go and asserts acceptance/forwarding, WAL acknowledgement order, signature verification and committed sequence/root coverage. It parses gateway OpenRPC JSON and Makefile/chain.mk dependencies and recipes in-process; no build toolchain is invoked. The seventh test parses this record and the original audit to bind every finding fact and proving test."
+review_only = "Native Go/C/Rust compilation, paxd startup, actual transaction execution, live endpoint availability, cryptographic verification, consensus commitment and WAL restart/recovery are not executed by this offline documentation gate. Source assertions describe the production producer/transport/consumer connections, not runtime certification. This doc-drift repair changes no production interface or persistent component, so it claims no interface-mismatch or restart-recovery proof. No shell script, unit file, manifest or build file is under repair; README shell snippets are parsed with shlex and their JSON with json, without executing commands. The pytest gate requires no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device. Editorial clarity and operator deployment remain review concerns."
+baseline = "No pre-change verification was run: the explicit implementation-first order and exclusive hf-done gate prohibit the older step 5 request to run verify_cmd by hand first. No pre-change test failure is claimed. Initial Git status/diff showed only runner-prepared .cgignore and spec/layerx-merge/spec.kvx bookkeeping; both scoped files were absent, gate.json recorded zero builds/verifies and /out/run/gates.jsonl was absent. README already contained the expected owning-task rewrite."
+missing_readme_facts = []
+wiring_requests = []
+wiring_policy = "README.md is outside scope and owned by domain 16/task 22.31.470 under decision 2525. Its expected facts are present at inspected_revision, so no missing-fact request remains. Any missing README fact must be recorded as a one-line request naming README.md, domain 16 and task 22.31.470; this task never edits that path. Audit ownership is domain 17."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1442.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private evidence_ledger bind the exact verified content-derived candidate revision, command, exit code and private log path. Build and verification must pass on the same candidate revision. This record is finalized before qualification: embedding its own candidate hash would change that hash. inspected_revision names the reviewed source tree; the final response copies the gate evidence. Closure is conditional on hf-done passing, and the runner retains evidence and publishes without manual commit or push."
+
+[finding.doc-readme]
+audit = "22.30.81"
+file = "README.md"
+line = 45
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 45-48 describe layerxd as a separate running daemon settling checkpoints; line 181 calls the merge draft. The precompile overview also retains the custody/anchor model."
+expected = "Brief facts 1-5 define one paxd BFT chain with linked kernel, chain id 125, root node RPC and hosted px_ methods; retired layerxd, router, lx_* and checkpoint/custody flows must not be taught as live integration paths."
+proposal = "Rewrite README.md network, build and upgrade sections around paxd with the linked kernel, committed-block finality and the live gateway contract. Mark retained pre-merge commands and evidence explicitly historical."
+resolution = "Task 22.31.470 supplied the out-of-scope README rewrite; all expected facts are present. The finding is proven by the seven named tests against the maintained README and production source declarations, subject to the bounded hf-done evidence."
+tests = ["test_doc_readme_one_paxd_chain_with_linked_kernel", "test_doc_readme_root_rpc_hosts_and_chain_probe", "test_doc_readme_transaction_to_committed_receipt_source_path", "test_doc_readme_hosted_gateway_contract_and_native_px_subset", "test_doc_readme_retired_custody_and_checkpoint_evidence", "test_doc_readme_linked_node_build_start_and_upgrade", "test_doc_readme_record_maps_audit_finding_to_all_proofs"]
+
+[reconciliation.px_methods]
+observed = "The hosted px_ API must not be mistaken for a blanket exclusion of native px methods from public nodes."
+resolution = "Assert the README's separate server contracts against gateway/openrpc.json and rpc/server.go, including the native receipt-key subset, without inventing another execution domain."
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths. After full implementation, apply .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions only."
+
+[gotcha.1]
+observed = "The older baseline-verify clause conflicts with the explicit implementation-first gate order."
+resolution = "Follow the explicit order, disclose the absent baseline, and claim only the gate evidence actually produced. GOTCHA.kvx and spec files are outside scope, so task notes stay here."
+
+[gotcha.2]
+observed = "Combined broad reads can exceed tool output limits, and cg brief can report unrelated tasks and changes beyond Git status."
+resolution = "Use bounded source sections and actual Git status/diff plus the private ledger; preserve inherited bookkeeping."
