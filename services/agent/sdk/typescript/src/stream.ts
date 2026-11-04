@@ -41,6 +41,12 @@ export class ResumableStream<T> {
   }
 
   public accept(page: StreamPage<T>): readonly StreamEvent<T>[] {
+    const accepted = this.validate(page);
+    for (const event of accepted) this.acknowledge(event);
+    return accepted;
+  }
+
+  private validate(page: StreamPage<T>): readonly StreamEvent<T>[] {
     if (page.requestedCursor !== this.#cursor) {
       throw new PlatformSdkError({ code: "decode-failure", retry: "never" });
     }
@@ -51,6 +57,7 @@ export class ResumableStream<T> {
       if (
         event.eventId.length === 0
         || event.previousCursor !== expected
+        || event.cursor === expected
         || this.#seen.has(event.eventId)
         || pageEventIds.has(event.eventId)
       ) {
@@ -63,18 +70,24 @@ export class ResumableStream<T> {
     if (page.nextCursor !== expected) {
       throw new PlatformSdkError({ code: "decode-failure", retry: "never" });
     }
-    for (const eventId of pageEventIds) {
-      this.#seen.add(eventId);
-    }
-    this.#cursor = page.nextCursor;
     return Object.freeze(accepted);
+  }
+
+  private acknowledge(event: StreamEvent<T>): void {
+    if (event.previousCursor !== this.#cursor || this.#seen.has(event.eventId)) {
+      throw new PlatformSdkError({ code: "decode-failure", retry: "never" });
+    }
+    this.#seen.add(event.eventId);
+    this.#cursor = event.cursor;
   }
 
   public async *events(source: StreamPageSource<T>, signal?: AbortSignal): AsyncGenerator<StreamEvent<T>> {
     while (signal?.aborted !== true) {
       const page = await source(this.#cursor, signal);
-      const events = this.accept(page);
+      const events = this.validate(page);
       for (const event of events) {
+        if (signal?.aborted) return;
+        this.acknowledge(event);
         yield event;
       }
     }

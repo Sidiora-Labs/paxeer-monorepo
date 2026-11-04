@@ -1,0 +1,106 @@
+[meta]
+task = "22.31.148"
+audit = "22.30.101"
+acceptance = "22998.1"
+status = "implementation; qualification is recorded by hf-build and hf-done outside this file"
+baseline = "Attempt 2 implementation is preserved on base 5c06a9cfa23f88d328fc7e91545e90609e8cd0c0; current-side verifier changes are retained and integrated with the seeded inclusion checks."
+baseline_verification = "Not run: the explicit gate order forbids builds or verification before complete implementation and forbids running verify_cmd by hand; no unchanged-tree failure is claimed."
+evidence = "The candidate revision, exact command, exit code and private log path are emitted by the bounded gates; no gate success is asserted here."
+
+[qualification.first-verify]
+revision = "39d161463ee2b429dc10b00a5073d924f486fdbd"
+command = "cg spec done 22.31.148 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Nine tests executed: five passed and four failed; no tests were skipped."
+repair = "Assert complete WebSocket requests, include Comet commit metadata in its canonical hash, and verify ledger payment accounts and amounts through signed event effects rather than EVM receipt summary fields; keep the original positive signed evidence unchanged."
+
+[gotcha.gate-budget]
+observed = "The runner counts each extra build and each extra verification as a separate repair; the required rebuild after the first verification failure can exhaust the budget before verification may rerun."
+action = "Use only the prescribed gate helpers; report their bounded result without bypassing the budget or claiming unrun verification."
+
+[qualification.attempt-2-implementation]
+baseline = "Attempt 1 is preserved, including its post-failure repairs; this attempt has no earlier gate ledger."
+observed = "Attempt 1 reported failures in websocket_root_preserves_handshake_and_reconciliation, commit_inclusion_refuses_unrelated_valid_commit, web_ledger_account_purchases_recorded_pax_and_sid and web_metered_account_binds_recorded_grant_transaction_and_receipt."
+repair = "Keep complete JSON-RPC envelope assertions and metadata-inclusive Comet commit hashing; bind payments to authenticated ledger event effects rather than EVM envelope addresses, amounts or assets."
+canonical = "The shared SDK log-effect encoder is checked byte-for-byte against unmodified signed receipt effects and their recorded node/seller logs; no positive receipt is rewritten or re-signed."
+limits = "Only the declared TypeScript gates qualify this candidate; live node, registry, exchange routing and missing seller payer-owner recording remain the explicit owning-domain wiring requests below."
+
+[qualification.attempt-2-first-verify]
+revision = "87b2dd228bd292c75f5847949594cb4e3f3bf5c0"
+command = "cg spec done 22.31.148 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Six of nine tests passed; repair canonical seller digest framing and require the exact inclusion_mismatch refusal code instead of matching an error message."
+
+[wiring.metered-context-evidence]
+request = "services/interop/crates/x-websearch/tests/fixtures/client-exchange.json and gateway/metered.json — interop domain 13: re-record consistent original metered evidence; transaction 0x6d66f2122f632d5b64cd7c8fb9fb666f188b40ff7c73f9913929adeec15d2d38 carries contextHash ee4cb632e89a44a825bc89af0ac96e2705a551474616134e19ef9096c73ed530 while its unchanged signed PaymentDrawn log carries zero; retain strict transaction-to-log binding and do not rewrite or re-sign the positive receipt."
+
+[finding.rpc-root]
+test = "rpc_root_preserves_node_and_gateway_routes"
+repair = "Preserve the configured HTTP pathname including root and explicit tenant prefixes. PxClient already preserves its configured endpoint."
+proof = "Recorded EVM RPC answers over HTTP, observed px requests from both clients, and the node and hosted gateway source route contracts."
+
+[finding.websocket-root]
+test = "websocket_root_preserves_handshake_and_reconciliation"
+repair = "Preserve the WebSocket pathname and secure scheme; retain continuity refusal and caller reconciliation."
+proof = "Root WebSocket handshakes, actual eth_subscribe requests, cancellation and continuity consumer checks."
+
+[finding.commit-inclusion]
+test = "commit_inclusion_refuses_unrelated_valid_commit"
+repair = "Require canonical execution and successor headers, both commits, validator commitments, transaction/batch/result proofs, batch signature and sequence position, raw transaction equality and successful matching result/log evidence."
+proof = "Unchanged producer-recorded V4 settlement evidence succeeds; its valid successor commit alone is refused. Mutated headers, proofs, result, batch signature and insufficient power are refused."
+trust = "The caller supplies trusted execution and successor validator sets and receipt key height ranges; remote evidence alone is never a trust anchor."
+
+[finding.lifecycle-abi]
+test = "lifecycle_abi_4_5_matches_registration_policy"
+repair = "Use generated admitted guest ABI policy for deploy and upgrade codecs, and expose monotonic transition admission for callers with the current registry ABI."
+proof = "ABI 4/5 deploy and upgrade encode/decode paths and supported/unsupported/downgrade boundaries match the Rust policy."
+
+[finding.stream-undelivered]
+test = "stream_undelivered_survives_stop_and_reopen"
+repair = "Validate whole pages before mutation, acknowledge iterator items individually, retain accept(page) as explicit whole-page acknowledgment."
+proof = "Stop after one event, save its cursor, reopen and receive every remaining event; same-instance continuation, cancellation and atomic malformed-page refusal are checked."
+
+[finding.web-payer-header]
+test = "web_payer_header_is_validated_evm_address"
+repair = "Send LAYERX-PAYER-ADDRESS from the validated EVM address and resolve its zero-padded owner with the same convention as payment.rs. Metered configuration requires the address."
+proof = "Observe the real HTTP request without a configured server payer; validate header values and shared seller owner convention."
+
+[finding.web-ledger-account]
+test = "web_ledger_account_purchases_recorded_pax_and_sid; web_metered_account_binds_recorded_grant_transaction_and_receipt"
+repair = "Resolve accountId(owner,asset) using the ledger RPC, retain the explicit PAX main-account exception, bind metered payer to its EVM owner, send registered grantId/transaction-hash payloads, and bind raw ledger calldata to authenticated settlement accounts."
+proof = "Unmodified PAX and SID exact exchanges bind producer ledger accounts. The inconsistent historical metered receipt is refused; regenerated canonical SDK evidence binds the recorded offer, grant, transaction and nonzero context without relaxing receipt-offer validation."
+
+[finding.exchange-account-abi]
+test = "exchange_account_abi_matches_account_bearing_calldata"
+repair = "Declare the account-bearing placeOrder overload alongside the historical five-argument overload; retain the historical overload first so its existing Go ABI method name remains placeOrder."
+proof = "SDK calldata matches the declared account-bearing ABI producer, selector, width and account word; historical selector remains distinct."
+
+[wiring.node-and-hosted-transports]
+request = "rpc/rpcstack.go and services/platform/hosted/gateway/src/main.rs — node domain 3 and hosted platform domain 12: qualify live eth_/px_ root requests and node heads/log delivery, unsubscribe and reconnect reconciliation; these producers are outside the allowed build targets."
+
+[wiring.lifecycle-registration]
+request = "programs/registry/src and programs/sdk/rust/src/abi_policy.rs — programs domain 15: qualify SDK ABI 4/5 payloads against the real registration pipeline and existing registry downgrade enforcement."
+
+[wiring.exchange-routing]
+request = "precompiles/layerxexchange/layerxexchange.go and modules/layerxexchange/keeper — exchange domain 3: dispatch both placeOrder selectors, consume accountId in the v2 handler, enforce account authorization and prove resulting merged-node order account; these files are outside scope."
+
+[wiring.exchange-registry]
+request = "spec/layerx-merge/programme/registry row 3.pc-0x1015-exchange-placeorder — exchange domain 3: register the account-bearing overload and historical selector routing after the execution handler migration."
+
+[wiring.seller-payer-recording]
+request = "services/interop/crates/x-websearch/tests/fixtures and tests/payment.rs — interop domain 13: record a metered purchase with no configured payer using accountId for the EVM-padded payer owner; existing recordings contain receiver account reads but no payer-owner account read."
+
+[wiring.rust-qualification]
+request = "services/interop/crates/x-websearch — interop domain 13: run the seller Rust qualification for the explicitly factored address-owner helper; this task permits only the TypeScript build and verify gates."
+
+[qualification.attempt-3-implementation]
+baseline = "The supplied previous attempt failed web_metered_account_binds_recorded_grant_transaction_and_receipt with receipt-offer-mismatch; no unchanged-tree rerun was made because the prescribed gate order prohibits it. The new gate ledger starts with zero runs."
+repair = "Retain receiptKey and existing node header/batch checks while requiring complete execution/successor, transaction and result evidence; remove all merge markers and disambiguate existing public header exports."
+codec = "The canonical ProtocolReceipt encoder is used by the production verifier for exact round trips and unsigned digest inputs; metered evidence is issued through that codec using the seller deterministic fixture key over the draw transaction context. The old signed recording is kept and asserted refused."
+provenance = "Exact receipts and committed V4 evidence remain unchanged; metered regeneration is explicitly the attempt-3 fixture correction authorized by do_17. The verifier checks the regenerated signature against the unchanged recorded public key."
+
+[gotcha.verifier-merge]
+observed = "The landed verifier now exports CometHeader and cometHeaderHash and requires receiptKey; the seeded helper used the same export names and omitted receiptKey."
+action = "Preserve the landed interface and receiptKey, export only distinct proof helpers from the SDK index, and require complete inclusion before any committed result."
