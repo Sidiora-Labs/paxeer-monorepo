@@ -492,14 +492,20 @@ export const rpcTxReceipt: RpcTransactionReceipt = {
   gasUsed: '0x215d2',
   logs: [],
   logsBloom: '0x00400040000000000000000000000000000000000000000010000000000000000000000020000000001000000000010400000000000000000000000000000000000400000000000000000008000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010100000000000002801000000000000000000000000000000000000000000000000100000000004000000000000000080100000000000000000000000000000000000000000000802000000000000000000000000000000400000000000000000000000000000000000000000000000000000000004000000800000000000004000000000',
-  status: 'success' as RpcTransactionReceipt['status'],
+  status: '0x1',
   to: '0xbd216513d74c8cf14cf4747e6aaa6420ff64ee9e',
   transactionHash: '0xc39cf2777f03346deba8659b3ff652bbcf3dcbd4fcf846a248a171e45cac94b2',
   transactionIndex: '0x2',
   type: '0x2',
 };
 
+export const rpcRevertedTxReceipt: RpcTransactionReceipt = {
+  ...rpcTxReceipt,
+  transactionHash: '0xc39cf2777f03346deba8659b3ff652bbcf3dcbd4fcf846a248a171e45cac94b3',
+  status: '0x0',
+};
+
 // A price update reaches the transaction lists as the price feed item, without the EVM-only fields.
-export const priceUpdate = feedMock.priceUpdate as unknown as Transaction;
+export const priceUpdate: PriceUpdateItem = feedMock.priceUpdate;
 
 export const priceUpdateItem: PriceUpdateItem = feedMock.priceUpdate;

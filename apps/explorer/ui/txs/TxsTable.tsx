@@ -1,7 +1,7 @@
 import React from 'react';
 
 import type { TxsSocketType } from './socket/types';
-import type { Transaction, TransactionsSortingField, TransactionsSortingValue } from 'types/api/transaction';
+import type { TransactionsSortingField, TransactionsSortingValue } from 'types/api/transaction';
 
 import config from 'configs/app';
 import { AddressHighlightProvider } from 'lib/contexts/addressHighlight';
@@ -15,10 +15,11 @@ import TimeFormatToggle from 'ui/shared/time/TimeFormatToggle';
 
 import type { TxsTranslationQuery } from './noves/useDescribeTxs';
 import TxsSocketNotice from './socket/TxsSocketNotice';
+import type { TransactionFeedItem } from './TxPriceUpdate';
 import TxsTableItem from './TxsTableItem';
 
 type Props = {
-  txs: Array<Transaction>;
+  txs: Array<TransactionFeedItem>;
   sort: TransactionsSortingValue;
   onSortToggle?: (field: TransactionsSortingField) => void;
   top: number;
