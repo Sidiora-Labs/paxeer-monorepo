@@ -21,8 +21,15 @@ import (
 type VisibilityFence interface {
 	CurrentRankingRevision(context.Context) (string, time.Time, error)
 }
+type snapshotReader interface {
+	Current(context.Context, string) (ranker.Header, error)
+	Header(context.Context, string, string) (ranker.Header, error)
+	Page(context.Context, ranker.Header, int64, int) (ranker.StoredPage, error)
+	ValidateBoundary(context.Context, ranker.Header, ranker.PageReference) error
+}
+
 type Snapshots struct {
-	store      *store.SnapshotStore
+	store      snapshotReader
 	cache      *store.SnapshotCache
 	cursor     *ranker.CursorCodec
 	visibility VisibilityFence
@@ -30,6 +37,13 @@ type Snapshots struct {
 }
 
 func NewSnapshots(repository *store.SnapshotStore, cache *store.SnapshotCache, cursor *ranker.CursorCodec, visibility VisibilityFence, maxReads int) (*Snapshots, error) {
+	if repository == nil {
+		return nil, ranker.ErrUnavailable
+	}
+	return newSnapshots(repository, cache, cursor, visibility, maxReads)
+}
+
+func newSnapshots(repository snapshotReader, cache *store.SnapshotCache, cursor *ranker.CursorCodec, visibility VisibilityFence, maxReads int) (*Snapshots, error) {
 	if repository == nil || cursor == nil || visibility == nil || maxReads < 1 || maxReads > 64 {
 		return nil, ranker.ErrUnavailable
 	}

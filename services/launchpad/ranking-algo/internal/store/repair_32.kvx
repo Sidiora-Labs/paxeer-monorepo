@@ -1,0 +1,26 @@
+[repair.22.31.32]
+finding = "heavy-publication-rejected"
+implementation = "PublicationStore.Complete derives heavy admission count and exact membership from ranker.HeavyCategoryNames while retaining duplicate, run identity, digest and provenance checks. Historical in-scope consumer tests now require seven heavy and eight total categories."
+proving_tests = ["TestRepair_32_ProducerRunsReachTransaction", "TestRepair_32_RejectIncompleteOrMismatchedHeavyRuns", "TestRepair_32_CoordinatorDurableStreamAndHTTPAcrossRestart", "TestRepair_32_HeavyRunRollbackAndEmptyCompletion"]
+proof_path = "In-process frozen source facts -> real Coordinator/ComputeRun -> real PublicationStore through pgx -> transactional on-disk storage double -> real StreamWriter api_stream.append_ranking call -> committed frame parser and real ranking HTTP handler. Tests close/reopen the pool, store, storage double and HTTP server with all intents pending and during partial dispatch; assert all eight categories, idempotence, atomic rollback and completed-empty recovery. No environment variable or external service is required."
+proof_boundary = "The PostgreSQL protocol/storage boundary and source/visibility inputs are doubled as explicitly directed for attempt 2; production SQL migrations and external source owners are not qualified by these tests. No production component or transport codec under repair is replaced."
+baseline = "Continuation retains attempt 1 publication.go repair. Its reported TestRepair_32_CoordinatorDurableStreamAndHTTPAcrossRestart failed for missing L19_POSTGRES_DSN, L19_VISIBILITY_URL and RANKING_TEST_POSTGRES_DSN; package-wide service-dependent tests also failed. No unchanged gate was rerun: the ordered continuation instructions require full implementation before hf-build and hf-done."
+wiring_request_1 = "launchpad/spec/production-system/integration/migrations/190000.sql — launchpad migration owner: provide the reviewed upgrade migration admitting gainers and losers; the registered snapshot constraint currently admits only six categories."
+wiring_request_2 = "services/launchpad/ranking-algo/internal/ranker/coordinator_test.go — launchpad ranker owner: replace historical five-heavy expectations with the seven-category contract."
+qualification_evidence = "The verified candidate revision, exact command, exit and private log location are recorded by hf-build/hf-done outside the source tree and copied verbatim in the final response."
+
+[gotcha.in_process_publication]
+symptom = "Concrete pgxpool storage and HTTP dependencies prevent substituting a CompletedSink from proving the component under repair."
+resolution = "Use the actual pgx pool with a net.Pipe PostgreSQL protocol boundary and persist the transactional test state before reopening; exercise real publication, stream writer and HTTP methods."
+
+[qualification.repair_1]
+revision = "7e74cf9e6c874ddb271656d7ee5291003e5957e9"
+command = "cg spec done 22.31.32 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The real pgx client encodes bytea parameters as hex text without parameter OIDs in Exec mode; the in-process storage boundary tried to parse that text as JSON."
+repair = "Decode bytea hex at the protocol boundary, return PostgreSQL timestamp text, and accept pgx binary COPY completion at a complete-row boundary without an optional trailer."
+
+[gotcha.repair_script]
+symptom = "A repair script rejected a literal backslash-x before editing; the following hf-build wrapper refused the unchanged candidate without running the build."
+resolution = "Use a raw Python replacement string for the Go bytea prefix; apply the repair successfully before requesting the next gate."
