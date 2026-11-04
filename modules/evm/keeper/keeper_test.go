@@ -22,7 +22,6 @@ import (
 	authtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
 	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/utils"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -117,22 +116,35 @@ func TestGetCustomPrecompiles(t *testing.T) {
 		"oracle", "p256", "pointer", "pointerview", "solo", "staking", "wasmd",
 	}
 	precompileTags := map[string][]string{}
+	expectedVersions := map[string]map[string]string{}
 
 	// Read versions from each precompile directory
 	for _, dir := range precompileDirs {
 		versionFile := fmt.Sprintf("../../../precompiles/%s/versions", dir)
 		content, err := os.ReadFile(versionFile)
-		if err != nil {
-			t.Logf("Warning: Could not read %s: %v", versionFile, err)
-			continue
-		}
-
-		// Parse each line as a tag
-		precompileTags[dir] = utils.Map(strings.Split(string(content), "\n"), strings.TrimSpace)
-		for _, line := range precompileTags[dir] {
-			if line != "" {
-				tagSet[line] = true
+		require.NoError(t, err)
+		for _, line := range strings.Split(string(content), "\n") {
+			if tag := strings.TrimSpace(line); tag != "" {
+				precompileTags[dir] = append(precompileTags[dir], tag)
+				tagSet[tag] = true
 			}
+		}
+		require.NotEmpty(t, precompileTags[dir], dir)
+		versions := precompileTags[dir]
+		expectedVersions[dir] = make(map[string]string, len(versions)+1)
+		for _, tag := range versions {
+			expectedVersions[dir][tag] = tag
+		}
+		// The final version-file entry denotes the current implementation,
+		// registered by GetVersioned under the node's latest upgrade name.
+		// Its old tag alone leaves the preceding historical version active.
+		current := versions[len(versions)-1]
+		if current != app.LatestUpgrade {
+			require.GreaterOrEqual(t, len(versions), 2, dir)
+			expectedVersions[dir][current] = versions[len(versions)-2]
+			precompileTags[dir] = append(versions, app.LatestUpgrade)
+			tagSet[app.LatestUpgrade] = true
+			expectedVersions[dir][app.LatestUpgrade] = app.LatestUpgrade
 		}
 	}
 
@@ -159,17 +171,41 @@ func TestGetCustomPrecompiles(t *testing.T) {
 		tagToHeight[tag] = int64(height)
 	}
 
-	for precompile, tags := range precompileTags {
-		for _, tag := range tags {
-			ps := k.GetCustomPrecompilesVersions(ctx.WithBlockHeight(tagToHeight[tag] + 1))
-			for p, rtag := range ps {
-				if p.Hex() != precompile {
-					continue
+	assertions, expectedAssertions := 0, 0
+	for directory, versions := range precompileTags {
+		name := directory
+		if name == "p256" {
+			name = "p256Verify"
+		}
+		info, err := precompiles.GetPrecompileInfoE(name)
+		require.NoError(t, err, "unregistered precompile directory %s", directory)
+		for _, tag := range versions {
+			height := tagToHeight[tag]
+			var previous string
+			var previousHeight int64
+			for _, candidate := range versions {
+				if h := tagToHeight[candidate]; h < height && h > previousHeight {
+					previous, previousHeight = candidate, h
 				}
-				require.Equal(t, tag, rtag)
 			}
+			before := k.GetCustomPrecompilesVersions(ctx.WithBlockHeight(height - 1))
+			if previous == "" {
+				require.NotContains(t, before, info.Address, directory)
+			} else {
+				require.Equal(t, expectedVersions[directory][previous], before[info.Address], directory)
+			}
+			assertions++
+			for _, h := range []int64{height, height + 1} {
+				selected := k.GetCustomPrecompilesVersions(ctx.WithBlockHeight(h))
+				require.Contains(t, selected, info.Address, directory)
+				require.Equal(t, expectedVersions[directory][tag], selected[info.Address], directory)
+				assertions++
+			}
+			expectedAssertions += 3
 		}
 	}
+	require.Positive(t, assertions)
+	require.Equal(t, expectedAssertions, assertions)
 }
 
 func TestCustomPrecompilesServeTheFeeTokenOnlyFromItsUpgradeHeight(t *testing.T) {
