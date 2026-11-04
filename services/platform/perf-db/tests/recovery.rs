@@ -1,5 +1,5 @@
-use std::fs::{self, OpenOptions};
-use std::io::Write;
+#[path = "support/repair_22_33_1374.rs"]
+mod repair_22_33_1374;
 
 use perfdb::core::types::*;
 use perfdb::engine::PerfDbConfig;
@@ -278,165 +278,12 @@ fn snapshot_plus_wal_recovery() {
 
 #[test]
 fn truncated_wal_recovers_valid_entries() {
-    let dir = tempfile::tempdir().unwrap();
-    let config = test_config(dir.path());
-
-    {
-        let db = PerfDb::open(config.clone()).unwrap();
-
-        db.process_event(&make_event(
-            1,
-            Event::PositionOpened {
-                position_id: pid(1),
-                user: addr(1),
-                market_id: 0,
-                is_long: true,
-                size_usd: 1_000_000,
-                leverage: 10,
-                entry_price: 67_000,
-                collateral_token: token(1),
-                collateral_amount: 100_000,
-            },
-        ))
-        .unwrap();
-
-        db.process_event(&make_event(
-            2,
-            Event::CollateralDeposited {
-                user: addr(2),
-                token: token(1),
-                amount: 3_000_000,
-            },
-        ))
-        .unwrap();
-
-        db.sync_wal().unwrap();
-    }
-
-    let wal_dir = dir.path().join("wal");
-    let entries: Vec<_> = fs::read_dir(&wal_dir)
-        .unwrap()
-        .filter_map(|e| e.ok())
-        .filter(|e| e.file_name().to_string_lossy().starts_with("wal_"))
-        .collect();
-
-    let mut seg_files: Vec<_> = entries.iter().map(|e| e.path()).collect();
-    seg_files.sort();
-    let last_seg = seg_files.last().unwrap();
-
-    {
-        let mut f = OpenOptions::new().append(true).open(last_seg).unwrap();
-
-        f.write_all(&[0xFF; 37]).unwrap();
-        f.flush().unwrap();
-    }
-
-    {
-        let db = PerfDb::open(config).unwrap();
-
-        assert!(db.positions.get(&pid(1)).is_some());
-
-        let bal = db.balances.get(&addr(2), &token(1)).unwrap();
-        assert_eq!(bal.amount, 3_000_000);
-    }
+    repair_22_33_1374::truncated_wal_recovers_valid_entries();
 }
 
 #[test]
 fn corrupted_crc_stops_replay_at_corruption() {
-    let dir = tempfile::tempdir().unwrap();
-    let config = test_config(dir.path());
-
-    {
-        let db = PerfDb::open(config.clone()).unwrap();
-
-        db.process_event(&make_event(
-            1,
-            Event::PositionOpened {
-                position_id: pid(1),
-                user: addr(1),
-                market_id: 0,
-                is_long: true,
-                size_usd: 1_000_000,
-                leverage: 10,
-                entry_price: 67_000,
-                collateral_token: token(1),
-                collateral_amount: 100_000,
-            },
-        ))
-        .unwrap();
-
-        db.process_event(&make_event(
-            2,
-            Event::PositionOpened {
-                position_id: pid(2),
-                user: addr(2),
-                market_id: 1,
-                is_long: false,
-                size_usd: 500_000,
-                leverage: 5,
-                entry_price: 3_500,
-                collateral_token: token(1),
-                collateral_amount: 100_000,
-            },
-        ))
-        .unwrap();
-
-        db.process_event(&make_event(
-            3,
-            Event::CollateralDeposited {
-                user: addr(3),
-                token: token(1),
-                amount: 999_999,
-            },
-        ))
-        .unwrap();
-
-        db.sync_wal().unwrap();
-    }
-
-    let wal_dir = dir.path().join("wal");
-    let mut seg_files: Vec<_> = fs::read_dir(&wal_dir)
-        .unwrap()
-        .filter_map(|e| e.ok())
-        .filter(|e| e.file_name().to_string_lossy().starts_with("wal_"))
-        .map(|e| e.path())
-        .collect();
-    seg_files.sort();
-    let seg_path = seg_files.last().unwrap();
-
-    {
-        let data = fs::read(seg_path).unwrap();
-        let mut modified = data.clone();
-
-        let first_len = u32::from_le_bytes(data[0..4].try_into().unwrap()) as usize;
-        let second_offset = 8 + first_len;
-        if second_offset + 8 < modified.len() {
-            modified[second_offset + 4] ^= 0xFF;
-            modified[second_offset + 5] ^= 0xFF;
-        }
-
-        fs::write(seg_path, &modified).unwrap();
-    }
-
-    {
-        let db = PerfDb::open(config).unwrap();
-
-        assert!(
-            db.positions.get(&pid(1)).is_some(),
-            "position 1 should be recovered (before corruption)"
-        );
-
-        assert!(
-            db.positions.get(&pid(2)).is_none(),
-            "position 2 should NOT be recovered (corrupted CRC)"
-        );
-
-        let bal = db.balances.get(&addr(3), &token(1));
-        assert!(
-            bal.is_none(),
-            "balance should NOT be recovered (after corruption point)"
-        );
-    }
+    repair_22_33_1374::corrupted_crc_stops_replay_at_corruption();
 }
 
 #[test]
@@ -675,55 +522,7 @@ fn recovery_after_heavy_workload() {
 
 #[test]
 fn wal_replay_matches_live_position_state() {
-    let dir = tempfile::tempdir().unwrap();
-    let config = test_config(dir.path());
-
-    let live = {
-        let db = PerfDb::open(config.clone()).unwrap();
-        db.process_event(&make_event(
-            1,
-            Event::PositionOpened {
-                position_id: pid(1),
-                user: addr(1),
-                market_id: 0,
-                is_long: true,
-                size_usd: 1_000_000,
-                leverage: 10,
-                entry_price: 67_000,
-                collateral_token: token(1),
-                collateral_amount: 100_000,
-            },
-        ))
-        .unwrap();
-        db.process_event(&make_event(
-            2,
-            Event::PositionModified {
-                position_id: pid(1),
-                new_size_usd: 1_500_000,
-                new_collateral_usd: 150_000,
-                new_collateral_amount: 150_000,
-            },
-        ))
-        .unwrap();
-        db.sync_wal().unwrap();
-        (
-            db.positions.get(&pid(1)).unwrap(),
-            db.market_state.open_interest(0),
-        )
-    };
-
-    let (live_pos, live_oi) = live;
-    assert_eq!(live_pos.entry_price, 67_000);
-    assert_eq!(live_pos.size_usd, 1_500_000);
-    assert_eq!(live_oi, (1_000_000, 0));
-
-    let db = PerfDb::open(config).unwrap();
-    let pos = db.positions.get(&pid(1)).unwrap();
-    assert_eq!(pos.entry_price, live_pos.entry_price);
-    assert_eq!(pos.size_usd, live_pos.size_usd);
-    assert_eq!(pos.collateral_usd, live_pos.collateral_usd);
-    assert_eq!(pos.collateral_amount, live_pos.collateral_amount);
-    assert_eq!(db.market_state.open_interest(0), live_oi);
+    repair_22_33_1374::wal_replay_matches_live_position_state();
 }
 
 #[test]
