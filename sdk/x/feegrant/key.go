@@ -38,14 +38,25 @@ func FeeAllowancePrefixByGrantee(grantee sdk.AccAddress) []byte {
 
 func ParseAddressesFromFeeAllowanceKey(key []byte) (granter, grantee sdk.AccAddress) {
 	// key is of format:
-	// 0x00<granteeAddressLen (1 Byte)><granteeAddress_Bytes><granterAddressLen (1 Byte)><granterAddress_Bytes><msgType_Bytes>
+	// 0x00<granteeAddressLen (1 Byte)><granteeAddress_Bytes><granterAddressLen (1 Byte)><granterAddress_Bytes>
 	kv.AssertKeyAtLeastLength(key, 2)
-	granteeAddrLen := key[1] // remove prefix key
-	kv.AssertKeyAtLeastLength(key, int(2+granteeAddrLen))
-	grantee = sdk.AccAddress(key[2 : 2+granteeAddrLen])
-	granterAddrLen := int(key[2+granteeAddrLen])
-	kv.AssertKeyAtLeastLength(key, 3+int(granteeAddrLen+byte(granterAddrLen)))
-	granter = sdk.AccAddress(key[3+granterAddrLen : 3+granteeAddrLen+byte(granterAddrLen)])
+	if key[0] != FeeAllowanceKeyPrefix[0] {
+		panic("invalid fee allowance key prefix")
+	}
+	granteeAddrLen := int(key[1])
+	if granteeAddrLen == 0 {
+		panic("empty fee allowance grantee address")
+	}
+	granteeEnd := 2 + granteeAddrLen
+	kv.AssertKeyAtLeastLength(key, granteeEnd+1)
+	granterAddrLen := int(key[granteeEnd])
+	if granterAddrLen == 0 {
+		panic("empty fee allowance granter address")
+	}
+	granterStart := granteeEnd + 1
+	kv.AssertKeyLength(key, granterStart+granterAddrLen)
+	grantee = sdk.AccAddress(key[2:granteeEnd])
+	granter = sdk.AccAddress(key[granterStart:])
 
 	return granter, grantee
 }

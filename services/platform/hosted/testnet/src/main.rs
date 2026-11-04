@@ -99,6 +99,7 @@ impl Endpoint {
 }
 
 struct Config {
+    evm_chain_id: u64,
     public_listen: SocketAddr,
     admin_listen: SocketAddr,
     tls: Arc<ServerConfig>,
@@ -781,6 +782,7 @@ fn config() -> Result<Config, String> {
         })
         .map_err(str::to_owned)?;
     Ok(Config {
+        evm_chain_id: testnet.evm_chain_id,
         public_listen: env::var("LAYERX_TESTNET_PUBLIC_LISTEN")
             .unwrap_or_else(|_| "0.0.0.0:9443".to_owned())
             .parse::<SocketAddr>()
@@ -1126,6 +1128,7 @@ fn public_route(config: &Config, request: &Request) -> Response {
             serde_json::json!({
                 "network": "layerx-testnet",
                 "network_id": TESTNET_NETWORK_ID,
+                "evm_chain_id": config.evm_chain_id,
                 "package_semver": config.release.package_semver,
                 "lxp_wire_protocol_version": LXP_WIRE_PROTOCOL_VERSION,
                 "reset_schedule": "09:00 UTC on the first Tuesday of every month"

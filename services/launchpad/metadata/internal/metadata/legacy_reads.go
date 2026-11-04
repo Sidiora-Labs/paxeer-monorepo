@@ -70,10 +70,11 @@ func (l *ProductionLegacyReads) RegisterRoutes(r chi.Router) {
 
 func (l *ProductionLegacyReads) ready() bool {
 	store := l.Media.Metadata.Store
-	return store != nil && store.Pool != nil && l.Media.Metadata.Canonical != nil && l.PublicURL != ""
+	return store != nil && store.Pool != nil && l.Media.Metadata.Canonical != nil && l.Media.Moderation != nil && l.PublicURL != ""
 }
 
 func (l *ProductionLegacyReads) single(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	token := normalizeAddr(strings.TrimSuffix(chi.URLParam(r, "tokenAddress"), ".json"))
 	if !l.ready() {
 		sharedhttp.WriteError(w, http.StatusServiceUnavailable, "Service Unavailable", "metadata reads are unavailable")
@@ -84,14 +85,13 @@ func (l *ProductionLegacyReads) single(w http.ResponseWriter, r *http.Request) {
 		sharedhttp.WriteError(w, http.StatusServiceUnavailable, "Service Unavailable", "metadata reads are unavailable")
 		return
 	}
-	w.Header().Set("Cache-Control", "public, max-age=60")
 	sharedhttp.WriteJSON(w, http.StatusOK, out[token])
 }
 
 func (l *ProductionLegacyReads) batch(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	requested := parseBatchAddresses(r.URL.Query()["addresses"])
 	if len(requested) == 0 {
-		w.Header().Set("Cache-Control", "public, max-age=10")
 		sharedhttp.WriteJSON(w, http.StatusOK, map[string]types.PublicMetadata{})
 		return
 	}
@@ -104,15 +104,45 @@ func (l *ProductionLegacyReads) batch(w http.ResponseWriter, r *http.Request) {
 		sharedhttp.WriteError(w, http.StatusServiceUnavailable, "Service Unavailable", "metadata reads are unavailable")
 		return
 	}
-	w.Header().Set("Cache-Control", "public, max-age=30")
 	sharedhttp.WriteJSON(w, http.StatusOK, out)
 }
 
-// build assembles the legacy records of tokens in one read-only snapshot.
+// refreshModeration persists current visibility before a response snapshot is
+// opened. Only canonical identities are cached; creator content and visibility
+// are read afresh on every request, including requests after a restart.
+func (l *ProductionLegacyReads) refreshModeration(ctx context.Context, tokens []string) error {
+	store := l.Media.Metadata.Store
+	seen := make(map[string]bool, len(tokens))
+	for _, token := range tokens {
+		if !addressRE.MatchString(token) {
+			continue
+		}
+		var pool string
+		e := store.Pool.QueryRow(ctx, "SELECT pool FROM "+store.table("pools")+" WHERE token=$1", token).Scan(&pool)
+		if errors.Is(e, pgx.ErrNoRows) {
+			continue
+		}
+		if e != nil {
+			return e
+		}
+		if !seen[pool] {
+			if e = l.Media.syncModeration(ctx, pool); e != nil {
+				return e
+			}
+			seen[pool] = true
+		}
+	}
+	return nil
+}
+
+// build refreshes visibility, then assembles records in one read-only snapshot.
 func (l *ProductionLegacyReads) build(ctx context.Context, tokens []string) (map[string]types.PublicMetadata, error) {
 	store := l.Media.Metadata.Store
 	bounded, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
+	if e := l.refreshModeration(bounded, tokens); e != nil {
+		return nil, e
+	}
 	tx, e := store.Pool.BeginTx(bounded, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
 	if e != nil {
 		return nil, e
@@ -251,6 +281,7 @@ func (l *ProductionLegacyReads) logoKey(ctx context.Context, tx pgx.Tx, data V2D
 }
 
 func (l *ProductionLegacyReads) logo(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	token := normalizeAddr(stripExt(chi.URLParam(r, "file")))
 	if !addressRE.MatchString(token) {
 		sharedhttp.WriteError(w, http.StatusNotFound, "Not Found", "No logo found")
@@ -263,6 +294,10 @@ func (l *ProductionLegacyReads) logo(w http.ResponseWriter, r *http.Request) {
 	store := l.Media.Metadata.Store
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
+	if e := l.refreshModeration(ctx, []string{token}); e != nil {
+		sharedhttp.WriteError(w, http.StatusServiceUnavailable, "Service Unavailable", "media delivery is unavailable")
+		return
+	}
 	tx, e := store.Pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
 	if e != nil {
 		sharedhttp.WriteError(w, http.StatusServiceUnavailable, "Service Unavailable", "media delivery is unavailable")
@@ -297,7 +332,6 @@ func (l *ProductionLegacyReads) logo(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "image/png")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
-	w.Header().Set("Cache-Control", "public, max-age=300")
 	w.Header().Set("Content-Length", strconv.Itoa(len(body)))
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(body)

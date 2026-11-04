@@ -3,9 +3,11 @@
 pub mod agent_creation;
 pub mod agent_runtime;
 pub mod backend;
+mod balance_material;
 mod component;
 mod component_protocol;
 mod executor;
+mod finalization;
 mod http;
 pub mod identity;
 mod identity_dispatch;

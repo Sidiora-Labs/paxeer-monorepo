@@ -1,0 +1,38 @@
+[task]
+id = "22.31.156"
+audit = "22.30.106"
+acceptance = "22998.1"
+baseline = "Not run: the explicit ordered gate policy forbids testing before full implementation and forbids running verify_cmd by hand; no earlier gate ledger was present."
+evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit and private log; no qualification is claimed before those gates run."
+
+[finding.4]
+tests = ["finding4_full_cursor_same_block_duplicates_and_reopen", "finding4_filtered_height_jump_and_unseen_regression", "finding4_legacy_height_migration_replays_the_last_block"]
+producer = "Recorded rpc/filter.go output through the real agent CoreEvent log codec and EventDelivery contract into the durable Human feed."
+repair = "Persist and order full producer cursors; deduplicate EventIdentity before timestamp/order checks; migrate version 1 by replaying its last block from the preceding block end, retaining source identities."
+
+[finding.5]
+tests = ["finding5_rung_only_mutation_cannot_upgrade_a_signed_receipt", "finding5_real_committed_evidence_export_decode_reopen_and_tamper"]
+producer = "daemon/committed-fixture/vector_v4.go node recording: signed receipt, actual tx-zero sequence batch, consensus proof, execution header and successor precommit quorum."
+repair = "Authenticate receipt signatures with pinned height history; authenticate the successor commit with independently supplied consensus validators; prove tx zero, sequence range, activity root and exact selected receipt sequence-chain binding; derive and compare the rung. V3 carries this evidence; V2 decodes without conferring a Committed claim."
+
+[finding.6]
+tests = ["finding6_real_producer_receipt_header_inclusion_roundtrip", "finding6_artifact_only_keys_and_unrelated_roots_are_refused"]
+producer = "The original node recorder's signed receipt header and receipt Merkle path survive portable encoding; adversarial artifacts use real Merkle/header codecs and real foreign signatures."
+repair = "Resolve authority from pinned receipt history, verify exact selected-receipt membership, bind header height and sequence, and require every activity/state fact to match that header and the selected activity id/resulting root. Receipt-header membership counts as a verified inclusion."
+
+[wiring.1]
+request = "services/human/crates/layerx-human-service/src/server (Human domain): acquire sequence-batch and consensus evidence plus independently configured consensus validator history; use evidence_with_consensus/verify_with_consensus for Committed exports. Legacy verification entry points fail closed when that authority is unavailable."
+
+[wiring.2]
+request = "services/agent/crates/layerx-agentd/src/events/deliver.rs (Agent domain): carry the actual log position instead of synthesizing a sequence-only cursor; reconnect the activity consumer with Feed::projected_agent_cursor."
+
+[wiring.3]
+request = "services/human/crates/layerx-human-service/tests/export_receipts.rs and tests/export.rs (Human domain): supply real committed evidence and receipt-bound pinned inclusion authority; their existing signature-only Committed and unrelated self-authorized root expectations contradict findings 5 and 6 and are preserved here."
+
+[qualification.repair.1]
+revision = "f17c7ada82788fadfedf3ae40c929cc80bb8f0da"
+command = "cg spec done 22.31.156 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Three cursor cases passed; all four export cases reached AuthorityMismatch because the raw-public-key overload selects the historical kernel receipt domain."
+repair = "Pass the independently selected height-range authorization to the existing receipt verifier; retain every assertion and real producer input."

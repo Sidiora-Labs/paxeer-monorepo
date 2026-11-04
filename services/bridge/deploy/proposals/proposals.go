@@ -403,6 +403,9 @@ func SetCaps(cfg ChainConfig) ([]types.MsgSetCap, error) {
 			}
 			carriesSidiora = true
 		}
+		if err := cfg.checkAssetBinding(prefix, asset, id); err != nil {
+			return nil, err
+		}
 		perTx, err := liveCap(cfg.file(), prefix+"max_per_tx", asset.MaxPerTx)
 		if err != nil {
 			return nil, err
@@ -432,6 +435,46 @@ func SetCaps(cfg ChainConfig) ([]types.MsgSetCap, error) {
 			"the Solana configuration carries no asset with Sidiora's asset id %s", sidioraAssetID.Hex())
 	}
 	return caps, nil
+}
+
+// checkAssetBinding applies the vault's asset identity rules to both input
+// schemas before any cap can enter a governance body.
+func (c ChainConfig) checkAssetBinding(prefix string, asset Asset, id types.Address20) error {
+	if c.ChainID != SolanaChainID {
+		address, err := decodeField(c.file(), prefix+"address", asset.Address)
+		if err != nil {
+			return err
+		}
+		if id != address {
+			return refuse(c.file(), prefix+"asset_id",
+				"the vault emits the asset's own address %s, not %s", address.Hex(), id.Hex())
+		}
+		return nil
+	}
+	mint, err := liveKey(c.file(), prefix+"address", asset.Address)
+	if err != nil {
+		return err
+	}
+	if asset.Address == chainconfig.SidioraMint {
+		if id != sidioraAssetID {
+			return refuse(c.file(), prefix+"asset_id",
+				"Sidiora's mint enters the digests as %s, not %s", sidioraAssetID.Hex(), id.Hex())
+		}
+		if asset.Decimals != 6 {
+			return refuse(c.file(), prefix+"decimals", "Sidiora has six decimals, not %d", asset.Decimals)
+		}
+		return nil
+	}
+	if id == sidioraAssetID {
+		return refuse(c.file(), prefix+"asset_id",
+			"%s identifies Sidiora's mint %s, not %s", id.Hex(), chainconfig.SidioraMint, asset.Address)
+	}
+	handle := types.Address20(vectors.Handle(vectors.Key32(mint)))
+	if id != handle {
+		return refuse(c.file(), prefix+"asset_id",
+			"the handle of mint %s is %s, not %s", asset.Address, handle.Hex(), id.Hex())
+	}
+	return nil
 }
 
 // Files marshals every body of the bundle. Marshalling happens before any file

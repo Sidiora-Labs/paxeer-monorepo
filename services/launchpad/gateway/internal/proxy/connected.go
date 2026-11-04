@@ -533,6 +533,24 @@ func SocialConnectedRoutes() []ConnectedRoute {
 	}
 	sort.Strings(paths)
 	routes := SocialContractRoutes()
+	seen := map[string]bool{}
+	for _, route := range routes {
+		seen[route.Method+" "+route.Template] = true
+	}
+	frozen := FrozenConnectedSurface()["social"]
+	frozenPaths := make([]string, 0, len(frozen))
+	for path := range frozen {
+		frozenPaths = append(frozenPaths, path)
+	}
+	sort.Strings(frozenPaths)
+	for _, path := range frozenPaths {
+		for _, method := range strings.Fields(frozen[path]) {
+			if !seen[method+" "+path] {
+				routes = append(routes, ConnectedRoute{Method: method, Template: path, Authenticate: method != http.MethodGet, Optional: method == http.MethodGet})
+				seen[method+" "+path] = true
+			}
+		}
+	}
 	for _, path := range paths {
 		for _, method := range strings.Fields(methods[path]) {
 			routes = append(routes, ConnectedRoute{Method: method, Template: path, Authenticate: true})

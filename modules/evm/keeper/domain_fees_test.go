@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"testing"
 
+	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
 	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/ante"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
@@ -15,7 +16,6 @@ import (
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	authtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/types"
-	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -24,10 +24,11 @@ import (
 
 func domainFeeContext(t *testing.T) (*app.App, sdk.Context) {
 	t.Helper()
-	a := testkeeper.EVMTestApp
+	a := app.Setup(t, false, false, false)
 	ctx, _ := a.GetContextForDeliverTx(nil).WithBlockHeight(1).CacheContext()
 	ctx = ctx.WithConsensusParams(&tmproto.ConsensusParams{Block: &tmproto.BlockParams{MaxGas: 100000}})
 	k := &a.EvmKeeper
+	k.BeginBlock(ctx)
 	params := k.GetParams(ctx)
 	params.BaseFeePerGas = sdk.NewDec(10)
 	params.MinimumFeePerGas = sdk.NewDec(10)
@@ -114,6 +115,11 @@ func TestChainTransactionIsIndexedAndRaisesItsOwnBaseFee(t *testing.T) {
 	require.Zero(t, a.LayerXChainsKeeper.DomainGasUsed(ctx, idle.Id, 1))
 	require.Empty(t, a.LayerXChainsKeeper.DomainTxs(ctx, idle.Id, 1))
 
+	firstMsg, _ := signedDomainMessage(t, key, chainstypes.ChainIDOf(busy.Id), 0, 100)
+	secondMsg, _ := signedDomainMessage(t, key, chainstypes.ChainIDOf(busy.Id), 1, 100)
+	rootMsg, _ := signedDomainMessage(t, key, a.EvmKeeper.ChainID(ctx), 2, 100)
+	a.EvmKeeper.SetMsgs([]*types.MsgEVMTransaction{firstMsg, secondMsg, rootMsg})
+	a.EvmKeeper.SetTxResults([]*abci.ExecTxResult{{}, {}, {}})
 	before := a.LayerXChainsKeeper.NextBaseFee(ctx, busy.Id)
 	a.EvmKeeper.SetNextBaseFeePerGas(ctx, sdk.NewDec(100))
 	a.EvmKeeper.EndBlock(ctx, ctx.BlockHeight(), int64(rootGas))
@@ -147,6 +153,9 @@ func TestOperatorReceivesTheFeeShareAtEndBlock(t *testing.T) {
 			hash, gas := executeDomainTransfer(t, a, ctx.WithTxIndex(0), key, chainstypes.ChainIDOf(domain.Id), 0)
 			require.Equal(t, []common.Hash{hash}, a.LayerXChainsKeeper.DomainTxs(ctx, domain.Id, 1))
 			require.Equal(t, gas, a.LayerXChainsKeeper.DomainGasUsed(ctx, domain.Id, 1))
+			msg, _ := signedDomainMessage(t, key, chainstypes.ChainIDOf(domain.Id), 0, 100)
+			a.EvmKeeper.SetMsgs([]*types.MsgEVMTransaction{msg})
+			a.EvmKeeper.SetTxResults([]*abci.ExecTxResult{{}})
 			denom := a.EvmKeeper.GetBaseDenom(ctx)
 			collector := a.AccountKeeper.GetModuleAddress(authtypes.FeeCollectorName)
 			if scenario.funded {
@@ -155,15 +164,15 @@ func TestOperatorReceivesTheFeeShareAtEndBlock(t *testing.T) {
 				require.NoError(t, a.BankKeeper.SendCoinsFromModuleToModule(ctx, types.ModuleName, authtypes.FeeCollectorName, coins))
 			}
 			operator := a.EvmKeeper.GetPaxAddressOrDefault(ctx, domain.Operator)
-			before := a.BankKeeper.GetBalance(ctx, operator, denom).Amount
-			collectorBefore := a.BankKeeper.GetBalance(ctx, collector, denom).Amount
+			before := sdk.NewIntFromBigInt(a.EvmKeeper.GetBalance(ctx, operator))
+			collectorBefore := sdk.NewIntFromBigInt(a.EvmKeeper.GetBalance(ctx, collector))
 			a.EvmKeeper.EndBlock(ctx, ctx.BlockHeight(), 0)
 			expected := sdk.ZeroInt()
-			if scenario.funded && scenario.share != 0 {
-				expected = sdk.NewInt(69999)
+			if scenario.share != 0 {
+				expected = sdk.NewInt(69993)
 			}
-			require.Equal(t, expected.String(), a.BankKeeper.GetBalance(ctx, operator, denom).Amount.Sub(before).String())
-			require.Equal(t, collectorBefore.Sub(expected).String(), a.BankKeeper.GetBalance(ctx, collector, denom).Amount.String())
+			require.Equal(t, expected.String(), sdk.NewIntFromBigInt(a.EvmKeeper.GetBalance(ctx, operator)).Sub(before).String())
+			require.Equal(t, collectorBefore.Add(sdk.NewInt(210000)).Sub(expected).String(), sdk.NewIntFromBigInt(a.EvmKeeper.GetBalance(ctx, collector)).String())
 		})
 	}
 }

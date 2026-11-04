@@ -1,0 +1,46 @@
+[repair.22.31.128]
+audit = "22.30.61"
+acceptance = "22998.1"
+qualification = "Pending hf-build and hf-done; authoritative verified revision, command, exit and private log are emitted by the runner ledger, not inferred from source changes."
+baseline = "No unchanged-tree verify ran: the explicit task gate order prohibits testing before complete implementation and prohibits running verify_cmd outside hf-done; no baseline failure is claimed."
+policy = "Distinct arenas retain their original bounds: 256 pending requests and 64 hot answers; admission reserves a renewable hot slot by archiving a completed answer when full, and settlement reclaims again as needed for concurrent or legacy pending requests; archive headers/chunks and fulfilled replay tombstones remain in consensus state indefinitely."
+legacy_recovery = "Previously accepted paid requests fulfil through the same authenticated signature and atomic bank settlement path, reclaiming a hot answer instead of permanently refusing at 64."
+
+[finding.program-result-grpc]
+proof = "TestRepair_128_ProgramResultGRPC"
+path = "Paid request -> real keeper fulfilment -> application commit/close/disk reopen -> AppModule registered ABCI router and network gRPC -> generated QueryClient; independent wire parser checks digest bytes."
+
+[finding.committed-capacity-lifetime]
+proof = "TestRepair_128_CommittedCapacityLifetime; TestRepair_128_AdmissionReservesCapacity; TestRepair_128_AdmissionReclamationAtomic; TestRepair_128_LegacyAcceptedRecovery"
+path = "129 sequential paid requests across two disk reopens retain every response and replay tombstone; hot count stays at most 64; pending exhaustion and failed hot reclamation roll back the real bank fee; legacy saturation recovers with atomic settlement."
+
+[wiring.genesis]
+request = "modules/xweb/types/genesis.go, owning domain 6: add archive entries to GenesisState and validation, distinguish hot committed count from permanent fulfilled tombstones, and wire keeper InitGenesis/ExportGenesis before exporting archived state; current keeper export rejects loss explicitly."
+
+[finding.program-result-proof]
+proof = "TestRepair_128_ProgramResultProof; TestRepair_128_ProgramResultGRPC"
+path = "Replace the former expected protobuf panic with the generated QueryClient ProgramResult success after real disk reopen; Params and Attestors also use that transport, preserving payout, genesis replay, EVM and replay assertions."
+
+[conflict.legacy-committed-check]
+observed = "The supplied continuation requires TestFulfilProgramCommittedCapacity unchanged, but that test requires request 65 to stay paid and blocked at 64 hot answers, contrary to the required retention and recovery lifecycle."
+action = "Leave that test unchanged, record this contract conflict without rerunning the package-wide inventory, and prove successful recovery with the task's declared focused gate."
+
+[continuation.attempt-2]
+observed = "The supplied previous-attempt evidence reports TestQueryProgramCountersAnswersTheCounters, TestFulfilProgramCommittedCapacity, TestProgramOriginPendingCapacity and TestProofGoApiProducerTransportConsumer failing; no new unchanged-tree verification was run because the explicit gate order forbids it."
+action = "Restore the 256 pending bound and counter response, preserve all three named capacity tests unchanged, and replace the query proof's expected panic with successful real transport assertions; legacy recovery keeps the genuine insufficient-bank-balance failure assertion and completes once funds are restored."
+
+[gotcha.capacity]
+observed = "Reserving pending+1 hot slots incorrectly ties the 256 pending-record arena to the distinct 64-answer arena."
+action = "Reserve one renewable hot slot at admission and archive completed answers at settlement when needed, preserving both bounds and the legacy paid-request recovery path."
+
+[gotcha.codec]
+observed = "The standard Google protobuf codec reflects over SDK Hash32 arrays and cannot encode a successful ProgramResult; direct keeper queries do not prove transport success."
+action = "Use generated protobuf Marshal/Unmarshal methods for SDK protobuf messages and share registration with the ABCI router and network gRPC; retain standard handling for Google messages."
+
+[qualification.first]
+revision = "48e5de463bb75849fedfdeb4dd01af7987ef2dd8"
+command = "cg spec done 22.31.128 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Four preserved legacy tests conflict with the repaired behavior; the new legacy recovery test also needs a writable cache over the reopened committed multistore for its fee-drain failure setup."
+assumption = "Repair the task test's recovered write context and ensure generated protobuf decoding resets reused consumers; keep the contradictory legacy assertions intact."
