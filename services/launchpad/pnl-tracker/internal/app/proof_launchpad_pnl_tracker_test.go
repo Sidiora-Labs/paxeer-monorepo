@@ -9,9 +9,8 @@
 // revoke that replay immediately, proving the producer rechecks ownership.
 // The proof waits for the real transfer receipt before checking the new owner;
 // transaction submission alone does not guarantee that Anvil has mined it.
-// services/launchpad/pnl-tracker/internal/migrate/migrate.go: migrate.Up does
-// not create l18_requests or l18_audit; the expected runtime storage contract
-// is exercised below with those tables explicitly created in the owned database.
+// Reward storage is provisioned exclusively by the checked-in deployment SQL,
+// including migration 180001, before the production ledger admission check.
 package app
 
 import (
@@ -53,6 +52,11 @@ import (
 )
 
 func TestProofLaunchpadPnlTracker(t *testing.T) {
+	proveLaunchpadPnLTracker(t)
+}
+
+func proveLaunchpadPnLTracker(t *testing.T) {
+	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 	_, source, _, _ := runtime.Caller(0)
@@ -65,7 +69,7 @@ func TestProofLaunchpadPnlTracker(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	execSQL("CREATE SCHEMA proof_rewards; CREATE SCHEMA recovery; CREATE SCHEMA indexer")
+	execSQL("CREATE SCHEMA recovery; CREATE SCHEMA indexer")
 	epochTemplate, err := os.ReadFile(filepath.Join(root, "deploy/launchpad/production/recovery/epoch.sql"))
 	if err != nil {
 		t.Fatal(err)
@@ -76,18 +80,9 @@ func TestProofLaunchpadPnlTracker(t *testing.T) {
 	}
 	execSQL(epochSQL)
 	execSQL(`INSERT INTO recovery.recovery_control(singleton,epoch,region,revision,checkpoint_sha256) VALUES(true,1,'local',1,$1)`, strings.Repeat("a", 64))
-	execSQL("SET search_path TO proof_rewards; " + l18.SchemaDDL)
-	// The journey's runtime request table is not in the legacy goose migration.
-	// Supply its real SQL storage contract, never pre-filled responses.
-	execSQL(`CREATE TABLE proof_rewards.l18_requests (
-		actor text NOT NULL, request_key text NOT NULL, digest text NOT NULL,
-		method text NOT NULL, path text NOT NULL, response bytea NOT NULL,
-		expires_at timestamptz NOT NULL, release_digest text NOT NULL,
-		interface_digest text NOT NULL, PRIMARY KEY(actor,request_key));
-        CREATE TABLE proof_rewards.l18_audit (
-        identity text PRIMARY KEY, actor text NOT NULL, action text NOT NULL,
-        reason text NOT NULL, payload jsonb NOT NULL);
-		CREATE TABLE indexer.indexer_canonical_creations (
+	applyRewardDeploymentMigration(t, ctx, pool, root, "180000.sql")
+	applyRewardDeploymentMigration(t, ctx, pool, root, "180001.sql")
+	execSQL(`CREATE TABLE indexer.indexer_canonical_creations (
 		nft_id numeric PRIMARY KEY,pool text NOT NULL,creator text NOT NULL,
 		height bigint NOT NULL,block_hash text NOT NULL,transaction_hash text NOT NULL,
 		transaction_index numeric NOT NULL,log_index numeric NOT NULL);
@@ -157,7 +152,7 @@ func TestProofLaunchpadPnlTracker(t *testing.T) {
 	}
 	open := func(p *pgxpool.Pool) (*l18.JourneyService, *httptest.Server) {
 		t.Helper()
-		ledger, err := l18.NewRuntimeLedger(p, "proof_rewards", "proof", nil, guard.Assert)
+		ledger, err := newRewardLedger(ctx, p, "pnl", "proof", nil, guard.Assert)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -181,6 +176,7 @@ func TestProofLaunchpadPnlTracker(t *testing.T) {
 	service, server := open(pool)
 	var lastRewardsRequest string
 	var firstClaim []byte
+	var persistedPreparation string
 	claimKey := uuid.NewString()
 	claim := []byte(fmt.Sprintf(`{"rewardIds":["creator:1"],"recipient":%q}`, fixture.Alice))
 	for attempt := 0; attempt < 2; attempt++ {
@@ -241,6 +237,19 @@ func TestProofLaunchpadPnlTracker(t *testing.T) {
 			firstClaim = append([]byte(nil), raw...)
 		} else if !bytes.Equal(firstClaim, raw) {
 			t.Fatalf("persisted preparation changed after reopen: first=%s reopened=%s", firstClaim, raw)
+		}
+		var persisted string
+		if err := pool.QueryRow(ctx, `SELECT jsonb_build_array(to_jsonb(r),to_jsonb(a),to_jsonb(o))::text
+			FROM pnl.l18_requests r
+			JOIN pnl.l18_audit a ON a.identity=r.actor||':'||r.request_key::text
+			JOIN pnl.l18_outbox o ON o.identity='prepare:'||a.identity
+			WHERE r.actor=$1 AND r.request_key=$2`, fixture.Alice, claimKey).Scan(&persisted); err != nil {
+			t.Fatalf("durable request, audit and outbox identity: %v", err)
+		}
+		if attempt == 0 {
+			persistedPreparation = persisted
+		} else if persisted != persistedPreparation {
+			t.Fatalf("stored preparation changed after reconnect and replay: before=%s after=%s", persistedPreparation, persisted)
 		}
 		if _, err := iface.DecodeRewardClaimResponse(raw[:len(raw)/2]); err == nil {
 			t.Fatal("consumer decoded truncated producer preparation")
@@ -334,13 +343,13 @@ func TestProofLaunchpadPnlTracker(t *testing.T) {
 		t.Fatalf("new owner consumer status=%d claim=%+v err=%v body=%s", status, bobPrepared, err, raw)
 	}
 	var count int
-	if err := pool.QueryRow(ctx, "SELECT count(*) FROM proof_rewards.l18_requests").Scan(&count); err != nil || count != 2 {
+	if err := pool.QueryRow(ctx, "SELECT count(*) FROM pnl.l18_requests").Scan(&count); err != nil || count != 2 {
 		t.Fatalf("preparation persistence: count=%d err=%v", count, err)
 	}
-	if err := pool.QueryRow(ctx, "SELECT count(*) FROM proof_rewards.l18_audit WHERE action='prepare_claim'").Scan(&count); err != nil || count != 2 {
+	if err := pool.QueryRow(ctx, "SELECT count(*) FROM pnl.l18_audit WHERE action='prepare_claim'").Scan(&count); err != nil || count != 2 {
 		t.Fatalf("preparation audit persistence: count=%d err=%v", count, err)
 	}
-	if err := pool.QueryRow(ctx, "SELECT count(*) FROM proof_rewards.l18_outbox WHERE topic='reward.claim_prepared'").Scan(&count); err != nil || count != 2 {
+	if err := pool.QueryRow(ctx, "SELECT count(*) FROM pnl.l18_outbox WHERE topic='reward.claim_prepared'").Scan(&count); err != nil || count != 2 {
 		t.Fatalf("preparation outbox persistence: count=%d err=%v", count, err)
 	}
 }

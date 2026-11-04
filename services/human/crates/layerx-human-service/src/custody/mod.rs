@@ -1,11 +1,12 @@
 //! KMS-backed custody for human and managed-agent signing keys.
 
 mod evm;
+mod export;
 mod gateway;
 mod provider;
 pub use evm::{
     EvmAcknowledgement, EvmAction, EvmExternalSignature, EvmPlanAuthorization, EvmTransaction,
-    SendPlanAuthorization,
+    SendPlanAuthorization, SignedBankTransfer,
 };
 mod sessions;
 pub mod signer;
@@ -187,6 +188,8 @@ pub enum KmsError {
     DevelopmentOnly,
     /// The identity holds its own key and the provider no longer signs for it.
     SelfCustodied,
+    /// The provider cannot produce the native consent exposed by Human.
+    UnsupportedNativeConsent,
 }
 
 impl Display for KmsError {
@@ -204,6 +207,7 @@ impl Display for KmsError {
             Self::Conflict => "key-management service lifecycle operation conflicted",
             Self::Integrity => "key-management key reference integrity failed",
             Self::DevelopmentOnly => "operation is available only with the development provider",
+            Self::UnsupportedNativeConsent => "unsupported capability: native-consent",
             Self::SelfCustodied => {
                 "identity is self-custodied and the provider no longer signs for it"
             }
@@ -340,6 +344,7 @@ impl CustodyError {
             Self::Kms(KmsError::Integrity) => "kms-integrity",
             Self::Kms(KmsError::DevelopmentOnly) => "kms-development-only",
             Self::Kms(KmsError::SelfCustodied) => "kms-self-custodied",
+            Self::Kms(KmsError::UnsupportedNativeConsent) => "kms-unsupported-native-consent",
             Self::Sign(SignError::DisclosureMismatch(_)) => "disclosure-mismatch",
             Self::Sign(SignError::InvalidDisclosure) => "disclosure-invalid",
             Self::Sign(_) => "signer-refused",
@@ -584,6 +589,7 @@ impl Keystore {
     where
         P: KmsProvider + 'static,
     {
+        provider.admit_human_service()?;
         Self::open(root, network_id, provider)
     }
 
@@ -877,6 +883,9 @@ impl Keystore {
         principal: &PrincipalId,
         key: &KeyId,
     ) -> Result<ExportedPrimaryKey, CustodyError> {
+        if self.provider.deployment() == ProviderDeployment::Production {
+            return Err(CustodyError::Kms(KmsError::Refused));
+        }
         let record = self.read_record(principal, key)?;
         if record.self_custodied {
             return Err(CustodyError::SelfCustodied);

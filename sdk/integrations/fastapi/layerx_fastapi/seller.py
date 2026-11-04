@@ -6,6 +6,7 @@ from typing import Awaitable, Callable, Generic, Literal, Mapping, Protocol, Typ
 
 from fastapi import HTTPException
 from layerx_sdk import LocalSignatureVerifier
+from layerx_sdk.account_derivation import keccak256
 from layerx_sdk.px import PxReceiptKeyEntry
 from layerx_sdk.verifier import SequencerReceiptVerification
 
@@ -22,15 +23,14 @@ from .protocol import (
     SettlementResponse,
     canonical_json,
     constant_time_equal,
-    decode_base64,
     decode_payment_payload_header,
-    encode_base64,
     encode_payment_required_header,
     encode_settlement_header,
     match_requirements,
     parse_hex32,
     parse_layerx_evidence,
     parse_payment_required,
+    parse_receipt_hex,
     payment_idempotency_key,
     sha256_digest,
     verify_payment_receipt,
@@ -154,13 +154,14 @@ class ReceiptPayloadAuthority:
         pinned = next((key for key in self._receipt_keys if key == evidence.receipt_key), None)
         if pinned is None:
             raise MiddlewareError(MiddlewareErrorCode.VERIFICATION_FAILURE)
-        code = MiddlewareErrorCode.INVALID_PAYMENT_PAYLOAD
-        raw_transaction = decode_base64(evidence.raw_transaction, code)
-        signed_receipt = decode_base64(evidence.signed_receipt, code)
+        if evidence.verification_level != "receipted":
+            raise MiddlewareError(MiddlewareErrorCode.VERIFICATION_FAILURE)
+        raw_transaction = parse_receipt_hex(evidence.raw_transaction)
+        signed_receipt = parse_receipt_hex(evidence.signed_receipt)
         verified = verify_payment_receipt(
             signed_receipt, raw_transaction, (pinned,), request.requirements
         )
-        if not constant_time_equal(parse_hex32(evidence.receipt_digest), verified.receipt_digest):
+        if not constant_time_equal(parse_hex32(evidence.receipt_digest), keccak256(verified.canonical_bytes)):
             raise MiddlewareError(MiddlewareErrorCode.VERIFICATION_FAILURE)
         return SettlementSettled(
             raw_transaction=raw_transaction,
@@ -253,10 +254,10 @@ class SellerMiddleware(Generic[T]):
             raise MiddlewareError(MiddlewareErrorCode.FULFILLMENT_CONFLICT)
         if stored.request_digest != request_digest:
             raise HTTPException(status_code=409, detail="settled_receipt_reuse")
-        receipt_digest = stored_verification.receipt_digest.hex()
+        receipt_digest = "0x" + keccak256(stored_verification.canonical_bytes).hex()
         evidence = LayerXReceiptEvidence(
-            raw_transaction=encode_base64(stored.raw_transaction),
-            signed_receipt=encode_base64(stored.signed_receipt),
+            raw_transaction="0x" + stored.raw_transaction.hex(),
+            signed_receipt="0x" + stored.signed_receipt.hex(),
             receipt_digest=receipt_digest,
             receipt_key=stored.receipt_key,
         )
@@ -283,13 +284,14 @@ def idempotency_key(principal: str, verification: SequencerReceiptVerification) 
 
 def layerx_evidence_wire(evidence: LayerXReceiptEvidence) -> JsonValue:
     return {
+        "format": evidence.format,
         "rawTransaction": evidence.raw_transaction,
         "signedReceipt": evidence.signed_receipt,
         "receiptKey": {
-            "keyId": evidence.receipt_key.key_id,
-            "publicKey": evidence.receipt_key.public_key,
-            "firstHeight": evidence.receipt_key.first_height,
-            "lastHeight": evidence.receipt_key.last_height,
+            "keyId": "0x" + parse_hex32(evidence.receipt_key.key_id).hex(),
+            "publicKey": "0x" + parse_hex32(evidence.receipt_key.public_key).hex(),
+            "firstHeight": hex(evidence.receipt_key.first_height),
+            "lastHeight": hex(evidence.receipt_key.last_height),
         },
         "receiptDigest": evidence.receipt_digest,
         "verificationLevel": evidence.verification_level,
