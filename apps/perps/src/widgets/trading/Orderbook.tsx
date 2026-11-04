@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { cn } from "@/ui/utils/cn";
 import { useRealtimePrices } from "@/hooks/perps/useRealtimePrices";
 import { useSidPaxOrderbook } from "@/hooks/perps/useSidPaxMarketStream";
@@ -10,11 +10,12 @@ export interface OrderbookLevel {
   total: number;
 }
 
-interface OrderbookData {
+export interface OrderbookData {
   bids: OrderbookLevel[];
   asks: OrderbookLevel[];
-  spread: number;
-  spreadPct: number;
+  mid: number | null;
+  spread: number | null;
+  spreadPct: number | null;
   lastUpdateTime: number;
 }
 
@@ -41,7 +42,7 @@ const CHROME_H_PX = 95;
 // to 1-2 rows on very short containers (e.g. a narrow pane after resize).
 const MIN_LEVELS_PER_SIDE = 4;
 
-function buildBook(
+export function buildBook(
   rawAsks: { price: number; quantity: number }[],
   rawBids: { price: number; quantity: number }[]
 ): OrderbookData {
@@ -62,11 +63,22 @@ function buildBook(
 
   const bestBid = bids[0]?.price ?? 0;
   const bestAsk = asks[0]?.price ?? 0;
-  const spread = bestAsk > 0 && bestBid > 0 ? bestAsk - bestBid : 0;
-  const mid = (bestAsk + bestBid) / 2;
-  const spreadPct = mid > 0 ? (spread / mid) * 100 : 0;
+  const mid = bestAsk > 0 && bestBid > 0 ? (bestAsk + bestBid) / 2 : null;
+  const spread = mid === null ? null : bestAsk - bestBid;
+  const spreadPct = mid === null || spread === null ? null : (spread / mid) * 100;
 
-  return { bids, asks, spread, spreadPct, lastUpdateTime: Date.now() };
+  return { bids, asks, mid, spread, spreadPct, lastUpdateTime: Date.now() };
+}
+
+export function OrderbookMidValue({ book }: { book: OrderbookData }) {
+  const value = book.mid;
+  return <span>{value === null ? "—" : value.toFixed(value >= 100 ? 2 : value >= 1 ? 4 : 6)}</span>;
+}
+
+export function OrderbookMidCaption({ book }: { book: OrderbookData }) {
+  if (book.mid === null || book.spread === null || book.spreadPct === null)
+    return <span>{book.bids.length ? "Bid-only book" : book.asks.length ? "Ask-only book" : "Empty book"} · midpoint unavailable</span>;
+  return <span>mid · spread {book.spread.toFixed(2)} ({book.spreadPct.toFixed(3)}%)</span>;
 }
 
 export function Orderbook({ symbol, height = 580, onPriceClick, compact = false }: OrderbookProps) {
@@ -173,8 +185,6 @@ export function Orderbook({ symbol, height = 580, onPriceClick, compact = false 
   );
   const displayAsks = book.asks.slice(0, halfLevels).reverse();
   const displayBids = book.bids.slice(0, halfLevels);
-
-  const bestBid = book.bids[0];
 
   const renderRow = (level: OrderbookLevel, kind: "ask" | "bid", i: number) => {
     const color = kind === "ask" ? "var(--danger)" : "var(--success)";
@@ -296,7 +306,7 @@ export function Orderbook({ symbol, height = 580, onPriceClick, compact = false 
               fontVariantNumeric: "tabular-nums",
             }}
           >
-            {bestBid ? formatPrice(bestBid.price) : "—"}
+            <OrderbookMidValue book={book} />
           </div>
           <div
             style={{
@@ -308,7 +318,7 @@ export function Orderbook({ symbol, height = 580, onPriceClick, compact = false 
               marginTop: 1,
             }}
           >
-            mid · spread {book.spread.toFixed(2)} ({book.spreadPct.toFixed(3)}%)
+            <OrderbookMidCaption book={book} />
           </div>
         </div>
       </div>
