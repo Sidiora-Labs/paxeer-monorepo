@@ -1,0 +1,28 @@
+[repair.22.33.1518]
+acceptance = "22998.1"
+findings = ["human_receipt_fixture_missing_payment", "proof_agentd_retired_preparation"]
+baseline = "No baseline verification ran: the ordered gate instructions prohibit verification before complete implementation and direct invocation of verify_cmd. The initial gate ledger had zero builds and zero verification runs; no pre-change test failure is claimed."
+continuation = "Attempt 1 revision ffb08a629df96e66d776eaa81433e99cbb71ef25 ran all six cases: human_receipt_lookup_reads_pax_sequencer_receipt_by_outbox_hash failed with InvalidCommit; the five other cases passed. This continuation preserves that implementation and repairs the committed-block fixture before qualification."
+wiring_requests = []
+evidence = "hf-build/hf-done retain the exact candidate revision, command, exit code and private log in the runner gate ledger; qualification is claimed only if hf-done passes."
+
+[finding.human_receipt_fixture_missing_payment]
+proving_tests = ["human_node_receipts::human_receipt_fixture_missing_payment", "human_node_receipts::human_receipt_lookup_reads_pax_sequencer_receipt_by_outbox_hash"]
+repair = "Replay the node producer shared success/revert vectors verbatim, including paymentDenom and the current receipt-key response shape. Replay the committed distinct-denomination derivation through NodeRpc, SequencerEndpoint and the Human outbox reader; authenticate both outcomes and explicitly refuse missing paymentDenom or substitution of feeDenom. Preserve proof/frame, key-range, receipt persistence, selector, transaction identity and outbox restart assertions."
+fixtures = "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json and services/agent/crates/layerx-agentd-host/src/repair_22_31_363_receipts.json (committed derivation with signed independent fee denomination)."
+
+[finding.proof_agentd_retired_preparation]
+proving_tests = ["proof_agentd::prepared_signatures_cross_the_human_api_and_recover_exact_outbox_bytes", "proof_agentd::inconsistent_prepared_call_and_disclosure_are_refused", "proof_agentd::pending_attempt_recovers_original_hash_height_and_exact_request", "proof_agentd::real_approval_event_survives_restart_with_evidence_and_rejects_duplicate"]
+repair = "Use ledger_payment_call with signed SendDebit payloads and compare against the daemon prepare_bound producer. Bind disclosure to the EVM call, retain and restore SigningPreparation, verify exact signatures and signer refusals, mutate current call/hash/disclosure/actor fields, and preserve durable idempotency, pending retries, outbox bytes, approval evidence and duplicate/restart assertions."
+
+[qualification.repair_1]
+revision = "da834a897e3cb4ab2d8a0836bb23443e3b17150d"
+command = "cg spec done 22.33.1518 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "One test passed; four preparation tests exposed mismatched producer fee inputs (20 versus prepare_bound output 5), and the original receipt suite refused its rotated-key fixture because firstHeight zero is invalid."
+repair = "Set the ledger_payment_call fixture fee input to the exact pending-state calculation (2 * 2 + 1), preserve the full call/disclosure equality assertions, and start the retired key validity range at height 1."
+
+[gotcha.committed_fixture]
+observed = "The retained fixture used VerifiedBlock::verify without a checkpoint header; augment_verified correctly refused it because consensus signatures alone do not authenticate the transaction list."
+repair = "Compute the Comet transaction data root from the exact retained EVM bytes, bind it and the trusted validator set in CheckpointHeader, sign its block hash and use VerifiedBlock::verify_with_header; preserve every receipted and committed assertion."
