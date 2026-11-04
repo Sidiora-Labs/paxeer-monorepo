@@ -56,3 +56,45 @@ def load(path, revision, root):
     require(re.fullmatch("[A-Za-z0-9_-]{16,4096}", secret), "bounded gateway key secret required")
     inputs["LAYERX_GATEWAY_KEY_SECRET"] = secret
     return inputs
+
+
+NATIVE_SCHEMA = "paxeer-x.native-program-profile.v1"
+NATIVE_INPUTS = {
+    "LAYERX_PROGRAM_RPC_URL", "LAYERX_PROGRAM_CALL_ARGUMENTS", "LAYERX_GATEWAY_CA_FILE",
+}
+
+
+def validate_native(document, revision):
+    require(set(document) == {"schema", "source_revision", "inputs"}
+            and document["schema"] == NATIVE_SCHEMA and document["source_revision"] == revision,
+            "current private native Programs profile required")
+    inputs = document["inputs"]
+    require(isinstance(inputs, dict) and set(inputs) == NATIVE_INPUTS
+            and all(isinstance(value, str) and value for value in inputs.values()),
+            "closed connected native Programs inputs required")
+    origin = urlsplit(inputs["LAYERX_PROGRAM_RPC_URL"])
+    require(origin.scheme == "https" and origin.hostname in {"localhost", "127.0.0.1", "::1"}
+            and origin.port is not None and origin.path in {"", "/"}
+            and not origin.username and not origin.password and not origin.query and not origin.fragment,
+            "disposable loopback HTTPS root RPC profile required")
+    return dict(inputs)
+
+
+def publish_native(path, revision, inputs, root):
+    document = {"schema": NATIVE_SCHEMA, "source_revision": revision, "inputs": inputs}
+    validate_native(document, revision)
+    path = Path(path)
+    require(path.is_absolute() and path.resolve() == path and root not in path.parents,
+            "canonical private profile outside source required")
+    write_private(path, document)
+
+
+def load_native(path, revision, root):
+    require(not any(part == ".env" or part.startswith(".env.") for part in Path(path).parts),
+            "environment files forbidden")
+    inputs = validate_native(private_json(path, root), revision)
+    for key in ("LAYERX_PROGRAM_CALL_ARGUMENTS", "LAYERX_GATEWAY_CA_FILE"):
+        require(not any(part == ".env" or part.startswith(".env.") for part in Path(inputs[key]).parts),
+                "environment files forbidden")
+        private_bytes(inputs[key], root)
+    return inputs

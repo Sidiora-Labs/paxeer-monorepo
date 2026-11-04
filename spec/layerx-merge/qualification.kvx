@@ -29491,3 +29491,187 @@ symbol = "test_repair_22_33_864.py"
 observed = "Attempt 1: 8 of 9 cases passed; the production case inventory still required retired batch-WAL cases."
 assumption = "Production inventory drift inside the qualification tool."
 severity = "high"
+
+[finding.22.33.260.1]
+task = "22.33.260"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_260.rs"
+symbol = "repair_22_33_260.rs"
+observed = "Attempt 1: the build passed; the dependent-crate check failed compiling the hosted core against the current asset entry type."
+assumption = "Pre-existing consumer drift fixed by 22.31.485, not a defect of this task."
+severity = "low"
+
+[finding.22.31.488.1]
+task = "22.31.488"
+file = "programs/crates/layerx-programs-runtime/src/terminal/sandbox.rs"
+symbol = "sandbox.rs"
+observed = "Attempt 1: the build passed; the dependent-crate check failed compiling the hosted core against the current asset entry type."
+assumption = "Pre-existing consumer drift fixed by 22.31.485, not a defect of this task."
+severity = "low"
+
+[finding.22.33.877.1]
+task = "22.33.877"
+file = "tools/qualification/paxeer-x/tests/test_repair_22_33_877.py"
+symbol = "test_repair_22_33_877.py"
+observed = "Attempt 1: 57 of 59 cases passed; the terminal-0 cases used a post-execution revert for a preexecution refusal."
+assumption = "The corpus lacked the case (decision 2537); the check is right."
+severity = "low"
+
+[finding.22.33.619.10]
+task = "22.33.619"
+file = "sdk/integrations/next/example/test/repair-22-33-619.test.mjs"
+symbol = "repair-22-33-619.test.mjs"
+observed = "Attempt 10: five of six cases passed; the replay case got 500 from the route because assertReceiptBacked refused the released digest."
+assumption = "Producer and consumer disagree on the digest (decision 2538); not a defect of this task."
+severity = "low"
+
+[finding.22.33.1569.3]
+task = "22.33.1569"
+file = "services/agent/qualification/pay2/tests/repair_22_33_1569.rs"
+symbol = "repair_22_33_1569.rs"
+observed = "Attempt 3: the build passed; the funded Send failed on the missing canonical transaction in the SDK receipt."
+assumption = "Producer gap in the Rust SDK (22.31.494), not a defect of the qualification crate."
+severity = "low"
+
+[finding.22.33.44.4]
+task = "22.33.44"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_44.rs"
+symbol = "repair_22_33_44.rs"
+observed = "Attempt 4: the build passed; seven cases failed with ClockRequired at the approval service."
+assumption = "Producer gap in the agent daemon (22.31.495), not a defect of the human service tests."
+severity = "low"
+
+[finding.22.33.45.1]
+task = "22.33.45"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_45.rs"
+symbol = "repair_22_33_45.rs"
+observed = "Attempt 1: build and verify passed; one task record file lay outside the paths."
+assumption = "Path declaration, not a defect."
+severity = "low"
+
+[finding.22.33.288.2]
+task = "22.33.288"
+file = "services/explorer/backend/apps/explorer/test/repair/repair_22_33_288_test.exs"
+symbol = "repair_22_33_288_test.exs"
+observed = "Attempt 2: build and verify passed; one task record file lay outside the paths."
+assumption = "Path declaration, not a defect."
+severity = "low"
+
+[finding.22.33.1292.1]
+task = "22.33.1292"
+file = "rpc/repair_m1292_test.go"
+symbol = "repair_m1292_test.go"
+observed = "Attempt 1: the build passed; the verify failed compiling the test package on a name collision between an imported package and a package-level variable."
+assumption = "Import alias in the task's own test file; nothing outside the paths."
+severity = "low"
+
+[finding.22.33.755.1]
+task = "22.33.755"
+file = "rpc/repair_m755_test.go"
+symbol = "repair_m755_test.go"
+observed = "Attempt 1: the build passed; the three deadline cases failed parsing the lowered utility module at line 12."
+assumption = "Test-side lowering of TypeScript, not a defect of the utilities."
+severity = "low"
+
+[finding.22.33.1297.2]
+task = "22.33.1297"
+file = "rpc/repair_m1297_test.go"
+symbol = "repair_m1297_test.go"
+observed = "Attempt 2: the build passed; 5 of 8 cases passed; the three failures left no assertion text in the filtered output."
+assumption = "Unknown assertion failures inside the task's own tests; the full log is in the qualification environment."
+severity = "high"
+
+[finding.22.33.1321.2]
+task = "22.33.1321"
+file = "services/platform/hosted/paxeer/tests/repair_22_33_1321.rs"
+symbol = "repair_22_33_1321.rs"
+observed = "Attempt 2: build and verify passed; eleven files were reported outside the paths that had been declared after the attempt started."
+assumption = "Path timing (gotcha 3020), not a defect."
+severity = "low"
+
+[finding.22.33.1402.2]
+task = "22.33.1402"
+file = "services/platform/hosted/human/test_repair_22_33_1402.py"
+symbol = "test_repair_22_33_1402.py"
+observed = "Attempt 4: build and verify passed; the task record file was reported outside the paths."
+assumption = "Path timing (gotcha 3020), not a defect."
+severity = "low"
+
+[finding.22.33.423.1]
+task = "22.33.423"
+file = "apps/explorer/repair-22-33-423.spec.ts"
+symbol = "repair-22-33-423.spec.ts"
+observed = "Attempt 1: the build passed; two of the cases failed (timeout, undefined traceState) with duplicate API registrations between cases."
+assumption = "Test isolation of the global telemetry API, not a defect of the instrumentation."
+severity = "low"
+
+[finding.22.31.486.1]
+task = "22.31.486"
+file = "daemon/committed-fixture"
+symbol = "committed-fixture"
+observed = "Attempt 1: the committed vector was re-recorded and three of five gate groups passed; the module-wide Go SDK gate failed on two environment probes and a stale checkpoint fixture."
+assumption = "Gate scope and a consumer fixture of the re-recorded vector; the recording itself is right."
+severity = "high"
+
+[finding.22.33.1244.3]
+task = "22.33.1244"
+file = "modules/evm/repair_m1244_test.go"
+symbol = "repair_m1244_test.go"
+observed = "Attempt 3: build and verify passed; the declared task record file was not written."
+assumption = "A declared path without a change, not a defect."
+severity = "low"
+
+[finding.22.33.560.6]
+task = "22.33.560"
+file = "services/explorer/backend/apps/indexer/test/repair/repair_22_33_560_test.exs"
+symbol = "repair_22_33_560_test.exs"
+observed = "Attempt 6: build and verify passed; the declared task record file was not written."
+assumption = "A declared path without a change, not a defect."
+severity = "low"
+
+[finding.22.33.435.4]
+task = "22.33.435"
+file = "services/explorer/backend/apps/ethereum_jsonrpc/test/repair/repair_22_33_435_test.exs"
+symbol = "repair_22_33_435_test.exs"
+observed = "Attempt 4: build and verify passed; eight declared paths carried no change."
+assumption = "Declared paths without a change; the captures are part of the repair."
+severity = "low"
+
+[finding.22.33.194.4]
+task = "22.33.194"
+file = "apps/perps/tests/repair-22-33-194.test.ts"
+symbol = "repair-22-33-194.test.ts"
+observed = "Attempt 6: the build passed; 5 of 8 cases passed; two crashed in a component render under the test DOM and one got a 400 from the fetch fixture."
+assumption = "Test environment of the three cases, not a defect of the widgets."
+severity = "low"
+
+[finding.22.33.1533.1]
+task = "22.33.1533"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1533.rs"
+symbol = "repair_22_33_1533.rs"
+observed = "Attempt 1: the build passed; the dependent-crate check failed in a gateway test fixed by 22.31.483."
+assumption = "Pre-existing dependent drift, cleared on main."
+severity = "low"
+
+[finding.22.33.1536.1]
+task = "22.33.1536"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1536.rs"
+symbol = "repair_22_33_1536.rs"
+observed = "Attempt 1: the build passed; the dependent-crate check failed in a gateway test fixed by 22.31.483."
+assumption = "Pre-existing dependent drift, cleared on main."
+severity = "low"
+
+[finding.22.33.595.2]
+task = "22.33.595"
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_33_595.rs"
+symbol = "repair_22_33_595.rs"
+observed = "Attempts 1 and 2: build and verify passed; five files were reported outside the paths."
+assumption = "Path declaration under the wrong tree, not a defect."
+severity = "low"
+
+[finding.22.33.596.2]
+task = "22.33.596"
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_33_596.rs"
+symbol = "repair_22_33_596.rs"
+observed = "Attempts 1 and 2: build and verify passed; five files were reported outside the paths."
+assumption = "Path declaration under the wrong tree, not a defect."
+severity = "low"

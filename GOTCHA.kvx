@@ -14920,3 +14920,48 @@ fix = "22.31.490: an error envelope is a failed attempt for that URL so the roun
 title = "A verify that names the wrong make targets never runs the task's own tests"
 symptom = "22.33.1237 attempt 1 and 22.33.1236 attempt 1 (2026-11-04 17:20Z) ran test-module-ctx and test-module-registry while their changed files are the perps, asset, escrow and oracle module tests; the registry test failed on an unrelated inventory and the changed tests never ran."
 fix = "Both verifies now build and run the module test binaries the tasks changed (Makefile targets under build/tests)."
+
+[gotcha.3020]
+title = "Paths widened after an attempt started are dropped from that attempt's result"
+symptom = "The qualification environment records a result against the paths the task had when the attempt started: a file the attempt wrote under a path added later is reported as changed outside the paths and left out of the recorded tree. 22.33.1321 attempt 2, 22.33.1402 attempt 4, 22.33.619 attempt 10 and 22.33.595 and 22.33.596 attempt 2 (2026-11-04 17:00Z-18:30Z) all failed this way although every flagged file is in the paths on main now."
+fix = "A relaunch after a widening starts from the attempt whose tree still holds the files (the earlier attempt), not from the attempt that lost them; the rulings of this batch name that attempt."
+
+[gotcha.3021]
+title = "A widening written under the wrong tree does not cover the attempt's files"
+symptom = "Batch 439 widened 22.33.595 and 22.33.596 with their type, test and fixture files placed under sdk/wallet, while the attempts wrote them under services/explorer/services/smart-contract-verifier/smart-contract-verifier-server; attempt 2 of both tasks (2026-11-04 18:14Z) failed on the same files as attempt 1."
+fix = "The paths are replaced with the attempt-1 change set under the verifier server tree and both tasks requalify from attempt 1; a widening is copied from the attempt's recorded change list, never retyped."
+
+[gotcha.3022]
+title = "The Go verify filter hides compile errors and prints the lines after a failure instead of the assertion before it"
+symptom = "22.33.1292 attempt 1 (2026-11-04 17:34Z) failed because rpc/block_trace_profiled_test.go imports the go-ethereum tracer logger package unaliased next to the package-level logger variable of rpc/filter.go; the verify output showed only FAIL because the filter keeps no compiler lines. 22.33.1297 attempt 2 (18:36Z) showed three FAIL lines and no assertion text because the go test -v output prints a case's messages before its FAIL line and the filter printed the lines after it."
+fix = "The filters of 22.33.1292, 22.33.755 and 22.33.1297 also keep compiler and test-file lines and print sixteen lines before each FAIL; the import is aliased in 1292."
+
+[gotcha.3023]
+title = "The Go platform SDK module has two environment-dependent probes that fail inside a package-wide gate"
+symptom = "22.31.486 attempt 1 (2026-11-04 17:49Z) ran go test over the whole sdk/platform/go module: TestAgentOperationEnvelopeProcessCases wants a case file named by PAXEER_X_AGENT_ENVELOPE_CASE and TestProgramTerminalV5HistoricalCodecCorpus wants a signed native terminal corpus; both are unrelated to the committed vector and fail in any clean environment. The re-recorded vector also invalidated the consumer fixture sdk/platform/go/testdata/repair_m1384/checkpoint.json pinned by three portable-receipt tests."
+fix = "The gate of 22.31.486 names the vector, inclusion, portable-receipt and conformance tests and the conformance command package; the two probes are a closure-sweep finding; the checkpoint fixture is re-captured in the same change."
+
+[gotcha.3024]
+title = "The committed receipt corpus carries no preexecution refusal"
+symptom = "tools/qualification/paxeer-x/native-terminal-outcome.py requires a terminal-0 case with status 0, empty return data, no logs and a kernel error, and 22.33.877 attempt 1 (2026-11-04 17:40Z) served V2-layerxledger-revert for it: a post-execution revert with revert data, which the production check refuses. sdk/platform/conformance/fixtures/sequencer-receipt-v1.json has transfer, approve, pay-exact, bridge-out, program-call, ledger-revert and refusal cases and nothing refused before execution."
+fix = "Decision 2537: 22.31.491 adds the committed preexecution refusal V2-pax-transfer-insufficient-funds to the generator and the corpus; 22.33.877 proves terminal-0 against it."
+
+[gotcha.3025]
+title = "Two receipt digest definitions are live in the TypeScript payment path"
+symptom = "After 22.33.1400 (2026-11-04 16:05Z) the seller middleware emits and checks receiptDigest as the receipt-signature digest the SDK verifier returns, while the buyer middleware (src/index.ts line 374), the agent middleware (src/index.ts lines 896 and 1037, src/daemon.ts line 241), the conformance package (src/receipts.ts line 197) and the Express and Next route checks (keccak of the canonical receipt bytes) still derive it as keccak-256 of the signed receipt. 22.33.619 attempt 10 (17:00Z) failed with receipt-not-backed at the Next route for the committed pay-exact vector that attempt 9 had passed before 1400 landed."
+fix = "Decision 2538: the receipt-signature digest is the one definition (docs/site/docs/interop/portable-receipts.md); 22.31.492 aligns the middleware family and 22.31.493 the route integrations, each proven across the real buyer, seller and route path."
+
+[gotcha.3026]
+title = "The Rust SDK never binds the submitted signed transaction to the verified receipt"
+symptom = "VerifiedRpcReceipt in services/agent/crates/layerx-sdk/src/rpc_verification.rs has canonical_activity and batch_evidence fields that every constructor leaves None and a binder nobody calls; Wallet::send in wallet.rs discards the raw signed transaction after execute returns its hash. 22.33.1569 attempt 3 (2026-11-04 18:30Z) failed the funded Send scenario on exactly that: the scenario needs the exact submitted transaction and the inclusion material behind a receipted verification."
+fix = "Decision 2539 and task 22.31.494: the wallet execution path binds the raw signed transaction and the inclusion-verified path retains its proof material; 22.33.1569 requalifies after it."
+
+[gotcha.3027]
+title = "Every declared path must carry a change when the task is marked done"
+symptom = "22.33.435 attempt 4 (2026-11-04 18:40Z) passed ten of ten tests and failed ten graph checks: seven capture files and the task record are in the paths but the attempt never wrote them; 22.33.560 attempt 6 and 22.33.1244 attempt 3 failed one graph check each on an unwritten task record."
+fix = "A declared path is a commitment: the attempt writes it or the ruling removes it. The three tasks continue and write the files; a widening lists only files an attempt did or must change."
+
+[gotcha.3028]
+title = "The approval service refuses every awaiting hold with ClockRequired"
+symptom = "services/agent/crates/layerx-agentd/src/approval/mod.rs ApprovalService::list, get, approve and reject take a current sequence and no time, and reach the policy's validate_for_read in policy/approval.rs with no clock, which refuses with ClockRequired after reserve_and_hold_at has succeeded. 22.33.44 attempt 4 (2026-11-04 18:40Z) hit it in seven of fifteen human-service cases that drive the real service."
+fix = "Task 22.31.495 threads explicit time through the four service entry points into the timed policy functions; 22.33.44 requalifies after it."
