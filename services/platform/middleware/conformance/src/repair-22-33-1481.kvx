@@ -1,0 +1,32 @@
+[repair.22.33.1481]
+audit = "22.30.86"
+finding = "memory-fulfillment-race"
+implementation = "Receipt claims precede release; matching concurrent requests share the pending result, competing request digests raise MiddlewareError fulfillment-conflict, and failed release claims prevent uncertain retries."
+tests = ["memory_fulfillment_concurrent_replays_share_one_release", "memory_fulfillment_claim_precedes_reentrant_release_and_is_per_receipt", "memory_fulfillment_conflicts_are_typed_before_and_after_release", "memory_fulfillment_failed_release_retains_uncertain_claim", "memory_fulfillment_real_seller_concurrency_scenario", "fulfillment_restart_recovers_durable_resource_and_receipt", "fulfillment_restart_retains_interrupted_durable_claim"]
+path = "Real signed receipt producer, payment header codec, ReceiptPayloadAuthority, SellerMiddleware and fulfillment repositories; the concurrent scenario is also registered in runScenarios."
+restart = "Restart assertions discard seller/repository instances and reopen the existing production DurableFulfillmentRepository on the same temporary directory; the in-memory repository makes no restart claim."
+baseline = "Not run: the explicit gate order prohibits pre-implementation testing and manual verify_cmd execution; no before-change failure is claimed. Static inspection shows the old implementation permits duplicate releases, uses an untyped conflict and discards uncertain claims."
+verification = "hf-build then hf-done; the private gate ledger records the exact verified revision, command, exit and evidence log."
+wiring = "None: the existing seller-owned DurableFulfillmentRepository already provides disk-backed reopen semantics and needs no out-of-scope change."
+
+[qualification.attempt3]
+revision = "eafcc460a61eb1ab651d0dda2b72b0f72dce2aac"
+command = "npm --prefix services/platform/middleware/conformance run build"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "Pre-existing scenarios.ts:506 raises TS2339 because paymentReference is absent on PaymentDrawnEvent in the PaymentExactEvent | PaymentDrawnEvent union; the same expression exists at base revision 4b4896072f927b28618921285b3e3ae758bc467e."
+assumption = "The unchanged committed-requirement scenario needs a separate owning-task repair; hf-done and the seven repair tests remain unrun because hf-build did not pass."
+
+[qualification.continued_environment]
+revision = "1d5cf5cd244d4911a1252212d77a20018bdb9961"
+command = "npm --prefix services/platform/middleware/conformance run build"
+exit = 127
+log = "/out/logs/build-1.log"
+observed = "Sandbox dependency preparation left no node_modules after npm ci rejected the pre-existing lockfile mismatch; npm install --ignore-scripts --no-audit --no-fund restored the declared dependencies before the build retry."
+
+[qualification.continued_build]
+revision = "ef283e26c0761a14a9262bccbc1986e13f20c039"
+command = "npm --prefix services/platform/middleware/conformance run build"
+exit = 2
+log = "/out/logs/build-2.log"
+observed = "The previously recorded unrelated scenarios.ts:506 TS2339 remains: PaymentDrawnEvent has no paymentReference; dependency builds passed, but conformance compilation failed before hf-done or the seven repair tests could run."

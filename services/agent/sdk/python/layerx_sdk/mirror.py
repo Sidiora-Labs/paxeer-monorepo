@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -26,9 +27,9 @@ class MirrorPolicy:
 @dataclass(frozen=True)
 class MirrorVerification:
     level: str
-    batch_number: int
-    header_digest: bytes
-    evidence_digest: bytes
+    committed_height: int
+    committed_block_hash: bytes
+    evidence_digest: bytes | None
     source_id: str
     target: str
     canonical_position: str
@@ -37,7 +38,6 @@ class MirrorVerification:
     batch_lag: str
     failover_count: int
     agreeing_sources: int
-    checkpoint_level: Literal["unavailable"]
 
 class MirrorVerificationError(RuntimeError):
     def __init__(self, code: MirrorErrorCode | str) -> None:
@@ -45,21 +45,25 @@ class MirrorVerificationError(RuntimeError):
         self.code = code
 
 class MirrorVerifier:
-    def __init__(self, executable: Path, configuration: Path, timeout_seconds: float = 120.0) -> None:
+    def __init__(self, executable: Path, configuration: Path, timeout_seconds: float = 120.0,
+                 *, exchange: Callable[[bytes], tuple[int, bytes]] | None = None) -> None:
         if not executable.is_absolute() or not configuration.is_absolute() or not (0.1 <= timeout_seconds <= 120.0):
             raise MirrorVerificationError(MirrorErrorCode.CONFIGURATION)
         self._executable = executable
         self._configuration = configuration
         self._timeout = timeout_seconds
+        self._exchange = exchange
 
-    def receipt(self, batch_number: int, policy: MirrorPolicy, canonical_receipt: bytes) -> MirrorVerification:
-        return self._verify(batch_number, policy, {"kind": "receipt", "canonical_hex": canonical_receipt.hex()})
+    def receipt(self, batch_number: int, policy: MirrorPolicy, index: int) -> MirrorVerification:
+        if type(index) is not int or not 0 <= index <= _MAX_U64:
+            raise MirrorVerificationError(MirrorErrorCode.CONFIGURATION)
+        return self._verify(batch_number, policy, {"kind": "receipt", "index": index})
 
-    def state(self, batch_number: int, policy: MirrorPolicy, canonical_state: bytes, canonical_proof: bytes) -> MirrorVerification:
-        return self._verify(batch_number, policy, {"kind": "state", "canonical_hex": canonical_state.hex(), "proof_hex": canonical_proof.hex()})
+    def committed(self, batch_number: int, policy: MirrorPolicy) -> MirrorVerification:
+        return self._verify(batch_number, policy, {"kind": "committed"})
 
     def _verify(self, batch_number: int, policy: MirrorPolicy, evidence: dict[str, object]) -> MirrorVerification:
-        if isinstance(batch_number, bool) or batch_number <= 0 or batch_number > _MAX_U64 or not policy.candidates or len(policy.candidates) > MIRROR_MAX_SOURCES:
+        if type(batch_number) is not int or batch_number <= 0 or batch_number > _MAX_U64 or not policy.candidates or len(policy.candidates) > MIRROR_MAX_SOURCES:
             raise MirrorVerificationError(MirrorErrorCode.CONFIGURATION)
         candidates = [{"source": value.source, "commitment_hex": _fixed(value.commitment, 32).hex()} for value in policy.candidates]
         if len({value["source"] for value in candidates}) != len(candidates):
@@ -78,15 +82,18 @@ class MirrorVerifier:
         request = json.dumps({"batch_number": str(batch_number), "evidence": evidence, "policy": wire_policy}, separators=(",", ":")).encode()
         if len(request) > 40 * 1024 * 1024:
             raise MirrorVerificationError(MirrorErrorCode.BOUNDS)
+        if self._exchange is not None:
+            returncode, stdout = self._exchange(request)
+            return decode_mirror_process_result(returncode, stdout, batch_number, receipt=evidence["kind"] == "receipt")
         try:
             result = subprocess.run([self._executable, self._configuration], input=request, stdout=subprocess.PIPE,
                                     stderr=subprocess.DEVNULL, timeout=self._timeout, check=False)
         except (OSError, subprocess.TimeoutExpired) as error:
             raise MirrorVerificationError(MirrorErrorCode.UNAVAILABLE) from error
-        return decode_mirror_process_result(result.returncode, result.stdout, batch_number)
+        return decode_mirror_process_result(result.returncode, result.stdout, batch_number, receipt=evidence["kind"] == "receipt")
 
 
-def decode_mirror_process_result(returncode: int, stdout: bytes, batch_number: int) -> MirrorVerification:
+def decode_mirror_process_result(returncode: int, stdout: bytes, batch_number: int, *, receipt: bool = False) -> MirrorVerification:
     if returncode != 0:
         raise MirrorVerificationError(MirrorErrorCode.UNAVAILABLE)
     if len(stdout) > 1_048_576:
@@ -98,14 +105,16 @@ def decode_mirror_process_result(returncode: int, stdout: bytes, batch_number: i
         if response.get("ok") is not True:
             raise MirrorVerificationError(str(response.get("error", "unavailable")))
         value = response["verification"]
-        if not isinstance(value, dict) or value.get("provenance") not in ("Canonical", "Reorged") or value.get("checkpointLevel") != "unavailable":
+        if not isinstance(value, dict) or value.get("provenance") not in ("Canonical", "Reorged") or value.get("level") != "Committed":
             raise ValueError("invalid verification response")
-        if _decimal(value["batchNumber"]) != batch_number:
-            raise ValueError("verification batch mismatch")
-        return MirrorVerification(_text(value["level"], 64), _decimal(value["batchNumber"]), _digest(value["headerDigest"]),
-            _digest(value["evidenceDigest"]), _text(value["sourceId"], 64), _text(value["target"], 2048),
+        if receipt and value.get("evidenceDigest") is None:
+            raise ValueError("receipt digest missing")
+        if _decimal(value["committedHeight"]) != batch_number:
+            raise ValueError("verification height mismatch")
+        return MirrorVerification(_text(value["level"], 64), _decimal(value["committedHeight"]), _digest(value["committedBlockHash"]),
+            None if value["evidenceDigest"] is None else _digest(value["evidenceDigest"]), _text(value["sourceId"], 64), _text(value["target"], 2048),
             _text(value["canonicalPosition"], 2048), value["provenance"], _optional_decimal(value.get("latestBatch")),
-            _text(value["batchLag"], 64), _small(value["failoverCount"], 0, 8), _small(value["agreeingSources"], 1, 8), "unavailable")
+            _text(value["batchLag"], 64), _small(value["failoverCount"], 0, 8), _small(value["agreeingSources"], 1, 8))
     except (AttributeError, KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
         raise MirrorVerificationError(MirrorErrorCode.MALFORMED) from error
 

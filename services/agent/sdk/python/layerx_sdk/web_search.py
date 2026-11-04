@@ -27,13 +27,15 @@ from .verifier import (
     verify_sequencer_receipt as verify_pinned_sequencer_receipt,
 )
 from .x402_receive import _GRANT, encode_grant
+from .x402 import LedgerDrawTerms, ledger_payment_payer, verify_payment_receipt
+from .evm_transaction import encode_call
 from .x402_rpc import PaymentRpc, PaymentRpcError, _submission_error
 
 WEB_CONTENT_DOMAIN = b"PAXEERX_WEB_CONTENT_V1"
 WEB_CONTENT_FETCH = 1
 WEB_CONTENT_SEARCH = 2
 WEB_SEARCH_CURRENCIES = ("SID", "PAX", "USDC", "USDL")
-WEB_SEARCH_PAYER_HEADER = "LAYERX-PAYER-DID"
+WEB_SEARCH_PAYER_HEADER = "LAYERX-PAYER-ADDRESS"
 WEB_SEARCH_MAX_RESULTS = 10
 
 WebSearchScheme = Literal["metered", "exact"]
@@ -178,6 +180,7 @@ class _PreparedPayment:
     header: str
     receipt: bytes | None
     raw_transaction: bytes | None = None
+    draw_terms: LedgerDrawTerms | None = None
 
 
 def _hex32(value: object) -> bool:
@@ -437,43 +440,23 @@ def _loopback(host: str) -> bool:
 
 
 def verify_sequencer_receipt(
-    receipt: bytes,
-    raw_transaction: bytes | None,
-    offer: WebSearchOffer,
-    receipt_keys: tuple[ReceiptKey, ...],
+    receipt: bytes, raw_transaction: bytes | None, offer: WebSearchOffer,
+    receipt_keys: tuple[ReceiptKey, ...], *, draw_terms: LedgerDrawTerms | None = None,
 ) -> ReceiptVerification:
     try:
         if raw_transaction is None or not raw_transaction:
             raise WebSearchError("receipt-unverified")
-        verified = verify_pinned_sequencer_receipt(
-            receipt, raw_transaction, receipt_keys
-        )
-        body = verified.receipt
-        if body.result_code != 0:
-            raise WebSearchError("receipt-unverified")
-    except Exception:
-        raise WebSearchError("receipt-unverified") from None
-    verify_web_search_payment(verified, offer)
-    return verified
+        return verify_payment_receipt(receipt, raw_transaction, receipt_keys,
+            amount=offer.amount, asset=offer.asset, pay_to=offer.pay_to, payer=offer.payer,
+            scheme=offer.scheme, grant_binding=draw_terms)
+    except Exception as error:
+        raise WebSearchError("receipt-unverified") from error
 
 
-def verify_web_search_payment(
-    verified: ReceiptVerification, offer: WebSearchOffer
-) -> None:
-    body = verified.receipt
-    if (
-        body.module_id != _SEQUENCER_MODULE_ID
-        or body.operation != _SEQUENCER_OPERATION
-    ):
-        raise WebSearchError("settlement-operation-mismatch")
-    if (
-        body.asset.hex() != offer.asset
-        or body.amount != int(offer.amount)
-        or body.to_account.hex() != offer.pay_to
-    ):
-        raise WebSearchError("receipt-offer-mismatch")
-    if offer.payer is not None and body.from_account.hex() != offer.payer:
-        raise WebSearchError("settlement-payer-mismatch")
+def verify_web_search_payment(verified: ReceiptVerification, offer: WebSearchOffer,
+                              *, raw_transaction: bytes, receipt_keys: tuple[ReceiptKey, ...],
+                              draw_terms: LedgerDrawTerms | None = None) -> None:
+    verify_sequencer_receipt(verified.canonical_bytes, raw_transaction, offer, receipt_keys, draw_terms=draw_terms)
 
 
 class WebSearchClient:
@@ -633,8 +616,8 @@ class WebSearchClient:
             except PaymentRpcError as error:
                 _payment_error(error)
             did = _bound_payer_did(answer, did)
-        if did is not None:
-            base[WEB_SEARCH_PAYER_HEADER] = did
+        if self._payer_address is not None:
+            base[WEB_SEARCH_PAYER_HEADER] = self._payer_address
         challenge = self._get(target, base)
         if challenge.status == 200:
             return challenge, None
@@ -705,6 +688,29 @@ class WebSearchClient:
                 return self._offer(matching[0], preference, did), matching[0]
         raise WebSearchError("no-acceptable-offer")
 
+    def _payer_owner_did(self) -> str:
+        if self._payer_address is None:
+            raise WebSearchError("offer-payer-mismatch")
+        return "did:layerx:" + _address_bytes(self._payer_address).rjust(32, b"\x00").hex()
+
+    def _ledger_account(self, did: str, asset: str, code: str) -> tuple[str, str]:
+        name, legacy = _derived(did, asset, self._native_asset, code)
+        if asset == self._native_asset:
+            return name, legacy
+        if self._payer_rpc is None or not did.startswith("did:layerx:") or not _hex32(did[11:]):
+            raise WebSearchError(code)
+        owner = bytes.fromhex(did[11:])
+        if not any(owner):
+            raise WebSearchError(code)
+        data = encode_call("accountId", ("bytes32", "bytes32"), (owner, bytes.fromhex(asset)))
+        try:
+            answer = self._payer_rpc.call("eth_call", [{"to": "0x000000000000000000000000000000000000101a", "data": "0x" + data.hex()}, "pending"])
+        except PaymentRpcError as error:
+            _payment_error(error)
+        if not isinstance(answer, str) or not answer.startswith("0x") or not _hex32(answer[2:]) or answer[2:] == _ZERO32:
+            raise WebSearchError(code)
+        return name, answer[2:]
+
     def _offer(
         self,
         raw: Mapping[str, object],
@@ -771,16 +777,18 @@ class WebSearchClient:
             raise WebSearchError("offer-asset-mismatch")
         if int(amount) > terms.max_amount:
             raise WebSearchError("offer-price-exceeded")
-        name, identifier = _derived(
-            _account_did(account), asset, self._native_asset, "offer-account-mismatch"
-        )
+        name, identifier = self._ledger_account(_account_did(account), asset, "offer-account-mismatch")
         if account != name or pay_to != identifier:
             raise WebSearchError("offer-account-mismatch")
         expected_payer = (
-            _payer_account(self._payer_address, asset, self._native_asset)[1]
+            (
+                _payer_account(self._payer_address, asset, self._native_asset)[1]
+                if asset == self._native_asset
+                else self._ledger_account(self._payer_owner_did(), asset, "offer-payer-mismatch")[1]
+            )
             if self._payer_address is not None
             else (
-                _derived(did, asset, self._native_asset, "offer-payer-mismatch")[1]
+                self._ledger_account(did, asset, "offer-payer-mismatch")[1]
                 if did is not None
                 else None
             )
@@ -850,10 +858,17 @@ class WebSearchClient:
                 {
                     "x402Version": 2,
                     "accepted": raw,
-                    "payload": {"grant": canonical.hex(), "idempotencyKey": key},
+                    "payload": {"grantId": str(grant["grant_id"]), "idempotencyKey": key},
                 }
             )
-            return _PreparedPayment(header=header, receipt=None)
+            # Match serde's PaymentPayload struct order and its sorted JSON Value maps.
+            body = {"grantId": str(grant["grant_id"]), "idempotencyKey": key}
+            accepted = {name: raw[name] for name in ("scheme", "network", "amount", "asset", "payTo", "maxTimeoutSeconds")}
+            accepted["extra"] = json.loads(json.dumps(raw["extra"], sort_keys=True))
+            serialized = json.dumps({"x402Version": 2, "payload": body, "accepted": accepted}, separators=(",", ":"), ensure_ascii=False).encode()
+            context = hashlib.sha256(b"LayerX/x402/v2/payment\0" + serialized).hexdigest()
+            draw = LedgerDrawTerms(str(grant["grant_id"]), str(grant["purpose_hash"]), key, context)
+            return _PreparedPayment(header=header, receipt=None, draw_terms=draw)
         payment = self._payer.exact(offer, target)
         receipt = bytes(payment.receipt)
         raw_transaction = (
@@ -866,11 +881,13 @@ class WebSearchClient:
         )
         if raw_transaction is None:
             raise WebSearchError("receipt-unverified")
+        from .payment_transaction import decode_payment_transaction
+        transaction = decode_payment_transaction(raw_transaction)
         payload = {
-            "receipt": base64.b64encode(receipt).decode("ascii"),
+            "txHash": "0x" + keccak256(raw_transaction).hex(),
             "receiptDigest": _receipt_digest(receipt),
-            "verificationLevel": "sequencer-signed",
-            "rawTransaction": "0x" + raw_transaction.hex(),
+            "verificationLevel": "receipted",
+            "idempotencyKey": transaction.data[164:196].hex(),
         }
         return _PreparedPayment(
             header=_encode_header(
@@ -908,25 +925,27 @@ class WebSearchClient:
             raise WebSearchError("settlement-receipt-mismatch")
         if payment.receipt is not None and payment.receipt != receipt:
             raise WebSearchError("settlement-receipt-mismatch")
-        encoded_transaction = layerx.get("rawTransaction")
-        if (
-            not isinstance(encoded_transaction, str)
-            or re.fullmatch(r"0x(?:[0-9a-f]{2})+", encoded_transaction) is None
-        ):
-            raise WebSearchError("settlement-receipt-mismatch")
-        raw_transaction = bytes.fromhex(encoded_transaction[2:])
-        if (
-            payment.raw_transaction is not None
-            and payment.raw_transaction != raw_transaction
-        ):
-            raise WebSearchError("settlement-receipt-mismatch")
+        raw_transaction = payment.raw_transaction
+        if raw_transaction is None:
+            if self._payer_rpc is None:
+                raise WebSearchError("settlement-transaction-unavailable")
+            expected_hash = settlement.get("transaction")
+            if not isinstance(expected_hash, str) or re.fullmatch(r"0x[0-9a-f]{64}", expected_hash) is None:
+                raise WebSearchError("settlement-receipt-mismatch")
+            try:
+                encoded_transaction = self._payer_rpc.call("eth_getRawTransactionByHash", [expected_hash])
+            except PaymentRpcError as error:
+                _payment_error(error)
+            if not isinstance(encoded_transaction, str) or re.fullmatch(r"0x(?:[0-9a-f]{2})+", encoded_transaction) is None:
+                raise WebSearchError("settlement-transaction-unavailable")
+            raw_transaction = bytes.fromhex(encoded_transaction[2:])
         verified = verify_sequencer_receipt(
-            receipt, raw_transaction, offer, self._receipt_keys
+            receipt, raw_transaction, offer, self._receipt_keys, draw_terms=payment.draw_terms
         )
         transaction = "0x" + verified.receipt.activity_id.hex()
         if settlement.get("transaction") != transaction:
             raise WebSearchError("settlement-receipt-mismatch")
-        payer = verified.receipt.from_account.hex()
+        payer = ledger_payment_payer(verified, raw_transaction, offer.scheme)
         if settlement.get("payer") != payer:
             raise WebSearchError("settlement-payer-mismatch")
         if offer.scheme == "metered":
