@@ -1,0 +1,46 @@
+[task.22.33.526]
+base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
+readme_revision = "eb86b4f10ee5002e3ebbc4c71530537d930377e3"
+repair = "Consume the README rewrite supplied by 22.31.470, as required by decision 2525. Add focused offline regression assertions for audit 22.30.154/readme_split_execution; README.md remains outside this task's paths."
+source_proof = "The module reads the actual README and asserts the single embedded paxd chain-125 network, api1..api14 root HTTPS JSON-RPC range and parsed chain probe, native constructs, transaction submission and committed receipt sequence, merged activation, retired custody/checkpoint executors, archive-only historical reads, and paxd build/start examples. Source assertions connect documentation to the production host, consensus source, root RPC transport, send/forward path, WAL release, receipt consumer, retirement gates and linked-library build targets."
+review_only = "Native builds, node startup, actual network availability, transaction execution, receipt cryptography, BFT consensus, deployment, and WAL restart/recovery are not executed by this documentation gate. Source assertions prove documentation facts and source connections only; runtime behavior remains review-only here. No stateful component or production interface is changed, so restart and interface-driving tests do not apply."
+baseline = "Initial Git status/diff showed only pre-existing runner bookkeeping in .cgignore and spec/layerx-merge/spec.kvx; both scoped files were absent. gate.json reported zero builds and verification runs and no gates.jsonl existed. No pre-change verification was run: the explicit implementation-first order and exclusive hf-done gate supersede step 5's conflicting baseline instruction. No pre-change test failure is claimed."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_526.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The last hf-done JSON and private /out/run/gates.jsonl record the exact verified content-derived revision, command, exit code and private log location. Build and verification must pass on the same candidate revision. This record is finalized before the gates; embedding its own candidate hash would change that hash. No success is asserted before hf-done passes. The runner publishes the result."
+wiring_requests = []
+
+[finding.readme_split_execution]
+audit = "22.30.154"
+file = "README.md"
+line = 44
+class = "doc-drift"
+severity = "medium"
+owner_task = "22.31.470"
+owner_domain = 16
+resolution = "The owning task has replaced split execution and anchor settlement guidance with one paxd network, native operations and committed receipts. The retired standalone daemon name and build command are absent; retained kernel archive/development tools are explicitly distinguished from the running paxd node. Historical anchor reads are archive-only until the later store deletion. All expected facts are present, so no missing-fact wiring request is needed."
+tests = ["test_readme_split_execution_one_embedded_paxd_network", "test_readme_split_execution_root_json_rpc_chain_probe", "test_readme_split_execution_transaction_to_committed_receipt", "test_readme_split_execution_activation_retirement_and_archive_reads", "test_readme_split_execution_examples_use_paxd_and_library_tools", "test_readme_split_execution_repair_record_maps_proof_and_limits"]
+
+[wiring.readme_rewrite]
+request = "README.md — domain 16 (tools-ops), task 22.31.470 owns the architecture, runnable examples, daemon-tool retirement and activation/archive-read rewrite requested by this audit; consume its existing result under decision 2525."
+state = "Already supplied by the prerequisite; no additional edit requested."
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths. Apply the repository .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions after implementation."
+
+[gotcha.1]
+observed = "The generic audit steps ask for a baseline verify and edits to README.md, while the task's explicit gate order and decision 2525 forbid both here."
+resolution = "Keep baseline status explicit, consume README.md from its owning task, and run only hf-build followed by hf-done. GOTCHA.kvx and spec qualification files are outside scope, so task-specific observations live in this record."
+
+[gotcha.2]
+observed = "Broad context and ledger reads produced excessive output; cg brief/survey also included unrelated repository state."
+resolution = "Use the actual Git diff, private gate counters, exact finding block and bounded source sections for this task."
+
+[gotcha.3]
+observed = "The initial section parser treated the chain probe's fenced shell comment as a Markdown heading, truncating the quickstart and failing one assertion."
+resolution = "Track Markdown fences when locating section boundaries; retain all assertions and rerun hf-build followed by hf-done on the repaired candidate."
+revision = "f96558b5975b0ac04706cc09c517dba6b79dca61"
+command = "cg spec done 22.33.526 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"

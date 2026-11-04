@@ -1,0 +1,36 @@
+[task.22.33.1233]
+base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
+repair = "Consume the README rewrite owned by 22.31.470 and add finding-specific regression assertions for audit 22.30.59 finding 22. README.md is outside this task's paths and is unchanged. Its overview, topology, root public RPC example, transaction and committed receipt flow, merged paxd build/start commands, upgrade behavior and historical refusal surfaces supply all expected facts."
+source_proof = "The Python-only module proves source facts in the real README: one embedded-kernel paxd BFT network on chain 125, api1 through api14 root HTTPS JSON-RPC, the parsed curl chain probe, transaction submission and committed receipts, current paxd builds and upgrades, retired custody/checkpoint executors, and no separate daemon or checkpoint deployment. Source assertions connect documented production node host/consensus wiring, root RPC dispatch, send acceptance/forwarding, WAL acknowledgement before receipt publication, receipt rungs and committed coverage, native-library build prerequisites and retirement upgrade guards. No fabricated peer, subprocess, credential or live endpoint is used."
+review_only = "Native Go/C/Rust builds, shell execution, node startup, transaction execution, cryptography, consensus finality, actual public endpoint availability and WAL restart/recovery are not executed by this documentation gate. Producer, transport and consumer links are source proofs rather than runtime certification. No production interface or stateful component changes; restart-recovery and interface-mismatch findings do not apply. No shell script, unit file, manifest or build file is repaired; build recipes are inspected as source without invoking their toolchains."
+baseline = "No pre-change verification was run: the explicit implementation-first task order, hf-build before hf-done and prohibition on hand-running verify_cmd supersede the older unchanged-tree baseline clause. No pre-existing failing test is claimed. Initial Git status/diff showed only runner-prepared .cgignore and spec bookkeeping, neither scoped file existed, gate.json recorded zero builds and verifies, and no gates.jsonl existed."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1233.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private evidence_ledger name the exact verified content-derived candidate revision, command, exit code and private log path. Build and verify must pass on the same candidate revision. This record is finalized before qualification; embedding its own candidate hash would change that hash. The runner retains exact revision evidence and commits the result. No manual commit or push is performed."
+wiring_requests = []
+
+[finding.22]
+audit = "22.30.59"
+file = "README.md"
+line = 44
+class = "doc-drift"
+severity = "medium"
+owner_domain = 17
+repair_owner = "22.31.470"
+tests = ["test_finding_22_overview_is_one_embedded_paxd_bft_network", "test_finding_22_public_rpc_hosts_and_chain_probe_use_the_root", "test_finding_22_transaction_to_committed_receipt_matches_real_sources", "test_finding_22_build_and_upgrade_instructions_target_merged_paxd", "test_finding_22_retired_executors_stay_historical_and_out_of_operator_steps", "test_repair_record_maps_finding_22_to_executed_proofs_and_evidence"]
+
+[wiring.readme]
+request = "README.md; owner domain 17, task 22.31.470: provide the merged paxd overview, chain-125 root RPC hosts, transaction/committed receipt flow, current build/upgrade instructions and explicitly historical retired custody/checkpoint surfaces; supplied by the owning task, with no missing fact observed and no README edit here."
+status = "supplied by 22.31.470; asserted here"
+
+[gotcha.1]
+observed = "The older unchanged-tree baseline instruction conflicts with the explicit implementation-first and wrapper-only gate order."
+resolution = "Follow the explicit order and record that no baseline verification ran or failure was claimed; GOTCHA.kvx and spec records are outside scope."
+
+[gotcha.2]
+observed = "Codify brief reports stale unrelated task/change information, and unbounded repository ledger reads exceed tool output limits."
+resolution = "Use the exact task block, Git status/diff and private gate state as task authority, and bounded relevant source reads; preserve inherited bookkeeping."
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths. After implementation, apply .editorconfig UTF-8, LF, trailing-whitespace and final-newline conventions to touched files only."

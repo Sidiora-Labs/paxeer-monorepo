@@ -1,0 +1,44 @@
+[task.22.33.686]
+input_revision = "3a58ad3f1861ab11f8cccd9b14c5959263c79c28"
+inventory_base = "399c122802fbe3326c62ef9251760c3e53ee4060"
+repair = "Consume the root README rewrite from task 22.31.470 under decision 2525. Add focused regression proof of audit 22.30.167/readme-network-doc without editing README.md: one paxd chain with its embedded kernel, chain 125, root public JSON-RPC, transaction and committed receipt flows, retired custody/checkpoint executors and merged-node build/release guidance."
+source_proof = "The pytest module reads the production README and asserts its architecture, topology, numbered api1..api14 host range, chain probe and JSON request, transaction submission, WAL release ordering, receipt rungs and block coverage, signature/proof guidance, retirement gates, linked native build dependencies and upgrade descriptions against the actual producer/transport/consumer sources. Parse the documented curl arguments with shlex and its payload with json, without executing it. Parse this record and the audit as KVX/TOML and map every finding to declared tests."
+review_only = "Native Go/C/Rust builds, node startup, transaction execution, signature verification, WAL restart/recovery, live endpoint availability and BFT commitment are not executed by this gate. Documentation source assertions establish the connections, not runtime or deployment certification. No interface or restart-recovery component is changed. No shell script, service unit or manifest is modified; Makefile dependencies are inspected as source. The complete gate uses Python and repository files only, with no environment variable, credential, endpoint, external binary, subprocess toolchain, native artifact or device."
+baseline = "No pre-change verification was run: the explicit implementation-first order requires hf-build before the exclusive hf-done gate and forbids running verify_cmd manually, superseding step 5's baseline request. No baseline failures are claimed. Initial git status/diff contained only runner-prepared .cgignore and spec task-start/prerequisite status bookkeeping; neither scoped deliverable existed. gate.json recorded zero builds and verifies, and /out/run/gates.jsonl did not exist. README already contained the owning task's rewrite."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_686.py"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision = "The last hf-done JSON and private /out/run/gates.jsonl name the exact verified content-derived revision, command, exit code and log path. Build and verification must pass on the same candidate revision. This record is finalized before qualification: embedding that candidate's own hash would change its content. The runner retains the evidence and commits the result."
+missing_facts = []
+
+[finding.readme-network-doc]
+audit = "22.30.167"
+file = "README.md"
+line = 44
+class = "doc-drift"
+severity = "medium"
+owner_task = "22.31.470"
+closure = "The owning task supplied the README repair; this task proves the expected source facts through its focused verification gate. No missing documentation fact was identified during implementation; qualification is established only by the private gate evidence."
+tests = ["test_readme_network_doc_one_paxd_embedded_kernel_and_commit_finality", "test_readme_network_doc_chain_125_root_json_rpc_contract", "test_readme_network_doc_transaction_to_committed_receipt_source_path", "test_readme_network_doc_retired_custody_and_checkpoint_executors", "test_readme_network_doc_merged_node_build_and_release", "test_readme_network_doc_record_maps_finding_and_evidence_limits"]
+
+[wiring.readme]
+path = "README.md"
+owner_domain = 17
+owner_task = "22.31.470"
+request = "README.md -> domain 17 / task 22.31.470: rewrite architecture, build and release for the merged paxd network and explicitly identify historical retired precompiles; supplied by the prerequisite already present at input_revision."
+status = "satisfied_by_prerequisite"
+
+[gotcha.baseline_order]
+observed = "Step 5 requests unchanged-tree verification, but the explicit gate order forbids verification before implementation and manual verify_cmd execution."
+resolution = "Follow the explicit order and claim no baseline run or failures; retain this note inside the scoped repair record."
+
+[gotcha.scope]
+observed = "The original proposal edits README.md, while decision 2525 and this task's scope delegate that shared file to 22.31.470."
+resolution = "Consume its existing source, assert the expected facts, and record the out-of-path proposal as an owner wiring request; do not edit README, spec files or GOTCHA.kvx."
+
+[gotcha.inspection]
+observed = "Combined broad repository and audit reads exceeded output limits."
+resolution = "Retrieve the exact task/finding blocks and bounded source sections before implementation; use the Git diff and private ledger as this task's state authority."
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths. After complete implementation, apply the repository .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions only to the two scoped files."
