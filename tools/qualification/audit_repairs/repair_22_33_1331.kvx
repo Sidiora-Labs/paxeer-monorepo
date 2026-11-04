@@ -1,0 +1,50 @@
+[repair]
+task = "22.33.1331"
+requirement = "22998.1"
+input_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+scope = ["services/platform/hosted/webhooks", "tools/qualification/audit_repairs/repair_22_33_1331.kvx", "tools/qualification/audit_repairs/test_repair_22_33_1331.py"]
+implementation = "Remove the direct retired layerx-wire dependency and every Rust reference in the webhook crate, including retained historical qualification code. Use the existing layerx-proof verification API for historical headers and receipts, preserving all prior assertions and adding header signature verification before network selection. The live source reads the node receipt height solely to fetch evidence, checks the returned canonical commit height, then authenticates the receipt with committed governed keys before granting BlockCommitted. The batch verifier consumes a private projection of sequence and state roots from that verified receipt rather than naming the retired codec type. Receipt protocol/layout/parameter constants are explicitly bound by tests to the live Go producer and RPC contract."
+affected_locks = ["services/platform/Cargo.lock"]
+lock_refresh = "Reconcile only the webhook package dependency stanza with its manifest: replace layerx-wire with the already-resolved layerx-proof. No registry package, version, checksum, feature or other package stanza changes; the exact unchanged remainder is SHA256 cf33982a73d396089041e0baf39c172257ea758d1663e3dc0572c962cd280288. The generated workspace lock follows the in-scope member manifest under the lockfile exception. The pytest inventory reads every Cargo.lock and requires every webhook entry to match the production and development dependency union. No dependency resolver, install or native build is claimed."
+source_proof = "Six tests parse the production manifest, workspace and affected lock, resolve the real proof dependency, compare receipt constants with node/sequencer/receipt.go and rpc/sequencer_receipt.go, trace the live root JSON-RPC producer through receipt/commit/block/governed-key transport into NodeReceiptEvidence and committed event consumption, assert exact sequence/root projections and signature/foreign-network refusals, and require all webhook Rust sources to be free of direct layerx_wire references. A seventh test parses this record and checks exact finding-to-test coverage and external wiring ownership. The existing historical tests retain all their success, root equality/inequality, malformed-evidence and foreign-network assertions."
+review_only = "Native Rust compilation, Rust integration tests, signature execution, actual HTTPS/JSON-RPC traffic, BFT consensus, storage and restart recovery are not executed by this source-fact gate. Review establishes API compatibility and security of the source changes beyond the asserted facts; this gate does not establish that transitive dependencies already build after deleting services/agent/crates/layerx-wire. That external migration remains assigned below. Finding 36 is a retired-reference finding, not an interface-mismatch or restart-recovery finding; no public wire format or persisted state changes. No audited shell script, unit file or deployment manifest is changed, so bash or unit parsing is inapplicable. Tests need only Python, pytest and repository files, with no environment variables, credentials, endpoint, subprocess, native artifact or device."
+baseline = "No pre-change verification was run: the explicit implementation-first sequence and exclusive hf-done verification override the generic unchanged-tree baseline clause. No baseline test failures are claimed. Initial git status and diff showed only runner-owned .cgignore and spec task-status changes, preserved unchanged; neither scoped repair artifact existed. /out/run/gate.json recorded zero build/verify runs, two repair cycles left, and /out/run/gates.jsonl did not exist. cg brief reported stale unrelated graph changes; actual git status/diff are authoritative for this task."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1331.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private evidence_ledger name the exact verified content-derived revision, command, exit code and private log path. Build and verification must pass on the same candidate revision. This record is finalized before qualification because embedding its own candidate revision would change that revision. The runner retains the evidence and commits the result; no manual commit or push is performed."
+
+[finding.36]
+audit = "22.30.71"
+path = "services/platform/hosted/webhooks/Cargo.toml"
+original_line = 21
+class = "retired-reference"
+severity = "medium"
+owner_domain = 8
+resolution = "The webhook manifest and workspace lock have no direct layerx-wire dependency, and the crate has no Rust reference to it. The active node receipt path uses gateway verification with committed governance and chain certificates; historical compatibility uses cryptographic proof APIs. Full removal of the transitive retired tree requires the owning-domain migrations below, rather than changes outside this task's scope. Scoped closure is conditional on the declared hf-done evidence."
+tests = ["test_finding_36_manifest_removes_retired_codec_and_resolves_proof_contract", "test_finding_36_every_affected_lock_matches_manifest_without_resolution_churn", "test_finding_36_versions_match_live_node_producer_and_rpc_consumer", "test_finding_36_live_transport_height_is_authenticated_before_delivery", "test_finding_36_governed_receipt_and_batch_checks_keep_exact_facts", "test_finding_36_historical_proofs_preserve_refusals_without_direct_wire_imports"]
+
+[wiring.proof]
+path = "services/agent/crates/layerx-proof"
+owning_domain = 9
+request = "Migrate proof receipt/inclusion codec internals and exported inferred receipt/header types to the live chain contract, keeping verify_header and verify_sequencer_signature semantics, then refresh every consuming workspace lock; this crate still transitively uses layerx-wire and must migrate before that retired tree is removed."
+
+[wiring.gateway]
+path = "services/platform/hosted/gateway"
+owning_domain = 8
+request = "Migrate ReceiptKeyList receipt decoding and live/historical proof internals to live chain receipt/header types, coordinate indexer/authority dependency owners and refresh their consuming workspace locks; webhook consumers already call this public verification boundary and must not acquire a direct retired-codec dependency again."
+
+[format]
+policy = "After complete implementation, rustfmt only the five touched Rust files with edition 2021 and skip_children=true. No Python or KVX formatter is configured here; apply .editorconfig UTF-8, LF, final newline and no trailing whitespace to the touched Python, KVX and Cargo manifest. The generated lock keeps every unrelated byte."
+
+[gotcha.baseline_order]
+observed = "The generic pre-change verify clause conflicts with the explicit implementation-first and hf-done-only gate order."
+resolution = "Follow the explicit order and report no unrun baseline failures; record this note here because GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.codec_consumers]
+observed = "Removing only Cargo.toml's retired dependency would leave direct codec references in both production Rust and existing historical integration tests."
+resolution = "Migrate every in-scope reference to verified proof/gateway APIs or the exact verified sequence projection, preserve the assertions, and name out-of-scope transitive migrations explicitly."
+
+[gotcha.inspection]
+observed = "Broad combined file reads exceeded tool output limits and guessed receipt directories did not exist."
+resolution = "Use bounded reads of actual node/sequencer, RPC, gateway and proof sources; no failed inspection command is represented as qualification evidence."
