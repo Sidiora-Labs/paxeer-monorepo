@@ -58,7 +58,7 @@ defmodule Explorer.SmartContract.ReaderTest do
         EthereumJSONRPC.Mox,
         :json_rpc,
         fn [%{id: id, method: _, params: [%{data: _, to: _}, _]}], _options ->
-          {:ok, [%{id: id, jsonrpc: "2.0", error: %{code: "12345", message: "Error message"}}]}
+          {:ok, [%{id: id, jsonrpc: "2.0", error: %{code: 12345, message: "Error message"}}]}
         end
       )
 
