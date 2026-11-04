@@ -1,0 +1,9 @@
+{
+  "name": "@paxeer/wallet-db",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.15",
+    "@electric-sql/pglite-socket": "0.2.18"
+  }
+}

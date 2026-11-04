@@ -62,7 +62,11 @@ class GatewayResource(SyncAPIResource):
         return self._get(
             "/health",
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                security={},
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
             ),
             cast_to=str,
         )
@@ -105,7 +109,11 @@ class GatewayResource(SyncAPIResource):
                 gateway_create_web_socket_token_params.GatewayCreateWebSocketTokenParams,
             ),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                security={"WsMintKey": True},
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
             ),
             cast_to=WsToken,
         )
@@ -151,7 +159,11 @@ class AsyncGatewayResource(AsyncAPIResource):
         return await self._get(
             "/health",
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                security={},
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
             ),
             cast_to=str,
         )
@@ -194,7 +206,11 @@ class AsyncGatewayResource(AsyncAPIResource):
                 gateway_create_web_socket_token_params.GatewayCreateWebSocketTokenParams,
             ),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                security={"WsMintKey": True},
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
             ),
             cast_to=WsToken,
         )

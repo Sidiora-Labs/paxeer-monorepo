@@ -163,10 +163,9 @@ func (k Keeper) ResizeMissedBlockArray(missedInfo types.ValidatorMissedBlockArra
 		boolArray := k.ParseBitGroupsToBoolArray(missedInfo.MissedBlocks, missedInfo.WindowSize)
 		newArray := make([]bool, window)
 		copy(newArray[0:index], boolArray[0:index])
-		if index+1 < missedInfo.WindowSize {
-			// insert `0`s corresponding to the difference between the new window size and old window size
-			copy(newArray[index+(window-missedInfo.WindowSize):], boolArray[index:])
-		}
+		// Insert empty slots at the next write index. Retain the entire suffix,
+		// including the last old slot, so expansion preserves the miss counter.
+		copy(newArray[index+(window-missedInfo.WindowSize):], boolArray[index:])
 		missedInfo.MissedBlocks = k.ParseBoolArrayToBitGroups(newArray)
 		missedInfo.WindowSize = window
 	case missedInfo.WindowSize > window:

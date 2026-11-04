@@ -7,7 +7,7 @@ import {
 } from '@supabase/supabase-js';
 import { keccak256, serializeTransaction, type Hex, type TransactionSerializable } from 'viem';
 import { JsonRpcClient } from './rpc.js';
-import { decodeSequencerReceipt, readSequencerReceipt } from './receipt.js';
+import { authenticateSequencerReceipt, readSequencerReceipt } from './receipt.js';
 import {
   assertSendTxResponse,
   PaxeerWalletError,
@@ -219,7 +219,9 @@ export class PaxeerWallet {
 
   /** Sign a transaction without broadcasting. Returns serialized signed tx hex. */
   signTransaction(tx: TxRequest): Promise<SignTxResponse> {
-    return this.callJson<SignTxResponse>('POST', '/v1/wallet/sign', { tx: serialize(tx) });
+    return this.callJson<SignTxResponse>('POST', '/v1/wallet/sign', {
+      tx: serialize(tx),
+    });
   }
 
   /** Sign + broadcast and return the tx hash with its available sequencer receipt. */
@@ -228,10 +230,16 @@ export class PaxeerWallet {
       tx: serialize(tx),
     });
     assertSendTxResponse(response, tx.chainId === undefined ? {} : { chainId: tx.chainId });
-    let receipt = response.receipt ? decodeSequencerReceipt(response.receipt) : null;
+    const { chain } = await this.getWallet();
+    const rpc = new JsonRpcClient({ url: chain.rpc_url, fetch: this.fetchImpl });
+    let receipt = response.receipt
+      ? await authenticateSequencerReceipt(
+          (method, params) => rpc.call(method, params),
+          response.receipt,
+          response.tx_hash
+        )
+      : null;
     if (!receipt) {
-      const { chain } = await this.getWallet();
-      const rpc = new JsonRpcClient({ url: chain.rpc_url, fetch: this.fetchImpl });
       try {
         receipt = await readSequencerReceipt(
           (method, params) => rpc.call(method, params),
@@ -258,7 +266,9 @@ export class PaxeerWallet {
 
   /** EIP-191 personal_sign over a message string. */
   signMessage(message: string): Promise<SignMessageResponse> {
-    return this.callJson<SignMessageResponse>('POST', '/v1/wallet/sign-message', { message });
+    return this.callJson<SignMessageResponse>('POST', '/v1/wallet/sign-message', {
+      message,
+    });
   }
 
   async reviewEvmTransaction(

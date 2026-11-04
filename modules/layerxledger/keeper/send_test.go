@@ -214,12 +214,13 @@ func TestSendRefusals(t *testing.T) {
 		want   error
 	}{
 		{"foreign_source", func(p []byte) []byte { copy(p[4:36], f.to[:]); return p }, false, types.ErrUnauthorizedDebit},
-		{"asset_subaccount", func(p []byte) []byte {
+		{"asset_subaccount_wrong_asset", func(p []byte) []byte {
 			_, holding, err := lxphost.AssetAccountID(f.actor.DIDKey, f.asset)
 			require.NoError(t, err)
 			copy(p[4:36], holding[:])
+			copy(p[68:100], make([]byte, 32))
 			return p
-		}, false, types.ErrUnauthorizedDebit},
+		}, false, types.ErrAssetMismatch},
 		{"expired", func(p []byte) []byte { binary.BigEndian.PutUint64(p[156:164], now-1); return p }, false, types.ErrExpired},
 		{"zero_amount", func(p []byte) []byte { clear(p[100:116]); return p }, false, types.ErrZeroAmount},
 		{"malformed", func(p []byte) []byte { return p[:3] }, false, types.ErrMalformedSend},

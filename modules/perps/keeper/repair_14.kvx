@@ -1,0 +1,149 @@
+[meta]
+task = "22.31.14"
+audit = "22.30.14"
+mode = "BUILD"
+base_revision = "7fc896febbb27d599c34aa9b6e0a81d4a7905759"
+baseline = "Not run: explicit gate order requires complete implementation before hf-build and hf-done; no earlier gate ledger existed. No baseline failure is claimed."
+evidence = "/out/run/gates.jsonl records each candidate revision, exact command, exit code and private log; hf-done is the sole verification authority."
+
+[repair.trigger-live-margin]
+test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_trigger_live_margin"
+
+[repair.pending-reduce-only-flip]
+test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_pending_reduce_only_flip"
+
+[repair.cancelled-attachment-export]
+test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_cancelled_attachment_export"
+
+[repair.adl-uses-current-mark]
+test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_adl_previous_mark_endblock_recovery"
+
+[repair.settlement-leaves-adl-rank]
+test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_settlement_rank_endblock_recovery"
+
+[repair.adl-index-visit-bound]
+test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_adl_visit_bound_endblock_recovery"
+
+[repair.paused-trigger-visit-bound]
+test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_paused_trigger_visit_bound"
+
+[repair.trigger-fok-becomes-ioc]
+test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_trigger_fok_becomes_ioc"
+
+[repair.expired-orders-still-fill]
+test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_expired_orders_still_fill"
+
+[repair.open-fill-margin]
+test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_open_fill_margin"
+
+[repair.quote-open-base-rounding]
+test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_quote_open_base_rounding"
+
+[repair.quote-short-self-bid]
+test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_quote_short_self_bid"
+
+[repair.abci-keeper-core]
+test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_abci_keeper_core"
+
+[repair.abci-governance-params]
+test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_abci_governance_params"
+
+[repair.abci-governance-market]
+test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_abci_governance_market"
+
+[repair.abci-margin]
+test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_abci_margin"
+
+[repair.abci-freshness]
+test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_abci_freshness"
+
+[repair.abci-positions]
+test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_abci_positions"
+
+[repair.abci-oi]
+test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_abci_oi"
+
+[repair.abci-liquidation]
+test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_abci_liquidation"
+
+[repair.abci-fees]
+test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_abci_fees"
+
+[repair.abci-insurance]
+test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_abci_insurance"
+
+[repair.abci-funding]
+test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_abci_funding"
+
+[repair.abci-keeper-genesis]
+test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_abci_keeper_genesis"
+
+[wiring.previous-mark-genesis]
+request = "modules/perps/types/state.go and modules/perps/types/genesis.go, owning domain 3: add canonical genesis fields for previous committed marks; keeper-only persisted keys survive store reopen, but the current strict public state codec cannot export them."
+
+[wiring.adl-continuation-genesis]
+request = "modules/perps/types/genesis.go, owning domain 3: carry keeper per-deficit ADL cursors (0x17), shared per-height budget (0x18) and deficit continuation (0x1a) through canonical genesis; types changes are outside this task scope."
+
+[gotcha.baseline-order]
+observed = "Task step 28 requests unchanged-tree verification but the explicit gate order permits verification only after complete implementation and a passing build."
+action = "Follow the explicit gate order, record the baseline as unmeasured, and never claim failures that were not observed."
+
+[gotcha.canonical-state-scope]
+observed = "MarketState rejects trailing bytes and GenesisState has no extension field for previous marks or ADL continuation."
+action = "Persist these values in keeper-owned keys, prove real store reopen, and request canonical schema wiring from domain 3 without editing out-of-scope types."
+
+[qualification.first_attempt]
+revision = "d101d34fdbbb076daea4d733e159753238d0c200"
+command = "cg spec done 22.31.14 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Restart test called Commit without the repository-required boolean argument; repaired to Commit(true) before the next build and verification."
+
+[gotcha.multistore-commit]
+observed = "The repository SDK CommitMultiStore.Commit method requires a boolean, unlike older Cosmos SDK examples."
+action = "Use Commit(true) to persist the actual IAVL store before reopening it."
+
+[qualification.continuation]
+base_revision = "9281fc5367df30f54e8f83e9b7bedc920d9382db"
+source_revision = "d53eec9b0391e403fe676dc8888caef36364dc5d"
+observed = "The supplied previous-attempt evidence reports repair_14_test.go failing compilation because IsZero was called on a non-addressable uint256.Int field."
+action = "Retain the supplied implementation and assertions, bind the recovered account to a local variable, then qualify only through hf-build and hf-done."
+
+[gotcha.uint256-pointer-method]
+observed = "uint256.Int.IsZero requires an addressable value; a field selected from a returned account value is not addressable."
+action = "Bind the returned account to a local variable before asserting its deficit is zero."
+
+[qualification.continuation_first_gate]
+revision = "e3b1c4738be9badfb42330630de7fff66223b7a9"
+command = "cg spec done 22.31.14 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Quote assertions compared big.Int backing slices for zero, and the genesis proof indexed a derived index intentionally omitted by ExportGenesis."
+
+[gotcha.numeric-equality]
+observed = "ABI-decoded big.Int zero can have an empty allocated backing slice while calculated zero has a nil backing slice."
+action = "Assert exact decimal integer equality for funding estimates, preserving the expected numeric value."
+
+[gotcha.optional-genesis-index]
+observed = "ExportGenesis omits the derived BookEntries slice because InitGenesis rebuilds it from canonical orders."
+action = "Produce a valid supplied book entry from the keeper's actual resting order, validate it, then duplicate it to prove the registered refusal."
+
+[qualification.continuation_timeout]
+source_revision = "d83d33337dd8b32d8e812b71dff759971d68f18c"
+observed = "The supplied previous-attempt verification timed out after 600 seconds during the public expired-maker backlog scenario; its existing assertions and backlog sizes are retained."
+action = "Finalize each real EVM test transaction and create its next StateDB on the flushed store, retaining the actual receipt logs for all existing assertions."
+
+[gotcha.evm-transaction-lifetime]
+observed = "The EVM StateDB is transaction-scoped; reusing it for successive public calls without finalization accumulates snapshot cache layers whose merged iterators become prohibitively expensive."
+action = "Use the production Finalize path after each call, preserve its receipt logs, and create a new StateDB for the next transaction without changing the scenarios or assertions."
+
+[qualification.recovery_export_repair]
+revision = "2a280f4f26af2d41471a73274671797450657f2a"
+command = "cg spec done 22.31.14 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Focused tests completed in 2.441 seconds; recovery scenarios failed because ExportGenesis omitted book/trigger indexes required by the public validator."
+
+[gotcha.public-genesis-validation]
+observed = "Keeper import can rebuild omitted derived indexes, but types.ValidateGenesis requires a book entry for each resting order and a trigger entry for each pending order."
+action = "Export the canonical records together with their derived indexes so the actual producer passes both validators; preserve the recovery assertions and require exact exported indexes in the existing round-trip test."

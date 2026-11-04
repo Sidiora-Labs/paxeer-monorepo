@@ -1,16 +1,13 @@
 package keeper
 
 import (
-	"errors"
+	"fmt"
 	"sync"
-	"time"
 
 	wasmvm "github.com/Sidiora-Labs/Paxeer-X-Network/wasm-runtime"
 	wasmvmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/wasm-runtime/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/wasm/x/wasm/types"
 )
-
-const CreateTimeout time.Duration = 15 * time.Second
 
 type VMWrapper struct {
 	types.WasmerEngine
@@ -25,23 +22,37 @@ func NewVMWrapper(inner types.WasmerEngine) types.WasmerEngine {
 	}
 }
 
-func (w *VMWrapper) Create(code wasmvm.WasmCode) (checksum wasmvm.Checksum, err error) {
+func (w *VMWrapper) Create(code wasmvm.WasmCode) (wasmvm.Checksum, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	timer := time.NewTimer(CreateTimeout)
-	done := make(chan struct{}, 1)
-	go func() {
-		checksum, err = w.WasmerEngine.Create(code)
-		done <- struct{}{}
-	}()
-	select {
-	case <-done:
-		timer.Stop()
-		return
-	case <-timer.C:
-		err = errors.New("create wasm code timed out")
-		return
+	if len(code) > types.MaxWasmSize {
+		return nil, fmt.Errorf("wasm code exceeds maximum size %d", types.MaxWasmSize)
 	}
+	return w.WasmerEngine.Create(code)
+}
+
+func (w *VMWrapper) GetCode(checksum wasmvm.Checksum) (wasmvm.WasmCode, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.WasmerEngine.GetCode(checksum)
+}
+
+func (w *VMWrapper) AnalyzeCode(checksum wasmvm.Checksum) (*wasmvmtypes.AnalysisReport, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.WasmerEngine.AnalyzeCode(checksum)
+}
+
+func (w *VMWrapper) GetMetrics() (*wasmvmtypes.Metrics, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.WasmerEngine.GetMetrics()
+}
+
+func (w *VMWrapper) Cleanup() {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.WasmerEngine.Cleanup()
 }
 
 func (w *VMWrapper) Instantiate(
