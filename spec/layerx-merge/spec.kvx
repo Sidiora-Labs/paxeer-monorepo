@@ -208678,7 +208678,7 @@ do_16 = "Attempt 2 (continue after 22.31.463): the build failed in packages this
 
 [task.22.33.876]
 title = "Repair audit record 22.30.183 medium findings in tools/qualification/paxeer-x (part 1 of 3): retired-reference, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.330"]
@@ -320185,7 +320185,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.1565]
 title = "Repair audit record 22.30.99 medium findings in services/agent (part 1 of 1): config-drift, doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.227", "22.31.228", "22.31.229", "22.31.230"]
@@ -324473,7 +324473,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.878]
 title = "Repair audit record 22.30.183 medium findings in tools/qualification/paxeer-x (part 3 of 3): retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.330"]
@@ -324856,7 +324856,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.862]
 title = "Repair audit record 22.30.182 medium findings in tools/qualification/paxeer-x (part 3 of 3): retired-reference, security, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.430", "22.31.431", "22.31.432"]
@@ -326152,7 +326152,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.780]
 title = "Repair audit record 22.30.174 medium findings in tools/qualification (part 1 of 1): retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.424", "22.31.425"]
