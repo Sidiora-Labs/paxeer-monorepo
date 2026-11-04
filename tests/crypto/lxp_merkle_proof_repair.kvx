@@ -1,0 +1,9 @@
+[task.22.33.3]
+audit_record = "22.30.1"
+base_revision = "58a590675bbe54c704c3f54c5ef49c6397e5992d"
+finding_4 = "test_merkle_proof_uint32_boundaries in tests/crypto/lxp_test_merkle_proof.c: UINT32_MAX and adjacent counts, canonical depths, positional verification, and native codec round trips using constant-storage two-leaf production folds."
+finding_5 = "test_merkle_proof_encode_rejects_invalid_metadata in tests/crypto/lxp_test_merkle_proof.c: refuse zero counts, indices equal to or greater than count, and noncanonical depths; preserve writer pointer, capacity, length, prefix, and entire backing buffer."
+transport = "proof_transport_round_trip uses the production encoder and codec reader before the native verifier; main also supplies an ordinary production-generated 1000-leaf proof."
+baseline = "No earlier gate ledger or crypto edits were present. No baseline verification ran: the explicit gate order forbids testing before full implementation and requires hf-build before hf-done. No pre-existing test failures are claimed."
+wiring_requests = "None; both finding proposals are entirely within scope."
+qualification = "The runner's private gates.jsonl and final evidence line identify the candidate revision, exact gate command, exit code, and private log path."
