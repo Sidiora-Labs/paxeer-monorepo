@@ -25,7 +25,7 @@ fn height(params: Option<&Value>) -> Option<u64> {
     decimal(value).filter(|height| *height > 0)
 }
 
-fn consensus(config: &Config, method: &str, id: &Value, params: Value) -> Option<Value> {
+pub(super) fn consensus(config: &Config, method: &str, id: &Value, params: Value) -> Option<Value> {
     let mut endpoint = std::env::var("LAYERX_GATEWAY_CONSENSUS_RPC_URL")
         .ok()
         .and_then(|url| Endpoint::parse(&url).ok())?;
