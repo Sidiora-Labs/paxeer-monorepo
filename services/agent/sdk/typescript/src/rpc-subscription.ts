@@ -76,8 +76,8 @@ export async function* subscribeRpc(endpoint: URL, authorization: string | undef
   const params = subscriptionSelector(topic, account, cursor);
   if (signal?.aborted) throw new Error("Subscription cancelled");
   const url = new URL(endpoint);
-  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
-  url.pathname = `${url.pathname.replace(/\/$/u, "")}/ws`;
+  if (!["https:", "http:", "wss:", "ws:"].includes(url.protocol) || url.username || url.password || url.hash) throw new Error("Invalid subscription endpoint");
+  url.protocol = url.protocol === "https:" || url.protocol === "wss:" ? "wss:" : "ws:";
   const cancelId = `${requestId}:unsubscribe`;
   const socket = new WebSocket(url, { headers: authorization === undefined ? {} : { authorization }, handshakeTimeout: 30000, maxPayload: 9 * 1048576, followRedirects: false, perMessageDeflate: false });
   const queue: SubscriptionEvent[] = [];

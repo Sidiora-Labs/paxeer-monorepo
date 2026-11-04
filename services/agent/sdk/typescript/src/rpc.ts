@@ -1,5 +1,6 @@
 import { subscribeRpc, type SubscriptionEvent, type SubscriptionTopic } from "./rpc-subscription.js";
 export type { SubscriptionEvent, SubscriptionTopic } from "./rpc-subscription.js";
+import { keccak_256 } from "@noble/hashes/sha3.js";
 import { createHash } from "node:crypto";
 import * as http from "node:http";
 import * as https from "node:https";
@@ -59,8 +60,6 @@ export class JsonRpcClient {
     const u = this.#endpoint;
     if (!["https:", "http:"].includes(u.protocol) || u.username || u.password || u.search || u.hash ||
         (u.protocol === "http:" && !["localhost", "127.0.0.1", "[::1]"].includes(u.hostname))) throw new Error("Invalid RPC endpoint");
-    const path = u.pathname.replace(/\/$/u, "");
-    u.pathname = path.endsWith("/rpc") ? path : `${path}/rpc`;
   }
   public wallet(nativeAsset: string) { return {
     accounts: (did: string): Promise<Record<string, unknown>> => this.getBalances(did),
@@ -82,6 +81,23 @@ export class JsonRpcClient {
     let authorization: string | undefined;
     this.credential?.use(value => { authorization = value; });
     return subscribeRpc(this.#endpoint, authorization, (++this.#id).toString(), topic, account, cursor, signal);
+  }
+  public ledgerAccount(owner: string, asset: string): Promise<string> {
+    if (!/^[0-9a-f]{64}$/u.test(owner) || !/^[0-9a-f]{64}$/u.test(asset)) throw new Error("Invalid ledger account selector");
+    return this.call("eth_call", [{ to: "0x000000000000000000000000000000000000101a", data: `0x3f050cbc${owner}${asset}` }, "pending"], value => {
+      const id = rpcHash(value).slice(2).toLowerCase();
+      if (id === "00".repeat(32)) throw new Error("Ledger account unavailable");
+      return id;
+    });
+  }
+  public getRawTransaction(hash: string): Promise<Uint8Array> {
+    rpcHash(hash);
+    return this.call("eth_getRawTransactionByHash", [hash], value => {
+      if (typeof value !== "string" || !/^0x(?:[0-9a-fA-F]{2})+$/u.test(value) || value.length > 1048578) throw new Error("Invalid raw transaction");
+      const raw = new Uint8Array(Buffer.from(value.slice(2), "hex"));
+      if (`0x${Buffer.from(keccak_256(raw)).toString("hex")}` !== hash.toLowerCase()) throw new Error("Raw transaction hash mismatch");
+      return raw;
+    });
   }
   public getAccount(account: string): Promise<Record<string, unknown>> { return this.call("px_getAccount", [account], rpcObject); }
   public getBalance(account: string): Promise<bigint> {

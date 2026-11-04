@@ -1,8 +1,10 @@
+import { decodeLedgerTransaction } from "./ledger-payment.js";
+import { encodeSequencerLogEffect } from "./sequencer-log.js";
 import { createHash } from "node:crypto";
 import * as http from "node:http";
 import * as https from "node:https";
 import { keccak_256 } from "@noble/hashes/sha3.js";
-import { walletAccount } from "./rpc.js";
+import { JsonRpcClient, walletAccount } from "./rpc.js";
 import { verifySequencerReceipt as verifyPinnedSequencerReceipt, type SequencerReceiptKey as ReceiptKey, type ReceiptVerification, type SelectableProtocolVersion } from "./verifier.js";
 import { encodeGrant, type PayerGrant } from "./x402/receive.js";
 
@@ -10,7 +12,7 @@ export const WEB_CONTENT_DOMAIN = "PAXEERX_WEB_CONTENT_V1";
 export const WEB_CONTENT_FETCH = 1;
 export const WEB_CONTENT_SEARCH = 2;
 export const WEB_SEARCH_CURRENCIES = ["SID", "PAX", "USDC", "USDL"] as const;
-export const WEB_SEARCH_PAYER_HEADER = "LAYERX-PAYER-DID";
+export const WEB_SEARCH_PAYER_HEADER = "LAYERX-PAYER-ADDRESS";
 export const WEB_SEARCH_MAX_RESULTS = 10;
 
 export type WebSearchCurrency = typeof WEB_SEARCH_CURRENCIES[number];
@@ -55,11 +57,13 @@ export interface WebSearchMeteredPayment {
 }
 
 export interface WebSearchExactPayment {
+  readonly idempotencyKey?: string;
   readonly receipt: Uint8Array;
   readonly rawTransaction?: Uint8Array;
 }
 
 export interface WebSearchPayer {
+  readonly address?: string;
   readonly did?: string;
   readonly preferences: readonly WebSearchPreference[];
   metered?(offer: WebSearchOffer, target: string): Promise<WebSearchMeteredPayment>;
@@ -78,6 +82,7 @@ export interface WebSearchClientOptions {
   readonly assets: Partial<Readonly<Record<WebSearchCurrency, WebSearchAssetTerms>>>;
   readonly payer: WebSearchPayer;
   readonly receiptKeys?: readonly ReceiptKey[];
+  readonly ledgerRpc?: JsonRpcClient;
   readonly authority?: (receipt: Uint8Array, offer: WebSearchOffer) => Promise<import("./verifier.js").AuthorizedReceiptBatch>;
   readonly protocolVersion?: SelectableProtocolVersion;
   readonly now?: () => bigint;
@@ -130,6 +135,8 @@ interface Reply {
 
 interface PreparedPayment {
   readonly header: string;
+  readonly grant?: PayerGrant;
+  readonly idempotencyKey?: string;
   readonly receipt?: Uint8Array;
   readonly rawTransaction?: Uint8Array;
 }
@@ -142,7 +149,7 @@ const MAX_REPLY_BYTES = 9 * 1048576;
 const MAX_HEADER_CHARACTERS = 131072;
 const MAX_RETRY_AFTER_SECONDS = 30;
 const GRANT_BYTES = 346;
-const RECEIPT_LEAF_DOMAIN = "LXP/v1/merkle-leaf\0";
+const RECEIPT_DOMAIN = "LXP/v1/receipt\0";
 
 function hex(bytes: Uint8Array): string {
   return Buffer.from(bytes).toString("hex");
@@ -272,7 +279,11 @@ function encodeHeader(value: unknown): string {
 }
 
 function receiptDigest(receipt: Uint8Array): string {
-  return createHash("sha256").update(RECEIPT_LEAF_DOMAIN, "ascii").update(receipt).digest("hex");
+  const unsignedEnd = receipt.length - 69;
+  if (unsignedEnd < 0 || !Buffer.from(receipt.subarray(unsignedEnd, unsignedEnd + 5)).equals(Buffer.from([1, 0, 0, 0, 64]))) {
+    throw new WebSearchError("receipt-unverified");
+  }
+  return createHash("sha256").update(RECEIPT_DOMAIN, "ascii").update(receipt.subarray(0, unsignedEnd)).update(Uint8Array.of(0)).digest("hex");
 }
 
 function accountDid(account: string): { readonly did: string; readonly asset: string | null } {
@@ -284,12 +295,15 @@ function accountDid(account: string): { readonly did: string; readonly asset: st
   return { did: tail.slice(0, marker), asset: tail.slice(marker + ":asset:".length) };
 }
 
-function derivedAccount(did: string, asset: string, nativeAsset: string, code: string): { readonly name: string; readonly id: string } {
-  try {
-    return { name: asset === nativeAsset ? `agent:${did}:main` : `agent:${did}:asset:${asset}`, id: walletAccount(did, asset, nativeAsset) };
-  } catch {
-    throw new WebSearchError(code);
-  }
+export function webSearchPayerOwner(address: string): string {
+  if (!/^0x[0-9a-fA-F]{40}$/u.test(address)) throw new WebSearchError("invalid-payer-address");
+  return "00".repeat(12) + address.slice(2).toLowerCase();
+}
+
+export async function resolveWebLedgerAccount(rpc: JsonRpcClient, owner: string, asset: string, nativeAsset: string): Promise<string> {
+  if (!hex32(owner) || owner === ZERO32 || !hex32(asset) || asset === ZERO32) throw new WebSearchError("invalid-ledger-owner");
+  const resolved = await rpc.ledgerAccount(owner, asset);
+  return asset === nativeAsset ? walletAccount(`did:layerx:${owner}`, asset, nativeAsset) : resolved;
 }
 
 function errorOf(reply: Reply): string | undefined {
@@ -312,7 +326,17 @@ function jsonBody(reply: Reply): Record<string, unknown> {
   return record(parsed, "invalid-resource");
 }
 
-async function verifySequencerReceipt(receipt: Uint8Array, rawTransaction: Uint8Array | undefined, offer: WebSearchOffer, receiptKeys: readonly ReceiptKey[] | undefined): Promise<ReceiptVerification> {
+export interface WebSearchPaymentVerification extends ReceiptVerification {
+  readonly payment: {
+    readonly from: Uint8Array;
+    readonly to: Uint8Array;
+    readonly asset: Uint8Array;
+    readonly amount: bigint;
+  };
+}
+
+export async function verifyWebSearchPayment(receipt: Uint8Array, rawTransaction: Uint8Array | undefined, offer: WebSearchOffer,
+  receiptKeys: readonly ReceiptKey[] | undefined, idempotencyKey?: string, grant?: PayerGrant): Promise<WebSearchPaymentVerification> {
   let verified: ReceiptVerification;
   try {
     if (rawTransaction === undefined || rawTransaction.length === 0 || receiptKeys === undefined) throw new WebSearchError("receipt-unverified");
@@ -322,8 +346,50 @@ async function verifySequencerReceipt(receipt: Uint8Array, rawTransaction: Uint8
     throw new WebSearchError("receipt-unverified");
   }
   if (verified.receipt.moduleId !== 12 || verified.receipt.operation !== 2) throw new WebSearchError("settlement-operation-mismatch");
-  if (hex(verified.receipt.asset) !== offer.asset || verified.receipt.amount !== BigInt(offer.amount) || hex(verified.receipt.to) !== offer.payTo) throw new WebSearchError("receipt-offer-mismatch");
-  return verified;
+  if (rawTransaction === undefined) throw new WebSearchError("receipt-unverified");
+  let calldata: Buffer;
+  try { calldata = Buffer.from(decodeLedgerTransaction(rawTransaction).data); } catch { throw new WebSearchError("settlement-operation-mismatch"); }
+  const word = (i: number): Buffer => calldata.subarray(4 + i * 32, 36 + i * 32);
+  const from = offer.scheme === "metered" ? grant === undefined ? undefined : Buffer.from(grant.from, "hex") : word(0);
+  if (from === undefined || from.length !== 32) throw new WebSearchError("receipt-offer-mismatch");
+  bindLedgerPayment(rawTransaction, offer, hex(from), idempotencyKey, grant);
+  const to = Buffer.from(offer.payTo, "hex"), asset = Buffer.from(offer.asset, "hex");
+  const metered = offer.scheme === "metered";
+  const topic = keccak_256(new TextEncoder().encode(metered
+    ? "PaymentDrawn(bytes32,bytes32,bytes32,bytes32,uint128,bytes32,bytes32)"
+    : "PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)"));
+  const data = metered ? Buffer.concat([asset, word(2), word(3), word(6)]) : Buffer.concat([asset, word(3)]);
+  const committedLog = encodeSequencerLogEffect(Buffer.from("000000000000000000000000000000000000101a", "hex"),
+    [topic, metered ? word(0) : word(5), from, to], data);
+  const summary = verified.receipt.effects[0];
+  if (summary === undefined || summary.kind !== 1 || summary.ordinal !== 0 || summary.moduleId !== 12 || summary.body.length < 109
+    || new DataView(summary.body.buffer, summary.body.byteOffset).getUint32(104) !== verified.receipt.effects.length - 1) throw new WebSearchError("receipt-unverified");
+  let matches = 0;
+  for (let i = 1; i < verified.receipt.effects.length; i++) {
+    const effect = verified.receipt.effects[i]!;
+    if (effect.moduleId !== 12 || effect.ordinal !== i || effect.kind !== 3 || effect.body.length < 53
+      || effect.body[20]! > 4 || effect.body.length !== 53 + effect.body[20]! * 32) throw new WebSearchError("receipt-unverified");
+    if (Buffer.from(effect.body).equals(committedLog)) matches++;
+  }
+  if (matches !== 1) throw new WebSearchError("receipt-offer-mismatch");
+  return Object.freeze({ ...verified, payment: Object.freeze({ from: new Uint8Array(from), to: new Uint8Array(to), asset: new Uint8Array(asset), amount: BigInt(offer.amount) }) });
+}
+
+export function bindLedgerPayment(raw: Uint8Array, offer: WebSearchOffer, from: string, idempotencyKey?: string, grant?: PayerGrant): void {
+  let call: ReturnType<typeof decodeLedgerTransaction>;
+  try { call = decodeLedgerTransaction(raw); } catch { throw new WebSearchError("settlement-operation-mismatch"); }
+  if (hex(call.to) !== "000000000000000000000000000000000000101a" || call.value !== 0n
+    || `eip155:${call.chainId}` !== offer.network) throw new WebSearchError("settlement-operation-mismatch");
+  const data = Buffer.from(call.data), selector = data.subarray(0, 4).toString("hex");
+  const word = (i: number): string => data.subarray(4 + i * 32, 36 + i * 32).toString("hex");
+  const amount = (i: number): bigint => BigInt(`0x${word(i)}`);
+  if (offer.scheme === "exact") {
+    if (selector !== "78ea11db" || data.length !== 196 || word(0) !== from || word(1) !== offer.payTo || word(2) !== offer.asset
+      || amount(3) !== BigInt(offer.amount) || amount(4) >= 1n << 64n
+      || idempotencyKey !== undefined && word(5) !== idempotencyKey) throw new WebSearchError("receipt-offer-mismatch");
+  } else if (selector !== "2e89490f" || data.length !== 228 || grant === undefined || grant.from !== from
+    || word(0) !== grant.grant_id || word(1) !== offer.payTo || amount(2) !== BigInt(offer.amount) || word(3) !== idempotencyKey
+    || amount(4) >= 1n << 64n || word(5) !== offer.purposeHash) throw new WebSearchError("receipt-offer-mismatch");
 }
 
 export class WebSearchClient {
@@ -343,6 +409,8 @@ export class WebSearchClient {
       if (!(WEB_SEARCH_CURRENCIES as readonly string[]).includes(currency) || terms === undefined
         || !hex32(terms.assetId) || terms.assetId === ZERO32 || terms.maxAmount <= 0n || terms.maxAmount >= 1n << 128n) throw new WebSearchError("invalid-asset-terms");
     }
+    if (options.payer.address !== undefined && !/^0x[0-9a-fA-F]{40}$/u.test(options.payer.address)) throw new WebSearchError("invalid-payer-address");
+    if (options.payer.preferences.some(preference => preference.scheme === "metered") && options.payer.address === undefined) throw new WebSearchError("payer-address-required");
     if (options.payer.preferences.length === 0) throw new WebSearchError("invalid-payer");
     const pendingAttempts = options.pendingAttempts ?? 5;
     if (!Number.isSafeInteger(pendingAttempts) || pendingAttempts < 1 || pendingAttempts > 60) throw new WebSearchError("invalid-pending-attempts");
@@ -391,11 +459,11 @@ export class WebSearchClient {
 
   async #exchange(target: string): Promise<{ readonly reply: Reply; readonly settlement: WebSettlement | null }> {
     const base: Record<string, string> = {};
-    if (this.#options.payer.did !== undefined) base[WEB_SEARCH_PAYER_HEADER] = this.#options.payer.did;
+    if (this.#options.payer.address !== undefined) base[WEB_SEARCH_PAYER_HEADER] = this.#options.payer.address;
     const challenge = await this.#get(target, base);
     if (challenge.status === 200) return { reply: challenge, settlement: null };
     if (challenge.status !== 402) throw new WebSearchError(`sidecar-refused:${errorOf(challenge) ?? challenge.status}`, challenge.status);
-    const [offer, raw] = this.#select(decodeHeader(challenge.headers["payment-required"], "invalid-payment-required"));
+    const [offer, raw] = await this.#select(decodeHeader(challenge.headers["payment-required"], "invalid-payment-required"));
     const payment = await this.#prepare(offer, raw, target);
     for (let attempt = 1; ; attempt += 1) {
       const reply = await this.#get(target, { ...base, "PAYMENT-SIGNATURE": payment.header });
@@ -411,7 +479,7 @@ export class WebSearchClient {
     }
   }
 
-  #select(required: Record<string, unknown>): readonly [WebSearchOffer, Record<string, unknown>] {
+  async #select(required: Record<string, unknown>): Promise<readonly [WebSearchOffer, Record<string, unknown>]> {
     if (required["x402Version"] !== 2) throw new WebSearchError("invalid-payment-required");
     const accepts = required["accepts"];
     if (!Array.isArray(accepts) || accepts.length === 0 || accepts.length > 32) throw new WebSearchError("invalid-payment-required");
@@ -424,12 +492,12 @@ export class WebSearchClient {
       });
       if (matching.length > 1) throw new WebSearchError("ambiguous-offer");
       const raw = matching[0];
-      if (raw !== undefined) return [this.#offer(raw, preference), raw];
+      if (raw !== undefined) return [await this.#offer(raw, preference), raw];
     }
     throw new WebSearchError("no-acceptable-offer");
   }
 
-  #offer(raw: Record<string, unknown>, preference: WebSearchPreference): WebSearchOffer {
+  async #offer(raw: Record<string, unknown>, preference: WebSearchPreference): Promise<WebSearchOffer> {
     exactKeys(raw, ["scheme", "network", "amount", "asset", "payTo", "maxTimeoutSeconds", "extra"], "invalid-offer");
     const extra = record(raw["extra"], "invalid-offer");
     exactKeys(extra, ["layerx"], "invalid-offer");
@@ -447,14 +515,21 @@ export class WebSearchClient {
     if (asset !== terms.assetId) throw new WebSearchError("offer-asset-mismatch");
     if (BigInt(amount) > terms.maxAmount) throw new WebSearchError("offer-price-exceeded");
     const receiver = accountDid(account);
-    const expected = derivedAccount(receiver.did, asset, this.#options.nativeAsset, "offer-account-mismatch");
-    if (account !== expected.name || payTo !== expected.id) throw new WebSearchError("offer-account-mismatch");
+    const rpc = this.#options.ledgerRpc;
+    if (rpc === undefined) throw new WebSearchError("ledger-rpc-required");
+    if (!/^did:layerx:[0-9a-f]{64}$/u.test(receiver.did)
+      || (asset === this.#options.nativeAsset) !== (preference.currency === "PAX")
+      || receiver.asset !== (preference.currency === "PAX" ? null : asset)) throw new WebSearchError("offer-account-mismatch");
+    const expected = await resolveWebLedgerAccount(rpc, receiver.did.slice("did:layerx:".length), asset, this.#options.nativeAsset);
+    if (payTo !== expected) throw new WebSearchError("offer-account-mismatch");
     const offer = { scheme: preference.scheme, network, amount, asset, payTo, maxTimeoutSeconds, currency: preference.currency, account };
     if (!metered) return Object.freeze(offer);
     const { payer, purposeHash } = layerx;
     if (!hex32(purposeHash) || purposeHash === ZERO32 || !hex32(payer)) throw new WebSearchError("invalid-offer");
-    const did = this.#options.payer.did;
-    if (did === undefined || payer !== derivedAccount(did, asset, this.#options.nativeAsset, "offer-payer-mismatch").id) throw new WebSearchError("offer-payer-mismatch");
+    const address = this.#options.payer.address;
+    if (address === undefined) throw new WebSearchError("payer-address-required");
+    const owner = webSearchPayerOwner(address);
+    if (payer !== await resolveWebLedgerAccount(rpc, owner, asset, this.#options.nativeAsset)) throw new WebSearchError("offer-payer-mismatch");
     return Object.freeze({ ...offer, payer, purposeHash });
   }
 
@@ -469,16 +544,19 @@ export class WebSearchClient {
         || grant.recurring || grant.window_length !== "0" || grant.has_reference || grant.reference_hash !== ZERO32
         || BigInt(grant.per_draw_maximum) < amount || BigInt(grant.allowance) < amount || this.#now() >= BigInt(grant.expiration)) throw new WebSearchError("grant-offer-mismatch");
       if (!hex32(idempotencyKey) || idempotencyKey === ZERO32) throw new WebSearchError("invalid-idempotency-key");
-      return { header: encodeHeader({ x402Version: 2, accepted: raw, payload: { grant: hex(canonical), idempotencyKey } }) };
+      return { header: encodeHeader({ x402Version: 2, accepted: raw, payload: { grantId: grant.grant_id, idempotencyKey } }), grant, idempotencyKey };
     }
     if (payer.exact === undefined) throw new WebSearchError("exact-payer-unavailable");
     const payment = await payer.exact(offer, target);
     const receipt = new Uint8Array(payment.receipt);
     const rawTransaction = payment.rawTransaction === undefined ? undefined : new Uint8Array(payment.rawTransaction);
-    await verifySequencerReceipt(receipt, rawTransaction, offer, this.#options.receiptKeys);
+    const verified = await verifyWebSearchPayment(receipt, rawTransaction, offer, this.#options.receiptKeys, payment.idempotencyKey);
     if (rawTransaction === undefined) throw new WebSearchError("receipt-unverified");
-    const payload = { receipt: Buffer.from(receipt).toString("base64"), receiptDigest: receiptDigest(receipt), verificationLevel: "sequencer-signed", rawTransaction: `0x${hex(rawTransaction)}` };
-    return { header: encodeHeader({ x402Version: 2, accepted: raw, payload }), receipt, rawTransaction };
+    bindLedgerPayment(rawTransaction, offer, hex(verified.payment.from), payment.idempotencyKey);
+    if (payment.idempotencyKey !== undefined && (!hex32(payment.idempotencyKey) || payment.idempotencyKey === ZERO32)) throw new WebSearchError("invalid-idempotency-key");
+    const payload = { txHash: `0x${hex(keccak_256(rawTransaction))}`, receiptDigest: receiptDigest(receipt), verificationLevel: "receipted",
+      ...(payment.idempotencyKey === undefined ? {} : { idempotencyKey: payment.idempotencyKey }) };
+    return { header: encodeHeader({ x402Version: 2, accepted: raw, payload }), receipt, rawTransaction, ...(payment.idempotencyKey === undefined ? {} : { idempotencyKey: payment.idempotencyKey }) };
   }
 
   async #settle(header: string | undefined, offer: WebSearchOffer, payment: PreparedPayment): Promise<WebSettlement> {
@@ -495,13 +573,21 @@ export class WebSearchClient {
     if (layerx["receiptDigest"] !== digest) throw new WebSearchError("settlement-receipt-mismatch");
     if (payment.receipt !== undefined && hex(payment.receipt) !== hex(receipt)) throw new WebSearchError("settlement-receipt-mismatch");
     const encodedTransaction = layerx["rawTransaction"];
-    if (typeof encodedTransaction !== "string" || !/^0x(?:[0-9a-f]{2})+$/u.test(encodedTransaction)) throw new WebSearchError("settlement-receipt-mismatch");
-    const rawTransaction = new Uint8Array(Buffer.from(encodedTransaction.slice(2), "hex"));
+    let rawTransaction: Uint8Array;
+    if (encodedTransaction !== undefined) {
+      if (typeof encodedTransaction !== "string" || !/^0x(?:[0-9a-f]{2})+$/u.test(encodedTransaction)) throw new WebSearchError("settlement-receipt-mismatch");
+      rawTransaction = new Uint8Array(Buffer.from(encodedTransaction.slice(2), "hex"));
+    } else if (payment.rawTransaction !== undefined) rawTransaction = payment.rawTransaction;
+    else {
+      if (this.#options.ledgerRpc === undefined || typeof settlement["transaction"] !== "string") throw new WebSearchError("receipt-unverified");
+      rawTransaction = await this.#options.ledgerRpc.getRawTransaction(settlement["transaction"]);
+    }
     if (payment.rawTransaction !== undefined && hex(payment.rawTransaction) !== hex(rawTransaction)) throw new WebSearchError("settlement-receipt-mismatch");
-    const verified = await verifySequencerReceipt(receipt, rawTransaction, offer, this.#options.receiptKeys);
+    const verified = await verifyWebSearchPayment(receipt, rawTransaction, offer, this.#options.receiptKeys, payment.idempotencyKey, payment.grant);
     const transaction = `0x${hex(keccak_256(rawTransaction))}`;
     if (settlement["transaction"] !== transaction) throw new WebSearchError("settlement-receipt-mismatch");
-    const from = hex(verified.receipt.from);
+    const from = hex(verified.payment.from);
+    bindLedgerPayment(rawTransaction, offer, from, payment.idempotencyKey, payment.grant);
     if (settlement["payer"] !== from) throw new WebSearchError("settlement-payer-mismatch");
     if (offer.scheme === "metered") {
       if (from !== offer.payer) throw new WebSearchError("settlement-payer-mismatch");

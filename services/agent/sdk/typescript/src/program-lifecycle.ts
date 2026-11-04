@@ -1,3 +1,4 @@
+import { supportsProgramGuestAbi } from "./generated/receipt.js";
 import { createHash } from "node:crypto";
 import { bindSignedProgramLifecycle, type DecodedSignedProgramCall } from "./program-wire.js";
 
@@ -9,7 +10,7 @@ export class NativeProgramLifecycleRequest {
     Object.freeze(this);
   }
   static deploy(value: NativeProgramDeploy, signed: Uint8Array): NativeProgramLifecycleRequest { return new NativeProgramLifecycleRequest(1, encodeNativeProgramDeploy(value), signed); }
-  static upgrade(value: NativeProgramUpgrade, signed: Uint8Array): NativeProgramLifecycleRequest { return new NativeProgramLifecycleRequest(2, encodeNativeProgramUpgrade(value), signed); }
+  static upgrade(value: NativeProgramUpgrade, signed: Uint8Array, currentAbi?: NativeProgramGuestAbi): NativeProgramLifecycleRequest { if (currentAbi !== undefined) admitNativeProgramUpgrade(currentAbi, value.guestAbi); return new NativeProgramLifecycleRequest(2, encodeNativeProgramUpgrade(value), signed); }
   static windDown(value: NativeProgramWindDown, signed: Uint8Array): NativeProgramLifecycleRequest { return new NativeProgramLifecycleRequest(7, encodeNativeProgramWindDown(value), signed); }
   async bind(key?: string): Promise<DecodedSignedProgramCall> { return bindSignedProgramLifecycle(this.#signed, this.#payload, this.ordinal, key); }
 }
@@ -17,9 +18,15 @@ export class NativeProgramLifecycleRequest {
 export type ProgramLifecycleSubmission = Readonly<{ state: "acknowledged"; activity_id: string; receipt: string; result_code: number }>
   | Readonly<{ state: "unknown"; activity_id: string; idempotency_key: string; retained_signed_activity: string }>;
 
+export type NativeProgramGuestAbi = 1 | 2 | 3 | 4 | 5;
+
+export function admitNativeProgramUpgrade(current: number, requested: number): void {
+  if (!supportsProgramGuestAbi(current) || !supportsProgramGuestAbi(requested) || requested < current) throw new TypeError("unsupported program ABI transition");
+}
+
 export interface NativeProgramDeploy {
   readonly programId: Uint8Array;
-  readonly guestAbi: 1 | 2 | 3;
+  readonly guestAbi: NativeProgramGuestAbi;
   readonly policy: 0 | 1;
   readonly authority: Uint8Array;
   readonly newHash: Uint8Array;
@@ -28,7 +35,7 @@ export interface NativeProgramDeploy {
 }
 export interface NativeProgramUpgrade {
   readonly programId: Uint8Array;
-  readonly guestAbi: 1 | 2 | 3;
+  readonly guestAbi: NativeProgramGuestAbi;
   readonly oldHash: Uint8Array;
   readonly newHash: Uint8Array;
   readonly wasm: Uint8Array;
@@ -55,7 +62,7 @@ function integer(value: number, bytes: 2 | 4): Uint8Array {
 }
 function join(...parts: readonly Uint8Array[]): Uint8Array { return Buffer.concat(parts); }
 function code(value: NativeProgramDeploy | NativeProgramUpgrade): void {
-  if (fixed(value.programId).every(byte => byte === 0) || ![1, 2, 3].includes(value.guestAbi)
+  if (fixed(value.programId).every(byte => byte === 0) || !supportsProgramGuestAbi(value.guestAbi)
     || value.wasm.length > 1_048_576 || !Buffer.from(value.wasm.slice(0, 8)).equals(Buffer.from([0, 97, 115, 109, 1, 0, 0, 0]))
     || !createHash("sha256").update(value.wasm).digest().equals(fixed(value.newHash))) throw new TypeError("invalid program code");
 }
@@ -76,7 +83,7 @@ export function decodeNativeProgramDeploy(payload: Uint8Array): NativeProgramDep
     if (payload.length < 108) throw new TypeError("interface framing");
     offset = 108 + view.getUint32(104); iface = payload.slice(108, offset);
   }
-  const value: NativeProgramDeploy = { programId: payload.slice(0, 32), guestAbi: view.getUint16(32) as 1 | 2 | 3,
+  const value: NativeProgramDeploy = { programId: payload.slice(0, 32), guestAbi: view.getUint16(32) as NativeProgramGuestAbi,
     policy: payload[34] as 0 | 1, authority: payload.slice(36, 68), newHash: payload.slice(68, 100), wasm: payload.slice(offset),
     ...(iface === undefined ? {} : { interface: iface }) };
   if (value.wasm.length !== length || !Buffer.from(encodeNativeProgramDeploy(value)).equals(payload)) throw new TypeError("noncanonical deploy");
@@ -100,7 +107,7 @@ export function decodeNativeProgramUpgrade(payload: Uint8Array): NativeProgramUp
     if (payload.length < 110) throw new TypeError("interface framing");
     offset = 110; iface = view.getUint32(106);
   }
-  const value: NativeProgramUpgrade = { programId: payload.slice(0, 32), guestAbi: view.getUint16(32) as 1 | 2 | 3,
+  const value: NativeProgramUpgrade = { programId: payload.slice(0, 32), guestAbi: view.getUint16(32) as NativeProgramGuestAbi,
     oldHash: payload.slice(36, 68), newHash: payload.slice(68, 100), migrationHook: payload.slice(offset, offset + hook), clearInterface,
     ...(iface === undefined ? {} : { interface: payload.slice(offset + hook, offset + hook + iface) }), wasm: payload.slice(offset + hook + (iface ?? 0)) };
   if (value.wasm.length !== wasm || !Buffer.from(encodeNativeProgramUpgrade(value)).equals(payload)) throw new TypeError("noncanonical upgrade");
