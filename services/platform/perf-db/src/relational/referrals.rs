@@ -1,9 +1,9 @@
 use crate::core::types::FixedI128;
 
 /// A referral tier definition. Matches PostgreSQL `referral_tiers` table.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReferralTier {
-    pub tier: &'static str,
+    pub tier: String,
     pub min_referrals: u32,
     pub min_volume: FixedI128,
     pub reward_bps: u32,
@@ -12,36 +12,38 @@ pub struct ReferralTier {
 
 /// Default tier table — sorted ascending by min_referrals.
 /// These can be updated at runtime via `ReferralEngine::set_tiers`.
-const DEFAULT_TIERS: &[ReferralTier] = &[
-    ReferralTier {
-        tier: "bronze",
-        min_referrals: 0,
-        min_volume: 0,
-        reward_bps: 5,
-        fee_discount_bps: 0,
-    },
-    ReferralTier {
-        tier: "silver",
-        min_referrals: 5,
-        min_volume: 100_000_000_000_000_000_000_000, // 100k USD in 18-dec
-        reward_bps: 10,
-        fee_discount_bps: 5,
-    },
-    ReferralTier {
-        tier: "gold",
-        min_referrals: 20,
-        min_volume: 1_000_000_000_000_000_000_000_000, // 1M USD
-        reward_bps: 15,
-        fee_discount_bps: 10,
-    },
-    ReferralTier {
-        tier: "platinum",
-        min_referrals: 50,
-        min_volume: 10_000_000_000_000_000_000_000_000, // 10M USD
-        reward_bps: 20,
-        fee_discount_bps: 15,
-    },
-];
+fn default_tiers() -> Vec<ReferralTier> {
+    vec![
+        ReferralTier {
+            tier: "bronze".into(),
+            min_referrals: 0,
+            min_volume: 0,
+            reward_bps: 5,
+            fee_discount_bps: 0,
+        },
+        ReferralTier {
+            tier: "silver".into(),
+            min_referrals: 5,
+            min_volume: 100_000_000_000_000_000_000_000, // 100k USD in 18-dec
+            reward_bps: 10,
+            fee_discount_bps: 5,
+        },
+        ReferralTier {
+            tier: "gold".into(),
+            min_referrals: 20,
+            min_volume: 1_000_000_000_000_000_000_000_000, // 1M USD
+            reward_bps: 15,
+            fee_discount_bps: 10,
+        },
+        ReferralTier {
+            tier: "platinum".into(),
+            min_referrals: 50,
+            min_volume: 10_000_000_000_000_000_000_000_000, // 10M USD
+            reward_bps: 20,
+            fee_discount_bps: 15,
+        },
+    ]
+}
 
 /// Referral tier engine. Computes the correct tier for a user based on
 /// their referral count and total volume.
@@ -54,7 +56,7 @@ pub struct ReferralEngine {
 impl ReferralEngine {
     pub fn new() -> Self {
         Self {
-            tiers: DEFAULT_TIERS.to_vec(),
+            tiers: default_tiers(),
         }
     }
 
@@ -179,7 +181,10 @@ mod tests {
         assert_eq!(engine.fee_discount_bps(0, 0), 0);
         assert_eq!(engine.reward_bps(0, 0), 5);
 
-        assert_eq!(engine.fee_discount_bps(5, 100_000_000_000_000_000_000_000), 5);
+        assert_eq!(
+            engine.fee_discount_bps(5, 100_000_000_000_000_000_000_000),
+            5
+        );
         assert_eq!(engine.reward_bps(5, 100_000_000_000_000_000_000_000), 10);
     }
 
@@ -187,14 +192,14 @@ mod tests {
     fn custom_tiers() {
         let engine = ReferralEngine::with_tiers(vec![
             ReferralTier {
-                tier: "basic",
+                tier: "basic".into(),
                 min_referrals: 0,
                 min_volume: 0,
                 reward_bps: 1,
                 fee_discount_bps: 0,
             },
             ReferralTier {
-                tier: "pro",
+                tier: "pro".into(),
                 min_referrals: 10,
                 min_volume: 0,
                 reward_bps: 50,
@@ -212,7 +217,7 @@ mod tests {
         assert_eq!(engine.tier_count(), 4);
 
         engine.set_tiers(vec![ReferralTier {
-            tier: "only",
+            tier: "only".into(),
             min_referrals: 0,
             min_volume: 0,
             reward_bps: 100,

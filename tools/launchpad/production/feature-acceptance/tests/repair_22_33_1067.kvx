@@ -1,0 +1,40 @@
+[repair.22.33.1067]
+audit = "22.30.42"
+base_revision = "5f6b5f0aad35a415da93671f70183d5e5688bda0"
+baseline = "Inherited attempt 1 ran six tests: test_catalog_test_missing_input, test_closure_test_missing_input and test_inventory_test_missing_input failed; the other three passed. No additional unchanged-tree verification ran because the continuation orders implementation before gates."
+qualification = "hf-build then hf-done; /out/run/gates.jsonl and the final evidence line record the exact candidate revision, command, exit code and private log. Qualification applies only if hf-done passes on the built candidate."
+boundary = "The focused gate executes every audited test body through real JSON/KVX file transport and production policy, generator and collector code, without signature setup, external tools, credentials or live services."
+continuation = "Preserve the current side of both conflicted modules, integrate explicit generator input, and use spec_references.load_spec with the programme kvx reader; no TOML parser reads the current graph."
+wiring = "None: missing catalog input is an asserted refusal; decision.1803 retires absent production-system graph identities and does not authorize replacements."
+
+[finding.catalog-test-missing-input]
+proof = "test_catalog_test_missing_input; test_catalog_missing_input_has_no_fallback; test_catalog_mismatched_input_rejected"
+change = "The audited test uses production policy.read_capability_catalog on the SDK v2 bundle. Missing capabilities or selected source explicitly refuse with the exact missing path. Present inputs must match the source digest and endpoint/schema counts before all original blocked-state, releaseBlockers and absent qualificationEvidence assertions run. No v1 fallback is selected."
+
+[finding.closure-test-missing-input]
+proof = "test_closure_test_missing_input"
+change = "Pass the tracked specification through production policy.required_release_gates and the programme KVX reader. Preserve 200 parallel lanes, 208 total gates, serial membership, every current-source command, exact manifest equality and refusal to qualify retired references. The focused driver supplies only a temporary artifact directory and clock to the audited test, without crypto setup."
+
+[finding.inventory-test-missing-input]
+proof = "test_inventory_test_missing_input; test_recorded_inventory_reaches_real_policy_and_collector; test_specification_uses_programme_kvx_reader"
+change = "Pass the current tracked specification explicitly through build_inventory.build and specification to the existing programme KVX reader. Preserve complete inventory equality, all 55 identities, ownership, prerequisites and scenarios, and the current base's explicit retirement checks and committed declaration fixture. Validate the produced reference classifications and feed the recorded inventory through the real collector."
+
+[gotcha.merge-conflicts]
+observed = "The inherited generator conflicts attempted to replace current flat-KVX and retirement handling with TOML and nested sections; the closure test also had unresolved markers."
+resolution = "Retain the current reader and retirement logic, integrate only explicit input selection, and remove every marker before qualification."
+
+[gotcha.catalog-refusal]
+observed = "The SDK v2 capabilities bundle is absent in this checkout."
+resolution = "Assert an explicit missing-input refusal from the production reader as directed by the continuation ruling; retain all unavailable-feature assertions for present authoritative input and never substitute v1."
+
+[gotcha.suite-boundary]
+observed = "Historical signature tests invoke OpenSSL, which is outside this task's permitted verification dependencies."
+resolution = "Execute all three audited test bodies without signature-only setup; do not claim execution of the full historical crypto suite."
+
+[qualification.inherited]
+revision = "fbff33ba71b44edbd01d1f69454c2adac2a371e2"
+command = "cg spec done 22.33.1067 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Attempt 1 recorded three failures and three passes: absent current v2 input and TOML decoding of KVX prevented qualification."
+assumption = "This is historical evidence only; the continuation must qualify the repaired candidate through hf-build and hf-done."

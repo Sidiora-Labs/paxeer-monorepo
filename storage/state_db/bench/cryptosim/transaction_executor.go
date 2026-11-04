@@ -2,13 +2,17 @@ package cryptosim
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log"
+	"sync"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/common/metrics"
 )
 
+var ErrExecutorClosed = errors.New("transaction executor admission closed")
+
 type TransactionExecutor struct {
-	ctx    context.Context
 	cancel context.CancelFunc
 	config *CryptoSimConfig
 
@@ -18,10 +22,13 @@ type TransactionExecutor struct {
 	// The address of the fee collection account.
 	feeCollectionAddress []byte
 
-	// The Incoming transactions to be executed.
+	// Admission is serialized with queue closure. Work already admitted by the
+	// block loop must finish even when its workload context is cancelled.
 	workChan chan any
-	stop     context.CancelFunc
+	mu       sync.Mutex
+	closed   bool
 	done     chan struct{}
+	err      error // Written by the worker, read after done closes.
 
 	// Used to time the execution of transactions.
 	phaseTimer *metrics.PhaseTimer
@@ -29,12 +36,13 @@ type TransactionExecutor struct {
 
 // A request to flush the transaction executor.
 type flushRequest struct {
-	doneChan chan struct{}
+	doneChan chan error
 }
 
-// A single threaded transaction executor.
+// A single threaded transaction executor. The caller stops block admission on
+// context cancellation, then must Close to drain and join this worker.
 func NewTransactionExecutor(
-	ctx context.Context,
+	_ context.Context,
 	cancel context.CancelFunc,
 	config *CryptoSimConfig,
 	database *Database,
@@ -42,15 +50,12 @@ func NewTransactionExecutor(
 	queueSize int,
 	metrics *CryptosimMetrics,
 ) *TransactionExecutor {
-	workerCtx, stop := context.WithCancel(context.WithoutCancel(ctx))
 	e := &TransactionExecutor{
-		ctx:                  workerCtx,
 		cancel:               cancel,
 		config:               config,
 		database:             database,
 		feeCollectionAddress: feeCollectionAddress,
 		workChan:             make(chan any, queueSize),
-		stop:                 stop,
 		done:                 make(chan struct{}),
 		phaseTimer:           metrics.GetTransactionPhaseTimerInstance(),
 	}
@@ -60,63 +65,68 @@ func NewTransactionExecutor(
 	return e
 }
 
-// Schedule a transaction for execution.
-func (e *TransactionExecutor) ScheduleForExecution(txn *transaction) {
-	select {
-	case <-e.ctx.Done():
-	case e.workChan <- txn:
+// Schedule a transaction from an admitted block for execution.
+func (e *TransactionExecutor) ScheduleForExecution(txn *transaction) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.closed {
+		return ErrExecutorClosed
 	}
+	e.workChan <- txn
+	return nil
 }
 
-// Blocks until all currently queued transactions have been executed.
-func (e *TransactionExecutor) Flush() {
-
-	request := flushRequest{doneChan: make(chan struct{}, 1)}
-
-	select {
-	case <-e.ctx.Done():
-	case e.workChan <- request:
+// Flush waits for an execution acknowledgement, independently of cancellation.
+func (e *TransactionExecutor) Flush() error {
+	request := flushRequest{doneChan: make(chan error, 1)}
+	e.mu.Lock()
+	if e.closed {
+		e.mu.Unlock()
+		<-e.done
+		return errors.Join(ErrExecutorClosed, e.err)
 	}
-
-	select {
-	case <-request.doneChan:
-	case <-e.ctx.Done():
-	}
+	e.workChan <- request
+	e.mu.Unlock()
+	return <-request.doneChan
 }
 
-func (e *TransactionExecutor) Close() {
-	e.Flush()
-	e.stop()
+// Close stops admission, drains every accepted request and joins the worker.
+// Repeated and concurrent callers observe the same execution result.
+func (e *TransactionExecutor) Close() error {
+	e.mu.Lock()
+	if !e.closed {
+		e.closed = true
+		close(e.workChan)
+	}
+	e.mu.Unlock()
 	<-e.done
+	return e.err
 }
 
 func (e *TransactionExecutor) mainLoop() {
 	defer close(e.done)
 
-	for {
-		select {
-		case <-e.ctx.Done():
-			return
-		case request := <-e.workChan:
-			switch request := request.(type) {
-			case *transaction:
+	for request := range e.workChan {
+		switch request := request.(type) {
+		case *transaction:
+			if e.config.DisableTransactionExecution {
+				continue
+			}
 
-				if e.config.DisableTransactionExecution {
-					continue
-				}
+			var phaseTimer *metrics.PhaseTimer
+			if request.ShouldCaptureMetrics() {
+				phaseTimer = e.phaseTimer
+			}
 
-				var phaseTimer *metrics.PhaseTimer
-				if request.ShouldCaptureMetrics() {
-					phaseTimer = e.phaseTimer
-				}
-
-				if err := request.Execute(e.database, e.feeCollectionAddress, phaseTimer); err != nil {
-					log.Printf("transaction execution error: %v", err)
+			if err := request.Execute(e.database, e.feeCollectionAddress, phaseTimer); err != nil {
+				log.Printf("transaction execution error: %v", err)
+				if e.err == nil {
+					e.err = fmt.Errorf("transaction execution failed: %w", err)
 					e.cancel()
 				}
-			case flushRequest:
-				request.doneChan <- struct{}{}
 			}
+		case flushRequest:
+			request.doneChan <- e.err
 		}
 	}
 }

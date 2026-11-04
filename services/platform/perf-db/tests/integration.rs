@@ -1,3 +1,6 @@
+#[path = "support/repair_22_33_1374.rs"]
+mod repair_22_33_1374;
+
 use perfdb::core::timeframe::Timeframe;
 use perfdb::core::types::*;
 use perfdb::engine::PerfDbConfig;
@@ -84,8 +87,12 @@ fn full_lifecycle() {
                 1 => 3_500.0,
                 _ => 150.0,
             };
-            db.ingest_tick(&make_tick(i * 1_000_000_000, mid, base_price + i as f64 * 0.1))
-                .unwrap();
+            db.ingest_tick(&make_tick(
+                i * 1_000_000_000,
+                mid,
+                base_price + i as f64 * 0.1,
+            ))
+            .unwrap();
         }
 
         db.process_event(&make_event(
@@ -242,7 +249,10 @@ fn full_lifecycle() {
             PositionStatus::Closed
         ));
 
-        assert_eq!(db.users.get(&addr(1)).unwrap().vault_address, Some(addr(50)));
+        assert_eq!(
+            db.users.get(&addr(1)).unwrap().vault_address,
+            Some(addr(50))
+        );
         assert_eq!(db.checkpoint.last_block(), 202);
 
         db.ingest_tick(&make_tick(999_000_000_000, 0, 68_500.0))
@@ -327,10 +337,7 @@ fn candle_generation_across_boundaries() {
 
     let candles = db.candles(0, Timeframe::Sec1);
     for w in candles.windows(2) {
-        assert!(
-            w[0].timestamp_ns < w[1].timestamp_ns,
-            "candles not ordered"
-        );
+        assert!(w[0].timestamp_ns < w[1].timestamp_ns, "candles not ordered");
     }
 }
 
@@ -646,165 +653,12 @@ fn balance_deposit_withdraw_flow() {
 
 #[test]
 fn all_event_variants_process_cleanly() {
-    let dir = tempfile::tempdir().unwrap();
-    let db = PerfDb::open(test_config(dir.path())).unwrap();
-
-    let events = vec![
-        make_event(1, Event::PositionOpened {
-            position_id: pid(1), user: addr(1), market_id: 0, is_long: true,
-            size_usd: 100_000, leverage: 10, entry_price: 67_000,
-            collateral_token: token(1), collateral_amount: 10_000,
-        }),
-        make_event(2, Event::PositionModified {
-            position_id: pid(1), new_size_usd: 200_000,
-            new_collateral_usd: 20_000, new_collateral_amount: 20_000,
-        }),
-        make_event(3, Event::PositionClosed {
-            position_id: pid(1), user: addr(1), market_id: 0,
-            closed_size_usd: 200_000, exit_price: 68_000,
-            realized_pnl: 5_000, is_full_close: true,
-        }),
-        make_event(4, Event::OrderPlaced {
-            order_id: oid(1), user: addr(2), market_id: 0,
-            order_type: 0, is_long: true, trigger_price: 66_000, size_usd: 100_000,
-        }),
-        make_event(5, Event::OrderExecuted {
-            order_id: oid(1), position_id: pid(5), execution_price: 66_100,
-        }),
-        make_event(6, Event::OrderPlaced {
-            order_id: oid(2), user: addr(3), market_id: 1,
-            order_type: 2, is_long: false, trigger_price: 70_000, size_usd: 50_000,
-        }),
-        make_event(7, Event::OrderCancelled {
-            order_id: oid(2), user: addr(3),
-        }),
-        make_event(8, Event::PositionOpened {
-            position_id: pid(10), user: addr(4), market_id: 0, is_long: true,
-            size_usd: 500_000, leverage: 50, entry_price: 67_000,
-            collateral_token: token(1), collateral_amount: 10_000,
-        }),
-        make_event(9, Event::Liquidation {
-            position_id: pid(10), user: addr(4), market_id: 0,
-            liquidation_price: 65_000, penalty: 5_000, keeper: addr(99),
-        }),
-        make_event(10, Event::ADLExecuted {
-            position_id: pid(99), deleveraged_size_usd: 50_000,
-        }),
-        make_event(11, Event::PriceUpdated {
-            market_id: 0, price: 67_500, timestamp: 132,
-        }),
-        make_event(12, Event::FundingSettled {
-            market_id: 0, funding_rate: 100,
-            long_payment: 5_000, short_payment: -5_000,
-        }),
-        make_event(13, Event::FundingRateUpdated {
-            market_id: 0, new_rate_per_second: 200, funding_rate_24h: 17_280_000,
-        }),
-        make_event(14, Event::MarketCreated {
-            market_id: 0, name: "Bitcoin".into(), symbol: "BTC".into(),
-        }),
-        make_event(15, Event::MarketPaused { market_id: 0 }),
-        make_event(16, Event::CollateralDeposited {
-            user: addr(5), token: token(2), amount: 5_000_000,
-        }),
-        make_event(17, Event::CollateralWithdrawn {
-            user: addr(5), token: token(2), amount: 1_000_000,
-        }),
-        make_event(18, Event::VaultCreated {
-            user: addr(6), vault: addr(60),
-        }),
-        make_event(19, Event::VaultDeficit {
-            token: token(2), deficit: 500,
-        }),
-    ];
-
-    for e in &events {
-        db.process_event(e).unwrap();
-    }
-
-    assert_eq!(db.events.total_count(), events.len() as u64);
-    assert_eq!(db.checkpoint.last_block(), 19);
+    repair_22_33_1374::all_event_variants_process_cleanly();
 }
 
 #[test]
 fn snapshot_preserves_all_state() {
-    let dir = tempfile::tempdir().unwrap();
-    let config = test_config(dir.path());
-
-    {
-        let db = PerfDb::open(config.clone()).unwrap();
-
-        for i in 1..=5u8 {
-            db.process_event(&make_event(
-                i as u64 * 10,
-                Event::CollateralDeposited {
-                    user: addr(i),
-                    token: token(1),
-                    amount: i as i128 * 1_000_000,
-                },
-            ))
-            .unwrap();
-
-            db.process_event(&make_event(
-                i as u64 * 10 + 1,
-                Event::PositionOpened {
-                    position_id: pid(i),
-                    user: addr(i),
-                    market_id: (i % 3) as u16,
-                    is_long: i % 2 == 0,
-                    size_usd: i as i128 * 100_000,
-                    leverage: 10,
-                    entry_price: 67_000,
-                    collateral_token: token(1),
-                    collateral_amount: i as i128 * 10_000,
-                },
-            ))
-            .unwrap();
-        }
-
-        for i in [1u8, 3, 5] {
-            db.process_event(&make_event(
-                200 + i as u64,
-                Event::PositionClosed {
-                    position_id: pid(i),
-                    user: addr(i),
-                    market_id: (i % 3) as u16,
-                    closed_size_usd: i as i128 * 100_000,
-                    exit_price: 68_000,
-                    realized_pnl: i as i128 * 1_000,
-                    is_full_close: true,
-                },
-            ))
-            .unwrap();
-        }
-
-        db.save_checkpoint(205, "0xblock205".to_string(), 2460);
-        db.snapshot().unwrap();
-    }
-
-    {
-        let db = PerfDb::open(config).unwrap();
-
-        for i in 1..=5u8 {
-            assert!(db.users.contains(&addr(i)), "user {} not found", i);
-        }
-
-        for i in 1..=5u8 {
-            let pos = db.positions.get(&pid(i)).unwrap();
-            if [1, 3, 5].contains(&i) {
-                assert!(matches!(pos.status, PositionStatus::Closed));
-            } else {
-                assert!(matches!(pos.status, PositionStatus::Open));
-            }
-        }
-
-        for i in 1..=5u8 {
-            let bal = db.balances.get(&addr(i), &token(1)).unwrap();
-            assert_eq!(bal.amount, i as i128 * 1_000_000);
-        }
-
-        assert_eq!(db.checkpoint.last_block(), 205);
-    }
+    repair_22_33_1374::snapshot_preserves_all_state();
 }
 
 #[test]
@@ -820,11 +674,8 @@ fn tick_range_queries() {
     let all_ticks = db.ticks(0);
     assert_eq!(all_ticks.len(), 100);
 
-    let range = perfdb::query::time_range::query_tick_range(
-        &all_ticks,
-        10_000_000_000,
-        20_000_000_000,
-    );
+    let range =
+        perfdb::query::time_range::query_tick_range(&all_ticks, 10_000_000_000, 20_000_000_000);
     assert_eq!(range.len(), 10);
 
     let last5 = perfdb::query::time_range::query_last_ticks(&all_ticks, 5);

@@ -147514,7 +147514,7 @@ do_9 = "Attempt 2 (continue): sdk/launchpad/packages/sidiora-launchpad-v3/proven
 
 [task.22.33.1047]
 title = "Repair audit record 22.30.41 medium findings in sdk/launchpad/packages/sdk/test (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.72", "22.31.73", "22.31.74", "22.31.75"]
@@ -147731,7 +147731,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.455]
 title = "Close the elliptic, request and deepmerge advisories in the remaining JavaScript lockfiles and remove the stale npm lockfile of the perps application"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -165751,7 +165751,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1397]
 title = "Repair audit record 22.30.78 medium findings in sdk/platform/swift/Sources/LayerXSDK (part 1 of 1): restart-recovery, retired-reference, runtime-risk, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.346", "22.31.347", "22.31.348"]
@@ -180451,7 +180451,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.105]
 title = "Repair audit record 22.30.111 medium findings in services/interop/crates/layerx-x402/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.165", "22.31.166", "22.31.443"]
@@ -196651,7 +196651,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.461]
 title = "Raise the launchpad Go workspace to the version its notifications module requires and remove the nested workspace file"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -198162,7 +198162,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1340]
 title = "Repair audit record 22.30.73 medium findings in sdk/crypto/keyring (part 2 of 2): interface-mismatch, runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.134", "22.31.135", "22.31.136", "22.31.137"]
@@ -200717,7 +200717,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1196]
 title = "Repair audit record 22.30.55 medium findings in storage/state_db/bench/cryptosim (part 2 of 2): restart-recovery, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.119", "22.31.120", "22.31.121", "22.31.122", "22.31.123"]
@@ -201348,7 +201348,7 @@ do_13 = "Attempt 2 (continue): the prune-named-source case fails because pruning
 
 [task.22.33.1176]
 title = "Repair audit record 22.30.54 medium findings in storage/db_engine/pebbledb (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.178"]
@@ -278570,7 +278570,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1133]
 title = "Repair audit record 22.30.5 medium findings in src/modules/service (part 1 of 1): security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.98", "22.31.99", "22.31.100", "22.31.101"]
@@ -321720,7 +321720,7 @@ do_12 = "Attempt 4 (continue): the recorder (tests/daemon/recorder/main.go) reop
 
 [task.22.33.1067]
 title = "Repair audit record 22.30.42 medium findings in tools/launchpad/production/feature-acceptance/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.76", "22.31.77"]
@@ -326111,7 +326111,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.725]
 title = "Repair audit record 22.30.170 medium findings in deploy/launchpad/production/topology (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.313", "22.31.314"]
@@ -326179,7 +326179,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.723]
 title = "Repair audit record 22.30.170 medium findings in deploy/launchpad/production/observability (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.313", "22.31.314"]

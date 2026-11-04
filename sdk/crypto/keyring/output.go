@@ -1,13 +1,9 @@
 package keyring
 
 import (
-	"encoding/hex"
-
-	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/hd"
-
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec/legacy"
 	codectypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/secp256k1"
 	cryptotypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -106,13 +102,9 @@ func MkAccKeysOutput(infos []Info, listErrors ...error) ([]KeyOutput, error) {
 		if err != nil {
 			return nil, err
 		}
-		if info.GetAlgo() == hd.Secp256k1Type {
-			// We only support getting evm-addr if the algo type is secp256k1 (which it should be, though there
-			// may be some legacy keys with sr25519)
-			kos[i], err = PopulateEvmAddrIfApplicable(info, kos[i])
-			if err != nil {
-				return nil, err
-			}
+		kos[i], err = PopulateEvmAddrIfApplicable(info, kos[i])
+		if err != nil {
+			return nil, err
 		}
 	}
 
@@ -120,19 +112,17 @@ func MkAccKeysOutput(infos []Info, listErrors ...error) ([]KeyOutput, error) {
 }
 
 func PopulateEvmAddrIfApplicable(info Info, o KeyOutput) (KeyOutput, error) {
-	localInfo, ok := info.(LocalInfo)
-	if ok {
-		// Only works with secp256k1 algo
-		priv, err := legacy.PrivKeyFromBytes([]byte(localInfo.PrivKeyArmor))
-		if err != nil {
-			return o, err
-		}
-		privHex := hex.EncodeToString(priv.Bytes())
-		privKey, err := crypto.HexToECDSA(privHex)
-		if err != nil {
-			return o, err
-		}
-		o.EvmAddress = crypto.PubkeyToAddress(privKey.PublicKey).Hex()
+	if err := validateInfo(info); err != nil {
+		return o, err
 	}
+	pub, ok := info.GetPubKey().(*secp256k1.PubKey)
+	if !ok {
+		return o, nil
+	}
+	publicKey, err := crypto.DecompressPubkey(pub.Bytes())
+	if err != nil {
+		return o, err
+	}
+	o.EvmAddress = crypto.PubkeyToAddress(*publicKey).Hex()
 	return o, nil
 }

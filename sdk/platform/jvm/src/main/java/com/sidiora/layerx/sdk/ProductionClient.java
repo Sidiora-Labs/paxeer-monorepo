@@ -41,8 +41,14 @@ public final class ProductionClient {
             .thenApply(position -> new ResumableStream<>(new ResumableStream.Cursor(position.cursor())));
     }
 
+    /** Empty STREAM_NEXT pages retain demand and cursor and use cancellable bounded backoff. */
     public Flow.Publisher<ResumableStream.Event<GeneratedSchema.HumanModels.StreamEvent>> humanStreamPublisher(
             ResumableStream<GeneratedSchema.HumanModels.StreamEvent> stream) {
+        return humanStreamPublisher(stream, ResumableStream.PollPolicy.defaults());
+    }
+
+    public Flow.Publisher<ResumableStream.Event<GeneratedSchema.HumanModels.StreamEvent>> humanStreamPublisher(
+            ResumableStream<GeneratedSchema.HumanModels.StreamEvent> stream, ResumableStream.PollPolicy polling) {
         Objects.requireNonNull(stream, "stream");
         return stream.publisher(cursor -> human(GeneratedSchema.HumanOperations.STREAM_NEXT,
             new GeneratedSchema.HumanOperations.StreamNextRequest(),
@@ -55,7 +61,7 @@ public final class ProductionClient {
                     previous = next;
                 }
                 return new ResumableStream.Page<>(cursor, events, new ResumableStream.Cursor(page.next_cursor()));
-            }));
+            }), polling);
     }
 
     public CompletionStage<SchemaTypes.AgentResponse> agent(SchemaTypes.AgentRequest request, Options options) {

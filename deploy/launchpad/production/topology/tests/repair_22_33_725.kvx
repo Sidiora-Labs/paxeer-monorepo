@@ -1,0 +1,9 @@
+[repair.22.33.725]
+audit = "spec/layerx-merge/programme/audit/records/22.30.170.kvx"
+finding = "topology_command_paths"
+proving_tests = ["test_repair_22_33_725.py::test_topology_command_paths_match_canonical_cli_and_source_root", "test_repair_22_33_725.py::test_topology_command_paths_real_cli_http_plan_roundtrip", "test_repair_22_33_725.py::test_topology_command_paths_keep_review_and_isolation_conditions"]
+coverage = "Execute the documented compiler entry points in-process with only reviewed file destinations substituted; transport the actual rendered JSON through production LocalHTTP and a loopback server into verify-plan, reject declarations used as evidence, reject the unfilled template and rehashed public-service drift, and preserve isolation and authorization warnings. No native parser or production infrastructure gate is claimed."
+baseline = "The supplied base already has canonical command paths; the README now identifies the monorepo source root explicitly. No unchanged-tree verify ran because the ordered implementation-first and hf-build then hf-done rules prohibit it; no baseline failures are claimed."
+qualification = "The runner-owned private gates.jsonl records the exact candidate revision, command, exit code and log; the final response copies the last hf-done evidence line."
+wiring_request = "spec/layerx-merge/spec.kvx — fm-tools-ops: record topology_command_paths against proving_tests above and retain the runner-qualified revision; spec edits are outside this task's scope."
+gotcha = "The audit describes historical path drift already repaired on the supplied base; preserve those paths and add regression coverage. Adapter clients resolve at tools/launchpad/production/integration/adapters.py, not spec/production-system/integration/runtime/adapters.py."
