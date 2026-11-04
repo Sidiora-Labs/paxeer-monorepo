@@ -147791,7 +147791,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.986]
 title = "Repair audit record 22.30.31 medium findings in apps/launchpad/web/src/hooks/chat (part 1 of 1): config-drift, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.46", "22.31.47"]
@@ -148111,7 +148111,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.937]
 title = "Repair audit record 22.30.23 medium findings in apps/launchpad/web/src/widgets/terminal/views (part 1 of 1): wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.32", "22.31.33"]
@@ -148287,7 +148287,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.928]
 title = "Repair audit record 22.30.22 medium findings in apps/launchpad/mobile/test (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.30", "22.31.31"]
@@ -148355,7 +148355,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.926]
 title = "Repair audit record 22.30.22 medium findings in apps/launchpad/mobile/src (part 1 of 1): wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.30", "22.31.31"]
@@ -205652,7 +205652,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.984]
 title = "Repair audit record 22.30.31 medium findings in services/launchpad/api/internal/store (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.46", "22.31.47"]
@@ -205728,7 +205728,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.981]
 title = "Repair audit record 22.30.30 medium findings in sdk/launchpad/shared/storage (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.43", "22.31.44", "22.31.45"]
@@ -205763,7 +205763,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.980]
 title = "Repair audit record 22.30.30 medium findings in services/launchpad/pnl-tracker/internal/card (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.43", "22.31.44", "22.31.45"]
@@ -205798,7 +205798,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.979]
 title = "Repair audit record 22.30.30 medium findings in services/launchpad/pnl-tracker/internal/httpapi (part 1 of 1): runtime-risk, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.43", "22.31.44", "22.31.45"]
@@ -205834,7 +205834,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.978]
 title = "Repair audit record 22.30.30 medium findings in services/launchpad/api/internal/ws (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.43", "22.31.44", "22.31.45"]
@@ -205869,7 +205869,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.977]
 title = "Repair audit record 22.30.30 medium findings in services/launchpad/pnl-tracker/internal/config (part 1 of 1): config-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.43", "22.31.44", "22.31.45"]
@@ -205904,7 +205904,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.976]
 title = "Repair audit record 22.30.30 medium findings in services/launchpad/api/internal/config (part 1 of 1): security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.43", "22.31.44", "22.31.45"]
@@ -206196,7 +206196,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.953]
 title = "Repair audit record 22.30.27 medium findings in sdk/launchpad/shared/config/deployment (part 1 of 1): retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.38", "22.31.39"]
@@ -206302,7 +206302,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.950]
 title = "Repair audit record 22.30.27 medium findings in sdk/launchpad/shared/config/capabilities (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.38", "22.31.39"]
@@ -206523,7 +206523,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.934]
 title = "Repair audit record 22.30.23 medium findings in services/launchpad/ranking-algo/internal/app (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.32", "22.31.33"]
@@ -206558,7 +206558,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.933]
 title = "Repair audit record 22.30.23 medium findings in services/launchpad/ranking-algo/internal/httpapi (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.32", "22.31.33"]
@@ -206593,7 +206593,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.932]
 title = "Repair audit record 22.30.23 medium findings in services/launchpad/ranking-algo/internal/ranker (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.32", "22.31.33"]
@@ -206668,7 +206668,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.925]
 title = "Repair audit record 22.30.21 medium findings in services/launchpad/pnl-tracker/internal/store (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.28", "22.31.29"]
@@ -279429,7 +279429,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.34.2]
 title = "Serve the px account, balance, asset, network, capability and route catalogue methods at the node root"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.34.1"]
@@ -321849,7 +321849,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.972]
 title = "Repair audit record 22.30.30 medium findings in tools/launchpad/production/charts-engine (part 1 of 1): runtime-risk, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.43", "22.31.44", "22.31.45"]
