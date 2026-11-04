@@ -73,7 +73,7 @@ func openRepair95Keeper(t *testing.T, dir string) *repair95Keeper {
 		return paramtypes.NewSubspace(cdc, codec.NewLegacyAmino(), paramsKey, transientKey, name)
 	}
 	ak := authkeeper.NewAccountKeeper(cdc, authKey, subspace("auth"), authtypes.ProtoBaseAccount,
-		map[string][]string{authtypes.FeeCollectorName: nil})
+		map[string][]string{authtypes.FeeCollectorName: nil, evmtypes.ModuleName: {authtypes.Minter}})
 	bk := bankkeeper.NewBaseKeeper(cdc, bankKey, &ak, subspace("bank"), nil)
 	k := evmkeeper.NewKeeper(evmKey, transientKey, subspace("evm"), nil, bk, &ak, nil, transferkeeper.Keeper{}, nil, nil, nil)
 	bk.RegisterRecipientChecker(k.CanAddressReceive)
