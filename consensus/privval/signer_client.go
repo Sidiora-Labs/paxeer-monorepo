@@ -63,12 +63,12 @@ func (sc *SignerClient) Ping(ctx context.Context) error {
 	response, err := sc.endpoint.SendRequest(ctx, mustWrapMsg(&privvalproto.PingRequest{}))
 	if err != nil {
 		logger.Error("SignerClient::Ping", "err", err)
-		return nil
+		return err
 	}
 
 	pb := response.GetPingResponse()
 	if pb == nil {
-		return err
+		return ErrUnexpectedResponse
 	}
 
 	return nil

@@ -400,7 +400,7 @@ fn submit(client: &SequencerEndpoint, raw: &[u8]) -> Result<(String, ExitCode), 
     ))
 }
 
-fn run(arguments: &[String]) -> Result<(String, ExitCode), String> {
+pub(crate) fn run(arguments: &[String]) -> Result<(String, ExitCode), String> {
     let Some(command) = arguments.first() else {
         return Err(USAGE.to_owned());
     };

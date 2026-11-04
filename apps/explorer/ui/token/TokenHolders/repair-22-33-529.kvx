@@ -1,0 +1,19 @@
+[repair.22.33.529]
+audit = "22.30.155"
+base_revision = "0d67b10a1307bd87573ba79cf46b7f9c0337f7e3"
+tests = "apps/explorer/ui/token/TokenHolders/repair-22-33-529.spec.ts"
+path = "Loopback HTTP holder store -> useApiFetch JSON transport -> useQueryWithPages -> TokenHolders -> actual selector, table and pagination controls; Next RouterContext uses an in-memory route history."
+baseline = "Not executed: the task's ordered gate instructions prohibit tests before complete implementation and prohibit running verify_cmd by hand; no baseline failure is claimed."
+qualification = "The hf-done private evidence ledger supplies the exact verified candidate revision, command, exit code and log."
+wiring_requests = []
+formatter_note = "ESLint formatting applied; its vitest/valid-title and vitest/expect-expect rules reject the task-required named-function test registration. Assertions remain in every registered function; neither rules nor tests are disabled."
+
+[finding.rows-holders]
+tests = ["rowsHoldersTraversesLocalSubpagesBeforeAdvancingTheCursor", "rowsHoldersPaginatesASingleServerPageAndResetsTheSelection"]
+repair = "Render every local subpage before advancing the API cursor, return to the previous server page's last local subpage, reset local paging on row-size changes, and offer only sizes supported within the fixed 50-row server page."
+before_change = "The old component skips holders 26-50 on Next, has no local Next for a terminal 50-row response, and offers unsupported size 100; these regression assertions target those paths."
+
+[finding.total-holder]
+tests = ["totalHolderLabelsTheFinalPageWithoutInventingAGlobalTotal", "totalHolderPreservesAnAuthoritativeTotalAcrossPages"]
+repair = "Without holdersCount, label the visible count as holders on this page even on a final server page reached after earlier pages; retain supplied authoritative totals."
+before_change = "The old title reports More than 50 holders found initially and A total of 7 holders found on the final page; the page-count assertions reject both claims."

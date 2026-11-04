@@ -30,10 +30,22 @@ func TestValidateGenesis(t *testing.T) {
 				[]types.ConnectionPaths{
 					{clientID, []string{connectionID}},
 				},
-				0,
+				1,
 				types.DefaultParams(),
 			),
 			expPass: true,
+		},
+		{
+			name: "connection zero collides with next sequence zero",
+			genState: types.NewGenesisState(
+				[]types.IdentifiedConnection{
+					types.NewIdentifiedConnection(connectionID, types.NewConnectionEnd(types.INIT, clientID, types.Counterparty{clientID2, connectionID2, commitmenttypes.NewMerklePrefix([]byte("prefix"))}, []*types.Version{ibctesting.ConnectionVersion}, 500)),
+				},
+				[]types.ConnectionPaths{{clientID, []string{connectionID}}},
+				0,
+				types.DefaultParams(),
+			),
+			expPass: false,
 		},
 		{
 			name: "invalid connection",
@@ -114,7 +126,7 @@ func TestValidateGenesis(t *testing.T) {
 				[]types.ConnectionPaths{
 					{clientID, []string{connectionID}},
 				},
-				0,
+				1,
 				types.Params{},
 			),
 			expPass: false,

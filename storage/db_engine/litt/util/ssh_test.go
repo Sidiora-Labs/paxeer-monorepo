@@ -1,216 +1,143 @@
-package util
+package util_test
 
-// COMMENTED OUT: depends on github.com/docker/docker Docker SDK, which is
-// being removed from pax-chain's dependency closure as part of integrating
-// litt into the main build. The functionality these tests exercise (litt
-// push-over-SSH against a Docker-managed sshd container) is not currently
-// used in production. Revisit when the push/sync feature is reintroduced;
-// the original implementation is preserved below as comments.
+import (
+	"bytes"
+	"context"
+	"log/slog"
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
 
-// //go:build littdb_wip
-//
-// package util
-//
-// import (
-// 	"fmt"
-// 	"log/slog"
-// 	"os"
-// 	"path"
-// 	"path/filepath"
-// 	"testing"
-//
-// 	"github.com/stretchr/testify/require"
-// )
-//
-// func TestSSHSession_NewSSHSession(t *testing.T) {
-// 	t.Skip() // Docker build is flaky, need to fix prior to re-enabling
-//
-// 	t.Parallel()
-//
-// 	container := SetupSSHTestContainer(t, "")
-// 	defer container.Cleanup()
-//
-// 	logger := slog.Default()
-//
-// 	// Test successful connection
-// 	session, err := NewSSHSession(
-// 		logger,
-// 		container.GetUser(),
-// 		container.GetHost(),
-// 		container.GetSSHPort(),
-// 		container.GetPrivateKeyPath(),
-// 		"",
-// 		true)
-// 	require.NoError(t, err)
-// 	require.NotNil(t, session)
-// 	defer func() { _ = session.Close() }()
-//
-// 	// Test with non-existent key
-// 	_, err = NewSSHSession(
-// 		logger,
-// 		container.GetUser(),
-// 		container.GetHost(),
-// 		container.GetSSHPort(),
-// 		"/nonexistent/key",
-// 		"",
-// 		false)
-// 	require.Error(t, err)
-// 	require.Contains(t, err.Error(), "private key does not exist")
-//
-// 	// Test with wrong user
-// 	_, err = NewSSHSession(
-// 		logger,
-// 		"wronguser",
-// 		container.GetHost(),
-// 		container.GetSSHPort(),
-// 		container.GetPrivateKeyPath(),
-// 		"",
-// 		false)
-// 	require.Error(t, err)
-// }
-//
-// func TestSSHSession_Mkdirs(t *testing.T) {
-// 	t.Skip() // Docker build is flaky, need to fix prior to re-enabling
-//
-// 	t.Parallel()
-//
-// 	dataDir := t.TempDir()
-//
-// 	container := SetupSSHTestContainer(t, dataDir)
-// 	defer container.Cleanup()
-//
-// 	logger := slog.Default()
-//
-// 	session, err := NewSSHSession(
-// 		logger,
-// 		container.GetUser(),
-// 		container.GetHost(),
-// 		container.GetSSHPort(),
-// 		container.GetPrivateKeyPath(),
-// 		"",
-// 		true)
-// 	require.NoError(t, err)
-// 	defer func() { _ = session.Close() }()
-//
-// 	// Test creating directory
-// 	testDir := path.Join(container.GetDataDir(), "foo", "bar", "baz")
-// 	err = session.Mkdirs(testDir)
-// 	require.NoError(t, err)
-//
-// 	// Verify directories were created in the container workspace
-// 	exists, err := Exists(path.Join(dataDir, "foo", "bar", "baz"))
-// 	require.NoError(t, err)
-// 	require.True(t, exists)
-//
-// 	// Recreating the same directory should not error.
-// 	err = session.Mkdirs(testDir)
-// 	require.NoError(t, err)
-// }
-//
-// func TestSSHSession_FindFiles(t *testing.T) {
-// 	t.Skip() // Docker build is flaky, need to fix prior to re-enabling
-//
-// 	t.Parallel()
-//
-// 	dataDir := t.TempDir()
-//
-// 	container := SetupSSHTestContainer(t, dataDir)
-// 	defer container.Cleanup()
-//
-// 	logger := slog.Default()
-//
-// 	session, err := NewSSHSession(
-// 		logger,
-// 		container.GetUser(),
-// 		container.GetHost(),
-// 		container.GetSSHPort(),
-// 		container.GetPrivateKeyPath(),
-// 		"",
-// 		true)
-// 	require.NoError(t, err)
-// 	defer func() { _ = session.Close() }()
-//
-// 	// Create a test subdirectory in the container's data directory
-// 	testDir := path.Join(container.GetDataDir(), "search")
-// 	err = session.Mkdirs(testDir)
-// 	require.NoError(t, err)
-//
-// 	// Create test files via SSH instead of host filesystem to avoid permission issues
-// 	// This ensures all files are created with proper container ownership
-// 	_, _, err = session.Exec(fmt.Sprintf("echo 'test content' > %s/test.txt", testDir))
-// 	require.NoError(t, err)
-// 	_, _, err = session.Exec(fmt.Sprintf("echo 'log content' > %s/test.log", testDir))
-// 	require.NoError(t, err)
-// 	_, _, err = session.Exec(fmt.Sprintf("echo 'data content' > %s/other.dat", testDir))
-// 	require.NoError(t, err)
-//
-// 	// Test finding files with specific extensions
-// 	files, err := session.FindFiles(testDir, []string{".txt", ".log"})
-// 	require.NoError(t, err)
-// 	require.Len(t, files, 2)
-// 	require.Contains(t, files, path.Join(testDir, "test.txt"))
-// 	require.Contains(t, files, path.Join(testDir, "test.log"))
-//
-// 	// Test with non-existent directory
-// 	files, err = session.FindFiles("/nonexistent", []string{".txt"})
-// 	require.NoError(t, err)
-// 	require.Empty(t, files)
-// }
-//
-// func TestSSHSession_Rsync(t *testing.T) {
-// 	t.Skip() // Docker build is flaky, need to fix prior to re-enabling
-//
-// 	t.Parallel()
-//
-// 	// Create a temporary data directory for testing
-// 	dataDir := t.TempDir()
-// 	container := SetupSSHTestContainer(t, dataDir)
-// 	defer container.Cleanup()
-//
-// 	logger := slog.Default()
-//
-// 	session, err := NewSSHSession(
-// 		logger,
-// 		container.GetUser(),
-// 		container.GetHost(),
-// 		container.GetSSHPort(),
-// 		container.GetPrivateKeyPath(),
-// 		"",
-// 		true)
-// 	require.NoError(t, err)
-// 	defer func() { _ = session.Close() }()
-//
-// 	// Create local test file
-// 	localFile := filepath.Join(container.GetTempDir(), "test_rsync.txt")
-// 	testContent := []byte("This is test content for rsync")
-// 	err = os.WriteFile(localFile, testContent, 0644)
-// 	require.NoError(t, err)
-//
-// 	// Test rsync without throttling - sync to data directory
-// 	remoteFile := filepath.Join(container.GetDataDir(), "remote_file.txt")
-// 	err = session.Rsync(localFile, remoteFile, 0)
-// 	require.NoError(t, err)
-//
-// 	// Verify file was transferred via the container workspace directory
-// 	transferredFile := filepath.Join(dataDir, "remote_file.txt")
-// 	transferredContent, err := os.ReadFile(transferredFile)
-// 	require.NoError(t, err)
-// 	require.Equal(t, testContent, transferredContent)
-//
-// 	// Test rsync with throttling
-// 	localFile2 := filepath.Join(container.GetTempDir(), "test_rsync2.txt")
-// 	throttledContent := []byte("throttled content")
-// 	err = os.WriteFile(localFile2, throttledContent, 0644)
-// 	require.NoError(t, err)
-//
-// 	remoteFile2 := filepath.Join(container.GetDataDir(), "throttled_file.txt")
-// 	err = session.Rsync(localFile2, remoteFile2, 1.0) // 1MB/s throttle
-// 	require.NoError(t, err)
-//
-// 	// Verify throttled file was transferred via the container workspace directory
-// 	transferredFile2 := filepath.Join(dataDir, "throttled_file.txt")
-// 	transferredContent2, err := os.ReadFile(transferredFile2)
-// 	require.NoError(t, err)
-// 	require.Equal(t, throttledContent, transferredContent2)
-// }
-//
+	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/db_engine/litt/util"
+	"github.com/stretchr/testify/require"
+)
+
+// These integration tests use the supported local OpenSSH/rsync receiver shared
+// with the durable-backup tests. The focused repair gate uses loopback protocol
+// fixtures in repair_m1164_test.go and requires no installed executables.
+func TestSSHSession_NewSSHSession(t *testing.T) {
+	receiver := repair114NewReceiver(t)
+	session := receiver.connect(t)
+	require.NoError(t, session.Close())
+	_, err := util.NewSSHSession(slog.Default(), receiver.username, "127.0.0.1", receiver.port, "/nonexistent/key", receiver.knownHosts, false)
+	require.ErrorContains(t, err, "read private key")
+	_, err = util.NewSSHSession(slog.Default(), "wronguser", "127.0.0.1", receiver.port, receiver.key, receiver.knownHosts, false)
+	require.Error(t, err)
+	_, err = util.NewSSHSession(slog.Default(), receiver.username, "127.0.0.1", receiver.port, receiver.key, "", false)
+	require.ErrorContains(t, err, "known-hosts trust source")
+}
+
+func TestSSHSession_Mkdirs(t *testing.T) {
+	receiver := repair114NewReceiver(t)
+	session := receiver.connect(t)
+	defer session.Close()
+	directory := filepath.Join(receiver.root, "space 'quote\" $(literal)\nroot", "nested")
+	require.NoError(t, session.Mkdirs(directory))
+	require.DirExists(t, directory)
+	require.NoError(t, session.Mkdirs(directory))
+	file := filepath.Join(receiver.root, "ordinary-file")
+	require.NoError(t, os.WriteFile(file, []byte("file"), 0600))
+	require.Error(t, session.Mkdirs(file))
+	require.FileExists(t, file)
+}
+
+func TestSSHSession_FindFiles(t *testing.T) {
+	receiver := repair114NewReceiver(t)
+	session := receiver.connect(t)
+	defer session.Close()
+	directory := filepath.Join(receiver.root, "search 'quote\" $(literal)\nroot")
+	require.NoError(t, session.Mkdirs(directory))
+	names := []string{"space name.txt", "single'quote.log", "line\nbreak.txt", "ignored.dat"}
+	for _, name := range names {
+		require.NoError(t, os.WriteFile(filepath.Join(directory, name), []byte(name), 0600))
+	}
+	found, err := session.FindFiles(directory, []string{".txt", ".log"})
+	require.NoError(t, err)
+	require.ElementsMatch(t, []string{filepath.Join(directory, names[0]), filepath.Join(directory, names[1]), filepath.Join(directory, names[2])}, found)
+	found, err = session.FindFiles(filepath.Join(receiver.root, "missing"), []string{".txt"})
+	require.NoError(t, err)
+	require.Empty(t, found)
+}
+
+func TestSSHSession_Rsync(t *testing.T) {
+	receiver := repair114NewReceiver(t)
+	session := receiver.connect(t)
+	defer session.Close()
+	directory := filepath.Join(receiver.root, "transfer 'quote\" $(literal)\nroot")
+	require.NoError(t, session.Mkdirs(directory))
+	source := filepath.Join(t.TempDir(), "source 'quote\" $(literal)\nfile")
+	content := bytes.Repeat([]byte("transfer contents\n"), 4096)
+	require.NoError(t, os.WriteFile(source, content, 0600))
+	link := filepath.Join(filepath.Dir(source), "relative-link")
+	require.NoError(t, os.Symlink(filepath.Base(source), link))
+	destination := filepath.Join(directory, "-destination 'quote\" $(literal)\nfile")
+	require.NoError(t, session.Rsync(link, destination, 0))
+	received, err := os.ReadFile(destination)
+	require.NoError(t, err)
+	require.Equal(t, content, received)
+	throttled := filepath.Join(directory, "throttled")
+	require.NoError(t, session.Rsync(source, throttled, 1))
+	received, err = os.ReadFile(throttled)
+	require.NoError(t, err)
+	require.Equal(t, content, received)
+	require.Error(t, session.Rsync(source, filepath.Join(receiver.root, "missing-parent", "file"), 0))
+	require.FileExists(t, source)
+	// Lose the receiver after rsync's success but before the durability barrier.
+	marker := filepath.Join(receiver.root, "crash-before-ack")
+	require.NoError(t, os.WriteFile(marker, []byte("interrupt"), 0600))
+	require.ErrorContains(t, session.Rsync(source, destination, 0), "remote durable commit failed")
+	require.FileExists(t, source)
+	require.NoError(t, os.Remove(marker))
+	receiver.stop()
+	receiver.start(t)
+	recovered := receiver.connect(t)
+	defer recovered.Close()
+	require.NoError(t, recovered.Rsync(source, destination, 0))
+	received, err = os.ReadFile(destination)
+	require.NoError(t, err)
+	require.Equal(t, content, received)
+}
+
+func TestSSHSession_ChangedHostRejected(t *testing.T) {
+	receiver := repair114NewReceiver(t)
+	session := receiver.connect(t)
+	defer session.Close()
+	source := filepath.Join(t.TempDir(), "retained")
+	require.NoError(t, os.WriteFile(source, []byte("private database contents"), 0600))
+	receiver.stop()
+	repair114WriteSSHKey(t, filepath.Join(receiver.root, "host-key"))
+	receiver.start(t)
+	_, err := util.NewSSHSession(slog.Default(), receiver.username, "127.0.0.1", receiver.port, receiver.key, receiver.knownHosts, false)
+	require.ErrorContains(t, err, "key mismatch")
+	require.ErrorContains(t, session.Rsync(source, filepath.Join(receiver.root, "must-not-exist"), 0), "failed to rsync data")
+	require.NoFileExists(t, filepath.Join(receiver.root, "must-not-exist"))
+	require.FileExists(t, source)
+}
+
+func TestSSHSession_CancelTransfer(t *testing.T) {
+	receiver := repair114NewReceiver(t)
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	session, err := util.NewSSHSessionContext(ctx, slog.Default(), receiver.username, "127.0.0.1", receiver.port, receiver.key, receiver.knownHosts, false)
+	require.NoError(t, err)
+	defer session.Close()
+	source := filepath.Join(t.TempDir(), "large-source")
+	require.NoError(t, os.WriteFile(source, bytes.Repeat([]byte("payload"), 1024*1024), 0600))
+	destination := filepath.Join(receiver.root, "slow-transfer")
+	done := make(chan error, 1)
+	go func() { done <- session.RsyncContext(ctx, source, destination, 0.001) }()
+	require.Eventually(t, func() bool {
+		files, _ := filepath.Glob(filepath.Join(receiver.root, ".slow-transfer.*"))
+		return len(files) > 0
+	}, 5*time.Second, 10*time.Millisecond)
+	cancel()
+	require.NoError(t, session.Close())
+	select {
+	case err := <-done:
+		require.ErrorIs(t, err, context.Canceled)
+	case <-time.After(3 * time.Second):
+		t.Fatal("transfer did not join cancellation")
+	}
+	require.FileExists(t, source)
+}

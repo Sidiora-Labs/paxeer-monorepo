@@ -1,0 +1,56 @@
+[meta]
+name = "LayerX merge into Paxeer X"
+slug = "layerx-merge"
+version = "2.0.0"
+status = "draft"
+goal = "Fold the LayerX kernel into the Paxeer X Network as one execution domain: every kernel capability runs inside paxd transactions with the same results, ledger, payments, authority, programs, agent functions and markets are native chain constructs, and the proposer is the executor, so a transaction is executed at receipt, answered with a signed receipt and proposed in exactly that order."
+scope = "One execution domain (paxd: Cosmos SDK, EVM, CosmWasm, OCC) across 17 domains that partition the repository by exclusive path prefixes: the kernel C modules and the Rust program runtime hosted through the cgo host in modules/lxphost, the ledger, auth, pay and agent-function constructs at 0x101A-0x101D and 0x0901-0x0908, the native perps, spot, pricefeed and launchpad venues, the sequencer runtime and its consensus rule from the v7.0 plan, the retired executors 0x1012-0x1014 that stay registered and refuse, and the off-chain services, SDKs and clients re-pointed to sequencer receipts and chain state."
+revision = "2a1033aa2"
+completion = "Every task of waves 0 to 6 passes its verify_cmd at one revision, every acceptance criterion of the 2360 requirements of features 1 to 17 holds on that revision through its one test, the 17 domain completion gates N.0.9 pass on the merged candidate, and the programme gate 17.0.9 passes after them, including the activation rehearsal of the v7.0 plan with bond return, retired-method refusals and receipt order equal to block order."
+
+[decision.1803]
+title = "The removed launchpad production-system spec tree is retired with its qualification tooling inputs; the six frozen v1 contract fixtures move under the protocol module"
+value = "384f41641 removed launchpad/ entirely, launchpad/spec/production-system/** included. The six frozen v1 contract fixtures that tests still consume (accounting-cases.json, capabilities.json, chain/abi-catalog.json, chain/client-deployment.json, chain/event-authorities.json, chain/golden-fixtures.json) are restored byte-identical at sdk/launchpad/protocol/contracts/v1/ and their test readers repointed there. tools/launchpad/production, tools/launchpad/production/bootstrap/check-registry.json and services/launchpad/metadata/internal/metadata/qualify_wire.py read the removed spec tree as a whole and are not repointed; decision.421 extends to every path under launchpad/spec/production-system/."
+basis = "384f41641; sdk/launchpad/protocol holds the launchpad chain-contract catalog and generator inputs; issue #1182"
+affects = ["task.18.1182.1", "task.18.1182.2"]
+
+[task.22.33.1066]
+title = "Repair audit record 22.30.42 medium findings in tools/launchpad/production/feature-acceptance (part 1 of 1): config-drift, wiring-gap"
+status = "in_progress"
+mode = "BUILD"
+wave = 1
+requires = ["22.31.76", "22.31.77"]
+reqs = ["22998.1"]
+capabilities = ["22.33.1066"]
+interfaces = []
+do_1 = "Audit record 22.30.42 (spec/layerx-merge/programme/audit/records/22.30.42.kvx) holds 6 medium finding(s) in tools/launchpad/production/feature-acceptance that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: inventory-spec-missing, final-manifest-spec, phase2-manifest-spec, phase3-manifest-spec, phase4-manifest-spec, readiness-spec-missing. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
+do_2 = "Every repair is proven along the real producer, transport and consumer path by a Go test file tools/launchpad/production/feature-acceptance/repair_m1066_test.go whose tests are named TestRepairM_1066_<case> and exercise the real code path (real keeper, store, codec or handler, not a mock of the component under repair); a restart-recovery finding is proven by a test that stops and reopens the component and checks the recovered state; an interface-mismatch finding is proven by a test that drives both sides of the interface."
+do_3 = "The task record lists each finding id with the test that proves it closed. A step a proposal asks for outside the paths (another domain's module, a generated artifact elsewhere) is not made here: it is written as a one-line wiring request in the task record naming the path and the owning domain."
+do_4 = "Finding inventory-spec-missing (wiring-gap, medium) on tools/launchpad/production/feature-acceptance/build_inventory.py:6; its observed and expected text is in the record. Proposal: In tools/launchpad/production/feature-acceptance/build_inventory.py migrate the spec input/parser to the authoritative tracked source, reconcile mappings explicitly and regenerate inventory.json without treating declarations as qualification."
+do_5 = "Finding final-manifest-spec (config-drift, medium) on tools/launchpad/production/feature-acceptance/final-integrated-gate-readiness.json:74; its observed and expected text is in the record. Proposal: In tools/launchpad/production/feature-acceptance/final-integrated-gate-readiness.json regenerate commands from the migrated authoritative graph after reconciling task identities; preserve all scenario coverage, --require-current-source and final_gate 9.1."
+do_6 = "Finding phase2-manifest-spec (config-drift, medium) on tools/launchpad/production/feature-acceptance/phase-2-scenario-manifest.json:60; its observed and expected text is in the record. Proposal: In tools/launchpad/production/feature-acceptance/phase-2-scenario-manifest.json regenerate commands from the migrated authoritative graph after reconciling task identities; preserve all scenario coverage, --require-current-source and final_gate 9.1."
+do_7 = "Finding phase3-manifest-spec (config-drift, medium) on tools/launchpad/production/feature-acceptance/phase-3-scenario-manifest.json:56; its observed and expected text is in the record. Proposal: In tools/launchpad/production/feature-acceptance/phase-3-scenario-manifest.json regenerate commands from the migrated authoritative graph after reconciling task identities; preserve all scenario coverage, --require-current-source and final_gate 9.1."
+do_8 = "Finding phase4-manifest-spec (config-drift, medium) on tools/launchpad/production/feature-acceptance/phase-4-scenario-manifest.json:45; its observed and expected text is in the record. Proposal: In tools/launchpad/production/feature-acceptance/phase-4-scenario-manifest.json regenerate commands from the migrated authoritative graph after reconciling task identities; preserve all scenario coverage, --require-current-source and final_gate 9.1."
+do_9 = "Finding readiness-spec-missing (wiring-gap, medium) on tools/launchpad/production/feature-acceptance/policy.py:454; its observed and expected text is in the record. Proposal: In tools/launchpad/production/feature-acceptance/policy.py migrate root specification binding and graph parsing, explicitly reconcile 200 lane tasks/serial gates and rematerialize readiness declarations with unchanged evidence obligations."
+do_10 = "Prove each repair with a Go test file tools/launchpad/production/feature-acceptance/repair_m1066_test.go whose tests are named TestRepairM_1066_<case> and exercise the real code path (real keeper, store, codec or handler, not a mock of the component under repair); run the verify once on the unchanged tree first and note in the task record which tests already failed before the change."
+do_11 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command above is the whole gate (gotcha 2962)."
+do_12 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
+do_13 = "Verification runs only the TestRepairM_1066_* functions of repair_m1066_test.go: they run without PostgreSQL, Redis, S3, Anvil or a live RPC endpoint. The package's other tests are not this task's gate but must keep compiling, and where a repair changes behaviour they assert they are updated in the same change."
+symbols = []
+touches = ["tools/launchpad/production/feature-acceptance"]
+tests = ["tools/launchpad/production/feature-acceptance/repair_m1066_test.go"]
+planned_paths = ["tools/launchpad/production/feature-acceptance/repair_m1066_test.go"]
+build_cmd = "go build ./tools/launchpad/production/feature-acceptance/..."
+verify_cmd = "go test -count=1 -v -run '^TestRepairM_1066_' ./tools/launchpad/production/feature-acceptance/ > /tmp/repair-m1066.log 2>&1; s=$?; grep -E '^(=== RUN|--- (PASS|FAIL)|FAIL|ok|panic|# )' /tmp/repair-m1066.log | tail -n 120; grep -E -B2 -A12 '^--- FAIL' /tmp/repair-m1066.log | head -n 200; grep -q -- '--- PASS: TestRepairM_1066_' /tmp/repair-m1066.log && test $s -eq 0"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_14 = "Attempt 2 (continue): the spec-path migration and parsing repairs are implemented and the build passes; the manifest and readiness cases fail because the test demands that every published command map to an authoritative task of the retired launchpad production specification (identities such as 3.50, 4.50 and 9.1) and that another domain publish two hundred and eight lane mappings. Those identities were retired by the merge: the acceptance tool reads spec/layerx-merge/spec.kvx and records a command whose identity no longer exists as a retired reference with its reason (the audit brief's retired-reference class), never as a mandatory mapping another domain must supply. Rewrite the four failing cases to assert that reporting against a committed fixture of the real spec paths, keep the passing cases, record no wiring request for the mappings, and run the build and the verify once on the final revision with no commit after the pass."

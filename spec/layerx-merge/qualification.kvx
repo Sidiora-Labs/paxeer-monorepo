@@ -25459,3 +25459,331 @@ symbol = "test_repair_22_31_316.py"
 observed = "Attempt 2: five cases fail for want of the artifact manifest the kit's own build produces."
 assumption = "Environment-bound release-kit cases are not gates (gotcha 2962 family)."
 severity = "low"
+
+[finding.22.33.1028.2]
+task = "22.33.1028"
+file = "services/launchpad/social/internal/devsocial/repair_m1028_test.go"
+symbol = "repair_m1028_test.go"
+observed = "Attempt 2: the build fails on the launchpad workspace version mismatch before any test compiles."
+assumption = "A workspace break published by 22.33.958 (gotcha 2983), repaired by 22.31.461."
+severity = "medium"
+
+[finding.22.33.1049.1]
+task = "22.33.1049"
+file = "services/launchpad/trading-charts/internal/app/repair_m1049_test.go"
+symbol = "repair_m1049_test.go"
+observed = "Attempt 1: the build fails on the launchpad workspace version mismatch before any test compiles."
+assumption = "A workspace break published by 22.33.958 (gotcha 2983), repaired by 22.31.461."
+severity = "low"
+
+[finding.22.31.63.5]
+task = "22.31.63"
+file = "services/launchpad/pnl-tracker/internal/production/l16/repair_63_test.go"
+symbol = "repair_63_test.go"
+observed = "Attempt 5: the transcript repairs pass; two cases fail on two unrecorded eth_getBlockByNumber requests, and the build ran with the workspace disabled."
+assumption = "An incomplete producer transcript (in scope) on top of the workspace break repaired by 22.31.461."
+severity = "medium"
+
+[finding.22.31.220.1]
+task = "22.31.220"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_220.rs"
+symbol = "repair_22_31_220.rs"
+observed = "Attempt 1: the three cases fail on an unsupported field in the test's own transaction fixture, corrected after the only verify run."
+assumption = "Unverified final revision after a fixture correction, not a known defect."
+severity = "low"
+
+[finding.22.33.1092.1]
+task = "22.33.1092"
+file = "daemon/committed-fixture/repair_m1092_test.go"
+symbol = "repair_m1092_test.go"
+observed = "Attempt 1: the verify fails on test compile errors repaired after the run; two paths were filed as wiring requests."
+assumption = "Unverified final revision; the remaining paths are in-repository producers, not requests."
+severity = "medium"
+
+[finding.22.33.1151.1]
+task = "22.33.1151"
+file = "consensus/cmd/contract_tests/repair_m1151_test.go"
+symbol = "repair_m1151_test.go"
+observed = "Attempt 1: one case fails because the assertion compares equal bytes under different Go types."
+assumption = "A test assertion defect, in scope."
+severity = "low"
+
+[finding.22.33.115.2]
+task = "22.33.115"
+file = "services/interop/crates/layerx-ucp/tests/repair_22_33_115.rs"
+symbol = "repair_22_33_115.rs"
+observed = "Attempt 2: the build passes; five cases fail on the missing checkout gateway key and a receipt reference mismatch, filed as out of scope."
+assumption = "An in-domain binding defect plus a fixture in scope; nothing is awaited."
+severity = "medium"
+
+[finding.22.33.1177.1]
+task = "22.33.1177"
+file = "storage/tools/cmd/paxdb/operations/repair_m1177_test.go"
+symbol = "repair_m1177_test.go"
+observed = "Attempt 1: five cases pass; the prune case retains a version at or below the pruned height."
+assumption = "An in-scope production defect in the prune operation."
+severity = "medium"
+
+[finding.22.33.223.2]
+task = "22.33.223"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_223.rs"
+symbol = "repair_22_33_223.rs"
+observed = "Attempt 3: nine of eleven cases pass; the fuel case reports unmeasured fuel for two operations and the compiled-guest coverage case fails."
+assumption = "An in-scope fuel metering gap and a stale compiled guest fixture."
+severity = "medium"
+
+[finding.22.33.1047.2]
+task = "22.33.1047"
+file = "sdk/launchpad/packages/sdk/test/repair-22-33-1047.test.mjs"
+symbol = "repair-22-33-1047.test.mjs"
+observed = "Attempt 2: the same unsupported workspace protocol failure as attempt 1."
+assumption = "A relaunch ahead of the ruling, not a new defect."
+severity = "low"
+
+[finding.22.33.55.2]
+task = "22.33.55"
+file = "services/human/crates/layerx-human-test-support/tests/repair_22_33_55.rs"
+symbol = "repair_22_33_55.rs"
+observed = "Attempt 2: one case fails on a committed-evidence fixture digest mismatch in the crate's own test support, filed as a wiring request."
+assumption = "A stale fixture in scope, not a wiring request."
+severity = "medium"
+
+[finding.22.33.560.3]
+task = "22.33.560"
+file = "services/explorer/backend/apps/indexer/test/repair/repair_22_33_560_test.exs"
+symbol = "repair_22_33_560_test.exs"
+observed = "Attempt 3: the regression passes; the migrator still exits late."
+assumption = "An in-scope production exit delay."
+severity = "medium"
+
+[finding.22.33.612.2]
+task = "22.33.612"
+file = "sdk/integrations/agents/test/repair-22-33-612.test.mjs"
+symbol = "repair-22-33-612.test.mjs"
+observed = "Attempt 2: the agents integration build fails in the seller middleware before the task's tests run."
+assumption = "A producer-to-consumer break repaired by 22.31.457, not a defect of this task."
+severity = "low"
+
+[finding.22.33.827.2]
+task = "22.33.827"
+file = "services/platform/perps-data/internal/store/repair_m827_test.go"
+symbol = "repair_m827_test.go"
+observed = "Attempt 2: the build passes; the three store cases fail on a decoder count that disagrees with the ABI's event count, filed as out of scope."
+assumption = "An in-scope decoder table behind its ABI, not a wiring request."
+severity = "medium"
+
+[finding.22.33.886.2]
+task = "22.33.886"
+file = "tests/conformance/test_repair_22_33_886.py"
+symbol = "test_repair_22_33_886.py"
+observed = "Attempt 2: twenty cases pass; thirty-one fail on a stale generated copy and on message patterns the checker does not emit, filed as out of scope."
+assumption = "Generated copies of an in-scope generator and test expectations, not a wiring request."
+severity = "medium"
+
+[finding.22.33.897.2]
+task = "22.33.897"
+file = "apps/web/e2e/repair-22-33-897.test.ts"
+symbol = "repair-22-33-897.test.ts"
+observed = "Attempt 2: the only verify failed before the five tests ran; the dependency and syntax corrections were made afterwards."
+assumption = "Unverified final revision, not a known defect."
+severity = "low"
+
+[finding.22.33.943.2]
+task = "22.33.943"
+file = "modules/launchpad/keeper/repair_m943_test.go"
+symbol = "repair_m943_test.go"
+observed = "Attempt 2: three cases pass; f06 finds four committed-store entries missing from the NFT market projection."
+assumption = "An in-scope keeper projection gap or an over-counted expectation; the attempt decides from the code."
+severity = "medium"
+
+[finding.22.33.995.1]
+task = "22.33.995"
+file = "services/launchpad/indexer/internal/decode/repair_m995_test.go"
+symbol = "repair_m995_test.go"
+observed = "Attempt 1: three cases failed before the correction; the final revision is unverified and the workspace was broken."
+assumption = "Unverified final revision on top of the workspace break repaired by 22.31.461."
+severity = "low"
+
+[finding.22.33.998.1]
+task = "22.33.998"
+file = "services/launchpad/indexer/internal/publisher/repair_m998_test.go"
+symbol = "repair_m998_test.go"
+observed = "Attempt 1: the build fails on the launchpad workspace version mismatch before any test compiles."
+assumption = "A workspace break published by 22.33.958 (gotcha 2983), repaired by 22.31.461."
+severity = "low"
+
+[finding.22.33.999.1]
+task = "22.33.999"
+file = "services/launchpad/indexer/internal/config/repair_m999_test.go"
+symbol = "repair_m999_test.go"
+observed = "Attempt 1: one case failed before the replay-key repair; the final revision is unverified and the build bypassed the workspace."
+assumption = "Unverified final revision on top of the workspace break repaired by 22.31.461."
+severity = "low"
+
+[finding.22.33.974.2]
+task = "22.33.974"
+file = "apps/launchpad/web/src/app/api/errors/repair-22-33-974.test.ts"
+symbol = "repair-22-33-974.test.ts"
+observed = "Attempt 2: five cases fail in setup on a fixture handle without a close method."
+assumption = "A test fixture defect, in scope."
+severity = "low"
+
+[finding.22.9.10.19]
+task = "22.9.10"
+file = "services/agent/sdk/typescript/src/ai_market.ts"
+symbol = "ai_market.ts"
+observed = "Attempt 32: the build passes; one SDK suite case fails on a registration payload above the SDK's network limit, filed as out of scope."
+assumption = "An in-suite fixture above the enforced limit, in scope through the suite gate."
+severity = "medium"
+
+[finding.22.33.1005.1]
+task = "22.33.1005"
+file = "apps/launchpad/web/src/widgets/trading/transaction-controls/repair-22-33-1005.test.ts"
+symbol = "repair-22-33-1005.test.ts"
+observed = "Attempt 1: four cases pass, two fail on an undefined parsed reporters option; the correction came after the only verify."
+assumption = "Unverified final revision, not a known defect."
+severity = "low"
+
+[finding.22.33.1008.1]
+task = "22.33.1008"
+file = "services/launchpad/api/internal/rest/repair_m1008_test.go"
+symbol = "repair_m1008_test.go"
+observed = "Attempt 1: the build fails on the launchpad workspace version mismatch before any test compiles; wiring requests were recorded for it."
+assumption = "A workspace break published by 22.33.958 (gotcha 2983), repaired by 22.31.461."
+severity = "low"
+
+[finding.22.33.41.1]
+task = "22.33.41"
+file = "services/human/tests/repair_22_33_41.rs"
+symbol = "repair_22_33_41.rs"
+observed = "Attempt 1: the verify names a test target of the virtual workspace root, which has no package; the attempt filed the manifest as out of scope."
+assumption = "A defective verify command (virtual workspace root), corrected to the consumer crate."
+severity = "low"
+
+[finding.22.33.1066.1]
+task = "22.33.1066"
+file = "tools/launchpad/production/feature-acceptance/repair_m1066_test.go"
+symbol = "repair_m1066_test.go"
+observed = "Attempt 1: the build passes; four cases fail by demanding mappings to retired launchpad specification identities and a reconciliation from another domain."
+assumption = "Retired identities are reported, not required; the test over-asserted an interface that no longer exists."
+severity = "medium"
+
+[finding.22.33.25.2]
+task = "22.33.25"
+file = "services/human/crates/layerx-human-kms/tests/repair_22_33_25.rs"
+symbol = "repair_22_33_25.rs"
+observed = "Attempt 4: the build passes; one case fails because the active permit count never returns to sixteen after fragmented frames."
+assumption = "An in-scope permit release defect, not a budget matter."
+severity = "medium"
+
+[finding.22.33.826.2]
+task = "22.33.826"
+file = "services/platform/perps-data/internal/replay/repair_m826_test.go"
+symbol = "repair_m826_test.go"
+observed = "Attempt 2: the build passes; four cases fail in decoding on a decoder table that disagrees with the ABI's event count."
+assumption = "A store decoder defect repaired by 22.33.827, which this task now requires."
+severity = "low"
+
+[finding.22.33.1040.1]
+task = "22.33.1040"
+file = "services/launchpad/stats-workers/internal/httpapi/repair_m1040_test.go"
+symbol = "repair_m1040_test.go"
+observed = "Attempt 1: the launchpad workspace version mismatch stopped the gate before a verified run of the final revision."
+assumption = "A workspace break published by 22.33.958 (gotcha 2983), repaired by 22.31.461."
+severity = "low"
+
+[finding.22.33.1041.1]
+task = "22.33.1041"
+file = "services/launchpad/stats-workers/internal/store/repair_m1041_test.go"
+symbol = "repair_m1041_test.go"
+observed = "Attempt 1: the launchpad workspace version mismatch stopped the gate before a verified run of the final revision."
+assumption = "A workspace break published by 22.33.958 (gotcha 2983), repaired by 22.31.461."
+severity = "low"
+
+[finding.22.33.1062.1]
+task = "22.33.1062"
+file = "services/launchpad/user/internal/app/repair_m1062_test.go"
+symbol = "repair_m1062_test.go"
+observed = "Attempt 1: the launchpad workspace version mismatch stopped the gate before a verified run of the final revision."
+assumption = "A workspace break published by 22.33.958 (gotcha 2983), repaired by 22.31.461."
+severity = "low"
+
+[finding.22.33.105.2]
+task = "22.33.105"
+file = "services/interop/crates/layerx-x402/tests/repair_22_33_105.rs"
+symbol = "repair_22_33_105.rs"
+observed = "Attempt 3: one case failed; its repair came after the only verify and the budget was spent."
+assumption = "Unverified final revision, not a known defect."
+severity = "low"
+
+[finding.22.33.1067.1]
+task = "22.33.1067"
+file = "tools/launchpad/production/feature-acceptance/tests/test_repair_22_33_1067.py"
+symbol = "test_repair_22_33_1067.py"
+observed = "Attempt 1: three cases fail on a TOML decode error raised while loading the kvx specification, before the missing-input refusal is reached."
+assumption = "A kvx file loaded with a TOML parser, in scope."
+severity = "medium"
+
+[finding.22.33.1072.1]
+task = "22.33.1072"
+file = "storage/db_engine/rocksdb/mvcc/repair_m1072_test.go"
+symbol = "repair_m1072_test.go"
+observed = "Attempt 2: the build matched no packages and the verify failed in setup because the rocksdbBackend build constraint was not selected."
+assumption = "A gate that omitted the package's build constraint, corrected."
+severity = "medium"
+
+[finding.22.33.1076.1]
+task = "22.33.1076"
+file = "tests/daemon/test_repair_22_33_1076.py"
+symbol = "test_repair_22_33_1076.py"
+observed = "Attempt 2: two cases fail for want of a node-produced commitment and reopen recording that was filed as another domain's wiring request."
+assumption = "The producer is this domain's own node; the recording is made at implementation time."
+severity = "medium"
+
+[finding.22.33.1129.1]
+task = "22.33.1129"
+file = "engine/deps/xevm/types/repair_m1129_test.go"
+symbol = "repair_m1129_test.go"
+observed = "Attempt 1: one subcase panics in the production import on a malformed address instead of returning an error."
+assumption = "An in-scope production panic on malformed input."
+severity = "medium"
+
+[finding.22.33.1132.1]
+task = "22.33.1132"
+file = "src/modules/budget"
+symbol = "budget"
+observed = "Attempt 2: one assertion of the task's own verify target fails and was filed as pre-existing."
+assumption = "A failing case inside the task's verify target and scope is this task's to repair."
+severity = "medium"
+
+[finding.22.33.1163.1]
+task = "22.33.1163"
+file = "storage/db_engine/litt/cli/repair_m1163_test.go"
+symbol = "repair_m1163_test.go"
+observed = "Attempt 1: one subcase fails on a lock held by the fixture's open source store during the rebase move."
+assumption = "A fixture that moves a store it still holds open, in scope."
+severity = "low"
+
+[finding.22.33.1191.1]
+task = "22.33.1191"
+file = "consensus/test/e2e/runner/repair_m1191_test.go"
+symbol = "repair_m1191_test.go"
+observed = "Attempt 1: two subcases fail on an equality between differently typed byte slices."
+assumption = "A test assertion defect, in scope."
+severity = "low"
+
+[finding.22.33.1214.1]
+task = "22.33.1214"
+file = "interchain/modules/core/keeper/repair_m1214_test.go"
+symbol = "repair_m1214_test.go"
+observed = "Attempt 1: one subcase panics in a reflective comparison of protobuf messages."
+assumption = "A test comparison defect, in scope."
+severity = "low"
+
+[finding.22.31.24.6]
+task = "22.31.24"
+file = "src/modules/programs"
+symbol = "programs"
+observed = "Attempt 6: all audit cases pass; the real mixed program authority case fails in its registration and commit sequence at line 859 with no receipt."
+assumption = "An in-scope registration or commit refusal under the state-commitment protocol version, or a fixture authority defect; the attempt decides from the code."
+severity = "high"

@@ -1,0 +1,37 @@
+[task.22.33.1370]
+mode = "BUILD"
+audit = "22.30.75"
+acceptance = "22998.1"
+proof = "services/platform/perf-db/tests/repair_22_33_1370.rs"
+baseline = "No earlier implementation or gate ledger existed. Baseline verification was not run: the controlling gate order forbids running tests before complete implementation and hf-build. No baseline failure is claimed."
+revision = "The exact qualified source revision, command, exit code and private log are recorded by the runner's hf-done receipt."
+wiring = "No proposal requires an out-of-path change. Dynamic or conflicting MarketCreated effects are explicitly refused before WAL append because the current production registry is static."
+fixtures = "src/fixtures/repair_1370_chain.json retains normalized fields from precompiles/perps/abi/pack_test.go and the actual producer assertions in precompiles/perps/events_test.go; funding is signed hourly/18-decimal USD, deficit is token units."
+
+[finding.event-application-order]
+tests = ["event_application_order_concurrent_balances_snapshots_and_reopen"]
+repair = "Retain the prerequisite's shared mutation boundary and include effect validation within it; prove concurrent deposits and withdrawals follow actual WAL order across concurrent snapshots and two reopen boundaries."
+
+[finding.position-collateral-units]
+tests = ["position_collateral_units_recorded_event_and_checked_domain"]
+repair = "Checked quotient/remainder rescaling computes floor(size times 1e18 divided by leverage) without overflowing an intermediate product; zero/nonpositive leverage, negative size and unrepresentable results are refused before WAL append."
+
+[finding.open-interest-lifecycle]
+tests = ["open_interest_lifecycle_modification_liquidation_and_recovery", "open_interest_checked_refusals_precede_durable_cursor"]
+repair = "Prepare checked before/after exposure changes before append, apply them under the mutation boundary on opens, modifications, closes, liquidations and ADL, and avoid removing exposure again when Liquidation follows PositionClosed. Redelivery remains idempotent across recovery."
+
+[finding.ignored-chain-effects]
+tests = ["ignored_chain_effects_recorded_settlement_deficit_adl_and_recovery", "ignored_chain_effects_price_market_and_unsupported_refusal"]
+repair = "PriceUpdated updates price/time; known matching MarketCreated enables its registry slot; ADL reduces position and side exposure and closes exhausted positions. EventStore materializes signed hourly funding settlements and token-unit deficit reports without treating them as per-position debits or final outstanding debt. Unsupported/unbound/invalid effects are refused before durable admission."
+
+[finding.event-history-unindexed-variants]
+tests = ["event_history_unindexed_variants_bound_routes_global_and_replay"]
+repair = "Derive modification, ADL, execution and cancellation routes from bound position/order state; retain every accepted event in a global history. Rebuild histories and funding/deficit views from the existing snapshot event ledger and WAL on reopen, including terminal positions/orders."
+
+[finding.cli-negative-fraction]
+tests = ["cli_negative_fraction_exact_formatting_entire_domain"]
+repair = "The CLI imports its shared production formatter, which formats the sign separately from unsigned_abs magnitude and trims only trailing fractional zeroes, preserving negative subunits and i128::MIN. The gate drives recovered financial views through that same formatter in process."
+
+[gotcha.baseline-order]
+observed = "The task's baseline-test step conflicts with its controlling implementation-before-gates order; no baseline run was made or claimed."
+resolution = "Honor the explicit bounded gate order and record this limitation inside the allowed source tree instead of editing spec or the root gotcha ledger."
