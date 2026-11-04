@@ -1,7 +1,7 @@
 package main
 
 import (
-	"encoding/json"
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
@@ -164,8 +164,18 @@ func (r *qualificationRegistry) read(id string) (qualificationRecord, error) {
 			if next.State != "prepared" {
 				return rec, errors.New("invalid initial state")
 			}
-		} else if !qTransition(rec.State, next.State) || qHash(qCanonical(next.Request)) != qHash(qCanonical(rec.Request)) {
-			return rec, errors.New("invalid registry transition")
+		} else {
+			nextBytes, err := qCanonical(next.Request)
+			if err != nil {
+				return rec, err
+			}
+			oldBytes, err := qCanonical(rec.Request)
+			if err != nil {
+				return rec, err
+			}
+			if !qTransition(rec.State, next.State) || !bytes.Equal(nextBytes, oldBytes) {
+				return rec, errors.New("invalid registry transition")
+			}
 		}
 		rec = next
 		previous = qHash(b)
@@ -188,8 +198,18 @@ func (r *qualificationRegistry) submit(req qualificationRequest) (qualificationR
 	dir := filepath.Join(r.root, req.LogicalID)
 	if _, e = os.Lstat(dir); e == nil {
 		old, err := r.read(req.LogicalID)
-		if err == nil && qHash(qCanonical(old.Request)) != qHash(qCanonical(req)) {
-			err = errors.New("logical request payload changed")
+		if err == nil {
+			oldBytes, e := qCanonical(old.Request)
+			if e != nil {
+				return old, e
+			}
+			newBytes, e := qCanonical(req)
+			if e != nil {
+				return old, e
+			}
+			if !bytes.Equal(oldBytes, newBytes) {
+				err = errors.New("logical request payload changed")
+			}
 		}
 		return old, err
 	} else if !os.IsNotExist(e) {
@@ -202,7 +222,11 @@ func (r *qualificationRegistry) submit(req qualificationRequest) (qualificationR
 		return rec, e
 	}
 	rec = qualificationRecord{Request: req, Sequence: 1, State: "prepared", UpdatedAt: time.Now().UTC()}
-	e = qWrite(filepath.Join(dir, fmt.Sprintf("%020d.json", 1)), qCanonical(rec))
+	b, e := qCanonical(rec)
+	if e != nil {
+		return rec, e
+	}
+	e = qWrite(filepath.Join(dir, fmt.Sprintf("%020d.json", 1)), b)
 	return rec, e
 }
 func (r *qualificationRegistry) advance(id, old, state string, run, attempt int64, detail string) (qualificationRecord, error) {
@@ -230,7 +254,11 @@ func (r *qualificationRegistry) advance(id, old, state string, run, attempt int6
 	rec.Attempt = attempt
 	rec.Detail = detail
 	rec.UpdatedAt = time.Now().UTC()
-	return rec, qWrite(filepath.Join(r.root, id, fmt.Sprintf("%020d.json", rec.Sequence)), qCanonical(rec))
+	b, e := qCanonical(rec)
+	if e != nil {
+		return rec, e
+	}
+	return rec, qWrite(filepath.Join(r.root, id, fmt.Sprintf("%020d.json", rec.Sequence)), b)
 }
 func (r *qualificationRegistry) list() ([]qualificationRecord, error) {
 	entries, e := os.ReadDir(r.root)
@@ -265,7 +293,6 @@ func (r *qualificationRegistry) protects(runID int64) bool {
 	}
 	return false
 }
-func qJSON(v any) []byte { b, _ := json.Marshal(v); return b }
 
 func (r *qualificationRegistry) protectsAssigned(m machine, idx *jobIndex) bool {
 	records, e := r.list()

@@ -1,0 +1,54 @@
+[task]
+id = "22.31.91"
+audit = "22.30.46"
+acceptance = "22998.1"
+status = "implementation; qualification evidence is recorded by hf-build and hf-done"
+baseline = "Not run: the explicit gate order prohibits invoking verify_cmd before implementation or by hand; no baseline failures are claimed."
+verification = "hf-done runs go test -count=1 -run '^TestRepair_91_' ./consensus/internal/rpc/core/ and records the exact candidate revision and private log."
+previous_attempt = "The supplied attempt-1 evidence reports verify exit 1 without individual failed test names; no unchanged-tree baseline was run in this continuation."
+gotcha = "The current JSON-RPC transport retains arrays for one-response batches; ResponseCheckTx uses jsonpb camel-case gasWanted/gasEstimated, while ExecTxResult uses snake-case fields."
+
+[finding.40]
+tests = ["TestRepair_91_BlockOperations"]
+repair = "Correct operation response references; validate both URI and POST responses from finalized block storage and the real block index."
+
+[finding.41]
+tests = ["TestRepair_91_TransportFraming", "TestRepair_91_BlockOperations"]
+repair = "Bare URI success and refusal schemas; independent root POST success/refusal envelopes, batches and actual array framing for single-response batches."
+
+[finding.42]
+tests = ["TestRepair_91_StructuredErrors", "TestRepair_91_LagErrors"]
+repair = "Structured numeric code/message/data, HTTP 200 RPC refusals, HTTP 400 plain-text URI parse failures, and HTTP 417 lag behavior on both transports."
+
+[finding.43]
+tests = ["TestRepair_91_Headers"]
+repair = "ResultHeader retains the header property and explicit null for an unknown hash on both routes and transports."
+
+[finding.44]
+tests = ["TestRepair_91_FinalizeBlock", "TestRepair_91_NullCollections"]
+repair = "Current FinalizeBlock events, transaction execution results, total gas, validator updates and sparse consensus_param_updates with nullable collections."
+
+[finding.45]
+tests = ["TestRepair_91_TransactionProofs"]
+repair = "Shared transaction/result/proof schemas use root_hash/data/proof and events; included transactions are decoded and their nontrivial Merkle proofs verified."
+
+[finding.46]
+tests = ["TestRepair_91_ABCIQueries"]
+repair = "Real committed SDK store generates nonempty value, inclusion proof, absence proof and refusal; ABCIQuery preserves numeric codes and base64 bytes."
+wiring = "consensus/abci/types/types.go and consensus/abci/types/types.pb.go — domain 5 owns any requested change from emitted jsonpb proofOps to the audit's proposed proof_ops; this task documents and tests the existing wire name."
+
+[finding.47]
+tests = ["TestRepair_91_BroadcastCommit"]
+repair = "Public broadcast route runs the real e2e application's CheckTx, returns committed indexed tx_result, and preserves a genuine malformed-transaction refusal."
+
+[finding.48]
+tests = ["TestRepair_91_ConsensusParameters"]
+repair = "Full current block/evidence/validator/version/synchrony/timeout/ABCI parameters and decimal nanosecond durations match consensus_params and genesis producers."
+
+[qualification.1]
+revision = "e5123ababfe41d94eead7fe71586d85cc7bb376c"
+command = "cg spec done 22.31.91 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Schemas rejected actual null query/check-tx bytes; full block/header equality compared producer nil slices with consumer decoded empty slices."
+assumption = "Repair only these contract and test-setup discrepancies, preserving complete decoded-object comparisons and asserting emitted nulls."

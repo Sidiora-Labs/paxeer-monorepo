@@ -1,0 +1,9 @@
+[repair.22.31.302]
+finding = "allowlist-genesis-loss"
+proof = "TestRepair_302_AllowlistGenesisRecovery; TestRepair_302_RejectInvalidPoliciesBeforeMutation; TestRepair_302_LegacyCompatibilityAndLossPrevention"
+implementation = "Versioned keeper genesis carrier and codec transport preserve every bank-owned policy through fresh database initialization and subsequent disk restart; legacy export rejects policy loss."
+baseline = "Not run: the explicit Order forbids tests before complete implementation and permits verification only through hf-done after hf-build; no pre-change test result is claimed."
+evidence = "The runner's hf-build/hf-done ledger binds the verified candidate revision, exact command, exit status and private evidence log; no gate is claimed here before it runs."
+wiring_types = "sdk/x/bank/types/genesis.pb.go and genesis.go — fm-cosmos-fork (domain 15): regenerate the extended proto and move keeper GenesisState policy fields/validation into canonical bank genesis types."
+wiring_module = "sdk/x/bank/module.go — fm-cosmos-fork (domain 15): wire ValidateGenesis, InitGenesis and ExportGenesis to UnmarshalGenesisJSON/InitGenesisWithAllowLists and ExportGenesisWithAllowLists/MarshalGenesisJSON until canonical bank types are regenerated; restricted exports fail explicitly until this lands."
+wiring_tokenfactory = "modules/tokenfactory/keeper/genesis.go — fm-cosmos-fork (domain 15): retain bank ownership of denom allowlists and recover bank policy before enabling tokenfactory transfers; do not create a second competing policy export."

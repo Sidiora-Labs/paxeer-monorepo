@@ -710,7 +710,7 @@ fn emit_rust_entry(out: &mut String, e: &Entry, entries: &[Entry]) {
     } else {
         1
     };
-    let _=writeln!(out,"pub fn call(input:&Input,deployed_code_hash:[u8;32],published_digest:[u8;32])->Result<Call<Output,Failure>,BindingRefusal>{{check_target(deployed_code_hash,published_digest)?;let mut bytes=vec!{:?};bytes.push({convention});CanonicalEncode::encode(input,&mut bytes).map_err(BindingRefusal::Encode)?;if bytes.len()>MAX_CALLDATA_BYTES+4{{return Err(BindingRefusal::Encode(CodecError::TooLong))}}Ok(Call{{bytes,_type:core::marker::PhantomData}})}}",e.discriminator);
+    let _=writeln!(out,"pub fn call(input:&Input,deployed_code_hash:[u8;32],published_digest:[u8;32])->Result<Call<Output,Failure>,BindingRefusal>{{check_target(deployed_code_hash,published_digest)?;let mut bytes=vec!{:?};bytes.push({convention});CanonicalEncode::encode(input,&mut bytes).map_err(BindingRefusal::Encode)?;if bytes.len()>MAX_CALLDATA_BYTES{{return Err(BindingRefusal::Encode(CodecError::TooLong))}}Ok(Call{{bytes,_type:core::marker::PhantomData}})}}",e.discriminator);
     let output_convention = if matches!(e.output, Type::EvmHead) {
         2
     } else {

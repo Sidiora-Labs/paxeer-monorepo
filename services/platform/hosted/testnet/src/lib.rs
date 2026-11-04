@@ -2,6 +2,7 @@ use std::time::Duration;
 
 pub const LXP_WIRE_PROTOCOL_VERSION: u16 = layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION;
 pub const TESTNET_NETWORK_ID: u32 = 402;
+pub const TESTNET_EVM_CHAIN_ID: u64 = 125;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PendingRelease {
@@ -14,6 +15,7 @@ pub struct TestnetConfig {
     pub package_semver: String,
     pub wire_protocol_version: u16,
     pub network_id: u32,
+    pub evm_chain_id: u64,
     pub public_endpoint: String,
     pub gateway_endpoint: String,
     pub faucet_endpoint: String,
@@ -27,7 +29,7 @@ impl TestnetConfig {
     ///
     /// # Errors
     /// Returns an error if the package or wire version differs from the pending
-    /// release, the wire version is unsupported, the network ID is incorrect,
+    /// release, the wire version is unsupported, the network or EVM chain ID is incorrect,
     /// any endpoint is not a canonical HTTPS origin, the reset schedule is empty,
     /// or the snapshot interval is zero.
     pub fn validate(&self, pending: &PendingRelease) -> Result<(), &'static str> {
@@ -40,6 +42,7 @@ impl TestnetConfig {
             return Err("testnet LXP wire protocol does not match pending release");
         }
         if self.network_id != TESTNET_NETWORK_ID
+            || self.evm_chain_id != TESTNET_EVM_CHAIN_ID
             || !canonical_https_origin(&self.public_endpoint)
             || !canonical_https_origin(&self.gateway_endpoint)
             || !canonical_https_origin(&self.faucet_endpoint)
@@ -72,6 +75,7 @@ pub fn platform_testnet() -> TestnetConfig {
         package_semver: env!("CARGO_PKG_VERSION").to_owned(),
         wire_protocol_version: LXP_WIRE_PROTOCOL_VERSION,
         network_id: TESTNET_NETWORK_ID,
+        evm_chain_id: TESTNET_EVM_CHAIN_ID,
         public_endpoint: "https://layerx-testnet-public.layerx-testnet.svc.cluster.local"
             .to_owned(),
         gateway_endpoint: "https://layerx-gateway.layerx-testnet.svc.cluster.local".to_owned(),
