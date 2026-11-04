@@ -612,3 +612,12 @@ fn fiat_submitted_rung_keeps_the_journey_waiting() {
         }
     }
 }
+
+#[path = "support/producer_path.rs"]
+mod producer_path;
+
+#[test]
+fn fiat_settlement_path_uses_unchanged_producer_evidence() -> Result<(), Box<dyn std::error::Error>>
+{
+    producer_path::fiat_settlement_path()
+}

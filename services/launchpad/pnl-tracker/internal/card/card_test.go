@@ -144,10 +144,11 @@ func TestBuildRenderInputLossNoMarket(t *testing.T) {
 	snap := card.Snapshot{
 		TokenSymbol: "LOSS",
 		Position: card.Position{
-			TotalUsdlSpent:  "10000000",
-			AvgCostBasis:    "10000000",
-			CurrentHoldings: "0",
-			RealizedPnlUsdl: "-6000000",
+			TotalUsdlSpent:    "10000000",
+			TotalUsdlReceived: "0",
+			AvgCostBasis:      "10000000",
+			CurrentHoldings:   "0",
+			RealizedPnlUsdl:   "-6000000",
 		},
 	}
 	in := card.BuildRenderInput(snap, "f")

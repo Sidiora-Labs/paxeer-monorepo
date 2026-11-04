@@ -1,0 +1,66 @@
+[repair.22.33.161]
+base_revision = "2b502183a86af3a2498748de6572b1bde20e4768"
+test_file = "apps/wallet/src/account/repair-22-33-161.test.ts"
+asset-tests-retired-shape = "asset_list_renders_gateway_bank_rows_without_balance_sides; asset_list_shows_one_bank_balance_per_denom; asset_rows_decode_numeric_heights_and_nullable_metadata; AssetList unavailable-node case"
+plan-tests-retired-shape = "kernel_plan_presents_and_submits_the_merged_chain_plan; kernel_plan_binds_legs_with_the_pending_nonce_of_the_wallet_address; KernelPlan service-refusal and consensus-unavailable/catching-up cases"
+plan-two-domain-presentation = "kernel_plan_presents_and_submits_the_merged_chain_plan; legBindings consumes one pending nonce for every chain transaction independent of the retained domain label"
+ladder-tests-retired-rungs = "transaction_ladder_reaches_receipted_from_the_sequencer_before_the_explorer; status_ladder_labels_submitted_receipted_and_committed; ladder_refuses_tampered_receipt_evidence"
+ladder-no-pending-refresh = "ladder_observes_pending_receipts_until_commitment; ladder_bounds_pending_reads_and_retries_visibly; ladder_cancels_waiting_and_inflight_reads_and_reopens_from_node_evidence"
+ladder-discards-commit = "ladder_keeps_committed_receipts_with_unavailable_or_lagging_explorer; transaction_ladder_reaches_receipted_from_the_sequencer_before_the_explorer; status_ladder_prefers_explorer_evidence_at_the_committed_rung"
+proof = "Production AccountProvider, EndpointClient, HumanClient, receipt/key decoders, hooks and account components communicate with loopback HTTP peers. Signed receipt evidence and governed keys come from SDK node conformance captures; submitted and committed envelopes come from the existing interop peer fixture as detailed below. Bank vectors cover numeric wire heights, native and bank balances, nullable metadata and unavailable state. The Human peer uses the current intent schema and an in-scope merged fixture; it checks every submitted binding, fee, actor, deadline and pending nonce. The declared test imports all three repaired component suites so the single gate executes their assertions."
+baseline = "No pre-change gate ran: the explicit implementation-first, hf-build then hf-done order prohibits the conflicting do_10 baseline verification; no pre-change test failures are claimed."
+qualification = "hf-build and hf-done record the exact candidate revision, command, exit and private evidence location; the final hf-done record identifies the verified revision."
+gotcha = "Vitest 4 treats test(namedFunction) as TODO; use test(namedFunction.name, namedFunction) to execute each declared test function."
+wiring_request_schema = "Domain 10: services/human/schema/human-api/golden/intent.plan.request.json, intent.plan.response.json and journey.get.response.json still describe retired custody movement; publish merged producer captures for canonical Human sources, executable send/budget-defund legs and move journeys."
+wiring_request_sdk = "Domain 10 with wallet SDK domain 12: sdk/wallet/src/types.ts IntentLeg and sdk/wallet/src/human.ts decodeIntentPlan must retain and validate the disclosed EVM nonce, chain_id, to, value, calldata, gas_limit and gas-price fields from services/human/schema/human-api/intent.kvx; the account binding currently follows the schema's pending nonce plus transaction index contract."
+formatter_gotcha = "pnpm --dir apps/wallet dlx retained the repository working directory; run the formatter from apps/wallet explicitly so src/account paths resolve. The initial invocation matched no files and changed nothing."
+
+[qualification.22.33.161]
+revision = "8c0744226778cdb2262041a58bb758c2e4dfb2ae"
+command = "cg spec done 22.33.161 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Twelve tests fail because the existing AccountProvider constructs EndpointClient without the required hostedUrl; the progression test also accepted explorer-sourced submitted evidence before the next receipt read."
+assumption = "Provider/configuration wiring is a pre-existing failure outside the six named findings and is recorded without repair or rerun under the task's no-chase rule; the progression test now waits specifically for receipt-sourced submitted evidence, without relaxing its four-read assertion, and that post-gate correction is unqualified."
+
+[continuation.22.33.161]
+base_revision = "f945549b95baf4ec2b0d6bb05148010091c762a2"
+provider_wiring = "Resolved within the authorized account scope: AccountProvider passes the explicitly configured hostedUrl to EndpointClient; NEXT_PUBLIC_PAXEER_HOSTED_URL is validated independently of the node URL. Receipt-only views do not require a hosted service; missing hosted configuration surfaces the SDK error for bank reads without a node fallback."
+transport_proof = "asset_rows_decode_numeric_heights_and_nullable_metadata mounts AssetList and TransactionLadder together against distinct loopback hosted and node origins, asserting decoded bank balances, committed receipt evidence and each transport's actual requests; account_bank_reads_require_an_explicit_hosted_origin proves no implicit node fallback."
+prior_failure = "The seeded attempt recorded thirteen failing cases, including missing hosted configuration and a progression test that accepted explorer evidence too early; its subsequent receipt-source wait was already present and is retained with the four-read assertion unchanged."
+evidence = "The bounded hf-build and hf-done ledger records identify this continuation's candidate revision and private log; the final response copies the final hf-done evidence line."
+
+[qualification.22.33.161.continuation_1]
+revision = "d4f4042b1e45ee862506702bf18dbffc87ba15e8"
+command = "cg spec done 22.33.161 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Twenty-one tests passed; eight receipt cases failed because the loopback peer omitted eth_getRawTransactionByHash required by the current SDK authenticator."
+repair = "Serve the signed raw transaction from the same committed producer vector and assert the authentication transport request without changing existing assertions."
+
+[continuation.22.33.161.current_receipt_transport]
+receipt_peer = "Replay services/interop/crates/layerx-gas-station/tests/fixtures/sequencer_receipts.json with the original signed execution bytes and raw transaction from sdk/platform/conformance/fixtures/sequencer-receipt-v1.json case V1-erc20-approve; all existing receipt, explorer, retry, cancellation and restart assertions remain intact. The interop fixture adds fixed block metadata to the signed receipt and does not prove BFT inclusion."
+gotcha = "The seeded daemon committed-fixture raw transaction uses EIP-155 chain 2770; the current wallet SDK authenticator requires chain 125, so adding the missing raw transaction method alone cannot qualify that capture."
+wiring_request = "Node/daemon domain with wallet SDK domain 12: daemon/committed-fixture/vectors/vector-v4-committed.json and sdk/platform/conformance/fixtures/vector-v4-committed.json need a canonical chain-125 committed node capture with matching raw transaction and governed key data; retain SDK authentication and chain checks."
+
+[qualification.22.33.161.current_receipt_transport]
+revision = "27244d9131ae60baacaf68efa7180b3d5f82b0c7"
+command = "cg spec done 22.33.161 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Twenty-seven tests pass; two submitted-rung cases fail because the bridge peer fixture submitted hash belongs to another transaction."
+repair = "Use the existing gas-station peer fixture whose submitted, receipted and committed envelopes share the same transaction hash and nonce, retaining the SDK authenticator and every assertion."
+
+[continuation.22.33.161.recorded_progression]
+base_revision = "4299cb15eced23eb9a839162acd11e9a937edd05"
+conflict_resolution = "Retain the current endpoint's per-scenario root RPC servers and add the seed's explicit hosted origin alongside each node origin."
+receipt_peer = "Use V1-erc20-approve from sdk/platform/conformance/fixtures/vector-v1-receipted-positive.json for both raw transaction and receipted evidence, with the matching submitted and committed sibling envelopes from services/interop/crates/layerx-gas-station/tests/fixtures/sequencer_receipts.json; its submitted envelope now identifies the same transaction on the current base."
+progression = "Replay null, submitted, receipted and committed responses in order through the root RPC, then retain commitment for subsequent reads; preserve all intermediate rung, retry, cancellation, explorer and transport assertions. Derive the recorded-evidence expectations from the documented LADDER_RUNGS order and assert that observation has no receipt error."
+wiring_request = "Domain 12 conformance with the node domain: sdk/platform/conformance/fixtures/vector-v4-committed.json remains the separately recorded transaction noted above, not a commitment sibling for V1-erc20-approve; publish matching chain-125 commitment evidence there rather than mixing transactions in the account peer."
+
+[qualification.22.33.161.recorded_progression_build]
+revision = "4e94506270f29e56255327bfbc7997a220ee7352"
+command = "pnpm --dir apps/wallet exec tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+repair = "Decode the recorded receipt before deriving its documented rung rank, retaining the SDK's exact SequencerRung type and authentication checks."

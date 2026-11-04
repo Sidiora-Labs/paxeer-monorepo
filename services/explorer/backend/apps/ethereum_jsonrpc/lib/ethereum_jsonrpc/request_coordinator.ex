@@ -22,7 +22,8 @@ defmodule EthereumJSONRPC.RequestCoordinator do
     * `:window_count` - Number of windows
     * `:duration` - Total amount of time to count events in milliseconds
     * `:table` - name of the ets table to store the data in
-  * `:throttle_rate_limit` - The total number of requests allowed in the all windows.
+  * `:throttle_rate_limit` - A positive integer specifying the total number of requests
+    allowed in all windows. `nil` or `false` disables the limit.
 
   See the docs for `EthereumJSONRPC.RollingWindow` for more documentation for
   `:rolling_window_opts` and `:throttle_rolling_window_opts`.
@@ -144,21 +145,31 @@ defmodule EthereumJSONRPC.RequestCoordinator do
          remaining_time,
          rate_limit \\ config(:throttle_rate_limit),
          opts \\ config(:throttle_rolling_window_opts)
-       ) do
-    if opts[:throttle_rate_limit] && RollingWindow.count(throttle_table(), @throttle_key) >= rate_limit do
-      if opts[:duration] >= remaining_time do
+       )
+
+  defp throttle_request(_remaining_time, rate_limit, _opts) when rate_limit in [nil, false], do: :ok
+
+  defp throttle_request(remaining_time, rate_limit, opts) when is_integer(rate_limit) and rate_limit > 0 do
+    if RollingWindow.count(throttle_table(), @throttle_key) >= rate_limit do
+      duration = Keyword.fetch!(opts, :duration)
+
+      if duration >= remaining_time do
         :timer.sleep(remaining_time)
 
         :error
       else
-        new_remaining_time = remaining_time - opts[:duration]
-        :timer.sleep(opts[:duration])
+        new_remaining_time = remaining_time - duration
+        :timer.sleep(duration)
 
         throttle_request(new_remaining_time, rate_limit, opts)
       end
     else
       :ok
     end
+  end
+
+  defp throttle_request(_remaining_time, _rate_limit, _opts) do
+    raise ArgumentError, ":throttle_rate_limit must be a positive integer, nil or false"
   end
 
   defp sleep_time(request_method) do
@@ -196,3 +207,4 @@ defmodule EthereumJSONRPC.RequestCoordinator do
     |> Keyword.get(key)
   end
 end
+

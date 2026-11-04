@@ -11,9 +11,10 @@ import (
 )
 
 func TestGetMigrationCallback(t *testing.T) {
-	for _, version := range cli.GetMigrationVersions() {
-		require.NotNil(t, cli.GetMigrationCallback(version))
-	}
+	versions := cli.GetMigrationVersions()
+	require.Equal(t, []string{}, versions, "this fork has no application-registered genesis migrations")
+	require.Equal(t, versions, cli.MigrateGenesisCmd().ValidArgs)
+	require.Nil(t, cli.GetMigrationCallback("v0.43"), "upstream SDK targets are not registered by this fork")
 }
 
 func (s *IntegrationTestSuite) TestMigrateGenesis() {
@@ -23,25 +24,19 @@ func (s *IntegrationTestSuite) TestMigrateGenesis() {
 		name      string
 		genesis   string
 		target    string
-		expErr    bool
 		expErrMsg string
-		check     func(jsonOut string)
 	}{
 		{
 			"migrate 0.37 to 0.42",
 			v037Exported,
 			"v0.42",
-			true, "Make sure that you have correctly migrated all Tendermint consensus params", func(_ string) {},
+			"Make sure that you have correctly migrated all Tendermint consensus params",
 		},
 		{
-			"migrate 0.42 to 0.43",
+			"unregistered upstream weighted-vote migration",
 			v040Valid,
 			"v0.43",
-			false, "",
-			func(jsonOut string) {
-				// Make sure the json output contains the ADR-037 gov weighted votes.
-				s.Require().Contains(jsonOut, "\"weight\":\"1.000000000000000000\"")
-			},
+			"unknown migration function for version: v0.43; supported target versions: none",
 		},
 	}
 
@@ -50,12 +45,9 @@ func (s *IntegrationTestSuite) TestMigrateGenesis() {
 		s.Run(tc.name, func() {
 			genesisFile := testutil.WriteToNewTempFile(s.T(), tc.genesis)
 			jsonOutput, err := clitestutil.ExecTestCLICmd(val0.ClientCtx, cli.MigrateGenesisCmd(), []string{tc.target, genesisFile.Name()})
-			if tc.expErr {
-				s.Require().Contains(err.Error(), tc.expErrMsg)
-			} else {
-				s.Require().NoError(err)
-				tc.check(jsonOutput.String())
-			}
+			s.Require().Error(err)
+			s.Require().Contains(err.Error(), tc.expErrMsg)
+			s.Require().NotContains(jsonOutput.String(), "\"app_state\"", "rejected input must not be emitted as migrated genesis")
 		})
 	}
 }

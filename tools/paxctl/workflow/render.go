@@ -3,7 +3,9 @@ package workflow
 import (
 	"fmt"
 	"io"
+	"net"
 	"slices"
+	"strconv"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -167,9 +169,38 @@ func render(args renderArgs) (*unstructured.Unstructured, error) {
 	// A workflow with no recipe kind can never be adopted — fail before SSA.
 	if recipe, _, _ := unstructured.NestedString(u.Object, "spec", "kind"); recipe == "" {
 		return nil, cliutil.UsageError("preset %q produced no spec.kind", args.preset)
+	} else if recipe == "StateSync" {
+		if err := validateWitnessEndpoints(u); err != nil {
+			return nil, err
+		}
 	}
 
 	return u, nil
+}
+
+// validateWitnessEndpoints checks the final rendered spec, including --set.
+// Reachability and independent node identities remain sidecar runtime checks.
+func validateWitnessEndpoints(u *unstructured.Unstructured) error {
+	servers, found, err := unstructured.NestedStringSlice(u.Object, "spec", "stateSync", "rpcServers")
+	if err != nil {
+		return cliutil.UsageError("spec.stateSync.rpcServers must be a list of host:port witnesses: %v", err)
+	}
+	if !found || len(servers) == 0 {
+		return nil // The controller/sidecar resolves the node's peers.
+	}
+	seen := make(map[string]bool)
+	for _, endpoint := range servers {
+		host, port, err := net.SplitHostPort(endpoint)
+		n, portErr := strconv.Atoi(port)
+		if err != nil || host == "" || strings.ContainsAny(host, "/ \t\r\n") || portErr != nil || n < 1 || n > 65535 {
+			return cliutil.UsageError("invalid RPC witness %q: use host:port", endpoint)
+		}
+		seen[net.JoinHostPort(strings.ToLower(strings.TrimSuffix(host, ".")), strconv.Itoa(n))] = true
+	}
+	if len(seen) < 2 {
+		return cliutil.UsageError("state sync requires at least two distinct RPC witnesses (host:port); endpoint count alone does not establish runtime availability")
+	}
+	return nil
 }
 
 // configPatchRemovedError is the erroring shim for the removed --config-patch

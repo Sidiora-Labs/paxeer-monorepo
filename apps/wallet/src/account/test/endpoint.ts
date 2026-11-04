@@ -4,6 +4,7 @@ import type { AddressInfo } from 'node:net';
 import path from 'node:path';
 import type { IntentPlan, PlanIntentRequest, SubmitPlanRequest } from '@paxeer/wallet';
 import type { AccountConfig } from '../config';
+import mergedHuman from './merged-human.json';
 
 type Exchange = {
   request: { method: string; params: unknown[] };
@@ -30,6 +31,9 @@ export const SCENARIOS = [
   'kernel-not-configured',
   'deposit',
   'merged',
+  'chain',
+  'consensus-unavailable',
+  'consensus-catching-up',
 ] as const;
 export type Scenario = (typeof SCENARIOS)[number];
 
@@ -42,12 +46,88 @@ function readJson<T>(file: string): T {
 }
 
 export function golden(name: string): Golden {
+  if (Object.hasOwn(mergedHuman, name)) return mergedHuman[name as keyof typeof mergedHuman];
   return readJson<Golden>(path.join(GOLDEN_DIR, `${name}.json`));
 }
 
 export function recordings(scenario: Scenario): Exchange[] {
+  if (
+    scenario === 'chain' ||
+    scenario === 'consensus-unavailable' ||
+    scenario === 'consensus-catching-up'
+  ) {
+    const legacy = recordings('available');
+    const account = legacy.find((entry) => entry.request.method === 'px_resolveAccount')?.response
+      .result;
+    const overrides: Exchange[] = [
+      {
+        request: { method: 'px_getNetwork', params: [] },
+        response: {
+          result: {
+            network_id: 'paxeer',
+            paxeer: { chain_id: '0x7d', latest_block: '0x3e8' },
+            consensus:
+              scenario === 'consensus-unavailable'
+                ? null
+                : {
+                    latest_height: '1000',
+                    latest_block_hash: 'aa'.repeat(32),
+                    latest_app_hash: 'bb'.repeat(32),
+                    catching_up: scenario === 'consensus-catching-up',
+                  },
+            ...(scenario === 'consensus-unavailable' ? { reason: 'consensus_unavailable' } : {}),
+          },
+        },
+      },
+      {
+        request: { method: 'px_getAccount', params: [OWNER] },
+        response: {
+          result: {
+            account,
+            paxeer: { address: OWNER, balance: '0xde0b6b3a7640000', nonce: '0x3', height: 1000 },
+          },
+        },
+      },
+      {
+        request: { method: 'px_getBalances', params: [OWNER] },
+        response: {
+          result: {
+            account,
+            height: 1000,
+            balances: [{ denom: 'ulxp', amount: '125000' }],
+          },
+        },
+      },
+    ];
+    const replaced = new Set(overrides.map((entry) => entry.request.method));
+    return [
+      ...mergedRecordings().filter((entry) => !replaced.has(entry.request.method)),
+      ...overrides,
+    ];
+  }
   if (scenario === 'merged' || scenario === 'deposit') return mergedRecordings();
-  return readJson<Exchange[]>(path.join(SDK_ENDPOINT_DIR, `${scenario}.json`));
+  const entries = readJson<Exchange[]>(path.join(SDK_ENDPOINT_DIR, `${scenario}.json`));
+  if (
+    scenario === 'kernel-unreachable' ||
+    scenario === 'no-finalised-checkpoint' ||
+    scenario === 'kernel-not-configured'
+  )
+    return entries.map((entry) =>
+      entry.request.method !== 'px_getNetwork'
+        ? entry
+        : {
+            request: entry.request,
+            response: {
+              result: {
+                network_id: 'paxeer',
+                paxeer: { chain_id: '0x7d', latest_block: '0x3e8' },
+                consensus: null,
+                reason: 'consensus_unavailable',
+              },
+            },
+          }
+    );
+  return entries;
 }
 
 function mergedRecordings(): Exchange[] {
@@ -200,7 +280,7 @@ function submitRefusal(body: unknown, now: number): string | null {
       return `leg ${leg.index} window exceeds the deadline`;
     if (now < binding.not_before || now > binding.not_after)
       return `leg ${leg.index} window does not contain the submission time`;
-    if (leg.domain === 'layerx') sequence += 1;
+    sequence += 1;
   }
   return null;
 }
@@ -273,72 +353,106 @@ export async function startAccountEndpoint(): Promise<AccountEndpoint> {
     });
   }
 
-  const server = createServer((req, res) => {
-    const chunks: Buffer[] = [];
-    req.on('data', (chunk: Buffer) => chunks.push(chunk));
-    req.on('end', () => {
-      if (req.method === 'OPTIONS') {
-        res.writeHead(204, {
-          'access-control-allow-origin': '*',
-          'access-control-allow-headers': '*',
-          'access-control-allow-methods': 'GET, POST',
-        });
-        res.end();
-        return;
-      }
-      const raw = Buffer.concat(chunks).toString('utf8');
-      const body: unknown = raw.length > 0 ? JSON.parse(raw) : undefined;
-      const url = new URL(req.url ?? '/', 'http://127.0.0.1');
-      const [, scope = '', ...rest] = url.pathname.split('/');
-      const route = `/${rest.join('/')}`;
-      const header = (name: string) => {
-        const value = req.headers[name];
-        return typeof value === 'string' ? value : null;
-      };
-      const calls = Array.isArray(body) ? (body as { method: string }[]) : [];
-      seen.push({
-        scope,
-        path: route,
-        methods:
-          scope === 'human' || scope === 'explorer'
-            ? [req.method ?? '']
-            : calls.length > 0
-              ? calls.map((call) => call.method)
-              : [(body as { method?: string } | undefined)?.method ?? ''],
-        authorization: header('authorization'),
-        idempotencyKey: header('idempotency-key'),
-        body,
-      });
-      if (scope === 'human') {
-        human(req, route, body, res);
-        return;
-      }
-      if (scope === 'explorer') {
-        const match = /^\/api\/v2\/transactions\/(0x[0-9a-fA-F]{64})\/status$/.exec(route);
-        const status = match ? statuses[match[1].toLowerCase()] : undefined;
-        if (status === undefined) {
-          unmatched.push(`explorer ${route}`);
-          reply(res, 404, { message: 'Not found' });
+  function createEndpointServer(scenario?: Scenario) {
+    return createServer((req, res) => {
+      const chunks: Buffer[] = [];
+      req.on('data', (chunk: Buffer) => chunks.push(chunk));
+      req.on('end', () => {
+        if (req.method === 'OPTIONS') {
+          res.writeHead(204, {
+            'access-control-allow-origin': '*',
+            'access-control-allow-headers': '*',
+            'access-control-allow-methods': 'GET, POST',
+          });
+          res.end();
           return;
         }
-        reply(res, 200, status);
-        return;
-      }
-      const scenario = scope as Scenario;
-      if (!SCENARIOS.includes(scenario) || route !== '/rpc' || req.method !== 'POST') {
-        unmatched.push(`${req.method ?? ''} ${url.pathname}`);
-        reply(res, 404, { error: 'unknown route' });
-        return;
-      }
-      const batch = Array.isArray(body);
-      const answers = (batch ? (body as unknown[]) : [body]).map((call) =>
-        answer(scenario, call as { id: unknown; method: string; params: unknown[] })
-      );
-      reply(res, 200, batch ? answers : answers[0]);
+        const raw = Buffer.concat(chunks).toString('utf8');
+        const body: unknown = raw.length > 0 ? JSON.parse(raw) : undefined;
+        const url = new URL(req.url ?? '/', 'http://127.0.0.1');
+        const [, service = '', ...rest] = url.pathname.split('/');
+        const scope = scenario ?? service;
+        const route = scenario === undefined ? `/${rest.join('/')}` : url.pathname;
+        const header = (name: string) => {
+          const value = req.headers[name];
+          return typeof value === 'string' ? value : null;
+        };
+        const calls = Array.isArray(body) ? (body as { method: string }[]) : [];
+        seen.push({
+          scope,
+          path: route,
+          methods:
+            scope === 'human' || scope === 'explorer'
+              ? [req.method ?? '']
+              : calls.length > 0
+                ? calls.map((call) => call.method)
+                : [(body as { method?: string } | undefined)?.method ?? ''],
+          authorization: header('authorization'),
+          idempotencyKey: header('idempotency-key'),
+          body,
+        });
+        if (scenario === undefined && scope === 'human') {
+          human(req, route, body, res);
+          return;
+        }
+        if (scenario === undefined && scope === 'explorer') {
+          const match = /^\/api\/v2\/transactions\/(0x[0-9a-fA-F]{64})\/status$/.exec(route);
+          const status = match ? statuses[match[1].toLowerCase()] : undefined;
+          if (status === undefined) {
+            unmatched.push(`explorer ${route}`);
+            reply(res, 404, { message: 'Not found' });
+            return;
+          }
+          reply(res, 200, status);
+          return;
+        }
+        if (scenario === undefined || route !== '/' || req.method !== 'POST') {
+          unmatched.push(`${req.method ?? ''} ${url.pathname}`);
+          reply(res, 404, { error: 'unknown route' });
+          return;
+        }
+        const batch = Array.isArray(body);
+        const answers = (batch ? (body as unknown[]) : [body]).map((call) =>
+          answer(scenario, call as { id: unknown; method: string; params: unknown[] })
+        );
+        reply(res, 200, batch ? answers : answers[0]);
+      });
     });
-  });
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-  const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  }
+  const server = createEndpointServer();
+  const scenarioServers = new Map(
+    SCENARIOS.map((scenario) => [scenario, createEndpointServer(scenario)])
+  );
+  const servers = [server, ...scenarioServers.values()];
+  async function close(): Promise<void> {
+    await Promise.all(
+      servers
+        .filter((entry) => entry.listening)
+        .map(
+          (entry) =>
+            new Promise<void>((resolve, reject) =>
+              entry.close((error) => (error ? reject(error) : resolve()))
+            )
+        )
+    );
+  }
+  try {
+    for (const entry of servers) {
+      await new Promise<void>((resolve, reject) => {
+        entry.once('error', reject);
+        entry.listen(0, '127.0.0.1', () => {
+          entry.removeListener('error', reject);
+          resolve();
+        });
+      });
+    }
+  } catch (error) {
+    await close();
+    throw error;
+  }
+  const origin = (entry: ReturnType<typeof createEndpointServer>) =>
+    `http://127.0.0.1:${(entry.address() as AddressInfo).port}`;
+  const base = origin(server);
 
   return {
     base,
@@ -353,7 +467,8 @@ export async function startAccountEndpoint(): Promise<AccountEndpoint> {
     },
     config(scenario: Scenario): AccountConfig {
       return {
-        endpointUrl: `${base}/${scenario}/rpc`,
+        endpointUrl: origin(scenarioServers.get(scenario)!),
+        hostedUrl: origin(scenarioServers.get(scenario)!),
         humanUrl: `${base}/human`,
         explorerUrl: `${base}/explorer`,
       };
@@ -361,10 +476,6 @@ export async function startAccountEndpoint(): Promise<AccountEndpoint> {
     methods(scenario: Scenario): string[] {
       return seen.filter((entry) => entry.scope === scenario).flatMap((entry) => entry.methods);
     },
-    close(): Promise<void> {
-      return new Promise((resolve, reject) =>
-        server.close((error) => (error ? reject(error) : resolve()))
-      );
-    },
+    close,
   };
 }

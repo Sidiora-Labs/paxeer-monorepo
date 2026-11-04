@@ -1,0 +1,19 @@
+[repair.22.33.1042]
+finding = "webhook_duplicate_effects"
+audit = "spec/layerx-merge/programme/audit/records/22.30.40.kvx"
+implementation = "ProcessEvent now commits the pool_transactions inbox and every derived stats write in one transaction and always stops duplicate effects. ProcessWebhookEvent additionally applies the holder delta only for a newly inserted swap in that same transaction, checks that the holder shares its database, and schedules refreshes and caches only after commit; redelivery restores a refresh lost after commit. ProjectTx retains its canonical event-time semantics."
+proof = ["TestRepairM_1042_RedeliveryAndRestart", "TestRepairM_1042_FailureAfterEachWrite", "TestRepairM_1042_CommitAcknowledgementLost", "TestRepairM_1042_ProcessEventAtomicRecovery", "TestRepairM_1042_DevelopmentWebhookStatsRedelivery", "TestRepairM_1042_HolderFailureRollsBackInbox", "TestRepairM_1042_ConcurrentRedelivery"]
+source_evidence = "The production generated EventEmitter binding decodes the committed mined buy/sell receipts in internal/projectionstats/testdata/real_pool_125.json. The production pgx client, SQL Store, swap projection and holder arithmetic run against file-backed SQLite through a test simple-query protocol adapter using the registered stats migration. The real signed development webhook is exercised over loopback HTTP for stats redelivery; atomic holder delivery is exercised through the new production consumer entry point."
+recovery_evidence = "Disconnect after each inbox, volume, trader, rolling-stats, snapshot, price and holder write; close and reopen the file database, pool, Store, SwapConsumer and HolderTracker; assert no partial effects, then retry. Disconnect after the outer COMMIT and fail the real Redis cache with a closed client; reopen and redeliver, asserting one inbox row, one bucket contribution and one holder delta. Distinct recorded buy and sell deliveries recover the exact final balance."
+qualification_limit = "The in-process SQLite peer executes real transactions, conflicts and savepoints, with BEGIN IMMEDIATE providing a coarse writer lock; it does not certify PostgreSQL-specific locking. Full buy/holder webhook integration remains a wiring request because the handler is outside the allowed paths."
+baseline = "No baseline gate ran: the explicit implementation-first order and sole hf-done verification take precedence over step 5's contradictory unchanged-tree run. No pre-change failure is claimed."
+qualification = "The exact verified candidate revision, command, exit and private log location are the final hf-done row in /out/run/gates.jsonl, copied verbatim into the final task evidence."
+wiring_request = "services/launchpad/stats-workers/internal/httpapi/webhook.go — domain 4 (launchpad stats HTTP): replace the Swap branch's separate ProcessEvent plus Holder.ProcessSwap calls with Swap.ProcessWebhookEvent(ctx, decodedSwap, deps.Holder), and prove signed buy/sell redelivery and interruption through that handler; keep the consumer as the single transaction owner."
+
+[gotcha.scope]
+symptom = "The finding proposal names the HTTP handler, but only consumer paths are authorized."
+resolution = "Keep the handler unchanged and name the concrete domain-4 wiring request above; do not claim the current buy webhook is fully closed."
+
+[gotcha.dependencies]
+symptom = "The existing package integration helpers require service environment variables and cannot be used by this gate."
+resolution = "Use the real SQL Store against the in-process file database; fail the real cache deterministically without external networking."

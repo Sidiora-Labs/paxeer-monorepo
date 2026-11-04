@@ -1,5 +1,5 @@
 import { createContext,createElement,useContext,type ReactNode } from 'react';
-import { decodeFunctionData, decodeErrorResult, decodeEventLog, erc20Abi, getAddress, keccak256, parseAbi, stringToHex, zeroAddress, type Address, type Hash, type Hex, type PublicClient, type WalletClient } from 'viem';
+import { encodeFunctionData, decodeFunctionResult, decodeFunctionData, decodeErrorResult, decodeEventLog, erc20Abi, getAddress, keccak256, parseAbi, stringToHex, zeroAddress, type Address, type Hash, type Hex, type PublicClient, type WalletClient } from 'viem';
 import { CORE_DEPLOYMENT, CORE_TRADE_EXECUTION_ROLES } from '@/core/network/deployment';
 import type { AccountScope, WalletSessionController } from '@/core/wallet-sdk/session';
 import { EvidenceIntegrityError, executableQuote, raw, contextKey, encodeReviewedRouterCalldata, reviewedRouterAbi, quoteFingerprint, type TradeContext, type QuoteEnvelope, type OpticalSimulation, type TxAttempt, type ReceiptEvidence } from './domain';
@@ -133,7 +133,19 @@ export class ChainTradeProvider {
     this.allowanceReads.set(key,read);
     try{return await read;}finally{if(this.allowanceReads.get(key)===read)this.allowanceReads.delete(key);}
   }
-  async readBalance(token:Address,account:Address,blockNumber?:bigint) { return raw(await this.publicClient.readContract({address:token,abi:erc20Abi,functionName:'balanceOf',args:[account],blockNumber})); }
+  async readBalance(token:Address,account:Address,blockNumber?:bigint,signal?:AbortSignal) {
+    alive(signal);
+    const controller=new AbortController();
+    const cancel=()=>controller.abort(signal?.reason);
+    signal?.addEventListener('abort',cancel,{once:true});
+    const timer=setTimeout(()=>controller.abort(new Error('Balance RPC deadline exceeded')),15000);
+    try {
+      const data=encodeFunctionData({abi:erc20Abi,functionName:'balanceOf',args:[account]});
+      const result=await this.publicClient.request({method:'eth_call',params:[{to:token,data},blockNumber===undefined?'latest':`0x${blockNumber.toString(16)}`]},{signal:controller.signal,retryCount:0,dedupe:false});
+      alive(controller.signal);
+      return raw(decodeFunctionResult({abi:erc20Abi,functionName:'balanceOf',data:result}));
+    } finally { clearTimeout(timer);signal?.removeEventListener('abort',cancel); }
+  }
   private async authorize(scope:AccountScope,context:TradeContext) {
     this.session?.assertCurrent(scope,true); alive(scope.signal); if(!this.walletClient||scope.chainId!==125||!same(scope.account,context.sender)) throw new Error('wallet_scope_mismatch');
     if(await this.walletClient.getChainId()!==125||!(await this.walletClient.getAddresses()).some(a=>same(a,scope.account))) throw new Error('wallet_changed');

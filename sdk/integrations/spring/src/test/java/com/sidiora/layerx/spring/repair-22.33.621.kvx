@@ -1,0 +1,21 @@
+[repair.22.33.621]
+audit = "22.30.163"
+acceptance = "22998.1"
+test_class = "com.sidiora.layerx.Repair2233621Test"
+evidence = "The bounded hf-build and hf-done ledger identifies the exact verified candidate revision, command, exit code and private evidence log; this source record makes no independent qualification claim."
+baseline = "Not run: the explicit implementation-first order and prohibition on invoking verify_cmd by hand take precedence over step 5's contradictory baseline instruction; Repair2233621Test did not exist on the base, and no pre-change test failures are claimed."
+fixture = "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json, recorded by rpc/sequencer_receipt_vectors_test.go: V1-layerxledger-pay-exact plus recorded transfer, approval and reverted payment refusals."
+transport = "A loopback HTTP server adapts actual HTTP exchanges to Servlet interfaces and invokes the filter returned by LayerXAutoConfiguration.layerXPaymentGateRegistration, with the production receipt authority, native verifier, SDK verifier, decoder and fulfillment repository."
+consumer = "The unmodified PAYMENT-RESPONSE is decoded by X402; its canonical signed receipt and raw transaction are verified with independently pinned keys by LocalVerifier, including the recorded receipt JSON projection, transaction hash and success; all three native payment schemes and replay execute."
+
+[finding.030]
+tests = ["finding030NativePaymentRetainsPinnedKeyAndSignatureRefusals", "finding030NativePaymentBindsTermsChainAndExecutionEffects", "finding030RegisteredFilterResponseReachesBuyerAndReplays", "finding030RegisteredFilterRefusesTamperedPortableEvidence", "finding030DurableStoreReopensReceiptKeyAndRefusesConflicts"]
+proof = "SellerReceiptsTest now uses native chain-125 payExact calldata/effects, zero outer value and the six-field portable v2 shape; its registered filter returns the real EVM transaction hash through the JVM consuming decoder/verifier, replay releases once, altered evidence and terms refuse, and reopened durable records retain the key and reject changed key/hash conflicts."
+
+[wiring]
+task_record = "spec/layerx-merge/spec.kvx — owning domain 15: copy this finding-to-test mapping, baseline-order conflict and evidence reference into task 22.33.621; worker scope excludes spec edits."
+buyer_cross_language = "services/platform/middleware/buyer/test/portable-receipts.test.mjs — owning domain 15: pair the Spring response with BuyerMiddleware.captureSettlement in the cross-language gate; this JVM-only gate covers the production JVM decoder/verifier consumer and cannot execute TypeScript without the prohibited subprocess toolchain."
+
+[gotcha.portable-payment-digest]
+observed = "Current portable middleware payment evidence uses keccak256(signedReceipt), whereas LocalVerifier.receiptDigest authenticates the sequencer signature with SHA-256."
+action = "Retain signature-digest assertions and independently bind the portable payment digest to the exact signed receipt bytes."

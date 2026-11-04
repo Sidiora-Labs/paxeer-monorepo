@@ -28,8 +28,6 @@ const ZetaChainCCTXDetailsLifecycleOut = ({ outboundParam, tx, isLoading, isLast
   const chainToId = outboundParam.receiver_chain_id?.toString() || '';
   const chainTo = chainsConfig?.find((chain) => chain.id.toString() === chainToId);
 
-  const gasDecimals = config.chain.currency.decimals;
-
   if (tx.cctx_status?.status === CctxStatus.PENDING_INBOUND) {
     return null;
   }
@@ -90,7 +88,7 @@ const ZetaChainCCTXDetailsLifecycleOut = ({ outboundParam, tx, isLoading, isLast
         />
         <Text color="text.secondary" fontWeight="medium">Gas used</Text>
         <Text overflow="hidden" whiteSpace="nowrap" textOverflow="ellipsis">
-          { BigNumber(outboundParam.gas_used || 0).div(10 ** gasDecimals).toFormat() }
+          { BigNumber(outboundParam.gas_used || 0).toFormat(0) }
         </Text>
       </>
     );
@@ -172,7 +170,7 @@ const ZetaChainCCTXDetailsLifecycleOut = ({ outboundParam, tx, isLoading, isLast
           />
           <Text color="text.secondary" fontWeight="medium">Gas used</Text>
           <Text overflow="hidden" whiteSpace="nowrap" textOverflow="ellipsis">
-            { BigNumber(outboundParam.gas_used || 0).div(10 ** gasDecimals).toFormat() }&nbsp;
+            { BigNumber(outboundParam.gas_used || 0).toFormat(0) }&nbsp;
           </Text>
         </>
       );

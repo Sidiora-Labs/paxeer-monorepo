@@ -19,6 +19,7 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -27,6 +28,10 @@ import (
 
 	sharedconfig "github.com/Sidiora-Technologies/KindleLaunch/shared/config"
 )
+
+// maxReconcileIntervalMS is 9223372036854 milliseconds, the largest positive
+// whole-millisecond interval representable by time.Duration (signed nanoseconds).
+const maxReconcileIntervalMS = int64(1<<63-1) / int64(time.Millisecond)
 
 // Config is the parsed pnl environment.
 type Config struct {
@@ -68,7 +73,8 @@ type Config struct {
 
 	// ReconcileIntervalMS is how often the idempotent backfill reconciler scans
 	// indexer.swaps for swaps not yet folded into positions. Mirrors the TS
-	// PNL_RECONCILE_INTERVAL_MS (default 30000).
+	// PNL_RECONCILE_INTERVAL_MS (default 30000). Load accepts values from 1
+	// through maxReconcileIntervalMS to keep the ticker duration positive.
 	ReconcileIntervalMS int `env:"PNL_RECONCILE_INTERVAL_MS" envDefault:"30000"`
 
 	// ReconcileBatchSize bounds the number of swaps reconciled per tick.
@@ -107,9 +113,20 @@ type Config struct {
 
 // Load parses the process environment into a validated Config.
 func Load() (Config, error) {
-	cfg, err := env.ParseAs[Config]()
+	// env's default int parser is limited to 32 bits. Parse this interval
+	// separately at native int width so representable durations stay valid.
+	values := env.ToMap(os.Environ())
+	rawInterval := values["PNL_RECONCILE_INTERVAL_MS"]
+	delete(values, "PNL_RECONCILE_INTERVAL_MS")
+	cfg, err := env.ParseAsWithOptions[Config](env.Options{Environment: values})
 	if err != nil {
 		return Config{}, fmt.Errorf("config: %w", err)
+	}
+	if rawInterval != "" {
+		cfg.ReconcileIntervalMS, err = strconv.Atoi(rawInterval)
+		if err != nil {
+			return Config{}, fmt.Errorf("config: PNL_RECONCILE_INTERVAL_MS: %w", err)
+		}
 	}
 	if err = cfg.registerInlineDocuments(); err != nil {
 		return Config{}, fmt.Errorf("config: %w", err)
@@ -119,6 +136,9 @@ func Load() (Config, error) {
 	}
 	if len(cfg.WebhookHMACSecret) < 32 {
 		return Config{}, fmt.Errorf("config: WEBHOOK_HMAC_SECRET must be at least 32 characters")
+	}
+	if cfg.ReconcileIntervalMS <= 0 || int64(cfg.ReconcileIntervalMS) > maxReconcileIntervalMS {
+		return Config{}, fmt.Errorf("config: PNL_RECONCILE_INTERVAL_MS must be between 1 and %d milliseconds", maxReconcileIntervalMS)
 	}
 	return cfg, nil
 }

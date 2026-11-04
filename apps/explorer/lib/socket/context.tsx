@@ -3,7 +3,19 @@ import type { Channel, SocketConnectOption } from 'phoenix';
 import { Socket } from 'phoenix';
 import React, { useEffect, useState } from 'react';
 
-type ChannelRegistry = Record<string, { channel: Channel; subscribers: number }>;
+export interface ChannelSubscription {
+  onJoin: (message: unknown) => void;
+  onError: () => void;
+}
+
+export interface RegisteredChannel {
+  socket: Socket;
+  channel: Channel;
+  subscribers: number;
+  listeners: Set<ChannelSubscription>;
+}
+
+type ChannelRegistry = Record<string, RegisteredChannel>;
 
 const socketContexts = new Map<string, React.Context<{
   socket: Socket | null;

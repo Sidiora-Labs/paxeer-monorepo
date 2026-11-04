@@ -292,7 +292,18 @@ impl LxkpGateway {
             return Err(CustodyError::InvalidNetwork);
         }
         let limits = policy.limits.validate()?;
-        provider.probe().map_err(CustodyError::Kms)?;
+        let mut startup =
+            Deadline::start(clock.as_ref(), limits.deadline).map_err(|_| KmsError::Unavailable)?;
+        provider
+            .for_deadline(startup, Arc::clone(&clock))?
+            .probe()?;
+        if startup
+            .remaining(clock.as_ref())
+            .map_err(|_| KmsError::Unavailable)?
+            .is_zero()
+        {
+            return Err(KmsError::Timeout.into());
+        }
         let started = clock
             .sample(limits.deadline)
             .map_err(|_| CustodyError::Kms(KmsError::Unavailable))?;
@@ -476,34 +487,55 @@ impl LxkpGateway {
     }
 
     fn dispatch(&self, request: &Request<'_>) -> Result<Vec<u8>, KmsError> {
+        let deadline = Deadline::start(self.clock.as_ref(), self.limits.deadline)
+            .map_err(|_| KmsError::Unavailable)?;
+        let provider = self
+            .provider
+            .for_deadline(deadline, Arc::clone(&self.clock))?;
+        let mut remaining = deadline;
+        let result = self.dispatch_bounded(request, provider.as_ref(), deadline);
+        if remaining
+            .remaining(self.clock.as_ref())
+            .map_err(|_| KmsError::Unavailable)?
+            .is_zero()
+        {
+            return Err(KmsError::Timeout);
+        }
+        result
+    }
+
+    fn dispatch_bounded(
+        &self,
+        request: &Request<'_>,
+        provider: &dyn KmsProvider,
+        deadline: Deadline,
+    ) -> Result<Vec<u8>, KmsError> {
         if request.operation == Operation::Probe {
-            self.provider.probe()?;
+            provider.probe()?;
             return Ok(Vec::new());
         }
         let class = KeyClass::from_code(request.class).map_err(|_| KmsError::Refused)?;
         let binding = PrincipalKeyBinding::from_digest(request.binding, request.network, class)?;
         if request.operation == Operation::Create {
-            return describe_response(&binding, &self.provider.create_key(&binding)?);
+            return describe_response(&binding, &provider.create_key(&binding)?);
         }
         let reference = ProviderKeyReference::new(request.reference.to_vec())?;
         match request.operation {
             Operation::Describe => {
-                describe_response(&binding, &self.provider.describe_key(&binding, &reference)?)
+                describe_response(&binding, &provider.describe_key(&binding, &reference)?)
             }
             Operation::Rotate => {
-                describe_response(&binding, &self.provider.rotate_key(&binding, &reference)?)
+                describe_response(&binding, &provider.rotate_key(&binding, &reference)?)
             }
             Operation::RotateIfCurrent => describe_response(
                 &binding,
-                &self
-                    .provider
-                    .rotate_key_if_current(&binding, &reference, request.expected)?,
+                &provider.rotate_key_if_current(&binding, &reference, request.expected)?,
             ),
             Operation::Destroy => {
-                self.provider.destroy_key(&binding, &reference)?;
+                provider.destroy_key(&binding, &reference)?;
                 Ok(Vec::new())
             }
-            Operation::Sign => self.sign(&binding, &reference, request),
+            Operation::Sign => self.sign(&binding, &reference, request, provider, deadline),
             Operation::Probe | Operation::Create => Err(KmsError::Refused),
         }
     }
@@ -514,6 +546,8 @@ impl LxkpGateway {
         binding: &PrincipalKeyBinding,
         reference: &ProviderKeyReference,
         request: &Request<'_>,
+        provider: &dyn KmsProvider,
+        deadline: Deadline,
     ) -> Result<Vec<u8>, KmsError> {
         let call = layerx_human_kms::attestor::decode_unsigned_evm_transaction(request.canonical)
             .map_err(|_| KmsError::Refused)?;
@@ -544,12 +578,12 @@ impl LxkpGateway {
         if !layerx_crypto::ct::eq(&admitted.disclosure, request.disclosure) {
             return Err(KmsError::Refused);
         }
-        let description = self.provider.describe_key(binding, reference)?;
+        let description = provider.describe_key(binding, reference)?;
         if !layerx_crypto::ct::eq_fixed(&description.binding_digest(), &binding.digest()) {
             return Err(KmsError::Integrity);
         }
         let signature = block_on(
-            self.provider.sign(
+            provider.sign(
                 binding,
                 reference,
                 ProviderSignRequest::new(
@@ -559,7 +593,7 @@ impl LxkpGateway {
                     description.public_key(),
                 ),
             ),
-            self.limits.deadline,
+            deadline,
             self.clock.as_ref(),
         )?
         .map_err(custody_refusal)?;
@@ -758,15 +792,22 @@ impl Wake for ThreadWaker {
 /// Drives one provider future on the connection worker within `deadline`.
 fn block_on<F: Future>(
     future: F,
-    duration: Duration,
+    mut deadline: Deadline,
     clock: &dyn Clock,
 ) -> Result<F::Output, KmsError> {
-    let mut deadline = Deadline::start(clock, duration).map_err(|_| KmsError::Unavailable)?;
     let mut future = std::pin::pin!(future);
     let waker = Waker::from(Arc::new(ThreadWaker(std::thread::current())));
     let mut context = Context::from_waker(&waker);
     loop {
-        if let Poll::Ready(output) = future.as_mut().poll(&mut context) {
+        let output = future.as_mut().poll(&mut context);
+        if deadline
+            .remaining(clock)
+            .map_err(|_| KmsError::Unavailable)?
+            .is_zero()
+        {
+            return Err(KmsError::Timeout);
+        }
+        if let Poll::Ready(output) = output {
             return Ok(output);
         }
         let remaining = deadline

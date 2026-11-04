@@ -577,7 +577,6 @@ defmodule Explorer.Chain.AdvancedFilter do
     filtered_and_paginated_query =
       token_transfer_query
       |> ExplorerHelper.maybe_hide_scam_addresses_for_token_transfers(options)
-      |> limit_query(paging_options)
       |> query_function.(false)
       |> limit_query(paging_options)
       |> select_merge([unnested_token_transfer: unnested_token_transfer], %{
@@ -753,7 +752,7 @@ defmodule Explorer.Chain.AdvancedFilter do
   end
 
   defp page_tt_index_dynamic(binding, block_number, tt_index, tt_batch_index)
-       when block_number >= 0 and tt_index > 0 and tt_batch_index > 1 do
+       when block_number >= 0 and tt_index >= 0 and tt_batch_index > 1 do
     dynamic(as(^binding).block_number == ^block_number and as(^binding).log_index <= ^tt_index)
   end
 
@@ -995,6 +994,10 @@ defmodule Explorer.Chain.AdvancedFilter do
     end
   end
 
+  defp do_filter_token_transfers_by_address(query_function, {:include, []}, _field) do
+    fn query, unnested? -> query |> where(false) |> query_function.(unnested?) end
+  end
+
   defp do_filter_token_transfers_by_address(query_function, {:include, addresses}, field) do
     fn query, _unnested? ->
       queries =
@@ -1024,6 +1027,10 @@ defmodule Explorer.Chain.AdvancedFilter do
     end
   end
 
+  defp do_filter_token_transfers_by_both_addresses(query_function, {:include, []}, {:include, []}, _relation) do
+    fn query, unnested? -> query |> where(false) |> query_function.(unnested?) end
+  end
+
   defp do_filter_token_transfers_by_both_addresses(query_function, {:include, from}, {:include, to}, _relation) do
     fn query, _unnested? ->
       from_queries =
@@ -1051,6 +1058,10 @@ defmodule Explorer.Chain.AdvancedFilter do
     end
   end
 
+  defp do_filter_token_transfers_by_both_addresses(query_function, {:include, []}, {:exclude, _to}, :and) do
+    fn query, unnested? -> query |> where(false) |> query_function.(unnested?) end
+  end
+
   defp do_filter_token_transfers_by_both_addresses(query_function, {:include, from}, {:exclude, to}, :and) do
     fn query, _unnested? ->
       from_queries =
@@ -1074,25 +1085,15 @@ defmodule Explorer.Chain.AdvancedFilter do
   end
 
   defp do_filter_token_transfers_by_both_addresses(query_function, {:include, from}, {:exclude, to}, _relation) do
-    fn query, _unnested? ->
-      from_queries =
-        from
-        |> Enum.map(fn from_address ->
-          query
-          |> where(
-            [token_transfer],
-            token_transfer.from_address_hash == ^from_address or token_transfer.to_address_hash not in ^to
-          )
-          |> query_function.(true)
-        end)
-        |> map_first(&subquery/1)
-        |> Enum.reduce(fn query, acc -> union_all(acc, ^query) end)
-
-      from(token_transfer in subquery(from_queries),
-        as: :unnested_token_transfer,
-        order_by: [desc: token_transfer.block_number, desc: token_transfer.log_index]
-      )
+    fn query, unnested? ->
+      query
+      |> where([t], t.from_address_hash in ^from or t.to_address_hash not in ^to)
+      |> query_function.(unnested?)
     end
+  end
+
+  defp do_filter_token_transfers_by_both_addresses(query_function, {:exclude, _from}, {:include, []}, :and) do
+    fn query, unnested? -> query |> where(false) |> query_function.(unnested?) end
   end
 
   defp do_filter_token_transfers_by_both_addresses(query_function, {:exclude, from}, {:include, to}, :and) do
@@ -1118,24 +1119,10 @@ defmodule Explorer.Chain.AdvancedFilter do
   end
 
   defp do_filter_token_transfers_by_both_addresses(query_function, {:exclude, from}, {:include, to}, _relation) do
-    fn query, _unnested? ->
-      to_queries =
-        to
-        |> Enum.map(fn to_address ->
-          query
-          |> where(
-            [token_transfer],
-            token_transfer.to_address_hash == ^to_address or token_transfer.from_address_hash not in ^from
-          )
-          |> query_function.(true)
-        end)
-        |> map_first(&subquery/1)
-        |> Enum.reduce(fn query, acc -> union_all(acc, ^query) end)
-
-      from(token_transfer in subquery(to_queries),
-        as: :unnested_token_transfer,
-        order_by: [desc: token_transfer.block_number, desc: token_transfer.log_index]
-      )
+    fn query, unnested? ->
+      query
+      |> where([t], t.to_address_hash in ^to or t.from_address_hash not in ^from)
+      |> query_function.(unnested?)
     end
   end
 
@@ -1166,6 +1153,10 @@ defmodule Explorer.Chain.AdvancedFilter do
     end
   end
 
+  defp do_filter_transactions_by_address(query, {:include, []}, _field, order_by) do
+    query |> where(false) |> order_by.()
+  end
+
   defp do_filter_transactions_by_address(query, {:include, addresses}, field, order_by) do
     queries =
       addresses
@@ -1191,6 +1182,10 @@ defmodule Explorer.Chain.AdvancedFilter do
     query
     |> where([transaction], transaction.from_address_hash in ^from and transaction.to_address_hash in ^to)
     |> order_by.()
+  end
+
+  defp do_filter_transactions_by_both_addresses(query, {:include, []}, {:include, []}, _relation, order_by) do
+    query |> where(false) |> order_by.()
   end
 
   defp do_filter_transactions_by_both_addresses(query, {:include, from}, {:include, to}, _relation, order_by) do
@@ -1220,6 +1215,10 @@ defmodule Explorer.Chain.AdvancedFilter do
     filtered_query |> order_by.()
   end
 
+  defp do_filter_transactions_by_both_addresses(query, {:include, []}, {:exclude, _to}, :and, order_by) do
+    query |> where(false) |> order_by.()
+  end
+
   defp do_filter_transactions_by_both_addresses(query, {:include, from}, {:exclude, to}, :and, order_by) do
     from_queries =
       from
@@ -1239,21 +1238,13 @@ defmodule Explorer.Chain.AdvancedFilter do
   end
 
   defp do_filter_transactions_by_both_addresses(query, {:include, from}, {:exclude, to}, _relation, order_by) do
-    from_queries =
-      from
-      |> Enum.map(fn from_address ->
-        query
-        |> where(
-          [transaction],
-          transaction.from_address_hash == ^from_address or transaction.to_address_hash not in ^to
-        )
-        |> order_by.()
-      end)
-      |> map_first(&subquery/1)
-      |> Enum.reduce(fn query, acc -> union_all(acc, ^query) end)
+    query
+    |> where([t], t.from_address_hash in ^from or t.to_address_hash not in ^to)
+    |> order_by.()
+  end
 
-    filtered_query = from(transaction in subquery(from_queries))
-    filtered_query |> order_by.()
+  defp do_filter_transactions_by_both_addresses(query, {:exclude, _from}, {:include, []}, :and, order_by) do
+    query |> where(false) |> order_by.()
   end
 
   defp do_filter_transactions_by_both_addresses(query, {:exclude, from}, {:include, to}, :and, order_by) do
@@ -1275,21 +1266,9 @@ defmodule Explorer.Chain.AdvancedFilter do
   end
 
   defp do_filter_transactions_by_both_addresses(query, {:exclude, from}, {:include, to}, _relation, order_by) do
-    to_queries =
-      to
-      |> Enum.map(fn to_address ->
-        query
-        |> where(
-          [transaction],
-          transaction.to_address_hash == ^to_address or transaction.from_address_hash not in ^from
-        )
-        |> order_by.()
-      end)
-      |> map_first(&subquery/1)
-      |> Enum.reduce(fn query, acc -> union_all(acc, ^query) end)
-
-    filtered_query = from(transaction in subquery(to_queries))
-    filtered_query |> order_by.()
+    query
+    |> where([t], t.to_address_hash in ^to or t.from_address_hash not in ^from)
+    |> order_by.()
   end
 
   defp do_filter_transactions_by_both_addresses(query, {:exclude, from}, {:exclude, to}, :and, order_by) do
@@ -1348,7 +1327,7 @@ defmodule Explorer.Chain.AdvancedFilter do
   end
 
   defp filter_token_transfers_by_amount_before_subquery(query, from, to)
-       when not is_nil(from) and not is_nil(to) and from < to do
+       when not is_nil(from) and not is_nil(to) do
     if Decimal.positive?(to) and Decimal.lt?(from, to) do
       query
       |> where(
@@ -1392,7 +1371,7 @@ defmodule Explorer.Chain.AdvancedFilter do
   defp filter_token_transfers_by_amount_before_subquery(query, _, _), do: query
 
   defp filter_token_transfers_by_amount_after_subquery(unnested_query, from, to)
-       when not is_nil(from) and not is_nil(to) and from < to do
+       when not is_nil(from) and not is_nil(to) do
     if Decimal.positive?(to) and Decimal.lt?(from, to) do
       unnested_query
       |> where(
@@ -1449,7 +1428,7 @@ defmodule Explorer.Chain.AdvancedFilter do
       {include_or_exclude, token_contract_address_hashes} ->
         filtered = token_contract_address_hashes |> Enum.reject(&(&1 == "native"))
 
-        if Enum.empty?(filtered) do
+        if Enum.empty?(filtered) and include_or_exclude == :exclude do
           query_function
         else
           do_filter_by_token(query_function, {include_or_exclude, filtered})
@@ -1458,6 +1437,10 @@ defmodule Explorer.Chain.AdvancedFilter do
   end
 
   defp filter_by_token(query_function, _), do: query_function
+
+  defp do_filter_by_token(query_function, {:include, []}) do
+    fn query, unnested? -> query |> where(false) |> query_function.(unnested?) end
+  end
 
   defp do_filter_by_token(query_function, {:include, token_contract_address_hashes}) do
     fn query, _unnested? ->
@@ -1500,10 +1483,7 @@ defmodule Explorer.Chain.AdvancedFilter do
         {:exclude, to_exclude}
 
       {to_include, to_exclude} when is_list(to_include) ->
-        case to_include -- (to_exclude || []) do
-          [] -> nil
-          to_include -> {:include, to_include}
-        end
+        {:include, to_include -- (to_exclude || [])}
     end
   end
 

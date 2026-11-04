@@ -1,0 +1,28 @@
+[repair.22.33.162]
+audit = "22.30.118"
+base_revision = "fedbeb3bb47c5bb972f66afc8189f92f5395f3eb"
+previous_attempt_base_revision = "081dc08ced37d64df4d676e4b2a2d07ef444115a"
+qualification = "hf-build then hf-done; the runner ledger records the exact verified candidate revision, command, exit and private evidence log."
+baseline = "No baseline gate ran: the ordered task instructions require complete implementation before qualification and prohibit running verify_cmd by hand; the initial runner ledger had no gate runs."
+prechange_observed = "Source inspection: account_test_endpoint_answers_the_merged_reads expects string asset height but the recording emits number 1000; scenario URLs use /<scenario>/rpc. No prechange test execution is claimed."
+wiring_requests = []
+
+[finding.asset-height-test]
+tests = ["account_test_endpoint_answers_the_merged_reads", "asset_height_test_preserves_numeric_wire_and_sdk_normalization", "asset_height_test_refuses_recorded_page_without_height"]
+proof = "The existing single and batch raw-response assertions require numeric height; the real EndpointClient normalizes that loopback response to decimal text and rejects the committed available transcript missing its height with JsonRpcTransportError and the exact malformed bank asset page height message."
+
+[finding.fixture-router-path]
+tests = ["fixture_router_path_isolates_scenarios_at_root_origins", "account_test_endpoint_refuses_lx_and_custody_methods", "account_test_endpoint_answers_the_merged_reads"]
+proof = "Distinct loopback origins serve every scenario at /; real SDK batches preserve scenario-specific replies and exact method recording, old router paths return 404, and existing single and batch retired-method refusals execute through the repair test entry point."
+
+[gotcha.1]
+observed = "The task's baseline-verification step conflicts with its explicit ordered implementation-before-gates instructions."
+resolution = "Follow the explicit gate order and report source-inspected prechange defects without claiming an executed baseline."
+
+[gotcha.2]
+observed = "Vitest 4 treats test(functionName) as a title without an implementation: the first gate returned zero with five TODO tests and zero executed tests."
+resolution = "Register every declared test with test(functionName.name, functionName) so the runner executes its assertions; rerun the changed candidate through both gates."
+
+[gotcha.3]
+observed = "The previous attempt executed five tests: four passed, but the malformed-height case expected TypeError while the production SDK throws JsonRpcTransportError."
+resolution = "Assert the exported production error class and its exact malformed-height message on the same rejected request, preserving transport and method-count assertions."

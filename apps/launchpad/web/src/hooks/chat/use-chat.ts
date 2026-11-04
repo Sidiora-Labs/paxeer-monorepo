@@ -45,6 +45,8 @@ function useConversation(kind: 'pool' | 'dm', target: string, conversationId: st
     else chatWs.sendDm(pending.target, pending.content, pending.clientMessageId);
   }, []);
   useEffect(() => {
+    clearTimeout(readTimer.current);
+    readTimer.current = undefined;
     renderedWallet.current = address?.toLowerCase();
     const generation = ++epoch.current;
     const controller = new AbortController();
@@ -82,7 +84,11 @@ function useConversation(kind: 'pool' | 'dm', target: string, conversationId: st
       finally { replaying = false; if (current()) { setLoading(false); if (replayRequested) { replayRequested = false; void replay(); } } }
     };
     void replay();
-    if (!address || !isConnected || !conversationId) return () => { controller.abort(); local.clear(); };
+    const cleanup = () => {
+      controller.abort(); epoch.current++; clearTimeout(timeout.current);
+      clearTimeout(readTimer.current); readTimer.current = undefined; local.clear();
+    };
+    if (!address || !isConnected || !conversationId) return cleanup;
     const id = chatWs.addConsumer({ wallet: address }, {
       onPoolMessage: row => { if (current() && row.conversationId === conversationId) { local.apply(row); publish(); } },
       onDm: row => { if (current() && row.conversationId === conversationId) { local.apply(row); publish(); } },
@@ -96,7 +102,7 @@ function useConversation(kind: 'pool' | 'dm', target: string, conversationId: st
       onReset: () => { local.clear(); if (current()) { setMessages([]); setReplyTo(null); } },
     });
     if (kind === 'pool') chatWs.joinPool(target); else chatWs.subscribeDms();
-    return () => { controller.abort(); epoch.current++; clearTimeout(timeout.current); clearTimeout(readTimer.current); local.clear(); if (kind === 'pool') chatWs.leavePool(target); else chatWs.unsubscribeDms(); chatWs.removeConsumer(id); };
+    return () => { cleanup(); if (kind === 'pool') chatWs.leavePool(target); else chatWs.unsubscribeDms(); chatWs.removeConsumer(id); };
   }, [address, isConnected, kind, target, conversationId, publish, transmit]);
   const sendMessage = useCallback(async (content: string) => {
     if (!content.trim() || !address || renderedWallet.current !== address.toLowerCase() || wsStatus !== 'connected') return false;

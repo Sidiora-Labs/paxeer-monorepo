@@ -155,7 +155,7 @@ func TestWebhookSkipsNonSwapAndBadTimestamp(t *testing.T) {
 	})
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, signedRequest(body))
-	if rec.Code != 200 {
+	if rec.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("status = %d", rec.Code)
 	}
 	var resp map[string]interface{}
@@ -165,5 +165,8 @@ func TestWebhookSkipsNonSwapAndBadTimestamp(t *testing.T) {
 	}
 	if resp["errors"].(float64) != 1 {
 		t.Errorf("errors = %v, want 1 (bad timestamp)", resp["errors"])
+	}
+	if resp["ok"] != false || resp["retryable"] != false {
+		t.Fatalf("permanent validation failure acknowledged: %v", resp)
 	}
 }

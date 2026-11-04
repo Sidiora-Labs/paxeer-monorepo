@@ -119,13 +119,13 @@ func (acc *BaseAccount) SetSequence(seq uint64) error {
 
 // Validate checks for errors on the account fields
 func (acc BaseAccount) Validate() error {
-	if acc.Address == "" || acc.PubKey == nil {
-		return nil
-	}
-
 	accAddr, err := sdk.AccAddressFromBech32(acc.Address)
 	if err != nil {
 		return err
+	}
+
+	if acc.PubKey == nil {
+		return nil
 	}
 
 	if !bytes.Equal(acc.GetPubKey().Address().Bytes(), accAddr.Bytes()) {
@@ -297,7 +297,9 @@ func (ma *ModuleAccount) UnmarshalJSON(bz []byte) error {
 	return nil
 }
 
-// AccountI is an interface used to store coins at a given address within state.
+// AccountI exposes account identity and signing metadata persisted by x/auth.
+// Coin and fractional wei balances are persisted and queried separately by x/bank;
+// AccountI has no balance accessors (see x/auth/spec/02_state.md).
 // It presumes a notion of sequence numbers for replay protection,
 // a notion of account numbers for replay protection for previously pruned accounts,
 // and a pubkey for authentication purposes.

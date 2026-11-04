@@ -1,0 +1,7 @@
+[repair.22.33.883]
+finding = "22.30.183/f037"
+proof = ["TestRepairM_883_BoundedStartup", "TestRepairM_883_CancelStartupAndRetry", "TestRepairM_883_CommandCleanup", "TestRepairM_883_CommandCancellation", "TestRepairM_883_ConnectionShutdown"]
+change = "Bound blocking startup to five seconds or the earlier caller deadline, return wrapped errors, and stop the connection lifecycle on command cancellation, explicit cleanup or connection shutdown. gRPC owns transport reconnection."
+baseline = "Not run: the explicit task order permits verification only through hf-done after full implementation and hf-build; the unchanged package contained no repair tests."
+evidence = "The runner's hf-done ledger records the exact qualified candidate revision, command, exit code and private log location."
+wiring_request = "Domain 16 (tools-ops), tools/tx-scanner/cmd/scan.go: initialize with InitializeGRPCClientContext(cmd.Context(), endpoint, port), propagate the startup error through RunE, defer CloseGRPCClient, and end the scan loop when the command context is canceled."

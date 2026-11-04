@@ -1,0 +1,6 @@
+[repair.22.33.1056]
+finding = "22.30.41/31"
+tests = ["Repair31DefaultDeadlineBoundsStalledHeaders", "Repair31ConfiguredDeadlineCoversHeadersAndBodies", "Repair31CallerCancellationAndListenerCleanup", "Repair31StreamedByteCapsRefuseBeforeFullBody", "Repair31DeclaredAndDecompressedByteCaps", "Repair31PreservesTypedErrorsShapesAndBoundaryResponses", "Repair31RejectsUnboundedDeadlinesAtomically"]
+baseline = "Not run: the explicit gate order requires the entire implementation before hf-build and hf-done and forbids a manual verify run; no pre-change failure is claimed."
+wiring_requests = []
+evidence = "The runner records the qualified candidate revision, command, exit code and private log through hf-build and hf-done."

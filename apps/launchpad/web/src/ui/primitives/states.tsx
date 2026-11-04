@@ -426,6 +426,14 @@ export function DisclosureRow({ id, label, icon: Icon, optional = false, href, o
     </>
   );
   if (href) {
+    if (disabled) {
+      return (
+        <button type="button" disabled className={cn(rowClass, className)}>
+          {content}
+          <ChevronRight aria-hidden="true" className="size-icon-md shrink-0 text-text-faint" />
+        </button>
+      );
+    }
     return (
       <Link href={href} className={cn(rowClass, className)} aria-disabled={disabled || undefined}>
         {content}

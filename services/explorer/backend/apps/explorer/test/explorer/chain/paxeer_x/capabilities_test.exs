@@ -12,8 +12,6 @@ defmodule Explorer.Chain.PaxeerX.CapabilitiesTest do
   @head_quantity "0x16C1320"
 
   @code_addresses %{
-    "0x0000000000000000000000000000000000001013" => :custody,
-    "0x0000000000000000000000000000000000001014" => :anchor,
     "0x0000000000000000000000000000000000001015" => :exchange,
     "0x0000000000000000000000000000000000001016" => :bridge,
     "0x0000000000000000000000000000000000001017" => :launchpad
@@ -134,8 +132,6 @@ defmodule Explorer.Chain.PaxeerX.CapabilitiesTest do
       assert {:ok, snapshot} = Capabilities.probe(json_rpc_named_arguments())
 
       assert %{
-               custody: false,
-               anchor: false,
                exchange: false,
                bridge: false,
                launchpad: false,
@@ -151,8 +147,6 @@ defmodule Explorer.Chain.PaxeerX.CapabilitiesTest do
       assert {:ok, snapshot} = Capabilities.probe(json_rpc_named_arguments())
 
       assert %{
-               custody: true,
-               anchor: true,
                exchange: true,
                bridge: true,
                launchpad: true,
@@ -163,18 +157,22 @@ defmodule Explorer.Chain.PaxeerX.CapabilitiesTest do
     test "reads an addr answer shorter than the declared layout as absent" do
       expect_probe(@bytecode, %{result: "0x" <> String.duplicate("0", 64)})
 
-      assert {:ok, %{custody: true, unified_account: false}} =
+      assert {:ok, %{exchange: true, bridge: true, launchpad: true, unified_account: false}} =
                Capabilities.probe(json_rpc_named_arguments())
     end
 
-    test "refuses an answer that is not a code string" do
+    test "refuses a malformed exchange view word" do
       EthereumJSONRPC.Mox
       |> expect(:json_rpc, fn %{method: "eth_blockNumber"}, _options -> {:ok, @head} end)
       |> expect(:json_rpc, fn requests, _options when is_list(requests) ->
-        {:ok, Enum.map(requests, &answer(&1, "0xzz", %{result: @unified_account_answer}))}
+        {:ok,
+         Enum.map(requests, fn request ->
+           response = answer(request, @bytecode, %{result: @unified_account_answer})
+           if request.id == 0, do: %{response | result: "0xzz"}, else: response
+         end)}
       end)
 
-      assert {:error, {:custody, {:unexpected_code, "zz"}}} =
+      assert {:error, {:exchange, {:unexpected_response, %{result: "0xzz"}}}} =
                Capabilities.probe(json_rpc_named_arguments())
     end
 
@@ -241,7 +239,7 @@ defmodule Explorer.Chain.PaxeerX.CapabilitiesTest do
       assert_receive :probed
 
       assert {:error, :econnrefused} = Capabilities.refresh()
-      assert Capabilities.live?(:custody)
+      for surface <- [:unified_account, :exchange, :bridge, :launchpad], do: assert(Capabilities.live?(surface))
     end
   end
 
@@ -252,6 +250,16 @@ defmodule Explorer.Chain.PaxeerX.CapabilitiesTest do
       end
 
       assert Capabilities.address(:unified_account) == @addr_precompile
+    end
+  end
+
+  test "retired capability names are rejected" do
+    assert Capabilities.surfaces() == [:unified_account, :exchange, :bridge, :launchpad]
+
+    for retired <- [:custody, :anchor] do
+      refute Map.has_key?(Capabilities.all(), retired)
+      assert_raise FunctionClauseError, fn -> Capabilities.address(retired) end
+      assert_raise FunctionClauseError, fn -> Capabilities.live?(retired) end
     end
   end
 

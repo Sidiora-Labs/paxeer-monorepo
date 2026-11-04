@@ -1,0 +1,20 @@
+[repair.22.33.715]
+audit = "22.30.17"
+finding = "default-rpc-node-set"
+implementation = "core/rpc.ts defaults to api1 through api14 plus api-mainnet-beta, with root-path JSON-RPC and existing deployment override precedence; useEvmBlockStream describes the shared configuration."
+test_file = "apps/perps/tests/repair-22-33-715.test.ts"
+proving_tests = ["defaultRpcNodeSetFeedsChainConfiguration", "explicitRpcOverridesPreserveDeclaredDefaults", "sharedPublicClientsUseRealRpcTransport"]
+baseline_revision = "264615cba89456c37eeb19535cb16b81846f6a68"
+baseline_execution = "Not run: the task's ordered instructions require complete implementation before formatting/build/testing and permit verification only through hf-done after hf-build."
+baseline_source_failure = "The first two tests assert the exact declared endpoint list; the baseline generates sixteen numbered nodes and omits the aggregate, so those assertions reject the baseline list (source comparison, not an executed result)."
+qualification = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit and private log; no qualification is claimed before those gates pass."
+wiring_request_tests = "Domain 3 (markets): apps/perps/tests/feeds.test.ts asserts sixteen numbered RPC defaults; reconcile that exact-list assertion to the declared fourteen numbered nodes plus aggregate endpoint."
+wiring_request_examples = "Domain 3 (markets): apps/perps/src/env/.env.template says the gateway supplies RPC and apps/perps/deploy/.env.production.example describes sixteen default nodes; reconcile both descriptions with the shared root-path defaults and explicit override precedence."
+
+[gotcha.baseline-order]
+observed = "The proposal requests unchanged-tree verification, while the explicit ordered gate rules prohibit tests before complete implementation and require hf-build before hf-done."
+resolution = "Follow the explicit ordered gates and record the baseline discrepancy by source inspection without claiming an executed pre-change failure; root GOTCHA.kvx and spec files are outside the permitted scope."
+
+[gotcha.ranking-lifetime]
+observed = "Constructing a ranked viem fallback client immediately probes every configured endpoint and retains periodic ranking timers."
+resolution = "Inspect real default configuration without instantiating live transports; run production shared clients in a worker with loopback-only overrides, then terminate that worker to close the ranking lifetime."

@@ -291,7 +291,11 @@ func (s Store) ExportSnapshot(ctx context.Context, p Principal) (json.RawMessage
 	if e != nil {
 		return nil, e
 	}
-	return json.Marshal(map[string]any{"profile": a.Profile, "preferences": a.Preferences, "watchlist": v, "consents": consents})
+	return exportSnapshotDocument(a.Profile, a.Preferences, v, consents)
+}
+
+func exportSnapshotDocument(profile Profile, preferences Preferences, watchlist []WatchEntry, consents []map[string]any) (json.RawMessage, error) {
+	return json.Marshal(map[string]any{"profile": profile, "preferences": preferences, "watchlist": watchlist, "consents": consents})
 }
 
 // ReadyExport requires encrypted object storage supplied by the integration worker.
@@ -315,17 +319,127 @@ func (s Store) ReadyExport(ctx context.Context, id uuid.UUID, ref string) (strin
 	}
 	return token, nil
 }
-func (s Store) ConsumeExport(ctx context.Context, p Principal, id uuid.UUID, token string) (json.RawMessage, error) {
-	if p.AccountID == uuid.Nil || len(token) > 128 {
-		return nil, ErrDenied
+
+// exportDownloadRecords serializes a job record with its owning account. The
+// mutation and its persistence must commit atomically before returning.
+type exportDownloadRecords interface {
+	update(context.Context, uuid.UUID, uuid.UUID, func(*exportDownloadRecord) error) error
+}
+
+type exportDownloadRecord struct {
+	Payload    json.RawMessage
+	ExpiresAt  *time.Time
+	Hash       []byte
+	ConsumedAt *time.Time
+	Owner      *string
+	Until      *time.Time
+	Fence      int64
+	State      string
+	Deleted    bool
+}
+
+type postgresExportDownloadRecords struct{ store Store }
+
+func (db postgresExportDownloadRecords) update(ctx context.Context, job, account uuid.UUID, mutate func(*exportDownloadRecord) error) error {
+	tx, e := db.store.DB.Begin(ctx)
+	if e != nil {
+		return e
 	}
-	h := sha256.Sum256([]byte(token))
-	var b []byte
-	e := s.DB.QueryRow(ctx, `UPDATE account_job SET consumed_at=$4 WHERE job_id=$1 AND account_id=$2 AND kind='export' AND state='ready' AND expires_at>$4 AND consumed_at IS NULL AND download_hash=$3 AND EXISTS(SELECT 1 FROM account_state a WHERE a.account_id=account_job.account_id AND NOT a.deleted) RETURNING payload`, id, p.AccountID, h[:], s.now()).Scan(&b)
+	defer tx.Rollback(ctx)
+	var record exportDownloadRecord
+	e = tx.QueryRow(ctx, `SELECT j.payload,j.expires_at,j.download_hash,j.consumed_at,j.lease_owner,j.lease_until,j.fence,j.state,a.deleted FROM account_job j JOIN account_state a ON a.account_id=j.account_id WHERE j.job_id=$1 AND j.account_id=$2 AND j.kind='export' FOR UPDATE OF a,j`, job, account).Scan(&record.Payload, &record.ExpiresAt, &record.Hash, &record.ConsumedAt, &record.Owner, &record.Until, &record.Fence, &record.State, &record.Deleted)
 	if errors.Is(e, pgx.ErrNoRows) {
-		return nil, ErrDenied
+		return ErrDenied
 	}
-	return b, e
+	if e != nil {
+		return e
+	}
+	if e = mutate(&record); e != nil {
+		return e
+	}
+	_, e = tx.Exec(ctx, `UPDATE account_job SET consumed_at=$2,lease_owner=$3,lease_until=$4,fence=$5 WHERE job_id=$1`, job, record.ConsumedAt, record.Owner, record.Until, record.Fence)
+	if e != nil {
+		return e
+	}
+	return tx.Commit(ctx)
+}
+
+const exportDownloadLease = time.Minute
+
+type exportDownloadClaim struct {
+	Job     uuid.UUID
+	Account uuid.UUID
+	Owner   string
+	Fence   int64
+	Payload json.RawMessage
+}
+
+type exportDownloads struct {
+	records exportDownloadRecords
+	now     func() time.Time
+}
+
+func (s Store) exportDownloads() exportDownloads {
+	return exportDownloads{records: postgresExportDownloadRecords{s}, now: s.now}
+}
+
+func (d exportDownloads) claim(ctx context.Context, p Principal, job uuid.UUID, token string) (exportDownloadClaim, error) {
+	claim := exportDownloadClaim{Job: job, Account: p.AccountID, Owner: uuid.NewString()}
+	if p.AccountID == uuid.Nil || job == uuid.Nil || !validExportAuthorization(token) {
+		return claim, ErrDenied
+	}
+	hash := sha256.Sum256([]byte(token))
+	e := d.records.update(ctx, job, p.AccountID, func(record *exportDownloadRecord) error {
+		now := d.now()
+		if !record.available(now) || !hmac.Equal(hash[:], record.Hash) || (record.Until != nil && record.Until.After(now)) || record.Fence == 9223372036854775807 {
+			return ErrDenied
+		}
+		until := now.Add(exportDownloadLease)
+		if record.ExpiresAt.Before(until) {
+			until = *record.ExpiresAt
+		}
+		record.Owner, record.Until = &claim.Owner, &until
+		record.Fence++
+		claim.Fence, claim.Payload = record.Fence, append(json.RawMessage(nil), record.Payload...)
+		return nil
+	})
+	return claim, e
+}
+
+func (r exportDownloadRecord) available(now time.Time) bool {
+	return !r.Deleted && r.State == "ready" && r.ConsumedAt == nil && r.ExpiresAt != nil && r.ExpiresAt.After(now)
+}
+
+func (d exportDownloads) consume(ctx context.Context, claim exportDownloadClaim) error {
+	return d.records.update(ctx, claim.Job, claim.Account, func(record *exportDownloadRecord) error {
+		now := d.now()
+		if !record.available(now) || record.Owner == nil || *record.Owner != claim.Owner || record.Fence != claim.Fence || record.Until == nil || !record.Until.After(now) {
+			return ErrDenied
+		}
+		record.ConsumedAt, record.Owner, record.Until = &now, nil, nil
+		return nil
+	})
+}
+
+func (d exportDownloads) release(ctx context.Context, claim exportDownloadClaim) error {
+	return d.records.update(ctx, claim.Job, claim.Account, func(record *exportDownloadRecord) error {
+		if record.Owner != nil && *record.Owner == claim.Owner && record.Fence == claim.Fence {
+			record.Owner, record.Until = nil, nil
+		}
+		return nil
+	})
+}
+
+func (s Store) ConsumeExport(ctx context.Context, p Principal, id uuid.UUID, token string) (json.RawMessage, error) {
+	downloads := s.exportDownloads()
+	claim, e := downloads.claim(ctx, p, id, token)
+	if e != nil {
+		return nil, e
+	}
+	if e = downloads.consume(ctx, claim); e != nil {
+		return nil, e
+	}
+	return claim.Payload, nil
 }
 func (s Store) AckDeletion(ctx context.Context, id uuid.UUID, owner string) error {
 	if owner != "user" && owner != "sessions" && owner != "images" && owner != "notifications" {
@@ -422,7 +536,7 @@ func (s Store) Backfill(ctx context.Context, source string, id uuid.UUID, wallet
 	}
 	if st == "linked" {
 		pr, _ := json.Marshal(Profile{PublicProfile: PublicProfile{Wallet: w, Revision: "0"}, SchemaVersion: 1})
-		pf, _ := json.Marshal(DefaultPreferences())
+		pf, _ := json.Marshal(initialPreferences(s.now()))
 		_, e = tx.Exec(ctx, `INSERT INTO account_state(account_id,wallet,profile,preferences) VALUES($1,$2,$3,$4) ON CONFLICT(account_id) DO NOTHING`, id, w, pr, pf)
 		if e != nil {
 			return e

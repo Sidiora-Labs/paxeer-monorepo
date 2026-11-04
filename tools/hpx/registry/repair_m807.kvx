@@ -1,0 +1,44 @@
+[task.22.33.807]
+audit = "22.30.178"
+base_revision = "79d99a9cd334a5da02f3a4aac2a324549c9a0d5e"
+verified_revision = "Recorded with command, exit code and private log by the hf-build/hf-done gates.jsonl candidate ledger; gate evidence is authoritative."
+baseline = "Not run: the explicit gate order prohibits verification before implementation and permits only hf-done after hf-build; no repair_m807_test.go or prior gate ledger existed on inspection, so no pre-change failing-test result is claimed."
+
+[finding.39]
+tests = ["TestRepairM_807_39RetentionRefreshCapacityAndBoundedPeers", "TestRepairM_807_39RejectOversizedPersistedImage"]
+repair = "Registrations expire after 24 hours; refresh preserves first_seen, prunes expired entries durably and remains possible at the 4096-node cap. Peer responses contain at most 256 peers with stable configured seeds first; configuration admits at most 64 bounded seed addresses. Persisted JSON is limited to 8 MiB."
+
+[finding.36]
+tests = ["TestRepairM_807_36DurableRegistrationAndInterruptedRecovery"]
+repair = "Complete a unique temporary image, sync and close it, atomically rename it and sync the containing directory before success. Reopening ignores interrupted partial or complete temporary images and recovers one coherent committed image after rename."
+
+[finding.37]
+tests = ["TestRepairM_807_37FailedPersistenceLeavesExactPriorState"]
+repair = "Stage node and expiry changes in a separate map and publish them only after persistence succeeds. Failed creation and replacement leave the exact previous node and caller unchanged across HTTP peer consumption and reopening. A directory-sync failure restores the prior image, with rollback failures reported explicitly."
+
+[finding.38]
+tests = ["TestRepairM_807_38OwnershipTamperReplayAndRestart", "TestRepairM_807_38SourceAndAdmissionBounds"]
+repair = "Require Ed25519 possession of the node key whose SHA-256 truncated to 20 bytes is node_id. Sign the normalized node, chain, protocol domain and server-issued single-use 256-bit challenge bound to the observed public source IP; expire challenges after two minutes, bound their count and retain source and registration rate checks. Outstanding and consumed challenges are invalid after restart."
+wiring_request = "tools/hpx/hpx register_node and request transport, domain 16 (fm-tools-ops): fetch GET /api/register/challenge; sign registrationMessage's canonical normalized JSON using config/node_key.json; POST base64 public_key and signature plus challenge, reacquiring a challenge for every registration or retry and refreshing at least every 12 hours before the 24-hour expiry."
+
+[finding.40]
+tests = ["TestRepairM_807_40And41StateSyncTransport"]
+repair = "Require successful bounded HTTP RPC bodies, a valid bare or result-wrapped object, configured status/header chain, positive typed status height, matching requested header and commit heights, and exactly 32 bytes of hexadecimal commit hash. Preserve the HPX enable/rpc_servers/trust_height/trust_hash/trust_period/latest JSON contract and disable invalid anchors without emitting trust configuration."
+wiring_request = "tools/hpx/hpx configure_statesync, domain 16 (fm-tools-ops): add the shell consumer's producer-to-config integration gate for accepted and rejected anchors; this Go-only gate cannot invoke the out-of-scope shell consumer or subprocess toolchains."
+
+[finding.41]
+tests = ["TestRepairM_807_40And41StateSyncTransport", "TestStateSyncTransport"]
+repair = "main_test.go's shared transport suite is invoked by the declared repair test and drives actual loopback upstream and registry HTTP handlers. It checks bare/wrapped objects, exact heights/hash/config fields, floor height, wrong chains/heights/types, malformed/error/null/oversized bodies, HTTP failures and both upstream timeouts."
+
+[registration_wire]
+challenge = "GET /api/register/challenge returns ip, chain_id, challenge and expires. Registration and challenge requests must originate from the same observed public source."
+proof = "public_key is base64 of the raw 32-byte Ed25519 public key; signature is base64 of the raw 64-byte signature. node_id is lowercase hex of SHA256(public_key)[:20]."
+message = "Sign compact UTF-8 Go encoding/json output in this field order: domain, chain_id, challenge, node. domain is hpx-registry.registration.v1. node fields are node_id, moniker, ip, p2p_port, type, version, first_seen, last_seen; first_seen and last_seen are empty strings. Use the challenge ip, normalized lowercase node_id, trimmed moniker/version, default port 26656, and type fullnode unless validator."
+
+[gotcha.scope]
+observed = "The proposals require changing or running tools/hpx/hpx, while the task authorizes only tools/hpx/registry and forbids subprocess test toolchains."
+action = "Recorded explicit domain-16 wiring requests; tests qualify the real in-scope HTTP handlers and served client configuration fields without claiming the shell client ran."
+
+[gotcha.baseline]
+observed = "The audit baseline step conflicts with the task's mandatory implementation-first and hf-build-then-hf-done gate order."
+action = "Followed the explicit gate order and did not invent a pre-change failure or edit out-of-scope spec/GOTCHA ledgers."

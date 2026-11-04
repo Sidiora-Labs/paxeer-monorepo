@@ -1,0 +1,29 @@
+[task.22.33.757]
+audit = "spec/layerx-merge/programme/audit/records/22.30.172.kvx"
+mode = "BUILD"
+verification = "hf-build followed by hf-done on the identical candidate; the private gate ledger and final evidence JSON name the verified revision, command, exit and log."
+baseline = "Not run: the explicit task order forbids verification before the entire implementation and permits verification only through hf-done after hf-build. No pre-change test failure is claimed."
+
+[finding.go-runner-exit-status]
+tests = ["TestRepairM_757_RunFileExpectedStatusAndCapture", "TestRepairM_757_UnexpectedExitStatus", "TestRepairM_757_RunFileRejectsUnexpectedExit", "TestRepairM_757_CommandCancellation"]
+repair = "Unexpected statuses retain stdout and return status/stderr plus the underlying execution error; YAML inputs declare expected_exit_code (default zero). Test and caller contexts cancel execution; a positive per-command timeout and bounded pipe wait prevent indefinite command collection."
+proof = "Committed YAML drives RunFile through real subprocess pipes into captured environment values and verifiers; an isolated child test proves RunFile fails a rejected setup even though stdout would satisfy its verifier. The current test executable supplies the command fixture without a toolchain or external executable."
+
+[finding.go-python-regex-semantics]
+tests = ["TestRepairM_757_RegexPrefixTransport"]
+repair = "Regex patterns are grouped under an absolute start anchor, matching Python re.match prefix semantics after trimming output; alternatives and multiline anchors cannot bypass offset zero."
+cases = "tests/integration/runner/testdata/repair_m757_regex.yaml"
+wiring_request = "Domain 16: tests/integration/scripts/runner.py should document its existing re.match prefix boundary and consume tests/integration/runner/testdata/repair_m757_regex.yaml with expected outcomes [true, false, false, false, true]; Python edits and execution are outside this task's permitted paths/gate."
+
+[finding.go-runner-expression-precedence]
+tests = ["TestRepairM_757_ExpressionPrecedence"]
+repair = "Declared precedence is or, and, comparison, additive, multiplicative; arithmetic is left associative with exact integer intermediates and Python-style floating division/decimal arithmetic, quoted strings retain boolean words, and malformed/dangling operators are rejected before boolean short circuiting. Existing OR error propagation assertions remain in force."
+coverage = "eval_test.go declares mixed boolean/arithmetic, decimal and large integer, fractional division, quoted operator text and dangling operator assertions; the repair test executes them and drives the real eval verifier."
+
+[gotcha.implementation-before-baseline]
+observed = "The task's baseline-test step conflicts with its explicit implementation-first order and gate budget."
+action = "Follow the explicit order; claim no baseline result and run only hf-build then hf-done."
+
+[gotcha.regex-multiline]
+observed = "A bare caret or an offset check on a search result can mishandle prefix matching with multiline flags or alternatives."
+action = "Group the entire expression under an absolute start anchor before compiling it."

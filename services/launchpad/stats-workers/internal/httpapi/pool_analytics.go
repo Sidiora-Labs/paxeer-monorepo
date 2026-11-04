@@ -3,7 +3,6 @@ package httpapi
 import (
 	"encoding/json"
 	"math"
-	"math/big"
 	"net/http"
 	"strconv"
 	"strings"
@@ -48,70 +47,32 @@ type whaleEntry struct {
 }
 
 // RegisterPoolAnalytics registers the whales / creator-activity / risk routes.
-func RegisterPoolAnalytics(r chi.Router, st *store.Store) {
-	r.Get("/stats/{poolAddress}/whales", whales(st))
+func RegisterPoolAnalytics(r chi.Router, st *store.Store, schemas ...string) {
+	r.Get("/stats/{poolAddress}/whales", canonicalWhales(st, ownershipSchema(schemas)))
 	r.Get("/stats/{poolAddress}/creator-activity", creatorActivity(st))
 	r.Get("/stats/{poolAddress}/risk", riskBreakdown(st))
 }
 
-// whales returns holders with > 1% of supply (filtered in app code on the bps
-// string), flagging the creator. Ports the TS whales route.
+// whales reads a bounded numeric page of canonical holders at or above 1% of supply.
 func whales(st *store.Store) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		poolAddress := chi.URLParam(r, "poolAddress")
-		ctx := r.Context()
-
-		holders, err := st.ListHoldersByBalance(ctx, poolAddress)
-		if err != nil {
-			sharedhttp.WriteError(w, http.StatusInternalServerError, "Internal Server Error", "whales lookup failed")
-			return
-		}
-
-		creator, err := st.GetPoolStats(ctx, poolAddress)
-		if err != nil {
-			sharedhttp.WriteError(w, http.StatusInternalServerError, "Internal Server Error", "whales lookup failed")
-			return
-		}
-		var creatorAddr string
-		if creator != nil && creator.CreatorAddress != nil {
-			creatorAddr = strings.ToLower(*creator.CreatorAddress)
-		}
-
-		out := []whaleEntry{}
-		for _, h := range holders {
-			pct := jsNumber(h.PctOfSupply)
-			if pct < whaleThresholdBps {
-				continue
-			}
-			pctInt := int64(pct)
-			out = append(out, whaleEntry{
-				Rank:             len(out) + 1,
-				HolderAddress:    h.HolderAddress,
-				Balance:          h.Balance,
-				PctOfSupply:      pctInt,
-				PctOfSupplyHuman: humanPct(float64(pctInt)),
-				USDLValue:        nil,
-				LastUpdated:      h.LastUpdated,
-				IsCreator:        creatorAddr != "" && strings.EqualFold(h.HolderAddress, creatorAddr),
-			})
-		}
-
-		sharedhttp.WriteJSON(w, http.StatusOK, map[string]any{
-			"coverage":          "legacy_incomplete",
-			"ownershipSource":   "swap_sender_legacy",
-			"poolAddress":       poolAddress,
-			"whaleThresholdPct": float64(whaleThresholdBps) / 100,
-			"whaleCount":        len(out),
-			"whales":            out,
-		})
-	}
+	return canonicalWhales(st, defaultOwnershipSchema)
 }
 
-// creatorActivity returns the creator's full transaction history, current balance
+// creatorActivity returns the creator's bounded transaction history, current balance
 // and a buy/sell summary. Ports the TS creator-activity route.
 func creatorActivity(st *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		poolAddress := chi.URLParam(r, "poolAddress")
+		scope := "creator:" + strings.ToLower(poolAddress)
+		page, err := boundedPage(r.URL.Query(), 50, creatorPageMaximum, 1, scope)
+		if err != nil {
+			sharedhttp.WriteError(w, 400, "Bad Request", err.Error())
+			return
+		}
+		if page.After != nil && page.Head == nil {
+			sharedhttp.WriteError(w, 400, "Bad Request", "creator cursor requires a history boundary")
+			return
+		}
 		ctx := r.Context()
 
 		row, err := st.GetPoolStats(ctx, poolAddress)
@@ -140,7 +101,7 @@ func creatorActivity(st *store.Store) http.HandlerFunc {
 		creator := *row.CreatorAddress
 		creatorLower := strings.ToLower(creator)
 
-		txs, err := st.CreatorTransactions(ctx, poolAddress, creatorLower)
+		history, err := st.CreatorTransactionPage(ctx, poolAddress, creatorLower, page.Limit+1, page.Offset, page.After, page.Head)
 		if err != nil {
 			sharedhttp.WriteError(w, http.StatusInternalServerError, "Internal Server Error", "creator activity lookup failed")
 			return
@@ -154,23 +115,13 @@ func creatorActivity(st *store.Store) http.HandlerFunc {
 			currentBalance = bal
 		}
 
-		totalBought := new(big.Int)
-		totalSold := new(big.Int)
-		buyCount, sellCount := 0, 0
-		for _, tx := range txs {
-			if tx.IsBuy {
-				if v, ok := new(big.Int).SetString(tx.AmountOut, 10); ok {
-					totalBought.Add(totalBought, v)
-				}
-				buyCount++
-			} else {
-				if v, ok := new(big.Int).SetString(tx.AmountIn, 10); ok {
-					totalSold.Add(totalSold, v)
-				}
-				sellCount++
-			}
+		txs := history.Transactions
+		var next any
+		if len(txs) > page.Limit {
+			txs = txs[:page.Limit]
+			last := txs[len(txs)-1]
+			next = nextHistoryCursor(scope, store.HistoryPosition{Timestamp: last.BlockTimestamp, ID: last.ID}, history.Head)
 		}
-		net := new(big.Int).Sub(totalBought, totalSold)
 
 		creatorHoldingsBps := jsNumber(row.CreatorHoldingsPct)
 
@@ -183,15 +134,11 @@ func creatorActivity(st *store.Store) http.HandlerFunc {
 			"currentBalance":          currentBalance,
 			"currentHoldingsPct":      int64(creatorHoldingsBps),
 			"currentHoldingsPctHuman": humanPct(creatorHoldingsBps),
-			"summary": map[string]any{
-				"buyCount":          buyCount,
-				"sellCount":         sellCount,
-				"hasSold":           sellCount > 0,
-				"totalBoughtTokens": totalBought.String(),
-				"totalSoldTokens":   totalSold.String(),
-				"netTokenBalance":   net.String(),
-			},
-			"transactions": txs,
+			"summary":                 history.Summary,
+			"limit":                   page.Limit,
+			"offset":                  page.Offset,
+			"nextCursor":              next,
+			"transactions":            txs,
 		})
 	}
 }

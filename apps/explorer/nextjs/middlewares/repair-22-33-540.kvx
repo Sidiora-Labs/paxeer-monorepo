@@ -1,0 +1,21 @@
+[repair.22.33.540]
+finding = "private-profile"
+test_file = "apps/explorer/nextjs/middlewares/repair-22-33-540.spec.ts"
+tests = ["repairPrivateProfileQueryAndCookieNavigation", "repairPrivateProfileHeaderOverrides", "repairPrivateProfileMissingAndInvalidCookie"]
+baseline = "Not run: the explicit gate order forbids verification before complete implementation; no pre-change gate or failing test result is claimed."
+proof = "Real page middleware resolves header, query and cookie precedence, preserves private cookies, selects CSP and emits Next.js request override headers consumed by the real SSR base handler over loopback HTTP; human private requests produce no UUID cookie or telemetry request."
+wiring_request_csp = "apps/explorer/nextjs/csp/index.ts | fm-web-explorer-bridge (domain 14): import resolveRequestProfile from middlewares/appProfile for direct CSP calls; the middleware path already supplies the canonical header."
+wiring_request_ssr = "apps/explorer/nextjs/getServerSideProps/handlers.ts | fm-web-explorer-bridge (domain 14): use resolveRequestProfile for SSR calls outside middleware; the page path already receives the canonical header through Next.js request overrides."
+wiring_request_record = "spec/layerx-merge/spec.kvx | fm-web-explorer-bridge (domain 14): attach private-profile and its proving tests from this record plus the runner's verified revision, command, exit code and private evidence log to task 22.33.540."
+gotcha = "The installed pnpm rejects the repository's package-manager pin; use pnpm 8.15.9 for the prescribed exec gates and manifest-pinned yarn 1.22.22 for dependency installation, without modifying manifests or package-manager checks."
+formatting_note = "ESLint formats the touched TypeScript files; its vitest rules reject the task-required test(namedFunction) registration and cannot see assertions inside those functions and their real-request helper; the registrations and assertions remain intact."
+repair_cycle_1 = "TypeScript TS2339 requires narrowing the number-or-Date cookie expiry before getTime; the test now requires a Date and keeps the exact epoch-zero expiry assertion."
+repair_cycle_2 = "Vitest 4 interprets test(namedFunction) as a TODO; supply the same declared named function as the callback too so every regression executes; verify-1 exited zero but executed zero tests and provides no behavior qualification."
+attempt_1_qualification_limit = "The runner counts each repeated build and verification separately; build-2 consumed one repair, and build-3 consumes the second, leaving no verification rerun for the corrected executable tests; do not treat the earlier zero-test verification as qualification."
+
+[continuation.22.33.540]
+review = "Retained the existing resolver, canonical request-header forwarding, real middleware/CSP/SSR regression tests and executable test callbacks from attempt 1."
+baseline = "Attempt 1 verified zero executable tests (three TODOs); this is not behavioral evidence. No pre-change failure is claimed; the task gate order requires implementation before qualification."
+qualification = "Run hf-build and hf-done on the final unchanged candidate with the prescribed yarn commands; the runner retains the exact verified revision and private evidence location."
+repair = "The real SSR handler leaves an absent private UUID undefined, so JSON omits it. Require no UUID field at all rather than an empty UUID field; retain the exact no-Set-Cookie and no-telemetry assertions."
+failed_evidence = "revision=4d128499ab84546a4db9d34570bf152995e73b3f; command=cg spec done 22.33.540 -f layerx-merge --root /work/paxeer-monorepo; exit=1; log=/out/logs/verify-1.log"

@@ -79,11 +79,11 @@ export function legBindings(
   maxFee: { amount: string; currency: string }
 ): IntentLegBinding[] {
   const actor = document.evm_address;
-  if (!actor || !document.bound) throw new Error('the account is not bound to its LayerX identity');
+  if (!actor || !document.bound) throw new Error('the account is not bound to its chain identity');
   if (
     !Number.isSafeInteger(sequence) ||
     sequence < 0 ||
-    !Number.isSafeInteger(sequence + plan.legs.filter((leg) => leg.domain === 'layerx').length)
+    !Number.isSafeInteger(sequence + plan.legs.length)
   )
     throw new RangeError('the account sequence is outside the supported range');
   if (
@@ -113,7 +113,7 @@ export function legBindings(
       not_after: window.notAfter,
       fee_limit: { amount: maxFee.amount, currency: maxFee.currency },
     };
-    if (leg.domain === 'layerx') next += 1;
+    next += 1;
     return binding;
   });
 }
@@ -128,12 +128,10 @@ function PlanSummary({ plan }: { plan: IntentPlan }) {
             <li
               key={leg.index}
               data-leg={leg.index}
-              data-domain={leg.domain}
               className="rounded-xl bg-white/[0.04] p-3 text-xs"
             >
               <p className="font-semibold">
-                {leg.index + 1}. {leg.mechanism.replace(/-/g, ' ')} on{' '}
-                {leg.domain === 'paxeer' ? 'Paxeer' : 'LayerX'}
+                {leg.index + 1}. {leg.mechanism.replace(/-/g, ' ')} on Paxeer
               </p>
               <p className="text-pax-muted">
                 {endpointLabel(leg.source)} to {endpointLabel(leg.destination)}
@@ -215,12 +213,15 @@ export function KernelPlan({
   const busy = stage.step === 'planning' || stage.step === 'submitting';
 
   async function plan() {
-    if (!gate.open || !formValid || busy) return;
+    if (!gate.open || !formValid || busy || document.status !== 'ready') return;
     const deadline = Math.floor(now() / 1000) + minutesValue * 60;
     setStage({ step: 'planning' });
     try {
+      const identity = document.value.account;
+      if (!identity.bound || !identity.layerx_did)
+        throw new Error('the account is not bound to its chain identity');
       const planned = await human.planIntent({
-        source: { kind: 'paxeer-wallet' },
+        source: { kind: 'human', account: `agent:${identity.layerx_did}:main` },
         destination: { kind, account: destination.trim() },
         asset_id: assetId.trim(),
         money: { amount: amount.trim(), currency: currency.trim() },
@@ -230,6 +231,11 @@ export function KernelPlan({
           allow_top_up: false,
         },
       });
+      if (
+        planned.journey_kind !== 'move' ||
+        planned.legs.some((leg) => leg.mechanism !== 'send' && leg.mechanism !== 'budget-defund')
+      )
+        throw new Error('the service did not provide an executable chain transaction plan');
       setStage({ step: 'planned', plan: planned, deadline });
     } catch (error) {
       setStage({ step: 'refused', reason: errorMessage(error), plan: null });
@@ -348,7 +354,7 @@ export function KernelPlan({
       <Button
         className="w-full"
         name="plan"
-        disabled={!gate.open || !formValid || busy}
+        disabled={!gate.open || !formValid || busy || document.status !== 'ready'}
         onClick={() => void plan()}
       >
         {stage.step === 'planning' ? 'Planning' : 'Plan'}

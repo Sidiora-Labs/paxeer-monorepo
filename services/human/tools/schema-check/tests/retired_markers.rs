@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -7,6 +8,46 @@ use layerx_human_schema_check::{
 };
 
 static NEXT: AtomicUsize = AtomicUsize::new(0);
+
+fn assert_current_retirements(report: &SchemaReport) {
+    assert_eq!(
+        report.retired_operations,
+        [
+            "binding.rebind",
+            "binding.rebind.action",
+            "binding.statement",
+            "binding.status",
+            "binding.submit",
+            "deposit.confirm",
+            "deposit.start",
+            "exit.eligibility",
+            "exit.start",
+            "withdraw.claim",
+            "withdraw.start",
+        ]
+    );
+    let expected: BTreeMap<_, _> = [
+        ("ErrorCode", vec!["wallet-not-bound", "exit-unavailable"]),
+        ("EvidenceClass", vec!["paxeer-finality"]),
+        (
+            "JourneyKind",
+            vec!["wallet-binding", "deposit", "withdraw", "exit"],
+        ),
+        (
+            "VerificationLevel",
+            vec!["paxeer-finalised", "settlement-anchored"],
+        ),
+    ]
+    .into_iter()
+    .map(|(name, variants)| {
+        (
+            name.to_owned(),
+            variants.into_iter().map(str::to_owned).collect::<Vec<_>>(),
+        )
+    })
+    .collect();
+    assert_eq!(report.retired_variants, expected);
+}
 
 fn copy_tree(from: &Path, to: &Path) {
     fs::create_dir_all(to).unwrap_or_else(|error| panic!("create {}: {error}", to.display()));
@@ -91,14 +132,18 @@ impl Drop for Fixture {
 fn operation_marked_retired_is_accepted_and_reported() {
     let fixture = Fixture::new();
     let original = fixture.report();
-    assert!(original.retired_operations.is_empty());
+    assert_current_retirements(&original);
     fixture.rewrite(
         "movement.kvx",
-        "[operation.deposit.start]\n",
-        "[operation.deposit.start]\nretired = \"true\"\n",
+        "[operation.move.quote]\n",
+        "[operation.move.quote]\nretired = \"true\"\n",
     );
     let report = fixture.report();
-    assert_eq!(report.retired_operations, vec!["deposit.start"]);
+    let mut expected = original.retired_operations.clone();
+    expected.push("move.quote".to_owned());
+    expected.sort();
+    assert_eq!(report.retired_operations, expected);
+    assert_eq!(report.retired_variants, original.retired_variants);
     assert_eq!(report.operations, original.operations);
     assert_eq!(report.golden_vectors, original.golden_vectors);
     assert_eq!(report.declarations, original.declarations + 1);
@@ -109,23 +154,27 @@ fn operation_marked_retired_is_accepted_and_reported() {
 
     for invalid in ["\"false\"", "true", "false", "\"TRUE\"", "\"\"", "[]"] {
         let marker = format!("retired = {invalid}\n");
-        fixture.rewrite("movement.kvx", "retired = \"true\"\n", &marker);
+        let valid = "[operation.move.quote]\nretired = \"true\"\n";
+        let invalid_declaration = format!("[operation.move.quote]\n{marker}");
+        fixture.rewrite("movement.kvx", valid, &invalid_declaration);
         assert!(
             fixture.violations().iter().any(|entry| {
                 entry.rule == "invalid-retired-flag"
                     && entry.path == fixture.0.join("movement.kvx")
-                    && entry.detail.contains("operation.deposit.start")
+                    && entry.detail.contains("operation.move.quote")
             }),
             "invalid retired flag accepted: {invalid}"
         );
-        fixture.rewrite("movement.kvx", &marker, "retired = \"true\"\n");
+        fixture.rewrite("movement.kvx", &invalid_declaration, valid);
     }
 
-    fs::remove_file(fixture.0.join("golden/deposit.start.response.json"))
+    assert_eq!(fixture.report(), report);
+
+    fs::remove_file(fixture.0.join("golden/move.quote.response.json"))
         .unwrap_or_else(|error| panic!("remove golden: {error}"));
     assert!(fixture.violations().iter().any(|entry| {
         entry.rule == "missing-golden-vector"
-            && entry.path == fixture.0.join("golden/deposit.start.response.json")
+            && entry.path == fixture.0.join("golden/move.quote.response.json")
     }));
 }
 
@@ -133,12 +182,13 @@ fn operation_marked_retired_is_accepted_and_reported() {
 fn retired_variant_outside_variants_is_rejected() {
     let fixture = Fixture::new();
     let original = fixture.report();
-    assert!(original.retired_variants.is_empty());
-    fixture.rewrite(
-        "errors.kvx",
-        "[type.ErrorCode]\n",
-        "[type.ErrorCode]\nretired_variants = [\"never-declared\"]\n",
-    );
+    assert_current_retirements(&original);
+    let current = "retired_variants = [\"wallet-not-bound\",\"exit-unavailable\"]\n";
+    let invalid_variant =
+        "retired_variants = [\"wallet-not-bound\",\"exit-unavailable\",\"never-declared\"]\n";
+    let valid =
+        "retired_variants = [\"wallet-not-bound\",\"exit-unavailable\",\"unauthenticated\"]\n";
+    fixture.rewrite("errors.kvx", current, invalid_variant);
     assert!(fixture.violations().iter().any(|entry| {
         entry.rule == "retired-variant-not-declared"
             && entry.path == fixture.0.join("errors.kvx")
@@ -146,39 +196,34 @@ fn retired_variant_outside_variants_is_rejected() {
             && entry.detail.contains("never-declared")
     }));
 
-    fixture.rewrite(
-        "errors.kvx",
-        "retired_variants = [\"never-declared\"]\n",
-        "retired_variants = [\"unauthenticated\"]\n",
-    );
+    fixture.rewrite("errors.kvx", invalid_variant, valid);
     let report = fixture.report();
-    assert_eq!(
-        report.retired_variants.get("ErrorCode"),
-        Some(&vec!["unauthenticated".to_owned()])
-    );
+    let mut expected = original.retired_variants.clone();
+    expected
+        .get_mut("ErrorCode")
+        .unwrap_or_else(|| panic!("missing current ErrorCode retirement set"))
+        .push("unauthenticated".to_owned());
+    assert_eq!(report.retired_variants, expected);
+    assert_eq!(report.retired_operations, original.retired_operations);
+    assert_eq!(report.operations, original.operations);
     assert_eq!(report.golden_vectors, original.golden_vectors);
+    assert_eq!(report.declarations, original.declarations);
     assert_eq!(
         report.additions_beyond_baseline,
-        original.additions_beyond_baseline + 1
+        original.additions_beyond_baseline
     );
 
     for invalid in ["\"unauthenticated\"", "true", "[true]"] {
         let marker = format!("retired_variants = {invalid}\n");
-        fixture.rewrite(
-            "errors.kvx",
-            "retired_variants = [\"unauthenticated\"]\n",
-            &marker,
-        );
+        fixture.rewrite("errors.kvx", valid, &marker);
         assert!(fixture
             .violations()
             .iter()
             .any(|entry| entry.rule == "invalid-retired-variants"));
-        fixture.rewrite(
-            "errors.kvx",
-            &marker,
-            "retired_variants = [\"unauthenticated\"]\n",
-        );
+        fixture.rewrite("errors.kvx", &marker, valid);
     }
+
+    assert_eq!(fixture.report(), report);
 
     fixture.freeze_baseline();
     fixture.rewrite(
@@ -198,12 +243,7 @@ fn retired_variant_outside_variants_is_rejected() {
 #[test]
 fn removing_a_retired_operation_is_still_a_baseline_break() {
     let fixture = Fixture::new();
-    fixture.rewrite(
-        "movement.kvx",
-        "[operation.deposit.start]\n",
-        "[operation.deposit.start]\nretired = \"true\"\n",
-    );
-    assert_eq!(fixture.report().retired_operations, vec!["deposit.start"]);
+    assert_current_retirements(&fixture.report());
     fixture.freeze_baseline();
     assert_eq!(fixture.report().additions_beyond_baseline, 0);
 

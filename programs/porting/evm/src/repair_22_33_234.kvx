@@ -1,0 +1,13 @@
+[repair.22.33.234]
+audit = "22.30.128"
+base_revision = "79d99a9cd334a5da02f3a4aac2a324549c9a0d5e"
+tests = "programs/porting/evm/tests/repair_22_33_234.rs"
+evm-partial-import = "evm_partial_import_invalid_final_cell_reopen_and_retry"
+unsupported-solidity-signatures = ["unsupported_solidity_signatures_refuse_dynamic_compound_and_malformed", "supported_solidity_selector_calldata_and_event_vectors"]
+shared-supply-payment = ["shared_supply_payment_pins_terms_and_native_paid_mint", "shared_supply_payment_insufficient_authority_and_late_failure_rollback", "shared_supply_payment_rejects_invalid_deployment_terms"]
+shared-supply-overflow = ["shared_supply_overflow_boundaries_and_independent_balance_check", "shared_supply_overflow_malformed_stored_words_roll_back"]
+implementation = "Whole-plan validation and candidate storage publication; canonical scalar signature grammar; deployment-pinned explicit payment recipient, checked transfer and event imports; unsigned subtraction-before-addition bounds and complete stored-word validation."
+compatibility = "The existing static deployment/code APIs select documented fixed reference terms (asset [7;32], price one, recipient [7;32]); new_with_recipient, code_for_terms and deployment_for_terms select explicit validated terms. No unpriced mint path remains."
+baseline = "Not run: the explicit bounded gate order prohibits verification before implementation; this integration target did not exist on the starting tree, and no pre-change test failures are claimed."
+evidence = "The runner's hf-done ledger records the exact verified candidate revision, command, exit code and private log location."
+wiring_requests = []

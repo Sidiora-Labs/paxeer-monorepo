@@ -132,19 +132,26 @@ func (d *DevelopmentV2Reads) persistedToken(ctx context.Context, row development
 	return token, true, nil
 }
 
-// persistToken keeps a resolved chain identity: the development RPC is
-// pruned to a few hours of history, so a receipt resolvable at creation time
-// is gone later. Best effort; the in-memory cache still holds the value.
-func (d *DevelopmentV2Reads) persistToken(ctx context.Context, row developmentPoolRow, token iface.Token) {
+// persistToken retains canonical identities before they enter the reusable cache.
+func (d *DevelopmentV2Reads) persistToken(ctx context.Context, row developmentPoolRow, token iface.Token) error {
 	if d.Connected == nil || d.Connected.Metadata.Store == nil {
-		return
+		return ErrChainUnavailable
 	}
-	raw, e := json.Marshal(token)
-	if e != nil {
-		return
+	raw, err := json.Marshal(token)
+	if err != nil {
+		return err
 	}
 	store := d.Connected.Metadata.Store
-	_, _ = store.Pool.Exec(context.WithoutCancel(ctx), "INSERT INTO "+store.table("development_canonical_tokens")+"(token,pool,creator,tx_hash,token_json) VALUES($1,$2,$3,$4,$5::jsonb) ON CONFLICT(token) DO NOTHING", row.Token, row.Pool, row.Creator, row.TxHash, string(raw))
+	bounded, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	tag, err := store.Pool.Exec(bounded, "INSERT INTO "+store.table("development_canonical_tokens")+"(token,pool,creator,tx_hash,token_json) VALUES($1,$2,$3,$4,$5::jsonb) ON CONFLICT(token) DO UPDATE SET token_json=EXCLUDED.token_json WHERE "+store.table("development_canonical_tokens")+".pool=EXCLUDED.pool AND "+store.table("development_canonical_tokens")+".creator=EXCLUDED.creator AND "+store.table("development_canonical_tokens")+".tx_hash=EXCLUDED.tx_hash", row.Token, row.Pool, row.Creator, row.TxHash, string(raw))
+	if err != nil {
+		return fmt.Errorf("retain canonical identity: %w", err)
+	}
+	if tag.RowsAffected() != 1 {
+		return ErrUnrepresentable
+	}
+	return nil
 }
 
 // publishedDocument reports whether the token has a v2 document in the

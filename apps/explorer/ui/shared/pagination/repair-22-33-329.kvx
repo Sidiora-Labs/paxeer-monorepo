@@ -1,0 +1,32 @@
+[repair.22.33.329]
+audit = "22.30.137"
+pagination_invalid_page = "repair-22-33-329.spec.ts: paginationInvalidPage and paginationInvalidPageHistory drive the real hook, Next router and HTTP query path with invalid URL pages."
+pagination_chain_history = "repair-22-33-329.spec.ts: paginationChainHistory and paginationValidatedChainHistory drive chain switching and browser Back/Forward through the real Next router and local HTTP data sources."
+baseline = "Not run: the explicit implementation-first gate order forbids the unchanged-tree verify requested by step 6; no pre-change test failure is claimed."
+wiring_requests = "None: both pagination proposals are wholly in scope; the former ganache dependency request was resolved by published task 22.31.440."
+evidence = "Runner-owned hf-build and hf-done ledger records identify the verified candidate revision, exact command, exit code and private evidence location."
+
+[qualification.preexisting]
+revision = "bbc8550e68660ae3e182f869f4caced06b9be62a"
+command = "pnpm --dir apps/explorer exec tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "An existing marketplace repair test imports ganache, which is unavailable in the declared explorer dependencies (TS2307 at repair-22-31-381.spec.ts:2)."
+assumption = "The owning domain must restore the unrelated dependency; this task repairs only its own router snapshot import and does not alter other tests or manifests."
+
+[continuation]
+observed = "The seeded regression tests used single-argument test(function), which Vitest 4 registers without a body; explicit names and callbacks now ensure all four proof functions execute."
+baseline = "The continued tree already contains the repairs; no unchanged-tree baseline was run or claimed."
+
+[qualification.continuation]
+revision = "f029ada89aae0a73e1268e1fb7b5c9117c6a5b9c"
+command = "pnpm --dir apps/explorer exec tsc --noEmit -p tsconfig.json"
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "The declared build stops before TypeScript with ERR_PNPM_OTHER_PM_EXPECTED because apps/explorer/package.json declares Yarn; the same mismatch prevents the repository ESLint layout formatter from running."
+assumption = "Domain 14 must reconcile the declared pnpm gates with the owning apps/explorer/package.json package-manager setting; this unrelated failure cannot be repaired within pagination scope, and hf-done requires a passing build."
+
+[continuation.current]
+observed = "Preserved the seeded pagination implementation and all four executable proof functions; the current build and verify gates use the explorer package manager through corepack yarn."
+baseline = "The seeded tree already contains the repair; the implementation-first gate order permits no unchanged-tree baseline, and no baseline failure is claimed."
+evidence = "The final hf-done ledger line records the qualified candidate revision, command, exit code and private log; no subsequent candidate edits are made."

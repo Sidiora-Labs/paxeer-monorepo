@@ -11,11 +11,12 @@
 #   1. every key of <home>/keyring-test is exported armored under the passphrase and
 #      imported into <home>/keyring-file, unless that keyring already holds the name at
 #      the same address; the name at another address stops the home (reason=conflict).
-#   2. the file keyring, opened with the passphrase, must list every test key at the
-#      same address (reason=file-mismatch).
+#   2. the file keyring must reopen, export each private key, and recover its address
+#      through import into a fresh private file keyring (reason=file-recovery).
 #   3. the newest archive of BACKUP_PREFIX in the store must pass its sha256, be written
 #      no earlier than the last change under the test keyring, decrypt with
-#      BACKUP_IDENTITY and list every file of the test keyring (reason=backup:<why>).
+#      BACKUP_IDENTITY, restore identical key bytes into a private home and recover
+#      every key with the actual backend (reason=backup:<why>).
 #   4. no running process may name the home together with --keyring-backend test, and
 #      <home>/config/client.toml may not select keyring-backend test (reason=in-use).
 # Only then is <home>/keyring-test removed. Prints one line per home:
@@ -24,6 +25,7 @@
 #   "home[k] keys=<n> test=kept reason=<reason>"
 # Exits 0 only when no home is left with a test keyring, 1 otherwise, 2 on a usage error.
 set -euo pipefail
+umask 077
 here=$(cd "$(dirname "$0")" && pwd)
 paxd=${PAXD:-paxd}
 
@@ -40,7 +42,7 @@ pass=$(head -n 1 "$KEYRING_PASSPHRASE_FILE")
 	echo "keyring-migrate: the passphrase file's first line is empty" >&2
 	exit 2
 }
-for tool in "$paxd" python3 sha256sum tar; do
+for tool in "$paxd" python3 sha256sum; do
 	command -v "$tool" >/dev/null 2>&1 || {
 		echo "keyring-migrate: $tool is required" >&2
 		exit 2
@@ -54,32 +56,54 @@ pw() { printf '%s\n' "$pass" "$pass" "$pass" "$pass"; }
 # keys <home> <backend>: "name address" per key, sorted.
 keys() {
 	pw | "$paxd" keys list --home "$1" --keyring-backend "$2" --output json 2>/dev/null |
-		python3 -c 'import json,sys; [print(k["name"], k["address"]) for k in json.load(sys.stdin) or []]' | sort
+		python3 "$here/keyring_recovery.py" keys
 }
 
-# verify_backup <test keyring dir>: prints the newest archive name when it holds the
-# keyring; dies with the reason otherwise. Runs in a subshell.
+# recover_keys <home> <backend> <expected>: reopen the backend, export private
+# material, import into a fresh file backend and reopen each recovered address.
+recover_keys() (
+	listed=$(keys "$1" "$2") || exit 1
+	if [ "$2" = test ] && [ "$listed" != "$3" ]; then exit 1; fi
+	proof=$(mktemp -d) || exit 1
+	trap 'rm -rf -- "$proof"' EXIT
+	while read -r name addr; do
+		[ -n "$name" ] || continue
+		current=$(awk -v n="$name" '$1 == n {print $2}' <<<"$listed")
+		[ "$current" = "$addr" ] || exit 1
+		address=$(pw | "$paxd" keys show "$name" --address --home "$1" --keyring-backend "$2" 2>/dev/null) || exit 1
+		[ "$address" = "$addr" ] || exit 1
+		pw | "$paxd" keys export "$name" --home "$1" --keyring-backend "$2" >"$proof/key.armor" 2>/dev/null || exit 1
+		[ -s "$proof/key.armor" ] || exit 1
+		pw | "$paxd" keys import "$name" "$proof/key.armor" --home "$proof/home" --keyring-backend file >/dev/null 2>&1 || exit 1
+		address=$(pw | "$paxd" keys show "$name" --address --home "$proof/home" --keyring-backend file 2>/dev/null) || exit 1
+		[ "$address" = "$addr" ] || exit 1
+		rm -f -- "$proof/key.armor" || exit 1
+	done <<<"$3"
+)
+
+# verify_backup <home> <manifest> <expected keys>: prints the archive name only
+# after byte comparison and backend recovery. Runs in a private subshell.
 verify_backup() (
 	. "$here/backup/lib.sh"
-	load_env ""
+	load_env "" || die "environment"
 	: "${BACKUP_IDENTITY:?BACKUP_IDENTITY is unset}"
 	[ -r "$BACKUP_IDENTITY" ] || die "BACKUP_IDENTITY is not readable"
 	dir=$(q "$BACKUP_DIR")
-	name=$(store "cd $dir 2>/dev/null && ls -1 -- $(q "$BACKUP_PREFIX")-*.tar.gz.age 2>/dev/null | sort | tail -n 1")
+	name=$(store "cd $dir 2>/dev/null && ls -1 -- $(q "$BACKUP_PREFIX")-*.tar.gz.age 2>/dev/null | sort | tail -n 1") || die "listing"
 	[ -n "$name" ] || die "absent"
-	work=$(mktemp -d)
+	case $name in */* | .* | *$'\n'*) die "archive-name" ;; esac
+	work=$(mktemp -d) || die "temporary-home"
 	trap 'rm -rf "$work"' EXIT
-	store "cat $dir/$(q "$name")" >"$work/$name"
-	store "cat $dir/$(q "$name").sha256" >"$work/$name.sha256"
+	store "cat $dir/$(q "$name")" >"$work/$name" || die "download"
+	store "cat $dir/$(q "$name").sha256" >"$work/$name.sha256" || die "checksum-download"
 	(cd "$work" && sha256sum --quiet -c "$name.sha256" >/dev/null 2>&1) || die "checksum"
 	ts=${name#"$BACKUP_PREFIX"-}
 	written=$(date -u -d "${ts:0:4}-${ts:4:2}-${ts:6:2} ${ts:9:2}:${ts:11:2}:${ts:13:2}" +%s 2>/dev/null) || die "unnamed-time"
-	changed=$(find "$1" -printf '%T@\n' | sort -n | tail -n 1)
+	changed=$(find "$1/keyring-test" -printf '%T@\n' | sort -n | tail -n 1) || die "source-time"
 	[ "$written" -ge "${changed%.*}" ] || die "stale"
-	age -d -i "$BACKUP_IDENTITY" "$work/$name" | tar -tzf - >"$work/list" 2>/dev/null || die "decrypt"
-	while read -r f; do
-		grep -qxF -- "${f#/}" "$work/list" || die "missing-keyring"
-	done < <(find "$1" -type f)
+	age -d -i "$BACKUP_IDENTITY" "$work/$name" >"$work/snapshot.tar.gz" 2>/dev/null || die "decrypt"
+	python3 "$here/keyring_recovery.py" restore "$work/snapshot.tar.gz" "$1" "$work/recovered" "$2" || die "content"
+	recover_keys "$work/recovered" test "$3" || die "key-recovery"
 	echo "$name"
 )
 
@@ -96,7 +120,13 @@ in_use() {
 
 failures=0
 k=-1
+scratch=""
+trap '[ -z "$scratch" ] || rm -rf -- "$scratch"' EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 for home in "$@"; do
+	[ -z "$scratch" ] || rm -rf -- "$scratch"
+	scratch=""
 	k=$((k + 1))
 	home=$(realpath -m -- "$home")
 	test_dir="$home/keyring-test"
@@ -108,7 +138,16 @@ for home in "$@"; do
 		echo "home[$k] keys=$n test=kept reason=$1"
 		failures=$((failures + 1))
 	}
-	want=$(keys "$home" test) || want=""
+	n=unknown
+	scratch=$(mktemp -d)
+	python3 "$here/keyring_recovery.py" snapshot "$test_dir" >"$scratch/source.json" || {
+		kept source-content
+		continue
+	}
+	want=$(keys "$home" test) || {
+		kept source-enumeration
+		continue
+	}
 	n=$(grep -c . <<<"$want" || true)
 	have=$(keys "$home" file) || {
 		kept passphrase
@@ -123,21 +162,26 @@ for home in "$@"; do
 			stop=conflict
 			break
 		}
-		pw | "$paxd" keys import "$name" \
-			<(printf '%s\n' "$pass" | "$paxd" keys export "$name" --home "$home" --keyring-backend test 2>/dev/null) \
-			--home "$home" --keyring-backend file >/dev/null 2>&1 || true
+		pw | "$paxd" keys export "$name" --home "$home" --keyring-backend test >"$scratch/key.armor" 2>/dev/null || {
+			stop=export
+			break
+		}
+		pw | "$paxd" keys import "$name" "$scratch/key.armor" --home "$home" --keyring-backend file >/dev/null 2>&1 || {
+			stop=import
+			break
+		}
+		rm -f -- "$scratch/key.armor"
 	done <<<"$want"
 	[ -z "$stop" ] || {
 		kept "$stop"
 		continue
 	}
-	have=$(keys "$home" file) || have=""
-	[ -n "$(comm -23 <(printf '%s\n' "$want") <(printf '%s\n' "$have"))" ] && {
-		kept file-mismatch
+	recover_keys "$home" file "$want" || {
+		kept file-recovery
 		continue
 	}
-	err=$(mktemp)
-	archive=$(verify_backup "$test_dir" 2>"$err") || {
+	err="$scratch/backup.err"
+	archive=$(verify_backup "$home" "$scratch/source.json" "$want" 2>"$err") || {
 		kept "backup:$(tail -n 1 "$err" | sed 's/^backup: //; s/.*: //' | tr ' ' -)"
 		rm -f "$err"
 		continue
@@ -147,6 +191,14 @@ for home in "$@"; do
 		kept in-use
 		continue
 	fi
+	current=$(keys "$home" test) || {
+		kept source-enumeration
+		continue
+	}
+	[ "$current" = "$want" ] && python3 "$here/keyring_recovery.py" check "$test_dir" "$scratch/source.json" || {
+		kept source-changed
+		continue
+	}
 	rm -rf -- "$test_dir"
 	echo "home[$k] keys=$n file=match backup=$archive test=removed"
 done

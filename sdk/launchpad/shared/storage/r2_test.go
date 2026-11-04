@@ -151,7 +151,7 @@ func TestClient_GetBytes(t *testing.T) {
 	if err := client.Put(ctx, "k/file.txt", bytes.NewReader(want), int64(len(want)), "text/plain"); err != nil {
 		t.Fatalf("Put: %v", err)
 	}
-	got, ct, err := client.GetBytes(ctx, "k/file.txt")
+	got, ct, err := client.GetBytes(ctx, "k/file.txt", int64(len(want)))
 	if err != nil {
 		t.Fatalf("GetBytes: %v", err)
 	}
@@ -209,7 +209,7 @@ func TestClient_NotFound(t *testing.T) {
 	if _, err := client.Get(ctx, "missing/key"); !errors.Is(err, storage.ErrNotFound) {
 		t.Errorf("Get err = %v, want ErrNotFound", err)
 	}
-	if _, _, err := client.GetBytes(ctx, "missing/key"); !errors.Is(err, storage.ErrNotFound) {
+	if _, _, err := client.GetBytes(ctx, "missing/key", 1024); !errors.Is(err, storage.ErrNotFound) {
 		t.Errorf("GetBytes err = %v, want ErrNotFound", err)
 	}
 	if _, err := client.Head(ctx, "missing/key"); !errors.Is(err, storage.ErrNotFound) {
@@ -236,7 +236,7 @@ func TestNewFromS3(t *testing.T) {
 	if err := client.Put(ctx, "k", bytes.NewReader(want), int64(len(want)), "text/plain"); err != nil {
 		t.Fatalf("Put: %v", err)
 	}
-	got, _, err := client.GetBytes(ctx, "k")
+	got, _, err := client.GetBytes(ctx, "k", 1024)
 	if err != nil {
 		t.Fatalf("GetBytes: %v", err)
 	}
@@ -274,7 +274,7 @@ func TestClient_BackendErrors(t *testing.T) {
 	if _, err := client.Get(ctx, "k"); err == nil || errors.Is(err, storage.ErrNotFound) {
 		t.Errorf("Get err = %v, want non-nil non-ErrNotFound", err)
 	}
-	if _, _, err := client.GetBytes(ctx, "k"); err == nil || errors.Is(err, storage.ErrNotFound) {
+	if _, _, err := client.GetBytes(ctx, "k", 1024); err == nil || errors.Is(err, storage.ErrNotFound) {
 		t.Errorf("GetBytes err = %v, want non-nil non-ErrNotFound", err)
 	}
 	if _, err := client.Head(ctx, "k"); err == nil || errors.Is(err, storage.ErrNotFound) {
