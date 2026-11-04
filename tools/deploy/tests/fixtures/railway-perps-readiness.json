@@ -1,0 +1,30 @@
+{
+  "project": "readiness-project",
+  "environment": "production",
+  "workspace": "readiness-workspace",
+  "services": [
+    {
+      "name": "explorer",
+      "image": "perps-explorer",
+      "order": 5,
+      "health": "/healthz/ready",
+      "restart": "ALWAYS",
+      "replicas": 1,
+      "status": "SLEEPING"
+    },
+    {
+      "name": "web",
+      "image": "perps-web",
+      "order": 6,
+      "health": "/api/build-id",
+      "restart": "ALWAYS",
+      "replicas": 1,
+      "status": "CRASHED"
+    }
+  ],
+  "scenarios": {
+    "wake": {"health_statuses": [503, 200], "confirm_deployment": true},
+    "unavailable": {"health_statuses": [503, 503], "confirm_deployment": true},
+    "unconfirmed": {"health_statuses": [200], "confirm_deployment": false}
+  }
+}
