@@ -1,0 +1,34 @@
+[repair]
+audit = "22.30.100"
+task = "22.33.13"
+base_revision = "8a5302e1b13ed685ab2cd21b29cd69052c2a8f6a"
+verification = "hf-build then hf-done; exact qualified revision, command, exit and private log are recorded by the runner in /out/run/gates.jsonl and the final evidence line."
+baseline = "No earlier gate ledger or implementation existed, and repair_22_33_13.rs was absent. No baseline test ran: the explicit gate order requires completing implementation before hf-build and hf-done, and prohibits a manual verify invocation."
+
+[finding.graph-restore]
+tests = ["graph_restore_valid_restart_preserves_ancestry_revocation_and_cancellation", "graph_restore_rejects_duplicate_foreign_missing_and_cyclic_ancestry", "graph_restore_checks_every_attenuation_dimension_and_handles_deep_valid_chains"]
+
+[finding.native-send-envelope]
+tests = ["native_send_envelope_signed_evm_admission_reopens_exact_bytes_and_consumed_nonce", "native_send_envelope_refuses_changed_transaction_binding_and_foreign_ledger_owner", "native_send_envelope_restart_rechecks_retained_bytes_and_current_binding"]
+
+[finding.registration-principal]
+tests = ["registration_principal_uses_verified_evm_ledger_owner_and_same_fee_account", "registration_principal_refuses_missing_binding_cross_preparation_and_unbounded_supply", "registration_principal_refuses_owner_drift_and_unrelated_evm_join"]
+
+[wiring.native-send]
+request = "Domain 9: services/agent/crates/layerx-agentd/src/human_runtime.rs must pass SigningPreparation and signed EVM bytes to NativeSendAdmission::verify, inspect_capability and admit, and recover with NativeSendAdmission::restore; the retired API purpose record already refuses every value."
+
+[wiring.native-purpose]
+request = "Domain 9: services/agent/crates/layerx-agent-api/src/identity.rs must provide the replacement session/owner purpose contract that binds EVM sender and rotated identity authority before runtime native-send authorization can be enabled."
+
+[wiring.registration]
+request = "Domain 9: services/agent/crates/layerx-agentd/src/human_runtime.rs, src/approval/native_effect.rs and src/budget/program_sources.rs must carry VerifiedLedgerPrincipal resolved through CommittedReads and NativeRegistrationContext into registration commitment/effect and fee checks; fee-asset-only registration callers now refuse."
+
+[wiring.ledger]
+request = "Domain 6: modules/layerxledger/keeper and precompiles/layerxledger own accountId(bytes32,bytes32) accepting the bound DID public key, accountOwner(bytes32) returning the live owner, and the bank gas debit of the EVM address joined by precompiles/addr getUnifiedAccount(address); retain these ABI contracts."
+
+[qualification.build1]
+revision = "882e51f529124092d725bf5e0a838b6f29f44715"
+command = "cargo build --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "Public disclosure::call::validate_call takes call, disclosure, sender; the internal codec uses a different parameter order. Repair also gives real Store fixtures their required owned private directory mode."
