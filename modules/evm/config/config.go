@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"math/big"
 
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
@@ -55,4 +56,12 @@ func IsLiveChainID(ctx sdk.Context) bool {
 func IsLiveEVMChainID(evmChainID int64) bool {
 	_, ok := EVMChainIDMapping[evmChainID]
 	return ok
+}
+
+// ValidateMockBalancesChainID rejects test minting on every configured live chain.
+func ValidateMockBalancesChainID(ctx sdk.Context) error {
+	if IsLiveChainID(ctx) {
+		return fmt.Errorf("mock_balances is forbidden on live chain %q", ctx.ChainID())
+	}
+	return nil
 }
