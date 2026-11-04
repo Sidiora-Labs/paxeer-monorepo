@@ -77,7 +77,7 @@ export function BlockRow({ block, isNew = false, onSelect, isSelected = false }:
       <div className="flex items-center gap-4 flex-1 min-w-0">
         <div className="flex flex-col">
           <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-            Fills
+            Transactions
           </span>
           <span className="text-xs font-mono text-foreground">
             {block.transactions_count}
