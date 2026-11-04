@@ -7,6 +7,8 @@ mod reclaim;
 mod recovery;
 mod spend;
 
+pub(crate) use archive::check_retained_history_write;
+
 pub use archive::{
     AgentBalance, ArchiveAgentContract, ArchiveBoundary, ArchiveError, ArchiveJourney,
     ArchiveRequest, ArchiveStage, ArchiveStatus, ArchivedHistoryEntry, FundsDispositionEvidence,
