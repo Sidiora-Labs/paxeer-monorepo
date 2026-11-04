@@ -96,6 +96,9 @@ type ProgramPendingRecord struct {
 // [2..33] payload hash, [34..65] fee asset, [66..97] fee account, [98..113]
 // u128 big-endian amount, [114..121] u64 recording sequence, [122] fulfilled.
 func (r ProgramPendingRecord) Bytes() ([]byte, error) {
+	if !programKind(r.Kind) {
+		return nil, errProgramNonCanonical
+	}
 	if r.Amount.IsNil() || r.Amount.IsNegative() || r.Amount.BigInt().BitLen() > programAmountBits {
 		return nil, errProgramOverflow
 	}
@@ -157,7 +160,7 @@ func ProgramFeeAccount(asset types.Hash32) sdk.AccAddress {
 	return address.Module(ProgramFeeAccountModule, id[:])
 }
 
-func programKind(kind uint8) bool { return kind == types.KindFetch || kind == types.KindSearch }
+func programKind(kind uint8) bool { return types.ProgramKind(kind) }
 
 // decodeProgramRequest reads the request event data: u64 request id, u8 kind
 // fetch or search, u32 payload length above zero and exactly that many

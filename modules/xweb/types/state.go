@@ -57,6 +57,12 @@ func KnownKind(kind uint8) bool {
 	return kind == KindFetch || kind == KindSearch || kind == KindApi || kind == KindStorageReceipt
 }
 
+// ProgramKind reports whether origin-2 requests support kind. Origin-1 API
+// and storage-receipt requests have no program-origin lifecycle.
+func ProgramKind(kind uint8) bool {
+	return kind == KindFetch || kind == KindSearch
+}
+
 // Attestation levels. Under LevelMajority a fulfilment needs the threshold of
 // attestor signatures; under LevelSingle, open to the api kind only, it needs
 // exactly one signature from the attestor the payload names.
