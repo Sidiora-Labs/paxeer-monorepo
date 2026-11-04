@@ -1,0 +1,27 @@
+[repair.22.31.58]
+audit = "22.30.35"
+finding_1 = "TestRepair_58_SearchErrors: unavailable upstream, header timeout and body timeout through HTTP, frozen generated Go Error decoder and committed SDK Error schema tables, with all seven fields and retry/identity/version headers asserted."
+finding_2 = "TestRepair_58_ReceiptRecoveryAfterRestart: real EVM receipts, per-item RPC error and null receipt, durable cursor hold, closed/reopened PostgreSQL and projector, ordered broker replay exactly once."
+baseline = "Inherited attempt 2 failed TestRepair_58_SearchErrors because sdk/launchpad/packages/sdk/dist/transport.js is absent; the receipt recovery test passed. The continuation gate ledger has zero build and verify runs; no unchanged gate is repeated."
+evidence = "The runner records candidate revision, command, exit and private log in /out/run/gates.jsonl through hf-build and hf-done."
+wiring_request = "sdk/launchpad/packages/sdk/src/transport.ts: launchpad SDK domain owns execution of the JavaScript decoder integration; this repair compares the committed SDK Error schemas in-process and requires no compiled SDK or Node subprocess."
+
+[qualification.initial_external_blockers]
+revision = "0045afebaba82b922fe554230cee89d18583e20e"
+command = "cg spec done 22.31.58 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Compiled SDK artifacts are absent; existing TestProductionGeneratedSDKUsesActualHTTPAndExactAmounts, TestProductionRESTMeasurementHarness and TestProductionRESTMeasurementAggregate lack their external SDK or approved SHA-bound measurement inputs."
+assumption = "The launchpad SDK and qualification owners supply these prerequisites outside this task's paths; their checks remain intact."
+
+[gotcha.receipt_fault_gateway]
+observed = "Geth negotiates gzip, and a reverse proxy forwarding Accept-Encoding leaves compressed bytes in ModifyResponse."
+repair = "Request identity encoding at the fault-injection gateway so it can inspect the real upstream receipt and replace precisely one batch item."
+
+[qualification.continuation_constraint]
+observed = "The inherited real projector restart proof requires the supplied CORE_API_TEST_POSTGRES_URL fixture; DevelopmentStream and broker.PostgresStream use concrete pgx pools, so the no-PostgreSQL requirement conflicts with preserving the existing real durable cursor and broker replay assertions."
+assumption = "Preserve the previously passing real restart proof and its assertions; report the PostgreSQL fixture dependency explicitly rather than replace the repaired component with a test double."
+
+[gotcha.sdk_decoder_source]
+observed = "The generated SDK runtime in dist is absent in qualification and cannot be a subprocess prerequisite."
+repair = "Compare the committed sdk and sdk-v2 Error schema tables to the frozen REST schemas and decode actual HTTP bytes with the generated Go consumer in-process."
