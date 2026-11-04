@@ -13,6 +13,7 @@ import (
 
 type Action struct {
 	ID, Kind, Scope, Reason, RequestedBy, ApprovedBy, State, JobID, PayloadHash string
+	PayloadReference, CompletionIdentity                                        string
 	Revision                                                                    uint64
 	Expires                                                                     time.Time
 	Approver                                                                    Principal
@@ -86,8 +87,18 @@ func (s *Store) Transition(ctx context.Context, cred, k, scope, reason, next str
 			if a.Kind == "cap_change" || a.Kind == "incident_recovery" {
 				return Denied
 			}
+			if a.Kind == "replay" && a.PayloadReference != "" {
+				var payload ReplayPayload
+				if err := t.get("action_payload", a.PayloadReference, &payload); err != nil {
+					return err
+				}
+				if digest(payload) != a.PayloadHash {
+					return Conflict
+				}
+			}
 			a.JobID = id()
-			if e := t.put("job", a.JobID, map[string]any{"actionId": a.ID, "kind": a.Kind, "scope": scope, "state": "queued", "payloadHash": a.PayloadHash}); e != nil {
+			a.CompletionIdentity = "control-replay:" + a.JobID
+			if e := t.put("job", a.JobID, ReplayJob{ActionID: a.ID, ActionKey: k, Kind: a.Kind, Scope: scope, State: "queued", PayloadHash: a.PayloadHash, PayloadReference: a.PayloadReference, CompletionIdentity: a.CompletionIdentity}); e != nil {
 				return e
 			}
 		case "cancelled":
@@ -184,9 +195,17 @@ func (s *Store) Admission(ctx context.Context, capabilityName string, knownVersi
 	defer cancel()
 	var b []byte
 	var now time.Time
-	e := s.pool.QueryRow(ctx, "SELECT body,clock_timestamp() FROM "+s.schema+".objects WHERE kind='caps' AND id=$1", capabilityName).Scan(&b, &now)
+	var e error
+	if s.local != nil {
+		now = time.Now()
+		var raw json.RawMessage
+		e = s.readObject(ctx, "caps", capabilityName, &raw)
+		b = raw
+	} else {
+		e = s.pool.QueryRow(ctx, "SELECT body,clock_timestamp() FROM "+s.schema+".objects WHERE kind='caps' AND id=$1", capabilityName).Scan(&b, &now)
+	}
 	if e != nil {
-		if errors.Is(e, pgx.ErrNoRows) {
+		if errors.Is(e, pgx.ErrNoRows) || e == Missing {
 			return d, nil
 		}
 		return d, e
@@ -229,7 +248,7 @@ func (s *Store) CompleteAction(ctx context.Context, cred, k, scope, reason, next
 		if a.Revision != expected || a.Revision == ^uint64(0) {
 			return Conflict
 		}
-		if a.State != "executing" || a.JobID == "" || !t.approvalActive(a) {
+		if a.State != "executing" || a.JobID == "" || !a.Expires.After(t.now) || !t.approvalActive(a) {
 			return Denied
 		}
 		if e := verifier.Verify(contextFor(t), a, next, reference); e != nil {
