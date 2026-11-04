@@ -147510,7 +147510,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1400]
 title = "Repair audit record 22.30.78 medium findings in services/platform/examples/test (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.346", "22.31.347", "22.31.348", "22.31.457", "22.31.479"]
@@ -178297,7 +178297,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.887]
 title = "Repair audit record 22.30.183 medium findings in tools/benchmark/loadtest/contracts/jupiter/src (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.330"]
@@ -178990,7 +178990,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.458]
 title = "Repair audit record 22.30.148 medium findings in services/explorer/services/libs/blockscout-service-launcher/src (part 1 of 1): config-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.275", "22.31.276"]
