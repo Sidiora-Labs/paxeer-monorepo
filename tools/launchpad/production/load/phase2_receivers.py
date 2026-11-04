@@ -25,8 +25,9 @@ class HandshakeDenied(ReconciliationError):
 
 
 class ReceiverState:
-    def __init__(self, topics, snapshot, *, retain_fills=False):
-        validate_v2("TopicSnapshot", snapshot)
+    def __init__(self, topics, snapshot, *, authority, retain_fills=False):
+        self.authority = authority
+        validate_v2("TopicSnapshot", snapshot, self.authority)
         entries = {row["topic"]: row for row in snapshot["topics"]}
         if set(entries) != set(topics) or len(entries) != len(topics):
             raise ReconciliationError("snapshot scope differs")
@@ -40,7 +41,7 @@ class ReceiverState:
 
     def receive(self, value):
         if "op" in value:
-            validate_v2("StreamControl", value)
+            validate_v2("StreamControl", value, self.authority)
             self.controls += 1
             if value["op"] in ("error", "resnapshot_required", "integrity_incident", "subscription_closed"):
                 raise ReconciliationError("explicit server control: " + value["op"])
@@ -50,7 +51,7 @@ class ReceiverState:
                 self.cursor = value["cursor"]
                 self.checkpoint_count += 1
             return False
-        validate_v2("StreamEvent", value)
+        validate_v2("StreamEvent", value, self.authority)
         topic = value["topic"]
         if topic not in self.sequence:
             raise ReconciliationError("event outside accepted scope")
@@ -84,12 +85,13 @@ class ReceiverState:
 
 
 class WebSocket:
-    def __init__(self, base, application_origin, *, ca_file=None, owned_local=False):
+    def __init__(self, base, application_origin, *, authority, ca_file=None, owned_local=False):
         self.url = origin(base, ("https", "http") if owned_local else ("https",))
         if self.url.scheme == "http" and self.url.hostname not in ("127.0.0.1", "::1", "localhost"):
             raise ValueError("plain WebSocket confined to owned loopback")
         origin(application_origin)
         self.application_origin = application_origin
+        self.authority = authority
         self.context = ssl.create_default_context(cafile=ca_file)
         self.reader = self.writer = None
 
@@ -132,7 +134,7 @@ class WebSocket:
         await asyncio.wait_for(self.writer.drain(), 5)
 
     async def subscribe(self, topics, cursor):
-        body = validate_v2("Subscribe", {"op": "subscribe", "subscriptionId": str(uuid.uuid4()), "topics": topics, "afterCursor": cursor})
+        body = validate_v2("Subscribe", {"op": "subscribe", "subscriptionId": str(uuid.uuid4()), "topics": topics, "afterCursor": cursor}, self.authority)
         await self.send_frame(1, canonical(body))
 
     async def receive(self):
@@ -179,17 +181,19 @@ class WebSocket:
 
 async def connect_receiver(http, websocket_origin, topics, account, *, ca_file=None, owned_local=False, state=None, retain_fills=False):
     topics = sorted(topics)
-    validate_v2("Subscribe", {"op": "subscribe", "subscriptionId": "load-scope", "topics": topics, "afterCursor": None})
+    validate_v2("Subscribe", {"op": "subscribe", "subscriptionId": "load-scope", "topics": topics, "afterCursor": None}, http.authority)
     bearer = None if account is None else account.access_token
     if state is None:
         snapshot = (await http.call("GET", "/v2/snapshots?topics=" + quote(",".join(topics), safe=""), bearer=bearer, schema="TopicSnapshotReadResponse"))["data"]["snapshot"]
-        state = ReceiverState(topics, snapshot, retain_fills=retain_fills)
+        state = ReceiverState(topics, snapshot, authority=http.authority, retain_fills=retain_fills)
+    if state.authority is not http.authority:
+        raise ValueError("receiver and transport contract authorities differ")
     ticket = None
     if account is not None:
         body = {"schemaMajor": 2, "topics": topics, "filterDigest": digest(canonical(topics)), "origin": http.application_origin, "endpoint": "/v2/stream"}
-        validate_v2("StreamTicketIssueBody", body)
+        validate_v2("StreamTicketIssueBody", body, http.authority)
         ticket = (await http.call("POST", "/v2/stream/tickets", body, bearer=bearer, schema="StreamTicketIssueResponse"))["data"]["ticket"]
-    socket = WebSocket(websocket_origin, http.application_origin, ca_file=ca_file, owned_local=owned_local)
+    socket = WebSocket(websocket_origin, http.application_origin, authority=http.authority, ca_file=ca_file, owned_local=owned_local)
     try:
         await socket.connect(ticket)
         await socket.subscribe(topics, state.cursor)

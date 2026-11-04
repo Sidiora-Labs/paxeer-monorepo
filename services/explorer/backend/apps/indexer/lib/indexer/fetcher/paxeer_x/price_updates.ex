@@ -25,8 +25,6 @@ defmodule Indexer.Fetcher.PaxeerX.PriceUpdates do
   so a market the precompile does not list costs no calls per block.
   """
 
-  use Indexer.Fetcher, restart: :permanent
-
   require Logger
 
   import Ecto.Query, only: [from: 2]
@@ -80,6 +78,20 @@ defmodule Indexer.Fetcher.PaxeerX.PriceUpdates do
       ]
     }
   ]
+
+  @doc false
+  def load_acceptance_backfill do
+    :explorer
+    |> Application.app_dir("priv/repo/migrations/scripts/price_acceptance_backfill.exs")
+    |> Code.require_file()
+
+    Explorer.Repo.Migrations.PriceAcceptanceBackfill
+  end
+
+  @doc false
+  def acceptance_backfill_pending? do
+    apply(load_acceptance_backfill(), :pending?, [])
+  end
 
   @doc """
   Buffers the consensus blocks at or above the start block for scanning.

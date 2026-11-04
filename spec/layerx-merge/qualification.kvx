@@ -27443,3 +27443,83 @@ symbol = "repair-22-33-1364.test.mjs"
 observed = "Attempt 3: verification passed; .cgignore drifted outside the task's paths."
 assumption = "A publication drift, not a product defect."
 severity = "low"
+
+[finding.22.33.298.1]
+task = "22.33.298"
+file = "apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/repair-22-33-298.spec.ts"
+symbol = "repair-22-33-298.spec.ts"
+observed = "Attempt 1: the build failed on TS2769 in the repair-22-33-299 spec, outside this task's paths."
+assumption = "A defect published by a neighbouring task, repaired by 22.31.474."
+severity = "low"
+
+[finding.22.33.1076.4]
+task = "22.33.1076"
+file = "tests/daemon/test_repair_22_33_1076.py"
+symbol = "test_repair_22_33_1076.py"
+observed = "Attempt 5: the restarted handshake rejected height three (application hash 6869C4E5... differs from consensus 997A6D6A...) although the persisted application hashes were identical before close and after both reopen paths."
+assumption = "A producer defect in the committed-record AppHash, owned by 22.31.475."
+severity = "high"
+
+[finding.22.33.23.5]
+task = "22.33.23"
+file = "services/agent/sdk/typescript/test/repair-22-33-23.test.ts"
+symbol = "repair-22-33-23.test.ts"
+observed = "Attempt 5: nineteen of twenty tests passed; the exchange test failed because it matched source text (ValidateArgsLength(args, 6)) that the landed 22.31.459 writes as ValidateArgsLength(args, count)."
+assumption = "A brittle source-text assertion, not a missing producer."
+severity = "low"
+
+[finding.22.33.1480.2]
+task = "22.33.1480"
+file = "services/platform/middleware/conformance/test/repair-22-33-1480.test.mjs"
+symbol = "repair-22-33-1480.test.mjs"
+observed = "Attempt 2: the node router fixture passed; the daemon recovery case failed with a resumed receipt whose reservation stayed reserved while the observation was committed; the fix lives in the agent daemon outside the previous paths."
+assumption = "A restart-recovery defect in the agent daemon's resume path."
+severity = "high"
+
+[finding.22.33.1000.1]
+task = "22.33.1000"
+file = "services/launchpad/indexer/internal/processor/repair_m1000_test.go"
+symbol = "repair_m1000_test.go"
+observed = "Attempt 1: build and measurement tests passed; live generation and inventory frames failed on a receipt qualification refusal for the Treasury code epoch that the fixtures do not carry."
+assumption = "A missing fixture epoch, not a producer defect."
+severity = "medium"
+
+[finding.22.33.1242.3]
+task = "22.33.1242"
+file = "modules/evm/keeper/repair_m1242_test.go"
+symbol = "repair_m1242_test.go"
+observed = "Attempt 4: build passed, five repair tests passed, the precompile version test failed on a literal v6.5 against the module's v6.4.0."
+assumption = "A literal version expectation out of step with the module."
+severity = "low"
+
+[finding.22.99.77.11]
+task = "22.99.77"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 9: 16 of 17 evaluator-host tests passed; the schedule-capacity test returned -3 instead of 0 and OPEN_EPOCH exceeded the cpu fuel cap by 34 units at height 896."
+assumption = "Two bounded residuals after nine attempts; the fuel overrun is marginal."
+severity = "high"
+
+[finding.22.31.219.1]
+task = "22.31.219"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_219.rs"
+symbol = "repair_22_31_219.rs"
+observed = "Attempt 2: five of eight tests passed; three panicked unwrapping Unavailable or ItemUnproven; the repaired candidate was never verified."
+assumption = "Budget ended before verification of the repaired candidate."
+severity = "medium"
+
+[finding.22.33.416.3]
+task = "22.33.416"
+file = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_33_416_test.exs"
+symbol = "repair_22_33_416_test.exs"
+observed = "Attempt 4: 58 tests ran with seven failures, all in the capabilities ABI decoder outside the paths the attempt saw."
+assumption = "A timing gap between the ruling that widened the paths and the attempt."
+severity = "low"
+
+[finding.22.33.1277.2]
+task = "22.33.1277"
+file = "interchain/testing/mock/repair_m1277_test.go"
+symbol = "repair_m1277_test.go"
+observed = "Attempt 2: the restart recovery test found the controller port binding missing after re-import; the repair lies in the controller genesis outside the previous paths."
+assumption = "A genesis export and import omission in the controller module."
+severity = "high"
