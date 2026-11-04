@@ -1,5 +1,7 @@
 # Production operations
 
+For the architecture and fee model, see the [launchpad overview](../README.md); for central event payloads and authorization, see [IEventEmitter](../docs/interfaces/IEventEmitter.md).
+
 This runbook describes the repository's incident controls, operational inspection and local release gates. A passing local release does not qualify an unidentified deployed version or reconstruct historical liabilities. Preserve the actual deployed release, authority inventory and migration evidence before preparing an upgrade.
 
 ## Launchpad mainnet deployment
@@ -8,7 +10,15 @@ Core deployment defaults to `GOVERNANCE_MODE=admin`: the configured administrato
 
 Supply `PRIVATE_KEY` and the existing six-decimal mainnet `USDL_ADDRESS` in the deployment environment. Set `GUARDIAN_ADDRESS` to the intended Timelock cancellation guardian, or it defaults to the deployment wallet. `TIMELOCK_DELAY` defaults to 172800 seconds. Leave `ADMIN_ADDRESS` unset: proxy administration is assigned to Timelock. Shell-exported variables override `.env`, so replace any previously exported local token address before running on mainnet.
 
-From `contracts/`, the configured mainnet network is `paxeer-x-network` (chain ID 125):
+Run all commands in this runbook from the launchpad project, `contracts/launchpad/`, which contains its own `package.json`, `hardhat.config.js` and `scripts/`. From the repository root, enter it with:
+
+```sh
+cd contracts/launchpad
+```
+
+The configured mainnet network is `paxeer-x-network` (chain ID 125 / `0x7d`). [hardhat.config.js](../hardhat.config.js) uses `https://api5.mainnet-beta.paxeer.network` at the root path. Public JSON-RPC is also served at the root of `api1` through `api14.mainnet-beta.paxeer.network` and `api-mainnet-beta.paxeer.network`. These contracts run on the single Paxeer BFT network; its kernel proposes blocks, and receipts are final when their blocks commit.
+
+With the deployment environment loaded, run:
 
 ```sh
 NETWORK_TYPE=paxeer-x-network GOVERNANCE_MODE=admin \
@@ -25,7 +35,7 @@ Deployment records the selected mode and administrator in `deployments/paxeer-x-
 
 ## Verify the launchpad on Paxscan
 
-Use the same `paxeer-x-network` name as deployment. From `contracts/`:
+Use the same `paxeer-x-network` name as deployment. From `contracts/launchpad/`:
 
 ```sh
 NETWORK_TYPE=paxeer-x-network \
@@ -78,10 +88,10 @@ The registry is optional trust signaling. Deregistration does not disable attach
 
 ## Read-only health inspection
 
-Run from `contracts/`, with a provider URL and reviewed deployment manifest:
+Run from `contracts/launchpad/`, with a reviewed deployment manifest and a root-path JSON-RPC provider URL:
 
 ```sh
-RPC_URL=https://your-rpc.example node scripts/production-health.js deployments/your-network-addresses.json policy.json
+RPC_URL=https://api5.mainnet-beta.paxeer.network node scripts/production-health.js deployments/paxeer-x-network-addresses.json policy.json
 ```
 
 The optional second file selects policy assertions. The command does not load Hardhat, require a private key, or submit transactions. It emits JSON and exits 1 for critical or incomplete inspection; warnings exit 0 and must still be interpreted. RPC exception details and endpoint credentials are suppressed.
@@ -93,6 +103,8 @@ By default, all six execution/custody/oracle endpoints are required: Vault, Orde
 The older `scripts/meta-ag/inspect-live-state.js` entry point delegates to this same inspector. Retain JSON snapshots for monitoring and investigate changes; a healthy snapshot is not an execution simulation, oracle economic analysis or production migration certificate.
 
 ## Release qualification
+
+From `contracts/launchpad/`, use the package’s pinned pnpm version and supported Node version from [package.json](../package.json):
 
 ```sh
 pnpm install --frozen-lockfile

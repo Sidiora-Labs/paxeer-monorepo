@@ -1,40 +1,143 @@
 # Market-maker ramp toolkit
 
-This directory holds two crates of the `services/platform/` Cargo workspace: `layerx-ramp-toolkit` (`toolkit/`, the library plus the `ramp-verify-receipt` binary) and `layerx-reference-ramp` (`reference/`, the reference service). They are for an independent market maker operating ordinary agent accounts in the LayerX domain of Paxeer X Network. It creates no protocol role, minting power, settlement authority, reserved vocabulary or LayerX custody claim. Every customer surface must display:
+This directory contains two members of the [platform Cargo workspace](../Cargo.toml):
+`layerx-ramp-toolkit` ([toolkit/](toolkit/)), including `ramp-verify-receipt`,
+and `layerx-reference-ramp` ([reference/](reference/)), the reference HTTP service.
+They support an independent market maker using ordinary accounts on Paxeer.
+They confer no minting power, protocol role or authority over network finality.
+Every customer surface must display:
 
 > External custody: this independent market maker controls the off-platform funds and payout.
 
-The Paxeer X chain remains the sole custody and guaranteed-withdrawal boundary for the LayerX domain. The reference service uses the Paxeer X chain only to rebalance the operator's configured inventory account; a customer order can never select that account, wallet, vault, signer or custody operation.
+Paxeer is one BFT network, with the kernel inside `paxd` executing transactions
+and proposing blocks. EVM chain ID is **125** (`0x7d`). Block commit is finality;
+there is no separate execution/settlement chain pair. External provider custody
+and the operator's inventory rebalancing remain distinct business workflows.
+A customer order cannot choose the operator's inventory account, wallet, vault
+or signing handle. Tenant domains are database namespaces within the network.
 
 ## Order and money binding
 
-`RampOrder::bind` combines an authenticated identity-plane customer with an operator-owned quote and operator configuration. The request supplies only `order_id`, `quote_id` and the payer-grant identifier required for an off-ramp; an on-ramp rejects a payer grant because its LayerX leg is the operator's direct send. A domain-separated `OrderDigest` binds direction, order and quote identities, authenticated customer and operator principals/accounts, the operator's non-exporting signer handle, LayerX asset and exact integer amount, external currency and exact minor-unit amount, rational rate, fees, slippage bound, provider and payout tokens, expiry, payer grant presence/value and the operator-owned application context. That digest is also the LayerX idempotency key, and the bound context is required in the receipt.
+[`RampOrder::bind`](toolkit/src/lib.rs) combines an authenticated identity-plane
+customer, an operator-owned quote and the configured operator identity.
+`POST /v1/orders` accepts a strict `CreateOrder` object:
 
-The ordinary-principal LayerX path compiles the existing typed `LxpSend` for the operator-to-customer on-ramp leg and `LxpReceive` under the authenticated customer's payer grant for the customer-to-operator off-ramp leg. The on-ramp send authorization and both canonical envelopes are signed by the operator's remote non-exporting mTLS signer under the declared protocol version, network and LayerX signature-preimage domain, then verified locally. The service submits the exact signed bytes to the hosted gateway. Unknown submission is retained with those exact bytes and resolved only by activity receipt lookup. A terminal LayerX leg requires an independently fetched `AuthorizedBatch` and local verification of the receipt signature, activity ID, debit/credit accounts, asset, amount and order context.
+| Field | Meaning |
+| --- | --- |
+| `order_id` | Customer's order identifier |
+| `quote_id` | Identifier of an operator-provided quote |
+| `customer_budget_id` | Off-ramp only: nonzero 32-byte customer budget ID |
+| `customer_budget_purpose` | Off-ramp only: nonzero 32-byte purpose binding |
+
+The two budget fields are JSON arrays of 32 byte values. Legacy input names
+`payer_grant` and `payer_grant_purpose` are accepted aliases. An on-ramp rejects
+both fields; an off-ramp requires both. Customer account identity comes from
+remote token introspection, not the order JSON.
+
+A domain-separated `OrderDigest` binds direction, quote and order IDs, customer
+and operator accounts/principals, non-exporting signer handle, asset and exact
+integer amount, external currency/minor units, rational rate, fees, slippage,
+provider and payout tokens, expiry, budget ID/purpose and application context.
+The on-ramp payment's reference is this digest. Preserve it throughout provider
+idempotency and journal reconciliation. Quote expiry is Unix seconds; native
+payment expiry uses checked milliseconds.
+
+## Native payment path
+
+The implementation is in [toolkit/src/clients.rs](toolkit/src/clients.rs),
+[toolkit/src/evm.rs](toolkit/src/evm.rs) and [toolkit/src/engine.rs](toolkit/src/engine.rs).
+Payments are signed EIP-1559 transactions, submitted by `eth_sendRawTransaction`
+and reconciled by their exact transaction hash through `pax_sequencerReceipt`.
+The legacy signed-activity envelopes and independent `AuthorizedBatch` fetch
+are retired payment-path requirements.
+
+- On-ramp: `payExact(bytes32,bytes32,bytes32,uint128,uint64,bytes32)` at the
+  ledger precompile `0x000000000000000000000000000000000000101a` transfers from
+  the operator to the customer, binding asset, amount, expiry and order digest.
+  The client reads the operator's pending EVM nonce, estimates gas, enforces fee
+  and gas caps, and requests a secp256k1 signature from the configured KMS.
+- Off-ramp: the maintained call is `budgetSpend(bytes32,bytes32,uint128)` at the
+  pay precompile `0x000000000000000000000000000000000000101b`. The customer signs
+  the exact transaction. `prepare_customer_payment` validates its sender, nonce,
+  calldata, fee bounds and current budget state; the budget binds the customer,
+  asset and purpose. The operator never signs a customer debit.
+
+The toolkit's `submit_customer_payment` supports that off-ramp path. The current
+reference HTTP worker only exposes `submit_layerx`, which calls operator
+preparation and refuses off-ramp orders with `PayerGrantRequired`. Its
+`account_sequence` field does not provide customer authorisation. A deployment
+needs an authenticated integration to the toolkit's customer-signed submission
+path before it can offer a complete off-ramp journey.
+
+Signed execution receipts are checked with independently pinned Ed25519 receipt
+keys and height ranges, bound to the exact transaction and authenticated logs.
+On-ramp verification requires the matching ledger `PaymentExact` event;
+off-ramp verification requires the matching pay `BudgetSpent` event and budget
+state. These receipt keys are distinct from transaction-signing secp256k1 keys.
+`submitted` is acknowledgement, `receipted` is signed execution, and `committed`
+is block inclusion. The engine keeps receipted payments pending until commitment.
 
 ## Durable workflow
 
-The journal is append-only, hash-chained, mode `0600`, protected by a kernel-released exclusive writer lock, and fsyncs every event before changing in-memory state. Startup replays and authenticates the whole chain. Financial side effects are preceded by a durable `*_submission_planned` transition. Worker leases, order IDs, digest idempotency, provider callback IDs/sequences, exact signed LayerX activities, Paxeer operation IDs and transaction hashes are persisted. Planned and submitted-unknown operations are reconciled by the same provider idempotency key or LayerX activity ID and are never blindly resubmitted.
+The append-only, hash-chained journal uses owner-only files, an exclusive writer
+lock released by the OS, and fsync before changing in-memory state. Startup
+validates the entire chain. Financial effects follow a durable
+`*_submission_planned` transition. The journal retains worker leases, order and
+provider idempotency bindings, callback IDs/sequences, exact raw transactions,
+transaction hashes, receipt digests/heights/rungs and inventory operation IDs.
+Reconcile planned and unknown operations under the persisted identifiers;
+do not create another submission to resolve uncertainty.
 
-The public status vocabulary is `pending`, `unknown`, `refused`, `manual_review`, `reversed` and `done`. `done` requires a verified LayerX receipt and, for off-ramp, a settled external payout. A later provider reversal removes `done` immediately. Provider, compliance, LayerX and Paxeer failures are never translated to a safe outcome.
+Public status is `pending`, `unknown`, `refused`, `manual_review`, `reversed` or
+`done`. For the current transaction path, `done` requires committed verified
+payment evidence and the required external settlement. An off-ramp also needs
+a settled payout. A later provider reversal removes `done`; no provider or
+network failure is converted into success. Versioned source-settlement and
+reversal records have additional evidence requirements in
+[toolkit/src/migration.rs](toolkit/src/migration.rs).
 
 ## Production boundaries
 
-All egress except the existing Paxeer JSON-RPC reader is pinned HTTPS with mutual TLS. Credentials are bounded mode-`0600` secret files. The service persists only KMS/HSM handles and public keys; it never accepts or stores signing material. The strict deploy-supplied contracts are:
+Configure [config.example.json](config.example.json) for the actual deployment;
+it contains replacement values and legacy service names, not proven production
+coordinates. The native client uses `layerx.rpc_endpoint`,
+`rpc_trust_anchor_der`, `chain_id`, `operator_address`, `receipt_keys`,
+`max_fee_per_gas`, `max_priority_fee_per_gas`, `gas_limit_cap`, `signer_endpoint`,
+`signer_token_file` and `actor_did`.
 
-- `layerx-ramp-compliance-v1`: signed, expiring, order/customer/operator-bound decisions owned by the operator compliance service.
-- `layerx-ramp-provider-v1`: idempotent settlement submission/status and signed callbacks bound to customer, order, beneficiary, exact amount and currency.
-- the production KMS signature boundary: `POST /v1/signatures` with the non-exporting `key_handle`, `algorithm: ed25519` and the standard-padded-base64 LayerX domain digest, returning only a standard-padded-base64 signature which is verified against the configured public key.
-- `layerx-ramp-paxeer-v1`: operator-only broadcast using the configured account, wallet, vault and non-exporting signer handle.
+Service boundaries use pinned TLS and mTLS where configured; secret credentials
+are read from protected files. Only non-exporting KMS/HSM handles and public
+verification material belong in durable application state. Contracts include:
 
-The repository does not invent provider, compliance or Paxeer custody-owner wire coordinates. Deployments must supply the versioned paths and owner-published schemas described in [`OPERATIONS.md`](OPERATIONS.md) and must test those contracts against real sandboxes.
+- `layerx-ramp-compliance-v1`: signed, expiring decisions bound to the order,
+  customer and operator.
+- `layerx-ramp-provider-v1`: idempotent settlement/status and signed callbacks
+  bound to the customer, beneficiary, amount and currency.
+- KMS `POST /v1/signatures`: `key_handle`, `algorithm: secp256k1`, and the standard
+  padded base64 EIP-1559 signing hash in `message`. The response contains a
+  base64 compact 64-byte `signature` and `recovery_id` (0 or 1); the client
+  recovers the signer and checks `operator_address`.
+- `layerx-ramp-paxeer-v1`: operator-only inventory broadcast/status with the
+  configured account, wallet, vault and signer handle.
+
+See [OPERATIONS.md](OPERATIONS.md) for enablement, worker inputs and recovery,
+and the [gateway](../hosted/gateway/README.md) for root-path public RPC names.
+The [receipt authority](../hosted/authority/README.md) describes a separate
+hosted verifier; it is not a required batch lookup for the native ramp client.
 
 ## Run
 
-Copy `config.example.json` outside the repository, replace every explicit deployment coordinate, mount the referenced secret files with mode `0600`, and run:
+Prepare the protected configuration and secret mounts, then from repository root:
 
 ```sh
 cargo run --locked --manifest-path services/platform/Cargo.toml -p layerx-reference-ramp -- /run/layerx-ramp/config.json
 ```
 
-The executable serves TLS on the configured address. Public routes are `POST /v1/orders`, `GET /v1/orders/{order_digest}`, `POST /v1/provider-callbacks`, `/livez` and `/readyz`. The NetworkPolicy-restricted operator worker routes are `POST /internal/v1/work`, `POST /internal/v1/rebalances` and `GET /internal/v1/rebalances/{idempotency_key}`. Customer identity comes only from remote token introspection; customer JSON cannot set a customer account, operator account, compliance result, provider credential, signer handle or activity ID.
+The service's TLS listener exposes `POST /v1/orders`,
+`GET /v1/orders/{order_digest}`, `POST /v1/provider-callbacks`, `/livez` and
+`/readyz`. Internal bearer-protected routes include `POST /internal/v1/work`,
+`POST /internal/v1/rebalances`, `GET /internal/v1/rebalances/{idempotency_key}`,
+`GET /internal/v1/journal`, `POST /internal/v1/journal/recover` and
+`POST /internal/v2/source-settlements`. Keep internal routes off public ingress.
+The supplied [deployment.yaml](deployment.yaml) and [runbook](OPERATIONS.md)
+define the network and filesystem boundaries to review before activation.

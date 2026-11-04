@@ -1,8 +1,8 @@
 # Sidiora
 
-The second official coin of Paxeer X Network. One address, six decimals, and two ways to pay gas with it.
+Sidiora (`SID`) is the second official coin of Paxeer X Network. It has six decimals and two implemented paths for paying gas: sponsored account execution and native fee-denom selection.
 
-Sidiora is a coin people already hold, and this page is the read of what it is at the protocol level: what the token is, who may mint it, who may change the contract behind it, how gas can be paid in it, and which of the two gas paths works on the network as it runs today. Paxeer X Network is a Cosmos chain with a native EVM; [Unified network](../overview/unified-network.md) describes how the chain and the LayerX kernel domain sit behind one interface.
+Paxeer mainnet-beta is one BFT chain, run by `paxd`, with an embedded kernel that participates in block proposal and execution. Its EVM chain id is `125` (`0x7d`), and a receipt is final when its block is committed. Public node JSON-RPC uses the root HTTPS URLs in [Public RPC endpoints](../reference/public-rpc.md). Hosted gateway methods have a separate contract in `services/platform/hosted/gateway/openrpc.json`; do not assume its hosted `px_` methods are served by every node. [Data availability](data-availability.md) explains committed data and retention.
 
 ---
 
@@ -11,118 +11,122 @@ Sidiora is a coin people already hold, and this page is the read of what it is a
 | Field | Value |
 | --- | --- |
 | Symbol | `SID` |
-| Decimals | `6` - one SID is `1000000` base units |
-| Supply | approximately 458.86 million SID |
-| Address | `0x21f7b20a555199fa73A238B1a91FD0f549068fEe` |
-| Native denom | `factory/pax1dzfx9mk4fl9kl2mysjmtvk2xp75ljumk6nynhf/usid` - a tokenfactory denom whose creator is the bridge module account and whose subdenom is `usid` |
-| Minter and burner | the `x/layerxbridge` module account, and nothing else |
-| Contract administration | proposed, not yet applied: a timelock whose only proposer is the chain governance authority |
+| Decimals | `6`: one SID is `1000000` base units |
+| ERC-20 proxy address | `0x21f7b20a555199fa73A238B1a91FD0f549068fEe` |
+| Native denom | `factory/pax1dzfx9mk4fl9kl2mysjmtvk2xp75ljumk6nynhf/usid` |
+| Denom creator and admin | The `layerxbridge` module account; the subdenom is `usid` |
+| Supply | Read the bank denom supply, or `totalSupply()` when the native-backed implementation is active |
+| Proxy administration | The existing owner; the repository contains a proposed governance timelock handover |
 
-For contrast, the network coin is PAX. Its base denom is `uhpx` and it carries eighteen decimals, so a Sidiora amount and a network-coin amount are never the same scale.
+The network coin is PAX. Its bank denom `uhpx` uses six decimals: one PAX is `1000000 uhpx`. EVM values and gas costs use eighteen-decimal wei units: one PAX is `10^18` wei, and one `uhpx` is `10^12` wei. `modules/evm/state/utils.go` implements that conversion. SID base units, bank `uhpx` and EVM wei must be identified explicitly when pricing a fee.
 
 ### One address, a new implementation behind it
 
-The address does not move. What changes is the implementation behind that proxy: `contracts/src/SidioraNativeERC20.sol` is an ERC-20 whose balances are not its own. `balanceOf` reads the bank balance of the native denom, `totalSupply` reads the bank supply of it, and every transfer moves the denom through the bank precompile and reverts the call if that move fails or returns false. The contract's own state - its initialization flag, the denom, the name, the symbol, the decimals and its allowances - lives in a single ERC-7201 namespace, so the slots the deployed implementation already occupies are neither read nor written; the allowances it keeps start empty and legacy slots stay untouched.
+`contracts/src/SidioraNativeERC20.sol` provides a native-backed implementation for the existing proxy. `balanceOf` reads the bank balance of the native denom, `totalSupply` reads its bank supply, and transfers call the bank precompile at `0x0000000000000000000000000000000000001001`. A failed bank call or a false result reverts the transfer.
 
-The denom string the contract derives is the same string `x/layerxbridge` derives for it, and the pointer record that ties that denom to this same address is written as a proposal rather than applied state; once that proposal passes, the native denom and the ERC-20 people already hold resolve to one asset rather than two.
+The implementation's initialization flag, denom, name, symbol, decimals and allowances use the ERC-7201 namespace `paxeer.storage.SidioraNativeERC20`. Its allowances start empty. Upgrade authorization reads the existing OpenZeppelin Ownable namespace and requires the proxy owner. The implementation must be initialized atomically with its upgrade, after checking that the new namespace is unused in the deployed layout.
 
-Nothing in this design replaces, redeploys or migrates the address. The implementation behind it is upgraded and the address stays.
+The native denom is derived from the bridge module account in both the contract and `modules/layerxbridge/types/keys.go`. `contracts/test/sidiora_pointer_proposal.json` proposes binding that denom to the existing SID address in the native-pointer registry. A proposal file does not prove that the binding or proxy upgrade has been executed.
+
+The current tree also includes the `v6.12.0` chain upgrade in `node/upgrades_v6120.go` and SID migration helpers in `node/upgrades_v611.go`. That handler moves the denom's admin to the bridge, migrates listed holders using their actual legacy proxy balance slots, clears migrated slots, records the migration height and any unminted supply shortfall, and ensures SID bank metadata. Its pointer hook keeps an existing native pointer or creates one if absent; inspect the registry to establish the actual pointer address. The contract's `migrateLegacy` method clears a remaining legacy balance slot after a migration record exists; it does not mint bank coins. These code paths do not establish live upgrade or handover status.
 
 ### Who may mint it
 
-Once the upgrade that makes Sidiora a native denom is in force, the only account that may mint or burn it is the `x/layerxbridge` module account. The denom is created with that account as its tokenfactory admin; creation refuses to continue if the admin is anything else, if the derived creator is not the bridge module account, or if the remote asset already maps to another denom. Tokenfactory mints and burns a denom only for that denom's admin, so no other account has the right.
+For normal tokenfactory operations, minting and burning require the denom's admin. `modules/layerxbridge/keeper/sidiora.go` requires that admin and creator to be the bridge module account, checks the remote-asset mapping and writes six-decimal SID metadata. It refuses a conflicting admin, creator or asset mapping.
 
-The bridge mints when it credits an attested bridge-in and burns when it sends an amount out, and it holds the amount for no longer than that one operation. Most holders bring SID in and out across the bridge, which is why the minting right sits with the bridge rather than with an ordinary account.
+The bridge mints when crediting an attested bridge-in and burns on bridge-out. Chain upgrade migration is a distinct minting path: the `v6.12.0` handler uses the bank keeper to mint the legacy balances it migrates. The native-backed ERC-20 exposes bank balances and transfers; it does not give ordinary holders a minting right.
 
 ### Who may change the contract behind the address
 
-Administration of the proxy moves to governance behind `contracts/governance/SidioraProxyTimelock.sol` when the handover proposal in the repository is executed, and the timelock it hands the proxy to is deliberately narrow:
+`contracts/governance/SidioraProxyGovernanceProposal.json` proposes moving ownership to `SidioraProxyTimelock`. Passage of this text proposal authorizes a foundation handover; it does not itself execute an EVM ownership transfer. The deployed role holders and timelock parameters must be bound in the proposal before submission.
 
-- Only the chain governance authority may schedule an operation, and the only call it may schedule on the proxy is `upgradeToAndCall(address,bytes)` with zero value. Any other target, any other selector, any value, oversized calldata or calldata that does not re-encode to exactly that call is refused.
-- The scheduled call carries the new implementation and its initialization together, so an upgrade and the initializer it needs run as one operation. The implementation must be a contract, and it may be neither the proxy nor the timelock.
-- Only the designated executor may execute, only after the delay has elapsed, and only before the grace period ends. The handover proposal in the repository names a two-day minimum delay, a floor of one day it may not be set below, and a one-week window in which an operation stays executable.
-- Only the guardian may cancel, and only while the operation is not yet ready.
+`contracts/governance/SidioraProxyTimelock.sol` restricts that administration:
+
+- Only the chain governance authority may schedule, targeting the configured proxy's `upgradeToAndCall(address,bytes)` with zero value. Other targets, selectors, value, oversized calldata and non-canonical encodings are refused.
+- The new implementation and initialization data are scheduled together. The implementation must contain code and may be neither the proxy nor the timelock.
+- Only the designated executor may execute, after the delay and within the grace period. The proposal specifies a two-day delay, a one-day floor and a one-week execution window.
+- Only the guardian may cancel, before the operation becomes ready.
 
 ---
 
 ## Two ways to pay gas in Sidiora
 
-|  | Sponsored | Native |
+| | Sponsored | Native |
 | --- | --- | --- |
-| Where it runs | an account contract plus an off-chain quote service | the chain's own fee check |
-| Changes a consensus rule | no | yes |
-| Needs a chain upgrade | no | yes |
-| How the account pays | a SID transfer to the sponsor inside its own batch | the fee is debited in SID and refunded in SID |
-| What the account holds | SID, and the network coin only for value it sends | the same |
+| Where it runs | Delegated account contract and quote service | Chain fee checks and EVM state accounting |
+| Consensus change | No new fee rule | Requires the fee-token implementation and governed parameters |
+| How SID is paid | Account transfers SID to the sponsor inside its batch | Gas debit and refund use the selected denom |
+| Network coin needed by the account | For PAX value sent by its calls | For PAX value sent by its transaction |
 
-**The sponsored path is the one that is available without a chain upgrade.** It is an EIP-7702 batch, two signatures and an ERC-20 transfer; it changes no consensus rule, so a running network needs nothing new to support it. The native path changes how the chain charges fees, so it reaches a running network only through an upgrade handler carried by a governance proposal.
+The sponsored design uses EIP-7702 delegation, an account signature and a sponsor signature. It requires the corresponding chain transaction support, deployed implementation, funded sponsor and quote service. Native payment requires the fee-token chain code to be active and SID enabled in the governed allowlist. Source code availability alone does not establish either deployment's status.
 
 ### The sponsored path
 
-`contracts/src/BatchCallAndSponsor.sol` executes a batch on behalf of the account and repays a sponsor in SID inside the same transaction.
+`contracts/src/BatchCallAndSponsor.sol` executes the account's batch and repays the sponsor in SID within the same transaction.
 
-- **The account signs the batch.** Its signature covers the account's own batch nonce, the hash of the calls, and the digest of the quote, and it must recover to the account itself.
-- **The relayer signs the quote.** The quote digest binds the chain id, the paymaster address, the sponsor, the token, the maximum token amount, the offered token amount, the deadline, the quote nonce and the declared gas cost. That signature must recover to the sponsor named in the quote.
-- **Replay protection covers both.** The batch nonce advances with every batch, and a quote nonce is recorded per sponsor and refused if it has been used.
-- **The quote is bounded.** Execution is refused if the deadline has passed, if the offered amount exceeds the quote's maximum, if either amount is zero, if the token is not Sidiora, or if the sponsor is the zero address or the account itself.
-- **The price is checked on chain.** The paymaster holds its own rate, set by its owner, together with the time it was set and a maximum age. A zero rate, or one older than that age, reverts. The offered amount must then land within five percent either side of the amount that rate implies for the declared gas cost.
-- **Repayment is atomic.** After the calls run, the batch transfers exactly the quoted amount of SID to the sponsor. A failed call, a transfer that fails or returns anything other than one, and the whole batch reverts - so the sponsor is never left unpaid for work that happened.
+- **The account signs the batch.** The digest covers its batch nonce, the hash of its calls and the quote digest, and the signature must recover to the delegated account.
+- **The sponsor signs the quote.** The quote binds chain id, the delegated account address, sponsor, token, maximum token amount, offered token amount, deadline, quote nonce and declared gas cost. Under EIP-7702, `address(this)` is the account whose code is delegated; the digest binds that account address. Both digests use ABI encoding and the Ethereum signed-message prefix for 32 bytes.
+- **Replay protection covers both.** The account batch nonce advances, and quote nonces are tracked per sponsor in the account's storage. Failed execution reverts those changes with the batch.
+- **The quote is bounded.** Execution rejects a passed deadline, an amount above the maximum, zero gas cost or token amount, a token other than SID, or a sponsor that is zero or the account itself.
+- **The price is checked on chain.** `currentRate()` reads the implementation's immutable `rateSource`, including when called through delegated account code. The source contract's owner sets its positive rate with `setRate`; `rateUpdatedAt` and `maxRateAge` bound freshness in seconds. The expected SID amount is `ceil(gasCost * rate / 10^18)`, with `gasCost` in PAX wei and `rate` in SID base units per PAX. The offered amount must fall within the contract's five-percent spread, using the contract's integer rounding.
+- **Repayment is atomic.** After executing the calls, the account transfers exactly the quoted SID amount to the sponsor. A failed call or an ERC-20 transfer that fails, returns the wrong length or returns a value other than one reverts the batch. The sponsor still bears transaction gas costs if execution reverts.
 
-The service that signs quotes lives under `services/interop/crates/layerx-gas-station`. It signs with a relayer key supplied through a named environment variable, enforces per-account, per-interval and per-quote budgets and a balance floor before it hands out a quote, and prices the quote from exchange-rate data for the two denoms with a configured maximum age, spread and margin. Missing, malformed, invalid, stale or out-of-spread data is a refusal; it never substitutes a rate. `services/agent/sdk/typescript` carries the calls a person signs with: the quote request, the quote and batch digests, the EIP-7702 authorization, and the `executeSponsored` call itself. The SDK re-checks a returned quote against the configured sponsor, token, decimals, chain and deadline, and verifies both signatures locally, before the call is built.
+The quote service lives in `services/interop/crates/layerx-gas-station`. `src/price.rs` implements `PaymasterRateSource`: it reads `rateUpdatedAt()` and `currentRate()` from the configured paymaster through node `eth_call`. This is a served contract rate source. Missing, malformed, invalid, stale, overflowing or out-of-spread data refuses a quote; the service does not substitute a price. Configuration bounds `max_rate_age` to at most 300 seconds, `spread_bps` to at most 500 and `margin_bps` to the configured spread.
+
+`GAS_STATION_PAYMASTER` is required and must match the configuration's `paymaster` address. `relayer_key_env` names the sponsor signing-key source. The production station also requires a positive decimal `GAS_STATION_DID_GAS_LIMIT`, the maximum sponsored gas for one DID per UTC day. It enforces that identity budget in addition to per-account, per-interval and per-quote SID limits and a sponsor balance floor. The station journal restores reservations and usage across restart.
+
+The rate publisher in `src/rate.rs` sends owner-signed `setRate(uint256)` transactions from the rate file, journals publication before broadcast and confirms the result. Its owner key is separate from the relayer key; publication is bounded by cadence, fees, balance and daily budget. The binary exposes `paxeer-gas-station rate --config PATH --journal PATH --rate-file PATH`. A configured source still needs an authorized publisher to keep its rate fresh.
+
+`services/agent/sdk/typescript/src/gas-station.ts` implements quote requests, quote and batch digests, EIP-7702 authorization and construction of `executeSponsored`. It validates the returned quote against the configured sponsor, token, decimals, chain and deadline, and verifies signatures before building execution calls. See [SDKs](../agents/sdks.md).
 
 ### The native path
 
-Here the chain charges the fee in the denom the account chose.
+The chain's fee-token implementation charges the fee in the account's selected denom:
 
-- **The preference is per account.** The fee-token precompile at `0x0000000000000000000000000000000000001018` exposes `setFeeDenom`, `getFeeDenom` and `clearFeeDenom`. An account sets only its own preference, because the caller is the account the preference is written for. The precompile is not payable, refuses a delegatecall, and refuses its two state changes from a static call. Setting a preference is refused while the fee-token switch is off and refused for a denom that is not in the allowed list. An account with no preference pays in the network coin.
-- **The fee check converts before it charges.** The EVM fee check reads the payer's preference, takes the transaction's maximum fee - the gas limit times the gas price, plus the blob fee where the transaction carries blobs - and converts it into the chosen denom at the governed rate, rounding up in the network's favour. It refuses the transaction if the payer's spendable balance in that denom cannot cover the converted amount, and it still requires the network coin to cover any value the transaction sends: only the fee moves to SID.
-- **The debit replaces the network-coin gas buy.** When gas is bought, the converted amount is debited from the payer in the fee denom instead of the network coin.
-- **The refund comes back in the same denom.** Unused gas is returned in the fee denom, rounded up in the payer's favour, and the collected part is credited rounding down, so a refund and a collection together can never exceed what was debited.
-- **The Cosmos fee path takes the same denoms.** For a Cosmos transaction, an allowed fee denom in the offered fee is converted into network-coin terms at the same governed rate, the ordinary minimum-gas-price rule is applied to the converted total, and the coins the sender offered are what get charged. A denom that is neither an allowed fee denom nor already approved for fees is refused rather than ignored.
+- **Preference is per account.** The fee-token precompile at `0x0000000000000000000000000000000000001018` exposes `setFeeDenom(string)`, `getFeeDenom(address)` and `clearFeeDenom()`. Set and clear affect only the caller. The precompile is non-payable, rejects delegatecall and rejects state changes in static calls. Setting a preference requires the switch to be enabled and the denom to be allowed. No preference selects the network coin.
+- **The fee check converts before charging.** `modules/evm/ante/fee.go` computes the gas purchase, including the applicable blob fee, and converts it to the fee denom with ceiling rounding. The payer needs sufficient spendable SID for that charge and sufficient PAX for transferred value.
+- **Gas accounting uses SID.** `modules/evm/state/balance.go` intercepts gas-buy, gas-return and fee-reward balance changes. The debit rounds up, the refund rounds up in the payer's favor, and the fee credit rounds down. Transaction value still uses the network coin.
+- **Cosmos fees can also use allowed denoms.** `node/antedecorators/feedenom.go` converts allowed fee tokens for the ordinary fee check and charges the offered coins. It rejects denoms that are neither fee-token allowlisted nor otherwise approved by the auth fee policy.
 
-Every one of those is a consensus change, so none of it reaches a running network by itself: it arrives through an upgrade handler carried by a governance proposal. Until that happens the switch is off and the allowed list is empty, and the fee check behaves exactly as it does now.
+When the switch is off, the ordinary network-coin path remains active. `GetFeeTokenCharge` also selects that path for a stored preference whose denom is no longer allowed. For a selected, allowed fee denom, a bad or stale rate is an error rather than a substituted rate.
 
 ### How a Sidiora fee is priced
 
-The native path does not price through an oracle. The oracle precompile is retired and every one of its methods returns a retired error, and the fee path takes its price from a governed rate instead:
+The native path reads governed `x/evm` parameters, independently of the sponsored contract's rate:
 
-- Each allowed fee denom carries a rate expressed in that denom's base units per whole network coin, and the block height at which the rate was set. The code documents 3.114 SID per network coin, at six decimals, as the rate a first proposal would set.
-- A separate parameter bounds how old a rate may be, counted in blocks.
-- Reading a rate refuses rather than falling back. A denom that is not in the allowed list is unavailable. A rate that is unset or not positive, a height above the current block, or an age bound that is not positive is invalid. A rate older than the age bound is stale. There is no last-known price, no zero fee and no silent switch to the network coin: the transaction fails.
-
-The same rate governs the conversion in both directions. The charge rounds in the network's favour and the refund in the payer's.
+- An `allowed_fee_denoms` entry carries a denom, a positive rate in denom base units per whole PAX and `rate_update_height`.
+- `max_fee_token_rate_age` bounds age in blocks. A future or negative update height, a non-positive rate or invalid age bound returns `ErrFeeTokenRateInvalid`; an expired rate returns `ErrFeeTokenRateStale`; an absent denom returns `ErrFeeTokenRateUnavailable`.
+- `ConvertFeeToDenom` converts PAX wei to SID base units, dividing by `10^18`; inverse conversion uses the same rate. Callers choose ceiling or floor as required for charge, refund or credit.
+- `InitialSidioraBaseUnitsPerPax` documents `3114000` base units, or 3.114 SID per PAX, as a possible governed initial rate. It does not populate or enable the allowlist. Rate updates are also bounded by `max_fee_token_spread` relative to the stored rate.
 
 ---
 
 ## The governance surface
 
-The fee-token parameters live in the `x/evm` parameter store, so every change to any of them is a governance proposal. Their defaults leave the whole native path inert.
+The fee-token parameters live in the `x/evm` parameter store. Their defaults leave native SID fee payment disabled; the migration preserves values governance has already stored.
 
 | Parameter | Default | What its validator refuses |
 | --- | --- | --- |
-| `fee_token_enabled` | `false` | anything that is not a boolean |
-| `allowed_fee_denoms` | empty | an invalid denom; the network coin's own denom, which needs no conversion; a duplicate denom; a rate that is unset or not positive; a negative rate-update height |
-| `max_fee_token_rate_age` | `1000` blocks | anything that is not an integer; zero or a negative age |
-| `max_fee_token_spread` | `0.05` | an unset spread; a negative one; one at or above one |
-| `fee_token_distribution` | `false` | anything that is not a boolean |
+| `fee_token_enabled` | `false` | A non-boolean value |
+| `allowed_fee_denoms` | Empty | Invalid or duplicate denoms, `uhpx`, non-positive or unset rates, negative update heights |
+| `max_fee_token_rate_age` | `1000` blocks | A non-integer or non-positive age |
+| `max_fee_token_spread` | `0.05` | An unset, negative or non-decimal value, or a value at or above one |
+| `fee_token_distribution` | `false` | A non-boolean value |
 
-Two of those decide whether the path exists at all: with the switch off, nothing converts, and with the allowed list empty, no denom has a rate, so a preference cannot even be set.
+`modules/evm/keeper/abci.go` sweeps spendable allowed fee tokens from transaction coinbase accounts to the block fee destination when fee tokens are enabled, as well as sweeping the network coin. `RouteCollectedFeeTokens` then applies the collection policy:
 
-**Where collected fee tokens go** is the destination parameter, and it has two options for what the fee collector holds at the end of a block:
+- **Held**, the default: allowed non-base denoms at the fee collector move to the `fee_token_holding` module account. A missing holding account is an error.
+- **Distributed**: fee tokens stay in the collector for its ordinary distribution path.
 
-- **Held**, which is the default. Each allowed fee denom the fee collector holds is moved to a named holding module account, where governance decides what happens to it. If that account is not registered, the block fails rather than the coins going somewhere unintended.
-- **Distributed.** The fee tokens are left at the fee collector and are distributed with everything else the collector holds.
-
-Under either option the network coin's own fees keep their existing path: the routing step skips the base denom entirely and changes nothing about how network-coin fees are collected or distributed.
+This policy skips the base denom. It changes the destination of collected fee tokens, independently of the payer's preference and rate calculation.
 
 ---
 
 ## Where it stands
 
-- The sponsored path changes no consensus rule. It is the path that works without a chain upgrade.
-- The native path is written and its parameters default to off, so a running network keeps charging exactly as it does today until a governance proposal turns it on.
-- The quote-signing service reads its exchange-rate data through an interface the chain no longer serves, so it refuses to quote rather than pricing from anything else. A served rate source is what it needs.
-- The pointer record for the denom and the handover of the proxy to the timelock exist as proposal documents in the repository, not as applied state.
-- The routing step decides what happens to fee tokens the fee collector holds. The end-of-block sweep of a transaction's collected fees moves the network coin only.
+- Sponsored payment is implemented in the account contract, gas station and SDK. Its served rate comes from the configured contract, with freshness maintained by an owner-authorized publisher and enforced DID and sponsor budgets.
+- Native fee payment is implemented in the chain. Defaults are off with an empty allowlist; deployment and governed state determine whether SID can actually pay gas.
+- The repository contains a pointer-binding proposal and a proxy timelock handover proposal. Neither file establishes applied state. The `v6.12.0` handler additionally implements legacy-balance migration, metadata and pointer setup; inspect committed state to determine which upgrades and bindings have taken effect.
+- Fee-token collection includes the EVM end-of-block sweep and governed holding or distribution policy.
 
-Source for everything on this page lives in the [repository](https://github.com/Sidiora-Labs/Paxeer-X-Network): the denom and its metadata under `modules/layerxbridge`, the fee parameters, conversion and collection under `modules/evm`, the preference precompile under `precompiles/feetoken`, the token and paymaster contracts under `contracts/`, the quote service under `services/interop/crates`, and the signing calls under `services/agent/sdk/typescript`. The SDKs that carry them are described in [SDKs](../agents/sdks.md).
+The implementation paths above are in the [repository](https://github.com/Sidiora-Labs/Paxeer-X-Network). Treat deployed contract state, the pointer registry, upgrade records and governed parameters as the evidence for activation on a particular network.

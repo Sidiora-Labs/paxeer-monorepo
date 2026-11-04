@@ -179,6 +179,7 @@ func escrowSettleExpected(t *testing.T, h *payHarness, actor payActor, activityT
 	}, authority)
 	require.NoError(t, err)
 	require.Zero(t, expected.ResultCode)
+	require.NoError(t, h.keeper.bindEscrowReceipt(branch, &expected))
 	return expected
 }
 

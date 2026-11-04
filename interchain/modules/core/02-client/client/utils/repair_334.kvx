@@ -1,0 +1,28 @@
+[task]
+id = "22.31.334"
+audit = "22.30.58"
+acceptance = "22998.1"
+verification = "hf-build then hf-done; the runner records the exact candidate revision, command, exit and private log location."
+baseline = "The carried implementation was qualified unchanged at revision bad41b6f2d960df5b15ce7865bac9b71f6bb1c4d: hf-build passed; cg spec done 22.31.334 -f layerx-merge --root /work/paxeer-monorepo exited 1 (private evidence /out/logs/verify-1.log, full test output /tmp/repair-334.log). Only TestRepair_334_SelfConsensusValidatorPagination failed, comparing equal hash bytes with mismatched Go types; all other TestRepair_334_ functions passed. This is a continuation baseline, not an unmodified-production baseline."
+previous_qualification = "Attempt 1 verification failed to compile at revision 3536efbfed9b1b8b5def27b05dd213ecfe8bab57: repair334CLI called the removed ProtoCodec.UnmarshalJSON method; the resumed tree uses the production UnmarshalAsJSON interface. No individual test executed in that failed run."
+fixture_repair = "Revision c4cb355d6f0923329d24c7736bc713edbdbb09ba passed latest-proof and header-pagination cases but exposed two fixture interface errors: RPC page is a numeric coretypes.Int64, and next-height validators require the production reactor to complete its sync transition. Both fixtures now use those production interfaces without changing assertions."
+hash_assertion_repair = "The RPC consensus state, keeper-decoded state and committed block expose NextValidatorsHash as HexBytes, but ValidatorSet.Hash returns []byte. Convert the expected validator-set hash to HexBytes before exact equality with the keeper-decoded NextValidatorsHash; the full hash, block commitment, persisted consensus state and both requested heights remain asserted."
+continuation_baseline = "The carried implementation ran unchanged at revision 1d4f942df5c0897e09baeef5c76a65370f8526d3: go build ./interchain/modules/core/02-client/client/utils/... exited 0 (/out/logs/build-1.log); cg spec done 22.31.334 -f layerx-merge --root /work/paxeer-monorepo exited 1 (/out/logs/verify-1.log, full output /tmp/repair-334.log). Only TestRepair_334_SelfConsensusValidatorPagination failed, at repair_334_test.go:361, because require.Equal received []byte and HexBytes containing identical bytes. Every other repair test passed; no TestMain or goroutine-check failure occurred."
+wiring = "None: the three repairs and production CLI, RPC, store, codec and keeper tests fit within the declared paths."
+
+[finding.latest-consensus-proof]
+tests = ["TestRepair_334_LatestConsensusProof", "TestRepair_334_LatestConsensusPinnedSnapshot"]
+proof = "Real keeper writes multiple consensus heights into committed PaxDB snapshots; the actual CLI traverses RPC and BaseApp for both prove modes, and ICS23 verifies the selected state, key and reported revision, including an advancing head and explicit historical proof height."
+
+[finding.header-validator-pagination]
+tests = ["TestRepair_334_HeaderValidatorPagination", "TestRepair_334_RejectInconsistentValidatorPages"]
+proof = "Production block builder and persistent validators sign headers for 101, 200 and 201 validators; the safe production RPC endpoint caps pages at 100; assembled headers pass real light-client validation and full commit signature verification. Real backing-store changes between HTTP requests exercise total, hash and missing-page rejection."
+
+[finding.self-consensus-validator-pagination]
+tests = ["TestRepair_334_SelfConsensusValidatorPagination", "TestRepair_334_RejectInconsistentValidatorPages"]
+proof = "Production RPC exposes different complete sets at the commit height and next height, both above 100 validators; the returned consensus state matches the block commitment and passes real Tendermint client initialization and keeper encoding/decoding. Inconsistent backing-store pages are rejected."
+
+[gotcha.named-hash-equality]
+symptom = "Exact equality rejects identical bytes when only one side is converted from HexBytes to []byte."
+cause = "require.Equal checks Go types as well as values."
+do = "ValidatorSet.Hash returns []byte; explicitly convert that expected hash to HexBytes when comparing with ConsensusState.NextValidatorsHash, retaining exact equality."

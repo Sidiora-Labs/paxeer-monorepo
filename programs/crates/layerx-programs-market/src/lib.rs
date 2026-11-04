@@ -1099,6 +1099,9 @@ fn invoke(input: &[u8]) -> Result<CallResult, ProgramError> {
             let lease = decode_lease(read_state(LEASE_PREFIX, lease_id, &mut lease_bytes)?)?;
             let mut offer_bytes = [0; OFFER_CAPACITY];
             let offer = decode_offer(read_state(OFFER_PREFIX, lease.offer_id, &mut offer_bytes)?)?;
+            if stake_account == lease.escrow_account || stake_account == offer.stake_account {
+                return Err(malformed());
+            }
             let mut claim_bytes = [0; settle::CLAIM_CAPACITY];
             let claim =
                 settle::decode_claim(read_state(CLAIM_PREFIX, lease.id, &mut claim_bytes)?)?;

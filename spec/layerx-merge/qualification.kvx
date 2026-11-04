@@ -22395,3 +22395,179 @@ symbol = "retired_client_modules.rs"
 observed = "Attempt 1: cargo refuses package id layerx-explorer-index; the directory holds one orphaned test file and no manifest."
 assumption = "Deletion leftover of the 10.27.x tasks; the audit record read a source tree that main no longer has."
 severity = "high"
+
+[finding.22.31.131.3]
+task = "22.31.131"
+file = "modules/layerxpay/keeper/repair_131_test.go"
+symbol = "repair_131_test.go"
+observed = "Attempt 3: the declared_genesis_contract subtest fails with kernel record count 1034 exceeds 512: invalid genesis."
+assumption = "The fixed genesis bound contradicts the live-state export; owner ruling: the validator admits what the export produces."
+severity = "high"
+
+[finding.22.31.177.3]
+task = "22.31.177"
+file = "storage/state_db/ss/evm/repair_177_test.go"
+symbol = "repair_177_test.go"
+observed = "Attempt 3: all printed TestRepair_177_ tests pass, the package fails, and the agent calls four iterator failures out of scope."
+assumption = "Hidden failing tests owned by the task."
+severity = "high"
+
+[finding.22.31.208.1]
+task = "22.31.208"
+file = "services/platform/hosted/authority/tests/repair_22_31_208.rs"
+symbol = "repair_22_31_208.rs"
+observed = "Attempt 1: mixed_height_and_sequence_authenticates_multiple_receipts_and_empty_blocks fails with 503 state_evidence_refused; 23 of 24 tests pass."
+assumption = "Hand-built state records fail the production verifier."
+severity = "high"
+
+[finding.22.31.250.2]
+task = "22.31.250"
+file = "apps/wallet/src/surfaces/repair-22-31-250.test.ts"
+symbol = "repair-22-31-250.test.ts"
+observed = "Attempt 2: the test suite fails at load with ENOENT on a receipt fixture under apps/wallet/sdk/platform/conformance/fixtures."
+assumption = "Missing fixture and wrong root resolution."
+severity = "high"
+
+[finding.22.31.262.2]
+task = "22.31.262"
+file = "programs/crates/layerx-programs-sandbox/tests/repair_22_31_262.rs"
+symbol = "repair_22_31_262.rs"
+observed = "Attempt 2: 5 of 7 tests panic on missing committed native producer transcripts in the recordings directory."
+assumption = "Transcripts were never produced or committed."
+severity = "high"
+
+[finding.22.31.313.3]
+task = "22.31.313"
+file = "deploy/launchpad/production/topology/phase2/tests/test_repair_22_31_313.py"
+symbol = "test_repair_22_31_313.py"
+observed = "Attempt 2: test_topology_adapter_path_real_runtime_contract_all_twelve_roles fails: the adapter lacks ROLES, DOCUMENT_ENV and document_binding."
+assumption = "Scope gap."
+severity = "high"
+
+[finding.22.31.394.1]
+task = "22.31.394"
+file = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_31_394_test.exs"
+symbol = "repair_22_31_394_test.exs"
+observed = "Attempt 1: two of six tests fail with FunctionClauseError in Kernel.struct/2 during OpenApiSpex anyOf casting."
+assumption = "Array variants carry a struct binding."
+severity = "high"
+
+[finding.22.31.409.1]
+task = "22.31.409"
+file = "services/explorer/backend/apps/explorer/test/repair/repair_22_31_409_test.exs"
+symbol = "repair_22_31_409_test.exs"
+observed = "Attempt 1: three controller tests receive 422 Invalid value for enum on type=contract_creation."
+assumption = "The web schema is narrower than the chain filter."
+severity = "high"
+
+[finding.22.31.153.3]
+task = "22.31.153"
+file = "services/human/crates/layerx-human-service/tests/repair_22_31_153.rs"
+symbol = "repair_22_31_153.rs"
+observed = "Attempt 2: history_state_schema_get_list_after_reopen fails with state is not a declared JourneyState variant, and bank_plan_constructor_commit_reopen_two_sends fails with bank journey did not commit after 120 s."
+assumption = "Schema narrower than the engine; external constructor in the gate."
+severity = "high"
+
+[finding.22.31.221.1]
+task = "22.31.221"
+file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+symbol = "repair_22_31_221.rs"
+observed = "Attempt 1: cargo build --tests fails with E0063 missing fields account and freshness in 38 places across three sibling test files."
+assumption = "Interface change without its consumers."
+severity = "high"
+
+[finding.22.31.415.2]
+task = "22.31.415"
+file = "sdk/integrations/ios/Tests/LayerXMobileTests/Repair2231415Tests.swift"
+symbol = "Repair2231415Tests.swift"
+observed = "Attempt 2: test019ConfiguredWalletPaymentVerifiesRecordedReceipt fails with verification-failure; two of three tests pass."
+assumption = "Fixture evidence ids drifted from the signed receipt."
+severity = "high"
+
+[finding.22.31.55.2]
+task = "22.31.55"
+file = "services/launchpad/indexer/internal/app/repair_55_test.go"
+symbol = "repair_55_test.go"
+observed = "Attempt 3: TestRepair_55_RestartRecoversRealMarketBeyondLifetimeBounds fails with unrecorded chain calls eth_getBlockByNumber latest true."
+assumption = "Fixture misses one recorded call."
+severity = "high"
+
+[finding.22.9.10.16]
+task = "22.9.10"
+file = "services/agent/sdk/typescript/src/ai_market.ts"
+symbol = "ai_market.ts"
+observed = "Attempt 29: web-search.test.js expects settlement-receipt-mismatch and receives settlement-mismatch; every other suite passes."
+assumption = "Negative fixture outlived the field it tampers."
+severity = "high"
+
+[finding.22.31.202.3]
+task = "22.31.202"
+file = "services/platform/hosted/gateway/tests/repair_22_31_202.rs"
+symbol = "repair_22_31_202.rs"
+observed = "Attempt 3: repair_22_31_202_real_producer_paths panics because the closed px_getHistory schema rejects a response carrying account, chainHeight and freshness."
+assumption = "Closed schema lags the producer."
+severity = "high"
+
+[finding.22.31.384.1]
+task = "22.31.384"
+file = "apps/web/e2e/repair-22-31-384.test.ts"
+symbol = "repair-22-31-384.test.ts"
+observed = "Attempt 2: approval_operation_digest_real_http reads undefined where the operation digest is expected; three of four tests pass."
+assumption = "Codec outside the earlier scope."
+severity = "high"
+
+[finding.22.31.63.3]
+task = "22.31.63"
+file = "services/launchpad/pnl-tracker/internal/production/l16/repair_63_test.go"
+symbol = "repair_63_test.go"
+observed = "Attempt 3: TestRepair_63_ActiveSnapshotUpdateGrant and WalletRangeSchemaMigrated fail with open spec/production-system/integration/migrations/60000.sql: no such file or directory."
+assumption = "The test resolved the migrations directory from the wrong root; the helper the package's other tests use resolves it correctly."
+severity = "high"
+
+[finding.22.31.13.4]
+task = "22.31.13"
+file = "apps/perps/tests/repair-22-31-13.test.ts"
+symbol = "repair-22-31-13.test.ts"
+observed = "Attempt 5: finding006NodeThroughMarketConfigHookAndForm fails in useMarketConfig.ts line 39 with Market order limits are invalid; the agent calls the hook out of scope."
+assumption = "Producer-consumer defect: the hook refuses what the node emits."
+severity = "high"
+
+[finding.22.31.227.2]
+task = "22.31.227"
+file = "services/agent/crates/layerx-sdk/tests/repair_22_31_227.rs"
+symbol = "repair_22_31_227.rs"
+observed = "Attempt 2: four tests fail: a checksum-versus-lowercase address comparison, committed-wait Verification after reopen, and two submissions not reaching Submitted after reopen."
+assumption = "Test literal defect plus a fixture that does not serve the recovered authority after reopen."
+severity = "high"
+
+[finding.22.99.77.8]
+task = "22.99.77"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 6: 19 test targets of the crate fail; native bring-up refuses the 603,517-byte guest, chain-domain assertions fail, admission-reader failures remain."
+assumption = "Mixed causes: changed producer shapes, a stale size bound and inherited failing tests all owned by the task."
+severity = "high"
+
+[finding.22.31.54.3]
+task = "22.31.54"
+file = "services/launchpad/indexer/internal/processor/repair_54_test.go"
+symbol = "repair_54_test.go"
+observed = "Attempt 5: TestRepair_54_NativeReadModelProjection and AmbiguousCommitLiveRecovery fail with L06_POSTGRES_DSN is required; three tests pass."
+assumption = "Environment-bound proofs; the peer store belongs in the test as an in-memory implementation."
+severity = "high"
+
+[finding.22.31.53.2]
+task = "22.31.53"
+file = "services/launchpad/indexer/internal/receipt/repair_53_test.go"
+symbol = "repair_53_test.go"
+observed = "Attempt 4: three tests fail on a missing producer transcript, one on an unauthorized emitter of the historical archive; four pass."
+assumption = "A fixture the task itself can record, and an epoch-blind authority lookup in the qualifier."
+severity = "high"
+
+[finding.22.31.415.3]
+task = "22.31.415"
+file = "sdk/integrations/ios/Tests/LayerXMobileTests/Repair2231415Tests.swift"
+symbol = "Repair2231415Tests.swift"
+observed = "Attempt 3: test019ConfiguredWalletPaymentVerifiesRecordedReceipt fails with verification-failure; two tests pass."
+assumption = "Fixture halves recorded from different runs."
+severity = "high"
