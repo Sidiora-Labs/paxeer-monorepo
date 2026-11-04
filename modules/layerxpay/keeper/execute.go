@@ -71,6 +71,11 @@ func (k Keeper) Submit(ctx sdk.Context, caller common.Address, method string, pa
 	if receipt.ResultCode != 0 {
 		return receipt, submitCodeError(method, receipt.ResultCode)
 	}
+	if mapping.Type>>16 == uint32(types.EscrowModuleID) {
+		if err := k.bindEscrowReceipt(branch, &receipt); err != nil {
+			return lxphost.Receipt{}, err
+		}
+	}
 	commit()
 	return receipt, nil
 }
