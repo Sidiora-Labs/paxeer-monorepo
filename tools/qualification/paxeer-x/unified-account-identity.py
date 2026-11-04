@@ -69,33 +69,7 @@ def canonical_account(name):
     return hashlib.sha256(b'LX:ACCOUNT:v1' + len(encoded).to_bytes(4, 'big') + encoded).hexdigest()
 
 
-def run():
-    global COUNT, SKIPPED
-    bundle_path = os.environ.get('PAXEER_X_IDENTITY_BUNDLE')
-    fixture_path = os.environ.get('PAXEER_X_IDENTITY_FIXTURE')
-    evidence_path = os.environ.get('PAXEER_X_EVIDENCE_DIR')
-    require(bundle_path and fixture_path,
-            'prebuilt identity bundle and real isolated identity fixture are required')
-    require(evidence_path, 'private evidence directory is required')
-    evidence = Path(evidence_path)
-    info = evidence.lstat()
-    require(stat.S_ISDIR(info.st_mode) and info.st_uid == os.geteuid()
-            and stat.S_IMODE(info.st_mode) == 0o700, 'evidence directory must be owned and private')
-    bundle, fixture = private_json(bundle_path), private_json(fixture_path)
-    revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
-    require(bundle['revision'] == revision == fixture['revision'], 'source provenance mismatch')
-    require(fixture['schema'] == 'paxeer-x.unified-identity-fixture.v1', 'unsupported fixture schema')
-    for name in ('client', 'explorer', 'router', 'keeper', 'precompile'):
-        binary = Path(bundle['binaries'][name])
-        require(binary.is_file() and os.access(binary, os.X_OK), 'missing prebuilt executable: ' + name)
-    evm, did, native = fixture['evm'], fixture['did'], fixture['native_account']
-    require(re.fullmatch(r'0x[0-9a-f]{40}', evm)
-            and re.fullmatch(r'did:layerx:[0-9a-f]{64}', did)
-            and re.fullmatch(r'[0-9a-f]{64}', native), 'invalid real identity selectors')
-    require(native == canonical_account('agent:' + did + ':main'),
-            'fixture native account is not the canonical DID main account')
-    healthy = fixture['targets']['healthy']
-    require(rpc(healthy, 'eth_chainId', [])['result'] == '0x7d', 'wrong chain')
+def identity_join(healthy, evm, did, native):
     expected = None
     methods = ('px_resolveAccount', 'px_getAccount', 'px_getBalances', 'px_getUnifiedHistory')
     for selector in (evm, did, evm, did):
@@ -132,6 +106,56 @@ def run():
                         'unified history lost the resolved account')
                 require(isinstance(result['items'], list) and result['items'],
                         'real retained history rows are required')
+    return expected
+
+
+def identity_chain(healthy, node, genesis_hash):
+    require(rpc(healthy, 'eth_chainId', [])['result'] == '0x7d', 'wrong chain')
+    require(rpc(node, 'eth_chainId', [])['result'] == '0x7d', 'wrong node chain')
+    gateway_genesis = rpc(healthy, 'eth_getBlockByNumber', ['0x0', False])['result']
+    node_genesis = rpc(node, 'eth_getBlockByNumber', ['0x0', False])['result']
+    require(re.fullmatch(r'0x[0-9a-f]{64}', genesis_hash) and int(genesis_hash, 16)
+            and gateway_genesis == node_genesis and gateway_genesis['hash'] == genesis_hash
+            and gateway_genesis['number'] == '0x0', 'gateway and node genesis identity differs')
+    return gateway_genesis
+
+
+def run():
+    global COUNT, SKIPPED
+    bundle_path = os.environ.get('PAXEER_X_IDENTITY_BUNDLE')
+    fixture_path = os.environ.get('PAXEER_X_IDENTITY_FIXTURE')
+    evidence_path = os.environ.get('PAXEER_X_EVIDENCE_DIR')
+    require(bundle_path and fixture_path,
+            'prebuilt identity bundle and real isolated identity fixture are required')
+    require(evidence_path, 'private evidence directory is required')
+    evidence = Path(evidence_path)
+    info = evidence.lstat()
+    require(stat.S_ISDIR(info.st_mode) and info.st_uid == os.geteuid()
+            and stat.S_IMODE(info.st_mode) == 0o700, 'evidence directory must be owned and private')
+    bundle, fixture = private_json(bundle_path), private_json(fixture_path)
+    revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
+    require(bundle['revision'] == revision == fixture['revision'], 'source provenance mismatch')
+    require(fixture['schema'] == 'paxeer-x.unified-identity-fixture.v1', 'unsupported fixture schema')
+    for name in ('client', 'explorer', 'gateway', 'paxd', 'keeper', 'precompile'):
+        binary = Path(bundle['binaries'][name])
+        require(binary.is_file() and os.access(binary, os.X_OK), 'missing prebuilt executable: ' + name)
+    for name in ('gateway', 'paxd'):
+        binary = Path(bundle['binaries'][name])
+        require(bundle['artifact_sha256'][name] == hashlib.sha256(binary.read_bytes()).hexdigest(),
+                'merged identity artifact digest differs: ' + name)
+    require(Path(bundle['binaries']['paxd']).name == 'paxd', 'merged paxd artifact required')
+    evm, did, native = fixture['evm'], fixture['did'], fixture['native_account']
+    require(re.fullmatch(r'0x[0-9a-f]{40}', evm)
+            and re.fullmatch(r'did:layerx:[0-9a-f]{64}', did)
+            and re.fullmatch(r'[0-9a-f]{64}', native), 'invalid real identity selectors')
+    require(native == canonical_account('agent:' + did + ':main'),
+            'fixture native account is not the canonical DID main account')
+    healthy = fixture['targets']['healthy']
+    identity_chain(healthy, fixture['targets']['node'], fixture['genesis_hash'])
+    methods = ('px_resolveAccount', 'px_getAccount', 'px_getBalances', 'px_getUnifiedHistory')
+    expected = identity_join(healthy, evm, did, native)
+    require(identity_join(fixture['targets']['reopened'], evm, did, native) == expected,
+            'reopened gateway changed canonical owner or joined state')
     for selector in (native, did.removeprefix('did:layerx:')):
         for method in methods:
             refusal = rpc(healthy, method, [selector])
@@ -167,7 +191,7 @@ def run():
     groups = {
         'client': ['identity_selector_contract'],
         'explorer': ['unified::tests::'],
-        'router': ['paxeer::'],
+        'gateway': ['paxeer::'],
         'keeper': ['-test.run=^TestLayerX(Bind|DoubleBind|Unbind|BindingGenesis)', '-test.v'],
         'precompile': ['-test.run=^TestLayerX', '-test.v'],
     }
@@ -176,7 +200,7 @@ def run():
                    'real_repeated_account_and_balance_lookup_preserves_owner',
                    'retaining_lookup_refuses_incomplete_or_conflicting_joins'),
         'explorer': ('identity_selector_contract_event_keys_never_cross_identity_kinds',),
-        'router': ('identical_hex_has_distinct_did_and_native_meanings',
+        'gateway': ('identical_hex_has_distinct_did_and_native_meanings',
                    'canonical_main_account_is_bound_to_the_exact_did',
                    'native_listing_refuses_another_owner_or_noncanonical_account'),
         'keeper': ('TestLayerXBind', 'TestLayerXBindReplayRefused',
@@ -195,7 +219,7 @@ def run():
                                        stdout=output, stderr=subprocess.STDOUT, text=True, timeout=120)
         text = log.read_text()
         require(completed.returncode == 0, 'prebuilt test failed: ' + name)
-        if name in ('client', 'explorer', 'router'):
+        if name in ('client', 'explorer', 'gateway'):
             summaries = re.findall(r'test result: ok\. (\d+) passed; (\d+) failed; (\d+) ignored;', text)
             SKIPPED += sum(int(ignored) for _, _, ignored in summaries)
             require(summaries and all(int(passed) > 0 and int(failed) == 0 and int(ignored) == 0

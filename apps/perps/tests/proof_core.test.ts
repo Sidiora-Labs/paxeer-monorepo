@@ -40,6 +40,7 @@ import {
 import type { OrderFormState } from "../src/core/perps/orderPlan";
 import type { OpenPositionQuote } from "../src/hooks/perps/useQuoter";
 import type { ParsedPosition } from "../src/core/perps/pnlHelpers";
+import { auditMarketConfig, auditMarginTiers } from "./fixtures/audit-market-config";
 import type { GatewayMarketRow } from "../src/core/perps/marketCatalog";
 
 // The production gateway module validates configuration during import. These
@@ -164,7 +165,18 @@ async function quoteAndPlanReachConfirmationAndSnapshotConsumers() {
   const { computePositionPnl } = await import("../src/core/perps/pnlHelpers");
   const { snapshotPrice } = await import("../src/widgets/analytics/MarketSnapshotTable");
   const { loadPerpsOrderForm } = await import("../src/page-modules/perps");
-  const { PerpsOrderForm } = await import("../src/widgets/trading/PerpsOrderForm");
+  const { PerpsOrderForm, orderLimitsFromConfig } = await import("../src/widgets/trading/PerpsOrderForm");
+  const { decodeMarketConfig } = await import("../src/core/perps/marketConfig");
+  const calls = await import("../src/core/perps/calls");
+  const configRead = calls.buildGetMarketConfig(81n);
+  const tierRead = calls.buildGetMarginTiers(81n);
+  const config = decodeMarketConfig(decodeFunctionResult({ ...configRead,
+    data: encodeFunctionResult({ ...configRead, result: { ...auditMarketConfig, marketId: 81n, symbol: "PROOF" } }),
+  }));
+  const tiers = decodeFunctionResult({ ...tierRead,
+    data: encodeFunctionResult({ ...tierRead, result: auditMarginTiers }),
+  });
+  assert.equal(tiers[0].maxLeverage, 20n, "ABI tier leverage is an unscaled integer");
   assert.equal((await loadPerpsOrderForm()).default, PerpsOrderForm,
     "the page's actual Next loader reaches the form that imports buildOrderPlan");
   const state: OrderFormState = {
@@ -173,7 +185,10 @@ async function quoteAndPlanReachConfirmationAndSnapshotConsumers() {
     scaledTotalOrders: "2", scaledDistribution: "flat", tpslEnabled: false, tpPrice: "", slPrice: "",
     reduceOnly: false, postOnly: false, ioc: false, fok: false, ladderId: 1n,
   };
-  const limits = { tickSize: WAD / 100n, lotSize: WAD, maxLeverage: 20n * WAD };
+  const limits = orderLimitsFromConfig({ config, tiers }, 1000n * WAD);
+  assert.ok(limits);
+  assert.equal(limits.maxLeverage, 20n * WAD);
+  assert.equal(orderLimitsFromConfig({ config: { ...config, enabled: false }, tiers }, 1000n * WAD), null);
   const quoteState: OpenPositionQuote = {
     entryPrice: 100n * WAD, sizeUsd: 1000n * WAD, collateralUsd: 100n * WAD, leverage: 10n * WAD,
     tradingFee: 1_000_000n, tradingFeeUsd: WAD, priceImpact: 0n, liquidationPrice: 91n * WAD,
@@ -185,7 +200,24 @@ async function quoteAndPlanReachConfirmationAndSnapshotConsumers() {
     entryPrice: quoteState.entryPrice, collateralToken: ACCOUNT, collateralAmount: 100_000_000n,
     fundingPaidUsd: 0n, feesUsd: WAD, openedAt: undefined, openTxHash: undefined,
   };
-  const tiers = [{ lowerBoundUsd: 0n, maxLeverage: 20n * WAD, maintenanceBps: 100n, deductionUsd: 0n }];
+  const boundaryState: OrderFormState = { ...state, orderType: "limit", leverage: "20", sizeUsd: "1000", triggerPrice: "100" };
+  const boundary = buildOrderPlan(boundaryState, null, limits);
+  assert.equal(boundary.error, null);
+  const boundaryCall = boundary.calls[0];
+  assert.ok(boundaryCall);
+  const boundaryWire = decodeFunctionData({ abi: boundaryCall.abi, data: encodeFunctionData(boundaryCall) });
+  assert.equal(boundaryWire.functionName, "placeOrder");
+  if (boundaryWire.functionName !== "placeOrder") throw new Error("Expected placeOrder");
+  assert.equal(boundaryWire.args[0].leverage, 20n * WAD);
+  const above = buildOrderPlan({ ...boundaryState, leverage: "20.000000000000000001" }, null, limits);
+  assert.deepEqual(above.calls, []);
+  assert.equal(above.error?.code, "VALIDATION_ABOVE_MAX");
+  const higherTierLimits = orderLimitsFromConfig({ config, tiers }, 10_000n * WAD);
+  assert.ok(higherTierLimits);
+  assert.equal(higherTierLimits.maxLeverage, 10n * WAD);
+  const marketCapLimits = orderLimitsFromConfig({ config: { ...config, maxLeverage: 5n }, tiers }, 1000n * WAD);
+  assert.ok(marketCapLimits);
+  assert.equal(marketCapLimits.maxLeverage, 5n * WAD);
   for (const entryPrice of [100n * WAD, 120n * WAD]) {
     for (let pass = 0; pass < 2; pass++) {
       const quote = decodeOpenPositionQuote({ ...quoteState, entryPrice });

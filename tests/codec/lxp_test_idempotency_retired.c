@@ -202,25 +202,79 @@ static int retired_balances(retired_fixture *f, uint64_t transfers)
     LXP_CASE_CHECK(from->next_sequence == transfers + 1U);
     LXP_CASE_CHECK(f->identities.identities[0].next_sequence == transfers + 1U);
     LXP_CASE_CHECK(f->state.next_sequence == transfers + 1U);
-    LXP_CASE_CHECK(!f->journal.open && !f->journal.has_idempotency);
+    LXP_CASE_CHECK(!f->journal.open);
     return 0;
 }
 
 static int retired_execute(retired_fixture *f, uint64_t sequence)
 {
+    lxp_activity received;
+    lxp_byte_span encoded;
+    lxp_receipt *decoded = calloc(1U, sizeof(*decoded));
+    uint8_t activity_id[32];
+    uint8_t previous_root[32];
     uint8_t root[32];
+    uint8_t receipt_digest[32];
+    uint8_t decoded_digest[32];
 
+    LXP_CASE_CHECK(decoded != NULL);
+    LXP_CASE_CHECK(retired_balances(f, sequence - 1U) == 0);
+    LXP_CASE_CHECK(lxp_state_root(&f->kernel, previous_root) == LXP_OK);
     LXP_CASE_CHECK(lxp_arena_reset(&f->arena, 0U) == LXP_OK);
     LXP_CASE_CHECK(retired_activity_sequence(f, sequence) == 0);
-    LXP_CASE_CHECK(lxp_kernel_execute_activity(&f->kernel, &f->activity,
+    LXP_CASE_CHECK(lxp_activity_encode(&f->activity, &f->arena, &encoded) == LXP_OK);
+    LXP_CASE_CHECK(lxp_activity_id(encoded.bytes, encoded.length, activity_id) == LXP_OK);
+    LXP_CASE_CHECK(lxp_activity_decode(encoded.bytes, encoded.length, &received) == LXP_OK);
+    LXP_CASE_CHECK(lxp_activity_verify_signature(&received) == LXP_OK);
+    LXP_CASE_CHECK(lxp_kernel_execute_activity(&f->kernel, &received,
         &f->execution, &f->receipt) == LXP_OK);
     LXP_CASE_CHECK(f->receipt.result_code == LXP_OK);
     LXP_CASE_CHECK(f->receipt.global_sequence == sequence);
     LXP_CASE_CHECK(f->receipt.effects.count != 0U);
+    LXP_CASE_CHECK(memcmp(activity_id, f->receipt.activity_id, 32U) == 0);
+    LXP_CASE_CHECK(memcmp(previous_root, f->receipt.previous_state_root, 32U) == 0);
     LXP_CASE_CHECK(lxp_state_root(&f->kernel, root) == LXP_OK);
+    LXP_CASE_CHECK(memcmp(previous_root, root, 32U) != 0);
     LXP_CASE_CHECK(memcmp(root, f->receipt.resulting_state_root, 32U) == 0);
     LXP_CASE_CHECK(memcmp(root, f->kernel.current_state_root, 32U) == 0);
+    LXP_CASE_CHECK(lxp_receipt_verify(&f->receipt, f->public_key, &f->arena) == LXP_OK);
+    LXP_CASE_CHECK(lxp_receipt_encode(&f->receipt, true, &f->arena, &encoded) == LXP_OK);
+    LXP_CASE_CHECK(lxp_receipt_decode(encoded.bytes, encoded.length, true, decoded) == LXP_OK);
+    LXP_CASE_CHECK(lxp_receipt_verify(decoded, f->public_key, &f->arena) == LXP_OK);
+    LXP_CASE_CHECK(lxp_receipt_digest(&f->receipt, &f->arena, receipt_digest) == LXP_OK);
+    LXP_CASE_CHECK(lxp_receipt_digest(decoded, &f->arena, decoded_digest) == LXP_OK);
+    LXP_CASE_CHECK(memcmp(receipt_digest, decoded_digest, 32U) == 0);
     LXP_CASE_CHECK(retired_balances(f, sequence) == 0);
+    free(decoded);
+    return 0;
+}
+
+static int retired_repeated_submission_refused(retired_fixture *f,
+                                               uint64_t committed_sequence)
+{
+    lxp_receipt *output = calloc(1U, sizeof(*output));
+    uint8_t before[32];
+    uint8_t after[32];
+    uint8_t receipt_before[32];
+    uint8_t receipt_after[32];
+
+    LXP_CASE_CHECK(output != NULL);
+    LXP_CASE_CHECK(lxp_state_root(&f->kernel, before) == LXP_OK);
+    LXP_CASE_CHECK(lxp_receipt_digest(&f->receipt, &f->arena, receipt_before) == LXP_OK);
+    LXP_CASE_CHECK(f->receipt.global_sequence == committed_sequence);
+    LXP_CASE_CHECK(retired_activity_sequence(f, committed_sequence) == 0);
+    LXP_CASE_CHECK(lxp_kernel_execute_activity(&f->kernel, &f->activity,
+        &f->execution, output) == LXP_ERR_SEQUENCE_REUSED);
+    for (size_t i = 0U; i < sizeof(*output); ++i)
+        LXP_CASE_CHECK(((const uint8_t *)output)[i] == 0U);
+    LXP_CASE_CHECK(lxp_state_root(&f->kernel, after) == LXP_OK);
+    LXP_CASE_CHECK(memcmp(before, after, 32U) == 0);
+    LXP_CASE_CHECK(memcmp(before, f->kernel.current_state_root, 32U) == 0);
+    LXP_CASE_CHECK(lxp_receipt_digest(&f->receipt, &f->arena, receipt_after) == LXP_OK);
+    LXP_CASE_CHECK(memcmp(receipt_before, receipt_after, 32U) == 0);
+    LXP_CASE_CHECK(lxp_receipt_verify(&f->receipt, f->public_key, &f->arena) == LXP_OK);
+    LXP_CASE_CHECK(retired_balances(f, committed_sequence) == 0);
+    free(output);
     return 0;
 }
 
@@ -239,6 +293,8 @@ static int reused_key_next_sequence_executes(void)
     retired_fixture *f = calloc(1U, sizeof(*f));
     uint8_t first_activity_id[32];
     uint8_t first_root[32];
+    uint8_t first_receipt[32];
+    uint8_t second_receipt[32];
     uint8_t key[32];
 
     LXP_CASE_CHECK(f != NULL);
@@ -247,32 +303,25 @@ static int reused_key_next_sequence_executes(void)
     LXP_CASE_CHECK(retired_execute(f, 1U) == 0);
     (void)memcpy(first_activity_id, f->receipt.activity_id, 32U);
     (void)memcpy(first_root, f->kernel.current_state_root, 32U);
+    LXP_CASE_CHECK(lxp_receipt_digest(&f->receipt, &f->arena, first_receipt) == LXP_OK);
     LXP_CASE_CHECK(retired_execute(f, 2U) == 0);
     LXP_CASE_CHECK(memcmp(key, f->activity.idempotency_key, 32U) == 0);
     LXP_CASE_CHECK(memcmp(first_activity_id, f->receipt.activity_id, 32U) != 0);
     LXP_CASE_CHECK(memcmp(first_root, f->kernel.current_state_root, 32U) != 0);
-    LXP_CASE_CHECK(f->state.idempotency_count == 0U);
+    LXP_CASE_CHECK(lxp_receipt_digest(&f->receipt, &f->arena, second_receipt) == LXP_OK);
+    LXP_CASE_CHECK(memcmp(first_receipt, second_receipt, 32U) != 0);
+    LXP_CASE_CHECK(memcmp(first_root, f->receipt.previous_state_root, 32U) == 0);
     return retired_fixture_close(f);
 }
 
 static int reused_sequence_refused(void)
 {
     retired_fixture *f = calloc(1U, sizeof(*f));
-    uint8_t before[32];
-    uint8_t after[32];
 
     LXP_CASE_CHECK(f != NULL);
     LXP_CASE_CHECK(retired_fixture_prepare(f) == 0);
     LXP_CASE_CHECK(retired_execute(f, 1U) == 0);
-    LXP_CASE_CHECK(lxp_state_root(&f->kernel, before) == LXP_OK);
-    LXP_CASE_CHECK(retired_activity_sequence(f, 1U) == 0);
-    LXP_CASE_CHECK(lxp_kernel_execute_activity(&f->kernel, &f->activity,
-        &f->execution, &f->receipt) == LXP_ERR_SEQUENCE_REUSED);
-    LXP_CASE_CHECK(lxp_state_root(&f->kernel, after) == LXP_OK);
-    LXP_CASE_CHECK(memcmp(before, after, 32U) == 0);
-    LXP_CASE_CHECK(memcmp(before, f->kernel.current_state_root, 32U) == 0);
-    LXP_CASE_CHECK(retired_balances(f, 1U) == 0);
-    LXP_CASE_CHECK(f->state.idempotency_count == 0U);
+    LXP_CASE_CHECK(retired_repeated_submission_refused(f, 1U) == 0);
     return retired_fixture_close(f);
 }
 
@@ -287,11 +336,21 @@ static int idempotency_table_stays_empty(void)
     for (uint64_t sequence = 1U; sequence <= 64U; ++sequence) {
         LXP_CASE_CHECK(retired_execute(f, sequence) == 0);
         LXP_CASE_CHECK(memcmp(key, f->activity.idempotency_key, 32U) == 0);
-        LXP_CASE_CHECK(f->state.idempotency_count == 0U);
-        LXP_CASE_CHECK(f->state.idempotency == NULL);
+        LXP_CASE_CHECK(retired_repeated_submission_refused(f, sequence) == 0);
     }
     LXP_CASE_CHECK(retired_balances(f, 64U) == 0);
-    LXP_CASE_CHECK(f->state.idempotency_count == 0U);
+    return retired_fixture_close(f);
+}
+
+static int reused_key_executes_after_stale_submission(void)
+{
+    retired_fixture *f = calloc(1U, sizeof(*f));
+
+    LXP_CASE_CHECK(f != NULL);
+    LXP_CASE_CHECK(retired_fixture_prepare(f) == 0);
+    LXP_CASE_CHECK(retired_execute(f, 1U) == 0);
+    LXP_CASE_CHECK(retired_repeated_submission_refused(f, 1U) == 0);
+    LXP_CASE_CHECK(retired_execute(f, 2U) == 0);
     return retired_fixture_close(f);
 }
 
@@ -300,7 +359,9 @@ int main(int argc, char **argv)
     const lxp_kernel_case cases[] = {
         { "reused_key_next_sequence_executes", reused_key_next_sequence_executes },
         { "reused_sequence_refused", reused_sequence_refused },
-        { "idempotency_table_stays_empty", idempotency_table_stays_empty }
+        { "idempotency_table_stays_empty", idempotency_table_stays_empty },
+        { "reused_key_executes_after_stale_submission",
+          reused_key_executes_after_stale_submission }
     };
 
     return lxp_kernel_case_main(cases, sizeof(cases) / sizeof(cases[0]),

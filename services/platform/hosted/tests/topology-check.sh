@@ -33,7 +33,10 @@ without translating ports, and both policies are checked at the target pod.
 
 The trusted-boundary Services (node core boundary, receipt authority, agent
 boundary, identity and Paxeer boundary) are declared by the node, identity and
-paxeer manifests, so their edges are checked on both ends. The status publisher
+paxeer manifests, so their edges are checked on both ends. The tracked Paxeer
+manifest includes paxeer-boundary:9443 and paxeer-observer-boundary:9443, which
+target the https (9443) and observer-https (9444) listeners on workload paxeer.
+The status publisher
 that services/platform/hosted/testnet/README.md names as separately operated is reported
 as `external` with the caller's side checked, and --strict fails it. Every other
 missing Service, including the Human upstream, fails in both modes.

@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createElement, isValidElement, type ReactNode } from 'react';
+import { createElement } from 'react';
+import { spotWidgetElements } from './fixtures/spot-widget-elements';
+export { spotWidgetElements } from './fixtures/spot-widget-elements';
 import { renderToStaticMarkup } from 'react-dom/server';
 import type { NextRouter } from 'next/router';
 
@@ -18,11 +20,6 @@ const SPOT_WIDGETS = [
   'SpotPositionsPanel',
 ] as const;
 
-export function spotWidgetElements(node: ReactNode): { type: unknown; props: Record<string, unknown> }[] {
-  if (Array.isArray(node)) return node.flatMap(spotWidgetElements);
-  if (!isValidElement<{ children?: ReactNode }>(node)) return [];
-  return [{ type: node.type, props: node.props as Record<string, unknown> }, ...spotWidgetElements(node.props.children)];
-}
 
 test('spot_route_follows_release_gate', async () => {
   const nav = await import('../src/core/nav');

@@ -8,7 +8,7 @@
 #   PAX_TIMEOUT     seconds to wait for Pax RPC/blocks      (default 300)
 #   GETH_TIMEOUT    seconds to wait for geth to listen      (default 120)
 #   SKIP_NPM_CI     "true" to reuse an existing node_modules (default false)
-#   GETH_VERSION    pinned go-ethereum tag installed on CI  (default v1.17.0)
+#   GETH_VERSION    exact go-ethereum release tag           (default v1.17.0)
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -25,6 +25,8 @@ GETH_VERSION="${GETH_VERSION:-v1.17.0}"
 REPORT_DIR="$RPC_DIR/reports/new_rpc"
 GETH_LOG="$RPC_DIR/reports/geth.log"
 GETH_PID=""
+GETH_BINARY=""
+GETH_INSTALL_DIR=""
 
 log()  { printf '\n\033[1;36m==> %s\033[0m\n' "$*"; }
 warn() { printf '\033[1;33m[warn]\033[0m %s\n' "$*"; }
@@ -36,6 +38,7 @@ cleanup() {
     if [ -n "$GETH_PID" ] && kill -0 "$GETH_PID" 2>/dev/null; then
         kill "$GETH_PID" 2>/dev/null || true
     fi
+    [ -z "$GETH_INSTALL_DIR" ] || rm -rf -- "$GETH_INSTALL_DIR"
     local stray
     stray="$(lsof -ti tcp:${GETH_PORT} 2>/dev/null || true)"
     [ -n "$stray" ] && kill $stray 2>/dev/null || true
@@ -89,28 +92,69 @@ wait_for_block_production() {
     return 1
 }
 
-# Make a geth binary available, pinned to GETH_VERSION for reproducible parity output.
+# Select and report the exact reference before starting any comparison.
 ensure_geth() {
-    local pin="${GETH_VERSION#v}"
-    if command -v geth >/dev/null 2>&1; then
-        local have
-        have="$(geth version 2>/dev/null | sed -n 's/^Version: //p' | head -1)"
-        log "Using already-installed geth: $(command -v geth) (version ${have:-unknown}, pinned target ${pin})"
-        case "$have" in
-            "$pin"*) : ;;
-            *) warn "installed geth ${have:-unknown} != pinned ${pin}; comparing against the local binary (install geth@${GETH_VERSION} or set GETH_VERSION to match CI)" ;;
-        esac
-        return 0
-    fi
-    command -v go >/dev/null 2>&1 || die "geth not found on PATH and no go toolchain to install the pinned ${GETH_VERSION}."
-    log "geth not found; installing pinned go-ethereum ${GETH_VERSION} via go install"
-    GOFLAGS=-mod=mod go install "github.com/ethereum/go-ethereum/cmd/geth@${GETH_VERSION}" \
-        || die "go install geth@${GETH_VERSION} failed"
-    local gobin
-    gobin="$(go env GOBIN)"; [ -n "$gobin" ] || gobin="$(go env GOPATH)/bin"
-    case ":$PATH:" in *":${gobin}:"*) : ;; *) export PATH="${gobin}:$PATH" ;; esac
-    command -v geth >/dev/null 2>&1 || die "geth still not on PATH after go install (looked in ${gobin})"
-    log "Installed geth: $(command -v geth) ($(geth version 2>/dev/null | sed -n 's/^Version: //p' | head -1))"
+    GETH_INSTALL_DIR="$(mktemp -d)" || die "cannot create isolated geth install directory"
+    GETH_BINARY="$(node - "$GETH_VERSION" "$(command -v geth || true)" \
+        "$GETH_INSTALL_DIR" "$RPC_DIR/reports/geth-reference.json" <<'GETH_REFERENCE_JS'
+function ensureGethReference(requested, installed, isolatedDir, reportFile, run, writeFile) {
+    if (requested.trim() !== requested || !/^v[0-9]+\.[0-9]+\.[0-9]+$/.test(requested)) {
+        throw new Error("GETH_VERSION must be an exact release tag such as v1.17.0");
+    }
+    const pin = requested.slice(1);
+    function probe(binary) {
+        const result = run(binary, ["version"], {});
+        if (result.status !== 0) return null;
+        const lines = result.stdout.split(/\r?\n/).filter(function (line) {
+            return line.indexOf("Version:") === 0;
+        });
+        if (lines.length !== 1) return null;
+        const version = lines[0].slice("Version:".length).trim();
+        if (version !== pin && version !== pin + "-stable") return null;
+        return {version: version, output: result.stdout};
+    }
+    let binary = installed;
+    let observed = binary ? probe(binary) : null;
+    let source = "installed";
+    if (!observed) {
+        const result = run("go", ["install", "github.com/ethereum/go-ethereum/cmd/geth@" + requested], {
+            GOBIN: isolatedDir, GOFLAGS: "-mod=mod", GOWORK: "off"
+        });
+        if (result.status !== 0) {
+            throw new Error("pinned geth installation failed: " + (result.stderr || "go unavailable"));
+        }
+        binary = isolatedDir + "/geth";
+        observed = probe(binary);
+        if (!observed) throw new Error("installed geth does not match " + requested);
+        source = "isolated-install";
+    }
+    writeFile(reportFile, JSON.stringify({
+        requested: requested, version: observed.version, binary: binary,
+        source: source, version_output: observed.output
+    }, null, 2) + "\n");
+    return binary;
+}
+
+if (typeof process !== "undefined") {
+    const childProcess = require("node:child_process");
+    const fs = require("node:fs");
+    const args = process.argv.slice(2);
+    try {
+        const binary = ensureGethReference(args[0], args[1], args[2], args[3], function (command, argv, env) {
+            const options = {encoding: "utf8", env: Object.assign({}, process.env, env)};
+            if (env.GOBIN) options.cwd = env.GOBIN;
+            const result = childProcess.spawnSync(command, argv, options);
+            return {status: result.status, stdout: result.stdout || "", stderr: result.error ? result.error.message : result.stderr};
+        }, function (file, contents) { fs.writeFileSync(file, contents); });
+        process.stdout.write(binary);
+    } catch (error) {
+        console.error(error.message);
+        process.exitCode = 1;
+    }
+}
+GETH_REFERENCE_JS
+    )" || die "cannot select the pinned geth reference"
+    log "Using geth: $GETH_BINARY (reference recorded in $RPC_DIR/reports/geth-reference.json)"
 }
 
 command -v curl >/dev/null 2>&1 || die "curl is required."
@@ -135,8 +179,9 @@ wait_for_block_production "$PAX_EVM_RPC_URL" "Pax chain" "$PAX_TIMEOUT" \
     || die "Pax chain at $PAX_EVM_RPC_URL is up but not producing blocks within ${PAX_TIMEOUT}s"
 
 ensure_geth
-log "Starting geth reference node (npm run rpc:geth) -> $GETH_LOG"
-npm run --silent rpc:geth > "$GETH_LOG" 2>&1 &
+log "Starting pinned geth reference node -> $GETH_LOG"
+"$GETH_BINARY" --dev --http --http.addr 127.0.0.1 --http.port "$GETH_PORT" \
+    --http.api eth,net,web3,debug,txpool --dev.period 0 > "$GETH_LOG" 2>&1 &
 GETH_PID=$!
 wait_for_rpc "$GETH_RPC_URL" "geth reference" "$GETH_TIMEOUT" \
     || { warn "geth log tail:"; tail -n 20 "$GETH_LOG" || true; die "geth never came up on $GETH_RPC_URL"; }

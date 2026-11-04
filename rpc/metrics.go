@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
+	utilmetrics "github.com/Sidiora-Labs/Paxeer-X-Network/utils/metrics"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
@@ -49,6 +50,7 @@ var (
 type rpcMetrics struct {
 	requestLatencySeconds            metric.Float64Histogram
 	wsConnectionCount                metric.Int64Counter
+	wsConnectionAttemptCount         metric.Int64Counter
 	redirectedRequestCount           metric.Int64Counter
 	historicalDebugTraceAttemptCount metric.Int64Counter
 	traceBakeDroppedCount            Int64ObservableCounter
@@ -66,6 +68,11 @@ func newRPCMetrics(meter metric.Meter) rpcMetrics {
 				0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25,
 				0.5, 1, 2.5, 5, 10, 30,
 			),
+		)),
+		wsConnectionAttemptCount: must(meter.Int64Counter(
+			"evmrpc_websocket_connect_attempts_total",
+			metric.WithDescription("Number of websocket handshake attempts, including rejected requests"),
+			metric.WithUnit("{count}"),
 		)),
 		wsConnectionCount: must(meter.Int64Counter(
 			"evmrpc_websocket_connects_total",
@@ -164,6 +171,8 @@ func recordRPCLatency(ctx context.Context, endpoint, connection string, success 
 
 func recordWebsocketConnect(ctx context.Context) {
 	metrics.wsConnectionCount.Add(ctx, 1)
+	// Decision 2278 keeps this sink until the dashboard owner records migration.
+	utilmetrics.IncWebsocketConnects()
 }
 
 func recordRedirectedRequest(ctx context.Context, endpoint, connection string) {
@@ -182,4 +191,8 @@ func recordHistoricalDebugTraceAttempt(ctx context.Context, endpoint, connection
 			attribute.String(connectionKey, connection),
 		),
 	)
+}
+
+func recordWebsocketConnectAttempt(ctx context.Context) {
+	metrics.wsConnectionAttemptCount.Add(ctx, 1)
 }

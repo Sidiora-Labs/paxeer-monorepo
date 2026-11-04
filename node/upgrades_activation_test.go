@@ -8,7 +8,9 @@ import (
 	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/config"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/state"
 	launchpadtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/types"
+	layerxagenttypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxagent/types"
 	layerxanchortypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxanchor/types"
 	layerxbridgetypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxbridge/types"
 	layerxchainstypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxchains/types"
@@ -18,6 +20,7 @@ import (
 	pricefeedtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/pricefeed/types"
 	spottypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/spot/types"
 	xwebtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/xweb/types"
+	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
 	anchorprecompile "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxanchor"
 	verifyprecompile "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxverify"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/secp256k1"
@@ -29,7 +32,9 @@ import (
 	storageproto "github.com/Sidiora-Labs/Paxeer-X-Network/storage/proto"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/state_db/sc/composite"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/wasm/x/wasm"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/stretchr/testify/require"
 	dbm "github.com/tendermint/tm-db"
 	"golang.org/x/mod/semver"
@@ -74,6 +79,9 @@ func encodeState(t *testing.T, state any) []byte {
 func rewindBeforeActivation(t *testing.T, a *App, ctx sdk.Context) {
 	t.Helper()
 	for _, name := range activationStoreUpgrades().Added {
+		if name == layerxanchortypes.StoreKey {
+			continue // Historical anchor state is retained, never reinitialized.
+		}
 		store := ctx.KVStore(a.GetKey(name))
 		iter := store.Iterator(nil, nil)
 		var stale [][]byte
@@ -197,8 +205,7 @@ func TestActivationStoreUpgradesMountEveryForkStore(t *testing.T) {
 		require.Contains(t, kvStoreKeyNames, fork.store)
 		require.Contains(t, keys.MemIAVLStoreKeys, fork.store)
 		require.NotNil(t, a.GetKey(fork.store))
-		require.Contains(t, a.mm.Modules, fork.module)
-		require.NotZero(t, a.mm.Modules[fork.module].ConsensusVersion())
+		requireActivationModuleLifecycle(t, a, fork.module)
 	}
 	for _, store := range v6120Stores {
 		require.NotContains(t, upgrades.Added, store)
@@ -255,59 +262,127 @@ func TestActivationUpgradeInitialisesEveryForkModuleOnce(t *testing.T) {
 	require.False(t, found)
 }
 
+func requireActivationModuleLifecycle(t *testing.T, a *App, name string) {
+	t.Helper()
+	if name == layerxanchortypes.ModuleName {
+		require.NotContains(t, a.mm.Modules, name)
+		require.NotContains(t, a.mm.OrderInitGenesis, name)
+		require.NotContains(t, a.mm.GetVersionMap(), name)
+		return
+	}
+	require.Contains(t, a.mm.Modules, name)
+	require.NotZero(t, a.mm.Modules[name].ConsensusVersion())
+}
+
+func requireAnchorRetirementRevert(t *testing.T, a *App, ctx sdk.Context, method string, args ...interface{}) {
+	t.Helper()
+	address := common.HexToAddress(anchorprecompile.LayerXAnchorAddress)
+	contract := a.EvmKeeper.CustomPrecompiles(ctx)[address]
+	require.NotNil(t, contract)
+	typed, ok := contract.(*pcommon.Precompile)
+	require.True(t, ok)
+	input, err := typed.GetABI().Pack(method, args...)
+	require.NoError(t, err)
+	evm := &vm.EVM{StateDB: state.NewDBImpl(ctx, &a.EvmKeeper, true)}
+	output, err := contract.Run(evm, common.Address{1}, common.Address{1}, input, nil, true, false, nil)
+	require.ErrorIs(t, err, vm.ErrExecutionReverted)
+	require.Equal(t, pcommon.RetiredRevert(anchorprecompile.PrecompileName), output)
+	reason, err := abi.UnpackRevert(output)
+	require.NoError(t, err)
+	require.Equal(t, "LXP_MODULE_DISABLED: module disabled; layerxAnchor retired", reason)
+}
+
 func TestActivationServesTheForkPrecompilesOnlyFromItsHeight(t *testing.T) {
-	testWrapper := NewTestWrapper(t, time.Now().UTC(), secp256k1.GenPrivKey().PubKey(), true)
-	a, ctx := testWrapper.App, testWrapper.Ctx
+	w := NewTestWrapper(t, time.Now().UTC(), secp256k1.GenPrivKey().PubKey(), true)
+	a, ctx := w.App, w.Ctx.WithBlockHeight(mergeHeight)
+	t.Cleanup(func() { require.NoError(t, a.Close()) })
 
 	gate := activationPrecompileGate()
 	require.Equal(t, ActivationUpgrade, gate.Upgrade)
-	require.Len(t, gate.Modules, 8)
+	want := map[common.Address][]string{
+		common.HexToAddress("0x1012"): {upgradetypes.ModuleName},
+		common.HexToAddress("0x1013"): {layerxcustodytypes.ModuleName},
+		common.HexToAddress("0x1014"): {upgradetypes.ModuleName},
+		common.HexToAddress("0x1015"): {layerxexchangetypes.ModuleName},
+		common.HexToAddress("0x1016"): {layerxbridgetypes.ModuleName},
+		common.HexToAddress("0x1017"): {launchpadtypes.ModuleName},
+		common.HexToAddress("0x1018"): {layerxbridgetypes.ModuleName},
+		common.HexToAddress("0x1019"): {xwebtypes.ModuleName},
+	}
+	require.Equal(t, want, gate.Modules)
 	require.Contains(t, gate.Modules, common.HexToAddress(verifyprecompile.LayerXVerifyAddress))
 	require.Equal(t, common.Address(layerxanchortypes.AnchorPrecompileAddress), common.HexToAddress(anchorprecompile.LayerXAnchorAddress))
-	for addr, names := range gate.Modules {
-		require.NotEmpty(t, names)
-		require.Subset(t, activationModules(), names)
-		require.Contains(t, a.customPrecompiles, addr)
+	initial := a.EvmKeeper.CustomPrecompiles(ctx)
+	for address := range gate.Modules {
+		require.Contains(t, a.customPrecompiles, address)
+		require.Contains(t, initial, address)
 	}
-	// The gate names the eight fork addresses and no legacy precompile.
-	for addr := range a.customPrecompiles {
-		_, gated := gate.Modules[addr]
-		value := addr.Big().Int64()
-		require.Equal(t, value >= 0x1012 && value <= 0x1019, gated, addr.Hex())
-	}
-
-	// A chain whose genesis carries the fork modules serves the eight already.
-	for addr := range gate.Modules {
-		require.Contains(t, a.EvmKeeper.CustomPrecompiles(ctx), addr)
+	for address := range a.customPrecompiles {
+		_, gated := gate.Modules[address]
+		value := address.Big().Int64()
+		require.Equal(t, value >= 0x1012 && value <= 0x1019, gated, address.Hex())
 	}
 
 	rewindBeforeActivation(t, a, ctx)
 	a.refreshXWebPrecompile(ctx)
 	below := a.EvmKeeper.CustomPrecompiles(ctx)
-	require.Len(t, below, len(a.customPrecompiles)-len(gate.Modules))
-	for addr := range a.customPrecompiles {
-		if _, gated := gate.Modules[addr]; gated {
-			require.NotContains(t, below, addr)
-			continue
+	for address, dependencies := range want {
+		if dependencies[0] == upgradetypes.ModuleName {
+			require.Contains(t, below, address)
+		} else {
+			require.NotContains(t, below, address)
 		}
-		require.Contains(t, below, addr)
 	}
-	require.Len(t, a.EvmKeeper.CustomPrecompiles(ctx.WithIsTracing(true)), len(below))
-
+	require.Equal(t, repairM1142Addresses(below), repairM1142Addresses(a.EvmKeeper.CustomPrecompiles(ctx.WithIsTracing(true))))
 	a.UpgradeKeeper.ApplyUpgrade(ctx, upgradetypes.Plan{Name: ActivationUpgrade, Height: ctx.BlockHeight()})
 	at := a.EvmKeeper.CustomPrecompiles(ctx)
-	require.Len(t, at, len(a.customPrecompiles))
-	for addr := range gate.Modules {
-		require.Contains(t, at, addr)
+	// Restoring exchange also satisfies the merge oracle's real dependency;
+	// assert the complete resulting set, including every unchanged contract.
+	oracle := common.HexToAddress("0x0903")
+	require.Equal(t, []string{layerxagenttypes.ModuleName, layerxexchangetypes.ModuleName}, mergePrecompileGate().Modules[oracle])
+	require.NotContains(t, below, oracle)
+	require.Contains(t, initial, oracle)
+	wantAt := make(map[common.Address]vm.PrecompiledContract, len(initial))
+	for address, contract := range below {
+		wantAt[address] = contract
 	}
-	require.Len(t, a.EvmKeeper.CustomPrecompiles(ctx.WithIsTracing(true)), len(at))
-
-	// Below the height the plan was applied at, the eight are still absent.
+	for address := range want {
+		wantAt[address] = initial[address]
+	}
+	wantAt[oracle] = initial[oracle]
+	require.Equal(t, repairM1142Addresses(wantAt), repairM1142Addresses(at))
+	for address, contract := range below {
+		require.Same(t, contract, at[address])
+	}
+	for address := range gate.Modules {
+		require.Contains(t, at, address)
+	}
+	require.Equal(t, repairM1142Addresses(at), repairM1142Addresses(a.EvmKeeper.CustomPrecompiles(ctx.WithIsTracing(true))))
+	for _, tracing := range []bool{false, true} {
+		requireRepairM1142RestoredCalls(t, a, ctx.WithIsTracing(tracing), below, false)
+	}
 	before := ctx.WithBlockHeight(ctx.BlockHeight() - 1)
-	require.Len(t, a.EvmKeeper.CustomPrecompiles(before), len(below))
-	require.Len(t, a.EvmKeeper.CustomPrecompiles(before.WithIsTracing(true)), len(below))
-	for addr := range gate.Modules {
-		require.NotContains(t, a.EvmKeeper.CustomPrecompiles(before), addr)
+	servedBefore := a.EvmKeeper.CustomPrecompiles(before)
+	require.Len(t, servedBefore, len(at)-len(gate.Modules))
+	wantBefore := make(map[common.Address]vm.PrecompiledContract, len(at)-len(gate.Modules))
+	for address, contract := range at {
+		if _, gated := gate.Modules[address]; !gated {
+			wantBefore[address] = contract
+		}
+	}
+	require.Equal(t, repairM1142Addresses(wantBefore), repairM1142Addresses(servedBefore))
+	require.Equal(t, repairM1142Addresses(servedBefore), repairM1142Addresses(a.EvmKeeper.CustomPrecompiles(before.WithIsTracing(true))))
+	for address := range gate.Modules {
+		require.NotContains(t, servedBefore, address)
+	}
+
+	// The live upgrade dependency keeps the retirement surface available even
+	// though anchor is absent from the module manager and version map.
+	a.UpgradeKeeper.ApplyUpgrade(ctx, upgradetypes.Plan{Name: MergeUpgrade, Height: mergeHeight, Info: activationInfo(t)})
+	require.NotContains(t, a.UpgradeKeeper.GetModuleVersionMap(ctx), layerxanchortypes.ModuleName)
+	for _, tracing := range []bool{false, true} {
+		requireAnchorRetirementRevert(t, a, ctx.WithIsTracing(tracing), anchorprecompile.FinalizeMethod, uint64(1))
+		requireRepairM1142OracleCall(t, a, ctx.WithIsTracing(tracing), true)
 	}
 }
 

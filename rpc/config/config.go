@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"runtime"
@@ -10,6 +11,8 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/spf13/cast"
 )
+
+var ErrInvalidRPCStatsInterval = errors.New("evm.rpc_stats_interval must be at least 1ns so the metrics ticker interval is positive")
 
 const (
 	// BatchRequestLimit is the default maximum number of requests in an RPC batch.
@@ -483,7 +486,7 @@ func ReadConfig(opts servertypes.AppOptions) (Config, error) {
 		}
 	}
 	if cfg.RPCStatsInterval < time.Nanosecond {
-		return cfg, fmt.Errorf("%s must be at least 1ns so the metrics ticker interval is positive", flagRPCStatsInterval)
+		return cfg, ErrInvalidRPCStatsInterval
 	}
 	if v := opts.Get(flagWorkerPoolSize); v != nil {
 		if cfg.WorkerPoolSize, err = cast.ToIntE(v); err != nil {

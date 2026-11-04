@@ -34,6 +34,9 @@ codegen-units = 1
 panic = "abort"
 strip = true
 
+[profile.release.package.layerx-programs-ai-market]
+opt-level = "z"
+
 [workspace.package]
 edition = "2021"
 rust-version = "1.91.1"
