@@ -1,0 +1,8 @@
+[repair.22.33.833]
+audit = "22.30.18"
+finding_20 = "TestRepairM_833_MissingSetupFails directly invokes TestEndToEnd and both market journeys through an independent in-process Go testing runner; all seven incomplete combinations of database, EVM RPC and Comet inputs must fail setup, never skip or return, with the explicit diagnostic before opening dependencies."
+implementation = "TestEndToEnd now uses the same any-missing-input fatal validation as TestEndToEndChainMarkets and TestEndToEndGraphQLMarkets; the complete venue, delivery, restart, explorer, portal and replay journey and its assertions are preserved."
+fixture = "Each case supplies its own environment inputs and captures the real testing runner's diagnostic; no database, RPC service, signer, external binary or subprocess is used."
+baseline = "Not run: the explicit allowed-gate order prohibits tests before implementation and manual verification before hf-done; no TestRepairM_833_ tests existed in the unchanged tree, and no baseline failure is claimed."
+wiring_request = "Owning domain 3 qualification harness, tools/qualification/localnode/v6120-node.sh and its selecting runner: provision a disposable PostgreSQL database, a real EVM/Comet node, a funded PERPS_DATA_TEST_SEED_KEY_FILE account, tradable PAX market 11 and retained FundingSettled history before selecting TestEndToEnd; absent inputs must fail setup."
+qualification = "hf-build and hf-done retain the exact candidate revision, command, exit code and private log in the runner gate ledger; only a passing hf-done qualifies this focused missing-input repair, not the externally provisioned full journey."

@@ -413,8 +413,8 @@ func TestEndToEndGraphQLMarkets(t *testing.T) {
 // funded with native gas, USDL and perps collateral, a tradable PAX market 11,
 // and retained block history containing FundingSettled receipts.
 func TestEndToEnd(t *testing.T) {
-	if os.Getenv(e2eDatabaseEnv) == "" && os.Getenv(e2eRPCEnv) == "" && os.Getenv(e2eCometEnv) == "" {
-		t.Skip("TestEndToEnd needs " + e2eDatabaseEnv + ", " + e2eRPCEnv + " and " + e2eCometEnv)
+	if os.Getenv(e2eDatabaseEnv) == "" || os.Getenv(e2eRPCEnv) == "" || os.Getenv(e2eCometEnv) == "" {
+		t.Fatalf("TestEndToEnd requires %s, %s and %s to all be set", e2eDatabaseEnv, e2eRPCEnv, e2eCometEnv)
 	}
 	e := setupE2E(t)
 	ctx := context.Background()

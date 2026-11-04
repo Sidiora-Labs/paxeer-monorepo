@@ -20,6 +20,11 @@ import time
 import threading
 import tomllib
 
+_control_spec = importlib.util.spec_from_file_location(
+    'qualification_control_plane', Path(__file__).with_name('control_plane.py'))
+_control = importlib.util.module_from_spec(_control_spec)
+_control_spec.loader.exec_module(_control)
+
 SCHEMA_VERSION = 1
 IMPLEMENTED_TASKS = {'0.1', '0.2', '0.3'}
 DISPATCH_REQUIRED_TARGETS = {'dispatcher': {'scheduler-harness'}}
@@ -177,7 +182,7 @@ def validate_registry(registry, task_id, root):
         if not isinstance(argv, list) or not argv or not all(isinstance(part, str) and part and '\x00' not in part for part in argv):
             raise QualificationError(f'{check_id}: argv must be a nonempty string array')
         if task_id == '0.3':
-            if kind != 'dispatcher' or target != 'scheduler-harness' or check.get('evidence_format') != 'dispatcher-json' or argv != ['python3', 'tools/launchpad/production/dispatcher/qualification.py', '--spec', 'launchpad/spec/production-system/spec.kvx', '--plan', 'launchpad/spec/production-system/execution-plan.json', '--state-dir', '{evidence_dir}/dispatcher-state', '--evidence-dir', '{evidence_dir}/dispatcher', '--case', 'all']:
+            if kind != 'dispatcher' or target != 'scheduler-harness' or check.get('evidence_format') != 'dispatcher-json' or argv != ['python3', 'tools/launchpad/production/dispatcher/qualification.py', '--spec', '{reviewed_spec}', '--plan', '{reviewed_plan}', '--state-dir', '{evidence_dir}/dispatcher-state', '--evidence-dir', '{evidence_dir}/dispatcher', '--case', 'all']:
                 raise QualificationError('task0.3 requires the actual registered full dispatcher harness')
             if not (root / argv[1]).is_file():
                 raise QualificationError('dispatcher qualification checker is absent')
@@ -222,7 +227,7 @@ def validate_registry(registry, task_id, root):
     return normalized
 
 
-def interface_bundle(bundle, root, verify_expected=True):
+def interface_bundle(bundle, root, verify_expected=True, reviewed=None):
     if not isinstance(bundle, dict):
         raise QualificationError('task0.2 requires frozen interface_bundle metadata')
     manifests = {}
@@ -232,6 +237,10 @@ def interface_bundle(bundle, root, verify_expected=True):
             raise QualificationError(f'interface bundle {category} must be nonempty')
         hashes = {}
         for pattern in patterns:
+            if isinstance(pattern, str) and '{interface_' in pattern:
+                reviewed = reviewed or _control.reviewed_inputs(
+                    root, json.loads((root / _control.REGISTRY_PATH).read_bytes()), require_catalog=True)
+                pattern = _control.bind(pattern, reviewed, root)
             if not isinstance(pattern, str) or Path(pattern).is_absolute() or '..' in Path(pattern).parts:
                 raise QualificationError('unsafe interface bundle path')
             matches = sorted(root.glob(pattern))
@@ -343,6 +352,8 @@ def expand_tokens(value, root, evidence, contract_root, started_at=None):
 def execute_check(check, root, evidence, contract_root=None, control=None):
     control = control or ExecutionControl()
     contract_root = contract_root or root / 'contracts/launchpad'
+    if getattr(control, 'reviewed_inputs', None) is not None:
+        check = {**check, 'argv': [_control.bind(value, control.reviewed_inputs, root) for value in check['argv']]}
     check = {**check, 'argv': [expand_tokens(value, root, evidence, contract_root, control.started_at) for value in check['argv']],
              'env': {key: expand_tokens(value, root, evidence, contract_root, control.started_at) for key, value in check['env'].items()}}
     log = evidence / f'{check["id"]}.log'
@@ -509,24 +520,19 @@ def qualify_accepted_candidate(entry, task_id, task, spec, root, evidence):
     check_registry = json.loads(registry_file.read_text())
     if check_registry.get(task_id) != checks:
         raise QualificationError('current coordinator check registry differs from reviewed policy')
-    sys.path.insert(0, str(root / 'tools/launchpad/production'))
+    selected = _control.reviewed_graph(root, spec=spec)
+    graph = selected['graph']
+    if graph.layout_digest != policy['layout_sha256']:
+        raise QualificationError('current task layout differs from reviewed policy')
+    dispatcher = selected['dispatcher']
+    store = dispatcher.store.Store(config['db'], config['capacity'], boot_id=config['boot'], mode=config['mode'], total_slots=config['total_slots'])
     try:
-        acceptance = importlib.import_module('dispatcher.acceptance')
-        graph_module = importlib.import_module('dispatcher.graph')
-        graph = graph_module.Graph(root / 'launchpad/spec/production-system/spec.kvx', root / 'launchpad/spec/production-system/execution-plan.json')
-        if graph.layout_digest != policy['layout_sha256']:
-            raise QualificationError('current task layout differs from reviewed policy')
-        store_module = importlib.import_module('dispatcher.store')
-        store = store_module.Store(config['db'], config['capacity'], boot_id=config['boot'], mode=config['mode'], total_slots=config['total_slots'])
-        try:
-            verified = acceptance.verify_accepted(
-                baseline=Path(config['baseline']), accepted_path=state / 'accepted' / identifier,
-                owned=policy['owned'], checks=checks, secret=(state / 'coordinator.key').read_bytes(),
-                output_dir=evidence / 'accepted-candidate-source', store=store)
-        finally:
-            store.close()
+        verified = dispatcher.acceptance.verify_accepted(
+            baseline=Path(config['baseline']), accepted_path=state / 'accepted' / identifier,
+            owned=policy['owned'], checks=checks, secret=(state / 'coordinator.key').read_bytes(),
+            output_dir=evidence / 'accepted-candidate-source', store=store)
     finally:
-        sys.path.pop(0)
+        store.close()
     if not isinstance(verified, dict) or verified.get('individually_verified') is not True or verified.get('combined_qualified') is not False or verified.get('task') != task_id or verified.get('attempt') != identifier:
         raise QualificationError('coordinator accepted artifact verification failed')
     if verified.get('lane') != policy['lane']:
@@ -608,9 +614,9 @@ def qualify_load_repair(args, root, spec_path, evidence, control):
         'release_qualified': False,
     }
 
-def run(args, control=None):
+def run(args, control=None, *, root=None):
     control = control or ExecutionControl()
-    root = Path(__file__).resolve().parents[3]
+    root = Path(root).resolve() if root is not None else Path(__file__).resolve().parents[3]
     spec_path = (root / args.spec).resolve() if not args.spec.is_absolute() else args.spec.resolve()
     registry_path = (root / args.registry).resolve() if not args.registry.is_absolute() else args.registry.resolve()
     evidence_base = (root / args.evidence_dir).resolve() if not args.evidence_dir.is_absolute() else args.evidence_dir.resolve()
@@ -639,6 +645,13 @@ def run(args, control=None):
             reviewed = preview.get('tasks', {}).get(args.task)
             if not isinstance(reviewed, dict) or not any(isinstance(reviewed.get(key), dict) for key in ('accepted_candidate_policy', 'serial_gate_policy')):
                 raise QualificationError(f'task {args.task} qualification is not implemented')
+        if registry_path != root / _control.REGISTRY_PATH:
+            raise QualificationError('qualification requires the canonical reviewed registry')
+        registry_bytes = registry_path.read_bytes()
+        registry = json.loads(registry_bytes)
+        reviewed = _control.reviewed_graph(root, registry, spec_path, require_catalog=args.task != '0.1')
+        control.reviewed_inputs = reviewed
+        result['retained_input_sha256'] = reviewed['retained']['sha256']
         spec_bytes = spec_path.read_bytes()
         spec = tomllib.loads(spec_bytes.decode())
         if spec.get('meta', {}).get('feature') != 'production-system':
@@ -650,11 +663,9 @@ def run(args, control=None):
         for dependency in task.get('requires', []):
             if task_at(spec, dependency).get('status') != 'done':
                 raise QualificationError(f'dependency {dependency} is not done')
-        registry_bytes = registry_path.read_bytes()
-        registry = json.loads(registry_bytes)
         if args.task not in IMPLEMENTED_TASKS:
             trusted_registry = root / 'tools/launchpad/production/bootstrap/check-registry.json'
-            if registry_path != trusted_registry or spec_path != root / 'launchpad/spec/production-system/spec.kvx':
+            if registry_path != trusted_registry or spec_path != reviewed['spec']:
                 raise QualificationError('future task requires canonical reviewed registry and specification')
             entry = registry.get('tasks', {}).get(args.task)
             if registry.get('schema_version') != SCHEMA_VERSION or not isinstance(entry, dict):
@@ -677,6 +688,7 @@ def run(args, control=None):
             if control.cancelled.is_set():
                 raise QualificationCancelled(control.reason or 'qualification cancelled')
             after = snapshot(root)
+            _control.verify_inputs(root, reviewed)
             (evidence / 'source-after.json').write_text(json.dumps(after, indent=2) + '\n')
             if before != after or spec_path.read_bytes() != spec_bytes or registry_path.read_bytes() != registry_bytes:
                 raise QualificationError('current source or reviewed policy changed during accepted qualification')
@@ -692,17 +704,7 @@ def run(args, control=None):
         if args.task in {'0.2', '0.3'}:
             frozen_interface = interface_bundle(registry['tasks'][args.task].get('interface_bundle'), root)
             (evidence / 'interface-bundle.json').write_text(json.dumps(frozen_interface, indent=2) + '\n')
-            catalog_path = root / 'launchpad/spec/production-system/integration/contracts/v1/catalog-map.json'
-            catalog_document = json.loads(catalog_path.read_text())
-            catalog_inputs = catalog_document.get('inputs', {}) if isinstance(catalog_document, dict) else {}
-            if not isinstance(catalog_inputs, dict):
-                raise QualificationError('frozen catalog input identity must be an object')
-            semantic_digest = catalog_inputs.get('catalogSha256')
-            if catalog_inputs.get('semanticDigestAlgorithm') != 'interface-catalog-v1' or not isinstance(semantic_digest, str) or not re.fullmatch('[0-9a-f]{64}', semantic_digest):
-                raise QualificationError('frozen catalog missing valid semantic input identity')
-            result['interface_semantic_input'] = {
-                'algorithm': catalog_inputs['semanticDigestAlgorithm'],
-                'sha256': semantic_digest, 'catalog_manifest_sha256': file_hash(catalog_path)}
+            result['interface_semantic_input'] = reviewed['semantic_input']
         before = snapshot(root)
         control.candidate_sha256 = before['sha256']
         result.update({'spec_sha256': hashlib.sha256(spec_bytes).hexdigest(),
@@ -729,6 +731,7 @@ def run(args, control=None):
             if current_interface != frozen_interface:
                 result['errors'].append('interface bundle changed during qualification')
         after = snapshot(root)
+        _control.verify_inputs(root, reviewed)
         result['candidate_after_sha256'] = after['sha256']
         (evidence / 'source-after.json').write_text(json.dumps(after, indent=2) + '\n')
         changed = sorted(path for path in before['files'].keys() | after['files'].keys()

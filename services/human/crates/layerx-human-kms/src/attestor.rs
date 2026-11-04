@@ -6,6 +6,9 @@ use std::sync::{Mutex, MutexGuard};
 use std::time::Duration;
 
 use layerx_crypto::disclosure::call::{bind_call, ConstructMethod};
+
+#[path = "call.rs"]
+pub mod call;
 use layerx_crypto::disclosure::{
     AmountRole, Counterparty, CounterpartyRole, DisclosedAmount, Disclosure,
 };

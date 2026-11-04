@@ -1,7 +1,7 @@
+use crate::attestor::call::bind_call;
 use crate::config::Config;
 use crate::store::Store;
 use crate::wire::{self, Error, Operation, Request, Result};
-use layerx_crypto::disclosure::call::bind_call;
 use rustls::{ServerConnection, StreamOwned};
 use sha2::{Digest, Sha256};
 use std::io::{IoSlice, Read, Write};
@@ -293,7 +293,10 @@ fn sign(request: &Request<'_>, config: &Config, network: u32) -> Result<Option<[
         return Err(Error::Refused);
     }
     let disclosure = bind_call(&call, sender).map_err(|_| Error::Refused)?;
-    if wire::disclosure(&disclosure)? != request.disclosure {
+    disclosure
+        .validate_for_signing()
+        .map_err(|_| Error::Refused)?;
+    if disclosure.disclosure_bytes().map_err(|_| Error::Refused)? != request.disclosure {
         return Err(Error::Refused);
     }
     let digest: [u8; 32] = sha3::Keccak256::digest(request.canonical).into();
