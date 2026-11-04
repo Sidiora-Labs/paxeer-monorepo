@@ -73,12 +73,22 @@ key, authority and module/operation coordinates. They require a successful
 receipt with a nonzero authorization hash and independently match recipient,
 asset, amount, and exact debit/credit deltas using checked arithmetic.
 
-The v2 receipt's `context_hash` identifies the signing key. It is not an external
-claim commitment. The policies' `context_hash(...)` helpers compute claim hashes,
-but their receipt-policy checks do not compare those hashes to the signed
-context field. Source evidence, canonical source-derived idempotency keys and
-independent effect matching provide the checks actually implemented. The
-`MigrationPlane` receives adapter-created typed requests; receipt verification
+The v2 receipt's signed `contextHash` (`context_hash` in Rust) is the producer's
+`keyId`. Pin a `SequencerAuthorization` with that key identifier, its trusted
+public key and its inclusive block-height range; both policies also require the
+authorized public key to equal their independently configured signing key.
+Never substitute an external-claim digest for `keyId`. The policies'
+`context_hash(...)` helpers compute claim hashes, but their receipt-policy checks
+do not compare those hashes to the signed context field.
+
+Claim matching is independent of signing context: source evidence and canonical
+source-derived idempotency keys identify the claim, while receipt-policy checks
+match the configured operation, authority, recipient, asset, amount and exact
+balance deltas. The gateway verifies the signed log commitments and requires
+exactly one payment matching the idempotency key. Native `PaymentExact` topics
+are `[event signature, paymentReference, from, to]`; the ABI data words are
+`[assetId, amount]`. Match the reference in topic 1, not either account topic.
+The `MigrationPlane` receives adapter-created typed requests; receipt verification
 must still use the independently configured signing authority.
 
 The binary's `confirm-mapping` follows the separate V2 path:
@@ -96,7 +106,10 @@ authenticated `GatewayClient`. Its version is `layerx-migration-source-v2` and
 its response states are `source_pending`, `source_settled`, `layerx_pending`,
 `layerx_refused` or `done`. A response is checked against the order digest and
 exact source evidence. This observation is not a portable proof of block commit;
-see [receipt verification](../../PORTABILITY.md).
+even a producer state of `done` is reported as `producer-observed` with
+`provenance: external-custody`, `layerx_receipt: false` and
+`layerx_credit_verified: false`. External custody does not establish network
+credit; see [receipt verification](../../PORTABILITY.md).
 
 ## External history
 
