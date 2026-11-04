@@ -16,14 +16,17 @@ pub use eval::{
     PurposeText, RateBound, Rule, RuleConstraints, RuleEffect, RuleMatcher, SequenceWindow,
 };
 pub use operation::{
-    evaluate_admission_with_context, evaluate_timed_admission_with_context,
     dry_run_intent_request_id, dry_run_intent_with_context, dry_run_request_id,
-    dry_run_with_context, load_tenant_registries, PolicyDryRunRefusal,
+    dry_run_with_context, evaluate_admission_and_record, evaluate_admission_with_context,
+    evaluate_timed_admission_and_record, evaluate_timed_admission_with_context,
+    load_tenant_registries, load_tenant_registries_with_store, PolicyDryRunRefusal,
     PolicyLoadError, TenantPolicyRegistries, VerifiedPolicyContext,
 };
 pub use versioning::{
-    load_policy_source, Activation, PolicyAuditEntry, PolicyRegistry, PolicySnapshot,
-    PolicySourceError, PolicyValidationError, MAX_POLICY_SOURCE_BYTES,
+    load_policy_source, Activation, PolicyAuditEntry, PolicyHistoryError, PolicyRegistry,
+    PolicyRetentionQuotas, PolicySnapshot, PolicySourceError, PolicyValidationError,
+    MAX_POLICY_HISTORY_BYTES, MAX_POLICY_SOURCE_BYTES, MAX_RETAINED_POLICY_DECISIONS,
+    MAX_RETAINED_POLICY_VERSIONS,
 };
 
 /// The local policy outcome. An allow is never protocol authorisation.
