@@ -34,7 +34,9 @@ func NewAssociationHelper(evmKeeper evmKeeper, bankKeeper bankKeeper, accountKee
 
 func (p AssociationHelper) AssociateAddresses(ctx sdk.Context, paxAddr sdk.AccAddress, evmAddr common.Address, pubkey cryptotypes.PubKey, migrateUhpxOnly bool) error {
 	key, ok := pubkey.(*secp256k1.PubKey)
-	if !ok || key == nil {
+	// The SDK account codec and Address method require compressed keys. Validate
+	// this public input before mapping or migrating any account state.
+	if !ok || key == nil || len(key.Key) != secp256k1.PubKeySize {
 		return ErrInvalidPubkey
 	}
 	if _, err := PubkeyBytesToPaxPubKey(key.Bytes()); err != nil {
