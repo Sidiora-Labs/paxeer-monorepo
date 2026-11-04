@@ -1,0 +1,59 @@
+[meta]
+task = "22.33.1131"
+audit = "22.30.49"
+status = "implemented; local qualification pending; native differential qualification outstanding"
+evidence = "The runner's hf-build/hf-done ledger binds exact revision, command, exit and private log path; this record does not assert an unrun gate."
+baseline = "No baseline gate ran: the explicit gate order forbids testing before complete implementation and permits hf-done only after hf-build; do_12 contradicts that order."
+
+[finding.022]
+test = "TestRepairM_1131_022_028_StorageTransitions; TestRepairM_1131_022_StorageGasReference"
+repair = "Production SetStorage uses the EVMC transition table, including unchanged dirty zero and zero-original dirty deletion; all 64 combinations use real committed state and snapshot rollback."
+limitation = "The gas/refund vectors execute the real geth reference; they do not claim execution by evmone."
+
+[finding.023]
+test = "TestRepairM_1131_023_StaticDescendants; TestRepairM_1131_029_InterpreterBoundary"
+repair = "The production execution message derives static mode from inherited readOnly; host callbacks refuse static creation and value transfer; real static descendants attempt SSTORE, LOG, CREATE and transfer."
+
+[finding.024]
+test = "TestRepairM_1131_024_DelegatedCode; TestRepairM_1131_029_InterpreterBoundary"
+repair = "Execution receives resolved contract.Code independently of calldata and storage recipient; DELEGATECALL carries sender and storage recipient separately and dispatches codeAddress; CALLCODE dispatches codeAddress in recipient storage."
+limitation = "The real host/geth tests cover 7702 code resolution, but Run refuses Prague until a matching EVMC runtime is qualified."
+
+[finding.025]
+test = "TestRepairM_1131_025_RevertAndGas"
+repair = "Execute retains EVMC revert output/gas; the production result consumer maps it to vm.ErrExecutionReverted and retains gas without adding a revert refund; real nested calls prove RETURNDATA and rollback."
+
+[finding.026]
+test = "TestRepairM_1131_026_ForkBoundary"
+repair = "Prague, Osaka and Verkle rules produce a typed transaction abort rather than execution under Cancun; boundary tests prove rejection before writes or gas consumption."
+
+[finding.027]
+test = "TestRepairM_1131_027_AbortRetry"
+repair = "A real fail-fast precompile latches the typed abort outside EVMC status codes; result consumption returns it despite a caught callback failure; the production root lifecycle restores writes and the ordinary executor retries against a real native precompile."
+limitation = "The root Run snapshot starts at interpreter entry; outer transaction/fee snapshots and ordinary-executor selection belong to the transaction owner."
+
+[finding.028]
+test = "TestRepairM_1131_022_028_StorageTransitions"
+repair = "TestStorageStatusLogic now calls the real HostContext.SetStorage on StateDB; the copied computeStorageStatus algorithm is removed and delete/replace expects StorageDeletedAdded."
+
+[finding.029]
+test = "TestRepairM_1131_029_CreationAndCalls; TestRepairM_1131_024_DelegatedCode; TestRepairM_1131_023_StaticDescendants; TestRepairM_1131_025_RevertAndGas; TestRepairM_1131_027_AbortRetry; TestRepairM_1131_029_InterpreterBoundary"
+repair = "Interpreter tests now exercise production call-mode/message conversion and real host creation, calls, delegated code, static descendants, revert data, gas and abort recovery; Run's refusal and state cleanup execute without a loaded runtime."
+limitation = "Native evmone execution and geth-versus-evmone transaction receipt/gas parity remain unproven; no mock, fake runtime or invented native transcript substitutes for them."
+
+[wiring.runtime]
+request = "Domain 5, engine/executor/lib: supply a matching pinned EVMC runtime and authentic committed execution transcripts for artifact-free differential qualification before selecting evmone."
+
+[wiring.binding]
+request = "Domain 5, github.com/ethereum/evmc/v12 bindings/go/evmc/host.go: decode EVMC_STATIC with a bit mask rather than msg.flags != 0 before enabling EIP-7702 delegated execution."
+
+[wiring.transaction]
+request = "Domain 5, engine/executor/executor.go and transaction owner: preserve the typed abort through whole-transaction snapshot rollback and ordinary-executor retry, including fee/value/nonce effects."
+
+[gotcha.scope]
+observed = "The requested spec task record, qualification ledger and root GOTCHA.kvx are outside the explicit task scope."
+action = "Keep the repair mapping, contradictions and wiring requests in this in-scope task record; leave the runner's pre-existing .cgignore and spec edits alone."
+
+[gotcha.runtime]
+observed = "The artifact-free gate and required native evmone differential proofs conflict in this checkout, which contains neither an evmone runtime nor recorded native transcripts."
+action = "Use real StateDB/geth/precompile paths for local proofs, explicitly record missing native evidence and keep unsupported active forks refused."
