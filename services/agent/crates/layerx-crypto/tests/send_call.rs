@@ -1,8 +1,8 @@
+mod support;
+
 use layerx_crypto::disclosure::call::{bind_call, ConstructMethod};
 use layerx_crypto::disclosure::DisclosureError;
-use layerx_crypto::send::{
-    encode_send_envelope, ledger_payment_call, CallOptions, EnvelopeOptions,
-};
+use layerx_crypto::send::{ledger_payment_call, CallOptions, DisclosedCall};
 use sha3::{Digest as _, Keccak256};
 
 fn payload() -> Vec<u8> {
@@ -69,17 +69,6 @@ fn ledger_payment_call_wraps_the_send_payload_in_send_bytes(
 fn ledger_payment_call_refuses_a_malformed_payload() {
     let payload = payload();
     let options = options();
-    let envelope_options = EnvelopeOptions {
-        actor: "did:layerx:alice",
-        public_key: [0; 32],
-        protocol_version: 3,
-        network_id: 17,
-        identity_sequence: 7,
-        idempotency_key: [4; 32],
-        fee_limit: 20,
-        not_before: 10,
-        not_after: 100,
-    };
     let mut trailing = payload.clone();
     trailing.push(0);
     let mut invalid_signature = payload.clone();
@@ -90,7 +79,14 @@ fn ledger_payment_call_refuses_a_malformed_payload() {
         trailing.as_slice(),
         invalid_signature.as_slice(),
     ] {
-        assert!(encode_send_envelope(malformed, &envelope_options).is_err());
+        let mut call = ledger_payment_call(&payload, &options)
+            .expect("valid payment")
+            .call;
+        call.data.truncate(68);
+        call.data[52..68].copy_from_slice(&(malformed.len() as u128).to_be_bytes());
+        call.data.extend_from_slice(malformed);
+        call.data.resize(68 + malformed.len().div_ceil(32) * 32, 0);
+        assert!(DisclosedCall::from_call(call, options.from).is_err());
         assert!(matches!(
             ledger_payment_call(malformed, &options),
             Err(DisclosureError::MalformedPayload)
@@ -101,69 +97,66 @@ fn ledger_payment_call_refuses_a_malformed_payload() {
 #[test]
 fn send_envelope_encoder_keeps_asset_ordinal_five() -> Result<(), Box<dyn std::error::Error>> {
     use ed25519_dalek::{Signer as _, SigningKey};
+    use layerx_crypto::evm_transaction::{assemble, decode_signed, recover_sender};
     use layerx_crypto::send::{send_context_hash, SendCondition, SendDebit};
+    use layerx_crypto::signer::{sign_disclosed_call, Signer};
     use layerx_crypto::SignatureMessage;
-    use layerx_types::activity::Signature;
     use layerx_types::payload::ModuleId;
-    use layerx_wire::activity::{decode_signed, encode_signed_envelope};
     use layerx_wire::hash::Domain;
 
     let key = SigningKey::from_bytes(&[5; 32]);
-    let options = EnvelopeOptions {
-        actor: "did:layerx:alice",
-        public_key: key.verifying_key().to_bytes(),
-        protocol_version: 3,
-        network_id: 17,
-        identity_sequence: 7,
-        idempotency_key: [4; 32],
-        fee_limit: 20,
-        not_before: 10,
-        not_after: 100,
-    };
+    let account = layerx_crypto::account_derivation::derive_from_seed(&[5; 64], 0)?;
+    let signer = layerx_crypto::signer::LocalSigner::from_derived_account(&account);
+    let mut options = options();
+    options.from = signer.evm_address().expect("fixture EVM key");
     let debit = SendDebit {
         from: [1; 32],
         to: [2; 32],
         asset: [3; 32],
         amount: 123,
         source_sequence: 9,
-        idempotency_key: options.idempotency_key,
-        expires_at: options.not_after,
+        idempotency_key: [4; 32],
+        expires_at: 100,
         context_hash: send_context_hash(&[1; 32], &[2; 32], &[3; 32], 123, &[4; 32]),
         conditions: vec![SendCondition {
             kind: 1,
-            timestamp: options.not_before,
+            timestamp: 10,
         }],
         authorization_kind: 1,
-        network_id: options.network_id,
-        protocol_version: options.protocol_version,
+        network_id: 17,
+        protocol_version: 3,
     };
     let authorization = debit.authorization_message()?;
     let message = SignatureMessage::new(
         Domain::SignaturePreimage,
-        options.protocol_version,
-        options.network_id,
+        debit.protocol_version,
+        debit.network_id,
         &authorization,
     )
     .map_err(|error| format!("{error:?}"))?;
-    let payload =
-        debit.encode_signed(options.public_key, key.sign(&message.digest()).to_bytes())?;
-    let disclosed = encode_send_envelope(&payload, &options)?;
-    let message = SignatureMessage::new(
-        Domain::SignaturePreimage,
-        options.protocol_version,
-        options.network_id,
-        &disclosed.canonical,
-    )
-    .map_err(|error| format!("{error:?}"))?;
-    let signature = Signature::new(&key.sign(&message.digest()).to_bytes())
-        .map_err(|error| format!("{error:?}"))?;
-    let signed = disclosed.envelope.attach_signature(signature);
-    let canonical = encode_signed_envelope(&signed).map_err(|error| format!("{error:?}"))?;
-    let decoded =
-        decode_signed(&canonical, &disclosed.registry).map_err(|error| format!("{error:?}"))?;
-    assert_eq!(decoded.activity_type().module(), ModuleId::Asset);
-    assert_eq!(decoded.activity_type().ordinal(), 5);
-    assert_eq!(decoded.payload(), payload);
-    assert_eq!(decoded.account_sequence(), options.identity_sequence);
+    let payload = debit.encode_signed(
+        key.verifying_key().to_bytes(),
+        key.sign(&message.digest()).to_bytes(),
+    )?;
+    let disclosed = ledger_payment_call(&payload, &options)?;
+    let signature = support::complete(sign_disclosed_call(
+        &signer,
+        &disclosed.call,
+        &disclosed.disclosure,
+        options.from,
+    ))?;
+    let canonical = assemble(&disclosed.call, &signature);
+    let (decoded, signature) = decode_signed(&canonical)?;
+    let sender = recover_sender(&decoded, &signature)?;
+    assert_eq!(sender, options.from);
+    let disclosure = bind_call(&decoded, sender)?;
+    assert_eq!(disclosure.activity_type.module(), ModuleId::Asset);
+    assert_eq!(disclosure.activity_type.ordinal(), 5);
+    assert_eq!(
+        disclosure.construct_method()?,
+        Some(ConstructMethod::LedgerSend { payload })
+    );
+    assert_eq!(decoded.nonce, options.nonce);
+    assert_eq!(disclosure.payload_sequence()?, Some(9));
     Ok(())
 }

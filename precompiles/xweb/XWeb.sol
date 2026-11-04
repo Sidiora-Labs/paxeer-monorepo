@@ -79,12 +79,15 @@ interface IXWeb {
         uint256 paid,
         uint64 timeoutHeight
     );
+    /// Program schema V1: kind is 1 fetch or 2 search; origin is always program (2).
+    /// sequence is the accepted program call sequence, not a deadline.
+    /// Only admission emits this event; fulfilment retains a replay tombstone.
     event XWebProgramRequested(
         bytes32 indexed programId,
         uint64 indexed requestId,
-        uint8 method,
+        uint8 kind,
         bytes payload,
-        uint64 deadline
+        uint64 sequence
     );
     event XWebFulfilled(
         uint64 indexed requestId,

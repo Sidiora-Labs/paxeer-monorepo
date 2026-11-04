@@ -56,18 +56,21 @@ func (s *DepositTestSuite) TestQueryDepositsInitialDeposit() {
 	_, err = MsgDeposit(clientCtx, val.Address.String(), "1", sdk.NewCoin(s.cfg.BondDenom, sdk.NewInt(50)).String())
 	s.Require().NoError(err)
 
-	// waiting for voting period to end
+	expectedDeposit := sdk.NewCoins(sdk.NewCoin(s.cfg.BondDenom, types.DefaultMinDepositTokens.Add(sdk.NewInt(30))))
+	s.assertCumulativeDeposit(val, "1", expectedDeposit)
+
+	// The historical query must retain the live keeper's per-account total.
 	time.Sleep(20 * time.Second)
+	s.assertCumulativeDeposit(val, "1", expectedDeposit)
+}
 
-	// query deposit & verify initial deposit
-	deposit := s.queryDeposit(val, "1", false)
-	s.Require().Equal(deposit.Amount.String(), initialDeposit)
-
-	// query deposits
-	deposits := s.queryDeposits(val, "1", false)
-	s.Require().Equal(len(deposits), 2)
-	// verify initial deposit
-	s.Require().Equal(deposits[0].Amount.String(), initialDeposit)
+func (s *DepositTestSuite) assertCumulativeDeposit(val *network.Validator, proposalID string, expected sdk.Coins) {
+	deposit := s.queryDeposit(val, proposalID, false)
+	s.Require().Equal(expected.String(), deposit.Amount.String())
+	s.Require().Equal(val.Address.String(), deposit.Depositor)
+	deposits := s.queryDeposits(val, proposalID, false)
+	s.Require().Len(deposits, 1)
+	s.Require().Equal(*deposit, deposits[0])
 }
 
 func (s *DepositTestSuite) TestQueryDepositsWithoutInitialDeposit() {
@@ -174,6 +177,15 @@ func (s *DepositTestSuite) queryDeposits(val *network.Validator, proposalID stri
 		return nil
 	}
 	s.Require().NoError(err)
+	proposalOut, err := clitestutil.ExecTestCLICmd(val.ClientCtx, cli.GetCmdQueryProposal(), args)
+	s.Require().NoError(err)
+	var proposal types.Proposal
+	s.Require().NoError(val.ClientCtx.Codec.UnmarshalAsJSON(proposalOut.Bytes(), &proposal))
+	if proposal.Status == types.StatusDepositPeriod || proposal.Status == types.StatusVotingPeriod {
+		var response types.QueryDepositsResponse
+		s.Require().NoError(val.ClientCtx.Codec.UnmarshalAsJSON(out.Bytes(), &response))
+		return response.Deposits
+	}
 	s.Require().NoError(val.ClientCtx.LegacyAmino.UnmarshalAsJSON(out.Bytes(), &depositsRes))
 	return depositsRes
 }

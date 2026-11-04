@@ -3,7 +3,10 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::{Display, Formatter};
 use std::ops::Deref;
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock, Weak};
+use std::time::Duration;
 
 use layerx_agent_api::identity::{
     ActivityType, AgentDid, Asset, CapabilityId, ExplicitSet, TenantId as ApiTenantId,
@@ -25,6 +28,8 @@ use crate::tenant::{
     self, AuthorizationError, ObjectOwner, Operation, RequestContext, Surface, TenantObservability,
 };
 use layerx_types::ids::Did;
+
+pub const DEFAULT_OUTSTANDING_WINDOW: usize = 256;
 
 const RECORD_MAGIC: &[u8; 4] = b"LXS3";
 const PREVIOUS_RECORD_MAGIC: &[u8; 4] = b"LXS2";
@@ -134,12 +139,28 @@ pub enum SubscriptionError {
     Duplicate,
     NotFound,
     Paused,
-    CursorOutOfOrder { expected: Cursor, received: Cursor },
-    CursorNeverDelivered { cursor: Cursor },
-    CursorRegressed { current: Cursor, received: Cursor },
+    CursorOutOfOrder {
+        expected: Cursor,
+        received: Cursor,
+    },
+    CursorNeverDelivered {
+        cursor: Cursor,
+    },
+    CursorRegressed {
+        current: Cursor,
+        received: Cursor,
+    },
     SequenceExhausted,
     Corrupt,
     CursorResetRequired,
+    UpgradeRequired {
+        tenant: String,
+        subscription_id: String,
+    },
+    OutstandingWindow {
+        limit: usize,
+    },
+    InvalidWindow,
     Authorization(AuthorizationError),
     AuthorizationRequired,
     Durable(StoreError),
@@ -169,6 +190,10 @@ impl Display for SubscriptionError {
             ),
             Self::SequenceExhausted => formatter.write_str("subscription cursor is exhausted"),
             Self::CursorResetRequired => formatter.write_str("subscription.cursor_reset_required"),
+            Self::UpgradeRequired { tenant, subscription_id } => write!(formatter,
+                "subscription.cursor_reset_required: tenant={tenant} subscription={subscription_id}; use Store::recover_legacy with an explicit replay boundary and retained backup"),
+            Self::OutstandingWindow { limit } => write!(formatter, "subscription outstanding window reached {limit}"),
+            Self::InvalidWindow => formatter.write_str("subscription outstanding window must be nonzero and cover existing deliveries"),
             Self::Corrupt => formatter.write_str("durable subscription record is corrupt"),
             Self::Authorization(error) => {
                 write!(formatter, "subscription authorization failed: {error:?}")
@@ -278,7 +303,13 @@ impl Store {
             if stored.class() != StorageClass::LocalOnly {
                 return Err(SubscriptionError::Corrupt);
             }
-            let record = decode_record(stored.bytes())?;
+            let record = decode_record(stored.bytes()).map_err(|error| match error {
+                SubscriptionError::CursorResetRequired => SubscriptionError::UpgradeRequired {
+                    tenant: tenant.as_str().to_owned(),
+                    subscription_id: String::from_utf8_lossy(&object_id).into_owned(),
+                },
+                other => other,
+            })?;
             let id = record.public.subscription_id.as_str().to_owned();
             if object_id != id.as_bytes()
                 || record.public.scope.tenant.as_str() != tenant.as_str()
@@ -494,7 +525,7 @@ impl Store {
         &self,
         target: &SubscriptionTarget,
     ) -> Result<SubscriptionRecord, SubscriptionError> {
-        Ok(self.target_inner(target)?.public.clone())
+        Ok(self.current_record(target)?.public)
     }
 
     /// Records one strictly increasing delivered cursor durably so a later
@@ -511,6 +542,8 @@ impl Store {
         cursor: Cursor,
     ) -> Result<(), SubscriptionError> {
         self.require_unbound_target(target)?;
+        let gate = self.dispatch_gate(target)?;
+        let _lease = gate.acquire();
         self.mark_delivered_inner(target, cursor)
     }
 
@@ -519,8 +552,10 @@ impl Store {
         target: &SubscriptionTarget,
         cursor: Cursor,
     ) -> Result<(), SubscriptionError> {
+        self.refresh_target(target)?;
         let id = target.subscription_id.as_str().to_owned();
         let record = self.target_inner(target)?;
+        self.check_dispatch(target, Some(cursor))?;
         if record.public.paused {
             return Err(SubscriptionError::Paused);
         }
@@ -565,6 +600,9 @@ impl Store {
         acknowledgement: &CursorAcknowledgement,
     ) -> Result<SubscriptionRecord, SubscriptionError> {
         let target = acknowledgement_target(acknowledgement);
+        let gate = self.dispatch_gate(&target)?;
+        let _lease = gate.acquire();
+        self.refresh_target(&target)?;
         let id = target.subscription_id.as_str().to_owned();
         let record = self.target_inner(&target)?;
         let current = Cursor::from(record.public.last_acknowledged);
@@ -789,7 +827,7 @@ impl Store {
         target: &SubscriptionTarget,
     ) -> Result<Cursor, SubscriptionError> {
         Ok(Cursor::from(
-            self.target_inner(target)?.public.last_acknowledged,
+            self.current_record(target)?.public.last_acknowledged,
         ))
     }
 
@@ -808,7 +846,7 @@ impl Store {
         &self,
         target: &SubscriptionTarget,
     ) -> Result<Continuity, SubscriptionError> {
-        Ok(self.target_inner(target)?.continuity)
+        Ok(self.current_record(target)?.continuity)
     }
 
     /// Blocks delivery at an explicit missing global-sequence range.
@@ -995,11 +1033,217 @@ impl Store {
         }
     }
 
+    fn current_record(
+        &self,
+        target: &SubscriptionTarget,
+    ) -> Result<DurableRecord, SubscriptionError> {
+        self.validate_scope(&target.scope)?;
+        let durable = self.durable()?;
+        let key = subscription_key(self.tenant.clone(), &target.subscription_id)?;
+        let stored = durable.get(&key).ok_or(SubscriptionError::NotFound)?;
+        if stored.class() != StorageClass::LocalOnly {
+            return Err(SubscriptionError::Corrupt);
+        }
+        let mut record = decode_record(stored.bytes())?;
+        if record.public.subscription_id != target.subscription_id
+            || record.public.scope != target.scope
+            || record.termination.is_some()
+        {
+            return Err(SubscriptionError::NotFound);
+        }
+        if let Some(cached) = self.records.get(target.subscription_id.as_str()) {
+            record.current_delivery = cached.current_delivery.max(record.current_delivery);
+        }
+        Ok(record)
+    }
+
+    fn refresh_target(&mut self, target: &SubscriptionTarget) -> Result<(), SubscriptionError> {
+        let record = self.current_record(target)?;
+        self.records
+            .insert(target.subscription_id.as_str().to_owned(), record);
+        Ok(())
+    }
+
+    pub(super) fn dispatch_gate(
+        &self,
+        target: &SubscriptionTarget,
+    ) -> Result<DispatchGate, SubscriptionError> {
+        static GATES: OnceLock<Mutex<BTreeMap<(PathBuf, String, String), Weak<AtomicBool>>>> =
+            OnceLock::new();
+        let key = (
+            self.durable()?
+                .root()
+                .canonicalize()
+                .map_err(StoreError::from)?,
+            self.tenant.as_str().to_owned(),
+            target.subscription_id.as_str().to_owned(),
+        );
+        let mut gates = GATES
+            .get_or_init(|| Mutex::new(BTreeMap::new()))
+            .lock()
+            .map_err(|_| SubscriptionError::SharedUnavailable)?;
+        gates.retain(|_, gate| gate.strong_count() != 0);
+        let gate = gates.get(&key).and_then(Weak::upgrade).unwrap_or_else(|| {
+            let gate = Arc::new(AtomicBool::new(false));
+            gates.insert(key, Arc::downgrade(&gate));
+            gate
+        });
+        Ok(DispatchGate(gate))
+    }
+
+    pub(super) fn check_dispatch(
+        &self,
+        target: &SubscriptionTarget,
+        cursor: Option<Cursor>,
+    ) -> Result<(), SubscriptionError> {
+        let record = self.current_record(target)?;
+        if record.public.paused {
+            return Err(SubscriptionError::Paused);
+        }
+        if let Some(cursor) = cursor {
+            let limit = self.outstanding_window(target)?;
+            if !record.delivered_unacknowledged.contains(&cursor)
+                && record.delivered_unacknowledged.len() >= limit
+            {
+                return Err(SubscriptionError::OutstandingWindow { limit });
+            }
+        }
+        Ok(())
+    }
+
+    /// Persists a per-subscription delivery quota. Existing outstanding deliveries may not be dropped.
+    pub fn set_outstanding_window(
+        &mut self,
+        target: &SubscriptionTarget,
+        limit: usize,
+    ) -> Result<(), SubscriptionError> {
+        self.require_unbound_target(target)?;
+        self.set_window_inner(target, limit)
+    }
+
+    pub fn set_outstanding_window_authorized(
+        &mut self,
+        sessions: &SessionRegistry,
+        token: &Token,
+        observability: &mut TenantObservability,
+        core_sequence: u64,
+        target: &SubscriptionTarget,
+        limit: usize,
+    ) -> Result<(), SubscriptionError> {
+        self.authorize_target(
+            sessions,
+            token,
+            observability,
+            core_sequence,
+            target,
+            Operation::SubscriptionPause,
+        )?;
+        self.set_window_inner(target, limit)
+    }
+
+    fn set_window_inner(
+        &mut self,
+        target: &SubscriptionTarget,
+        limit: usize,
+    ) -> Result<(), SubscriptionError> {
+        let gate = self.dispatch_gate(target)?;
+        let _lease = gate.acquire();
+        let record = self.current_record(target)?;
+        if limit == 0 || limit < record.delivered_unacknowledged.len() {
+            return Err(SubscriptionError::InvalidWindow);
+        }
+        let limit = u64::try_from(limit).map_err(|_| SubscriptionError::InvalidWindow)?;
+        let key = window_key(self.tenant.clone(), &target.subscription_id)?;
+        self.with_durable_mut(|durable| {
+            durable.put_local(key, limit.to_be_bytes().to_vec())?;
+            Ok(())
+        })
+    }
+
+    pub fn outstanding_window(
+        &self,
+        target: &SubscriptionTarget,
+    ) -> Result<usize, SubscriptionError> {
+        self.current_record(target)?;
+        let durable = self.durable()?;
+        let key = window_key(self.tenant.clone(), &target.subscription_id)?;
+        match durable.get(&key) {
+            None => Ok(DEFAULT_OUTSTANDING_WINDOW),
+            Some(value) => {
+                if value.class() != StorageClass::LocalOnly {
+                    return Err(SubscriptionError::Corrupt);
+                }
+                let bytes: [u8; 8] = value
+                    .bytes()
+                    .try_into()
+                    .map_err(|_| SubscriptionError::Corrupt)?;
+                let limit = usize::try_from(u64::from_be_bytes(bytes))
+                    .map_err(|_| SubscriptionError::Corrupt)?;
+                if limit == 0 {
+                    return Err(SubscriptionError::Corrupt);
+                }
+                Ok(limit)
+            }
+        }
+    }
+
+    /// Operator-owned, backed-up conversion of incompatible cursor records. All events after
+    /// `replay_from` replay, including previously accepted events; consumers must deduplicate.
+    /// The original bytes and chosen replacement are committed atomically as a tenant audit.
+    pub fn recover_legacy(
+        durable: &mut DurableStore,
+        target: &SubscriptionTarget,
+        replay_from: ApiCursor,
+    ) -> Result<TenantKey, SubscriptionError> {
+        let tenant = TenantId::new(target.scope.tenant.as_str())?;
+        let key = subscription_key(tenant.clone(), &target.subscription_id)?;
+        let stored = durable.get(&key).ok_or(SubscriptionError::NotFound)?;
+        if stored.class() != StorageClass::LocalOnly {
+            return Err(SubscriptionError::Corrupt);
+        }
+        let original = stored.bytes().to_vec();
+        if !original.starts_with(PREVIOUS_RECORD_MAGIC)
+            && !original.starts_with(LEGACY_RECORD_MAGIC)
+        {
+            return Err(SubscriptionError::Corrupt);
+        }
+        let mut record = decode_legacy_record(&original)?;
+        if record.public.subscription_id != target.subscription_id
+            || record.public.scope != target.scope
+        {
+            return Err(SubscriptionError::NotFound);
+        }
+        record.public.start = replay_from;
+        record.public.last_acknowledged = replay_from;
+        record.current_delivery = replay_from.into();
+        record.delivered_unacknowledged.clear();
+        record.public.paused = true;
+        let replacement = encode_record(&record)?;
+        let mut audit = b"LXSR1".to_vec();
+        push_len(&mut audit, original.len())?;
+        audit.extend_from_slice(&original);
+        audit.extend_from_slice(&replacement);
+        let backup = TenantKey::new(
+            tenant,
+            ObjectKind::Audit,
+            format!("subscription-upgrade:{}", target.subscription_id.as_str()).into_bytes(),
+        )?;
+        durable.update_local_batch_with_companion(
+            vec![(key, replacement)],
+            backup.clone(),
+            audit,
+        )?;
+        Ok(backup)
+    }
+
     fn set_paused_inner(
         &mut self,
         target: &SubscriptionTarget,
         paused: bool,
     ) -> Result<SubscriptionRecord, SubscriptionError> {
+        let gate = self.dispatch_gate(target)?;
+        let _lease = gate.acquire();
+        self.refresh_target(target)?;
         let id = target.subscription_id.as_str().to_owned();
         let mut updated = self.target_inner(target)?.clone();
         updated.public.paused = paused;
@@ -1036,6 +1280,7 @@ impl Store {
         reason: Termination,
     ) -> Result<(), SubscriptionError> {
         let id = target.subscription_id.as_str().to_owned();
+        self.refresh_target(target)?;
         let mut updated = self.target_inner(target)?.clone();
         updated.public.paused = true;
         updated.delivered_unacknowledged.clear();
@@ -1393,11 +1638,23 @@ fn decode_cursor(decoder: &mut Decoder<'_>) -> Result<Cursor, SubscriptionError>
 }
 
 fn decode_record(bytes: &[u8]) -> Result<DurableRecord, SubscriptionError> {
+    decode_record_version(bytes, false)
+}
+
+fn decode_legacy_record(bytes: &[u8]) -> Result<DurableRecord, SubscriptionError> {
+    decode_record_version(bytes, true)
+}
+
+fn decode_record_version(bytes: &[u8], recovery: bool) -> Result<DurableRecord, SubscriptionError> {
+    let scalar = bytes.starts_with(PREVIOUS_RECORD_MAGIC);
+    let unbound_legacy = bytes.starts_with(LEGACY_RECORD_MAGIC);
     let mut decoder = Decoder::new(bytes);
     match decoder.take(4)? {
         value if value == RECORD_MAGIC => {}
         value if value == PREVIOUS_RECORD_MAGIC || value == LEGACY_RECORD_MAGIC => {
-            return Err(SubscriptionError::CursorResetRequired)
+            if !recovery {
+                return Err(SubscriptionError::CursorResetRequired);
+            }
         }
         _ => return Err(SubscriptionError::Corrupt),
     };
@@ -1407,7 +1664,7 @@ fn decode_record(bytes: &[u8]) -> Result<DurableRecord, SubscriptionError> {
     let agent = AgentDid::new(decoder.string()?).map_err(|_| SubscriptionError::Corrupt)?;
     let capability =
         CapabilityId::new(decoder.string()?).map_err(|_| SubscriptionError::Corrupt)?;
-    let session = match decoder.byte()? {
+    let session = match if unbound_legacy { 0 } else { decoder.byte()? } {
         0 => None,
         1 => {
             let mut session_id = [0_u8; 32];
@@ -1429,12 +1686,23 @@ fn decode_record(bytes: &[u8]) -> Result<DurableRecord, SubscriptionError> {
     };
     let delivery_target =
         DeliveryTarget::new(decoder.string()?).map_err(|_| SubscriptionError::Corrupt)?;
-    let start = ApiCursor::from(decode_cursor(&mut decoder)?);
-    let last_acknowledged = ApiCursor::from(decode_cursor(&mut decoder)?);
+    let read_cursor = |decoder: &mut Decoder<'_>| -> Result<Cursor, SubscriptionError> {
+        if scalar {
+            Ok(Cursor {
+                block_height: decoder.u64()?,
+                tx_index: 0,
+                log_index: 0,
+            })
+        } else {
+            decode_cursor(decoder)
+        }
+    };
+    let start = ApiCursor::from(read_cursor(&mut decoder)?);
+    let last_acknowledged = ApiCursor::from(read_cursor(&mut decoder)?);
     let delivered_count = decoder.len()?;
     let mut delivered_unacknowledged = BTreeSet::new();
     for _ in 0..delivered_count {
-        if !delivered_unacknowledged.insert(decode_cursor(&mut decoder)?) {
+        if !delivered_unacknowledged.insert(read_cursor(&mut decoder)?) {
             return Err(SubscriptionError::Corrupt);
         }
     }
@@ -1696,5 +1964,41 @@ impl<'a> Decoder<'a> {
 
     const fn is_empty(&self) -> bool {
         self.offset == self.bytes.len()
+    }
+}
+
+fn window_key(tenant: TenantId, id: &SubscriptionId) -> Result<TenantKey, SubscriptionError> {
+    Ok(TenantKey::new(
+        tenant,
+        ObjectKind::Configuration,
+        format!("subscription-window:{}", id.as_str()).into_bytes(),
+    )?)
+}
+
+pub(super) struct DispatchGate(Arc<AtomicBool>);
+
+pub(super) struct DispatchLease(Arc<AtomicBool>);
+
+impl DispatchGate {
+    pub(super) fn try_acquire(&self) -> Option<DispatchLease> {
+        self.0
+            .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
+            .ok()
+            .map(|_| DispatchLease(self.0.clone()))
+    }
+
+    fn acquire(&self) -> DispatchLease {
+        loop {
+            if let Some(lease) = self.try_acquire() {
+                return lease;
+            }
+            std::thread::sleep(Duration::from_millis(1));
+        }
+    }
+}
+
+impl Drop for DispatchLease {
+    fn drop(&mut self) {
+        self.0.store(false, Ordering::Release);
     }
 }

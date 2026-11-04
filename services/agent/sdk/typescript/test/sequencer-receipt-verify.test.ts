@@ -6,12 +6,15 @@ import { ed25519 } from "@noble/curves/ed25519.js";
 import {
   SequencerReceiptVerificationError,
   verifyCommittedReceipt,
+  verifyCometCommit,
   verifySequencerReceipt,
   type CommittedReceiptEvidence,
   type CometCommitSignature,
   type SequencerReceiptKey,
   type SequencerReceiptRefusal,
 } from "../src/verifier.js";
+
+import { committedVector, recordedCommittedEvidence, recordedCommittedKeys } from "./recorded-committed.js";
 
 interface ReceiptVector {
   readonly id: string;
@@ -109,47 +112,74 @@ function commitEvidence(height = 1001n): CommittedReceiptEvidence {
     commit: { height, round: 0, blockId, signatures }, validators };
 }
 
-async function verify_committed_receipt_two_thirds(): Promise<void> {
-  const receipt = await verifySequencerReceipt(signedReceipt, rawTransaction, [pin(vector)]);
-  const evidence = commitEvidence();
+async function verify_committed_receipt_recorded_inclusion(): Promise<void> {
+  const receipt = await verifySequencerReceipt(bytes(committedVector.signedReceipt), bytes(committedVector.rawTransaction), recordedCommittedKeys());
+  const evidence = recordedCommittedEvidence();
+  const inclusion = evidence.inclusion!;
   const committed = await verifyCommittedReceipt(receipt, evidence);
   assert.equal(committed.level, "committed");
-  assert.equal(committed.landingHeight, 1001n);
+  assert.equal(committed.landingHeight, 11n);
+  assert.equal(committed.signedPower, committed.totalPower);
+  assert.deepEqual(committed.blockHash, evidence.blockId.hash);
+  assert.deepEqual(committed.receipt.canonicalBytes, bytes(committedVector.signedReceipt));
+  for (const changed of [
+    { ...inclusion, transaction: inclusion.batchTransaction },
+    { ...inclusion, transactionProof: { ...inclusion.transactionProof, index: 0n } },
+    { ...inclusion, batchProof: inclusion.transactionProof },
+    { ...inclusion, result: { ...inclusion.result, code: 45 } },
+    { ...inclusion, result: { ...inclusion.result, gasUsed: inclusion.result.gasUsed + 1n } },
+    { ...inclusion, successorHeader: { ...inclusion.successorHeader, lastResultsHash: new Uint8Array(32) } },
+    { ...inclusion, batchTransaction: inclusion.batchTransaction.map((byte, i) => i === 0 ? byte ^ 1 : byte) },
+  ]) await assert.rejects(verifyCommittedReceipt(receipt, { ...evidence, inclusion: changed }), refuses("inclusion_mismatch"));
+  // This quorum has valid signatures, but it commits an unrelated block with no inclusion evidence.
+  const unrelated = commitEvidence(evidence.landingHeight);
+  assert.equal((await verifyCometCommit(unrelated)).signedPower, power * 3n);
+  await assert.rejects(verifyCommittedReceipt(receipt, unrelated), refuses("inclusion_mismatch"));
+  await assert.rejects(verifyCommittedReceipt(receipt, { ...evidence, blockId: unrelated.blockId, commit: unrelated.commit,
+    validators: unrelated.validators }), refuses("inclusion_mismatch"));
+  await assert.rejects(verifyCommittedReceipt(receipt, { ...evidence, landingHeight: receipt.height - 1n }), refuses("height_regression"));
+  await assert.rejects(verifyCommittedReceipt(receipt, { ...evidence, landingHeight: evidence.landingHeight + 1n }), refuses("height_regression"));
+  const corrupted = evidence.commit.signatures.map((signature, index) => index === 0
+    ? { ...signature, signature: new Uint8Array(64) } : signature);
+  await assert.rejects(verifyCommittedReceipt(receipt, { ...evidence, commit: { ...evidence.commit, signatures: corrupted } }), refuses("bad_signature"));
+}
+
+async function verify_committed_receipt_two_thirds(): Promise<void> {
+  // Isolate the cryptographic power boundary from recorded header/validator hash binding.
+  const evidence = commitEvidence();
+  const committed = await verifyCometCommit(evidence);
   assert.equal(committed.signedPower, power * 3n);
   assert.equal(committed.totalPower, power * 3n);
-  assert.deepEqual(committed.blockHash, evidence.blockId.hash);
-  assert.equal((await verifyCommittedReceipt(receipt, commitEvidence(1000n))).landingHeight, 1000n);
+  assert.equal((await verifyCometCommit(commitEvidence(1000n))).signedPower, power * 3n);
   const twoVotes = evidence.commit.signatures.slice(0, 2);
   const twoThirds = { ...evidence, commit: { ...evidence.commit, signatures: twoVotes } };
-  await assert.rejects(verifyCommittedReceipt(receipt, twoThirds), refuses("insufficient_power"));
+  await assert.rejects(verifyCometCommit(twoThirds), refuses("insufficient_power"));
   const justAbove = { ...twoThirds,
     validators: validators.map((validator, index) => ({ ...validator, votingPower: power - (index === 2 ? 1n : 0n) })) };
-  assert.equal((await verifyCommittedReceipt(receipt, justAbove)).signedPower, power * 2n);
-  await assert.rejects(verifyCommittedReceipt(receipt, commitEvidence(999n)), refuses("height_regression"));
-  await assert.rejects(verifyCommittedReceipt(receipt,
-    { ...evidence, landingHeight: 1002n }), refuses("height_regression"));
+  assert.equal((await verifyCometCommit(justAbove)).signedPower, power * 2n);
   for (const blockIdFlag of [1, 3] as const) {
     const signatures = evidence.commit.signatures.map((signature, index) => index === 2
       ? { ...signature, blockIdFlag } : signature);
-    await assert.rejects(verifyCommittedReceipt(receipt,
+    await assert.rejects(verifyCometCommit(
       { ...evidence, commit: { ...evidence.commit, signatures } }), refuses("insufficient_power"));
   }
-  await assert.rejects(verifyCommittedReceipt(receipt,
+  await assert.rejects(verifyCometCommit(
     { ...evidence, commit: { ...evidence.commit, signatures: [...twoVotes, twoVotes[0]!] } }), refuses("bad_signature"));
   const corrupted = evidence.commit.signatures.map((signature, index) => index === 0
     ? { ...signature, signature: new Uint8Array(64) } : signature);
-  await assert.rejects(verifyCommittedReceipt(receipt,
+  await assert.rejects(verifyCometCommit(
     { ...evidence, commit: { ...evidence.commit, signatures: corrupted } }), refuses("bad_signature"));
-  await assert.rejects(verifyCommittedReceipt(receipt, { ...evidence, chainId: "another-chain" }), refuses("bad_signature"));
-  await assert.rejects(verifyCommittedReceipt(receipt,
+  await assert.rejects(verifyCometCommit({ ...evidence, chainId: "another-chain" }), refuses("bad_signature"));
+  await assert.rejects(verifyCometCommit(
     { ...evidence, commit: { ...evidence.commit, round: 1 } }), refuses("bad_signature"));
-  await assert.rejects(verifyCommittedReceipt(receipt,
+  await assert.rejects(verifyCometCommit(
     { ...evidence, blockId: { ...evidence.blockId, hash: new Uint8Array(32).fill(33) } }), refuses("bad_signature"));
-  await assert.rejects(verifyCommittedReceipt(receipt,
+  await assert.rejects(verifyCometCommit(
     { ...evidence, validators: [...validators, validators[0]!] }), refuses("bad_signature"));
-  await assert.rejects(verifyCommittedReceipt(receipt,
+  await assert.rejects(verifyCometCommit(
     { ...evidence, validators: [] }), refuses("bad_signature"));
 }
 
 test(verify_sequencer_receipt_pinned_key);
+test(verify_committed_receipt_recorded_inclusion);
 test(verify_committed_receipt_two_thirds);

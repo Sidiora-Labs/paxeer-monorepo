@@ -40,6 +40,7 @@ export interface AgentWebhookResponse {
   readonly body: string;
 }
 
+/** Completed claims are retained for this store's lifetime, including under capacity pressure. */
 export class SingleProcessWebhookDeliveryStore implements WebhookDeliveryStore {
   readonly #entries = new Map<string, { payloadDigest: string; leaseUntilMs: number; completed: boolean }>();
   readonly #now: () => number;
@@ -54,6 +55,7 @@ export class SingleProcessWebhookDeliveryStore implements WebhookDeliveryStore {
     const existing = this.#entries.get(value.deliveryId);
     if (existing === undefined) {
       this.#evict();
+      if (this.#entries.size >= this.#capacity) throw new AgentIntegrationError("service-refused");
       this.#entries.set(value.deliveryId, {
         payloadDigest: value.payloadDigest,
         leaseUntilMs: value.leaseUntilMs,
@@ -98,15 +100,9 @@ export class SingleProcessWebhookDeliveryStore implements WebhookDeliveryStore {
     }
     const now = this.#now();
     for (const [deliveryId, entry] of this.#entries) {
-      if (entry.completed || entry.leaseUntilMs <= now) {
+      if (!entry.completed && entry.leaseUntilMs <= now) {
         this.#entries.delete(deliveryId);
       }
-    }
-    for (const deliveryId of this.#entries.keys()) {
-      if (this.#entries.size < this.#capacity) {
-        break;
-      }
-      this.#entries.delete(deliveryId);
     }
   }
 }
@@ -127,7 +123,6 @@ const COORDINATION_SCHEMA = "CREATE TABLE delivery_context (singleton INTEGER PR
 
 export class FileWebhookDeliveryStore implements WebhookDeliveryStore {
   readonly #ledgerPath: string;
-  readonly #lockPath: string;
   readonly #now: () => number;
   readonly #capacity: number;
 
@@ -137,7 +132,6 @@ export class FileWebhookDeliveryStore implements WebhookDeliveryStore {
       throw new AgentIntegrationError("invalid-declared-key");
     }
     this.#ledgerPath = resolve(path);
-    this.#lockPath = `${this.#ledgerPath}.coordination.sqlite3`;
     this.#now = now ?? Date.now;
     this.#capacity = capacity;
   }
@@ -194,7 +188,7 @@ export class FileWebhookDeliveryStore implements WebhookDeliveryStore {
     if (await realpath(dirname(this.#ledgerPath)) !== dirname(this.#ledgerPath)) {
       throw new AgentIntegrationError("service-refused");
     }
-    const lock = await this.#acquireLock();
+    const lock = await acquireLedgerCoordination(this.#ledgerPath);
     try {
       const entries = await this.#read();
       const result = body(entries);
@@ -206,54 +200,6 @@ export class FileWebhookDeliveryStore implements WebhookDeliveryStore {
     } finally {
       try { if (lock.isTransaction) lock.exec("ROLLBACK"); }
       finally { lock.close(); }
-    }
-  }
-
-  async #acquireLock(): Promise<DatabaseSync> {
-    try {
-      const file = await open(this.#lockPath, "wx", 0o600);
-      await file.close();
-    } catch (error) {
-      if (!isNodeError(error, "EEXIST")) throw new AgentIntegrationError("service-refused");
-    }
-    await secureOwnedPath(this.#lockPath, false);
-    let lock: DatabaseSync | undefined;
-    try {
-      lock = new DatabaseSync(this.#lockPath, {
-        timeout: 0, enableDoubleQuotedStringLiterals: false, allowExtension: false,
-      });
-      lock.exec("PRAGMA trusted_schema = OFF; PRAGMA synchronous = FULL");
-      await beginCoordination(lock);
-      const applicationId = coordinationPragma(lock, "application_id");
-      const version = coordinationPragma(lock, "user_version");
-      const objects = lock.prepare("SELECT type, name FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%'").all();
-      if (applicationId === 0 && version === 0 && objects.length === 0) {
-        lock.exec(`${COORDINATION_SCHEMA}; PRAGMA application_id = ${COORDINATION_APPLICATION_ID}; PRAGMA user_version = 1`);
-        lock.prepare("INSERT INTO delivery_context (singleton, ledger_path) VALUES (1, ?)").run(this.#ledgerPath);
-      } else if (applicationId !== COORDINATION_APPLICATION_ID || version !== 1 || objects.length !== 1
-          || objects[0]?.["type"] !== "table" || objects[0]?.["name"] !== "delivery_context") {
-        throw new AgentIntegrationError("service-refused");
-      }
-      const schema = lock.prepare("SELECT sql FROM sqlite_schema WHERE type = 'table' AND name = 'delivery_context'").get();
-      const context = lock.prepare("SELECT singleton, ledger_path FROM delivery_context").all();
-      if (schema?.["sql"] !== COORDINATION_SCHEMA || context.length !== 1 || context[0]?.["singleton"] !== 1
-          || context[0]?.["ledger_path"] !== this.#ledgerPath) throw new AgentIntegrationError("service-refused");
-      lock.exec("PRAGMA max_page_count = 64");
-      if (coordinationPragma(lock, "max_page_count") !== 64 || coordinationPragma(lock, "synchronous") !== 2) {
-        throw new AgentIntegrationError("service-refused");
-      }
-      lock.exec("COMMIT");
-      await beginCoordination(lock);
-      for (const path of [this.#lockPath, `${this.#lockPath}-journal`]) {
-        try { await secureOwnedPath(path, false); }
-        catch (error) { if (!isNodeError(error, "ENOENT")) throw error; }
-      }
-      return lock;
-    } catch (error) {
-      try { if (lock?.isTransaction) lock.exec("ROLLBACK"); }
-      finally { lock?.close(); }
-      if (error instanceof AgentIntegrationError) throw error;
-      throw new AgentIntegrationError("service-refused");
     }
   }
 
@@ -320,6 +266,55 @@ export class FileWebhookDeliveryStore implements WebhookDeliveryStore {
 
   #requireDigest(value: string): void {
     if (!/^[0-9a-f]{64}$/u.test(value)) throw new AgentIntegrationError("service-refused");
+  }
+}
+
+export async function acquireLedgerCoordination(ledgerPath: string): Promise<DatabaseSync> {
+  const lockPath = `${ledgerPath}.coordination.sqlite3`;
+  try {
+    const file = await open(lockPath, "wx", 0o600);
+    await file.close();
+  } catch (error) {
+    if (!isNodeError(error, "EEXIST")) throw new AgentIntegrationError("service-refused");
+  }
+  await secureOwnedPath(lockPath, false);
+  let lock: DatabaseSync | undefined;
+  try {
+    lock = new DatabaseSync(lockPath, {
+      timeout: 0, enableDoubleQuotedStringLiterals: false, allowExtension: false,
+    });
+    lock.exec("PRAGMA trusted_schema = OFF; PRAGMA synchronous = FULL");
+    await beginCoordination(lock);
+    const applicationId = coordinationPragma(lock, "application_id");
+    const version = coordinationPragma(lock, "user_version");
+    const objects = lock.prepare("SELECT type, name FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%'").all();
+    if (applicationId === 0 && version === 0 && objects.length === 0) {
+      lock.exec(`${COORDINATION_SCHEMA}; PRAGMA application_id = ${COORDINATION_APPLICATION_ID}; PRAGMA user_version = 1`);
+      lock.prepare("INSERT INTO delivery_context (singleton, ledger_path) VALUES (1, ?)").run(ledgerPath);
+    } else if (applicationId !== COORDINATION_APPLICATION_ID || version !== 1 || objects.length !== 1
+        || objects[0]?.["type"] !== "table" || objects[0]?.["name"] !== "delivery_context") {
+      throw new AgentIntegrationError("service-refused");
+    }
+    const schema = lock.prepare("SELECT sql FROM sqlite_schema WHERE type = 'table' AND name = 'delivery_context'").get();
+    const context = lock.prepare("SELECT singleton, ledger_path FROM delivery_context").all();
+    if (schema?.["sql"] !== COORDINATION_SCHEMA || context.length !== 1 || context[0]?.["singleton"] !== 1
+        || context[0]?.["ledger_path"] !== ledgerPath) throw new AgentIntegrationError("service-refused");
+    lock.exec("PRAGMA max_page_count = 64");
+    if (coordinationPragma(lock, "max_page_count") !== 64 || coordinationPragma(lock, "synchronous") !== 2) {
+      throw new AgentIntegrationError("service-refused");
+    }
+    lock.exec("COMMIT");
+    await beginCoordination(lock);
+    for (const path of [lockPath, `${lockPath}-journal`]) {
+      try { await secureOwnedPath(path, false); }
+      catch (error) { if (!isNodeError(error, "ENOENT")) throw error; }
+    }
+    return lock;
+  } catch (error) {
+    try { if (lock?.isTransaction) lock.exec("ROLLBACK"); }
+    finally { lock?.close(); }
+    if (error instanceof AgentIntegrationError) throw error;
+    throw new AgentIntegrationError("service-refused");
   }
 }
 
@@ -420,6 +415,9 @@ export class AgentWebhookGateway {
         return json(409, { error: error.code });
       }
       if (error instanceof AgentIntegrationError) {
+        if (error.code === "service-refused") {
+          return { ...json(503, { error: error.code }), headers: { "content-type": "application/json", "retry-after": "1" } };
+        }
         return json(400, { error: error.code });
       }
       throw error;

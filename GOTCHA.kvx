@@ -14780,3 +14780,28 @@ fix = "Task 22.31.474 repairs the spec files and the TS2769 in repair-22-33-299.
 title = "The EVM chain id still defaults to a foreign test network"
 symptom = "modules/evm/config/config.go line 10 keeps DefaultChainID = 713714 (an inherited upstream test network) and maps pacific-1, atlantic-2 and arctic-1 beside hyperpax_125-1; any application whose cosmos chain id is not in the mapping signs and verifies for chain 713714, so node tests built on an unmapped test chain fail with invalid chain id for signer: have 125 want 713714 (22.33.1141 attempt 1), and two tasks already had to be told that no Paxeer network uses 713714."
 fix = "Decision 2529: the default EVM chain id is 125 and the foreign network mappings are removed (task 22.31.476); tests derive the signer chain id from the application's configured chain id, never from a literal."
+
+[gotcha.2992]
+title = "A repair gate for the nested launchpad user module used root-relative Go patterns"
+symptom = "The build command of 22.31.471, go build ./services/launchpad/user/..., failed with directory prefix services/launchpad/user does not contain main module because that directory is its own Go module (services/launchpad/user/go.mod) outside the root module; the implementation never compiled."
+fix = "Gates for that module change into it first (cd services/launchpad/user && go build ./...), as the other launchpad user tasks already do; 22.31.471 is requalified with repaired commands."
+
+[gotcha.2993]
+title = "The middleware conformance package stopped compiling after the seller payment union"
+symptom = "services/platform/middleware/conformance/src/scenarios.ts line 447 reads paymentReference from verification.payment, whose type became PaymentExactEvent | PaymentDrawnEvent when the seller repair of audit record 22.30.86 landed (5a468c4b87); PaymentDrawnEvent (seller ledger.ts line 37) has no paymentReference, so every gate that builds the conformance package (22.33.1479, 22.33.1480, 22.33.1481) fails before its tests run."
+fix = "Repair task 22.31.477 narrows the union in the committed-rung scenario (decision 2530); the three consumers require it."
+
+[gotcha.2994]
+title = "A root workspace member manifest changed without the root lockfile"
+symptom = "The repair of audit record 22.30.74 in services/platform/examples/agent-spend (ea2e88ad0a, task 22.33.1364, 12:11Z) added viem, @sidiora/layerx-agent-integrations and two devDependencies to the example's package.json, a member of the root npm workspace, without regenerating package-lock.json; since then every gate that runs npm ci at the repository root (and npm --prefix <member> ci, which resolves the same root lock) fails with EUSAGE before compiling: 22.31.477, 22.33.612, 22.33.619, 22.33.1478, 22.33.1480 and more."
+fix = "Repair task 22.31.479 regenerates the root lock, drops the unused devDependencies and adds a test proving every workspace member's declared dependencies resolve in the root lock; the root-npm tasks require it."
+
+[gotcha.2995]
+title = "Medium-wave repair tasks held the whole audit-repairs directory as a touch"
+symptom = "138 pending tasks of the medium wave declared tools/qualification/audit_repairs (the directory) as a touch while their gates only read and write test_repair_<id>.py and repair_<id>.kvx inside it; because two tasks that touch a directory and a file inside it exclude each other, at most one of them could be live at a time and the eligible pool fell to single digits with over a hundred eligible tasks."
+fix = "The touches of every pending task of that shape are narrowed to its own two files; the directory touch stays only on tasks that already published."
+
+[gotcha.2996]
+title = "The root README rewrite and an earlier README repair conflicted at publication"
+symptom = "22.33.33 (doc-drift of audit record 22.30.102) changed README.md and reached the human domain integration first; 22.31.470 then rewrote the root README on main and, as its do_3 required, reconciled the 22.33.33 changes into the rewrite; the later merge of the human domain into main conflicted on README.md and stalled every human-domain publication for ninety minutes."
+fix = "The merge keeps the 22.31.470 README (33e39ac9e2), which already carries the 22.33.33 facts; tasks whose README changes later conflict re-apply them on top of the rewrite."

@@ -1,20 +1,22 @@
-#!/bin/bash
-# Renders a kernel genesis through tools/bringup/kernel-genesis.sh render from a
-# fixture env file made of fresh keys, builds it with the repository's
-# layerx-genesis-build, and checks the signed manifest enables the seven beta
-# modules under the fixture sequencer and guarantor.
+#!/usr/bin/env bash
+# Qualify native paxd initialization and its signed committed output.
 set -euo pipefail
-
-root=$(cd "$(dirname "$0")/../../.." && pwd)
-script=$root/tools/bringup/kernel-genesis.sh
-export LAYERX_GENESIS_BUILD=${LAYERX_GENESIS_BUILD:-$root/build/bin/layerx-genesis-build}
-work=$(mktemp -d /tmp/kernel-genesis-test.XXXXXX)
-trap 'rm -rf "$work"' EXIT
-
-fail() {
-	printf 'kernel-genesis.test: %s\n' "$*" >&2
-	exit 1
+root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
+fixture=$root/services/platform/hosted/node/tests/fixtures/repair_22_31_355
+paxd=${PAXD:-$root/build/paxd}
+inspect=${BRINGUP_INSPECT_BIN:-bringup-inspect}
+work=$(mktemp -d)
+child=
+cleanup() {
+	if [ -n "$child" ]; then kill "$child" 2>/dev/null || true; wait "$child" 2>/dev/null || true; fi
+	rm -rf "$work"
 }
+fail() { printf 'kernel-genesis.test: %s\n' "$*" >&2; exit 1; }
+# Historical render checks remain available only under their explicit offline mode.
+if [ "${1:-}" = offline ]; then
+    trap cleanup EXIT
+    script=$root/tools/bringup/kernel-genesis.sh
+    export LAYERX_GENESIS_BUILD=${LAYERX_GENESIS_BUILD:-$root/build/bin/layerx-genesis-build}
 hex() { od -An -v -tx1 | tr -d ' \n'; }
 ed25519_public() {
 	python3 -c 'import sys; sys.stdout.buffer.write(bytes.fromhex("302e020100300506032b657004220420" + sys.argv[1]))' "$1" |
@@ -93,3 +95,74 @@ grep -q 'does not hold the key' "$work/mismatch.err" || fail "sequencer refusal:
 grep -q -- '--module-profile excludes --enable-module' "$work/profile.err" || fail "bootstrap profile refusal: $(cat "$work/profile.err")"
 
 echo "kernel-genesis.test: ok genesis_sha256=$(sha256sum "$manifest" | cut -d' ' -f1)"
+	exit 0
+fi
+trap cleanup EXIT
+fail() { printf 'kernel-genesis.test: %s\n' "$*" >&2; exit 1; }
+[ -x "$paxd" ] || fail "the merged paxd artifact is required"
+"$paxd" init bringup-genesis-test --chain-id hyperpax_125-1 --mode validator --home "$work/node" >"$work/init.log" 2>&1
+for name in genesis.json config.toml app.toml; do install -m 0600 "$fixture/$name" "$work/node/config/$name"; done
+python3 - "$fixture/native_configuration.json" "$work/node/config" <<'PY'
+import json, pathlib, sys
+configuration = json.loads(pathlib.Path(sys.argv[1]).read_text())
+output = pathlib.Path(sys.argv[2])
+(output / 'receipt.key').write_text(configuration['receipt_seed'])
+(output / 'priv_validator_key.json').write_text(json.dumps(configuration['validator_key']))
+for name in ('receipt.key', 'priv_validator_key.json'):
+    (output / name).chmod(0o600)
+PY
+"$inspect" native-genesis-check "$work/node/config/genesis.json" "$work/node/config/receipt.key" >"$work/initialization.json"
+"$paxd" validate-genesis --home "$work/node" >"$work/validate.log" 2>&1 || fail "paxd refused native application genesis"
+python3 - "$work/node/config/genesis.json" "$work/initialization.json" <<'PY'
+import json, sys
+actual, report = (json.load(open(path)) for path in sys.argv[1:])
+assert actual['chain_id'] == 'hyperpax_125-1'
+assert set(report['modules']) == {'bank', 'sequencer', 'lxphost'}
+assert actual['app_state']['lxphost'] == {'last_sequence': 0, 'records': None}
+assert actual['app_state']['sequencer']['receipt_keys']
+assert all(coin['denom'] == 'uhpx' and int(coin['amount']) > 0
+           for balance in actual['app_state']['bank']['balances'] for coin in balance['coins'])
+assert not {'layerxcustody', 'layerxanchor', 'guarantor'} & set(actual['app_state'])
+PY
+# Malformed module/asset inputs and a foreign signer are refused before launch.
+python3 - "$work/node/config/genesis.json" "$work" <<'PY'
+import copy, json, pathlib, sys
+original = json.load(open(sys.argv[1]))
+for name in ('retired-module', 'bad-asset', 'bad-range'):
+    altered = copy.deepcopy(original)
+    if name == 'retired-module':
+        altered['app_state']['layerxcustody'] = {}
+    elif name == 'bad-asset':
+        altered['app_state']['bank']['balances'][0]['coins'][0]['amount'] = '-1'
+    else:
+        altered['app_state']['sequencer']['receipt_keys'][0]['first_height'] = 0
+    (pathlib.Path(sys.argv[2]) / (name + '.json')).write_text(json.dumps(altered))
+PY
+for name in retired-module bad-asset bad-range; do
+	if "$inspect" native-genesis-check "$work/$name.json" "$work/node/config/receipt.key" >/dev/null 2>&1; then fail "accepted $name"; fi
+done
+openssl rand -hex 32 >"$work/foreign.key"
+if "$inspect" native-genesis-check "$work/node/config/genesis.json" "$work/foreign.key" >/dev/null 2>&1; then fail "accepted a foreign receipt signer"; fi
+if "$root/services/platform/hosted/node/bootstrap.sh" --module-profile beta --enable-module web >/dev/null 2>&1; then fail "accepted the retired native bootstrap schema"; fi
+read -r rpc_port comet_port < <(python3 - <<'PY'
+import socket
+with socket.socket() as rpc, socket.socket() as comet:
+    rpc.bind(('127.0.0.1', 0)); comet.bind(('127.0.0.1', 0))
+    print(rpc.getsockname()[1], comet.getsockname()[1])
+PY
+)
+"$paxd" start --home "$work/node" --chain-id hyperpax_125-1 --p2p.laddr tcp://127.0.0.1:0 \
+	--rpc.laddr "tcp://127.0.0.1:$comet_port" --evm.http_enabled true --evm.http_address 127.0.0.1 \
+	--evm.http_port "$rpc_port" --evm.ws_enabled false --sequencer.enable true \
+	--sequencer.receipt-key-file "$work/node/config/receipt.key" --sequencer.wal-dir "$work/node/data/sequencer-wal" >"$work/process.log" 2>&1 &
+child=$!
+for attempt in $(seq 90); do
+	if "$inspect" foundation-observe "$work/committed" "$work/node/config/genesis.json" "$work/node/config/receipt.key" \
+		"http://127.0.0.1:$rpc_port" "http://127.0.0.1:$comet_port" >"$work/commit.json" 2>"$work/commit.err"; then
+		break
+	fi
+	kill -0 "$child" || fail "paxd exited before a signed commit"
+	sleep 1
+done
+[ -s "$work/committed/committed.json" ] || fail "native signed commit did not qualify"
+echo 'kernel-genesis.test: ok modules=bank,sequencer,lxphost assets=uhpx signature=canonical-native-commit'

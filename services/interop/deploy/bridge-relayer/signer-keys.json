@@ -3,7 +3,7 @@
     {
       "handle": "bridge/attestor",
       "algorithm": "secp256k1",
-      "key_file": "/run/secrets/bridge/signer/attestor.key",
+      "key_file": "/run/secrets/bridge/signer/attestor-1.key",
       "domains": [
         "LayerX/bridge/attest-inbound/v1",
         "LayerX/bridge/attest-outbound/v1"

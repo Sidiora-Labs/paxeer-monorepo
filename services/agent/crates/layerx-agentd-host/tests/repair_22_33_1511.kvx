@@ -1,0 +1,12 @@
+[repair.22.33.1511]
+audit = "22.30.91"
+acceptance = "22998.1"
+payer_equal_denom_fixture = "payer_equal_denom_fixture_accepts_independent_receipt_and_rejects_either_change"
+payer_binding_bypass = "payer_binding_bypass_publishes_loads_and_checks_exact_and_draw_receipts"
+baseline = "No earlier gate ledger or scoped changes existed. The ordered implementation-first, wrapper-only gate instructions prohibit an additional unchanged-tree verify run; baseline failures were not measured."
+path = "BindingPublisher enrols a real persisted identity/capability session, Binding::open consumes its unmodified protected document, governed published keys authenticate loopback receipt lookup, and the production payer::receipt checks payExact and draw logs against real prepared calls; the published session is reopened and validated."
+exact_fixture = "The independent node conformance receipt in ../src/repair_22_31_363_receipts.json preserves paymentDenom uhpx and separately signed feeDenom usid; either denomination changed alone is refused."
+draw_fixture = "The existing signed draw and raw logs in services/interop/crates/x-websearch/tests/fixtures/gateway/metered.json are unchanged; production receipt/summary codecs recover redundant metadata omitted by that older JSON view, using the committed authority in services/interop/crates/x-websearch/src/repair_22_31_169_ledger.json. No receipt is generated or re-signed by this gate."
+wiring_node_draw_vector = "Domain 5: rpc/sequencer_receipt_vectors_test.go should publish a full draw receiptJson beside its payExact vector so consumers can replace the older sidecar draw transcript without reconstructing redundant metadata; that producer path is outside this task."
+gate = "Only hf-build and hf-done qualify this task; their private ledger supplies the exact candidate revision, command, exit code and log path. No success is claimed in this source record."
+repair_attempt_1 = "Revision 324967fd0e3fefb1fc6f46e9154dd84c8f9e59d2: cg spec done 22.33.1511 -f layerx-merge --root /work/paxeer-monorepo exited 1; /out/logs/verify-1.log. The old public conformance key range began at zero, which the current loader rejects; the test now explicitly narrows it to committed heights 1 through the unchanged recorded last height. Signed receipt bytes and every production bound remain unchanged."

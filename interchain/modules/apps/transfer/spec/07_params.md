@@ -50,6 +50,14 @@ call `IsSendEnabledCoin`, so disabling a bank denomination's `SendEnabled`
 policy does not implement an inbound IBC freeze. Other receive checks, such as
 address validation and bank transfer restrictions, still apply.
 
+The bank message server checks `IsSendEnabledCoins` for user `MsgSend` and
+`MsgMultiSend` messages. IBC receives instead use keeper `SendCoins` to
+unescrow, or `MintCoins` and `SendCoinsFromModuleToAccount` to deliver vouchers;
+these module flows do not invoke that user-message send-enabled gate.
+`TestRepairM_1206_ReceiveGating` proves both branches and the error-acknowledgement
+refund with the real bank keeper. Any per-denomination inbound policy requires
+a separate domain-6 task with receive and refund proofs.
+
 Neither transfer parameter gates the acknowledgement or timeout refund paths.
 Disabling new sends or receives does not itself cancel packets already sent
 or prevent their refunds. See [Acknowledgements](01_concepts.md#acknowledgements)
