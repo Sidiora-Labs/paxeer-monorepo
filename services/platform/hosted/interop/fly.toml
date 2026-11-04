@@ -2,10 +2,12 @@
 # services/interop/crates/layerx-interop-service on its plain listener behind the Fly
 # edge, on at least two machines in ams and fra. It keeps no state of its own:
 # its operations live in the router's Redis under the gateway keyspace. The
-# env is the LAYERX_INTEROP_* contract of deployment.yaml beside this file,
-# with the router URL as the hosted gateway, the receipt authority on its
-# kernel_ports port inside the kernel app and the router's Redis on its TLS
-# port under the internal CA. Secrets, all staged before the first deploy:
+# env is the LAYERX_INTEROP_* contract of deployment.yaml beside this file.
+# The merged node serves root JSON-RPC through its internal TLS listener on
+# port 8545. INTEROP_RECEIPT_KEYS is an independently provisioned JSON array
+# of keyId, publicKey, firstHeight and lastHeight; Fly remounts this app secret
+# on every machine start. Never derive these pins from the queried endpoint.
+# The node TLS listener and Redis verify under the outbound internal CA. Secrets, all staged before the first deploy:
 # INTEROP_CLIENT_P12, INTEROP_CLIENT_PASSWORD and INTEROP_CLIENT_CA_DER from
 # tools/bringup/ca.sh issue interop-client (the CA DER is the outbound root of
 # the receipt authority and Redis; the router's public chain verifies against
@@ -37,6 +39,8 @@ kill_timeout = "30s"
   LAYERX_INTEROP_OUTBOUND_CA_DER = "/run/layerx/trust/ca.crt.der"
   LAYERX_INTEROP_CLIENT_IDENTITY_PKCS12 = "/run/layerx/client/client.p12"
   LAYERX_INTEROP_CLIENT_IDENTITY_PASSWORD_FILE = "/run/layerx/client/password"
+  LAYERX_INTEROP_SEQUENCER_URL = "https://paxeer-x-core.internal:8545"
+  LAYERX_INTEROP_RECEIPT_KEYS_FILE = "/run/layerx/receipt-keys/receipt-keys.json"
   LAYERX_INTEROP_HOSTED_GATEWAY_URL = "https://api-mainnet-beta.paxeer.network"
   LAYERX_INTEROP_RECEIPT_AUTHORITY_URL = "https://paxeer-human-service.internal:9445"
   LAYERX_INTEROP_RECEIPT_AUTHORITY_TOKEN_FILE = "/run/layerx/authority/token"
@@ -72,6 +76,10 @@ kill_timeout = "30s"
 [[files]]
   guest_path = "/run/layerx/client/password"
   secret_name = "INTEROP_CLIENT_PASSWORD"
+
+[[files]]
+  guest_path = "/run/layerx/receipt-keys/receipt-keys.json"
+  secret_name = "INTEROP_RECEIPT_KEYS"
 
 [[files]]
   guest_path = "/run/layerx/authority/token"
