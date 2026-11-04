@@ -1,0 +1,14 @@
+[repair.22.33.239]
+audit = "22.30.128"
+base_revision = "0e1d5eb94cabe89e2260279a849b7154911ef8ee"
+tests = "programs/porting/evm/tests/repair_22_33_239.rs"
+evm-custody-guide = ["evm_custody_guide_registered_later_payout"]
+evm-lxt20-guide = ["evm_lxt20_guide_complete_codec_and_native_interface", "evm_lxt20_guide_initialize_authority_and_refusal_rollback"]
+implementation = "Document registered custody preparation and a bounded later payout; enumerate eight exports with the separate initialize encoding, funding authority, refused paths and committed PAY5 lifecycle."
+proof = "SDK registration payload matches the committed signed native activity; SDK spend encoding decodes to the real EVM transfer plan; canonical requests route through the registry into the unmodified committed token guest and production executor, asserting funding versus payout sources, balances, allowance and refusal rollback."
+qualification_context = "The public authenticated ABI-v5 qualification seam runs the committed ABI-v2-compatible guest with real context and caller-owned Storage; the generated ABI-v2 interface is compared byte-for-byte with PAY5. Native C settlement and paused-asset checks are recorded fixture coverage, not re-executed by this gate."
+baseline = "Not run: the explicit bounded gate order prohibits verification before implementation; this integration target did not exist on the starting tree, and no pre-change test failures are claimed."
+qualification_repair = "First build identified the registry's library name layerx_programs and private Executor::for_abi; the test now uses the declared library name and public authenticated qualification API directly."
+qualification_repair_2 = "Verification at f14022d6af0be9fc011fad31dbf15c04fe23acc1 passed two cases; custody reached a foreign-owner ProgramSpend rejected at admission with Abi(InvalidCapability). The case now asserts that exact typed error and unchanged storage; all guest-refusal, payout and balance assertions remain."
+evidence = "The runner's hf-done ledger records the exact verified candidate revision, command, exit code and private log location."
+wiring_requests = []

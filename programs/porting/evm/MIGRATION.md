@@ -261,6 +261,38 @@ Use `ValueFlow::ContractFunded` with `translate_with_program_account` to plan
 this case. A plan does not itself register an account or authorize a
 payment.
 
+For example, prepare an account with the contract's program ID, backing asset
+and public seed. The following host-side preparation uses the SDK and porting
+crate together (`owner` is a runtime `ProgramId`; `asset` and `recipient` are
+nonzero 32-byte IDs):
+
+```rust
+use layerx_program_sdk::{payments::PreparedProgramAccount, AssetId, ProgramId as SdkProgramId};
+use programs_porting_evm::ProgramAccountTransferPlan;
+
+let prepared = PreparedProgramAccount::new(
+    SdkProgramId::new(owner.bytes())?, seed, AssetId::new(asset)?,
+)?;
+let registration = prepared.registration_payload()?;
+// Submit registration in a signed native activity under the deployment's
+// registration authority, then fund this account in an earlier invocation.
+let payout = ProgramAccountTransferPlan::new(
+    owner, seed, prepared.account().bytes(), asset, recipient, 40,
+)?;
+let grant = payout.capability(); // ProgramSpend with maximum_amount = 40
+```
+
+In the later invocation, authorize that exact grant and have the owning guest
+stage a `ProgramAccountPayment` of 40 with `pay_from_program_account`. The
+original depositor need not be present: the source is the registered account,
+not the later caller. The application must still authenticate the withdrawal
+claim; possession of a plan is not withdrawal permission. A missing grant, a
+ceiling of 39, another owner/seed/source, asset or recipient refuses the payout.
+The integration test `evm_custody_guide_registered_later_payout` below follows
+this path through the committed token guest: the issuer funds first, then an
+authorized spender pays 40 from the issuer's program account using an allowance.
+It also checks that refused payouts preserve the allowance and balances.
+
 A `PaymentSplitter` can therefore pay accumulated funds in bounded legs from
 its derived account, with matching grants, or forward caller-funded legs in
 one invocation. Record claims and consumed withdrawals in program state, and
@@ -384,8 +416,12 @@ account registration, inclusion or successful live execution.
 1. Classify every variable as principal-scoped or shared. Only mappings keyed
    by the invoking principal collapse; shared state uses the shared namespace and its dedicated
    capabilities.
-2. For retained funds, register and fund a derived account; plan each later
-   payout with its exact source and owner-frame `ProgramSpend` grant.
+2. For retained funds, use `PreparedProgramAccount::registration_payload` and
+   the deployment's registration authority, then explicitly fund the account.
+   Build each bounded later payout with `ProgramAccountTransferPlan`, authorize
+   its exact owner/seed/source/asset/recipient/ceiling `ProgramSpend` grant, and
+   enforce the withdrawal claim in the owning frame. The depositor need not
+   participate again; an ambient contract balance grants no authority.
 3. Does any function depend on time? Replace it with a counted quantity.
 4. Does any external call need the callee to act with your authority? Narrow the
    capability explicitly; there is no ambient reach.
@@ -394,20 +430,34 @@ account registration, inclusion or successful live execution.
 
 ## ERC-20, LXT-20 and native assets
 
-[`lxt20.rs`](../../sdk/rust/src/lxt20.rs) defines the seven LXT-20 request encodings.
-The
-[`token-lxt20`](../../sdk/rust/examples/token-lxt20/src/lib.rs) guest implements
-the seven request methods plus a separate one-time `initialize` export over
-registered program-derived backing accounts. These handlers require a direct
-principal call and refuse a nested program caller. Its runtime tests
-cover methods, allowances and refusal rollback. The bound interface and registry
-state-value inputs and signed native deployment/call receipts are committed under
-`programs/fixtures/pay5`. Run `python3 programs/fixtures/pay5/run_native_roundtrip.py`
-to replay the isolated native token and merchant settlement fixtures and compare
-the canonical artifacts byte for byte. These fixtures do not certify a live deployment.
+The current LXT-20 lifecycle has **eight exports**: `initialize`, `transfer`,
+`approve`, `transfer_from`, `balance_of`, `allowance`, `total_supply` and
+`metadata`. [`lxt20.rs`](../../sdk/rust/src/lxt20.rs) provides the seven
+`Request` variants; initialization has its own exact input, described below.
+The [`token-lxt20`](../../sdk/rust/examples/token-lxt20/src/lib.rs) guest and
+[`reference_interface`](../../crates/layerx-programs-registry/src/lxt20.rs)
+bind all eight exports. All require a direct principal call and refuse a nested
+program caller.
+
+The committed [`PAY5 fixtures`](../../fixtures/pay5/) include the real guest,
+bound interface, registry state value and signed native activities, receipts
+and terminal records. In `native-token`, `01-token-deploy` deploys the guest,
+`02-account-register` through `04-account-register` register derived accounts,
+and `05-initialize` funds the fixed supply. `06-approve` and `07-approve` prepare a recipient
+and allowance; `08-transfer_from` refuses missing spend authority,
+`09-transfer_from` refuses a paused backing asset, and `10-transfer_from`
+succeeds after unpausing. `11-transfer` returns 15 units, `12` through `15`
+query state and metadata, and `16`/`17` revoke and refuse further allowance
+spending. These recorded fixtures do not certify a live deployment. The
+integration tests in [`tests/repair_22_33_239.rs`](tests/repair_22_33_239.rs)
+execute the committed guest in-process using the real SDK codec and the
+runtime's public authenticated ABI-v5 qualification path, and compare its
+ABI-v2 registry interface to the fixture. They do not run the native C replay
+tool or claim to re-execute kernel asset-pause checks.
 
 | ERC-20 flow | LayerX mapping |
 | --- | --- |
+| Initial supply | `initialize` once, called by the configured issuer with explicit funding authority; no `Request::Initialize` variant |
 | `transfer(to, amount)` | LXT-20 `Request::Transfer`; the destination is a 32-byte account ID and amounts are exact u128 units |
 | `approve(spender, amount)` | `Request::Approve`; spender is a DID identity ID, and zero explicitly revokes the program allowance |
 | `transferFrom(owner, to, amount)` | `Request::TransferFrom`; the reference checks the spender allowance and stages its decrement with the 402 payment |
@@ -415,24 +465,44 @@ the canonical artifacts byte for byte. These fixtures do not certify a live depl
 | `name`, `symbol`, `decimals` | One `Metadata` request returns configured token metadata; query the native asset registry separately for backing-asset metadata |
 | Native value deposit and payout | `PreparedProgramAccount`, `ProgramDeposit` and `ProgramAccountPayment`; register first, then fund and spend under explicit grants |
 
-Each LXT-20 selector is `4c 58 14 method`, with method numbers 1 through 7
-in the table's operation order (balance=4, allowance=5, supply=6, metadata=7).
+Each LXT-20 selector is `4c 58 14 method`: initialize=0, transfer=1, approve=2,
+transfer_from=3, balance_of=4, allowance=5, total_supply=6 and metadata=7.
 It is followed by LayerX convention `01`, bytes tag `20`, a u32 big-endian
 payload length, and the method fields in declaration order. Identifiers are
 32 bytes and amounts are 16-byte big-endian integers. This is not Solidity ABI
 encoding and does not reuse ERC-20 Keccak selectors. See the committed
 `programs/sdk/rust/vectors/lxt20-requests.txt` vectors.
 
-Initialization is not an eighth `Request` variant. The `initialize` export
-accepts exactly `4c 58 14 00 01 20 00 00 00 00`; it verifies the configured
-issuer and refuses if supply is already initialized.
+Initialize before any funded transfer lifecycle:
 
-The reference's recipient account must be derived from the recipient DID id32
-under this program. The recipient first calls `approve` (zero is sufficient),
-and the deployment authority registers the native program account. The configured
-issuer calls `initialize` once with a funding grant for the complete supply.
+1. Derive accounts with `PreparedProgramAccount`, using each owner's DID id32
+   as the seed, this program's ID and `REFERENCE_ASSET`. The deployment's
+   registration authority submits the native registration activities before
+   funding or receiving backing units. An `approve` only records the account
+   in token storage; it does not perform native registration.
+2. The configured `REFERENCE_ISSUER` (`did:lxp:token-issuer`) calls `initialize`
+   with exactly `4c 58 14 00 01 20 00 00 00 00` and shared-storage read/write
+   grants plus `Transfer402 { asset: REFERENCE_ASSET, to: issuer_derived_account,
+   maximum_amount: REFERENCE_SUPPLY }`. The reference supply is 1,000,000 u128
+   units. Initialization stages a `ProgramDeposit` for that complete amount and
+   writes issuer balance and shared supply together. It is not a `ProgramSpend`
+   payout. Kernel settlement must fund the registered account and commit token
+   state atomically.
+3. Another issuer, malformed initialization input, a repeated initialization,
+   missing funding authority, an insufficient ceiling, a wrong funding asset
+   or destination, or missing storage authority refuses without publishing
+   storage or payment effects. An interface descriptor alone grants nothing.
+4. Before receiving transfers, the recipient calls `approve` at least once
+   (zero is sufficient to register in token storage). For spending, supply the
+   exact owner-bound `ProgramSpend` grant as well as any token allowance.
+
 Transfers do not mint or burn units. Every `transfer_from` decrements allowance,
 including u128::MAX; each payment also respects the configured per-call ceiling.
+That ceiling is `REFERENCE_CEILING` (100,000), separate from the initialization
+funding amount. Queries and approvals never initialize supply. Responses are
+`01 20 || length:u32-be || payload`: mutations return an empty payload, balance,
+allowance and supply queries return a 16-byte big-endian u128, and metadata
+returns `REFERENCE_METADATA`.
 
 Discovery uses interface encoding v2. Its dynamic-spend descriptor contains the
 backing asset, ceiling and calldata offsets for the recipient and amount. Native
