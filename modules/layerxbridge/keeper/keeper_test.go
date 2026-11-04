@@ -676,6 +676,7 @@ func TestMsgServiceRegistersTheSidioraPair(t *testing.T) {
 }
 
 func TestSidioraPairIsRefusedOnceACapBoundItElsewhere(t *testing.T) {
+	t.Run("cap first preserves valid state", testSidioraCapFirstInvariant)
 	s := newSuite(t, false)
 	key := sdk.NewKVStoreKey(types.StoreKey)
 	s.ctx = bridgetestutil.WithBridgeStore(s.ctx, key)
@@ -849,4 +850,98 @@ func TestBridgeOutReleaseCapBoundary(t *testing.T) {
 		require.False(t, found)
 		assertRefused(t, fresh, ctx, big.NewInt(1), types.ErrCapExceeded)
 	})
+}
+
+func assertRecoveredBridgeRelease(t *testing.T, s *suite, in types.BridgeIn, signatures [][]byte, outstanding, burn int64) {
+	t.Helper()
+	require.Equal(t, sdk.NewInt(outstanding), s.balance(recipient))
+	require.Equal(t, sdk.NewInt(outstanding), s.app.BankKeeper.GetSupply(s.ctx, s.denom).Amount)
+	require.Equal(t, sdk.NewInt(outstanding), s.k.InFlight(s.ctx, s.denom))
+	require.True(t, s.k.IsNullified(s.ctx, in.Nullifier()))
+	require.Equal(t, uint64(1), s.k.OutboundNonce(s.ctx, in.ChainID))
+	bridge := s.k.ExportGenesis(s.ctx)
+	bank := s.app.BankKeeper.ExportGenesis(s.ctx)
+	factory := s.app.TokenFactoryKeeper.ExportGenesis(s.ctx)
+	events := append(sdk.Events{}, s.ctx.EventManager().Events()...)
+	_, err := s.k.BridgeIn(s.ctx, in, signatures)
+	require.ErrorIs(t, err, types.ErrNullified)
+	require.Equal(t, bridge, s.k.ExportGenesis(s.ctx))
+	require.Equal(t, bank, s.app.BankKeeper.ExportGenesis(s.ctx))
+	require.Equal(t, factory, s.app.TokenFactoryKeeper.ExportGenesis(s.ctx))
+	require.Equal(t, events, s.ctx.EventManager().Events())
+	out, err := s.k.BridgeOut(s.ctx, recipient, in.ChainID, in.Asset, big.NewInt(burn), types.Address20{0x33})
+	require.NoError(t, err)
+	require.Equal(t, keeper.BridgeOutResult{Denom: s.denom, Nonce: 2}, out)
+	require.Equal(t, uint64(2), s.k.OutboundNonce(s.ctx, in.ChainID))
+	require.Equal(t, sdk.NewInt(outstanding-burn), s.balance(recipient))
+	require.Equal(t, sdk.NewInt(outstanding-burn), s.app.BankKeeper.GetSupply(s.ctx, s.denom).Amount)
+	require.Equal(t, sdk.NewInt(outstanding-burn), s.k.InFlight(s.ctx, s.denom))
+	require.True(t, s.app.BankKeeper.GetBalance(s.ctx, s.k.ModuleAddress(), s.denom).Amount.IsZero())
+	require.NoError(t, s.k.ExportGenesis(s.ctx).Validate())
+	events = s.events(types.EventBridgeOut)
+	require.NotEmpty(t, events)
+	require.Equal(t, "2", attribute(events[len(events)-1], types.AttributeNonce))
+}
+
+func testBridgePersistentRecovery(t *testing.T) {
+	t.Helper()
+	p := newPersistentBridgeApp(t, nil, 1)
+	s := p.s
+	s.denom = types.Denom(chainID, asset)
+	router := s.router()
+	for _, msg := range governanceMessages(authority, bridgetestutil.Set(s.attestors, 1_000_000, 2)) {
+		require.NoError(t, s.route(router, msg))
+	}
+	in := deposit(72, 900)
+	signatures := s.signed(in, s.attestors[0], s.attestors[1])
+	_, err := s.k.BridgeIn(s.ctx, in, signatures)
+	require.NoError(t, err)
+	out, err := s.k.BridgeOut(s.ctx, recipient, chainID, asset, big.NewInt(400), types.Address20{0x33})
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), out.Nonce)
+	for index, fresh := range p.recover() {
+		t.Run([]string{"reopened", "imported"}[index], func(t *testing.T) {
+			assertRecoveredBridgeRelease(t, fresh, in, signatures, 500, 100)
+		})
+	}
+}
+
+func TestGenesisBridgeSurvivesPersistentReopenAndImport(t *testing.T) {
+	testBridgePersistentRecovery(t)
+}
+
+func testSidioraCapFirstInvariant(t *testing.T) {
+	t.Helper()
+	p := newPersistentBridgeApp(t, nil, 1)
+	s := p.s
+	router := s.router()
+	require.NoError(t, s.route(router, &types.MsgRegisterChain{Authority: authority, Chain: solanaChain}))
+	bridge := s.k.ExportGenesis(s.ctx)
+	bank := s.app.BankKeeper.ExportGenesis(s.ctx)
+	factory := s.app.TokenFactoryKeeper.ExportGenesis(s.ctx)
+	events := append(sdk.Events{}, s.ctx.EventManager().Events()...)
+	require.ErrorIs(t, s.route(router, sidioraCap(authority)), types.ErrInvalidRequest)
+	require.Equal(t, bridge, s.k.ExportGenesis(s.ctx))
+	require.Equal(t, bank, s.app.BankKeeper.ExportGenesis(s.ctx))
+	require.Equal(t, factory, s.app.TokenFactoryKeeper.ExportGenesis(s.ctx))
+	require.Equal(t, events, s.ctx.EventManager().Events())
+	require.NoError(t, s.k.ExportGenesis(s.ctx).Validate())
+	repair182AssertNoGenericSidiora(s)
+	_, found := s.app.BankKeeper.GetDenomMetaData(s.ctx, types.SidioraDenom())
+	require.False(t, found)
+	require.True(t, s.app.BankKeeper.GetSupply(s.ctx, types.SidioraDenom()).Amount.IsZero())
+	for _, fresh := range p.recover() {
+		router := fresh.router()
+		require.NoError(t, fresh.route(router, &types.MsgRegisterSidioraPair{Authority: authority, ChainID: types.SidioraHomeChainID}))
+		require.NoError(t, fresh.route(router, sidioraCap(authority)))
+		pair, found := fresh.k.GetAsset(fresh.ctx, types.SidioraHomeChainID, sidioraAsset())
+		require.True(t, found)
+		require.Equal(t, types.SidioraDenom(), pair.Denom)
+		cap, found := fresh.k.GetCap(fresh.ctx, pair.Denom)
+		require.True(t, found)
+		require.Equal(t, sdk.NewInt(1500), cap.MaxInFlight)
+		require.Equal(t, sdk.NewInt(1000), cap.MaxPerTx)
+		require.NoError(t, fresh.k.ExportGenesis(fresh.ctx).Validate())
+		repair182AssertNoGenericSidiora(fresh)
+	}
 }

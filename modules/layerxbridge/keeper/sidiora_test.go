@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxbridge/keeper"
+	bridgetestutil "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxbridge/testutil"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxbridge/types"
 	tokenfactorykeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/tokenfactory/keeper"
 	tokenfactorytypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/tokenfactory/types"
@@ -21,18 +22,25 @@ func sidioraAsset() types.Address20 {
 func newSidioraSuite(t *testing.T) *suite {
 	t.Helper()
 	s := newSuite(t, true)
-	denom, err := s.k.EnsureSidioraDenom(s.ctx, chainID)
-	require.NoError(t, err)
-	s.denom = denom
+	router := s.router()
+	require.NoError(t, s.route(router, &types.MsgRegisterChain{Authority: authority, Chain: solanaChain}))
+	require.NoError(t, s.route(router, &types.MsgRegisterSidioraPair{Authority: authority, ChainID: types.SidioraHomeChainID}))
+	s.denom = types.SidioraDenom()
 	require.NoError(t, s.k.SetCap(s.ctx, types.MsgSetCap{
-		Authority: authority, ChainID: chainID, Asset: sidioraAsset(),
+		Authority: authority, ChainID: types.SidioraHomeChainID, Asset: sidioraAsset(),
 		MaxInFlight: sdk.NewInt(1500), MaxPerTx: sdk.NewInt(1000),
 	}))
+	exported := s.k.ExportGenesis(s.ctx)
+	require.NoError(t, exported.Validate())
+	fresh, ctx := bridgetestutil.NewKeeper(s.app, s.ctx)
+	fresh.InitGenesis(ctx, exported)
+	require.Equal(t, exported, fresh.ExportGenesis(ctx))
 	return s
 }
 
 func sidioraDeposit(logIndex uint64, amount int64) types.BridgeIn {
 	in := deposit(logIndex, amount)
+	in.ChainID = types.SidioraHomeChainID
 	in.Asset = sidioraAsset()
 	return in
 }
@@ -51,8 +59,10 @@ func TestSidioraDenomAndMetadata(t *testing.T) {
 	_, found := s.app.BankKeeper.GetDenomMetaData(s.ctx, denom)
 	require.False(t, found)
 
-	got, err := s.k.EnsureSidioraDenom(s.ctx, chainID)
-	require.NoError(t, err)
+	router := s.router()
+	require.NoError(t, s.route(router, &types.MsgRegisterChain{Authority: authority, Chain: solanaChain}))
+	require.NoError(t, s.route(router, &types.MsgRegisterSidioraPair{Authority: authority, ChainID: types.SidioraHomeChainID}))
+	got := types.SidioraDenom()
 	require.Equal(t, denom, got)
 	metadata, found := s.app.BankKeeper.GetDenomMetaData(s.ctx, denom)
 	require.True(t, found)
@@ -65,9 +75,9 @@ func TestSidioraDenomAndMetadata(t *testing.T) {
 	admin, err := s.app.TokenFactoryKeeper.GetAuthorityMetadata(s.ctx, denom)
 	require.NoError(t, err)
 	require.Equal(t, creator, admin.Admin)
-	record, found := s.k.GetAsset(s.ctx, chainID, sidioraAsset())
+	record, found := s.k.GetAsset(s.ctx, types.SidioraHomeChainID, sidioraAsset())
 	require.True(t, found)
-	require.Equal(t, types.BridgedAsset{ChainID: chainID, Asset: sidioraAsset(), Denom: denom}, record)
+	require.Equal(t, types.BridgedAsset{ChainID: types.SidioraHomeChainID, Asset: sidioraAsset(), Denom: denom}, record)
 	reverse, found := s.k.GetAssetByDenom(s.ctx, denom)
 	require.True(t, found)
 	require.Equal(t, record, reverse)
@@ -78,7 +88,8 @@ func TestSidioraDenomAndMetadata(t *testing.T) {
 	require.ErrorIs(t, err, types.ErrCapExceeded)
 
 	before := s.k.ExportGenesis(s.ctx)
-	got, err = s.k.EnsureSidioraDenom(s.ctx, chainID)
+	require.NoError(t, before.Validate())
+	got, err = s.k.EnsureSidioraDenom(s.ctx, types.SidioraHomeChainID)
 	require.NoError(t, err)
 	require.Equal(t, denom, got)
 	require.Equal(t, before, s.k.ExportGenesis(s.ctx))
@@ -86,6 +97,11 @@ func TestSidioraDenomAndMetadata(t *testing.T) {
 	require.True(t, found)
 	require.Equal(t, metadata, after)
 	require.True(t, s.app.BankKeeper.GetSupply(s.ctx, denom).Amount.IsZero())
+	exported := s.k.ExportGenesis(s.ctx)
+	require.NoError(t, exported.Validate())
+	fresh, ctx := bridgetestutil.NewKeeper(s.app, s.ctx)
+	fresh.InitGenesis(ctx, exported)
+	require.Equal(t, exported, fresh.ExportGenesis(ctx))
 }
 
 func TestSidioraBridgeMintBurnAndAdmin(t *testing.T) {
@@ -113,7 +129,7 @@ func TestSidioraBridgeMintBurnAndAdmin(t *testing.T) {
 	require.Equal(t, sdk.NewInt(900), s.balance(recipient))
 	require.Equal(t, sdk.NewInt(900), s.app.BankKeeper.GetSupply(s.ctx, s.denom).Amount)
 
-	out, err := s.k.BridgeOut(s.ctx, recipient, chainID, sidioraAsset(), big.NewInt(400), types.Address20{0x33})
+	out, err := s.k.BridgeOut(s.ctx, recipient, types.SidioraHomeChainID, sidioraAsset(), big.NewInt(400), types.Address20{0x33})
 	require.NoError(t, err)
 	require.Equal(t, keeper.BridgeOutResult{Denom: s.denom, Nonce: 1}, out)
 	require.Equal(t, sdk.NewInt(500), s.balance(recipient))
@@ -122,7 +138,8 @@ func TestSidioraBridgeMintBurnAndAdmin(t *testing.T) {
 	require.True(t, s.app.BankKeeper.GetBalance(s.ctx, s.k.ModuleAddress(), s.denom).Amount.IsZero())
 
 	before := s.k.ExportGenesis(s.ctx)
-	_, err = s.k.EnsureSidioraDenom(s.ctx, chainID)
+	require.NoError(t, before.Validate())
+	_, err = s.k.EnsureSidioraDenom(s.ctx, types.SidioraHomeChainID)
 	require.NoError(t, err)
 	require.Equal(t, before, s.k.ExportGenesis(s.ctx))
 	require.Equal(t, sdk.NewInt(500), s.balance(recipient))
@@ -143,13 +160,13 @@ func TestSidioraBridgeRefusals(t *testing.T) {
 	require.NoError(t, s.k.Pause(s.ctx, types.MsgPause{Authority: authority}))
 	_, err = s.k.BridgeIn(s.ctx, in, s.signed(in, s.attestors...))
 	require.ErrorIs(t, err, types.ErrPaused)
-	_, err = s.k.BridgeOut(s.ctx, recipient, chainID, sidioraAsset(), big.NewInt(1), types.Address20{0x33})
+	_, err = s.k.BridgeOut(s.ctx, recipient, types.SidioraHomeChainID, sidioraAsset(), big.NewInt(1), types.Address20{0x33})
 	require.ErrorIs(t, err, types.ErrPaused)
 	require.True(t, s.balance(recipient).IsZero())
 	require.True(t, s.k.InFlight(s.ctx, s.denom).IsZero())
 	require.False(t, s.k.IsNullified(s.ctx, in.Nullifier()))
 	require.False(t, s.k.IsNullified(s.ctx, over.Nullifier()))
-	require.Zero(t, s.k.OutboundNonce(s.ctx, chainID))
+	require.Zero(t, s.k.OutboundNonce(s.ctx, types.SidioraHomeChainID))
 	require.NoError(t, s.k.Unpause(s.ctx, types.MsgUnpause{Authority: authority}))
 
 	_, err = s.k.BridgeIn(s.ctx, in, s.signed(in, s.attestors...))
@@ -168,7 +185,7 @@ func TestSidioraBridgeRefusals(t *testing.T) {
 func TestSidioraInitializationRefusals(t *testing.T) {
 	t.Run("unknown chain", func(t *testing.T) {
 		s := newSuite(t, false)
-		_, err := s.k.EnsureSidioraDenom(s.ctx, chainID)
+		_, err := s.k.EnsureSidioraDenom(s.ctx, types.SidioraHomeChainID)
 		require.ErrorIs(t, err, types.ErrUnknownChain)
 		_, found := s.app.BankKeeper.GetDenomMetaData(s.ctx, types.SidioraDenom())
 		require.False(t, found)
@@ -198,6 +215,7 @@ func TestSidioraInitializationRefusals(t *testing.T) {
 	for _, admin := range []string{authority, ""} {
 		t.Run("existing admin "+admin, func(t *testing.T) {
 			s := newSuite(t, true)
+			require.NoError(t, s.k.RegisterChain(s.ctx, types.MsgRegisterChain{Authority: authority, Chain: solanaChain}))
 			denom, err := s.app.TokenFactoryKeeper.CreateDenom(s.ctx, types.ModuleAddress().String(), types.SidioraSubdenom)
 			require.NoError(t, err)
 			server := tokenfactorykeeper.NewMsgServerImpl(s.app.TokenFactoryKeeper)
@@ -207,12 +225,12 @@ func TestSidioraInitializationRefusals(t *testing.T) {
 			require.NoError(t, err)
 			before, found := s.app.BankKeeper.GetDenomMetaData(s.ctx, denom)
 			require.True(t, found)
-			_, err = s.k.EnsureSidioraDenom(s.ctx, chainID)
+			_, err = s.k.EnsureSidioraDenom(s.ctx, types.SidioraHomeChainID)
 			require.ErrorIs(t, err, types.ErrUnauthorized)
 			after, found := s.app.BankKeeper.GetDenomMetaData(s.ctx, denom)
 			require.True(t, found)
 			require.Equal(t, before, after)
-			_, found = s.k.GetAsset(s.ctx, chainID, sidioraAsset())
+			_, found = s.k.GetAsset(s.ctx, types.SidioraHomeChainID, sidioraAsset())
 			require.False(t, found)
 			metadata, err := s.app.TokenFactoryKeeper.GetAuthorityMetadata(s.ctx, denom)
 			require.NoError(t, err)
