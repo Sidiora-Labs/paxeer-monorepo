@@ -162,8 +162,8 @@ func tableInfo(logger *slog.Logger, tableName string, paths []string, fsync bool
 	size := uint64(0)
 	for _, seg := range segments {
 		if seg.SegmentIndex() > highestSegmentIndex {
-			// Do not attempt to read segments outside the limit set by the boundary file.
-			break
+			// Map iteration is unordered; later entries may still be published.
+			continue
 		}
 
 		keyCount += uint64(seg.KeyCount())

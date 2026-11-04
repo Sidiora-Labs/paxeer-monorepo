@@ -1,0 +1,9 @@
+[repair.22.33.1107]
+audit = "22.30.46"
+finding = "25"
+proofs = ["TestRepairM_1107_LegacySearchResults", "TestRepairM_1107_LegacyProducerRecord", "TestRepairM_1107_RejectMissingMatches", "TestRepairM_1107_RejectUnexpectedMatches"]
+change = "Legacy records carry Tx bytes identical to production encoding; compatibility searches compare exact counts and complete transaction records, including mixed legacy/current results. Real store deletion and producer insertion prove missing, extra and substituted matches are rejected."
+fixture_correction = "The obsolete unqualified sender tag uses the production ordered-key codec; the prior slash-delimited secondary key and bare-hash primary key could not be consumed by the current indexer. Transactions use distinct indexes so both height entries survive."
+baseline = "Not run: the explicit gate order forbids verification before implementation and permits verification only through hf-done; no pre-change test failures are claimed."
+wiring_requests = []
+evidence = "The runner's hf-done ledger records the exact verified candidate revision, command, exit code and private log location."

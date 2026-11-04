@@ -2,6 +2,7 @@ package multisig
 
 import (
 	fmt "fmt"
+	"reflect"
 
 	tmcrypto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/crypto"
 
@@ -48,22 +49,15 @@ func (m *LegacyAminoPubKey) Bytes() []byte {
 // the power of the owner of that key - in that case the signer will still need to append
 // multiple same signatures in the right order.
 func (m *LegacyAminoPubKey) VerifyMultisignature(getSignBytes multisigtypes.GetSignBytesFunc, sig *signing.MultiSignatureData) error {
+	if err := m.ValidateMultisignature(sig); err != nil {
+		return err
+	}
+	if getSignBytes == nil {
+		return fmt.Errorf("sign bytes function must be nonnil")
+	}
 	bitarray := sig.BitArray
-	sigs := sig.Signatures
 	size := bitarray.Count()
 	pubKeys := m.GetPubKeys()
-	// ensure bit array is the correct size
-	if len(pubKeys) != size {
-		return fmt.Errorf("bit array size is incorrect, expecting: %d", len(pubKeys))
-	}
-	// ensure size of signature list
-	if len(sigs) < int(m.Threshold) || len(sigs) > size {
-		return fmt.Errorf("signature size is incorrect %d", len(sigs))
-	}
-	// ensure at least k signatures are set
-	if bitarray.NumTrueBitsBefore(size) < int(m.Threshold) {
-		return fmt.Errorf("not enough signatures set, have %d, expected %d", bitarray.NumTrueBitsBefore(size), int(m.Threshold))
-	}
 	// index in the list of signatures which we are concerned with.
 	sigIndex := 0
 	for i := 0; i < size; i++ {
@@ -91,6 +85,70 @@ func (m *LegacyAminoPubKey) VerifyMultisignature(getSignBytes multisigtypes.GetS
 			}
 			sigIndex++
 		}
+	}
+	return nil
+}
+
+// ValidateMultisignature checks the complete selected signature tree before
+// verification or gas traversal. It does not verify cryptographic signatures.
+func (m *LegacyAminoPubKey) ValidateMultisignature(sig *signing.MultiSignatureData) error {
+	if m == nil || m.Threshold == 0 || uint64(m.Threshold) > uint64(len(m.PubKeys)) {
+		return fmt.Errorf("invalid multisignature threshold")
+	}
+	if sig == nil || sig.BitArray == nil {
+		return fmt.Errorf("multisignature and bit array must be nonnil")
+	}
+	bitarray := sig.BitArray
+	keyCount := len(m.PubKeys)
+	if len(bitarray.Elems) != (keyCount+7)/8 || bitarray.ExtraBitsStored > 7 || bitarray.Count() != keyCount {
+		return fmt.Errorf("invalid multisignature bit array shape for %d keys", keyCount)
+	}
+	if extra := bitarray.ExtraBitsStored; extra != 0 && bitarray.Elems[len(bitarray.Elems)-1]&byte((1<<(8-extra))-1) != 0 {
+		return fmt.Errorf("multisignature bit array has nonzero padding bits")
+	}
+	selected := bitarray.NumTrueBitsBefore(keyCount)
+	if len(sig.Signatures) != selected {
+		return fmt.Errorf("multisignature signature count %d does not match selected key count %d", len(sig.Signatures), selected)
+	}
+	if uint64(selected) < uint64(m.Threshold) {
+		return fmt.Errorf("not enough signatures set, have %d, expected %d", selected, m.Threshold)
+	}
+	sigIndex := 0
+	for i, anyKey := range m.PubKeys {
+		if anyKey == nil {
+			return fmt.Errorf("missing public key at index %d", i)
+		}
+		key, ok := anyKey.GetCachedValue().(cryptotypes.PubKey)
+		if !ok || key == nil || (reflect.ValueOf(key).Kind() == reflect.Ptr && reflect.ValueOf(key).IsNil()) {
+			return fmt.Errorf("invalid or unpacked public key at index %d", i)
+		}
+		if !bitarray.GetIndex(i) {
+			continue
+		}
+		switch data := sig.Signatures[sigIndex].(type) {
+		case *signing.SingleSignatureData:
+			if data == nil {
+				return fmt.Errorf("nil single signature at index %d", i)
+			}
+			if _, nested := key.(multisigtypes.PubKey); nested {
+				return fmt.Errorf("expected multisignature at index %d", i)
+			}
+		case *signing.MultiSignatureData:
+			if data == nil {
+				return fmt.Errorf("nil multisignature at index %d", i)
+			}
+			if _, nested := key.(multisigtypes.PubKey); !nested {
+				return fmt.Errorf("expected single signature at index %d", i)
+			}
+			if nestedKey, ok := key.(*LegacyAminoPubKey); ok {
+				if err := nestedKey.ValidateMultisignature(data); err != nil {
+					return fmt.Errorf("invalid multisignature at index %d: %w", i, err)
+				}
+			}
+		default:
+			return fmt.Errorf("improper signature data type at index %d", i)
+		}
+		sigIndex++
 	}
 	return nil
 }

@@ -764,10 +764,7 @@ fn restored_subscriptions(
     Ok(restored)
 }
 use crate::session_keys::SessionKeyRegistry;
-use crate::sign::{
-    attach_kernel_signature, validate_issued_session, verify_kernel_before_submit,
-    ProvisionedSessionKey, VerifiedSubmission,
-};
+use crate::sign::{validate_issued_session, ProvisionedSessionKey, VerifiedSubmission};
 use crate::store::{key, ObjectKind, StorageClass, Store, TenantId, TenantKey};
 
 impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
@@ -3607,9 +3604,15 @@ fn settle_retained_native_effect(
         .signed_bytes()
         .map_err(|_| HumanOperationError::Refused)?
         .ok_or(HumanOperationError::Refused)?;
-    let submission =
-        crate::sign::verify_kernel_before_submit(&signed, &prepared, &public, registry)
-            .map_err(|_| HumanOperationError::Refused)?;
+    let transaction = crate::sign::SigningPreparation::restore(store, tenant.clone(), id)
+        .map_err(|_| HumanOperationError::Refused)?;
+    let submission = crate::sign::verify_before_submit(
+        &signed,
+        &transaction,
+        &transaction.actor_address,
+        registry,
+    )
+    .map_err(|_| HumanOperationError::Refused)?;
     let (reservation, witness) =
         match crate::budget::program_settlement::read_retained_native_effect_debit_settlement(
             registry,
@@ -3713,11 +3716,19 @@ fn settle_retained_native_program_call(
         .signed_bytes()
         .map_err(|_| refused())?
         .ok_or_else(refused)?;
-    let submission =
-        crate::sign::verify_kernel_before_submit(&signed, &prepared, &public_key, registry)
+    let transaction =
+        crate::sign::SigningPreparation::restore(store, tenant.clone(), preparation_id)
             .map_err(|_| refused())?;
-    let signed_activity = layerx_wire::activity::decode_signed(submission.exact_bytes(), registry)
-        .map_err(|_| refused())?;
+    let submission = crate::sign::verify_before_submit(
+        &signed,
+        &transaction,
+        &transaction.actor_address,
+        registry,
+    )
+    .map_err(|_| refused())?;
+    let signed_activity =
+        layerx_wire::activity::decode_unsigned(&prepared.canonical_bytes, registry)
+            .map_err(|_| refused())?;
     let lifecycle_exit = signed_activity.protocol_version() == 3
         && signed_activity.activity_type().module() == layerx_types::payload::ModuleId::Programs
         && signed_activity.activity_type().ordinal() == 7
@@ -7688,10 +7699,22 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         let prepared = held
             .restore_prepared(&registry)
             .map_err(|_| HumanOperationError::Refused)?;
+        let transaction = {
+            let store = self
+                .store
+                .lock()
+                .map_err(|_| HumanOperationError::Unavailable)?;
+            crate::sign::SigningPreparation::restore(
+                &store,
+                context.principal().tenant.clone(),
+                preparation_id,
+            )
+            .map_err(|_| HumanOperationError::Refused)?
+        };
         operations.prepared.insert(
             key,
             CachedPreparation {
-                transaction: None,
+                transaction: Some(transaction),
                 prepared,
                 registry,
             },
@@ -7732,10 +7755,22 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         let prepared = held
             .restore_prepared(&registry)
             .map_err(|_| HumanOperationError::Refused)?;
+        let transaction = {
+            let store = self
+                .store
+                .lock()
+                .map_err(|_| HumanOperationError::Unavailable)?;
+            crate::sign::SigningPreparation::restore(
+                &store,
+                context.principal().tenant.clone(),
+                preparation_id,
+            )
+            .map_err(|_| HumanOperationError::Refused)?
+        };
         operations.prepared.insert(
             key,
             CachedPreparation {
-                transaction: None,
+                transaction: Some(transaction),
                 prepared,
                 registry,
             },
@@ -7801,21 +7836,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             request.operation.signer_public_key,
             snapshot.observed_head_sequence,
         )?;
-        let signature = request
-            .operation
-            .signature
-            .as_slice()
-            .try_into()
-            .map_err(|_| HumanOperationError::Refused)?;
-        let signed = attach_kernel_signature(&cached.prepared, signature)
-            .map_err(|_| HumanOperationError::Refused)?;
-        let verified = verify_kernel_before_submit(
-            &signed,
-            &cached.prepared,
-            &request.operation.signer_public_key,
-            &cached.registry,
-        )
-        .map_err(|_| HumanOperationError::Refused)?;
+        let verified = verify_evm_write(&cached, &request.operation.signature)?;
         context
             .permit()
             .with_native_submission_authority(
@@ -8011,21 +8032,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             request.operation.signer_public_key,
             snapshot.observed_head_sequence,
         )?;
-        let signature = request
-            .operation
-            .signature
-            .as_slice()
-            .try_into()
-            .map_err(|_| HumanOperationError::Refused)?;
-        let signed = attach_kernel_signature(&cached.prepared, signature)
-            .map_err(|_| HumanOperationError::Refused)?;
-        let verified = verify_kernel_before_submit(
-            &signed,
-            &cached.prepared,
-            &request.operation.signer_public_key,
-            &cached.registry,
-        )
-        .map_err(|_| HumanOperationError::Refused)?;
+        let verified = verify_evm_write(&cached, &request.operation.signature)?;
         context
             .permit()
             .with_native_submission_authority(
@@ -8223,21 +8230,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             request.operation.signer_public_key,
             snapshot.observed_head_sequence,
         )?;
-        let signature = request
-            .operation
-            .signature
-            .as_slice()
-            .try_into()
-            .map_err(|_| HumanOperationError::Refused)?;
-        let signed = attach_kernel_signature(&cached.prepared, signature)
-            .map_err(|_| HumanOperationError::Refused)?;
-        let verified = verify_kernel_before_submit(
-            &signed,
-            &cached.prepared,
-            &request.operation.signer_public_key,
-            &cached.registry,
-        )
-        .map_err(|_| HumanOperationError::Refused)?;
+        let verified = verify_evm_write(&cached, &request.operation.signature)?;
         context
             .permit()
             .with_native_submission_authority(
@@ -11944,7 +11937,7 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
             hex(&preparation),
         );
         let (operator_cached, operator_submission) =
-            self.verified_budget_preparation(&prepared_key, signature, &signer_public_key, agent)?;
+            self.verified_budget_preparation(&prepared_key, &signature, &signer_public_key, agent)?;
         let operator_expiry_ms =
             budget_create_identity(operator_submission.exact_bytes(), &operator_cached.registry)
                 .map_err(budget_refusal)?
@@ -11967,7 +11960,7 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                 peer,
                 &tenant,
                 &prepared_key,
-                signature,
+                &signature,
                 signer_public_key,
                 agent,
                 asset,
@@ -11984,7 +11977,7 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         peer: &HumanPeer,
         tenant: &TenantId,
         prepared_key: &(String, String, String),
-        signature: [u8; 64],
+        signature: &[u8],
         signer_public_key: [u8; 32],
         agent: [u8; 32],
         asset: [u8; 32],
@@ -12286,12 +12279,8 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         let budget_context = prepared_budget_context(&cached.prepared).ok_or(
             HumanOperationError::Typed(crate::human::HumanRefusal::BudgetContextMismatch),
         )?;
-        let (signature, signer) = owner_signature(&cached.prepared, carrier)?;
-        let signed = attach_kernel_signature(&cached.prepared, signature)
-            .map_err(|_| HumanOperationError::Refused)?;
-        let submission =
-            verify_kernel_before_submit(&signed, &cached.prepared, &signer, &cached.registry)
-                .map_err(|_| HumanOperationError::Refused)?;
+        owner_signature(&cached.prepared, carrier)?;
+        let submission = verify_evm_write(&cached, carrier.signature.as_bytes())?;
         let mutation = crate::budget::budget_mutation_identity(
             submission.exact_bytes(),
             &cached.registry,
@@ -12368,7 +12357,7 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
     fn verified_budget_preparation(
         &self,
         prepared_key: &(String, String, String),
-        signature: [u8; 64],
+        signature: &[u8],
         signer_public_key: &[u8; 32],
         agent: [u8; 32],
     ) -> Result<(CachedPreparation, VerifiedSubmission), HumanOperationError> {
@@ -12377,15 +12366,7 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
             .get(prepared_key)
             .cloned()
             .ok_or(HumanOperationError::Refused)?;
-        let signed = attach_kernel_signature(&cached.prepared, signature)
-            .map_err(|_| HumanOperationError::Refused)?;
-        let verified_submission = verify_kernel_before_submit(
-            &signed,
-            &cached.prepared,
-            signer_public_key,
-            &cached.registry,
-        )
-        .map_err(|_| HumanOperationError::Refused)?;
+        let verified_submission = verify_evm_write(&cached, signature)?;
         let identity = budget_create_identity(verified_submission.exact_bytes(), &cached.registry)
             .map_err(|_| HumanOperationError::Refused)?;
         if identity.budget_id != agent {
@@ -14657,15 +14638,7 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                     return Err(HumanOperationError::Refused);
                 }
                 let (signature, signer) = owner_signature(&cached.prepared, carrier)?;
-                let signed = attach_kernel_signature(&cached.prepared, signature)
-                    .map_err(|_| HumanOperationError::Refused)?;
-                let submission = verify_kernel_before_submit(
-                    &signed,
-                    &cached.prepared,
-                    &signer,
-                    &cached.registry,
-                )
-                .map_err(|_| HumanOperationError::Refused)?;
+                let submission = verify_evm_write(&cached, carrier.signature.as_bytes())?;
                 if submission.idempotency_key() != key {
                     return Err(HumanOperationError::Refused);
                 }
@@ -14710,7 +14683,7 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                             peer,
                             &tenant,
                             &prepared_key,
-                            signature,
+                            &signature,
                             signer,
                             agent,
                             asset,
@@ -14891,6 +14864,16 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
             reference.clone(),
         );
         let transaction = prepare_evm_write(&prepared, self.maximum_payload_bytes)?;
+        transaction
+            .retain(
+                &mut *self
+                    .store
+                    .lock()
+                    .map_err(|_| HumanOperationError::Unavailable)?,
+                TenantId::new(peer.tenant.clone()).map_err(|_| HumanOperationError::Refused)?,
+                Sha256::digest(&prepared.canonical_bytes).into(),
+            )
+            .map_err(|_| HumanOperationError::Refused)?;
         let cached = CachedPreparation {
             transaction: Some(transaction.clone()),
             prepared: prepared.clone(),
@@ -19399,7 +19382,7 @@ fn prepared_budget_context(
 fn owner_signature(
     prepared: &crate::prepare::Prepared,
     carrier: &layerx_agent_api::budget::BudgetAuthorization,
-) -> Result<([u8; 64], [u8; 32]), HumanOperationError> {
+) -> Result<([u8; 65], [u8; 32]), HumanOperationError> {
     let Authority::Owner(owner) = prepared.envelope.authority() else {
         return Err(HumanOperationError::Refused);
     };
@@ -19413,7 +19396,7 @@ fn owner_signature(
     {
         return Err(HumanOperationError::Refused);
     }
-    let signature: [u8; 64] = carrier
+    let signature: [u8; 65] = carrier
         .signature
         .as_bytes()
         .try_into()
@@ -19796,9 +19779,15 @@ pub(crate) mod activity_submission_index_tests {
             },
         };
         let key: [u8; 32] = must(activity.authority().try_into());
-        must(crate::sign::verify_kernel_before_submit(
-            bytes, &prepared, &key, &registry,
+        let signature: &[u8; 64] =
+            must(activity.signature().expect("fixture signature").try_into());
+        let message = must(layerx_crypto::SignatureMessage::new(
+            layerx_wire::hash::Domain::SignaturePreimage,
+            activity.protocol_version(),
+            activity.network_id(),
+            &prepared.canonical_bytes,
         ));
+        must(layerx_crypto::ed25519::verify(&key, signature, message));
         let verified = transaction_submission(prepared, &registry);
         (registry, verified)
     }
@@ -20757,11 +20746,8 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         call_payload: Option<&[u8]>,
         native_fee: Option<u128>,
     ) -> Result<([u8; 32], Option<Vec<u8>>), HumanOperationError> {
-        use crate::approval::native_program::NativeProgramApprovalCarrier;
         use crate::tenant::Operation;
-        use layerx_types::program_lifecycle::{
-            NativeProgramDeploy, NativeProgramUpgrade, NativeProgramWindDown,
-        };
+        use layerx_crypto::evm_transaction::{decode_signed, recover_sender};
         if context.permit().operation() != operation {
             return Err(HumanOperationError::Refused);
         }
@@ -20769,163 +20755,117 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             .permit()
             .boundary(&self.session_control)
             .map_err(rpc_commit_error)?;
-        let (activity_id, submit) = {
+        let (call, signature) = decode_signed(signed).map_err(|_| HumanOperationError::Refused)?;
+        let actor = recover_sender(&call, &signature).map_err(|_| HumanOperationError::Refused)?;
+        let (reference, transaction, registry) = {
             let mut operations = self.lock_operations()?;
             let registry = operations
                 .authority
                 .registry(context.peer())
                 .map_err(map_core)?;
-            let activity = layerx_wire::activity::decode_signed(signed, &registry)
-                .map_err(|_| HumanOperationError::Refused)?;
-            let ordinal = match operation {
-                Operation::ProgramCall => 3,
-                Operation::ProgramDeploy => 1,
-                Operation::ProgramUpgrade => 2,
-                Operation::ProgramWindDown => 7,
-                _ => return Err(HumanOperationError::Refused),
-            };
-            if activity.actor_did() != context.principal().agent.as_bytes()
-                || activity.protocol_version()
-                    != layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION
-                || activity.network_id()
-                    != u32::try_from(
-                        operations
-                            .chain
-                            .chain_id()
-                            .map_err(|_| HumanOperationError::Unavailable)?,
-                    )
-                    .map_err(|_| HumanOperationError::Refused)?
-                || activity.activity_type().module() != layerx_types::payload::ModuleId::Programs
-                || activity.activity_type().ordinal() != ordinal
-                || activity.idempotency_key() != key
-                || native_fee.is_some_and(|fee| fee != activity.fee_limit())
-            {
-                return Err(HumanOperationError::Refused);
-            }
-            match operation {
-                Operation::ProgramCall if call_payload == Some(activity.payload()) => {}
-                Operation::ProgramDeploy => {
-                    let value = NativeProgramDeploy::decode(activity.payload())
-                        .map_err(|_| HumanOperationError::Refused)?;
-                    crate::ops::program::validate_deploy_activity(&registry, value, signed)
-                        .map_err(program_operation_error)?;
-                }
-                Operation::ProgramUpgrade => {
-                    let value = NativeProgramUpgrade::decode(activity.payload())
-                        .map_err(|_| HumanOperationError::Refused)?;
-                    crate::ops::program::validate_upgrade_activity(&registry, value, signed)
-                        .map_err(program_operation_error)?;
-                }
-                Operation::ProgramWindDown => {
-                    let value = NativeProgramWindDown::decode(activity.payload())
-                        .map_err(|_| HumanOperationError::Refused)?;
-                    crate::ops::program::validate_wind_down_activity(&registry, value, signed)
-                        .map_err(program_operation_error)?;
-                }
-                _ => return Err(HumanOperationError::Refused),
-            }
-            let unsigned = layerx_wire::activity::encode_unsigned(&activity)
-                .map_err(|_| HumanOperationError::Refused)?;
-            let preparation_id: [u8; 32] = Sha256::digest(&unsigned).into();
             let store = self
                 .store
                 .lock()
                 .map_err(|_| HumanOperationError::Unavailable)?;
-            let durable_key = crate::prepare::DurablePreparation::store_key(
-                &context.principal().tenant,
-                preparation_id,
-            )
-            .map_err(|_| HumanOperationError::Refused)?;
-            let raw = store
-                .get(&durable_key)
-                .ok_or(HumanOperationError::Refused)?;
-            if raw.class() != crate::store::StorageClass::LocalOnly {
-                return Err(HumanOperationError::Refused);
+            let mut matched = None;
+            for object in
+                store.list_object_ids(&context.principal().tenant, ObjectKind::Configuration)
+            {
+                let Some(suffix) = object.strip_prefix(b"evm-signing-preparation:") else {
+                    continue;
+                };
+                let reference: [u8; 32] = suffix
+                    .try_into()
+                    .map_err(|_| HumanOperationError::Refused)?;
+                let prepared = crate::sign::SigningPreparation::restore(
+                    &store,
+                    context.principal().tenant.clone(),
+                    reference,
+                )
+                .map_err(|_| HumanOperationError::Refused)?;
+                if prepared.transaction.disclosure.idempotency_key == key {
+                    if matched.is_some() {
+                        return Err(HumanOperationError::Refused);
+                    }
+                    matched = Some((reference, prepared));
+                }
             }
-            let durable = crate::prepare::DurablePreparation::decode(
-                context.principal().tenant.clone(),
-                raw.bytes(),
+            let (reference, prepared) = matched.ok_or(HumanOperationError::Refused)?;
+            (reference, prepared, registry)
+        };
+        let expected_ordinal = match operation {
+            Operation::ProgramCall => 3,
+            Operation::ProgramDeploy => 1,
+            Operation::ProgramUpgrade => 2,
+            Operation::ProgramWindDown => 7,
+            _ => return Err(HumanOperationError::Refused),
+        };
+        if transaction.transaction.disclosure.activity_type.module()
+            != layerx_types::payload::ModuleId::Programs
+            || transaction.transaction.disclosure.activity_type.ordinal() != expected_ordinal
+        {
+            return Err(HumanOperationError::Refused);
+        }
+        if let Some(payload) = call_payload {
+            let native = layerx_types::program_call::NativeProgramCall::decode(payload)
+                .map_err(|_| HumanOperationError::Refused)?;
+            let expected = crate::ops::program::ProgramOperations::<
+                layerx_client::sequencer::SequencerEndpoint,
+            >::call_precompile(
+                native, native_fee.ok_or(HumanOperationError::Refused)?
             )
-            .map_err(|_| HumanOperationError::Refused)?;
-            let origin = context.permit().preparation_authorization();
-            if durable.preparation_id != preparation_id
-                || durable.session_id != origin.session.session_id.0
-                || durable.generation != origin.generation
-                || durable.payload_hash != activity.payload_hash()
-                || durable.terminal()
+            .map_err(program_rpc_error)?;
+            if expected
+                .encode()
+                .map_err(|_| HumanOperationError::Refused)?
+                != call.data
             {
                 return Err(HumanOperationError::Refused);
             }
-            let native = durable.extensions.contains_key(&6) || durable.extensions.contains_key(&7);
-            let (prepared, release) = if native {
-                let held = NativeProgramApprovalCarrier::read_id(&store, context, preparation_id)
-                    .map_err(|_| HumanOperationError::Refused)?;
-                let prepared = held
-                    .restore_prepared(&registry)
-                    .map_err(|_| HumanOperationError::Refused)?;
-                (
-                    prepared,
-                    held.response()
-                        .map_err(|_| HumanOperationError::Refused)?
-                        .submission_ref,
-                )
-            } else {
-                let cached = operations
-                    .prepared
-                    .get(&(
-                        context.peer().tenant.clone(),
-                        context.peer().principal.clone(),
-                        hex(&preparation_id),
-                    ))
-                    .ok_or(HumanOperationError::Refused)?;
-                let prepared = cached.prepared.clone();
-                let snapshot = core_preparation_snapshot(
-                    operations.chain.as_ref(),
-                    &operations.authority,
-                    context.peer(),
-                    prepared.envelope.actor_did(),
-                )?;
-                let release = crate::approval::program_requirement::authorize_program(
-                    &store,
-                    context,
-                    &prepared,
-                    &durable,
-                    &self.approval_queue,
-                    snapshot.observed_head_sequence,
-                    snapshot.protocol_timestamp,
-                )
+        }
+        let verified = crate::sign::verify_before_submit(signed, &transaction, &actor, &registry)
+            .map_err(|_| HumanOperationError::Refused)?;
+        // Submit through the same retained preparation and approval route as external signing.
+        let (release, signer_public_key) = {
+            let store = self
+                .store
+                .lock()
+                .map_err(|_| HumanOperationError::Unavailable)?;
+            let held = crate::approval::native_program::NativeProgramApprovalCarrier::read_id(
+                &store, context, reference,
+            )
+            .map_err(|_| HumanOperationError::Refused)?;
+            let authorization = held
+                .restore_prepared(&registry)
                 .map_err(|_| HumanOperationError::Refused)?;
-                (prepared, release)
-            };
-            if prepared.canonical_bytes != unsigned {
+            let Authority::Owner(owner) = authorization.envelope.authority() else {
                 return Err(HumanOperationError::Refused);
-            }
-            let signature = activity
-                .signature()
-                .ok_or(HumanOperationError::Refused)?
-                .to_vec();
-            let signer_public_key = activity
-                .authority()
+            };
+            let owner: [u8; 32] = owner
+                .as_ref()
                 .try_into()
                 .map_err(|_| HumanOperationError::Refused)?;
-            let verified =
-                verify_kernel_before_submit(signed, &prepared, &signer_public_key, &registry)
-                    .map_err(|_| HumanOperationError::Refused)?;
-            let submit = HumanSubmit {
-                preparation_ref: hex(&preparation_id),
-                signature,
-                signer_public_key,
-                approval_release_ref: release,
-            };
-            (verified.activity_id(), submit)
+            (
+                held.response()
+                    .map_err(|_| HumanOperationError::Refused)?
+                    .submission_ref,
+                owner,
+            )
         };
-        let envelope = MutationEnvelope {
+        let submit = HumanSubmit {
+            preparation_ref: hex(&reference),
+            signature: signature.as_bytes().to_vec(),
+            signer_public_key,
+            approval_release_ref: release,
+        };
+        let request = MutationEnvelope {
             request_id,
             key,
             body_digest: submit_digest(&submit),
             operation: submit,
         };
-        let _ = self.rpc_submit_external(context, envelope)?;
+        let activity_id = verified.activity_id();
+        self.rpc_submit_external(context, request)?;
         if operation == Operation::ProgramCall {
             return Ok((activity_id, None));
         }
@@ -23315,13 +23255,12 @@ mod retained_settlement_tests {
                 125,
                 &canonical,
             ));
-            let signed = must(crate::sign::attach_kernel_signature(
-                &prepared,
-                signer.sign(&message.digest()).to_bytes(),
-            ));
-            let submission = must(crate::sign::verify_kernel_before_submit(
-                &signed, &prepared, &public, &registry,
-            ));
+            let submission =
+                crate::human_runtime::activity_submission_index_tests::transaction_submission(
+                    prepared.clone(),
+                    &registry,
+                );
+            let signed = submission.exact_bytes().to_vec();
             let policy = json!({"schema":"layerx.native-program-policy.v1","version":"1","network_id":125,"step_limit":1000,"rules":[{
                 "id":"deploy","effect":"Permit","activity":{"module":9,"ordinal":1},"scope":{"kind":"Operation"},"required_approval":false,"purpose_commitment":null
             }]}).to_string().into_bytes();

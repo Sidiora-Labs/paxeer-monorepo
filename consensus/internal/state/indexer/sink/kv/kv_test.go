@@ -8,6 +8,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/google/orderedcode"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -174,44 +175,58 @@ func TestTxSearchWithCancelation(t *testing.T) {
 	assert.Empty(t, results)
 }
 
-func TestTxSearchDeprecatedIndexing(t *testing.T) {
+func deprecatedTxSearchFixture(t *testing.T) (dbm.DB, indexer.EventSink, []*abci.TxResultV2) {
+	t.Helper()
 	esdb := dbm.NewMemDB()
 	indexer := NewEventSink(esdb)
+	t.Cleanup(func() { require.NoError(t, indexer.Stop()) })
 
 	// index tx using events indexing (composite key)
 	txResult1 := txResultWithEvents([]abci.Event{
 		{Type: "account", Attributes: []abci.EventAttribute{{Key: []byte("number"), Value: []byte("1"), Index: true}}},
 	})
-	hash1 := types.Tx(txResult1.Tx).Hash()
-
 	err := indexer.IndexTxEvents([]*abci.TxResultV2{txResult1})
 	require.NoError(t, err)
 
 	// index tx also using deprecated indexing (event as key)
 	txResult2 := txResultWithEvents(nil)
 	txResult2.Tx = types.Tx("HELLO WORLD 2")
+	txResult2.Index = 1
 
 	hash2 := types.Tx(txResult2.Tx).Hash()
 	b := esdb.NewBatch()
+	defer func() { require.NoError(t, b.Close()) }()
 
-	rawBytes, err := proto.Marshal(&abci.TxResult{Height: txResult2.Height, Index: txResult2.Index, Result: txResult2.Result})
+	rawBytes, err := proto.Marshal(&abci.TxResult{Height: txResult2.Height, Index: txResult2.Index, Tx: txResult2.Tx, Result: txResult2.Result})
 	require.NoError(t, err)
 
-	depKey := []byte(fmt.Sprintf("%s/%s/%d/%d",
+	depKey, err := orderedcode.Append(nil,
 		"sender",
 		"addr1",
 		txResult2.Height,
-		txResult2.Index,
-	))
+		int64(txResult2.Index),
+	)
+	require.NoError(t, err)
+	primaryKey, err := orderedcode.Append(nil, types.TxHashKey, string(hash2.Bytes()))
+	require.NoError(t, err)
 
 	err = b.Set(depKey, hash2.Bytes())
 	require.NoError(t, err)
 	err = b.Set(kvtx.KeyFromHeight(txResult2), hash2.Bytes())
 	require.NoError(t, err)
-	err = b.Set(hash2.Bytes(), rawBytes)
+	err = b.Set(primaryKey, rawBytes)
 	require.NoError(t, err)
 	err = b.Write()
 	require.NoError(t, err)
+
+	return esdb, indexer, []*abci.TxResultV2{txResult1, txResult2}
+}
+
+func TestTxSearchDeprecatedIndexing(t *testing.T) {
+	_, indexer, expected := deprecatedTxSearchFixture(t)
+	txResult1, txResult2 := expected[0], expected[1]
+	hash1 := types.Tx(txResult1.Tx).Hash()
+	hash2 := types.Tx(txResult2.Tx).Hash()
 
 	testCases := []struct {
 		q       string
@@ -234,6 +249,8 @@ func TestTxSearchDeprecatedIndexing(t *testing.T) {
 		{"account.number >= 2 AND account.number <= 5", []*abci.TxResultV2{}},
 		// search using not existing key
 		{"account.date >= TIME 2013-05-03T14:45:00Z", []*abci.TxResultV2{}},
+		// search both current and deprecated records by height
+		{"tx.height = 1", []*abci.TxResultV2{txResult1, txResult2}},
 		// search by deprecated key
 		{"sender = 'addr1'", []*abci.TxResultV2{txResult2}},
 	}
@@ -244,11 +261,7 @@ func TestTxSearchDeprecatedIndexing(t *testing.T) {
 		t.Run(tc.q, func(t *testing.T) {
 			results, err := indexer.SearchTxEvents(ctx, query.MustCompile(tc.q))
 			require.NoError(t, err)
-			for _, txr := range results {
-				for _, tr := range tc.results {
-					assert.Equal(t, tr, txr)
-				}
-			}
+			require.NoError(t, repairM1107CompareResults(results, tc.results))
 		})
 	}
 }

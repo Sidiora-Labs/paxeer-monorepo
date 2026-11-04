@@ -121,7 +121,7 @@ lxp_result lxp_programs_migration_accounting_read(
     if (length != 613U || memcmp(value, "LXMA1", 5U) != 0 ||
         read_u32(value + 5U) != 1U ||
         read_u16(value + 9U) != layerx_programs_migration_runtime_version() ||
-        read_u16(value + 11U) == 0U || read_u16(value + 11U) > 4U ||
+        lxp_programs_abi_transition_validate(1U, read_u16(value + 11U)) != LXP_OK ||
         read_u32(value + 13U) == 0U || read_u32(value + 17U) == 0U ||
         read_u32(value + 21U) == 0U || read_u32(value + 25U) == 0U ||
         memcmp(value + 61U, activity_id, 32U) != 0 ||

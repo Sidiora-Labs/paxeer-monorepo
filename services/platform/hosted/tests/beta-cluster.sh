@@ -242,6 +242,7 @@ IMAGE_LABEL=io.layerx.beta-cluster
 BOUNDARY_LABEL=layerx.io/program-registry-boundary
 
 source "$SCRIPT_DIR/beta-images.sh"
+source "$SCRIPT_DIR/beta-native.sh"
 source "$REPO_ROOT/services/platform/hosted/human/provision.sh"
 TRUSTED_BOUNDARY_SERVICES=(layerx-pending-core layerx-pending-core-admin paxeer-boundary layerx-identity layerx-receipt-authority layerx-agent-boundary)
 INTERNAL_NAMESPACE=layerx-internal
@@ -312,11 +313,7 @@ revision() {
             ;;
         *) fail "LAYERX_BETA_IMAGE_SOURCE must be build or ghcr" ;;
     esac
-    rev=$(git -C "$REPO_ROOT" rev-parse --short=12 HEAD)
-    if [ -n "$(git -C "$REPO_ROOT" status --porcelain --untracked-files=no -- platform)" ]; then
-        rev="$rev-dirty"
-    fi
-    printf '%s' "$rev"
+    beta_tool snapshot "$REPO_ROOT" - | python3 -c 'import json,sys; print(json.load(sys.stdin)["tag"], end="")'
 }
 
 image_ref() {
@@ -393,13 +390,13 @@ tools_install() {
 }
 
 build_context() {
-    log "packing the build context from the tracked source files of $REPO_ROOT"
-    (cd "$REPO_ROOT" && git ls-files -z --cached \
-        | while IFS= read -r -d '' path; do
-            case "/$path" in */.env|*/.env.*|/qual-logs/*|/NEEDS.md|/STATUS.md) continue ;; esac
-            [ -e "$path" ] && printf '%s\0' "$path"
-        done \
-        | tar --null --files-from - -cf "$WORK_DIR/context.tar")
+    mkdir -p "$WORK_DIR"
+    beta_tool snapshot "$REPO_ROOT" "$WORK_DIR/context.tar" > "$WORK_DIR/source.json"
+    SOURCE_REVISION=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["revision"])' "$WORK_DIR/source.json")
+    SOURCE_TREE=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["source_tree"])' "$WORK_DIR/source.json")
+    local packed_revision
+    packed_revision=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["tag"])' "$WORK_DIR/source.json")
+    [ "$REVISION" = "$packed_revision" ] || fail 'build inputs changed between revision selection and context packing'
 }
 
 image_selected() {
@@ -411,32 +408,39 @@ image_selected() {
 }
 
 build_images() {
-    local name canonical dockerfile ref id target sha describe
+    local name canonical dockerfile ref id target context prepared plan context_tree
     local -a build_args target_args
-    mkdir -p "$LOG_DIR"
+    mkdir -p "$WORK_DIR" "$LOG_DIR"
     : > "$WORK_DIR/images"
     build_context
-    sha=$(git -C "$REPO_ROOT" rev-parse --short=12 HEAD)
-    describe=$(git -C "$REPO_ROOT" describe --tags --always --abbrev=12)
     for name in "${IMAGE_NAMES[@]}"; do
         image_selected "$name" || continue
         read -r canonical dockerfile <<<"$(image_source "$name")"
+        context=$(image_context "$name")
+        prepared=-
+        if [ "$context" = @registry-builder ]; then
+            prepared=$(registry_builder_context_prepare)
+        fi
+        plan="$WORK_DIR/context-$name.json"
+        beta_tool image-plan "$name" "$dockerfile" "$context" "$prepared" \
+            "$WORK_DIR/context.tar" "$WORK_DIR/context-$name.tar" > "$plan"
+        dockerfile=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["dockerfile"])' "$plan")
+        context_tree=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["source_tree"])' "$plan")
         ref=$(image_ref "$name")
         read -r -a build_args <<<"$(image_build_args "$name")"
         target=$(image_target "$name")
         target_args=()
         [ -z "$target" ] || target_args=(--target "$target")
-        log "building $ref from $dockerfile${target:+ (stage $target)}"
+        log "building $ref from $dockerfile in $context"
         docker build --file "$dockerfile" "${target_args[@]}" --tag "$ref" \
-            --tag "ghcr.io/sidiora-labs/$name:$sha" --tag "ghcr.io/sidiora-labs/$name:$describe" \
-            --label "$IMAGE_LABEL=$CLUSTER_NAME" "${build_args[@]}" - < "$WORK_DIR/context.tar" \
+            --tag "ghcr.io/sidiora-labs/$name:$REVISION" \
+            --label "$IMAGE_LABEL=$CLUSTER_NAME" \
+            --label "org.opencontainers.image.revision=$SOURCE_REVISION" \
+            --label "io.layerx.source-tree=$SOURCE_TREE" \
+            --label "io.layerx.image-context-tree=$context_tree" \
+            "${build_args[@]}" - < "$WORK_DIR/context-$name.tar" \
             > "$LOG_DIR/build-$name.log" 2>&1 || { tail -n 40 "$LOG_DIR/build-$name.log" >&2; fail "image build failed for $name (log $LOG_DIR/build-$name.log)"; }
         id=$(docker image inspect --format '{{.Id}}' "$ref")
-        if [ "$name" = paxd ]; then
-            docker run --rm --entrypoint /bin/bash "$ref" -c \
-                'test -r /opt/layerx/init-chain.sh && test -s /opt/layerx/contracts/BetaUsdl.runtime.hex && command -v paxd && command -v jq' \
-                > "$LOG_DIR/contents-$name.log" 2>&1 || fail "Paxeer initialization image is incomplete"
-        fi
         printf '%s %s %s %s\n' "$name" "$canonical" "$ref" "$id" >> "$WORK_DIR/images"
     done
 }
@@ -1115,66 +1119,11 @@ PYREG
 }
 
 material_save() {
-    python3 - "$SECRETS_DIR/retained-context.json" "$SEQUENCER_KEY_SOURCE" "$SEQUENCER_ID" \
-        "$TEST_AUTH_SOURCE" "$TEST_SOURCE_DID" "$TEST_DESTINATION_DID" "$TEST_AMOUNT" \
-        "$GUARANTOR_BOND" "$CHECKPOINT_REGISTRY" "$CUSTODY_PROFILE" <<'PYCTX'
-import json, os, sys
-with open(sys.argv[1], 'w') as output:
-    os.chmod(sys.argv[1], 0o600)
-    json.dump(sys.argv[2:], output)
-PYCTX
-    retained_material_inventory save
+    native_material_save
 }
 
 material_prepare() {
-    source "$REPO_ROOT/services/platform/hosted/human/material.sh"
-    case "${LAYERX_BETA_RETAIN_MATERIAL:-0}" in
-        0)
-            ca_generate
-            secrets_generate
-            ;;
-        1)
-            retained_material_inventory check || fail "retained material refused: inventory validation failed"
-            python3 "$SCRIPT_DIR/sequencer-pins.py" --gateway-check "$SECRETS_DIR/receipt-keys.json"
-            KUBECONFIG_FILE=${LAYERX_BETA_KUBECONFIG:-$WORK_DIR/kubeconfig}
-            [ -x "$TOOLS_DIR/kubectl" ] && [ -r "$KUBECONFIG_FILE" ] \
-                || fail "retained material refused: live cluster kubeconfig and kubectl are required"
-            retained_material_live_check
-            local -a values
-            mapfile -t values < <(python3 - "$SECRETS_DIR/retained-context.json" <<'PYCTX'
-import json, sys
-values = json.load(open(sys.argv[1]))
-if len(values) != 9 or any(not isinstance(v, str) or '\n' in v or '\r' in v for v in values):
-    raise SystemExit('invalid retained context')
-print('\n'.join(values))
-PYCTX
-            )
-            [ "${#values[@]}" = 9 ] || fail "retained material refused: invalid context"
-            SEQUENCER_KEY_SOURCE=${values[0]}; SEQUENCER_ID=${values[1]}
-            TEST_AUTH_SOURCE=${values[2]}; TEST_SOURCE_DID=${values[3]}
-            TEST_DESTINATION_DID=${values[4]}; TEST_AMOUNT=${values[5]}
-            GUARANTOR_BOND=${values[6]}; CHECKPOINT_REGISTRY=${values[7]}
-            [ "$CUSTODY_PROFILE" = "${values[8]}" ] || fail "retained material refused: custody profile selection changed"
-            if [ -n "$CUSTODY_PROFILE" ]; then
-                cmp -s "$CUSTODY_PROFILE" "$SECRETS_DIR/custody.profile" \
-                    || fail "retained material refused: custody profile bytes changed"
-            fi
-            local file
-            for file in "$WORK_DIR/paxeer/settlement.env" "$WORK_DIR/paxeer/deployment.json" \
-                "$SECRETS_DIR/environment-tree-digest" "$SECRETS_DIR/bwrap-digest" "$SECRETS_DIR/cgroup-exec-digest" \
-                "$WORK_DIR/internal-principals/payments-enrollment.json" "$WORK_DIR/internal-principals/programs-enrollment.json" \
-                "$SECRETS_DIR/journeys-enrollment.key" "$SECRETS_DIR/approvals-enrollment.key" \
-                "$SECRETS_DIR/payments-enrollment.key" "$SECRETS_DIR/programs-enrollment.key" \
-                "$WORK_DIR/internal-principals/payments.credential" \
-                "$WORK_DIR/internal-principals/programs.credential"; do
-                [ -f "$file" ] && [ ! -L "$file" ] || fail "retained material refused: missing $file"
-            done
-            module_registry_generate > "$WORK_DIR/retained-registry-check.json"
-            cmp -s "$SECRETS_DIR/module-registry.json" "$WORK_DIR/retained-registry-check.json" \
-                || fail "retained material refused: configured module registry changed"
-            ;;
-        *) fail "LAYERX_BETA_RETAIN_MATERIAL must be 0 or 1" ;;
-    esac
+    native_material_prepare
 }
 
 internal_enrollment_snapshot() {
@@ -1272,22 +1221,13 @@ retained_material_test() (
     local directory
     directory=$(mktemp -d)
     trap 'rm -rf "$directory"' EXIT
-    source "$REPO_ROOT/services/platform/hosted/human/material.sh"
-    CA_DIR="$directory/ca"
-    SECRETS_DIR="$directory/secrets"
-    mkdir -m 0700 "$CA_DIR" "$SECRETS_DIR"
-    if retained_material_inventory check > "$directory/refusal" 2>&1; then
-        fail "incomplete retained material accepted"
+    if beta_tool native-open "$directory/native" 125 "$NODE_ASSET_ID" \
+        3434343434343434343434343434343434343434 > "$directory/refusal" 2>&1; then
+        fail "incomplete native retained material accepted"
     fi
-    grep -Fq 'retained material refused: missing inventory' "$directory/refusal"
-    for operation in beta_cluster_up beta_cluster_render; do
-        if (export LAYERX_BETA_RETAIN_MATERIAL=1; "$operation" 0) > "$directory/refusal" 2>&1; then
-            fail "incomplete retained material accepted by $operation"
-        fi
-        grep -Fq 'retained material refused: missing inventory' "$directory/refusal"
-        [ -d "$CA_DIR" ] && [ -d "$SECRETS_DIR" ] || fail "retained material was removed"
-    done
-    printf 'retained material incomplete-directory refusal passed for inventory, up and render\n'
+    grep -Fq manifest.json "$directory/refusal"
+    [ ! -e "$directory/native" ] || fail "retained refusal generated replacement state"
+    printf 'native retained material refuses missing manifest without generating replacement state\n'
 )
 
 apply_secret() {
@@ -1308,164 +1248,7 @@ apply_tls_secret() {
 }
 
 secrets_apply() {
-    local c="$CA_DIR" s="$SECRETS_DIR" ns="$TESTNET_NAMESPACE" dev="$DEVELOPER_NAMESPACE"
-    kube create namespace "$ns" --dry-run=client -o yaml | kube apply -f - > /dev/null
-    kube create namespace "$dev" --dry-run=client -o yaml | kube apply -f - > /dev/null
-    kube create namespace "$INTERNAL_NAMESPACE" --dry-run=client -o yaml | kube apply -f - > /dev/null
-    apply_secret "$INTERNAL_NAMESPACE" layerx-internal-redis-runtime \
-        --from-file=server.pem="$c/internal-redis/cert.pem" --from-file=server.key="$c/internal-redis/key.pem" \
-        --from-file=ca.pem="$c/ca.crt" --from-file=users.acl="$s/internal-redis.acl" \
-        --from-file=probe-password="$s/internal-redis-probe.password"
-    apply_secret "$INTERNAL_NAMESPACE" layerx-internal-kms-runtime \
-        --from-file=server.der="$c/internal-kms/cert.der" --from-file=server-key.der="$c/internal-kms/key.der" \
-        --from-file=ca.der="$c/ca.der" --from-file=token="$s/developer-kms.token" --from-file=seal-secret="$s/internal-kms-seal.key"
-    local producer client
-    local -a identity_material
-    for producer in gateway registry human; do
-        client="$producer-event-client"
-        if [ "$producer" = gateway ]; then client=gateway-client; fi
-        identity_material=()
-        if [ "$producer" = registry ]; then identity_material+=(--from-file=identity-token="$s/registry-identity.token"); fi
-        apply_secret "$ns" "layerx-$producer-event-producer" \
-            --from-file=ca.der="$c/ca.der" --from-file=client.p12="$c/$client/client.p12" \
-            --from-file=password="$c/$client/password" --from-file=token="$s/$producer-event-producer.token" \
-            --from-file=webhook-token="$s/developer-source-trigger.token" \
-            "${identity_material[@]}"
-    done
-    local service token
-    for service in journeys payments approvals programs; do
-        token=${service%s}
-        internal_enrollment_snapshot "$service" "$s/$service-enrollment.json"
-        producer=human
-        if [ "$service" = payments ]; then producer=gateway; fi
-        if [ "$service" = programs ]; then producer=registry; fi
-        local allow_digest=false
-        if [ "$producer" != human ]; then allow_digest=true; fi
-        (umask 077; printf '[{"token_file":"/run/layerx/producer-token","allow_principal_digest":%s}]\n' "$allow_digest" > "$s/$service-producers.json")
-        apply_secret "$INTERNAL_NAMESPACE" "layerx-internal-$service-runtime" \
-            --from-file=server.der="$c/internal-$service/cert.der" --from-file=server-key.der="$c/internal-$service/key.der" \
-            --from-file=ca.der="$c/ca.der" --from-file=upstream-ca.der="$c/ca.der" --from-file=token="$s/developer-$token.token" \
-            --from-file=credentials.json="$s/$service-enrollment.json" \
-            --from-file=enrollment-key="$s/$service-enrollment.key" \
-            --from-file=producers.json="$s/$service-producers.json" --from-file=producer-token="$s/$producer-event-producer.token"
-    done
-    apply_secret "$ns" layerx-human-tls --from-file=server.crt.der="$c/human/cert.der" \
-        --from-file=server.key.der="$c/human/key.der" --from-file=ca.crt="$c/ca.crt"
-    apply_secret "$ns" layerx-internal-ca --from-file=ca.crt.der="$c/ca.der" --from-file=ca.crt="$c/ca.crt"
-    apply_secret "$ns" layerx-human-web-tls --from-file=tls.crt="$c/human-web/cert.pem" --from-file=tls.key="$c/human-web/key.pem"
-    [ -s "$s/explorer-read.seed.hex" ] && [ -s "$s/explorer-read.pub.hex" ] && [ -s "$s/sequencer-public-key" ] \
-        || fail "explorer read principal material is missing: $s/explorer-read.seed.hex, $s/explorer-read.pub.hex and $s/sequencer-public-key are generated with fresh material"
-    apply_secret "$ns" layerx-explorer-index --from-file=program-token="$s/explorer-program.token" \
-        --from-file=authority-evidence-token="$s/explorer-authority-evidence.token" \
-        --from-file=read-key="$s/explorer-read.seed.hex" --from-file=sequencer-public-key="$s/sequencer-public-key"
-    apply_secret "$ns" layerx-explorer-index-tls --from-file=tls.crt="$c/explorer-index/cert.pem" --from-file=tls.key="$c/explorer-index/key.pem"
-    apply_secret "$ns" layerx-testnet-control-tls --from-file=server.crt.der="$c/testnet-control/cert.der" \
-        --from-file=server.key.der="$c/testnet-control/key.der" --from-file=ca.crt.der="$c/ca.der" --from-file=ca.crt="$c/ca.crt"
-    apply_secret "$ns" layerx-testnet-backend-admin --from-file=token="$s/backend-admin.token"
-    apply_secret "$ns" layerx-testnet-control-admin --from-file=token="$s/control-admin.token"
-    apply_secret "$ns" layerx-testnet-identity-client --from-file=token="$s/identity-client.token"
-    apply_secret "$ns" layerx-testnet-status-publisher --from-file=token="$s/status-publisher.token"
-    apply_secret "$ns" layerx-faucet-tls --from-file=server.crt.der="$c/faucet/cert.der" \
-        --from-file=server.key.der="$c/faucet/key.der" --from-file=ca.crt.der="$c/ca.der"
-    apply_secret "$ns" layerx-faucet-redis-tls --from-file=tls.crt="$c/faucet-redis/cert.pem" \
-        --from-file=tls.key="$c/faucet-redis/key.pem" --from-file=ca.crt="$c/ca.crt"
-    apply_secret "$ns" layerx-faucet-redis-auth --from-file=users.acl="$s/faucet-redis.acl"
-    apply_secret "$ns" layerx-faucet-redis-client --from-file=username="$s/faucet-redis.username" --from-file=password="$s/faucet-redis.password"
-    apply_secret "$ns" layerx-gateway-server-tls --from-file=server.crt.der="$c/gateway/cert.der" --from-file=server.key.der="$c/gateway/key.der"
-    apply_secret "$ns" layerx-gateway-client-identity --from-file=client.p12="$c/gateway-client/client.p12" --from-file=password="$c/gateway-client/password"
-    apply_secret "$ns" layerx-webhooks-component-client --from-file=token="$s/webhook-component.token"
-    apply_secret "$dev" layerx-webhooks-component-client --from-file=token="$s/webhook-component.token"
-    apply_secret "$ns" layerx-gateway-component-client --from-file=token="$s/gateway-component.token"
-    apply_secret "$ns" layerx-gateway-authority-client --from-file=token="$s/gateway-authority.token"
-    python3 "$SCRIPT_DIR/sequencer-pins.py" --gateway-secret "$s" "$ns" | kube apply -f - > /dev/null
-    apply_secret "$ns" layerx-gateway-identity-client --from-file=token="$s/gateway-identity.token"
-    apply_secret "$ns" layerx-gateway-faucet-client --from-file=token="$s/gateway-faucet.token"
-    apply_secret "$ns" layerx-gateway-redis-tls --from-file=tls.crt="$c/gateway-redis/cert.pem" \
-        --from-file=tls.key="$c/gateway-redis/key.pem" --from-file=ca.crt="$c/ca.crt"
-    apply_secret "$ns" layerx-gateway-redis-auth --from-file=users.acl="$s/gateway-redis.acl"
-    apply_secret "$ns" layerx-gateway-redis-client --from-file=username="$s/gateway-redis.username" --from-file=password="$s/gateway-redis.password"
-    apply_secret "$ns" layerx-gateway-key-provisioning --from-file=key="$s/provisioning.key"
-    apply_secret "$ns" layerx-interop-gateway-tls --from-file=server.crt.der="$c/interop-gateway/cert.der" \
-        --from-file=server.key.der="$c/interop-gateway/key.der"
-    apply_secret "$ns" layerx-interop-client-identity --from-file=client.p12="$c/interop-client/client.p12" \
-        --from-file=password="$c/interop-client/password"
-    apply_secret "$ns" layerx-interop-redis-client --from-file=username="$s/interop-redis.username" \
-        --from-file=password="$s/interop-redis.password"
-    apply_configmap "$ns" layerx-core-module-registry --from-file=registry.json="$s/module-registry.json"
-    apply_secret "$ns" layerx-program-registry-request-client --from-file=token="$s/registry-request.token"
-    apply_secret "$ns" layerx-program-registry-publication-operator --from-file=token="$s/registry-publication.token"
-    apply_secret "$ns" layerx-program-registry-server-tls --from-file=tls.crt.der="$c/registry/cert.der" --from-file=tls.key.der="$c/registry/key.der"
-    apply_secret "$ns" layerx-program-registry-node-client --from-file=token="$s/registry-node.token"
-    apply_secret "$ns" layerx-program-registry-authority-client --from-file=token="$s/registry-authority.token"
-    apply_secret "$ns" layerx-sequencer-trust-history --from-file=history="$s/trust-history"
-    apply_configmap "$ns" layerx-receipt-authority --from-file=replica-id="$s/receipt-authority-replica-id"
-    apply_secret "$ns" layerx-node-keys --from-file=sequencer.key="$s/node-sequencer.key" --from-file=treasury.key="$s/node-treasury.key"
-    [ -f "$s/node-genesis-metadata.lxgb" ] && [ ! -L "$s/node-genesis-metadata.lxgb" ] \
-        || fail "the LXGB v2 genesis metadata the node mounts is missing: $s/node-genesis-metadata.lxgb"
-    apply_configmap "$ns" layerx-node-genesis-metadata --from-file=metadata.lxgb="$s/node-genesis-metadata.lxgb"
-    publication_binding_publish
-    if [ -n "$CUSTODY_PROFILE" ]; then
-        apply_configmap "$ns" layerx-node-custody-profile --from-file=profile="$CUSTODY_PROFILE"
-    fi
-    apply_secret "$ns" layerx-node-tokens --from-file=program-token="$s/node-program.token" --from-file=replica-token="$s/node-replica.token"
-    apply_secret "$ns" layerx-pending-core-tls --from-file=server.crt.der="$c/pending-core/cert.der" --from-file=server.key.der="$c/pending-core/key.der"
-    apply_secret "$ns" layerx-pending-core-admin-tls --from-file=server.crt.der="$c/pending-core-admin/cert.der" --from-file=server.key.der="$c/pending-core-admin/key.der"
-    apply_secret "$ns" layerx-receipt-authority-tls --from-file=server.crt.der="$c/receipt-authority/cert.der" --from-file=server.key.der="$c/receipt-authority/key.der"
-    apply_secret "$ns" layerx-agent-boundary-tls --from-file=server.crt.der="$c/agent-boundary/cert.der" --from-file=server.key.der="$c/agent-boundary/key.der"
-    apply_secret "$ns" layerx-agentd-tls --from-file=tls.crt="$c/agentd/cert.pem" --from-file=tls.key="$c/agentd/key.pem"
-    apply_secret "$ns" layerx-webhooks-authority-client --from-file=token="$s/developer-authority.token"
-    apply_secret "$ns" layerx-identity-server-tls --from-file=server.crt.der="$c/identity/cert.der" --from-file=server.key.der="$c/identity/key.der"
-    apply_secret "$ns" layerx-identity-service-tokens --from-file="$s/identity-tokens"
-    apply_secret "$ns" layerx-identity-store-key --from-file=key="$s/identity-store.key"
-    apply_secret "$ns" paxeer-boundary-tls --from-file=server.crt.der="$c/paxeer-boundary/cert.der" --from-file=server.key.der="$c/paxeer-boundary/key.der"
-    for identity in 1 2; do
-        apply_secret "$ns" "layerx-guarantor-$identity-tls" --from-file=tls.crt="$c/guarantor-$identity/cert.pem" \
-            --from-file=tls.key="$c/guarantor-$identity/key.pem" --from-file=ca.crt="$c/ca.crt"
-    done
-    apply_secret "$ns" paxeer-checkpoint-submitter --from-file=key="$s/paxeer-checkpoint-submitter.key"
-    apply_secret "$ns" paxeer-deployer-address --from-file=address="$s/paxeer-deployer.address"
-    # The guarantor pays for every submitCheckpoint from this account and nothing tops it up after
-    # genesis, so init-chain.sh reads the address from this secret and funds its cast account.
-    apply_secret "$ns" paxeer-checkpoint-submitter-address --from-file=address="$s/paxeer-checkpoint-submitter.address"
-    # Every guarantor signs its deposit-root registrations with one Ed25519 key, and layerxcustody only
-    # accepts those signatures while its genesis parameter deposit_root_authority holds that key's
-    # public half. The parameter cannot be set after genesis, so the public half goes out before the
-    # chain is built (init-chain.sh reads it, and human provisioning reads the same secret) and the
-    # private half goes to the node pods, whose guarantor-checkpoint-authority init container installs
-    # it for the guarantors under the one shared guarantor-submitter volume subpath.
-    apply_secret "$ns" layerx-guarantor-checkpoint-authority \
-        --from-file=public.hex="$s/checkpoint-authority.public.hex"
-    apply_secret "$ns" layerx-guarantor-checkpoint-authority-key \
-        --from-file=key.pem="$s/checkpoint-authority.pem"
-    # Paxeer custody is the layerxcustody module behind the precompile at 0x…1013. Nothing is deployed
-    # for it: the network id, the sequencer authorization and the asset map are Paxeer genesis state,
-    # which init-chain.sh merges from this ConfigMap before it validates the genesis.
-    rm -f "$WORK_DIR/paxeer-custody-genesis.json"
-    python3 "$REPO_ROOT/services/platform/hosted/paxeer/custody-genesis.py" --network-id "$NODE_NETWORK_ID" \
-        --sequencer-id "$SEQUENCER_ID" --sequencer-public-key "$(cat "$CA_DIR/sequencer.pub.hex")" \
-        --deposit-root-authority "$(deposit_root_authority "$s")" \
-        --asset "$NODE_ASSET_ID:uhpx" --output "$WORK_DIR/paxeer-custody-genesis.json"
-    apply_configmap "$ns" paxeer-custody-genesis --from-file=genesis.json="$WORK_DIR/paxeer-custody-genesis.json"
-    apply_tls_secret "$ns" layerx-testnet-ingress-tls testnet-control
-    apply_tls_secret "$ns" layerx-gateway-ingress-tls gateway
-    apply_tls_secret "$ns" layerx-faucet-ingress-tls faucet
-    apply_secret "$dev" layerx-internal-ca --from-file=ca.crt.der="$c/ca.der" --from-file=ca.crt="$c/ca.crt"
-    apply_secret "$dev" layerx-developer-hosted-runtime \
-        --from-file=tls-cert.der="$c/developer/cert.der" --from-file=tls-key.der="$c/developer/key.der" \
-        --from-file=internal-ca.der="$c/ca.der" --from-file=public-ca.der="$c/ca.der" \
-        --from-file=client-identity.p12="$c/developer-client/client.p12" --from-file=client-password="$c/developer-client/password" \
-        --from-file=webhook-redis-username="$s/webhook-redis.username" --from-file=webhook-redis-password="$s/webhook-redis.password" \
-        --from-file=dashboard-redis-username="$s/dashboard-redis.username" --from-file=dashboard-redis-password="$s/dashboard-redis.password" \
-        --from-file=kms-token="$s/developer-kms.token" --from-file=identity-token="$s/developer-identity.token" \
-        --from-file=dashboard-identity-token="$s/identity-tokens/dashboard" \
-        --from-file=authority-token="$s/developer-authority.token" \
-        --from-file=journey-source-token="$s/developer-journey.token" --from-file=payment-source-token="$s/developer-payment.token" \
-        --from-file=approval-source-token="$s/developer-approval.token" --from-file=program-source-token="$s/developer-program.token" \
-        --from-file=source-trigger-token="$s/developer-source-trigger.token" --from-file=webhook-operator-token="$s/developer-operator.token" \
-        --from-file=cursor-key="$s/cursor.key" --from-file=sequencer-public-key="$s/sequencer-public-key" \
-        --from-file=sequencer-id="$s/sequencer-id" --from-file=sequencer-first-batch="$s/sequencer-first-batch" \
-        --from-file=sequencer-last-batch="$s/sequencer-last-batch"
-    apply_tls_secret "$dev" layerx-developer-ingress-tls developer
+    native_secrets_apply
 }
 
 publication_policy_create() {
@@ -1483,17 +1266,11 @@ publication_policy_create() {
 }
 
 publication_binding_publish() {
-    local recipient policy="$SECRETS_DIR/publication-binding-policy.json"
-    recipient=$(cat "$SECRETS_DIR/paxeer-deployer.address")
-    publication_policy_create treasury "$policy" "$NODE_NETWORK_ID" "$NODE_ASSET_ID" "${recipient#0x}"
-    local -a authorization=()
-    if [ "${LAYERX_BETA_RETAIN_MATERIAL:-0}" = 1 ]; then
-        [ -f "$SECRETS_DIR/publication-authorization.json" ] && [ ! -L "$SECRETS_DIR/publication-authorization.json" ] \
-            || fail 'retained checkpoint publication authorization is missing'
-        authorization=(--from-file=authorization.json="$SECRETS_DIR/publication-authorization.json")
-    fi
+    local -a policy
+    mapfile -t policy < <(native_policy_args)
+    beta_tool native-open "$SECRETS_DIR/native" "${policy[@]}" > /dev/null
     apply_secret "$TESTNET_NAMESPACE" layerx-node-publication \
-        --from-file=binding-policy.json="$policy" "${authorization[@]}"
+        --from-file=binding-policy.json="$SECRETS_DIR/native/treasury-policy.json"
 }
 
 builder_release_publish() {
@@ -1705,93 +1482,7 @@ PYSTATUS
 }
 
 manifests_render() {
-    mkdir -p "$MANIFESTS_DIR"
-    render_manifest "$NODE_MANIFEST" "$MANIFESTS_DIR/node.yaml"
-    sed -i "s|^  replica-id: \"[0-9a-f]*\"$|  replica-id: \"$(cat "$SECRETS_DIR/receipt-authority-replica-id")\"|" "$MANIFESTS_DIR/node.yaml"
-    grep -q "^  replica-id: \"$(cat "$SECRETS_DIR/receipt-authority-replica-id")\"$" "$MANIFESTS_DIR/node.yaml" \
-        || fail "the node manifest replica-id could not be bound to the generated receipt authority replica id"
-    if [ -n "$CUSTODY_PROFILE" ]; then
-        python3 - "$MANIFESTS_DIR/node.yaml" <<'PY'
-import sys
-import yaml
-path = sys.argv[1]
-with open(path) as source:
-    documents = list(yaml.safe_load_all(source))
-for document in documents:
-    if document.get("kind") != "StatefulSet":
-        continue
-    pod = document["spec"]["template"]["spec"]
-    daemon = next(container for container in pod["containers"] if container["name"] == "layerxd")
-    daemon["args"] += ["--custody-profile", "/run/layerx/custody.profile"]
-    daemon["volumeMounts"].append({"name": "custody-profile", "mountPath": "/run/layerx/custody.profile", "subPath": "profile", "readOnly": True})
-    movement = next(container for container in pod["containers"] if container["name"] == "human-movement")
-    movement["env"].append({"name": "LAYERX_HUMAN_MOVEMENT_PROVIDER_CUSTODY_PROFILE", "value": "/run/layerx/custody.profile"})
-    movement["volumeMounts"].append({"name": "custody-profile", "mountPath": "/run/layerx/custody.profile", "subPath": "profile", "readOnly": True})
-    pod["volumes"].append({"name": "custody-profile", "configMap": {"name": "layerx-node-custody-profile"}})
-with open(path, "w") as output:
-    yaml.safe_dump_all(documents, output, sort_keys=False)
-PY
-    fi
-    python3 - "$MANIFESTS_DIR/node.yaml" <<'PYREG'
-import sys, yaml
-path = sys.argv[1]
-with open(path) as source:
-    documents = list(yaml.safe_load_all(source))
-for document in documents:
-    if document.get('kind') != 'StatefulSet':
-        continue
-    pod = document['spec']['template']['spec']
-    daemon = next(c for c in pod['containers'] if c['name'] == 'layerxd')
-    pod['containers'].append({
-        'name': 'registry-check', 'image': daemon['image'],
-        'imagePullPolicy': daemon['imagePullPolicy'],
-        'command': ['sh', '-c', 'exec sleep infinity'],
-        'securityContext': {'runAsNonRoot': True, 'runAsUser': 4021, 'runAsGroup': 4020,
-                            'allowPrivilegeEscalation': False, 'readOnlyRootFilesystem': True,
-                            'capabilities': {'drop': ['ALL']}},
-        'resources': {'requests': {'cpu': '10m', 'memory': '16Mi'},
-                      'limits': {'cpu': '100m', 'memory': '64Mi'}},
-        'volumeMounts': [{'name': 'run', 'mountPath': '/run/layerx', 'readOnly': True}],
-    })
-with open(path, 'w') as output:
-    yaml.safe_dump_all(documents, output, sort_keys=False)
-PYREG
-    render_manifest "$REPO_ROOT/services/platform/hosted/identity/deployment.yaml" "$MANIFESTS_DIR/identity.yaml"
-    render_manifest "$REPO_ROOT/services/platform/hosted/paxeer/deployment.yaml" "$MANIFESTS_DIR/paxeer.yaml"
-    paxeer_observer_render
-    render_manifest "$REPO_ROOT/services/platform/hosted/testnet/deployment.yaml" "$MANIFESTS_DIR/testnet.yaml"
-    status_publisher_render
-    render_manifest "$REPO_ROOT/services/platform/hosted/gateway/deployment.yaml" "$MANIFESTS_DIR/gateway.yaml"
-    render_manifest "$REPO_ROOT/services/platform/hosted/interop/deployment.yaml" "$MANIFESTS_DIR/interop.yaml"
-    render_manifest "$REPO_ROOT/services/platform/hosted/registry/journal-pvc.yaml" "$MANIFESTS_DIR/registry-journal.yaml"
-    render_manifest "$REPO_ROOT/services/platform/hosted/registry/deployment.yaml" "$MANIFESTS_DIR/registry.yaml"
-    render_manifest "$REPO_ROOT/services/platform/hosted/human/deployment.yaml" "$MANIFESTS_DIR/human.yaml"
-    render_manifest "$REPO_ROOT/services/platform/hosted/human/web-deployment.yaml" "$MANIFESTS_DIR/human-web.yaml"
-    render_manifest "$REPO_ROOT/services/platform/hosted/internal/deployment.yaml" "$MANIFESTS_DIR/internal.yaml"
-    render_manifest "$REPO_ROOT/services/platform/hosted/webhooks/deployment.yaml" "$MANIFESTS_DIR/developer.yaml"
-    if [ "$RAMP_ENABLED" = 1 ]; then
-        render_manifest "$REPO_ROOT/services/platform/ramps/deployment.yaml" "$MANIFESTS_DIR/ramp.yaml"
-    fi
-    python3 "$SCRIPT_DIR/sequencer-pins.py" --manifests "$MANIFESTS_DIR"
-    cat >> "$MANIFESTS_DIR/testnet.yaml" <<EOF
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: layerx-faucet-public
-  namespace: $TESTNET_NAMESPACE
-  annotations: {nginx.ingress.kubernetes.io/backend-protocol: HTTPS}
-spec:
-  ingressClassName: nginx
-  tls: [{hosts: [$FAUCET_HOST], secretName: layerx-faucet-ingress-tls}]
-  rules:
-    - host: $FAUCET_HOST
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend: {service: {name: layerx-faucet-public, port: {name: https}}}
-EOF
+    native_manifests_render
 }
 
 trusted_boundary_apply() {
@@ -3420,149 +3111,7 @@ ramp_env_write() {
 }
 
 beta_cluster_up() {
-    local run_boundary_checks=$1
-    if [ "${LAYERX_BETA_RETAIN_MATERIAL:-0}" = 1 ]; then
-        source "$REPO_ROOT/services/platform/hosted/human/material.sh"
-        retained_material_inventory check || fail "retained material refused: inventory validation failed"
-    fi
-    require_tool docker curl openssl jq python3 git sha256sum tar base64
-    require_foundry
-    [ "${LAYERX_BETA_RETAIN_MATERIAL:-0}" = 1 ] || require_builder_environment
-    custody_profile_validate
-    interop_inputs_require
-    ramp_inputs_require
-    MISSING_INPUTS=()
-    REVISION=$(revision)
-    mkdir -p "$WORK_DIR" "$LOG_DIR"
-    PULL_POLICY=IfNotPresent
-    [ "$(cluster_mode)" = owner ] && PULL_POLICY=Always
-    preflight_disk "$MIN_FREE_GIB" LAYERX_BETA_MIN_FREE_GIB "build the beta images and run a local cluster"
-    tools_install
-    prepare_images
-    cluster_create
-    load_images
-    node_boundary_install
-    material_prepare
-    secrets_apply
-    manifests_render
-    if [ "${LAYERX_BETA_RETAIN_MATERIAL:-0}" = 1 ]; then
-        apply_configmap "$TESTNET_NAMESPACE" layerx-program-builder-release \
-            --from-file=environment-tree-digest="$SECRETS_DIR/environment-tree-digest" \
-            --from-file=bwrap-digest="$SECRETS_DIR/bwrap-digest" \
-            --from-file=cgroup-exec-digest="$SECRETS_DIR/cgroup-exec-digest"
-    else
-        builder_release_publish
-    fi
-    kube apply -f "$MANIFESTS_DIR/paxeer.yaml" > /dev/null
-    PAXEER_URL="https://localhost:19449"
-    PAXEER_OBSERVER_URL="https://localhost:19452"
-    wait_for_pod_ready "$TESTNET_NAMESPACE" app=paxeer 600
-    port_forward paxeer-boundary "$TESTNET_NAMESPACE" paxeer-boundary 19449 9443
-    port_forward paxeer-observer-boundary "$TESTNET_NAMESPACE" paxeer-observer-boundary 19452 9443
-    paxeer_origins_write
-    if [ "${LAYERX_BETA_RETAIN_MATERIAL:-0}" != 1 ]; then
-        [ -z "$CUSTODY_PROFILE" ] || fail 'fresh owner custody must be generated against this disposable cluster before genesis'
-        human_custody_step bootstrap
-        CUSTODY_PROFILE="$WORK_DIR/human-evidence-input/custody.profile"
-        cp "$CUSTODY_PROFILE" "$SECRETS_DIR/custody.profile"
-        apply_configmap "$TESTNET_NAMESPACE" layerx-node-custody-profile --from-file=profile="$CUSTODY_PROFILE"
-        manifests_render
-    fi
-    mirror_publish
-    trusted_boundary_apply
-    TESTNET_URL="https://localhost:$TESTNET_PORT"
-    GATEWAY_URL="https://localhost:$GATEWAY_PORT"
-    FAUCET_URL="https://localhost:$FAUCET_PORT"
-    DEVELOPER_URL="https://localhost:19450"
-    DEVELOPER_INGRESS_URL="https://localhost:$DEVELOPER_INGRESS_PORT"
-    NODE_URL="https://localhost:19446"
-    AGENT_URL="https://localhost:19447"
-    AGENTD_URL="https://localhost:19456"
-    PAXEER_URL="https://localhost:19449"
-    PAXEER_OBSERVER_URL="https://localhost:19452"
-    IDENTITY_URL="https://localhost:$IDENTITY_PORT"
-    INTEROP_URL="https://localhost:$INTEROP_PORT"
-    HUMAN_URL="https://localhost:19453"
-    HUMAN_WEB_URL="https://$HUMAN_WEB_HOST"
-    RAMP_URL="https://localhost:$RAMP_PORT"
-    EXPLORER_INDEX_URL="https://localhost:$EXPLORER_INDEX_PORT"
-    wait_for_node_genesis
-    if [ "${LAYERX_BETA_RETAIN_MATERIAL:-0}" = 1 ]; then
-        apply_configmap "$TESTNET_NAMESPACE" layerx-node-settlement --from-file=settlement.env="$WORK_DIR/paxeer/settlement.env"
-        human_secrets_apply
-    else
-        paxeer_contracts_deploy
-        settlement_publish
-    fi
-    wait_for_pod_ready "$TESTNET_NAMESPACE" app=layerx-identity 300
-    port_forward identity "$TESTNET_NAMESPACE" layerx-identity "$IDENTITY_PORT" 9443
-    if [ "${LAYERX_BETA_RETAIN_MATERIAL:-0}" != 1 ]; then
-        identity_provision
-        kube apply -f "$MANIFESTS_DIR/registry.yaml" > /dev/null
-        wait_for_pod_ready "$TESTNET_NAMESPACE" app=layerx-program-registry 600
-        (umask 077; mkdir -p "$WORK_DIR/human-evidence-input")
-        python3 "$REPO_ROOT/services/platform/hosted/human/provision.py" --prepare-owner-request \
-            --work-dir "$WORK_DIR" --secrets-dir "$SECRETS_DIR"
-        local guardians="$REPO_ROOT/services/platform/hosted/human/guardians.py"
-        python3 "$guardians" enroll --work-dir "$WORK_DIR" --secrets-dir "$SECRETS_DIR" \
-            --role guarantor-1 --identity "$NODE_GUARANTOR_ID"
-        python3 "$guardians" enroll --work-dir "$WORK_DIR" --secrets-dir "$SECRETS_DIR" \
-            --role guarantor-2 --identity "$NODE_SECOND_GUARANTOR_ID"
-        python3 "$guardians" enroll --work-dir "$WORK_DIR" --secrets-dir "$SECRETS_DIR" \
-            --role sequencer --identity "$NODE_SEQUENCER_ID"
-        python3 "$guardians" assemble --work-dir "$WORK_DIR"
-        local guardian
-        for guardian in guarantor-1 guarantor-2 sequencer; do
-            apply_secret "$TESTNET_NAMESPACE" "layerx-human-guardian-$guardian" \
-                --from-file=seed="$SECRETS_DIR/human-guardians/$guardian-e1/seed"
-        done
-        apply_configmap "$TESTNET_NAMESPACE" layerx-human-guardian-bindings \
-            --from-file=bindings.json="$WORK_DIR/human-evidence-input/recovery-guardian-bindings.json"
-        human_evidence_provision
-        human_policy_publish
-    fi
-    kube apply -f "$MANIFESTS_DIR/node.yaml" > /dev/null
-    internal_apply
-    manifests_apply
-    port_forward testnet "$TESTNET_NAMESPACE" layerx-testnet-public "$TESTNET_PORT" 443
-    port_forward gateway "$TESTNET_NAMESPACE" layerx-gateway "$GATEWAY_PORT" 443
-    port_forward faucet "$TESTNET_NAMESPACE" layerx-faucet-public "$FAUCET_PORT" 443
-    wait_for_pod_ready "$TESTNET_NAMESPACE" app=layerx-gateway 600
-    if [ "${LAYERX_BETA_RETAIN_MATERIAL:-0}" != 1 ]; then
-        internal_principals_provision
-    else
-        retained_principals_apply
-    fi
-    kube -n "$INTERNAL_NAMESPACE" rollout restart deployment/payments deployment/programs > /dev/null
-    port_forward human "$TESTNET_NAMESPACE" layerx-human 19453 9443
-    human_browser_provision
-    port_forward developer "$DEVELOPER_NAMESPACE" layerx-webhooks-public 19450 443
-    port_forward developer-ingress "$DEVELOPER_NAMESPACE" layerx-webhooks "$DEVELOPER_INGRESS_PORT" 443
-    port_forward pending-core "$TESTNET_NAMESPACE" layerx-pending-core 19446 9443
-    port_forward agent-boundary "$TESTNET_NAMESPACE" layerx-agent-boundary 19447 9443
-    port_forward agentd "$TESTNET_NAMESPACE" layerx-agentd 19456 9443
-    wait_for_pod_ready "$TESTNET_NAMESPACE" app=layerx-node 600
-    agentd_check
-    mirror_ready
-    port_forward explorer-index "$TESTNET_NAMESPACE" layerx-explorer-index "$EXPLORER_INDEX_PORT" 9443
-    module_registry_verify
-    explorer_observation_publish
-    human_web_apply
-    if [ -n "$HUMAN_WEB_PORT" ]; then
-        [ "$HUMAN_WEB_PORT" = 443 ] || fail "LAYERX_BETA_HUMAN_WEB_PORT must be 443 or empty because the browser origin $HUMAN_WEB_URL carries no port"
-        port_forward human-web "$TESTNET_NAMESPACE" layerx-human-web "$HUMAN_WEB_PORT" 443
-    fi
-    interop_gateway_apply
-    ramp_apply
-    if [ "${LAYERX_BETA_RETAIN_MATERIAL:-0}" != 1 ]; then material_save; fi
-    env_write
-    identity_write
-    wait_ready || fail "beta cluster did not reach journey readiness; see the missing owner inputs above"
-    log "every journey ready: $(jq -r '[.journeys[] | .journey] | join(",")' "$WORK_DIR/readyz.json")"
-    log "environment exported to $ENV_FILE"
-    log "human web application: add '127.0.0.1 $HUMAN_WEB_HOST' to /etc/hosts, trust the beta internal CA at $CA_DIR/ca.crt, then open $HUMAN_WEB_URL"
-    log "explorer program index: $EXPLORER_INDEX_URL (bearer $SECRETS_DIR/explorer-program.token)"
-    if [ "$run_boundary_checks" = 1 ]; then boundary_checks; fi
+    native_cluster_up "$1"
 }
 
 beta_cluster_down() {
@@ -3594,27 +3143,7 @@ beta_cluster_down() {
 }
 
 beta_cluster_render() {
-    if [ "${LAYERX_BETA_RETAIN_MATERIAL:-0}" = 1 ]; then
-        source "$REPO_ROOT/services/platform/hosted/human/material.sh"
-        retained_material_inventory check || fail "retained material refused: inventory validation failed"
-    fi
-    require_tool docker openssl jq python3 git
-    require_foundry
-    custody_profile_validate
-    MISSING_INPUTS=()
-    REVISION=$(revision)
-    PULL_POLICY=IfNotPresent
-    mkdir -p "$WORK_DIR"
-    : > "$WORK_DIR/images"
-    local name canonical dockerfile
-    for name in "${IMAGE_NAMES[@]}"; do
-        read -r canonical dockerfile <<<"$(image_source "$name")"
-        [ -f "$REPO_ROOT/$dockerfile" ] || fail "missing $dockerfile"
-        printf '%s %s %s unbuilt\n' "$name" "$canonical" "$(image_ref "$name")" >> "$WORK_DIR/images"
-    done
-    material_prepare
-    manifests_render
-    log "rendered manifests under $MANIFESTS_DIR and beta CA under $CA_DIR (nothing applied)"
+    native_cluster_render
 }
 
 publish_images() {
@@ -3638,7 +3167,7 @@ main() {
     shift || true
     case "$command" in
         images)
-            require_tool docker git tar
+            require_tool docker git tar python3 go
             REVISION=$(revision)
             preflight_disk "$IMAGE_MIN_FREE_GIB" LAYERX_BETA_IMAGE_MIN_FREE_GIB "build the beta images"
             prepare_images

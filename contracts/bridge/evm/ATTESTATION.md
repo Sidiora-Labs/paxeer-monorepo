@@ -66,6 +66,19 @@ event BridgeDeposit(address indexed asset, uint256 amount, address indexed sende
 `nonce` is the vault's sequential deposit counter starting at 0; the digest
 binds `logIndex` rather than `nonce` so it can be checked against the receipt.
 
+## Paxeer denom registration and units
+
+The [Paxeer module's denom rules](../../../modules/layerxbridge/ATTESTATION.md#minted-denom-and-the-sidiora-exception)
+use `factory/{bridge module address}/lxb{hex(keccak256(uint64 chainId || asset)[:20])}`
+for every pair except canonical Sidiora; here `chainId` is eight bytes,
+big-endian, and `asset` is 20 raw bytes. The canonical Solana pair is chain
+`0x0000534f4c414e41` and asset `0x21f7b20a555199fa73A238B1a91FD0f549068fEe`,
+and uses `factory/{bridge module address}/usid`. Governance must register the
+chain, call `RegisterSidioraPair`, and then set its caps with `SetCap`.
+SID has six decimals: **1 SID = 1,000,000 `usid` base units**. Attested `amount`,
+caps, minted balances and burns are integer base units, with no rescaling by
+the bridge. Denom selection changes none of the signed fields or domains.
+
 ## Test vectors
 
 Common inputs: `chainId = 1`, `vault = 0x1111111111111111111111111111111111111111`,

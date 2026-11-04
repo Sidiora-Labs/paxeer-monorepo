@@ -19,17 +19,32 @@ import SocketAlert from 'ui/shared/SocketAlert';
 const PaxeerXFeed = () => {
   const queryClient = useQueryClient();
 
-  const { channel, refetchInterval, isSocketDown } = useFeedSocket({ topic: 'paxeer_x_feed:new_update', isDisabled: false });
+  const reconcileMarkets = React.useCallback(async() => {
+    const queryKey = getResourceKey('general:paxeer_x_feed_markets');
+    await queryClient.cancelQueries({ queryKey, exact: true });
+    await queryClient.invalidateQueries({ queryKey, exact: true });
+  }, [ queryClient ]);
+
+  const { channel, refetchInterval, isSocketDown } = useFeedSocket({
+    topic: 'paxeer_x_feed:new_update', isDisabled: false, onJoin: reconcileMarkets,
+  });
 
   const { data, isError, isPending } = useApiQuery('general:paxeer_x_feed_markets', {
     queryOptions: { refetchInterval },
   });
 
   const handleFlush = React.useCallback((updates: Array<PriceUpdateItem>) => {
+    const snapshot = queryClient.getQueryData<FeedMarketsResponse>(getResourceKey('general:paxeer_x_feed_markets'));
+    const markets = new Set(snapshot?.items.map((market) => market.market_id));
+    const hasUnknownMarket = updates.some((update) => update.status === 'ok' &&
+      update.price_update.observations.some((observation) => observation.accepted && !markets.has(observation.market_id)));
     queryClient.setQueryData(getResourceKey('general:paxeer_x_feed_markets'), (prevData: FeedMarketsResponse | undefined) => {
       return prevData ? applyPriceUpdates(prevData, updates) : prevData;
     });
-  }, [ queryClient ]);
+    if (hasUnknownMarket) {
+      void reconcileMarkets();
+    }
+  }, [ queryClient, reconcileMarkets ]);
 
   const { push, hoverProps } = useSocketBuffer<PriceUpdateItem>({ onFlush: handleFlush, limit: FEED_OVERVIEW_BUFFER_LIMIT });
 

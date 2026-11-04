@@ -114,6 +114,12 @@ func (k Keeper) SetParams(ctx sdk.Context, params Params) error {
 	if err := params.Validate(); err != nil {
 		return err
 	}
+	previous := k.GetParams(ctx)
+	if params.MaxJobGasLimit < previous.MaxJobGasLimit || params.MaxBlockGas < previous.MaxBlockGas {
+		if err := k.validatePendingGasLimits(ctx, params); err != nil {
+			return err
+		}
+	}
 	encoded, err := json.Marshal(params)
 	if err != nil {
 		return err

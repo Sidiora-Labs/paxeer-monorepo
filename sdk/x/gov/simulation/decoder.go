@@ -2,7 +2,6 @@ package simulation
 
 import (
 	"bytes"
-	"encoding/binary"
 	"fmt"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec"
@@ -31,8 +30,8 @@ func NewDecodeStore(cdc codec.Codec) func(kvA, kvB kv.Pair) string {
 		case bytes.Equal(kvA.Key[:1], types.ActiveProposalQueuePrefix),
 			bytes.Equal(kvA.Key[:1], types.InactiveProposalQueuePrefix),
 			bytes.Equal(kvA.Key[:1], types.ProposalIDKey):
-			proposalIDA := binary.LittleEndian.Uint64(kvA.Value)
-			proposalIDB := binary.LittleEndian.Uint64(kvB.Value)
+			proposalIDA := types.GetProposalIDFromBytes(kvA.Value)
+			proposalIDB := types.GetProposalIDFromBytes(kvB.Value)
 			return fmt.Sprintf("proposalIDA: %d\nProposalIDB: %d", proposalIDA, proposalIDB)
 
 		case bytes.Equal(kvA.Key[:1], types.DepositsKeyPrefix):

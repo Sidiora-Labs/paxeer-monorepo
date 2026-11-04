@@ -1,42 +1,192 @@
 package rest_test
 
 import (
+	"context"
 	"fmt"
+	"net"
+	"net/http/httptest"
+	"strconv"
 	"testing"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
+	dbm "github.com/tendermint/tm-db"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 
+	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
+	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
+	_ "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/baseapp" // Register the production SDK gRPC wire codec.
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec"
+	codectypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec/types"
+	cryptocodec "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/codec"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/ed25519"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/server/api"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/testutil"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/testutil/network"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	grpctypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/grpc"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/query"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/rest"
+	authkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/keeper"
+	authtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/types"
+	bankkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/keeper"
+	banktypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/distribution/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/distribution/types"
+	paramtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/params/types"
+	stakingkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/staking/keeper"
+	stakingtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/staking/types"
 )
 
 type IntegrationTestSuite struct {
 	suite.Suite
+	fixture *distributionGatewayFixture
+}
 
-	cfg     network.Config
-	network *network.Network
+type distributionGatewayFixture struct {
+	APIAddress string
+	ClientCtx  client.Context
+	Address    sdk.AccAddress
+	ValAddress sdk.ValAddress
+	ctx        sdk.Context
+	keeper     keeper.Keeper
+	bank       bankkeeper.BaseKeeper
 }
 
 func (s *IntegrationTestSuite) SetupSuite() {
-	s.T().Log("setting up integration test suite")
+	s.fixture = newDistributionGatewayFixture(s.T())
+}
 
-	cfg := network.DefaultConfig(s.T())
-	cfg.NumValidators = 1
+func newDistributionGatewayFixture(t *testing.T) *distributionGatewayFixture {
+	t.Helper()
+	registry := codectypes.NewInterfaceRegistry()
+	cryptocodec.RegisterInterfaces(registry)
+	authtypes.RegisterInterfaces(registry)
+	banktypes.RegisterInterfaces(registry)
+	stakingtypes.RegisterInterfaces(registry)
+	types.RegisterInterfaces(registry)
+	cdc := codec.NewProtoCodec(registry)
+	amino := codec.NewLegacyAmino()
+	authKey := sdk.NewKVStoreKey(authtypes.StoreKey)
+	bankKey := sdk.NewKVStoreKey(banktypes.StoreKey)
+	stakingKey := sdk.NewKVStoreKey(stakingtypes.StoreKey)
+	distrKey := sdk.NewKVStoreKey(types.StoreKey)
+	paramsKey := sdk.NewKVStoreKey(paramtypes.StoreKey)
+	transientKey := sdk.NewTransientStoreKey(paramtypes.TStoreKey)
+	db := dbm.NewMemDB()
+	t.Cleanup(func() { require.NoError(t, db.Close()) })
+	cms := store.NewCommitMultiStore(db)
+	for _, key := range []*sdk.KVStoreKey{authKey, bankKey, stakingKey, distrKey, paramsKey} {
+		cms.MountStoreWithDB(key, sdk.StoreTypeIAVL, db)
+	}
+	cms.MountStoreWithDB(transientKey, sdk.StoreTypeTransient, db)
+	require.NoError(t, cms.LoadLatestVersion())
+	ctx := sdk.NewContext(cms, tmproto.Header{Height: 1, Time: time.Unix(100, 0).UTC()}, false)
+	subspace := func(name string) paramtypes.Subspace {
+		return paramtypes.NewSubspace(cdc, amino, paramsKey, transientKey, name)
+	}
+	ak := authkeeper.NewAccountKeeper(cdc, authKey, subspace(authtypes.ModuleName), authtypes.ProtoBaseAccount,
+		map[string][]string{
+			types.ModuleName: {}, authtypes.FeeCollectorName: {},
+			stakingtypes.BondedPoolName:    {authtypes.Burner, authtypes.Staking},
+			stakingtypes.NotBondedPoolName: {authtypes.Burner, authtypes.Staking},
+		})
+	ak.SetParams(ctx, authtypes.DefaultParams())
+	bk := bankkeeper.NewBaseKeeper(cdc, bankKey, ak, subspace(banktypes.ModuleName), map[string]bool{})
+	sk := stakingkeeper.NewKeeper(cdc, stakingKey, ak, bk, subspace(stakingtypes.ModuleName))
+	sk.SetParams(ctx, stakingtypes.DefaultParams())
+	dk := keeper.NewKeeper(cdc, distrKey, subspace(types.ModuleName), ak, bk, sk, authtypes.FeeCollectorName, map[string]bool{})
+	sk.SetHooks(dk.Hooks())
 
-	s.cfg = cfg
-	s.network = network.New(s.T(), cfg)
-	_, err := s.network.WaitForHeight(1)
-	s.Require().NoError(err)
+	pk := ed25519.GenPrivKeyFromSecret([]byte("distribution gateway validator")).PubKey()
+	f := &distributionGatewayFixture{
+		ClientCtx: client.Context{}.WithCodec(cdc).WithInterfaceRegistry(registry),
+		Address:   sdk.AccAddress(pk.Address()), ValAddress: sdk.ValAddress(pk.Address()),
+		keeper: dk, bank: bk,
+	}
+	for _, name := range []string{types.ModuleName, authtypes.FeeCollectorName, stakingtypes.BondedPoolName, stakingtypes.NotBondedPoolName} {
+		ak.GetModuleAccount(ctx, name)
+	}
+	ak.SetAccount(ctx, ak.NewAccountWithAddress(ctx, f.Address))
+	bankGenesis := banktypes.DefaultGenesisState()
+	bankGenesis.Balances = []banktypes.Balance{
+		{Address: ak.GetModuleAddress(authtypes.FeeCollectorName).String(), Coins: sdk.NewCoins(sdk.NewInt64Coin("uhpx", 20))},
+		{Address: ak.GetModuleAddress(stakingtypes.BondedPoolName).String(), Coins: sdk.NewCoins(sdk.NewInt64Coin("uhpx", 100))},
+		{Address: f.Address.String(), Coins: sdk.NewCoins(sdk.NewInt64Coin("uhpx", 40))},
+	}
+	bk.InitGenesis(ctx, bankGenesis)
+	genesis := types.DefaultGenesisState()
+	require.NoError(t, types.ValidateGenesis(genesis))
+	dk.InitGenesis(ctx, *genesis)
+	validator, err := stakingtypes.NewValidator(f.ValAddress, pk, stakingtypes.Description{})
+	require.NoError(t, err)
+	validator.Status = stakingtypes.Bonded
+	validator.Tokens = sdk.NewInt(100)
+	validator.DelegatorShares = sdk.NewDec(100)
+	validator.Commission = stakingtypes.NewCommission(sdk.NewDecWithPrec(5, 1), sdk.OneDec(), sdk.OneDec())
+	sk.SetValidator(ctx, validator)
+	require.NoError(t, sk.SetValidatorByConsAddr(ctx, validator))
+	sk.AfterValidatorCreated(ctx, f.ValAddress)
+	sk.BeforeDelegationCreated(ctx, f.Address, f.ValAddress)
+	sk.SetDelegation(ctx, stakingtypes.NewDelegation(f.Address, f.ValAddress, sdk.NewDec(100)))
+	sk.AfterDelegationModified(ctx, f.Address, f.ValAddress)
+
+	// Allocate actual fee-collector balances at height 2. Zero-tax genesis and
+	// 50% commission produce exactly the suite's 20/10/10 uhpx expectations.
+	f.ctx = ctx.WithBlockHeight(2)
+	dk.AllocateTokens(f.ctx, 1, 1, sdk.ConsAddress(pk.Address()), []abci.VoteInfo{
+		{Validator: abci.Validator{Address: pk.Address(), Power: 1}, SignedLastBlock: true},
+	})
+	require.True(t, bk.GetAllBalances(f.ctx, ak.GetModuleAddress(authtypes.FeeCollectorName)).IsZero())
+	require.Equal(t, sdk.NewCoins(sdk.NewInt64Coin("uhpx", 20)), bk.GetAllBalances(f.ctx, ak.GetModuleAddress(types.ModuleName)))
+
+	// Each real gRPC query gets an isolated branch, as in BaseApp. Reward
+	// queries increment periods and must not mutate the fixture's live state.
+	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(func(callCtx context.Context, req interface{}, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+		md, _ := metadata.FromIncomingContext(callCtx)
+		if heights := md.Get(grpctypes.GRPCBlockHeightHeader); len(heights) > 0 {
+			height, err := strconv.ParseInt(heights[0], 10, 64)
+			if err != nil || (height != 0 && height != f.ctx.BlockHeight()) {
+				return nil, status.Error(codes.InvalidArgument, "fixture only serves its current height")
+			}
+		}
+		queryCtx, _ := f.ctx.WithContext(callCtx).CacheContext()
+		if err := grpc.SetHeader(callCtx, metadata.Pairs(grpctypes.GRPCBlockHeightHeader, strconv.FormatInt(f.ctx.BlockHeight(), 10))); err != nil {
+			return nil, err
+		}
+		return handler(sdk.WrapSDKContext(queryCtx), req)
+	}))
+	types.RegisterQueryServer(grpcServer, dk)
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	serveErr := make(chan error, 1)
+	go func() { serveErr <- grpcServer.Serve(listener) }()
+	t.Cleanup(func() {
+		grpcServer.Stop()
+		require.NoError(t, <-serveErr)
+	})
+	dialCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	conn, err := grpc.DialContext(dialCtx, listener.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, conn.Close()) })
+	apiServer := api.New(f.ClientCtx)
+	require.NoError(t, types.RegisterQueryHandlerClient(context.Background(), apiServer.GRPCGatewayRouter, types.NewQueryClient(conn)))
+	server := httptest.NewServer(apiServer.GRPCGatewayRouter)
+	t.Cleanup(server.Close)
+	f.APIAddress = server.URL
+	return f
 }
 
 func (s *IntegrationTestSuite) TestQueryParamsGRPC() {
-	val := s.network.Validators[0]
+	val := s.fixture
 	baseURL := val.APIAddress
 
 	testCases := []struct {
@@ -67,7 +217,7 @@ func (s *IntegrationTestSuite) TestQueryParamsGRPC() {
 }
 
 func (s *IntegrationTestSuite) TestQueryOutstandingRewardsGRPC() {
-	val := s.network.Validators[0]
+	val := s.fixture
 	baseURL := val.APIAddress
 
 	rewards, err := sdk.ParseDecCoins("20uhpx")
@@ -110,6 +260,7 @@ func (s *IntegrationTestSuite) TestQueryOutstandingRewardsGRPC() {
 		resp, err := testutil.GetRequestWithHeaders(tc.url, tc.headers)
 		s.Run(tc.name, func() {
 			if tc.expErr {
+				s.Require().NoError(err)
 				s.Require().Error(val.ClientCtx.Codec.UnmarshalAsJSON(resp, tc.respType))
 			} else {
 				s.Require().NoError(err)
@@ -121,7 +272,7 @@ func (s *IntegrationTestSuite) TestQueryOutstandingRewardsGRPC() {
 }
 
 func (s *IntegrationTestSuite) TestQueryValidatorCommissionGRPC() {
-	val := s.network.Validators[0]
+	val := s.fixture
 	baseURL := val.APIAddress
 
 	commission, err := sdk.ParseDecCoins("10uhpx")
@@ -164,6 +315,7 @@ func (s *IntegrationTestSuite) TestQueryValidatorCommissionGRPC() {
 		resp, err := testutil.GetRequestWithHeaders(tc.url, tc.headers)
 		s.Run(tc.name, func() {
 			if tc.expErr {
+				s.Require().NoError(err)
 				s.Require().Error(val.ClientCtx.Codec.UnmarshalAsJSON(resp, tc.respType))
 			} else {
 				s.Require().NoError(err)
@@ -175,7 +327,7 @@ func (s *IntegrationTestSuite) TestQueryValidatorCommissionGRPC() {
 }
 
 func (s *IntegrationTestSuite) TestQuerySlashesGRPC() {
-	val := s.network.Validators[0]
+	val := s.fixture
 	baseURL := val.APIAddress
 
 	testCases := []struct {
@@ -223,6 +375,7 @@ func (s *IntegrationTestSuite) TestQuerySlashesGRPC() {
 
 		s.Run(tc.name, func() {
 			if tc.expErr {
+				s.Require().NoError(err)
 				s.Require().Error(val.ClientCtx.Codec.UnmarshalAsJSON(resp, tc.respType))
 			} else {
 				s.Require().NoError(err)
@@ -234,7 +387,7 @@ func (s *IntegrationTestSuite) TestQuerySlashesGRPC() {
 }
 
 func (s *IntegrationTestSuite) TestQueryDelegatorRewardsGRPC() {
-	val := s.network.Validators[0]
+	val := s.fixture
 	baseUrl := val.APIAddress
 
 	rewards, err := sdk.ParseDecCoins("10.0uhpx")
@@ -299,6 +452,7 @@ func (s *IntegrationTestSuite) TestQueryDelegatorRewardsGRPC() {
 
 		s.Run(tc.name, func() {
 			if tc.expErr {
+				s.Require().NoError(err)
 				s.Require().Error(val.ClientCtx.Codec.UnmarshalAsJSON(resp, tc.respType))
 			} else {
 				s.Require().NoError(err)
@@ -310,7 +464,7 @@ func (s *IntegrationTestSuite) TestQueryDelegatorRewardsGRPC() {
 }
 
 func (s *IntegrationTestSuite) TestQueryDelegatorValidatorsGRPC() {
-	val := s.network.Validators[0]
+	val := s.fixture
 	baseUrl := val.APIAddress
 
 	testCases := []struct {
@@ -351,6 +505,7 @@ func (s *IntegrationTestSuite) TestQueryDelegatorValidatorsGRPC() {
 
 		s.Run(tc.name, func() {
 			if tc.expErr {
+				s.Require().NoError(err)
 				s.Require().Error(val.ClientCtx.Codec.UnmarshalAsJSON(resp, tc.respType))
 			} else {
 				s.Require().NoError(err)
@@ -362,7 +517,7 @@ func (s *IntegrationTestSuite) TestQueryDelegatorValidatorsGRPC() {
 }
 
 func (s *IntegrationTestSuite) TestQueryWithdrawAddressGRPC() {
-	val := s.network.Validators[0]
+	val := s.fixture
 	baseUrl := val.APIAddress
 
 	testCases := []struct {
@@ -403,6 +558,7 @@ func (s *IntegrationTestSuite) TestQueryWithdrawAddressGRPC() {
 
 		s.Run(tc.name, func() {
 			if tc.expErr {
+				s.Require().NoError(err)
 				s.Require().Error(val.ClientCtx.Codec.UnmarshalAsJSON(resp, tc.respType))
 			} else {
 				s.Require().NoError(err)
@@ -414,7 +570,7 @@ func (s *IntegrationTestSuite) TestQueryWithdrawAddressGRPC() {
 }
 
 func (s *IntegrationTestSuite) TestQueryValidatorCommunityPoolGRPC() {
-	val := s.network.Validators[0]
+	val := s.fixture
 	baseURL := val.APIAddress
 
 	communityPool, err := sdk.ParseDecCoins("0uhpx")
@@ -459,6 +615,5 @@ func (s *IntegrationTestSuite) TestQueryValidatorCommunityPoolGRPC() {
 }
 
 func TestIntegrationTestSuite(t *testing.T) {
-	t.Skip()
 	suite.Run(t, new(IntegrationTestSuite))
 }
