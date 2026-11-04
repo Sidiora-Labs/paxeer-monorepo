@@ -138,6 +138,12 @@ def identity(value, path, activities=None):
 def owner_registration(work_dir, activities=None, owner_did=None):
     path = Path(work_dir) / 'human-evidence-input/owner-registration.json'
     value = protected_json(path)
+    from merged_owner import SCHEMA, validate_registration
+    if value.get('schema') == SCHEMA:
+        validate_registration(value, path)
+        if owner_did is not None:
+            require(value['identity']['did'] == owner_did, path, 'LXIP owner DID binding')
+        return value
     fields(value, 'owner_account authority identity', path, 'owner registration')
     h32(value['owner_account'], path, 'owner_account')
     text(value['authority'], path, 'authority')
@@ -156,8 +162,8 @@ def purpose_catalog(template_path, registry_path, treasury_path, sequencer_path,
     array(template['presets'], template_path, 'presets')
     require(bool(template['presets']), template_path, 'presets')
     registry = protected_json(registry_path)
-    require(type(registry) is dict and registry.get('schema_version') == 2,
-            registry_path, 'version 2 module registry')
+    from material import canonical_module_registry
+    canonical_module_registry(registry, registry.get('network_id'))
     h32(asset, registry_path, 'LAYERX_NODE_ASSET_ID')
     array(registry.get('assets'), registry_path, 'assets')
     require(any(type(a) is dict and a.get('asset') == asset for a in registry['assets']),
@@ -350,10 +356,14 @@ def owner_policy():
 
 def principal_policy(binding, registration, asset, policy, path):
     entry = registration['identity']
-    references = [entry['evidence'], entry['rotation']['evidence'], entry['recovery']['evidence']]
+    from merged_owner import SCHEMA, validate_registration
+    merged = registration.get('schema') == SCHEMA
+    references = [entry['evidence'], entry['recovery']['evidence']]
+    if not merged:
+        references.append(entry['rotation']['evidence'])
     references.extend(c['evidence'] for c in entry['capabilities'])
     activities = sorted({r['activity_id'] for r in references})
-    identity(entry, path, activities)
+    validate_registration(registration, path) if merged else identity(entry, path, activities)
     result = {'principals': [{'tenant': binding['tenant'], 'principal': binding['principal'],
         'account_id': registration['owner_account'], 'asset_id': asset,
         'activities': activities, 'budgets': policy['budgets'],
@@ -367,7 +377,7 @@ def principal_policy(binding, registration, asset, policy, path):
     fields(principal, 'tenant principal account_id asset_id activities budgets maximum_age_seconds maximum_age_sequences identities', path, 'principal policy entry')
     h32(principal['account_id'], path, 'account_id')
     h32(principal['asset_id'], path, 'asset_id')
-    identity(principal['identities'][0], path, principal['activities'])
+    validate_registration(registration, path) if merged else identity(principal['identities'][0], path, principal['activities'])
     require(parsed == result, path, 'principal policy reparse')
     return parsed
 
@@ -485,8 +495,8 @@ def evidence_inputs(work_dir, registry_path, journal_path):
     binding_path = root / 'identity/source-binding.json'
     peer_binding(protected_json(binding_path), binding_path)
     registry = protected_json(registry_path)
-    require(type(registry) is dict and registry.get('schema_version') == 2,
-            registry_path, 'version 2 module registry')
+    from material import canonical_module_registry
+    canonical_module_registry(registry, registry.get('network_id'))
     journal_records(journal_path)
 
 
@@ -510,120 +520,16 @@ def retained_evidence(destination, files, records):
 
 
 def validate_native_records(records, registration, network):
-    from owner_native import Reader, digest, span, receipt_fields
-    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
-    path = 'native owner evidence'
+    from merged_owner import validate_evidence
     context = json.loads(records['native-context.json'], object_pairs_hook=strict_pairs)
-    fields(context, 'network_id sequencer_public_key', path, 'native context')
-    require(context['network_id'] == network, path, 'network binding')
-    h32(context['sequencer_public_key'], path, 'sequencer key')
-    h32(registration['authority'], path, 'owner authority')
-    public = bytes.fromhex(registration['authority'])
-    did = registration['identity']['did'].encode()
-    require(len(did) <= 255, path, 'owner DID length')
-    account = hashlib.sha256(b'LX:ACCOUNT:v1' + span(b'agent:' + did + b':main')).hexdigest()
-    require(registration['owner_account'] == account, path, 'original owner account')
-    results = {}
-    for label, module, ordinal in (('credit', 8, 1), ('identity', 7, 1), ('rotation', 7, 2), ('recovery', 7, 3)):
-        activity = records[label + '.activity']
-        r = Reader(activity, path)
-        require(r.take(5) == b'\0\3\x10\1\14', path, 'canonical signed activity')
-        def tag(value):
-            require(r.number(1) == value, path, 'canonical activity field')
-        tag(1)
-        require(r.number(2) == 3, path, 'protocol version')
-        tag(2)
-        require(r.number(4) == network, path, 'signed activity network')
-        tag(3)
-        require(r.number(4) == (module << 16) | ordinal, path, 'signed native activity type')
-        tag(4)
-        require(r.span(255) == did, path, 'signed owner DID')
-        tag(5)
-        require(r.span(32) == public, path, 'signed owner authority')
-        tag(6)
-        r.number(8)
-        tag(7)
-        start, end = r.number(8), r.number(8)
-        require(start < end, path, 'activity validity')
-        tag(8)
-        require(len(r.span(32)) == 32, path, 'idempotency key')
-        tag(9)
-        r.number(16)
-        tag(10)
-        payload_hash = r.span(32)
-        tag(11)
-        payload = r.span(1048576)
-        require(payload_hash == digest(b'payload-hash', payload), path, 'payload digest')
-        unsigned = b'\0\3\x10\1\13' + activity[5:r.offset]
-        tag(12)
-        signature = r.span(64)
-        r.finish()
-        try:
-            Ed25519PublicKey.from_public_bytes(public).verify(signature, digest(b'signature-preimage', unsigned))
-        except Exception as error:
-            raise Refused(path + ': owner activity signature refused') from error
-        result = receipt_fields(records[label + '.receipt'], bytes.fromhex(context['sequencer_public_key']), path)
-        require(result['activity_id'] == digest(b'activity-id', activity).hex()
-                and result['module'] == module and result['version'] == 1, path, 'signed receipt activity binding')
-        results[label] = result
-    require(results['credit']['target'] == account and results['credit']['amount'] > 0, path, 'committed owner credit')
-    did_id = digest(b'did-id', len(did).to_bytes(2, 'big') + did)
-    def state(result):
-        values = [body for module, event, kind, monetary, body in result['effects']
-                  if module == 7 and event == 0x7110 and kind == 3 and not monetary]
-        require(len(values) == 1 and len(values[0]) == 223 and values[0][:5] == b'LXGI1'
-                and values[0][5:37] == did_id, path, 'native committed owner snapshot')
-        return values[0]
-    def reference(result):
-        return {name: result[name] for name in ('activity_id', 'receipt_digest')}
-    def key_policy(result, recovery):
-        body = state(result)
-        revision, delay, maximum = (175, 183, 191) if recovery else (167, 199, 207)
-        read = lambda offset: int.from_bytes(body[offset:offset + 8], 'big')
-        minimum, upper = read(delay), read(maximum)
-        if not recovery:
-            minimum, upper = (minimum + 999) // 1000, upper // 1000
-        require(minimum > 0 and upper >= minimum, path, 'native policy delay bounds')
-        return dict(policy_revision=read(revision), required_delay_seconds=minimum,
-                    maximum_delay_seconds=upper, effective_sequence=result['sequence'], evidence=reference(result))
-    recovery = results['recovery']
-    expected = dict(did=did.decode(), authorities=[dict(kind='primary_key', id=public.hex())],
-                    revocation_sequence=int.from_bytes(state(recovery)[69:77], 'big'), frozen=False,
-                    evidence=reference(recovery), capabilities=[], rotation=key_policy(results['rotation'], False),
-                    recovery=key_policy(recovery, True))
-    require(registration['identity'] == expected, path, 'registration must match actual committed native state')
+    evidence = json.loads(records['merged-owner-evidence.json'], object_pairs_hook=strict_pairs)
+    validate_evidence(evidence, context, records['rpc-ca.pem'], registration, network, context['chain_id'])
 
 
 def native_owner_records(work_dir, registration, registry):
-    from owner_native import receipt_fields, digest
-    root = Path(work_dir)
-    inputs = root / 'human-evidence-input'
-    config = protected_json(inputs / 'owner-native.json')
-    uint(config.get('network_id'), 32, inputs, 'native network', 1)
-    require(config['network_id'] == registry.get('network_id'), inputs, 'native registry network binding')
-    h32(config.get('sequencer_public_key'), inputs, 'native sequencer public key')
-    records = {'native-context.json': encode_json({
-        'network_id': config['network_id'], 'sequencer_public_key': config['sequencer_public_key']})}
-    references = {registration['identity'][name]['evidence']['receipt_digest']:
-                  registration['identity'][name]['evidence']['activity_id'] for name in ('rotation', 'recovery')}
-    references[registration['identity']['evidence']['receipt_digest']] = registration['identity']['evidence']['activity_id']
-    verified = set()
-    for label in ('credit', 'identity', 'rotation', 'recovery'):
-        receipt_path = inputs / 'owner-native-run' / (label + '.receipt')
-        receipt = protected_bytes(receipt_path)
-        activity = protected_bytes(receipt_path.with_suffix('.activity'))
-        result = receipt_fields(receipt, bytes.fromhex(config['sequencer_public_key']), receipt_path)
-        require(result['activity_id'] == digest(b'activity-id', activity).hex(), receipt_path, 'actual activity/receipt binding')
-        require(result['version'] == 1 and result['module'] == (8 if label == 'credit' else 7), receipt_path, 'native receipt module/version')
-        if result['receipt_digest'] in references:
-            require(result['activity_id'] == references[result['receipt_digest']], receipt_path, 'registration receipt binding')
-            verified.add(result['receipt_digest'])
-        if label == 'credit':
-            require(result['target'] == registration['owner_account'] and result['amount'] > 0,
-                    receipt_path, 'funded actual owner account')
-        records[label + '.receipt'] = receipt
-        records[label + '.activity'] = activity
-    require(verified == set(references), inputs, 'registration references require actual signed receipts')
+    root = Path(work_dir) / 'human-evidence-input'
+    records = {name: protected_bytes(root / name) for name in (
+        'native-context.json', 'merged-owner-evidence.json', 'rpc-ca.pem')}
     validate_native_records(records, registration, registry['network_id'])
     return records
 
@@ -691,10 +597,8 @@ def producer_manifest(work_dir, registry_path, journal_path, output):
 
     def principal():
         registration = owner_registration(work_dir)
-        entry = registration['identity']
-        references = [entry['evidence'], entry['rotation']['evidence'], entry['recovery']['evidence']]
-        references.extend(c['evidence'] for c in entry['capabilities'])
-        identity(entry, registration_path, sorted({r['activity_id'] for r in references}))
+        from merged_owner import validate_registration
+        validate_registration(registration, registration_path)
         return file_digest(registration_path)
 
     def recovery():
@@ -705,7 +609,7 @@ def producer_manifest(work_dir, registry_path, journal_path, output):
     def movement():
         path = inputs / 'movement-source.json'
         value = protected_json(path)
-        fields(value, 'CUSTODY_REFERENCE PAXEER_CHECKPOINT_AUTHORITY', path, 'movement source')
+        fields(value, 'LEDGER_ASSET_ID LEDGER_OWNER_ACCOUNT', path, 'merged movement source')
         for key, item in value.items():
             require(type(item) is str and re.fullmatch(r'0x[0-9a-fA-F]{64}', item) is not None
                     and int(item, 16) != 0, path, key)
@@ -714,7 +618,8 @@ def producer_manifest(work_dir, registry_path, journal_path, output):
     def registry():
         require(registry_path is not None, 'LAYERX_MODULE_REGISTRY', 'module registry absent')
         value = protected_json(registry_path)
-        require(type(value) is dict and value.get('schema_version') == 2, registry_path, 'version 2 module registry')
+        from material import canonical_module_registry
+        canonical_module_registry(value, value.get('network_id'))
         array(value.get('assets'), registry_path, 'assets')
         array(value.get('modules'), registry_path, 'modules')
         require(bool(value['assets']) and bool(value['modules']), registry_path, 'deployed assets and modules')
@@ -784,6 +689,7 @@ def producer_manifest(work_dir, registry_path, journal_path, output):
 
 
 def assemble(work_dir, registry_path, asset, journal_path):
+    from merged_owner import account_name
     work_dir = Path(work_dir)
     require(work_dir.is_absolute() and work_dir.resolve() == work_dir, work_dir, 'canonical work directory')
     destination = work_dir / 'human-evidence'
@@ -805,12 +711,7 @@ def assemble(work_dir, registry_path, asset, journal_path):
     fields(head, 'consumed', head_path, 'verified account head result')
     require(type(head['consumed']) is int and head['consumed'] == 0, head_path,
             'fresh first-batch head required; retained consumed limits unavailable')
-    movement_path = inputs / 'movement-source.json'
-    movement = protected_json(movement_path)
-    fields(movement, 'CUSTODY_REFERENCE PAXEER_CHECKPOINT_AUTHORITY', movement_path, 'movement source')
-    for key, value in movement.items():
-        require(type(value) is str and re.fullmatch(r'0x[0-9a-fA-F]{64}', value) is not None
-                and int(value, 16) != 0, movement_path, key)
+    movement = {'LEDGER_ASSET_ID': '0x' + asset, 'LEDGER_OWNER_ACCOUNT': '0x' + registration['owner_account']}
     recovery = {'root': owner['recovery_root'], 'threshold': owner['recovery_threshold'],
                 'delay_seconds': owner['recovery_delay_seconds']}
     onboarding = None
@@ -821,7 +722,7 @@ def assemble(work_dir, registry_path, asset, journal_path):
         uint(onboarding['initial_funding'], 128, inputs, 'initial_funding', 1)
     files = {
         'components.json': {'AGENT_ACTOR': owner['did'], 'AGENT_AUTHORITY': registration['authority'],
-            'AGENT_OWNER_ACCOUNT': 'agent:' + registration['identity']['did'] + ':main',
+            'AGENT_OWNER_ACCOUNT': account_name(registration['authority'], asset),
             'AGENT_RECOVERY_ROOT': base64.urlsafe_b64encode(bytes(recovery['root'])).decode().rstrip('='),
             'AGENT_RECOVERY_THRESHOLD': recovery['threshold']},
         'authority.json': dict(binding, **{'core-clock-horizon': policy['core-clock-horizon']}),
@@ -889,26 +790,14 @@ def assemble(work_dir, registry_path, asset, journal_path):
 
 
 def movement_source(work_dir, secrets_dir):
-    inputs = Path(work_dir) / 'human-evidence-input'
-    path = Path(secrets_dir) / 'human/movement-config/LAYERX_HUMAN_MOVEMENT_PROVIDER_CUSTODY_REFERENCE'
-    if path.exists() or path.is_symlink():
-        reference = protected_bytes(path, 66).decode('ascii')
-    else:
-        path = Path(work_dir) / 'paxeer/deployment.json'
-        deployment = protected_json(path)
-        require(type(deployment) is dict and 'custody_reference' in deployment, path,
-                'custody_reference missing; vault registration requires a produced reference')
-        reference = deployment['custody_reference']
-    require(type(reference) is str and re.fullmatch(r'0x[0-9a-fA-F]{64}', reference) is not None
-            and int(reference, 16) != 0, path, 'custody_reference')
-    key_path = inputs / 'checkpoint-public.base64'
-    try:
-        public = base64.b64decode(protected_bytes(key_path, 128), validate=True).decode('ascii')
-    except (ValueError, UnicodeError) as error:
-        raise Refused('Secret layerx-guarantor-checkpoint-authority/public.hex: invalid public key') from error
-    require(re.fullmatch(r'0x[0-9a-fA-F]{64}', public) is not None and int(public, 16) != 0,
-            'Secret layerx-guarantor-checkpoint-authority/public.hex', 'checkpoint public key')
-    write_json(inputs / 'movement-source.json', {'CUSTODY_REFERENCE': reference, 'PAXEER_CHECKPOINT_AUTHORITY': public})
+    from merged_owner import account_id
+    root = Path(work_dir) / 'human-evidence-input'
+    registration = owner_registration(work_dir)
+    config = protected_json(root / 'owner-native.json')
+    require(registration['owner_account'] == account_id(registration['authority'], config['asset_id']),
+            root, 'merged owner asset account')
+    write_json(root / 'movement-source.json', dict(
+        LEDGER_ASSET_ID='0x' + config['asset_id'], LEDGER_OWNER_ACCOUNT='0x' + registration['owner_account']))
 
 
 def qualify_generated_set(work_dir, registry_path, secrets_dir, network, chain):
