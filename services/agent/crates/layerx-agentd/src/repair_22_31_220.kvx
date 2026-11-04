@@ -1,0 +1,50 @@
+[meta]
+task = "22.31.220"
+audit = "22.30.94"
+baseline = "Not run: the explicit ordered gate instructions require complete implementation before hf-build and hf-done owns the first verification. No baseline failure is claimed."
+evidence = "The bounded gate ledger supplies the exact verified candidate revision, command, exit code and private log location."
+
+[finding.receipt_rpc_roundtrip]
+tests = "receipt_rpc_roundtrip_preserves_bindings_and_explicit_rung_after_store_reopen; receipt_rpc_roundtrip_retains_absent_and_submitted_answers; receipt_rpc_roundtrip_refuses_malformed_frames_and_changed_bindings"
+implementation = "Routing consumes ReceiptLookupAnswer and ReceiptLookupFrame, validates signed canonical bytes, transaction, digest, authorised batch and height-bound receipt key, and projects the explicit achieved rung and all bindings."
+proof = "Producer-recorded Go signed receipts pass through the real node client, owner outbox lookup, durable receipt store, finality verifier, owner frame encoder, routing adapter, HTTPS loopback peer and Rust SDK. Store and outbox are dropped and reopened; recovered receipt bytes and finality records are compared and reverified."
+boundary = "The HTTPS peer is an in-process fixture using the production envelope decoder, receipt dispatcher and response encoder; it does not claim daemon authentication or live gateway admission."
+
+[wiring]
+mcp = "services/agent/crates/layerx-mcp/tests — agent MCP domain: drive the shared program.receipt result through the MCP consumer using this owner-produced found/absent/submitted and malformed-frame matrix; the daemon must not gain a reverse MCP dependency."
+sdk_status = "services/agent/crates/layerx-agent-api/src/error.rs and services/agent/crates/layerx-sdk/src/agent_envelope.rs — agent API/SDK domain: represent and decode the daemon's absent/pending success states; the current SDK refuses these with Decode, and this repair preserves and asserts the exact HTTP states without inventing an achieved rung."
+
+[gotcha.baseline]
+observed = "The proposal asks for baseline verification, but the explicit ordered instructions prohibit verification before implementation and reserve execution to hf-done."
+resolution = "Follow the explicit gate order and record no invented baseline result."
+
+[qualification.first_build]
+revision = "dc28be21c079b7840ad09b0005d660f7076c15f1"
+command = "cargo build --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+repair = "Expose the receipt dispatcher's existing result type so the external integration test can use the production dispatcher and success renderer. Its fields and validation remain unchanged."
+
+[qualification.first_verify]
+revision = "2de622d3ec1dca3f7d6c8033b6656f83c7ef087c"
+command = "cg spec done 22.31.220 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All three tests stopped at Outbox admission because the native-value transfer recording uses an unsupported transaction value field."
+repair = "Use the same Go recorder's zero-value ERC-20 approval transaction and signed receipt, with its recorded nonce 1; retain every positive, restart, binding and malformed-frame assertion."
+
+[gotcha.patch_context]
+observed = "A patch written against the unformatted test no longer matched after rustfmt."
+resolution = "Read the formatted source and apply the same fixture correction at its exact current lines."
+
+[qualification.requalification_verify]
+revision = "0ec5a64d28dd0270fce4766b4fdd5545ce68ec0e"
+command = "cg spec done 22.31.220 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The unchanged candidate passed absent/submitted and malformed-binding tests; the restart round-trip test failed with InvalidCommit because its signed block lacked an authenticated checkpoint header."
+repair = "Bind the committed fixture's transaction list to its Comet data root, sign the checkpoint header's block hash and use VerifiedBlock::verify_with_header, retaining the committed-rung and recovery assertions."
+
+[gotcha.committed_fixture]
+observed = "A valid consensus signature alone does not bind a receipt transaction to the block; augment_verified refuses a headerless VerifiedBlock."
+resolution = "Supply the authenticated checkpoint header and transaction Merkle root through the production header verifier."
