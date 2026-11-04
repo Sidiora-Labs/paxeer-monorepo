@@ -1,0 +1,19 @@
+[task]
+id = "22.31.100"
+finding = "22.30.5.6"
+repair = "Admitted corrections become DELIVERED with current rejection and outcome fields cleared; delivery records, commitment, agreement parties, deadlines and configured default outcome are retained."
+proving_tests = ["test_corrected_delivery_reopen_accept", "test_corrected_delivery_reopen_default_accept", "test_corrected_delivery_reopen_default_reject"]
+test_path = "tests/modules/test_service_acceptance.c"
+additional_test = "tests/modules/test_service_deliver.c main checks the corrected state and a subsequent rejection before exercising the existing dispute path."
+proof = "Real offer/proposal/agreement-accept/commit/deliver/reject/correct activities are dispatched and committed through the C kernel harness. Kernel snapshots are serialized to a file, the state and kernel are destroyed/recreated, and snapshots are read and loaded before explicit acceptance or default maintenance, and again after the outcome. Tests assert events, deadlines, retained delivery/commitment history, cleared fields, refusal without state mutation, persisted outcomes and no repeated default event."
+baseline = "Not run: the explicit ordered gate instructions prohibit tests before implementation and prohibit invoking verify_cmd by hand. No earlier hf-build/hf-done ledger existed at session entry; no pre-change test failures are claimed."
+evidence = "The private /out/run/gates.jsonl ledger records the exact candidate revision, command, exit and log for hf-build and hf-done; the final response copies the final gate evidence."
+wiring_request = "modules/layerxpay/keeper/service_delivery_test.go; owner layerxpay: add reject/correct/reopen/accept and both default-outcome keeper tests using serviceDeliveryHarness; Go keeper tests and their gate are outside this task's permitted paths and gates."
+
+[gotcha.1]
+symptom = "The old C delivery test asserted that a successful corrected delivery stayed REJECTED."
+resolution = "Assert DELIVERED and cleared current fields; submit another real buyer rejection before the existing rejected-state dispute checks."
+
+[gotcha.2]
+symptom = "The task requests a pre-change verify and Go keeper proof while its ordered rules forbid pre-implementation tests and limit changes/gates to the C service suite."
+resolution = "Follow the explicit gate order, disclose that baseline was not run, prove the C kernel path and record the out-of-scope keeper wiring request above."
