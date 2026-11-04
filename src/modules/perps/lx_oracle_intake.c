@@ -1,4 +1,5 @@
 #include "layerx/lx_oracle.h"
+#include "lx_perps_internal.h"
 
 #include "layerx/lxp_crypto.h"
 
@@ -111,6 +112,9 @@ lxp_result lx_oracle_store_put(lx_oracle_store *store,
     return LXP_OK;
 }
 
+/* Compatibility API for callers of the historical bounded store. Registered
+ * activities use lx_perps_oracle_admit/accept and committed perps KV below;
+ * this caller-owned store is never kernel lifecycle or recovery authority. */
 lxp_result lx_oracle_push_execute(lxp_module_ctx *ctx,
                                   const lx_oracle_push_request *request,
                                   lx_oracle_accepted *accepted)
@@ -170,4 +174,83 @@ lxp_result lx_oracle_push_execute(lxp_module_ctx *ctx,
     mutable_market->halted = false;
     *accepted = request->store->accepted[request->store->count - 1U];
     return LXP_OK;
+}
+
+static void oracle_market_project(const lx_perps_market *market,
+                                  lx_oracle_market *projected)
+{
+    size_t i;
+    (void)memset(projected, 0, sizeof(*projected));
+    (void)memcpy(projected->market_id, market->market_id, 32U);
+    for (i = 0U; i < market->permitted_oracle_key_count &&
+                 i < (size_t)LX_ORACLE_MAX_KEYS; ++i)
+        (void)memcpy(projected->permitted_keys[i],
+                     market->permitted_oracle_keys[i], 32U);
+    projected->permitted_key_count = market->permitted_oracle_key_count;
+    projected->maximum_staleness = market->maximum_oracle_staleness_ms;
+    projected->minimum_price = market->minimum_price;
+    projected->maximum_price = market->maximum_price;
+    projected->maximum_deviation_basis_points =
+        market->maximum_deviation_basis_points;
+    projected->halted = market->halted;
+}
+
+static void oracle_observation_project(const lx_perps_oracle_state *state,
+                                       lx_oracle_observation *observation)
+{
+    (void)memset(observation, 0, sizeof(*observation));
+    (void)memcpy(observation->market_id, state->market_id, 32U);
+    observation->observation_sequence = state->observation_sequence;
+    observation->price = state->price;
+    observation->observed_at = state->observed_at;
+    observation->source_identifier = state->source_identifier;
+    (void)memcpy(observation->oracle_public_key, state->oracle_public_key,
+                 32U);
+}
+
+lxp_result lx_perps_oracle_admit(lxp_module_ctx *ctx,
+    const lx_perps_oracle_command *command, const uint8_t *payload,
+    size_t payload_length)
+{
+    lx_perps_market market;
+    lx_perps_oracle_state previous;
+    lx_oracle_market projected;
+    lx_oracle_observation observation;
+    lx_oracle_observation latest;
+    lxp_result status;
+    if (ctx == NULL || command == NULL || payload == NULL)
+        return LXP_ERR_NON_CANONICAL;
+    status = lx_perps_market_lookup(ctx, command->market_id, &market);
+    if (status != LXP_OK) return status;
+    oracle_market_project(&market, &projected);
+    (void)memset(&observation, 0, sizeof(observation));
+    (void)memcpy(observation.market_id, command->market_id, 32U);
+    observation.observation_sequence = command->observation_sequence;
+    observation.price = command->price;
+    observation.observed_at = command->observed_at;
+    observation.source_identifier = command->source_identifier;
+    (void)memcpy(observation.oracle_public_key, command->oracle_public_key, 32U);
+    (void)memcpy(observation.signature, command->signature, 64U);
+    status = lx_oracle_key_set_check(&projected, &observation, payload, payload_length);
+    if (status == LXP_OK)
+        status = lx_oracle_staleness_check(&projected, &observation,
+                                           lxp_ctx_batch_timestamp_ms(ctx));
+    if (status == LXP_OK)
+        status = lx_oracle_bounds_check(&projected, &observation);
+    if (status != LXP_OK) return status;
+    status = lx_perps_oracle_state_lookup(ctx, command->market_id, &previous);
+    if (status == LXP_ERR_UNKNOWN_FIELD) return LXP_OK;
+    if (status != LXP_OK) return status;
+    if (command->observation_sequence <= previous.observation_sequence)
+        return LXP_ERR_ORACLE_SEQUENCE;
+    oracle_observation_project(&previous, &latest);
+    return lx_oracle_deviation_check(&projected, &latest, &observation);
+}
+
+lxp_result lx_perps_oracle_accept(lxp_module_ctx *ctx,
+    const lx_perps_oracle_state *state)
+{
+    lxp_result status = lx_perps_oracle_state_put(ctx, state);
+    if (status != LXP_OK) return status;
+    return lx_perps_oracle_halt_put(ctx, state->market_id, false);
 }

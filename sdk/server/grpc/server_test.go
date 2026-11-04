@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	rpb "google.golang.org/grpc/reflection/grpc_reflection_v1"
 
@@ -46,8 +47,8 @@ type IntegrationTestSuite struct {
 
 func (s *IntegrationTestSuite) SetupSuite() {
 	s.T().Log("setting up integration test suite")
-	s.app = paxapp.Setup(t, false, false, false)
-	s.cfg = network.DefaultConfig()
+	s.app = paxapp.Setup(s.T(), false, false, false)
+	s.cfg = network.DefaultConfig(s.T())
 	s.cfg.NumValidators = 1
 	s.network = network.New(s.T(), s.cfg)
 	s.Require().NotNil(s.network)

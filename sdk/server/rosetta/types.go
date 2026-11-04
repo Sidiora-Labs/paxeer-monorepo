@@ -53,7 +53,7 @@ const (
 // the metadata rosetta can provide during preprocess options
 type ConstructionPreprocessMetadata struct {
 	Memo     string `json:"memo"`
-	GasLimit uint64 `json:"gas_limit"`
+	GasLimit uint64 `json:"gas_limit,string"`
 	GasPrice string `json:"gas_price"`
 }
 
@@ -65,7 +65,7 @@ func (c *ConstructionPreprocessMetadata) FromMetadata(meta map[string]interface{
 type PreprocessOperationsOptionsResponse struct {
 	ExpectedSigners []string `json:"expected_signers"`
 	Memo            string   `json:"memo"`
-	GasLimit        uint64   `json:"gas_limit"`
+	GasLimit        uint64   `json:"gas_limit,string"`
 	GasPrice        string   `json:"gas_price"`
 }
 
@@ -80,17 +80,19 @@ func (c *PreprocessOperationsOptionsResponse) FromMetadata(meta map[string]inter
 // SignerData contains information on the signers when the request
 // is being created, used to populate the account information
 type SignerData struct {
-	AccountNumber uint64 `json:"account_number"`
-	Sequence      uint64 `json:"sequence"`
+	AccountNumber uint64 `json:"account_number,string"`
+	Sequence      uint64 `json:"sequence,string"`
 }
 
+// All construction uint64 fields use decimal JSON strings, including nested
+// signer data, so a standard JSON map consumer cannot round them through float64.
 // ConstructionMetadata are the metadata options used to
 // construct a transaction. It is returned by ConstructionMetadataFromOptions
 // and fed to ConstructionPayload to process the bytes to sign.
 type ConstructionMetadata struct {
 	ChainID     string        `json:"chain_id"`
 	SignersData []*SignerData `json:"signer_data"`
-	GasLimit    uint64        `json:"gas_limit"`
+	GasLimit    uint64        `json:"gas_limit,string"`
 	GasPrice    string        `json:"gas_price"`
 	Memo        string        `json:"memo"`
 }
@@ -101,4 +103,13 @@ func (c ConstructionMetadata) ToMetadata() (map[string]interface{}, error) {
 
 func (c *ConstructionMetadata) FromMetadata(meta map[string]interface{}) error {
 	return unmarshalMetadata(meta, c)
+}
+
+// UnsignedTransaction retains the signing context absent from a Cosmos TxRaw.
+// Construction endpoints transport its JSON bytes as an opaque hex string;
+// combine validates it and returns a normal encoded Cosmos transaction.
+type UnsignedTransaction struct {
+	Transaction []byte        `json:"transaction"`
+	ChainID     string        `json:"chain_id"`
+	SignersData []*SignerData `json:"signer_data"`
 }

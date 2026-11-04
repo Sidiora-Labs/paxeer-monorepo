@@ -1,4 +1,6 @@
 import hashlib
+import http.client
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -12,7 +14,7 @@ import subprocess
 import time
 
 ROOT = Path(__file__).resolve().parents[4]
-REQUIRED = {'layerx-agentd', 'layerxd', 'layerx-receipt-authority', 'layerx-program-registry'}
+REQUIRED = {'layerx-agentd', 'paxd', 'layerx-gateway', 'layerx-program-registry'}
 ALLOWED = REQUIRED | {'paxd', 'layerx-runtime-clock', 'layerx-human-service', 'layerxctl',
                       'layerx-gateway', 'layerx-mcp'}
 
@@ -143,6 +145,7 @@ class AgentdFixture:
         for path in tls.iterdir():
             path.chmod(0o600)
         self.tls = tls
+        self.values['tls'] = str(tls)
 
     def start(self):
         for name in ('net', 'pid', 'mnt'):
@@ -153,7 +156,7 @@ class AgentdFixture:
         self.tls_material()
         services = self.document.get('services')
         require(isinstance(services, list) and services, 'native service launch configuration required')
-        required_services = {'layerxd', 'layerx-receipt-authority', 'layerx-program-registry'}
+        required_services = REQUIRED - {'layerx-agentd'}
         require(required_services <= {row.get('artifact') for row in services}, 'authority services missing')
         for index, row in enumerate(services):
             name = row.get('artifact')
@@ -218,7 +221,69 @@ class AgentdFixture:
                        'LAYERX_AGENTD_RPC_TLS_CLIENT_CA': str(self.tls / 'ca.pem'),
                        'LAYERX_AGENTD_RPC_PEER': 'agent-http-peer.invalid'})
         self.config = config
+        self.configure_endpoints()
         return config
+
+    def configure_endpoints(self):
+        from urllib.parse import urlsplit
+        rows = self.document.get('endpoints')
+        require(isinstance(rows, dict) and set(rows) == {'node', 'gateway', 'agent'},
+                'separate merged node and gateway bindings required')
+        self.endpoints = {}
+        for name, row in rows.items():
+            require(isinstance(row, dict) and set(row) == {'url', 'authorization_seed'},
+                    'closed merged endpoint binding required')
+            url = row['url'].format_map(self.values)
+            parsed = urlsplit(url)
+            require(parsed.scheme in ('http', 'https') and parsed.hostname in ('127.0.0.1', 'localhost', '::1')
+                    and not parsed.username and not parsed.password and not parsed.query and not parsed.fragment
+                    and parsed.path == ('/v1/agent/rpc' if name == 'agent' else '/'),
+                    'merged node/gateway route mismatch')
+            seed = row['authorization_seed']
+            require(seed in self.document['seeds'] and seed in self.values,
+                    'merged endpoint authority must be a copied protected seed')
+            token = Path(self.values[seed]).read_text().strip()
+            require(token and '\r' not in token and '\n' not in token, 'invalid merged endpoint authorization')
+            self.endpoints[name] = {'url': url, 'authorization': token}
+        require(self.endpoints['node']['url'] != self.endpoints['gateway']['url'],
+                'node and hosted methods must have distinct endpoints')
+        keys = self.document.get('receipt_keys')
+        require(isinstance(keys, list) and keys, 'pinned merged receipt keys required')
+
+    def rpc_context(self, identity='client'):
+        context = ssl.create_default_context(cafile=str(self.tls / 'ca.pem'))
+        if identity:
+            context.load_cert_chain(str(self.tls / (identity + '.pem')), str(self.tls / (identity + '.key')))
+        return context
+
+    def routed_request(self, envelope, identity='client', timeout=6.5):
+        spec = importlib.util.spec_from_file_location('agentd_merged_chain', Path(__file__).with_name('merged_chain.py'))
+        chain = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(chain)
+        if envelope.get('jsonrpc') == '2.0':
+            method = envelope.get('method', '')
+            if method.startswith('px_'):
+                name = 'gateway'
+            else:
+                require(method.startswith(('eth_', 'pax_', 'net_', 'web3_')), 'undeclared node RPC method')
+                name = 'node'
+        else:
+            require(envelope.get('version') == 1 and isinstance(envelope.get('credential'), dict),
+                    'canonical authenticated agent envelope required')
+            name = 'agent'
+        binding = self.endpoints[name]
+        context = self.rpc_context(identity) if binding['url'].startswith('https:') else None
+        return chain.post(binding['url'], envelope, {'Authorization': binding['authorization']}, context,
+                          path='/v1/agent/rpc' if name == 'agent' else '/', timeout=timeout)
+
+    def node(self):
+        spec = importlib.util.spec_from_file_location('agentd_node_chain', Path(__file__).with_name('merged_chain.py'))
+        chain = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(chain)
+        binding = self.endpoints['node']
+        context = self.rpc_context() if binding['url'].startswith('https:') else None
+        return chain.Node(binding['url'], self.document['receipt_keys'],
+                          {'Authorization': binding['authorization']}, context)
 
     def client(self, identity='client'):
         context = ssl.create_default_context(cafile=str(self.tls / 'ca.pem'))
@@ -251,7 +316,7 @@ class AgentdFixture:
         for row in rows:
             require(isinstance(row, dict) and set(row) == {
                 'read_request', 'prepare_request', 'signer_seed', 'signer_public_key',
-                'managed_agent_id'}, 'tenant recovery profile fields')
+                'managed_agent_id', 'evm_address'}, 'tenant recovery profile fields')
             read = self.envelope(row['read_request'])
             prepare = self.envelope(row['prepare_request'])
             credential = read['credential']
@@ -289,7 +354,9 @@ class AgentdFixture:
             require(public == row['signer_public_key'], 'provisioned signer public identity mismatch')
             require(isinstance(row['managed_agent_id'], str) and row['managed_agent_id'],
                     'actual managed owner identifier is required')
-            tenants.append({'credential': credential, 'read': read, 'prepare': prepare,
+            require(isinstance(row['evm_address'], str) and re.fullmatch('0x[0-9a-fA-F]{40}', row['evm_address']),
+                    'tenant committed payer identity required')
+            tenants.append({'evm_address': row['evm_address'], 'credential': credential, 'read': read, 'prepare': prepare,
                             'signer': signer, 'public_key': public,
                             'managed_agent_id': row['managed_agent_id']})
         require(tenants[0]['credential']['tenant'] != tenants[1]['credential']['tenant'],
