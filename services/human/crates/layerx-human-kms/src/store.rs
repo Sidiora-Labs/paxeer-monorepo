@@ -3,6 +3,7 @@ use crate::wire::{blob, Error, Operation, Request, Result};
 use ring::aead::{Aad, LessSafeKey, Nonce, UnboundKey, AES_256_GCM};
 use ring::signature::{Ed25519KeyPair, KeyPair};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::fs::{self, File, OpenOptions};
 use std::io::Write;
@@ -29,6 +30,8 @@ struct Record {
     recipient_identity: Option<[u8; 32]>,
     #[serde(default)]
     self_custodied: bool,
+    #[serde(default)]
+    export: Option<PendingExport>,
 }
 impl Drop for Record {
     fn drop(&mut self) {
@@ -37,43 +40,132 @@ impl Drop for Record {
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+struct PendingExport {
+    envelope: Option<crate::export::ExportEnvelope>,
+    ceremony: crate::export::ExportCeremony,
+    proof_hash: [u8; 32],
+}
+#[derive(Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Nonces {
+    next: u64,
+    requests: BTreeMap<u64, [u8; 32]>,
+}
+fn reserve_nonce(
+    nonces: &mut BTreeMap<String, Nonces>,
+    address: [u8; 20],
+    chain: u64,
+    nonce: u64,
+    digest: [u8; 32],
+) -> Result<()> {
+    let account = nonces
+        .entry(format!("{chain}:{}", hex(&address)))
+        .or_default();
+    if let Some(previous) = account.requests.get(&nonce) {
+        return if *previous == digest {
+            Ok(())
+        } else {
+            Err(Error::Conflict)
+        };
+    }
+    if nonce < account.next || account.requests.len() >= 4096 {
+        return Err(Error::Conflict);
+    }
+    account.next = nonce.checked_add(1).ok_or(Error::Refused)?;
+    account.requests.insert(nonce, digest);
+    Ok(())
+}
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct State {
     version: u8,
     provider: String,
     network: u32,
     records: BTreeMap<String, Record>,
+    #[serde(default)]
+    nonces: BTreeMap<String, Nonces>,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AttestorBindings {
+    bindings: Vec<AttestorBinding>,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AttestorBinding {
+    binding: [u8; 32],
+    tenant: String,
+    principal: String,
+    config: crate::attestor::AttestorSignerConfig,
+    assertion_file: PathBuf,
 }
 struct EvmAttestor {
     signer: crate::attestor::AttestorSigner,
     key_id: String,
     address: [u8; 20],
+    tenant: String,
+    principal: String,
 }
 impl EvmAttestor {
-    fn load(chain_id: u64) -> std::result::Result<Option<Self>, String> {
+    fn load(chain_id: u64) -> std::result::Result<BTreeMap<String, Self>, String> {
         let Some(path) = std::env::var_os("LAYERX_HUMAN_KMS_ATTESTOR_CONFIG_FILE") else {
-            return Ok(None);
+            return Ok(BTreeMap::new());
         };
-        let bytes = protected(std::path::Path::new(&path), 65_536, false)?;
-        let config: crate::attestor::AttestorSignerConfig =
-            serde_json::from_slice(&bytes).map_err(|_| "attestor configuration invalid")?;
-        if u64::from(config.network_id) != chain_id || config.evm_address == [0; 20] {
-            return Err("attestor chain or address refused".into());
+        let bytes = protected(std::path::Path::new(&path), MAX_STATE, true)?;
+        let bindings: AttestorBindings = serde_json::from_slice(&bytes)
+            .map_err(|_| "principal-bound attestor configuration required")?;
+        if bindings.bindings.len() > 4096 {
+            return Err("attestor binding count refused".into());
         }
-        let assertion_path = std::env::var_os("LAYERX_HUMAN_KMS_EVM_ASSERTION_FILE")
-            .ok_or("EVM owner assertion file required")?;
-        let assertion = protected(std::path::Path::new(&assertion_path), 65_536, true)?;
-        let assertion =
-            std::str::from_utf8(&assertion).map_err(|_| "EVM owner assertion invalid")?;
-        let mut signer = crate::attestor::AttestorSigner::from_config(&config)
-            .map_err(|error| error.to_string())?;
-        signer
-            .set_evm_assertion(assertion.trim())
-            .map_err(|error| error.to_string())?;
-        Ok(Some(Self {
-            signer,
-            key_id: config.evm_key_id,
-            address: config.evm_address,
-        }))
+        let mut result = BTreeMap::new();
+        let mut addresses = std::collections::BTreeSet::new();
+        let mut keys = std::collections::BTreeSet::new();
+        for binding in bindings.bindings {
+            let config = binding.config;
+            if binding.binding == [0; 32]
+                || binding.tenant.is_empty()
+                || binding.principal.is_empty()
+                || binding.tenant.len() > 128
+                || binding.principal.len() > 128
+                || binding.tenant.contains('\0')
+                || binding.principal.contains('\0')
+                || u64::from(config.network_id) != chain_id
+                || config.evm_address == [0; 20]
+                || !addresses.insert(config.evm_address)
+                || !keys.insert(config.evm_key_id.clone())
+            {
+                return Err("attestor custody isolation refused".into());
+            }
+            let assertion = protected(&binding.assertion_file, 65_536, true)?;
+            let assertion =
+                std::str::from_utf8(&assertion).map_err(|_| "EVM owner assertion invalid")?;
+            let mut signer = crate::attestor::AttestorSigner::from_config(&config)
+                .map_err(|error| error.to_string())?;
+            signer
+                .set_evm_assertion(assertion.trim())
+                .map_err(|error| error.to_string())?;
+            let attestor = Self {
+                signer,
+                key_id: config.evm_key_id,
+                address: config.evm_address,
+                tenant: binding.tenant,
+                principal: binding.principal,
+            };
+            if result.insert(hex(&binding.binding), attestor).is_some() {
+                return Err("duplicate attestor binding".into());
+            }
+        }
+        Ok(result)
+    }
+    fn validate_wallet(&self, wallet: &crate::evm::Wallet) -> Result<()> {
+        if wallet.evm_key_id != self.key_id
+            || wallet.address != self.address
+            || wallet.tenant != self.tenant
+            || wallet.principal != self.principal
+        {
+            return Err(Error::Integrity);
+        }
+        Ok(())
     }
 }
 pub(crate) struct Store {
@@ -82,7 +174,7 @@ pub(crate) struct Store {
     key: LessSafeKey,
     aad: Vec<u8>,
     healthy: bool,
-    evm_attestor: Option<EvmAttestor>,
+    evm_attestors: BTreeMap<String, EvmAttestor>,
     _lock: File,
 }
 pub(crate) fn hex(bytes: &[u8]) -> String {
@@ -164,7 +256,7 @@ impl Store {
         let network = u32::try_from(config.chain.chain_id).map_err(|_| "state chain id invalid")?;
         aad.extend(network.to_be_bytes());
         let path = config.state.join("state.aead");
-        let state = if path.try_exists().map_err(|_| "state lookup failed")? {
+        let mut state = if path.try_exists().map_err(|_| "state lookup failed")? {
             let mut encrypted = protected(&path, MAX_STATE + 28, true)?;
             if encrypted.len() < 28 {
                 return Err("state truncated".into());
@@ -186,9 +278,27 @@ impl Store {
                 provider: config.provider.clone(),
                 network,
                 records: BTreeMap::new(),
+                nonces: BTreeMap::new(),
             }
         };
         validate(&state, config)?;
+        let evm_attestors = EvmAttestor::load(config.chain.chain_id)?;
+        for (binding, record) in &state.records {
+            if let Some(wallet) = &record.wallet {
+                evm_attestors
+                    .get(binding)
+                    .ok_or("retained wallet attestor binding missing")?
+                    .validate_wallet(wallet)
+                    .map_err(|_| "retained wallet attestor identity changed")?;
+                for (chain, next) in &wallet.next_nonce {
+                    let account = state
+                        .nonces
+                        .entry(format!("{chain}:{}", hex(&wallet.address)))
+                        .or_default();
+                    account.next = account.next.max(*next);
+                }
+            }
+        }
         let temp = config.state.join("state.next");
         if temp
             .try_exists()
@@ -211,7 +321,7 @@ impl Store {
             key,
             aad,
             healthy: true,
-            evm_attestor: EvmAttestor::load(config.chain.chain_id)?,
+            evm_attestors,
             _lock: lock,
         };
         store
@@ -288,10 +398,11 @@ impl Store {
             }
             Operation::EvmWallet | Operation::Evm => return self.evm(request, now),
             Operation::ExportPrimary => return self.export_primary(request),
-            Operation::Describe
-            | Operation::RotateIfCurrent
-            | Operation::Destroy
-            | Operation::Sign => {}
+            Operation::AcknowledgeExport => return self.acknowledge_export(request),
+            Operation::Sign => {
+                return self.sign_evm(request, signing_digest.ok_or(Error::Refused)?)
+            }
+            Operation::Describe | Operation::RotateIfCurrent | Operation::Destroy => {}
         }
         let key = hex(&request.binding);
         let record = self.state.records.get_mut(&key).ok_or(Error::NotFound)?;
@@ -320,36 +431,60 @@ impl Store {
                 self.persist()?;
                 Ok(Vec::new())
             }
-            Operation::Sign => {
-                let signer = k256::ecdsa::SigningKey::from_slice(
-                    record.seed.as_ref().ok_or(Error::NotFound)?,
-                )
-                .map_err(|_| Error::Integrity)?;
-                let point = signer.verifying_key().to_encoded_point(false);
-                let address = layerx_crypto::secp256k1::evm_address(point.as_bytes())
-                    .map_err(|_| Error::Integrity)?;
-                if address != request.from {
-                    return Err(Error::Integrity);
-                }
-                let (signature, recovery) = signer
-                    .sign_prehash_recoverable(&signing_digest.ok_or(Error::Refused)?)
-                    .map_err(|_| Error::Integrity)?;
-                let mut bytes = signature.to_bytes().to_vec();
-                bytes.push(27 + recovery.to_byte());
-                Ok(bytes)
-            }
             _ => Err(Error::Refused),
         }
     }
-    /// The one-time handover of a human primary seed. The self-custody
-    /// transition and the erasure of the managed seed, wallet and send
-    /// authorizations are committed durably before the seed is returned. A
-    /// failed or uncertain commit returns no seed and leaves the store
-    /// unhealthy, so it serves nothing until a restart re-reads the
-    /// authenticated durable record: a committed transition stays
-    /// self-custodied and its material is never recreated, an uncommitted one
-    /// keeps the managed key for a retried export.
+    fn sign_evm(&mut self, request: &Request<'_>, digest: [u8; 32]) -> Result<Vec<u8>> {
+        let record = self
+            .state
+            .records
+            .get(&hex(&request.binding))
+            .ok_or(Error::NotFound)?;
+        if record.class != request.class || request.reference != record.handle {
+            return Err(Error::Integrity);
+        }
+        if record.self_custodied {
+            return Err(Error::SelfCustodied);
+        }
+        record.seed.as_ref().ok_or(Error::NotFound)?;
+        let attestor = self
+            .evm_attestors
+            .get(&hex(&request.binding))
+            .ok_or(Error::Unavailable)?;
+        let wallet = record.wallet.as_ref().ok_or(Error::NotFound)?;
+        attestor.validate_wallet(wallet)?;
+        if request.from != wallet.address {
+            return Err(Error::Integrity);
+        }
+        let call = crate::attestor::decode_unsigned_evm_transaction(request.canonical)
+            .map_err(|_| Error::Refused)?;
+        if call.chain_id != u64::from(self.state.network) || digest != call.signing_hash() {
+            return Err(Error::Integrity);
+        }
+        reserve_nonce(
+            &mut self.state.nonces,
+            request.from,
+            call.chain_id,
+            call.nonce,
+            digest,
+        )?;
+        self.persist()?;
+        self.evm_attestors
+            .get(&hex(&request.binding))
+            .ok_or(Error::Unavailable)?
+            .signer
+            .sign_evm_transaction(request.canonical, call.chain_id)
+            .map(|mut signature| {
+                // LXKP Sign carries r || s || v; the attestor returns parity 0/1.
+                signature[64] += 27;
+                signature.to_vec()
+            })
+            .map_err(attestor_error)
+    }
     fn export_primary(&mut self, request: &Request<'_>) -> Result<Vec<u8>> {
+        let ceremony: crate::export::ExportCeremony =
+            serde_json::from_slice(request.evm).map_err(|_| Error::Refused)?;
+        ceremony.validate().map_err(|_| Error::Refused)?;
         let record = self
             .state
             .records
@@ -358,20 +493,62 @@ impl Store {
         if record.class != request.class || request.reference != record.handle {
             return Err(Error::Integrity);
         }
-        if record.self_custodied {
-            return Err(Error::SelfCustodied);
-        }
         if record.class != 1 {
             return Err(Error::Refused);
         }
-        let exported = Zeroizing::new(record.seed.ok_or(Error::NotFound)?);
+        if let Some(pending) = &record.export {
+            if pending.ceremony != ceremony {
+                return Err(Error::Conflict);
+            }
+            return serde_json::to_vec(pending.envelope.as_ref().ok_or(Error::SelfCustodied)?)
+                .map_err(|_| Error::Integrity);
+        }
+        if record.self_custodied {
+            return Err(Error::SelfCustodied);
+        }
+        let (envelope, proof_hash) = crate::export::seal(
+            &self.state.provider,
+            request.binding,
+            request.reference,
+            ceremony.clone(),
+            record.seed.as_ref().ok_or(Error::NotFound)?,
+        )
+        .map_err(|_| Error::Refused)?;
+        let response = serde_json::to_vec(&envelope).map_err(|_| Error::Integrity)?;
+        record.export = Some(PendingExport {
+            envelope: Some(envelope),
+            ceremony,
+            proof_hash,
+        });
         record.self_custodied = true;
         record.seed.zeroize();
         record.seed = None;
         record.wallet = None;
         record.send_actions.clear();
         self.persist()?;
-        Ok(exported.to_vec())
+        Ok(response)
+    }
+    fn acknowledge_export(&mut self, request: &Request<'_>) -> Result<Vec<u8>> {
+        let ack: crate::export::ExportAcknowledgement =
+            serde_json::from_slice(request.evm).map_err(|_| Error::Refused)?;
+        let record = self
+            .state
+            .records
+            .get_mut(&hex(&request.binding))
+            .ok_or(Error::NotFound)?;
+        if record.class != request.class || request.reference != record.handle {
+            return Err(Error::Integrity);
+        }
+        let pending = record.export.as_mut().ok_or(Error::NotFound)?;
+        let hash: [u8; 32] = Sha256::digest(ack.proof).into();
+        if pending.ceremony != ack.ceremony
+            || !layerx_crypto::ct::eq_fixed(&pending.proof_hash, &hash)
+        {
+            return Err(Error::Refused);
+        }
+        pending.envelope = None;
+        self.persist()?;
+        Ok(Vec::new())
     }
     fn authorize_send(
         &mut self,
@@ -409,12 +586,41 @@ impl Store {
         if record.send_actions.len() >= 4096 {
             return Err(Error::Unavailable);
         }
-        let attestor = self.evm_attestor.as_ref().ok_or(Error::Unavailable)?;
+        let attestor = self
+            .evm_attestors
+            .get(&hex(&request.binding))
+            .ok_or(Error::Unavailable)?;
         let wallet = record.wallet.as_mut().ok_or(Error::NotFound)?;
-        if wallet.evm_key_id != attestor.key_id || wallet.address != attestor.address {
-            return Err(Error::Integrity);
-        }
-        wallet.authorize(authorization.authorization.clone(), now)?;
+        attestor.validate_wallet(wallet)?;
+        validate_authorization(
+            &authorization.authorization,
+            wallet,
+            request.binding,
+            self.state.network,
+        )?;
+        let mut candidate = wallet.clone();
+        candidate.authorize(authorization.authorization.clone(), now)?;
+        let transaction = &authorization.authorization.transaction;
+        reserve_nonce(
+            &mut self.state.nonces,
+            wallet.address,
+            transaction.chain_id,
+            transaction.nonce,
+            crate::evm::transaction_digest(transaction),
+        )?;
+        *wallet = candidate;
+        // Commit authorization and the address-wide nonce before the remote signer can act.
+        self.persist()?;
+        let record = self
+            .state
+            .records
+            .get_mut(&hex(&request.binding))
+            .ok_or(Error::NotFound)?;
+        let wallet = record.wallet.as_mut().ok_or(Error::NotFound)?;
+        let attestor = self
+            .evm_attestors
+            .get(&hex(&request.binding))
+            .ok_or(Error::Unavailable)?;
         let action = wallet.sign(
             &authorization.authorization.action_key,
             now,
@@ -445,33 +651,56 @@ impl Store {
         }
         if request.operation == 6 {
             if record.wallet.is_none() {
-                let attestor = self.evm_attestor.as_ref().ok_or(Error::Unavailable)?;
-                record.wallet = Some(crate::evm::Wallet::create(
-                    &attestor.key_id,
-                    attestor.address,
-                )?);
+                let attestor = self
+                    .evm_attestors
+                    .get(&hex(&request.binding))
+                    .ok_or(Error::Unavailable)?;
+                let mut wallet = crate::evm::Wallet::create(&attestor.key_id, attestor.address)?;
+                wallet.tenant.clone_from(&attestor.tenant);
+                wallet.principal.clone_from(&attestor.principal);
+                record.wallet = Some(wallet);
             }
             let address = record.wallet.as_ref().ok_or(Error::Integrity)?.address;
             self.persist()?;
             return Ok(address.to_vec());
         }
         let wallet = record.wallet.as_mut().ok_or(Error::NotFound)?;
+        self.evm_attestors
+            .get(&hex(&request.binding))
+            .ok_or(Error::Unavailable)?
+            .validate_wallet(wallet)?;
         let action = match request.operation {
             7 => {
                 let authorization: EvmPlanAuthorization =
                     serde_json::from_slice(request.evm).map_err(|_| Error::Refused)?;
-                if authorization.binding_digest != request.binding {
-                    return Err(Error::Refused);
-                }
-                wallet.authorize(authorization, now)?
+                validate_authorization(
+                    &authorization,
+                    wallet,
+                    request.binding,
+                    self.state.network,
+                )?;
+                let digest = crate::evm::transaction_digest(&authorization.transaction);
+                let mut candidate = wallet.clone();
+                let action = candidate.authorize(authorization, now)?;
+                let transaction = &action.authorization.transaction;
+                reserve_nonce(
+                    &mut self.state.nonces,
+                    wallet.address,
+                    transaction.chain_id,
+                    transaction.nonce,
+                    digest,
+                )?;
+                *wallet = candidate;
+                action
             }
             8 => {
                 let key: [u8; 32] =
                     serde_json::from_slice(request.evm).map_err(|_| Error::Refused)?;
-                let attestor = self.evm_attestor.as_ref().ok_or(Error::Unavailable)?;
-                if wallet.evm_key_id != attestor.key_id || wallet.address != attestor.address {
-                    return Err(Error::Integrity);
-                }
+                let attestor = self
+                    .evm_attestors
+                    .get(&hex(&request.binding))
+                    .ok_or(Error::Unavailable)?;
+                attestor.validate_wallet(wallet)?;
                 wallet.sign(&key, now, u64::from(self.state.network), &attestor.signer)?
             }
             9 => {
@@ -540,6 +769,7 @@ impl Store {
             send_actions: BTreeMap::new(),
             recipient_identity: None,
             self_custodied: false,
+            export: None,
         };
         let response = description(&record)?;
         self.state.records.insert(key, record);
@@ -578,6 +808,24 @@ fn validate(state: &State, config: &Config) -> std::result::Result<(), String> {
     {
         return Err("state policy mismatch".into());
     }
+    for (account, nonces) in &state.nonces {
+        let Some((chain, address)) = account.split_once(':') else {
+            return Err("nonce account invalid".into());
+        };
+        if chain != config.chain.chain_id.to_string()
+            || address.len() != 40
+            || !address
+                .bytes()
+                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+            || nonces.requests.len() > 4096
+            || nonces
+                .requests
+                .iter()
+                .any(|(nonce, digest)| *nonce >= nonces.next || *digest == [0; 32])
+        {
+            return Err("nonce state invariant failed".into());
+        }
+    }
     let mut handles = std::collections::BTreeSet::new();
     for (key, record) in &state.records {
         if key != &hex(&record.binding)
@@ -597,6 +845,17 @@ fn validate(state: &State, config: &Config) -> std::result::Result<(), String> {
         {
             return Err("state invariant failed".into());
         }
+        if let Some(pending) = &record.export {
+            if !record.self_custodied
+                || pending.ceremony.validate().is_err()
+                || pending.proof_hash == [0; 32]
+                || pending.envelope.as_ref().is_some_and(|envelope| {
+                    envelope.ceremony != pending.ceremony || envelope.ciphertext.len() != 80
+                })
+            {
+                return Err("export state invariant failed".into());
+            }
+        }
         if let Some(wallet) = &record.wallet {
             if record.seed.is_none() {
                 return Err("destroyed wallet invariant failed".into());
@@ -610,6 +869,30 @@ fn validate(state: &State, config: &Config) -> std::result::Result<(), String> {
                 return Err("state key binding failed".into());
             }
         }
+    }
+    Ok(())
+}
+
+fn attestor_error(error: crate::attestor::AttestorError) -> Error {
+    match error {
+        crate::attestor::AttestorError::Refused { .. } => Error::Refused,
+        crate::attestor::AttestorError::SignatureInvalid { .. }
+        | crate::attestor::AttestorError::MalformedResponse { .. } => Error::Integrity,
+        _ => Error::Unavailable,
+    }
+}
+fn validate_authorization(
+    authorization: &crate::evm_types::EvmPlanAuthorization,
+    wallet: &crate::evm::Wallet,
+    binding: [u8; 32],
+    network: u32,
+) -> Result<()> {
+    if authorization.binding_digest != binding
+        || authorization.tenant != wallet.tenant
+        || authorization.principal != wallet.principal
+        || authorization.transaction.chain_id != u64::from(network)
+    {
+        return Err(Error::Refused);
     }
     Ok(())
 }
