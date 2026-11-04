@@ -21,10 +21,6 @@ BINDING_FIELDS = ('source_revision', 'image_digest', 'config_digest', 'config_re
                   'owner_ref', 'authority_ref', 'membership_ref', 'storage_ref',
                   'data_ref', 'abi_ref', 'providers_ref', 'foreign_chains_ref',
                   'funded_accounts_ref', 'roles_ref', 'certificates_ref', 'policy_ref')
-FOUNDATION = {'chain_id': 125, 'nodes': 'preserved', 'validators': 'preserved',
-              'rpc_records': ['api' + str(i) for i in range(1, 17)],
-              'api1_original_host': 'preserved', 'wallet_authentication': 'Supabase',
-              'wallet_placement': 'existing-docker-host', 'relocation': False}
 
 
 class Invalid(ValueError):
@@ -40,12 +36,35 @@ def keys(value, expected, label):
     require(isinstance(value, dict) and set(value) == set(expected), label + ': invalid fields')
 
 
+def contract_request(operation, roster=None, services=None):
+    request = {'operation': operation}
+    if roster is not None:
+        request['roster'] = roster
+    if services is not None:
+        request['services'] = services
+    if operation == 'decisions':
+        request['foundation'] = FOUNDATION
+    try:
+        result = subprocess.run(
+            ['go', 'run', str(Path(__file__).with_name('candidate_contract.go'))],
+            input=json.dumps(request).encode('utf-8'), stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL, timeout=60, check=False)
+    except (OSError, subprocess.TimeoutExpired):
+        raise Invalid('candidate policy unavailable or timed out') from None
+    require(result.returncode == 0 and len(result.stdout) <= MAX_BYTES,
+            'candidate policy refused invalid or unsafe input')
+    return json.loads(result.stdout, object_pairs_hook=duplicate_free)
+
+
 def duplicate_free(pairs):
     result = {}
     for key, value in pairs:
         require(key not in result, 'duplicate JSON field')
         result[key] = value
     return result
+
+
+FOUNDATION = contract_request('foundation')
 
 
 def protected_path(path):
@@ -235,35 +254,8 @@ def select_inventory(paths, roster):
 
 
 def deployment_decision(service, services):
-    bindings = service['bindings']
-    if any(value == UNKNOWN for value in bindings.values()):
-        return 'unknown'
-    if not service['dependency_ids'] and service['dependencies_ref'] == UNKNOWN:
-        return 'unknown'
-    for name in service['dependency_ids']:
-        dependency = services[name]
-        if any(dependency['bindings'][field] == UNKNOWN for field in
-               ('owner_ref', 'authority_ref', 'membership_ref', 'storage_ref', 'data_ref')):
-            return 'unknown'
-        if not dependency['observations'] or any(
-                row['state'] not in ('started', 'running') or row['readiness'] != 'ready'
-                for row in dependency['observations']):
-            return 'unknown'
-    rows = service['observations']
-    if not rows or any(row['state'] == UNKNOWN for row in rows):
-        return 'unknown'
-    if all(row['state'] == 'absent' for row in rows):
-        return 'deploy'
-    if any(row['state'] not in ('running', 'started') or row['readiness'] != 'ready'
-           or row['role_identity'] == UNKNOWN or row['source_revision'] == UNKNOWN
-           or row['config_digest'] == UNKNOWN or row['image_digest'] == UNKNOWN for row in rows):
-        return 'unknown'
-    if any(row['image_digest'] != bindings['image_digest'] or
-           row['source_revision'] != bindings['source_revision'] for row in rows):
-        return 'update'
-    if any(row['config_digest'] != bindings['config_digest'] for row in rows):
-        return 'configure'
-    return 'preserved'
+    roster = {name: row['declaration'] for name, row in services.items()}
+    return contract_request('decisions', roster, list(services.values()))[service['id']]
 
 
 
@@ -356,8 +348,9 @@ def validate(manifest, roster, repo=None, require_ready=False, mainline='refs/he
 
     for name in services:
         visit(name)
+    decisions = contract_request('decisions', roster, list(services.values()))
     for service in services.values():
-        require(service['action'] == deployment_decision(service, services), 'unsafe deployment decision')
+        require(service['action'] == decisions[service['id']], 'unsafe deployment decision')
     if require_ready:
         require(not src['dirty'] and src['integrated'] and
                 all(service['action'] == 'preserved' for service in services.values()),
@@ -367,6 +360,7 @@ def validate(manifest, roster, repo=None, require_ready=False, mainline='refs/he
 
 def create(args):
     roster = catalogue(args.spec)
+    dependencies = contract_request('resolve', roster)
     observations, refs, router = select_inventory(args.inventory, roster)
     branches = []
     if args.branch_notes:
@@ -387,7 +381,7 @@ def create(args):
             branches.append({'revision': lead['tip'], 'evidence_ref': ref + '#branch_candidate_leads',
                              'integration': 'not-credited', 'pending_tasks': ['24.' + str(i) for i in range(1, 10)]})
     services = [{'id': name, 'declaration': declaration, 'bindings': unknown_bindings(),
-                 'observations': observations[name], 'dependency_ids': [],
+                 'observations': observations[name], 'dependency_ids': dependencies[name]['ids'],
                  'dependencies_ref': UNKNOWN, 'action': UNKNOWN, 'mutation_allowed': False}
                 for name, declaration in roster.items()]
     manifest = {'schema': SCHEMA, 'created_at': datetime.datetime.now(datetime.timezone.utc).isoformat(),
