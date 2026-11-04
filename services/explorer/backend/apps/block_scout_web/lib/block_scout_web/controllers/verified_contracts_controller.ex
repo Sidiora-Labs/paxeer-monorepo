@@ -20,9 +20,16 @@ defmodule BlockScoutWeb.VerifiedContractsController do
   }
 
   def index(conn, %{"type" => "JSON"} = params) do
+    cursor =
+      case params do
+        %{"smart_contract_id" => id} -> %{smart_contract_id: id}
+        %{"id" => id} -> %{smart_contract_id: id}
+        _ -> %{}
+      end
+
     full_options =
       [necessity_by_association: @necessity_by_association]
-      |> Keyword.merge(smart_contract_addresses_paging_options(params))
+      |> Keyword.merge(smart_contract_addresses_paging_options(cursor))
       |> Keyword.merge(current_filter(params))
       |> Keyword.merge(search_query(params))
 
@@ -47,12 +54,16 @@ defmodule BlockScoutWeb.VerifiedContractsController do
       case next_page_params(
              next_page,
              verified_contracts,
-             params,
+             Map.delete(params, "id"),
              false,
-             &%{id: &1.id}
+             &%{smart_contract_id: &1.id}
            ) do
-        nil -> nil
-        next_page_params -> verified_contracts_path(conn, :index, Map.delete(next_page_params, "type"))
+        nil ->
+          nil
+
+        next_page_params ->
+          next_page_params = Map.merge(next_page_params, Map.take(params, ["filter", "search", "q"]))
+          verified_contracts_path(conn, :index, Map.delete(next_page_params, "type"))
       end
 
     json(conn, %{items: items, next_page_path: next_page_path})
