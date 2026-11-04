@@ -37,7 +37,7 @@ export type RouteBlockerArgs = {
   paxeerState: PaxeerPairState;
   vaultState: VaultState;
   attestationApiConfigured: boolean;
-  foreign?: Pick<BridgeChain, 'state' | 'label' | 'vault'>;
+  foreign?: Pick<BridgeChain, 'state' | 'label' | 'vault'> & Partial<Pick<BridgeChain, 'kind'>>;
   direction?: 'in' | 'out';
   paxeerConfigured?: boolean;
 };
@@ -81,6 +81,15 @@ export function routeBlockers({
         list.push('The vault registered on Paxeer for this chain does not match the vault this app is configured with. Do not deposit.');
       }
     }
+  }
+  if (foreign?.kind === 'solana') {
+    if (!vaultState.loaded) list.push('The Solana custody state has not been verified. Wait for the program accounts to load.');
+    if (vaultState.loaded && !vaultState.enabled) list.push('The Solana custody asset is disabled.');
+    if (vaultState.loaded && paxeerState.loaded && paxeerState.registered &&
+      vaultState.vault?.toLowerCase() !== paxeerState.vault?.toLowerCase()) {
+      list.push('The Solana custody vault does not match the vault registered on Paxeer.');
+    }
+    if (!paxeerState.loaded) list.push('The Paxeer bridge state has not been verified.');
   }
   if (vaultState.error) {
     list.push('The vault state could not be read. The route cannot be verified on-chain right now.');

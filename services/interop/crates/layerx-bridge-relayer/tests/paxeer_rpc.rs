@@ -23,7 +23,7 @@ fn request(stream: &mut TcpStream) -> Value {
     let mut reader = BufReader::new(stream);
     let mut line = String::new();
     reader.read_line(&mut line).unwrap();
-    assert_eq!(line, "POST /rpc HTTP/1.1\r\n");
+    assert_eq!(line, "POST / HTTP/1.1\r\n");
     let mut length = None;
     loop {
         line.clear();
@@ -46,7 +46,7 @@ fn request(stream: &mut TcpStream) -> Value {
 fn emulator(answers: Vec<Value>) -> (PaxeerEndpoint, JoinHandle<Vec<Value>>) {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let endpoint = PaxeerEndpoint::new(
-        format!("http://{}/rpc", listener.local_addr().unwrap()),
+        format!("http://{}/", listener.local_addr().unwrap()),
         TIMEOUT,
         None,
         125,
@@ -187,7 +187,7 @@ fn paxeer_reads_need_a_strict_majority_of_endpoints() {
 fn paxeer_rpc_refuses_mixed_chain_ids_and_more_than_eight_endpoints() {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let endpoint = PaxeerEndpoint::new(
-        format!("http://{}/rpc", listener.local_addr().unwrap()),
+        format!("http://{}/", listener.local_addr().unwrap()),
         TIMEOUT,
         None,
         125,
@@ -207,7 +207,31 @@ fn paxeer_rpc_refuses_mixed_chain_ids_and_more_than_eight_endpoints() {
         ));
     }
     assert!(PaxeerRpc::new(vec![endpoint.clone()]).is_ok());
-    assert!(PaxeerRpc::new(vec![endpoint; 8]).is_ok());
+    assert!(matches!(
+        PaxeerRpc::new(vec![endpoint; 8]),
+        Err(RpcFault::Configuration)
+    ));
+    let listeners: Vec<_> = (0..9)
+        .map(|_| TcpListener::bind("127.0.0.1:0").unwrap())
+        .collect();
+    let independent: Vec<_> = listeners
+        .iter()
+        .map(|listener| {
+            PaxeerEndpoint::new(
+                format!("http://{}/", listener.local_addr().unwrap()),
+                TIMEOUT,
+                None,
+                125,
+                true,
+            )
+            .unwrap()
+        })
+        .collect();
+    assert!(PaxeerRpc::new(independent[..8].to_vec()).is_ok());
+    assert!(matches!(
+        PaxeerRpc::new(independent),
+        Err(RpcFault::Configuration)
+    ));
     listener.set_nonblocking(true).unwrap();
     assert_eq!(
         listener.accept().unwrap_err().kind(),
@@ -250,5 +274,39 @@ fn a_sequencer_receipt_read_uses_pax_sequencer_receipt() {
             assert_eq!(pair[1]["method"], "pax_sequencerReceipt");
             assert_eq!(pair[1]["params"], json!([format!("0x{}", "ab".repeat(32))]));
         }
+    }
+}
+
+#[test]
+fn duplicate_and_alias_endpoints_cannot_outvote_an_independent_backend() {
+    let (first, first_worker) = emulator(vec![result(json!("0x7d")), result(json!("0x10"))]);
+    let (second, second_worker) = emulator(vec![result(json!("0x7d")), result(json!("0x11"))]);
+    let port = first
+        .url
+        .strip_prefix("http://127.0.0.1:")
+        .unwrap()
+        .trim_end_matches('/');
+    // Optional private proxy paths are aliases of the same voting authority.
+    for url in [
+        first.url.clone(),
+        format!("http://localhost:{port}/"),
+        format!("http://LOCALHOST:{port}/private-proxy"),
+        format!("http://127.0.0.1:{port}/private-proxy"),
+    ] {
+        let mut alias = first.clone();
+        alias.url = url;
+        assert!(matches!(
+            PaxeerRpc::new(vec![first.clone(), alias, second.clone()]),
+            Err(RpcFault::Configuration)
+        ));
+    }
+    assert_eq!(
+        PaxeerRpc::new(vec![first, second])
+            .unwrap()
+            .call("eth_blockNumber", json!([])),
+        Err(RpcFault::Divergence)
+    );
+    for worker in [first_worker, second_worker] {
+        assert_eq!(worker.join().unwrap().len(), 2);
     }
 }

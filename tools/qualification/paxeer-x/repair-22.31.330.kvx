@@ -1,0 +1,45 @@
+[meta]
+task = "22.31.330"
+audit = "22.30.183"
+base_revision = "089fc62b48230622d7e72a1625ec77c092956fb1"
+qualification = "hf-build followed by hf-done; the private gate ledger records the exact candidate revision, command, exit and log."
+baseline = "No baseline gate ran: the explicit implementation-first order and gate budget prohibit a handwritten verify before implementation; no pre-change test failure is claimed."
+proof_boundary = "Real producer build-input construction and manifest publication, private JSON file transport, reopening and real consumer admission; source documents are opaque artifact payloads, not substitute native executables. Native execution is not claimed by the Python repair gate."
+
+[finding.f009]
+tests = ["test_f009_untouched_producer_manifest_admitted", "test_f009_shell_uses_shared_publication", "test_f009_refuses_foreign_or_incomplete_manifest", "test_f009_artifact_mutation_refused"]
+repair = "The shell publisher and consumer share version 1 native-complete-caps-discovery with native/rust only; discovery admits the unmodified publication before execution. The runtime fixture binds the separately supplied paxd bundle by revision and tree instead of demanding layerxd in the discovery manifest."
+retained_checks = "Source binding, private file permissions, executable checks, artifact hashes, runtime/finality qualification, complete runtime cases and Rust marker/count checks remain mandatory."
+
+[finding.f010]
+tests = ["test_f010_untouched_producer_manifest_admitted", "test_f010_keeps_all_retained_admission_checks", "test_f010_artifact_or_build_log_mutation_refused", "test_f010_native_evidence_is_mandatory_and_source_bound", "test_f010_native_publisher_refuses_absent_real_evidence"]
+repair = "Share the four retained artifacts, three build logs and declared protocol/legacy cases; remove dependence on undeclared NATIVE_CASES, generated-header and the removed native executable. The native proof suite still runs, consuming source-bound lifecycle evidence through --native-fixtures."
+native_evidence = "paxeer-x.program-interface-native-evidence.v1 contains source plus artifacts keyed by each NATIVE_FIXTURE_CASES case/module.wasm, case/interface.bin and case/evidence.kvx; every row is path/sha256/bytes. Emitted Rust inputs must match the supplied bytes; all original protocol and legacy tests remain required."
+limitation = "Native lifecycle evidence publication from the retained node belongs to the runtime owner and is requested below; no synthetic receipt or native execution is counted as qualification."
+
+[finding.f011]
+tests = ["test_f011_untouched_producer_manifest_admitted", "test_f011_refuses_command_provenance_and_inventory_changes", "test_f011_retained_artifact_mutation_refused"]
+repair = "Producer and consumer share the exact make command and the producer's recovery suites. The verifier executes all published recovery suites without layerxd or the removed ORDER_CHECK prerequisite, preserving scoped source, log, artifact and unchanged-candidate checks."
+
+[wiring.1]
+request = "Domain 2 node/runtime, tests/daemon/paxeer_x_runtime_fixture.py: the imported module is absent; supply the retained paxd RuntimeFixture and source_revision/source_tree artifact bundle API used by tools/qualification/paxeer-x/fixtures/caps_fixture.py."
+
+[wiring.2]
+request = "Domain 2 node/runtime, tests/qualification/lxp_wallet_caps_discovery.c and services/agent/crates/layerx-client/tests/caps_discovery.rs: wire the retained merged-node capability producer and test target; the declared Rust client source is absent, and native discovery execution is not claimed here."
+
+[wiring.3]
+request = "Domain 12 programs runtime, tests/programs/test_lifecycle.c: publish source-bound native deployment/upgrade/refusal evidence with program-interface-producer.py publish_native_evidence in paxeer-x.program-interface-native-evidence.v1 for the existing interface_protocol native receipt verifier; pass it with --native-fixtures instead of restoring the retired daemon/harness."
+
+[wiring.4]
+request = "Domain 4 storage, tests/storage/lxp_test_batch_wal_recovery.c and src/modules/programs/feed_store.c: these existing storage producer inputs are absent (audit f012); coordinate the separately owned retained-store migration without changing that finding in this task."
+
+[wiring.5]
+request = "Domain 2 finality, tests/daemon/paxeer_x_runtime_fixture.py: expose the retained supplemental finality admission through the caps fixture; the current caps fixture exports no finality object, so native/finality execution remains unproven."
+
+[gotcha.1]
+observed = "The task asks for an unchanged-tree baseline despite explicitly forbidding tests before implementation and permitting only hf-done verification."
+resolution = "Follow the explicit gate order and record static baseline observations without claiming a baseline run."
+
+[gotcha.2]
+observed = "py_compile writes bytecode even with PYTHONDONTWRITEBYTECODE; directory-scoped candidates can accidentally carry it."
+resolution = "Use a private PYTHONPYCACHEPREFIX outside the repository for both bounded gates; keep the final candidate source-only."
