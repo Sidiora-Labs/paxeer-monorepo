@@ -8,7 +8,7 @@ go 1.25.0
 require (
 	github.com/Sidiora-Technologies/KindleLaunch/shared v0.0.0
 	github.com/caarlos0/env/v11 v11.4.1
-	github.com/ethereum/go-ethereum v1.17.3
+	github.com/ethereum/go-ethereum v1.17.4
 	github.com/go-chi/chi/v5 v5.4.0
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
@@ -16,6 +16,12 @@ require (
 	github.com/nats-io/nats.go v1.47.0
 	github.com/pressly/goose/v3 v3.24.3
 	github.com/redis/go-redis/v9 v9.20.1
+)
+
+require (
+	github.com/fjl/jsonw v0.1.0 // indirect
+	github.com/pion/transport/v4 v4.0.2 // indirect
+	github.com/wlynxg/anet v0.0.5 // indirect
 )
 
 require (
@@ -69,7 +75,7 @@ require (
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
-	github.com/gofrs/flock v0.12.1 // indirect
+	github.com/gofrs/flock v0.12.1
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.2 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
@@ -99,11 +105,9 @@ require (
 	github.com/mitchellh/pointerstructure v1.2.0 // indirect
 	github.com/nats-io/nkeys v0.4.11
 	github.com/nats-io/nuid v1.0.1 // indirect
-	github.com/pion/dtls/v2 v2.2.7 // indirect
-	github.com/pion/logging v0.2.2 // indirect
-	github.com/pion/stun/v2 v2.0.0 // indirect
-	github.com/pion/transport/v2 v2.2.1 // indirect
-	github.com/pion/transport/v3 v3.0.1 // indirect
+	github.com/pion/dtls/v3 v3.1.4 // indirect
+	github.com/pion/logging v0.2.4 // indirect
+	github.com/pion/stun/v3 v3.1.5 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.15.0 // indirect
 	github.com/prometheus/client_model v0.3.0 // indirect
@@ -117,7 +121,7 @@ require (
 	github.com/shirou/gopsutil v3.21.4-0.20210419000835-c7a38de76ee5+incompatible // indirect
 	github.com/spf13/cast v1.10.0 // indirect
 	github.com/supranational/blst v0.3.16 // indirect
-	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7 // indirect
+	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
 	github.com/tklauser/go-sysconf v0.3.16 // indirect
 	github.com/tklauser/numcpus v0.11.0 // indirect
 	github.com/urfave/cli/v2 v2.27.5 // indirect

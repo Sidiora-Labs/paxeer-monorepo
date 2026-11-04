@@ -8289,6 +8289,18 @@ value = "There is one network with chain id 125 (cosmos chain id hyperpax_125-1)
 basis = "Gotcha 2991: the inherited 713714 default made test applications and signers disagree (22.33.1141) and surfaced as a wrong chain id in wallet and conformance fixtures (22.33.155 attempt 3, decision 2520)."
 affects = ["22.31.476"]
 
+[decision.2530]
+title = "The committed-rung conformance scenario requires an exact payment"
+value = "The conformance scenario that builds a committed rung reads paymentReference, which only PaymentExactEvent carries. The scenario narrows the seller payment union: an exact payment proceeds; a drawn payment is refused with a named scenario error stating that the committed rung requires an exact payment. The seller event union itself is correct and stays."
+basis = "Grant draws are retired (decision 2340) and a drawn payment has no payment reference to hash into a purpose; the consumer must state the requirement instead of reading a field the union does not guarantee."
+affects = ["22.31.477"]
+
+[decision.2531]
+title = "Agent web settlement tests assert the production refusals"
+value = "In the agent MCP web tests a receipt signed under a key other than the pinned one is refused as PaymentArtifact(receipt), the refusal the settlement path produces for an unverifiable receipt artifact; payer artifacts built on a grant are refused by the payer as Payer(Refused), because grant draws are retired (decision 2340). Tests assert these variants and prove that nothing is sent after the refusal; they do not introduce new refusal variants."
+basis = "The production refusal contract is the specification; the tests observed it correctly and only their expected variants were wrong."
+affects = ["22.33.1553"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -37180,6 +37192,24 @@ verification_contract = "cargo test --locked --manifest-path services/agent/Carg
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
 
+[capability.22.31.478]
+title = "Complete the AI market Fund call within the kernel gas allowance"
+reqs = ["22998.1"]
+touches = ["programs/crates/layerx-programs-ai-market", "modules/lxphost", "rpc/repair_478_test.go", "rpc/repair_478.kvx"]
+tests = []
+verification_contract = "make -s paxd-native-libs && CGO_ENABLED=1 go test -count=1 -run '^TestRepair478_' ./rpc/ && cd programs && cargo test -q -p layerx-programs-ai-market"
+do_1 = "do_1 TestAiMarketTransferAuthorityReceipt (rpc/sequencer_receipt_vectors_test.go line 1535, helper at line 784) fails in the committed runtime fixture: the ABI5 Fund call into the AI market program reverts with LXP_ERR_GAS_EXHAUSTED against the production kernel gas allowance of 10000000 while the EVM side used 88480 gas. Measure the kernel gas the Fund entry of programs/crates/layerx-programs-ai-market consumes in that fixture and find the consumer: an unbounded loop or repeated re-decoding in the program, or allowance plumbing between the host module (modules/lxphost) and the program that passes the wrong unit or a stale allowance."
+symbols = []
+
+[capability.22.31.477]
+title = "Make the middleware conformance package compile against the seller payment union"
+reqs = ["22998.1"]
+touches = ["services/platform/middleware/conformance/src", "services/platform/middleware/conformance/test", "services/platform/middleware/conformance/repair_22_31_477.kvx"]
+tests = []
+verification_contract = "node --test services/platform/middleware/conformance/test/repair-22-31-477.test.mjs"
+do_1 = "do_1 In services/platform/middleware/conformance/src/scenarios.ts (line 447) the committed-rung scenario reads paymentReference from verification.payment, whose type is PaymentExactEvent | PaymentDrawnEvent since the seller repair of audit record 22.30.86 (gotcha 2993). Narrow the union as decision 2530 rules: an exact payment proceeds; a drawn payment is refused with a named scenario error stating that the committed rung requires an exact payment. Repair every other compile error the package build reports; never change the seller types."
+symbols = []
+
 [capability.22.31.476]
 title = "Default the EVM chain id to 125 and drop the foreign network mappings"
 reqs = ["22998.1"]
@@ -37230,7 +37260,7 @@ title = "Pass the sealed object bound to the storage GetBytes caller in the laun
 reqs = ["22998.1"]
 touches = ["services/launchpad/user/internal/account"]
 tests = []
-verification_contract = "go test -count=1 -run '^TestRepair471_' ./services/launchpad/user/internal/account/"
+verification_contract = "cd services/launchpad/user && go test -count=1 -run '^TestRepair471_' ./internal/account/"
 do_1 = "do_1 sdk/launchpad/shared/storage/r2.go defines GetBytes(ctx, key, maxBytes int64) (lines 70 and 200) while services/launchpad/user/internal/account/jobs_http.go line 346 still calls it with two arguments, so the user service does not compile (22.33.1062 attempt 2). Pass the sealed job object bound the handler already enforces (or the configured maximum object size) as maxBytes; do not pass zero or an unlimited value."
 symbols = []
 
@@ -46077,7 +46107,7 @@ title = "Repair audit record 22.30.163 medium findings in sdk/integrations/next/
 reqs = ["22998.1"]
 touches = ["sdk/integrations/next/example/test"]
 tests = ["sdk/integrations/next/example/test/repair-22-33-619.test.mjs"]
-verification_contract = "npm --prefix sdk/integrations/next ci --ignore-scripts && npm --prefix sdk/integrations/next run build && npm --prefix sdk/integrations/next/example install --no-audit --no-fund && node --test sdk/integrations/next/example/test/repair-22-33-619.test.mjs"
+verification_contract = "node --test sdk/integrations/next/example/test/repair-22-33-619.test.mjs"
 do_1 = "Audit record 22.30.163 (spec/layerx-merge/programme/audit/records/22.30.163.kvx) holds 1 medium finding(s) in sdk/integrations/next/example/test that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: 023. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -146773,6 +146803,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.31.477]
+title = "Make the middleware conformance package compile against the seller payment union"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.477"]
+interfaces = []
+do_1 = "do_1 In services/platform/middleware/conformance/src/scenarios.ts (line 447) the committed-rung scenario reads paymentReference from verification.payment, whose type is PaymentExactEvent | PaymentDrawnEvent since the seller repair of audit record 22.30.86 (gotcha 2993). Narrow the union as decision 2530 rules: an exact payment proceeds; a drawn payment is refused with a named scenario error stating that the committed rung requires an exact payment. Repair every other compile error the package build reports; never change the seller types."
+do_2 = "do_2 Add services/platform/middleware/conformance/test/repair-22-31-477.test.mjs proving through the built scenario module that the committed-rung scenario accepts an exact payment event and refuses a drawn payment event with the named error, and that the package build output exists."
+do_3 = "do_3 Record in services/platform/middleware/conformance/repair_22_31_477.kvx the changed files and the three dependents whose gates build this package (22.33.1479, 22.33.1480, 22.33.1481)."
+symbols = []
+touches = ["services/platform/middleware/conformance/src", "services/platform/middleware/conformance/test", "services/platform/middleware/conformance/repair_22_31_477.kvx"]
+tests = []
+planned_paths = ["services/platform/middleware/conformance/src/scenarios.ts", "services/platform/middleware/conformance/test/repair-22-31-477.test.mjs"]
+build_cmd = "npm ci --ignore-scripts && npm run build:dependencies -- @sidiora/layerx-middleware-conformance && npm --prefix services/platform/middleware/conformance run build"
+verify_cmd = "node --test services/platform/middleware/conformance/test/repair-22-31-477.test.mjs"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.474]
 title = "Make the explorer frontend production build type-check and lint again"
 status = "pending"
@@ -146806,7 +146866,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.469]
 title = "Declare happy-dom for the web explorer end-to-end test instead of reaching into a nested package"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -146903,7 +146963,7 @@ title = "Repair audit record 22.30.86 medium findings in services/platform/middl
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.359", "22.31.360", "22.31.361", "22.31.362", "22.31.434", "22.31.435", "22.31.436", "22.31.457"]
+requires = ["22.31.359", "22.31.360", "22.31.361", "22.31.362", "22.31.434", "22.31.435", "22.31.436", "22.31.457", "22.31.477"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1481"]
 interfaces = []
@@ -146934,13 +146994,14 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_8 = "Attempt 2 (continue, after 22.31.457 landed): the conformance build failed on the seller commitment type error that task 22.31.457 repairs; this task now requires it. Take the current head, rerun the build and the verify once, repair only what remains in scope, and finish on one commit."
 do_9 = "Attempt 3 (continue): the buyer middleware TS2345 error in src/index.ts resolveValidators that stopped the build was repaired and published by 22.33.1477; rerun the task on current main and repair only what its own tests report."
 do_10 = "Attempt 4 (continue): the conformance build failed with TS2339 at src/scenarios.ts line 506 reading paymentReference on PaymentExactEvent | PaymentDrawnEvent; the seller ledger (services/platform/middleware/seller/src/ledger.ts line 37) defines PaymentDrawnEvent with grantId, idempotencyKey and contextHash and no paymentReference, so the scenario must narrow on the event kind before reading the reference (a drawn payment is identified by grantId and idempotencyKey). Repair the scenario in the conformance package, rebuild, and rerun."
+do_11 = "Attempt 5 (continue after 22.31.477): the same TS2339 at scenarios.ts stops the conformance build; 22.31.477 owns that repair and this task now requires it. Rerun on current main after it lands and repair only what this task's own tests report."
 
 [task.22.33.1480]
 title = "Repair audit record 22.30.86 medium findings in services/platform/middleware/conformance (part 1 of 1): test-gap"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.359", "22.31.360", "22.31.361", "22.31.362", "22.31.434", "22.31.435", "22.31.436"]
+requires = ["22.31.359", "22.31.360", "22.31.361", "22.31.362", "22.31.434", "22.31.435", "22.31.436", "22.31.477"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1480"]
 interfaces = []
@@ -146977,7 +147038,7 @@ title = "Repair audit record 22.30.86 medium findings in services/platform/middl
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.359", "22.31.360", "22.31.361", "22.31.362", "22.31.434", "22.31.435", "22.31.436"]
+requires = ["22.31.359", "22.31.360", "22.31.361", "22.31.362", "22.31.434", "22.31.435", "22.31.436", "22.31.477"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1479"]
 interfaces = []
@@ -147014,6 +147075,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_15 = "Attempt 2 (continue): the gate installed the conformance package alone, so npm looked for the repository's own packages (@sidiora/layerx-agent-integrations and its siblings) on the registry and failed with E404. Those packages are members of the root npm workspace: the gate now runs npm ci at the root, builds the dependencies with the root build:dependencies script and then builds and tests the conformance package. Continue the attempt-1 tree against the corrected gate."
 do_16 = "Attempt 3 (continue): attempt 2 ran before the attempt-1 gate amendment reached the task; the amended build and verify commands build the agent middleware package before the tests import it; rerun against them."
+do_17 = "Attempt 4 (continue after 22.31.477): the conformance build failed on TS2339 at src/scenarios.ts line 447 reading paymentReference on PaymentExactEvent | PaymentDrawnEvent (gotcha 2993); 22.31.477 repairs the scenario and this task now requires it. Rerun on current main after it lands, keep the pay6 fixtures and tests, and repair only what this task's own tests report."
 
 [task.22.33.1478]
 title = "Repair audit record 22.30.86 medium findings in services/platform/middleware/seller/test (part 1 of 1): test-gap"
@@ -147038,7 +147100,7 @@ do_11 = "Prove each repair with a node test services/platform/middleware/seller/
 do_12 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command above is the whole gate (gotcha 2962)."
 do_13 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["services/platform/middleware/seller/test"]
+touches = ["services/platform/middleware/seller/test", "services/platform/middleware/seller/src"]
 tests = ["services/platform/middleware/seller/test/repair-22-33-1478.test.mjs"]
 planned_paths = ["services/platform/middleware/seller/test/repair-22-33-1478.test.mjs"]
 build_cmd = "npm ci --ignore-scripts && npm run build:dependencies -- @sidiora/layerx-seller-middleware && npm --prefix services/platform/middleware/seller run build && node --check services/platform/middleware/seller/test/commitment-rungs.test.mjs services/platform/middleware/seller/test/grant-draw.test.mjs services/platform/middleware/seller/test/payment-rpc.test.mjs services/platform/middleware/seller/test/proof_middleware_seller_ts_exports.test.mjs"
@@ -147055,6 +147117,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_14 = "Attempt 3 (continue after the gate amendment): the build and verify commands now run npm ci from the repository root, build the package's dependencies with the root build:dependencies script, and build the package itself before the tests run; rerun the task against the amended gates and repair only what the tests then report."
+do_15 = "Attempt 5 (continue): four grant tests fail with invalid-payment-payload thrown by encodeLedgerDraw because the test's own draw helper (grant-draw.test.mjs line 54) passes words that are not 32-byte Uint8Arrays; encode amounts and sequences as 32-byte big-endian words and addresses left-padded to 32 bytes, as the seller ledger codec requires. The exports proof fails because HostedGatewayRpc is exported by seller src/rpc.ts but not re-exported from src/index.ts (export block at line 1201); seller src is now in this task's paths: re-export HostedGatewayRpc beside PaymentRpc so dist/index.js provides it. Keep every assertion strict."
 
 [task.22.33.1477]
 title = "Repair audit record 22.30.86 medium findings in services/platform/middleware/buyer/test (part 1 of 1): test-gap"
@@ -147094,7 +147157,7 @@ do_9 = "Attempt 2 (continue): installing the buyer middleware by itself resolves
 
 [task.22.33.1476]
 title = "Repair audit record 22.30.86 medium findings in services/platform/middleware/agent/test (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.359", "22.31.360", "22.31.361", "22.31.362", "22.31.434", "22.31.435", "22.31.436"]
@@ -147311,6 +147374,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_12 = "Attempt 2 (continue, after 22.31.457 lands): three cases fail because the seller middleware's receipt digest verification (services/platform/middleware/seller/src/index.ts) refuses the shared v2 receipt digest the agent SDK produces; the SDK is the producer and 22.31.457, which this task now requires, carries its widened receipt inclusion through the seller middleware. Take the current head once it has landed; if the middleware is still behind the SDK's digest, repair it in services/platform/middleware/seller/src (now in scope). The gate installs the root workspace and builds the SDK, the agent middleware and the seller middleware before the test runs. Finish on one commit with the build and the verify run once on it."
 do_13 = "Attempt 3 (continue): the attempt-1 ruling stands (after 22.31.457); the remaining merchant payment-purpose mismatch means the recorded fixture must be regenerated from the producer path in services/platform/middleware/seller/src, which is in this task's paths; do not edit the recorded purpose by hand."
+do_14 = "Attempt 5 (continue): 13 of 15 cases pass; merchantCheckoutOfferUsesReceiptedRung and merchantWebhookRefusesTransactionMismatch (merchant-app.test.mjs lines 260 and 261) refuse an inherited recording whose purpose does not match the offer. Regenerate that recording in the examples test support with the test-side signer the merchant test already uses (the secp256k1 signing helper in services/platform/examples/test), binding the purpose hash to the checkout offer; the production seller package gets no signer. Verify the restart coverage added last time; finish on one commit."
 
 [task.22.33.1365]
 title = "Repair audit record 22.30.74 medium findings in services/platform/examples (part 1 of 1): runtime-risk"
@@ -149628,7 +149692,7 @@ touches = ["sdk/integrations/next/example/test", "sdk/integrations/next/example"
 tests = ["sdk/integrations/next/example/test/repair-22-33-619.test.mjs"]
 planned_paths = ["sdk/integrations/next/example/test/repair-22-33-619.test.mjs"]
 build_cmd = "npm --prefix sdk/integrations/next ci --ignore-scripts && npm --prefix sdk/integrations/next run build && npm --prefix sdk/integrations/next/example install --no-audit --no-fund"
-verify_cmd = "npm --prefix sdk/integrations/next ci --ignore-scripts && npm --prefix sdk/integrations/next run build && npm --prefix sdk/integrations/next/example install --no-audit --no-fund && node --test sdk/integrations/next/example/test/repair-22-33-619.test.mjs"
+verify_cmd = "node --test sdk/integrations/next/example/test/repair-22-33-619.test.mjs"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-cosmos-fork"
@@ -149645,6 +149709,7 @@ do_9 = "Attempt 3 (continue): the example's package.json is inside this task's p
 do_10 = "Attempt 4 (continue): sdk/integrations/next has no package-lock.json, so the build command's npm ci cannot run there; decision 2520 wants every package to declare its dependencies in a manifest and a lockfile. The scope now includes the package root: generate its lockfile with npm install --package-lock-only --ignore-scripts from the manifest as it stands, commit it, keep the example's file:.. dependency and the mounted-route proof, and run the build and the verify once on the final revision with no commit after the pass."
 do_11 = "Attempt 5 (continue, after 22.31.457 landed): the example install builds the seller middleware of the root workspace and failed on the commitment type error task 22.31.457 repairs; this task now requires it. Take the current head, keep the lockfile and tests, run the build and the verify once, repair only what remains in scope, and finish on one commit."
 do_12 = "Attempt 6 (continue): the buyer middleware TS2345 error in src/index.ts resolveValidators that stopped the build was repaired and published by 22.33.1477; rerun the task on current main and repair only what its own tests report."
+do_13 = "Attempt 7 (requalify): all six tests pass and the done command exited 0 in attempt 6, but qualification was withheld because the verify command reinstalled the example's dependencies and changed the tree between build and verification; six attempts ended the same way. The verify command is now the test alone; the build command still performs the installs. Take the current head, run the build and verify once, and finish on one commit."
 
 [task.22.33.612]
 title = "Repair audit record 22.30.163 medium findings in sdk/integrations/agents/test (part 1 of 1): test-gap"
@@ -149686,7 +149751,7 @@ do_11 = "Attempt 4 (continue): the tracking tool does not refuse untrusted pins,
 
 [task.22.33.611]
 title = "Repair audit record 22.30.163 medium findings in sdk/integrations/agents/src (part 1 of 1): restart-recovery, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.287", "22.31.414", "22.31.415", "22.31.416", "22.31.417", "22.31.418", "22.31.419", "22.31.420", "22.31.457"]
@@ -153251,6 +153316,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_10 = "Attempt 2 (continue): jsdom has no SVG geometry; stub SVGPathElement.prototype.getTotalLength and getPointAtLength in the vitest setup for this test so the chart renders, and keep the assertions on the rendered output."
 do_11 = "Decision 2528: before qualifying, run yarn eslint on every spec file this task adds under apps/explorer; every test call has a string title and asserts inside its body (eslint-plugin-vitest valid-title and expect-expect), because the frontend image build lints the whole package and a spec file that only type-checks is not qualified. The tsc build of this task fails until 22.31.474 repairs the 299 spec, which is why this task now requires it."
+do_12 = "Attempt 4 (continue after 22.31.474): the type check failed on TS2769 in repair-22-33-299.spec.ts, a spec another task published that 22.31.474 repairs; this task already requires it. Rerun on current main after it lands, run eslint on the spec files this task adds (decision 2528), and repair only what remains."
 
 [task.22.33.301]
 title = "Repair audit record 22.30.135 medium findings in apps/explorer/ui/marketplace (part 1 of 1): wiring-gap"
@@ -153287,6 +153353,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_9 = "Decision 2528: before qualifying, run yarn eslint on every spec file this task adds under apps/explorer; every test call has a string title and asserts inside its body (eslint-plugin-vitest valid-title and expect-expect), because the frontend image build lints the whole package and a spec file that only type-checks is not qualified. The tsc build of this task fails until 22.31.474 repairs the 299 spec, which is why this task now requires it."
+do_10 = "Attempt 2 (continue after 22.31.474): the type check failed on TS2769 in repair-22-33-299.spec.ts, a spec another task published that 22.31.474 repairs; this task already requires it. Rerun on current main after it lands, run eslint on the spec files this task adds (decision 2528), and repair only what remains."
 
 [task.22.33.300]
 title = "Repair audit record 22.30.135 medium findings in apps/explorer/ui/marketplace/essentialDapps/revoke/lib (part 1 of 1): runtime-risk"
@@ -165137,9 +165204,40 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.31.478]
+title = "Complete the AI market Fund call within the kernel gas allowance"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.478"]
+interfaces = []
+do_1 = "do_1 TestAiMarketTransferAuthorityReceipt (rpc/sequencer_receipt_vectors_test.go line 1535, helper at line 784) fails in the committed runtime fixture: the ABI5 Fund call into the AI market program reverts with LXP_ERR_GAS_EXHAUSTED against the production kernel gas allowance of 10000000 while the EVM side used 88480 gas. Measure the kernel gas the Fund entry of programs/crates/layerx-programs-ai-market consumes in that fixture and find the consumer: an unbounded loop or repeated re-decoding in the program, or allowance plumbing between the host module (modules/lxphost) and the program that passes the wrong unit or a stale allowance."
+do_2 = "do_2 Repair the real cause where it lives (the program crate or the host allowance plumbing), never by raising the production allowance or shrinking the fixture; every existing receipt vector keeps its observable result."
+do_3 = "do_3 Add TestRepair478_ in rpc/repair_478_test.go proving the ABI5 Fund call completes under the production allowance in the committed runtime fixture and logging the kernel gas used, plus a Rust unit test in the program crate bounding the Fund entry's gas for the fixture's input."
+do_4 = "do_4 Record in rpc/repair_478.kvx the measured kernel gas before and after, the cause and the changed files; 18.1562.1 requires this task."
+symbols = []
+touches = ["programs/crates/layerx-programs-ai-market", "modules/lxphost", "rpc/repair_478_test.go", "rpc/repair_478.kvx"]
+tests = []
+planned_paths = ["rpc/repair_478_test.go", "programs/crates/layerx-programs-ai-market/src/lib.rs"]
+build_cmd = "make -s paxd-native-libs && CGO_ENABLED=1 go build ./rpc/ ./modules/lxphost/..."
+verify_cmd = "make -s paxd-native-libs && CGO_ENABLED=1 go test -count=1 -run '^TestRepair478_' ./rpc/ && cd programs && cargo test -q -p layerx-programs-ai-market"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.473]
 title = "Guard the explorer release against function terms in build-time configuration"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -165359,7 +165457,7 @@ title = "Issue #1562: Decode and validate transfer-authority wrappers in AI mark
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["13.99.1", "22.99.160", "1.23.7", "5.99.1", "22.31.441", "22.31.463"]
+requires = ["13.99.1", "22.99.160", "1.23.7", "5.99.1", "22.31.441", "22.31.463", "22.31.478"]
 reqs = ["181562.1"]
 capabilities = ["18.1562.1"]
 interfaces = []
@@ -165394,6 +165492,7 @@ do_11 = "Attempt 11 (continue): the AI market creation reverted with LXP_VERSION
 do_12 = "Attempt 12 (continue): npm ci at the workspace root passes again since 22.31.441 published the root lockfile repair; re-run the build and the verify on the current tree and keep the implementation."
 do_13 = "Attempt 13 (continue): the receipt vector case reaches the fund step and the committed runtime fixture reverts with the LXP gas-exhausted code. Give the fund call the gas the production client uses (read the fund gas allowance from the agent SDK's AI-market module, the same value its transfer-authority path sends) instead of the vector's smaller allowance, keep the corrected chain domain, re-run the verify command and finish on one commit. If the kernel's metering refuses even the production allowance, record the measured gas as a finding against the fixture, not a wiring request."
 do_14 = "Attempt 15 (continue after 22.31.463): the Go build or test binary could not compile because sdk/x/auth/client/cli, sdk/x/staking/client/cli and modules/tokenfactory/client/cli called tx.NewFactoryCLI as a single value after the sdk/client/tx repair 22.33.1462 changed its return; 22.31.463 repaired those callers and is on main; rerun the task on current main and repair only what its own tests report."
+do_15 = "Attempt 16 (continue after 22.31.478): the Go gate fails because the committed runtime fixture's ABI5 Fund call into the AI market program exhausts the production kernel gas allowance (LXP_ERR_GAS_EXHAUSTED, allowance 10000000, EVM gas used 88480); 22.31.478 repairs the program or the allowance plumbing and this task now requires it. Rerun on current main after it lands and repair only what this task's own tests report."
 
 [task.18.1561.1]
 title = "Issue #1561: Prepare the codec replay corpus before agent vector tests"
@@ -173649,7 +173748,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1558]
 title = "Repair audit record 22.30.98 medium findings in services/agent/crates/layerx-crypto/src (part 1 of 1): doc-drift, retired-reference, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.226", "22.31.443"]
@@ -173691,7 +173790,7 @@ do_15 = "Attempt 3 (continue): keep disclosure::bind in layerx-crypto; services/
 
 [task.22.33.1557]
 title = "Repair audit record 22.30.98 medium findings in services/agent/crates/layerx-proof/src (part 1 of 1): doc-drift, retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.226", "22.31.443"]
@@ -173732,7 +173831,7 @@ do_14 = "Attempt 3 (continue): keep the layerx_proof checkpoint module and its T
 
 [task.22.33.1556]
 title = "Repair audit record 22.30.97 medium findings in services/agent/crates/layerx-mcp (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.223", "22.31.224", "22.31.225", "22.31.443"]
@@ -173840,6 +173939,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_15 = "Attempt 2 (continue): (a) 20 cases panic inside the test's own fixture at tests/approval.rs line 67 on an empty payload: a fixture defect in scope. (b) The fixture binding document still uses the retired web.sequencer_public_key field; binding.rs refuses it and names receipt_key_index as its replacement. (c) activity.submit does not have an open input schema: the catalogue returns a oneOf whose every branch sets additionalProperties false (catalogue.rs near line 393), and the test must treat a oneOf of closed branches as closed. No source change; rerun build and verify on the final tree."
 do_16 = "Attempt 4 (continue): the attempt-1 items stand; for the five remaining web receipt and refusal conflicts, bind the fixture to receipt_key_index and treat the closed oneOf branches as refusals, regenerating the recorded receipts from the producer rather than editing them."
+do_17 = "Attempt 5 (continue): 61 of 63 cases pass. Decision 2531 rules the two remaining expectations: a settlement under a key other than the pinned one is refused as PaymentArtifact(receipt), and payer artifacts built on a grant are refused as Payer(Refused) because grant draws are retired (decision 2340). Assert those production variants at web.rs lines 1406 and 1465, prove nothing is sent after each refusal, and keep every other assertion."
 
 [task.22.33.1552]
 title = "Repair audit record 22.30.97 medium findings in services/agent/crates/layerx-mcp/src (part 1 of 1): interface-mismatch, runtime-risk"
@@ -174665,6 +174765,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_15 = "Attempt 2 (continue): 21 of 24 cases pass; the three failing cases (human_node history pages, grant_revocation_on_chain line 277, policy_version activation) all live in this task's paths. Repair them against production behaviour: the history case must call the px method name the node serves at its root (decision 2521) and assert the production response; the revocation and activation cases must drive the real session and policy paths. Keep assertions strict; the budget resets."
 
 [task.22.33.1528]
 title = "Repair audit record 22.30.93 medium findings in services/agent/crates/layerx-agentd/tests/support (part 1 of 1): test-gap"
@@ -179050,7 +179151,7 @@ do_8 = "The gate of this task is corrected (gotcha 2984): the generated command 
 
 [task.22.33.307]
 title = "Repair audit record 22.30.135 medium findings in services/explorer/services/sig-provider/sig-provider-server/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.267", "22.31.381"]
@@ -179120,7 +179221,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.305]
 title = "Repair audit record 22.30.135 medium findings in services/explorer/services/sig-provider/sig-provider/src (part 1 of 1): runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.267", "22.31.381"]
@@ -179987,7 +180088,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.228]
 title = "Repair audit record 22.30.126 medium findings in programs/crates/layerx-programs-ai-market/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.259", "22.31.260", "22.31.443"]
@@ -180604,7 +180705,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.115]
 title = "Repair audit record 22.30.112 medium findings in services/interop/crates/layerx-ucp/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.167", "22.31.168", "22.31.232", "22.31.233", "22.31.443", "22.31.466"]
@@ -185288,7 +185389,7 @@ do_9 = "Attempt 2 (requalify): the receipt decoder repair and the three round-tr
 
 [task.22.31.219]
 title = "Repair audit record 22.30.93 findings in services/agent/crates/layerx-agentd/src: interface-mismatch, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.443"]
@@ -197072,8 +197173,8 @@ symbols = []
 touches = ["services/launchpad/user/internal/account"]
 tests = []
 planned_paths = ["services/launchpad/user/internal/account/jobs_http.go", "services/launchpad/user/internal/account/repair_471_test.go", "services/launchpad/user/internal/account/repair_471.kvx"]
-build_cmd = "go build ./services/launchpad/user/... && go vet ./services/launchpad/user/internal/account/"
-verify_cmd = "go test -count=1 -run '^TestRepair471_' ./services/launchpad/user/internal/account/"
+build_cmd = "cd services/launchpad/user && go build ./... && go vet ./internal/account/"
+verify_cmd = "cd services/launchpad/user && go test -count=1 -run '^TestRepair471_' ./internal/account/"
 gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-launchpad"
@@ -197085,6 +197186,7 @@ time_limit_minutes = 60
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (requalify): the first attempt implemented the finite sealed-object limit and its tests, but the build command used root-relative Go patterns against the nested module services/launchpad/user and failed before compiling (gotcha 2992). The build and verify commands now change into the module first. Take the current head, run the repaired build and verify once, repair only what the tests report, and finish on one commit."
 
 [task.22.31.468]
 title = "Create the perps spot board omission tables in a production migration"
@@ -197461,7 +197563,7 @@ do_9 = "Attempt 2 (continue): the qualification environment provisions PostgreSQ
 
 [task.22.33.1483]
 title = "Repair audit record 22.30.87 medium findings in services/platform/perps-data/internal/source (part 1 of 1): security, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.209", "22.31.210", "22.31.468"]
@@ -199050,7 +199152,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1313]
 title = "Repair audit record 22.30.70 medium findings in sdk/server/rosetta/lib/internal/service (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.186", "22.31.187", "22.31.463"]
@@ -199347,7 +199449,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1301]
 title = "Repair audit record 22.30.69 medium findings in rpc/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.185", "22.31.463"]
@@ -199418,7 +199520,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1299]
 title = "Repair audit record 22.30.69 medium findings in rpc/config (part 1 of 1): config-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.185", "22.31.463"]
@@ -199747,7 +199849,7 @@ do_10 = "Attempt 3 (continue after 22.31.463): the Go build or test binary could
 
 [task.22.33.1277]
 title = "Repair audit record 22.30.64 medium findings in interchain/testing/mock (part 1 of 1): restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.463"]
@@ -200267,7 +200369,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1242]
 title = "Repair audit record 22.30.60 medium findings in modules/evm/keeper (part 1 of 1): runtime-risk, test-gap, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.179", "22.31.180", "22.31.181", "22.31.463"]
@@ -200498,7 +200600,7 @@ do_12 = "Attempt 4 (continue after 22.31.463): the Go build or test binary could
 
 [task.22.33.1225]
 title = "Repair audit record 22.30.58 medium findings in interchain/modules/core (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.333", "22.31.334", "22.31.335", "22.31.336", "22.31.337", "22.31.463"]
@@ -200969,6 +201071,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_14 = "Attempt 3 (continue after 22.31.463): the Go build or test binary could not compile because sdk/x/auth/client/cli, sdk/x/staking/client/cli and modules/tokenfactory/client/cli called tx.NewFactoryCLI as a single value after the sdk/client/tx repair 22.33.1462 changed its return; 22.31.463 repaired those callers and is on main; rerun the task on current main and repair only what its own tests report."
+do_15 = "Attempt 4 (continue): five proofs pass; TestRepairM_1206_Metrics fails with json: cannot unmarshal object into Go struct field Gauges.Labels of type []struct because the proof decodes the metric labels as a list while the producer emits an object keyed by label name. Decode the producer's shape (a name-to-value object) in the proof and keep the assertions on the real label values; the defect is inside this task's paths and the budget resets."
 
 [task.22.33.1205]
 title = "Repair audit record 22.30.57 medium findings in interchain/modules/apps/transfer/keeper (part 1 of 1): interface-mismatch, test-gap"
@@ -206167,7 +206270,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.453]
 title = "Close the pion dtls and stun advisories in the launchpad Go modules"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.461"]
@@ -206924,7 +207027,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.965]
 title = "Repair audit record 22.30.29 medium findings in tools/launchpad/production/load (part 1 of 1): config-drift, doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.41"]
@@ -207397,7 +207500,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.944]
 title = "Repair audit record 22.30.24 medium findings in modules/launchpad/client/cli (part 1 of 2): retired-reference, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.34", "22.31.35", "22.33.943", "22.31.463"]
@@ -208932,7 +209035,7 @@ do_12 = "Attempt 2 (continue): the qualification environment provides a PostgreS
 
 [task.22.33.827]
 title = "Repair audit record 22.30.18 medium findings in services/platform/perps-data/internal/store (part 1 of 1): runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.21", "22.31.468"]
@@ -209169,7 +209272,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.820]
 title = "Repair audit record 22.30.179 medium findings in tools/loadtest/generator/scenarios (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.321", "22.31.322", "22.31.323", "22.31.324", "22.31.427"]
@@ -209516,7 +209619,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.797]
 title = "Repair audit record 22.30.177 medium findings in tools/bringup (part 6 of 7): retired-reference, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.319"]
@@ -210573,7 +210676,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.690]
 title = "Repair audit record 22.30.168 medium findings in sdk/x/staking (part 1 of 1): doc-drift, restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.310", "22.31.311", "22.31.463"]
@@ -210805,7 +210908,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.683]
 title = "Repair audit record 22.30.167 medium findings in sdk/x/gov/client/testutil (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.305", "22.31.306", "22.31.307", "22.31.308", "22.31.309", "22.33.676", "22.31.463"]
@@ -210914,7 +211017,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.680]
 title = "Repair audit record 22.30.167 medium findings in sdk/x/feegrant/client/testutil (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.305", "22.31.306", "22.31.307", "22.31.308", "22.31.309", "22.31.463"]
@@ -210952,7 +211055,7 @@ do_11 = "Attempt 4 (continue): TestRepairM_680_FeeGrantCLIFixtures panics with a
 
 [task.22.33.679]
 title = "Repair audit record 22.30.167 medium findings in sdk/x/gov (part 1 of 1): doc-drift, test-gap, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.305", "22.31.306", "22.31.307", "22.31.308", "22.31.309"]
@@ -211142,7 +211245,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.674]
 title = "Repair audit record 22.30.167 medium findings in sdk/testutil (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.305", "22.31.306", "22.31.307", "22.31.308", "22.31.309", "22.31.463"]
@@ -211178,7 +211281,7 @@ do_9 = "Attempt 2 (continue after 22.31.463): the Go build or test binary could 
 
 [task.22.33.673]
 title = "Repair audit record 22.30.167 medium findings in sdk/x/distribution/client/testutil (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.305", "22.31.306", "22.31.307", "22.31.308", "22.31.309", "22.31.463"]
@@ -211216,7 +211319,7 @@ do_11 = "Attempt 3 (continue after 22.31.463): the Go build or test binary could
 
 [task.22.33.672]
 title = "Repair audit record 22.30.167 medium findings in sdk/testutil/network (part 1 of 1): runtime-risk, test-gap, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.305", "22.31.306", "22.31.307", "22.31.308", "22.31.309", "22.31.463"]
@@ -214048,7 +214151,7 @@ do_6 = "Real means the component under repair is the production code; its peers 
 do_7 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 do_8 = "Verification runs only the TestRepairM_175_* functions of repair_m175_test.go: they run without PostgreSQL, Redis, S3, Anvil or a live RPC endpoint. The package's other tests are not this task's gate but must keep compiling, and where a repair changes behaviour they assert they are updated in the same change."
 symbols = []
-touches = ["services/wallet/ceremony/internal/testsupport", "services/wallet/ceremony/internal", "services/wallet/attestor/internal"]
+touches = ["services/wallet/ceremony/internal/testsupport", "services/wallet/ceremony/internal", "services/wallet/attestor/internal", "services/wallet/ceremony/go.mod", "services/wallet/ceremony/go.sum"]
 tests = ["services/wallet/ceremony/internal/testsupport/repair_m175_test.go"]
 planned_paths = ["services/wallet/ceremony/internal/testsupport/repair_m175_test.go"]
 build_cmd = "cd services/wallet/ceremony && go build ./internal/testsupport/..."
@@ -214067,6 +214170,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_9 = "Attempt 2 (continue): the fixture the proof needs is built from this module's own attestor package, now in scope (services/wallet/ceremony/internal added): expose the minimal constructor the test support needs from the attestor package (no exported production behaviour change), finish the refresh and describe cases against it, re-run the verify and finish on one commit. Never await a scope decision; this ruling is it."
 do_10 = "Attempt 3 (continue): the refresh and describe cases fail because the attestor nodes the fixture starts answer 404 for the describe route and return unchanged shares; the attestor service is this domain's producer (services/wallet/attestor/internal, now in scope). Use the attestor's real route and constructor; where the attestor lacks the handler the fixture needs, add it there. No wiring request; run the build and the verify once on the final revision with no commit after the pass."
 do_11 = "Attempt 4 (continue): the attempt-2 ruling stands: implement the attestor describe route and the share refresh in services/wallet/attestor/internal; attempt 3 again hit a 404 on the describe route and unchanged shares after refresh, so the route and the refresh are the work, not the test; prove both through the HTTP surface."
+do_12 = "Attempt 5 (continue): the build stopped with go: updates to go.mod needed because the production-backed fixture under services/wallet/ceremony/internal/testsupport imports a module the ceremony module does not yet require. The module manifest is now in this task's paths: run go mod tidy inside services/wallet/ceremony, commit the go.mod and go.sum changes limited to the new requirement, rerun the build and verify once, and finish on one commit."
 
 [task.22.33.174]
 title = "Repair audit record 22.30.118 medium findings in services/wallet/ceremony/internal/rehearsal (part 1 of 1): restart-recovery, test-gap"
@@ -252372,7 +252476,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1391]
 title = "Repair audit record 22.30.77 medium findings in sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.343", "22.31.344", "22.31.345"]
@@ -276780,7 +276884,7 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 
 [task.22.33.1503]
 title = "Repair audit record 22.30.9 medium findings in precompiles/layerxauth (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.144", "22.31.145", "22.31.146", "22.31.463"]
@@ -276818,7 +276922,7 @@ do_11 = "Attempt 3 (continue after 22.31.463): the Go build or test binary could
 
 [task.22.33.1501]
 title = "Repair audit record 22.30.9 medium findings in precompiles/layerxledger (part 1 of 1): interface-mismatch, test-gap, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.144", "22.31.145", "22.31.146", "22.31.463"]
@@ -276861,7 +276965,7 @@ do_16 = "Attempt 3 (continue after 22.31.463): the Go build or test binary could
 
 [task.22.33.1426]
 title = "Repair audit record 22.30.8 medium findings in precompiles/layerxagent/streams (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.192", "22.31.193", "22.31.194", "22.31.195", "22.31.196", "22.31.197", "22.31.463"]
@@ -276932,6 +277036,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_11 = "Attempt 3 (continue after 22.31.463): the Go build or test binary could not compile because sdk/x/auth/client/cli, sdk/x/staking/client/cli and modules/tokenfactory/client/cli called tx.NewFactoryCLI as a single value after the sdk/client/tx repair 22.33.1462 changed its return; 22.31.463 repaired those callers and is on main; rerun the task on current main and repair only what its own tests report."
+do_12 = "Attempt 4 (continue): the production-node proof passes; TestRepairM_1425_ReopenCommittedApplication panics with committed block identity missing at height 1 (node/app.go line 1424). That fallback serves databases written by older binaries only; a database the current binary commits carries the identity key (node/app.go lines 1537 to 1549), written by the production commit path. The reopen fixture committed height 1 through raw store commits that wrote neither the identity key nor staking historical info. Drive the fixture's commit through the production commit path (the ABCI Commit the node runs) so the identity key exists on reopen; do not relax the check."
 
 [task.22.33.1423]
 title = "Repair audit record 22.30.8 medium findings in modules/layerxledger/keeper (part 1 of 1): restart-recovery, test-gap, wiring-gap"
@@ -277236,7 +277341,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1303]
 title = "Repair audit record 22.30.7 medium findings in modules/layerxpay/keeper (part 1 of 2): interface-mismatch, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.131", "22.31.132", "22.31.463"]
@@ -277555,7 +277660,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1284]
 title = "Repair audit record 22.30.65 medium findings in precompiles/solo (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.130", "22.31.463"]
@@ -277648,7 +277753,7 @@ do_9 = "Real means the component under repair is the production code; its peers 
 do_10 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 do_11 = "Verification runs only the TestRepairM_1282_* functions of repair_m1282_test.go: they run without PostgreSQL, Redis, S3, Anvil or a live RPC endpoint. The package's other tests are not this task's gate but must keep compiling, and where a repair changes behaviour they assert they are updated in the same change."
 symbols = []
-touches = ["precompiles/xweb"]
+touches = ["precompiles/xweb", "contracts/src/precompiles"]
 tests = ["precompiles/xweb/repair_m1282_test.go"]
 planned_paths = ["precompiles/xweb/repair_m1282_test.go"]
 build_cmd = "make -s paxd-native-libs && CGO_ENABLED=1 go build ./precompiles/xweb/..."
@@ -277665,6 +277770,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_12 = "Attempt 2 (continue after 22.31.463): the Go build or test binary could not compile because sdk/x/auth/client/cli, sdk/x/staking/client/cli and modules/tokenfactory/client/cli called tx.NewFactoryCLI as a single value after the sdk/client/tx repair 22.33.1462 changed its return; 22.31.463 repaired those callers and is on main; rerun the task on current main and repair only what its own tests report."
+do_13 = "Attempt 3 (continue): three repair tests pass; event parity fails because contracts/src/precompiles/IXWeb.sol declares XWebProgramRequested with fields method, payload and deadline while the precompile ABI (precompiles/xweb/abi.json) is the producer and names the fields differently. The Solidity interface is now in this task's paths: align the IXWeb.sol event and any struct fields with abi.json names and types exactly, keep selectors and topics identical to the ABI, regenerate any derived bindings under precompiles/xweb, and keep the parity assertion strict."
 
 [task.22.33.1280]
 title = "Repair audit record 22.30.64 medium findings in precompiles/bank (part 1 of 1): test-gap"
@@ -277850,6 +277956,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_10 = "Attempt 3 (continue after 22.31.463): the test binary of precompiles/ibc could not build because sdk/x/auth/client/cli, sdk/x/staking/client/cli and modules/tokenfactory/client/cli still call tx.NewFactoryCLI as a single value (sdk/client/tx repair 22.33.1462); 22.31.463 carries the callers along. Keep the attempt-2 tree and rerun the gates on a base containing 22.31.463."
+do_11 = "Attempt 5 (continue): build passes but the final verification failed to compile precompiles/ibc because the acknowledgement decoder calls a JSON unmarshal the codec value does not provide. Decode through the codec interface the precompile already holds (the JSON codec the interface registry supplies, UnmarshalJSON taking the bytes and a proto message); the compile error is inside this task's paths and the budget resets. The timeout consensus-height mismatch stays recorded as a finding."
 
 [task.22.33.1264]
 title = "Repair audit record 22.30.62 medium findings in precompiles/addr/legacy/v575 (part 1 of 1): runtime-risk"
@@ -277998,7 +278105,7 @@ do_10 = "Attempt 3 (continue after 22.31.463): the test binary of precompiles/di
 
 [task.22.33.1260]
 title = "Repair audit record 22.30.62 medium findings in precompiles/distribution/legacy/v630 (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.182", "22.31.183", "22.31.463"]
@@ -278965,7 +279072,7 @@ title = "Repair audit record 22.30.50 medium findings in node (part 1 of 4): run
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.102", "22.31.463"]
+requires = ["22.31.102", "22.31.463", "22.31.475", "22.31.476"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1140"]
 interfaces = []
@@ -279002,6 +279109,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_16 = "Attempt 2 (continue after 22.31.463): the Go build or test binary could not compile because sdk/x/auth/client/cli, sdk/x/staking/client/cli and modules/tokenfactory/client/cli called tx.NewFactoryCLI as a single value after the sdk/client/tx repair 22.33.1462 changed its return; 22.31.463 repaired those callers and is on main; rerun the task on current main and repair only what its own tests report."
+do_17 = "Attempt 3 (continue after 22.31.475 and 22.31.476): the empty-block and tenant-restart hash cases, the Giga activation sets at height 1 and the Giga parity cases (evm reverted) fail together; the committed AppHash defect 22.31.475 repairs and the EVM default chain id 22.31.476 changes both affect these hashes and signer validity, so this task now requires both. Rerun on current main after they land; where an expectation was hand-built, derive it from the production activation table and commit path, and repair only what remains."
 
 [task.22.33.1138]
 title = "Repair audit record 22.30.5 medium findings in tests/ledger (part 1 of 1): retired-reference"
@@ -279771,6 +279879,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_14 = "Attempt 2 (continue after 22.31.463): the Go build or test binary could not compile because sdk/x/auth/client/cli, sdk/x/staking/client/cli and modules/tokenfactory/client/cli called tx.NewFactoryCLI as a single value after the sdk/client/tx repair 22.33.1462 changed its return; 22.31.463 repaired those callers and is on main; rerun the task on current main and repair only what its own tests report."
+do_15 = "Attempt 3 (continue): two of six cases pass; the four simulation cases fail with status -3 and LXP_ERR_NON_CANONICAL because the fixtures assemble host records by hand; produce every record the simulation consumes (lease state, receipt authorities, transfer projections) through the production encoders in modules/lxphost, then assert the simulated status equals 0 and the projected authorities match. Keep assertions strict."
 
 [task.22.33.892]
 title = "Repair audit record 22.30.184 medium findings in tests (part 2 of 2): retired-reference"
@@ -280646,6 +280755,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_15 = "Attempt 2 (continue after 22.31.463): the Go build or test binary could not compile because sdk/x/auth/client/cli, sdk/x/staking/client/cli and modules/tokenfactory/client/cli called tx.NewFactoryCLI as a single value after the sdk/client/tx repair 22.33.1462 changed its return; 22.31.463 repaired those callers and is on main; rerun the task on current main and repair only what its own tests report."
+do_16 = "Attempt 3 (continue): the simulation parity and response-oracle cases fail only on an empty byte argument decoded as an empty slice where the expectation holds nil; build the expectation through the same decoder or compare byte arguments by content. TestRepairM_213_StorageEnvironmentResponse fails because the storage-environment execute call refuses the hand-assembled lease-state record as LXP_ERR_NON_CANONICAL; produce the lease state through the production encoder (the v3 lease-state codec) instead of assembling bytes. Keep assertions strict."
 
 [task.22.33.212]
 title = "Repair audit record 22.30.121 medium findings in precompiles/layerxprograms (part 1 of 2): interface-mismatch, retired-reference, test-gap"
@@ -319438,7 +319548,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.31.470]
 title = "Rewrite the root README for every root-readme finding of the medium wave"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -323825,7 +323935,7 @@ do_5 = "Prove each repair with a test module tests/conformance/test_repair_22_33
 do_6 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command above is the whole gate (gotcha 2962)."
 do_7 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["tests/conformance", "sdk/platform/conformance/fixtures/vector-v4-committed.json", "services/interop/specs/conformance/committed", "services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x/committed_vectors.json"]
+touches = ["tests/conformance", "sdk/platform/conformance/fixtures/vector-v4-committed.json", "services/interop/specs/conformance/committed", "services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x/committed_vectors.json", "sdk/platform/conformance/fixtures/vector-v3-receipt-refusals.json"]
 tests = ["tests/conformance/test_repair_22_33_886.py"]
 planned_paths = ["tests/conformance/test_repair_22_33_886.py"]
 build_cmd = "python3 -m py_compile tests/conformance/check_receipt_vector_copies.py"
@@ -323845,6 +323955,7 @@ do_8 = "Attempt 2 (continue): the failing check compares the committed vector's 
 do_9 = "Attempt 3 (continue): the SDK fixture was regenerated through the conformance generator and twenty cases pass; thirty-one fail because the committed copy under services/interop/specs/conformance/committed carries a source hash the generator no longer produces, and the retained-transport-drift cases expect a refusal message by a pattern the checker does not emit. The generator under tests/conformance is the producer of every committed copy, so the interop committed directory is now in scope: regenerate the copies the generator declares at implementation time and commit them, align the drift cases to the checker's real refusal text (never weaken the check), and run the build and the verify once on the final revision with no commit after the pass."
 do_10 = "Attempt 4 (continue): every remaining failure traces to one cause: the explorer copy of the committed vectors at services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x/committed_vectors.json carries a source sha256 the conformance generator no longer produces, so check_receipt_vector_copies.py exits 1 and each case that runs it fails. That file is now in the paths: regenerate it through the same conformance generator that writes the SDK and interop copies (the generator already has the writer for the explorer location) so its source hash and recorded cases match the conformance source, then rerun the gate. No assertion is loosened: the drift refusal cases keep naming the exact location they check."
 do_11 = "Attempt 5 (continue): the attempt-3 ruling stands: regenerate services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x/committed_vectors.json with the conformance generator from the current producer; the remaining failure is the V3 committed fixture mismatch and nothing else."
+do_12 = "Attempt 6 (continue): 48 of 51 cases pass; the copy checker reports sdk/platform/conformance/fixtures/vector-v3-receipt-refusals.json V3-key-not-pinned.txHash differing from the recorded producer source the checker names (sdk/platform/conformance/fixtures/sequencer-receipt-v1.json). That copy is now in this task's paths: regenerate it from the source so the checker passes; never edit the source. Finish on one commit."
 
 [task.22.33.885]
 title = "Repair audit record 22.30.183 medium findings in docker/gas-station (part 1 of 1): retired-reference"
@@ -369910,7 +370021,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.416]
 title = "Repair audit record 22.30.144 medium findings in services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.396"]
