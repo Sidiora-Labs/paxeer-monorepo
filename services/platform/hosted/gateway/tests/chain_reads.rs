@@ -399,8 +399,14 @@ impl Gateway {
     fn rpc(&self, method: &str, params: Value) -> Value {
         let call =
             json!({"jsonrpc": "2.0", "id": "chain-read", "method": method, "params": params});
+        assert_eq!(
+            self.exchange("POST", "/rpc", call.to_string().as_bytes())
+                .expect("retired RPC refusal")
+                .0,
+            404
+        );
         let (status, body) = self
-            .exchange("POST", "/rpc", call.to_string().as_bytes())
+            .exchange("POST", "/", call.to_string().as_bytes())
             .unwrap_or_else(|error| panic!("RPC exchange: {error}"));
         assert_eq!(status, 200, "{}", String::from_utf8_lossy(&body));
         let answer: Value =
