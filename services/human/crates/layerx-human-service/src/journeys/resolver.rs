@@ -13,6 +13,34 @@ use layerx_types::intent::{
     BudgetId, ContextHash, DepositProofId, EvmAddress, NetworkId, PeriodLength, ProtocolVersion,
     PurposeHash, RolloverPolicy, SendAuthorization, Sequence, TimestampSeconds,
 };
+use sha2::{Digest as _, Sha256};
+
+/// The merged chain's canonical bank precompile.
+pub const BANK_ADDRESS: [u8; 20] = [
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10, 0x01,
+];
+
+pub(super) fn abi_word(value: u128) -> [u8; 32] {
+    let mut word = [0; 32];
+    word[16..].copy_from_slice(&value.to_be_bytes());
+    word
+}
+
+fn bank_send_calldata(from: [u8; 20], to: [u8; 20], denom: &str, amount: u128) -> Vec<u8> {
+    let mut data =
+        layerx_crypto::disclosure::call::ledger_selector("send(address,address,string,uint256)")
+            .to_vec();
+    for address in [from, to] {
+        data.extend([0; 12]);
+        data.extend(address);
+    }
+    data.extend(abi_word(128));
+    data.extend(abi_word(amount));
+    data.extend(abi_word(denom.len() as u128));
+    data.extend(denom.as_bytes());
+    data.resize(4 + (data.len() - 4).div_ceil(32) * 32, 0);
+    data
+}
 
 /// The only source and destination kinds accepted by the movement API.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -843,7 +871,8 @@ impl RouteResolver {
                 if from == to
                     || from.bytes() == [0; 20]
                     || to.bytes() == [0; 20]
-                    || pointer.bytes() == [0; 20]
+                    || pointer.bytes() != BANK_ADDRESS
+                    || request.asset.bytes() != <[u8; 32]>::from(Sha256::digest(denom.as_bytes()))
                     || request.amount == Amount::ZERO
                     || route.expires_at.value() == 0
                     || denom.len() < 3
@@ -859,13 +888,8 @@ impl RouteResolver {
                 {
                     return Err(unavailable(request));
                 }
-                let mut data =
-                    layerx_crypto::disclosure::call::ledger_selector("transfer(address,uint256)")
-                        .to_vec();
-                data.extend([0; 12]);
-                data.extend(to.bytes());
-                data.extend([0; 16]);
-                data.extend(request.amount.to_be_bytes());
+                let data =
+                    bank_send_calldata(from.bytes(), to.bytes(), &denom, request.amount.value());
                 Ok(Route {
                     legs: Vec::new(),
                     bank_transfers: vec![Eip1559Call {
@@ -874,7 +898,7 @@ impl RouteResolver {
                         max_priority_fee_per_gas,
                         max_fee_per_gas,
                         gas_limit,
-                        to: pointer.bytes(),
+                        to: BANK_ADDRESS,
                         data,
                     }],
                 })
