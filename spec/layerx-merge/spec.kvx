@@ -154653,7 +154653,7 @@ do_9 = "Attempt 2 (continue): the attempt ran on the gate as it stood before the
 
 [task.22.33.270]
 title = "Repair audit record 22.30.131 medium findings in apps/explorer/toolkit/components/forms/fields (part 1 of 1): wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.376", "22.31.474"]
@@ -155854,7 +155854,7 @@ do_11 = "Attempt 2 (requalify): the verify command passed; publication was held 
 
 [task.22.33.186]
 title = "Repair audit record 22.30.119 medium findings in apps/wallet/src/wallet/test (part 1 of 1): retired-reference, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.248", "22.31.370", "22.31.371", "22.31.372", "22.31.373", "22.31.447", "22.31.482"]
@@ -155925,7 +155925,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.184]
 title = "Repair audit record 22.30.119 medium findings in services/wallet/gateway/src/schemas (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.248", "22.31.370", "22.31.371", "22.31.372", "22.31.373", "22.31.447"]
@@ -155995,7 +155995,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.182]
 title = "Repair audit record 22.30.119 medium findings in services/wallet/gateway/src (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.248", "22.31.370", "22.31.371", "22.31.372", "22.31.373", "22.31.447"]
@@ -156029,7 +156029,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.181]
 title = "Repair audit record 22.30.119 medium findings in services/wallet/gateway/src/agent/actions (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.248", "22.31.370", "22.31.371", "22.31.372", "22.31.373", "22.31.447", "22.31.480"]
@@ -156101,7 +156101,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.179]
 title = "Repair audit record 22.30.119 medium findings in services/wallet/gateway/src/rpc (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.248", "22.31.370", "22.31.371", "22.31.372", "22.31.373", "22.31.447"]
@@ -209108,7 +209108,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.889]
 title = "Repair audit record 22.30.184 medium findings in tools/release/tests (part 1 of 1): retired-reference, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.331", "22.31.332", "22.33.893"]
