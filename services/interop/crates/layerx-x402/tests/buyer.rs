@@ -799,22 +799,7 @@ fn buyer_refuses_non_object_scheme_payload() {
 
 #[test]
 fn buyer_built_payment_preserves_idempotency_key() {
-    let supported = test_supported();
-    let buyer = Buyer::new(supported).unwrap_or_else(|error| panic!("valid supported: {error:?}"));
-
-    let required = test_payment_required();
-    let encoded = encode_payment_required(&required);
-    let mut plane = TestBuyerPlane {
-        payload: json!({"authorization": "test"}),
-    };
-    let trace = TraceId::mint([0xab; 16]);
-
-    let key = [7; 32];
-    let payment = buyer
-        .build_payment(&encoded, key, &mut plane, &trace)
-        .unwrap_or_else(|error| panic!("payment built: {error:?}"));
-
-    assert_eq!(payment.idempotency_key, key);
+    repair_path::buyer_wire_identity();
 }
 
 #[test]
@@ -1174,4 +1159,17 @@ fn buyer_capture_refuses_an_exact_settlement_carrying_a_purpose() {
         capture(settled_offer("exact", None), Some(CHALLENGE_PURPOSE)),
         Err(X402Error::EvidenceMismatch)
     );
+}
+
+#[path = "support/repair_22_33_105.rs"]
+mod repair_path;
+
+#[test]
+fn buyer_construction_refuses_missing_plane_idempotency_key() {
+    repair_path::buyer_refuses_missing_plane_key();
+}
+
+#[test]
+fn buyer_construction_refuses_conflicting_plane_idempotency_key() {
+    repair_path::buyer_refuses_conflicting_plane_key();
 }
