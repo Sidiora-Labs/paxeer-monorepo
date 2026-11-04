@@ -1,0 +1,69 @@
+[repair.22.33.1320]
+audit = "spec/layerx-merge/programme/audit/records/22.30.70.kvx"
+base_revision = "dc1290e182c7bb1dab76d275c6f31350538c0f93"
+mode = "BUILD"
+owner_domain = 8
+scope_resolution = "Repair the retained compatibility sources in place and declare the maintained paxd operator owner in Cargo package metadata. The maintained node directory, workspace packaging, runbook and executable callers are outside this task's paths: their physical relocation and rewiring are requests below, not completed moves or newly created duplicate implementations. The boundary Rust package and binary stay intact as required by the preceding native-handoff repair."
+proof = "The pytest module parses every scoped shell script with bash -n, parses Cargo.toml and this record as TOML-compatible KVX, checks guarded producer/transport/consumer source wiring, executes the exact embedded production JSON functions in process, and drives Bash's real array and display argument parser with whitespace and wildcard values. JSON validation unit vectors are explicitly not recorded CLI transcripts. The committed BFT fixture is read from the existing boundary fixtures. No paxd substitute, live endpoint, credential, native artifact, compiler or downloaded tool is used. Bash is required by the task's explicit shell syntax criterion; the small argument-parser and retired-initializer checks use the same shell."
+proof_limits = "Source inspection and production parser tests prove the scoped facts. Review proves the Go producer contracts, the proposal file-to-protobuf string conversion, preserved governance arithmetic and halt guards, typed retirement reason wiring, and native bootstrap handoff. A real paxd CLI parse, concurrent chain submissions, no-plan/unreachable-node CLI invocations, merged-chain replay, validator signature verification and actual node stop/reopen recovery are not executed by this offline gate; their maintained interface/rehearsal wiring requests remain below. The parser is a consistency check against the configured local BFT node, not a light-client signature verifier. No restart-recovery or interface-mismatch audit finding is assigned to this task; the rehearsal nevertheless performs stop/reopen and pinned-header comparison in production."
+baseline = "Not run: the explicit implementation-first order permits only hf-build then hf-done and forbids invoking verify_cmd manually before implementation, superseding the older pre-change clause. No baseline failure or success is claimed. Initial status/diff contained only runner-prepared .cgignore and spec/layerx-merge/spec.kvx changes; both were preserved. /out/run/gates.jsonl was absent and gate.json recorded zero build and verify runs."
+build_cmd = "bash -n services/platform/hosted/paxeer/fork-rehearsal.sh services/platform/hosted/paxeer/gov-consensus-params.sh services/platform/hosted/paxeer/gov-lib.sh services/platform/hosted/paxeer/gov-upgrade.sh services/platform/hosted/paxeer/init-chain.sh"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1320.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private ledger record the exact content-derived candidate revision, cg spec done command, exit code and log path. The build and verify must identify the same candidate. This record is written before the gates: embedding its own candidate hash would change that hash. The final response copies the last gate evidence, and the runner publishes the task; no manual commit or push is performed."
+wiring_requests = ["services/platform/hosted/node/fork-rehearsal.sh — domain 8 paxd operator owner: relocate the repaired rehearsal and its offline proof, publish merged-v7.0 as an explicit profile and qualify the actual merge with authoritative sequencer receipt-key genesis inputs and a supported ABI-encoded retired anchor write; never re-enable successful custody/anchor finality probes.", "services/platform/hosted/node/gov-consensus-params.sh — domain 8 paxd operator owner: relocate the repaired command with the production JSON parser tests and qualify two real concurrent distinct TimeoutParams submissions through transaction events, exact proposal fetch and voting.", "services/platform/hosted/node/gov-lib.sh — domain 8 paxd operator owner: relocate the repaired library with both governance consumers and services/platform/hosted/paxeer/tests/gov-scripts-test.sh arithmetic coverage, update their source paths, and qualify real paxd no-plan, unreachable-node, malformed-query and whitespace/wildcard CLI argument parsing.", "services/platform/hosted/node/gov-upgrade.sh — domain 8 paxd operator owner: relocate the retained command with proposal, voting-margin, halt and plan-confirmation checks preserved and delete the relay-owned compatibility copies only after callers move.", "docs/wiki/BetaCluster.md — domain 8 operator runbook owner: point governance/rehearsal callers at maintained services/platform/hosted/node commands after relocation and document --profile merged-v7.0, retired-method probes and native bank/ledger bootstrap inputs.", "services/platform/hosted/paxeer/tests/real_chain.py and services/platform/hosted/paxeer/tests/gov-scripts-test.sh — domain 8 node qualification owner: move executable tests/callers and arithmetic coverage with the maintained tooling, retaining real CLI interface and committed-header stop/reopen coverage.", "services/platform/hosted/tests/beta-images.sh — domain 8 deployment owner: switch executable initialization callers to services/platform/hosted/node/bootstrap.sh and authoritative native genesis inputs; remove custody-root and relay group mounts from downstream deployment consumers.", "services/platform/hosted/node/bootstrap.sh and services/platform/hosted/node/native_runtime.py — domain 8 genesis owner: retain authoritative bank and embedded-kernel ledger funding plus receipt-key validation; no custody-root publication or relay genesis merge may be required."]
+
+[finding.relay-retirement-8]
+file = "services/platform/hosted/paxeer/fork-rehearsal.sh"
+resolution = "Require explicit merged-v7.0 and matching v7.0 plan, use the sequencer module version, require typed retired custody and anchor-method refusals, and compare EVM finalized hash/stateRoot to the canonical BFT committed header. The production rehearsal pins that height, stops/reopens the real node, and compares the recovered hash and both roots. Historical anchor reads are not retirement probes; an ABI-encoded write probe is required. Physical relocation is the node-owner wiring request above."
+tests = ["test_relay_retirement_8_merged_profile_and_committed_finality", "test_relay_retirement_8_parser_rejects_generic_rpc_errors_and_success", "test_relay_retirement_8_committed_header_checks_recorded_bft_fields", "test_scoped_shell_scripts_parse"]
+
+[finding.relay-retirement-9]
+file = "services/platform/hosted/paxeer/gov-consensus-params.sh"
+resolution = "Declare retained command ownership and maintained target, preserve the existing sibling library interface until their joint relocation, and repair exact-proposal tracking without adding a duplicate node implementation. The out-of-scope maintained command, callers and runbook are explicit owner requests."
+tests = ["test_relay_retirement_9_and_10_maintained_ownership_and_consumers", "test_governance_proposal_association_exact_transaction_before_vote", "test_scoped_shell_scripts_parse"]
+
+[finding.governance-proposal-association]
+file = "services/platform/hosted/paxeer/gov-consensus-params.sh"
+resolution = "Keep the successful committed run_tx result, extract its unique submit_proposal proposal_id from decoded or base64 events, fetch only that exact ID and validate the proposal type, one baseapp/TimeoutParams change and complete decoded JSON value before any automatic vote or success wait. Reject absent, ambiguous, uncommitted, failed or mismatched submissions. Never select a proposal from the global list. The same content check guards execute-mode resumption; dry runs only display prospective instructions."
+tests = ["test_governance_proposal_association_exact_transaction_before_vote", "test_governance_proposal_association_concurrent_distinct_parser_inputs", "test_governance_proposal_association_rejects_changed_content", "test_governance_proposal_association_events_are_unambiguous_and_committed"]
+
+[finding.relay-retirement-10]
+file = "services/platform/hosted/paxeer/gov-lib.sh"
+resolution = "Declare the shared maintained paxd operator owner and target, retain the real arithmetic and both sibling consumers, and repair query and transaction boundaries in the single compatibility implementation. Move the library, arithmetic coverage and consumers together through the out-of-scope owner request."
+tests = ["test_relay_retirement_9_and_10_maintained_ownership_and_consumers", "test_governance_query_failure_only_documented_no_plan_is_absence", "test_governance_shell_arguments_array_survives_bash_parse", "test_scoped_shell_scripts_parse"]
+
+[finding.governance-query-failure]
+file = "services/platform/hosted/paxeer/gov-lib.sh"
+resolution = "Only the exact documented no upgrade scheduled diagnostic, optionally prefixed by Cobra's Error:, on the exact upgrade plan query with nonzero status becomes absence. Other failures retain their exit status and complete diagnostics. Successful query bodies must parse as JSON objects; malformed, non-object or log-mixed bodies fail. The optional-plan poll propagates query errors instead of treating them as an unscheduled plan."
+tests = ["test_governance_query_failure_only_documented_no_plan_is_absence", "test_governance_query_failure_preserves_exit_and_diagnostics"]
+
+[finding.governance-shell-arguments]
+file = "services/platform/hosted/paxeer/gov-lib.sh"
+resolution = "Construct TX_FLAGS as a Bash array, execute paxd directly with the quoted array and format the same array with printf %q solely for display. The real Bash parser preserves key names, node URLs and home paths containing whitespace, brackets and wildcard characters, and the test checks the production paxd call site consumes that array. Vote instructions also quote operator key names. Real paxd flag parsing is a maintained-owner interface request, not an offline proof claim."
+tests = ["test_governance_shell_arguments_array_survives_bash_parse", "test_scoped_shell_scripts_parse"]
+
+[finding.relay-retirement-11]
+file = "services/platform/hosted/paxeer/gov-upgrade.sh"
+resolution = "Declare the maintained paxd operator owner and relocation target, preserve proposal plan-name, tally, voting-margin and halt-height checks, and make failed optional plan queries fatal with their original diagnostic. Command/runbook relocation is an explicit owner request."
+tests = ["test_relay_retirement_11_upgrade_halt_and_proposal_checks_preserved", "test_relay_retirement_9_and_10_maintained_ownership_and_consumers", "test_scoped_shell_scripts_parse"]
+
+[finding.relay-retirement-12]
+file = "services/platform/hosted/paxeer/init-chain.sh"
+resolution = "Retain the real native bootstrap delegation introduced by the prerequisite, explicitly reject retired custody/deposit-root/sequencer-authorization flags before opening inputs, and retain rejection of legacy environment configuration. Native bank and embedded-kernel ledger funding belong to the maintained genesis owner; external group mount and caller rewiring is requested above."
+tests = ["test_relay_retirement_12_native_genesis_entrypoint_and_legacy_refusal", "test_scoped_shell_scripts_parse"]
+
+[format]
+policy = "No shell, Python, TOML or KVX formatter is configured for these paths. Apply only .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions to the eight touched files after implementation."
+
+[gotcha.1]
+observed = "The older task step requesting an unchanged-tree verify conflicts with the explicit gate-only implementation-first order."
+resolution = "Use only hf-build then hf-done, claim no baseline run, and record this note here because root GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.2]
+observed = "Parameter-change input JSON contains an object value, but the real SDK CLI stores that value as a JSON string in the protobuf proposal."
+resolution = "Decode the fetched string before comparing the full expected value and assert the actual producer conversion in the source gate."
+
+[gotcha.3]
+observed = "Anchor historical views survive the v7.0 merge until the separate anchor-store deletion upgrade."
+resolution = "Require an explicit ABI-encoded retired anchor write for merged-v7.0 instead of treating threshold() as either a successful finality probe or a retired v7.0 method."

@@ -299,6 +299,8 @@ from .x402_receive import (
 from .x402_rpc import (
     PaymentRpc,
     PaymentRpcError,
+    rpc_committed_evidence,
+    rpc_payment_evidence,
     rpc_hex,
     verify_rpc_payment,
 )
@@ -419,6 +421,8 @@ __all__ = [
     "PaymentEvidence",
     "PaymentRpc",
     "PaymentRpcError",
+    "rpc_committed_evidence",
+    "rpc_payment_evidence",
     "PlanIntentRequest",
     "PlatformSdkError",
     "PreparedGrantDraws",

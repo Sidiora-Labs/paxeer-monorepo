@@ -9,6 +9,35 @@
 typedef struct lx_programs_state_feed lx_programs_state_feed;
 typedef struct lx_programs_state_feed_store lx_programs_state_feed_store;
 
+#ifndef LXP_TEST_LIBRARY_PATH
+#error "Makefile must supply LXP_TEST_LIBRARY_PATH from $(abspath $(LIBRARY))"
+#endif
+
+static FILE *retired_archive_symbols(void)
+{
+    static const char prefix[] = "nm -g --defined-only -- '";
+    static const char archive[] = LXP_TEST_LIBRARY_PATH;
+    char command[sizeof(prefix) + 4U * sizeof(archive) + 1U];
+    size_t used = sizeof(prefix) - 1U;
+
+    if (archive[0] == '\0') {
+        (void)fputs("LXP_TEST_LIBRARY_PATH must name the linked archive\n", stderr);
+        return NULL;
+    }
+    (void)memcpy(command, prefix, used);
+    for (size_t i = 0U; archive[i] != '\0'; ++i) {
+        if (archive[i] == '\'') {
+            (void)memcpy(command + used, "'\\''", 4U);
+            used += 4U;
+        } else {
+            command[used++] = archive[i];
+        }
+    }
+    command[used++] = '\'';
+    command[used] = '\0';
+    return popen(command, "r");
+}
+
 extern lxp_result lxp_programs_state_feed_store_open(
     lx_programs_state_feed_store *, lxp_log *, lxp_log *, lxp_history *,
     lxp_arena *, pthread_mutex_t *);
@@ -67,7 +96,7 @@ static int programs_retired_symbols_absent(void)
     LXP_CASE_CHECK(lxp_programs_fee_governance_validate == NULL);
     LXP_CASE_CHECK(lxp_programs_fee_governance_execute == NULL);
 
-    symbols = popen("nm -g --defined-only build/liblayerx.a", "r");
+    symbols = retired_archive_symbols();
     LXP_CASE_CHECK(symbols != NULL);
     while (fgets(line, (int)sizeof(line), symbols) != NULL) {
         size_t length = strlen(line);

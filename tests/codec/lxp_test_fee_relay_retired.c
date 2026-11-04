@@ -6,6 +6,8 @@
 
 #include "../../src/modules/programs/storage.h"
 
+static const uint32_t historical_fee_relay_type = UINT32_C(0x00090008);
+
 static int fee_relay_type_refused(void)
 {
     const lxp_module_iface *interfaces[] = {
@@ -25,7 +27,7 @@ static int fee_relay_type_refused(void)
     uint32_t parameters = 1U;
     size_t i;
 
-    LXP_CASE_CHECK(LX_PROGRAMS_FEE_GOVERNANCE == UINT32_C(0x00090008));
+    LXP_CASE_CHECK(historical_fee_relay_type == UINT32_C(0x00090008));
     for (i = 0U; i < sizeof(interfaces) / sizeof(interfaces[0]); ++i) {
         const lxp_module_iface *iface = interfaces[i];
         const lxp_module_registration *resolved = NULL;
@@ -42,13 +44,13 @@ static int fee_relay_type_refused(void)
         LXP_CASE_CHECK(lxp_kernel_register_module(&kernel, iface) == LXP_OK);
         for (j = 0U; j < iface->activity_type_count; ++j) {
             LXP_CASE_CHECK(iface->activity_types[j] !=
-                           LX_PROGRAMS_FEE_GOVERNANCE);
+                           historical_fee_relay_type);
             LXP_CASE_CHECK(lxp_kernel_module_for_activity(
                 &kernel, iface->activity_types[j], 0U, &resolved) == LXP_OK);
             LXP_CASE_CHECK(resolved->iface == iface);
         }
         LXP_CASE_CHECK(lxp_kernel_module_for_activity(
-            &kernel, LX_PROGRAMS_FEE_GOVERNANCE, 0U, &resolved) ==
+            &kernel, historical_fee_relay_type, 0U, &resolved) ==
             LXP_ERR_UNKNOWN_ACTIVITY);
         LXP_CASE_CHECK(lxp_arena_init(&arena, arena_bytes,
                                       sizeof(arena_bytes)) == LXP_OK);
@@ -56,7 +58,7 @@ static int fee_relay_type_refused(void)
             &ctx, &kernel, LXP_MODULE_PROGRAMS, 0U, 0U, 0U,
             UINT64_MAX, &arena, true) == LXP_OK);
         LXP_CASE_CHECK(iface->decode(
-            &ctx, lxp_activity_type_ordinal(LX_PROGRAMS_FEE_GOVERNANCE),
+            &ctx, lxp_activity_type_ordinal(historical_fee_relay_type),
             payload, sizeof(payload), &decoded) == LXP_ERR_UNKNOWN_ACTIVITY);
         LXP_CASE_CHECK(decoded == NULL && ctx.staged_count == 0U);
         LXP_CASE_CHECK(kernel.module_kv_count == 0U);

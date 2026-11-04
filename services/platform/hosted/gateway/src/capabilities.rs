@@ -29,9 +29,6 @@ const DEFAULT_TTL_SECONDS: u64 = 15;
 const MAX_TTL_SECONDS: u64 = 300;
 const MAX_RAW_TRANSACTION_BYTES: usize = 4 * 1024 * 1024;
 
-/// Chain JSON-RPC path under a router root configured without one.
-const CHAIN_RPC_PATH: &str = "/rpc";
-
 /// The probe view of one surface: a cheap view that the precompile
 /// serving the surface's address declares in its served ABI file.
 struct ProbeView {
@@ -286,13 +283,9 @@ pub(super) fn configured() -> Result<Cache, String> {
     Ok(Cache::new(Duration::from_secs(seconds)))
 }
 
-/// The chain JSON-RPC endpoint for one configured Paxeer name: a bare router
-/// root answers chain JSON-RPC under `/rpc`, and an explicit path is kept.
-pub(super) fn chain_rpc(mut endpoint: Endpoint) -> Endpoint {
-    if endpoint.base_path.is_empty() {
-        CHAIN_RPC_PATH.clone_into(&mut endpoint.base_path);
-    }
-    endpoint
+/// Preserve a node origin as `/` and retain explicit domain paths.
+pub(super) fn chain_rpc(endpoint: Endpoint) -> Endpoint {
+    endpoint.chain_rpc()
 }
 
 /// Whether one probe `eth_call` answer shows the surface live: a result that
@@ -1257,13 +1250,14 @@ mod tests {
     }
 
     #[test]
-    fn capabilities_chain_rpc_defaults_a_router_root_to_rpc_exactly_once() {
+    fn capabilities_chain_rpc_preserves_node_root_and_domain_paths() {
         for (configured, path) in [
-            ("https://router.example", "/rpc"),
-            ("https://router.example/", "/rpc"),
+            ("https://router.example", "/"),
+            ("https://router.example/", "/"),
             ("https://router.example/rpc", "/rpc"),
             ("https://router.example/rpc/", "/rpc"),
             ("https://router.example:8545/evm", "/evm"),
+            ("https://router.example/chain/125", "/chain/125"),
         ] {
             let endpoint = Endpoint::parse(configured).unwrap_or_else(|e| panic!("{e}"));
             let port = endpoint.port;

@@ -321,6 +321,64 @@ export async function quotedOpenWithTpSl(
   return { quote, plan, takeProfitPrice, stopLossPrice };
 }
 
+type FundingHarness = Pick<Harness, "publicClient" | "owner" | "gqlQuery" | "FUNDING_PAYMENTS_QUERY"> & {
+  endpoint: ReturnType<Harness["gqlEndpoint"]>;
+};
+
+/** One wall deadline covers block progress, individual reads and gateway indexing. */
+export async function fundingVisibleThroughGateway(
+  h: FundingHarness,
+  positionId: bigint,
+  { timeoutMs = FUNDING_INDEX_GRACE_MS, pollMs = POLL_INTERVAL_MS } = {},
+) {
+  const deadline = Date.now() + timeoutMs;
+  let lastBlock: { number: bigint | null; timestamp: bigint } | undefined;
+  let settlesAt: bigint | undefined;
+  function observation() {
+    return `position=${positionId} lastHeight=${lastBlock?.number ?? "unknown"} lastTime=${lastBlock?.timestamp ?? "unknown"} settlesAt=${settlesAt ?? "unknown"}`;
+  }
+  async function bounded<T>(operation: () => Promise<T>): Promise<T> {
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) throw new Error(`Funding deadline exceeded: ${observation()}`);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([
+        operation(),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(() => reject(new Error(`Funding deadline exceeded: ${observation()}`)), remaining);
+        }),
+      ]);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  lastBlock = await bounded(() => h.publicClient.getBlock({ blockTag: "latest" }));
+  settlesAt = (lastBlock.timestamp / FUNDING_INTERVAL_SECONDS + 1n) * FUNDING_INTERVAL_SECONDS;
+  assert.ok(settlesAt - lastBlock.timestamp < BigInt(Math.ceil(timeoutMs / 1000)),
+    `Isolated local-node fixture must start near a funding boundary or advance its controlled clock: ${observation()}`);
+  while (lastBlock.timestamp <= settlesAt) {
+    await bounded(() => delay(Math.min(pollMs, Math.max(1, deadline - Date.now()))));
+    lastBlock = await bounded(() => h.publicClient.getBlock({ blockTag: "latest" }));
+  }
+  const endpoint = h.endpoint;
+  type FundingRow = { positionId: string; userAddress: string };
+  let rows: FundingRow[] = [];
+  while (rows.length === 0) {
+    const data = await bounded(() => h.gqlQuery<{ fundingPayments: FundingRow[] }>(
+      endpoint, h.FUNDING_PAYMENTS_QUERY,
+      { userAddress: h.owner.toLowerCase(), positionId: positionId.toString() },
+    ));
+    rows = data.fundingPayments;
+    if (rows.length === 0) await bounded(() => delay(Math.min(pollMs, Math.max(1, deadline - Date.now()))));
+  }
+  assert.ok(rows.length >= 1, `GetFundingPayments returned no row for position ${positionId}; ${observation()}`);
+  for (const row of rows) {
+    assert.equal(row.positionId, positionId.toString());
+    assert.equal(getAddress(row.userAddress), h.owner);
+  }
+  return rows;
+}
+
 // Importing the reusable consumer does not start the operator's local-node journey.
 if (process.argv[1]?.endsWith("/e2e-local-node.test.ts")) {
   describe("e2eLocalNode", () => {
@@ -523,35 +581,9 @@ if (process.argv[1]?.endsWith("/e2e-local-node.test.ts")) {
     it("fundingVisibleThroughGateway", async () => {
       const h = await harness();
       const positionId = required(state.positionId, "the open position");
-      const settlesAt =
-        ((await latestBlockTime(h)) / FUNDING_INTERVAL_SECONDS + 1n) *
-        FUNDING_INTERVAL_SECONDS;
-      while ((await latestBlockTime(h)) <= settlesAt)
-        await delay(POLL_INTERVAL_MS);
-      const endpoint = h.gqlEndpoint(h.gatewayUrls().graphql.url);
-      const deadline = Date.now() + FUNDING_INDEX_GRACE_MS;
-      type FundingRow = { positionId: string; userAddress: string };
-      let rows: FundingRow[] = [];
-      while (rows.length === 0 && Date.now() < deadline) {
-        const data = await h.gqlQuery<{ fundingPayments: FundingRow[] }>(
-          endpoint,
-          h.FUNDING_PAYMENTS_QUERY,
-          {
-            userAddress: h.owner.toLowerCase(),
-            positionId: positionId.toString(),
-          },
-        );
-        rows = data.fundingPayments;
-        if (rows.length === 0) await delay(POLL_INTERVAL_MS);
-      }
-      assert.ok(
-        rows.length >= 1,
-        `GetFundingPayments returned no row for position ${positionId}`,
-      );
-      for (const row of rows) {
-        assert.equal(row.positionId, positionId.toString());
-        assert.equal(getAddress(row.userAddress), h.owner);
-      }
+      await fundingVisibleThroughGateway({ ...h,
+        endpoint: h.gqlEndpoint(h.gatewayUrls().graphql.url),
+      }, positionId);
     });
 
     it("closeRoundTrip", async () => {

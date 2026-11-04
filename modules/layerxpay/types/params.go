@@ -115,5 +115,157 @@ func (g GenesisState) Validate() error {
 			return ErrInvalidGenesis.Wrapf("%s enabled while kernel genesis gate is clear", module.name)
 		}
 	}
+	if err := validateOwnedGenesisRecords(g.KernelRecords, records); err != nil {
+		return err
+	}
+	for i, metadata := range g.AgentStreamMetadata {
+		id := metadata.Key[len(AgentStreamMetadataPrefix):]
+		stream, err := DecodeStreamRecord(records[string(KernelKVKey(StreamModuleID, append([]byte("stream:"), id...)))])
+		if err != nil || stream.Mode != StreamModeTime || stream.RateUnit != 1000 {
+			return ErrInvalidGenesis.Wrapf("agent stream metadata %d has no matching agent stream", i)
+		}
+		if bytes.Equal(metadata.Value[:20], make([]byte, 20)) ||
+			bytes.Equal(metadata.Value[20:40], make([]byte, 20)) ||
+			bytes.Equal(metadata.Value[:20], metadata.Value[20:40]) {
+			return ErrInvalidGenesis.Wrapf("agent stream metadata %d has invalid participants", i)
+		}
+	}
+	return nil
+}
+
+func validateOwnedGenesisRecords(ordered []kv.Pair, records map[string][]byte) error {
+	for _, record := range ordered {
+		wireKey, body := record.Key, record.Value
+		module := binary.BigEndian.Uint16(wireKey[1:3])
+		local := wireKey[3:]
+		var id [32]byte
+		var err error
+		var prefix string
+		keyID := func(p string, extra int) bool {
+			prefix = p
+			return len(local) == len(p)+32+extra &&
+				!bytes.Equal(local[len(p):len(p)+32], make([]byte, 32))
+		}
+		switch {
+		case module == EscrowModuleID && bytes.HasPrefix(local, []byte("hold:")):
+			if !keyID("hold:", 0) {
+				return ErrInvalidGenesis.Wrap("invalid escrow hold key")
+			}
+			var r EscrowRecord
+			r, err = DecodeEscrowRecord(body)
+			id = r.EscrowID
+		case module == EscrowModuleID && bytes.HasPrefix(local, []byte("result:")):
+			if !keyID("result:", 0) {
+				return ErrInvalidGenesis.Wrap("invalid escrow result key")
+			}
+			r, decodeErr := DecodeEscrowResult(body)
+			if decodeErr != nil {
+				return ErrInvalidGenesis.Wrap("invalid escrow result body")
+			}
+			if _, ok := records[string(KernelKVKey(module, append([]byte("hold:"), r.EscrowID[:]...)))]; !ok {
+				return ErrInvalidGenesis.Wrap("escrow result has no hold")
+			}
+			continue // Result keys are replay keys, not escrow ids.
+		case module == BudgetModuleID && bytes.HasPrefix(local, []byte("budget:")):
+			if !keyID("budget:", 0) {
+				return ErrInvalidGenesis.Wrap("invalid budget key")
+			}
+			var r BudgetRecord
+			r, err = DecodeBudgetRecord(body)
+			id = r.BudgetID
+		case module == StreamModuleID && bytes.HasPrefix(local, []byte("stream:")):
+			if !keyID("stream:", 0) {
+				return ErrInvalidGenesis.Wrap("invalid stream key")
+			}
+			var r StreamRecord
+			r, err = DecodeStreamRecord(body)
+			id = r.StreamID
+		case module == StreamModuleID && bytes.HasPrefix(local, []byte("result:")):
+			if !keyID("result:", 0) {
+				return ErrInvalidGenesis.Wrap("invalid stream result key")
+			}
+			r, decodeErr := DecodeStreamResult(body)
+			if decodeErr != nil {
+				return ErrInvalidGenesis.Wrap("invalid stream result body")
+			}
+			if _, ok := records[string(KernelKVKey(module, append([]byte("stream:"), r.StreamID[:]...)))]; !ok {
+				return ErrInvalidGenesis.Wrap("stream result has no stream")
+			}
+			continue
+		case module == ServiceModuleID:
+			for _, p := range []string{"offer::1", "agree::1", "commit:1", "execut:1", "delivr:1", "delitm:1", "disput:1", "progrs:1"} {
+				if bytes.HasPrefix(local, []byte(p[:7])) {
+					prefix = p
+					break
+				}
+			}
+			if prefix == "" {
+				continue
+			}
+			extra := 0
+			if prefix == "delitm:1" {
+				extra = 1
+			}
+			if !bytes.HasPrefix(local, []byte(prefix)) || !keyID(prefix, extra) {
+				return ErrInvalidGenesis.Wrap("invalid service record key or version")
+			}
+			switch prefix {
+			case "offer::1":
+				var r ServiceOffer
+				r, err = DecodeServiceOffer(body)
+				id = r.OfferID
+			case "agree::1":
+				var r ServiceAgreement
+				r, err = DecodeServiceAgreement(body)
+				id = r.AgreementID
+			case "commit:1":
+				var r ServiceCommitment
+				r, err = DecodeServiceCommitment(body)
+				id = r.CommitmentID
+			case "execut:1":
+				var r ServiceExecution
+				r, err = DecodeServiceExecution(body)
+				id = r.AttestationID
+			case "disput:1":
+				var r ServiceDispute
+				r, err = DecodeServiceDispute(body)
+				id = r.DisputeID
+			case "progrs:1":
+				var r ServiceProgress
+				r, err = DecodeServiceProgress(body)
+				id = r.ReportID
+			case "delitm:1":
+				headerKey := KernelKVKey(module, append([]byte("delivr:1"), local[8:40]...))
+				header := records[string(headerKey)]
+				if len(header) != 138 || int(local[40]) >= int(header[129]) || len(body) != 73 || body[0] != 1 {
+					return ErrInvalidGenesis.Wrap("invalid or orphaned service delivery item")
+				}
+				continue
+			case "delivr:1":
+				if len(body) != 138 || body[0] != 1 || body[129] == 0 || int(body[129]) > ServiceMaxDeliverables {
+					return ErrInvalidGenesis.Wrap("invalid service delivery header")
+				}
+				id = [32]byte(body[1:33])
+				assembled := bytes.Clone(body)
+				for i := byte(0); i < body[129]; i++ {
+					itemKey := KernelKVKey(module, append(append([]byte("delitm:1"), local[8:40]...), i))
+					item := records[string(itemKey)]
+					if len(item) != 73 {
+						return ErrInvalidGenesis.Wrap("missing or invalid service delivery item")
+					}
+					assembled = append(assembled, item...)
+				}
+				_, err = DecodeServiceDelivery(assembled)
+			}
+		default:
+			continue
+		}
+		if err != nil {
+			return ErrInvalidGenesis.Wrapf("invalid %s record body: %v", prefix, err)
+		}
+		if id == ([32]byte{}) || !bytes.Equal(id[:], local[len(prefix):len(prefix)+32]) {
+			return ErrInvalidGenesis.Wrapf("%s key/body id mismatch", prefix)
+		}
+	}
 	return nil
 }

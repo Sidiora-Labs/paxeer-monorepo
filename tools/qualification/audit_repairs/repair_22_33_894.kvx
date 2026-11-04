@@ -1,0 +1,44 @@
+[task.22.33.894]
+base_revision = "7988614413df79a83ae525988b7636ae368938a2"
+readme_sha256 = "01d315dec3aab8bc3772bbd07d00522aa0ef68d12cbdcdc6a705e518afb8e809"
+repair = "Decision 2525 delegates the root README rewrite to 22.31.470. Preserve its existing merged-network guidance and add focused regression proofs for audit 22.30.184/readme-two-domains, plus this finding-to-test and evidence record. No production file changes."
+source_proof = "Offline assertions read the actual README architecture, diagrams, directory/build/release guidance, HTTPS root RPC hosts and parsed curl JSON chain probe; bind node registrations to transaction acceptance/forwarding, WAL acknowledgement before receipt publication and committed MsgSequenceBatch coverage; parse the hosted OpenRPC contract and ledger ABI; check native bank/program entry points, executor retirement guards and literal Makefile prerequisites/recipes. These prove documented source facts, not runtime behavior."
+review_only = "Go/C/Rust compilation, linked paxd execution, live endpoints, signing, BFT consensus, WAL recovery and runtime producer/transport/consumer behavior are not executed. They require owning-domain qualification and review. This doc-drift task changes no interface or persistent component; no restart-recovery or interface-mismatch runtime proof is claimed. No shell script, unit file or manifest is changed; shell examples use shlex and JSON parsing, build rules use an in-process literal parser, without a subprocess toolchain, external binary, environment variable, credential, live endpoint, native artifact or device."
+baseline = "No pre-change verification was run. The explicit implementation-first order permits verify_cmd only through hf-done after hf-build, superseding the contradictory unchanged-tree clause in step 5. No baseline failures are claimed. Initial git status/diff showed only runner bookkeeping in .cgignore and spec/layerx-merge/spec.kvx; both scoped files were absent and /out/run/gates.jsonl was absent. README.md already contains the owning task corrections and its inspected bytes are bound by readme_sha256."
+baseline_failures_claimed = []
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_894.py"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision_source = "The final hf-done JSON and private /out/run/gates.jsonl name the exact verified content-derived candidate revision, command, exit code and log path. Build and verify must pass on the same candidate revision. The record is finalized before qualification; embedding its own candidate hash would change the candidate. Only a passing hf-done establishes closure. The runner retains the evidence and commits the result; no manual commit or push."
+missing_readme_facts = []
+wiring_requests = ["README.md -> owning domain 17/task 22.31.470: supply integrated paxd architecture, native bank/program entry points, root-node and hosted contracts, merged directory/build/release guidance and historical retirement labels (satisfied in the inherited README; no missing fact observed)."]
+
+[finding.readme-two-domains]
+audit = "22.30.184"
+file = "README.md"
+line = 46
+class = "doc-drift"
+severity = "medium"
+owner_domain = 17
+expected = "The repository entry page must describe one paxd BFT network, EVM chain 125, an embedded kernel and receipts final at block commit; no separate LayerX daemon is a deployment prerequisite."
+closure = "The owning README rewrite supplies the requested facts; the focused tests below must pass through hf-done before this finding is qualified."
+tests = ["test_readme_two_domains_integrated_paxd_and_bft_finality", "test_readme_two_domains_root_rpc_hosts_and_chain_probe", "test_readme_two_domains_transaction_to_committed_receipt_path", "test_readme_two_domains_retired_executors_and_historical_settlement", "test_readme_two_domains_build_and_run_guidance_has_no_daemon", "test_readme_two_domains_node_and_hosted_contracts_are_distinct", "test_readme_two_domains_native_bank_and_program_entry_points", "test_readme_two_domains_directory_build_and_release_are_merged", "test_readme_two_domains_record_maps_finding_and_proof_limits"]
+
+[wiring.readme]
+path = "README.md"
+owner_domain = 17
+owner_task = "22.31.470"
+status = "satisfied"
+request = "Owning domain 17/task 22.31.470 supplies the README rewrite; any absent expected fact remains an out-of-scope wiring request instead of a README edit."
+observed = "All expected facts are present in the inherited README: one BFT network and embedded kernel, chain 125, api1 through api14 root JSON-RPC, transaction and committed receipt flows, native bank/program entry points, retired custody/checkpoint executors, merged build/release guidance and historical labels; no separate daemon or checkpoint deployment is required."
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths. After implementation, apply .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions to the two scoped files only."
+
+[gotcha.1]
+observed = "The old baseline verification clause conflicts with the explicit implementation-first, wrapper-only order."
+resolution = "Follow the explicit order and claim no baseline run or failures; GOTCHA.kvx and spec files are outside scope, so record this conflict here."
+
+[gotcha.2]
+observed = "Broad Codify survey and combined ledger/document reads exceed output budgets; cg brief also reports unrelated cached task and change counts."
+resolution = "Use exact Git status/diff, bounded task/finding/source reads and the private gate ledger as authority; preserve runner bookkeeping."

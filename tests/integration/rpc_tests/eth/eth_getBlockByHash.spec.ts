@@ -1,8 +1,8 @@
 import { ethers } from 'ethers';
 import { expect } from 'chai';
-import { bothProviders, rawPax, rawGeth, expectJsonRpcError, Eip1559Params, queryEip1559Params, nextBaseFeePax } from '../utils/chainUtils';
+import { bothProviders, rawPax, rawGeth, expectJsonRpcError, Eip1559Params, queryEip1559Params, nextBaseFeePax, waitUntil } from '../utils/chainUtils';
 import { readRuntimeState, RuntimeState, claimPool, expectSameError } from '../utils/testUtils';
-import { EvmAccount, fundFromUnlocked } from '../utils/evmUtils';
+import { EvmAccount, fundFromUnlocked, abiOf } from '../utils/evmUtils';
 import { UHPX } from '../utils/constants';
 import {
     sharedRichBlock,
@@ -15,7 +15,6 @@ import {
     assertActualBytesAndSize,
     assertReportedSendFields,
     assertLogsBloom,
-    burnGasBurst,
     expectedTransferGas,
     richFailedTxs,
     assertFailedReceipt,
@@ -249,39 +248,90 @@ describe('eth_getBlockByHash', function () {
     });
 
     describe('base fee responds to gas pressure (Pax fee market)', () => {
-        let params: Eip1559Params | null = null;
-        let burst: { beforeBaseFee: bigint; minBlock: number; maxBlock: number } | null = null;
+        let params: Eip1559Params;
+        let burst: { beforeBaseFee: bigint; minBlock: number; maxBlock: number };
+        const pinnedHashes = new Map<number, string>();
 
         before(async function () {
             this.timeout(180 * 1000);
-            params = await queryEip1559Params();
-            if (!params) return;
-            burst = await burnGasBurst(pax, runtime, signers);
+            const queried = await queryEip1559Params();
+            expect(queried, 'required fee-market parameter query failed; local paxd must be available').to.not.equal(null);
+            params = queried!;
+            for (const [key, value] of Object.entries(params)) {
+                expect(Number.isFinite(value), `valid fee-market parameter ${key}`).to.equal(true);
+            }
+            expect(params.targetGasUsedPerBlock).to.be.greaterThan(0);
+            expect(params.blockGasLimit).to.be.greaterThan(params.targetGasUsedPerBlock);
+            const before = await byNumber(pax, Number(BigInt(await pax.send('eth_blockNumber', []))), false);
+            expect(before, 'pre-burst committed block').to.not.equal(null);
+            const iface = new ethers.Interface(abiOf('GasBurner.sol', 'RealGasBurner'));
+            let minBlock = Number.MAX_SAFE_INTEGER;
+            let maxBlock = 0;
+            expect(signers.length, 'required load signers').to.be.greaterThan(0);
+            for (let round = 0; round < 12; round++) {
+                const head = await pax.send('eth_getBlockByNumber', ['latest', false]);
+                const tip = ethers.parseUnits('2', 'gwei');
+                const maxFeePerGas = BigInt(head.baseFeePerGas) * 4n + tip;
+                const receipts = await Promise.all(signers.map(async (signer, i) => {
+                    const tx = await signer.wallet.sendTransaction({
+                        to: runtime.contracts.gasBurner,
+                        data: iface.encodeFunctionData('burnGasIterations', [BigInt(round * 100 + i), 200n]),
+                        gasLimit: 6_000_000n,
+                        maxFeePerGas,
+                        maxPriorityFeePerGas: tip,
+                        type: 2,
+                    });
+                    const receipt = await pax.waitForTransaction(tx.hash, 1, 30_000);
+                    expect(receipt, `required burst receipt ${tx.hash}`).to.not.equal(null);
+                    expect(receipt!.status, `required burst execution ${tx.hash}`).to.equal(1);
+                    return receipt!;
+                }));
+                for (const receipt of receipts) {
+                    minBlock = Math.min(minBlock, receipt.blockNumber);
+                    maxBlock = Math.max(maxBlock, receipt.blockNumber);
+                }
+            }
+            expect(minBlock, 'burst starts at a committed positive height').to.be.greaterThan(0);
+            expect(maxBlock, 'required workload must commit').to.be.at.least(minBlock);
+            burst = { beforeBaseFee: BigInt(before.baseFeePerGas), minBlock, maxBlock };
+            await waitUntil(async () => BigInt(await pax.send('eth_blockNumber', [])) >= BigInt(maxBlock + 1) ? true : null, {
+                timeoutMs: 15_000,
+                label: `committed fee-market successor ${maxBlock + 1}`,
+            });
+            for (let n = minBlock; n <= maxBlock + 1; n++) {
+                const block = await byNumber(pax, n, false);
+                expect(block, `required committed block ${n}`).to.not.equal(null);
+                expect(BigInt(block.number)).to.equal(BigInt(n));
+                pinnedHashes.set(n, block.hash);
+            }
         });
 
-        // Resolve by number, then re-read by hash so the fee-market check hits the by-hash endpoint.
         const byHashAt = async (n: number): Promise<any> => {
-            const ref = await byNumber(pax, n, false);
-            return ref ? byHash(pax, ref.hash, false) : null;
+            const hash = pinnedHashes.get(n);
+            expect(hash, `pinned committed hash at ${n}`).to.be.a('string');
+            const block = await byHash(pax, hash!, false);
+            expect(block, `required block ${n} (${hash})`).to.not.equal(null);
+            expect(block.hash).to.equal(hash);
+            expect(BigInt(block.number)).to.equal(BigInt(n));
+            return block;
         };
 
         it("each over-target block raises the next block's baseFeePerGas exactly per the formula", async function () {
-            if (!params || !burst || burst.maxBlock === 0) this.skip();
             let transitions = 0;
             let rose = 0;
-            for (let n = burst!.minBlock; n <= burst!.maxBlock; n++) {
+            for (let n = burst.minBlock; n <= burst.maxBlock; n++) {
                 const [blk, child] = await Promise.all([byHashAt(n), byHashAt(n + 1)]);
-                if (!blk || !child) continue;
+                expect(child.parentHash, `successor of committed block ${n}`).to.equal(blk.hash);
                 const predicted = nextBaseFeePax(
                     Number(BigInt(blk.baseFeePerGas)),
                     Number(BigInt(blk.gasUsed)),
-                    params!,
+                    params,
                 );
                 expect(
                     Number(BigInt(child.baseFeePerGas)),
                     `child of block ${n} follows the fee-market formula`,
                 ).to.be.closeTo(predicted, 5);
-                if (BigInt(blk.gasUsed) > BigInt(params!.targetGasUsedPerBlock)) {
+                if (BigInt(blk.gasUsed) > BigInt(params.targetGasUsedPerBlock)) {
                     rose++;
                     expect(
                         BigInt(child.baseFeePerGas) > BigInt(blk.baseFeePerGas),
@@ -290,23 +340,20 @@ describe('eth_getBlockByHash', function () {
                 }
                 transitions++;
             }
-            expect(transitions, 'checked at least one base-fee transition').to.be.greaterThan(0);
+            expect(transitions, 'checked every committed base-fee transition').to.equal(burst.maxBlock - burst.minBlock + 1);
             expect(rose, 'at least one over-target block raised the base fee').to.be.greaterThan(0);
         });
 
         it('the peak base fee across the burst exceeds the pre-burst base fee', async function () {
-            if (!params || !burst || burst.maxBlock === 0) this.skip();
             let peak = 0n;
-            for (let n = burst!.minBlock; n <= burst!.maxBlock + 1; n++) {
+            for (let n = burst.minBlock; n <= burst.maxBlock + 1; n++) {
                 const blk = await byHashAt(n);
-                if (blk) {
-                    const bf = BigInt(blk.baseFeePerGas);
-                    if (bf > peak) peak = bf;
-                }
+                const bf = BigInt(blk.baseFeePerGas);
+                if (bf > peak) peak = bf;
             }
             expect(
-                peak > burst!.beforeBaseFee,
-                `peak base fee ${peak} should exceed pre-burst ${burst!.beforeBaseFee}`,
+                peak > burst.beforeBaseFee,
+                `peak base fee ${peak} should exceed pre-burst ${burst.beforeBaseFee}`,
             ).to.equal(true);
         });
     });

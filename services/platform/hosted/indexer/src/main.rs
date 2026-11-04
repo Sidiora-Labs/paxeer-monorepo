@@ -39,6 +39,7 @@ where
                     IndexError::Source(_) => "source_unavailable",
                     IndexError::Decode(_) => "source_decode_failed",
                     IndexError::Store(_) => "store_unavailable",
+                    IndexError::NameResultLimit => "names_result_limit_exceeded",
                     IndexError::Config(_) => "source_configuration_invalid",
                     IndexError::Integrity(_) => "source_integrity_failed",
                     IndexError::ReorgBeyondFinality { .. } => "reorg_beyond_finality",

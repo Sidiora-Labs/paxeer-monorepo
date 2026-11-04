@@ -11,6 +11,10 @@ sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(Path(__file__).parent))
 import caps_discovery_contract as contract
+import candidate_build as build_contract
+
+sys.path.insert(0, str(ROOT / 'services/agent/sdk/python'))
+from layerx_sdk.committed import CommitTrust
 
 RUST_CASES = {'native_complete_evidence_and_mutation_refusals', 'native_live_paginated_discovery',
               'native_client_selection_and_terminal_refusals'}
@@ -19,10 +23,10 @@ RUNTIME_CASES = {'real-empty-module', 'real-empty-prefix', 'real-mixed-owner-bud
     'revocation-during-traversal', 'period-rollover-during-traversal', 'foreign-object',
     'wrong-root', 'wrong-selection', 'cursor-gap', 'malformed-cursor', 'wrong-network',
     'zero-page', 'oversize-page', 'wrong-rank', 'malformed-request', 'cursor-replay',
-    'disconnect', 'restart', 'fresh-after-restart', 'real-finality-authority', 'expiry',
+    'disconnect', 'restart', 'fresh-after-restart', 'chain-committed-block', 'expiry',
     'active-object-exhaustion', 'snapshot-memory-exhaustion'}
 
-RUST_MARKERS = frozenset(['account-count-padding', 'account-id-substitution', 'account-omission', 'account-order', 'account-value-substitution', 'client-preflight-expiry-and-terminal', 'composite-root-substitution', 'crosschain-owner-kind', 'custody-source-authority-substitution', 'domain-authority-term-rank-refusals', 'duplicate-account-proof', 'duplicate-prefix-leaf', 'empty-prefix-and-module', 'empty-prefix-or-module-root', 'finality-context-substitution', 'finality-selector-substitution', 'first-middle-last-prefix-omission', 'foreign-malformation-before-filter', 'foreign-owner-account-substitution', 'forged-empty-module', 'forged-empty-prefix', 'fresh-after-mutation', 'fresh-after-restart', 'fresh-after-rollover', 'freshness-selector-and-expected-root-refusals', 'invalid-owner-prefix', 'live-paginated-complete-and-terminal', 'live-paginated-confirmed-empty', 'lower-boundary-substitution', 'missing-custody-v2-source', 'noncanonical-budget-or-grant', 'noncanonical-grant-boolean', 'noncanonical-path-padding', 'odd-node-sibling-substitution', 'owned-omission-among-foreign', 'owner-and-foreign-classification', 'owner-name-alias', 'populated-foreign', 'populated-owner', 'range-order', 'real-finality', 'relay-changed-total', 'relay-empty-cursor', 'relay-no-progress', 'relay-oversize-object', 'relay-oversize-page', 'relay-premature-done', 'relay-repeated-cursor', 'relay-truncated-chunk', 'relay-unexpected-proof', 'relay-wrong-correlation', 'relay-wrong-network', 'relay-wrong-root', 'relay-wrong-snapshot', 'relay-zero-chunk', 'retained-and-fresh-root-separation', 'retained-before-mutation', 'retained-before-revocation', 'retained-before-rollover', 'signed-header-authority-substitution', 'signed-header-signature-substitution', 'signed-header-term-substitution', 'universal-leaf-omission', 'upper-boundary-substitution', 'wrong-leaf-count-padding', 'wrong-leaf-index'])
+RUST_MARKERS = frozenset(['account-count-padding', 'account-id-substitution', 'account-omission', 'account-order', 'account-value-substitution', 'client-preflight-expiry-and-terminal', 'composite-root-substitution', 'crosschain-owner-kind', 'custody-source-authority-substitution', 'domain-authority-term-rank-refusals', 'duplicate-account-proof', 'duplicate-prefix-leaf', 'empty-prefix-and-module', 'empty-prefix-or-module-root', 'committed-context-substitution', 'committed-height-substitution', 'first-middle-last-prefix-omission', 'foreign-malformation-before-filter', 'foreign-owner-account-substitution', 'forged-empty-module', 'forged-empty-prefix', 'fresh-after-mutation', 'fresh-after-restart', 'fresh-after-rollover', 'freshness-selector-and-expected-root-refusals', 'invalid-owner-prefix', 'live-paginated-complete-and-terminal', 'live-paginated-confirmed-empty', 'lower-boundary-substitution', 'missing-custody-v2-source', 'noncanonical-budget-or-grant', 'noncanonical-grant-boolean', 'noncanonical-path-padding', 'odd-node-sibling-substitution', 'owned-omission-among-foreign', 'owner-and-foreign-classification', 'owner-name-alias', 'populated-foreign', 'populated-owner', 'range-order', 'chain-committed-block', 'relay-changed-total', 'relay-empty-cursor', 'relay-no-progress', 'relay-oversize-object', 'relay-oversize-page', 'relay-premature-done', 'relay-repeated-cursor', 'relay-truncated-chunk', 'relay-unexpected-proof', 'relay-wrong-correlation', 'relay-wrong-network', 'relay-wrong-root', 'relay-wrong-snapshot', 'relay-zero-chunk', 'retained-and-fresh-root-separation', 'retained-before-mutation', 'retained-before-revocation', 'retained-before-rollover', 'commit-validator-substitution', 'commit-signature-substitution', 'commit-round-substitution', 'universal-leaf-omission', 'upper-boundary-substitution', 'wrong-leaf-count-padding', 'wrong-leaf-index'])
 RUST_ADDITIONAL_MARKERS = frozenset(['lower-boundary-omission', 'upper-boundary-omission'])
 
 
@@ -45,11 +49,21 @@ def admit_manifest(path, source):
     return contract.admit(path, source)
 
 
+def admit_chain_evidence(value, trust, root, minimum_height=1):
+    require(type(minimum_height) is int and minimum_height > 0, 'positive committed height required')
+    require(set(trust) == {'chain_id', 'height', 'validators'}, 'independently pinned chain trust required')
+    require(value.get('chain_id') == trust['chain_id'], 'wrong discovery network')
+    pinned = CommitTrust(trust['chain_id'], trust['height'], tuple(trust['validators']))
+    verified = pinned.verify(bytes.fromhex(value['transaction']), minimum_height, value['evidence'])
+    require(verified.app_hash.hex() == root, 'discovery root is not the chain-committed application root')
+    return verified
+
+
 def worker(output, value, directory):
     sys.path.insert(0, str(ROOT / 'tools/qualification/paxeer-x/fixtures'))
     import caps_fixture
     caps_fixture.fixture.artifacts(os.environ['PAXEER_X_RUNTIME_ARTIFACTS'])
-    caps_fixture.finality.supplemental(os.environ['PAXEER_X_FINALITY_ARTIFACTS'])
+    trust = build_contract.private_json(Path(os.environ['PAXEER_X_CAPS_CHAIN_TRUST']))
     require(os.geteuid() == 0 and os.getegid() == 4020, 'owned fixture UID0/GID4020 required')
     for name in ('net', 'pid', 'mnt'):
         require(os.readlink('/proc/self/ns/' + name) != os.environ['CAPS_PARENT_' + name.upper()],
@@ -66,6 +80,7 @@ def worker(output, value, directory):
     os.environ['PATH'] = str(python_root / 'bin') + ':/usr/local/bin:/usr/bin:/bin'
     result_path = caps_fixture.run(directory, value, value['artifacts']['native']['path'], value['artifacts']['rust']['path'])
     result = json.loads(result_path.read_text())
+    admit_chain_evidence(result['committed'], trust, result['root'], result['height'])
     cases = result['runtime_cases']
     require(len(cases) == len(RUNTIME_CASES) and set(cases) == RUNTIME_CASES, 'missing or duplicate real runtime cases')
     log = Path(result['log']).read_text()

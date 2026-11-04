@@ -25,9 +25,12 @@ Where the rest of the system fits:
   host function ([`host/oracle.rs`](crates/layerx-programs-runtime/src/host/oracle.rs)).
   A guest state transition never dials out to fetch a price.
 - **Execution and finality** belong to one BFT network: `paxd`, EVM chain ID `125`
-  (`0x7d`). The kernel runs inside the node and participates in block proposal and
-  execution. A receipt is final when its block is committed; programs do not wait for
-  settlement on another chain.
+  (`0x7d`). The kernel runs inside `paxd` and participates in block proposal and
+  execution. A receipt is final when its block is committed; a signed execution receipt
+  before commitment is execution evidence, not finality. Programs do not require
+  periodic checkpoint settlement or a separate settlement deployment. The kernel runs
+  inside the node;
+  programs do not wait for settlement on another chain.
 - **Network access** uses public node JSON-RPC at the root URL, for example
   `https://api1.mainnet-beta.paxeer.network` or
   `https://api-mainnet-beta.paxeer.network`. The numbered nodes are `api1` through
@@ -53,7 +56,8 @@ profile: `unsafe_code` is denied by default, Clippy `all` and `pedantic` are den
 | Path | Purpose |
 | --- | --- |
 | `crates/layerx-programs-runtime` | Deterministic WASM runtime: validation, metering, the ABI/capability boundary, cross-program calls, transfers, occupancy accounting, replay, and the FFI bridge into the C kernel |
-| `crates/layerx-programs-registry` | Receipt-bound registry: deployment journal, program interfaces, program value-account bindings, real-balance proofs, wind-down/deprecation, and the reference-program interface generators |
+| `crates/layerx-programs-registry` | Receipt-bound registry: deployment journal, program interfaces, program value-account bindings, real-balance proofs, wind-down/deprecation, and the reference-program interface generators. Chain-proof read bridge for the mounted `lxphost` store |
+| `../precompiles/layerxprograms` | Live Programs deploy, call and query interface at `0x101D`; registry chain-proof reads verify evidence against committed chain state |
 | `crates/layerx-programs-interpreter` | A bounded deterministic scripting program: scripts are submitted as canonical bytes and fully validated before any effect is staged |
 | `crates/layerx-programs-market` | Compute-lease market program: usage claims with a challenge window, provider stake and slashing, attester policy, and on-chain bisection disputes |
 | `crates/layerx-programs-ai-market` | PAXAI guest: market registry, workers and evaluators, commit/reveal epochs, aggregation, reputation, and rewards |
@@ -66,7 +70,7 @@ profile: `unsafe_code` is denied by default, Clippy `all` and `pedantic` are den
 | `fixtures/pay5` | Token, merchant and swap artifacts, interfaces and registry values, account-authorization vectors, and native activity/receipt fixtures |
 | `../scripts/programs` | Dependency policy, immutable ABI-vector generation, and reference-fixture build scripts |
 | `../tests/programs` | Native C tests, ABI-drift and runtime module-boundary checks |
-| `tests` | Cross-implementation vectors, the hostile-program `gauntlet`, conservation and parallel-differential checks, and calldata fixtures |
+| `tests` | Cross-implementation vectors, the hostile-program `gauntlet`, conservation and parallel-differential checks, calldata fixtures, and the root package's registered registry-read integration test |
 | `vendor` | Vendored, pinned dependencies for a hermetic build |
 
 Cargo promotes path dependencies below the workspace root into workspace members.
@@ -112,6 +116,41 @@ and [`chain_proof/`](crates/layerx-programs-registry/src/chain_proof) to verify 
 lifecycle and state evidence against chain commitments. `VerifiedProgramCatalog` in
 [`resolver.rs`](crates/layerx-programs-registry/src/resolver.rs) admits executable
 programs from verified bundles. The former protocol-adapter crate is retired.
+Any retained adapter sources are historical, not a deployed read interface.
+The former `layerx-programs-protocol-adapter` crate is retired. Current integration
+uses the registry chain-proof APIs below; do not add the retired adapter as a dependency.
+
+Callers obtain program balances through node-root JSON-RPC `eth_call` to the Programs
+precompile at `0x101D` (`0x000000000000000000000000000000000000101D`). ABI-encode
+`getValueAccount(bytes32,bytes32)` with the program id and registered account id, and
+select an explicit committed block height so related reads share one state snapshot.
+The [published ABI](../precompiles/layerxprograms/abi.json) returns `uint128 balance`
+and `bool frozen`; the boolean is a freeze flag, not an existence flag. An absent
+account returns `(0, false)`, so that pair alone does not prove registration. The
+precompile reads the kernel account state; registry chain-proof verification supplies
+authenticated evidence rather than trusting an adapter's bookkeeping balance.
+
+### Registry reads from mounted chain state
+
+The read bridge is **`layerx-programs-registry`**, within the same chain-125 network
+that executes programs inside `paxd`. The node mounts the kernel state in the
+`lxphost` store ([store keys](../storage/common/keys/store_keys.go),
+[node wiring](../node/app.go)); there is no separate settlement chain.
+
+Use the registry's [`chain_evidence`](crates/layerx-programs-registry/src/chain_evidence.rs)
+and [`chain_proof`](crates/layerx-programs-registry/src/chain_proof.rs) APIs for reads:
+
+1. Decode the canonical `LXCP` commitment bundle with `decode_commitment_proof`.
+2. Authenticate its chain header and CometBFT commit with `ChainProofVerifier`
+   against trusted chain identity and validator information. A validator set supplied
+   in an untrusted bundle alone does not establish trust.
+3. Verify the `ics23:iavl` key/value proof and the `ics23:simple` multistore proof
+   for `lxphost` against the authenticated header's `app_hash`. State at height `H`
+   is authenticated by the header at `H + 1`; `verify_state` returns `H`.
+   `verify_absent` authenticates non-membership through the same store root.
+4. Let `protocol_evidence` bind the verified state, deployment or lifecycle evidence
+   before `VerifiedProgramCatalog` admits executable programs. A decoded bundle or
+   an execution receipt alone is insufficient evidence of committed state.
 
 ---
 
@@ -336,8 +375,9 @@ above. Aggregate test targets cover more than a focused task's qualification gat
 ### AI market guest packaging
 
 Build the AI market guest in release mode with `opt-level = "z"` and the merged
-chain domain fixed at build time. The workspace release default is `opt-level = 3`,
-so guest packaging must override it. For chain 125, `merged_chain_domain(125)` in
+chain domain fixed at build time. The workspace release default is `opt-level = 3`;
+the AI package's release override in [`Cargo.toml`](Cargo.toml) selects `"z"`
+automatically. For chain 125, `merged_chain_domain(125)` in
 [`lib.rs`](crates/layerx-programs-ai-market/src/lib.rs) is the SHA-256 of
 `b"PAXAI/chain-domain/v1" || u64_be(125)`:
 
@@ -345,7 +385,7 @@ so guest packaging must override it. For chain 125, `merged_chain_domain(125)` i
 cd programs
 PAXAI_CHAIN_DOMAIN=62b6b14734fa769c3e0fbc94de495a3d038be49a2524b1c071d75d0a4eed71f6 \
   cargo build --locked --release --target wasm32-unknown-unknown \
-  --config 'profile.release.opt-level="z"' -p layerx-programs-ai-market
+  -p layerx-programs-ai-market
 ```
 
 `PAXAI_CHAIN_DOMAIN` is a compile-time setting; malformed or foreign domains are
@@ -355,6 +395,10 @@ refused by the guest's deployment-domain validation. The deployment payload limi
 deployment envelope. The guest must fit within the remaining 524184 bytes. When an
 interface is included, the decoder in [`deploy.c`](../src/modules/programs/deploy.c)
 uses 108 fixed bytes plus the interface bytes, reducing the space for WASM further.
+The production `make paxai-host-boundary-build` target uses this release profile,
+post-processes the guest with `wasm-opt -Oz --strip-debug --strip-producers`, and
+checks that the resulting WASM is at most 524184 bytes before passing that same file
+to the native host-boundary harness. That bound reserves the 104-byte envelope.
 A successful Cargo build alone
 does not establish that the final payload fits or that the registering host selected
 the matching guest ABI.

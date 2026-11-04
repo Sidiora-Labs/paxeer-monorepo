@@ -207,6 +207,8 @@ describe('eth_feeHistory Tests', function () {
             expect(g.result.gasUsedRatio, 'geth nulls gasUsedRatio for empty range').to.equal(null);
             expect(g.result.oldestBlock, 'geth (reference) reports 0x0').to.equal('0x0');
             expect(s.result.oldestBlock, 'Pax must report a canonical 0x0, not null').to.equal('0x0');
+            expect(s.result.oldestBlock).to.match(HEX_QUANTITY);
+            expect(s.result).to.deep.equal(g.result);
         });
 
         it('an idle range still returns a zero-filled reward matrix, never null entries', async () => {
@@ -301,6 +303,10 @@ describe('eth_feeHistory Tests', function () {
             expect(g.error, JSON.stringify(g)).to.equal(undefined);
             expect(s.result.oldestBlock, 'pax oldestBlock').to.equal('0x0');
             expect(g.result.oldestBlock, 'geth oldestBlock').to.equal('0x0');
+            expect(s.result.oldestBlock).to.match(HEX_QUANTITY);
+            expect(s.result.gasUsedRatio, 'Pax zero-count range is empty').to.equal(null);
+            expect(g.result.gasUsedRatio, 'geth zero-count range is empty').to.equal(null);
+            expect(s.result).to.deep.equal(g.result);
         });
 
         it('percentile 0 returns the minimum priority fee (or 0 for empty blocks)', async () => {

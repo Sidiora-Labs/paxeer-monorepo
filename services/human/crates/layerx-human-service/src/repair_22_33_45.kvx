@@ -1,0 +1,15 @@
+[repair.22.33.45]
+acceptance = "22998.1"
+proof = "services/human/crates/layerx-human-service/tests/repair_22_33_45.rs"
+baseline = "Not run: the declared integration target did not exist on the unchanged tree; the explicit implementation-first, hf-build then hf-done-only order supersedes step 5. No baseline test failure is claimed."
+evidence = "The runner records the candidate revision, command, exit code and private log; the final task receipt copies the last bounded gate evidence."
+wiring_requests = []
+
+[finding.doc-13]
+tests = ["doc_13_native_bank_call_uses_the_sender_pending_nonce", "doc_13_committed_receipt_requires_batch_quorum_and_inclusion", "doc_13_settings_targets_and_retirement_match_production"]
+implementation = "Rewrite the service README around the active bank executor, chain-125 zero-value EIP-1559 bank send ABI, pending nonces, retained retries, Committed receipt evidence, current production configuration, explicit 410 retirement and supported self-contained test commands."
+proof_detail = "The real RPC client reads the pending nonce from a loopback peer; RouteResolver produces the native bank call and the real signer, transaction codec and disclosure consumer agree on sender, target, calldata and nonce. A committed node transcript drives the real receipt transport and BankCommitEvidence verifier; signed receipt alone is non-final and batch, activity, inclusion, quorum and header corruption are refused. Executable schema and listener/web identity parsers agree with documented retirements and settings."
+transcript = "src/journeys/repair_22_31_153_transcript.json (existing node/sequencer and consensus producer recording; historical signed transactions remain receipt-verification fixtures, not current route targets)"
+
+[gotcha.22.33.45]
+observed = "The baseline-first instruction conflicts with the explicit bounded gate order; follow implementation-first and do not claim a baseline run. Task/spec/gotcha ledger updates outside the authorized scope remain untouched; the task-local repair record carries this note."
