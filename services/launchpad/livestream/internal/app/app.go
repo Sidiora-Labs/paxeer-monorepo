@@ -87,7 +87,12 @@ func decodeStudioWebhook(raw []byte) (streams.ProviderEvent, error) {
 	case "stream.started":
 		state = "LIVE"
 	case "stream.idle":
-		state = "ENDED"
+		// Studio idle means the broadcaster disconnected, not that the
+		// provider stream was terminated. Match ReconcileWorker's inactive
+		// observation so the same provider/ingest key can reconnect. Only
+		// reconciliation with termination intent and provider evidence may
+		// certify ENDED; a delayed idle callback cannot supply that evidence.
+		state = "READY"
 	default:
 		return streams.ProviderEvent{}, streams.ErrInvalid
 	}
