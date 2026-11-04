@@ -173095,7 +173095,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1562]
 title = "Repair audit record 22.30.98 medium findings in services/agent/crates/layerx-proof/tests (part 1 of 1): retired-reference, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.226", "22.31.443"]
@@ -175008,7 +175008,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1505]
 title = "Repair audit record 22.30.90 medium findings in services/agent/crates/layerx-agent-api/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.214", "22.31.215", "22.31.216", "22.31.443"]
@@ -177116,7 +177116,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1334]
 title = "Repair audit record 22.30.72 medium findings in services/agent/crates/layerx-crypto/tests (part 1 of 1): retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.133", "22.31.443"]
@@ -189781,7 +189781,7 @@ do_3 = "Decision 2409 (attempt 1, 5bacff9c1): the engine under programs/vendor/w
 
 [task.22.9.38]
 title = "Build the human projection facts fixture in-process from the Human peer server"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.9.31", "22.99.159", "22.99.160", "22.9.39", "22.31.443"]
@@ -196681,7 +196681,7 @@ do_10 = "The gate of this task is corrected (gotcha 2984): the generated command
 
 [task.22.33.1502]
 title = "Repair audit record 22.30.9 medium findings in modules/layerxagent/keeper (part 1 of 1): config-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.144", "22.31.145", "22.31.146"]
@@ -199217,7 +199217,7 @@ do_12 = "Attempt 2 (continue): the benchmark transactions are refused as zero-fe
 
 [task.22.33.1269]
 title = "Repair audit record 22.30.62 medium findings in modules/layerxbridge (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.182", "22.31.183"]
@@ -199327,7 +199327,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1251]
 title = "Repair audit record 22.30.61 medium findings in modules/xweb (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.128", "22.31.129"]
@@ -199435,7 +199435,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1247]
 title = "Repair audit record 22.30.60 medium findings in modules/evm/types/ethtx (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.179", "22.31.180", "22.31.181"]
@@ -200202,7 +200202,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1214]
 title = "Repair audit record 22.30.58 medium findings in interchain/modules/core/keeper (part 1 of 1): interface-mismatch, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.333", "22.31.334", "22.31.335", "22.31.336", "22.31.337"]
@@ -200460,7 +200460,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1200]
 title = "Repair audit record 22.30.56 medium findings in storage/state_db/sc/memiavl (part 2 of 2): runtime-risk, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.124", "22.31.125"]
@@ -210018,7 +210018,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.687]
 title = "Repair audit record 22.30.167 medium findings in sdk/x/distribution/types (part 1 of 1): config-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.305", "22.31.306", "22.31.307", "22.31.308", "22.31.309"]
@@ -277721,7 +277721,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1226]
 title = "Repair audit record 22.30.59 medium findings in modules/tokenfactory (part 1 of 1): doc-drift, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.338"]
@@ -278495,7 +278495,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1132]
 title = "Repair audit record 22.30.5 medium findings in src/modules/budget (part 1 of 1): interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.98", "22.31.99", "22.31.100", "22.31.101"]
@@ -320095,7 +320095,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1362]
 title = "Repair audit record 22.30.74 medium findings in services/agent/sdk/python/layerx_sdk (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.342"]
