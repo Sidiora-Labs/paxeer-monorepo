@@ -105,6 +105,7 @@ pub enum MetricKind {
     BudgetUtilization,
     SubscriptionLag,
     RateLimitRefusal,
+    DroppedTrace,
 }
 
 /// Closed metric labels. No raw or caller-provided identifier can be represented.
@@ -193,6 +194,9 @@ pub struct BoundedMetrics {
 }
 
 impl BoundedMetrics {
+    /// Maximum retained error traces; later traces are counted and discarded.
+    pub const TRACE_CAPACITY: usize = 1024;
+
     pub fn record(&mut self, key: BoundedMetricKey, value: u64) {
         let counter = self.counters.entry(key).or_default();
         *counter = counter.saturating_add(value);
@@ -235,6 +239,29 @@ impl BoundedMetrics {
     #[must_use]
     pub fn traces(&self) -> &[SanitizedTrace] {
         &self.traces
+    }
+
+    fn record_trace(&mut self, trace: SanitizedTrace) {
+        if self.traces.len() < Self::TRACE_CAPACITY {
+            self.traces.push(trace);
+        } else {
+            let label = match trace.error_class {
+                ErrorClass::AccessDenied => MetricLabel::AccessDenied,
+                ErrorClass::InvalidRequest => MetricLabel::InvalidRequest,
+                ErrorClass::Storage => MetricLabel::StorageFailure,
+                ErrorClass::Boundary => MetricLabel::BoundaryFailure,
+                ErrorClass::Internal => MetricLabel::InternalFailure,
+            };
+            self.record(
+                BoundedMetricKey {
+                    tenant: trace.tenant,
+                    surface: trace.surface,
+                    kind: MetricKind::DroppedTrace,
+                    label,
+                },
+                1,
+            );
+        }
     }
 }
 
@@ -316,7 +343,7 @@ pub(super) fn normalize(
         1,
     );
     let normalization_tag = fixed_normalization_work(tenant, surface, normalized.class);
-    metrics.traces.push(SanitizedTrace {
+    metrics.record_trace(SanitizedTrace {
         tenant: tenant.clone(),
         surface,
         error_class: normalized.class,

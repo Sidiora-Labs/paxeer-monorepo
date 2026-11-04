@@ -1,5 +1,5 @@
 {
-  "source": "client/apps/web/src/app/**/page.tsx",
+  "source": "apps/launchpad/web/src/app/**/page.tsx",
   "observed": false,
   "routes": [
     {
@@ -17,6 +17,45 @@
     },
     {
       "route": "/auth/callback",
+      "checks": [
+        "semantic-landmarks-skip-link-names-headings",
+        "keyboard-focus-order-visible-200-percent",
+        "dialog-trap-escape-restore-trigger",
+        "async-error-announcement",
+        "financial-column-headers-units-sign-text",
+        "coalesced-live-region-chart-table-alternative"
+      ],
+      "account": "synthetic-only",
+      "status": "pending-browser-and-manual-AT"
+    },
+    {
+      "route": "/bounties",
+      "checks": [
+        "semantic-landmarks-skip-link-names-headings",
+        "keyboard-focus-order-visible-200-percent",
+        "dialog-trap-escape-restore-trigger",
+        "async-error-announcement",
+        "financial-column-headers-units-sign-text",
+        "coalesced-live-region-chart-table-alternative"
+      ],
+      "account": "synthetic-only",
+      "status": "pending-browser-and-manual-AT"
+    },
+    {
+      "route": "/bounties/[bountyId]",
+      "checks": [
+        "semantic-landmarks-skip-link-names-headings",
+        "keyboard-focus-order-visible-200-percent",
+        "dialog-trap-escape-restore-trigger",
+        "async-error-announcement",
+        "financial-column-headers-units-sign-text",
+        "coalesced-live-region-chart-table-alternative"
+      ],
+      "account": "synthetic-only",
+      "status": "pending-browser-and-manual-AT"
+    },
+    {
+      "route": "/bounties/new",
       "checks": [
         "semantic-landmarks-skip-link-names-headings",
         "keyboard-focus-order-visible-200-percent",
@@ -55,7 +94,46 @@
       "status": "pending-browser-and-manual-AT"
     },
     {
+      "route": "/coin/[address]",
+      "checks": [
+        "semantic-landmarks-skip-link-names-headings",
+        "keyboard-focus-order-visible-200-percent",
+        "dialog-trap-escape-restore-trigger",
+        "async-error-announcement",
+        "financial-column-headers-units-sign-text",
+        "coalesced-live-region-chart-table-alternative"
+      ],
+      "account": "synthetic-only",
+      "status": "pending-browser-and-manual-AT"
+    },
+    {
       "route": "/create",
+      "checks": [
+        "semantic-landmarks-skip-link-names-headings",
+        "keyboard-focus-order-visible-200-percent",
+        "dialog-trap-escape-restore-trigger",
+        "async-error-announcement",
+        "financial-column-headers-units-sign-text",
+        "coalesced-live-region-chart-table-alternative"
+      ],
+      "account": "synthetic-only",
+      "status": "pending-browser-and-manual-AT"
+    },
+    {
+      "route": "/create/chain",
+      "checks": [
+        "semantic-landmarks-skip-link-names-headings",
+        "keyboard-focus-order-visible-200-percent",
+        "dialog-trap-escape-restore-trigger",
+        "async-error-announcement",
+        "financial-column-headers-units-sign-text",
+        "coalesced-live-region-chart-table-alternative"
+      ],
+      "account": "synthetic-only",
+      "status": "pending-browser-and-manual-AT"
+    },
+    {
+      "route": "/docs",
       "checks": [
         "semantic-landmarks-skip-link-names-headings",
         "keyboard-focus-order-visible-200-percent",
@@ -133,7 +211,59 @@
       "status": "pending-browser-and-manual-AT"
     },
     {
+      "route": "/explore",
+      "checks": [
+        "semantic-landmarks-skip-link-names-headings",
+        "keyboard-focus-order-visible-200-percent",
+        "dialog-trap-escape-restore-trigger",
+        "async-error-announcement",
+        "financial-column-headers-units-sign-text",
+        "coalesced-live-region-chart-table-alternative"
+      ],
+      "account": "synthetic-only",
+      "status": "pending-browser-and-manual-AT"
+    },
+    {
+      "route": "/holder-rewards",
+      "checks": [
+        "semantic-landmarks-skip-link-names-headings",
+        "keyboard-focus-order-visible-200-percent",
+        "dialog-trap-escape-restore-trigger",
+        "async-error-announcement",
+        "financial-column-headers-units-sign-text",
+        "coalesced-live-region-chart-table-alternative"
+      ],
+      "account": "synthetic-only",
+      "status": "pending-browser-and-manual-AT"
+    },
+    {
+      "route": "/leaderboard",
+      "checks": [
+        "semantic-landmarks-skip-link-names-headings",
+        "keyboard-focus-order-visible-200-percent",
+        "dialog-trap-escape-restore-trigger",
+        "async-error-announcement",
+        "financial-column-headers-units-sign-text",
+        "coalesced-live-region-chart-table-alternative"
+      ],
+      "account": "synthetic-only",
+      "status": "pending-browser-and-manual-AT"
+    },
+    {
       "route": "/live",
+      "checks": [
+        "semantic-landmarks-skip-link-names-headings",
+        "keyboard-focus-order-visible-200-percent",
+        "dialog-trap-escape-restore-trigger",
+        "async-error-announcement",
+        "financial-column-headers-units-sign-text",
+        "coalesced-live-region-chart-table-alternative"
+      ],
+      "account": "synthetic-only",
+      "status": "pending-browser-and-manual-AT"
+    },
+    {
+      "route": "/live/all",
       "checks": [
         "semantic-landmarks-skip-link-names-headings",
         "keyboard-focus-order-visible-200-percent",
@@ -250,6 +380,19 @@
       "status": "pending-browser-and-manual-AT"
     },
     {
+      "route": "/search",
+      "checks": [
+        "semantic-landmarks-skip-link-names-headings",
+        "keyboard-focus-order-visible-200-percent",
+        "dialog-trap-escape-restore-trigger",
+        "async-error-announcement",
+        "financial-column-headers-units-sign-text",
+        "coalesced-live-region-chart-table-alternative"
+      ],
+      "account": "synthetic-only",
+      "status": "pending-browser-and-manual-AT"
+    },
+    {
       "route": "/swap",
       "checks": [
         "semantic-landmarks-skip-link-names-headings",
@@ -276,6 +419,19 @@
       "status": "pending-browser-and-manual-AT"
     },
     {
+      "route": "/terminal/[slug]",
+      "checks": [
+        "semantic-landmarks-skip-link-names-headings",
+        "keyboard-focus-order-visible-200-percent",
+        "dialog-trap-escape-restore-trigger",
+        "async-error-announcement",
+        "financial-column-headers-units-sign-text",
+        "coalesced-live-region-chart-table-alternative"
+      ],
+      "account": "synthetic-only",
+      "status": "pending-browser-and-manual-AT"
+    },
+    {
       "route": "/token",
       "checks": [
         "semantic-landmarks-skip-link-names-headings",
@@ -290,6 +446,32 @@
     },
     {
       "route": "/token/[poolAddress]",
+      "checks": [
+        "semantic-landmarks-skip-link-names-headings",
+        "keyboard-focus-order-visible-200-percent",
+        "dialog-trap-escape-restore-trigger",
+        "async-error-announcement",
+        "financial-column-headers-units-sign-text",
+        "coalesced-live-region-chart-table-alternative"
+      ],
+      "account": "synthetic-only",
+      "status": "pending-browser-and-manual-AT"
+    },
+    {
+      "route": "/tokens/[tokenAddress]/metadata",
+      "checks": [
+        "semantic-landmarks-skip-link-names-headings",
+        "keyboard-focus-order-visible-200-percent",
+        "dialog-trap-escape-restore-trigger",
+        "async-error-announcement",
+        "financial-column-headers-units-sign-text",
+        "coalesced-live-region-chart-table-alternative"
+      ],
+      "account": "synthetic-only",
+      "status": "pending-browser-and-manual-AT"
+    },
+    {
+      "route": "/watchlist",
       "checks": [
         "semantic-landmarks-skip-link-names-headings",
         "keyboard-focus-order-visible-200-percent",
@@ -339,7 +521,6 @@
   },
   "missingDedicatedRoutes": [
     "portfolio",
-    "watchlists",
     "notifications"
   ],
   "assistiveTechnology": [

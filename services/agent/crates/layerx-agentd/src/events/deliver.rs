@@ -563,6 +563,7 @@ impl DeliveryEngine {
 
     fn pump(&mut self) -> Result<PumpReport, DeliveryError> {
         self.check_registered_stop()?;
+        self.check_dispatch(None)?;
         let sequences = self.eligible_sequences()?;
         let mut backfill_events = 0;
         let mut live_events = 0;
@@ -672,6 +673,22 @@ impl DeliveryEngine {
         Ok(())
     }
 
+    pub(super) fn dispatch_gate(&self) -> Result<super::subscription::DispatchGate, DeliveryError> {
+        Ok(self.subscriptions.dispatch_gate(&self.target)?)
+    }
+
+    pub(super) fn check_dispatch(&self, item: Option<&DeliveryItem>) -> Result<(), DeliveryError> {
+        let cursor = match item {
+            Some(DeliveryItem::Event(event)) => Some(Cursor::from(event.delivery.cursor)),
+            _ => None,
+        };
+        self.subscriptions.check_dispatch(&self.target, cursor)?;
+        if self.subscriptions.continuity_inner(&self.target)? != Continuity::Healthy {
+            return Err(DeliveryError::ContinuityBlocked);
+        }
+        Ok(())
+    }
+
     fn eligible_sequences(&self) -> Result<Vec<u64>, DeliveryError> {
         if self.subscriptions.continuity_inner(&self.target)? != Continuity::Healthy {
             return Err(DeliveryError::ContinuityBlocked);
@@ -732,12 +749,14 @@ pub(super) fn delivery_attempt(
     engine: &mut DeliveryEngine,
 ) -> Result<Option<DeliveryItem>, DeliveryError> {
     engine.check_registered_stop()?;
+    engine.check_dispatch(None)?;
     if engine.buffer.is_empty() {
         match engine.pump() {
             Ok(_) | Err(DeliveryError::Backpressure { .. }) => {}
             Err(error) => return Err(error),
         }
     }
+    engine.check_dispatch(engine.buffer.front())?;
     Ok(engine.buffer.front().cloned())
 }
 

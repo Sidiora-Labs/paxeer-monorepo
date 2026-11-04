@@ -1,0 +1,1305 @@
+{
+  "exchange": [
+    {
+      "request": {
+        "headers": {
+          "LAYERX-PAYER-ADDRESS": "0xabababababababababababababababababababab"
+        },
+        "method": "GET",
+        "target": "/search?q=paxeer"
+      },
+      "response": {
+        "body": {
+          "error": "payment_required",
+          "paymentRequired": {
+            "accepts": [
+              {
+                "amount": "3114",
+                "asset": "5c1d0a93e4b7f2682c9e1f0473ad5b6e8f1027c3d49a5b6e7f80912a3b4c5d6e",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:asset:5c1d0a93e4b7f2682c9e1f0473ad5b6e8f1027c3d49a5b6e7f80912a3b4c5d6e",
+                    "commitment": "executed",
+                    "currency": "SID",
+                    "payer": "6de51539c0ccfbd7243bf453fbb86ede2418eedf2610aaa63c4ff14805423505",
+                    "purposeHash": "27c30b4ab5fb5bbb67fc5575ca58b27a0f693b0ce702d5c74e21a908eb36036e"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "ea4a7d7558725f7a7f4254e30b6def371c972073e4ded255f1871075a93810d1",
+                "scheme": "metered"
+              },
+              {
+                "amount": "3114",
+                "asset": "5c1d0a93e4b7f2682c9e1f0473ad5b6e8f1027c3d49a5b6e7f80912a3b4c5d6e",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:asset:5c1d0a93e4b7f2682c9e1f0473ad5b6e8f1027c3d49a5b6e7f80912a3b4c5d6e",
+                    "commitment": "executed",
+                    "currency": "SID"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "ea4a7d7558725f7a7f4254e30b6def371c972073e4ded255f1871075a93810d1",
+                "scheme": "exact"
+              },
+              {
+                "amount": "1000000000000000",
+                "asset": "6d2e1ba4f5c80379ad0f2e1584be6c7f90213d4e5ab6c7d8e9f0a1b2c3d4e5f6",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:main",
+                    "commitment": "executed",
+                    "currency": "PAX",
+                    "payer": "db7d6ba802e408f5730bb8f4b06cd86ec3719a3617afe516b39cd14a40f172a5",
+                    "purposeHash": "27c30b4ab5fb5bbb67fc5575ca58b27a0f693b0ce702d5c74e21a908eb36036e"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "9b7f38e9d873135bf55c8d3ccac2623dba12057a440d41603161585635fb649b",
+                "scheme": "metered"
+              },
+              {
+                "amount": "1000000000000000",
+                "asset": "6d2e1ba4f5c80379ad0f2e1584be6c7f90213d4e5ab6c7d8e9f0a1b2c3d4e5f6",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:main",
+                    "commitment": "executed",
+                    "currency": "PAX"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "9b7f38e9d873135bf55c8d3ccac2623dba12057a440d41603161585635fb649b",
+                "scheme": "exact"
+              },
+              {
+                "amount": "1000",
+                "asset": "7e3f2cb506d9148abe1f3f2695cf7d80a1324e5f6bc7d8e9fa0b1c2d3e4f5061",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:asset:7e3f2cb506d9148abe1f3f2695cf7d80a1324e5f6bc7d8e9fa0b1c2d3e4f5061",
+                    "commitment": "executed",
+                    "currency": "USDC",
+                    "payer": "c12ee5461c9c3165783e6d89e8c9a99a8f526bfe6f3d6e2d0958ec2ddb8d48a3",
+                    "purposeHash": "27c30b4ab5fb5bbb67fc5575ca58b27a0f693b0ce702d5c74e21a908eb36036e"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "8ee0fe77ad282b163224a8f1cf1e651cf72a08bb86c395e8ff7cc9f3f45e978f",
+                "scheme": "metered"
+              },
+              {
+                "amount": "1000",
+                "asset": "7e3f2cb506d9148abe1f3f2695cf7d80a1324e5f6bc7d8e9fa0b1c2d3e4f5061",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:asset:7e3f2cb506d9148abe1f3f2695cf7d80a1324e5f6bc7d8e9fa0b1c2d3e4f5061",
+                    "commitment": "executed",
+                    "currency": "USDC"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "8ee0fe77ad282b163224a8f1cf1e651cf72a08bb86c395e8ff7cc9f3f45e978f",
+                "scheme": "exact"
+              },
+              {
+                "amount": "1000",
+                "asset": "8f403dc617ea259bcf204f37a6d08e91b2435f607cd8e9fa0b1c2d3e4f506172",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:asset:8f403dc617ea259bcf204f37a6d08e91b2435f607cd8e9fa0b1c2d3e4f506172",
+                    "commitment": "executed",
+                    "currency": "USDL",
+                    "payer": "5cb7c657717308ffccc8ac805fab934273ed29048e1d7a66c7914e0de8af2689",
+                    "purposeHash": "27c30b4ab5fb5bbb67fc5575ca58b27a0f693b0ce702d5c74e21a908eb36036e"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "314f7930c1f1ad9a01726a2b8a1f06742d614d1a756ef2f551fe09d2e9fa1b44",
+                "scheme": "metered"
+              },
+              {
+                "amount": "1000",
+                "asset": "8f403dc617ea259bcf204f37a6d08e91b2435f607cd8e9fa0b1c2d3e4f506172",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:asset:8f403dc617ea259bcf204f37a6d08e91b2435f607cd8e9fa0b1c2d3e4f506172",
+                    "commitment": "executed",
+                    "currency": "USDL"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "314f7930c1f1ad9a01726a2b8a1f06742d614d1a756ef2f551fe09d2e9fa1b44",
+                "scheme": "exact"
+              }
+            ],
+            "resource": {
+              "description": "Web search results",
+              "mimeType": "application/json",
+              "serviceName": "x-websearch",
+              "url": "http://127.0.0.1/search?q=paxeer"
+            },
+            "x402Version": 2
+          }
+        },
+        "headers": {
+          "PAYMENT-REQUIRED": {
+            "accepts": [
+              {
+                "amount": "3114",
+                "asset": "5c1d0a93e4b7f2682c9e1f0473ad5b6e8f1027c3d49a5b6e7f80912a3b4c5d6e",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:asset:5c1d0a93e4b7f2682c9e1f0473ad5b6e8f1027c3d49a5b6e7f80912a3b4c5d6e",
+                    "commitment": "executed",
+                    "currency": "SID",
+                    "payer": "6de51539c0ccfbd7243bf453fbb86ede2418eedf2610aaa63c4ff14805423505",
+                    "purposeHash": "27c30b4ab5fb5bbb67fc5575ca58b27a0f693b0ce702d5c74e21a908eb36036e"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "ea4a7d7558725f7a7f4254e30b6def371c972073e4ded255f1871075a93810d1",
+                "scheme": "metered"
+              },
+              {
+                "amount": "3114",
+                "asset": "5c1d0a93e4b7f2682c9e1f0473ad5b6e8f1027c3d49a5b6e7f80912a3b4c5d6e",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:asset:5c1d0a93e4b7f2682c9e1f0473ad5b6e8f1027c3d49a5b6e7f80912a3b4c5d6e",
+                    "commitment": "executed",
+                    "currency": "SID"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "ea4a7d7558725f7a7f4254e30b6def371c972073e4ded255f1871075a93810d1",
+                "scheme": "exact"
+              },
+              {
+                "amount": "1000000000000000",
+                "asset": "6d2e1ba4f5c80379ad0f2e1584be6c7f90213d4e5ab6c7d8e9f0a1b2c3d4e5f6",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:main",
+                    "commitment": "executed",
+                    "currency": "PAX",
+                    "payer": "db7d6ba802e408f5730bb8f4b06cd86ec3719a3617afe516b39cd14a40f172a5",
+                    "purposeHash": "27c30b4ab5fb5bbb67fc5575ca58b27a0f693b0ce702d5c74e21a908eb36036e"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "9b7f38e9d873135bf55c8d3ccac2623dba12057a440d41603161585635fb649b",
+                "scheme": "metered"
+              },
+              {
+                "amount": "1000000000000000",
+                "asset": "6d2e1ba4f5c80379ad0f2e1584be6c7f90213d4e5ab6c7d8e9f0a1b2c3d4e5f6",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:main",
+                    "commitment": "executed",
+                    "currency": "PAX"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "9b7f38e9d873135bf55c8d3ccac2623dba12057a440d41603161585635fb649b",
+                "scheme": "exact"
+              },
+              {
+                "amount": "1000",
+                "asset": "7e3f2cb506d9148abe1f3f2695cf7d80a1324e5f6bc7d8e9fa0b1c2d3e4f5061",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:asset:7e3f2cb506d9148abe1f3f2695cf7d80a1324e5f6bc7d8e9fa0b1c2d3e4f5061",
+                    "commitment": "executed",
+                    "currency": "USDC",
+                    "payer": "c12ee5461c9c3165783e6d89e8c9a99a8f526bfe6f3d6e2d0958ec2ddb8d48a3",
+                    "purposeHash": "27c30b4ab5fb5bbb67fc5575ca58b27a0f693b0ce702d5c74e21a908eb36036e"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "8ee0fe77ad282b163224a8f1cf1e651cf72a08bb86c395e8ff7cc9f3f45e978f",
+                "scheme": "metered"
+              },
+              {
+                "amount": "1000",
+                "asset": "7e3f2cb506d9148abe1f3f2695cf7d80a1324e5f6bc7d8e9fa0b1c2d3e4f5061",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:asset:7e3f2cb506d9148abe1f3f2695cf7d80a1324e5f6bc7d8e9fa0b1c2d3e4f5061",
+                    "commitment": "executed",
+                    "currency": "USDC"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "8ee0fe77ad282b163224a8f1cf1e651cf72a08bb86c395e8ff7cc9f3f45e978f",
+                "scheme": "exact"
+              },
+              {
+                "amount": "1000",
+                "asset": "8f403dc617ea259bcf204f37a6d08e91b2435f607cd8e9fa0b1c2d3e4f506172",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:asset:8f403dc617ea259bcf204f37a6d08e91b2435f607cd8e9fa0b1c2d3e4f506172",
+                    "commitment": "executed",
+                    "currency": "USDL",
+                    "payer": "5cb7c657717308ffccc8ac805fab934273ed29048e1d7a66c7914e0de8af2689",
+                    "purposeHash": "27c30b4ab5fb5bbb67fc5575ca58b27a0f693b0ce702d5c74e21a908eb36036e"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "314f7930c1f1ad9a01726a2b8a1f06742d614d1a756ef2f551fe09d2e9fa1b44",
+                "scheme": "metered"
+              },
+              {
+                "amount": "1000",
+                "asset": "8f403dc617ea259bcf204f37a6d08e91b2435f607cd8e9fa0b1c2d3e4f506172",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:asset:8f403dc617ea259bcf204f37a6d08e91b2435f607cd8e9fa0b1c2d3e4f506172",
+                    "commitment": "executed",
+                    "currency": "USDL"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "314f7930c1f1ad9a01726a2b8a1f06742d614d1a756ef2f551fe09d2e9fa1b44",
+                "scheme": "exact"
+              }
+            ],
+            "resource": {
+              "description": "Web search results",
+              "mimeType": "application/json",
+              "serviceName": "x-websearch",
+              "url": "http://127.0.0.1/search?q=paxeer"
+            },
+            "x402Version": 2
+          }
+        },
+        "status": 402
+      }
+    },
+    {
+      "request": {
+        "headers": {
+          "LAYERX-PAYER-ADDRESS": "0xabababababababababababababababababababab",
+          "PAYMENT-SIGNATURE": {
+            "accepted": {
+              "amount": "3114",
+              "asset": "5c1d0a93e4b7f2682c9e1f0473ad5b6e8f1027c3d49a5b6e7f80912a3b4c5d6e",
+              "extra": {
+                "layerx": {
+                  "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:asset:5c1d0a93e4b7f2682c9e1f0473ad5b6e8f1027c3d49a5b6e7f80912a3b4c5d6e",
+                  "commitment": "executed",
+                  "currency": "SID",
+                  "payer": "6de51539c0ccfbd7243bf453fbb86ede2418eedf2610aaa63c4ff14805423505",
+                  "purposeHash": "27c30b4ab5fb5bbb67fc5575ca58b27a0f693b0ce702d5c74e21a908eb36036e"
+                }
+              },
+              "maxTimeoutSeconds": 60,
+              "network": "eip155:125",
+              "payTo": "ea4a7d7558725f7a7f4254e30b6def371c972073e4ded255f1871075a93810d1",
+              "scheme": "metered"
+            },
+            "payload": {
+              "grantId": "7130e3f77aa3e9cae6dd6f6c9baaf41dc1fed95c14778a7fad1475da42940d83",
+              "idempotencyKey": "2754c25a8c335eb44f96548ecfa0e0c68086ba1855c43ddd8964c26c76eed3bc"
+            },
+            "x402Version": 2
+          }
+        },
+        "method": "GET",
+        "target": "/search?q=paxeer"
+      },
+      "response": {
+        "body": {
+          "digest": "ce77bcf2b244f687348173e75c14b2d0cd2583e1c255c7ccc0b2be01afa64138",
+          "media_type": "application/json",
+          "query": "paxeer",
+          "results": [
+            {
+              "snippet": "Paxeer X Network & the web Search the web Café <tag> © — done now First line Second line One Two & three keep indent Unknown &bogus",
+              "title": "Paxeer X Network & the web",
+              "url": "https://paxeer.app/index.html"
+            }
+          ]
+        },
+        "headers": {
+          "PAYMENT-RESPONSE": {
+            "amount": "3114",
+            "extensions": {
+              "layerx": {
+                "logs": [
+                  {
+                    "address": "0x000000000000000000000000000000000000101a",
+                    "data": "0x5c1d0a93e4b7f2682c9e1f0473ad5b6e8f1027c3d49a5b6e7f80912a3b4c5d6e0000000000000000000000000000000000000000000000000000000000000c2a2754c25a8c335eb44f96548ecfa0e0c68086ba1855c43ddd8964c26c76eed3bcee4cb632e89a44a825bc89af0ac96e2705a551474616134e19ef9096c73ed530",
+                    "logIndex": "0x0",
+                    "topics": [
+                      "0x13473d103a2d52172016c872eeae0153e254af3c21a1d987492ab737f1a34fe1",
+                      "0x7130e3f77aa3e9cae6dd6f6c9baaf41dc1fed95c14778a7fad1475da42940d83",
+                      "0x6de51539c0ccfbd7243bf453fbb86ede2418eedf2610aaa63c4ff14805423505",
+                      "0xea4a7d7558725f7a7f4254e30b6def371c972073e4ded255f1871075a93810d1"
+                    ]
+                  }
+                ],
+                "purposeHash": "27c30b4ab5fb5bbb67fc5575ca58b27a0f693b0ce702d5c74e21a908eb36036e",
+                "receipt": "AAJSAQACAAAAIG1m8hIvYy1bZM18j7n7Zm8Yi0D/fHP5kTkpre7BXS04AAAAAAAAAAcAAAAgBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQAAAAgXfAfp5BsaLXfS6RbYlg1/xukSx0NomQv6jao8t8oZ4wAAAAg47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFUAAAAAAAAAAgAMAAAAAAEAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAcQAAAAAAAzRQAAAAAAADNFAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFUAAAAAAAAAAQR1cGF4AAwAAQAAAwAAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAC1AAAAAAAAAAAAAAAAAAAAAAAAEBoEE0c9EDotUhcgFshy7q4BU+JUrzwhodmHSSq3N/GjT+FxMOP3eqPpyubdb2ybqvQdwf7ZXBR3in+tFHXaQpQNg23lFTnAzPvXJDv0U/u4bt4kGO7fJhCqpjxP8UgFQjUF6kp9dVhyX3p/QlTjC23vNxyXIHPk3tJV8YcQdak4ENGf200f0fDfGFGOJ9YyOYqnpXfudE9hRUcdKDGlwZdYywAAAAAAAAAAAAAAAAAAAAEAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAkADAAAAAEAAAAAAgAAACACzvLBDnVjErg6p+cFGVQWEUbgM3HLPE8JEwPJXg7oyQAAAAAAAAAAAAAAAAAAAAAAAAAgAAAAAAAAAAAAAAAAaBPrk2I3Lu9iAPOx28P4GWccumkAAAAAAAAAAAAAAAAAAABkAAAAAAAAAAAAAAAAAAAAYwAAAAAAAAAHAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAaAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgQMdErkXNsy2SpoBT8A3DRnKB359zcBXDf20SDq92JB4AAADo1KUQAAEAAABAr4UhvRRTHlqFwe6QOm7WjcQyXn8p+u4LSFyyMH2eE2B2PdusrFCl7cmVYckbkQ1cW/XXUrcufQjbVCFcNZCfBg==",
+                "receiptDigest": "b0afb9a1fcdb4471b965c6d4ba71272aa82e1779c50af5c7c3750869bf5f7c97",
+                "verificationLevel": "receipted"
+              }
+            },
+            "network": "eip155:125",
+            "payer": "6de51539c0ccfbd7243bf453fbb86ede2418eedf2610aaa63c4ff14805423505",
+            "success": true,
+            "transaction": "0x6d66f2122f632d5b64cd7c8fb9fb666f188b40ff7c73f9913929adeec15d2d38"
+          }
+        },
+        "status": 200
+      }
+    },
+    {
+      "request": {
+        "headers": {},
+        "method": "GET",
+        "target": "/fetch?url=https%3A%2F%2Fpaxeer.app%2Findex.html"
+      },
+      "response": {
+        "body": {
+          "error": "payment_required",
+          "paymentRequired": {
+            "accepts": [
+              {
+                "amount": "3114",
+                "asset": "5c1d0a93e4b7f2682c9e1f0473ad5b6e8f1027c3d49a5b6e7f80912a3b4c5d6e",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:asset:5c1d0a93e4b7f2682c9e1f0473ad5b6e8f1027c3d49a5b6e7f80912a3b4c5d6e",
+                    "commitment": "executed",
+                    "currency": "SID"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "ea4a7d7558725f7a7f4254e30b6def371c972073e4ded255f1871075a93810d1",
+                "scheme": "exact"
+              },
+              {
+                "amount": "1000000000000000",
+                "asset": "6d2e1ba4f5c80379ad0f2e1584be6c7f90213d4e5ab6c7d8e9f0a1b2c3d4e5f6",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:main",
+                    "commitment": "executed",
+                    "currency": "PAX"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "9b7f38e9d873135bf55c8d3ccac2623dba12057a440d41603161585635fb649b",
+                "scheme": "exact"
+              },
+              {
+                "amount": "1000",
+                "asset": "7e3f2cb506d9148abe1f3f2695cf7d80a1324e5f6bc7d8e9fa0b1c2d3e4f5061",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:asset:7e3f2cb506d9148abe1f3f2695cf7d80a1324e5f6bc7d8e9fa0b1c2d3e4f5061",
+                    "commitment": "executed",
+                    "currency": "USDC"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "8ee0fe77ad282b163224a8f1cf1e651cf72a08bb86c395e8ff7cc9f3f45e978f",
+                "scheme": "exact"
+              },
+              {
+                "amount": "1000",
+                "asset": "8f403dc617ea259bcf204f37a6d08e91b2435f607cd8e9fa0b1c2d3e4f506172",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:asset:8f403dc617ea259bcf204f37a6d08e91b2435f607cd8e9fa0b1c2d3e4f506172",
+                    "commitment": "executed",
+                    "currency": "USDL"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "314f7930c1f1ad9a01726a2b8a1f06742d614d1a756ef2f551fe09d2e9fa1b44",
+                "scheme": "exact"
+              }
+            ],
+            "resource": {
+              "description": "A fetched page and its digest",
+              "mimeType": "application/json",
+              "serviceName": "x-websearch",
+              "url": "http://127.0.0.1/fetch?url=https%3A%2F%2Fpaxeer.app%2Findex.html"
+            },
+            "x402Version": 2
+          }
+        },
+        "headers": {
+          "PAYMENT-REQUIRED": {
+            "accepts": [
+              {
+                "amount": "3114",
+                "asset": "5c1d0a93e4b7f2682c9e1f0473ad5b6e8f1027c3d49a5b6e7f80912a3b4c5d6e",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:asset:5c1d0a93e4b7f2682c9e1f0473ad5b6e8f1027c3d49a5b6e7f80912a3b4c5d6e",
+                    "commitment": "executed",
+                    "currency": "SID"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "ea4a7d7558725f7a7f4254e30b6def371c972073e4ded255f1871075a93810d1",
+                "scheme": "exact"
+              },
+              {
+                "amount": "1000000000000000",
+                "asset": "6d2e1ba4f5c80379ad0f2e1584be6c7f90213d4e5ab6c7d8e9f0a1b2c3d4e5f6",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:main",
+                    "commitment": "executed",
+                    "currency": "PAX"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "9b7f38e9d873135bf55c8d3ccac2623dba12057a440d41603161585635fb649b",
+                "scheme": "exact"
+              },
+              {
+                "amount": "1000",
+                "asset": "7e3f2cb506d9148abe1f3f2695cf7d80a1324e5f6bc7d8e9fa0b1c2d3e4f5061",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:asset:7e3f2cb506d9148abe1f3f2695cf7d80a1324e5f6bc7d8e9fa0b1c2d3e4f5061",
+                    "commitment": "executed",
+                    "currency": "USDC"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "8ee0fe77ad282b163224a8f1cf1e651cf72a08bb86c395e8ff7cc9f3f45e978f",
+                "scheme": "exact"
+              },
+              {
+                "amount": "1000",
+                "asset": "8f403dc617ea259bcf204f37a6d08e91b2435f607cd8e9fa0b1c2d3e4f506172",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:asset:8f403dc617ea259bcf204f37a6d08e91b2435f607cd8e9fa0b1c2d3e4f506172",
+                    "commitment": "executed",
+                    "currency": "USDL"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "314f7930c1f1ad9a01726a2b8a1f06742d614d1a756ef2f551fe09d2e9fa1b44",
+                "scheme": "exact"
+              }
+            ],
+            "resource": {
+              "description": "A fetched page and its digest",
+              "mimeType": "application/json",
+              "serviceName": "x-websearch",
+              "url": "http://127.0.0.1/fetch?url=https%3A%2F%2Fpaxeer.app%2Findex.html"
+            },
+            "x402Version": 2
+          }
+        },
+        "status": 402
+      }
+    },
+    {
+      "request": {
+        "headers": {
+          "PAYMENT-SIGNATURE": {
+            "accepted": {
+              "amount": "3114",
+              "asset": "5c1d0a93e4b7f2682c9e1f0473ad5b6e8f1027c3d49a5b6e7f80912a3b4c5d6e",
+              "extra": {
+                "layerx": {
+                  "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:asset:5c1d0a93e4b7f2682c9e1f0473ad5b6e8f1027c3d49a5b6e7f80912a3b4c5d6e",
+                  "commitment": "executed",
+                  "currency": "SID"
+                }
+              },
+              "maxTimeoutSeconds": 60,
+              "network": "eip155:125",
+              "payTo": "ea4a7d7558725f7a7f4254e30b6def371c972073e4ded255f1871075a93810d1",
+              "scheme": "exact"
+            },
+            "payload": {
+              "idempotencyKey": "c6054f34a675eacd12c962477d1ab7108b66d7176cf12a9c5c8ecb4e75c5e84a",
+              "receiptDigest": "7f6832be1d3a0bae621c46493082c8e16d88d9e0c256fd26244358fef97693c9",
+              "txHash": "0x279eaded4748e0c59f93a58779ecf7d1cc8c2ac690ce9dcfa3e8351efbfda58c",
+              "verificationLevel": "receipted"
+            },
+            "x402Version": 2
+          }
+        },
+        "method": "GET",
+        "target": "/fetch?url=https%3A%2F%2Fpaxeer.app%2Findex.html"
+      },
+      "response": {
+        "body": {
+          "digest": "1f336e9077153eb9c757ee7c59c0645dbff4acdd91a25655b0fbb0700e4da148",
+          "final_url": "https://paxeer.app/index.html",
+          "length": 195,
+          "media_type": "text/html",
+          "text": "Paxeer X Network & the web\n\nSearch the web\n\nCafé <tag> © — done now\n\nFirst line\nSecond line\n\nOne\n\nTwo & three\n\n keep\n indent\n\nUnknown &bogus; entity and a lone &amp ampersand\n\nCafé composed",
+          "url": "https://paxeer.app/index.html"
+        },
+        "headers": {
+          "PAYMENT-RESPONSE": {
+            "amount": "3114",
+            "extensions": {
+              "layerx": {
+                "logs": [
+                  {
+                    "address": "0x000000000000000000000000000000000000101a",
+                    "data": "0x5c1d0a93e4b7f2682c9e1f0473ad5b6e8f1027c3d49a5b6e7f80912a3b4c5d6e0000000000000000000000000000000000000000000000000000000000000c2a",
+                    "logIndex": "0x0",
+                    "topics": [
+                      "0xc4da5d6f757c251cd70947b752917e5671b677517e3d953f362a1df6648ef5b1",
+                      "0xc6054f34a675eacd12c962477d1ab7108b66d7176cf12a9c5c8ecb4e75c5e84a",
+                      "0x6de51539c0ccfbd7243bf453fbb86ede2418eedf2610aaa63c4ff14805423505",
+                      "0xea4a7d7558725f7a7f4254e30b6def371c972073e4ded255f1871075a93810d1"
+                    ]
+                  }
+                ],
+                "receipt": "AAJSAQACAAAAICeere1HSODFn5Olh3ns99HMjCrGkM6dz6PoNR77/aWMAAAAAAAAAAcAAAAgBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQAAAAgwufoTZMmg99vbM3DSpj/sCPBPjFO3LYWcPiFxjUWImQAAAAg47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFUAAAAAAAAAAgAMAAAAAAEAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAcQAAAAAAAzRQAAAAAAADNFAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFUAAAAAAAAAAQR1cGF4AAwAAQAAAwAAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAC1AAAAAAAAAAAAAAAAAAAAAAAAEBoExNpdb3V8JRzXCUe3UpF+VnG2d1F+PZU/Niod9mSO9bHGBU80pnXqzRLJYkd9GrcQi2bXF2zxKpxcjstOdcXoSm3lFTnAzPvXJDv0U/u4bt4kGO7fJhCqpjxP8UgFQjUF6kp9dVhyX3p/QlTjC23vNxyXIHPk3tJV8YcQdak4ENGhPV5BpTNnzaHJ6RrSDG9nwoMRqO87+msMDb5Zjp9+aAAAAAAAAAAAAAAAAAAAAAEAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAkADAAAAAEAAAAAAgAAACACzvLBDnVjErg6p+cFGVQWEUbgM3HLPE8JEwPJXg7oyQAAAAAAAAAAAAAAAAAAAAAAAAAgAAAAAAAAAAAAAAAAaBPrk2I3Lu9iAPOx28P4GWccumkAAAAAAAAAAAAAAAAAAABkAAAAAAAAAAAAAAAAAAAAYwAAAAAAAAAHAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAaAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgQMdErkXNsy2SpoBT8A3DRnKB359zcBXDf20SDq92JB4AAADo1KUQAAEAAABANyM28Fkw7oyCPsfW2FbzjTUeSttCllF9lhRKaqCuQRFemkoDxeUqDx9G7e18opsI8ukM8YgU7MX1xils74ZTAA==",
+                "receiptDigest": "7f6832be1d3a0bae621c46493082c8e16d88d9e0c256fd26244358fef97693c9",
+                "verificationLevel": "receipted"
+              }
+            },
+            "network": "eip155:125",
+            "payer": "6de51539c0ccfbd7243bf453fbb86ede2418eedf2610aaa63c4ff14805423505",
+            "success": true,
+            "transaction": "0x279eaded4748e0c59f93a58779ecf7d1cc8c2ac690ce9dcfa3e8351efbfda58c"
+          }
+        },
+        "status": 200
+      }
+    },
+    {
+      "request": {
+        "headers": {},
+        "method": "GET",
+        "target": "/fetch?url=https%3A%2F%2Fpaxeer.app%2Fplain.txt"
+      },
+      "response": {
+        "body": {
+          "error": "payment_required",
+          "paymentRequired": {
+            "accepts": [
+              {
+                "amount": "3114",
+                "asset": "5c1d0a93e4b7f2682c9e1f0473ad5b6e8f1027c3d49a5b6e7f80912a3b4c5d6e",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:asset:5c1d0a93e4b7f2682c9e1f0473ad5b6e8f1027c3d49a5b6e7f80912a3b4c5d6e",
+                    "commitment": "executed",
+                    "currency": "SID"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "ea4a7d7558725f7a7f4254e30b6def371c972073e4ded255f1871075a93810d1",
+                "scheme": "exact"
+              },
+              {
+                "amount": "1000000000000000",
+                "asset": "6d2e1ba4f5c80379ad0f2e1584be6c7f90213d4e5ab6c7d8e9f0a1b2c3d4e5f6",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:main",
+                    "commitment": "executed",
+                    "currency": "PAX"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "9b7f38e9d873135bf55c8d3ccac2623dba12057a440d41603161585635fb649b",
+                "scheme": "exact"
+              },
+              {
+                "amount": "1000",
+                "asset": "7e3f2cb506d9148abe1f3f2695cf7d80a1324e5f6bc7d8e9fa0b1c2d3e4f5061",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:asset:7e3f2cb506d9148abe1f3f2695cf7d80a1324e5f6bc7d8e9fa0b1c2d3e4f5061",
+                    "commitment": "executed",
+                    "currency": "USDC"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "8ee0fe77ad282b163224a8f1cf1e651cf72a08bb86c395e8ff7cc9f3f45e978f",
+                "scheme": "exact"
+              },
+              {
+                "amount": "1000",
+                "asset": "8f403dc617ea259bcf204f37a6d08e91b2435f607cd8e9fa0b1c2d3e4f506172",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:asset:8f403dc617ea259bcf204f37a6d08e91b2435f607cd8e9fa0b1c2d3e4f506172",
+                    "commitment": "executed",
+                    "currency": "USDL"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "314f7930c1f1ad9a01726a2b8a1f06742d614d1a756ef2f551fe09d2e9fa1b44",
+                "scheme": "exact"
+              }
+            ],
+            "resource": {
+              "description": "A fetched page and its digest",
+              "mimeType": "application/json",
+              "serviceName": "x-websearch",
+              "url": "http://127.0.0.1/fetch?url=https%3A%2F%2Fpaxeer.app%2Fplain.txt"
+            },
+            "x402Version": 2
+          }
+        },
+        "headers": {
+          "PAYMENT-REQUIRED": {
+            "accepts": [
+              {
+                "amount": "3114",
+                "asset": "5c1d0a93e4b7f2682c9e1f0473ad5b6e8f1027c3d49a5b6e7f80912a3b4c5d6e",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:asset:5c1d0a93e4b7f2682c9e1f0473ad5b6e8f1027c3d49a5b6e7f80912a3b4c5d6e",
+                    "commitment": "executed",
+                    "currency": "SID"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "ea4a7d7558725f7a7f4254e30b6def371c972073e4ded255f1871075a93810d1",
+                "scheme": "exact"
+              },
+              {
+                "amount": "1000000000000000",
+                "asset": "6d2e1ba4f5c80379ad0f2e1584be6c7f90213d4e5ab6c7d8e9f0a1b2c3d4e5f6",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:main",
+                    "commitment": "executed",
+                    "currency": "PAX"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "9b7f38e9d873135bf55c8d3ccac2623dba12057a440d41603161585635fb649b",
+                "scheme": "exact"
+              },
+              {
+                "amount": "1000",
+                "asset": "7e3f2cb506d9148abe1f3f2695cf7d80a1324e5f6bc7d8e9fa0b1c2d3e4f5061",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:asset:7e3f2cb506d9148abe1f3f2695cf7d80a1324e5f6bc7d8e9fa0b1c2d3e4f5061",
+                    "commitment": "executed",
+                    "currency": "USDC"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "8ee0fe77ad282b163224a8f1cf1e651cf72a08bb86c395e8ff7cc9f3f45e978f",
+                "scheme": "exact"
+              },
+              {
+                "amount": "1000",
+                "asset": "8f403dc617ea259bcf204f37a6d08e91b2435f607cd8e9fa0b1c2d3e4f506172",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:asset:8f403dc617ea259bcf204f37a6d08e91b2435f607cd8e9fa0b1c2d3e4f506172",
+                    "commitment": "executed",
+                    "currency": "USDL"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "314f7930c1f1ad9a01726a2b8a1f06742d614d1a756ef2f551fe09d2e9fa1b44",
+                "scheme": "exact"
+              }
+            ],
+            "resource": {
+              "description": "A fetched page and its digest",
+              "mimeType": "application/json",
+              "serviceName": "x-websearch",
+              "url": "http://127.0.0.1/fetch?url=https%3A%2F%2Fpaxeer.app%2Fplain.txt"
+            },
+            "x402Version": 2
+          }
+        },
+        "status": 402
+      }
+    },
+    {
+      "request": {
+        "headers": {
+          "PAYMENT-SIGNATURE": {
+            "accepted": {
+              "amount": "1000000000000000",
+              "asset": "6d2e1ba4f5c80379ad0f2e1584be6c7f90213d4e5ab6c7d8e9f0a1b2c3d4e5f6",
+              "extra": {
+                "layerx": {
+                  "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:main",
+                  "commitment": "executed",
+                  "currency": "PAX"
+                }
+              },
+              "maxTimeoutSeconds": 60,
+              "network": "eip155:125",
+              "payTo": "9b7f38e9d873135bf55c8d3ccac2623dba12057a440d41603161585635fb649b",
+              "scheme": "exact"
+            },
+            "payload": {
+              "idempotencyKey": "b74ad2e4cd82b101acdcb553e1f0c57ffec708a757c09dffa99cc1c729129405",
+              "receiptDigest": "9748c57efc68563ca45bf9f24737979038f2be93c31b56bf008bbbd47c171560",
+              "txHash": "0x5e1a71fcbd39fc7b58bb0114f9bfa2affe6ab12ed32a9752e8aa3a21012bb0bb",
+              "verificationLevel": "receipted"
+            },
+            "x402Version": 2
+          }
+        },
+        "method": "GET",
+        "target": "/fetch?url=https%3A%2F%2Fpaxeer.app%2Fplain.txt"
+      },
+      "response": {
+        "body": {
+          "digest": "c7a47c5e2eb41d7cf65154ba8ecfdfaefced43ad10216a0039011c6468102159",
+          "final_url": "https://paxeer.app/plain.txt",
+          "length": 57,
+          "media_type": "text/plain",
+          "text": "Line one with tabs\nLine two\nLine three bell\n\nAfter blanks",
+          "url": "https://paxeer.app/plain.txt"
+        },
+        "headers": {
+          "PAYMENT-RESPONSE": {
+            "amount": "1000000000000000",
+            "extensions": {
+              "layerx": {
+                "logs": [
+                  {
+                    "address": "0x000000000000000000000000000000000000101a",
+                    "data": "0x6d2e1ba4f5c80379ad0f2e1584be6c7f90213d4e5ab6c7d8e9f0a1b2c3d4e5f600000000000000000000000000000000000000000000000000038d7ea4c68000",
+                    "logIndex": "0x0",
+                    "topics": [
+                      "0xc4da5d6f757c251cd70947b752917e5671b677517e3d953f362a1df6648ef5b1",
+                      "0xb74ad2e4cd82b101acdcb553e1f0c57ffec708a757c09dffa99cc1c729129405",
+                      "0xdb7d6ba802e408f5730bb8f4b06cd86ec3719a3617afe516b39cd14a40f172a5",
+                      "0x9b7f38e9d873135bf55c8d3ccac2623dba12057a440d41603161585635fb649b"
+                    ]
+                  }
+                ],
+                "receipt": "AAJSAQACAAAAIF4acfy9Ofx7WLsBFPm/oq/+arEu0yqXUuiqOiEBK7C7AAAAAAAAAAcAAAAgBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQAAAAgEDurQ+raxVsKO2/UooIH/kDsU6h5IHKzX5xmj9347/4AAAAg47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFUAAAAAAAAAAgAMAAAAAAEAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAcQAAAAAAAzRQAAAAAAADNFAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFUAAAAAAAAAAQR1cGF4AAwAAQAAAwAAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAC1AAAAAAAAAAAAAAAAAAAAAAAAEBoExNpdb3V8JRzXCUe3UpF+VnG2d1F+PZU/Niod9mSO9bG3StLkzYKxAazctVPh8MV//scIp1fAnf+pnMHHKRKUBdt9a6gC5Aj1cwu49LBs2G7DcZo2F6/lFrOc0UpA8XKlm3846dhzE1v1XI08ysJiPboSBXpEDUFgMWFYVjX7ZJt4rHJTPoW5F6SHprEUR16YQiexyrOETP5zbkYtw/1nzgAAAAAAAAAAAAAAAAAAAAEAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAkADAAAAAEAAAAAAgAAACACzvLBDnVjErg6p+cFGVQWEUbgM3HLPE8JEwPJXg7oyQAAAAAAAAAAAAAAAAAAAAAAAAAgAAAAAAAAAAAAAAAAaBPrk2I3Lu9iAPOx28P4GWccumkAAAAAAAAAAAAAAAAAAABkAAAAAAAAAAAAAAAAAAAAYwAAAAAAAAAHAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAaAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgQMdErkXNsy2SpoBT8A3DRnKB359zcBXDf20SDq92JB4AAADo1KUQAAEAAABAh8ImUVMR1lbIkptdAmU/8+BZii5rUEPsocTfxxzW4wUWhs7qqPhPNPsDwVWA6h2HeDclxtcB7Pomsft/GJ4TAQ==",
+                "receiptDigest": "9748c57efc68563ca45bf9f24737979038f2be93c31b56bf008bbbd47c171560",
+                "verificationLevel": "receipted"
+              }
+            },
+            "network": "eip155:125",
+            "payer": "db7d6ba802e408f5730bb8f4b06cd86ec3719a3617afe516b39cd14a40f172a5",
+            "success": true,
+            "transaction": "0x5e1a71fcbd39fc7b58bb0114f9bfa2affe6ab12ed32a9752e8aa3a21012bb0bb"
+          }
+        },
+        "status": 200
+      }
+    },
+    {
+      "request": {
+        "headers": {},
+        "method": "GET",
+        "target": "/fetch?url=https%3A%2F%2Fpaxeer.app%2Fdata.json"
+      },
+      "response": {
+        "body": {
+          "error": "payment_required",
+          "paymentRequired": {
+            "accepts": [
+              {
+                "amount": "3114",
+                "asset": "5c1d0a93e4b7f2682c9e1f0473ad5b6e8f1027c3d49a5b6e7f80912a3b4c5d6e",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:asset:5c1d0a93e4b7f2682c9e1f0473ad5b6e8f1027c3d49a5b6e7f80912a3b4c5d6e",
+                    "commitment": "executed",
+                    "currency": "SID"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "ea4a7d7558725f7a7f4254e30b6def371c972073e4ded255f1871075a93810d1",
+                "scheme": "exact"
+              },
+              {
+                "amount": "1000000000000000",
+                "asset": "6d2e1ba4f5c80379ad0f2e1584be6c7f90213d4e5ab6c7d8e9f0a1b2c3d4e5f6",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:main",
+                    "commitment": "executed",
+                    "currency": "PAX"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "9b7f38e9d873135bf55c8d3ccac2623dba12057a440d41603161585635fb649b",
+                "scheme": "exact"
+              },
+              {
+                "amount": "1000",
+                "asset": "7e3f2cb506d9148abe1f3f2695cf7d80a1324e5f6bc7d8e9fa0b1c2d3e4f5061",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:asset:7e3f2cb506d9148abe1f3f2695cf7d80a1324e5f6bc7d8e9fa0b1c2d3e4f5061",
+                    "commitment": "executed",
+                    "currency": "USDC"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "8ee0fe77ad282b163224a8f1cf1e651cf72a08bb86c395e8ff7cc9f3f45e978f",
+                "scheme": "exact"
+              },
+              {
+                "amount": "1000",
+                "asset": "8f403dc617ea259bcf204f37a6d08e91b2435f607cd8e9fa0b1c2d3e4f506172",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:asset:8f403dc617ea259bcf204f37a6d08e91b2435f607cd8e9fa0b1c2d3e4f506172",
+                    "commitment": "executed",
+                    "currency": "USDL"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "314f7930c1f1ad9a01726a2b8a1f06742d614d1a756ef2f551fe09d2e9fa1b44",
+                "scheme": "exact"
+              }
+            ],
+            "resource": {
+              "description": "A fetched page and its digest",
+              "mimeType": "application/json",
+              "serviceName": "x-websearch",
+              "url": "http://127.0.0.1/fetch?url=https%3A%2F%2Fpaxeer.app%2Fdata.json"
+            },
+            "x402Version": 2
+          }
+        },
+        "headers": {
+          "PAYMENT-REQUIRED": {
+            "accepts": [
+              {
+                "amount": "3114",
+                "asset": "5c1d0a93e4b7f2682c9e1f0473ad5b6e8f1027c3d49a5b6e7f80912a3b4c5d6e",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:asset:5c1d0a93e4b7f2682c9e1f0473ad5b6e8f1027c3d49a5b6e7f80912a3b4c5d6e",
+                    "commitment": "executed",
+                    "currency": "SID"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "ea4a7d7558725f7a7f4254e30b6def371c972073e4ded255f1871075a93810d1",
+                "scheme": "exact"
+              },
+              {
+                "amount": "1000000000000000",
+                "asset": "6d2e1ba4f5c80379ad0f2e1584be6c7f90213d4e5ab6c7d8e9f0a1b2c3d4e5f6",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:main",
+                    "commitment": "executed",
+                    "currency": "PAX"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "9b7f38e9d873135bf55c8d3ccac2623dba12057a440d41603161585635fb649b",
+                "scheme": "exact"
+              },
+              {
+                "amount": "1000",
+                "asset": "7e3f2cb506d9148abe1f3f2695cf7d80a1324e5f6bc7d8e9fa0b1c2d3e4f5061",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:asset:7e3f2cb506d9148abe1f3f2695cf7d80a1324e5f6bc7d8e9fa0b1c2d3e4f5061",
+                    "commitment": "executed",
+                    "currency": "USDC"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "8ee0fe77ad282b163224a8f1cf1e651cf72a08bb86c395e8ff7cc9f3f45e978f",
+                "scheme": "exact"
+              },
+              {
+                "amount": "1000",
+                "asset": "8f403dc617ea259bcf204f37a6d08e91b2435f607cd8e9fa0b1c2d3e4f506172",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:asset:8f403dc617ea259bcf204f37a6d08e91b2435f607cd8e9fa0b1c2d3e4f506172",
+                    "commitment": "executed",
+                    "currency": "USDL"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "314f7930c1f1ad9a01726a2b8a1f06742d614d1a756ef2f551fe09d2e9fa1b44",
+                "scheme": "exact"
+              }
+            ],
+            "resource": {
+              "description": "A fetched page and its digest",
+              "mimeType": "application/json",
+              "serviceName": "x-websearch",
+              "url": "http://127.0.0.1/fetch?url=https%3A%2F%2Fpaxeer.app%2Fdata.json"
+            },
+            "x402Version": 2
+          }
+        },
+        "status": 402
+      }
+    },
+    {
+      "request": {
+        "headers": {
+          "PAYMENT-SIGNATURE": {
+            "accepted": {
+              "amount": "1000",
+              "asset": "7e3f2cb506d9148abe1f3f2695cf7d80a1324e5f6bc7d8e9fa0b1c2d3e4f5061",
+              "extra": {
+                "layerx": {
+                  "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:asset:7e3f2cb506d9148abe1f3f2695cf7d80a1324e5f6bc7d8e9fa0b1c2d3e4f5061",
+                  "commitment": "executed",
+                  "currency": "USDC"
+                }
+              },
+              "maxTimeoutSeconds": 60,
+              "network": "eip155:125",
+              "payTo": "8ee0fe77ad282b163224a8f1cf1e651cf72a08bb86c395e8ff7cc9f3f45e978f",
+              "scheme": "exact"
+            },
+            "payload": {
+              "idempotencyKey": "36a8ff8c54028c1dd90978dfd43fd24201f6356cd9ac85e82ea71cf907aff72f",
+              "receiptDigest": "f5eec8bb9029099664f41af54ef0662f184916fdfbf59dd11e2ca3f700a82301",
+              "txHash": "0xc0110a055bb1b3a319f0f228f2c3b70719d1d21f14e27f26cc358b2a0d01b249",
+              "verificationLevel": "receipted"
+            },
+            "x402Version": 2
+          }
+        },
+        "method": "GET",
+        "target": "/fetch?url=https%3A%2F%2Fpaxeer.app%2Fdata.json"
+      },
+      "response": {
+        "body": {
+          "digest": "db2ea51ba862fb9ee981793f9a0054335de9d0c31cd1867c20c1c7b607cbd57a",
+          "final_url": "https://paxeer.app/data.json",
+          "length": 47,
+          "media_type": "application/json",
+          "text": "{\n \"name\": \"x-websearch\",\n \"tags\": [\"a\", \"b\"]\n}",
+          "url": "https://paxeer.app/data.json"
+        },
+        "headers": {
+          "PAYMENT-RESPONSE": {
+            "amount": "1000",
+            "extensions": {
+              "layerx": {
+                "logs": [
+                  {
+                    "address": "0x000000000000000000000000000000000000101a",
+                    "data": "0x7e3f2cb506d9148abe1f3f2695cf7d80a1324e5f6bc7d8e9fa0b1c2d3e4f506100000000000000000000000000000000000000000000000000000000000003e8",
+                    "logIndex": "0x0",
+                    "topics": [
+                      "0xc4da5d6f757c251cd70947b752917e5671b677517e3d953f362a1df6648ef5b1",
+                      "0x36a8ff8c54028c1dd90978dfd43fd24201f6356cd9ac85e82ea71cf907aff72f",
+                      "0xc12ee5461c9c3165783e6d89e8c9a99a8f526bfe6f3d6e2d0958ec2ddb8d48a3",
+                      "0x8ee0fe77ad282b163224a8f1cf1e651cf72a08bb86c395e8ff7cc9f3f45e978f"
+                    ]
+                  }
+                ],
+                "receipt": "AAJSAQACAAAAIMARCgVbsbOjGfDyKPLDtwcZ0dIfFOJ/Jsw1iyoNAbJJAAAAAAAAAAcAAAAgBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQAAAAgBkVFo3YoPa6HH6n6SfdOYZVW2bs9C2t8kqUM7ECZM+4AAAAg47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFUAAAAAAAAAAgAMAAAAAAEAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAcQAAAAAAAzRQAAAAAAADNFAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFUAAAAAAAAAAQR1cGF4AAwAAQAAAwAAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAC1AAAAAAAAAAAAAAAAAAAAAAAAEBoExNpdb3V8JRzXCUe3UpF+VnG2d1F+PZU/Niod9mSO9bE2qP+MVAKMHdkJeN/UP9JCAfY1bNmshegupxz5B6/3L8Eu5UYcnDFleD5tiejJqZqPUmv+bz1uLQlY7C3bjUijjuD+d60oKxYyJKjxzx5lHPcqCLuGw5Xo/3zJ8/Rel4+Bcym5DICGq8pv6KO73YOMMCr42T0JyaGX5andgUdHPgAAAAAAAAAAAAAAAAAAAAEAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAkADAAAAAEAAAAAAgAAACACzvLBDnVjErg6p+cFGVQWEUbgM3HLPE8JEwPJXg7oyQAAAAAAAAAAAAAAAAAAAAAAAAAgAAAAAAAAAAAAAAAAaBPrk2I3Lu9iAPOx28P4GWccumkAAAAAAAAAAAAAAAAAAABkAAAAAAAAAAAAAAAAAAAAYwAAAAAAAAAHAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAaAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgQMdErkXNsy2SpoBT8A3DRnKB359zcBXDf20SDq92JB4AAADo1KUQAAEAAABAN3271EKCzTAaeEPbt14FFSN7tbAm25Gf2B6L0J9qYxeNXM7QEluobtIpAPnfuw7k6eNUVm8ZVkSbGKFeXq0sCg==",
+                "receiptDigest": "f5eec8bb9029099664f41af54ef0662f184916fdfbf59dd11e2ca3f700a82301",
+                "verificationLevel": "receipted"
+              }
+            },
+            "network": "eip155:125",
+            "payer": "c12ee5461c9c3165783e6d89e8c9a99a8f526bfe6f3d6e2d0958ec2ddb8d48a3",
+            "success": true,
+            "transaction": "0xc0110a055bb1b3a319f0f228f2c3b70719d1d21f14e27f26cc358b2a0d01b249"
+          }
+        },
+        "status": 200
+      }
+    },
+    {
+      "request": {
+        "headers": {},
+        "method": "GET",
+        "target": "/fetch?url=https%3A%2F%2Fpaxeer.app%2Flatin1.txt"
+      },
+      "response": {
+        "body": {
+          "error": "payment_required",
+          "paymentRequired": {
+            "accepts": [
+              {
+                "amount": "3114",
+                "asset": "5c1d0a93e4b7f2682c9e1f0473ad5b6e8f1027c3d49a5b6e7f80912a3b4c5d6e",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:asset:5c1d0a93e4b7f2682c9e1f0473ad5b6e8f1027c3d49a5b6e7f80912a3b4c5d6e",
+                    "commitment": "executed",
+                    "currency": "SID"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "ea4a7d7558725f7a7f4254e30b6def371c972073e4ded255f1871075a93810d1",
+                "scheme": "exact"
+              },
+              {
+                "amount": "1000000000000000",
+                "asset": "6d2e1ba4f5c80379ad0f2e1584be6c7f90213d4e5ab6c7d8e9f0a1b2c3d4e5f6",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:main",
+                    "commitment": "executed",
+                    "currency": "PAX"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "9b7f38e9d873135bf55c8d3ccac2623dba12057a440d41603161585635fb649b",
+                "scheme": "exact"
+              },
+              {
+                "amount": "1000",
+                "asset": "7e3f2cb506d9148abe1f3f2695cf7d80a1324e5f6bc7d8e9fa0b1c2d3e4f5061",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:asset:7e3f2cb506d9148abe1f3f2695cf7d80a1324e5f6bc7d8e9fa0b1c2d3e4f5061",
+                    "commitment": "executed",
+                    "currency": "USDC"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "8ee0fe77ad282b163224a8f1cf1e651cf72a08bb86c395e8ff7cc9f3f45e978f",
+                "scheme": "exact"
+              },
+              {
+                "amount": "1000",
+                "asset": "8f403dc617ea259bcf204f37a6d08e91b2435f607cd8e9fa0b1c2d3e4f506172",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:asset:8f403dc617ea259bcf204f37a6d08e91b2435f607cd8e9fa0b1c2d3e4f506172",
+                    "commitment": "executed",
+                    "currency": "USDL"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "314f7930c1f1ad9a01726a2b8a1f06742d614d1a756ef2f551fe09d2e9fa1b44",
+                "scheme": "exact"
+              }
+            ],
+            "resource": {
+              "description": "A fetched page and its digest",
+              "mimeType": "application/json",
+              "serviceName": "x-websearch",
+              "url": "http://127.0.0.1/fetch?url=https%3A%2F%2Fpaxeer.app%2Flatin1.txt"
+            },
+            "x402Version": 2
+          }
+        },
+        "headers": {
+          "PAYMENT-REQUIRED": {
+            "accepts": [
+              {
+                "amount": "3114",
+                "asset": "5c1d0a93e4b7f2682c9e1f0473ad5b6e8f1027c3d49a5b6e7f80912a3b4c5d6e",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:asset:5c1d0a93e4b7f2682c9e1f0473ad5b6e8f1027c3d49a5b6e7f80912a3b4c5d6e",
+                    "commitment": "executed",
+                    "currency": "SID"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "ea4a7d7558725f7a7f4254e30b6def371c972073e4ded255f1871075a93810d1",
+                "scheme": "exact"
+              },
+              {
+                "amount": "1000000000000000",
+                "asset": "6d2e1ba4f5c80379ad0f2e1584be6c7f90213d4e5ab6c7d8e9f0a1b2c3d4e5f6",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:main",
+                    "commitment": "executed",
+                    "currency": "PAX"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "9b7f38e9d873135bf55c8d3ccac2623dba12057a440d41603161585635fb649b",
+                "scheme": "exact"
+              },
+              {
+                "amount": "1000",
+                "asset": "7e3f2cb506d9148abe1f3f2695cf7d80a1324e5f6bc7d8e9fa0b1c2d3e4f5061",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:asset:7e3f2cb506d9148abe1f3f2695cf7d80a1324e5f6bc7d8e9fa0b1c2d3e4f5061",
+                    "commitment": "executed",
+                    "currency": "USDC"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "8ee0fe77ad282b163224a8f1cf1e651cf72a08bb86c395e8ff7cc9f3f45e978f",
+                "scheme": "exact"
+              },
+              {
+                "amount": "1000",
+                "asset": "8f403dc617ea259bcf204f37a6d08e91b2435f607cd8e9fa0b1c2d3e4f506172",
+                "extra": {
+                  "layerx": {
+                    "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:asset:8f403dc617ea259bcf204f37a6d08e91b2435f607cd8e9fa0b1c2d3e4f506172",
+                    "commitment": "executed",
+                    "currency": "USDL"
+                  }
+                },
+                "maxTimeoutSeconds": 60,
+                "network": "eip155:125",
+                "payTo": "314f7930c1f1ad9a01726a2b8a1f06742d614d1a756ef2f551fe09d2e9fa1b44",
+                "scheme": "exact"
+              }
+            ],
+            "resource": {
+              "description": "A fetched page and its digest",
+              "mimeType": "application/json",
+              "serviceName": "x-websearch",
+              "url": "http://127.0.0.1/fetch?url=https%3A%2F%2Fpaxeer.app%2Flatin1.txt"
+            },
+            "x402Version": 2
+          }
+        },
+        "status": 402
+      }
+    },
+    {
+      "request": {
+        "headers": {
+          "PAYMENT-SIGNATURE": {
+            "accepted": {
+              "amount": "1000",
+              "asset": "8f403dc617ea259bcf204f37a6d08e91b2435f607cd8e9fa0b1c2d3e4f506172",
+              "extra": {
+                "layerx": {
+                  "account": "agent:did:layerx:2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8:asset:8f403dc617ea259bcf204f37a6d08e91b2435f607cd8e9fa0b1c2d3e4f506172",
+                  "commitment": "executed",
+                  "currency": "USDL"
+                }
+              },
+              "maxTimeoutSeconds": 60,
+              "network": "eip155:125",
+              "payTo": "314f7930c1f1ad9a01726a2b8a1f06742d614d1a756ef2f551fe09d2e9fa1b44",
+              "scheme": "exact"
+            },
+            "payload": {
+              "idempotencyKey": "38c85da43545563e4d9dba14ba836d4d6a6ff2a25fcbadbf53c9861fcc814ca3",
+              "receiptDigest": "4db2024ca419f0a1b9910f280f37d37dc181e5ab575608c830034edecdb62332",
+              "txHash": "0xbdd3a4d33f7a14d16ae98af6a120bc658c84dd9a56df6401120cdf3f8813f753",
+              "verificationLevel": "receipted"
+            },
+            "x402Version": 2
+          }
+        },
+        "method": "GET",
+        "target": "/fetch?url=https%3A%2F%2Fpaxeer.app%2Flatin1.txt"
+      },
+      "response": {
+        "body": {
+          "digest": "6e35647fe1f609d43257a8ef71cc9d28b905678cbee87ab957eb263dbd40bd2d",
+          "final_url": "https://paxeer.app/latin1.txt",
+          "length": 21,
+          "media_type": "text/plain",
+          "text": "Café crème brûlée",
+          "url": "https://paxeer.app/latin1.txt"
+        },
+        "headers": {
+          "PAYMENT-RESPONSE": {
+            "amount": "1000",
+            "extensions": {
+              "layerx": {
+                "logs": [
+                  {
+                    "address": "0x000000000000000000000000000000000000101a",
+                    "data": "0x8f403dc617ea259bcf204f37a6d08e91b2435f607cd8e9fa0b1c2d3e4f50617200000000000000000000000000000000000000000000000000000000000003e8",
+                    "logIndex": "0x0",
+                    "topics": [
+                      "0xc4da5d6f757c251cd70947b752917e5671b677517e3d953f362a1df6648ef5b1",
+                      "0x38c85da43545563e4d9dba14ba836d4d6a6ff2a25fcbadbf53c9861fcc814ca3",
+                      "0x5cb7c657717308ffccc8ac805fab934273ed29048e1d7a66c7914e0de8af2689",
+                      "0x314f7930c1f1ad9a01726a2b8a1f06742d614d1a756ef2f551fe09d2e9fa1b44"
+                    ]
+                  }
+                ],
+                "receipt": "AAJSAQACAAAAIL3TpNM/ehTRaumK9qEgvGWMhN2aVt9kARIM3z+IE/dTAAAAAAAAAAcAAAAgBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQAAAAg2RCXDvNmlXPt7FIQ3DYzksySS0RF68sVE4A8DBhDrFEAAAAg47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFUAAAAAAAAAAgAMAAAAAAEAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAcQAAAAAAAzRQAAAAAAADNFAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFUAAAAAAAAAAQR1cGF4AAwAAQAAAwAAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAC1AAAAAAAAAAAAAAAAAAAAAAAAEBoExNpdb3V8JRzXCUe3UpF+VnG2d1F+PZU/Niod9mSO9bE4yF2kNUVWPk2duhS6g21Nam/yol/Lrb9TyYYfzIFMo1y3xldxcwj/zMisgF+rk0Jz7SkEjh16ZseRTg3oryaJMU95MMHxrZoBcmorih8GdC1hTRp1bvL1Uf4J0un6G0TdiSN+Z8BJMVZajMnarrBCSzkGo+4LidcNY173Dz3fngAAAAAAAAAAAAAAAAAAAAEAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAkADAAAAAEAAAAAAgAAACACzvLBDnVjErg6p+cFGVQWEUbgM3HLPE8JEwPJXg7oyQAAAAAAAAAAAAAAAAAAAAAAAAAgAAAAAAAAAAAAAAAAaBPrk2I3Lu9iAPOx28P4GWccumkAAAAAAAAAAAAAAAAAAABkAAAAAAAAAAAAAAAAAAAAYwAAAAAAAAAHAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAaAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgQMdErkXNsy2SpoBT8A3DRnKB359zcBXDf20SDq92JB4AAADo1KUQAAEAAABAbXxElu0Exb9aGI5Z6UPYK4s0ERcBTUGnMeZvmqf/Z0RRY+sx5Ctcki3Q6tmU4El4w7byyhJfm32kmkvlQJz9CQ==",
+                "receiptDigest": "4db2024ca419f0a1b9910f280f37d37dc181e5ab575608c830034edecdb62332",
+                "verificationLevel": "receipted"
+              }
+            },
+            "network": "eip155:125",
+            "payer": "5cb7c657717308ffccc8ac805fab934273ed29048e1d7a66c7914e0de8af2689",
+            "success": true,
+            "transaction": "0xbdd3a4d33f7a14d16ae98af6a120bc658c84dd9a56df6401120cdf3f8813f753"
+          }
+        },
+        "status": 200
+      }
+    },
+    {
+      "request": {
+        "headers": {},
+        "method": "GET",
+        "target": "/content/1f336e9077153eb9c757ee7c59c0645dbff4acdd91a25655b0fbb0700e4da148"
+      },
+      "response": {
+        "bodyBase64": "UEFYRUVSWF9XRUJfQ09OVEVOVF9WMQEAAAAdaHR0cHM6Ly9wYXhlZXIuYXBwL2luZGV4Lmh0bWwAAAAJdGV4dC9odG1sAAAAAAAAAMNQYXhlZXIgWCBOZXR3b3JrICYgdGhlIHdlYgoKU2VhcmNoIHRoZSB3ZWIKCkNhZsOpIDx0YWc+IMKpIOKAlCBkb25lwqBub3cKCkZpcnN0IGxpbmUKU2Vjb25kIGxpbmUKCk9uZQoKVHdvICYgdGhyZWUKCiBrZWVwCiBpbmRlbnQKClVua25vd24gJmJvZ3VzOyBlbnRpdHkgYW5kIGEgbG9uZSAmYW1wIGFtcGVyc2FuZAoKQ2Fmw6kgY29tcG9zZWQ=",
+        "headers": {},
+        "status": 200
+      }
+    }
+  ]
+}

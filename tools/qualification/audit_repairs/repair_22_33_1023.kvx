@@ -1,0 +1,40 @@
+[task.22.33.1023]
+audit = "22.30.38"
+source_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+repair = "Point corpus.json at apps/launchpad/web/src/app/**/page.tsx and cover all 37 current pages, adding 14 routes and removing none. Retain the original 23 route records and all journey/AT metadata unchanged; remove watchlists from missingDedicatedRoutes because /watchlist now exists. Add the owning standard-library inventory.py generator beside the corpus, with a read-only --check mode; no existing owning generator was found in the current source."
+generator_cmd = "python3 apps/launchpad/qualification/accessibility/inventory.py"
+source_proof = "The pytest module executes the real generator against the current page tree, persists and reads its JSON transport, and asserts the inventory consumer contract: exact sorted page coverage, ten valid journeys, six original checks, synthetic-only accounts, observed=false and pending browser/manual AT status. Baseline digests prove all retained rows and journey/AT metadata are preserved. Read-only checks detect stale inventory; regeneration repairs missing routes; invalid evidence, duplicate rows and missing/empty source trees fail before writes."
+review_only = "Browser execution, axe results, keyboard/focus behavior and manual NVDA/VoiceOver observations are not executed or qualified by this task. The existing mobile/corpus.test.mjs consumer is reviewed; its JSON assertions are exercised in Python without claiming a JavaScript run. journeys.ts remains unchanged and still requires actual browser/manual AT artifacts. No shell script, service unit, manifest or build file is repaired. This config-drift repair changes no runtime interface or restart-recovery component."
+baseline = "Initial git status/diff showed only inherited .cgignore and spec task-status bookkeeping; the scoped repair record and pytest module were absent. The gate configuration reported zero build/verify runs and no gate ledger existed. No pre-change verification was run and no pre-change test failure is claimed: the explicit implementation-first order and hf-done-only verification rule supersede the contradictory baseline instruction. Static inspection found the removed source root and 14 uncovered current pages."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1023.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private evidence ledger name the verified content-derived candidate revision, exact command, exit code and log path; build and verify must pass on the same candidate revision. This record is finalized before the gates: embedding its own candidate hash would change that revision. The runner retains the declared evidence and publishes the task."
+wiring_requests = []
+
+[finding.accessibility-source-path]
+audit = "22.30.38"
+file = "apps/launchpad/qualification/accessibility/corpus.json"
+class = "config-drift"
+severity = "medium"
+owner_domain = 4
+resolution = "The source resolves to the current route tree and the corpus exactly covers its 37 page routes; generation preserves pending browser/manual AT evidence and cannot turn inventory coverage into a qualification pass."
+tests = ["test_accessibility_source_path_and_exact_current_page_coverage", "test_generator_json_transport_and_inventory_consumer", "test_generator_detects_and_repairs_missing_route_without_qualifying", "test_retained_evidence_contract_and_dedicated_routes", "test_generator_refuses_to_overwrite_evidence_or_invalid_inventory", "test_generator_rejects_missing_or_empty_route_tree", "test_record_maps_finding_to_executing_tests_and_evidence"]
+
+[baseline]
+routes = ["/", "/auth/callback", "/chat", "/chat/[conversationId]", "/create", "/docs/dmca", "/docs/do-not-sell", "/docs/privacy", "/docs/terms", "/docs/trademark-guidelines", "/live", "/meta-ag/orders", "/meta-ag/swap", "/new", "/pnl/[cardId]", "/profile", "/profile/[walletAddress]", "/r/[shortCode]", "/rewards", "/swap", "/terminal", "/token", "/token/[poolAddress]"]
+retained_rows_sha256 = "7459d82f1aac98c39906c92546b23ad864e02ed6d2e406b70544ca7c42b61638"
+preserved_metadata_sha256 = "ac3ded2dc4fc9e4da5e1b5fe383fb90e2a1fab61fcbb2d7568fe522d765ed4c2"
+added_routes = ["/bounties", "/bounties/[bountyId]", "/bounties/new", "/coin/[address]", "/create/chain", "/docs", "/explore", "/holder-rewards", "/leaderboard", "/live/all", "/search", "/terminal/[slug]", "/tokens/[tokenAddress]/metadata", "/watchlist"]
+removed_routes = []
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths. Apply repository .editorconfig UTF-8, LF, final-newline and no trailing whitespace conventions after implementation; JSON uses the existing two-space indentation."
+
+[gotcha.1]
+observed = "The pre-change test request conflicts with the explicit implementation-first and hf-done-only order."
+resolution = "Follow the explicit order and record static baseline facts without claiming baseline execution."
+
+[gotcha.2]
+observed = "Codify context omits current web sources under the runner's restricted index, and broad combined reads exceed output limits."
+resolution = "Use bounded actual-source reads and the task's exact block and gate ledger; preserve inherited bookkeeping. Task notes stay here because GOTCHA.kvx and spec files are outside scope."

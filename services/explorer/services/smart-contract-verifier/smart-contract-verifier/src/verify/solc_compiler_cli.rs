@@ -9,8 +9,38 @@ use foundry_compilers::{
     artifacts::solc,
     error::{SolcError, SolcIoError},
 };
-use std::{collections::BTreeMap, path::Path, process::Stdio};
+use std::{
+    collections::BTreeMap,
+    path::{Component, Path},
+    process::Stdio,
+};
 use tokio::process::Command;
+
+pub(crate) fn validate_source_name(name: &Path) -> Result<(), SolcError> {
+    let text = name.as_os_str().to_string_lossy();
+    let bytes = text.as_bytes();
+    let windows_prefix = bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':';
+    if text.is_empty()
+        || text.contains('\0')
+        || name.has_root()
+        || text.starts_with('\\')
+        || windows_prefix
+        || text.split(['/', '\\']).any(|part| part == "..")
+        || name.components().any(|component| {
+            matches!(
+                component,
+                Component::Prefix(_) | Component::RootDir | Component::ParentDir
+            )
+        })
+        || !matches!(name.components().next_back(), Some(Component::Normal(_)))
+    {
+        return Err(SolcError::Message(format!(
+            "invalid source name {}: expected a relative file path without root, prefix or parent components",
+            name.display()
+        )));
+    }
+    Ok(())
+}
 
 pub async fn compile_using_cli(
     compiler_path: &Path,
@@ -83,12 +113,12 @@ fn compiler_error(message: String) -> solc::error::Error {
 }
 
 mod types {
-    use super::serde_helpers;
+    use super::{serde_helpers, validate_source_name};
     use foundry_compilers::{artifacts::solc, error::SolcError};
     use serde::{Deserialize, Serialize};
     use std::{
         collections::{BTreeMap, HashMap},
-        path::{Component, Path, PathBuf},
+        path::{Path, PathBuf},
     };
     use tempfile::TempDir;
     use tokio::io::AsyncWriteExt;
@@ -156,29 +186,40 @@ mod types {
     impl InputFiles {
         pub async fn try_from_compiler_input(input: &solc::SolcInput) -> Result<Self, SolcError> {
             if !input.sources.is_empty() {
+                for name in input.sources.0.keys() {
+                    validate_source_name(name)?;
+                }
                 let files_dir =
                     tempfile::tempdir().map_err(|e| SolcError::Message(e.to_string()))?;
                 let mut file_names = Vec::new();
                 for (name, source) in input.sources.iter() {
                     let file_path = files_dir.path().join(name);
 
-                    // we don't allow any parent dir components,
-                    // as otherwise user may create something outside temporary files_dir
-                    if Self::contains_parent_dir(&file_path) {
-                        return Err(SolcError::Message(format!(
-                            "{} contains parent dir component",
-                            file_path.to_string_lossy()
-                        )));
+                    if let Some(parent) = name.parent() {
+                        let mut directory = files_dir.path().to_path_buf();
+                        for component in parent.components() {
+                            directory.push(component);
+                            match tokio::fs::create_dir(&directory).await {
+                                Ok(()) => {}
+                                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+                                    let metadata = tokio::fs::symlink_metadata(&directory)
+                                        .await
+                                        .map_err(|e| SolcError::Message(e.to_string()))?;
+                                    if !metadata.is_dir() || metadata.file_type().is_symlink() {
+                                        return Err(SolcError::Message(format!(
+                                            "source directory is not a real directory: {}",
+                                            directory.display()
+                                        )));
+                                    }
+                                }
+                                Err(error) => return Err(SolcError::Message(error.to_string())),
+                            }
+                        }
                     }
-
-                    // name itself may contain some paths inside
-                    let prefix = file_path.parent();
-                    if let Some(prefix) = prefix {
-                        tokio::fs::create_dir_all(prefix)
-                            .await
-                            .map_err(|e| SolcError::Message(e.to_string()))?;
-                    }
-                    let mut file = tokio::fs::File::create(&file_path)
+                    let mut file = tokio::fs::OpenOptions::new()
+                        .write(true)
+                        .create_new(true)
+                        .open(&file_path)
                         .await
                         .map_err(|e| SolcError::Message(e.to_string()))?;
                     file_names.push(file_path);
@@ -204,11 +245,6 @@ mod types {
                 .ok_or_else(|| {
                     SolcError::Message("temp dir with contracts doesn't exist".to_string())
                 })
-        }
-
-        fn contains_parent_dir(path: &Path) -> bool {
-            path.components()
-                .any(|comp| matches!(comp, Component::ParentDir))
         }
     }
 
