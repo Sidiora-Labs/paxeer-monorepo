@@ -26,6 +26,11 @@ const (
 	FlagNonceQueueMaxPerSender = "sequencer.nonce-queue-max-per-sender"
 	FlagNonceQueueMaxTotal     = "sequencer.nonce-queue-max-total"
 	FlagLeaseDuration          = "sequencer.lease-duration"
+	FlagReplicationTLSCert     = "sequencer.replication-tls-cert"
+	FlagReplicationTLSKey      = "sequencer.replication-tls-key"
+	FlagReplicationTLSCA       = "sequencer.replication-tls-ca"
+	FlagReplicationPeerName    = "sequencer.replication-peer-name"
+	FlagReplicationPeerSPKI    = "sequencer.replication-peer-spki"
 )
 
 const (
@@ -94,6 +99,7 @@ type Config struct {
 	// StandbyAddress is the replication destination on a primary and the replication
 	// listen address on a standby, in host:port form.
 	StandbyAddress string
+	ReplicationTLS ReplicationTLSConfig
 	// ReplicationTimeout bounds one replication exchange with the standby. It is set at
 	// activation rehearsal; there is no default.
 	ReplicationTimeout time.Duration
@@ -128,6 +134,11 @@ func AddStartFlags(cmd *cobra.Command) {
 	flags.String(flagReceiptForwardURL, cfg.ReceiptForwardURL, "Forward receipt requests to this URL when disabled")
 	flags.String(flagRole, cfg.Role.String(), "Sequencer replication role: primary or standby")
 	flags.String(FlagStandbyAddress, cfg.StandbyAddress, "Standby replication destination or listen address")
+	flags.String(FlagReplicationTLSCert, "", "Replication mutual TLS certificate file")
+	flags.String(FlagReplicationTLSKey, "", "Replication mutual TLS private key file")
+	flags.String(FlagReplicationTLSCA, "", "Replication mutual TLS trust roots file")
+	flags.String(FlagReplicationPeerName, "", "Authorized replication peer certificate DNS identity")
+	flags.String(FlagReplicationPeerSPKI, "", "Authorized replication peer SHA-256 SPKI digest in hex")
 	flags.Duration(FlagReplicationTimeout, cfg.ReplicationTimeout, "Timeout for one standby replication exchange")
 	flags.Duration(FlagMicroBatchWindow, cfg.MicroBatchWindow, "Maximum wait for a microbatch group")
 	flags.Int(FlagMicroBatchMaxCount, cfg.MicroBatchMaxCount, "Maximum transactions in a microbatch group")
@@ -273,6 +284,17 @@ func ReadConfig(opts servertypes.AppOptions) (Config, error) {
 			return cfg, fmt.Errorf("%w: %s: %v", ErrConfigValue, FlagStandbyAddress, err)
 		}
 	}
+	for flag, target := range map[string]*string{
+		FlagReplicationTLSCert: &cfg.ReplicationTLS.CertFile, FlagReplicationTLSKey: &cfg.ReplicationTLS.KeyFile,
+		FlagReplicationTLSCA: &cfg.ReplicationTLS.CAFile, FlagReplicationPeerName: &cfg.ReplicationTLS.PeerName,
+		FlagReplicationPeerSPKI: &cfg.ReplicationTLS.PeerSPKI,
+	} {
+		if v := opts.Get(flag); v != nil {
+			if *target, err = cast.ToStringE(v); err != nil {
+				return cfg, fmt.Errorf("%w: %s: %v", ErrConfigValue, flag, err)
+			}
+		}
+	}
 	if v := opts.Get(FlagReplicationTimeout); v != nil {
 		if cfg.ReplicationTimeout, err = cast.ToDurationE(v); err != nil {
 			return cfg, fmt.Errorf("%w: %s: %v", ErrConfigValue, FlagReplicationTimeout, err)
@@ -363,6 +385,13 @@ receipt-forward-url = ""
 # standby-address is the replication destination on a primary and the replication
 # listen address on a standby, in host:port form.
 standby-address = ""
+
+# Required for replication: mutual TLS trust and the authorized peer identity/key.
+replication-tls-cert = ""
+replication-tls-key = ""
+replication-tls-ca = ""
+replication-peer-name = ""
+replication-peer-spki = ""
 
 # replication-timeout bounds one replication exchange with the standby; it must be positive
 # when standby-address is set.
