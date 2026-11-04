@@ -1,0 +1,62 @@
+name: Verify Paxeer release provenance
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
+      revision:
+        description: Full monorepo revision used to build the release
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        required: true
+      revision:
+        description: Full monorepo revision used to build the release
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  native-artifact:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            archive: seictl_Linux_x86_64.tar.gz
+          - runner: ubuntu-24.04-arm
+            archive: seictl_Linux_arm64.tar.gz
+          - runner: macos-15-intel
+            archive: seictl_Darwin_x86_64.tar.gz
+          - runner: macos-14
+            archive: seictl_Darwin_arm64.tar.gz
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.revision }}
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: tools/paxctl/go.mod
+          cache-dependency-path: tools/paxctl/go.sum
+      - name: Download and verify published archive
+        working-directory: tools/paxctl
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_ARCHIVE: ${{ matrix.archive }}
+        run: |
+          go run ./internal/release version --expected "$RELEASE_TAG"
+          mkdir -p "$RUNNER_TEMP/paxctl-artifact"
+          gh release download "$RELEASE_TAG" --repo Paxeer-Network/paxctl --pattern "$RELEASE_ARCHIVE" --pattern checksums.txt --dir "$RUNNER_TEMP/paxctl-artifact"
+          cd "$RUNNER_TEMP/paxctl-artifact"
+          awk -v archive="$RELEASE_ARCHIVE" '$2 == archive {print; found=1} END {if (!found) exit 1}' checksums.txt > selected-checksum.txt
+          shasum -a 256 -c selected-checksum.txt
+          tar -xzf "$RELEASE_ARCHIVE"
+          cd "$GITHUB_WORKSPACE/tools/paxctl"
+          go run ./internal/release verify --expected "$RELEASE_TAG" --binary "$RUNNER_TEMP/paxctl-artifact/seictl"

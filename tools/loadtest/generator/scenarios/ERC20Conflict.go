@@ -13,6 +13,10 @@ import (
 
 const ERC20Conflict = "erc20conflict"
 
+// Admit intrinsic gas, three cold zero-to-nonzero storage writes, and the
+// transfer event/calldata. Subsequent conflicting writes cost less.
+const erc20ConflictGasLimit = 100000
+
 // ERC20ConflictScenario implements the TxGenerator interface for ERC20Conflict contract operations
 type ERC20ConflictScenario struct {
 	*ContractScenarioBase[bindings.ERC20Conflict]
@@ -50,28 +54,13 @@ func (s *ERC20ConflictScenario) SetContract(contract *bindings.ERC20Conflict) {
 
 // Attach implements TxGenerator interface - attaches to an existing contract
 func (s *ERC20ConflictScenario) Attach(config *config.LoadConfig, address common.Address) error {
-	// Call base Attach to set deployed flag and config
-	if err := s.ContractScenarioBase.Attach(config, address); err != nil {
-		return err
-	}
-
-	var client *ethclient.Client
-	var err error
-	if !config.MockDeploy {
-		client, err = ethclient.Dial(config.Endpoints[0])
-		if err != nil {
-			return err
-		}
-	}
-
-	s.contract, err = bindings.NewERC20Conflict(address, client)
-	return err
+	return s.ContractScenarioBase.Attach(config, address)
 }
 
 // CreateContractTransaction implements ContractDeployer interface - creates ERC20Conflict transaction
 func (s *ERC20ConflictScenario) CreateContractTransaction(auth *bind.TransactOpts, scenario *types.TxScenario) (*ethtypes.Transaction, error) {
 	if s.scenarioConfig.GasPicker == nil {
-		auth.GasLimit = 22460
+		auth.GasLimit = erc20ConflictGasLimit
 	}
 	return s.contract.Transfer(auth, scenario.Receiver, bigOne)
 }

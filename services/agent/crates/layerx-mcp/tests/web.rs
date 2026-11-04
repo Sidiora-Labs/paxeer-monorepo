@@ -1,3 +1,11 @@
+#[allow(dead_code)]
+#[path = "../../../../interop/crates/x-websearch/src/config.rs"]
+mod config;
+#[path = "support/node_recording.rs"]
+mod node_recording;
+#[allow(dead_code)]
+#[path = "../../../../interop/crates/x-websearch/src/server.rs"]
+mod seller_server;
 use std::collections::BTreeSet;
 use std::fmt::Write as _;
 use std::io::{BufRead as _, BufReader, Read as _, Write as _};
@@ -53,7 +61,7 @@ const SEARCH_RECEIPT_DIGEST: &str =
     "bf3bed8ebfcf831428adfef58df46aa663eae776ad520e8c53fd5cbed2dba939";
 const SEARCH_PAYER: &str = "6de51539c0ccfbd7243bf453fbb86ede2418eedf2610aaa63c4ff14805423505";
 const FETCH_RECEIPT_DIGEST: &str =
-    "963665d177be7494053fd9eb9ebb3263bb1ad85c140c10710eeac8e9ed4d3103";
+    "f5eec8bb9029099664f41af54ef0662f184916fdfbf59dd11e2ca3f700a82301";
 const TAMPERED_PAYER: &str = "4aa4897f08c81fcd9b003dfb8f4a369a9ed828f91ab228e04b14e02f03727aaf";
 const ROUTED_FETCH_URL: &str = "https://paxeer.app/index.html";
 const OTHER_PURPOSE: &str = "0d8e6c4a2b9f7e5d3c1a0f6e4b8d9c2a5f1e7b3d0a6c5e4b2d9f8a1c3e7b6d5f";
@@ -135,30 +143,65 @@ enum Settlement {
 struct Replay {
     address: SocketAddr,
     signatures: Arc<AtomicU32>,
+    requests: Arc<AtomicU32>,
+    running: Option<seller_server::RunningServer>,
 }
 
 impl Replay {
     fn start(script: Script) -> Self {
-        let listener =
-            TcpListener::bind("127.0.0.1:0").unwrap_or_else(|error| panic!("bind: {error}"));
-        let address = listener
-            .local_addr()
-            .unwrap_or_else(|error| panic!("address: {error}"));
         let signatures = Arc::new(AtomicU32::new(0));
-        let counter = Arc::clone(&signatures);
-        let exchange = fixture("client-exchange.json")
-            .get("exchange")
-            .and_then(Value::as_array)
-            .cloned()
-            .unwrap_or_else(|| panic!("recorded exchange"));
-        thread::spawn(move || {
-            for stream in listener.incoming().flatten() {
-                answer(stream, &exchange, &script, &counter);
-            }
-        });
+        let requests = Arc::new(AtomicU32::new(0));
+        let exchange = fixture("client-exchange.json")["exchange"]
+            .as_array()
+            .expect("recorded exchange")
+            .clone();
+        let mut routes = seller_server::RouteTable::new();
+        for route in [
+            seller_server::Route::Search,
+            seller_server::Route::Fetch,
+            seller_server::Route::Content,
+        ] {
+            let exchange = exchange.clone();
+            let script = script.clone();
+            let counter = Arc::clone(&signatures);
+            let request_counter = Arc::clone(&requests);
+            routes
+                .set(route, move |request| {
+                    request_counter.fetch_add(1, Ordering::SeqCst);
+                    assert_eq!(
+                        request.method, "GET",
+                        "the seller must never receive node RPC"
+                    );
+                    let incoming = Incoming {
+                        method: request.method.clone(),
+                        target: format!(
+                            "{}{}",
+                            request.path,
+                            request
+                                .query
+                                .as_ref()
+                                .map_or(String::new(), |q| format!("?{q}"))
+                        ),
+                        headers: request.headers.clone(),
+                        body: Vec::new(),
+                    };
+                    answer(&incoming, &exchange, &script, &counter)
+                })
+                .expect("real seller route");
+        }
+        let server = seller_server::Server::bind(
+            "127.0.0.1:0".parse().expect("loopback"),
+            seller_server::Limits::default(),
+            routes,
+        )
+        .expect("real seller router");
+        let address = server.local_addr().expect("seller address");
+        let running = Some(server.spawn().expect("start real seller"));
         Self {
             address,
             signatures,
+            requests,
+            running,
         }
     }
 
@@ -168,6 +211,10 @@ impl Replay {
 
     fn signatures(&self) -> u32 {
         self.signatures.load(Ordering::SeqCst)
+    }
+
+    fn requests(&self) -> u32 {
+        self.requests.load(Ordering::SeqCst)
     }
 }
 
@@ -272,47 +319,13 @@ fn served_resource(mut required: Value, incoming: &Incoming) -> Value {
     required
 }
 
-fn answer(mut stream: TcpStream, exchange: &[Value], script: &Script, signatures: &AtomicU32) {
-    let Some(incoming) = read_request(&stream) else {
-        return;
-    };
-    if incoming.method == "POST" && incoming.target == "/rpc" {
-        let request: Value = serde_json::from_slice(&incoming.body)
-            .unwrap_or_else(|error| panic!("accountId request: {error}"));
-        assert_eq!(request["jsonrpc"], "2.0");
-        assert_eq!(request["method"], "eth_call");
-        let data = text(&request, "/params/0/data");
-        let owner = format!("{}{}", "0".repeat(24), &PAYER_ADDRESS[2..]);
-        let asset = data
-            .strip_prefix(&format!("0x3f050cbc{owner}"))
-            .unwrap_or_else(|| panic!("accountId owner and selector"));
-        assert_eq!(asset.len(), 64);
-        assert_eq!(
-            request["params"],
-            json!([{
-            "to": "0x000000000000000000000000000000000000101a",
-            "data": data,
-        }, "pending"])
-        );
-        let gateway = fixture("gateway/metered.json");
-        let grant = gateway["ledger"]["grants"]
-            .as_array()
-            .and_then(|grants| {
-                grants.iter().find(|grant| {
-                    grant["canonical"]
-                        .as_str()
-                        .is_some_and(|bytes| bytes.get(192..256) == Some(asset))
-                })
-            })
-            .unwrap_or_else(|| panic!("recorded payer account for {asset}"));
-        let canonical = text(grant, "/canonical");
-        let response = json!({
-            "jsonrpc": "2.0", "id": request["id"],
-            "result": format!("0x{}", &canonical[64..128]),
-        });
-        respond(&mut stream, 200, &[], response.to_string().as_bytes());
-        return;
-    }
+fn answer(
+    incoming: &Incoming,
+    exchange: &[Value],
+    script: &Script,
+    signatures: &AtomicU32,
+) -> seller_server::Response {
+    assert_eq!(incoming.method, "GET");
     if script.challenge_content && incoming.target.starts_with("/content/") {
         let challenge = exchange
             .iter()
@@ -327,8 +340,7 @@ fn answer(mut stream: TcpStream, exchange: &[Value], script: &Script, signatures
         );
         let headers = [("PAYMENT-REQUIRED".to_owned(), encode(&required))];
         let body = json!({ "error": "payment_required", "paymentRequired": required });
-        respond(&mut stream, 402, &headers, body.to_string().as_bytes());
-        return;
+        return seller_response(402, &headers, body.to_string().as_bytes());
     }
     let served = script
         .served
@@ -355,19 +367,16 @@ fn answer(mut stream: TcpStream, exchange: &[Value], script: &Script, signatures
         incoming.target.clone()
     };
     let Some(entry) = recorded(exchange, &incoming, &target) else {
-        respond(&mut stream, 400, &[], br#"{"error":"unrecorded_request"}"#);
-        return;
+        return seller_response(400, &[], br#"{"error":"unrecorded_request"}"#);
     };
     if header(&incoming, "PAYMENT-SIGNATURE").is_some() {
         let count = signatures.fetch_add(1, Ordering::SeqCst) + 1;
         if script.settlement == Settlement::PendingFirst && count == 1 {
             let retry = [("Retry-After".to_owned(), "1".to_owned())];
-            respond(&mut stream, 503, &retry, br#"{"error":"payment_pending"}"#);
-            return;
+            return seller_response(503, &retry, br#"{"error":"payment_pending"}"#);
         }
         if script.settlement == Settlement::Refused {
-            refuse(&mut stream, exchange, &target);
-            return;
+            return refuse(exchange, &target);
         }
     }
     let response = &entry["response"];
@@ -408,11 +417,11 @@ fn answer(mut stream: TcpStream, exchange: &[Value], script: &Script, signatures
             None => serde_json::to_vec(&response["body"]).unwrap_or_default(),
         },
     };
-    respond(&mut stream, status, &headers, &body);
+    seller_response(status, &headers, &body)
 }
 
 /// The sidecar's refusal: a fresh challenge carrying the refused settlement.
-fn refuse(stream: &mut TcpStream, exchange: &[Value], target: &str) {
+fn refuse(exchange: &[Value], target: &str) -> seller_server::Response {
     let challenge = exchange
         .iter()
         .find(|entry| entry["request"]["target"] == target && entry["response"]["status"] == 402)
@@ -429,7 +438,29 @@ fn refuse(stream: &mut TcpStream, exchange: &[Value], target: &str) {
         ("PAYMENT-RESPONSE".to_owned(), encode(&refusal)),
     ];
     let body = json!({ "error": "insufficient_funds", "paymentRequired": required });
-    respond(stream, 402, &headers, body.to_string().as_bytes());
+    seller_response(402, &headers, body.to_string().as_bytes())
+}
+
+fn seller_response(
+    status: u16,
+    headers: &[(String, String)],
+    body: &[u8],
+) -> seller_server::Response {
+    seller_server::Response {
+        status,
+        content_type: "application/json".into(),
+        headers: headers.to_vec(),
+        body: body.to_vec(),
+    }
+}
+impl Drop for Replay {
+    fn drop(&mut self) {
+        self.running
+            .take()
+            .expect("running seller")
+            .shutdown()
+            .expect("stop seller");
+    }
 }
 
 fn respond(stream: &mut TcpStream, status: u16, headers: &[(String, String)], body: &[u8]) {
@@ -449,8 +480,10 @@ fn respond(stream: &mut TcpStream, status: u16, headers: &[(String, String)], bo
 /// The payer's recorded artifacts: the payer-signed grant and the
 /// sequencer-signed receipt the recorded requests carry.
 struct RecordedPayer {
+    node: node_recording::NodeRecording,
     signer: SigningKey,
     grant: Vec<u8>,
+    grant_to_issue: Option<Grant>,
     payment: ExactPayment,
     grants: Vec<GrantTerms>,
     payments: Vec<ExactTerms>,
@@ -462,8 +495,10 @@ impl RecordedPayer {
     fn new() -> Self {
         let buyer = fixture("gateway/buyer.json");
         Self {
+            node: node_recording::NodeRecording::start(None),
             signer: SigningKey::from_bytes(&[0x33; 32]),
             grant: unhex(text(&buyer, "/grants/SID")),
+            grant_to_issue: None,
             payment: recorded_payment(&buyer["exact"]["USDC"]),
             grants: Vec::new(),
             payments: Vec::new(),
@@ -473,8 +508,14 @@ impl RecordedPayer {
     }
 
     fn with_grant(grant: Vec<u8>) -> Self {
+        let Payment::IssueGrant(grant_to_issue) =
+            Payment::decode(ModuleId::Asset, 7, &grant, b"").expect("recorded issued grant")
+        else {
+            panic!("fixture must be an issued grant");
+        };
         Self {
             grant,
+            grant_to_issue: Some(grant_to_issue),
             ..Self::new()
         }
     }
@@ -513,12 +554,19 @@ impl RecordedPayer {
 
 impl WebPayer for RecordedPayer {
     fn sign_grant(&mut self, terms: &GrantTerms) -> Result<Grant, WebPayerError> {
+        if let Some(grant) = &self.grant_to_issue {
+            self.grants.push(terms.clone());
+            return Ok(grant.clone());
+        }
         let grant = self.prepare_grant(terms)?;
         self.grants.push(terms.clone());
         Ok(grant)
     }
 
     fn standing_grant(&mut self, terms: &GrantTerms) -> Result<Option<[u8; 32]>, WebPayerError> {
+        if self.grant_to_issue.is_some() {
+            return Ok(None);
+        }
         let id = self
             .grant
             .get(..32)
@@ -530,39 +578,16 @@ impl WebPayer for RecordedPayer {
     }
 
     fn view(&mut self, call: &PrecompileCall) -> Result<Vec<u8>, WebPayerError> {
-        let id = self
-            .grant
-            .get(..32)
-            .ok_or(WebPayerError::Refused)?
-            .try_into()
-            .map_err(|_| WebPayerError::Refused)?;
-        if call.target != PrecompileTarget::Ledger
-            || call.selector != [0x42, 0x3f, 0xe4, 0xb2]
-            || call.arguments != [AbiArgument::Word(id)]
-        {
-            return Err(WebPayerError::Refused);
+        if call.selector == [0x42, 0x3f, 0xe4, 0xb2] {
+            self.reads.push(call.clone());
         }
-        let gateway = fixture("gateway/metered.json");
-        let encoded = call.encode().map_err(|_| WebPayerError::Refused)?;
-        let data = format!("0x{}", hex(&encoded));
-        let result = gateway["endpoints"]["gateway"]["*"]
-            .as_array()
-            .and_then(|calls| {
-                calls.iter().find(|recorded| {
-                    recorded["method"] == "eth_call"
-                        && recorded["params"]
-                            == json!([{
-                                "to": format!("0x{}", hex(&call.target.address())),
-                                "data": data,
-                            }, "pending"])
-                })
-            })
-            .ok_or(WebPayerError::Refused)?;
-        let record = text(result, "/result")
-            .strip_prefix("0x")
-            .unwrap_or_else(|| panic!("grant record hex prefix"));
-        self.reads.push(call.clone());
-        Ok(unhex(record))
+        let node = layerx_client::sequencer::SequencerEndpoint::new(&self.node.endpoint, &[])
+            .map_err(|_| WebPayerError::Unavailable)?;
+        node.call_pending(
+            &call.target.address(),
+            &call.encode().map_err(|_| WebPayerError::Refused)?,
+        )
+        .map_err(|_| WebPayerError::Unavailable)
     }
 
     fn pay(&mut self, terms: &ExactTerms) -> Result<PrecompileCall, WebPayerError> {
@@ -1388,10 +1413,11 @@ fn a_settlement_under_another_sequencer_key_is_refused() {
         &mut RecordedPayer::new(),
     );
     assert!(
-        matches!(refused, Err(WebToolError::SettlementUnverified)),
+        matches!(refused, Err(WebToolError::PaymentArtifact("receipt"))),
         "{refused:?}"
     );
     assert_eq!(replay.signatures(), 1);
+    assert_eq!(replay.requests(), 2, "only the challenge and paid request");
 }
 
 #[test]
@@ -1447,9 +1473,11 @@ fn payer_artifacts_that_do_not_bind_the_offer_are_never_sent() {
         &mut RecordedPayer::with_grant(other),
     );
     assert!(
-        matches!(refused, Err(WebToolError::PaymentArtifact("grant"))),
+        matches!(refused, Err(WebToolError::Payer(WebPayerError::Refused))),
         "{refused:?}"
     );
+    assert_eq!(replay.signatures(), 0);
+    assert_eq!(replay.requests(), 1, "only the metered challenge");
     let payment = recorded_payment(&buyer["refusedExact"]["otherPayee"]);
     let refused = web_tool(
         &config,
@@ -1462,6 +1490,11 @@ fn payer_artifacts_that_do_not_bind_the_offer_are_never_sent() {
         "{refused:?}"
     );
     assert_eq!(replay.signatures(), 0);
+    assert_eq!(
+        replay.requests(),
+        2,
+        "only the metered and exact challenges"
+    );
 }
 
 #[test]
@@ -1906,7 +1939,7 @@ fn opened_session(
         "session_token_file": token.display().to_string(),
         "session_generation": credential.generation(),
         "capability_id": "09".repeat(32),
-        "core_sequence": OBSERVED_SEQUENCE,
+        "core_height": OBSERVED_SEQUENCE,
         "deadline_ms": 5_000,
         "agent": {
             "endpoint": agent_daemon(),

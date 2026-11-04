@@ -599,7 +599,8 @@ static int sandbox_stage_begin_accepts_lifecycle(void)
 }
 
 static int sandbox_execute_admission_refusal(int corrupt_digest,
-                                             lxp_result expected_result)
+                                             lxp_result expected_result,
+                                             unsigned rollback_case)
 {
     static const uint8_t wasm[] = {
         0,97,115,109,1,0,0,0,1,12,2,96,2,127,127,1,127,96,1,127,1,127,
@@ -621,6 +622,8 @@ static int sandbox_execute_admission_refusal(int corrupt_digest,
     const uint8_t *lease;
     size_t lease_length, offset = 4U, call_offset, staged_count, effect_count;
     lxp_call_admission_facts *admission;
+    uint8_t before_root[32], after_root[32];
+    size_t account_count;
 
     LXP_CASE_CHECK(f != NULL && arena_bytes != NULL && fixture_init(f) == 0);
     LXP_CASE_CHECK(execute_payload(f, f->fund, f->fund_length, LXP_OK) == 0);
@@ -690,6 +693,90 @@ static int sandbox_execute_admission_refusal(int corrupt_digest,
     put_u32(payload + call_offset - 4U, (uint32_t)(offset - call_offset));
     staged_count = f->ctx.staged_count;
     effect_count = f->effects.count;
+    if (rollback_case != 0U) {
+        static const uint8_t guest_key[] = "sandbox-uncommitted-guest";
+        const uint8_t guest_value = 42U;
+        programs_sandbox_activity *value;
+        void *decoded = NULL;
+        lxp_result status;
+
+        LXP_CASE_CHECK(lxp_module_ctx_commit(&f->ctx) == LXP_OK);
+        LXP_CASE_CHECK(fixture_begin(f, 4U) == 0);
+        f->ctx.protocol_version = LXP_PROTOCOL_VERSION_OCCUPANCY;
+        f->ctx.global_sequence = f->state.next_sequence;
+        LXP_CASE_CHECK(lxp_state_root(&f->kernel, before_root) == LXP_OK);
+        account_count = f->accounts.count;
+        LXP_CASE_CHECK(lxp_state_journal_open(&f->state,
+                        f->ctx.global_sequence, &f->journal) == LXP_OK);
+        LXP_CASE_CHECK(lxp_programs_sandbox_decode(&f->ctx, payload, offset,
+                                                    &decoded) == LXP_OK);
+        value = decoded;
+        LXP_CASE_CHECK(lxp_module_savepoint_begin(&f->ctx,
+                            &value->guest_savepoint) == LXP_OK);
+        LXP_CASE_CHECK(lxp_ctx_kv_put(&f->ctx, guest_key, sizeof(guest_key),
+                                      &guest_value, 1U) == LXP_OK);
+        LXP_CASE_CHECK(lxp_ctx_emit_event(&f->ctx, 0x09ffU,
+                                          &guest_value, 1U) == LXP_OK);
+        if (rollback_case == 2U) {
+            static const uint8_t seed[] = "rollback-invariant";
+            uint8_t account_id[32];
+            lx_account *account;
+            bool created = false;
+            LXP_CASE_CHECK(lxp_programs_account_derive(f->host, seed,
+                            sizeof(seed), account_id) == LXP_OK);
+            LXP_CASE_CHECK(lxp_ctx_account_stage_module_value(&f->ctx,
+                            account_id, f->asset.asset_id, &account,
+                            &created) == LXP_OK);
+            LXP_CASE_CHECK(created && f->ctx.staged_account_count ==
+                            value->guest_savepoint.staged_account_count + 1U);
+        } else if (rollback_case == 3U) {
+            lxp_activity transfer_activity = f->activity;
+            void *transfer = NULL;
+            transfer_activity.activity_type = LX_PROGRAMS_TRANSFER;
+            LXP_CASE_CHECK(lxp_programs_transfer_decode(&f->ctx,
+                            f->fund + f->fund_length - 146U, 146U,
+                            &transfer) == LXP_OK);
+            LXP_CASE_CHECK(lxp_programs_transfer_validate(&f->ctx,
+                            &transfer_activity, &f->authority, transfer) == LXP_OK);
+            LXP_CASE_CHECK(lxp_programs_transfer_execute(&f->ctx,
+                            &transfer_activity, &f->authority, transfer,
+                            &f->effects) == LXP_OK);
+            LXP_CASE_CHECK(f->ctx.transfer_snapshot_count >
+                            value->guest_savepoint.transfer_snapshot_count);
+            LXP_CASE_CHECK(f->ctx.transfer_applied &&
+                            !value->guest_savepoint.transfer_applied);
+            LXP_CASE_CHECK(f->tenant->balance.lo == 800U &&
+                            f->escrow->balance.lo == 200U);
+        }
+        status = lxp_programs_sandbox_execute(&f->ctx, &f->activity,
+                            &f->authority, decoded, &f->effects);
+        LXP_CASE_CHECK(status == expected_result);
+        LXP_CASE_CHECK(value->guest_savepoint.active == (rollback_case != 1U));
+        LXP_CASE_CHECK(value->guest_sealed == 0U &&
+                        value->usage_result.published == 0U);
+        LXP_CASE_CHECK(lxp_ctx_program_outcome(&f->ctx) == NULL);
+        LXP_CASE_CHECK(buffers_released(value) == 0);
+        for (size_t i = 0U; i < f->effects.count; ++i) {
+            LXP_CASE_CHECK(f->effects.effects[i].event_type != SANDBOX_USAGE_EVENT);
+            LXP_CASE_CHECK(f->effects.effects[i].event_type !=
+                            LX_PROGRAMS_EVENT_CALL_OUTCOME);
+        }
+        if (rollback_case == 1U) {
+            LXP_CASE_CHECK(f->ctx.staged_count == 0U && f->effects.count == 0U);
+        }
+        lxp_module_ctx_rollback(&f->ctx);
+        LXP_CASE_CHECK(lxp_state_journal_rollback(&f->journal) == LXP_OK);
+        LXP_CASE_CHECK(f->ctx.staged_count == 0U &&
+                        f->ctx.staged_account_count == 0U);
+        LXP_CASE_CHECK(f->accounts.count == account_count);
+        LXP_CASE_CHECK(lxp_state_root(&f->kernel, after_root) == LXP_OK);
+        LXP_CASE_CHECK(memcmp(before_root, after_root, 32U) == 0);
+        LXP_CASE_CHECK(f->tenant->balance.lo == 900U &&
+                        f->escrow->balance.lo == 100U);
+        LXP_CASE_CHECK(fixture_destroy(f) == 0);
+        free(arena_bytes);
+        return 0;
+    }
     LXP_CASE_CHECK(execute_payload(f, payload, offset, expected_result) == 0);
     LXP_CASE_CHECK(f->ctx.staged_count == staged_count && f->ctx.staged_reserve == 0U);
     LXP_CASE_CHECK(f->effects.count == effect_count);
@@ -925,17 +1012,37 @@ static int sandbox_execute_success_end_to_end(void)
 
 static int sandbox_execute_refusal_propagates(void)
 {
-    return sandbox_execute_admission_refusal(1, LXP_ERR_CONTEXT_MISMATCH);
+    return sandbox_execute_admission_refusal(1, LXP_ERR_CONTEXT_MISMATCH, 0U);
 }
 
 static int sandbox_execute_unpayable_charge_is_named(void)
 {
-    return sandbox_execute_admission_refusal(0, LXP_ERR_FEE_UNPAYABLE);
+    return sandbox_execute_admission_refusal(0, LXP_ERR_FEE_UNPAYABLE, 0U);
+}
+
+static int sandbox_rollback_preserves_refusal(void)
+{
+    return sandbox_execute_admission_refusal(1, LXP_ERR_NON_CANONICAL, 1U);
+}
+
+static int sandbox_rollback_staged_account_failure_is_fatal(void)
+{
+    return sandbox_execute_admission_refusal(1, LXP_FATAL_INVARIANT, 2U);
+}
+
+static int sandbox_rollback_transfer_failure_is_fatal(void)
+{
+    return sandbox_execute_admission_refusal(1, LXP_FATAL_INVARIANT, 3U);
 }
 
 int main(int argc, char **argv)
 {
     const lxp_kernel_case cases[] = {
+        { "sandbox_rollback_preserves_refusal", sandbox_rollback_preserves_refusal },
+        { "sandbox_rollback_staged_account_failure_is_fatal",
+          sandbox_rollback_staged_account_failure_is_fatal },
+        { "sandbox_rollback_transfer_failure_is_fatal",
+          sandbox_rollback_transfer_failure_is_fatal },
         { "sandbox_execute_success_end_to_end", sandbox_execute_success_end_to_end },
         { "sandbox_execute_lifecycle_accepts_call_token",
           sandbox_execute_lifecycle_accepts_call_token },

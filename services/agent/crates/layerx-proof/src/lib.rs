@@ -11,6 +11,9 @@ pub mod merkle;
 pub mod program;
 pub mod receipt;
 pub mod sequencer_logs;
+#[deprecated(
+    note = "historical settlement configuration cannot establish BFT commitment; checkpoint::verify_declared_certificate returns CheckpointError::RetiredCertificateVerifier; use receipt or inclusion verification"
+)]
 pub mod settlement;
 pub mod signed_authority;
 pub mod state;

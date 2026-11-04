@@ -1,15 +1,18 @@
 package com.sidiora.layerx.sdk;
 
 import com.fasterxml.jackson.databind.DatabindException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.lang.reflect.RecordComponent;
 import java.math.BigInteger;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 
@@ -22,20 +25,20 @@ public final class GeneratedCatalogueProgramsTest {
     @Test
     void programOperationsNameLayerxprogramsCalls() throws Exception {
         Map<String, List<String>> calls = Map.of(
-            "program.activity", List.of("ProgramCallOutcome"),
+            "program.activity", List.of(),
             "program.call", List.of("call"),
             "program.deploy", List.of("deploy"),
             "program.discover", List.of("getProgram"),
             "program.interface", List.of("getInterface"),
-            "program.receipt", List.of("ProgramCallOutcome"),
+            "program.receipt", List.of(),
             "program.simulate", List.of("simulateCall"),
             "program.upgrade", List.of("upgrade"),
             "program.wind-down", List.of("setExitRoute", "deprecate", "tombstone", "exitValue"));
         Map<String, String> reads = Map.of(
-            "program.activity", "eth_getLogs",
+            "program.activity", retainedTransactionMethod("program.activity"),
             "program.discover", "eth_call",
             "program.interface", "eth_call",
-            "program.receipt", "eth_getLogs",
+            "program.receipt", retainedTransactionMethod("program.receipt"),
             "program.simulate", "eth_call");
         assertEquals(53, GeneratedContract.AGENT_OPERATIONS.size());
         assertEquals(Set.class, GeneratedContract.class.getDeclaredField("AGENT_OPERATIONS").getType());
@@ -50,22 +53,27 @@ public final class GeneratedCatalogueProgramsTest {
         assertEquals(calls.keySet(), GeneratedSchema.AGENT.keySet().stream()
             .filter(name -> name.startsWith("program.")).collect(Collectors.toSet()));
 
+        var checks = new ArrayList<org.junit.jupiter.api.function.Executable>();
         for (var entry : calls.entrySet()) {
-            String name = entry.getKey();
-            var descriptor = GeneratedSchema.AGENT.get(name);
-            var transport = GeneratedSchema.programTransport(descriptor);
-            assertEquals(PROGRAMS, transport.to(), name);
-            assertEquals(reads.getOrDefault(name, "eth_sendRawTransaction"), transport.rpcMethod(), name);
-            assertEquals(entry.getValue(), transport.calls().stream()
-                .map(call -> call.substring("layerxprograms.".length(), call.indexOf('('))).toList(), name);
-            assertTrue(transport.calls().stream().allMatch(call -> call.startsWith("layerxprograms.")
-                && call.endsWith(")")), name);
-            assertFalse(JSON.writeValueAsString(transport).contains("/v1/programs"), name);
-            assertSame(transport, GeneratedSchema.programTransport(descriptor));
-            assertSame(transport, GeneratedSchema.programTransport(OperationCatalog.agent(name)));
-            String constant = name.toUpperCase(Locale.ROOT).replace('.', '_').replace('-', '_');
-            assertSame(transport, GeneratedSchema.AgentOperations.class.getField(constant + "_TRANSPORT").get(null));
-            assertThrows(UnsupportedOperationException.class, () -> transport.calls().add("invalid"));
+            checks.add(() -> {
+                String name = entry.getKey();
+                var descriptor = GeneratedSchema.AGENT.get(name);
+                var transport = GeneratedSchema.programTransport(descriptor);
+                String constant = name.toUpperCase(Locale.ROOT).replace('.', '_').replace('-', '_');
+                assertAll(name,
+                    () -> assertEquals(reads.getOrDefault(name, "eth_sendRawTransaction"), transport.rpcMethod(), name),
+                    () -> assertEquals(entry.getValue().isEmpty() ? "" : PROGRAMS, transport.to(), name),
+                    () -> assertEquals(entry.getValue(), transport.calls().stream()
+                        .map(call -> call.substring("layerxprograms.".length(), call.indexOf('('))).toList(), name),
+                    () -> assertTrue(transport.calls().stream().allMatch(call -> call.startsWith("layerxprograms.")
+                        && call.endsWith(")")), name),
+                    () -> assertFalse(JSON.writeValueAsString(transport).contains("/v1/programs"), name),
+                    () -> assertSame(transport, GeneratedSchema.programTransport(descriptor)),
+                    () -> assertSame(transport, GeneratedSchema.programTransport(OperationCatalog.agent(name))),
+                    () -> assertSame(transport,
+                        GeneratedSchema.AgentOperations.class.getField(constant + "_TRANSPORT").get(null)),
+                    () -> assertThrows(UnsupportedOperationException.class, () -> transport.calls().add("invalid")));
+            });
         }
         assertEquals(List.of("layerxprograms.call(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128)"),
             GeneratedSchema.AgentOperations.PROGRAM_CALL_TRANSPORT.calls());
@@ -77,6 +85,56 @@ public final class GeneratedCatalogueProgramsTest {
         assertThrows(PlatformSdkException.class,
             () -> GeneratedSchema.programTransport(GeneratedSchema.HumanOperations.JOURNEY_GET));
         assertThrows(UnsupportedOperationException.class, () -> GeneratedContract.AGENT_OPERATIONS.remove("program.call"));
+        assertAll("canonical program transports", checks);
+    }
+
+    private static String retainedTransactionMethod(String operation) throws Exception {
+        JsonNode operations = Repair22331391Test.fixture("sdk/platform/conformance/operations.json")
+            .required("operations");
+        assertTrue(operations.isObject(), "canonical operations are grouped by operation id");
+        for (JsonNode group : operations) {
+            assertTrue(group.isArray(), "each canonical operation group must be an array");
+            for (JsonNode descriptor : group) {
+                if ("agent".equals(descriptor.path("plane").textValue())
+                        && operation.equals(descriptor.path("name").textValue())) {
+                    assertEquals("evm", descriptor.required("transport").textValue(), operation);
+                    assertEquals("", descriptor.required("path").textValue(), operation);
+                    assertEquals("eth_getTransactionByHash", descriptor.required("method").textValue(), operation);
+                    return descriptor.required("method").textValue();
+                }
+            }
+        }
+        throw new AssertionError("Missing canonical operation: " + operation);
+    }
+
+    @Test
+    void programReceiptTracesRetainedTransactionThroughHttp() throws Exception {
+        JsonNode vector = null;
+        for (JsonNode candidate : Repair22331391Test.fixture(
+                "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json").required("cases")) {
+            if ("V1-layerxprograms-call".equals(candidate.required("id").textValue())) vector = candidate;
+        }
+        assertNotNull(vector, "the recorded native Programs receipt must execute");
+        byte[] raw = Repair22331391Test.bytes(vector, "rawTransaction");
+        byte[] hash = ProgramsClient.Programs.transactionHash(raw);
+        assertArrayEquals(hash, Repair22331391Test.bytes(vector.required("receiptJson"), "txHash"));
+        assertEquals(PROGRAMS, vector.required("receiptJson").required("to").textValue());
+        assertArrayEquals(hash, NativeProgramCall.decodeSignedActivity(raw).bindSignedActivity(raw));
+        var retained = new ProgramsClient.ProgramSubmission(hash, raw, null);
+        try (var archive = new Repair22331391Test.RecordedReceiptArchive(vector.required("receiptJson"));
+                var connection = new ProgramsClient.Programs(archive.uri())) {
+            var client = Repair22331391Test.client(connection, vector);
+            for (int lookup = 0; lookup < 2; lookup++) {
+                var resolved = client.receipt(retained).toCompletableFuture().get(10, TimeUnit.SECONDS);
+                assertFalse(resolved.pending());
+                assertArrayEquals(raw, resolved.signedTransaction());
+                assertArrayEquals(hash, resolved.transactionHash());
+                assertArrayEquals(Repair22331391Test.bytes(vector, "receiptDigest"), resolved.receipt().receiptDigest());
+                assertArrayEquals(Repair22331391Test.bytes(vector, "signedReceipt"), resolved.receipt().canonicalBytes());
+                assertEquals(1, resolved.receipt().status());
+            }
+            archive.assertLookups(2, hash);
+        }
     }
 
     @Test

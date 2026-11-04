@@ -156,6 +156,7 @@ func programsCallFixture(t *testing.T) (*harness, []interface{}, []byte) {
 }
 
 func TestProgramsCallReturnsTerminalOutcome(t *testing.T) {
+	t.Run("known_bounded_guest", assertProgramsKnownBoundedResponse)
 	h, args, payload := programsCallFixture(t)
 	ctx := h.stateDB.Ctx()
 	reference, _ := ctx.CacheContext()
@@ -256,4 +257,49 @@ func TestProgramsCallFeeLimitBelowFeeReverts(t *testing.T) {
 			require.Empty(t, h.stateDB.GetAllLogs())
 		})
 	}
+}
+
+func assertProgramsKnownBoundedResponse(t *testing.T) {
+	t.Helper()
+	h, args, payload, guest := repair251Responder(t)
+	require.Len(t, guest, 64)
+	for i, value := range guest {
+		require.Equal(t, byte(i), value)
+	}
+	receipt, reference := repair251Receipt(t, h, args, payload)
+	require.Positive(t, receipt.FeeCharged.Sign())
+	input, err := lp.ProgramsABI.Pack("call", args...)
+	require.NoError(t, err)
+	output, remaining, err := h.evm.Call(h.caller, lp.Address, input, 20000000, uint256.NewInt(0))
+	require.NoError(t, err)
+	require.Positive(t, remaining)
+	require.Less(t, remaining, uint64(20000000))
+	require.Equal(t, h.dump(reference), h.dump(h.stateDB.Ctx()))
+	logs := h.stateDB.GetAllLogs()
+	require.Len(t, logs, 1)
+	require.Equal(t, lp.Address, logs[0].Address)
+	require.Equal(t, []common.Hash{lp.ProgramsABI.Events["ProgramCallOutcome"].ID, common.Hash(args[0].([32]byte))}, logs[0].Topics)
+	terminal, err := lp.ProgramsABI.Events["ProgramCallOutcome"].Inputs.NonIndexed().Unpack(logs[0].Data)
+	require.NoError(t, err)
+	root := repair251TransferRoot(t, receipt)
+	require.Equal(t, root, terminal[9])
+	decoded, err := lp.DecodeProgramExecutionResult(output, uint32(len(guest)), root)
+	require.NoError(t, err)
+	require.Zero(t, decoded.TerminalResult)
+	require.Equal(t, uint8(1), decoded.TerminalKind)
+	require.Equal(t, guest, decoded.GuestResponse)
+	require.Greater(t, len(decoded.TerminalFrame), len(guest))
+	require.Len(t, decoded.AppliedLegs, 115)
+	leg := receipt.Transfers[0]
+	require.Equal(t, int64(7), leg.Amount.Int64())
+	require.Equal(t, leg.From[:], decoded.AppliedLegs[1:33])
+	require.Equal(t, leg.To[:], decoded.AppliedLegs[33:65])
+	require.Equal(t, leg.Asset[:], decoded.AppliedLegs[65:97])
+	require.Equal(t, leg.Amount.BigInt(), new(big.Int).SetBytes(decoded.AppliedLegs[97:113]))
+	_, err = lp.DecodeProgramExecutionResult(output, 63, root)
+	require.Error(t, err)
+	wrong := root
+	wrong[0] ^= 1
+	_, err = lp.DecodeProgramExecutionResult(output, 64, wrong)
+	require.Error(t, err)
 }

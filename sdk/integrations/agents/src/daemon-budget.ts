@@ -1,20 +1,27 @@
 import { closeSync, existsSync, lstatSync, mkdirSync, openSync, realpathSync } from "node:fs";
 import { dirname, isAbsolute, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { createHash } from "node:crypto";
 import {
   decodeDaemonPrepared, decodeDaemonSubmission, signedActivityId, verifyAgentPayment,
-  type AgentPreparationBudget, type AgentSpendRequest, type OwnerBudgetSpendResult,
+  type AgentPreparationBudget, type AgentSpendRequest, type OwnerBudgetSpendResult, type PreparedActivity,
 } from "@sidiora/layerx-agent-middleware";
-import { AgentEnvelopeTransport, PlatformSdkError, idempotencyKey, decodeNativePrepareResult,
-  type NativePrepareResultV1 } from "@sidiora/layerx-sdk";
+import { AgentEnvelopeTransport, PlatformSdkError, idempotencyKey, encodeNativePrepareRequest, encodeUnsignedEip1559,
+  type NativePrepareRequestV1 } from "@sidiora/layerx-sdk";
 import { DaemonReceiptResolver, type DaemonReceiptPrincipal } from "./daemon-providers.js";
 
 type Services = Parameters<AgentPreparationBudget["spendPrepared"]>[2];
 type Stage = "preparing" | "prepared" | "signing" | "signed";
+type PreparationResult = Pick<PreparedActivity,
+  "preparation_ref" | "chain_id" | "nonce" | "max_priority_fee_per_gas" | "max_fee_per_gas" | "gas_limit" | "to" | "data" | "signing_hash">
+  & Pick<NativePrepareRequestV1, "actor" | "authority" | "account_sequence" | "not_before" | "not_after" | "fee_limit" | "payload" | "payload_hash" | "idempotency_key">
+  & { readonly activity_type: string };
 interface Retained {
   requestDigest: string;
   preparationId: string;
-  result: NativePrepareResultV1 | null;
+  request: AgentSpendRequest;
+  result: PreparationResult | null;
+  signature: string | null;
   stage: Stage;
   activityId: string | null;
   submissionRef: string | null;
@@ -89,33 +96,39 @@ export class DaemonPreparationBudget implements AgentPreparationBudget {
   public close(): void { if (!this.#closed) { this.#db.close(); this.#closed = true; } }
 
   public async spendPrepared(request: AgentSpendRequest, requestDigest: string, services: Services): Promise<OwnerBudgetSpendResult> {
+    request = JSON.parse(JSON.stringify(request)) as AgentSpendRequest;
     const p = request.preparation;
     if (!("variant" in p) || request.tenant !== this.#principal.tenant || p.actor !== this.#principal.actor
+      || p.purpose.purpose.tenant !== this.#principal.tenant
       || p.purpose.purpose.session_id !== this.#principal.sessionId || !(services.receipts instanceof DaemonReceiptResolver)) throw refusal();
     const walletRequired = services.signer.walletApprovalRequired === true;
     if (walletRequired && typeof services.signer.verifyWalletApproval !== "function"
       || !walletRequired && request.walletApprovalId !== undefined) throw refusal();
+    encodeNativePrepareRequest(p);
     identifier(requestDigest);
     const preparationId = identifier(p.purpose.purpose.preparation_id);
     let admissionObserved = false;
     const outcome = (state: OwnerBudgetSpendResult["state"], extra: Omit<Partial<OwnerBudgetSpendResult>, "kind" | "state" | "preparationId" | "admissionObserved"> = {}): OwnerBudgetSpendResult =>
       ({ kind: "owner-budget", preparationId, admissionObserved, state, ...extra });
     let retained: Retained;
-    let created: boolean;
-    try { ({ retained, created } = this.#admit(preparationId, requestDigest, walletRequired)); }
+    try { retained = this.#admit(preparationId, requestDigest, walletRequired, request); }
     catch (error) { if (error instanceof PlatformSdkError && error.code === "idempotency-conflict") throw error; return outcome("unknown"); }
     if (retained.walletApprovalId !== undefined && retained.walletApprovalId !== request.walletApprovalId) throw conflict();
-    if (created) {
+    if (retained.stage === "preparing") {
       try {
-        const response = await this.#transport.prepareNative(p, idempotencyKey(p.idempotency_key));
-        decodeDaemonPrepared(response.value, request, 0);
+        const response = await this.#transport.call<NativePrepareRequestV1, { value: PreparationResult }>({
+          plane: "agent", operation: "prepare",
+          request: encodeNativePrepareRequest(retained.request.preparation as NativePrepareRequestV1),
+          idempotencyKey: idempotencyKey(retained.request.preparation.idempotency_key),
+        });
+        decodeBudgetPrepared(response.value, retained.request);
         const next: Retained = { ...retained, result: response.value, stage: "prepared" };
         this.#replace(retained, next); retained = next;
       } catch { return outcome("admission-unknown"); }
     }
     if (retained.result === null) return outcome("admission-unknown");
     let prepared;
-    try { prepared = decodeDaemonPrepared(retained.result, request, 0); admissionObserved = true; }
+    try { prepared = decodeBudgetPrepared(retained.result, request); admissionObserved = true; }
     catch { return outcome("unknown"); }
     let approval;
     try {
@@ -135,7 +148,7 @@ export class DaemonPreparationBudget implements AgentPreparationBudget {
         if (retained.walletApprovalId === undefined) {
           if (retained.stage !== "prepared") throw conflict();
           await services.signer.verifyWalletApproval!(prepared);
-          const bound: Retained = { ...retained, walletApprovalId: request.walletApprovalId };
+          const bound: Retained = { ...retained, walletApprovalId: request.walletApprovalId, request };
           this.#replace(retained, bound); retained = bound;
         }
       }
@@ -148,20 +161,26 @@ export class DaemonPreparationBudget implements AgentPreparationBudget {
       if (error instanceof PlatformSdkError && error.code === "idempotency-conflict") throw error;
       return outcome("unknown");
     }
-    if (retained.stage === "signing") return outcome("unknown");
-    if (retained.stage === "prepared") {
+    if (retained.stage === "prepared" || retained.stage === "signing") {
       try {
-        const signing: Retained = { ...retained, stage: "signing" };
-        this.#replace(retained, signing); retained = signing;
+        if (retained.stage === "prepared") {
+          const signing: Retained = { ...retained, stage: "signing", request };
+          this.#replace(retained, signing); retained = signing;
+        } else if (canonical(retained.request) !== canonical(request)) throw conflict();
         const signature = await services.signer.sign(prepared);
         const activityId = signedActivityId(prepared, signature, request.signerPublicKey);
-        const signed: Retained = { ...retained, stage: "signed", activityId };
+        const signed: Retained = { ...retained, stage: "signed", activityId, signature };
         this.#replace(retained, signed); retained = signed;
+      } catch { return outcome("unknown"); }
+    }
+    if (retained.stage === "signed" && retained.submissionRef === null) {
+      try {
+        if (retained.signature === null || retained.activityId === null) throw refusal();
         const response = await this.#transport.call<unknown, { value: unknown }>({ plane: "agent", operation: "submit", request: {
-          preparation_ref: prepared.preparation_ref, signature, signer_public_key: request.signerPublicKey,
-          approval_release_ref: request.approvalReleaseRef ?? null,
-        }, idempotencyKey: idempotencyKey(request.submitIdempotencyKey) });
-        const submission = decodeDaemonSubmission(response.value, activityId);
+          preparation_ref: prepared.preparation_ref, signature: retained.signature, signer_public_key: retained.request.signerPublicKey,
+          approval_release_ref: retained.request.approvalReleaseRef ?? null,
+        }, idempotencyKey: idempotencyKey(retained.request.submitIdempotencyKey) });
+        const submission = decodeDaemonSubmission(response.value, retained.activityId);
         const submitted = { ...retained, submissionRef: submission.submission_ref };
         this.#replace(retained, submitted); retained = submitted;
       } catch { return outcome("unknown"); }
@@ -186,22 +205,24 @@ export class DaemonPreparationBudget implements AgentPreparationBudget {
     } catch { return outcome("unknown"); }
   }
 
-  #admit(preparationId: string, requestDigest: string, walletRequired: boolean): { retained: Retained; created: boolean } {
+  #admit(preparationId: string, requestDigest: string, walletRequired: boolean, request: AgentSpendRequest): Retained {
     return this.#transaction(() => {
       const rows = this.#db.prepare("SELECT record FROM admissions WHERE preparation_id = ? OR request_digest = ?").all(preparationId, requestDigest);
       if (rows.length > 1) throw conflict();
       if (rows.length === 1) {
         const retained = decode(rows[0]?.["record"]);
         if (retained.preparationId !== preparationId || retained.requestDigest !== requestDigest
-          || (retained.walletConsentRequired === true) !== walletRequired) throw conflict();
-        return { retained, created: false };
+          || (retained.walletConsentRequired === true) !== walletRequired
+          || admissionIdentity(retained.request) !== admissionIdentity(request)
+          || (retained.stage === "signing" || retained.stage === "signed") && canonical(retained.request) !== canonical(request)) throw conflict();
+        return retained;
       }
       const count = this.#db.prepare("SELECT COUNT(*) AS n FROM admissions").get()?.["n"];
       if (typeof count !== "number" || count >= 4096) throw refusal();
-      const retained: Retained = { preparationId, requestDigest, stage: "preparing", result: null, activityId: null, submissionRef: null,
+      const retained: Retained = { preparationId, requestDigest, stage: "preparing", request, result: null, signature: null, activityId: null, submissionRef: null,
         ...(walletRequired ? { walletConsentRequired: true as const } : {}) };
       this.#db.prepare("INSERT INTO admissions VALUES (?, ?, ?)").run(preparationId, requestDigest, JSON.stringify(retained));
-      return { retained, created: true };
+      return retained;
     });
   }
   #replace(previous: Retained, next: Retained): void {
@@ -226,7 +247,7 @@ export class DaemonPreparationBudget implements AgentPreparationBudget {
 function decode(value: unknown): Retained {
   if (typeof value !== "string" || Buffer.byteLength(value) > 4194304) throw refusal();
   const row = JSON.parse(value) as Retained;
-  const required = ["requestDigest", "preparationId", "result", "stage", "activityId", "submissionRef"];
+  const required = ["requestDigest", "preparationId", "request", "result", "signature", "stage", "activityId", "submissionRef"];
   if (!row || typeof row !== "object" || required.some((key) => !Object.prototype.hasOwnProperty.call(row, key))
     || Object.keys(row).some((key) => !required.includes(key) && key !== "walletConsentRequired" && key !== "walletApprovalId")) throw refusal();
   if (row.walletConsentRequired !== undefined && row.walletConsentRequired !== true) throw refusal();
@@ -236,11 +257,36 @@ function decode(value: unknown): Retained {
   identifier(row.requestDigest); identifier(row.preparationId);
   if (!["preparing", "prepared", "signing", "signed"].includes(row.stage)) throw refusal();
   if ((row.stage === "preparing") !== (row.result === null)) throw refusal();
-  if (row.result !== null) { row.result = decodeNativePrepareResult(row.result); if (row.result.preparation_id !== row.preparationId) throw refusal(); }
+  if (!row.request || !("variant" in row.request.preparation)) throw refusal();
+  encodeNativePrepareRequest(row.request.preparation);
+  if (row.request.preparation.purpose.purpose.preparation_id !== row.preparationId) throw refusal();
+  if (row.result !== null) {
+    const result = decodeBudgetPrepared(row.result, row.request);
+    if (result.preparation_ref !== row.preparationId) throw refusal();
+  }
+  if (row.signature !== null && (typeof row.signature !== "string" || !/^[0-9a-f]{130}$/u.test(row.signature))) throw refusal();
+  if ((row.stage === "signed") !== (row.signature !== null)) throw refusal();
+  if (row.stage === "signed" && row.result !== null
+    && signedActivityId(decodeBudgetPrepared(row.result, row.request), row.signature!, row.request.signerPublicKey) !== row.activityId) throw refusal();
   if (row.activityId !== null) identifier(row.activityId);
   if ((row.stage === "signed") !== (row.activityId !== null)) throw refusal();
   if (row.submissionRef !== null && (row.stage !== "signed" || typeof row.submissionRef !== "string" || !row.submissionRef || Buffer.byteLength(row.submissionRef) > 255)) throw refusal();
   return row;
+}
+function decodeBudgetPrepared(value: PreparationResult, request: AgentSpendRequest): PreparedActivity {
+  const prepared = decodeDaemonPrepared(value, request, 0);
+  const p = request.preparation;
+  if (!("variant" in p)) throw refusal();
+  const canonicalBytes = encodeUnsignedEip1559({
+    chainId: BigInt(prepared.chain_id), nonce: BigInt(prepared.nonce),
+    maxPriorityFeePerGas: BigInt(prepared.max_priority_fee_per_gas), maxFeePerGas: BigInt(prepared.max_fee_per_gas),
+    gasLimit: BigInt(prepared.gas_limit), to: Buffer.from(prepared.to, "hex"), data: Buffer.from(prepared.data, "hex"),
+    value: 0n, accessList: [],
+  });
+  const digest = createHash("sha256").update(canonicalBytes).digest("hex");
+  if (prepared.preparation_ref !== p.purpose.purpose.preparation_id
+    || digest !== prepared.preparation_ref || digest !== p.purpose.purpose.canonical_digest) throw refusal();
+  return prepared;
 }
 function principal(db: DatabaseSync, expected: DaemonReceiptPrincipal): void {
   const rows = db.prepare("SELECT * FROM principal").all(), row = rows[0];
@@ -259,3 +305,16 @@ function secureFiles(path: string): void { for (const p of [path, `${path}-wal`,
 function identifier(value: string): string { if (typeof value !== "string" || !/^[0-9a-f]{64}$/u.test(value)) throw refusal(); return value; }
 function refusal(): PlatformSdkError { return new PlatformSdkError({ code: "unavailable-capability", retry: "unknown-outcome" }); }
 function conflict(): PlatformSdkError { return new PlatformSdkError({ code: "idempotency-conflict", retry: "never" }); }
+
+function canonical(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
+  if (value !== null && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${canonical(record[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+function admissionIdentity(request: AgentSpendRequest): string {
+  const { walletApprovalId: _wallet, approvalReleaseRef: _release, ...identity } = request;
+  return canonical(identity);
+}

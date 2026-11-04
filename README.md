@@ -37,7 +37,7 @@
 
 ## What is Paxeer X Network?
 
-[Paxeer X Network](https://paxeer.network/) is a distributed HyperState Machine for payments, code execution and intent routing, developed by Sidiora Labs. Paxeer mainnet-beta is one BFT network with EVM chain ID **125** (`0x7d`). The LayerX kernel is embedded in the node and participates in block proposal and deterministic execution.
+[Paxeer X Network](https://paxeer.network/) is a distributed HyperState Machine for payments, code execution and intent routing, developed by Sidiora Labs. Paxeer mainnet-beta is one BFT network with EVM chain ID **125** (`0x7d`). The LayerX kernel is embedded in the node and participates in block proposal and deterministic execution. The kernel is part of the network and proposes blocks inside `paxd`; validators commit those blocks through BFT consensus.
 
 In this repository you’ll find the core components of the network: the Paxeer X chain, the LayerX kernel, on-chain contracts, off-chain services, client SDKs and user-facing applications. Together, they provide the infrastructure for developers to build applications and agents on a shared network.
 
@@ -46,46 +46,33 @@ The node integrates the following components:
 - **Node and consensus.** `paxd` is built from [`daemon/paxd`](daemon/paxd/), with the application in [`node/`](node/), BFT consensus in [`consensus/`](consensus/), state machine modules in [`modules/`](modules/) and JSON-RPC servers in [`rpc/`](rpc/).
 - **Kernel and programs.** The C17 kernel in `src/` and `include/` runs inside `paxd` through [`modules/lxphost`](modules/lxphost/). The node links `build/liblayerx.a` and the programs sandbox from [`programs/`](programs/). [`node/sequencer`](node/sequencer/) supplies execution ordering and the consensus block source within the node.
 
-A receipt is final once its block is committed. A signed execution receipt can arrive before that commitment; [`pax_sequencerReceipt`](rpc/sequencer_receipt.go) distinguishes `submitted`, `receipted` and `committed`. See [committed block evidence](docs/site/docs/concepts/checkpoints.md) for verification.
+A receipt is final once its block is committed. A signed execution receipt can arrive before that commitment; [`pax_sequencerReceipt`](rpc/sequencer_receipt.go) distinguishes `submitted`, `receipted` and `committed`. See [committed block evidence](docs/site/docs/concepts/checkpoints.md) for verification. There is no separate kernel daemon, sequencer service or checkpoint deployment. External checkpoint settlement is retired.
 
 Sub-chains are tenant domains stored in the database, managed by [`modules/layerxchains`](modules/layerxchains/). Creating a domain namespaces state within the shared network and does not require new node infrastructure.
 
 The monorepo also includes the agent daemon and MCP server, interop gateway and bridge relayer, hosted developer platform, human control plane, embedded wallet service, explorer and launchpad services. Applications include the Hyperpax perps frontend, wallet, web app, explorer and launchpad web and mobile apps.
 
-### Architecture
-
-| Component | Runtime boundary and source |
-| --- | --- |
-| Paxeer node | [`daemon/paxd`](daemon/paxd/) runs the application in [`node/`](node/) and the BFT network in [`consensus/`](consensus/); mainnet-beta has EVM chain ID **125** (`0x7d`) and consensus chain ID `hyperpax_125-1` |
-| Embedded kernel and proposer | [`modules/lxphost`](modules/lxphost/) links the C17 kernel and Programs sandbox into `paxd`; [`node/sequencer`](node/sequencer/) orders execution and supplies blocks inside the node |
-| Native state and finality | [`modules/`](modules/) and [`precompiles/`](precompiles/) expose application state; BFT block commit establishes receipt finality, including tenant domains in [`modules/layerxchains`](modules/layerxchains/) |
-| Public node RPC | [`rpc/`](rpc/) serves the node method contracts at root URLs; public endpoint configuration and the chain-ID check are [below](#documentation) |
-| Hosted gateway | [`services/platform/hosted/gateway`](services/platform/hosted/gateway/) exposes its operator-hosted `px_*` contract and relays admitted signed transactions and node reads; its origin, credentials and readiness are configured separately |
+### Integrated network topology
 
 ```mermaid
-flowchart TB
-  Client["Applications, wallets and agents"]
-  Gateway["Optional hosted gateway: operator origin, POST /, px_* APIs"]
-  Client -->|"Public node root JSON-RPC"| RPC
-  Client -->|"Hosted service requests"| Gateway
-  Gateway -->|"Signed transaction relay and node reads"| RPC
-  subgraph Node["paxd: one BFT network, EVM chain ID 125"]
-    RPC["Node RPC: eth_*, net_*, pax_* and configured methods"]
-    Kernel["Embedded LayerX kernel: modules/lxphost and node/sequencer"]
-    Commit["BFT block commit: receipt finality"]
-    State["Committed native state and tenant domains"]
-    RPC -->|"Transaction admission"| Kernel
-    Kernel -->|"Proposal and deterministic execution"| Commit
-    Commit --> State
-    State -->|"Committed reads and receipt evidence"| RPC
-  end
+flowchart LR
+    Client[Wallet, SDK or application] -->|Signed EVM transaction / root JSON-RPC| RPC
+    Hosted[Optional hosted developer gateway] -->|Chain RPC and committed state| RPC
+    subgraph Network[One Paxeer BFT network / EVM chain 125]
+        subgraph Node[paxd]
+            RPC[Node JSON-RPC]
+            Order[Integrated sequencing and block proposal]
+            Host[Embedded C17 kernel and Rust programs host]
+            Native[Native bank, ledger, payments, authority and programs]
+            RPC --> Order --> Host --> Native
+        end
+        Order -->|Proposed block in execution order| Validators[BFT validators]
+        Validators -->|Commit| State[Committed block and chain state]
+    end
+    State -->|Transaction receipts, logs and proofs| Client
 ```
 
-The gateway is an application service outside the node; it does not add a consensus or settlement step. Its `px_*` contract does not establish availability on every public node. Hosted deployment inputs are described by [`services/platform/hosted/node/native_runtime.py`](services/platform/hosted/node/native_runtime.py) and [`deployment.yaml`](services/platform/hosted/node/deployment.yaml); checked-in deployment files alone do not certify a running service or published image.
-
-#### Historical model (retired)
-
-Before the merge, `layerxd` ran as a separate kernel/LNI sequencer and published checkpoints to `layerxAnchor` (`0x1014`). That standalone daemon, unified LayerX router, checkpoint settlement and provider/guarantor finality topology are retired. They describe archived deployments, not additional processes or settlement instructions for the merged network.
+The public API reaches the node directly: there is no router and no separate LayerX interface. The hosted gateway is optional developer tooling with its own declared contract; it is outside consensus and does not provide another execution or finality domain. Full and archive nodes serve committed history. A configured standby follows the integrated node's durable WAL for recovery; restart and recovery belong to the node lifecycle, without an external settlement service. See the [sequencing implementation](node/sequencer/) and [consensus block source](node/sequencer/consensus_source.go).
 
 ## Documentation
 
@@ -95,7 +82,9 @@ Before the merge, `layerxd` ran as a separate kernel/LNI sequencer and published
 - For hosted tooling and disposable integration environments, see the [hosted quickstart](docs/wiki/Quickstart.md). Build the merged node using the [commands below](#build).
 - For protocol references, see [assets](docs/wiki/Assets.md), [committed block evidence](docs/site/docs/concepts/checkpoints.md) and [hosted gateway methods](docs/site/docs/platform/gateway-rpc.md). Hosted payment examples are in the [payment API guide](docs/wiki/PublicAPI.md).
 
-Public node JSON-RPC uses the root URL: `https://api-mainnet-beta.paxeer.network` or the numbered nodes `https://api1.mainnet-beta.paxeer.network` through `https://api14.mainnet-beta.paxeer.network`. The public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test` and `txpool`; method availability depends on node configuration. Confirm the chain ID before signing or broadcasting:
+### Quick start: connect to chain 125
+
+Public node JSON-RPC uses the root URL: `https://api-mainnet-beta.paxeer.network` or the numbered nodes `https://api1.mainnet-beta.paxeer.network` through `https://api14.mainnet-beta.paxeer.network`. Send HTTPS JSON-RPC requests to the root path of these hosts, without a route suffix. Node API families include `debug`, `echo`, `eth`, `net`, `pax` and `txpool`; `test` is restricted to non-live chain IDs. The current [node registrations](rpc/server.go) also include `web3`, `pax2` and native `px_` account/history and receipt-key methods. Method availability depends on node configuration and the queried domain. Confirm the chain ID before signing or broadcasting:
 
 ```sh
 curl --max-time 10 -sS https://api1.mainnet-beta.paxeer.network \
@@ -106,7 +95,63 @@ curl --max-time 10 -sS https://api1.mainnet-beta.paxeer.network \
 
 Configure more than one node and compare `eth_blockNumber` when selecting one near the head. `node.hyperpaxeer.com` is only the hpx library mirror used by build and installation tooling, never a JSON-RPC endpoint.
 
-The hosted gateway's `px_` API is defined by [`services/platform/hosted/gateway/openrpc.json`](services/platform/hosted/gateway/openrpc.json). Obtain its deployment URL and credentials from the operator; the gateway contract does not establish method availability at public node URLs. Mainnet-beta uses real value; hosted funding and private test-environment faucets have their own access policies.
+The hosted gateway's `px_` API is defined by [`services/platform/hosted/gateway/openrpc.json`](services/platform/hosted/gateway/openrpc.json). Obtain its deployment URL and credentials from the operator; the gateway contract does not establish method availability at public node URLs. The prefix alone does not identify the server: for example, `px_getReceiptKeys` is registered by the node, and the gateway relays its governed key ranges. Use each server's declared methods instead of assuming that every hosted method is served by every public node. Mainnet-beta uses real value; hosted funding and private test-environment faucets have their own access policies.
+
+### Submit a transaction and follow its committed receipt
+
+1. Confirm `eth_chainId` returns `0x7d`, fund the sender's gas balance, and use the account nonce from `eth_getTransactionCount`. Sign a secp256k1 EIP-1559 transaction for chain ID `125`, addressed to an EVM contract or a current native precompile. Native ledger, payment, authority and Programs operations use `0x101A`–`0x101D`; Programs payload bytes go to `0x101D`.
+2. Broadcast the signed bytes with `eth_sendRawTransaction` to a public node's root JSON-RPC URL. Its result is a transaction hash. The [send path](rpc/send.go) accepts on the node's integrated sequencing path or forwards to the configured proposing node. Execution produces a signed receipt; [receipt release](node/sequencer/accepter.go) waits for durable WAL acknowledgement. Receipt order is proposal order.
+3. Query `pax_sequencerReceipt` with the transaction hash. `submitted` has no execution receipt yet; `receipted` includes signed execution evidence; `committed` additionally names the block whose `MsgSequenceBatch` covers that sequence. A node serves this locally, forwards to its configured proposing node, or returns the explicit “served by sequencer” error when neither is configured. No separate service endpoint is required.
+4. Wait for `committed` and authenticate the block commitment before treating the result as final. Read `eth_getTransactionReceipt` for the committed EVM result and inspect its status and logs: commitment does not mean execution succeeded. Read native precompile views with `eth_call` at an explicit committed height and balances from committed state. For independent trust, verify the signed receipt and committed proofs as described below.
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Node as Public node / root JSON-RPC
+    participant Kernel as Integrated paxd proposer and kernel
+    participant BFT as BFT validators
+    Client->>Node: eth_sendRawTransaction(signed chain-125 bytes)
+    Node->>Kernel: Accept or forward transaction
+    Kernel->>Kernel: Execute, sign receipt, durably acknowledge WAL
+    Kernel-->>Node: Release signed execution receipt
+    Node-->>Client: Transaction hash
+    Client->>Node: pax_sequencerReceipt(hash)
+    Node-->>Client: receipted (execution evidence)
+    Kernel->>BFT: Propose MsgSequenceBatch in receipt order
+    BFT->>BFT: Commit block
+    Client->>Node: pax_sequencerReceipt(hash)
+    Node-->>Client: committed, blockNumber, blockHash
+    Client->>Node: eth_getTransactionReceipt / eth_call at committed height
+    Node-->>Client: Committed status, logs and native state
+```
+
+### Accounts and native funding
+
+An EVM address uses a secp256k1 key; a LayerX DID is `did:layerx:<64 lowercase hex characters of the Ed25519 public key>`. Bind them through the [`addr` precompile](precompiles/addr/abi.json) at `0x1004`: read `layerXBindNonce(address)`, sign the following bytes with the Ed25519 key, and submit `bindLayerX(bytes32,bytes)` from the EVM address:
+
+```text
+"LX:PAXEER-BIND:v1" || chainId:uint256be || evmAddress:20 || nonce:uint64be
+```
+
+The EVM transaction supplies the address owner's consent; the 64-byte Ed25519 signature supplies the DID's consent. After commit, confirm the binding with `getLayerXDid(address)` and `getUnifiedAccount(address)`. Binding does not fund an account. The [one-account guide](docs/site/docs/concepts/one-account.md) retains mnemonic derivation, external-wallet EIP-712/HKDF-SHA256 derivation and recovery details; preserve the original derivation context when recovering an identity.
+
+Native sub-accounts map to derived bank addresses inside the node; see [`modules/lxphost/accountmap.go`](modules/lxphost/accountmap.go). For each registered Asset, the bound owner opens a per-asset account at the [`layerxledger` precompile](precompiles/layerxledger/abi.json), `0x101A`. Its funding and balance calls are:
+
+| Operation | ABI method |
+| --- | --- |
+| Open the caller's per-asset account | `openAccount(bytes32)` |
+| Derive an account ID from the DID public key and Asset ID | `accountId(bytes32,bytes32)` |
+| Fund an opened account by authorized issuer mint | `mint(bytes32,bytes32,uint128)` |
+| Transfer from a funded account owned by the bound caller | `payExact(bytes32,bytes32,bytes32,uint128,uint64,bytes32)` |
+| Read the committed per-asset balance | `balanceOf(bytes32,bytes32)` |
+
+Account ID derivation alone does not open or fund an account. Submit ledger writes as signed EVM transactions for chain ID `125` with zero EVM `value`; these methods are nonpayable. `payExact` takes an expiry in Unix milliseconds and a payment reference. Wait for commit and read `balanceOf` to confirm funding. Fund the EVM address's native gas balance separately and read it with `eth_getBalance(address,"latest")`. The custody deposit and credit-attestation funding flow is retired. See the [Payments Quickstart](docs/wiki/PaymentsQuickstart.md) for the complete transaction sequence.
+
+### Receipt and proof verification
+
+The node produces signed ProtocolReceipt v2 bytes through [`node/sequencer/receipt.go`](node/sequencer/receipt.go). Its [Ed25519 receipt key](node/sequencer/receiptkey.go) is separate from the validator consensus key and must be pinned for the receipt height. Verify canonical receipt bytes and their signature using [`layerxproof/verify/receipt.go`](layerxproof/verify/receipt.go); a public key supplied beside an untrusted receipt does not establish trust. A valid signature proves execution evidence, while the `committed` rung requires coverage by the committed block's `MsgSequenceBatch`.
+
+For independent committed proofs, authenticate the block header and CometBFT commit against trusted validator information, then verify transaction or state inclusion against the authenticated root at the relevant height and key. The [chain proof verifier](programs/crates/layerx-programs-registry/src/chain_proof/) implements those checks. Neither a transaction hash nor a signed execution receipt alone establishes block commitment; the [committed block evidence guide](docs/site/docs/concepts/checkpoints.md) explains the current proof model.
 
 ### Client SDKs
 
@@ -124,7 +169,7 @@ The agent daemon is `services/agent/crates/layerx-agentd` and the MCP server is 
 
 ## Specification
 
-Detailed feature specifications live in [`spec/`](spec/). Each feature’s `spec.kvx` defines its requirements, acceptance criteria and dependency-ordered task list. The [specification workflow](spec/workflow.kvx) describes how work is planned and tracked. `spec/specgen` runs `tools/specgen` to generate agent instruction files, including `CLAUDE.md` and `AGENTS.md`.
+This README is the maintained architecture entry point; translated and archived pages must be read against this network model. Detailed feature specifications live in [`spec/`](spec/). Each feature’s `spec.kvx` defines its requirements, acceptance criteria and dependency-ordered task list. The [specification workflow](spec/workflow.kvx) describes how work is planned and tracked. `spec/specgen` runs `tools/specgen` to generate agent instruction files, including `CLAUDE.md` and `AGENTS.md`.
 
 The [LayerX merge specification](spec/layerx-merge/spec.kvx) tracks the integrated network's requirements and implementation tasks. Runtime behavior is implemented in the node, kernel host and native modules; activation is controlled by the upgrade handlers in [`node/upgrades.go`](node/upgrades.go). The [monorepo layout specification](spec/monorepo-layout/spec.kvx) describes the target repository structure.
 
@@ -154,7 +199,9 @@ The base set includes `bank`, `wasmd`, `json`, `addr`, `staking`, `gov`, `distri
 
 The `v6.12.0` set built by `v6120Contracts` in [`node/app.go`](node/app.go) serves `perps` at `0x1015` in place of the earlier `layerxExchange`, the second-generation `launchpad` at `0x1017`, `pricefeed` at `0x1020`, and `spot_pecor`, `spot_orders`, `spot_stoporders`, `spot_quoter` and `spot_vault` at `0x1021`–`0x1025`. Constructor and ABI inventories include historical versions; select the interface for the upgrade active at the queried height.
 
-The pre-merge `layerxVerify` (`0x1012`) and `layerxCustody` (`0x1013`) interfaces are retired at the merge. `layerxAnchor` (`0x1014`) rejects writes after the merge; its remaining historical views retire at `v7.0-anchor-store-delete`. See the retirement gates in [`precompiles/layerxverify`](precompiles/layerxverify/), [`precompiles/layerxcustody`](precompiles/layerxcustody/) and [`precompiles/layerxanchor`](precompiles/layerxanchor/). These historical interfaces do not provide current funding or finality paths.
+The pre-merge `layerxVerify` (`0x1012`) and `layerxCustody` (`0x1013`) interfaces are retired at the merge. `layerxAnchor` (`0x1014`) rejects writes after the merge; its remaining historical views retire at `v7.0-anchor-store-delete`. See the retirement gates in [`precompiles/layerxverify`](precompiles/layerxverify/), [`precompiles/layerxcustody`](precompiles/layerxcustody/) and [`precompiles/layerxanchor`](precompiles/layerxanchor/). These are retired refusal surfaces retained for compatibility, not active funding or checkpoint executors. They return retirement errors (including `LXP_MODULE_DISABLED`) at their applicable upgrade gates. Historical anchor reads before store deletion are archive-only; they do not provide current funding or finality paths. The external native bridge at `0x1016` remains distinct from retired kernel custody: outward transfers use its native `bridgeOut` interface.
+
+The retained [batch-header codec](layerxproof/codec/batch.go) and [archived settlement witness formats](docs/site/docs/operators/settlement-evidence.md) support historical interpretation. External checkpoint registration, guarantor attestations and the L0–L4 settlement ladder are retired; archived formats add no settlement step to current block finality.
 
 ## Community
 
@@ -212,19 +259,14 @@ make paxd-build        # build/paxd, linked native libraries and release version
 
 `paxd-build` builds `build/liblayerx.a` and `programs/target/release/liblayerx_programs_sandbox.a` before invoking `chain.mk`. It stamps the version from [`tools/release/version.json`](tools/release/version.json). `make paxeer-build` and `make -f chain.mk build` also build the linked native prerequisites and produce `build/paxd`, using the chain makefile's version defaults.
 
-To run a prepared proposing node, use the integrated node flags used by [`start_native`](services/platform/hosted/node/native_runtime.py). Replace the example paths with an operator-provisioned node home and a protected receipt key file. The home must already contain the authoritative genesis, peer/application configuration and validator keys; for mainnet-beta, verify consensus chain ID `hyperpax_125-1` and EVM chain ID `125`. The receipt public key must be pinned in `app_state.sequencer.receipt_keys` in genesis, and the separate receipt seed file must have owner-only permissions. This example does not bootstrap or fund a network.
+For an operator-provisioned, initialized node home containing the network genesis and configuration, the runtime command is:
 
 ```sh
-./build/paxd validate-genesis --home /path/to/prepared-node
-./build/paxd start --home /path/to/prepared-node \
-  --rpc.laddr tcp://127.0.0.1:26657 \
-  --evm.http_enabled true --evm.http_address 127.0.0.1 --evm.http_port 8545 \
-  --sequencer.enable true \
-  --sequencer.wal-dir /path/to/prepared-node/sequencer-wal \
-  --sequencer.receipt-key-file /path/to/protected-receipt.key
+./build/paxd version
+./build/paxd start --home "$PAXD_HOME"
 ```
 
-The `--sequencer.*` flags configure the embedded node role. Keep the node home, validator signing state and receipt WAL across restarts. Startup must reach committed readiness; an open RPC port or a signed receipt alone does not establish finality. Hosted lifecycle management uses the native runtime and its deployment configuration linked above; a normal node restart reuses its prepared state.
+Set `PAXD_HOME` to that node home. Use the operator-provided genesis and consensus chain identifier; EVM chain ID `125` is the signing domain. [Node upgrade handlers](node/upgrades.go) control activation, and the [sequencing configuration](node/sequencer/config.go) controls the integrated proposer and standby. Building the binary alone does not provision network membership. Explorer operators use [`services/explorer`](services/explorer/); application clients can use the public quick start above without running a node.
 
 For kernel library and development tools without rebuilding the node:
 

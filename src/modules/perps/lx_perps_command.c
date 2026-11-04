@@ -1,6 +1,7 @@
 #include "layerx/lx_perps.h"
 
 #include "lx_perps_codec.h"
+#include "lx_perps_internal.h"
 
 #include "layerx/lx_oracle.h"
 #include "layerx/lxp_crypto.h"
@@ -107,6 +108,18 @@ lxp_result lx_perps_oracle_command_decode(const uint8_t *bytes, size_t length,
     return canonical_length == length &&
            memcmp(canonical, bytes, length) == 0 ? LXP_OK :
                                                    LXP_ERR_NON_CANONICAL;
+}
+
+lxp_result lx_perps_oracle_transport_encode(const lx_perps_oracle_command *command,
+    uint8_t bytes[LX_ORACLE_TRANSPORT_BYTES])
+{
+    lxp_result status;
+    if (command == NULL || bytes == NULL) return LXP_ERR_NON_CANONICAL;
+    status = lx_perps_oracle_command_encode(command, bytes + 1U);
+    if (status != LXP_OK) return status;
+    bytes[0] = LX_ORACLE_TRANSPORT_VERSION;
+    (void)memcpy(bytes + 73U, command->signature, 64U);
+    return LXP_OK;
 }
 
 lxp_result lx_perps_oracle_transport_decode(const uint8_t *bytes, size_t length,
@@ -319,7 +332,6 @@ lxp_result lx_perps_increase_command_encode(
     if (command == NULL || bytes == NULL ||
         lxp_ct_is_zero(command->market_id, 32U) ||
         lxp_ct_is_zero(command->position_id, 32U) ||
-        lxp_u128_is_zero(command->size_delta) ||
         !lxp_u128_is_zero(command->notional_delta) ||
         lxp_u128_is_zero(command->margin_amount))
         return LXP_ERR_NON_CANONICAL;
@@ -350,7 +362,6 @@ lxp_result lx_perps_increase_command_decode(
     if (status != LXP_OK) return status;
     return lxp_ct_is_zero(command->market_id, 32U) ||
            lxp_ct_is_zero(command->position_id, 32U) ||
-           lxp_u128_is_zero(command->size_delta) ||
            !lxp_u128_is_zero(command->notional_delta) ||
            lxp_u128_is_zero(command->margin_amount) ?
         LXP_ERR_NON_CANONICAL : LXP_OK;

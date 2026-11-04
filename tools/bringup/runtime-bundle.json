@@ -16,6 +16,7 @@
     "daemon",
     "engine",
     "interchain",
+    "layerxproof",
     "modules",
     "node",
     "precompiles",
@@ -40,7 +41,11 @@
     "contracts",
     "migrations",
     "tools/bringup",
-    "services"
+    "services",
+    "tools",
+    "docs",
+    "tests",
+    "spec/layerx-merge/contracts/address-table.md"
   ],
   "libraries": [
     "wasm-runtime/internal/api/libwasmvm.x86_64.so",

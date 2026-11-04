@@ -1,0 +1,43 @@
+[task]
+id = "22.33.1289"
+audit = "22.30.66"
+requirement = "22998.1"
+status = "implementation-ready; qualification is owned by hf-build and hf-done"
+baseline = "No baseline test result claimed: the explicit gate order prohibits tests before implementation and direct verify_cmd runs, and no earlier gate ledger exists."
+evidence = "The runner records the exact candidate revision, command, exit and private log in its gate ledger; the final response copies the last gate record."
+
+[finding.governance-documentation]
+test = "TestRepairM_1289_Governance"
+repair = "Preserve the existing corrected ten-kind policy and commands; link executable proof of node selection, registered CLI-generated proposal content, keeper dispatch, pinning and privileged sudo. Clarify the node helper's caller contract."
+
+[finding.ibc-documentation]
+test = "TestRepairM_1289_IBC"
+repair = "Preserve the implemented capability and callback documentation; add a native IBC3 contract example and prove port binding, version refusal, callback acknowledgement transport, capabilities, persisted contract state and native execution after store and VM reopen."
+
+[finding.genesis-validator-lifecycle]
+test = "TestRepairM_1289_GenesisValidatorLifecycle"
+repair = "One decoder error owner drains the incoming stream and joins one validator result; decode failures take precedence over validation of partial state. Repeated malformed, failed and early-close streams assert stable errors and producer and validator termination."
+
+[finding.simulation-config-type]
+test = "TestRepairM_1289_SimulationConfigType"
+repair = "Require a quoted positive base-10 uint64; reject unsupported option types and invalid values including zero. Unset and empty retain the existing block-gas fallback. Render the node template, parse TOML with the real option reader and exercise the resulting production gas meter."
+
+[wiring.node-config-test]
+request = "daemon/paxd/cmd/app_config_test.go (node CLI domain): split the cache-disabled case from simulation_gas_limit=0 and assert the new zero configuration error instead of expecting an unusable zero simulation bound."
+
+[wiring.node-startup]
+request = "daemon/paxd/cmd/root.go (node CLI domain): if build overrides must restrict normal startup, pass node.GetWasmEnabledProposals() instead of wasm.EnableAllProposals; the current caller difference remains documented."
+
+[gotcha.baseline-order]
+observed = "The task's unchanged-tree baseline request conflicts with the explicit implementation-then-gates order and the one-run verification budget; no baseline was run."
+
+[gotcha.scope]
+observed = "Root GOTCHA.kvx and spec task records are outside the explicit edit scope; task notes and wiring requests are retained in this scoped record."
+
+[qualification.first-verify]
+revision = "59f7f21cd3f1703c815f1732b9740dabcd57cabc"
+command = "cg spec done 22.33.1289 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; compiler detail /tmp/repair-m1289.log"
+observed = "Test compilation refused the unaliased node package reference and keeper.SupportedFeatures, which exists only in that package's own test compilation; no tests executed."
+repair = "Alias the app package as node, provide the fixture's explicit native features and use the real in-memory keyring for offline proposal generation."

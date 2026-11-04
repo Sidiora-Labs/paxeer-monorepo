@@ -193,6 +193,22 @@ impl NativeResultSource {
         Ok((transaction, proof))
     }
 
+    /// Returns the complete deterministic result leaves. The caller authenticates their
+    /// Merkle root against the successor commit, including the empty tree.
+    pub fn all_results(&self, height: u64) -> Result<Vec<Vec<u8>>, CheckpointReadError> {
+        let response = self.rpc("block_results", json!({"height": height.to_string()}))?;
+        if response["height"].as_str() != Some(height.to_string().as_str()) {
+            return Err(CheckpointReadError::TargetMismatch);
+        }
+        let rows = response["txs_results"]
+            .as_array()
+            .ok_or(CheckpointReadError::InvalidProof)?;
+        if rows.len() > 4096 {
+            return Err(CheckpointReadError::Arithmetic);
+        }
+        rows.iter().map(result_bytes).collect()
+    }
+
     pub fn acquire(&self, height: u64, index: u64) -> Result<AbciResultProof, CheckpointReadError> {
         if height == 0 || height > i64::MAX as u64 {
             return Err(CheckpointReadError::TargetMismatch);

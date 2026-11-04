@@ -1032,7 +1032,7 @@
           "type": "object"
         }
       },
-      "description": "Resolves one account across both domains. The argument is either a 0x-prefixed 20-byte EVM address or an explicit LayerX DID (did:layerx:<64 hex>). The result is {evm_address, pax_address, layerx_did, layerx_account, bound}: every field comes from the addr precompile's getUnifiedAccount/getEvmAddrByLayerX, the halves that are not bound are null, and bound is false when the EVM address carries no LayerX DID. A bare 64-hex native account identifier is refused with -32001 and data.code=native_account_reverse_resolution_unsupported; it is never reinterpreted as a DID public key. Retain the original EVM/DID lookup selector for repeated account, balance and history reads; layerx_account is a separate native reference. Conflicting forward/reverse joins refuse with data.code=conflicting_identity_binding. An unconfigured Paxeer endpoint is -32001 with data.code=paxeer_rpc_not_configured.",
+      "description": "Resolves EVM address and LayerX DID aliases for one account on the merged Paxeer network (chain 125). These lookup selectors do not identify separate running execution networks. The argument is either a 0x-prefixed 20-byte EVM address or an explicit LayerX DID (did:layerx:<64 hex>). The result is {evm_address, pax_address, layerx_did, layerx_account, bound}: every field comes from the addr precompile's getUnifiedAccount/getEvmAddrByLayerX, the halves that are not bound are null, and bound is false when the EVM address carries no LayerX DID. A bare 64-hex native account identifier is refused with -32001 and data.code=native_account_reverse_resolution_unsupported; it is never reinterpreted as a DID public key. Retain the original EVM/DID lookup selector for repeated account, balance and history reads; layerx_account is a separate native reference. Conflicting forward/reverse joins refuse with data.code=conflicting_identity_binding. An unconfigured Paxeer endpoint is -32001 with data.code=paxeer_rpc_not_configured.",
       "errors": [
         {
           "code": -32602,
@@ -2426,7 +2426,11 @@
             "chain_id",
             "services",
             "routes",
-            "readiness"
+            "readiness",
+            "canonical_origin",
+            "rpc_paths",
+            "node_rpc",
+            "hosted_gateway"
           ],
           "properties": {
             "schema": {
@@ -2451,22 +2455,41 @@
               "type": "object"
             },
             "canonical_origin": {
-              "const": "https://api-mainnet-beta.paxeer.network"
+              "const": "https://api-mainnet-beta.paxeer.network",
+              "description": "Public root-node origin; this does not locate the hosted gateway."
             },
             "rpc_paths": {
               "type": "array",
+              "const": [
+                "/"
+              ],
               "items": {
                 "type": "string",
-                "enum": [
-                  "/",
-                  "/rpc"
-                ]
+                "const": "/"
               }
+            },
+            "node_rpc": {
+              "type": "object",
+              "const": {
+                "origin": "https://api-mainnet-beta.paxeer.network",
+                "rpc_path": "/",
+                "chain_id": 125
+              },
+              "description": "Chain 125 node JSON-RPC is served at this origin and root path."
+            },
+            "hosted_gateway": {
+              "type": "object",
+              "const": {
+                "location_source": "operator-provided",
+                "rpc_path": "/",
+                "catalogue_path": "/v1/routes"
+              },
+              "description": "Obtain hosted gateway coordinates and credentials from its operator. These paths are relative to that gateway, not node_rpc.origin; px_* availability at public node URLs is not implied."
             }
           }
         }
       },
-      "description": "Returns the unified-origin route catalogue and dependency readiness. Readiness reports dependency health and identity checks; route entries describe request contracts and do not establish successful end-to-end feature execution."
+      "description": "Returns the authenticated route catalogue for the merged Paxeer network (chain 125), with separate node_rpc and hosted_gateway locations. Public node JSON-RPC uses the root path; hosted px_* JSON-RPC uses POST / at operator-provided gateway coordinates, and authenticated HTTP discovery uses GET /v1/routes there. The unified /rpc interface and its subtree are retired and omitted from discovery. Readiness reports dependency health and identity checks; route entries describe request contracts and do not establish successful end-to-end feature execution or hosted API deployment at public node URLs."
     }
   ]
 }

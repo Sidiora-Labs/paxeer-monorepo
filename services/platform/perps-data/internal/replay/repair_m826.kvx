@@ -1,0 +1,40 @@
+[task.22.33.826]
+audit = "22.30.18"
+mode = "BUILD"
+status = "implemented; attempt-3 qualification uses the merged 22.33.827 dependency and requires passing same-revision hf-build and hf-done evidence"
+baseline = "Attempt 1 failed CorrectedSpotDryRun, RemovedSpotDryRun, ReplacementOwnerDryRun and FollowerRecoveryReopen in setup after unsetting PERPS_DATA_TEST_DATABASE_URL. This continuation retains that implementation and follows the attempt-2 ruling and gotcha 2980; no additional unchanged-tree verification is claimed. The current runner ledger was absent at session start."
+evidence = "The private runner ledger /out/run/gates.jsonl records the exact candidate revision, command, exit code and log; the final response copies the last bounded gate evidence."
+scope = "Only internal/replay is changed; the runner-prepared .cgignore and spec status are retained without edits. No commit or push is performed."
+
+[finding.3]
+tests = ["TestRepairM_826_ProjectionInventory", "TestRepairM_826_CorrectedSpotDryRun", "TestRepairM_826_RemovedSpotDryRun", "TestRepairM_826_ReplacementOwnerDryRun"]
+repair = "Snapshot affected spot_account_legs and the complete spot_leaderboard; union original and replacement owners before rebuilding, preserve prior replacement-owner legs, and pass pre-delete CaptureRecovery keys into Rebuild. Report counts are compared to the symmetric row difference after a real replay, including deleted-only traders and untouched traders whose global ranks move. Dry runs retain the complete database dump and all HTTP board values across closing and reopening the database connection."
+closure = "The listed tests assert the real dry-run, committed replay and HTTP board reader results; closure requires their passing hf-done evidence in the private runner ledger."
+
+[finding.4]
+tests = ["TestRepairM_826_CorrectedSpotDryRun", "TestRepairM_826_RemovedSpotDryRun", "TestRepairM_826_ReplacementOwnerDryRun", "TestRepairM_826_FollowerRecoveryReopen"]
+repair = "Use an independent expectedProjectionTables inventory in replay_test.go; retain existing assertions and extend scoped snapshot checks for spot legs and the global board. ABI-encoded spot and perpetual events flow through the production registry and WriteBlock. Compare every projection with a fresh public write-path fold and all three boards through the real HTTP readers after reopening. Drive the real follower rewind with committed loopback RPC/Comet exchanges, carrying deleted accounts, markets and fork time to Rebuild, then check the restored pre-fork position and boards after reopening."
+closure = "The listed tests assert all projections and surviving positions after closing and reopening real PostgreSQL connections, including follower recovery; closure requires their passing hf-done evidence in the private runner ledger."
+
+[storage.fixture]
+isolation = "Open PERPS_DATA_TEST_DATABASE_URL without unsetting it; create a cryptographically unique database per fold and migrate its own perps schema using production store.Migrate. Production SQL explicitly qualifies perps, so database isolation follows the completed store repair_21_test.go fixture and avoids shared-schema truncation or SQL rewriting. Reopen using the isolated database URL and remove only that database during cleanup."
+wiring = "Domain 3 (perps-data), services/platform/perps-data/internal/decode/spot.go: align shareEvents with the deployed precompiles/spot/abi/share.json contract; production NewRegistry currently refuses every fixture with 2 ABI events versus 3 registered decoders. The prior service-free fixture request is superseded by the attempt-2 ruling."
+resolved = "The attempt-3 starting head 3ca77fb32 includes dependency 22.33.827 via merge 37ee773949340e35544102c1c728fb581ee4a65b; shareEvents now declares exactly Transfer and Approval, matching the producer ABI. No out-of-path change is made by this task."
+
+[continuation.attempt3]
+baseline = "Preserve the four applied replay repair files and their assertions. The attempt-2 failure below is historical; the dependency resolving that failure is now merged, and PERPS_DATA_TEST_DATABASE_URL is supplied. The current runner ledger is absent before qualification."
+qualification = "Run the declared build and focused verify through hf-build and hf-done once, with task-scoped repairs only if needed. The final response and private /out/run/gates.jsonl record the exact verified revision, command, exit code and log; do not edit the candidate after a passing hf-done."
+
+[qualification.constraints]
+real_store = "Gotcha 2980 and the attempt-2 ruling override the generic no-environment clause for perps-data. The focused proofs use the supplied PostgreSQL store and committed loopback node transcripts; missing PERPS_DATA_TEST_DATABASE_URL fails by name."
+baseline_order = "The task's baseline instruction conflicts with its explicit gate order and single initial verify budget; implementation-first gate order is followed."
+gotcha = "Replacement logs must have fresh source positions because published outbox identities are immutable; replacement-owner legs must be captured before Rebuild even when the owner did not occur in the old range."
+tooling = "Unscoped cg brief, next and review consult a stale graph selecting another task; the declared hf-done gate targets 22.33.826 explicitly. No other task is started or changed."
+
+[qualification.upstream_decode]
+revision = "57d091c459b5843f527d2495ee86c5947e74a0a0"
+command = "cg spec done 22.33.826 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log (full focused output: /tmp/repair-m826.log; passing build: /out/logs/build-1.log)"
+observed = "ProjectionInventory passes; all four integration cases complete PostgreSQL setup and fail constructing production decode.NewRegistry with: decode: share pointers declare 2 events, 3 decoders."
+assumption = "The unchanged decoder/ABI mismatch is pre-existing and outside internal/replay; no assertion is weakened, no alternate decoder is substituted, and the recorded failure is not rerun. Only this qualification record changed after the gates."

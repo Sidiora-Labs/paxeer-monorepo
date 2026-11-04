@@ -18,7 +18,7 @@ class HTTPFailure(RuntimeError):
 
 
 class HTTP:
-    def __init__(self, base, application_origin, *, ca_file=None, owned_local=False, timeout=3, max_bytes=1048576):
+    def __init__(self, base, application_origin, *, ca_file=None, owned_local=False, timeout=3, max_bytes=1048576, authority=None):
         self.url = origin(base, ("https", "http") if owned_local else ("https",))
         if self.url.scheme == "http" and self.url.hostname not in ("127.0.0.1", "::1", "localhost"):
             raise ValueError("plain HTTP confined to owned loopback")
@@ -26,6 +26,7 @@ class HTTP:
         if not 0 < timeout <= 10 or not 1 <= max_bytes <= 1048576:
             raise ValueError("bounded transport required")
         self.application_origin = application_origin
+        self.authority = authority
         self.context = ssl.create_default_context(cafile=ca_file)
         self.timeout, self.max_bytes = timeout, max_bytes
 
@@ -71,7 +72,7 @@ class HTTP:
                 code = value.get("code", "UNEXPECTED_STATUS") if isinstance(value, dict) else "UNEXPECTED_STATUS"
                 raise HTTPFailure(response.status, str(code)[:80])
             if schema:
-                validate_v2(schema, value)
+                validate_v2(schema, value, self.authority)
             return value
         finally:
             connection.close()

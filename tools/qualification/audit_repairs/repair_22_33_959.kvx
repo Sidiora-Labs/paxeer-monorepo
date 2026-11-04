@@ -1,0 +1,41 @@
+[task.22.33.959]
+base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
+checkout_revision = "56473aac5d40028d45d7cebb2cb508d73366c852"
+repair = "Qualify readme-two-domains against the root README already rewritten by owning task 22.31.470 under decision 2525; add focused regression proofs and this finding-to-test record without changing README.md or any other production file."
+source_proof = "Read the actual README and production sources offline. Assert one chain-125 BFT network, embedded block-proposing paxd kernel, committed-block finality, integrated diagrams, api1 through api14 HTTPS root JSON-RPC and the parsed curl JSON chain probe. Trace source connections from SendRawTransaction through local acceptance or forwarding, WAL acknowledgement before receipt publication, and committed MsgSequenceBatch coverage. Check retired custody/verification/anchor source guards, historical settlement labels, native-library Makefile dependencies and the paxd build/start commands. Reject the audited two-domain, separate-daemon, draft-merge and routed-RPC guidance."
+review_only = "This documentation gate does not execute Go/C/Rust builds, paxd startup, transactions, WAL recovery, signature verification, BFT consensus or live RPC requests. Producer, transport and consumer links are source assertions, not runtime certification. No stateful or interface implementation changes, so no restart-recovery or interface-mismatch runtime proof is claimed. No shell script, unit or manifest is changed; shell examples are tokenized and JSON is parsed in-process, without subprocesses, external binaries, environment variables, credentials, endpoints, native artifacts or devices."
+baseline = "Initial Git status/diff showed only existing runner changes to .cgignore and spec task bookkeeping, with no scoped implementation. gate.json recorded zero builds and verifies and gates.jsonl was absent. No pre-change verification ran and no baseline test failures are claimed: the explicit implementation-first order and exclusive hf-done gate supersede the contradictory older baseline instruction. README.md already contains the owning task's corrections and remains unchanged throughout this task."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_959.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private gate ledger record the exact verified content-derived candidate revision, command, exit code and log path. Build and verify must pass on that same candidate revision. This record is finalized before qualification; embedding its own candidate revision would change the candidate. The runner retains the exact evidence and publishes the result; no manual commit or push is performed."
+wiring_requests = []
+
+[finding.readme-two-domains]
+audit = "22.30.28"
+file = "README.md"
+line = 45
+class = "doc-drift"
+severity = "medium"
+owner_domain = 1
+expected = "A single chain 125 BFT network with integrated kernel execution, committed-block finality, root-path node RPC and integrated paxd run guidance; separate daemon and external checkpoint settlement instructions retired."
+tests = ["test_readme_two_domains_integrated_paxd_and_bft_finality", "test_readme_two_domains_root_rpc_hosts_and_chain_probe", "test_readme_two_domains_transaction_to_committed_receipt_path", "test_readme_two_domains_retired_executors_and_historical_settlement", "test_readme_two_domains_build_and_run_guidance_has_no_daemon", "test_readme_two_domains_record_maps_finding_and_proof_limits"]
+
+[wiring.readme]
+path = "README.md"
+owner_domain = 1
+owner_task = "22.31.470"
+request = "Owning domain 1/task 22.31.470 supplies the integrated architecture, root RPC, transaction and committed-receipt flows, retired custody/checkpoint executors and paxd build/run guidance in README.md."
+status = "satisfied"
+observed = "All expected facts are present in the inherited README; no missing-fact wiring request remains. Historical separate-daemon build commands have been removed, retained settlement formats are explicitly historical and retired, and make build is explicitly a kernel-library/development target rather than a network runtime."
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths. After completing implementation, apply repository .editorconfig UTF-8, LF, trailing-whitespace and final-newline conventions only to the two scoped files."
+
+[gotcha.1]
+observed = "The audit step requests a baseline verify before implementation, while the explicit order prohibits testing until implementation is complete and permits verification only through hf-done after hf-build."
+resolution = "Follow the explicit order; record no baseline execution or failure and never run verify_cmd manually."
+
+[gotcha.2]
+observed = "Codify brief reports unrelated cached task/change counts and broad combined context output exceeds the output budget."
+resolution = "Use exact Git status/diff, bounded task and finding sections and the private runner ledger as authority. Keep notes here because GOTCHA.kvx and spec files are outside scope."

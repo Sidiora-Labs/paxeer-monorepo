@@ -22,6 +22,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec"
 	cryptotypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/testutil/network"
+	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	banktypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
 )
 
@@ -81,6 +82,13 @@ func (s *GRPCWebTestSuite) Test_Latest_Validators() {
 }
 
 func (s *GRPCWebTestSuite) Test_Total_Supply() {
+	var genesis banktypes.GenesisState
+	s.Require().NoError(s.cfg.Codec.UnmarshalAsJSON(s.network.Config.GenesisState[banktypes.ModuleName], &genesis))
+	expectedSupply := sdk.NewCoins()
+	for _, balance := range genesis.Balances {
+		expectedSupply = expectedSupply.Add(balance.Coins...)
+	}
+
 	for _, contentType := range []string{grpcWebContentType} {
 		headers, trailers, responses, err := s.makeGrpcRequest(
 			"/cosmos.bank.v1beta1.Query/TotalSupply",
@@ -92,7 +100,8 @@ func (s *GRPCWebTestSuite) Test_Total_Supply() {
 		s.assertTrailerGrpcCode(trailers, codes.OK, "")
 		s.assertContentTypeSet(headers, contentType)
 		var totalSupply banktypes.QueryTotalSupplyResponse
-		_ = s.protoCdc.Unmarshal(responses[0], &totalSupply)
+		s.Require().NoError(s.protoCdc.Unmarshal(responses[0], &totalSupply))
+		s.Require().Equal(expectedSupply, totalSupply.Supply)
 	}
 }
 

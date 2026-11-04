@@ -8,7 +8,7 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
 
 mkdir "$work/certs"
 for i in 1 2 3 4 5; do
-	openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -days 1 \
+	openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -days 1 -addext basicConstraints=critical,CA:FALSE \
 		-subj "/CN=paxeer-attestor-$i" -keyout "$work/certs/attestor-$i.key" -out "$work/certs/attestor-$i.crt" 2>/dev/null
 done
 
@@ -92,12 +92,12 @@ for role in JOURNEY:journeys PAYMENT:payments APPROVAL:approvals PROGRAM:program
 		"$(plain "internal-${role#*:}.railway.env" "INTERNAL_$(printf '%s' "${role#*:}" | tr a-z A-Z)_TOKEN")"
 done
 hex "$(plain internal-kms.railway.env INTERNAL_KMS_SEAL_SECRET)" INTERNAL_KMS_SEAL_SECRET
-same "$(plain identity.railway.env IDENTITY_GATEWAY_TOKEN)" "$(plain gateway.railway.env ENDPOINT_IDENTITY_TOKEN)"
-same "$(plain identity.railway.env IDENTITY_PROVISIONING_TOKEN)" "$(plain gateway.railway.env ENDPOINT_IDENTITY_PROVISIONING_TOKEN)"
-same "$(plain identity.railway.env IDENTITY_WEBHOOKS_TOKEN)" "$(plain webhooks-public.railway.env WEBHOOKS_IDENTITY_TOKEN)"
-same "$(plain identity.railway.env IDENTITY_DASHBOARD_TOKEN)" "$(plain dashboard.railway.env DASHBOARD_IDENTITY_TOKEN)"
-same "$(plain identity.railway.env IDENTITY_RAMP_TOKEN)" "$(plain ramp.railway.env RAMP_IDENTITY_TOKEN)"
-same "$(plain identity.railway.env IDENTITY_REGISTRY_TOKEN)" "$(value paxeer-program-registry.box.env REGISTRY_IDENTITY_TOKEN)"
+same "$(value identity.railway.env IDENTITY_GATEWAY_TOKEN)" "$(plain gateway.railway.env ENDPOINT_IDENTITY_TOKEN)"
+same "$(value identity.railway.env IDENTITY_PROVISIONING_TOKEN)" "$(plain gateway.railway.env ENDPOINT_IDENTITY_PROVISIONING_TOKEN)"
+same "$(value identity.railway.env IDENTITY_WEBHOOKS_TOKEN)" "$(plain webhooks-public.railway.env WEBHOOKS_IDENTITY_TOKEN)"
+same "$(value identity.railway.env IDENTITY_DASHBOARD_TOKEN)" "$(plain dashboard.railway.env DASHBOARD_IDENTITY_TOKEN)"
+same "$(value identity.railway.env IDENTITY_RAMP_TOKEN)" "$(plain ramp.railway.env RAMP_IDENTITY_TOKEN)"
+same "$(value identity.railway.env IDENTITY_REGISTRY_TOKEN)" "$(value paxeer-program-registry.box.env REGISTRY_IDENTITY_TOKEN)"
 # All twenty-five independent surviving capabilities remain distinct.
 capabilities=""
 for spec in \
@@ -123,7 +123,7 @@ for spec in \
 	capabilities+="$v"$'\n'
 done
 for role in GATEWAY REGISTRY WEBHOOKS DASHBOARD FAUCET TESTNET RAMP PROVISIONING REGISTRAR; do
-	v=$(plain identity.railway.env "IDENTITY_${role}_TOKEN")
+	v=$(value identity.railway.env "IDENTITY_${role}_TOKEN")
 	hex "$v" "IDENTITY_${role}_TOKEN"
 	capabilities+="$v"$'\n'
 done
@@ -145,6 +145,17 @@ hex "$(plain gateway.railway.env ENDPOINT_KEY_PROVISIONING_KEY)" "key provisioni
 cmp -s <(plain gateway.railway.env ENDPOINT_MODULE_REGISTRY) "$root/services/interop/deploy/gateway/module-registry.example.json" ||
 	fail "module registry does not round-trip"
 
+# Drive each emitted dotenv through the production closed-schema consumer.
+for service in $services $boxes; do
+    suffix=box
+    case " $services " in *" $service "*) suffix=railway ;; esac
+    "${BRINGUP_INSPECT_BIN:-bringup-inspect}" mint-consume "$service" <"$out/$service.$suffix.env" >/dev/null || fail "$service consumer refused"
+done
+cp "$out/gateway.railway.env" "$work/bad.env"
+printf 'ENDPOINT_AUTHORITY_TOKEN=retired\n' >>"$work/bad.env"
+if "${BRINGUP_INSPECT_BIN:-bringup-inspect}" mint-consume gateway <"$work/bad.env" >/dev/null 2>&1; then fail "foreign authority input accepted"; fi
+sed 's/^ENDPOINT_IDENTITY_TOKEN=.*/ENDPOINT_IDENTITY_TOKEN=malformed/' "$out/gateway.railway.env" >"$work/bad.env"
+if "${BRINGUP_INSPECT_BIN:-bringup-inspect}" mint-consume gateway <"$work/bad.env" >/dev/null 2>&1; then fail "malformed file secret accepted"; fi
 # Each Railway script reads its own dotenv and sets every variable of it on
 # standard input, without a deploy.
 for s in $services; do
@@ -201,6 +212,17 @@ EOF
 		ATTESTOR_QUORUM=3 EXPECTED_PINS="$pins" GATEWAY_SRC="$root/services/wallet/gateway/src" \
 		node_modules/.bin/tsx "$work/check.mts"
 ) || fail "gateway rejected the minted files"
+
+# Invalid producer inputs cannot publish even a partial secret directory.
+cp -a "$work/certs" "$work/bad-certs"
+printf 'malformed certificate\n' >"$work/bad-certs/attestor-1.crt"
+if ATTESTOR_CERT_DIR=$work/bad-certs MODULE_REGISTRY_FILE=$root/services/interop/deploy/gateway/module-registry.example.json \
+    "$root/tools/bringup/mint-secrets.sh" "$work/bad-cert-output" >/dev/null 2>&1; then fail "malformed certificate accepted"; fi
+[ ! -e "$work/bad-cert-output" ] || fail "invalid certificate published output"
+printf '{"schema_version":1}\n' >"$work/bad-modules.json"
+if ATTESTOR_CERT_DIR=$work/certs MODULE_REGISTRY_FILE=$work/bad-modules.json \
+    "$root/tools/bringup/mint-secrets.sh" "$work/bad-module-output" >/dev/null 2>&1; then fail "malformed module registry accepted"; fi
+[ ! -e "$work/bad-module-output" ] || fail "invalid module registry published output"
 
 # A second run into the filled directory is refused.
 if ATTESTOR_CERT_DIR=$work/certs MODULE_REGISTRY_FILE=$root/services/interop/deploy/gateway/module-registry.example.json \

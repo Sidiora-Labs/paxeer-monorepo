@@ -1,0 +1,65 @@
+[repair.22.33.122]
+audit = "22.30.114"
+criterion = "22998.1"
+base_revision = "13d941baae20489831996ea7db5fde01ad1e253d"
+previous_attempt_revision = "267d56c67fbe970b1d16c57b54597e1d24ce991b"
+previous_attempt_result = "The supplied previous-attempt verification failed finding42 with an undefined cache entry instead of balance 2; the other seven proving tests passed. Continue the carried-forward QueryObserver lifetime repair and assert the observer's visible balance before and after an unacknowledged read. Current-candidate qualification is recorded separately by hf-build and hf-done."
+implementation = "Carry validated selected-chain identity and acknowledged bounded cache bypass through the facade and HTTP clients; expose independent bounded history cursors; source SID identity from the root-chain SDK registry; bound FX conversion age; persist scoped committed-event and dated campaign identities; require signed push registration acknowledgment."
+baseline = "Not run: the explicit implementation-first gate order prohibits the pre-change verify requested by step 12 and permits verification only through hf-done after hf-build. No pre-change execution or observed failure is claimed; the new APIs are absent on the base and the tests assert the recorded defective behavior."
+proof = "The declared tests drive production facades, HTTP clients, React reconciliation, currency conversion, notification delivery and push registration. Peers are loopback transcript servers, committed indexer documents, a notification inbox, browser storage, the real ownership verifier and the real durable push store. No transport mocks or live services are used."
+evidence = "The runner records the exact verified candidate revision, command, exit code and private log in /out/run/gates.jsonl. The final response copies the final hf-done evidence; this record is included in that candidate."
+
+[finding.42]
+test = "finding42_fresh_reads_and_optimistic_reconciliation_require_bypass_acknowledgment"
+repair = "Fresh options reach all aggregate reads; each bounded request carries fresh=true, no-cache and no-store, and refuses unacknowledged bypass. The reconciliation hook captures the original chain and cache keys before awaiting results."
+wiring_request = "Domain 12: apps/wallet/src/app/api/wallet/[...path]/route.ts must consume parseWalletReadRequest before cache lookup/admission, bypass both response-cache and ordinary in-flight work for fresh requests, perform a no-store upstream read within its existing deadline/rate/concurrency bounds, and return walletReadResponseHeaders only after enforcing that policy."
+
+[finding.43]
+test = "finding43_history_uses_bounded_independent_transaction_and_transfer_cursors"
+repair = "Retire the offset parameter in favor of independent transaction/transfer continuation records, send limit in the inclusive range 1..50 to both producers, preserve both continuation records through the facade and query consumer, and include page size in the history cache key."
+wiring_request = "Domain 14: services/platform/hosted/indexer/src/api.rs must expose its wallet-compatible transaction and token-transfer feeds with the bounded limit query and independent next_page_params records; translate the native cursor model at the BFF adapter without silently ignoring requested page size."
+
+[finding.9]
+test = "finding9_selected_chain_scopes_address_token_history_transport_and_cache_keys"
+repair = "Every Blockscout, portfolio chart/history and authenticated portfolio GET carries canonical chain_id and requires matching acknowledgment. Invalid or unsaved selected chains fail closed. Client cache keys and the shared BFF cache-key contract contain the chain identity."
+wiring_request = "Domain 12 with domain 14: apps/wallet/src/app/api/wallet/[...path]/route.ts must route the contract's chain-scoped upstreamPath to the selected tenant, scope every response/in-flight cache by cacheKey, include the authenticated GET branch, and acknowledge the enforced chain; services/platform/hosted/indexer/src/api.rs must adapt the /chain/<virtual-id>/api/... wallet contract to its tenant-scoped feeds. Until adoption, unacknowledged data is unavailable rather than substituted from the root chain."
+
+[finding.27]
+test = "finding27_sid_balance_swap_metadata_and_chart_share_the_registered_contract"
+repair = "Retire NEXT_PUBLIC_SID and its conflicting default. Wallet SID, metadata and chart requests use the chain-125 SDK SID contract and decimals, and charts refuse SID on unregistered chains."
+wiring_request = "Domain 12 / market-data owner: apps/wallet/src/app/api/candle/sid/[...path]/route.ts must validate chain_id and token_address against the chain-scoped SID registry and bind the fixed upstream SID feed to that same contract."
+
+[finding.21]
+test = "finding21_fx_conversion_and_freshness_share_the_same_age_bound"
+repair = "Rate lookup, conversion and freshness share fresh/stale/unavailable age bounds, reject future-dated caches, label stale conversion and label the USD alternative when conversion is unavailable."
+
+[finding.19]
+test = "finding19_dated_verified_campaigns_expire_and_seen_identity_survives_restart"
+repair = "Load a dated announcement from the wallet campaign endpoint, validate its stable identity, absolute window and sourced verified eligibility wording, suppress future/expired campaigns and persist the seen campaign identity across reopened delivery instances."
+wiring_request = "Domain 12 / campaign owner: apps/wallet/src/app/api/notifications/campaign/route.ts must publish the authorized campaign id, title, startsAt, endsAt and eligibility text/sourceUrl/verifiedAt contract, or 204 when no campaign is active; no timeless financial announcement is synthesized locally."
+
+[finding.18]
+test = "finding18_committed_incoming_events_are_scoped_and_deduplicated_after_restart"
+repair = "Counts only wake a real indexed-activity read. Separate native/token block cursors and event identities are persisted per chain and normalized wallet; only successful committed incoming positive-value activity not sent by the wallet produces notifications. Catch-up and per-block identities are bounded, stopped deliveries cannot publish, and restart retains duplicate suppression. Independent polling also detects token transfers without a transaction-count change."
+wiring_request = "Domain 12: apps/wallet/src/platform/storage/repositories.ts owns the older global counter schema; retain it only for inactivity compatibility and include the new registered paxport:v1:notification-delivery store in storage inventory documentation."
+
+[finding.16]
+test = "finding16_push_registration_and_heartbeat_require_signed_persisted_acknowledgment"
+repair = "Registration returns a typed success/refusal; subscribeToPush propagates failure as PushRegistrationError, heartbeat returns the typed result, and each refusal reports retryable PUSH_SUBSCRIBE_FAILED. Existing browser subscriptions are re-registered, acknowledgment is tied to the signing wallet and endpoint, and enablement is false until the server returns ok=true."
+wiring_request = "Domain 12: apps/wallet/src/providers/PWAProvider.tsx should render PushRegistrationError as a retryable failure and refresh its displayed subscription state after wallet registration acknowledgments; its existing getCurrentSubscription and subscribeToPush calls now return only acknowledged subscriptions."
+
+[gotcha.task_order]
+observed = "The pre-change verification and spec/GOTCHA edits requested by repository instructions conflict with this task's explicit gate order and scope."
+action = "Use only hf-build then hf-done, retain runner-prepared bookkeeping, and keep the finding map and wiring requests in this scoped record without editing spec or the root ledger."
+
+[gotcha.vitest_registration]
+observed = "Vitest registers test(function) as todo rather than executing its assertions."
+action = "Register each declared proving function with test(proof.name, proof), as required by the existing qualified repair records."
+
+[gotcha.build_types]
+observed = "The first build exposed a duplicate SID symbol, generic-union narrowing at the push record boundary, and a missing required is_scam field in the address fixture."
+action = "Use the registry record once, normalize the exact browser-or-wire subscription union with its required keys discriminator, and include every AddressResponse field in the committed fixture."
+
+[gotcha.query_consumer_lifetime]
+observed = "The first verification passed seven proofs; the reconciliation proof used zero cache retention without a query observer, so the unobserved entry disappeared before its final assertion."
+action = "Keep the zero retention bound and every assertion, and attach real QueryObserver consumers to the portfolio and balance entries while exercising manual reconciliation."

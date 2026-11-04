@@ -28,6 +28,7 @@ import (
 
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	grpctypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/grpc"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/query"
 	authtx "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/tx"
 	auth "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/types"
 	bank "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
@@ -156,25 +157,57 @@ func (c *Client) accountInfo(ctx context.Context, addr string, height *int64) (*
 	return signerData, nil
 }
 
+// Bank queries share one resolved height, including when the caller asks for latest.
+const maxBankQueryPages = 1000
+
 func (c *Client) Balances(ctx context.Context, addr string, height *int64) ([]*rosettatypes.Amount, error) {
-	if height != nil {
-		strHeight := strconv.FormatInt(*height, 10)
-		ctx = metadata.AppendToOutgoingContext(ctx, grpctypes.GRPCBlockHeightHeader, strHeight)
-	}
-
-	balance, err := c.bank.AllBalances(ctx, &bank.QueryAllBalancesRequest{
-		Address: addr,
-	})
+	height, err := c.getHeight(ctx, height)
 	if err != nil {
-		return nil, crgerrs.FromGRPCToRosettaError(err)
+		return nil, err
 	}
+	if height == nil || *height == 0 {
+		status, err := c.tmRPC.Status(ctx)
+		if err != nil {
+			return nil, crgerrs.WrapError(crgerrs.ErrBadGateway, err.Error())
+		}
+		resolved := status.SyncInfo.LatestBlockHeight
+		height = &resolved
+	}
+	if *height <= 0 {
+		return nil, crgerrs.WrapError(crgerrs.ErrBadArgument, "balance height must be positive")
+	}
+	// Replace any caller height so no conflicting height metadata can leak into a page.
+	md, _ := metadata.FromOutgoingContext(ctx)
+	md = md.Copy()
+	md.Set(grpctypes.GRPCBlockHeightHeader, strconv.FormatInt(*height, 10))
+	ctx = metadata.NewOutgoingContext(ctx, md)
 
+	var balances sdk.Coins
+	page := &query.PageRequest{Limit: query.DefaultLimit}
+	seen := make(map[string]bool)
+	for n := 0; ; n++ {
+		if n == maxBankQueryPages || seen[string(page.Key)] {
+			return nil, crgerrs.WrapError(crgerrs.ErrBadGateway, "bank balances pagination did not terminate")
+		}
+		seen[string(page.Key)] = true
+		balance, err := c.bank.AllBalances(ctx, &bank.QueryAllBalancesRequest{Address: addr, Pagination: page})
+		if err != nil {
+			return nil, crgerrs.FromGRPCToRosettaError(err)
+		}
+		if balance == nil {
+			return nil, crgerrs.WrapError(crgerrs.ErrBadGateway, "empty bank balances response")
+		}
+		balances = append(balances, balance.Balances...)
+		if balance.Pagination == nil || len(balance.Pagination.NextKey) == 0 {
+			break
+		}
+		page.Key = append([]byte(nil), balance.Pagination.NextKey...)
+	}
 	availableCoins, err := c.coins(ctx)
 	if err != nil {
 		return nil, err
 	}
-
-	return c.converter.ToRosetta().Amounts(balance.Balances, availableCoins), nil
+	return c.converter.ToRosetta().Amounts(balances, availableCoins), nil
 }
 
 func (c *Client) BlockByHash(ctx context.Context, hash string) (crgtypes.BlockResponse, error) {
@@ -228,11 +261,27 @@ func (c *Client) BlockTransactionsByHeight(ctx context.Context, height *int64) (
 
 // Coins fetches the existing coins in the application
 func (c *Client) coins(ctx context.Context) (sdk.Coins, error) {
-	supply, err := c.bank.TotalSupply(ctx, &bank.QueryTotalSupplyRequest{})
-	if err != nil {
-		return nil, crgerrs.FromGRPCToRosettaError(err)
+	var coins sdk.Coins
+	page := &query.PageRequest{Limit: query.DefaultLimit}
+	seen := make(map[string]bool)
+	for n := 0; ; n++ {
+		if n == maxBankQueryPages || seen[string(page.Key)] {
+			return nil, crgerrs.WrapError(crgerrs.ErrBadGateway, "bank supply pagination did not terminate")
+		}
+		seen[string(page.Key)] = true
+		supply, err := c.bank.TotalSupply(ctx, &bank.QueryTotalSupplyRequest{Pagination: page})
+		if err != nil {
+			return nil, crgerrs.FromGRPCToRosettaError(err)
+		}
+		if supply == nil {
+			return nil, crgerrs.WrapError(crgerrs.ErrBadGateway, "empty bank supply response")
+		}
+		coins = append(coins, supply.Supply...)
+		if supply.Pagination == nil || len(supply.Pagination.NextKey) == 0 {
+			return coins, nil
+		}
+		page.Key = append([]byte(nil), supply.Pagination.NextKey...)
 	}
-	return supply.Supply, nil
 }
 
 func (c *Client) TxOperationsAndSignersAccountIdentifiers(signed bool, txBytes []byte) (ops []*rosettatypes.Operation, signers []*rosettatypes.AccountIdentifier, err error) {

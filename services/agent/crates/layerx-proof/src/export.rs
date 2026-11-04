@@ -86,6 +86,8 @@ pub enum ExportVerificationError {
 }
 
 /// Re-runs every proof using only the export object and `layerx-proof`.
+/// Receipt and inclusion verification requires no settlement-domain argument.
+/// For per-fact [`Rung`] results and independent authority, use [`verify_complete`].
 ///
 /// # Errors
 ///
@@ -587,6 +589,8 @@ impl<'a> CompleteVerifier<'a> {
 ///
 /// Each fact's rung comes only from its own bound receipt or state evidence.
 /// The aggregate is the minimum over the requested facts. Every record must be consumed.
+/// The retained receipt and state paths establish at most [`Rung::Receipted`];
+/// requesting [`Rung::Committed`] therefore returns `RungNotAchieved`.
 ///
 /// # Errors
 ///

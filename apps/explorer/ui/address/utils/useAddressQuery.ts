@@ -1,6 +1,5 @@
 import type { UseQueryResult } from '@tanstack/react-query';
 import { useQuery } from '@tanstack/react-query';
-import React from 'react';
 
 import type { Address } from 'types/api/address';
 
@@ -9,7 +8,6 @@ import useApiQuery from 'lib/api/useApiQuery';
 import { retry } from 'lib/api/useQueryClientConfig';
 import { publicClient } from 'lib/web3/client';
 import { ADDRESS_INFO } from 'stubs/address';
-import { GET_BALANCE } from 'stubs/RPC';
 import { SECOND } from 'toolkit/utils/consts';
 
 type RpcResponseType = [
@@ -18,6 +16,7 @@ type RpcResponseType = [
 
 export type AddressQuery = UseQueryResult<Address, ResourceError<{ status: number }>> & {
   isDegradedData: boolean;
+  rpcError: Error | null;
 };
 
 interface Params {
@@ -28,35 +27,28 @@ interface Params {
 const NO_RPC_FALLBACK_ERROR_CODES = [ 403 ];
 
 export default function useAddressQuery({ hash, isEnabled = true }: Params): AddressQuery {
-  const [ isRefetchEnabled, setRefetchEnabled ] = React.useState(false);
-
   const apiQuery = useApiQuery<'general:address', { status: number }>('general:address', {
     pathParams: { hash },
     queryOptions: {
       enabled: isEnabled && Boolean(hash),
       placeholderData: ADDRESS_INFO,
       refetchOnMount: false,
-      retry: (failureCount, error) => {
-        if (isRefetchEnabled) {
-          return false;
-        }
-
-        return retry(failureCount, error);
-      },
-      refetchInterval: (): number | false => {
-        return isRefetchEnabled ? 15 * SECOND : false;
+      retry,
+      refetchInterval: (query): number | false => {
+        const error = query.state.error;
+        return query.state.status === 'error' && !NO_RPC_FALLBACK_ERROR_CODES.includes(error?.status ?? 0) ? 15 * SECOND : false;
       },
     },
   });
 
-  const rpcQuery = useQuery<RpcResponseType, unknown, Address | null>({
+  const rpcQuery = useQuery<RpcResponseType, Error, Address | null>({
     queryKey: [ 'RPC', 'address', { hash } ],
     queryFn: async() => {
       if (!publicClient) {
         throw new Error('No public RPC client');
       }
 
-      const balance = publicClient.getBalance({ address: hash as `0x${ string }` }).catch(() => null);
+      const balance = publicClient.getBalance({ address: hash as `0x${ string }` });
 
       return Promise.all([
         balance,
@@ -65,7 +57,7 @@ export default function useAddressQuery({ hash, isEnabled = true }: Params): Add
     select: (response) => {
       const [ balance ] = response;
 
-      if (!balance) {
+      if (balance === null) {
         return null;
       }
 
@@ -93,29 +85,10 @@ export default function useAddressQuery({ hash, isEnabled = true }: Params): Add
         watchlist_names: null,
       };
     },
-    placeholderData: [ GET_BALANCE ],
-    enabled: (apiQuery.isError || apiQuery.errorUpdateCount > 0) && !(apiQuery.error?.status && NO_RPC_FALLBACK_ERROR_CODES.includes(apiQuery.error?.status)),
+    enabled: isEnabled && Boolean(hash) && apiQuery.isError && !(apiQuery.error?.status && NO_RPC_FALLBACK_ERROR_CODES.includes(apiQuery.error?.status)),
     retry: false,
     refetchOnMount: false,
   });
-
-  React.useEffect(() => {
-    if (apiQuery.isPlaceholderData || !publicClient) {
-      return;
-    }
-
-    if (apiQuery.isError && apiQuery.errorUpdateCount === 1) {
-      setRefetchEnabled(true);
-    } else if (!apiQuery.isError) {
-      setRefetchEnabled(false);
-    }
-  }, [ apiQuery.errorUpdateCount, apiQuery.isError, apiQuery.isPlaceholderData, apiQuery.error?.status ]);
-
-  React.useEffect(() => {
-    if (!rpcQuery.isPlaceholderData && !rpcQuery.data) {
-      setRefetchEnabled(false);
-    }
-  }, [ rpcQuery.data, rpcQuery.isPlaceholderData ]);
 
   const isRpcQuery = Boolean(
 
@@ -132,5 +105,6 @@ export default function useAddressQuery({ hash, isEnabled = true }: Params): Add
   return {
     ...query,
     isDegradedData: isRpcQuery,
+    rpcError: rpcQuery.error,
   };
 }

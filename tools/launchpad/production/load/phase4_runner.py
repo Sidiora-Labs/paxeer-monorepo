@@ -11,6 +11,7 @@ import signal
 import time
 from urllib.parse import urlencode
 
+from coordinator import validate_coordinator
 from calibration import evaluate, cpu_fraction, linux_cpu_snapshot, nic_fraction
 from capture import CAPTURE_VERSION, GatewaySampler, final_acceptance, gateway_summary, read_manifest, sha_file, shared_manifest, validate_record
 from phase2_accounts import WalletSigner, login, metadata_headers
@@ -18,7 +19,7 @@ from phase2_feeder import PostgresObserver
 from phase2_http import HTTP, HTTPFailure
 from phase2_receivers import connect_receiver
 from phase2_runner import resolve_routes, route_category
-from phase2_types import Artifacts, Bindings, ROOT, bound_document, canonical, digest, source_digest, validate_v2
+from phase2_types import Artifacts, Bindings, ContractAuthority, ROOT, bound_document, canonical, digest, source_digest, validate_v2
 from phase3_runner import Histogram, SkewReceiverState, authorization_probe
 from scheduler import Sample
 from workload import MIX, VERSION, final_scenarios, ledger, provisioned_budget
@@ -33,7 +34,7 @@ def topics_for(pools, index):
     return sorted(["market.trades." + pool, "market.price." + pool, "market.stats." + pool, "market.candles." + pool + ".1m", "market.candles." + pool + ".5m"])
 
 
-def validate_runtime(config, bindings, *, final=False):
+def validate_runtime(config, bindings, *, final=False, root=ROOT):
     authority = bound_document(config["native_runtime_authority_path"], config["native_runtime_authority_sha256"])
     if authority["bindings"] != dataclasses.asdict(bindings) or authority["workload_version"] != VERSION:
         raise ValueError("real runtime authority candidate differs")
@@ -51,13 +52,7 @@ def validate_runtime(config, bindings, *, final=False):
         if lane not in required or value["candidate"] != bindings.candidate or value["interface"] != bindings.interface or value["topology"] != bindings.topology or not re.fullmatch(r"[0-9a-f]{64}", value["tool_version_sha256"]):
             raise ValueError("lane runtime registration differs from frozen final candidate")
     if final:
-        spec = (ROOT / "launchpad/spec/production-system/spec.kvx").read_text()
-        for identifier, status in (("4.99", "done"), ("9.1", "in_progress")):
-            match = re.search(r"(?ms)^\[task\." + re.escape(identifier) + r"\]\n.*?(?=^\[|\Z)", spec)
-            if not match or not re.search(r'^status = "' + status + r'"$', match.group(0), re.M):
-                raise ValueError("final shared execution requires actual serial task9.1 admission after4.99")
-        if authority["final_task"] != "9.1" or authority["coordinator_source_sha256"] != bindings.candidate:
-            raise ValueError("final coordinator source freeze absent")
+        validate_coordinator(config, bindings, authority, root=root)
     return authority
 
 
@@ -67,7 +62,7 @@ async def http_arrivals(config, http, accounts, signer, output, start_ns, durati
     maximum = config["http_max_inflight"]
     if type(maximum) is not int or not 1 <= maximum <= 4096:
         raise ValueError("bounded exact generator admission required")
-    routes = resolve_routes(config["routes"])
+    routes = resolve_routes(config["routes"], http.authority)
     groups = {key: Histogram() for key in ("all", "reads", "quotes", "mutations")}
     categories = dict.fromkeys(MIX, 0)
     pending = set()
@@ -90,7 +85,7 @@ async def http_arrivals(config, http, accounts, signer, output, start_ns, durati
                 path += "?" + urlencode(route["query"])
             body, headers = route.get("body"), {}
             if route.get("request_schema"):
-                validate_v2(route["request_schema"], body)
+                validate_v2(route["request_schema"], body, http.authority)
             if route.get("signature") == "metadata_v2":
                 headers = await metadata_headers(signer, account, route["method"], path, body, config["metadata_audience"])
             value = await http.call(route["method"], path, body, bearer=account.access_token if route["authenticated"] else None, headers=headers, schema=route["response_schema"])
@@ -173,6 +168,7 @@ async def event_adapter(config, output, duration_seconds, start_utc_ns):
 
 async def run_isolated(config, artifacts):
     bindings = Bindings(**config["bindings"])
+    contracts = ContractAuthority(config, bindings)
     if bindings.generator != source_digest() or type(config["host_index"]) is not int or config["host_index"] not in range(4) or config["generator_hosts"][config["host_index"]] != config["host_id"]:
         raise ValueError("actual current calibrated generator shard required")
     authority = validate_runtime(config, bindings)
@@ -186,7 +182,7 @@ async def run_isolated(config, artifacts):
     sockets_count = config["socket_count"]
     if type(sockets_count) is not int or not 4 <= sockets_count <= 25000 or sockets_count % 2:
         raise ValueError("bounded even real socket cohort required")
-    http = HTTP(config["api_origin"], config["application_origin"], ca_file=config.get("ca_file"), owned_local=config.get("owned_local", False))
+    http = HTTP(config["api_origin"], config["application_origin"], authority=contracts, ca_file=config.get("ca_file"), owned_local=config.get("owned_local", False))
     observer = PostgresObserver(**config["postgres"], pools=config["pools"])
     await observer.readiness()
     signer = WalletSigner(config["node"], config["node_sha256"], config["ethers_module"])
@@ -220,7 +216,7 @@ async def run_isolated(config, artifacts):
                 account = accounts[index // 2] if index % 2 == 0 else None
                 from urllib.parse import quote
                 snapshot = (await http.call("GET", "/v2/snapshots?topics=" + quote(",".join(topics), safe=""), bearer=None if account is None else account.access_token, schema="TopicSnapshotReadResponse"))["data"]["snapshot"]
-                state = SkewReceiverState(topics, snapshot, retain_fills=True)
+                state = SkewReceiverState(topics, snapshot, authority=http.authority, retain_fills=True)
                 sockets[index], states[index] = await connect_receiver(http, config["stream_origin"], topics, account, ca_file=config.get("ca_file"), owned_local=config.get("owned_local", False), state=state, retain_fills=True)
                 inventory.append({"receiver_id": index, "authenticated": account is not None, "topics": topics, "initial_sequence": dict(state.sequence)})
                 readers[index] = asyncio.create_task(receive(index))
@@ -276,6 +272,7 @@ async def run_isolated(config, artifacts):
 
 def readiness(config, reports):
     bindings = Bindings(**config["bindings"])
+    contracts = ContractAuthority(config, bindings)
     authority = validate_runtime(config, bindings)
     if len(reports) != 4 or {report["host_index"] for report in reports} != set(range(4)) or {report["host_id"] for report in reports} != set(config["generator_hosts"]):
         raise ValueError("all four actual isolated component proofs required")
@@ -310,6 +307,8 @@ def main():
     exit_code = 1
     try:
         if args.final_readout:
+            validate_runtime(config, Bindings(**config["bindings"]), final=True)
+            ContractAuthority(config, Bindings(**config["bindings"]))
             acceptance = final_acceptance(config)
             artifacts.json("shared-acceptance.json", acceptance)
             result.update(acceptance)

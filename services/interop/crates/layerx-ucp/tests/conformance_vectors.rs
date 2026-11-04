@@ -776,3 +776,11 @@ fn sequencer_receipt_refuses_invalid_checkout() {
         Err(UcpError::InvalidCheckout)
     );
 }
+
+#[path = "support/producer_checkout.rs"]
+mod producer_checkout;
+
+#[test]
+fn ucp_conformance_producer() {
+    producer_checkout::producer_checkout("ucp-conformance-producer");
+}
