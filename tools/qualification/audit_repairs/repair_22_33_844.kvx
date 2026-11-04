@@ -1,0 +1,60 @@
+[task.22.33.844]
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+audit = "22.30.181"
+repair = "Remove retired asset, market, custody, margin, pointer, sequencer and batch flags, defaults, required-input checks, validation, unused jq bindings and authorization calldata from render.sh. Preserve all live upgrade, fee-token, xweb and bridge rendering and guarded real paxd invocations. README documents only supported inputs, three templates, bridge outputs and safe bridge identifiers. test.sh shares only live arguments, keeps every existing proposal/transaction assertion and the real paxd build/validation, and invokes the real renderer with traversal names, requiring its specific refusal and preserving an outside sentinel."
+source_proof = "Pytest parses supported shell arguments, required variables, jq argument kinds/bindings and all JSON templates; every template placeholder has exactly one live binding and no dead binding remains. It checks README outputs/inputs against the production parser and templates, all retained source validations, and ordered real producer/transport/consumer wiring: templates to jq, bridge config to output.py before Go staging, guarded publication and paxd generate-only/offline validation with exactly one message. It checks the shell integration test retains live proposal assertions, supplies the real paxd binary and requires traversal refusal without outside writes. hf-build supplies the declared bash -n command; pytest does not invoke a shell or subprocess toolchain."
+runtime_proof = "Pytest executes the actual embedded production Decimal fee calculation for normal, half-up and invalid prices. It executes the production output.py CLI dispatcher in-process, consuming real JSON configurations derived from the committed bridge fixture and validating actual contained directories for safe names. Traversal and invalid names must raise before any output is created, leave no successful stdout and preserve real outside sentinel bytes from the committed fixture. No replacement renderer, fake paxd or reimplemented message producer is used."
+review_only = "Full shell execution, jq rendering, Go bridge generation and paxd transaction construction/acceptance are not executed by the Python-only gate; their production invocations, data bindings, fail-fast checks and order are source-proven. The real shell integration test exercises those tools when run in its own toolchain environment. Native proposal semantics and completeness of operator prose remain review-only. No restart-recovery finding is present and no new persistent interface is introduced. The gate needs no environment variable, credentials, endpoint, external binary, subprocess toolchain, native artifact or device."
+baseline = "No pre-change verification was run. The explicit implementation-first order, hf-build then hf-done and ban on running verify_cmd by hand supersede the older step-7 baseline clause; no baseline failing tests are claimed. Initial status/diff showed only runner-provided .cgignore and spec task-status changes, preserved intact, and no /out/run/gates.jsonl existed."
+build_cmd = "bash -n tools/paxeer-x/gov/render.sh tools/paxeer-x/gov/test.sh"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_844.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private evidence_ledger name the exact content-derived verified revision, command, exit code and log path; hf-build and hf-done must pass on the same candidate revision. This record is finalized before qualification because inserting its own content-derived revision would change that revision. No edit follows passing hf-done; the runner retains evidence and commits."
+wiring_requests = []
+wiring_policy = "No proposal requires an out-of-scope change. Bridge generator paths under services/bridge/deploy/proposals remain owned by domain 16; any later integration request must name that path and owning domain rather than editing it here."
+
+[finding.f005]
+audit = "22.30.181"
+file = "tools/paxeer-x/gov/README.md"
+line = 22
+class = "doc-drift"
+severity = "medium"
+owner_domain = 16
+tests = ["test_f005_readme_lists_live_templates_bridge_outputs_and_inputs"]
+
+[finding.f003]
+audit = "22.30.181"
+file = "tools/paxeer-x/gov/render.sh"
+line = 78
+class = "retired-reference"
+severity = "medium"
+owner_domain = 16
+tests = ["test_f003_renderer_requires_only_supported_inputs", "test_f003_live_variables_cover_every_real_template_placeholder", "test_f003_embedded_production_fee_calculation", "test_f003_embedded_production_fee_refuses_invalid_prices", "test_f003_guarded_producer_transport_and_paxd_consumer"]
+
+[finding.f063]
+audit = "22.30.181"
+file = "tools/paxeer-x/gov/test.sh"
+line = 62
+class = "test-gap"
+severity = "medium"
+owner_domain = 16
+tests = ["test_f063_shell_test_uses_live_inputs_real_paxd_and_preserves_assertions", "test_f063_shell_traversal_cases_require_specific_refusal_and_preserve_outside", "test_f063_production_guard_accepts_live_bridge_names", "test_f063_production_guard_refuses_traversal_before_creating_outputs"]
+
+[format]
+policy = "No Python, Bash or KVX formatter is configured for these paths; preserve existing style and apply .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions after implementation."
+
+[gotcha.1]
+symptom = "The old baseline clause conflicts with the explicit implementation-first and exclusive gate order."
+resolution = "Run only hf-build then hf-done on the fully implemented tree; record no pre-change result and keep GOTCHA.kvx and spec files outside the edit scope."
+
+[gotcha.2]
+symptom = "Combined reads exceeded output limits and a guessed sibling repair filename did not exist."
+resolution = "Use bounded reads of the actual task, findings and existing files; preserve inherited working-tree state and use the private gate ledger for exact evidence."
+
+[gotcha.3]
+symptom = "The initial flag-name parser excluded digits and truncated release-sha256, causing the exact README/parser input-set assertion to fail while the other 30 tests passed."
+resolution = "Parse digits in both documented and actual CLI flag names, preserving the exact input-set assertion and all other tests; rerun both allowed gates on the repaired candidate."
+revision = "4803c23fa626fe9dd53afc184c8d45d479a06b4f"
+command = "cg spec done 22.33.844 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
