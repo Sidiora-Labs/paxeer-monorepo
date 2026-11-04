@@ -64,11 +64,14 @@ either or both arguments.
 				return fmt.Errorf("%s: %w", reindexFailed, err)
 			}
 
+			defer bs.Close()
+			defer ss.Close()
+
 			cvhArgs := checkValidHeightArgs{
 				startHeight: startHeight,
 				endHeight:   endHeight,
 			}
-			if err := checkValidHeight(bs, cvhArgs); err != nil {
+			if err := checkValidHeight(bs, &cvhArgs); err != nil {
 				return fmt.Errorf("%s: %w", reindexFailed, err)
 			}
 
@@ -77,9 +80,13 @@ either or both arguments.
 				return fmt.Errorf("%s: %w", reindexFailed, err)
 			}
 
+			for _, sink := range es {
+				defer sink.Stop()
+			}
+
 			riArgs := eventReIndexArgs{
-				startHeight: startHeight,
-				endHeight:   endHeight,
+				startHeight: cvhArgs.startHeight,
+				endHeight:   cvhArgs.endHeight,
 				sinks:       es,
 				blockStore:  bs,
 				stateStore:  ss,
@@ -257,7 +264,7 @@ type checkValidHeightArgs struct {
 	endHeight   int64
 }
 
-func checkValidHeight(bs state.BlockStore, args checkValidHeightArgs) error {
+func checkValidHeight(bs state.BlockStore, args *checkValidHeightArgs) error {
 	base := bs.Base()
 
 	if args.startHeight == 0 {
