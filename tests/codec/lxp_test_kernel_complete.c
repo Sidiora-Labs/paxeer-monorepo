@@ -936,9 +936,6 @@ static const retired_surface retired_surfaces[] = {
     { "interface.1.c-lxp-kernel-capacity-reserve",
       "include/layerx/lxp_kernel.h", 827U,
       "lxp_kernel_capacity_reserve", 0 },
-    { "interface.1.c-lxp-ledger-apply-bridge-credit",
-      "include/layerx/lxp_transfer.h", 133U,
-      "lxp_ledger_apply_bridge_credit", 0 },
     { "interface.1.c-lxp-paxeer-abi-encode-bytes",
       "include/layerx/lxp_paxeer.h", 169U,
       "lxp_paxeer_abi_encode_bytes", 0 },
@@ -1515,7 +1512,7 @@ static const char *const planned_paths[] = {
     "tests/codec/lxp_test_web_absent.c",
 };
 
-_Static_assert(sizeof(retired_surfaces) / sizeof(retired_surfaces[0]) == 481U,
+_Static_assert(sizeof(retired_surfaces) / sizeof(retired_surfaces[0]) == 480U,
                "every catalogue retirement must be checked");
 _Static_assert(sizeof(planned_paths) / sizeof(planned_paths[0]) == 52U,
                "every planned domain-1 wave-6 path must be checked");

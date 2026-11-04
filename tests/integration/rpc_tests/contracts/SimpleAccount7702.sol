@@ -18,6 +18,7 @@ contract SimpleAccount7702 {
     event BatchExecuted(uint256 count);
 
     function executeBatch(Call[] calldata calls) external payable {
+        require(msg.sender == address(this), "unauthorized execution");
         for (uint256 i = 0; i < calls.length; i++) {
             Call calldata c = calls[i];
             (bool ok, bytes memory ret) = c.target.call{value: c.value}(c.data);

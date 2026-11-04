@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
-import { AgentEnvelopeTransport, AgentSessionCredential, encodeAgentEnvelope } from "../src/agent-http.js";
+import { AgentEnvelopeTransport, AgentSessionCredential, LayerXKeyCredential, encodeAgentEnvelope } from "../src/agent-http.js";
 import { encodeNativePrepareRequest } from "../src/generated/client.js";
 import { encodeNativeEffectPrepareRequest, nativeEffectPrepareRequestDigest, type NativeEffectPrepareRequestV1 } from "../src/native-effect.js";
 import { idempotencyKey, PlatformSdkError, SecretBytes } from "../src/production.js";
@@ -89,13 +89,14 @@ const envelope = JSON.parse(encodeAgentEnvelope("prepare", "1", canonical, sessi
 assert.equal(envelope.operation, "prepare"); assert.equal(envelope.idempotency_key, key);
 assert.deepEqual(envelope.request, canonical);
 assert.deepEqual(envelope.credential, session.encode());
-const transport = new AgentEnvelopeTransport({ endpoint: "http://127.0.0.1:1", session });
+const gatewayCredential = new LayerXKeyCredential("native-effect", new SecretBytes(Buffer.from(`lxp_live_${"22".repeat(32)}`, "ascii")));
+const transport = new AgentEnvelopeTransport({ endpoint: "http://127.0.0.1:1", session, gatewayCredential });
 const invalid = (error: unknown): boolean => error instanceof PlatformSdkError && error.code === "invalid-argument";
 await assert.rejects(transport.prepareNativeEffect({ ...request, purpose: { ...request.purpose, purpose: { ...purpose, tenant: "other-tenant" } } }, key), invalid);
 await assert.rejects(transport.prepareNativeEffect({ ...request, purpose: { ...request.purpose, purpose: { ...purpose, session_id: "88".repeat(32) } } }, key), invalid);
 await assert.rejects(transport.prepareNativeEffect({ ...request, purpose: { ...request.purpose, purpose: { ...purpose, generation: "2" } } }, key), invalid);
 await assert.rejects(transport.prepareNativeEffect(request, idempotencyKey("88".repeat(32))), invalid);
-await assert.rejects(new AgentEnvelopeTransport({ endpoint: "http://127.0.0.1:1" }).prepareNativeEffect(request, key), invalid);
+await assert.rejects(new AgentEnvelopeTransport({ endpoint: "http://127.0.0.1:1", gatewayCredential }).prepareNativeEffect(request, key), invalid);
 
 const crossPath = process.env.NATIVE_EFFECT_CROSS_LANGUAGE_REQUEST;
 if (crossPath !== undefined) {

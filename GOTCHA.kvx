@@ -15040,3 +15040,38 @@ fix = "Fixture destructors are best-effort: a Drop never asserts or unwraps; the
 title = "The repository's own CI python suite carries assertions behind interfaces that later tasks retired or moved"
 symptom = "On main at 2026-11-04 19:00Z eight cases of tests/ci fail for reasons unrelated to any one task: the agent codec corpus test posts to a /rpc path the SDK now refuses (decision 2521); tests/vectors/codec/generate.py raises because the retired budget-pull type is no longer undeclared; the cw20 deploy-script check greps a shell script that now delegates to the Go load-test binary, whose deploy operation still stores the four retired contracts; the retired-reference check flags the weak-symbol absence test and the interface table row that name the retired bridge-credit symbol; and the kernel audit case audit_genesis_historical_import_hashes fails with LXP_ERR_ROOT_MISMATCH."
 fix = "Tasks 22.31.498 to 22.31.502 repair each case from its producer with its own pytest or make target as the verify; an aggregate python gate stays out of task-level qualification (gotcha 3032)."
+
+[gotcha.3044]
+title = "Test files placed under the explorer pages directory compile as routes and break the frontend image"
+symptom = "Three audit repairs (22.33.448, 22.33.450, 22.33.451) placed vitest spec files and .kvx records under apps/explorer/pages (pages/api/repair-22-33-448.spec.ts, pages/api/monitoring/repair-22-33-450.spec.ts, pages/apps/repair-22-33-451.spec.ts and their records). next build compiles every file under pages as a route, so node-fetch and fetch-blob entered the client bundle and the production build failed with UnhandledSchemeError reading node:buffer, node:events, node:fs, node:http and node:https. The repository's explorer image build has failed on every main revision since 2026-11-04 18:48Z (last green c734cc91b3 at 16:08Z); the task gates ran only vitest, which never exercised next build."
+fix = "22.31.503 moves the three specs and records out of pages, adds a guard that refuses test and record files under pages (decision 2544), and runs the production next build as its build gate, so the consumer the records broke is part of the proof."
+
+[gotcha.3045]
+title = "The C test environment has no pytest and the generated python gate was an aggregate"
+symptom = "22.33.891 attempt 1 and 22.33.892 attempt 1 (2026-11-04 19:31Z) carried the generated verify make -s test-tests-python, which runs the whole python suite of the repository (an aggregate gate, gotcha 3032 class). 892 failed with No module named pytest before any case ran; 891 ran 120 cases and its six failures were the stale repository cases of gotcha 3043, none inside its paths. Neither attempt executed the C test binaries it had changed."
+fix = "Both tasks continue with narrowed gates: the build installs pytest when it is missing and builds the test binaries of the paths; the verify runs those binaries and the one python file of the paths. A generated gate names the task's own targets, never a suite of the repository."
+
+[gotcha.3046]
+title = "A consumer test asserted scenario names its producer never registered, and the producer left the driver unwired"
+symptom = "22.33.889 attempt 2 (2026-11-04 20:22Z) failed its only remaining case because tools/release/tests/test_programme.py asserted that programme.py registers check_kernel_transaction_commit, check_native_program_lifecycle and check_kernel_restart_recovery, names the test invented while 22.33.893 was pending. 22.33.893 landed five merged scenarios under its own names (check_merged_transaction, check_current_guest_deployment, check_native_xweb, check_tenant_isolation, check_persisted_restart) in the CHECKS registry, and tools/release/rehearse-v6120.sh still wires only the sixteen earlier checks (lines 525-540)."
+fix = "889 continues: its test asserts the five registered names, and it wires the five driver functions in rehearse-v6120.sh, which joins its paths. A test that depends on another task's future interface asserts the names that task records, never names of its own."
+
+[gotcha.3047]
+title = "Gateway unit tests run inside every repair test binary and two of them are broken on main"
+symptom = "services/platform/hosted/gateway test files begin by including src/main.rs, so every unit test of the gateway binary runs in each repair test binary. 22.33.1336 attempt 7 (2026-11-04 20:18Z) passed 150 cases and failed 6; two of the failures are unit tests broken on main by other tasks: explorer_proxy::tests::explorer_query_and_finite_routes asserts 142 routes while the table holds 145 since 22.31.380 and 22.31.382 added routes, and capabilities::tests::capabilities_schema_declares_every_surface asserts two sentences of the openrpc.json description that the 22.33.1443 rewrite dropped."
+fix = "22.31.504 repairs the two unit tests; repair verifies of the gateway skip them by name until it lands and record the finding (decision 2545)."
+
+[gotcha.3048]
+title = "Two repair tasks required each other"
+symptom = "22.31.495 (explicit time through the approval service) required 22.31.497 because its build compiled every daemon test target and the two targets 22.31.497 restores did not compile (gotcha 3033); 22.31.497 attempt 2 (2026-11-04 20:18Z) restored both targets but its last case reads an awaiting hold through ApprovalService::get, which refuses with ClockRequired until 22.31.495 threads the clock. Neither task could finish first."
+fix = "Decision 2547: 22.31.495 builds and tests only its own targets and no longer requires 22.31.497; 22.31.497 requires 22.31.495 and passes the runtime time into the service read."
+
+[gotcha.3049]
+title = "A generated codec corpus was committed by the task that fixed its generator"
+symptom = "22.31.499 committed tests/vectors/codec/replay_corpus.lxb (the output of tests/vectors/codec/generate.py) although the file was not in its paths; 22.31.498 attempt 2 (2026-11-04 20:37Z) then failed its clean-checkout case, which archives HEAD and asserts the corpus is absent before the make target prepares it."
+fix = "Decision 2546: the corpus is generated and stays out of the tree; 22.31.498 removes the committed file and ignores it in tests/vectors/codec/.gitignore."
+
+[gotcha.3050]
+title = "A package-wide verify met producer changes landed in the same package"
+symptom = "22.99.148 attempt 3 (2026-11-04 20:27Z) repaired its own three cases, then the package test run of services/agent/sdk/typescript failed four unrelated cases: the px test asserts the package test script names the ai-market test, but 22.9.10 (cb50180548) routed the script through scripts/run-tests.mjs; two web-search repair tests construct WebSearchClient without receipt keys, which the same commit made mandatory; and the gas-station proof imports sdk/wallet/src/modules/gas-station.ts, whose viem dependency the agent package install does not provide."
+fix = "The package sweep task owns the package: its tests follow the current contracts (the runner selection list, mandatory receipt keys) and its build installs the wallet package with pnpm before the agent package."

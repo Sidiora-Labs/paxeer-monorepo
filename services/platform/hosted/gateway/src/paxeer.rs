@@ -89,7 +89,23 @@ pub(super) fn node(config: &Config, request: &Value) -> Result<Value, &'static s
     node_unmetered(config, request)
 }
 
-fn node_unmetered(config: &Config, request: &Value) -> Result<Value, &'static str> {
+pub(super) fn node_unmetered(config: &Config, request: &Value) -> Result<Value, &'static str> {
+    node_before(config, request, None)
+}
+
+fn check_deadline(deadline: Option<std::time::Instant>) -> Result<(), &'static str> {
+    if deadline.is_some_and(|deadline| std::time::Instant::now() >= deadline) {
+        Err("asset_list_deadline_exceeded")
+    } else {
+        Ok(())
+    }
+}
+
+fn node_before(
+    config: &Config,
+    request: &Value,
+    deadline: Option<std::time::Instant>,
+) -> Result<Value, &'static str> {
     let Some(endpoints) = &config.paxeer else {
         return Err("paxeer_rpc_not_configured");
     };
@@ -97,6 +113,7 @@ fn node_unmetered(config: &Config, request: &Value) -> Result<Value, &'static st
     let mut failure = "paxeer_unreachable";
     let mut answered = None;
     for endpoint in endpoints {
+        check_deadline(deadline)?;
         let path = rpc_path(endpoint);
         let mut target = endpoint.clone();
         target.base_path.clear();
@@ -112,6 +129,7 @@ fn node_unmetered(config: &Config, request: &Value) -> Result<Value, &'static st
                 body: identity_body,
             },
         );
+        check_deadline(deadline)?;
         let identity = match identity {
             Ok(reply) if reply.status == 200 => reply,
             Ok(_) => {
@@ -140,7 +158,8 @@ fn node_unmetered(config: &Config, request: &Value) -> Result<Value, &'static st
             failure = "paxeer_wrong_network_or_unavailable";
             continue;
         }
-        match config.client.request_unauthenticated(
+        check_deadline(deadline)?;
+        let result = config.client.request_unauthenticated(
             &target,
             &OutboundRequest {
                 method: "POST",
@@ -149,7 +168,9 @@ fn node_unmetered(config: &Config, request: &Value) -> Result<Value, &'static st
                 content_type: "application/json",
                 body: &body,
             },
-        ) {
+        );
+        check_deadline(deadline)?;
+        match result {
             Ok(upstream) if upstream.status == 200 => {
                 answered = Some(upstream);
                 break;
@@ -617,78 +638,105 @@ fn get_account(config: &Config, id: &Value, params: Option<&Value>) -> Value {
     })
 }
 
-fn layerx_assets(config: &Config, id: &Value) -> Result<Vec<Value>, Value> {
+const ASSET_LIST_DEADLINE: std::time::Duration = std::time::Duration::from_secs(10);
+
+fn asset_cursor(params: Option<&Value>) -> Result<Option<u64>, ()> {
+    match params {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::Array(args)) if args.is_empty() => Ok(None),
+        Some(Value::Array(args)) => match args.as_slice() {
+            [Value::String(cursor)] => cursor
+                .parse::<u64>()
+                .ok()
+                .filter(|cursor| *cursor > 0 && i64::try_from(*cursor).is_ok())
+                .filter(|parsed| parsed.to_string() == *cursor)
+                .map(Some)
+                .ok_or(()),
+            _ => Err(()),
+        },
+        _ => Err(()),
+    }
+}
+
+fn layerx_assets(
+    config: &Config,
+    id: &Value,
+    cursor: Option<u64>,
+) -> Result<(Vec<Value>, Value), Value> {
     let indexer = config
         .indexer
         .as_ref()
         .ok_or_else(|| unavailable(id, "indexer_not_configured"))?;
-    let mut records = Vec::new();
-    let mut cursor = 0_u64;
-    loop {
-        if !public_reads::consume_read() {
-            return Err(unavailable(id, "public_read_rate_limit"));
-        }
-        let query = if cursor == 0 {
-            "limit=500".to_owned()
-        } else {
-            format!("limit=500&cursor={cursor}")
-        };
-        let answer = match indexer {
-            super::history::Indexer::Tls(endpoint) => {
-                config.client.get_with_query(endpoint, "/v1/assets", &query)
-            }
-            super::history::Indexer::Loopback {
-                address,
-                authority,
-                base_path,
-            } => layerx_platform_gateway::http::loopback_get(
-                *address,
-                authority,
-                &format!("{base_path}/v1/assets"),
-                &query,
-            ),
-        }
-        .map_err(|_| unavailable(id, "indexer_unreachable"))?;
-        if answer.status != 200 || answer.content_type != "application/json" {
-            return Err(unavailable(id, "indexer_assets_unavailable"));
-        }
-        let document: Value = serde_json::from_slice(&answer.body)
-            .map_err(|_| unavailable(id, "invalid_indexer_response"))?;
-        let rows = document
-            .get("items")
-            .and_then(Value::as_array)
-            .ok_or_else(|| unavailable(id, "invalid_indexer_response"))?;
-        for row in rows {
-            let asset_id = row
-                .get("asset")
-                .and_then(Value::as_str)
-                .filter(|asset| !asset.is_empty())
-                .ok_or_else(|| unavailable(id, "invalid_indexer_response"))?;
-            let kind = row
-                .get("kind")
-                .and_then(Value::as_str)
-                .ok_or_else(|| unavailable(id, "invalid_indexer_response"))?;
-            let denom = row
-                .get("denom")
-                .filter(|denom| denom.is_null() || denom.is_string())
-                .ok_or_else(|| unavailable(id, "invalid_indexer_response"))?;
-            records.push(json!({"asset_id": asset_id, "denom": denom, "kind": kind}));
-        }
-        match document.get("next_cursor") {
-            Some(Value::Null) => break,
-            Some(Value::String(next)) => {
-                cursor = next
-                    .parse::<u64>()
-                    .ok()
-                    .filter(|next| *next > cursor)
-                    .ok_or_else(|| unavailable(id, "invalid_indexer_response"))?;
-            }
-            _ => return Err(unavailable(id, "invalid_indexer_response")),
-        }
+    if !public_reads::consume_read() {
+        return Err(unavailable(id, "public_read_rate_limit"));
     }
-    records.sort_by(|left, right| left["asset_id"].as_str().cmp(&right["asset_id"].as_str()));
-    records.truncate(MAX_JOINED_ASSETS);
-    Ok(records)
+    // The indexer's keyset contract is registration order, not lexical asset order.
+    // Request exactly one bounded page; never walk its continuation here.
+    let query = cursor.map_or_else(
+        || format!("limit={MAX_JOINED_ASSETS}"),
+        |cursor| format!("limit={MAX_JOINED_ASSETS}&cursor={cursor}"),
+    );
+    let answer = match indexer {
+        super::history::Indexer::Tls(endpoint) => {
+            config.client.get_with_query(endpoint, "/v1/assets", &query)
+        }
+        super::history::Indexer::Loopback {
+            address,
+            authority,
+            base_path,
+        } => layerx_platform_gateway::http::loopback_get(
+            *address,
+            authority,
+            &format!("{base_path}/v1/assets"),
+            &query,
+        ),
+    }
+    .map_err(|_| unavailable(id, "indexer_unreachable"))?;
+    if answer.status != 200 || answer.content_type != "application/json" {
+        return Err(unavailable(id, "indexer_assets_unavailable"));
+    }
+    let document: Value = serde_json::from_slice(&answer.body)
+        .map_err(|_| unavailable(id, "invalid_indexer_response"))?;
+    let rows = document
+        .get("items")
+        .and_then(Value::as_array)
+        .filter(|rows| rows.len() <= MAX_JOINED_ASSETS)
+        .ok_or_else(|| unavailable(id, "invalid_indexer_response"))?;
+    if document["version"] != 1 {
+        return Err(unavailable(id, "invalid_indexer_response"));
+    }
+    let next = match document.get("next_cursor") {
+        Some(Value::Null) => Value::Null,
+        Some(Value::String(next)) if rows.len() == MAX_JOINED_ASSETS => {
+            let parsed = next
+                .parse::<u64>()
+                .ok()
+                .filter(|next| *next > cursor.unwrap_or(0) && i64::try_from(*next).is_ok())
+                .filter(|parsed| parsed.to_string() == *next)
+                .ok_or_else(|| unavailable(id, "invalid_indexer_response"))?;
+            json!(parsed.to_string())
+        }
+        _ => return Err(unavailable(id, "invalid_indexer_response")),
+    };
+    let mut records = Vec::with_capacity(rows.len());
+    let mut seen = std::collections::BTreeSet::new();
+    for row in rows {
+        let asset_id = row
+            .get("asset")
+            .and_then(Value::as_str)
+            .filter(|asset| !asset.is_empty() && seen.insert(*asset))
+            .ok_or_else(|| unavailable(id, "invalid_indexer_response"))?;
+        let kind = row
+            .get("kind")
+            .and_then(Value::as_str)
+            .ok_or_else(|| unavailable(id, "invalid_indexer_response"))?;
+        let denom = row
+            .get("denom")
+            .filter(|denom| denom.is_null() || denom.is_string())
+            .ok_or_else(|| unavailable(id, "invalid_indexer_response"))?;
+        records.push(json!({"asset_id": asset_id, "denom": denom, "kind": kind}));
+    }
+    Ok((records, next))
 }
 
 /// Successful ledger reads include the optional OpenRPC `paused` and `verification` fields.
@@ -748,6 +796,7 @@ fn custody_asset(node: &mut Node<'_>, record: &Value, height: u64) -> Result<Val
     match metadata {
         Ok(metadata) => Ok(metadata),
         Err("public_read_rate_limit") => Err("public_read_rate_limit"),
+        Err("asset_list_deadline_exceeded") => Err("asset_list_deadline_exceeded"),
         Err(_) => Ok(json!({"name": null, "symbol": null, "decimals": null, "supply": null})),
     }
 }
@@ -756,17 +805,28 @@ fn list_assets(config: &Config, id: &Value, params: Option<&Value>) -> Value {
     if config.paxeer.is_none() {
         return unconfigured(id);
     }
-    if !no_params(params) {
-        return super::rpc::error(id, -32602, "Invalid params");
-    }
-    let records = match layerx_assets(config, id) {
+    let cursor = match asset_cursor(params) {
+        Ok(cursor) => cursor,
+        Err(()) => return super::rpc::error(id, -32602, "Invalid params"),
+    };
+    let started = std::time::Instant::now();
+    let (records, next_cursor) = match layerx_assets(config, id, cursor) {
         Ok(records) => records,
         Err(refusal) => return refusal,
     };
     if !public_reads::consume_read() {
         return unavailable(id, "public_read_rate_limit");
     }
-    let mut node = |request: &Value| node_unmetered(config, request);
+    let mut node = |request: &Value| {
+        if started.elapsed() >= ASSET_LIST_DEADLINE {
+            return Err("asset_list_deadline_exceeded");
+        }
+        let answer = node_before(config, request, Some(started + ASSET_LIST_DEADLINE));
+        if started.elapsed() >= ASSET_LIST_DEADLINE {
+            return Err("asset_list_deadline_exceeded");
+        }
+        answer
+    };
     let height = match block_number(&mut node) {
         Ok(height) => height,
         Err(code) => return unavailable(id, code),
@@ -791,7 +851,7 @@ fn list_assets(config: &Config, id: &Value, params: Option<&Value>) -> Value {
     json!({
         "jsonrpc": "2.0",
         "id": id,
-        "result": {"height": height, "assets": joined, "joined_limit": MAX_JOINED_ASSETS}
+        "result": {"height": height, "assets": joined, "joined_limit": MAX_JOINED_ASSETS, "next_cursor": next_cursor, "order": "registration"}
     })
 }
 
