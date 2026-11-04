@@ -16,9 +16,9 @@ ETH_MAINNET_UPSTREAM='https://your-ethereum-provider.example/' \
 ETH_MAINNET_FORK_BLOCK=21000000 npm run rpc:fork
 ```
 
-Replace the upstream URL with your Ethereum mainnet provider and choose a block
-whose historical state it serves. Keep the process running while making manual
-JSON-RPC calls to `http://localhost:9546/`.
+Replace the upstream URL with your Ethereum mainnet provider and choose a
+positive pinned block whose historical state it serves. Keep the process running
+while making manual JSON-RPC calls to `http://localhost:9546/`.
 
 To run the automated suite, separately start geth with `npm run rpc:geth`,
 prepare the local Paxeer cluster, and run `npm run test:rpc` as described in the
@@ -35,7 +35,9 @@ requirement.
 [`hardhat.config.ts`](hardhat.config.ts) throws during configuration loading
 when the upstream is missing or the block is unset, zero, negative, fractional,
 non-numeric or outside the safe-integer range. There is no latest-block default.
-The block validation error is
+An unset, empty or whitespace-only block produces the actionable missing-value
+error `ETH_MAINNET_FORK_BLOCK is not set` with a startup command that supplies
+both required variables. For other invalid values, the block validation error is
 `ETH_MAINNET_FORK_BLOCK must be a positive pinned block number`.
 
 ## Notes
