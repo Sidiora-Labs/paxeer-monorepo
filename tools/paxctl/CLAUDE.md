@@ -1,57 +1,97 @@
-# seictl
+# Paxeer paxctl component guide
 
-Dual-purpose tool: CLI for Sei node operators and HTTP sidecar server for the sei-k8s-controller. Packaged as a single Go binary (`ghcr.io/sei-protocol/seictl`) distributed via GoReleaser (native binaries) and Docker (distroless).
+This directory ships the `seictl` executable from the pinned Paxeer monorepo.
+The inherited module path, `SEI_*` settings and `sei.io` API names remain wire
+compatibility names. Read [README.md](README.md) for installation and chain
+limitations; [VENDOR.kvx](VENDOR.kvx) identifies only the original import.
 
-## Architecture
+## Architecture and routing
 
-`seictl` carries two distinct surfaces today:
+`main.go` registers local `config`, `genesis`, `patch`, `await`, `serve` and
+`report` commands plus four operational trees:
 
-**Node-operator surface** (the original):
-- **CLI commands**: `config patch`, `genesis patch`, `patch`, `serve`, `await` (top-level files: `config.go`, `genesis.go`, `patch.go`, `serve.go`, `await.go`)
-- **Sidecar server**: `sidecar/server/` — HTTP API on `127.0.0.1:7777`
-- **Task engine**: `sidecar/engine/` — concurrent task executor + cron scheduler
-- **Task handlers**: `sidecar/tasks/` — snapshot, peers, genesis, config, state-sync, upload
-- **Generated client**: `sidecar/client/` — OpenAPI-generated HTTP client for the sidecar API, consumed by sei-k8s-controller
-- **OpenAPI spec**: `sidecar/api/openapi.yaml` — source of truth for the sidecar HTTP contract
-- **Internal**: `internal/patch/` — TOML/JSON merge-patch logic
+- `seinetwork/`: `network apply/get/list/delete/watch`, rendering `SeiNetwork`.
+- `seinode/`: `node apply/get/list/delete/watch`, rendering `SeiNode` followers.
+- `workflow/`: `workflow apply/get/list/delete/watch` and `workflow state-sync`,
+  rendering `SeiNodeTaskWorkflow`. The controller adopts and executes the recipe;
+  the CLI renders/applies/watches it. It does not execute the controller plan.
+- `task/`: `task submit/get/list/delete` and `task snapshot-upload`, calling the
+  addressed pod's sidecar through its authenticated TLS proxy.
 
-**Engineer-harness surface**: two preset-driven command trees over the SeiNetwork + SeiNode CRDs — `seictl network {apply,get,list,delete,watch}` (genesis networks) and `seictl node {…}` (followers/RPC). Shared internals in `internal/cliutil` (output/errors/client/parse/watch) and `internal/seiapi` (GVK plumbing). The legacy `nodedeployment`/`nd` verb and `internal/snd` were removed in the SeiNodeDeployment clean-break (v0.1.0).
+`internal/seiapi` binds the current `sei.io/v1alpha1` GVK/GVRs and performs
+server-side apply. `internal/cliutil` resolves kubeconfig/namespace, prints
+Kubernetes objects and stamps `seictl.sei.io/version`. `--dry-run` is an API-server
+request, not offline rendering. Presets and flags feed the production renderers;
+annotation provenance is diagnostic and never permission to execute a task.
 
-## Code Standards
+`serve.go` opens `<home>/sidecar.db` using `server.NewTaskStore`, installs it as
+both `engine.ResultStore` and `ExecutionConfig.Checkpointer`, registers real
+handlers from `sidecar/tasks`, then calls `RehydrateStaleTasks` before listening.
+HTTP POST `/v0/tasks` decodes exact JSON parameters, admits them through the
+durable TaskStore queue, and dispatches to the engine. HTTP admission limits
+queued/active tasks to 32 and retained identities to 256 and runs one node task
+at a time; overload/unavailability is explicit (429/503). Engine callers that
+bypass the HTTP queue do not inherit this admission guarantee.
 
-### Go
+The engine executes one-shot tasks. There is no cron scheduler or automatic
+periodic retry of completed/failed work. Controller/CronJob producers own any
+schedule, fresh operation identity and polling. The store retains parameters,
+results, generations, cancellations and transaction checkpoints. Startup
+re-executes stale `running` work and drains persisted HTTP queue entries after
+runtime dependencies are installed; handlers must support idempotent recovery.
+Completed results survive reopening and are not dispatched again. Readiness
+hold/release is durable; stale mark-not-ready recovery runs before mark-ready.
+DELETE cancels active work and generation checks prevent obsolete completions
+from resurrecting deleted results. Keep the database with the correct node home
+and chain; deleting it discards operation/recovery evidence.
 
-- Write clear, self-documenting code. Prefer descriptive names over comments that restate what the code does.
-- Comments should explain *why*, not *what*. Reserve them for non-obvious intent, trade-offs, constraints, or public API contracts. Do not use comments as section dividers, narration, or decoration.
-- No unnecessary abstractions. Three similar lines are better than a premature helper.
-- Functions should do one thing. If a function needs a comment explaining what each section does, it should be multiple functions.
-- Keep functions short. A function that doesn't fit on one screen is usually doing too much.
-- Names are the best documentation: `sidecarImage(node)` needs no comment, `si(n)` needs a rewrite.
-- Error messages should provide enough context to diagnose without a debugger.
-- Imports grouped: stdlib, external, then `github.com/sei-protocol/seictl`.
-- All code must pass `gofmt -s`. Run `make fmt` before committing.
+`sidecar/api/openapi.yaml` and generated `sidecar/client/sidecar.gen.go` define
+the typed client surface. Hand-written `client.go`/`tasks.go` wrap it. Runtime
+admission can also return 413/429/503 and `queued` task status; the current
+schema does not yet describe every queue response. Do not infer absence from an
+unavailable store. `config-reload` currently reports restart-required; editing
+on-disk config alone does not prove the running paxd adopted it.
 
-### Testing
+## Authentication and listener boundary
 
-- Tests use `testing` from the standard library. No assertion frameworks unless already established.
-- Table-driven tests for any function with more than two interesting input variations.
-- Test names should describe the scenario, not the function: `TestValidateCron/empty_string` over `TestValidateCronEmpty`.
-- Run `make test` before submitting changes.
+`server.AuthnMode()` defaults to `trusted-header`. `BindAddress` returns
+`127.0.0.1:7777` for that mode; `--port` / `SEI_SIDECAR_PORT` changes the port.
+Unknown modes fail startup. Explicit `unauthenticated` additionally requires
+`SEI_SIDECAR_ISOLATED_DEVELOPMENT=true`, and its low-level listener binds
+`:7777` on all interfaces. That development server rejects task writes.
+The production `serve` command rejects unauthenticated mode entirely because
+its handler set includes signing and destructive operations.
 
-### API Client (`sidecar/client/`)
+External task callers use TLS :8443 on the in-pod kube-rbac-proxy. It validates
+Kubernetes TokenReview and SubjectAccessReview, strips/overwrites caller
+identity headers, then forwards to the loopback sidecar with exactly one
+non-empty `X-Remote-User`. The sidecar checks that header, not bearer tokens.
+`task` commands use kubeconfig credentials but require `--proxy-ca-file` for the
+proxy's CA and verify its pod DNS identity; redirects are refused. API-server
+CA/insecure settings must not weaken this proxy boundary.
 
-- Generated from `sidecar/api/openapi.yaml` using oapi-codegen.
-- Run `make generate` to regenerate after spec changes. Never hand-edit `sidecar.gen.go`.
-- The high-level `SidecarClient` in `client.go` and typed task builders in `tasks.go` are hand-written wrappers over the generated code.
-- Package name is `client`; downstream consumers alias it as `sidecar` by convention.
+Only `/v0/healthz`, `/v0/startupz`, `/v0/livez` and `/v0/metrics` bypass the
+identity header. Keep proxy allow-paths aligned with `server.BypassPaths()`.
+Loopback protects against off-pod callers, not other containers sharing the pod
+network. Every colocated container is trusted; a shared process namespace can
+also expose keyring memory. Do not enable hostNetwork, hostPID or hostIPC.
+The deployment must give the sidecar the correct paxd process visibility and
+home. No CLI spelling alone establishes those deployment properties.
 
-## Build & Run
+## Development and release
 
-```bash
-make build       # Build to ./build/seictl
-make test        # Run all tests
-make lint        # Check formatting
-make fmt         # Auto-format
-make generate    # Regenerate OpenAPI client
-make clean       # Remove build artifacts
-```
+Use Go 1.26.0 and the complete pinned monorepo, because local replacements in
+`go.mod` resolve sibling modules. `make build` builds `build/seictl` with the
+validated version and verifies all three real rendered annotations locally.
+GoReleaser validates the tag against the same manifest and stamps the same
+symbol. Docker requires monorepo-root build context and verifies each target
+executable before copying it into the distroless image. The native artifact
+workflow verifies all four supported OS/CPU archives. A bare build retains
+`dev`; do not publish it as a qualified release.
+
+Keep Go code formatted with `gofmt -s`; use standard-library tests and real
+handlers/stores with local fixture peers. Never edit the generated API client
+by hand; change its schema and regenerate when authorized. For bounded spec
+tasks, run only the task's declared build and verification gates after the whole
+implementation, with its stated repair budget. General `make test` and
+`make generate` are maintenance commands, not extra gates for every task.

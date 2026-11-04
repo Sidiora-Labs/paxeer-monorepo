@@ -1,0 +1,80 @@
+[task.22.33.839]
+mode = "BUILD"
+audit = "spec/layerx-merge/programme/audit/records/22.30.180.kvx"
+base_revision = "9e535b4932ba8111a729a5cef10e0ca2370ca435"
+baseline = "The starting tree had no paxctl repair edits or earlier hf-build/hf-done ledger. No unchanged-tree verification ran: the explicit implementation-first order and hf-build/hf-done-only gates prohibit the conflicting audit baseline step. No pre-change test failures are claimed."
+evidence = "The runner-owned private /out/run/gates.jsonl and /out/logs/build-*.log and verify-*.log record the exact candidate revision, command, exit and log. The final response copies the last bounded gate evidence line. This record does not claim an unexecuted gate or published artifact qualification."
+proof_boundary = "The focused gate executes the production CLI in-process against committed loopback discovery/SSA fixtures, validates both the annotation sent over HTTP and the returned CR, and exercises real task handlers, typed clients, SQLite and engine recovery. The native archive and Docker publication checks are implemented but are not executed by this task's Go-only gate."
+
+[finding.retired-smoke-commands]
+tests = ["TestRepairM_839_RetiredSmokeCommands", "TestRepairM_839_ReleaseProvenance", "TestRepairM_839_ArchitectureAndDurableRecovery"]
+repair = "Replace the retired infrastructure-specific runbook with an isolated Paxeer procedure using current SeiNetwork, SeiNode and SeiNodeTaskWorkflow CRDs, actual network/node/workflow/task verbs, public placeholders, explicit CometBFT and EVM chain identity checks, block progress, authenticated task inspection and narrowly scoped cleanup. Workflow state-sync is dry-run only in the smoke; destructive qualification remains separate."
+proof = "Check executable examples against real command registrations; produce config with the real ConfigApplier, encode a typed ConfigValidateTask, decode the actual server request and execute the real ConfigValidator. The release proof exercises all three resource command trees over HTTP; the architecture proof executes the typed task client through the actual listener, authenticated handler, queue and engine."
+
+[finding.release-provenance-not-stamped]
+tests = ["TestRepairM_839_ReleaseProvenance"]
+repair = "Use one validated version.json reader for Makefile and Docker and require GoReleaser's v-prefixed tag to equal that manifest before stamping internal/cliutil.Version. Verify real render annotations through a local discovery/SSA fixture for Makefile builds and Docker targets; provide a native runner matrix verifying each of the four published archives and its checksum. Fail on dev, mismatched or unsafe versions."
+proof = "Run the real network, node and workflow CLI producers through the actual Kubernetes client/SSA HTTP transport, inspect the received annotations and the CLI's post-apply objects, and reject an absent or wrong stamp. Assert release configuration uses the validated reader, actual linker symbol and all four native archive consumers. No subprocess, external toolchain or native release artifact is required by the focused test."
+
+[finding.architecture-page-drift]
+tests = ["TestRepairM_839_ArchitectureAndDurableRecovery"]
+repair = "Describe current command routing, one-shot execution, bounded durable HTTP admission, configuration-before-rehydration, terminal result retention, generation/cancellation semantics, and the exact default trusted-header loopback versus explicit isolated-development all-interface listener. Explain that serve refuses unauthenticated signing/destructive handlers and that TLS proxy credentials, proxy CA, pod trust and host namespace isolation define the deployment boundary."
+proof = "Assert real auth-mode and listener functions and serve rejection, enforce missing/empty/duplicate header rejection over the real listener, submit a production configuration mutation through the generated HTTP client, interrupt a real await-condition task, stop and reopen the real store/server/engine, complete it against the loopback status fixture and read both completed results over HTTP without incrementing run count."
+
+[finding.upstream-install-instructions]
+tests = ["TestRepairM_839_UpstreamInstallInstructions", "TestRepairM_839_ReleaseProvenance"]
+repair = "Replace upstream release/latest-module instructions with qualified Paxeer artifacts or full-revision monorepo builds, the actual four-platform matrix and Go 1.26.0, mandatory checksums, annotation verification and monorepo-root Docker context. Document current verbs, explicit home/chain/image, proxy credentials and CA requirements, inherited wire names and unsupported/unqualified Sei-only operations."
+proof = "Compare instructions to the checked-in module and registered CLI help and command flags; drive the installed-artifact verification consumer against the real CLI renderers and test missing/mismatched stamps."
+
+[wiring.release-entrypoint]
+request = "Domain 16 (fm-tools-ops): the root .github/workflows release entrypoint must activate tools/paxctl/.github/workflows/release-provenance.yml on the pinned monorepo revision, check all native artifact jobs, and use monorepo-root context with tools/paxctl/Dockerfile for Linux amd64/arm64; nested vendored workflow files do not execute automatically in GitHub Actions."
+
+[wiring.controller-profile]
+request = "Domain 16 (Paxeer controller/deployment owner): qualify the deployed sei.io/v1alpha1 CRDs, paxd image/process/home, chain-specific genesis, proxy TokenReview/SAR/CA and namespace isolation before using the runbook; the CLI documentation does not adapt an external controller or create deployment credentials."
+
+[gotcha.baseline-order]
+observed = "The audit baseline step conflicts with the task's explicit implementation-first, bounded-gates-only execution order."
+action = "Use only hf-build followed by hf-done after implementation and record no measured baseline."
+
+[gotcha.scope]
+observed = "The task forbids edits to spec/ and all paths outside tools/paxctl, including the root gotcha ledger."
+action = "Keep the repair record, wiring requests and encountered gotchas here; let the runner own spec lifecycle and commits."
+
+[gotcha.source-context]
+observed = "The current module replaces dependencies with monorepo siblings, so a standalone module-directory Docker context cannot resolve the delivered source."
+action = "Build the Dockerfile from the monorepo root and retain matching sibling revisions."
+
+[gotcha.auth-evolution]
+observed = "The audit predates hardening: AuthnMode now defaults to trusted-header and serve rejects unauthenticated signing/destructive handlers."
+action = "Describe and prove the current production functions rather than copying the historical audit's default-listener claim."
+
+[gotcha.runtime-wire]
+observed = "The generated TaskResult omits the engine's run counter even though the server's JSON retains it."
+action = "Check the generated client's typed status and decode the same actual response body into engine.TaskResult to assert unchanged run count."
+
+[qualification.build]
+revision = "4ce519736449d6762474c2a618a32db3d336ab00"
+command = "cd tools/paxctl && go build .//..."
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "Attempt 1 failed on sidecar/server query signature mismatches before verification; retained as historical evidence and repaired by the explicit attempt 2 ruling."
+
+[gotcha.inherited-interface]
+observed = "The bounded build encountered pre-existing server-to-engine query signature mismatches in untouched production handlers."
+action = "Attempt 2 explicitly authorizes the in-scope signature repair: propagate errors as retryable HTTP 503, retain 404 for confirmed absence, update existing query consumers in tests and run the final bounded gates."
+
+[gotcha.layout]
+observed = "The network and node command packages are named seinetwork and seinode rather than network and node."
+action = "Use the actual registered package layout when following the documented command paths."
+
+[continuation.attempt-2]
+implementation = "Preserve attempt 1, adapt both production query handlers and existing module tests to the current two-return engine API without weakening assertions. TestRepairM_839_QueryHandlerSignatures exercises healthy empty history, confirmed absence and real closed-store failure through the generated client, loopback HTTP server and production engine."
+evidence = "The final bounded hf-build/hf-done ledger provides the exact verified candidate revision; no commit or source edit follows hf-done success. The earlier qualification.build entry is historical, not the final result."
+
+[gotcha.query-consumers]
+observed = "The engine API returns result plus error, but the server and several existing test consumers still used one return value."
+action = "Handle the error at every affected call site and prove server retry semantics with the real closed SQLite store; leave unrelated behavior unchanged."
+
+[gotcha.edit-script]
+observed = "A Python edit script had an unmatched f-string brace and failed parsing before making any changes."
+action = "Use explicit concatenation for Go braces in the edit script and apply the intended edits once."
