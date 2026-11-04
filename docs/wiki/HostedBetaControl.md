@@ -2,7 +2,9 @@
 
 Private-network only. Testnet control has no public name on Paxeer X Network and is
 run only inside a private or disposable network; public accounts are funded
-through [custody credit](Custody.md) submitted to the router.
+through [custody credit](Custody.md) submitted to an operator-deployed
+gateway. The public node names serve JSON-RPC at the root path; they do not
+expose the gateway methods.
 
 
 `layerx-testnet-control` is the public status, parameter, and journey

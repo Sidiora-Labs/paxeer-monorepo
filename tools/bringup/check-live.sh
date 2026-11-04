@@ -181,7 +181,7 @@ kernel-value-loop pipes tools/bringup/value-loop.sh into a machine of the
           default 600; the whole run is bounded by
           CHECK_LIVE_VALUE_LOOP_TIMEOUT, default 840.
 
-registry-plan  prints the registry/router bring-up order from this checkout's
+registry-plan  prints the registry/hosted-gateway bring-up order from this checkout's
           tomls, no network, no host map, exactly four lines in order:
   stage   "stage <n> <name> requires=<previous stage|-> needs=<prerequisite>,...
           producers=<prerequisite>:<producer>,..." for material,
@@ -191,8 +191,8 @@ registry-plan  prints the registry/router bring-up order from this checkout's
           <path>" and exit 1 when a toml line it reads is absent.
 
 registry-bootstrap  the machines, private-ingress and mTLS healthz checks of
-          registry, which ask no router; registry adds program-events and
-          router-readyz read through the router.
+          registry, which ask no hosted gateway; registry adds program-events and
+          router-readyz read through the configured hosted gateway.
 
 router    requires protected material and registry-bootstrap records under
           CHECK_LIVE_STAGE_DIR, bound to CHECK_LIVE_CANDIDATE_REVISION,
@@ -200,7 +200,7 @@ router    requires protected material and registry-bootstrap records under
           Unless their ordered outcomes pass with the same pins, prints "fail router-activation
           missing=registry-bootstrap producer=stage:registry-bootstrap" and
           exits 1 before any request; its readyz line also fails with
-          missing=program_registry when the router's program_registry backend
+          missing=program_registry when the hosted gateway's program_registry backend
           is absent or not configured.
 
 relay     reads the public relay archive at CHECK_LIVE_RELAY_ORIGIN
@@ -213,7 +213,7 @@ relay     reads the public relay archive at CHECK_LIVE_RELAY_ORIGIN
           and no further than the one after, exact batch bytes), services
           (at least two in the ledger, every one answering),
           relay-origin-recheck, relay-forward (the original signed activity
-          answered with the router's verdict) and relay-altered (the flipped
+          answered with the hosted gateway's verdict) and relay-altered (the flipped
           bytes refused with a 4xx). Needs no host map.
 
 Environment:
@@ -247,8 +247,8 @@ Environment:
                        reports env=absent when unset
   CHECK_LIVE_RELAY_CA  optional CA file for that route
   CHECK_LIVE_RELAY_ACTIVITY  file of original signed activity bytes, required by relay
-  CHECK_LIVE_RELAY_ACTIVITY_ID  the activity id the router answers for it
-  CHECK_LIVE_RELAY_KEY_FILE  file holding the router API key; never printed
+  CHECK_LIVE_RELAY_ACTIVITY_ID  the activity id the hosted gateway answers for it
+  CHECK_LIVE_RELAY_KEY_FILE  file holding the hosted gateway API key; never printed
   CHECK_LIVE_TIMEOUT   seconds per request, ssh or flyctl call, default 30
   LAYERX_CA_DIR        the internal CA directory on this host, default
                        /etc/layerx/ca
@@ -269,8 +269,15 @@ Environment:
                        quote may charge
   CHECK_LIVE_GAS_ORIGIN  origin of the gas station, default
                        https://chain.paxeer.network
-  CHECK_LIVE_GAS_RPC   JSON-RPC URL the gas check reads the chain from,
-                       default https://api-mainnet-beta.paxeer.network/rpc
+  CHECK_LIVE_ROUTER_URL  operator-deployed hosted gateway origin, required by
+                       router, search and registry (except registry-bootstrap);
+                       its /rpc serves lx_* and px_*, not the public nodes
+  CHECK_LIVE_INDEXER_RPC  hosted gateway JSON-RPC endpoint for px_* history;
+                       required by indexer, with no public node default
+  CHECK_LIVE_GAS_RPC   node JSON-RPC URL at the root, chain id 125,
+                       default https://api-mainnet-beta.paxeer.network;
+                       api1 through api14.mainnet-beta.paxeer.network also
+                       serve JSON-RPC at the root, with no router or /rpc
   CHECK_LIVE_GAS_RECEIPT_ATTEMPTS  receipt polls five seconds apart, default 36
 
 Exits 1 when any check fails, 2 on a usage error, an unset BRINGUP_HOSTS_FILE
@@ -2019,7 +2026,7 @@ check_agent_public() {
 
 # check_gas: the gas station app of services/interop/deploy/gas-station/fly.toml runs
 # one started machine with one volume and the configuration its init rendered
-# there names chain 125, the SID token, the router first among three
+# there names chain 125, the SID token, the primary node first among three
 # endpoints and the paymaster; the account of CHECK_LIVE_GAS_ACCOUNT_KEYSTORE
 # is delegated to that paymaster; POST /quote at chain.paxeer.network answers
 # 200 with a quote for one no-op call whose SID amount lies within the
@@ -2088,7 +2095,7 @@ check_gas() {
 		exit 2
 	fi
 	gas_origin="${CHECK_LIVE_GAS_ORIGIN:-https://chain.paxeer.network}"
-	gas_rpc_url="${CHECK_LIVE_GAS_RPC:-https://api-mainnet-beta.paxeer.network/rpc}"
+	gas_rpc_url="${CHECK_LIVE_GAS_RPC:-https://api-mainnet-beta.paxeer.network}"
 	if ! app="$(railway_service gas-station)"; then
 		echo "fail gas rollout=absent"
 		finish 1
@@ -2105,8 +2112,8 @@ print(c["chain_id"], c["token"], len(c["endpoints"]), c["endpoints"][0], c["paym
 		echo "fail config app=$app station.json=unreadable"
 		finish $((failures + 1))
 	fi
-	if [ "$chain" = 125 ] && [ "${token,,}" = "${gas_sid,,}" ] && [ "$endpoints" = 3 ] && [ "$first" = https://api-mainnet-beta.paxeer.network/rpc ]; then
-		echo "pass config app=$app chain_id=125 token=SID endpoints=3 first=router paymaster=$paymaster"
+	if [ "$chain" = 125 ] && [ "${token,,}" = "${gas_sid,,}" ] && [ "$endpoints" = 3 ] && [ "$first" = https://api-mainnet-beta.paxeer.network ]; then
+		echo "pass config app=$app chain_id=125 token=SID endpoints=3 first=node paymaster=$paymaster"
 	else
 		echo "fail config app=$app chain_id=$chain token=$token endpoints=$endpoints first=$first"
 		finish $((failures + 1))
@@ -2264,15 +2271,15 @@ sys.exit(0 if status == 1 and paid == amount else 1)
 
 # check_internal: the internal app of services/platform/hosted/internal/fly.toml and
 # the internal Redis app of services/platform/hosted/internal/redis.toml hold no public
-# IP; the router's served chain at api-mainnet-beta.paxeer.network ends at
+# IP; the node's served chain at api-mainnet-beta.paxeer.network ends at
 # ISRG Root X1 or ISRG Root X2, reported as root=X1|X2; inside the payments
 # and programs machines the running layerx-event-source of that kind has the
-# router as LAYERX_EVENTS_UPSTREAM_URL and as LAYERX_EVENTS_UPSTREAM_CA_DER a
+# node root as LAYERX_EVENTS_UPSTREAM_URL and as LAYERX_EVENTS_UPSTREAM_CA_DER a
 # self-signed root of that same name that verifies the served chain; from the
 # kernel machine of services/wallet/deploy/human.toml the five /readyz routes at
 # their <group>.process.<app>.internal names answer ready over mTLS with the
 # human-event-client identity tools/bringup/ca.sh left on the kernel volume.
-# CHECK_LIVE_ROUTER_CONNECT (host:port, default the router name on 443) is
+# CHECK_LIVE_ROUTER_CONNECT (host:port, default the node name on 443) is
 # where the served chain is read. One line per check.
 # shellcheck disable=SC2016
 internal_pin_script='pid=
@@ -2300,7 +2307,7 @@ internal_ready_script='for group in "$group"; do
 	echo "@@$group $status $(printf "%s" "$answer" | tail -n 1) $(printf "%s" "$answer" | head -n 1 | tr -d " " | cut -c1-120)"
 done'
 check_internal() {
-	local router=api-mainnet-beta.paxeer.network
+	local node=api-mainnet-beta.paxeer.network
 	local connect="${CHECK_LIVE_ROUTER_CONNECT:-api-mainnet-beta.paxeer.network:443}"
 	local app kernel name="" answer w root="" group reply url pin subject line status code body failures=0
 	if ! command -v "$railway_bin" >/dev/null 2>&1; then
@@ -2327,7 +2334,7 @@ check_internal() {
 	w="$(mktemp -d)"
 	# shellcheck disable=SC2064
 	trap "rm -rf '$w'" EXIT
-	timeout "$timeout" openssl s_client -connect "$connect" -servername "$router" -showcerts </dev/null 2>/dev/null |
+	timeout "$timeout" openssl s_client -connect "$connect" -servername "$node" -showcerts </dev/null 2>/dev/null |
 		awk -v dir="$w" '/-BEGIN CERTIFICATE-/ { n++; in_cert = 1 } in_cert { print >(dir "/served-" n ".pem") } /-END CERTIFICATE-/ { in_cert = 0; close(dir "/served-" n ".pem") }' || true
 	if [ -s "$w/served-1.pem" ]; then
 		cat "$w"/served-[2-9].pem >"$w/untrusted.pem" 2>/dev/null || : >"$w/untrusted.pem"
@@ -2339,10 +2346,10 @@ check_internal() {
 		esac
 	fi
 	if [ -n "$root" ]; then
-		echo "pass router-root host=$router root=$root"
+		echo "pass node-root host=$node root=$root"
 	else
 		[ -n "$name" ] && name=other || name=unreadable
-		echo "fail router-root host=$router root=$name"
+		echo "fail node-root host=$node root=$name"
 		failures=$((failures + 1))
 	fi
 
@@ -2362,11 +2369,11 @@ check_internal() {
 			subject="$(openssl x509 -in "$w/pin-$group.pem" -noout -subject -nameopt sep_multiline,utf8 | sed -n 's/^ *CN=//p')"
 			if [ -n "$root" ] && [ "$subject" = "ISRG Root $root" ] &&
 				[ "$subject" = "$(openssl x509 -in "$w/pin-$group.pem" -noout -issuer -nameopt sep_multiline,utf8 | sed -n 's/^ *CN=//p')" ] &&
-				openssl verify -CAfile "$w/pin-$group.pem" -untrusted "$w/untrusted.pem" -verify_hostname "$router" "$w/served-1.pem" >/dev/null 2>&1; then
+				openssl verify -CAfile "$w/pin-$group.pem" -untrusted "$w/untrusted.pem" -verify_hostname "$node" "$w/served-1.pem" >/dev/null 2>&1; then
 				status=0
 			fi
 		fi
-		if [ "$url" = "https://$router" ] && [ "$status" -eq 0 ]; then
+		if [ "$url" = "https://$node" ] && [ "$status" -eq 0 ]; then
 			echo "pass upstream-ca group=$group url=$url root=$root verifies=yes"
 		else
 			subject="${subject:-unreadable}"
@@ -2560,20 +2567,24 @@ check_wallet() {
 	finish "$failures"
 }
 
-# check_router: the router URL https://api-mainnet-beta.paxeer.network serves
-# the gateway of services/wallet/deploy/endpoint.toml in kernel mode. Through its
+# check_router: CHECK_LIVE_ROUTER_URL names the operator-deployed hosted
+# gateway of services/wallet/deploy/endpoint.toml in kernel mode. Through its
 # /rpc: eth_chainId 0x7d, px_getNetwork consensus object with catching_up false,
 # and lx_getAccount answering a read for the bound account CHECK_LIVE_ROUTER_ACCOUNT. The app
-# runs started machines in at least two regions (fly_regions); /readyz through the router,
+# runs started machines in at least two regions (fly_regions); /readyz through the gateway,
 # forced to the first started machine of each region with
 # fly-force-instance-id, answers 200 with durable_store (its Redis round trip)
 # and every configured backend ready. The wallet gateway of
 # services/wallet/deploy/gateway.toml, read inside its machine, reports its
-# rpc_pool up with the router URL first. One line per check.
+# rpc_pool up with the configured hosted gateway URL first. One line per check.
 check_router() {
-	local url=https://api-mainnet-beta.paxeer.network account="${CHECK_LIVE_ROUTER_ACCOUNT:-}"
+	local url="${CHECK_LIVE_ROUTER_URL:-}" account="${CHECK_LIVE_ROUTER_ACCOUNT:-}"
 	local app wallet method params body answer regions region code failures=0
 	router_prerequisite
+	if [ -z "$url" ]; then
+		echo "check-live: hosted gateway endpoint is not configured (CHECK_LIVE_ROUTER_URL)" >&2
+		exit 2
+	fi
 	if ! command -v "$railway_bin" >/dev/null 2>&1; then
 		echo "check-live: $railway_bin is required" >&2
 		exit 2
@@ -3451,12 +3462,12 @@ PY
 # payer's transfer to agent:<CHECK_LIVE_INTEROP_PAYEE_DID>:main of
 # CHECK_LIVE_INTEROP_AMOUNT (default 1) base units of the kernel asset of
 # services/platform/hosted/node/bootstrap.sh signed by CHECK_LIVE_INTEROP_ENCODER (the
-# built hosted-send example of tools/platform/cli) from the account state the router
-# at CHECK_LIVE_INTEROP_RPC (default https://api-mainnet-beta.paxeer.network/rpc)
+# built hosted-send example of tools/platform/cli) from the account state the endpoint
+# at CHECK_LIVE_INTEROP_RPC (default https://api-mainnet-beta.paxeer.network)
 # reports, the buyer's PAYMENT-SIGNATURE and the settlement whose
 # PAYMENT-RESPONSE carries success, the lxp:<activity id> transaction and the
 # receipt. CHECK_LIVE_INTEROP_API_KEY_FILE holds the payer's signer-bound
-# router key <id>:<secret> and CHECK_LIVE_INTEROP_PAYER_KEY_FILE its ed25519
+# hosted gateway key <id>:<secret> and CHECK_LIVE_INTEROP_PAYER_KEY_FILE its ed25519
 # key (PEM or 32 raw bytes); neither is printed or leaves this host except
 # the key as the Authorization header. One line per check.
 check_interop() {
@@ -3473,7 +3484,7 @@ check_interop() {
 		exit 2
 	fi
 	origin="${CHECK_LIVE_INTEROP_ORIGIN:-https://interchain.paxeer.network}"
-	rpc_url="${CHECK_LIVE_INTEROP_RPC:-https://api-mainnet-beta.paxeer.network/rpc}"
+	rpc_url="${CHECK_LIVE_INTEROP_RPC:-https://api-mainnet-beta.paxeer.network}"
 	if ! app="$(fly_app "$toml")"; then
 		echo "fail interop toml=absent"
 		finish 1
@@ -3757,16 +3768,20 @@ check_ramp() {
 # location answers a POSTed status and refuses a GET, and the indexer's start
 # block is the node's first retained block; the Paxeer backfill cursor sits at
 # the cutover the init kept and the live cursor at or past it; and through
-# the router px_getUnifiedHistory and px_getHistory answer items for
+# the configured hosted gateway px_getUnifiedHistory and px_getHistory answer items for
 # CHECK_LIVE_INDEXER_ACCOUNT, a 0x EVM address with indexed history.
 # One line per check.
 check_indexer() {
-	local router_url=https://api-mainnet-beta.paxeer.network/rpc relay_url=https://archive.paxeer.network
+	local gateway_url="${CHECK_LIVE_INDEXER_RPC:-}" relay_url=https://archive.paxeer.network
 	local account="${CHECK_LIVE_INDEXER_ACCOUNT:-}" app answer unit w reply line side want url pin host
 	local subject status code earliest start cutover backfilled live listen method params failures=0
 	local script
 	if ! [[ "$account" =~ ^0x[0-9a-fA-F]{40}$ ]]; then
 		echo "check-live: CHECK_LIVE_INDEXER_ACCOUNT must be a 0x EVM address with indexed history" >&2
+		exit 2
+	fi
+	if [ -z "$gateway_url" ]; then
+		echo "check-live: hosted gateway endpoint is not configured (CHECK_LIVE_INDEXER_RPC)" >&2
 		exit 2
 	fi
 	if ! command -v "$railway_bin" >/dev/null 2>&1; then
@@ -3912,7 +3927,7 @@ print(value if value.isdigit() else "")
 	for method in px_getUnifiedHistory px_getHistory; do
 		params="[\"$account\"]"
 		code="$(curl -sS -m "$timeout" -o "$w/history.json" -w '%{http_code}' -H 'content-type: application/json' \
-			--data "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$method\",\"params\":$params}" "$router_url" 2>/dev/null)" || code=none
+			--data "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$method\",\"params\":$params}" "$gateway_url" 2>/dev/null)" || code=none
 		read -r answer line <<<"$(python3 -c '
 import json, sys
 doc = json.load(open(sys.argv[1]))
@@ -4044,8 +4059,8 @@ for d in json.load(open(sys.argv[1])):
 # carrying a PAYMENT-SIGNATURE with the payer's grant for that offer, signed
 # with the Ed25519 PEM key of CHECK_LIVE_SEARCH_PAYER_KEY_FILE (never
 # printed), answers 200 with a PAYMENT-RESPONSE from the backend whose
-# x-search-node answered the challenge. The router is CHECK_LIVE_ROUTER_URL,
-# default https://api-mainnet-beta.paxeer.network. One line per check.
+# x-search-node answered the challenge. CHECK_LIVE_ROUTER_URL must name
+# the operator-deployed hosted gateway origin. One line per check.
 search_offer_py='
 import base64
 import json
@@ -4129,7 +4144,7 @@ print(base64.b64encode(json.dumps(header, separators=(",", ":")).encode()).decod
 '
 check_search() {
 	local listing name code body headers first="" second="" line reply offer public signature payment work v node asset failures=0
-	local router="${CHECK_LIVE_ROUTER_URL:-https://api-mainnet-beta.paxeer.network}"
+	local router="${CHECK_LIVE_ROUTER_URL:-}"
 	local -a names=() paths=()
 	for v in CHECK_LIVE_SEARCH_PAYER_KEY_FILE CHECK_LIVE_SEARCH_PAYER_DID; do
 		if [ -z "${!v:-}" ]; then
@@ -4137,6 +4152,10 @@ check_search() {
 			exit 2
 		fi
 	done
+	if [ -z "$router" ]; then
+		echo "check-live: hosted gateway endpoint is not configured (CHECK_LIVE_ROUTER_URL)" >&2
+		exit 2
+	fi
 	if ! listing="$("$(dirname "${BASH_SOURCE[0]}")/search-front.sh" names 2>&1)"; then
 		echo "fail names names=unreadable $(printf '%s' "$listing" | tr '\n' ' ' | cut -c1-160)"
 		finish 1
@@ -4223,14 +4242,14 @@ check_search() {
 # passthrough; from the kernel machine of services/wallet/deploy/human.toml,
 # https://index.paxeer.network/healthz refuses a request without a client
 # certificate and answers 200 ready to one with the kernel's internal-CA
-# client identity; the router's lx_getProgramEvents returns, on the reference
+# client identity; the hosted gateway's lx_getProgramEvents returns, on the reference
 # escrow's event topic, an event of the program CHECK_LIVE_REGISTRY_PROGRAM_ID
-# names (the deploy step records it); and the router's /readyz reports
-# program_registry ready. The router is CHECK_LIVE_ROUTER_URL, default
-# https://api-mainnet-beta.paxeer.network. One line per check.
+# names (the deploy step records it); and the hosted gateway's /readyz reports
+# program_registry ready. CHECK_LIVE_ROUTER_URL must name the hosted gateway
+# origin for the full check. One line per check.
 check_registry() {
 	local toml=services/platform/hosted/registry/fly.toml url ingress
-	local router="${CHECK_LIVE_ROUTER_URL:-https://api-mainnet-beta.paxeer.network}"
+	local router="${CHECK_LIVE_ROUTER_URL:-}"
 	local topic=6c782e7265662e657363726f772e637573746f6479 program="${CHECK_LIVE_REGISTRY_PROGRAM_ID:-}"
 	local app kernel answer reply line status code body anonymous from page failures=0
 	# shellcheck disable=SC2016
@@ -4322,6 +4341,11 @@ print(checks.get("serving") or "absent", transport[0] if len(transport) == 1 els
 		finish "$failures"
 	fi
 
+	if [ -z "$router" ]; then
+		echo "check-live: hosted gateway endpoint is not configured (CHECK_LIVE_ROUTER_URL)" >&2
+		exit 2
+	fi
+
 	if [[ ! "$program" =~ ^[0-9a-f]{64}$ ]]; then
 		echo "fail program-events program=unset want=CHECK_LIVE_REGISTRY_PROGRAM_ID"
 		failures=$((failures + 1))
@@ -4380,12 +4404,12 @@ check_registry_bootstrap() {
 	check_registry
 }
 
-# check_registry_plan: prints the four stages of the registry/router bring-up
+# check_registry_plan: prints the four stages of the registry/hosted-gateway bring-up
 # in order, each with the stage it requires, its prerequisites and the
 # producer of each: material is issued once (ca.sh rows and Fly secrets) and
 # reused by every later stage; the registry bootstrap needs only material and
-# no router gate; router activation needs the registry bootstrap; the routed
-# proof reads a signed registry receipt through the public unified interface.
+# no hosted gateway gate; gateway activation needs the registry bootstrap;
+# the final proof reads a signed registry receipt through that hosted gateway.
 # Reads only the repository's tomls; no network, no flyctl.
 check_registry_plan() {
 	local registry=services/platform/hosted/registry/fly.toml endpoint=services/wallet/deploy/endpoint.toml path

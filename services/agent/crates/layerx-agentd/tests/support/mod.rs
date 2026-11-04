@@ -47,12 +47,8 @@ use layerx_wire::limits::{MAX_MESSAGE_BYTES, PROTOCOL_VERSION};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
-#[path = "../../../../tests/support/monotonic_clock.rs"]
-mod monotonic_clock;
 mod real_authority;
 pub(crate) mod send_authorization;
-#[path = "../../../../tests/support/wall_clock.rs"]
-mod wall_clock;
 
 static NEXT_DIRECTORY: AtomicU64 = AtomicU64::new(1);
 
@@ -474,10 +470,6 @@ fn try_evidence_authority_mode(
     };
     let mut gate = Gate::new(&config)?;
     real_authority::authorize(
-        real_authority::Clock {
-            wall_time: wall_clock::wall_time,
-            monotonic_time: monotonic_clock::monotonic_time,
-        },
         &mut gate,
         policy,
         sequencer_id,

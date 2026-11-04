@@ -1,0 +1,1400 @@
+[audit.22.30.88]
+task = "22.30.88"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 124
+findings = 50
+docs_reviewed = 25
+upgrade_ready = false
+blocking = ["signer-wire", "recovery-node-api", "recovery-v2-identifiers", "recovery-durable-transaction", "payment-expiry-units", "offramp-retired-grants", "premature-payment-settlement", "custody-unverified-receipt", "custody-recovery-rung"]
+
+[file.001]
+path = "sdk/chainflow/typescript/.claude/skills/chainflow-data-gateway-typescript-sdk/SKILL.md"
+lines = 88
+verdict = "clean"
+note = "Full review: documentation and exported SDK catalogue agree with the maintained generated API surface, credential roles and packaging; no additional defect identified in this file."
+
+[file.002]
+path = "sdk/chainflow/typescript/README.md"
+lines = 180
+verdict = "clean"
+note = "Full review: documentation and exported SDK catalogue agree with the maintained generated API surface, credential roles and packaging; no additional defect identified in this file."
+
+[file.003]
+path = "sdk/chainflow/typescript/SECURITY.md"
+lines = 19
+verdict = "clean"
+note = "Full review: documentation and exported SDK catalogue agree with the maintained generated API surface, credential roles and packaging; no additional defect identified in this file."
+
+[file.004]
+path = "sdk/chainflow/typescript/SKILL.md"
+lines = 88
+verdict = "clean"
+note = "Full review: documentation and exported SDK catalogue agree with the maintained generated API surface, credential roles and packaging; no additional defect identified in this file."
+
+[file.005]
+path = "sdk/chainflow/typescript/api.md"
+lines = 606
+verdict = "clean"
+note = "Full review: documentation and exported SDK catalogue agree with the maintained generated API surface, credential roles and packaging; no additional defect identified in this file."
+
+[file.006]
+path = "sdk/chainflow/typescript/biome.json"
+lines = 39
+verdict = "clean"
+note = "Full review: format/lint configuration matches the TypeScript module tree and has no runtime endpoint or financial authority settings."
+
+[file.007]
+path = "sdk/chainflow/typescript/package.json"
+lines = 64
+verdict = "clean"
+note = "Full review: ESM/CJS exports and build finalization match tsconfigs and script outputs; ws dependency and optional peer are consistent with node/browser adapter roles."
+
+[file.008]
+path = "sdk/chainflow/typescript/scripts/finalize-build.mjs"
+lines = 123
+verdict = "clean"
+note = "Full review: finalization rewrites local compiled module paths, validates output references and emits CJS package metadata consistently with package exports."
+
+[file.009]
+path = "sdk/chainflow/typescript/scripts/publish-npm.mjs"
+lines = 79
+verdict = "clean"
+note = "Full review: package identity, stable/prerelease tag protection and publish exit handling agree with the package manifest; publication is an explicit script entrypoint."
+
+[file.010]
+path = "sdk/chainflow/typescript/src/api-promise.ts"
+lines = 81
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.011]
+path = "sdk/chainflow/typescript/src/client.ts"
+lines = 1133
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.012]
+path = "sdk/chainflow/typescript/src/core/EventEmitter.ts"
+lines = 98
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.013]
+path = "sdk/chainflow/typescript/src/core/api-promise.ts"
+lines = 4
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.014]
+path = "sdk/chainflow/typescript/src/core/error.ts"
+lines = 146
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.015]
+path = "sdk/chainflow/typescript/src/core/resource.ts"
+lines = 3
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.016]
+path = "sdk/chainflow/typescript/src/core/uploads.ts"
+lines = 4
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.017]
+path = "sdk/chainflow/typescript/src/error.ts"
+lines = 4
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.018]
+path = "sdk/chainflow/typescript/src/index.ts"
+lines = 22
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.019]
+path = "sdk/chainflow/typescript/src/internal/README.md"
+lines = 3
+verdict = "clean"
+note = "Full review: documentation and exported SDK catalogue agree with the maintained generated API surface, credential roles and packaging; no additional defect identified in this file."
+
+[file.020]
+path = "sdk/chainflow/typescript/src/internal/builtin-types.ts"
+lines = 93
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.021]
+path = "sdk/chainflow/typescript/src/internal/detect-platform.ts"
+lines = 196
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.022]
+path = "sdk/chainflow/typescript/src/internal/errors.ts"
+lines = 33
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.023]
+path = "sdk/chainflow/typescript/src/internal/headers.ts"
+lines = 97
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.024]
+path = "sdk/chainflow/typescript/src/internal/parse.ts"
+lines = 4
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.025]
+path = "sdk/chainflow/typescript/src/internal/qs/LICENSE.md"
+lines = 13
+verdict = "vendored"
+note = "Vendored neoqs/qs subtree, identified by src/internal/qs/README.md and its BSD license; provenance verdict substitutes for a first-party implementation review."
+
+[file.026]
+path = "sdk/chainflow/typescript/src/internal/qs/README.md"
+lines = 3
+verdict = "vendored"
+note = "Vendored neoqs/qs subtree, identified by src/internal/qs/README.md and its BSD license; provenance verdict substitutes for a first-party implementation review."
+
+[file.027]
+path = "sdk/chainflow/typescript/src/internal/qs/formats.ts"
+lines = 10
+verdict = "vendored"
+note = "Vendored neoqs/qs subtree, identified by src/internal/qs/README.md and its BSD license; provenance verdict substitutes for a first-party implementation review."
+
+[file.028]
+path = "sdk/chainflow/typescript/src/internal/qs/index.ts"
+lines = 13
+verdict = "vendored"
+note = "Vendored neoqs/qs subtree, identified by src/internal/qs/README.md and its BSD license; provenance verdict substitutes for a first-party implementation review."
+
+[file.029]
+path = "sdk/chainflow/typescript/src/internal/qs/stringify.ts"
+lines = 384
+verdict = "vendored"
+note = "Vendored neoqs/qs subtree, identified by src/internal/qs/README.md and its BSD license; provenance verdict substitutes for a first-party implementation review."
+
+[file.030]
+path = "sdk/chainflow/typescript/src/internal/qs/types.ts"
+lines = 71
+verdict = "vendored"
+note = "Vendored neoqs/qs subtree, identified by src/internal/qs/README.md and its BSD license; provenance verdict substitutes for a first-party implementation review."
+
+[file.031]
+path = "sdk/chainflow/typescript/src/internal/qs/utils.ts"
+lines = 265
+verdict = "vendored"
+note = "Vendored neoqs/qs subtree, identified by src/internal/qs/README.md and its BSD license; provenance verdict substitutes for a first-party implementation review."
+
+[file.032]
+path = "sdk/chainflow/typescript/src/internal/request-options.ts"
+lines = 39
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.033]
+path = "sdk/chainflow/typescript/src/internal/shim-types.ts"
+lines = 27
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.034]
+path = "sdk/chainflow/typescript/src/internal/shims.ts"
+lines = 107
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.035]
+path = "sdk/chainflow/typescript/src/internal/to-file.ts"
+lines = 154
+verdict = "issues"
+note = "Full review: upload-mime-loss. Findings name the concrete producer, consumer or lifecycle disagreement and its owning repair proposal."
+
+[file.036]
+path = "sdk/chainflow/typescript/src/internal/types.ts"
+lines = 93
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.037]
+path = "sdk/chainflow/typescript/src/internal/uploads.ts"
+lines = 204
+verdict = "clean"
+note = "Full review: file support checks, multipart form conversion and stream/file handling agree with the exposed upload helpers; MIME inference defect is owned by to-file.ts."
+
+[file.038]
+path = "sdk/chainflow/typescript/src/internal/utils.ts"
+lines = 9
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.039]
+path = "sdk/chainflow/typescript/src/internal/utils/base64.ts"
+lines = 44
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.040]
+path = "sdk/chainflow/typescript/src/internal/utils/bytes.ts"
+lines = 32
+verdict = "clean"
+note = "Full review: UTF-8 conversion and byte concatenation preserve exact binary order for the manual WebSocket runtime."
+
+[file.041]
+path = "sdk/chainflow/typescript/src/internal/utils/env.ts"
+lines = 18
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.042]
+path = "sdk/chainflow/typescript/src/internal/utils/log.ts"
+lines = 304
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.043]
+path = "sdk/chainflow/typescript/src/internal/utils/path.ts"
+lines = 124
+verdict = "clean"
+note = "Full review: template/path input bounds and escaping preserve supported URL construction and refuse invalid parameter shapes."
+
+[file.044]
+path = "sdk/chainflow/typescript/src/internal/utils/query.ts"
+lines = 10
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.045]
+path = "sdk/chainflow/typescript/src/internal/utils/sleep.ts"
+lines = 3
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.046]
+path = "sdk/chainflow/typescript/src/internal/utils/uuid.ts"
+lines = 17
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.047]
+path = "sdk/chainflow/typescript/src/internal/utils/values.ts"
+lines = 105
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.048]
+path = "sdk/chainflow/typescript/src/internal/ws-adapter-browser.ts"
+lines = 123
+verdict = "issues"
+note = "Full review: ws-browser-listener-lifetime. Findings name the concrete producer, consumer or lifecycle disagreement and its owning repair proposal."
+
+[file.049]
+path = "sdk/chainflow/typescript/src/internal/ws-adapter-node.ts"
+lines = 105
+verdict = "issues"
+note = "Full review: ws-node-listener-lifetime. Findings name the concrete producer, consumer or lifecycle disagreement and its owning repair proposal."
+
+[file.050]
+path = "sdk/chainflow/typescript/src/internal/ws-adapter.ts"
+lines = 30
+verdict = "clean"
+note = "Full review: normalized ready-state, message and close interfaces agree with the two adapters; registration lifetime defects are recorded on each implementation."
+
+[file.051]
+path = "sdk/chainflow/typescript/src/internal/ws.ts"
+lines = 193
+verdict = "issues"
+note = "Full review: ws-queue-bound. Findings name the concrete producer, consumer or lifecycle disagreement and its owning repair proposal."
+
+[file.052]
+path = "sdk/chainflow/typescript/src/resource.ts"
+lines = 11
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.053]
+path = "sdk/chainflow/typescript/src/resources.ts"
+lines = 97
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.054]
+path = "sdk/chainflow/typescript/src/resources/coin-gecko.ts"
+lines = 609
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.055]
+path = "sdk/chainflow/typescript/src/resources/coin-market-cap.ts"
+lines = 369
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.056]
+path = "sdk/chainflow/typescript/src/resources/explorer.ts"
+lines = 199
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.057]
+path = "sdk/chainflow/typescript/src/resources/gateway.ts"
+lines = 99
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.058]
+path = "sdk/chainflow/typescript/src/resources/index.ts"
+lines = 107
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.059]
+path = "sdk/chainflow/typescript/src/resources/markets.ts"
+lines = 520
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.060]
+path = "sdk/chainflow/typescript/src/resources/price-feeds.ts"
+lines = 448
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.061]
+path = "sdk/chainflow/typescript/src/resources/trading-view.ts"
+lines = 471
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.062]
+path = "sdk/chainflow/typescript/src/resources/web-sockets.ts"
+lines = 3
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.063]
+path = "sdk/chainflow/typescript/src/resources/web-sockets/connectExplorer-ws-base.ts"
+lines = 416
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.064]
+path = "sdk/chainflow/typescript/src/resources/web-sockets/connectExplorer-ws-browser.ts"
+lines = 52
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.065]
+path = "sdk/chainflow/typescript/src/resources/web-sockets/connectExplorer-ws-internal-base.ts"
+lines = 113
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.066]
+path = "sdk/chainflow/typescript/src/resources/web-sockets/connectExplorer-ws.ts"
+lines = 49
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.067]
+path = "sdk/chainflow/typescript/src/resources/web-sockets/connectExplorerAlias-ws-base.ts"
+lines = 416
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.068]
+path = "sdk/chainflow/typescript/src/resources/web-sockets/connectExplorerAlias-ws-browser.ts"
+lines = 53
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.069]
+path = "sdk/chainflow/typescript/src/resources/web-sockets/connectExplorerAlias-ws-internal-base.ts"
+lines = 113
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.070]
+path = "sdk/chainflow/typescript/src/resources/web-sockets/connectExplorerAlias-ws.ts"
+lines = 51
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.071]
+path = "sdk/chainflow/typescript/src/resources/web-sockets/connectMarkets-ws-base.ts"
+lines = 416
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.072]
+path = "sdk/chainflow/typescript/src/resources/web-sockets/connectMarkets-ws-browser.ts"
+lines = 52
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.073]
+path = "sdk/chainflow/typescript/src/resources/web-sockets/connectMarkets-ws-internal-base.ts"
+lines = 113
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.074]
+path = "sdk/chainflow/typescript/src/resources/web-sockets/connectMarkets-ws.ts"
+lines = 49
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.075]
+path = "sdk/chainflow/typescript/src/resources/web-sockets/connectPriceFeed-ws-base.ts"
+lines = 418
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.076]
+path = "sdk/chainflow/typescript/src/resources/web-sockets/connectPriceFeed-ws-browser.ts"
+lines = 52
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.077]
+path = "sdk/chainflow/typescript/src/resources/web-sockets/connectPriceFeed-ws-internal-base.ts"
+lines = 113
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.078]
+path = "sdk/chainflow/typescript/src/resources/web-sockets/connectPriceFeed-ws.ts"
+lines = 49
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.079]
+path = "sdk/chainflow/typescript/src/resources/web-sockets/index.ts"
+lines = 39
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.080]
+path = "sdk/chainflow/typescript/src/resources/web-sockets/web-sockets.ts"
+lines = 124
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.081]
+path = "sdk/chainflow/typescript/src/uploads.ts"
+lines = 3
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.082]
+path = "sdk/chainflow/typescript/src/version.ts"
+lines = 3
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.083]
+path = "sdk/chainflow/typescript/tests/smoke-test.ts"
+lines = 652
+verdict = "generated"
+note = "Scalar-generated OpenAPI SDK file, explicitly marked by its first-line generator banner. Generated provenance verdict; first-party runtime and interface issues are recorded at their manually maintained paths."
+
+[file.084]
+path = "sdk/chainflow/typescript/tests/web-sockets-url.test.ts"
+lines = 52
+verdict = "issues"
+note = "Full review: ws-transport-test-gap. Findings name the concrete producer, consumer or lifecycle disagreement and its owning repair proposal."
+
+[file.085]
+path = "sdk/chainflow/typescript/tsconfig.cjs.json"
+lines = 19
+verdict = "clean"
+note = "Full review: CJS compiler target and output location match package exports and finalizer metadata."
+
+[file.086]
+path = "sdk/chainflow/typescript/tsconfig.json"
+lines = 20
+verdict = "clean"
+note = "Full review: ESM compiler target, includes and declaration outputs match package exports and finalizer inputs."
+
+[file.087]
+path = "sdk/utils/random.go"
+lines = 97
+verdict = "issues"
+note = "Full review: random-seed-entropy. Findings name the concrete producer, consumer or lifecycle disagreement and its owning repair proposal."
+
+[file.088]
+path = "sdk/utils/slice.go"
+lines = 21
+verdict = "clean"
+note = "Full review: generic Map preserves element order and StringInSlice performs exact string matching without external state or retired interfaces."
+
+[file.089]
+path = "sdk/utils/tracing/tracer.go"
+lines = 87
+verdict = "clean"
+note = "Full review: exporter option construction, sampling/resource setup and Info context lifecycle agree with their Go callers and declared exports."
+
+[file.090]
+path = "sdk/utils/tracing/tracer_test.go"
+lines = 240
+verdict = "clean"
+note = "Full review: tracing and option tests exercise exported helpers and actual span lifecycle; no retired node or payment shape is asserted."
+
+[file.091]
+path = "services/platform/ramps/OPERATIONS.md"
+lines = 40
+verdict = "issues"
+note = "Full review: runbook-signer, runbook-work-sequence, runbook-finality. Findings name the concrete producer, consumer or lifecycle disagreement and its owning repair proposal."
+
+[file.092]
+path = "services/platform/ramps/README.md"
+lines = 40
+verdict = "issues"
+note = "Full review: readme-payment-path, readme-missing-purpose. Findings name the concrete producer, consumer or lifecycle disagreement and its owning repair proposal."
+
+[file.093]
+path = "services/platform/ramps/config.example.json"
+lines = 153
+verdict = "issues"
+note = "Full review: example-retired-endpoint. Findings name the concrete producer, consumer or lifecycle disagreement and its owning repair proposal."
+
+[file.094]
+path = "services/platform/ramps/deployment.yaml"
+lines = 133
+verdict = "issues"
+note = "Full review: deployment-egress-disagreement. Findings name the concrete producer, consumer or lifecycle disagreement and its owning repair proposal."
+
+[file.095]
+path = "services/platform/ramps/env-init.sh"
+lines = 137
+verdict = "clean"
+note = "Full review: required environment values map through jq to the current strict config, bounded credential files are materialized privately and the process drops to uid 4020; unused custody cadence is recorded at the consuming configuration."
+
+[file.096]
+path = "services/platform/ramps/reference/Cargo.toml"
+lines = 18
+verdict = "clean"
+note = "Full review: the reference service depends on the toolkit and shared types/TLS primitives; no direct retired intent or Paxeer client dependency."
+
+[file.097]
+path = "services/platform/ramps/reference/src/main.rs"
+lines = 1637
+verdict = "issues"
+note = "Full review: order-purpose-idempotency, listener-timeouts, unused-custody-cadence. Findings name the concrete producer, consumer or lifecycle disagreement and its owning repair proposal."
+
+[file.098]
+path = "services/platform/ramps/reference/tests/config_validation.rs"
+lines = 270
+verdict = "clean"
+note = "Full review: startup refuses retired Paxeer RPC fields and malformed operator addresses through the actual reference binary."
+
+[file.099]
+path = "services/platform/ramps/reference/tests/plain_listener.rs"
+lines = 339
+verdict = "clean"
+note = "Full review: plain listener opt-in, secret file constraints and request bounds use the actual binary; deployment policy and TLS timeout findings are recorded at their owning paths."
+
+[file.100]
+path = "services/platform/ramps/reference/tests/proof_ramp_reference_http_routes.rs"
+lines = 523
+verdict = "clean"
+note = "Full review: protected identity session, real server HTTP transport and journal reopen exercise public order isolation, custody labeling and strict route refusals."
+
+[file.101]
+path = "services/platform/ramps/reference/tests/rebalance_routes.rs"
+lines = 270
+verdict = "clean"
+note = "Full review: actual reference HTTP readiness and rebalance presentation assert configured chain id, rung and absence of retired confirmation fields."
+
+[file.102]
+path = "services/platform/ramps/reference/tests/work_routes.rs"
+lines = 373
+verdict = "clean"
+note = "Full review: real reference routes reject retired receive payloads and malformed verifier hashes while preserving strict work request handling."
+
+[file.103]
+path = "services/platform/ramps/sandbox-journey.sh"
+lines = 658
+verdict = "issues"
+note = "Full review: journey-order-request, journey-retired-verifier, journey-confirmation-vocabulary. Findings name the concrete producer, consumer or lifecycle disagreement and its owning repair proposal."
+
+[file.104]
+path = "services/platform/ramps/toolkit/Cargo.toml"
+lines = 29
+verdict = "clean"
+note = "Full review: library and verifier targets use maintained layerx-client/crypto/proof/types and source-settlement crates; no direct retired intent or Paxeer client dependency."
+
+[file.105]
+path = "services/platform/ramps/toolkit/src/bin/ramp-verify-receipt.rs"
+lines = 155
+verdict = "clean"
+note = "Full review: protected verifier config, strict 0x transaction-hash arguments, node receipt resolution and bounded output agree with the declared CLI; underlying client findings are recorded at their owning implementation."
+
+[file.106]
+path = "services/platform/ramps/toolkit/src/clients.rs"
+lines = 2500
+verdict = "issues"
+note = "Full review: signer-wire, recovery-node-api, recovery-v2-identifiers, custody-recovery-rung, transaction-cache-growth, secret-file-open, anchor-registry-optionality. Findings name the concrete producer, consumer or lifecycle disagreement and its owning repair proposal."
+
+[file.107]
+path = "services/platform/ramps/toolkit/src/engine.rs"
+lines = 529
+verdict = "issues"
+note = "Full review: recovery-durable-transaction, premature-payment-settlement, custody-unverified-receipt. Findings name the concrete producer, consumer or lifecycle disagreement and its owning repair proposal."
+
+[file.108]
+path = "services/platform/ramps/toolkit/src/evm.rs"
+lines = 145
+verdict = "issues"
+note = "Full review: draw-registry-signature. Findings name the concrete producer, consumer or lifecycle disagreement and its owning repair proposal."
+
+[file.109]
+path = "services/platform/ramps/toolkit/src/journal.rs"
+lines = 2161
+verdict = "issues"
+note = "Full review: presentation-legacy-identifier. Findings name the concrete producer, consumer or lifecycle disagreement and its owning repair proposal."
+
+[file.110]
+path = "services/platform/ramps/toolkit/src/lib.rs"
+lines = 511
+verdict = "issues"
+note = "Full review: payment-expiry-units, offramp-retired-grants, offramp-account-disagreement. Findings name the concrete producer, consumer or lifecycle disagreement and its owning repair proposal."
+
+[file.111]
+path = "services/platform/ramps/toolkit/src/migration.rs"
+lines = 450
+verdict = "clean"
+note = "Full review: versioned strict source intake, canonical bounded base64, real Ethereum/Solana verification, order/claim binding and typed refusal mapping agree with source settlement journal consumers."
+
+[file.112]
+path = "services/platform/ramps/toolkit/tests/config_example.rs"
+lines = 57
+verdict = "clean"
+note = "Full review: shipped LayerxConfig deserialization and retired custody-key absence assertions match the current example schema; deployment coordinate drift is recorded on the example itself."
+
+[file.113]
+path = "services/platform/ramps/toolkit/tests/contracts.rs"
+lines = 1126
+verdict = "clean"
+note = "Full review: callback staging, exact idempotent identity, append-intent/write-fault recovery, hash-chain corruption and monotone custody projection checks agree with journal behavior; protected external recovery inputs remain explicit."
+
+[file.114]
+path = "services/platform/ramps/toolkit/tests/custody_rungs.rs"
+lines = 181
+verdict = "clean"
+note = "Full review: journal observation/reopen and monotone rung tests correctly include the current ExecutedReceipt signing_key field; these are projection tests rather than authenticated settlement qualification."
+
+[file.115]
+path = "services/platform/ramps/toolkit/tests/engine_legs.rs"
+lines = 426
+verdict = "issues"
+note = "Full review: v2-recovery-test-bypass. Findings name the concrete producer, consumer or lifecycle disagreement and its owning repair proposal."
+
+[file.116]
+path = "services/platform/ramps/toolkit/tests/evm_config.rs"
+lines = 238
+verdict = "clean"
+note = "Full review: LayerxConfig producer/consumer decoding checks chain id, fee/gas bounds, key ranges and retired fields with real credential material."
+
+[file.117]
+path = "services/platform/ramps/toolkit/tests/evm_ledger.rs"
+lines = 225
+verdict = "clean"
+note = "Full review: local ABI selector, word order and canonical log-decoding assertions match the current encoder; superseded old requirement word meanings are covered by the registry signature finding."
+
+[file.118]
+path = "services/platform/ramps/toolkit/tests/evm_order.rs"
+lines = 497
+verdict = "issues"
+note = "Full review: receipt-test-third-shape. Findings name the concrete producer, consumer or lifecycle disagreement and its owning repair proposal."
+
+[file.119]
+path = "services/platform/ramps/toolkit/tests/evm_submit.rs"
+lines = 522
+verdict = "issues"
+note = "Full review: signer-test-third-shape. Findings name the concrete producer, consumer or lifecycle disagreement and its owning repair proposal."
+
+[file.120]
+path = "services/platform/ramps/toolkit/tests/proof_precompile_1_layerxledger_0x101a.rs"
+lines = 372
+verdict = "issues"
+note = "Full review: native-payment-proof-gap. Findings name the concrete producer, consumer or lifecycle disagreement and its owning repair proposal."
+
+[file.121]
+path = "services/platform/ramps/toolkit/tests/proof_ramp_layerx_config.rs"
+lines = 351
+verdict = "clean"
+note = "Full review: actual serialized config types cross the shared layerx key twice and enforce required pins, ranges and credential reads; it explicitly discloses optional-anchor registry drift rather than weakening transport security."
+
+[file.122]
+path = "services/platform/ramps/toolkit/tests/recovery_settlement.rs"
+lines = 501
+verdict = "issues"
+note = "Full review: recovery-test-node-gateway-double. Findings name the concrete producer, consumer or lifecycle disagreement and its owning repair proposal."
+
+[file.123]
+path = "services/platform/ramps/toolkit/tests/source_settlement.rs"
+lines = 240
+verdict = "clean"
+note = "Full review: canonical intake refusals and protected genuine Ethereum/Solana finality evidence bind asset, amount, customer, direction and unique source claims through durable journal reopen."
+
+[file.124]
+path = "services/platform/ramps/toolkit/tests/verify_receipt_cli.rs"
+lines = 67
+verdict = "clean"
+note = "Full review: actual verifier process rejects retired --activity-id and malformed prefixed transaction hashes before reading config or creating output."
+
+[finding.signer-wire]
+file = "services/platform/ramps/toolkit/src/clients.rs"
+line = 1258
+class = "interface-mismatch"
+severity = "high"
+observed = "The strict sign Response accepts only signature and converts it to 65 bytes at line 1284. The actual hosted KMS SignatureResponse emits a base64 64-byte secp256k1 signature plus recovery_id (kms.rs:124-127,371-421,592-595). Both the extra field and the byte length are refused, so real ramp signing cannot complete."
+expected = "POST /v1/signatures must round-trip the maintained KMS response into an authenticated EIP-1559 signature before any transaction is submitted."
+proposal = "In services/platform/ramps/toolkit/src/clients.rs consume the KMS signature and recovery_id explicitly, validate their canonical encodings and recovery range, assemble the EVM signature and retain recovered-operator verification. Prove the hosted KMS handler through mTLS into prepare_payment with a provisioned real key."
+owner_domain = 8
+interface = "8.http-internal-post-v1-signatures"
+
+[finding.recovery-node-api]
+file = "services/platform/ramps/toolkit/src/clients.rs"
+line = 2317
+class = "interface-mismatch"
+severity = "high"
+observed = "LayerxConfig::build constructs PxEndpoint and SequencerEndpoint from the same rpc_endpoint at lines 888-890. verify_recovery_settlement unconditionally calls network(), which sends px_getNetwork, before recovering any projection. The merged node root API has no px namespace; px_getNetwork belongs to the hosted gateway, so node-based restart recovery fails."
+expected = "The node transaction endpoint and hosted gateway read endpoint must retain their distinct namespaces; a valid persisted ramp journal must recover using methods that its configured endpoint actually serves."
+proposal = "In services/platform/ramps/toolkit/src/clients.rs obtain the committed head through the maintained node API, or configure a distinct authenticated gateway endpoint only for gateway joins. Exercise recovery against the actual node and its root namespace registration, including a populated journal."
+owner_domain = 8
+interface = "9.rs-client-px-pxendpoint-j44"
+
+[finding.recovery-v2-identifiers]
+file = "services/platform/ramps/toolkit/src/clients.rs"
+line = 2391
+class = "restart-recovery"
+severity = "high"
+observed = "verify_recovery_settlement checks only evidence.activity_id. Version-two engine writes set tx_hash/raw_transaction/rung (engine.rs:210-214), and journal.rs:1859-1873 prohibits activity_id in version two. Completed or LayerxVerified v2 orders therefore reach the missing-activity refusal at lines 2410-2414 on restart; other v2 payment stages bypass payment re-verification."
+expected = "Version-two transaction evidence must be the recovery authority for current orders, and a completed order must remain recoverable with the same authenticated transaction and receipt after a process restart."
+proposal = "In services/platform/ramps/toolkit/src/clients.rs recover v2 orders through tx_hash, raw_transaction, receipt_height, receipt_digest and rung. Keep v1 replay read-only as journal.rs requires. Restart a real service after submitted, receipted, committed and done stages and verify both matching and conflicting evidence."
+owner_domain = 8
+interface = "8.rs-ramp-toolkit-layerx-ramp-toolkit-clients-verify-recovery-settlement"
+
+[finding.recovery-durable-transaction]
+file = "services/platform/ramps/toolkit/src/engine.rs"
+line = 247
+class = "restart-recovery"
+severity = "high"
+observed = "resolve_layerx passes only tx_hash into resolve_with_evidence although the journal retains raw_transaction. A rebuilt LayerxClient starts with an empty raw_transactions map (clients.rs:900); its uncached receipt path looks for transaction bytes in a committed block at receipt.height (1204-1215). A receipted but uncommitted transaction cannot be verified after restart. A crash after the planned append and before broadcast leaves only repeated unknown lookups, with no path to use the durable signed bytes."
+expected = "The persisted exact transaction must survive process loss and allow safe reconciliation of planned and pending funded orders without requiring an in-memory cache or inventing a new payment identity."
+proposal = "In services/platform/ramps/toolkit/src/engine.rs and clients.rs pass and authenticate the journal raw_transaction during recovery and resolution. Reconcile transaction and nonce state before any authorized re-delivery of those same bytes; prove crashes before broadcast and before commitment against the real node."
+owner_domain = 8
+interface = "8.rs-ramp-toolkit-layerx-ramp-toolkit-engine-rampengine"
+
+[finding.payment-expiry-units]
+file = "services/platform/ramps/toolkit/src/lib.rs"
+line = 352
+class = "interface-mismatch"
+severity = "high"
+observed = "compile_operator_send encodes quote.expires_at unchanged. The reference clock uses duration.as_secs() (main.rs:1419-1422), quote validation compares that clock to expires_at, and config.example.json uses 2000000000. Native keeper PayExact compares the same argument with ctx.BlockTime().UnixMilli() (modules/layerxledger/keeper/payexact.go:21-26), so a still-valid seconds quote is already expired at the native consumer."
+expected = "Quote validity and native payment expiry must denote the same instant with explicit units across the API, calldata, keeper and operator configuration."
+proposal = "In services/platform/ramps/toolkit/src/lib.rs and the quote contract define the public expiry unit and perform checked seconds-to-milliseconds conversion at the native call boundary, or migrate all quote producers and consumers together to milliseconds. Prove a real payment just before and at expiry through the native keeper."
+owner_domain = 8
+interface = "8.rs-ramp-toolkit-evm-encode-pay-exact-j41"
+
+[finding.offramp-retired-grants]
+file = "services/platform/ramps/toolkit/src/lib.rs"
+line = 299
+class = "interface-mismatch"
+severity = "high"
+observed = "compile_payer_grant_draw routes every off-ramp to 0x101A draw. precompiles/layerxledger/payments.go:89-106 always returns LXP_NO_PAYER_GRANT for that selector. Decision 2340 retires receive and the kernel payer-grant activities, and the ledger-auth contract explicitly preserves draw only as a typed refusal. The advertised off-ramp payment cannot execute."
+expected = "The market maker off-ramp must debit a customer through a maintained ordinary-principal payment authority, respecting the retirement of receive and legacy payer grants."
+proposal = "Domain 8 should migrate services/platform/ramps order authorization, compilation and receipt verification to the maintained layerxpay 0x101B payment authority with domain 2. Replace obsolete grant coordinates with the maintained customer authorization and prove a real debit-to-payout journey; preserve the retired native refusals."
+owner_domain = 8
+interface = "6.pc-0x101a-draw"
+
+[finding.offramp-account-disagreement]
+file = "services/platform/ramps/toolkit/src/lib.rs"
+line = 422
+class = "interface-mismatch"
+severity = "medium"
+observed = "The draw compiler derives an operator :asset:<asset hex> recipient at lines 315-323, but verify_order_receipt expects the operator :main account hash for PaymentDrawn.to at lines 422-438. LedgerEvents copies the actual transfer leg destination (keeper/events.go:81-86). A log following the compiled destination is rejected; evm_order.rs instead fabricates the main-account destination. The native draw is currently retired as recorded separately."
+expected = "Compilation and receipt verification must bind one identical destination account for the maintained off-ramp payment, with no alternate success shape supplied by tests."
+proposal = "In services/platform/ramps/toolkit/src/lib.rs derive the maintained payment accounts once and use them for compilation and verification when migrating off the retired draw. Drive the native producer into the verifier and assert the exact destination; replace the incompatible main-account log fixture."
+owner_domain = 8
+interface = "6.pc-0x101a-evt-paymentdrawn"
+
+[finding.premature-payment-settlement]
+file = "services/platform/ramps/toolkit/src/engine.rs"
+line = 306
+class = "runtime-risk"
+severity = "high"
+observed = "verify_order_receipt returns rung Receipted, and apply_layerx_result promotes every verified rung except Submitted to LayerxVerified. finish_if_complete can immediately mark an on-ramp done or allow an off-ramp external payout. journal.rs:1888 and 2029 also admit Receipted as sufficient payment evidence. SequencerReceipt documents Receipted as not yet committed, so the service exposes a terminal financial outcome before BFT commitment."
+expected = "The merged network makes a receipt final at committed block inclusion. An uncommitted signed receipt may be shown as progress but must not release an irreversible external payout or claim terminal settlement."
+proposal = "In services/platform/ramps/toolkit/src/engine.rs and journal.rs retain receipted progress without satisfying the terminal payment gate; advance only after authenticated commitment and transaction inclusion. Preserve top-level receipt evidence required by 181101.1 and test the real receipted-to-committed transition plus restart."
+owner_domain = 8
+
+[finding.custody-unverified-receipt]
+file = "services/platform/ramps/toolkit/src/engine.rs"
+line = 495
+class = "security"
+severity = "high"
+observed = "InventoryRebalancer::poll takes sequencer_receipt JSON directly into PaxeerObservation::from_sequencer_receipt and persists it. That adapter records Committed from the rung alone and discards receipt.success (journal.rs:91-104). Neither pinned signature/log verification nor block inclusion nor successful execution is checked on this live path, so a failed committed transaction can be reported as committed inventory."
+expected = "Inventory credit must require authenticated successful settlement of the exact custody transaction, not merely a decoded receipt rung or an unverified block claim."
+proposal = "In services/platform/ramps/toolkit/src/engine.rs verify the pinned receipt signature, successful result, transaction and log bindings and committed inclusion before constructing a durable custody observation. Share the authenticated validator with recovery and exercise an actual failed native transaction as a refusal."
+owner_domain = 8
+interface = "8.rs-ramp-toolkit-layerx-ramp-toolkit-engine-inventoryrebalancer"
+
+[finding.custody-recovery-rung]
+file = "services/platform/ramps/toolkit/src/clients.rs"
+line = 2495
+class = "restart-recovery"
+severity = "high"
+observed = "Recovery protects final custody state only when snapshot.stage equals final, including the Submitted early-continue at line 2437. Current observe_paxeer writes stage=rung.name(), hence committed (journal.rs:626). A persisted committed snapshot can therefore recover successfully against a lower rung or changed block hash despite the journal monotonicity checks on live observations."
+expected = "A committed custody transaction must retain its committed rung, height and inclusion hash during recovery, and contradictory external evidence must keep readiness false."
+proposal = "In services/platform/ramps/toolkit/src/clients.rs branch on the persisted rung for v2 custody transfers and compare its committed height/hash with the authenticated current evidence. Keep explicit v1 handling and test real restart recovery against lower-rung and changed-inclusion answers."
+owner_domain = 8
+interface = "8.rs-ramp-toolkit-layerx-ramp-toolkit-clients-verify-recovery-settlement"
+
+[finding.order-purpose-idempotency]
+file = "services/platform/ramps/reference/src/main.rs"
+line = 869
+class = "interface-mismatch"
+severity = "medium"
+observed = "create_order reuses an existing order_id after comparing customer, quote_id and payer_grant, but never compares payer_grant_purpose. RampOrder::bind includes that purpose in the digest and requires it for off-ramps. A changed or absent purpose on a replay can therefore return 201 for an existing order instead of order_id_conflict."
+expected = "Reusing an order identifier must preserve every request field that binds the customer payment authorization and order digest."
+proposal = "In services/platform/ramps/reference/src/main.rs compare payer_grant_purpose with the existing binding before returning the idempotent response. Exercise the real HTTP route with identical, changed and omitted purposes and require 409 on conflicting reuse."
+owner_domain = 8
+interface = "8.http-ramp-reference-post-v1-orders"
+
+[finding.listener-timeouts]
+file = "services/platform/ramps/reference/src/main.rs"
+line = 598
+class = "runtime-risk"
+severity = "medium"
+observed = "serve calls TlsAcceptor::accept before read_request sets the read timeout. exchange writes and flushes without a socket write deadline. Up to MAX_CONNECTIONS=128 request threads can remain occupied by peers that stall the TLS handshake or stop reading responses, preventing legitimate order and operator traffic."
+expected = "Every network phase on the public listener must have a bounded lifetime, including TLS negotiation and response writes, so connection admission remains available under slow peers."
+proposal = "In services/platform/ramps/reference/src/main.rs apply read and write deadlines to TcpStream before TLS negotiation and retain bounds throughout exchange. Use real slow TLS and slow-reader connections to prove that permits are released and healthy clients remain served."
+owner_domain = 8
+
+[finding.unused-custody-cadence]
+file = "services/platform/ramps/reference/src/main.rs"
+line = 119
+class = "config-drift"
+severity = "medium"
+observed = "PaxeerConfig.poll_cadence_seconds is parsed, required nonzero and emitted by env-init.sh, but no scheduler reads it. The background loop takes config.reconcile_seconds at line 287 and polls both pending custody transfers and orders. Changing the advertised custody interval therefore leaves actual custody polling unchanged."
+expected = "A published custody polling interval must control actual custody polling, or the configuration contract must explicitly expose one shared reconciliation interval."
+proposal = "In services/platform/ramps/reference/src/main.rs schedule pending custody reconciliation with poll_cadence_seconds, or consolidate the duplicate setting into reconcile_seconds consistently across config, environment, registry and runbook. Verify that the supported interval changes the actual polling schedule."
+owner_domain = 8
+interface = "8.cfg-ramp-reference-paxeerconfig-poll-cadence-seconds"
+
+[finding.transaction-cache-growth]
+file = "services/platform/ramps/toolkit/src/clients.rs"
+line = 1085
+class = "runtime-risk"
+severity = "medium"
+observed = "prepare_payment inserts each signed raw transaction into raw_transactions. The process-wide BTreeMap is only initialized, inserted and read; it has no eviction or removal after refusal or completion. A long-lived market maker retains every prepared transaction in memory in addition to the durable journal."
+expected = "A bounded ramp process must not accumulate completed or refused order payloads indefinitely; recoverable transaction evidence belongs in durable state."
+proposal = "In services/platform/ramps/toolkit/src/clients.rs bound the cache to unresolved work and evict terminal transactions after the durable transition, or resolve from authenticated journal evidence directly. Verify memory ownership across a succession of completed orders and restart."
+owner_domain = 8
+
+[finding.example-retired-endpoint]
+file = "services/platform/ramps/config.example.json"
+line = 121
+class = "retired-reference"
+severity = "medium"
+observed = "The shipped layerx.rpc_endpoint is https://sequencer.layerx-platform.svc.cluster.local, naming a separate sequencer service. The merged network has one paxd node service and public root RPC endpoints; deploying the example cannot resolve the retired service as the intended node interface."
+expected = "Operator examples must select a maintained chain-id-125 node root endpoint with the correct certificate pin and no separate sequencer deployment."
+proposal = "In services/platform/ramps/config.example.json replace the separate sequencer coordinate with the documented merged node endpoint for the chosen deployment profile, and align the certificate mount, environment example and operations instructions."
+owner_domain = 8
+interface = "8.cfg-ramps-layerx-rpc-endpoint-j41"
+
+[finding.deployment-egress-disagreement]
+file = "services/platform/ramps/deployment.yaml"
+line = 97
+class = "config-drift"
+severity = "medium"
+observed = "All non-DNS egress peers use podSelector alone, so they select only layerx-testnet pods. config.example.json addresses services in layerx-platform and layerx-ramps, while OPERATIONS.md:7 claims the policy permits those namespaces. The policy also has no merged node public root route. The described identity, signer, provider and node topology is unreachable with the shipped policy."
+expected = "Deployment configuration, DNS service coordinates, namespaces, ports and least-privilege network policy must describe the same reachable producer-to-consumer path."
+proposal = "In services/platform/ramps/deployment.yaml and config.example.json choose one supported topology and use explicit namespaceSelector plus podSelector peers and the actual service ports. Update OPERATIONS.md:7 and prove the configured private boundaries and merged node are reachable without public provider egress."
+owner_domain = 8
+
+[finding.ws-queue-bound]
+file = "sdk/chainflow/typescript/src/internal/ws.ts"
+line = 101
+class = "runtime-risk"
+severity = "medium"
+observed = "SendQueue.enqueue and enqueueRaw refuse a byte-limit overflow only when _queue.length is already positive (lines 101 and 116). The first message can exceed the default 1048576-byte limit arbitrarily, and enqueueRaw copies its payload before checking the limit. A disconnected client can retain an oversized outgoing message despite the advertised bound."
+expected = "The outgoing queue byte limit must apply to every message, including the first, with allocation bounded before unnecessary copying."
+proposal = "In sdk/chainflow/typescript/src/internal/ws.ts enforce the configured byte limit independently of queue length and inspect raw length before copying. Verify JSON and raw first-message overflow, exact-limit acceptance and reconnect drain behavior."
+owner_domain = 15
+interface = "15.ts-chainflow-typescript-send-queue-j76"
+
+[finding.upload-mime-loss]
+file = "sdk/chainflow/typescript/src/internal/to-file.ts"
+line = 113
+class = "runtime-risk"
+severity = "medium"
+observed = "toFile assigns parts.find(...) to type, which is a Blob object rather than its string type property; typeof type is never string on that branch. makeFile therefore receives no inferred MIME type for a Blob input. Cross-realm File conversion at lines 96-100 also drops its type and lastModified."
+expected = "Converting supported Blob and File inputs must preserve their content metadata unless the caller explicitly overrides it."
+proposal = "In sdk/chainflow/typescript/src/internal/to-file.ts read the selected Blob type property and preserve supported File metadata across realms, honoring explicit options. Verify native Blob and cross-realm File conversion through the exported helper."
+owner_domain = 15
+interface = "15.ts-chainflow-typescript-to-file-j76"
+
+[finding.ws-browser-listener-lifetime]
+file = "sdk/chainflow/typescript/src/internal/ws-adapter-browser.ts"
+line = 55
+class = "runtime-risk"
+severity = "medium"
+observed = "on and once overwrite the listener-map entry for a repeated original callback while leaving its earlier wrapper registered on the underlying socket. Two once registrations with the same callback cause the first wrapper to remove the newer one and retain itself, so later events can invoke a supposed one-shot listener again."
+expected = "The normalized WebSocket adapter must preserve registration/removal semantics and ensure that every once wrapper detaches itself after its own first event."
+proposal = "In sdk/chainflow/typescript/src/internal/ws-adapter-browser.ts track wrappers per registration or make each once closure remove its own wrapper without relying on an overwritten mapping. Verify repeated callbacks and on/once combinations through the actual platform socket API."
+owner_domain = 15
+
+[finding.ws-node-listener-lifetime]
+file = "sdk/chainflow/typescript/src/internal/ws-adapter-node.ts"
+line = 34
+class = "runtime-risk"
+severity = "medium"
+observed = "on and once overwrite the listener-map entry for a repeated original callback while leaving its earlier wrapper registered on the underlying socket. Two once registrations with the same callback cause the first wrapper to remove the newer one and retain itself, so later events can invoke a supposed one-shot listener again."
+expected = "The normalized WebSocket adapter must preserve registration/removal semantics and ensure that every once wrapper detaches itself after its own first event."
+proposal = "In sdk/chainflow/typescript/src/internal/ws-adapter-node.ts track wrappers per registration or make each once closure remove its own wrapper without relying on an overwritten mapping. Verify repeated callbacks and on/once combinations through the actual platform socket API."
+owner_domain = 15
+
+[finding.random-seed-entropy]
+file = "sdk/utils/random.go"
+line = 35
+class = "runtime-risk"
+severity = "low"
+observed = "Rand.init ORs each entropy byte into seed and then shifts left, including after the final byte. The first byte is shifted out and the low byte is always zero, leaving at most 56 bits despite the comment that full uint64 entropy is desired. The helper explicitly serves non-security randomness."
+expected = "All eight sampled seed bytes should contribute to the non-security generator seed as the implementation comment promises."
+proposal = "In sdk/utils/random.go assemble seed by shifting before each OR or by a standard uint64 byte-order decoder, retaining its non-cryptographic purpose. Check byte-position preservation with a fixed entropy word."
+owner_domain = 15
+
+[finding.secret-file-open]
+file = "services/platform/ramps/toolkit/src/clients.rs"
+line = 49
+class = "security"
+severity = "medium"
+observed = "SecretFile::new checks permissions using fs::metadata, which follows symlinks. read later calls File::open without rechecking the opened descriptor ownership, mode or file type. Replacement between construction and read bypasses the private-regular-file claim and can redirect a configured credential read."
+expected = "The security property must hold for the file actually read, rather than only for an earlier pathname lookup, including rejection of symlink and replacement races."
+proposal = "In services/platform/ramps/toolkit/src/clients.rs open protected files with no-follow semantics and validate mode, owner and regular-file properties on the opened descriptor before reading the bounded content. Reuse that reader for credentials and cover replacement and symlink refusals."
+owner_domain = 8
+
+[finding.signer-test-third-shape]
+file = "services/platform/ramps/toolkit/tests/evm_submit.rs"
+line = 391
+class = "test-gap"
+severity = "medium"
+observed = "The signer fixture responds with only signature containing 65 bytes from AgentSignature. Real hosted KMS responds with signature64 and recovery_id. These loopback tests therefore pass the consumer-only shape and conceal the actual signing boundary failure recorded in signer-wire."
+expected = "Signing coverage must exercise the maintained KMS response through its real handler and transport, rather than constructing a different response schema."
+proposal = "In services/platform/ramps/toolkit/tests/evm_submit.rs drive the real hosted KMS with an enrolled secp256k1 key and preserve the wrong-key refusal assertion. Require a successful prepare/submit round-trip with the producer response, without a synthetic signer response."
+owner_domain = 8
+interface = "8.http-internal-post-v1-signatures"
+
+[finding.receipt-test-third-shape]
+file = "services/platform/ramps/toolkit/tests/evm_order.rs"
+line = 249
+class = "test-gap"
+severity = "medium"
+observed = "payment_log constructs PaymentDrawn.to from order.operator.account (:main), but signed_evidence compiles a draw to the operator asset account. It manually constructs and signs receipt bytes without executing that call. The test can certify mutually inconsistent calldata and payment logs, masking the destination disagreement and retired native draw."
+expected = "A payment receipt test must use events emitted by executing the exact compiled transaction and must prove both success on maintained payment authority and a refused inconsistent receipt."
+proposal = "In services/platform/ramps/toolkit/tests/evm_order.rs obtain receipt and logs from the actual native payment execution path, after the maintained off-ramp migration. Keep negative signature, account, amount and emitter assertions against mutated real evidence."
+owner_domain = 8
+interface = "6.pc-0x101a-evt-paymentdrawn"
+
+[finding.recovery-test-node-gateway-double]
+file = "services/platform/ramps/toolkit/tests/recovery_settlement.rs"
+line = 371
+class = "test-gap"
+severity = "medium"
+observed = "RpcListener invents a node that serves both eth_chainId and hosted px_getNetwork, then the test asserts that combined method sequence. The real node namespace contract excludes px methods. The test covers a chain-id refusal but never proves production recovery against the real node transport."
+expected = "Recovery tests must use the actual endpoint namespace split and include persisted current-version financial state, not only an artificial combined endpoint."
+proposal = "In services/platform/ramps/toolkit/tests/recovery_settlement.rs exercise the real node root and any separately configured gateway through their actual transports, with a v2 journal reopened before recovery. Preserve chain-id mismatch refusal and add terminal receipt and custody-rung contradictions."
+owner_domain = 8
+interface = "9.rs-client-px-pxendpoint-j44"
+
+[finding.v2-recovery-test-bypass]
+file = "services/platform/ramps/toolkit/tests/engine_legs.rs"
+line = 214
+class = "test-gap"
+severity = "medium"
+observed = "journal_records_transaction_hash_and_rung calls recover_verified with a closure that always returns Ok, so its successful v2 replay does not execute verify_recovery_settlement. The production routine still reads activity_id and refuses current terminal v2 evidence. Journal projection coverage does not prove external settlement recovery."
+expected = "Restart qualification of a current payment must invoke the real settlement recovery consumer on the bytes written by the engine and its real external authorities."
+proposal = "In services/platform/ramps/toolkit/tests/engine_legs.rs add an engine-to-journal-to-production-recovery scenario with actual node and provider contracts, including stop/reopen and matching transaction/receipt/rung checks. Keep the current pure journal format assertions as narrower coverage."
+owner_domain = 8
+
+[finding.native-payment-proof-gap]
+file = "services/platform/ramps/toolkit/tests/proof_precompile_1_layerxledger_0x101a.rs"
+line = 255
+class = "test-gap"
+severity = "medium"
+observed = "The proof builds SequencerLog values from abi.json and verifies local Rust encoders/decoders, explicitly excluding node execution and receipt authentication. It does not execute the native payment producer. Thus it cannot expose the live draw retired refusal, expiry unit mismatch or the compiler-to-receipt destination disagreement."
+expected = "Brief check 7 and requirement 21079.1 require proof along the real producer, transport and consumer path; local ABI shape checks alone do not qualify a working native ramp payment."
+proposal = "Extend services/platform/ramps/toolkit/tests/proof_precompile_1_layerxledger_0x101a.rs with real native execution and signed node receipts into the ramp verifier, using the maintained off-ramp authority. Preserve the local encoding assertions and native retired-selector refusal coverage."
+owner_domain = 8
+
+[finding.journey-order-request]
+file = "services/platform/ramps/sandbox-journey.sh"
+line = 311
+class = "test-gap"
+severity = "medium"
+observed = "Both journey branches create off-ramp orders with payer_grant but omit the now-required payer_grant_purpose (Python create and shell create_order at line 548). The full-contract branch also sends canonical_receive_payload, a retired Work field rejected by the current deny_unknown_fields decoder at main.rs:1152-1155."
+expected = "The sandbox driver must submit the current bound order authorization and Work shapes and must not require a successful request containing a retired field."
+proposal = "In services/platform/ramps/sandbox-journey.sh migrate both branches and protected input schemas to the maintained off-ramp authority and current work requests, and assert purpose/authority conflicts and explicit retired-field refusal through the real service."
+owner_domain = 8
+interface = "8.http-ramp-reference-post-internal-v1-work"
+
+[finding.journey-retired-verifier]
+file = "services/platform/ramps/sandbox-journey.sh"
+line = 223
+class = "test-gap"
+severity = "medium"
+observed = "The full-contract verify_done still reads authorized-batches/by-activity, requires network_id/protocol_version/sequencer_public_key in LayerxConfig, and invokes ramp-verify-receipt with --activity-id at line 253. Current LayerxConfig rejects those fields and the CLI requires --transaction-hash with a 0x-prefixed hash, so the full journey cannot verify the maintained receipt path."
+expected = "The declared full-contract journey must independently verify transaction receipts with current receipt-key pins and the transaction-hash CLI, without invoking the retired activity-authority path."
+proposal = "In services/platform/ramps/sandbox-journey.sh use the current protected verifier configuration and --transaction-hash, and validate the CLI transaction_hash, receipt_digest, height and rung fields. Remove the obsolete authority fallback and execute the real node-to-CLI-to-journey boundary."
+owner_domain = 8
+interface = "8.cli-ramp-toolkit-ramp-verify-receipt-rs-transaction-hash-j41"
+
+[finding.journey-confirmation-vocabulary]
+file = "services/platform/ramps/sandbox-journey.sh"
+line = 463
+class = "test-gap"
+severity = "medium"
+observed = "The full-contract rebalance loop expects required_confirmations, confirmations, status final and displaced/confirming states, and stores those fields in its report. The current rebalance HTTP producer emits rung and current stage names without confirmations (requirement 8276.1). A successful committed producer answer therefore fails the driver."
+expected = "Inventory journey observations must consume the merged BFT rung contract and preserve transaction, operation, committed height and block hash across recovery."
+proposal = "In services/platform/ramps/sandbox-journey.sh replace confirmation-count and reorg handling with submitted/receipted/committed observations, assert no credit before authenticated commit, and restart the real service before checking retained identifiers."
+owner_domain = 8
+interface = "8.http-ramp-reference-post-internal-v1-rebalances"
+
+[finding.draw-registry-signature]
+file = "services/platform/ramps/toolkit/src/evm.rs"
+line = 63
+class = "interface-mismatch"
+severity = "medium"
+observed = "encode_draw implements (grant_id, recipient, amount, idempotency_key, sequence, purpose_hash, context_hash), matching 181027.1. Its served registry row and ledger-auth.md:399 still publish (from, asset, amount, grant, receiver_sequence, idempotency_key, context). Several arguments share byte-array types, so the obsolete contract can silently encode the wrong authority and destination."
+expected = "The public function signature, argument meanings and registry contract must agree with the maintained payment ABI and any superseding retirement decision."
+proposal = "Domain 8 should reconcile interface 8.rs-ramp-toolkit-evm-encode-draw-j41 and spec/layerx-merge/contracts/ledger-auth.md with the implemented argument semantics, marking the legacy draw use retired as part of the off-ramp migration. Preserve explicit typed authority and destination checks."
+owner_domain = 8
+interface = "8.rs-ramp-toolkit-evm-encode-draw-j41"
+
+[finding.anchor-registry-optionality]
+file = "services/platform/ramps/toolkit/src/clients.rs"
+line = 835
+class = "interface-mismatch"
+severity = "medium"
+observed = "LayerxConfig.rpc_trust_anchor_der is a required PathBuf and build unconditionally opens it, while the served registry signature and platform-ramps.md:145 declare Option<PathBuf>. proof_ramp_layerx_config.rs explicitly asserts that absent and null anchors are refused. A producer following the optional schema cannot round-trip into this consumer."
+expected = "Configuration optionality must be explicit and identical for typed producers, JSON consumers, the registry and the deployment contract without weakening authenticated node transport."
+proposal = "Domain 8 should reconcile the registry and spec/layerx-merge/contracts/platform-ramps.md to the required certificate-pin policy, or implement an explicitly specified authenticated alternative. Keep missing/null anchor refusals if pins remain mandatory and show the supported producer configuration."
+owner_domain = 8
+interface = "8.cfg-ramp-toolkit-layerxconfig-rpc-trust-anchor-der-j41"
+
+[finding.presentation-legacy-identifier]
+file = "services/platform/ramps/toolkit/src/journal.rs"
+line = 276
+class = "retired-reference"
+severity = "medium"
+observed = "OrderSnapshot::presentation exposes the current tx_hash under RampPresentation.activity_id, falling back to the legacy activity field. The top-level evidence uses tx_hash, while the CLI uses transaction_hash. Integrators receive different names for the same new transaction identity and a public presentation that still describes a retired activity identifier."
+expected = "The current order presentation must identify the chain transaction consistently, with any read-only legacy v1 projection explicitly versioned and distinguishable."
+proposal = "In services/platform/ramps/toolkit/src/journal.rs and lib.rs version the presentation contract and publish the maintained transaction-hash field consistently with GET order evidence and verifier output. Retain explicit v1 read-only presentation only where required and update consumers together."
+owner_domain = 8
+interface = "8.rs-ramp-toolkit-lib-ramppresentation-j41"
+
+[finding.ws-transport-test-gap]
+file = "sdk/chainflow/typescript/tests/web-sockets-url.test.ts"
+line = 19
+class = "test-gap"
+severity = "medium"
+observed = "The custom WebSocket tests call buildURL only and never open a socket, authenticate a minted scope token, exchange messages or reconnect. Generated smoke-test.ts is also not evidence of the real stream lifecycle. The manual adapters and queue therefore lack producer-to-transport-to-consumer coverage for the concrete listener and byte-bound defects recorded here."
+expected = "The public socket contract must be proven across a real gateway upgrade and message transport, including token scope, reconnect and cleanup behavior for the supported runtimes."
+proposal = "In sdk/chainflow/typescript/tests add real gateway WebSocket integration coverage for scoped token refusal, first-message bounds, message decoding, reconnect token refresh and listener cleanup; retain the URL helper tests as narrower assertions."
+owner_domain = 15
+
+[finding.readme-payment-path]
+file = "services/platform/ramps/README.md"
+line = 13
+class = "doc-drift"
+severity = "medium"
+observed = "The README describes typed LxpSend/LxpReceive envelopes sent to the hosted gateway, activity receipt lookup and AuthorizedBatch verification. Its KMS paragraph at line 27 says algorithm ed25519 and only a signature response. Current ramps compile EIP-1559 native calls, use node transaction receipt keys and request secp256k1 signing with the real KMS recovery_id response."
+expected = "The integration guide must explain the maintained chain transaction and signer path, and disclose the retired off-ramp authority rather than promising successful legacy receive."
+proposal = "Rewrite services/platform/ramps/README.md:13-17,27 around chain-id-125 native payments, transaction-hash reconciliation, receipt-key pins and the actual secp256k1 KMS response, with off-ramp enablement tied to the maintained authority migration."
+owner_domain = 8
+
+[finding.readme-missing-purpose]
+file = "services/platform/ramps/README.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "The request description lists only order_id, quote_id and the payer-grant identifier for off-ramps, but CreateOrder also carries payer_grant_purpose and RampOrder::bind rejects off-ramps without it. A documented request is therefore invalid even before the retired native grant path is reached."
+expected = "The order documentation must list every required customer authorization field and describe exactly which fields are bound into the digest."
+proposal = "In services/platform/ramps/README.md:11 publish the maintained off-ramp authorization schema, required purpose binding and conflict behavior, coordinated with the migration away from retired grants and the HTTP examples."
+owner_domain = 8
+
+[finding.runbook-signer]
+file = "services/platform/ramps/OPERATIONS.md"
+line = 9
+class = "doc-drift"
+severity = "medium"
+observed = "The signer instructions require an ed25519 LayerX signature-preimage digest and a response containing only signature. Production prepare_payment signs an EIP-1559 secp256k1 prehash and the actual KMS returns signature plus recovery_id. Following the runbook provisions an incompatible signing handle and response expectation."
+expected = "Operators must provision the actual transaction-signing algorithm, operator address binding and response encoding accepted by the maintained KMS and ramp client."
+proposal = "Rewrite services/platform/ramps/OPERATIONS.md:5-9 for the non-exporting secp256k1 handle, chain transaction prehash, signature64/recovery_id contract, independently verified operator address and receipt-key rotation, after repairing the consumer boundary."
+owner_domain = 8
+
+[finding.runbook-work-sequence]
+file = "services/platform/ramps/OPERATIONS.md"
+line = 19
+class = "doc-drift"
+severity = "medium"
+observed = "The worker procedure requires account_sequence for the on-ramp operator debit. The actual Work route accepts OnRamp only with None and obtains the EVM pending nonce through the node; supplying the documented sequence returns work_invalid. It also describes legacy receiver grant sequence handling for off-ramps."
+expected = "Worker instructions must match the public internal Work request and maintained customer authorization path without requiring retired or rejected fields."
+proposal = "In services/platform/ramps/OPERATIONS.md:15-20 document the on-ramp null/omitted account_sequence and node nonce selection; replace off-ramp grant procedures with the maintained authority contract and provide current request examples."
+owner_domain = 8
+
+[finding.runbook-finality]
+file = "services/platform/ramps/OPERATIONS.md"
+line = 34
+class = "doc-drift"
+severity = "medium"
+observed = "The inventory section instructs bridge-required confirmation finality and displaced inclusion handling; line 40 requires human reorg qualification. Current HTTP inventory exposes submitted/receipted/committed rungs and no confirmation count. The merged chain is BFT and a committed receipt is final. Line 26 also directs activity-id recovery instead of transaction evidence."
+expected = "Operators must reconcile exact chain transactions and authenticated committed inclusion using the current rung vocabulary, while treating conflicting committed evidence as a refusal."
+proposal = "Rewrite services/platform/ramps/OPERATIONS.md:26,34,40 for transaction-hash recovery and BFT commitment, preserving independent external-custody disclosure and explicit handling of contradictory evidence without presenting a confirmation countdown."
+owner_domain = 8
+
+[finding.root-overview-retired-daemon]
+file = "README.md"
+line = 51
+class = "doc-drift"
+severity = "medium"
+observed = "The network overview says the kernel runs as a separate layerxd daemon whose checkpoints settle through layerxAnchor. Lines 87 and 180 describe the merge as draft and the kernel as separately running. This directs ramp operators toward the retired split execution topology."
+expected = "The finished network described by the audit brief is one paxd BFT chain containing the kernel, with root node RPC and finality at block commitment."
+proposal = "Rewrite README.md:47-51,87,180 around the merged node and committed transaction receipt path, and label any historical standalone development commands as historical or remove them from the production setup narrative."
+owner_domain = 8
+
+[finding.monorepo-retired-boundary]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The layout page identifies layerxd as the running kernel alongside paxd and states that custody, checkpoint registration, guarantor bonds, challenges and emergency exits remain the settlement boundary at lines 69-71. The audit target instead integrates execution and BFT commitment in the same chain."
+expected = "Repository guidance for the upgrade must distinguish source build groups from the actual merged runtime and avoid presenting retired standalone settlement components as live boundaries."
+proposal = "Update docs/MONOREPO.md:3 and 69-71 to name the kernel library inside paxd, current node service and committed receipt guarantees, preserving accurate source-layout and toolchain information."
+owner_domain = 16
+
+[finding.wiki-home-checkpoints]
+file = "docs/wiki/Home.md"
+line = 7
+class = "doc-drift"
+severity = "medium"
+observed = "Home describes periodic LayerX checkpoints settled on Paxeer, guarantor bonds, challenges and emergency exits, and says ordinary activity is not a Paxeer transaction at lines 20-22. These are pre-merge product claims and conflict with the node transaction and BFT receipt lifecycle the ramp must use."
+expected = "The entry page must describe the one merged chain and direct developers to current transaction payment, custody and commitment guarantees."
+proposal = "Rewrite docs/wiki/Home.md:7-10,20-22,37-42 for the merged chain, current payment authority and receipt rungs; distinguish any retained historical checkpoint documentation from supported upgrade behavior."
+owner_domain = 16
+
+[finding.authority-doc-site]
+file = "docs/site/docs/platform/hosted-authority.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "This page describes receipts from a standalone sequencer LNI socket and independent layerxd-authority replica, deploys the separate daemon containers at lines 30-43, and says the ramp decodes the eight-field AuthorizedBatch response at lines 107-110. The current ramp instead reads native transaction receipts and has no such response decoder."
+expected = "Receipt-authority documentation must describe the maintained hosted role and its actual consumers without using the retired daemon topology as the ramp receipt source."
+proposal = "Rewrite docs/site/docs/platform/hosted-authority.md:3-16,30-43,107-110 around current node and hosted authority boundaries, remove the obsolete ramp decoder claim and link the maintained ramp transaction verifier and receipt-key contract."
+owner_domain = 8
+
+[finding.authority-doc-wiki]
+file = "docs/wiki/HostedAuthority.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "This page describes receipts from a standalone sequencer LNI socket and independent layerxd-authority replica, deploys the separate daemon containers at lines 30-43, and says the ramp decodes the eight-field AuthorizedBatch response at lines 107-110. The current ramp instead reads native transaction receipts and has no such response decoder."
+expected = "Receipt-authority documentation must describe the maintained hosted role and its actual consumers without using the retired daemon topology as the ramp receipt source."
+proposal = "Rewrite docs/wiki/HostedAuthority.md:3-16,30-43,107-110 around current node and hosted authority boundaries, remove the obsolete ramp decoder claim and link the maintained ramp transaction verifier and receipt-key contract."
+owner_domain = 8
+
+[finding.identity-doc-site]
+file = "docs/site/docs/platform/identity.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The page says the allowlist contains seven services and boot refuses any other service filename at lines 8-9 and 42; its environment table calls for seven token files at line 318. Current identity Service::ALL has nine entries, adding Registry and Registrar with distinct capabilities (identity/src/main.rs:41-110)."
+expected = "The operator allowlist and capability documentation must describe the actual accepted service identities and must not advise that maintained registrar or registry credentials prevent startup."
+proposal = "Update docs/site/docs/platform/identity.md:8-9,42,318 and the caller capability table from the current identity service enum, explicitly distinguishing registrar creation and registry enrollment from ramp introspection permissions."
+owner_domain = 8
+
+[finding.identity-doc-wiki]
+file = "docs/wiki/HostedIdentity.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The page says the allowlist contains seven services and boot refuses any other service filename at lines 8-9 and 42; its environment table calls for seven token files at line 318. Current identity Service::ALL has nine entries, adding Registry and Registrar with distinct capabilities (identity/src/main.rs:41-110)."
+expected = "The operator allowlist and capability documentation must describe the actual accepted service identities and must not advise that maintained registrar or registry credentials prevent startup."
+proposal = "Update docs/wiki/HostedIdentity.md:8-9,42,318 and the caller capability table from the current identity service enum, explicitly distinguishing registrar creation and registry enrollment from ramp introspection permissions."
+owner_domain = 8
+
+[finding.site-ramp-retired-payments]
+file = "docs/site/docs/interop/ramps.md"
+line = 15
+class = "doc-drift"
+severity = "medium"
+observed = "The market-maker section describes LxpSend/LxpReceive under customer payer grants and reconciliation only by activity receipt lookup at lines 15-18. Ramps now use native EVM calls and transaction hashes, and the ledger receive/grant path is explicitly retired by decision 2340."
+expected = "The public integration page must describe the maintained payment route and current off-ramp readiness without promising retired customer grant execution."
+proposal = "Rewrite docs/site/docs/interop/ramps.md:13-18 with node transaction receipts, chain id 125, authenticated commitment and the maintained off-ramp authority migration; preserve the external-custody label and ordinary-principal role."
+owner_domain = 8
+
+[finding.site-ramp-callback-status]
+file = "docs/site/docs/interop/ramps.md"
+line = 49
+class = "doc-drift"
+severity = "medium"
+observed = "The crash-recovery section describes staged callback validation and atomic append as a beta repair still specified for the future. Journal::stage_callback and the atomic ProviderCallbackApplied event are already implemented, with contracts.rs fault and interrupted-write coverage. The page obscures the implemented guarantee and the separate current recovery defects."
+expected = "Documentation must distinguish implemented callback durability behavior from unresolved external settlement recovery and production qualification."
+proposal = "Update docs/site/docs/interop/ramps.md:49-52 to describe the implemented staged validation and atomic event with its replay guarantee, and separately disclose the remaining v2 transaction and custody recovery work without claiming a live qualification pass."
+owner_domain = 8
+
+[finding.ledger-contract-draw-signature]
+file = "spec/layerx-merge/contracts/ledger-auth.md"
+line = 399
+class = "doc-drift"
+severity = "medium"
+observed = "The client encoding table publishes the old encode_draw argument meanings (from, asset, amount, grant, receiver_sequence, idempotency_key, context), whereas evm.rs implements grant_id, recipient, amount, idempotency_key, sequence, purpose_hash, context_hash. The same page correctly records decision 2340 and draw refusal at lines 79-86, leaving the successful ramp draw narrative inconsistent."
+expected = "The ledger contract must present one current authority lifecycle and consistent client signature semantics, distinguishing preserved refusal selectors from supported financial operations."
+proposal = "Domain 2 and domain 8 should reconcile spec/layerx-merge/contracts/ledger-auth.md:388-411 with decision 2340 and the maintained ramp replacement, preserving retired-selector refusals and marking obsolete successful draw examples historical."
+owner_domain = 2
+
+[finding.ramp-contract-anchor]
+file = "spec/layerx-merge/contracts/platform-ramps.md"
+line = 145
+class = "doc-drift"
+severity = "medium"
+observed = "The LayerxConfig table says rpc_trust_anchor_der is Option<PathBuf>. The current type is mandatory and the proof deliberately refuses missing/null pins. This page also freezes historical successful payer-grant compilation without incorporating the maintained retirement into that contract narrative."
+expected = "The operator configuration contract must state the mandatory authenticated node pin and the actual supported payment authorization lifecycle."
+proposal = "Reconcile spec/layerx-merge/contracts/platform-ramps.md:132-166 and the ramp payment item sections with the required certificate-pin type and the off-ramp retirement/migration, keeping historical pinned-revision material clearly identified."
+owner_domain = 8
+
+[doc.001]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "Read in full. Lines 3 and 69-71 retain the separate daemon and checkpoint/guarantor runtime boundary; source layout and build groups remain useful. See monorepo-retired-boundary."
+
+[doc.002]
+path = "README.md"
+status = "stale"
+notes = "Read in full. Lines 47-51,87,180 retain the separate layerxd execution and checkpoint model. Current merged node and ramp receipt guidance need the root-overview-retired-daemon rewrite."
+
+[doc.003]
+path = "docs/site/docs/platform/hosted-authority.md"
+status = "stale"
+notes = "Read in full, including the site/wiki link differences. Lines 3-16,30-43 and 107-110 retain standalone replica/LNI deployment and an obsolete ramp AuthorizedBatch consumer; see the authority-doc findings."
+
+[doc.004]
+path = "docs/wiki/HostedAuthority.md"
+status = "stale"
+notes = "Read in full, including the site/wiki link differences. Lines 3-16,30-43 and 107-110 retain standalone replica/LNI deployment and an obsolete ramp AuthorizedBatch consumer; see the authority-doc findings."
+
+[doc.005]
+path = "docs/site/docs/platform/identity.md"
+status = "stale"
+notes = "Read in full, including the site/wiki label differences. The ramp introspection shape matches active/sub/account/audience/expires_at. Lines 8-9,42,318 still document seven rather than nine service identities; see identity-doc findings."
+
+[doc.006]
+path = "docs/wiki/HostedIdentity.md"
+status = "stale"
+notes = "Read in full, including the site/wiki label differences. The ramp introspection shape matches active/sub/account/audience/expires_at. Lines 8-9,42,318 still document seven rather than nine service identities; see identity-doc findings."
+
+[doc.007]
+path = "docs/site/docs/interop/index.md"
+status = "accurate"
+notes = "Read in full. Its adapter catalogue and historical platform-requirement references are explicitly scoped; it makes no current ramp completion or external settlement guarantee. The linked ramp detail page has separate drift findings."
+
+[doc.008]
+path = "docs/site/docs/interop/ramps.md"
+status = "stale"
+notes = "Read in full. Lines 15-18 describe retired activity-based ramp payments, and 49-52 describe already implemented atomic callback behavior as future repair; external-custody separation remains appropriate."
+
+[doc.009]
+path = "docs/wiki/Interop.md"
+status = "accurate"
+notes = "Read in full. Adapter routes and the market-maker/fiat separation are explicit. Statuses are attributed to the older platform specification and do not claim completion of merged-network qualification."
+
+[doc.010]
+path = "docs/wiki/Home.md"
+status = "stale"
+notes = "Read in full. Lines 7-10,20-22 and the settlement table retain checkpoint and guarantor claims that conflict with the merged BFT chain; see wiki-home-checkpoints."
+
+[doc.011]
+path = "docs/wiki/MarketMakerRamps.md"
+status = "accurate"
+notes = "Read in full. Correctly identifies the two crates, external-custody label, incomplete reference service and read-only v1 versus v2 journal behavior. Its symbol catalogue does not establish successful execution of the retired grant selector."
+
+[doc.012]
+path = "docs/wiki/FiatRamps.md"
+status = "accurate"
+notes = "Read in full. Clearly separates token-only fiat provider callback evidence from the independent market-maker ramp and conditions credited outcomes on provider verification plus a receipt-gated result."
+
+[doc.013]
+path = "services/platform/ramps/README.md"
+status = "stale"
+notes = "Read in full. Lines 11,13-17,27 describe incomplete request fields and retired envelopes, receipt lookup and signer algorithm; see readme-payment-path and readme-missing-purpose."
+
+[doc.014]
+path = "services/platform/ramps/OPERATIONS.md"
+status = "stale"
+notes = "Read in full. Lines 7,9,19,26,34,40 disagree with actual namespace policy, secp256k1 signing, work input and transaction/rung finality; see deployment and runbook findings."
+
+[doc.015]
+path = "sdk/chainflow/typescript/SKILL.md"
+status = "accurate"
+notes = "Read in full as SDK integration documentation. Resource catalogue, separate REST/mint/socket credentials and short-lived token scope agree with the generated API contract; this page does not qualify a live gateway."
+
+[doc.016]
+path = "sdk/chainflow/typescript/.claude/skills/chainflow-data-gateway-typescript-sdk/SKILL.md"
+status = "accurate"
+notes = "Read in full as SDK integration documentation. Resource catalogue, separate REST/mint/socket credentials and short-lived token scope agree with the generated API contract; this page does not qualify a live gateway."
+
+[doc.017]
+path = "sdk/chainflow/typescript/README.md"
+status = "accurate"
+notes = "Read in full. Constructor options, token-query authentication, supported resources, retry configuration and helpers agree with the generated SDK surface; the manual socket runtime defects are recorded separately."
+
+[doc.018]
+path = "sdk/chainflow/typescript/SECURITY.md"
+status = "accurate"
+notes = "Read in full. Correctly identifies Scalar-generated code and separates SDK vulnerability reporting from the gateway service, while requiring private credential-safe reports."
+
+[doc.019]
+path = "sdk/chainflow/typescript/api.md"
+status = "accurate"
+notes = "Read in full. Resource examples, error/status caveats, display versus raw market data and distinct WebSocket upgrades agree with the generated API descriptions; no independent live-provider qualification is asserted."
+
+[doc.020]
+path = "sdk/chainflow/typescript/src/internal/README.md"
+status = "accurate"
+notes = "Read in full. Correctly marks implementation modules as internal and subject to change; internal mechanics remain accessible to the generated resources."
+
+[doc.021]
+path = "sdk/chainflow/typescript/src/internal/qs/README.md"
+status = "accurate"
+notes = "Read in full. Explicitly identifies the subtree as vendored neoqs, a TypeScript rewrite of qs; the subtree receives a provenance verdict rather than a first-party review claim."
+
+[doc.022]
+path = "sdk/chainflow/typescript/src/internal/qs/LICENSE.md"
+status = "accurate"
+notes = "Read in full. BSD three-clause attribution and redistribution notice accompany the explicitly vendored query-string implementation."
+
+[doc.023]
+path = "spec/layerx-merge/contracts/platform-ramps.md"
+status = "stale"
+notes = "Read the ramp configuration, environment, CLI, routes, journal and Rust payment contract sections. Pinned-revision tables preserve historical signatures; the optional certificate pin and obsolete successful grant path need reconciliation as recorded in ramp-contract-anchor."
+
+[doc.024]
+path = "spec/layerx-merge/contracts/ledger-auth.md"
+status = "stale"
+notes = "Read the ledger/payment and ramp encoding sections. The current decision-2340 paragraph explicitly retires receive/grants and makes draw refuse. The client encoding table at line 399 still has the obsolete draw argument semantics; see ledger-contract-draw-signature."
+
+[doc.025]
+path = "spec/layerx-merge/contracts/platform-hosted.md"
+status = "accurate"
+notes = "Read the internal HTTP routes section relevant to POST /v1/signatures. Its route declaration matches the maintained KMS; actual response fields were checked in kms.rs. This status applies to the consumed signer route, not unrelated hosted sections."

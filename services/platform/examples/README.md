@@ -1,6 +1,15 @@
 # Reference applications
 
-Node.js reference applications for the LayerX domain of Paxeer X Network.
+Node.js reference applications for Paxeer X Network.
+
+The beta profiles' `rpcUrl` is the public node JSON-RPC at
+`https://api-mainnet-beta.paxeer.network`, root path, EVM chain ID `125`.
+The other public node names are `api1` through `api14.mainnet-beta.paxeer.network`,
+also at the root. These nodes do not expose hosted gateway `px_*` or `lx_*`
+methods or a separate public LayerX interface. Flows requiring hosted services
+need an operator-deployed gateway and its credentials; obtain its URL from the
+operator and configure the profile for that deployment. The local emulator's
+`/rpc` path remains specific to the emulator.
 
 The four applications in `reference-apps.json` are complete Node.js projects selected by a checked-in environment profile. Clone this repository, install the locked workspace once with `npm ci`, compile every workspace in dependency order with `npm run build`, then use one declared command.
 

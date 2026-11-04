@@ -15,10 +15,21 @@ For a shorter environment checklist, start with
 
 ## 1. Configure trusted inputs
 
-The published router origin is:
+The public node JSON-RPC URL is:
 
 ```sh
-export RPC_URL=https://api-mainnet-beta.paxeer.network/rpc
+export RPC_URL=https://api-mainnet-beta.paxeer.network
+```
+
+This is the public node JSON-RPC at the root path (EVM chain ID `125`).
+The other public node names are `api1` through
+`api14.mainnet-beta.paxeer.network`, also at the root. There is no separate
+public LayerX interface. The `lx_*` and `px_*` calls below require an
+operator-deployed hosted gateway; the node names do not serve those methods.
+Obtain its full JSON-RPC URL from the operator before continuing:
+
+```sh
+export GATEWAY_RPC_URL="${LAYERX_GATEWAY_RPC_URL:?Set the operator-provided gateway JSON-RPC URL}"
 ```
 
 You also need:
@@ -95,7 +106,7 @@ export FEE_LIMIT='<maximum fee in base units>'
 Create a native Asset:
 
 ```sh
-layerx --rpc "$RPC_URL" --gateway-credential beta token create \
+layerx --rpc "$GATEWAY_RPC_URL" --gateway-credential beta token create \
   --symbol PAY --name 'Payment Token' --decimals 6 \
   --supply-cap 1000000000 --salt "$(openssl rand -hex 32)" \
   --receipt-policy "$RECEIPT_POLICY" --fee-limit "$FEE_LIMIT" \
@@ -110,11 +121,11 @@ recipient's per-Asset account before minting or transferring:
 export ASSET_ID='<64-hex Asset id>'
 export RECIPIENT_DID='<recipient DID>'
 
-layerx --rpc "$RPC_URL" --gateway-credential beta wallet open-account \
+layerx --rpc "$GATEWAY_RPC_URL" --gateway-credential beta wallet open-account \
   --asset "$ASSET_ID" --receipt-policy "$RECEIPT_POLICY" \
   --fee-limit "$FEE_LIMIT"
 
-layerx --rpc "$RPC_URL" --gateway-credential beta token mint \
+layerx --rpc "$GATEWAY_RPC_URL" --gateway-credential beta token mint \
   --asset "$ASSET_ID" --to "$RECIPIENT_DID" --amount 100 \
   --receipt-policy "$RECEIPT_POLICY" --fee-limit "$FEE_LIMIT"
 ```
@@ -124,12 +135,12 @@ recipient wallet selected when preparing the recipient account. Other writes
 use the same path:
 
 ```sh
-layerx --rpc "$RPC_URL" --gateway-credential beta wallet send \
+layerx --rpc "$GATEWAY_RPC_URL" --gateway-credential beta wallet send \
   --to "$RECIPIENT_DID" --asset "$ASSET_ID" --amount 10 \
   --wait executed --receipt-policy "$RECEIPT_POLICY" \
   --fee-limit "$FEE_LIMIT"
 
-layerx --rpc "$RPC_URL" --gateway-credential beta token transfer \
+layerx --rpc "$GATEWAY_RPC_URL" --gateway-credential beta token transfer \
   --to "$RECIPIENT_DID" --asset "$ASSET_ID" --amount 10 \
   --wait finalised --receipt-policy "$RECEIPT_POLICY" \
   --fee-limit "$FEE_LIMIT"
@@ -156,7 +167,7 @@ Every invocation creates a new idempotency key. If a write times out or remains
 pending, retain its activity id and recover it rather than repeating the write:
 
 ```sh
-layerx --rpc "$RPC_URL" --gateway-credential beta wallet receipt \
+layerx --rpc "$GATEWAY_RPC_URL" --gateway-credential beta wallet receipt \
   "$ACTIVITY_ID" --receipt-policy "$RECEIPT_POLICY" --wait finalised
 ```
 
@@ -168,11 +179,11 @@ Set `FROM_ADDRESS` to the sender's EVM address and `UNSIGNED_TX_HEX` to the
 unsigned EIP-1559 transaction hex to estimate its fee.
 
 ```sh
-layerx --rpc "$RPC_URL" --gateway-credential beta wallet balance \
+layerx --rpc "$GATEWAY_RPC_URL" --gateway-credential beta wallet balance \
   --did "$WALLET_DID"
-layerx --rpc "$RPC_URL" --gateway-credential beta token info "$ASSET_ID"
-layerx --rpc "$RPC_URL" --gateway-credential beta token list
-layerx --rpc "$RPC_URL" --gateway-credential beta wallet estimate-fee --from "$FROM_ADDRESS" "$UNSIGNED_TX_HEX"
+layerx --rpc "$GATEWAY_RPC_URL" --gateway-credential beta token info "$ASSET_ID"
+layerx --rpc "$GATEWAY_RPC_URL" --gateway-credential beta token list
+layerx --rpc "$GATEWAY_RPC_URL" --gateway-credential beta wallet estimate-fee --from "$FROM_ADDRESS" "$UNSIGNED_TX_HEX"
 ```
 
 The corresponding RPC methods are `lx_getBalances`, `lx_getAsset`,

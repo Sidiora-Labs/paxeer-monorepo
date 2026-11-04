@@ -1,0 +1,811 @@
+[audit.22.30.91]
+task = "22.30.91"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 46
+findings = 45
+docs_reviewed = 12
+upgrade_ready = false
+blocking = ["payer_payment_asset", "operator_audit_payload", "redacted_audit_entry_binding", "web_binding_schema", "receipt_legacy_evidence_roundtrip", "receipt_v2_producer_not_wired", "subject_retained_evm_decode", "outbox_history_roundtrip_bound"]
+
+[file.01]
+path = "programs/crates/layerx-programs-registry/src/state_record.rs"
+lines = 750
+verdict = "issues"
+note = "Read all state record versions, canonical encoding, restoration, cursor bounds and account-profile proof handling. Failed legacy/profile-1 reads can publish registry state before proof acceptance; profile-2 provides the safer candidate pattern."
+
+[file.02]
+path = "services/agent/crates/layerx-agentd-host/Cargo.toml"
+lines = 66
+verdict = "clean"
+note = "Read the complete package manifest, host binary target, declared integration targets, real workspace dependencies and lint inheritance. The payer integration modules are discoverable and no retired service executable is introduced by this manifest."
+
+[file.03]
+path = "services/agent/crates/layerx-agentd-host/src/payer.rs"
+lines = 599
+verdict = "issues"
+note = "Read owner context construction, native call preparation, signing/submission, receipt key lookup, exact/draw receipt validation and event matching. The receipt payment-asset check disagrees with the producer denomination."
+
+[file.04]
+path = "services/agent/crates/layerx-agentd-host/tests/payer.rs"
+lines = 365
+verdict = "issues"
+note = "Read every receipt encoder field, signing helper and exact/draw rejection assertion. Equal payment and fee denominations mask the consumer mismatch despite correct payment-denomination hashing in the fixture encoder."
+
+[file.05]
+path = "services/agent/crates/layerx-agentd-host/tests/payer_evm.rs"
+lines = 664
+verdict = "issues"
+note = "Read the complete signed-EVM payer harness, KMS setup, RPC exchanges and exact/draw assertions. It proves transaction bytes but constructs WebConfig directly and bypasses the incompatible enrolment publisher."
+
+[file.06]
+path = "services/agent/crates/layerx-agentd/src/admin.rs"
+lines = 651
+verdict = "issues"
+note = "Read all operator commands, immutable action plans, unknown-submission inspection/resolution, retry handling and payload encoding. LXOA operator frames share a Log path with LXAR-only audit readers."
+
+[file.07]
+path = "services/agent/crates/layerx-agentd/src/agent_rpc.rs"
+lines = 1413
+verdict = "clean"
+note = "Read the full operation dispatch, bounded JSON envelope parser, tenant/principal checks, error/status mapping, version exchange, native prepare and MCP adapters. Current contract-major handling and explicit retired-operation refusals are intentional; no additional source defect identified."
+
+[file.08]
+path = "services/agent/crates/layerx-agentd/src/audit/export.rs"
+lines = 550
+verdict = "issues"
+note = "Read query filtering, tenant binding, evidence collection, retention, hash-chain material and independent review. Redacted selected entries lose authentication of their remaining fields."
+
+[file.09]
+path = "services/agent/crates/layerx-agentd/src/audit/log.rs"
+lines = 495
+verdict = "issues"
+note = "Read every log/anchor byte, hash input, append boundary, stale-writer check, verification path and I/O helper. The append/anchor crash window and concurrent writer transaction lack recovery/serialization."
+
+[file.10]
+path = "services/agent/crates/layerx-agentd/src/audit/mod.rs"
+lines = 26
+verdict = "clean"
+note = "Read the complete module declarations and re-exports; names resolve to the audit log, record, export and redaction implementations. The module introduces no separate runtime or alternate unchecked persistence path."
+
+[file.11]
+path = "services/agent/crates/layerx-agentd/src/audit/record.rs"
+lines = 670
+verdict = "issues"
+note = "Read all event classes, evidence coverage, entry encoding/decoding, legacy ranks, session reconstruction and tenant fields. Appending lacks tenant ownership enforcement and the registry format version is stale."
+
+[file.12]
+path = "services/agent/crates/layerx-agentd/src/audit/redact.rs"
+lines = 286
+verdict = "clean"
+note = "Read every data class and output surface, tenant configuration lookup, payload retention, identifier/receipt digest handling and public text validation. Secret classes remain redacted; no additional source defect identified."
+
+[file.13]
+path = "services/agent/crates/layerx-agentd/src/config.rs"
+lines = 782
+verdict = "issues"
+note = "Read all required settings, protected-source checks, overrides, retired-key refusals, URL and tenant-map validation, receipt-key sources and program denomination sources. Runtime keys are current; the declared registry startup notes still describe LNI."
+
+[file.14]
+path = "services/agent/crates/layerx-agentd/src/enrolment.rs"
+lines = 1520
+verdict = "issues"
+note = "Read all listener/web declarations, expiry verification, published document construction, secret ownership checks, session opening/rollback and embedded tests. Web publication is incompatible with the MCP consumer and crash publication has no durable reconciliation."
+
+[file.15]
+path = "services/agent/crates/layerx-agentd/src/export.rs"
+lines = 1041
+verdict = "issues"
+note = "Read the full committed-height export producer/verifier, ownership checks, fact parsing, receipt/log commitments, state proofs, transport sizing and trust-source validation. The current artifact uses facts/receipts/proofs and committed block evidence; stale registry notes about certificates are not the emitted artifact."
+
+[file.16]
+path = "services/agent/crates/layerx-agentd/src/human_runtime/native_receipt.rs"
+lines = 79
+verdict = "issues"
+note = "Read the entire retained native-owner decoder, receipt lookup error mapping and proof-verified persistence helper. The retained activity decoder is unused and remains a misleading obsolete recovery path."
+
+[file.17]
+path = "services/agent/crates/layerx-agentd/src/human_runtime/subject.rs"
+lines = 305
+verdict = "issues"
+note = "Read binding creation, durable peer restoration, owner mapping, registration scan and transmission helper. EVM bytes from Outbox are incorrectly decoded as legacy activities during managed-subject resolution."
+
+[file.18]
+path = "services/agent/crates/layerx-agentd/src/human_runtime/subject/tests.rs"
+lines = 241
+verdict = "issues"
+note = "Read all durable peer/remap assertions and exact signed outbox partition/restart cases. The managed-registration resolver itself is absent from that proof path."
+
+[file.19]
+path = "services/agent/crates/layerx-agentd/src/outbox/mod.rs"
+lines = 885
+verdict = "issues"
+note = "Read every state transition, tenant/origin check, EVM enqueue/restore validation, receipt/commit/nonce binding, binary codec and embedded codec test. Successfully persisted transition histories can exceed the restore decoder limit."
+
+[file.20]
+path = "services/agent/crates/layerx-agentd/src/outbox/recover.rs"
+lines = 245
+verdict = "clean"
+note = "Read the complete budget/ceiling rebuild and submission restoration loop, approval-release filtering, queued authority distinction and Submitted-to-Unknown recovery. Existing fail-closed accounting is intentional; downstream restore/version findings are recorded at their owning implementations."
+
+[file.21]
+path = "services/agent/crates/layerx-agentd/src/outbox/unknown.rs"
+lines = 358
+verdict = "clean"
+note = "Read receipt-first resolution, authenticated receipt validation, pending-nonce branches, exact-byte retry, durable backoff and attempt codecs. Missing receipt plus advanced pending nonce is explicitly required by 9016.2 and is not reclassified as an implementation defect."
+
+[file.22]
+path = "services/agent/crates/layerx-agentd/src/receipt.rs"
+lines = 770
+verdict = "issues"
+note = "Read both kernel-index and transaction-v2 storage paths, every codec, idempotent conflict check, result classification and evidence inventory. Legacy/v2 recovery cannot round-trip, the live v2 producer is unwired and its constructible ingress lacks authentication."
+
+[file.23]
+path = "services/agent/crates/layerx-agentd/src/store/migrate.rs"
+lines = 240
+verdict = "issues"
+note = "Read every supported schema step, object-kind insertion, cache byte-preservation check and durable rewrite. The rewrite does not protect file mode or reject a substituted temporary file."
+
+[file.24]
+path = "services/agent/crates/layerx-agentd/src/store/migrate_forward.rs"
+lines = 16
+verdict = "clean"
+note = "Read the complete public forward-only migration wrapper and error/report re-exports. It delegates to the actual migration implementation; the protected-file finding belongs to that implementation."
+
+[file.25]
+path = "services/agent/crates/layerx-agentd/src/store/mod.rs"
+lines = 1447
+verdict = "issues"
+note = "Read all tenant-key codecs, local/core storage-class rules, atomic receipt and approval batches, event/cursor updates, tenant deletion, full persistence and embedded regression tests. Independent writers can lose updates and persistence does not enforce secret-safe file modes."
+
+[file.26]
+path = "services/agent/crates/layerx-agentd/src/store/tenant.rs"
+lines = 30
+verdict = "clean"
+note = "Read all tenant identifier validation, display/access and typed key delegation. Tenant IDs remain bounded and canonical and object key construction retains explicit tenant ownership."
+
+[file.27]
+path = "services/agent/crates/layerx-agentd/src/tenant.rs"
+lines = 711
+verdict = "issues"
+note = "Read all configuration families, token scopes, authorization conditions, revocation/deletion entry points, configuration parsing and observability. Per-request audit and trace vectors lack a retention bound."
+
+[file.28]
+path = "services/agent/crates/layerx-agentd/src/tenant/delete.rs"
+lines = 204
+verdict = "clean"
+note = "Read every legal audit class, metadata-only retention codec, explicit allow-list, expiry check and atomic deletion report. The Store deletion transaction retains only validated local legal records and its deletion metadata; no additional source defect identified within this store API."
+
+[file.29]
+path = "services/agent/crates/layerx-agentd/src/tenant/errors.rs"
+lines = 342
+verdict = "issues"
+note = "Read external error normalization, tenant-safe refusal shapes, bounded labels, metric scraping and fixed normalization work. Sanitized trace retention is unbounded despite the bounded-counter design."
+
+[file.30]
+path = "services/agent/crates/layerx-agentd/src/tenant/isolation.rs"
+lines = 299
+verdict = "clean"
+note = "Read all tenant-bound list/get/update wrappers, exact object ownership checks and redacted not-found paths. Each key retains the caller tenant and no cross-tenant fallback or unscoped lookup was found."
+
+[file.31]
+path = "services/agent/crates/layerx-agentd/tests/bootstrap_bind_layerx.rs"
+lines = 960
+verdict = "clean"
+note = "Read the complete real registration/session EVM bootstrap, RPC preparation, signing, chain-head freshness and malformed binding rejection cases. The test path uses the current Auth precompile calls and exact retained transaction checks."
+
+[file.32]
+path = "services/agent/crates/layerx-agentd/tests/budget_durable_limits.rs"
+lines = 1150
+verdict = "clean"
+note = "Read the full real durable budget/capability/session limit matrix, purpose binding, pending holds, terminal/unknown outcomes, restart, expiry and preview accounting. The ledger-call producer is used for prepared authorization; no additional fixture disagreement identified."
+
+[file.33]
+path = "services/agent/crates/layerx-agentd/tests/gaps.rs"
+lines = 745
+verdict = "clean"
+note = "Read every production gap regression, authorization scope, protocol error, restart and exact-once assertion. The tests retain explicit tenant and canonical call binding and do not advertise a retired RPC router."
+
+[file.34]
+path = "services/agent/crates/layerx-agentd/tests/human_node_receipts.rs"
+lines = 604
+verdict = "issues"
+note = "Read every signed receipt field, real node RPC adapter exchange, key rotation, success/revert binding and landing case. The hand-built positive JSON receipt omits required paymentDenom."
+
+[file.35]
+path = "services/agent/crates/layerx-agentd/tests/identity_ops_chain.rs"
+lines = 201
+verdict = "clean"
+note = "Read the full identity operation preparation, signing and chain-backed state verification path. The cases use actual typed calls and state commitments with mutation rejection; no additional source defect identified."
+
+[file.36]
+path = "services/agent/crates/layerx-agentd/tests/ingest_eth_subscribe.rs"
+lines = 713
+verdict = "clean"
+note = "Read every TCP/WebSocket exchange, eth_subscribe handshake, receipted/committed log codec, disconnect and overlap/reconnect assertion. Null blockHash and sequence for receipted events are deliberate producer semantics under 181556.1."
+
+[file.37]
+path = "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs"
+lines = 1027
+verdict = "clean"
+note = "Read all native-send preparation, secp256k1 submission, preview/disclosure, budget/ceiling and real HTTP adapter assertions. The proof checks exact EVM bytes, signer, nonce and mutation refusals rather than a legacy activity fixture."
+
+[file.38]
+path = "services/agent/crates/layerx-agentd/tests/program_balances_eth_call.rs"
+lines = 743
+verdict = "clean"
+note = "Read every committed Programs state fixture, value-account proof, uint128 balance boundary, eth_call request/response binding and malformed/stale-proof refusal. The height and ownership conditions match the declared committed read contract."
+
+[file.39]
+path = "services/agent/crates/layerx-agentd/tests/program_chain_head.rs"
+lines = 708
+verdict = "clean"
+note = "Read the complete committed header/journal producers, validator signatures, durable trust handling, lifecycle state proofs and head divergence/staleness cases. The test authenticates real encoded chain state and rejects mutated head or proof fields."
+
+[file.40]
+path = "services/agent/crates/layerx-agentd/tests/proof_agentd.rs"
+lines = 585
+verdict = "issues"
+note = "Read the full producer, native/EVM signing, disclosure mutation, outbox/idempotency reopening and approval event evidence proof. The shared positive producer still encodes a retired activity envelope."
+
+[file.41]
+path = "services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs"
+lines = 900
+verdict = "clean"
+note = "Read all public error envelope producers/consumers, operation adapters, missing tenant objects, read/proof failures and HTTP route assertions. Required refusal codes and redaction remain explicit and no test suppression was found."
+
+[file.42]
+path = "services/agent/crates/layerx-agentd/tests/session.rs"
+lines = 774
+verdict = "clean"
+note = "Read every session admission/authentication, narrowing, generation, expiry, revocation, durable restoration and cross-tenant/token refusal assertion. Token secrecy assertions and canonical session ownership checks are retained."
+
+[file.43]
+path = "services/agent/crates/layerx-agentd/tests/subscription.rs"
+lines = 1210
+verdict = "clean"
+note = "Read the full subscription creation, topic/filter binding, delivery/cursor advancement, restart and tenant isolation matrix. Current receipt rungs, block-position cursors and overlap recovery are exercised without retired /rpc endpoints."
+
+[file.44]
+path = "services/agent/crates/layerx-agentd/tests/tenant_resolve.rs"
+lines = 646
+verdict = "clean"
+note = "Read all principal/tenant resolution, distinct subject namespace, forged ownership, restart and error redaction cases. The tests use live resolver types and preserve fail-closed missing/foreign-object semantics."
+
+[file.45]
+path = "services/agent/crates/layerx-agentd/tests/write_path_evm.rs"
+lines = 568
+verdict = "clean"
+note = "Read the complete prepare/sign/submit flow, nonce discovery and EIP-1559 bytes, real node transport, receipt/commit progression and owner mismatch rejection. Assertions bind the returned hash and sender to the exact signed transaction."
+
+[file.46]
+path = "services/human/crates/layerx-intents/tests/proof_human_intents.rs"
+lines = 695
+verdict = "issues"
+note = "Read all intent producers, payload codecs, compiler and disclosure checks, resolver paths and malformed payload cases. The successful ledger-call proof mixes authorization network 77 with EVM chain 125 and stops at the binder."
+
+[finding.payer_payment_asset]
+file = "services/agent/crates/layerx-agentd-host/src/payer.rs"
+line = 484
+class = "interface-mismatch"
+severity = "high"
+observed = "verify_execution compares protocol.asset() to SHA256(execution.fee_denom). node/sequencer/receipt.go:234 emits SHA256(PaymentDenom), and layerx-client/src/rpc/receipt.rs:289 verifies payment_denom. A valid payment with a different gas denomination is refused after submission."
+expected = "Requirement 22082.1 binds the payment asset to paymentDenom independently of feeDenom; the node producer, authenticated client and MCP payer must accept the same signed receipt."
+proposal = "Change services/agent/crates/layerx-agentd-host/src/payer.rs to bind protocol.asset to execution.payment_denom while retaining the separate fee summary checks. Cover successful and reverted receipts with unequal payment and fee denominations through the actual node receipt codec."
+owner_domain = 9
+interface = "9.rs-agentd-host-payer-productionwebpayer-j43"
+
+[finding.payer_equal_denom_fixture]
+file = "services/agent/crates/layerx-agentd-host/tests/payer.rs"
+line = 238
+class = "test-gap"
+severity = "medium"
+observed = "The ExecutedReceipt fixture sets fee_denom and payment_denom to upax. encode_execution correctly hashes payment_denom at line 161, but equal fixture values hide the production payer check against fee_denom at payer.rs:484."
+expected = "The payer tests must distinguish the payment asset from the fee currency and expose a consumer that hashes the wrong denomination, as required by 22082.1 and brief check_7."
+proposal = "Extend services/agent/crates/layerx-agentd-host/tests/payer.rs with independently produced receipts whose payment_denom differs from fee_denom; require acceptance of the valid payment and rejection of either independently altered denomination."
+owner_domain = 9
+
+[finding.payer_binding_bypass]
+file = "services/agent/crates/layerx-agentd-host/tests/payer_evm.rs"
+line = 446
+class = "test-gap"
+severity = "medium"
+observed = "web_pay_exact_submits_a_signed_layerxpay_call constructs WebConfig directly with eip155:125. It never consumes BindingPublisher output; its RPC fixture at line 357 supplies a hand-encoded receipt. This bypasses the incompatible web declaration emitted by enrolment.rs."
+expected = "The production paid-tool proof must carry the daemon-published binding through layerx-mcp binding::web_binding before invoking the payer; successful direct WebConfig construction does not establish the boot-to-tool path."
+proposal = "Add a producer-to-consumer case in services/agent/crates/layerx-agentd-host/tests/payer_evm.rs that enrols with BindingPublisher, loads the published binding through the real MCP loader, and performs payExact and draw with the node receipt producer."
+owner_domain = 9
+
+[finding.operator_audit_payload]
+file = "services/agent/crates/layerx-agentd/src/admin.rs"
+line = 375
+class = "interface-mismatch"
+severity = "high"
+observed = "Surface::open uses audit::Log::open(root, tenant), then dispatch appends audit_payload beginning LXOA version 1 at line 639. audit/record.rs::read_entries and audit/export.rs::decode_owned_entries decode every frame as LXAR. A successful operator action therefore produces a chain that those declared readers cannot export."
+expected = "Operator attempts and ordinary tenant audit entries sharing the same Log path must have a common decodable record grammar. Registry 9.fmt-audit-record and the admin dispatch contract must round-trip through audit readers."
+proposal = "Represent operator attempts as a versioned variant of the common audit record in services/agent/crates/layerx-agentd/src/admin.rs and src/audit/record.rs, or give operator logs a distinct declared path and reader. Prove mixed operator and ordinary events export and review after restart."
+owner_domain = 9
+interface = "9.rs-agentd-surface-dispatch-j70"
+
+[finding.redacted_audit_entry_binding]
+file = "services/agent/crates/layerx-agentd/src/audit/export.rs"
+line = 475
+class = "security"
+severity = "high"
+observed = "chain_links drops canonical_entry_bytes when retention changes a selected entry (lines 375-384). verify_chain_material accepts None even for selected links at line 439, and review accepts any entry with submitted_bytes=Redacted at line 477. Its decision, reason, actor and observation time are consequently not authenticated against payload_digest or entry_hash."
+expected = "review promises to reject an altered export. Redacting a payload digest must preserve authentication of every remaining audit field against the original tenant chain, including entries without protocol receipts."
+proposal = "Introduce independently verifiable field commitments or authenticated redaction proofs in services/agent/crates/layerx-agentd/src/audit/export.rs and the record format. Require mutation of each retained field in a redacted export to fail review without disclosing expired payload evidence."
+owner_domain = 9
+interface = "9.rs-agentd-audit-export-review-j43"
+
+[finding.audit_append_crash_window]
+file = "services/agent/crates/layerx-agentd/src/audit/log.rs"
+line = 231
+class = "restart-recovery"
+severity = "medium"
+observed = "append_durable writes and syncs a frame before replacing its separate tail anchor at lines 233-239. A process or host crash between those steps leaves a complete new frame with the old anchor; verify_chain and Log::open reject the store as AnchorMismatch. An interrupted partial frame is also permanently refused."
+expected = "A crash before before_operation invokes its operation must have an explicit recovery outcome that preserves committed history and distinguishes an incomplete append from corruption; normal restart must not strand an otherwise intact tenant audit chain."
+proposal = "Add a durable append intent and commit protocol in services/agent/crates/layerx-agentd/src/audit/log.rs with bounded recovery of a provably incomplete tail. Exercise crash boundaries before frame sync, before anchor replacement and after anchor directory sync without weakening tamper checks."
+owner_domain = 9
+interface = "9.rs-agentd-log-open-j70"
+
+[finding.audit_concurrent_writers]
+file = "services/agent/crates/layerx-agentd/src/audit/log.rs"
+line = 202
+class = "runtime-risk"
+severity = "medium"
+observed = "append_durable verifies the current tail and later appends without a lock spanning verification, frame write and anchor publication. Two handles opened at the same tail can both pass the StaleWriter check, append the same sequence and race the fixed audit.anchor.tmp path. MCP servers open separate Logs and operator routes also open tenant Logs."
+expected = "Concurrent users of a tenant audit chain must serialize the entire append transaction, or an exclusive writer must be enforced before more than one handle can acknowledge an append."
+proposal = "Enforce a tenant-scoped process lock in services/agent/crates/layerx-agentd/src/audit/log.rs around tail verification through anchor sync, and refresh the tail under that lock. Cover simultaneous MCP and operator handles with no duplicate sequence or chain corruption."
+owner_domain = 9
+interface = "9.rs-agentd-log-before-operation-j70"
+
+[finding.audit_record_tenant_binding]
+file = "services/agent/crates/layerx-agentd/src/audit/record.rs"
+line = 249
+class = "security"
+severity = "medium"
+observed = "record encodes entry and invokes Log::before_operation without checking Log::owns_tenant(&entry.tenant). A well-formed entry for another tenant is durably appended and its operation executes; export later rejects the chain when decode_owned_entries detects that foreign tenant."
+expected = "The tenant embedded in every audit entry must match the tenant cryptographically bound to its Log before an entry is appended or an operation runs."
+proposal = "Check log.owns_tenant in services/agent/crates/layerx-agentd/src/audit/record.rs::record and return a typed tenant mismatch before mutation. Verify that a foreign entry leaves the log, coverage counters and operation side effects unchanged."
+owner_domain = 9
+interface = "9.fmt-audit-record"
+
+[finding.audit_record_registry_version]
+file = "services/agent/crates/layerx-agentd/src/audit/record.rs"
+line = 18
+class = "doc-drift"
+severity = "low"
+observed = "ENTRY_VERSION is 3 and LEGACY_ENTRY_VERSION is 2, while registry row 9.fmt-audit-record declares LXAR version 2 with legacy version 1 readable. The declared persistence grammar therefore gives integrations the wrong current and accepted versions."
+expected = "The audit format registry must name the bytes the encoder emits and the versions the decoder actually accepts so retained history and offline tools share the same upgrade contract."
+proposal = "Update the owning audit-format declaration in spec/layerx-merge/interfaces.kvx and its generated contract documentation from the encoder and decoder in services/agent/crates/layerx-agentd/src/audit/record.rs; explicitly describe migration or refusal of version 1."
+owner_domain = 9
+interface = "9.fmt-audit-record"
+
+[finding.web_binding_schema]
+file = "services/agent/crates/layerx-agentd/src/enrolment.rs"
+line = 399
+class = "interface-mismatch"
+severity = "high"
+observed = "WebDeclaration::document emits endpoint, network, sequencer_public_key, timeout_ms, pending_attempts and approval_threshold. layerx-mcp/src/binding.rs:1190 rejects sequencer_public_key as retired and requires payer_address, receiver_address, receipt_key_index and a key range. WebDeclaration::new also accepts only layerx: networks at line 359 whereas the consumer requires eip155: at binding.rs:1244."
+expected = "The daemon-published closed-key MCP web binding must load unchanged in the real MCP consumer, with the actual payer and receiver addresses, governed receipt key ranges and eip155:125 network identifier."
+proposal = "Replace WebDeclaration in services/agent/crates/layerx-agentd/src/enrolment.rs with the current binding schema and wire the actual payer, receiver and receipt key entries from src/main.rs. Prove enrolment output loads through layerx-mcp/src/binding.rs and remains usable after daemon restart."
+owner_domain = 9
+interface = "9.fmt-mcp-binding-document"
+
+[finding.enrolment_publication_recovery]
+file = "services/agent/crates/layerx-agentd/src/enrolment.rs"
+line = 959
+class = "restart-recovery"
+severity = "medium"
+observed = "open_and_publish persists session::open before publisher.publish creates the session token, daemon bearer and binding as three separate files at lines 680-684. Synchronous errors close the session, but a crash can leave an open durable session and only part of the publication; a later publish refuses pre-existing secrets."
+expected = "MCP enrolment must recover one consistent session and binding generation after a crash, including crashes between durable session creation and each published secret or document."
+proposal = "Journal the enrolment generation in services/agent/crates/layerx-agentd/src/enrolment.rs and publish a staged directory atomically, or reconcile its recorded file set on boot before admitting the session. Add restart cases for every publication boundary and preserve fail-closed secret validation."
+owner_domain = 9
+interface = "9.rs-agentd-enrolment-enrol"
+
+[finding.receipt_legacy_evidence_roundtrip]
+file = "services/agent/crates/layerx-agentd/src/receipt.rs"
+line = 426
+class = "interface-mismatch"
+severity = "high"
+observed = "persist_evidence writes encode_evidence with LXRE byte 4 equal to 1 at line 499. evidence_inventory calls serve_kernel_evidence, which first calls check_evidence_version requiring 2, then decode_evidence requiring 1. Evidence produced by persist_evidence can never return through this recovery inventory and instead yields receipt.evidence_version."
+expected = "The registered persist_evidence and evidence_inventory pair must round-trip evidence retained for recovery. Requirement 9018.2 still requires the public v2 serve_evidence API to refuse v1, so silently relaxing that check is not a repair."
+proposal = "Separate the legacy recovery reader from the public v2 reader in services/agent/crates/layerx-agentd/src/receipt.rs and provide an explicit migration to authenticated transaction evidence where supported. Prove persist, close, reopen and inventory on real receipts while public serve_evidence still refuses stale v1."
+owner_domain = 9
+interface = "9.rs-agentd-receipt-evidence-inventory-j43"
+
+[finding.receipt_v2_producer_not_wired]
+file = "services/agent/crates/layerx-agentd/src/receipt.rs"
+line = 398
+class = "wiring-gap"
+severity = "high"
+observed = "serve_evidence requires LXRE v2 plus receipt:transaction:<hash>. The live AuthenticatedReceipt ingress in human_runtime.rs:1067 writes only receipt:activity, receipt:idempotency and receipt:sequence indexes with legacy metadata; TransactionReceiptEvidence construction and storage occur in tests, not that ingress. session_control.rs:1427 calls serve_evidence for receipts retained by the live path."
+expected = "Requirement 9018.1 requires node receipt observations to populate the transaction-keyed v2 evidence that public readers and restart consumers request; successful live receipt observation must not leave the v2 serving path empty."
+proposal = "Wire an authenticated node-receipt-to-TransactionReceiptEvidence conversion into services/agent/crates/layerx-agentd/src/receipt.rs and human_runtime.rs, atomically persisting the transaction index and v2 evidence. Verify live observation, serve_evidence, MCP reconciliation and reopened-store reads without fixture injection."
+owner_domain = 9
+interface = "9.rs-agentd-receipt-serve-evidence-j43"
+
+[finding.receipt_v2_unverified_ingress]
+file = "services/agent/crates/layerx-agentd/src/receipt.rs"
+line = 646
+class = "security"
+severity = "medium"
+observed = "TransactionReceiptEvidence has public metadata and bytes, and its ReceiptIngress implementation checks only the claimed rung, matching caller-provided hash and equal nonempty bytes. It verifies neither receipt_signature nor binding of block height, status, gas or bloom to the receipt; arbitrary constructed evidence can enter record_verified_receipt through store_verified_if_absent."
+expected = "A persistence method named store_verified_if_absent must require an authenticated receipt capability or independently verify the signature and every exposed metadata field before classifying its bytes as verified."
+proposal = "Make the accepted v2 ingress an opaque authenticated type in services/agent/crates/layerx-agentd/src/receipt.rs, constructed by the node receipt verifier with pinned receipt keys and committed-block checks. Reject forged metadata, signatures and claimed Committed rungs before any durable index is written."
+owner_domain = 9
+interface = "9.rs-agentd-receipt-store-verified-if-absent-j43"
+
+[finding.subject_retained_evm_decode]
+file = "services/agent/crates/layerx-agentd/src/human_runtime/subject.rs"
+line = 226
+class = "interface-mismatch"
+severity = "high"
+observed = "for_did restores outbox records as EIP-1559 transactions, but then decodes the same PreparedActivity bytes using layerx_wire::activity::decode_signed and compares the activity idempotency key with the transaction-hash identifier. for_activity repeats the retired decoder at line 277. for_did also skips Committed registrations. The live managed-budget path calls it at human_runtime.rs:803."
+expected = "Subject authorization for a registered managed agent must consume the exact EVM registration transaction retained by Outbox and continue to recognize the registration after commitment and restart."
+proposal = "Replace activity decoding in services/agent/crates/layerx-agentd/src/human_runtime/subject.rs with EVM call decoding and authenticated registration event or state binding. Distinguish action idempotency from transaction hash and accept the committed lifecycle with verified ownership evidence."
+owner_domain = 9
+interface = "9.rs-agentd-outbox-restore-j70"
+
+[finding.subject_registration_test_gap]
+file = "services/agent/crates/layerx-agentd/src/human_runtime/subject/tests.rs"
+line = 152
+class = "test-gap"
+severity = "medium"
+observed = "The subject tests prove namespace retention and EVM outbox partitioning, but never call for_did or for_activity for a managed agent. signed_submission converts a sponsored.activity fixture into an EVM call, so the test stops before the resolver tries to decode those retained EVM bytes as an activity."
+expected = "Subject tests must exercise the resolver used by managed-agent reads and writes using the real registration producer, including Executed and Committed records and a reopened store."
+proposal = "Extend services/agent/crates/layerx-agentd/src/human_runtime/subject/tests.rs to register a managed agent through the current producer and call for_did and for_activity before and after commitment and restart, while proving another owner remains refused."
+owner_domain = 9
+
+[finding.native_receipt_dead_decoder]
+file = "services/agent/crates/layerx-agentd/src/human_runtime/native_receipt.rs"
+line = 14
+class = "dead-code"
+severity = "low"
+observed = "RetainedNativeOwner::decode and its canonical, activity and owner fields have no caller in the runtime. They still decode the retired signed activity envelope and gate protocol version 3/module numbers, beside a persist helper that remains separate from the current EVM receipt path."
+expected = "Retained-submission recovery must have one reachable EVM transaction and receipt implementation; a dormant native-owner decoder must not imply that the old envelope remains a supported recovery route."
+proposal = "Remove the unused RetainedNativeOwner decoder in services/agent/crates/layerx-agentd/src/human_runtime/native_receipt.rs once current call sites are confirmed, or replace and wire it to the EVM recovery authority with producer-to-restart coverage. Keep the existing persistence checks intact."
+owner_domain = 9
+
+[finding.registry_failed_read_mutation]
+file = "programs/crates/layerx-programs-registry/src/state_record.rs"
+line = 62
+class = "runtime-risk"
+severity = "medium"
+observed = "verify_snapshot and restore_inner call registry.replay_protocol_state before JournalAccountStateAuthority::new and read_value_accounts can reject stale or invalid account evidence. replay_protocol_state commits its candidate into the supplied registry; a subsequent error leaves that registry changed. restore_profile2 instead uses a candidate and publishes only after validation."
+expected = "A refused verified state read must leave the caller registry unchanged; unaccepted evidence must not publish new account bindings, lifecycle history or exit routes."
+proposal = "Use the same candidate-registry transaction as restore_profile2 in programs/crates/layerx-programs-registry/src/state_record.rs::verify_snapshot and restore_inner. Assert the complete registry remains unchanged on staleness, authority and account-proof failures."
+owner_domain = 13
+
+[finding.outbox_history_roundtrip_bound]
+file = "services/agent/crates/layerx-agentd/src/outbox/mod.rs"
+line = 650
+class = "interface-mismatch"
+severity = "high"
+observed = "transition_at appends a transition and encode_record persists its u32 count without a 1024 limit. legal_transition permits Submitted to Submitted repeatedly. decode_record rejects transition_count greater than 1024, so a successfully persisted legal record becomes Corrupt when Outbox::restore or restart recovery reads it."
+expected = "Every durable record accepted by the public transition path must remain restorable. Encoder, legal lifecycle and recovery decoder must share the same transition-history and cause-length bounds."
+proposal = "Define one durable history policy in services/agent/crates/layerx-agentd/src/outbox/mod.rs: bound or compact history before persistence while preserving current state and required evidence, and reject an excessive transition atomically. Cover the boundary and subsequent close/reopen without loosening decoder limits."
+owner_domain = 9
+interface = "9.rs-agentd-outbox-restore-j70"
+
+[finding.store_independent_writer_loss]
+file = "services/agent/crates/layerx-agentd/src/store/mod.rs"
+line = 301
+class = "restart-recovery"
+severity = "medium"
+observed = "Store::open allows independent writable handles for one root, each with a full in-memory BTreeMap. persist overwrites the entire store through the fixed store.bin.tmp at line 1153 without locking or a generation check. Two daemon processes or separately opened handles can overwrite each others session, receipt or outbox updates."
+expected = "One persistent tenant store must enforce exclusive writer ownership or safely serialize and merge updates across handles; restarting or overlapping daemon instances must not silently erase acknowledged state."
+proposal = "Acquire and retain an exclusive root writer lock in services/agent/crates/layerx-agentd/src/store/mod.rs::open, including migration, or introduce transactional generation checks. Cover a second writable opener and simultaneous updates without accepting lost writes."
+owner_domain = 9
+interface = "9.fmt-agentd-store"
+
+[finding.store_private_file_modes]
+file = "services/agent/crates/layerx-agentd/src/store/mod.rs"
+line = 1155
+class = "security"
+severity = "medium"
+observed = "Store::open uses create_dir_all without owner-only permissions, and persist creates store.bin.tmp with default OpenOptions permissions and follows an existing path. With a normal 022 umask a newly created root and store can be 0755/0644; session.rs:908 serializes bearer token_id into those bytes. The live main.rs path only requires an absolute store path."
+expected = "The daemon store containing bearer credentials must enforce owner-only directories and files independently of umask, and reject symlinks or unexpected ownership before reading or replacing state."
+proposal = "Harden services/agent/crates/layerx-agentd/src/store/mod.rs to validate canonical owned roots, create directories as 0700 and unique regular temporary files as 0600 with no-follow protection, and retain those modes through replacement. Cover permissive umasks and pre-existing unsafe paths."
+owner_domain = 9
+
+[finding.migration_private_file_modes]
+file = "services/agent/crates/layerx-agentd/src/store/migrate.rs"
+line = 114
+class = "security"
+severity = "medium"
+observed = "migrate_store rewrites an older store through store.bin.migrating using create/truncate without an explicit 0600 mode or no-follow checks, then renames it over the original. A previously protected store can acquire default 0644 permissions under a 022 umask, and a pre-existing migration path is followed."
+expected = "Forward migration must preserve or strengthen the ownership and secrecy of session-bearing store bytes as well as preserving core-produced values byte for byte."
+proposal = "Use the same protected atomic writer as ordinary persistence in services/agent/crates/layerx-agentd/src/store/migrate.rs, with unique 0600 temporary files and validated directory ownership. Verify migration from a 0600 source under permissive umask and refusal of a substituted temporary path."
+owner_domain = 9
+
+[finding.tenant_observability_growth]
+file = "services/agent/crates/layerx-agentd/src/tenant.rs"
+line = 367
+class = "runtime-risk"
+severity = "medium"
+observed = "TenantObservability::record pushes a TenantAuditEntry and TenantTrace on every authorization result. The struct exposes only borrowed slices and has no drain, retention limit or bounded sink; a long-lived RPC/MCP authorization gate retains all requests in memory."
+expected = "Tenant authorization observability must have bounded in-memory retention and a defined delivery or backpressure policy; ordinary traffic and repeated refusals must not exhaust daemon memory."
+proposal = "Replace the vectors in services/agent/crates/layerx-agentd/src/tenant.rs with bounded delivery to the durable audit and trace sinks, with explicit overflow accounting and tenant limits. Prove sustained authorization traffic cannot grow retained memory without bound."
+owner_domain = 9
+
+[finding.error_trace_growth]
+file = "services/agent/crates/layerx-agentd/src/tenant/errors.rs"
+line = 319
+class = "runtime-risk"
+severity = "medium"
+observed = "normalize_external_error appends a SanitizedTrace for each normalized error to BoundedMetrics.traces. Counter labels are bounded, but the trace vector has no capacity policy or draining API, so repeated rejected requests retain an unbounded number of traces."
+expected = "Error normalization must keep both metric cardinality and retained trace memory bounded while preserving tenant-safe diagnostics under sustained invalid traffic."
+proposal = "Add bounded trace delivery or a capped queue with explicit dropped-trace metrics in services/agent/crates/layerx-agentd/src/tenant/errors.rs. Exercise a sustained stream of equivalent errors and verify fixed memory retention and unchanged normalized responses."
+owner_domain = 9
+
+[finding.human_receipt_fixture_missing_payment]
+file = "services/agent/crates/layerx-agentd/tests/human_node_receipts.rs"
+line = 222
+class = "test-gap"
+severity = "medium"
+observed = "signed_receipt builds a receipted JSON view containing feeDenom but no paymentDenom. The current node producer rpc/sequencer_receipt.go declares paymentDenom and layerx-client/src/sequencer.rs requires it in RECEIPTED_FIELDS. The positive receipt cases therefore feed a shape the real decoder is required to refuse."
+expected = "Requirement 22082.1 requires missing paymentDenom to be refused; positive Human receipt fixtures must carry the actual producer shape and bind the payment asset independently from the gas denomination."
+proposal = "Replace the hand-built view in services/agent/crates/layerx-agentd/tests/human_node_receipts.rs with the node producer or its shared conformance vectors. Include paymentDenom in valid observations and retain an explicit missing-field refusal case with distinct denominations."
+owner_domain = 9
+
+[finding.proof_agentd_retired_preparation]
+file = "services/agent/crates/layerx-agentd/tests/proof_agentd.rs"
+line = 119
+class = "retired-reference"
+severity = "medium"
+observed = "producer constructs an authorization with encode_send_envelope and restore_canonical and later tests mutate that legacy envelope at line 431. These positive preparation and approval proofs still depend on activity envelopes even though another test branch uses EVM signing preparations."
+expected = "Requirement 22061.1 says daemon test authorizations prepare the ledger call and bind it, and no test encodes an activity envelope. Current preparation and approval proofs must use the same EVM preparation as production."
+proposal = "Migrate the producer and envelope mutation cases in services/agent/crates/layerx-agentd/tests/proof_agentd.rs to ledger_payment_call, call-bound disclosure and exact EVM retained bytes. Preserve all signature, disclosure, idempotency and restart assertions against the current producer."
+owner_domain = 9
+
+[finding.intent_proof_chain_domain]
+file = "services/human/crates/layerx-intents/tests/proof_human_intents.rs"
+line = 456
+class = "test-gap"
+severity = "medium"
+observed = "signed_send signs network_id 77 at line 151, while signed_send_crosses_the_real_ledger_call_and_agent_disclosure_consumer_twice wraps it in an EVM call with chain_id 125 and treats binder acceptance as the positive path. The proof does not carry the payload through the deployed ledger host configured for network 125."
+expected = "The merged-network positive proof must use the same authorization domain as its deployed ledger consumer; cross-network payloads must be tested as refusals rather than silently serving as successful mainnet-beta examples."
+proposal = "Use network 125 in the valid producer in services/human/crates/layerx-intents/tests/proof_human_intents.rs, and add an explicit network-77 refusal through the real ledger precompile/host path. Preserve independent binder decoding and all existing payload mutation assertions."
+owner_domain = 10
+
+[finding.config_registry_lni_drift]
+file = "services/agent/crates/layerx-agentd/src/config.rs"
+line = 29
+class = "doc-drift"
+severity = "low"
+observed = "SECURITY_RELEVANT_SETTINGS declares expected_chain_id and receipt_key_source, and parse_node_endpoint accepts HTTP/HTTPS. Registry row 9.fmt-agentd-startup-config still describes expected_protocol_version for an LNI node; the operator pages also prescribe the retired sequencer_authority_source setting."
+expected = "The published startup contract must describe the actual node JSON-RPC URL, expected EVM chain id and governed or pinned receipt keys, without advertising settings the parser explicitly refuses as retired."
+proposal = "Refresh the owning startup-format registry declaration and generated operator configuration tables from services/agent/crates/layerx-agentd/src/config.rs. Include valid URL and chain-125 examples and the explicit refusal of old authority and LNI keys."
+owner_domain = 9
+interface = "9.fmt-agentd-startup-config"
+
+[finding.running_site_startup]
+file = "docs/site/docs/agents/running.md"
+line = 96
+class = "doc-drift"
+severity = "medium"
+observed = "The page says node_endpoint is an absolute filesystem path at lines 96-103 and 696. Its configuration table advertises sequencer_authority_source/LAYERX_SEQUENCER_AUTHORITY_SOURCE at line 702, which config.rs explicitly rejects as retired."
+expected = "Operators must supply an HTTP/HTTPS node JSON-RPC URL, expected_chain_id and receipt_key_source as declared by StartupConfig, with the accepted per-tenant verification defaults."
+proposal = "Rewrite the startup instructions and configuration table in docs/site/docs/agents/running.md from services/agent/crates/layerx-agentd/src/config.rs and the current host entry point, using a root mainnet-beta node URL and current receipt-key retrieval."
+owner_domain = 9
+
+[finding.running_site_transport]
+file = "docs/site/docs/agents/running.md"
+line = 512
+class = "doc-drift"
+severity = "medium"
+observed = "The native-send instructions direct eth_sendRawTransaction to /rpc, and adjacent receipt guidance retains a separate sequencer and settlement-era verification vocabulary. This describes the pre-merge transport as the running network."
+expected = "Brief facts 1-3 specify one BFT paxd network, root JSON-RPC on the published node names, and receipt finality at block commitment without a unified router."
+proposal = "Rewrite the submission and receipt lifecycle sections in docs/site/docs/agents/running.md to use the node root URL, submitted/receipted/committed rungs and the current authenticated receipt and committed-block readers. Distinguish any hosted px_ gateway examples explicitly."
+owner_domain = 9
+
+[finding.running_wiki_startup]
+file = "docs/wiki/RunningAnAgent.md"
+line = 96
+class = "doc-drift"
+severity = "medium"
+observed = "The page says node_endpoint is an absolute filesystem path at lines 96-103 and 696. Its configuration table advertises sequencer_authority_source/LAYERX_SEQUENCER_AUTHORITY_SOURCE at line 702, which config.rs explicitly rejects as retired."
+expected = "Operators must supply an HTTP/HTTPS node JSON-RPC URL, expected_chain_id and receipt_key_source as declared by StartupConfig, with the accepted per-tenant verification defaults."
+proposal = "Rewrite the startup instructions and configuration table in docs/wiki/RunningAnAgent.md from services/agent/crates/layerx-agentd/src/config.rs and the current host entry point, using a root mainnet-beta node URL and current receipt-key retrieval."
+owner_domain = 9
+
+[finding.running_wiki_transport]
+file = "docs/wiki/RunningAnAgent.md"
+line = 512
+class = "doc-drift"
+severity = "medium"
+observed = "The native-send instructions direct eth_sendRawTransaction to /rpc, and adjacent receipt guidance retains a separate sequencer and settlement-era verification vocabulary. This describes the pre-merge transport as the running network."
+expected = "Brief facts 1-3 specify one BFT paxd network, root JSON-RPC on the published node names, and receipt finality at block commitment without a unified router."
+proposal = "Rewrite the submission and receipt lifecycle sections in docs/wiki/RunningAnAgent.md to use the node root URL, submitted/receipted/committed rungs and the current authenticated receipt and committed-block readers. Distinguish any hosted px_ gateway examples explicitly."
+owner_domain = 9
+
+[finding.cli_site_rpc]
+file = "docs/site/docs/platform/cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction requires --rpc URLs to end in /rpc; lines 131 and 277-298 repeat the unified gateway transport and send raw transactions there. The merged-network node serves JSON-RPC at its root path."
+expected = "CLI operators must target the real node root URL and chain 125, while any hosted gateway-specific px_ methods must be described against that gateway contract."
+proposal = "Update endpoint rules, environment examples and wallet submission explanations in docs/site/docs/platform/cli.md together with their owning tools/platform/cli interfaces. Show root node JSON-RPC and current rungs and remove obsolete router requirements."
+owner_domain = 16
+
+[finding.cli_site_command_catalogue]
+file = "docs/site/docs/platform/cli.md"
+line = 106
+class = "doc-drift"
+severity = "medium"
+observed = "The Requested command groups section states that its command groups and flags are not implemented, despite the preceding table documenting live wallet/token commands and --rpc/--json behavior. The adjacent flags section says none of those flags exist."
+expected = "A CLI reference must distinguish implemented commands and flags from actually unavailable operations without contradicting its own supported-command catalogue."
+proposal = "Reconcile the requested-command and global-option sections of docs/site/docs/platform/cli.md with tools/platform/cli/src/main.rs and the current help/schema output; retain only demonstrably unavailable groups and document the actual refusal for each."
+owner_domain = 16
+
+[finding.cli_wiki_rpc]
+file = "docs/wiki/Cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction requires --rpc URLs to end in /rpc; lines 131 and 277-298 repeat the unified gateway transport and send raw transactions there. The merged-network node serves JSON-RPC at its root path."
+expected = "CLI operators must target the real node root URL and chain 125, while any hosted gateway-specific px_ methods must be described against that gateway contract."
+proposal = "Update endpoint rules, environment examples and wallet submission explanations in docs/wiki/Cli.md together with their owning tools/platform/cli interfaces. Show root node JSON-RPC and current rungs and remove obsolete router requirements."
+owner_domain = 16
+
+[finding.cli_wiki_command_catalogue]
+file = "docs/wiki/Cli.md"
+line = 106
+class = "doc-drift"
+severity = "medium"
+observed = "The Requested command groups section states that its command groups and flags are not implemented, despite the preceding table documenting live wallet/token commands and --rpc/--json behavior. The adjacent flags section says none of those flags exist."
+expected = "A CLI reference must distinguish implemented commands and flags from actually unavailable operations without contradicting its own supported-command catalogue."
+proposal = "Reconcile the requested-command and global-option sections of docs/wiki/Cli.md with tools/platform/cli/src/main.rs and the current help/schema output; retain only demonstrably unavailable groups and document the actual refusal for each."
+owner_domain = 16
+
+[finding.agentd_site_boot_contract]
+file = "docs/site/docs/agents/agentd.md"
+line = 13
+class = "doc-drift"
+severity = "medium"
+observed = "The boot section prescribes a protected layerx-sequencer-authority-v1 file and EvidenceAuthority handshake. Later configuration lists node_endpoint as a normalized path and sequencer_authority_source as required. StartupConfig instead uses an HTTP URL, expected_chain_id and receipt_key_source and refuses the old authority setting."
+expected = "The agent daemon reference must describe the running node JSON-RPC handshake, governed receipt keys and committed-block verification rather than retired LNI and settlement-domain boot contracts."
+proposal = "Rewrite boot, trust, verification-level and configuration sections in docs/site/docs/agents/agentd.md against config.rs, main.rs and the live receipt/read adapters. Document expected chain 125, supported rungs and explicit handling of stale retained evidence."
+owner_domain = 9
+
+[finding.agentd_wiki_boot_contract]
+file = "docs/wiki/Agentd.md"
+line = 13
+class = "doc-drift"
+severity = "medium"
+observed = "The boot section prescribes a protected layerx-sequencer-authority-v1 file and EvidenceAuthority handshake. Later configuration lists node_endpoint as a normalized path and sequencer_authority_source as required. StartupConfig instead uses an HTTP URL, expected_chain_id and receipt_key_source and refuses the old authority setting."
+expected = "The agent daemon reference must describe the running node JSON-RPC handshake, governed receipt keys and committed-block verification rather than retired LNI and settlement-domain boot contracts."
+proposal = "Rewrite boot, trust, verification-level and configuration sections in docs/wiki/Agentd.md against config.rs, main.rs and the live receipt/read adapters. Document expected chain 125, supported rungs and explicit handling of stale retained evidence."
+owner_domain = 9
+
+[finding.quickstart_site_network_path]
+file = "docs/site/docs/overview/quickstart.md"
+line = 167
+class = "doc-drift"
+severity = "medium"
+observed = "The maintained client instructions use POST /rpc and GET /rpc/ws, lx_getReceipt and legacy activity submission, with hosted URLs under api-mainnet-beta.paxeer.network/rpc. Later sections repeat eth_sendRawTransaction to /rpc and settlement-era finality."
+expected = "The finished network has one paxd BFT chain with EVM chain id 125, node namespaces at the root URL and finality when a block commits; it has no separate LayerX router or later settlement service."
+proposal = "Rewrite the runnable client, wallet and agent examples in docs/site/docs/overview/quickstart.md for root node JSON-RPC, signed EVM transactions and current receipt rungs. Remove the old router/WebSocket and settlement steps and name the hosted px_ gateway separately where used."
+owner_domain = 16
+
+[finding.quickstart_wiki_network_path]
+file = "docs/wiki/Quickstart.md"
+line = 167
+class = "doc-drift"
+severity = "medium"
+observed = "The maintained client instructions use POST /rpc and GET /rpc/ws, lx_getReceipt and legacy activity submission, with hosted URLs under api-mainnet-beta.paxeer.network/rpc. Later sections repeat eth_sendRawTransaction to /rpc and settlement-era finality."
+expected = "The finished network has one paxd BFT chain with EVM chain id 125, node namespaces at the root URL and finality when a block commits; it has no separate LayerX router or later settlement service."
+proposal = "Rewrite the runnable client, wallet and agent examples in docs/wiki/Quickstart.md for root node JSON-RPC, signed EVM transactions and current receipt rungs. Remove the old router/WebSocket and settlement steps and name the hosted px_ gateway separately where used."
+owner_domain = 16
+
+[finding.hosted_node_site_retired_daemon]
+file = "docs/site/docs/platform/hosted-node.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The page calls the hosted node an in-cluster sequencer pod built as layerxd and documents layerxd --serve, authority-replica, LNI-only ingress, supervisor sockets and settlement waiting as the production deployment."
+expected = "Brief facts 1-3 retire layerxd and the separate sequencer service; hosted full/archive nodes run paxd and serve the merged network with finality at CometBFT commitment."
+proposal = "Replace the runtime and deployment narrative in docs/site/docs/platform/hosted-node.md with the actual paxd configuration, root RPC namespaces, receipt-key governance, validator commitment and recovery procedure. Remove retired LNI, replica-authority and settlement supervisor runbooks."
+owner_domain = 5
+
+[finding.hosted_node_wiki_retired_daemon]
+file = "docs/wiki/HostedNode.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The page calls the hosted node an in-cluster sequencer pod built as layerxd and documents layerxd --serve, authority-replica, LNI-only ingress, supervisor sockets and settlement waiting as the production deployment."
+expected = "Brief facts 1-3 retire layerxd and the separate sequencer service; hosted full/archive nodes run paxd and serve the merged network with finality at CometBFT commitment."
+proposal = "Replace the runtime and deployment narrative in docs/wiki/HostedNode.md with the actual paxd configuration, root RPC namespaces, receipt-key governance, validator commitment and recovery procedure. Remove retired LNI, replica-authority and settlement supervisor runbooks."
+owner_domain = 5
+
+[finding.routes_retired_catalogue]
+file = "docs/system/routes.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The generated page is titled Router routes, models a separate kernel service at line 31, advertises lx_subscribe at line 847 and /rpc/evm/ws at lines 904-911. It does not describe the actual root node namespaces as distinct from hosted px_ gateway methods."
+expected = "A generated route reference must match the merged node root JSON-RPC and the independently declared hosted gateway contract, without presenting retired router or separate LayerX ingress routes as available."
+proposal = "Correct the route declarations in tools/paxeer-x/route-catalogue.json and the source mappings in tools/docs/gen/gen_system_docs.py, then regenerate docs/system/routes.md through tools/docs/gen-system-docs.sh. Preserve real product/private HTTP routes and distinguish their authentication from node RPC."
+owner_domain = 16
+
+[finding.sdk_rust_inventory]
+file = "docs/system/sdk.md"
+line = 916
+class = "doc-drift"
+severity = "low"
+observed = "The generated Rust API table lists an item named fn with kind const. Its reader regex in tools/docs/gen/gen_system_docs.py:340 parses pub const fn as a const named fn and omits the actual programs_escrow_reference and programs_vault_reference functions in programs/sdk/rust/src/lib.rs."
+expected = "The public SDK inventory must identify actual exported functions and resolved re-exports so integrators can discover the supported API rather than a Rust keyword presented as a callable item."
+proposal = "Fix Rust item extraction in tools/docs/gen/gen_system_docs.py to recognize const fn and exported item names, then regenerate docs/system/sdk.md with tools/docs/gen-system-docs.sh. Cover the two real const functions and avoid inventing entries from wildcard re-export prefixes."
+owner_domain = 16
+
+[finding.offline_export_registry_drift]
+file = "services/agent/crates/layerx-agentd/src/export.rs"
+line = 1
+class = "doc-drift"
+severity = "low"
+observed = "The export module produces committed-height OfflineExport facts, receipts and proofs. Registry row 9.fmt-offline-export still says the Rust artifact carries certificates and headers instead of the required facts and portable bundles, describing an obsolete public artifact shape."
+expected = "The declared offline export contract must describe the current committed-block artifact and its fact selectors, receipt proofs and transport size bound without obsolete certificate fields."
+proposal = "Refresh the owning 9.fmt-offline-export declaration in spec/layerx-merge/interfaces.kvx and the associated generated contract from services/agent/crates/layerx-agentd/src/export.rs and the current agent-api export type. Preserve existing proof and size validation."
+owner_domain = 9
+interface = "9.fmt-offline-export"
+
+[doc.running_site]
+path = "docs/site/docs/agents/running.md"
+status = "misleading"
+notes = "Read the complete page, including its mirrored deployment instructions. Lines 96-103 and 696-702 give obsolete startup keys/path types; line 512 directs eth_sendRawTransaction to retired /rpc. Both the configuration and transport need rewriting for root node JSON-RPC and committed-block finality."
+
+[doc.running_wiki]
+path = "docs/wiki/RunningAnAgent.md"
+status = "misleading"
+notes = "Read the complete page, including its mirrored deployment instructions. Lines 96-103 and 696-702 give obsolete startup keys/path types; line 512 directs eth_sendRawTransaction to retired /rpc. Both the configuration and transport need rewriting for root node JSON-RPC and committed-block finality."
+
+[doc.cli_site]
+path = "docs/site/docs/platform/cli.md"
+status = "misleading"
+notes = "Read the full command catalogue, headless credential-store instructions, errors and receipt sections. Lines 8, 131, 277-298 retain /rpc routing; lines 106-145 contradict the implemented command table and global options above them. Credential vault documentation is separately consistent with the stated protected-file contract."
+
+[doc.cli_wiki]
+path = "docs/wiki/Cli.md"
+status = "misleading"
+notes = "Read the full command catalogue, headless credential-store instructions, errors and receipt sections. Lines 8, 131, 277-298 retain /rpc routing; lines 106-145 contradict the implemented command table and global options above them. Credential vault documentation is separately consistent with the stated protected-file contract."
+
+[doc.agentd_site]
+path = "docs/site/docs/agents/agentd.md"
+status = "misleading"
+notes = "Read the complete boot, verification, write/recovery and configuration reference. Lines 12-120 describe the retired sequencer-authority handshake; configuration lines 519-525 advertise a path endpoint and retired authority source. Current node receipt keys and committed-block evidence require a coordinated rewrite."
+
+[doc.agentd_wiki]
+path = "docs/wiki/Agentd.md"
+status = "misleading"
+notes = "Read the complete boot, verification, write/recovery and configuration reference. Lines 12-120 describe the retired sequencer-authority handshake; configuration lines 520-526 advertise a path endpoint and retired authority source. Current node receipt keys and committed-block evidence require a coordinated rewrite."
+
+[doc.quickstart_site]
+path = "docs/site/docs/overview/quickstart.md"
+status = "misleading"
+notes = "Read the complete quickstart and the site/wiki differences. Lines 20, 167-216 and 299-303 direct users to /rpc and /rpc/ws and legacy activity RPC; later native-send and finality examples repeat the retired router/sequencer model. The maintained network uses root node JSON-RPC and committed blocks."
+
+[doc.quickstart_wiki]
+path = "docs/wiki/Quickstart.md"
+status = "misleading"
+notes = "Read the complete quickstart and the site/wiki differences. Lines 20, 167-216 and 299-303 direct users to /rpc and /rpc/ws and legacy activity RPC; later native-send and finality examples repeat the retired router/sequencer model. The maintained network uses root node JSON-RPC and committed blocks."
+
+[doc.hosted_node_site]
+path = "docs/site/docs/platform/hosted-node.md"
+status = "misleading"
+notes = "Read the complete bootstrap, supervisor, replica, LNI, environment, failure and deployment reference. Lines 3-12 define the running node as layerxd; lines 39-40 and 437 onward document retired supervisor/replica and LNI architecture rather than the merged paxd network."
+
+[doc.hosted_node_wiki]
+path = "docs/wiki/HostedNode.md"
+status = "misleading"
+notes = "Read the complete bootstrap, supervisor, replica, LNI, environment, failure and deployment reference. Lines 3-12 define the running node as layerxd; lines 39-40 and 437 onward document retired supervisor/replica and LNI architecture rather than the merged paxd network."
+
+[doc.routes]
+path = "docs/system/routes.md"
+status = "misleading"
+notes = "Read the generated route catalogue including its service index and HTTP/HEAD route pairs. Lines 3 and 31 present the retired router/separate kernel; lines 843-848 retain activity/lx subscriptions and 904-911 advertise /rpc/evm/ws and obsolete namespaces. Correct the catalogue source before regenerating this page."
+
+[doc.sdk]
+path = "docs/system/sdk.md"
+status = "stale"
+notes = "Read all TypeScript exports, Python exports and the Rust API table. Rust lines 916-959 list fn as a const and wildcard re-export prefixes as item names; real const functions programs_escrow_reference and programs_vault_reference are absent. TypeScript/Python inventories do not by themselves establish live daemon wiring."

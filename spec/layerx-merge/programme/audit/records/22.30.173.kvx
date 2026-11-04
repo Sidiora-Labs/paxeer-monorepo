@@ -1,0 +1,541 @@
+# Pre-upgrade source audit; repairs belong to the named owning paths.
+
+[audit.22.30.173]
+task = "22.30.173"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 27
+findings = 28
+docs_reviewed = 14
+upgrade_ready = false
+blocking = ["offline-export-wire", "proof-bundle-wire", "program-read-selectors", "wait-request-rung", "availability-rung"]
+review_basis = "All 27 members read in full against package requirements, 13 named produced interfaces, explicitly enumerated consumed interface rows, audit brief and listed documentation. Registry retirement labels are compared with actual calls; inventory references alone are not live dependencies."
+qualification_boundary = "Source audit and repair proposals only. Source suites, benchmark workloads and runtime qualification were not executed by this audit. The declared record gate supplies task evidence; no source defect is claimed repaired."
+
+[file.1]
+path = "tests/programs/balance_read_guests.h"
+lines = 320
+verdict = "issues"
+note = "Hand-written bounded WASM generator, not a generated asset. Reviewed all five guest paths and writer bounds; no compiled consumer remains. The balance qualification script only fingerprints this header."
+
+[file.2]
+path = "tests/programs/check-abi-drift.sh"
+lines = 4
+verdict = "clean"
+note = "Reviewed the maintained ABI vector generator --check entry point and propagated shell failures. No retired runtime or endpoint reference."
+
+[file.3]
+path = "tests/programs/runtime-module-boundaries.sh"
+lines = 244
+verdict = "clean"
+note = "Reviewed complete module inventory, awk boundary checks, explicit refusal exceptions and embedded self checks against the native/runtime boundary. Web refusal is not enabled web execution."
+
+[file.4]
+path = "tests/programs/test_accounts.c"
+lines = 843
+verdict = "clean"
+note = "Reviewed account derivation, input rejection, kind and owner restrictions, registry growth and indices, account roots and snapshot reconstruction. Main/asset ownership is distinguished from unsupported owned budget, escrow, stream and margin cases in requirements 13301 and 181062."
+
+[file.5]
+path = "tests/programs/test_ai_host_boundary.c"
+lines = 564
+verdict = "clean"
+note = "Reviewed signed host-boundary driver, real guest loading, fee and asset setup, ABI2 deployment followed by ABI5 upgrade and all stdin decoding. The older registration is an explicit lifecycle transition; the ABI5 admission suite checks the registration matrix. No retired fee-relay or web execution call."
+
+[file.6]
+path = "tests/programs/test_blob_admission.c"
+lines = 209
+verdict = "clean"
+note = "Reviewed actual blob admission and fee-first effects. No removed capacity-ledger admission call; capacity words in account labels and buffer sizes do not activate retired capacity accounting."
+
+[file.7]
+path = "tests/programs/test_blob_lifecycle.c"
+lines = 1453
+verdict = "clean"
+note = "Reviewed admission, refcounts, retention, signed retirement proofs, cutoffs, wrong-certificate refusals, blob deletion and deterministic replay. Replay reconstructs execution and is not claimed as process restart evidence; shared state persistence is exercised by the snapshot suites."
+
+[file.8]
+path = "tests/programs/test_cache_native_equivalence.c"
+lines = 545
+verdict = "clean"
+note = "Reviewed signed native-versus-cached execution and receipts, long call sequences and code, account and authority invalidations. Outcome encodings and monetary effects agree on both paths with retained byte and root equality assertions."
+
+[file.9]
+path = "tests/programs/test_call_activity.c"
+lines = 3014
+verdict = "clean"
+note = "Reviewed all signed call setup, receipt and outcome byte bindings, gas and monetary effects, failed-call atomicity, snapshots, restored execution and divergence checks. Uses current fee transaction and ledger paths without a retired batch-sign call."
+
+[file.10]
+path = "tests/programs/test_call_builders.c"
+lines = 70
+verdict = "clean"
+note = "Reviewed canonical call construction, exact bytes and invalid input rejection through the public builder. Bounds and entrypoint encoding agree with the current decoder."
+
+[file.11]
+path = "tests/programs/test_call_escrow_principal.c"
+lines = 149
+verdict = "clean"
+note = "Reviewed execution principal and escrow cases against requirement 181163: authorization consumes the DID main sequence, not the escrow account sequence."
+
+[file.12]
+path = "tests/programs/test_execution_context.c"
+lines = 711
+verdict = "clean"
+note = "Reviewed context field encodings, nested call graph, reentry, fuel and memory bounds and deterministic results. Transfer authority stays at the real native execution boundary."
+
+[file.13]
+path = "tests/programs/test_fee_governance.c"
+lines = 355
+verdict = "clean"
+note = "Reviewed active, pending and historical schedules, genesis materialization and activation through current governance APIs. Hand-built schedule bytes exercise the internal contract; no retired programs fee-relay activity is dispatched."
+
+[file.14]
+path = "tests/programs/test_language_abi.c"
+lines = 509
+verdict = "clean"
+note = "Reviewed actual language guest fixtures, oracle, transfer and call paths and receipt/ABI assertions. No language web fixture executes the retired web module; requirement 22101 coverage stays live."
+
+[file.15]
+path = "tests/programs/test_market_attestation.c"
+lines = 1451
+verdict = "clean"
+note = "Reviewed real signatures, policy and claim checks, deployment size bounds, direct fraud-provable usage refusal, accepted sandbox billing ordinals 13 and 14 and restored-state execution. Requirement 18911 refuses ordinal 10 rather than accepting direct usage."
+
+[file.16]
+path = "tests/programs/test_metered_call.c"
+lines = 1343
+verdict = "clean"
+note = "Reviewed signed live/replayed calls, immutable legacy encoding vectors, current outcome and receipt bindings, fee-first failures, allowance and treasury accounting. Historical literal bytes are compatibility vectors, not a retired running service."
+
+[file.17]
+path = "tests/programs/test_metering_schedule.c"
+lines = 90
+verdict = "clean"
+note = "Reviewed genesis schedule encoding, projection, invalid schedule refusal and runtime resolution. Units and versions agree with the current metering contract."
+
+[file.18]
+path = "tests/programs/test_module_registration.c"
+lines = 205
+verdict = "issues"
+note = "Reviewed composed execution hooks and native registration observations. The textual test_registration.c include inherits the stale undefined fee-governance symbol and prevents compilation of this path."
+
+[file.19]
+path = "tests/programs/test_monetary_law.c"
+lines = 1108
+verdict = "clean"
+note = "Reviewed unit fee callbacks and the real signed mixed-transfer kernel fixture, conservation, overflow, failure atomicity and treasury effects. Unit fixtures are not claimed as transport or persistence proof; the signed path checks actual settlement."
+
+[file.20]
+path = "tests/programs/test_paxai_native_gaps.c"
+lines = 804
+verdict = "clean"
+note = "Reviewed module pinning, ownership, retirement certificates and native refusals. No removed capacity, state-feed or replay-engine test caller remains."
+
+[file.21]
+path = "tests/programs/test_programs_abi5_admission.c"
+lines = 653
+verdict = "clean"
+note = "Reviewed registration and deployment matrix, ABI2 pre-upgrade profile, ABI5 admission/execution, unsupported ABI6 refusal and canonical ledger admission. Explicit lifecycle transitions preserve native bounds."
+
+[file.22]
+path = "tests/programs/test_registration.c"
+lines = 471
+verdict = "issues"
+note = "Reviewed complete registration, lifecycle and sanitizer selection paths. Expected extended catalogue counts still include the retired fee-governance activity."
+
+[file.23]
+path = "tests/programs/test_spend_capability_composition.c"
+lines = 657
+verdict = "clean"
+note = "Reviewed compiled WASM paths, nested narrowed spending authority, escalation refusal, atomic state and settlement with the actual owner. Native transfer types agree and no caller-controlled authority bypass is accepted."
+
+[file.24]
+path = "tests/programs/test_winddown.c"
+lines = 1072
+verdict = "clean"
+note = "Reviewed lifecycle, amount and overflow bounds, captured ledger execution sequence versus identity/global sequence, prepared import mismatch rejection, exit routes and history. State effects and rollback agree with the current native lifecycle."
+
+[file.25]
+path = "tools/benchmark/loadtest/main.go"
+lines = 663
+verdict = "issues"
+note = "Reviewed all CLI/config loading, validation before deployment, contract setup, ERC20 funding receipts before workers, worker lifecycle, statistics and post-load queries. Removed univ2 and wasm_occ messages are refused; cancellation and query handling risks remain."
+
+[file.26]
+path = "tools/qualification/__init__.py"
+lines = 1
+verdict = "clean"
+note = "The complete file is the package docstring. It exports no runtime interface, configuration reader or stateful operation and contains no retired reference."
+
+[file.27]
+path = "tools/qualification/paxeer-x/agent_operation_envelope.py"
+lines = 2437
+verdict = "issues"
+note = "Reviewed complete artifact build/manifest checks, private evidence, tenant/session authority, idempotency and refusal cases, native SDK probes, signed mutations, served reads and restart steps. Actual producer/decoder comparisons reveal legacy request, rung and proof shapes; restarting the legacy fixture does not qualify merged paxd."
+
+[finding.registration-catalogue]
+file = "tests/programs/test_registration.c"
+line = 52
+class = "test-gap"
+severity = "medium"
+observed = "Extended registration counts are asserted as base five plus 3, 4 and 5, and line 80 references LX_PROGRAMS_FEE_GOVERNANCE. include/layerx/programs.h no longer declares that symbol; src/modules/programs/registration.c:25-58 declares seven, eight and nine activities for v2, v3 and v4, with account and wind-down followed by sandbox and destroy."
+expected = "The registration test must describe the exact live catalogue after fee-relay retirement, including absence of the removed ordinal, without disabling any registration or execution assertion."
+proposal = "In tests/programs/test_registration.c, assert the complete current v2/v3/v4 arrays and exact counts, replace the obsolete expected activity with the current catalogue, and retain explicit retired-dispatch rejection alongside every live registration and execution test."
+owner_domain = 16
+interface = "1.c-programs-module-registration-v2"
+related_interfaces = ["1.c-programs-module-registration-v3"]
+
+[finding.composed-registration-fixture]
+file = "tests/programs/test_module_registration.c"
+line = 24
+class = "test-gap"
+severity = "medium"
+observed = "The composed native registration suite textually includes test_registration.c after renaming main. Its inherited LX_PROGRAMS_FEE_GOVERNANCE reference is undefined, so the suite cannot compile to observe the native registration path even though its local hooks use current interfaces."
+expected = "The composed suite must compile and drive actual native registration and signed calls; a stale shared fixture must not prevent its execution evidence."
+proposal = "Repair current catalogue expectations in tests/programs/test_registration.c, then qualify tests/programs/test_module_registration.c with all retained native registration and execution observations. Do not bypass the included suite or any of its assertions."
+owner_domain = 16
+interface = "1.c-programs-module-registration"
+
+[finding.unused-balance-guests]
+file = "tests/programs/balance_read_guests.h"
+line = 147
+class = "dead-code"
+severity = "low"
+observed = "balance_guest_generate and the five balance guest kinds have no compiling include or call in the repository. tools/qualification/paxeer-x/program_balance_read.py lists this header only as a source fingerprint; that does not execute the guests."
+expected = "Balance-read evidence should execute maintained guest cases against the current host, and any retained generator should have a live test consumer rather than only appear in an artifact hash."
+proposal = "In tests/programs and tools/qualification/paxeer-x/program_balance_read.py, connect these bounded guests to the maintained native balance suite with actual result assertions, or retire the unused helper after confirming complete surviving balance coverage."
+owner_domain = 16
+
+[finding.offline-export-wire]
+file = "tools/qualification/paxeer-x/agent_operation_envelope.py"
+line = 478
+class = "interface-mismatch"
+severity = "high"
+observed = "load_config only accepts requested_verification_level with legacy LEVELS names, then served_read_cases:2038 sends it unchanged and expects legacy proof buckets. ExportOfflineWire in services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs:1642 denies unknown fields and requires requested_rung; export_level accepts only submitted, receipted and committed. Registry-linked read.kvx still declares the old field while describing portable v2 bundles and height."
+expected = "The declared export.offline request must round-trip through the exact decoder. Successful export must contain committed portable v2 evidence, exact requested facts, bundles and height, independently verified against receipt keys and validator context."
+proposal = "Coordinate domain 9 changes in services/agent/schema/agent-api/read.kvx with tools/qualification/paxeer-x/agent_operation_envelope.py: use canonical requested_rung names, verify real portable v2 exports through every SDK before and after restart, and retain a distinct legacy-field refusal case."
+owner_domain = 16
+interface = "9.http-rpc-export-offline"
+
+[finding.proof-bundle-wire]
+file = "tools/qualification/paxeer-x/agent_operation_envelope.py"
+line = 1632
+class = "interface-mismatch"
+severity = "high"
+observed = "Proof requests use requested_verification_level=StateProven or BatchIncluded, and proof_bundle_record:1559 requires target/proofs with an LXPB1 variant byte. ProofBundleWire:1620 requires requested_rung without an alias; registry-linked read.kvx specifies layerx-receipt-proof-v2 with rawTransaction, signedReceipt, receipt authority and committed Comet evidence. Both request and asserted payload disagree with the producer."
+expected = "Proof acquisition must use current rungs and preserve exact transaction, receipt and account bindings of portable v2. The declaration, decoder, runtime producer and SDK verifier must agree, including authorization and recovery."
+proposal = "Align services/agent/schema/agent-api/read.kvx and tools/qualification/paxeer-x/agent_operation_envelope.py proof cases with the real portable v2 producer. Acquire genuine signed transactions and verify receipt keys, receipt inclusion, validator commits and account proofs before and after node restart; retain malformed and wrong-owner refusals."
+owner_domain = 16
+interface = "9.http-rpc-read-proof-bundle"
+
+[finding.program-read-selectors]
+file = "tools/qualification/paxeer-x/agent_operation_envelope.py"
+line = 485
+class = "interface-mismatch"
+severity = "high"
+observed = "Qualification requires program.discover to send exactly program_id and requested_verification_level=sequencer-signed, and program.interface later expects SequencerSigned/Unverified provenance. Both adapters decode ProgramDiscoverWire in agent_rpc_wire.rs:2304, which denies unknown fields and requires requested_rung=submitted; the shared selector rejects the configured discovery request."
+expected = "Program discovery and interface reads must use the actual pending EVM registry selector with canonical rung spelling and truthful provenance. Both operations must pass the real decoder before qualification can inspect returned program data."
+proposal = "Update discovery and interface configuration and assertions in tools/qualification/paxeer-x/agent_operation_envelope.py for the current pending registry response. Have domain 9 align services/agent/schema/agent-api/programs.kvx, ProgramDiscoverWire and SDK selectors on the same submitted contract, retaining unknown-field and unsupported-rung refusals."
+owner_domain = 16
+interface = "9.http-rpc-program-discover"
+related_interfaces = ["9.http-rpc-program-interface"]
+
+[finding.wait-request-rung]
+file = "tools/qualification/paxeer-x/agent_operation_envelope.py"
+line = 496
+class = "interface-mismatch"
+severity = "high"
+observed = "wait_bounded configuration only permits submission_ref and requested_verification_level drawn from six legacy LEVELS names. w20_wait adds a deadline but leaves that field unchanged. WaitWire in agent_rpc_adapters.rs:2196 requires requested_rung and denies unknown fields; wait_request:1181 uses Rung::from_name, so the bounded wait never reaches its progress loop."
+expected = "The bounded wait must issue the actual submission reference, canonical requested_rung and decimal deadline, then verify achieved rung and deadline result against real owner progress and recovered state."
+proposal = "Change the wait configuration grammar and w20_wait assertions in tools/qualification/paxeer-x/agent_operation_envelope.py to the current three-rung WaitWire contract. Preserve deadline timing, insufficient-rung assertions and genuine submission/restart evidence rather than accepting malformed refusal as success."
+owner_domain = 16
+interface = "9.http-rpc-wait"
+
+[finding.availability-rung]
+file = "tools/qualification/paxeer-x/agent_operation_envelope.py"
+line = 433
+class = "interface-mismatch"
+severity = "high"
+observed = "Availability configuration requires requested_verification_level in unverified, sequencer-signed or batch-included. AvailabilityWire accepts this field alias, but availability_fetch:1275 passes its value to requested_level; Rung::from_name accepts only submitted, receipted and committed. Every configured allowed value is rejected by the real adapter."
+expected = "Availability consumers must send supported canonical rungs and verify provider-attributed complete or partial evidence within the declared byte, chunk and deadline bounds. Field aliases must not conceal incompatible enum values."
+proposal = "Align availability configuration and assertions in tools/qualification/paxeer-x/agent_operation_envelope.py with the current services/agent/schema/agent-api contract and real adapter. Exercise supported rungs through native SDKs, preserving provider isolation, byte and chunk limits, deadline and refusal cases."
+owner_domain = 16
+interface = "9.http-rpc-availability-fetch"
+
+[finding.missing-account-proof-case]
+file = "tools/qualification/paxeer-x/agent_operation_envelope.py"
+line = 1629
+class = "test-gap"
+severity = "medium"
+observed = "proof_bundle_pre_restart only produces variants 1, 3 and 4, and only that loop adds to proof_bundle_variants. The coverage manifest at line 1677 explicitly marks variant 2 UNIMPLEMENTED, while run completion at line 2332 requires {1,2,3,4}. Qualification cannot complete even after wire errors are repaired."
+expected = "All promised transaction and account proof cases must use genuine producer evidence. The non-maintained account case must execute and survive restart rather than remain an impossible completeness assertion or be silently removed."
+proposal = "Extend the maintained real runtime fixture and tools/qualification/paxeer-x/agent_operation_envelope.py to produce the missing non-maintained account case on the merged portable v2 path. Preserve full activity, receipt, maintained and non-maintained account coverage and the final completeness assertion."
+owner_domain = 16
+interface = "16.cli-qual-qualification-paxeer-x-agent-operation-envelope"
+
+[finding.retired-public-router]
+file = "tools/qualification/paxeer-x/agent_operation_envelope.py"
+line = 965
+class = "retired-reference"
+severity = "medium"
+observed = "direct_cases requires JSON-RPC success from gateway /rpc and schema success from /rpc/schema. The harness imports tests/daemon at line 22, supplies replica_url and node_socket at lines 733-734 and fingerprints services/agent/schema/lni/v1.kvx. This is the old router and standalone runtime topology, not merged paxd proof of operation."
+expected = "The finished network serves public node JSON-RPC at the root, without a public router, unified /rpc/schema, standalone layerxd or replica dependency. Stateful qualification must restart the merged node and prove recovery on its actual transport."
+proposal = "Migrate tools/qualification/paxeer-x/agent_operation_envelope.py and its tests/daemon fixture dependencies to disposable merged paxd with root JSON-RPC and current hosted px_ contracts. Preserve tenant authentication, idempotency, negative routes and recovery checks; distinguish private agent operations from retired public-router assertions."
+owner_domain = 16
+interface = "16.cli-qual-qualification-paxeer-x-agent-operation-envelope"
+
+[finding.timeout-evidence]
+file = "tools/qualification/paxeer-x/agent_operation_envelope.py"
+line = 2417
+class = "runtime-risk"
+severity = "medium"
+observed = "The parent calls subprocess.run(timeout=1680) without handling subprocess.TimeoutExpired. A slow worker raises before result.json is written, so candidate revision, exit status and private artifact locations are absent precisely when qualification exceeds its time bound."
+expected = "Every bounded qualification outcome, including timeout, must retain a private result manifest with revision, exact command, terminal status and worker evidence, and must stop the namespace child process tree."
+proposal = "Handle TimeoutExpired in tools/qualification/paxeer-x/agent_operation_envelope.py, terminate and reap the worker process tree, and write the same private result manifest with explicit timeout status and retained worker.log before returning failure."
+owner_domain = 16
+interface = "16.cli-qual-qualification-paxeer-x-agent-operation-envelope"
+
+[finding.worker-startup-race]
+file = "tools/benchmark/loadtest/main.go"
+line = 197
+class = "runtime-risk"
+severity = "medium"
+observed = "startLoadtestWorkers launches BuildTxs and SendTxs then waits without registering workers itself. loadtest_client.go:185 and :258 call wg.Add inside goroutines. With positive Ticks, Wait can observe zero and close queues while producers start; sender counter access also precedes its closed-channel check."
+expected = "A timed benchmark must register each worker before waiting, close queues only after producers stop and begin query and summary phases only after workers and the statistics reporter finish."
+proposal = "Give the launcher WaitGroup Add ownership before each go statement in tools/benchmark/loadtest/main.go and loadtest_client.go. Join workers and reporter before queue closure and check receive success before consuming a transaction, preserving all counters and explicit startup/shutdown failure reporting."
+owner_domain = 16
+interface = "16.cli-bench-benchmark-loadtest-main"
+
+[finding.scrape-cancellation]
+file = "tools/benchmark/loadtest/main.go"
+line = 213
+class = "runtime-risk"
+severity = "medium"
+observed = "The statistics goroutine returns on getTxBlockInfo error without closing done. Registered workers continue and wg.Wait cannot complete; positive Ticks also bypasses signal waiting. The reporter is not joined before post-load queries read its observations."
+expected = "RPC scrape errors, termination signals and tick completion must stop the same benchmark run once, join all goroutines and preserve an explicit incomplete result instead of hanging or continuing submission."
+proposal = "Use shared cancellation or a once-protected stop function in tools/benchmark/loadtest/main.go, wire scrape failure, both signals and tick completion to it, release signal/ticker resources, and join reporter and workers before returning the benchmark result."
+owner_domain = 16
+interface = "16.cli-bench-benchmark-loadtest-main"
+
+[finding.unbounded-rpc-input]
+file = "tools/benchmark/loadtest/main.go"
+line = 528
+class = "runtime-risk"
+severity = "medium"
+observed = "getLastHeight runs curl without timeout and type-asserts dat[last_height] as string. getTxBlockInfo uses default http.Get, unbounded io.ReadAll and no status or required-field validation. Stalled nodes can hang, malformed heights can panic and an error object can decode as an empty successful block."
+expected = "Benchmark measurements must come from bounded validated node responses. Missing fields, invalid shapes and HTTP/RPC errors must produce explicit failed measurements rather than panics, indefinite waits or zero-filled statistics."
+proposal = "Replace requests in tools/benchmark/loadtest/main.go with a shared client, cancellation deadlines, bounded response reads, typed mandatory fields and HTTP/RPC error validation. Propagate detailed scrape errors to the run result and shared cancellation."
+owner_domain = 16
+interface = "16.cli-bench-benchmark-loadtest-main"
+
+[finding.post-query-observations]
+file = "tools/benchmark/loadtest/main.go"
+line = 575
+class = "runtime-risk"
+severity = "medium"
+observed = "strings.Split on empty EvmRpcEndpoints yields one empty item, bypassing the length guard; failed Dial results remain in ethClients. Enabled block and receipt queries use modulo len(BlockHeightsWithTxs) and len(EvmTxHashes) without zero checks, so a run with no included transactions can panic."
+expected = "Empty endpoints, connection failures and no observed EVM transactions must yield clear bounded incomplete query results. Only validated clients and actual observed block or transaction identifiers may be queried."
+proposal = "Trim and validate endpoints in tools/benchmark/loadtest/main.go, reject failed connections, close successful clients and check each query family has its required observations. Bound concurrency and contexts and report failure or documented non-applicability without inventing measurements."
+owner_domain = 16
+interface = "16.cli-bench-benchmark-loadtest-main"
+
+[finding.duplicate-statistics-height]
+file = "tools/benchmark/loadtest/main.go"
+line = 224
+class = "runtime-risk"
+severity = "medium"
+observed = "The reporter iterates startHeight through currHeight inclusively then assigns startHeight=currHeight. The next interval counts the previous terminal block again and can duplicate its height in BlockHeightsWithTxs, skewing statistics and post-load sampling."
+expected = "Each committed block belongs to one reporting interval. An interval without a new height must not remeasure the last block or bias the observed transaction-height set."
+proposal = "Advance the next unprocessed height to currHeight+1 after successful scraping in tools/benchmark/loadtest/main.go, explicitly handle no-new-block intervals, retain failed-height reporting and derive post-load samples from uniquely observed committed heights."
+owner_domain = 16
+interface = "16.cli-bench-benchmark-loadtest-main"
+
+[finding.doc-1]
+file = "README.md"
+line = 44
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction and build instructions present a separate layerxd kernel settling checkpoints through layerxAnchor, and the release section says this topology is current."
+expected = "The audit brief specifies one network with the kernel inside paxd, committed-block finality, current node root JSON-RPC and no live public router, standalone layerxd or custody/checkpoint settlement service."
+proposal = "Rewrite README.md architecture, build and release sections for the kernel inside paxd, EVM chain 125, root node JSON-RPC and finality at committed blocks. Explicitly label retained historical build instructions."
+owner_domain = 16
+
+[finding.doc-2]
+file = "docs/README.md"
+line = 21
+class = "doc-drift"
+severity = "low"
+observed = "The main documentation index presents the legacy Node interface v1.7 beside current operator and API entry points without a historical or retirement label."
+expected = "The audit brief specifies one network with the kernel inside paxd, committed-block finality, current node root JSON-RPC and no live public router, standalone layerxd or custody/checkpoint settlement service."
+proposal = "Update docs/README.md navigation to point to merged node and current agent contracts, marking the retained LNI reference as historical so readers do not provision a retired transport."
+owner_domain = 16
+
+[finding.doc-3]
+file = "docs/paxeer-network.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The chain overview tells developers that ordinary activity stays on a separate LayerX network and Paxeer provides custody and periodic settlement; it also advertises a public faucet."
+expected = "The audit brief specifies one network with the kernel inside paxd, committed-block finality, current node root JSON-RPC and no live public router, standalone layerxd or custody/checkpoint settlement service."
+proposal = "Rewrite docs/paxeer-network.md for one BFT network, integrated paxd kernel and committed receipts. Correct service paths and public funding instructions while retaining accurate tenant-domain namespace guidance."
+owner_domain = 16
+
+[finding.doc-4]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The monorepo guide identifies the kernel with layerxd and treats checkpoint settlement and guarantor infrastructure as current network boundaries."
+expected = "The audit brief specifies one network with the kernel inside paxd, committed-block finality, current node root JSON-RPC and no live public router, standalone layerxd or custody/checkpoint settlement service."
+proposal = "Update docs/MONOREPO.md for the integrated paxd kernel and current build groups. Preserve actual service authorization boundaries and mark retired custody/checkpoint components as historical."
+owner_domain = 16
+
+[finding.doc-5]
+file = "docs/runbooks/paxeer-x-fork.md"
+line = 4
+class = "doc-drift"
+severity = "medium"
+observed = "The runbook interleaves historical v6.6 activation with v7 merge rehearsal and still requires successful views on retired custody and anchor precompiles as a post-upgrade check."
+expected = "The audit brief specifies one network with the kernel inside paxd, committed-block finality, current node root JSON-RPC and no live public router, standalone layerxd or custody/checkpoint settlement service."
+proposal = "Separate historical v6.6 instructions from the merged upgrade in docs/runbooks/paxeer-x-fork.md. Use the actual merge plan and phased store deletion, committed-block and recovery checks and exact retired-precompile refusal probes in place of old custody/anchor success."
+owner_domain = 16
+
+[finding.doc-6]
+file = "docs/site/docs/index.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "The site overview claims ordinary activities remain inside LayerX and settle periodic checkpoints to Paxeer, retaining a separate execution and settlement model in its feature table."
+expected = "The audit brief specifies one network with the kernel inside paxd, committed-block finality, current node root JSON-RPC and no live public router, standalone layerxd or custody/checkpoint settlement service."
+proposal = "Rewrite docs/site/docs/index.md for the integrated BFT chain, root node namespaces, receipt finality at commit, hosted gateway methods and tenant domains. Retire current-feature claims for separate replicas and checkpoint guarantors."
+owner_domain = 16
+
+[finding.doc-7]
+file = "docs/site/docs/overview/quickstart.md"
+line = 167
+class = "doc-drift"
+severity = "medium"
+observed = "The walkthrough directs public clients to /rpc and /rpc/ws, separates sequencer/batch/checkpoint payment finality and funds accounts through the retired custody-credit path."
+expected = "The audit brief specifies one network with the kernel inside paxd, committed-block finality, current node root JSON-RPC and no live public router, standalone layerxd or custody/checkpoint settlement service."
+proposal = "Replace these flows in docs/site/docs/overview/quickstart.md with root JSON-RPC at declared mainnet-beta nodes, current hosted px_ contracts, merged transactions and committed receipt verification, and supported funding. Preserve recovery and idempotency guidance using current evidence."
+owner_domain = 16
+
+[finding.doc-8]
+file = "docs/site/docs/overview/i18n/zh-cn.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview describes periodic checkpoint settlement between separate LayerX and Paxeer domains, says ordinary activity needs no Paxeer transaction and lists layerxd with the old service layout."
+expected = "The audit brief specifies one network with the kernel inside paxd, committed-block finality, current node root JSON-RPC and no live public router, standalone layerxd or custody/checkpoint settlement service."
+proposal = "Rewrite docs/site/docs/overview/i18n/zh-cn.md from the corrected merged-network overview in its own language: one paxd BFT chain, EVM chain 125, final committed receipts, root RPC and current service directories. Preserve equivalent technical detail across translations."
+owner_domain = 16
+
+[finding.doc-9]
+file = "docs/site/docs/overview/i18n/ru.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview describes periodic checkpoint settlement between separate LayerX and Paxeer domains, says ordinary activity needs no Paxeer transaction and lists layerxd with the old service layout."
+expected = "The audit brief specifies one network with the kernel inside paxd, committed-block finality, current node root JSON-RPC and no live public router, standalone layerxd or custody/checkpoint settlement service."
+proposal = "Rewrite docs/site/docs/overview/i18n/ru.md from the corrected merged-network overview in its own language: one paxd BFT chain, EVM chain 125, final committed receipts, root RPC and current service directories. Preserve equivalent technical detail across translations."
+owner_domain = 16
+
+[finding.doc-10]
+file = "docs/site/docs/overview/i18n/es.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview describes periodic checkpoint settlement between separate LayerX and Paxeer domains, says ordinary activity needs no Paxeer transaction and lists layerxd with the old service layout."
+expected = "The audit brief specifies one network with the kernel inside paxd, committed-block finality, current node root JSON-RPC and no live public router, standalone layerxd or custody/checkpoint settlement service."
+proposal = "Rewrite docs/site/docs/overview/i18n/es.md from the corrected merged-network overview in its own language: one paxd BFT chain, EVM chain 125, final committed receipts, root RPC and current service directories. Preserve equivalent technical detail across translations."
+owner_domain = 16
+
+[finding.doc-11]
+file = "docs/site/docs/overview/i18n/pt-br.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview describes periodic checkpoint settlement between separate LayerX and Paxeer domains, says ordinary activity needs no Paxeer transaction and lists layerxd with the old service layout."
+expected = "The audit brief specifies one network with the kernel inside paxd, committed-block finality, current node root JSON-RPC and no live public router, standalone layerxd or custody/checkpoint settlement service."
+proposal = "Rewrite docs/site/docs/overview/i18n/pt-br.md from the corrected merged-network overview in its own language: one paxd BFT chain, EVM chain 125, final committed receipts, root RPC and current service directories. Preserve equivalent technical detail across translations."
+owner_domain = 16
+
+[finding.doc-12]
+file = "docs/site/docs/overview/i18n/ja.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview describes periodic checkpoint settlement between separate LayerX and Paxeer domains, says ordinary activity needs no Paxeer transaction and lists layerxd with the old service layout."
+expected = "The audit brief specifies one network with the kernel inside paxd, committed-block finality, current node root JSON-RPC and no live public router, standalone layerxd or custody/checkpoint settlement service."
+proposal = "Rewrite docs/site/docs/overview/i18n/ja.md from the corrected merged-network overview in its own language: one paxd BFT chain, EVM chain 125, final committed receipts, root RPC and current service directories. Preserve equivalent technical detail across translations."
+owner_domain = 16
+
+[doc.1]
+path = "README.md"
+status = "stale"
+notes = "Lines 44-47 describe two execution domains and live layerxd checkpoint settlement; line 145 builds that retired daemon and line 181 calls the merge a draft with a separate running kernel."
+
+[doc.2]
+path = "docs/README.md"
+status = "stale"
+notes = "Lines 21-22 index Node interface v1.7 and Agent daemon contract without identifying the retired LNI topology; the page is otherwise navigational."
+
+[doc.3]
+path = "docs/paxeer-network.md"
+status = "stale"
+notes = "Lines 3-20 describe separate execution, custody and checkpoint settlement and old agent/human/interop paths; line 9 advertises a public faucet. Tenant namespaces at lines 24-30 agree with the merged model."
+
+[doc.4]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "Line 3 identifies layerxd as the running kernel daemon; lines 69-73 retain separate custody/checkpoint/guarantor trust and deployment descriptions."
+
+[doc.5]
+path = "docs/runbooks/paxeer-x-fork.md"
+status = "stale"
+notes = "Lines 4-8, 28 and 138 select v6.6 custody/anchor activation; lines 252-259 separately describe v7 merge rehearsal; lines 313-318 require successful custody and anchor probes after upgrade."
+
+[doc.6]
+path = "docs/site/docs/index.md"
+status = "stale"
+notes = "Lines 3 and 11-26 describe one interface with separate periodic checkpoint settlement; lines 45-46 list replicas, guarantors and custody reconciliation as active responsibilities."
+
+[doc.7]
+path = "docs/site/docs/overview/quickstart.md"
+status = "stale"
+notes = "Lines 20 and 167-219 advertise public gateway /rpc and /rpc/ws and legacy lx_ finality methods; lines 299-304 prescribe custody 0x1013 credit through that public router."
+
+[doc.8]
+path = "docs/site/docs/overview/i18n/zh-cn.md"
+status = "stale"
+notes = "Lines 18-20 describe separate LayerX execution and periodic settlement on Paxeer; lines 97-105 present layerxd and the old agent/human/interop layout as current."
+
+[doc.9]
+path = "docs/site/docs/overview/i18n/ru.md"
+status = "stale"
+notes = "Lines 18-20 describe separate LayerX execution and periodic settlement on Paxeer; lines 97-105 present layerxd and the old agent/human/interop layout as current."
+
+[doc.10]
+path = "docs/site/docs/overview/i18n/es.md"
+status = "stale"
+notes = "Lines 18-20 describe separate LayerX execution and periodic settlement on Paxeer; lines 97-105 present layerxd and the old agent/human/interop layout as current."
+
+[doc.11]
+path = "docs/site/docs/overview/i18n/pt-br.md"
+status = "stale"
+notes = "Lines 18-20 describe separate LayerX execution and periodic settlement on Paxeer; lines 97-105 present layerxd and the old agent/human/interop layout as current."
+
+[doc.12]
+path = "docs/site/docs/overview/i18n/ja.md"
+status = "stale"
+notes = "Lines 18-20 describe separate LayerX execution and periodic settlement on Paxeer; lines 97-105 present layerxd and the old agent/human/interop layout as current."
+
+[doc.13]
+path = "spec/layerx-merge/contracts/tools-ops.md"
+status = "accurate"
+notes = "Read the pinned-contract introduction and package-relevant 16039 and 16056 sections. This explicitly freezes revision 2a1033aa2 and labels qualification UNRUN; it records fee-relay and retired-fixture removal requirements rather than claiming current runtime success."
+
+[doc.14]
+path = "spec/layerx-merge/contracts/operations.md"
+status = "accurate"
+notes = "Read the pinned-contract introduction and package-relevant bench-cli, qual-cli, qual-env and schema rows and notes for all 13 produced interfaces. This explicitly freezes revision 2a1033aa2; it does not claim that historical line numbers or daemon topology remain live."

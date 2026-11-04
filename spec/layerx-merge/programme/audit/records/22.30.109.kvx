@@ -1,0 +1,704 @@
+[audit.22.30.109]
+task = "22.30.109"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 45
+findings = 32
+docs_reviewed = 18
+upgrade_ready = false
+blocking = ["failed-sponsor", "history-transfer-loss", "solana-code-offset"]
+
+[file.001]
+path = "services/interop/crates/layerx-gas-station/Cargo.toml"
+lines = 31
+verdict = "clean"
+note = "Full manifest review: workspace versions, binary/library targets, local dependencies and inherited lints agree with the source entrypoints; no generated or vendored member."
+
+[file.002]
+path = "services/interop/crates/layerx-gas-station/src/config.rs"
+lines = 575
+verdict = "issues"
+note = "Full strict parser, validation, key-variable and sender configuration review; parsed custom budgets have no live policy caller."
+
+[file.003]
+path = "services/interop/crates/layerx-gas-station/src/journal.rs"
+lines = 1347
+verdict = "issues"
+note = "Full locking, poison-on-uncertain-write, replay, liability, nonce and DID persistence review; retained historical state and full-state append cloning have no compaction boundary."
+
+[file.004]
+path = "services/interop/crates/layerx-gas-station/src/lib.rs"
+lines = 260
+verdict = "issues"
+note = "Full public types/digests and module documentation reviewed; overview has stale submit/startup contract, while signing domains and exported types agree with callers."
+
+[file.005]
+path = "services/interop/crates/layerx-gas-station/src/main.rs"
+lines = 584
+verdict = "clean"
+note = "Full CLI startup, HTTP framing/body/read bounds, origins, rate loop and recovery scheduling reviewed. Named raw-key settings are wired through startup."
+
+[file.006]
+path = "services/interop/crates/layerx-gas-station/src/policy.rs"
+lines = 730
+verdict = "clean"
+note = "Full account/interval/DID policy reviewed: 86400-second gas spend, reservations, replay identity and lookup refusal agree with cited budget requirements."
+
+[file.007]
+path = "services/interop/crates/layerx-gas-station/src/price.rs"
+lines = 334
+verdict = "clean"
+note = "Full governed currentRate/rateUpdatedAt decoding, zero/age/refusal, units and spread/margin arithmetic agree with current quote production."
+
+[file.008]
+path = "services/interop/crates/layerx-gas-station/src/quote.rs"
+lines = 109
+verdict = "clean"
+note = "Full quote domain and account/sponsor/token/amount/deadline/nonce/gas binding reviewed against caller and contract encodings."
+
+[file.009]
+path = "services/interop/crates/layerx-gas-station/src/rate.rs"
+lines = 1215
+verdict = "issues"
+note = "Full publication signing, daily gas/wei accounting, nonce recovery and finality review; signed receipt does not bind the separate JSON outcome."
+
+[file.010]
+path = "services/interop/crates/layerx-gas-station/src/rpc.rs"
+lines = 886
+verdict = "issues"
+note = "Full quorum, TLS/HTTP, pending-state encoding and summary/full receipt rung review; historical router comment retains retired topology."
+
+[file.011]
+path = "services/interop/crates/layerx-gas-station/src/service.rs"
+lines = 1621
+verdict = "issues"
+note = "Full routes, exact body sets, DID lookup, submit/status and error mapping reviewed; genuine failed sponsor representation fails service validation."
+
+[file.012]
+path = "services/interop/crates/layerx-gas-station/src/signer.rs"
+lines = 532
+verdict = "clean"
+note = "Full named environment raw-key loading, retired source refusal, signature domains and typed signing reviewed; no key logging/default or old loader path found."
+
+[file.013]
+path = "services/interop/crates/layerx-gas-station/src/station.rs"
+lines = 1410
+verdict = "clean"
+note = "Full identity/replay, saved-byte recovery, canonical finalized proofs, liabilities, DID settlement and deadlines reviewed; service-level failed sponsor issue is recorded at its owner."
+
+[file.014]
+path = "services/interop/crates/layerx-gas-station/src/tx.rs"
+lines = 554
+verdict = "clean"
+note = "Full typed transaction encoding, signing digest, canonical integer/length handling and cancellation/replacement fee checks agree with caller types."
+
+[file.015]
+path = "services/interop/crates/layerx-gas-station/tests/did_budget.rs"
+lines = 762
+verdict = "clean"
+note = "All DID-budget tests read for rollover, sharing, missing lookup refusal and persistent spend/reopen; no further disagreement found with the policy contract."
+
+[file.016]
+path = "services/interop/crates/layerx-gas-station/tests/rate.rs"
+lines = 1252
+verdict = "issues"
+note = "All publication tests read; synthetic signed receipts omit producer-required execution effects and cannot establish the real node confirmation path."
+
+[file.017]
+path = "services/interop/crates/layerx-gas-station/tests/resolution_policy.rs"
+lines = 827
+verdict = "clean"
+note = "All resolution tests read for canonical finalized proofs, replay, liability, unknown signing and interrupted recovery; expectations agree with reviewed policy."
+
+[file.018]
+path = "services/interop/crates/layerx-gas-station/tests/sequencer_receipt.rs"
+lines = 432
+verdict = "clean"
+note = "All decoder tests read against recorded producer fields: zero sponsor, native log order, keyId, canonical bytes and commitment-only block fields."
+
+[file.019]
+path = "services/interop/crates/layerx-gas-station/tests/service.rs"
+lines = 1382
+verdict = "issues"
+note = "All service tests read; reverted sponsor fixture and custom cap assertions hide the production behavior differences recorded below."
+
+[file.020]
+path = "services/interop/crates/layerx-gas-station/tests/station.rs"
+lines = 1557
+verdict = "clean"
+note = "All station tests read for saved-byte submission, nonce refusals, deadlines, finalized settlement, liabilities and restart; no additional contract disagreement found."
+
+[file.021]
+path = "services/interop/crates/layerx-migrate/Cargo.toml"
+lines = 30
+verdict = "clean"
+note = "Full manifest review: migration binary, wire/signature/TLS dependencies and inherited lints match exports and test targets."
+
+[file.022]
+path = "services/interop/crates/layerx-migrate/OPERATIONS.md"
+lines = 35
+verdict = "issues"
+note = "Full operations page read; transport and durable storage guidance matches code, while context commitment wording is obsolete and rollback authority remains an external prerequisite."
+
+[file.023]
+path = "services/interop/crates/layerx-migrate/README.md"
+lines = 13
+verdict = "issues"
+note = "Full README read; provenance and protected-fixture caveats are accurate, but two root documentation links resolve into services instead."
+
+[file.024]
+path = "services/interop/crates/layerx-migrate/src/ethereum.rs"
+lines = 1344
+verdict = "issues"
+note = "Full Ethereum deployment/ownership/custody, finality, ancestry and history review; deduplication loses distinct same-transaction transfer amounts."
+
+[file.025]
+path = "services/interop/crates/layerx-migrate/src/gateway_client.rs"
+lines = 439
+verdict = "issues"
+note = "Full authorization, V2 shapes, TLS/framing and unknown-submission review against the service producer; elapsed request deadline is incomplete."
+
+[file.026]
+path = "services/interop/crates/layerx-migrate/src/history.rs"
+lines = 190
+verdict = "clean"
+note = "Full durable history sink review: atomic pages, principal isolation, identity conflicts, replay and pagination match declared semantics. Ethereum producer must aggregate before this identity boundary."
+
+[file.027]
+path = "services/interop/crates/layerx-migrate/src/journal.rs"
+lines = 1158
+verdict = "issues"
+note = "Full HMAC/hash-chain, path protection, seal, CAS and replay review; required remote migration-head producer/deployment is absent from the repository."
+
+[file.028]
+path = "services/interop/crates/layerx-migrate/src/lib.rs"
+lines = 1361
+verdict = "clean"
+note = "Full adapter and receipt policy review: sealed verifiers, provenance, native PaymentExact topic binding, key-context separation and sequencer-evidence settlement agree with current rulings; disposed legacy findings are not reopened."
+
+[file.029]
+path = "services/interop/crates/layerx-migrate/src/main.rs"
+lines = 358
+verdict = "clean"
+note = "Full CLI configuration, protected-path substitution, mapping/funded commands and error/output honesty reviewed; external evidence is not reported as network credit."
+
+[file.030]
+path = "services/interop/crates/layerx-migrate/src/mapping_v2.rs"
+lines = 236
+verdict = "clean"
+note = "Full confirmed V2 mapping review: network identity, finalized binding receipt and durable DID/EVM mapping agreement; invalid evidence refuses confirmation."
+
+[file.031]
+path = "services/interop/crates/layerx-migrate/src/ramp_v2.rs"
+lines = 63
+verdict = "clean"
+note = "Full V2 settlement request/response review against service: canonical base64, fixed digests, version, state labels and optional nonzero source claim agree."
+
+[file.032]
+path = "services/interop/crates/layerx-migrate/src/rpc.rs"
+lines = 615
+verdict = "issues"
+note = "Full endpoint credentials/quorum and bounded JSON-RPC framing/error review; inactivity timeouts do not enforce a total elapsed deadline."
+
+[file.033]
+path = "services/interop/crates/layerx-migrate/src/solana.rs"
+lines = 1625
+verdict = "issues"
+note = "Full Solana rooted ancestry, ownership/custody, deployment pin, schema/instruction and history review; immutable program code uses incorrect metadata offset."
+
+[file.034]
+path = "services/interop/crates/layerx-migrate/src/source_codec.rs"
+lines = 217
+verdict = "clean"
+note = "Full evidence codec review: checked reader offsets, bounded finish, explicit endian widths, fixed hex, canonical quantities and base58 length limits agree with verifiers."
+
+[file.035]
+path = "services/interop/crates/layerx-migrate/src/tests.rs"
+lines = 1601
+verdict = "clean"
+note = "All migration unit tests read, including receipt key context separation, PaymentExact topic derivation, source evidence, principal isolation and durable history/journal assertions; no additional contract discrepancy found."
+
+[file.036]
+path = "services/interop/crates/layerx-migrate/tests/funded_operator.rs"
+lines = 116
+verdict = "clean"
+note = "Entire funded-operator test read; genuine protected fixture invokes the real binary and asserts external source observation without claiming network credit."
+
+[file.037]
+path = "services/interop/crates/layerx-migrate/tests/migration_v2_connected.rs"
+lines = 53
+verdict = "clean"
+note = "Entire connected V2 test read; protected producer fixture drives real mapping/source observations with explicit provenance and receipt honesty."
+
+[file.038]
+path = "services/interop/crates/layerx-migrate/tests/operator.rs"
+lines = 57
+verdict = "clean"
+note = "Entire CLI/operator refusal test read; argument/config failures and no false credit claims agree with the binary contract."
+
+[file.039]
+path = "services/interop/crates/layerx-migrate/tests/testnets.rs"
+lines = 373
+verdict = "clean"
+note = "All live testnet cases read; protected inputs exercise production verifiers and history reopen/refusal. Intentional ignored/manual lifecycle is not evidence of an audit gate run."
+
+[file.040]
+path = "services/interop/deploy/bridge-relayer/relayer-1.toml"
+lines = 109
+verdict = "clean"
+note = "Entire relayer-1 manifest read: unique attestor index/key mount, five-member threshold three, signer/cosign credentials and durable volumes agree with entrypoint. Per-instance BRIDGE_SIGNER_KEYS is required; shared inventory inconsistency is recorded at signer-keys.json."
+
+[file.041]
+path = "services/interop/deploy/bridge-relayer/relayer-2.toml"
+lines = 109
+verdict = "clean"
+note = "Entire relayer-2 manifest read: unique attestor index/key mount, five-member threshold three, signer/cosign credentials and durable volumes agree with entrypoint. Per-instance BRIDGE_SIGNER_KEYS is required; shared inventory inconsistency is recorded at signer-keys.json."
+
+[file.042]
+path = "services/interop/deploy/bridge-relayer/relayer-3.toml"
+lines = 109
+verdict = "clean"
+note = "Entire relayer-3 manifest read: unique attestor index/key mount, five-member threshold three, signer/cosign credentials and durable volumes agree with entrypoint. Per-instance BRIDGE_SIGNER_KEYS is required; shared inventory inconsistency is recorded at signer-keys.json."
+
+[file.043]
+path = "services/interop/deploy/bridge-relayer/relayer-4.toml"
+lines = 109
+verdict = "clean"
+note = "Entire relayer-4 manifest read: unique attestor index/key mount, five-member threshold three, signer/cosign credentials and durable volumes agree with entrypoint. Per-instance BRIDGE_SIGNER_KEYS is required; shared inventory inconsistency is recorded at signer-keys.json."
+
+[file.044]
+path = "services/interop/deploy/bridge-relayer/relayer-5.toml"
+lines = 109
+verdict = "clean"
+note = "Entire relayer-5 manifest read: unique attestor index/key mount, five-member threshold three, signer/cosign credentials and durable volumes agree with entrypoint. Per-instance BRIDGE_SIGNER_KEYS is required; shared inventory inconsistency is recorded at signer-keys.json."
+
+[file.045]
+path = "services/interop/deploy/bridge-relayer/signer-keys.json"
+lines = 93
+verdict = "issues"
+note = "Entire key inventory read: handles, algorithms and restricted signing domains match consumers; attestor file name disagrees with all numbered deployment mounts."
+
+[finding.failed-sponsor]
+file = "services/interop/crates/layerx-gas-station/src/service.rs"
+line = 333
+class = "interface-mismatch"
+severity = "high"
+observed = "Service::sequencer_summary and sequencer_receipt require failed execution sponsor=None. The RPC decoder preserves an address string as Some(address). rpc/sequencer_receipt.go:154,552 emits common.Address as a string, including the zero address for failed unsponsored execution. A genuine failed sponsored transaction is therefore reported as malformed/unavailable instead of the intended reverted refusal."
+expected = "Registry 7.rpc-pax-sequencerreceipt and requirements 11263.1 and 11264.1 require producer receipts to survive the service boundary and distinguish unsuccessful execution from malformed evidence."
+proposal = "Align services/interop/crates/layerx-gas-station/src/service.rs and src/rpc.rs with rpc/sequencer_receipt.go on failed sponsor representation. Normalize the permitted failed zero address while retaining foreign-successful-sponsor rejection. Drive a genuine reverted node receipt through submit, status and reopen recovery and assert the documented refusal."
+owner_domain = 11
+interface = "7.rpc-pax-sequencerreceipt"
+
+[finding.history-transfer-loss]
+file = "services/interop/crates/layerx-migrate/src/ethereum.rs"
+line = 713
+class = "runtime-risk"
+severity = "high"
+observed = "prepare_history_page deduplicates on (transaction, source_asset, kind), but history_events:858-879 emits every ERC20 Transfer with its individual source_amount. Distinct same-asset transfers in one transaction collapse to the first amount. The page cursor still advances beyond the block, permanently losing the remaining source history; custody and token-event overlap can also collide."
+expected = "External history must preserve all verified amounts and distinguish repeated observations from distinct source logs, including durable page replay after restart."
+proposal = "In services/interop/crates/layerx-migrate/src/ethereum.rs deduplicate observations by transaction/log index before checked aggregation into the declared record identity. Alternatively extend identity consistently through src/lib.rs, src/history.rs, src/journal.rs and cursors. Prove genuine multiple same-asset transfers, overlapping queries and sink reopen preserve all amounts."
+owner_domain = 11
+interface = "11.rs-migrate-external-history-record"
+
+[finding.solana-code-offset]
+file = "services/interop/crates/layerx-migrate/src/solana.rs"
+line = 1411
+class = "interface-mismatch"
+severity = "high"
+observed = "immutable_program_code returns data[13..] after the ProgramData tag, slot and None authority byte. The upgradeable loader reserves a fixed 45-byte metadata region even when authority is None; executable bytes begin after it. verify_program_boundary:276-279 hashes 32 metadata bytes along with code and refuses a pin computed over deployed code. contracts/bridge/solana/admin/src/main.rs:1186 already uses UpgradeableLoaderState::size_of_programdata_metadata()."
+expected = "OPERATIONS.md:18 and custody_program_data_hash describe an immutable program code pin; the verifier must select the same byte region as the actual source deployment hash producer."
+proposal = "Use the canonical loader metadata size in services/interop/crates/layerx-migrate/src/solana.rs, validate the full metadata region and explicitly define executable padding in the pin format. Align deployment hash generation and registry documentation; verify a captured finalized immutable ProgramData account with its exact deployed-code hash and reject altered metadata or code."
+owner_domain = 11
+interface = "11.cfg-migrate-solana-config-custody-program-data-hash"
+
+[finding.registered-budget-unwired]
+file = "services/interop/crates/layerx-gas-station/src/config.rs"
+line = 335
+class = "wiring-gap"
+severity = "medium"
+observed = "ServiceConfig parses registered_senders and exposes account_budget, but only tests call that helper. Service::new:245-266 does not retain the list and the live policy uses ordinary per_account_limit. A configured sender-specific budget has no effect on quote admission."
+expected = "Registry 11.cfg-gas-registered-senders and account_budget promise registered senders their own per-interval cap and ordinary accounts the default cap."
+proposal = "Carry registered_senders from services/interop/crates/layerx-gas-station/src/config.rs through src/service.rs to src/policy.rs reservation enforcement and persistent policy identity. Exercise cumulative admissions across different custom/default caps and prove reopening preserves accounting."
+owner_domain = 11
+interface = "11.cfg-gas-registered-senders"
+
+[finding.revert-fixture-shape]
+file = "services/interop/crates/layerx-gas-station/tests/service.rs"
+line = 221
+class = "test-gap"
+severity = "medium"
+observed = "The reverted phase passes Value::Null as sponsor and a_reverted_receipt_is_refused_and_reported_reverted asserts 422 against that invented shape. rpc/sequencer_receipt.go emits an address string; tests/sequencer_receipt.rs:90 already recognizes Some(zero address). The synthetic exchange hides the failed-sponsor service mismatch."
+expected = "Requirements 11263.1 and 11264.1 and brief check 7 require service tests to consume an actual producer-shaped receipt, including unsuccessful executions."
+proposal = "Replace the reverted exchange in services/interop/crates/layerx-gas-station/tests/service.rs with a genuine failed node receipt recording and connect node producer, transport and HTTP service. Keep the refusal assertion and add status/restart coverage without weakening malformed-receipt checks."
+owner_domain = 11
+interface = "7.rpc-pax-sequencerreceipt"
+
+[finding.registered-budget-test-gap]
+file = "services/interop/crates/layerx-gas-station/tests/service.rs"
+line = 989
+class = "test-gap"
+severity = "medium"
+observed = "registered_senders_parse_resolve_their_own_budget_and_are_quoted checks parsing/account_budget and quotes below both relevant thresholds. It never crosses a sender cap through Service::respond and passes despite production ignoring that configuration."
+expected = "The sender-specific budget must be observable at the live admission boundary rather than only in a helper with no production caller."
+proposal = "Extend services/interop/crates/layerx-gas-station/tests/service.rs with cumulative real service admissions that cross a custom cap different from the ordinary account limit. Reopen the station and assert registered and ordinary account budget behavior remains distinct."
+owner_domain = 11
+interface = "11.cfg-gas-registered-senders"
+
+[finding.rate-unbound-view]
+file = "services/interop/crates/layerx-gas-station/src/rate.rs"
+line = 795
+class = "security"
+severity = "medium"
+observed = "verify_signed_receipt checks pinned signature and activity_id only. confirm_by_receipt then trusts separate JSON status/from/to/gas and RateUpdated logs in sequencer_outcome without comparing them to the verified result/effects. A genuine signed receipt for the same transaction can accompany an altered JSON outcome and pass this signature guard. HTTPS quorum remains a separate trust boundary; this does not directly create balances."
+expected = "Receipt-verified publication outcome must bind its execution summary and events to canonical signed effects, as the node producer does in rpc/sequencer_receipt.go."
+proposal = "In services/interop/crates/layerx-gas-station/src/rate.rs derive outcome from the verified protocol receipt and validate JSON summary/log commitments against its effects using the node layout. Use producer-origin receipts and require rejection when only JSON status, gas or event data is changed."
+owner_domain = 11
+interface = "7.rpc-pax-sequencerreceipt"
+
+[finding.rate-fixture-effects]
+file = "services/interop/crates/layerx-gas-station/tests/rate.rs"
+line = 96
+class = "test-gap"
+severity = "medium"
+observed = "The signed receipt builder encodes sequence_length(0,512) for effects while served JSON claims an execution summary and RateUpdated log. rpc/sequencer_receipt.go:531 rejects a receipt without a summary effect. Canonical re-encoding/signing makes this valid wire data but not an answer the actual producer emits."
+expected = "Brief check 7 requires publication tests to use the real producer shape and prove that signed execution effects agree with the JSON view."
+proposal = "Obtain genuine publication execution receipts for services/interop/crates/layerx-gas-station/tests/rate.rs and preserve their signed effects and JSON unchanged. Cover success, revert, view-only tampering, commitment and recovery of a persisted pending publication through the real producer/consumer path."
+owner_domain = 11
+interface = "7.rpc-pax-sequencerreceipt"
+
+[finding.gas-journal-growth]
+file = "services/interop/crates/layerx-gas-station/src/journal.rs"
+line = 1142
+class = "runtime-risk"
+severity = "medium"
+observed = "Journal::append clones all retained State before every transition and adds a synced JSON line. Items, admissions, receipts and rate transactions have no compaction/retention boundary. Active-quote limits do not bound completed history, so memory, append work, policy scans and startup replay grow with lifetime traffic."
+expected = "Brief checks 4 and 5 require bounded operational growth while preserving replay guards, nonce history, accounting and recovery evidence after restart."
+proposal = "Add authenticated compact snapshots and rotation in services/interop/crates/layerx-gas-station/src/journal.rs, preserving unresolved transactions, nonce/replay guards, finalized accounting and policy identity. Bound working indexes and prove compaction/reopen preserves admission, liabilities and recovery under sustained traffic."
+owner_domain = 11
+
+[finding.migration-rpc-deadline]
+file = "services/interop/crates/layerx-migrate/src/rpc.rs"
+line = 230
+class = "runtime-risk"
+severity = "medium"
+observed = "Endpoint::request performs blocking DNS, up to eight separate full connect timeouts and full per-operation socket read/write timeouts. read_json_rpc has no absolute elapsed deadline. A peer streaming bytes within each read timeout can occupy verification far beyond request_timeout_ms."
+expected = "The source and rollback RPC request-timeout contract must provide a bounded lifecycle, including resolution, connection, TLS and response completion rather than an inactivity limit only."
+proposal = "Enforce one monotonic total deadline in services/interop/crates/layerx-migrate/src/rpc.rs through resolution, address attempts, TLS, writes, response framing and quorum collection. Apply remaining budget to blocking operations and prove stalled and slowly streaming HTTPS peers terminate within the bound."
+owner_domain = 11
+interface = "11.cfg-migrate-rpc-quorum-config-request-timeout-ms"
+
+[finding.gateway-deadline-budget]
+file = "services/interop/crates/layerx-migrate/src/gateway_client.rs"
+line = 143
+class = "runtime-risk"
+severity = "medium"
+observed = "GatewayClient resolves DNS and tries up to eight connect budgets before creating its deadline. Socket read/write timeouts remain the full request_timeout; response checks time only before a blocking read, allowing a late read another full timeout. Header/body writes likewise lack a remaining elapsed budget."
+expected = "The gateway timeout must bound the complete funded-operator submission and retain an explicit unknown outcome after an operation might have been accepted."
+proposal = "In services/interop/crates/layerx-migrate/src/gateway_client.rs create one deadline before resolution/connection and pass remaining duration into every TLS/write/read operation. Retain GatewaySubmissionUnknown after possible transmission; prove slow headers/bodies and same-idempotency retry behavior."
+owner_domain = 11
+interface = "11.cfg-migrate-gateway-client-config-request-timeout-ms"
+
+[finding.rollback-authority-unwired]
+file = "services/interop/crates/layerx-migrate/src/journal.rs"
+line = 709
+class = "wiring-gap"
+severity = "medium"
+observed = "Journal synchronization calls layerx_getMigrationJournalHead and layerx_advanceMigrationJournalHead with compare-and-swap head payloads. Repository call/route search finds these consumer calls and OPERATIONS.md:22-25 but no production handler or deployment for either method. Correct fail-closed behavior still depends on an externally unspecified durable authority."
+expected = "The independent rollback authority needed for verifiers and history must have an identified producer, authenticated namespace ownership, durable linearizable CAS and a recoverable deployment contract."
+proposal = "Assign services/platform/hosted/authority an explicit migration-head interface and durable implementation or identify the separately delivered production owner. Register and deploy authenticated majority endpoints; prove real journal open/append/reopen, concurrent CAS and local rollback refusal across authority restart."
+owner_domain = 8
+
+[finding.attestor-inventory-path]
+file = "services/interop/deploy/bridge-relayer/signer-keys.json"
+line = 6
+class = "config-drift"
+severity = "medium"
+observed = "The checked-in bridge/attestor key_file is /run/secrets/bridge/signer/attestor.key, while all five relayer manifests select/mount attestor-N.key. docker/bridge-relayer/entrypoint.sh:60-62 requires exact equality. Each manifest mounts BRIDGE_SIGNER_KEYS, so a customized secret can work, but the supplied inventory cannot be used unchanged with any instance."
+expected = "The signer inventory must agree with the selected instance key mount and entrypoint contract without an undocumented manual path rewrite."
+proposal = "Add per-instance inventory rendering under services/interop/deploy/bridge-relayer and bind BRIDGE_SIGNER_KEYS generation to each attestor index and key mount. Validate all five rendered deployments against docker/bridge-relayer/entrypoint.sh without reading or exposing private keys."
+owner_domain = 11
+interface = "11.fmt-deploy-bridge-relayer-signer-keys"
+
+[finding.retired-router-comment]
+file = "services/interop/crates/layerx-gas-station/src/rpc.rs"
+line = 297
+class = "retired-reference"
+severity = "low"
+observed = "The pending-read comment says the router forwards reads to the sequencer, describing the retired separate-router/sequencer-service topology."
+expected = "Brief facts 1-3 require direct node root RPC in one paxd BFT network with no router or separate sequencer service."
+proposal = "Rewrite the comment in services/interop/crates/layerx-gas-station/src/rpc.rs around direct configured node endpoints, pending nonce/state semantics and committed-block finality without a router dependency."
+owner_domain = 11
+
+[finding.gas-library-docs]
+file = "services/interop/crates/layerx-gas-station/src/lib.rs"
+line = 50
+class = "doc-drift"
+severity = "low"
+observed = "The overview documents POST /submit with transactionHash only and omits mandatory positive GAS_STATION_DID_GAS_LIMIT. The live response includes rung/full receipt and status exposes a durable daily DID gas budget."
+expected = "Requirements 11264.1, 11265.1 and 11262.1 require accurate submission/status documentation and explicit startup budget and DID resolution refusal semantics."
+proposal = "Update services/interop/crates/layerx-gas-station/src/lib.rs with live submit/status fields, canonical receipt/key encodings, required environment and UTC-day gas units, deriving examples from the live service."
+owner_domain = 11
+
+[finding.migration-context-docs]
+file = "services/interop/crates/layerx-migrate/OPERATIONS.md"
+line = 27
+class = "doc-drift"
+severity = "medium"
+observed = "The operations contract says both receipt policies verify an external-claim context commitment. Current policies use contextHash for the pinned signing-key identifier and separately bind settlement evidence/effects, including PaymentExact; the claim-context equality was removed."
+expected = "Requirements 181214.1/.2 separate signing context from claim binding and 1812114.1 fixes native PaymentExact topic derivation. Operators must not use a claim digest as a signing-key context."
+proposal = "Rewrite services/interop/crates/layerx-migrate/OPERATIONS.md:27 to explain keyId/contextHash pinning, independent claim matching and native PaymentExact reference/from/to order. Describe implemented mapping V2 and funded source observation without equating external custody with network credit."
+owner_domain = 11
+
+[finding.migration-readme-links]
+file = "services/interop/crates/layerx-migrate/README.md"
+line = 7
+class = "doc-drift"
+severity = "low"
+observed = "The relative links ../../../../docs/wiki/Migration.md and ../../../../migrations/README.md resolve into services/docs and services/migrations from the crate directory, not the repository-root targets."
+expected = "The migration README must link to the actual migration and genesis-import documentation from services/interop/crates/layerx-migrate."
+proposal = "Correct both relative climbs in services/interop/crates/layerx-migrate/README.md to reach root docs/wiki/Migration.md and migrations/README.md; check resolution from the crate while retaining correct OPERATIONS.md and workspace-index links."
+owner_domain = 11
+
+[finding.rate-budget-units-doc]
+file = "spec/layerx-merge/contracts/interop-gas-station.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "The 11.cfg-gas-rate-gas-budget-per-day row declares u128 wei. PublisherConfig and publication_gas accounting use gas units; daily_wei_ceiling multiplies this by max_fee_per_gas. Following the declared unit yields a materially different publication budget."
+expected = "Registry, generated contract, deployment setting and publisher must agree on gas units per chain day and distinguish the derived wei ceiling."
+proposal = "Correct interface 11.cfg-gas-rate-gas-budget-per-day in spec/layerx-merge/interfaces.kvx and regenerate spec/layerx-merge/contracts/interop-gas-station.md. Align operator examples with daily_wei_ceiling without changing gas-unit accounting."
+owner_domain = 11
+interface = "11.cfg-gas-rate-gas-budget-per-day"
+
+[finding.did-limit-optionality-doc]
+file = "spec/layerx-merge/contracts/interop-gas-station.md"
+line = 197
+class = "doc-drift"
+severity = "medium"
+observed = "The generated DID gas limit row declares GAS_STATION_DID_GAS_LIMIT optional. GasStation::new in src/station.rs:209-210 converts missing or invalid input into StationError::Invalid, requiring a positive explicit value."
+expected = "The registry and operator contract must describe fail-closed startup and the persistent 86400-second per-DID gas budget in gas units."
+proposal = "Correct optionality and units for interface 11.env-gas-gas-station-did-gas-limit in spec/layerx-merge/interfaces.kvx and regenerate its contract; include the required environment in startup examples and preserve missing/zero refusal."
+owner_domain = 11
+interface = "11.env-gas-gas-station-did-gas-limit"
+
+[finding.receipt-planned-doc]
+file = "spec/layerx-merge/contracts/interop-gas-station.md"
+line = 2624
+class = "doc-drift"
+severity = "low"
+observed = "The contract marks the full receipt decoder planned and /submit notes describe full receipt fields as a stale task change. src/rpc.rs already implements decode_full_sequencer_receipt and src/service.rs returns the fields."
+expected = "Registry locations/status and generated contract must distinguish implemented declarations from unqualified or actually missing behavior."
+proposal = "Reconcile full-decoder, DID-refusal and submit rows in spec/layerx-merge/interfaces.kvx with present declarations and regenerate spec/layerx-merge/contracts/interop-gas-station.md. Keep qualification evidence distinct from implementation status."
+owner_domain = 11
+interface = "11.rs-gas-sequencer-receipt-decoder"
+
+[finding.beta-topology-doc]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3 and 5 describe a separate LayerX daemon and replica-backed authority; the bootstrap/settlement sections retain separate genesis, GuarantorBond/CheckpointRegistry and native custody provisioning. This is the retired two-process/anchor model."
+expected = "Brief facts 1-3 specify one paxd BFT chain with its internal kernel, block-commit finality and direct node root RPC; retired daemon/guarantor/anchor services are not prerequisites."
+proposal = "Rewrite docs/site/docs/operators/beta-cluster.md from merged deployment manifests: chain id 125, one paxd lifecycle, committed receipt finality and current hosted dependencies. Replace retired genesis/guarantor/anchor/native-custody provisioning with merged-node startup and persistence procedures."
+owner_domain = 17
+
+[finding.sidiora-rate-doc]
+file = "docs/site/docs/protocol/sidiora.md"
+line = 124
+class = "doc-drift"
+severity = "medium"
+observed = "Line 124 says the quote service lacks a served rate source and line 71 describes exchange-rate data for two denoms. src/price.rs already reads governed paymaster currentRate/rateUpdatedAt. Line 65 calls the digest address the paymaster although quote_digest binds the delegated account."
+expected = "The sponsored-payment page must describe the implemented governed source and account-bound digest, required DID budget and rate publisher without claiming a missing served interface."
+proposal = "Update docs/site/docs/protocol/sidiora.md:65,71,124 from gas-station src/quote.rs and src/price.rs, document rate publication/refusal and mandatory daily DID gas configuration, and keep governance proposal status separate from applied state."
+owner_domain = 17
+
+[finding.readme-pt-br]
+file = "docs/readme/README.pt-BR.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The translated README describes live layerxd and split runtimes around lines 37-39 and 136-168, with retired checkpoint/anchor/custody and guarantor/relay architecture around lines 210-230. Its repository map uses pre-move service paths."
+expected = "Every translated introduction must describe one paxd BFT chain, id 125, internal kernel and direct root RPC endpoints without a separate LayerX daemon or settlement-anchor network."
+proposal = "Rewrite docs/readme/README.pt-BR.md in its existing language from the merged-network source of truth. Replace split-runtime diagrams/run commands, remove retired guarantor/relay/anchor claims and update paths to services/agent, services/human, services/interop and contracts/bridge; synchronize endpoints and finality wording."
+owner_domain = 17
+
+[finding.readme-fr]
+file = "docs/readme/README.fr.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The translated README describes live layerxd and split runtimes around lines 37-39 and 136-168, with retired checkpoint/anchor/custody and guarantor/relay architecture around lines 210-230. Its repository map uses pre-move service paths."
+expected = "Every translated introduction must describe one paxd BFT chain, id 125, internal kernel and direct root RPC endpoints without a separate LayerX daemon or settlement-anchor network."
+proposal = "Rewrite docs/readme/README.fr.md in its existing language from the merged-network source of truth. Replace split-runtime diagrams/run commands, remove retired guarantor/relay/anchor claims and update paths to services/agent, services/human, services/interop and contracts/bridge; synchronize endpoints and finality wording."
+owner_domain = 17
+
+[finding.readme-ja]
+file = "docs/readme/README.ja.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The translated README describes live layerxd and split runtimes around lines 37-39 and 136-168, with retired checkpoint/anchor/custody and guarantor/relay architecture around lines 210-230. Its repository map uses pre-move service paths."
+expected = "Every translated introduction must describe one paxd BFT chain, id 125, internal kernel and direct root RPC endpoints without a separate LayerX daemon or settlement-anchor network."
+proposal = "Rewrite docs/readme/README.ja.md in its existing language from the merged-network source of truth. Replace split-runtime diagrams/run commands, remove retired guarantor/relay/anchor claims and update paths to services/agent, services/human, services/interop and contracts/bridge; synchronize endpoints and finality wording."
+owner_domain = 17
+
+[finding.readme-ru]
+file = "docs/readme/README.ru.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The translated README describes live layerxd and split runtimes around lines 37-39 and 136-168, with retired checkpoint/anchor/custody and guarantor/relay architecture around lines 210-230. Its repository map uses pre-move service paths."
+expected = "Every translated introduction must describe one paxd BFT chain, id 125, internal kernel and direct root RPC endpoints without a separate LayerX daemon or settlement-anchor network."
+proposal = "Rewrite docs/readme/README.ru.md in its existing language from the merged-network source of truth. Replace split-runtime diagrams/run commands, remove retired guarantor/relay/anchor claims and update paths to services/agent, services/human, services/interop and contracts/bridge; synchronize endpoints and finality wording."
+owner_domain = 17
+
+[finding.readme-zh-cn]
+file = "docs/readme/README.zh-CN.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The translated README describes live layerxd and split runtimes around lines 37-39 and 136-168, with retired checkpoint/anchor/custody and guarantor/relay architecture around lines 210-230. Its repository map uses pre-move service paths."
+expected = "Every translated introduction must describe one paxd BFT chain, id 125, internal kernel and direct root RPC endpoints without a separate LayerX daemon or settlement-anchor network."
+proposal = "Rewrite docs/readme/README.zh-CN.md in its existing language from the merged-network source of truth. Replace split-runtime diagrams/run commands, remove retired guarantor/relay/anchor claims and update paths to services/agent, services/human, services/interop and contracts/bridge; synchronize endpoints and finality wording."
+owner_domain = 17
+
+[finding.readme-de]
+file = "docs/readme/README.de.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The translated README describes live layerxd and split runtimes around lines 37-39 and 136-168, with retired checkpoint/anchor/custody and guarantor/relay architecture around lines 210-230. Its repository map uses pre-move service paths."
+expected = "Every translated introduction must describe one paxd BFT chain, id 125, internal kernel and direct root RPC endpoints without a separate LayerX daemon or settlement-anchor network."
+proposal = "Rewrite docs/readme/README.de.md in its existing language from the merged-network source of truth. Replace split-runtime diagrams/run commands, remove retired guarantor/relay/anchor claims and update paths to services/agent, services/human, services/interop and contracts/bridge; synchronize endpoints and finality wording."
+owner_domain = 17
+
+[finding.readme-es]
+file = "docs/readme/README.es.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The translated README describes live layerxd and split runtimes around lines 37-39 and 136-168, with retired checkpoint/anchor/custody and guarantor/relay architecture around lines 210-230. Its repository map uses pre-move service paths."
+expected = "Every translated introduction must describe one paxd BFT chain, id 125, internal kernel and direct root RPC endpoints without a separate LayerX daemon or settlement-anchor network."
+proposal = "Rewrite docs/readme/README.es.md in its existing language from the merged-network source of truth. Replace split-runtime diagrams/run commands, remove retired guarantor/relay/anchor claims and update paths to services/agent, services/human, services/interop and contracts/bridge; synchronize endpoints and finality wording."
+owner_domain = 17
+
+[finding.interop-route-doc]
+file = "docs/wiki/Interop.md"
+line = 32
+class = "doc-drift"
+severity = "medium"
+observed = "The route table at lines 32-49 omits served POST /v2/migration/assets used by GatewayClient and registered at layerx-interop-gateway/src/server.rs:224. Lines 18-23 freeze old production-client-gap and pending rollup status despite implemented V2 clients and connected fixture entrypoints."
+expected = "Registry 11.http-gw-migration-assets and the actual service expose authenticated migration source observation; documentation must list it and distinguish source settlement from network credit."
+proposal = "Update docs/wiki/Interop.md with current V2 migration routes, authentication/idempotency and source-observation lifecycle. Replace historic task-status prose with implemented clients and explicit production prerequisites, including genuine fixture qualification, without claiming external settlement supplies a network receipt."
+owner_domain = 17
+interface = "11.http-gw-migration-assets"
+
+[finding.unified-network-doc]
+file = "docs/wiki/UnifiedNetwork.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The opening presents two runtimes including cmd/layerxd; lines 53-98 retain custody/checkpoint settlement and lines 176-205 describe pre-merge binding/bridge behavior. Line 207 treats the shared endpoint as future work, presenting the retired split network as current."
+expected = "The brief specifies one paxd BFT chain with internal kernel, chain id 125, committed-block receipt finality and root RPC on api1-api14.mainnet-beta.paxeer.network or api-mainnet-beta.paxeer.network."
+proposal = "Rewrite docs/wiki/UnifiedNetwork.md around the merged node and hosted gateway ownership. Replace split-runtime/custody-anchor diagrams and procedures, document public roots and committed finality and remove future-router/interface claims while retaining independently accurate EVM ABI material."
+owner_domain = 17
+
+[finding.rpc-topology-doc]
+file = "spec/layerx-merge/contracts/evm-rpc.md"
+line = 2723
+class = "doc-drift"
+severity = "medium"
+observed = "The pax-sequencerreceipt notes reproduce local sequencer/standby roles, forwarding elsewhere and served-by-sequencer errors as the normal topology. This frozen pre-merge description does not explain the single BFT node network required by the brief."
+expected = "The retained method must be documented through node receipt state, block commitment and public root RPC with no separately operated sequencer service or router."
+proposal = "Reconcile interface 7.rpc-pax-sequencerreceipt notes in spec/layerx-merge/interfaces.kvx with merged node lifecycle and regenerate spec/layerx-merge/contracts/evm-rpc.md. Distinguish compatibility errors still present in code from the supported production topology."
+owner_domain = 7
+interface = "7.rpc-pax-sequencerreceipt"
+
+[doc.001]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "stale"
+notes = "Full page read. Lines 3,5 and bootstrap/settlement sections retain separate daemon, replica authority, guarantor/anchor and native-custody provisioning; see beta-topology-doc."
+
+[doc.002]
+path = "docs/site/docs/interop/index.md"
+status = "accurate"
+notes = "Full page read. Edge adapters translate evidence without writing balances and distinguish external settlement from network receipts; current crate paths and honesty rule agree with the reviewed adapters."
+
+[doc.003]
+path = "docs/site/docs/protocol/sidiora.md"
+status = "misleading"
+notes = "Full page read. Lines 65,71 misstate account-bound digest and governed rate source; line 124 incorrectly says a served rate source is missing. See sidiora-rate-doc."
+
+[doc.004]
+path = "docs/readme/README.pt-BR.md"
+status = "stale"
+notes = "Full translated page read. Lines 37-39,87,136-168,210-230 retain live layerxd, split architecture and retired anchor/guarantor/relay claims; service paths also predate relocation. See readme-pt-br."
+
+[doc.005]
+path = "docs/readme/README.fr.md"
+status = "stale"
+notes = "Full translated page read. Lines 37-39,87,136-168,210-230 retain live layerxd, split architecture and retired anchor/guarantor/relay claims; service paths also predate relocation. See readme-fr."
+
+[doc.006]
+path = "docs/readme/README.ja.md"
+status = "stale"
+notes = "Full translated page read. Lines 37-39,87,136-168,210-230 retain live layerxd, split architecture and retired anchor/guarantor/relay claims; service paths also predate relocation. See readme-ja."
+
+[doc.007]
+path = "docs/readme/README.ru.md"
+status = "stale"
+notes = "Full translated page read. Lines 37-39,87,136-168,210-230 retain live layerxd, split architecture and retired anchor/guarantor/relay claims; service paths also predate relocation. See readme-ru."
+
+[doc.008]
+path = "docs/readme/README.zh-CN.md"
+status = "stale"
+notes = "Full translated page read. Lines 37-39,87,136-168,210-230 retain live layerxd, split architecture and retired anchor/guarantor/relay claims; service paths also predate relocation. See readme-zh-cn."
+
+[doc.009]
+path = "docs/readme/README.de.md"
+status = "stale"
+notes = "Full translated page read. Lines 37-39,87,136-168,210-230 retain live layerxd, split architecture and retired anchor/guarantor/relay claims; service paths also predate relocation. See readme-de."
+
+[doc.010]
+path = "docs/readme/README.es.md"
+status = "stale"
+notes = "Full translated page read. Lines 37-39,87,136-168,210-230 retain live layerxd, split architecture and retired anchor/guarantor/relay claims; service paths also predate relocation. See readme-es."
+
+[doc.011]
+path = "docs/wiki/Interop.md"
+status = "stale"
+notes = "Full page read. Lines 18-23 freeze old migration status; lines 32-49 omit current V2 routes and source observation. See interop-route-doc."
+
+[doc.012]
+path = "docs/wiki/UnifiedNetwork.md"
+status = "stale"
+notes = "Full page read. Lines 3-11,53-98,176-207 retain split runtimes, custody/anchor settlement and a future shared interface. See unified-network-doc."
+
+[doc.013]
+path = "services/interop/crates/layerx-migrate/OPERATIONS.md"
+status = "stale"
+notes = "Full page read. Lines 22-25 require a separately delivered durable rollback authority; line 27 misdescribes claim context instead of signing-key context plus independent effect matching."
+
+[doc.014]
+path = "services/interop/crates/layerx-migrate/README.md"
+status = "stale"
+notes = "Full page read. Line 7 links into services/docs and services/migrations; source provenance, workspace index and genuine connected fixture caveats otherwise agree."
+
+[doc.015]
+path = "spec/layerx-merge/contracts/interop-gas-station.md"
+status = "stale"
+notes = "Inspected package configuration, service/receipt and requirement sections. Lines 47,197 give wrong units/optionality; lines 2582,2624 describe implemented full-receipt behavior as pending."
+
+[doc.016]
+path = "spec/layerx-merge/contracts/interop-migrate.md"
+status = "accurate"
+notes = "Inspected package-linked source configuration, journal/head, history, mapping and policy declarations. Exported shapes agree; code-hash slicing and missing authority producer are recorded against source files."
+
+[doc.017]
+path = "spec/layerx-merge/contracts/interop-deploy.md"
+status = "accurate"
+notes = "Inspected introduction and bridge-relayer file-format rows including all five TOML layouts and JSON inventory. Shapes agree; per-instance key-path disagreement is recorded against signer-keys.json."
+
+[doc.018]
+path = "spec/layerx-merge/contracts/evm-rpc.md"
+status = "stale"
+notes = "Inspected pax-sequencerreceipt at lines 2715-2727 against the Go producer. Line 2723 retains separate sequencer/standby forwarding topology; see rpc-topology-doc."

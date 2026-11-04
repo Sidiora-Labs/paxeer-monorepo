@@ -1,0 +1,1048 @@
+[audit.22.30.56]
+task = "22.30.56"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 102
+findings = 33
+docs_reviewed = 15
+upgrade_ready = false
+blocking = ["flatkv-rejected-write", "flatkv-latest-export", "memiavl-upgrade-idempotence", "memiavl-replay-gap", "memiavl-duplicate-store-replay", "memiavl-rejected-changeset-wal"]
+
+[file.1]
+path = "consensus/export/export.go"
+lines = 14
+verdict = "clean"
+note = "Aliases preserve the underlying store and query types; the registry explicitly supports external consumers, so lack of an in-repo importer is not dead code."
+
+[file.2]
+path = "consensus/internal/hashable/hashable.go"
+lines = 178
+verdict = "clean"
+note = "Typed SHA-256 hashes, exact parse length and deterministic encoding agree with the hashable producer and parser surfaces."
+
+[file.3]
+path = "consensus/internal/hashable/hashable.proto"
+lines = 18
+verdict = "clean"
+note = "Hashable protobuf option definition agrees with plugin option lookup and message annotations."
+
+[file.4]
+path = "consensus/internal/hashable/hashable_test.go"
+lines = 268
+verdict = "clean"
+note = "Covers deterministic typed hashing and randomized nested-message shapes; no network endpoint or retired runtime dependency."
+
+[file.5]
+path = "consensus/internal/hashable/internal/pb/testonly.hashable.go"
+lines = 5
+verdict = "generated"
+note = "Generated hashable marker methods for the test protobuf messages; generated verdict records provenance rather than a handwritten implementation review."
+
+[file.6]
+path = "consensus/internal/hashable/internal/testonly.proto"
+lines = 52
+verdict = "clean"
+note = "Test enum and nested protobuf declarations match the hashable plugin inputs and test field shapes."
+
+[file.7]
+path = "consensus/internal/hashable/plugin/main.go"
+lines = 193
+verdict = "clean"
+note = "Plugin option checks, sorted field encoding and generated hashable methods agree with typed hashing consumers."
+
+[file.8]
+path = "consensus/internal/hashable/testonly.go"
+lines = 9
+verdict = "clean"
+note = "GenHash emits exactly the typed fixed-width bytes consumed by Hash and ParseHash."
+
+[file.9]
+path = "consensus/utils/slice.go"
+lines = 9
+verdict = "clean"
+note = "Map preserves order and length with the declared generic input and output types; registry allows external consumers."
+
+[file.10]
+path = "storage/db_engine/util/iterator.go"
+lines = 53
+verdict = "clean"
+note = "Prefix-bound construction preserves nil/unbounded range conventions used by iterators."
+
+[file.11]
+path = "storage/state_db/sc/flatkv/api.go"
+lines = 134
+verdict = "issues"
+note = "Working-read visibility prose disagrees with pending-map reads; see flatkv-read-lifecycle-prose."
+
+[file.12]
+path = "storage/state_db/sc/flatkv/config/config.go"
+lines = 190
+verdict = "clean"
+note = "Reviewed data/cache settings, snapshot bounds and documented NoSync WAL policy; the conflicting commit prose is recorded on store_write.go."
+
+[file.13]
+path = "storage/state_db/sc/flatkv/config/config_test.go"
+lines = 133
+verdict = "clean"
+note = "Covers configuration defaults, validation and snapshot retention settings with real configuration values."
+
+[file.14]
+path = "storage/state_db/sc/flatkv/config/flatkv_test_config.go"
+lines = 47
+verdict = "clean"
+note = "Test-only database/cache sizing and temporary paths remain aligned with production config types."
+
+[file.15]
+path = "storage/state_db/sc/flatkv/empty_value_replay_test.go"
+lines = 71
+verdict = "clean"
+note = "Covers nil deletion versus a present empty legacy value across commit and WAL replay."
+
+[file.16]
+path = "storage/state_db/sc/flatkv/exporter.go"
+lines = 99
+verdict = "clean"
+note = "Physical module header, owned iterator bytes and leaf envelopes reviewed; resolved-height producer mismatch is recorded at store_lifecycle.go."
+
+[file.17]
+path = "storage/state_db/sc/flatkv/import_export_test.go"
+lines = 1020
+verdict = "clean"
+note = "Explicit-height export/import and canonical value paths covered; zero-latest restore gap is recorded at its producer."
+
+[file.18]
+path = "storage/state_db/sc/flatkv/import_translator.go"
+lines = 177
+verdict = "clean"
+note = "Logical EVM account/storage/code keys translate to the declared physical records; non-EVM legacy prefixes and versions retained."
+
+[file.19]
+path = "storage/state_db/sc/flatkv/import_translator_test.go"
+lines = 314
+verdict = "clean"
+note = "Checks producer translation, account merging, deletion and malformed logical-value cases against vtype encodings."
+
+[file.20]
+path = "storage/state_db/sc/flatkv/importer.go"
+lines = 341
+verdict = "issues"
+note = "Physical validation, duplicate hash accounting and intermediate batch ownership findings recorded separately."
+
+[file.21]
+path = "storage/state_db/sc/flatkv/importer_test.go"
+lines = 395
+verdict = "issues"
+note = "Pipeline lifecycle tests contain raw storage values unlike actual exported envelopes; see flatkv-import-fixture-shape."
+
+[file.22]
+path = "storage/state_db/sc/flatkv/ktype/ktype.go"
+lines = 129
+verdict = "clean"
+note = "Address/slot widths, physical module prefixes and prefix bounds agree with logical-key routing."
+
+[file.23]
+path = "storage/state_db/sc/flatkv/ktype/ktype_test.go"
+lines = 41
+verdict = "clean"
+note = "Covers key construction, module separation, stripped keys and invalid key lengths."
+
+[file.24]
+path = "storage/state_db/sc/flatkv/ktype/meta.go"
+lines = 38
+verdict = "clean"
+note = "Metadata namespace, version and fixed-size local LtHash serialization agree with metadata readers."
+
+[file.25]
+path = "storage/state_db/sc/flatkv/ktype/metakey_test.go"
+lines = 17
+verdict = "clean"
+note = "Covers reserved metadata prefixes and local metadata round trips, including malformed serialized values."
+
+[file.26]
+path = "storage/state_db/sc/flatkv/lthash/api.go"
+lines = 252
+verdict = "clean"
+note = "Replacement hashing removes LastValue before adding Value; importer duplicate misuse is recorded at its caller."
+
+[file.27]
+path = "storage/state_db/sc/flatkv/lthash/lthash.go"
+lines = 222
+verdict = "clean"
+note = "Homomorphic mixing, fixed serialized size and inverse operations agree with per-DB/global integrity consumers."
+
+[file.28]
+path = "storage/state_db/sc/flatkv/lthash/lthash_test.go"
+lines = 310
+verdict = "clean"
+note = "Covers hash serialization, mix-in/mix-out and replacement algebra with declared fixed lengths."
+
+[file.29]
+path = "storage/state_db/sc/flatkv/lthash_correctness_test.go"
+lines = 1503
+verdict = "clean"
+note = "Checks scanned row hashes against working and committed integrity across mutations and reopen paths."
+
+[file.30]
+path = "storage/state_db/sc/flatkv/metrics.go"
+lines = 248
+verdict = "clean"
+note = "Metric names, instrument kinds, units and DB/success attributes agree with package registry rows and call sites."
+
+[file.31]
+path = "storage/state_db/sc/flatkv/perdb_lthash_test.go"
+lines = 595
+verdict = "clean"
+note = "Checks per-DB composition, metadata and correctly serialized import values across snapshot/recovery paths."
+
+[file.32]
+path = "storage/state_db/sc/flatkv/snapshot.go"
+lines = 713
+verdict = "clean"
+note = "Reviewed checkpoint publication, metadata, retention and WAL truncation ordering against committed DB snapshots."
+
+[file.33]
+path = "storage/state_db/sc/flatkv/snapshot_test.go"
+lines = 2114
+verdict = "clean"
+note = "Covers periodic snapshots, retained historical reads, restart, rollback and pruning against real directories."
+
+[file.34]
+path = "storage/state_db/sc/flatkv/store.go"
+lines = 823
+verdict = "clean"
+note = "Reviewed initialization, DB routing, lock-preserving opens and read-only clones; WAL sync discrepancy is recorded at commit prose."
+
+[file.35]
+path = "storage/state_db/sc/flatkv/store_apply.go"
+lines = 401
+verdict = "issues"
+note = "Account buffers publish before all value validation; see flatkv-rejected-write."
+
+[file.36]
+path = "storage/state_db/sc/flatkv/store_catchup.go"
+lines = 246
+verdict = "clean"
+note = "Reviewed per-DB committed offsets, replay validation, metadata reconciliation and idempotent catchup."
+
+[file.37]
+path = "storage/state_db/sc/flatkv/store_catchup_test.go"
+lines = 59
+verdict = "clean"
+note = "Exercises real WAL replay, gaps, duplicate versions and partially persisted database recovery."
+
+[file.38]
+path = "storage/state_db/sc/flatkv/store_iteration.go"
+lines = 604
+verdict = "clean"
+note = "Logical iterators snapshot pending overlays and pin underlying Pebble views; raw iteration excludes metadata and pending data."
+
+[file.39]
+path = "storage/state_db/sc/flatkv/store_iteration_test.go"
+lines = 1017
+verdict = "clean"
+note = "Covers forward/reverse bounds, pending overwrites/deletions, stable concurrent views and raw committed iteration."
+
+[file.40]
+path = "storage/state_db/sc/flatkv/store_lifecycle.go"
+lines = 159
+verdict = "issues"
+note = "Resolved latest height is not passed into the exporter; see flatkv-latest-export."
+
+[file.41]
+path = "storage/state_db/sc/flatkv/store_meta.go"
+lines = 259
+verdict = "clean"
+note = "Global and local versions/hashes, imported height and per-DB restoration agree with serialized metadata types."
+
+[file.42]
+path = "storage/state_db/sc/flatkv/store_meta_test.go"
+lines = 434
+verdict = "clean"
+note = "Checks metadata persistence, missing/invalid metadata and import finalization with per-DB/global hash agreement."
+
+[file.43]
+path = "storage/state_db/sc/flatkv/store_read.go"
+lines = 229
+verdict = "clean"
+note = "Logical reads consult pending data before committed rows and deserialize the correct vtype per key kind."
+
+[file.44]
+path = "storage/state_db/sc/flatkv/store_read_test.go"
+lines = 949
+verdict = "clean"
+note = "Covers pending visibility, missing keys, empty legacy values, modifications and serialized account/storage/code fields."
+
+[file.45]
+path = "storage/state_db/sc/flatkv/store_test.go"
+lines = 1762
+verdict = "clean"
+note = "Reviewed fresh opens, read-only version isolation, import/rollback lifecycle and version boundaries against the store contract."
+
+[file.46]
+path = "storage/state_db/sc/flatkv/store_write.go"
+lines = 433
+verdict = "issues"
+note = "WAL durability prose claims fsync contrary to the selected WAL policy; see flatkv-wal-sync-prose."
+
+[file.47]
+path = "storage/state_db/sc/flatkv/store_write_test.go"
+lines = 1816
+verdict = "issues"
+note = "Error-recovery fixture misses the late validation failure and persisted integrity consequences."
+
+[file.48]
+path = "storage/state_db/sc/flatkv/testutil_test.go"
+lines = 205
+verdict = "clean"
+note = "Real temporary Pebble stores and deterministic logical/physical key helpers agree with production types; fixture misuse is recorded at importer_test.go."
+
+[file.49]
+path = "storage/state_db/sc/flatkv/verify.go"
+lines = 82
+verdict = "clean"
+note = "Scans physical committed records and compares recomputed lattice integrity with the declared committed root."
+
+[file.50]
+path = "storage/state_db/sc/flatkv/vtype/account_data.go"
+lines = 214
+verdict = "clean"
+note = "Account serialization includes version, block height, nonce, balance and code hash with exact widths and validated decode."
+
+[file.51]
+path = "storage/state_db/sc/flatkv/vtype/account_data_test.go"
+lines = 341
+verdict = "clean"
+note = "Covers account defaults, field access, serialization round trip and malformed envelope lengths/versions."
+
+[file.52]
+path = "storage/state_db/sc/flatkv/vtype/base_types.go"
+lines = 74
+verdict = "clean"
+note = "Nonce, code-hash, balance and storage parsers enforce their declared byte widths and empty-value semantics."
+
+[file.53]
+path = "storage/state_db/sc/flatkv/vtype/base_types_test.go"
+lines = 201
+verdict = "clean"
+note = "Checks parser length rejection, round trips and supported nil/empty representations."
+
+[file.54]
+path = "storage/state_db/sc/flatkv/vtype/code_data.go"
+lines = 137
+verdict = "clean"
+note = "Code envelope version and block-height fields match decoder and logical code-read consumers."
+
+[file.55]
+path = "storage/state_db/sc/flatkv/vtype/code_data_test.go"
+lines = 212
+verdict = "clean"
+note = "Checks variable-length code serialization, empty code and invalid envelope/version cases."
+
+[file.56]
+path = "storage/state_db/sc/flatkv/vtype/constants.go"
+lines = 16
+verdict = "clean"
+note = "Byte-width constants agree with account, code, storage and legacy serialized record layouts."
+
+[file.57]
+path = "storage/state_db/sc/flatkv/vtype/legacy_data.go"
+lines = 153
+verdict = "clean"
+note = "Legacy envelope preserves arbitrary bytes and block-height/version metadata, including present empty values."
+
+[file.58]
+path = "storage/state_db/sc/flatkv/vtype/legacy_data_test.go"
+lines = 233
+verdict = "clean"
+note = "Covers empty and nonempty legacy records, height updates and malformed encoding rejection."
+
+[file.59]
+path = "storage/state_db/sc/flatkv/vtype/pending_account_write.go"
+lines = 136
+verdict = "clean"
+note = "Optional nonce/balance/code-hash fields preserve partial account updates without changing omitted fields."
+
+[file.60]
+path = "storage/state_db/sc/flatkv/vtype/pending_account_write_test.go"
+lines = 276
+verdict = "clean"
+note = "Checks merge of partial account fields, explicit zero values and preservation of previous serialized fields."
+
+[file.61]
+path = "storage/state_db/sc/flatkv/vtype/storage_data.go"
+lines = 143
+verdict = "clean"
+note = "StorageData has a 41-byte serialized envelope; logical 32-byte values are distinct from importer physical values."
+
+[file.62]
+path = "storage/state_db/sc/flatkv/vtype/storage_data_test.go"
+lines = 188
+verdict = "clean"
+note = "Checks exact storage envelope size, version, height and 32-byte value round trips plus malformed input."
+
+[file.63]
+path = "storage/state_db/sc/flatkv/vtype/vtype.go"
+lines = 15
+verdict = "clean"
+note = "Common serialization interface is satisfied by the physical record implementations used by routed reads."
+
+[file.64]
+path = "storage/state_db/sc/flatkv/wal_torn_write_test.go"
+lines = 142
+verdict = "clean"
+note = "Covers torn-tail recovery and replay idempotence with real FlatKV WAL files; no claim of power-loss fsync follows from these cases."
+
+[file.65]
+path = "storage/state_db/sc/memiavl/README.md"
+lines = 81
+verdict = "clean"
+note = "Snapshot layout matches little-endian metadata, 48-byte branches/leaves and ordered key/value records; async WAL durability is a stated trade-off."
+
+[file.66]
+path = "storage/state_db/sc/memiavl/anchor_delete_test.go"
+lines = 128
+verdict = "issues"
+note = "Historical anchor fixtures test retirement, not a live anchor service; repeated deletion assertion conflicts with the idempotent contract."
+
+[file.67]
+path = "storage/state_db/sc/memiavl/benchmark_test.go"
+lines = 191
+verdict = "clean"
+note = "Benchmarks use temporary stores and valid changeset/tree types; no runtime registration or endpoint contract."
+
+[file.68]
+path = "storage/state_db/sc/memiavl/config.go"
+lines = 55
+verdict = "clean"
+note = "Config fields and defaults reviewed; documented zero-unlimited rate is lost in opts.go, where the finding is recorded."
+
+[file.69]
+path = "storage/state_db/sc/memiavl/db.go"
+lines = 1370
+verdict = "issues"
+note = "Findings cover duplicate/rejected changeset logging, failed-open cleanup and interrupted current-link publication."
+
+[file.70]
+path = "storage/state_db/sc/memiavl/db_rewrite_test.go"
+lines = 88
+verdict = "clean"
+note = "Checks WAL/snapshot rewrite, replacement and retained state using real database files."
+
+[file.71]
+path = "storage/state_db/sc/memiavl/db_test.go"
+lines = 1235
+verdict = "clean"
+note = "Reviewed initialization, version metadata, replay, upgrades and snapshots; no test or build pass is inferred from static review."
+
+[file.72]
+path = "storage/state_db/sc/memiavl/export.go"
+lines = 149
+verdict = "clean"
+note = "Module headers and SnapshotNode stream match consumers; callback cancellation mismatch is recorded at tree.go."
+
+[file.73]
+path = "storage/state_db/sc/memiavl/filelock.go"
+lines = 28
+verdict = "clean"
+note = "File-lock adapter exposes lock/unlock ownership; OpenDB failure-path ownership is recorded at the caller."
+
+[file.74]
+path = "storage/state_db/sc/memiavl/import.go"
+lines = 321
+verdict = "issues"
+note = "Malformed post-order input can panic; worker failure/cancellation can strand producer backpressure."
+
+[file.75]
+path = "storage/state_db/sc/memiavl/iterator.go"
+lines = 121
+verdict = "clean"
+note = "Forward/reverse traversal, bounds and key/value access agree with Node and database iterator interfaces."
+
+[file.76]
+path = "storage/state_db/sc/memiavl/iterator_test.go"
+lines = 60
+verdict = "clean"
+note = "Checks range boundaries, order, empty trees and close/error behavior over actual tree nodes."
+
+[file.77]
+path = "storage/state_db/sc/memiavl/layout_little_endian.go"
+lines = 84
+verdict = "clean"
+note = "Architecture-specific layout constants match the persisted little-endian snapshot fields."
+
+[file.78]
+path = "storage/state_db/sc/memiavl/layout_native.go"
+lines = 120
+verdict = "clean"
+note = "Native layout offsets/sizes match snapshot serialization assumptions on supported architectures."
+
+[file.79]
+path = "storage/state_db/sc/memiavl/mem_node.go"
+lines = 263
+verdict = "clean"
+note = "Reviewed copy-on-write node mutation, balancing, key order and IAVL hashing against persisted-node layout."
+
+[file.80]
+path = "storage/state_db/sc/memiavl/merge_upgrade_test.go"
+lines = 115
+verdict = "clean"
+note = "Covers initial merge-store creation, ordering and preservation of existing hashes through commit and reopen."
+
+[file.81]
+path = "storage/state_db/sc/memiavl/metrics.go"
+lines = 104
+verdict = "clean"
+note = "Metric names, kinds and units agree with registry declarations and active call sites."
+
+[file.82]
+path = "storage/state_db/sc/memiavl/mmap.go"
+lines = 82
+verdict = "clean"
+note = "Reviewed mmap ownership, byte bounds, prefetch and close mechanics; deleted-tree ownership leak is at multitree.go."
+
+[file.83]
+path = "storage/state_db/sc/memiavl/multitree.go"
+lines = 621
+verdict = "issues"
+note = "Upgrade idempotence/atomicity, skipped replay versions and removed-tree resource ownership findings recorded."
+
+[file.84]
+path = "storage/state_db/sc/memiavl/node.go"
+lines = 193
+verdict = "clean"
+note = "Node shape, byte access, version and child traversal types agree across in-memory and persisted implementations."
+
+[file.85]
+path = "storage/state_db/sc/memiavl/opts.go"
+lines = 77
+verdict = "issues"
+note = "Explicit zero-unlimited snapshot rate is replaced with a default; see memiavl-zero-rate-config."
+
+[file.86]
+path = "storage/state_db/sc/memiavl/persisted_node.go"
+lines = 250
+verdict = "clean"
+note = "Post-order child/index derivation and zero-copy views agree with snapshot branch/leaf serialization."
+
+[file.87]
+path = "storage/state_db/sc/memiavl/print_hashes_test.go"
+lines = 13
+verdict = "clean"
+note = "Diagnostic fixtures compute real tree hashes using declared key/value and version shapes."
+
+[file.88]
+path = "storage/state_db/sc/memiavl/proof.go"
+lines = 211
+verdict = "issues"
+note = "Direct membership proofs do not handle an empty root; see memiavl-empty-membership-proof."
+
+[file.89]
+path = "storage/state_db/sc/memiavl/proof_test.go"
+lines = 62
+verdict = "clean"
+note = "Covers populated membership/non-membership proof verification and IAVL byte rules; empty membership gap is recorded at proof.go."
+
+[file.90]
+path = "storage/state_db/sc/memiavl/snapshot.go"
+lines = 1249
+verdict = "clean"
+note = "Reviewed magic/version/size checks, snapshot ownership and tree access against the file-format registry row."
+
+[file.91]
+path = "storage/state_db/sc/memiavl/snapshot_catchup_test.go"
+lines = 217
+verdict = "clean"
+note = "Reviewed snapshot scheduling/catchup and shared rate-limiter tests; low-level zero-rate coverage does not establish OpenDB configuration behavior."
+
+[file.92]
+path = "storage/state_db/sc/memiavl/snapshot_methods_test.go"
+lines = 217
+verdict = "clean"
+note = "Checks snapshot node access, keys/values, roots and empty snapshot behavior against persisted layout."
+
+[file.93]
+path = "storage/state_db/sc/memiavl/snapshot_pipeline_test.go"
+lines = 418
+verdict = "clean"
+note = "Covers background snapshot pipeline and cancellation using real tree writes and temporary files."
+
+[file.94]
+path = "storage/state_db/sc/memiavl/snapshot_refcount_test.go"
+lines = 172
+verdict = "clean"
+note = "Covers acquired snapshot references, copied readers and replacement release; removed-tree case is recorded at multitree.go."
+
+[file.95]
+path = "storage/state_db/sc/memiavl/snapshot_test.go"
+lines = 208
+verdict = "clean"
+note = "Covers snapshot persistence, empty trees, reload and file-layout behavior with real snapshot directories."
+
+[file.96]
+path = "storage/state_db/sc/memiavl/snapshot_write_test.go"
+lines = 184
+verdict = "clean"
+note = "Checks written metadata, node/leaf/KV data and subsequent snapshot reads with actual writers."
+
+[file.97]
+path = "storage/state_db/sc/memiavl/store.go"
+lines = 283
+verdict = "issues"
+note = "Unified read adapters hide unroutable names as absence; see memiavl-unroutable-read. Version/import boundary checks otherwise reviewed."
+
+[file.98]
+path = "storage/state_db/sc/memiavl/store_test.go"
+lines = 1347
+verdict = "clean"
+note = "Reviewed unified adapter, initial-version, copy, routing and snapshot-import tests; imported empty WAL metadata correctly maps H+1 initial version back to H."
+
+[file.99]
+path = "storage/state_db/sc/memiavl/tree.go"
+lines = 377
+verdict = "issues"
+note = "Post-order callback termination is ignored, causing full traversal on early exporter close."
+
+[file.100]
+path = "storage/state_db/sc/memiavl/tree_test.go"
+lines = 258
+verdict = "clean"
+note = "Covers mutation, balancing, versioning and hashing against real tree state."
+
+[file.101]
+path = "storage/state_db/sc/memiavl/unloaded_store_test.go"
+lines = 60
+verdict = "clean"
+note = "Pre-load state-sync reads deliberately return safe absence; proposed routing validation must retain that lifecycle behavior."
+
+[file.102]
+path = "storage/state_db/sc/memiavl/wal_replay_hash_test.go"
+lines = 126
+verdict = "clean"
+note = "Checks normal and sparse-store replay hash/version agreement; duplicate entries within the first ApplyChangeSets call are not covered."
+
+[finding.flatkv-rejected-write]
+file = "storage/state_db/sc/flatkv/store_apply.go"
+line = 73
+class = "runtime-risk"
+severity = "high"
+observed = "ApplyChangeSets copies newAccountValues into s.accountWrites before processStorageChanges validates storage values. A batch containing a valid nonce change and an invalid storage value returns an error after changing the account buffer, before updating perDBWorkingLtHash or pendingChangeSets. A later Commit can persist that rejected account mutation with an unchanged hash and no corresponding WAL pair."
+expected = "A rejected mutation must leave working rows, per-database hashes and the pending recovery log in the same state. Committed rows and the recovery log must describe the same network state."
+proposal = "In storage/state_db/sc/flatkv/store_apply.go stage and validate all account, storage, code and legacy results before publishing any buffers or hashes. Add a valid-account plus invalid-storage regression that commits subsequent valid work, reopens from WAL and compares rows and recomputed LtHash."
+owner_domain = 5
+interface = "5.go-storage-state-db-sc-flatkv-store"
+
+[finding.flatkv-latest-export]
+file = "storage/state_db/sc/flatkv/store_lifecycle.go"
+line = 158
+class = "interface-mismatch"
+severity = "high"
+observed = "Exporter(0) resolves the latest committed height H through LoadVersion(0,true), but constructs NewKVExporter(cs,0). exporter.go emits Version 0 for every physical leaf; importer.go AddNode silently drops any leaf whose Version differs from its target H. Exporting latest and restoring at its actual height therefore loses every row while Close can still finalize an empty store."
+expected = "The SnapshotNode version transported from the resolved read-only store must agree with the target snapshot height accepted by the importer, including the supported zero-means-latest load path."
+proposal = "In storage/state_db/sc/flatkv/store_lifecycle.go pass the loaded clone Version() to NewKVExporter. Extend import_export_test.go with Exporter(0), the real composite/state-sync transport, Importer(H), close and reopen, asserting nonempty logical rows and identical per-DB and global hashes."
+owner_domain = 5
+interface = "5.go-storage-state-db-sc-types-snapshot-node"
+
+[finding.flatkv-import-validation]
+file = "storage/state_db/sc/flatkv/importer.go"
+line = 244
+class = "runtime-risk"
+severity = "medium"
+observed = "KVImporter.AddNode silently ignores a wrong version or non-leaf height, and dispatch only checks routePhysicalKey before workers write raw values. For a valid storage physical key it accepts a 32-byte logical value although DeserializeStorageData requires the 41-byte serialized envelope. Close can publish a snapshot that logical readers cannot decode."
+expected = "A FlatKV restore must accept the physical envelopes emitted by KVExporter and ImportTranslator, and must report a malformed snapshot instead of successfully finalizing missing or unreadable state."
+proposal = "In storage/state_db/sc/flatkv/importer.go validate node presence, target version, leaf shape, canonical physical-key lengths and the routed vtype envelope before enqueueing; record the first validation error and prevent finalization. Cover actual exporter output and malformed envelopes through close and reopen."
+owner_domain = 5
+interface = "5.go-storage-state-db-sc-flatkv-kv-importer"
+
+[finding.flatkv-import-duplicate-hash]
+file = "storage/state_db/sc/flatkv/importer.go"
+line = 83
+class = "runtime-risk"
+severity = "medium"
+observed = "Each imported pair is appended to ltPairs with no LastValue. If a physical key appears twice, Pebble retains its final value while ComputeLtHash adds both values, even when the duplicate crosses a flush boundary. The persisted integrity metadata then disagrees with a scan of the restored database."
+expected = "Successful import must produce the LtHash of the physical rows that actually remain in the database. Repeated input must either be explicitly refused or have consistent replacement semantics."
+proposal = "In storage/state_db/sc/flatkv/importer.go enforce unique physical keys across the complete import or compute replacement deltas against previously imported values. Add same-key repeats within and across importBatchSize and verify the reopened store using the real hash scanner."
+owner_domain = 5
+interface = "5.go-storage-state-db-sc-flatkv-lthash-kv-pair-with-last-value"
+
+[finding.flatkv-import-batch-release]
+file = "storage/state_db/sc/flatkv/importer.go"
+line = 125
+class = "runtime-risk"
+severity = "medium"
+observed = "dbWorker.flush commits w.batch and then overwrites it with w.db.NewBatch without closing the committed batch. The worker defer closes only the final batch. pebbledb/batch.go explicitly requires Close after a successful Commit to release batch resources, so large state-sync imports abandon one batch per flush."
+expected = "The Batch lifecycle requires every allocated batch to be closed after use, including successful intermediate import flushes and failed commits."
+proposal = "In storage/state_db/sc/flatkv/importer.go close each completed batch before replacing it, retaining cleanup ownership on every error path. Validate bounded resource use with a real Pebble import spanning many batches and successful reopened reads."
+owner_domain = 5
+interface = "5.go-storage-db-engine-types-batch"
+
+[finding.flatkv-import-fixture-shape]
+file = "storage/state_db/sc/flatkv/importer_test.go"
+line = 45
+class = "test-gap"
+severity = "medium"
+observed = "TestKVImporter_CloseIdempotent_HappyPath and other pipeline fixtures send padLeft32 as a storage physical value and assert Close or counters only. The real exporter emits serialized StorageData with version and block-height fields, so these success fixtures accept an unreadable third shape and do not prove restoration."
+expected = "Importer success coverage must use the actual producer envelope and assert that the restored state is readable and has the same integrity hash after reopening."
+proposal = "In storage/state_db/sc/flatkv/importer_test.go derive success inputs from KVExporter or ImportTranslator, preserve lifecycle and backpressure assertions, and also reopen and read logical storage plus recompute hashes. Keep malformed raw values as explicit rejection cases."
+owner_domain = 5
+interface = "5.go-storage-state-db-sc-types-snapshot-node"
+
+[finding.flatkv-rejected-write-test]
+file = "storage/state_db/sc/flatkv/store_write_test.go"
+line = 1651
+class = "test-gap"
+severity = "medium"
+observed = "TestApplyChangeSetsErrorRecoveryPartialState uses an invalid nonce, which fails before maps.Copy publishes account writes. It then only checks acceptance of another ApplyChangeSets. It never exercises the later storage-validation failure, commits, reopens or checks that rejected mutations and hashes are absent."
+expected = "Error-recovery coverage must reach a failure after an earlier lane has been prepared and establish atomic rejection across pending buffers, persisted state, WAL replay and LtHash."
+proposal = "Extend storage/state_db/sc/flatkv/store_write_test.go with a valid account mutation followed by an invalid storage value, assert all state and hashes remain unchanged, then commit unrelated valid work and compare logical reads and recomputed hashes after restart."
+owner_domain = 5
+interface = "5.go-storage-state-db-sc-flatkv-store"
+
+[finding.memiavl-upgrade-idempotence]
+file = "storage/state_db/sc/memiavl/multitree.go"
+line = 235
+class = "interface-mismatch"
+severity = "high"
+observed = "MultiTree.ApplyUpgrades clears treesByName before validation, appends an already-present add until it reports a name conflict, and rejects a repeated delete as unknown. A later error leaves earlier deletions or renames applied and the lookup map absent or partially rebuilt. DB.ApplyUpgrades also appends the plan to pendingLogEntry before it knows the result."
+expected = "The unified Committer.ApplyUpgrades contract explicitly skips trees already in the desired state. Merge and anchor-retirement upgrades must preserve unrelated tree hashes, leave usable name lookups and survive repeated delivery and restart."
+proposal = "In storage/state_db/sc/memiavl/multitree.go validate and stage the whole plan, skip already-satisfied adds, renames and deletes, and publish an ordered map atomically. In db.go log only accepted plans. Add repeated merge-add and anchor-delete tests through commit, WAL replay and snapshot reopen, including a mid-plan error."
+owner_domain = 5
+interface = "5.go-storage-state-db-sc-types-committer"
+
+[finding.memiavl-retirement-test-contract]
+file = "storage/state_db/sc/memiavl/anchor_delete_test.go"
+line = 123
+class = "test-gap"
+severity = "medium"
+observed = "The retirement replay test explicitly requires a second deletion of layerxanchor to return unknown tree name. That assertion contradicts the declared idempotent ApplyUpgrades contract and ends without proving the name map and remaining stores are still usable after the rejected call."
+expected = "Re-delivery of an already-applied retirement upgrade must be harmless, with the retained merge stores, hashes, lookup map and recovery log unchanged."
+proposal = "In storage/state_db/sc/memiavl/anchor_delete_test.go assert successful repeated retirement on the real CommitStore path, then commit and reopen again while checking every retained store and hash. Repair ApplyUpgrades to satisfy the contract before changing this assertion."
+owner_domain = 5
+interface = "5.go-storage-state-db-sc-types-committer"
+
+[finding.memiavl-replay-gap]
+file = "storage/state_db/sc/memiavl/multitree.go"
+line = 412
+class = "restart-recovery"
+severity = "high"
+observed = "Catchup skips old entries but accepts any larger entry.Version without requiring the next version. It sends one asynchronous changeset per retained tree, whose worker increments that tree once, then assigns the arbitrary entry.Version to lastCommitInfo. A WAL jump from H to H+2 can expose global height H+2 with tree height H+1 and missing mutations; OpenDB only logs index drift on normal startup."
+expected = "Recovery must refuse a missing committed height rather than label an incomplete state as a later block. Each retained tree and global CommitInfo must advance consistently from the initial-version boundary."
+proposal = "In storage/state_db/sc/memiavl/multitree.go require utils.NextVersion of the last applied version for each new WAL entry before applying upgrades or mutations; retain safe duplicate-version skipping. Add real WAL gap and initial-height cases that fail closed without publishing a partial catchup state."
+owner_domain = 5
+interface = "5.fmt-storage-changelog-wal"
+
+[finding.memiavl-duplicate-store-replay]
+file = "storage/state_db/sc/memiavl/db.go"
+line = 460
+class = "interface-mismatch"
+severity = "high"
+observed = "mergePendingChangesets assigns the complete incoming slice unchanged when the pending entry is empty. Two NamedChangeSets for the same store in that first call are applied live and committed with one SaveVersion, but are written as two WAL changesets. Catchup calls ApplyChangeSetAsync twice and the tree worker SaveVersion twice, changing versions and roots after restart."
+expected = "The producer must emit at most one merged changeset per store per committed height, matching the replay consumer that saves a version once for each named changeset."
+proposal = "In storage/state_db/sc/memiavl/db.go coalesce duplicate names even on the empty-pending fast path, preserving ordered mutations. Add a real ApplyChangeSets call containing two entries for one store, commit once, reopen from WAL and compare tree versions, roots and values with the pre-close state."
+owner_domain = 5
+interface = "5.go-storage-proto-named-change-set"
+
+[finding.memiavl-rejected-changeset-wal]
+file = "storage/state_db/sc/memiavl/db.go"
+line = 427
+class = "restart-recovery"
+severity = "high"
+observed = "DB.ApplyChangeSets merges inputs into pendingLogEntry before MultiTree validates their store names. An unknown store returns an error but remains queued; earlier valid stores may already be mutated. A following Commit can persist that rejected name in the changelog, and Catchup then refuses startup with unknown tree name during WAL replay."
+expected = "Rejected changesets must not poison the persistence log or partially change accepted state. A later successful commit must remain replayable from its snapshot and WAL."
+proposal = "In storage/state_db/sc/memiavl/db.go and multitree.go prevalidate every named changeset and stage the batch before changing trees or pendingLogEntry. Add a known-store plus unknown-store batch, verify unchanged state on error, commit valid work and successfully reopen from the actual WAL."
+owner_domain = 5
+interface = "5.go-storage-state-db-sc-types-committer"
+
+[finding.memiavl-open-error-cleanup]
+file = "storage/state_db/sc/memiavl/db.go"
+line = 180
+class = "runtime-risk"
+severity = "medium"
+observed = "After acquiring fileLock, OpenDB returns directly on removeTmpDirs, snapshot loading, WAL opening, catchup or drift-refusal errors. Once acquired, the file lock, loaded mmap trees and opened WAL have no deferred rollback cleanup on those paths, so a failed open can retain resources and prevent a retry in the same process."
+expected = "An unsuccessful database open must release every acquired lock, mapping, WAL handle and background worker; ownership transfers to DB only on successful return."
+proposal = "In storage/state_db/sc/memiavl/db.go add failure cleanup for staged resources and disarm it only after a complete DB is returned. Cover failed target lookup and rejected drifted rollback with immediate retry-open against real directories and WAL files."
+owner_domain = 5
+interface = "5.go-storage-state-db-sc-memiavl-open-db"
+
+[finding.memiavl-stale-current-link]
+file = "storage/state_db/sc/memiavl/db.go"
+line = 1278
+class = "restart-recovery"
+severity = "medium"
+observed = "updateCurrentSymlink creates current-tmp before renaming it. A crash between these calls leaves the symlink, while removeTmpDirs only removes directories ending in -tmp and ignores symlinks. The next snapshot publication or import then fails with an existing current-tmp rather than recovering the interrupted publication."
+expected = "Snapshot publication must recover a stale temporary link after interruption while keeping the previous current snapshot usable until the atomic replacement succeeds."
+proposal = "In storage/state_db/sc/memiavl/db.go safely remove or replace the known temporary symlink under the database lock before publishing a new one, and clean it on failure. Add an interrupted-publication fixture with a real stale current-tmp, restart, publish and reopen."
+owner_domain = 5
+interface = "5.key-storage-state-db-sc-memiavl-snapshot-prefix"
+
+[finding.memiavl-import-stack-validation]
+file = "storage/state_db/sc/memiavl/import.go"
+line = 237
+class = "security"
+severity = "medium"
+observed = "importer.Add indexes leavesStack and nodeStack at len-2 for any non-leaf SnapshotNode before validating stack depth or negative height. A branch as the first received node causes an index panic in the import goroutine instead of a returned snapshot error; nil nodes also reach an unchecked dereference."
+expected = "Snapshot import must reject malformed or truncated post-order streams with a controlled error before indexing or publishing state, so peer-provided restore data cannot crash the node."
+proposal = "In storage/state_db/sc/memiavl/import.go validate node presence, stack depth, child heights, ordering and version bounds before branch construction. Add malformed first-branch, nil-node and truncated-tree cases through MultiTreeImporter and assert an error with no published snapshot."
+owner_domain = 5
+interface = "5.go-storage-state-db-sc-types-snapshot-node"
+
+[finding.memiavl-import-error-backpressure]
+file = "storage/state_db/sc/memiavl/import.go"
+line = 124
+class = "runtime-risk"
+severity = "medium"
+observed = "NewTreeImporter sends doImport errors over an unbuffered quitChan which Close alone reads. Add always sends to nodesChan. If doImport fails early, subsequent Add calls fill the node buffer and block forever before the caller can reach Close; cancellation also does not wake an importer waiting on an idle input channel."
+expected = "A failed or cancelled state-sync import must release producer backpressure and expose its first error without requiring the producer to finish sending the rest of the snapshot."
+proposal = "In storage/state_db/sc/memiavl/import.go publish worker completion independently of Close, select completion and context cancellation in Add and the receive loop, and retain the first error for Close. Cover an early real filesystem/version error followed by more than nodeChanSize nodes and idle-input cancellation."
+owner_domain = 5
+interface = "5.go-storage-state-db-sc-types-importer"
+
+[finding.memiavl-zero-rate-config]
+file = "storage/state_db/sc/memiavl/opts.go"
+line = 70
+class = "config-drift"
+severity = "medium"
+observed = "Config documents SnapshotWriteRateMBps 0 as unlimited, and the low-level rate limiter implements that meaning, but Options.FillDefaults replaces all values <=0 with DefaultSnapshotWriteRateMBps. An operator selecting zero through the normal OpenDB options therefore receives a 100 MB/s limit."
+expected = "The public snapshot-write-rate-mbps setting must preserve the documented explicit zero value all the way through OpenDB and the shared snapshot writer."
+proposal = "In storage/state_db/sc/memiavl/opts.go distinguish an unspecified rate from explicit zero or choose defaults when constructing Config, preserving zero through FillDefaults. Add a configuration-to-OpenDB snapshot test for zero, default and positive rates."
+owner_domain = 5
+interface = "5.go-storage-state-db-sc-memiavl-options"
+
+[finding.flatkv-read-lifecycle-prose]
+file = "storage/state_db/sc/flatkv/api.go"
+line = 23
+class = "doc-drift"
+severity = "medium"
+observed = "Store says Get, Has and Iterator read committed state only, but store_read.go consults pending write maps and store_iteration.go snapshots pending writes over the Pebble view. Existing read and iteration tests explicitly require that visibility. RawGlobalIterator alone documents and implements a committed-only view."
+expected = "Callers must have one clear read-visibility contract: ordinary working-state reads include staged mutations while export/raw committed scans and isolated historical handles expose their documented committed snapshots."
+proposal = "In storage/state_db/sc/flatkv/api.go correct the lifecycle prose and document the working versus committed read surfaces beside their methods. Keep the pending-read behavior and cross-reference the existing iterator and read coverage so migration callers choose the intended view."
+owner_domain = 5
+interface = "5.go-storage-state-db-sc-flatkv-store"
+
+[finding.memiavl-delete-tree-release]
+file = "storage/state_db/sc/memiavl/multitree.go"
+line = 248
+class = "runtime-risk"
+severity = "medium"
+observed = "The delete upgrade swaps a NamedTree out of t.trees and truncates the slice without closing the removed Tree. A snapshot-backed Tree owns a Snapshot reference released only by Tree.Close; an async replay writer attached to a removed tree is also omitted from the final Catchup wait loop."
+expected = "Retiring layerxanchor must release the removed tree resources and finish its pending writes while preserving the independent snapshot references held by retained copies."
+proposal = "In storage/state_db/sc/memiavl/multitree.go finish pending writes and release the deleted tree ownership after an accepted atomic upgrade, without invalidating copied readers. Extend snapshot_refcount_test.go and anchor_delete_test.go with a snapshot-backed deletion and final mapping/goroutine release checks."
+owner_domain = 5
+interface = "5.go-storage-state-db-sc-memiavl-tree"
+
+[finding.memiavl-export-cancellation]
+file = "storage/state_db/sc/memiavl/tree.go"
+line = 267
+class = "runtime-risk"
+severity = "medium"
+observed = "ScanPostOrder discards the callback boolean even though its comment promises early termination. Tree.Export forwards the exporter callback, which returns true on cancellation, but traversal continues across the complete in-memory tree. Exporter.Close cancels and drains until that full scan ends, holding the tree read lock throughout."
+expected = "Closing an export early must promptly stop traversal and release the tree lock; the scanner and exporter must agree on the callback stop convention."
+proposal = "In storage/state_db/sc/memiavl/tree.go and export.go define one callback stop convention and honor it in ScanPostOrder, aligning the snapshot exporter too. Add early-close coverage on a real large mutable tree that proves bounded callback count and prompt subsequent writes."
+owner_domain = 5
+interface = "5.go-storage-state-db-sc-types-exporter"
+
+[finding.memiavl-empty-membership-proof]
+file = "storage/state_db/sc/memiavl/proof.go"
+line = 99
+class = "runtime-risk"
+severity = "medium"
+observed = "GetMembershipProof on a new or emptied Tree calls createExistenceProof with a nil root, and pathToLeaf immediately calls node.Height. The exported method promises an error when a key does not exist but instead panics on the empty-tree case. The general GetProof path avoids this by choosing non-membership, leaving direct membership callers exposed."
+expected = "Membership proof requests for absent keys, including an empty tree, must return a normal error without dereferencing a missing root."
+proposal = "In storage/state_db/sc/memiavl/proof.go reject a nil root before traversal and return on traversal errors before building a proof. Add direct GetMembershipProof cases for a new tree and one emptied by removals, retaining populated-tree proof verification."
+owner_domain = 5
+interface = "5.go-storage-state-db-sc-memiavl-tree"
+
+[finding.memiavl-unroutable-read]
+file = "storage/state_db/sc/memiavl/store.go"
+line = 230
+class = "wiring-gap"
+severity = "medium"
+observed = "CommitStore.Get, GetProof and Iterator accept any nonempty store name and return absence or a nil result with nil error when TreeByName cannot find it. The unified Committer contract requires errors for unroutable names. A misspelled or missing loaded store is indistinguishable from legitimate empty state at this boundary."
+expected = "The storage adapter must distinguish an unloaded state-sync handle and a missing key from a non-routable or misregistered store, preserving the declared routing errors."
+proposal = "In storage/state_db/sc/memiavl/store.go validate routed store names on the unified read methods and use IsLoaded to preserve the intentional pre-load behavior. Add loaded-store typo cases for Get, Has, Iterator and GetProof alongside unloaded_store_test.go coverage."
+owner_domain = 5
+interface = "5.go-storage-state-db-sc-types-committer"
+
+[finding.flatkv-wal-sync-prose]
+file = "storage/state_db/sc/flatkv/store_write.go"
+line = 58
+class = "doc-drift"
+severity = "medium"
+observed = "Commit describes the WAL as always sync and refers to its fsync, but store.go opens wal.Config without FsyncEnabled and wal.NewWAL sets NoSync to its negation. flatkv/config/config.go correctly says WAL always uses NoSync and Fsync controls Pebble only. The two durability descriptions disagree, so synchronous return is easily mistaken for power-loss durability."
+expected = "Commit and operator-facing durability descriptions must state the actual WAL and Pebble synchronization policy and distinguish process-crash replay from machine/power-loss guarantees."
+proposal = "In storage/state_db/sc/flatkv/store_write.go and api.go reconcile the commit guarantee with config/config.go. If acknowledged power-loss durability is required, wire and document an explicit WAL fsync policy in store.go and prove recovery with the real WAL; do not claim fsync from synchronous queueing alone."
+owner_domain = 5
+interface = "5.go-storage-wal-config"
+
+[finding.runbook-retired-upgrade]
+file = "docs/runbooks/paxeer-x-fork.md"
+line = 4
+class = "doc-drift"
+severity = "medium"
+observed = "The opening procedure names v6.6, adds layerxcustody and layerxanchor, and activates custody/anchor precompiles; line 138 repeats the plan and line 318 still probes 0x1014. Its later section instead describes v7.0 and v7.0-anchor-store-delete, leaving two conflicting activation and retirement procedures on one live runbook."
+expected = "The operator procedure must describe the merged paxd upgrade and subsequent anchor-store retirement with one consistent plan name, surviving stores and active precompile checks."
+proposal = "Rewrite docs/runbooks/paxeer-x-fork.md introduction, variables, proposal text and post-upgrade probes around the v7.0 merge and v7.0-anchor-store-delete sequence. Preserve hash, restart and state-sync checks for retained stores and mark any v6.6 procedure explicitly historical."
+owner_domain = 16
+
+[finding.quickstart-retired-network]
+file = "docs/site/docs/overview/quickstart.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "The quickstart advertises public POST /rpc, /rpc/ws at lines 167-168 and 214-215, router funding, and live guarantor/anchor settlement variables targeting 0x1014 at lines 131-132. Later wallet and payment commands repeat the retired RPC path and separate receipt/checkpoint architecture."
+expected = "The finished network has one paxd BFT chain, chain ID 125, node JSON-RPC at the published root URLs and finality at block commit. Hosted gateway px_ methods have a separate declared contract and there is no live router or anchor finality service."
+proposal = "Rewrite docs/site/docs/overview/quickstart.md endpoint, payment, wallet, funding and finality sections for root node RPC and commit finality, linking hosted gateway methods to services/platform/hosted/gateway/openrpc.json. Label private utility examples and remove live 0x1014 guarantor/anchor setup."
+owner_domain = 16
+
+[finding.getting-started-retired-router]
+file = "docs/site/docs/overview/getting-started.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The checklist introduces a router, sets RPC_URL to the public /rpc path on line 10, and presents the old hosted lx_ receipt and payment ladder as the public onboarding flow. These instructions address the pre-merge service layout rather than the node and hosted gateway surfaces in the brief."
+expected = "Onboarding must identify root-path node RPC on chain 125, use the hosted gateway px_ contract where hosted functions are required and treat a committed block as final."
+proposal = "In docs/site/docs/overview/getting-started.md replace router origin and endpoint examples, then regenerate the payment and receipt walkthrough from the merged signer/node path and declared hosted gateway contract, including committed receipt verification and restart-safe retry guidance."
+owner_domain = 16
+
+[finding.payments-retired-finality]
+file = "docs/site/docs/overview/payments.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The payment guide names a published router origin and exports https://api-mainnet-beta.paxeer.network/rpc on line 21. The receipt policy around line 31 and checkpoint watches later describe the old ladder and settlement context as current payment finality."
+expected = "A payment is submitted to the merged chain through its real public surface and is final at BFT block commit; separate checkpoint or guarantor settlement must not be presented as the network finality condition."
+proposal = "Rewrite docs/site/docs/overview/payments.md against the merged payment/signing flow, root node RPC and the declared hosted px_ contract. Retain idempotent recovery and unverified-watch cautions, but use committed transaction evidence for the finality decision and remove router/checkpoint prerequisites."
+owner_domain = 16
+
+[finding.account-wrong-chain-example]
+file = "docs/site/docs/concepts/one-account.md"
+line = 87
+class = "doc-drift"
+severity = "medium"
+observed = "The EIP-712 derivation example embeds chainId 713714, while lines 98-100 say that this field is the chain the wallet is connected to and nothing else varies. It is not labeled a test vector or other network, so a mainnet-beta integrator may derive the wrong account key."
+expected = "Examples for the finished mainnet-beta network must use chain ID 125, and historical derivation vectors must clearly identify their domain because changing the domain changes the derived key."
+proposal = "In docs/site/docs/concepts/one-account.md use 125 for the mainnet-beta example, or label the 713714 payload explicitly as a historical vector. Coordinate with wallet derivation owners before changing any existing derivation domain; document recovery of existing keys rather than silently rederiving them."
+owner_domain = 12
+
+[finding.receipts-retired-finality]
+file = "docs/site/docs/concepts/receipts.md"
+line = 23
+class = "doc-drift"
+severity = "medium"
+observed = "The receipt page says the retrievable receipt is augmented after a covering checkpoint is accepted on Paxeer and describes guarantor certificates and settlement references. Its later finality ladder presents executed, batched and finalised states of the former separate network as the live receipt model."
+expected = "The merged chain receipt becomes final when its BFT block is committed; any hosted or application evidence must be clearly distinguished from the network finality condition."
+proposal = "Rewrite docs/site/docs/concepts/receipts.md around submission, available execution evidence and committed-block proof on chain 125. Remove the live guarantor/checkpoint settlement ladder and clearly archive any legacy receipt formats still needed for historical verification."
+owner_domain = 16
+
+[finding.settlement-evidence-retired-rollout]
+file = "docs/site/docs/operators/settlement-evidence.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The operator page instructs redeployment of checkpoint publication contracts, retains guarantor certificate checks, registers inclusion checkpoints and runs a guarantor publication-input workflow. It presents this retired settlement architecture as current rollout instructions without a historical boundary."
+expected = "Operators of the merged network must rely on committed paxd blocks and the supported proof path, not deploy a separate guarantor/checkpoint finality system or revive retired anchor components."
+proposal = "In docs/site/docs/operators/settlement-evidence.md archive the former publication protocol with explicit historical scope and replace the live procedure with merged-chain commit evidence and supported application proof operations. Preserve legacy byte layouts only for labeled historical consumers."
+owner_domain = 16
+
+[finding.beta-control-public-scope]
+file = "docs/site/docs/operators/beta-control.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction correctly calls hosted control private-network only but then funds public accounts through a router and calls the service the public status and journey admission surface for a hosted LayerX Network at lines 8-9. The page mixes private utility operations with the retired public network boundary."
+expected = "Private or disposable hosted control may remain a utility, but public mainnet-beta has one network and no router or separate LayerX node/service boundary."
+proposal = "In docs/site/docs/operators/beta-control.md make the private utility scope consistent throughout the introduction and dependency examples; replace public funding/router guidance with the supported merged-network path and link public node status and hosted gateway contracts separately."
+owner_domain = 8
+
+[finding.faucet-public-scope]
+file = "docs/site/docs/platform/faucet.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The page starts private-network only and no public faucet, but directs public funding to a router, describes this service as real-value mainnet beta at lines 13-15 and publishes lx_requestFunds through the public gateway at lines 21-28. These incompatible scopes can send integrators to retired funding endpoints."
+expected = "Disposable/private faucet operations must be labeled consistently, public funding must not depend on a router, and any supported hosted gateway method must match its px_ OpenRPC contract."
+proposal = "In docs/site/docs/platform/faucet.md separate private test allocation instructions from supported public funding, remove router and retired lx_ public examples, and source any hosted grant method from services/platform/hosted/gateway/openrpc.json without implying a public mainnet faucet."
+owner_domain = 8
+
+[finding.storage-contract-retired-scope]
+file = "spec/layerx-merge/contracts/sequencer.md"
+line = 1744
+class = "doc-drift"
+severity = "medium"
+observed = "The contract page that owns the storage and metrics rows still describes node config keys as covering cmd/layerxd and cmd/layerx-guarantor. These are retired running components under the finished-network brief, but the scope paragraph gives no historical qualification. Its interface tables are pinned to an older revision."
+expected = "Current storage/config contract navigation must distinguish surviving paxd interfaces from historical retired daemon and guarantor entries, so an operator does not treat the latter as required deployment services."
+proposal = "Amend spec/layerx-merge/contracts/sequencer.md node-config scope and current-network context to identify paxd and label retired daemon/guarantor material historical, retaining versioned interface history and the useful storage and metric row definitions."
+owner_domain = 5
+
+[doc.1]
+path = "docs/runbooks/paxeer-x-fork.md"
+status = "stale"
+notes = "Read in full. Lines 4-8, 28, 138 and 318 conflict with the later v7.0 merge/anchor-delete procedure; see runbook-retired-upgrade."
+
+[doc.2]
+path = "docs/site/README.md"
+status = "accurate"
+notes = "Read in full. Site build/layout guidance does not introduce a conflicting network endpoint, state format or runtime service."
+
+[doc.3]
+path = "docs/site/docs/overview/quickstart.md"
+status = "misleading"
+notes = "Read in full. Public /rpc and /rpc/ws, router funding and 0x1014 guarantor/checkpoint setup contradict the merged-network brief; see quickstart-retired-network."
+
+[doc.4]
+path = "docs/site/docs/overview/getting-started.md"
+status = "stale"
+notes = "Read in full. Opening router and /rpc setup and later payment/receipt ladder need the merged root-RPC and hosted gateway contracts."
+
+[doc.5]
+path = "docs/site/docs/overview/payments.md"
+status = "stale"
+notes = "Read in full. Router endpoint and checkpoint finality prerequisites require replacement; retain idempotent retry and unverified-watch distinctions."
+
+[doc.6]
+path = "docs/site/docs/concepts/one-account.md"
+status = "misleading"
+notes = "Read in full. Line 87 embeds chainId 713714 without a historical-vector label while line 98 binds it to the connected chain; changing derivation domains needs explicit key compatibility guidance."
+
+[doc.7]
+path = "docs/site/docs/concepts/receipts.md"
+status = "stale"
+notes = "Read in full. Covering checkpoints, guarantor certificates and settlement finality describe the former separate network; see receipts-retired-finality."
+
+[doc.8]
+path = "docs/site/docs/operators/settlement-evidence.md"
+status = "stale"
+notes = "Read in full. Publication/redeployment and guarantor/checkpoint instructions need historical scope and a current committed-block evidence procedure."
+
+[doc.9]
+path = "docs/site/docs/operators/hosted-internal.md"
+status = "accurate"
+notes = "Read in full. Internal event/KMS and hosted service material distinguishes limitations and missing wiring; no contradictory storage encoding or public node endpoint claim identified in this slice."
+
+[doc.10]
+path = "docs/site/docs/operators/porting.md"
+status = "accurate"
+notes = "Read in full. Program ABI, capability/account isolation and host/guest compatibility guidance do not change this slice storage interfaces or require a separate public network."
+
+[doc.11]
+path = "docs/site/docs/operators/beta-control.md"
+status = "misleading"
+notes = "Read in full. Private-only opening conflicts with public LayerX control/router language on lines 5 and 8-9; private utility details need consistent scope."
+
+[doc.12]
+path = "docs/site/docs/platform/faucet.md"
+status = "misleading"
+notes = "Read in full. Private-only scope conflicts with real-value mainnet and public lx_requestFunds examples; public funding still references a router."
+
+[doc.13]
+path = "storage/state_db/sc/memiavl/README.md"
+status = "accurate"
+notes = "Read in full. Four-file little-endian snapshot structure, branch/leaf widths, mmap and WAL design match this implementation; asynchronous commit is explicitly a trade-off."
+
+[doc.14]
+path = "spec/layerx-merge/contracts/sequencer.md"
+status = "stale"
+notes = "Reviewed package-linked storage/metrics rows, their context and current-network scope. Storage type/key/metric signatures are useful pinned history; node-config scope at line 1744 still names retired daemon/guarantor components."
+
+[doc.15]
+path = "spec/layerx-merge/contracts/consensus-fork.md"
+status = "accurate"
+notes = "Reviewed package-linked go-api/proto rows, notes and context. Hashable/export/query aliases match their frozen signatures; notes explicitly allow external-only users and do not require runtime registration."
