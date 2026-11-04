@@ -153,9 +153,11 @@ func TestRPCNotification(t *testing.T) {
 	require.Equal(t, len(blob), 0, "a notification SHOULD NOT be responded to by the server")
 }
 
-func TestRPCNotificationInBatch(t *testing.T) {
-	mux := testMux()
-	tests := []struct {
+func rpcNotificationBatchCases() []struct {
+	payload     string
+	expectCount int
+} {
+	return []struct {
 		payload     string
 		expectCount int
 	}{
@@ -176,7 +178,11 @@ func TestRPCNotificationInBatch(t *testing.T) {
 			2,
 		},
 	}
-	for i, tt := range tests {
+}
+
+func TestRPCNotificationInBatch(t *testing.T) {
+	mux := testMux()
+	for i, tt := range rpcNotificationBatchCases() {
 		req, _ := http.NewRequest("POST", "http://localhost/", strings.NewReader(tt.payload))
 		rec := httptest.NewRecorder()
 		mux.ServeHTTP(rec, req)
@@ -191,31 +197,16 @@ func TestRPCNotificationInBatch(t *testing.T) {
 		res.Body.Close()
 
 		var responses []rpctypes.RPCResponse
-		// try to unmarshal an array first
-		err = json.Unmarshal(blob, &responses)
-		if err != nil {
-			// if we were actually expecting an array, but got an error
-			if tt.expectCount > 1 {
-				t.Errorf("#%d: expected an array, couldn't unmarshal it\nblob: %s", i, blob)
-				continue
-			} else {
-				// we were expecting an error here, so let's unmarshal a single response
-				var response rpctypes.RPCResponse
-				err = json.Unmarshal(blob, &response)
-				if err != nil {
-					t.Errorf("#%d: expected successful parsing of an RPCResponse\nblob: %s", i, blob)
-					continue
-				}
-				// have a single-element result
-				responses = []rpctypes.RPCResponse{response}
-			}
-		}
+		require.NoError(t, json.Unmarshal(blob, &responses), "#%d: every batch response must be an array\nblob: %s", i, blob)
 		if tt.expectCount != len(responses) {
 			t.Errorf("#%d: expected %d response(s), but got %d\nblob: %s", i, tt.expectCount, len(responses), blob)
 			continue
 		}
 		for _, response := range responses {
 			assert.NotEqual(t, response, new(rpctypes.RPCResponse), "#%d: not expecting a blank RPCResponse", i)
+			assert.Equal(t, `"abc"`, response.ID(), "#%d: response ID", i)
+			assert.Nil(t, response.Error, "#%d: unexpected RPC error", i)
+			assert.JSONEq(t, `"foo"`, string(response.Result), "#%d: result", i)
 		}
 	}
 }
