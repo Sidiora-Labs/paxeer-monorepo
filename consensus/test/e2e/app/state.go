@@ -2,6 +2,7 @@
 package app
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/json"
@@ -168,19 +169,42 @@ func (s *State) Commit() (uint64, error) {
 
 // Checks if rollback will succeed.
 func (s *State) CanRollback() bool {
+	s.RLock()
+	defer s.RUnlock()
 	_, err := os.Stat(s.previousFile)
 	return err == nil
 }
 
 func (s *State) Rollback() error {
+	s.Lock()
+	defer s.Unlock()
 	bz, err := os.ReadFile(s.previousFile)
 	if err != nil {
 		return fmt.Errorf("failed to read state from %q: %w", s.previousFile, err)
 	}
-	err = json.Unmarshal(bz, s)
+	var previous State
+	err = json.Unmarshal(bz, &previous)
 	if err != nil {
 		return fmt.Errorf("invalid state data in %q: %w", s.previousFile, err)
 	}
+	hash := hashItems(previous.Values, previous.Height)
+	if !bytes.Equal(previous.Hash, hash) {
+		return fmt.Errorf("invalid state hash in %q", s.previousFile)
+	}
+	if previous.Values == nil {
+		previous.Values = make(map[string]string)
+	}
+	previous.Hash = hash
+	bz, err = json.Marshal(&previous)
+	if err != nil {
+		return err
+	}
+	// Install without rotating current into previous: retries must keep selecting
+	// the same rollback target, including after an interrupted installation.
+	if err := replaceFile(s.currentFile, bz); err != nil {
+		return fmt.Errorf("failed to install rollback state: %w", err)
+	}
+	s.Height, s.Values, s.Hash = previous.Height, previous.Values, previous.Hash
 	return nil
 }
 

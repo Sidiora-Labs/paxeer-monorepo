@@ -67,11 +67,15 @@ impl IdentityProjector {
     }
 
     pub fn checked_step_up_challenge(value: &StepUpChallenge) -> Result<Value, ApiFailure> {
+        crate::auth::validate_step_up_challenge_id(&value.challenge_id)
+            .map_err(|_| ApiFailure::upstream_degraded())?;
         super::identity_dispatch::step_up_challenge(value)
             .map_err(|_| ApiFailure::upstream_degraded())
     }
 
     pub fn checked_step_up(value: &StepUpEvidence) -> Result<Value, ApiFailure> {
+        crate::auth::validate_step_up_challenge_id(value.challenge_id())
+            .map_err(|_| ApiFailure::upstream_degraded())?;
         super::identity_dispatch::step_up_evidence(value)
             .map_err(|_| ApiFailure::upstream_degraded())
     }

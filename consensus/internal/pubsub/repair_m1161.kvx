@@ -1,0 +1,8 @@
+[task.22.33.1161]
+finding = "pubsub-counts-panic-after-stop"
+tests = ["TestRepairM_1161_CountsAfterShutdown", "TestRepairM_1161_CountsDuringShutdown"]
+repair = "Both count accessors return zero when the subscription index is nil, under the same read lock that protects normal counts against shutdown."
+proof = "Real subscriptions receive a published event through the server queue. Lifecycle tests assert populated counts, hold an in-flight publication through context cancellation, read both counters concurrently with shutdown, wait for the sender to exit, and assert zero counts and terminated subscriptions; an empty server is also shut down."
+baseline = "Not run: the explicit implementation-first and hf-build/hf-done order forbids a pre-change verification run; no pre-change test failures are claimed."
+wiring = "None: the repair and production-path lifecycle tests are entirely within consensus/internal/pubsub."
+evidence = "The runner's hf-build/hf-done ledger records the exact qualified revision, command, exit code and private log location."

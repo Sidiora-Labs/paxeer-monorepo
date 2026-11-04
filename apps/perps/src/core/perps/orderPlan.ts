@@ -242,6 +242,8 @@ function planCalls(
           ),
           sizeUsd: rungSize,
           collateralAmount: deriveImpliedCollateral(rungSize, leverage, COLLATERAL_DECIMALS),
+          takeProfitPrice,
+          stopLossPrice,
           cloid: ladderCloid(state.ladderId, i),
         }),
       );

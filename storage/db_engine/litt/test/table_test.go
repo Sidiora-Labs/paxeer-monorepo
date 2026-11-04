@@ -476,11 +476,158 @@ func garbageCollectionTest(t *testing.T, tableBuilder *tableBuilder) {
 
 func TestGarbageCollection(t *testing.T) {
 	t.Parallel()
-	for _, tb := range noCacheTableBuilders {
+	for _, tb := range tableBuilders {
 		t.Run(tb.name, func(t *testing.T) {
 			garbageCollectionTest(t, tb)
 		})
 	}
+	for _, tb := range cachedGCTableBuilders {
+		t.Run(tb.name+"/warm caches", func(t *testing.T) {
+			cachedGarbageCollectionTest(t, tb)
+		})
+	}
+}
+
+var cachedGCTableBuilders = []*tableBuilder{
+	{"cached mem keymap disk table", buildCachedMemKeyDiskTable},
+	{"cached pebbledb keymap disk table", buildCachedPebbleDBKeyDiskTable},
+}
+
+func cachedGarbageCollectionTest(t *testing.T, builder *tableBuilder) {
+	t.Helper()
+	start := time.Unix(1_700_000_000, 0)
+	var elapsed atomic.Int64
+	clock := func() time.Time { return start.Add(time.Duration(elapsed.Load())) }
+	table, err := builder.builder(clock, "cached_gc", t.TempDir())
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, table.Close()) })
+	require.NoError(t, table.SetTTL(10*time.Second))
+	require.NoError(t, table.SetShardingFactor(1))
+	require.NoError(t, table.SetReadCacheSize(64*1024))
+	require.NoError(t, table.SetWriteCacheSize(0))
+
+	put := func(prefix string, batch bool) map[string][]byte {
+		t.Helper()
+		value := []byte("the quick brown fox")
+		request := &types.PutRequest{
+			Key: []byte(prefix), Value: value,
+			SecondaryKeys: []*types.SecondaryKey{
+				{Key: []byte(prefix + "_whole"), Length: uint32(len(value))},
+				{Key: []byte(prefix + "_slice"), Offset: 4, Length: 5},
+			},
+		}
+		if batch {
+			require.NoError(t, table.PutBatch([]*types.PutRequest{request}))
+		} else {
+			require.NoError(t, table.Put(request.Key, request.Value, request.SecondaryKeys...))
+		}
+		require.NoError(t, table.Flush())
+		return map[string][]byte{prefix: value, prefix + "_whole": value, prefix + "_slice": value[4:9]}
+	}
+
+	readCached := put("read", false)
+	for key, want := range readCached {
+		value, exists, hot, err := table.CacheAwareGet([]byte(key), true)
+		require.NoError(t, err)
+		require.True(t, exists, key)
+		require.False(t, hot, "flushed key must be cold before loading the read cache: %s", key)
+		require.Nil(t, value)
+		value, exists, hot, err = table.CacheAwareGet([]byte(key), false)
+		require.NoError(t, err)
+		require.True(t, exists, key)
+		require.False(t, hot, key)
+		require.Equal(t, want, value, key)
+	}
+	require.NoError(t, table.SetWriteCacheSize(64*1024))
+	writeCached := put("write", true)
+	assertHot := func(expected map[string][]byte) {
+		t.Helper()
+		for key, want := range expected {
+			value, exists, hot, err := table.CacheAwareGet([]byte(key), true)
+			require.NoError(t, err)
+			require.True(t, exists, key)
+			require.True(t, hot, key)
+			require.Equal(t, want, value, key)
+		}
+	}
+	assertHot(readCached)
+	assertHot(writeCached)
+	require.EqualValues(t, 6, table.KeyCount())
+	require.NoError(t, table.SetShardingFactor(2))
+	require.NoError(t, table.Flush())
+	elapsed.Store(int64(5 * time.Second))
+	live := put("live", false)
+	assertHot(live)
+	require.NoError(t, table.SetShardingFactor(1))
+	require.NoError(t, table.Flush())
+	elapsed.Store(int64(11 * time.Second))
+	require.NoError(t, table.RunGC())
+	assertCollected := func(expired, expected map[string][]byte) {
+		t.Helper()
+		for key := range expired {
+			exists, err := table.Exists([]byte(key))
+			require.NoError(t, err)
+			require.False(t, exists, key)
+			value, exists, err := table.Get([]byte(key))
+			require.NoError(t, err)
+			require.False(t, exists, key)
+			require.Nil(t, value, key)
+			for _, cacheOnly := range []bool{true, false} {
+				value, exists, hot, err := table.CacheAwareGet([]byte(key), cacheOnly)
+				require.NoError(t, err)
+				require.False(t, exists, key)
+				require.False(t, hot, key)
+				require.Nil(t, value, key)
+			}
+		}
+		for key, want := range expected {
+			exists, err := table.Exists([]byte(key))
+			require.NoError(t, err)
+			require.True(t, exists, key)
+			value, exists, err := table.Get([]byte(key))
+			require.NoError(t, err)
+			require.True(t, exists, key)
+			require.Equal(t, want, value, key)
+			for _, cacheOnly := range []bool{true, false} {
+				value, exists, hot, err := table.CacheAwareGet([]byte(key), cacheOnly)
+				require.NoError(t, err)
+				require.True(t, exists, key)
+				require.True(t, hot, key)
+				require.Equal(t, want, value, key)
+			}
+		}
+		require.Equal(t, uint64(len(expected)), table.KeyCount())
+		for _, reverse := range []bool{false, true} {
+			iterator, err := table.Iterator(reverse)
+			require.NoError(t, err)
+			func() {
+				defer func() { require.NoError(t, iterator.Close()) }()
+				seen := make(map[string][]byte)
+				for {
+					next, err := iterator.Next()
+					require.NoError(t, err)
+					if !next {
+						break
+					}
+					key, primary := iterator.GetKey()
+					want, exists := expected[string(key)]
+					require.True(t, exists, string(key))
+					require.NotContains(t, seen, string(key))
+					require.Equal(t, string(key) == "live", primary)
+					value, err := iterator.GetValue()
+					require.NoError(t, err)
+					require.Equal(t, want, value, string(key))
+					seen[string(key)] = append([]byte(nil), value...)
+				}
+				require.Len(t, seen, len(expected))
+			}()
+		}
+	}
+	assertCollected(readCached, live)
+	assertCollected(writeCached, live)
+	elapsed.Store(int64(16 * time.Second))
+	require.NoError(t, table.RunGC())
+	assertCollected(live, nil)
 }
 
 func TestInvalidTableName(t *testing.T) {

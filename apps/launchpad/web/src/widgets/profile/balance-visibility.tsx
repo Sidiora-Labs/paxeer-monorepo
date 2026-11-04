@@ -35,7 +35,8 @@ function persistBalanceVisibility(hidden: boolean) {
 }
 
 export function BalanceVisibilityProvider({ children }: { children: ReactNode }) {
-  const [hidden, setHiddenState] = useState(false);
+  const [preference, setHiddenState] = useState<boolean | null>(null);
+  const hidden = preference !== false;
   useEffect(() => { setHiddenState(readStoredBalanceVisibility()); }, []);
   const setHidden = useCallback((next: boolean) => {
     setHiddenState(next);
@@ -43,7 +44,7 @@ export function BalanceVisibilityProvider({ children }: { children: ReactNode })
   }, []);
   const toggle = useCallback(() => {
     setHiddenState(previous => {
-      const next = !previous;
+      const next = previous === false;
       persistBalanceVisibility(next);
       return next;
     });

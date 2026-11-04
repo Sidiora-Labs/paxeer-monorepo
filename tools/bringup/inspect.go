@@ -19,6 +19,9 @@ func RunInspector(ctx context.Context, args []string, input io.Reader, output io
 	if len(args) == 0 {
 		return errors.New("bringup-inspect operation required")
 	}
+	if handled, err := runLiveInspector(ctx, args, input, output); handled {
+		return err
+	}
 	inventory := func(path string) (PublicInventory, error) {
 		file, err := os.Open(path)
 		if err != nil {

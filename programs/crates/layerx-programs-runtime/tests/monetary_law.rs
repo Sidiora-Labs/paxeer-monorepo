@@ -1,3 +1,6 @@
+#[path = "support/abi_versions.rs"]
+mod abi_versions;
+
 use layerx_programs_runtime::abi::response::CANDIDATE_ABI_MODULE;
 use layerx_programs_runtime::test_support::{
     code_section, func_body, function_section, import_section, module, type_section, unsigned_leb,
@@ -799,8 +802,35 @@ fn real_wasm_cumulative_program_legs_refuse_one_past_grant_atomically() {
 fn monetary_law_raw_balance_and_issuance_imports_refuse_every_supported_abi() {
     use layerx_programs_runtime::ValidationRefusal;
     let engine = WasmEngine::declared().unwrap_or_else(|error| panic!("engine: {error}"));
-    for abi_version in 1..=4 {
-        for module_name in [ABI_MODULE, CANDIDATE_ABI_MODULE, "env", "kernel", "ledger"] {
+    let versions = abi_versions::supported_abi_versions();
+    assert!(versions.contains(&layerx_programs_runtime::ABI_V5_VERSION));
+    let program = ProgramId::new([0x71; 32]).unwrap();
+    let principal = PrincipalId::new([0x72; 32]).unwrap();
+    let namespace = layerx_programs_runtime::StorageNamespace::principal(program, principal);
+    let mut storage = Storage::default();
+    let mut seed = storage.transaction(namespace);
+    seed.write(b"existing", b"committed state").unwrap();
+    assert_eq!(seed.commit(), 1);
+    let before = storage.clone();
+    for abi_version in versions {
+        let positive = engine
+            .validate_versioned(
+                abi_version,
+                &layerx_programs_runtime::test_support::add_module(),
+            )
+            .unwrap();
+        positive.instantiate_for_qualification().unwrap();
+        for module_name in [
+            ABI_MODULE,
+            CANDIDATE_ABI_MODULE,
+            "layerx_v2",
+            "layerx_v3",
+            "layerx_v4",
+            "layerx_v5",
+            "env",
+            "kernel",
+            "ledger",
+        ] {
             for import_name in [
                 "balance_write",
                 "balance_set",
@@ -815,13 +845,40 @@ fn monetary_law_raw_balance_and_issuance_imports_refuse_every_supported_abi() {
                 let wasm = module(&[
                     type_section(&[(&[], &[TYPE_I32])]),
                     import_section(&[(module_name, import_name, 0)]),
+                    function_section(&[0]),
+                    layerx_programs_runtime::test_support::export_section(&[("run", 1)]),
+                    code_section(&[func_body(&[], &[OP_CALL, 0, OP_END])]),
                 ]);
-                let refusal = match engine.validate_versioned(abi_version, &wasm) {
-                    Ok(_) => panic!(
-                        "raw monetary import validated: {abi_version}/{module_name}/{import_name}"
-                    ),
-                    Err(refusal) => refusal,
-                };
+                let outcome = engine
+                    .validate_versioned(abi_version, &wasm)
+                    .map(|validated| {
+                        validated.instantiate_for_qualification().unwrap();
+                        Executor::declared().execute_authorized(
+                            &mut storage,
+                            AuthorizedExecutionRequest {
+                                module: &validated,
+                                program,
+                                authorization: AuthorizationContext::new(
+                                    principal,
+                                    CapabilitySet::empty(),
+                                ),
+                                receipts: &NoReceipts,
+                                entrypoint: "run",
+                                calldata: &[],
+                                composition: CompositionContext::isolated(),
+                                response_capacity: 0,
+                            },
+                        )
+                    });
+                // Without admission there is no execution receipt or transfer set
+                // for a balance consumer to apply, nor any committed guest effects.
+                assert!(outcome.is_err(), "raw import reached instantiation/execution: {abi_version}/{module_name}/{import_name}");
+                assert_eq!(storage, before, "raw import mutated storage");
+                assert_eq!(
+                    storage.transaction(namespace).read(b"existing").unwrap(),
+                    Some(b"committed state".to_vec())
+                );
+                let refusal = outcome.err().unwrap();
                 assert_eq!(
                     refusal,
                     ValidationRefusal::ForbiddenImport {

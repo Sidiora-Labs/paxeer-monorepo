@@ -184,7 +184,11 @@ export default function ProfileEditModal({ open, onClose, onSaved, initialField 
               onSelect={file => selectImage(kind, file)}
               onRefresh={() => { void refreshImage(); }}
               onRetry={() => upload && void transfer({ ...upload, id: upload.asset?.state === 'rejected' ? crypto.randomUUID() : upload.id })}
-              onRemove={() => setUpload(null)}
+              onRemove={() => {
+                invalidate();
+                setDraft(previous => ({ ...previous, [kind]: baseline[kind] }));
+                setUpload(null);
+              }}
             />
           ))}
         </div>
