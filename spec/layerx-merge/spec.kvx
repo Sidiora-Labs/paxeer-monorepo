@@ -280468,7 +280468,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.804]
 title = "Repair audit record 22.30.178 medium findings in tests/storage (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.320"]
@@ -324822,7 +324822,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.863]
 title = "Repair audit record 22.30.182 medium findings in tools/qualification/paxeer-x/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.430", "22.31.431", "22.31.432"]
