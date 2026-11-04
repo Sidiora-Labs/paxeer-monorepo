@@ -11,6 +11,10 @@ path = "../boundary/src/main.rs"
 test = false
 
 [dependencies]
+ed25519-dalek = "=2.2.0"
+serde_json = "=1.0.151"
+layerx-programs-registry = { path = "../../../../programs/crates/layerx-programs-registry" }
+layerx-wire = { path = "../../crates/layerx-wire" }
 layerx-client = { path = "../../crates/layerx-client" }
 layerx-crypto = { path = "../../crates/layerx-crypto" }
 layerx-agent-api = { path = "../../crates/layerx-agent-api" }

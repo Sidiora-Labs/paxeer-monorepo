@@ -5,11 +5,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { copyEntry } from "../../../copy/runtime";
 import { formatCopy } from "../../../copy/format";
-import { humanApi, type ActivityEntryDetail, type ExportArtefact } from "../../api";
+import { humanApi, type ActivityEntryDetail, type EvidenceRef, type ExportArtefact, type HumanApiClient } from "../../api";
 import { ActivityEvidenceBadge } from "../../kit/activity";
 import { CopyableIdentifier, StatusPill } from "../../kit/money";
 import { DesktopDetail, MobileDetail } from "../../kit/pattern-detail";
-import { ExplorerLink } from "../../kit/explorer";
+import { ExplorerExternalLink } from "../../kit/explorer";
 import { KitButton } from "../../kit/control";
 import { KitList, KitListItem } from "../../kit/display";
 import { ScreenCard, StateFrame } from "../../kit/surface";
@@ -23,7 +23,7 @@ import {
   detailEvidence,
   entryVerification,
   evidenceClassLabel,
-  explorerPath,
+  resolveEvidencePath,
   kindLabel,
   newExportKey,
   plainSentence,
@@ -51,8 +51,32 @@ export function ActivityVerification({ detail }: Readonly<{ detail: ActivityEntr
   return <ActivityEvidenceBadge>{verificationLabel(verification)}</ActivityEvidenceBadge>;
 }
 
+export function ActivityEvidenceLink({ client, reference, configuredOrigin }: Readonly<{
+  client: HumanApiClient;
+  reference: EvidenceRef;
+  configuredOrigin?: string;
+}>) {
+  const [destination, setDestination] = useState<Readonly<{
+    reference: EvidenceRef; origin: string | undefined; path?: string; failure?: ActivityFailure;
+  }> | undefined>();
+  useEffect(() => {
+    let active = true;
+    void resolveEvidencePath(client, reference, configuredOrigin).then((path) => {
+      if (active) setDestination({ reference, origin: configuredOrigin, ...(path === undefined ? {} : { path }) });
+    }).catch((error: unknown) => {
+      if (active) setDestination({ reference, origin: configuredOrigin, failure: activityFailure(error) });
+    });
+    return () => { active = false; };
+  }, [client, reference, configuredOrigin]);
+  if (destination?.reference !== reference || destination.origin !== configuredOrigin) return null;
+  if (destination.failure !== undefined) return <span role="alert">{destination.failure.message}</span>;
+  if (destination.path === undefined) return null;
+  return <ExplorerExternalLink href={destination.path}>{copyEntry("activity.technical.view_in_explorer").message}</ExplorerExternalLink>;
+}
+
 function TechnicalDetails({ detail }: Readonly<{ detail: ActivityEntryDetail }>) {
   const shell = useShellSelection().shell;
+  const client = useMemo(() => humanApi(), []);
   const [open, setOpen] = useState(false);
   const Disclosure = shell === "mobile" ? MobileDetail : DesktopDetail;
 
@@ -95,20 +119,18 @@ function TechnicalDetails({ detail }: Readonly<{ detail: ActivityEntryDetail }>)
               <p className="text-sm text-muted-foreground">{copyEntry("activity.detail.evidence_empty").message}</p>
             ) : (
               <KitList>
-                {detail.evidence.map((reference) => {
-                  const path = explorerPath(reference);
-                  return (
-                    <KitListItem
-                      key={`${reference.class}-${reference.evidence_id}`}
-                      title={evidenceClassLabel(reference.class)}
-                      subtitle={reference.evidence_id}
-                      trailing={<ActivityEvidenceBadge>{verificationLabel(reference.verification)}</ActivityEvidenceBadge>}
-                      trailingCaption={path === undefined ? undefined : (
-                        <ExplorerLink href={path}>{copyEntry("activity.technical.view_in_explorer").message}</ExplorerLink>
-                      )}
-                    />
-                  );
-                })}
+                {detail.evidence.map((reference) => (
+                  <KitListItem
+                    key={`${reference.class}-${reference.evidence_id}`}
+                    title={evidenceClassLabel(reference.class)}
+                    subtitle={reference.evidence_id}
+                    trailing={<ActivityEvidenceBadge>{verificationLabel(reference.verification)}</ActivityEvidenceBadge>}
+                    trailingCaption={<ActivityEvidenceLink client={client} reference={reference}
+                      {...(process.env.NEXT_PUBLIC_PAXEER_X_EXPLORER_BASE_URL === undefined ? {} : {
+                        configuredOrigin: process.env.NEXT_PUBLIC_PAXEER_X_EXPLORER_BASE_URL,
+                      })} />}
+                  />
+                ))}
               </KitList>
             )}
           </section>

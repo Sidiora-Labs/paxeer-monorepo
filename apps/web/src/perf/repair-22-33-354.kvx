@@ -1,0 +1,7 @@
+[repair.22.33.354]
+finding = "explorer-rum-route-drop"
+test = "apps/web/e2e/repair-22-33-354.test.ts::explorer_detail_vitals_reach_sink"
+route_coverage = "apps/web/e2e/repair-22-33-354.test.ts::explorer_detail_templates_are_budgeted"
+baseline = "Not run: the task's ordered gate instructions require complete implementation before hf-build and hf-done; the original classifier's exact-navigation comparison excludes each tested detail path."
+wiring_requests = []
+qualification = "Exact verified revision, command, exit and private log are recorded by hf-done in the task gate ledger."

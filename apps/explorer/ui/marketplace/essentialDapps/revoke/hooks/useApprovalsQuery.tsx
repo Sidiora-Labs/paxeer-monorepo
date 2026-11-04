@@ -43,13 +43,15 @@ export function approvalsQueryOptions(
       for (const scan of [ erc20, nft ]) {
         if (scan.status === 'rejected') {
           checkScanCancellation(signal, scan.reason);
-          issues.push({ kind: 'scan', cause: scan.reason });
+          if (scan.reason instanceof ApprovalScanError) issues.push(...scan.reason.issues);
+          else issues.push({ kind: 'scan', cause: scan.reason });
         }
       }
       if (erc20.status === 'fulfilled') issues.push(...erc20.value.issues);
+      const nftFailure = nft.status === 'rejected' && nft.reason instanceof ApprovalScanError ? nft.reason : undefined;
       const allowances = [
         ...(erc20.status === 'fulfilled' ? erc20.value.allowances : []),
-        ...(nft.status === 'fulfilled' ? nft.value : []),
+        ...(nft.status === 'fulfilled' ? nft.value : nftFailure?.partialAllowances ?? []),
       ].sort((a, b) => b.timestamp - a.timestamp);
       if (issues.length) throw new ApprovalScanError(allowances, issues);
       return allowances;
