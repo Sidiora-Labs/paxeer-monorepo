@@ -1,0 +1,77 @@
+[task.22.33.802]
+audit = "22.30.178"
+base_revision = "79d99a9cd334a5da02f3a4aac2a324549c9a0d5e"
+qualification = "The runner-owned private /out/run/gates.jsonl ledger names the exact candidate revision, command, exit code and evidence log for hf-build and hf-done; the final task receipt copies that record. No qualification is claimed until hf-done passes on the built candidate."
+baseline = "No prior hf-build/hf-done ledger exists in this checkout. The explicit implementation-first order and prohibition on hand-running verify_cmd take precedence over do_12's contradictory unchanged-tree run; no baseline failures were measured or claimed."
+implementation = "The existing script entrypoints call the shared production Go maintenance package, so the declared Go gate exercises their actual operations in process without launching interpreters, a compiler, git, paxd or a native artifact."
+runtime = "scripts/maintenance.sh runs the checkout's Go command by default; set PAX_SCRIPT_BIN to a prebuilt go build -o pax-script ./scripts/maintenance executable to avoid runtime compilation. This is a runtime launcher, never invoked by the gate."
+
+[finding.16]
+proof = "TestRepairM_802_Finding16_NodeExportArchive; TestRepairM_802_Finding16_FailedExportsNeverPublish"
+repair = "Use paxd export --home HOME --height HEIGHT --streaming=false; check process completion, complete JSON, initial height and current execution state before atomically publishing genesis.json plus a sorted logical-module store/height manifest. Partial, failed, legacy, malformed and wrong-height exports retain the previous archive."
+fixture = "node/testdata/v6120-halt-export.json is the committed real node export at state height 34742400, including EVM, LayerX and sequencer modules; tests consume its bytes without constructing a substitute node."
+boundary = "The manifest explicitly identifies a logical genesis export; it does not claim a physical/native database backup. Unsupported node storage layouts fail through paxd export and cannot publish an archive. No out-of-path node change is requested."
+
+[finding.12]
+proof = "TestRepairM_802_Finding12_OneBinaryAndHome"
+repair = "Resolve one binary and canonical home; export them unchanged to initialization, direct genesis modification, generated startup arguments and PID-based cleanup. Keep per-run patch code and logs associated with that home."
+
+[finding.11]
+proof = "TestRepairM_802_Finding11_DisposableHomeAcknowledgement"
+repair = "Create and disclose a fresh stress home below HOME; explicit overrides must also be new disposable targets. Pass PAX_LOCAL_RESET=1 only to the initializer; retain the initializer's independent reset acknowledgement and canonical HOME containment protection. Existing operator homes and symlink escapes are refused."
+
+[finding.14]
+proof = "TestRepairM_802_Finding14_CanonicalChangelogLinks"
+repair = "Require explicit validated CHANGELOG_REPO=owner/repository release metadata and construct every PR link with that repository."
+
+[finding.15]
+proof = "TestRepairM_802_Finding15_ResolvedLocalAndFetchedRevisions"
+repair = "Resolve local branches, remote-tracking refs, explicit refs and full commit IDs to commit hashes. Fetch missing branches into their explicit origin ref and pass those hashes unchanged into go-git's real log traversal, preserving base..head ancestry semantics."
+transport = "The test runs the real go-git upload-pack server, packfile transport and object stores in process; no external git executable or endpoint is used."
+
+[finding.13]
+proof = "TestRepairM_802_Finding13_NativeConsensusKeys"
+repair = "Both OS branches call the same checked consensus-section editor for unsafe-vote-timeout-override, unsafe-commit-timeout-override and unsafe-bypass-commit-timeout-override. Missing or duplicate keys fail before writing; TOML semantic comparison preserves unrelated values. The test renders the actual native template and decodes the result with native config types and Viper."
+
+[finding.17]
+proof = "TestRepairM_802_Finding17_EntireGoDurationGrammar"
+repair = "The detector calls the shared Go time.ParseDuration producer and consumes its typed JSON result. The complete grammar, both microsecond spellings, one leading sign, zero, fractional nanoseconds and signed int64 bounds are enforced. Invalid and nonfinite values become configuration failures rather than partial durations."
+
+[finding.18]
+proof = "TestRepairM_802_Finding18_StableSafelyEncodedManifest; TestRepairM_802_Finding18_FailedHashingDoesNotPublish"
+repair = "Snapshot a sorted list of regular inputs excluding checksum.list, stage outside the input tree, hash with SHA256 and escaped filename encoding, detect changed inputs, then atomically publish only after all reads and hashes succeed. Empty directories and repeated runs remain reproducible."
+
+[wiring]
+requests = "None: all eight repairs are owned by scripts. Existing native node export and consensus config interfaces are consumed without out-of-scope changes."
+
+[gotcha.1]
+symptom = "Generic workflow asks for spec/GOTCHA edits and commits, while the task forbids those paths and leaves publication to the runner."
+resolution = "Preserve runner-owned .cgignore/spec modifications and retain finding/proof mappings and gotchas in this in-scope task record."
+
+[gotcha.2]
+symptom = "go run maps a child exit code of 2 to its own exit code of 1."
+resolution = "The duration producer uses an explicit valid/error JSON contract for invalid configuration, leaving nonzero process exits for execution failures."
+
+[gotcha.3]
+symptom = "eval with a failing command substitution can return success and hide stress configuration refusal."
+resolution = "Capture the generated environment in a separate checked assignment before evaluating its shell-quoted values."
+
+[gotcha.4]
+symptom = "go-git's default file transport launches git-upload-pack, introducing an external binary into otherwise pure Go tests."
+resolution = "The focused test uses go-git's real embedded upload-pack server with in-memory object storage and packfile transport."
+
+[proof.entrypoints]
+test = "TestRepairM_802_EntrypointsUseProductionOperations"
+criterion = "Shell wrappers retain strict error handling and delegate their operation to the tested dispatcher; the dispatcher preserves caller-relative checksum inputs, writes real files, and reports invalid arguments without an external process."
+
+[qualification.initial]
+revision = "7cd5ba7ce1d6fb47990b1bdc253661bbcac485e8"
+command = "cg spec done 22.33.802 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Finding 13's new test passed a file path to native WriteConfigFile, whose argument is a root directory, so the fixture was not written where the test read it."
+assumption = "Use the native config's WriteToTemplate exact-path API and assert its error before reading; all original test criteria remain intact."
+
+[gotcha.5]
+symptom = "consensus/config.WriteConfigFile accepts a root directory, whereas Config.WriteToTemplate accepts an exact file path."
+resolution = "Use WriteToTemplate for the test's explicit config.toml path and check the returned error."
