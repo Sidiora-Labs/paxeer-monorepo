@@ -1,0 +1,61 @@
+[repair.22.33.741]
+audit = "22.30.172"
+mode = "BUILD"
+base_revision = "cfe99ca0f6e389c490375eed57c49af7d14b30b8"
+requirement = "22998.1"
+implementation = "Repair only the five named findings; extend the existing production shell evidence consumer rather than creating a substitute importer. Preserve RPC state checks and aggregate errors explicitly."
+verification = "hf-build followed by hf-done; the private gate ledger /out/run/gates.jsonl records the exact candidate revision, command, exit and log. The last hf-done evidence line is the authoritative verified revision; this record does not invent a self-referential candidate hash."
+baseline_not_run = "No baseline verification was run: step 9 conflicts with the explicit implementation-first order and the instruction never to run verify_cmd by hand before hf-done; the new pytest module did not exist on the starting tree. No baseline test failure is claimed."
+proven = "The declared pytest executes the same Python producer/consumer evidence functions and CLI branches that both shell scripts invoke, persists and closes a partial-import checkpoint, exits the real Python consumer process, starts a new Python interpreter and reopens that checkpoint to assert the recovered snapshot identity and typed fixture state. Temporary files represent committed protocol-format peers; negative cases are deliberately malformed peer evidence. Both shell scripts are separately parsed with bash -n and their guarded commands and ordering are asserted. Committed Go sources pin physical key prefixes, typed envelopes, dump headers, chunk persistence and reset/publish behavior. No node, Go build, Docker, credential or live endpoint is used by qualification."
+review_only = "The Python evidence consumer restart is executed; a real Go process crash, Pebble reopen, snapshot wire exchange, runtime log fidelity, multi-node digest equivalence and Docker scheduling are source-reviewed only. The gate does not claim to have run a native chain or prove native importer durability. The shell scenarios run those real paths when invoked by the integration owner."
+
+[finding.statesync-kill-window]
+file = "tests/integration/contracts/verify_flatkv_statesync_crash_recovery.sh"
+repair = "Use a fresh per-run chunk directory and log; freeze paxd only after an applied-chunk event, require a matching accepted snapshot, a persisted non-final chunk and unpublished FlatKV WAL/SST writes, fsync the checkpoint, then SIGKILL. A failed probe resumes the process; an unobserved window fails. After process absence, retain the interrupted log and require the same snapshot to be safely discarded and reimported from chunk zero through every chunk, completed handoff and a published SNAPSHOT_BASE, and the unchanged retained partial-chunk digest across restart."
+tests = ["test_statesync_kill_window_requires_persisted_progress", "test_statesync_kill_window_rejects_unobserved_or_finished_import", "test_statesync_restart_reopens_partial_and_recovers_same_snapshot", "test_statesync_resume_rejects_fallback_and_incomplete_recovery", "test_real_producer_formats_and_safe_discard_match_consumer"]
+
+[finding.statesync-restored-row]
+file = "tests/integration/contracts/verify_flatkv_statesync_crash_recovery.sh"
+repair = "Dump both donor and recovered victim at the same selected committed version; decode exactly one evm/ plus 0x03 plus contract plus slot record and require StorageData version zero, exact successful deployment receipt modification height and expected 32-byte value. Require the exact contract AccountData and CodeData keys with typed envelopes, nonce and bytecode as well. Independent substring matches cannot pass."
+tests = ["test_restored_rows_bind_composite_keys_typed_values_and_selected_version", "test_restored_rows_reject_unrelated_or_malformed_evidence", "test_shell_syntax_and_guarded_fixture_path"]
+
+[finding.statesync-resume-fallback]
+file = "tests/integration/contracts/verify_flatkv_statesync_crash_recovery.sh"
+repair = "Default snapshot-import requires completed import of the interrupted snapshot followed by state_synced=true and committed published FlatKV state. Explicit FLATKV_STATESYNC_RECOVERY_SCENARIO=blocksync-replay discards incomplete local data while stopped, preserves signing state, disables state sync and requires state_synced=false with positive blocks_synced and committed height, plus the same typed dump and RPC checks. Replay or unknown outcomes never satisfy snapshot-import."
+tests = ["test_statesync_restart_reopens_partial_and_recovers_same_snapshot", "test_statesync_resume_rejects_fallback_and_incomplete_recovery", "test_replay_is_explicit_separately_asserted_scenario"]
+
+[finding.total-loss-restored-row]
+file = "tests/integration/contracts/verify_flatkv_total_loss_recovery.sh"
+repair = "Use the shared exact composite-key and typed-envelope consumer at a selected positive committed version no earlier than the actual imported snapshot; validate successful deployment receipt height, storage word, contract account and contract code on donor and victim. Header version, duplicate keys and unrelated rows are rejected."
+tests = ["test_restored_rows_bind_composite_keys_typed_values_and_selected_version", "test_restored_rows_reject_unrelated_or_malformed_evidence", "test_shell_syntax_and_guarded_fixture_path"]
+
+[finding.total-loss-path-label]
+file = "tests/integration/contracts/verify_flatkv_total_loss_recovery.sh"
+repair = "Move the previous log aside before startup; require Snapshot restored height/hash/format, a later state_synced=true handoff, recovered committed height and a published FlatKV snapshot base. Aggregate this mandatory path check with existing content checks; blocksync and unknown outcomes fail."
+tests = ["test_total_loss_requires_published_snapshot_import", "test_shell_syntax_and_guarded_fixture_path", "test_real_producer_formats_and_safe_discard_match_consumer"]
+
+[wiring.blocksync_scenario]
+request = "tests/integration/chain_operation/statesync_operation.yaml -> domain 16 / integration harness: qualify the explicitly named FLATKV_STATESYNC_RECOVERY_SCENARIO=blocksync-replay run separately from default snapshot-import, retaining its positive replay handoff and state checks."
+
+[format]
+policy = "No language formatter is configured for these Python, shell or KVX paths; apply the repository .editorconfig UTF-8, LF, final newline and trailing-space rules to touched files."
+
+[gotcha.1]
+observed = "bash -n with multiple filenames parses only the first script; the other script becomes an argument."
+resolution = "Preserve the prescribed build command; the declared pytest parses each repaired script individually."
+
+[gotcha.2]
+observed = "The implementation-first exclusive gate order contradicts the baseline-verification clause; GOTCHA.kvx and spec files are outside scope."
+resolution = "Record the conflict here, run only hf-build and hf-done, and claim no unexecuted baseline result."
+
+[gotcha.3]
+observed = "The real state-sync chunk queue is process-local and the FlatKV importer resets working data; restart is safe discard and reimport, not cursor resumption."
+resolution = "Retain the interrupted snapshot identity and non-final persisted progress; require a fresh offer and all chunks of that same snapshot plus successful publication."
+
+[gotcha.4]
+observed = "A task-local edit helper had a Python quoting syntax error before making any file changes."
+resolution = "Replace exact source lines from their existing text to preserve shell escaping; this was an implementation edit failure, not a gate result."
+
+[gotcha.5]
+observed = "Selecting min(node heights) minus a buffer immediately after state-sync can request a version older than the imported snapshot."
+resolution = "Retain the actual imported height, wait beyond it plus the comparison buffer, and reject a selected dump version below that imported height."

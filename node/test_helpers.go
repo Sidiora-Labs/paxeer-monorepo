@@ -76,6 +76,7 @@ func (t TestTx) GetGasEstimate() uint64 {
 }
 
 type TestAppOpts struct {
+	GenesisTime    time.Time
 	UseSc          bool
 	EnableGiga     bool
 	EnableGigaOCC  bool
@@ -132,7 +133,7 @@ func NewTestWrapper(tb testing.TB, tm time.Time, valPub cryptotypes.PubKey, enab
 }
 
 func NewTestWrapperWithSc(t *testing.T, tm time.Time, valPub cryptotypes.PubKey, enableEVMCustomPrecompiles bool, baseAppOptions ...func(*bam.BaseApp)) *TestWrapper {
-	return newTestWrapper(t, tm, valPub, enableEVMCustomPrecompiles, true, TestAppOpts{UseSc: true}, baseAppOptions...)
+	return newTestWrapper(t, tm, valPub, enableEVMCustomPrecompiles, true, TestAppOpts{UseSc: true, GenesisTime: tm}, baseAppOptions...)
 }
 
 func NewGigaTestWrapper(t *testing.T, tm time.Time, valPub cryptotypes.PubKey, enableEVMCustomPrecompiles bool, useOcc bool, baseAppOptions ...func(*bam.BaseApp)) *TestWrapper {
@@ -598,9 +599,14 @@ func SetupWithSc(t *testing.T, isCheckTx bool, enableEVMCustomPrecompiles bool, 
 		// TODO: remove once init chain works with SC
 		defer func() { _ = recover() }()
 
+		genesisTime := testAppOpts.GenesisTime
+		if genesisTime.IsZero() {
+			genesisTime = time.Now()
+		}
 		_, err = res.InitChain(
 			context.Background(), &abci.RequestInitChain{
-				Time:            time.Now(),
+				Time:            genesisTime,
+				ChainId:         "pax-test",
 				ConsensusParams: DefaultConsensusParams,
 				AppStateBytes:   stateBytes,
 			},

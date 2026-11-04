@@ -173228,7 +173228,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.465]
 title = "Restore the Paxeer boundary crate manifest so the platform workspace loads again under --locked and its Rust gates run"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -173291,7 +173291,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1577]
 title = "Repair audit record 22.30.99 medium findings in services/agent/tools/sdk-gen/src (part 1 of 1): retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.227", "22.31.228", "22.31.229", "22.31.230"]
@@ -173396,7 +173396,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1574]
 title = "Repair audit record 22.30.99 medium findings in services/agent/tools/policy-harness/src (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.227", "22.31.228", "22.31.229", "22.31.230"]
@@ -173820,7 +173820,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1560]
 title = "Repair audit record 22.30.98 medium findings in services/agent/crates/layerx-crypto/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.226", "22.31.443"]
@@ -197573,7 +197573,7 @@ do_5 = "Attempt 3 (continue after 22.31.463): the test binary of precompiles/lay
 
 [task.22.33.1568]
 title = "Repair audit record 22.30.99 medium findings in services/agent/qualification/pay2 (part 1 of 1): test-gap, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.227", "22.31.228", "22.31.229", "22.31.230"]
@@ -279276,7 +279276,7 @@ do_16 = "Attempt 2 (continue after 22.31.476 and 22.31.475): the sequenced-block
 
 [task.22.33.1140]
 title = "Repair audit record 22.30.50 medium findings in node (part 1 of 4): runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.102", "22.31.463", "22.31.475", "22.31.476"]
@@ -321316,7 +321316,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1358]
 title = "Repair audit record 22.30.74 medium findings in sdk/contrib/rosetta/node (part 1 of 1): wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.342"]
@@ -322049,7 +322049,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1272]
 title = "Repair audit record 22.30.63 medium findings in wasm (part 1 of 1): config-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -322710,7 +322710,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.1076]
 title = "Repair audit record 22.30.43 medium findings in tests/daemon (part 1 of 1): retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.78", "22.31.463", "22.31.475"]
@@ -326559,7 +326559,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.746]
 title = "Repair audit record 22.30.172 medium findings in tests/integration/gov_module (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.421", "22.31.422", "22.31.423"]
@@ -326594,7 +326594,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.744]
 title = "Repair audit record 22.30.172 medium findings in tests/integration/evm_module/scripts (part 1 of 1): config-drift, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.421", "22.31.422", "22.31.423"]
@@ -326630,7 +326630,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.742]
 title = "Repair audit record 22.30.172 medium findings in tests/integration/db (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.421", "22.31.422", "22.31.423"]
@@ -326778,7 +326778,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.738]
 title = "Repair audit record 22.30.172 medium findings in tests/integration/authz_module (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.421", "22.31.422", "22.31.423"]
@@ -326883,7 +326883,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.735]
 title = "Repair audit record 22.30.171 medium findings in tools/deploy/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.315"]
@@ -326917,7 +326917,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.734]
 title = "Repair audit record 22.30.171 medium findings in tools/rollout/tests (part 1 of 1): retired-reference, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.315"]
@@ -326953,7 +326953,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.733]
 title = "Repair audit record 22.30.171 medium findings in tests/wallet (part 1 of 1): retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.315"]
@@ -327770,7 +327770,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.699]
 title = "Repair audit record 22.30.169 medium findings in .github/workflows (part 1 of 2): config-drift, retired-reference, runtime-risk, security, test-gap, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.312"]
@@ -327881,7 +327881,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.634]
 title = "Repair audit record 22.30.164 medium findings in services/platform/hosted/gateway (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -327950,7 +327950,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.626]
 title = "Repair audit record 22.30.163 medium findings in sdk/integrations/agents (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.287", "22.31.414", "22.31.415", "22.31.416", "22.31.417", "22.31.418", "22.31.419", "22.31.420"]
@@ -327984,7 +327984,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.622]
 title = "Repair audit record 22.30.163 medium findings in sdk/integrations/android/src/test/java/com/sidiora/layerx/android (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.287", "22.31.414", "22.31.415", "22.31.416", "22.31.417", "22.31.418", "22.31.419", "22.31.420"]
@@ -328123,7 +328123,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.614]
 title = "Repair audit record 22.30.163 medium findings in sdk/integrations/android/src/main/java/com/sidiora/layerx/android (part 1 of 1): restart-recovery, runtime-risk, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.287", "22.31.414", "22.31.415", "22.31.416", "22.31.417", "22.31.418", "22.31.419", "22.31.420"]
@@ -328606,7 +328606,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.515]
 title = "Repair audit record 22.30.152 medium findings in services/explorer/services/libs/blockscout-client (part 1 of 1): config-drift, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.402", "22.31.403", "22.31.404"]

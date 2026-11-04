@@ -51,7 +51,7 @@ sets a server URL ending in `/api`, while schema paths are relative to that
 prefix. The generator expects an origin and full paths such as `/api/health`
 and `/api/v2/transactions`.
 
-Use Yarn (the package declares Yarn 1.22.22), Node, Docker and Rust. Run these
+Use Yarn (the package declares Yarn 1.22.22), Node, Python 3, Docker and Rust. Run these
 commands from this directory against a controlled local backend. `REST_ORIGIN`
 is an example shell variable for this procedure, not an environment variable
 automatically read by the Rust client or the recorder.
@@ -97,10 +97,14 @@ schema names match the local document: review generated API names and callers.
 yarn merge
 # Review swaggers/blockscout-api-final.yaml against the raw local schema,
 # routes and views before continuing, including native/EVM/null/error variants.
-yarn generate
+yarn generate FULL_BACKEND_SCHEMA_GIT_SHA
 ```
 
-`yarn generate` invokes Docker OpenAPI Generator with the final schema,
+`yarn generate` pins Docker OpenAPI Generator to
+`openapitools/openapi-generator-cli:v7.6.0`, matching `openapitools.json`.
+[scripts/generate.py](scripts/generate.py) rejects a mismatched pin or missing
+full schema source revision, resolves the image to an immutable Docker image
+ID, verifies its reported version, and uses that ID for generation with the final schema,
 [openapi-generator-config.json](openapi-generator-config.json) and the local
 [rust-template-handlebars](rust-template-handlebars), writing `crate`.
 Format changed Rust files with the repository's Rust formatter (`yarn format`
@@ -109,9 +113,13 @@ formats the whole workspace). Review the resulting diff and
 transport and handwritten codecs are not protected by that ignore file. Preserve
 explicit origins, bounded HTTP, strict decoding and native discriminators.
 Generation success alone does not prove producer compatibility.
+After successful generation, `crate/generation-provenance.json` records the
+resolved generator, version, input schema SHA-256 and input schema revision.
+Retain it with the raw schema and contract-run evidence when qualifying a
+regenerated client; review the overrides at that same backend revision.
 
 `yarn getV2` downloads the upstream Blockscout Swagger and replaces
-`swaggers/blockscout-api-v2.yaml`. `yarn generate-from-remote` chains that
+`swaggers/blockscout-api-v2.yaml`. `yarn generate-from-remote FULL_UPSTREAM_SCHEMA_GIT_SHA` chains that
 replacement, merge, generation and formatting. Reserve these commands for an
 intentional upstream refresh followed by the local-schema procedure above;
 neither fetches the Paxeer backend schema.
@@ -179,6 +187,48 @@ cargo test --locked --manifest-path services/explorer/services/libs/Cargo.toml -
 These offline checks need no credentials, live backend or external toolchain
 process. They do not execute the Elixir producer or certify a deployment.
 
+### Local backend contract command
+
+Run the actual producer-to-HTTP-to-Rust check from this directory:
+
+```sh
+yarn test:local /private/healthy.json /private/empty.json /private/contract-evidence.json
+```
+
+[local_backend_contract.rs](crate/examples/local_backend_contract.rs) uses the
+production `ApiClient`, not a replay server. It requires two running loopback
+backends at the same source revision: one with 1–50 recent consensus blocks and
+healthy indexing, and one with an empty isolated database reporting health error
+5002. Use disposable databases prepared by the backend owner; stop indexing
+writes and wait for the health counters to reflect each database before export.
+Both instances must serve `/api/health` and `/api/v2/blocks` in indexer/API mode.
+The Rust command requires the workspace's normal Rust toolchain and dependencies.
+
+Export expectations from each **running backend's BEAM**, so its actual health
+counters and persisted consensus block rows drive the assertions. Load
+[export_contract_state.exs](scripts/export_contract_state.exs) in the release
+console (or use the equivalent release `eval` command), then invoke:
+
+```elixir
+Code.require_file("/absolute/path/to/blockscout-client/scripts/export_contract_state.exs")
+BlockscoutClient.ContractState.export("http://127.0.0.1:4000", "/private/healthy.json", "FULL_RUNNING_BACKEND_GIT_SHA")
+# In the empty backend's console, with its own origin:
+BlockscoutClient.ContractState.export("http://127.0.0.1:4001", "/private/empty.json", "FULL_RUNNING_BACKEND_GIT_SHA")
+```
+
+Use the full 40-character backend Git SHA, obtained from the running build's
+release metadata. The exporter reads `Explorer.Repo` and the real health
+controller's indexing state; it does not write rows or substitute responses.
+The command checks typed health metadata, DB/cache/node heights, exact block
+heights/hashes/parents and the terminal cursor. The empty backend must return
+HTTP 500 with typed error 5002 and its original message, and an empty blocks
+page with HTTP 200. Both success decoding methods must agree. Any mismatch,
+missing scenario or transport failure exits nonzero. Output is a new private
+JSON evidence file containing source revision, origin, paths, actual statuses,
+full response bodies and typed results. This operational command is separate
+from the source-only pytest qualification gate; no actual backend run is claimed
+by that gate.
+
 For actual-producer validation, start the target backend revision against a
 controlled indexed database containing both an EVM transaction and a native
 price-feed submission. Point the real `ApiClient` at that backend's explicit
@@ -210,22 +260,17 @@ that this operational validation has run.
 
 ### Recording responses
 
-[ts-src/record-stubs.ts](ts-src/record-stubs.ts) currently hardcodes an upstream
-host, constructs HTTPS URLs and writes every response with status 200. Running
-`yarn record-stubs` unchanged therefore records upstream examples and loses
-actual error statuses. It has no environment-based local-origin switch.
+[ts-src/record-stubs.ts](ts-src/record-stubs.ts) requires an explicit loopback
+origin, full source backend revision and new output directory. For example:
 
-For a recorder adapted to the local producer, use mounted paths such as:
-
-```ts
-const paths = [
-  "/api/health",
-  "/api/v2/blocks",
-];
+```sh
+yarn record-stubs http://127.0.0.1:4001 FULL_RUNNING_BACKEND_GIT_SHA /private/recorded-empty /api/health /api/v2/blocks
 ```
 
-Capture the real local response status, body and relevant content type,
-including HTTP 500 health failures and resource errors, rather than rewriting
-errors to 200. Keep the exact request path and query parameters. Use sanitized
+With no paths it requests `/api/health` and `/api/v2/blocks`. It preserves
+`response.status`, the original body text, content type, exact path and query,
+and `metadata.source_revision`; redirects and overwriting recordings fail.
+Run it against both healthy and empty scenarios to retain the HTTP 500 health
+response as well as successes. Use sanitized
 local recordings as supporting fixtures and retain the live contract check;
 remote examples cannot prove the Paxeer producer's response contract.

@@ -10,7 +10,7 @@ baseline = "Not run: the task's ordered gate instructions prohibit verification 
 qualification = "Run only hf-build then hf-done on the unchanged candidate; the runner's final hf-done JSON and private gate ledger name the exact verified revision, command, exit and log. The runner publishes the task; this record makes no pre-gate success claim."
 
 [finding.relay-retirement-1]
-repair = "Deleted the relay Cargo manifest and binary declaration; the native handoff resolves the one maintained node deployment. Parent-workspace and image consumers are wiring requests below."
+repair = "Retain the boundary Cargo manifest and layerx-paxeer-boundary binary declaration per decision 2524; the native handoff resolves the one maintained node deployment. The workspace wiring request is withdrawn."
 test = "TestRepairM_1319_RelayWorkspaceRetirement"
 
 [finding.relay-retirement-3]
@@ -49,7 +49,7 @@ negative_test = "TestRepairM_1319_ProfileRefusals"
 gates = "go build ./services/platform/hosted/paxeer/...; hf-done's declared TestRepairM_1319_ gate only. Existing test files and assertions are not deleted, skipped or weakened; legacy Rust/Python relay test-target migration belongs to its own audit findings, not the Go task gate."
 
 [wiring.workspace]
-request = "services/platform/Cargo.toml and services/platform/Makefile.inc — platform domain 8: remove hosted/paxeer from Rust workspace members and relay binary/deployer recipes; use the native deployment handoff, without rebuilding the removed relay."
+request = "Withdrawn per decision 2524: retain hosted/paxeer in services/platform/Cargo.toml and the boundary binary consumers in services/platform/Makefile.inc; retirement of the historical deployment runner does not retire the boundary crate."
 
 [wiring.cluster]
 request = "services/platform/hosted/tests/beta-cluster.sh — platform domain 8: remove custody-genesis.py, deploy-contracts.sh, prepare-beta.py and relay-manifest invocations; apply services/platform/hosted/node/deployment.yaml once, provision authoritative native inputs, and remove settlement ConfigMap publication."
@@ -76,3 +76,11 @@ resolution = "Follow the ordered bounded gates; record baseline as unmeasured, n
 [gotcha.scope]
 observed = "The proposals require changes to parent Cargo membership, cluster/group consumers, images and operator tooling beyond the allowed directory."
 resolution = "Record exact paths and owning domains as wiring requests, leave those files untouched, and do not claim integrated workspace/image/cluster qualification."
+
+[repair.22.31.465]
+base_revision = "9fda5aafcf8b4dba3d79ad6d650ea1272c960511"
+files = ["services/platform/hosted/paxeer/Cargo.toml", "services/platform/hosted/paxeer/repair_m1319_test.go", "services/platform/hosted/paxeer/repair_m1319.kvx"]
+repair = "Restore the boundary manifest exactly as it stood before repair 22.33.1319, retaining workspace metadata, lints, dependencies and the existing platform lockfile. Remove only the obsolete manifest-absence assertion; preserve every deployment-document assertion."
+build_cmd = "cargo build --locked --manifest-path services/platform/hosted/paxeer/Cargo.toml --tests && go vet ./services/platform/hosted/paxeer/"
+verify_cmd = "cargo metadata --locked --format-version 1 --manifest-path services/platform/Cargo.toml > /dev/null && cargo build --locked --manifest-path services/platform/hosted/webhooks/Cargo.toml --tests && go test -count=1 -run '^TestRepairM_1319_' ./services/platform/hosted/paxeer/"
+qualification = "Run hf-build then hf-done on the unchanged candidate. The runner's final hf-done JSON and private gate ledger record the exact verified revision, command, exit code and log; no gate success is claimed before those gates run."
