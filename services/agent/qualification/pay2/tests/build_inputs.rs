@@ -69,9 +69,19 @@ fn pay2_build_reads_no_deleted_sources() {
     let inputs = build_script::pay2_build_inputs(manifest);
     assert_eq!(
         inputs,
-        [manifest.join("required.rs"), manifest.join("pay2e_test.rs"),],
+        [
+            "Cargo.toml",
+            "required.rs",
+            "pay2e_test.rs",
+            "funded_inputs.rs",
+            "funding.rs",
+            "sequence.rs",
+            "tests/support/registered_scenario.rs",
+        ]
+        .map(|input| manifest.join(input)),
         "PAY2 must retain exactly its live build inputs"
     );
+    build_script::pay2_check_build_inputs(manifest).expect("registered scenario inputs");
     for input in inputs {
         assert!(
             !fs::read_to_string(&input).unwrap().is_empty(),
