@@ -146868,7 +146868,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.479]
 title = "Bring the root package-lock.json back in sync with the agent-spend example manifest so npm ci at the repository root installs again"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -185199,7 +185199,7 @@ do_8 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.227]
 title = "Repair audit record 22.30.99 findings in services/agent/crates/layerx-sdk/src: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.443"]
@@ -185424,7 +185424,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.221]
 title = "Repair audit record 22.30.96 findings in services/agent/crates/layerx-client/src: interface-mismatch, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.443"]
