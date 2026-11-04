@@ -174101,7 +174101,7 @@ do_5 = "Attempt 3 (after 22.31.495, decision 2547): both targets compile and fou
 
 [task.22.31.495]
 title = "Thread explicit time through the approval service so awaiting holds can be read and decided"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
