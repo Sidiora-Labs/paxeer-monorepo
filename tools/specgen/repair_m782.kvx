@@ -1,0 +1,14 @@
+[task.22.33.782]
+finding = "specgen-escaped-quotes"
+audit = "spec/layerx-merge/programme/audit/records/22.30.174.kvx"
+base_revision = "caa8b41ee668274ee1e5c1df6691288455c46278"
+proofs = ["TestRepairM_782_QuotedValues", "TestRepairM_782_Lists", "TestRepairM_782_ProducerToRenderer", "TestRepairM_782_RejectMalformedStrings"]
+repair = "Share escape-aware quote state between comment stripping and list splitting; decode quoted tokens with strconv.Unquote and reject malformed tokens during parsing. Preserve raw tokens and decode exactly once before interpolation and rendering."
+baseline = "Not run: the task order requires complete implementation before building or testing and permits verification only through hf-done after hf-build; no pre-change failures are claimed."
+wiring_requests = []
+qualification = "The runner records the exact candidate revision, command, exit code and private log path for hf-build and hf-done in /out/run/gates.jsonl; only a passing hf-done closes this finding."
+
+[gotcha.1]
+symptom = "An escaped quote before a hash truncates literal content; an escaped quote before a comma merges list items; encoded escapes reach generated Markdown."
+cause = "Independent quote toggles ignored backslash parity and unquote only removed delimiters."
+do = "Use the shared quote scanner and validated decoder, with file-to-render vectors and odd/even backslash coverage."

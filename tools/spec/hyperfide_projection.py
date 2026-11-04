@@ -68,6 +68,8 @@ def safe_numbers(value, where):
         return
     if isinstance(value, float) and (value != value or value in (float('inf'), float('-inf'))):
         raise SpecError('non-finite number at ' + where)
+    if isinstance(value, float):
+        raise SpecError('noncanonical number at ' + where + '; use safe integer JSON syntax')
     if isinstance(value, int) and abs(value) > MAX_SAFE:
         raise SpecError('unsafe integer at ' + where)
     if isinstance(value, list):
@@ -79,7 +81,7 @@ def safe_numbers(value, where):
 
 
 def parse_kvx(text):
-    """Returns [(name, {key: value})] in source order, enforcing parseKvx exactly."""
+    """Follow parseKvx in source order, restricting numbers to safe integer syntax."""
     if '\0' in text:
         raise SpecError('NUL byte')
     sections, seen, current = [], set(), None
@@ -122,11 +124,12 @@ def parse_kvx(text):
 
 
 def canonical(value):
-    """spec/import.ts:43-47: sorted keys, JSON.stringify scalars."""
+    """spec/import.ts:43-47 on the supported safe-integer numeric subset."""
     if isinstance(value, list):
         return '[' + ','.join(canonical(v) for v in value) + ']'
     if isinstance(value, dict):
         return '{' + ','.join(json.dumps(k, ensure_ascii=False) + ':' + canonical(value[k]) for k in sorted(value)) + '}'
+    safe_numbers(value, 'canonical value')
     return json.dumps(value, ensure_ascii=False)
 
 
@@ -135,6 +138,7 @@ def digest(text):
 
 
 def emit_value(value):
+    safe_numbers(value, 'emitted value')
     text = json.dumps(value, ensure_ascii=False)
     return text.replace('\u2028', '\\u2028').replace('\u2029', '\\u2029')
 
