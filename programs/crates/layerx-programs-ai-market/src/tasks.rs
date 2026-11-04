@@ -25,8 +25,8 @@ use core::cmp::Ordering;
 
 use crate::{
     admission::{AdmissionTable, Participant},
+    codec::ValidatedEnvelope,
     codec::{self, derive_market, domain_hash, Envelope, EventCommon, Reader, Writer},
-    codec::{Roster, ValidatedEnvelope},
     dispatch::{self, Operation},
     errors::{
         CodecResult, ARITHMETIC, CAPACITY, CONFLICT, F01_LIFECYCLE_CLOSED, F01_NO_TASK_CAPACITY,
@@ -38,9 +38,7 @@ use crate::{
         WRONG_ROSTER,
     },
     evaluators::{
-        authority::{self, split_identity_section},
-        codec::verify_digest,
-        model::VerificationError,
+        authority::split_identity_section, codec::verify_digest, model::VerificationError,
     },
     registry::{check_f01_capacity, market_clock, MarketHeader},
     registry_ops::{
@@ -53,12 +51,12 @@ use crate::{
         ReplayRequest, RetainedResult, Section, SharedState,
     },
     types::{
-        Authentication, Digest32, EpochPhase, EpochWindows, EvaluatorRosterEntry, MarketId,
-        MetadataDigest, PolicyDigest, Presence, PrincipalId, PublicKey32, RequestId, ResultDigest,
-        RosterDigest, Signature64, TaskId, Version, WorkerId, WorkerRosterEntry,
+        Authentication, Digest32, EpochPhase, EpochWindows, MarketId, MetadataDigest, PolicyDigest,
+        Presence, PrincipalId, PublicKey32, RequestId, ResultDigest, RosterDigest, Signature64,
+        TaskId, Version, WorkerId,
     },
-    workers::{check_new_admission, WorkerCurrent, WorkerState, WorkerTable},
-    MAX_EVALUATORS, MAX_TASKS, MAX_WORKERS,
+    workers::{WorkerCurrent, WorkerState, WorkerTable},
+    MAX_TASKS,
 };
 
 /// Canonical `TaskBinding` length.
@@ -717,23 +715,6 @@ fn parse_admit(payload: &[u8]) -> CodecResult<AdmitBody> {
     Ok(body)
 }
 
-fn evaluator_roster(
-    identity: &[u8],
-    epoch: u64,
-) -> CodecResult<([EvaluatorRosterEntry; MAX_EVALUATORS], usize)> {
-    let region = authority::evaluator_region(identity)?;
-    let snapshot = region
-        .snapshot()
-        .filter(|s| s.epoch == epoch)
-        .ok_or(NON_CANONICAL)?;
-    let first = snapshot.entries().next().ok_or(NON_CANONICAL)?.entry;
-    let mut roster = [first; MAX_EVALUATORS];
-    for (slot, frozen) in roster.iter_mut().zip(snapshot.entries()) {
-        *slot = frozen.entry;
-    }
-    Ok((roster, snapshot.len()))
-}
-
 /// R041 frozen-worker binding: the worker is frozen in the opened epoch, its operating
 /// authority is current and unrevoked, and the claimed metadata reproduces the frozen roster.
 fn check_frozen_worker(
@@ -743,73 +724,39 @@ fn check_frozen_worker(
     body: &AdmitBody,
     height: u64,
 ) -> CodecResult<()> {
-    let row = rewards.row(binding.epoch)?;
-    let dictionary = rewards.dictionary();
-    let mut frozen = None;
-    for entry in row.entries() {
-        let slot = dictionary.slot(entry.slot)?;
-        if slot.worker == body.worker {
-            frozen = Some(slot);
-        }
+    let captured = crate::epoch::captured_roster(state)?.ok_or(WRONG_ROSTER)?;
+    if captured.binding.epoch != binding.epoch
+        || captured.binding.roster != binding.roster
+        || captured.binding.config != binding.config
+        || captured.binding.market != binding.market
+    {
+        return Err(WRONG_ROSTER);
     }
-    let frozen = frozen.ok_or(F01_UNKNOWN_WORKER)?;
+    // The reserve and captured roster were cross-checked together by captured_roster.
+    rewards.row(binding.epoch)?;
+    let target = captured
+        .workers()
+        .iter()
+        .find(|w| w.worker == body.worker)
+        .ok_or(F01_UNKNOWN_WORKER)?;
+    if body.metadata != target.metadata {
+        return Err(WRONG_ROSTER);
+    }
     let identity = state.feature_sections[Section::IdentityRoster.index()];
     let live = WorkerTable::decode(split_identity_section(identity)?.0)?;
     let record = live.get(body.worker).ok_or(NON_CANONICAL)?;
-    if body.metadata != record.metadata {
-        return Err(WRONG_ROSTER);
-    }
-    let target = WorkerRosterEntry {
-        worker: body.worker,
-        owner: record.owner,
-        recipient: frozen.recipient,
-        generation: Version::new(record.generation)?,
-        key_version: Version::new(record.key_version)?,
-        public_key: record.delegate,
-        metadata: body.metadata,
-    };
-    check_new_admission(&record, &target, height)?;
-    let admission =
-        AdmissionTable::decode(state.feature_sections[Section::ReputationAdmission.index()])?;
+    crate::workers::check_opened_admission(&record, target, binding.epoch, height)?;
+    let (_, table) = crate::reputation_transition::split_joint(
+        state.feature_sections[Section::ReputationAdmission.index()],
+    )?;
+    let admission = AdmissionTable::decode(table)?;
     if admission
         .get(Participant::Worker(body.worker))
         .is_none_or(|m| m.revoked())
     {
         return Err(REVOKED);
     }
-    let mut workers = [target; MAX_WORKERS];
-    let mut count = 0;
-    for entry in row.entries() {
-        let slot = dictionary.slot(entry.slot)?;
-        if slot.worker != body.worker {
-            let other = live.get(slot.worker).ok_or(NON_CANONICAL)?;
-            *workers.get_mut(count).ok_or(CAPACITY)? = WorkerRosterEntry {
-                worker: slot.worker,
-                owner: other.owner,
-                recipient: slot.recipient,
-                generation: Version::new(other.generation)?,
-                key_version: Version::new(other.key_version)?,
-                public_key: other.delegate,
-                metadata: other.metadata,
-            };
-        }
-        count += 1;
-    }
-    let workers = workers.get_mut(..count).ok_or(CAPACITY)?;
-    codec::sort_by(workers, |a, b| a.worker.cmp(&b.worker));
-    let (evaluators, evaluator_count) = evaluator_roster(identity, binding.epoch)?;
-    let digest = codec::roster_digest(&Roster {
-        market: binding.market,
-        epoch: binding.epoch,
-        config: binding.config,
-        workers,
-        evaluators: evaluators.get(..evaluator_count).ok_or(CAPACITY)?,
-    })?;
-    if digest == binding.roster {
-        Ok(())
-    } else {
-        Err(WRONG_ROSTER)
-    }
+    Ok(())
 }
 
 /// `ADMIT_TASK` (0x010C): object-local by the requester principal.

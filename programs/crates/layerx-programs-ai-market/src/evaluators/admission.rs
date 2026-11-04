@@ -36,7 +36,7 @@ use crate::{
         UNKNOWN_OPERATION, WRONG_CONFIG, WRONG_EPOCH, WRONG_MARKET, WRONG_ROSTER,
     },
     evaluators::{
-        authority::{evaluator_region, split_identity_section, FrozenEvaluator},
+        authority::{evaluator_region, FrozenEvaluator},
         codec::{check_binding, decode_signed_report, encode_signed_report, verify_signed_report},
         model::SIGNED_REPORT_MIN_BYTES,
         model::{ReportContext, SignedReport, VerificationError, SIGNED_REPORT_MAX_BYTES},
@@ -53,7 +53,6 @@ use crate::{
         Digest32, EvaluatorBinding, EvaluatorId, FrozenBinding, Presence, PrincipalId,
         ReportDigest, ResultDigest, Version, WorkerRosterEntry,
     },
-    workers::WorkerTable,
     MAX_EVALUATORS, MAX_WORKERS,
 };
 
@@ -388,39 +387,24 @@ fn view<'a>(state: &SharedState<'a>, known: Option<RewardState<'a>>) -> CodecRes
     })
 }
 
-/// The frozen worker set of the opened epoch: the F06 row (worker and frozen recipient) with
-/// the F02 identity attributes, sorted by worker.
+/// The complete immutable worker set shared by report admission and settlement.
 fn frozen_workers(
     state: &SharedState<'_>,
     rewards: &RewardState<'_>,
     row: &RewardEpoch,
 ) -> CodecResult<([WorkerRosterEntry; MAX_WORKERS], usize)> {
-    let dictionary = rewards.dictionary();
-    let identity = state.feature_sections[Section::IdentityRoster.index()];
-    let live = WorkerTable::decode(split_identity_section(identity)?.0)?;
-    let entry = |slot: u16| -> CodecResult<WorkerRosterEntry> {
-        let frozen = dictionary.slot(slot)?;
-        let record = live.get(frozen.worker).ok_or(NON_CANONICAL)?;
-        Ok(WorkerRosterEntry {
-            worker: frozen.worker,
-            owner: record.owner,
-            recipient: frozen.recipient,
-            generation: Version::new(record.generation)?,
-            key_version: Version::new(record.key_version)?,
-            public_key: record.delegate,
-            metadata: record.metadata,
-        })
-    };
-    let first = row.entries().first().ok_or(NON_CANONICAL)?;
-    let mut workers = [entry(first.slot)?; MAX_WORKERS];
-    let count = row.entries().len();
-    for (slot, frozen) in workers.iter_mut().zip(row.entries()) {
-        *slot = entry(frozen.slot)?;
+    let captured = crate::epoch::captured_roster(state)?.ok_or(WRONG_ROSTER)?;
+    if captured.binding.epoch != row.epoch
+        || captured.binding.roster != row.roster
+        || rewards.row(row.epoch)?.roster != row.roster
+    {
+        return Err(WRONG_ROSTER);
     }
-    codec::sort_by(workers.get_mut(..count).ok_or(CAPACITY)?, |a, b| {
-        a.worker.cmp(&b.worker)
-    });
-    Ok((workers, count))
+    let entries = captured.workers();
+    let first = *entries.first().ok_or(WRONG_ROSTER)?;
+    let mut workers = [first; MAX_WORKERS];
+    workers[..entries.len()].copy_from_slice(entries);
+    Ok((workers, entries.len()))
 }
 
 /// One reveal-admission request supplied by the F04 `RevealScore` operation.
