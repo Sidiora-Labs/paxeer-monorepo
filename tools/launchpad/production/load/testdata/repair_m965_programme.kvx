@@ -1,0 +1,14 @@
+# Committed coordinator peer fixture, excerpted task identities and dependency.
+# These states test admission; they do not authorize production capacity work.
+[meta]
+slug = "layerx-merge"
+[decision.repair-m965-kvx]
+value = "KVX preserves command backslashes such as \[task\] literally."
+[task.22.31.41]
+title = "Repair audit record 22.30.29 findings in sdk/launchpad/shared/delivery: restart-recovery"
+status = "done"
+requires = []
+[task.22.33.965]
+title = "Repair audit record 22.30.29 medium findings in tools/launchpad/production/load"
+status = "in_progress"
+requires = ["22.31.41"]

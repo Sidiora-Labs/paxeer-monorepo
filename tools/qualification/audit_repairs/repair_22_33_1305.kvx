@@ -1,0 +1,36 @@
+[task.22.33.1305]
+audit = "22.30.7"
+acceptance = "22998.1"
+base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
+start_revision = "0746aaee3f6116dc9fd487065db3d2e63d813a66"
+repair = "Add the focused documentation regression proof for doc-root-architecture against README.md as task 22.31.470 left it. The inherited README already describes the merged paxd network, committed-block finality, served interfaces, activation and builds, and historical compatibility refusals; no README modification is authorized or needed."
+source_proof = "Tests read the production README, parse its curl JSON-RPC request and URLs, check both Mermaid diagrams, and connect its claims to production host/consensus wiring, root dispatch and RPC registrations, transaction acceptance/forwarding, durable acknowledgement before receipt publication, committed receipt coverage, retirement gates and parsed Makefile prerequisites. No fixture replaces the document or production sources."
+review_only = "Native builds, node startup, actual transaction execution, WAL restart/recovery, BFT consensus, cryptographic verification, public endpoint availability and deployment are not executed by this documentation gate. Source assertions prove documented producer/transport/consumer connections; runtime behavior remains review evidence from the referenced implementations. This doc-drift finding changes no stateful component or interface, so restart and interface execution proofs do not apply."
+baseline = "Initial git status/diff showed only pre-existing .cgignore and spec task bookkeeping; both scoped artifacts were absent and /out/run/gates.jsonl did not exist. No pre-change verification ran and no baseline failures are claimed: the explicit implementation-first order and exclusive hf-done gate supersede the older step requesting a separate baseline verify."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1305.py"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision = "The last hf-done JSON and private /out/run/gates.jsonl identify the exact content-derived verified revision, command, exit code and log path; build and verification must pass on the same candidate revision. This record is finalized before qualification because embedding its own candidate hash would change that hash. No qualification success is asserted before the declared gate passes."
+wiring_requests = []
+wiring_policy = "README.md belongs to domain 17, task 22.31.470. Any missing expected fact must be recorded as a one-line wiring request to that task instead of changing README.md or weakening its assertion. Inspection found no missing expected fact."
+format = "No Python or KVX formatter is configured for these paths; apply repository .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions after completing implementation."
+
+[finding.doc-root-architecture]
+audit = "22.30.7"
+source = "README.md"
+audit_line = 53
+class = "doc-drift"
+severity = "medium"
+owner_domain = 17
+owner_task = "22.31.470"
+expected = "The finished network is one paxd BFT chain at chain id 125, with kernel execution inside the network and receipt finality on committed blocks."
+resolution = "The owning task's README rewrite supplies the architecture, root api1..api14 JSON-RPC hosts, transaction and committed receipt flows, merged-node build/start and activation guidance, retired custody/checkpoint executors, and explicitly historical compatibility formats. The scoped tests assert those facts directly, including the absence of separate daemon/checkpoint deployment guidance."
+tests = ["test_doc_root_architecture_merged_network_and_finality", "test_doc_root_architecture_root_rpc_hosts_and_chain_probe", "test_doc_root_architecture_transaction_to_committed_receipt_path", "test_doc_root_architecture_diagrams_show_integrated_commit_flow", "test_doc_root_architecture_retired_compatibility_is_explicit", "test_doc_root_architecture_build_and_activation_guidance", "test_doc_root_architecture_no_retired_deployment_instructions"]
+
+[gotcha.1]
+observed = "The prompt's original base differs from checkout HEAD because the root README dependency is already applied."
+resolution = "Preserve all inherited changes and distinguish the supplied base from the actual start revision; qualify only the two declared paths through the runner."
+
+[gotcha.2]
+observed = "Broad combined reads exceeded output limits, and optional root Python formatter/configuration files were absent."
+resolution = "Use bounded task-specific source sections and the owning README repair's documented formatter policy; do not modify out-of-scope ledgers or speculative configuration paths."

@@ -277,3 +277,47 @@ pub(crate) fn verify_native_receipt(
     }
     Ok(())
 }
+
+/// Reads the transaction identity covered by a deterministic EVM result. Empty
+/// native results do not name an EVM outcome; malformed nonempty data refuses.
+pub(crate) fn transaction_hash(result: &[u8]) -> Result<Option<[u8; 32]>, CheckpointReadError> {
+    let outer = fields(result)?;
+    let data = outer
+        .iter()
+        .find_map(|(number, value)| match (number, value) {
+            (2, ProtoValue::Bytes(data)) => Some(*data),
+            _ => None,
+        });
+    let Some(data) = data.filter(|data| !data.is_empty()) else {
+        return Ok(None);
+    };
+    let messages = fields(data)?;
+    let [(1, ProtoValue::Bytes(message))] = messages.as_slice() else {
+        return Err(CheckpointReadError::InvalidProof);
+    };
+    let message = fields(message)?;
+    let [(1, ProtoValue::Bytes(kind)), (2, ProtoValue::Bytes(_))] = message.as_slice() else {
+        return Err(CheckpointReadError::InvalidProof);
+    };
+    if *kind != b"/paxprotocol.paxchain.evm.MsgEVMTransaction" {
+        return Ok(None);
+    }
+    let response = evm_response(result)?;
+    let mut hash = None;
+    for (number, value) in fields(response)? {
+        if let (4, ProtoValue::Bytes(bytes)) = (number, value) {
+            if hash.is_some() {
+                return Err(CheckpointReadError::InvalidProof);
+            }
+            let text = std::str::from_utf8(bytes).map_err(|_| CheckpointReadError::InvalidProof)?;
+            hash = Some(
+                layerx_programs::hex::decode_digest(
+                    text.strip_prefix("0x")
+                        .ok_or(CheckpointReadError::InvalidProof)?,
+                )
+                .map_err(|_| CheckpointReadError::InvalidProof)?,
+            );
+        }
+    }
+    hash.map(Some).ok_or(CheckpointReadError::InvalidProof)
+}

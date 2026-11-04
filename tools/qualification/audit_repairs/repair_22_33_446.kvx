@@ -1,0 +1,48 @@
+[repair]
+task = "22.33.446"
+audit = "22.30.147"
+acceptance = "22998.1"
+requested_base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
+inspected_revision = "f70d9a6795a7352b65237cdd4a0887af3d5d8e6f"
+readme_owner = "Domain 17 / task 22.31.470 owns README.md under decision 2525; this task consumes its integrated-network rewrite without editing it."
+implementation = "Add focused offline documentation contracts for audit 22.30.147/root-network, reading the actual README and linked production sources and parsing the hosted OpenRPC JSON and documented curl JSON-RPC request."
+baseline = "Baseline verify was not run: both scoped files were absent, no gates.jsonl existed, and gate.json recorded zero builds and verifies. The explicit implementation-first order and prohibition on running verify_cmd by hand supersede do_5's older baseline instruction; no pre-change test failure is claimed. Initial status/diff showed only runner-prepared .cgignore and spec bookkeeping."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_446.py"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision = "The final hf-done JSON and private evidence_ledger identify the exact verified content-derived revision, command, exit and log. Build and verify must pass at the same candidate revision. This record is finalized before gates; embedding its own candidate hash would change that hash. The runner retains and publishes the qualification evidence."
+wiring_requests = []
+source_proof = "Tests prove the README describes one chain-125 BFT paxd network with an embedded proposing kernel, root api1..api14 and api-mainnet-beta JSON-RPC, a valid chain-id request, signed transaction submission and committed receipts, private test restrictions, optional hosted px_ contracts, retired custody/checkpoint refusals and actual source links. Node host/consensus wiring, transaction acceptance/forwarding, WAL release before receipt publication, committed coverage, root-path dispatch, API registrations and retirement predicates are checked in production source."
+review_only = "The gate does not execute Go/C/Rust, start a node, call any endpoint, authenticate cryptographic proofs, execute transactions, exercise consensus or test WAL restart/recovery. Those behaviors require runtime qualification and operator review. This doc-drift repair changes no stateful component or interface; source assertions prove documentation alignment, not runtime correctness or deployment availability."
+
+[finding.root-network]
+file = "README.md"
+line = 44
+class = "doc-drift"
+severity = "medium"
+observed = "The audit described two execution domains, separate layerxd checkpoint settlement through layerxAnchor, and repeated stale release instructions."
+resolution = "The README supplied by 22.31.470 documents the integrated paxd chain and current contracts. All expected facts were present on inspection; no missing fact requires an additional wiring request. Closure is conditional on the declared hf-done evidence, never on this declaration alone."
+tests = ["test_root_network_embeds_kernel_in_one_chain_125_paxd", "test_public_rpc_hosts_use_root_and_probe_chain_125", "test_transaction_to_committed_receipt_matches_production_source_path", "test_hosted_px_contract_and_private_services_are_explicit", "test_custody_and_checkpoint_executors_are_retired_not_deployments", "test_readme_links_actual_node_and_hosted_contracts"]
+
+[reconciliation.px_methods]
+authority = "rpc/server.go registers native pxAccountAPI, pxHistoryAPI and receiptKeysAPI; services/platform/hosted/gateway/openrpc.json separately declares hosted extension methods."
+resolution = "Assert the hosted px_ contract and explicit native px_ subset, without claiming every px_ method belongs exclusively to the gateway or is publicly deployed."
+
+[reconciliation.retirement]
+authority = "The retained precompile sources gate custody/verification retirement at merge and anchor historical views at StoreDeleteUpgrade."
+resolution = "Keep compatibility names only in the explicit retirement paragraph; current funding and finality use native state and BFT commit, and historical anchor views are archive-only before deletion."
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths. Apply the repository .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions only to the two scoped files after implementation."
+
+[gotcha.context]
+observed = "Combined reads of repository ledgers and neighboring repair records exceeded tool output bounds, and cg brief named an unrelated task from stale cached context."
+resolution = "Use bounded task-specific sections, actual Git status/diff and private gate state; preserve all inherited edits. Task notes remain in this scoped record because GOTCHA.kvx and spec files are outside the authorized paths."
+
+[repair_cycle.1]
+revision = "c1f798a43f0a76bdee919354efc4c34fa27b44ee"
+command = "cg spec done 22.33.446 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Five tests passed; two failed because the Markdown section helper interpreted the fenced curl example's shell comment as a heading and truncated the quickstart."
+repair = "Track Markdown fences when finding section boundaries, preserving all source-fact assertions unchanged; reformat the scoped files and rebuild before verification."

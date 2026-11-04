@@ -7,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED
 from datetime import datetime, timezone
 import hashlib
 import importlib
+import importlib.util
 import stat
 import json
 import os
@@ -548,6 +549,65 @@ def qualify_accepted_candidate(entry, task_id, task, spec, root, evidence):
             'candidate_hash_algorithm': 'qualification-source-v1', 'require_current_source': True}
 
 
+
+LOAD_REPAIR_TASK = '22.33.965'
+LOAD_PROGRAMME_SPEC = 'spec/layerx-merge/spec.kvx'
+
+
+
+def load_repair_admission(root, spec_path, task_id):
+    if task_id != LOAD_REPAIR_TASK or spec_path != root / LOAD_PROGRAMME_SPEC:
+        raise QualificationError('load repair requires its current root task and programme')
+    reader_spec = importlib.util.spec_from_file_location(
+        'load_repair_programme', Path(__file__).resolve().parent / 'load/programme.py')
+    reader = importlib.util.module_from_spec(reader_spec)
+    reader_spec.loader.exec_module(reader)
+    spec, spec_bytes = reader.load_programme(spec_path)
+    if spec.get('meta', {}).get('slug') != 'layerx-merge':
+        raise QualificationError('load repair programme differs')
+    task = task_at(spec, task_id)
+    if task.get('status') not in {'in_progress', 'done'}:
+        raise QualificationError('load repair must be claimed before qualification')
+    for dependency in task.get('requires', []):
+        if task_at(spec, dependency).get('status') != 'done':
+            raise QualificationError(f'dependency {dependency} is not done')
+    command = task.get('verify_cmd')
+    if not isinstance(command, str) or not command.strip():
+        raise QualificationError('load repair requires its declared verification command')
+    return task, spec_bytes
+
+
+def qualify_load_repair(args, root, spec_path, evidence, control):
+    """Qualify the migrated repair command against its current programme task."""
+    if spec_path != root / LOAD_PROGRAMME_SPEC:
+        raise QualificationError('load repair requires the current root programme')
+    task, spec_bytes = load_repair_admission(root, spec_path, args.task)
+    command = task['verify_cmd']
+    before = snapshot(root)
+    if args.candidate_sha256 and before['sha256'] != args.candidate_sha256:
+        raise QualificationError('load repair source differs from required candidate')
+    control.candidate_sha256 = before['sha256']
+    (evidence / 'source-before.json').write_text(json.dumps(before, indent=2) + '\n')
+    observed = execute_check({
+        'id': 'load-repair-m965', 'kind': 'test', 'target': 'load',
+        'argv': ['bash', '-c', command], 'env': {}, 'cwd': '.',
+        'timeout_seconds': 1800,
+    }, root, evidence, control=control)
+    after = snapshot(root)
+    (evidence / 'source-after.json').write_text(json.dumps(after, indent=2) + '\n')
+    errors = []
+    if not observed['passed']:
+        errors.append('declared load repair verification failed')
+    if before != after or spec_path.read_bytes() != spec_bytes:
+        errors.append('source or programme changed during load repair qualification')
+    return {
+        'qualified': not errors, 'qualification_scope': 'load-audit-repair',
+        'checks': [observed], 'errors': errors, 'candidate_sha256': before['sha256'],
+        'spec_sha256': hashlib.sha256(spec_bytes).hexdigest(),
+        'require_current_source': True, 'capacity_qualified': False,
+        'release_qualified': False,
+    }
+
 def run(args, control=None):
     control = control or ExecutionControl()
     root = Path(__file__).resolve().parents[3]
@@ -566,6 +626,14 @@ def run(args, control=None):
               'started_at': control.started_at,
               'evidence_directory': str(evidence)}
     try:
+        if args.task == LOAD_REPAIR_TASK:
+            result.update(qualify_load_repair(args, root, spec_path, evidence, control))
+            result['finished_at'] = datetime.now(timezone.utc).isoformat()
+            output = evidence / 'result.json'
+            output.write_text(json.dumps(result, indent=2) + '\n')
+            print(json.dumps({'qualified': result['qualified'], 'task': args.task,
+                              'result': str(output), 'errors': result['errors']}))
+            return 0 if result['qualified'] else 1
         if args.task not in IMPLEMENTED_TASKS:
             preview = json.loads(registry_path.read_text()) if registry_path.is_file() else {}
             reviewed = preview.get('tasks', {}).get(args.task)

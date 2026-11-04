@@ -15,7 +15,6 @@ import {
 
 import {
   ModuleError,
-  bytesHex,
   decodeAbiUint,
   decodeModuleEvent,
   ethCall,
@@ -35,7 +34,8 @@ export const WEB_DATA_KIND_FETCH = 1;
 export const WEB_DATA_KIND_SEARCH = 2;
 export const WEB_DATA_KIND_API = XWEB_KIND_API;
 
-export type WebDataKind = typeof WEB_DATA_KIND_FETCH | typeof WEB_DATA_KIND_SEARCH | typeof WEB_DATA_KIND_API;
+export type WebDataKind =
+  typeof WEB_DATA_KIND_FETCH | typeof WEB_DATA_KIND_SEARCH | typeof WEB_DATA_KIND_API;
 
 export const WEB_DATA_EVENTS: readonly ModuleEventSpec[] = [
   {
@@ -118,14 +118,24 @@ export interface WebDataCaps {
 export interface WebDataModule {
   readonly address: string;
   readonly events: readonly ModuleEventSpec[];
-  request(kind: WebDataKind, payload: Uint8Array | string, callbackGas: bigint, fee: bigint): ModuleTransaction;
+  request(
+    kind: WebDataKind,
+    payload: Uint8Array | string,
+    callbackGas: bigint,
+    fee: bigint
+  ): ModuleTransaction;
   fetch(url: string, callbackGas: bigint, fee: bigint): ModuleTransaction;
   search(query: string, callbackGas: bigint, fee: bigint): ModuleTransaction;
   api(request: XWebApiRequest, callbackGas: bigint, fee: bigint): ModuleTransaction;
-  buildApiRequest(call: XWebApiCall, attestors: XWebAttestorSet, options?: XWebApiBuildOptions): XWebApiRequest;
+  buildApiRequest(
+    call: XWebApiCall,
+    attestors: XWebAttestorSet,
+    options?: XWebApiBuildOptions
+  ): XWebApiRequest;
   refund(requestId: bigint): ModuleTransaction;
   fee(): Promise<bigint>;
   caps(grantIds: readonly string[]): Promise<WebDataCaps>;
+  paymentAvailability(): Promise<WebDataPaymentAvailability>;
   attestors(): Promise<XWebAttestorSet>;
   send(from: string, tx: ModuleTransaction): Promise<string>;
   decodeEvent(log: ModuleLog): DecodedModuleEvent;
@@ -133,83 +143,52 @@ export interface WebDataModule {
 
 const REQUEST_SELECTOR = abiSelector('request(uint8,bytes,uint64)');
 const FEE_SELECTOR = abiSelector('fee()');
-const GET_PAYER_GRANT_SELECTOR = abiSelector('getPayerGrant(bytes32)');
-const WORD = 32;
-const GRANT_ANSWER_HEAD = 7 * WORD;
-const GRANT_ANSWER_BYTES = GRANT_ANSWER_HEAD + WORD + Math.ceil(PAYER_GRANT_BYTES / WORD) * WORD;
-const BYTES32 = /^0x[0-9a-fA-F]{64}$/u;
+const PARAMS_SELECTOR = abiSelector('getParams()');
 
-function bigEndian(bytes: Uint8Array): bigint {
-  return bytes.reduce((value, byte) => (value << 8n) | BigInt(byte), 0n);
+export interface WebDataPaymentAvailability {
+  readonly model: 'request-value';
+  readonly available: boolean;
+  readonly fee: bigint;
+  readonly payerGrants: 'retired';
 }
 
-function grantIdHex(value: string): string {
-  if (typeof value !== 'string' || !BYTES32.test(value)) {
-    throw new ModuleError('invalid_value', 'grantId');
+export class WebPayerGrantsRetiredError extends Error {
+  readonly code = 'payer_grants_retired';
+
+  constructor() {
+    super('Payer grants are retired. Web requests pay the current fee as transaction value.');
+    this.name = 'WebPayerGrantsRetiredError';
   }
-  return value.toLowerCase();
 }
 
-function decodePayerGrant(answer: string, grantId: string): WebPayerGrant {
-  const data = hexBytes(answer, 'getPayerGrant');
-  const malformed = (): ModuleError => new ModuleError('invalid_answer', 'getPayerGrant');
-  if (data.length !== GRANT_ANSWER_BYTES) {
-    throw malformed();
-  }
-  const word = (slot: number, bits: number): bigint => {
-    const value = bigEndian(data.subarray(slot * WORD, (slot + 1) * WORD));
-    if (value >= 1n << BigInt(bits)) {
-      throw malformed();
-    }
-    return value;
-  };
-  const end = GRANT_ANSWER_HEAD + WORD + PAYER_GRANT_BYTES;
-  if (word(0, 256) !== BigInt(GRANT_ANSWER_HEAD) || word(7, 256) !== BigInt(PAYER_GRANT_BYTES) || data.subarray(end).some((byte) => byte !== 0)) {
-    throw malformed();
-  }
-  const grant = data.subarray(GRANT_ANSWER_HEAD + WORD, end);
-  let offset = 0;
-  const take = (length: number): Uint8Array => grant.subarray(offset, (offset += length));
-  const flag = (bytes: Uint8Array): boolean => {
-    if (bytes[0] !== 0 && bytes[0] !== 1) {
-      throw malformed();
-    }
-    return bytes[0] === 1;
-  };
-  const decoded: WebPayerGrant = {
-    grantId: bytesHex(take(32)),
-    from: bytesHex(take(32)),
-    recipient: bytesHex(take(32)),
-    asset: bytesHex(take(32)),
-    perDrawMaximum: bigEndian(take(16)),
-    allowance: bigEndian(take(16)),
-    recurring: flag(take(1)),
-    windowLength: bigEndian(take(8)),
-    expiration: bigEndian(take(8)),
-    purposeHash: bytesHex(take(32)),
-    hasReference: flag(take(1)),
-    referenceHash: bytesHex(take(32)),
-    revocationSequence: bigEndian(take(8)),
-    publicKey: bytesHex(take(32)),
-    signature: bytesHex(take(64)),
-    drawnTotal: word(1, 128),
-    drawnThisPeriod: word(2, 128),
-    windowStart: word(3, 64),
-    revokedAt: word(4, 64),
-    revoked: word(5, 1) === 1n,
-    invoiceSettled: word(6, 1) === 1n,
-  };
-  if (decoded.grantId !== grantId) {
-    throw malformed();
-  }
-  return Object.freeze(decoded);
+export function decodeWebDataPaymentAvailability(answer: string): WebDataPaymentAvailability {
+  const data = hexBytes(answer, 'getParams');
+  if (data.length !== 5 * 32) throw new ModuleError('invalid_answer', 'getParams');
+  const word = (slot: number, bits: number): bigint =>
+    decodeAbiUint(`0x${answer.slice(2 + slot * 64, 2 + (slot + 1) * 64)}`, bits);
+  const fee = word(0, 256);
+  word(1, 32);
+  word(2, 64);
+  word(3, 64);
+  const paused = word(4, 1) === 1n;
+  return Object.freeze({
+    model: 'request-value',
+    available: !paused,
+    fee,
+    payerGrants: 'retired',
+  });
 }
 
 function payloadBytes(payload: Uint8Array | string): Uint8Array {
   return typeof payload === 'string' ? new TextEncoder().encode(payload) : payload;
 }
 
-function requestCall(kind: WebDataKind, payload: Uint8Array | string, callbackGas: bigint, fee: bigint): ModuleTransaction {
+function requestCall(
+  kind: WebDataKind,
+  payload: Uint8Array | string,
+  callbackGas: bigint,
+  fee: bigint
+): ModuleTransaction {
   if (kind !== WEB_DATA_KIND_FETCH && kind !== WEB_DATA_KIND_SEARCH && kind !== WEB_DATA_KIND_API) {
     throw new ModuleError('invalid_value', 'kind');
   }
@@ -220,37 +199,48 @@ function requestCall(kind: WebDataKind, payload: Uint8Array | string, callbackGa
   const call = xwebApiRequestCall(bytes, callbackGas, fee);
   const kindWord = uintWordHex(BigInt(kind), 8, 'kind');
   const head = REQUEST_SELECTOR.length;
-  return { to: call.to, data: REQUEST_SELECTOR + kindWord + call.data.slice(head + 64), value: call.value };
+  return {
+    to: call.to,
+    data: REQUEST_SELECTOR + kindWord + call.data.slice(head + 64),
+    value: call.value,
+  };
 }
 
-export function webData(provider: ModuleProvider, address: string = XWEB_PRECOMPILE): WebDataModule {
+export function webData(
+  provider: ModuleProvider,
+  address: string = XWEB_PRECOMPILE
+): WebDataModule {
   const target = moduleAddress(address);
-  const request = (kind: WebDataKind, payload: Uint8Array | string, callbackGas: bigint, fee: bigint): ModuleTransaction =>
-    retarget(requestCall(kind, payload, callbackGas, fee), target);
-  const fee = async (): Promise<bigint> => decodeAbiUint(await ethCall(provider, target, FEE_SELECTOR));
-  const grant = async (grantId: string): Promise<WebPayerGrant> =>
-    decodePayerGrant(await ethCall(provider, LEDGER_PRECOMPILE, GET_PAYER_GRANT_SELECTOR + grantId.slice(2)), grantId);
+  const request = (
+    kind: WebDataKind,
+    payload: Uint8Array | string,
+    callbackGas: bigint,
+    fee: bigint
+  ): ModuleTransaction => retarget(requestCall(kind, payload, callbackGas, fee), target);
+  const fee = async (): Promise<bigint> =>
+    decodeAbiUint(await ethCall(provider, target, FEE_SELECTOR));
   return {
     address: target,
-    caps: async (grantIds) => {
-      const ids = grantIds.map(grantIdHex);
-      const batched = async (): Promise<WebPayerGrant[]> => {
-        const read: WebPayerGrant[] = [];
-        for (let start = 0; start < ids.length; start += CAPS_READ_BATCH) read.push(...(await Promise.all(ids.slice(start, start + CAPS_READ_BATCH).map(grant))));
-        return read;
-      };
-      const [paid, grants] = await Promise.all([fee(), batched()]);
-      return Object.freeze({ fee: paid, grants: Object.freeze(grants) });
+    caps: async () => {
+      throw new WebPayerGrantsRetiredError();
     },
+    paymentAvailability: async () =>
+      decodeWebDataPaymentAvailability(await ethCall(provider, target, PARAMS_SELECTOR)),
     events: WEB_DATA_EVENTS,
     request,
     fetch: (url, callbackGas, fee) => request(WEB_DATA_KIND_FETCH, url, callbackGas, fee),
     search: (query, callbackGas, fee) => request(WEB_DATA_KIND_SEARCH, query, callbackGas, fee),
-    api: (built, callbackGas, fee) => retarget(xwebApiRequestCall(built.payload, callbackGas, fee), target),
+    api: (built, callbackGas, fee) =>
+      retarget(xwebApiRequestCall(built.payload, callbackGas, fee), target),
     buildApiRequest: (call, attestors, options) => buildXWebApiRequest(call, attestors, options),
-    refund: (requestId) => ({ to: target, data: encodeAbiCall('refund', ['uint64'], [requestId]), value: 0n }),
+    refund: (requestId) => ({
+      to: target,
+      data: encodeAbiCall('refund', ['uint64'], [requestId]),
+      value: 0n,
+    }),
     fee,
-    attestors: async () => decodeXWebAttestors(await ethCall(provider, target, xwebGetAttestorsCallData())),
+    attestors: async () =>
+      decodeXWebAttestors(await ethCall(provider, target, xwebGetAttestorsCallData())),
     send: (from, tx) => sendModuleTransaction(provider, from, tx),
     decodeEvent: (log) => decodeModuleEvent(WEB_DATA_EVENTS, target, log),
   };

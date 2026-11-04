@@ -1,0 +1,40 @@
+[task.22.33.813]
+audit = "spec/layerx-merge/programme/audit/records/22.30.178.kvx"
+finding_ids = ["61"]
+base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
+input_revision = "e0f7d330f31030057327fa299cd303de46943110"
+readme_sha256 = "689aad1724d426309d059d9a3b0085214078d35f756e19b396142a751f84ba98"
+repair = "Decision 2525 assigns the README rewrite to 22.31.470; consume its merged-network README unchanged and add focused regression proofs for audit 22.30.178 finding 61."
+source_proof = "Seven tests read the real README and check its one chain-125 paxd network, database tenant namespaces, aggregate and api1 through api14 root HTTPS JSON-RPC range and parsed chain probe, server-specific hosted methods, signed transaction to committed receipt flow, native committed-height and authenticated proof guidance, retired custody/checkpoint paths, current executable and workspace paths. The hosted OpenRPC JSON is parsed and its methods checked against the README; node registrations, Makefile target declarations and referenced production paths anchor the documented producer, transport and consumer."
+review_only = "No native build toolchain is available to this documentation gate. Node startup, actual endpoint availability, signed transaction execution, cryptographic verification, WAL restart/recovery and BFT consensus are not executed; those require runtime qualification by their owning domains. This doc-drift repair changes no production interface or stateful component. Shell snippets are documentation, not repaired shell scripts; no unit, manifest or build file is changed."
+baseline = "Initial git status/diff contained only runner-prepared .cgignore and spec bookkeeping; both scoped files were absent. gate.json recorded zero build and verify runs and no gates.jsonl existed. No pre-change test run or failures are claimed: the explicit implementation-first order and hf-done-only verification supersede the older do_5 baseline clause. The sole verification checks README.md unchanged from the input revision."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_813.py"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision = "The exact content-derived candidate revision is named by the last hf-done JSON and its matching verify entry in the private evidence ledger; build and verification must pass at that same revision. The record is finalized before qualification because embedding its own candidate hash would change the candidate."
+evidence_policy = "Copy revision, command, exit and log verbatim from the final gate JSON; the runner retains private logs and commits the task. No manual commit or push."
+wiring_request = "README.md | domain 17, owner task 22.31.470 | Rewrite for finding 61 as already supplied at input_revision; all requested facts were located during source review, with no missing README fact identified. Any failed README source assertion remains a wiring request to that owner, never permission to edit README here."
+
+[finding.61]
+file = "README.md"
+line = 48
+class = "doc-drift"
+severity = "medium"
+tests = ["test_finding_61_one_paxd_network_and_tenant_namespaces", "test_finding_61_public_root_hosts_and_chain_probe", "test_finding_61_hosted_methods_have_an_explicit_server_contract", "test_finding_61_transaction_to_committed_receipt_flow", "test_finding_61_native_committed_block_qualification", "test_finding_61_retired_custody_and_checkpoint_instructions_removed", "test_finding_61_current_executable_and_workspace_paths"]
+closure = "Closure requires the declared hf-done gate to pass; this record alone is not qualification evidence."
+px_contract_reconciliation = "The audit's shorthand that px_ belongs to the hosted gateway is qualified by the real node registrations: pxAccountAPI, pxHistoryAPI and receiptKeysAPI also serve native px_ methods. The README correctly distinguishes server contracts and does not promise hosted methods at public nodes; this test preserves that production fact rather than imposing exclusive prefix ownership."
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths; apply the repository .editorconfig UTF-8, LF, final newline and trailing-whitespace conventions after implementation."
+
+[gotcha.1]
+observed = "Broad combined context reads can exceed output limits, cg brief can report stale unrelated tasks, and guessed formatter configuration paths can be absent."
+resolution = "Use bounded task and finding sections, actual git status/diff and the private gate ledger; retain this note in scope because GOTCHA.kvx and spec files cannot be edited."
+
+[qualification.repair_1]
+revision = "3f7791115feb568ef9d314681fd182393c1d02ef"
+command = "cg spec done 22.33.813 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Six tests passed; the retired-executable substring assertion incorrectly matched the current getLayerXDid ABI method."
+repair = "Match the retired layerxd identifier with word boundaries and require the current getLayerXDid(address) method to remain documented; preserve all retirement criteria and rerun both declared gates on the repaired candidate."

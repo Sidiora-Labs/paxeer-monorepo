@@ -1,0 +1,23 @@
+[repair.22.31.471]
+base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
+mode = "BUILD"
+repair = "Pass maxSealedExportBytes to storage.GetBytes: 16 MiB of JSON plus the 12-byte AES-GCM nonce and 16-byte tag. Preserve the existing WriteError refusal and unconsumed credential on retrieval failure. Update the three account integration-test callers to explicit finite budgets."
+tests = ["TestRepair471_SealedExportBound"]
+proof = "Real PostgreSQL export requests and worker preparation, real worker encrypted publication through storage.Client into provisioned MinIO, and the production DownloadHandler: ordinary and exact-limit objects download once; a limit-plus-one authenticated object returns the unchanged dependency refusal, releases its claim and succeeds after replacement with an in-bound export."
+evidence = "The runner's private /out/run/gates.jsonl names the verified candidate revision, exact command, exit code and log; no unrun gate is claimed by this source record."
+qualification_workspace = "Run the declared root-relative commands with GOWORK pointing to the existing services/launchpad/go.work so Go includes the user service's nested module. Both build and verification use that same workspace; its checks remain enabled."
+
+[programme.interface-update]
+record = "spec/layerx-merge/interfaces.kvx [interface.4.go-shared-storage-client-get-bytes]"
+observed = "The merged interface record still declares GetBytes(ctx context.Context, key string), the obsolete two-argument form."
+required = "The programme must update it to GetBytes(ctx context.Context, key string, maxBytes int64) (content []byte, contentType string, err error) and refresh its caller inventory. The interface list is outside this repair's scope."
+
+[observations]
+bound = "This checkout has no existing sealed-export byte cap or configured object maximum; maxSealedExportBytes establishes an explicit finite caller budget including sealing overhead. Oversize storage errors keep the existing 503 DEPENDENCY_UNAVAILABLE response."
+
+[qualification.build-blocker]
+revision = "a9e473e12e450c5db58d7d62d04d87bc7dc045b0"
+command = "go build ./services/launchpad/user/... && go vet ./services/launchpad/user/internal/account/"
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "The root command fails before compilation: directory prefix services/launchpad/user does not contain main module or its selected dependencies. The user service is a nested module and the root has no go.work; assume the programme must supply workspace/gate configuration outside this task's scope. No tests executed and no verified revision is claimed."

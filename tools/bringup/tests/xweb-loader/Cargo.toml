@@ -1,0 +1,11 @@
+[package]
+name = "bringup-xweb-config-loader"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+
+[dependencies]
+ed25519-dalek = "=2.2.0"
+serde_json = "=1.0.151"
+layerx-proof = { path = "../../../../services/agent/crates/layerx-proof" }
