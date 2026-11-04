@@ -1,0 +1,9 @@
+[repair.22.33.459]
+finding = "verifier-request-deadline"
+tests = ["verifier_request_deadline_stalled_headers", "verifier_request_deadline_stalled_body", "verifier_health_request_deadline", "verifier_startup_probe_deadline", "verifier_connect_deadline_stalled_tls_handshake", "verifier_rejects_invalid_deadlines", "verifier_deadlines_preserve_successful_round_trip"]
+implementation = "Config exposes request and connect timeouts, defaults to 120 seconds and 10 seconds respectively, rejects zero or unrepresentable deadlines, and passes both validated durations to the reqwest builder. The request timeout covers response-body JSON decoding and the optional health probe; timeout errors retain reqwest::Error::is_timeout and the existing probe panic contract."
+transport_proof = "In-process loopback Actix peers decode the production client's typed verification request, then withhold headers or send an unfinished JSON body. Tests assert timeout classification and observed handler/body execution. A loopback TLS peer receives a real ClientHello and stalls the handshake to prove the separate connect deadline. Complete responses prove request and response codecs with default and custom deadlines."
+baseline = "Not run: the explicit implementation-first order and exclusive hf-build/hf-done gates prohibit unchanged-tree verification; no pre-change failure is claimed. No previous gate ledger existed on entry."
+wiring_request = "None: the proposal is implemented entirely within the allowed HTTP client paths."
+evidence = "The bounded hf-build/hf-done ledger records the exact candidate revision, command, exit code and private log; closure requires hf-done exit zero on the built revision."
+gotcha = "The baseline-first clause conflicts with the explicit gate order; follow the ordered gates and record the omitted baseline without inventing evidence. Repository-root gotcha and spec files are outside the task scope and are not edited."
