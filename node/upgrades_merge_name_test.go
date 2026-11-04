@@ -11,6 +11,7 @@ func TestMergeUpgradeNameAgreesAcrossPackages(t *testing.T) {
 	require.Equal(t, pcommon.MergeUpgrade, MergeUpgrade)
 
 	plans := knownUpgradePlans()
-	require.NotEmpty(t, plans)
-	require.Equal(t, MergeUpgrade, plans[len(plans)-1])
+	require.Equal(t, "v7.0", MergeUpgrade)
+	require.Equal(t, []string{"v6.9", "v6.10", "v6.12.0", "v7.0", "v7.0-anchor-store-delete"}, plans)
+	require.Equal(t, []string{MergeUpgrade, AnchorStoreDeleteUpgrade}, plans[len(plans)-2:])
 }

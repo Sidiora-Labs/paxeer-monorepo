@@ -9,6 +9,8 @@ defmodule Indexer.Fetcher.PaxeerX.PriceAcceptanceReplay do
 
   alias Indexer.Fetcher.PaxeerX.PriceUpdates
 
+  @held_warning_interval 60_000
+
   def start_link(options), do: GenServer.start_link(__MODULE__, options)
 
   @impl GenServer
@@ -23,13 +25,17 @@ defmodule Indexer.Fetcher.PaxeerX.PriceAcceptanceReplay do
        worker: worker,
        batch_size: Keyword.get(options, :acceptance_backfill_batch_size, 500),
        interval: Keyword.get(options, :acceptance_backfill_interval, 100),
-       retry_interval: Keyword.get(options, :acceptance_backfill_retry_interval, 5_000)
+       retry_interval: Keyword.get(options, :acceptance_backfill_retry_interval, 5_000),
+       last_held_warning_at: nil
      }}
   end
 
   @impl GenServer
   def handle_info(:replay, state) do
-    case apply(state.module, :step, [state.worker, state.batch_size]) do
+    result = apply(state.module, :step, [state.worker, state.batch_size])
+    state = log_held_jobs(state)
+
+    case result do
       :complete ->
         {:stop, :normal, state}
 
@@ -37,10 +43,26 @@ defmodule Indexer.Fetcher.PaxeerX.PriceAcceptanceReplay do
         Process.send_after(self(), :replay, state.interval)
         {:noreply, state}
 
-      {:error, reason} ->
-        Logger.warning("price acceptance replay held: #{inspect(reason)}")
+      {:error, _reason} ->
         Process.send_after(self(), :replay, state.retry_interval)
         {:noreply, state}
+    end
+  end
+
+  defp log_held_jobs(state) do
+    now = System.monotonic_time(:millisecond)
+
+    if is_nil(state.last_held_warning_at) or now - state.last_held_warning_at >= @held_warning_interval do
+      case apply(state.module, :held_jobs, []) do
+        {count, number, error} ->
+          Logger.warning("price acceptance replay held: #{count} rows; lowest block #{number}: #{error}")
+          %{state | last_held_warning_at: now}
+
+        nil ->
+          state
+      end
+    else
+      state
     end
   end
 

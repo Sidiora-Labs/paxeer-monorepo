@@ -1,0 +1,10 @@
+[task.22.33.193]
+audit = "22.30.12"
+f011 = "f011_transaction_count_uses_transaction_label: real Paxscan block response to BlockRow label, count and selection."
+f012 = "f012_late_history_merges_and_recovers_after_reopen: real RPC watcher and delayed Paxscan history merge, deduplication, order, cap, unmount and fresh-cache reopen recovery."
+f013 = "f013_paxeer_transaction_has_no_retired_batch_model: real transaction query to panel content and removal of retired batch documentation."
+tests = "apps/perps/tests/repair-22-33-193.test.ts"
+baseline = "Unchanged inherited implementation at 7ce926c9c9db6236dbee20dc76e4db5151abbe80: hf-build passed; hf-done failed all three named tests before their assertions (f011 ERR_UNSUPPORTED_DIR_IMPORT; f012 and f013 ERR_MODULE_NOT_FOUND); private evidence /out/logs/verify-1.log."
+qualification_repair = "Register both TypeScript module loaders in each proof worker with the perps tsconfig, so extensionless production imports, directory barrels and path aliases resolve throughout the real module graph. Production repairs and every assertion remain intact."
+wiring_requests = "None; all three proposals are within scope."
+evidence = "The runner hf-done ledger records the exact verified candidate revision, command, exit code and private log path."

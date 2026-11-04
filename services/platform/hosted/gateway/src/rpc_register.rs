@@ -1,5 +1,5 @@
+use super::rpc::error;
 use super::{Config, IncomingRequest};
-use crate::rpc::error;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::cell::Cell;

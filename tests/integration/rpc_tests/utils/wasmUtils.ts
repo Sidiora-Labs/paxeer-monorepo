@@ -28,50 +28,100 @@ export interface Cw20InitMsg {
     mint?: { minter: string };
 }
 
-/**
- * True when the chain allows everybody to store and instantiate wasm. Mirrors
- * lib.js isWasmEnabled(): both `uploadAccess` and `instantiateAccess` must be
- * `Everybody`. Returns false (rather than throwing) on any query error so callers
- * can simply skip the dual-VM path on a wasm-disabled chain.
- */
-export async function isWasmEnabled(): Promise<boolean> {
-    try {
-        const query = (key: string) =>
-            exec(
-                `docker exec ${DOCKER_NODE} /bin/bash -c '${PAXD_ENV} && paxd query params subspace wasm ${key} -o json'`,
-            );
-        const [upload, instantiate] = await Promise.all([
-            query('uploadAccess'),
-            query('instantiateAccess'),
-        ]);
-        return (
-            JSON.parse(upload.stdout).value.includes('Everybody') &&
-            JSON.parse(instantiate.stdout).value.includes('Everybody')
-        );
-    } catch {
-        return false;
+export type WasmCapability = 'enabled' | 'disabled';
+
+/** Decode the selected chain's validated policy; malformed or missing policy is an error. */
+export function wasmCapability(params: any): WasmCapability {
+    if (!params || !params.code_upload_access) throw new Error('wasm params: missing access policy');
+    const permissions = ['Nobody', 'OnlyAddress', 'Everybody'];
+    const upload = params.code_upload_access.permission;
+    const instantiate = params.instantiate_default_permission;
+    if (!permissions.includes(upload) || !permissions.includes(instantiate)) {
+        throw new Error('wasm params: invalid access permission');
     }
+    if (upload === 'OnlyAddress' && (typeof params.code_upload_access.address !== 'string' || !/^pax1[0-9a-z]+$/.test(params.code_upload_access.address))) {
+        throw new Error('wasm params: invalid upload address');
+    }
+    return upload === 'Everybody' && instantiate === 'Everybody' ? 'enabled' : 'disabled';
 }
 
-let adminClient: Promise<{ client: SigningCosmWasmClient; address: string }> | undefined;
+/** Transport and decoding failures remain failures; only an explicit policy disables this path. */
+export async function isWasmEnabled(): Promise<boolean> {
+    const query = async (key: string): Promise<any> => {
+        const response = await fetch(new URL(`/cosmos/params/v1beta1/params?subspace=wasm&key=${key}`, Endpoints.pax.rest), {
+            signal: AbortSignal.timeout(10_000),
+        });
+        if (!response.ok) throw new Error(`wasm params query failed: HTTP ${response.status}`);
+        const body = await response.json();
+        if (body.param?.subspace !== 'wasm' || body.param?.key !== key || typeof body.param?.value !== 'string') {
+            throw new Error('wasm params query returned an invalid parameter');
+        }
+        return JSON.parse(body.param.value);
+    };
+    const [upload, instantiate] = await Promise.all([query('uploadAccess'), query('instantiateAccess')]);
+    const capability = wasmCapability({ code_upload_access: upload, instantiate_default_permission: instantiate });
+    if (capability === 'disabled') console.info('CW20 fixtures disabled by selected-chain wasm access policy');
+    return capability === 'enabled';
+}
 
-/** Cached CosmWasm signing client for the admin mnemonic (coin type 118). */
-function adminCosmWasm(mnemonic: string): Promise<{ client: SigningCosmWasmClient; address: string }> {
-    if (!adminClient) {
-        adminClient = (async () => {
-            const wallet = await DirectSecp256k1HdWallet.fromMnemonic(mnemonic, {
-                prefix: 'pax',
-                hdPaths: [stringToPath(PAX_HD_PATH)],
-            });
-            const [account] = await wallet.getAccounts();
-            const client = await SigningCosmWasmClient.connectWithSigner(
-                Endpoints.pax.cosmosRpc,
-                wallet,
-            );
-            return { client, address: account.address };
-        })();
+type AdminConnection = { client: SigningCosmWasmClient; address: string };
+interface AdminCacheEntry {
+    key: string;
+    connection: Promise<AdminConnection>;
+    users: number;
+    discarded: boolean;
+}
+let adminClient: AdminCacheEntry | undefined;
+
+/** Dispose a superseded connection only after its last active operation finishes. */
+function discardAdmin(entry: AdminCacheEntry): void {
+    entry.discarded = true;
+    if (entry.users === 0) void entry.connection.then(({ client }) => client.disconnect(), () => undefined);
+}
+
+/** Cache by the selected endpoint and derived public signer identity, never by mnemonic. */
+async function adminCosmWasm(mnemonic: string): Promise<AdminConnection & { release: () => void }> {
+    const endpoint = Endpoints.pax.cosmosRpc;
+    const wallet = await DirectSecp256k1HdWallet.fromMnemonic(mnemonic, {
+        prefix: 'pax', hdPaths: [stringToPath(PAX_HD_PATH)],
+    });
+    const [account] = await wallet.getAccounts();
+    if (!account) throw new Error('CosmWasm signer has no account');
+    return leaseAdminConnection(endpoint, account.address, () =>
+        SigningCosmWasmClient.connectWithSigner(endpoint, wallet)
+            .then(client => ({ client, address: account.address })),
+    );
+}
+
+async function leaseAdminConnection(
+    endpoint: string,
+    address: string,
+    connect: () => Promise<AdminConnection>,
+): Promise<AdminConnection & { release: () => void }> {
+    const key = JSON.stringify([endpoint, address]);
+    if (!adminClient || adminClient.key !== key) {
+        if (adminClient) discardAdmin(adminClient);
+        adminClient = {
+            key, users: 0, discarded: false,
+            connection: connect(),
+        };
     }
-    return adminClient;
+    const entry = adminClient;
+    entry.users++;
+    let released = false;
+    const release = (): void => {
+        if (released) return;
+        released = true;
+        entry.users--;
+        if (entry.discarded && entry.users === 0) discardAdmin(entry);
+    };
+    try {
+        return { ...await entry.connection, release };
+    } catch {
+        if (adminClient === entry) adminClient = undefined;
+        release();
+        throw new Error('CosmWasm signing connection failed');
+    }
 }
 
 function readVerifiedCw20Wasm(): Buffer {
@@ -95,7 +145,8 @@ export async function deployCw20(
     adminMnemonic: string,
     label = 'rpc_tests cw20',
 ): Promise<{ codeId: number; address: string }> {
-    const { client, address } = await adminCosmWasm(adminMnemonic);
+    const { client, address, release } = await adminCosmWasm(adminMnemonic);
+    try {
     const wasm = readVerifiedCw20Wasm();
     const uploaded = await client.upload(address, wasm, WASM_FEE);
     const instantiated = await client.instantiate(
@@ -107,6 +158,7 @@ export async function deployCw20(
         { admin: address },
     );
     return { codeId: uploaded.codeId, address: instantiated.contractAddress };
+    } finally { release(); }
 }
 
 /** Query the CW20's ERC20 pointer; returns '' until it is registered on-chain. */
@@ -155,7 +207,8 @@ export async function cw20Transfer(
     amount: string,
     adminMnemonic: string,
 ): Promise<Cw20ExecResult> {
-    const { client, address } = await adminCosmWasm(adminMnemonic);
+    const { client, address, release } = await adminCosmWasm(adminMnemonic);
+    try {
     const res = await client.execute(
         address,
         cw20Address,
@@ -169,4 +222,5 @@ export async function cw20Transfer(
         code: 0,
         gasUsed: BigInt(res.gasUsed),
     };
+    } finally { release(); }
 }

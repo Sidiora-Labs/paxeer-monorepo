@@ -1,0 +1,33 @@
+[repair.22.33.1465]
+audit = "22.30.84"
+finding = "participant (audit id worker-live-path-test-gap)"
+criterion = "22998.1"
+proving_tests = ["participant_tls_same_store_chain_commit_and_restart", "participant_tls_cancel_survives_store_reopen"]
+coverage = "Production Service::dispatch/job, signed service producer, pinned TLS transport, finalized chunk capture, MembershipObserver, signed_operation, native dispatch::route, claim_admitted, runner Report codec, JobService completion and JobStore reopen; all job operations use the listener's one service and store."
+baseline = "The supplied attempt-1 verification at candidate a5f3ad8bc643a78b8b91f31494d2126fb6f74d7f failed participant_tls_same_store_chain_commit_and_restart and participant_tls_cancel_survives_store_reopen with ApplicationError(1); both request_limits tests passed. Its private evidence remains with the previous runner attempt. No additional pre-implementation gate was run, per the ordered gate instructions."
+evidence = "The runner's private hf-build/hf-done ledger records the exact candidate revision, command, exit and log; no self-referential revision is embedded in candidate source."
+status = "implemented_not_qualified: production authority consumers reject the joint reputation/admission section; binary maintenance wiring remains outside scope"
+wiring_request = "Domain 8: services/platform/hosted/paxai-worker/src/main.rs must expose an in-process listener/maintenance adapter interface so this gate can drive production serve/maintenance_tick/refresh_authority/send_pending without executable adapters or environment-bound model engines; these private functions are not covered by the current proof."
+
+[finding.fixture-protocol]
+observed = "The reused fixture decoded the joint F07/F08 reputation/admission section as a plain F08 table, yielding BAD_VERSION (ApplicationError(1)) before either new listener scenario ran. The fixture now preserves the production reputation region with split_joint/encode_joint."
+qualification = "The supplied first-attempt focused verification failed both participant cases. The carried fixture repair preserves the joint section and now requires hf-build and hf-done on one unchanged candidate; their private ledger is the authoritative qualification evidence."
+
+[qualification.previous]
+revision = "4cbfc5c68a94eba770ec32d448ebe51abf66e0a3"
+command = "cargo build --locked --manifest-path services/platform/hosted/paxai-w*/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "Cargo could not load the platform workspace because services/platform/hosted/paxeer/Cargo.toml is missing; compilation and focused verification did not run."
+assumption = "This is an unrelated workspace input outside the task scope; the owning platform domain must restore its manifest before qualification can continue. No completion is claimed."
+
+[wiring.authority-joint-section]
+request = "Domain 8: services/platform/hosted/paxai-worker/src/discovery.rs FinalizedAuthority::bind and services/platform/hosted/paxai-worker/src/membership.rs MembershipObserver::observe must split the production ReputationAdmission section with reputation_transition::split_joint before passing its admission bytes to AdmissionTable::decode; preserve the producer's joint section and both participant regression assertions."
+
+[qualification.current]
+revision = "d5f3c7f0dbdcc3283e9b5ca4b20b55a363196d19"
+command = "cg spec done 22.33.1465 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "hf-build passed at this revision; focused verification ran four tests, with both participant scenarios failing UnsupportedVersion and both production request-limit tests passing."
+assumption = "The production authority and membership consumers still decode a joint ReputationAdmission section as a plain AdmissionTable; their repair is outside this task's scope, so it is recorded rather than bypassed or rerun unchanged."
