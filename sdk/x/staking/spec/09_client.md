@@ -392,7 +392,10 @@ To constrain the destination too, add `dst_validator_addr` with
 `$PAX_DST_VALIDATOR`. To query all outgoing records for a source, omit
 `delegator_addr` and `dst_validator_addr`. The response has
 `redelegation_responses` and `pagination`. Each response contains `redelegation`
-(addresses and stored entries) and `entries` (entry details with current `balance`).
+(addresses with a null nested `entries` field in REST JSON) and a separate top-level `entries`
+list (each `redelegation_entry` and its current `balance`). The stored entries
+are transported in that top-level list; they are not repeated inside
+`redelegation.entries`.
 A returned entry's `creation_height`, `completion_time`, `initial_balance` and
 `shares_dst` describe the pending redelegation.
 
@@ -436,6 +439,7 @@ The following is the complete REST parameter response shape populated with
 capture of current mainnet configuration. Governance and migrations can change
 the stored values; use the query commands to capture the full current response.
 
+<!-- repair-m690:params -->
 ```json
 {
   "params": {
@@ -585,3 +589,135 @@ returns `unbond` with the pair's pending unbonding entries.
 
 `/cosmos/staking/v1beta1/validators/{validator_addr}/unbonding_delegations`
 returns `unbonding_responses` and `pagination`.
+
+## Executable response examples
+
+The Params JSON above and the following redelegation example are checked by
+`TestRepairM_690_ClientExamples` against the production keeper, Protobuf query
+router, REST gateway and CLI. They use a local committed fixture, not a mainnet
+snapshot. The fixture stores all eight code-default parameters, delegates
+`10000000uhpx`, and redelegates `5000000uhpx` at block 10 from an unbonding
+source whose height-9 deadline is `2023-11-14T23:13:20Z`. Its second redelegation
+to a different destination proves the destination filter excludes other records.
+The addresses below are checksum-valid Paxeer addresses for that fixture;
+replace them with addresses for your own account and validators when querying
+another node.
+
+```bash
+PAX_EXAMPLE_DELEGATOR="pax1tfd95kj6tfd95kj6tfd95kj6tfd95kj6zc4ht8"
+PAX_EXAMPLE_SRC="paxvaloper1xvenxvenxvenxvenxvenxvenxvenxventus4ep"
+PAX_EXAMPLE_DST="paxvaloper1xs6rgdp5xs6rgdp5xs6rgdp5xs6rgdp5tvhs7a"
+paxd query staking redelegation "$PAX_EXAMPLE_DELEGATOR" \
+  "$PAX_EXAMPLE_SRC" "$PAX_EXAMPLE_DST" --node "$PAX_NODE" --output json
+curl --fail-with-body --silent --show-error --get \
+  "$PAX_REST/cosmos/staking/v1beta1/delegators/$PAX_EXAMPLE_DELEGATOR/redelegations" \
+  --data-urlencode "src_validator_addr=$PAX_EXAMPLE_SRC" \
+  --data-urlencode "dst_validator_addr=$PAX_EXAMPLE_DST" \
+  --data-urlencode 'pagination.limit=1' \
+  --data-urlencode 'pagination.count_total=true'
+```
+
+The equivalent request to `cosmos.staking.v1beta1.Query/Redelegations` is:
+
+<!-- repair-m690:redelegations-request -->
+```json
+{
+  "delegator_addr": "pax1tfd95kj6tfd95kj6tfd95kj6tfd95kj6zc4ht8",
+  "src_validator_addr": "paxvaloper1xvenxvenxvenxvenxvenxvenxvenxventus4ep",
+  "dst_validator_addr": "paxvaloper1xs6rgdp5xs6rgdp5xs6rgdp5xs6rgdp5tvhs7a",
+  "pagination": {
+    "limit": "1",
+    "count_total": true
+  }
+}
+```
+
+The gateway returns the complete response below. Integer balances are strings,
+and the creation height is a JSON number; `shares_dst` is a decimal string. The terminal
+`next_key` is null, and `total` counts the single match after applying all three
+address filters. The CLI also prints a null nested `entries` and numeric creation
+height: the production `RedelegationResponse.MarshalJSON` method controls these
+fields even within protobuf JSON. Its exact-triplet command does not accept
+pagination flags, so it does not request a count and returns `total: "0"`.
+
+<!-- repair-m690:redelegations -->
+```json
+{
+  "redelegation_responses": [
+    {
+      "redelegation": {
+        "delegator_address": "pax1tfd95kj6tfd95kj6tfd95kj6tfd95kj6zc4ht8",
+        "validator_src_address": "paxvaloper1xvenxvenxvenxvenxvenxvenxvenxventus4ep",
+        "validator_dst_address": "paxvaloper1xs6rgdp5xs6rgdp5xs6rgdp5xs6rgdp5tvhs7a",
+        "entries": null
+      },
+      "entries": [
+        {
+          "redelegation_entry": {
+            "creation_height": 9,
+            "completion_time": "2023-11-14T23:13:20Z",
+            "initial_balance": "5000000",
+            "shares_dst": "5000000.000000000000000000"
+          },
+          "balance": "5000000"
+        }
+      ]
+    }
+  ],
+  "pagination": {
+    "next_key": null,
+    "total": "1"
+  }
+}
+```
+
+The CLI response examples for the same keeper fixture are below.
+`TestRepairM_690_ClientExamples` compares them field for field with the real
+client output and records that output in its private verification log.
+The Params CLI prints the object directly, without the REST
+`params` envelope.
+
+<!-- repair-m690:params-cli -->
+```json
+{
+  "unbonding_time": "1814400s",
+  "max_validators": 35,
+  "max_entries": 7,
+  "historical_entries": 10000,
+  "bond_denom": "uhpx",
+  "min_commission_rate": "0.050000000000000000",
+  "max_voting_power_ratio": "0.200000000000000000",
+  "max_voting_power_enforcement_threshold": "1000000"
+}
+```
+
+<!-- repair-m690:redelegations-cli -->
+```json
+{
+  "redelegation_responses": [
+    {
+      "redelegation": {
+        "delegator_address": "pax1tfd95kj6tfd95kj6tfd95kj6tfd95kj6zc4ht8",
+        "validator_src_address": "paxvaloper1xvenxvenxvenxvenxvenxvenxvenxventus4ep",
+        "validator_dst_address": "paxvaloper1xs6rgdp5xs6rgdp5xs6rgdp5xs6rgdp5tvhs7a",
+        "entries": null
+      },
+      "entries": [
+        {
+          "redelegation_entry": {
+            "creation_height": 9,
+            "completion_time": "2023-11-14T23:13:20Z",
+            "initial_balance": "5000000",
+            "shares_dst": "5000000.000000000000000000"
+          },
+          "balance": "5000000"
+        }
+      ]
+    }
+  ],
+  "pagination": {
+    "next_key": null,
+    "total": "0"
+  }
+}
+```

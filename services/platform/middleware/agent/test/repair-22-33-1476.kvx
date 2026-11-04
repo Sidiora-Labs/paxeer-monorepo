@@ -1,0 +1,27 @@
+[repair.22.33.1476]
+status = "implemented-not-qualified"
+record = "repair-22-33-1476.test.mjs::REPAIR_TASK_RECORD maps every finding to its proving tests and records baseline limitations, producer provenance and out-of-path wiring requests."
+limitation = "Successful real 0x101A grant draw execution remains unavailable: the owning ledger producer refuses LXP_NO_PAYER_GRANT; retained signed grant cases prove codec binding only."
+
+[qualification.build]
+revision = "4bf29ec670d88be60974bd2ef529f449e5a64b0e"
+command = "npm --prefix services/platform/middleware/agent install --no-audit --no-fund && node --check services/platform/middleware/agent/test/agent-grant.test.mjs services/platform/middleware/agent/test/daemon-evm.test.mjs services/platform/middleware/agent/test/proof_middleware_agent_ts_exports.test.mjs"
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "npm returned E404 for @sidiora/layerx-sdk@0.1.0 before the syntax check; hf-done subsequently refused to run verification without a passing build."
+assumption = "services/platform/middleware/agent/package.json and workspace dependency provisioning belong to the middleware/package owning domain; repairing the published dependency requirement is outside this task's test-only scope."
+
+[qualification.verify]
+command = "hf-done"
+exit = 4
+observed = "hf-done: refused, run hf-build first and get it passing"
+tests_executed = false
+rerun = "No unchanged gate rerun or manifest edit was made: pre-existing failures are recorded rather than chased, and no test-scoped change can repair the unavailable package."
+
+[qualification.amended_gate_before_repair]
+revision = "9642c6b4ee013d9d5f0b96230e9e63711a0ea2b8"
+command = "cg spec done 22.33.1476 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Seven tests passed; agentGrantSettlesDrawWithPaymentDrawnLog, agentGrantRefusesDrawAboveReservation and agentDrawProducerRefusalSurvivesReopen failed on obsolete LedgerDraw fields; decodeDaemonSubmissionAcceptsOnlyRungLevels and daemonSerializerPendingTrackingSurvivesReopen failed without a gateway credential."
+repair = "Use recipient, sequence and purposeHash in LedgerDraw inputs, retain the negative purpose mutation and supply the production transport's required LayerXKeyCredential; the private hf-build/hf-done ledger records the final candidate and outcome."

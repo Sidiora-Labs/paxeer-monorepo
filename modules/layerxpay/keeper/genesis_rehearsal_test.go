@@ -118,7 +118,8 @@ func TestPayGenesisRehearsalKeepsKernelState(t *testing.T) {
 			require.False(t, bytes.HasPrefix([]byte(key), prefix))
 		}
 	}
-	_, found := restored.keeper.GetEscrow(restored.ctx, escrow.EscrowID)
+	_, found, err := restored.keeper.GetEscrow(restored.ctx, escrow.EscrowID)
+	require.NoError(t, err)
 	require.False(t, found)
 	_, found, err = restored.keeper.GetBudget(restored.ctx, budgetID)
 	require.NoError(t, err)
@@ -173,15 +174,19 @@ func TestPayGenesisRehearsalKeepsKernelState(t *testing.T) {
 		}
 	})
 	t.Run("escrow", func(t *testing.T) {
-		before, found := source.keeper.GetEscrow(source.ctx, escrow.EscrowID)
+		before, found, err := source.keeper.GetEscrow(source.ctx, escrow.EscrowID)
+		require.NoError(t, err)
 		require.True(t, found)
 		require.Equal(t, escrow.Amount, before.LockedAmount)
-		after, found := restored.keeper.GetEscrow(restored.ctx, escrow.EscrowID)
+		after, found, err := restored.keeper.GetEscrow(restored.ctx, escrow.EscrowID)
+		require.NoError(t, err)
 		require.True(t, found)
 		require.Equal(t, before, after)
-		beforeResult, found := source.keeper.GetEscrowResult(source.ctx, escrow.EscrowID)
+		beforeResult, found, err := source.keeper.GetEscrowResult(source.ctx, escrow.EscrowID)
+		require.NoError(t, err)
 		require.True(t, found)
-		afterResult, found := restored.keeper.GetEscrowResult(restored.ctx, escrow.EscrowID)
+		afterResult, found, err := restored.keeper.GetEscrowResult(restored.ctx, escrow.EscrowID)
+		require.NoError(t, err)
 		require.True(t, found)
 		require.Equal(t, beforeResult, afterResult)
 	})

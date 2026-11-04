@@ -1,0 +1,60 @@
+[task.22.33.820]
+audit = "22.30.179"
+source_revision = "9e535b4932ba8111a729a5cef10e0ca2370ca435"
+baseline = "Not run: the explicit ordered gates require complete implementation before hf-build/hf-done and prohibit a manual verify run; no baseline failure is claimed."
+evidence = "hf-build and hf-done record the exact candidate revision, command, exit code and private log in the runner ledger; the final response copies the last gate record."
+
+[finding.disperse-value]
+proof = "TestRepairM_820_DisperseValue"
+repair = "Fund the exact fixedEtherAmount times the bounded recipient count; derive the count from configured gas within a four-recipient ceiling, and read the actual fixed amount while attaching; execute signed JSON-RPC calls against bundled bytecode and assert fresh recipient balances."
+
+[finding.conflict-under-gas]
+proof = "TestRepairM_820_ConflictUnderGas"
+repair = "Default to 100000 gas for intrinsic costs plus three cold storage writes and the event, preserving overrides; prove successful receipts, sender/recipient balances and repeated counter writes, plus rollback under a deliberately small explicit override."
+
+[finding.nft-under-gas]
+proof = "TestRepairM_820_NFTUnderGas"
+repair = "Default to 100000 mint gas through the existing common options path, preserving overrides; prove actual mint receipts, successive ownerOf/balanceOf results and Transfer logs."
+
+[finding.fee-cap-sign-conversion]
+proof = "TestRepairM_820_FeeCapSignConversion"
+repair = "Use SetUint64 in the common signer options for both transfers; return invalid option errors during Attach (the existing real generator construction path), validate before allocating a nonce, and expose GenerateWithError for later runtime failures."
+
+[finding.noop-scenario-name]
+proof = "TestRepairM_820_NoopScenarioName"
+repair = "Return EVMTransferNoop and prove a mixed real weighted generator preserves distinct scenario names through signed execution, Collector and the written final JSON report."
+
+[finding.deployment-lifecycle]
+proof = "TestRepairM_820_DeploymentLifecycle"
+repair = "Expose DeployContext and AttachContext with error returns; create the bounded child context before dialing, pass it to binding options/calls and receipt waiting, close each startup client on every exit, and retain offline NoSend bindings; prove real EVM deployment and WebSocket closure on success, RPC admission failure, send cancellation, mining timeout and failed attachment."
+scope_limit = "Legacy Deploy/Generate and ScenarioDeployer signatures cannot return errors or take an owning run context; their compatibility wrappers still panic on errors, and end-to-end CLI error propagation remains the wiring request below. No closure of that external integration is claimed."
+
+[wiring]
+generator = "Domain 16 (fm-tools-ops): tools/loadtest/generator/generator.go and scenario.go must adopt ContextTxGenerator.DeployContext/GenerateWithError and return setup/runtime errors rather than calling the legacy panic-based methods."
+cli = "Domain 16 (fm-tools-ops): tools/loadtest/config/cli/command.go must pass the owning run context into generator construction and propagate deployment/signing errors."
+utils = "Domain 16 (fm-tools-ops): tools/loadtest/generator/utils/utils.go must adopt the context-aware, error-returning keyed options and deployment lifecycle implemented in scenarios/base.go; remove the legacy independent panic-based deployment route when authorized."
+spec = "Task owner: copy each finding/proof mapping and these wiring requests into spec/layerx-merge/spec.kvx; editing spec files is explicitly outside this task's scope."
+
+[gotcha.scope]
+observed = "The proposal and generic workflow request spec, utils and GOTCHA edits and a pre-change verify, but the explicit task scope and ordered gates prohibit those actions."
+action = "Keep this record inside scenarios, run only hf-build followed by hf-done after the complete implementation, and retain out-of-path requests without pretending the caller integration is complete."
+
+[qualification.1]
+revision = "c5926c52ff6281c7ea715f1f1d74939dd3de2a24"
+command = "cg spec done 22.33.820 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log (underlying output: /tmp/repair-m820.log)"
+observed = "The focused tests did not compile or execute: Go requires module-graph additions for the real geth EVM/state imports; hf-build passed on this candidate."
+assumption = "Domain 16 owns tools/loadtest/go.mod; admit the existing geth dependency closure from the read-only /tmp/repair-m820-module-diff.log without version upgrades before qualification can proceed, because the manifest is explicitly outside scope."
+
+[continuation.3]
+repair = "The continued task admits tools/loadtest/go.mod and go.sum: promote github.com/holiman/uint256 v1.3.2 to a direct test dependency and run go mod tidy to retain the existing geth v1.17.0 EVM/state dependency closure and checksums without upgrading pinned versions."
+qualification = "Run hf-build followed by hf-done on the same candidate; the runner ledger and final response record the resulting revision and private evidence."
+
+[qualification.2]
+revision = "4c20af47f25b36b229392ac9ee090c0dcc2425e8"
+command = "cg spec done 22.33.820 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log (underlying output: /tmp/repair-m820.log)"
+observed = "All six test functions ran; only deployment send-deadline closure observation failed because geth waits for active RPC handlers before closing the server-side socket."
+repair = "Observe the client disconnect as actual io.EOF on the loopback connection instead of observing geth's delayed local Close; preserve the deadline, closure bound and all assertions."

@@ -524,3 +524,11 @@ fn payment_handler_mismatch_refuses_negotiation() {
     let refused = NegotiatedCapabilities::negotiate(&platform, &merchant_handler);
     assert!(matches!(refused, Err(UcpError::PaymentHandlerUnavailable)));
 }
+
+#[path = "support/producer_checkout.rs"]
+mod producer_checkout;
+
+#[test]
+fn ucp_merchant_producer() {
+    producer_checkout::producer_checkout("ucp-merchant-producer");
+}
