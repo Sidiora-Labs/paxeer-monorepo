@@ -4,56 +4,86 @@ order: 5
 
 # Hooks
 
-Available hooks that can be called by and from this module.
+The distribution keeper implements the staking hooks in
+[keeper/hooks.go](../keeper/hooks.go). They maintain historical reward references
+when staking changes a validator or delegation. Reward calculations and starting
+information are described under [Messages](04_messages.md).
 
 ## Create or modify delegation distribution
 
-- triggered-by: `staking.MsgDelegate`, `staking.MsgBeginRedelegate`, `staking.MsgUndelegate`
+Staking delegation, redelegation and undelegation operations call the relevant
+hooks around changes to shares.
 
 ### Before
 
-- The delegation rewards are withdrawn to the withdraw address of the delegator.
-  The rewards include the current period and exclude the starting period.
-- The validator period is incremented.
-  The validator period is incremented because the validator's power and share distribution might have changed.
-- The reference count for the delegator's starting period is decremented.
+- `BeforeDelegationCreated` ends the validator's current period with
+  `IncrementValidatorPeriod`. A new delegation has no previous rewards to withdraw.
+- `BeforeDelegationSharesModified` withdraws the existing delegation's rewards.
+  That withdrawal ends the current period, pays integer rewards to the resolved
+  withdrawal address, sends decimal dust to the community pool, decrements the
+  reference count for the old starting period, and deletes the old starting info.
+  A withdrawal error in this hook causes a panic.
+
+The ended period includes rewards accrued since the delegation's baseline
+period. Ending it before changing shares preserves the reward ratio for the old
+stake distribution.
 
 ### After
 
-The starting height of the delegation is set to the previous period.
-Because of the `Before`-hook, this period is the last period for which the delegator was rewarded.
+`AfterDelegationModified` calls `initializeDelegation` after the staking change.
+It increments the reference count for the historical period just ended and stores
+three distinct values:
+
+- `PreviousPeriod`: the validator's current period minus one, identifying the
+  reward-ratio baseline.
+- `Stake`: the token value of the updated delegation shares, calculated with
+  `TokensFromSharesTruncated`.
+- `Height`: the current block height, `uint64(ctx.BlockHeight())`.
+
+The block height determines which slash events are considered and prevents a
+delegation initialized in this block from earning rewards in the same block. It
+is not a validator period. See
+[Initialize delegation](04_messages.md#initialize-delegation).
 
 ## Validator created
 
-- triggered-by: `staking.MsgCreateValidator`
+`AfterValidatorCreated`, called during validator creation, initializes:
 
-When a validator is created, the following validator variables are initialized:
+| Record | Initial value |
+| --- | --- |
+| Historical rewards at period `0` | Empty cumulative reward ratio, reference count `1` |
+| Current rewards | Empty rewards, period `1` |
+| Accumulated commission | Empty decimal coins |
+| Outstanding rewards | Empty decimal coins |
 
-- Historical rewards
-- Current accumulated rewards
-- Accumulated commission
-- Total outstanding rewards
-- Period
-
-By default, all values are set to a `0`, except period, which is set to `1`.
+The implementation is [initializeValidator](../keeper/validator.go).
 
 ## Validator removed
 
-- triggered-by: `staking.RemoveValidator`
+`AfterValidatorRemoved` cleans up a validator after its delegations are gone.
+It subtracts accumulated commission from outstanding rewards, transfers the
+integer commission to the withdrawal address resolved for the validator's
+account, and adds fractional commission to the community pool. It also adds the
+remaining outstanding rewards, normally dust, to that pool. A failed commission
+transfer causes a panic.
 
-Outstanding commission is sent to the validator's self-delegation withdrawal address.
-Remaining delegator rewards get sent to the community fee pool.
-
-Note: The validator gets removed only when it has no remaining delegations.
-At that time, all outstanding delegator rewards will have been withdrawn.
-Any remaining rewards are dust amounts.
+The hook deletes outstanding rewards, commission, slash events, historical
+rewards and current rewards for the validator.
 
 ## Validator is slashed
 
-- triggered-by: `staking.Slash`
-  
-- The current validator period reference count is incremented.
-  The reference count is incremented because the slash event has created a reference to it.
-- The validator period is incremented.
-- The slash event is stored for later use.
-  The slash event will be referenced when calculating delegator rewards.
+`BeforeValidatorSlashed` records the slash through
+[updateValidatorSlashFraction](../keeper/validator.go):
+
+1. Validate that the slash fraction lies in the inclusive range `[0, 1]`.
+2. End the current validator period and advance to the next period.
+3. Increment the historical reference count for the period just ended.
+4. Store `ValidatorSlashEvent` with that ended `ValidatorPeriod` and the slash
+   `Fraction`, keyed by validator address, current block height and period.
+
+[Reward withdrawal](04_messages.md#rewards-across-slash-periods) later uses these
+records to accumulate rewards before each slash and reduce surviving stake by
+`1 - Fraction`.
+
+`BeforeValidatorModified`, `AfterValidatorBonded`, `AfterValidatorBeginUnbonding`
+and `BeforeDelegationRemoved` perform no distribution work in this implementation.

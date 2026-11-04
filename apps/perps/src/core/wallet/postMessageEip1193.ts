@@ -12,7 +12,10 @@ type ProviderListener = (...args: unknown[]) => void;
 type PendingRequest = {
   resolve: (value: unknown) => void;
   reject: (reason?: unknown) => void;
+  timeout: ReturnType<typeof setTimeout>;
 };
+
+export const POST_MESSAGE_REQUEST_TIMEOUT_MS = 30_000;
 
 type BridgeRequestMessage = {
   type: "SIDIORA_EIP1193_REQUEST";
@@ -25,7 +28,7 @@ type BridgeResponseMessage = {
   type: "SIDIORA_EIP1193_RESPONSE";
   id: string;
   result?: unknown;
-  error?: { code?: number; message?: string; data?: unknown };
+  error?: { code: number; message: string; data?: unknown };
 };
 
 export type BridgeAccountsChangedEventMessage = {
@@ -56,9 +59,40 @@ export function postAccountsChangedEvent(target: Window, targetOrigin: string, a
 }
 
 function isBridgeMessage(data: unknown): data is BridgeInboundMessage {
-  if (!data || typeof data !== "object") return false;
-  const candidate = data as { type?: unknown };
-  return candidate.type === "SIDIORA_EIP1193_RESPONSE" || candidate.type === "SIDIORA_EIP1193_EVENT";
+  if (!isRecord(data)) return false;
+  if (data.type === "SIDIORA_EIP1193_RESPONSE") {
+    if (typeof data.id !== "string" || !data.id) return false;
+    const hasResult = Object.hasOwn(data, "result");
+    const hasError = Object.hasOwn(data, "error");
+    return hasResult !== hasError && (!hasError || isProviderError(data.error));
+  }
+  if (data.type !== "SIDIORA_EIP1193_EVENT") return false;
+  switch (data.event) {
+    case "accountsChanged":
+      return Array.isArray(data.payload) && data.payload.every((account: unknown) => typeof account === "string" && /^0x[0-9a-f]{40}$/i.test(account));
+    case "chainChanged":
+      return isChainId(data.payload);
+    case "connect":
+      return isRecord(data.payload) && isChainId(data.payload.chainId);
+    case "disconnect":
+      return isProviderError(data.payload);
+    case "message":
+      return isRecord(data.payload) && typeof data.payload.type === "string" && data.payload.type.length > 0 && Object.hasOwn(data.payload, "data");
+    default:
+      return false;
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function isChainId(value: unknown): value is string {
+  return typeof value === "string" && /^0x[0-9a-f]+$/i.test(value);
+}
+
+function isProviderError(value: unknown): value is { code: number; message: string; data?: unknown } {
+  return isRecord(value) && typeof value.code === "number" && Number.isSafeInteger(value.code) && typeof value.message === "string";
 }
 
 function createProviderError(error?: { code?: number; message?: string; data?: unknown }): Error & { code?: number; data?: unknown } {
@@ -73,31 +107,43 @@ export class PostMessageEip1193Provider {
   private readonly pending = new Map<string, PendingRequest>();
   private readonly listeners = new Map<ProviderEventName, Set<ProviderListener>>();
   private readonly handleMessageBound: (event: MessageEvent<unknown>) => void;
+  private readonly handlePageHideBound: () => void;
+  private mounted = false;
+  private connected = false;
+  private nextRequestId = 0;
   readonly isSidioraPostMessageProvider = true;
 
   constructor(targetOrigin: string) {
     this.targetOrigin = targetOrigin;
     this.handleMessageBound = this.handleMessage.bind(this);
+    this.handlePageHideBound = this.unmount.bind(this);
   }
 
   mount() {
+    if (this.mounted) return;
+    this.mounted = true;
+    this.connected = true;
     window.addEventListener("message", this.handleMessageBound);
+    window.addEventListener("pagehide", this.handlePageHideBound);
   }
 
   unmount() {
+    this.mounted = false;
+    this.connected = false;
     window.removeEventListener("message", this.handleMessageBound);
-    for (const [, request] of this.pending) {
-      request.reject(new Error("PostMessage EIP-1193 provider unmounted"));
-    }
-    this.pending.clear();
+    window.removeEventListener("pagehide", this.handlePageHideBound);
+    this.rejectPending("PostMessage EIP-1193 provider unmounted; reconnect and retry");
   }
 
   request(args: Eip1193RequestArgs): Promise<unknown> {
+    if (!this.mounted || !this.connected) {
+      return Promise.reject(createProviderError({ code: 4900, message: "PostMessage EIP-1193 wallet disconnected; reconnect and retry" }));
+    }
     if (!window.parent || window.parent === window) {
       return Promise.reject(new Error("PostMessage EIP-1193 provider requires iframe context"));
     }
 
-    const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const id = `${Date.now()}-${this.nextRequestId++}-${Math.random().toString(16).slice(2)}`;
     const message: BridgeRequestMessage = {
       type: "SIDIORA_EIP1193_REQUEST",
       id,
@@ -106,9 +152,33 @@ export class PostMessageEip1193Provider {
     };
 
     return new Promise((resolve, reject) => {
-      this.pending.set(id, { resolve, reject });
-      window.parent.postMessage(message, this.targetOrigin);
+      const timeout = setTimeout(() => {
+        this.takePending(id)?.reject(
+          createProviderError({ code: 4900, message: `PostMessage EIP-1193 request timed out after ${POST_MESSAGE_REQUEST_TIMEOUT_MS}ms; retry the request` }),
+        );
+      }, POST_MESSAGE_REQUEST_TIMEOUT_MS);
+      this.pending.set(id, { resolve, reject, timeout });
+      try {
+        window.parent.postMessage(message, this.targetOrigin);
+      } catch (error) {
+        this.takePending(id)?.reject(error);
+      }
     });
+  }
+
+  private takePending(id: string): PendingRequest | undefined {
+    const request = this.pending.get(id);
+    if (request) {
+      this.pending.delete(id);
+      clearTimeout(request.timeout);
+    }
+    return request;
+  }
+
+  private rejectPending(message: string): void {
+    for (const id of this.pending.keys()) {
+      this.takePending(id)?.reject(createProviderError({ code: 4900, message }));
+    }
   }
 
   on(event: string, listener: ProviderListener): void {
@@ -138,13 +208,12 @@ export class PostMessageEip1193Provider {
   }
 
   private handleMessage(event: MessageEvent<unknown>) {
-    if (event.origin !== this.targetOrigin) return;
+    if (event.source !== window.parent || event.origin !== this.targetOrigin) return;
     if (!isBridgeMessage(event.data)) return;
 
     if (event.data.type === "SIDIORA_EIP1193_RESPONSE") {
-      const pendingRequest = this.pending.get(event.data.id);
+      const pendingRequest = this.takePending(event.data.id);
       if (!pendingRequest) return;
-      this.pending.delete(event.data.id);
       if (event.data.error) {
         pendingRequest.reject(createProviderError(event.data.error));
         return;
@@ -153,6 +222,10 @@ export class PostMessageEip1193Provider {
       return;
     }
 
+    if (event.data.event === "connect" || event.data.event === "disconnect") {
+      this.connected = event.data.event === "connect";
+      this.rejectPending(`PostMessage EIP-1193 wallet ${this.connected ? "reconnected" : "disconnected"}; retry the request`);
+    }
     this.emit(event.data.event, event.data.payload);
   }
 }
@@ -166,7 +239,9 @@ export function installPostMessageEip1193Provider() {
 
   const existingProvider = window.ethereum as (Window["ethereum"] & { isSidioraPostMessageProvider?: boolean; unmount?: () => void }) | undefined;
   if (existingProvider?.isSidioraPostMessageProvider) {
-    return existingProvider as PostMessageEip1193Provider;
+    const provider = existingProvider as PostMessageEip1193Provider;
+    provider.mount();
+    return provider;
   }
 
   const provider = new PostMessageEip1193Provider(targetOrigin);

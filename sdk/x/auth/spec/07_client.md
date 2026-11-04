@@ -4,418 +4,228 @@ order: 7
 
 # Client
 
-# Auth
+Use `paxd` for SDK account queries and vesting transactions. Account addresses
+use the `pax` Bech32 prefix. In the examples, `ACCOUNT` and `RECIPIENT` stand for
+valid full Paxeer addresses, and `SENDER` identifies a local signing key. Query
+commands require a configured SDK node connection.
 
-## CLI
+The public EVM JSON-RPC is available at the root of
+`https://api1.mainnet-beta.paxeer.network` through
+`https://api14.mainnet-beta.paxeer.network` and
+`https://api-mainnet-beta.paxeer.network`. These nodes serve EVM chain ID `125`
+(`0x7d`). SDK CLI, gRPC and REST queries below use the node's corresponding SDK
+services; do not assume the public EVM endpoint also exposes them. A local node
+must enable gRPC or the REST API before those interfaces can be used.
 
-A user can query and interact with the `auth` module using the CLI.
+## Auth
 
-### Query
+Auth queries return identity and signing metadata. Current coin balances are
+queried through `x/bank`, as explained in [State](02_state.md).
 
-The `query` commands allow users to query `auth` state.
+### CLI
+
+The [auth CLI registration](../client/cli/query.go) provides these queries.
+
+#### Query
 
 ```bash
-simd query auth --help
+paxd query auth --help
 ```
 
 #### account
 
-The `account` command allow users to query for an account by it's address.
-
 ```bash
-simd query auth account [address] [flags]
+paxd query auth account "$ACCOUNT" --output json
 ```
 
-Example:
-
-```bash
-simd query auth account cosmos1...
-```
-
-Example Output:
-
-```bash
-'@type': /cosmos.auth.v1beta1.BaseAccount
-account_number: "0"
-address: cosmos1zwg6tpl8aw4rawv8sgag9086lpw5hv33u5ctr2
-pub_key:
-  '@type': /cosmos.crypto.secp256k1.PubKey
-  key: ApDrE38zZdd7wLmFS9YmqO684y5DG6fjZ4rVeihF/AQD
-sequence: "1"
-```
+This prints the account `Any` itself, including its concrete `@type`, rather
+than a balance. A base account contains `address`, an optional public key,
+`account_number` and `sequence`. A module or vesting account has a different
+concrete type and nested fields; clients must decode its type rather than assume
+every result is a `BaseAccount`.
 
 #### accounts
 
-The `accounts` command allow users to query all the available accounts.
-
 ```bash
-simd query auth accounts [flags]
+paxd query auth accounts --limit 20 --output json
 ```
 
-Example:
-
-```bash
-simd query auth accounts
-```
-
-Example Output:
-
-```bash
-accounts:
-- '@type': /cosmos.auth.v1beta1.BaseAccount
-  account_number: "0"
-  address: cosmos1zwg6tpl8aw4rawv8sgag9086lpw5hv33u5ctr2
-  pub_key:
-    '@type': /cosmos.crypto.secp256k1.PubKey
-    key: ApDrE38zZdd7wLmFS9YmqO684y5DG6fjZ4rVeihF/AQD
-  sequence: "1"
-- '@type': /cosmos.auth.v1beta1.ModuleAccount
-  base_account:
-    account_number: "8"
-    address: cosmos1yl6hdjhmkf37639730gffanpzndzdpmhwlkfhr
-    pub_key: null
-    sequence: "0"
-  name: transfer
-  permissions:
-  - minter
-  - burner
-- '@type': /cosmos.auth.v1beta1.ModuleAccount
-  base_account:
-    account_number: "4"
-    address: cosmos1fl48vsnmsdzcv85q5d2q4z5ajdha8yu34mf0eh
-    pub_key: null
-    sequence: "0"
-  name: bonded_tokens_pool
-  permissions:
-  - burner
-  - staking
-- '@type': /cosmos.auth.v1beta1.ModuleAccount
-  base_account:
-    account_number: "5"
-    address: cosmos1tygms3xhhs3yv487phx3dw4a95jn7t7lpm470r
-    pub_key: null
-    sequence: "0"
-  name: not_bonded_tokens_pool
-  permissions:
-  - burner
-  - staking
-- '@type': /cosmos.auth.v1beta1.ModuleAccount
-  base_account:
-    account_number: "6"
-    address: cosmos10d07y265gmmuvt4z0w9aw880jnsr700j6zn9kn
-    pub_key: null
-    sequence: "0"
-  name: gov
-  permissions:
-  - burner
-- '@type': /cosmos.auth.v1beta1.ModuleAccount
-  base_account:
-    account_number: "3"
-    address: cosmos1jv65s3grqf6v6jl3dp4t6c9t9rk99cd88lyufl
-    pub_key: null
-    sequence: "0"
-  name: distribution
-  permissions: []
-- '@type': /cosmos.auth.v1beta1.BaseAccount
-  account_number: "1"
-  address: cosmos147k3r7v2tvwqhcmaxcfql7j8rmkrlsemxshd3j
-  pub_key: null
-  sequence: "0"
-- '@type': /cosmos.auth.v1beta1.ModuleAccount
-  base_account:
-    account_number: "7"
-    address: cosmos1m3h30wlvsf8llruxtpukdvsy0km2kum8g38c8q
-    pub_key: null
-    sequence: "0"
-  name: mint
-  permissions:
-  - minter
-- '@type': /cosmos.auth.v1beta1.ModuleAccount
-  base_account:
-    account_number: "2"
-    address: cosmos17xpfvakm2amg962yls6f84z3kell8c5lserqta
-    pub_key: null
-    sequence: "0"
-  name: fee_collector
-  permissions: []
-pagination:
-  next_key: null
-  total: "0"
-```
+The result contains `accounts` and `pagination`. Use the returned `next_key` with
+the CLI pagination options to continue; the first page need not contain every
+account. Module accounts may appear alongside user and vesting accounts. Account
+numbers and sequences are encoded as strings in protobuf JSON.
 
 #### params
 
-The `params` command allow users to query the current auth parameters.
-
 ```bash
-simd query auth params [flags]
+paxd query auth params --output json
 ```
 
-Example:
+This command prints the params object directly. The code defaults are:
 
-```bash
-simd query auth params
-```
-
-Example Output:
-
-```bash
-max_memo_characters: "256"
-sig_verify_cost_ed25519: "590"
-sig_verify_cost_secp256k1: "1000"
-tx_sig_limit: "7"
-tx_size_cost_per_byte: "10"
-```
-
-## gRPC
-
-A user can query the `auth` module using gRPC endpoints.
-
-### Account
-
-The `account` endpoint allow users to query for an account by it's address.
-
-```bash
-cosmos.auth.v1beta1.Query/Account
-```
-
-Example:
-
-```bash
-grpcurl -plaintext \
-    -d '{"address":"cosmos1.."}' \
-    localhost:9090 \
-    cosmos.auth.v1beta1.Query/Account
-```
-
-Example Output:
-
-```bash
+```json
 {
-  "account":{
-    "@type":"/cosmos.auth.v1beta1.BaseAccount",
-    "address":"cosmos1zwg6tpl8aw4rawv8sgag9086lpw5hv33u5ctr2",
-    "pubKey":{
-      "@type":"/cosmos.crypto.secp256k1.PubKey",
-      "key":"ApDrE38zZdd7wLmFS9YmqO684y5DG6fjZ4rVeihF/AQD"
-    },
-    "sequence":"1"
-  }
+  "max_memo_characters": "256",
+  "tx_sig_limit": "7",
+  "tx_size_cost_per_byte": "10",
+  "sig_verify_cost_ed25519": "590",
+  "sig_verify_cost_secp256k1": "1000",
+  "disable_seqno_check": false
 }
 ```
 
-### Accounts
+Zero/default fields may be omitted by some serializers. These are defaults, not
+an observation of current network settings. See [Parameters](07_params.md) for
+all stored keys and the effect of `disable_seqno_check`.
 
-The `accounts` endpoint allow users to query all the available accounts.
+### gRPC
+
+The [query protobuf](../../../proto/cosmos/auth/v1beta1/query.proto) defines the
+`cosmos.auth.v1beta1.Query` service. The following examples use a local gRPC
+listener on `localhost:9090`; adjust the address and TLS options for your node.
+
+#### Account
 
 ```bash
-cosmos.auth.v1beta1.Query/Accounts
+grpcurl -plaintext -d "{\"address\":\"$ACCOUNT\"}" \
+  localhost:9090 cosmos.auth.v1beta1.Query/Account
 ```
 
-Example:
+The response is `{"account": <typed account>}`. For a base account, the typed
+object has `@type: /cosmos.auth.v1beta1.BaseAccount` and its identity fields.
+Standard gRPC protobuf JSON uses names such as `pubKey` and `accountNumber`;
+SDK CLI JSON uses the protobuf field spellings shown elsewhere on this page.
+The [query implementation](../keeper/grpc_query.go) returns gRPC `NotFound` for
+an absent account, `InvalidArgument` for an empty address, and an address parsing
+error for invalid Bech32 input.
+
+#### Accounts
 
 ```bash
-grpcurl -plaintext \
-    localhost:9090 \
-    cosmos.auth.v1beta1.Query/Accounts
+grpcurl -plaintext -d '{"pagination":{"limit":"20"}}' \
+  localhost:9090 cosmos.auth.v1beta1.Query/Accounts
 ```
 
-Example Output:
+The response contains a list of typed `accounts` and `pagination`. Its
+`pagination.nextKey`, when nonempty, is a base64 page key for the next request.
+
+#### Params
 
 ```bash
-{
-   "accounts":[
-      {
-         "@type":"/cosmos.auth.v1beta1.BaseAccount",
-         "address":"cosmos1zwg6tpl8aw4rawv8sgag9086lpw5hv33u5ctr2",
-         "pubKey":{
-            "@type":"/cosmos.crypto.secp256k1.PubKey",
-            "key":"ApDrE38zZdd7wLmFS9YmqO684y5DG6fjZ4rVeihF/AQD"
-         },
-         "sequence":"1"
-      },
-      {
-         "@type":"/cosmos.auth.v1beta1.ModuleAccount",
-         "baseAccount":{
-            "address":"cosmos1yl6hdjhmkf37639730gffanpzndzdpmhwlkfhr",
-            "accountNumber":"8"
-         },
-         "name":"transfer",
-         "permissions":[
-            "minter",
-            "burner"
-         ]
-      },
-      {
-         "@type":"/cosmos.auth.v1beta1.ModuleAccount",
-         "baseAccount":{
-            "address":"cosmos1fl48vsnmsdzcv85q5d2q4z5ajdha8yu34mf0eh",
-            "accountNumber":"4"
-         },
-         "name":"bonded_tokens_pool",
-         "permissions":[
-            "burner",
-            "staking"
-         ]
-      },
-      {
-         "@type":"/cosmos.auth.v1beta1.ModuleAccount",
-         "baseAccount":{
-            "address":"cosmos1tygms3xhhs3yv487phx3dw4a95jn7t7lpm470r",
-            "accountNumber":"5"
-         },
-         "name":"not_bonded_tokens_pool",
-         "permissions":[
-            "burner",
-            "staking"
-         ]
-      },
-      {
-         "@type":"/cosmos.auth.v1beta1.ModuleAccount",
-         "baseAccount":{
-            "address":"cosmos10d07y265gmmuvt4z0w9aw880jnsr700j6zn9kn",
-            "accountNumber":"6"
-         },
-         "name":"gov",
-         "permissions":[
-            "burner"
-         ]
-      },
-      {
-         "@type":"/cosmos.auth.v1beta1.ModuleAccount",
-         "baseAccount":{
-            "address":"cosmos1jv65s3grqf6v6jl3dp4t6c9t9rk99cd88lyufl",
-            "accountNumber":"3"
-         },
-         "name":"distribution"
-      },
-      {
-         "@type":"/cosmos.auth.v1beta1.BaseAccount",
-         "accountNumber":"1",
-         "address":"cosmos147k3r7v2tvwqhcmaxcfql7j8rmkrlsemxshd3j"
-      },
-      {
-         "@type":"/cosmos.auth.v1beta1.ModuleAccount",
-         "baseAccount":{
-            "address":"cosmos1m3h30wlvsf8llruxtpukdvsy0km2kum8g38c8q",
-            "accountNumber":"7"
-         },
-         "name":"mint",
-         "permissions":[
-            "minter"
-         ]
-      },
-      {
-         "@type":"/cosmos.auth.v1beta1.ModuleAccount",
-         "baseAccount":{
-            "address":"cosmos17xpfvakm2amg962yls6f84z3kell8c5lserqta",
-            "accountNumber":"2"
-         },
-         "name":"fee_collector"
-      }
-   ],
-   "pagination":{
-      "total":"9"
-   }
-}
+grpcurl -plaintext -d '{}' \
+  localhost:9090 cosmos.auth.v1beta1.Query/Params
 ```
 
-### Params
+Unlike the CLI's direct params output, the response has a `params` wrapper:
 
-The `params` endpoint allow users to query the current auth parameters.
-
-```bash
-cosmos.auth.v1beta1.Query/Params
-```
-
-Example:
-
-```bash
-grpcurl -plaintext \
-    localhost:9090 \
-    cosmos.auth.v1beta1.Query/Params
-```
-
-Example Output:
-
-```bash
+```json
 {
   "params": {
     "maxMemoCharacters": "256",
     "txSigLimit": "7",
     "txSizeCostPerByte": "10",
     "sigVerifyCostEd25519": "590",
-    "sigVerifyCostSecp256k1": "1000"
+    "sigVerifyCostSecp256k1": "1000",
+    "disableSeqnoCheck": false
   }
 }
 ```
 
-## REST
+This illustrates code defaults; default-valued fields may be omitted.
 
-A user can query the `auth` module using REST endpoints.
+### REST
 
-### Account
+Use an enabled SDK REST/gRPC-gateway listener, represented here by `REST_URL`.
+The generated bindings in [`query.pb.gw.go`](../types/query.pb.gw.go) expose:
 
-The `account` endpoint allow users to query for an account by it's address.
+#### Account
 
-```bash
-/cosmos/auth/v1beta1/account?address={address}
+```text
+GET /cosmos/auth/v1beta1/accounts/{address}
 ```
 
-### Accounts
-
-The `accounts` endpoint allow users to query all the available accounts.
-
 ```bash
-/cosmos/auth/v1beta1/accounts
+curl "$REST_URL/cosmos/auth/v1beta1/accounts/$ACCOUNT"
 ```
 
-### Params
+The address is a path component. The response contains `account`, a typed
+protobuf account without a bank balance.
 
-The `params` endpoint allow users to query the current auth parameters.
+#### Accounts
 
-```bash
-/cosmos/auth/v1beta1/params
+```text
+GET /cosmos/auth/v1beta1/accounts
 ```
 
-# Vesting
-
-## CLI
-
-A user can query and interact with the `vesting` module using the CLI.
-
-### Transactions
-
-The `tx` commands allow users to interact with the `vesting` module.
-
 ```bash
-simd tx vesting --help
+curl "$REST_URL/cosmos/auth/v1beta1/accounts?pagination.limit=20"
 ```
 
-#### create-periodic-vesting-account
+The response contains `accounts` and `pagination`. Continue with the returned
+page key, URL-encoding it when placing it in `pagination.key`.
 
-The `create-periodic-vesting-account` command creates a new vesting account funded with an allocation of tokens, where a sequence of coins and period length in seconds. Periods are sequential, in that the duration of of a period only starts at the end of the previous period. The duration of the first period starts upon account creation.
+#### Params
 
-```bash
-simd tx vesting create-periodic-vesting-account [to_address] [periods_json_file] [flags]
+```text
+GET /cosmos/auth/v1beta1/params
 ```
 
-Example:
-
 ```bash
-simd tx vesting create-periodic-vesting-account cosmos1.. periods.json
+curl "$REST_URL/cosmos/auth/v1beta1/params"
 ```
 
-#### create-vesting-account
+The response contains a `params` object. For current coin balances, use the
+[bank query routes](../../../proto/cosmos/bank/v1beta1/query.proto), including
+`GET /cosmos/bank/v1beta1/balances/{address}` and
+`GET /cosmos/bank/v1beta1/spendable_balances/{address}`. Auth account metadata,
+total bank coins and spendable bank coins answer different questions.
 
-The `create-vesting-account` command creates a new vesting account funded with an allocation of tokens. The account can either be a delayed or continuous vesting account, which is determined by the '--delayed' flag. All vesting accouts created will have their start time set by the committed block's time. The end_time must be provided as a UNIX epoch timestamp.
+## Vesting
+
+### CLI
+
+The [vesting CLI](../vesting/client/cli/tx.go) registers one transaction
+subcommand:
 
 ```bash
-simd tx vesting create-vesting-account [to_address] [amount] [end_time] [flags]
+paxd tx vesting --help
 ```
 
-Example:
+#### Transactions
+
+##### create-vesting-account
+
+```text
+paxd tx vesting create-vesting-account [to_address] [amount] [end_time] [flags]
+```
+
+Set `RECIPIENT` to an address without an existing auth account, `SENDER` to the
+funding key, `SDK_CHAIN_ID` to the node's configured SDK chain ID, and `END_TIME`
+to the desired absolute Unix timestamp in seconds. Use an end time after the
+creation block for a future release schedule. For example, with those values set:
 
 ```bash
-simd tx vesting create-vesting-account cosmos1.. 100stake 2592000
+paxd tx vesting create-vesting-account "$RECIPIENT" 1000000uhpx "$END_TIME" \
+  --from "$SENDER" --chain-id "$SDK_CHAIN_ID" --gas auto \
+  --gas-adjustment 1.3 --gas-prices 0.02uhpx
 ```
+
+This creates a continuous vesting account starting at the creation block's time.
+Add `--delayed` to release the full allocation only at `END_TIME`. The example
+amount is one `hpx` (`1000000uhpx`); gas prices are illustrative and must satisfy
+the current global and node-local requirements described in
+[Concepts](01_concepts.md#gas--fees). The sender must cover the allocation and fees.
+
+Add `--admin "$ADMIN"` to store an optional administrator, where `ADMIN` is a
+valid address with an existing auth account. This records metadata; the current
+module has no cancellation message or administrator cancellation implementation.
+The transaction cannot convert an already-existing recipient account into a
+vesting account. Bank send-enabled, blocked-address and denomination allowlist
+checks also apply.
+
+There is no registered `create-periodic-vesting-account` subcommand or periodic
+creation message in this tree. Periodic and permanently locked accounts are
+supported account representations for genesis/import, not additional commands
+of this live creation service. Query an existing vesting account through the auth
+account query and its spendable coins through bank. See
+[Vesting](05_vesting.md) for schedules, delegation and export/import details.

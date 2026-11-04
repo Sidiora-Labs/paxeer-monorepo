@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/ed25519"
+	"crypto/tls"
 	"encoding/binary"
 	"io"
 	"math/big"
@@ -69,11 +70,12 @@ func TestReceiptOverTCPWaitsForStandbyAck(t *testing.T) {
 		require.NoError(t, err)
 	}
 
+	primaryTLS, standbyTLS := sequencer.Repair103TLSFixture(t)
 	standbyListener := listen(t)
 	standbyAddress := standbyListener.Addr().String()
 	require.NoError(t, standbyListener.Close())
 	standbyConfig := sequencer.Config{
-		Role: sequencer.RoleStandby, WALDir: filepath.Join(t.TempDir(), "standby-wal"),
+		Role: sequencer.RoleStandby, ReplicationTLS: standbyTLS, ReplicationTimeout: replicationTimeout, WALDir: filepath.Join(t.TempDir(), "standby-wal"),
 		ReceiptKeyFile: writeSeed(t, t.TempDir(), "receipt_key", standbySeed, 0o600),
 		StandbyAddress: standbyAddress,
 	}
@@ -86,14 +88,17 @@ func TestReceiptOverTCPWaitsForStandbyAck(t *testing.T) {
 		require.Eventually(t, func() bool { return standby.Err() != nil }, replicationTimeout, time.Millisecond)
 	})
 
-	relay := listen(t)
+	serverConfig, err := standbyTLS.TLSConfig(true)
+	require.NoError(t, err)
+	relay, err := tls.Listen("tcp", "127.0.0.1:0", serverConfig)
+	require.NoError(t, err)
 	t.Cleanup(func() { _ = relay.Close() })
 	held := make(chan [33]byte, 1)
 	release := make(chan struct{})
 	relayDone := make(chan error, 1)
 	bound := sequencer.ReplicatorConfig{ReplicationTimeout: replicationTimeout}
 	go func() {
-		relayDone <- relayTCPAck(ctx, relay, standbyAddress, bound.ReplicationTimeout, held, release)
+		relayDone <- relayTCPAck(ctx, relay, standbyAddress, bound.ReplicationTimeout, held, release, primaryTLS)
 	}()
 	t.Cleanup(func() {
 		cancel()
@@ -109,6 +114,7 @@ func TestReceiptOverTCPWaitsForStandbyAck(t *testing.T) {
 	cfg.WALDir = filepath.Join(t.TempDir(), "primary-wal")
 	cfg.ReceiptKeyFile = writeSeed(t, t.TempDir(), "receipt_key", testKeySeed, 0o600)
 	cfg.StandbyAddress = relay.Addr().String()
+	cfg.ReplicationTLS = primaryTLS
 	cfg.ReplicationTimeout = bound.ReplicationTimeout
 	cfg.LeaseDuration = 3 * cfg.ReplicationTimeout
 	cfg.NonceQueueMaxPerSender, cfg.NonceQueueMaxTotal = 1, 2
@@ -184,13 +190,13 @@ func TestReceiptOverTCPWaitsForStandbyAck(t *testing.T) {
 	}
 }
 
-func relayTCPAck(ctx context.Context, listener net.Listener, address string, timeout time.Duration, held chan<- [33]byte, release <-chan struct{}) error {
+func relayTCPAck(ctx context.Context, listener net.Listener, address string, timeout time.Duration, held chan<- [33]byte, release <-chan struct{}, auth sequencer.ReplicationTLSConfig) error {
 	primary, err := listener.Accept()
 	if err != nil {
 		return err
 	}
 	defer primary.Close()
-	standby, err := sequencer.DialStandby(address, timeout)(ctx)
+	standby, err := sequencer.DialStandby(address, timeout, auth)(ctx)
 	if err != nil {
 		return err
 	}

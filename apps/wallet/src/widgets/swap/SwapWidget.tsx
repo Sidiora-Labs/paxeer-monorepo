@@ -45,7 +45,7 @@ import { SWAP_TOKENS, DEFAULT_SLIPPAGE_BPS, type SwapToken } from '@/lib/swap';
 import { PaxSwapModal } from './PaxSwapModal';
 import { SwapConfirmDialog } from './SwapConfirmDialog';
 import { useSwapBalances } from './useSwapBalances';
-import { useSwapQuotes } from './useSwapQuotes';
+import { useSwapQuoteSelection } from './useSwapQuoteSelection';
 import { useSwapExecution } from './useSwapExecution';
 import { SwapRecoveryActions } from './SwapRecoveryActions';
 
@@ -63,16 +63,16 @@ export function SwapWidget({ onPaxscan }: SwapWidgetProps) {
   const [slippageBps, setSlippageBps] = useState(DEFAULT_SLIPPAGE_BPS);
   const [preflightError, setPreflightError] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const balances = useSwapBalances(recipient, fromToken, toToken);
-  const quotes = useSwapQuotes({
+  const selection = useSwapQuoteSelection({
     fromToken,
     toToken,
     fromAmount,
     slippageBps,
     recipient,
   });
+  const { quotes, approval, openApproval, closeApproval } = selection;
   const execution = useSwapExecution();
 
   // ── Error modal routing ──────────────────────────────────────────────
@@ -86,24 +86,16 @@ export function SwapWidget({ onPaxscan }: SwapWidgetProps) {
   }, [fromToken, toToken]);
 
   const handleConfirmSwap = useCallback(async () => {
-    if (!quotes.bestQuote || !recipient) return;
+    if (!approval || approval.expiresAt <= Date.now()) return;
     await execution.execute(
-      quotes.bestQuote,
-      fromToken,
-      toToken,
-      slippageBps,
-      recipient,
+      approval.quote,
+      approval.quote.tokenIn,
+      approval.quote.tokenOut,
+      approval.slippageBps,
+      approval.recipient,
       balances.fromBalanceRaw
     );
-  }, [
-    quotes.bestQuote,
-    recipient,
-    fromToken,
-    toToken,
-    slippageBps,
-    balances.fromBalanceRaw,
-    execution,
-  ]);
+  }, [approval, balances.fromBalanceRaw, execution]);
 
   const runPreflight = useCallback(() => {
     try {
@@ -122,10 +114,10 @@ export function SwapWidget({ onPaxscan }: SwapWidgetProps) {
 
   const handleResetAfterSuccess = useCallback(() => {
     setFromAmount('');
-    setConfirmOpen(false);
+    closeApproval();
     quotes.clear();
     execution.reset();
-  }, [quotes, execution]);
+  }, [quotes, execution, closeApproval]);
 
   // ── Main view ───────────────────────────────────────────────────────
   const isOverBalance = (() => {
@@ -139,6 +131,7 @@ export function SwapWidget({ onPaxscan }: SwapWidgetProps) {
     execution.executing ||
     !!execution.intent ||
     !recipient ||
+    balances.fromBalanceRaw === null ||
     !quotes.bestQuote ||
     quotes.quoting ||
     !!quotes.quoteError ||
@@ -150,6 +143,7 @@ export function SwapWidget({ onPaxscan }: SwapWidgetProps) {
     <>
       <div className="flex flex-col gap-3 px-3 pt-2 pb-24 w-full">
         <PaxSwapModal
+          quotes={quotes}
           fromToken={fromToken}
           toToken={toToken}
           fromAmount={fromAmount}
@@ -171,7 +165,7 @@ export function SwapWidget({ onPaxscan }: SwapWidgetProps) {
         <button
           onClick={() => {
             execution.clearError();
-            if (runPreflight()) setConfirmOpen(true);
+            if (runPreflight()) openApproval();
           }}
           disabled={submitDisabled}
           className="w-full rounded-full bg-pax-accent text-black font-bold py-3.5 text-sm press-scale disabled:opacity-40 transition-all"
@@ -228,18 +222,18 @@ export function SwapWidget({ onPaxscan }: SwapWidgetProps) {
         onChange={setSlippageBps}
       />
 
-      {quotes.bestQuote && (
+      {approval && (
         <SwapConfirmDialog
-          open={confirmOpen && !execution.intent}
+          open={!execution.intent}
           loading={execution.executing}
           execError={errorKind ? '' : execution.execError}
-          bestQuote={quotes.bestQuote}
-          fromToken={fromToken}
-          toToken={toToken}
-          fromAmount={fromAmount}
-          slippageBps={slippageBps}
+          bestQuote={approval.quote}
+          fromToken={approval.quote.tokenIn}
+          toToken={approval.quote.tokenOut}
+          fromAmount={approval.fromAmount}
+          slippageBps={approval.slippageBps}
           onClose={() => {
-            setConfirmOpen(false);
+            closeApproval();
             execution.clearError();
           }}
           onConfirm={handleConfirmSwap}
@@ -252,7 +246,7 @@ export function SwapWidget({ onPaxscan }: SwapWidgetProps) {
         onClose={execution.clearError}
         onBuyPax={() => {
           execution.clearError();
-          setConfirmOpen(false);
+          closeApproval();
           onPaxscan?.();
         }}
       />

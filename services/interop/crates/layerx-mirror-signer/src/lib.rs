@@ -328,6 +328,18 @@ enum ChainKey {
 }
 
 impl ChainKey {
+    fn same_identity(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Secp256k1(left), Self::Secp256k1(right)) => {
+                left.verifying_key() == right.verifying_key()
+            }
+            (Self::Ed25519(left), Self::Ed25519(right)) => {
+                left.verifying_key() == right.verifying_key()
+            }
+            _ => false,
+        }
+    }
+
     const fn algorithm(&self) -> u8 {
         match self {
             Self::Secp256k1(_) => ALGORITHM_SECP256K1_RECOVERABLE,
@@ -340,6 +352,14 @@ struct KeyPolicy {
     handle: String,
     domains: Vec<&'static [u8]>,
     key: ChainKey,
+}
+
+impl KeyPolicy {
+    fn is_attestation(&self) -> bool {
+        self.domains.iter().any(|domain| {
+            *domain == BRIDGE_ATTEST_INBOUND_DOMAIN || *domain == BRIDGE_ATTEST_OUTBOUND_DOMAIN
+        })
+    }
 }
 
 struct Request<'a> {
@@ -419,7 +439,7 @@ impl SignerService {
     ///
     /// # Errors
     /// Returns an error when the Ethereum key file is missing, when any key
-    /// file is writable by anyone but its owner, malformed, or carries a public
+    /// file grants any group or other access, is malformed, or carries a public
     /// half that does not match its secret half. A Solana keypair file that
     /// does not exist leaves the signer serving the Ethereum handle alone, for
     /// a deployment that mirrors to the EVM chain only; a Solana keypair file
@@ -451,7 +471,8 @@ impl SignerService {
     /// handle twice or a handle the protocol cannot carry, an algorithm other
     /// than `secp256k1` or `ed25519`, a relative key file, no domain, a domain
     /// twice, a domain outside the bridge domains or signed under another
-    /// algorithm, or attestation and transaction domains on one handle; and
+    /// algorithm, or attestation and transaction domains on one handle or
+    /// on handles sharing a public identity; and
     /// when any key file is refused as in mirror mode.
     pub fn load_bridge(options: &BridgeOptions) -> Result<Self, StartupError> {
         let path = &options.keys_file;
@@ -553,6 +574,13 @@ impl SignerService {
             } else {
                 ChainKey::Secp256k1(Box::new(load_secp256k1(key_file)?))
             };
+            if keys.iter().any(|policy| {
+                Some(policy.is_attestation()) != attestation && policy.key.same_identity(&key)
+            }) {
+                return Err(refuse_entry(
+                    "shares a public identity between attestation and transaction roles",
+                ));
+            }
             keys.push(KeyPolicy {
                 handle: handle.to_owned(),
                 domains: bound,
@@ -775,18 +803,32 @@ fn key_file_bytes(path: &Path) -> Result<Zeroizing<Vec<u8>>, StartupError> {
         path: path.to_path_buf(),
         reason,
     };
-    let metadata = fs::metadata(path).map_err(|error| refuse(format!("is unreadable: {error}")))?;
+    // Symlinks (including projected secrets) are allowed. Inspect and read only
+    // the opened target, so replacing the path cannot substitute unchecked bytes.
+    let file = fs::File::open(path).map_err(|error| refuse(format!("is unreadable: {error}")))?;
+    let metadata = file
+        .metadata()
+        .map_err(|error| refuse(format!("cannot be inspected: {error}")))?;
     if !metadata.is_file() {
         return Err(refuse("is not a regular file".to_owned()));
     }
-    if metadata.permissions().mode() & 0o022 != 0 {
-        return Err(refuse("is writable by group or other".to_owned()));
+    // No group is implicitly trusted with private material, even for reads.
+    if metadata.permissions().mode() & 0o077 != 0 {
+        return Err(refuse(
+            "grants group or other access; owner-only access is required".to_owned(),
+        ));
     }
     if metadata.len() > MAX_KEY_FILE_BYTES {
         return Err(refuse(format!("is larger than {MAX_KEY_FILE_BYTES} bytes")));
     }
-    let bytes = fs::read(path).map_err(|error| refuse(format!("cannot be read: {error}")))?;
-    Ok(Zeroizing::new(bytes))
+    let mut bytes = Zeroizing::new(Vec::new());
+    file.take(MAX_KEY_FILE_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|error| refuse(format!("cannot be read: {error}")))?;
+    if bytes.len() as u64 > MAX_KEY_FILE_BYTES {
+        return Err(refuse(format!("is larger than {MAX_KEY_FILE_BYTES} bytes")));
+    }
+    Ok(bytes)
 }
 
 fn load_secp256k1(path: &Path) -> Result<Secp256k1SigningKey, StartupError> {

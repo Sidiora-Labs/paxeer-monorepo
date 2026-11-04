@@ -1,0 +1,7 @@
+[repair.22.33.170]
+finding = "jwt-production-refresh-throttle"
+change = "Daemon JWT configuration explicitly limits refresh attempts to one per minute and retains the ten-second HTTP timeout, issuer, audience, maximum age and durable replay store."
+tests = ["TestRepairM_170_UnknownKIDFloodAlongsideValidVerification", "TestRepairM_170_FailedFetchIsThrottledAndRecovers", "TestRepairM_170_RotationResumesAtRefreshBoundary"]
+baseline = "Not run: the ordered task instructions prohibit testing before implementation and allow verification only through hf-done after hf-build; no baseline test failure is claimed."
+wiring_request = "Domain 12: services/wallet/attestor/internal/auth/jwt/jwt.go must coordinate remote refresh outside lookupKey's cache mutex so a permitted slow refresh cannot block cached-key verification; this path is outside task 22.33.170 scope."
+evidence = "The runner records the verified candidate revision, command, exit code and private log in its hf-done ledger; this record is part of that candidate."

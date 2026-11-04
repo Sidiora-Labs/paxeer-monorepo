@@ -1,119 +1,96 @@
-<h1 align="center">LayerX Network</h1>
+<h1 align="center">Paxeer X Network — LayerX</h1>
 
-LayerX Network 是面向自主智能体的确定性执行与记账网络。
+Paxeer X Network 将支付、程序执行和自主智能体操作整合到同一网络。
 
 [English](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/README.md) · [Español](es.md) · [日本語](ja.md) · [Русский](ru.md) · 简体中文 · [Português](pt-br.md) · [Deutsch](de.md) · [Français](fr.md)
 
-*当本文与英文 README 不一致时，以英文 README 为参考版本。*
-
-[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/LICENSE)
-[![CI](https://github.com/Sidiora-Labs/Paxeer-X-Network/actions/workflows/ci.yml/badge.svg)](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/.github/workflows/ci.yml)
-
 ## LayerX Network 是什么
 
-LayerX Network 是面向自主智能体的确定性执行与记账网络。每一次改变状态的操作都以经过签名、按规范编码的 `Activity` 进入系统。协议核验执行者及其权限，消耗账户序号，将活动排入一条全局序列，应用确定性状态转移，并返回与结果状态根绑定的签名回执。
+LayerX 是集成在 Paxeer X Network 中的内核。`paxd` 节点运行一条 BFT 链，EVM chain ID 为 `125`（`0x7d`）。内核是节点的一部分，参与执行交易和提出区块提案。改变状态的操作是同一网络上的交易；交易所在的区块经共识提交后，其回执即具有最终性。
 
-只追加的活动日志才是权威来源。数据库索引是可丢弃的投影，可通过重放该日志重建。共识关键路径上的执行排除浮点运算、本地时钟决策、数据库迭代顺序以及其他非确定性来源。只有 `402LXP` 可以写入余额。协议模块发出经过校验的转账集合，而不是自行改动资金。
+`modules/lxphost` 将 C17 内核和 Rust 程序运行时嵌入 Go 节点。`node/app.go` 注册原生模块，并验证区块提案中的交易顺序。链的持久化状态记录余额、权限、支付和程序。子链是租户域，即数据库中的命名空间，创建时无需部署一套新网络基础设施。
 
-普通智能体活动在 LayerX 内部执行并排序。周期性检查点结算到 Paxeer，由其负责托管、检查点登记、担保人保证金、挑战、提现、争议和紧急退出。普通 LayerX 操作不需要一笔 Paxeer 交易。
+Sidiora Labs 的本 monorepo 包含节点、内核、合约、服务、应用和 SDK。集成规范见 [`spec/layerx-merge/spec.kvx`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/spec/layerx-merge/spec.kvx)。
 
-本仓库是 Sidiora Labs 为 LayerX Network 与 Paxeer Network 设立的 monorepo。将协议、结算网络、合约和开发者界面放在一起，便于在同一处审计。各子系统保留各自的构建、发布、部署和信任边界。参见 [`spec/layerx-protocol/design.md`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/spec/layerx-protocol/design.md)。
+### 模块与预编译合约
 
-## 试用测试网
+EVM 合约通过预编译合约访问原生模块。`precompiles/setup.go` 中的地址表声明了以下地址；启用时间取决于 `v7.0` 升级计划及节点配置的升级高度。下表使用省略前导零的 20 字节 EVM 地址简写。
 
-完整路径见 [`docs/wiki/Quickstart.md`](../quickstart.md)：从 `tools/platform/cli` 安装 `layerx` CLI，拉起集群，source `build/beta-cluster/env`，然后创建凭证、从水龙头领取、提交活动、核验回执并部署程序。
+| 预编译合约 | 地址 |
+| --- | --- |
+| `layerxledger` | `0x101A` |
+| `layerxpay` | `0x101B` |
+| `layerxauth` | `0x101C` |
+| `layerxprograms` | `0x101D` |
+| `layerxchains` | `0x101E` |
 
-```sh
-layerx key create quickstart
-```
+目录还包含地址 `0x0901` 至 `0x0908` 的智能体函数。准备交易时，应使用对应预编译合约的 ABI，并核对目标网络的升级配置。程序部署和调用由原生程序模块处理，参见[程序](../../programs/index.md)。
 
-```sh
-jq -n --arg did "$LAYERX_TEST_SOURCE_DID" --arg public_key "$LAYERX_TEST_SOURCE_PUBLIC_KEY" \
-  '{did:$did, public_key:$public_key}' > faucet-request.json
-curl --fail --silent --show-error --max-time 30 --cacert "$LAYERX_TEST_CA_FILE" \
-  --header "Authorization: Bearer $(tr -d '\r\n' < "$LAYERX_TEST_AUTH_TOKEN_FILE")" \
-  --request POST "$LAYERX_FAUCET_URL/v1/faucet/claims" \
-  --header "Idempotency-Key: faucet-quickstart-01" \
-  --header 'Content-Type: application/json' --data-binary @faucet-request.json
-```
+## 连接网络
 
-```sh
-layerx --json payment test \
-  --from "$LAYERX_TEST_SOURCE_DID" \
-  --to "$LAYERX_TEST_DESTINATION_DID" \
-  --currency "$LAYERX_TEST_ASSET" \
-  --amount "$LAYERX_TEST_AMOUNT" \
-  --idempotency-key paymentquickstart1
-```
+公共 JSON-RPC 在节点 `https://api1.mainnet-beta.paxeer.network` 至 `https://api14.mainnet-beta.paxeer.network` 的根路径提供服务，也可使用别名 `https://api-mainnet-beta.paxeer.network`。参见[公共端点](../../reference/public-rpc.md)。`node.hyperpaxeer.com` 仅是构建所用的 hpx 库镜像（mirror），不是发送交易的端点。
+
+使用 `curl` 在签名前核对 chain ID，并查询节点区块高度。第一次调用应返回 `result: "0x7d"`，第二次返回十六进制高度。
 
 ```sh
-layerx --json receipt verify \
-  --receipt receipt.hex \
-  --batch-id "$batch_id" \
-  --asset "$asset" \
-  --previous-state-root "$previous_root" \
-  --resulting-state-root "$resulting_root" \
-  --sequencer-public-key "$sequencer_key"
+RPC_URL=https://api1.mainnet-beta.paxeer.network
+curl --fail --silent --show-error --max-time 30 "$RPC_URL" \
+  --header 'Content-Type: application/json' \
+  --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
+curl --fail --silent --show-error --max-time 30 "$RPC_URL" \
+  --header 'Content-Type: application/json' \
+  --data '{"jsonrpc":"2.0","id":2,"method":"eth_blockNumber","params":[]}'
 ```
 
+如需改变状态，请用钱包签署 chain ID 为 `125` 的 EVM 交易，再通过 `eth_sendRawTransaction` 提交已签名的交易字节。返回的哈希用于标识交易，本身不代表区块已经提交。查询已有交易时，将 `TX_HASH` 设为其完整的 32 字节十六进制哈希，然后使用 `jq` 和 `curl`：
+
 ```sh
-layerx --json program deploy \
-  quickstart-program/target/wasm32-unknown-unknown/release/quickstart_program.wasm \
-  --program-id <program_id> \
-  --idempotency-key <idempotency_key> \
-  --key quickstart \
-  --account-sequence 0 \
-  --not-before-ms <not_before_ms> \
-  --expires-at-ms <expires_at_ms> \
-  --previous-state-root <previous_state_root>
+jq -n --arg hash "${TX_HASH:?}" \
+  '{jsonrpc:"2.0",id:3,method:"eth_getTransactionReceipt",params:[$hash]}' |
+  curl --fail --silent --show-error --max-time 30 "$RPC_URL" \
+    --header 'Content-Type: application/json' --data-binary @-
 ```
+
+`result: null` 表示该节点暂时无法提供此哈希的回执。取得回执后，核对 `transactionHash`、`blockHash`、`blockNumber` 和 `status`：`0x1` 表示执行成功，`0x0` 表示执行失败。最终性来自 BFT 共识提交区块。若提交请求超时，应先查询原交易哈希，再决定是否重试。
+
+请配置多个节点并比较 `eth_blockNumber`，因为节点高度可能不同。公共命名空间为 `debug`、`echo`、`eth`、`net`、`pax`、`test` 和 `txpool`，具体可用性取决于节点配置。`px_` 方法属于托管网关服务，契约位于 `services/platform/hosted/gateway/openrpc.json`；使用前请阅读[网关 JSON-RPC](../../platform/gateway-rpc.md)。
 
 ## 从源码构建
 
-核心运行时是 C17（根目录 `Makefile` 中的 `-std=c17`）。agent、human 和 platform 工作区使用 Rust 1.91.1（`rust-toolchain.toml`）。LayerX 结算合约使用 Solidity 0.8.27（`foundry.toml`）。重放验收需要 GCC 13、Clang 18、Docker、amd64 musl 运行器，以及 AArch64 交叉编译器加 QEMU；参见 [`docs/QUALIFICATION.md`](../../operators/qualification.md)。
+节点使用 Go 1.25.8（`go.mod`），内核使用 C17（`Makefile`），Rust 工作区使用 1.91.1（`rust-toolchain.toml`）。根目录的 Foundry 配置固定使用 Solidity 0.8.27（`foundry.toml`）。安装构建依赖后，在仓库根目录执行：
 
 ```sh
-make build
-make test
-make test-contracts
-make ci
+make paxd-build
 ```
 
-Paxeer 限定目标，无需切换目录：
+此目标构建 `build/liblayerx.a`、release 模式的程序运行时及 `build/paxd`，并写入 `tools/release/version.json` 中的版本。`make build` 构建内核库和工具；节点构建目标是 `make paxd-build`。`make paxeer-build` 调用 `chain.mk`，也会准备原生库。节点目标使用 `GOPROXY=off`，因此 Go 依赖必须已在本地可用。
 
-```sh
-make paxeer-build
-make paxeer-lint
-make paxeer-test
-make paxeer-ci
-```
-
-`make ci` 会运行 `public-audit`、原生测试、两次构建的归档比对、共识符号检查以及 sanitizer 套件。`make monorepo-ci` 是独立的跨子系统门禁。本地通过并不等于获准部署合约、转移托管或处理真实资产。
+服务各有构建目标：`make agent-build`、`make human-build`、`make interop-build`、`make platform-build-all` 和 `make programs-build`。请运行所修改组件的检查，参见[验收门禁](../../operators/qualification.md)。
 
 ## 仓库布局
 
 | 路径 | 用途 |
 | --- | --- |
-| `src/`, `include/` | C17 协议运行时、状态机、存储、排序、重放与结算集成 |
-| `cmd/` | 原生守护进程与工具（`layerxd`、`layerxctl`、genesis、verify） |
-| `agent/` | Rust 智能体接口、SDK、守护进程、MCP 服务器、编码、密码学与证明核验 |
-| `human/` | 人工控制面、类型化意图编译器、托管边界客户端、浏览器索引与 Web 应用 |
-| `services/platform/` | 开发者平台、托管服务、中间件、SDK、模拟器、CLI 与发布工具 |
-| `programs/` | 可编程 LayerX 运行时与程序工具 |
-| `interop/` | 智能体商务与跨网络互操作界面 |
-| `contracts/` | 用于 Paxeer 托管、检查点、担保人保证金、索赔、争议和退出的 Solidity 合约 |
-| `go.mod`, `chain.mk`, `daemon/`, `node/`, `modules/`, `consensus/`, `sdk/`, `rpc/`, `precompiles/`, `storage/`, `wasm/`, `docker/` | Paxeer Network 节点、EVM/RPC 兼容、存储引擎、模块、合约及子系统本地构建 |
-| `spec/` | 规范性 KVX 规格、生成的设计、需求与任务图 |
-| `tests/`, `test/`, `tests/fuzz/` | 原生、合约、重放、不变量、故障与模糊测试套件 |
-| `migrations/` | 创世、迁移、对账与影子重放工作 |
-| `docs/` | Wiki、monorepo 说明与验收文档 |
+| `daemon/paxd/`, `node/`, `consensus/` | 节点可执行文件、应用和 BFT 共识 |
+| `src/`, `include/`, `modules/lxphost/` | C17 内核及节点内的宿主集成 |
+| `modules/`, `precompiles/`, `rpc/` | 原生模块、EVM 访问和 JSON-RPC 服务器 |
+| `services/agent/` | SDK、智能体守护进程和 MCP 服务器 |
+| `services/human/`, `apps/web/` | 人工控制面和 Web 应用 |
+| `services/platform/`, `tools/platform/` | 托管服务、中间件和开发工具 |
+| `programs/` | 程序运行时和编译工具 |
+| `services/interop/` | 智能体商务和跨网络互操作 |
+| `contracts/` | Solidity 合约与接口，包括 bridge 和 launchpad |
+| `sdk/`, `apps/` | 客户端 SDK 和应用 |
+| `spec/`, `tests/`, `migrations/` | 规范、测试和迁移 |
+| `docs/` | Wiki、文档站点和验收说明 |
 
 ## 文档
 
-- Wiki 索引：[`docs/wiki/Home.md`](../../index.md)
-- Monorepo 布局与发布标签：[`docs/MONOREPO.md`](../monorepo.md)
-- 验收门禁：[`docs/QUALIFICATION.md`](../../operators/qualification.md)
-- 规格：[`spec/`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/spec/)
+- [站点首页](../../index.md)
+- [公共 JSON-RPC 端点](../../reference/public-rpc.md)
+- [Monorepo 布局](../monorepo.md)
+- [验收门禁](../../operators/qualification.md)
+- [规范](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/spec/)
 
 ## SDK 与集成
 
@@ -127,7 +104,7 @@ make paxeer-ci
 | .NET | `sdk/platform/dotnet` |
 | Swift | `sdk/platform/swift` |
 
-`layerx-agentd` 位于 `services/agent/crates/layerx-agentd`。MCP 服务器位于 `services/agent/crates/layerx-mcp`。`tools/platform/cli` 中的开发者 CLI 通过 `layerx install mcp` 和 `layerx install a2a` 安装这些传输。
+`layerx-agentd` 位于 `services/agent/crates/layerx-agentd`，是节点外的智能体服务。MCP 服务器位于 `services/agent/crates/layerx-mcp`。`tools/platform/cli` 中的开发者 CLI 提供 `layerx install mcp` 和 `layerx install a2a`；安装需要配置好 beta 或生产网关环境及相应凭证。
 
 ## 贡献
 
@@ -141,4 +118,4 @@ make paxeer-ci
 
 依 Apache 许可证 2.0 版授权。参见 [`LICENSE`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/LICENSE) 和 [`NOTICE`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/NOTICE)。
 
-LayerX Network 由 Sidiora Labs 开发。
+Paxeer X Network 由 Sidiora Labs 开发。

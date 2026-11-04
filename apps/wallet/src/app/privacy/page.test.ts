@@ -16,6 +16,11 @@ function privacy_page_describes_the_web_wallet() {
   expect(text).toMatch(
     /chat messages are sent through the wallet server to OpenAI at api\.openai\.com/
   );
+  expect(text).toContain('configured Paxeer Network chain RPC at its root endpoint');
+  expect(text).toContain('If you select a custom RPC or another network in wallet settings');
+  expect(text).toContain('wallet server through a same-origin proxy');
+  expect(text).toMatch(/configured Paxeer indexer service \(default: api\.paxscan\.io\s*\)/);
+  expect(text).toMatch(/configured explorer \(default: paxscan\.io\s*\)/);
 
   const table = source.match(/<table\b[^>]*>[\s\S]*?<\/table>/)?.[0];
   expect(table).toMatch(/<tr>[\s\S]*?Supabase[\s\S]*?Sign-in[\s\S]*?<\/tr>/);
@@ -33,6 +38,9 @@ function privacy_page_describes_the_web_wallet() {
     'the Extension',
     'other than the blockchain RPC and indexer APIs',
     'No account required',
+    'public-rpc.paxeer.app',
+    'paxscan.paxeer.app',
+    'us-east-1.user-stats.sidiora.exchange',
   ]) {
     expect(source).not.toContain(obsoleteClaim);
   }
