@@ -28,6 +28,10 @@ const PointerViewAddress = "0x000000000000000000000000000000000000100A"
 //go:embed abi.json
 var f embed.FS
 
+func GetABI() abi.ABI {
+	return pcommon.MustGetABI(f, "abi.json")
+}
+
 type PrecompileExecutor struct {
 	evmKeeper utils.EVMKeeper
 
@@ -38,7 +42,7 @@ type PrecompileExecutor struct {
 }
 
 func NewPrecompile(keepers utils.Keepers) (*pcommon.Precompile, error) {
-	newAbi := pcommon.MustGetABI(f, "abi.json")
+	newAbi := GetABI()
 
 	p := &PrecompileExecutor{
 		evmKeeper: keepers.EVMK(),

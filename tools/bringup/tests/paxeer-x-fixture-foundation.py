@@ -13,6 +13,8 @@ import sys
 import time
 import uuid
 
+from foundation_provenance import qualify_foundation
+
 ROOT = Path(__file__).resolve().parents[3]
 sys.dont_write_bytecode = True
 spec = importlib.util.spec_from_file_location('foundation_artifacts', Path(__file__).with_name('foundation-artifacts.py'))
@@ -402,9 +404,11 @@ for node in range(1,6):
             self.manifest['generated_artifacts'][name] = {'sha256': ART.sha256(self.output / name), 'size': (self.output / name).stat().st_size}
         self.manifest['artifact_manifest_sha256'] = ART.sha256(self.artifacts)
         self.manifest['source_paths'] = list(SOURCES)
+        qualify_foundation(self.manifest, self.output, self.revision, 'foundation')
         atomic(self.output / 'manifest.json', self.manifest)
 
     def validate_retained(self, manifest):
+        qualify_foundation(manifest, self.output, self.revision, 'foundation')
         require(manifest['purpose'] == 'disposable-test-only' and manifest['stage'] == 'dependency-foundation', 'wrong foundation stage')
         require(manifest['source_binding'] == ART.source_binding(self.revision, SOURCES), 'retained source mismatch')
         require(manifest['chain_id'] == 125 and manifest['network_id'] == NETWORK_ID, 'wrong source-network identity')
@@ -434,6 +438,7 @@ for node in range(1,6):
         require(before == {name: ART.sha256(self.output / name) for name in protected}, 'restart changed durable foundation material')
         self.manifest['restart_preserved'] = before
         self.manifest['producers'] = self.producers
+        qualify_foundation(self.manifest, self.output, self.revision, 'foundation')
         atomic(self.output / 'manifest.json', self.manifest)
 
     def cleanup(self):

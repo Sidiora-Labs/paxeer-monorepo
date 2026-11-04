@@ -26,6 +26,7 @@ not connect directly to node storage or the consensus core.
 The definitions live in [`server.rs`](src/server.rs) and
 [`catalogue.rs`](src/catalogue.rs). The served list comes from the owner's
 authenticated `mcp.describe` response, checked against these definitions.
+The tables below enumerate all 36 definitions, including session and web tools.
 Session scopes, owner availability and deployment mode constrain the list;
 a declaration is not a promise that every bound session can call it.
 `read-only` mode includes only tools whose kind is `Read`.
@@ -60,20 +61,35 @@ block headers, validator sets and consensus commits, not an additional
 checkpoint publication or settlement network. `faucet.request` has no
 `tool_operation` mapping; it is handled by the dedicated faucet boundary.
 
-The `SESSION_TOOLS` definitions add `subscription.create`,
-`subscription.list`, `subscription.pause`, `subscription.resume`,
-`subscription.delete`, `subscription.health` and `subscription.acknowledge`
-under `subscribe`; and `approval.list`, `approval.get`, `approval.approve`
-and `approval.reject` under `approve`. The list/health/get tools are reads;
-the others are writes. These operate on authenticated daemon-owned state.
-Approvals constrain a held request and confer no protocol authority.
+Session tools operate on authenticated daemon-owned state. Approvals constrain a
+held request and confer no protocol authority. Subscription acknowledgement takes
+a cursor with `block_height`, `tx_index` and `log_index`; approval results retain
+`tx_hash` and the observed evidence rung.
 
-`WEB_TOOLS` adds `web.search`, `web.fetch` and `web.content`, with scopes
-`write:web:search`, `write:web:fetch` and `write:web:content`. They pay the
-configured x-websearch sidecar through the attached payer and approval
-boundary. Receipt keys authorize verification of payment evidence; finality
-still requires the network's block commit. External results are marked
+| Tool | Kind | Required scope | Operation mapping |
+| --- | --- | --- | --- |
+| `subscription.create` | write | `subscribe` | `SubscriptionCreate` |
+| `subscription.list` | read | `subscribe` | `SubscriptionList` |
+| `subscription.pause` | write | `subscribe` | `SubscriptionPause` |
+| `subscription.resume` | write | `subscribe` | `SubscriptionResume` |
+| `subscription.delete` | write | `subscribe` | `SubscriptionDelete` |
+| `subscription.health` | read | `subscribe` | `SubscriptionHealth` |
+| `subscription.acknowledge` | write | `subscribe` | `SubscriptionAcknowledge` |
+| `approval.list` | read | `approve` | `ApprovalList` |
+| `approval.get` | read | `approve` | `ApprovalGet` |
+| `approval.approve` | write | `approve` | `ApprovalApprove` |
+| `approval.reject` | write | `approve` | `ApprovalReject` |
+
+Web tools pay the configured x-websearch sidecar through the attached payer and
+approval boundary. Receipt keys authorize verification of payment evidence;
+finality still requires the network's block commit. External results are marked
 `layerx/output: untrusted` and must not be treated as instructions.
+
+| Tool | Kind | Required scope | Operation mapping |
+| --- | --- | --- | --- |
+| `web.search` | write | `write:web:search` | `Submit` |
+| `web.fetch` | write | `write:web:fetch` | `Submit` |
+| `web.content` | write | `write:web:content` | `Submit` |
 
 Writes preserve exact prepared bytes, disclosure and signatures. Native
 wallet/token/grant aliases use the canonical owner path rather than inventing
@@ -118,8 +134,10 @@ authenticate the session and retrieve the live catalogue before serving it.
 
 The document is a closed JSON object. This template shows all required fields
 and the readiness section required by the served daemon-client path. Replace
-every angle-bracket value with an operator-provisioned value; it does not
-create a session or capability:
+the illustrative identifiers, paths and endpoints with operator-provisioned
+values; it does not create a session or capability. The hexadecimal values below
+are public example identifiers, addresses and a receipt verification key, never
+signing secrets. The regression test reads these JSON blocks directly:
 
 ```json
 {
@@ -127,26 +145,26 @@ create a session or capability:
   "tenant": "beta",
   "store": "/var/lib/layerx/agentd/store",
   "audit_root": "/var/lib/layerx/agentd/audit",
-  "session_id": "<64 hex characters>",
+  "session_id": "0707070707070707070707070707070707070707070707070707070707070707",
   "session_token_file": "/etc/layerx/mcp-session-token",
   "session_generation": 1,
-  "capability_id": "<64 hex characters>",
+  "capability_id": "0909090909090909090909090909090909090909090909090909090909090909",
   "core_height": 120,
   "deadline_ms": 10000,
   "agent": {
     "endpoint": "127.0.0.1:8081",
     "bearer_file": "/etc/layerx/agentd-bearer",
-    "probe_program": "<64 hex characters>",
+    "probe_program": "5555555555555555555555555555555555555555555555555555555555555555",
     "readiness": {
       "endpoint": "https://gateway.example.invalid",
       "gateway_key_file": "/etc/layerx/mcp-gateway-key"
     }
   },
   "limit": {
-    "id": "<32 hex characters>",
+    "id": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a",
     "name": "mcp",
     "scope": "tenant",
-    "scope_id": "<64 hex characters>",
+    "scope_id": "0101010101010101010101010101010101010101010101010101010101010101",
     "ceiling": "1000",
     "consumed": "0"
   }
@@ -157,7 +175,10 @@ create a session or capability:
 loopback Programs surface, while `agent.readiness.endpoint` names the HTTPS
 gateway base URL used by `AgentEnvelopeTransport`. Optional
 `agent.readiness.trust_anchors` names a PEM trust file; absent that field, the
-transport uses system roots. This gateway is an agent API transport, distinct
+transport uses system roots. `Binding::parse` can accept an absent readiness
+section for local owner use, but `open_daemon_client` requires it. Both gateway
+API-key admission and the tenant session credential are required for the
+`POST /v1/agent/rpc` envelope. This gateway is an agent API transport, distinct
 from public node JSON-RPC. Readiness reports `transport_ready`,
 `verified_reads_ready`, `writes_admitted` and `recovery_reason`; it is local
 readiness information, not verified protocol state.
@@ -171,7 +192,9 @@ tenant session credential are separate authorities; neither file holds a
 signing seed. Keep credential contents out of the binding document.
 
 For a socket deployment, add this optional top-level member with the actual
-owner and admitted peer UIDs:
+owner and admitted peer UIDs (zero is only an example). Create the canonical
+parent directory with the declared ownership and no group-write or world access;
+the socket mode permits owner and optional group access only:
 
 ```json
 {
@@ -197,18 +220,18 @@ actual payment addresses and independently obtained receipt key index:
 {
   "web": {
     "endpoint": "http://127.0.0.1:8090",
-    "payer_address": "<0x followed by 40 hex characters>",
-    "receiver_address": "<0x followed by 40 hex characters>",
+    "payer_address": "0xabababababababababababababababababababab",
+    "receiver_address": "0xcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
     "network": "eip155:125",
     "receipt_key_index": [
       {
-        "keyId": "<64 hex characters identifying the receipt key>",
-        "publicKey": "<64 hex characters encoding its public key>",
+        "keyId": "2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a",
+        "publicKey": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
         "firstHeight": 1,
         "lastHeight": 1000
       }
     ],
-    "sequencer_id": "<same hex value as keyId above>",
+    "sequencer_id": "2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a",
     "first_batch_number": 120,
     "last_batch_number": 120,
     "timeout_ms": 10000,
@@ -220,7 +243,7 @@ actual payment addresses and independently obtained receipt key index:
 
 `sequencer_id`, `first_batch_number` and `last_batch_number` are retained wire
 field names for the selected receipt key and height interval. The key index
-must be nonempty, contain unique nonzero key IDs and nonzero public keys, and
+must contain 1 through 64 entries, unique nonzero key IDs and nonzero public keys, and
 cover the selected interval. Each entry has exactly `keyId`, `publicKey`,
 `firstHeight` and `lastHeight`. `timeout_ms` is 1 through 60,000 and
 `pending_attempts` is 1 through 10. See [`binding.rs`](src/binding.rs) for the

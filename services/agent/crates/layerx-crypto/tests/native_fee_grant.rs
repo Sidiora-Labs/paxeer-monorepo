@@ -1,5 +1,8 @@
 use layerx_crypto::authority_grant::{AuthorityGrant, NativeFeeBudget};
-use layerx_crypto::disclosure::{bind, DisclosureError};
+use layerx_crypto::disclosure::DisclosureError;
+use layerx_crypto::evm_transaction::decode_unsigned;
+
+mod support;
 use layerx_crypto::{ed25519, SignatureMessage};
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use layerx_wire::{activity, hash};
@@ -89,10 +92,21 @@ fn original_native_fee_grants_preserve_owner_signatures_and_native_ids() {
         )
         .unwrap_or_else(|error| panic!("message: {error:?}"));
         assert_eq!(ed25519::verify(key, signature, message), Ok(()));
-        let disclosed =
-            bind(&unsigned, &registry()).unwrap_or_else(|error| panic!("disclosure: {error:?}"));
-        assert_eq!(disclosed.authority_grant, Some(grant));
-        assert_eq!(disclosed.reencode(), Ok(unsigned));
+        let disclosed = AuthorityGrant::from_payload(submitted.payload())
+            .unwrap_or_else(|error| panic!("kernel grant payload: {error:?}"));
+        assert_eq!(disclosed, grant);
+        assert_eq!(
+            disclosed.payload().expect("canonical payload"),
+            submitted.payload()
+        );
+        assert_eq!(
+            activity::encode_unsigned(&submitted).expect("archive reencode"),
+            unsigned
+        );
+        assert!(
+            decode_unsigned(&unsigned).is_err(),
+            "archive cannot enter the current transaction path"
+        );
     }
 }
 
@@ -147,8 +161,10 @@ fn every_fee_field_is_bound_into_the_signing_disclosure() {
         .unwrap_or_else(|error| panic!("activity: {error:?}"));
     let unsigned =
         activity::encode_unsigned(&submitted).unwrap_or_else(|error| panic!("unsigned: {error:?}"));
-    let disclosure =
-        bind(&unsigned, &registry()).unwrap_or_else(|error| panic!("disclosure: {error:?}"));
+    let original = AuthorityGrant::from_payload(submitted.payload()).expect("kernel grant");
+    assert_eq!(original.encode().expect("original grant"), fixture.grant);
+    assert!(decode_unsigned(&unsigned).is_err());
+    let disclosure = support::send_call(25, 7).disclosure;
     let mutations: &[fn(&mut NativeFeeBudget)] = &[
         |fee| fee.asset[0] ^= 1,
         |fee| fee.maximum_per_activity += 1,
@@ -159,13 +175,54 @@ fn every_fee_field_is_bound_into_the_signing_disclosure() {
     ];
     for mutate in mutations {
         let mut changed = disclosure.clone();
-        let Some(grant) = changed.authority_grant.as_mut() else {
-            panic!("missing grant")
-        };
+        let mut grant = original;
         let Some(fee) = grant.fee_budget.as_mut() else {
             panic!("missing fee")
         };
         mutate(fee);
+        if let Ok(encoded) = grant.encode() {
+            assert_ne!(encoded, fixture.grant);
+            let mut hash = Sha256::new();
+            hash.update(hash::Domain::AuthorityHash.tag());
+            hash.update(&encoded);
+            assert_ne!(hash.finalize().as_slice(), fixture.id);
+            let altered_payload = grant.payload().expect("altered payload");
+            let mut altered = unsigned.clone();
+            let payload_start = altered.len() - submitted.payload().len();
+            assert_eq!(&altered[payload_start..], submitted.payload());
+            assert_eq!(altered_payload.len(), submitted.payload().len());
+            altered[payload_start..].copy_from_slice(&altered_payload);
+            let original_hash = submitted.payload_hash();
+            let hash_start = altered[..payload_start]
+                .windows(32)
+                .position(|bytes| bytes == original_hash)
+                .expect("recorded payload commitment");
+            let mut payload_hash = Sha256::new();
+            payload_hash.update(hash::Domain::PayloadHash.tag());
+            payload_hash.update(&altered_payload);
+            altered[hash_start..hash_start + 32].copy_from_slice(&payload_hash.finalize());
+            let decoded =
+                activity::decode_unsigned(&altered, &registry()).expect("changed archive framing");
+            assert_eq!(
+                hash::payload_hash(&decoded).expect("changed payload hash"),
+                decoded.payload_hash()
+            );
+            let key: &[u8; 32] = submitted.authority().try_into().expect("owner key");
+            let signature: &[u8; 64] = submitted
+                .signature()
+                .expect("owner signature")
+                .try_into()
+                .expect("signature width");
+            let message = SignatureMessage::new(
+                hash::Domain::SignaturePreimage,
+                submitted.protocol_version(),
+                submitted.network_id(),
+                &altered,
+            )
+            .expect("altered message");
+            assert!(ed25519::verify(key, signature, message).is_err());
+        }
+        changed.authority_grant = Some(grant);
         assert_eq!(
             changed.reencode(),
             Err(DisclosureError::FieldMismatch("authority_grant"))
@@ -173,10 +230,10 @@ fn every_fee_field_is_bound_into_the_signing_disclosure() {
         assert!(changed.audit_digest().is_err());
     }
     let mut removed = disclosure;
-    let Some(grant) = removed.authority_grant.as_mut() else {
-        panic!("missing grant")
-    };
+    let mut grant = original;
     grant.fee_budget = None;
+    assert_ne!(grant.encode().expect("no fee budget"), fixture.grant);
+    removed.authority_grant = Some(grant);
     assert_eq!(
         removed.reencode(),
         Err(DisclosureError::FieldMismatch("authority_grant"))

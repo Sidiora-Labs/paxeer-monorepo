@@ -1,0 +1,48 @@
+[repair.22.33.1225]
+audit = "22.30.58"
+concept-governance-recovery = ["TestRepairM_1225_GovernanceRecovery", "TestRepairM_1225_ConceptsReferences"]
+concept-timeout-conjunction = ["TestRepairM_1225_TimeoutDeadlines", "TestRepairM_1225_TimeoutOnClose", "TestRepairM_1225_ConceptsReferences"]
+baseline = "Attempt 1's pre-repair tests did not execute: the recorded verification failed during compilation of unchanged SDK CLI packages, as detailed below. This continuation inherits the three implementation paths and the prior qualification record; the explicit ordered gate instructions prohibit a separate direct baseline verify_cmd invocation. No pre-change assertion failure is claimed."
+repair = "Retain the already-correct subject/substitute and either-deadline explanations; add the current governance CLI, execution timing, explicit frozen/expired prerequisites, actual receiver/validation checks and representative real keeper tests. The continuation also asserts rejected proposals preserve the subject inside the execution cache and drives RecvPacket with real sender commitment proofs, checking receipt/sequence effects before testing sender timeout proofs."
+wiring_request = "sdk/x/auth/client/cli and sdk/x/staking/client/cli — SDK/chain-modules owner: port existing NewFactoryCLI callers to its (Factory, error) return contract so the core package's existing simapp test dependencies compile; neither audit proposal requires an out-of-path documentation change."
+evidence = "The runner hf-build/hf-done ledger records the verified candidate revision, command, exit code and private log location; the final response copies its exact evidence line."
+
+[continuation.22.33.1225]
+scope = "Preserve all three inherited implementation files; no SDK, spec, graph configuration or existing test files are changed by this continuation."
+gotcha = "The root package's existing genesis tests also import interchain/testing and simapp, so changing only the new test fixture cannot remove the recorded SDK compilation dependency; retain those tests and route the existing wiring request to the SDK owner."
+tooling = "hf-build and hf-done resolve through PATH to /out/run/bin; the prior attempt's /tmp/repair-m1225.log is absent in this continuation sandbox, so its recorded qualification is retained without claiming a new baseline run."
+
+[qualification.22.33.1225]
+revision = "381a5666f7d98c3be4c3fbf62118024fa9ab1049"
+command = "cg spec done 22.33.1225 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; full compiler diagnostics: /tmp/repair-m1225.log"
+observed = "Build passed; verify failed before test execution on four assignment mismatches in sdk/x/auth/client/cli/{tx_multisign.go:84,tx_multisign.go:260,tx_sign.go:69,validate_sigs.go:216} and a multiple-value expression in sdk/x/staking/client/cli/tx.go:62, all calling the two-result tx.NewFactoryCLI."
+assumption = "These unchanged, out-of-scope SDK consumers are a pre-existing package-compilation failure; no tests ran, no assertions were weakened, and this finding was not rerun or investigated further."
+
+[continuation.22.33.1225.attempt3]
+base = "4b4896072f927b28618921285b3e3ae758bc467e"
+implementation = "Preserve the inherited documentation and all four proving tests; rerun only hf-build and hf-done on the supplied base containing the SDK caller repair 22.31.463. The earlier qualification and wiring request above describe historical evidence, not a failure observed on this base."
+evidence = "The final hf-done ledger line identifies the verified revision, exact command, exit code and private evidence log; no post-gate source edits are made."
+
+[qualification.22.33.1225.attempt3.initial]
+revision = "7224ea84e14268123ec0c2bae1de81c253668d88"
+command = "cg spec done 22.33.1225 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; assertion details: /tmp/repair-m1225.log"
+observed = "Both timeout tests and the documentation-reference test passed; both governance cases stopped in CLI flag processing because an unset keyring selected a file backend without a directory."
+repair = "Supply the SDK's real in-memory keyring in the offline CLI fixture; preserve the CLI, transaction codecs, handler and all assertions. This avoids local keyring configuration without mocking any component."
+
+[continuation.22.33.1225.attempt4]
+base = "357234853ae90e2dbfd210d59cb4085eaf01ed95"
+implementation = "Reviewed and retained the three inherited implementation files, including the real in-memory keyring repair. No further code or documentation repair was needed before qualification on the supplied base."
+baseline = "No gate ledger exists in this sandbox before qualification; the historical compilation and CLI-fixture failures above are retained as prior evidence. Only the ordered hf-build and hf-done gates run here."
+evidence = "The final hf-done ledger entry in /out/run/gates.jsonl records the candidate revision, exact command, exit code and private log location; the final response copies that entry. No source files change after qualification."
+
+[qualification.22.33.1225.attempt4.initial]
+revision = "313e8a6fa3ac99986c63df58957147f9c628d998"
+command = "cg spec done 22.33.1225 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; assertion details: /tmp/repair-m1225.log"
+observed = "Timeout and documentation tests passed; both governance cases failed CLI JSON encoding because the chain's generic transaction codec does not register ClientUpdateProposal."
+repair = "Use the real SDK transaction configuration with the application's registered protobuf codec and existing signing handler for CLI output and both transaction decoders; preserve every assertion and the actual proposal handler."

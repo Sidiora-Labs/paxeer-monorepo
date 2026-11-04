@@ -1,4 +1,6 @@
 //! Historical guarantor certificate material without chain-finality authority.
+//! The compatibility types remain available to daemon consumers; both verifier
+//! entry points refuse certificates with `RetiredCertificateVerifier`.
 
 use std::convert::Infallible;
 

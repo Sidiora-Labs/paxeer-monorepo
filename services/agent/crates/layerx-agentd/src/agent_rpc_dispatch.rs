@@ -1580,7 +1580,9 @@ pub(crate) fn canonical_request_bytes(
             named(operation, &decode::<ReadBalanceRequest>(request, id)?, id)?
         }
         Operation::ReadCheckpoint => {
-            named(operation, &decode::<CoordinatesOnly>(request, id)?, id)?
+            let request: crate::read::CheckpointRequest = decode(request, id)?;
+            request.height().map_err(|_| malformed(id))?;
+            named(operation, &request, id)?
         }
         Operation::Track => named(operation, &decode::<TrackRequest>(request, id)?, id)?,
         Operation::ApprovalList => {
@@ -1878,16 +1880,15 @@ pub(crate) fn dispatch_operation<A: HumanAuthorityBoundary>(
             })
         }
         Operation::ReadCheckpoint => {
-            let request: CoordinatesOnly = decode(request, id)?;
-            let _ = (request.tenant, request.agent);
-            let error =
-                layerx_agent_api::error::ApiError::unavailable_capability(id, "read.checkpoint")
-                    .expect("static operation name");
-            Err(Rejection {
-                class: error.class,
-                retriability: error.retriability,
-                request_id: id,
-                reason: "unavailable_capability.read.checkpoint",
+            let request: crate::read::CheckpointRequest = decode(request, id)?;
+            request.height().map_err(|_| malformed(id))?;
+            let value = shared
+                .lock()
+                .and_then(|mut guard| guard.rpc_read_checkpoint(context, request))
+                .map_err(|error| owner_error(id, error))?;
+            Ok(Dispatched {
+                value,
+                verification: Some(VerificationStatus::Achieved(Rung::Committed)),
             })
         }
         Operation::Track => {

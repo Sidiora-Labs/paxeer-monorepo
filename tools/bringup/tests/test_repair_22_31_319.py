@@ -412,39 +412,7 @@ def test_search_front_roundtrip_primary_backup_and_refusals(material):
         assert (primary, "/readyz") in calls and (backup, "/readyz") in calls
 
 
-CONFIG_LOADER_SOURCE = r'''//! Exercise the deployed configuration loader without starting the crawler.
-#[allow(dead_code)]
-#[path = __CONFIG_PATH__]
-mod config;
-
-fn main() -> std::process::ExitCode {
-    for path in std::env::args().skip(1) {
-        match config::Config::load(std::path::Path::new(&path)) {
-            Ok(config) => {
-                let keys: Vec<_> = config
-                    .gateway
-                    .receipt_keys
-                    .iter()
-                    .map(|key| {
-                        serde_json::json!({
-                            "key_id": key.sequencer_id(),
-                            "public_key": key.public_key(),
-                            "first_height": key.first_batch_number(),
-                            "last_height": key.last_batch_number(),
-                        })
-                    })
-                    .collect();
-                println!("{}", serde_json::json!({"receipt_keys": keys}));
-            }
-            Err(error) => {
-                eprintln!("{error}");
-                return std::process::ExitCode::FAILURE;
-            }
-        }
-    }
-    std::process::ExitCode::SUCCESS
-}
-'''
+CONFIG_LOADER_SOURCE = (BRINGUP / "tests/xweb-loader/src/main.rs").read_text()
 
 
 @pytest.fixture(scope="session")
@@ -460,7 +428,8 @@ def config_loader(tmp_path_factory):
     )
     (project / "src").mkdir()
     (project / "src/main.rs").write_text(CONFIG_LOADER_SOURCE.replace(
-        "__CONFIG_PATH__", json.dumps(str(ROOT / "services/interop/crates/x-websearch/src/config.rs"))
+        '"../../../../../services/interop/crates/x-websearch/src/config.rs"',
+        json.dumps(str(ROOT / "services/interop/crates/x-websearch/src/config.rs"))
     ))
     run(["cargo", "build", "--offline", "--manifest-path", str(manifest),
          "--target-dir", str(target),

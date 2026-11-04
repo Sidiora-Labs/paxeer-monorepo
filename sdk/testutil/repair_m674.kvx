@@ -1,0 +1,17 @@
+[repair.22.33.674]
+finding = "http-helper-bounds"
+implementation = "GetRequestWithHeaders enforces a ten-second end-to-end timeout, reads at most 16 MiB plus one overflow byte, and defers body closure while preserving request, read and close errors."
+tests = ["TestRepairM_674_ResponseAndHeaders", "TestRepairM_674_ResponseSizeBound", "TestRepairM_674_OversizeClosesStreamingBody", "TestRepairM_674_RequestDeadline", "TestRepairM_674_PreservesReadError", "TestRepairM_674_PreservesTransportError"]
+fixtures = "Real HTTP client and loopback HTTP/TLS servers; no external services."
+baseline = "UNRUN: the task's explicit ordered gate instructions prohibit running verify before implementation; no pre-change failing test result is claimed."
+wiring_requests = []
+wiring_resolution = "Task 22.31.463 repaired the auth/staking and tokenfactory CLI callers of tx.NewFactoryCLI on the current base; the previous attempt's out-of-scope build blocker is resolved."
+evidence = "The runner records the exact candidate revision, command, exit and private log in its hf-build/hf-done gate ledger; qualification requires both gates on the same candidate."
+
+[qualification.attempt1_build]
+revision = "e65855cbf1eb2f6ebbe2d7cffd1e3a63841a356d"
+command = "go build ./sdk/testutil/..."
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "Unchanged out-of-scope CLI callers use one result from tx.NewFactoryCLI, which now returns (Factory, error); no verification ran and no unchanged gate was repeated."
+assumption = "The owning domains must repair these callers before this task can qualify; no pre-change test failure or passing gate is claimed."
