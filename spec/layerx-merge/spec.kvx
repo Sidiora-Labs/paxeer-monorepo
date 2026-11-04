@@ -151790,7 +151790,7 @@ do_12 = "Attempt 4 (continue): the build fails because the fixture passes an inc
 
 [task.22.33.386]
 title = "Repair audit record 22.30.141 medium findings in apps/explorer/ui/nameDomain/history (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.271", "22.31.272", "22.31.388", "22.31.389", "22.31.474"]
@@ -153342,7 +153342,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.319]
 title = "Repair audit record 22.30.137 medium findings in apps/explorer/ui/shared/AppError/custom (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.474"]
@@ -182194,7 +182194,7 @@ do_15 = "Attempt 3 (continue): tests/support/repair_22_33_63_rotation.rs line 15
 
 [task.22.33.62]
 title = "Repair audit record 22.30.107 medium findings in services/human/crates/layerx-human-service/src/bin (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.157", "22.31.158", "22.31.159", "22.31.443"]
@@ -320042,7 +320042,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.467]
 title = "Restore the hosted paxeer deployment files that 22.33.1319 deleted while other scripts still import them"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.465"]
@@ -320910,7 +320910,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.1417]
 title = "Repair audit record 22.30.79 medium findings in services/platform/hosted/gateway (part 1 of 1): retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.189", "22.31.190", "22.31.191", "22.31.349"]
@@ -331175,7 +331175,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.17]
 title = "Repair audit record 22.30.100 medium findings in services/agent/sdk/python/layerx_sdk (part 2 of 2): config-drift, restart-recovery, retired-reference, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.147"]
