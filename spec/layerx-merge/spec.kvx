@@ -37248,7 +37248,7 @@ title = "Repair audit record 22.30.99 medium findings in services/agent/tests/po
 reqs = ["22998.1"]
 touches = ["services/agent/tests/policy"]
 tests = ["services/agent/tests/repair_22_33_1573.rs"]
-verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml --test repair_22_33_1573"
+verification_contract = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test repair_22_33_1573"
 do_1 = "Audit record 22.30.99 (spec/layerx-merge/programme/audit/records/22.30.99.kvx) holds 1 medium finding(s) in services/agent/tests/policy that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: policy-control-denies. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -37266,7 +37266,7 @@ title = "Repair audit record 22.30.99 medium findings in services/agent/tests/li
 reqs = ["22998.1"]
 touches = ["services/agent/tests/limits"]
 tests = ["services/agent/tests/repair_22_33_1571.rs"]
-verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml --test repair_22_33_1571"
+verification_contract = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test repair_22_33_1571"
 do_1 = "Audit record 22.30.99 (spec/layerx-merge/programme/audit/records/22.30.99.kvx) holds 1 medium finding(s) in services/agent/tests/limits that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: exactly-once-effect-gap. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -37293,7 +37293,7 @@ title = "Repair audit record 22.30.99 medium findings in services/agent/qualific
 reqs = ["22998.1"]
 touches = ["services/agent/qualification/pay2"]
 tests = ["services/agent/qualification/pay2/repair_m1568_test.go"]
-verification_contract = "go test -count=1 -v -run '^TestRepairM_1568_' ./services/agent/qualification/pay2/ > /tmp/repair-m1568.log 2>&1; s=$?; grep -E '^(=== RUN|--- (PASS|FAIL)|FAIL|ok|panic|# )' /tmp/repair-m1568.log | tail -n 120; grep -E -B2 -A12 '^--- FAIL' /tmp/repair-m1568.log | head -n 200; grep -q -- '--- PASS: TestRepairM_1568_' /tmp/repair-m1568.log && test $s -eq 0"
+verification_contract = "cargo test --locked --manifest-path services/agent/qualification/pay2/Cargo.toml --test repair_22_33_1568"
 do_1 = "Audit record 22.30.99 (spec/layerx-merge/programme/audit/records/22.30.99.kvx) holds 2 medium finding(s) in services/agent/qualification/pay2 that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: pay2-target-missing, pay2-build-text-only. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -37905,7 +37905,7 @@ title = "Repair audit record 22.30.89 medium findings in services/platform/docs/
 reqs = ["22998.1"]
 touches = ["services/platform/docs/content"]
 tests = ["services/platform/tests/repair_22_33_1500.rs"]
-verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml --test repair_22_33_1500"
+verification_contract = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1500.py"
 do_1 = "Audit record 22.30.89 (spec/layerx-merge/programme/audit/records/22.30.89.kvx) holds 1 medium finding(s) in services/platform/docs/content that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: install_guide_inputs. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -37950,7 +37950,7 @@ title = "Repair audit record 22.30.89 medium findings in tools/platform/cli/test
 reqs = ["22998.1"]
 touches = ["tools/platform/cli/tests", "tools/platform/cli/src/toolset.rs"]
 tests = ["tools/platform/cli/tests/repair_m1495_test.go"]
-verification_contract = "go test -count=1 -v -run '^TestRepairM_1495_' ./tools/platform/cli/tests/ > /tmp/repair-m1495.log 2>&1; s=$?; grep -E '^(=== RUN|--- (PASS|FAIL)|FAIL|ok|panic|# )' /tmp/repair-m1495.log | tail -n 120; grep -E -B2 -A12 '^--- FAIL' /tmp/repair-m1495.log | head -n 200; grep -q -- '--- PASS: TestRepairM_1495_' /tmp/repair-m1495.log && test $s -eq 0"
+verification_contract = "cargo test --locked --manifest-path tools/platform/cli/Cargo.toml --test repair_22_33_1495"
 do_1 = "Audit record 22.30.89 (spec/layerx-merge/programme/audit/records/22.30.89.kvx) holds 8 medium finding(s) in tools/platform/cli/tests that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: test_retired_endpoint_chains, credential_profile_collision_gap, test_retired_endpoint_faucet, install_journey_a2a_contract, test_retired_endpoint_lx_refusal, mcp_binding_test_rewrite, test_retired_endpoint_mcp_submit, mcp_submit_path_test. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -38328,7 +38328,7 @@ title = "Repair audit record 22.30.83 medium findings in services/platform/hoste
 reqs = ["22998.1"]
 touches = ["services/platform/hosted/node"]
 tests = ["services/platform/hosted/node/repair_m1453_test.go"]
-verification_contract = "go test -count=1 -v -run '^TestRepairM_1453_' ./services/platform/hosted/node/ > /tmp/repair-m1453.log 2>&1; s=$?; grep -E '^(=== RUN|--- (PASS|FAIL)|FAIL|ok|panic|# )' /tmp/repair-m1453.log | tail -n 120; grep -E -B2 -A12 '^--- FAIL' /tmp/repair-m1453.log | head -n 200; grep -q -- '--- PASS: TestRepairM_1453_' /tmp/repair-m1453.log && test $s -eq 0"
+verification_contract = "python3 -m pytest -q services/platform/hosted/node/test_repair_22_33_1453.py"
 do_1 = "Audit record 22.30.83 (spec/layerx-merge/programme/audit/records/22.30.83.kvx) holds 3 medium finding(s) in services/platform/hosted/node that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: generation-legacy-artifacts, generation-guarantor-operation, fixture value Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -38382,7 +38382,7 @@ title = "Repair audit record 22.30.82 medium findings in services/platform/hoste
 reqs = ["22998.1"]
 touches = ["services/platform/hosted/testnet/tests", "services/platform/hosted/tests/beta-cluster.sh"]
 tests = ["services/platform/hosted/testnet/tests/repair_m1447_test.go"]
-verification_contract = "go test -count=1 -v -run '^TestRepairM_1447_' ./services/platform/hosted/testnet/tests/ > /tmp/repair-m1447.log 2>&1; s=$?; grep -E '^(=== RUN|--- (PASS|FAIL)|FAIL|ok|panic|# )' /tmp/repair-m1447.log | tail -n 120; grep -E -B2 -A12 '^--- FAIL' /tmp/repair-m1447.log | head -n 200; grep -q -- '--- PASS: TestRepairM_1447_' /tmp/repair-m1447.log && test $s -eq 0"
+verification_contract = "python3 -m pytest -q services/platform/hosted/testnet/tests/test_repair_22_33_1447.py"
 do_1 = "Audit record 22.30.82 (spec/layerx-merge/programme/audit/records/22.30.82.kvx) holds 4 medium finding(s) in services/platform/hosted/testnet/tests that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: smoke-removed-option, journey-router-path, smoke-signer-asset, wallet-router-fixture. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -38787,7 +38787,7 @@ title = "Repair audit record 22.30.78 medium findings in services/platform/hoste
 reqs = ["22998.1"]
 touches = ["services/platform/hosted/human"]
 tests = ["services/platform/hosted/human/repair_m1402_test.go"]
-verification_contract = "go test -count=1 -v -run '^TestRepairM_1402_' ./services/platform/hosted/human/ > /tmp/repair-m1402.log 2>&1; s=$?; grep -E '^(=== RUN|--- (PASS|FAIL)|FAIL|ok|panic|# )' /tmp/repair-m1402.log | tail -n 120; grep -E -B2 -A12 '^--- FAIL' /tmp/repair-m1402.log | head -n 200; grep -q -- '--- PASS: TestRepairM_1402_' /tmp/repair-m1402.log && test $s -eq 0"
+verification_contract = "python3 -m pytest -q services/platform/hosted/human/test_repair_22_33_1402.py"
 do_1 = "Audit record 22.30.78 (spec/layerx-merge/programme/audit/records/22.30.78.kvx) holds 2 medium finding(s) in services/platform/hosted/human that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: owner-test-current-success, web-explorer-relay. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -38796,7 +38796,7 @@ title = "Repair audit record 22.30.78 medium findings in services/platform/hoste
 reqs = ["22998.1"]
 touches = ["services/platform/hosted/human"]
 tests = ["services/platform/hosted/human/repair_m1401_test.go"]
-verification_contract = "go test -count=1 -v -run '^TestRepairM_1401_' ./services/platform/hosted/human/ > /tmp/repair-m1401.log 2>&1; s=$?; grep -E '^(=== RUN|--- (PASS|FAIL)|FAIL|ok|panic|# )' /tmp/repair-m1401.log | tail -n 120; grep -E -B2 -A12 '^--- FAIL' /tmp/repair-m1401.log | head -n 200; grep -q -- '--- PASS: TestRepairM_1401_' /tmp/repair-m1401.log && test $s -eq 0"
+verification_contract = "python3 -m pytest -q services/platform/hosted/human/test_repair_22_33_1401.py"
 do_1 = "Audit record 22.30.78 (spec/layerx-merge/programme/audit/records/22.30.78.kvx) holds 8 medium finding(s) in services/platform/hosted/human that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: human-doc-custody, history-finality-material, material-shell-trust-history, native-manifest-retired-input, owner-kms-prepare-bounds, provision-movement-source, provision-retired-daemon, material-test-retired-node. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -38805,7 +38805,7 @@ title = "Repair audit record 22.30.78 medium findings in services/platform/examp
 reqs = ["22998.1"]
 touches = ["services/platform/examples/test", "services/platform/examples/support/runtime.mjs"]
 tests = ["services/platform/examples/test/repair-22-33-1400.test.mjs"]
-verification_contract = "node --test services/platform/examples/test/repair-22-33-1400.test.mjs"
+verification_contract = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && npm --prefix services/platform/middleware/agent run build && npm --prefix services/platform/middleware/seller run build && node --test services/platform/examples/test/repair-22-33-1400.test.mjs"
 do_1 = "Audit record 22.30.78 (spec/layerx-merge/programme/audit/records/22.30.78.kvx) holds 5 medium finding(s) in services/platform/examples/test that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: walkthrough-test-receipt, buyer-config-test-rpc, merchant-proof-test-shape, merchant-config-test-rpc, runtime-proof-test-shape. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -39111,7 +39111,7 @@ title = "Repair audit record 22.30.74 medium findings in services/platform/tests
 reqs = ["22998.1"]
 touches = ["services/platform/tests/support"]
 tests = ["services/platform/tests/repair_22_33_1366.rs"]
-verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml --test repair_22_33_1366"
+verification_contract = "cargo test --locked --manifest-path services/platform/hosted/internal/Cargo.toml --test repair_22_33_1366"
 do_1 = "Audit record 22.30.74 (spec/layerx-merge/programme/audit/records/22.30.74.kvx) holds 1 medium finding(s) in services/platform/tests/support that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: tls-probe-process-deadline. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -39129,7 +39129,7 @@ title = "Repair audit record 22.30.74 medium findings in services/platform/examp
 reqs = ["22998.1"]
 touches = ["services/platform/examples/agent-spend"]
 tests = ["services/platform/examples/test/repair-22-33-1364.test.mjs"]
-verification_contract = "node --test services/platform/examples/test/repair-22-33-1364.test.mjs"
+verification_contract = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && npm --prefix services/platform/middleware/agent run build && node --test services/platform/examples/test/repair-22-33-1364.test.mjs"
 do_1 = "Audit record 22.30.74 (spec/layerx-merge/programme/audit/records/22.30.74.kvx) holds 3 medium finding(s) in services/platform/examples/agent-spend that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: agent-spend-dependency, agent-spend-node-version, wallet-review-recovery. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -39444,7 +39444,7 @@ title = "Repair audit record 22.30.71 medium findings in services/platform/hoste
 reqs = ["22998.1"]
 touches = ["services/platform/hosted/webhooks/tests"]
 tests = ["services/platform/hosted/webhooks/tests/repair_m1329_test.go"]
-verification_contract = "go test -count=1 -v -run '^TestRepairM_1329_' ./services/platform/hosted/webhooks/tests/ > /tmp/repair-m1329.log 2>&1; s=$?; grep -E '^(=== RUN|--- (PASS|FAIL)|FAIL|ok|panic|# )' /tmp/repair-m1329.log | tail -n 120; grep -E -B2 -A12 '^--- FAIL' /tmp/repair-m1329.log | head -n 200; grep -q -- '--- PASS: TestRepairM_1329_' /tmp/repair-m1329.log && test $s -eq 0"
+verification_contract = "cargo test --locked --manifest-path services/platform/hosted/webhooks/Cargo.toml --test repair_22_33_1329"
 do_1 = "Audit record 22.30.71 (spec/layerx-merge/programme/audit/records/22.30.71.kvx) holds 3 medium finding(s) in services/platform/hosted/webhooks/tests that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: 18, 19, 33. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -39498,7 +39498,7 @@ title = "Repair audit record 22.30.70 medium findings in services/platform/hoste
 reqs = ["22998.1"]
 touches = ["services/platform/hosted/paxeer/tests"]
 tests = ["services/platform/hosted/paxeer/tests/repair_m1323_test.go"]
-verification_contract = "go test -count=1 -v -run '^TestRepairM_1323_' ./services/platform/hosted/paxeer/tests/ > /tmp/repair-m1323.log 2>&1; s=$?; grep -E '^(=== RUN|--- (PASS|FAIL)|FAIL|ok|panic|# )' /tmp/repair-m1323.log | tail -n 120; grep -E -B2 -A12 '^--- FAIL' /tmp/repair-m1323.log | head -n 200; grep -q -- '--- PASS: TestRepairM_1323_' /tmp/repair-m1323.log && test $s -eq 0"
+verification_contract = "cargo test --locked --manifest-path services/platform/hosted/paxeer/Cargo.toml --test repair_22_33_1323"
 do_1 = "Audit record 22.30.70 (spec/layerx-merge/programme/audit/records/22.30.70.kvx) holds 8 medium finding(s) in services/platform/hosted/paxeer/tests that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: relay-retirement-19, relay-retirement-20, relay-retirement-21, relay-retirement-22, relay-retirement-23, relay-retirement-24, deployment-test-old-interface, relay-retirement-25. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -39516,7 +39516,7 @@ title = "Repair audit record 22.30.70 medium findings in services/platform/hoste
 reqs = ["22998.1"]
 touches = ["services/platform/hosted/paxeer"]
 tests = ["services/platform/hosted/paxeer/repair_m1321_test.go"]
-verification_contract = "go test -count=1 -v -run '^TestRepairM_1321_' ./services/platform/hosted/paxeer/ > /tmp/repair-m1321.log 2>&1; s=$?; grep -E '^(=== RUN|--- (PASS|FAIL)|FAIL|ok|panic|# )' /tmp/repair-m1321.log | tail -n 120; grep -E -B2 -A12 '^--- FAIL' /tmp/repair-m1321.log | head -n 200; grep -q -- '--- PASS: TestRepairM_1321_' /tmp/repair-m1321.log && test $s -eq 0"
+verification_contract = "cargo test --locked --manifest-path services/platform/hosted/paxeer/Cargo.toml --test repair_22_33_1321"
 do_1 = "Audit record 22.30.70 (spec/layerx-merge/programme/audit/records/22.30.70.kvx) holds 4 medium finding(s) in services/platform/hosted/paxeer that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: initialization-restart-drift, relay-retirement-13, preparation-key-argv, relay-retirement-14. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -39534,7 +39534,7 @@ title = "Repair audit record 22.30.70 medium findings in services/platform/hoste
 reqs = ["22998.1"]
 touches = ["services/platform/hosted/paxeer"]
 tests = ["services/platform/hosted/paxeer/repair_m1319_test.go"]
-verification_contract = "go test -count=1 -v -run '^TestRepairM_1319_' ./services/platform/hosted/paxeer/ > /tmp/repair-m1319.log 2>&1; s=$?; grep -E '^(=== RUN|--- (PASS|FAIL)|FAIL|ok|panic|# )' /tmp/repair-m1319.log | tail -n 120; grep -E -B2 -A12 '^--- FAIL' /tmp/repair-m1319.log | head -n 200; grep -q -- '--- PASS: TestRepairM_1319_' /tmp/repair-m1319.log && test $s -eq 0"
+verification_contract = "cargo test --locked --manifest-path services/platform/hosted/paxeer/Cargo.toml --test repair_22_33_1319"
 do_1 = "Audit record 22.30.70 (spec/layerx-merge/programme/audit/records/22.30.70.kvx) holds 8 medium finding(s) in services/platform/hosted/paxeer that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: relay-retirement-1, relay-retirement-3, relay-retirement-4, deployment-key-argv, deployment-phase-recovery, relay-retirement-5, relay-retirement-6, relay-retirement-7. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -39543,7 +39543,7 @@ title = "Repair audit record 22.30.70 medium findings in services/platform/examp
 reqs = ["22998.1"]
 touches = ["services/platform/examples"]
 tests = ["services/platform/tests/repair_22_33_1318.rs"]
-verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml --test repair_22_33_1318"
+verification_contract = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1318.py"
 do_1 = "Audit record 22.30.70 (spec/layerx-merge/programme/audit/records/22.30.70.kvx) holds 1 medium finding(s) in services/platform/examples that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: examples-authority-doc. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -43476,7 +43476,7 @@ title = "Repair audit record 22.30.184 medium findings in tools/release/tests (p
 reqs = ["22998.1"]
 touches = ["tools/release/tests"]
 tests = ["tools/release/tests/repair_m889_test.go"]
-verification_contract = "go test -count=1 -v -run '^TestRepairM_889_' ./tools/release/tests/ > /tmp/repair-m889.log 2>&1; s=$?; grep -E '^(=== RUN|--- (PASS|FAIL)|FAIL|ok|panic|# )' /tmp/repair-m889.log | tail -n 120; grep -E -B2 -A12 '^--- FAIL' /tmp/repair-m889.log | head -n 200; grep -q -- '--- PASS: TestRepairM_889_' /tmp/repair-m889.log && test $s -eq 0"
+verification_contract = "python3 -m pytest -q tools/release/tests/test_repair_22_33_889.py"
 do_1 = "Audit record 22.30.184 (spec/layerx-merge/programme/audit/records/22.30.184.kvx) holds 7 medium finding(s) in tools/release/tests that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: build-test-daemon, rehearsal-test-reuses-old-success, reproducible-test-daemon, rollback-test-endorses-rewind, set programme-test-fixes-old-checklist, verification-fixture-daemon. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -43593,7 +43593,7 @@ title = "Repair audit record 22.30.183 medium findings in tools/qualification/pa
 reqs = ["22998.1"]
 touches = ["tools/qualification/paxeer-x"]
 tests = ["tools/qualification/paxeer-x/repair_m876_test.go"]
-verification_contract = "go test -count=1 -v -run '^TestRepairM_876_' ./tools/qualification/paxeer-x/ > /tmp/repair-m876.log 2>&1; s=$?; grep -E '^(=== RUN|--- (PASS|FAIL)|FAIL|ok|panic|# )' /tmp/repair-m876.log | tail -n 120; grep -E -B2 -A12 '^--- FAIL' /tmp/repair-m876.log | head -n 200; grep -q -- '--- PASS: TestRepairM_876_' /tmp/repair-m876.log && test $s -eq 0"
+verification_contract = "python3 -m pytest -q tools/qualification/paxeer-x/test_repair_22_33_876.py"
 do_1 = "Audit record 22.30.183 (spec/layerx-merge/programme/audit/records/22.30.183.kvx) holds 8 medium finding(s) in tools/qualification/paxeer-x that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: f014, f060, f015, f045, f020, f023, f046, f047. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -48363,7 +48363,7 @@ title = "Repair audit record 22.30.139 medium findings in services/explorer/serv
 reqs = ["22998.1"]
 touches = ["services/explorer/services/libs/blockscout-client"]
 tests = ["services/explorer/services/libs/tests/repair_22_33_360.rs"]
-verification_contract = "cargo test --locked --manifest-path services/explorer/services/libs/Cargo.toml --test repair_22_33_360"
+verification_contract = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_360.py"
 do_1 = "Audit record 22.30.139 (spec/layerx-merge/programme/audit/records/22.30.139.kvx) holds 1 medium finding(s) in services/explorer/services/libs/blockscout-client that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: doc-13. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -48795,7 +48795,7 @@ title = "Repair audit record 22.30.135 medium findings in services/explorer/serv
 reqs = ["22998.1"]
 touches = ["services/explorer/services/sig-provider"]
 tests = ["services/explorer/services/sig-provider/tests/repair_22_33_312.rs"]
-verification_contract = "cargo test --locked --manifest-path services/explorer/services/sig-provider/Cargo.toml --test repair_22_33_312"
+verification_contract = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_312.py"
 do_1 = "Audit record 22.30.135 (spec/layerx-merge/programme/audit/records/22.30.135.kvx) holds 1 medium finding(s) in services/explorer/services/sig-provider that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: sig-provider-precompile-doc. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -48813,7 +48813,7 @@ title = "Repair audit record 22.30.135 medium findings in services/explorer/depl
 reqs = ["22998.1"]
 touches = ["services/explorer/deploy/tools"]
 tests = ["services/explorer/deploy/tools/repair_m310_test.go"]
-verification_contract = "go test -count=1 -v -run '^TestRepairM_310_' ./services/explorer/deploy/tools/ > /tmp/repair-m310.log 2>&1; s=$?; grep -E '^(=== RUN|--- (PASS|FAIL)|FAIL|ok|panic|# )' /tmp/repair-m310.log | tail -n 120; grep -E -B2 -A12 '^--- FAIL' /tmp/repair-m310.log | head -n 200; grep -q -- '--- PASS: TestRepairM_310_' /tmp/repair-m310.log && test $s -eq 0"
+verification_contract = "python3 -m pytest -q services/explorer/deploy/tools/test_repair_22_33_310.py"
 do_1 = "Audit record 22.30.135 (spec/layerx-merge/programme/audit/records/22.30.135.kvx) holds 3 medium finding(s) in services/explorer/deploy/tools that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: copy-stage-concurrency, copy-content-verification, swagger-retired-description. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -49461,7 +49461,7 @@ title = "Repair audit record 22.30.128 medium findings in programs (part 1 of 1)
 reqs = ["22998.1"]
 touches = ["programs"]
 tests = ["programs/tests/repair_22_33_238.rs"]
-verification_contract = "cargo test --locked --manifest-path programs/Cargo.toml --test repair_22_33_238"
+verification_contract = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_238.py"
 do_1 = "Audit record 22.30.128 (spec/layerx-merge/programme/audit/records/22.30.128.kvx) holds 1 medium finding(s) in programs that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: programs-readme-retired. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -50748,7 +50748,7 @@ title = "Repair audit record 22.30.110 medium findings in services/interop (part
 reqs = ["22998.1"]
 touches = ["services/interop"]
 tests = ["services/interop/tests/repair_22_33_95.rs"]
-verification_contract = "cargo test --locked --manifest-path services/interop/Cargo.toml --test repair_22_33_95"
+verification_contract = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_95.py"
 do_1 = "Audit record 22.30.110 (spec/layerx-merge/programme/audit/records/22.30.110.kvx) holds 1 medium finding(s) in services/interop that must be closed before the merge is spotless (decision 2515 and the closure ruling); this task closes them: portable_v1_instructions. Each finding is repaired as its proposal says, inside the paths, and nothing else in the paths changes."
 symbols = []
 
@@ -147035,7 +147035,7 @@ title = "Repair audit record 22.30.78 medium findings in services/platform/examp
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.346", "22.31.347", "22.31.348"]
+requires = ["22.31.346", "22.31.347", "22.31.348", "22.31.457"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1400"]
 interfaces = []
@@ -147051,11 +147051,11 @@ do_9 = "Prove each repair with a node test services/platform/examples/test/repai
 do_10 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command above is the whole gate (gotcha 2962)."
 do_11 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["services/platform/examples/test", "services/platform/examples/support/runtime.mjs"]
+touches = ["services/platform/examples/test", "services/platform/examples/support/runtime.mjs", "services/platform/middleware/seller/src"]
 tests = ["services/platform/examples/test/repair-22-33-1400.test.mjs"]
 planned_paths = ["services/platform/examples/test/repair-22-33-1400.test.mjs"]
 build_cmd = "node --check services/platform/examples/test/agent-program-call.test.mjs services/platform/examples/test/buyer-agent.test.mjs services/platform/examples/test/merchant-app.test.mjs services/platform/examples/test/merchant-config.test.mjs"
-verify_cmd = "node --test services/platform/examples/test/repair-22-33-1400.test.mjs"
+verify_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && npm --prefix services/platform/middleware/agent run build && npm --prefix services/platform/middleware/seller run build && node --test services/platform/examples/test/repair-22-33-1400.test.mjs"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-platform"
@@ -147067,6 +147067,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_12 = "Attempt 2 (continue, after 22.31.457 lands): three cases fail because the seller middleware's receipt digest verification (services/platform/middleware/seller/src/index.ts) refuses the shared v2 receipt digest the agent SDK produces; the SDK is the producer and 22.31.457, which this task now requires, carries its widened receipt inclusion through the seller middleware. Take the current head once it has landed; if the middleware is still behind the SDK's digest, repair it in services/platform/middleware/seller/src (now in scope). The gate installs the root workspace and builds the SDK, the agent middleware and the seller middleware before the test runs. Finish on one commit with the build and the verify run once on it."
 
 [task.22.33.1365]
 title = "Repair audit record 22.30.74 medium findings in services/platform/examples (part 1 of 1): runtime-risk"
@@ -147125,7 +147126,7 @@ touches = ["services/platform/examples/agent-spend"]
 tests = ["services/platform/examples/test/repair-22-33-1364.test.mjs"]
 planned_paths = ["services/platform/examples/test/repair-22-33-1364.test.mjs"]
 build_cmd = "node --check services/platform/examples/agent-spend/services.mjs"
-verify_cmd = "node --test services/platform/examples/test/repair-22-33-1364.test.mjs"
+verify_cmd = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && npm --prefix services/platform/middleware/agent run build && node --test services/platform/examples/test/repair-22-33-1364.test.mjs"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-platform"
@@ -147137,6 +147138,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_10 = "Attempt 2 (continue): the test failed because it copied modules into a temporary directory and viem could not resolve its noble hashes dependency there. The example services/platform/examples/agent-spend is a member of the repository's root npm workspace, so its dependencies resolve from the root install: the gate now installs the root workspace and builds the agent SDK and the agent middleware before the test runs, and the test imports the example in place instead of copying it. No wallet or gateway wiring is involved. Run the build and the verify once on the final revision; no commit after the pass."
 
 [task.22.33.1363]
 title = "Repair audit record 22.30.74 medium findings in services/platform/examples/agent-program-call (part 1 of 1): runtime-risk"
@@ -152904,6 +152906,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_15 = "Attempt 2 (requalify): twenty-one cases passed and seventeen failed; the fixture repairs made afterwards compiled but were never rerun, so the final revision has no verify record. Run the build and the verify once on the final revision, repair only what that run reports inside apps/explorer/ui/pages, and make no commit after the pass."
 
 [task.22.33.303]
 title = "Repair audit record 22.30.135 medium findings in apps/explorer/ui/multichain/searchResults (part 1 of 1): runtime-risk, wiring-gap"
@@ -172780,11 +172783,11 @@ do_5 = "Prove each repair with an integration test services/agent/tests/repair_2
 do_6 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command above is the whole gate (gotcha 2962)."
 do_7 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["services/agent/tests/policy"]
-tests = ["services/agent/tests/repair_22_33_1573.rs"]
+touches = ["services/agent/tests/policy", "services/agent/crates/layerx-agentd/tests"]
+tests = ["services/agent/crates/layerx-agentd/tests/repair_22_33_1573.rs"]
 planned_paths = ["services/agent/tests/repair_22_33_1573.rs", "services/agent/Cargo.lock"]
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml --tests"
-verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml --test repair_22_33_1573"
+build_cmd = "cargo build --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test repair_22_33_1573"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -172796,6 +172799,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_8 = "The gate of this task is corrected (gotcha 2984): the generated command named a toolchain the touched path does not use. The proving test is services/agent/crates/layerx-agentd/tests/repair_22_33_1573.rs and the verify command is cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test repair_22_33_1573; nothing else of the task changes."
 
 [task.22.33.1572]
 title = "Repair audit record 22.30.99 medium findings in services/agent/tests/parity/src (part 1 of 1): test-gap"
@@ -172848,11 +172852,11 @@ do_5 = "Prove each repair with an integration test services/agent/tests/repair_2
 do_6 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command above is the whole gate (gotcha 2962)."
 do_7 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["services/agent/tests/limits"]
-tests = ["services/agent/tests/repair_22_33_1571.rs"]
+touches = ["services/agent/tests/limits", "services/agent/crates/layerx-agentd/tests"]
+tests = ["services/agent/crates/layerx-agentd/tests/repair_22_33_1571.rs"]
 planned_paths = ["services/agent/tests/repair_22_33_1571.rs", "services/agent/Cargo.lock"]
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml --tests"
-verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml --test repair_22_33_1571"
+build_cmd = "cargo build --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test repair_22_33_1571"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -172864,6 +172868,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_8 = "The gate of this task is corrected (gotcha 2984): the generated command named a toolchain the touched path does not use. The proving test is services/agent/crates/layerx-agentd/tests/repair_22_33_1571.rs and the verify command is cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test repair_22_33_1571; nothing else of the task changes."
 
 [task.22.33.1570]
 title = "Repair audit record 22.30.99 medium findings in services/agent/tests/isolation/src (part 1 of 1): test-gap"
@@ -175045,13 +175050,13 @@ do_5 = "Prove each repair with an integration test services/platform/tests/repai
 do_6 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command above is the whole gate (gotcha 2962)."
 do_7 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["services/platform/docs/content"]
-tests = ["services/platform/tests/repair_22_33_1500.rs"]
+touches = ["services/platform/docs/content", "tools/qualification/audit_repairs"]
+tests = ["tools/qualification/audit_repairs/test_repair_22_33_1500.py"]
 planned_paths = ["services/platform/tests/repair_22_33_1500.rs", "services/platform/Cargo.lock"]
-build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml --tests"
-verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml --test repair_22_33_1500"
+build_cmd = "python3 -m py_compile tools/qualification/audit_repairs/test_repair_22_33_1500.py"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1500.py"
 gate_kind = "planned"
-sandbox_profile = "rust"
+sandbox_profile = "python"
 owner_role = "fm-platform"
 rollback = "Revert the task's commit."
 max_builds = 1
@@ -175061,6 +175066,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_8 = "The gate of this task is corrected (gotcha 2984): the generated command named a toolchain the touched path does not use. The proving test is tools/qualification/audit_repairs/test_repair_22_33_1500.py and the verify command is python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1500.py; nothing else of the task changes."
 
 [task.22.33.1499]
 title = "Repair audit record 22.30.89 medium findings in tools/platform/cli (part 1 of 1): doc-drift"
@@ -176822,7 +176828,7 @@ do_7 = "Prove each repair with an integration test services/platform/perf-db/tes
 do_8 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command above is the whole gate (gotcha 2962)."
 do_9 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["services/platform/perf-db/tests"]
+touches = ["services/platform/perf-db/tests", "services/platform/perf-db/src"]
 tests = ["services/platform/perf-db/tests/repair_22_33_1374.rs"]
 planned_paths = ["services/platform/perf-db/tests/repair_22_33_1374.rs", "services/platform/perf-db/Cargo.lock"]
 build_cmd = "cargo build --locked --manifest-path services/platform/perf-db/Cargo.toml --tests"
@@ -176838,6 +176844,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_10 = "Attempt 2 (continue): twenty-seven cases fail on exposure and event-effect accounting that the test model and services/platform/perf-db/src compute differently. This task is domain 8 and perf-db is its own module, so there are no wiring requests to make: where the finding's contract says the production accounting is wrong, repair services/platform/perf-db/src (now in scope); where the test model double-counts an effect, correct the model. Run the build and the verify once on the final revision; no commit after the pass."
 
 [task.22.33.1373]
 title = "Repair audit record 22.30.75 medium findings in services/platform/perf-db/src/query (part 1 of 1): runtime-risk"
@@ -176998,11 +177005,11 @@ do_5 = "Prove each repair with an integration test services/platform/tests/repai
 do_6 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command above is the whole gate (gotcha 2962)."
 do_7 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["services/platform/tests/support"]
-tests = ["services/platform/tests/repair_22_33_1366.rs"]
+touches = ["services/platform/tests/support", "services/platform/hosted/internal/tests"]
+tests = ["services/platform/hosted/internal/tests/repair_22_33_1366.rs"]
 planned_paths = ["services/platform/tests/repair_22_33_1366.rs", "services/platform/Cargo.lock"]
-build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml --tests"
-verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml --test repair_22_33_1366"
+build_cmd = "cargo build --locked --manifest-path services/platform/hosted/internal/Cargo.toml --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/hosted/internal/Cargo.toml --test repair_22_33_1366"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-platform"
@@ -177014,6 +177021,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_8 = "Attempt 2 (continue): services/platform/Cargo.toml is a virtual workspace root, so a cargo --test target through it never exists (gotcha 2984). The proving test now lives in the hosted internal crate at services/platform/hosted/internal/tests/repair_22_33_1366.rs and the gate runs cargo test --locked through that crate's manifest; the support module under services/platform/tests/support is repaired as the audit record proposes and the test reaches it by path. Run the build and the verify once on the final revision; no commit after the pass."
 
 [task.22.33.1336]
 title = "Repair audit record 22.30.72 medium findings in services/platform/hosted/gateway/tests (part 2 of 2): restart-recovery, retired-reference"
@@ -177110,7 +177118,7 @@ do_5 = "Prove each repair with an integration test services/agent/crates/layerx-
 do_6 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command above is the whole gate (gotcha 2962)."
 do_7 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["services/agent/crates/layerx-crypto/tests"]
+touches = ["services/agent/crates/layerx-crypto/tests", "services/agent/crates/layerx-crypto/src"]
 tests = ["services/agent/crates/layerx-crypto/tests/repair_22_33_1334.rs"]
 planned_paths = ["services/agent/crates/layerx-crypto/tests/repair_22_33_1334.rs", "services/agent/Cargo.lock"]
 build_cmd = "cargo build --locked --manifest-path services/agent/crates/layerx-crypto/Cargo.toml --tests"
@@ -177126,6 +177134,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_8 = "Attempt 2 (continue): the final build does not compile: the payments test applies the question-mark operator to a WireError inside a function whose error type does not convert from it (map the error or box it), and the fixtures round-trip case needs the MalformedPayload fixture the test names. The constructor gaps the attempt filed as legacy are in services/agent/crates/layerx-crypto/src, which is this domain's and now in scope: repair them there. Run the build and the verify once on the final revision; no commit after the pass."
 
 [task.22.33.1333]
 title = "Repair audit record 22.30.72 medium findings in services/agent/crates/layerx-crypto/src (part 1 of 1): retired-reference"
@@ -177293,13 +177302,13 @@ do_5 = "Prove each repair with an integration test services/platform/tests/repai
 do_6 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command above is the whole gate (gotcha 2962)."
 do_7 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["services/platform/examples"]
-tests = ["services/platform/tests/repair_22_33_1318.rs"]
+touches = ["services/platform/examples", "tools/qualification/audit_repairs"]
+tests = ["tools/qualification/audit_repairs/test_repair_22_33_1318.py"]
 planned_paths = ["services/platform/tests/repair_22_33_1318.rs", "services/platform/Cargo.lock"]
-build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml --tests"
-verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml --test repair_22_33_1318"
+build_cmd = "python3 -m py_compile tools/qualification/audit_repairs/test_repair_22_33_1318.py"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1318.py"
 gate_kind = "planned"
-sandbox_profile = "rust"
+sandbox_profile = "python"
 owner_role = "fm-platform"
 rollback = "Revert the task's commit."
 max_builds = 1
@@ -177309,6 +177318,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_8 = "The gate of this task is corrected (gotcha 2984): the generated command named a toolchain the touched path does not use. The proving test is tools/qualification/audit_repairs/test_repair_22_33_1318.py and the verify command is python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1318.py; nothing else of the task changes."
 
 [task.22.33.1078]
 title = "Repair audit record 22.30.43 medium findings in cmd/layerxctl/src (part 1 of 1): doc-drift"
@@ -178537,13 +178547,13 @@ do_5 = "Prove each repair with an integration test services/explorer/services/li
 do_6 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command above is the whole gate (gotcha 2962)."
 do_7 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["services/explorer/services/libs/blockscout-client"]
-tests = ["services/explorer/services/libs/tests/repair_22_33_360.rs"]
+touches = ["services/explorer/services/libs/blockscout-client", "tools/qualification/audit_repairs"]
+tests = ["tools/qualification/audit_repairs/test_repair_22_33_360.py"]
 planned_paths = ["services/explorer/services/libs/tests/repair_22_33_360.rs", "services/explorer/services/libs/Cargo.lock"]
-build_cmd = "cargo build --locked --manifest-path services/explorer/services/libs/Cargo.toml --tests"
-verify_cmd = "cargo test --locked --manifest-path services/explorer/services/libs/Cargo.toml --test repair_22_33_360"
+build_cmd = "python3 -m py_compile tools/qualification/audit_repairs/test_repair_22_33_360.py"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_360.py"
 gate_kind = "planned"
-sandbox_profile = "rust"
+sandbox_profile = "python"
 owner_role = "fm-web-explorer-bridge"
 rollback = "Revert the task's commit."
 max_builds = 1
@@ -178553,6 +178563,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_8 = "The gate of this task is corrected (gotcha 2984): the generated command named a toolchain the touched path does not use. The proving test is tools/qualification/audit_repairs/test_repair_22_33_360.py and the verify command is python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_360.py; nothing else of the task changes."
 
 [task.22.33.312]
 title = "Repair audit record 22.30.135 medium findings in services/explorer/services/sig-provider (part 1 of 1): doc-drift"
@@ -178571,13 +178582,13 @@ do_5 = "Prove each repair with an integration test services/explorer/services/si
 do_6 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command above is the whole gate (gotcha 2962)."
 do_7 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["services/explorer/services/sig-provider"]
-tests = ["services/explorer/services/sig-provider/tests/repair_22_33_312.rs"]
+touches = ["services/explorer/services/sig-provider", "tools/qualification/audit_repairs"]
+tests = ["tools/qualification/audit_repairs/test_repair_22_33_312.py"]
 planned_paths = ["services/explorer/services/sig-provider/tests/repair_22_33_312.rs", "services/explorer/services/sig-provider/Cargo.lock"]
-build_cmd = "cargo build --locked --manifest-path services/explorer/services/sig-provider/Cargo.toml --tests"
-verify_cmd = "cargo test --locked --manifest-path services/explorer/services/sig-provider/Cargo.toml --test repair_22_33_312"
+build_cmd = "python3 -m py_compile tools/qualification/audit_repairs/test_repair_22_33_312.py"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_312.py"
 gate_kind = "planned"
-sandbox_profile = "rust"
+sandbox_profile = "python"
 owner_role = "fm-web-explorer-bridge"
 rollback = "Revert the task's commit."
 max_builds = 1
@@ -178587,6 +178598,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_8 = "The gate of this task is corrected (gotcha 2984): the generated command named a toolchain the touched path does not use. The proving test is tools/qualification/audit_repairs/test_repair_22_33_312.py and the verify command is python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_312.py; nothing else of the task changes."
 
 [task.22.33.307]
 title = "Repair audit record 22.30.135 medium findings in services/explorer/services/sig-provider/sig-provider-server/tests (part 1 of 1): test-gap"
@@ -179210,13 +179222,13 @@ do_5 = "Prove each repair with an integration test programs/tests/repair_22_33_2
 do_6 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command above is the whole gate (gotcha 2962)."
 do_7 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["programs"]
-tests = ["programs/tests/repair_22_33_238.rs"]
+touches = ["programs", "tools/qualification/audit_repairs"]
+tests = ["tools/qualification/audit_repairs/test_repair_22_33_238.py"]
 planned_paths = ["programs/tests/repair_22_33_238.rs", "programs/Cargo.lock"]
-build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml --tests"
-verify_cmd = "cargo test --locked --manifest-path programs/Cargo.toml --test repair_22_33_238"
+build_cmd = "python3 -m py_compile tools/qualification/audit_repairs/test_repair_22_33_238.py"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_238.py"
 gate_kind = "planned"
-sandbox_profile = "rust"
+sandbox_profile = "python"
 owner_role = "fm-programs"
 rollback = "Revert the task's commit."
 max_builds = 1
@@ -179226,6 +179238,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_8 = "The gate of this task is corrected (gotcha 2984): the generated command named a toolchain the touched path does not use. The proving test is tools/qualification/audit_repairs/test_repair_22_33_238.py and the verify command is python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_238.py; nothing else of the task changes."
 
 [task.22.33.236]
 title = "Repair audit record 22.30.128 medium findings in programs/porting/solana/src (part 1 of 1): runtime-risk, wiring-gap"
@@ -180636,13 +180649,13 @@ do_5 = "Prove each repair with an integration test services/interop/tests/repair
 do_6 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command above is the whole gate (gotcha 2962)."
 do_7 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["services/interop"]
-tests = ["services/interop/tests/repair_22_33_95.rs"]
+touches = ["services/interop", "tools/qualification/audit_repairs"]
+tests = ["tools/qualification/audit_repairs/test_repair_22_33_95.py"]
 planned_paths = ["services/interop/tests/repair_22_33_95.rs", "services/interop/Cargo.lock"]
-build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml --tests"
-verify_cmd = "cargo test --locked --manifest-path services/interop/Cargo.toml --test repair_22_33_95"
+build_cmd = "python3 -m py_compile tools/qualification/audit_repairs/test_repair_22_33_95.py"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_95.py"
 gate_kind = "planned"
-sandbox_profile = "rust"
+sandbox_profile = "python"
 owner_role = "fm-interop"
 rollback = "Revert the task's commit."
 max_builds = 1
@@ -180654,6 +180667,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_8 = "Attempt 1: the build passed and the dependent-crate check failed on the human service's observed-balances test; that test is repaired by task 22.31.443, which this task now requires."
 do_9 = "Attempt 2 (continue): the dependency check failed only in the human-service observed-balances test whose Quantity types producer repair 22.31.443 corrected; that repair is published and this task requires it. Re-run the build, the dependency check and the verify once on the current head, repair only what that run reports, and finish on one commit."
+do_10 = "The gate of this task is corrected (gotcha 2984): the generated command named a toolchain the touched path does not use. The proving test is tools/qualification/audit_repairs/test_repair_22_33_95.py and the verify command is python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_95.py; nothing else of the task changes."
 
 [task.22.33.92]
 title = "Repair audit record 22.30.110 medium findings in services/interop/crates/layerx-ap2/tests (part 1 of 1): test-gap"
@@ -181933,7 +181947,7 @@ do_10 = "Prove each repair with an integration test services/human/crates/layerx
 do_11 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command above is the whole gate (gotcha 2962)."
 do_12 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["services/human/crates/layerx-human-service/tests"]
+touches = ["services/human/crates/layerx-human-service/tests", "services/human/crates/layerx-human-service/src"]
 tests = ["services/human/crates/layerx-human-service/tests/repair_22_33_44.rs"]
 planned_paths = ["services/human/crates/layerx-human-service/tests/repair_22_33_44.rs", "services/human/Cargo.lock"]
 build_cmd = "cargo build --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --tests"
@@ -181949,6 +181963,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_13 = "Attempt 2 (continue): seven of ten cases fail, among them the renderer digest and the nonce-hold cases, which the attempt filed as out of scope. The human service is this domain's: its sources at services/human/crates/layerx-human-service/src are now in scope, so repair the producer and the route the cases exercise there, keep the assertions, and run the build and the verify once on the final revision with no commit after the pass."
 
 [task.22.33.43]
 title = "Repair audit record 22.30.105 medium findings in services/human/crates/layerx-human-service/src (part 1 of 1): doc-drift, restart-recovery, runtime-risk"
@@ -183792,7 +183807,7 @@ do_4 = "Finding precompile-table-coverage (interface-mismatch, high) on services
 do_5 = "Prove each repair with an integration test services/explorer/services/sig-provider/sig-provider/tests/repair_22_31_267.rs whose cases exercise the real crate path (real server, store, codec or relay client, not a mock of the component under repair); run the verify once on the unchanged tree first and note in the task record which tests already failed before the change."
 do_6 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["services/explorer/services/sig-provider/sig-provider/src/sources", "services/explorer/services/sig-provider/sig-provider-proto", "services/explorer/services/sig-provider/sig-provider-server/src/run.rs"]
+touches = ["services/explorer/services/sig-provider/sig-provider/src/sources", "services/explorer/services/sig-provider/sig-provider-proto", "services/explorer/services/sig-provider/sig-provider-server/src/run.rs", "services/explorer/services/sig-provider/sig-provider/src"]
 tests = ["services/explorer/services/sig-provider/sig-provider/tests/repair_22_31_267.rs"]
 planned_paths = ["services/explorer/services/sig-provider/sig-provider/tests/repair_22_31_267.rs", "services/explorer/services/sig-provider/Cargo.lock"]
 build_cmd = "cargo build --locked --manifest-path services/explorer/services/sig-provider/sig-provider/Cargo.toml --tests"
@@ -183814,6 +183829,7 @@ do_9 = "The candidate carries only sources under the touches and the test file: 
 do_10 = "Attempt 3: the protobuf compiler is part of the qualification environment for every workspace whose build scripts generate protobuf code; the earlier instruction to align the proto crate for that reason is withdrawn. Keep build.rs as it is and judge the repair on its own tests."
 do_11 = "Attempt 4 (continue): the embedded precompile ABI fails to parse (invalid type string positionId, expected a borrowed string) because the embedded table is deserialized into borrowed-string types; load the embedded JSON through the same owned-string ABI parser the provider uses at runtime. Then generate the embedded table from the versioned node inventory so the union test (left and right differ) passes by construction instead of by hand edits."
 do_12 = "Attempt 5 (continue): two cases pass; the HTTP case fails because the source aggregator's log decoding guesses the first decodable indexed layout and exposes a wrong layout for ChainCreated(uint32,string,address,uint64). The aggregator lives under services/explorer/services/sig-provider/sig-provider/src/sources, which is in scope: decode with the exact event description the precompile source carries. The server start-up registration of the precompile source (services/explorer/services/sig-provider/sig-provider-server/src/run.rs) is this domain's and is now in scope too. Run the build and the verify once on the final revision; no commit after the pass."
+do_13 = "Attempt 6 (continue): two cases pass; the HTTP events case returns two layouts for OrderCancelled, the exact one and a guessed arg0/arg1 one, because the aggregator in services/explorer/services/sig-provider/sig-provider/src/aggregator.rs still adds guessed layouts beside an exact source description. The aggregator is this domain's and is now in scope: when a source carries the exact event description, the aggregator returns only it and adds no guessed layout. Run the build and the verify once on the final revision; no commit after the pass."
 
 [task.22.31.266]
 title = "Repair audit record 22.30.130 findings in programs/crates/layerx-programs-runtime/src: interface-mismatch"
@@ -196629,13 +196645,13 @@ do_7 = "Real means the component under repair is the production code; its peers 
 do_8 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 do_9 = "Verification runs only the TestRepairM_1568_* functions of repair_m1568_test.go: they run without PostgreSQL, Redis, S3, Anvil or a live RPC endpoint. The package's other tests are not this task's gate but must keep compiling, and where a repair changes behaviour they assert they are updated in the same change."
 symbols = []
-touches = ["services/agent/qualification/pay2"]
-tests = ["services/agent/qualification/pay2/repair_m1568_test.go"]
+touches = ["services/agent/qualification/pay2", "services/agent/qualification/pay2/tests"]
+tests = ["services/agent/qualification/pay2/tests/repair_22_33_1568.rs"]
 planned_paths = ["services/agent/qualification/pay2/repair_m1568_test.go"]
-build_cmd = "go build ./services/agent/qualification/pay2/..."
-verify_cmd = "go test -count=1 -v -run '^TestRepairM_1568_' ./services/agent/qualification/pay2/ > /tmp/repair-m1568.log 2>&1; s=$?; grep -E '^(=== RUN|--- (PASS|FAIL)|FAIL|ok|panic|# )' /tmp/repair-m1568.log | tail -n 120; grep -E -B2 -A12 '^--- FAIL' /tmp/repair-m1568.log | head -n 200; grep -q -- '--- PASS: TestRepairM_1568_' /tmp/repair-m1568.log && test $s -eq 0"
+build_cmd = "cargo build --locked --manifest-path services/agent/qualification/pay2/Cargo.toml --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/qualification/pay2/Cargo.toml --test repair_22_33_1568"
 gate_kind = "planned"
-sandbox_profile = "go"
+sandbox_profile = "rust"
 owner_role = "fm-agent"
 rollback = "Revert the task's commit."
 max_builds = 1
@@ -196645,6 +196661,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_10 = "The gate of this task is corrected (gotcha 2984): the generated command named a toolchain the touched path does not use. The proving test is services/agent/qualification/pay2/tests/repair_22_33_1568.rs and the verify command is cargo test --locked --manifest-path services/agent/qualification/pay2/Cargo.toml --test repair_22_33_1568; nothing else of the task changes."
 
 [task.22.33.1502]
 title = "Repair audit record 22.30.9 medium findings in modules/layerxagent/keeper (part 1 of 1): config-drift"
@@ -196707,12 +196724,12 @@ do_14 = "Close the findings: the task record names every finding id of this task
 do_15 = "Verification runs only the TestRepairM_1495_* functions of repair_m1495_test.go: they run without PostgreSQL, Redis, S3, Anvil or a live RPC endpoint. The package's other tests are not this task's gate but must keep compiling, and where a repair changes behaviour they assert they are updated in the same change."
 symbols = []
 touches = ["tools/platform/cli/tests", "tools/platform/cli/src/toolset.rs"]
-tests = ["tools/platform/cli/tests/repair_m1495_test.go"]
+tests = ["tools/platform/cli/tests/repair_22_33_1495.rs"]
 planned_paths = ["tools/platform/cli/tests/repair_m1495_test.go"]
-build_cmd = "go build ./tools/platform/cli/tests/..."
-verify_cmd = "go test -count=1 -v -run '^TestRepairM_1495_' ./tools/platform/cli/tests/ > /tmp/repair-m1495.log 2>&1; s=$?; grep -E '^(=== RUN|--- (PASS|FAIL)|FAIL|ok|panic|# )' /tmp/repair-m1495.log | tail -n 120; grep -E -B2 -A12 '^--- FAIL' /tmp/repair-m1495.log | head -n 200; grep -q -- '--- PASS: TestRepairM_1495_' /tmp/repair-m1495.log && test $s -eq 0"
+build_cmd = "cargo build --locked --manifest-path tools/platform/cli/Cargo.toml --tests"
+verify_cmd = "cargo test --locked --manifest-path tools/platform/cli/Cargo.toml --test repair_22_33_1495"
 gate_kind = "planned"
-sandbox_profile = "go"
+sandbox_profile = "rust"
 owner_role = "fm-platform"
 rollback = "Revert the task's commit."
 max_builds = 1
@@ -196722,6 +196739,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_16 = "The gate of this task is corrected (gotcha 2984): the generated command named a toolchain the touched path does not use. The proving test is tools/platform/cli/tests/repair_22_33_1495.rs and the verify command is cargo test --locked --manifest-path tools/platform/cli/Cargo.toml --test repair_22_33_1495; nothing else of the task changes."
 
 [task.22.33.1485]
 title = "Repair audit record 22.30.87 medium findings in services/platform/perps-data/internal/auth (part 1 of 1): runtime-risk"
@@ -197103,12 +197121,12 @@ do_9 = "Close the findings: the task record names every finding id of this task 
 do_10 = "Verification runs only the TestRepairM_1453_* functions of repair_m1453_test.go: they run without PostgreSQL, Redis, S3, Anvil or a live RPC endpoint. The package's other tests are not this task's gate but must keep compiling, and where a repair changes behaviour they assert they are updated in the same change."
 symbols = []
 touches = ["services/platform/hosted/node"]
-tests = ["services/platform/hosted/node/repair_m1453_test.go"]
+tests = ["services/platform/hosted/node/test_repair_22_33_1453.py"]
 planned_paths = ["services/platform/hosted/node/repair_m1453_test.go"]
-build_cmd = "go build ./services/platform/hosted/node/..."
-verify_cmd = "go test -count=1 -v -run '^TestRepairM_1453_' ./services/platform/hosted/node/ > /tmp/repair-m1453.log 2>&1; s=$?; grep -E '^(=== RUN|--- (PASS|FAIL)|FAIL|ok|panic|# )' /tmp/repair-m1453.log | tail -n 120; grep -E -B2 -A12 '^--- FAIL' /tmp/repair-m1453.log | head -n 200; grep -q -- '--- PASS: TestRepairM_1453_' /tmp/repair-m1453.log && test $s -eq 0"
+build_cmd = "python3 -m py_compile services/platform/hosted/node/test_repair_22_33_1453.py"
+verify_cmd = "python3 -m pytest -q services/platform/hosted/node/test_repair_22_33_1453.py"
 gate_kind = "planned"
-sandbox_profile = "go"
+sandbox_profile = "python"
 owner_role = "fm-platform"
 rollback = "Revert the task's commit."
 max_builds = 1
@@ -197118,6 +197136,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_11 = "The gate of this task is corrected (gotcha 2984): the generated command named a toolchain the touched path does not use. The proving test is services/platform/hosted/node/test_repair_22_33_1453.py and the verify command is python3 -m pytest -q services/platform/hosted/node/test_repair_22_33_1453.py; nothing else of the task changes."
 
 [task.22.33.1447]
 title = "Repair audit record 22.30.82 medium findings in services/platform/hosted/testnet/tests (part 1 of 1): config-drift, retired-reference, wiring-gap"
@@ -197141,12 +197160,12 @@ do_10 = "Close the findings: the task record names every finding id of this task
 do_11 = "Verification runs only the TestRepairM_1447_* functions of repair_m1447_test.go: they run without PostgreSQL, Redis, S3, Anvil or a live RPC endpoint. The package's other tests are not this task's gate but must keep compiling, and where a repair changes behaviour they assert they are updated in the same change."
 symbols = []
 touches = ["services/platform/hosted/testnet/tests", "services/platform/hosted/tests/beta-cluster.sh"]
-tests = ["services/platform/hosted/testnet/tests/repair_m1447_test.go"]
+tests = ["services/platform/hosted/testnet/tests/test_repair_22_33_1447.py"]
 planned_paths = ["services/platform/hosted/testnet/tests/repair_m1447_test.go"]
-build_cmd = "go build ./services/platform/hosted/testnet/tests/..."
-verify_cmd = "go test -count=1 -v -run '^TestRepairM_1447_' ./services/platform/hosted/testnet/tests/ > /tmp/repair-m1447.log 2>&1; s=$?; grep -E '^(=== RUN|--- (PASS|FAIL)|FAIL|ok|panic|# )' /tmp/repair-m1447.log | tail -n 120; grep -E -B2 -A12 '^--- FAIL' /tmp/repair-m1447.log | head -n 200; grep -q -- '--- PASS: TestRepairM_1447_' /tmp/repair-m1447.log && test $s -eq 0"
+build_cmd = "python3 -m py_compile services/platform/hosted/testnet/tests/test_repair_22_33_1447.py"
+verify_cmd = "python3 -m pytest -q services/platform/hosted/testnet/tests/test_repair_22_33_1447.py"
 gate_kind = "planned"
-sandbox_profile = "go"
+sandbox_profile = "python"
 owner_role = "fm-platform"
 rollback = "Revert the task's commit."
 max_builds = 1
@@ -197156,6 +197175,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_12 = "The gate of this task is corrected (gotcha 2984): the generated command named a toolchain the touched path does not use. The proving test is services/platform/hosted/testnet/tests/test_repair_22_33_1447.py and the verify command is python3 -m pytest -q services/platform/hosted/testnet/tests/test_repair_22_33_1447.py; nothing else of the task changes."
 
 [task.22.33.1424]
 title = "Repair audit record 22.30.8 medium findings in modules/layerxchains/keeper (part 1 of 1): test-gap"
@@ -197322,12 +197342,12 @@ do_8 = "Close the findings: the task record names every finding id of this task 
 do_9 = "Verification runs only the TestRepairM_1402_* functions of repair_m1402_test.go: they run without PostgreSQL, Redis, S3, Anvil or a live RPC endpoint. The package's other tests are not this task's gate but must keep compiling, and where a repair changes behaviour they assert they are updated in the same change."
 symbols = []
 touches = ["services/platform/hosted/human"]
-tests = ["services/platform/hosted/human/repair_m1402_test.go"]
+tests = ["services/platform/hosted/human/test_repair_22_33_1402.py"]
 planned_paths = ["services/platform/hosted/human/repair_m1402_test.go"]
-build_cmd = "go build ./services/platform/hosted/human/..."
-verify_cmd = "go test -count=1 -v -run '^TestRepairM_1402_' ./services/platform/hosted/human/ > /tmp/repair-m1402.log 2>&1; s=$?; grep -E '^(=== RUN|--- (PASS|FAIL)|FAIL|ok|panic|# )' /tmp/repair-m1402.log | tail -n 120; grep -E -B2 -A12 '^--- FAIL' /tmp/repair-m1402.log | head -n 200; grep -q -- '--- PASS: TestRepairM_1402_' /tmp/repair-m1402.log && test $s -eq 0"
+build_cmd = "python3 -m py_compile services/platform/hosted/human/test_repair_22_33_1402.py"
+verify_cmd = "python3 -m pytest -q services/platform/hosted/human/test_repair_22_33_1402.py"
 gate_kind = "planned"
-sandbox_profile = "go"
+sandbox_profile = "python"
 owner_role = "fm-platform"
 rollback = "Revert the task's commit."
 max_builds = 1
@@ -197337,6 +197357,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_10 = "The gate of this task is corrected (gotcha 2984): the generated command named a toolchain the touched path does not use. The proving test is services/platform/hosted/human/test_repair_22_33_1402.py and the verify command is python3 -m pytest -q services/platform/hosted/human/test_repair_22_33_1402.py; nothing else of the task changes."
 
 [task.22.33.1401]
 title = "Repair audit record 22.30.78 medium findings in services/platform/hosted/human (part 1 of 2): doc-drift, retired-reference, runtime-risk, test-gap"
@@ -197364,12 +197385,12 @@ do_14 = "Close the findings: the task record names every finding id of this task
 do_15 = "Verification runs only the TestRepairM_1401_* functions of repair_m1401_test.go: they run without PostgreSQL, Redis, S3, Anvil or a live RPC endpoint. The package's other tests are not this task's gate but must keep compiling, and where a repair changes behaviour they assert they are updated in the same change."
 symbols = []
 touches = ["services/platform/hosted/human"]
-tests = ["services/platform/hosted/human/repair_m1401_test.go"]
+tests = ["services/platform/hosted/human/test_repair_22_33_1401.py"]
 planned_paths = ["services/platform/hosted/human/repair_m1401_test.go"]
-build_cmd = "go build ./services/platform/hosted/human/..."
-verify_cmd = "go test -count=1 -v -run '^TestRepairM_1401_' ./services/platform/hosted/human/ > /tmp/repair-m1401.log 2>&1; s=$?; grep -E '^(=== RUN|--- (PASS|FAIL)|FAIL|ok|panic|# )' /tmp/repair-m1401.log | tail -n 120; grep -E -B2 -A12 '^--- FAIL' /tmp/repair-m1401.log | head -n 200; grep -q -- '--- PASS: TestRepairM_1401_' /tmp/repair-m1401.log && test $s -eq 0"
+build_cmd = "python3 -m py_compile services/platform/hosted/human/test_repair_22_33_1401.py"
+verify_cmd = "python3 -m pytest -q services/platform/hosted/human/test_repair_22_33_1401.py"
 gate_kind = "planned"
-sandbox_profile = "go"
+sandbox_profile = "python"
 owner_role = "fm-platform"
 rollback = "Revert the task's commit."
 max_builds = 1
@@ -197379,6 +197400,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_16 = "The gate of this task is corrected (gotcha 2984): the generated command named a toolchain the touched path does not use. The proving test is services/platform/hosted/human/test_repair_22_33_1401.py and the verify command is python3 -m pytest -q services/platform/hosted/human/test_repair_22_33_1401.py; nothing else of the task changes."
 
 [task.22.33.1388]
 title = "Repair audit record 22.30.76 medium findings in tools/bringup (part 1 of 1): retired-reference"
@@ -198118,12 +198140,12 @@ do_9 = "Close the findings: the task record names every finding id of this task 
 do_10 = "Verification runs only the TestRepairM_1329_* functions of repair_m1329_test.go: they run without PostgreSQL, Redis, S3, Anvil or a live RPC endpoint. The package's other tests are not this task's gate but must keep compiling, and where a repair changes behaviour they assert they are updated in the same change."
 symbols = []
 touches = ["services/platform/hosted/webhooks/tests"]
-tests = ["services/platform/hosted/webhooks/tests/repair_m1329_test.go"]
+tests = ["services/platform/hosted/webhooks/tests/repair_22_33_1329.rs"]
 planned_paths = ["services/platform/hosted/webhooks/tests/repair_m1329_test.go"]
-build_cmd = "go build ./services/platform/hosted/webhooks/tests/..."
-verify_cmd = "go test -count=1 -v -run '^TestRepairM_1329_' ./services/platform/hosted/webhooks/tests/ > /tmp/repair-m1329.log 2>&1; s=$?; grep -E '^(=== RUN|--- (PASS|FAIL)|FAIL|ok|panic|# )' /tmp/repair-m1329.log | tail -n 120; grep -E -B2 -A12 '^--- FAIL' /tmp/repair-m1329.log | head -n 200; grep -q -- '--- PASS: TestRepairM_1329_' /tmp/repair-m1329.log && test $s -eq 0"
+build_cmd = "cargo build --locked --manifest-path services/platform/hosted/webhooks/Cargo.toml --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/hosted/webhooks/Cargo.toml --test repair_22_33_1329"
 gate_kind = "planned"
-sandbox_profile = "go"
+sandbox_profile = "rust"
 owner_role = "fm-platform"
 rollback = "Revert the task's commit."
 max_builds = 1
@@ -198133,6 +198155,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_11 = "Attempt 2 (continue): the webhooks service is a Rust crate (services/platform/hosted/webhooks/Cargo.toml with its tests directory), so the generated go test gate could never run; it was a generator error, not a wiring request to another domain (gotcha 2984). The gate is now cargo test --locked through the crate's own manifest with the proving test at services/platform/hosted/webhooks/tests/repair_22_33_1329.rs. Close the findings as the audit record proposes inside services/platform/hosted/webhooks/tests, prove them in that Rust test, and run the build and the verify once on the final revision with no commit after the pass."
 
 [task.22.33.1323]
 title = "Repair audit record 22.30.70 medium findings in services/platform/hosted/paxeer/tests (part 1 of 2): retired-reference, test-gap"
@@ -198160,12 +198183,12 @@ do_14 = "Close the findings: the task record names every finding id of this task
 do_15 = "Verification runs only the TestRepairM_1323_* functions of repair_m1323_test.go: they run without PostgreSQL, Redis, S3, Anvil or a live RPC endpoint. The package's other tests are not this task's gate but must keep compiling, and where a repair changes behaviour they assert they are updated in the same change."
 symbols = []
 touches = ["services/platform/hosted/paxeer/tests"]
-tests = ["services/platform/hosted/paxeer/tests/repair_m1323_test.go"]
+tests = ["services/platform/hosted/paxeer/tests/repair_22_33_1323.rs"]
 planned_paths = ["services/platform/hosted/paxeer/tests/repair_m1323_test.go"]
-build_cmd = "go build ./services/platform/hosted/paxeer/tests/..."
-verify_cmd = "go test -count=1 -v -run '^TestRepairM_1323_' ./services/platform/hosted/paxeer/tests/ > /tmp/repair-m1323.log 2>&1; s=$?; grep -E '^(=== RUN|--- (PASS|FAIL)|FAIL|ok|panic|# )' /tmp/repair-m1323.log | tail -n 120; grep -E -B2 -A12 '^--- FAIL' /tmp/repair-m1323.log | head -n 200; grep -q -- '--- PASS: TestRepairM_1323_' /tmp/repair-m1323.log && test $s -eq 0"
+build_cmd = "cargo build --locked --manifest-path services/platform/hosted/paxeer/Cargo.toml --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/hosted/paxeer/Cargo.toml --test repair_22_33_1323"
 gate_kind = "planned"
-sandbox_profile = "go"
+sandbox_profile = "rust"
 owner_role = "fm-platform"
 rollback = "Revert the task's commit."
 max_builds = 1
@@ -198175,6 +198198,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_16 = "The gate of this task is corrected (gotcha 2984): the generated command named a toolchain the touched path does not use. The proving test is services/platform/hosted/paxeer/tests/repair_22_33_1323.rs and the verify command is cargo test --locked --manifest-path services/platform/hosted/paxeer/Cargo.toml --test repair_22_33_1323; nothing else of the task changes."
 
 [task.22.33.1321]
 title = "Repair audit record 22.30.70 medium findings in services/platform/hosted/paxeer (part 3 of 3): restart-recovery, retired-reference, security"
@@ -198197,13 +198221,13 @@ do_9 = "Real means the component under repair is the production code; its peers 
 do_10 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 do_11 = "Verification runs only the TestRepairM_1321_* functions of repair_m1321_test.go: they run without PostgreSQL, Redis, S3, Anvil or a live RPC endpoint. The package's other tests are not this task's gate but must keep compiling, and where a repair changes behaviour they assert they are updated in the same change."
 symbols = []
-touches = ["services/platform/hosted/paxeer"]
-tests = ["services/platform/hosted/paxeer/repair_m1321_test.go"]
+touches = ["services/platform/hosted/paxeer", "services/platform/hosted/paxeer/tests"]
+tests = ["services/platform/hosted/paxeer/tests/repair_22_33_1321.rs"]
 planned_paths = ["services/platform/hosted/paxeer/repair_m1321_test.go"]
-build_cmd = "go build ./services/platform/hosted/paxeer/..."
-verify_cmd = "go test -count=1 -v -run '^TestRepairM_1321_' ./services/platform/hosted/paxeer/ > /tmp/repair-m1321.log 2>&1; s=$?; grep -E '^(=== RUN|--- (PASS|FAIL)|FAIL|ok|panic|# )' /tmp/repair-m1321.log | tail -n 120; grep -E -B2 -A12 '^--- FAIL' /tmp/repair-m1321.log | head -n 200; grep -q -- '--- PASS: TestRepairM_1321_' /tmp/repair-m1321.log && test $s -eq 0"
+build_cmd = "cargo build --locked --manifest-path services/platform/hosted/paxeer/Cargo.toml --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/hosted/paxeer/Cargo.toml --test repair_22_33_1321"
 gate_kind = "planned"
-sandbox_profile = "go"
+sandbox_profile = "rust"
 owner_role = "fm-platform"
 rollback = "Revert the task's commit."
 max_builds = 1
@@ -198213,6 +198237,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_12 = "The gate of this task is corrected (gotcha 2984): the generated command named a toolchain the touched path does not use. The proving test is services/platform/hosted/paxeer/tests/repair_22_33_1321.rs and the verify command is cargo test --locked --manifest-path services/platform/hosted/paxeer/Cargo.toml --test repair_22_33_1321; nothing else of the task changes."
 
 [task.22.33.1319]
 title = "Repair audit record 22.30.70 medium findings in services/platform/hosted/paxeer (part 1 of 3): restart-recovery, retired-reference, security"
@@ -198239,13 +198264,13 @@ do_13 = "Real means the component under repair is the production code; its peers
 do_14 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 do_15 = "Verification runs only the TestRepairM_1319_* functions of repair_m1319_test.go: they run without PostgreSQL, Redis, S3, Anvil or a live RPC endpoint. The package's other tests are not this task's gate but must keep compiling, and where a repair changes behaviour they assert they are updated in the same change."
 symbols = []
-touches = ["services/platform/hosted/paxeer"]
-tests = ["services/platform/hosted/paxeer/repair_m1319_test.go"]
+touches = ["services/platform/hosted/paxeer", "services/platform/hosted/paxeer/tests"]
+tests = ["services/platform/hosted/paxeer/tests/repair_22_33_1319.rs"]
 planned_paths = ["services/platform/hosted/paxeer/repair_m1319_test.go"]
-build_cmd = "go build ./services/platform/hosted/paxeer/..."
-verify_cmd = "go test -count=1 -v -run '^TestRepairM_1319_' ./services/platform/hosted/paxeer/ > /tmp/repair-m1319.log 2>&1; s=$?; grep -E '^(=== RUN|--- (PASS|FAIL)|FAIL|ok|panic|# )' /tmp/repair-m1319.log | tail -n 120; grep -E -B2 -A12 '^--- FAIL' /tmp/repair-m1319.log | head -n 200; grep -q -- '--- PASS: TestRepairM_1319_' /tmp/repair-m1319.log && test $s -eq 0"
+build_cmd = "cargo build --locked --manifest-path services/platform/hosted/paxeer/Cargo.toml --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/hosted/paxeer/Cargo.toml --test repair_22_33_1319"
 gate_kind = "planned"
-sandbox_profile = "go"
+sandbox_profile = "rust"
 owner_role = "fm-platform"
 rollback = "Revert the task's commit."
 max_builds = 1
@@ -198255,6 +198280,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_16 = "The gate of this task is corrected (gotcha 2984): the generated command named a toolchain the touched path does not use. The proving test is services/platform/hosted/paxeer/tests/repair_22_33_1319.rs and the verify command is cargo test --locked --manifest-path services/platform/hosted/paxeer/Cargo.toml --test repair_22_33_1319; nothing else of the task changes."
 
 [task.22.33.1316]
 title = "Repair audit record 22.30.70 medium findings in sdk/server/grpc (part 1 of 1): test-gap"
@@ -207145,12 +207171,12 @@ do_13 = "Close the findings: the task record names every finding id of this task
 do_14 = "Verification runs only the TestRepairM_889_* functions of repair_m889_test.go: they run without PostgreSQL, Redis, S3, Anvil or a live RPC endpoint. The package's other tests are not this task's gate but must keep compiling, and where a repair changes behaviour they assert they are updated in the same change."
 symbols = []
 touches = ["tools/release/tests"]
-tests = ["tools/release/tests/repair_m889_test.go"]
+tests = ["tools/release/tests/test_repair_22_33_889.py"]
 planned_paths = ["tools/release/tests/repair_m889_test.go"]
-build_cmd = "go build ./tools/release/tests/..."
-verify_cmd = "go test -count=1 -v -run '^TestRepairM_889_' ./tools/release/tests/ > /tmp/repair-m889.log 2>&1; s=$?; grep -E '^(=== RUN|--- (PASS|FAIL)|FAIL|ok|panic|# )' /tmp/repair-m889.log | tail -n 120; grep -E -B2 -A12 '^--- FAIL' /tmp/repair-m889.log | head -n 200; grep -q -- '--- PASS: TestRepairM_889_' /tmp/repair-m889.log && test $s -eq 0"
+build_cmd = "python3 -m py_compile tools/release/tests/test_repair_22_33_889.py"
+verify_cmd = "python3 -m pytest -q tools/release/tests/test_repair_22_33_889.py"
 gate_kind = "planned"
-sandbox_profile = "go"
+sandbox_profile = "python"
 owner_role = "fm-tools-ops"
 rollback = "Revert the task's commit."
 max_builds = 1
@@ -207160,6 +207186,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_15 = "The gate of this task is corrected (gotcha 2984): the generated command named a toolchain the touched path does not use. The proving test is tools/release/tests/test_repair_22_33_889.py and the verify command is python3 -m pytest -q tools/release/tests/test_repair_22_33_889.py; nothing else of the task changes."
 
 [task.22.33.884]
 title = "Repair audit record 22.30.183 medium findings in tools/tx-scanner/state (part 1 of 1): restart-recovery"
@@ -207408,12 +207435,12 @@ do_14 = "Close the findings: the task record names every finding id of this task
 do_15 = "Verification runs only the TestRepairM_876_* functions of repair_m876_test.go: they run without PostgreSQL, Redis, S3, Anvil or a live RPC endpoint. The package's other tests are not this task's gate but must keep compiling, and where a repair changes behaviour they assert they are updated in the same change."
 symbols = []
 touches = ["tools/qualification/paxeer-x"]
-tests = ["tools/qualification/paxeer-x/repair_m876_test.go"]
+tests = ["tools/qualification/paxeer-x/test_repair_22_33_876.py"]
 planned_paths = ["tools/qualification/paxeer-x/repair_m876_test.go"]
-build_cmd = "go build ./tools/qualification/paxeer-x/..."
-verify_cmd = "go test -count=1 -v -run '^TestRepairM_876_' ./tools/qualification/paxeer-x/ > /tmp/repair-m876.log 2>&1; s=$?; grep -E '^(=== RUN|--- (PASS|FAIL)|FAIL|ok|panic|# )' /tmp/repair-m876.log | tail -n 120; grep -E -B2 -A12 '^--- FAIL' /tmp/repair-m876.log | head -n 200; grep -q -- '--- PASS: TestRepairM_876_' /tmp/repair-m876.log && test $s -eq 0"
+build_cmd = "python3 -m py_compile tools/qualification/paxeer-x/test_repair_22_33_876.py"
+verify_cmd = "python3 -m pytest -q tools/qualification/paxeer-x/test_repair_22_33_876.py"
 gate_kind = "planned"
-sandbox_profile = "go"
+sandbox_profile = "python"
 owner_role = "fm-tools-ops"
 rollback = "Revert the task's commit."
 max_builds = 1
@@ -207423,6 +207450,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_16 = "The gate of this task is corrected (gotcha 2984): the generated command named a toolchain the touched path does not use. The proving test is tools/qualification/paxeer-x/test_repair_22_33_876.py and the verify command is python3 -m pytest -q tools/qualification/paxeer-x/test_repair_22_33_876.py; nothing else of the task changes."
 
 [task.22.33.872]
 title = "Repair audit record 22.30.183 medium findings in scripts/evm_stress (part 1 of 1): runtime-risk"
@@ -213041,12 +213069,12 @@ do_9 = "Close the findings: the task record names every finding id of this task 
 do_10 = "Verification runs only the TestRepairM_310_* functions of repair_m310_test.go: they run without PostgreSQL, Redis, S3, Anvil or a live RPC endpoint. The package's other tests are not this task's gate but must keep compiling, and where a repair changes behaviour they assert they are updated in the same change."
 symbols = []
 touches = ["services/explorer/deploy/tools"]
-tests = ["services/explorer/deploy/tools/repair_m310_test.go"]
+tests = ["services/explorer/deploy/tools/test_repair_22_33_310.py"]
 planned_paths = ["services/explorer/deploy/tools/repair_m310_test.go"]
-build_cmd = "go build ./services/explorer/deploy/tools/..."
-verify_cmd = "go test -count=1 -v -run '^TestRepairM_310_' ./services/explorer/deploy/tools/ > /tmp/repair-m310.log 2>&1; s=$?; grep -E '^(=== RUN|--- (PASS|FAIL)|FAIL|ok|panic|# )' /tmp/repair-m310.log | tail -n 120; grep -E -B2 -A12 '^--- FAIL' /tmp/repair-m310.log | head -n 200; grep -q -- '--- PASS: TestRepairM_310_' /tmp/repair-m310.log && test $s -eq 0"
+build_cmd = "python3 -m py_compile services/explorer/deploy/tools/test_repair_22_33_310.py"
+verify_cmd = "python3 -m pytest -q services/explorer/deploy/tools/test_repair_22_33_310.py"
 gate_kind = "planned"
-sandbox_profile = "go"
+sandbox_profile = "python"
 owner_role = "fm-web-explorer-bridge"
 rollback = "Revert the task's commit."
 max_builds = 1
@@ -213056,6 +213084,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_11 = "The gate of this task is corrected (gotcha 2984): the generated command named a toolchain the touched path does not use. The proving test is services/explorer/deploy/tools/test_repair_22_33_310.py and the verify command is python3 -m pytest -q services/explorer/deploy/tools/test_repair_22_33_310.py; nothing else of the task changes."
 
 [task.22.33.256]
 title = "Repair audit record 22.30.13 medium findings in modules/oracle/simulation (part 1 of 1): config-drift, test-gap"
@@ -251641,7 +251670,7 @@ do_7 = "Prove each repair with a JUnit class sdk/platform/jvm/src/test/java/com/
 do_8 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command above is the whole gate (gotcha 2962)."
 do_9 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk"]
+touches = ["sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk", "sdk/platform/jvm/src/main"]
 tests = ["sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/Repair22331391Test.java"]
 planned_paths = ["sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/Repair22331391Test.java"]
 build_cmd = "mvn -q -f sdk/platform/jvm/pom.xml -DskipTests test-compile"
@@ -251657,6 +251686,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_10 = "Attempt 2 (continue): two in-scope corrections. First, the fee-token vector's receipt JSON is recorded once at implementation time from the public node at its root path (api1.mainnet-beta.paxeer.network, chain 125) and committed under the SDK's test fixtures, so the gate reads no network. Second, the program activity and program receipt metadata of the SDK names eth_getLogs where the retained-transaction contract in spec/layerx-merge/contracts names eth_getTransactionByHash; align the metadata in sdk/platform/jvm/src/main, now in scope, with the contract. No wiring requests. Run the build and the verify once on the final revision; no commit after the pass."
 
 [task.22.33.1390]
 title = "Repair audit record 22.30.77 medium findings in sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk (part 2 of 2): restart-recovery, runtime-risk"
@@ -276553,6 +276583,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_10 = "Attempt 2 (requalify): the escrow proof passed and the genesis fixture correction was made after the only verify run, so the final revision has no verify record. Run the build and the verify command once on the final revision with no edits first, repair only what that run reports inside the paths, and make no commit after the pass."
 
 [task.22.33.1298]
 title = "Repair audit record 22.30.69 medium findings in rpc (part 2 of 2): runtime-risk"
@@ -336683,7 +336714,7 @@ do_17 = "Finding grant-receipt-kind (interface-mismatch, high) on services/agent
 do_18 = "Prove each repair with a test module tests/agent/sdk/python/test_repair_22_31_147.py that drives the real client against a recorded or in-process server (real codec, real header and payload shapes, not a mock of the component under repair); run the verify once on the unchanged tree first and note in the task record which tests already failed before the change."
 do_19 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["services/agent/sdk/python/layerx_sdk", "services/platform/hosted/registry/src/routes.rs"]
+touches = ["services/agent/sdk/python/layerx_sdk", "services/platform/hosted/registry/src/routes.rs", "tests/agent/sdk/python"]
 tests = ["tests/agent/sdk/python/test_repair_22_31_147.py"]
 planned_paths = ["tests/agent/sdk/python/test_repair_22_31_147.py"]
 build_cmd = "python3 -m py_compile services/agent/sdk/python/layerx_sdk/ai_market.py services/agent/sdk/python/layerx_sdk/mirror.py services/agent/sdk/python/layerx_sdk/program_lifecycle.py services/agent/sdk/python/layerx_sdk/program_wire.py services/agent/sdk/python/layerx_sdk/programs.py services/agent/sdk/python/layerx_sdk/web_search.py"
@@ -336705,6 +336736,7 @@ do_22 = "The candidate carries only sources under the touches and the test file:
 do_23 = "Attempt 3 (continue): the mirror verification test still shells out to the mirror binary and receives source-unavailable; verify the mirror in-process against a loopback source the test starts, and assert the production error mapping (Local verification failed) on the recorded unavailable answer. Real means the component under repair is the production code and its peers are committed fixtures or loopback servers the test starts; a gate reads no environment variable and reaches no network (gotchas 2962, 2963)."
 do_24 = "Attempt 4 (continue): verify_payment_receipt raises Local verification failed on the metered draw receipt at test line 569: the grant binding and terms the test derives from calldata offsets (bytes 4 to 36, 164 to 196, 100 to 132, 196 to 228) do not reproduce the values the receipt signs over. Decode the draw calldata with the ABI decoder of the SDK instead of fixed offsets, derive the terms from the decoded fields, and make the failure path report which binding field mismatched instead of the constant message never."
 do_25 = "Attempt 5 (continue): seventeen cases pass; the recorded-server-producer case fails because the committed recording's PaymentDrawn context hash disagrees with the signed draw calldata it accompanies. Re-record it once at implementation time from the current in-repository producer (the hosted registry route in scope produces the event); if the freshly recorded event still disagrees with its own calldata, the producer binding in services/platform/hosted/registry/src/routes.rs is the defect and is repaired in scope. The live ledger draw stays out of the gate. Run the build and the verify once on the final revision; no commit after the pass."
+do_26 = "Attempt 6 (continue): the recorded-server-producer case still fails because the recording was taken from the interop web-search crate's test fixture, which is a consumer, not the producer; the hosted registry route named in attempt 5 produces no draw either, and that instruction is withdrawn. The PaymentDrawn event is produced by the ledger precompile (precompiles/layerxledger/payments.go) over the signed draw calldata. Record the fixture once at implementation time from that producer's own Go test harness (a draw with known calldata, its event and its receipt), commit it under tests/agent/sdk/python, and let the SDK verify the recording: the SDK is the consumer, so where its binding derivation disagrees with the precompile's context hash definition, the SDK in services/agent/sdk/python/layerx_sdk is repaired to the producer's definition. The live ledger stays out of the gate. Run the build and the verify once on the final revision; no commit after the pass."
 
 [task.22.30.185]
 title = "Pre-upgrade audit of programme: apps/web (9 files)"
@@ -366444,7 +366476,7 @@ do_6 = "Prove each repair with an ExUnit module services/explorer/backend/apps/i
 do_7 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command above is the whole gate (gotcha 2962)."
 do_8 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["services/explorer/backend/apps/indexer/test/indexer/block"]
+touches = ["services/explorer/backend/apps/indexer/test/indexer/block", "services/explorer/backend/apps/indexer/lib"]
 tests = ["services/explorer/backend/apps/indexer/test/repair/repair_22_33_552_test.exs"]
 planned_paths = ["services/explorer/backend/apps/indexer/test/repair/repair_22_33_552_test.exs"]
 build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
@@ -366462,6 +366494,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_9 = "Attempt 2 (continue): all eight cases time out because the fetchers the recorded block import triggers (the coin-balance catch-up and its block-timestamp lookups) still run against the default mock transport and crash-retry forever. Route every fetcher the import starts through the recorded transport the test configures (the same named JSON-RPC arguments), extend the recording with the timestamp and balance reads it needs, and wait on the import completion message rather than a fixed sleep. Finish on one commit after the verify passes."
 do_10 = "Attempt 3 (continue): the completion observer in the block test classifies the {:ok, pid} start result as a failure and the case fails on its own fixture. Repair the observer's classification (a started process is the success case; completion is observed through its exit or its published result), keep the assertions, and run the build and the verify once on the final revision with no commit after the pass."
+do_11 = "Attempt 4 (continue): seven cases fail because the imported internal transactions carry a nil call type where the call atom is expected. Determine from the imported record whether the recorded trace carries the call type field the indexer's trace parser reads: if the recording omits it, complete the recording once at implementation time from the public node at its root path (api1.mainnet-beta.paxeer.network, chain 125) for the recorded block; if the recording carries it and the parser or the import transform of the explorer backend indexer drops it, that code is under services/explorer/backend/apps/indexer/lib, which is this domain's and now in scope. Keep the assertions; run the build and the verify once on the final revision with no commit after the pass."
 
 [task.22.33.551]
 title = "Repair audit record 22.30.158 medium findings in services/explorer/backend/apps/indexer/test/indexer/block/catchup (part 1 of 1): config-drift"
