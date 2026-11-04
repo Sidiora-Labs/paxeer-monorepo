@@ -33,8 +33,8 @@ The default SDK fee checker,
 - The node's local `minimum-gas-prices`, available as `ctx.MinGasPrices()`.
 
 `GetMinimumGasPricesWantedSorted` takes the union of the global and local price
-sets, keeping the larger price for each denomination. For each resulting price,
-the checker calculates `ceil(price * gasLimit)`. At least one eligible fee coin
+sets using `UnionMax`, keeping the larger price for each denomination. For each
+resulting price, the checker calculates `ceil(price * gasLimit)`. At least one eligible fee coin
 must meet its corresponding requirement; it does not require payment in every
 listed denomination. The checker retains nonzero fees only in
 `sdk.DefaultBondDenom` (`uhpx`) and the configured `allowed_fee_denoms`.
@@ -49,8 +49,9 @@ paxd start --minimum-gas-prices=0.02uhpx
 ```
 
 With a global price of `0.01uhpx`, this node requires `4000uhpx` for a
-200,000-gas transaction. Reducing the local price below the global price does not
-reduce that requirement. A fee that fails the check returns
+200,000-gas transaction. Reducing the local price to `0.005uhpx` leaves the
+global floor of `0.01uhpx` in effect, requiring `2000uhpx` for the same gas limit.
+A fee that fails the check returns
 `sdkerrors.ErrInsufficientFee`.
 
 The default checker applies this price threshold during `CheckTx` when not
