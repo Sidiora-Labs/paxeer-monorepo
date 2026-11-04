@@ -1,0 +1,39 @@
+[task.22.33.1274]
+base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
+prerequisite_revision = "f0c609d5050484d9880125f7a53e2775ac425ace"
+repair = "Close audit 22.30.63 finding 016 by qualifying the root README rewrite already supplied by owner task 22.31.470, as decision 2525 requires. Add focused source assertions and this repair record only; README.md and production sources are outside this task's scope and remain unchanged."
+source_proof = "Six tests read the actual README architecture, Mermaid diagrams, chain-125 root JSON-RPC range and parsed curl payload, transaction submission and committed-receipt flow, historical custody/checkpoint refusal paragraph, and parsed paxd build/start commands. Corroborate these facts against the real embedded host and consensus source, root RPC dispatcher, accept/forward and WAL-before-publication path, receipt coverage/block consumer, retirement guards and linked-library build targets. No copied README fixture or test double is used."
+review_only = "Native Go/C/Rust builds, node startup, transaction execution, cryptography, WAL restart/recovery, endpoint availability and BFT consensus are not executed by this gate. Producer, transport and consumer connections are checked as source facts for doc-drift, not certified as runtime behavior. No restart-recovery or interface-mismatch finding applies. No shell script, unit file or manifest is repaired; README shell examples are parsed in-process without invoking commands. No environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device is required."
+baseline = "Initial git status and diff showed only runner-prepared .cgignore and spec bookkeeping, which were preserved. Neither scoped file existed. gate.json reported zero builds and verifies, and /out/run/gates.jsonl did not exist. The supplied prerequisite already rewrote README.md. No pre-change verification was run: the explicit implementation-first and hf-build/hf-done-only order supersedes the older unchanged-tree baseline clause. No baseline test failures are claimed."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1274.py"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision_source = "The revision field of the final verify entry in /out/run/gates.jsonl and the final hf-done JSON."
+evidence = "The final hf-done JSON and private gate ledger name the exact verified content-derived candidate revision, command, exit code and log path. Build and verification must pass on the same candidate revision. This record is finalized before qualification: inserting its own content-derived revision would change that revision. The runner retains the exact evidence and commits the result; no manual commit or push is performed."
+wiring_requests = []
+
+[finding.016]
+audit = "22.30.63"
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+expected = "The entry page must describe one paxd BFT network with its integrated kernel and committed-block finality."
+resolution = "The prerequisite README now describes one integrated paxd BFT network, chain 125, api1 through api14 root JSON-RPC, transaction and committed receipt flows, retired custody/checkpoint executors and no separate daemon or checkpoint deployment. Both diagrams and build/start guidance use the integrated node. All expected facts are present; no missing-fact wiring request remains."
+tests = ["test_finding_016_integrated_paxd_network_and_block_finality", "test_finding_016_architecture_and_receipt_diagrams", "test_finding_016_chain_125_root_rpc_hosts_and_probe", "test_finding_016_submission_transport_and_committed_receipt_consumer", "test_finding_016_retired_custody_and_checkpoint_interfaces_are_historical", "test_finding_016_build_and_start_use_the_integrated_node"]
+
+[wiring.readme]
+path = "README.md"
+owner_domain = 17
+owner_task = "22.31.470"
+request = "README.md; domain 17, task 22.31.470: supply the integrated architecture, diagrams and quickstart and historical custody/anchor labels requested by finding 016; this out-of-path work is already satisfied by the supplied prerequisite."
+status = "satisfied_by_prerequisite"
+missing_facts = []
+
+[gotcha.1]
+observed = "The older baseline-verification step conflicts with the explicit implementation-first and wrapper-only gate order."
+resolution = "Follow the explicit order and report no pre-change run or baseline failures. GOTCHA.kvx and spec files are outside scope, so record this task note here."
+
+[gotcha.2]
+observed = "Unbounded repository context and combined source reads exceed tool output limits; there is no root pyproject.toml."
+resolution = "Use bounded task-specific source reads and the root pre-commit configuration. No Python or KVX formatter is configured for this directory; apply its whitespace and final-newline conventions only to the two touched files."
