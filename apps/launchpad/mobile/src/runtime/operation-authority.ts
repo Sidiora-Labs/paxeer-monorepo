@@ -11,7 +11,9 @@ export type AccountAction =
   | 'watchlist.update'
   | 'watchlist.remove'
   | 'profile.update'
-  | 'preferences.update';
+  | 'preferences.update'
+  | 'device.register'
+  | 'device.revoke';
 export type AccountMethod = 'PUT' | 'DELETE' | 'PATCH';
 export interface SignedAccountOperation {
   operation: string;

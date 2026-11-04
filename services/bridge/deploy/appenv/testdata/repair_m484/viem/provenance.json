@@ -1,0 +1,19 @@
+{
+  "package": "viem",
+  "version": "2.41.2",
+  "tarball": "https://registry.npmjs.org/viem/-/viem-2.41.2.tgz",
+  "files": {
+    "_cjs/errors/address.js": "4fbd0cd27e83e9f95a77ecf7b6c70f4cac558bb53d7f9b493ef168e8d1afd3e6",
+    "_cjs/errors/base.js": "df3eeb4e8d4895dddb93bccef6a14254b75d06a4cb0046605dd2cdcd6f36063b",
+    "_cjs/errors/version.js": "adfb3b919ab80e5d943117ea45fd86c3a12f6d66bf116e96ff3c2d5d262f522b",
+    "_cjs/utils/address/getAddress.js": "b96f544daa00fda5aa638b87647f40ec8751bc64456e4f8502c36465ca7ba5c6",
+    "_cjs/utils/address/isAddress.js": "258ebf25700bec6a581880ba6a09611e8f6a44cfb06589c9575292b0accbea52",
+    "_cjs/utils/lru.js": "fbcda26f3045dca7622a4ff8f8ce7060b1c8b6bfae19d9baa87d9151d28067a9",
+    "_cjs/errors/address.js.map": "7cebca302e26e85cad4be66afaee3866763e8922449966b9869ff6b1750d5815",
+    "_cjs/errors/base.js.map": "b42af2c1cb5f74e0a2bb4e949feeed1fa196f8258c06a4437f0ceede4ce4fa9a",
+    "_cjs/errors/version.js.map": "5fa01094ffac38261871556cb773b7d705e57adda9c88c96e89802df48edf336",
+    "_cjs/utils/address/getAddress.js.map": "4bd99c40756a8d97ad16ea3829680fc8c95453a7e0e1badd2703015e8edeecb9",
+    "_cjs/utils/address/isAddress.js.map": "9a18f07bf97572a3b36bc6403eb0d7c6e48199a6f1e44adced063e5400036560",
+    "_cjs/utils/lru.js.map": "7c0d890cd96a30967426a2422d3adea85bf8213e5dfb2b205e29ebcc86afb993"
+  }
+}

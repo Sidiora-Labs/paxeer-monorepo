@@ -1,0 +1,8 @@
+[repair.22.33.692]
+finding = "expiry-test-key"
+tests = ["TestRepairM_692_ExpiryCleanupAndExportImport", "TestRepairM_692_ExpiredImportIsCleaned"]
+existing_tests = ["TestSuite.TestKeeper", "TestSuite.TestKeeperIter"]
+proof = "Save and clean lookup use the same grantee, granter and MsgTypeURL; assertions establish presence before expiry, exact persisted-key deletion at and after expiry, preservation of neighboring grants, and real codec export/import into fresh stores both before and after cleanup."
+baseline = "Not run: the explicit gate order forbids verification before implementation and requires verification only through hf-done; no pre-change failing-test result is claimed."
+wiring_requests = []
+qualification = "The hf-build and hf-done runner ledger records the exact candidate revision, command, exit code and private evidence log; no revision is claimed before those gates execute."

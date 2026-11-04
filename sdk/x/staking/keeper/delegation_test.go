@@ -12,6 +12,7 @@ import (
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	bankkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/keeper"
+	banktypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/staking"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/staking/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/staking/teststaking"
@@ -283,6 +284,7 @@ func TestUnbondingDelegation(t *testing.T) {
 }
 
 func TestCompleteUnbondingRefusesBlockedRecipient(t *testing.T) {
+	t.Run("retry after store restart", testUnbondingRetryRestart)
 	for _, blocked := range []bool{true, false} {
 		name := "admitted"
 		if blocked {
@@ -1176,4 +1178,116 @@ func TestRedelegateFromUnbondedValidator(t *testing.T) {
 	// no red should have been found
 	red, found := app.StakingKeeper.GetRedelegation(ctx, addrDels[0], addrVals[0], addrVals[1])
 	require.False(t, found, "%v", red)
+}
+
+func testUnbondingRetryRestart(t *testing.T) {
+	t.Helper()
+	directory := t.TempDir()
+	f := repair310Open(t, directory)
+	closed := false
+	t.Cleanup(func() {
+		if !closed {
+			require.NoError(t, f.store.Close())
+		}
+	})
+	f.ctx = f.ctx.WithBlockHeight(1)
+	delegator := sdk.AccAddress(PKs[230].Address())
+	validator := repair310Validator(t, f.staking, f.ctx, 231)
+	tokens := f.staking.TokensFromConsensusPower(f.ctx, 10)
+	f.fund(t, delegator, tokens)
+	server := keeper.NewMsgServerImpl(f.staking)
+	_, err := server.Delegate(sdk.WrapSDKContext(f.ctx), types.NewMsgDelegate(delegator, validator.GetOperator(), sdk.NewCoin(f.staking.BondDenom(f.ctx), tokens)))
+	require.NoError(t, err)
+	staking.EndBlocker(f.ctx, f.staking)
+	payout := sdk.NewCoin(f.staking.BondDenom(f.ctx), tokens.QuoRaw(2))
+	response, err := server.Undelegate(sdk.WrapSDKContext(f.ctx), types.NewMsgUndelegate(delegator, validator.GetOperator(), payout))
+	require.NoError(t, err)
+	completion := response.CompletionTime
+	f.ctx = f.ctx.WithBlockHeight(2).WithBlockTime(completion)
+	before, found := f.staking.GetUnbondingDelegation(f.ctx, delegator, validator.GetOperator())
+	require.True(t, found)
+	require.Len(t, before.Entries, 1)
+	require.True(t, before.Entries[0].IsMature(f.ctx.BlockTime()))
+	pair := []types.DVPair{{DelegatorAddress: delegator.String(), ValidatorAddress: validator.OperatorAddress}}
+	require.Equal(t, pair, f.staking.GetUBDQueueTimeSlice(f.ctx, completion))
+	pool := f.staking.GetNotBondedPool(f.ctx).GetAddress()
+	poolBefore := f.bank.GetBalance(f.ctx, pool, payout.Denom)
+	delegatorBefore := f.bank.GetBalance(f.ctx, delegator, payout.Denom)
+	supplyBefore := f.bank.GetSupply(f.ctx, payout.Denom)
+	refusals := 0
+	f.bank.RegisterRecipientChecker(func(_ sdk.Context, recipient sdk.AccAddress) bool {
+		if recipient.Equals(delegator) {
+			refusals++
+			return false
+		}
+		return true
+	})
+	staking.EndBlocker(f.ctx, f.staking)
+	require.Positive(t, refusals)
+	require.True(t, poolBefore.IsEqual(f.bank.GetBalance(f.ctx, pool, payout.Denom)))
+	require.True(t, delegatorBefore.IsEqual(f.bank.GetBalance(f.ctx, delegator, payout.Denom)))
+	after, found := f.staking.GetUnbondingDelegation(f.ctx, delegator, validator.GetOperator())
+	require.True(t, found)
+	require.Equal(t, before, after)
+	require.Equal(t, pair, f.staking.GetUBDQueueTimeSlice(f.ctx, completion))
+	committed := f.store.Commit(true)
+	require.NoError(t, f.store.Close())
+	closed = true
+
+	f = repair310Open(t, directory)
+	closed = false
+	require.Equal(t, committed, f.store.LastCommitID())
+	f.ctx = f.ctx.WithBlockHeight(3).WithBlockTime(completion.Add(time.Second))
+	recovered, found := f.staking.GetUnbondingDelegation(f.ctx, delegator, validator.GetOperator())
+	require.True(t, found)
+	require.Equal(t, before, recovered)
+	require.Equal(t, pair, f.staking.GetUBDQueueTimeSlice(f.ctx, completion))
+	admissionChecks := 0
+	f.bank.RegisterRecipientChecker(func(_ sdk.Context, recipient sdk.AccAddress) bool {
+		if recipient.Equals(delegator) {
+			admissionChecks++
+		}
+		return true
+	})
+	receivedTransfers := func() int {
+		count := 0
+		for _, event := range f.ctx.EventManager().Events() {
+			if event.Type != banktypes.EventTypeCoinReceived {
+				continue
+			}
+			var receiver, amount string
+			for _, attribute := range event.Attributes {
+				switch string(attribute.Key) {
+				case banktypes.AttributeKeyReceiver:
+					receiver = string(attribute.Value)
+				case sdk.AttributeKeyAmount:
+					amount = string(attribute.Value)
+				}
+			}
+			if receiver == delegator.String() {
+				require.Equal(t, payout.String(), amount)
+				count++
+			}
+		}
+		return count
+	}
+	require.Zero(t, receivedTransfers())
+	staking.EndBlocker(f.ctx, f.staking)
+	require.Equal(t, 2, admissionChecks)
+	require.Equal(t, 1, receivedTransfers())
+	require.True(t, delegatorBefore.Add(payout).IsEqual(f.bank.GetBalance(f.ctx, delegator, payout.Denom)))
+	require.True(t, poolBefore.Sub(payout).IsEqual(f.bank.GetBalance(f.ctx, pool, payout.Denom)))
+	require.True(t, supplyBefore.IsEqual(f.bank.GetSupply(f.ctx, payout.Denom)))
+	_, found = f.staking.GetUnbondingDelegation(f.ctx, delegator, validator.GetOperator())
+	require.False(t, found)
+	require.Empty(t, f.staking.GetUBDQueueTimeSlice(f.ctx, completion))
+	f.ctx = f.ctx.WithBlockHeight(4).WithBlockTime(completion.Add(2 * time.Second))
+	staking.EndBlocker(f.ctx, f.staking)
+	require.Equal(t, 1, receivedTransfers())
+	require.Equal(t, 2, admissionChecks)
+	require.True(t, delegatorBefore.Add(payout).IsEqual(f.bank.GetBalance(f.ctx, delegator, payout.Denom)))
+	require.True(t, poolBefore.Sub(payout).IsEqual(f.bank.GetBalance(f.ctx, pool, payout.Denom)))
+	require.Empty(t, f.staking.GetUBDQueueTimeSlice(f.ctx, completion))
+	message, broken := bankkeeper.TotalSupply(f.bank)(f.ctx)
+	require.False(t, broken, message)
 }

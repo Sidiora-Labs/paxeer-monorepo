@@ -77,6 +77,16 @@ const AssetFilter = ({ value = [], handleFilterChange }: Props) => {
     setCurrentValue(prev => prev.findIndex(i => i.token.address_hash === token.address_hash) > -1 ? prev : [ { token, mode: 'include' }, ...prev ]);
   }, []);
 
+  const onTokenChange = React.useCallback((token: TokenInfo) => (event: React.FormEvent<HTMLLabelElement>) => {
+    const checked = (event.target as HTMLInputElement).checked;
+    setCurrentValue(prev => {
+      if (!checked) {
+        return prev.filter(item => item.token.address_hash !== token.address_hash);
+      }
+      return prev.some(item => item.token.address_hash === token.address_hash) ? prev : [ { token, mode: 'include' }, ...prev ];
+    });
+  }, []);
+
   const onReset = React.useCallback(() => setCurrentValue([]), []);
 
   const onFilter = React.useCallback(() => {
@@ -149,7 +159,7 @@ const AssetFilter = ({ value = [], handleFilterChange }: Props) => {
                 key={ token.address_hash }
                 value={ token.address_hash }
                 id={ token.address_hash }
-                onChange={ onTokenClick(token) }
+                onChange={ onTokenChange(token) }
                 overflow="hidden"
                 w="100%"
                 pl={ 1 }

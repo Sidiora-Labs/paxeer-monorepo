@@ -2,7 +2,11 @@
   "status": 410,
   "body": {
     "ok": false,
-    "error": { "code": "operation-retired", "copy_key": "error.wallet.not-bound", "retry": "structural" },
+    "error": {
+      "code": "operation-retired",
+      "copy_key": "error.operation.retired",
+      "retry": "final"
+    },
     "trace": "trc_01j2h6c3dk7v8w9x0y1z2a3b4c"
   }
 }

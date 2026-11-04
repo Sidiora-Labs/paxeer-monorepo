@@ -94,3 +94,87 @@ fn main() {
         std::process::exit(1);
     }
 }
+
+#[cfg(test)]
+mod repair_m109 {
+    use super::{bytes, verify_sequencer_signature, ReceiptCheck, Value};
+    use layerx_proof::inclusion::SequencerAuthorization;
+
+    #[test]
+    fn rendered_example_windows_use_unambiguous_proof_keys() {
+        let entries: Value = serde_json::from_str(include_str!("../../receipt-keys.example.json"))
+            .expect("explicit renderer receipt-key inputs");
+        let keys: Vec<_> = entries
+            .as_array()
+            .expect("receipt-key array")
+            .iter()
+            .map(|entry| {
+                SequencerAuthorization::new(
+                    bytes(&entry["keyId"]).unwrap().try_into().unwrap(),
+                    bytes(&entry["publicKey"]).unwrap().try_into().unwrap(),
+                    entry["firstHeight"].as_u64().unwrap(),
+                    entry["lastHeight"].as_u64().unwrap(),
+                )
+            })
+            .collect();
+        assert_eq!(keys.len(), 2);
+        let old: Value = serde_json::from_str(include_str!(
+            "../../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+        ))
+        .unwrap();
+        let new: Value = serde_json::from_str(include_str!(
+            "../../../../../../sdk/platform/conformance/fixtures/receipt-sequencer-v1.json"
+        ))
+        .unwrap();
+        for (index, (recording, expected_height)) in [
+            (&old["cases"][0]["signedReceipt"], 1000_u64),
+            (&new["vectors"][0]["receipt"], 1200_u64),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let receipt = bytes(recording).unwrap();
+            let verified = verify_sequencer_signature(&receipt, keys.as_slice()).unwrap();
+            let protocol = verified.protocol().unwrap();
+            assert_eq!(protocol.context_hash(), keys[index].sequencer_id());
+            assert_eq!(
+                u64::from_be_bytes(protocol.batch_id()[24..].try_into().unwrap()),
+                expected_height
+            );
+            // Even a disjoint extra window with the same id is ambiguous.
+            let mut duplicate = keys.clone();
+            duplicate.push(SequencerAuthorization::new(
+                keys[index].sequencer_id(),
+                keys[index].public_key(),
+                3000,
+                3999,
+            ));
+            assert_eq!(
+                verify_sequencer_signature(&receipt, duplicate.as_slice())
+                    .unwrap_err()
+                    .check,
+                ReceiptCheck::SequencerSignature
+            );
+            let outside = [SequencerAuthorization::new(
+                keys[index].sequencer_id(),
+                keys[index].public_key(),
+                expected_height + 1,
+                expected_height + 2,
+            )];
+            assert_eq!(
+                verify_sequencer_signature(&receipt, &outside)
+                    .unwrap_err()
+                    .check,
+                ReceiptCheck::SequencerSignature
+            );
+            let mut tampered = receipt;
+            *tampered.last_mut().unwrap() ^= 1;
+            assert_eq!(
+                verify_sequencer_signature(&tampered, keys.as_slice())
+                    .unwrap_err()
+                    .check,
+                ReceiptCheck::SequencerSignature
+            );
+        }
+    }
+}

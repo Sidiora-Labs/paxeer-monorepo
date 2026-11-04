@@ -17,6 +17,11 @@ matrix exercises encode/decode parity, validation and settlement identity. It
 does not establish upstream reference-implementation conformance or successful
 settlement with an independently operated facilitator.
 
+The HTTP row covers header and JSON-body codecs; the MCP and A2A rows cover
+JSON message bindings. These local cases do not start HTTP, MCP or A2A services
+or qualify their deployed transport sessions. The role documents are committed
+first-party fixtures under `services/interop/specs/conformance/transport-*`.
+
 Paxeer mainnet-beta is one BFT network, EVM chain ID 125 (`eip155:125` in x402).
 The kernel is part of the network and proposes blocks; block commit establishes
 finality. Receipt signing and block commit are stages of that network. See the
@@ -67,6 +72,22 @@ restart. Such a claim needs evidence through the real producer, transport,
 persisted state and payment authority, with restart/recovery and independently
 observed balances. Upstream vector conformance and third-party interoperability
 likewise require their own recorded qualification evidence.
+
+## Pending qualification
+
+| Claim | Status | Evidence required before promotion |
+| --- | --- | --- |
+| Durable recovery across service restart | pending | Stop the real service, reopen its persisted state, retry the same payment through its transport and verify the recovered result. |
+| Exactly-once economic effect | pending | Observe authoritative native ledger balances and payment records before submission and after duplicate delivery and service restart. |
+| Upstream reference conformance | pending | Run the pinned upstream reference suite and record its revision and results. |
+| Independently operated facilitator interoperability | pending | Record a real buyer, seller and independent facilitator exchange. |
+
+Promote durable recovery and economic-effect claims only with real service
+restart and native ledger evidence from the same payment path. The native
+payment authority is the Paxeer ledger at `0x101a` on chain 125; a local gateway
+translation, receipt digest or valid signature alone is not a balance
+observation. Until that evidence is recorded, these claims remain pending even
+when the local transport matrix passes.
 
 The [Interop x402 transport matrix workflow](../../../../.github/workflows/interop-x402.yml)
 runs `make interop-test-x402` on matching pull requests and main-branch changes,

@@ -38,6 +38,7 @@ import {
 import { PerpsPrecompileABI } from "../src/core/network/abi/PerpsPrecompile";
 import { pecorVaultAbi } from "../src/core/network/spot_abi/PECORVault";
 import type { MarketConfig, MarginTier } from "../src/core/perps/marketConfig";
+import { nodeMarketConfig, nodeMarginTiers } from "./node-leverage-output";
 
 const WAD = 10n ** 18n;
 const ACCOUNT: Address = "0x1234567890123456789012345678901234567890";
@@ -50,37 +51,8 @@ type RpcRequest = {
 };
 
 class HooksApplication {
-  readonly config: MarketConfig = {
-    marketId: 18n,
-    symbol: "DOGE",
-    name: "Dogecoin",
-    oracleSymbol: "DOGE/USD",
-    szDecimals: 0,
-    pxDecimals: 5,
-    tickSize: 10n ** 13n,
-    lotSize: WAD,
-    maxLeverage: 20n * WAD,
-    tierClass: 1,
-    impactNotionalUsd: 1000n * WAD,
-    oiCapUsd: 1_000_000n * WAD,
-    fundingCapPpmPerHour: 100n,
-    enabled: true,
-    listedAt: 1_750_000_000n,
-  };
-  tiers: readonly MarginTier[] = [
-    {
-      lowerBoundUsd: 0n,
-      maxLeverage: 20n * WAD,
-      maintenanceBps: 50n,
-      deductionUsd: 0n,
-    },
-    {
-      lowerBoundUsd: 1000n * WAD,
-      maxLeverage: 10n * WAD,
-      maintenanceBps: 100n,
-      deductionUsd: 5n * WAD,
-    },
-  ];
+  readonly config: MarketConfig = { ...nodeMarketConfig };
+  tiers: readonly MarginTier[] = nodeMarginTiers.map((tier) => ({ ...tier }));
   fee: ContractFunctionReturnType<
     typeof PerpsPrecompileABI,
     "view",
@@ -257,7 +229,7 @@ class HooksApplication {
           functionName: name,
           result: [
             ACCOUNT,
-            18n,
+            this.config.marketId,
             true,
             200n * WAD,
             10n * WAD,
@@ -303,7 +275,7 @@ class HooksApplication {
           marketId: this.corruptCatalog
             ? "invalid"
             : Number(this.config.marketId),
-          maxLeverage: (this.config.maxLeverage / WAD).toString(),
+          maxLeverage: this.config.maxLeverage.toString(),
           tickSize: this.config.tickSize.toString(),
           lotSize: this.config.lotSize.toString(),
           createdAt: new Date(
@@ -341,7 +313,7 @@ class HooksApplication {
             },
           }),
         );
-      } else if (request.url === "/api/markets/ticker/DOGE") {
+      } else if (request.url === `/api/markets/ticker/${this.config.symbol}`) {
         this.count("ticker");
         response.end(
           JSON.stringify({
@@ -358,7 +330,9 @@ class HooksApplication {
         response.end(
           JSON.stringify({
             success: true,
-            data: [{ paxeerSymbol: "DOGE", long_oi: 20, short_oi: 10 }],
+            data: [
+              { paxeerSymbol: this.config.symbol, long_oi: 20, short_oi: 10 },
+            ],
           }),
         );
       } else {
@@ -413,7 +387,7 @@ async function runHooksPath() {
     app.marketsQuery = subgraph.MARKETS_QUERY;
     const quoter = useQuoter(`${origin}/api/markets`);
     const input = {
-      marketId: 18n,
+      marketId: app.config.marketId,
       collateralToken: TOKEN,
       collateralAmount: 10_000_000n,
       leverage: 20n * WAD,
@@ -433,7 +407,9 @@ async function runHooksPath() {
       try {
         await Promise.all([
           client.fetchQuery(fee.feeTierQueryOptions(ACCOUNT)),
-          client.fetchQuery(config.marketConfigQueryOptions(18n)),
+          client.fetchQuery(
+            config.marketConfigQueryOptions(app.config.marketId),
+          ),
           client.fetchQuery(markets.perpsMarketsQueryOptions()),
           client.fetchQuery(spot.spotTokenStateQueryOptions(TOKEN)),
         ]);
@@ -441,7 +417,7 @@ async function runHooksPath() {
         function Consumer() {
           renders++;
           const fees = fee.useFeeTier(ACCOUNT);
-          const limits = config.useMarketConfig(18n);
+          const limits = config.useMarketConfig(app.config.marketId);
           const catalog = markets.usePerpsMarkets();
           const token = spot.useSpotTokenState(TOKEN);
           assert.equal(fees.error, null);
@@ -453,20 +429,23 @@ async function runHooksPath() {
           );
           assert.ok(limits.data);
           assert.deepEqual(
-            form.orderLimitsFromConfig(limits.data, 2000n * WAD),
+            form.orderLimitsFromConfig(limits.data, 2_000_000n * WAD),
             {
               tickSize: app.config.tickSize,
-              lotSize: WAD,
-              maxLeverage: 10n * WAD,
+              lotSize: app.config.lotSize,
+              maxLeverage: 500n * WAD,
             },
           );
           assert.equal(
-            marketLabel(18n, panel.positionMarketLabels(catalog.catalog)),
-            "DOGE",
+            marketLabel(
+              app.config.marketId,
+              panel.positionMarketLabels(catalog.catalog),
+            ),
+            app.config.symbol,
           );
           assert.deepEqual(
             catalog.tradeable.map((row) => row.marketId),
-            [18],
+            [Number(app.config.marketId)],
           );
           assert.deepEqual(token.state, {
             tradeable: true,
@@ -490,7 +469,7 @@ async function runHooksPath() {
             `Tier ${pass + 1} · Taker ${pass * 2.5} bps / Maker -0.5 bps`,
           ),
         );
-        const quote = await quoter.quoteMarket(18n);
+        const quote = await quoter.quoteMarket(app.config.marketId);
         assert.equal(quote.markPrice, app.price);
         assert.equal(quote.lastSettledFundingRate1h, -100_000_000_000_000n);
         assert.equal(quote.fundingRate24h, -2_400_000_000_000_000n);
@@ -547,11 +526,14 @@ async function runHooksPath() {
     try {
       app.config.enabled = false;
       const disabled = await client.fetchQuery(
-        config.marketConfigQueryOptions(18n),
+        config.marketConfigQueryOptions(app.config.marketId),
       );
       assert.equal(form.orderLimitsFromConfig(disabled, 200n * WAD), null);
       assert.deepEqual((await markets.loadPerpsMarkets()).tradeable, []);
-      assert.equal((await quoter.quoteMarket(18n)).enabled, false);
+      assert.equal(
+        (await quoter.quoteMarket(app.config.marketId)).enabled,
+        false,
+      );
       app.config.enabled = true;
       app.paused = true;
       assert.deepEqual(
@@ -594,7 +576,9 @@ async function runHooksPath() {
       const invalidTiers = new QueryClient();
       try {
         await assert.rejects(
-          invalidTiers.fetchQuery(config.marketConfigQueryOptions(18n)),
+          invalidTiers.fetchQuery(
+            config.marketConfigQueryOptions(app.config.marketId),
+          ),
           /Market order limits are invalid/,
         );
       } finally {

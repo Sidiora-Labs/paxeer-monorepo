@@ -68,7 +68,7 @@ export function Button({
       ? <span aria-hidden="true" className="inline-flex size-icon-md items-center justify-center [&>svg]:size-full">{icon}</span>
       : null;
 
-  if (href) {
+  if (href && !disabled) {
     return (
       <Link href={href} className={classes} aria-disabled={disabled || undefined}>
         {leading}

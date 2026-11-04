@@ -1,0 +1,7 @@
+[repair.22.33.145]
+finding = "22.30.116/account-parity-test"
+proof = ["TestRepairM_145_AccountParity", "TestRepairM_145_ProducerTransportPolicy"]
+path = "Shared all-kind account vectors -> real chain codec and attestor derivation/refusal -> authorized send and signed activity encoding/decoding -> real policy effect decoder and JSON disclosure matcher; includes stream, funding, reserve and direct module-value accounts."
+baseline = "Not run: the explicit gate order forbids verification before implementation and requires hf-done as the only verification entry point; no baseline failures are claimed. The inherited account-name repair already accepts streams, but rejected-input parity and shared all-kind coverage were missing."
+wiring = "None: the proposal and proof fit the declared lxwire paths; policy and chain production components are consumed without modifying their owning domains."
+evidence = "The runner records the exact verified candidate revision, command, exit and private log in /out/run/gates.jsonl and the final task evidence; no unexecuted gate is claimed here."

@@ -1,0 +1,58 @@
+[repair.22.33.645]
+audit = "22.30.165"
+base_revision = "26bb0fe1436e9a72a6260976b19c445841ae7af0"
+acceptance = "22998.1"
+build_command = "go build ./sdk/types/..."
+verify_command = "hf-done: cg spec done 22.33.645 -f layerx-merge --root $TASK_ROOT (declared TestRepairM_645_ gate)"
+evidence = "The hf-build/hf-done private ledger records the exact candidate revision, command, exit code and log. Qualification requires both passing gates on the same candidate; no unexecuted gate is claimed."
+baseline = "Not executed: step 12 conflicts with the explicit implementation-first gate order and prohibition on running verify_cmd manually. No pre-change test failure is claimed; no prior gate ledger or partial sdk/types edits existed."
+existing_repair = "The base already contains the 22.31.293 canonical NormalizeCoins implementation and aggregated expectations; retain it and extend its fractional/zero/genesis coverage."
+wiring_request = "precompiles/spot/orders.go (markets domain, spot owner): remove both the redundant WithEvmEventManager replacement and manual EVM EmitEvents in the CacheContext branch together; write() now commits the original child EVM manager exactly once."
+
+[finding.address-prefix-cache]
+test = "TestRepairM_645_AddressPrefixCache"
+repair = "Include the configured prefix and a separator in each address cache key, using the same prefix snapshot for encoding."
+proof = "Same address bytes encode, change prefix, encode via cache and JSON, and decode for account/validator/consensus; reject old-prefix decoding and restore the original configuration."
+
+[finding.encoder-test-wrong-error]
+test = "TestRepairM_645_EncoderResultPropagation"
+repair = "TestConfig_SetTxEncoder asserts the actual returned payload and sentinel with ErrorIs, retaining sealed-setter rejection."
+proof = "Execute the repaired test and pass a real legacy transaction through the configured callback, checking identity, payload, error and sealed setter."
+
+[finding.cached-context-evm-events]
+test = "TestRepairM_645_CachedContextEVMEvents"
+repair = "Give every cached context an empty EVM manager; writeCache writes the store then merges its logs exactly once. Standard events retain their explicit merge contract."
+proof = "Real in-memory multistore and EVMEventManager logs prove nested commit/discard, repeated commit without duplicate logs, child-only standard events, and unchanged parent state/events after failed validation and abandonment of an outer branch containing a committed inner branch."
+
+[finding.dec-coins-zero-conversion]
+test = "TestRepairM_645_DecCoinsZeroConversion"
+repair = "Normalize Coins before allocating DecCoins and size the output from the normalized entries."
+proof = "Zero-only, mixed and multi-denomination amounts pass through real legacy fee JSON decoding/GasPrices and distribution genesis protobuf encoding/decoding/validation, pool subtraction and withdrawal truncation."
+
+[finding.dec-coins-union-order]
+test = "TestRepairM_645_DecCoinsUnionOrder"
+repair = "Construct the UnionMax result with NewDecCoins to sort, remove zero entries and validate without changing nonzero maximum amounts."
+proof = "Valid sorted overlapping/disjoint operands in both directions repeatedly produce identical valid ordered maxima, AmountOf results and arithmetic, retaining fractional precision and unchanged operands."
+
+[finding.union-test-discarded-result]
+test = "TestRepairM_645_UnionTestResult"
+repair = "Assert exact result, equality, validity, strict denomination ordering and AmountOf in TestUnionMax; sort operands and retain explicit zero/negative input scenarios separately from valid cases."
+proof = "The repair gate executes every existing TestUnionMax scenario, including disjoint and overlapping denominations and both empty operands."
+
+[finding.ceil-overflow-test-skip]
+test = "TestRepairM_645_CeilOverflowBoundary"
+repair = "Derive the largest internal decimal directly from the production maxDecBitLen bound, require successful string construction, assert Ceil panic and independently reject the next internal value using both constructors."
+proof = "Execute TestCeilOverflow without a skip or conditional bypass; both in-range rounding overflow and out-of-range constructor rejection assert unconditionally."
+
+[finding.normalization-test-duplicate-shape]
+test = "TestRepairM_645_NormalizationGenesis"
+repair = "Retain the already canonical aggregated natom assertions and Coins.Validate checks, and extend the internal normalization test with fractional carry and zero removal."
+proof = "ParseCoinsNormalized flows through bank Balance.Validate, genesis JSON codec transport and GenesisState.Validate with exact aggregate value and supply; duplicates, negatives, malformed denoms and excessive precision still fail."
+
+[gotcha.gate-order]
+observed = "The embedded pre-change verification instruction conflicts with the explicit gate order and wrapper prerequisite that a successful build precedes hf-done."
+resolution = "Follow the explicit gate order and retain an honest baseline record without an undeclared verification run."
+
+[gotcha.cached-context-callers]
+observed = "A caller that replaces the cached EVM manager and manually forwards its logs uses the previous explicit workaround."
+resolution = "Keep out-of-scope callers unchanged and request removal of both workaround operations together; current replacement/manual forwarding still publishes its separate manager once."

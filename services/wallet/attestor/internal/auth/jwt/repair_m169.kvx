@@ -1,0 +1,11 @@
+[repair.22.33.169]
+finding = "jwt-known-key-never-refreshes"
+proving_tests = ["TestRepairM_169_SameKidReplacement", "TestRepairM_169_Removal", "TestRepairM_169_MaximumStaleAndRecovery", "TestRepairM_169_DefaultMaximumStale", "TestRepairM_169_ConcurrentKnownKeyRefresh", "TestRepairM_169_FetchDurationCountsAgainstMaximumAge", "TestRepairM_169_FreshnessConfiguration"]
+policy = "Known keys refresh on use after five minutes by default; failed fetches may use a previously fetched key only below fifteen minutes total age; successful sets replace, never merge, the cache. Both intervals are configurable and validated."
+baseline = "Not run: the ordered task instructions require complete implementation before qualification and prohibit manually running verify_cmd before hf-done. No pre-change failure is claimed."
+evidence = "hf-build and hf-done record the exact candidate revision, command, exit code and private log location in the runner gate ledger; the final task response copies that receipt."
+wiring_requests = []
+
+[gotcha.patch-context]
+observed = "The first patch expected a blank line absent from lookupKey and was rejected without changing the tree."
+resolution = "Applied the declarations separately and replaced the exact lookupKey function."

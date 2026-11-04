@@ -1,5 +1,7 @@
 packages:
   - '.'
+  - '../../sdk/wallet'
+  - '../../services/wallet/gateway'
 confirmModulesPurge: false
 allowBuilds:
   '@sentry/cli': true

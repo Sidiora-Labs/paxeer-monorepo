@@ -369,6 +369,63 @@ pub fn reconstruct_session(
     })
 }
 
+pub(crate) struct OperatorAttempt<'a> {
+    pub tenant: TenantId,
+    pub operator_id: &'a str,
+    pub request_id: [u8; 32],
+    pub command: u8,
+    pub target: [u8; 32],
+    pub observed_at_ms: u64,
+    pub refused: bool,
+}
+
+pub(crate) fn encode_operator_attempt(
+    attempt: OperatorAttempt<'_>,
+) -> Result<Vec<u8>, RecordError> {
+    let operator = attempt.operator_id.as_bytes();
+    if operator.is_empty() || operator.len() > 256 || operator.contains(&0) {
+        return Err(RecordError::Invalid("invalid operator identity"));
+    }
+    let operator_hash: [u8; 32] = Sha256::digest(operator).into();
+    let actor = format!("operator:{}", layerx_programs::hex::encode(&operator_hash));
+    let reason = serde_json::json!({
+        "version": 1,
+        "operator_id": attempt.operator_id,
+        "command": attempt.command,
+        "target": layerx_programs::hex::encode(&attempt.target),
+    });
+    encode_entry(&Entry {
+        class: if attempt.refused {
+            EventClass::MutationAttempt
+        } else {
+            EventClass::AdministrativeAction
+        },
+        observed_at_ms: attempt.observed_at_ms,
+        tenant: attempt.tenant,
+        agent: Did::new(actor.as_bytes())
+            .map_err(|_| RecordError::Invalid("invalid operator actor"))?,
+        session: None,
+        capability: None,
+        policy_version: "operator-attempt-v1".to_owned(),
+        request_id: attempt.request_id,
+        idempotency_key: None,
+        decision: if attempt.refused {
+            Decision::Refused
+        } else {
+            Decision::Requested
+        },
+        reason: Redacted::stored(reason.to_string())?,
+        resulting_activity_id: None,
+        verification_level: VerificationLevel::UNVERIFIED,
+        protocol_authority: None,
+        submitted_bytes: None,
+        receipt_id: None,
+        tx_hash: None,
+        nonce: None,
+        rung: None,
+    })
+}
+
 fn encode_entry(entry: &Entry) -> Result<Vec<u8>, RecordError> {
     validate_entry(entry, ENTRY_VERSION)?;
     let mut output = Vec::new();

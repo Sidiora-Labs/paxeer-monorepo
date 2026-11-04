@@ -1,0 +1,31 @@
+[task.22.33.109]
+mode = "BUILD"
+base_revision = "2b502183a86af3a2498748de6572b1bde20e4768"
+acceptance = "22998.1"
+evidence = "The hf-build and hf-done ledgers retain the exact candidate revision, command, exit code and private evidence path; no gate result is asserted in this source record."
+baseline = "No unchanged-tree verification ran: the explicit implementation-first, wrapper-only gate order overrides step 7's contradictory baseline request; repair_m109_test.go was absent and no prior gate ledger existed. No baseline test failure is claimed."
+proof_limit = "The declared Go gate checks all example suite pins, documented interfaces, complete signers and real Go receipt signature verification; it cannot execute the Python renderer or Rust key-list verifier without forbidden subprocesses or native artifacts. Native behavioral tests are supplied but are not qualified by this Go-only gate."
+wiring_requests = ["spec/layerx-merge/spec.kvx — spec workflow owner: wire tests/test_repair_m109.py into a native Python gate and tests/rotation/probe.rs::repair_m109 into the existing Rust proof gate; do not treat the Go-only gate as executing either component."]
+
+[finding.gateway_readme_manifest]
+repair = "Document the current regenerated manifest, explicit example trust inputs, live receipt-key file, unique ids, complete signer set, merged node relay, startup pin lookup and authenticity versus committed-finality boundary; retain existing explicit retirement notices for out-of-scope deployment templates."
+tests = ["TestRepairM_109_ReadmeManifest", "test_repair_m109_readme_matches_manifest_and_live_interfaces"]
+
+[finding.gateway_example_pins]
+repair = "Regenerate config.example.json with the production renderer from trust-inputs.example.json and receipt-keys.example.json, without inherited deployment overrides."
+tests = ["TestRepairM_109_ExamplePins", "test_repair_m109_example_matches_current_renderer"]
+proof = "Go recomputes every adapter count and every adapter/transport suite and specification digest against the committed bytes; the native Python test compares the entire example to production render and every derived field, including future additions."
+
+[finding.gateway_duplicate_key_id]
+repair = "Refuse repeated keyId values across all receipt-key windows before the CLI writes configuration, retaining exact field, nonzero key, unsigned height, reversed-range and overlap checks; distinct ids may still share a public key."
+tests = ["TestRepairM_109_ReceiptKeyWindows", "test_repair_m109_duplicate_key_id_refused_before_write", "test_repair_m109_distinct_ids_may_share_public_key", "test_repair_m109_preserves_key_and_range_checks", "rendered_example_windows_use_unambiguous_proof_keys"]
+proof = "Native Python tests drive main and receipt_keys in-process in render/check modes and preserve existing output on refusal; the existing Rust probe's new unit test passes recorded receipts for both example windows through production verify_sequencer_signature, then asserts duplicate-id, range and signature refusals. The Go gate independently authenticates both recordings using production ReceiptSignature."
+recordings = ["sdk/platform/conformance/fixtures/sequencer-receipt-v1.json", "sdk/platform/conformance/fixtures/receipt-sequencer-v1.json"]
+
+[gotcha.gate_toolchain]
+observed = "This task prescribes a Go-only gate for a Python renderer and Rust runtime while forbidding subprocesses, native artifacts, toolchain bridges and changes to the task's gate."
+resolution = "Keep the prescribed gate and real Go signature verifier, supply native tests beside the existing tests, and record the unexecuted native proof explicitly rather than replacing production components with Go implementations."
+
+[gotcha.baseline_order]
+observed = "Step 7 requests a pre-change verify, but the ordered instructions permit hf-done only after full implementation and hf-build."
+resolution = "Follow the explicit gate order and record that no pre-change tests were run."

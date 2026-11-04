@@ -1,0 +1,20 @@
+[repair.22.33.138]
+audit = "22.30.115"
+acceptance = "22998.1"
+findings = ["pns-stale-search", "pns-registration-journal"]
+baseline = "Not executed: the task's mandatory gate order forbids pre-implementation testing and permits verification only through hf-done after hf-build. No pre-change test failures are claimed."
+evidence = "The runner gate ledger records the exact verified candidate revision, command, exit code and private evidence location; the final response copies its final evidence line."
+wiring_requests = []
+qualification_note = "The initial hf-done returned zero but Vitest 4 registered function-only declarations as todo and ran no assertions; that result is not behavior qualification. Tests use explicit function names and callbacks for the repair run."
+
+[finding.pns-stale-search]
+repair = "One generation binds name, duration, availability and price; query/duration changes and unmount invalidate it, and registration snapshots only a validated result."
+test = "pns_stale_search_rejects_out_of_order_query_duration_and_clear"
+additional_tests = ["pns_stale_search_cannot_authorize_a_different_registration_identity"]
+path = "apps/wallet/src/widgets/pns/repair-22-33-138.test.ts"
+
+[finding.pns-registration-journal]
+repair = "Register intent, cryptographic secret, chain/account/controller and nonce/calldata are durably saved through the wallet storage registry before broadcast; transaction hashes are saved before receipt observation. Reopening the production hook reconciles the original transaction and commitment ages before revealing or expiring it."
+test = "pns_registration_journal_recovers_original_secret_after_component_restart"
+additional_tests = ["pns_registration_recovers_lost_commit_response_without_rebroadcast", "pns_registration_recovers_lost_reveal_response_without_duplicate_spend", "pns_registration_retains_pending_and_expires_only_reconciled_commitment", "pns_registration_refuses_cross_account_chain_and_undurable_intent", "pns_registration_reconciles_reverted_commit_and_stopped_session"]
+path = "apps/wallet/src/widgets/pns/repair-22-33-138.test.ts"

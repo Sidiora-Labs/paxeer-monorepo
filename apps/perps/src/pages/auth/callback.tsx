@@ -8,12 +8,48 @@
  */
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
-import { getPaxeerWallet } from "@/core/wallet/embedded";
+import { getPaxeerWallet, type PaxeerWallet } from "@/core/wallet/embedded";
+import { useWalletStore } from "@/hooks/wallet/useWalletStore";
 
 const RETURN_TO_KEY = "paxeer:auth:returnTo";
+
+type AuthCallbackOptions = {
+  search: string;
+  isCancelled: () => boolean;
+  onError: (message: string) => void;
+  onSuccess: () => Promise<unknown>;
+};
+
+export async function finishAuthCallback(wallet: PaxeerWallet, options: AuthCallbackOptions): Promise<void> {
+  const { search, isCancelled, onError, onSuccess } = options;
+  try {
+    const code = new URLSearchParams(search).get("code");
+    if (isCancelled()) return;
+    if (!code) {
+      onError("Sign-in link is missing its authorization code. Please sign in again.");
+      return;
+    }
+    const { error: exchangeError } = await wallet.supabase.auth.exchangeCodeForSession(code);
+    if (isCancelled()) return;
+    const session = await wallet.getSession();
+    if (isCancelled()) return;
+    if (session) {
+      await onSuccess();
+      return;
+    }
+    onError(exchangeError?.message ?? "Sign-in did not complete. Please sign in again.");
+  } catch (err) {
+    if (isCancelled()) return;
+    onError(err instanceof Error && err.message ? err.message : "Sign-in did not complete. Please sign in again.");
+  }
+}
+
+export async function retryAuthCallback(navigateHome: () => Promise<boolean>): Promise<void> {
+  if (await navigateHome()) useWalletStore.getState().openConnectModal();
+}
 
 export default function AuthCallback() {
   const router = useRouter();
@@ -40,28 +76,31 @@ export default function AuthCallback() {
       return "/";
     }
 
-    void (async () => {
-      const code = new URLSearchParams(window.location.search).get("code");
-      if (!code) {
-        setError("Sign-in link is missing its authorization code. Please sign in again.");
-        return;
-      }
-      const { error: exchangeError } = await wallet.supabase.auth.exchangeCodeForSession(code);
-      if (cancelled) return;
-      const session = await wallet.getSession();
-      if (cancelled) return;
-      if (session) {
-        router.replace(destination());
-        return;
-      }
-      setError(exchangeError?.message ?? "Sign-in did not complete. Please sign in again.");
-    })();
+    void finishAuthCallback(wallet, {
+      search: window.location.search,
+      isCancelled: () => cancelled,
+      onError: setError,
+      onSuccess: () => router.replace(destination()),
+    });
 
     return () => {
       cancelled = true;
     };
   }, [router]);
 
+  return (
+    <AuthCallbackContent
+      error={error}
+      onRetry={() => {
+        void retryAuthCallback(() => router.replace("/")).catch((err: unknown) => {
+          setError(err instanceof Error ? err.message : "Unable to return home. Please try again.");
+        });
+      }}
+    />
+  );
+}
+
+export function AuthCallbackContent({ error, onRetry }: { error: string | null; onRetry: () => void }) {
   return (
     <>
       <Head>
@@ -72,6 +111,13 @@ export default function AuthCallback() {
           <>
             <p className="text-[15px] text-foreground">Sign-in failed</p>
             <p className="text-[13px] text-red-400">{error}</p>
+            <button
+              type="button"
+              onClick={onRetry}
+              className="mt-2 rounded-xl border border-border bg-surface-1 px-4 py-2 text-[13px] text-foreground hover:bg-muted/30"
+            >
+              Sign in again
+            </button>
             <a
               href="/"
               className="mt-2 rounded-xl border border-border bg-surface-1 px-4 py-2 text-[13px] text-foreground hover:bg-muted/30"

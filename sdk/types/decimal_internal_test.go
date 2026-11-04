@@ -80,3 +80,8 @@ func (s *decimalInternalTestSuite) TestDecMarshalJSON() {
 		})
 	}
 }
+
+// RepairM645MaxDecInternal derives the boundary from the production range bound.
+func RepairM645MaxDecInternal() *big.Int {
+	return new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), maxDecBitLen), big.NewInt(1))
+}

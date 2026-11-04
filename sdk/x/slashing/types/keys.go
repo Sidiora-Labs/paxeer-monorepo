@@ -25,9 +25,9 @@ const (
 //
 // - 0x01<consAddrLen (1 Byte)><consAddress_Bytes>: ValidatorSigningInfo
 //
-// - 0x02<consAddrLen (1 Byte)><consAddress_Bytes><period_Bytes>: bool
+// - 0x02<consAddrLen (1 Byte)><consAddress_Bytes>: ValidatorMissedBlockArray
 //
-// - 0x03<accAddrLen (1 Byte)><accAddr_Bytes>: cryptotypes.PubKey
+// - 0x03<consAddrLen (1 Byte)><consAddress_Bytes>: interface-encoded cryptotypes.PubKey
 var (
 	ValidatorSigningInfoKeyPrefix         = []byte{0x01} // Prefix for signing info
 	ValidatorMissedBlockBitArrayKeyPrefix = []byte{0x02} // Prefix for missed block bit array

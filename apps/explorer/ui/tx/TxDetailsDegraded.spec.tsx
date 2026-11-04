@@ -3,17 +3,17 @@
 import React from 'react';
 
 import { base } from 'mocks/txs/tx';
-import { render, routerState } from 'ui/shared/layout/testWrapper';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, test } from 'vitest';
 
-vi.mock('next/router', async() => (await import('ui/shared/layout/testWrapper')).nextRouterModule());
-
-import TxDetailsDegraded from './TxDetailsDegraded';
+import {
+  TxDetailsDegraded, renderTransaction, degradedNodeReceiptReachesOverview,
+  degradedRevertedReceiptReachesOverview, degradedReceiptErrorRecoversToIndexedTransaction,
+} from './repair-22-33-519.fixtures';
 import type { TxQuery } from './useTxQuery';
 
 // The degraded page reads the transaction from the node, and the node query ships the RPC
-// placeholders it renders until the node answers. The spec leaves the query unfetched, which is the
-// state the page is in while the indexer is behind, and asserts what the page puts on the screen.
+// placeholders it renders until the node answers. These layout cases leave that query unfetched;
+// the enabled-query regressions below exercise node receipts and recovery through the real page.
 const buildTxQuery = (status?: number): TxQuery => ({
   data: undefined,
   error: status === undefined ? null : { status, payload: undefined },
@@ -27,20 +27,18 @@ const buildTxQuery = (status?: number): TxQuery => ({
 
 describe('TxDetailsDegraded', () => {
   beforeEach(() => {
-    routerState.pathname = '/tx/[hash]';
-    routerState.query = { hash: base.hash };
     fetchMock.resetMocks();
     fetchMock.mockResponse(JSON.stringify({}), { headers: { 'Content-Type': 'application/json' } });
   });
 
   it('renders the overview card from the node data', () => {
-    const { container } = render(<TxDetailsDegraded hash={ base.hash } txQuery={ buildTxQuery(500) }/>);
+    const { container } = renderTransaction(<TxDetailsDegraded hash={ base.hash } txQuery={ buildTxQuery(500) }/>, base.hash);
 
     expect(container.querySelector('[data-tx-info]')).not.toBeNull();
   });
 
   it('puts the sync warning in the band above the overview card', () => {
-    const { container } = render(<TxDetailsDegraded hash={ base.hash } txQuery={ buildTxQuery(500) }/>);
+    const { container } = renderTransaction(<TxDetailsDegraded hash={ base.hash } txQuery={ buildTxQuery(500) }/>, base.hash);
 
     const band = container.querySelector('[data-tx-info]')?.previousElementSibling;
 
@@ -48,7 +46,7 @@ describe('TxDetailsDegraded', () => {
   });
 
   it('keeps the testnet notice in the same band', () => {
-    const { container } = render(<TxDetailsDegraded hash={ base.hash } txQuery={ buildTxQuery(500) }/>);
+    const { container } = renderTransaction(<TxDetailsDegraded hash={ base.hash } txQuery={ buildTxQuery(500) }/>, base.hash);
 
     const band = container.querySelector('[data-tx-info]')?.previousElementSibling;
 
@@ -56,7 +54,7 @@ describe('TxDetailsDegraded', () => {
   });
 
   it('drops the sync warning when the indexer simply has no such transaction', () => {
-    const { container } = render(<TxDetailsDegraded hash={ base.hash } txQuery={ buildTxQuery(404) }/>);
+    const { container } = renderTransaction(<TxDetailsDegraded hash={ base.hash } txQuery={ buildTxQuery(404) }/>, base.hash);
 
     const band = container.querySelector('[data-tx-info]')?.previousElementSibling;
 
@@ -64,3 +62,7 @@ describe('TxDetailsDegraded', () => {
     expect(container.querySelector('[data-tx-info]')).not.toBeNull();
   });
 });
+
+test(degradedNodeReceiptReachesOverview, degradedNodeReceiptReachesOverview, 10000);
+test(degradedRevertedReceiptReachesOverview, degradedRevertedReceiptReachesOverview, 10000);
+test(degradedReceiptErrorRecoversToIndexedTransaction, degradedReceiptErrorRecoversToIndexedTransaction, 25000);

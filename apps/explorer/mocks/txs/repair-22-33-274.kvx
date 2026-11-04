@@ -1,0 +1,22 @@
+[repair.22.33.274]
+status = "implemented-awaiting-qualification"
+rpc-receipt-status = "rpcReceiptStatusDecodesForHomeFallback exercises successful and reverted hex-status fixtures through loopback JSON-RPC, viem getTransactionReceipt and the production formatTxData consumer."
+price-fixture-cast = "priceFixtureKeepsItsNativeTypeThroughThePriceConsumer checks the native export type, missing EVM fields and production applyPriceUpdates behavior; nativePriceFixtureRendersBesideEvmTransactions exercises the real list, table and mixed TxsContent consumers."
+baseline = "Not run: the explicit gate order forbids verification before implementation and verification outside hf-done; no before-change test execution is claimed."
+proof_limit = "These existing frontend fixtures are not claimed as captured producer output; backend-emitted success/revert receipt and FeedView transcripts remain required for full interface qualification."
+consumer_repair = "TransactionFeedItem derives from ResourcePayload<general:homepage_txs>; list, table, content and their fixtures carry that production union, narrow it before EVM-only reads and exclude native submissions from Noves EVM interpretation."
+wiring_home = "Domain 7: apps/explorer/ui/home/fallbacks/rpcDataContext.tsx must read receipt.data.status rather than the query status, and apps/explorer/ui/pages/Home.pw.tsx needs success/revert coverage through that provider."
+wiring_transcripts = "Domains 7/14: capture rpc/tx.go success/revert and services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/paxeer_x/feed_view.ex output as committed fixtures without adding a toolchain requirement to the gate."
+qualification = "The runner hf-build/hf-done ledger records the exact candidate revision, command, exit and private evidence path; no passing gate is claimed in advance."
+gotcha = "Removing the prohibited fixture cast exposes consumer props and fixture helpers that incorrectly require an EVM Transaction; the now-scoped consumers use the exported production feed union without padding native items or restoring the cast."
+environment = "Attempt 2 uses the declared corepack/Yarn gates after the environment repair in 22.31.440; the historical attempt-1 failure below is retained as evidence, not rerun."
+formatter = "Use repository ESLint --fix only on touched TypeScript files and gofmt on rpc/tx.go; retain named-function test registration as required by the task even though the ESLint title/assertion rules cannot inspect that registration."
+repair_cycle_1 = "The bounded build found nullable mined-transaction fields in the new decoder test; the test now checks block hash, block number and transaction index before passing the decoded transaction to formatTxData."
+
+[qualification.build_1]
+revision = "68d3f40eb3d5e19f1395e60ac7848e8d4d3107dc"
+command = "pnpm --dir apps/explorer exec tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "Besides the scoped test repair, compilation reports missing ganache in ui/marketplace/essentialDapps/revoke/hooks/repair-22-31-381.spec.ts and native PriceUpdateItem incompatibilities in ui/txs/TxsContent.spec.tsx:169, TxsListItem.spec.tsx:66 and TxsTableItem.spec.tsx:110."
+assumption = "The missing dependency is pre-existing; domain 14 must narrow the UI interface and test helpers outside scope, while this task retains the native fixture type without an escape cast."

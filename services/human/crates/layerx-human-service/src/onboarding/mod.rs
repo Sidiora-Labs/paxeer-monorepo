@@ -18,10 +18,8 @@ use layerx_intents::{
     compile, CompileError, DidRegistration, DisclosureCheck, DisclosureCheckError, Intent,
     IntentError, IntentKind, RecoveryRegistration,
 };
-use layerx_proof::receipt::{
-    verify, verify_sequencer_signature, AuthorizedBatch, VerificationFailure,
-};
-use layerx_sdk::{Call, Client as AgentClient, SdkError, SubmissionOutcome};
+use layerx_proof::receipt::VerificationFailure;
+use layerx_sdk::{Call, Client as AgentClient, SdkError};
 use layerx_types::ids::Did;
 use layerx_types::intent::{ApprovalThreshold, PublicKey, RecoveryRoot};
 use layerx_types::payload::ModuleRegistry;
@@ -46,8 +44,6 @@ const RECORD_VERSION: u8 = 1;
 const APPLICATION_EVIDENCE_DOMAIN: &[u8] = b"layerx-human-onboarding-application/v1";
 const ACTION_KEY_DOMAIN: &[u8] = b"layerx-human-onboarding-action/v1";
 const PREPARE_DIGEST_DOMAIN: &[u8] = b"layerx-human-agent-prepare/v1";
-const DID_OPERATION: u8 = 1;
-const RECOVERY_OPERATION: u8 = 3;
 const TEXT_LIMIT: usize = 256;
 
 /// The two protocol mutations in the onboarding journey.
@@ -62,13 +58,6 @@ impl ProtocolStage {
         match self {
             Self::DidRegistration => 1,
             Self::RecoveryRegistration => 2,
-        }
-    }
-
-    const fn expected_operation(self) -> u8 {
-        match self {
-            Self::DidRegistration => DID_OPERATION,
-            Self::RecoveryRegistration => RECOVERY_OPERATION,
         }
     }
 }
@@ -392,6 +381,8 @@ pub enum AgentStageOutcome<'a> {
     Tracked {
         submission: &'a TrackedSubmission,
     },
+    /// Retired receipt-only adapter. Use `OnboardingJourney::accept_bootstrap_owner`
+    /// with committed, transaction-bound native evidence instead.
     Executed {
         submission: &'a TrackedSubmission,
         activity_id: [u8; 32],
@@ -484,6 +475,8 @@ struct ProtocolRecord {
     receipt_digest: Option<[u8; 32]>,
     activity_id: Option<[u8; 32]>,
     refusal_code: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    evidence_rung: Option<u8>,
 }
 
 impl ProtocolRecord {
@@ -496,6 +489,7 @@ impl ProtocolRecord {
             receipt_digest: None,
             activity_id: None,
             refusal_code: None,
+            evidence_rung: None,
         }
     }
 }
@@ -740,8 +734,9 @@ impl OnboardingJourney {
         self.build_action(stage, registry, agent, &stored).map(Some)
     }
 
-    /// Records an unavailable, pending, unknown, refused, or receipt-backed
-    /// result from the agent contract without ever translating uncertainty to success.
+    /// Records an unavailable, pending, unknown, or refused tracking observation.
+    /// Receipt-only execution updates are retired; committed native outcomes must
+    /// enter through `Self::accept_bootstrap_owner`.
     ///
     /// # Errors
     ///
@@ -750,8 +745,8 @@ impl OnboardingJourney {
     pub fn apply_agent_update(
         &mut self,
         scope: &mut PrincipalScope<'_>,
-        audit: &mut AuditChain,
-        trace: &TraceId,
+        _audit: &mut AuditChain,
+        _trace: &TraceId,
         update: &AgentStageUpdate<'_>,
         now: u64,
     ) -> Result<OnboardingStatus, OnboardingError> {
@@ -762,7 +757,7 @@ impl OnboardingJourney {
         match &update.outcome {
             AgentStageOutcome::Unavailable { dependency } => {
                 let stage = self.stage_mut(update.stage);
-                if stage.state != ProtocolState::Verified {
+                if stage.receipt_digest.is_none() {
                     stage.state = ProtocolState::Queued;
                     stage.unavailable = Some(*dependency);
                 }
@@ -772,26 +767,8 @@ impl OnboardingJourney {
                 self.apply_tracked(update.stage, submission)?;
                 self.persist(scope, now)?;
             }
-            AgentStageOutcome::Executed {
-                submission,
-                activity_id,
-                receipt_bytes,
-                tx_hash,
-                rung,
-                receipt_key,
-            } => {
-                self.apply_executed(
-                    scope,
-                    update.stage,
-                    submission,
-                    *activity_id,
-                    receipt_bytes,
-                    *tx_hash,
-                    *rung,
-                    receipt_key,
-                    now,
-                )?;
-                self.ensure_activation_audit(scope, audit, trace, update.stage, now)?;
+            AgentStageOutcome::Executed { .. } => {
+                return Err(OnboardingError::NativeOutcomeRequired);
             }
         }
         Ok(self.status())
@@ -913,6 +890,7 @@ impl OnboardingJourney {
 
     fn persist(&mut self, scope: &mut PrincipalScope<'_>, now: u64) -> Result<(), OnboardingError> {
         self.record.updated_at = self.record.updated_at.max(now);
+        validate_record(&self.record)?;
         let bytes = serde_json::to_vec(&self.record)
             .map_err(|_| OnboardingError::CorruptJourney("journey cannot be encoded"))?;
         scope.put(Table::Journeys, journey_row()?, now, bytes)?;
@@ -1054,6 +1032,9 @@ impl OnboardingJourney {
     ) -> Result<(), OnboardingError> {
         let record = self.stage_mut(stage);
         bind_submission(record, submission)?;
+        if record.receipt_digest.is_some() {
+            return Ok(());
+        }
         record.unavailable = None;
         match &submission.state {
             SubmissionState::Prepared
@@ -1076,82 +1057,6 @@ impl OnboardingJourney {
         Ok(())
     }
 
-    #[allow(clippy::too_many_arguments)]
-    fn apply_executed(
-        &mut self,
-        scope: &mut PrincipalScope<'_>,
-        stage: ProtocolStage,
-        submission: &TrackedSubmission,
-        expected_activity_id: [u8; 32],
-        receipt_bytes: &[u8],
-        tx_hash: [u8; 32],
-        rung: Rung,
-        receipt_key: &ReceiptKeyEntry,
-        now: u64,
-    ) -> Result<(), OnboardingError> {
-        match AgentClient::submission_outcome(submission.clone())? {
-            SubmissionOutcome::Executed(_) => {}
-            _ => return Err(OnboardingError::ReceiptRequired),
-        }
-        if tx_hash != expected_activity_id || rung < Rung::Receipted {
-            return Err(OnboardingError::ReceiptActivityMismatch);
-        }
-        let key = layerx_proof::inclusion::SequencerAuthorization::new(
-            receipt_key.key_id,
-            receipt_key.public_key,
-            receipt_key.first_height,
-            receipt_key.last_height,
-        );
-        let receipt = verify_sequencer_signature(receipt_bytes, &[key][..])?;
-        let protocol = receipt.protocol().ok_or(OnboardingError::ReceiptShape)?;
-        let authority = AuthorizedBatch::new(
-            protocol.batch_id(),
-            protocol.asset(),
-            protocol.previous_state_root(),
-            protocol.resulting_state_root(),
-            receipt_key.public_key,
-        );
-        let verified = verify(receipt_bytes, &authority)?;
-        let protocol = verified
-            .receipt()
-            .protocol()
-            .ok_or(OnboardingError::ReceiptShape)?;
-        if protocol.activity_id() != expected_activity_id {
-            return Err(OnboardingError::ReceiptActivityMismatch);
-        }
-        if protocol.operation() != stage.expected_operation() {
-            return Err(OnboardingError::ReceiptOperationMismatch);
-        }
-        let digest: [u8; 32] = Sha256::digest(receipt_bytes).into();
-        let other = match stage {
-            ProtocolStage::DidRegistration => &self.record.recovery_registration,
-            ProtocolStage::RecoveryRegistration => &self.record.did_registration,
-        };
-        if other.receipt_digest == Some(digest) || other.activity_id == Some(expected_activity_id) {
-            return Err(OnboardingError::ReceiptReuse);
-        }
-        {
-            let record = self.stage_mut(stage);
-            bind_submission(record, submission)?;
-            if record.receipt_digest.is_some_and(|stored| stored != digest)
-                || record
-                    .activity_id
-                    .is_some_and(|stored| stored != expected_activity_id)
-            {
-                return Err(OnboardingError::EvidenceConflict);
-            }
-        }
-        let row = receipt_row(stage)?;
-        put_exact(scope, row, now, receipt_bytes.to_vec())?;
-        let record = self.stage_mut(stage);
-        record.state = ProtocolState::Verified;
-        record.unavailable = None;
-        record.receipt_digest = Some(digest);
-        record.activity_id = Some(expected_activity_id);
-        record.refusal_code = None;
-        self.persist(scope, now)
-    }
-
     fn ensure_activation_audit(
         &self,
         scope: &mut PrincipalScope<'_>,
@@ -1160,8 +1065,13 @@ impl OnboardingJourney {
         stage: ProtocolStage,
         now: u64,
     ) -> Result<(), OnboardingError> {
-        let digest = self
-            .stage(stage)
+        let record = self.stage(stage);
+        if record.state != ProtocolState::Verified
+            || record.evidence_rung != Some(Rung::Committed.wire_rank())
+        {
+            return Err(OnboardingError::ReceiptRequired);
+        }
+        let digest = record
             .receipt_digest
             .ok_or(OnboardingError::ReceiptRequired)?;
         match stage {
@@ -1316,8 +1226,18 @@ fn validate_protocol_record(record: &ProtocolRecord) -> Result<(), OnboardingErr
         && (record.receipt_digest.is_none()
             || record.activity_id.is_none()
             || record.submission_ref.is_none())
-        || record.state != ProtocolState::Verified
-            && (record.receipt_digest.is_some() || record.activity_id.is_some())
+        || record.receipt_digest.is_some() != record.activity_id.is_some()
+        || record.receipt_digest.is_some()
+            && (!matches!(
+                record.state,
+                ProtocolState::Verified | ProtocolState::Refused
+            ) || record.submission_ref.is_none()
+                || record.evidence_rung != Some(Rung::Committed.wire_rank()))
+        || record.receipt_digest.is_none() && record.evidence_rung.is_some()
+        || record.state == ProtocolState::Verified && record.refusal_code.is_some()
+        || record.state == ProtocolState::Refused
+            && record.receipt_digest.is_some()
+            && !record.refusal_code.is_some_and(|code| code != 0)
         || record
             .submission_ref
             .as_ref()
@@ -1555,6 +1475,7 @@ pub enum OnboardingError {
     ActionKeyMismatch,
     SubmissionConflict,
     ReceiptRequired,
+    NativeOutcomeRequired,
     ReceiptShape,
     ReceiptActivityMismatch,
     ReceiptOperationMismatch,
@@ -1602,6 +1523,9 @@ impl Display for OnboardingError {
             Self::SubmissionConflict => {
                 formatter.write_str("agent update names another submission")
             }
+            Self::NativeOutcomeRequired => formatter.write_str(
+                "receipt-only onboarding updates are retired; use accept_bootstrap_owner with committed native evidence",
+            ),
             Self::ReceiptRequired => {
                 formatter.write_str("executed state requires verified receipt evidence")
             }

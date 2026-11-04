@@ -8,6 +8,15 @@ pub enum Error {
     #[error("reCAPTCHA verification failed: {}", .0.join(", "))]
     VerificationFailed(Vec<String>),
 
+    #[error("reCAPTCHA response is missing the required hostname")]
+    MissingHostname,
+
+    #[error("reCAPTCHA v3 response is missing the required action")]
+    MissingAction,
+
+    #[error("reCAPTCHA v3 response is missing the required score")]
+    MissingScore,
+
     #[error("reCAPTCHA score {score} is below threshold {threshold}")]
     ScoreTooLow { score: f32, threshold: f32 },
 

@@ -58,7 +58,7 @@ The record is keyed by validator, so `SetAggregateExchangeRateVote` replaces any
 
 ## Vote Targets and Parameters
 
-Each vote target is a `Denom{Name: denom}` record. After tallying, `ApplyWhitelist` compares targets with `Params.Whitelist`, recreates the target set when needed, and registers missing bank denom metadata. Target membership and the stored-rate set are distinct.
+Each vote target is a `Denom{Name: denom}` record. After tallying, `ApplyWhitelist` compares targets with `Params.Whitelist`, recreates the target set when needed, and registers missing bank denom metadata. Target membership and the stored-rate set are distinct. `InitGenesis` validates parameters and reconstructs targets from `Params.Whitelist` before restoring aggregate votes, including when the destination has no target keys. Genesis does not export a separate target list: recovery starts from the validated whitelist, so a pending whitelist change is applied at initialization rather than waiting for the first tally.
 
 Parameters use the `oracle` parameter subspace and the keys declared in [`types/params.go`](../types/params.go): `VotePeriod`, `VoteThreshold`, `RewardBand`, `Whitelist`, `SlashFraction`, `SlashWindow`, `MinValidPerWindow`, and `LookbackDuration`. Defaults are listed in the [README](../README.md#parameters).
 
@@ -73,3 +73,7 @@ The current oracle MidBlock and EndBlock hooks do not add snapshots. Genesis can
 ## Spam-Prevention Counter
 
 The memory-store entry records the last height admitted by `CheckAndSetSpamPreventionCounter` for a validator. A repeated admission at that height returns the SDK `ErrAlreadyExists`. The [ante decorator](../ante.go) calls it only for non-simulated CheckTx, excluding ReCheckTx. It is an admission guard, not a persistent vote-period record or an additional commit/reveal phase.
+
+## Store Migration Boundaries
+
+The in-place migrations in [`keeper/migrations.go`](../keeper/migrations.go) are historical conversion steps, not current write formats: 2→3 converts `sdk.DecProto` rates to `OracleExchangeRate` with unknown source height zero; 3→4 converts `UInt64Value` miss counters to penalty-counter records; 4→5 deletes prefix `0x04`; 5→6 backfills success counts using explicit vote-period and slash-window history. None of these conversions establishes a fresh price observation. Genesis versioning is separate from these store versions.

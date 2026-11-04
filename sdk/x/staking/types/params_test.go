@@ -30,6 +30,9 @@ func Test_validateParams(t *testing.T) {
 	require.NoError(t, params.Validate())
 
 	// validate mincommision
+	params.MinCommissionRate = sdk.Dec{}
+	require.NotPanics(t, func() { require.Error(t, params.Validate()) })
+
 	params.MinCommissionRate = sdk.NewDec(-1)
 	require.Error(t, params.Validate())
 

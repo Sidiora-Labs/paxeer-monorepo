@@ -50,6 +50,11 @@ forward and recovery behavior before using new migrations with service data.
 
 ## Recovery and rollback
 
+The initial migration, `m20220101_000001_create_table`, has no supported down
+operation. Calling its `down` method returns SeaORM's migration error
+`We Don't Do That Here`; it does not reverse the snapshot. Use the backup/restore
+procedure below for retained data, or recreate a disposable database.
+
 The registered migration implements `up` only. It has no `down` implementation,
 so `down`, `refresh` and `reset` are not supported recovery procedures for
 this migration. SeaORM offering those CLI commands does not supply an inverse

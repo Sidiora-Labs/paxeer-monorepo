@@ -8,7 +8,9 @@ use k256::ecdsa::SigningKey;
 use layerx_bridge_relayer::attestation::{
     to_attestor_signature, uint256_from_u64, InboundAttestation, OutboundAttestation,
 };
-use layerx_bridge_relayer::attestation_api::{serve, AttestationView};
+use layerx_bridge_relayer::attestation_api::{
+    serve, AttestationView, AuthenticatedPolicy, PolicyDestination,
+};
 use layerx_bridge_relayer::config::RelayerConfig;
 use layerx_bridge_relayer::hex;
 use layerx_bridge_relayer::journal::{Entry, Journal, Observation, Position};
@@ -459,11 +461,21 @@ fn the_attestation_routes_answer_over_a_socket() {
             signature,
         })
         .expect("journal signature");
-    let mut updated = AttestationView {
-        items: journal.state().items.clone(),
-        ..AttestationView::default()
+    let destination = PolicyDestination::Inbound {
+        chain_id: 125,
+        bridge: layerx_bridge_relayer::abi::LAYERX_BRIDGE_PRECOMPILE,
+        source_chain_id: deposit.chain_id,
+        source_vault: deposit.vault,
     };
-    updated.thresholds.insert(deposit.chain_id, 1);
+    let policy = AuthenticatedPolicy {
+        destination,
+        threshold: 1,
+        attestors: vec![layerx_bridge_relayer::attestation::ethereum_address(
+            signing_key.verifying_key(),
+        )],
+    };
+    let updated =
+        AttestationView::from_journal(&journal, None, &BTreeMap::from([(destination, policy)]));
     *shared.write().expect("publish next tick snapshot") = updated;
     expected_deposit["signatures"] = json!([hex::prefixed(&signature)]);
     expected_deposit["status"] = json!("ready");
@@ -558,4 +570,13 @@ fn malformed_attestation_paths_answer_bad_request() {
     let mut idle = connect(address);
     assert_eq!(response(&mut idle).0, 408);
     assert_eq!(request(address, "GET", "/unknown").0, 404);
+}
+
+#[allow(dead_code)]
+#[path = "support/repair_22_33_68.rs"]
+mod repair_22_33_68_support;
+
+#[test]
+fn repair_22_33_68_policy_restart_and_rotation() {
+    repair_22_33_68_support::policy_restart_and_rotation();
 }

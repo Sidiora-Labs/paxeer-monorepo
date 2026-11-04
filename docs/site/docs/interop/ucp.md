@@ -1,39 +1,105 @@
 # UCP
 
-`layerx-ucp` is the interoperability adapter for UCP merchant profiles,
-checkout, and orders (`services/interop/crates/layerx-ucp`). The adapter id is `ucp`.
-The crate pins UCP revision `2026-04-08` and the checkout / order
-specification and schema URLs published at `ucp.dev`
-(`services/interop/crates/layerx-ucp/src/lib.rs`).
+`layerx-ucp` adapts UCP merchant discovery, capability negotiation, checkout
+completion and order reads to native Paxeer payments. Its adapter id is `ucp`;
+the implementation is `services/interop/crates/layerx-ucp`.
 
-The platform specification (`spec/layerx-platform/spec.kvx`, requirement 32
-`ac_4`) requires UCP merchant profiles, capability negotiation, checkout, and
-order flows so a UCP-speaking commerce surface can transact against LayerX
-sellers without bespoke integration.
+Paxeer is one BFT network with EVM chain id `125` (`0x7d`). The kernel runs
+inside the network and proposes blocks; a payment is final when its block is
+committed. The adapter verifies native signed payment evidence and does not
+write balances. See [x402 receipt binding](x402.md#receipt-binding) for the
+shared evidence boundary and [public RPC endpoints](../reference/public-rpc.md)
+for node access.
 
 ## What the crate binds
 
-Capability names compiled in the crate include
-`dev.ucp.shopping.checkout` and `dev.ucp.shopping.order`. Settlement
-success still requires a gateway-verified LayerX receipt: the crate imports
-`layerx_proof::receipt::verify` and `AuthorizedBatch`. Domain tags
-`LayerX/interop/ucp/checkout/v1` and `LayerX/interop/ucp/idempotency/v1`
-are defined in the same file.
+The crate pins UCP revision `2026-04-08`. `MerchantProfile::layerx` advertises
+`dev.ucp.shopping.checkout` and `dev.ucp.shopping.order`, with specification
+and schema URLs under `https://ucp.dev/2026-04-08/`. The merchant supplies its
+HTTPS REST origin and an exact, versioned `PaymentHandler` declaration.
+`NegotiatedCapabilities::negotiate` requires the supported checkout name and
+version and a matching payment handler, including its specification and
+schema. Order support is negotiated separately.
 
-Adapters translate. They do not write balances
-([Interop](index.md)).
+`CheckoutSubmission` binds a checkout id, uppercase three-letter currency,
+positive `total_minor`, 32-byte asset and recipient, negotiated capabilities,
+and a nonzero UUID idempotency key. `UcpIdempotencyKey::gateway_key` hashes
+the UUID bytes under `LayerX/interop/ucp/idempotency/v1\0`. The checkout request
+digest uses `LayerX/interop/ucp/checkout/v1\0` and includes the merchant currency
+configuration, so changing the payment terms under the same key conflicts.
+
+### Currency and asset units
+
+Checkout totals are currency minor units; payment amounts are asset atomic
+units. Configure `MerchantCurrencyBinding::new(currency, asset,
+minor_decimals, atomic_decimals)` and wrap the payment plane with
+`UcpServiceConfig::bind_plane`. The merchant owns this equivalence; a buyer
+cannot supply an exchange rate or infer the exponents from a receipt.
+
+Conversion multiplies or divides by the exact power of ten. For example,
+`1000` minor units with currency exponent `2` and asset exponent `6` becomes
+`10000000` atomic units. Division must be exact and multiplication must fit
+`u128`. Missing, mismatched, inexact or overflowing bindings produce
+`CurrencyBindingRequired`, `CurrencyBindingMismatch`, `InexactAmount` or
+`AmountOverflow`; the adapter never rounds a total.
+
+### Checkout evidence and retries
+
+`UcpAdapter::complete_checkout` takes deployment-pinned
+`&[SequencerAuthorization]` receipt keys. The configured payment plane returns
+`Pending`, `Refused`, or `ExecutedUcpPayment { metadata, evidence }`, where
+`evidence` is `SequencerEvidence`: transaction hash, canonical signed receipt,
+logs and settlement rung.
+
+Completion checks the receipt signature with `verify_sequencer_signature`,
+binds its transaction hash, and checks logs against its signed effects with
+`verify_logs`. It requires a successful native receipt and one matching
+`PaymentExact` event from the ledger precompile at
+`0x000000000000000000000000000000000000101a`. The event must bind the derived
+idempotency key, configured asset, exact converted amount and recipient.
+`GatewayCore::settle_with_sequencer_evidence` then records
+`TranslationStatus::ReceiptVerified` with the canonical receipt digest.
+
+Pending or `submitted` evidence leaves the checkout `CompleteInProgress`
+without an order. Verified evidence can produce `Completed`, a `UcpOrder`
+containing the transaction hash and receipt digest, and a `StoredOrder`
+containing the signed evidence. A verified receipt at the `receipted` rung
+does not itself establish block commitment. Retry with the same checkout,
+configuration and UUID; the payment plane must recover the original payment.
+A different receipt for an already settled identity is refused.
+
+Order reads must use `UcpAdapter::read_order_with_config` with the merchant's
+binding and pinned receipt keys. This re-verifies stored receipt bytes, logs,
+transaction hash and payment facts on every read, and requires negotiated
+order support. The unconfigured `read_order` convenience method uses an empty
+configuration and refuses with `CurrencyBindingRequired`.
 
 ## What this page does not document
 
-No public hosted UCP origin is named in `docs/wiki`. This page does not
-invent one. Merchant-profile and checkout HTTP paths are those of the
-pinned UCP revision, spoken by the adapter, not additional LayerX RPC
-methods.
+Merchant discovery and shopping REST endpoints belong to the merchant's
+pinned UCP contract. The interop service registers the adapter wrapper
+`POST /v1/http/ucp/checkouts/complete`; it does not register a public UCP
+discovery or order-read endpoint. Its current `UcpServicePlane` does not
+override `service_config`, so that wrapper cannot complete checkout until
+the service supplies the required merchant currency binding. The adapter
+crate supports configured embedding through the API above.
+
+No public merchant origin is established by this crate. Deployment inputs
+and trust configuration are described in
+`services/interop/deploy/gateway/README.md`. [Visa TAP](visa-tap.md) can
+authenticate a commerce agent, but that credential grants no payment authority.
 
 ## Status
 
-The adapter crate, pinned vendor documents under
-`services/interop/specs/vendor/ucp/`, and tests under
-`services/interop/crates/layerx-ucp/tests/` are in this tree. End-to-end
-qualification against the published UCP vectors is a platform / beta gate
-and is not claimed here.
+Pinned vendor documents are in `services/interop/specs/vendor/ucp/`.
+The crate's tests include merchant profiles, negotiated capabilities,
+sequencer-backed checkout evidence and checked currency conversion;
+first-party vectors live in `services/interop/specs/conformance/ucp/`.
+These files do not establish a live hosted merchant or third-party UCP
+qualification.
+
+Sources: `services/interop/crates/layerx-ucp/src/lib.rs`,
+`services/interop/crates/layerx-ucp/src/config.rs`, and
+`services/interop/crates/layerx-interop-service/src/server.rs`.
+
+[Interop](index.md) · [x402](x402.md) · [Visa TAP](visa-tap.md)

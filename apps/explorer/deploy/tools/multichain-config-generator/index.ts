@@ -4,8 +4,8 @@ import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
 import { delay } from 'es-toolkit';
 
-import { ClusterChainConfig } from 'types/multichain';
-import appConfig from 'configs/app';
+import type { ClusterChainConfig } from 'types/multichain';
+import type appConfig from 'configs/app';
 
 const currentFilePath = fileURLToPath(import.meta.url);
 const currentDir = dirname(currentFilePath);
@@ -83,33 +83,76 @@ async function computeChainConfig(url: string): Promise<unknown> {
   })
 }
 
-async function getExplorerUrls() {
-  // return EXPLORER_URLS;
-  try {
-    const basePath = `/api/v1/clusters/${ process.env.NEXT_PUBLIC_MULTICHAIN_CLUSTER }/chains`;
-    const url = new URL(basePath, process.env.NEXT_PUBLIC_MULTICHAIN_AGGREGATOR_API_HOST);
+export const EXPLORER_REQUEST_TIMEOUT_MS = 30_000;
 
-    const response = await fetch(url.toString());
-    const data = await response.json();
+export async function getExplorerUrls(url: URL, timeoutMs = EXPLORER_REQUEST_TIMEOUT_MS): Promise<Array<string>> {
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    throw new Error('Multichain request timeout must be a positive finite number.');
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => {
+    controller.abort(new Error(`Request to multichain aggregator API timed out after ${ timeoutMs }ms`));
+  }, timeoutMs);
+
+  try {
+    const response = await fetch(url.toString(), { signal: controller.signal });
+    if (!response.ok) {
+      throw new Error(`Failed to fetch chains from multichain aggregator API: HTTP ${ response.status }`);
+    }
+
+    const data: unknown = await response.json();
+    if (typeof data !== 'object' || data === null || !('items' in data) || !Array.isArray(data.items)) {
+      throw new Error('Invalid multichain aggregator response: expected an items array.');
+    }
+
+    const explorerUrls = data.items.map((item: unknown) => {
+      if (typeof item !== 'object' || item === null || !('explorer_url' in item) || typeof item.explorer_url !== 'string') {
+        throw new Error('Invalid multichain aggregator response: expected an explorer_url string for every chain.');
+      }
+
+      const explorerUrl = new URL(item.explorer_url);
+      if (explorerUrl.protocol !== 'http:' && explorerUrl.protocol !== 'https:') {
+        throw new Error('Invalid multichain aggregator response: explorer_url must use HTTP or HTTPS.');
+      }
+      return item.explorer_url;
+    });
 
     console.log(`💡 Found ${ data.items.length } chains in cluster.`);
 
-    return data.items.map((item: { explorer_url: string }) => item.explorer_url);
+    return explorerUrls;
   } catch (error) {
-    return [];
+    if (controller.signal.aborted) {
+      throw controller.signal.reason;
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+    controller.abort();
   }
 }
 
-async function run() {
+interface GeneratorOptions {
+  aggregatorHost?: string;
+  cluster?: string;
+  requestTimeoutMs?: number;
+}
+
+export async function run({
+  aggregatorHost = process.env.NEXT_PUBLIC_MULTICHAIN_AGGREGATOR_API_HOST,
+  cluster = process.env.NEXT_PUBLIC_MULTICHAIN_CLUSTER,
+  requestTimeoutMs = EXPLORER_REQUEST_TIMEOUT_MS,
+}: GeneratorOptions = {}) {
   try {
-    if (!process.env.NEXT_PUBLIC_MULTICHAIN_AGGREGATOR_API_HOST) {
+    if (!aggregatorHost) {
       console.log('ℹ️  NEXT_PUBLIC_MULTICHAIN_AGGREGATOR_API_HOST is not set, skipping multichain config generation\n');
       return;
     }
 
     console.log('🌀 Generating multichain config...');
 
-    const explorerUrls = await getExplorerUrls();
+    const basePath = `/api/v1/clusters/${ cluster }/chains`;
+    const explorerUrls = await getExplorerUrls(new URL(basePath, aggregatorHost), requestTimeoutMs);
 
     if (!explorerUrls.length) {
       throw new Error('No chains found in the cluster.');
@@ -158,8 +201,12 @@ async function run() {
   } catch (error) {
     console.error('🚨 Error generating multichain config:', error);
     console.log('\n');
-    process.exit(1);
+    throw error;
   }
 }
 
-run();
+if (process.argv[1] && resolvePath(process.argv[1]) === currentFilePath) {
+  run().catch(() => {
+    process.exitCode = 1;
+  });
+}

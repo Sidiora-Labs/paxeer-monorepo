@@ -1237,14 +1237,22 @@ describe('WalletInterface', () => {
   });
 
   it('provider_wallet_signCustody_is_refused_on_injected_providers', async () => {
-    const injected = new WalletInterface(new LocalKeyProvider());
-    const err = await failure(injected.signCustody(vectors.custody));
-    expect(err).toBeInstanceOf(UnauthorizedError);
-    expect(err).toMatchObject({ code: 4100, reason: 'custody_not_supported' });
-    const embedded = new WalletInterface(provider());
-    expect(await embedded.signCustody(vectors.custody)).toBe(
-      bodyOf('wallet-sign-custody').signature
-    );
+    const embeddedProvider = provider();
+    for (const wallet of [
+      new WalletInterface(new LocalKeyProvider()),
+      new WalletInterface(embeddedProvider),
+    ]) {
+      expect(Reflect.get(wallet, 'signCustody')).toBeUndefined();
+      expect('signCustody' in wallet).toBe(false);
+    }
+    const before = seen.length;
+    await expect(
+      embeddedProvider.request({ method: 'paxeer_signCustody', params: [vectors.custody] })
+    ).rejects.toBeInstanceOf(UnsupportedMethodError);
+    await expect(
+      embeddedProvider.request({ method: 'paxeer_prepareCustody', params: [] })
+    ).rejects.toMatchObject({ code: 4200 });
+    expect(seen).toHaveLength(before);
   });
 
   it('provider_wallet_on_and_off_reach_the_underlying_provider', async () => {

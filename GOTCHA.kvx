@@ -14685,3 +14685,43 @@ fix = "A go verify prints the RUN, PASS, FAIL and panic lines of the whole log b
 title = "A test reaches repository files through the helpers the production tests use"
 symptom = "A repair test typed the migrations directory from the repository layout (spec/production-system at the root) while the production tests of the same package build it from the coordinator test helper, which already knows the real directory (launchpad/spec/production-system/integration/migrations) and the repository root; the attempt then called its own path bug an out-of-scope fixture defect. A second test compared a checksummed address the producer emits against a lowercase literal and called the mismatch a fixture problem."
 fix = "A test derives paths, addresses and other shapes through the production helpers and types (the root helper, the address type's parser, the encoder), never from literals typed by hand; a mismatch between the literal and the producer is a test defect the task fixes, not a scope limit."
+
+[gotcha.2973]
+title = "A dependency added to one npm workspace member without the root lockfile breaks npm ci for every member"
+symptom = "A published repair added a ganache devDependency to services/platform/examples/marketplace/package.json, a member of the root npm workspace, without touching the root package-lock.json; npm ci run inside services/agent/sdk/typescript then refused with the lockfile out of sync, and every task building a workspace member failed before compiling (22.9.10 a30)."
+fix = "The npm lockfile of a workspace lives at the root and npm ci in any member directory validates the whole workspace; a task that changes a member manifest carries the root lockfile as a planned path, and a test never needs a package the manifest and lockfile of its package do not already declare."
+
+[gotcha.2974]
+title = "A producer repair that changes a public type must carry the consumer crate's tests, not only its sources"
+symptom = "22.31.157 changed the gateway balance row amount from a 128-bit integer to the exact Quantity type and updated the human service sources that read it, but left services/human/crates/layerx-human-service/tests/observed_balances_denom.rs on the old type; every later task building that crate with --tests, and every task whose dependent-crate check includes it, failed before its own verify ran (22.33.56 to 22.33.62, 22.33.48, 22.33.51, 22.33.117, 22.33.218, 22.33.221, 22.33.244 a1)."
+fix = "An interface change lists the consumer's tests directory in its touches and its verify builds the consumer with --tests; the consumer's integration tests are part of the real producer, transport and consumer path."
+
+[gotcha.2975]
+title = "A scope path whose directory name contains bracket characters is read as a glob character class"
+symptom = "22.33.163 a1 declared the Next.js route directory apps/wallet/src/app/api/wallet/[...path]; the scope check treated the brackets as a character class, matched no changed file and refused the candidate although the type-check and all seven tests passed."
+fix = "Declare the parent directory of a bracketed route directory in touches and reference the bracketed path only in the verify command."
+
+[gotcha.2976]
+title = "A type-check that follows relative imports into sibling packages needs those packages installed from their own workspace"
+symptom = "apps/perps imports modules of sdk/wallet and services/wallet/gateway by relative path (published by 22.31.4); its type-check failed on every attempt with viem, the noble packages and zod unresolved because only apps/perps had been installed (22.33.12, 22.33.77, 22.33.79 to 22.33.83, 22.33.193 a1). sdk/wallet and the gateway are members of the services/wallet pnpm workspace, whose lockfile is services/wallet/pnpm-lock.yaml; an install run inside sdk/wallet alone climbs to the repository root workspace and installs nothing useful."
+fix = "The build command of a task whose type-check crosses into the wallet workspace runs pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts first; the lasting repair makes apps/perps declare those packages (22.31.444)."
+
+[gotcha.2977]
+title = "The bridge application's global layout props type exists only after the framework's type generation step"
+symptom = "apps/bridge/src/app/layout.tsx uses the LayoutProps global type that Next.js 16 generates with next typegen; a bare tsc --noEmit fails with the name not found before any task test runs (22.33.264, 22.33.266, 22.33.268 a1), while the package's own typecheck script runs the generation first."
+fix = "A type-check gate of a Next.js application runs the package's typecheck script (or next typegen before tsc), never tsc alone."
+
+[gotcha.2978]
+title = "The web application's node:test suites cannot import a module that imports a Next.js runtime entry"
+symptom = "apps/web runs its e2e suites with node --test; a test that imports src/kit/explorer.tsx or src/journeys/onboarding/onboarding.tsx fails with ERR_MODULE_NOT_FOUND for next/link or next/navigation because the Next.js package resolves those entries only through its bundler, not through the Node ESM resolver (22.33.337 a1 and a2); the committed suites import only the copy catalog, the perf budgets and other pure modules."
+fix = "A node:test case of apps/web imports pure modules only; behaviour of a component that imports a Next.js entry is asserted through the component's extracted pure logic or through the Playwright suites, never by importing the component under node --test."
+
+[gotcha.2979]
+title = "Explorer component suites fail in teardown when the mocked fetch receives a request the component built from unset configuration"
+symptom = "apps/explorer runs every vitest suite with the global fetch mock enabled by vitest/setup.ts; a component whose request is built from configuration the suite never set, or whose query refetches after the test ends, calls fetch with an undefined request and the mock's request normalisation throws a TypeError reading toString, reported as a failed suite or hook rather than a failed case (22.33.501, 22.33.282, 22.31.382, 22.33.367 all spent their repair budget on it)."
+fix = "An explorer suite that exercises a component's request disables the global mock for the suite, serves recorded responses from a loopback node:http server it starts, and re-enables the mock in afterAll, as the published repairs 22.31.379 and 22.31.380 do; a suite that keeps the mock gives the component its endpoint explicitly and asserts the request URL."
+
+[gotcha.2980]
+title = "perps-data store and replay tests refuse the database the qualification environment provides when a task clause says the gate needs no environment variable"
+symptom = "services/platform/perps-data stores its projections in PostgreSQL and its store and replay tests open the database named by PERPS_DATA_TEST_DATABASE_URL, which the qualification environment provisions for every task under that path (the done repairs 3.42.8, 3.45.1 and 22.31.21 ran against it). Two medium-wave attempts (22.33.826, 22.33.827) unset the variable to honour the wave clause that a gate needs no environment variable, credential or external binary, and their store-backed tests failed in setup."
+fix = "For services/platform/perps-data the PostgreSQL database named by PERPS_DATA_TEST_DATABASE_URL is the real store's fixture and the no-environment clause yields to it: tests open that database, create a schema unique to the run, and fail naming the variable when it is absent; they never unset it, mock the store, or substitute another engine."

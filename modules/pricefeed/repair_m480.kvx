@@ -1,0 +1,9 @@
+[repair.22.33.480]
+finding = "aggregate-event-test-threshold"
+base_revision = "58a590675bbe54c704c3f54c5ef49c6397e5992d"
+tests = ["TestRepairM_480_ModuleEvents", "TestRepairM_480_UnequalPowerQuorum", "TestRepairM_480_GovernedMinSources"]
+path = "Genesis staking -> real delegation (powers 6,2,1) -> registered feeder -> SubmitPrices -> observation store -> AppModule.MidBlock -> aggregate events/store -> Query.Price. Governance proposal -> protobuf codec -> proposal handler -> Msg service router -> SetParams -> MidBlock."
+proof = "Required attributes equal configured MinSources; 6/9 power is refused, a two-source headcount majority with 3/9 power is refused, 7/9 power succeeds; governed MinSources 1 -> 3 refuses the same two sources without changing the prior aggregate, then a third source succeeds."
+baseline = "Not executed: the ordered gate instructions prohibit verification before implementation and outside hf-done; no TestRepairM_480_ functions existed at the base. No baseline failure is claimed."
+wiring_requests = []
+evidence = "The runner's hf-done ledger records the verified candidate revision, exact command, exit code and private log path; the final response copies that evidence without changing the qualified tree."

@@ -1,0 +1,91 @@
+{
+  "recording": "Read-only codebase-map graph rows at task base 0e1d5eb94cabe89e2260279a849b7154911ef8ee; loaded into the committed schema-14 store contract, without changing the live index.",
+  "files": [
+    {
+      "id": 2394,
+      "path": "tools/codebase-map/app.js",
+      "lang": "javascript",
+      "size": 55853,
+      "mtime": 1793775810,
+      "hash": "ae0ac4b1bd3c193f71608c297840538116fec692cb66d2a1769a560d281762b6",
+      "lines": 1163
+    },
+    {
+      "id": 2399,
+      "path": "tools/codebase-map/generate.mjs",
+      "lang": "javascript",
+      "size": 21481,
+      "mtime": 1793775810,
+      "hash": "0599fe7e4770a067978684765ff7da504eddf8c235f6800725386219c453ad08",
+      "lines": 513
+    },
+    {
+      "id": 2402,
+      "path": "tools/codebase-map/delivery.mjs",
+      "lang": "javascript",
+      "size": 4901,
+      "mtime": 1793775810,
+      "hash": "3c64d1c0c792606844ab95651ebfb743f3519ffa9a93081444f5bbc1cf2258b1",
+      "lines": 111
+    }
+  ],
+  "symbols": [
+    {
+      "id": 424,
+      "file_id": 2394,
+      "name": "element",
+      "kind": "function",
+      "line": 59,
+      "end_line": 64,
+      "sig": "function element(tag, className, text) ",
+      "decl": 0
+    },
+    {
+      "id": 425,
+      "file_id": 2394,
+      "name": "button",
+      "kind": "function",
+      "line": 66,
+      "end_line": 71,
+      "sig": "function button(className, text, handler) ",
+      "decl": 0
+    }
+  ],
+  "refs": [
+    {
+      "id": 5189,
+      "file_id": 2394,
+      "name": "element",
+      "line": 67,
+      "sym_id": 425,
+      "qual": null,
+      "kind": "call",
+      "target_id": 424,
+      "verdict": "internal",
+      "conf": "unqualified",
+      "argc": 3
+    }
+  ],
+  "imports": [
+    {
+      "id": 388,
+      "file_id": 2394,
+      "name": "DeliveryMap",
+      "module": "./delivery.mjs",
+      "line": 1,
+      "system": 0,
+      "target_file_id": 2402,
+      "origin": "repo"
+    }
+  ],
+  "additionalSymbol": {
+    "id": 362,
+    "file_id": 2394,
+    "name": "VIEW_DEFINITIONS",
+    "kind": "variable",
+    "line": 3,
+    "end_line": 11,
+    "sig": "VIEW_DEFINITIONS = ",
+    "decl": 0
+  }
+}

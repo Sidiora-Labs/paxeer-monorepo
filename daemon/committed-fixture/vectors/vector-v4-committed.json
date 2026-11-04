@@ -1,6 +1,6 @@
 {
   "name": "vector-v4-committed",
-  "provenance": "Local paxd chain; LayerX inclusion envelope assembled and signed by the recorder under the genesis receipt pin; Comet evidence is collected independently from the committed chain.",
+  "provenance": "Local paxd chain; LayerX inclusion envelope assembled and signed by the recorder under the genesis receipt pin; Comet evidence is collected independently from the committed chain.; Explorer controller regression source: settlement carries the original batch bytes, transaction/result proofs and linked execution/successor commits; consumers must not re-sign or replace these bytes.",
   "authorization": {
     "SequencerID": [
       174,

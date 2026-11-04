@@ -19,6 +19,11 @@ defmodule BlockScoutWeb.API.V2.MudController do
   alias Explorer.Chain.{Address, Data, Hash, Mud, Mud.Schema.FieldSchema, Mud.Table}
 
   @api_true [api?: true]
+  @mud_filter_schema %Schema{
+    type: :string,
+    maxLength: 78,
+    pattern: "^(true|false|0x([0-9a-fA-F]{2}){1,32}|-?[0-9]{1,78})$"
+  }
 
   action_fallback(BlockScoutWeb.API.V2.FallbackController)
 
@@ -235,8 +240,8 @@ defmodule BlockScoutWeb.API.V2.MudController do
         [
           world_param(),
           table_id_param(),
-          filter_key0_param(),
-          filter_key1_param(),
+          %{filter_key0_param() | schema: @mud_filter_schema},
+          %{filter_key1_param() | schema: @mud_filter_schema},
           sort_param(["key_bytes", "key0", "key1"]),
           order_param()
         ] ++
@@ -275,11 +280,12 @@ defmodule BlockScoutWeb.API.V2.MudController do
   def world_table_records(conn, %{world: world_param, table_id: table_id_param} = params) do
     with {:format, {:ok, world}} <- {:format, Hash.Address.cast(world_param)},
          {:format, {:ok, table_id}} <- {:format, Hash.Full.cast(table_id_param)},
-         {:ok, schema} <- Mud.world_table_schema(world, table_id) do
+         {:ok, schema} <- Mud.world_table_schema(world, table_id),
+         {:format, {:ok, filters}} <- {:format, mud_records_filter(params, schema)} do
       options =
         params
         |> mud_paging_options([:key_bytes, :key0, :key1], [Data, Hash.Full, Hash.Full])
-        |> Keyword.merge(mud_records_filter(params, schema))
+        |> Keyword.merge(filters)
         |> Keyword.merge(mud_records_sorting(params))
 
       {records, next_page} = world |> Mud.world_table_records(table_id, options) |> split_list_by_page()
@@ -307,7 +313,14 @@ defmodule BlockScoutWeb.API.V2.MudController do
   operation :world_table_records_count,
     summary: "Number of known MUD world table records.",
     description: "Retrieves the total number of records in the specific MUD world table.",
-    parameters: base_params() ++ [world_param(), table_id_param(), filter_key0_param(), filter_key1_param()],
+    parameters:
+      base_params() ++
+        [
+          world_param(),
+          table_id_param(),
+          %{filter_key0_param() | schema: @mud_filter_schema},
+          %{filter_key1_param() | schema: @mud_filter_schema}
+        ],
     responses: [
       ok: {"Number of known MUD world table records.", "application/json", %Schema{type: :integer}},
       unprocessable_entity: JsonErrorResponse.response()
@@ -320,9 +333,8 @@ defmodule BlockScoutWeb.API.V2.MudController do
   def world_table_records_count(conn, %{world: world_param, table_id: table_id_param} = params) do
     with {:format, {:ok, world}} <- {:format, Hash.Address.cast(world_param)},
          {:format, {:ok, table_id}} <- {:format, Hash.Full.cast(table_id_param)},
-         {:ok, schema} <- Mud.world_table_schema(world, table_id) do
-      options = params |> mud_records_filter(schema)
-
+         {:ok, schema} <- Mud.world_table_schema(world, table_id),
+         {:format, {:ok, options}} <- {:format, mud_records_filter(params, schema)} do
       count = Mud.world_table_records_count(world, table_id, options)
 
       conn
@@ -412,39 +424,72 @@ defmodule BlockScoutWeb.API.V2.MudController do
   end
 
   defp mud_records_filter(params, schema) do
-    Enum.reduce(params, [], fn {key, value}, acc ->
-      case key do
-        :filter_key0 -> Keyword.put(acc, :filter_key0, encode_filter(value, schema, 0))
-        :filter_key1 -> Keyword.put(acc, :filter_key1, encode_filter(value, schema, 1))
-        _ -> acc
+    Enum.reduce_while([{:filter_key0, 0}, {:filter_key1, 1}], {:ok, []}, fn {key, index}, {:ok, acc} ->
+      case Map.fetch(params, key) do
+        :error ->
+          {:cont, {:ok, acc}}
+
+        {:ok, value} ->
+          case encode_filter(value, schema, index) do
+            {:ok, encoded} -> {:cont, {:ok, Keyword.put(acc, key, encoded)}}
+            :error -> {:halt, :error}
+          end
       end
     end)
   end
 
   defp encode_filter(value, schema, field_idx) do
-    case value do
-      "false" ->
-        <<0::256>>
-
-      "true" ->
-        <<1::256>>
-
-      "0x" <> hex ->
-        with {:ok, bin} <- Base.decode16(hex, case: :mixed) do
-          # addresses are padded to 32 bytes with zeros on the right
-          if FieldSchema.type_of(schema.key_schema, field_idx) == 97 do
-            <<0::size(256 - byte_size(bin) * 8), bin::binary>>
-          else
-            <<bin::binary, 0::size(256 - byte_size(bin) * 8)>>
-          end
-        end
-
-      dec ->
-        with {num, _} <- Integer.parse(dec) do
-          <<num::256>>
-        end
+    if field_idx < length(schema.key_names) do
+      encode_typed_filter(value, FieldSchema.type_of(schema.key_schema, field_idx))
+    else
+      :error
     end
   end
+
+  defp encode_typed_filter("true", 96), do: {:ok, <<1::256>>}
+  defp encode_typed_filter("false", 96), do: {:ok, <<0::256>>}
+
+  defp encode_typed_filter("0x" <> hex, type) do
+    with {:ok, bin} <- Base.decode16(hex, case: :mixed),
+         true <- byte_size(bin) > 0 and byte_size(bin) <= field_width(type) do
+      cond do
+        type < 64 -> encode_number(:binary.decode_unsigned(bin), type)
+        type in 64..95 -> {:ok, <<bin::binary, 0::size(256 - byte_size(bin) * 8)>>}
+        type == 97 -> {:ok, <<0::size(256 - byte_size(bin) * 8), bin::binary>>}
+        true -> :error
+      end
+    else
+      _ -> :error
+    end
+  end
+
+  defp encode_typed_filter(value, type) when is_binary(value) and type < 64 do
+    case Integer.parse(value) do
+      {number, ""} -> encode_number(number, type)
+      _ -> :error
+    end
+  end
+
+  defp encode_typed_filter(_, _), do: :error
+
+  defp encode_number(number, type) do
+    bits = field_width(type) * 8
+
+    {minimum, maximum} =
+      if type < 32 do
+        {0, Integer.pow(2, bits) - 1}
+      else
+        {-Integer.pow(2, bits - 1), Integer.pow(2, bits - 1) - 1}
+      end
+
+    if number >= minimum and number <= maximum, do: {:ok, <<number::256>>}, else: :error
+  end
+
+  defp field_width(type) when type in 0..31, do: type + 1
+  defp field_width(type) when type in 32..63, do: type - 31
+  defp field_width(type) when type in 64..95, do: type - 63
+  defp field_width(97), do: 20
+  defp field_width(_), do: 0
 
   defp mud_paging_options(params, keys, types) do
     page_key =

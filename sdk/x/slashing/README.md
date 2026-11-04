@@ -43,7 +43,9 @@ the window fills.
 For a positive window `W`, the number of words is `(W + 63) / 64` using integer
 division. A 65-block window needs two words. Slot `i` uses word `i / 64` and mask
 `uint64(1) << (i % 64)`. A set bit means a missed signature; a cleared bit means
-no miss. Bits beyond `WindowSize` in the last word are unused.
+no miss. Bits beyond `WindowSize` in the last word are unused and remain zero
+when the handler allocates or resizes the array. The counter counts only active
+slots; padding never contributes to it.
 
 `IndexOffset` identifies the next slot to overwrite and advances modulo the
 current window after each vote. `MissedBlocksCounter` increases for a clear-to-set
@@ -95,8 +97,9 @@ already jailed. The write phase clears the bitmap, calls
 `SlashJailAndUpdateSigningInfo`, and stores signing info with the counter and
 offset reset. Otherwise it persists the updated bitmap and signing info.
 
-The calculation phase also emits liveness events for missed signatures. Store
-write ordering does not establish an ordering for those concurrent events.
+The calculation phase returns liveness events for missed signatures with each
+vote's result. The ordered write loop emits those events before applying that
+vote's penalty, so both liveness and slash events follow the original vote order.
 See [BeginBlock](spec/04_begin_block.md) for the exact threshold, resizing and
 penalty sequence.
 

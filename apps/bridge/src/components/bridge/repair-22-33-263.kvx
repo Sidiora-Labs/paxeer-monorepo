@@ -1,0 +1,58 @@
+[repair.22.33.263]
+audit = "22.30.131"
+mode = "BUILD"
+acceptance = "22998.1"
+evidence = "The bounded hf-done receipt in /out/run/gates.jsonl records the exact candidate revision, verify command, exit code and private log; the final response copies that receipt."
+baseline = "Not run: the explicit gate order forbids testing before complete implementation and forbids invoking verify_cmd outside hf-done; no baseline failure is claimed."
+schema = "Bridge component ledger schema v2 migrates withdrawal finality in the existing validated v1 storage envelope; receipt reconciliation keeps settlement observations and submission time, and refuses conflicting settled identities without writing."
+
+[finding.withdrawal-finality]
+test = "withdrawalFinalityMatchesSubmitImportAndLegacyRecovery"
+path = "Production submission, ABI receipt over the real wagmi HTTP provider, receipt import, localStorage migration, live query status and source ETA agree on one committed Paxeer block."
+
+[finding.import-does-not-refresh]
+test = "reimportRepairsLegacyMetadataAndReopensConfirmedEvidence"
+additional_test = "reimportReportsAndRepairsUnsettledIdentityConflicts"
+path = "Recovery merges validated receipt and registry fields, restores missing nonce/vault and metadata, retains chain-observed settlement evidence, then unmounts and reopens the query consumer with a fresh cache. Conflicting settled identities are refused; unsettled conflicts are reported to the import UI."
+
+[finding.rpc-errors-as-state]
+test = "rpcFailuresRetainVerifiedProgressAndOfferWorkingRetry"
+additional_test = "creditRpcFailureDoesNotEraseConfirmedCredit"
+path = "Receipt, head, registry and credit-read RPC errors propagate through real HTTP providers to React Query; prior verified progress and persisted evidence survive and the rendered Retry RPC action recovers. Verified absent receipts remain distinguishable from errors."
+
+[finding.solana-release-observation]
+test = "solanaRelayObservationSurvivesRestartAndShowsPayoutRecovery"
+additional_test = "solanaReleaseRejectsForeignOrMismatchedEvidence"
+path = "The finalized nullifier PDA is derived from the burn and nonce; the real HTTP observation verifies custody ownership, fixed layout, burn hash, nonce, configured mint, recipient handle, amount and slot. The consumer shows relay refresh and payout-account links across unmount/reopen."
+producer_contract = "contracts/bridge/solana/src/state.rs NullifierRecord::encode and find_nullifier_address; contracts/bridge/solana/src/release.rs release creates the payout record atomically with token transfer."
+
+[wiring]
+requests = "None: existing Solana program/RPC configuration, account PDA, mint registry and release-nullifier layout supply the observation interface; no out-of-path implementation is needed."
+
+[gotcha.gate-order]
+observed = "The task's inherited baseline-verify step conflicts with its explicit implementation-first bounded-gate order."
+action = "Follow the explicit order and report that the baseline was not run; do not claim red-before evidence."
+
+[gotcha.producer-paths]
+observed = "Historical comments name contracts/bridge/solana/programs and services/bridge/relayer/src, which are absent."
+action = "Read the real producers at contracts/bridge/solana/src and services/interop/crates/layerx-bridge-relayer/src; no files outside scope are changed."
+
+[qualification.previous-attempt]
+revision = "6b5f0b31bc5e569655b07205e77c869a28cd4ab6"
+command = "pnpm --dir apps/bridge exec tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "The task build reports missing LayoutProps in untouched apps/bridge/src/app/layout.tsx:36; the fixture-provider typing found in the same run is repaired within scope."
+assumption = "Historical attempt only: the current package typecheck script generates LayoutProps before tsc (gotcha 2977); qualification now uses hf-build and hf-done with that script."
+
+[gotcha.fixture-provider]
+observed = "The production wagmi module augmentation requires its registered connector tuple in WagmiProvider even when the test only reads HTTP."
+action = "Use the same production chain and injected-connector definitions and the explicit Paxeer transport entry with loopback HTTP transports; do not cast or widen the provider type."
+
+[gotcha.formatting]
+observed = "The app's ESLint formatter applies layout fixes but also reports non-format rules, including a test-title rule incompatible with the mandated test(namedFunction) registration."
+action = "Keep the mandated named test registrations and use only the declared hf-build/hf-done gates for qualification; private formatter diagnostics are in /out/logs/format-22-33-263.log."
+
+[gotcha.provider-props]
+observed = "The two Solana lifecycle mounts must supply the production provider's declared props shape."
+action = "Pass the TransferRow element as the WagmiProvider children prop at both mount and reopen; retain the real registered config and every lifecycle assertion without casts."

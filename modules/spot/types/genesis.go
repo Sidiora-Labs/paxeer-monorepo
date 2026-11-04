@@ -387,21 +387,35 @@ func (gs GenesisState) validatePools() error {
 		token common.Address
 		slot  uint32
 	}
-	slots := map[tokenSlot]bool{}
+	slots := map[tokenSlot]TwapSample{}
 	samples := map[common.Address]uint32{}
 	for _, sample := range gs.TwapSamples {
 		key := tokenSlot{sample.Token, sample.Slot}
 		_, ok := rings[sample.Token]
-		if !ok || slots[key] || sample.Slot >= TwapHistoryDepth || !validUint256(sample.Index, false) {
+		_, duplicate := slots[key]
+		if !ok || duplicate || sample.Slot >= TwapHistoryDepth || !validUint256(sample.Index, true) {
 			return fmt.Errorf("%w: twap sample %s/%d", ErrInvalidGenesis, sample.Token.Hex(), sample.Slot)
 		}
-		slots[key] = true
+		slots[key] = sample
 		samples[sample.Token]++
 	}
 	for token, ring := range rings {
 		if samples[token] != ring.Count {
 			return fmt.Errorf("%w: twap ring %s counts %d samples, genesis has %d", ErrInvalidGenesis, token.Hex(),
 				ring.Count, samples[token])
+		}
+		var previousTime uint64
+		for i := uint32(0); i < ring.Count; i++ {
+			slot := (ring.Head + TwapHistoryDepth - ring.Count + i) % TwapHistoryDepth
+			sample, ok := slots[tokenSlot{token, slot}]
+			if !ok {
+				return fmt.Errorf("%w: twap sample %s/%d missing from logical ring", ErrInvalidGenesis, token.Hex(), slot)
+			}
+			if i > 0 && sample.Time < previousTime {
+				return fmt.Errorf("%w: twap sample %s/%d time precedes its logical predecessor", ErrInvalidGenesis,
+					token.Hex(), slot)
+			}
+			previousTime = sample.Time
 		}
 	}
 	volumes := map[common.Address]bool{}

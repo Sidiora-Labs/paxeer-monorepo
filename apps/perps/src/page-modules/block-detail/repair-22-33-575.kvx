@@ -1,0 +1,10 @@
+[repair.22.33.575]
+finding = "block-deep-link"
+status = "scoped-consumer-implemented; destination-wiring-required"
+tests = ["blockDeepLinkNumericHeight", "blockDeepLinkHash", "blockDeepLinkMissingBlock", "blockDeepLinkNoSelection", "blockDeepLinkInvalidIdentifier", "blockDeepLinkUnavailableIsNotMissing", "blockDeepLinkLoading"]
+proof = "The existing legacy route produces the redirect URL; the new production BlockQueryDetail consumer reads its query and renders canonical Paxscan detail or an explicit error through the real query client and HTTP transport against a loopback fixture. Heights remain strings, including zero and values above Number.MAX_SAFE_INTEGER."
+wiring_request = "Domain 3 / fm-markets: apps/perps/src/page-modules/explorer/index.tsx must mount BlockQueryDetail from @/page-modules/block-detail/block-query with query={useRouter().query} under the existing QueryClientProvider; keep live explorer panels available. The destination is outside this task's scope and remains unchanged, so end-to-end route closure is pending that wiring."
+baseline = "Not executed: the explicit implementation-first order and bounded hf-build/hf-done gates prohibit the unchanged-tree verify requested in step 5; no pre-change failure is claimed. The proving tests require exports absent at the base revision."
+base_revision = "de8ab245609a7e0707cc32c502b6dcbe17ce3aca"
+verified_revision = "The exact final candidate revision, command, exit and private evidence path are recorded by hf-done and the final response, after this file is frozen."
+gotcha = "The shared fetchWithPolicy transport throws FetchPolicyError for HTTP 404 before paxscanFetch can wrap it as PaxscanError; the consumer must recognize both real transport error types."
