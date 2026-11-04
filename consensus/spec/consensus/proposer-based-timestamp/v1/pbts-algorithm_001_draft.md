@@ -1,6 +1,37 @@
 # PBTS: Protocol Specification (first draft)
 
-This specification is **OUTDATED**. Please refer to the [new version][algorithm].
+This is the **superseded first upstream PBTS research draft**. It is retained
+for design history, including its message-filter and re-timestamping choices.
+Use the [second research draft][algorithm] for the later design and the
+[current runtime map](../README.md#current-runtime) for implemented behavior.
+Neither draft establishes Autobahn timeliness or runtime qualification.
+
+## Runtime applicability
+
+Paxeer runs one network in `paxd`, with the kernel participating and proposing
+blocks. The classic engine keeps time in the block and preserves that time
+when reproposing the block. It does not implement this draft's mutable `(v,t)`
+vote identity or its choice of a different canonical time at the next height.
+See [classic proposal handling](../../../../internal/consensus/state.go) and
+[block construction](../../../../internal/state/state.go).
+
+The first draft's clock assumptions and conditional properties are retained in
+the [paired first system model](./pbts-sysmodel_001_draft.md). Its reception
+filter below is superseded and must not be copied into a validator. The
+current classic [`Proposal.IsTimely`](../../../../types/proposal.go) uses the
+inclusive window `ts - Precision <= recvTime <= ts + effectiveMessageDelay + Precision`
+and increases the delay allowance every ten rounds. Fresh proposals are
+checked at unlocked validators; earlier proof-of-lock and locked cases have
+separate acceptance paths.
+
+Autobahn uses [different proposal types](../../../../autobahn/types/proposal.go),
+a one-second future-clock bound for fresh proposals, and timestamps separated
+by one microsecond for blocks in a proposal. A verified prepared reproposal
+keeps its original timestamp. The first-draft algorithm below is not used to
+validate those certificates.
+
+The remainder of this page is historical pseudocode relative to the Tendermint
+paper, not executable Go or operator instructions.
 
 ## Updated Consensus Algorithm
 
@@ -14,9 +45,13 @@ In contrast to the original algorithm the field `proposal` in the `PROPOSE` mess
 
 In the reception step at process `p` at local time `now_p`, upon receiving a message `m`:
 
-- if the message `m` is of type `PROPOSE` and satisfies `now_p - PRECISION <  m.time < now_p + PRECISION + MSGDELAY`, then mark the message as `timely`
-
-> if `m` does not satisfy the constraint consider it `untimely`
+The first draft marked a `PROPOSE` message as `timely` when
+`now_p - PRECISION < m.time < now_p + PRECISION + MSGDELAY`, otherwise
+`untimely`. This historical filter places the delay allowance on the future
+side of the timestamp window. It is superseded: the second draft instead
+requires `m.time - PRECISION <= now_p <= m.time + MSGDELAY + PRECISION`.
+The old filter is recorded here only to explain the first draft's history;
+it is not the runtime acceptance rule.
 
 
 #### **[PBTS-PROCESSING-STEP.0]**
@@ -37,7 +72,7 @@ We update the timeout for the `PROPOSE` step according to the following reasonin
 - If a correct proposer needs to wait to make sure its proposed time is larger than the `blockTime` of the previous block, then it sends by realtime `blockTime + ACCURACY` (By this time, its local clock must exceed `blockTime`)
 - the receiver will receive a `PROPOSE` message by `blockTime + ACCURACY + MSGDELAY`
 - the receiver's local clock will be `<= blockTime + 2 * ACCURACY + MSGDELAY`
-- thus when the receiver `p` enters this round it can set its timeout to a value `waitingTime => blockTime + 2 * ACCURACY + MSGDELAY - now_p`
+- thus when the receiver `p` enters this round it can set its timeout to a value `waitingTime >= blockTime + 2 * ACCURACY + MSGDELAY - now_p`
 
 So we should set the timeout to `max(timeoutPropose(round_p), waitingTime)`.
 
@@ -47,7 +82,7 @@ Also, `BLOCKDELAY` needs to be added to `waitingTime`.
 
 #### **[PBTS-ALG-STARTROUND.0]**
 
-```go
+```text
 function StartRound(round) {
   blockTime ← block time of block h_p - 1
   waitingTime ← blockTime + 2 * ACCURACY + MSGDELAY - now_p
@@ -76,7 +111,7 @@ function StartRound(round) {
 
 #### **[PBTS-ALG-UPON-PROP.0]**
 
-```go
+```text
 upon timely(⟨PROPOSAL, h_p, round_p, (v,t), −1⟩) from proposer(h_p, round_p) while step_p = propose do {
   if valid(v) ∧ (lockedRound_p = −1 ∨ lockedValue_p = v) {
     broadcast ⟨PREVOTE, h_p, round_p, id(v,t)⟩ 
@@ -97,7 +132,7 @@ This gives the following rule:
 
 #### **[PBTS-ALG-OLD-PREVOTE.0]**
 
-```go
+```text
 upon timely(⟨PROPOSAL, h_p, round_p, (v, tprop), vr⟩) from proposer(h_p, round_p) AND 2f + 1 ⟨PREVOTE, h_p, vr, id((v, tvote)⟩ 
 while step_p = propose ∧ (vr ≥ 0 ∧ vr < round_p) do {
   if valid(v) ∧ (lockedRound_p ≤ vr ∨ lockedValue_p = v) {
@@ -117,7 +152,7 @@ while step_p = propose ∧ (vr ≥ 0 ∧ vr < round_p) do {
 
 #### **[PBTS-ALG-NEW-PREVOTE.0]**
 
-```go
+```text
 upon timely(⟨PROPOSAL, h_p, round_p, (v,t), ∗⟩) from proposer(h_p, round_p) AND 2f + 1 ⟨PREVOTE, h_p, round_p, id(v,t)⟩ while valid(v) ∧ step_p ≥ prevote for the first time do {
   if step_p = prevote {
     lockedValue_p ← v
@@ -139,7 +174,7 @@ upon timely(⟨PROPOSAL, h_p, round_p, (v,t), ∗⟩) from proposer(h_p, round_p
 
 #### **[PBTS-ALG-DECIDE.0]**
 
-```go
+```text
 upon ⟨PROPOSAL, h_p, r, (v,t), ∗⟩ from proposer(h_p, r) AND 2f + 1 ⟨PRECOMMIT, h_p, r, id(v,t)⟩ while decisionp[h_p] = nil do {
   if valid(v) {
     decision_p [h_p] = (v,t) // decide on time too
@@ -150,9 +185,9 @@ upon ⟨PROPOSAL, h_p, r, (v,t), ∗⟩ from proposer(h_p, r) AND 2f + 1 ⟨PREC
 }
 ```
 
-**All other rules remains unchanged.**
+**All other rules of the referenced paper algorithm remain unchanged in this historical draft.**
 
-Back to [main document][main_v1].
+Back to the [historical first design][main_v1] or the [current applicability index](../README.md).
 
 [main_v1]: ./pbts_001_draft.md
 
