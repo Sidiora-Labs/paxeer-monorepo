@@ -9,12 +9,17 @@ import (
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 )
 
-// NewGrant returns new Grant
-func NewGrant( /*blockTime time.Time, */ a Authorization, expiration time.Time) (Grant, error) {
-	// TODO: add this for 0.45
-	// if !expiration.After(blockTime) {
-	// 	return Grant{}, sdkerrors.ErrInvalidRequest.Wrapf("expiration must be after the current block time (%v), got %v", blockTime.Format(time.RFC3339), expiration.Format(time.RFC3339))
-	// }
+// NewGrant returns a grant whose expiration is strictly after the chain block time.
+func NewGrant(blockTime time.Time, a Authorization, expiration time.Time) (Grant, error) {
+	if !expiration.After(blockTime) {
+		return Grant{}, ErrInvalidExpirationTime.Wrapf("expiration must be after the current block time (%s), got %s", blockTime.Format(time.RFC3339Nano), expiration.Format(time.RFC3339Nano))
+	}
+	if a == nil {
+		return Grant{}, sdkerrors.ErrInvalidType.Wrap("authorization is required")
+	}
+	if err := a.ValidateBasic(); err != nil {
+		return Grant{}, err
+	}
 	g := Grant{
 		Expiration: expiration,
 	}
@@ -55,6 +60,9 @@ func (g Grant) GetAuthorization() Authorization {
 }
 
 func (g Grant) ValidateBasic() error {
+	if g.Authorization == nil {
+		return sdkerrors.ErrInvalidType.Wrap("authorization is required")
+	}
 	av := g.Authorization.GetCachedValue()
 	a, ok := av.(Authorization)
 	if !ok {
