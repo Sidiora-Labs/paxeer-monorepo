@@ -1,0 +1,31 @@
+[task.22.33.759]
+base_revision = "76c050242a1edcad6212aa52fac15670ecb5612d"
+repair = "Replace the unrestricted Python-eval placeholder with RESULT == 4, document the common spaced comparison, boolean and arithmetic grammar in template comments, and include true and false examples backed by committed Go evaluator cases. Preserve the remaining template fields and placeholders."
+source_proof = "The declared pytest module parses the actual template with the production Python YAML loader, checks its complete schema, executes every documented example through the real Python verifier, checks true and false captured RESULT values, and asserts Go YAML tags, capture storage, verifier dispatch, boolean and arithmetic implementation facts and matching committed Go cases."
+review_only = "Go compilation and execution, Docker command execution, live chain behavior and broader Python/Go equivalence are not executed by this offline documentation gate. Go behavior is supported by source assertions and review of the real evaluator and its committed cases, not a replacement evaluator. No shell script, unit file, manifest or build file is under repair; no restart-recovery or interface-mismatch finding applies."
+baseline = "No pre-change verification was run: the explicit implementation-first order and hf-build-before-hf-done sequence prohibit running verify_cmd by hand, superseding the older unchanged-tree baseline clause. No baseline failures are claimed. Initial Git status/diff showed only runner-prepared .cgignore and spec status bookkeeping, no scoped changes; gate.json showed zero builds/verifies and no gates.jsonl existed."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_759.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private gate ledger record the exact verified candidate revision, command, exit code and log path. Build and verification must pass on the same candidate revision. This record is finalized before qualification: embedding its own content-derived candidate hash would change that hash. The runner retains qualification evidence and publishes the result."
+wiring_requests = []
+
+[finding.template-eval-grammar]
+audit = "22.30.172"
+file = "tests/integration/template/template_test.yaml"
+line = 13
+class = "doc-drift"
+severity = "medium"
+tests = ["test_template_eval_grammar_guidance_and_yaml_schema", "test_template_boolean_arithmetic_examples_match_committed_go_cases", "test_template_capture_reaches_real_yaml_eval_consumer", "test_template_common_grammar_is_wired_to_go_consumer_source"]
+closure_basis = "Constrain copyable guidance to the current common grammar and identify runner-specific expression features and error handling. Verify source facts and the real in-process Python load/eval path without requiring Go, Docker, endpoints or credentials. The proposal requests no out-of-scope step."
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths. Apply .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions; YAML uses two-space indentation."
+
+[gotcha.1]
+observed = "The unchanged-tree baseline clause conflicts with the explicit implementation-first and exclusive wrapper gate order."
+resolution = "Follow the explicit order and claim no baseline test result. Record here because GOTCHA.kvx and spec files are outside task scope."
+
+[gotcha.2]
+observed = "The shared integration README still describes earlier evaluator behavior; the prerequisite Python and Go runner repairs now implement bound AST values and normal arithmetic/boolean precedence."
+resolution = "Ground template guidance in current production runners and committed Go cases. The finding proposal does not request a README edit, and that path is outside scope."

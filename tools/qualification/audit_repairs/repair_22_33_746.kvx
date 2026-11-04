@@ -1,0 +1,56 @@
+[task]
+id = "22.33.746"
+audit = "22.30.172"
+base_revision = "76c050242a1edcad6212aa52fac15670ecb5612d"
+mode = "BUILD"
+resolution = "Replace fixed waits in all three governance cases and the staking case with deadline-bounded polling of the submitted proposal at committed heights; pin subsequent queries to the successful observation height and assert the exact rejected-proposal deposit burn against this case's pre-submission supply. Closure requires passing hf-done evidence."
+source_proof = "The pytest module loads the real YAML through the production Python runner, tokenizes inline shell commands, checks deadline and per-query timeout guards, expected and wrong terminal branches, nonterminal expedited conversion, submission/vote ordering, explicit height and denom arguments, unchanged parameter expectations and the two-deposit amount. It exercises the real runner's Docker argv builder and verifier, including large-integer deltas, wrong burns, wrong statuses, stale heights and both staking parameter consumers. It reads the actual proposal-id producer, CLI response printers, successful parameter handler/writeCache ordering, expedited conversion and deposit burn producer as source contracts."
+review_only = "Live voting, CLI execution, shell execution/syntax qualification, historical query availability, committed supply changes and staking parameter application are not executed by this offline gate. No standalone shell script, unit file, manifest, build file, stateful component or external interface is changed; no restart or live interface proof is claimed. The source contract is that committed PASSED follows successful cached handler execution. Supply snapshots measure this proposal's net 20000000uhpx burn; unrelated concurrent minting or burning between those heights must be excluded by the integration scenario, rather than masked by a tolerance."
+baseline = "Initial git status/diff contained only runner-prepared .cgignore and spec task-status changes. Both scoped repair files were absent; /out/run/gate.json recorded builds_used=0 and verify_runs_used=0, and no /out/run/gates.jsonl existed. A pre-change verify was not run because the explicit implementation-first order and exclusive hf-done gate supersede the embedded baseline request. No test is claimed to have failed before this change. Source inspection confirmed fixed 20/35-second sleeps, absolute supply totals and unpinned post-wait parameter queries."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_746.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private /out/run/gates.jsonl record the exact revision, command, exit code and log path. Build and verify must pass on the same candidate revision. This record is written before gates; inserting its own content-derived revision would change that revision. The runner retains evidence and publishes the task; no manual commit or push is performed."
+
+[finding.governance-fixed-time-supply]
+audit = "22.30.172"
+file = "tests/integration/gov_module/gov_proposal_test.yaml"
+line = 106
+class = "test-gap"
+severity = "medium"
+owner_domain = 16
+observed = "Governance cases use fixed 20/35-second sleeps and absolute supply totals tied to prior mint state; valid voting delay or other issuance changes the outcome."
+expected = "Proof must observe the submitted proposal lifecycle and measure its own supply delta at committed heights."
+repair = "All three proposals poll their submitted ID with a ninety-second monotonic Bash SECONDS deadline and remaining-time query timeouts. PASSED is required for parameter changes; the burn case waits through expedited-to-regular conversion for REJECTED. Wrong terminal states, malformed queries and deadline expiry fail. Supply is captured before submission and after rejection at explicit committed heights; exact integer subtraction requires both 10000000uhpx deposits to burn, independently of prior supply."
+tests = ["test_proposal_poll_has_deadline_and_checks_its_committed_final_state", "test_post_execution_queries_use_the_poll_height_through_real_runner", "test_governance_supply_delta_uses_own_baseline_and_full_deposit", "test_governance_supply_verifier_rejects_wrong_delta_state_and_height", "test_producer_cli_and_committed_handler_source_match_yaml_consumers"]
+wiring_requests = []
+wiring_disposition = "The proposal requests no out-of-path change. Shared runner and chain producer sources are read only."
+
+[finding.staking-proposal-fixed-sleep]
+audit = "22.30.172"
+file = "tests/integration/gov_module/staking_proposal_test.yaml"
+line = 30
+class = "test-gap"
+severity = "medium"
+owner_domain = 16
+observed = "The staking proposal waits twenty seconds then reads the parameter instead of observing that its specific proposal passed and executed."
+expected = "The named proposal must reach its final lifecycle state before parameter state is attributed to its execution."
+repair = "Poll the submitted proposal ID at positive committed heights until PASSED, fail on REJECTED or FAILED, and use the observed execution height in both the params-subspace and staking-module queries. Preserve all four yes votes and both exact unbonding-time expectations; add an explicit PASSED verifier."
+tests = ["test_proposal_poll_has_deadline_and_checks_its_committed_final_state", "test_post_execution_queries_use_the_poll_height_through_real_runner", "test_staking_retains_both_parameter_consumers_and_exact_expected_values", "test_producer_cli_and_committed_handler_source_match_yaml_consumers"]
+wiring_requests = []
+wiring_disposition = "The proposal requests no out-of-path change. No staking module or generated artifact is modified."
+
+[format]
+policy = "No Python, YAML or KVX formatter is configured for these paths. Apply the repository .editorconfig UTF-8, LF, final newline and trailing whitespace conventions to touched files after implementation is complete."
+
+[gotcha.1]
+observed = "The embedded audit step requests a pre-change verify, but the explicit order prohibits testing before complete implementation or invoking pytest separately from hf-done."
+resolution = "Follow hf-build then hf-done and record that no baseline test was run; never invent pre-change test results."
+
+[gotcha.2]
+observed = "The offline gate prohibits external binaries, while generic audit boilerplate requests bash -n for shell scripts."
+resolution = "No standalone shell script is changed. Parse the YAML and tokenize its inline shell commands in-process, assert their guards and wiring, and limit the evidence claim to source facts; do not invoke a shell subprocess in pytest."
+
+[gotcha.3]
+observed = "The audit and gotcha ledgers exceed one tool response, and guessed core/chain and x/gov paths are absent."
+resolution = "Read bounded relevant sections and actual sdk/x/gov and modules/mint paths; keep task notes here because GOTCHA.kvx and spec files are outside the authorized scope."

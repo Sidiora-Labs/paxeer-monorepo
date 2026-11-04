@@ -309,6 +309,9 @@ func (app *App) FinalizeBlock(ctx context.Context, req *abci.RequestFinalizeBloc
 }
 
 func (app *App) Commit(ctx context.Context) (res *abci.ResponseCommit, err error) {
+	if app.lightInvarianceErr != nil {
+		return nil, fmt.Errorf("commit refused after failed light invariance: %w", app.lightInvarianceErr)
+	}
 	_, span := app.GetBaseApp().TracingInfo.StartWithContext("Commit", ctx)
 	defer span.End()
 	start := time.Now()

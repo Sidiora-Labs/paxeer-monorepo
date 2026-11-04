@@ -7,7 +7,6 @@ import (
 	"math"
 	"math/big"
 	"reflect"
-	"regexp"
 	"testing"
 	"time"
 
@@ -34,10 +33,12 @@ import (
 	cryptotypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/types"
 	storev2_rootmulti "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/storev2/rootmulti"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/module"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/tx/signing"
 	xauthsigning "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/signing"
 	authtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/types"
 	banktypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
+	upgradetypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/upgrade/types"
 	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -51,16 +52,22 @@ func TestEmptyBlockIdempotency(t *testing.T) {
 	valPub := secp256k1.GenPrivKey().PubKey()
 
 	for i := 1; i <= 10; i++ {
-		testWrapper := app.NewTestWrapper(t, tm, valPub, false)
-		res, _ := testWrapper.App.FinalizeBlock(context.Background(), &abci.RequestFinalizeBlock{Header: &types.Header{ChainID: "pax-test", Height: 1}})
-		testWrapper.App.Commit(context.Background())
-		data := res.AppHash
+		testWrapper := app.NewTestWrapperWithSc(t, tm, valPub, false)
+		res, err := testWrapper.App.FinalizeBlock(context.Background(), &abci.RequestFinalizeBlock{Header: &types.Header{ChainID: "pax-test", Height: 1, Time: tm}})
+		require.NoError(t, err)
+		_, err = testWrapper.App.Commit(context.Background())
+		require.NoError(t, err)
+		require.NotEmpty(t, res.AppHash)
+		require.Equal(t, res.AppHash, testWrapper.App.LastCommitID().Hash)
+		data := append([]byte(nil), res.AppHash...)
+		require.NoError(t, testWrapper.App.Close())
 		commitData = append(commitData, data)
 	}
 
 	referenceData := commitData[0]
 	for _, data := range commitData[1:] {
-		require.Equal(t, len(referenceData), len(data))
+		require.NotEmpty(t, referenceData)
+		require.Equal(t, referenceData, data)
 	}
 }
 
@@ -746,21 +753,7 @@ func TestProcessProposalHandlerPanicRecovery(t *testing.T) {
 	}
 }
 
-// TestProcessBlockUpgradePanicLogic tests the upgrade panic detection logic
-// Since ProcessBlock has multiple panic recovery layers, we test the logic directly
 func TestProcessBlockUpgradePanicLogic(t *testing.T) {
-	// This tests the exact same logic used in ProcessBlock's defer function
-	// We extract and test the core logic to ensure it works correctly
-	testUpgradePanicDetection := func(panicMsg string) (shouldRepanic bool, shouldRecover bool) {
-		// This uses the same regex pattern as ProcessBlock for consistency with Cosmovisor
-		// Matches multiple upgrade-related panic patterns from pax-cosmos
-		upgradeRe := regexp.MustCompile(`^(UPGRADE "[^"]+" NEEDED at height:?\s*\d+|Wrong app version \d+, upgrade handler is missing for .+ upgrade plan|BINARY UPDATED BEFORE TRIGGER! UPGRADE "[^"]+")`)
-		if upgradeRe.MatchString(panicMsg) {
-			return true, false // Should re-panic
-		}
-		return false, true // Should recover
-	}
-
 	testCases := []struct {
 		name          string
 		panicMsg      string
@@ -842,16 +835,27 @@ func TestProcessBlockUpgradePanicLogic(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			shouldRepanic, shouldRecover := testUpgradePanicDetection(tc.panicMsg)
-
-			if tc.shouldRepanic {
-				require.True(t, shouldRepanic, "Expected panic to be re-panicked: %s", tc.description)
-				require.False(t, shouldRecover, "Expected panic NOT to be recovered: %s", tc.description)
+			w := app.NewTestWrapperWithSc(t, time.Unix(1_800_000_000, 0).UTC(), secp256k1.GenPrivKey().PubKey(), false)
+			t.Cleanup(func() { require.NoError(t, w.App.Close()) })
+			w.Ctx = w.Ctx.WithConsensusParams(w.App.GetConsensusParams(w.Ctx))
+			const planName = "repair-panic-handler"
+			w.App.UpgradeKeeper.SetUpgradeHandler(planName, func(sdk.Context, upgradetypes.Plan, module.VersionMap) (module.VersionMap, error) {
+				panic(tc.panicMsg)
+			})
+			require.NoError(t, w.App.UpgradeKeeper.ScheduleUpgrade(w.Ctx, upgradetypes.Plan{Name: planName, Height: 1}))
+			run := func() {
+				events, results, end, err := w.App.ProcessBlock(w.Ctx, nil, &app.BlockProcessRequest{Height: 1, Time: w.Ctx.BlockTime()}, abci.CommitInfo{}, false, nil)
+				if tc.shouldRecover {
+					require.EqualError(t, err, "ProcessBlock panic: "+tc.panicMsg, tc.description)
+					require.Nil(t, events)
+					require.Nil(t, results)
+					require.Equal(t, abci.ResponseEndBlock{}, end)
+				}
 			}
-
-			if tc.shouldRecover {
-				require.False(t, shouldRepanic, "Expected panic NOT to be re-panicked: %s", tc.description)
-				require.True(t, shouldRecover, "Expected panic to be recovered: %s", tc.description)
+			if tc.shouldRepanic {
+				require.PanicsWithValue(t, tc.panicMsg, run, tc.description)
+			} else {
+				require.NotPanics(t, run, tc.description)
 			}
 		})
 	}

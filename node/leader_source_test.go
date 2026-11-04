@@ -17,22 +17,16 @@ import (
 
 func commitLeaderSourceBlock(t *testing.T, a *app.App, write func(sdk.Context)) {
 	t.Helper()
-	height := a.LastBlockHeight() + 1
-	_, err := a.FinalizeBlock(context.Background(), &abci.RequestFinalizeBlock{
-		Header: &tmproto.Header{ChainID: "pax-test", Height: height},
-	})
-	require.NoError(t, err)
-	write(a.GetContextForDeliverTx(nil))
-	a.SetDeliverStateToCommit()
-	_, err = a.Commit(context.Background())
-	require.NoError(t, err)
-	require.Equal(t, height, a.LastBlockHeight())
+	commitProofNodeAbciSchedule(t, a, write)
 }
 
 func TestAppLeaderScheduleReadsKeeperList(t *testing.T) {
-	w := app.NewTestWrapper(t, time.Now().UTC(), secp256k1.GenPrivKey().PubKey(), false)
+	w := app.NewTestWrapperWithSc(t, time.Now().UTC(), secp256k1.GenPrivKey().PubKey(), false)
 	a := w.App
 	t.Cleanup(func() { require.NoError(t, a.Close()) })
+	require.NoError(t, a.SequencerKeeper.SetReceiptKeys(w.Ctx, seqkeeper.ReceiptKeys{{
+		KeyId: sequencerKeyID, PublicKey: sequencerPublicKey(), FirstHeight: 1, LastHeight: ^uint64(0),
+	}}))
 	const activation int64 = 2
 	want := [][32]byte{{0: 3, 31: 4}, {0: 1, 31: 2}, {31: 5}}
 	commitLeaderSourceBlock(t, a, func(ctx sdk.Context) {
@@ -67,23 +61,33 @@ func TestAppLeaderScheduleReadsKeeperList(t *testing.T) {
 	require.Equal(t, want, leaders)
 
 	for _, key := range [][]byte{seqtypes.LeaderListKey, seqtypes.ActivationHeightKey} {
-		commitLeaderSourceBlock(t, a, func(ctx sdk.Context) {
-			ctx.KVStore(a.GetKey(seqtypes.StoreKey)).Set(key, []byte{1})
+		t.Run(string(key), func(t *testing.T) {
+			w := app.NewTestWrapperWithSc(t, time.Now().UTC(), secp256k1.GenPrivKey().PubKey(), false)
+			a := w.App
+			t.Cleanup(func() { require.NoError(t, a.Close()) })
+			require.NoError(t, a.SequencerKeeper.SetReceiptKeys(w.Ctx, seqkeeper.ReceiptKeys{{
+				KeyId: sequencerKeyID, PublicKey: sequencerPublicKey(), FirstHeight: 1, LastHeight: ^uint64(0),
+			}}))
+			commitLeaderSourceBlock(t, a, func(ctx sdk.Context) {
+				require.NoError(t, a.SequencerKeeper.SetActivationHeight(ctx, activation))
+				require.NoError(t, a.SequencerKeeper.SetLeaders(ctx, want))
+			})
+			commitLeaderSourceBlock(t, a, func(ctx sdk.Context) { ctx.KVStore(a.GetKey(seqtypes.StoreKey)).Set(key, []byte{1}) })
+			ctx, err := a.CreateQueryContext(0, false)
+			require.NoError(t, err)
+			_, _, keeperErr := a.SequencerKeeper.LeaderSchedule(ctx)
+			require.ErrorIs(t, keeperErr, seqkeeper.ErrCorruptStore)
+			gotActivation, leaders, err := a.LeaderSchedule(a.LastBlockHeight() + 1)
+			require.ErrorIs(t, err, seqkeeper.ErrCorruptStore)
+			require.EqualError(t, err, keeperErr.Error())
+			require.Zero(t, gotActivation)
+			require.Nil(t, leaders)
 		})
-		ctx, err := a.CreateQueryContext(0, false)
-		require.NoError(t, err)
-		_, _, keeperErr := a.SequencerKeeper.LeaderSchedule(ctx)
-		require.ErrorIs(t, keeperErr, seqkeeper.ErrCorruptStore)
-		gotActivation, leaders, err := a.LeaderSchedule(a.LastBlockHeight() + 1)
-		require.ErrorIs(t, err, seqkeeper.ErrCorruptStore)
-		require.EqualError(t, err, keeperErr.Error())
-		require.Zero(t, gotActivation)
-		require.Nil(t, leaders)
 	}
 }
 
 func TestAppLeaderScheduleEmptyBeforeActivation(t *testing.T) {
-	w := app.NewTestWrapper(t, time.Now().UTC(), secp256k1.GenPrivKey().PubKey(), false)
+	w := app.NewTestWrapperWithSc(t, time.Now().UTC(), secp256k1.GenPrivKey().PubKey(), false)
 	a := w.App
 	t.Cleanup(func() { require.NoError(t, a.Close()) })
 	commitLeaderSourceBlock(t, a, func(ctx sdk.Context) {

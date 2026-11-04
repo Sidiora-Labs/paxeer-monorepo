@@ -11,6 +11,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -65,6 +68,13 @@ public final class EmbeddedSecretDetector {
     private static final long MAXIMUM_FILE_BYTES = 64L * 1024L * 1024L;
     private static final int MAXIMUM_ARCHIVE_ENTRIES = 100_000;
 
+    private static final Map<String, Pattern> PROVIDER_PATTERNS = PROVIDER_PREFIXES.entrySet().stream()
+        .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, prefix -> Pattern.compile(
+            "(?<![A-Za-z0-9_./+-])" + Pattern.quote(prefix.getValue())
+                + "[A-Za-z0-9_./+=-]{12,4096}(?![A-Za-z0-9_./+=-])")));
+    private static final Pattern TEXT_VALUE_TOKEN = Pattern.compile("[A-Za-z0-9_./+=-]+");
+    private static final int RUN_OVERLAP = 4096 + 64;
+
     public static boolean isSecretShapedName(String name) {
         String normalized = name.toLowerCase(Locale.ROOT);
         for (String candidate : SECRET_NAMES) {
@@ -77,10 +87,8 @@ public final class EmbeddedSecretDetector {
         for (Map.Entry<String, String> marker : PEM_MARKERS.entrySet()) {
             if (value.contains(marker.getValue())) return marker.getKey();
         }
-        for (Map.Entry<String, String> prefix : PROVIDER_PREFIXES.entrySet()) {
-            if (value.startsWith(prefix.getValue()) && value.length() >= prefix.getValue().length() + 12) {
-                return prefix.getKey();
-            }
+        for (Map.Entry<String, Pattern> provider : PROVIDER_PATTERNS.entrySet()) {
+            if (provider.getValue().matcher(value).find()) return provider.getKey();
         }
         return null;
     }
@@ -151,7 +159,10 @@ public final class EmbeddedSecretDetector {
                 if (current.isEmpty()) runStart = offset;
                 current.append((char) value);
                 if (current.length() >= MAXIMUM_RUN) {
+                    String overlap = current.substring(current.length() - RUN_OVERLAP);
                     appendRun(findings, current, runStart, path, textual, exempt);
+                    current.append(overlap);
+                    runStart = offset + 1 - overlap.length();
                 }
             } else {
                 appendRun(findings, current, runStart, path, textual, exempt);
@@ -233,18 +244,27 @@ public final class EmbeddedSecretDetector {
         if (current.length() >= MINIMUM_RUN) {
             String text = current.toString();
             if (!exempt.contains(text)) {
-                String rule = classifyRun(text, textual);
+                String rule = classifyRun(text, textual, exempt);
                 if (rule != null) findings.add(new Finding(rule, path, runStart, text.length()));
             }
         }
         current.setLength(0);
     }
 
-    private static String classifyRun(String value, boolean textual) {
+    private static String classifyRun(String value, boolean textual, Set<String> exempt) {
         String provider = providerCredentialRule(value);
         if (provider != null) return provider;
         if (isSignedJsonWebToken(value)) return "signed-json-web-token";
         if (textual && isHighEntropyMaterial(value)) return "high-entropy-material";
+        if (textual) {
+            Matcher tokens = TEXT_VALUE_TOKEN.matcher(value);
+            while (tokens.find()) {
+                String token = tokens.group();
+                if (exempt.contains(token)) continue;
+                if (isSignedJsonWebToken(token)) return "signed-json-web-token";
+                if (isHighEntropyMaterial(token)) return "high-entropy-material";
+            }
+        }
         return null;
     }
 

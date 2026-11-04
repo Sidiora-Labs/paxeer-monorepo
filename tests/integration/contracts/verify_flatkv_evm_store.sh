@@ -66,37 +66,8 @@ if [ ! -s "$contract_addr_file" ]; then
   exit 1
 fi
 
-contract_hex=$(tail -1 "$contract_addr_file")
-contract_hex=${contract_hex#0x}
-contract_hex=$(printf "%s" "$contract_hex" | tr '[:lower:]' '[:upper:]')
-if [ -z "$contract_hex" ]; then
-  echo "FlatKV EVM fixture contract address is empty: $contract_addr_file" >&2
-  exit 1
-fi
-
-if ! grep -q "$contract_hex" "$storage_dump"; then
-  echo "FlatKV storage dump does not contain fixture contract address $contract_hex: $storage_dump" >&2
-  exit 1
-fi
-
-# A serialized FlatKV StorageData row is 41 raw bytes:
-#   1B tag (vtype.TagStorage) + 8B block height (big-endian) + 32B EVM slot value
-# dump-flatkv prints values as uppercase hex, so the on-disk 41 bytes become
-# 82 hex chars. If vtype.StorageData.Serialize() ever changes (varint
-# height, dropping the tag for the empty value, etc.) this assertion will
-# start failing -- update the breakdown here AND the literal length below.
-expected_storage_hex_len=82
-if ! awk -v want="$expected_storage_hex_len" '
-  /^Key:/ {
-    split($0, parts, "Value: ")
-    if (length(parts[2]) == want) {
-      found = 1
-    }
-  }
-  END { exit found ? 0 : 1 }
-' "$storage_dump"; then
-  echo "FlatKV storage dump has no row whose Value field is ${expected_storage_hex_len} hex chars (= 41B = 1B tag + 8B height + 32B EVM slot value): $storage_dump" >&2
-  exit 1
-fi
+# The receipt supplies the slot's modification height, not the later RPC head.
+python3 "$paxhome/tests/integration/contracts/flatkv_contract_checks.py" storage \
+  "$storage_dump" "$paxhome/tests/integration/contracts"
 
 echo "FlatKV storage bucket smoke verification passed: $storage_dump"

@@ -32,7 +32,7 @@ impl TryFrom<Contract> for OnChainContract {
             }
         };
 
-        let (chain_id, address) = helpers::decode_verification_metadata(value.metadata);
+        let (chain_id, address) = helpers::decode_verification_metadata(value.metadata)?;
 
         Ok(Self {
             code: on_chain_code,
@@ -247,7 +247,7 @@ fn build_on_chain_contract(
     metadata: Option<VerificationMetadata>,
 ) -> Result<OnChainContract, RequestParseError> {
     let on_chain_code = helpers::decode_on_chain_code_from_value_and_type(bytecode, bytecode_type)?;
-    let (chain_id, address) = helpers::decode_verification_metadata(metadata);
+    let (chain_id, address) = helpers::decode_verification_metadata(metadata)?;
     Ok(OnChainContract {
         code: on_chain_code,
         chain_id,
@@ -278,18 +278,17 @@ mod helpers {
 
     pub fn decode_verification_metadata(
         maybe_value: Option<VerificationMetadata>,
-    ) -> (Option<String>, Option<Address>) {
+    ) -> anyhow::Result<(Option<String>, Option<Address>)> {
         match maybe_value {
-            None => (None, None),
+            None => Ok((None, None)),
             Some(metadata) => {
                 let chain_id = metadata.chain_id;
                 let contract_address = metadata
                     .contract_address
                     .map(|value| alloy_core::primitives::Address::from_str(&value))
                     .transpose()
-                    .ok()
-                    .flatten();
-                (chain_id, contract_address)
+                    .context("invalid metadata contract_address")?;
+                Ok((chain_id, contract_address))
             }
         }
     }

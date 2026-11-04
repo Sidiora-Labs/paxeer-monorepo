@@ -3,10 +3,17 @@ package app
 import (
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
+	"io"
 	"math/big"
+	"net"
+	"net/http"
+	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
@@ -18,97 +25,231 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/utils"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	ethcore "github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/tracing"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/params"
+	ethrpc "github.com/ethereum/go-ethereum/rpc"
 	ethtests "github.com/ethereum/go-ethereum/tests"
 	"github.com/holiman/uint256"
 )
 
+type ReplayOptions struct {
+	RequestTimeout time.Duration
+	RetryDelay     time.Duration
+	PollInterval   time.Duration
+	MaxRetries     int
+}
+
+var DefaultReplayOptions = ReplayOptions{RequestTimeout: 30 * time.Second, RetryDelay: time.Second, PollInterval: time.Minute, MaxRetries: 3}
+
+// Replay retains the daemon entry point and cancels outstanding requests on shutdown.
 func Replay(a *App) {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	if err := ReplayContext(ctx, a, DefaultReplayOptions); err != nil && !errors.Is(err, context.Canceled) {
+		panic(err)
+	}
+}
+
+type replayTransport struct {
+	ctx  context.Context
+	base http.RoundTripper
+}
+
+func (t replayTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	ctx, cancel := context.WithCancel(req.Context())
+	stop := context.AfterFunc(t.ctx, cancel)
+	response, err := t.base.RoundTrip(req.Clone(ctx))
+	if err != nil {
+		stop()
+		cancel()
+		return nil, err
+	}
+	response.Body = &replayResponseBody{ReadCloser: response.Body, release: func() { stop(); cancel() }}
+	return response, nil
+}
+
+type replayResponseBody struct {
+	io.ReadCloser
+	release func()
+}
+
+func (b *replayResponseBody) Close() error { defer b.release(); return b.ReadCloser.Close() }
+
+func replayRetriable(err error) bool {
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, syscall.ECONNRESET) || errors.Is(err, syscall.ECONNREFUSED) || errors.Is(err, syscall.EPIPE) || errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, ethereum.NotFound) {
+		return true
+	}
+	var network net.Error
+	if errors.As(err, &network) {
+		return network.Timeout() || network.Temporary()
+	}
+	var response ethrpc.HTTPError
+	if errors.As(err, &response) {
+		return response.StatusCode == http.StatusTooManyRequests || response.StatusCode == http.StatusRequestTimeout || response.StatusCode >= 500
+	}
+	var rpcError ethrpc.Error
+	if errors.As(err, &rpcError) {
+		return rpcError.ErrorCode() == -32005 || rpcError.ErrorCode() == -32002
+	}
+	return false
+}
+
+func replayWait(ctx context.Context, delay time.Duration) error {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
+}
+
+func replayRequest[T any](ctx context.Context, opts ReplayOptions, request func(context.Context) (T, error)) (T, error) {
+	for attempt := 0; ; attempt++ {
+		var zero T
+		if err := ctx.Err(); err != nil {
+			return zero, err
+		}
+		requestCtx, cancel := context.WithTimeout(ctx, opts.RequestTimeout)
+		result, err := request(requestCtx)
+		cancel()
+		if err == nil {
+			return result, nil
+		}
+		if ctx.Err() != nil {
+			return zero, ctx.Err()
+		}
+		if !replayRetriable(err) || attempt >= opts.MaxRetries {
+			return zero, err
+		}
+		if err := replayWait(ctx, opts.RetryDelay); err != nil {
+			return zero, err
+		}
+	}
+}
+
+// ReplayContext resumes only from committed keeper state. Failed RPCs never
+// publish a cursor; after execution starts, failure returns to the owner for restart.
+func ReplayContext(ctx context.Context, a *App, opts ReplayOptions) error {
+	if opts.RequestTimeout <= 0 || opts.RetryDelay <= 0 || opts.PollInterval <= 0 || opts.MaxRetries < 0 {
+		return fmt.Errorf("invalid replay options")
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	dialCtx, cancelDial := context.WithTimeout(ctx, opts.RequestTimeout)
+	rpcClient, err := ethrpc.DialOptions(dialCtx, a.EvmKeeper.EthReplayConfig.EthRPC, ethrpc.WithHTTPClient(&http.Client{
+		Timeout: opts.RequestTimeout, Transport: replayTransport{ctx: ctx, base: http.DefaultTransport},
+	}))
+	cancelDial()
+	if err != nil {
+		return fmt.Errorf("replay RPC: %w", err)
+	}
+	previousClient := a.EvmKeeper.EthClient
+	a.EvmKeeper.EthClient = ethclient.NewClient(rpcClient)
+	stopClient := context.AfterFunc(ctx, rpcClient.Close)
+	defer func() { stopClient(); rpcClient.Close(); a.EvmKeeper.EthClient = previousClient }()
 	h := a.EvmKeeper.GetReplayedHeight(a.GetCheckCtx()) + 1
 	initHeight := a.EvmKeeper.GetReplayInitialHeight(a.GetCheckCtx())
 	if h == 1 {
 		gendoc, err := tmtypes.GenesisDocFromFile(filepath.Join(DefaultNodeHome, "config/genesis.json"))
 		if err != nil {
-			panic(err)
+			return err
 		}
-		_, err = a.InitChain(context.Background(), &abci.RequestInitChain{
-			Time:          time.Now(),
-			ChainId:       gendoc.ChainID,
-			AppStateBytes: gendoc.AppState,
-		})
+		_, err = a.InitChain(ctx, &abci.RequestInitChain{Time: time.Now(), ChainId: gendoc.ChainID, AppStateBytes: gendoc.AppState})
 		if err != nil {
-			panic(err)
+			return err
 		}
-		initHeight = a.EvmKeeper.GetReplayInitialHeight(a.GetContextForDeliverTx([]byte{}))
-	} else {
-		a.EvmKeeper.OpenEthDatabase()
+		initHeight = a.EvmKeeper.GetReplayInitialHeight(a.GetContextForDeliverTx(nil))
 	}
 	for {
-		latestBlock, err := a.EvmKeeper.EthClient.BlockNumber(context.Background())
+		latestBlock, err := replayRequest(ctx, opts, a.EvmKeeper.EthClient.BlockNumber)
 		if err != nil {
-			panic(err)
+			return fmt.Errorf("replay head at committed height %d: %w", h-1, err)
 		}
-		if latestBlock < uint64(h+initHeight) { //nolint:gosec
-			logger.Info("latest block behind target, sleeping", "latest-block", latestBlock)
-			time.Sleep(1 * time.Minute)
+		if latestBlock < uint64(h+initHeight) {
+			if err := replayWait(ctx, opts.PollInterval); err != nil {
+				return err
+			}
 			continue
 		}
-		logger.Info("replaying block height", "height", h+initHeight)
-		if h+initHeight >= 19426587 && evmtypes.DefaultChainConfig().CancunTime < 0 {
-			logger.Error("Reaching Cancun upgrade height. Turn on Cancun by setting CancunTime in modules/evm/types/config.go:DefaultChainConfig() to 0")
-			break
-		} else if h+initHeight < 19426587 && evmtypes.DefaultChainConfig().CancunTime >= 0 {
-			logger.Error("Haven't reached Cancun upgrade height. Turn off Cancun by setting CancunTime in modules/evm/types/config.go:DefaultChainConfig() to -1")
-			break
-		}
-		b, err := a.EvmKeeper.EthClient.BlockByNumber(context.Background(), big.NewInt(h+initHeight))
-		if err != nil {
-			panic(err)
-		}
-		a.EvmKeeper.ReplayBlock = b
-		hash := make([]byte, 8)
-		binary.BigEndian.PutUint64(hash, uint64(h)) //nolint:gosec
-		_, err = a.FinalizeBlock(context.Background(), &abci.RequestFinalizeBlock{
-			Txs:               utils.Map(b.Txs, func(tx *ethtypes.Transaction) []byte { return encodeTx(tx, a.GetTxConfig()) }),
-			DecidedLastCommit: abci.CommitInfo{Votes: []abci.VoteInfo{}},
-			Hash:              hash,
-			Header: &tmproto.Header{
-				ChainID: a.ChainID,
-				Height:  h,
-				Time:    time.Now(),
-			},
+		b, err := replayRequest(ctx, opts, func(requestCtx context.Context) (*ethtypes.Block, error) {
+			return a.EvmKeeper.EthClient.BlockByNumber(requestCtx, big.NewInt(h+initHeight))
 		})
 		if err != nil {
-			panic(err)
+			return fmt.Errorf("replay block %d: %w", h+initHeight, err)
 		}
-		ctx := a.GetContextForDeliverTx([]byte{})
-		s := state.NewDBImpl(ctx, &a.EvmKeeper, false)
-		for _, w := range b.Withdrawals() {
-			amount := new(big.Int).SetUint64(w.Amount)
-			amount = amount.Mul(amount, big.NewInt(params.GWei))
-			s.AddBalance(w.Address, uint256.MustFromBig(amount), tracing.BalanceIncreaseWithdrawal)
+		if (h+initHeight >= 19426587) != (evmtypes.DefaultChainConfig().CancunTime >= 0) {
+			return fmt.Errorf("replay height %d disagrees with configured Cancun activation", h+initHeight)
 		}
-		_, _ = s.Finalize()
-		for _, tx := range b.Txs {
-			logger.Info("verifying tx", "tx-hash", tx.Hash())
-			if tx.To() != nil {
-				a.EvmKeeper.VerifyBalance(ctx, *tx.To())
-				if a.EvmKeeper.EthReplayConfig.ContractStateChecks {
-					a.EvmKeeper.VerifyState(ctx, *tx.To())
-				}
-			}
-			a.EvmKeeper.VerifyTxResult(ctx, tx.Hash())
+		if a.EvmKeeper.DB == nil {
+			a.EvmKeeper.OpenEthDatabase()
 		}
-		_, err = a.Commit(context.Background())
-		if err != nil {
-			panic(err)
+		if err := replayBlock(ctx, a, b, h, opts.RequestTimeout); err != nil {
+			return err
 		}
 		h++
 	}
+}
+
+func replayBlock(ctx context.Context, a *App, b *ethtypes.Block, height int64, timeout time.Duration) (err error) {
+	blockCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	stopClient := context.AfterFunc(blockCtx, a.EvmKeeper.EthClient.Client().Close)
+	defer stopClient()
+	defer func() {
+		if r := recover(); r != nil {
+			if blockCtx.Err() != nil {
+				err = blockCtx.Err()
+				return
+			}
+			if rpcErr, ok := r.(error); ok && replayRetriable(rpcErr) {
+				err = rpcErr
+				return
+			}
+			panic(r)
+		}
+	}()
+	a.EvmKeeper.ReplayBlock = b
+	hash := make([]byte, 8)
+	binary.BigEndian.PutUint64(hash, uint64(height))
+	_, err = a.FinalizeBlock(blockCtx, &abci.RequestFinalizeBlock{
+		Txs:               utils.Map(b.Txs, func(tx *ethtypes.Transaction) []byte { return encodeTx(tx, a.GetTxConfig()) }),
+		DecidedLastCommit: abci.CommitInfo{Votes: []abci.VoteInfo{}}, Hash: hash,
+		Header: &tmproto.Header{ChainID: a.ChainID, Height: height, Time: time.Now()},
+	})
+	if err != nil {
+		return err
+	}
+	stateCtx := a.GetContextForDeliverTx(nil).WithContext(blockCtx)
+	s := state.NewDBImpl(stateCtx, &a.EvmKeeper, false)
+	for _, w := range b.Withdrawals() {
+		amount := new(big.Int).Mul(new(big.Int).SetUint64(w.Amount), big.NewInt(params.GWei))
+		s.AddBalance(w.Address, uint256.MustFromBig(amount), tracing.BalanceIncreaseWithdrawal)
+	}
+	if _, err := s.Finalize(); err != nil {
+		return err
+	}
+	for _, tx := range b.Txs {
+		if tx.To() != nil {
+			a.EvmKeeper.VerifyBalance(stateCtx, *tx.To())
+			if a.EvmKeeper.EthReplayConfig.ContractStateChecks {
+				a.EvmKeeper.VerifyState(stateCtx, *tx.To())
+			}
+		}
+		a.EvmKeeper.VerifyTxResult(stateCtx, tx.Hash())
+	}
+	if err := blockCtx.Err(); err != nil {
+		return err
+	}
+	_, err = a.Commit(blockCtx)
+	return err
 }
 
 func BlockTest(a *App, bt *ethtests.BlockTest, home string) {

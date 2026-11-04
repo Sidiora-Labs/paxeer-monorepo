@@ -27,6 +27,11 @@ SNAPSHOT_WAIT_TIMEOUT=${FLATKV_ONLY_STATESYNC_SNAPSHOT_WAIT_TIMEOUT:-420}
 CATCHUP_TIMEOUT=${FLATKV_ONLY_STATESYNC_CATCHUP_TIMEOUT:-300}
 COMPARE_BUFFER=${FLATKV_ONLY_STATESYNC_COMPARE_BUFFER:-2}
 SMOKE_TIMEOUT=${FLATKV_ONLY_STATESYNC_SMOKE_TIMEOUT:-180}
+STOP_TIMEOUT=${FLATKV_ONLY_STATESYNC_STOP_TIMEOUT:-30}
+KILL_TIMEOUT=${FLATKV_ONLY_STATESYNC_KILL_TIMEOUT:-10}
+checks="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/flatkv_contract_checks.py"
+recovery_evidence_dir=$(mktemp -d /tmp/flatkv-only-statesync-evidence.XXXXXX)
+echo "Recovery evidence: $recovery_evidence_dir"
 
 echo "verify_flatkv_only_statesync: victim=$VICTIM_NODE donor=$DONOR_NODE second_rpc=$SECOND_RPC_NODE third_peer=$THIRD_PEER_NODE"
 
@@ -308,21 +313,55 @@ wait_for_catchup() {
   return 1
 }
 
-log_recovery_path() {
+require_snapshot_import() {
   local node=$1
   local node_id=${node#pax-node-}
   local logfile="/pax-protocol/pax-chain/build/generated/logs/paxd-${node_id}.log"
-  if docker exec "$node" bash -lc "grep -qE 'state_synced=true' '$logfile' 2>/dev/null"; then
-    echo "$node recovery path: STATE-SYNC (state_synced=true)"
-  elif docker exec "$node" bash -lc "grep -qE 'state_synced=false .*blocks_synced=' '$logfile' 2>/dev/null"; then
-    echo "$node recovery path: BLOCKSYNC FALLBACK (state-sync did not engage)"
+  docker exec "$node" cat "$logfile" > "$recovery_evidence_dir/import.log"
+  imported_snapshot_height=$(python3 "$checks" snapshot "$recovery_evidence_dir/import.log" \
+    "$MIN_DONOR_HEIGHT" "$(node_height "$node")" "$recovery_evidence_dir/${node}-fixture.json" "$recovery_evidence_dir/import.json")
+  echo "$node imported snapshot at height $imported_snapshot_height"
+}
+
+stop_victim() {
+  # Run the matcher directly, so it cannot match a shell carrying its own pattern.
+  # pgrep status 1 means absence; transport/matcher errors must fail closed.
+  local elapsed=0 rc
+  docker exec "$VICTIM_NODE" pkill -TERM -x paxd >/dev/null 2>&1 || {
+    rc=$?; [ "$rc" -eq 1 ] || return "$rc"
+  }
+  while [ "$elapsed" -lt "$STOP_TIMEOUT" ]; do
+    if docker exec "$VICTIM_NODE" pgrep -x paxd >/dev/null; then
+      sleep 1
+      elapsed=$((elapsed + 1))
+    else
+      rc=$?; [ "$rc" -eq 1 ] || return "$rc"
+      break
+    fi
+  done
+  if docker exec "$VICTIM_NODE" pgrep -x paxd >/dev/null; then
+    docker exec "$VICTIM_NODE" pkill -KILL -x paxd >/dev/null 2>&1 || {
+      rc=$?; [ "$rc" -eq 1 ] || return "$rc"
+    }
+    elapsed=0
+    while [ "$elapsed" -lt "$KILL_TIMEOUT" ]; do
+      if docker exec "$VICTIM_NODE" pgrep -x paxd >/dev/null; then
+        sleep 1
+        elapsed=$((elapsed + 1))
+      else
+        rc=$?; [ "$rc" -eq 1 ] || return "$rc"
+        break
+      fi
+    done
   else
-    echo "$node recovery path: UNKNOWN (no state_synced= outcome line in log)"
+    rc=$?; [ "$rc" -eq 1 ] || return "$rc"
   fi
-  echo "  state-sync startup attempt lines:" >&2
-  docker exec "$node" bash -lc \
-    "grep -E 'This node needs state sync|starting state sync|Offering snapshot to ABCI app|Snapshot accepted, restoring|Start restoring store|state sync failed|Found local state with non-zero height|state_synced=' '$logfile' 2>/dev/null | head -40" >&2 \
-    || echo "  (no state-sync attempt lines found)" >&2
+  if docker exec "$VICTIM_NODE" pgrep -x paxd >/dev/null; then
+    echo "ERROR: $VICTIM_NODE still owns its databases; refusing state removal" >&2
+    return 1
+  else
+    rc=$?; [ "$rc" -eq 1 ] || return "$rc"
+  fi
 }
 
 pick_compare_height() {
@@ -361,7 +400,7 @@ flatkv_dump_digest() {
 assert_flatkv_digests_match() {
   local compare_version
   compare_version=$(pick_compare_height)
-  if [ -z "$compare_version" ] || [ "$compare_version" -lt 1 ]; then
+  if [ -z "$compare_version" ] || [ "$compare_version" -lt "$imported_snapshot_height" ]; then
     echo "ERROR: failed to pick a positive comparison height" >&2
     exit 1
   fi
@@ -446,7 +485,9 @@ assert_evm_fixture_queries() {
       echo "missing storage mismatch: got $actual_missing_storage want $expected_missing_storage" >&2
       exit 1
     fi
-  '; then
+    jq -cn --arg contract "$contract" --arg storage "$actual_storage" --arg code "$actual_code" \
+      "{contract:\$contract,storage:\$storage,code:\$code}"
+  ' > "$recovery_evidence_dir/${node}-fixture.json"; then
     return 1
   fi
   echo "FlatKV EVM fixture queries passed on $node"
@@ -481,8 +522,14 @@ echo "Using state-sync trust_height=$trust_height trust_hash=$trust_hash"
 
 stop_height=$(node_height "$VICTIM_NODE")
 echo "Stopping $VICTIM_NODE at height $stop_height before flatkv_only state-sync recovery"
-docker exec "$VICTIM_NODE" pkill -f "paxd start" >/dev/null 2>&1 || true
-sleep 2
+stop_victim
+# Save the previous attempt, then start with a fresh import log.
+docker exec "$VICTIM_NODE" bash -lc "
+  set -euo pipefail
+  logfile=/pax-protocol/pax-chain/build/generated/logs/paxd-${VICTIM_INDEX}.log
+  cp \"\$logfile\" \"\$logfile.before-statesync\"
+  : > \"\$logfile\"
+"
 
 echo "Wiping $VICTIM_NODE data and wasm directories while preserving priv_validator_state.json"
 docker exec "$VICTIM_NODE" bash -lc "
@@ -500,9 +547,22 @@ echo "Starting $VICTIM_NODE for flatkv_only state-sync recovery"
 start_victim
 wait_for_process "$VICTIM_NODE" 30
 wait_for_catchup "$VICTIM_NODE" "$DONOR_NODE" "$CATCHUP_TIMEOUT"
-log_recovery_path "$VICTIM_NODE"
+assert_evm_fixture_queries "$VICTIM_NODE"
+require_snapshot_import "$VICTIM_NODE"
+wait_for_height "$VICTIM_NODE" "$((imported_snapshot_height + COMPARE_BUFFER + 1))" "$CATCHUP_TIMEOUT"
 assert_flatkv_only_layout
 assert_evm_fixture_queries "$VICTIM_NODE"
+assert_flatkv_digests_match
+
+# Reopen the imported database without another wipe; verify durable recovery.
+stop_victim
+start_victim
+wait_for_process "$VICTIM_NODE" 30
+wait_for_catchup "$VICTIM_NODE" "$DONOR_NODE" "$CATCHUP_TIMEOUT"
+assert_flatkv_only_layout
+assert_evm_fixture_queries "$VICTIM_NODE"
+python3 "$checks" reopen "$recovery_evidence_dir/import.json" "$(node_height "$VICTIM_NODE")" \
+  "$recovery_evidence_dir/${VICTIM_NODE}-fixture.json"
 assert_flatkv_digests_match
 
 echo "PASS: $VICTIM_NODE recovered in flatkv_only mode and FlatKV state matches the donor validators"

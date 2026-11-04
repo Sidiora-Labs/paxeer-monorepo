@@ -1,0 +1,17 @@
+[task]
+id = "22.33.104"
+audit = "22.30.111"
+base_revision = "0ba7cfa54c7f07b37201b1f12fcc2f1dd7ed0ed7"
+verify_cmd = "cargo test --locked --manifest-path services/interop/crates/layerx-mirror/Cargo.toml --test repair_22_33_104"
+verified_revision_record = "The runner records the exact candidate revision, command, exit and private log in /out/run/gates.jsonl and the final gate JSON."
+baseline = "No pre-change test failure claimed: the earlier attempt stopped in the dependent-crate check before this task's verify (qualification finding 22.33.104.1, gotcha 2974). This checkout has no carried implementation or repair test and an empty gate ledger. The ordered gate contract forbids direct verify runs and testing before implementation, so no additional baseline gate is run."
+
+[finding.20]
+status = "implemented"
+tests = ["finding_20_root_acquisition_reaches_the_mirror_receipt_consumer", "finding_20_root_source_preserves_chain_and_genesis_trust", "finding_20_root_acquisition_preserves_receipt_authority", "finding_20_root_acquisition_requires_independent_backend_agreement"]
+evidence = "Shared TestRpc advertises authenticated HTTPS root endpoints and asserts POST / before answering. Production CommittedBlockSource and RpcCluster acquire the committed fixture through both peers; Archive and MirrorVerifier consume and authenticate every canonical receipt. Wrong chain/genesis pins, out-of-window or foreign keys, altered signatures, duplicate backend/network identities and divergent block/receipt answers remain refusals; two independent matching peers outvote a third divergent peer."
+wiring_requests = []
+
+[scope_notes]
+record_location = "This record is inside the allowed support directory because spec/ and GOTCHA.kvx are outside task scope."
+gotcha = "CommittedSourceConfig.chain_id is u64 while Archive::from_committed and MirrorObservation::from_archive require u32; use a checked conversion when carrying configured native identity into the archive consumer."

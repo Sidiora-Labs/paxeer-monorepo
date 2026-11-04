@@ -82,8 +82,6 @@ jobs:
       - name: Install pinned Rust toolchain
         run: rustup toolchain install 1.91.1 --profile minimal --no-self-update
       - name: Build release binaries
-        env:
-          PAXD_RELEASE_LAYERXD: '1'
         run: tools/release/build-paxd.sh
       - name: Generate release notes
         run: |

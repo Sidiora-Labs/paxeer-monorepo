@@ -13,7 +13,75 @@
 # This wrapper tears it down and starts a mixed-mode cluster instead.
 #
 
-set -e
+set -euo pipefail
+
+mixed_failure_diagnostics() {
+    local status=$?
+    trap - EXIT
+    if [ "$status" -ne 0 ]; then
+        echo "Mixed-mode test failed (exit $status); validator diagnostics follow" >&2
+        for node in 0 1 2 3; do
+            echo "=== pax-node-${node}: build/generated/logs/paxd-${node}.log ===" >&2
+            timeout 10s docker logs --tail 200 "pax-node-${node}" >&2 || true
+            timeout 10s docker exec "pax-node-${node}" curl --fail --silent --show-error \
+                --max-time 5 http://localhost:26657/status >&2 || true
+        done
+    fi
+    exit "$status"
+}
+trap mixed_failure_diagnostics EXIT
+
+validator_rpc() {
+    timeout 10s docker exec "pax-node-$1" curl --fail --silent --show-error \
+        --max-time 5 "http://localhost:26657/$2"
+}
+
+validator_height() {
+    validator_rpc "$1" status | jq -er '
+        select(.error == null and .result.sync_info.catching_up == false)
+        | .result.sync_info.latest_block_height
+        | select(type == "string" and test("^[1-9][0-9]*$"))'
+}
+
+check_mixed_final_agreement() {
+    local node height target=0 deadline reference= hashes
+    local -a baseline=()
+    for node in 0 1 2 3; do
+        height=$(validator_height "$node")
+        baseline[node]=$height
+        if [ "$height" -gt "$target" ]; then target=$height; fi
+    done
+    # A header's AppHash is the state after the preceding block. Choose a
+    # common header beyond every post-workload baseline, including that lag.
+    target=$((target + 2))
+    deadline=$((SECONDS + 120))
+    for node in 0 1 2 3; do
+        while true; do
+            height=$(validator_height "$node")
+            if [ "$height" -ge "$target" ] && [ "$height" -gt "${baseline[node]}" ]; then
+                break
+            fi
+            if [ "$SECONDS" -ge "$deadline" ]; then
+                echo "ERROR: validator $node did not advance to $target after workload (height $height)" >&2
+                return 1
+            fi
+            sleep 2
+        done
+        hashes=$(validator_rpc "$node" "block?height=$target" | jq -er --arg height "$target" '
+            select(.error == null and .result.block.header.height == $height)
+            | .result.block.header
+            | select((.app_hash | type == "string" and test("^[A-Fa-f0-9]{64}$"))
+                and (.last_results_hash | type == "string" and test("^[A-Fa-f0-9]{64}$")))
+            | [.app_hash, .last_results_hash] | @tsv')
+        if [ "$node" -eq 0 ]; then
+            reference=$hashes
+        elif [ "$hashes" != "$reference" ]; then
+            echo "ERROR: validator $node disagrees with validator 0 at committed height $target: $hashes != $reference" >&2
+            return 1
+        fi
+        echo "Validator $node advanced from ${baseline[node]} to $height; height $target hashes: $hashes"
+    done
+}
 
 echo "=== GIGA Mixed-Mode Integration Test ==="
 echo "=== Node 0: GIGA_EXECUTOR=true GIGA_OCC=true, Nodes 1-3: standard V2 ==="
@@ -42,7 +110,6 @@ while [ $elapsed -lt $timeout ]; do
 done
 if [ $elapsed -ge $timeout ]; then
     echo "ERROR: Mixed cluster failed to start within ${timeout}s"
-    make docker-cluster-stop
     exit 1
 fi
 
@@ -52,11 +119,6 @@ sleep 10
 # Run the same giga EVM tests — they hit node 0 (giga) via paxlocal RPC
 echo "=== Running GIGA EVM Tests against mixed cluster ==="
 ./tests/integration/evm_module/scripts/evm_giga_tests.sh
-EXIT_CODE=$?
+check_mixed_final_agreement
 
-if [ $EXIT_CODE -ne 0 ]; then
-    echo "TEST FAILURE — check if node 0 (giga) halted due to consensus mismatch"
-    echo "Logs: build/generated/logs/paxd-0.log"
-fi
-
-exit $EXIT_CODE
+echo "=== All four mixed-mode validators advanced and agree ==="
