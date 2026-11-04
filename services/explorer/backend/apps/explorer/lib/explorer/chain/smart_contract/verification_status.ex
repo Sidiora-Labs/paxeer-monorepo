@@ -34,6 +34,13 @@ defmodule Explorer.Chain.SmartContract.VerificationStatus do
     struct
     |> cast(casted_params, @required_fields)
     |> validate_required(@required_fields)
+    |> validate_change(:uid, fn :uid, uid ->
+      case validate_uid(uid) do
+        {:ok, _} -> []
+        :error -> [uid: "is invalid"]
+      end
+    end)
+    |> unique_constraint(:uid, name: :smart_contract_verification_statuses_pkey)
   end
 
   def encode_status(%{status: status} = changeset) do
@@ -73,9 +80,24 @@ defmodule Explorer.Chain.SmartContract.VerificationStatus do
   def insert_status(uid, status, address_hash) do
     {:ok, hash} = if is_binary(address_hash), do: Chain.string_to_address_hash(address_hash), else: address_hash
 
-    %__MODULE__{}
-    |> changeset(%{uid: uid, status: status, contract_address_hash: hash})
-    |> Repo.insert()
+    result =
+      %__MODULE__{}
+      |> changeset(%{uid: uid, status: status, contract_address_hash: hash})
+      |> Repo.insert(mode: :savepoint)
+
+    case result do
+      {:error, changeset} ->
+        if Enum.any?(changeset.errors, fn {field, {_, options}} ->
+             field == :uid and options[:constraint] == :unique
+           end) do
+          raise Ecto.InvalidChangesetError, action: :insert, changeset: changeset
+        else
+          result
+        end
+
+      _ ->
+        result
+    end
   end
 
   def update_status(uid, status) do
@@ -104,24 +126,28 @@ defmodule Explorer.Chain.SmartContract.VerificationStatus do
       :error ->
         nil
 
-      {:ok, %Hash{byte_count: 20, bytes: address_hash}} ->
-        address_encoded = Base.encode16(address_hash, case: :lower)
-        timestamp = DateTime.utc_now() |> DateTime.to_unix() |> Integer.to_string(16) |> String.downcase()
-        address_encoded <> timestamp
+      {:ok, %Hash{byte_count: 20}} ->
+        32 |> :crypto.strong_rand_bytes() |> Base.encode16(case: :lower)
     end
   end
 
-  def validate_uid(<<_address::binary-size(40), timestamp_hex::binary>> = uid) do
-    case Integer.parse(timestamp_hex, 16) do
-      {timestamp, ""} ->
-        if DateTime.utc_now() |> DateTime.to_unix() >= timestamp do
-          {:ok, uid}
-        else
-          :error
-        end
+  def validate_uid(<<_::binary-size(64)>> = uid) do
+    case Base.decode16(uid, case: :lower) do
+      {:ok, _} -> {:ok, uid}
+      :error -> :error
+    end
+  end
 
-      _ ->
-        :error
+  def validate_uid(<<address::binary-size(40), timestamp_hex::binary>> = uid)
+      when byte_size(timestamp_hex) in 1..16 do
+    with {:ok, _} <- Base.decode16(address, case: :mixed),
+         {:ok, _} <- Chain.string_to_address_hash("0x" <> address),
+         true <- Regex.match?(~r/\A[0-9a-fA-F]+\z/, timestamp_hex),
+         {timestamp, ""} <- Integer.parse(timestamp_hex, 16),
+         true <- timestamp <= DateTime.to_unix(DateTime.utc_now()) do
+      {:ok, uid}
+    else
+      _ -> :error
     end
   end
 

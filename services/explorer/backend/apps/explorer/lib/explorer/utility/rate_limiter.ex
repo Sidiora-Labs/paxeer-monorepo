@@ -34,9 +34,27 @@ defmodule Explorer.Utility.RateLimiter do
     {:ok, %{}}
   end
 
-  def handle_info({:delete, key}, state) do
-    :ets.delete(@ets_table_name, key)
-    {:noreply, state}
+  def handle_call({:set, key, value, expire_after}, _from, state) do
+    case Map.get(state, key) do
+      {timer, _token} -> Process.cancel_timer(timer)
+      nil -> :ok
+    end
+
+    token = make_ref()
+    :ets.insert(@ets_table_name, {key, value})
+    timer = Process.send_after(self(), {:delete, key, token}, expire_after)
+    {:reply, :ok, Map.put(state, key, {timer, token})}
+  end
+
+  def handle_info({:delete, key, token}, state) do
+    case Map.get(state, key) do
+      {_timer, ^token} ->
+        :ets.delete(@ets_table_name, key)
+        {:noreply, Map.delete(state, key)}
+
+      _ ->
+        {:noreply, state}
+    end
   end
 
   def handle_info(_, state) do
@@ -143,8 +161,7 @@ defmodule Explorer.Utility.RateLimiter do
         end
 
       :ets ->
-        :ets.insert(@ets_table_name, {key, value})
-        Process.send_after(self(), {:delete, key}, expire_after)
+        GenServer.call(__MODULE__, {:set, key, value, expire_after})
     end
   end
 end

@@ -48,7 +48,7 @@ defmodule Explorer.Chain.PaxeerX.UnifiedAccount do
 
     case select_repo(options).one(query) do
       %AccountBinding{bound: true} = binding ->
-        %{evm: evm, pax: binding.pax_address, did: binding.layerx_did, bound: true}
+        %{evm: evm, pax: Identity.pax_address(binding.evm_address_hash), did: binding.layerx_did, bound: true}
 
       _unbound ->
         %{evm: evm, pax: nil, did: nil, bound: false}
@@ -137,7 +137,17 @@ defmodule Explorer.Chain.PaxeerX.UnifiedAccount do
     )
   end
 
-  defp binding_condition(%Identity{kind: :pax, pax: pax}), do: dynamic([binding], binding.pax_address == ^pax)
+  defp binding_condition(%Identity{kind: :pax, pax: pax}) do
+    case Identity.pax_address_bytes(pax) do
+      {:ok, bytes} ->
+        {:ok, address_hash} = Hash.Address.cast(bytes)
+        dynamic([binding], binding.evm_address_hash == ^address_hash)
+
+      :error ->
+        dynamic([binding], false)
+    end
+  end
+
   defp binding_condition(%Identity{kind: :did, did: did}), do: kernel_binding_condition(did)
 
   defp binding_condition(%Identity{kind: :kernel_account, kernel_account: kernel_account}),

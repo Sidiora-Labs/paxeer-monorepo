@@ -7,8 +7,9 @@ defmodule Explorer.Token.MetadataRetriever do
 
   alias Explorer.Chain.{Hash, Token}
   alias Explorer.Helper, as: ExplorerHelper
-  alias Explorer.{HttpClient, MetadataURIValidator}
+  alias Explorer.HttpClient
   alias Explorer.SmartContract.Reader
+  alias Explorer.Token.MetadataHTTPClient
 
   @no_uri_error "no uri"
   @vm_execution_error "VM execution error"
@@ -19,6 +20,7 @@ defmodule Explorer.Token.MetadataRetriever do
   @erc1155_token_id_placeholder "{id}"
 
   @max_error_length 255
+  @max_redirects 5
 
   # TODO: Consider using the `EthereumJSONRPC.ERC20` module to retrieve token metadata
   @contract_abi [
@@ -826,35 +828,15 @@ defmodule Explorer.Token.MetadataRetriever do
   """
   @spec fetch_metadata_from_uri(String.t(), keyword(), String.t() | nil) :: {:ok, %{metadata: any}} | {:error, binary()}
   def fetch_metadata_from_uri(uri, ipfs_params, hex_token_id \\ nil) do
-    case Application.get_env(:indexer, Indexer.Fetcher.TokenInstance.Helper)[:host_filtering_enabled?] &&
-           !ipfs?(ipfs_params) && !arweave?(ipfs_params) && MetadataURIValidator.validate_uri(uri) do
-      {:error, reason} ->
-        if reason == :blacklist do
-          Logger.warning(
-            [
-              "Request to token uri failed: #{inspect(uri)}.",
-              "Host is blacklisted.",
-              "To disable IPs blacklisting set INDEXER_TOKEN_INSTANCE_HOST_FILTERING_ENABLED=false"
-            ],
-            fetcher: :token_instances
-          )
-        end
-
-        {:error, reason |> to_string() |> truncate_error()}
-
-      _ ->
-        fetch_metadata_from_uri_request(uri, hex_token_id, ipfs_params)
-    end
+    fetch_metadata_from_uri_request(uri, hex_token_id, ipfs_params)
   end
 
   defp fetch_metadata_from_uri_request(uri, hex_token_id, ipfs_params) do
     headers = if ipfs?(ipfs_params), do: ipfs_headers(), else: @default_headers
+    filtering? = Application.get_env(:indexer, Indexer.Fetcher.TokenInstance.Helper)[:host_filtering_enabled?]
+    validate_initial? = filtering? && !ipfs?(ipfs_params) && !arweave?(ipfs_params)
 
-    case HttpClient.get(uri, headers,
-           recv_timeout: 30_000,
-           follow_redirect: true,
-           pool: :token_instance_fetcher
-         ) do
+    case request_metadata(uri, headers, validate_initial?, filtering?, @max_redirects) do
       {:ok, %{body: body, status_code: 200, headers: response_headers}} ->
         content_type = get_content_type_from_headers(response_headers)
 
@@ -874,6 +856,9 @@ defmodule Explorer.Token.MetadataRetriever do
 
         {:error_code, code}
 
+      {:error, reason} when reason in [:blacklist, :nxdomain, :empty_host, :disallowed_protocol, :not_printable] ->
+        {:error, reason |> to_string() |> truncate_error()}
+
       {:error, reason} ->
         Logger.warning(
           ["Request to token uri failed: #{inspect(uri)}.", inspect(reason)],
@@ -890,6 +875,45 @@ defmodule Explorer.Token.MetadataRetriever do
       )
 
       {:error, "request error"}
+  end
+
+  defp request_metadata(uri, headers, validate?, filtering?, redirects_left) do
+    response =
+      if filtering? do
+        MetadataHTTPClient.get(uri, headers, validate?)
+      else
+        HttpClient.get(uri, headers, recv_timeout: 30_000, follow_redirect: false, pool: :token_instance_fetcher)
+      end
+
+    case response do
+      {:ok, %{status_code: status, headers: response_headers}} when status in [301, 302, 303, 307, 308] ->
+        location =
+          Enum.find_value(response_headers, fn {name, value} ->
+            if String.downcase(name) == "location", do: value
+          end)
+
+        cond do
+          redirects_left == 0 ->
+            {:error, :too_many_redirects}
+
+          !is_binary(location) or location == "" ->
+            {:error, :invalid_redirect}
+
+          true ->
+            target = URI.merge(uri, location)
+            source = URI.parse(uri)
+
+            headers =
+              if {source.scheme, source.host, source.port} == {target.scheme, target.host, target.port},
+                do: headers,
+                else: @default_headers
+
+            request_metadata(URI.to_string(target), headers, filtering?, filtering?, redirects_left - 1)
+        end
+
+      _ ->
+        response
+    end
   end
 
   defp process_result(metadata, uri, ipfs_params) do

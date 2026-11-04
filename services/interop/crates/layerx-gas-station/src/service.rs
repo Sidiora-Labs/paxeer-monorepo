@@ -220,6 +220,7 @@ impl Default for Limits {
 /// The quote and sponsored submission endpoints over one gas station.
 pub struct Service<S, R, P, C> {
     station: GasStation<S, R, P>,
+    policy_ready: Result<(), ServiceError>,
     chain_id: u64,
     token: Address,
     decimals: u8,
@@ -244,12 +245,16 @@ where
     #[must_use]
     pub fn new(
         config: &ServiceConfig,
-        station: GasStation<S, R, P>,
+        mut station: GasStation<S, R, P>,
         clock: C,
         limits: Limits,
     ) -> Self {
+        let policy_ready = station
+            .configure_service(config)
+            .map_err(|error| ServiceError::from(&error));
         Self {
             station,
+            policy_ready,
             chain_id: config.station.chain_id,
             token: config.station.token,
             decimals: config.station.decimals,
@@ -283,6 +288,7 @@ where
     /// # Errors
     /// Returns the refusal whose status the response carries.
     pub fn respond(&mut self, route: &str, body: &[u8]) -> Result<Value, ServiceError> {
+        self.policy_ready?;
         let body = serde_json::from_slice::<StrictValue>(body)
             .map_err(|_| ServiceError::Malformed)?
             .0;
@@ -367,15 +373,7 @@ where
     }
 
     fn next_quote_nonce(&self) -> Result<Word, ServiceError> {
-        let last = self
-            .station
-            .journal()
-            .state()
-            .items
-            .keys()
-            .map(|key| key.quote_nonce)
-            .max()
-            .unwrap_or_default();
+        let last = self.station.journal().state().quote_nonce_high_water;
         increment(last).ok_or(ServiceError::Unavailable)
     }
 
@@ -635,6 +633,7 @@ where
     /// # Errors
     /// Returns the station's refusal; an unusable clock is unavailable.
     pub fn recover(&mut self, budget: Duration) -> Result<Recovery, StationError> {
+        self.policy_ready.map_err(|_| StationError::Conflict)?;
         let now = (self.clock)().ok_or(StationError::Rpc(RpcFault::Unavailable))?;
         self.station.recover(now, budget)
     }

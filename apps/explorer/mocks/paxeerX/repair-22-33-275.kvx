@@ -1,0 +1,25 @@
+[repair.22.33.275]
+audit = "22.30.132"
+failed-observations-accepted = "repair-22-33-275.spec.ts: failedObservationsStayVisibleInDetailAndNeverAdvanceLiveMarkets, successfulSubmissionKeepsRefusedObservationInDetailAndAppliesOnlyAcceptedMarket"
+unified-activity-shape = "repair-22-33-275.spec.ts: nativeAccountTransactionsPreserveExecutionResultsThroughTransportAndConsumer, emptyNativeAccountIncludesAndRendersZeroBalance"
+implementation = "Failed submissions contain only rejected observations; a successful mixed submission carries a refused BTC observation and an accepted ETH observation. Native account fixtures carry committed transactions, required ok/error/null execution results and a native zero balance for an empty account. Native response types narrow the existing presentation model without broadening it."
+continuation = "Preserved the first attempt; failed observations now also retain FeedView's market-id ordering, and the repair test transports the strict native account exports directly."
+continuation_repair_1 = "Build 11ea0ea09fbba8f54873d0f1da9d420e43be6a3a failed (exit 2, /out/logs/build-1.log) because stricter presentation export annotations changed inference in ActivityListItem.spec.tsx. Restored the first attempt's existing presentation export annotations while preserving the strict native fixture definitions and transport input; no type definition or assertion was relaxed."
+producer_contract = "Feed observations follow Explorer.PaxeerX.CosmosRest.decode_price_updates and FeedView.prepare_update; account rows follow Explorer.Chain.PaxeerX.UnifiedAccount.activity/balances and UnifiedAccountController.prepare_activity. No backend process or live endpoint is run by this gate."
+proof_boundary = "The test serves the scoped fixtures over loopback HTTP, reads them with production useApiFetch/useFetch and resource URL definitions, renders the real detail/activity/balance components, and applies the real live-market reducer. These are frontend fixture/consumer proofs, not a claim that the Elixir producer or database executed."
+baseline = "No pre-change gate was run or failing test claimed: task order requires complete implementation before hf-build then hf-done, and forbids a manual verify_cmd run."
+wiring_request_feed = "Domain 14: apps/explorer/ui/paxeerX/feed/PaxeerXFeedUpdateDetails.spec.tsx and apps/explorer/ui/pages/PaxeerXFeedMarketLive.spec.tsx should reuse the failed and mixed refused fixtures covered by this repair gate."
+wiring_request_account = "Domain 14: apps/explorer/ui/paxeerX/account/ActivityList.spec.tsx, ActivityListItem.spec.tsx and apps/explorer/ui/pages/PaxeerXAccount.spec.tsx must replace token-transfer/receipted expectations with native transaction/result expectations; their files are outside this task's scope."
+wiring_request_api = "Domain 14: apps/explorer/lib/api/services/general/paxeerX.ts should bind the wire payload to PaxeerXNativeUnifiedAccount; apps/explorer/ui/paxeerX/account/placeholderData.ts must retain an explicit presentation model for loading skeletons."
+qualification = "Exact candidate revision, command, exit and private evidence path are recorded by the runner hf-build/hf-done ledger, without a qualification claim in this source record."
+environment = "The runner bootstrap left explorer dependencies absent after npm ci rejected an unrelated root lockfile and pnpm rejected the Yarn packageManager pin. Dependencies are installed with the existing frozen Yarn lockfile, ignoring lifecycle scripts during implementation, and the declared gate uses pnpm 8.15.9 without changing any manifest."
+formatter_note = "Repository ESLint formatting was applied only to the four touched TypeScript files. Its valid-title and expect-expect rules reject the task-mandated named-function test registrations; all four tests and their assertions remain intact, and no lint rule is disabled. Package postinstall generated the required Chakra types before qualification."
+repair_cycle_1 = "The first bounded build reported TS2322 for the loopback server's incomplete ApiPropsFull configuration. The test now supplies the real server's host, protocol, port and endpoints explicitly, without asserting or broadening the type."
+
+[qualification.unrelated]
+revision = "95ae7a7117b1e3f1639c93f3b828fdaa05dc12ad"
+command = "pnpm --dir apps/explorer exec tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "ui/marketplace/essentialDapps/revoke/hooks/repair-22-31-381.spec.ts:2 imports unavailable ganache (TS2307)."
+assumption = "The marketplace owner must provision its dependency; that test and its manifests are outside this task's scope and remain unchanged."

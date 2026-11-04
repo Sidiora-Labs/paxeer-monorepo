@@ -60,15 +60,15 @@ func (s *source) standardFixture(t *testing.T) string {
 }
 
 func options(t *testing.T, s *source) rehearsal.Options {
-	return rehearsal.Options{
-		SourceURL:     s.reader,
-		MigrationsDir: testsupport.GatewayMigrationsDir(t),
-		AdminURL:      s.pg.URL,
-		AttestorBin:   testsupport.AttestorBinary(t),
-		MasterKey:     s.master,
-		ArchivePath:   filepath.Join(t.TempDir(), "funded.archive"),
-		Passphrase:    []byte(passphrase),
-	}
+	t.Helper()
+	o := rehearsal.RepairM174DaemonOptions(t, testsupport.AttestorBinary(t))
+	o.SourceURL = s.reader
+	o.MigrationsDir = testsupport.GatewayMigrationsDir(t)
+	o.AdminURL = s.pg.URL
+	o.MasterKey = s.master
+	o.ArchivePath = filepath.Join(t.TempDir(), "funded.archive")
+	o.Passphrase = []byte(passphrase)
+	return o
 }
 
 func databases(t *testing.T, pg *testsupport.Postgres) int {
@@ -309,6 +309,7 @@ func TestRehearseMigratesEveryWalletThroughFiveDaemons(t *testing.T) {
 	funded := s.standardFixture(t)
 	before := testsupport.Fingerprint(t, s.pg.DB)
 	o := options(t, s)
+	deliveryBefore := rehearsal.RepairM174DeliveryDigest(t, o)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
 	defer cancel()
@@ -321,6 +322,11 @@ func TestRehearseMigratesEveryWalletThroughFiveDaemons(t *testing.T) {
 	}
 	if err := r.Copy.Verify(); err != nil {
 		t.Fatal(err)
+	}
+	for _, copied := range r.Copy.Tables {
+		if copied.SourceRows != copied.TargetRows || copied.SourceDigest != copied.TargetDigest {
+			t.Fatalf("copied table differs: %+v", copied)
+		}
 	}
 	if w := tableCopy(t, r.Copy, "wallets"); w.SourceRows != 3 || w.TargetRows != 3 {
 		t.Fatalf("wallets copy %+v", w)
@@ -344,6 +350,9 @@ func TestRehearseMigratesEveryWalletThroughFiveDaemons(t *testing.T) {
 	}
 	if after := testsupport.Fingerprint(t, s.pg.DB); !reflect.DeepEqual(before, after) {
 		t.Fatal("rehearsal wrote to the source database")
+	}
+	if rehearsal.RepairM174DeliveryDigest(t, o) != deliveryBefore {
+		t.Fatal("rehearsal changed production member state")
 	}
 	if n := databases(t, s.pg); n != 0 {
 		t.Fatalf("%d temporary databases left behind", n)
@@ -375,15 +384,10 @@ func TestRehearseStopsOnMismatch(t *testing.T) {
 }
 
 func TestLoadOptionsRequiresEveryInput(t *testing.T) {
-	env := map[string]string{
-		rehearsal.EnvSourceURL:            "postgres://ceremony_reader@127.0.0.1:1/wallets",
-		rehearsal.EnvGatewayMigrationsDir: "/nonexistent/migrations",
-		rehearsal.EnvAdminURL:             "postgres://postgres@127.0.0.1:1/postgres",
-		rehearsal.EnvAttestorBin:          "/nonexistent/attestor",
-		archive.EnvPath:                   "/nonexistent/funded.archive",
-		archive.EnvPassphrase:             passphrase,
-		envelope.EnvMasterKey:             "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-	}
+	env := rehearsal.RepairM174Environment(t)
+	// RPCURL from delivery is optional to the rehearsal override; the rest
+	// are mandatory inputs to the current loader.
+	delete(env, "CEREMONY_RPC_URL")
 	o, err := rehearsal.LoadOptions(func(k string) string { return env[k] })
 	if err != nil {
 		t.Fatal(err)

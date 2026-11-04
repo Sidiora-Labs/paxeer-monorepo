@@ -8,6 +8,17 @@ export interface SubscriptionEvent {
   readonly cursor: bigint;
 }
 
+export const SUBSCRIPTION_MAX_BACKLOG = 16;
+export const SUBSCRIPTION_MAX_BACKLOG_BYTES = 9 * 1048576;
+
+export class SubscriptionReconciliationRequiredError extends Error {
+  public readonly code = "reconciliation-required";
+  public constructor(public readonly lastDeliveredCursor: bigint | undefined) {
+    super("Subscription backlog exceeded; reconcile through node reads from the last delivered cursor (inclusive)");
+    this.name = "SubscriptionReconciliationRequiredError";
+  }
+}
+
 const MAX_CURSOR = 18446744073709551615n;
 
 function object(value: unknown): value is Record<string, unknown> {
@@ -80,7 +91,9 @@ export async function* subscribeRpc(endpoint: URL, authorization: string | undef
   url.protocol = url.protocol === "https:" || url.protocol === "wss:" ? "wss:" : "ws:";
   const cancelId = `${requestId}:unsubscribe`;
   const socket = new WebSocket(url, { headers: authorization === undefined ? {} : { authorization }, handshakeTimeout: 30000, maxPayload: 9 * 1048576, followRedirects: false, perMessageDeflate: false });
-  const queue: SubscriptionEvent[] = [];
+  const queue: { event: SubscriptionEvent; bytes: number }[] = [];
+  let queuedBytes = 0;
+  let lastDeliveredCursor = cursor;
   let subscription: string | undefined;
   const continuity = new SubscriptionContinuity(topic, cursor);
   let failure: unknown;
@@ -103,10 +116,13 @@ export async function* subscribeRpc(endpoint: URL, authorization: string | undef
       const value: unknown = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
       if (subscription === undefined) { subscription = subscriptionAcknowledgement(value, requestId); clearTimeout(timer); resolveReady(); return; }
       if (object(value) && value.id === cancelId) { unsubscribeAcknowledgement(value, cancelId); settleCancel?.(); return; }
-      if (queue.length >= 16) throw new Error("Subscription queue overflow; reconcile through reads");
+      if (failure !== undefined) return;
+      if (queue.length >= SUBSCRIPTION_MAX_BACKLOG || queuedBytes + bytes.byteLength > SUBSCRIPTION_MAX_BACKLOG_BYTES)
+        throw new SubscriptionReconciliationRequiredError(lastDeliveredCursor);
       const event = subscriptionNotification(value, subscription);
       continuity.accept(event);
-      queue.push(event);
+      queue.push({ event, bytes: bytes.byteLength });
+      queuedBytes += bytes.byteLength;
       wake?.();
     } catch (error) { fail(error); }
   });
@@ -123,13 +139,19 @@ export async function* subscribeRpc(endpoint: URL, authorization: string | undef
     for (;;) {
       if (failure !== undefined) throw failure;
       const event = queue.shift();
-      if (event !== undefined) { yield event; continue; }
+      if (event !== undefined) {
+        queuedBytes -= event.bytes;
+        lastDeliveredCursor = event.event.cursor;
+        yield event.event; continue;
+      }
       await new Promise<void>(resolve => { wake = resolve; });
       wake = undefined;
     }
   } finally {
     clearTimeout(timer);
     signal?.removeEventListener("abort", abort);
+    queue.length = 0;
+    queuedBytes = 0;
     await cancel();
     socket.terminate();
   }

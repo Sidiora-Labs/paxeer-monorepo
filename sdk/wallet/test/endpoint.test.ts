@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { nodeVector, receiptWireKeys } from './support/receipt-recordings.js';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, test } from 'vitest';
@@ -45,6 +46,9 @@ const recorded = Object.fromEntries(
 ) as Record<Scenario, Exchange[]>;
 const golden = (name: string): Golden => json<Golden>(goldenDir, `${name}.json`);
 
+const merged = json<any>(fixtureDir, 'merged-contract.json');
+const mergedOwner: string = merged.account.account.evm_address;
+const receiptRecording = nodeVector('V1-pax-transfer');
 const owner = `0x${'11'.repeat(20)}` as const;
 const did = `did:layerx:${'61'.repeat(32)}`;
 const mainAccount = '7c'.repeat(32);
@@ -57,6 +61,33 @@ let base: string;
 
 function answer(scenario: Scenario, call: unknown): unknown {
   const request = call as { id: unknown; method: string; params: unknown[] };
+  let result: unknown;
+  if (request.method === 'px_getNetwork')
+    result = scenario === 'available' ? merged.network : merged.unavailable;
+  else if (request.method === 'px_getAccount' && request.params[0] === mergedOwner)
+    result = merged.account;
+  else if (request.method === 'px_getBalances' && request.params[0] === mergedOwner)
+    result = merged.balances;
+  else if (request.method === 'eth_getTransactionCount' && request.params[0] === mergedOwner)
+    result = '0x2a';
+  else if (
+    request.method === 'pax_sequencerReceipt' &&
+    request.params[0] === receiptRecording.receiptJson.txHash
+  )
+    result = receiptRecording.receiptJson;
+  else if (request.method === 'px_getReceiptKeys')
+    result = receiptWireKeys(receiptRecording.receiptJson);
+  else if (request.method === 'px_getAccount' && request.params[0] === `0x${'7d'.repeat(20)}`)
+    return {
+      jsonrpc: '2.0',
+      id: request.id,
+      error: {
+        code: -32010,
+        message: 'read unavailable',
+        data: { code: 'kernel_unavailable', reason: 'unreachable', backend: 'public_core' },
+      },
+    };
+  if (result !== undefined) return { jsonrpc: '2.0', id: request.id, result };
   const exchange = recorded[scenario].find(
     (entry) =>
       entry.request.method === request.method &&
@@ -160,7 +191,10 @@ beforeEach(() => {
 });
 
 function endpoint(scenario: Scenario): EndpointClient {
-  return new EndpointClient({ url: `${base}/${scenario}/rpc` });
+  return new EndpointClient({
+    nodeUrl: `${base}/${scenario}/rpc`,
+    hostedUrl: `${base}/${scenario}/rpc`,
+  });
 }
 
 function methodsSeen(scenario: string): string[] {
@@ -193,13 +227,11 @@ describe('EndpointClient', () => {
       { method: 'lx_getReceipt', params: ['cd'.repeat(32)] },
       { method: 'px_resolveAccount', params: [owner] },
     ]);
-    expect(seen).toHaveLength(1);
-    expect(seen[0]?.batch).toBe(true);
-    expect(seen[0]?.methods).toEqual([
-      'eth_blockNumber',
-      'px_getCapabilities',
-      'lx_getReceipt',
-      'px_resolveAccount',
+    expect(seen).toHaveLength(2);
+    expect(seen.every((request) => request.batch)).toBe(true);
+    expect(seen.map((request) => request.methods)).toEqual([
+      ['px_getCapabilities', 'px_resolveAccount'],
+      ['eth_blockNumber', 'lx_getReceipt'],
     ]);
     expect(outcomes[0]).toEqual({ ok: true, result: '0x1a2b3c' });
     expect(outcomes[1]?.ok).toBe(true);
@@ -270,18 +302,13 @@ describe('EndpointClient', () => {
   });
 
   it('endpoint_reports_kernel_availability_and_reason_from_px_getNetwork', async () => {
-    const reasons: Record<Scenario, string> = {
-      available: 'available',
-      'kernel-unreachable': 'unreachable',
-      'no-finalised-checkpoint': 'no_finalised_checkpoint',
-      'kernel-not-configured': 'not_configured',
-    };
     for (const scenario of scenarios) {
       const network = await endpoint(scenario).getNetwork();
-      expect(network.kernel).toEqual({
-        available: scenario === 'available',
-        reason: reasons[scenario],
-      });
+      expect(network.consensus).toEqual(scenario === 'available' ? merged.network.consensus : null);
+      expect(network.consensus_reason).toBe(
+        scenario === 'available' ? null : 'consensus_unavailable'
+      );
+      expect(network).not.toHaveProperty('kernel');
       expect(network.paxeer.chain_id).toBe('0x7d');
     }
     expect(unmatched).toEqual([]);
@@ -292,33 +319,29 @@ describe('KernelClient', () => {
   it('endpoint_kernel_reads_run_when_the_kernel_is_available', async () => {
     const client = endpoint('available');
     const kernel = new KernelClient(client, new KernelAvailability(client, { ttlMs: 60_000 }));
-    const account = await kernel.getAccount(mainAccount);
-    expect(account).toMatchObject({
+    expect(await kernel.getAccount(mergedOwner)).toEqual({
       available: true,
-      result: { next_sequence: '8', frozen: false },
+      result: { ...merged.account, paxeer: { ...merged.account.paxeer, height: '16' } },
     });
-    expect(await kernel.getBalances(did)).toMatchObject({ available: true, result: { did } });
-    expect(await kernel.getSequence(mainAccount)).toMatchObject({
+    expect(await kernel.getBalances(mergedOwner)).toEqual({
       available: true,
-      result: { next_sequence: '8' },
+      result: { ...merged.balances, height: '16' },
     });
-    expect(await kernel.getReceipt('ab'.repeat(32))).toMatchObject({
+    expect(await kernel.getSequence(mergedOwner)).toEqual({ available: true, result: '42' });
+    expect(await kernel.getReceipt(receiptRecording.receiptJson.txHash)).toEqual({
       available: true,
-      result: { result_code: 0 },
+      result: receiptRecording.receiptJson,
     });
-    expect(await kernel.getActivityStatus('ab'.repeat(32))).toMatchObject({
-      available: true,
-      result: { result_code: 0 },
-    });
+    expect(Reflect.get(kernel, 'getActivityStatus')).toBeUndefined();
     expect(methodsSeen('available')).toEqual([
       'px_getNetwork',
-      'lx_getAccount',
-      'lx_getBalances',
-      'lx_getSequence',
-      'lx_getReceipt',
-      'lx_getActivityStatus',
+      'px_getAccount',
+      'px_getBalances',
+      'eth_getTransactionCount',
+      'pax_sequencerReceipt',
+      'px_getReceiptKeys',
     ]);
-    await expect(kernel.getReceipt('cd'.repeat(32))).rejects.toMatchObject({
+    await expect(client.rpc.call('lx_getReceipt', ['cd'.repeat(32)])).rejects.toMatchObject({
       name: 'JsonRpcError',
       code: -32001,
     });
@@ -327,18 +350,18 @@ describe('KernelClient', () => {
 
   it('endpoint_unavailable_state_short_circuits_every_kernel_call', async () => {
     const expected: Record<Exclude<Scenario, 'available'>, string> = {
-      'kernel-unreachable': 'unreachable',
-      'no-finalised-checkpoint': 'no_finalised_checkpoint',
-      'kernel-not-configured': 'not_configured',
+      'kernel-unreachable': 'consensus_unavailable',
+      'no-finalised-checkpoint': 'consensus_unavailable',
+      'kernel-not-configured': 'consensus_unavailable',
     };
     for (const [scenario, reason] of Object.entries(expected) as [Scenario, string][]) {
       const kernel = new KernelClient(endpoint(scenario));
       const state = { available: false, reason, backend: null };
-      expect(await kernel.getAccount(mainAccount)).toEqual(state);
-      expect(await kernel.getBalances(did)).toEqual(state);
-      expect(await kernel.getSequence(mainAccount)).toEqual(state);
+      expect(await kernel.getAccount(mergedOwner)).toEqual(state);
+      expect(await kernel.getBalances(mergedOwner)).toEqual(state);
+      expect(await kernel.getSequence(mergedOwner)).toEqual(state);
       expect(await kernel.getReceipt('ab'.repeat(32))).toEqual(state);
-      expect(await kernel.getActivityStatus('ab'.repeat(32))).toEqual(state);
+      expect(Reflect.get(kernel, 'getActivityStatus')).toBeUndefined();
       expect(methodsSeen(scenario)).toEqual(['px_getNetwork']);
     }
     expect(unmatched).toEqual([]);
@@ -348,9 +371,9 @@ describe('KernelClient', () => {
     const client = endpoint('available');
     const kernel = new KernelClient(client, new KernelAvailability(client, { ttlMs: 60_000 }));
     const state = { available: false, reason: 'unreachable', backend: 'public_core' };
-    expect(await kernel.getAccount('7d'.repeat(32))).toEqual(state);
-    expect(await kernel.getSequence(mainAccount)).toEqual(state);
-    expect(methodsSeen('available')).toEqual(['px_getNetwork', 'lx_getAccount']);
+    expect(await kernel.getAccount(`0x${'7d'.repeat(20)}`)).toEqual(state);
+    expect(await kernel.getSequence(mergedOwner)).toEqual(state);
+    expect(methodsSeen('available')).toEqual(['px_getNetwork', 'px_getAccount']);
     expect(unmatched).toEqual([]);
   });
 
@@ -426,7 +449,7 @@ describe('HumanClient', () => {
       submitGolden.body as SubmitPlanRequest,
       submitGolden.headers?.['Idempotency-Key'] as string
     );
-    expect(result).toEqual({ available: false, reason: 'unreachable', backend: null });
+    expect(result).toEqual({ available: false, reason: 'consensus_unavailable', backend: null });
     expect(seen.filter((entry) => entry.scenario === 'human')).toEqual([]);
   });
 

@@ -1,0 +1,68 @@
+[repair.22.33.10]
+requirement = "22998.1"
+source = "spec/layerx-merge/programme/audit/records/22.30.10.kvx"
+baseline = "No baseline gate ran: the ordered instructions require complete implementation before any build/test and forbid invoking verify_cmd by hand; no pre-change test result is claimed."
+evidence = "hf-build and hf-done record the exact candidate revision, command, exit code and private log; completion is conditional on hf-done passing."
+proof_environment = "Production React components, hooks, SDK, injected and embedded wagmi adapters run against a committed in-process JSON-RPC ledger, signed transactions, ABI codecs, loopback auth service and in-memory browser stores; a Node worker owns timers and is terminated only after assertions and cleanup."
+wiring = "Domain 3: apps/perps/src/core/wallet/embedded/PaxeerProvider.tsx should normalize rejected signInWithEmail calls into its declared result or a classified handled rejection; the in-scope modal handles both outcomes."
+node_wiring = "Domain 1: a native development-node/actual precompile integration proof belongs in the chain-owned integration harness; the declared credential-free gate proves the production adapter/codec/receipt path through an in-process RPC fixture without an external binary or subprocess toolchain."
+formatter_gotcha = "pnpm dlx retained the repository working directory despite --dir; pass task-scoped paths relative to the repository root for formatting."
+gotcha = "The RPC fallback owns ranking timers with no disposal API; isolate the real app runtime in a Node worker and terminate it after proof cleanup."
+continuation = "Attempt 2 preserves all seven seeded paths, including the unqualified harness repair: modal remounts use WagmiContext.Provider with the real connected configuration so application hydration does not erase wallet sessions. The readiness helper also asserts that the real session survived mounting."
+evidence_ledger = "/out/run/gates.jsonl is the authoritative attempt-2 record of the verified candidate revision, command, exit code and private log; the historical attempt-1 entries below are failed gates only."
+
+[finding.wallet-chooser-wrong-connection]
+proof = "apps/perps/tests/repair-22-33-10.test.ts::walletChooserWrongConnection"
+behavior = "A pre-existing embedded session cannot dismiss the chooser or override deliberate browser-wallet switching; auto-connect requires explicit sign-in intent and matches provisioned connector, address and chain."
+
+[finding.wallet-connection-errors]
+proof = "apps/perps/tests/repair-22-33-10.test.ts::walletConnectionErrors"
+behavior = "Both real wagmi connection paths retain classified errors and expose a retry of the selected connector; a deliberate attempt clears the previous error."
+
+[finding.email-rejection-state]
+proof = "apps/perps/tests/repair-22-33-10.test.ts::emailRejectionState"
+behavior = "The mounted email form handles both a real provider rejection and an error result, restores retry controls and succeeds on retry."
+
+[finding.collateral-overlapping-submissions]
+proof = "apps/perps/tests/repair-22-33-10.test.ts::collateralOverlappingSubmissions"
+behavior = "A synchronous shared mutex blocks both handlers including stale callbacks and remounted forms, while every action and amount control is disabled; closing never clears pending operations."
+
+[finding.collateral-read-errors]
+proof = "apps/perps/tests/repair-22-33-10.test.ts::collateralReadErrors"
+behavior = "Wallet and account reads independently track loading, available and failed states; each has a visible retry and gates its dependent controls without presenting failure as zero."
+
+[finding.collateral-session-staleness]
+proof = "apps/perps/tests/repair-22-33-10.test.ts::collateralSessionStaleness"
+behavior = "Chain/account keyed balances and generation checks reject old reads and old transfer refreshes, including disconnect and account-switch return paths."
+
+[finding.collateral-lifecycle-proof]
+proof = "apps/perps/tests/repair-22-33-10.test.ts::collateralLifecycleProof"
+behavior = "The mounted form broadcasts an actual signed approval through production adapters, changes accounts during delayed receipt confirmation, closes/reopens, reconciles the original hash and sends no wrong-account or duplicate transfer."
+
+[finding.collateral-pending-recovery]
+proof = "apps/perps/tests/repair-22-33-10.test.ts::collateralPendingRecovery"
+behavior = "Broadcast hashes are durably recorded before receipt lookup; a fresh component/module runtime recovers chain/account/hash, blocks new transfers, polls receipts without signing and clears the journal only on definitive receipts."
+
+[qualification.build_1]
+revision = "31cd374fadba7af7f7cd94112b324d10c1a360a0"
+command = "pnpm --dir apps/perps exec tsc --noEmit"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "The proof restored a readonly connector array where wagmi requires a mutable array; the pre-existing wallet SDK dependencies had not been installed."
+assumption = "Copy the connector array and install the wallet SDK's unchanged declared dependencies before the bounded repair rerun."
+
+[qualification.verify_1]
+revision = "21e42ea54c8124299c2c7db77bab0b4318b131f7"
+command = "cg spec done 22.33.10 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All three wallet proofs passed; remounting WagmiProvider with reconnectOnMount=false erased real connections and blocked the five collateral proofs."
+assumption = "Use wagmi's public context for the already-connected real config, keeping modal remounts independent of application-wide hydration; the next bounded gates determine qualification."
+
+[qualification.attempt_2_build_1]
+revision = "e85b133c62ab9a050841404c369d51f9b306aa28"
+command = "pnpm --dir apps/perps exec tsc --noEmit"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "The fresh sandbox lacked the unchanged wallet SDK and gateway dependencies and the linked agent SDK browser distribution."
+assumption = "Install the declared dependencies and prepare the linked SDK through the wallet package's existing build:agent-sdk dependency setup; no dependency source or manifest is changed."

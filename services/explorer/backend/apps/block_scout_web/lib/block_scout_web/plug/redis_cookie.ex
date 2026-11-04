@@ -2,7 +2,23 @@ defmodule BlockScoutWeb.Plug.RedisCookie do
   @moduledoc """
     Extended version of Plug.Session.COOKIE from https://github.com/elixir-plug/plug/blob/main/lib/plug/session/cookie.ex
     Added Redis to have a possibility to invalidate session
+
+    Persistence failures abort the response, including logout redirects. A failed
+    revocation is unsuccessful: retain the original cookie and retry logout after
+    Redis recovers. Only an acknowledged deletion (including an already absent
+    key) permits Plug.Session to clear the cookie. Lookup failures also abort so
+    an outage cannot be mistaken for an absent session and bypass deletion.
   """
+
+  defmodule PersistenceError do
+    @moduledoc false
+    defexception [:operation, :reason]
+
+    @impl true
+    def message(%{operation: operation}) do
+      "session persistence #{operation} failed; retry the request when Redis is available"
+    end
+  end
 
   import Explorer.Helper, only: [redis_key: 1]
 
@@ -54,7 +70,6 @@ defmodule BlockScoutWeb.Plug.RedisCookie do
   @impl true
   def delete(_conn, sid, _opts) do
     remove_from_redis(sid)
-    :ok
   end
 
   defp encode(term, :external_term_format) do
@@ -195,19 +210,23 @@ defmodule BlockScoutWeb.Plug.RedisCookie do
   defp build_rotating_opts(opts, _), do: Map.put(opts, :rotating_options, [])
 
   defp store_to_redis(cookie) do
-    Redix.command(:redix, [
-      "SET",
-      redis_key(hash(cookie)),
-      1,
-      "EX",
-      Application.get_env(:block_scout_web, :session_cookie_ttl)
-    ])
-
-    cookie
+    case Redix.command(:redix, [
+           "SET",
+           redis_key(hash(cookie)),
+           1,
+           "EX",
+           Application.get_env(:block_scout_web, :session_cookie_ttl)
+         ]) do
+      {:ok, "OK"} -> cookie
+      result -> raise PersistenceError, operation: :write, reason: result
+    end
   end
 
   defp remove_from_redis(sid) do
-    Redix.command(:redix, ["DEL", redis_key(sid)])
+    case Redix.command(:redix, ["DEL", redis_key(sid)]) do
+      {:ok, count} when count in [0, 1] -> :ok
+      result -> raise PersistenceError, operation: :delete, reason: result
+    end
   end
 
   defp check_in_redis({sid, map}, _cookie) when is_nil(sid) or map == %{}, do: {nil, %{}}
@@ -220,8 +239,11 @@ defmodule BlockScoutWeb.Plug.RedisCookie do
       {:ok, one} when one in [1, "1"] ->
         {hash, session}
 
-      _ ->
+      {:ok, _} ->
         {nil, %{}}
+
+      result ->
+        raise PersistenceError, operation: :read, reason: result
     end
   end
 
