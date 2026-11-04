@@ -145,6 +145,9 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		}
 	}()
 	st := store.New(pool)
+	if err = st.EnsureHolderBalanceIndex(ctx); err != nil {
+		return nil, err
+	}
 
 	// Event consumers (driven synchronously by the webhook dispatch).
 	swapConsumer := consumer.NewSwapConsumer(st, rdb, logger)
@@ -183,6 +186,12 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			return nil, err
 		}
 		if err = d.validate(); err != nil {
+			return nil, err
+		}
+		if err = st.SetAccountingProjection(d.ProjectionVersion); err != nil {
+			return nil, err
+		}
+		if err = rdb.Del(ctx, "platform:metrics").Err(); err != nil {
 			return nil, err
 		}
 		rpc, err = ethclient.DialContext(ctx, cfg.RPCURL)
@@ -354,6 +363,21 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 				return err
 			})
 		}})
+
+		legacyWindowCursor := ""
+		runtimeHealth.set("legacy windows", errors.New("legacy windows awaiting initial refresh"))
+		jobs = append(jobs, statsRuntimeJob{name: "legacy idle windows", run: func(ctx context.Context) error {
+			return retryStatsJob(ctx, expiry.Interval, runtimeHealth, "legacy windows", func(ctx context.Context) error {
+				more, err := RefreshLegacyWindows(ctx, st, time.Now().Unix(), &legacyWindowCursor)
+				if err != nil {
+					return err
+				}
+				if more {
+					return errors.New("legacy window sweep in progress")
+				}
+				return nil
+			})
+		}})
 		jobs = append(jobs, statsRuntimeJob{name: "platform precompute", run: func(ctx context.Context) error {
 			return periodicStatsJob(ctx, platformPrecomputeInterval, logger, "platform precompute", func(c context.Context) error {
 				return httpapi.PrecomputePlatformMetrics(c, st, rdb)
@@ -506,6 +530,11 @@ func (a *App) Close() {
 // bucket_traders cleanup loop, both stopping when ctx is cancelled (parity with
 // the TS setInterval timers registered in registerPlatformRoutes).
 func (a *App) startBackgroundJobs(ctx context.Context) {
+	cursor := ""
+	go a.loop(ctx, time.Second, "legacy idle windows", func(c context.Context) error {
+		_, err := RefreshLegacyWindows(c, a.store, time.Now().Unix(), &cursor)
+		return err
+	})
 	go a.loop(ctx, platformPrecomputeInterval, "platform precompute", func(c context.Context) error {
 		return httpapi.PrecomputePlatformMetrics(c, a.store, a.redis)
 	})
@@ -933,4 +962,17 @@ func catchUpStatsHolders(ctx context.Context, pool *pgxpool.Pool, repository *ho
 func NewAnalyticsProjector(authority analytics.ReactionAuthority, holderSchema, sourceSchema, stream, version string) (*analytics.Projector, error) {
 	inputs := analytics.CanonicalRiskInputs{Authority: authority, HolderSchema: holderSchema, SourceSchema: sourceSchema, SourceStream: stream, ProjectionVersion: version}
 	return analytics.NewProjector(authority, risk.ProjectionModelV1{}, inputs)
+}
+
+// RefreshLegacyWindows is the bounded clock-driven pass shared by production
+// readiness and development maintenance. A failed pass never advances its cursor.
+func RefreshLegacyWindows(ctx context.Context, st *store.Store, now int64, cursor *string) (bool, error) {
+	if st == nil || cursor == nil {
+		return false, errors.New("stats: legacy window store and cursor required")
+	}
+	next, more, err := st.RefreshIdleWindows(ctx, now, *cursor, 100)
+	if err == nil {
+		*cursor = next
+	}
+	return more, err
 }

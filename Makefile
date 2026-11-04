@@ -2917,7 +2917,7 @@ $(BUILD_DIR)/tests/test_programs_abi5_admission: tests/programs/test_programs_ab
 test-programs-abi5-admission: $(BUILD_DIR)/tests/test_programs_abi5_admission
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_programs_abi5_admission
 
-PAXAI_CHAIN_DOMAIN ?= b69143b1aa0c360367c299a2a47bbbfe3546ecbdc0a78c640770d49d977f038d
+PAXAI_CHAIN_DOMAIN ?= 62b6b14734fa769c3e0fbc94de495a3d038be49a2524b1c071d75d0a4eed71f6
 PAXAI_HOST_BOUNDARY_DIR := $(BUILD_DIR)/paxai-host-boundary
 
 $(BUILD_DIR)/tests/paxai_host_boundary: tests/programs/test_ai_host_boundary.c \

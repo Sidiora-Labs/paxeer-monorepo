@@ -71,6 +71,16 @@ function required(name: string, value: string | undefined): string {
 }
 const optional = (name: string, value: string | undefined) =>
   value ? checked(name, value, HTTP) : null;
+/** The SDK accepts origins only; reject prefixes before any consumer can drop them. */
+function sdkBackendOrigin(name: string, value: string | undefined, requiredValue = true): string | null {
+  if (!value) return requiredValue ? required(name, value) : null;
+  const base = checked(name, value, HTTP);
+  const url = new URL(base);
+  if (url.pathname !== '/')
+    throw new BackendOriginError(name, value, 'SDK backends require an origin without a path prefix');
+  return url.origin;
+}
+
 const originOf = (url: string) => new URL(url).origin;
 const wsFormOf = (origin: string) => origin.replace(/^http/, 'ws');
 
@@ -114,19 +124,19 @@ export function backendConfiguration(): BackendConfiguration {
     }
   };
   const data = attempt(() =>
-    required('NEXT_PUBLIC_DATA_API_URL', process.env.NEXT_PUBLIC_DATA_API_URL),
+    sdkBackendOrigin('NEXT_PUBLIC_DATA_API_URL', process.env.NEXT_PUBLIC_DATA_API_URL),
   );
   const gateway = attempt(() =>
-    required('NEXT_PUBLIC_GATEWAY_URL', process.env.NEXT_PUBLIC_GATEWAY_URL),
+    sdkBackendOrigin('NEXT_PUBLIC_GATEWAY_URL', process.env.NEXT_PUBLIC_GATEWAY_URL),
   );
   const metadata = attempt(() =>
-    required('NEXT_PUBLIC_METADATA_API_URL', process.env.NEXT_PUBLIC_METADATA_API_URL),
+    sdkBackendOrigin('NEXT_PUBLIC_METADATA_API_URL', process.env.NEXT_PUBLIC_METADATA_API_URL),
   );
   const pnl = attempt(() =>
     required('NEXT_PUBLIC_PNL_API_URL', process.env.NEXT_PUBLIC_PNL_API_URL),
   );
   const stats = attempt(() =>
-    optional('NEXT_PUBLIC_STATS_API_URL', process.env.NEXT_PUBLIC_STATS_API_URL),
+    sdkBackendOrigin('NEXT_PUBLIC_STATS_API_URL', process.env.NEXT_PUBLIC_STATS_API_URL, false),
   );
   const livestream = attempt(() =>
     optional('NEXT_PUBLIC_LIVESTREAM_API_URL', process.env.NEXT_PUBLIC_LIVESTREAM_API_URL),

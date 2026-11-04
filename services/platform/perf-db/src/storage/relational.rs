@@ -106,7 +106,8 @@ impl RelationalSnapshot {
             alerts: AlertStore::new(),
             api_keys: ApiKeyStore::new(),
             competitions: CompetitionStore::new(),
-            referrals: ReferralEngine::with_tiers(tiers),
+            referrals: ReferralEngine::with_tiers(tiers)
+                .map_err(|error| PerfDbError::Corruption(error.to_string()))?,
         };
         let mut ids = HashSet::new();
         for alert in &self.alerts {
@@ -132,7 +133,10 @@ impl RelationalSnapshot {
                     "duplicate API key identity or hash".into(),
                 ));
             }
-            stores.api_keys.insert(key.clone());
+            stores
+                .api_keys
+                .insert(key.clone())
+                .map_err(|error| PerfDbError::Corruption(error.to_string()))?;
         }
         let mut competitions = HashSet::new();
         for competition in &self.competitions {
@@ -357,7 +361,9 @@ impl DurableRelationalStore {
                 }
             }
             RelationalMutation::SetReferralTiers(tiers) => {
-                resolve_tiers(tiers, &self.tier_names)?;
+                let resolved = resolve_tiers(tiers, &self.tier_names)?;
+                ReferralEngine::validate_tiers(&resolved)
+                    .map_err(|error| PerfDbError::InvalidArgument(error.to_string()))?;
             }
             _ => {}
         }
@@ -377,8 +383,10 @@ impl DurableRelationalStore {
                 self.stores.alerts.remove(id);
             }
             RelationalMutation::PutApiKey(key) => {
-                self.stores.api_keys.remove(&key.id);
-                self.stores.api_keys.insert(key);
+                self.stores
+                    .api_keys
+                    .insert(key)
+                    .map_err(|error| PerfDbError::InvalidArgument(error.to_string()))?;
             }
             RelationalMutation::DeleteApiKey(id) => {
                 self.stores.api_keys.remove(&id);
@@ -409,7 +417,8 @@ impl DurableRelationalStore {
             RelationalMutation::SetReferralTiers(tiers) => self
                 .stores
                 .referrals
-                .set_tiers(resolve_tiers(&tiers, &self.tier_names)?),
+                .set_tiers(resolve_tiers(&tiers, &self.tier_names)?)
+                .map_err(|error| PerfDbError::InvalidArgument(error.to_string()))?,
         }
         Ok(())
     }
