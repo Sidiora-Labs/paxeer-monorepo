@@ -176808,7 +176808,7 @@ do_9 = "Attempt 2 (requalify): the fixture-order repair was never verified. Run 
 
 [task.22.33.1383]
 title = "Repair audit record 22.30.75 medium findings in services/platform/perf-db (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.138", "22.31.139", "22.31.140"]
@@ -182446,7 +182446,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.32]
 title = "Repair audit record 22.30.102 medium findings in services/human (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.150", "22.31.443"]
@@ -196714,7 +196714,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.463]
 title = "Carry the fallible transaction factory constructor through every command-line caller so the auth, genutil, staking, EVM and token-factory command packages compile again"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -198757,7 +198757,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1309]
 title = "Repair audit record 22.30.70 medium findings in sdk/server (part 1 of 1): config-drift, restart-recovery, runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.186", "22.31.187"]
@@ -201864,7 +201864,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1165]
 title = "Repair audit record 22.30.53 medium findings in storage/db_engine/litt (part 1 of 2): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.110", "22.31.111", "22.31.112", "22.31.113", "22.31.114", "22.31.115", "22.31.116", "22.31.117", "22.31.118"]
@@ -209783,7 +209783,7 @@ do_11 = "Attempt 2 was claimed before the attempt-1 ruling was recorded and repe
 
 [task.22.33.718]
 title = "Repair audit record 22.30.170 medium findings in deploy/launchpad/production/recovery (part 1 of 1): config-drift, doc-drift, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.313", "22.31.314"]
@@ -320084,7 +320084,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1394]
 title = "Repair audit record 22.30.77 medium findings in sdk/platform/jvm (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.343", "22.31.344", "22.31.345"]
@@ -370328,7 +370328,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.308]
 title = "Repair audit record 22.30.135 medium findings in services/explorer/backend/apps/explorer/test/explorer/market/fetcher (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.267", "22.31.381"]
