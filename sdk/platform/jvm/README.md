@@ -150,10 +150,16 @@ verified at `receipted` does not establish block commitment. The current
 `LocalVerifier.VerificationLevel` values are `RECEIPTED` and `COMMITTED`, with
 wire values `receipted` and `committed`.
 
-For signed receipt verification, retain the exact signed EIP-1559 transaction
-bytes submitted to `eth_sendRawTransaction`. Supply the canonical signed
-receipt bytes and independently trusted key pins, not a key accepted merely
-because the response carries it:
+### Signed receipts and receipt key pins
+
+For new submissions, sign a raw EIP-1559 transaction locally and retain the exact
+bytes submitted to `eth_sendRawTransaction`, together with its transaction hash.
+Do not substitute calldata, a transaction JSON object or a transaction rebuilt
+after submission for those signed bytes. The verifier also accepts retained
+historical transaction encodings; this does not change the submission guidance.
+Supply the canonical signed receipt bytes and independently trusted key pins,
+not a key accepted merely because the response carries it. Save the following
+complete Java snippet as `ReceiptExample.java`:
 
 ```java
 import com.sidiora.layerx.sdk.verify.LocalVerifier;
@@ -185,6 +191,8 @@ transaction: `status()` is `1` for success and `0` for revert; `requireSuccess()
 throws for the latter. Payment consumers must also match the expected log,
 asset, recipient and amount before acting on an authenticated receipt.
 
+### Portable v2 committed evidence
+
 For portable evidence, use
 [`verify.PortableReceipt`](src/main/java/com/sidiora/layerx/sdk/verify/PortableReceipt.java)
 and the format `layerx-receipt-proof-v2`. A receipted bundle carries
@@ -192,20 +200,51 @@ and the format `layerx-receipt-proof-v2`. A receipted bundle carries
 alongside `format` and `verificationLevel`. A committed bundle also carries
 `blockHeader`, `receiptInclusion`, `commit` and `validatorSet`.
 
+The following complete Java snippet (`PortableExample.java`) requires committed
+evidence for the transaction retained by the application. Use Java 21 with this
+SDK and its declared dependencies for both snippets.
+
 ```java
-import com.sidiora.layerx.sdk.verify.*;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sidiora.layerx.sdk.PlatformSdkException;
+import com.sidiora.layerx.sdk.verify.ConsensusTrust;
+import com.sidiora.layerx.sdk.verify.LocalVerifier;
+import com.sidiora.layerx.sdk.verify.PortableReceipt;
+import java.io.IOException;
+import java.security.MessageDigest;
+import java.util.HexFormat;
 import java.util.List;
 
 public final class PortableExample {
-    public static PortableReceipt.Verification verify(
-            byte[] bundle, LocalVerifier.ReceiptKeys pinnedKeys,
-            ConsensusTrust consensusTrust, List<ConsensusTrust.Step> transitions) {
-        var verified = PortableReceipt.verify(bundle, pinnedKeys, consensusTrust, transitions);
+    public static PortableReceipt.Verification verifyCommitted(
+            byte[] bundle, byte[] retainedRawTransaction,
+            LocalVerifier.ReceiptKeys pinnedKeys, String trustedChainId,
+            long trustedHeight, byte[] trustedValidatorsHash,
+            List<ConsensusTrust.Step> transitions) throws IOException {
+        var trust = new ConsensusTrust(
+            trustedChainId, trustedHeight, trustedValidatorsHash);
+        byte[] snapshot = bundle.clone();
+        var verified = PortableReceipt.verify(snapshot, pinnedKeys, trust, transitions);
+        if (!"committed".equals(verified.verificationLevel())) {
+            throw PlatformSdkException.verificationFailure();
+        }
+        var document = new ObjectMapper().readTree(snapshot);
+        byte[] carriedTransaction = HexFormat.of().parseHex(
+            document.required("rawTransaction").textValue().substring(2));
+        if (!MessageDigest.isEqual(retainedRawTransaction, carriedTransaction)) {
+            throw PlatformSdkException.verificationFailure();
+        }
         verified.requireSuccess();
         return verified;
     }
 }
 ```
+
+The evidence level is a caller policy: `PortableReceipt.verify` accepts both
+receipted and committed bundles. Supplying consensus trust alone does not require
+commitment, so the snippet explicitly checks `verificationLevel()` before
+returning. It also compares the carried transaction with the separately retained
+bytes; internal consistency alone does not identify the payment you expected.
 
 For committed evidence, `ConsensusTrust` pins an independently obtained
 consensus chain ID, positive height and 32-byte validator-set hash. The consensus
@@ -216,7 +255,22 @@ this anchor for a committed bundle, authenticates the headers, and checks the
 transaction, batch and execution-result inclusion proofs and validator commits.
 The bundle's own key and validator set do not establish trust by themselves.
 `verificationLevel()` reports the verified evidence level;
-`PortableReceipt.export(verified)` re-exports the verified bundle.
+`PortableReceipt.export(verified)` re-exports the verified bundle. The
+receipt-only `PortableReceipt.verify(bundle, pinnedKeys)` overload refuses a
+committed bundle because it lacks consensus trust. A receipt pin authenticates
+the sequencer signature; it cannot substitute for the consensus trust anchor.
+Provision receipt keys and consensus trust through independently authenticated
+chain configuration before importing a bundle, and retain that configuration
+separately. Never initialise `trustedValidatorsHash` from the bundle's own
+`validatorSet` or turn its `receiptKey` into a pin merely to make it verify.
+
+The committed proof includes the execution header and its commit as well as a
+successor header and commit in `receiptInclusion` to prove the execution results.
+The verifier authenticates that successor through the execution header's next
+validator hash. A signed receipt or an RPC `rung` string alone cannot supply this
+proof. The published [portable vectors](../conformance/fixtures/vector-v5-portable.json)
+show both exact wire shapes; their fixture keys and consensus roots are test
+material, never production trust anchors.
 
 The generated Human API intentionally uses `unverified`, `receipt-verified`
 and `checkpoint-finalised` in `HumanModels.HumanVerificationLevel`.
