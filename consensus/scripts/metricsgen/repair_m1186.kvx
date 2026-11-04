@@ -1,0 +1,7 @@
+[repair.22.33.1186]
+finding = "metricsgen-input-dir"
+test = "TestRepairM_1186_InputDir"
+proof = "The real CLI main parses absolute and relative -dir arguments from a separate caller package, writes to the selected directory, and produces that package's committed golden constructors."
+baseline = "No baseline verification was run: the explicit implementation-first gate order and prohibition on manual verification take precedence over step 5; no TestRepairM_1186_ tests existed before this repair."
+wiring_requests = []
+evidence = "The runner's hf-build and hf-done ledger records the verified candidate revision, exact command, exit code and private log location."
