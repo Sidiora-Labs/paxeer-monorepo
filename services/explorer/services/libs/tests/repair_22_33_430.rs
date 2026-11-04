@@ -145,18 +145,12 @@ async fn docs_client_generation_explicit_rest_origin() {
     let cached = response.try_as_success().expect("typed health");
     let parsed = response.try_parse_as_success_model().unwrap();
     assert_eq!(cached, &parsed);
-    assert_eq!(parsed.healthy, Some(true));
-    let blocks = parsed.metadata.unwrap().blocks.unwrap();
+    assert!(parsed.healthy);
+    let blocks = parsed.metadata.unwrap().blocks;
     assert!(blocks.healthy);
-    assert_eq!(
-        blocks.latest_block.db.unwrap().number.as_deref(),
-        Some("23116935")
-    );
-    assert_eq!(
-        blocks.latest_block.cache.unwrap().number.as_deref(),
-        Some("23116935")
-    );
-    assert_eq!(blocks.latest_block.node.unwrap().number, "23116935");
+    assert_eq!(blocks.latest_block.db.number, "23116935");
+    assert_eq!(blocks.latest_block.cache.number, "23116935");
+    assert_eq!(blocks.latest_block.node.number, "23116935");
 }
 
 #[tokio::test]
@@ -234,16 +228,13 @@ async fn docs_client_generation_error_status_and_raw_body() {
             assert_eq!(response.content, body);
             match response.entity.unwrap() {
                 HealthError::Status500(health) => {
-                    assert_eq!(health.healthy, Some(false));
-                    assert_eq!(health.error.as_ref().unwrap().code, 5002);
-                    assert_eq!(
-                        health.error.as_ref().unwrap().message,
-                        "There are no blocks in the DB."
-                    );
-                    let blocks = health.metadata.as_ref().unwrap().blocks.as_ref().unwrap();
+                    assert!(!health.healthy);
+                    assert_eq!(health.error.code, 5002);
+                    assert_eq!(health.error.message, "There are no blocks in the DB.");
+                    let blocks = &health.metadata.blocks;
                     assert!(!blocks.healthy);
-                    assert_eq!(blocks.error, health.error);
-                    assert_eq!(blocks.latest_block.node.as_ref().unwrap().number, "110");
+                    assert_eq!(blocks.error.as_ref(), Some(&health.error));
+                    assert_eq!(blocks.latest_block.node.number, "110");
                 }
                 other => panic!("unhealthy body must retain its type: {other:?}"),
             }
