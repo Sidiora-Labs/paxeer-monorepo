@@ -147378,7 +147378,7 @@ do_14 = "Attempt 5 (continue): 13 of 15 cases pass; merchantCheckoutOfferUsesRec
 
 [task.22.33.1365]
 title = "Repair audit record 22.30.74 medium findings in services/platform/examples (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.342"]
@@ -197097,7 +197097,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.31.476]
 title = "Default the EVM chain id to 125 and drop the foreign network mappings"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -197159,7 +197159,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.471]
 title = "Pass the sealed object bound to the storage GetBytes caller in the launchpad user service"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -201033,7 +201033,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1206]
 title = "Repair audit record 22.30.57 medium findings in interchain/modules/apps/transfer (part 1 of 1): doc-drift, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.126", "22.31.463"]
@@ -209076,7 +209076,7 @@ do_14 = "Attempt 5 (continue after 22.31.468): the spot board tests need perps.s
 
 [task.22.33.826]
 title = "Repair audit record 22.30.18 medium findings in services/platform/perps-data/internal/replay (part 1 of 1): runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.21", "22.33.827"]
@@ -277734,7 +277734,7 @@ do_11 = "Attempt 3 (continue after 22.31.463): the test binary of precompiles/po
 
 [task.22.33.1282]
 title = "Repair audit record 22.30.65 medium findings in precompiles/xweb (part 1 of 1): interface-mismatch, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.130", "22.31.463"]
@@ -277810,7 +277810,7 @@ do_9 = "Attempt 2 (continue after 22.31.463): the Go build or test binary could 
 
 [task.22.33.1275]
 title = "Repair audit record 22.30.64 medium findings in precompiles/wasmd (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.463"]
@@ -280759,7 +280759,7 @@ do_16 = "Attempt 3 (continue): the simulation parity and response-oracle cases f
 
 [task.22.33.212]
 title = "Repair audit record 22.30.121 medium findings in precompiles/layerxprograms (part 1 of 2): interface-mismatch, retired-reference, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.251", "22.31.252", "22.31.463"]
@@ -319742,7 +319742,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1555]
 title = "Repair audit record 22.30.97 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.223", "22.31.224", "22.31.225", "22.31.470"]
@@ -319916,7 +319916,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1504]
 title = "Repair audit record 22.30.9 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.144", "22.31.145", "22.31.146", "22.31.470"]
@@ -319951,7 +319951,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.1491]
 title = "Repair audit record 22.30.88 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.211", "22.31.470"]
@@ -320062,7 +320062,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1482]
 title = "Repair audit record 22.30.86 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.359", "22.31.360", "22.31.361", "22.31.362", "22.31.434", "22.31.435", "22.31.436", "22.31.470"]
@@ -320377,7 +320377,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1427]
 title = "Repair audit record 22.30.8 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.192", "22.31.193", "22.31.194", "22.31.195", "22.31.196", "22.31.197", "22.31.470"]
@@ -320412,7 +320412,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.1419]
 title = "Repair audit record 22.30.79 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.189", "22.31.190", "22.31.191", "22.31.349", "22.31.470"]
@@ -320619,7 +320619,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1403]
 title = "Repair audit record 22.30.78 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.346", "22.31.347", "22.31.348", "22.31.470"]
@@ -320688,7 +320688,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1396]
 title = "Repair audit record 22.30.77 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.343", "22.31.344", "22.31.345", "22.31.470"]
@@ -320825,7 +320825,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1382]
 title = "Repair audit record 22.30.75 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.138", "22.31.139", "22.31.140", "22.31.470"]
@@ -321001,7 +321001,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1367]
 title = "Repair audit record 22.30.74 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.342", "22.31.470"]
@@ -321345,7 +321345,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1337]
 title = "Repair audit record 22.30.72 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.133", "22.31.470"]
@@ -321553,7 +321553,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1325]
 title = "Repair audit record 22.30.70 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.186", "22.31.187", "22.31.470"]
@@ -321629,7 +321629,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1305]
 title = "Repair audit record 22.30.7 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.131", "22.31.132", "22.31.470"]
@@ -321664,7 +321664,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.1296]
 title = "Repair audit record 22.30.68 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.339", "22.31.470"]
@@ -321699,7 +321699,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.1285]
 title = "Repair audit record 22.30.65 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.130", "22.31.470"]
@@ -321734,7 +321734,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.1281]
 title = "Repair audit record 22.30.64 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.470"]
@@ -321769,7 +321769,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.1274]
 title = "Repair audit record 22.30.63 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.470"]
@@ -321873,7 +321873,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1270]
 title = "Repair audit record 22.30.62 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.182", "22.31.183", "22.31.470"]
@@ -321943,7 +321943,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1250]
 title = "Repair audit record 22.30.61 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.128", "22.31.129", "22.31.470"]
@@ -321978,7 +321978,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.1239]
 title = "Repair audit record 22.30.6 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.127", "22.31.470"]
@@ -322013,7 +322013,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.1233]
 title = "Repair audit record 22.30.59 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.338", "22.31.470"]
@@ -322154,7 +322154,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1224]
 title = "Repair audit record 22.30.58 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.333", "22.31.334", "22.31.335", "22.31.336", "22.31.337", "22.31.470"]
@@ -322189,7 +322189,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.1213]
 title = "Repair audit record 22.30.57 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.126", "22.31.470"]
@@ -322327,7 +322327,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.1121]
 title = "Repair audit record 22.30.48 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.93", "22.31.470"]
@@ -322465,7 +322465,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.1077]
 title = "Repair audit record 22.30.43 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.78", "22.31.470"]
@@ -322787,7 +322787,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1024]
 title = "Repair audit record 22.30.38 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.65", "22.31.470"]
@@ -323066,7 +323066,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.994]
 title = "Repair audit record 22.30.32 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.48", "22.31.49", "22.31.50", "22.31.51", "22.31.52", "22.31.470"]
@@ -323101,7 +323101,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.982]
 title = "Repair audit record 22.30.30 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.43", "22.31.44", "22.31.45", "22.31.470"]
@@ -323241,7 +323241,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.968]
 title = "Repair audit record 22.30.3 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.42", "22.31.470"]
@@ -323355,7 +323355,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.959]
 title = "Repair audit record 22.30.28 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.40", "22.31.470"]
@@ -323885,7 +323885,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.888]
 title = "Repair audit record 22.30.183 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.330", "22.31.470"]
@@ -324238,7 +324238,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.869]
 title = "Repair audit record 22.30.182 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.430", "22.31.431", "22.31.432", "22.31.470"]
@@ -324529,7 +324529,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.854]
 title = "Repair audit record 22.30.181 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.428", "22.31.429", "22.31.470"]
@@ -324939,7 +324939,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.838]
 title = "Repair audit record 22.30.180 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.325", "22.31.326", "22.31.327", "22.31.328", "22.31.329", "22.31.470"]
@@ -324974,7 +324974,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.834]
 title = "Repair audit record 22.30.18 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.21", "22.31.470"]
@@ -325009,7 +325009,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.824]
 title = "Repair audit record 22.30.179 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.321", "22.31.322", "22.31.323", "22.31.324", "22.31.427", "22.31.470"]
@@ -325119,7 +325119,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.813]
 title = "Repair audit record 22.30.178 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.320", "22.31.470"]
@@ -325566,7 +325566,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.787]
 title = "Repair audit record 22.30.175 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.470"]
@@ -325601,7 +325601,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.786]
 title = "Repair audit record 22.30.174 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.424", "22.31.425", "22.31.470"]
@@ -325704,7 +325704,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.779]
 title = "Repair audit record 22.30.174 medium findings in tools/qualification/paxeer-x (part 2 of 2): retired-reference, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.424", "22.31.425"]
@@ -326027,7 +326027,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.767]
 title = "Repair audit record 22.30.173 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.316", "22.31.470"]
@@ -326098,7 +326098,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.763]
 title = "Repair audit record 22.30.172 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.421", "22.31.422", "22.31.423", "22.31.470"]
@@ -326604,7 +326604,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.737]
 title = "Repair audit record 22.30.171 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.315", "22.31.470"]
@@ -327230,7 +327230,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.713]
 title = "Repair audit record 22.30.17 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.19", "22.31.20", "22.31.470"]
@@ -327265,7 +327265,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.707]
 title = "Repair audit record 22.30.169 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.312", "22.31.470"]
@@ -327601,7 +327601,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.698]
 title = "Repair audit record 22.30.168 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.310", "22.31.311", "22.31.470"]
@@ -327636,7 +327636,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.686]
 title = "Repair audit record 22.30.167 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.305", "22.31.306", "22.31.307", "22.31.308", "22.31.309", "22.31.470"]
@@ -327705,7 +327705,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.629]
 title = "Repair audit record 22.30.163 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.287", "22.31.414", "22.31.415", "22.31.416", "22.31.417", "22.31.418", "22.31.419", "22.31.420", "22.31.470"]
@@ -328116,7 +328116,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.581]
 title = "Repair audit record 22.30.16 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.18", "22.31.470"]
@@ -328221,7 +328221,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.565]
 title = "Repair audit record 22.30.158 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.470"]
@@ -328256,7 +328256,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.550]
 title = "Repair audit record 22.30.157 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.412", "22.31.470"]
@@ -328291,7 +328291,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.539]
 title = "Repair audit record 22.30.156 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.411", "22.31.470"]
@@ -328326,7 +328326,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.526]
 title = "Repair audit record 22.30.154 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.407", "22.31.470"]
@@ -328361,7 +328361,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.522]
 title = "Repair audit record 22.30.153 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.405", "22.31.406", "22.31.470"]
@@ -328431,7 +328431,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.508]
 title = "Repair audit record 22.30.151 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.399", "22.31.400", "22.31.401", "22.31.470"]
@@ -328538,7 +328538,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.483]
 title = "Repair audit record 22.30.15 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.17", "22.31.470"]
@@ -328677,7 +328677,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.446]
 title = "Repair audit record 22.30.147 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.397", "22.31.470"]
@@ -328712,7 +328712,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.429]
 title = "Repair audit record 22.30.146 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.273", "22.31.274", "22.31.470"]
@@ -328747,7 +328747,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.425]
 title = "Repair audit record 22.30.145 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.470"]
@@ -328887,7 +328887,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.414]
 title = "Repair audit record 22.30.143 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.392", "22.31.393", "22.31.394", "22.31.395", "22.31.470"]
@@ -328958,7 +328958,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.404]
 title = "Repair audit record 22.30.142 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.390", "22.31.391", "22.31.470"]
@@ -328993,7 +328993,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.392]
 title = "Repair audit record 22.30.141 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.271", "22.31.272", "22.31.388", "22.31.389", "22.31.470"]
@@ -329238,7 +329238,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.317]
 title = "Repair audit record 22.30.136 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.382", "22.31.470"]
@@ -329273,7 +329273,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.313]
 title = "Repair audit record 22.30.135 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.267", "22.31.381", "22.31.470"]
@@ -329517,7 +329517,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.273]
 title = "Repair audit record 22.30.131 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.376", "22.31.470"]
@@ -330525,7 +330525,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.33]
 title = "Repair audit record 22.30.102 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.150", "22.31.470"]
