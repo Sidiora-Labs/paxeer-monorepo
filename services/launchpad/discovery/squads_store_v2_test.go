@@ -15,7 +15,7 @@ func TestPostgresSquadRoleChangeAndJoinRequest(t *testing.T) {
 	s, id := realStore(t)
 	ctx := context.Background()
 	owner, moderator, applicant := id+"owner", id+"moderator", id+"applicant"
-	q := Squad{ID: id, OwnerAccountID: owner, Name: "Research", Policy: "request", Description: strings.Repeat("a", 280), Visibility: "public", Revision: 1}
+	q := Squad{ID: id, OwnerAccountID: owner, Name: "Research", Policy: "request", Description: strings.Repeat("a", 500), Visibility: "public", Revision: 1}
 	if err := q.Validate(); err != nil {
 		t.Fatal("valid squad", err)
 	}
@@ -23,7 +23,7 @@ func TestPostgresSquadRoleChangeAndJoinRequest(t *testing.T) {
 		func(q *Squad) { q.Visibility = "" },
 		func(q *Squad) { q.Visibility = "unlisted" },
 		func(q *Squad) { q.Description += "a" },
-		func(q *Squad) { q.Description = strings.Repeat("\u00e9", 141) },
+		func(q *Squad) { q.Description = strings.Repeat("\u00e9", 501) },
 	} {
 		invalid := q
 		mutate(&invalid)
