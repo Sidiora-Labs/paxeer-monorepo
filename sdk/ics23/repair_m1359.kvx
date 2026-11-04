@@ -1,0 +1,50 @@
+[repair.22.33.1359]
+audit = "22.30.74"
+base_revision = "72c91077cb966f1c4c640ded61b4b259f41cad90"
+paths = ["sdk/ics23"]
+acceptance = "22998.1"
+evidence = "The hf-build/hf-done private ledger records the exact candidate revision, command, exit and log; the final response copies the last hf-done record. No gate result is claimed in this source record."
+baseline = "Not executed: the task's explicit Order requires complete implementation, then hf-build then hf-done, and forbids running verify_cmd by hand; this overrides the contradictory unchanged-tree run in step 12. No baseline failures are claimed."
+transport = "Committed upstream Tendermint and IAVL producer proofs at 806345b7a81d9be3375a28517c7fcb76cab71419 are decoded, combined, compressed, protobuf-encoded/decoded and verified against their recorded roots. Malformed derivatives traverse the same protobuf codec."
+api = "Compress and Decompress return (*CommitmentProof, error); CombineProofs and Calculate propagate errors and boolean verifiers reject them. All consumers inside this module use the checked APIs."
+wiring = "No out-of-path implementation is needed: root go.mod already selects github.com/cosmos/cosmos-sdk/ics23/go v0.8.0; published replacement schema maintenance belongs to domain 15 and this local independent generator is formally retired."
+
+[finding.ics23-verification-coverage]
+test = "TestRepairM_1359_VerificationCoverage"
+repair = "Producer-derived membership and non-membership vectors cover both boundaries and interiors, compression round trips, batches, tampered values/keys/roots and idempotence; README documents published root-module selection."
+
+[finding.ics23-protobuf-regeneration]
+test = "TestRepairM_1359_ProtobufRetirement"
+repair = "Formally retire the independent protobuf producer; Makefile refuses both obsolete generator targets and README identifies the maintained published replacement, while real producer wire proofs remain consumable."
+
+[finding.ics23-compress-empty-variant]
+test = "TestRepairM_1359_CompressEmptyVariant"
+repair = "Validate all batch-entry variants, including nil and typed-nil wrappers, and return errors through compression and combination; prove unset oneofs after protobuf transport."
+
+[finding.ics23-compressed-index-bounds]
+test = "TestRepairM_1359_CompressedIndexBounds"
+repair = "Check signed indexes and lookup entries before access; actual decoded negative, maximum-int32, out-of-range and empty-table paths fail in decompression, combination, calculation and verification."
+
+[finding.ics23-public-verifier-inputs]
+test = "TestRepairM_1359_PublicVerifierInputs"
+repair = "Validate top-level and nested proof variants plus leaf/inner specs, child permutations, child sizes, prefix/depth bounds and nil path steps before lookup, including empty batch requests."
+
+[finding.ics23-root-length-error]
+test = "TestRepairM_1359_RootLengthError"
+repair = "Return an explicit hash/child-size mismatch error after successful hashing; test calculation and verification for inconsistent and consistent SHA512 specifications."
+
+[finding.ics23-decompress-empty-variant]
+test = "TestRepairM_1359_DecompressEmptyVariant"
+repair = "Reject nil/unset compressed entry variants and propagate checked decompression errors through consumers, including real protobuf decoding of empty messages."
+
+[finding.ics23-neighbor-path-panics]
+test = "TestRepairM_1359_NeighborPathPanics"
+repair = "Reject empty, nil, exhausted, identical and invalidly padded sibling paths without slicing or panicking; guard placeholder slices while retaining producer vectors and single-leaf boundary proofs."
+
+[gotcha.task-gate-order]
+symptom = "Step 12 requests baseline verification while the explicit Order forbids verification before full implementation and hf-build."
+resolution = "Follow the explicit Order and record the missing baseline honestly; never spend a gate on an empty test selection."
+
+[gotcha.typed-nil-oneof]
+symptom = "Generated protobuf oneof getters can dereference a typed-nil wrapper even when the top-level proof is non-nil."
+resolution = "Validate oneof wrapper pointers with type switches before using generated getters; keep rejection tests for every wrapper."

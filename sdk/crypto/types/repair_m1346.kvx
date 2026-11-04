@@ -1,0 +1,9 @@
+[repair.22.33.1346]
+audit = "22.30.73"
+findings = ["bitarray-empty-json", "bitarray-test-generation"]
+bitarray-empty-json = ["TestRepairM_1346_NullToPreallocated", "TestRepairM_1346_EmptyJSON", "TestRepairM_1346_MalformedJSON"]
+bitarray-test-generation = ["TestRepairM_1346_TestGeneration"]
+proof = "Production SetIndex and the corrected generator feed JSON Marshal/Unmarshal and production GetIndex/NumTrueBitsBefore; independent source-byte strings and literal boundary counts cover all prefixes through Count, including aligned endpoints and nonzero final bytes. Null resets preallocated values, empty strings round-trip as nonnil empty arrays, nil stays JSON null, and malformed input is refused without changing the receiver."
+baseline = "Not run: the explicit ordered gate instructions require the entire implementation before hf-build and hf-done, prohibit manual verification, and override step 6's request for a pre-change verification; no baseline failures are claimed."
+wiring_requests = []
+evidence = "The runner's private hf-build/hf-done ledger records the exact verified candidate revision, command, exit code and log path; qualification is claimed only on hf-done success."

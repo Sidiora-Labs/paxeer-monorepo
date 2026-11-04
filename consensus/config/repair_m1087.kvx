@@ -1,0 +1,35 @@
+[repair.22.33.1087]
+audit = "22.30.45"
+findings = ["config-skips-p2p-validation", "config-reservoir-bounds", "toml-unescaped-input", "toml-tests-default-autobahn"]
+baseline = "Not run: ordered instructions require complete implementation before testing and verification only through hf-done; no baseline failures claimed."
+wiring_requests = []
+revision_and_gate_evidence = "/out/run/gates.jsonl records the exact candidate revision, command, exit code and private log location for hf-build and hf-done; the final response copies the final gate evidence."
+
+[finding.config-skips-p2p-validation]
+change = "Apply P2P.ValidateBasic during top-level validation with a section-qualified error."
+proof = "TestRepairM_1087_P2PValidation"
+path = "WriteConfigFile -> config.toml -> Viper.ReadInConfig -> commands.ParseConfig -> Config.ValidateBasic -> P2P.ValidateBasic"
+
+[finding.config-reservoir-bounds]
+change = "Reject nonpositive reservoir sizes, nonfinite or out-of-range percentages and negative pending count/byte limits before mempool construction."
+proof = "TestRepairM_1087_MempoolBounds"
+path = "WriteConfigFile -> Viper.ReadInConfig and overrides -> commands.ParseConfig -> Config.ValidateBasic -> MempoolConfig.ValidateBasic -> ToMempoolConfig -> NewTxMempool -> real KV application CheckTx -> ReapTxs -> mempool snapshot"
+
+[finding.toml-unescaped-input]
+change = "Quote configurable scalar strings, string arrays and joined RPC servers with TOML basic-string escapes; refuse invalid UTF-8 before writing."
+proof = "TestRepairM_1087_TOMLStrings"
+path = "WriteConfigFile/WriteToTemplate -> config.toml -> Viper.ReadInConfig/Unmarshal -> decoded fields and commands.ParseConfig"
+
+[finding.toml-tests-default-autobahn]
+change = "Preserve sequencer round-trip assertions and add nonempty Autobahn path equality and decoded mode-conflict refusal to the existing template test."
+proof = "TestRepairM_1087_AutobahnSequencerRoundTrip"
+existing_test = "TestConfigTemplateRoundTripsSequencer"
+path = "WriteConfigFile -> config.toml -> Viper.ReadInConfig/Unmarshal -> Config.ValidateBasic and commands.ParseConfig"
+
+[qualification.repair1]
+revision = "7b0a16cf1654fd03551a617ced7f4a5b0f7dae74"
+command = "cg spec done 22.33.1087 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Construction tests read the cached RecentSnapshot before a reap operation had populated it."
+repair = "Drive the real ReapTxs producer and assert its transaction and gas output before the unchanged snapshot equality assertion."

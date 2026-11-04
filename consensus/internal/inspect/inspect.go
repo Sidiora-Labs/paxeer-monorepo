@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"sync"
+
+	dbm "github.com/tendermint/tm-db"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/config"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/internal/eventbus"
@@ -37,12 +40,26 @@ type Inspector struct {
 
 	indexerService *indexer.Service
 	eventBus       *eventbus.EventBus
+	ownedDBs       []*inspectorDB
+}
+
+// inspectorDB lets both the indexer and constructor cleanup release an owned DB.
+type inspectorDB struct {
+	dbm.DB
+	once sync.Once
+	err  error
+}
+
+func (db *inspectorDB) Close() error {
+	db.once.Do(func() { db.err = db.DB.Close() })
+	return db.err
 }
 
 // New returns an Inspector that serves RPC on the specified BlockStore and StateStore.
 // The Inspector type does not modify the state or block stores.
 // The sinks are used to enable block and transaction querying via the RPC server.
-// The caller is responsible for starting and stopping the Inspector service.
+// The caller is responsible for starting and stopping the Inspector service and
+// closing the block and state stores. The indexer closes the sinks on shutdown.
 func New(cfg *config.RPCConfig, bs state.BlockStore, ss state.Store, es []indexer.EventSink) *Inspector {
 	eb := eventbus.NewDefault()
 
@@ -58,13 +75,34 @@ func New(cfg *config.RPCConfig, bs state.BlockStore, ss state.Store, es []indexe
 }
 
 // NewFromConfig constructs an Inspector using the values defined in the passed in config.
-func NewFromConfig(cfg *config.Config) (*Inspector, error) {
-	bsDB, err := config.DefaultDBProvider(&config.DBContext{ID: "blockstore", Config: cfg})
+// It owns the opened databases and closes them on construction failure or when Run returns.
+func NewFromConfig(cfg *config.Config) (_ *Inspector, err error) {
+	var ownedDBs []*inspectorDB
+	provider := func(ctx *config.DBContext) (dbm.DB, error) {
+		db, err := config.DefaultDBProvider(ctx)
+		if err != nil {
+			return nil, err
+		}
+		owned := &inspectorDB{DB: db}
+		ownedDBs = append(ownedDBs, owned)
+		return owned, nil
+	}
+	defer func() {
+		if err != nil {
+			for _, db := range ownedDBs {
+				if closeErr := db.Close(); closeErr != nil {
+					err = errors.Join(err, closeErr)
+				}
+			}
+		}
+	}()
+
+	bsDB, err := provider(&config.DBContext{ID: "blockstore", Config: cfg})
 	if err != nil {
 		return nil, err
 	}
 	bs := store.NewBlockStore(bsDB)
-	sDB, err := config.DefaultDBProvider(&config.DBContext{ID: "state", Config: cfg})
+	sDB, err := provider(&config.DBContext{ID: "state", Config: cfg})
 	if err != nil {
 		return nil, err
 	}
@@ -72,28 +110,41 @@ func NewFromConfig(cfg *config.Config) (*Inspector, error) {
 	if err != nil {
 		return nil, err
 	}
-	sinks, err := sink.EventSinksFromConfig(cfg, config.DefaultDBProvider, genDoc.ChainID)
+	sinks, err := sink.EventSinksFromConfig(cfg, provider, genDoc.ChainID)
 	if err != nil {
 		return nil, err
 	}
 	ss := state.NewStore(sDB)
-	return New(cfg.RPC, bs, ss, sinks), nil
+	ins := New(cfg.RPC, bs, ss, sinks)
+	ins.ownedDBs = ownedDBs
+	return ins, nil
 }
 
 // Run starts the Inspector servers and blocks until the servers shut down. The passed
-// in context is used to control the lifecycle of the servers.
-func (ins *Inspector) Run(ctx context.Context) error {
-	err := ins.eventBus.Start(ctx)
+// in context is used to control the lifecycle of the servers. Startup errors are
+// returned after stopping started services, without canceling the caller's context.
+func (ins *Inspector) Run(ctx context.Context) (err error) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer func() {
+		cancel()
+		ins.indexerService.Wait()
+		ins.eventBus.Wait()
+		for _, db := range ins.ownedDBs {
+			if closeErr := db.Close(); closeErr != nil {
+				err = errors.Join(err, closeErr)
+			}
+		}
+	}()
+
+	err = ins.eventBus.Start(ctx)
 	if err != nil {
-		return fmt.Errorf("error starting event bus: %s", err)
+		return fmt.Errorf("error starting event bus: %w", err)
 	}
-	defer ins.eventBus.Wait()
 
 	err = ins.indexerService.Start(ctx)
 	if err != nil {
-		return fmt.Errorf("error starting indexer service: %s", err)
+		return fmt.Errorf("error starting indexer service: %w", err)
 	}
-	defer ins.indexerService.Wait()
 
 	return startRPCServers(ctx, ins.config, ins.routes)
 }

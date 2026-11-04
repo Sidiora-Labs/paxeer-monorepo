@@ -20,7 +20,11 @@ type Options struct {
 //
 // Lifecycle: NewCommitStore (create) → LoadVersion (open) → ApplyChangeSets/Commit → Close.
 // Write path: ApplyChangeSets (buffer) → Commit (persist).
-// Read path: Get/Has/Iterator read committed state only.
+// Read path: Get/Has/GetBlockHeightModified and Iterator include pending writes.
+// RawGlobalIterator and Exporter expose committed state; isolated read-only
+// LoadVersion handles expose their selected committed version.
+// Coverage: TestStoreGetPendingWrites, TestEvmIteratorSnapshotConcurrentWithWrites,
+// and TestIteratorDoesNotSeePendingWrites (the raw committed iterator).
 // Key format: modules/evm memiavl keys (mapped internally to account/code/storage DBs).
 type Store interface {
 	// LoadVersion opens the database at the given version (0 = latest).
@@ -33,7 +37,10 @@ type Store interface {
 	// Call Commit to persist.
 	ApplyChangeSets(cs []*proto.NamedChangeSet) error
 
-	// Commit persists buffered writes and advances the version.
+	// Commit persists buffered writes and advances the version. WAL appends are
+	// synchronous calls with NoSync (no fsync); config.Fsync controls only
+	// Pebble data and metadata writes. WAL replay recovers process interruptions
+	// when log bytes survive; acknowledgment does not promise power-loss durability.
 	Commit() (int64, error)
 
 	// SetInitialVersion seeds the store so that the next Commit produces
@@ -42,19 +49,19 @@ type Store interface {
 	// a read-only store, on a non-fresh store, or for initialVersion <= 0.
 	SetInitialVersion(initialVersion int64) error
 
-	// Get returns the value for a key within the given module.
+	// Get returns the working value, including pending sets and deletes, for a key within the given module.
 	// For EVM keys (moduleName == "evm"), the key is a memiavl EVM key
 	// routed to account/storage/code/legacy DBs internally.
 	// For non-EVM modules, the key is read from legacy storage with the module prefix.
 	// If not found, returns (nil, false).
 	Get(moduleName string, key []byte) (value []byte, found bool)
 
-	// GetBlockHeightModified returns the block height at which the key was last modified.
+	// GetBlockHeightModified returns the working modification height, including pending writes.
 	// Only supported for EVM keys; non-EVM legacy data does not track block height.
 	// If not found, returns (-1, false, nil).
 	GetBlockHeightModified(moduleName string, key []byte) (int64, bool, error)
 
-	// Has reports whether the key exists within the given module.
+	// Has reports whether the key exists in the working view, including pending sets and deletes.
 	Has(moduleName string, key []byte) bool
 
 	// RawGlobalIterator returns a positioned forward iterator over all committed
@@ -70,7 +77,8 @@ type Store interface {
 	// so close promptly rather than relying on it being safe to keep open.
 	RawGlobalIterator() (dbm.Iterator, error)
 
-	// Create an iterator over a range of keys in a given store.
+	// Iterator creates a working-view iterator, including pending sets and deletes,
+	// over a range of logical keys in a given store.
 	//
 	// The returned iterator is a stable snapshot taken at construction (pending
 	// writes are cloned and the Pebble view is pinned): it may be used
@@ -115,7 +123,8 @@ type Store interface {
 	// snapshot, replaying WAL, and pruning snapshots/WAL beyond target.
 	Rollback(targetVersion int64) error
 
-	// Exporter creates an exporter for the given version (0 = current).
+	// Exporter exports an isolated committed snapshot at the given version (0 = latest committed).
+	// Pending writes are not visible; unlike Iterator, its nodes use physical keys and vtype envelopes.
 	Exporter(version int64) (types.Exporter, error)
 
 	// Importer load data from snapshot to the database

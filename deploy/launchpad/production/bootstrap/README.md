@@ -18,6 +18,9 @@ No existing service, production volume, `.env`, or chain data is mounted.
 
 ## Start from the repository root
 
+All command paths below are relative to the repository root; keep the
+`deploy/launchpad/production/bootstrap/` prefix when invoking these tools.
+
 The coordinator starts this stack once, after reviewing this configuration:
 
 ```sh

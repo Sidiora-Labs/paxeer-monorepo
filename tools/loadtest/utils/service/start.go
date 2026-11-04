@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"sync"
@@ -27,7 +28,7 @@ func (s Scope) Spawn(t func() error) {
 	s.main.Add(1)
 	s.all.Go(func() error {
 		defer s.main.Done()
-		return t()
+		return s.taskResult(t())
 	})
 }
 
@@ -114,7 +115,7 @@ func (s Scope) SpawnBgNamed(name string, t func() error) {
 
 // SpawnBg spawns a background task.
 // Background tasks get canceled when all the main tasks return.
-func (s Scope) SpawnBg(t func() error) { s.all.Go(t) }
+func (s Scope) SpawnBg(t func() error) { s.all.Go(func() error { return s.taskResult(t()) }) }
 
 // Run runs a scope capable of spawning tasks.
 // It is guaranteed that all the spawned tasks will be executed (even if spawned after the context is cancelled),
@@ -122,13 +123,15 @@ func (s Scope) SpawnBg(t func() error) { s.all.Go(t) }
 // Context of the tasks will be automatically cancelled as soon as ANY task returns an error.
 // Returns the first error returned by any task (main or background).
 func Run(ctx context.Context, main func(context.Context, Scope) error) error {
+	parent := ctx
 	ctx, cancel := context.WithCancel(ctx)
 	all, ctx := errgroup.WithContext(ctx)
 	s := Scope{ctx, all, &sync.WaitGroup{}}
 	s.Spawn(func() error { return main(ctx, s) })
 	s.main.Wait()
 	cancel()
-	return s.all.Wait()
+	err := s.all.Wait()
+	return errors.Join(err, parent.Err())
 }
 
 // Run1 is the same as Run, but returns the result of the main task.
@@ -140,4 +143,35 @@ func Run1[R any](ctx context.Context, main func(context.Context, Scope) (R, erro
 	})
 	//nolint:nakedret
 	return
+}
+
+// IsCancellation reports only cancellation leaves. A joined operational error
+// must survive cleanup even when errors.Is also matches context.Canceled.
+func IsCancellation(err error) bool {
+	if err == nil {
+		return false
+	}
+	if joined, ok := err.(interface{ Unwrap() []error }); ok {
+		children := joined.Unwrap()
+		if len(children) == 0 {
+			return false
+		}
+		for _, child := range children {
+			if !IsCancellation(child) {
+				return false
+			}
+		}
+		return true
+	}
+	if wrapped, ok := err.(interface{ Unwrap() error }); ok {
+		return IsCancellation(wrapped.Unwrap())
+	}
+	return err == context.Canceled
+}
+
+func (s Scope) taskResult(err error) error {
+	if s.ctx.Err() != nil && IsCancellation(err) {
+		return nil
+	}
+	return err
 }

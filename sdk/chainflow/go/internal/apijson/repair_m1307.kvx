@@ -1,0 +1,26 @@
+[task]
+id = "22.33.1307"
+base_revision = "145f7e64b030fb018121d34ae4c3fe408d3a4079"
+record = "spec/layerx-merge/programme/audit/records/22.30.70.kvx"
+qualification = "hf-build and hf-done record the exact qualified candidate revision, command, exit and private log in the runner ledger; no qualification is claimed before the gates pass."
+baseline = "No baseline verification was run: the explicit gate order requires complete implementation before hf-build and hf-done, prohibits running verify_cmd by hand, and permits one initial verification. repair_m1307_test.go did not exist in the initial tree; no pre-change test failure is claimed."
+
+[finding.sdk-json-syntax]
+tests = ["TestRepairM_1307_CompleteSyntax", "TestRepairM_1307_ObjectRoot", "TestRepairM_1307_RequestRejectsMalformedAndTruncatedResponses", "TestRepairM_1307_RequestRejectsScalarResponses", "TestRepairM_1307_RequestValidatesCompleteErrorBody", "TestRepairM_1307_RequestRetainsUnknownFields", "TestRepairM_1307_RequestUnionRequiresObject", "TestRepairM_1307_CompatibleRootKinds"]
+repair = "Validate the entire input with encoding/json before decoding; require objects for ordinary structs and maps before modifying destinations; publish custom-unmarshaler pointers only after successful decoding. Preserve scalar, timestamp, inline and union decoding, nullable field metadata and unknown-field retention."
+proof = "Loopback HTTP fixtures drive the generated PriceFeedService, production requestconfig transport, generated model UnmarshalJSON methods and real apijson decoder; direct decoder tests cover syntax, destination preservation and compatible root types."
+
+[wiring.request_boundary]
+request = "Domain 15, sdk/chainflow/go/internal/requestconfig/requestconfig.go: enforce complete-document consumption and non-null required model responses at the HTTP decoding boundary; json.Decoder.Decode currently passes only the first document to apijson and consumes null into **model without invoking its UnmarshalJSON. This boundary is outside the task scope."
+
+[scope_notes]
+workflow = "Explicit scope prohibits editing GOTCHA.kvx or spec task records; this scoped record carries the finding-to-test mapping, baseline conflict and out-of-path wiring request."
+inspection = "The initial gate ledger was absent and gate counters were zero. Initial targeted reads found no decoder_test.go, health.go, gatewayhealth.go or pricefeed_test.go; the real health model and request methods are in pricefeed.go."
+
+[qualification.initial_failure]
+revision = "442e014f744d0e402bba2d2fcb2732a8716300d4"
+command = "cg spec done 22.33.1307 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "TestRepairM_1307_ObjectRoot/Unmarshal rejected non-object roots but published an allocated model pointer before returning the error; the other seven test functions passed."
+repair = "Defer assigning a custom-unmarshaler pointer until decoding succeeds; retain the failing assertion and assert that a valid object still publishes its model pointer."

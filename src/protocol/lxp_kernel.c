@@ -378,6 +378,7 @@ lxp_result lxp_kernel_bind_migration_admission(
     if (status == LXP_OK) status = lxp_activity_verify_payload_hash(activity);
     if (status == LXP_OK &&
         activity->protocol_version == LXP_PROTOCOL_VERSION_STATE_COMMITMENT) {
+        if (execution->identities == NULL) return LXP_ERR_AUTH_SCOPE;
         status = lxp_identity_resolve(execution->identities,
             activity->actor_did.bytes, activity->actor_did.length, &identity);
         if (status == LXP_OK)

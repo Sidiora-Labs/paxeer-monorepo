@@ -20,41 +20,59 @@ import type {
   WebhookDeliveryEntry,
 } from './types';
 
-export const createWebhook = (body: CreateWebhookRequest, signal?: AbortSignal) =>
-  portfolioApi.post<WebhookResponse>('/api/v2/webhooks', toSnake(body as unknown as Record<string, unknown>), {
-    signal,
-  });
+export const createWebhook = (
+  body: CreateWebhookRequest,
+  signal?: AbortSignal,
+  accessToken?: string
+) =>
+  portfolioApi.post<WebhookResponse>(
+    '/api/v2/webhooks',
+    toSnake(body as unknown as Record<string, unknown>),
+    {
+      signal,
+      accessToken,
+    }
+  );
 
-export const listWebhooks = (address: string, signal?: AbortSignal) =>
+export const listWebhooks = (address: string, signal?: AbortSignal, accessToken?: string) =>
   portfolioApi.get<{ webhooks?: WebhookResponse[]; [key: string]: unknown }>(
     '/api/v2/webhooks',
     { address },
-    { signal },
+    { signal, accessToken }
   );
 
-export const getWebhook = (id: string, signal?: AbortSignal) =>
-  portfolioApi.get<WebhookResponse>(
-    `/api/v2/webhooks/${encodeURIComponent(id)}`,
-    undefined,
-    { signal },
-  );
+export const getWebhook = (id: string, signal?: AbortSignal, accessToken?: string) =>
+  portfolioApi.get<WebhookResponse>(`/api/v2/webhooks/${encodeURIComponent(id)}`, undefined, {
+    signal,
+    accessToken,
+  });
 
-export const updateWebhook = (id: string, body: UpdateWebhookRequest, signal?: AbortSignal) =>
+export const updateWebhook = (
+  id: string,
+  body: UpdateWebhookRequest,
+  signal?: AbortSignal,
+  accessToken?: string
+) =>
   portfolioApi.patch<WebhookResponse>(
     `/api/v2/webhooks/${encodeURIComponent(id)}`,
     toSnake(body as unknown as Record<string, unknown>),
-    { signal },
+    { signal, accessToken }
   );
 
-export const deleteWebhook = (id: string, signal?: AbortSignal) =>
+export const deleteWebhook = (id: string, signal?: AbortSignal, accessToken?: string) =>
   portfolioApi.delete<{ status?: string; [key: string]: unknown }>(
     `/api/v2/webhooks/${encodeURIComponent(id)}`,
-    { signal },
+    { signal, accessToken }
   );
 
-export const getWebhookDeliveries = (id: string, limit?: number, signal?: AbortSignal) =>
+export const getWebhookDeliveries = (
+  id: string,
+  limit?: number,
+  signal?: AbortSignal,
+  accessToken?: string
+) =>
   portfolioApi.get<{ deliveries?: WebhookDeliveryEntry[]; [key: string]: unknown }>(
     `/api/v2/webhooks/${encodeURIComponent(id)}/deliveries`,
     { limit },
-    { signal },
+    { signal, accessToken }
   );
