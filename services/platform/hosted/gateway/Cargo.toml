@@ -1,5 +1,6 @@
 [package]
 name = "layerx-platform-gateway"
+description = "Hosted Paxeer JSON-RPC gateway for account, balance, asset and indexed EVM history reads"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

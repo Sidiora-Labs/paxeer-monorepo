@@ -9,6 +9,39 @@ defmodule Indexer.Migrator.RecoveryWETHTokenTransfersTest do
 
   alias Indexer.Migrator.RecoveryWETHTokenTransfers
 
+  setup :configure_recovery
+
+  def configure_recovery(_context) do
+    envs = Application.get_env(:indexer, Indexer.Migrator.RecoveryWETHTokenTransfers)
+    envs_tt = Application.get_env(:explorer, Explorer.Chain.TokenTransfer)
+
+    on_exit(fn ->
+      if migrator = Process.whereis(RecoveryWETHTokenTransfers) do
+        IO.inspect(Process.info(migrator, [:current_stacktrace, :messages]), label: "unfinished WETH recovery")
+        monitor = Process.monitor(migrator)
+        Process.exit(migrator, :kill)
+        assert_receive {:DOWN, ^monitor, :process, ^migrator, _}, 1000
+      end
+
+      Application.put_env(:indexer, Indexer.Migrator.RecoveryWETHTokenTransfers, envs)
+      Application.put_env(:explorer, Explorer.Chain.TokenTransfer, envs_tt)
+    end)
+
+    Application.put_env(
+      :explorer,
+      Explorer.Chain.TokenTransfer,
+      Keyword.merge(envs_tt, weth_token_transfers_filtering_enabled: false)
+    )
+
+    Application.put_env(
+      :indexer,
+      Indexer.Migrator.RecoveryWETHTokenTransfers,
+      Keyword.merge(envs, batch_size: 1, concurrency: 2, blocks_batch_size: 1, timeout: 0)
+    )
+
+    :ok
+  end
+
   describe "RecoveryWETHTokenTransfers" do
     test "recovery WETH token transfers" do
       %{contract_address: token_address} = insert(:token, type: "ERC-20")
@@ -132,23 +165,10 @@ defmodule Indexer.Migrator.RecoveryWETHTokenTransfersTest do
         )
 
       assert MigrationStatus.get_status("recovery_weth_token_transfers") == nil
-      envs = Application.get_env(:indexer, Indexer.Migrator.RecoveryWETHTokenTransfers)
-      envs_tt = Application.get_env(:explorer, Explorer.Chain.TokenTransfer)
-
-      Application.put_env(
-        :explorer,
-        Explorer.Chain.TokenTransfer,
-        Keyword.merge(envs, weth_token_transfers_filtering_enabled: false)
-      )
-
-      Application.put_env(
-        :indexer,
-        Indexer.Migrator.RecoveryWETHTokenTransfers,
-        Keyword.merge(envs, batch_size: 1, concurrency: 2, blocks_batch_size: 1)
-      )
-
-      RecoveryWETHTokenTransfers.start_link([])
-      Process.sleep(1000)
+      {:ok, migrator} = RecoveryWETHTokenTransfers.start_link([])
+      monitor = Process.monitor(migrator)
+      wait_for_completion()
+      assert_receive {:DOWN, ^monitor, :process, ^migrator, :normal}, 1000
 
       assert MigrationStatus.get_status("recovery_weth_token_transfers") == "completed"
 
@@ -156,10 +176,18 @@ defmodule Indexer.Migrator.RecoveryWETHTokenTransfersTest do
       check_withdrawal_token_transfer(tt_1, log_1)
       check_withdrawal_token_transfer(tt_2, log_2)
       check_deposit_token_transfer(tt_5, log_5)
-
-      Application.put_env(:indexer, Indexer.Migrator.RecoveryWETHTokenTransfers, envs)
-      Application.put_env(:explorer, Explorer.Chain.TokenTransfer, envs_tt)
     end
+  end
+
+  def wait_for_completion do
+    wait_for_results(fn ->
+      Repo.one!(
+        from(status in MigrationStatus,
+          where: status.migration_name == "recovery_weth_token_transfers",
+          where: status.status == "completed" and is_nil(status.meta)
+        )
+      )
+    end)
   end
 
   def check_withdrawal_token_transfer(tt, log) do
