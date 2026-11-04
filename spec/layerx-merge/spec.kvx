@@ -151277,7 +151277,7 @@ do_9 = "Attempt 2 (continue): the attempt ran on the gate as it stood before the
 
 [task.22.33.466]
 title = "Repair audit record 22.30.149 medium findings in apps/explorer/ui/tokens (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.398", "22.31.474"]
