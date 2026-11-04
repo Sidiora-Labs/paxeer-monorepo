@@ -42,6 +42,8 @@ use std::sync::Arc;
 
 use layerx_crypto::keystore::{KeystoreEntropy, KeystoreError};
 use layerx_crypto::signer::SignError;
+use serde::{Deserialize, Serialize};
+use sha2::{Digest as _, Sha256};
 use zeroize::Zeroizing;
 
 use crate::audit::AuditError;
@@ -52,6 +54,8 @@ const RECORD_MAGIC: &[u8; 4] = b"LXCK";
 const RECORD_VERSION: u8 = 2;
 const LEGACY_RECORD_VERSION: u8 = 1;
 const SELF_CUSTODY_RECORD_VERSION: u8 = 3;
+const EXPORT_HANDOFF_RECORD_VERSION: u8 = 4;
+const LOCK_FILE_SUFFIX: &str = ".key.lock";
 const PRINCIPALS_DIR: &str = "principals";
 const KEY_FILE_SUFFIX: &str = ".key";
 const TEMP_FILE_SUFFIX: &str = ".key.tmp";
@@ -498,6 +502,24 @@ struct KeyRecord {
     binding_digest: Option<[u8; 32]>,
     provider_reference: ProviderKeyReference,
     self_custodied: bool,
+    handoff: Option<ExportHandoff>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct ExportHandoff {
+    pub id: [u8; 32],
+    pub expires_at: u64,
+    pub authorization: Option<ExportAuthorization>,
+    pub acknowledged: bool,
+    pub delivery_digest: Option<[u8; 32]>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct ExportAuthorization {
+    pub at: u64,
+    pub ceremony_digest: [u8; 32],
 }
 
 /// The DID primary key handed to its owner exactly once by the key-export
@@ -532,10 +554,9 @@ impl std::fmt::Debug for ExportedPrimaryKey {
 }
 
 /// KMS-backed keystore holding only provider references and public key facts
-/// under principal-scoped subtrees. The one and only path by which private
-/// material leaves custody is [`Keystore::export_primary_once`], which hands
-/// the DID primary key to its owner a single time and leaves the identity
-/// self-custodied; every other method returns public facts alone.
+/// under principal-scoped subtrees. Production export uses a durable, authorized
+/// handoff that remains recoverable until delivery acknowledgement. The legacy
+/// one-shot export is restricted to the development envelope provider.
 #[derive(Debug)]
 pub struct Keystore {
     root: PathBuf,
@@ -750,6 +771,7 @@ impl Keystore {
         principal: &PrincipalId,
         key: &KeyId,
     ) -> Result<KeyDescriptor, CustodyError> {
+        let _lock = self.export_lock(principal, key)?;
         let record = self.read_record(principal, key)?;
         if record.self_custodied {
             return Err(CustodyError::SelfCustodied);
@@ -792,7 +814,15 @@ impl Keystore {
     /// Returns typed provider, principal-binding and storage failures. A
     /// provider refusal never removes the local record.
     pub fn destroy(&self, principal: &PrincipalId, key: &KeyId) -> Result<(), CustodyError> {
+        let _lock = self.export_lock(principal, key)?;
         let record = self.read_record(principal, key)?;
+        if record
+            .handoff
+            .as_ref()
+            .is_some_and(|handoff| !handoff.acknowledged)
+        {
+            return Err(CustodyError::SelfCustodied);
+        }
         let binding = self.binding(principal, key, record.class)?;
         Self::require_record_binding(&binding, &record)?;
         self.provider
@@ -823,7 +853,7 @@ impl Keystore {
             let Some(name) = name.to_str() else {
                 return Err(CustodyError::CorruptRecord("foreign key entry"));
             };
-            if name.ends_with(TEMP_FILE_SUFFIX) {
+            if name.ends_with(TEMP_FILE_SUFFIX) || name.ends_with(LOCK_FILE_SUFFIX) {
                 continue;
             }
             let Some(stem) = name.strip_suffix(KEY_FILE_SUFFIX) else {
@@ -887,6 +917,7 @@ impl Keystore {
         principal: &PrincipalId,
         key: &KeyId,
     ) -> Result<ExportedPrimaryKey, CustodyError> {
+        let _lock = self.export_lock(principal, key)?;
         if self.provider.deployment() == ProviderDeployment::Production {
             return Err(CustodyError::Kms(KmsError::Refused));
         }
@@ -922,6 +953,222 @@ impl Keystore {
             &bytes,
         )?;
         Ok(ExportedPrimaryKey { secret, public_key })
+    }
+
+    fn export_lock(&self, principal: &PrincipalId, key: &KeyId) -> Result<fs::File, CustodyError> {
+        let directory = self.principal_directory(principal);
+        let lock = fs::OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .write(true)
+            .open(directory.join(format!("{}{LOCK_FILE_SUFFIX}", key.as_str())))?;
+        lock.lock()?;
+        // Only the lock owner can discard a staging file left by a stopped writer.
+        match fs::remove_file(directory.join(format!("{}{TEMP_FILE_SUFFIX}", key.as_str()))) {
+            Ok(()) => {}
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error.into()),
+        }
+        Ok(lock)
+    }
+
+    fn write_handoff(
+        &self,
+        principal: &PrincipalId,
+        key: &KeyId,
+        record: &KeyRecord,
+    ) -> Result<(), CustodyError> {
+        let binding = self.binding(principal, key, record.class)?;
+        Self::require_record_binding(&binding, record)?;
+        let mut bytes = encode_record_parts(
+            record.class,
+            record.public_key,
+            binding.digest(),
+            record.provider_reference.as_bytes(),
+            false,
+        )?;
+        bytes[4] = EXPORT_HANDOFF_RECORD_VERSION;
+        bytes.push(u8::from(record.self_custodied));
+        let state = serde_json::to_vec(&record.handoff)
+            .map_err(|_| CustodyError::CorruptRecord("invalid export handoff"))?;
+        let length = u32::try_from(state.len()).map_err(|_| CustodyError::InvalidEvidence)?;
+        bytes.extend_from_slice(&length.to_be_bytes());
+        bytes.extend_from_slice(&state);
+        replace_atomic(
+            &self.principal_directory(principal),
+            &format!("{}{KEY_FILE_SUFFIX}", key.as_str()),
+            &format!("{}{TEMP_FILE_SUFFIX}", key.as_str()),
+            &bytes,
+        )
+    }
+
+    pub(crate) fn begin_primary_export(
+        &self,
+        principal: &PrincipalId,
+        key: &KeyId,
+        now: u64,
+        window: u64,
+    ) -> Result<ExportHandoff, CustodyError> {
+        let _lock = self.export_lock(principal, key)?;
+        let mut record = self.read_record(principal, key)?;
+        let binding = self.binding(principal, key, record.class)?;
+        Self::require_record_binding(&binding, &record)?;
+        if record.class != KeyClass::HumanPrimary {
+            return Err(CustodyError::Kms(KmsError::Refused));
+        }
+        if let Some(handoff) = &record.handoff {
+            if handoff.acknowledged {
+                return Err(CustodyError::SelfCustodied);
+            }
+            if handoff.authorization.is_some() || handoff.expires_at > now {
+                return Ok(handoff.clone());
+            }
+        } else if record.self_custodied {
+            return Err(CustodyError::SelfCustodied);
+        }
+        self.provider
+            .check_export_handoff(&binding, &record.provider_reference)?;
+        let mut id = [0; 32];
+        getrandom::fill(&mut id).map_err(|_| CustodyError::InvalidEntropy)?;
+        let handoff = ExportHandoff {
+            id,
+            expires_at: now.checked_add(window).ok_or(CustodyError::InvalidLimits)?,
+            authorization: None,
+            acknowledged: false,
+            delivery_digest: None,
+        };
+        record.handoff = Some(handoff.clone());
+        self.write_handoff(principal, key, &record)?;
+        Ok(handoff)
+    }
+
+    pub(crate) fn authorize_primary_export(
+        &self,
+        principal: &PrincipalId,
+        key: &KeyId,
+        id: [u8; 32],
+        ceremony_digest: [u8; 32],
+        now: u64,
+    ) -> Result<ExportHandoff, CustodyError> {
+        let _lock = self.export_lock(principal, key)?;
+        let mut record = self.read_record(principal, key)?;
+        let binding = self.binding(principal, key, record.class)?;
+        Self::require_record_binding(&binding, &record)?;
+        let handoff = record
+            .handoff
+            .as_mut()
+            .ok_or(CustodyError::InvalidEvidence)?;
+        if handoff.id != id {
+            return Err(CustodyError::InvalidEvidence);
+        }
+        if handoff.acknowledged {
+            return Err(CustodyError::SelfCustodied);
+        }
+        if handoff.authorization.is_none() {
+            if now >= handoff.expires_at {
+                return Err(CustodyError::StepUpExpired);
+            }
+            handoff.authorization = Some(ExportAuthorization {
+                at: now,
+                ceremony_digest,
+            });
+            record.self_custodied = true;
+            self.write_handoff(principal, key, &record)?;
+        }
+        record.handoff.ok_or(CustodyError::InvalidEvidence)
+    }
+
+    pub(crate) fn recover_primary_export(
+        &self,
+        principal: &PrincipalId,
+        key: &KeyId,
+        id: [u8; 32],
+    ) -> Result<ExportedPrimaryKey, CustodyError> {
+        let _lock = self.export_lock(principal, key)?;
+        let mut record = self.read_record(principal, key)?;
+        let handoff = record
+            .handoff
+            .as_ref()
+            .ok_or(CustodyError::InvalidEvidence)?;
+        if handoff.id != id || handoff.authorization.is_none() {
+            return Err(CustodyError::InvalidEvidence);
+        }
+        if handoff.acknowledged {
+            return Err(CustodyError::SelfCustodied);
+        }
+        let binding = self.binding(principal, key, record.class)?;
+        Self::require_record_binding(&binding, &record)?;
+        let secret =
+            self.provider
+                .recover_export_handoff(&binding, &record.provider_reference, id)?;
+        let public_key = layerx_crypto::signer::Signer::public_key(
+            &layerx_crypto::local::LocalSigner::new(*secret),
+        );
+        if !layerx_crypto::ct::eq_fixed(&public_key, &record.public_key) {
+            return Err(CustodyError::Kms(KmsError::Integrity));
+        }
+        let token = export_delivery_token(&secret, id);
+        let delivery_digest: [u8; 32] = Sha256::digest(token).into();
+        if let Some(handoff) = record.handoff.as_mut() {
+            if let Some(expected) = handoff.delivery_digest {
+                if !layerx_crypto::ct::eq_fixed(&expected, &delivery_digest) {
+                    return Err(CustodyError::Kms(KmsError::Integrity));
+                }
+            } else {
+                handoff.delivery_digest = Some(delivery_digest);
+                self.write_handoff(principal, key, &record)?;
+            }
+        }
+        Ok(ExportedPrimaryKey { secret, public_key })
+    }
+
+    pub(crate) fn verify_primary_export_delivery(
+        &self,
+        principal: &PrincipalId,
+        key: &KeyId,
+        id: [u8; 32],
+        token: [u8; 32],
+    ) -> Result<ExportHandoff, CustodyError> {
+        let record = self.read_record(principal, key)?;
+        let binding = self.binding(principal, key, record.class)?;
+        Self::require_record_binding(&binding, &record)?;
+        let handoff = record.handoff.ok_or(CustodyError::InvalidEvidence)?;
+        if handoff.id != id
+            || handoff.authorization.is_none()
+            || !handoff.delivery_digest.is_some_and(|expected| {
+                layerx_crypto::ct::eq_fixed(&expected, &Sha256::digest(token).into())
+            })
+        {
+            return Err(CustodyError::InvalidEvidence);
+        }
+        Ok(handoff)
+    }
+
+    pub(crate) fn acknowledge_primary_handoff(
+        &self,
+        principal: &PrincipalId,
+        key: &KeyId,
+        id: [u8; 32],
+        token: [u8; 32],
+    ) -> Result<(), CustodyError> {
+        let _lock = self.export_lock(principal, key)?;
+        self.verify_primary_export_delivery(principal, key, id, token)?;
+        let mut record = self.read_record(principal, key)?;
+        let handoff = record
+            .handoff
+            .as_ref()
+            .ok_or(CustodyError::InvalidEvidence)?;
+        if handoff.acknowledged {
+            return Ok(());
+        }
+        let binding = self.binding(principal, key, record.class)?;
+        Self::require_record_binding(&binding, &record)?;
+        self.provider
+            .acknowledge_export_handoff(&binding, &record.provider_reference, id)?;
+        if let Some(handoff) = record.handoff.as_mut() {
+            handoff.acknowledged = true;
+        }
+        self.write_handoff(principal, key, &record)
     }
 
     pub(crate) fn remote_signer(
@@ -1008,7 +1255,7 @@ impl Keystore {
                     integrity = KeyReferenceIntegrity::Failed;
                     continue;
                 };
-                if key_name.ends_with(TEMP_FILE_SUFFIX) {
+                if key_name.ends_with(TEMP_FILE_SUFFIX) || key_name.ends_with(LOCK_FILE_SUFFIX) {
                     continue;
                 }
                 let Some(stem) = key_name.strip_suffix(KEY_FILE_SUFFIX) else {
@@ -1194,6 +1441,14 @@ impl Keystore {
     }
 }
 
+pub(crate) fn export_delivery_token(seed: &[u8; 32], id: [u8; 32]) -> [u8; 32] {
+    let mut digest = Sha256::new();
+    digest.update(b"layerx-human-export-delivery/v1\0");
+    digest.update(id);
+    digest.update(seed);
+    digest.finalize().into()
+}
+
 fn identity_bytes(principal: &PrincipalId, key: &KeyId, class: KeyClass) -> Vec<u8> {
     let principal = principal.as_str().as_bytes();
     let key = key.as_str().as_bytes();
@@ -1287,7 +1542,10 @@ fn decode_record(bytes: &[u8]) -> Result<KeyRecord, CustodyError> {
     let version = reader.byte()?;
     if !matches!(
         version,
-        LEGACY_RECORD_VERSION | RECORD_VERSION | SELF_CUSTODY_RECORD_VERSION
+        LEGACY_RECORD_VERSION
+            | RECORD_VERSION
+            | SELF_CUSTODY_RECORD_VERSION
+            | EXPORT_HANDOFF_RECORD_VERSION
     ) {
         return Err(CustodyError::CorruptRecord("unknown record version"));
     }
@@ -1309,13 +1567,39 @@ fn decode_record(bytes: &[u8]) -> Result<KeyRecord, CustodyError> {
     let reference_length = reader.length()?;
     let provider_reference = ProviderKeyReference::new(reader.take(reference_length)?.to_vec())
         .map_err(CustodyError::Kms)?;
-    let self_custodied = if version == SELF_CUSTODY_RECORD_VERSION {
-        if reader.byte()? != 1 {
-            return Err(CustodyError::CorruptRecord("invalid self-custody marker"));
+    let self_custodied =
+        if version == SELF_CUSTODY_RECORD_VERSION || version == EXPORT_HANDOFF_RECORD_VERSION {
+            match reader.byte()? {
+                0 if version == EXPORT_HANDOFF_RECORD_VERSION => false,
+                1 => true,
+                _ => return Err(CustodyError::CorruptRecord("invalid self-custody marker")),
+            }
+        } else {
+            false
+        };
+    let handoff: Option<ExportHandoff> = if version == EXPORT_HANDOFF_RECORD_VERSION {
+        let length = reader.length()?;
+        if length > 4096 {
+            return Err(CustodyError::CorruptRecord("oversize export handoff"));
         }
-        true
+        let handoff: ExportHandoff =
+            serde_json::from_slice::<Option<ExportHandoff>>(reader.take(length)?)
+                .map_err(|_| CustodyError::CorruptRecord("invalid export handoff"))?
+                .ok_or(CustodyError::CorruptRecord("missing export handoff"))?;
+        if handoff.authorization.is_some() != self_custodied
+            || handoff
+                .authorization
+                .as_ref()
+                .is_some_and(|authorization| authorization.at >= handoff.expires_at)
+            || (handoff.delivery_digest.is_some() && !self_custodied)
+            || (handoff.acknowledged && handoff.delivery_digest.is_none())
+            || class != KeyClass::HumanPrimary
+        {
+            return Err(CustodyError::CorruptRecord("inconsistent export handoff"));
+        }
+        Some(handoff)
     } else {
-        false
+        None
     };
     reader.finish()?;
     Ok(KeyRecord {
@@ -1324,6 +1608,7 @@ fn decode_record(bytes: &[u8]) -> Result<KeyRecord, CustodyError> {
         binding_digest,
         provider_reference,
         self_custodied,
+        handoff,
     })
 }
 
@@ -1398,6 +1683,7 @@ fn verify_custody_tree(root: &Path) -> Result<(), CustodyError> {
             };
             let stem = key_name
                 .strip_suffix(TEMP_FILE_SUFFIX)
+                .or_else(|| key_name.strip_suffix(LOCK_FILE_SUFFIX))
                 .or_else(|| key_name.strip_suffix(KEY_FILE_SUFFIX));
             let valid = stem.is_some_and(valid_identifier);
             if !valid {

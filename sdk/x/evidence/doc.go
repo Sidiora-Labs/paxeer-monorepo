@@ -2,43 +2,45 @@
 Package evidence implements a Cosmos SDK module, per ADR 009, that allows for the
 submission and handling of arbitrary evidence of misbehavior.
 
-All concrete evidence types must implement the Evidence interface contract. Submitted
-evidence is first routed through the evidence module's Router in which it attempts
-to find a corresponding Handler for that specific evidence type. Each evidence type
-must have a Handler registered with the evidence module's keeper in order for it
-to be successfully executed.
+Concrete evidence implements exported.Evidence. The keeper routes submissions to
+registered handlers, which may perform state transitions such as slashing,
+jailing and tombstoning, then stores accepted evidence by hash. Consensus
+misbehavior uses BeginBlocker and HandleEquivocationEvidence directly.
 
-Each corresponding handler must also fulfill the Handler interface contract. The
-Handler for a given Evidence type can perform any arbitrary state transitions
-such as slashing, jailing, and tombstoning. This provides developers with great
-flexibility in designing evidence handling.
+An embedding application registers evidence.AppModuleBasic{} with its basic
+manager and interface registry, mounts evidencetypes.StoreKey, and constructs the
+keeper after staking and slashing. The setup below accepts an application-owned
+handler for the equivocation route. SetRouter seals the routes before the keeper
+is copied into the module; it may only be called once. An application that does
+not accept transaction submissions can explicitly install an empty router, as
+node/app.go does, which rejects submissions with ErrNoEvidenceHandlerExists.
 
-A full setup of the evidence module may look something as follows:
+After construction, call mm.RegisterServices with
+module.NewConfigurator(appCodec, app.MsgServiceRouter(), app.GRPCQueryRouter())
+to register the SDK Msg and Query services. Include evidencetypes.ModuleName in
+the manager's genesis initialization order. The following setup is compiled and
+exercised by TestRepairM_605_SetupExample:
 
-	ModuleBasics = module.NewBasicManager(
-	  // ...,
-	  evidence.AppModuleBasic{},
+	import (
+	    "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec"
+	    sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	    "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/module"
+	    "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/evidence"
+	    evidencekeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/evidence/keeper"
+	    evidencetypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/evidence/types"
 	)
 
-	// First, create the keeper
-	evidenceKeeper := evidence.NewKeeper(
-	  appCodec, keys[evidence.StoreKey], &app.StakingKeeper, app.SlashingKeeper,
-	)
-
-	// Second, create the evidence Handler and register all desired routes.
-	evidenceRouter := evidence.NewRouter().
-	  AddRoute(evidenceRoute, evidenceHandler).
-	  AddRoute(..., ...)
-
-	evidenceKeeper.SetRouter(evidenceRouter)
-
-	app.EvidenceKeeper = *evidenceKeeper
-
-	app.mm = module.NewManager(
-	  // ...
-	  evidence.NewAppModule(app.EvidenceKeeper),
-	)
-
-	// Remaining application bootstrapping...
+	func configureEvidence(
+	    appCodec codec.Codec, storeKey sdk.StoreKey,
+	    stakingKeeper evidencetypes.StakingKeeper, slashingKeeper evidencetypes.SlashingKeeper,
+	    evidenceHandler evidencetypes.Handler,
+	) (*evidencekeeper.Keeper, *module.Manager) {
+	    evidenceKeeper := evidencekeeper.NewKeeper(appCodec, storeKey, stakingKeeper, slashingKeeper)
+	    evidenceRouter := evidencetypes.NewRouter().
+	        AddRoute(evidencetypes.RouteEquivocation, evidenceHandler)
+	    evidenceKeeper.SetRouter(evidenceRouter)
+	    mm := module.NewManager(evidence.NewAppModule(*evidenceKeeper))
+	    return evidenceKeeper, mm
+	}
 */
 package evidence

@@ -1,0 +1,7 @@
+[repair.22.33.1065]
+finding = "svg-normalized-active-content"
+implementation = "IsSVGSafe uses the maintained standard-library XML decoder, a passive element/namespace/attribute allowlist and fragment-only URL parsing; CSS, animation, external resources, directives and other processing instructions fail closed."
+proving_tests = ["TestRepairM_1065_CharacterReferences", "TestRepairM_1065_Namespaces", "TestRepairM_1065_ExternalActiveContent", "TestRepairM_1065_MalformedDocuments", "TestRepairM_1065_PassiveSVG", "TestRepairM_1065_UploadBytes"]
+baseline = "Not run: the explicit ordered gate instructions prohibit verification before full implementation and permit verification only through hf-done; no baseline failure is claimed."
+evidence = "hf-build and hf-done record the exact candidate revision, command, exit and private log in the runner gate ledger; the final response copies the hf-done evidence verbatim."
+wiring_request = "services/launchpad/user/internal/user/handlers.go — owning domain 4 (fm-launchpad): restrict direct SVG serving with a sandboxed Content-Security-Policy disabling scripts and external resources plus X-Content-Type-Options: nosniff, including previously stored SVGs."

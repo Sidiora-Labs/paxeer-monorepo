@@ -1,0 +1,79 @@
+[repair.22.31.3]
+base_revision = "5c06a9cfa23f88d328fc7e91545e90609e8cd0c0"
+mode = "BUILD"
+qualification = "Only hf-build and hf-done qualify this candidate; their private ledger records the exact candidate revision, command, exit code and log, repeated verbatim in the final evidence line."
+baseline = "No pre-change verify was run: the explicit implementation-first order and bounded gate instructions prohibit it, and the original Rust source directory has no Go package or repair_3 tests; no baseline test failures are claimed."
+
+[finding.export-handoff]
+proof = "tests/repair_22_31_3.rs::repair_3_export_handoff"
+implementation = "A random, principal/key-bound durable challenge becomes one authorized handoff before custody stops signing. Its original authorization and audit identity survive store/provider failures and reopening. Fresh durable passkey evidence can recover the same handoff until explicit seed-derived delivery proof acknowledges it; retries do not duplicate audit events or enable signing."
+cases = "Expired challenge; failed custody replacement; audit storage failure after marker; provider loss after audit; stale temporary file; lost response; reopening real keystore and principal store; fresh evidence after expiry; foreign principal; wrong acknowledgement proof; idempotent acknowledgement; no further export, signing or rotation after acknowledgement; no seed in audit or key records."
+
+[finding.export-challenge-wire]
+proof = "tests/repair_22_31_3.rs::repair_3_export_challenge_wire"
+implementation = "The production handlers use the shared RFC3339 UTC and OperationDigest codecs. Step-up producers/readers agree on lowercase hex, including production authorization's schema-declared principal/export-action binding."
+cases = "Real WebAuthn registration/session and step-up; real HTTP router, authenticated component middleware, Unix component server and framing; typed in-process consumer round-trip with exact committed browser decoder field checks; missing session and CSRF; expired and wrong-digest refusal; successful export with schema timestamps."
+
+[wiring.kms]
+request = "Owner domain 10 (Human custody): services/human/crates/layerx-human-kms/src must implement LXKP (version=9, operation=14; version 8 retains its existing recipient-encrypted delivery contract): standard key-request prefix followed by phase 0 (read-only capability probe, empty response), phase 1 + 32-byte handoff id (atomically disable signing and retain an authenticated encrypted seed bound to principal/key/network/handoff; same-id retries return that seed, another id refuses), or phase 2 + id (idempotently acknowledge delivery and erase recovery material, empty response). Service code never falls back to destructive version 5 export and refuses unsupported providers before custody changes."
+
+[wiring.schema]
+request = "Owner domain 10 (Human API): services/human/schema/human-api/identity.kvx must declare an authenticated delivery-acknowledgement operation carrying export_id, lowercase-hex delivery_token and StepUpEvidence, route it to server::key_export::acknowledge, regenerate clients and update the once-only wording to permit authenticated delivery retries until acknowledgement."
+
+[wiring.browser]
+request = "Owner domain 10 (Human web): apps/web/src must acknowledge durable owner delivery using SHA256(UTF8(layerx-human-export-delivery/v1) || 0x00 || decoded_export_id_32 || delivered_seed_32), preserving the export id for authenticated recovery until acknowledgement; update apps/web/src/api/generated through the schema generator."
+
+[wiring.tests]
+request = "Owner domain 10 (Human service): apps/web/src/api/generated/index.ts requires its owning web/browser gate to execute decodeKeyExportChallenge against the response; the Rust gate consumes the exact string field contract in-process and checks the committed decoder declaration without spawning a toolchain."
+
+[gotcha.scope]
+observation = "The Go qualification bridge from attempt 1 has been removed as required. Both existing behavioral proofs moved into the declared Rust integration target, use a real signing WebAuthn fixture, and need no subprocess, environment variable, credential or live endpoint."
+
+[gotcha.recovery]
+observation = "Retrying the old production export cannot recover a response lost after the provider erases its seed; recovery must be implemented at that owning boundary, with no fallback to the old destructive contract."
+
+[qualification.repair_1]
+revision = "8119a31d12001022f4ee11d49509fe1ac75f5af6"
+command = "hf-done: cargo check --locked --manifest-path /work/paxeer-monorepo/services/human/Cargo.toml --all-targets -p layerx-human-identity-provider -p layerx-human-kms -p layerx-human-security-provider -p layerx-human-test-support"
+exit = 101
+log = "/out/logs/dependents-1.log"
+repair = "Source inclusion by the identity provider client test needs self-contained projections: share those through the real auth types instead of a parent module reference; keep fixture store/tenancy types owned by the unit-test crate."
+
+[qualification.repair_2]
+revision = "f7b5095f56715adcb5222bb66f167c9bde9cb8d4"
+command = "cg spec done 22.31.3 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+repair = "The Rust regression target reported two fixture type errors: borrow the tenancy install path and explicitly coerce the connected runtime clock after unwrapping it. No assertion or bound changed."
+
+[continuation.22.31.3]
+prior_failure = "Attempt 1 failed before either Rust proof executed: tenancy install required &Path and RuntimeClock required an explicit Arc<dyn Clock> coercion; no passing baseline is claimed."
+integration = "The declared integration test preserves restart, failure and transport assertions; it borrows the tenancy path and uses the committed in-process StepClock fixture, replacing the Node authenticator and browser subprocesses."
+merge = "Keep current provider recipient-encrypted exports, checked projections and source-level identity-provider interfaces; the new handoff acknowledgement uses a distinct method and protocol version beside them."
+evidence = "The final response and private hf gate ledger name the verified candidate revision; no task source changes follow hf-done."
+
+[qualification.continuation_repair_1]
+revision = "e707dc6ea6dcc8176da9fadb23f43c46afeaae95"
+command = "cargo build --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+repair = "Import PrincipalStore explicitly in the moved Rust integration proof; its former super import supplied that type in the library test module."
+
+[qualification.continuation_repair_2]
+revision = "0f7ec5f3baa3107fcf73b6c1056f330b35482caa"
+command = "cg spec done 22.31.3 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+repair = "Respect the real PrincipalStore exclusive owner: inspect audit through its active scope, close the owner before a signing attempt, and stop/join the production component before reopening its durable audit. All failure, signing-refusal and audit-count assertions remain."
+
+[continuation.fixture_isolation]
+prior_failure = "The previous attempt executed four tests: two passed and both export proofs failed with WouldBlock while opening the same durable store concurrently."
+repair = "Preserve the inherited fixture repair: each Fixture::new allocates its own private random temporary directory and each store owner is closed before reopening. No proof assertion, gate or bound is weakened."
+qualification = "Run hf-build then hf-done on this final candidate; the private ledger and final evidence line identify its exact verified revision."
+
+[qualification.staging_fixture]
+revision = "c82180c709d1b8072e9661a023c9c33ffacea08b"
+command = "cg spec done 22.31.3 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+repair = "Three tests passed; the handoff proof's interrupted staging file used default permissions, so protected-record recovery correctly refused it. Create and sync that partial file with the production writer's 0600 permissions; preserve the permission check and every recovery assertion."

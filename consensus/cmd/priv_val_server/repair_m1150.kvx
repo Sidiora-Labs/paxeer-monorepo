@@ -1,0 +1,8 @@
+[repair.22.33.1150]
+audit = "22.30.52"
+acceptance = "22998.1"
+signer-shutdown-handler-unreachable = "TestRepairM_1150_LiveServerTermination; TestRepairM_1150_DrainInFlightRPC; TestRepairM_1150_NormalServerStop; TestRepairM_1150_CancelBeforeServe; TestRepairM_1150_ServeFailureStopsPeer"
+signer-prometheus-registry-unwired = "TestRepairM_1150_SignerPrometheusMetrics"
+baseline = "Not run: the explicit task order prohibits testing before implementation and permits verification only through hf-done after hf-build; no baseline failures are claimed."
+wiring_requests = "None: both findings and their real transport proofs are contained in this task's paths."
+evidence = "The hf-build/hf-done runner ledger records the exact candidate revision, command, exit code and private log; qualification is claimed only when hf-done passes on the built candidate."

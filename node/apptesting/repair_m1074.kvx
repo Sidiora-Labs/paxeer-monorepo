@@ -1,0 +1,10 @@
+[repair.22.33.1074]
+audit = "22.30.43"
+finding = "f013"
+tests = ["TestRepairM_1074_BuildTxRoundTrip", "TestRepairM_1074_RejectsEmptyMessages"]
+implementation = "BuildTx forwards the complete ordered message slice and explicitly panics on nil or empty input before mutating the builder."
+proof = "The real application transaction builder, encoder and decoder preserve heterogeneous messages, duplicates, order, signing bytes, signature, memo, fees and gas; empty input preserves the existing encoded transaction."
+baseline = "Not run: the explicit implementation-first order and bounded hf-build/hf-done gates prohibit the contradictory unchanged-tree verification step; no baseline failure is claimed."
+wiring_requests = []
+evidence = "Runner-managed hf-build/hf-done ledger records the exact candidate revision, command, exit and private log; no qualification is claimed before those gates pass."
+qualification_gotcha = "The first verify exposed gogo/protobuf proto.Equal refusing sdk.Int custom fields; compare the complete decoded Go message values with require.Equal instead."

@@ -163,7 +163,7 @@ func validateSource(root string, index sourceIndex) error {
 			return deployment.Issue{Code: "candidate_source_changed"}
 		}
 	}
-	for _, required := range []string{"sdk/launchpad/shared/config/capabilities/measurement.go", "sdk/launchpad/shared/config/capabilities/cmd/measure/main.go", "sdk/launchpad/shared/config/capabilities/catalog.go", "sdk/launchpad/shared/config/capabilities/preflight.go", "sdk/launchpad/shared/config/deployment/attest.go", "sdk/launchpad/shared/config/deployment/manifest.go", "sdk/launchpad/shared/config/deployment/revision.go", "sdk/launchpad/shared/config/deployment/public.go", "sdk/launchpad/shared/config/deployment/current.json", "sdk/launchpad/shared/config/capabilities/frozen.json", "sdk/launchpad/shared/config/capabilities/contract-support.json", "sdk/launchpad/shared/chain/readpolicy/policy.go", "sdk/launchpad/shared/go.mod", "sdk/launchpad/shared/go.sum", "launchpad/spec/production-system/spec.kvx", "sdk/launchpad/protocol/addresses.go", "apps/launchpad/web/src/core/network/deployment.ts"} {
+	for _, required := range requiredSourcePaths() {
 		if !seen[required] {
 			return deployment.Issue{Code: "candidate_source_authority_missing"}
 		}
@@ -194,6 +194,7 @@ func run() error {
 	authorityPath := flag.String("authority", "", "Approved read-only endpoint authority JSON")
 	sourceRoot := flag.String("source-root", "", "Exact candidate source root")
 	sourcePath := flag.String("source-index", "", "Candidate source index JSON")
+	writeIndex := flag.Bool("write-source-index", false, "Write a candidate source index and exit; positional paths add candidate inputs")
 	policyPath := flag.String("policy", "", "Approved measurement budget JSON")
 	manifestPath := flag.String("manifest", "", "Reviewed deployment manifest JSON")
 	goExportPath := flag.String("go-export", "", "Actual Go consumer deployment export JSON")
@@ -203,6 +204,9 @@ func run() error {
 	rawPath := flag.String("raw-output", "", "Private raw JSONL capture destination")
 	reportPath := flag.String("report-output", "", "Private measured report destination")
 	flag.Parse()
+	if *writeIndex {
+		return writeSourceIndex(*sourceRoot, *sourcePath, flag.Args())
+	}
 	data, err := readPinned(*planPath, *planDigest, 8<<20)
 	if err != nil {
 		return err
