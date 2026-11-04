@@ -132775,7 +132775,7 @@ do_8 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.379]
 title = "Repair audit record 22.30.134 findings in apps/explorer/lib/api: wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -140794,7 +140794,7 @@ do_9 = "Attempt 2 (continue): the package no longer builds because sdk/integrati
 
 [task.22.31.346]
 title = "Repair audit record 22.30.78 findings in sdk/platform/swift/Sources/LayerXSDK: interface-mismatch, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -162088,7 +162088,7 @@ do_13 = "Attempt 2: the fixture helper repair311ValidatorWithKey fails MsgCreate
 
 [task.22.31.310]
 title = "Repair audit record 22.30.168 findings in sdk/x/staking/keeper: interface-mismatch, restart-recovery, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -267772,7 +267772,7 @@ do_8 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.355]
 title = "Repair audit record 22.30.83 findings in services/platform/hosted/node: interface-mismatch, restart-recovery, retired-reference, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -268111,7 +268111,7 @@ do_13 = "Attempt 2: the SSH fixture asserts that sshd exists; the qualification 
 
 [task.22.31.318]
 title = "Repair audit record 22.30.176 findings in tools/qualification/paxeer-x: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -297997,7 +297997,7 @@ do_8 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.397]
 title = "Repair audit record 22.30.147 findings in services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/web_socket: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
