@@ -32,7 +32,6 @@ function routeStatusCoversEveryOperation() {
     'IF_OPERATOR_REPLAY',
     'IF_QUOTE',
     'IF_REPORT_LIST',
-    'IF_REWARD_CLAIM',
     'IF_SQUAD_CREATE',
     'IF_SQUAD_MEMBERSHIP',
     'IF_SQUAD_READ',
@@ -67,7 +66,7 @@ function routeStatusCoversEveryOperation() {
     assert.equal(routeStatus(name), expected, name);
     counts[ROUTE_STATUS[name]] += 1;
   }
-  assert.deepEqual(counts, { served: 153, development: 15, unrouted: 33 });
+  assert.deepEqual(counts, { served: 154, development: 15, unrouted: 32 });
 }
 
 test(routeStatusCoversEveryOperation);
