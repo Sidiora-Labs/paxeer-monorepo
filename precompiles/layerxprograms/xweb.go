@@ -81,6 +81,8 @@ func callWithWebRequests(ctx sdk.Context, p *PrecompileExecutor, call callContex
 	if err := commitWebRequestReceipt(cached, p, programCall, receipt); err != nil {
 		return nil, err
 	}
+	// Preserve the canonical terminal frame and its transfer evidence. The call's
+	// responseCapacity bounds nested guest bytes, as specified in response.md.
 	output, err := method.Outputs.Pack(outcome.Status, outcome.Kind, outcome.Response)
 	if err != nil {
 		return nil, err

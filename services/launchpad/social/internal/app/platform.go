@@ -300,16 +300,6 @@ func (p platformPools) Exists(ctx context.Context, pool string) (bool, error) {
 // projection does.
 func platformMessageProjection(db *pgxpool.Pool) func(context.Context, fanout.DurableMessage) (fanout.DurableMessage, error) {
 	return func(ctx context.Context, m fanout.DurableMessage) (fanout.DurableMessage, error) {
-		var denied bool
-		if err := db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM chat.interaction_erased_wallets WHERE wallet=$1) OR EXISTS(SELECT 1 FROM chat.safety_visibility WHERE target_type='message' AND target_id=$2 AND status='removed')`, m.Sender, m.ID).Scan(&denied); err != nil {
-			return m, err
-		}
-		if denied && !m.Deleted {
-			m.Deleted = true
-			m.Content = ""
-			m.ReplyTo = ""
-			m.Revision++
-		}
-		return m, nil
+		return projectMessageFromStore(ctx, db, m)
 	}
 }

@@ -1,0 +1,30 @@
+[repair.22.31.343]
+audit = "22.30.77"
+acceptance = "22998.1"
+test_class = "com.sidiora.layerx.sdk.Repair2231343Test"
+evidence = "The bounded hf-build and hf-done ledger records the candidate revision, exact command, exit code and private log; no qualification is claimed by this source record."
+baseline = "Not run: the explicit task gate order prohibits tests before complete implementation and prohibits invoking verify_cmd by hand; no pre-change test failure is claimed."
+
+[finding.receipt-committed-rung]
+tests = ["receiptCommittedRungSurvivesClientRestart", "receiptCommittedShapeRefusesMissingAndContradictoryBlockMetadata"]
+proof = "The archived node settlement receipt crosses the real Programs HTTP decoder unchanged; a closed HTTP client is reopened and reads the committed receipt with the same digest, at receipt verification level."
+
+[finding.receipt-payment-asset]
+tests = ["receiptPaymentAssetAndSignedFeeDenominationAreIndependent"]
+proof = "The published fee-token signed receipt verifies with payment asset usid and signed summary denomination uhpx; the archived node payment traverses HTTP and rejects independent paymentDenom and feeDenom mutations."
+
+[finding.portable-node-shape]
+tests = ["portableNodeShapeRoundTripsThroughHttpAndOfflineImport", "portablePublishedV5BundlesVerifyUnmodifiedWithIndependentTrust"]
+proof = "Both unmodified V5 bundles verify, and the archived committed node shape exports through the real decoder to offline verification with strict field checks and preserved paymentDenom, rung and block metadata."
+
+[finding.portable-consensus-trust]
+tests = ["portableConsensusTrustAuthenticatesTransitionsToBothProofHeights", "portableConsensusTrustRejectsAttackerSignedHeadersAroundGenuineBatch"]
+proof = "A separately pinned chain, height and validator root authenticate every intervening header and the execution-to-results transition; attacker-generated consensus signatures around the genuine signed receipt and batch are refused despite internal cryptographic consistency."
+
+[wiring]
+portable_callers = "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/PortableReceiptTest.java and sdk/platform/jvm/examples/OfflineVerificationExample.java — owning domain 8: supply independently configured ConsensusTrust for committed portable export and verification; receipt-only overloads now refuse committed bundles."
+task_record = "spec/layerx-merge/spec.kvx — owning domain 8: copy this finding-to-test mapping and baseline-order conflict into the task record; the worker may not edit spec files."
+
+[gotcha.fee-token-shape]
+observed = "The fee-token vector deliberately omits receiptJson; its producer records only canonical signed bytes and denomination metadata."
+action = "Consume its byte-verifier boundary without inventing a node JSON response; use the archived node settlement receipt for the JSON transport path."

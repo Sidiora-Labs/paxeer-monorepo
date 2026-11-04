@@ -29,7 +29,6 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/telemetry"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
-	"github.com/gorilla/websocket"
 	"github.com/jackc/pgx/v5"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
@@ -76,6 +75,7 @@ type App struct {
 	PrivateRouter http.Handler
 	connected     *socialConnectedRuntime
 	dev           *devsocial.Runtime
+	visibility    *socialConnectedRuntime
 	serverTLS     *tls.Config
 	secretStop    context.CancelFunc
 	tracker       *process.Tracker
@@ -226,6 +226,9 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	var hub *fanout.Hub
 	var dev *devsocial.Runtime
 	if connected != nil {
+		if err = connected.prepareFrozen(ctx, rdb, logger); err != nil {
+			return nil, err
+		}
 		hubDeps.Durable = connected.chat
 		hubDeps.Authenticate = connected.ticket
 		hub, err = fanout.NewConnected(hubDeps)
@@ -294,6 +297,9 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		}
 		mux.Mount("/v2/social", http.StripPrefix("/v2/social", connected.interactions.Routes()))
 		connected.interactions.RegisterContractRoutes(mux)
+		if err = connected.registerFrozen(mux); err != nil {
+			return nil, err
+		}
 		mux.Group(func(gr chi.Router) {
 			gr.Use(connected.safetyMiddleware)
 			social.RegisterSafetyRoutes(gr, connected.safety, connected.voice)
@@ -349,11 +355,18 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		}
 	})
 
+	var visibility *socialConnectedRuntime
+	if identity != nil {
+		visibility = &socialConnectedRuntime{pool: pool, chat: dev.Chat}
+	}
 	var domainRouter http.Handler = mux
+	if connected != nil || identity != nil {
+		domainRouter = (&socialComments{pool: pool}).reads(domainRouter)
+	}
 	if connected != nil {
-		domainRouter = connected.ingress(mux)
+		domainRouter = connected.ingress(domainRouter)
 	} else if identity != nil {
-		domainRouter = identity.ingress(mux)
+		domainRouter = identity.ingress(domainRouter)
 	}
 
 	if metrics != nil {
@@ -368,7 +381,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	if connected != nil {
 		serverTLS = connected.serverTLS
 	}
-	result := &App{platform: identity, connected: connected, dev: dev, serverTLS: serverTLS, secretStop: secretStop, tracker: tracker, Router: runtimeHandler(tracker, domainRouter, metrics), Hub: hub, pool: pool, redis: rdb, sub: sub, logger: logger}
+	result := &App{platform: identity, connected: connected, dev: dev, visibility: visibility, serverTLS: serverTLS, secretStop: secretStop, tracker: tracker, Router: runtimeHandler(tracker, domainRouter, metrics), Hub: hub, pool: pool, redis: rdb, sub: sub, logger: logger}
 	if identity != nil {
 		// Production platform runtime: the social API and the ranking
 		// visibility authority are served on the private mTLS listener; the
@@ -425,6 +438,14 @@ func Run(parent context.Context) error {
 				cancel()
 			}
 		}()
+		if app.visibility != nil {
+			go func() {
+				if err := app.visibility.runVisibility(ctx); err != nil && ctx.Err() == nil {
+					logger.Error("safety visibility", slog.String("error", err.Error()))
+					cancel()
+				}
+			}()
+		}
 		if app.dev != nil {
 			go func() { _ = app.dev.Run(ctx) }()
 		}
@@ -545,6 +566,7 @@ type socialConnectedRuntime struct {
 	chat                                          *fanout.DurableStore
 	interactions                                  *interactions.HTTP
 	store                                         interactions.Store
+	frozen                                        *devsocial.Runtime
 	safety                                        *safety.Store
 	voice                                         *voice.Control
 	broker                                        fanout.SocialBroker
@@ -867,31 +889,7 @@ func (r *socialConnectedRuntime) authenticateRequest(req *http.Request) (fanout.
 	}}, nil
 }
 func (r *socialConnectedRuntime) authenticateTicket(req *http.Request) (fanout.Principal, error) {
-	var ticket string
-	for _, protocol := range websocket.Subprotocols(req) {
-		if strings.HasPrefix(protocol, "ticket.") {
-			if ticket != "" {
-				return fanout.Principal{}, fanout.ErrInvalid
-			}
-			ticket = strings.TrimPrefix(protocol, "ticket.")
-		}
-	}
-	topics := strings.Split(req.URL.Query().Get("topics"), ",")
-	binding := sharedauth.StreamTicketBinding{SchemaMajor: 2, Topics: topics, FilterDigest: sharedauth.StreamFilterDigest(topics), Origin: req.Header.Get("Origin"), Endpoint: "/v2/stream"}
-	principal, e := r.chatIdentity.ConsumeChatStreamTicket(req.Context(), ticket, binding)
-	if e != nil {
-		return fanout.Principal{}, e
-	}
-	identity, e := r.identity.AuthenticateRequest(req.Context(), req)
-	if e != nil {
-		return fanout.Principal{}, e
-	}
-	if identity.SessionID != principal.SessionID || identity.AccountID != principal.AccountID || identity.Wallet != principal.Wallet || identity.AuthEpoch != principal.AuthEpoch {
-		return fanout.Principal{}, fanout.ErrNotFound
-	}
-	return fanout.Principal{Topics: append([]string(nil), topics...), Wallet: principal.Wallet, SessionID: principal.SessionID, ExpiresAt: identity.AccessExpiresAt, Validate: func(ctx context.Context) error {
-		return r.chatIdentity.CheckStreamSession(ctx, principal)
-	}}, nil
+	return fanout.TicketAuthenticator(r.chatIdentity, r.identity)(req)
 }
 func (r *socialConnectedRuntime) safetyMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -936,7 +934,7 @@ func (r *socialConnectedRuntime) ingress(next http.Handler) http.Handler {
 		}
 		// The gateway signs an actor assertion only when it authenticated a
 		// session; a viewer-aware contract read without one is anonymous.
-		if req.Header.Get(sharedauth.ActorAssertionHeader) == "" && interactions.PublicContractRead(req) {
+		if req.Header.Get(sharedauth.ActorAssertionHeader) == "" && (interactions.PublicContractRead(req) || frozenPublicRead(req)) {
 			next.ServeHTTP(w, req.WithContext(interactions.WithHTTP(req.Context(), r.interactions)))
 			return
 		}
@@ -1018,6 +1016,12 @@ func (t socialTargetResolver) Resolve(ctx context.Context, kind, id string) (str
 	case "message":
 		e := t.pool.QueryRow(ctx, `SELECT CASE WHEN c.kind='pool' THEN substring(c.id from 6) ELSE '' END,m.sender FROM chat_messages m JOIN chat_conversations c ON c.id=m.conversation_id WHERE m.id=$1`, id).Scan(&pool, &actor)
 		return pool, actor, e
+	case "token":
+		e := t.pool.QueryRow(ctx, `SELECT pool,creator FROM chat.social_canonical_pools() WHERE token=$1`, id).Scan(&pool, &actor)
+		return pool, actor, e
+	case "profile":
+		e := t.pool.QueryRow(ctx, `SELECT $1::text WHERE chat.interaction_account_active($1::text)`, id).Scan(&actor)
+		return "", actor, e
 	case "comment":
 		e := t.pool.QueryRow(ctx, `SELECT pool,author FROM interaction_comments WHERE id=$1`, id).Scan(&pool, &actor)
 		return pool, actor, e
@@ -1283,32 +1287,7 @@ func (r *socialConnectedRuntime) eraseOnce(ctx context.Context) error {
 	return nil
 }
 func (r *socialConnectedRuntime) applyVisibility(ctx context.Context, tx pgx.Tx, v safety.Visibility) error {
-	if v.Status != "removed" && v.Status != "restored" {
-		return safety.ErrInvalid
-	}
-	if v.Status == "restored" {
-		return nil
-	}
-	switch v.TargetType {
-	case "message":
-		return r.chat.ModerateTx(ctx, tx, v.TargetID)
-	case "comment":
-		var actor, pool string
-		var removed bool
-		e := tx.QueryRow(ctx, `SELECT author,pool,removed FROM interaction_comments WHERE id=$1 FOR UPDATE`, v.TargetID).Scan(&actor, &pool, &removed)
-		if e != nil {
-			return e
-		}
-		if removed {
-			return nil
-		}
-		if _, e = tx.Exec(ctx, `UPDATE interaction_comments SET body='',removed=true,revision=revision+1 WHERE id=$1`, v.TargetID); e != nil {
-			return e
-		}
-		return r.store.RecordRemovalTx(ctx, tx, actor, pool, v.TargetID)
-	default:
-		return nil
-	}
+	return r.applyVisibilityOverlay(ctx, tx, v)
 }
 
 func (r *socialConnectedRuntime) authorityHTTP(w http.ResponseWriter, req *http.Request) {
@@ -1617,16 +1596,5 @@ func (r *socialConnectedRuntime) contentVisibility(ctx context.Context, kind, id
 }
 
 func (r *socialConnectedRuntime) projectMessage(ctx context.Context, m fanout.DurableMessage) (fanout.DurableMessage, error) {
-	var denied bool
-	e := r.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM interaction_erased_wallets WHERE wallet=$1) OR EXISTS(SELECT 1 FROM safety_visibility WHERE target_type='message' AND target_id=$2 AND status='removed')`, m.Sender, m.ID).Scan(&denied)
-	if e != nil {
-		return m, e
-	}
-	if denied && !m.Deleted {
-		m.Deleted = true
-		m.Content = ""
-		m.ReplyTo = ""
-		m.Revision++
-	}
-	return m, nil
+	return projectMessageFromStore(ctx, r.pool, m)
 }

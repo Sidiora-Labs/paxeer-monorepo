@@ -259,7 +259,6 @@ public final class LocalVerifier {
                     || denomLength == 0 || denomLength > 64) fail(ReceiptCheck.FIELDS);
             byte[] denom = d.fixed(denomLength);
             StandardCharsets.UTF_8.newDecoder().decode(ByteBuffer.wrap(denom));
-            if (!equal(sha256(denom), receipt.asset())) fail(ReceiptCheck.FIELDS);
             d.finish();
         } catch (java.nio.charset.CharacterCodingException | PlatformSdkException error) {
             throw failure(ReceiptCheck.FIELDS);
@@ -277,8 +276,14 @@ public final class LocalVerifier {
         ReceiptCheck fields = ReceiptCheck.FIELDS;
         if (view == null || !view.isObject()) fail(fields);
         ProtocolReceipt r = verified.receipt();
-        if (!"receipted".equals(jsonText(view, "rung", fields))
-                || !equal(jsonBytes(view, "receipt", -1, fields), verified.canonicalBytes())
+        String rung = jsonText(view, "rung", fields);
+        if ("committed".equals(rung)) {
+            if (jsonQuantity(view, "blockNumber", 8, fields).compareTo(new BigInteger(1, r.batchId())) < 0
+                    || allZero(jsonBytes(view, "blockHash", 32, fields))) fail(fields);
+        } else if (!"receipted".equals(rung) || view.has("blockNumber") || view.has("blockHash")) {
+            fail(fields);
+        }
+        if (!equal(jsonBytes(view, "receipt", -1, fields), verified.canonicalBytes())
                 || !equal(jsonBytes(view, "txHash", 32, fields), r.activityId())
                 || !jsonQuantity(view, "seq", 8, fields).equals(r.globalSequence())
                 || !jsonQuantity(view, "height", 8, fields).equals(new BigInteger(1, r.batchId()))
@@ -295,7 +300,9 @@ public final class LocalVerifier {
         if (logs == null || !logs.isArray() || logs.size() >= MAX_EFFECTS
                 || r.effects().size() != logs.size() + 1) fail(ReceiptCheck.LOGS);
         byte[] denom = ascii(jsonText(view, "feeDenom", fields));
-        if (denom.length < 1 || denom.length > 64 || !equal(sha256(denom), r.asset())) fail(fields);
+        byte[] paymentDenom = ascii(jsonText(view, "paymentDenom", fields));
+        if (denom.length < 1 || denom.length > 64 || paymentDenom.length < 1
+                || paymentDenom.length > 64 || !equal(sha256(paymentDenom), r.asset())) fail(fields);
         byte[] summary = concat(unsigned(jsonQuantity(view, "gasUsed", 8, fields), 8),
             unsigned(jsonQuantity(view, "cumulativeGasUsed", 8, fields), 8),
             unsigned(jsonQuantity(view, "effectiveGasPrice", 8, fields), 8),
