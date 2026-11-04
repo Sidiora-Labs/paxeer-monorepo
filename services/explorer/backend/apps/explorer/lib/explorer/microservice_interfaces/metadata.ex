@@ -195,7 +195,7 @@ defmodule Explorer.MicroserviceInterfaces.Metadata do
   defp decode_meta({:ok, %{"addresses" => addresses} = result}) do
     prepared_address =
       Enum.reduce(addresses, %{}, fn {address, meta}, acc ->
-        prepared_meta = Map.put(meta, "tags", meta["tags"] |> Enum.map(&decode_meta_in_tag/1))
+        prepared_meta = Map.put(meta, "tags", decode_tags(meta["tags"]))
         Map.put(acc, address, prepared_meta)
       end)
 
@@ -204,8 +204,30 @@ defmodule Explorer.MicroserviceInterfaces.Metadata do
 
   defp decode_meta(other), do: other
 
-  defp decode_meta_in_tag(%{"meta" => meta} = tag) do
-    Map.put(tag, "meta", Jason.decode!(meta))
+  defp decode_tags(tags) do
+    Enum.flat_map(tags, fn tag ->
+      case decode_meta_in_tag(tag) do
+        {:ok, prepared_tag} -> [prepared_tag]
+        {:error, :invalid_tag_meta} -> []
+      end
+    end)
+  end
+
+  defp decode_meta_in_tag(%{"meta" => meta} = tag) when is_binary(meta) do
+    case Jason.decode(meta) do
+      {:ok, decoded} when is_map(decoded) ->
+        {:ok, Map.put(tag, "meta", decoded)}
+
+      _ ->
+        invalid_tag_meta()
+    end
+  end
+
+  defp decode_meta_in_tag(_), do: invalid_tag_meta()
+
+  defp invalid_tag_meta do
+    Logger.error("Invalid tag meta from Metadata microservice: expected a JSON object")
+    {:error, :invalid_tag_meta}
   end
 
   defp prepare_addresses_response({:ok, %{"items" => addresses} = response}) do
@@ -231,15 +253,19 @@ defmodule Explorer.MicroserviceInterfaces.Metadata do
   defp prepare_search_results({:ok, %{"items" => items, "next_page_params" => next_page_params}}) do
     items =
       Enum.reduce(items, [], fn %{"tag" => tag, "addresses" => addresses}, tags_list ->
-        prepared_tag = decode_meta_in_tag(tag)
+        case decode_meta_in_tag(tag) do
+          {:ok, prepared_tag} ->
+            tags_list ++
+              (addresses
+               |> Enum.with_index(fn address, index ->
+                 address_hash = Chain.string_to_address_hash_or_nil(address)
+                 address_hash && %{metadata: prepared_tag, hash: address_hash, addresses_index: index}
+               end)
+               |> Enum.reject(&is_nil/1))
 
-        tags_list ++
-          (addresses
-           |> Enum.with_index(fn address, index ->
-             address_hash = Chain.string_to_address_hash_or_nil(address)
-             address_hash && %{metadata: prepared_tag, hash: address_hash, addresses_index: index}
-           end)
-           |> Enum.reject(&is_nil/1))
+          {:error, :invalid_tag_meta} ->
+            tags_list
+        end
       end)
 
     {:ok, %{items: items, next_page_params: next_page_params}}

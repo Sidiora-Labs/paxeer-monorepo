@@ -15,11 +15,6 @@ import { EXPLORER_URL } from "@/core/perps/config";
 import { fmtDate } from "@/ui/utils/format";
 import { fmtGas, fmtGasPct, toRelativeTime, truncateHash } from "./explorer-utils";
 
-// NOTE: BatchFillsTable / OrobWritesTable / KeeperExecutionsCard /
-// PoFQScoresCard were deprecated alongside the spot exchange surface.
-// The Batch Context tab below has been removed; only the Standard tab
-// remains active.
-
 interface TxDetailPanelProps {
   /** Tx hash — Paxscan `/transactions/{hash}` path param. `null` closes. */
   txHash: string | null;
@@ -27,21 +22,9 @@ interface TxDetailPanelProps {
   onClose: () => void;
 }
 
-type Tab = "standard" | "batch";
+type Tab = "standard";
 
-/**
- * Slide-over panel showing standard + Paxeer-specific data for one tx.
- *
- * - Standard tab: canonical fields via `useBlockscoutQuery('general:transaction')`.
- * - Batch context tab: same four batch-context components as the block panel,
- *   filtered by the tx's `block_number`. Because every Paxeer block is
- *   effectively one batch-settlement tx, a user arriving via tx hash sees
- *   the SAME uniform clearing price / other fills / keeper / PoFQ context
- *   they'd see via the block — which is the Paxeer-unique payoff.
- *
- * If tx `block_number` is null (pending tx) the batch tab degrades to a
- * friendly empty state.
- */
+/** Slide-over panel showing canonical Paxeer transaction fields from Paxscan. */
 export function TxDetailPanel({ txHash, onClose }: TxDetailPanelProps) {
   const [tab, setTab] = useState<Tab>("standard");
 
@@ -49,8 +32,6 @@ export function TxDetailPanel({ txHash, onClose }: TxDetailPanelProps) {
     pathParams: { hash: txHash ?? "" },
     queryOptions: { enabled: !!txHash },
   });
-
-  const blockNumber = tx?.block_number ?? null;
 
   return (
     <Sheet open={txHash !== null} onOpenChange={(open) => !open && onClose()}>
@@ -63,7 +44,7 @@ export function TxDetailPanel({ txHash, onClose }: TxDetailPanelProps) {
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2">
               <Zap className="h-4 w-4 text-emerald-400" />
-              Layer X Transaction
+              Paxeer Transaction
             </SheetTitle>
             <SheetDescription className="font-mono text-[10px] flex items-center gap-1.5">
               {tx ? (

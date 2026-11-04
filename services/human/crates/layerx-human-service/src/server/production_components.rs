@@ -2175,16 +2175,19 @@ fn required_idempotency<'a>(request: &'a ScopedRequest<'_>) -> Result<&'a str, A
 
 fn support_failure(error: &crate::support::SupportError) -> ApiFailure {
     use crate::support::SupportError::{
-        Conflict, ConversationFull, ConversationResolved, ConversationUnknown, Corrupt,
-        InvalidBody, InvalidIdempotencyKey, MessageUnknown, Store,
+        Conflict, ConversationExpired, ConversationFull, ConversationLimit, ConversationResolved,
+        ConversationUnknown, Corrupt, InvalidBody, InvalidIdempotencyKey, MessageUnknown, Store,
     };
     match error {
-        ConversationUnknown | MessageUnknown => ApiFailure::not_found(),
+        ConversationUnknown | ConversationExpired | MessageUnknown => ApiFailure::not_found(),
         Store(_) => ApiFailure::unavailable(),
         InvalidBody => ApiFailure::invalid_request(Some("body")),
-        InvalidIdempotencyKey | Conflict | ConversationFull | ConversationResolved | Corrupt => {
-            ApiFailure::invalid_request(None)
-        }
+        InvalidIdempotencyKey
+        | Conflict
+        | ConversationFull
+        | ConversationLimit
+        | ConversationResolved
+        | Corrupt => ApiFailure::invalid_request(None),
     }
 }
 

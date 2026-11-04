@@ -248,8 +248,8 @@ defmodule Indexer.Fetcher.Scroll.Batch do
         reorg_block = RollupReorgMonitorQueue.reorg_block_pop(__MODULE__)
 
         if !is_nil(reorg_block) && reorg_block > 0 do
-          reorg_handle(reorg_block)
-          {:halt, if(reorg_block <= chunk_end, do: reorg_block - 1, else: chunk_end)}
+          replay_block = reorg_handle(reorg_block)
+          {:halt, if(replay_block <= chunk_end, do: replay_block - 1, else: chunk_end)}
         else
           {:cont, chunk_end}
         end
@@ -792,22 +792,40 @@ defmodule Indexer.Fetcher.Scroll.Batch do
   # - nothing
   @spec reorg_handle(non_neg_integer()) :: any()
   defp reorg_handle(reorg_block) do
-    bundle_ids =
-      Repo.all(
-        from(b in Batch,
-          select: b.bundle_id,
-          where: b.commit_block_number >= ^reorg_block,
-          group_by: b.bundle_id
-        )
-      )
-
     {:ok, result} =
       Multi.new()
-      |> Multi.delete_all(:delete_batches, from(b in Batch, where: b.bundle_id in ^bundle_ids))
-      |> Multi.delete_all(
-        :delete_bundles,
-        from(bb in BatchBundle, where: bb.id in ^bundle_ids or bb.finalize_block_number >= ^reorg_block)
+      |> Multi.run(:bundle_ids, fn repo, _ ->
+        {:ok,
+         repo.all(
+           from(b in Batch,
+             select: b.bundle_id,
+             where: b.commit_block_number >= ^reorg_block and not is_nil(b.bundle_id),
+             distinct: true
+           )
+         )}
+      end)
+      |> Multi.run(:replay_block, fn repo, %{bundle_ids: bundle_ids} ->
+        first_commit =
+          repo.one(from(b in Batch, where: b.bundle_id in ^bundle_ids, select: min(b.commit_block_number)))
+
+        {:ok, min(first_commit || reorg_block, reorg_block)}
+      end)
+      |> Multi.delete_all(:delete_batches, fn %{bundle_ids: bundle_ids} ->
+        from(b in Batch, where: b.commit_block_number >= ^reorg_block or b.bundle_id in ^bundle_ids)
+      end)
+      |> Multi.update_all(
+        :detach_batches,
+        from(b in Batch,
+          where:
+            b.bundle_id in subquery(
+              from(bb in BatchBundle, where: bb.finalize_block_number >= ^reorg_block, select: bb.id)
+            )
+        ),
+        set: [bundle_id: nil]
       )
+      |> Multi.delete_all(:delete_bundles, fn %{bundle_ids: bundle_ids} ->
+        from(bb in BatchBundle, where: bb.id in ^bundle_ids or bb.finalize_block_number >= ^reorg_block)
+      end)
       |> Repo.transaction()
 
     deleted_batches_count = elem(result.delete_batches, 0)
@@ -824,5 +842,7 @@ defmodule Indexer.Fetcher.Scroll.Batch do
         "As L1 reorg was detected, some bundles with finalize_block_number >= #{reorg_block} were removed from the scroll_batch_bundles table. Number of removed rows: #{deleted_bundles_count}."
       )
     end
+
+    result.replay_block
   end
 end

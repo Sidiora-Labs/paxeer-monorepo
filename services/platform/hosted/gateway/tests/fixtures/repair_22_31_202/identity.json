@@ -1,0 +1,88 @@
+{
+  "provenance": "Identity signup, session and starter-credit wire documents from hosted/identity/src/main.rs and signup.rs; fixed test principal and credentials. Peer transcript only; no gateway responses are supplied by this fixture.",
+  "signer_seed": "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+  "signer": "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a",
+  "sub": "beta.eb640eb6eff3d2d17f767d2faa9bf4b1",
+  "verification_token": "vfy_cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+  "session": "ses_61616161616161616161616161616161.6262626262626262626262626262626262626262626262626262626262626262",
+  "routes": {
+    "/v1/signup": {
+      "request": {
+        "email": "gateway-repair@example.org",
+        "client_ip": "127.0.0.1",
+        "tenant": "beta",
+        "sub": "beta.eb640eb6eff3d2d17f767d2faa9bf4b1",
+        "signer_public_key": "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a"
+      },
+      "authorization": "Bearer provisioning-token",
+      "status": 200,
+      "body": {
+        "pending": true,
+        "tenant": "beta",
+        "sub": "beta.eb640eb6eff3d2d17f767d2faa9bf4b1",
+        "expires_at": 1793221187
+      }
+    },
+    "/v1/signup/verify": {
+      "request": {
+        "token": "vfy_cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+        "sub": "beta.eb640eb6eff3d2d17f767d2faa9bf4b1"
+      },
+      "authorization": "Bearer provisioning-token",
+      "status": 200,
+      "body": {
+        "session_id": "61616161616161616161616161616161",
+        "tenant": "beta",
+        "sub": "beta.eb640eb6eff3d2d17f767d2faa9bf4b1",
+        "token": "ses_61616161616161616161616161616161.6262626262626262626262626262626262626262626262626262626262626262",
+        "csrf_token": "6363636363636363636363636363636363636363636363636363636363636363",
+        "expires_at": 1793223887
+      }
+    },
+    "/v1/sessions/introspect": {
+      "request": {
+        "token": "ses_61616161616161616161616161616161.6262626262626262626262626262626262626262626262626262626262626262"
+      },
+      "authorization": "Bearer identity-token",
+      "status": 200,
+      "body": {
+        "active": true,
+        "sub": "beta.eb640eb6eff3d2d17f767d2faa9bf4b1",
+        "allowed_signer_public_keys": [
+          "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a"
+        ]
+      }
+    },
+    "/v1/starter-credits": {
+      "request": {
+        "sub": "beta.eb640eb6eff3d2d17f767d2faa9bf4b1"
+      },
+      "authorization": "Bearer provisioning-token",
+      "status": 200,
+      "body": {
+        "sub": "beta.eb640eb6eff3d2d17f767d2faa9bf4b1",
+        "grant_id": "abababababababababababababababab",
+        "asset": "PAX",
+        "amount": "1000000",
+        "granted_at": 1,
+        "settled_at": null
+      }
+    },
+    "/v1/starter-credits/settle": {
+      "request": {
+        "sub": "beta.eb640eb6eff3d2d17f767d2faa9bf4b1",
+        "grant_id": "abababababababababababababababab"
+      },
+      "authorization": "Bearer provisioning-token",
+      "status": 200,
+      "body": {
+        "sub": "beta.eb640eb6eff3d2d17f767d2faa9bf4b1",
+        "grant_id": "abababababababababababababababab",
+        "asset": "PAX",
+        "amount": "1000000",
+        "granted_at": 1,
+        "settled_at": 2
+      }
+    }
+  }
+}

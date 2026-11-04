@@ -48,9 +48,28 @@ func repair1319Profile(t *testing.T) DeploymentProfile {
 	return p
 }
 
-// Exercise the actual CLI handler through an OS pipe into the YAML consumer.
-// Neither the profile reader nor the maintained manifest producer is replaced.
+// Native facts remain owned by the node manifest (decision 2532).
 func repair1319Documents(t *testing.T) []map[string]any {
+	t.Helper()
+	decoder := yaml.NewDecoder(bytes.NewReader(repair1319Read(t, repair1319Profile(t).Node.Manifest)))
+	var documents []map[string]any
+	for {
+		var document map[string]any
+		if err := decoder.Decode(&document); err == io.EOF {
+			break
+		} else if err != nil {
+			t.Fatal(err)
+		}
+		documents = append(documents, document)
+	}
+	if len(documents) == 0 {
+		t.Fatal("maintained node manifest produced no Kubernetes resources")
+	}
+	return documents
+}
+
+// Exercise the actual boundary CLI handler through an OS pipe into YAML.
+func repair1319BoundaryDocuments(t *testing.T) []map[string]any {
 	t.Helper()
 	reader, writer, err := os.Pipe()
 	if err != nil {
@@ -209,7 +228,7 @@ func TestRepairM_1319_RelayWorkspaceRetirement(t *testing.T) {
 }
 
 func TestRepairM_1319_CustodyGenesisRetirement(t *testing.T) {
-	repair1319Absent(t, "custody-genesis.py")
+	repair467Restored(t, "custody-genesis.py")
 	p := repair1319Profile(t)
 	if p.Node.Bootstrap != "../node/bootstrap.sh" {
 		t.Fatalf("wrong genesis owner: %s", p.Node.Bootstrap)
@@ -237,7 +256,7 @@ func TestRepairM_1319_CustodyGenesisRetirement(t *testing.T) {
 }
 
 func TestRepairM_1319_RelayDeployerRetirement(t *testing.T) {
-	repair1319Absent(t, "deploy-contracts.sh")
+	repair467Restored(t, "deploy-contracts.sh")
 	for _, phase := range []string{"deploy", "permissions", "activate", "bond", "finalize", "bootstrap", "authority-schedule", "authority-execute", "status", "check-profile"} {
 		var output bytes.Buffer
 		err := RunDeployment([]string{phase, "this-profile-does-not-exist"}, &output)
@@ -249,13 +268,13 @@ func TestRepairM_1319_RelayDeployerRetirement(t *testing.T) {
 	if err := RunDeployment([]string{"manifest", "deployment-profile.json"}, &manifest); err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(manifest.Bytes(), repair1319Read(t, "../node/deployment.yaml")) {
-		t.Fatal("renderer diverged from maintained node deployment")
+	if !bytes.Equal(manifest.Bytes(), repair1319Read(t, "deployment.yaml")) {
+		t.Fatal("renderer diverged from restored boundary deployment")
 	}
 }
 
 func TestRepairM_1319_DeploymentKeyArgv(t *testing.T) {
-	repair1319Absent(t, "deploy-contracts.sh", "evm.py")
+	repair467Restored(t, "deploy-contracts.sh", "evm.py")
 	secret := strings.Repeat("ac", 32)
 	for _, args := range [][]string{
 		{"manifest", "deployment-profile.json", "--private-key", secret},
@@ -297,7 +316,7 @@ func TestRepairM_1319_DeploymentKeyArgv(t *testing.T) {
 }
 
 func TestRepairM_1319_DeploymentPhaseRecovery(t *testing.T) {
-	// The old runner is removed, rather than retained with a replacement journal.
+	// The native handoff remains read-only beside the restored compatibility runner.
 	// Reopen the real handoff beside recorded chain effects: no phase or legacy
 	// record may be inferred or published on either side of this restart.
 	root := t.TempDir()
@@ -308,8 +327,8 @@ func TestRepairM_1319_DeploymentPhaseRecovery(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	original := repair1319Read(t, "../node/deployment.yaml")
-	if err := os.WriteFile(filepath.Join(node, "deployment.yaml"), original, 0600); err != nil {
+	original := repair1319Read(t, "deployment.yaml")
+	if err := os.WriteFile(filepath.Join(directory, "deployment.yaml"), original, 0600); err != nil {
 		t.Fatal(err)
 	}
 	path := filepath.Join(directory, "deployment-profile.json")
@@ -387,13 +406,13 @@ func TestRepairM_1319_DeploymentPhaseRecovery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(entries) != 2 {
+	if len(entries) != 3 {
 		t.Fatalf("unexpected restart publications: %v", entries)
 	}
 }
 
 func TestRepairM_1319_SettlementInputRetirement(t *testing.T) {
-	repair1319Absent(t, "deployment-input.beta.json")
+	repair467Restored(t, "deployment-input.beta.json")
 	p := repair1319Profile(t)
 	var encoded bytes.Buffer
 	if err := WriteProfile(&encoded, p); err != nil {
@@ -430,7 +449,7 @@ func TestRepairM_1319_SettlementInputRetirement(t *testing.T) {
 }
 
 func TestRepairM_1319_NativeDeployment(t *testing.T) {
-	repair1319Absent(t, "deployment.yaml")
+	repair467Restored(t, "deployment.yaml")
 	documents := repair1319Documents(t)
 	service := repair1319Resource(t, documents, "Service", "layerx-native-chain")
 	spec := repair1319Object(t, service["spec"])
@@ -533,10 +552,10 @@ func TestRepairM_1319_NativeDeployment(t *testing.T) {
 }
 
 func TestRepairM_1319_EVMToolRetirement(t *testing.T) {
-	repair1319Absent(t, "evm.py")
+	repair467Restored(t, "evm.py")
 	helper := repair1319Read(t, "settlement-domain.py")
 	if bytes.Contains(helper, []byte("from evm import")) || !bytes.Contains(helper, []byte("from layerx_sdk.account_derivation import keccak256 as keccak")) {
-		t.Fatal("historical public-data helper still depends on the retired signer")
+		t.Fatal("historical public-data helper no longer uses the maintained SDK Keccak")
 	}
 	for _, action := range []string{"address", "public-key", "calldata", "chain-id", "balance", "call", "send"} {
 		var output bytes.Buffer
@@ -560,6 +579,10 @@ func TestRepairM_1319_ProfileRefusals(t *testing.T) {
 		"relay suffix":     bytes.Replace(original, []byte(":8545/"), []byte(":8545/evm"), 1),
 		"invalid port":     bytes.Replace(original, []byte(":8545/"), []byte(":65536/"), 1),
 		"zero port":        bytes.Replace(original, []byte(":8545/"), []byte(":0/"), 1),
+		"DNS node":         bytes.Replace(original, []byte("127.0.0.1:8545"), []byte("layerx-native-chain.layerx-testnet.svc.cluster.local:8545"), 1),
+		"localhost node":   bytes.Replace(original, []byte("127.0.0.1:8545"), []byte("localhost:8545"), 1),
+		"remote node":      bytes.Replace(original, []byte("127.0.0.1:8545"), []byte("192.0.2.1:8545"), 1),
+		"remote consensus": bytes.Replace(original, []byte("127.0.0.1:26657"), []byte("192.0.2.1:26657"), 1),
 		"cleartext tenant": bytes.Replace(original, []byte("https://"), []byte("http://"), 1),
 		"trailing JSON":    append(append([]byte{}, original...), []byte(`{}`)...),
 		"oversize":         append(append([]byte{}, original...), bytes.Repeat([]byte(" "), 16*1024)...),

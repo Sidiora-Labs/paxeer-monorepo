@@ -1,0 +1,41 @@
+[repair.22.33.1212]
+audit = "22.30.57"
+findings = ["historical-key-v65", "historical-shares-v65"]
+historical-key-v65 = ["TestRepairM_1212_KeyLengthRefusal", "TestRepairM_1212_BeforePayment", "TestRepairM_1212_ValidKey", "TestRepairM_1212_HistoricalReplay"]
+historical-shares-v65 = ["TestRepairM_1212_RedelegationShares", "TestRepairM_1212_SharesUpgradeReplay", "TestRepairM_1212_ABICompatibility"]
+implementation = "Preserve v65/staking.go and abi.json byte for byte. Track the key exposure against the already implemented validator-key-length boundary in precompiles/staking/staking.go and the shares limitation against its existing decimal mapping. Clarify the active implementation's compatibility comments to include the unregistered v65 archive. Both corrections use the applied common.MergeUpgrade marker; no duplicate guard, selector, event topic, ABI schema or version registration is introduced."
+historical_heights = "No historical height selects v65 in staking.GetVersioned: this archive has no version-table entry. An explicit v65 execution retains arbitrary decoded key lengths (and the consensus-address panic for malformed lengths) and integer token Balance in sharesDst at every height. The active executor retains these historical semantics while v7.0 is unapplied or merely scheduled and at h < Hmerge after application, where Hmerge is the upgrade keeper's recorded applied height. At h >= Hmerge it validates 32-byte keys before payment and returns decimal destination shares. No absolute network height is invented."
+selection = "Tests use the real staking.GetVersioned table and EVM keeper selection with an applied v6.4.0 predecessor, and separately execute the actual v65 archive before, at and after Hmerge. ABICompatibility asserts that no registered version has the archive's concrete type. Ordinary execution and historical tracing both respect the applied activation boundary."
+key_proof = "Production auth, bank, staking, distribution, upgrade and EVM keepers share a real in-memory multistore and protobuf codec. Signed ABI transactions are serialized, decoded and executed by the EVM. Invalid decoded lengths 0, 1, 31, 33 and 64 and malformed hex revert with exact errors and preserve balances, wei, supply, validators, delegations and logs through Finalize. A funded direct wrapper call proves refusal precedes payment, without an outer EVM rollback. Valid lower- and uppercase 32-byte keys create the persisted validator and self-delegation. The archive retains its original panic at all tested activation states."
+shares_proof = "Real CreateValidator, Slash and BeginRedelegation produce an exchange rate of 0.6 tokens per destination share, persist 11.666666666666666666 shares and emit the real Querier response. Production ABI request decoding, keeper queries, wrapper output packing and consumer ABI decoding preserve those exact decimal shares independently of integer balance. Delegator and source-index queries assert every entry field and pagination. Across unapplied, scheduled and applied plans, the archive remains byte identical to pre-activation output, and the active response changes only sharesDst at and above Hmerge. All ABI selectors, tuple schemas and event topics retain parity."
+fixture = "Standalone production keepers with deterministic keys and time; no mocks, node application, credential, environment variable, live endpoint, external service or subprocess is used by the tests."
+baseline = "No new baseline run: the explicit ordered instructions require full implementation before qualification, hf-build before hf-done and no manual verify_cmd. The supplied continuation reports that TestRepairM_1212_RedelegationShares and TestRepairM_1212_SharesUpgradeReplay failed in attempt 1 because the fixture commission was below the keeper minimum. Both active corrections already exist on the current supplied base c734cc91b3c7da344bd19604153b3f443f4298cd."
+wiring_requests = []
+evidence = "Closure requires hf-done passing at the same candidate revision as hf-build. The runner-owned /out/run/gates.jsonl identifies the verified revision, exact command, exit code and private log location; the final response copies its final evidence line. No gate is claimed before execution."
+
+[gotcha.order]
+observed = "The generated baseline-verify step conflicts with the explicit ordered gate instructions."
+resolution = "Follow implementation, formatting, hf-build, hf-done; do not claim a baseline run."
+
+[gotcha.scope]
+observed = "The spec task record and root GOTCHA.kvx are outside the task's allowed paths."
+resolution = "Keep closure, activation and gotcha notes in this scoped task repair record; do not edit the root or spec ledgers."
+
+[gotcha.archive]
+observed = "The v65 snapshot has no generated version-table registration, unlike v640."
+resolution = "Do not invent a v6.5.0 activation height or register the archive; prove real selection and explicit archived execution separately."
+
+[qualification.1]
+revision = "df3a8fa9e0359bddf65dc270c0b44bd82e9f7f9f"
+command = "cg spec done 22.33.1212 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; compiler detail /tmp/repair-m1212.log"
+observed = "Test compilation refused undefined require.NotIsType; replace it with require.NotEqual on reflect.TypeOf values, preserving the exact registration assertion."
+
+[gotcha.testify]
+observed = "Testify has IsType but no NotIsType assertion."
+resolution = "Compare reflect.TypeOf values with NotEqual when proving distinct concrete types."
+
+[gotcha.commission]
+observed = "The redelegation producer fixture submitted zero commission to a keeper enforcing a five percent minimum, preventing both shares proofs from reaching their assertions."
+resolution = "Create both fixture validators with commission 0.05; retain the real keeper, exchange-rate setup and every existing assertion."

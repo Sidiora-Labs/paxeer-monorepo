@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
+cd "$(dirname "${BASH_SOURCE[0]}")/../../.."
 exec python3 - <<'GATE'
+import importlib.util
 import os
 from pathlib import Path
 import re
@@ -10,6 +12,19 @@ import sys
 root = Path.cwd()
 evidence = Path(os.environ['PAXEER_X_EVIDENCE_DIR'])
 tests = 0
+spec = importlib.util.spec_from_file_location('market_build', root / 'tools/paxeer-x/gates/market_build.py')
+owner = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(owner)
+raw_manifest = os.environ.get('LAYERX_MARKET_BUILD_MANIFEST')
+if not raw_manifest:
+    raise RuntimeError('private compiler-produced current-revision market manifest required')
+manifest_path = Path(raw_manifest)
+built = owner.verify(root, manifest_path)
+for variable in (*owner.TARGETS, 'LAYERX_MARKET_WASM'):
+    actual = built['artifacts'][variable]['path']
+    if variable in os.environ and os.environ[variable] != actual:
+        raise RuntimeError('artifact override differs from compiler manifest: ' + variable)
+    os.environ[variable] = actual
 
 def execute(binary, arguments, name):
     log = evidence / ('104.35.4-' + name + '.log')
@@ -67,5 +82,6 @@ for case in [
     if len(re.findall(r'test result: ok\. 1 passed; 0 failed; 0 ignored;', output)) != 1:
         raise RuntimeError('runtime case did not execute exactly once: ' + case)
     tests += 1
+owner.verify(root, manifest_path)
 print('PAXEER_X_GATE tests=' + str(tests) + ' skipped=0', flush=True)
 GATE

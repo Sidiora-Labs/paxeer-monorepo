@@ -5,6 +5,7 @@ defmodule BlockScoutWeb.Specs.Public do
 
   alias BlockScoutWeb.Routers.{ApiRouter, SmartContractsApiV2Router, TokensApiV2Router}
   alias BlockScoutWeb.Specs
+  alias BlockScoutWeb.Specs.Private
   alias OpenApiSpex.{Contact, Info, OpenApi, Paths, Server}
   alias Utils.Helper
 
@@ -26,6 +27,7 @@ defmodule BlockScoutWeb.Specs.Public do
       paths:
         ApiRouter
         |> Paths.from_router()
+        |> Map.merge(Private.account_paths(:public))
         |> Map.merge(Paths.from_routes(Specs.routes_with_prefix(TokensApiV2Router, "/v2/tokens")))
         |> Map.merge(Paths.from_routes(Specs.routes_with_prefix(SmartContractsApiV2Router, "/v2/smart-contracts")))
     }

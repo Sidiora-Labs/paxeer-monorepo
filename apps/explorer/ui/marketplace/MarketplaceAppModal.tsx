@@ -22,6 +22,7 @@ import type { IconName } from 'ui/shared/IconSvg';
 import IconSvg from 'ui/shared/IconSvg';
 
 import FavoriteIcon from './FavoriteIcon';
+import getMarketplaceAppShareUrl from './getMarketplaceAppShareUrl';
 import MarketplaceAppGraphLinks from './MarketplaceAppGraphLinks';
 import MarketplaceAppIntegrationIcon from './MarketplaceAppIntegrationIcon';
 import Rating from './Rating/Rating';
@@ -192,7 +193,7 @@ const MarketplaceAppModal = ({
                 </IconButton>
 
                 <CopyToClipboard
-                  text={ isBrowser() ? window.location.origin + `/apps/${ id }` : '' }
+                  text={ isBrowser() ? getMarketplaceAppShareUrl(id, window.location.origin) : '' }
                   type="share"
                   variant="icon_background"
                   size="md"

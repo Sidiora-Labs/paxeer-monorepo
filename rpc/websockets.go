@@ -7,7 +7,9 @@ type wsConnectionHandler struct {
 }
 
 func (h *wsConnectionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	recordWebsocketConnect(r.Context())
+	// Attempts include JWT, origin and protocol rejections. Established
+	// connections are counted only after Upgrade succeeds in rpcstack.go.
+	recordWebsocketConnectAttempt(r.Context())
 	h.underlying.ServeHTTP(w, r)
 }
 

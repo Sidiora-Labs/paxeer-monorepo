@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Maintained owner: domain 8 paxd operators; relocation target ../node/gov-lib.sh.
 # Shared pieces of gov-upgrade.sh and gov-consensus-params.sh: logging, chain queries (live over
 # RPC or replayed from a fixture directory), the pure height and deadline arithmetic, duration
 # parsing and the poll loop used by the confirm steps. Sourced, never executed.
@@ -34,7 +35,7 @@ need_value() {
 
 require_tools() {
     local tool
-    for tool in jq curl awk date; do
+    for tool in jq curl awk date python3; do
         command -v "$tool" >/dev/null 2>&1 || fail "$tool is not available"
     done
     if [ -z "$GOV_FIXTURE_DIR" ]; then
@@ -166,32 +167,123 @@ rpc_get() {
     printf '%s' "$body" | jq -c '(.result // .)' || fail "GET $RPC/$path returned no JSON"
 }
 
-# paxd_query NAME ARGS... -> JSON of "paxd q ARGS -o json"; NAME is the fixture file in replay mode.
-paxd_query() {
-    local name=$1 out
-    shift
-    if [ -n "$GOV_FIXTURE_DIR" ]; then
-        fixture_file "$name"
-        return
-    fi
-    out=$("$PAXD_BIN" q "$@" --node "$RPC" -o json 2>&1) || fail "$PAXD_BIN q $* failed: $out"
-    printf '%s\n' "$out" | grep -E '^\{' | tail -n 1
+# JSON decisions are shared by live queries and fixture replay, with no CLI emulation.
+governance_json() {
+    python3 -c '
+import base64
+import json
+import re
+import sys
+
+
+def query_output(output, status, query):
+    if status:
+        # sdk/x/upgrade/client/cli/query.go: GetCurrentPlanCmd, nil Plan only.
+        if query == "upgrade plan" and output.strip() in (
+            "no upgrade scheduled", "Error: no upgrade scheduled"
+        ):
+            return {}
+        raise ValueError(output)
+    result = json.loads(output)
+    if not isinstance(result, dict):
+        raise ValueError("query returned a non-object JSON response")
+    return result
+
+
+def event_text(value):
+    if not isinstance(value, str):
+        raise ValueError("event attribute is not text")
+    try:
+        return base64.b64decode(value, validate=True).decode("utf-8")
+    except (ValueError, UnicodeError):
+        return value
+
+
+def submitted_proposal_id(tx):
+    if tx.get("code") not in (0, "0") or int(tx.get("height", 0)) <= 0:
+        raise ValueError("proposal transaction was not committed successfully")
+    events = list(tx.get("events", []))
+    for log in tx.get("logs", []):
+        events.extend(log.get("events", []))
+    ids = set()
+    for event in events:
+        if event.get("type") != "submit_proposal":
+            continue
+        for attr in event.get("attributes", []):
+            key = attr.get("key")
+            if key == "proposal_id" or event_text(key) == "proposal_id":
+                value = attr.get("value")
+                value = value if re.fullmatch(r"[1-9][0-9]*", value or "") else event_text(value)
+                if not re.fullmatch(r"[1-9][0-9]*", value):
+                    raise ValueError("invalid proposal_id event")
+                ids.add(value)
+    if len(ids) != 1:
+        raise ValueError("expected exactly one submitted proposal_id")
+    return ids.pop()
+
+
+def check_parameter_proposal(proposal, proposal_id, value):
+    if str(proposal.get("proposal_id")) != proposal_id:
+        raise ValueError("queried proposal id does not match committed transaction")
+    content = proposal.get("content", {})
+    changes = content.get("changes", [])
+    if (content.get("@type") != "/cosmos.params.v1beta1.ParameterChangeProposal"
+            or len(changes) != 1 or not isinstance(changes[0], dict)):
+        raise ValueError("proposal is not one parameter change")
+    change = changes[0]
+    if (change.get("subspace") != "baseapp" or change.get("key") != "TimeoutParams"
+            or not isinstance(change.get("value"), str)):
+        raise ValueError("proposal does not match the requested subspace and key")
+    # ParamChangesJSON.ToParamChange stores raw JSON as a protobuf string.
+    actual = json.loads(change["value"])
+    if json.dumps(actual, sort_keys=True) != json.dumps(value, sort_keys=True):
+        raise ValueError("proposal does not match the requested parameter value")
+
+
+if __name__ == "__main__":
+    try:
+        operation = sys.argv[1]
+        body = sys.stdin.read()
+        if operation == "query":
+            print(json.dumps(query_output(body, int(sys.argv[2]), sys.argv[3])))
+        elif operation == "proposal-id":
+            print(submitted_proposal_id(json.loads(body)))
+        elif operation == "check-parameters":
+            check_parameter_proposal(json.loads(body), sys.argv[2], json.loads(sys.argv[3]))
+        else:
+            raise ValueError("unsupported governance JSON operation")
+    except (ValueError, TypeError, KeyError) as error:
+        print("governance: " + str(error), file=sys.stderr)
+        sys.exit(int(sys.argv[2]) if operation == "query" and int(sys.argv[2]) else 1)
+' "$@"
 }
 
-# paxd_query_optional NAME ARGS... -> like paxd_query but prints {} when the query reports nothing
-# (upgrade plan with none scheduled, proposals with none submitted).
-paxd_query_optional() {
-    local name=$1 out
+# Required queries never interpret a CLI failure as absence.
+paxd_query() {
+    local name=$1 out status=0
     shift
     if [ -n "$GOV_FIXTURE_DIR" ]; then
-        fixture_file "$name"
-        return
-    fi
-    if out=$("$PAXD_BIN" q "$@" --node "$RPC" -o json 2>&1); then
-        printf '%s\n' "$out" | grep -E '^\{' | tail -n 1
+        out=$(fixture_file "$name") || return $?
     else
-        echo '{}'
+        out=$("$PAXD_BIN" q "$@" --node "$RPC" -o json 2>&1) || status=$?
     fi
+    if [ "$status" -ne 0 ]; then
+        printf '%s q %s failed: %s\n' "$PAXD_BIN" "$*" "$out" >&2
+        return "$status"
+    fi
+    printf '%s' "$out" | governance_json query 0 "$*"
+}
+
+# Only the documented no-plan error of this exact query denotes absence.
+paxd_query_optional() {
+    local name=$1 out status=0
+    shift
+    if [ -n "$GOV_FIXTURE_DIR" ]; then
+        out=$(fixture_file "$name") || return $?
+    else
+        out=$("$PAXD_BIN" q "$@" --node "$RPC" -o json 2>&1) || status=$?
+    fi
+    printf '%s' "$out" | governance_json query "$status" "$*"
 }
 
 status_height() {
@@ -249,11 +341,17 @@ poll_until() {
 
 # --- transaction printing -----------------------------------------------------------------------
 
-# tx_flags -> the flags every mutating paxd tx gets; printed in dry runs, passed when executing.
+# One array is used for execution and display. Never execute the rendered text.
+build_tx_flags() {
+    TX_FLAGS=(--from "$KEY_NAME" --chain-id "$COSMOS_CHAIN_ID" --node "$RPC"
+        --fees "$FEES" --gas "$GAS" --keyring-backend "$KEYRING_BACKEND" -b sync -y -o json)
+    [ -z "${HOME_DIR:-}" ] || TX_FLAGS+=(--home "$HOME_DIR")
+    return 0
+}
+
 tx_flags() {
-    printf -- '--from %q --chain-id %q --node %q --fees %q --gas %q --keyring-backend %q -b sync -y -o json' \
-        "$KEY_NAME" "$COSMOS_CHAIN_ID" "$RPC" "$FEES" "$GAS" "$KEYRING_BACKEND"
-    [ -z "${HOME_DIR:-}" ] || printf -- ' --home %q' "$HOME_DIR"
+    build_tx_flags
+    printf '%q ' "${TX_FLAGS[@]}"
 }
 
 print_cmd() {
@@ -264,8 +362,8 @@ print_cmd() {
 run_tx() {
     local out hash deadline result
     [ -z "$GOV_FIXTURE_DIR" ] || fail "refusing to execute against fixtures"
-    # shellcheck disable=SC2046
-    out=$("$PAXD_BIN" tx "$@" $(tx_flags) 2>&1) || fail "tx $* failed to broadcast: $out"
+    build_tx_flags
+    out=$("$PAXD_BIN" tx "$@" "${TX_FLAGS[@]}" 2>&1) || fail "tx $* failed to broadcast: $out"
     out=$(printf '%s\n' "$out" | grep -E '^\{' | tail -n 1)
     [ "$(printf '%s' "$out" | jq -r '.code // 0')" = "0" ] || fail "tx $* rejected: $out"
     hash=$(printf '%s' "$out" | jq -r '.txhash')

@@ -3045,3 +3045,18 @@ fn a19_real_revoked_delegate_keeps_completed_evidence_and_evaluator_samples() ->
     );
     scored(&mut real.m, result)
 }
+
+// The self-contained listener/store/chain regressions also run under the focused repair
+// target; they do not depend on the licensed workload provisioning of the tests above.
+#[path = "support/participant.rs"]
+mod participant;
+
+#[test]
+fn participant_tls_same_store_chain_commit_and_restart() {
+    participant::participant_tls_same_store_chain_commit_and_restart();
+}
+
+#[test]
+fn participant_tls_cancel_survives_store_reopen() {
+    participant::participant_tls_cancel_survives_store_reopen();
+}

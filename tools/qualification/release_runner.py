@@ -24,7 +24,6 @@ URL_ENVIRONMENTS = {
     "node": "LAYERX_QUALIFICATION_NODE_URL",
     "agentd": "LAYERX_QUALIFICATION_AGENT_URL",
     "human_service": "LAYERX_QUALIFICATION_HUMAN_URL",
-    "paxeer_testnet": "LAYERX_QUALIFICATION_PAXEER_URL",
 }
 
 
@@ -37,8 +36,10 @@ def journey_cases() -> frozenset[str]:
         "create-agent",
         "approval-grant",
         "approval-reject",
-        "withdrawal-claim",
-        "emergency-exit",
+        "withdrawal",
+        "node-consensus",
+        "receipt-verification",
+        "node-restart",
     )
     return frozenset(
         f"{shell}/{journey}" for shell in ("mobile", "desktop") for journey in journeys
@@ -55,7 +56,9 @@ FAULT_STAGES = {
         "proof-built",
         "credit-prepared",
         "credit-submitted",
+        "credit-block-committed",
         "receipt-published",
+        "receipt-verified",
         "acknowledged",
     ),
     "move-money": (
@@ -63,33 +66,37 @@ FAULT_STAGES = {
         "leg-prepared",
         "leg-submitted",
         "leg-tracked",
+        "block-committed",
         "receipt-published",
+        "receipt-verified",
         "acknowledged",
     ),
     "withdrawal": (
         "registered",
         "debit-prepared",
         "debit-submitted",
+        "debit-block-committed",
         "debit-receipt-published",
-        "checkpoint-observed",
+        "debit-receipt-verified",
         "payout-submitted",
         "payout-receipt-published",
-        "acknowledged",
-    ),
-    "withdrawal-claim": (
-        "claimable-persisted",
-        "claim-submitted",
-        "challenge-window-observed",
-        "finalisation-submitted",
         "payout-verified",
         "acknowledged",
     ),
-    "emergency-exit": (
-        "checkpoint-read",
-        "wallet-signed-before-registration",
-        "registered",
-        "exit-submitted",
-        "finality-observed",
+    "node-consensus": (
+        "proposal-received",
+        "vote-persisted",
+        "block-committed",
+        "receipt-published",
+        "receipt-verified",
+        "acknowledged",
+    ),
+    "node-restart": (
+        "uncommitted-proposal-discarded",
+        "committed-block-replayed",
+        "state-recovered",
+        "receipt-recovered",
+        "duplicate-submission-refused",
         "acknowledged",
     ),
 }
@@ -136,7 +143,8 @@ EVIDENCE_SPECS = {
                 "mobile/performance-budget",
                 "desktop/performance-budget",
                 "soak/deposit-awaiting-finality",
-                "soak/withdrawal-awaiting-checkpoint",
+                "soak/withdrawal-awaiting-commit",
+                "soak/node-restart-recovery",
                 "soak/unactioned-approval",
                 "soak/store-deletion-rebuild",
             )
@@ -195,10 +203,12 @@ EVIDENCE_SPECS = {
                 "real-node/concurrent-same-account-transfers",
                 "real-node/duplicate-idempotency-keys",
                 "real-node/lost-response-after-successful-commit",
-                "real-node/crash-before-batch-wal",
-                "real-node/crash-after-batch-wal",
+                "real-node/crash-before-node-wal",
+                "real-node/crash-after-node-wal",
                 "real-node/crash-before-state-mutation",
                 "real-node/crash-after-state-mutation",
+                "real-node/crash-before-block-commit",
+                "real-node/crash-after-block-commit",
                 "real-node/crash-before-receipt-publication",
                 "real-node/crash-after-receipt-publication",
                 "real-node/crash-before-acknowledgement",
@@ -362,6 +372,16 @@ def validated_url(value: str, name: str) -> str:
     return value
 
 
+def qualification_components(environment: Mapping[str, str]) -> dict[str, str]:
+    components = {
+        component: validated_url(environment.get(variable, ""), variable)
+        for component, variable in URL_ENVIRONMENTS.items()
+    }
+    if len(set(components.values())) != len(components):
+        raise QualificationFailure("real-stack component endpoints must be distinct URLs")
+    return components
+
+
 def validate_evidence(
     manifest_path: Path,
     evidence_root: Path,
@@ -370,6 +390,10 @@ def validate_evidence(
     source_identity: str,
     driver_digest: str,
 ) -> dict[str, object]:
+    if set(expected_components) != set(URL_ENVIRONMENTS):
+        raise QualificationFailure(
+            f"{gate} requires one merged node, agentd and human_service endpoint inventory"
+        )
     try:
         payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
@@ -586,13 +610,7 @@ class ReleaseRunner:
             raise QualificationFailure(
                 "qualification driver digest does not match the pinned digest"
             )
-        components: dict[str, str] = {}
-        for component, variable in URL_ENVIRONMENTS.items():
-            value = self.environment.get(variable, "")
-            components[component] = validated_url(value, variable)
-        if len(set(components.values())) != len(components):
-            raise QualificationFailure("real-stack component endpoints must be distinct URLs")
-        return driver, expected_driver_digest, components
+        return driver, expected_driver_digest, qualification_components(self.environment)
 
     def _execute(self, command: Sequence[str], label: str) -> None:
         log_directory = self.output / "logs"

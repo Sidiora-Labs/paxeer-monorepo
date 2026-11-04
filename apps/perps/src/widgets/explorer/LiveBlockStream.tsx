@@ -57,7 +57,19 @@ export function LiveBlockStream({
     if (!firstPage) return;
     const items = firstPage.items;
     if (!items || items.length === 0) return;
-    setBlocks(items.slice(0, maxBlocks));
+    setBlocks((prev) => {
+      const hashes = new Set<string>();
+      const heights = new Set<number>();
+      return [...prev, ...items]
+        .filter((block) => {
+          if (hashes.has(block.hash) || heights.has(block.height)) return false;
+          hashes.add(block.hash);
+          heights.add(block.height);
+          return true;
+        })
+        .sort((a, b) => b.height - a.height)
+        .slice(0, maxBlocks);
+    });
     seededRef.current = true;
   }, [seedData, maxBlocks]);
 

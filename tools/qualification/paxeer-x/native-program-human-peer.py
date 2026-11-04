@@ -9,6 +9,11 @@ import sys
 
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import human_native_custody as build_contract
+
+TARGETS = ('native_program_human_peer', 'human_frame')
+BUILD_PROFILE = 'native-program-human-peer'
 TESTS = (
     ('native_program_human_peer',
      'real_programs_authenticated_peer_preserves_material_budget_and_owner_decisions'),
@@ -32,22 +37,23 @@ def require(value, message):
         raise RuntimeError(message)
 
 
-def build_command(target_dir):
-    command = ['/root/.cargo/bin/cargo', 'test', '--locked', '--manifest-path',
-               str(ROOT / 'services/agent/Cargo.toml'), '-p', 'layerx-agentd',
-               '--target-dir', str(target_dir)]
-    for target, _ in TESTS:
-        command.extend(['--test', target])
-    return command + ['--no-run']
+def build_manifest_path():
+    target = Path(os.environ.get('CARGO_TARGET_DIR', '/root/lx-target/agent'))
+    return Path(os.environ.get('PAXEER_X_NATIVE_PROGRAM_HUMAN_PEER_BUILD_MANIFEST',
+                               str(target / 'paxeer-x' / (BUILD_PROFILE + '.json'))))
+
+
+def admit_build_manifest(path, source=None, root=ROOT):
+    if source is None:
+        source = build_contract.BUILD.source_identity(root)
+    return build_contract.admit_test_manifest(path, source, TARGETS, root)
 
 
 def main():
     target = Path(os.environ.get('CARGO_TARGET_DIR', '/root/lx-target/agent'))
     if sys.argv[1:] == ['--build']:
-        result = subprocess.run(build_command(target), cwd=ROOT,
-                                env={**os.environ, 'CARGO_TARGET_DIR': str(target)}, timeout=1140,
-                                check=False)
-        return result.returncode
+        build_contract.build_test_targets(build_manifest_path(), TARGETS, target)
+        return 0
     require(not sys.argv[1:], 'unsupported gate arguments')
     path = os.environ.get('PAXEER_X_NATIVE_PROGRAM_HUMAN_PEER_FIXTURE')
     require(path, 'genuine protected native Programs owner/peer/proof fixture is required')
@@ -69,14 +75,9 @@ def main():
         os.setgid(gid)
         os.setuid(uid)
     require(os.getuid() in (0, uid), 'test must use the genuine admitted kernel peer')
+    binaries = admit_build_manifest(build_manifest_path())
     for test_target, test_name in TESTS:
-        candidates = ((target / 'debug/deps').glob('human_frame-*')
-                      if test_target == 'human_frame'
-                      else (target / 'debug/deps').glob(test_target + '-*'))
-        binaries = [binary for binary in candidates
-                    if binary.is_file() and os.access(binary, os.X_OK) and not binary.name.endswith('.d')]
-        require(len(binaries) == 1, 'genuine native owner peer gate failed or did not execute')
-        result = subprocess.run([str(binaries[0]), '--exact', test_name], cwd=ROOT, env=os.environ,
+        result = subprocess.run([str(binaries[test_target]), '--exact', test_name], cwd=ROOT, env=os.environ,
                                 preexec_fn=peer_identity if os.getuid() == 0 else None,
                                 timeout=480, capture_output=True, check=False)
         sys.stdout.buffer.write(result.stdout)
