@@ -1,0 +1,35 @@
+[repair.22.31.257]
+mode = "BUILD"
+acceptance = "22998.1"
+qualification = "hf-build followed by hf-done on one unchanged candidate; the runner records verified revision, command, exit code and private evidence log."
+baseline = "No earlier gate ledger or source repair was present. No baseline test ran: the explicit ordered gate contract forbids testing before implementation and running verify_cmd by hand. No baseline failures are claimed."
+
+[finding.deployment-interface-authentication]
+tests = ["deployment_interface_authentication_presence", "deployment_interface_authentication_absence", "deployment_interface_authentication_record_binding", "deployment_interface_authentication_proof_binding", "deployment_interface_authentication_transport_recovery", "deployment_interface_authentication_current_historical"]
+repair = "Require a canonical interface CommitmentProof in ChainDeploymentProof.interface, authenticate membership or absence through lxphost ICS23 at the exact program-record head, then decode and bind the committed program, version, digest, descriptor, module hash and ABI. Legacy missing or bare descriptors fail closed."
+transport = "ChainDeploymentProof::from_state_proofs encodes the real host witness; existing DeploymentProof canonical encoding and DeploymentEnvelope recovery preserve it unchanged. Both initial deployment and upgrade are reverified after reopening the journal and resolve with identical transaction identities and interfaces."
+producer = "The committed node serializer transcript repair_22_31_256.hex supplies original deploy/upgrade transactions, successful result leaves, module and descriptor bytes; real Lifecycle deployments and the production interface_state_value codec supply records to the committed in-process IAVL/multistore peer."
+
+[wiring.producer]
+request = "Node RPC/proof publisher owning domain, deployment admission producer outside programs/crates/layerx-programs-registry/src/chain_evidence: construct ChainDeploymentProof with from_state_proofs and the original interface membership/absence CommitmentProof at the program record head, instead of bare optional descriptor bytes."
+[wiring.legacy-fixtures]
+request = "Programs tests owning domain, programs/crates/layerx-programs-registry/tests/chain_evidence_deployment.rs and other legacy deployment fixtures: migrate bare optional interface fields to authenticated host witnesses; their old positive assertions deliberately accept the audited vulnerability."
+[wiring.hosted]
+request = "Hosted registry owning domain, services/platform/hosted/registry/src/journal.rs and admission producer: preserve the canonical interface witness in DeploymentEnvelope and reverify recovered proofs; the shared production envelope contract is exercised here without changing the service."
+
+[gotcha.baseline-order]
+observed = "The historical baseline instruction conflicts with the explicit implementation-first and hf-done-only gate order; the ordered gate contract is authoritative."
+[gotcha.scope]
+observed = "GOTCHA.kvx and spec task records are outside this task's permitted scope; task findings and wiring requests are recorded here instead."
+[gotcha.interface-transport]
+observed = "ChainDeploymentProof.interface keeps its source-compatible optional byte field but now carries a canonical interface state CommitmentProof even for absence; raw descriptors and missing witnesses cannot grant chain authority."
+
+[qualification.first-pass]
+revision = "224170e5e3e8d4125c5feabc81427efef86084c4"
+command = "cg spec done 22.31.257 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Five cases passed; the presence test attempted to add StorageRead to a module whose actual call graph has no storage capability, so the production descriptor binder correctly refused that test input."
+
+[gotcha.capability-fixture]
+observed = "Capability-substitution evidence must preserve the module's actual capability mask: the repaired case deploys a receipt_read module and changes only the receipt digest, so both descriptors bind to identical real module bytes. All refusal assertions remain enabled."

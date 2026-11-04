@@ -1061,9 +1061,6 @@ func (p PrecompileExecutor) redelegations(ctx sdk.Context, method *abi.Method, a
 		return nil, 0, err
 	}
 
-	// The merge plan corrects the units of sharesDst. Keep the historical
-	// token-balance projection below its applied height for replay parity.
-	useDestinationShares := pcommon.MergePlanActive(ctx, p.evmKeeper)
 	redelegations := make([]Redelegation, len(response.RedelegationResponses))
 	for i, redel := range response.RedelegationResponses {
 		entries := make([]RedelegationEntry, len(redel.Entries))
@@ -1073,9 +1070,6 @@ func (p PrecompileExecutor) redelegations(ctx sdk.Context, method *abi.Method, a
 				CompletionTime: entry.RedelegationEntry.CompletionTime.Unix(),
 				InitialBalance: entry.RedelegationEntry.InitialBalance.String(),
 				SharesDst:      entry.RedelegationEntry.SharesDst.String(),
-			}
-			if !useDestinationShares {
-				entries[j].SharesDst = entry.Balance.String()
 			}
 		}
 		redelegations[i] = Redelegation{

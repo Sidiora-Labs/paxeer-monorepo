@@ -1,4 +1,4 @@
-pub use crate::rpc_subscription::{RpcSubscription, SubscriptionTopic};
+pub use crate::rpc_subscription::{LogFilter, LogPosition, RpcSubscription, SubscriptionTopic};
 use layerx_crypto::evm_transaction::Eip1559Call;
 use serde_json::{json, Value};
 pub type RpcValue = Value;
@@ -906,8 +906,8 @@ impl RpcClient {
     }
 
     /// Reopens a subscription from the cursor of the last notification the caller observed.
-    /// The server replays the topic from that position before delivering live notifications and
-    /// refuses cursors outside its resume window, which the caller reconciles through reads.
+    /// Subscribe to live logs first, then replay eth_getLogs from the cursor block through the
+    /// captured head, discarding only positions the caller already observed.
     /// # Errors
     /// Refuses invalid topic selectors, refused resumes, transport failures and mismatched
     /// acknowledgements.
@@ -915,7 +915,7 @@ impl RpcClient {
         &self,
         topic: SubscriptionTopic,
         account: Option<[u8; 32]>,
-        cursor: u64,
+        cursor: LogPosition,
     ) -> Result<RpcSubscription, RpcError> {
         crate::rpc_subscription::connect(
             &self.endpoint,

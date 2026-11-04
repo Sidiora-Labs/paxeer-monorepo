@@ -1,13 +1,22 @@
 use super::program_state::{ChainProgramStateProof, VerifiedProgramRecord};
+use super::{programs_state_key, HOST_STORE_NAME};
 use crate::{
-    chain_proof::VerifiedChainHead, hash::sha256, ProgramId, ProgramInterface,
-    ProtocolEvidenceError, ReadFreshness, UpgradePolicy,
+    chain_proof::VerifiedChainHead,
+    chain_proof::{
+        decode::{decode_commitment_proof, CommitmentProof},
+        header::ChainHeader,
+        state::{verify_absent, verify_state},
+    },
+    hash::sha256,
+    ProgramId, ProgramInterface, ProtocolEvidenceError, ReadFreshness, UpgradePolicy,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ChainDeploymentProof {
     pub program_state: ChainProgramStateProof,
     pub code: Vec<u8>,
+    /// Canonical `CommitmentProof` for the interface record, including proven
+    /// absence. Bare descriptors and `None` lack state authority and are refused.
     pub interface: Option<Vec<u8>>,
 }
 
@@ -20,6 +29,25 @@ pub struct VerifiedDeploymentEvidence {
 }
 
 impl ChainDeploymentProof {
+    /// Carries the host's interface witness unchanged through deployment and
+    /// journal codecs. Encoding grants no trust; `verify` checks both records
+    /// against the same authenticated head.
+    pub fn from_state_proofs(
+        program_state: ChainProgramStateProof,
+        code: Vec<u8>,
+        interface_state: &CommitmentProof,
+    ) -> Result<Self, ProtocolEvidenceError> {
+        Ok(Self {
+            program_state,
+            code,
+            interface: Some(
+                interface_state
+                    .encode()
+                    .map_err(|_| ProtocolEvidenceError::Encoding)?,
+            ),
+        })
+    }
+
     pub fn verify(
         &self,
         next: &VerifiedChainHead,
@@ -28,13 +56,39 @@ impl ChainDeploymentProof {
         if sha256(&self.code) != record.code_hash() {
             return Err(ProtocolEvidenceError::DeploymentMismatch);
         }
-        let interface = self
-            .interface
-            .as_ref()
-            .map(|bytes| {
+        let witness = decode_commitment_proof(
+            self.interface
+                .as_deref()
+                .ok_or(ProtocolEvidenceError::StateProof)?,
+        )
+        .map_err(|_| ProtocolEvidenceError::StateProof)?;
+        let key = programs_state_key(&crate::interface_state_key(record.program()));
+        let header = ChainHeader::decode(&witness.signed_header)
+            .map_err(|_| ProtocolEvidenceError::StateProof)?;
+        if witness.store_name != HOST_STORE_NAME
+            || witness.key != key
+            || header
+                .hash()
+                .map_err(|_| ProtocolEvidenceError::StateProof)?
+                != next.header_hash()
+        {
+            return Err(ProtocolEvidenceError::StateProof);
+        }
+        let interface = match witness.value.as_deref() {
+            Some(value) => {
+                verify_state(next, HOST_STORE_NAME, &key, value, &witness.proof_ops)
+                    .map_err(|_| ProtocolEvidenceError::StateProof)?;
+                // The host record frames program, version, digest and descriptor.
+                // Only bytes authenticated above may reach the descriptor decoder.
+                let bytes = value
+                    .get(72..)
+                    .ok_or(ProtocolEvidenceError::DeploymentMismatch)?;
                 let interface = ProgramInterface::decode(bytes)
                     .map_err(|_| ProtocolEvidenceError::DeploymentMismatch)?;
-                if interface.code_hash() != record.code_hash()
+                if crate::interface_state_value(record.program(), record.version(), &interface)
+                    .map_err(|_| ProtocolEvidenceError::DeploymentMismatch)?
+                    != value
+                    || interface.code_hash() != record.code_hash()
                     || interface.abi_version() != record.abi_version()
                 {
                     return Err(ProtocolEvidenceError::DeploymentMismatch);
@@ -48,9 +102,14 @@ impl ChainDeploymentProof {
                 if rebound.canonical_encoding() != bytes {
                     return Err(ProtocolEvidenceError::DeploymentMismatch);
                 }
-                Ok(interface)
-            })
-            .transpose()?;
+                Some(interface)
+            }
+            None => {
+                verify_absent(next, HOST_STORE_NAME, &key, &witness.proof_ops)
+                    .map_err(|_| ProtocolEvidenceError::StateProof)?;
+                None
+            }
+        };
         let freshness = ReadFreshness {
             observed_sequence: u64::try_from(next.height())
                 .map_err(|_| ProtocolEvidenceError::Encoding)?,
