@@ -1,0 +1,54 @@
+[task]
+id = "22.33.1140"
+audit = "22.30.50"
+acceptance = "22998.1"
+baseline = "Continuation retains the prior implementation and its recorded failing EmptyBlock, GigaActivationSets, GigaOrdinaryParity and TenantProposalRestart cases. No gate has run in this attempt before implementation; only hf-build and hf-done are authorized."
+evidence = "hf-build and hf-done retain the exact candidate revision, command, exit and private log in the runner ledger; hf-done records qualification in the task record."
+wiring_requests = "None: all repairs and proof fixtures are within node; the existing daemon Replay entry point now owns signal cancellation."
+gotcha = "SC fixture InitChain must carry its actual chain ID and fixed genesis time for independent-app hash comparisons; Benchmark warmup advances on recorded commits, not proposal polling; signed leader blocks require receipt-key pins and each corruption proof needs independent committed state."
+
+[finding.empty-block-test-compares-only-length]
+test = "TestRepairM_1140_EmptyBlock"
+proof = "Independent SC applications share genesis, validator and block inputs; finalization and commit must succeed with nonempty exactly equal committed hashes."
+
+[finding.upgrade-panic-test-exercises-copy]
+test = "TestRepairM_1140_UpgradePanicBoundary, TestRepairM_1140_SDKUpgradeHalts"
+proof = "All original message cases arise inside real upgrade handler dispatch through ProcessBlock; SDK-generated needed, wrong-version and early-binary halts propagate."
+
+[finding.benchmark-success-tolerates-no-output]
+test = "TestRepairM_1140_BenchmarkOutputAndShutdown"
+proof = "InitBenchmark receives committed warmup notifications, emits signed EVM transactions through its real proposal channel and closes its generator after cancellation."
+
+[finding.replay-network-calls-unbounded]
+test = "TestRepairM_1140_ReplayRequestDeadlineAndRestart, TestRepairM_1140_ReplayCancellation, TestRepairM_1140_ReplayRetryClassification, TestRepairM_1140_ReplayHeadPollingCancellation, TestRepairM_1140_ReplayRPCRecovery"
+proof = "Real HTTP peers delay or refuse RPC requests; per-request deadlines, finite transient retries and operation cancellation preserve the committed cursor, including after stop and reopen. HTTP callbacks inherit operation cancellation and request timeouts; block deadlines also close the RPC client."
+
+[finding.giga-map-test-freezes-unrelated-height]
+test = "TestRepairM_1140_GigaActivationSets, TestRepairM_1140_GigaOrdinaryParity"
+proof = "Exact application-selected sets distinguish fresh merged genesis and governed activation; ordinary and Giga ProcessBlock execute the same signed native call below, at and after the historical late-address boundary with fallback, result, balance and nonce assertions."
+
+[finding.invariance-check-swallowing-corruption]
+test = "TestRepairM_1140_InvarianceCorruption, TestRepairM_1140_InvarianceUnsupportedStore"
+proof = "Actual commitment stores carry malformed supply, balance and wei bytes before and after a block; check errors latch an unhealthy state and Commit refuses without changing the committed ID. Unsupported legacy stores fail explicitly."
+
+[finding.tenant-block-test-bypasses-proposer-contract]
+test = "TestRepairM_1140_TenantProposalRestart"
+proof = "Consensus AddressHash derives the proposer; real signed sealed tenant blocks pass ProcessProposal before FinalizeBlock and Commit, with tenant state, receipts, fees and transaction continuity checked after stop and reopen."
+
+[finding.leader-source-helper-omits-required-batch]
+test = "TestRepairM_1140_LeaderCommittedBatches"
+proof = "The real executor seals signed empty batches after activation; keeper and consumer read the committed schedule, observe updates and refuse independently committed corruption."
+
+[continuation]
+prerequisites = "22.31.475 and 22.31.476 are present; retain their committed-hash and default chain-ID repairs."
+activation = "Expected governed merge exclusions and ordinary-serving assertions enumerate mergePrecompileGate().Modules, including the tenant interface at 0x101E."
+parity = "The ledger rejects empty calldata and nonzero call value. Encode its real accountId ABI, assert the exact keeper-derived account, and retain a successful one-wei transfer as a second transaction; both execution paths must match every result, balances and nonce two. The signer uses the keeper's actual chain ID."
+gotcha = "A native interface cannot be tested as an empty-code value recipient after activation: use its ABI and test value transfer to a separate recipient."
+
+[qualification.first_run]
+revision = "749bd6d227e749e503b115d52eb4bfd100356029"
+command = "cg spec done 22.33.1140 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Only GigaActivationSets and GigaOrdinaryParity failed: future latest-version gating excludes optional contracts below the governed merge; fresh genesis lacks the programs module version; mapped recipient balance was read using its EVM bytes instead of its SDK account."
+repair = "Keep exact map equality and the positive transfer assertion; derive fresh-genesis exclusions from all production activation tables and persisted module versions, preserve the historical set below the governed latest version, and read the transferred wei at the recipient's mapped SDK account."

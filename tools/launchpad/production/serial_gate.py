@@ -16,7 +16,11 @@ _execution_spec=importlib.util.spec_from_file_location('serial_execution_local',
 _execution=importlib.util.module_from_spec(_execution_spec)
 _execution_spec.loader.exec_module(_execution)
 
-CONTROL_PATHS=frozenset({'spec/production-system/spec.kvx','spec/production-system/execution-plan.json','tools/production/bootstrap/check-registry.json'})
+_control_spec=importlib.util.spec_from_file_location('serial_control_plane',Path(__file__).with_name('control_plane.py'))
+_control=importlib.util.module_from_spec(_control_spec)
+_control_spec.loader.exec_module(_control)
+
+CONTROL_PATHS=frozenset({_control.RETAINED_SPEC_PATH,_control.REGISTRY_PATH,*_control.RUNNER_PATHS})
 
 class SerialGateError(ValueError):
     pass
@@ -82,7 +86,7 @@ def reconcile_serial_patch(stage, artifact, reviewed, patches):
         if set(entry)!={'path','before','after'}:
             raise SerialGateError('invalid serial entry')
         path=patches._path(entry['path'])
-        if patches.ignored(path) or path in CONTROL_PATHS or path in seen or path not in allowed or not (patches._reserved(path) or path.startswith('tools/production/') or path.startswith('spec/production-system/integration/')):
+        if patches.ignored(path) or path in CONTROL_PATHS or path in seen or path not in allowed or not (patches._reserved(path) or path.startswith('tools/launchpad/production/') or path.startswith('launchpad/spec/production-system/integration/')):
             raise SerialGateError('unreviewed serial path')
         seen.add(path)
         if entry['before']!=before.get(path) or entry['before']==entry['after']:
@@ -133,7 +137,9 @@ def exact_serial_paths(reviewed, patches):
     return frozenset(paths)
 
 
-EXACT_SERIAL_CONTROL_PATHS=frozenset({'tools/production/serial_gate.py','tools/production/tests/test_serial_gate.py'})
+EXACT_SERIAL_CONTROL_PATHS=frozenset({'tools/launchpad/production/serial_gate.py','tools/launchpad/production/tests/test_serial_gate.py'})
+PRELUDE_CONTROL_ENTRY={'path':'tools/launchpad/production/control_plane.py','owner':'root-exclusive-control-plane'}
+PRELUDE_CONTROL_PATHS=EXACT_SERIAL_CONTROL_PATHS|frozenset({PRELUDE_CONTROL_ENTRY['path']})
 
 
 def exact_serial_controls(policy,stage,root,patches):
@@ -284,7 +290,7 @@ def reconcile_extended_serial_patch(stage, artifact, reviewed, patches):
 
 
 
-PRELUDED_SERIAL_OWNERSHIP_SHA256='9f4fc356c8d3dd5ecf24d2024daee7280679c49e8fc4a50e118b1e6db9a2d4ad'
+PRELUDED_SERIAL_OWNERSHIP_SHA256='dde9c9101e5fc5ac6e6eb612d9c33fd95af0d00e39f167aa053eeae77dd5cc78'
 PRELUDED_SERIAL_POLICY_KIND='reviewed-exact-serial-source-prelude'
 MANDATORY_PRELUDED_STAGE_CHECKS_SHA256='a0deb169d8a0e333eecef56a7a5ff62fa6ac576c6264e9bc63ec81afde40d8a6'
 APPROVED_STAGE_PRELUDE={'path':'media/user/internal/user/handlers_test.go','before':{'sha256':'baf05d3a0149c0b0aebf2bf87d96ef3937c473fd074f1878c94b54c4a098b133','mode':0o644},'after':{'sha256':'7c8f6789c043693bccf91d8d9a8bddc065546c27bc3fc1a42a7b98f3b5ffd4e4','mode':0o644},'blob_sha256':'7c8f6789c043693bccf91d8d9a8bddc065546c27bc3fc1a42a7b98f3b5ffd4e4'}
@@ -297,12 +303,15 @@ def exact_serial_prelude_paths(reviewed,patches):
     if policy['ownership_sha256']!=PRELUDED_SERIAL_OWNERSHIP_SHA256:
         raise SerialGateError('unreviewed exact serial prelude ownership')
     ownership=json.loads(_safe_file(policy['ownership_artifact'],PRELUDED_SERIAL_OWNERSHIP_SHA256))
-    if set(ownership)!={'schema_version','kind','task','path_count','paths','root_exclusive_control_paths','base_ownership_sha256','stage_prelude'} or ownership['schema_version']!=1 or ownership['kind']!='immutable_exact_serial_path_ownership' or ownership['task']!='1.99' or ownership['path_count']!=388 or ownership['base_ownership_sha256']!=EXACT_SERIAL_OWNERSHIP_SHA256 or ownership['stage_prelude']!=APPROVED_STAGE_PRELUDE or set(ownership['root_exclusive_control_paths'])!=EXACT_SERIAL_CONTROL_PATHS:
+    if set(ownership)!={'schema_version','kind','task','path_count','paths','root_exclusive_control_paths','base_ownership_sha256','stage_prelude'} or ownership['schema_version']!=1 or ownership['kind']!='immutable_exact_serial_path_ownership' or ownership['task']!='1.99' or ownership['path_count']!=388 or ownership['base_ownership_sha256']!=EXACT_SERIAL_OWNERSHIP_SHA256 or ownership['stage_prelude']!=APPROVED_STAGE_PRELUDE or set(ownership['root_exclusive_control_paths'])!=PRELUDE_CONTROL_PATHS:
         raise SerialGateError('invalid exact serial prelude ownership artifact')
     entries=ownership['paths']
     if not isinstance(entries,list) or len(entries)!=388:raise SerialGateError('incomplete exact serial prelude ownership')
+    if entries.count(PRELUDE_CONTROL_ENTRY)!=1:
+        raise SerialGateError('exact serial control-plane ownership required')
     paths=set()
     for entry in entries:
+        if entry==PRELUDE_CONTROL_ENTRY:continue
         if not isinstance(entry,dict) or set(entry)!={'path','owner'} or not isinstance(entry['owner'],str) or not entry['owner']:
             raise SerialGateError('invalid exact serial prelude ownership entry')
         path=patches._path(entry['path'])
@@ -347,15 +356,16 @@ def mandatory_preluded_stage_checks(policy,registry,selected):
 
 
 def reconcile_preluded_serial_patch(stage, artifact, reviewed, patches):
+    before=patches._tree(stage)
+    if before.get(APPROVED_STAGE_PRELUDE['path'])!=APPROVED_STAGE_PRELUDE['after']:
+        raise SerialGateError('approved prelude not present in serial baseline')
     paths,prelude=exact_serial_prelude_paths(reviewed,patches)
     policy=reviewed['source_policy']
     manifest=json.loads(_safe_file(Path(artifact)/'manifest.json',reviewed['manifest_sha256']))
     if set(manifest)!={'version','baseline_digest','source_policy_sha256','entries'} or type(manifest['version']) is not int or manifest['version']!=4 or manifest['source_policy_sha256']!=digest(policy):
         raise SerialGateError('invalid exact serial integration manifest')
-    before=patches._tree(stage)
     if manifest['baseline_digest']!=digest(before):
         raise SerialGateError('serial patch baseline mismatch')
-    if before.get(prelude['path'])!=prelude['after']:raise SerialGateError('approved prelude not present in serial baseline')
     entries=manifest['entries'];allowed=reviewed.get('allowed_paths')
     if not isinstance(entries,list) or not entries or not isinstance(allowed,list) or not allowed or any(not isinstance(path,str) for path in allowed) or len(set(allowed))!=len(allowed):
         raise SerialGateError('empty or duplicate serial integration review')
@@ -392,6 +402,33 @@ def reconcile_preluded_serial_patch(stage, artifact, reviewed, patches):
     return manifest
 
 
+def canonical_control_plane(root, spec, task_id, task, policy):
+    """Both reconstruction versions consume the caller's exact reviewed graph."""
+    selected=_control.reviewed_graph(root,spec=spec)
+    graph=selected['graph']
+    if graph.tasks.get(task_id)!=task:
+        raise SerialGateError('caller task differs from canonical graph')
+    controls=policy.get('control_plane')
+    if not isinstance(controls,dict):raise SerialGateError('exact control plane review required')
+    spec_identity=selected['bindings']['spec']['sha256']
+    plan_identity=selected['bindings']['plan']['sha256']
+    registry_control=json.loads(_safe_file(Path(root)/_control.REGISTRY_PATH))
+    registry_control.get('tasks',{}).pop(task_id,None)
+    if controls.get('spec_sha256')!=spec_identity or controls.get('plan_sha256')!=plan_identity or digest(registry_control)!=controls.get('registry_without_self_sha256'):
+        raise SerialGateError('control plane differs from exact reviewed source')
+    return selected
+
+
+def reviewed_control_paths(selected, root):
+    return CONTROL_PATHS|frozenset(str(selected[name].relative_to(root)) for name in ('spec','plan'))
+
+
+def reject_control_patch(serial, control_paths):
+    manifest=json.loads(_safe_file(Path(serial['artifact_directory'])/'manifest.json',serial['manifest_sha256']))
+    if any(isinstance(entry,dict) and entry.get('path') in control_paths for entry in manifest.get('entries',[])):
+        raise SerialGateError('serial patch cannot change reviewed control plane')
+
+
 
 def qualify_serial_gate(entry, task_id, task, spec, root, output, control=None):
     candidate_policy=entry.get('serial_gate_policy')
@@ -403,7 +440,7 @@ def qualify_serial_gate(entry, task_id, task, spec, root, output, control=None):
     if output==root or root in output.parents:
         # Canonical evidence is normally beneath ignored evidence; source policy
         # permits that boundary, but this module requires externally owned output.
-        if not output.is_relative_to(root/'evidence'):
+        if not output.is_relative_to(root/'launchpad/evidence'):
             raise SerialGateError('qualification output must be external or evidence-only')
     policy=entry.get('serial_gate_policy')
     if not isinstance(policy,dict) or entry.get('policy_sha256')!=digest(policy):
@@ -416,24 +453,12 @@ def qualify_serial_gate(entry, task_id, task, spec, root, output, control=None):
     phase=int(task_id[0]);wave=2*phase-1
     if task.get('wave')!=wave+1 or policy.get('wave')!=wave:
         raise SerialGateError('wrong serial wave')
-    sys.path.insert(0,str(root/'tools/production'))
-    try:
-        from dispatcher import acceptance,evidence,patches
-        from dispatcher.graph import Graph
-    finally: sys.path.pop(0)
-    graph=Graph(root/'spec/production-system/spec.kvx',root/'spec/production-system/execution-plan.json')
-    if graph.tasks.get(task_id)!=task:
-        raise SerialGateError('caller task differs from canonical graph')
-    controls=policy.get('control_plane')
-    if not isinstance(controls,dict): raise SerialGateError('exact control plane review required')
-    _safe_file(root/'spec/production-system/spec.kvx',controls.get('spec_sha256'))
-    _safe_file(root/'spec/production-system/execution-plan.json',controls.get('plan_sha256'))
-    registry_control=json.loads(_safe_file(root/'tools/production/bootstrap/check-registry.json'))
-    registry_control.get('tasks',{}).pop(task_id,None)
-    if not re.fullmatch('[a-f0-9]{64}',str(controls.get('spec_sha256',''))) or not re.fullmatch('[a-f0-9]{64}',str(controls.get('plan_sha256',''))) or digest(registry_control)!=controls.get('registry_without_self_sha256'):
-        raise SerialGateError('control plane differs from exact reviewed source')
+    selected_control=canonical_control_plane(root,spec,task_id,task,policy)
+    graph=selected_control['graph']
+    dispatcher=selected_control['dispatcher']
+    acceptance,evidence,patches=dispatcher.acceptance,dispatcher.evidence,dispatcher.patches
     expected={k:v for k,v in graph.tasks.items() if v.get('kind')=='parallel_lane' and v.get('wave')==wave}
-    if len(expected)!=50 or set(task.get('requires',[]))!=set(expected) or any(v['status']!='done' for v in expected.values()):
+    if len(expected)!=50 or {v.get('lane') for v in expected.values()}!={f'L{i:02}' for i in range(1,51)} or set(task.get('requires',[]))!=set(expected) or any(v['status']!='done' for v in expected.values()):
         raise SerialGateError('requires exact fifty done canonical lane tasks')
     selected=policy.get('accepted_ids')
     if not isinstance(selected,dict) or set(selected)!=set(expected) or any(not isinstance(v,str) or not re.fullmatch('[A-Za-z0-9][A-Za-z0-9_.-]*',v) for v in selected.values()) or len(set(selected.values()))!=50:
@@ -490,9 +515,10 @@ def qualify_serial_gate(entry, task_id, task, spec, root, output, control=None):
         acceptance._historical(historical,secret,stage,Path(policy['stage_outputs_directory']),trusted_staged_checks)
         serial=policy.get('serial_integration')
         if not isinstance(serial,dict): raise SerialGateError('reviewed serial integration patch required')
-        control_paths=CONTROL_PATHS
+        control_paths=reviewed_control_paths(selected_control,root)
         if 'source_policy' in serial:
-            control_paths=exact_serial_controls(policy,stage,root,patches)
+            control_paths=control_paths|exact_serial_controls(policy,stage,root,patches)
+        reject_control_patch(serial,control_paths)
         reconcile_serial_patch(stage,serial['artifact_directory'],serial,patches)
         reconciled={k:v for k,v in patches._tree(stage).items() if k not in control_paths}
         canonical={k:v for k,v in patches._tree(root).items() if k not in control_paths}
@@ -510,6 +536,7 @@ def qualify_serial_gate(entry, task_id, task, spec, root, output, control=None):
         _safe_file(registry_path,policy['lane_registry_sha256'])
         if _safe_file(key_path)!=secret or evidence.source_digest(baseline)!=policy['baseline_sha256']:
             raise SerialGateError('private coordinator bindings changed during qualification')
+        _control.verify_inputs(root,selected_control)
         if index.pin_selected(selected)!=index_pin:
             raise SerialGateError('authoritative acceptance index changed during serial checks')
         if control is not None and control.cancelled.is_set():raise SerialGateError('serial qualification cancelled')
@@ -543,7 +570,7 @@ def qualify_serial_gate_v4(entry, task_id, task, spec, root, output, control=Non
     if output==root or root in output.parents:
         # Canonical evidence is normally beneath ignored evidence; source policy
         # permits that boundary, but this module requires externally owned output.
-        if not output.is_relative_to(root/'evidence'):
+        if not output.is_relative_to(root/'launchpad/evidence'):
             raise SerialGateError('qualification output must be external or evidence-only')
     policy=entry.get('serial_gate_policy')
     if not isinstance(policy,dict) or entry.get('policy_sha256')!=digest(policy):
@@ -556,24 +583,12 @@ def qualify_serial_gate_v4(entry, task_id, task, spec, root, output, control=Non
     phase=int(task_id[0]);wave=2*phase-1
     if task.get('wave')!=wave+1 or policy.get('wave')!=wave:
         raise SerialGateError('wrong serial wave')
-    sys.path.insert(0,str(root/'tools/production'))
-    try:
-        from dispatcher import acceptance,evidence,patches
-        from dispatcher.graph import Graph
-    finally: sys.path.pop(0)
-    graph=Graph(root/'spec/production-system/spec.kvx',root/'spec/production-system/execution-plan.json')
-    if graph.tasks.get(task_id)!=task:
-        raise SerialGateError('caller task differs from canonical graph')
-    controls=policy.get('control_plane')
-    if not isinstance(controls,dict): raise SerialGateError('exact control plane review required')
-    _safe_file(root/'spec/production-system/spec.kvx',controls.get('spec_sha256'))
-    _safe_file(root/'spec/production-system/execution-plan.json',controls.get('plan_sha256'))
-    registry_control=json.loads(_safe_file(root/'tools/production/bootstrap/check-registry.json'))
-    registry_control.get('tasks',{}).pop(task_id,None)
-    if not re.fullmatch('[a-f0-9]{64}',str(controls.get('spec_sha256',''))) or not re.fullmatch('[a-f0-9]{64}',str(controls.get('plan_sha256',''))) or digest(registry_control)!=controls.get('registry_without_self_sha256'):
-        raise SerialGateError('control plane differs from exact reviewed source')
+    selected_control=canonical_control_plane(root,spec,task_id,task,policy)
+    graph=selected_control['graph']
+    dispatcher=selected_control['dispatcher']
+    acceptance,evidence,patches=dispatcher.acceptance,dispatcher.evidence,dispatcher.patches
     expected={k:v for k,v in graph.tasks.items() if v.get('kind')=='parallel_lane' and v.get('wave')==wave}
-    if len(expected)!=50 or set(task.get('requires',[]))!=set(expected) or any(v['status']!='done' for v in expected.values()):
+    if len(expected)!=50 or {v.get('lane') for v in expected.values()}!={f'L{i:02}' for i in range(1,51)} or set(task.get('requires',[]))!=set(expected) or any(v['status']!='done' for v in expected.values()):
         raise SerialGateError('requires exact fifty done canonical lane tasks')
     selected=policy.get('accepted_ids')
     if not isinstance(selected,dict) or set(selected)!=set(expected) or any(not isinstance(v,str) or not re.fullmatch('[A-Za-z0-9][A-Za-z0-9_.-]*',v) for v in selected.values()) or len(set(selected.values()))!=50:
@@ -630,9 +645,10 @@ def qualify_serial_gate_v4(entry, task_id, task, spec, root, output, control=Non
         trusted_staged_checks=_execution.historical_checks(prior,staged_checks)
         historical={'evidence':prior,'bindings':binding,'token':prior['token'],'checks':trusted_staged_checks}
         acceptance._historical(historical,secret,stage,stage_output,trusted_staged_checks)
-        control_paths=CONTROL_PATHS
+        control_paths=reviewed_control_paths(selected_control,root)
         if 'source_policy' in serial:
-            control_paths=exact_serial_controls(policy,stage,root,patches)
+            control_paths=control_paths|exact_serial_controls(policy,stage,root,patches)
+        reject_control_patch(serial,control_paths)
         reconcile_serial_patch(stage,serial['artifact_directory'],serial,patches)
         reconciled={k:v for k,v in patches._tree(stage).items() if k not in control_paths}
         canonical={k:v for k,v in patches._tree(root).items() if k not in control_paths}
@@ -650,6 +666,7 @@ def qualify_serial_gate_v4(entry, task_id, task, spec, root, output, control=Non
         _safe_file(registry_path,policy['lane_registry_sha256'])
         if _safe_file(key_path)!=secret or evidence.source_digest(baseline)!=policy['baseline_sha256']:
             raise SerialGateError('private coordinator bindings changed during qualification')
+        _control.verify_inputs(root,selected_control)
         if index.pin_selected(selected)!=index_pin:
             raise SerialGateError('authoritative acceptance index changed during serial checks')
         if control is not None and control.cancelled.is_set():raise SerialGateError('serial qualification cancelled')
