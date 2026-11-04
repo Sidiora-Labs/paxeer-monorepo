@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use parking_lot::Mutex;
@@ -22,9 +23,60 @@ use crate::state::positions::PositionTable;
 use crate::state::pubsub::{Channel, PubSubBus, PubSubMessage};
 use crate::storage::candle_store::CandleStore;
 use crate::storage::event_store::EventStore;
-use crate::storage::snapshot::{self, DailyStatsEntry, SnapshotMarketState, StateSnapshot};
+use crate::storage::snapshot::{
+    self, DailyStatsEntry, SnapshotMarketState, SnapshotRecovery, StateSnapshot, TickCheckpoint,
+};
 use crate::storage::tick_store::TickStore;
-use crate::storage::wal::{WalConfig, WalEntry, WalWriter};
+use crate::storage::wal::{WalConfig, WalEntry, WalPosition, WalWriter};
+use crate::storage::writer_lease::WriterLease;
+
+#[derive(Default)]
+struct MutationState {
+    position: WalPosition,
+    events: Vec<IndexedEvent>,
+    identities: HashMap<([u8; 32], u32), usize>,
+    slots: HashMap<(u64, u32, u32), [u8; 32]>,
+    poisoned: bool,
+}
+
+impl MutationState {
+    fn is_duplicate(&self, event: &IndexedEvent) -> Result<bool, PerfDbError> {
+        let key = (event.tx_hash, event.log_index);
+        if let Some(&index) = self.identities.get(&key) {
+            let encode = |value: &IndexedEvent| {
+                bincode::serialize(value).map_err(|e| PerfDbError::Serialization {
+                    context: "event identity".into(),
+                    detail: e.to_string(),
+                })
+            };
+            if encode(&self.events[index])? != encode(event)? {
+                return Err(PerfDbError::Corruption(
+                    "conflicting event redelivery or block binding".into(),
+                ));
+            }
+            return Ok(true);
+        }
+        if self
+            .slots
+            .contains_key(&(event.block_number, event.tx_index, event.log_index))
+        {
+            return Err(PerfDbError::Corruption(
+                "event canonical block slot already occupied".into(),
+            ));
+        }
+        Ok(false)
+    }
+
+    fn record(&mut self, event: IndexedEvent) {
+        self.identities
+            .insert((event.tx_hash, event.log_index), self.events.len());
+        self.slots.insert(
+            (event.block_number, event.tx_index, event.log_index),
+            event.tx_hash,
+        );
+        self.events.push(event);
+    }
+}
 
 /// Configuration for the PerfDB engine.
 #[derive(Debug, Clone)]
@@ -104,7 +156,12 @@ pub struct PerfDb {
     pub api_keys: ApiKeyStore,
     pub competitions: CompetitionStore,
 
-    wal: Mutex<WalWriter>,
+    wal: Mutex<Option<WalWriter>>,
+    mutation: Mutex<MutationState>,
+    tick_position: Mutex<WalPosition>,
+    read_only: bool,
+    // Last field: release only after the writable stores/WAL have been dropped.
+    _writer_lease: Option<WriterLease>,
 }
 
 impl PerfDb {
@@ -116,17 +173,139 @@ impl PerfDb {
     /// 3. Open WAL, replay entries after snapshot checkpoint
     /// 4. Open mmap stores (ticks, candles)
     pub fn open(config: PerfDbConfig) -> Result<Self, PerfDbError> {
-        std::fs::create_dir_all(&config.data_dir).map_err(|e| PerfDbError::Io {
-            context: format!("create data_dir: {}", config.data_dir.display()),
-            source: e,
-        })?;
+        Self::open_mode(config, false)
+    }
 
-        let snap = snapshot::load_latest_snapshot(&config.snapshots_dir())?;
-        let snap_block = snap.as_ref().map(|s| s.checkpoint.last_block).unwrap_or(0);
+    /// Inspect the committed tick prefix and snapshot/WAL through read-only
+    /// file handles. Recovery happens in private memory, including while a
+    /// writer is active; it never repairs files or creates storage directories.
+    pub fn open_read_only(config: PerfDbConfig) -> Result<Self, PerfDbError> {
+        Self::open_mode(config, true)
+    }
 
-        let tick_store = TickStore::open(config.ticks_dir())?;
-        let candle_store = CandleStore::open(config.candles_dir())?;
-        let candle_builder = CandleBuilder::new();
+    fn open_mode(config: PerfDbConfig, read_only: bool) -> Result<Self, PerfDbError> {
+        let writer_lease = if read_only {
+            if !config.data_dir.is_dir() {
+                return Err(PerfDbError::InvalidArgument(
+                    "inspection requires an existing database".into(),
+                ));
+            }
+            None
+        } else {
+            std::fs::create_dir_all(&config.data_dir).map_err(|e| PerfDbError::Io {
+                context: format!("create data_dir: {}", config.data_dir.display()),
+                source: e,
+            })?;
+            Some(WriterLease::acquire(&config.data_dir)?)
+        };
+
+        let snap = snapshot::load_latest_engine_snapshot(&config.snapshots_dir())?;
+        let snapshot_position = snap
+            .as_ref()
+            .map(|(_, recovery)| recovery.position)
+            .unwrap_or_default();
+        let mut mutation = MutationState {
+            position: snapshot_position,
+            ..MutationState::default()
+        };
+        if let Some((_, recovery)) = &snap {
+            for event in &recovery.events {
+                if mutation.is_duplicate(event)? {
+                    return Err(PerfDbError::Corruption(
+                        "duplicate in snapshot event ledger".into(),
+                    ));
+                }
+                mutation.record(event.clone());
+            }
+        }
+
+        let tick_checkpoint = snapshot::load_tick_checkpoint(&config.data_dir)?;
+        let tick_position = tick_checkpoint
+            .as_ref()
+            .map(|cp| cp.position)
+            .unwrap_or_default();
+        let tick_counts = tick_checkpoint
+            .as_ref()
+            .map(|cp| cp.tick_counts.clone())
+            .unwrap_or_else(|| vec![0; crate::core::market::MARKET_COUNT]);
+        let candle_counts = tick_checkpoint
+            .as_ref()
+            .map(|cp| cp.candle_counts.clone())
+            .unwrap_or_else(|| vec![0; crate::core::market::MARKET_COUNT * 16]);
+        let candle_tails = tick_checkpoint
+            .as_ref()
+            .map(|cp| cp.candle_tails.clone())
+            .unwrap_or_else(|| vec![None; crate::core::market::MARKET_COUNT * 16]);
+
+        let segments = crate::storage::wal::list_segments(&config.wal.dir)?;
+        if let Some(first) = segments.iter().min() {
+            if *first > snapshot_position.segment || *first > tick_position.segment {
+                return Err(PerfDbError::Corruption(
+                    "retained WAL does not cover recovery cursors".into(),
+                ));
+            }
+        } else if snapshot_position != WalPosition::default()
+            || tick_position != WalPosition::default()
+        {
+            return Err(PerfDbError::Corruption(
+                "recovery cursors have no retained WAL".into(),
+            ));
+        }
+
+        let (tick_store, candle_store, candle_builder) = if read_only {
+            let ticks = TickStore::inspect(&config.ticks_dir(), &tick_counts)?;
+            let mut candles = CandleStore::inspection();
+            let mut builder = CandleBuilder::new();
+            for mid in 0..crate::core::market::MARKET_COUNT as MarketId {
+                for tick in ticks.ticks(mid) {
+                    for output in builder.on_tick(tick) {
+                        if let CandleOutput::Closed(candle) = output {
+                            candles.upsert(&candle)?;
+                        }
+                    }
+                }
+                for tf in Timeframe::ALL {
+                    let expected = candle_counts[mid as usize * 16 + tf as usize];
+                    if let Some(tail) = candle_tails[mid as usize * 16 + tf as usize] {
+                        candles.upsert(&tail)?;
+                    }
+                    if candles.candle_count(mid, tf) != expected {
+                        return Err(PerfDbError::Corruption(
+                            "candle prefix disagrees with tick checkpoint".into(),
+                        ));
+                    }
+                }
+            }
+            (ticks, candles, builder)
+        } else {
+            let mut ticks = TickStore::open(config.ticks_dir())?;
+            let mut candles = CandleStore::open(config.candles_dir())?;
+            // Discard only suffixes beyond the last atomically published tick
+            // cursor. Their WAL entries will be reapplied, even after another
+            // interrupted recovery. Equal ticks remain separate occurrences.
+            ticks.rewind(&tick_counts)?;
+            candles.rewind(&candle_counts)?;
+            let builder = tick_checkpoint.map(|cp| cp.builder).unwrap_or_default();
+            // An uncommitted upsert may overwrite the previously stored live
+            // bucket. Restore its exact bytes, which may differ from the
+            // builder if further live ticks arrived after the last shutdown.
+            for mid in 0..crate::core::market::MARKET_COUNT as MarketId {
+                for tf in Timeframe::ALL {
+                    if let Some(tail) = candle_tails[mid as usize * 16 + tf as usize] {
+                        if !candles
+                            .latest(mid, tf)
+                            .is_some_and(|last| last.timestamp_ns == tail.timestamp_ns)
+                        {
+                            return Err(PerfDbError::Corruption(
+                                "committed candle tail has moved".into(),
+                            ));
+                        }
+                        candles.upsert(&tail)?;
+                    }
+                }
+            }
+            (ticks, candles, builder)
+        };
 
         let market_state = MarketStateTable::new();
         let positions = PositionTable::new();
@@ -146,7 +325,7 @@ impl PerfDb {
         let api_keys = ApiKeyStore::new();
         let competitions = CompetitionStore::new();
 
-        if let Some(snap) = snap {
+        if let Some((snap, _)) = snap {
             restore_snapshot(
                 &snap,
                 &market_state,
@@ -159,21 +338,23 @@ impl PerfDb {
                 &daily_stats,
             );
             tracing::info!(
-                block = snap_block,
+                block = snap.checkpoint.last_block,
                 positions = snap.positions.len(),
                 users = snap.users.len(),
                 "state restored from snapshot"
             );
         }
 
-        let wal_writer = WalWriter::open(config.wal.clone())?;
-
-        let mut builder = candle_builder;
-        for mid in 0..crate::core::market::MARKET_COUNT as MarketId {
-            for tf in Timeframe::ALL {
-                if let Some(last) = candle_store.latest(mid, tf) {
-                    builder.seed(mid, tf, last);
-                }
+        let wal_writer = if read_only {
+            None
+        } else {
+            Some(WalWriter::open(config.wal.clone())?)
+        };
+        if let Some(writer) = &wal_writer {
+            if snapshot_position > writer.position() || tick_position > writer.position() {
+                return Err(PerfDbError::Corruption(
+                    "recovery cursor exceeds retained WAL".into(),
+                ));
             }
         }
 
@@ -181,7 +362,7 @@ impl PerfDb {
             config,
             tick_store: Mutex::new(tick_store),
             candle_store: Mutex::new(candle_store),
-            candle_builder: Mutex::new(builder),
+            candle_builder: Mutex::new(candle_builder),
             market_state,
             positions,
             orders,
@@ -198,18 +379,32 @@ impl PerfDb {
             api_keys,
             competitions,
             wal: Mutex::new(wal_writer),
+            mutation: Mutex::new(mutation),
+            tick_position: Mutex::new(tick_position),
+            read_only,
+            _writer_lease: writer_lease,
         };
 
+        // Snapshot event history and identity share the same durable boundary.
+        for event in &db.mutation.lock().events {
+            let (market, trader) = extract_event_keys(&event.event);
+            db.events.append(event.clone(), market, trader);
+        }
+
         let wal_dir = db.config.wal.dir.clone();
-        let replay_count = crate::storage::wal::replay(&wal_dir, |entry| {
-            db.replay_wal_entry(&entry, snap_block);
-            Ok(())
+        let replay_count = crate::storage::wal::replay_positioned(&wal_dir, |entry, position| {
+            db.replay_wal_entry(&entry, position, snapshot_position)
         })?;
+
+        if !read_only {
+            let position = db.mutation.lock().position;
+            db.persist_tick_checkpoint(position)?;
+        }
 
         if replay_count > 0 {
             tracing::info!(
                 replay_count,
-                from_block = snap_block,
+                from_segment = snapshot_position.segment,
                 "WAL entries replayed"
             );
         }
@@ -228,38 +423,110 @@ impl PerfDb {
     ///
     /// Returns candle outputs for the caller to act on (e.g. stream live candles).
     pub fn ingest_tick(&self, tick: &PriceTick) -> Result<Vec<CandleOutput>, PerfDbError> {
-        self.wal.lock().append(&WalEntry::PriceTick {
-            timestamp_ns: tick.timestamp_ns,
-            market_id: tick.market_id,
-            price: tick.price,
-        })?;
-
-        self.tick_store.lock().append(tick)?;
-
-        self.market_state
-            .set_price(tick.market_id, tick.price, tick.timestamp_ns);
-
-        let outputs = self.candle_builder.lock().on_tick(tick);
-
-        {
-            let mut cs = self.candle_store.lock();
-            for output in &outputs {
-                if let CandleOutput::Closed(candle) = output {
-                    cs.upsert(candle)?;
-                }
-            }
+        let mut mutation = self.mutation.lock();
+        self.ensure_writable(&mutation)?;
+        if tick.market_id as usize >= crate::core::market::MARKET_COUNT {
+            return Err(PerfDbError::InvalidArgument(
+                "market_id out of range".into(),
+            ));
         }
-
-        self.pubsub.publish(
-            Channel::Prices,
-            PubSubMessage::PriceUpdate {
+        let result = (|| {
+            let position = self.append_wal(&WalEntry::PriceTick {
+                timestamp_ns: tick.timestamp_ns,
                 market_id: tick.market_id,
                 price: tick.price,
-                timestamp_ns: tick.timestamp_ns,
-            },
-        );
+            })?;
+            let outputs = self.apply_tick(tick)?;
+            *self.tick_position.lock() = position;
+            mutation.position = position;
 
+            self.pubsub.publish(
+                Channel::Prices,
+                PubSubMessage::PriceUpdate {
+                    market_id: tick.market_id,
+                    price: tick.price,
+                    timestamp_ns: tick.timestamp_ns,
+                },
+            );
+
+            Ok(outputs)
+        })();
+        if result.is_err() {
+            mutation.poisoned = true;
+        }
+        result
+    }
+
+    fn ensure_writable(&self, mutation: &MutationState) -> Result<(), PerfDbError> {
+        if self.read_only {
+            return Err(PerfDbError::InvalidArgument(
+                "database inspection is read-only".into(),
+            ));
+        }
+        if mutation.poisoned {
+            return Err(PerfDbError::Corruption(
+                "mutation failed; reopen database before writing or snapshotting".into(),
+            ));
+        }
+        Ok(())
+    }
+
+    fn append_wal(&self, entry: &WalEntry) -> Result<WalPosition, PerfDbError> {
+        let mut wal = self.wal.lock();
+        let writer = wal.as_mut().ok_or_else(|| {
+            PerfDbError::InvalidArgument("database inspection is read-only".into())
+        })?;
+        writer.append(entry)?;
+        Ok(writer.position())
+    }
+
+    fn apply_tick(&self, tick: &PriceTick) -> Result<Vec<CandleOutput>, PerfDbError> {
+        self.tick_store.lock().append(tick)?;
+        let outputs = self.candle_builder.lock().on_tick(tick);
+        let mut candles = self.candle_store.lock();
+        for output in &outputs {
+            if let CandleOutput::Closed(candle) = output {
+                candles.upsert(candle)?;
+            }
+        }
+        self.market_state
+            .set_price(tick.market_id, tick.price, tick.timestamp_ns);
         Ok(outputs)
+    }
+
+    // Called only while mutation is excluded (or before open returns). Publish
+    // a cursor only after WAL and both derived stores are durable. A crash
+    // before publication leaves a suffix that recovery rewinds and replays.
+    fn persist_tick_checkpoint(&self, position: WalPosition) -> Result<(), PerfDbError> {
+        self.wal
+            .lock()
+            .as_mut()
+            .ok_or_else(|| PerfDbError::InvalidArgument("database inspection is read-only".into()))?
+            .sync()?;
+        let ticks = self.tick_store.lock();
+        let candles = self.candle_store.lock();
+        ticks.flush()?;
+        candles.flush()?;
+        snapshot::write_tick_checkpoint(
+            &self.config.data_dir,
+            &TickCheckpoint {
+                version: 1,
+                position,
+                tick_counts: ticks.counts(),
+                candle_counts: candles.counts(),
+                candle_tails: (0..crate::core::market::MARKET_COUNT as MarketId)
+                    .flat_map(|mid| {
+                        Timeframe::ALL
+                            .into_iter()
+                            .map(|tf| candles.latest(mid, tf).copied())
+                            .collect::<Vec<_>>()
+                    })
+                    .collect(),
+                builder: self.candle_builder.lock().clone(),
+            },
+        )?;
+        *self.tick_position.lock() = position;
+        Ok(())
     }
 
     /// Process a decoded chain event from the indexer.
@@ -267,11 +534,22 @@ impl PerfDb {
     /// Updates all relevant stores based on the event variant.
     /// Writes to WAL, updates state, publishes to PubSub.
     pub fn process_event(&self, indexed: &IndexedEvent) -> Result<(), PerfDbError> {
-        self.wal
-            .lock()
-            .append(&WalEntry::IndexedEvent(indexed.clone()))?;
+        let mut mutation = self.mutation.lock();
+        self.ensure_writable(&mutation)?;
+        if mutation.is_duplicate(indexed)? {
+            return Ok(());
+        }
+        let position = match self.append_wal(&WalEntry::IndexedEvent(indexed.clone())) {
+            Ok(position) => position,
+            Err(error) => {
+                mutation.poisoned = true;
+                return Err(error);
+            }
+        };
 
         self.apply_event(indexed);
+        mutation.record(indexed.clone());
+        mutation.position = position;
         Ok(())
     }
 
@@ -593,25 +871,43 @@ impl PerfDb {
             | Event::VaultDeficit { .. } => {}
         }
 
-        self.checkpoint.advance_block(indexed.block_number);
+        self.checkpoint
+            .advance_block(self.checkpoint.last_block().max(indexed.block_number));
     }
 
     /// Replay a single WAL entry into state (used during recovery).
-    /// Indexed events with block_number <= snap_block only rebuild the event
-    /// history, which the snapshot does not hold; their state is in the snapshot.
-    fn replay_wal_entry(&self, entry: &WalEntry, snap_block: u64) {
+    fn replay_wal_entry(
+        &self,
+        entry: &WalEntry,
+        position: WalPosition,
+        snapshot_position: WalPosition,
+    ) -> Result<(), PerfDbError> {
+        let mut mutation = self.mutation.lock();
         match entry {
             WalEntry::PriceTick {
                 market_id,
                 price,
                 timestamp_ns,
             } => {
-                self.market_state
-                    .set_price(*market_id, *price, *timestamp_ns);
+                if position > *self.tick_position.lock() {
+                    self.apply_tick(&PriceTick {
+                        market_id: *market_id,
+                        price: *price,
+                        timestamp_ns: *timestamp_ns,
+                        _pad: [0; 6],
+                    })?;
+                    *self.tick_position.lock() = position;
+                } else if position > snapshot_position {
+                    self.market_state
+                        .set_price(*market_id, *price, *timestamp_ns);
+                }
             }
 
             WalEntry::Checkpoint { block_number } => {
-                self.checkpoint.advance_block(*block_number);
+                if position > snapshot_position {
+                    self.checkpoint
+                        .advance_block(self.checkpoint.last_block().max(*block_number));
+                }
             }
 
             WalEntry::BalanceUpdate {
@@ -621,25 +917,33 @@ impl PerfDb {
                 locked,
                 available,
             } => {
-                self.balances
-                    .set_raw(*user, *token, *amount, *locked, *available);
+                if position > snapshot_position {
+                    self.balances
+                        .set_raw(*user, *token, *amount, *locked, *available);
+                }
             }
 
             WalEntry::IndexedEvent(indexed) => {
-                if indexed.block_number > snap_block {
+                let duplicate = mutation.is_duplicate(indexed)?;
+                if position > snapshot_position && !duplicate {
                     self.apply_event(indexed);
-                } else {
-                    let (market_id, trader) = extract_event_keys(&indexed.event);
-                    self.events.append(indexed.clone(), market_id, trader);
+                    mutation.record(indexed.clone());
+                } else if position <= snapshot_position && !duplicate {
+                    return Err(PerfDbError::Corruption(
+                        "snapshot event ledger does not cover its WAL cursor".into(),
+                    ));
                 }
             }
 
             WalEntry::CandleUpdate { .. } | WalEntry::BatchEnd => {}
         }
+        mutation.position = mutation.position.max(position);
+        Ok(())
     }
 
     /// Update the checkpoint to a specific block (called at batch boundaries).
     pub fn save_checkpoint(&self, block: u64, hash: String, timestamp: u64) {
+        let _mutation = self.mutation.lock();
         self.checkpoint.save(block, hash, timestamp);
     }
 
@@ -701,6 +1005,19 @@ impl PerfDb {
 
     /// Create a state snapshot and write it to disk.
     pub fn snapshot(&self) -> Result<PathBuf, PerfDbError> {
+        let mut mutation = self.mutation.lock();
+        self.ensure_writable(&mutation)?;
+        let result = (|| {
+            self.persist_tick_checkpoint(mutation.position)?;
+            self.snapshot_locked(&mutation)
+        })();
+        if result.is_err() {
+            mutation.poisoned = true;
+        }
+        result
+    }
+
+    fn snapshot_locked(&self, mutation: &MutationState) -> Result<PathBuf, PerfDbError> {
         let cp = self.checkpoint.snapshot();
 
         let daily_entries: Vec<DailyStatsEntry> = {
@@ -738,31 +1055,51 @@ impl PerfDb {
             snapshot_timestamp: self.checkpoint.last_block_timestamp(),
         };
 
-        snapshot::write_snapshot(&self.config.snapshots_dir(), &snap)
+        snapshot::write_engine_snapshot(
+            &self.config.snapshots_dir(),
+            &snap,
+            SnapshotRecovery {
+                position: mutation.position,
+                events: mutation.events.clone(),
+            },
+        )
     }
 
     /// Graceful shutdown: flush all stores, sync WAL, create final snapshot.
     pub fn shutdown(&self) -> Result<(), PerfDbError> {
-        {
-            let builder = self.candle_builder.lock();
-            let mut cs = self.candle_store.lock();
-            for candle in builder.flush_all() {
-                cs.upsert(&candle)?;
+        let mut mutation = self.mutation.lock();
+        self.ensure_writable(&mutation)?;
+        let result = (|| {
+            {
+                let builder = self.candle_builder.lock();
+                let mut cs = self.candle_store.lock();
+                for candle in builder.flush_all() {
+                    cs.upsert(&candle)?;
+                }
+                cs.flush()?;
             }
-            cs.flush()?;
+
+            self.persist_tick_checkpoint(mutation.position)?;
+            self.snapshot_locked(&mutation)?;
+
+            tracing::info!("PerfDB shutdown complete");
+            Ok(())
+        })();
+        if result.is_err() {
+            mutation.poisoned = true;
         }
-
-        self.tick_store.lock().flush()?;
-        self.wal.lock().sync()?;
-        self.snapshot()?;
-
-        tracing::info!("PerfDB shutdown complete");
-        Ok(())
+        result
     }
 
     /// Sync the WAL to disk (call periodically or at batch boundaries).
     pub fn sync_wal(&self) -> Result<(), PerfDbError> {
-        self.wal.lock().sync()
+        let mut mutation = self.mutation.lock();
+        self.ensure_writable(&mutation)?;
+        let result = self.persist_tick_checkpoint(mutation.position);
+        if result.is_err() {
+            mutation.poisoned = true;
+        }
+        result
     }
 
     /// Access config.
