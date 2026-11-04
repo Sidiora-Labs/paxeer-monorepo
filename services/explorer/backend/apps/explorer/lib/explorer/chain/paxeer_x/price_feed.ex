@@ -33,6 +33,7 @@ defmodule Explorer.Chain.PaxeerX.PriceFeed do
 
   @default_page_size 50
   @total_update_counter "paxeer_x_price_update_total"
+  @last_successful_scan_counter "paxeer_x_price_feed_last_successful_scan"
 
   @type filters :: [feeder: Hash.Address.t() | nil, market_id: non_neg_integer() | nil]
 
@@ -351,6 +352,8 @@ defmodule Explorer.Chain.PaxeerX.PriceFeed do
         new_through = Repo.one(contiguous_scanned_query(through, batch_size)) || through
         stored_through = advance_scanned_through(start_block, new_through)
 
+        retain_successful_scan(stored_through)
+
         Repo.delete_all(
           from(scanned in PriceFeedScannedBlock,
             where: scanned.block_number <= ^stored_through and scanned.status == "scanned"
@@ -361,6 +364,27 @@ defmodule Explorer.Chain.PaxeerX.PriceFeed do
       end)
 
     stored_through
+  end
+
+  defp retain_successful_scan(through) do
+    latest_success =
+      Repo.one(
+        from(scanned in PriceFeedScannedBlock,
+          where: scanned.status == "scanned" and scanned.block_number <= ^through,
+          select: max(scanned.block_number)
+        )
+      )
+
+    if latest_success do
+      on_conflict =
+        from(counter in LastFetchedCounter,
+          update: [set: [value: fragment("GREATEST(?, EXCLUDED.value)", counter.value)]]
+        )
+
+      %LastFetchedCounter{}
+      |> LastFetchedCounter.changeset(%{counter_type: @last_successful_scan_counter, value: latest_success})
+      |> Repo.insert!(on_conflict: on_conflict, conflict_target: :counter_type)
+    end
   end
 
   @doc false
@@ -482,6 +506,8 @@ defmodule Explorer.Chain.PaxeerX.PriceFeed do
   @doc """
   Whether a block within `window_blocks` of the current height has been successfully
   scanned for submissions, by this node or any indexer writing to the same database.
+  Compaction retains the highest successful scan in a durable counter in the same
+  transaction that removes its marker; failed and unavailable heights do not count.
   """
   @spec scanned_recently?(non_neg_integer()) :: boolean()
   def scanned_recently?(window_blocks) when is_integer(window_blocks) and window_blocks >= 0 do
@@ -491,7 +517,12 @@ defmodule Explorer.Chain.PaxeerX.PriceFeed do
       from(scanned in PriceFeedScannedBlock,
         where: scanned.status == "scanned" and scanned.block_number >= ^minimum_block
       )
-    )
+    ) or
+      Repo.exists?(
+        from(counter in LastFetchedCounter,
+          where: counter.counter_type == @last_successful_scan_counter and counter.value >= ^minimum_block
+        )
+      )
   end
 
   @doc """

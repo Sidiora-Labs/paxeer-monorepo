@@ -171,21 +171,20 @@ func (iter *cacheMergeIterator) Close() error {
 	return iter.cache.Close()
 }
 
-// Error returns an error if the cacheMergeIterator is invalid defined by the
-// Valid method.
+// Error returns an underlying iteration error, if any.
 func (iter *cacheMergeIterator) Error() error {
-	if !iter.Valid() {
-		return errors.New("invalid cacheMergeIterator")
+	if err := iter.parent.Error(); err != nil {
+		return err
 	}
 
-	return nil
+	return iter.cache.Error()
 }
 
 // If not valid, panics.
 // NOTE: May have side-effect of iterating over cache.
 func (iter *cacheMergeIterator) assertValid() {
-	if err := iter.Error(); err != nil {
-		panic(err)
+	if !iter.Valid() {
+		panic(errors.New("invalid cacheMergeIterator"))
 	}
 }
 

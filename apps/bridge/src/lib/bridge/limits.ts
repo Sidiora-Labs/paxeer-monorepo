@@ -6,18 +6,22 @@ export type AmountLimitArgs = {
   amount: bigint;
   perTx: bigint;
   total: bigint;
+  capsLoaded?: boolean;
   outstanding: bigint;
   balance: bigint | undefined;
 };
 
-export function amountLimitError({ direction, amount, perTx, total, outstanding, balance }: AmountLimitArgs): string | undefined {
+export function amountLimitError({ direction, amount, perTx, total, outstanding, balance, capsLoaded = true }: AmountLimitArgs): string | undefined {
   if (balance !== undefined && amount > balance) {
     return 'That is more than your available balance.';
   }
-  if (perTx > BigInt(0) && amount > perTx) {
+  if (capsLoaded && direction === 'in' && total === 0n) {
+    return 'The vault asset is disabled (total capacity is zero).';
+  }
+  if (capsLoaded && amount > perTx) {
     return 'Above the vault per-transaction cap.';
   }
-  if (direction === 'in' && total > BigInt(0) && outstanding + amount > total) {
+  if (capsLoaded && direction === 'in' && outstanding + amount > total) {
     return 'That would exceed the vault\'s total capacity for this asset.';
   }
   if (direction === 'out' && amount > outstanding) {
@@ -37,7 +41,7 @@ export type RouteBlockerArgs = {
   paxeerState: PaxeerPairState;
   vaultState: VaultState;
   attestationApiConfigured: boolean;
-  foreign?: Pick<BridgeChain, 'state' | 'label' | 'vault'>;
+  foreign?: Pick<BridgeChain, 'state' | 'label' | 'vault'> & Partial<Pick<BridgeChain, 'kind'>>;
   direction?: 'in' | 'out';
   paxeerConfigured?: boolean;
 };
@@ -67,6 +71,9 @@ export function routeBlockers({
     if (paxeerState.error) {
       list.push('The Paxeer bridge state could not be read. The route cannot be verified on-chain right now.');
     }
+    if (!paxeerState.loaded && !paxeerState.error) {
+      list.push('The Paxeer bridge state is loading. Wait for this route to be verified.');
+    }
     if (paxeerState.loaded) {
       if (paxeerState.paused) {
         list.push('The bridge is paused on Paxeer. No deposits or withdrawals will be accepted until it reopens.');
@@ -81,6 +88,17 @@ export function routeBlockers({
         list.push('The vault registered on Paxeer for this chain does not match the vault this app is configured with. Do not deposit.');
       }
     }
+  }
+  if (foreign?.kind === 'solana') {
+    if (!vaultState.loaded) list.push('The Solana custody state has not been verified. Wait for the program accounts to load.');
+    if (vaultState.loaded && !vaultState.enabled) list.push('The Solana custody asset is disabled.');
+    if (vaultState.loaded && paxeerState.loaded && paxeerState.registered &&
+      vaultState.vault?.toLowerCase() !== paxeerState.vault?.toLowerCase()) {
+      list.push('The Solana custody vault does not match the vault registered on Paxeer.');
+    }
+  }
+  if (foreign?.kind !== 'solana' && !vaultState.loaded && !vaultState.error) {
+    list.push(`The ${ foreign?.label ?? 'foreign-chain' } vault state is loading. Wait for custody to be verified.`);
   }
   if (vaultState.error) {
     list.push('The vault state could not be read. The route cannot be verified on-chain right now.');

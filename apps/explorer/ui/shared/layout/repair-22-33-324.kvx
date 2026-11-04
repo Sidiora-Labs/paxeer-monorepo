@@ -1,0 +1,23 @@
+[repair]
+task = "22.33.324"
+audit = "22.30.137"
+base_revision = "58a590675bbe54c704c3f54c5ef49c6397e5992d"
+evidence = "The runner's hf-build/hf-done JSON records the exact candidate revision, command, exit and private log; no browser screenshot gate is claimed by the in-process regression gate."
+baseline = "Not run: the task's ordered gate rules prohibit verification before implementation and prohibit invoking verify_cmd by hand; source inspection found every screenshot case skipped and LayoutError.pw.tsx mounting LayoutHome."
+baseline_expectation = "layoutSkipped, errorLayoutWrongSubject and homeLayoutSkipped each reject the original skipped registrations; this is a source-based expectation, not a claim that baseline tests executed."
+tooling = "Initial dependency bootstrap failed on the root npm lock and package-manager mismatch; dependencies were installed from the explorer yarn.lock without changing manifests."
+previous_attempt = "Candidate 4c34b964657ec7dd7b65d3f81fc061f3288e70bb did not qualify: the TypeScript build reported TS2307 for ganache in apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/repair-22-31-381.spec.ts; its tests did not run."
+gotcha = "The repository assertion linter does not resolve a separately registered named test callback; inline named callbacks retain every assertion and let the linter see them."
+wiring_request = "Domain 14 release qualification: run the restored Playwright cases and review the existing apps/explorer/ui/shared/layout/__screenshots__ baselines, including the corrected error-layout subject; browser gates are outside this task's allowed commands."
+
+[finding.layout_skipped]
+test = "repair-22-33-324.spec.ts: layoutSkipped"
+proof = "Requires all three active screenshot registrations, the xxl viewport, explicit vertical/horizontal navigation, unchanged screenshot assertions and awaited shell, indexing and font readiness; mounts production Layout using the committed wrapper and real query cache."
+
+[finding.error_layout_wrong_subject]
+test = "repair-22-33-324.spec.ts: errorLayoutWrongSubject"
+proof = "Requires an active desktop/mobile screenshot of LayoutError with AppError and readiness; mounts both production components, checks the main error content and recovery link, and excludes the homepage hero band."
+
+[finding.home_layout_skipped]
+test = "repair-22-33-324.spec.ts: homeLayoutSkipped"
+proof = "Requires the active desktop/mobile screenshot and observable hero, footer, indexing and font readiness; mounts production LayoutHome and checks those shell markers."

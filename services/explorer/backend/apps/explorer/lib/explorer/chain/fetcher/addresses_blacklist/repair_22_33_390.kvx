@@ -1,0 +1,6 @@
+[repair.22.33.390]
+finding = "22.30.141/blacklist-outage-clears-cache"
+proof = "Explorer.Repair.Repair2233390Test: blacklist-outage-clears-cache retains the snapshot after HTTP outage / malformed JSON / malformed schema and retries to recovery; reports a transport failure explicitly"
+path = "services/explorer/backend/apps/explorer/test/repair/repair_22_33_390_test.exs"
+baseline = "Not run: the task's explicit gate order requires complete implementation before hf-build and hf-done and prohibits running verify_cmd by hand."
+wiring_request = "Domain 14: services/explorer/backend/apps/explorer/lib/explorer/chain/fetcher/addresses_blacklist.ex may consume Blockaid.fetch_result/0 directly when its callback contract is changed to tagged results; the scoped provider bridges errors to the existing abnormal-task retry path without replacing the last snapshot."

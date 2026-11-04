@@ -73,12 +73,14 @@ bucket settings available. All URLs and paths below are illustrative.
 ### Resizing an Image
 
 `Vix.Vips.Image.new_from_file/1` returns a result tuple. Pass only the image
-inside a successful result to `NFTMediaHandler.Image.Resizer.resize/3`:
+inside a successful `{:ok, image}` result to `NFTMediaHandler.Image.Resizer.resize/3`.
+If opening fails, return the error without calling the resizer:
 
 ```elixir
 case Vix.Vips.Image.new_from_file("path/to/image.jpg") do
   {:ok, image} ->
-    {:ok, NFTMediaHandler.Image.Resizer.resize(image, "https://example.com/image.jpg", ".jpg")}
+    thumbnails = NFTMediaHandler.Image.Resizer.resize(image, "https://example.com/image.jpg", ".jpg")
+    {:ok, thumbnails}
 
   {:error, reason} ->
     {:error, {:image_open_failed, reason}}

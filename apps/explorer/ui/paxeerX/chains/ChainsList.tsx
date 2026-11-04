@@ -51,7 +51,7 @@ export function ChainsList() {
                 <TableBody>
                   { query.data.map((chain) => (
                     <TableRow key={ chain.id } data-chain-id={ chain.id }>
-                      <TableCell>{ chain.name }</TableCell>
+                      <TableCell><Link href={ `/chains/${ chain.id }` }>{ chain.name }</Link></TableCell>
                       <TableCell>{ chain.chain_id }</TableCell>
                       <TableCell><Text wordBreak="break-all">{ chain.operator }</Text></TableCell>
                       <TableCell>{ statusLabel(chain.status) }</TableCell>

@@ -1,0 +1,30 @@
+[repair.22.33.473]
+audit = "22.30.149"
+acceptance = "22998.1"
+status = "implementation; qualification is recorded by hf-build and hf-done in the private gate ledger"
+evidence = "The runner records the exact candidate revision, command, exit and private log location; the final response copies the bounded gate evidence."
+baseline = "Not run: the explicit gate order and one-run budget prohibit verification before implementation; no pre-change test failure is claimed."
+fixtures = "Committed explorer VCR block_importer_import_1_pending.json and import_receipt_perform_1.json supply JSON-RPC block, transaction, receipt and log envelopes. Test branch variants use Shibarium ABI events, heights 0/1/2/10 and replacement transaction hashes over a loopback HTTP server; both production GenServers and the real schema/import runner execute."
+
+[finding.shibarium-genesis-division]
+test = "shibarium-genesis-division: heads 0 and 1 use configured polling before head 2 estimates timestamps"
+repair = "L1 delegates to a reusable polling policy that uses the configured realtime polling period (default 2000 ms) below height 2 and Indexer.Helper timestamp readers thereafter."
+wiring_request = "Owner domain 14: services/explorer/backend/apps/indexer/lib/indexer/helper.ex must share the corrected small-head policy with Indexer.Fetcher.Shibarium.Helper.get_block_check_interval/2 when repairing block-interval-genesis-division (22.33.472); this out-of-scope caller remains unchanged here."
+
+[finding.shibarium-l1-reorg-sentinel]
+test = "shibarium-l1-reorg-sentinel: rollback survives L1 restart and binds replacement deposits and withdrawals"
+atomicity_test = "both rollbacks restore deletions and timestamp changes if clearing a matched primary key fails"
+repair = "Delete unmatched L1 rows using the empty-hash sentinel; clear the L1 side of matched rows to that sentinel and clear deposit timestamps, in one transaction with cached counts. Preserve already imported operations during replay so the counterpart timestamp is not overwritten. Stop and reopen L1, recover its surviving checkpoint, replay the replacement branch and prove idempotency."
+
+[finding.shibarium-l2-reorg-sentinel]
+test = "shibarium-l2-reorg-sentinel: rollback survives L2 restart and binds replacement deposits and withdrawals"
+atomicity_test = "both rollbacks restore deletions and timestamp changes if clearing a matched primary key fails"
+repair = "Delete unmatched L2 rows using the empty-hash sentinel; clear the L2 side of matched rows to that sentinel and clear withdrawal timestamps, in one transaction with cached counts. Preserve already imported operations during replay so the counterpart timestamp is not overwritten. Stop and reopen L2, recover its surviving checkpoint, replay the replacement branch and prove idempotency."
+
+[qualification.first_attempt]
+revision = "07d32d96a22eed2ef3e15109bcda8f1b8ae14561"
+command = "cg spec done 22.33.473 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Polling passed; three cases failed in cleanup because ExUnit.stop_supervised attempted to unlink an already-stopped L2 child; the loopback fixture also omitted the real LatestL1BlockNumber cache required by its reorg monitor."
+repair = "Start the production cache and delete the normally stopped child specification after asserting its normal exit, retaining every behavior assertion."

@@ -1,0 +1,29 @@
+[repair.22.33.547]
+acceptance = "22998.1"
+test_module = "Indexer.Repair2233547Test"
+baseline = "Not run: the explicit gate order prohibits verification before implementation and allows only hf-done after hf-build; there were no earlier gate ledger entries. No baseline failures are claimed."
+evidence = "The runner's hf-done ledger binds the verified candidate revision, exact command, exit code and private log; no gate is claimed before that record exists."
+wiring_requests = []
+
+[finding.batch-reorg-replacement]
+tests = ["same-hash relocation survives a worker restart", "replacement hash atomically rebinds blocks transactions and DA after restart", "absent canonical event removes the orphan and its associations after restart", "a late import failure rolls back the whole replacement"]
+repair = "Reparse canonical events for existing batches and run the production import runners in one serialized database transaction with association replacement and orphan revocation."
+
+[finding.da-parse-failure-lost]
+tests = ["restart schedules failed DA outside the live scan and imports recovered metadata", "calldata and blobs persist known no-DA outcomes and are not queued", "legacy null DA is reparsed and failed outcomes remain retryable across restarts"]
+repair = "Persist parsed, not_required or failed outcomes and retry eligibility as namespaced data_type 2 records in the existing DA multi-purpose store; check_new reads the durable retry queue independently of the live cursor."
+
+[gotcha.baseline-order]
+observed = "Step 6 requests baseline verification while the explicit Order prohibits pre-implementation testing and direct verify_cmd execution."
+resolution = "Follow the explicit Order and preserve the baseline limitation in this scoped record; spec and the root gotcha ledger are outside the task's allowed paths."
+
+[qualification.fixture-repair]
+revision = "0d46002de0d5a431cc6d265afde91a5fab837cb7"
+command = "cg spec done 22.33.547 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All seven tests reached fixture insertion and failed the retained collated_cumalative_gas_used database constraint; the collated transaction fixture now supplies recorded gas used, cumulative gas used and successful status."
+
+[gotcha.collated-fixtures]
+observed = "Setting block_hash and index on the pending transaction factory requires non-null gas_used, cumulative_gas_used and status."
+resolution = "Construct a complete collated transaction using the retained receipt gas data; preserve all database constraints."

@@ -1,0 +1,7 @@
+[repair.22.33.642]
+finding = "whitelist-kv-escape"
+tests = ["TestRepairM_642_MutationPaths", "TestRepairM_642_RangeBoundsAndPolicies", "TestRepairM_642_ReadAndTracePreservation"]
+implementation = "Private parent, prevalidated range deletion, and recursively guarded cache branches with real Write and trace forwarding."
+baseline = "Not run: the explicit task gate order prohibits verification before implementation and prohibits running verify_cmd by hand. No baseline failure is claimed."
+evidence = "The runner's hf-build/hf-done ledger and final JSON name the exact candidate revision, command, exit code and private evidence log."
+wiring_requests = []

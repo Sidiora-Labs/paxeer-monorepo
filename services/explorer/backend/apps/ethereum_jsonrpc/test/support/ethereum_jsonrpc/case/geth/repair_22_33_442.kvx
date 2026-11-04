@@ -1,0 +1,10 @@
+[repair.22.33.442]
+finding = "external-test-endpoint-140"
+proof = "apps/ethereum_jsonrpc/test/repair/repair_22_33_442_test.exs: configured chain-125 pair carries recorded heads into the real block consumer; missing configuration, invalid pairs, HTTP/WS chain mismatch, RPC errors and opt-in compatibility cases"
+fixture = "apps/ethereum_jsonrpc/test/support/fixture/paxeer_x/new_head_full.json"
+qualification = "Disposable in-process Cowboy HTTP/WebSocket node, real Tesla and WebSocketClient transports, production PaxeerX block consumer; no provider, credential, environment variable or subprocess."
+baseline = "Not run: task Order 1 and 4 prohibit pre-implementation tests and direct verify runs; no earlier gate ledger existed at session start."
+evidence = "The bounded hf-done gate ledger records the exact verified candidate revision, command, exit and private log; no qualification is claimed before that gate passes."
+repair_cycle_1 = "Revision 82715e51e47227192fa5c6994cc2979724cae60f: cg spec done 22.33.442 -f layerx-merge --root /work/paxeer-monorepo exited 1 (verify command exit 2), /out/logs/verify-1.log; six tests reached the umbrella mock Tesla adapter, so the repair test now explicitly selects and restores the real Mint adapter."
+continuation = "Attempt 1 candidate dc332d7074fc258b5fb604906eb7ea5423411196 failed verification (exit 2); the retained loopback fixture now explicitly starts Cowboy and setup starts the production WebSocket supervisor, including RetryWorker, instead of an unsupervised client. No new baseline gate is run because the explicit task order forbids verification before the completed implementation and hf-build."
+wiring_request = "Domain 14: apps/ethereum_jsonrpc/test/support/ethereum_jsonrpc/web_socket/case/geth.ex remains outside scope; migrate standalone WebSocket case away from its provider URL to explicit disposable-node configuration."

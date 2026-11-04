@@ -1,0 +1,19 @@
+[repair.22.33.546]
+audit = "22.30.157"
+acceptance = "22998.1"
+backfill-transaction-only-holes = "Indexer.Repair2233546Test: backfill-transaction-only-holes: restart repairs a transaction with complete block metadata"
+backfill-partial-block-results = "Indexer.Repair2233546Test: backfill-partial-block-results: mixed success and error leaves the range unacknowledged across restart; duplicate block coverage; missing receipts and wrong canonical identities"
+execution-reorg-recovery = "Indexer.Repair2233546Test: execution-reorg-recovery: an orphan execution is revoked and later replaced after worker restarts; direct replacement; inconsistent logs preserve the previous binding and cursor"
+wiring_request = "domain 14 explorer: services/explorer/backend/apps/explorer/lib/explorer/chain/arbitrum/reader/indexer/general.ex should incorporate the transaction gas_used_for_l1 predicate, excluding ArbitrumLegacyTxType 120; participant performs the scoped selection in BackfillRecovery meanwhile."
+baseline = "Not run: the explicit gate order prohibits verification before implementation and allows verification only through hf-done. No baseline failures are claimed."
+evidence = "hf-build and hf-done ledger records supply the candidate revision, exact command, exit code and private log location; no gate is claimed before it runs."
+recovery_bound = "Execution reconciliation replays execution_reorg_depth blocks (default logs_block_range) before the durable cursor, including when no new block is produced. Restart reconstructs its cursor using the production execution reader and replays without requiring in-memory block identities."
+fixtures = "The ExUnit file replays retained JSON-RPC block/receipt/log envelopes from explorer's VCR recordings through loopback HTTP, mutating chain identities and ABI-encoding OutBoxTransactionExecuted events to exercise alternate-fork recovery. Temporary SQL tables mirror the optional Arbitrum schemas on the default paxeer_x gate; the actual production schemas, reader and import runners remain in use."
+
+[qualification.first_attempt]
+revision = "ce2e4419e7c34d27599c659bed88e5e3d3a7a4c1"
+command = "cg spec done 22.33.546 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The nine cases reached task-local fixture constraints or an invalid SQL lock alias; no baseline or unrelated failure is claimed."
+repair = "Use the Ecto SQL alias fragment, populate collated transaction receipt fields, and cast through the real schema changesets before invoking import runners."

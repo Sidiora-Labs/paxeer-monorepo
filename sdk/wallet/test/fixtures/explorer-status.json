@@ -11,7 +11,7 @@
   },
   "committed": {
     "rung": "committed",
-    "block_number": 1000,
-    "committed_height": 1001
+    "block_number": 10,
+    "committed_height": 11
   }
 }

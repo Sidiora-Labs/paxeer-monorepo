@@ -1,0 +1,93 @@
+{
+  "provenance": {
+    "source": "services/platform/hosted/gateway/tests/one_source_reads.rs",
+    "kind": "committed producer contract examples (not a new live capture)",
+    "tests": [
+      "px_get_account_reads_no_kernel_backend",
+      "px_get_balances_reads_bank_all_balances_at_one_height",
+      "px_get_network_reports_the_consensus_head",
+      "px_list_assets_joins_indexer_assets_with_chain_metadata"
+    ]
+  },
+  "account": {
+    "account": {
+      "evm_address": "0x102132435465768798a9bacbdcedfe0f1e2d3c4b",
+      "pax_address": "pax1exampleaccount",
+      "layerx_did": "did:layerx:6161616161616161616161616161616161616161616161616161616161616161",
+      "layerx_account": "457d8ff18e80b2c0671cb8dd37042120b6bfcfa2f2477389636a6d62e2e64de0",
+      "bound": true
+    },
+    "paxeer": {
+      "address": "0x102132435465768798a9bacbdcedfe0f1e2d3c4b",
+      "balance": "0x123456789abcdef",
+      "nonce": "0x2a",
+      "height": 16
+    }
+  },
+  "balances": {
+    "account": {
+      "evm_address": "0x102132435465768798a9bacbdcedfe0f1e2d3c4b",
+      "pax_address": "pax1exampleaccount",
+      "layerx_did": "did:layerx:6161616161616161616161616161616161616161616161616161616161616161",
+      "layerx_account": "457d8ff18e80b2c0671cb8dd37042120b6bfcfa2f2477389636a6d62e2e64de0",
+      "bound": true
+    },
+    "height": 16,
+    "balances": [
+      {
+        "amount": "123456789",
+        "denom": "ulxp"
+      },
+      {
+        "amount": "1606938044258990275541962092341162602522202993782792835301376",
+        "denom": "ibc/abababababababababababababababababababababababababababababababab"
+      }
+    ]
+  },
+  "network": {
+    "network_id": "paxeer-degraded",
+    "paxeer": {
+      "chain_id": "0x7d",
+      "latest_block": "0x10"
+    },
+    "consensus": {
+      "latest_height": "34742403",
+      "latest_block_hash": "A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1A1",
+      "latest_app_hash": "B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2",
+      "catching_up": false
+    }
+  },
+  "unavailable": {
+    "network_id": "paxeer-degraded",
+    "paxeer": {
+      "chain_id": "0x7d",
+      "latest_block": "0x10"
+    },
+    "consensus": null,
+    "reason": "consensus_unavailable"
+  },
+  "assets": {
+    "height": "16",
+    "joined_limit": 16,
+    "assets": [
+      {
+        "asset_id": "denom:ubroken",
+        "denom": "ubroken",
+        "kind": "token_factory",
+        "name": null,
+        "symbol": null,
+        "decimals": null,
+        "supply": null
+      },
+      {
+        "asset_id": "z0000",
+        "denom": null,
+        "kind": "erc20",
+        "name": null,
+        "symbol": null,
+        "decimals": null,
+        "supply": null
+      }
+    ]
+  }
+}

@@ -23,6 +23,9 @@ the dependency path resolves to this library.
    actual settings import and `MY_SERVICE` with its environment prefix. The type
    must implement both `serde::Serialize` and `serde::de::DeserializeOwned`.
    Point `config_path` at a configuration that can deserialize into that type.
+   Cargo discovers this source file as the `check-envs` binary used by the just
+   recipes, direct invocation and CI below. Keep the dependency version in step 1
+   aligned with this library's package version when upgrading.
 
    ```rust
    use env_collector::{run_env_collector_cli, EnvCollectorSettingsBuilder, PrefixFilter};

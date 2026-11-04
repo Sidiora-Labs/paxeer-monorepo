@@ -1,3 +1,5 @@
+Code.require_file("test_environment.exs", __DIR__)
+
 defmodule Indexer.Fetcher.OnDemand.ContractCodeTest do
   use EthereumJSONRPC.Case, async: false
   use Explorer.DataCase
@@ -93,7 +95,7 @@ defmodule Indexer.Fetcher.OnDemand.ContractCodeTest do
     end
 
     test "updates contract_code after 2nd attempt" do
-      threshold_configuration = Application.get_env(:indexer, ContractCodeOnDemand)[:threshold]
+      Indexer.Fetcher.OnDemand.TestEnvironment.preserve(:indexer, ContractCodeOnDemand)
       threshold = parse_time_env_var("CONTRACT_CODE_ON_DEMAND_FETCHER_THRESHOLD", "500ms")
       Application.put_env(:indexer, ContractCodeOnDemand, threshold: threshold)
 
@@ -146,14 +148,10 @@ defmodule Indexer.Fetcher.OnDemand.ContractCodeTest do
       assert is_nil(Repo.get(AddressContractCodeFetchAttempt, address_hash))
 
       assert_receive({:chain_event, :fetched_bytecode, :on_demand, [^address_hash, ^contract_code]})
-
-      on_exit(fn ->
-        Application.put_env(:indexer, ContractCodeOnDemand, threshold: threshold_configuration)
-      end)
     end
 
     test "updates code for eip7702 address" do
-      threshold_configuration = Application.get_env(:indexer, ContractCodeOnDemand)[:threshold]
+      Indexer.Fetcher.OnDemand.TestEnvironment.preserve(:indexer, ContractCodeOnDemand)
       threshold = parse_time_env_var("CONTRACT_CODE_ON_DEMAND_FETCHER_THRESHOLD", "1ms")
       Application.put_env(:indexer, ContractCodeOnDemand, threshold: threshold)
 
@@ -212,10 +210,6 @@ defmodule Indexer.Fetcher.OnDemand.ContractCodeTest do
           assert proxy_implementations.address_hashes == address_hashes
           assert proxy_implementations.names == [nil]
         end
-      end)
-
-      on_exit(fn ->
-        Application.put_env(:indexer, ContractCodeOnDemand, threshold: threshold_configuration)
       end)
     end
 

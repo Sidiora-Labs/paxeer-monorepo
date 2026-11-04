@@ -3,22 +3,22 @@ defmodule BlockScoutWeb.Account.TagAddressController do
 
   alias Explorer.Account.TagAddress
 
-  import BlockScoutWeb.Account.AuthController, only: [authenticate!: 1]
+  import BlockScoutWeb.Account.AuthController, only: [authenticate: 2]
+
+  plug(:authenticate)
 
   def index(conn, _params) do
-    current_user = authenticate!(conn)
+    current_user = conn.assigns.current_user
 
     render(conn, "index.html", address_tags: TagAddress.get_tags_address_by_identity_id(current_user.id))
   end
 
   def new(conn, _params) do
-    authenticate!(conn)
-
     render(conn, "form.html", tag_address: new_tag())
   end
 
   def create(conn, %{"tag_address" => tag_address}) do
-    current_user = authenticate!(conn)
+    current_user = conn.assigns.current_user
 
     case TagAddress.create(%{
            name: tag_address["name"],
@@ -38,7 +38,7 @@ defmodule BlockScoutWeb.Account.TagAddressController do
   end
 
   def delete(conn, %{"id" => id}) do
-    current_user = authenticate!(conn)
+    current_user = conn.assigns.current_user
 
     TagAddress.delete(id, current_user.id)
 

@@ -7,6 +7,7 @@ import { useMultichainContext } from 'lib/contexts/multichain';
 import { TableBody, TableColumnHeader, TableHeaderSticky, TableRoot, TableRow } from 'toolkit/chakra/table';
 import * as SocketNewItemsNotice from 'ui/shared/SocketNewItemsNotice';
 import TimeFormatToggle from 'ui/shared/time/TimeFormatToggle';
+import { getTokenTransferKey } from 'ui/shared/TokenTransfer/helpers';
 import TokenTransferTableItem from 'ui/shared/TokenTransfer/TokenTransferTableItem';
 
 interface Props {
@@ -21,7 +22,7 @@ interface Props {
   isLoading?: boolean;
 }
 
-const TokenTransferTable = ({
+export const TokenTransferTable = ({
   data,
   baseAddress,
   showTxInfo,
@@ -65,7 +66,7 @@ const TokenTransferTable = ({
           ) }
           { data.map((item, index) => (
             <TokenTransferTableItem
-              key={ item.transaction_hash + item.block_hash + item.log_index + (isLoading ? index : '') }
+              key={ getTokenTransferKey(item, isLoading ? index : undefined) }
               { ...item }
               baseAddress={ baseAddress }
               showTxInfo={ showTxInfo }

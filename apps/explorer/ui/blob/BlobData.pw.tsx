@@ -1,8 +1,10 @@
+import { readFile } from 'node:fs/promises';
 import React from 'react';
 
 import { test, expect } from 'playwright/lib';
 
 import BlobData from './BlobData';
+import BlobDataNavigation from './BlobDataNavigation.pwstory';
 import imageBlobWithZeroesBytes from './image_with_zeroes.blob';
 
 test.use({ viewport: { width: 500, height: 300 } });
@@ -30,4 +32,32 @@ test('image', async({ render, page }) => {
 test('image blob with zeroes bytes', async({ render }) => {
   const component = await render(<BlobData hash="0x01" data={ imageBlobWithZeroesBytes }/>);
   await expect(component).toHaveScreenshot();
+});
+
+test('image to text navigation downloads the current blob', async({ render, page }) => {
+  const component = await render(<BlobDataNavigation/>);
+  await expect(component.getByRole('combobox')).toHaveText('Image');
+  const selector = await component.getByRole('combobox').elementHandle();
+
+  const data = '0x0048656c6c6f20776f726c6400';
+  const hash = `0x${ 'ab'.repeat(32) }`;
+  await component.getByRole('button', { name: 'Next blob', exact: true }).click();
+  expect(await selector!.evaluate((element) => element.isConnected)).toBe(true);
+
+  await expect(component.getByRole('combobox')).toHaveText('Raw');
+  await expect(component.locator('select')).toHaveValue('Raw');
+  await expect(component.getByText(data, { exact: true })).toBeVisible();
+  await component.getByRole('combobox').click();
+  await expect(page.getByRole('option', { name: 'Image', exact: true })).toHaveCount(0);
+  await page.getByRole('option', { name: 'UTF-8', exact: true }).click();
+  await expect(component.getByRole('combobox')).toHaveText('UTF-8');
+  await expect(component.getByText('Hello world', { exact: false })).toBeVisible();
+
+  const downloadPromise = page.waitForEvent('download');
+  await component.getByRole('button', { name: 'Download', exact: true }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe(`blob_${ hash }`);
+  const path = await download.path();
+  expect(path).not.toBeNull();
+  expect(await readFile(path!)).toEqual(Buffer.from('0048656c6c6f20776f726c6400', 'hex'));
 });

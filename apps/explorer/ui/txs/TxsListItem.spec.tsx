@@ -9,9 +9,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('next/router', async() => (await import('ui/shared/layout/testWrapper')).nextRouterModule());
 
+import type { TransactionFeedItem } from './TxPriceUpdate';
 import TxsListItem from './TxsListItem';
 
-const renderItem = (tx = txMock.base) => render(<TxsListItem tx={ tx } showBlockInfo/>);
+const renderItem = (tx: TransactionFeedItem = txMock.base) => render(<TxsListItem tx={ tx } showBlockInfo/>);
 
 describe('TxsListItem', () => {
   beforeEach(() => {
