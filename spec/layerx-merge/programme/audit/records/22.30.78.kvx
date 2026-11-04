@@ -1,0 +1,1039 @@
+[audit.22.30.78]
+task = "22.30.78"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 71
+findings = 52
+docs_reviewed = 15
+upgrade_ready = false
+blocking = ["receipt-committed-rung", "receipt-payment-denom", "portable-receipt-fields", "committed-chain-trust", "buyer-human-endpoint", "assembly-custody-records", "purpose-selector-shape", "kms-network-registry", "disabled-custody-bindings", "owner-custody-bootstrap"]
+
+[file.01]
+path = "sdk/platform/swift/Package.swift"
+lines = 23
+verdict = "clean"
+note = "Full manifest reviewed: target paths, Crypto dependency and supported platforms agree with source and test layout."
+
+[file.02]
+path = "sdk/platform/swift/Sources/LayerXSDK/Chains.swift"
+lines = 302
+verdict = "clean"
+note = "Full ABI encoder and decoder reviewed, including tenant chain identity and per-chain RPC URL derivation."
+
+[file.03]
+path = "sdk/platform/swift/Sources/LayerXSDK/Committed.swift"
+lines = 588
+verdict = "issues"
+note = "Complete file read; findings naming this path describe the observed disagreements and concrete owning repair proposals."
+
+[file.04]
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/MirrorSchema.swift"
+lines = 19
+verdict = "generated"
+note = "Generated Swift output of repository SDK generators; recorded as generated rather than claiming a hand review of generated declarations."
+
+[file.05]
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+lines = 851
+verdict = "generated"
+note = "Generated Swift output of repository SDK generators; recorded as generated rather than claiming a hand review of generated declarations."
+
+[file.06]
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/ReceiptContract.swift"
+lines = 33
+verdict = "generated"
+note = "Generated Swift output of repository SDK generators; recorded as generated rather than claiming a hand review of generated declarations."
+
+[file.07]
+path = "sdk/platform/swift/Sources/LayerXSDK/JSONValue.swift"
+lines = 50
+verdict = "clean"
+note = "Full value decoder, integer representation, encoding and object accessors reviewed against callers."
+
+[file.08]
+path = "sdk/platform/swift/Sources/LayerXSDK/MirrorSource.swift"
+lines = 414
+verdict = "clean"
+note = "Full bounded archive parser, source policies, proof commitments, freshness, divergence errors and verifier handoff reviewed; mirror hosts are not treated as node RPC."
+
+[file.09]
+path = "sdk/platform/swift/Sources/LayerXSDK/NativeCapabilitySet.swift"
+lines = 155
+verdict = "clean"
+note = "Full capability tags, wire lengths, grant limits, narrowing, source accounts and account derivation reviewed against declared vectors."
+
+[file.10]
+path = "sdk/platform/swift/Sources/LayerXSDK/NativeProgramCall.swift"
+lines = 64
+verdict = "clean"
+note = "Full current call framing, ABI calldata, argument and capability limits, exact decoding and trailing byte refusals reviewed."
+
+[file.11]
+path = "sdk/platform/swift/Sources/LayerXSDK/NativeProgramLifecycle.swift"
+lines = 408
+verdict = "issues"
+note = "Complete file read; findings naming this path describe the observed disagreements and concrete owning repair proposals."
+
+[file.12]
+path = "sdk/platform/swift/Sources/LayerXSDK/PortableReceipt.swift"
+lines = 734
+verdict = "issues"
+note = "Complete file read; findings naming this path describe the observed disagreements and concrete owning repair proposals."
+
+[file.13]
+path = "sdk/platform/swift/Sources/LayerXSDK/Production.swift"
+lines = 256
+verdict = "clean"
+note = "Full human operation requests, credentials, transport handoff and verification propagation reviewed; unsupported operations fail explicitly."
+
+[file.14]
+path = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift"
+lines = 2366
+verdict = "issues"
+note = "Complete file read; findings naming this path describe the observed disagreements and concrete owning repair proposals."
+
+[file.15]
+path = "sdk/platform/swift/Sources/LayerXSDK/Stream.swift"
+lines = 152
+verdict = "issues"
+note = "Complete file read; findings naming this path describe the observed disagreements and concrete owning repair proposals."
+
+[file.16]
+path = "sdk/platform/swift/Sources/LayerXSDK/Transport.swift"
+lines = 796
+verdict = "issues"
+note = "Complete file read; findings naming this path describe the observed disagreements and concrete owning repair proposals."
+
+[file.17]
+path = "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift"
+lines = 832
+verdict = "issues"
+note = "Complete file read; findings naming this path describe the observed disagreements and concrete owning repair proposals."
+
+[file.18]
+path = "sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift"
+lines = 293
+verdict = "clean"
+note = "All envelope cases reviewed: request version 1 and exact success and refusal fields match the current daemon."
+
+[file.19]
+path = "sdk/platform/swift/Tests/LayerXSDKTests/AgentOperationEnvelopeTests.swift"
+lines = 280
+verdict = "clean"
+note = "All operation cases reviewed against current request_id, value, verification_status and lowercase status shapes."
+
+[file.20]
+path = "sdk/platform/swift/Tests/LayerXSDKTests/ChainsTests.swift"
+lines = 236
+verdict = "clean"
+note = "All published ABI vectors, chain ID, parameter and RPC URL assertions reviewed in the configured target."
+
+[file.21]
+path = "sdk/platform/swift/Tests/LayerXSDKTests/CommittedReceiptTests.swift"
+lines = 341
+verdict = "issues"
+note = "Complete file read; findings naming this path describe the observed disagreements and concrete owning repair proposals."
+
+[file.22]
+path = "sdk/platform/swift/Tests/LayerXSDKTests/KernelVerifierRetiredTests.swift"
+lines = 241
+verdict = "clean"
+note = "All kernel evidence cases reviewed as explicit negative coverage; no legacy proof is claimed as current verification."
+
+[file.23]
+path = "sdk/platform/swift/Tests/LayerXSDKTests/NativeCapabilitySetTests.swift"
+lines = 121
+verdict = "clean"
+note = "All capability encoding, decoding, narrowing, identity and malformed grant assertions reviewed."
+
+[file.24]
+path = "sdk/platform/swift/Tests/LayerXSDKTests/PortableReceiptTests.swift"
+lines = 455
+verdict = "issues"
+note = "Complete file read; findings naming this path describe the observed disagreements and concrete owning repair proposals."
+
+[file.25]
+path = "sdk/platform/swift/Tests/LayerXSDKTests/ProgramTransportRetiredTests.swift"
+lines = 212
+verdict = "clean"
+note = "All explicit retired program transport refusal cases reviewed; no positive current REST program path is advertised."
+
+[file.26]
+path = "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsContractTests.swift"
+lines = 481
+verdict = "issues"
+note = "Complete file read; findings naming this path describe the observed disagreements and concrete owning repair proposals."
+
+[file.27]
+path = "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsEvmTests.swift"
+lines = 649
+verdict = "issues"
+note = "Complete file read; findings naming this path describe the observed disagreements and concrete owning repair proposals."
+
+[file.28]
+path = "sdk/platform/swift/Tests/LayerXSDKTests/ReceiptFixtureTests.swift"
+lines = 148
+verdict = "clean"
+note = "All published receipt vector checks, independent key pins, decoded results and refusal expectations reviewed."
+
+[file.29]
+path = "sdk/platform/swift/Tests/LayerXSDKTests/SequencerReceiptTests.swift"
+lines = 147
+verdict = "clean"
+note = "All canonical signed receipt vector and mutation assertions reviewed under independent key pins; current RPC shape coverage is addressed in the ProgramsEvm finding."
+
+[file.30]
+path = "services/platform/examples/buyer-agent/index.mjs"
+lines = 82
+verdict = "clean"
+note = "Full buyer flow, network guard, human transport, receipt keys and outcomes reviewed; origin defects are recorded on its configuration file."
+
+[file.31]
+path = "services/platform/examples/buyer-agent/layerx.example.json"
+lines = 28
+verdict = "issues"
+note = "Complete file read; findings naming this path describe the observed disagreements and concrete owning repair proposals."
+
+[file.32]
+path = "services/platform/examples/buyer-agent/package.json"
+lines = 18
+verdict = "clean"
+note = "Full buyer manifest, entry scripts and workspace dependencies reviewed against its imports."
+
+[file.33]
+path = "services/platform/examples/test/agent-program-call.test.mjs"
+lines = 316
+verdict = "issues"
+note = "Complete file read; findings naming this path describe the observed disagreements and concrete owning repair proposals."
+
+[file.34]
+path = "services/platform/examples/test/agent-spend-services.test.mjs"
+lines = 52
+verdict = "clean"
+note = "All service handoff and prepared EVM reference assertions reviewed, including keccak binding and mismatched-byte refusal."
+
+[file.35]
+path = "services/platform/examples/test/agent-spend.test.mjs"
+lines = 22
+verdict = "clean"
+note = "All missing configuration and wallet handoff cases reviewed; no protocol version selector is required."
+
+[file.36]
+path = "services/platform/examples/test/buyer-agent.test.mjs"
+lines = 116
+verdict = "issues"
+note = "Complete file read; findings naming this path describe the observed disagreements and concrete owning repair proposals."
+
+[file.37]
+path = "services/platform/examples/test/merchant-app.test.mjs"
+lines = 318
+verdict = "issues"
+note = "Complete file read; findings naming this path describe the observed disagreements and concrete owning repair proposals."
+
+[file.38]
+path = "services/platform/examples/test/merchant-config.test.mjs"
+lines = 40
+verdict = "issues"
+note = "Complete file read; findings naming this path describe the observed disagreements and concrete owning repair proposals."
+
+[file.39]
+path = "services/platform/examples/test/paid-api.test.mjs"
+lines = 109
+verdict = "clean"
+note = "All unpaid offer and receipt-key prerequisite checks reviewed against eip155:125 and receipted commitment."
+
+[file.40]
+path = "services/platform/examples/test/qualify-reference-apps.test.mjs"
+lines = 119
+verdict = "clean"
+note = "All outcome checks reviewed; rung and transactionHash are required and obsolete achieved labels refused."
+
+[file.41]
+path = "services/platform/examples/test/run-reference-apps.test.mjs"
+lines = 105
+verdict = "clean"
+note = "Full application runner, derived receipt key environment and both environment checks reviewed."
+
+[file.42]
+path = "services/platform/examples/test/runtime.test.mjs"
+lines = 188
+verdict = "issues"
+note = "Complete file read; findings naming this path describe the observed disagreements and concrete owning repair proposals."
+
+[file.43]
+path = "services/platform/hosted/human/README.md"
+lines = 139
+verdict = "issues"
+note = "Complete file read; findings naming this path describe the observed disagreements and concrete owning repair proposals."
+
+[file.44]
+path = "services/platform/hosted/human/beta-owner-policy.json"
+lines = 14
+verdict = "clean"
+note = "Entire template reviewed: finite limits, nonzero sixteen-byte limit identifier and absence of the retired movement block."
+
+[file.45]
+path = "services/platform/hosted/human/beta-purpose-catalog.json"
+lines = 17
+verdict = "clean"
+note = "Entire selector-based catalog reviewed; the assembler activity_types disagreement is recorded on material.py."
+
+[file.46]
+path = "services/platform/hosted/human/bootstrap.py"
+lines = 40
+verdict = "clean"
+note = "Full manifest composition, exclusive store ownership, directory setup and permission mounts reviewed against the canonical deployment."
+
+[file.47]
+path = "services/platform/hosted/human/browser_onboarding.py"
+lines = 223
+verdict = "clean"
+note = "Full browser and resume flow, credential protections and account binding reviewed. checkpoint-finalised remains the human schema label for committed, confirmed against production_reads.rs."
+
+[file.48]
+path = "services/platform/hosted/human/deployment.yaml"
+lines = 55
+verdict = "clean"
+note = "All deployment, Service and policy documents reviewed; TLS and resource configuration agree, and port 9443 targets human-https on pod port 9447."
+
+[file.49]
+path = "services/platform/hosted/human/guardians.py"
+lines = 164
+verdict = "clean"
+note = "Full enrollment, outgoing-key rotation authorization, epoch bounds, custody separation and threshold commitment reviewed; recovery role labels do not assert consensus finality."
+
+[file.50]
+path = "services/platform/hosted/human/history_material.py"
+lines = 45
+verdict = "issues"
+note = "Complete file read; findings naming this path describe the observed disagreements and concrete owning repair proposals."
+
+[file.51]
+path = "services/platform/hosted/human/material.py"
+lines = 1641
+verdict = "issues"
+note = "Complete file read; findings naming this path describe the observed disagreements and concrete owning repair proposals."
+
+[file.52]
+path = "services/platform/hosted/human/material.sh"
+lines = 170
+verdict = "issues"
+note = "Complete file read; findings naming this path describe the observed disagreements and concrete owning repair proposals."
+
+[file.53]
+path = "services/platform/hosted/human/native_manifest.py"
+lines = 55
+verdict = "issues"
+note = "Complete file read; findings naming this path describe the observed disagreements and concrete owning repair proposals."
+
+[file.54]
+path = "services/platform/hosted/human/onboarding_bootstrap.py"
+lines = 70
+verdict = "clean"
+note = "Full persistent onboarding setup, child lifecycle, signal handling and actual owner admission flow reviewed with tenant and recovery inputs."
+
+[file.55]
+path = "services/platform/hosted/human/onboarding_manifest.py"
+lines = 67
+verdict = "clean"
+note = "Full pod transformation, exclusive store ownership, idempotent mounts, tenant binding and removal of server-owned metadata reviewed."
+
+[file.56]
+path = "services/platform/hosted/human/onboarding_material.py"
+lines = 92
+verdict = "clean"
+note = "Full network and asset binding, retained configuration equality, initialized store identity and persisted authentication keys reviewed."
+
+[file.57]
+path = "services/platform/hosted/human/onboarding_provision.sh"
+lines = 175
+verdict = "clean"
+note = "Full KMS and browser stages, tenant binding, finite funding and retained resume reviewed; its registry network_id requirement is covered by the material.py schema finding."
+
+[file.58]
+path = "services/platform/hosted/human/onboarding_socket.py"
+lines = 159
+verdict = "clean"
+note = "Full Unix framing, peer credentials, frame and deadline limits, request dispatch and cleanup reviewed."
+
+[file.59]
+path = "services/platform/hosted/human/owner_kms.py"
+lines = 105
+verdict = "issues"
+note = "Complete file read; findings naming this path describe the observed disagreements and concrete owning repair proposals."
+
+[file.60]
+path = "services/platform/hosted/human/owner_native.py"
+lines = 475
+verdict = "issues"
+note = "Complete file read; findings naming this path describe the observed disagreements and concrete owning repair proposals."
+
+[file.61]
+path = "services/platform/hosted/human/provision-owner-job.yaml"
+lines = 141
+verdict = "clean"
+note = "All job containers, durable identity mounts, private recovery input, resources and deadline reviewed; this job does not itself submit custody deposits."
+
+[file.62]
+path = "services/platform/hosted/human/provision.py"
+lines = 1028
+verdict = "issues"
+note = "Complete file read; findings naming this path describe the observed disagreements and concrete owning repair proposals."
+
+[file.63]
+path = "services/platform/hosted/human/provision.sh"
+lines = 415
+verdict = "issues"
+note = "Complete file read; findings naming this path describe the observed disagreements and concrete owning repair proposals."
+
+[file.64]
+path = "services/platform/hosted/human/recipient_binding.py"
+lines = 68
+verdict = "clean"
+note = "Full signed recipient binding and typed intent flow reviewed for amount, account, network, evidence and error agreement."
+
+[file.65]
+path = "services/platform/hosted/human/recipient_check.py"
+lines = 51
+verdict = "clean"
+note = "Full browser recipient checks, authenticated evidence matching and bounded requests reviewed."
+
+[file.66]
+path = "services/platform/hosted/human/test_guardians.py"
+lines = 206
+verdict = "clean"
+note = "All enrollment, rotation, custody separation, epoch and signature refusal assertions reviewed against actual policy members."
+
+[file.67]
+path = "services/platform/hosted/human/test_material.py"
+lines = 449
+verdict = "issues"
+note = "Complete file read; findings naming this path describe the observed disagreements and concrete owning repair proposals."
+
+[file.68]
+path = "services/platform/hosted/human/test_owner_native.py"
+lines = 185
+verdict = "issues"
+note = "Complete file read; findings naming this path describe the observed disagreements and concrete owning repair proposals."
+
+[file.69]
+path = "services/platform/hosted/human/test_owner_request.py"
+lines = 53
+verdict = "clean"
+note = "All identity, recovery, protected file and account binding assertions reviewed against the actual request parser."
+
+[file.70]
+path = "services/platform/hosted/human/test_provision.py"
+lines = 374
+verdict = "clean"
+note = "All generated policy, catalog, producer-set, admission and recovery cases reviewed; the no-activity_types catalog assertion agrees with provision.py and exposes assembler drift."
+
+[file.71]
+path = "services/platform/hosted/human/web-deployment.yaml"
+lines = 247
+verdict = "issues"
+note = "Complete file read; findings naming this path describe the observed disagreements and concrete owning repair proposals."
+
+[finding.receipt-committed-rung]
+file = "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift"
+line = 699
+class = "interface-mismatch"
+severity = "high"
+observed = "verifySequencerJSON requires rung receipted. rpc/sequencer_receipt.go:173-199 changes the response to committed after block commit, and ProgramsClient.activity passes it unchanged, so a settled transaction fails verification."
+expected = "The pax_sequencerReceipt signed fields remain verifiable at both receipted and committed rungs; committing a block must not make its receipt unreadable."
+proposal = "Update sdk/platform/swift/Sources/LayerXSDK/Verifier.swift to validate common signed fields at both producer rungs and validate commitment evidence separately before raising verification; prove one real transaction before and after commit."
+owner_domain = 8
+interface = "7.rpc-pax-sequencerreceipt"
+
+[finding.receipt-payment-denom]
+file = "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift"
+line = 733
+class = "interface-mismatch"
+severity = "high"
+observed = "The verifier hashes feeDenom and compares it with ProtocolReceipt.asset. rpc/sequencer_receipt.go:560-569 binds asset to paymentDenom, explicitly allowing the payment and fee denominations to differ."
+expected = "The summary fee currency and the signed payment asset have independent bindings, and valid different-currency transactions must round-trip."
+proposal = "Validate feeDenom against the signed summary and paymentDenom against asset independently in sdk/platform/swift/Sources/LayerXSDK/Verifier.swift; prove real transfer and revert receipts with different payment and fee denominations."
+owner_domain = 8
+interface = "7.rpc-pax-sequencerreceipt"
+
+[finding.portable-receipt-fields]
+file = "sdk/platform/swift/Sources/LayerXSDK/PortableReceipt.swift"
+line = 116
+class = "interface-mismatch"
+severity = "high"
+observed = "verifyReceipt requires an exact receiptJson key set without paymentDenom, emitted by the current node, or blockNumber and blockHash, added on commit. Export and import reject actual node response objects."
+expected = "Portable receipt v2 must preserve and validate the current node receipt shape and its payment asset and committed metadata through transport."
+proposal = "Align the exact versioned receiptJson schema in sdk/platform/swift/Sources/LayerXSDK/PortableReceipt.swift with rpc/sequencer_receipt.go; prove cross-language portable export and import using actual receipted and committed RPC responses."
+owner_domain = 8
+interface = "7.rpc-pax-sequencerreceipt"
+
+[finding.committed-chain-trust]
+file = "sdk/platform/swift/Sources/LayerXSDK/Committed.swift"
+line = 204
+class = "security"
+severity = "high"
+observed = "Committed.verify checks validatorSet against the same supplied header and its signatures. PortableReceipt.verify:92-106 reads both headers and validator sets from the bundle; independent input pins only the receipt signer, not the consensus chain."
+expected = "A committed result must authenticate inclusion on the configured chain under independently trusted consensus history; internally consistent self-signed headers are insufficient."
+proposal = "Require an independent chain ID and trusted consensus checkpoint or verified validator history in sdk/platform/swift/Sources/LayerXSDK/Committed.swift and PortableReceipt.swift; reject an attacker chain embedding a genuine receipted transaction."
+owner_domain = 8
+
+[finding.deploy-payload-limit]
+file = "sdk/platform/swift/Sources/LayerXSDK/NativeProgramLifecycle.swift"
+line = 374
+class = "runtime-risk"
+severity = "medium"
+observed = "validateLifecycleWasm permits 1048576 WASM bytes and NativeProgramDeploy adds the envelope and optional interface without enforcing the complete deployment payload ceiling."
+expected = "Decision 2483 and brief fact 6 cap the deployment payload at 524288 bytes including its 104-byte envelope."
+proposal = "Enforce the full encoded size in sdk/platform/swift/Sources/LayerXSDK/NativeProgramLifecycle.swift; cover exactly 524288 bytes and the first rejected byte with envelope and interface overhead while retaining hash and ABI checks."
+owner_domain = 8
+interface = "8.go-sdkswift-nativeprogramdeploy-init"
+
+[finding.programs-inert-constructor]
+file = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift"
+line = 403
+class = "wiring-gap"
+severity = "medium"
+observed = "The public ProgramsClient(client:sequencerPublicKey:...) initializer validates arguments but discards them, installing rpc=nil and empty receiptKeys; its operations subsequently throw protocolIncompatibility."
+expected = "Successful client construction must expose usable advertised operations, or explicitly report migration when a retired configuration is supplied."
+proposal = "Make the retired initializer explicitly unavailable with migration to rpcURL, sender and receiptKeys in sdk/platform/swift/Sources/LayerXSDK/Programs.swift, or provide a fully configured supported path and prove its public operations."
+owner_domain = 8
+
+[finding.programs-sequence-recovery]
+file = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift"
+line = 382
+class = "restart-recovery"
+severity = "medium"
+observed = "ProgramsClient retains one immutable prevSeqHash, default zero, and reuses it for every receipt at line 617. Subsequent or interleaved transactions require a different authenticated predecessor; no progress or recovery mechanism is provided."
+expected = "A reusable client must resolve sequence context appropriate to each receipt, including interleaved transactions and restart, without weakening the chain hash check."
+proposal = "Provide authenticated per-transaction chain context and a durable or caller-supplied recovery mechanism in sdk/platform/swift/Sources/LayerXSDK/Programs.swift; prove consecutive and interleaved receipts across client restart."
+owner_domain = 8
+
+[finding.program-rpc-response-bound]
+file = "sdk/platform/swift/Sources/LayerXSDK/Programs.swift"
+line = 87
+class = "runtime-risk"
+severity = "medium"
+observed = "ProgramRPC uses URLSession.data(for:) and parses JSON after allocating the entire body, so a faulty configured RPC can return an arbitrarily large receipt or transaction response."
+expected = "Network data must be bounded before allocation and decoding, consistent with the SDK limits on transaction and receipt bytes."
+proposal = "Use bounded response streaming and cancel oversized requests in sdk/platform/swift/Sources/LayerXSDK/Programs.swift; retain typed transport errors and prove rejection of an oversized actual HTTP response."
+owner_domain = 8
+
+[finding.stream-memory-and-pacing]
+file = "sdk/platform/swift/Sources/LayerXSDK/Stream.swift"
+line = 52
+class = "runtime-risk"
+severity = "medium"
+observed = "ResumableStream keeps every historical event ID, and events(from:) uses the default unbounded AsyncThrowingStream buffer while immediately polling again on empty pages."
+expected = "Long-lived human streams need bounded replay memory, consumer backpressure and empty-page pacing while preserving cursor order and recovery."
+proposal = "Define bounded replay and demand behavior in sdk/platform/swift/Sources/LayerXSDK/Stream.swift, pace empty pages and surface overflow with a resumable cursor; prove a slow consumer remains bounded without silent event loss."
+owner_domain = 8
+
+[finding.legacy-lifecycle-verification]
+file = "sdk/platform/swift/Sources/LayerXSDK/Verifier.swift"
+line = 229
+class = "retired-reference"
+severity = "medium"
+observed = "verifyProgramLifecycleReceipt still decodes kernel receipts with sequencerOnly:false and returns sequencer-signed, outside the current receipted and committed verification rungs."
+expected = "Requirement 8503 retires kernel batch and checkpoint verification; lifecycle outcomes must bind a pinned sequencer receipt to the retained EVM transaction."
+proposal = "Retire the legacy successful verifier in sdk/platform/swift/Sources/LayerXSDK/Verifier.swift and migrate callers to current sequencer receipts, retaining explicit old-kernel refusals and proving a live lifecycle transaction."
+owner_domain = 8
+interface = "8.go-sdkswift-localverifier-verifyprogramlifecyclereceipt"
+
+[finding.legacy-http-status-decoder]
+file = "sdk/platform/swift/Sources/LayerXSDK/Transport.swift"
+line = 90
+class = "dead-code"
+severity = "low"
+observed = "The unavailable AgentHTTPTransport retains a private legacy decoder with uppercase SequencerSigned states alongside the current lowercase AgentEnvelopeTransport verifier."
+expected = "Unused retired transport vocabulary should not appear to be an alternative supported verification contract to the current daemon envelope."
+proposal = "Remove the unreachable legacy decoder from sdk/platform/swift/Sources/LayerXSDK/Transport.swift after confirming callers; retain explicit retired transport refusal and the legitimate daemon POST /rpc envelope path."
+owner_domain = 8
+
+[finding.program-pending-test]
+file = "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsContractTests.swift"
+line = 24
+class = "test-gap"
+severity = "medium"
+observed = "The positive pending-receipt test constructs the retired ProgramsClient with a transport that always throws, then requests sequencer-signed instead of a current rung."
+expected = "Requirement 181264 resolves the retained transaction through the supported RPC client; a positive pending test must reach that consumer with current rungs."
+proposal = "Rewrite sdk/platform/swift/Tests/LayerXSDKTests/ProgramsContractTests.swift pending coverage around the live retained-transaction receipt path, preserving expected-activity mismatch refusals and asserting a genuine pending response."
+owner_domain = 8
+
+[finding.program-abi-five-test]
+file = "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsContractTests.swift"
+line = 169
+class = "test-gap"
+severity = "medium"
+observed = "The lifecycle bounds test explicitly expects guestABI 5 to throw and tests positive ABIs only through 4, while ProgramGuestABI declares v5 and the codec admits it."
+expected = "ABI admission tests must match the current declared ABI set and reject genuinely unsupported versions rather than a supported version."
+proposal = "Prove ABI 5 with its required interface and actual registration path in sdk/platform/swift/Tests/LayerXSDKTests/ProgramsContractTests.swift; retain zero and unknown ABI refusals and the existing hash and size bounds."
+owner_domain = 8
+
+[finding.program-old-status-test]
+file = "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsContractTests.swift"
+line = 49
+class = "test-gap"
+severity = "medium"
+observed = "The status matrix uses uppercase Unverified and SequencerSigned envelopes, and discovery cases assert sequencer-signed kernel proofs as successful verification."
+expected = "Requirement 181256 uses lowercase achieved or unverified over submitted, receipted and committed; current producer responses must drive positive cases."
+proposal = "Migrate the positive status and discovery cases in sdk/platform/swift/Tests/LayerXSDKTests/ProgramsContractTests.swift to actual daemon envelopes and current receipt proofs, retaining old labels only as negative cases."
+owner_domain = 8
+
+[finding.committed-test-trust]
+file = "sdk/platform/swift/Tests/LayerXSDKTests/CommittedReceiptTests.swift"
+line = 128
+class = "test-gap"
+severity = "medium"
+observed = "The committed positive fixture creates local validator keys and committed-sdk-test headers, then supplies those validators to verification without testing an unrelated self-signed chain refusal."
+expected = "Committed proof coverage must establish independent consensus trust and reject otherwise internally consistent evidence from another chain."
+proposal = "Add real node committed evidence with independently pinned chain state to sdk/platform/swift/Tests/LayerXSDKTests/CommittedReceiptTests.swift and an attacker-validator refusal; retain voting-power and inclusion mutations."
+owner_domain = 8
+
+[finding.portable-test-producer-shape]
+file = "sdk/platform/swift/Tests/LayerXSDKTests/PortableReceiptTests.swift"
+line = 146
+class = "test-gap"
+severity = "medium"
+observed = "Portable tests pin receipt keys and preserve published bytes but use the older receiptJson field set and synthetic consensus evidence, missing current paymentDenom and committed RPC metadata."
+expected = "Requirements 8511 and 181268 require pinned portable interoperability and the brief requires the actual producer shape to reach the consumer."
+proposal = "Add current node receipted and committed portable round trips to sdk/platform/swift/Tests/LayerXSDKTests/PortableReceiptTests.swift with independent receipt and consensus pins, preserving published-byte and wrong-pin assertions."
+owner_domain = 8
+
+[finding.program-evm-test-producer]
+file = "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsEvmTests.swift"
+line = 1
+class = "test-gap"
+severity = "medium"
+observed = "The HTTP fixture manufactures lifecycle receipt JSON using the older feeDenom-only shape, without a real committed pax_sequencerReceipt response or distinct payment and fee denominations."
+expected = "ProgramsClient tests must prove the node producer shape survives HTTP transport and verification, not a third shape shared only by fixture and consumer."
+proposal = "Add real node transaction and receipt evidence to sdk/platform/swift/Tests/LayerXSDKTests/ProgramsEvmTests.swift for distinct denominations and post-commit responses, retaining unpinned-key and wrong-transaction refusals."
+owner_domain = 8
+
+[finding.buyer-human-endpoint]
+file = "services/platform/examples/buyer-agent/layerx.example.json"
+line = 17
+class = "wiring-gap"
+severity = "high"
+observed = "The beta humanUrl is the public node JSON-RPC root. buyer-agent/index.mjs:21 passes it to LayerXPaymentHttpTransport, which sends authenticated human /v1/moves/quote and /v1/moves requests there."
+expected = "The node root serves node JSON-RPC; human payment operations belong to the hosted human HTTP service and its authentication contract."
+proposal = "Configure a real hosted human origin in services/platform/examples/buyer-agent/layerx.example.json and document its deployment input; prove a beta buyer payment reaches the human service and returns a verifiable node receipt."
+owner_domain = 8
+
+[finding.buyer-rpc-path]
+file = "services/platform/examples/buyer-agent/layerx.example.json"
+line = 18
+class = "config-drift"
+severity = "medium"
+observed = "The beta rpcUrl appends /rpc to api-mainnet-beta.paxeer.network, although public node JSON-RPC is declared at the root."
+expected = "Brief facts 2 and 3 require root public node RPC; the agent daemon POST /rpc is a distinct legitimate service endpoint."
+proposal = "Use the node root in services/platform/examples/buyer-agent/layerx.example.json and align configuration checks; keep the local emulator endpoint separate from beta node addressing."
+owner_domain = 8
+interface = "8.cfg-examples-buyer-agent-environments-beta-rpcurl-j41"
+
+[finding.buyer-config-test-rpc]
+file = "services/platform/examples/test/buyer-agent.test.mjs"
+line = 100
+class = "test-gap"
+severity = "medium"
+observed = "The buyer configuration test expects the retired beta public /rpc endpoint and therefore approves a configuration inconsistent with the node transport."
+expected = "Positive beta configuration coverage must require node root RPC and a separately functioning hosted human origin."
+proposal = "Update services/platform/examples/test/buyer-agent.test.mjs endpoint assertions and prove the actual human payment route, preserving refusal before HTTP for unsupported networks."
+owner_domain = 8
+
+[finding.merchant-config-test-rpc]
+file = "services/platform/examples/test/merchant-config.test.mjs"
+line = 24
+class = "test-gap"
+severity = "medium"
+observed = "The merchant configuration test hard-codes https://api-mainnet-beta.paxeer.network/rpc as the expected beta node URL."
+expected = "Merged public JSON-RPC is at the node root; configuration tests must reject the retired unified RPC path."
+proposal = "Align services/platform/examples/test/merchant-config.test.mjs and owning merchant configuration with node root RPC, proving actual receipt transport while preserving required receipt key checks."
+owner_domain = 8
+
+[finding.runtime-proof-test-shape]
+file = "services/platform/examples/test/runtime.test.mjs"
+line = 28
+class = "test-gap"
+severity = "medium"
+observed = "The fixture signs a receipt without real summary effects, derives sequence root directly from raw bytes, and expects a portable document without receiptJson and with keccak256(signedReceipt) as receiptDigest; support/runtime.mjs emits that shape."
+expected = "Current portable v2 consumers require receiptJson and the signed protocol domain-separated digest; summary and sequence bindings must match node/sequencer and rpc/sequencer_receipt.go."
+proposal = "Drive services/platform/examples/test/runtime.test.mjs with actual node evidence and a cross-SDK portable import; align services/platform/examples/support/runtime.mjs to the shared v2 schema without weakening exact consumer checks."
+owner_domain = 8
+
+[finding.merchant-proof-test-shape]
+file = "services/platform/examples/test/merchant-app.test.mjs"
+line = 1
+class = "test-gap"
+severity = "medium"
+observed = "The signedProof helper hashes sequence and transaction hash without the PAXEER/v1/sequence domain and supplies the example portable document without receiptJson and with the wrong digest convention."
+expected = "A merchant marking an order paid must consume a proof independently accepted by the current node receipt verifier under pinned keys and transaction binding."
+proposal = "Drive services/platform/examples/test/merchant-app.test.mjs through actual receipt production and current portable import before settlement, retaining webhook transaction mismatch and signature refusals."
+owner_domain = 8
+
+[finding.walkthrough-test-receipt]
+file = "services/platform/examples/test/agent-program-call.test.mjs"
+line = 30
+class = "test-gap"
+severity = "medium"
+observed = "The walkthrough test manufactures zero-summary-effect signed receipts and a legacy uppercase Unverified envelope instead of actual sequencer receipt and daemon response shapes."
+expected = "Requirement 181254 permits a called outcome only after pinned sequencer receipt verification bound to raw transaction bytes."
+proposal = "Use the real sequencer producer and daemon envelope encoder in services/platform/examples/test/agent-program-call.test.mjs, asserting verified called and unknown-fate on wrong pins without synthetic success messages."
+owner_domain = 8
+
+[finding.assembly-custody-records]
+file = "services/platform/hosted/human/material.py"
+line = 144
+class = "interface-mismatch"
+severity = "high"
+observed = "PRODUCER_FILES requires custody.profile and owner-custody.json and assemble_policy reads both. provision.py producer_records emits neither after requirement 8220 removed the custody producer."
+expected = "The current generated evidence set must satisfy policy assembly without requiring a retired custody-deposit artifact."
+proposal = "Remove retired custody records from the bundle schema in services/platform/hosted/human/material.py and replace necessary funding evidence with current ledger transaction receipts; qualify actual provision.py output through assembly and reload."
+owner_domain = 8
+interface = "8.cli-human-material-py-assemble"
+
+[finding.purpose-selector-shape]
+file = "services/platform/hosted/human/material.py"
+line = 249
+class = "interface-mismatch"
+severity = "high"
+observed = "policy_from_inputs requires each preset.activity_types to match the legacy activity list. provision.py purpose_catalog emits call_selectors and no activity_types; test_provision.py explicitly asserts that absence."
+expected = "The domain 10 selector-based purpose catalog producer and policy assembler must agree on authorization fields and encodings."
+proposal = "Align services/platform/hosted/human/material.py and its runtime consumer with the call_selectors catalog; prove an actual generated catalog reaches installed policy and authorizes only its declared calls."
+owner_domain = 8
+interface = "10.cfg-purpose-catalog-presets"
+
+[finding.kms-network-registry]
+file = "services/platform/hosted/human/material.py"
+line = 966
+class = "interface-mismatch"
+severity = "high"
+observed = "kms_prerequisite accepts exactly schema_version, assets and modules, rejecting network_id, while policy_from_inputs:169, policy_graph_status and onboarding_material.py require network_id in the same module-registry.json."
+expected = "A single network-bound versioned registry must have one exact schema accepted consistently by KMS preparation, onboarding and assembly."
+proposal = "Define the canonical network-bound schema in services/platform/hosted/human/material.py and its producer; validate the expected network in every consumer and prove the same registry artifact through all provisioning stages."
+owner_domain = 8
+interface = "8.cli-human-material-py-kms-prerequisite"
+
+[finding.disabled-custody-bindings]
+file = "services/platform/hosted/human/material.py"
+line = 152
+class = "interface-mismatch"
+severity = "high"
+observed = "resolve_custody_components binds vault, claims, exit and withdrawal claims to CUSTODY_PRECOMPILE 0x1013. The merged precompile refuses execution with LXP_MODULE_DISABLED after custody retirement."
+expected = "Merged human funding and payments use live ledger and payment constructs; 0x1013 remains only as a retired refusal surface."
+proposal = "Replace custody, exit and claims bindings in services/platform/hosted/human/material.py with the merged 0x101A ledger and 0x101B payment flows agreed with domain 6, proving actual funded owner payments."
+owner_domain = 8
+interface = "6.pc-0x1013-deposit"
+
+[finding.owner-custody-bootstrap]
+file = "services/platform/hosted/human/owner_native.py"
+line = 339
+class = "wiring-gap"
+severity = "high"
+observed = "provision requires custody-credit.bin with LXDC3 framing before identity provisioning and executes a legacy module 8 credit; the custody producer is removed and the configured transport targets retired layerxd LNI."
+expected = "Requirement 8220 removes custody deposits; owner funding must use live merged ledger state and authenticated current transaction evidence."
+proposal = "Migrate services/platform/hosted/human/owner_native.py to actual merged owner registration and ledger funding, preserving identity, recovery and amount bindings and proving successful bootstrap followed by restart."
+owner_domain = 8
+
+[finding.native-manifest-retired-input]
+file = "services/platform/hosted/human/native_manifest.py"
+line = 16
+class = "retired-reference"
+severity = "medium"
+observed = "The manifest writes /run/layerx/node/layerxd.lni.sock and requires custody-credit.bin in both seed and KMS modes, propagating a retired transport and removed input."
+expected = "Provisioning manifests must use the merged node and require only artifacts emitted by the current owner producer."
+proposal = "Migrate services/platform/hosted/human/native_manifest.py with the owner flow to current transport and funding evidence, preserving private mounts, recovery policy and unchanged-runtime checks."
+owner_domain = 8
+
+[finding.provision-movement-source]
+file = "services/platform/hosted/human/provision.py"
+line = 891
+class = "retired-reference"
+severity = "medium"
+observed = "movement_source and assemble require CUSTODY_REFERENCE and PAXEER_CHECKPOINT_AUTHORITY from layerx-guarantor-checkpoint-authority after removal of custody owner production and the movement owner-policy block."
+expected = "Requirements 8220 and 8221 remove custody deposits and movement policy; merged finality is block commit rather than a separate guarantor checkpoint authority."
+proposal = "Remove the retired movement-source contract in services/platform/hosted/human/provision.py and replace needed funding evidence with live ledger receipts, coordinating manifest and retained bundle consumers on one schema."
+owner_domain = 8
+
+[finding.provision-retired-daemon]
+file = "services/platform/hosted/human/provision.sh"
+line = 189
+class = "retired-reference"
+severity = "medium"
+observed = "Owner provisioning requires the guarantor checkpoint Secret, inspects and execs a layerxd container, edits guarantor identity files and invokes layerxctl on layerxd.lni.sock at lines 324-358."
+expected = "The kernel runs inside paxd; there is no separate layerxd or guarantor checkpoint finality service to bootstrap."
+proposal = "Replace these services/platform/hosted/human/provision.sh stages with merged node identity registration, recovery enrollment and ledger funding; persist transaction references for resume instead of editing daemon genesis files."
+owner_domain = 8
+
+[finding.history-finality-material]
+file = "services/platform/hosted/human/history_material.py"
+line = 27
+class = "retired-reference"
+severity = "medium"
+observed = "When genesis-handover-trust.lxt exists, produce requires PAXEER_CONFIRMATIONS, checkpoint_registry and guarantor_bond, then publishes handover-finality.conf for separate checkpoint finality."
+expected = "Retained genesis artifacts must not reactivate retired guarantor bond and checkpoint dependencies; merged finality is block commitment."
+proposal = "Retire the obsolete transport in services/platform/hosted/human/history_material.py and publish independently pinned chain receipt evidence where required; handle retained pre-merge artifacts as an explicit migration case."
+owner_domain = 8
+
+[finding.material-shell-trust-history]
+file = "services/platform/hosted/human/material.sh"
+line = 24
+class = "retired-reference"
+severity = "medium"
+observed = "human_secrets_generate unconditionally copies legacy node trust-history into agent and security material; human_policy_publish invokes history_material.py for handover finality configuration before assembly."
+expected = "Current human trust inputs must bind merged receipt keys and chain commitment rather than require separate daemon history and handover finality."
+proposal = "Update services/platform/hosted/human/material.sh and its consumers to distribute current trust inputs and remove legacy history dependencies, preserving retained secrets and explicit recovery validation."
+owner_domain = 8
+
+[finding.owner-kms-prepare-bounds]
+file = "services/platform/hosted/human/owner_kms.py"
+line = 31
+class = "runtime-risk"
+severity = "medium"
+observed = "KMS owner preparation calls subprocess.run with capture_output=True and no timeout, so a stuck executable blocks provisioning and unlimited stdout or stderr accumulates in memory."
+expected = "Owner bootstrap must enforce explicit deadlines and output bounds while preserving generated key custody and restartable identity."
+proposal = "Add a deadline and bounded child output handling in services/platform/hosted/human/owner_kms.py, map expiry to a clear refusal and preserve retained material; exercise a stalled real child alongside the actual KMS success path."
+owner_domain = 8
+
+[finding.material-test-retired-node]
+file = "services/platform/hosted/human/test_material.py"
+line = 384
+class = "test-gap"
+severity = "medium"
+observed = "The bootstrap test requires layerxd in the pod and movement tests assert custody and checkpoint registry policy fields that the merged owner flow retires."
+expected = "Requirement 22015 requires the current deployment container set, and producer-path qualification must not preserve obsolete architecture."
+proposal = "Update services/platform/hosted/human/test_material.py to assert actual merged deployment and producer policy schemas while retaining malformed input, private file, TLS and retained-state refusals."
+owner_domain = 8
+
+[finding.owner-test-current-success]
+file = "services/platform/hosted/human/test_owner_native.py"
+line = 46
+class = "test-gap"
+severity = "medium"
+observed = "Tests configure layerxd.lni.sock and legacy kernel receipt helpers, covering custody-credit absence without a successful current merged owner bootstrap and restart through the actual consumer."
+expected = "Owner funding and recovery must be proven using current producer, transport and consumer with persisted identity across restart."
+proposal = "Migrate services/platform/hosted/human/test_owner_native.py with the merged owner flow; prove actual successful funding and resumed identity, retaining missing-evidence and wrong-identity refusals."
+owner_domain = 8
+
+[finding.web-explorer-relay]
+file = "services/platform/hosted/human/web-deployment.yaml"
+line = 33
+class = "retired-reference"
+severity = "medium"
+observed = "The web pod configures program API, bearer and naming material from layerx-explorer-index and starts an explorer-relay to that retired separate index endpoint."
+expected = "Merged explorer integration must use current chain and hosted explorer interfaces without requiring the retired explorer-index configuration."
+proposal = "Migrate services/platform/hosted/human/web-deployment.yaml to current explorer APIs and authentication with domains 10 and 14; update Secrets, relay and policies together and prove a deployed program read."
+owner_domain = 8
+
+[finding.human-doc-custody]
+file = "services/platform/hosted/human/README.md"
+line = 39
+class = "doc-drift"
+severity = "medium"
+observed = "The guide requires movement checkpoint timing keys, custody references and guarantor authority and describes vault, claims and exit contracts as current assembly inputs."
+expected = "Requirements 8220 and 8221 remove custody provisioning and the movement policy block; finality comes from merged chain commitment."
+proposal = "Rewrite services/platform/hosted/human/README.md for actual merged owner registration, ledger funding, pinned receipts and retained recovery, listing only artifacts emitted and accepted by current consumers."
+owner_domain = 8
+
+[finding.root-doc-two-domains]
+file = "README.md"
+line = 49
+class = "doc-drift"
+severity = "medium"
+observed = "The architecture describes a separate layerxd kernel with checkpoints settled on Paxeer and diagrams that daemon as a running service."
+expected = "Brief facts 1 and 2 define one integrated paxd execution domain and block commitment as finality."
+proposal = "Rewrite README.md architecture and diagrams for integrated paxd, chain 125, current constructs and root JSON-RPC, identifying custody and checkpoint executors as retired refusal surfaces."
+owner_domain = 17
+
+[finding.monorepo-doc-boundaries]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The guide presents layerxd as a kernel daemon and custody and checkpoint settlement as trust boundaries between separately running execution domains."
+expected = "The merged repository serves one execution domain inside paxd, and tenant domains are database namespaces rather than separate kernel infrastructure."
+proposal = "Update docs/MONOREPO.md inventory and trust boundaries for the live merged node, hosted services and tenant namespaces; remove operational directions for retired daemons and settlement."
+owner_domain = 17
+
+[finding.overview-zh-cn]
+file = "docs/site/docs/overview/i18n/zh-cn.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview describes internal LayerX execution followed by periodic checkpoint settlement on Paxeer and preserves the separate pre-merge kernel component layout."
+expected = "Every language overview must describe integrated paxd, committed-block finality and the distinction between hosted gateway methods and root node RPC."
+proposal = "Rewrite docs/site/docs/overview/i18n/zh-cn.md architecture, component paths and examples for the merged network and remove separate checkpoint settlement instructions, synchronizing endpoint guidance with current source."
+owner_domain = 17
+
+[finding.overview-ru]
+file = "docs/site/docs/overview/i18n/ru.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview describes internal LayerX execution followed by periodic checkpoint settlement on Paxeer and preserves the separate pre-merge kernel component layout."
+expected = "Every language overview must describe integrated paxd, committed-block finality and the distinction between hosted gateway methods and root node RPC."
+proposal = "Rewrite docs/site/docs/overview/i18n/ru.md architecture, component paths and examples for the merged network and remove separate checkpoint settlement instructions, synchronizing endpoint guidance with current source."
+owner_domain = 17
+
+[finding.overview-es]
+file = "docs/site/docs/overview/i18n/es.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview describes internal LayerX execution followed by periodic checkpoint settlement on Paxeer and preserves the separate pre-merge kernel component layout."
+expected = "Every language overview must describe integrated paxd, committed-block finality and the distinction between hosted gateway methods and root node RPC."
+proposal = "Rewrite docs/site/docs/overview/i18n/es.md architecture, component paths and examples for the merged network and remove separate checkpoint settlement instructions, synchronizing endpoint guidance with current source."
+owner_domain = 17
+
+[finding.overview-pt-br]
+file = "docs/site/docs/overview/i18n/pt-br.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview describes internal LayerX execution followed by periodic checkpoint settlement on Paxeer and preserves the separate pre-merge kernel component layout."
+expected = "Every language overview must describe integrated paxd, committed-block finality and the distinction between hosted gateway methods and root node RPC."
+proposal = "Rewrite docs/site/docs/overview/i18n/pt-br.md architecture, component paths and examples for the merged network and remove separate checkpoint settlement instructions, synchronizing endpoint guidance with current source."
+owner_domain = 17
+
+[finding.overview-ja]
+file = "docs/site/docs/overview/i18n/ja.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview describes internal LayerX execution followed by periodic checkpoint settlement on Paxeer and preserves the separate pre-merge kernel component layout."
+expected = "Every language overview must describe integrated paxd, committed-block finality and the distinction between hosted gateway methods and root node RPC."
+proposal = "Rewrite docs/site/docs/overview/i18n/ja.md architecture, component paths and examples for the merged network and remove separate checkpoint settlement instructions, synchronizing endpoint guidance with current source."
+owner_domain = 17
+
+[finding.overview-de]
+file = "docs/site/docs/overview/i18n/de.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview describes internal LayerX execution followed by periodic checkpoint settlement on Paxeer and preserves the separate pre-merge kernel component layout."
+expected = "Every language overview must describe integrated paxd, committed-block finality and the distinction between hosted gateway methods and root node RPC."
+proposal = "Rewrite docs/site/docs/overview/i18n/de.md architecture, component paths and examples for the merged network and remove separate checkpoint settlement instructions, synchronizing endpoint guidance with current source."
+owner_domain = 17
+
+[finding.overview-fr]
+file = "docs/site/docs/overview/i18n/fr.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview describes internal LayerX execution followed by periodic checkpoint settlement on Paxeer and preserves the separate pre-merge kernel component layout."
+expected = "Every language overview must describe integrated paxd, committed-block finality and the distinction between hosted gateway methods and root node RPC."
+proposal = "Rewrite docs/site/docs/overview/i18n/fr.md architecture, component paths and examples for the merged network and remove separate checkpoint settlement instructions, synchronizing endpoint guidance with current source."
+owner_domain = 17
+
+[finding.portuguese-readme]
+file = "docs/readme/README.pt-BR.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The Portuguese README names two domains paxd and layerxd, settlement through 0x1014, and a running daemon sequencer and guarantors in its diagram."
+expected = "The merged network has one paxd execution domain with integrated kernel and committed-block finality; retired custody and checkpoint executors refuse."
+proposal = "Update docs/readme/README.pt-BR.md prose, inventory and diagram together for the merged network, preserving accurate chain identity and separating hosted services from node namespaces."
+owner_domain = 17
+
+[finding.programs-doc-runtime]
+file = "docs/site/docs/programs/index.md"
+line = 113
+class = "doc-drift"
+severity = "medium"
+observed = "The guide rejects guest ABI above 2, advertises /v1/programs call and simulate at line 127, cites cmd/layerxd/lxp_daemon_lni.c and instructs lx_sendActivity submission."
+expected = "Current clients use supported named ABIs, 0x101D EVM calls and EIP-1559 transactions with sequencer receipt verification at current rungs."
+proposal = "Rewrite docs/site/docs/programs/index.md ABI, registration, simulation and deployment examples against current 0x101D interfaces and full payload limits; replace retired REST and daemon instructions with verified transaction examples."
+owner_domain = 13
+
+[finding.clients-doc-router]
+file = "spec/layerx-merge/contracts/clients.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The current operations rule calls px_* joined reads router methods although the cited implementation is the hosted gateway, presenting a retired router as active architecture."
+expected = "Brief facts 2 and 3 place px_* at the hosted gateway and state there is no router or unified node /rpc endpoint."
+proposal = "Amend spec/layerx-merge/contracts/clients.md operations prose to name the hosted gateway and its OpenRPC contract, distinguishing historical pinned tables from current node root guidance."
+owner_domain = 8
+
+[finding.examples-contract-resolve]
+file = "spec/layerx-merge/contracts/platform-examples.md"
+line = 90
+class = "doc-drift"
+severity = "medium"
+observed = "The export table declares SequencerReceiptClient.resolve(transactionHash) as planned, but the implemented runtime resolves from signed raw transaction bytes and derives the transaction hash."
+expected = "The active examples contract must state the actual input encoding and raw transaction binding, distinguishing historical planned signatures from current APIs."
+proposal = "Amend spec/layerx-merge/contracts/platform-examples.md to name rawTransaction input and current implementation location, with a real pinned-key receipt round trip and an explicit historical note for the old signature."
+owner_domain = 8
+
+[doc.01]
+path = "README.md"
+status = "stale"
+notes = "Complete page read; the finding naming this page identifies stale architecture, endpoint, ABI, transport or provisioning guidance and its rewrite proposal."
+
+[doc.02]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "Complete page read; the finding naming this page identifies stale architecture, endpoint, ABI, transport or provisioning guidance and its rewrite proposal."
+
+[doc.03]
+path = "docs/site/docs/overview/i18n/zh-cn.md"
+status = "stale"
+notes = "Complete page read; the finding naming this page identifies stale architecture, endpoint, ABI, transport or provisioning guidance and its rewrite proposal."
+
+[doc.04]
+path = "docs/site/docs/overview/i18n/ru.md"
+status = "stale"
+notes = "Complete page read; the finding naming this page identifies stale architecture, endpoint, ABI, transport or provisioning guidance and its rewrite proposal."
+
+[doc.05]
+path = "docs/site/docs/overview/i18n/es.md"
+status = "stale"
+notes = "Complete page read; the finding naming this page identifies stale architecture, endpoint, ABI, transport or provisioning guidance and its rewrite proposal."
+
+[doc.06]
+path = "docs/site/docs/overview/i18n/pt-br.md"
+status = "stale"
+notes = "Complete page read; the finding naming this page identifies stale architecture, endpoint, ABI, transport or provisioning guidance and its rewrite proposal."
+
+[doc.07]
+path = "docs/site/docs/overview/i18n/ja.md"
+status = "stale"
+notes = "Complete page read; the finding naming this page identifies stale architecture, endpoint, ABI, transport or provisioning guidance and its rewrite proposal."
+
+[doc.08]
+path = "docs/site/docs/overview/i18n/de.md"
+status = "stale"
+notes = "Complete page read; the finding naming this page identifies stale architecture, endpoint, ABI, transport or provisioning guidance and its rewrite proposal."
+
+[doc.09]
+path = "docs/site/docs/overview/i18n/fr.md"
+status = "stale"
+notes = "Complete page read; the finding naming this page identifies stale architecture, endpoint, ABI, transport or provisioning guidance and its rewrite proposal."
+
+[doc.10]
+path = "docs/site/docs/agents/sdks.md"
+status = "accurate"
+notes = "Complete page read; supported SDK paths, local receipt verification and conformance guidance agree with the merged SDK surface; no SDK gate execution is claimed."
+
+[doc.11]
+path = "docs/site/docs/programs/index.md"
+status = "stale"
+notes = "Complete page read; the finding naming this page identifies stale architecture, endpoint, ABI, transport or provisioning guidance and its rewrite proposal."
+
+[doc.12]
+path = "docs/readme/README.pt-BR.md"
+status = "stale"
+notes = "Complete page read; the finding naming this page identifies stale architecture, endpoint, ABI, transport or provisioning guidance and its rewrite proposal."
+
+[doc.13]
+path = "services/platform/hosted/human/README.md"
+status = "stale"
+notes = "Complete page read; the finding naming this page identifies stale architecture, endpoint, ABI, transport or provisioning guidance and its rewrite proposal."
+
+[doc.14]
+path = "spec/layerx-merge/contracts/clients.md"
+status = "stale"
+notes = "Operations and receipt/subscription sections used by this slice read; line 18 incorrectly names a router. Historical pinned tables are not treated as current runtime proof."
+
+[doc.15]
+path = "spec/layerx-merge/contracts/platform-examples.md"
+status = "stale"
+notes = "Complete page read; the finding naming this page identifies stale architecture, endpoint, ABI, transport or provisioning guidance and its rewrite proposal."

@@ -1,0 +1,913 @@
+# Pre-upgrade audit of the source revision below; proposals repair nothing.
+# Gate evidence qualifies this record, not the proposed source changes.
+
+[audit.22.30.85]
+task = "22.30.85"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 68
+findings = 39
+docs_reviewed = 18
+upgrade_ready = false
+blocking = ["deployment-projection", "head-authority-route", "retired-anchor-finality", "mixed-height-and-sequence", "rotated-human-receipt-key", "source-route-abi-five", "source-store-abi-five", "upgrade-journal-schema", "missing-chain-rpc-deployment", "budget-gateway-wiring"]
+
+[file.01]
+path = "sdk/std/codec.go"
+lines = 23
+verdict = "issues"
+note = "Full registration calls reviewed; vesting comment is inaccurate as recorded in sdk-codec-comment."
+
+[file.02]
+path = "sdk/std/doc.go"
+lines = 12
+verdict = "clean"
+note = "Complete package documentation accurately describes application-facing Cosmos SDK standard definitions."
+
+[file.03]
+path = "sdk/std/time.go"
+lines = 15
+verdict = "clean"
+note = "Now/Canonical normalize UTC and strip monotonic components; no retired interface or consensus arithmetic is introduced."
+
+[file.04]
+path = "services/platform/hosted/ai-evaluator/Cargo.toml"
+lines = 24
+verdict = "clean"
+note = "Binary target and workspace dependencies match the evaluator entry point and actual AI-market codecs."
+
+[file.05]
+path = "services/platform/hosted/ai-evaluator/src/main.rs"
+lines = 1328
+verdict = "clean"
+note = "Complete lifecycle reviewed: configured chain/program identity, ABI 5, signed commit/reveal, bounded responses, durable assessments, restart reconciliation and readiness/metrics use current AI-market operations."
+
+[file.06]
+path = "services/platform/hosted/ai-evaluator/tests/epoch.rs"
+lines = 1327
+verdict = "clean"
+note = "Full epoch suite reviewed for admission, commit/reveal windows, retry/restart, aggregation/finalization and malformed outcomes; no execution is claimed by this audit."
+
+[file.07]
+path = "services/platform/hosted/authority/Cargo.toml"
+lines = 37
+verdict = "clean"
+note = "Authority targets and receipt/identity/TLS/proof dependencies match imports; removed admission modules are not reintroduced."
+
+[file.08]
+path = "services/platform/hosted/authority/README.md"
+lines = 209
+verdict = "issues"
+note = "Full source/test/configuration guide reviewed; LNI and removed test claims have a documentation finding."
+
+[file.09]
+path = "services/platform/hosted/authority/src/chain_receipt.rs"
+lines = 293
+verdict = "clean"
+note = "Complete bounded pax_sequencerReceipt client compared with rpc/sequencer_receipt.go fields: null/error, receipt hex and applicable pinned-key acceptance agree; unknown keys and malformed responses fail closed."
+
+[file.10]
+path = "services/platform/hosted/authority/src/human.rs"
+lines = 1213
+verdict = "issues"
+note = "Complete routes, tenant/principal policy binding and evidence retention reviewed; rotated key rejection and interrupted staging recovery have findings."
+
+[file.11]
+path = "services/platform/hosted/authority/src/human/budget_state.rs"
+lines = 368
+verdict = "issues"
+note = "Full pinned-block budget session, account/balance joins and proof export reviewed; sharing node and gateway endpoint is a wiring blocker."
+
+[file.12]
+path = "services/platform/hosted/authority/src/human/budget_state/record.rs"
+lines = 235
+verdict = "clean"
+note = "Full budget decoder reviewed for exact ABI widths, PAY owner/account/asset bindings, bounded amounts and remaining-state interpretation."
+
+[file.13]
+path = "services/platform/hosted/authority/src/human/dynamic.rs"
+lines = 611
+verdict = "issues"
+note = "Full subject routes and sponsored registration validation reviewed; mixed committed-height/receipt-sequence and digest domains have a blocker."
+
+[file.14]
+path = "services/platform/hosted/authority/src/human/dynamic/tests.rs"
+lines = 79
+verdict = "clean"
+note = "Full tests reviewed: genuine sponsored signature byte/truncation tamper checks, scoped query coordinates and unknown artifact refusal agree with local contracts."
+
+[file.15]
+path = "services/platform/hosted/authority/src/human/session_membership.rs"
+lines = 534
+verdict = "clean"
+note = "Full membership reconstruction reviewed for principal/child/root bindings and authorized lifecycle changes; no independent retired transport is introduced."
+
+[file.16]
+path = "services/platform/hosted/authority/src/lib.rs"
+lines = 715
+verdict = "clean"
+note = "Full authorized batch, receipt and replica decoders compared with producer fields and canonical wire: signature, inclusion and typed refusals are preserved."
+
+[file.17]
+path = "services/platform/hosted/authority/src/main.rs"
+lines = 1516
+verdict = "issues"
+note = "Full configuration, TLS, authenticated dispatch, lookup and readiness reviewed; human finality still calls the retired anchor."
+
+[file.18]
+path = "services/platform/hosted/authority/src/native_state.rs"
+lines = 123
+verdict = "clean"
+note = "Full native identity state decoder validates version/kind, lengths, account/alias bindings and effect selection before exposing state."
+
+[file.19]
+path = "services/platform/hosted/authority/src/protected.rs"
+lines = 49
+verdict = "clean"
+note = "Full reader checks no-follow open, ownership/mode, regular files and size limits before policy/secret decoding."
+
+[file.20]
+path = "services/platform/hosted/authority/src/trust.rs"
+lines = 118
+verdict = "clean"
+note = "Full snapshot, replica key selection, SHA256 key identity and header authorization reviewed; singleton restriction belongs to the human consumer finding."
+
+[file.21]
+path = "services/platform/hosted/authority/tests/budget_proof_exports.rs"
+lines = 496
+verdict = "issues"
+note = "Full selector/finality/tamper and committed replay tests reviewed; optional real corpus coverage is explicitly recorded."
+
+[file.22]
+path = "services/platform/hosted/authority/tests/chain_receipts.rs"
+lines = 769
+verdict = "clean"
+note = "Full receipt transport/refusal, pinned list and socket-free startup tests reviewed; these do not repair the human consumer restriction."
+
+[file.23]
+path = "services/platform/hosted/authority/tests/human_tls.rs"
+lines = 1102
+verdict = "issues"
+note = "Full RemoteHumanAuthority TLS suite reviewed; manufactured retired anchor replies and optional budget corpus paths have findings."
+
+[file.24]
+path = "services/platform/hosted/authority/tests/maintenance_identity.rs"
+lines = 318
+verdict = "clean"
+note = "Full signed-source maintenance identity and subject/account lifecycle/tamper tests reviewed."
+
+[file.25]
+path = "services/platform/hosted/authority/tests/retired_client_modules.rs"
+lines = 79
+verdict = "issues"
+note = "Full import/source guard reviewed; it incorrectly requires retired anchor methods as current interfaces."
+
+[file.26]
+path = "services/platform/hosted/authority/tests/retired_client_modules_w2.rs"
+lines = 29
+verdict = "clean"
+note = "Full second-wave scan reviewed; removed admission/client modules remain forbidden rather than restored."
+
+[file.27]
+path = "services/platform/hosted/authority/tests/support/human_unit.rs"
+lines = 243
+verdict = "clean"
+note = "Complete shared support reviewed: canonical activity/receipt material and principal fixtures support local assertions, not live chain qualification."
+
+[file.28]
+path = "services/platform/hosted/authority/tests/support/lifecycle_dispatch.rs"
+lines = 267
+verdict = "issues"
+note = "Full dispatch/receipt tests reviewed; budget finality ABI assertion retains the retired anchor assumption."
+
+[file.29]
+path = "services/platform/hosted/authority/tests/support/native_module_outcomes.rs"
+lines = 282
+verdict = "clean"
+note = "Full native dispatch outcome support reviewed for operation-specific authorized receipt interpretation."
+
+[file.30]
+path = "services/platform/hosted/registry/Cargo.toml"
+lines = 45
+verdict = "clean"
+note = "Registry/helper targets and Programs, TLS, token/isolation dependencies match imports; no protocol-adapter dependency is restored."
+
+[file.31]
+path = "services/platform/hosted/registry/README.md"
+lines = 114
+verdict = "clean"
+note = "Full build boundary and readiness prerequisites match delegated controls and immutable pin implementation."
+
+[file.32]
+path = "services/platform/hosted/registry/builder-environment/build-env.sh"
+lines = 63
+verdict = "clean"
+note = "Full maintained script reviewed: committed archive inputs, checksum vendor copy, pinned recipe, image export and environment digest provide explicit provenance."
+
+[file.33]
+path = "services/platform/hosted/registry/builder-environment/cargo-config.toml"
+lines = 11
+verdict = "clean"
+note = "Full configuration uses vendored crates, offline networking and the pinned compiler wrapper."
+
+[file.34]
+path = "services/platform/hosted/registry/builder-environment/digest.py"
+lines = 31
+verdict = "clean"
+note = "Full digest encoding compared with Rust builder: sorted components, mode/type/length and file bytes agree with bounded environment policy."
+
+[file.35]
+path = "services/platform/hosted/registry/builder-environment/flatten.py"
+lines = 149
+verdict = "clean"
+note = "Full rootfs transformation reviewed for target resolution, refusal of nonregular entries and deterministic symlink materialization before hashing."
+
+[file.36]
+path = "services/platform/hosted/registry/builder-environment/install-rust.sh"
+lines = 19
+verdict = "clean"
+note = "Full installer checks allowed HTTPS origins and locked SHA256 inputs before pinned toolchain/wasm target installation."
+
+[file.37]
+path = "services/platform/hosted/registry/builder-environment/ldscripts.py"
+lines = 32
+verdict = "clean"
+note = "Full linker transformation reviewed for canonical rootfs references in the pinned offline environment."
+
+[file.38]
+path = "services/platform/hosted/registry/builder-environment/package.json"
+lines = 10
+verdict = "clean"
+note = "Full maintained manifest pins AssemblyScript, Binaryen and long dependencies for the source-bound builder environment."
+
+[file.39]
+path = "services/platform/hosted/registry/builder-environment/replay.sh"
+lines = 16
+verdict = "clean"
+note = "Full replay launcher reviewed: namespace/network isolation, explicit environment, read-only root and expected artifact check match build plan use."
+
+[file.40]
+path = "services/platform/hosted/registry/builder-environment/verify-vendor.py"
+lines = 40
+verdict = "clean"
+note = "Full verifier checks canonical checksum paths, file hashes and absence of symlinks/special files before copying vendor sources."
+
+[file.41]
+path = "services/platform/hosted/registry/deployment.yaml"
+lines = 301
+verdict = "issues"
+note = "Full workload, volumes, services and policies reviewed; missing mandatory chain endpoint and retired explorer/router lifecycle have findings."
+
+[file.42]
+path = "services/platform/hosted/registry/journal-pvc.yaml"
+lines = 6
+verdict = "clean"
+note = "Full PVC requests persistent ReadWriteOnce journal storage; it does not substitute ephemeral container state."
+
+[file.43]
+path = "services/platform/hosted/registry/node-provision-build-boundary.sh"
+lines = 76
+verdict = "clean"
+note = "Full provisioner reviewed for fixed quota slots, persistent images, filesystem/ownership checks and systemd-owned node mounts."
+
+[file.44]
+path = "services/platform/hosted/registry/src/auth.rs"
+lines = 86
+verdict = "clean"
+note = "Full authority token handling reviewed for bounded validation, zeroization, redacted Debug and constant-time bearer comparison."
+
+[file.45]
+path = "services/platform/hosted/registry/src/bin/layerx-cgroup-exec.rs"
+lines = 292
+verdict = "clean"
+note = "Full helper reviewed for stopped attachment, controller limits, deadlines, descendant cleanup and refusal without delegation."
+
+[file.46]
+path = "services/platform/hosted/registry/src/builder.rs"
+lines = 982
+verdict = "clean"
+note = "Full builder reviewed: archive/workspace canonicalization, immutable environment hashes, open-inode executables, dropped identity, cgroup limits and bounded artifacts fail closed."
+
+[file.47]
+path = "services/platform/hosted/registry/src/deployment.rs"
+lines = 9
+verdict = "clean"
+note = "Full helper hashes a ChainHeader already authenticated by VerifiedDeploymentEvidence; no untrusted direct parse is exposed."
+
+[file.48]
+path = "services/platform/hosted/registry/src/event_producer.rs"
+lines = 330
+verdict = "clean"
+note = "Full event producer reviewed for principal binding, TLS/client credentials, bounded work, retry accounting and versioned registry observations to the real internal observe consumer."
+
+[file.49]
+path = "services/platform/hosted/registry/src/head_attestation.rs"
+lines = 62
+verdict = "clean"
+note = "Full proof decoder checks commitment/transaction hex, positive total/index and bounded aunts; absent authority producer is recorded at the node-state consumer."
+
+[file.50]
+path = "services/platform/hosted/registry/src/http.rs"
+lines = 207
+verdict = "clean"
+note = "Full framing reviewed for request/header/body bounds, content-length ambiguity, method/path handling and response length before authenticated dispatch."
+
+[file.51]
+path = "services/platform/hosted/registry/src/journal.rs"
+lines = 1183
+verdict = "issues"
+note = "Full journal reviewed for atomic sealed units, quarantine reports, canonical export and persisted trust proofs; valid upgrade records fail the consumer schema."
+
+[file.52]
+path = "services/platform/hosted/registry/src/lib.rs"
+lines = 109
+verdict = "issues"
+note = "Full exports/configuration reviewed; unused deployment_lni_socket remains an obsolete public setting."
+
+[file.53]
+path = "services/platform/hosted/registry/src/main.rs"
+lines = 1667
+verdict = "clean"
+note = "Full startup/delegation/privilege drop, monitoring, bounded workers, TLS and health reviewed; required chain endpoint is omitted by the deployment."
+
+[file.54]
+path = "services/platform/hosted/registry/src/mirror.rs"
+lines = 162
+verdict = "issues"
+note = "Full mirror reviewed; mutable separate archive/plan/URI replacement can invalidate durable verified state."
+
+[file.55]
+path = "services/platform/hosted/registry/src/node_state.rs"
+lines = 817
+verdict = "issues"
+note = "Full TLS, persisted trust, freshness and current/historical proof consumers reviewed; configured authority head route is absent."
+
+[file.56]
+path = "services/platform/hosted/registry/src/program_state.rs"
+lines = 260
+verdict = "clean"
+note = "Full state journal reviewed for committed height/hash cursors, source integrity, durable replacement and stale/conflicting observation refusal."
+
+[file.57]
+path = "services/platform/hosted/registry/src/programs_chain.rs"
+lines = 357
+verdict = "clean"
+note = "Full client reviewed for receipt/event identity, block-hash-pinned getProgram, ABI widths, getStateHead byte hash, TLS and deadlines; missing projection is recorded at its Registrar consumer."
+
+[file.58]
+path = "services/platform/hosted/registry/src/routes.rs"
+lines = 2056
+verdict = "issues"
+note = "Full route, source and publication state machines reviewed; accepted deployment projection, ABI 5 and mismatch persistence defects have findings."
+
+[file.59]
+path = "services/platform/hosted/registry/src/verified.rs"
+lines = 1089
+verdict = "issues"
+note = "Full source, lease, idempotency and recovery stores reviewed; provenance codec/store wrongly excludes admitted ABI 5."
+
+[file.60]
+path = "services/platform/hosted/registry/tests/journal.rs"
+lines = 839
+verdict = "issues"
+note = "Full journal ordering, atomic unit, crash/restart and quarantine suite reviewed; valid upgrade quarantine is asserted as expected behavior."
+
+[file.61]
+path = "services/platform/hosted/registry/tests/journal_chain_trust.rs"
+lines = 263
+verdict = "clean"
+note = "Full chain journal tests verify protected persisted trust roots and reject wrong trust or tampered proofs before durable storage."
+
+[file.62]
+path = "services/platform/hosted/registry/tests/producer_tls.rs"
+lines = 608
+verdict = "clean"
+note = "Full actual registry event/identity/webhook TLS suite reviewed for source publication, authenticated bindings and malformed event refusal."
+
+[file.63]
+path = "services/platform/hosted/registry/tests/program_state_eth_call.rs"
+lines = 164
+verdict = "issues"
+note = "Full suite reviewed; constructed /rpc exchanges fail to prove the finished root-node producer path."
+
+[file.64]
+path = "services/platform/hosted/registry/tests/programs_chain.rs"
+lines = 548
+verdict = "issues"
+note = "Full transport/deployment/head/refusal/reopen tests reviewed; router fixtures and journal-only service-startup claim have findings."
+
+[file.65]
+path = "services/platform/hosted/registry/tests/readiness.py"
+lines = 175
+verdict = "clean"
+note = "Complete real-service driver requires binary, delegated quota/cgroups, rootfs/TLS and actual build inputs; probes overlap build work and test mutation refusal. No execution claimed."
+
+[file.66]
+path = "services/platform/hosted/registry/tests/retired_client_modules.rs"
+lines = 58
+verdict = "clean"
+note = "Full source guard checks maintained imports and absence of retired client modules without restoring their producers."
+
+[file.67]
+path = "services/platform/hosted/registry/tests/retired_client_modules_w2.rs"
+lines = 36
+verdict = "clean"
+note = "Full second-wave guard covers declared removed client module families and preserves their absence."
+
+[file.68]
+path = "services/platform/hosted/registry/tests/support/producer_redis.rs"
+lines = 154
+verdict = "clean"
+note = "Full event Redis support reviewed for observation delivery, duplicate behavior and explicit child cleanup; it is not chain evidence."
+
+[finding.deployment-projection]
+file = "services/platform/hosted/registry/src/routes.rs"
+line = 1366
+class = "wiring-gap"
+severity = "high"
+observed = "POST /__registry/deployments returns 200 after ChainDeployment::journal writes chain-deployments/<transaction>.json. Registrar::rebuild reads only FileDeploymentJournal::load().units, whose root scan accepts envelope/deployment/admission units and ignores chain-deployments and chain-proofs. Accepted chain deployments never enter list, detail or source-verification projections, including after restart."
+expected = "Requirements 8115.1, 8116.1 and 21003.1 require accepted committed Programs deployments to become usable durable registry facts through the actual service."
+proposal = "In services/platform/hosted/registry/src/routes.rs, programs_chain.rs and journal.rs, feed authenticated chain deployment evidence into the durable projection consumed by rebuild; prove real POST, program GET, source lookup and restart GET for a committed transaction."
+owner_domain = 8
+interface = "8.http-registry-post-registry-deployments"
+
+[finding.head-authority-route]
+file = "services/platform/hosted/registry/src/node_state.rs"
+line = 610
+class = "interface-mismatch"
+severity = "high"
+observed = "parse_head_authority GETs /v1/protocol/account-state/head?height=<observed_sequence> from the receipt authority and requires matching chain_evidence plus authority_replica_id. deployment.yaml points this at layerx-receipt-authority, whose authority/src/main.rs::route has no such endpoint and rejects the query with 404."
+expected = "The registry consumer and configured authority producer must agree on an authenticated committed proof route so current and historical registry reads succeed."
+proposal = "Establish a committed-head proof contract in services/platform/hosted/authority/src/main.rs and registry/src/node_state.rs and mount its authenticated producer, or bind the consumer to a maintained chain proof provider; prove actual TLS head retrieval and historical replay."
+owner_domain = 8
+interface = "8.env-registry-layerx-registry-receipt-authority-endpoint"
+
+[finding.retired-anchor-finality]
+file = "services/platform/hosted/authority/src/main.rs"
+line = 659
+class = "retired-reference"
+severity = "high"
+observed = "checkpoint_for calls latestFinalized() and checkpoint(uint64) on 0x1014, requires status 2 and decodes an 18-word checkpoint. Human identity, capability and key-policy evidence still uses this path. The retired component.anchor contract returns ErrModuleRetired after upgrade."
+expected = "Committed BFT blocks supply finality; human authority must bind committed height, app hash and state membership without an anchor checkpoint registration."
+proposal = "Replace checkpoint_for and its human callers in services/platform/hosted/authority/src/main.rs and src/human.rs with pinned committed-header and per-key proofs; verify human identity and capability routes against a node with anchor retirement active."
+owner_domain = 8
+interface = "8.http-authority-any-v1-agent"
+
+[finding.mixed-height-and-sequence]
+file = "services/platform/hosted/authority/src/human/dynamic.rs"
+line = 558
+class = "interface-mismatch"
+severity = "high"
+observed = "current() sets Current.head to Session.committed_height and Current.checkpoint to the EVM block hash. route() requires latest.last_sequence from a receipt batch header to equal that height and the native anchor checkpoint ID to equal that block hash. These are different coordinate and digest domains."
+expected = "Subject authority must compare committed height with committed height and bind state and receipts to one authenticated block; a receipt sequence or anchor ID cannot stand in for block identity."
+proposal = "In services/platform/hosted/authority/src/human/dynamic.rs, carry explicit committed height/hash and receipt sequence separately and authenticate their relationship; exercise multiple receipts in one block and blocks without relevant receipts."
+owner_domain = 8
+interface = "8.http-authority-any-v1-agent"
+
+[finding.receipt-staging-recovery]
+file = "services/platform/hosted/authority/src/human.rs"
+line = 376
+class = "restart-recovery"
+severity = "medium"
+observed = "Human::retain creates a fixed .receipt.pending with create_new and leaves it on interrupted write, sync or rename. Human::evidence reads every directory entry and requires an activity-ID .json filename. The leftover blocks later retention and evidence replay after restart."
+expected = "An interrupted publication must preserve already committed human evidence and permit independent subsequent receipts to be retained and read."
+proposal = "In services/platform/hosted/authority/src/human.rs, publish unique staging units and recover or quarantine incomplete units before replay; exercise interruption at write, sync, rename and directory-sync boundaries."
+owner_domain = 8
+
+[finding.rotated-human-receipt-key]
+file = "services/platform/hosted/authority/src/human.rs"
+line = 438
+class = "interface-mismatch"
+severity = "high"
+observed = "verify obtains a valid per-receipt authorization from trust::replica and the full pinned key list, then rejects it unless derived equals the single config.authorization. When human routes are enabled, by_activity calls retain and returns state_persistence_unavailable for another applicable pinned key."
+expected = "Requirements 8112.1, 89817.1 and 181427.1 permit any applicable pinned receipt key, identified by SHA256(public key), through lookup, human retention and replay."
+proposal = "In services/platform/hosted/authority/src/human.rs, retain the derived key identity and verify against the pinned list and validity range rather than the legacy singleton; prove rotated-key lookup and human evidence after restart with human configuration enabled."
+owner_domain = 8
+interface = "8.rs-authority-layerx-platform-authority-authorized-batch-by-activity"
+
+[finding.source-route-abi-five]
+file = "services/platform/hosted/registry/src/routes.rs"
+line = 1166
+class = "interface-mismatch"
+severity = "high"
+observed = "source_deployment and rebuild restrict deployment ABI to 1..=4. The evaluator declares GUEST_ABI=5; programs/sdk/rust/src/abi_policy.rs admits ABI 5 and the reproducible-build pipeline uses that admission policy. Valid ABI-5 source requests and replay are refused."
+expected = "Brief fact 6 requires host and guest ABI agreement on every registration path; VerifiedDeploymentEvidence::abi_version may return all runtime-admitted versions."
+proposal = "Use shared runtime ABI admission in services/platform/hosted/registry/src/routes.rs for live reads and replay, retaining refusal of unknown versions; prove a real ABI-5 deployment can be read, source-verified and reopened."
+owner_domain = 13
+interface = "13.rs-reg-protocol-evidence-verifieddeploymentevidence-abi-version"
+
+[finding.source-store-abi-five]
+file = "services/platform/hosted/registry/src/verified.rs"
+line = 66
+class = "interface-mismatch"
+severity = "high"
+observed = "VerifiedSourceDeployment::decode and VerifiedSourceStore::record independently enforce ABI 1..=4 despite runtime admission of ABI 5. Fixing route admission alone still leaves valid ABI-5 source results unwritable and unreadable on restart."
+expected = "Durable source verification must preserve every admitted deployment ABI through serialization and replay while rejecting unsupported ABI values."
+proposal = "Use shared ABI admission in services/platform/hosted/registry/src/verified.rs for record validation and decoding; prove ABI-5 provenance through durable publication and reopen using the actual deployment producer."
+owner_domain = 8
+interface = "13.rs-reg-protocol-evidence-verifieddeploymentevidence-abi-version"
+
+[finding.mismatch-outcome-persistence]
+file = "services/platform/hosted/registry/src/routes.rs"
+line = 1277
+class = "interface-mismatch"
+severity = "medium"
+observed = "reproduce prepares a VerifiedSource for SourceStatus::Mismatch and constructs a source_mismatch response. persist_artifact then rejects the unequal artifact/deployment hashes as deployment_changed; VerifiedSourceStore::record also refuses them. The intended terminal mismatch result cannot settle."
+expected = "The source_mismatch outcome must be distinct from deployment changes, idempotent across retries and durable without claiming mismatching source was verified."
+proposal = "Model a durable mismatch separately from verified provenance in services/platform/hosted/registry/src/routes.rs and src/verified.rs, settle the original 409 and replay it unchanged; prove genuine reproducible mismatch, retry and restart."
+owner_domain = 8
+interface = "8.err-registry-source-mismatch"
+
+[finding.mutable-source-mirror]
+file = "services/platform/hosted/registry/src/mirror.rs"
+line = 103
+class = "restart-recovery"
+severity = "medium"
+observed = "SourceMirror::publish separately replaces archive, plan and URI under a key derived only from archive bytes. Republishing the same archive with another plan or URI changes prior source identity; interruption can mix the tuple. Registrar::rebuild requires the old URI and exact plan and then fails reopening."
+expected = "Published source identity must remain stable for all completed verifications, and interrupted publication must not invalidate earlier durable registry state."
+proposal = "In services/platform/hosted/registry/src/mirror.rs, atomically commit an immutable archive/plan/URI binding, rejecting conflicts or versioning the whole binding; cover same-archive different-plan publication and each crash boundary."
+owner_domain = 8
+
+[finding.upgrade-journal-schema]
+file = "services/platform/hosted/registry/src/journal.rs"
+line = 200
+class = "interface-mismatch"
+severity = "high"
+observed = "decode_record calls DeploymentRecord::decode and validate. protocol_evidence.rs produces old_code_hash=None for version 2, but DeploymentRecord::validate requires a predecessor hash above version 1. The hosted journal quarantines valid committed upgrades, as tests/journal.rs:395-435 demonstrates with empty units and JournalUnavailable."
+expected = "Authenticated Programs upgrade evidence must round-trip through DeploymentRecord and journal replay while preserving contiguous versions and authenticated predecessor identity."
+proposal = "In programs/crates/layerx-programs-registry/src/protocol_evidence.rs and authority.rs, authenticate predecessor history or define a chain lifecycle record that proves it; update hosted replay to preserve deploy, upgrade and restart without inventing hashes."
+owner_domain = 13
+interface = "13.rs-reg-authority-deploymentrecord"
+
+[finding.missing-chain-rpc-deployment]
+file = "services/platform/hosted/registry/deployment.yaml"
+line = 59
+class = "config-drift"
+severity = "high"
+observed = "The registry env list omits LAYERX_REGISTRY_CHAIN_RPC_URL and has no envFrom. src/main.rs::config requires that variable at 419-420 and errors before serving. The shipped deployment cannot start the current binary even when listed secrets and builder configuration are available."
+expected = "The deployment must configure the required committed-chain transport with a reachable root-path endpoint and matching network egress."
+proposal = "Supply the actual chain RPC endpoint in services/platform/hosted/registry/deployment.yaml using supported TLS or loopback transport and admit its egress; start the real rendered service and exercise committed Programs reads."
+owner_domain = 8
+interface = "8.env-registry-layerx-registry-chain-rpc-url-j40"
+
+[finding.retired-explorer-topology]
+file = "services/platform/hosted/registry/deployment.yaml"
+line = 126
+class = "retired-reference"
+severity = "medium"
+observed = "The manifest launches layerx-explorer-index, waits for observed-sealed-batch/finalised-checkpoint files, supplies a :443/rpc gateway URL and names layerx-registry-lni-bridge. Its explorer CLI registry row is retired and those router/checkpoint lifecycles are absent after merge."
+expected = "The merged deployment must serve registry/explorer facts through maintained committed-chain components without retired observations or router URLs."
+proposal = "Replace the explorer sidecar and checkpoint-file startup dependency in services/platform/hosted/registry/deployment.yaml with the maintained chain read/indexer service, remove the obsolete router and bridge settings and update service/egress wiring together."
+owner_domain = 8
+interface = "10.cli-layerx-explorer-index"
+
+[finding.upgrade-test-accepts-quarantine]
+file = "services/platform/hosted/registry/tests/journal.rs"
+line = 395
+class = "test-gap"
+severity = "medium"
+observed = "chain_upgrade_records_are_quarantined_without_inventing_predecessor_hashes asserts valid version-2 evidence has no predecessor, fails validation and produces no units. Safe refusal is covered, but successful supported upgrade replay remains missing."
+expected = "A real authenticated deploy-to-upgrade history must remain readable after restart, while malformed or missing predecessor evidence remains refused."
+proposal = "After authenticating predecessor evidence in the Programs registry crate, extend services/platform/hosted/registry/tests/journal.rs with successful deploy, upgrade and reopen coverage while retaining corruption and missing-proof refusal tests."
+owner_domain = 8
+
+[finding.programs-rpc-fixture]
+file = "services/platform/hosted/registry/tests/programs_chain.rs"
+line = 63
+class = "test-gap"
+severity = "medium"
+observed = "Programs transport tests synthesize JSON-RPC replies and assert POST /rpc?construct=programs or /rpc. These are retired router paths; the real node producer does not supply these exchanges."
+expected = "Brief facts 2, 3 and 7 and requirements 21002.1/21003.1 require actual Programs production through the supported root transport into the hosted consumer."
+proposal = "Drive the actual chain Programs construct at / in services/platform/hosted/registry/tests/programs_chain.rs for deployment/head reads and rejected transactions; assert downstream registry facts and retain malformed-input refusals."
+owner_domain = 8
+
+[finding.startup-test-only-journal]
+file = "services/platform/hosted/registry/tests/programs_chain.rs"
+line = 456
+class = "test-gap"
+severity = "medium"
+observed = "registry_starts_without_an_lni_socket starts its own test executable, constructs a ChainFixture and directly opens FileDeploymentJournal. It checks saved chain-proof bytes after reopening but never starts layerx-program-registry or queries an HTTP program projection."
+expected = "Requirement 8116.1 requires the registry service to start and produce deployment/head facts without an LNI socket; journal helper success cannot establish that lifecycle."
+proposal = "In services/platform/hosted/registry/tests/programs_chain.rs, start the actual registry with delegated build configuration and no socket, POST a real committed deployment, GET its view, restart the binary and assert the same view."
+owner_domain = 8
+
+[finding.program-state-rpc-fixture]
+file = "services/platform/hosted/registry/tests/program_state_eth_call.rs"
+line = 42
+class = "test-gap"
+severity = "medium"
+observed = "registry_reads_program_state_through_eth_call constructs an endpoint ending /rpc and asserts POST /rpc HTTP/1.1; remaining responses are assembled locally. It does not run the chain getStateHead producer behind the finished node root path."
+expected = "Requirement 8114.1 requires committed height and Keccak of actual getStateHead bytes to agree through the real producer, transport and journal consumer."
+proposal = "Obtain committed getStateHead bytes from the real node at / in services/platform/hosted/registry/tests/program_state_eth_call.rs, assert stored height/hash and reopen the journal; preserve transport-failure and canonical-encoding refusals."
+owner_domain = 8
+
+[finding.human-tls-retired-anchor]
+file = "services/platform/hosted/authority/tests/human_tls.rs"
+line = 891
+class = "test-gap"
+severity = "medium"
+observed = "The native identity TLS test manufactures successful latestFinalized() and checkpoint(uint64) calls to 0x1014 and asserts authority success. A node past anchor retirement returns ErrModuleRetired, so this fixture hides the production finality dependency."
+expected = "Human authority integration must use committed block and authenticated current state from the actual upgraded node rather than handcrafted retired precompile responses."
+proposal = "Drive identity, key-policy and capability requests in services/platform/hosted/authority/tests/human_tls.rs against a node with retirement active and committed proofs; retain tamper refusals and prove TLS success without 0x1014 calls."
+owner_domain = 8
+
+[finding.human-budget-corpus-optional]
+file = "services/platform/hosted/authority/tests/human_tls.rs"
+line = 941
+class = "test-gap"
+severity = "medium"
+observed = "real_node_budget_state_and_v2_export_cross_tls_without_lni immediately returns if PAXEER_X_BUDGET_PROOF_CORPUS is absent. A passing normal run can execute no assertions on that named real-node path; configured runs replay captured exchanges rather than start its producer."
+expected = "Declared budget integration qualification must execute the real producer-to-TLS-consumer assertions and visibly require its evidence inputs."
+proposal = "Provision actual node budget state and drive TLS in services/platform/hosted/authority/tests/human_tls.rs on each declared integration run; require corpus availability for separate replay qualification and preserve all tamper assertions."
+owner_domain = 8
+
+[finding.budget-export-corpus-optional]
+file = "services/platform/hosted/authority/tests/budget_proof_exports.rs"
+line = 138
+class = "test-gap"
+severity = "medium"
+observed = "real_budget_exports_bind_each_selector_finality_and_tamper_refusals returns without assertions if PAXEER_X_BUDGET_PROOF_CORPUS is unset. Other committed-fixture tests exercise replay but do not make this real export path mandatory."
+expected = "Real export qualification must compare selector/finality bindings and execute tamper refusals; missing evidence must not silently satisfy the named path."
+proposal = "Require and produce the export corpus in the owning integration command for services/platform/hosted/authority/tests/budget_proof_exports.rs, or drive the node directly; retain committed replay tests and every refusal assertion."
+owner_domain = 8
+
+[finding.retirement-guard-requires-anchor]
+file = "services/platform/hosted/authority/tests/retired_client_modules.rs"
+line = 68
+class = "test-gap"
+severity = "medium"
+observed = "budget_reader_uses_only_node_read_interfaces requires latestFinalized() and checkpoint(uint64) source strings as current node interfaces. This guard prevents removing the retired anchor calls and may pass although current budget code no longer uses them."
+expected = "Retirement checks must enforce committed-block finality and permit removing anchor selectors; absence of old client imports alone does not establish compatibility."
+proposal = "Replace anchor-presence assertions in services/platform/hosted/authority/tests/retired_client_modules.rs with forbidden retired-call checks and supported committed-proof assertions, paired with real route coverage."
+owner_domain = 8
+
+[finding.lifecycle-anchor-abi-test]
+file = "services/platform/hosted/authority/tests/support/lifecycle_dispatch.rs"
+line = 236
+class = "test-gap"
+severity = "medium"
+observed = "budget_finality_uses_the_nodes_checkpoint_view_layout reads layerxanchor/abi.json and treats latestFinalized and checkpoint tuples as current budget finality. ABI declarations can remain while the upgraded node refuses every anchor call."
+expected = "Budget finality coverage must establish committed block identity and state membership at the plan height, not the existence of retired ABI metadata."
+proposal = "In services/platform/hosted/authority/tests/support/lifecycle_dispatch.rs, prove committed-block membership through the node and replace the current-anchor assumption; retain legacy ABI checks only as explicitly historical decoding coverage."
+owner_domain = 8
+
+[finding.obsolete-lni-config]
+file = "services/platform/hosted/registry/src/lib.rs"
+line = 46
+class = "dead-code"
+severity = "low"
+observed = "Config exports deployment_lni_socket: Option<PathBuf>, while main always sets None and deployment intake uses ProgramsChain. The public field advertises an unsupported socket setting."
+expected = "Registry public configuration should describe maintained deployment transports without an inert retired socket option."
+proposal = "Remove deployment_lni_socket from services/platform/hosted/registry/src/lib.rs and update its Config constructors and consumers; retain explicit service startup coverage without an LNI socket."
+owner_domain = 8
+
+[finding.sdk-codec-comment]
+file = "sdk/std/codec.go"
+line = 18
+class = "doc-drift"
+severity = "low"
+observed = "RegisterInterfaces documentation includes vesting, but its body registers sdk/types, sdk/types/tx and crypto only; no vesting registration is called."
+expected = "SDK registration documentation must accurately name installed interfaces so applications know their additional module obligations."
+proposal = "Correct the comment in sdk/std/codec.go to describe its actual type, transaction and crypto registrations and document separate vesting registration at its owning application boundary."
+owner_domain = 15
+interface = "15.go-std-register-interfaces-j76"
+
+[finding.budget-gateway-wiring]
+file = "services/platform/hosted/authority/src/human/budget_state.rs"
+line = 87
+class = "wiring-gap"
+severity = "high"
+observed = "Session::open constructs both SequencerEndpoint and PxEndpoint from LAYERX_AUTHORITY_CHAIN_RPC_URL, loaded as loopback chain receipt RPC. identity/balance then call px_getAccount and px_getBalances there. rpc/server.go registers px only for receiptKeysAPI, while these account methods are declared by hosted/gateway/openrpc.json."
+expected = "Authority subject/budget reads must reach the actual hosted account/balance producer and bind joins to the same committed block as direct budget reads; node receipt RPC does not supply that contract."
+proposal = "Configure an authenticated gateway client in services/platform/hosted/authority/src/main.rs and src/human/budget_state.rs, or replace joins with authenticated chain reads at the pinned height; prove actual node, gateway and authority TLS without synthesized joins."
+owner_domain = 8
+interface = "8.http-authority-any-v1-agent"
+
+[finding.network-page-two-systems]
+file = "docs/paxeer-network.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-7 present Paxeer as a separate settlement network for LayerX with custody and checkpoint registration."
+expected = "The finished product is one paxd BFT chain with an integrated kernel, chain ID 125 and finality at block commit."
+proposal = "Rewrite docs/paxeer-network.md for one chain, native funding, committed receipts and maintained Programs/gateway boundaries; remove separate settlement-network onboarding."
+owner_domain = 8
+
+[finding.monorepo-daemon-boundary]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The repository guide identifies layerxd as active at line 3 and describes an independent execution boundary at lines 68-72."
+expected = "The source guide must identify paxd as the integrated chain runtime and distinguish hosted adapters from consensus execution."
+proposal = "Update docs/MONOREPO.md lines 3 and 68-72 and its source map to current merged-node entry points, root-path RPC and maintained hosted components."
+owner_domain = 8
+
+[finding.site-index-two-domains]
+file = "docs/site/docs/index.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 11-26 divide Paxeer settlement from LayerX execution and describe periodic checkpoint registration and retired custody responsibilities."
+expected = "The landing page must introduce one committed BFT chain and current transaction/funding interfaces without a separate finality domain."
+proposal = "Rewrite docs/site/docs/index.md lines 11-26 and its Settlement table around committed-block finality, native ledger funding and chain Programs."
+owner_domain = 8
+
+[finding.unified-network-retirement]
+file = "docs/site/docs/overview/unified-network.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-17 describe two execution domains and cmd/layerxd; 50-124 describe retired custody/verify/anchor finality; 129 and 171 advertise /rpc and /rpc/schema."
+expected = "Brief facts 1-3 require one paxd chain, root-path public RPC and committed receipts with no retired custody/anchor ladder."
+proposal = "Rewrite docs/site/docs/overview/unified-network.md with supported precompiles and merged topology; replace retired funding/finality and router examples with native transfers, committed proofs and the separate hosted gateway contract."
+owner_domain = 8
+
+[finding.quickstart-router-and-anchor]
+file = "docs/site/docs/overview/quickstart.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "Line 20 advertises POST /rpc; 132 configures anchor checkpoint settlement; 167-215 publish /rpc and /rpc/ws, and later examples retain custody/router workflows."
+expected = "Current onboarding must work with root-path node RPC on chain 125, distinct hosted gateway methods, native funding and committed receipt finality."
+proposal = "Rewrite docs/site/docs/overview/quickstart.md at 20, 130-132, 167-215, 293-302, 497-518 and 596-597; replace custody/checkpoint prerequisites and qualify the revised walkthrough on the current deployment."
+owner_domain = 8
+
+[finding.payments-router-policy]
+file = "docs/site/docs/overview/payments.md"
+line = 21
+class = "doc-drift"
+severity = "medium"
+observed = "The payment example RPC_URL ends /rpc at line 21; lines 34-36 retain last_batch and checkpoint_context_digest in the old receipt policy model."
+expected = "Payment guidance must distinguish root node transport from hosted methods and describe observations/finality in committed-chain coordinates."
+proposal = "Update docs/site/docs/overview/payments.md endpoint and receipt policy examples to maintained contracts and committed-block evidence while preserving intent and funding safeguards."
+owner_domain = 8
+
+[finding.assets-lni-read-contract]
+file = "docs/site/docs/concepts/assets.md"
+line = 206
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 206-228 present LNI minor-5 and lx_* asset/balance read interfaces as current despite removal of the separate LayerX interface."
+expected = "Asset reads must use maintained bank/pointer and hosted contracts with canonical identifiers and committed state provenance."
+proposal = "Rewrite docs/site/docs/concepts/assets.md lines 198-228 to map reads to actual chain/hosted producers and committed proof binding; preserve still-valid asset encoding definitions."
+owner_domain = 8
+
+[finding.boundary-retired-relay]
+file = "docs/site/docs/concepts/paxeer-boundary.md"
+line = 119
+class = "doc-drift"
+severity = "medium"
+observed = "The page describes hosted/paxeer relay as current infrastructure; lines 119-129 deploy vault, guarantor bond, checkpoint registry, claims and emergency exit contracts."
+expected = "The eth-relay and custody/anchor suite are retired; native ledger changes and committed chain proofs replace their funding/finality roles."
+proposal = "Rewrite docs/site/docs/concepts/paxeer-boundary.md for direct current node access, remove active settlement-suite bring-up and replace it with native funding and committed proof procedures."
+owner_domain = 8
+
+[finding.checkpoints-obsolete-finality]
+file = "docs/site/docs/concepts/checkpoints.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-13 describe LayerX periodic checkpoints separately registered on Paxeer; 28-42 retain C17 guarantor production and the submitted/finalized ladder."
+expected = "BFT block commit is the availability and finality boundary without a guarantor publication or independent anchor ladder."
+proposal = "Replace docs/site/docs/concepts/checkpoints.md with committed height, header/app hash and membership proofs; archive any required legacy wire material in an explicitly historical section."
+owner_domain = 6
+
+[finding.settlement-evidence-retired-publishing]
+file = "docs/site/docs/operators/settlement-evidence.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-40 prescribe checkpoint witnesses and deposit-root publication through vault/registry contracts; later sections retain autonomous publication and checkpoint authority signatures."
+expected = "Retired custody-claims/anchor components have no active publication workflow; native committed ledger movement and supported outward bridging replace them."
+proposal = "Retire the active recipe in docs/site/docs/operators/settlement-evidence.md, document native transfers and committed evidence, and clearly archive historical witness encodings needed for old records."
+owner_domain = 6
+
+[finding.hosted-observe-producer-omitted]
+file = "docs/site/docs/operators/hosted-internal.md"
+line = 249
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 249-252 claim no hosted/human source issues POST /internal/v1/observe, but registry/src/event_producer.rs constructs and sends that route."
+expected = "Hosted event guidance must name the actual registry producer, authenticated observation transport and retry lifecycle."
+proposal = "Update docs/site/docs/operators/hosted-internal.md lines 249-252 for registry/src/event_producer.rs, its identity binding and retries; align Program facts at 289-294 with the current versioned producer."
+owner_domain = 8
+
+[finding.authority-readme-lni]
+file = "services/platform/hosted/authority/README.md"
+line = 4
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 4-7 claim receipt bytes come from LNI, line 58 documents LAYERX_AUTHORITY_LNI_SOCKET, 28-32 name removed real_node.rs and line 156 retains LNI proof guidance."
+expected = "Authority guidance must describe pax_sequencerReceipt, the pinned key list, actual tests and supported committed proof boundaries."
+proposal = "Rewrite services/platform/hosted/authority/README.md source/configuration tables to match chain_receipt.rs and main.rs, remove absent test/socket instructions and specify mandatory human integration evidence."
+owner_domain = 8
+
+[finding.missing-interface-contract-pages]
+file = "spec/layerx-merge/interfaces.kvx"
+line = 313497
+class = "doc-drift"
+severity = "medium"
+observed = "Hosted, Programs and SDK interface rows reference contracts/platform-hosted.md, contracts/programs.md and contracts/cosmos-fork.md; all three pages are absent, leaving route, error and crate/SDK contracts unresolved."
+expected = "Public interface declarations must resolve to maintained product contracts explaining transport, shape and lifecycle."
+proposal = "Restore contracts/platform-hosted.md, contracts/programs.md and contracts/cosmos-fork.md in domains 8, 13 and 15 or repoint their declarations to existing authoritative pages and regenerate spec/layerx-merge/interfaces.kvx."
+owner_domain = 8
+
+[finding.historical-verifier-signature-doc]
+file = "spec/layerx-merge/interfaces.kvx"
+line = 550225
+class = "doc-drift"
+severity = "medium"
+observed = "The verify-historical-deployment row declares only a DeploymentProof argument; the implementation and hosted consumer pass proof, current head, history and time. The declared historical call contract omits its verification context."
+expected = "The historical verifier declaration must describe actual parameters and trust/freshness semantics rather than a superseded single-argument signature."
+proposal = "Update the domain-13 declaration source and regenerate spec/layerx-merge/interfaces.kvx with the full current-head, history and time parameters and a maintained contract target."
+owner_domain = 13
+
+[doc.01]
+path = "docs/paxeer-network.md"
+status = "misleading"
+notes = "Lines 3-7 retain separate settlement-network and checkpoint guidance."
+
+[doc.02]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "Lines 3 and 68-72 retain layerxd and an independent execution boundary."
+
+[doc.03]
+path = "docs/site/docs/index.md"
+status = "misleading"
+notes = "Lines 11-26 and the Settlement table retain the previous two-domain checkpoint architecture."
+
+[doc.04]
+path = "docs/site/docs/overview/unified-network.md"
+status = "misleading"
+notes = "Rewrite lines 3-17, 50-124 and 129-171: two domains, retired precompiles and router/schema URLs."
+
+[doc.05]
+path = "docs/site/docs/overview/quickstart.md"
+status = "misleading"
+notes = "Lines 20, 130-132, 167-215, 293-302, 497-518 and 596-597 retain router or retired funding/finality instructions."
+
+[doc.06]
+path = "docs/site/docs/overview/payments.md"
+status = "stale"
+notes = "Lines 18-22 publish the retired router; 34-36 retain checkpoint policy context and later watches need current finality guidance."
+
+[doc.07]
+path = "docs/site/docs/concepts/assets.md"
+status = "stale"
+notes = "Lines 198-228 retain LNI minor-5 and lx_* read guidance; preserve accurate canonical encoding details."
+
+[doc.08]
+path = "docs/site/docs/concepts/paxeer-boundary.md"
+status = "stale"
+notes = "Lines 3-7, 13-19, 99-129 and 135-145 describe the retired relay and settlement deployment as current."
+
+[doc.09]
+path = "docs/site/docs/concepts/checkpoints.md"
+status = "misleading"
+notes = "Lines 3-13 and 28-42 retain periodic publication, guarantor production and anchor finality."
+
+[doc.10]
+path = "docs/site/docs/operators/settlement-evidence.md"
+status = "misleading"
+notes = "Lines 3-40, 84-97 and 103-105 retain retired checkpoint/deposit publication and authority lifecycle."
+
+[doc.11]
+path = "docs/site/docs/operators/hosted-internal.md"
+status = "stale"
+notes = "Lines 249-252 falsely omit the observe caller; review Program fact shape at 289-294 against current versioned registry events."
+
+[doc.12]
+path = "docs/site/docs/operators/porting.md"
+status = "accurate"
+notes = "Reviewed all reference port entry points and ABI-2 adapter contracts; the page distinguishes reference qualification from live deployment and does not claim ABI 2 is the only admitted ABI."
+
+[doc.13]
+path = "services/platform/hosted/authority/README.md"
+status = "stale"
+notes = "Lines 4-7, 28-32, 58-59 and 156 retain kernel socket, removed test and LNI proof claims."
+
+[doc.14]
+path = "services/platform/hosted/registry/README.md"
+status = "accurate"
+notes = "Complete boundary/readiness guide reviewed: cgroup delegation, quota mounts, privilege drop, immutable builder pins and actual readiness prerequisites match implementation; package wiring defects are recorded separately."
+
+[doc.15]
+path = "contracts/platform-hosted.md"
+status = "missing"
+notes = "The interface registry references this absent contract page; restore its maintained product contract or repoint and regenerate the owning registry declarations."
+
+[doc.16]
+path = "contracts/programs.md"
+status = "missing"
+notes = "The interface registry references this absent contract page; restore its maintained product contract or repoint and regenerate the owning registry declarations."
+
+[doc.17]
+path = "contracts/cosmos-fork.md"
+status = "missing"
+notes = "The interface registry references this absent contract page; restore its maintained product contract or repoint and regenerate the owning registry declarations."
+
+[doc.18]
+path = "spec/layerx-merge/interfaces.kvx"
+status = "stale"
+notes = "Reviewed package produced/consumed rows; missing contract targets and historical verifier signature drift are recorded. Retired rows remain migration obligations rather than instructions to restore deleted producers."
+

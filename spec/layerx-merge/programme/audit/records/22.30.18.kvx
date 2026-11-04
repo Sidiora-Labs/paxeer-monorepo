@@ -1,0 +1,725 @@
+[audit.22.30.18]
+task = "22.30.18"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 52
+findings = 32
+docs_reviewed = 14
+upgrade_ready = false
+blocking = ["1", "2"]
+
+[file.1]
+path = "apps/perps/package.json"
+lines = 170
+verdict = "clean"
+note = "Full manifest review: scripts, dependency declarations and workspace imports; no retired network endpoint or independent wiring defect found in this member."
+
+[file.2]
+path = "apps/perps/railway.json"
+lines = 13
+verdict = "clean"
+note = "Full Railway descriptor review: build/start selection, health probe, restart and deployment metadata; no incompatible runtime shape found."
+
+[file.3]
+path = "apps/perps/tsconfig.json"
+lines = 64
+verdict = "clean"
+note = "Full TypeScript configuration review: source includes, path aliases, strictness, module resolution and Next integration; no interface disagreement found."
+
+[file.4]
+path = "services/platform/perps-data/cmd/perps-explorer/main.go"
+lines = 118
+verdict = "clean"
+note = "Full command review: validated explorer configuration, database and metrics wiring, HTTP timeouts and shutdown. Shared config redaction defect is recorded on config.go."
+
+[file.5]
+path = "services/platform/perps-data/cmd/perps-gateway/main.go"
+lines = 124
+verdict = "clean"
+note = "Full command review: config, database, source RPC pool, gateway options, NATS, lifecycle and graceful shutdown; shared configuration findings attach to config.go."
+
+[file.6]
+path = "services/platform/perps-data/cmd/perps-indexer/main.go"
+lines = 235
+verdict = "clean"
+note = "Full command review: chain source, market refresh and fee initialization, follower, outbox publisher, health and shutdown. Recovery implementation findings attach to facts.go and replay.go."
+
+[file.7]
+path = "services/platform/perps-data/cmd/perps-loadtest/main.go"
+lines = 60
+verdict = "clean"
+note = "Full command review: configured gateway discovery, served-symbol load profile, failure propagation and report output; no standalone command mismatch found."
+
+[file.8]
+path = "services/platform/perps-data/e2e_test.go"
+lines = 1672
+verdict = "issues"
+note = "Full journey and helper review including real trade, REST, GraphQL, websocket, replay and restart flows; the missing-input skip is a finding."
+
+[file.9]
+path = "services/platform/perps-data/internal/config/config.go"
+lines = 273
+verdict = "issues"
+note = "Full configuration review: service key sets, validation and log representations; findings cover endpoint credentials, unsupported chain identity and portal transport schemes."
+
+[file.10]
+path = "services/platform/perps-data/internal/config/config_test.go"
+lines = 296
+verdict = "issues"
+note = "Full tests review: service environments, validation failures, trusted proxies and redaction; portal fixture is incompatible with the actual consumer."
+
+[file.11]
+path = "services/platform/perps-data/internal/explorer/explorer.go"
+lines = 593
+verdict = "clean"
+note = "Full explorer review: action mapping, cursor encoding, stable history ordering, amounts and optional explorer links; no retired endpoint or shape disagreement found."
+
+[file.12]
+path = "services/platform/perps-data/internal/explorer/server.go"
+lines = 349
+verdict = "clean"
+note = "Full server review: registered explorer routes, counters-based health, request validation, limits, caching, trusted proxy options and HTTP error boundaries."
+
+[file.13]
+path = "services/platform/perps-data/internal/explorer/server_test.go"
+lines = 484
+verdict = "clean"
+note = "Full test review: explorer registration, exact JSON shapes, validation, chain counters, status and cache behavior; no separate mismatch found."
+
+[file.14]
+path = "services/platform/perps-data/internal/feeds/topics.go"
+lines = 1358
+verdict = "clean"
+note = "Full provider review: market reload, held snapshots, topic selection, exact funding strings, event envelope consumption and resync lifecycle. Price disagreement originates in other readers."
+
+[file.15]
+path = "services/platform/perps-data/internal/feeds/topics_test.go"
+lines = 307
+verdict = "clean"
+note = "Full topic tests review: dynamic market refresh, metric cardinality, new-symbol subscriptions and persisted config integration; no independent mismatch found."
+
+[file.16]
+path = "services/platform/perps-data/internal/gateway/server.go"
+lines = 792
+verdict = "clean"
+note = "Full gateway review: REST and GraphQL mounting, authentication boundaries, websocket registration, consumer lifecycle, shedding, metrics, timeout and readiness paths."
+
+[file.17]
+path = "services/platform/perps-data/internal/graphql/markets_test.go"
+lines = 168
+verdict = "clean"
+note = "Full GraphQL market tests review: chain decimals and config columns, tier order, inserted-market visibility and retired static-market behavior; no conflicting assertion found."
+
+[file.18]
+path = "services/platform/perps-data/internal/graphql/operations_test.go"
+lines = 798
+verdict = "clean"
+note = "Full operations review: application operation documents, variable types, field encodings, event-derived rows and leaderboard assertions; no separate operation-shape defect found."
+
+[file.19]
+path = "services/platform/perps-data/internal/graphql/perps.go"
+lines = 1853
+verdict = "issues"
+note = "Full perps resolver review: exact decimal scalars, pagination, batching, market fields, account/event joins and latest-price sources; index-only updates are missed by several readers."
+
+[file.20]
+path = "services/platform/perps-data/internal/graphql/retired_test.go"
+lines = 52
+verdict = "clean"
+note = "Full retired-root test review: explicit rejection of all eight retired spot roots and unknown arguments; no disabled check or invalid survivor assertion found."
+
+[file.21]
+path = "services/platform/perps-data/internal/graphql/schema.go"
+lines = 869
+verdict = "clean"
+note = "Full schema review: resolver signatures, scalar optionality, root registration, retained application operations and removed empty spot roots; no additional declaration defect found."
+
+[file.22]
+path = "services/platform/perps-data/internal/graphql/spot.go"
+lines = 548
+verdict = "clean"
+note = "Full spot resolver review: token lifecycle, orders and fills, event-derived IDs, raw amounts, balances and account normalization; no independently confirmed mismatch found."
+
+[file.23]
+path = "services/platform/perps-data/internal/markets/markets.go"
+lines = 501
+verdict = "clean"
+note = "Full market synchronization review: ABI calls pinned to one height, atomic market/tier replacement, periodic retry, readiness freshness, fee config and chain-supplied decimals."
+
+[file.24]
+path = "services/platform/perps-data/internal/markets/markets_test.go"
+lines = 856
+verdict = "clean"
+note = "Full market test review: real chain config and tiers, database persistence, repeat refresh, periodic update metrics, readiness and inserted market assertions."
+
+[file.25]
+path = "services/platform/perps-data/internal/portal/pages.go"
+lines = 711
+verdict = "issues"
+note = "Full portal page review: real REST/GraphQL consumption, decimal rendering, bounded responses, snapshots and transaction links; optional explorer base is incorrectly required."
+
+[file.26]
+path = "services/platform/perps-data/internal/portal/pages_test.go"
+lines = 513
+verdict = "clean"
+note = "Full page test review: actual gateway data, templates, unknown resources, numerical rendering and query decoding. The missing optional-base startup coverage is captured with pages.go."
+
+[file.27]
+path = "services/platform/perps-data/internal/ratelimit/ratelimit.go"
+lines = 204
+verdict = "clean"
+note = "Full limiter review: bounded client tracking, request concurrency, trusted-proxy parsing and peer-based identity; retired package-init parsing is absent."
+
+[file.28]
+path = "services/platform/perps-data/internal/ratelimit/ratelimit_test.go"
+lines = 136
+verdict = "clean"
+note = "Full limiter test review: malformed CIDRs, trusted and untrusted headers, forwarded chains, limits and refusal headers; no separate shape mismatch found."
+
+[file.29]
+path = "services/platform/perps-data/internal/records/marketset.go"
+lines = 76
+verdict = "clean"
+note = "Full MarketSet review: database-sourced symbol IDs, TTL refresh, missing-symbol throttling, serialized access and explicit reload errors; no persistent recovery state."
+
+[file.30]
+path = "services/platform/perps-data/internal/records/marketset_test.go"
+lines = 185
+verdict = "clean"
+note = "Full MarketSet tests review: uncatalogued chain markets, TTL discovery, misses, concurrency and query failure behavior; no static-map dependency found."
+
+[file.31]
+path = "services/platform/perps-data/internal/records/records.go"
+lines = 622
+verdict = "clean"
+note = "Full shared record review: successful latest-index union, mark/index separation, funding units, exact decimal strings, spot/perps trade IDs and dynamic symbol resolution."
+
+[file.32]
+path = "services/platform/perps-data/internal/replay/replay.go"
+lines = 662
+verdict = "issues"
+note = "Full replay review: lease fencing, bounded ranges, source read and WriteFacts, row-ID restoration, transactional snapshots/diff and cursor restoration; spot projections are absent from the report."
+
+[file.33]
+path = "services/platform/perps-data/internal/replay/replay_test.go"
+lines = 760
+verdict = "issues"
+note = "Full replay test review: lease renewal, real source reconstruction, dry run, snapshots and failures; projection inventory and deletion recovery coverage are incomplete."
+
+[file.34]
+path = "services/platform/perps-data/internal/rest/markets.go"
+lines = 264
+verdict = "issues"
+note = "Full market REST review: route precedence, dynamic market IDs, aggregate records, exact funding strings and totals; index source disagrees with symbol/socket readers."
+
+[file.35]
+path = "services/platform/perps-data/internal/rest/markets_id_test.go"
+lines = 103
+verdict = "clean"
+note = "Full route test review: dynamically inserted DOGE market ID, list and single record, unknown-symbol error and health count; no incorrect ID assertion found."
+
+[file.36]
+path = "services/platform/perps-data/internal/rest/spotusers.go"
+lines = 1565
+verdict = "issues"
+note = "Full spot-user REST and stream review: node holdings, raw trade fields, average-cost PNL, pagination, board projections, errors and concurrency; metadata, kind refusal and orphan cache findings recorded."
+
+[file.37]
+path = "services/platform/perps-data/internal/rest/spotusers_test.go"
+lines = 1043
+verdict = "issues"
+note = "Full tests review: live node integration, REST shapes, PNL/refusals, projected boards and producer proof; contradictory legacy and projected leaderboard expectations recorded."
+
+[file.38]
+path = "services/platform/perps-data/internal/rest/symbol.go"
+lines = 144
+verdict = "clean"
+note = "Full symbol handler review: MarketSet routing, supported methods, limit parsing, cache headers, health and exact error wrappers; canonical latest-index reader is used."
+
+[file.39]
+path = "services/platform/perps-data/internal/rest/symbol_test.go"
+lines = 748
+verdict = "clean"
+note = "Full symbol tests review: raw facts and route values including index-only success followed by skipped aggregate, funding precision, limits, health and unknown symbols."
+
+[file.40]
+path = "services/platform/perps-data/internal/store/chain_counters_test.go"
+lines = 96
+verdict = "clean"
+note = "Full counter test review: migration-backed block/action counter changes, deletion, transactional rollback and agreement with table counts; no independent defect found."
+
+[file.41]
+path = "services/platform/perps-data/internal/store/facts.go"
+lines = 1532
+verdict = "issues"
+note = "Full facts writer and recovery review: typed row columns, identity, atomic fact/outbox writes, subject policy, scoped history and projection rebuild; two recovery blockers recorded."
+
+[file.42]
+path = "services/platform/perps-data/internal/store/facts_test.go"
+lines = 508
+verdict = "issues"
+note = "Full facts tests review: transactional writes, fences, typed serialization and scoped fresh-fold comparison; baseline bypasses public Project spot folding."
+
+[file.43]
+path = "services/platform/perps-data/internal/store/market_tiers_test.go"
+lines = 43
+verdict = "clean"
+note = "Full market-tier test review: schema columns, composite key, chain market foreign key and exact tier data; no unsupported producer shape found."
+
+[file.44]
+path = "services/platform/perps-data/internal/store/migrate_test.go"
+lines = 715
+verdict = "clean"
+note = "Full migration tests review: ordered embedded migrations, real empty database application, domains, constraints, rollback and new market/counter/spot-board tables."
+
+[file.45]
+path = "services/platform/perps-data/internal/store/projections.go"
+lines = 888
+verdict = "issues"
+note = "Full projection review: event-order state machines, collateral, fees, daily PNL, market windows, leaderboards and snapshots; partial window expiry remains incorrect."
+
+[file.46]
+path = "services/platform/perps-data/internal/store/projections_test.go"
+lines = 1135
+verdict = "issues"
+note = "Full projection tests review: real stored event folds, balances, order lifecycle, scoped rebuild, full leaderboard comparison and expiry; partial-expiry metrics are unasserted."
+
+[file.47]
+path = "services/platform/perps-data/internal/store/spot_leaderboard_test.go"
+lines = 66
+verdict = "clean"
+note = "Full spot-board schema tests review: primary and unique keys, allowed kinds, rank and account bounds and exact numeric storage; no schema assertion mismatch found."
+
+[file.48]
+path = "services/platform/perps-data/internal/store/spotboard.go"
+lines = 237
+verdict = "clean"
+note = "Full spot-board producer review: real spot history, stablecoin attribution, refusal logging, atomic totals, exact win rates and deterministic rankings. Recovery omission is owned by Rebuild; metadata defect is recorded on the HTTP consumer."
+
+[file.49]
+path = "services/platform/perps-data/internal/store/spotboard_test.go"
+lines = 197
+verdict = "clean"
+note = "Full live spot-board tests review: exact PNL/volume/win rate, ties, idempotence, attribution refusal, transactional rollback and unrelated accounts; recovery test deficiencies attach to recovery suites."
+
+[file.50]
+path = "services/platform/perps-data/loadtest/load.go"
+lines = 859
+verdict = "clean"
+note = "Full load-client review: gateway symbol discovery, bounded profile validation, socket protocol, reconnect rate, resync, frame freshness, checksum and latency accounting."
+
+[file.51]
+path = "services/platform/perps-data/loadtest/load_test.go"
+lines = 477
+verdict = "issues"
+note = "Full scaled workload test review: actual NATS and gateway with served-symbol discovery; handcrafted minimal fill envelopes bypass the real production writer/outbox path."
+
+[file.52]
+path = "services/platform/perps-data/migrations/schema_test.go"
+lines = 859
+verdict = "clean"
+note = "Full schema-file tests review: embedded migration inventory, statement grammar, domains, fact/projection columns, indexes, counter triggers, market configuration and data constraints."
+
+[finding.1]
+file = "services/platform/perps-data/internal/store/facts.go"
+line = 1397
+class = "restart-recovery"
+severity = "high"
+observed = "Rebuild and rebuildProject restore orders, positions, market statistics and the perpetual leaderboard but never refold spot_account_legs or spot_leaderboard. Live Project calls FoldSpotBoard. Replay writes through WriteFacts and then Rebuild, so corrected spot trades leave the old realized profit, volume and win-rate rankings persisted and served by projectedRank, including after restart."
+expected = "The Project and Rebuild storage interfaces must converge on the same public spot rankings for the same retained facts. Requirements 3492.1 and 3498.1 make these tables the production leaderboard source; recovery must include them, not only the older projection set."
+proposal = "In services/platform/perps-data/internal/store/facts.go and spotboard.go, refold affected spot accounts from all surviving history and rerank all three boards in the recovery transaction, including accounts whose last trade was removed. Add real replay and reopen equivalence coverage through the leaderboard HTTP route."
+owner_domain = 3
+interface = "3.go-perps-data-store-rebuild-j27"
+
+[finding.2]
+file = "services/platform/perps-data/internal/store/facts.go"
+line = 1431
+class = "restart-recovery"
+severity = "high"
+observed = "Rebuild derives its affected accounts and markets only from facts still present in [from,to], then returns when min(time) in that range is null. The production indexer.rebuild passes a.From as both bounds after source.Follower has deleted blocks at and above that height, discarding source.Affected.Accounts, Markets and FromTime. The call therefore returns without rebuilding the projections the rewind just deleted; older surviving positions and balances remain absent. Replay likewise cannot clean a key appearing only in removed facts."
+expected = "A recovery consumer must preserve the affected keys collected before deletion and restore their projections from surviving facts. Requirement 3502.1 requires the rebuilt account to equal a fresh fold, while source.FollowerOptions.Rebuild explicitly supplies discarded accounts and markets for this purpose."
+proposal = "Change the recovery interface in services/platform/perps-data/internal/store/facts.go and its internal/indexer/indexer.go and internal/replay/replay.go callers to carry the union of old and replacement keys plus the recovery time. Fold through the surviving head even when the deleted range is empty, remove keys with no history, and prove a rewind of a previously modified position restores its pre-fork state after reopening."
+owner_domain = 3
+interface = "3.go-perps-data-store-rebuild-j27"
+
+[finding.3]
+file = "services/platform/perps-data/internal/replay/replay.go"
+line = 53
+class = "runtime-risk"
+severity = "medium"
+observed = "projectionTables omits spot_account_legs and spot_leaderboard. snapshot, projectionQuery and diff consequently exclude both production spot projections, so a dry-run report can show no projection differences while the public spot rankings disagree with the rewritten facts."
+expected = "The replay report and dry-run contract in data-services section 7 must account for all projections served to users, including the persisted spot boards introduced by requirements 3484.1, 3492.1 and 3498.1."
+proposal = "Extend services/platform/perps-data/internal/replay/replay.go to snapshot and compare affected spot account legs and the globally ranked board, including ranks changed for otherwise untouched accounts. Define their explicit query scopes and assert corrected and removed spot trades appear in the dry-run report without persisting writes."
+owner_domain = 3
+interface = "3.go-perps-data-replay-report-j27"
+
+[finding.4]
+file = "services/platform/perps-data/internal/replay/replay_test.go"
+line = 214
+class = "test-gap"
+severity = "medium"
+observed = "The replay test dump and expected snapshot inventory iterate the production projectionTables list, which omits both persisted spot-board tables. The follower test callback at line 124 also passes only the already-deleted fork height into Rebuild. These checks can agree with the same incomplete recovery implementation without observing missing spot rankings or restoration of surviving account history."
+expected = "Recovery tests must compare the complete public projection surface independently of the production enumeration and exercise deletion before rebuilding. Brief check 7 requires the real persisted producer-to-consumer path, including recovery."
+proposal = "In services/platform/perps-data/internal/replay/replay_test.go, declare an independent expected projection inventory and drive actual WriteBlock, replay and follower recovery with spot trades and a position modified after its opening block. Compare all board values and surviving positions through real readers after closing and reopening the database connection; retain all existing assertions."
+owner_domain = 3
+
+[finding.5]
+file = "services/platform/perps-data/internal/store/facts_test.go"
+line = 196
+class = "test-gap"
+severity = "medium"
+observed = "TestRebuildScoped obtains its fresh-fold baseline by clearing rebuildTables and calling the lower-level project function, followed by perpetual leaderboard rebuilding. Both omit FoldSpotBoard, so this baseline does not represent the public Project path and cannot expose the missing spot recovery. The changed range still contains the affected facts in the tested cases."
+expected = "The fresh-fold comparison for requirement 3502.1 must represent the real WriteBlock and Project producer, including every persistent projection and keys removed by a rewrite."
+proposal = "Extend services/platform/perps-data/internal/store/facts_test.go with a complete independent projection inventory and a fresh database populated through WriteBlock. Compare spot legs and all three spot boards as well as existing projections, and cover removal of the last fact for an account while preserving untouched-account byte identity."
+owner_domain = 3
+
+[finding.6]
+file = "services/platform/perps-data/internal/rest/markets.go"
+line = 144
+class = "runtime-risk"
+severity = "medium"
+observed = "marketRecordsSQL reads index_price and its timestamp only from mark_prices. records.latestMarkSQL also considers successful index_prices aggregates because a changing index need not change the mark. Consequently GET /api/markets and the portal can publish an older index and basis than the symbol REST route and markets WebSocket provider for the same database head."
+expected = "The market record must represent the latest successful index aggregate alongside the latest mark, with consistent values across the REST and WebSocket forms of the market surface. records.go lines 176-198 and the index_only_update case in rest/symbol_test.go establish the producer behavior."
+proposal = "In services/platform/perps-data/internal/rest/markets.go, share the successful latest-index selection used by records.Symbol instead of relying on a MarkPriceUpdated event. Preserve exact funding strings and add a cross-route comparison with an index-only update followed by an aggregate_skipped event."
+owner_domain = 3
+interface = "3.go-perps-data-rest-markets-register-j27"
+
+[finding.7]
+file = "services/platform/perps-data/internal/graphql/perps.go"
+line = 1115
+class = "runtime-risk"
+severity = "medium"
+observed = "marketStateSQL, latestMarkSQL, OrderlyTickers and OrderlyPriceChanges use mark_prices as the only index-price source. When pricefeed emits an updated index without a changed mark, the GraphQL latest-price, market and ticker surfaces lag records.Symbol and the symbol REST/WebSocket consumers, which merge successful aggregate rows."
+expected = "A latest index price must follow the latest successful producer update even when no new mark-price event is emitted. Public readers of the same market should agree on the value, observation time and basis, while mark-price history retains its own event semantics."
+proposal = "Consolidate latest index selection in services/platform/perps-data/internal/graphql/perps.go with the records reader, retaining the separate mark value and excluding skipped aggregates. Add real stored producer events and compare GraphQL latestPrices, Market.latestPrice, Orderly tickers and corresponding REST/socket snapshots; update the live data-services contract with the chosen common semantics."
+owner_domain = 3
+interface = "3.go-perps-data-graphql-newschema-j27"
+
+[finding.8]
+file = "services/platform/perps-data/internal/store/projections.go"
+line = 766
+class = "runtime-risk"
+severity = "medium"
+observed = "staleMarketStatsSQL refreshes an idle market only when the time of updated_block is more than 24 hours old. With fills at t0 and t0+1h, the first fill expires from volume_24h at t0+24h while updated_block is still less than 24 hours old. Volume, high, low and open retain that expired fill until the later refresh; 7d and 30d changes can also wait for this daily refresh."
+expected = "The rolling statistics consumed by market records must describe their stated windows at the current indexed block time, including partial expiry while newer fills remain. Requirement 3487.1 supplies the empty-block expiry case but does not authorize retaining partially expired volume."
+proposal = "In services/platform/perps-data/internal/store/projections.go, select markets whose next contributing fill crosses any rolling-window boundary, or maintain equivalent persisted expiry markers. Recompute those markets on empty blocks and prove staggered fills crossing 24h, 7d and 30d boundaries agree with a fresh fold."
+owner_domain = 3
+interface = "3.go-perps-data-store-project-j27"
+
+[finding.9]
+file = "services/platform/perps-data/internal/store/projections.go"
+line = 114
+class = "runtime-risk"
+severity = "medium"
+observed = "expiredLeaderboardAccounts chooses an account only when no close and no settlement remain inside a 7d or 30d window. An idle account with an old profitable close and a newer settlement is not refolded when only that close expires, so its realized profit, win rate and rank remain inflated while a newer contribution still exists."
+expected = "The 7d and 30d leaderboard values and ranks must remove each expired contribution at the current block time, not only delete an account after its final contribution ages out. Requirement 3503.1 expects equivalence with the full leaderboard rebuild."
+proposal = "Update services/platform/perps-data/internal/store/projections.go to track or select accounts at every partial close or settlement expiry and rerank each affected window. Prove an idle account with staggered closes and settlements matches pnl.Leaderboard.Rebuild field for field at each expiry."
+owner_domain = 3
+interface = "3.go-perps-data-store-project-j27"
+
+[finding.10]
+file = "services/platform/perps-data/internal/store/projections_test.go"
+line = 1033
+class = "test-gap"
+severity = "medium"
+observed = "TestLeaderboardWindowAgesOut checks only whether an account row exists, so its refreshed case misses stale profit and volume while a newer row remains. TestMarketStatsWindowExpiry at line 720 seeds only one fill and checks 23h and 25h, leaving partial rolling-window expiry unasserted."
+expected = "The incremental projection tests must establish metric and rank equivalence with an independent full fold at intermediate window boundaries as required by 3503.1 and the rolling-window contract, not merely final row removal."
+proposal = "Extend services/platform/perps-data/internal/store/projections_test.go with staggered fills, positive and negative closes and settlements, then empty blocks just before and at every expiry. Compare every metric and rank with full folds, including accounts retaining newer activity; keep the current zero-volume and row-existence checks."
+owner_domain = 3
+
+[finding.11]
+file = "services/platform/perps-data/internal/rest/spotusers.go"
+line = 1287
+class = "interface-mismatch"
+severity = "medium"
+observed = "projectedRank explicitly has no projection fold timestamp or omission count, assigns as_of from time.Now and leaves omitted_accounts at zero. FoldSpotBoard can omit an account after a PNL attribution refusal, and an indexer outage leaves older ranks persisted, but the HTTP response presents the board as newly folded and complete."
+expected = "The GET /v1/leaderboards/{kind} contract in data-services section 25 defines as_of as the time of the fold and omitted_accounts as the number of refused accounts. Switching to the persisted projection under 3498.1 must retain truthful freshness and completeness metadata."
+proposal = "Persist board generation time and durable omission state alongside the rankings in services/platform/perps-data/internal/store/spotboard.go and a migration, and read them atomically in internal/rest/spotusers.go. Return the stored metadata through the existing fields and prove it survives an indexer pause and database reopen without a request-time fold."
+owner_domain = 3
+interface = "3.http-perps-data-rest-get-v1-leaderboards-kind-j27"
+
+[finding.12]
+file = "services/platform/perps-data/internal/rest/spotusers.go"
+line = 1270
+class = "interface-mismatch"
+severity = "medium"
+observed = "The leaderboard handler returns HTTP 400 for an unknown kind. The declared section-25 route says unknown kind is 404, and TestSpotUsersREST/unknown_kind_404 asserts that status, while TestSpotLeaderboardProjection and ProofRESTSpotUsers assert 400 for the same live route."
+expected = "An unsupported leaderboard kind must produce the single declared HTTP 404 refusal consistently through the registered route and every consumer test; malformed limit remains a distinct HTTP 400 input error."
+proposal = "Restore the declared unknown-kind 404 behavior in services/platform/perps-data/internal/rest/spotusers.go and reconcile the conflicting tests against that contract while retaining explicit malformed-limit and unknown-kind assertions. Prove the registered mux returns the same error shape and status for both unsupported-kind examples."
+owner_domain = 3
+interface = "3.http-perps-data-rest-get-v1-leaderboards-kind-j27"
+
+[finding.13]
+file = "services/platform/perps-data/internal/rest/spotusers_test.go"
+line = 239
+class = "test-gap"
+severity = "medium"
+observed = "TestSpotLeaderboardProjection inserts ranking rows directly and accepts request-time as_of and zero omissions. TestSpotUsersREST seeds only raw spot facts then expects request-time folding, nonzero omissions, a 30-second in-memory cache and unknown-kind 404; its later concurrency case calls the otherwise unused rank method directly. ProofRESTSpotUsers instead expects unknown-kind 400. These paths cannot all describe the registered projectedRank producer."
+expected = "Requirement 3498.1 requires reading persisted spot boards without folding at request time, while the public metadata and refusal contract must remain asserted. A real path test must start from the production writer and pass through the registered handler."
+proposal = "Rework services/platform/perps-data/internal/rest/spotusers_test.go to populate facts and projections through real WriteBlock and FoldSpotBoard, reopen the store and call the actual mux. Retain omission, freshness, exact-value, bounded-read and error assertions against the declared contract; migrate cache-specific tests to generation consistency without deleting their behavioral protections."
+owner_domain = 3
+
+[finding.14]
+file = "services/platform/perps-data/internal/config/config.go"
+line = 215
+class = "security"
+severity = "medium"
+observed = "Config.String redacts DatabaseURL, NATSURL and AuthSecret but prints RPCURLs, CometURLs, GatewayURL and ExplorerTxBase verbatim. validURL accepts URL userinfo and query values. All service commands log this Config at startup, and GoString, LogValue and default JSON encoding expose the same endpoint strings, allowing endpoint passwords or access tokens into logs."
+expected = "Brief check 8 requires secrets never to be logged. Configured service endpoints can carry credentials, and redaction must cover every supported representation rather than only the three explicitly tagged fields."
+proposal = "In services/platform/perps-data/internal/config/config.go, centralize safe endpoint rendering that removes userinfo and secret query values for String, GoString, LogValue and JSON, or refuse credential-bearing URLs where unsupported. Extend config_test.go with credential-bearing RPC, Comet and gateway URLs and assert no secret survives any logged representation."
+owner_domain = 3
+interface = "3.go-perps-data-config-config-string-j27"
+
+[finding.15]
+file = "services/platform/perps-data/internal/config/config.go"
+line = 171
+class = "config-drift"
+severity = "medium"
+observed = "Validate accepts every nonzero PERPS_CHAIN_ID, but store/facts.go fixes event IDs, delivery envelopes and every fact subject to chainID 125. The indexer publisher policy and gateway subscriptions use cfg.ChainID, so an otherwise accepted value such as 126 makes the writer publish a different namespace from the configured transport and consumer."
+expected = "The merged mainnet has EVM chain id 125, and the configuration contract says PERPS_CHAIN_ID is used in every subject. Startup must reject a chain the actual writer cannot serve rather than accept a disconnected message pipeline."
+proposal = "Make services/platform/perps-data/internal/config/config.go reject unsupported chain IDs with a clear PERPS_CHAIN_ID error for the current single-network writer. If another chain is intentionally supported later, thread that identity through store.WriteFacts, event IDs, publication policy and gateway consumers in one owning-domain task and prove an actual end-to-end delivery."
+owner_domain = 3
+interface = "3.env-perps-data-perps-chain-id-j27"
+
+[finding.16]
+file = "services/platform/perps-data/internal/config/config.go"
+line = 203
+class = "config-drift"
+severity = "medium"
+observed = "The shared GatewayURL validation accepts ws and wss for both portal and loadtest. cmd/perps-portal passes the value unchanged into portal.NewPages, which requires http or https and constructs REST and GraphQL requests. Thus a portal configuration accepted by Load, including the one in config_test.go, fails at the next startup boundary."
+expected = "Config.Load is declared to return a validated environment the named service can run with. The portal consumes an HTTP gateway origin; only the loadtest socket path may accept a WebSocket URL."
+proposal = "Use service-specific gateway scheme validation in services/platform/perps-data/internal/config/config.go: require http or https for Portal, retain explicitly supported socket forms for Loadtest, and add a real Config-to-NewPages construction case for every accepted portal configuration."
+owner_domain = 3
+interface = "3.go-perps-data-config-load-j27"
+
+[finding.17]
+file = "services/platform/perps-data/internal/portal/pages.go"
+line = 142
+class = "config-drift"
+severity = "medium"
+observed = "NewPages validates explorerTxBase with the same nonempty HTTP-origin check as gatewayURL. Config.Validate permits an empty PERPS_EXPLORER_TX_BASE and the configuration contract calls it optional for portal, so omitting optional explorer links prevents the entire portal from starting."
+expected = "An optional transaction-link base must be allowed to remain empty while the portal still renders markets and accounts. The explorer already treats the absence as an instruction to omit links."
+proposal = "In services/platform/perps-data/internal/portal/pages.go and templates/pages.html, accept an empty explorer base and render transaction hashes without a link in that case. Preserve strict validation of nonempty bases and prove portal construction and account rendering from Config.Load with the optional variable unset."
+owner_domain = 3
+interface = "3.go-perps-data-portal-newpages-j27"
+
+[finding.18]
+file = "services/platform/perps-data/internal/config/config_test.go"
+line = 111
+class = "test-gap"
+severity = "medium"
+observed = "The loads_all portal case sets PERPS_GATEWAY_URL to wss://gateway.example/ws and expects success, but portal.NewPages only accepts HTTP or HTTPS and the real portal command directly passes the Config value to it. The test verifies a configuration shape the next production consumer refuses."
+expected = "Configuration tests must use the actual accepted producer-to-consumer shape and assert service-specific refusals. Brief check 7 forbids a third fixture shape from standing in for the real interface."
+proposal = "Update services/platform/perps-data/internal/config/config_test.go to use the declared HTTP portal origin, assert that ws and wss are rejected for Portal but handled as specified for Loadtest, and construct the actual portal client with accepted configuration, including the optional explorer base case."
+owner_domain = 3
+
+[finding.19]
+file = "services/platform/perps-data/loadtest/load_test.go"
+line = 203
+class = "test-gap"
+severity = "medium"
+observed = "trader writes fills and projections with direct SQL and publishes an independently assembled envelope whose payload contains only block_time. The production facts writer publishes the full typed fill payload through the transactional delivery outbox. The scaled load test therefore bypasses fact serialization, atomic outbox enqueueing and normal projection writes under load."
+expected = "The brief requires producer, transport and consumer agreement through the real path. A performance fixture with a third payload shape cannot establish production payload compatibility or the latency of the actual writer and publisher."
+proposal = "Drive the workload in services/platform/perps-data/loadtest/load_test.go through real decode row types, store.WriteBlock and the production outbox publisher into the gateway. Retain the existing socket count, reconnect, checksum, latency and recovery bounds, and assert full production envelopes are consumed during the same profile."
+owner_domain = 3
+
+[finding.20]
+file = "services/platform/perps-data/e2e_test.go"
+line = 417
+class = "test-gap"
+severity = "medium"
+observed = "TestEndToEnd calls t.Skip when the database, RPC and Comet variables are all absent. That can produce a green package run without exercising the venue trade, delivery, replay and restart journey; the other end-to-end cases use setupE2E and fail missing dependencies."
+expected = "Data-services section 23 explicitly says a test needing an external dependency fails, never skips, when it is unset. Requirement 22998.1 also forbids skipped tests from serving as evidence that the recorded target passes."
+proposal = "In services/platform/perps-data/e2e_test.go, require the same explicit setup validation as the other end-to-end cases. Ensure the owning qualification harness provisions the real database and node before selecting this test, and report absent inputs as failed setup without deleting or weakening the journey assertions."
+owner_domain = 3
+interface = "3.env-perps-data-perps-data-test-database-url-j27"
+
+[finding.21]
+file = "services/platform/perps-data/internal/rest/spotusers.go"
+line = 1311
+class = "dead-code"
+severity = "low"
+observed = "rank, freshBoard, rebuildBoard and rankAll retain the old in-memory request-time leaderboard implementation, but the registered leaderboard handler calls projectedRank. The only external call to rank is a direct test, so successful cache-concurrency tests exercise code the HTTP product no longer reaches."
+expected = "The live projected leaderboard path and its tests should have one implementation of ranking lifecycle. Unreachable legacy caching code should not remain as an apparent production freshness or omission guarantee."
+proposal = "After moving the public metadata and consistency assertions to the real projected path, remove the obsolete board cache and private rank helpers from services/platform/perps-data/internal/rest/spotusers.go and replace their direct-only test with simultaneous reads across a real atomic projection update."
+owner_domain = 3
+interface = "3.go-perps-data-rest-spotusers-register-j27"
+
+[finding.22]
+file = "README.md"
+line = 44
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 40-48 describe two execution domains and a separately deployed layerxd daemon whose checkpoints settle through layerxAnchor; line 145 still advertises make layerxd as a current build command."
+expected = "The audit brief defines one BFT network with the kernel inside paxd and finality at block commit. A current repository introduction must not direct operators to the retired standalone daemon or anchor settlement model."
+proposal = "Rewrite README.md network architecture and build examples around the merged paxd runtime and committed-block receipts. Move any retained pre-merge architecture into an explicitly historical section and link current node and hosted-gateway interfaces separately."
+owner_domain = 17
+
+[finding.23]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction identifies the kernel as layerxd, and lines 69-72 describe custody, checkpoint registration, guarantor bonds and emergency exits as current settlement trust boundaries between subsystems."
+expected = "The merged network runs its kernel as part of the BFT chain. Current deployment and trust-boundary guidance must distinguish retained kernel libraries from the retired daemon and checkpoint settlement infrastructure."
+proposal = "Update docs/MONOREPO.md introduction, subsystem build guidance and trust boundaries to the paxd-integrated runtime, current public RPC and committed-block finality. Label historical layout and settlement material with its pre-merge release instead of presenting it as the current target."
+owner_domain = 17
+
+[finding.24]
+file = "docs/site/docs/overview/unified-network.md"
+line = 129
+class = "doc-drift"
+severity = "medium"
+observed = "The overview presents two domains at lines 3-15, custody and anchor settlement at lines 54-124, and a unified router at https://api-mainnet-beta.paxeer.network/rpc with a live /rpc/schema endpoint at lines 129-171."
+expected = "Brief facts 1-3 require one chain, root-path JSON-RPC on the declared mainnet-beta node names, no router or separate LayerX interface, and receipt finality once the block is committed."
+proposal = "Rewrite docs/site/docs/overview/unified-network.md around the single chain and kernel, root node RPC and the hosted px_ contract. Replace the current custody/anchor architecture and finality ladder with merged-network behavior; retain old precompile tables only in labeled historical documentation."
+owner_domain = 17
+
+[finding.25]
+file = "docs/site/docs/overview/quickstart.md"
+line = 167
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 20-22 and 167-219 direct integrations to /rpc and /rpc/ws, use executed/batched/finalised levels, and identify a public router. Lines 302, 497, 518 and 596 repeat that retired endpoint model in wallet and agent instructions."
+expected = "A current first-payment guide must use the declared root RPC, signed transaction submission and committed-block finality for chain id 125. It must not ask users to configure a retired router or authorize fulfillment from obsolete multi-stage settlement levels."
+proposal = "Replace the public connection, payment, wallet and toolset examples in docs/site/docs/overview/quickstart.md with the merged root RPC and actual current submission/receipt fields. Keep disposable emulator administration explicitly local, and qualify the replacement snippets through real current producers and consumers."
+owner_domain = 17
+
+[finding.26]
+file = "docs/site/docs/operators/beta-control.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The opening paragraph says public accounts are funded through custody credit submitted to the router. The remaining page describes a private legacy testnet-control deployment, so this sentence exports its historical funding architecture as current public-network advice."
+expected = "There is no router in the merged network, and public funding instructions must name the active chain and hosted product path. Private disposable control surfaces must be clearly scoped to that environment."
+proposal = "Correct docs/site/docs/operators/beta-control.md opening to link the supported merged-network funding journey and state which private control deployment the rest describes. Retain private fund/reset details only with explicit lifecycle and environment scope."
+owner_domain = 8
+
+[finding.27]
+file = "docs/site/docs/platform/cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The page requires global --rpc URLs to end in /rpc, repeats that public gateway transport at lines 281-303, and documents executed/batched/finalised receipt levels at line 46. These are presented as current public integration instructions."
+expected = "The merged mainnet uses root-path node JSON-RPC and block-committed finality, with hosted gateway methods identified separately by their declared px_ contract. No current guide should require a unified /rpc endpoint."
+proposal = "Revise docs/site/docs/platform/cli.md transport and receipt sections against the current CLI implementation and merged node/hosted contracts. Show accepted root endpoints and current receipt completion semantics, and place pre-merge activity or emulator-only examples in explicitly scoped sections."
+owner_domain = 8
+
+[finding.28]
+file = "docs/site/docs/platform/cli.md"
+line = 107
+class = "doc-drift"
+severity = "medium"
+observed = "After a table of implemented wallet and token commands, lines 107-130 declare those same groups unimplemented. Lines 134-139 say the only global argument is --json and --gateway-credential belongs only to a2a, contradicting the introduction and the actual global rpc and gateway_credential fields in tools/platform/cli/src/main.rs lines 87-101."
+expected = "A CLI reference must give one unambiguous shipped command and flag inventory. Intended future commands must not be mixed with already declared subcommands or used to deny existing global flags."
+proposal = "Rebuild the command-status section of docs/site/docs/platform/cli.md from the actual clap declarations and dispatch, retaining unavailable operations with their typed refusal rather than calling their whole group unimplemented. Delete contradictory inventory prose only after replacing it with an exact current command matrix."
+owner_domain = 8
+
+[finding.29]
+file = "docs/site/docs/platform/hosted-gateway.md"
+line = 39
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 39-52 describe a router as the only unified endpoint for eth_, lx_ and px_, claim numbered public RPCs serve an EVM domain alone, and advertise POST /rpc, GET /rpc/schema and GET /rpc/ws. The route table at lines 198-200 and ending at lines 609-611 repeat these claims."
+expected = "Brief facts 1-3 define one network and root-path node RPC, no router or separate LayerX endpoint, and a hosted gateway whose px_ API is governed by services/platform/hosted/gateway/openrpc.json."
+proposal = "Rewrite docs/site/docs/platform/hosted-gateway.md public ingress and route sections from the current gateway OpenRPC and node contract. Separate hosted services from root node RPC, remove the retired unified-router routing claim and obsolete path instructions, and update finality descriptions to committed blocks."
+owner_domain = 8
+
+[finding.30]
+file = "docs/site/docs/platform/webhooks.md"
+line = 77
+class = "doc-drift"
+severity = "medium"
+observed = "The Railway webhook provisioning instructions derive LAYERX_WEBHOOKS_NETWORK_ID from ${{router.LAYERX_GATEWAY_NETWORK_ID}} and call it the deployment network identifier. This makes the current operator recipe depend on the retired router service."
+expected = "Merged-network webhook provisioning must name an active configuration producer and the same network identity used by its ingress verifier. Brief fact 2 explicitly retires the router as a running component."
+proposal = "Update docs/site/docs/platform/webhooks.md Railway variable wiring to the current network configuration owner and describe how ingress and delivery verify that identity. Replace the router reference with a concrete supported reference or required operator input, preserving fail-closed verification."
+owner_domain = 8
+
+[finding.31]
+file = "docs/wiki/HostedWebhooks.md"
+line = 78
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki copy repeats the Railway expression ${{router.LAYERX_GATEWAY_NETWORK_ID}} as the source of the webhook deployment network identity, independently publishing the same retired service dependency as the site page."
+expected = "The wiki and site must both describe an active merged-network identity producer rather than a router that no longer exists. Their ingress, transport and consumer network values must agree."
+proposal = "Replace the retired router expression in docs/wiki/HostedWebhooks.md with the same current network configuration reference chosen for the site page and explain its ingress binding. Keep the two published operator recipes synchronized without changing verification or credential requirements."
+owner_domain = 8
+
+[finding.32]
+file = "spec/release-v6-12-0/contracts/data-services.md"
+line = 474
+class = "doc-drift"
+severity = "medium"
+observed = "Section 11 describes one startup getMarket refresh, null decimals for new markets, 60-second retry and readiness that does not wait. Section 13 still advertises the eight retired empty spot roots, and section 23 makes PERPS_START_HEIGHT optional and allows zero. Current markets.Run, markets.Check, schema.go and config.Load implement different behavior under requirements 3486, 3495, 3499, 3501 and the required activation-height boundary."
+expected = "The contract directly referenced by production package comments must distinguish its historical release snapshot from current service behavior. Operators need current market readiness, available schema roots and the mandatory positive start-height rule."
+proposal = "Keep spec/release-v6-12-0/contracts/data-services.md explicitly historical and add or update the current domain-3 data-services contract and source links to describe periodic getMarketConfig refresh, non-null chain decimals, freshness-gated readiness, retired roots and required activation height. State separately the unresolved leaderboard metadata and refusal disagreements recorded here."
+owner_domain = 3
+
+[doc.1]
+path = "docs/site/docs/platform/webhooks.md"
+status = "stale"
+notes = "Full page read. Lines 76-78 source network identity from a retired router service; lines 97, 273 and 535 also require trust configuration whose active merged-network ownership must be documented. See its finding for the concrete provisioning rewrite."
+
+[doc.2]
+path = "docs/wiki/HostedWebhooks.md"
+status = "stale"
+notes = "Full page read, including the wiki introduction and final navigation link. Lines 77-79 repeat the retired router identity reference; the site and wiki operator recipes require the same active producer and verifier binding."
+
+[doc.3]
+path = "README.md"
+status = "misleading"
+notes = "Full page read. Lines 40-48 describe two execution domains, separate layerxd and anchor settlement; line 145 advertises the retired daemon build. Current architecture and build guidance need replacement."
+
+[doc.4]
+path = "docs/README.md"
+status = "accurate"
+notes = "Full navigation page read. It identifies documentation locations and chain id 125 without prescribing a retired live endpoint; historical protocol links are navigation, not a claim that a separate network interface is running."
+
+[doc.5]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "Full page read. Line 3 calls the kernel layerxd; lines 61-65 retain historical subsystem build boundaries and lines 69-72 present custody/checkpoint/guarantor settlement as current. Rewrite current runtime and trust boundaries."
+
+[doc.6]
+path = "docs/site/docs/overview/unified-network.md"
+status = "misleading"
+notes = "Full page read. Lines 3-15 describe separate domains and daemon; lines 54-124 make retired custody/anchor settlement live; lines 129-175 prescribe the unified router and /rpc/schema. These conflict with brief facts 1-3."
+
+[doc.7]
+path = "docs/site/docs/overview/quickstart.md"
+status = "misleading"
+notes = "Full page read. Lines 20-22, 167-219, 302, 497, 518 and 596 prescribe retired RPC paths and staged finality; local emulator and public network instructions need distinct, current product examples."
+
+[doc.8]
+path = "docs/site/docs/operators/porting.md"
+status = "accurate"
+notes = "Full page read. Its bounded ABI-2 guest porting, wrapper, memory, deterministic encoding and receipt-verification guidance describes the program/library interface rather than a separate live router or deployment. No independently confirmed drift in that scope."
+
+[doc.9]
+path = "docs/site/docs/operators/beta-control.md"
+status = "stale"
+notes = "Full page read. Line 5 directs public custody funding to a retired router; the rest describes a private disposable legacy control deployment and needs explicit environment scope, not public-network authority."
+
+[doc.10]
+path = "docs/site/docs/agents/sdks.md"
+status = "accurate"
+notes = "Full page read. Schema generation, non-authority, current SDK tree inventory and explicitly unclaimed publication/parity gates are scoped accurately. The pax_sequencerReceipt name alone is not evidence of a separate sequencer service; transport guidance is delegated to linked pages."
+
+[doc.11]
+path = "docs/site/docs/platform/cli.md"
+status = "misleading"
+notes = "Full page read. Lines 8, 46 and 281-303 prescribe retired endpoint/finality semantics. Lines 107-139 contradict the implemented command table and global flags; actual Cli declares rpc and gateway_credential at main.rs lines 87-101."
+
+[doc.12]
+path = "docs/site/docs/platform/hosted-gateway.md"
+status = "misleading"
+notes = "Full page read. Lines 39-52, 198-200 and 609-611 advertise the retired unified router and /rpc surfaces. Current readiness discussion does not repair those operator-facing transport claims."
+
+[doc.13]
+path = "spec/layerx-merge/contracts/perps-data.md"
+status = "accurate"
+notes = "Read the pinned interface tables and linked context/acceptance material against the current registry. Lines 3-5 explicitly freeze revision 2a1033aa2, so old signatures, planned status and package-init proxy note at line 90 are historical evidence, not a current deployment recipe. Use the live registry and requirements for changed interfaces."
+
+[doc.14]
+path = "spec/release-v6-12-0/contracts/data-services.md"
+status = "stale"
+notes = "Reviewed the service contract, especially storage/delivery/replay, REST/socket/GraphQL mappings, portal, windows, configuration and spot boards. Lines 472-474 retain startup-only refresh and ungated readiness; section 13 retains eight removed roots; line 755 allows an optional zero start height. Section 25 metadata and unknown-kind contract also disagree with current code; preserve those protections in the owning repairs."

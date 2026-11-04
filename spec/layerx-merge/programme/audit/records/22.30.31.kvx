@@ -1,0 +1,1217 @@
+[audit.22.30.31]
+task = "22.30.31"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 124
+findings = 38
+docs_reviewed = 14
+upgrade_ready = false
+blocking = ["legacy-squad-contract", "frozen-squad-validation", "invitation-token-lost", "membership-squad-revision", "alert-price-context-lost", "alert-evaluator-unwired", "prepared-call-not-bound"]
+produces_reviewed = 132
+consumes_reviewed = 258
+requirements_reviewed = ["22998.1", "22111.1", "4265.1", "4265.2", "4266.1", "4267.1", "4268.1", "4268.2", "4269.1", "4270.1", "4307.1", "4308.1", "4309.1", "4310.1", "4486.1", "4486.2", "4489.1", "22076.1", "22041.1", "21040.1", "181528.1"]
+
+[file.001]
+path = "apps/launchpad/web/src/hooks/chat/connected-chat.test.tsx"
+lines = 58
+verdict = "clean"
+note = "Reviewed connected conversation history, socket acknowledgement, replay and authorization assertions; no contradictory wire fixture found in these cases."
+
+[file.002]
+path = "apps/launchpad/web/src/hooks/chat/conversation-state.ts"
+lines = 35
+verdict = "clean"
+note = "Reviewed sequence/revision ordering, pending acknowledgements, read-through calculation and identity clearing; duplicate/replayed revisions are fenced."
+
+[file.003]
+path = "apps/launchpad/web/src/hooks/chat/qualify-connected.py"
+lines = 752
+verdict = "issues"
+note = "Reviewed the complete workload, credential, manifest, privacy and measurement lifecycle; mandatory source paths prevent this checkout from qualifying."
+
+[file.004]
+path = "apps/launchpad/web/src/hooks/chat/revision-projection.test.ts"
+lines = 30
+verdict = "clean"
+note = "Reviewed duplicate, revision and tombstone projection assertions with decimal-string ordering; no incompatible producer shape found."
+
+[file.005]
+path = "apps/launchpad/web/src/hooks/chat/revision-projection.ts"
+lines = 24
+verdict = "clean"
+note = "Reviewed per-message revision arbitration and tombstone projection; stale updates cannot replace newer state."
+
+[file.006]
+path = "apps/launchpad/web/src/hooks/chat/use-chat.ts"
+lines = 148
+verdict = "issues"
+note = "Reviewed history, socket replay, account epochs, sends and read markers; cancelled read debounce leaves a stale reference across conversations."
+
+[file.007]
+path = "apps/launchpad/web/src/hooks/market/use-ranking.ts"
+lines = 78
+verdict = "clean"
+note = "Reviewed ranking client arguments, query identity and result handling against the ranking transport."
+
+[file.008]
+path = "apps/launchpad/web/src/hooks/market/use-stream-refetch.ts"
+lines = 170
+verdict = "clean"
+note = "Reviewed stream-driven invalidation and subscription cleanup; refresh scheduling remains bounded to the mounted query."
+
+[file.009]
+path = "apps/launchpad/web/src/hooks/market/use-token-metadata.ts"
+lines = 106
+verdict = "clean"
+note = "Reviewed metadata batching, address normalization and unavailable handling against the metadata client contract."
+
+[file.010]
+path = "apps/launchpad/web/src/hooks/market/use-token-stats.ts"
+lines = 121
+verdict = "clean"
+note = "Reviewed token-stat query and stream refetch integration against the stats producer fields."
+
+[file.011]
+path = "apps/launchpad/web/src/hooks/tx/use-optimistic-receipt.integration.test.tsx"
+lines = 143
+verdict = "clean"
+note = "Reviewed actual receipt/recovery integration assertions, measurement inputs and cleanup; source inspection does not claim execution of the funded gate."
+
+[file.012]
+path = "apps/launchpad/web/src/hooks/tx/use-optimistic-receipt.ts"
+lines = 61
+verdict = "clean"
+note = "Reviewed optimistic receipt transition and bounded recovery integration; pending and committed outcomes retain their distinct meanings."
+
+[file.013]
+path = "apps/launchpad/web/src/hooks/tx/use-transaction-attempt.ts"
+lines = 9
+verdict = "clean"
+note = "Reviewed account-scoped transaction-attempt loading, lifecycle and reconciliation through the durable recovery adapter."
+
+[file.014]
+path = "apps/launchpad/web/src/hooks/ui/use-debounced-value.ts"
+lines = 19
+verdict = "clean"
+note = "Reviewed delayed value updates and timer cleanup; no external transport or persistent state is owned here."
+
+[file.015]
+path = "apps/launchpad/web/src/hooks/ui/use-wallet-toasts.ts"
+lines = 23
+verdict = "clean"
+note = "Reviewed wallet notification lifecycle and effect cleanup against the wallet/transaction state inputs."
+
+[file.016]
+path = "apps/launchpad/web/src/hooks/ui/use-watchlist.ts"
+lines = 25
+verdict = "clean"
+note = "Reviewed account-specific watchlist query/mutation identity and invalidation against the watchlist operations."
+
+[file.017]
+path = "apps/launchpad/web/src/hooks/use-raf-state.ts"
+lines = 33
+verdict = "clean"
+note = "Reviewed animation-frame state scheduling and cancellation on unmount; no external contract or durable state is owned here."
+
+[file.018]
+path = "apps/launchpad/web/src/widgets/bounties/bounties-contract.test.ts"
+lines = 125
+verdict = "clean"
+note = "Reviewed bounty validation, filtering and error-mapping assertions against the frozen operation DTOs."
+
+[file.019]
+path = "apps/launchpad/web/src/widgets/bounties/bounties-contract.ts"
+lines = 205
+verdict = "clean"
+note = "Reviewed decimal/raw amount and address validation, operation catalogue selection and unavailable/error presentation."
+
+[file.020]
+path = "apps/launchpad/web/src/widgets/bounties/bounties-header.test.tsx"
+lines = 205
+verdict = "clean"
+note = "Reviewed connected header/search/filter rendering assertions and metadata capability handling."
+
+[file.021]
+path = "apps/launchpad/web/src/widgets/bounties/bounties-header.tsx"
+lines = 136
+verdict = "clean"
+note = "Reviewed filter controls and reward-asset metadata input handling; controls preserve declared bounty filter identities."
+
+[file.022]
+path = "apps/launchpad/web/src/widgets/bounties/bounties-home.tsx"
+lines = 165
+verdict = "clean"
+note = "Reviewed list/detail composition, selected bounty lifecycle and routing into the declared hooks."
+
+[file.023]
+path = "apps/launchpad/web/src/widgets/bounties/bounties-stats.tsx"
+lines = 93
+verdict = "clean"
+note = "Reviewed aggregate bounty display with explicit raw asset units and unavailable/loading states."
+
+[file.024]
+path = "apps/launchpad/web/src/widgets/bounties/bounties-tabs.tsx"
+lines = 52
+verdict = "clean"
+note = "Reviewed bounty-state filter labels and callbacks; no additional network or persistent state is introduced."
+
+[file.025]
+path = "apps/launchpad/web/src/widgets/bounties/bounty-card.tsx"
+lines = 88
+verdict = "clean"
+note = "Reviewed declared bounty field rendering, state, navigation and reward formatting against the list DTO."
+
+[file.026]
+path = "apps/launchpad/web/src/widgets/bounties/bounty-detail.tsx"
+lines = 154
+verdict = "clean"
+note = "Reviewed detail/read/submission composition and creator-only judging visibility against the bounty hooks."
+
+[file.027]
+path = "apps/launchpad/web/src/widgets/bounties/bounty-flows.test.ts"
+lines = 85
+verdict = "clean"
+note = "Reviewed creation/submission/acceptance assertions, precise decimal bounds and upload rules; null prepared requests are treated as unavailable rather than fabricated."
+
+[file.028]
+path = "apps/launchpad/web/src/widgets/bounties/bounty-reward.tsx"
+lines = 98
+verdict = "clean"
+note = "Reviewed token metadata/decimal formatting and fallback display without adding unlike assets."
+
+[file.029]
+path = "apps/launchpad/web/src/widgets/bounties/bounty-token-chip.tsx"
+lines = 36
+verdict = "clean"
+note = "Reviewed reward-token identity, metadata and loading/failure rendering against the declared asset fields."
+
+[file.030]
+path = "apps/launchpad/web/src/widgets/bounties/create-bounty-form.tsx"
+lines = 236
+verdict = "clean"
+note = "Reviewed wallet/session gating, product input bounds and raw budget construction before the create operation."
+
+[file.031]
+path = "apps/launchpad/web/src/widgets/bounties/funding-step.tsx"
+lines = 137
+verdict = "issues"
+note = "Reviewed signing review, receipt status and funding-unavailable flow; reverted transactions are incorrectly described as having sent nothing despite network gas."
+
+[file.032]
+path = "apps/launchpad/web/src/widgets/bounties/highest-value-rail.tsx"
+lines = 169
+verdict = "clean"
+note = "Reviewed independent rail data selection, loading/empty/error handling and bounty navigation against the list query."
+
+[file.033]
+path = "apps/launchpad/web/src/widgets/bounties/judge-panel.tsx"
+lines = 122
+verdict = "clean"
+note = "Reviewed creator-only acceptance, revision and budget checks, and separate settlement review; prepared-call authorization is owned by the validator finding."
+
+[file.034]
+path = "apps/launchpad/web/src/widgets/bounties/prepared-transaction.test.ts"
+lines = 59
+verdict = "issues"
+note = "Reviewed every validation fixture; positive approval calldata is not tied to an actual bounty intent and hides the signing trust gap."
+
+[file.035]
+path = "apps/launchpad/web/src/widgets/bounties/prepared-transaction.ts"
+lines = 96
+verdict = "issues"
+note = "Reviewed all address, calldata and uint bounds; deployed-address membership is insufficient to authorize the reviewed token movement."
+
+[file.036]
+path = "apps/launchpad/web/src/widgets/bounties/submission-card.tsx"
+lines = 102
+verdict = "clean"
+note = "Reviewed submission author/state/evidence rendering and safe outbound evidence links against the submission DTO."
+
+[file.037]
+path = "apps/launchpad/web/src/widgets/bounties/submission-composer.tsx"
+lines = 146
+verdict = "clean"
+note = "Reviewed draft client id, input bounds, approved evidence selection and signed-in submission lifecycle."
+
+[file.038]
+path = "apps/launchpad/web/src/widgets/bounties/use-bounties.ts"
+lines = 132
+verdict = "clean"
+note = "Reviewed bounty list/filter/pagination and stats query identities, response validation and error branches."
+
+[file.039]
+path = "apps/launchpad/web/src/widgets/bounties/use-bounty-mutations.ts"
+lines = 385
+verdict = "issues"
+note = "Reviewed complete create/submit/accept, upload and signing lifecycle; fee review, session isolation and broadcast persistence findings apply."
+
+[file.040]
+path = "apps/launchpad/web/src/widgets/bounties/use-bounty.ts"
+lines = 105
+verdict = "clean"
+note = "Reviewed detail/submission query contracts, reward metadata and revision/state validation against the SDK producer."
+
+[file.041]
+path = "apps/launchpad/web/src/widgets/home/callouts-widget.tsx"
+lines = 147
+verdict = "issues"
+note = "Reviewed connected feed, filtering, pause and card/stat rendering; full-page rotation is not reflected by the length-based new count."
+
+[file.042]
+path = "apps/launchpad/web/src/widgets/home/column-chrome.tsx"
+lines = 144
+verdict = "clean"
+note = "Reviewed panel chrome and configuration controls against widget registry/layout types."
+
+[file.043]
+path = "apps/launchpad/web/src/widgets/home/column-slot.ts"
+lines = 15
+verdict = "clean"
+note = "Reviewed slot selection and widget instance identity helpers against the dashboard layout model."
+
+[file.044]
+path = "apps/launchpad/web/src/widgets/home/column.tsx"
+lines = 94
+verdict = "clean"
+note = "Reviewed widget mounting, column preferences and chrome wiring against the widget registry contracts."
+
+[file.045]
+path = "apps/launchpad/web/src/widgets/home/dashboard-board.tsx"
+lines = 176
+verdict = "clean"
+note = "Reviewed layout subscriptions, drag/drop changes and persisted dashboard composition."
+
+[file.046]
+path = "apps/launchpad/web/src/widgets/home/home-empty-states.test.tsx"
+lines = 241
+verdict = "clean"
+note = "Reviewed connected empty, unavailable and refusal fixtures for all home widgets against the operation catalogue."
+
+[file.047]
+path = "apps/launchpad/web/src/widgets/home/home-feed.tsx"
+lines = 81
+verdict = "clean"
+note = "Reviewed board/feed composition and current home widget mounting; no retired RPC transport is introduced."
+
+[file.048]
+path = "apps/launchpad/web/src/widgets/home/home-panel-state.test.tsx"
+lines = 600
+verdict = "clean"
+note = "Reviewed the full connected home panel assertion set, real operation serialization and state transitions; no execution is claimed by this audit."
+
+[file.049]
+path = "apps/launchpad/web/src/widgets/home/home.test.tsx"
+lines = 328
+verdict = "clean"
+note = "Reviewed layout, widget configuration and interaction assertions against the current dashboard components."
+
+[file.050]
+path = "apps/launchpad/web/src/widgets/home/layout-store.ts"
+lines = 255
+verdict = "clean"
+note = "Reviewed persisted layout versioning, input normalization, external-store notifications and cross-tab subscription lifecycle."
+
+[file.051]
+path = "apps/launchpad/web/src/widgets/home/leaderboard-widget.tsx"
+lines = 109
+verdict = "clean"
+note = "Reviewed ranked data state, wallet links, signed metrics and quality display against leaderboard DTOs."
+
+[file.052]
+path = "apps/launchpad/web/src/widgets/home/panel-state.ts"
+lines = 55
+verdict = "clean"
+note = "Reviewed state classification for loading, unavailable, empty, error and ready product panels."
+
+[file.053]
+path = "apps/launchpad/web/src/widgets/home/risk-row.tsx"
+lines = 133
+verdict = "clean"
+note = "Reviewed token risk row formatting and navigation using the declared market view fields."
+
+[file.054]
+path = "apps/launchpad/web/src/widgets/home/screener-widget.tsx"
+lines = 131
+verdict = "clean"
+note = "Reviewed screener filters, stream-backed market results and product refusal/empty states."
+
+[file.055]
+path = "apps/launchpad/web/src/widgets/home/trending-row.tsx"
+lines = 156
+verdict = "clean"
+note = "Reviewed token trend metric formatting and links against the market row contract."
+
+[file.056]
+path = "apps/launchpad/web/src/widgets/home/trending-widget.tsx"
+lines = 163
+verdict = "clean"
+note = "Reviewed ranking query selection, filters and live state presentation through the ranking hook."
+
+[file.057]
+path = "apps/launchpad/web/src/widgets/home/types.ts"
+lines = 93
+verdict = "clean"
+note = "Reviewed widget ids, preference shapes and layout types against the persisted registry and rendering consumers."
+
+[file.058]
+path = "apps/launchpad/web/src/widgets/home/watchlist-widget.tsx"
+lines = 80
+verdict = "clean"
+note = "Reviewed account watchlist state, market joins and unavailable/empty handling without inventing missing prices."
+
+[file.059]
+path = "apps/launchpad/web/src/widgets/home/widget-registry.ts"
+lines = 40
+verdict = "clean"
+note = "Reviewed widget definitions, defaults, preference validation and renderer registry consistency."
+
+[file.060]
+path = "apps/launchpad/web/src/widgets/meta-ag/advanced-provider.ts"
+lines = 490
+verdict = "issues"
+note = "Reviewed the full deployed ABI, capability, order, route and cancellation paths; broadcast recovery and old terminal-history limitations remain."
+
+[file.061]
+path = "apps/launchpad/web/src/widgets/meta-ag/best-route-swap.tsx"
+lines = 32
+verdict = "clean"
+note = "Reviewed quote generations, reviewed minimum output, expiry and wallet action gating through the advanced provider."
+
+[file.062]
+path = "apps/launchpad/web/src/widgets/meta-ag/capability-gates.test.tsx"
+lines = 31
+verdict = "clean"
+note = "Reviewed admitted fixture/source manifest requirements and real-provider capability refusal assertions; no fabricated availability is accepted."
+
+[file.063]
+path = "apps/launchpad/web/src/widgets/meta-ag/connected-journeys.test.tsx"
+lines = 235
+verdict = "clean"
+note = "Reviewed real contract journey, receipt/event, deployment/source identity and measurement assertions; its integrationGaps disclose the recovery adapter gap."
+
+[file.064]
+path = "apps/launchpad/web/src/widgets/meta-ag/domain.test.ts"
+lines = 192
+verdict = "clean"
+note = "Reviewed deployed order decoding, rational/raw amount, routing, refund and cancellation domain assertions."
+
+[file.065]
+path = "apps/launchpad/web/src/widgets/meta-ag/domain.ts"
+lines = 257
+verdict = "clean"
+note = "Reviewed order/route domain types and exact raw units, context identity, eligibility and settlement validation helpers."
+
+[file.066]
+path = "apps/launchpad/web/src/widgets/meta-ag/liquidity-position.tsx"
+lines = 12
+verdict = "clean"
+note = "Reviewed position UI capability refusal and explicit absence of admitted ownership/redemption data rather than manufactured valuation."
+
+[file.067]
+path = "apps/launchpad/web/src/widgets/meta-ag/measurement-harness.test.ts"
+lines = 32
+verdict = "clean"
+note = "Reviewed bounded workload/RPC allocation and measurement admission/refusal assertions."
+
+[file.068]
+path = "apps/launchpad/web/src/widgets/meta-ag/measurement-harness.ts"
+lines = 158
+verdict = "clean"
+note = "Reviewed observation counters, deadlines, allocation limits and performance result construction."
+
+[file.069]
+path = "apps/launchpad/web/src/widgets/meta-ag/open-orders-list.tsx"
+lines = 68
+verdict = "clean"
+note = "Reviewed order pagination, cancellation/resume states and display of committed execution/refund evidence."
+
+[file.070]
+path = "apps/launchpad/web/src/widgets/meta-ag/order-form.tsx"
+lines = 75
+verdict = "clean"
+note = "Reviewed order kind, asset, amount, trigger/limit and expiry input construction plus fresh-review placement gating."
+
+[file.071]
+path = "apps/launchpad/web/src/widgets/meta-ag/run-connected-chain.py"
+lines = 203
+verdict = "issues"
+note = "Reviewed full fixture, digest, native subprocess and evidence assembly flow; obsolete required source/lock paths stop it before execution."
+
+[file.072]
+path = "apps/launchpad/web/src/widgets/meta-ag/token-universe.test.ts"
+lines = 58
+verdict = "clean"
+note = "Reviewed admitted token universe and metadata parsing assertions, including invalid identity/refusal cases."
+
+[file.073]
+path = "apps/launchpad/web/src/widgets/meta-ag/token-universe.ts"
+lines = 115
+verdict = "clean"
+note = "Reviewed asset discovery, normalization and token/settlement identity handling for the advanced surfaces."
+
+[file.074]
+path = "apps/launchpad/web/src/widgets/meta-ag/vitest.l28.config.ts"
+lines = 14
+verdict = "clean"
+note = "Reviewed inherited test configuration, scoped test admission and private cache directory environment handling."
+
+[file.075]
+path = "apps/launchpad/web/src/widgets/meta-ag/write-gates.test.tsx"
+lines = 86
+verdict = "clean"
+note = "Reviewed wallet write gating and cancellation recovery assertions against admitted provider context and capabilities."
+
+[file.076]
+path = "services/launchpad/api/internal/store/accounting_readmodel.go"
+lines = 827
+verdict = "clean"
+note = "Reviewed canonical publication projection, provenance/quality and accounting snapshot construction against shared accounting/delivery inputs."
+
+[file.077]
+path = "services/launchpad/api/internal/store/deterministic.go"
+lines = 330
+verdict = "clean"
+note = "Reviewed deterministic public snapshot and digest helpers, ordering and stable raw-unit output construction."
+
+[file.078]
+path = "services/launchpad/api/internal/store/deterministic_test.go"
+lines = 252
+verdict = "clean"
+note = "Reviewed reproducibility, deterministic ordering and digest assertions against the public readmodel helpers."
+
+[file.079]
+path = "services/launchpad/api/internal/store/development_cursor.go"
+lines = 31
+verdict = "clean"
+note = "Reviewed development cursor encoding, query scope, expiry and invalid cursor refusal against declared API error codes."
+
+[file.080]
+path = "services/launchpad/api/internal/store/development_discovery.go"
+lines = 174
+verdict = "clean"
+note = "Reviewed local development discovery source/feed/leaderboard DTO construction and explicitly scoped development behavior."
+
+[file.081]
+path = "services/launchpad/api/internal/store/development_history.go"
+lines = 112
+verdict = "clean"
+note = "Reviewed development committed history paging, cursor identity and response shape against history operations."
+
+[file.082]
+path = "services/launchpad/api/internal/store/development_market.go"
+lines = 506
+verdict = "clean"
+note = "Reviewed development market views and provenance/quality assembly against the frozen market DTOs."
+
+[file.083]
+path = "services/launchpad/api/internal/store/development_search.go"
+lines = 113
+verdict = "clean"
+note = "Reviewed development search filters, result kind/identity and deterministic pagination behavior."
+
+[file.084]
+path = "services/launchpad/api/internal/store/holder_rewards_readmodel.go"
+lines = 254
+verdict = "clean"
+note = "Reviewed canonical holder reward projections, raw fee quantities, quality and watermark construction."
+
+[file.085]
+path = "services/launchpad/api/internal/store/leaderboard_readmodel.go"
+lines = 201
+verdict = "clean"
+note = "Reviewed leaderboard window, ordering, cursor/digest and quality output through the canonical projection readers."
+
+[file.086]
+path = "services/launchpad/api/internal/store/leaderboard_realized.go"
+lines = 142
+verdict = "issues"
+note = "Reviewed fill-history inventory basis and realized profit calculation; token transfers can leave stale known inventory labeled complete."
+
+[file.087]
+path = "services/launchpad/api/internal/store/leaderboard_realized_test.go"
+lines = 122
+verdict = "clean"
+note = "Reviewed buy/sell, fee, window and unknown oversell fixtures; they describe fill accounting but do not establish transferred inventory provenance."
+
+[file.088]
+path = "services/launchpad/api/internal/store/pool_registry.go"
+lines = 171
+verdict = "clean"
+note = "Reviewed canonical pool registry loading, address/chain identity and public pool status validation."
+
+[file.089]
+path = "services/launchpad/api/internal/store/pool_registry_test.go"
+lines = 66
+verdict = "clean"
+note = "Reviewed pool registry identity, malformed data and configured authority refusal assertions."
+
+[file.090]
+path = "services/launchpad/api/internal/store/precision.go"
+lines = 90
+verdict = "clean"
+note = "Reviewed exact integer/rational conversion, decimal scale and bound enforcement for public accounting data."
+
+[file.091]
+path = "services/launchpad/api/internal/store/production_readmodel_test.go"
+lines = 493
+verdict = "clean"
+note = "Reviewed production readmodel provenance, projection and public shape assertions using the declared canonical fill structures."
+
+[file.092]
+path = "services/launchpad/api/internal/store/public_json.go"
+lines = 70
+verdict = "clean"
+note = "Reviewed public JSON size, malformed input and named error translation boundaries against API public JSON error rows."
+
+[file.093]
+path = "services/launchpad/api/internal/store/qualification_dataset.go"
+lines = 145
+verdict = "clean"
+note = "Reviewed explicitly qualified development dataset construction, identity and deterministic values; it is not used as a silent live-authority fallback."
+
+[file.094]
+path = "services/launchpad/api/internal/store/store.go"
+lines = 246
+verdict = "clean"
+note = "Reviewed store configuration, pool/query ownership and public data access lifecycle against the launchpad API service interfaces."
+
+[file.095]
+path = "services/launchpad/api/internal/store/store_test.go"
+lines = 145
+verdict = "clean"
+note = "Reviewed store-level validation and query/result assertions against the current public API model."
+
+[file.096]
+path = "services/launchpad/discovery/alerts.go"
+lines = 146
+verdict = "clean"
+note = "Reviewed owner-scoped rule limits, revision checks, disable and atomic checkpoint/trigger/outbox writes; runtime invocation is recorded against runtime.go."
+
+[file.097]
+path = "services/launchpad/discovery/alerts_disable_test.go"
+lines = 102
+verdict = "clean"
+note = "Reviewed disable ownership, missing/already-disabled behavior and slot reuse assertions against frozen delete semantics."
+
+[file.098]
+path = "services/launchpad/discovery/alerts_v2.go"
+lines = 85
+verdict = "issues"
+note = "Reviewed exact frozen request/response validation; persisted thresholds lose asset/source identity and registry signature is stale."
+
+[file.099]
+path = "services/launchpad/discovery/alerts_v2_http_test.go"
+lines = 194
+verdict = "clean"
+note = "Reviewed frozen create/delete HTTP assertions, ownership, error envelope and raw threshold echo behavior."
+
+[file.100]
+path = "services/launchpad/discovery/alerts_v2_test.go"
+lines = 185
+verdict = "clean"
+note = "Reviewed rational threshold conversion and typed envelope validation assertions; immediate request echo does not establish persisted price identity."
+
+[file.101]
+path = "services/launchpad/discovery/alerts_v2_validation_test.go"
+lines = 70
+verdict = "clean"
+note = "Reviewed threshold, cooldown, input and frozen schema refusal boundaries against the alert creation handler."
+
+[file.102]
+path = "services/launchpad/discovery/callouts.go"
+lines = 177
+verdict = "clean"
+note = "Reviewed verified-account/canonical-pool moderation, publication limits, edit/removal CAS and transactional source/outbox persistence."
+
+[file.103]
+path = "services/launchpad/discovery/catalog_test.go"
+lines = 99
+verdict = "clean"
+note = "Reviewed the frozen discovery route catalogue and unauthenticated Error assertions; this does not establish authorized success for legacy squads."
+
+[file.104]
+path = "services/launchpad/discovery/consumer.go"
+lines = 56
+verdict = "clean"
+note = "Reviewed canonical source re-resolution, revision/visibility agreement and replay-safe application before public feed eligibility."
+
+[file.105]
+path = "services/launchpad/discovery/cursor.go"
+lines = 68
+verdict = "clean"
+note = "Reviewed HMAC cursor authentication, account/query scope, expiry and malformed token refusal."
+
+[file.106]
+path = "services/launchpad/discovery/errors.go"
+lines = 41
+verdict = "clean"
+note = "Reviewed frozen error fields, request identity, status/code mapping and retryability against declared discovery errors."
+
+[file.107]
+path = "services/launchpad/discovery/errors_test.go"
+lines = 172
+verdict = "clean"
+note = "Reviewed frozen Error schema/status/code assertions for discovery refusal and dependency failures."
+
+[file.108]
+path = "services/launchpad/discovery/feed.go"
+lines = 212
+verdict = "clean"
+note = "Reviewed source freshness, preferences, graph visibility, moderation, snapshot pagination and corrected/tombstoned source handling."
+
+[file.109]
+path = "services/launchpad/discovery/http.go"
+lines = 536
+verdict = "issues"
+note = "Reviewed all discovery/squad/alert route registration, actor/wallet resolution, decoders and result handling; legacy squad, invitation delivery and invite CAS findings apply."
+
+[file.110]
+path = "services/launchpad/discovery/leaderboard.go"
+lines = 365
+verdict = "clean"
+note = "Reviewed interval qualification, attribution, signed exact ranking and squad aggregation contracts against the SQL authority."
+
+[file.111]
+path = "services/launchpad/discovery/model.go"
+lines = 434
+verdict = "issues"
+note = "Reviewed full source, membership, callout, alert, graph and squad domain transitions; squad policy/text validation disagrees with the frozen contract."
+
+[file.112]
+path = "services/launchpad/discovery/model_test.go"
+lines = 241
+verdict = "clean"
+note = "Reviewed pure source/membership/alert/callout ownership, revision and owner-transfer assertions; no fabricated transport proof is claimed."
+
+[file.113]
+path = "services/launchpad/discovery/phase2_test.go"
+lines = 246
+verdict = "clean"
+note = "Reviewed durable checkpoint, source/callout and reopened-store behavior assertions using real database paths."
+
+[file.114]
+path = "services/launchpad/discovery/proof_launchpad_discovery_test.go"
+lines = 521
+verdict = "clean"
+note = "Reviewed complete real database/HTTP/schema consumer proof and stop/reopen path; its scoped assertions do not establish the missing production alert loop."
+
+[file.115]
+path = "services/launchpad/discovery/runtime.go"
+lines = 72
+verdict = "issues"
+note = "Reviewed locked outbox publication and expiration lifecycle; no production rule-evaluation work is started."
+
+[file.116]
+path = "services/launchpad/discovery/schema.sql"
+lines = 14
+verdict = "clean"
+note = "Reviewed discovery table/index ownership and idempotent schema declarations against all SQL query paths in the package."
+
+[file.117]
+path = "services/launchpad/discovery/squads.go"
+lines = 401
+verdict = "issues"
+note = "Reviewed complete transactional squad/member/invitation/ownership operations; join/approve registry signature is stale and invite caller CAS/delivery gaps are recorded separately."
+
+[file.118]
+path = "services/launchpad/discovery/squads_actions_test.go"
+lines = 141
+verdict = "clean"
+note = "Reviewed membership dispatch, role/status authorization and expected-revision assertions against the frozen action enum."
+
+[file.119]
+path = "services/launchpad/discovery/squads_store_v2_test.go"
+lines = 235
+verdict = "issues"
+note = "Reviewed full real-store request/role/update assertion set; description tests enforce a contradictory byte-bound contract."
+
+[file.120]
+path = "services/launchpad/discovery/squads_v2.go"
+lines = 89
+verdict = "issues"
+note = "Reviewed schema-validated create/read/membership envelopes and uint precision; squadRevision incorrectly copies the membership revision."
+
+[file.121]
+path = "services/launchpad/discovery/squads_v2_http_test.go"
+lines = 198
+verdict = "clean"
+note = "Reviewed frozen squad HTTP create/read/visibility/membership and error assertions with actual store state."
+
+[file.122]
+path = "services/launchpad/discovery/squads_v2_test.go"
+lines = 138
+verdict = "issues"
+note = "Reviewed complete adapter and precision assertions; equal squad/member revision fixture hides the revision identity error."
+
+[file.123]
+path = "services/launchpad/discovery/store.go"
+lines = 181
+verdict = "issues"
+note = "Reviewed schema application/source deduplication, expiry/freshness and deletion transactions; public outbox actor attribution survives account deletion."
+
+[file.124]
+path = "services/launchpad/discovery/wire.go"
+lines = 54
+verdict = "issues"
+note = "Reviewed local/remote SourceAuthority composition and moderation capability refusal; registry contract page links are missing."
+
+[finding.legacy-squad-contract]
+file = "services/launchpad/discovery/http.go"
+line = 358
+class = "interface-mismatch"
+severity = "high"
+observed = "POST /v2/discovery/squads constructs Squad without Visibility, so CreateSquad always refuses its decoded request. PATCH decodes the expanded Squad, while ConnectedDiscoverySquad in the frozen production schema forbids Description and Visibility; its declared SDK request cannot satisfy Squad.Validate either."
+expected = "Registry rows 4.http-discovery-post-v2-discovery-squads and 4.http-discovery-patch-v2-discovery-squads-id declare served connected discovery operations whose frozen SDK requests must reach storage and whose responses must decode with that same contract."
+proposal = "In services/launchpad/discovery/http.go introduce an explicit connected-squad adapter and product migration policy for visibility, preserving private-squad protection. Return the declared connected DTO instead of raw Squad; prove both SDK operations through the real handler and reopened store."
+owner_domain = 4
+interface = "4.http-discovery-post-v2-discovery-squads"
+
+[finding.frozen-squad-validation]
+file = "services/launchpad/discovery/model.go"
+line = 368
+class = "interface-mismatch"
+severity = "high"
+observed = "Squad.Validate accepts only invite/request and caps Description with len at 280 bytes. The SDK and shared Go SquadCreateBody accept open/request/invite and descriptions of up to 500 Unicode characters. Thus valid open requests, 281 ASCII characters and 141 accented characters fail after schema validation."
+expected = "The frozen POST /v2/squads contract and requirement 4268.1 must agree with persisted squad policy and text bounds, including the admitted open-join lifecycle and Unicode character semantics."
+proposal = "In services/launchpad/discovery/model.go and squads.go implement the declared open membership lifecycle and one explicit product text policy. Reconcile the canonical contract and generated clients through the contract owner, then prove admitted boundary requests across HTTP, persistence and readback without weakening checks."
+owner_domain = 4
+interface = "4.http-discovery-post-v2-squads-j29"
+
+[finding.invitation-token-lost]
+file = "services/launchpad/discovery/http.go"
+line = 312
+class = "interface-mismatch"
+severity = "high"
+observed = "The frozen invite action passes a fresh uuid.NewString directly to Store.Invite and discards it. Invite persists only TokenHash; the membership response contains no token and no invitation delivery is enqueued. AcceptInvitation requires that unavailable plaintext, while the frozen action enum has no accept action."
+expected = "The served membership invitation and acceptance interfaces must let the intended authenticated recipient progress from invited to active with a recoverable, expiring, single-use authorization path."
+proposal = "In services/launchpad/discovery/http.go and squads.go define and wire recipient acceptance through an authenticated invitation workflow, durably deliver its authorization without exposing it publicly, and prove invitation delivery, restart, acceptance, replay refusal and expiry."
+owner_domain = 4
+interface = "4.http-discovery-put-v2-squads-squad-id-members-account-id-j29"
+
+[finding.membership-squad-revision]
+file = "services/launchpad/discovery/squads_v2.go"
+line = 60
+class = "interface-mismatch"
+severity = "high"
+observed = "AdaptV2SquadMembership assigns data.squadRevision from Membership.Revision and never receives Squad. Membership changes increment only the member document. A squad at revision 2 with a member at revision 4 is returned as squadRevision 4 although GET /v2/squads returns squad revision 2."
+expected = "Registry row 4.go-discovery-adapt-v2-squad-j29 must preserve the separate frozen membership revision and squadRevision identities across membership mutations and squad reads."
+proposal = "In services/launchpad/discovery/squads_v2.go accept the actual squad revision from the transactional mutation result; update http.go and callers to carry both revisions. Prove unequal revisions against real membership updates, squad reads and a reopened store."
+owner_domain = 4
+interface = "4.go-discovery-adapt-v2-squad-j29"
+
+[finding.invite-revision-race]
+file = "services/launchpad/discovery/http.go"
+line = 303
+class = "runtime-risk"
+severity = "medium"
+observed = "The invite handler checks existing.Revision before calling Store.Invite. That check is outside the Store.Invite transaction and squad lock; Invite has no expected revision argument. Two concurrent requests with the same expectedRevision can both replace an invited membership and token."
+expected = "Membership actions must check expectedRevision atomically with their write, so a stale invitation request cannot overwrite a newer invitation or invalidate its recipient authorization."
+proposal = "In services/launchpad/discovery/squads.go carry expectedRevision into Invite and compare it while holding the squad/member lock; remove the detached check in http.go. Prove that concurrent invitations at one expected revision yield one success and one conflict."
+owner_domain = 4
+interface = "4.http-discovery-put-v2-squads-squad-id-members-account-id-j29"
+
+[finding.alert-price-context-lost]
+file = "services/launchpad/discovery/alerts_v2.go"
+line = 27
+class = "interface-mismatch"
+severity = "high"
+observed = "RuleFromV2AlertCreate retains only threshold numerator/denominator. InputPrice baseAsset, quoteAsset and source are absent from AlertRule and Metric; AdaptV2AlertCreate reconstructs the response from the original request argument. After persistence/restart the rule cannot distinguish equal ratios with different assets, decimals or price sources."
+expected = "The frozen price threshold must retain its denomination and source through creation, storage and metric comparison; only a matching fresh price may trigger an alert, as required by the InputPrice contract and brief interface/recovery checks."
+proposal = "In services/launchpad/discovery/model.go and alerts_v2.go persist the full normalized threshold identity, validate its assets against the canonical pool and match evaluator metric units/source. Build responses from persisted state and prove differing denominations plus restart refusal on mismatched metrics."
+owner_domain = 4
+interface = "4.http-discovery-post-v2-me-alerts-j29"
+
+[finding.alert-evaluator-unwired]
+file = "services/launchpad/discovery/runtime.go"
+line = 55
+class = "wiring-gap"
+severity = "high"
+observed = "Runtime.Run publishes existing outbox rows only. The notifications maintenance loop refreshes sources and expires snapshots, but no production service calls Store.EvaluateRule; its only callers are tests. Saved price alerts consequently never create threshold-crossing-v2 outbox events in the running path."
+expected = "The served alert-creation interface must lead from canonical fresh pool metrics through durable evaluation checkpoints to an in-app notification, including resume after process restart."
+proposal = "In services/launchpad/discovery/runtime.go wire a bounded evaluator consuming the canonical price authority, enumerate enabled rules, persist evaluation progress and publish crossings through the existing outbox. Prove the running notifications/discovery service creates exactly one crossing across restart and redelivery."
+owner_domain = 4
+interface = "4.go-discovery-root-store-evaluate-rule"
+
+[finding.alert-registry-signature]
+file = "services/launchpad/discovery/alerts_v2.go"
+line = 37
+class = "interface-mismatch"
+severity = "medium"
+observed = "Registry 4.go-discovery-adapt-v2-alert-j29 declares AdaptV2AlertCreate(requestID, wallet string, r AlertRule, at time.Time) ([]byte,error). The producer instead takes rule, wallet, threshold, requestID, generatedAt and returns a typed v2.AlertCreateResponse. Current http.go uses the latter API."
+expected = "A served exported Go registry signature must describe the real producer and the actual consumer call, including the threshold argument and typed response."
+proposal = "In spec/layerx-merge/interfaces.kvx reconcile 4.go-discovery-adapt-v2-alert-j29 with services/launchpad/discovery/alerts_v2.go and its HTTP caller; document the persisted-threshold contract in the canonical launchpad service page and retain a compiling real-call proof."
+owner_domain = 4
+interface = "4.go-discovery-adapt-v2-alert-j29"
+
+[finding.join-registry-signature]
+file = "services/launchpad/discovery/squads.go"
+line = 223
+class = "interface-mismatch"
+severity = "medium"
+observed = "Registry 4.go-discovery-store-request-join-j29 declares RequestJoin with a time.Time argument and ApproveRequest returning only error. Actual RequestJoin takes expected uint64; actual ApproveRequest takes expected plus now time.Time and returns (Membership,error). The HTTP consumer calls the actual signatures."
+expected = "The served join-request registry must describe the actual revision-checked producer and approval result consumed by the frozen membership route, as required by 4266.1."
+proposal = "Reconcile spec/layerx-merge/interfaces.kvx row 4.go-discovery-store-request-join-j29 with services/launchpad/discovery/squads.go and its HTTP consumers; state expectedRevision semantics and prove the exported calls against the reopened PostgreSQL store."
+owner_domain = 4
+interface = "4.go-discovery-store-request-join-j29"
+
+[finding.deleted-actor-outbox]
+file = "services/launchpad/discovery/store.go"
+line = 153
+class = "security"
+severity = "medium"
+observed = "DeleteAccount scrubs AuthorAccountID from callouts and callout_revisions and CreatorPublicID from sources, but persistCallout emits callout-target-ref-v2 with Actor set before that scrub. Neither prior nor deletion outbox rows have Actor cleared, so PublishBatch can later publish the deleted offchain identity."
+expected = "Account deletion hides offchain public identity while retaining only explicitly justified restricted audit data; queued public discovery events must obey the same deletion boundary as current reads."
+proposal = "In services/launchpad/discovery/store.go atomically anonymize queued public Actor fields and create an anonymous removal event; make the notification consumer honor the deletion fence. Prove deleting with an unpublished callout followed by restart and outbox delivery exposes no public actor identifier."
+owner_domain = 4
+interface = "4.go-discovery-root-store-delete-account"
+
+[finding.transfers-reuse-stale-basis]
+file = "services/launchpad/api/internal/store/leaderboard_realized.go"
+line = 26
+class = "runtime-risk"
+severity = "medium"
+observed = "traderRealizedRows loads only committed fills and RealizedTraderPnL tracks inventory only through buys/sells. Transferring bought tokens away does not reduce known basis; later receiving unrelated tokens and selling up to that old quantity is labeled complete profit instead of unknown basis."
+expected = "A realized-PnL ranking must use actual attributable inventory and must exclude or mark unknown disposals when transfers break the known acquisition basis, rather than publish an unsupported complete profit."
+proposal = "In services/launchpad/api/internal/store/leaderboard_realized.go reconcile token transfer provenance with fill inventory, or explicitly exclude positions whose basis cannot be established. Cover buy, transfer-out, unrelated transfer-in and sell with real projection evidence and stable unknown-basis quality."
+owner_domain = 4
+
+[finding.prepared-call-not-bound]
+file = "apps/launchpad/web/src/widgets/bounties/prepared-transaction.ts"
+line = 74
+class = "security"
+severity = "high"
+observed = "validatePreparedTransaction accepts any selector and calldata to any address in the deployment map. It receives no bounty, asset, budget, winner or action intent. A valid ERC20 transfer or approval on published USDL can target an unrelated recipient/spender while the review displays the bounty amount and winner separately."
+expected = "Bounty funding and payout signatures must authorize exactly the reviewed asset, amount, beneficiary and escrow operation; deployment membership and syntactically valid calldata alone do not authorize a token movement."
+proposal = "In apps/launchpad/web/src/widgets/bounties/prepared-transaction.ts require a typed funding/settlement intent, decode the allowed deployed ABI call and compare every token-moving argument, recipient and value. Pass that intent through funding-step.tsx and judge-panel.tsx and prove malicious selector, spender, winner and amount refusal before wallet access."
+owner_domain = 4
+interface = "4.ts-sdk-op-if-bounty-accept-j30"
+
+[finding.prepared-call-tests-no-intent]
+file = "apps/launchpad/web/src/widgets/bounties/prepared-transaction.test.ts"
+line = 9
+class = "test-gap"
+severity = "medium"
+observed = "The positive prepared-transaction fixture is USDL approve with zero-filled arguments, and the tests assert address membership, syntax and amounts only. They do not relate calldata to a real funding or settlement producer, bounty budget, escrow address or selected winner."
+expected = "The security proof must use a real prepared bounty call and refuse a different spender, token, beneficiary, amount or operation even when its target is in the attested deployment."
+proposal = "In apps/launchpad/web/src/widgets/bounties/prepared-transaction.test.ts drive the actual preparation-to-review validation with decoded product intents; add refusal cases using otherwise valid deployed-contract calls and verify the wallet is never invoked for them."
+owner_domain = 4
+
+[finding.bounty-broadcast-not-persisted]
+file = "apps/launchpad/web/src/widgets/bounties/use-bounty-mutations.ts"
+line = 364
+class = "restart-recovery"
+severity = "medium"
+observed = "usePreparedTransaction keeps the submitted hash and uncertain status only in React state and refs, then waits up to 120 seconds for a receipt. Unmount or reload loses the unresolved hash and review fence; there is no persisted attempt or resume entry point for funding or payout."
+expected = "A submitted wallet action must remain recoverable by its original hash and intent across navigation and restart, and an unresolved broadcast must not become a fresh fund/payout action."
+proposal = "In apps/launchpad/web/src/widgets/bounties/use-bounty-mutations.ts store account/chain/intent/hash in the existing durable transaction-attempt facility immediately after broadcast and resume receipt reconciliation on remount. Exercise reload after broadcast, receipt timeout and eventual final success/revert."
+owner_domain = 4
+
+[finding.reviewed-fee-not-enforced]
+file = "apps/launchpad/web/src/widgets/bounties/use-bounty-mutations.ts"
+line = 346
+class = "security"
+severity = "medium"
+observed = "The review computes a maximum cost from the prepared maxFeePerGas or getGasPrice, but the final comparison checks only from/to/data. A new request can change gas fee fields without invalidating review; when maxFeePerGas is null, the displayed fee is not supplied as a cap in sendTransaction."
+expected = "The network fee shown as a maximum before signature must bound the actual transaction request, and any fee-affecting change must require a fresh user review."
+proposal = "In apps/launchpad/web/src/widgets/bounties/use-bounty-mutations.ts freeze the reviewed gas and fee caps, compare all signing fields before wallet invocation, and send those exact caps; require a new estimate/review if they change. Prove changed and omitted fee fields cannot exceed the displayed bound."
+owner_domain = 4
+
+[finding.evidence-crosses-session]
+file = "apps/launchpad/web/src/widgets/bounties/use-bounty-mutations.ts"
+line = 189
+class = "security"
+severity = "medium"
+observed = "useEvidenceUploads retains files, previews, assets and approved evidenceUrls across account-session changes. transfer captures one wallet but patches state after its async upload without a session generation check; refresh instead uses the new session wallet for the old asset id."
+expected = "A bounty submission must include only evidence selected for the current authenticated account; logout or account switch must fence old uploads and clear their preview and approval state."
+proposal = "In apps/launchpad/web/src/widgets/bounties/use-bounty-mutations.ts subscribe to account-session identity, cancel or ignore prior-generation results, revoke previews and reset evidence when identity changes. Prove wallet switch during upload and moderation refresh cannot attach the previous account evidence."
+owner_domain = 4
+
+[finding.revert-fee-message]
+file = "apps/launchpad/web/src/widgets/bounties/funding-step.tsx"
+line = 36
+class = "runtime-risk"
+severity = "medium"
+observed = "The reverted receipt state is displayed as Transaction failed, nothing was sent. A committed reverted EVM transaction still exists and charges PAX gas, even though token principal changes roll back."
+expected = "The funding and payout review must distinguish returned token principal from a paid network fee, so a user can reconcile the committed failure with wallet history."
+proposal = "In apps/launchpad/web/src/widgets/bounties/funding-step.tsx explain that funding/payout reverted and network gas may have been charged, preserving the receipt hash and recovery link. Verify the message with a real reverted receipt state."
+owner_domain = 4
+
+[finding.chat-read-timer-stuck]
+file = "apps/launchpad/web/src/hooks/chat/use-chat.ts"
+line = 99
+class = "runtime-risk"
+severity = "medium"
+observed = "Conversation cleanup clears readTimer.current but leaves its handle set. If the user changes conversation or wallet during the two-second read debounce, the cancelled callback never resets it; markRead returns on the truthy stale handle for subsequent conversations."
+expected = "Read markers must resume for each newly opened authorized conversation after the old conversation timer is cancelled, without acknowledging another conversation or account."
+proposal = "In apps/launchpad/web/src/hooks/chat/use-chat.ts clear and reset the timer reference during cleanup and identity changes; prove switching conversations during a queued read allows a new timer and marks only the new conversation read."
+owner_domain = 4
+
+[finding.chat-qualification-paths]
+file = "apps/launchpad/web/src/hooks/chat/qualify-connected.py"
+line = 81
+class = "config-drift"
+severity = "medium"
+observed = "The mandatory source manifest contains client/apps/web and media/social paths. Those paths do not exist in this monorepo, where the owners are apps/launchpad/web and services/launchpad/social. validate then requires every mandatory path to be an actual file under ROOT."
+expected = "Connected-chat qualification must bind the real checked-out client and social service sources so an admitted workload can reach execution with a truthful source manifest."
+proposal = "In apps/launchpad/web/src/hooks/chat/qualify-connected.py replace the obsolete source identities with the canonical monorepo paths and derive ROOT from an explicit repository marker; update manifest producers together and prove the existing path/digest checks against the actual checkout."
+owner_domain = 4
+
+[finding.advanced-qualification-paths]
+file = "apps/launchpad/web/src/widgets/meta-ag/run-connected-chain.py"
+line = 13
+class = "config-drift"
+severity = "medium"
+observed = "SOURCE_NAMES requires custom-route.tsx, which is absent from this slice, and the digest list requires root/client/pnpm-lock.yaml, also absent. The current workspace lock is apps/launchpad/pnpm-lock.yaml. digest refuses these paths before native qualification can start."
+expected = "The advanced connected-chain evidence manifest must enumerate existing implementation and dependency inputs of this checkout without dropping required route or lockfile coverage."
+proposal = "In apps/launchpad/web/src/widgets/meta-ag/run-connected-chain.py enumerate the actual custom-route implementation in advanced-provider.ts and the owning apps/launchpad/pnpm-lock.yaml; keep strict file and digest checks and prove the admitted descriptor reaches its unchanged native gate."
+owner_domain = 4
+
+[finding.advanced-broadcast-recovery]
+file = "apps/launchpad/web/src/widgets/meta-ag/advanced-provider.ts"
+line = 223
+class = "restart-recovery"
+severity = "medium"
+observed = "placeOrder, executeRoute and executeCustomRoute broadcast then await receipt with the hash in local variables only. They do not save PendingAttemptStore records, while cancel explicitly does. A process restart or lost receipt response loses the unresolved placement/swap outcome and its resubmission fence."
+expected = "Every token-moving order and route action must recover the original submitted transaction by account, chain, deployment and intent, as the cancellation path already does."
+proposal = "In apps/launchpad/web/src/widgets/meta-ag/advanced-provider.ts route placement and both swap actions through the durable attempt/recovery adapter, persist the hash before receipt waiting, and reconcile exact events after reopening. Prove dropped receipt transport and reload never submit a second economic action."
+owner_domain = 4
+
+[finding.old-orders-unreadable]
+file = "apps/launchpad/web/src/widgets/meta-ag/advanced-provider.ts"
+line = 243
+class = "runtime-risk"
+severity = "medium"
+observed = "order refuses triggered or terminal evidence when finalized.number minus creationBlock exceeds 2000. No indexed-history provider is accepted by this implementation. orderPage maps every selected creation through order with Promise.all, so one older completed order can reject the whole account page."
+expected = "A user must be able to inspect committed activation, execution, cancellation and refund history for orders throughout their supported lifetime, with bounded RPC work and canonical evidence."
+proposal = "In apps/launchpad/web/src/widgets/meta-ag/advanced-provider.ts supply an admitted paginated canonical history reader or durably indexed event references instead of an age-based terminal refusal. Prove orders older than 2000 blocks and mixed account pages retain exact settlement/refund evidence."
+owner_domain = 4
+
+[finding.paused-feed-count]
+file = "apps/launchpad/web/src/widgets/home/callouts-widget.tsx"
+line = 66
+class = "runtime-risk"
+severity = "medium"
+observed = "The paused new-item count is live.length minus frozen.length, but useFeed requests a bounded 50-card page. Once full, new cards replace old ones without changing length and the count stays zero; removals can make it negative."
+expected = "A paused feed should report newly arrived callout identities since the frozen view, including when a full page rotates, and must never display a negative arrival count."
+proposal = "In apps/launchpad/web/src/widgets/home/callouts-widget.tsx count newly observed card identities relative to the frozen snapshot, with an explicit policy for page eviction and removals. Cover a full 50-card page receiving new cards and a moderated removal while paused."
+owner_domain = 4
+
+[finding.squad-boundary-tests]
+file = "services/launchpad/discovery/squads_store_v2_test.go"
+line = 25
+class = "test-gap"
+severity = "medium"
+observed = "TestPostgresSquadRoleChangeAndJoinRequest requires 281 ASCII characters and 141 accented characters to be invalid descriptions. Both are within the frozen 500-character SquadCreateBody bound, so the fixture enforces a narrower byte-based product contract than the HTTP schema."
+expected = "Storage and connected tests must demonstrate the same declared Unicode text boundary as the real frozen producer/consumer schema rather than encode a third validation policy."
+proposal = "In services/launchpad/discovery/squads_store_v2_test.go replace the contradictory boundary assertions only as part of the owning contract reconciliation; exercise the canonical maximum and over-limit Unicode cases through both HTTP schema validation and storage without weakening either check independently."
+owner_domain = 4
+
+[finding.squad-revision-test-fixture]
+file = "services/launchpad/discovery/squads_v2_test.go"
+line = 89
+class = "test-gap"
+severity = "medium"
+observed = "The membership adapter test uses a squad and member both at revision 3 and asserts squadRevision 3 even though the adapter receives only Membership. The fixture cannot distinguish the member revision from the squad revision and accepts their conflation."
+expected = "The frozen membership adapter proof must exercise independent member and squad revision sequences and compare squadRevision with the actual persisted squad read."
+proposal = "In services/launchpad/discovery/squads_v2_test.go add unequal squad/member revisions using the revised adapter result from the real store; assert both identities independently and retain the uint64 precision checks, including a reopen between mutation and read."
+owner_domain = 4
+
+[finding.missing-interface-contract-pages]
+file = "services/launchpad/discovery/wire.go"
+line = 7
+class = "doc-drift"
+severity = "medium"
+observed = "The registry points launchpad discovery/API exports at contracts/services.md#launchpad-discovery and #launchpad-api, and web environment/SDK rows at contracts/clients.md#launchpad-web-app and #launchpad-sdk-sdk. Neither contracts/services.md nor contracts/clients.md exists in this checkout."
+expected = "Every served registry row must lead integrators to an existing canonical contract page describing the actual service/client shapes, authority, errors and recovery lifecycle."
+proposal = "Restore the canonical launchpad contracts under contracts/ or retarget spec/layerx-merge/interfaces.kvx to the maintained pages, with valid anchors for discovery, API, web and SDK. Document the corrected squad and alert workflows and check every produced/consumed contract link."
+owner_domain = 4
+interface = "4.go-discovery-root-owned-sources"
+
+[finding.core-architecture-scope]
+file = "contracts/launchpad/README.md"
+line = 55
+class = "doc-drift"
+severity = "medium"
+observed = "The architecture says there are no multi-token paths and no complex routing trees, while the reviewed advanced provider consumes MetaAGRouter.swapMultiHop with token-to-token hop lists. The page does not delimit that claim to the original core pool design."
+expected = "Product documentation must describe the current launchpad project and its executable paths."
+proposal = "In contracts/launchpad/README.md distinguish USDL-paired core pool accounting from the optional MetaAG routing/order layer and link the deployed multi-hop contract and custody/recovery responsibilities."
+owner_domain = 4
+
+[finding.retired-route-catalogue]
+file = "docs/system/routes.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The generated page is titled Router routes and lists the kernel sequencer and replica-authority as current routed services (lines 31 and 41), /rpc/evm/ws (908), and legacy program lifecycle REST routes (927-937). This describes the pre-merge transport model."
+expected = "The audit brief defines one merged paxd BFT network on chain 125, root-path public JSON-RPC and finality at committed blocks; retired service and upgrade procedures must not be presented as live instructions."
+proposal = "Update the owning route catalogue/generator under tools/paxeer-x and regenerate docs/system/routes.md from the merged node-root JSON-RPC and hosted gateway contracts; remove retired service and program ingress rows while preserving current product routes."
+owner_domain = 8
+
+[finding.contract-workspace-directory]
+file = "contracts/launchpad/operations/README.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "Deployment, verification and health inspection direct operators to run from contracts/ (lines 11, 28 and 81). The referenced scripts, Hardhat project and local dependencies now belong to contracts/launchpad, so the literal repository-root instruction selects the wrong directory."
+expected = "Product documentation must describe the current launchpad project and its executable paths."
+proposal = "In contracts/launchpad/operations/README.md name the repository-relative contracts/launchpad working directory for deployment, verification, health and release commands, and resolve artifacts and journals from that project root."
+owner_domain = 4
+
+[finding.upgrade-runbook-plan]
+file = "docs/runbooks/paxeer-x-fork.md"
+line = 4
+class = "doc-drift"
+severity = "medium"
+observed = "The opening procedure selects v6.6 and adds layerxcustody/layerxanchor and their precompiles (lines 4-8), but the required rehearsal later applies v7.0 on v6.12.0 and deletes the anchor store (252-259). Operators are given two incompatible upgrade targets."
+expected = "The audit brief defines one merged paxd BFT network on chain 125, root-path public JSON-RPC and finality at committed blocks; retired service and upgrade procedures must not be presented as live instructions."
+proposal = "In docs/runbooks/paxeer-x-fork.md replace the opening store-loader and release-plan instructions with the reviewed merged upgrade and anchor-retirement sequence; label any historical v6.6 procedure separately and bind all commands to the release rehearsal evidence."
+owner_domain = 15
+
+[finding.quickstart-retired-network]
+file = "docs/site/docs/overview/quickstart.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "The quickstart sends public traffic to POST /rpc (20,167), /rpc/ws (168,214-215), and describes custody credit submitted to a router (217). It also presents guarantor bond and checkpoint registry configuration as active onboarding inputs (131-132)."
+expected = "The audit brief defines one merged paxd BFT network on chain 125, root-path public JSON-RPC and finality at committed blocks; retired service and upgrade procedures must not be presented as live instructions."
+proposal = "Rewrite docs/site/docs/overview/quickstart.md around root-path RPC at api1..api14 or api-mainnet-beta.paxeer.network, chain 125, merged funding/program admission and committed-block receipts; remove standalone LayerX/router/guarantor onboarding."
+owner_domain = 8
+
+[finding.settlement-retired-authority]
+file = "docs/site/docs/operators/settlement-evidence.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The page presents guarantor checkpoint certificates and Solidity publication contracts as current settlement evidence, with the operational sequence registering inclusion checkpoints (33-37) and a LAYERX_GUARANTOR_PUBLICATION_INPUTS_DIR handoff (95). These authorities are retired by the merged-network brief."
+expected = "The audit brief defines one merged paxd BFT network on chain 125, root-path public JSON-RPC and finality at committed blocks; retired service and upgrade procedures must not be presented as live instructions."
+proposal = "In docs/site/docs/operators/settlement-evidence.md replace the current operational sequence with the merged committed-block and native proof authorities. Keep legacy certificate encodings only in a clearly historical migration appendix with no live guarantor deployment instructions."
+owner_domain = 8
+
+[finding.internal-retired-receipts]
+file = "docs/site/docs/operators/hosted-internal.md"
+line = 45
+class = "doc-drift"
+severity = "medium"
+observed = "The topology binds internal-authority in layerx-testnet (45-47), and payment event derivation decodes a signed protocol receipt (289,296-301). It gives no merged committed-block receipt boundary for the event adapter after retirement of the separate authority/receipt path."
+expected = "The audit brief defines one merged paxd BFT network on chain 125, root-path public JSON-RPC and finality at committed blocks; retired service and upgrade procedures must not be presented as live instructions."
+proposal = "In docs/site/docs/operators/hosted-internal.md reconcile internal service aliases and payment/program event sources with the merged gateway and committed transaction evidence; identify any retained historical receipt decoder as migration-only and document restart identity for the current source."
+owner_domain = 8
+
+[finding.beta-retired-topology]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 26
+class = "doc-drift"
+severity = "medium"
+observed = "The bring-up deploys GuarantorBond and settlement contracts from genesis artifacts (26), describes native custody credit at 0x1013 (40-44), and mounts a profile into layerxd --custody-profile (50). These are presented as the current beta cluster."
+expected = "The audit brief defines one merged paxd BFT network on chain 125, root-path public JSON-RPC and finality at committed blocks; retired service and upgrade procedures must not be presented as live instructions."
+proposal = "In docs/site/docs/operators/beta-cluster.md describe the merged paxd BFT cluster and tenant namespaces, remove layerxd/guarantor/legacy custody bootstrap dependencies, and bind public node-root origins plus surviving hosted services to the current deployment manifests."
+owner_domain = 8
+
+[finding.cli-retired-rpc]
+file = "docs/site/docs/platform/cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The CLI page requires --rpc URLs to end in /rpc (8,131), calls the gateway /rpc the public contract (278-279), and sends eth_sendRawTransaction there (298). Its emulator/receipt procedures also retain separate sequencer trust and batch facts."
+expected = "The audit brief defines one merged paxd BFT network on chain 125, root-path public JSON-RPC and finality at committed blocks; retired service and upgrade procedures must not be presented as live instructions."
+proposal = "In docs/site/docs/platform/cli.md update current endpoint examples and validation expectations to root-path node JSON-RPC, distinguish hosted px_ methods, and replace separate sequencer/batch receipt onboarding with committed-block evidence. Label any preserved legacy emulator commands explicitly."
+owner_domain = 8
+
+[finding.hosted-node-retired-daemon]
+file = "docs/site/docs/platform/hosted-node.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The page calls the hosted node an in-cluster sequencer pod, builds layerxd (3-4), and lists layerxd, layerxd-authority and guarantor containers as active (39-42). Its bootstrap and recovery instructions therefore target a retired service topology."
+expected = "The audit brief defines one merged paxd BFT network on chain 125, root-path public JSON-RPC and finality at committed blocks; retired service and upgrade procedures must not be presented as live instructions."
+proposal = "Replace docs/site/docs/platform/hosted-node.md with the merged paxd kernel/node deployment, committed-block finality, persistent stores and restart procedures; remove independent sequencer, authority-replica, LNI and guarantor startup instructions."
+owner_domain = 8
+
+[finding.agent-boundary-retired-lni]
+file = "docs/site/docs/platform/agent-boundary.md"
+line = 4
+class = "doc-drift"
+severity = "medium"
+observed = "The boundary is documented as forwarding activities to node LNI (4,136), returning sequencer-signed protocol receipts (256), and using LAYERX_AGENT_BOUNDARY_LNI_SOCKET pointing at layerxd (297). The current brief retires that separate ingress and receipt authority."
+expected = "The audit brief defines one merged paxd BFT network on chain 125, root-path public JSON-RPC and finality at committed blocks; retired service and upgrade procedures must not be presented as live instructions."
+proposal = "In docs/site/docs/platform/agent-boundary.md document the merged program/agent admission transport and committed transaction receipt proof, update the configuration table, and retain old LNI framing only as explicitly historical migration material."
+owner_domain = 8
+
+[finding.hosted-authority-retired-replica]
+file = "docs/site/docs/platform/hosted-authority.md"
+line = 9
+class = "doc-drift"
+severity = "medium"
+observed = "Authority verification requires an independent replica batch and pinned sequencer authorization (9-14), then starts layerxd-authority through supervisor --role replica (30-42). This describes a separate finality authority that the merged network no longer has."
+expected = "The audit brief defines one merged paxd BFT network on chain 125, root-path public JSON-RPC and finality at committed blocks; retired service and upgrade procedures must not be presented as live instructions."
+proposal = "In docs/site/docs/platform/hosted-authority.md replace replica/LNI/authorized-batch verification with the merged BFT committed-block authority and current proof contracts; remove obsolete containers, ports and sequencer trust configuration from current operational guidance."
+owner_domain = 8
+
+[doc.001]
+path = "contracts/launchpad/README.md"
+status = "stale"
+notes = "Line 55 denies multi-token paths; the current advanced provider executes swapMultiHop. Delimit the core-only design statement and describe the optional routing layer."
+
+[doc.002]
+path = "docs/system/routes.md"
+status = "misleading"
+notes = "Lines 3, 31, 41, 908 and 927-937 retain the router, separate sequencer/replica and retired program ingress. Rewrite the generator input and regenerate this page."
+
+[doc.003]
+path = "contracts/launchpad/operations/README.md"
+status = "stale"
+notes = "Lines 11, 28 and 81 use contracts/ as the command directory; scripts and the Hardhat project are under contracts/launchpad. The incident and local-evidence boundaries are otherwise retained."
+
+[doc.004]
+path = "docs/runbooks/paxeer-x-fork.md"
+status = "stale"
+notes = "Lines 4-8 prescribe v6.6 custody/anchor activation, while 252-259 prescribe v7.0 and anchor deletion. Make one current upgrade plan and label historical steps."
+
+[doc.005]
+path = "docs/site/docs/overview/quickstart.md"
+status = "misleading"
+notes = "Lines 20, 131-132, 167-168 and 214-217 prescribe retired /rpc, /rpc/ws, router custody credit and guarantor configuration. Replace the onboarding flow with the merged node-root path."
+
+[doc.006]
+path = "docs/site/docs/operators/settlement-evidence.md"
+status = "stale"
+notes = "Lines 3, 33-37 and 93-101 retain active guarantor certificate/publication rollout. Mark historical formats and document committed-block evidence as the current authority."
+
+[doc.007]
+path = "docs/site/docs/operators/hosted-internal.md"
+status = "stale"
+notes = "Lines 45-47 retain the internal-authority topology; 289 and 296-301 describe protocol-receipt/program registry event sources without the merged receipt boundary."
+
+[doc.008]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "misleading"
+notes = "Lines 26, 36, 40-50 describe guarantor settlement, legacy custody and layerxd profile mounting. Replace the bring-up with merged paxd and tenant-domain configuration."
+
+[doc.009]
+path = "docs/site/docs/platform/cli.md"
+status = "misleading"
+notes = "Lines 8, 131, 278-279 and 298 require the retired /rpc public surface; 80 and 96-97 retain batch/sequencer authority. Reconcile the command contract with merged-network admission."
+
+[doc.010]
+path = "docs/site/docs/platform/hosted-node.md"
+status = "misleading"
+notes = "Lines 3-12 and 39-42 describe the retired layerxd sequencer, authority replica and guarantors; lines 70-71 retain the LNI socket. Rewrite bootstrap and recovery around paxd."
+
+[doc.011]
+path = "docs/site/docs/platform/agent-boundary.md"
+status = "stale"
+notes = "Lines 4, 136, 234-256 and 297-298 retain live LNI submission, sequencer receipts and layerxd socket configuration. Replace the transport and receipt lifecycle with the merged boundary."
+
+[doc.012]
+path = "docs/site/docs/platform/hosted-authority.md"
+status = "misleading"
+notes = "Lines 9-14 and 30-42 require replica batches, LNI receipt lookup and layerxd-authority. Replace this live authority model with committed-block proofs and label legacy material."
+
+[doc.013]
+path = "contracts/services.md"
+status = "missing"
+notes = "Referenced by discovery/API registry contract anchors; this page is absent, so producer lifecycle, errors and transport cannot be followed through that declared documentation link."
+
+[doc.014]
+path = "contracts/clients.md"
+status = "missing"
+notes = "Referenced by web environment and SDK operation registry anchors; this page is absent, leaving the declared client contract documentation destinations unresolved."
