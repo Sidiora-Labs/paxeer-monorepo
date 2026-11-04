@@ -18,10 +18,9 @@
     # execute the authz tx - we want to validate that this succeeds with code 0
     - cmd: paxdbin=paxd; chainid=pax; source tests/integration/utils/_tx_helpers.sh && submit_tx_and_wait $GRANTEE_ADDR authz exec send_tx.json --fees 2000uhpx
       env: AUTHZ_1_ERROR_CODE
-    # second exec is rejected at DeliverTx: 4pax left after first 6pax
-    # send is below the 6pax this attempt requests. OTHER_ACC_BALANCE
-    # below verifies the rejection.
-    - cmd: paxdbin=paxd; chainid=pax; source tests/integration/utils/_tx_helpers.sh && submit_tx_and_wait $GRANTEE_ADDR authz exec send_tx.json --fees 2000uhpx
+    # Require the committed spend-limit rejection as well as unchanged balance.
+    - cmd: python3 tests/integration/authz_module/authz_evidence.py exec "$GRANTEE_ADDR" send_tx.json send-limit
+      env: AUTHZ_2_ERROR_CODE
     # query bank balances for the other addr to validate the amount the account has
     - cmd: paxd q bank balances $OTHER_ACC_ADDR --denom uhpx --output json | jq -r ".amount"
       env: OTHER_ACC_BALANCE
@@ -29,6 +28,8 @@
     # verify that error code == 0 for first authz exec
     - type: eval
       expr: AUTHZ_1_ERROR_CODE == 0
+    - type: eval
+      expr: AUTHZ_2_ERROR_CODE == 5
     # verify that other acc balance is 6 pax (second exec rejected at DeliverTx)
     - type: eval
       expr: OTHER_ACC_BALANCE == 6000000
