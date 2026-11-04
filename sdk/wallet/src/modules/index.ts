@@ -9,9 +9,14 @@ import {
   type PrecompileLog,
 } from '@sidiora/layerx-sdk/browser';
 
-import { authenticateSequencerReceipt, waitForSequencerReceipt } from '../receipt.js';
+import {
+  authenticateSequencerReceipt,
+  matchReceiptTransaction,
+  requireAuthenticatedReceipt,
+  waitForSequencerReceipt,
+  type AuthenticatedSequencerReceiptAnswer,
+} from '../receipt.js';
 import { isRecord } from '../rpc.js';
-import type { SequencerReceiptAnswer } from '../types.js';
 
 export type ModuleProvider = Eip1193Requester;
 export type ModuleTransaction = PrecompileCall;
@@ -78,9 +83,11 @@ export async function sendModuleTransactionReceipted(
   provider: ModuleProvider,
   from: string,
   tx: ModuleTransaction
-): Promise<SequencerReceiptAnswer> {
+): Promise<AuthenticatedSequencerReceiptAnswer> {
   const request = precompileTransactionRequest(moduleAddress(from, 'from'), tx);
+  const rpc = (method: string, params: readonly unknown[]) => provider.request({ method, params });
   let value: unknown;
+  let expectedHash: string | undefined;
   try {
     value = await provider.request({
       ...request,
@@ -88,17 +95,16 @@ export async function sendModuleTransactionReceipted(
     });
   } catch (error) {
     if (!isRecord(error) || error.code !== 4200) throw error;
-    const hash = await sendModuleTransaction(provider, from, tx);
-    return waitForSequencerReceipt((method, params) => provider.request({ method, params }), hash, {
-      rung: 'receipted',
-    });
+    expectedHash = await sendModuleTransaction(provider, from, tx);
+    value = await waitForSequencerReceipt(
+      (method, params) => provider.request({ method, params }),
+      expectedHash,
+      { rung: 'receipted' }
+    );
   }
-  const answer = await authenticateSequencerReceipt(
-    (method, params) => provider.request({ method, params }),
-    value
-  );
-  if (answer.rung === 'submitted')
-    throw new ModuleError('invalid_answer', 'paxeer_sendTransactionReceipted');
+  const answer = await authenticateSequencerReceipt(rpc, value, expectedHash);
+  requireAuthenticatedReceipt(answer);
+  matchReceiptTransaction(answer, from, tx);
   return answer;
 }
 

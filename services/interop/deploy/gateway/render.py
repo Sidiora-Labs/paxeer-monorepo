@@ -856,6 +856,7 @@ def receipt_keys(path):
     if not isinstance(keys, list) or not keys:
         raise Refused(["receipt keys file %s must contain a nonempty JSON array" % path])
     fields = {"keyId", "publicKey", "firstHeight", "lastHeight"}
+    key_ids = set()
     for index, entry in enumerate(keys):
         source = "receipt keys file %s entry %d" % (path, index)
         if not isinstance(entry, dict) or set(entry) != fields:
@@ -886,6 +887,12 @@ def receipt_keys(path):
             raise Refused([
                 "%s key %s has a reversed height range" % (source, entry["keyId"])
             ])
+        if entry["keyId"] in key_ids:
+            raise Refused([
+                "%s repeats keyId %s; receipt key identifiers must be unique"
+                % (source, entry["keyId"])
+            ])
+        key_ids.add(entry["keyId"])
     keys.sort(key=lambda entry: entry["firstHeight"])
     for previous, current in zip(keys, keys[1:]):
         if current["firstHeight"] <= previous["lastHeight"]:
@@ -1045,6 +1052,7 @@ def self_test():
         assert receipt_keys(keys_file) == [entries[1], entries[2], entries[0]]
         for broken, expected in (
             ([], "nonempty JSON array"),
+            ([entries[1], {**entries[2], "keyId": entries[1]["keyId"]}], "repeats keyId"),
             (key_entries([(20, 10)]), "reversed height range"),
             ([{**entries[0], "publicKey": "0x" + "00" * 32}], "nonzero"),
             ([{**entries[0], "publicKey": "0x" + "ab" * 31}], "32-byte lowercase hexadecimal"),
