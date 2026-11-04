@@ -488,7 +488,9 @@ func (app *App) continueMergeUpgradePlan(ctx sdk.Context, plan upgradetypes.Plan
 	if !found {
 		app.UpgradeKeeper.ClearUpgradePlan(cached)
 	}
+	cached.KVStore(app.keys[LayerXHostStoreKey]).Set([]byte(hostedProgramsGuestABIKey), []byte{0, 5})
 	write()
+	app.refreshHostedKernelProgramsABI(ctx)
 	ctx.EventManager().EmitEvents(cached.EventManager().Events())
 	return versions, nil
 }
@@ -677,6 +679,7 @@ func (app *App) applyNamedUpgrade(ctx sdk.Context) {
 	if ctx.IsTracing() {
 		return
 	}
+	app.refreshHostedKernelProgramsABI(ctx)
 	// The state reads come before the file, so a chain that has applied every plan
 	// the application knows reads no file in any of its blocks.
 	pending := false

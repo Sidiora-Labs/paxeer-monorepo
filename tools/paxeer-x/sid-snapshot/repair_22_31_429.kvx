@@ -1,0 +1,23 @@
+[repair.22.31.429]
+audit = "22.30.181"
+base_revision = "7fc896febbb27d599c34aa9b6e0a81d4a7905759"
+findings = ["f007", "f008"]
+implementation = "Require finalized RPC block evidence; pin balanceOf and totalSupply to its canonical hash; bound CSV/Postgres and canonical Transfer queries by its height; retain and reconcile all candidates; require complete merged history and supply equality before writing outputs."
+baseline = "No baseline gate ran: the ordered task instructions prohibit testing before implementation and require hf-build before hf-done; the declared test file did not exist at the base revision. No pre-change test failure is claimed."
+qualification = "The runner records the exact candidate revision, command, exit and private evidence log in /out/run/gates.jsonl; hf-done is the final gate and no source is edited afterward."
+wiring = "No out-of-path implementation is required; generating node/testdata/sid-holders.json for release remains with the node upgrade domain and requires an operator-selected archive RPC plus complete explorer inputs."
+
+[finding.f007]
+proof = "test_f007_pins_all_reads_despite_transfer_during_reconciliation"
+additional_proofs = ["test_f007_supply_mismatch_preserves_existing_output", "test_f007_unavailable_or_uncommitted_evidence_fails_closed", "test_f007_burn_and_empty_supply_are_reconciled"]
+assertion = "Real HTTP JSON-RPC requests carry the finalized EIP-1898 block hash for every balanceOf and totalSupply; advancing the peer's head during reads does not change the migration; chunked Transfer ranges stop at the pinned height and the output digest binds block and supply evidence."
+
+[finding.f008]
+proof = "test_f008_zero_history_candidate_is_read_and_stale_history_stops_export"
+additional_proofs = ["test_f008_complete_history_queries_zero_candidates_and_emits_each_holder_once", "test_f008_missing_holder_stops_even_when_rpc_reconciliation_matches_supply", "test_f008_conflicting_sources_are_rejected", "test_f008_unbounded_legacy_csv_is_rejected"]
+assertion = "Every observed nonzero address is queried, including zero-history candidates and addresses discovered in canonical logs; overlapping sources deduplicate; missing or conflicting history refuses output even when canonical candidates reconcile to the correct supply."
+
+[limits]
+transport = "Tests use the production client and CSV reader against a loopback HTTP server whose ERC-20 ledger emits ABI-encoded Transfer logs and historical state; no component under repair is replaced."
+postgres = "The SQL path is height-bounded and filters canonical explorer transfers; qualification exercises the CSV path and real RPC transport without a PostgreSQL dependency."
+legacy = "test.sh predates the required finalized/history evidence and is not the declared gate; it was preserved and not executed."

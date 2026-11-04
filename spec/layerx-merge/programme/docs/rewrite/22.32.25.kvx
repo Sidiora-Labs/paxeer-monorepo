@@ -1,0 +1,29 @@
+[manifest]
+task = "22.32.25"
+domain = 4
+owner_role = "fm-launchpad"
+pages = 4
+
+[page.1]
+path = "services/launchpad/licenses/README.md"
+status = "stale"
+bytes = 303
+source_1 = "record 22.30.23 [doc.15] (stale): Lines 5-7 request a root license without distinguishing the existing monorepo Apache-2.0 LICENSE and a potentially unresolved launchpad applicability decision."
+
+[page.2]
+path = "services/launchpad/livestream/PROGRESS.md"
+status = "stale"
+bytes = 3813
+source_1 = "record 22.30.34 [doc.007] (stale): Original resume instructions at lines 3-52 conflict with current manifests and lifecycle routes. The appended inventory compile-only qualification boundary remains distinct; finding 022."
+
+[page.3]
+path = "services/launchpad/security/control/README.md"
+status = "stale"
+bytes = 10479
+source_1 = "record 22.30.38 [doc.013] (stale): Read in full; line 5 has a removed checker path, lines 110-112 deny implemented payment submission and lines 130-145 need current adapter/runtime status."
+
+[page.4]
+path = "services/launchpad/security/supplychain/README.md"
+status = "stale"
+bytes = 3320
+source_1 = "record 22.30.38 [doc.014] (stale): Read in full; line 9 contradicts current publication/dependencies and line 13 uses removed root security path. Go1.26.4 is the intentional qualified baseline, not pin drift."

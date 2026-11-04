@@ -21747,3 +21747,651 @@ symbol = "c-kernel-make"
 observed = "Attempt 1: scope check failed on .cgignore and %.profile.out."
 assumption = "Scope drift."
 severity = "medium"
+
+[finding.22.31.63.2]
+task = "22.31.63"
+file = "services/launchpad/pnl-tracker/internal/production/l16/repair_63_test.go"
+symbol = "repair_63_test.go"
+observed = "Attempt 2: the test reports the grants file lacks the column-level UPDATE grant and no checksum-bound migration creates the wallet-ranges table."
+assumption = "Producer gap in the migrations directory, outside the previous touches."
+severity = "high"
+
+[finding.22.31.262.1]
+task = "22.31.262"
+file = "programs/crates/layerx-programs-sandbox/tests/repair_22_31_262.rs"
+symbol = "repair_22_31_262.rs"
+observed = "Attempt 1: a C program placed under the crate sources failed its context key-value read assertion and was part of the candidate."
+assumption = "Foreign-toolchain helper inside a Rust crate."
+severity = "high"
+
+[finding.22.31.281.1]
+task = "22.31.281"
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_31_281.rs"
+symbol = "repair_22_31_281.rs"
+observed = "Attempt 1: all four shape tests panicked because lookup-methods appeared in the requested post actions the server forwarded."
+assumption = "Repair incomplete: the server ignores the client post-actions set."
+severity = "high"
+
+[finding.22.31.282.1]
+task = "22.31.282"
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_31_282.rs"
+symbol = "repair_22_31_282.rs"
+observed = "Attempt 1: the build stopped with Could not find protoc before any test ran."
+assumption = "Qualification environment defect, corrected."
+severity = "medium"
+
+[finding.22.31.3.2]
+task = "22.31.3"
+file = "services/human/crates/layerx-human-service/tests/repair_22_31_3.rs"
+symbol = "repair_22_31_3.rs"
+observed = "Attempt 1: two compile errors in the repair test; a Go wrapper invoked cargo."
+assumption = "Test compile defects."
+severity = "high"
+
+[finding.22.31.30.2]
+task = "22.31.30"
+file = "apps/launchpad/mobile/test/vitest/repair-22-31-30.test.ts"
+symbol = "repair-22-31-30.test.ts"
+observed = "Attempt 2: TestMobileRepairUser reported committed ledger entries = 1 with six wanted, HTTP 503, a contract violation on the preferences response and an empty owner."
+assumption = "Spawned harness and hand-typed fixtures."
+severity = "high"
+
+[finding.22.31.103.1]
+task = "22.31.103"
+file = "node/sequencer/repair_103_test.go"
+symbol = "repair_103_test.go"
+observed = "Attempt 1: both bytes cases refused a single admissible transaction with a doubled byte count."
+assumption = "Double count in the admission check plus a fixture allowance below one transaction."
+severity = "high"
+
+[finding.22.31.337.1]
+task = "22.31.337"
+file = "interchain/modules/core/02-client/keeper/repair_337_test.go"
+symbol = "repair_337_test.go"
+observed = "Attempt 1: ConsensusStates returned metadata keys and heights that do not exist."
+assumption = "Repair incomplete."
+severity = "high"
+
+[finding.22.31.355.1]
+task = "22.31.355"
+file = "services/platform/hosted/node/tests/test_repair_22_31_355.py"
+symbol = "test_repair_22_31_355.py"
+observed = "Attempt 1: the tests stopped on a missing configuration variable."
+assumption = "Environment-bound gate."
+severity = "high"
+
+[finding.22.31.177.2]
+task = "22.31.177"
+file = "storage/state_db/ss/evm/repair_177_test.go"
+symbol = "repair_177_test.go"
+observed = "Attempt 2: the package exited during the store open with no failure line."
+assumption = "Process exit inside the code under test."
+severity = "high"
+
+[finding.22.31.157.2]
+task = "22.31.157"
+file = "services/human/crates/layerx-network-gateway/tests/repair_22_31_157.rs"
+symbol = "repair_22_31_157.rs"
+observed = "Attempt 2: compile errors in two human service modules after the type change."
+assumption = "Producer changed without its consumers."
+severity = "high"
+
+[finding.22.31.279.1]
+task = "22.31.279"
+file = "services/explorer/services/libs/blockscout-client/crate/tests/repair_22_31_279.rs"
+symbol = "repair_22_31_279.rs"
+observed = "Attempt 1: the four decoder tests failed against unchanged production decoders."
+assumption = "Tests only; the production repair was out of scope."
+severity = "high"
+
+[finding.22.31.239.2]
+task = "22.31.239"
+file = "apps/wallet/src/widgets/swap/repair-22-31-239.test.ts"
+symbol = "repair-22-31-239.test.ts"
+observed = "Attempt 2: the classification tests failed on undecodable mocked return data."
+assumption = "Hand-typed return data."
+severity = "high"
+
+[finding.22.9.10.15]
+task = "22.9.10"
+file = "services/agent/sdk/typescript/src/ai_market.ts"
+symbol = "ai_market.ts"
+observed = "Attempt 28: web-search.test.ts failed inside Buffer.from on an undefined body field."
+assumption = "Fixture drift."
+severity = "high"
+
+[finding.22.99.148.3]
+task = "22.99.148"
+file = "services/agent/sdk/typescript"
+symbol = "typescript"
+observed = "Attempt 2: decode failure on the program-executed-v3 fixture."
+assumption = "Fixture does not match the producer."
+severity = "high"
+
+[finding.22.99.155.7]
+task = "22.99.155"
+file = "services/platform/hosted/indexer"
+symbol = "indexer"
+observed = "Attempt 5: eviction tests refused with application error 22."
+assumption = "Repair incomplete."
+severity = "high"
+
+[finding.22.99.51.2]
+task = "22.99.51"
+file = "services/agent/crates/layerx-agentd-host"
+symbol = "layerx-agentd-host"
+observed = "Attempt 2: NotPresent on the local node requirement, a Malformed proof read and a retired fixture field."
+assumption = "Environment-bound suite plus stale fixtures."
+severity = "high"
+
+[finding.22.99.52.2]
+task = "22.99.52"
+file = "services/agent/crates/layerx-mcp"
+symbol = "layerx-mcp"
+observed = "Attempt 1: NotPresent on the local node requirement, a Malformed proof read and a retired fixture field."
+assumption = "Environment-bound suite plus stale fixtures."
+severity = "high"
+
+[finding.18.1578.1.2]
+task = "18.1578.1"
+file = "services/agent/crates/layerx-mcp/tests/proof_native_reads.rs"
+symbol = "proof_native_reads.rs"
+observed = "Attempt 2: NotPresent on the local node requirement, a Malformed proof read and a retired fixture field."
+assumption = "Environment-bound suite plus stale fixtures."
+severity = "high"
+
+[finding.22.9.38.2]
+task = "22.9.38"
+file = "services/agent/crates/layerx-agentd/tests/human_projection_facts.rs"
+symbol = "human_projection_facts.rs"
+observed = "Attempt 1: the suite stopped on a missing genuine fixture."
+assumption = "Fixture never recorded."
+severity = "high"
+
+[finding.22.9.39.1]
+task = "22.9.39"
+file = "services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs"
+symbol = "human_approval_budget_actor.rs"
+observed = "Attempt 1: the suite stopped on a missing genuine fixture."
+assumption = "Fixture never recorded."
+severity = "high"
+
+[finding.9.98.4.2]
+task = "9.98.4"
+file = "services/agent/crates/layerx-agentd/src/ops/program.rs"
+symbol = "program.rs"
+observed = "Attempt 1: Refused at human_node_receipts.rs:315 without a reason in the failure."
+assumption = "Refusal reason not surfaced."
+severity = "high"
+
+[finding.9.35.19.6]
+task = "9.35.19"
+file = "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs"
+symbol = "native_send_preview_evm.rs"
+observed = "Attempt 8: PoisonError in the retained settlement tests and two TLS identity failures."
+assumption = "Shared test state plus TLS identity."
+severity = "high"
+
+[finding.9.35.7.1]
+task = "9.35.7"
+file = "services/agent/crates/layerx-crypto/tests/signer.rs::keystore_signer_refuses_activity_preimages_and_signs_the_bind_message"
+symbol = "signer.rs::keystore_signer_refuses_activity_preimages_and_signs_the_bind_message"
+observed = "Attempt 4: 297 live references remained in 90 out-of-scope files."
+assumption = "Consumers outside the original touches."
+severity = "high"
+
+[finding.22.31.217.2]
+task = "22.31.217"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_217.rs"
+symbol = "repair_22_31_217.rs"
+observed = "Attempt 2: the tests stopped on a missing corpus variable."
+assumption = "Environment-bound gate."
+severity = "high"
+
+[finding.22.31.148.2]
+task = "22.31.148"
+file = "services/agent/sdk/typescript/test/repair-22-31-148.test.ts"
+symbol = "repair-22-31-148.test.ts"
+observed = "Attempt 2: receipt-offer-mismatch in the metered account test."
+assumption = "Fixture does not bind the offer."
+severity = "high"
+
+[finding.22.31.312.1]
+task = "22.31.312"
+file = "tests/agent/sdk/python/test_repair_22_31_312.py"
+symbol = "test_repair_22_31_312.py"
+observed = "Attempt 1: AiMarketError ReceiptMismatch raised by the canonical decoder on the fixture."
+assumption = "Hand-typed terminal blob."
+severity = "high"
+
+[finding.22.31.316.1]
+task = "22.31.316"
+file = "tools/qualification/paxeer-x/tests/test_repair_22_31_316.py"
+symbol = "test_repair_22_31_316.py"
+observed = "Attempt 1: PlatformSdkError invalid argument on the proof bundle request field set; a manifest variable was required."
+assumption = "Wrong wire field plus environment-bound test."
+severity = "high"
+
+[finding.22.31.131.2]
+task = "22.31.131"
+file = "modules/layerxpay/keeper/repair_131_test.go"
+symbol = "repair_131_test.go"
+observed = "Attempt 2: the split case received a zero outer root."
+assumption = "Repair incomplete on the split path."
+severity = "high"
+
+[finding.22.31.147.2]
+task = "22.31.147"
+file = "tests/agent/sdk/python/test_repair_22_31_147.py"
+symbol = "test_repair_22_31_147.py"
+observed = "Attempt 2: MirrorVerificationError source-unavailable from a subprocess."
+assumption = "Live source in a gate."
+severity = "high"
+
+[finding.22.31.153.2]
+task = "22.31.153"
+file = "services/human/crates/layerx-human-service/tests/repair_22_31_153.rs"
+symbol = "repair_22_31_153.rs"
+observed = "Attempt 1: SchemaError response.result.state is not a declared JourneyState variant after reopen."
+assumption = "Producer emits a state the consumer schema does not declare."
+severity = "high"
+
+[finding.22.31.19.2]
+task = "22.31.19"
+file = "precompiles/spot/abi/repair_19_test.go"
+symbol = "repair_19_test.go"
+observed = "Attempt 1: the revert carried the generic string selector instead of the declared custom error."
+assumption = "Repair incomplete."
+severity = "high"
+
+[finding.22.31.227.1]
+task = "22.31.227"
+file = "services/agent/crates/layerx-sdk/tests/repair_22_31_227.rs"
+symbol = "repair_22_31_227.rs"
+observed = "Attempt 1: six tests panicked on missing environment variables."
+assumption = "Environment-bound gate."
+severity = "high"
+
+[finding.22.31.271.2]
+task = "22.31.271"
+file = "services/explorer/services/libs/blockscout-auth/tests/repair_22_31_271.rs"
+symbol = "repair_22_31_271.rs"
+observed = "Attempt 2: three tests panicked on a missing sessions file variable."
+assumption = "Live backend in a gate."
+severity = "high"
+
+[finding.22.31.275.2]
+task = "22.31.275"
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/tests/repair_22_31_275.rs"
+symbol = "repair_22_31_275.rs"
+observed = "Attempt 2: two round-trip tests panicked on a missing server binary variable."
+assumption = "Environment-bound gate."
+severity = "high"
+
+[finding.22.31.285.2]
+task = "22.31.285"
+file = "sdk/x/slashing/client/rest/repair_285_test.go"
+symbol = "repair_285_test.go"
+observed = "Attempt 2: the signing info query returned not-found for the fixture validator."
+assumption = "Fixture never stored the signing info."
+severity = "high"
+
+[finding.22.31.308.1]
+task = "22.31.308"
+file = "sdk/x/gov/client/cli/repair_308_test.go"
+symbol = "repair_308_test.go"
+observed = "Attempt 1: historical queries at heights 1 and 2 refused by the legacy store."
+assumption = "Fixture node uses a retired store."
+severity = "high"
+
+[finding.22.31.313.2]
+task = "22.31.313"
+file = "deploy/launchpad/production/topology/phase2/tests/test_repair_22_31_313.py"
+symbol = "test_repair_22_31_313.py"
+observed = "Attempt 1: AssertionError on three missing adapter exports; a bytecode cache was in the candidate."
+assumption = "Repair incomplete."
+severity = "high"
+
+[finding.22.31.348.1]
+task = "22.31.348"
+file = "services/platform/hosted/human/test_repair_22_31_348.py"
+symbol = "test_repair_22_31_348.py"
+observed = "Attempt 1: five cases refused by a remote eth_sendRawTransaction."
+assumption = "Network endpoint in a gate."
+severity = "high"
+
+[finding.22.31.363.1]
+task = "22.31.363"
+file = "services/agent/crates/layerx-agentd-host/tests/repair_22_31_363.rs"
+symbol = "repair_22_31_363.rs"
+observed = "Attempt 1: three payer tests panicked while building a Go producer inside the Rust crate."
+assumption = "Foreign-toolchain helper."
+severity = "high"
+
+[finding.22.31.38.2]
+task = "22.31.38"
+file = "sdk/launchpad/shared/config/capabilities/repair_38_test.go"
+symbol = "repair_38_test.go"
+observed = "Attempt 3: TestRepair_38_NativeCostSpender and NativePoolIdentity failed against a live deployment after 383 seconds."
+assumption = "Live deployment in a gate."
+severity = "high"
+
+[finding.22.31.383.1]
+task = "22.31.383"
+file = "apps/web/e2e/repair-22-31-383.test.ts"
+symbol = "repair-22-31-383.test.ts"
+observed = "Attempt 1: four tests failed on a missing explorer base URL variable."
+assumption = "Environment-bound gate."
+severity = "high"
+
+[finding.22.31.387.1]
+task = "22.31.387"
+file = "apps/web/e2e/repair-22-31-387.test.ts"
+symbol = "repair-22-31-387.test.ts"
+observed = "Attempt 1: the POST proof failed on a missing human service URL variable."
+assumption = "Environment-bound gate."
+severity = "high"
+
+[finding.22.31.415.1]
+task = "22.31.415"
+file = "sdk/integrations/ios/Tests/LayerXMobileTests/Repair2231415Tests.swift"
+symbol = "Repair2231415Tests.swift"
+observed = "Attempt 1: emit-module failed on a call that can throw but is not marked with try in the sample target."
+assumption = "Producer changed without its caller."
+severity = "high"
+
+[finding.22.31.416.1]
+task = "22.31.416"
+file = "sdk/integrations/next/example/test/repair-22-31-416.test.mjs"
+symbol = "repair-22-31-416.test.mjs"
+observed = "Attempt 1: npm install of the example failed with 404 on the private integration package."
+assumption = "Gate installed a private package from the registry (gotcha 2969)."
+severity = "high"
+
+[finding.22.31.377.1]
+task = "22.31.377"
+file = "apps/explorer/ui/blocks/repair-22-31-377.spec.ts"
+symbol = "repair-22-31-377.spec.ts"
+observed = "Attempt 1: ERR_PNPM_OTHER_PM_EXPECTED before the typecheck."
+assumption = "Wrong package manager in the gate (gotcha 2969)."
+severity = "medium"
+
+[finding.22.99.77.7]
+task = "22.99.77"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 5: one native test failed at bring-up and the fuel-cap test listed two routed operations over the cap."
+assumption = "Fuel over the protocol cap plus a silent bring-up failure."
+severity = "high"
+
+[finding.22.31.349.1]
+task = "22.31.349"
+file = "services/platform/examples/test/repair-22-31-349.test.mjs"
+symbol = "repair-22-31-349.test.mjs"
+observed = "Attempt 2: the suite failed at line 1 with no assertion text."
+assumption = "Unbuilt SDK import plus a top-level throw."
+severity = "medium"
+
+[finding.22.31.360.1]
+task = "22.31.360"
+file = "services/platform/examples/test/repair-22-31-360.test.mjs"
+symbol = "repair-22-31-360.test.mjs"
+observed = "Attempt 2: the suite failed at line 1 with no assertion text."
+assumption = "Unbuilt SDK import plus a top-level throw."
+severity = "medium"
+
+[finding.22.31.342.1]
+task = "22.31.342"
+file = "services/platform/tests/repair_22_31_342.rs"
+symbol = "repair_22_31_342.rs"
+observed = "Attempt 1: cargo reported no test target named repair_22_31_342; a Rust test file was added to the platform workspace."
+assumption = "Verify command of the wrong toolchain (gotcha 2969)."
+severity = "medium"
+
+[finding.22.31.347.1]
+task = "22.31.347"
+file = "services/platform/tests/repair_22_31_347.rs"
+symbol = "repair_22_31_347.rs"
+observed = "Attempt 1: cargo reported no test target named repair_22_31_347; a Rust test file was added to the platform workspace."
+assumption = "Verify command of the wrong toolchain (gotcha 2969)."
+severity = "medium"
+
+[finding.22.31.353.1]
+task = "22.31.353"
+file = "services/platform/tests/repair_22_31_353.rs"
+symbol = "repair_22_31_353.rs"
+observed = "Attempt 1: cargo reported no test target named repair_22_31_353; a Rust test file was added to the platform workspace."
+assumption = "Verify command of the wrong toolchain (gotcha 2969)."
+severity = "medium"
+
+[finding.22.31.362.1]
+task = "22.31.362"
+file = "services/platform/tests/repair_22_31_362.rs"
+symbol = "repair_22_31_362.rs"
+observed = "Attempt 1: cargo reported no test target named repair_22_31_362; a Rust test file was added to the platform workspace."
+assumption = "Verify command of the wrong toolchain (gotcha 2969)."
+severity = "medium"
+
+[finding.16.90.1.2]
+task = "16.90.1"
+file = "tools/paxeer-x/tests/test_retired_catalogue_deleted.py::RetiredCatalogueDeletedTest.test_deleted_trees_absent_and_catalogue_valid"
+symbol = "test_retired_catalogue_deleted.py::RetiredCatalogueDeletedTest.test_deleted_trees_absent_and_catalogue_valid"
+observed = "Attempt 5: the retired-catalogue test fails on three README lines naming the deleted lni tree."
+assumption = "The catalogue check is right and the page is stale."
+severity = "high"
+
+[finding.18.1562.1.5]
+task = "18.1562.1"
+file = "rpc/sequencer_receipt_vectors_test.go::TestAiMarketTransferAuthorityReceipt"
+symbol = "sequencer_receipt_vectors_test.go::TestAiMarketTransferAuthorityReceipt"
+observed = "Attempt 10: TestAiMarketTransferAuthorityReceipt fails at market creation with LXP_VERSION_UNSUPPORTED."
+assumption = "Base revision predates the ABI-5 pair; no code change expected."
+severity = "high"
+
+[finding.22.31.13.3]
+task = "22.31.13"
+file = "apps/perps/tests/repair-22-31-13.test.ts"
+symbol = "repair-22-31-13.test.ts"
+observed = "Attempt 4: tsc fails with TS2307 cannot find module viem in sdk/wallet/src/provider.ts."
+assumption = "Toolchain gap, not a product defect."
+severity = "high"
+
+[finding.22.31.235.2]
+task = "22.31.235"
+file = "apps/wallet/src/lib/portfolio-api/repair-22-31-235.test.ts"
+symbol = "repair-22-31-235.test.ts"
+observed = "Attempt 2: finding_2 test expects status 401 from the proxy and receives 405."
+assumption = "The proxy has no mutation route; the finding named the wrong component or the route is missing."
+severity = "high"
+
+[finding.22.31.24.2]
+task = "22.31.24"
+file = "src/modules/programs"
+symbol = "programs"
+observed = "Attempt 2: the maintenance boundary recovery audit fails inside audit_create_occupancy at the finalize call."
+assumption = "Fixture arguments predate the current finalize contract."
+severity = "high"
+
+[finding.22.31.252.2]
+task = "22.31.252"
+file = "programs/crates/layerx-programs-arbiter/tests/repair_22_31_252.rs"
+symbol = "repair_22_31_252.rs"
+observed = "Attempt 2: executor payer replay and the producer crossing test fail with the Runtime error from the replay helper."
+assumption = "Hand-built boundary pair."
+severity = "high"
+
+[finding.22.31.267.2]
+task = "22.31.267"
+file = "services/explorer/services/sig-provider/sig-provider/tests/repair_22_31_267.rs"
+symbol = "repair_22_31_267.rs"
+observed = "Attempt 3: three coverage tests fail: a serde borrowed-string error in sources/precompiles.rs line 59 and an ABI union mismatch."
+assumption = "Borrowed-string deserialization of embedded JSON plus a hand-maintained table."
+severity = "high"
+
+[finding.22.31.269.2]
+task = "22.31.269"
+file = "services/explorer/services/libs/blockscout-client/crate/tests/repair_22_31_269.rs"
+symbol = "repair_22_31_269.rs"
+observed = "Attempt 2: health shape tests report fields dropped by the generated consumer and an untyped 500 response."
+assumption = "The override does not declare the nested objects, so generation flattens them away."
+severity = "high"
+
+[finding.22.31.376.1]
+task = "22.31.376"
+file = "apps/bridge/src/lib/bridge/repair-22-31-376.spec.ts"
+symbol = "repair-22-31-376.spec.ts"
+observed = "Attempt 1: tsc fails with TS2304 cannot find name LayoutProps in src/app/layout.tsx."
+assumption = "Toolchain step missing from the gate."
+severity = "high"
+
+[finding.22.31.399.1]
+task = "22.31.399"
+file = "services/explorer/backend/apps/explorer/test/repair/repair_22_31_399_test.exs"
+symbol = "repair_22_31_399_test.exs"
+observed = "Attempt 1: two dry-run-writes tests fail: identity id mismatch and missing ok result for the github identity."
+assumption = "Fixture does not match the identities under test."
+severity = "high"
+
+[finding.22.31.401.1]
+task = "22.31.401"
+file = "services/explorer/backend/apps/explorer/test/repair/repair_22_31_401_test.exs"
+symbol = "repair_22_31_401_test.exs"
+observed = "Attempt 1: three default-path tests receive :disabled instead of a transport failure."
+assumption = "Test environment never receives the runtime default."
+severity = "high"
+
+[finding.22.31.404.1]
+task = "22.31.404"
+file = "services/explorer/backend/apps/explorer/test/repair/repair_22_31_404_test.exs"
+symbol = "repair_22_31_404_test.exs"
+observed = "Attempt 1: Mix.Error could not start application indexer; preview log empty."
+assumption = "The Mix task boots applications the test does not need."
+severity = "high"
+
+[finding.22.31.407.1]
+task = "22.31.407"
+file = "services/explorer/backend/apps/explorer/test/repair/repair_22_31_407_test.exs"
+symbol = "repair_22_31_407_test.exs"
+observed = "Attempt 1: three tests fail requiring environment URLs of real nodes."
+assumption = "Environment-bound gate."
+severity = "high"
+
+[finding.22.31.410.1]
+task = "22.31.410"
+file = "services/explorer/backend/apps/explorer/test/repair/repair_22_31_410_test.exs"
+symbol = "repair_22_31_410_test.exs"
+observed = "Attempt 1: ten failures, contract_code not emptied for same-transaction create and destroy cases."
+assumption = "Migrator rule incomplete."
+severity = "high"
+
+[finding.22.31.411.1]
+task = "22.31.411"
+file = "services/explorer/backend/apps/explorer/test/repair/repair_22_31_411_test.exs"
+symbol = "repair_22_31_411_test.exs"
+observed = "Attempt 1: six committed_without_inclusion tests observe :committed where a refusal is required."
+assumption = "Verifier promotes without the inclusion witness."
+severity = "high"
+
+[finding.22.31.53.1]
+task = "22.31.53"
+file = "services/launchpad/indexer/internal/receipt/repair_53_test.go"
+symbol = "repair_53_test.go"
+observed = "Attempt 3: missing producer transcript file; one restart test refused by the authority check."
+assumption = "Uncommitted fixture and a hand-chosen emitter."
+severity = "high"
+
+[finding.22.31.54.2]
+task = "22.31.54"
+file = "services/launchpad/indexer/internal/processor/repair_54_test.go"
+symbol = "repair_54_test.go"
+observed = "Attempt 4: two tests fail for a missing PostgreSQL DSN."
+assumption = "Environment-bound gate."
+severity = "high"
+
+[finding.22.31.260.1]
+task = "22.31.260"
+file = "programs/crates/layerx-programs-market/tests/repair_22_31_260.rs"
+symbol = "repair_22_31_260.rs"
+observed = "Attempt 2: build exit 0, verify not run, outcome implemented-not-qualified for time."
+assumption = "Time, not a defect."
+severity = "high"
+
+[finding.22.31.278.2]
+task = "22.31.278"
+file = "services/explorer/services/libs/blockscout-client/crate/tests/repair_22_31_278.rs"
+symbol = "repair_22_31_278.rs"
+observed = "Attempt 2: two tests fail on decoded metadata containing latest_block."
+assumption = "Stale recording."
+severity = "high"
+
+[finding.22.31.202.2]
+task = "22.31.202"
+file = "services/platform/hosted/gateway/tests/repair_22_31_202.rs"
+symbol = "repair_22_31_202.rs"
+observed = "Attempt 2: repair_22_31_202_real_producer_paths fails with Invalid params."
+assumption = "Request shape drifted from the schema."
+severity = "high"
+
+[finding.22.31.147.3]
+task = "22.31.147"
+file = "tests/agent/sdk/python/test_repair_22_31_147.py"
+symbol = "test_repair_22_31_147.py"
+observed = "Attempt 3: the x402 verification raises VERIFICATION_FAILURE for the metered draw receipt."
+assumption = "Hand-sliced calldata offsets."
+severity = "high"
+
+[finding.22.31.374.1]
+task = "22.31.374"
+file = "programs/sdk/c/src/host.h"
+symbol = "host.h"
+observed = "Attempts 2 and 3: make programs-sdk-c fails in the determinism lint on host.h, a file the attempts did not change."
+assumption = "Pre-existing lint break on main inside the task scope."
+severity = "high"
+
+[finding.22.31.308.2]
+task = "22.31.308"
+file = "sdk/x/gov/client/cli/repair_308_test.go"
+symbol = "repair_308_test.go"
+observed = "Attempt 2: two tests fail on a named-type versus slice comparison with identical elements."
+assumption = "Type mismatch in the comparison, not in the data."
+severity = "high"
+
+[finding.22.31.326.1]
+task = "22.31.326"
+file = "tools/paxctl/sidecar/tasks/repair_326_test.go"
+symbol = "repair_326_test.go"
+observed = "Attempt 2: SQLITE_BUSY on the state database and a genesis prefix assertion failure."
+assumption = "Connection sharing and prefix enforcement."
+severity = "high"
+
+[finding.22.31.391.1]
+task = "22.31.391"
+file = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_31_391_test.exs"
+symbol = "repair_22_31_391_test.exs"
+observed = "Attempt 1: test 61 fails on 1.0 versus 1 in the exported CSV."
+assumption = "Decimal formatting."
+severity = "high"
+
+[finding.22.31.396.1]
+task = "22.31.396"
+file = "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_31_396_test.exs"
+symbol = "repair_22_31_396_test.exs"
+observed = "Attempt 1: identity search empty, changed-proof status committed, status route 200 instead of 404."
+assumption = "Producer behaviour short of the contract on three paths."
+severity = "high"
+
+[finding.22.31.402.1]
+task = "22.31.402"
+file = "tools/qualification/audit_repairs/test_repair_22_31_402.py"
+symbol = "test_repair_22_31_402.py"
+observed = "Attempt 1: placeholder attestor in the deploy manifest and a mismatch with the Ethereum chain config."
+assumption = "Signer set is an owner decision; the structural checks are the gate."
+severity = "high"
+
+[finding.22.31.439.1]
+task = "22.31.439"
+file = "services/human/crates/layerx-explorer-index/tests/retired_client_modules.rs"
+symbol = "retired_client_modules.rs"
+observed = "Attempt 1: cargo refuses package id layerx-explorer-index; the directory holds one orphaned test file and no manifest."
+assumption = "Deletion leftover of the 10.27.x tasks; the audit record read a source tree that main no longer has."
+severity = "high"

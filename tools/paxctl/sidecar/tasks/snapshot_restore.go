@@ -5,11 +5,13 @@ import (
 	"compress/gzip"
 	"context"
 	"fmt"
+	"golang.org/x/sys/unix"
 	"io"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager"
@@ -129,11 +131,17 @@ func (r *SnapshotRestorer) Restore(ctx context.Context, targetHeight int64) erro
 	_, err = client.DownloadObject(ctx, &transfermanager.DownloadObjectInput{
 		Bucket:   aws.String(r.bucket),
 		Key:      aws.String(snapshotKey),
-		WriterAt: tmpFile,
+		WriterAt: boundedSnapshotWriter{file: tmpFile},
 	})
 	_ = tmpFile.Close()
 	if err != nil {
 		return seis3.ClassifyS3Error("snapshot-restore", r.bucket, snapshotKey, r.region, err)
+	}
+
+	destDir := filepath.Join(r.homeDir, "data", "snapshots")
+	restoreLog.Info("extracting archive", "dest", destDir)
+	if err := extractArchive(ctx, tmpPath, destDir); err != nil {
+		return fmt.Errorf("extracting snapshot: %w", err)
 	}
 
 	if h := parseHeightFromKey(snapshotKey); h > 0 {
@@ -144,12 +152,6 @@ func (r *SnapshotRestorer) Restore(ctx context.Context, targetHeight int64) erro
 		); err != nil {
 			restoreLog.Warn("failed to write snapshot height file", "err", err)
 		}
-	}
-
-	destDir := filepath.Join(r.homeDir, "data", "snapshots")
-	restoreLog.Info("extracting archive", "dest", destDir)
-	if err := extractArchive(ctx, tmpPath, destDir); err != nil {
-		return fmt.Errorf("extracting snapshot: %w", err)
 	}
 
 	restoreLog.Info("restore complete")
@@ -232,66 +234,203 @@ func extractArchive(ctx context.Context, archivePath, destDir string) error {
 	return extractTarStream(ctx, f, destDir)
 }
 
-func extractTarStream(ctx context.Context, r io.Reader, destDir string) error {
-	gzr, err := gzip.NewReader(r)
-	if err != nil {
-		return fmt.Errorf("creating gzip reader: %w", err)
+const (
+	maxSnapshotCompressedBytes int64 = 64 << 30
+	maxSnapshotFileBytes       int64 = 64 << 30
+	maxSnapshotExpandedBytes   int64 = 256 << 30
+	maxSnapshotEntries               = 1_000_000
+)
+
+type boundedSnapshotWriter struct{ file *os.File }
+
+func (w boundedSnapshotWriter) WriteAt(p []byte, off int64) (int, error) {
+	if off < 0 || off > maxSnapshotCompressedBytes || int64(len(p)) > maxSnapshotCompressedBytes-off {
+		return 0, fmt.Errorf("compressed snapshot exceeds size limit")
 	}
-	defer func() { _ = gzr.Close() }()
+	return w.file.WriteAt(p, off)
+}
+
+// An archive is fully validated in a fresh sibling directory before adoption.
+func extractTarStream(ctx context.Context, r io.Reader, destDir string) error {
+	parent, err := openConfinedDir(filepath.Dir(destDir), true)
+	if err != nil {
+		return err
+	}
+	defer parent.Close()
+	name := filepath.Base(destDir)
+	if !plainFilename(name) {
+		return fmt.Errorf("invalid snapshot destination")
+	}
+	var existing unix.Stat_t
+	err = unix.Fstatat(int(parent.Fd()), name, &existing, unix.AT_SYMLINK_NOFOLLOW)
+	hasDest := err == nil
+	if err != nil && err != unix.ENOENT {
+		return err
+	}
+	if hasDest && existing.Mode&unix.S_IFMT != unix.S_IFDIR {
+		return fmt.Errorf("snapshot destination must be a directory, not a symlink")
+	}
+	stage := fmt.Sprintf(".snapshot-%x", randomFileID())
+	if err := unix.Mkdirat(int(parent.Fd()), stage, 0700); err != nil {
+		return err
+	}
+	stagePath := filepath.Join(filepath.Dir(destDir), stage)
+	defer os.RemoveAll(stagePath)
+	root, err := openConfinedDir(stagePath, false)
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+	if err := extractConfinedSnapshot(ctx, r, root); err != nil {
+		return err
+	}
+	if err := root.Sync(); err != nil {
+		return err
+	}
+	if hasDest {
+		if err := unix.Renameat2(int(parent.Fd()), stage, int(parent.Fd()), name, unix.RENAME_EXCHANGE); err != nil {
+			return fmt.Errorf("atomically adopting snapshot: %w", err)
+		}
+	} else if err := unix.Renameat2(int(parent.Fd()), stage, int(parent.Fd()), name, unix.RENAME_NOREPLACE); err != nil {
+		return err
+	}
+	return parent.Sync()
+}
+
+func extractConfinedSnapshot(ctx context.Context, r io.Reader, root *os.File) error {
+	gzr, err := gzip.NewReader(io.LimitReader(r, maxSnapshotCompressedBytes+1))
+	if err != nil {
+		return err
+	}
+	defer gzr.Close()
 	tr := tar.NewReader(gzr)
+	var expanded int64
+	entries := 0
 	for {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-
 		header, err := tr.Next()
 		if err == io.EOF {
+			// Consume the trailer too, so a corrupt gzip checksum cannot be adopted.
+			remaining, err := io.Copy(io.Discard, io.LimitReader(gzr, 1<<20))
+			if err != nil {
+				return err
+			}
+			if remaining > 0 {
+				return fmt.Errorf("unexpected content after tar archive")
+			}
 			return nil
 		}
 		if err != nil {
-			return fmt.Errorf("reading tar header: %w", err)
+			return err
 		}
-
-		target := filepath.Join(destDir, filepath.Clean(header.Name))
-
-		if !isInsideDir(target, destDir) {
-			return fmt.Errorf("tar entry %q escapes destination directory", header.Name)
+		entries++
+		if entries > maxSnapshotEntries {
+			return fmt.Errorf("snapshot has too many entries")
 		}
-
-		switch header.Typeflag {
-		case tar.TypeDir:
-			if err := os.MkdirAll(target, os.FileMode(header.Mode)|0o700); err != nil {
-				return fmt.Errorf("creating directory %s: %w", target, err)
+		if header.Size < 0 || header.Size > maxSnapshotFileBytes || header.Size > maxSnapshotExpandedBytes-expanded {
+			return fmt.Errorf("snapshot exceeds expanded size limit")
+		}
+		expanded += header.Size
+		if header.Typeflag != tar.TypeDir && header.Typeflag != tar.TypeReg && header.Typeflag != tar.TypeRegA {
+			return fmt.Errorf("snapshot links and special files are forbidden: %q", header.Name)
+		}
+		if filepath.IsAbs(header.Name) || strings.ContainsAny(header.Name, "\\\x00") {
+			return fmt.Errorf("invalid archive path %q", header.Name)
+		}
+		parts := strings.Split(header.Name, "/")
+		for _, part := range parts {
+			if part == ".." {
+				return fmt.Errorf("archive path traverses parent")
 			}
-		case tar.TypeReg:
-			if err := extractFile(tr, target, os.FileMode(header.Mode)); err != nil {
-				return err
+		}
+		clean := filepath.Clean(header.Name)
+		if clean == "." {
+			if header.Typeflag == tar.TypeDir {
+				continue
 			}
-		case tar.TypeSymlink:
-			linkTarget := filepath.Join(filepath.Dir(target), header.Linkname)
-			if !isInsideDir(linkTarget, destDir) {
-				return fmt.Errorf("symlink %q points outside destination directory", header.Name)
+			return fmt.Errorf("invalid archive file")
+		}
+		if !filepath.IsLocal(clean) {
+			return fmt.Errorf("archive path escapes destination")
+		}
+		dir, err := snapshotParent(root, filepath.Dir(clean))
+		if err != nil {
+			return err
+		}
+		name := filepath.Base(clean)
+		if header.Typeflag == tar.TypeDir {
+			err = unix.Mkdirat(int(dir.Fd()), name, 0700)
+			if err == unix.EEXIST {
+				fd, e := unix.Openat(int(dir.Fd()), name, unix.O_RDONLY|unix.O_DIRECTORY|unix.O_NOFOLLOW|unix.O_CLOEXEC, 0)
+				err = e
+				if e == nil {
+					unix.Close(fd)
+				}
 			}
-			if err := os.Symlink(header.Linkname, target); err != nil {
-				return fmt.Errorf("creating symlink %s: %w", target, err)
-			}
+		} else {
+			err = extractConfinedFile(ctx, tr, dir, name, header.Size)
+		}
+		dir.Close()
+		if err != nil {
+			return err
 		}
 	}
 }
 
-func extractFile(r io.Reader, path string, mode os.FileMode) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return fmt.Errorf("creating parent directory for %s: %w", path, err)
-	}
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode|0o600)
+func snapshotParent(root *os.File, path string) (*os.File, error) {
+	fd, err := unix.Dup(int(root.Fd()))
 	if err != nil {
-		return fmt.Errorf("creating file %s: %w", path, err)
+		return nil, err
 	}
-	defer func() { _ = f.Close() }()
-	if _, err := io.Copy(f, r); err != nil {
-		return fmt.Errorf("writing file %s: %w", path, err)
+	if path != "." {
+		for _, part := range strings.Split(path, string(filepath.Separator)) {
+			if !plainFilename(part) {
+				unix.Close(fd)
+				return nil, fmt.Errorf("invalid directory component")
+			}
+			if err := unix.Mkdirat(fd, part, 0700); err != nil && err != unix.EEXIST {
+				unix.Close(fd)
+				return nil, err
+			}
+			next, err := unix.Openat(fd, part, unix.O_RDONLY|unix.O_DIRECTORY|unix.O_NOFOLLOW|unix.O_CLOEXEC, 0)
+			unix.Close(fd)
+			if err != nil {
+				return nil, err
+			}
+			fd = next
+		}
 	}
-	return nil
+	return os.NewFile(uintptr(fd), path), nil
+}
+
+func extractConfinedFile(ctx context.Context, r io.Reader, dir *os.File, name string, size int64) error {
+	fd, err := unix.Openat(int(dir.Fd()), name, unix.O_WRONLY|unix.O_CREAT|unix.O_EXCL|unix.O_NOFOLLOW|unix.O_CLOEXEC, 0600)
+	if err != nil {
+		return err
+	}
+	f := os.NewFile(uintptr(fd), name)
+	defer f.Close()
+	buf := make([]byte, 64<<10)
+	for size > 0 {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		n := int64(len(buf))
+		if size < n {
+			n = size
+		}
+		got, err := io.ReadFull(r, buf[:n])
+		if err != nil {
+			return err
+		}
+		if _, err := f.Write(buf[:got]); err != nil {
+			return err
+		}
+		size -= int64(got)
+	}
+	return f.Sync()
 }
 
 // isInsideDir checks that target is within or equal to baseDir.

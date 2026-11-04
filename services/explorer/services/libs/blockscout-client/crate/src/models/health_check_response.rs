@@ -19,6 +19,7 @@ use serde_aux::prelude::*;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize, derive_new::new)]
 pub struct HealthCheckResponse {
+    pub error: Option<models::health_check_response_metadata::HealthError>,
     #[serde(default)]
     pub healthy: Option<bool>,
 

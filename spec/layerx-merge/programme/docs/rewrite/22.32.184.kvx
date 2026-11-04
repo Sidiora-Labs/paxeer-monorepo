@@ -1,0 +1,14 @@
+[manifest]
+task = "22.32.184"
+domain = 17
+owner_role = "fm-programme"
+pages = 1
+
+[page.1]
+path = "spec/layerx-merge/contracts/ledger-auth.md"
+status = "stale"
+bytes = 73386
+source_1 = "record 22.30.2 [doc.003] (stale): Ledger/auth integration and payment-reference sections consulted. Line 726 contradicts the active successful-send 0x04 reference set restored by decision 2337; see ledger-auth-payment-reference-doc."
+source_2 = "record 22.30.8 [doc.10] (stale): Read in full as the registry contract: params-only genesis, bound authority, bank mirror and consumed-sequence rules remain normative. Its planned availability statements lag the implemented modules and precompiles."
+source_3 = "record 22.30.88 [doc.024] (stale): Read the ledger/payment and ramp encoding sections. The current decision-2340 paragraph explicitly retires receive/grants and makes draw refuse. The client encoding table at line 399 still has the obsolete draw argument semantics; see ledger-contract-draw-signature."
+source_4 = "record 22.30.9 [doc.13] (stale): Reviewed all sections and decision table: initial unserved/planned claims, resultByIdempotency row 448 and mandatory error-detail wording lag the active implementations; decision 2340 refusal paragraph is valid."

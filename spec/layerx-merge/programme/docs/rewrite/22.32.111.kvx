@@ -1,0 +1,57 @@
+[manifest]
+task = "22.32.111"
+domain = 13
+owner_role = "fm-programs"
+pages = 3
+
+[page.1]
+path = "docs/site/docs/programs/workspace.md"
+status = "stale"
+bytes = 32327
+source_1 = "record 22.30.1 [doc.2] (stale): Lines 3 and 15 present the retired protocol-adapter crate as current; 158 cites removed test-replay-golden-local and 164 cites the deleted cmd/layerxd/lxp_daemon_batch_wal.c. Keep valid ABI and crypto guidance but replace obsolete workspace/gate examples."
+source_2 = "record 22.30.123 [doc.003] (stale): Line 15 retains retired adapter membership, line 37 requires obsolete root ABI 2, and line 156 prescribes a daemon WAL gate; the baseline list omits ABI 3-5."
+source_3 = "record 22.30.124 [doc.02] (stale): Read in full. Lines 15,37,121-141,156 retain the removed adapter, version-two-only policy and daemon/WAL verification paths; see workspace-site-retired-paths."
+source_4 = "record 22.30.125 [doc.workspace_site] (stale): Read full page. Lines 24-37 list two frozen checksums and an obsolete version-2-only generator; the crate inventory omits AI-market. Line 156 names retired cmd/layerxd/lxp_daemon_batch_wal.c as a current source. See workspace_site_abi and workspace_site_retired."
+source_5 = "record 22.30.126 [doc.2] (stale): Read in full; stale generator policy at 37, host inventory at 101-103 and removed differential input at 156."
+source_6 = "record 22.30.127 [doc.2] (stale): Full page read. Layout line 15, frozen checksums/generator at 24-37 and differential target line 156 need current crate/version/build inputs. Finding 14 covers this page."
+source_7 = "record 22.30.128 [doc.1] (stale): Lines 15/20 retain the retired adapter and three-crate inventory; lines 24-37 describe only ABI 1/2 and the obsolete ABI_VERSION=2 expectation. Reviewed all gate and storage-scan sections."
+source_8 = "record 22.30.129 [doc.001] (stale): Lines 24-37 omit frozen versions 3 through 5 and assert an obsolete default/generator ABI 2. Refresh from the current source and frozen baseline."
+source_9 = "record 22.30.130 [doc.7] (stale): Full page read. Line 155 still lists retired daemon WAL for programs-differential; actual kernel sequential/prepared comparison needs an updated recipe and proof description."
+source_10 = "record 22.30.135 [doc.004] (stale): The gate catalogue at line 156 retains daemon batch-WAL testing and does not state the merged AI market release guest profile, domain binding or deployment envelope limit. Preserve valid ABI and dependency details while adding the actual deployment qualification."
+source_11 = "record 22.30.143 [doc.03] (stale): The runtime and ABI gate discussion remains useful, but the workspace inventory omits AI market and arbiter and retains an obsolete member. Current AI guest build-domain and payload-budget guidance is absent; see the corresponding programs-inventory finding."
+source_12 = "record 22.30.144 [doc.12] (stale): Stale at lines 15 and 88: deleted adapter member/exception. Stored-vector and committed-proof guidance remains accurate."
+source_13 = "record 22.30.147 [doc.09] (stale): line 121: workspace-network — The workspace guide describes sequencer execution receipts and separate transaction/batch/result inclusion for settlement at lines 121-142; those instructions present the retired settlement split as the program verification path."
+source_14 = "record 22.30.155 [doc.9] (stale): The ABI inventory remains useful, but line 156 prescribes a retired daemon WAL as a current qualification prerequisite."
+source_15 = "record 22.30.156 [doc.10] (stale): Lines 15, 88, 151 and 156 list a deleted protocol adapter and retired daemon/replay qualification dependencies; regenerate retained workspace/gate guidance."
+source_16 = "record 22.30.158 [doc.012] (stale): Read the complete workspace page. Lines 151 and 156 cite replay-golden and cmd/layerxd/lxp_daemon_batch_wal.c dependencies retired by the merge; the named WAL source is absent."
+source_17 = "record 22.30.162 [doc.011] (stale): Current operating guidance conflicts with the merged network; exact locations and rewrite proposals are recorded in programs-workspace-recipe."
+source_18 = "record 22.30.23 [doc.4] (stale): Line 15 presents the retired protocol adapter as a member; lines 121-141 describe daemon sequencer receipt vectors; lines 151-156 retain replay-golden and daemon batch-WAL dependencies."
+source_19 = "record 22.30.26 [doc.programs] (stale): Read the complete page. Deleted protocol-adapter and daemon-linked differential qualification are still advertised as current; see programs_retired_adapter."
+source_20 = "record 22.30.28 [doc.012] (stale): The page lists layerx-programs-protocol-adapter as a current receipt-verified C/Rust bridge, includes its FFI exemption and cites old layerxd batch-WAL differential recipes."
+source_21 = "record 22.30.39 [doc.12] (stale): Lines 151 and 156 prescribe retired replay-golden and cmd/layerxd batch-WAL prerequisites; replace qualification recipe rows. Finding 32."
+source_22 = "record 22.30.4 [doc.009] (stale): Lines 24-37 document only ABI vectors 1-2 and ABI_VERSION=2; lines 151-156 retain replay/daemon regression inputs. Current vectors include 1-5. Findings: 036."
+source_23 = "record 22.30.5 [doc.04] (stale): Read all 197 lines. Lines 15,88,151-156 retain protocol-adapter and daemon/golden-replay qualification."
+source_24 = "record 22.30.52 [doc.4] (stale): Read in full: ABI/vector discussion retained, but gate table at lines 151 and 156 requires retired daemon replay/batch-WAL paths; rewrite for merged host gates and deployment size."
+source_25 = "record 22.30.55 [doc.2] (stale): Read all 197 lines; programs-differential build inputs still name the removed daemon batch WAL source. See workspace-build-input."
+source_26 = "record 22.30.6 [doc.12] (stale): Read all 197 lines. Gate dependencies at 151-156 cite deleted replay and daemon WAL inputs absent from current Makefile; see workspace-retired-gate-inputs."
+source_27 = "record 22.30.73 [doc.01] (stale): Lines 15 and 35 describe a removed protocol-adapter member and ABI_VERSION 2; the workspace has AI-market and arbiter members and runtime ABI_VERSION selects ABI v4."
+source_28 = "record 22.30.8 [doc.6] (stale): The frozen ABI and gate descriptions retain useful provenance, but the adapter membership at line 15 describes a retired integration and the merged deployment build/payload constraints are absent."
+source_29 = "record 22.30.9 [doc.4] (stale): Lines 15, 88, 151 and 156 retain the deleted protocol adapter and daemon/golden build dependencies; current recipes and crate inventory differ."
+
+[page.2]
+path = "docs/site/docs/protocol/index.md"
+status = "stale"
+bytes = 10029
+source_1 = "record 22.30.130 [doc.9] (stale): Full page read. Lines 5-30 split execution and settlement; line 64 describes guarantor checkpoint attestation and line 130 links L0-to-L4 finality. Rewrite for integrated kernel block proposal and finality."
+source_2 = "record 22.30.162 [doc.001] (stale): Current operating guidance conflicts with the merged network; exact locations and rewrite proposals are recorded in protocol-site."
+source_3 = "record 22.30.34 [doc.001] (stale): Lines 5-28 and finality links retain the pre-merge execution/settlement split; finding 023 proposes the integrated-network rewrite."
+
+[page.3]
+path = "docs/site/docs/protocol/modules.md"
+status = "misleading"
+bytes = 13051
+source_1 = "record 22.30.128 [doc.12] (stale): Lines 25 and 115 retain separate settlement and layerxd/guarantor runtime binding. Read all module ids, ordinals, authority and maintenance sections against the merged host."
+source_2 = "record 22.30.17 [doc.03] (stale): Lines 25 and 115 describe checkpointing modules and daemon/guarantor binding; operation schemas were reviewed separately."
+source_3 = "record 22.30.22 [doc.12] (stale): Lines 89 onward retain the custody-credit profile and lines 113-115 present daemon/guarantor host runtimes as current; see modules-daemon-doc."
+source_4 = "record 22.30.5 [doc.05] (misleading): Read all 126 lines. Lines 20,25,47,73,87-90,115 retain retired funding/runtime;54/73 misstate account kind/custody enum."
+source_5 = "record 22.30.9 [doc.12] (stale): Asset transition and epoch/settlement descriptions retain payer grants, receive and checkpoint-plane assumptions and contradictory withdraw availability."

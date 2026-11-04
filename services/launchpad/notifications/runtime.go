@@ -186,6 +186,7 @@ func (r *PushRuntime) Run(ctx context.Context) error {
 }
 
 type RuntimeConfig struct {
+	Principal                                                                                                                    AuthenticatePrincipal
 	Secrets                                                                                                                      secrets.Options
 	Client                                                                                                                       *http.Client
 	D11Base, D11TokenRef, D12Base, D12TokenRef, PnLBase, PnLTokenRef, CursorKeyRef, InternalTokenRef, DeletePeerDNS, ChatPeerDNS string
@@ -208,7 +209,7 @@ type HTTPRuntime struct {
 }
 
 func NewHTTPRuntime(ctx context.Context, db *sql.DB, auth func(*http.Request) (string, error), config RuntimeConfig) (*HTTPRuntime, error) {
-	if db == nil || auth == nil || config.Client == nil || config.D11Base == "" || config.D12Base == "" || config.D11TokenRef == "" || config.D12TokenRef == "" || config.CursorKeyRef == "" || config.InternalTokenRef == "" || config.DeletePeerDNS == "" || config.ChatPeerDNS == "" {
+	if db == nil || auth == nil || config.Principal == nil || config.Pools == nil || config.Intervals == nil || config.Client == nil || config.D11Base == "" || config.D12Base == "" || config.D11TokenRef == "" || config.D12TokenRef == "" || config.CursorKeyRef == "" || config.InternalTokenRef == "" || config.DeletePeerDNS == "" || config.ChatPeerDNS == "" {
 		return nil, ErrInvalid
 	}
 	if config.PnLBase != "" || config.PnLTokenRef != "" {
@@ -231,6 +232,16 @@ func NewHTTPRuntime(ctx context.Context, db *sql.DB, auth func(*http.Request) (s
 	if e != nil {
 		return nil, e
 	}
+	if pools, ok := config.Pools.(CanonicalPools); ok {
+		pools.Accounts = accounts
+		config.Pools = pools
+	}
+	if intervals, ok := config.Intervals.(discovery.SQLIntervalAuthority); ok {
+		if _, owned := intervals.Attribution.(*AccountClient); owned {
+			intervals.Attribution = accounts
+			config.Intervals = intervals
+		}
+	}
 	ds := discovery.Store{DB: db}
 	ns := Store{DB: db}
 	social := socialAuthority{rpc: socialRPC, store: ds}
@@ -240,8 +251,8 @@ func NewHTTPRuntime(ctx context.Context, db *sql.DB, auth func(*http.Request) (s
 	intervals := config.Intervals
 	policy := InternalPolicy{Credentials: credentials, TokenRef: config.InternalTokenRef, DeletePeerDNS: config.DeletePeerDNS, ChatPeerDNS: config.ChatPeerDNS}
 	r := &HTTPRuntime{DB: db, Credentials: credentials, Accounts: accounts, Config: config}
-	r.Discovery = discovery.HTTP{Store: ds, Callouts: callouts, Authenticate: discovery.Authenticate(auth), Intervals: intervals, Feed: discovery.Feed{Store: ds, Sources: owned, Preferences: accounts, Graph: social, Signer: discovery.CursorSigner{Key: []byte(key)}}}
-	r.Notifications = HTTP{Store: ns, Discovery: ds, Authenticate: Authenticate(auth), Recipient: RecipientConsumer{Store: ns, Authority: accounts}, InternalAuthorize: policy.Authorize}
+	r.Discovery = discovery.HTTP{Store: ds, Callouts: callouts, Authenticate: discovery.Authenticate(auth), Wallet: func(req *http.Request) (string, error) { p, err := config.Principal(req); return p.Wallet, err }, Intervals: intervals, Feed: discovery.Feed{Store: ds, Sources: owned, Preferences: accounts, Graph: social, Signer: discovery.CursorSigner{Key: []byte(key)}}}
+	r.Notifications = HTTP{Store: ns, Discovery: ds, Authenticate: Authenticate(auth), Principal: config.Principal, Recipient: RecipientConsumer{Store: ns, Authority: accounts}, InternalAuthorize: policy.Authorize}
 	r.Events = discovery.Runtime{Store: ds, Publisher: eventPublisher{triggers: TriggerConsumer{Store: ns, Authority: accounts}, social: social}}
 	if config.Push.EnableAPNS || config.Push.EnableFCM || config.Push.EnableWebPush {
 		config.Push.Secrets = config.Secrets

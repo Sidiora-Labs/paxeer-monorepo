@@ -26,6 +26,9 @@ use std::sync::Arc;
 #[cfg_attr(feature = "mockall", automock)]
 #[async_trait]
 pub trait SearchApi: Send + Sync {
+    /// Scope subsequent paginated calls to the producer's validated next-page cursor.
+    fn with_cursor(&self, cursor: super::pagination::PageCursor) -> Box<dyn SearchApi>;
+
     /// GET /api/v2/search
     ///
     ///
@@ -45,11 +48,15 @@ pub trait SearchApi: Send + Sync {
 
 pub struct SearchApiClient {
     configuration: Arc<configuration::Configuration>,
+    cursor: Option<super::pagination::PageCursor>,
 }
 
 impl SearchApiClient {
     pub fn new(configuration: Arc<configuration::Configuration>) -> Self {
-        Self { configuration }
+        Self {
+            configuration,
+            cursor: None,
+        }
     }
 }
 
@@ -69,6 +76,13 @@ pub struct SearchRedirectParams {
 
 #[async_trait]
 impl SearchApi for SearchApiClient {
+    fn with_cursor(&self, cursor: super::pagination::PageCursor) -> Box<dyn SearchApi> {
+        Box::new(Self {
+            configuration: self.configuration.clone(),
+            cursor: Some(cursor),
+        })
+    }
+
     async fn search(
         &self,
         params: SearchParams,
@@ -93,7 +107,10 @@ impl SearchApi for SearchApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder.build()?;
+        if let Some(cursor) = &self.cursor {
+            cursor.apply(&mut local_var_req)?;
+        }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();

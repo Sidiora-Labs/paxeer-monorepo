@@ -5,8 +5,8 @@
 //! requires TLS. The paxscan server presents a self-signed certificate, so
 //! it is authenticated either by pinning the SHA-256 of its leaf
 //! certificate or, when the operator opts in, left unauthenticated; the
-//! backfill verifies every paxscan block hash against the node before
-//! committing it either way.
+//! backfill verifies every paxscan block hash and obtains all published
+//! transaction bodies and receipts from the trusted node before committing.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -194,7 +194,7 @@ impl PaxscanDatabase {
         let transactions = query(
             "SELECT t.hash, t.block_number::bigint, t.index::bigint, t.from_address_hash,
                     t.to_address_hash, t.value::text, t.gas_used::text, t.status::bigint, t.input,
-                    t.created_contract_address_hash
+                    t.created_contract_address_hash, to_jsonb(t)->>'chain_id'
              FROM transactions t JOIN blocks b ON b.hash = t.block_hash AND b.consensus
              WHERE t.block_number BETWEEN $1::bigint AND $2::bigint
              ORDER BY t.block_number, t.index",
@@ -212,6 +212,7 @@ impl PaxscanDatabase {
                 status: get(row, 7)?,
                 input: get(row, 8)?,
                 created_contract_address_hash: get(row, 9)?,
+                chain_id: get(row, 10)?,
             })
         })
         .collect::<Result<Vec<_>, IndexError>>()?;

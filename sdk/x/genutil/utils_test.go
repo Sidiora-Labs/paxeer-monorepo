@@ -22,10 +22,6 @@ func TestExportGenesisFileWithTime(t *testing.T) {
 func TestInitializeNodeValidatorFilesFromMnemonic(t *testing.T) {
 	t.Parallel()
 
-	cfg := config.TestConfig()
-	cfg.RootDir = t.TempDir()
-	require.NoError(t, os.MkdirAll(filepath.Join(cfg.RootDir, "config"), 0755))
-
 	tests := []struct {
 		name     string
 		mnemonic string
@@ -51,6 +47,8 @@ func TestInitializeNodeValidatorFilesFromMnemonic(t *testing.T) {
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
+			cfg := config.TestConfig().SetRoot(t.TempDir())
+			require.NoError(t, os.MkdirAll(filepath.Join(cfg.RootDir, "config"), 0755))
 			_, _, err := InitializeNodeValidatorFilesFromMnemonic(cfg, tt.mnemonic)
 
 			if tt.expError {

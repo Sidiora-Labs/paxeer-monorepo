@@ -35,7 +35,7 @@ const isRollup = config.features.rollup.isEnabled;
 const BlocksTable = ({ data, isLoading, top, page, showSocketInfo, socketInfoNum, showSocketErrorAlert, chainData }: Props) => {
   const initialList = useInitialList({
     data: data ?? [],
-    idFn: (item) => item.height,
+    idFn: (item) => item.hash,
     enabled: !isLoading,
   });
 
@@ -82,7 +82,7 @@ const BlocksTable = ({ data, isLoading, top, page, showSocketInfo, socketInfoNum
           ) }
           { data.map((item, index) => (
             <BlocksTableItem
-              key={ item.height + (isLoading ? `${ index }_${ page }` : '') }
+              key={ item.hash + (isLoading ? `${ index }_${ page }` : '') }
               data={ item }
               enableTimeIncrement={ page === 1 && !isLoading }
               isLoading={ isLoading }

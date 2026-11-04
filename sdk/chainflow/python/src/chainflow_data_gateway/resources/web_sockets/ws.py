@@ -571,7 +571,7 @@ class WebSocketsResourceConnectionManager:
         params = _merge_mappings(
             {
                 **url.params,
-                **self.__client._auth_query({}),
+                **self.__client._auth_query({"WsToken": True}),
                 **self.__client.default_query,
             },
             extra_query,
@@ -579,7 +579,7 @@ class WebSocketsResourceConnectionManager:
         cookies = self.__client._auth_cookies({})
         headers = _merge_mappings(
             {
-                **self.__client.auth_headers,
+                **self.__client._auth_headers({"WsToken": True}),
                 **_cookie_header(cookies),
             },
             extra_headers,
@@ -725,7 +725,7 @@ class AsyncWebSocketsResourceConnectionManager:
         params = _merge_mappings(
             {
                 **url.params,
-                **self.__client._auth_query({}),
+                **self.__client._auth_query({"WsToken": True}),
                 **self.__client.default_query,
             },
             extra_query,
@@ -733,7 +733,7 @@ class AsyncWebSocketsResourceConnectionManager:
         cookies = self.__client._auth_cookies({})
         headers = _merge_mappings(
             {
-                **self.__client.auth_headers,
+                **self.__client._auth_headers({"WsToken": True}),
                 **_cookie_header(cookies),
             },
             extra_headers,

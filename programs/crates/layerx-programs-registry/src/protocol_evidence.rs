@@ -10,6 +10,10 @@ use crate::{
     DeploymentRecord, InterfaceRefusal, ProgramLifecycle, ReadFreshness, VerifiedInterfaceRead,
 };
 
+#[path = "deployment_execution.rs"]
+mod execution;
+pub use execution::DeploymentExecutionProof;
+
 pub(crate) const PROGRAMS_MODULE_ID: u16 = 9;
 const PROGRAM_RECORD_BYTES: usize = 71;
 pub(crate) const PROGRAM_KEY_PREFIX: &[u8] = b"program\0";
@@ -467,6 +471,9 @@ pub struct VerifiedProgramHead {
     valid_until_ms: u64,
 }
 impl VerifiedProgramHead {
+    pub(crate) fn chain_header(&self) -> &VerifiedHeader {
+        &self.header
+    }
     pub const fn program(&self) -> ProgramId {
         self.program
     }
@@ -738,25 +745,29 @@ impl ProtocolDeploymentVerifier {
         if program.lifecycle() != ProgramLifecycle::Active {
             return Err(ProtocolEvidenceError::LifecycleProof);
         }
-        let transaction_hash = crate::verify_tx(
+        let execution = DeploymentExecutionProof::decode(&proof.state.transaction)?;
+        let (transaction_hash, old_code_hash) = execution.verify(
+            self.require_chain_trust()?,
+            &proof.state,
             &header,
-            &proof.state.transaction,
-            &proof.state.transaction_proof,
-        )
-        .map_err(chain_error)?;
+            &deployment,
+        )?;
         let freshness = chain_freshness(&header, now_ms, self.staleness_limit_ms)?;
         let record = DeploymentRecord {
             program: deployment.program(),
             version: deployment.version(),
             abi_version: deployment.abi_version(),
             upgrade_policy: deployment.upgrade_policy(),
-            old_code_hash: None,
+            old_code_hash,
             new_code_hash: deployment.code_hash(),
             sequence: freshness.observed_sequence,
             observed_at: freshness.observed_at,
             module: deployment.module().to_vec(),
-            migration: None,
+            migration: execution.migration,
         };
+        record
+            .validate()
+            .map_err(|_| ProtocolEvidenceError::DeploymentMismatch)?;
         Ok(VerifiedDeploymentEvidence {
             record,
             interface: deployment.interface().cloned(),
@@ -990,6 +1001,58 @@ impl ProtocolDeploymentVerifier {
 }
 
 impl DeploymentProof {
+    /// Returns an untrusted projection for local record/proof consistency checks.
+    /// Only verify_deployment authenticates these claims against chain trust.
+    pub fn claimed_record(&self) -> Result<DeploymentRecord, ProtocolEvidenceError> {
+        let execution = DeploymentExecutionProof::decode(&self.state.transaction)?;
+        let header =
+            ChainHeader::decode(&self.state.commitment.signed_header).map_err(chain_error)?;
+        let mut key = PROGRAM_KEY_PREFIX.to_vec();
+        key.extend_from_slice(&self.deployment.program_state.program.bytes());
+        let value = self
+            .state
+            .lifecycle
+            .0
+            .record
+            .as_deref()
+            .ok_or(ProtocolEvidenceError::ProgramRecord)?;
+        let current = decode_program_record_value(&key, value)?;
+        let old_code_hash = execution
+            .previous
+            .value
+            .as_deref()
+            .map(|value| decode_program_record_value(&key, value).map(|record| record.code_hash))
+            .transpose()?;
+        let record = DeploymentRecord {
+            program: current.program,
+            version: current.version,
+            abi_version: current.abi_version,
+            upgrade_policy: current.policy,
+            old_code_hash,
+            new_code_hash: current.code_hash,
+            sequence: u64::try_from(header.height).map_err(|_| ProtocolEvidenceError::Encoding)?,
+            observed_at: u64::try_from(header.time.seconds)
+                .ok()
+                .and_then(|seconds| seconds.checked_mul(1000))
+                .and_then(|time| time.checked_add((header.time.nanos / 1_000_000) as u64))
+                .ok_or(ProtocolEvidenceError::Encoding)?,
+            module: self.deployment.code.clone(),
+            migration: execution.migration,
+        };
+        record
+            .validate()
+            .map_err(|_| ProtocolEvidenceError::DeploymentMismatch)?;
+        Ok(record)
+    }
+
+    pub fn bind_execution(
+        &mut self,
+        execution: &DeploymentExecutionProof,
+    ) -> Result<(), ProtocolEvidenceError> {
+        self.state.transaction = execution.canonical_encoding()?;
+        Ok(())
+    }
+
     /// Publishes canonical admission bytes durably, without replacing an existing
     /// admission. Repeating identical bytes is idempotent; different bytes refuse.
     pub fn publish_canonical(&self, path: &std::path::Path) -> std::io::Result<()> {
@@ -1176,7 +1239,8 @@ impl DeploymentProof {
         if self.state.transaction.is_empty() || self.state.transaction.len() > MAX_EVIDENCE_BYTES {
             return Err(ProtocolEvidenceError::Encoding);
         }
-        Ok(crate::hash::sha256(&self.state.transaction))
+        let execution = DeploymentExecutionProof::decode(&self.state.transaction)?;
+        Ok(crate::hash::sha256(&execution.transaction))
     }
 }
 

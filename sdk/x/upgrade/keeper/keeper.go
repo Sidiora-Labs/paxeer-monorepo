@@ -287,6 +287,9 @@ func (k Keeper) IsUpgradeActiveAtHeight(ctx sdk.Context, name string, height int
 	return doneHeight > 0 && height >= doneHeight
 }
 
+// GetClosestUpgrade returns the upgrade with the minimum completed height at or
+// above height, or ("", 0) if none qualifies. Equal heights select the
+// lexicographically greatest name, the first entry in reverse name-key order.
 func (k Keeper) GetClosestUpgrade(ctx sdk.Context, height int64) (string, int64) {
 	iter := sdk.KVStoreReversePrefixIterator(ctx.KVStore(k.storeKey), []byte{types.DoneByte})
 	defer func() { _ = iter.Close() }()
@@ -297,7 +300,10 @@ func (k Keeper) GetClosestUpgrade(ctx sdk.Context, height int64) (string, int64)
 	)
 	for ; iter.Valid(); iter.Next() {
 		upgradeHeight := int64(sdk.BigEndianToUint64(iter.Value())) //nolint:gosec // stored by SetDone from block heights which are always non-negative
-		if !found || (upgradeHeight >= height && upgradeHeight < closest.BlockHeight) {
+		if upgradeHeight < height {
+			continue
+		}
+		if !found || upgradeHeight < closest.BlockHeight {
 			found = true
 			name := parseDoneKey(iter.Key())
 			closest = upgrade{Name: name, BlockHeight: upgradeHeight}

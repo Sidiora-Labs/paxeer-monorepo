@@ -245,17 +245,20 @@ func QueryDepositByTxQuery(ctx context.Context, clientCtx client.Context, params
 		return nil, err
 	}
 
-	if !initialDeposit.Amount.IsZero() {
-		bz, err := clientCtx.Codec.MarshalAsJSON(&initialDeposit)
-		if err != nil {
-			return nil, err
-		}
-
-		return bz, nil
+	deposit := types.Deposit{
+		ProposalId: params.ProposalID,
+		Depositor:  params.Depositor.String(),
+		Amount:     sdk.NewCoins(),
+	}
+	if initialDeposit.Depositor == deposit.Depositor && initialDeposit.ProposalId == params.ProposalID {
+		deposit.Amount = deposit.Amount.Add(initialDeposit.Amount...)
 	}
 
-	searchResult, err := combineEvents(
-		ctx, clientCtx, defaultPage,
+	node, err := clientCtx.GetNode()
+	if err != nil {
+		return nil, err
+	}
+	eventGroups := [][]string{
 		// Query legacy Msgs event action
 		[]string{
 			fmt.Sprintf("%s.%s='%s'", sdk.EventTypeMessage, sdk.AttributeKeyAction, types.TypeMsgDeposit),
@@ -268,29 +271,32 @@ func QueryDepositByTxQuery(ctx context.Context, clientCtx client.Context, params
 			fmt.Sprintf("%s.%s='%s'", types.EventTypeProposalDeposit, types.AttributeKeyProposalID, []byte(fmt.Sprintf("%d", params.ProposalID))),
 			fmt.Sprintf("%s.%s='%s'", sdk.EventTypeMessage, sdk.AttributeKeySender, []byte(params.Depositor.String())),
 		},
-	)
-	if err != nil {
-		return nil, err
 	}
-
-	for _, info := range searchResult.Txs {
-		for _, msg := range info.GetTx().GetMsgs() {
-			// there should only be a single deposit under the given conditions
-			if depMsg, ok := msg.(*types.MsgDeposit); ok {
-				deposit := types.Deposit{
-					Depositor:  depMsg.Depositor,
-					ProposalId: params.ProposalID,
-					Amount:     depMsg.Amount,
+	seen := make(map[string]bool)
+	for _, events := range eventGroups {
+		for page := defaultPage; ; page++ {
+			searchResult, err := authtx.QueryTxsByEvents(ctx, node, clientCtx.TxConfig, events, page, defaultLimit, "")
+			if err != nil {
+				return nil, err
+			}
+			for _, info := range searchResult.Txs {
+				if seen[info.TxHash] || info.Code != 0 {
+					continue
 				}
-
-				bz, err := clientCtx.Codec.MarshalAsJSON(&deposit)
-				if err != nil {
-					return nil, err
+				seen[info.TxHash] = true
+				for _, msg := range info.GetTx().GetMsgs() {
+					if depMsg, ok := msg.(*types.MsgDeposit); ok && depMsg.ProposalId == params.ProposalID && depMsg.Depositor == deposit.Depositor {
+						deposit.Amount = deposit.Amount.Add(depMsg.Amount...)
+					}
 				}
-
-				return bz, nil
+			}
+			if uint64(page*defaultLimit) >= searchResult.TotalCount {
+				break
 			}
 		}
+	}
+	if !deposit.Amount.IsZero() {
+		return clientCtx.Codec.MarshalAsJSON(&deposit)
 	}
 
 	return nil, fmt.Errorf("address '%s' did not deposit to proposalID %d", params.Depositor, params.ProposalID)

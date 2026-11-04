@@ -594,15 +594,16 @@ func runtimeHandler(tracker *sharedprocess.Tracker, next http.Handler, metrics *
 }
 
 type discoveryRuntimeDocument struct {
-	D11Base          string                       `json:"d11Base"`
-	D11TokenRef      string                       `json:"d11TokenRef"`
-	D12Base          string                       `json:"d12Base"`
-	D12TokenRef      string                       `json:"d12TokenRef"`
-	CursorKeyRef     string                       `json:"cursorKeyRef"`
-	InternalTokenRef string                       `json:"internalTokenRef"`
-	DeletePeerDNS    string                       `json:"deletePeerDNS"`
-	ChatPeerDNS      string                       `json:"chatPeerDNS"`
-	Push             notifications.RuntimeOptions `json:"push"`
+	QuoteTokenAddress string                       `json:"quoteTokenAddress"`
+	D11Base           string                       `json:"d11Base"`
+	D11TokenRef       string                       `json:"d11TokenRef"`
+	D12Base           string                       `json:"d12Base"`
+	D12TokenRef       string                       `json:"d12TokenRef"`
+	CursorKeyRef      string                       `json:"cursorKeyRef"`
+	InternalTokenRef  string                       `json:"internalTokenRef"`
+	DeletePeerDNS     string                       `json:"deletePeerDNS"`
+	ChatPeerDNS       string                       `json:"chatPeerDNS"`
+	Push              notifications.RuntimeOptions `json:"push"`
 }
 
 func (a *App) registerProductionOperations(ctx context.Context, router chi.Router, identity requestIdentity, admission *rest.Admission, checks map[string]sharedhttp.Check) error {
@@ -614,6 +615,13 @@ func (a *App) registerProductionOperations(ctx context.Context, router chi.Route
 }
 
 func (a *App) registerDiscovery(ctx context.Context, router chi.Router, identity requestIdentity, admission *rest.Admission, checks map[string]sharedhttp.Check) error {
+	principal := func(r *http.Request) (notifications.Principal, error) {
+		if identity == nil {
+			return notifications.Principal{}, sharedauth.ErrScopeDenied
+		}
+		p, err := identity.AuthenticateRequest(r.Context(), r)
+		return notifications.Principal{AccountID: p.AccountID, Wallet: p.Wallet}, err
+	}
 	authenticate := func(r *http.Request) (string, error) {
 		if identity == nil {
 			return "", sharedauth.ErrScopeDenied
@@ -637,7 +645,13 @@ func (a *App) registerDiscovery(ctx context.Context, router chi.Router, identity
 		if !ok {
 			return errors.New("discovery identity transport unavailable")
 		}
-		runtime, err := notifications.NewHTTPRuntime(ctx, a.sqlDB, authenticate, notifications.RuntimeConfig{Secrets: sharedsecrets.Options{Provider: sharedsecrets.ProviderType(a.cfg.SecretsProvider), CacheTTL: 0}, Client: concrete.Client, D11Base: document.D11Base, D11TokenRef: document.D11TokenRef, D12Base: document.D12Base, D12TokenRef: document.D12TokenRef, CursorKeyRef: document.CursorKeyRef, InternalTokenRef: document.InternalTokenRef, DeletePeerDNS: document.DeletePeerDNS, ChatPeerDNS: document.ChatPeerDNS, Push: document.Push})
+		var err error
+		runtimeConfig := notifications.RuntimeConfig{Principal: principal, Secrets: sharedsecrets.Options{Provider: sharedsecrets.ProviderType(a.cfg.SecretsProvider), CacheTTL: 0}, Client: concrete.Client, D11Base: document.D11Base, D11TokenRef: document.D11TokenRef, D12Base: document.D12Base, D12TokenRef: document.D12TokenRef, CursorKeyRef: document.CursorKeyRef, InternalTokenRef: document.InternalTokenRef, DeletePeerDNS: document.DeletePeerDNS, ChatPeerDNS: document.ChatPeerDNS, Push: document.Push}
+		runtimeConfig.Pools, runtimeConfig.Intervals, err = notifications.NewRuntimeAuthorities(ctx, a.sqlDB, runtimeConfig, document.QuoteTokenAddress)
+		if err != nil {
+			return err
+		}
+		runtime, err := notifications.NewHTTPRuntime(ctx, a.sqlDB, authenticate, runtimeConfig)
 		if err == nil {
 			a.discoveryRuntime = runtime
 			handler := rest.ResponseMetadata(admission.Middleware(rest.AdmissionAggregate)(runtime.Handler()))
@@ -652,12 +666,12 @@ func (a *App) registerDiscovery(ctx context.Context, router chi.Router, identity
 			checks["discovery_notifications"] = runtime.Ready
 			return nil
 		}
-		checks["discovery_provider_configuration"] = func(context.Context) error { return err }
+		return err
 	}
 	ds := discovery.Store{DB: a.sqlDB}
 	ns := notifications.Store{DB: a.sqlDB}
 	discoveryHTTP := discovery.HTTP{Store: ds, Callouts: discovery.CalloutService{Store: ds}, Authenticate: authenticate, Wallet: wallet}
-	notificationsHTTP := notifications.HTTP{Store: ns, Discovery: ds, Authenticate: authenticate}
+	notificationsHTTP := notifications.HTTP{Store: ns, Discovery: ds, Authenticate: authenticate, Principal: principal}
 	router.Handle("/v2/discovery/notifications", rest.ResponseMetadata(admission.Middleware(rest.AdmissionAggregate)(notificationsHTTP.Handler())))
 	router.Handle("/v2/discovery/notifications/*", rest.ResponseMetadata(admission.Middleware(rest.AdmissionAggregate)(notificationsHTTP.Handler())))
 	router.Handle("/v2/me/notifications", rest.ResponseMetadata(admission.Middleware(rest.AdmissionAggregate)(notificationsHTTP.Handler())))

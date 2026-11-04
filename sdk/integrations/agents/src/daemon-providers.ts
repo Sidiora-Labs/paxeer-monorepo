@@ -128,11 +128,11 @@ export class DaemonReceiptResolver implements AgentReceiptResolver {
   async #lookup(context: AgentReceiptContext, expectedDigest?: string): Promise<{ evidence: AgentReceiptEvidence; receiptDigest: string }> {
     this.#assertPrincipal();
     const response = await this.#transport.call<
-      { readonly idempotency_key: string; readonly expected_activity_id: string; readonly requested_verification_level: "sequencer-signed" }, AgentEnvelopeSuccess
+      { readonly idempotency_key: string; readonly expected_activity_id: string; readonly requested_rung: "receipted" }, AgentEnvelopeSuccess
     >({
       plane: "agent", operation: "program.receipt",
       request: { idempotency_key: context.idempotencyKey, expected_activity_id: context.activityId,
-        requested_verification_level: "sequencer-signed" },
+        requested_rung: "receipted" },
     });
     const value = record(response.value, decodeFailure);
     if (value["found"] === false) { exact(value, ["found"], decodeFailure); throw unavailable(); }
@@ -197,8 +197,9 @@ export async function verifySequencerReceipt(
   const level = receipt["verification_level"];
   if (typeof level !== "string" || !VERIFIED_LEVELS.has(level)) throw verificationFailure();
   const status = record(verificationStatus, decodeFailure);
+  if (status["state"] !== "achieved") throw verificationFailure();
   exact(status, ["state", "rung"], decodeFailure);
-  if (status["state"] !== "achieved" || status["rung"] !== Rung.Receipted) throw verificationFailure();
+  if (status["rung"] !== Rung.Receipted) throw verificationFailure();
   const key = record(receipt["receipt_key"], decodeFailure);
   exact(key, ["key_id", "public_key", "first_height", "last_height"], decodeFailure);
   const rawTransaction = hex(receipt["raw_transaction"], MAX_RECEIPT_BYTES);

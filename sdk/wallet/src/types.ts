@@ -570,31 +570,43 @@ export type ExplorerRung = SequencerRung;
 
 export type SequencerRung = 'submitted' | 'receipted' | 'committed';
 
-export interface SequencerReceiptAnswer {
-  rung: SequencerRung;
-  txHash: Hex;
-  nonce: Hex;
-  blockNumber?: Hex;
-  blockHash?: Hex;
-  seq?: Hex;
-  height?: Hex;
-  index?: Hex;
-  timestamp?: Hex;
-  status?: Hex;
-  returnData?: Hex;
-  logs?: { address: Hex; topics: Hex[]; data: Hex; logIndex: Hex }[];
-  gasUsed?: Hex;
-  cumulativeGasUsed?: Hex;
-  effectiveGasPrice?: Hex;
-  feeDenom?: string;
-  feeAmount?: Hex;
-  sponsor?: Hex;
-  from?: Hex;
-  to?: Hex;
-  contractAddress?: Hex;
-  vmError?: string;
-  keyId?: Hex;
-  receipt?: Hex;
+export interface SequencerReceiptView {
+  seq: Hex;
+  height: Hex;
+  index: Hex;
+  timestamp: Hex;
+  status: Hex;
+  returnData: Hex;
+  logs: { address: Hex; topics: Hex[]; data: Hex; logIndex: Hex }[];
+  gasUsed: Hex;
+  cumulativeGasUsed: Hex;
+  effectiveGasPrice: Hex;
+  paymentDenom: string;
+  feeDenom: string;
+  feeAmount: Hex;
+  sponsor: Hex;
+  from: Hex;
+  to: Hex;
+  contractAddress: Hex;
+  vmError: string;
+  keyId: Hex;
+  signingKey: Hex;
+  receipt: Hex;
+}
+
+export type SequencerReceiptAnswer = { txHash: Hex; nonce: Hex } & (
+  | ({ rung: 'submitted'; blockNumber?: never; blockHash?: never } & {
+      [K in keyof SequencerReceiptView]?: never;
+    })
+  | (SequencerReceiptView & { rung: 'receipted'; blockNumber?: never; blockHash?: never })
+  | (SequencerReceiptView & { rung: 'committed'; blockNumber: Hex; blockHash: Hex })
+);
+
+export interface ReceiptKeyPin {
+  readonly keyId: Hex;
+  readonly publicKey: Hex;
+  readonly firstHeight: bigint;
+  readonly lastHeight: bigint;
 }
 
 export interface ExplorerTransactionStatus {

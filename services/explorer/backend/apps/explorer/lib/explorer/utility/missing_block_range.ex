@@ -568,14 +568,31 @@ defmodule Explorer.Utility.MissingBlockRange do
   end
 
   def sanitize_missing_block_ranges do
-    __MODULE__
-    |> where([r], r.from_number < r.to_number)
-    |> update([r], set: [from_number: r.to_number, to_number: r.from_number])
-    |> Repo.update_all([], timeout: :infinity)
+    result =
+      Repo.transaction(
+        fn ->
+          __MODULE__
+          |> where([r], r.from_number < r.to_number)
+          |> update([r], set: [from_number: r.to_number, to_number: r.from_number])
+          |> Repo.update_all([], timeout: :infinity)
 
-    {last_range, merged_ranges} = delete_and_merge_ranges()
+          {last_range, merged_ranges} = delete_and_merge_ranges()
 
-    save_batch((last_range && [last_range | merged_ranges]) || [])
+          ((last_range && [last_range | merged_ranges]) || [])
+          |> Enum.map(fn from..to//_ ->
+            case insert_range(%{from_number: from, to_number: to}) do
+              {:ok, range} -> range
+              {:error, changeset} -> Repo.rollback(changeset)
+            end
+          end)
+        end,
+        timeout: :infinity
+      )
+
+    case result do
+      {:ok, ranges} -> ranges
+      {:error, changeset} -> raise Ecto.InvalidChangesetError, action: :insert, changeset: changeset
+    end
   end
 
   defp delete_and_merge_ranges do
@@ -591,7 +608,7 @@ defmodule Explorer.Utility.MissingBlockRange do
   end
 
   defp delete_intersecting_ranges do
-    {_, intersecting_ranges} =
+    intersecting_ids =
       __MODULE__
       |> join(:inner, [r], r1 in __MODULE__,
         on:
@@ -600,8 +617,20 @@ defmodule Explorer.Utility.MissingBlockRange do
              (r.from_number <= r1.from_number and r.from_number >= r1.to_number) or
              (r.to_number <= r1.from_number and r.to_number >= r1.to_number)) and r1.id != r.id
       )
-      |> select([r, r1], r)
-      |> Repo.delete_all(timeout: :infinity)
+      |> select([r, _r1], r.id)
+
+    intersecting_ranges =
+      __MODULE__
+      |> where([r], r.id in subquery(intersecting_ids))
+      |> order_by([r], r.id)
+      |> lock("FOR UPDATE")
+      |> Repo.all(timeout: :infinity)
+
+    ids = Enum.map(intersecting_ranges, & &1.id)
+
+    __MODULE__
+    |> where([r], r.id in ^ids)
+    |> Repo.delete_all(timeout: :infinity)
 
     intersecting_ranges
   end

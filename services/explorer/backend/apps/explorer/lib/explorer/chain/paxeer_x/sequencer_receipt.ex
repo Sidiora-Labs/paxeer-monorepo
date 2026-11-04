@@ -10,7 +10,7 @@ defmodule Explorer.Chain.PaxeerX.SequencerReceipt do
   """
 
   alias Explorer.Chain.Hash
-  alias Explorer.Chain.PaxeerX.CometCommit
+  alias Explorer.Chain.PaxeerX.ReceiptInclusion
   alias Explorer.HttpClient
 
   @receipt_tag 0x5201
@@ -156,10 +156,12 @@ defmodule Explorer.Chain.PaxeerX.SequencerReceipt do
       receipt's previous_state_root to equal it.
     * `:eth_receipt` - the `eth_getTransactionReceipt` answer; when present R7 and
       R8 run.
-    * `:batch` - `%{from_seq: integer, to_seq: integer}` of the MsgSequenceBatch in
-      the landing block.
+    * `:batch` - the complete `px_getSequenceBatch` result, preserving `tx` and
+      `proof`, and `:batch_activity_ids` - the ordered binary activity IDs.
     * `:chain_id`, `:commit`, `:validators` - the chain id and the `px_getCommit`
-      and `px_getValidators` answers for the landing height.
+      and `px_getValidators` answers for the landing height. The chain ID and
+      validator hash must match the configured trust anchors documented by
+      `Explorer.Chain.PaxeerX.ReceiptInclusion`.
 
   Returns `{:receipted, receipt_key}` when R1-R6 pass and no committed evidence is
   given, `{:committed, receipt_key, height}` when R1-R8 pass, otherwise
@@ -177,7 +179,7 @@ defmodule Explorer.Chain.PaxeerX.SequencerReceipt do
          {:ok, view} <- step(view(receipt, height, answer), :r5),
          :ok <- step(answer_matches?(answer, view, height), :r5),
          :ok <- step(sequence_chains?(receipt, Keyword.get(opts, :prev_seq_hash)), :r6) do
-      committed(receipt, view, key, opts)
+      committed(receipt, Map.merge(view, Map.take(answer, ["rung", "blockNumber", "blockHash"])), key, opts)
     end
   end
 
@@ -223,6 +225,24 @@ defmodule Explorer.Chain.PaxeerX.SequencerReceipt do
   end
 
   def commit(_height, _router_url), do: {:error, :invalid_height}
+
+  @doc "Reads the complete gateway batch transaction and inclusion proof without discarding authenticated fields."
+  @spec sequence_batch(pos_integer(), String.t() | nil) :: {:ok, map()} | :disabled | {:error, term()}
+  def sequence_batch(height, router_url \\ router_url())
+  def sequence_batch(_height, nil), do: :disabled
+
+  def sequence_batch(height, router_url) when is_integer(height) and height > 0 do
+    decimal_height = Integer.to_string(height)
+
+    with {:ok, result} <- router_object(router_url, "px_getSequenceBatch", [decimal_height]) do
+      case result do
+        %{"height" => ^decimal_height, "tx" => tx, "proof" => %{} = _proof} when is_binary(tx) -> {:ok, result}
+        _ -> {:error, :malformed_sequence_batch}
+      end
+    end
+  end
+
+  def sequence_batch(_height, _router_url), do: {:error, :invalid_height}
 
   @doc """
   Reads the validator set of `height` from the router `px_getValidators`.
@@ -752,36 +772,41 @@ defmodule Explorer.Chain.PaxeerX.SequencerReceipt do
         {:receipted, key}
 
       {:ok, eth_receipt} ->
-        with {:ok, height} <- step(r7(receipt, view, eth_receipt, opts[:batch]), :r7),
-             {:ok, ^height} <- step(CometCommit.verify(opts[:chain_id], opts[:commit], opts[:validators]), :r8) do
+        with {:ok, height} <- step(r7(receipt, view, eth_receipt), :r7),
+             :ok <- ReceiptInclusion.verify(receipt, key, height, opts) do
           {:committed, key, height}
-        else
-          {:ok, _other_height} -> {:error, :r8}
-          {:error, _step} = error -> error
         end
     end
   end
 
-  defp r7(receipt, view, %{} = eth_receipt, %{from_seq: from_seq, to_seq: to_seq})
-       when is_integer(from_seq) and is_integer(to_seq) do
+  defp r7(receipt, view, %{} = eth_receipt) do
     with {:ok, height} <- quantity(eth_receipt["blockNumber"]),
          {:ok, landing_tx_hash} <- hex_data(eth_receipt["transactionHash"]),
          {:ok, status} <- quantity(eth_receipt["status"]),
          {:ok, gas_used} <- quantity(eth_receipt["gasUsed"]),
          {:ok, logs} <- eth_logs(eth_receipt["logs"]),
          {:ok, receipt_height} <- quantity(view["height"]),
-         true <- height >= receipt_height,
+         true <- height > 0 and height >= receipt_height,
          true <- landing_tx_hash == receipt.activity_id,
+         true <- eth_receipt["transactionIndex"] == view["index"],
+         true <- landing_matches?(view, eth_receipt),
          true <- quantity_hex(status) == view["status"] and quantity_hex(gas_used) == view["gasUsed"],
-         true <- logs == Enum.map(view["logs"], &Map.take(&1, ["address", "topics", "data"])),
-         true <- from_seq <= receipt.global_sequence and receipt.global_sequence <= to_seq do
+         true <- logs == Enum.map(view["logs"], &Map.take(&1, ["address", "topics", "data"])) do
       {:ok, height}
     else
       _ -> :error
     end
   end
 
-  defp r7(_receipt, _view, _eth_receipt, _batch), do: :error
+  defp r7(_receipt, _view, _eth_receipt), do: :error
+
+  defp landing_matches?(%{"rung" => "receipted"}, _eth_receipt), do: true
+
+  defp landing_matches?(%{"rung" => "committed", "blockNumber" => number, "blockHash" => hash}, eth_receipt) do
+    quantity(number) == quantity(eth_receipt["blockNumber"]) and hex_data(hash) == hex_data(eth_receipt["blockHash"])
+  end
+
+  defp landing_matches?(_view, _eth_receipt), do: false
 
   defp eth_logs(logs) when is_list(logs) do
     logs

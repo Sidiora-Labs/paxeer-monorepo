@@ -68,7 +68,7 @@ func (k *Keeper) Liquidate(ctx sdk.Context, caller common.Address, positionID ui
 		return nil, err
 	}
 	if !liquidatable {
-		return nil, fmt.Errorf("%w: account %s", types.ErrNotLiquidatable, named.Account)
+		return nil, types.ErrNotLiquidatable.Wrapf("account %s", named.Account)
 	}
 	now, err := liquidationNow(ctx)
 	if err != nil {
@@ -84,7 +84,7 @@ func (k *Keeper) Liquidate(ctx sdk.Context, caller common.Address, positionID ui
 			return nil, err
 		}
 		if cooling {
-			return nil, fmt.Errorf("%w: position %s", types.ErrLiquidationCooldown, named.ID.Dec())
+			return nil, types.ErrLiquidationCooldown.Wrapf("position %s", named.ID.Dec())
 		}
 	}
 	events, _, err := k.liquidateAccount(ctx, params, named.Account, caller, now, uint64(len(positions)))
@@ -215,10 +215,10 @@ func (k *Keeper) LiquidationPrice(ctx sdk.Context, positionID uint256.Int) (uint
 // 10,000 / (10,000 - side x bps) as one floor division of 256-bit operands.
 func liquidationPriceFormula(isLong bool, mark, size uint256.Int, available *big.Int, bps uint64) (uint256.Int, error) {
 	if size.IsZero() {
-		return uint256.Int{}, fmt.Errorf("%w: position of zero size", types.ErrUnknownPosition)
+		return uint256.Int{}, types.ErrUnknownPosition.Wrapf("position of zero size")
 	}
 	if bps >= types.BpsDenominator {
-		return uint256.Int{}, fmt.Errorf("%w: maintenance rate %d bps", types.ErrInvalidParams, bps)
+		return uint256.Int{}, types.ErrInvalidParams.Wrapf("maintenance rate %d bps", bps)
 	}
 	factor := new(big.Int).SetUint64(types.BpsDenominator + bps)
 	if isLong {
@@ -238,7 +238,7 @@ func liquidationPriceFormula(isLong bool, mark, size uint256.Int, available *big
 	}
 	out, overflow := uint256.FromBig(price)
 	if overflow {
-		return uint256.Int{}, fmt.Errorf("%w: liquidation price %s", types.ErrOverflow, price)
+		return uint256.Int{}, types.ErrOverflow.Wrapf("liquidation price %s", price)
 	}
 	return *out, nil
 }
@@ -395,14 +395,12 @@ func (k *Keeper) liquidationCooldownRecord(ctx sdk.Context, positionID uint256.I
 		return 0, uint256.Int{}, false, nil
 	}
 	if len(bz) != types.LiquidationCooldownValueLength {
-		return 0, uint256.Int{}, false, fmt.Errorf("%w: liquidation cooldown of position %s holds %d bytes",
-			types.ErrInvalidParams, positionID.Dec(), len(bz))
+		return 0, uint256.Int{}, false, types.ErrInvalidParams.Wrapf("liquidation cooldown of position %s holds %d bytes", positionID.Dec(), len(bz))
 	}
 	var basis uint256.Int
 	basis.SetBytes32(bz[8:])
 	if basis.IsZero() {
-		return 0, uint256.Int{}, false, fmt.Errorf("%w: liquidation cooldown of position %s holds a zero slice basis",
-			types.ErrInvalidParams, positionID.Dec())
+		return 0, uint256.Int{}, false, types.ErrInvalidParams.Wrapf("liquidation cooldown of position %s holds a zero slice basis", positionID.Dec())
 	}
 	return binary.BigEndian.Uint64(bz[:8]), basis, true, nil
 }
@@ -473,7 +471,7 @@ func (k *Keeper) liquidationCandidates(ctx sdk.Context, limit uint64) ([]common.
 	for ; iterator.Valid() && uint64(len(accounts)) < limit; iterator.Next() {
 		key := iterator.Key()
 		if len(key) != keyLength {
-			return nil, fmt.Errorf("%w: margin ratio key %x", types.ErrInvalidParams, key)
+			return nil, types.ErrInvalidParams.Wrapf("margin ratio key %x", key)
 		}
 		accounts = append(accounts, common.BytesToAddress(key[len(types.MarginRatioIndexPrefix)+2:]))
 	}
@@ -505,7 +503,7 @@ func (k *Keeper) liquidationOpenOrders(ctx sdk.Context, account common.Address) 
 	for ; iterator.Valid(); iterator.Next() {
 		key := iterator.Key()
 		if len(key) != len(prefix)+32 {
-			return nil, fmt.Errorf("%w: account order key %x", types.ErrInvalidParams, key)
+			return nil, types.ErrInvalidParams.Wrapf("account order key %x", key)
 		}
 		var id uint256.Int
 		id.SetBytes32(key[len(prefix):])
@@ -524,7 +522,7 @@ func (k *Keeper) liquidationAccountPositions(ctx sdk.Context, account common.Add
 	for ; iterator.Valid(); iterator.Next() {
 		value := iterator.Value()
 		if len(iterator.Key()) != len(prefix)+8 || len(value) != 32 {
-			return nil, fmt.Errorf("%w: account market position entry %x", types.ErrInvalidParams, iterator.Key())
+			return nil, types.ErrInvalidParams.Wrapf("account market position entry %x", iterator.Key())
 		}
 		var id uint256.Int
 		id.SetBytes32(value)
@@ -544,11 +542,11 @@ func (k *Keeper) liquidationAccountPositions(ctx sdk.Context, account common.Add
 func (k *Keeper) liquidationPosition(ctx sdk.Context, positionID uint256.Int) (types.Position, error) {
 	bz := k.store(ctx).Get(types.PositionKey(positionID))
 	if bz == nil {
-		return types.Position{}, fmt.Errorf("%w: %s", types.ErrUnknownPosition, positionID.Dec())
+		return types.Position{}, types.ErrUnknownPosition.Wrapf("%s", positionID.Dec())
 	}
 	var position types.Position
 	if err := position.Unmarshal(bz); err != nil {
-		return types.Position{}, fmt.Errorf("%w: position %s: %v", types.ErrInvalidParams, positionID.Dec(), err)
+		return types.Position{}, types.ErrInvalidParams.Wrapf("position %s: %v", positionID.Dec(), err)
 	}
 	return position, nil
 }
@@ -556,11 +554,11 @@ func (k *Keeper) liquidationPosition(ctx sdk.Context, positionID uint256.Int) (t
 func (k *Keeper) liquidationAccount(ctx sdk.Context, address common.Address) (types.Account, error) {
 	bz := k.store(ctx).Get(types.AccountKey(address))
 	if bz == nil {
-		return types.Account{}, fmt.Errorf("%w: %s", types.ErrNoAccount, address)
+		return types.Account{}, types.ErrNoAccount.Wrapf("%s", address)
 	}
 	var account types.Account
 	if err := account.Unmarshal(bz); err != nil {
-		return types.Account{}, fmt.Errorf("%w: account %s: %v", types.ErrInvalidParams, address, err)
+		return types.Account{}, types.ErrInvalidParams.Wrapf("account %s: %v", address, err)
 	}
 	return account, nil
 }
@@ -569,14 +567,14 @@ func (k *Keeper) liquidationAccount(ctx sdk.Context, address common.Address) (ty
 func (k *Keeper) liquidationMark(ctx sdk.Context, marketID uint64) (uint256.Int, error) {
 	bz := k.store(ctx).Get(types.MarketStateKey(marketID))
 	if bz == nil {
-		return uint256.Int{}, fmt.Errorf("%w: market %d has no price", types.ErrPriceStale, marketID)
+		return uint256.Int{}, types.ErrPriceStale.Wrapf("market %d has no price", marketID)
 	}
 	var state types.MarketState
 	if err := state.Unmarshal(bz); err != nil {
-		return uint256.Int{}, fmt.Errorf("%w: market state %d: %v", types.ErrInvalidParams, marketID, err)
+		return uint256.Int{}, types.ErrInvalidParams.Wrapf("market state %d: %v", marketID, err)
 	}
 	if state.MarkPrice.IsZero() {
-		return uint256.Int{}, fmt.Errorf("%w: market %d has no mark", types.ErrPriceStale, marketID)
+		return uint256.Int{}, types.ErrPriceStale.Wrapf("market %d has no mark", marketID)
 	}
 	return state.MarkPrice, nil
 }
@@ -607,7 +605,7 @@ func liquidationTierBps(market types.Market, notional *big.Int) (uint64, error) 
 func liquidationNow(ctx sdk.Context) (uint64, error) {
 	seconds := ctx.BlockTime().Unix()
 	if seconds < 0 {
-		return 0, fmt.Errorf("%w: block time %d before the epoch", types.ErrInvalidParams, seconds)
+		return 0, types.ErrInvalidParams.Wrapf("block time %d before the epoch", seconds)
 	}
 	return uint64(seconds), nil
 }

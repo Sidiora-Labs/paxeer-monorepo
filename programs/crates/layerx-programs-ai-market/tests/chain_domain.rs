@@ -15,10 +15,18 @@ use layerx_programs_ai_market::{
 use sha2::{Digest, Sha256};
 
 const MERGED_CHAIN_ID: u64 = 125;
-const MERGED_CHAIN_DOMAIN: [u8; 32] = layerx_programs_ai_market::MERGED_CHAIN_DOMAIN;
+const MERGED_CHAIN_DOMAIN: [u8; 32] = [
+    0x62, 0xb6, 0xb1, 0x47, 0x34, 0xfa, 0x76, 0x9c, 0x3e, 0x0f, 0xbc, 0x94, 0xde, 0x49, 0x5a, 0x3d,
+    0x03, 0x8b, 0xe4, 0x9a, 0x25, 0x24, 0xb1, 0xc0, 0x71, 0xd7, 0x5d, 0x0a, 0x4e, 0xed, 0x71, 0xf6,
+];
 
 #[test]
 fn chain_domain_is_derived_from_the_merged_chain_id() -> CodecResult<()> {
+    assert_eq!(layerx_programs_ai_market::MERGED_CHAIN_ID, MERGED_CHAIN_ID);
+    assert_eq!(
+        layerx_programs_ai_market::MERGED_CHAIN_DOMAIN,
+        MERGED_CHAIN_DOMAIN
+    );
     assert_eq!(merged_chain_domain(MERGED_CHAIN_ID), MERGED_CHAIN_DOMAIN);
     for chain_id in [0, 1, MERGED_CHAIN_ID, 256, 0x0102_0304_0506_0708, u64::MAX] {
         let mut preimage = b"PAXAI/chain-domain/v1".to_vec();
@@ -26,6 +34,7 @@ fn chain_domain_is_derived_from_the_merged_chain_id() -> CodecResult<()> {
         let expected: [u8; 32] = Sha256::digest(&preimage).into();
         assert_eq!(merged_chain_domain(chain_id), expected);
     }
+    assert_ne!(merged_chain_domain(229), MERGED_CHAIN_DOMAIN);
     assert_ne!(merged_chain_domain(230), MERGED_CHAIN_DOMAIN);
 
     let golden_hex: String = MERGED_CHAIN_DOMAIN

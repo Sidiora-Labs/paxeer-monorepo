@@ -1,0 +1,41 @@
+[manifest]
+task = "22.32.152"
+domain = 15
+owner_role = "fm-cosmos-fork"
+pages = 6
+
+[page.1]
+path = "sdk/x/bank/spec/04_events.md"
+status = "stale"
+bytes = 2801
+source_1 = "record 22.30.166 [doc.16] (stale): The event inventory beginning at line 7 excludes emitted fractional wei events and units; see bank-wei-events-doc."
+
+[page.2]
+path = "sdk/x/bank/spec/README.md"
+status = "stale"
+bytes = 4003
+source_1 = "record 22.30.166 [doc.18] (stale): Line 31 does not distinguish an unregistered SDK invariant helper from the node base-denom light invariance check; see bank-invariant-wiring-doc."
+
+[page.3]
+path = "sdk/x/capability/spec/02_state.md"
+status = "stale"
+bytes = 73
+source_1 = "record 22.30.162 [doc.014] (stale): The complete page contains interface or lifecycle drift; exact locations and concrete rewrite proposals are recorded in capability-state-empty."
+
+[page.4]
+path = "sdk/x/capability/spec/README.md"
+status = "stale"
+bytes = 2582
+source_1 = "record 22.30.162 [doc.015] (stale): The complete page contains interface or lifecycle drift; exact locations and concrete rewrite proposals are recorded in capability-overview-genesis."
+
+[page.5]
+path = "sdk/x/distribution/spec/02_state.md"
+status = "stale"
+bytes = 2043
+source_1 = "record 22.30.167 [doc.16] (stale): dist-state-doc at line 41: The state page defines ValidatorDistInfo and DelegationDistInfo, both under prefix 0x02. The implementation instead stores outstanding rewards at 0x02 and separate historical/current/starting/slash records."
+
+[page.6]
+path = "sdk/x/distribution/spec/03_begin_block.md"
+status = "stale"
+bytes = 4111
+source_1 = "record 22.30.167 [doc.17] (stale): dist-proposer-doc at line 12: The begin-block page promises 1% to 5% proposer rewards and derives incentives from precommits, whereas DefaultParams sets base and bonus rates to zero and the Autobahn adapter supplies empty votes."

@@ -19,9 +19,15 @@ use serde_aux::prelude::*;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize, derive_new::new)]
 pub struct LatestBlock {
+    pub node: Option<LatestBlockNode>,
     #[serde(default)]
     pub cache: Option<models::LatestBlockCache>,
 
     #[serde(default)]
     pub db: Option<models::LatestBlockDb>,
+}
+
+#[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+pub struct LatestBlockNode {
+    pub number: String,
 }

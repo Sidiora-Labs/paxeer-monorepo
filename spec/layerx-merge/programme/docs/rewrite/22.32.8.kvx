@@ -1,0 +1,19 @@
+[manifest]
+task = "22.32.8"
+domain = 3
+owner_role = "fm-markets"
+pages = 1
+
+[page.1]
+path = "docs/system/chain-modules.md"
+status = "misleading"
+bytes = 10546
+source_1 = "record 22.30.124 [doc.09] (stale): Read in full. Generated declared-type inventory lacks operational/retirement distinctions at 15-28,197-225,390-394 and Programs descriptor-only guidance; see chain-module-inventory."
+source_2 = "record 22.30.15 [doc.modules] (stale): Read in full. Lines 132-159 and 197-226 list legacy anchor/custody configuration without lifecycle context; lines 390-394 present MsgSequenceBatch as a normal message. Current pricefeed and spot parameter declarations otherwise match their types."
+source_3 = "record 22.30.167 [doc.08] (stale): Generated message/parameter inventory includes anchor and custody messages at lines 132-229 without their merged-network retirement lifecycle."
+source_4 = "record 22.30.17 [doc.07] (misleading): All 482 lines reviewed. Source-schema inventory remains useful but lines 15-19 and 132-243/390-395 omit historical activation/replay status."
+source_5 = "record 22.30.2 [doc.001] (misleading): Entire package-listed page reviewed. Lines 130-158 and 197-225 advertise pre-merge anchor, sequencer and custody controls without retirement status; see module-catalog-retirement."
+source_6 = "record 22.30.59 [doc.12] (misleading): Declaration inventory read; custody messages/proposal at 197-235 lack retirement lifecycle and retained historical-state purpose."
+source_7 = "record 22.30.63 [doc.05] (stale): Summary lines 15-28 and custody section at 197 need lifecycle labels and must distinguish the embedded sequencer from historical custody/anchor writes."
+source_8 = "record 22.30.7 [doc.7] (stale): Full generated page read; five pay flags and MsgUpdateParams agree, but the live tenant registry parameters and governance ownership are omitted."
+source_9 = "record 22.30.8 [doc.2] (stale): Ledger/auth and scheduler parameter field names agree with the producers, but the tenant registry is omitted and auth retention needs a compatibility-only annotation."

@@ -1,0 +1,10 @@
+[repair.22.31.360]
+finding = "fulfillment-release-before-claim"
+implementation = "Publish a synced, exclusive pending intent before release; resume the original intent with its receipt idempotency key; atomically publish one immutable completed result and remove the resolved intent."
+release_contract = "Release must be idempotent for the stable receipt key, including concurrent calls and retries after an uncertain outcome. The reference merchant releases a persisted order by reading it; repeating that read has no additional resource effect."
+tests = ["fulfillmentReleaseBeforeClaimConcurrentProcesses", "fulfillmentReleaseBeforeClaimRecoversBeforeRelease", "fulfillmentReleaseBeforeClaimRecoversAfterRelease", "fulfillmentReleaseBeforeClaimRejectsConflictingPending"]
+proof = "The real merchant checkout emits the proposed fulfillment after a signed receipt exchange over HTTP. Separate processes claim and resume that proposal, send the receipt key to the real merchant order endpoint, and assert the response and durable completed result. SIGKILL interrupts the process before release and after its response."
+baseline = "Attempt 2 failed before any assertion: the test module could not import the unbuilt SDK dist. This continuation preserves its implementation, loads the SDK from built dist, and puts assertions inside named node:test subtests; the declared gate builds the SDK first."
+wiring_request = "services/platform/middleware/merchant/src/index.ts (platform middleware, domain 8): forward the SellerMiddleware.handle receipt key to MerchantOrders.releaseResource when adding an effectful release adapter; the present FileOrders read is already idempotent."
+qualification = "The runner's hf-build/hf-done ledger records the exact verified candidate revision, command, exit and private log; this file makes no unrun qualification claim."
+test_runtime = "Node module hooks transform the committed merchant/seller TypeScript sources in memory because the declared gate builds only the SDK; no middleware build, generated cache, external binary or live service is required."

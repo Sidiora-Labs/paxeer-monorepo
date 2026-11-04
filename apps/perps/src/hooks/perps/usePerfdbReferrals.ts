@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   perfdbQuery,
   perfdbRestAuth,
@@ -23,11 +23,11 @@ export interface ReferralTier {
 }
 
 // Spec defined UserReferralData with { referralCode, tier:number, referralCount, totalEarned }.
-// Schema: GqlUserReferralInfo = { referralCode:String, tier:String!, referralCount:Int! } — no totalEarned.
+// The referral tier is nullable when no tier qualifies in the server's LEFT JOIN.
 // We make totalEarned optional (null when server doesn't provide).
 export interface UserReferralData {
   referralCode: string | null;
-  tier: string;
+  tier: string | null;
   referralCount: number;
   totalEarned: string | null;
 }
@@ -42,7 +42,7 @@ interface RawReferralTier {
 
 interface RawUserReferrals {
   referralCode: string | null;
-  tier: string;
+  tier: string | null;
   referralCount: number;
   totalEarned?: string | null;
 }
@@ -109,6 +109,87 @@ function normalizeUser(raw: RawUserReferrals): UserReferralData {
   };
 }
 
+export interface ReferralTierView {
+  status: "unavailable" | "unranked" | "ranked";
+  label: string;
+  currentTierIndex: number;
+  nextTier: ReferralTier | null;
+  progressPct: number | null;
+  isMaxTier: boolean;
+}
+
+export function referralTierView(
+  data: UserReferralData | null,
+  tiers: readonly ReferralTier[],
+): ReferralTierView {
+  const tierName = data?.tier;
+  const index =
+    tierName == null
+      ? -1
+      : tiers.findIndex(
+          (tier) => tier.tier.toLowerCase() === tierName.toLowerCase(),
+        );
+  const status =
+    !data || (data.tier !== null && index < 0)
+      ? "unavailable"
+      : data.tier === null
+        ? "unranked"
+        : "ranked";
+  const nextTier = status === "unavailable" ? null : (tiers[index + 1] ?? null);
+  const isMaxTier = status === "ranked" && nextTier === null;
+  let progressPct: number | null = null;
+  if (data && status !== "unavailable") {
+    if (nextTier) {
+      progressPct =
+        nextTier.requiredReferrals === 0
+          ? 100
+          : Math.min(
+              100,
+              Math.max(
+                0,
+                (data.referralCount / nextTier.requiredReferrals) * 100,
+              ),
+            );
+    } else if (isMaxTier) {
+      progressPct = 100;
+    }
+  }
+  return {
+    status,
+    label:
+      status === "unranked"
+        ? "Unranked"
+        : status === "ranked"
+          ? tiers[index].name
+          : "Tier unavailable",
+    currentTierIndex: index,
+    nextTier,
+    progressPct,
+    isMaxTier,
+  };
+}
+
+export async function fetchPerfdbReferrals(
+  address: string | undefined,
+): Promise<{
+  data: UserReferralData | null;
+  tiers: ReferralTier[];
+}> {
+  if (address) {
+    const res = await perfdbQuery<ReferralsResponse>(USER_REFERRALS_QUERY, {
+      address,
+    });
+    return {
+      data: res.userReferrals ? normalizeUser(res.userReferrals) : null,
+      tiers: (res.referralTiers ?? []).map(normalizeTier),
+    };
+  }
+  const res = await perfdbQuery<{ referralTiers: RawReferralTier[] }>(
+    REFERRAL_TIERS_QUERY,
+  );
+  return { data: null, tiers: (res.referralTiers ?? []).map(normalizeTier) };
+}
+
 /**
  * Fetches a user's referral status and the global tier ladder.
  * When `address` is undefined, only the tiers list is populated.
@@ -116,6 +197,7 @@ function normalizeUser(raw: RawUserReferrals): UserReferralData {
 export function usePerfdbReferrals(address: string | undefined): {
   data: UserReferralData | null;
   tiers: ReferralTier[];
+  tierView: ReferralTierView;
   isLoading: boolean;
   error: Error | null;
   generateCode: () => Promise<string>;
@@ -134,23 +216,10 @@ export function usePerfdbReferrals(address: string | undefined): {
 
   const fetchAll = useCallback(async (): Promise<void> => {
     try {
-      const addr = addressRef.current;
-      if (addr) {
-        const res = await perfdbQuery<ReferralsResponse>(
-          USER_REFERRALS_QUERY,
-          { address: addr }
-        );
-        if (!mountedRef.current) return;
-        setData(res.userReferrals ? normalizeUser(res.userReferrals) : null);
-        setTiers((res.referralTiers ?? []).map(normalizeTier));
-      } else {
-        const res = await perfdbQuery<{ referralTiers: RawReferralTier[] }>(
-          REFERRAL_TIERS_QUERY
-        );
-        if (!mountedRef.current) return;
-        setData(null);
-        setTiers((res.referralTiers ?? []).map(normalizeTier));
-      }
+      const res = await fetchPerfdbReferrals(addressRef.current);
+      if (!mountedRef.current) return;
+      setData(res.data);
+      setTiers(res.tiers);
       setError(null);
     } catch (err) {
       if (!mountedRef.current) return;
@@ -177,7 +246,7 @@ export function usePerfdbReferrals(address: string | undefined): {
     }
     const res = await perfdbRestAuth<{ referralCode: string }>(
       "/v2/referrals/generate",
-      { method: "POST" }
+      { method: "POST" },
     );
     await fetchAll();
     return res.referralCode;
@@ -197,8 +266,9 @@ export function usePerfdbReferrals(address: string | undefined): {
       });
       await fetchAll();
     },
-    [fetchAll]
+    [fetchAll],
   );
 
-  return { data, tiers, isLoading, error, generateCode, applyCode };
+  const tierView = useMemo(() => referralTierView(data, tiers), [data, tiers]);
+  return { data, tiers, tierView, isLoading, error, generateCode, applyCode };
 }

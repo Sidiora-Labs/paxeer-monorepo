@@ -17,9 +17,12 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use serde_aux::prelude::*;
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(untagged)]
 pub enum Search200ResponseItemsInner {
+    SearchResultPriceUpdate(SearchResultPriceUpdate),
+    SearchResultUserOperation(SearchResultUserOperation),
+    SearchResultBlob(SearchResultBlob),
     SearchResultToken(models::SearchResultToken),
 
     SearchResultAddressOrContract(models::SearchResultAddressOrContract),
@@ -32,5 +35,52 @@ pub enum Search200ResponseItemsInner {
 impl Default for Search200ResponseItemsInner {
     fn default() -> Self {
         Self::SearchResultToken(Default::default())
+    }
+}
+
+#[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+pub struct SearchResultPriceUpdate {
+    pub r#type: String,
+    pub hash: String,
+    pub block_number: u64,
+    pub timestamp: String,
+}
+
+#[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+pub struct SearchResultUserOperation {
+    pub r#type: String,
+    pub user_operation_hash: String,
+    pub timestamp: Option<String>,
+    pub priority: Option<i64>,
+}
+
+#[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+pub struct SearchResultBlob {
+    pub r#type: String,
+    pub blob_hash: String,
+    pub timestamp: Option<String>,
+    pub priority: Option<i64>,
+}
+
+impl<'de> Deserialize<'de> for Search200ResponseItemsInner {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = serde_json::Value::deserialize(deserializer)?;
+        match value.get("type").and_then(serde_json::Value::as_str) {
+            Some("token") => serde_json::from_value(value).map(Self::SearchResultToken),
+            Some("address" | "contract" | "label" | "ens_domain" | "metadata_tag") => {
+                serde_json::from_value(value).map(Self::SearchResultAddressOrContract)
+            }
+            Some("block") => serde_json::from_value(value).map(Self::SearchResultBlock),
+            Some("transaction") => serde_json::from_value(value).map(Self::SearchResultTransaction),
+            Some("price_update") => {
+                serde_json::from_value(value).map(Self::SearchResultPriceUpdate)
+            }
+            Some("user_operation") => {
+                serde_json::from_value(value).map(Self::SearchResultUserOperation)
+            }
+            Some("blob") => serde_json::from_value(value).map(Self::SearchResultBlob),
+            _ => return Err(serde::de::Error::custom("unrecognized search result type")),
+        }
+        .map_err(serde::de::Error::custom)
     }
 }

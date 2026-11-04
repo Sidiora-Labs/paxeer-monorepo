@@ -1,0 +1,8 @@
+[repair.22.31.398]
+finding = "missing-range-crash-loss"
+implementation = "missing_block_range.ex: sanitize_missing_block_ranges locks affected rows, normalizes and replaces ranges in one transaction, and raises on insertion failure after rollback."
+test_file = "services/explorer/backend/apps/explorer/test/repair/repair_22_31_398_test.exs"
+proving_tests = ["missing-range-crash-loss: killed replacement recovers every queued height on restart", "missing-range-crash-loss: later insert failure rolls back deletion and earlier replacement", "missing-range-crash-loss: successful replacement is durable and idempotent"]
+baseline = "Not run: task gate order prohibits verification before implementation; no pre-change failures are claimed."
+wiring_requests = []
+evidence = "The bounded hf-build and hf-done ledger records the verified candidate revision, exact commands, exit codes and private log locations."

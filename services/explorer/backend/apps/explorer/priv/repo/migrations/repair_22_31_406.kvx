@@ -1,0 +1,9 @@
+[repair.22.31.406]
+finding = "historical-price-acceptance"
+tests = ["historical_price_acceptance_recovers_mid_block_after_restart", "historical_price_acceptance_upgrades_the_pre_column_schema", "historical_price_acceptance_rejects_mismatched_retained_data", "historical_price_acceptance_keeps_fetch_errors_retryable", "historical_price_acceptance_replays_failed_transactions"]
+fixtures = "Recorded block_txs.json and block_results.json drive CosmosRest, the real PriceFeed import, durable replay and market queries; negative variants replace the recorded market event with the canonical keeper refusal event shape (plain/base64), change a result code, or corrupt one decoded sequence. No component or transport is mocked."
+baseline = "Not run: the task's explicit gate order prohibits verification before implementation; no pre-change failures are claimed."
+evidence = "The runner records the verified candidate revision, command, exit and private log in hf-done's gate ledger."
+wiring = "Domain 14: services/explorer/backend/apps/indexer/lib/indexer/fetcher/paxeer_x/price_updates.ex must load priv/repo/migrations/scripts/price_acceptance_backfill.exs and supervise/reschedule PriceAcceptanceBackfill.step/2 with configured Cosmos REST/CometBFT URLs on startup until :complete; failures retain their durable cursor and require retry."
+retention_wiring = "Domain 14: services/explorer/backend/apps/indexer/lib/indexer/fetcher/paxeer_x/price_feed_maintenance.ex should defer retention for incomplete acceptance backfills so historical unknown rows remain available for replay."
+schema_wiring = "Domain 14: services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/price_observation.ex must declare historical accepted values nullable while replay is pending; existing market reads already require accepted == true."

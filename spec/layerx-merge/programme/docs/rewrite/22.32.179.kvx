@@ -1,0 +1,11 @@
+[manifest]
+task = "22.32.179"
+domain = 17
+owner_role = "fm-programme"
+pages = 1
+
+[page.1]
+path = "spec/layerx-merge/contracts/agent-formats.md"
+status = "stale"
+bytes = 32339
+source_1 = "record 22.30.93 [doc.16] (stale): Consulted offline-export and receipt-evidence sections at lines 368-409. Target v2 criteria are useful, but notes at 376 and the LXRE-v1 row at 388 are stale against the current mirrors and receipt store; refresh the inventory and regenerate."

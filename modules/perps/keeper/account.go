@@ -69,6 +69,9 @@ func (k *Keeper) Deposit(ctx sdk.Context, address common.Address, amount uint256
 	if _, err := k.RefreshMarginRatio(ctx, address); err != nil {
 		return nil, err
 	}
+	if err := k.refreshAccountADLRanks(ctx, address); err != nil {
+		return nil, err
+	}
 	return append(events, collateralEvent(types.EventCollateralDeposited, address, amount, account.Collateral)), nil
 }
 
@@ -94,6 +97,9 @@ func (k *Keeper) Withdraw(ctx sdk.Context, address common.Address, amount uint25
 	}
 	k.accountStore(ctx, account)
 	if _, err := k.RefreshMarginRatio(ctx, address); err != nil {
+		return nil, err
+	}
+	if err := k.refreshAccountADLRanks(ctx, address); err != nil {
 		return nil, err
 	}
 	return append(events, collateralEvent(types.EventCollateralWithdrawn, address, amount, account.Collateral)), nil
@@ -143,6 +149,11 @@ func (k *Keeper) TransferCollateral(ctx sdk.Context, from, to common.Address, am
 	}
 	if _, err := k.RefreshMarginRatio(ctx, to); err != nil {
 		return nil, err
+	}
+	for _, address := range []common.Address{from, to} {
+		if err := k.refreshAccountADLRanks(ctx, address); err != nil {
+			return nil, err
+		}
 	}
 	return append(events, types.EventRecord{
 		Name: types.EventCollateralTransferred,
@@ -298,6 +309,9 @@ func (k *Keeper) Settle(ctx sdk.Context, address common.Address) ([]types.EventR
 	}
 	k.accountStore(ctx, account)
 	if _, err := k.RefreshMarginRatio(ctx, address); err != nil {
+		return nil, err
+	}
+	if err := k.refreshAccountADLRanks(ctx, address); err != nil {
 		return nil, err
 	}
 	return events, nil
@@ -524,4 +538,28 @@ func accountAdd(word uint256.Int, amount *big.Int) (uint256.Int, error) {
 
 func collateralEvent(name string, address common.Address, amount, balance uint256.Int) types.EventRecord {
 	return types.EventRecord{Name: name, Args: []any{address, new(big.Int).Set(amount.ToBig()), new(big.Int).Set(balance.ToBig())}}
+}
+
+// refreshAccountADLRanks runs after the final account balance is stored, so
+// settlement, collateral movements and fills all use the same rank formula.
+func (k *Keeper) refreshAccountADLRanks(ctx sdk.Context, address common.Address) error {
+	positions, err := k.accountPositions(ctx, address)
+	if err != nil {
+		return err
+	}
+	if len(positions) == 0 {
+		return nil
+	}
+	equity, err := k.Equity(ctx, address)
+	if err != nil {
+		return err
+	}
+	store := k.store(ctx)
+	for _, position := range positions {
+		store.Delete(types.AdlRankIndexKey(position.MarketID, types.SideOf(position.IsLong), position.RankScore, position.ID))
+		position.RankScore = positionRank(position, equity.BigInt())
+		store.Set(types.PositionKey(position.ID), position.Marshal())
+		store.Set(types.AdlRankIndexKey(position.MarketID, types.SideOf(position.IsLong), position.RankScore, position.ID), []byte{})
+	}
+	return nil
 }

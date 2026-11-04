@@ -1,0 +1,34 @@
+[manifest]
+task = "22.32.88"
+domain = 9
+owner_role = "fm-agent"
+pages = 3
+
+[page.1]
+path = "docs/wiki/AgentApi.md"
+status = "misleading"
+bytes = 4900
+source_1 = "record 22.30.93 [doc.09] (misleading): Read all 147 lines. Lines 4, 30 and 125-126 describe contract 1.2, unsigned canonical activities and the retired verification ladder rather than major 2, EIP-1559 and three rungs; rewrite from the current schema."
+source_2 = "record 22.30.94 [doc.05] (stale): Reviewed the complete page, including mirror differences where applicable. Exact drift and rewrite proposals are recorded in agent_api_wire, agent_api_catalogue, agent_api_read_rungs."
+
+[page.2]
+path = "docs/wiki/Agentd.md"
+status = "misleading"
+bytes = 31893
+source_1 = "record 22.30.100 [doc.02] (stale): Lines 12-15 and 47-116 repeat the site page authority/handshake topology; the matching batch/checkpoint finality section is also pre-merge. Wiki copy needs the same merged-network rewrite."
+source_2 = "record 22.30.130 [doc.12] (stale): Full page read including site differences. Lines 13-15, 60 onward and defaults at 525 retain sequencer authority, batch evidence and checkpoint/settlement finality. Apply the site committed-block trust rewrite."
+source_3 = "record 22.30.35 [doc.4] (stale): Lines 3, 10-15 and 51-63 require the same network and authority clarification as the site Agentd page. Finding 17."
+source_4 = "record 22.30.90 [doc.12] (stale): Opening lines 3-15 retain sequencer-handshake and authority-file guidance; later verification table uses retired multi-level vocabulary. Rewrite for merged node evidence and current owner wiring."
+source_5 = "record 22.30.91 [doc.agentd_wiki] (misleading): Read the complete boot, verification, write/recovery and configuration reference. Lines 12-120 describe the retired sequencer-authority handshake; configuration lines 520-526 advertise a path endpoint and retired authority source. Current node receipt keys and committed-block evidence require a coordinated rewrite."
+source_6 = "record 22.30.92 [doc.05] (stale): Budget creation, canonical reconciliation and restart accounting are described as permanently unavailable."
+source_7 = "record 22.30.93 [doc.02] (misleading): Read the full page and compared the wiki mirror. Stale handshake/protected authority-file narrative at lines 12-15 and 49-64 and budget-never-Ok claim at 31-41 need a merged node/readiness and current lifecycle rewrite; see the page finding."
+source_8 = "record 22.30.94 [doc.04] (stale): Reviewed the complete page, including mirror differences where applicable. Exact drift and rewrite proposals are recorded in agentd_wiki_readiness, agentd_wiki_budgets, agentd_wiki_finality."
+source_9 = "record 22.30.95 [doc.2] (stale): The wiki mirrors the stale budget/restart claims and retired configuration/finality descriptions of the site guide; both need a coordinated rewrite."
+source_10 = "record 22.30.96 [doc.d05] (stale): Lines 13: The daemon guide requires a real sequencer handshake and layerx-sequencer-authority-v1 trust file; its Protocol evidence section describes authorised batch headers and guarantor/checkpoint policy as current write authority. Rewrite startup and protocol evidence around NodeRpc chain identity, governed receipt-key pins and validator commit/storage witness verification. Update budget and recovery sections to call-bound preparation and the actual committed budget producer."
+
+[page.3]
+path = "docs/wiki/Mcp.md"
+status = "stale"
+bytes = 5771
+source_1 = "record 22.30.92 [doc.08] (stale): Lines 30-32 promise batch certificates and verified availability chunks instead of current block read semantics."
+source_2 = "record 22.30.96 [doc.d08] (stale): Lines 29-31 describe checkpoint certificates and batch availability chunks; lines 34-36 and 69-72 describe canonical kernel activity preparation/signatures. Rewrite these around committed blocks, storage evidence and the current type-2 preparation/approval boundary while retaining valid MCP tool names."

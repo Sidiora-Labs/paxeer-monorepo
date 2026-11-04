@@ -10,6 +10,7 @@ from typing_extensions import Self, override
 import httpx
 
 from . import _exceptions
+from ._models import SecurityOptions
 from ._qs import Querystring
 from ._types import (
     Omit,
@@ -218,20 +219,24 @@ class ChainflowDataGateway(SyncAPIClient):
     @property
     @override
     def auth_headers(self) -> dict[str, str]:
-        return {
-            **self._rest_api_key_header_auth,
-            **self._ws_mint_key_header_auth,
-        }
+        return {}
 
     @override
-    def _auth_query(self, security: dict[str, bool]) -> dict[str, str]:
-        _ = security
-        return {
-            **self._ws_token_query_auth,
-        }
+    def _auth_headers(self, security: SecurityOptions) -> dict[str, str]:
+        if security.get("RestApiKey"):
+            return self._rest_api_key_header_auth
+        if security.get("WsMintKey"):
+            return self._ws_mint_key_header_auth
+        return {}
 
     @override
-    def _auth_cookies(self, security: dict[str, bool]) -> dict[str, str]:
+    def _auth_query(self, security: SecurityOptions) -> dict[str, str]:
+        if security.get("WsToken"):
+            return self._ws_token_query_auth
+        return {}
+
+    @override
+    def _auth_cookies(self, security: SecurityOptions) -> dict[str, str]:
         _ = security
         return {}
 
@@ -504,20 +509,24 @@ class AsyncChainflowDataGateway(AsyncAPIClient):
     @property
     @override
     def auth_headers(self) -> dict[str, str]:
-        return {
-            **self._rest_api_key_header_auth,
-            **self._ws_mint_key_header_auth,
-        }
+        return {}
 
     @override
-    def _auth_query(self, security: dict[str, bool]) -> dict[str, str]:
-        _ = security
-        return {
-            **self._ws_token_query_auth,
-        }
+    def _auth_headers(self, security: SecurityOptions) -> dict[str, str]:
+        if security.get("RestApiKey"):
+            return self._rest_api_key_header_auth
+        if security.get("WsMintKey"):
+            return self._ws_mint_key_header_auth
+        return {}
 
     @override
-    def _auth_cookies(self, security: dict[str, bool]) -> dict[str, str]:
+    def _auth_query(self, security: SecurityOptions) -> dict[str, str]:
+        if security.get("WsToken"):
+            return self._ws_token_query_auth
+        return {}
+
+    @override
+    def _auth_cookies(self, security: SecurityOptions) -> dict[str, str]:
         _ = security
         return {}
 
