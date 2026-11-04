@@ -14,6 +14,30 @@ export const SIDIORA_DECIMALS = 6;
 export const GAS_STATION_QUOTE_URL =
   "https://api-mainnet-beta.paxeer.network/gas-station/quote";
 
+export const GAS_RESPONSE_LIMITS = Object.freeze({ quote: 16_384, submission: 4_096, status: 16_384 });
+
+async function boundedGasJson(response: Response, maximum: number): Promise<unknown> {
+  const reader = response.body?.getReader();
+  if (reader === undefined) throw new Refusal("invalid_response", "body");
+  try {
+    const advertised = response.headers.get("content-length");
+    if (advertised !== null && (!/^(0|[1-9][0-9]*)$/u.test(advertised) || BigInt(advertised) > BigInt(maximum)))
+      throw new Refusal("invalid_response", "body");
+    const chunks: Uint8Array[] = [];
+    let received = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      received += value.byteLength;
+      if (received > maximum) throw new Refusal("invalid_response", "body");
+      chunks.push(value);
+    }
+    return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(Buffer.concat(chunks, received)));
+  } finally {
+    try { await reader.cancel(); } finally { reader.releaseLock(); }
+  }
+}
+
 export interface GasQuote {
   readonly sponsor: string;
   readonly token: string;
@@ -604,7 +628,7 @@ export async function requestGasQuote(
   if (!response.ok) return stationRefusal(response, "quoteUrl");
   let payload: unknown;
   try {
-    payload = await response.json();
+    payload = await boundedGasJson(response, GAS_RESPONSE_LIMITS.quote);
   } catch {
     return { ok: false, refusal: { code: "invalid_response", field: "quote" } };
   }
@@ -986,7 +1010,7 @@ async function submissionRequest(
     };
   let payload: unknown;
   try {
-    payload = await response.json();
+    payload = await boundedGasJson(response, GAS_RESPONSE_LIMITS.status);
   } catch {
     return { ok: false, refusal: { code: "invalid_response", field: route } };
   }
@@ -1128,7 +1152,7 @@ export async function submitSponsoredGasBatch(
   if (!response.ok) return stationRefusal(response, "submit");
   let payload: unknown;
   try {
-    payload = await response.json();
+    payload = await boundedGasJson(response, GAS_RESPONSE_LIMITS.submission);
   } catch {
     return {
       ok: false,
