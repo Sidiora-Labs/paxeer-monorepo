@@ -1,0 +1,67 @@
+package launchpad
+
+import (
+	"encoding/hex"
+	"encoding/json"
+	"github.com/ethereum/go-ethereum/core/types"
+	"math/big"
+	"os"
+	"strings"
+	"testing"
+)
+
+func TestRepair37NativeProducer(t *testing.T) {
+	p, evm, db := eventState(t)
+	type observation struct {
+		Name string
+		Log  *types.Log
+		Args map[string]any
+	}
+	observations := []observation{}
+	for _, name := range []string{"Swap", "PoolStateUpdated", "TokenDeployed", "MarketCreated", "NftMint", "FeeStrategyChanged", "NftTransfer", "PoolRegistered", "RouterTrade", "ConfigUpdated", "FeeFlow", "FeeDistributed"} {
+		event := p.abi.Events[name]
+		values := []any{}
+		expected := map[string]any{"timestamp": "73", "blockNumber": "41"}
+		for i, arg := range event.Inputs[:len(event.Inputs)-2] {
+			n := byte(i + 1)
+			switch arg.Type.String() {
+			case "address":
+				v := eventAddress(n)
+				values = append(values, v)
+				expected[arg.Name] = strings.ToLower(v.Hex())
+			case "bytes32":
+				v := eventHash(n)
+				values = append(values, v)
+				expected[arg.Name] = "0x" + hex.EncodeToString(v[:])
+			case "uint256":
+				v := new(big.Int).Add(new(big.Int).Lsh(big.NewInt(1), 192), big.NewInt(int64(n)))
+				values = append(values, v)
+				expected[arg.Name] = v.String()
+			case "uint8":
+				values = append(values, n)
+				expected[arg.Name] = int(n)
+			case "bool":
+				values = append(values, true)
+				expected[arg.Name] = true
+			case "string":
+				v := arg.Name + " λ / native family"
+				values = append(values, v)
+				expected[arg.Name] = v
+			default:
+				t.Fatalf("uncovered native type %s", arg.Type.String())
+			}
+		}
+		if err := p.emitFamily(evm, name, values...); err != nil {
+			t.Fatal(err)
+		}
+		logs := db.GetAllLogs()
+		observations = append(observations, observation{name, logs[len(logs)-1], expected})
+	}
+	raw, err := json.Marshal(observations)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(os.Getenv("REPAIR37_LOGS"), raw, 0600); err != nil {
+		t.Fatal(err)
+	}
+}
