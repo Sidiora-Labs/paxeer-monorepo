@@ -1,0 +1,11 @@
+[repair.22.33.887]
+audit = "22.30.183"
+finding = "f044"
+change = "Append the periodic Mars message to the existing response, preserving bulk-order data."
+proving_tests = ["f044_bulk_order_response_between_periodic_orders", "f044_bulk_order_response_survives_periodic_mars_order"]
+test_path = "tools/benchmark/loadtest/contracts/jupiter/tests/repair_22_33_887.rs"
+baseline = "Not run: the ordered task instructions prohibit verification before implementation and permit verification only through hf-done. No pre-change test failure is claimed."
+wiring_requests = ["Exchange domain, src/modules: this tree has no legacy Wasm placeOrder consumer; confirm the retained fixture's place_orders interface before using it against the merged exchange; this task does not add exchange runtime wiring."]
+qualification = "Exact verified revision, command, exit code and private log are recorded by hf-done in the task gate ledger."
+bindings = "Jupiter uses the local pax-cosmwasm 0.4.9 path crate; PlaceOrders and Order retain the legacy sei-cosmwasm 0.4.9 wire shapes, including numeric direction and order-type discriminants, decimal strings and the contract address. The periodic-order test asserts the serialized production message."
+previous_attempt = "Attempt 1 build at 263eb1f12473b19cfa5a2e634ecca8f6ff5a415d failed because no registry serves pax-cosmwasm 0.4.9; no behavior test ran."
