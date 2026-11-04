@@ -1,0 +1,57 @@
+[repair.22.33.523]
+audit = "22.30.154"
+acceptance = "22998.1"
+status = "Implementation ready for the bounded hf-build/hf-done gates; producer recording limitations are explicit below."
+qualification = "The private hf-build/hf-done ledger is the revision, exact command, exit code and private log authority; no passing result or verified revision is claimed before that ledger exists."
+baseline = "Inspected git status, git diff and /out/run/gate.json before implementation: no scoped prior edits; builds_used=0, verify_runs_used=0 and no prior gates.jsonl. No unchanged-tree verify ran: do_12 conflicts with the explicit implementation-first order and with hf-done requiring a passing build; the explicit gate order governs. Static defects were removed-runner calls and retired capability assertions; these are not represented as observed runtime failures."
+fixture_provenance = "fixtures/perps_v69_emissions.json is a byte-for-byte copy of precompiles/perps/testdata/v69_vectors.json; fixtures/node_bridge_out.json retains the node-recorded V1 bridge receipt from the existing receipt corpus, with source SHA-256. Producer addresses, topics and ABI bytes are never synthesized or re-encoded. Local indexed block/transaction metadata is attached for ingestion and is not claimed as a recorded eth_getLogs transcript."
+transport = "The gate starts loopback HTTP fixture peers and exercises production EthereumJSONRPC.HTTP, EthereumJSONRPC.Log, PaxeerXLogs, Import.all, Capabilities, SequencerReceipt, PriceFeed, BufferedTask and PriceUpdates. It needs no external endpoint, credentials, environment switches or subprocess producer."
+
+[finding.binding_producer_recovery_proof]
+proving_tests = ["Explorer.Chain.PaxeerX.AccountBindingTest: decodes LayerXBound into a persistent binding that resolves its DID", "Explorer.Chain.PaxeerX.AccountBindingTest: the later LayerXUnbound log removes the current identity view"]
+repair = "Both native binding cases stop a reader after persisting, reopen another reader, compare the full evm/pax/did/bound view and replay idempotently; existing malformed-emitter and missing-argument checks remain in the gate."
+remaining = "Recovery is proven, but producer/HTTP proof is not closed: the repository provides no node-emitted bind/unbind eth_getLogs recording; the original TypeEncoder vectors are retained and are not relabelled as node recordings."
+wiring_request = "Domain 6: precompiles/addr/layerx_binding_test.go and rpc/ record bind and unbind eth_getLogs JSON-RPC transcripts with their indexed chain context for this explorer fixture suite."
+
+[finding.anchor_archive_runner]
+proving_tests = ["Explorer.Chain.PaxeerX.AnchorTest: historical archive rows", "Explorer.Chain.PaxeerX.AnchorTest: latest_finalized_query/0", "Explorer.Chain.PaxeerX.AnchorTest: live import refuses anchor archive writes"]
+repair = "Explicit historical cast changesets replace the absent Anchors runner; duplicate identities use database on-conflict-nothing, all ordering/finality/consensus assertions remain, and both the import stage and Import.all refuse live archive ingestion."
+
+[finding.capability_boot_transport_proof]
+proving_tests = ["Explorer.Chain.PaxeerX.CapabilitiesBootTest: capability_boot_transport_proof re-probes after process restart"]
+repair = "Replay the committed supported-view envelopes through production HTTP at one explicit height; hold each fresh process at its head read, assert an unavailable snapshot, release it, check all four live values, stop it and repeat. Bounded boot/retry checks remain."
+remaining = "The existing supported-view fixture records native view result contracts; it is not a newly captured whole-node transcript."
+wiring_request = "Domains 3 and 6: precompiles/perps, precompiles/bridge, precompiles/launchpad and precompiles/addr export a single-height full-node discovery transcript to replace source-contract fixture provenance."
+
+[finding.retired_capability_expectations]
+proving_tests = ["Explorer.Chain.PaxeerX.CapabilitiesTest: probe/1", "Explorer.Chain.PaxeerX.CapabilitiesTest: live?/1", "Explorer.Chain.PaxeerX.CapabilitiesTest: retired capability names are rejected"]
+repair = "Assertions and address fixtures name exactly unified_account/exchange/bridge/launchpad; malformed view data fails on exchange, the refused-head and stored-snapshot checks remain, and both retired address/live APIs explicitly raise FunctionClauseError."
+
+[finding.market_producer_recovery_proof]
+proving_tests = ["Explorer.Chain.PaxeerX.MarketEventTest: market_producer_recovery_proof replays native producer bytes through HTTP and restarts the reader"]
+repair = "Seven recorded perps/bridge emissions traverse HTTP eth_getLogs envelopes, production log normalization, PaxeerXLogs and Import.all; exact fields survive stopped/reopened readers and duplicate delivery. Original uint256, dynamic denomination and malformed/wrong-emitter checks remain in the gate."
+remaining = "Full activation-version proof is not closed: native perps and bridge producer bytes are available, but complete historical/current exchange and both launchpad-generation eth_getLogs transcripts are missing."
+wiring_request = "Domains 3 and 6: precompiles/exchange, precompiles/perps and precompiles/launchpad export node log transcripts spanning the supported activation versions with original block/transaction identities."
+
+[finding.price_feed_recovery_concurrency]
+proving_tests = ["Explorer.Repair.Repair2233523Test: price_feed_recovery_concurrency uses independent PostgreSQL sessions", "Explorer.Repair.Repair2233523Test: price_feed_recovery_concurrency reconstructs the production fetcher"]
+repair = "Two independently connected PostgreSQL workers are observed blocked on the real advisory lock, then both compact to the maximum persisted watermark; failed rows survive. Stop/reopen the real BufferedTask fetcher around a refused height, retry from persisted state, compact it, and assert no compacted rows reappear, no heights remain queued and price_feed discovery stays true with the fetcher enabled."
+wiring_request = "Domain 14 indexer owner: services/explorer/backend/apps/indexer/test/indexer/fetcher/paxeer_x/price_updates_test.exs and price_feed_maintenance_test.exs register these restart/concurrency cases in the owning suite; those files are outside this task's scope."
+
+[finding.receipt_archive_runner]
+proving_tests = ["Explorer.Chain.PaxeerX.ReceiptTest: historical archive rows", "Explorer.Chain.PaxeerX.ReceiptTest: only_consensus_query/0", "Explorer.Chain.PaxeerX.ReceiptTest: live import refuses receipt archive writes", "Explorer.Chain.PaxeerX.ReceiptTest: KernelCursor.changeset/2"]
+repair = "Historical cast changesets replace the absent Receipts runner; duplicate-row identity and consensus visibility are retained, live import routing is refused, and every existing KernelCursor refusal-code vector executes."
+
+[finding.receipt_gateway_transport_proof]
+proving_tests = ["Explorer.Repair.Repair2233523Test: receipt_gateway_transport_proof reads gateway envelopes and recovers key discovery"]
+repair = "Production receipt_keys/commit/validators read loopback gateway envelopes, retain camelCase key/validator fields and signedHeader, and feed real R1-R8 verification with the committed chain fixture. Reopened consumers re-read discovery; malformed JSON/results, explicit refusal, an untrusted replacement and governed overlapping key rotation are asserted. Existing R1-R8 negative vectors are preserved in sequencer_receipt_test.exs."
+remaining = "Receipt keys are governed independently; the legacy node fixture keyId is not sha256(publicKey), so it cannot establish a positive governed rotation. Rotation tests pin the actual recorded public key under its canonical id, retain the old signed receipt and prove overlap recovery; no new-key receipt signature or hosted gateway capture is fabricated."
+wiring_request = "Domains 7 and 14 hosted gateway owner: services/platform/hosted/gateway/tests/receipt_keys.rs export captured px_getReceiptKeys/px_getCommit/px_getValidators envelopes and a node-signed post-rotation receipt under canonical governed key IDs."
+
+[qualification.first_attempt]
+revision = "f25369a359a3a122212a1c2e0a75eefa4be3f065"
+command = "cg spec done 22.33.523 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "66 tests, one failure: the existing bound identity assertion expected nil Pax even though UnifiedAccount derives the exact canonical Pax spelling from the EVM bytes."
+repair = "Use the already-declared @pax_address in all three exact bound-view assertions; retain the stored-row nil-pax assertion, unbound nil-pax checks, malformed vectors and every other test. Rebuild and verify the repaired candidate together."

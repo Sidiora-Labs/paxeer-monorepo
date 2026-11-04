@@ -1,0 +1,33 @@
+[repair.22.33.155]
+finding = "send-explorer-proof"
+browser_test = "send_observes_the_configured_explorer_commit_reload_and_refusal"
+test = "send_explorer_proof_transport_commit_reload_and_unavailable"
+path = "apps/wallet/src/repairs/repair-22-33-155.test.ts"
+planned_path_mapping = "apps/wallet/e2e/repair-22-33-155.test.ts -> apps/wallet/src/repairs/repair-22-33-155.test.ts (attempt-2 ruling)"
+proof = "The added browser case submits to the configured chain and reads the actual explorer status without request interception, verifies matching wallet evidence before and after reload, and requires the explorer's actual HTTP 404 refusal for an unknown transaction. The bounded offline test drives production WalletSigner and WalletInterface, reproduces the chain-125 RPC transaction exactly, and exercises the production RPC transport, receipt authentication, status decoder, transfer observer, storage recovery and wallet renderer through loopback peers, including actual HTTP 503 responses before and after commitment."
+fixtures = "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json (RPC-produced chain-125 V1-pax-transfer and V1-layerxledger-pay-exact, governed keys and signed receipts); sdk/wallet/test/fixtures/explorer-status.json (status shape); services/interop/crates/layerx-gas-station/tests/fixtures/sequencer_receipts.json (unsigned block hash convention). The in-memory chain peer projects unsigned commitment/indexer metadata at the signed height 1001; signed receipt bytes, transaction hash and transaction bytes are unchanged. This proves wallet transport/consumer behavior, not live consensus or the Elixir producer."
+baseline = "Not run: the ordered instructions require complete implementation followed by hf-build and hf-done, and prohibit a separate unchanged-tree verify; no pre-change test failure is claimed. The new offline test depends on the newly added shared explorer-proof module."
+wiring_requests = ["services/explorer/backend (explorer domain): retain producer-side qualification and a recorded HTTP status transcript for the indexed committed vector; the Node-only gate cannot execute the Elixir producer, and the browser case requires the configured chain/explorer in release qualification."]
+qualification = "Private hf-build/hf-done ledger and the final evidence line identify the candidate revision, exact command, exit code and log; no gate success or finding closure is claimed without executed evidence."
+gotchas = "Vitest 4 requires an explicit name and callback to execute named functions; test(function) alone may register TODO. Root GOTCHA.kvx and spec task records are outside the allowed scope, so this in-scope repair record holds the notes and wiring requests."
+
+continuation = "Moved the full proof into the configured src test discovery path. The committed SDK fixture now records payExact at block 10; the loopback proof replays its matching committed producer transcript and governed receipt keys/raw transaction, preserving a separate native transfer fixture identity proof. No pre-change assertion failure is claimed: attempt 1 failed discovery before any test executed."
+
+qualification_repair_1 = "Build exposed the governed ReceiptKeyPin height type as bigint; decode wire heights from the producer transcript to bigint at the test boundary while retaining JSON string heights on the RPC transport."
+
+[qualification.22.33.155.attempt2]
+revision = "092093cf066f957edb18f90c5aae586a046dc0f6"
+command = "cg spec done 22.33.155 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Vitest discovered both proofs: native transfer identity passed; committed transport proof failed at signed.chainId, expected 125n but producer transcript contains 713714n; matching build passed at /out/logs/build-2.log."
+assumption = "The committed fixture owner must supply a matching chain-125 transcript before qualification; keep the chain assertion and SDK authentication intact, and do not investigate or rerun this recorded external fixture mismatch here."
+
+[continuation.22.33.155.attempt3]
+repair = "Replace the incompatible chain-713714 settlement recording with the RPC producer's chain-125 payExact recording; WalletSigner sends through WalletInterface and a real signing/HTTP peer using PAXEER_CONFIG.chainId, and asserts byte-for-byte equality with the recorded signed transaction before eth_sendRawTransaction. No receipt is re-signed or rebound to a different transaction."
+assertions = "Both named tests remain executable; retain chain id 125, native value, payExact selector/value, authenticated governed receipts, exact commitment evidence, storage recovery and unavailable/refusal assertions. The expected block is exactly 1001, the selected producer receipt's signed height."
+prior_ruling = "Attempt 3 supersedes attempt 2's assumption that an out-of-scope fixture rewrite is required; the existing chain-125 RPC corpus supplies correlated transaction/receipt bytes. Historical failed qualification evidence above remains unchanged."
+gotcha = "The explorer committed-ok fixture now contains payExact rather than a native transfer; select the native producer case by its stable V1-pax-transfer id. Production WalletSigner exposes sendTransaction, so raw signing occurs only in its real signing peer with an explicit production chain constant."
+
+qualification_repair = "Ethers exposes Transaction.type as nullable; assert the selected producer envelope is exactly EIP-1559 before emitting its type quantity. Canonicalize saved sequencer answers with the real decodeSequencerReceipt before JSON persistence so the process-local authentication capability is not serialized or trusted on recovery."
+wiring_storage = "apps/wallet/src/components/TransferSuccess.tsx (wallet application domain): use the canonical receipt wire projection before persisting observations; authenticateSequencerReceipt now adds process-local authentication containing a bigint height, while the observation hook currently calls JSON.stringify(next) directly. The bounded proof exercises the repository and recovery codec directly, and does not qualify that hook's persistence adapter."
