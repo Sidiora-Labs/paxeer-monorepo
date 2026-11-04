@@ -2588,3 +2588,479 @@ findings = ["22.30.95/6", "22.30.95/8", "22.30.95/9", "22.30.95/10"]
 files = ["services/agent/crates/layerx-agentd/src/finality.rs", "services/agent/crates/layerx-agentd/src/shutdown.rs", "services/agent/crates/layerx-agentd/src/sign.rs"]
 owner_domain = 9
 classes = ["interface-mismatch", "restart-recovery", "security"]
+
+[repair.22.31.369]
+record = "22.30.118"
+findings = ["22.30.118/legacy-conflict-success"]
+files = ["services/wallet/ceremony/legacy-import/src/importer.ts"]
+owner_domain = 12
+classes = ["interface-mismatch"]
+
+[repair.22.31.370]
+record = "22.30.119"
+findings = ["22.30.119/evm-approval-recovery", "22.30.119/lx-approval-recovery", "22.30.119/human-unknown-spend-unaccounted", "22.30.119/hosted-evm-routes-missing", "22.30.119/hosted-sponsored-quote-missing"]
+files = ["services/wallet/gateway/src/routes/evmApprovals.ts", "services/wallet/gateway/src/routes/sign.ts", "services/wallet/gateway/src/routes/wallet.ts"]
+owner_domain = 12
+classes = ["interface-mismatch", "restart-recovery", "security"]
+
+[repair.22.31.371]
+record = "22.30.119"
+findings = ["22.30.119/human-daily-cap-fail-open", "22.30.119/raw-precompile-policy-bypass"]
+files = ["services/wallet/gateway/src/policy/index.ts", "services/wallet/gateway/src/policy/agent.ts"]
+owner_domain = 12
+classes = ["security"]
+
+[repair.22.31.372]
+record = "22.30.119"
+findings = ["22.30.119/signature-ledger-write-loss"]
+files = ["services/wallet/gateway/src/db/wallets.ts"]
+owner_domain = 12
+classes = ["runtime-risk"]
+
+[repair.22.31.373]
+record = "22.30.119"
+findings = ["22.30.119/send-transport-uncertainty"]
+files = ["services/wallet/gateway/src/rpc/pool.ts"]
+owner_domain = 12
+classes = ["interface-mismatch"]
+
+[repair.22.31.374]
+record = "22.30.129"
+findings = ["22.30.129/002"]
+files = ["programs/sdk/c/src/abi.c"]
+owner_domain = 13
+classes = ["interface-mismatch"]
+
+[repair.22.31.375]
+record = "22.30.129"
+findings = ["22.30.129/003"]
+files = ["programs/sdk/assemblyscript/assembly/error.ts"]
+owner_domain = 13
+classes = ["interface-mismatch"]
+
+[repair.22.31.376]
+record = "22.30.131"
+findings = ["22.30.131/withdrawal-vault", "22.30.131/settlement-broadcast", "22.30.131/solana-outstanding"]
+files = ["apps/bridge/src/lib/bridge/submitted.ts", "apps/bridge/src/lib/bridge/settlement.ts", "apps/bridge/src/lib/bridge/card-state.ts"]
+owner_domain = 14
+classes = ["interface-mismatch", "restart-recovery"]
+
+[repair.22.31.377]
+record = "22.30.133"
+findings = ["22.30.133/native-block-refresh"]
+files = ["apps/explorer/ui/blocks/BlocksContent.tsx"]
+owner_domain = 14
+classes = ["interface-mismatch"]
+
+[repair.22.31.378]
+record = "22.30.133"
+findings = ["22.30.133/hosted-route-admission"]
+files = ["services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/api_router.ex"]
+owner_domain = 8
+classes = ["interface-mismatch"]
+
+[repair.22.31.379]
+record = "22.30.134"
+findings = ["22.30.134/chain_api_upstream"]
+files = ["apps/explorer/lib/api/resources.ts"]
+owner_domain = 14
+classes = ["wiring-gap"]
+
+[repair.22.31.380]
+record = "22.30.134"
+findings = ["22.30.134/signature_gateway_route"]
+files = ["apps/explorer/lib/api/services/general/paxeerXLists.ts"]
+owner_domain = 8
+classes = ["interface-mismatch"]
+
+[repair.22.31.381]
+record = "22.30.135"
+findings = ["22.30.135/nft-token-revoke"]
+files = ["apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/useRevoke.tsx"]
+owner_domain = 14
+classes = ["interface-mismatch"]
+
+[repair.22.31.382]
+record = "22.30.136"
+findings = ["22.30.136/feed-overview-gateway", "22.30.136/feed-market-gateway", "22.30.136/feed-update-gateway"]
+files = ["apps/explorer/ui/pages/PaxeerXFeed.tsx", "apps/explorer/ui/pages/PaxeerXFeedMarket.tsx", "apps/explorer/ui/pages/PaxeerXFeedUpdate.tsx"]
+owner_domain = 8
+classes = ["interface-mismatch"]
+
+[repair.22.31.383]
+record = "22.30.139"
+findings = ["22.30.139/explorer-retired-transport", "22.30.139/native-unified-shape"]
+files = ["apps/web/src/explorer/client.ts", "apps/web/src/explorer/model.ts"]
+owner_domain = 14
+classes = ["interface-mismatch"]
+
+[repair.22.31.384]
+record = "22.30.139"
+findings = ["22.30.139/approval-operation-digest", "22.30.139/stepup-reference-rewrite", "22.30.139/stepup-webauthn-shape", "22.30.139/stepup-timestamp-types"]
+files = ["apps/web/src/journeys/approvals/model.ts", "apps/web/src/journeys/approvals/ceremony.ts"]
+owner_domain = 14
+classes = ["interface-mismatch"]
+
+[repair.22.31.385]
+record = "22.30.139"
+findings = ["22.30.139/onboarding-journey-shape"]
+files = ["apps/web/src/journeys/onboarding/onboarding.tsx"]
+owner_domain = 10
+classes = ["interface-mismatch"]
+
+[repair.22.31.386]
+record = "22.30.139"
+findings = ["22.30.139/activity-detail-shape"]
+files = ["apps/web/src/journeys/activity/detail.tsx"]
+owner_domain = 10
+classes = ["interface-mismatch"]
+
+[repair.22.31.387]
+record = "22.30.139"
+findings = ["22.30.139/support-report-route-template"]
+files = ["apps/web/src/states/report-schema.ts"]
+owner_domain = 14
+classes = ["interface-mismatch"]
+
+[repair.22.31.388]
+record = "22.30.141"
+findings = ["22.30.141/legacy-token-instance-topic"]
+files = ["services/explorer/backend/apps/block_scout_web/lib/block_scout_web/channels/token_instance_channel.ex"]
+owner_domain = 14
+classes = ["interface-mismatch"]
+
+[repair.22.31.389]
+record = "22.30.141"
+findings = ["22.30.141/pricefeed-unsigned-sequence"]
+files = ["services/explorer/backend/apps/explorer/lib/explorer/paxeer_x/cosmos_rest.ex"]
+owner_domain = 14
+classes = ["interface-mismatch"]
+
+[repair.22.31.390]
+record = "22.30.142"
+findings = ["22.30.142/32"]
+files = ["services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/verified_contracts_controller.ex"]
+owner_domain = 14
+classes = ["interface-mismatch"]
+
+[repair.22.31.391]
+record = "22.30.142"
+findings = ["22.30.142/57", "22.30.142/58", "22.30.142/59", "22.30.142/60", "22.30.142/61"]
+files = ["services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/address_controller.ex", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/smart_contract_controller.ex", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/token_controller.ex", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/transaction_controller.ex", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/csv_export_controller.ex"]
+owner_domain = 14
+classes = ["interface-mismatch"]
+
+[repair.22.31.392]
+record = "22.30.143"
+findings = ["22.30.143/bridge-all-rejected"]
+files = ["services/bridge/deploy/deploy-evm-chain.sh"]
+owner_domain = 14
+classes = ["interface-mismatch"]
+
+[repair.22.31.393]
+record = "22.30.143"
+findings = ["22.30.143/transaction-create-recipient", "22.30.143/internal-create-recipient"]
+files = ["services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/transaction.ex", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/internal_transaction.ex"]
+owner_domain = 14
+classes = ["interface-mismatch"]
+
+[repair.22.31.394]
+record = "22.30.143"
+findings = ["22.30.143/raw-trace-producer-shape"]
+files = ["services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/transaction/raw_trace.ex"]
+owner_domain = 14
+classes = ["interface-mismatch"]
+
+[repair.22.31.395]
+record = "22.30.143"
+findings = ["22.30.143/mint-log-indexer-abort"]
+files = ["services/explorer/backend/apps/indexer/lib/indexer/transform/mint_transfers.ex"]
+owner_domain = 14
+classes = ["security"]
+
+[repair.22.31.396]
+record = "22.30.144"
+findings = ["22.30.144/status-committed-inclusion", "22.30.144/signature-self-supplied-authority", "22.30.144/pax-identity-not-imported"]
+files = ["services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_committed_test.exs", "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_committed_test.exs", "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/identity_search_test.exs"]
+owner_domain = 14
+classes = ["interface-mismatch", "security"]
+
+[repair.22.31.397]
+record = "22.30.147"
+findings = ["22.30.147/ws-handle-after-failback"]
+files = ["services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/web_socket/web_socket_client.ex"]
+owner_domain = 14
+classes = ["interface-mismatch"]
+
+[repair.22.31.398]
+record = "22.30.149"
+findings = ["22.30.149/missing-range-crash-loss"]
+files = ["services/explorer/backend/apps/explorer/lib/explorer/utility/missing_block_range.ex"]
+owner_domain = 14
+classes = ["restart-recovery"]
+
+[repair.22.31.399]
+record = "22.30.151"
+findings = ["22.30.151/migration-dry-run-writes", "22.30.151/migration-unverified-email"]
+files = ["services/explorer/backend/apps/explorer/lib/explorer/account/auth0_to_keycloak_migration.ex"]
+owner_domain = 14
+classes = ["security"]
+
+[repair.22.31.400]
+record = "22.30.151"
+findings = ["22.30.151/receipt-commit-inclusion"]
+files = ["services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/sequencer_receipt.ex"]
+owner_domain = 14
+classes = ["security"]
+
+[repair.22.31.401]
+record = "22.30.151"
+findings = ["22.30.151/retired-router-wiring"]
+files = ["services/explorer/backend/config/runtime.exs"]
+owner_domain = 14
+classes = ["wiring-gap"]
+
+[repair.22.31.402]
+record = "22.30.152"
+findings = ["22.30.152/attestor-manifest"]
+files = ["services/bridge/deploy/attestors.json"]
+owner_domain = 14
+classes = ["interface-mismatch"]
+
+[repair.22.31.403]
+record = "22.30.152"
+findings = ["22.30.152/health-shape"]
+files = ["services/explorer/backend/apps/block_scout_web/lib/block_scout_web/health_router.ex"]
+owner_domain = 14
+classes = ["interface-mismatch"]
+
+[repair.22.31.404]
+record = "22.30.152"
+findings = ["22.30.152/migration-preview"]
+files = ["services/explorer/backend/apps/explorer/lib/mix/tasks/auth0_to_keycloak_migrate.ex"]
+owner_domain = 14
+classes = ["runtime-risk"]
+
+[repair.22.31.405]
+record = "22.30.153"
+findings = ["22.30.153/raw-trace-roundtrip", "22.30.153/pending-transaction-collation"]
+files = ["apps/explorer/ui/tx/TxRawTrace.tsx", "apps/explorer/ui/tx/useTxQuery.tsx"]
+owner_domain = 14
+classes = ["interface-mismatch"]
+
+[repair.22.31.406]
+record = "22.30.153"
+findings = ["22.30.153/historical-price-acceptance"]
+files = ["services/explorer/backend/apps/explorer/priv/repo/migrations/20261028000000_add_paxeer_x_price_observation_accepted.exs"]
+owner_domain = 14
+classes = ["restart-recovery"]
+
+[repair.22.31.407]
+record = "22.30.154"
+findings = ["22.30.154/launchpad_code_probe"]
+files = ["services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/capabilities_test.exs"]
+owner_domain = 14
+classes = ["interface-mismatch"]
+
+[repair.22.31.408]
+record = "22.30.155"
+findings = ["22.30.155/address-case"]
+files = ["apps/explorer/ui/txs/socket/useTxsSocketTypeAddress.tsx"]
+owner_domain = 14
+classes = ["interface-mismatch"]
+
+[repair.22.31.409]
+record = "22.30.155"
+findings = ["22.30.155/transaction-type-union"]
+files = ["services/explorer/backend/apps/explorer/lib/explorer/chain/transaction.ex"]
+owner_domain = 14
+classes = ["interface-mismatch"]
+
+[repair.22.31.410]
+record = "22.30.155"
+findings = ["22.30.155/selfdestruct-rule"]
+files = ["services/explorer/backend/apps/explorer/test/explorer/migrator/empty_bytecode_for_selfdestructed_smart_contracts_test.exs"]
+owner_domain = 14
+classes = ["test-gap"]
+
+[repair.22.31.411]
+record = "22.30.156"
+findings = ["22.30.156/committed_without_inclusion"]
+files = ["services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x/committed_vectors.json"]
+owner_domain = 14
+classes = ["test-gap"]
+
+[repair.22.31.412]
+record = "22.30.157"
+findings = ["22.30.157/safe-origin"]
+files = ["apps/explorer/nextjs/csp/policies/safe.ts"]
+owner_domain = 14
+classes = ["interface-mismatch"]
+
+[repair.22.31.413]
+record = "22.30.160"
+findings = ["22.30.160/selfdestruct-cancun"]
+files = ["services/explorer/backend/apps/explorer/lib/explorer/chain/import/runner/internal_transactions.ex"]
+owner_domain = 14
+classes = ["runtime-risk"]
+
+[repair.22.31.414]
+record = "22.30.163"
+findings = ["22.30.163/011"]
+files = ["sdk/integrations/express/example/index.mjs"]
+owner_domain = 15
+classes = ["interface-mismatch"]
+
+[repair.22.31.415]
+record = "22.30.163"
+findings = ["22.30.163/019"]
+files = ["sdk/integrations/ios/Sources/LayerXMobileSampleKit/WalletModel.swift"]
+owner_domain = 15
+classes = ["wiring-gap"]
+
+[repair.22.31.416]
+record = "22.30.163"
+findings = ["22.30.163/022"]
+files = ["sdk/integrations/next/example/lib/fulfillment.mjs"]
+owner_domain = 15
+classes = ["interface-mismatch"]
+
+[repair.22.31.417]
+record = "22.30.163"
+findings = ["22.30.163/024", "22.30.163/025", "22.30.163/026", "22.30.163/027"]
+files = ["sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/X402.java", "sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/SellerMiddleware.java"]
+owner_domain = 15
+classes = ["interface-mismatch"]
+
+[repair.22.31.418]
+record = "22.30.163"
+findings = ["22.30.163/031"]
+files = ["sdk/integrations/android/src/main/java/com/sidiora/layerx/android/ReceiptGate.java"]
+owner_domain = 15
+classes = ["interface-mismatch"]
+
+[repair.22.31.419]
+record = "22.30.163"
+findings = ["22.30.163/032"]
+files = ["sdk/integrations/ios/Sources/LayerXMobile/ReceiptGate.swift"]
+owner_domain = 15
+classes = ["interface-mismatch"]
+
+[repair.22.31.420]
+record = "22.30.163"
+findings = ["22.30.163/038"]
+files = ["sdk/integrations/agents/src/daemon-providers.ts"]
+owner_domain = 15
+classes = ["interface-mismatch"]
+
+[repair.22.31.421]
+record = "22.30.172"
+findings = ["22.30.172/tokenfactory-unset-creator"]
+files = ["tests/integration/contracts/create_tokenfactory_denoms.sh"]
+owner_domain = 16
+classes = ["interface-mismatch"]
+
+[repair.22.31.422]
+record = "22.30.172"
+findings = ["22.30.172/mint-output-flags"]
+files = ["tests/integration/mint_module/mint_test.yaml"]
+owner_domain = 16
+classes = ["interface-mismatch"]
+
+[repair.22.31.423]
+record = "22.30.172"
+findings = ["22.30.172/feehistory-zero-quantity"]
+files = ["tests/integration/rpc_tests/eth/eth_feeHistory.spec.ts"]
+owner_domain = 7
+classes = ["interface-mismatch"]
+
+[repair.22.31.424]
+record = "22.30.174"
+findings = ["22.30.174/backup-consistency"]
+files = ["tools/ops/backup/backup.sh"]
+owner_domain = 16
+classes = ["restart-recovery"]
+
+[repair.22.31.425]
+record = "22.30.174"
+findings = ["22.30.174/key-enumeration", "22.30.174/key-backup-content"]
+files = ["tools/ops/keyring-migrate.sh"]
+owner_domain = 16
+classes = ["restart-recovery"]
+
+[repair.22.31.426]
+record = "22.30.176"
+findings = ["22.30.176/1"]
+files = ["Makefile"]
+owner_domain = 16
+classes = ["interface-mismatch"]
+
+[repair.22.31.427]
+record = "22.30.179"
+findings = ["22.30.179/kernel-backend"]
+files = ["docker/kernel/init.sh"]
+owner_domain = 16
+classes = ["wiring-gap"]
+
+[repair.22.31.428]
+record = "22.30.181"
+findings = ["22.30.181/f004"]
+files = ["tools/paxeer-x/gov/render.sh"]
+owner_domain = 16
+classes = ["security"]
+
+[repair.22.31.429]
+record = "22.30.181"
+findings = ["22.30.181/f007", "22.30.181/f008"]
+files = ["tools/paxeer-x/sid-snapshot/snapshot.py"]
+owner_domain = 16
+classes = ["runtime-risk"]
+
+[repair.22.31.430]
+record = "22.30.182"
+findings = ["22.30.182/benchmark-home-delete"]
+files = ["tools/benchmark/benchmark.sh"]
+owner_domain = 16
+classes = ["runtime-risk"]
+
+[repair.22.31.431]
+record = "22.30.182"
+findings = ["22.30.182/benchmark-rpc-envelope"]
+files = ["tools/benchmark/loadtest/scripts/metrics.py"]
+owner_domain = 16
+classes = ["interface-mismatch"]
+
+[repair.22.31.432]
+record = "22.30.182"
+findings = ["22.30.182/custody-recovery-retired-api"]
+files = ["tools/qualification/paxeer-x/wallet-custody-recovery.py"]
+owner_domain = 16
+classes = ["interface-mismatch"]
+
+[repair.22.31.433]
+record = "22.30.185"
+findings = ["22.30.185/receipt-deployment-wiring"]
+files = ["apps/web/src/api/gateway-actions.ts"]
+owner_domain = 8
+classes = ["wiring-gap"]
+
+[repair.22.31.434]
+record = "22.30.86"
+findings = ["22.30.86/node-root-rejected", "22.30.86/seller-draw-recipient", "22.30.86/draw-producer-unavailable", "22.30.86/seller-grant-final-verifier", "22.30.86/seller-network-unbound", "22.30.86/receipt-reuse-principal", "22.30.86/commitment-inclusion-unverified", "22.30.86/commitment-validator-trust"]
+files = ["services/platform/middleware/seller/src/rpc.ts", "services/platform/middleware/seller/src/grant.ts", "services/platform/middleware/seller/src/index.ts", "services/platform/middleware/seller/src/commitment.ts"]
+owner_domain = 8
+classes = ["interface-mismatch", "security", "wiring-gap"]
+
+[repair.22.31.435]
+record = "22.30.86"
+findings = ["22.30.86/daemon-submission-shape", "22.30.86/agent-draw-recipient"]
+files = ["services/platform/middleware/agent/src/daemon.ts", "services/platform/middleware/agent/src/index.ts"]
+owner_domain = 8
+classes = ["interface-mismatch"]
+
+[repair.22.31.436]
+record = "22.30.86"
+findings = ["22.30.86/buyer-draw-recipient"]
+files = ["services/platform/middleware/buyer/src/index.ts"]
+owner_domain = 8
+classes = ["interface-mismatch"]
