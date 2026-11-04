@@ -1443,11 +1443,11 @@ impl AuthenticatedCumulativeUse {
         self.window
     }
 
-    pub(crate) const fn amount(&self) -> u128 {
+    pub const fn amount(&self) -> u128 {
         self.amount
     }
 
-    pub(crate) const fn count(&self) -> u64 {
+    pub const fn count(&self) -> u64 {
         self.count
     }
 }
@@ -2269,18 +2269,52 @@ impl HistoryActivityEvidence {
     }
 }
 
+/// Constructed only by a complete committed-range scan, never from pagination metadata.
+#[derive(Clone, Debug)]
+pub(crate) struct VerifiedHistoryCoverage {
+    pub(super) actor: Did,
+    pub(super) checkpoint: [u8; 32],
+    pub(super) first: u64,
+    pub(super) last: u64,
+    pub(super) entries_digest: [u8; 32],
+    pub(super) time_seconds: Option<u64>,
+}
+pub(crate) fn history_entries_digest(entries: &[HistoryActivityEvidence]) -> [u8; 32] {
+    let mut hash = Sha256::new();
+    hash.update(b"layerx/policy-history/coverage/v1\0");
+    for entry in entries {
+        let receipt = entry.history_receipt();
+        hash.update((receipt.canonical.len() as u64).to_be_bytes());
+        hash.update(&receipt.canonical);
+        hash.update(receipt.position.block_height.to_be_bytes());
+        hash.update(receipt.position.tx_index.to_be_bytes());
+        hash.update(receipt.timestamp.to_be_bytes());
+    }
+    hash.finalize().into()
+}
+
 impl CumulativeUseWindow {
     pub(crate) fn authenticate_history(
         self,
         actor: &Did,
         checkpoint: &crate::read::ServedCheckpoint,
         entries: &[HistoryActivityEvidence],
+        coverage: &VerifiedHistoryCoverage,
     ) -> Result<AuthenticatedCumulativeUse, CumulativeUseError> {
         if self.first == 0
             || self.first > self.last
             || self.last > checkpoint.height
             || self.last - self.first >= MAX_CUMULATIVE_EVIDENCE_ITEMS as u64
             || entries.len() > MAX_CUMULATIVE_EVIDENCE_ITEMS
+        {
+            return Err(CumulativeUseError::InvalidWindow);
+        }
+        if coverage.time_seconds.is_some()
+            || coverage.actor != *actor
+            || coverage.checkpoint != checkpoint.block_hash
+            || coverage.first > self.first
+            || coverage.last < self.last
+            || coverage.entries_digest != history_entries_digest(entries)
         {
             return Err(CumulativeUseError::InvalidWindow);
         }
@@ -2337,8 +2371,18 @@ impl HistoryWindowBatch {
         actor: &Did,
         window_seconds: u64,
         first_covered_sequence: u64,
+        coverage: &VerifiedHistoryCoverage,
     ) -> Result<AuthenticatedTimeWindowUse, TimeWindowUseError> {
         let observed = &self.maintenance;
+        if coverage.time_seconds != Some(window_seconds)
+            || coverage.actor != *actor
+            || coverage.checkpoint != observed.observed_batch_id()
+            || coverage.first != first_covered_sequence
+            || coverage.last != observed.through_sequence()
+            || coverage.entries_digest != history_entries_digest(&self.activities)
+        {
+            return Err(TimeWindowUseError::Bounds);
+        }
         let window_ms = window_seconds
             .checked_mul(1000)
             .filter(|n| *n > 0)
@@ -2361,10 +2405,7 @@ impl HistoryWindowBatch {
             admit_bytes(&mut bytes, raw.canonical.len()).map_err(|_| TimeWindowUseError::Bounds)?;
             let decoded = decode(&raw.canonical).map_err(|_| TimeWindowUseError::Identity)?;
             let receipt = decoded.protocol().ok_or(TimeWindowUseError::Identity)?;
-            let timestamp = raw
-                .timestamp
-                .checked_mul(1000)
-                .ok_or(TimeWindowUseError::Overflow)?;
+            let timestamp = raw.timestamp;
             if entry.canonical_activity != *actor
                 || raw.checkpoint_hash != observed.observed_batch_id()
                 || raw.position.block_height > observed.through_sequence()
@@ -2415,22 +2456,24 @@ impl HistoryWindowBatch {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct CommittedHistoryReceipt {
+pub struct CommittedHistoryReceipt {
     pub(crate) canonical: Vec<u8>,
     pub(crate) position: crate::read::Cursor,
     pub(crate) timestamp: u64,
     pub(crate) checkpoint_hash: [u8; 32],
 }
 
-pub(crate) struct PolicyHistorySource {
+pub struct PolicyHistorySource {
     pub(crate) endpoint: SequencerEndpoint,
-    agent: ureq::Agent,
-    url: String,
+    pub(crate) results: crate::read::NativeResultSource,
+    chain_id: String,
+    landing: crate::read::NativeResultSource,
 }
 
 impl PolicyHistorySource {
-    pub(crate) fn new(
+    pub fn new(
         config: &crate::node_rpc::NodeRpcConfig,
+        result_url: &str,
     ) -> Result<Self, crate::read::HistoryReadError> {
         let certificates = if config.url.starts_with("https://") {
             let roots = rustls_native_certs::load_native_certs();
@@ -2451,19 +2494,77 @@ impl PolicyHistorySource {
         {
             return Err(crate::read::HistoryReadError::Malformed);
         }
-        let tls = crate::outbound_tls::system(&config.url)
-            .ok_or(crate::read::HistoryReadError::Malformed)?;
-        let agent = ureq::Agent::config_builder()
-            .tls_config(tls)
-            .timeout_global(Some(config.deadline))
-            .max_redirects(0)
-            .build()
-            .into();
+        let results = crate::read::NativeResultSource::connect(result_url, None)
+            .map_err(|_| crate::read::HistoryReadError::ItemUnproven)?;
+        let landing = crate::read::NativeResultSource::connect(&config.url, None)
+            .map_err(|_| crate::read::HistoryReadError::ItemUnproven)?;
         Ok(Self {
             endpoint,
-            agent,
-            url: config.url.clone(),
+            results,
+            landing,
+            chain_id: config.chain_id.to_string(),
         })
+    }
+
+    /// Follows every authenticated predecessor from the captured checkpoint.
+    pub(crate) fn committed_at(
+        &self,
+        checkpoint: &crate::read::ServedCheckpoint,
+        height: u64,
+    ) -> Result<crate::read::ServedCheckpoint, crate::read::HistoryReadError> {
+        let bad = || crate::read::HistoryReadError::ItemUnproven;
+        if height == 0 || height > checkpoint.height || checkpoint.height - height > 4096 {
+            return Err(bad());
+        }
+        let mut current = crate::read::checkpoint(
+            checkpoint.height,
+            &self.chain_id,
+            &checkpoint.header,
+            &checkpoint.commit,
+            &checkpoint.validators,
+        )
+        .map_err(|_| bad())?;
+        if current != *checkpoint {
+            return Err(bad());
+        }
+        while current.height > height {
+            let parent = self
+                .results
+                .checkpoint(current.height - 1, &self.chain_id, &checkpoint.validators)
+                .map_err(|_| bad())?;
+            if current.header.last_block_id.map(|id| id.hash) != Some(parent.block_hash)
+                || parent.header.time.seconds > current.header.time.seconds
+            {
+                return Err(bad());
+            }
+            current = parent;
+        }
+        Ok(current)
+    }
+
+    pub(crate) fn successor(
+        &self,
+        checkpoint: &crate::read::ServedCheckpoint,
+        block: &crate::read::ServedCheckpoint,
+    ) -> Result<crate::read::ServedCheckpoint, crate::read::HistoryReadError> {
+        let next = if block.height < checkpoint.height {
+            self.committed_at(checkpoint, block.height + 1)?
+        } else {
+            self.results
+                .checkpoint(
+                    block
+                        .height
+                        .checked_add(1)
+                        .ok_or(crate::read::HistoryReadError::ItemUnproven)?,
+                    &self.chain_id,
+                    &checkpoint.validators,
+                )
+                .map_err(|_| crate::read::HistoryReadError::ItemUnproven)?
+        };
+        if next.header.last_block_id.map(|id| id.hash) != Some(block.block_hash) {
+            return Err(crate::read::HistoryReadError::ItemUnproven);
+        }
+        Ok(next)
     }
 
     pub(crate) fn page(
@@ -2475,7 +2576,7 @@ impl PolicyHistorySource {
         crate::read::HistoryPage::read_newest(&self.endpoint, account, cursor, limits)
     }
 
-    pub(crate) fn prove(
+    pub fn prove(
         &self,
         canonical: &[u8],
         position: crate::read::Cursor,
@@ -2483,103 +2584,70 @@ impl PolicyHistorySource {
         keys: &[layerx_client::sequencer::ReceiptKeyEntry],
         bytes: &mut usize,
     ) -> Result<CommittedHistoryReceipt, crate::read::HistoryReadError> {
-        use layerx_client::sequencer::SequencerReceipt;
-        let unproven = || crate::read::HistoryReadError::ItemUnproven;
-        let decoded = layerx_wire::receipt::decode(canonical).map_err(|_| unproven())?;
-        let protocol = decoded.protocol().ok_or_else(unproven)?;
+        use layerx_client::rpc::receipt::{lookup_authenticated, Lookup, LookupContext};
+        let bad = || crate::read::HistoryReadError::ItemUnproven;
+        let decoded = layerx_wire::receipt::decode(canonical).map_err(|_| bad())?;
+        let protocol = decoded.protocol().ok_or_else(bad)?;
         let hash = protocol.activity_id();
-        let mut response = self.agent.post(&self.url).send_json(serde_json::json!({"jsonrpc":"2.0", "id":1,
-            "method":"eth_getTransactionReceipt", "params":[format!("0x{}", layerx_programs::hex::encode(&hash))]}))
-            .map_err(|_| unproven())?;
-        let body = response
-            .body_mut()
-            .with_config()
-            .limit((16 * 1024 * 1024 + 1) as u64)
-            .read_to_vec()
-            .map_err(|_| unproven())?;
-        admit_bytes(bytes, body.len())?;
-        let envelope: serde_json::Value = serde_json::from_slice(&body).map_err(|_| unproven())?;
-        if envelope["jsonrpc"] != "2.0" || envelope["id"] != 1 || envelope.get("error").is_some() {
-            return Err(unproven());
-        }
-        let landing = &envelope["result"];
-        let quantity = |key: &str| -> Option<u64> {
-            u64::from_str_radix(landing[key].as_str()?.strip_prefix("0x")?, 16).ok()
-        };
-        let fixed = |key: &str| -> Option<[u8; 32]> {
-            layerx_programs::hex::decode(landing[key].as_str()?.strip_prefix("0x")?)
-                .ok()?
-                .try_into()
-                .ok()
-        };
-        let height = quantity("blockNumber").ok_or_else(unproven)?;
-        let mut receipt_height = [0; 32];
-        receipt_height[24..].copy_from_slice(&height.to_be_bytes());
-        if protocol.batch_id() != receipt_height {
-            return Err(unproven());
-        }
-        let block_hash = fixed("blockHash").ok_or_else(unproven)?;
-        if fixed("transactionHash") != Some(hash)
-            || height != position.block_height
-            || height > checkpoint.height
-            || quantity("transactionIndex") != Some(u64::from(position.tx_index))
-            || quantity("status") != Some(u64::from(protocol.result_code() == 0))
-        {
-            return Err(unproven());
-        }
-        let Some(SequencerReceipt::Committed {
-            receipt,
-            block_number,
-            block_hash: rung_hash,
-        }) = self
-            .endpoint
-            .sequencer_receipt(&hash)
-            .map_err(|_| unproven())?
+        let Lookup::Verified(receipt) =
+            lookup_authenticated(&self.endpoint, hash, LookupContext { receipt_keys: keys })
+                .map_err(|_| bad())?
         else {
-            return Err(unproven());
+            return Err(bad());
         };
-        admit_bytes(bytes, receipt.receipt.len())?;
-        if block_number != height
-            || rung_hash != block_hash
-            || receipt.receipt != canonical
-            || receipt.height != height
-            || receipt.index != u64::from(position.tx_index)
-            || receipt.seq != protocol.global_sequence()
-            || receipt.timestamp != protocol.timestamp()
-            || receipt.success != (protocol.result_code() == 0)
+        let landing = receipt.landing().ok_or_else(bad)?;
+        if receipt.canonical_bytes() != canonical
+            || receipt.height() != position.block_height
+            || receipt.execution().index != u64::from(position.tx_index)
+            || position.log_index != 0
+            || landing.block_number != receipt.height()
+            || landing.transaction_index != receipt.execution().index
         {
-            return Err(unproven());
+            return Err(bad());
         }
-        let authorizations: Vec<_> = keys
-            .iter()
-            .map(|key| {
-                layerx_proof::inclusion::SequencerAuthorization::new(
-                    key.key_id,
-                    key.public_key,
-                    key.first_height,
-                    key.last_height,
-                )
-            })
-            .collect();
-        layerx_proof::receipt::verify_sequencer_signature(canonical, authorizations.as_slice())
-            .map_err(|_| unproven())?;
-        let block = self
-            .endpoint
-            .block_by_number(height)
-            .map_err(|_| unproven())?
-            .ok_or_else(unproven)?;
-        admit_bytes(bytes, block.transactions.iter().map(Vec::len).sum())?;
-        if block.hash != block_hash
-            || block.timestamp
-                > u64::try_from(checkpoint.header.time.seconds).map_err(|_| unproven())?
-            || height == checkpoint.height && block.hash != checkpoint.block_hash
+        let block = self.committed_at(checkpoint, position.block_height)?;
+        let next = self.successor(checkpoint, &block)?;
+        let raw_landing = self
+            .landing
+            .rpc(
+                "eth_getTransactionReceipt",
+                serde_json::json!([format!("0x{}", layerx_programs::hex::encode(&hash))]),
+            )
+            .map_err(|_| bad())?;
+        let landing_hash = raw_landing["blockHash"]
+            .as_str()
+            .and_then(|text| text.strip_prefix("0x"))
+            .and_then(|text| layerx_programs::hex::decode_digest(text).ok());
+        if landing_hash != Some(block.block_hash)
+            || crate::policy_history::checkpoint_timestamp_ms(&block).ok()
+                != Some(receipt.execution().timestamp)
         {
-            return Err(unproven());
+            return Err(bad());
         }
+        let inclusion = self
+            .results
+            .acquire(position.block_height, receipt.execution().index)
+            .map_err(|_| bad())?;
+        inclusion
+            .verify_committed(
+                position.block_height,
+                receipt.execution().index,
+                &next,
+                &self.chain_id,
+                &checkpoint.validators,
+            )
+            .map_err(|_| bad())?;
+        crate::read::abci_result::verify_native_receipt(&inclusion.result, &receipt)
+            .map_err(|_| bad())?;
+        admit_bytes(bytes, canonical.len())?;
+        admit_bytes(
+            bytes,
+            inclusion.result.len() + inclusion.proof.aunts.len() * 32,
+        )?;
         Ok(CommittedHistoryReceipt {
             canonical: canonical.to_vec(),
-            position: position,
-            timestamp: block.timestamp,
+            position,
+            timestamp: receipt.execution().timestamp,
             checkpoint_hash: checkpoint.block_hash,
         })
     }

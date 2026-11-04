@@ -989,3 +989,230 @@ impl EvidenceReader<'_> {
         value.try_into().map_err(|_| ReceiptStoreError::Corrupt)
     }
 }
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct NativeCommitRecord {
+    version: u8,
+    height: u64,
+    index: u64,
+    header: Vec<u8>,
+    commit: Vec<u8>,
+    validators: Vec<u8>,
+    inclusion: Vec<Vec<u8>>,
+    key_id: [u8; 32],
+    public_key: [u8; 32],
+    first_height: u64,
+    last_height: u64,
+}
+fn native_commit_key(tenant: TenantId, hash: [u8; 32]) -> Result<TenantKey, StoreError> {
+    TenantKey::new(
+        tenant,
+        ObjectKind::Configuration,
+        [b"receipt:committed-native:".as_slice(), &hash].concat(),
+    )
+}
+fn verify_result_identity(
+    result: &[u8],
+    hash: [u8; 32],
+    success: bool,
+) -> Result<(), ReceiptStoreError> {
+    use crate::read::abci_result::{fields, ProtoValue};
+    if crate::read::abci_result::transaction_hash(result).map_err(|_| ReceiptStoreError::Corrupt)?
+        != Some(hash)
+    {
+        return Err(ReceiptStoreError::Corrupt);
+    }
+    let response =
+        crate::read::abci_result::evm_response(result).map_err(|_| ReceiptStoreError::Corrupt)?;
+    let mut vm_error = &[][..];
+    for (number, value) in fields(response).map_err(|_| ReceiptStoreError::Corrupt)? {
+        if let (2, ProtoValue::Bytes(error)) = (number, value) {
+            vm_error = error;
+        }
+    }
+    if vm_error.is_empty() != success {
+        return Err(ReceiptStoreError::Corrupt);
+    }
+    Ok(())
+}
+
+/// The receipt producer promotes only locally verified result/commit evidence.
+/// Action replay identities are assigned by lifecycle callers, independently of the transaction hash.
+pub fn persist_committed_protocol_receipt(
+    durable: &mut Store,
+    tenant: TenantId,
+    canonical: &[u8],
+    keys: &[layerx_client::sequencer::ReceiptKeyEntry],
+    height: u64,
+    index: u64,
+    inclusion: &crate::read::AbciResultProof,
+    checkpoint: &crate::read::ServedCheckpoint,
+    chain_id: &str,
+    validators: &[crate::read::CommitValidator],
+) -> Result<TransactionReceiptEvidence, ReceiptStoreError> {
+    let pins: Vec<_> = keys
+        .iter()
+        .map(|key| {
+            layerx_proof::inclusion::SequencerAuthorization::new(
+                key.key_id,
+                key.public_key,
+                key.first_height,
+                key.last_height,
+            )
+        })
+        .collect();
+    let decoded = layerx_proof::receipt::verify_sequencer_signature(canonical, pins.as_slice())
+        .map_err(|_| ReceiptStoreError::Corrupt)?;
+    let protocol = decoded.protocol().ok_or(ReceiptStoreError::Corrupt)?;
+    let mut expected_height = [0; 32];
+    expected_height[24..].copy_from_slice(&height.to_be_bytes());
+    if protocol.batch_id() != expected_height {
+        return Err(ReceiptStoreError::Corrupt);
+    }
+    inclusion
+        .verify_committed(height, index, checkpoint, chain_id, validators)
+        .map_err(|_| ReceiptStoreError::Corrupt)?;
+    verify_result_identity(
+        &inclusion.result,
+        protocol.activity_id(),
+        protocol.result_code() == 0,
+    )?;
+    let mut matching = keys.iter().filter(|key| {
+        key.key_id == protocol.context_hash()
+            && key.first_height <= height
+            && height <= key.last_height
+    });
+    let key = matching.next().ok_or(ReceiptStoreError::Corrupt)?;
+    if matching.next().is_some() {
+        return Err(ReceiptStoreError::Corrupt);
+    }
+    let mut signature = [0; 65];
+    signature[..64].copy_from_slice(
+        &protocol
+            .sequencer_signature()
+            .ok_or(ReceiptStoreError::Corrupt)?,
+    );
+    signature[64] = NODE_ED25519_SIGNATURE_TAG;
+    let mut record = TransactionReceiptEvidence {
+        metadata: TransactionReceiptMetadata {
+            transaction_hash: protocol.activity_id(),
+            block_height: height,
+            tx_index: index,
+            status: protocol.result_code() == 0,
+            gas_used: 0,
+            logs_bloom: [0; 256],
+            receipt_signature: signature,
+            rung: Rung::Committed,
+        },
+        canonical_receipt: canonical.to_vec(),
+    };
+    if let Some(previous) = serve_evidence(durable, tenant.clone(), protocol.activity_id())? {
+        record.metadata.gas_used = previous.metadata.gas_used;
+        record.metadata.logs_bloom = previous.metadata.logs_bloom;
+    }
+    let proof = NativeCommitRecord {
+        version: 1,
+        height,
+        index,
+        header: crate::export::encode_header(&checkpoint.header),
+        commit: crate::export::encode_commit(&checkpoint.commit, validators),
+        validators: crate::export::encode_validators(validators),
+        inclusion: inclusion.encode().map_err(|_| ReceiptStoreError::Corrupt)?,
+        key_id: key.key_id,
+        public_key: key.public_key,
+        first_height: key.first_height,
+        last_height: key.last_height,
+    };
+    let bytes = serde_json::to_vec(&proof).map_err(|_| ReceiptStoreError::Corrupt)?;
+    durable.put_local(
+        native_commit_key(tenant.clone(), protocol.activity_id())?,
+        bytes,
+    )?;
+    record.store_if_absent(durable, tenant, protocol.activity_id(), canonical)
+}
+
+pub fn persist_committed_native_receipt(
+    durable: &mut Store,
+    tenant: TenantId,
+    receipt: &layerx_client::rpc::receipt::AuthenticatedReceipt,
+    inclusion: &crate::read::AbciResultProof,
+    checkpoint: &crate::read::ServedCheckpoint,
+    chain_id: &str,
+    validators: &[crate::read::CommitValidator],
+    keys: &[layerx_client::sequencer::ReceiptKeyEntry],
+) -> Result<TransactionReceiptEvidence, ReceiptStoreError> {
+    crate::read::abci_result::verify_native_receipt(&inclusion.result, receipt)
+        .map_err(|_| ReceiptStoreError::Corrupt)?;
+    persist_committed_protocol_receipt(
+        durable,
+        tenant,
+        receipt.canonical_bytes(),
+        keys,
+        receipt.height(),
+        receipt.execution().index,
+        inclusion,
+        checkpoint,
+        chain_id,
+        validators,
+    )
+}
+
+/// Re-verifies retained commit and inclusion bytes on the restored store.
+pub fn serve_committed_evidence(
+    durable: &Store,
+    tenant: TenantId,
+    hash: [u8; 32],
+) -> Result<TransactionReceiptEvidence, ReceiptStoreError> {
+    let record =
+        serve_evidence(durable, tenant.clone(), hash)?.ok_or(ReceiptStoreError::Missing)?;
+    if record.metadata.rung != Rung::Committed {
+        return Err(ReceiptStoreError::BelowReceipted);
+    }
+    let bytes = durable
+        .get(&native_commit_key(tenant, hash)?)
+        .ok_or(ReceiptStoreError::Missing)?
+        .bytes();
+    let proof: NativeCommitRecord =
+        serde_json::from_slice(bytes).map_err(|_| ReceiptStoreError::Corrupt)?;
+    let header =
+        crate::export::decode_header(&proof.header).map_err(|_| ReceiptStoreError::Corrupt)?;
+    let validators = crate::export::decode_validators(&proof.validators)
+        .map_err(|_| ReceiptStoreError::Corrupt)?;
+    let commit = crate::export::decode_commit(&proof.commit, &validators)
+        .map_err(|_| ReceiptStoreError::Corrupt)?;
+    let checkpoint = crate::read::checkpoint(
+        header.height,
+        &header.chain_id,
+        &header,
+        &commit,
+        &validators,
+    )
+    .map_err(|_| ReceiptStoreError::Corrupt)?;
+    let inclusion = crate::read::AbciResultProof::decode(&proof.inclusion)
+        .map_err(|_| ReceiptStoreError::Corrupt)?;
+    inclusion
+        .verify_committed(
+            proof.height,
+            proof.index,
+            &checkpoint,
+            &header.chain_id,
+            &validators,
+        )
+        .map_err(|_| ReceiptStoreError::Corrupt)?;
+    if proof.version != 1
+        || proof.height != record.metadata.block_height
+        || proof.index != record.metadata.tx_index
+    {
+        return Err(ReceiptStoreError::Corrupt);
+    }
+    let pins = [layerx_proof::inclusion::SequencerAuthorization::new(
+        proof.key_id,
+        proof.public_key,
+        proof.first_height,
+        proof.last_height,
+    )];
+    layerx_proof::receipt::verify_sequencer_signature(&record.canonical_receipt, pins.as_slice())
+        .map_err(|_| ReceiptStoreError::Corrupt)?;
+    verify_result_identity(&inclusion.result, hash, record.metadata.status)?;
+    Ok(record)
+}

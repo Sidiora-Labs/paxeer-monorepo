@@ -25,6 +25,8 @@ import (
 var ethReplayInitialied = false
 
 func (k *Keeper) InitGenesis(ctx sdk.Context, genState types.GenesisState) {
+	events := ctx.EventManager()
+	ctx, publish := ctx.CacheContext()
 	moduleAcc := authtypes.NewEmptyModuleAccount(types.ModuleName, authtypes.Minter, authtypes.Burner)
 	k.accountKeeper.SetModuleAccount(ctx, moduleAcc)
 
@@ -37,33 +39,22 @@ func (k *Keeper) InitGenesis(ctx sdk.Context, genState types.GenesisState) {
 		k.SetAddressMapping(ctx, sdk.MustAccAddressFromBech32(addr.PaxAddress), common.HexToAddress(addr.EthAddress))
 	}
 
-	erc20CodeID, err := k.wasmKeeper.Create(ctx, k.accountKeeper.GetModuleAddress(types.ModuleName), erc20.GetBin(), nil)
-	if err != nil {
-		logger.Error("error creating CWERC20 pointer code", "err", err)
-	} else {
-		prefix.NewStore(k.PrefixStore(ctx, types.PointerCWCodePrefix), types.PointerCW20ERC20Prefix).Set(
-			artifactsutils.GetVersionBz(erc20.CurrentVersion),
-			artifactsutils.GetCodeIDBz(erc20CodeID),
-		)
-	}
-
-	erc721CodeID, err := k.wasmKeeper.Create(ctx, k.accountKeeper.GetModuleAddress(types.ModuleName), erc721.GetBin(), nil)
-	if err != nil {
-		logger.Error("error creating CWERC721 pointer code", "err", err)
-	} else {
-		prefix.NewStore(k.PrefixStore(ctx, types.PointerCWCodePrefix), types.PointerCW721ERC721Prefix).Set(
-			artifactsutils.GetVersionBz(erc721.CurrentVersion),
-			artifactsutils.GetCodeIDBz(erc721CodeID),
-		)
-	}
-
-	erc1155CodeID, err := k.wasmKeeper.Create(ctx, k.accountKeeper.GetModuleAddress(types.ModuleName), erc1155.GetBin(), nil)
-	if err != nil {
-		logger.Error("error creating CWERC1155 pointer code", "err", err)
-	} else {
-		prefix.NewStore(k.PrefixStore(ctx, types.PointerCWCodePrefix), types.PointerCW1155ERC1155Prefix).Set(
-			artifactsutils.GetVersionBz(erc1155.CurrentVersion),
-			artifactsutils.GetCodeIDBz(erc1155CodeID),
+	for _, code := range []struct {
+		name    string
+		bin     []byte
+		prefix  []byte
+		version uint16
+	}{
+		{"CWERC20", erc20.GetBin(), types.PointerCW20ERC20Prefix, erc20.CurrentVersion},
+		{"CWERC721", erc721.GetBin(), types.PointerCW721ERC721Prefix, erc721.CurrentVersion},
+		{"CWERC1155", erc1155.GetBin(), types.PointerCW1155ERC1155Prefix, erc1155.CurrentVersion},
+	} {
+		codeID, err := k.wasmKeeper.Create(ctx, k.accountKeeper.GetModuleAddress(types.ModuleName), code.bin, nil)
+		if err != nil {
+			panic(fmt.Errorf("install %s pointer code: %w", code.name, err))
+		}
+		prefix.NewStore(k.PrefixStore(ctx, types.PointerCWCodePrefix), code.prefix).Set(
+			artifactsutils.GetVersionBz(code.version), artifactsutils.GetCodeIDBz(codeID),
 		)
 	}
 
@@ -72,6 +63,8 @@ func (k *Keeper) InitGenesis(ctx sdk.Context, genState types.GenesisState) {
 		k.SetReplayInitialHeight(ctx, header.Number.Int64())
 		ethReplayInitialied = true
 	}
+	publish()
+	events.EmitEvents(ctx.EventManager().Events())
 }
 
 func (k *Keeper) OpenEthDatabase() *ethtypes.Header {

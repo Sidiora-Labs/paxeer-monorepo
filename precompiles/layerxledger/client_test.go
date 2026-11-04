@@ -101,13 +101,16 @@ func TestLedgerEVMTransactionReceipt(t *testing.T) {
 		index++
 		return receipt, &response
 	}
-	call := func(signer utils.TestAcct, method string, args ...interface{}) {
+	call := func(signer utils.TestAcct, method string, args ...interface{}) []interface{} {
 		t.Helper()
 		input, err := ledgerABI.Pack(method, args...)
 		require.NoError(t, err)
 		receipt, response := deliver(signer, address, input, uint32(ethtypes.ReceiptStatusSuccessful))
 		require.Empty(t, receipt.VmError)
 		require.Empty(t, response.VmError)
+		values, err := ledgerABI.Methods[method].Outputs.Unpack(response.ReturnData)
+		require.NoError(t, err)
+		return values
 	}
 	addrPrecompile, err := addr.NewPrecompile(a.GetPrecompileKeepers())
 	require.NoError(t, err)
@@ -163,32 +166,17 @@ func TestLedgerEVMTransactionReceipt(t *testing.T) {
 	salt := [32]byte{0x71}
 	material := append([]byte("LX:ASSET:v1"), payer.Authority.Actor[:]...)
 	asset := sha256.Sum256(append(material, salt[:]...))
-	h := &harness{ctx: ctx, host: a.LayerXHost, hostKey: a.GetKey(app.LayerXHostStoreKey)}
-	from := transferMainAccount(t, h, payer, asset)
 	call(sender, "register", asset, salt, "RCT", "Receipt test", uint8(6), big.NewInt(1000), uint8(types.AssetIssuerNative), []byte{})
-	call(sender, "openAccount", asset)
-	call(recipient, "openAccount", asset)
-	holding, err := ledgerkeeper.AccountID(payer.DIDKey, asset)
+	from := call(sender, "openAccount", asset)[0].([32]byte)
+	to := call(recipient, "openAccount", asset)[0].([32]byte)
+	expectedFrom, err := ledgerkeeper.AccountID(payer.DIDKey, asset)
 	require.NoError(t, err)
-	to, err := ledgerkeeper.AccountID(payee.DIDKey, asset)
+	require.Equal(t, expectedFrom, from)
+	expectedTo, err := ledgerkeeper.AccountID(payee.DIDKey, asset)
 	require.NoError(t, err)
-	call(sender, "mint", asset, holding, big.NewInt(250))
-	fundingKey := [32]byte{0x72}
-	fundingEnvelope := sendEnvelope(holding, from, asset, 250, 0, fundingKey)
-	fundingCtx, err := ledgerkeeper.WithSequence(ctx)
-	require.NoError(t, err)
-	sequence, err := a.LayerXHost.ReadIdentitySequence(fundingCtx, payer.DID)
-	require.NoError(t, err)
-	now := uint64(ctx.BlockTime().UnixMilli())
-	fundingReceipt, err := a.LayerXHost.Execute(fundingCtx, lxphost.Activity{
-		ProtocolVersion: 3, Type: 0x00010005, ActorDID: payer.DID, AuthorityKey: payer.DIDKey,
-		AccountSequence: sequence, NotBefore: now, NotAfter: now,
-		IdempotencyKey: fundingKey, Payload: fundingEnvelope,
-	}, payer.Authority)
-	require.NoError(t, err)
-	require.Equal(t, lxphost.Code(0), fundingReceipt.ResultCode)
-	require.NoError(t, a.LayerXLedgerKeeper.Mirror(ctx, 0x00010005, fundingReceipt))
-	for account, want := range map[[32]byte]int64{holding: 0, from: 250, to: 0} {
+	require.Equal(t, expectedTo, to)
+	call(sender, "mint", asset, from, big.NewInt(250))
+	for account, want := range map[[32]byte]int64{from: 250, to: 0} {
 		balance, err := a.LayerXLedgerKeeper.BalanceOf(ctx, account, asset)
 		require.NoError(t, err)
 		require.Equal(t, sdk.NewInt(want), balance)
@@ -229,7 +217,12 @@ func TestLedgerEVMTransactionReceipt(t *testing.T) {
 			balance, err := a.LayerXLedgerKeeper.BalanceOf(ctx, account, asset)
 			require.NoError(t, err)
 			require.Equal(t, sdk.NewInt(want), balance)
+			mirror := a.BankKeeper.GetBalance(ctx, lxphost.BankAddress(account), types.MirrorDenom(asset))
+			require.True(t, balance.Equal(mirror.Amount))
 		}
+		sequence, err := a.LayerXLedgerKeeper.NextSequenceByAccountID(ctx, from, asset)
+		require.NoError(t, err)
+		require.Equal(t, uint64(1), sequence)
 	}
 	assertBalances()
 	_, found := a.EvmKeeper.GetLayerXDid(ctx, unbound.EvmAddress)

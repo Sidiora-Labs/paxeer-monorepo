@@ -11,6 +11,7 @@ import (
 
 // InitGenesis initializes the interchain accounts controller application state from a provided genesis state
 func InitGenesis(ctx sdk.Context, keeper Keeper, state icatypes.ControllerGenesisState) {
+	store := ctx.KVStore(keeper.storeKey)
 	for _, portID := range state.Ports {
 		if !keeper.IsBound(ctx, portID) {
 			cap := keeper.BindPort(ctx, portID)
@@ -18,6 +19,9 @@ func InitGenesis(ctx sdk.Context, keeper Keeper, state icatypes.ControllerGenesi
 				panic(fmt.Sprintf("could not claim port capability: %v", err))
 			}
 		}
+		// Capability genesis may have restored the binding before this module.
+		// Restore the controller's port inventory for subsequent exports too.
+		store.Set(icatypes.KeyPort(portID), []byte{0x01})
 	}
 
 	for _, ch := range state.ActiveChannels {

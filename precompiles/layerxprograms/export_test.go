@@ -27,6 +27,7 @@ var (
 	CheckCall                  = checkCall
 	ErrGateUnknownMethod       = errGateUnknownMethod
 	DecodeArgs                 = decodeArgs
+	DecodeFeeScheduleRecord    = decodeFeeScheduleRecord
 	ConfigureXWeb              = configureXWeb
 )
 
