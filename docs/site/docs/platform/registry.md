@@ -1,227 +1,220 @@
 # Hosted program registry
 
-`layerx-program-registry` answers the developer CLI's registry routes from durable local evidence only: reads are re-verified against the canonical deployment journal, and verified-source status is produced by rebuilding published source in a pinned toolchain environment (`services/platform/hosted/registry/src/lib.rs:1-4`; `services/platform/hosted/registry/Cargo.toml:12-14`; `services/platform/hosted/registry/src/main.rs:1`). The crate is `layerx-platform-registry` (`services/platform/hosted/registry/Cargo.toml:1-2`). The graph anchor is `receipt-verified-program-registry-v1` (`services/platform/hosted/registry/src/lib.rs:70-74`). The image is `ghcr.io/sidiora-labs/layerx-program-registry:0.1.0`, UID/GID `4030`, command `layerx-program-registry` (`docker/platform-registry/Dockerfile:5-12`; `services/platform/hosted/registry/deployment.yaml:12, 14-17`). A second binary, `layerx-cgroup-exec`, supervises one isolated build process tree (`services/platform/hosted/registry/Cargo.toml:16-18`; `services/platform/hosted/registry/src/bin/layerx-cgroup-exec.rs:1`).
+`layerx-program-registry` is the hosted program catalog and source-rebuild service (crate `layerx-platform-registry`). It derives deployment, version, lifecycle, interface and source-verification information from protocol evidence; local files alone do not authorize a current read. Its implementation is in `services/platform/hosted/registry/src/`.
 
-It registers protocol-verified program deployments, upgrades, lifecycle, value-account bindings, published interfaces, operator-mirrored source, and rebuild verdicts. It does not ingest caller-supplied deployment proofs: `POST /__registry/deployments` is a fixed `503` `deployment_proof_unavailable` (`services/platform/hosted/registry/src/routes.rs:3-9, 227, 1015-1020`).
+Paxeer mainnet-beta is one BFT network, with the kernel participating in block proposal. A receipt is final when its block commits. Registration and recovery must refer to that committed chain state. The separate receipt-authority topology is retired; it is not an additional finality requirement. Some hosted configuration and replay code still retain that topology, as detailed under [implementation limits](#facts-the-sources-disagree-on-or-leave-unset).
 
-The in-cluster Service is `layerx-program-registry` in `layerx-testnet` on TCP `9420` (`services/platform/hosted/registry/deployment.yaml:76-79`). Callers that name that URL are the gateway (`services/platform/hosted/gateway/deployment.yaml:84-85`; `services/platform/hosted/gateway/src/main.rs:602-605, 1687-1707, 393-411, 2576-2582`) and testnet-control (`services/platform/hosted/testnet/deployment.yaml:95`; `services/platform/hosted/testnet/src/main.rs:843-846, 1102`). Ingress NetworkPolicy admits `app: layerx-gateway`, `app: layerx-testnet-control`, and `layerx-role: source-publication-operator` on `9420` (`services/platform/hosted/registry/deployment.yaml:87-91`). Egress NetworkPolicy admits `layerx-plane: trusted-boundary` on TCP `9445` and `9446`, plus DNS `53` (`services/platform/hosted/registry/deployment.yaml:92-96`). The node ingress policy admits the registry pod on those same container ports (`services/platform/hosted/node/deployment.yaml:274-275`). The registry env URLs use Service port `9443` on `layerx-agent-boundary` and `layerx-receipt-authority` (`services/platform/hosted/registry/deployment.yaml:43-45`; `services/platform/hosted/node/deployment.yaml:255-261`). Those Services map `9443` to container ports `9446` and `9445` (`services/platform/hosted/node/deployment.yaml:181, 210, 255-261`).
+The public EVM JSON-RPC uses chain id **125** (`0x7d`) and the root HTTPS path of `api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`, or `api-mainnet-beta.paxeer.network`. See [Public RPC](../reference/public-rpc.md). Registry HTTP routes are hosted service routes, not extra public node namespaces. Sub-chains are tenant domains in the database; registering a program does not provision another chain.
 
-`platform-hosted-topology-check` loads `services/platform/hosted/registry/deployment.yaml` among its default manifests (`services/platform/hosted/tests/topology-check.sh:17-24, 81-88`; `services/platform/Makefile.inc:177-178`). Beta-cluster apply order is control, then gateway, then registry, then developer (`services/platform/hosted/tests/beta-cluster.sh:825, 859-863`). The StatefulSet selects nodes labelled `layerx.io/program-registry-boundary=v2` (`services/platform/hosted/registry/deployment.yaml:11`; `services/platform/hosted/tests/beta-cluster.sh:87, 323`).
+The checked-in StatefulSet and Service are named `layerx-program-registry` in `layerx-testnet`. The Service exposes the mTLS registry listener on port **9420**. A separate pod port **9421** serves readiness. The StatefulSet selects `layerx.io/program-registry-boundary=v2` nodes and requires colocation with `app: layerx-node`. Ingress to 9420 admits the gateway, testnet-control and pods labelled `layerx-role: source-publication-operator` (`services/platform/hosted/registry/deployment.yaml`). The manifest is deployment material with the limitations below, not proof that a public deployment is available.
 
 ---
 
 ## Identity and credentials
 
-TLS is mandatory mTLS. The server loads a DER certificate, a process-group-private DER private key, and a client CA, then builds `WebPkiClientVerifier` (`services/platform/hosted/registry/src/main.rs:199-226`). HTTP without a client certificate does not complete the handshake.
+The registry listener requires mTLS. `tls_config()` loads DER server certificate, private key and client CA files, and uses `WebPkiClientVerifier`; a connection without an accepted client certificate cannot complete the TLS handshake (`src/main.rs`).
 
-Two bearer planes are distinct (`services/platform/hosted/registry/src/auth.rs:1, 7-12`; `services/platform/hosted/registry/src/main.rs:236-242`):
+Two different bearer credentials protect the HTTP routes:
 
-| Plane | Config | HTTP use |
+| Plane | Configuration | HTTP use |
 | --- | --- | --- |
-| Request | `LAYERX_REGISTRY_REQUEST_TOKEN_FILE` | Every path except `GET /healthz` and `/__registry/sources` (`services/platform/hosted/registry/src/main.rs:726-732`; `services/platform/hosted/registry/src/routes.rs:177-202`) |
-| Publication | `LAYERX_REGISTRY_PUBLICATION_TOKEN_FILE` | `/__registry/sources` (`services/platform/hosted/registry/src/main.rs:729-730`; `services/platform/hosted/registry/src/routes.rs:179-190, 792-794`) |
+| Request | `LAYERX_REGISTRY_REQUEST_TOKEN_FILE` | Registry reads, deployment/head admission, source verification and metrics |
+| Publication | `LAYERX_REGISTRY_PUBLICATION_TOKEN_FILE` | Source archive publication at `/__registry/sources` |
 
-`RegistryAuthority::new` hashes a 1–4096 byte secret with no ASCII controls and retains only SHA-256 (`services/platform/hosted/registry/src/auth.rs:44-58`). `verifies` accepts only the exact prefix `Bearer ` (capital B), hashes the remainder, and compares in constant time (`services/platform/hosted/registry/src/auth.rs:60-76`). Absent, wrong, lowercase `bearer`, and extra-token headers fail (`services/platform/hosted/registry/src/auth.rs:20-28`). Token files must be canonical absolute regular files, size ≤ 4098 bytes, Unix mode without world bits, and `nlink == 1` (`services/platform/hosted/registry/src/main.rs:133-162`). Request and publication authorities that hash equal are refused at process start (`services/platform/hosted/registry/src/main.rs:240-242`).
+`GET /healthz` needs no bearer. It still needs mTLS on 9420; the readiness listener on 9421 uses plain HTTP without credentials and serves only that path. Do not expose the readiness port as a registry API.
 
-The gateway mounts Secret `layerx-program-registry-request-client` as `LAYERX_GATEWAY_PROGRAM_REGISTRY_TOKEN_FILE` (`services/platform/hosted/gateway/deployment.yaml:85, 107, 118`). Publication uses Secret `layerx-program-registry-publication-operator` (`services/platform/hosted/registry/deployment.yaml:23, 55, 65`).
+`RegistryAuthority` accepts the exact `Bearer ` scheme, hashes the secret with SHA-256 and compares in constant time. Secrets must contain 1–4096 bytes without ASCII controls; equal request and publication authorities are refused at startup. Secret files must be canonical absolute regular files with a single hard link and no world permission bits (`src/auth.rs`, `read_private_file` and `read_secret` in `src/main.rs`).
 
-Node and receipt-authority credentials are environment strings, not token files: `LAYERX_REGISTRY_NODE_AUTHORIZATION` and `LAYERX_REGISTRY_RECEIPT_AUTHORITY_AUTHORIZATION` (`services/platform/hosted/registry/src/main.rs:293-302`; `services/platform/hosted/registry/deployment.yaml:43-46`). `NodeProgramStateSource::connect` refuses empty authorizations, a zero replica id, non-HTTPS non-loopback URLs, and identical node and authority endpoints (`services/platform/hosted/registry/src/node_state.rs:64-80`). Outbound GETs send `Authorization: Bearer {authorization}` (`services/platform/hosted/registry/src/node_state.rs:278-298`). The node mounts those same secrets as `LAYERX_AGENT_BOUNDARY_REGISTRY_TOKEN_FILE` and `LAYERX_AUTHORITY_TOKEN_FILES` (`services/platform/hosted/node/deployment.yaml:174, 191, 205, 221, 235, 238`).
+Publication and source verification also resolve the `LayerX-Key` header through the principal identity client configured by `LAYERX_REGISTRY_IDENTITY_*`. The listener bearer alone does not establish the publication principal (`publication_principal` in `src/routes.rs`). The identity transport uses `LAYERX_REGISTRY_IDENTITY_URL`, `LAYERX_REGISTRY_IDENTITY_CA_DER`, `LAYERX_REGISTRY_IDENTITY_TOKEN_FILE`, `LAYERX_REGISTRY_IDENTITY_CLIENT_IDENTITY_PKCS12` and `LAYERX_REGISTRY_IDENTITY_CLIENT_IDENTITY_PASSWORD_FILE` in the deployment.
 
-The HTTP listener checks bearer before the worker (`services/platform/hosted/registry/src/main.rs:726-735`). `Registrar::route` checks again (`services/platform/hosted/registry/src/routes.rs:177-202`). For `/__registry/sources` the listener refuses a missing publication bearer as `401` `authentication_required` (`services/platform/hosted/registry/src/main.rs:729-735`); `Registrar::route` would refuse the same case as `403` `publication_authority_required` (`services/platform/hosted/registry/src/routes.rs:179-188`). Clients of the binary observe the listener code.
+The listener rejects invalid bearer credentials with `401 authentication_required` before starting a request worker. Direct calls to `Registrar::route` distinguish missing publication authority as `403 publication_authority_required`; clients of the binary see the listener's authentication response first.
 
 ---
 
 ## Routes
 
-HTTP/1.1 only. Query strings are stripped. `Transfer-Encoding` is refused. Duplicate headers are refused. POST/PUT/PATCH require `Content-Length`. Bound is 32 MiB (`services/platform/hosted/registry/src/http.rs:8, 16-112`). Responses are `Content-Type: application/json`, `Cache-Control: no-store`, `Connection: close` (`services/platform/hosted/registry/src/http.rs:119-140`).
+The listener parses bounded HTTP/1.1 requests, strips query strings, refuses duplicate headers and `Transfer-Encoding`, and requires `Content-Length` for POST/PUT/PATCH. Headers plus body are bounded to **32 MiB**. Responses use JSON, `Cache-Control: no-store` and `Connection: close` (`src/http.rs`).
 
-Each accepted connection is served on a worker that re-opens `Registrar` (`services/platform/hosted/registry/src/main.rs:471-489, 536-547, 763`). The parent serializes workers on `registrar_gate` (`services/platform/hosted/registry/src/main.rs:46, 749-763`).
-
-| Method | Path | Auth | Result |
+| Method | Path | Authority | Result |
 | --- | --- | --- | --- |
-| GET | `/healthz` | mTLS only | `200` `{"status":"ready","service":"program-registry"}` (`services/platform/hosted/registry/src/routes.rs:223-226`) |
-| POST | `/__registry/deployments` | request | `503` `deployment_proof_unavailable` (`services/platform/hosted/registry/src/routes.rs:227, 1015-1020`) |
-| POST | `/__registry/head` | request | Refresh journal observed head from the independently verified current protocol head (`services/platform/hosted/registry/src/routes.rs:228, 720-743`) |
-| POST | `/__registry/sources` | publication | Publish archive + plan + URI into the source mirror (`services/platform/hosted/registry/src/routes.rs:229, 745-789`) |
-| GET | `/v1/programs/registry/{program_id}` | request | Receipt-verified registry read (`services/platform/hosted/registry/src/routes.rs:350-355, 371-397`) |
-| GET | `/v1/programs/registry/{program_id}/interface` | request | Published interface bound to the current verified version (`services/platform/hosted/registry/src/routes.rs:356-357, 476-559`) |
-| POST | `/v1/programs/registry/{program_id}/source` | request | Rebuild mirrored source and compare to the registered code hash (`services/platform/hosted/registry/src/routes.rs:359-360, 561-610`) |
+| GET | `/healthz` | No bearer | Serving readiness; success is `{"status":"ready","service":"program-registry"}` |
+| GET | `/metrics` | Request | Listener-owned event producer counters |
+| POST | `/__registry/deployments` | Request | Resolve a transaction hash against committed Programs state and journal the deployment |
+| POST | `/__registry/head` | Request | Refresh the observed head from native program state for a supplied program id |
+| POST | `/__registry/sources` | Publication + principal | Mirror a source archive with its pinned build plan |
+| GET | `/v1/programs/registry` | Request | Current receipt-verified catalog of program ids |
+| GET | `/v1/programs/registry/{program_id}` | Request | Verified program record and current account evidence |
+| GET | `/v1/programs/registry/{program_id}/interface` | Request | Published interface bound to the current deployment and head |
+| POST | `/v1/programs/registry/{program_id}/source` | Request + principal | Rebuild mirrored source and compare it with the current deployment |
 
-`program_id` is thirty-two hexadecimal-encoded bytes (`services/platform/hosted/registry/src/routes.rs:997-1001, 372-377`). Other methods on the fixed paths are `405` `method_not_allowed`. Unknown paths are `404` `not_found` (`services/platform/hosted/registry/src/routes.rs:230-237, 351-367`).
+Program ids in route segments are 32 bytes encoded as hexadecimal. Wrong methods on known routes return `405 method_not_allowed`; unknown routes return `404 not_found`. Implementations are `route_request` in `src/main.rs` and `authorized_route`/`program_route` in `src/routes.rs`. See also the [developer CLI](cli.md).
 
-Gateway production routes that proxy these reads are `GET /v1/programs/registry/{program_id}` and `GET /v1/programs/registry/{program_id}/interface` (`services/platform/hosted/gateway/src/lib.rs:793-794, 849-851`). The gateway requires `receipt/verification` equal to `receipt-verified` (`services/platform/hosted/gateway/src/main.rs:423-429`).
+### Deployment and head admission
+
+Set `LAYERX_REGISTRY_CHAIN_RPC_URL` to a trusted merged-node JSON-RPC endpoint at its root path. `ProgramsChain::new` accepts HTTPS, or HTTP on loopback, and refuses redirects. Reads have a 15-second bound within the request deadline (`src/programs_chain.rs`). This client does not itself query `eth_chainId`; select a node on chain 125.
+
+`POST /__registry/deployments` accepts either exactly 32 raw transaction-hash bytes or JSON containing only `transaction_hash` (64 hexadecimal digits, optionally prefixed with `0x`). It does not accept caller-asserted deployment records or proof blobs. The handler:
+
+1. Reads `eth_getTransactionReceipt` and requires a successful receipt with the matching transaction hash, nonzero block hash and nonzero block number.
+2. Requires one unambiguous `ProgramDeployed(bytes32,bytes32)` event from Programs at **`0x000000000000000000000000000000000000101d`**, with consistent transaction/block identities and nonzero program and code hashes.
+3. Calls `getProgram(bytes32)` at that block hash using `requireCanonical: true`. It checks policy, authority, ABI/version, active state and code hash against the event.
+4. Persists the admitted record before returning `200`, including `transaction_hash`, `program_id`, `code_hash`, `abi_version`, `version`, `policy`, `authority`, `block_hash`, `block_number` and `state: deployed`.
+
+These are RPC receipt and canonical-state checks; this admission helper does not independently verify a validator commit proof. Full stored-evidence replay has additional verification requirements below. A successful admission response alone does not establish that the hosted catalog can serve that program.
+
+`POST /__registry/head` accepts JSON containing only `program_id`, with the same optional `0x` prefix. `ProgramsChain::head` obtains a nonzero `eth_blockNumber`, reads that block and its timestamp, and calls `getProgram(bytes32)` and `getStateHead(bytes32)` at the selected height. It checks the ABI encodings and derives `state_root` as Keccak-256 of the returned state-head bytes. This root is the handler's program-state digest, not the block's application root. The timestamp is converted from seconds to milliseconds; caller-supplied sequence/time/root claims are not accepted (`route_chain_head` and `refresh_head` in `src/routes.rs`).
 
 ---
 
 ## Record contracts
 
-| Record | Where stored / served | Fields |
+| Record | Location or response | Contract |
 | --- | --- | --- |
-| Deployment envelope | `{journal}/{receipt_digest}.envelope` | Domain `LayerX/deployment-envelope/v1\0`, framed canonical `DeploymentRecord`, framed canonical `DeploymentProof`, SHA-256 seal over both frames (`services/platform/hosted/registry/src/journal.rs:17-27, 89-97, 115-127`). Filed under the proof's claimed receipt digest (`services/platform/hosted/registry/src/journal.rs:53-66, 68-72`). |
-| Legacy two-file unit | `{digest}.deployment` + `{digest}.admission` | Loaded when both files exist and no envelope is present (`services/platform/hosted/registry/src/journal.rs:672-695, 729-740`). |
-| Observed head | `{journal}/head` | `{sequence}\t{observed_at}\n`. Sequence and observed_at must be non-zero (`services/platform/hosted/registry/src/journal.rs:599-615, 749-764`). |
-| Program-state cache | `{journal}/program-state/{program}.{digest}.program-state` | Canonical `ProtocolProgramStateRead` bytes. Filename digest must match SHA-256 of the bytes (`services/platform/hosted/registry/src/program_state.rs:11-12, 31-42, 134-141, 48-83`). |
-| Program-state cursor | `{journal}/program-state/canonical.cursor` | `{sequence}\t{ordinal}\n`. Advance refuses non-zero ordinal and regression (`services/platform/hosted/registry/src/program_state.rs:12, 86-132`). |
-| Mirrored source | `{mirror}/{digest}.archive`, `.plan`, `.uri` | Archive bytes, `BuildPlan` encoding, URI. Digest is SHA-256 of the encoded archive. URI length 1–512 with no control or whitespace (`services/platform/hosted/registry/src/mirror.rs:17-20, 87-107, 116-151`). |
-| Completed rebuild | `{verified}/{program}-{version}.verified` | JSON `program`, `version`, `source_uri`, `source_digest`, `artifact_digest`, `plan` (`services/platform/hosted/registry/src/verified.rs:19-28, 53-69`). Replay never asserts a verdict by itself; the digest is compared again to registered protocol state (`services/platform/hosted/registry/src/verified.rs:1-7`; `services/platform/hosted/registry/src/routes.rs:696-710`). |
-| Registry read body | GET program | `program_id`, `upgrade_policy` (`immutable` or `upgradeable`+`authority`), `lifecycle` (`active`/`deprecated`/`tombstoned`), `state_root`, `observed_sequence`, `observed_at`, `valid_through`, `latest_version`, `versions[]` (`version`, `code_hash`, `abi_version`, `deployment_receipt_digest`, `source`), `lifecycle_history[]`, `exit_routes[]`, `value_accounts`, `receipt` (`deployment_receipt_digest`, `observed_sequence`, `observed_at`, `verification`: `receipt-verified`) (`services/platform/hosted/registry/src/routes.rs:853-927, 929-995`). ABI 1 with empty value accounts sets `value_accounts.status` to `account-incapable-abi1`. ABI 2 attaches receipt-proven balances with `verification`: `account-primary-and-state-proof-verified`. |
-| Interface body | GET interface | `program_id`, `version`, `code_hash`, `abi_version`, `interface` (hex of canonical encoding), `interface_digest`, `deployment_receipt_digest`, `state_root`, `observed_sequence`, `observed_at`, `valid_through`, `source`, `verification`: `deployment-interface-and-current-head-verified` (`services/platform/hosted/registry/src/routes.rs:540-558`). |
-| Source publish body | POST `/__registry/sources` | Request JSON `source_uri`, `plan`, `archive_hex`. Response `mirrored`, `source_uri`, `source_digest` (`services/platform/hosted/registry/src/routes.rs:745-786`). |
-| Source verify request | POST `…/source` | JSON `source_uri`, `source_digest` (32-byte hex). Header `Idempotency-Key` 16–128 ASCII alnum, `-`, `_` (`services/platform/hosted/registry/src/routes.rs:569-588, 1023-1028, 1003-1008`). |
-| Source verify success | `200` | `program_id`, `version`, `source_uri`, `source_digest`, `environment_digest`, `reproduced_artifact_digest`, `source`, `pipeline` (`services/platform/hosted/registry/src/routes.rs:816-837`). |
-| Source mismatch | `409` | Refusal envelope plus `verification` object (`services/platform/hosted/registry/src/routes.rs:838-850`). |
-| Head ingest body | POST `/__registry/head` | `observed`, `sequence`, `observed_at`, `receipt_digest`, `state_root` (`services/platform/hosted/registry/src/routes.rs:730-739`). |
-| Source status | nested `source` | `unpublished`; `verified` with `source_digest`/`environment_digest`/`pipeline`; `mismatch` with `expected_code_hash`/`reproduced_artifact_digest` (`services/platform/hosted/registry/src/routes.rs:939-960`). |
+| Admitted chain deployment | `{journal}/chain-deployments/{transaction_hash}.json` | `ChainDeployment`: transaction/block hashes, block number, program/code hashes, ABI/version, policy, authority and active state. A repeated transaction must match the stored record. |
+| Deployment envelope | `{journal}/{receipt_digest}.envelope` | Domain `LayerX/deployment-envelope/v1\0`, framed canonical deployment record and proof, SHA-256 seal over both frames. |
+| Legacy deployment unit | `{digest}.deployment` + `{digest}.admission` | Both halves are needed when no envelope exists. |
+| Observed head | `{journal}/head` | Nonzero sequence and millisecond observation time, tab-separated. |
+| Native program-state cache | `{journal}/program-state/{program}.{digest}.program-state` | Canonical native storage-head bytes from `getStateHead(bytes32)`; filename digest is SHA-256 of those bytes. Cached bytes are not read authority. |
+| Scan cursor | `{journal}/program-state/canonical.cursor` | Tab-separated sequence/ordinal; advancing refuses nonzero ordinal and regression. |
+| Mirrored source | `{mirror}/{digest}.archive`, `.plan`, `.uri` | Encoded source archive, `BuildPlan`, and URI; digest is SHA-256 of the encoded archive. |
+| Completed rebuild | `{verified}/{program}-{version}.verified` | Program/version, source URI/digest, artifact digest, plan and deployment provenance. |
+| Verification request | `{journal}/verification-requests/` | Versioned durable request identity, request/integrity digests, attempt, phase, timestamps and retained response/publication data. |
 
-Refusal envelope (except source-mismatch, which adds `verification`): `{"error":{"code","retry":"never","detail"}}` (`services/platform/hosted/registry/src/routes.rs:796-803`).
+Sources: `src/programs_chain.rs`, `src/journal.rs`, `src/program_state.rs`, `src/mirror.rs` and `src/verified.rs`.
+
+Catalog reads include `program_ids`, `state_root`, `observed_sequence`, `observed_at`, `valid_through` and `verification: registry-receipt-and-current-head-verified`. Program reads include upgrade policy, lifecycle, versions, lifecycle history, exit routes, value accounts and `receipt.verification: receipt-verified`. Version entries add deployment provenance when available. Interface responses include canonical interface bytes as hex, interface digest, code hash, ABI/version, deployment receipt digest, current head/freshness fields and `verification: deployment-interface-and-current-head-verified` (`src/routes.rs`). Consumers must use these producer field names; a response label by itself is not a cryptographic proof.
+
+Source publication takes JSON `source_uri`, `plan` (encoded build-plan string) and `archive_hex`, returning `mirrored`, `source_uri` and `source_digest`. Verification takes only `source_uri` and `source_digest` (32-byte hex), plus an `Idempotency-Key` of 16–128 ASCII letters, digits, `-` or `_`. Success returns deployment identity/provenance, source and environment digests, reproduced artifact digest, source status and pipeline. A mismatch is `409 source_mismatch` with the verification outcome attached, never a verified verdict.
 
 ---
 
 ## Storage and durability
 
-`LAYERX_REGISTRY_STATE` defaults to `/var/lib/layerx-program-registry` (`services/platform/hosted/registry/src/main.rs:26, 233`). Under that root: `journal`, `sources`, `verified`, `builds` unless overridden (`services/platform/hosted/registry/src/main.rs:249-252`). The StatefulSet mounts a 100Gi RWO PVC at `/var/lib/layerx-program-registry` (`services/platform/hosted/registry/deployment.yaml:21, 53, 72-74`).
+The default state root is `/var/lib/layerx-program-registry`, with `journal`, `sources`, `verified` and `builds` subdirectories unless overridden. The deployment overrides the journal to `/var/lib/layerx-registry-journal`, mounted from PVC `layerx-registry-journal`; the registry state claim requests 100Gi RWO, and builds use quota-backed host storage (`deployment.yaml`). Preserve these separate mounts across a restart.
 
-`write_atomic` writes `{name}.tmp`, `sync_all`, then `rename` (`services/platform/hosted/registry/src/lib.rs:76-94`). Envelope publication also `sync_all`s the journal directory after rename (`services/platform/hosted/registry/src/journal.rs:506-538`). The seven write steps are create-temporary, write-record, write-proof, write-seal, sync-temporary, commit, sync-directory (`services/platform/hosted/registry/src/journal.rs:284-307`). A crash before commit leaves an incomplete unit; `load` quarantines it with a typed `UnitDefect` and still loads complete units (`services/platform/hosted/registry/src/journal.rs:378-380, 650-721`). `proofs()` refuses a journal whose committed projections and admission proofs are not the same set (`services/platform/hosted/registry/src/journal.rs:459-463`).
+`write_atomic` writes a temporary file, syncs it and renames it. Envelope publication additionally syncs the journal directory. The seven envelope write steps are create-temporary, write-record, write-proof, write-seal, sync-temporary, commit and sync-directory. Startup quarantines incomplete, corrupt or misfiled units with typed reports while retaining complete units. Journal proof and projection sets must agree (`src/lib.rs`, `src/journal.rs`).
 
-Program-state `audit` hash-checks cache filenames. It does not construct a verified read; restart publication requires a fresh node receipt/head resolution (`services/platform/hosted/registry/src/program_state.rs:45-47, 48-83`). `Registrar::open` rebuilds the projection from the journal and stored rebuilds, then `synchronize_protocol_state` (`services/platform/hosted/registry/src/routes.rs:85-146, 680-717`). Synchronization pages node change notices (max 1024 pages, 4096 records per page), independently verifies the current head against the receipt authority, restores ABI-2 program state through `ProtocolProgramStateRead::restore_verified`, persists, then advances the cursor (`services/platform/hosted/registry/src/routes.rs:251-348`; `services/platform/hosted/registry/src/node_state.rs:15, 177-264, 314-392`). ABI 1 with empty value accounts is skipped (`services/platform/hosted/registry/src/routes.rs:313-315`). Other ABI values are refused (`services/platform/hosted/registry/src/routes.rs:316-318`).
+`Registrar::rebuild` re-verifies stored deployment proofs, audits their projections, reconstructs version/interface history and replays completed source-verification records only when deployment provenance, code digest and pinned mirrored build plan agree. It audits the native state-cache filenames and clears in-memory head/balance authority. A restart must obtain fresh chain evidence before publishing current reads; retained files and a previous `ready` response do not suffice.
 
-Build workspaces remain hostPath quota slots at `/var/lib/layerx-program-registry-builds`. The node oneshot provisions and checks ext4 quota slots through systemd-mount, with no cgroup delegation. The registry mounts `/sys/fs/cgroup/kubelet.slice` read-write at `/run/layerx/host-cgroup` and requires `LAYERX_REGISTRY_HOST_CGROUP_MOUNT`. Startup requires UID 0 with only CHOWN, SETUID and SETGID, finds its namespace root C by device/inode equality with `/sys/fs/cgroup` in a depth-eight walk, refuses duplicate matches, and confirms its PID in C. Discovery descends only into root-owned directories, logs each excluded non-root owner UID once at debug level, treats unreadable root-owned directories as fatal, and never descends into the matched C. It requires cpu, memory, pids and io, moves to `C/main`, enables controllers in C and `C/workers`, and delegates C's cgroup.procs plus the workers directory and its procs, threads and subtree-control files to 4030:4030. Before any secret, token, journal or listener, it disables keepcaps, sets supplementary groups and all saved/real/effective GIDs and UIDs to 4030, checks all four identity columns and zero CapEff/CapPrm/CapInh, and requires root restoration to fail with EPERM. State files are created after this drop. Worker and build cgroups live inside `C/workers/request-<pid>-<ts>/{worker,builds}`. Enabling controllers in C makes the kernel refuse new direct member processes: `kubectl exec` is refused by design, and readiness remains a `tcpSocket` probe. `HermeticBuilder` refuses a cgroup not owned by 4030:4030, missing controllers, or zero mounted quota slots (`services/platform/hosted/registry/src/builder.rs:380-421`). Each rebuild runs `layerx-cgroup-exec` then `bwrap --unshare-all --disable-userns --cap-drop ALL --ro-bind` of the pinned environment, no network, `CARGO_NET_OFFLINE=true` (`services/platform/hosted/registry/src/builder.rs:274-338`). Artifact open uses `openat2` with `ResolveFlags::BENEATH` (`services/platform/hosted/registry/src/builder.rs:698-713`). Artifact bound is 32 MiB (`services/platform/hosted/registry/src/builder.rs:25`).
+Synchronization scans program changes within 1024 pages (up to 4096 notices per page), resolves affected programs at the current verified head, stores native state via `eth_call`, restores account evidence, then advances the cursor and observed head. Head verification checks commitment/header evidence against retained chain trust, transaction inclusion and freshness; claimed receipt digest, state root, height and time must match the verified evidence (`src/node_state.rs`, `src/head_attestation.rs`, `src/routes.rs`). The remaining independent-authority comparison is an implementation limitation described below.
 
-The in-memory idempotency map is constructed empty at each `Registrar::open` (`services/platform/hosted/registry/src/routes.rs:80, 140, 652-677`). Workers are one process per request (`services/platform/hosted/registry/src/main.rs:536-547, 471-489`). `503` responses are not stored even inside one worker (`services/platform/hosted/registry/src/routes.rs:605-608`).
+ABI support is path-specific. Account synchronization skips ABI 1 only when it has no value accounts, restores ABI 2 through the original account protocol, and restores ABI 3/4 through account profile 2. Other ABIs are refused. Stored source-verification provenance and source-deployment selection accept ABI 1–4. The chain-deployment RPC decoder accepts a nonzero ABI value, so admission does **not** imply ABI 5 support throughout hosted reads, restart replay or source verification (`src/routes.rs`, `src/verified.rs`, `src/programs_chain.rs`).
+
+Known programs are synchronized before serving current reads. Stale or unavailable head/account evidence yields a typed refusal rather than stale cached success. An empty registry may open before the first protocol head only for the narrowly recognized pending answer (`503` with exactly `{"error":-903}`); reads still need a verified head. This exception does not hide authentication, malformed-proof or transport failures (`current_head_or_pending` in `src/node_state.rs`).
+
+### Isolated rebuilds
+
+Build workspaces use ext4 quota slots under `/var/lib/layerx-program-registry-builds`, mounted at `/run/layerx/quota` in the deployment. The node oneshot provisions/checks these slots; it does not delegate cgroups. The registry receives the host cgroup mount, starts with only CHOWN/SETUID/SETGID capabilities, discovers its container cgroup, enables cpu/memory/pids/io controllers, delegates worker control and irrevocably drops to UID/GID 4030 before opening secrets, state or listeners (`src/main.rs`, `node-provision-build-boundary.sh`).
+
+Workers and their builds live beneath the delegated workers subtree. Each rebuild uses `layerx-cgroup-exec` and `bwrap --unshare-all --disable-userns --cap-drop ALL` with a read-only pinned environment, no network and `CARGO_NET_OFFLINE=true`. Artifact access uses `openat2` with `ResolveFlags::BENEATH`, and artifact size is bounded to 32 MiB. The builder refuses missing controllers, incorrect ownership, missing quota slots or changed pinned execution material (`src/builder.rs`). Enabling controllers prevents new direct processes in the container root, so `kubectl exec` and exec-based probes are unsuitable.
+
+### Source verification across restart
+
+Idempotency is durable, not an in-memory worker cache. The request journal scopes keys to the resolved principal and program and binds the request digest to the deployment and requested source. An advisory lease serializes workers. Identical completed requests replay the retained response; a changed request under the same identity returns `409 idempotency_conflict`.
+
+The phases are `building`, `retryable`, `artifact`, `persisted` and `completed`. A crashed builder can be retried after its lease is released. Completed artifact work and pending event publication can resume without treating an incomplete publication as acknowledged success. Reconciliation preserves defective/interrupted records as evidence. `503` outcomes remain retryable. Retention is bounded to 4096 request identities; live identities are not evicted to make room (`src/verified.rs`, `verify`, `persist_artifact` and `publish` in `src/routes.rs`).
 
 ---
 
 ## Typed refusals
 
-| HTTP | Code | When |
-| --- | --- | --- |
-| 400 | `invalid_request` | HTTP framing failed (`services/platform/hosted/registry/src/main.rs:723-724`) |
-| 400 | `invalid_argument` | Bad program id, idempotency key charset/length, source body, source publish body, or head sequence/time (`services/platform/hosted/registry/src/routes.rs:372-377, 576-588, 741, 746-768, 787`) |
-| 400 | `idempotency_key_required` | POST source without `Idempotency-Key` (`services/platform/hosted/registry/src/routes.rs:569-574`) |
-| 401 | `authentication_required` | Listener: missing/wrong bearer (`services/platform/hosted/registry/src/main.rs:734-735`). `Registrar::route`: missing/wrong request bearer (`services/platform/hosted/registry/src/routes.rs:192-200`) |
-| 403 | `publication_authority_required` | `Registrar::route` on `/__registry/sources` without publication bearer (`services/platform/hosted/registry/src/routes.rs:179-188`) |
-| 404 | `not_found` | Unknown route or unregistered program (`services/platform/hosted/registry/src/routes.rs:351-352, 379-380, 613-616`) |
-| 404 | `interface_absent` | No published interface for the current version (`services/platform/hosted/registry/src/routes.rs:507-512`) |
-| 404 | `source_not_mirrored` | Mirror has no archive for that digest (`services/platform/hosted/registry/src/routes.rs:619-621`; `services/platform/hosted/registry/src/mirror.rs:32-33, 118-120`) |
-| 405 | `method_not_allowed` | Wrong method on a known path (`services/platform/hosted/registry/src/routes.rs:230-237, 362-366`) |
-| 409 | `idempotency_conflict` | Same scoped key, different request digest (`services/platform/hosted/registry/src/routes.rs:592-598`) |
-| 409 | `source_mismatch` | Rebuilt artifact does not hash to the registered code hash (`services/platform/hosted/registry/src/routes.rs:838-850`) |
-| 422 | `source_unverifiable` | Mirror URI/digest/plan refusal, or other `BuildRefusal` (`services/platform/hosted/registry/src/routes.rs:622, 805-813`; `services/platform/hosted/registry/src/mirror.rs:32-38`) |
-| 422 | `build_failed` | `BuildRefusal::BuilderFailed` (`services/platform/hosted/registry/src/routes.rs:808`) |
-| 422 | `build_not_reproducible` | `BuildRefusal::NondeterministicBuild` (`services/platform/hosted/registry/src/routes.rs:809-811`) |
-| 502 | `unverified_read` | `Registry::read` error other than unknown/stale (`services/platform/hosted/registry/src/routes.rs:395, 502`) |
-| 502 | `balance_protocol_unsupported` | Value accounts without ABI 2 (`services/platform/hosted/registry/src/routes.rs:428-433`) |
-| 502 | `balance_registry_mismatch` | Balance proof program/lifecycle/bindings disagree with the registry record (`services/platform/hosted/registry/src/routes.rs:460-468`) |
-| 502 | `interface_registry_mismatch` | Interface code hash or ABI disagrees with the current version (`services/platform/hosted/registry/src/routes.rs:514-521`) |
-| 503 | `deployment_proof_unavailable` | Deployment ingress (`services/platform/hosted/registry/src/routes.rs:1015-1020`) |
-| 503 | `request_deadline_exceeded` | Absolute request timeout (`services/platform/hosted/registry/src/main.rs:497-501, 766-771`; `services/platform/hosted/registry/src/routes.rs:157-162, 205-210`) |
-| 503 | `worker_unavailable` | Isolated worker IPC/cgroup/start/attach/status (`services/platform/hosted/registry/src/main.rs:509-661`) |
-| 503 | `build_queue_full` | Concurrent POST `…/source` at `max_builds` (`services/platform/hosted/registry/src/main.rs:737-743`) |
-| 503 | `registry_unavailable` | Poisoned `registrar_gate` (`services/platform/hosted/registry/src/main.rs:752-753`) |
-| 503 | `builder_unavailable` | Deadline lock or `BuildRefusal::SandboxUnavailable` (`services/platform/hosted/registry/src/routes.rs:166-175, 807`) |
-| 503 | `protocol_state_unavailable` | Node/authority sync or current-head fetch failed (`services/platform/hosted/registry/src/routes.rs:382-383, 720-723`) |
-| 503 | `read_unverifiable` | `JournalReadAuthority` refused (`services/platform/hosted/registry/src/routes.rs:385-387`) |
-| 503 | `stale_read` | `RegistryError::StaleRead` or head outside freshness (`services/platform/hosted/registry/src/routes.rs:394, 407-415`) |
-| 503 | `protocol_head_unavailable` | No current independently verified head (`services/platform/hosted/registry/src/routes.rs:400-405, 523-528`) |
-| 503 | `balance_read_unavailable` | ABI 2 without a current balance proof (`services/platform/hosted/registry/src/routes.rs:435-440`) |
-| 503 | `stale_balance_read` | Balance proof not current at the observed registry head (`services/platform/hosted/registry/src/routes.rs:443-451`) |
-| 503 | `persistence_unavailable` | Verified-source store write failed (`services/platform/hosted/registry/src/routes.rs:646-647`) |
+Most refusals use `{"error":{"code":"…","retry":"never","detail":"…"}}`. Source mismatch adds a `verification` object. Interpret the HTTP status and exact code; `503` verification outcomes can be retried with the same idempotency key despite the generic envelope's `retry` field.
 
-`write_response` also names reason `413 Content Too Large` (`services/platform/hosted/registry/src/http.rs:128`). No registry path sets status `413`. Connections beyond `max_connections` are shut down with no HTTP response (`services/platform/hosted/registry/src/main.rs:690-693`).
+| HTTP | Codes | Meaning |
+| --- | --- | --- |
+| 400 | `invalid_request`, `invalid_argument`, `idempotency_key_required` | Invalid HTTP framing, route payload/id, or missing source-verification key |
+| 401 / 403 | `authentication_required`, `publication_authority_required` | Missing/incorrect bearer authority; 403 is the registrar-level publication refusal |
+| 404 / 405 | `not_found`, `interface_absent`, `source_not_mirrored`, `method_not_allowed` | Missing route/program/interface/archive or unsupported method |
+| 409 | `idempotency_conflict`, `source_mismatch` | Conflicting request identity or artifact code-hash mismatch |
+| 422 | `deployment_proof_refused` | Receipt, deployment event or canonical Programs record fails admission |
+| 422 | `deployment_inactive`, `deployment_mismatch` | Source verification does not match an active current supported deployment |
+| 422 | `source_unverifiable`, `build_failed`, `build_not_reproducible` | Source/plan refusal, builder failure or nondeterministic rebuild |
+| 502 | `unverified_read`, `balance_protocol_unsupported`, `balance_registry_mismatch`, `interface_registry_mismatch` | Unusable registry evidence or disagreement with current account/interface data |
+| 503 | `deployment_proof_unavailable`, `journal_unavailable`, `protocol_state_unavailable` | RPC/configuration/state resolution or journal persistence unavailable |
+| 503 | `read_unverifiable`, `stale_read`, `protocol_head_unavailable`, `balance_read_unavailable`, `stale_balance_read`, `interface_proof_unavailable` | Current proof/head/account/interface evidence absent, stale or refused |
+| 503 | `request_deadline_exceeded`, `worker_unavailable`, `build_queue_full`, `registry_unavailable`, `builder_unavailable` | Deadline, worker/cgroup, queue, lock or build-environment boundary unavailable |
+| 503 | `verification_pending`, `idempotency_store_unavailable`, `idempotency_store_corrupt`, `idempotency_quota_exhausted`, `persistence_unavailable` | Durable verification identity, artifact or publication cannot yet settle |
+| 503 | `program_events_unavailable` | Readiness refuses because event delivery is unavailable |
+
+These are common codes from `src/main.rs` and `src/routes.rs`, not an exhaustive schema for every dependency. Connections above `max_connections` are closed without an HTTP response. The HTTP writer knows the 413 reason phrase, but an oversized parsed request is not promised a `413` response.
 
 ---
 
 ## Readiness
 
-The StatefulSet probe is `tcpSocket` on container port `registry` (9420), period 5s, failureThreshold 3 (`services/platform/hosted/registry/deployment.yaml:18, 49`). The crate test requires that deployment YAML not contain `httpGet: {path: /healthz` (`services/platform/hosted/registry/src/main.rs:848-849`).
+The deployment uses HTTP `GET /healthz` on named port `health` (**9421**) for readiness: period 10 seconds, timeout 9 seconds, failure threshold 1 and success threshold 1. Liveness remains TCP on named port `registry` (**9420**): period 10 seconds, timeout 5 seconds, failure threshold 6. The Service exposes only the registry port (`deployment.yaml`).
 
-`GET /healthz` returns `ready` / `program-registry` without consulting node, authority, journal, or builder (`services/platform/hosted/registry/src/routes.rs:223-226`). The gateway treats that JSON plus HTTP 200 as `program_registry: ready` (`services/platform/hosted/gateway/src/main.rs:1690-1710, 2793-2807`). Testnet-control probes the registry with TCP only; the success detail is `TCP connection accepted; the registry requires client-certificate TLS beyond this probe` (`services/platform/hosted/testnet/src/main.rs:1047-1053, 1102`).
+`health_verdict` invokes the same serving path used for the mTLS health route, with an eight-second deadline capped by the configured request timeout. The plain health listener admits at most four concurrent connections. It refuses other paths/methods. A readiness request checks event delivery health, requires builder verification less than two seconds old, and opens an isolated worker to reconcile durable state and validate a current head or the explicit empty-network pending case. It does not wait behind the ordinary registrar request gate (`src/main.rs`).
+
+Successful execution eventually reaches the registrar's `ready` JSON. That final constant response does not bypass the preceding checks. Worker startup, durable replay, node/proof access, builder or event-delivery failures prevent serving readiness; they can yield `503` or a failed/closed request. TCP liveness only establishes that a connection can be accepted. Readiness does not certify every program's balances or full ABI coverage: health-mode opening checks head availability without running the normal account synchronization pass (`open_with_builder` in `src/routes.rs`).
 
 ---
 
 ## Configuration keys
 
-Process keys from `config()` and `tls_config()` (`services/platform/hosted/registry/src/main.rs:199-321`). Deployment values from `services/platform/hosted/registry/deployment.yaml:19-48`.
+These keys are read by `config()`, `tls_config()` or the health listener in `src/main.rs`. Defaults describe code behavior; the checked-in deployment overrides several values.
 
-| Key | Bound / default | Deployment |
-| --- | --- | --- |
-| `LAYERX_REGISTRY_LISTEN` | default `127.0.0.1:9420` (`services/platform/hosted/registry/src/main.rs:25, 248`) | `0.0.0.0:9420` |
-| `LAYERX_REGISTRY_STATE` | default `/var/lib/layerx-program-registry` (`services/platform/hosted/registry/src/main.rs:26, 233`) | `/var/lib/layerx-program-registry` |
-| `LAYERX_REGISTRY_JOURNAL` | default `$STATE/journal` (`services/platform/hosted/registry/src/main.rs:249`) | unset |
-| `LAYERX_REGISTRY_SOURCE_MIRROR` | default `$STATE/sources` (`services/platform/hosted/registry/src/main.rs:250`) | unset |
-| `LAYERX_REGISTRY_VERIFIED` | default `$STATE/verified` (`services/platform/hosted/registry/src/main.rs:251`) | unset |
-| `LAYERX_REGISTRY_BUILD_ROOT` | default `$STATE/builds` (`services/platform/hosted/registry/src/main.rs:252`) | `/run/layerx/quota` |
-| `LAYERX_REGISTRY_REQUEST_TOKEN_FILE` | required secret file (`services/platform/hosted/registry/src/main.rs:237`) | `/run/layerx/request/token` |
-| `LAYERX_REGISTRY_PUBLICATION_TOKEN_FILE` | required secret file, must differ (`services/platform/hosted/registry/src/main.rs:238-242`) | `/run/layerx/publication/token` |
-| `LAYERX_REGISTRY_TLS_CERT_DER` | required, 1–65536 bytes (`services/platform/hosted/registry/src/main.rs:203-206`) | `/run/layerx/server/tls.crt.der` |
-| `LAYERX_REGISTRY_TLS_KEY_DER` | required private canonical file (`services/platform/hosted/registry/src/main.rs:207-209`) | `/run/layerx/server/tls.key.der` |
-| `LAYERX_REGISTRY_CLIENT_CA_DER` | required, 1–65536 bytes (`services/platform/hosted/registry/src/main.rs:210-213`) | `/run/layerx/client-ca/ca.crt.der` |
-| `LAYERX_REGISTRY_BUILDER_IMAGE_DIGEST` | required 32-byte hex (`services/platform/hosted/registry/src/main.rs:234-254`) | ConfigMap `layerx-program-builder-release` key `environment-tree-digest` |
-| `LAYERX_REGISTRY_BUILDER_ENVIRONMENT_ROOT` | required (`services/platform/hosted/registry/src/main.rs:255-258`) | `/opt/layerx-builder/rootfs` |
-| `LAYERX_REGISTRY_BUILDER_ENTRYPOINT` | required, absolute, no `..` (`services/platform/hosted/registry/src/main.rs:259-260`; `services/platform/hosted/registry/src/builder.rs:92-94`) | `/bin/layerx-build` |
-| `LAYERX_REGISTRY_BUILDER_ISOLATION_RUNTIME` | required (`services/platform/hosted/registry/src/main.rs:261-264`) | `/usr/bin/bwrap` |
-| `LAYERX_REGISTRY_BUILDER_ISOLATION_RUNTIME_DIGEST` | required 32-byte hex (`services/platform/hosted/registry/src/main.rs:265-270`) | ConfigMap key `bwrap-digest` |
-| `LAYERX_REGISTRY_BUILDER_JOB_SUPERVISOR` | required (`services/platform/hosted/registry/src/main.rs:271-274`) | `/usr/bin/layerx-cgroup-exec` |
-| `LAYERX_REGISTRY_BUILDER_JOB_SUPERVISOR_DIGEST` | required 32-byte hex (`services/platform/hosted/registry/src/main.rs:275-280`) | ConfigMap key `cgroup-exec-digest` |
-| `LAYERX_REGISTRY_HOST_CGROUP_MOUNT` | required before configuration and privilege drop | `/run/layerx/host-cgroup` |
-| `LAYERX_REGISTRY_BUILD_TIMEOUT_SECONDS` | default 1800; builder admits 1..=3600 (`services/platform/hosted/registry/src/main.rs:285`; `services/platform/hosted/registry/src/builder.rs:88`) | `1800` |
-| `LAYERX_REGISTRY_BUILD_MEMORY_BYTES` | default 2147483648; builder admits 67108864..=8589934592 (`services/platform/hosted/registry/src/main.rs:286`; `services/platform/hosted/registry/src/builder.rs:89`) | `2147483648` |
-| `LAYERX_REGISTRY_BUILD_PROCESS_LIMIT` | default 64; builder admits 1..=256 (`services/platform/hosted/registry/src/main.rs:287`; `services/platform/hosted/registry/src/builder.rs:90`) | `64` |
-| `LAYERX_REGISTRY_BUILD_FILE_SIZE_BYTES` | default 67108864; builder admits 33554432..=134217728 (`services/platform/hosted/registry/src/main.rs:288`; `services/platform/hosted/registry/src/builder.rs:91`) | `67108864` |
-| `LAYERX_REGISTRY_ATTEMPTS` | default 2 (`services/platform/hosted/registry/src/main.rs:289`) | unset |
-| `LAYERX_REGISTRY_MAX_STALENESS_SECONDS` | default 300; converted to ms; `0` refused (`services/platform/hosted/registry/src/main.rs:290-292`; `services/platform/hosted/registry/src/routes.rs:111-113`) | unset |
-| `LAYERX_REGISTRY_REQUEST_TIMEOUT_SECONDS` | default 1800; admits 1..=3600 (`services/platform/hosted/registry/src/main.rs:243-246`) | `1800` |
-| `LAYERX_REGISTRY_MAX_CONNECTIONS` | default 128; admits 1..=1024 (`services/platform/hosted/registry/src/main.rs:318`) | `128` |
-| `LAYERX_REGISTRY_MAX_BUILDS` | default 4; admits 1..=64 (`services/platform/hosted/registry/src/main.rs:319`) | `4` |
-| `LAYERX_REGISTRY_NODE_ENDPOINT` | required (`services/platform/hosted/registry/src/main.rs:293-294`) | `https://layerx-agent-boundary.layerx-testnet.svc.cluster.local:9443` |
-| `LAYERX_REGISTRY_NODE_AUTHORIZATION` | required env secret (`services/platform/hosted/registry/src/main.rs:295-296`) | Secret `layerx-program-registry-node-client` key `token` |
-| `LAYERX_REGISTRY_OUTBOUND_CA_DER` | required DER CA that the registry trusts for its outbound node-state and receipt-authority HTTPS calls (`services/platform/hosted/registry/src/main.rs`) | `/run/layerx/client-ca/ca.crt.der` (Secret `layerx-internal-ca`) |
-| `LAYERX_REGISTRY_RECEIPT_AUTHORITY_ENDPOINT` | required (`services/platform/hosted/registry/src/main.rs:297-298`) | `https://layerx-receipt-authority.layerx-testnet.svc.cluster.local:9443` |
-| `LAYERX_REGISTRY_RECEIPT_AUTHORITY_AUTHORIZATION` | required env secret (`services/platform/hosted/registry/src/main.rs:299-302`) | Secret `layerx-program-registry-authority-client` key `token` |
-| `LAYERX_REGISTRY_RECEIPT_AUTHORITY_REPLICA_ID` | required 32-byte hex (`services/platform/hosted/registry/src/main.rs:303-310`) | ConfigMap `layerx-receipt-authority` key `replica-id` |
-| `LAYERX_REGISTRY_SEQUENCER_TRUST_HISTORY` | required path (`services/platform/hosted/registry/src/main.rs:311-314`) | `/run/layerx/trust/history` |
+| Key | Default or requirement |
+| --- | --- |
+| `LAYERX_REGISTRY_CHAIN_RPC_URL` | Required merged-node JSON-RPC URL; no default |
+| `LAYERX_REGISTRY_LISTEN` | `127.0.0.1:9420`; deployment uses `0.0.0.0:9420` |
+| `LAYERX_REGISTRY_HEALTH_LISTEN` | Absent disables the separate listener; deployment uses `0.0.0.0:9421` |
+| `LAYERX_REGISTRY_STATE` | `/var/lib/layerx-program-registry` |
+| `LAYERX_REGISTRY_JOURNAL` | `$STATE/journal`; deployment uses `/var/lib/layerx-registry-journal` |
+| `LAYERX_REGISTRY_SOURCE_MIRROR`, `LAYERX_REGISTRY_VERIFIED`, `LAYERX_REGISTRY_BUILD_ROOT` | `$STATE/sources`, `$STATE/verified`, `$STATE/builds`; deployment build root is `/run/layerx/quota` |
+| `LAYERX_REGISTRY_REQUEST_TOKEN_FILE`, `LAYERX_REGISTRY_PUBLICATION_TOKEN_FILE` | Required distinct secret files |
+| `LAYERX_REGISTRY_TLS_CERT_DER`, `LAYERX_REGISTRY_TLS_KEY_DER`, `LAYERX_REGISTRY_CLIENT_CA_DER` | Required server TLS identity and client CA; files bounded to 64 KiB |
+| `LAYERX_REGISTRY_BUILDER_IMAGE_DIGEST` | Required 32-byte hex digest of the environment tree |
+| `LAYERX_REGISTRY_BUILDER_ENVIRONMENT_ROOT`, `LAYERX_REGISTRY_BUILDER_ENTRYPOINT` | Required pinned environment and absolute entrypoint; deployment uses `/opt/layerx-builder/rootfs`, `/bin/layerx-build` |
+| `LAYERX_REGISTRY_BUILDER_ISOLATION_RUNTIME`, `LAYERX_REGISTRY_BUILDER_ISOLATION_RUNTIME_DIGEST` | Required runtime path and 32-byte hex digest; deployment uses `/usr/bin/bwrap` |
+| `LAYERX_REGISTRY_BUILDER_JOB_SUPERVISOR`, `LAYERX_REGISTRY_BUILDER_JOB_SUPERVISOR_DIGEST` | Required supervisor path and 32-byte hex digest; deployment uses `/usr/bin/layerx-cgroup-exec` |
+| `LAYERX_REGISTRY_HOST_CGROUP_MOUNT` | Required before privilege drop; deployment uses `/run/layerx/host-cgroup` |
+| `LAYERX_REGISTRY_BUILD_TIMEOUT_SECONDS` | 1800; builder admits 1–3600 |
+| `LAYERX_REGISTRY_BUILD_MEMORY_BYTES` | 2147483648; builder admits 67108864–8589934592 |
+| `LAYERX_REGISTRY_BUILD_PROCESS_LIMIT` | 64; builder admits 1–256 |
+| `LAYERX_REGISTRY_BUILD_FILE_SIZE_BYTES` | 67108864; builder admits 33554432–134217728 |
+| `LAYERX_REGISTRY_ATTEMPTS` | 2 reproducibility attempts |
+| `LAYERX_REGISTRY_MAX_STALENESS_SECONDS` | 300, converted to milliseconds; zero refused |
+| `LAYERX_REGISTRY_REQUEST_TIMEOUT_SECONDS` | 1800; admits 1–3600 |
+| `LAYERX_REGISTRY_MAX_CONNECTIONS`, `LAYERX_REGISTRY_MAX_BUILDS` | 128 / 4; admit 1–1024 / 1–64 |
 
-Node provisioner keys (not read by `config()`): `LAYERX_REGISTRY_NODE_QUOTA_ROOT`, `LAYERX_REGISTRY_BUILD_QUOTA_BYTES`, `LAYERX_REGISTRY_BUILD_QUOTA_INODES`, `LAYERX_REGISTRY_NODE_LOCK` (`services/platform/hosted/registry/node-provision-build-boundary.sh:4-12`; `services/platform/hosted/registry/layerx-program-registry-boundary.service:10-12`).
+The host quota provisioner separately reads `LAYERX_REGISTRY_NODE_QUOTA_ROOT`, `LAYERX_REGISTRY_MAX_BUILDS`, `LAYERX_REGISTRY_BUILD_QUOTA_BYTES`, `LAYERX_REGISTRY_BUILD_QUOTA_INODES` and `LAYERX_REGISTRY_NODE_LOCK` (`node-provision-build-boundary.sh`). Event delivery uses the `LAYERX_EVENTS_PROGRAM_UPSTREAM_*` and `LAYERX_EVENTS_WEBHOOKS_UPSTREAM_*` transport settings mounted by the deployment.
 
-`LAYERX_REGISTRY_RECEIPT_AUTHORITY_REPLICA_ID` names ConfigMap `layerx-receipt-authority`. That ConfigMap is not in `services/platform/hosted/registry/deployment.yaml`. Beta-cluster creates it (`services/platform/hosted/tests/beta-cluster.sh:604`) and also writes the same generated replica id into ConfigMap `layerx-node-config` (`services/platform/hosted/node/deployment.yaml:8`; `services/platform/hosted/tests/beta-cluster.sh:798-800`).
+### Retained compatibility configuration
+
+The following names still occur in `config()` and the hosted replay client; they describe remaining implementation dependencies, not instructions to deploy a separate authority for the merged network:
+
+| Retained keys | What the current code does |
+| --- | --- |
+| `LAYERX_REGISTRY_NODE_ENDPOINT`, `LAYERX_REGISTRY_NODE_AUTHORIZATION` | Require an authenticated node-state transport |
+| `LAYERX_REGISTRY_RECEIPT_AUTHORITY_ENDPOINT`, `LAYERX_REGISTRY_RECEIPT_AUTHORITY_AUTHORIZATION` | Still require a second authenticated transport and compare its chain evidence |
+| `LAYERX_REGISTRY_OUTBOUND_CA_DER` | Required CA for those outbound transports |
+| `LAYERX_REGISTRY_CLIENT_IDENTITY_PKCS12`, `LAYERX_REGISTRY_CLIENT_IDENTITY_PASSWORD_FILE` | Optional outbound client identity; both must be configured together |
+| `LAYERX_REGISTRY_RECEIPT_AUTHORITY_REPLICA_ID` | Still parsed as a nonzero 32-byte hex identity by the client |
+| `LAYERX_REGISTRY_SEQUENCER_TRUST_HISTORY` | Retained verifier input path; its name is compatibility vocabulary |
+
+The checked-in deployment derives the replica id, `LAYERX_REGISTRY_KERNEL_GENERATION` and selected history path from one verified material generation. It does **not** read a replica-id ConfigMap entry directly into the registry process. The init container publishes `generation.json`, `replica-id` and `trust-history` into `/run/layerx/trust/material`; the launch wrapper verifies the retained tuple and exports its selected values. `material.py` checks schema, ownership, permissions, digests and identity/history agreement, and refuses a different retained generation pending owner reconciliation. Do not replace that tuple piecemeal or invent an identity on restart (`deployment.yaml`, `services/platform/hosted/human/material.py`).
 
 ---
 
 ## Make targets
 
-`make platform-test-registry` runs `cargo test --offline --manifest-path services/platform/Cargo.toml --locked -p layerx-platform-registry` (`services/platform/Makefile.inc:8, 137-138`). `make platform-hosted-topology-check` runs `topology-check.sh` (`services/platform/Makefile.inc:177-178`).
+`make platform-test-registry` runs the registry crate's offline, locked Cargo tests through `tools/runtime/run-with-clock.sh`. `make platform-hosted-topology-check` invokes the hosted manifest topology checker (`services/platform/Makefile.inc`). These are broader service checks, separate from this documentation page's manifest gate.
 
 ---
 
 ## What the tests prove
 
-| Test | Proves |
-| --- | --- |
-| `auth::tests::bearer_authority_refuses_absent_wrong_and_ambiguous_credentials` | Exact `Bearer` match; refuses absent, one-bit-wrong, lowercase scheme, extra token (`services/platform/hosted/registry/src/auth.rs:19-28`) |
-| `http::tests::refuses_duplicate_content_length_and_transfer_encoding` | Duplicate `Content-Length` and `Transfer-Encoding: chunked` fail parse (`services/platform/hosted/registry/src/http.rs:168-172`) |
-| `http::tests::accepts_one_canonical_bounded_request` | One `POST /__registry/head` with a single `Content-Length` parses (`services/platform/hosted/registry/src/http.rs:174-179`) |
-| `routes::tests::deployment_ingress_stays_blocked_for_forgeable_record_shape` | `{"record_hex":…}` still `503` (`services/platform/hosted/registry/src/routes.rs:1056-1060`) |
-| `routes::tests::deployment_ingress_does_not_accept_caller_proof_bytes` | `{"proof_hex":…}` still `503` (`services/platform/hosted/registry/src/routes.rs:1062-1066`) |
-| `main::tests::deployment_contract_keeps_https_mtls_and_bearer_roles_aligned` | Gateway URL `https://layerx-program-registry.layerx-testnet.svc.cluster.local:9420`; deployment contains TLS/token/builder keys; readiness is not HTTP `/healthz`; builder source contains `--unshare-all`, `--disable-userns`, `openat2(`, `ResolveFlags::BENEATH`; main contains deadline/worker/`MAX_WORKER_IPC_BYTES` and does not contain `std::process::abort()`; cgroup supervisor contains `memory.max`, `cgroup.kill`, `Signal::STOP`/`CONT`; provisioner contains `mkfs.ext4`, `e2fsck -p` (`services/platform/hosted/registry/src/main.rs:827-899`) |
-| `main::tests::request_deadline_cancels_only_the_bounded_worker_and_preserves_listener_liveness` | Source contains `registrar_gate`, `--stopped-request-worker`, `worker_group.kill()`, `cgroup.kill`, `child.wait()` (`services/platform/hosted/registry/src/main.rs:901-913`) |
-| `main::tests::delegation_quota_and_open_inode_execution_fail_closed` | Provisioner and unit contain no cgroup reference; quota and capability checks remain; container delegation and privilege-drop contracts are asserted; deployment contains `layerx.io/program-registry-boundary: "v2"`; builder contains `NonBlockingLockExclusive` and `/proc/self/fd/` (`services/platform/hosted/registry/src/main.rs:915-946`) |
-| `tests/journal.rs::interruption_at_every_write_step_recovers_on_restart_without_repair` | Each of seven write steps either commits or quarantines; restart plus retry reproduces the projection (`services/platform/hosted/registry/tests/journal.rs:211-299`) |
-| `tests/journal.rs::replaying_the_journal_reproduces_the_projection_of_its_evidence` | Digest-order replay equals the in-memory projection of the same evidence (`services/platform/hosted/registry/tests/journal.rs:301-337`) |
-| `tests/journal.rs::envelope_encoding_round_trips_and_names_the_missing_part` | Truncation names Record/Proof/Seal; trailing bytes and bad seal are `Corrupt`; seven distinct `WriteStep` strings (`services/platform/hosted/registry/tests/journal.rs:339-421`) |
-| `tests/journal.rs::startup_quarantines_defective_units_and_loads_the_rest` | Truncated, corrupt, misfiled, unreadable units are quarantined; complete units still load; `proofs()` fails on unequal sets (`services/platform/hosted/registry/tests/journal.rs:423-544`) |
-| `tests/journal.rs::legacy_two_file_units_load_when_complete_and_quarantine_when_not` | Split `.deployment`/`.admission` load when paired; lone halves quarantine (`services/platform/hosted/registry/tests/journal.rs:546-662`) |
-| `tests/journal.rs::observed_head_round_trips_and_refuses_absent_observations` | Missing head is `JournalUnavailable`; sequence `0` is refused; a non-zero head round-trips (`services/platform/hosted/registry/tests/journal.rs:664-687`) |
-
-There are no `#[test]` functions in `builder.rs`, `mirror.rs`, `verified.rs`, `node_state.rs`, or `program_state.rs`.
+The repository contains authentication and HTTP-framing tests in `src/auth.rs` and `src/http.rs`; journal interruption, quarantine, legacy-pair and observed-head tests in `tests/journal.rs`; and native admission/state-read coverage in `tests/programs_chain.rs` and `tests/program_state_eth_call.rs`. `tests/journal_chain_trust.rs` covers deployment-journal chain trust, and `tests/readiness.py` exercises serving readiness. Their presence is not a claim that these suites ran for this documentation change or that they qualify a live deployment.
 
 ---
 
 ## Facts the sources disagree on or leave unset
 
-`POST /__registry/deployments` never writes the journal. The journal `append` path exists (`services/platform/hosted/registry/src/journal.rs:493-504`) and `Registrar::rebuild` loads envelopes (`services/platform/hosted/registry/src/routes.rs:680-695`). The HTTP ingress returns `503` `deployment_proof_unavailable` for any body (`services/platform/hosted/registry/src/routes.rs:227, 1015-1020`).
+The registry's merged-node admission path and hosted replay path are not yet interchangeable. Chain admission journals JSON under `chain-deployments`, while `FileDeploymentJournal::load` scans canonical envelope and legacy deployment/admission units. A JSON admission record is not automatically a replayable envelope, so a successful deployment POST does not guarantee that the hosted GET catalog has ingested it (`src/programs_chain.rs`, `src/journal.rs`, `Registrar::rebuild`).
 
-NetworkPolicy ingress names `layerx-role: source-publication-operator` (`services/platform/hosted/registry/deployment.yaml:90-91`). No workload with that label is in the default topology-check manifests (`services/platform/hosted/tests/topology-check.sh:81-88`).
+The retired independent receipt-authority topology remains in the hosted startup/replay client's endpoint and replica checks and in deployment configuration. Cryptographic head verification now consumes chain commitments and transaction proofs, but `parse_head_authority` still requests a second copy of the evidence and checks its replica identity. This is a migration gap, not a second consensus or finality plane (`src/node_state.rs`).
 
-`GET /healthz` does not inspect protocol state (`services/platform/hosted/registry/src/routes.rs:223-226`). The kubelet probe does not call it (`services/platform/hosted/registry/deployment.yaml:49`; `services/platform/hosted/registry/src/main.rs:848-849`).
+`config()` requires `LAYERX_REGISTRY_CHAIN_RPC_URL`, but `deployment.yaml` does not supply it. The manifest's retained authority settings do not replace that missing input. Treat the manifest as requiring deployment reconciliation before use; a documentation rewrite cannot make those code paths operational or extend the ABI 1–4 replay/source-verification bounds to ABI 5.
 
-[Home](../index.md)
+[Programs](../programs/index.md) · [Public RPC](../reference/public-rpc.md) · [Home](../index.md)

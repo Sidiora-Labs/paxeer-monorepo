@@ -1,0 +1,16 @@
+[task.22.31.423]
+audit = "22.30.172"
+baseline = "Not run: the ordered instructions prohibit testing before implementation is complete and allow verification only through hf-done after hf-build; no pre-change test failure is claimed."
+wiring_requests = []
+
+[finding.feehistory-zero-quantity]
+tests = ["TestRepair_423_ZeroCountHTTPQuantity", "TestRepair_423_ZeroCountEthclientParity"]
+proof = "Production InfoAPI.FeeHistory runs through a loopback HTTP JSON-RPC server into raw quantity decoding and geth ethclient.FeeHistory; string and numeric zero counts preserve canonical oldestBlock 0x0, null gasUsedRatio and absent fee/reward fields across block tags and percentile inputs. The real geth fee-history oracle supplies the empty-range reference without a backend."
+integration = "Both preserved spec and parity cases are enabled unchanged in their assertions over rawPax/rawGeth transports; the bounded Go gate does not run the live integration suite."
+
+[gotcha.baseline-order]
+observed = "The embedded baseline instruction conflicts with the ordered implementation-first gates; baseline verification was not run."
+
+[gotcha.big-int-comparison]
+observed = "Reflective equality distinguishes geth's zero big.Int with nil backing storage from JSON-decoded zero with empty backing storage; compare numeric values with Cmp while keeping the exact wire JSON assertion."
+evidence = "7c65b745184752723dd510b07f0076be5da5b355; cg spec done 22.31.423 -f layerx-merge --root /work/paxeer-monorepo; exit 1; /out/logs/verify-1.log"

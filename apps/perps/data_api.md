@@ -1,16 +1,23 @@
 # Paxeer Frontend Integration Guide
 
-Public REST + WebSocket reference for three backend services:
+REST and WebSocket reference for the perps data gateway in
+[`services/platform/perps-data`](../../services/platform/perps-data). The frontend
+sets `NEXT_PUBLIC_PERPS_GATEWAY_URL` to its bare HTTP(S) origin, without a path,
+credentials, query or fragment. [`gatewayUrls`](src/core/network/gateway.ts)
+derives `/api`, `/ws`, and `/graphql` from that origin. Symbol, market and chain
+topics share this gateway; separate per-asset ports are not required.
 
-| Service              | What it serves                                            | Default port  |
-| -------------------- | --------------------------------------------------------- | ------------- |
-| **Symbol Service**   | Per-symbol price, candles, orderbook, trades, perp data   | one per asset |
-| **Markets**          | Cross-symbol market table + platform totals               | `3020`        |
-| **Chain Explorer**   | On-chain blocks + transactions stream                     | `4500`        |
+Paxeer mainnet-beta is one BFT network with EVM chain ID **125 (`0x7d`)**. Its
+kernel participates in block proposal and receipts are final when their block
+commits. Public node JSON-RPC uses the root of the `api1` through `api14` hosts
+under `mainnet-beta.paxeer.network`, or `api-mainnet-beta.paxeer.network`, for
+example `https://api1.mainnet-beta.paxeer.network`. Those node endpoints are
+separate from the application data gateway described here. Tenant sub-chains
+are database domains, not additional networks to deploy for this UI.
 
-All HTTP responses are `application/json` unless noted. All times are UTC.
-
----
+See [deployment and environment](deploy/README.md),
+[settings behavior](src/app/modals/SettingsModal.md), and the
+[component integration guide](src/components/paxeer/README.md).
 
 ## Table of contents
 
@@ -19,657 +26,351 @@ All HTTP responses are `application/json` unless noted. All times are UTC.
 3. [Markets Service](#markets-service)
 4. [Chain Explorer Service](#chain-explorer-service)
 
----
+The section names group data families in the gateway. HTTP bodies below use
+JSON; `ts` and trade times are epoch milliseconds, and ISO timestamps are UTC.
+Examples illustrate payloads rather than current market values.
 
 ## WebSocket protocol (shared by all services)
 
-Every service exposes its WebSocket on the **same host:port as its HTTP API**.
-Connect with a plain WebSocket — no auth, no subprotocol, path `/`.
+Connect to the gateway's `/ws` using `ws:` or `wss:` to match its HTTP scheme.
+The shared topic protocol is public, read-only and unauthenticated, with no
+subprotocol. `/` is also accepted. Convenience paths automatically subscribe:
+
+| Path | Initial topics |
+| --- | --- |
+| `/ws/markets` | `markets@all`, `markets@totals` |
+| `/ws/explorer` | `chain@blocks`, `chain@transactions` |
+| `/ws/<symbol>` | Lowercase symbol path, e.g. `/ws/btc`: its perpetual book, trades and stats; PAX and SID also get their spot topics |
+| `/ws` or `/` | None; send subscribe frames |
+
+`/graphql` uses the separate GraphQL transport; `/v1/ws` uses the spot user
+protocol. Do not send the shared topic frames to those sockets.
 
 ### Client → Server frames
 
+Send each object as an individual frame:
+
 ```json
-{ "event": "subscribe",   "topic": "<topic>" }
-{ "event": "unsubscribe", "topic": "<topic>" }
+{ "event": "subscribe", "topic": "BTC@perp_stats" }
+```
+
+```json
+{ "event": "unsubscribe", "topic": "BTC@perp_stats" }
+```
+
+```json
 { "event": "ping" }
 ```
 
-Some snapshot providers accept additional fields on `subscribe`. The only one
-currently honored is `limit` on kline topics (see [kline](#klinesymbolinterval)).
+The codec accepts an optional unsigned `limit` on subscribe, but the current
+providers use fixed snapshot depths. The gateway has no kline topic.
 
 ### Server → Client frames
 
-#### Control frames
-
-```json
-{ "event": "welcome",      "ts": 1747526400000, "snapshotId": "lqz3a7-9f2b1c0d4e5f" }
-{ "event": "subscribed",   "topic": "BTC@orderbook", "ts": ..., "snapshotId": "..." }
-{ "event": "unsubscribed", "topic": "BTC@orderbook", "ts": ... }
-{ "event": "pong",         "ts": ... }
-{ "event": "error",        "message": "<code>", "ts": ..., "topic"?: "..." }
-```
-
-Possible `error.message` values: `invalid_json`, `missing_topic`,
-`unknown_event`, `subscribe_rate_limit`, `too_many_subscriptions`.
-
-#### Data frames
-
-Every data frame on every topic has this envelope:
+Control frames have `event` and millisecond `ts`. `welcome` and `subscribed`
+also carry `snapshotId`; subscription acknowledgements name the `topic`.
+`unsubscribed` names the topic, and `pong` answers an application ping.
 
 ```json
 {
-  "topic":      "<topic>",
-  "ts":         <ms since epoch>,
-  "snapshotId": "<process id>",
-  "seq":        <integer>,
-  "snapshot":   true | undefined,
-  "data":       { ... topic-specific payload ... }
-}
-```
-
-### Stream consistency contract
-
-- **`snapshotId`** — opaque string, constant for the lifetime of the server
-  process. If it changes mid-stream, the server has restarted. Drop local state
-  and resubscribe.
-- **`seq`** — monotonically increasing integer **per topic**, dense (every
-  delta increments by exactly 1).
-- **`snapshot: true`** is sent once per subscribe, immediately after the
-  `subscribed` ack. It carries the `seq` of the last broadcast at snapshot-build
-  time. Apply the snapshot, then accept deltas with `seq > snapshot.seq`.
-- **Gap detection** — if `delta.seq > lastSeq + 1`, frames were dropped. Treat
-  local state as stale: fetch the matching REST endpoint to resync, then resume
-  with deltas where `seq > restSnapshot.seq` once you re-subscribe.
-
-### Connection lifetime
-
-- Server sends WebSocket pings every 30s; respond with pongs (your library
-  handles this automatically). Dead sockets are dropped on the next interval.
-- Per-socket caps: max 200 subscriptions, max 50 subscribe operations / second.
-
----
-
-## Symbol Service
-
-One instance per tradable symbol (BTC, ETH, SOL, …). Each instance owns one
-symbol — the `<SYMBOL>` token in every topic and path is fixed per instance,
-matching the symbol that instance runs.
-
-Base URL: `http(s)://<symbol-host>:<symbol-port>`
-WebSocket: `ws(s)://<symbol-host>:<symbol-port>`
-
-### REST — Market data
-
-#### `GET /price`
-
-Current price.
-
-```json
-{
-  "symbol":    "BTC",
-  "price":     77173.0,
-  "timestamp": "2026-05-18T00:00:00.000Z",
-  "open":      76800.0,
-  "high":      77310.0,
-  "low":       76590.0
-}
-```
-
-#### `GET /stats`
-
-Rolling 24h spot statistics.
-
-```json
-{
-  "symbol":            "BTC",
-  "volume_24h":        12345678.9,
-  "open_interest":     98765432.1,
-  "est_funding_rate":  0.00012,
-  "last_funding_rate": 0.00009
-}
-```
-
-#### `GET /perp_stats`
-
-Same shape as `/stats` plus perp-only fields.
-
-```json
-{
-  "symbol":            "BTC",
-  "volume_24h":        ...,
-  "open_interest":     ...,
-  "est_funding_rate":  ...,
-  "last_funding_rate": ...,
-  "mark_price":        77182.4,
-  "index_price":       77173.0,
-  "basis_bps":         1.21,
-  "long_short_ratio":  1.03,
-  "liq_volume_24h":    ...
-}
-```
-
-#### `GET /trades/:symbol?limit=100`
-
-Most recent spot trades for that symbol, newest first.
-`limit` is clamped to `[1, 1000]`, default `100`.
-
-```json
-{
-  "symbol": "BTC",
-  "count":  100,
-  "trades": [
-    { "id": "1747526400000-0", "side": "BUY",  "price": 77175, "size": 0.42, "trade_time": 1747526400123 }
-  ]
-}
-```
-
-#### `GET /perp_trades/:symbol?limit=100`
-
-Most recent perp trades, newest first. Same limits as `/trades`.
-
-```json
-{
-  "symbol": "BTC",
-  "count":  100,
-  "trades": [
-    {
-      "id":          "1747526400000-0",
-      "side":        "BUY",
-      "price":       77182.4,
-      "contracts":   25,
-      "notional":    250,
-      "liquidation": false,
-      "trade_time":  1747526400123
-    }
-  ]
-}
-```
-
-#### `GET /health`
-
-```json
-{ "status": "ok", "backfill": "complete", "lastCandle": "2026-05-18T00:00:00.000Z", "symbol": "BTC" }
-```
-
-### REST — TradingView UDF datafeed
-
-These five endpoints implement the TradingView UDF spec for the symbol this
-instance runs. Use them only if you're driving a TradingView Charting Library.
-
-- `GET /config` — UDF datafeed config.
-- `GET /time` — server time as plain text seconds since epoch.
-- `GET /symbols?symbol=<SYMBOL>` — symbol metadata.
-- `GET /search?query=<q>&limit=<n>` — symbol search.
-- `GET /history?symbol=<SYMBOL>&resolution=<r>&from=<ts>&to=<ts>&countback=<n>`
-  — historical candles. `resolution` is in TradingView format (`1`, `2`, `3`,
-  `5`, `15`, `30`, `60`, `240`, `480`, `D`, `W`). Returns
-  `{ s: "ok", t:[…], o:[…], h:[…], l:[…], c:[…], v:[…] }` or
-  `{ s: "no_data" }` / `{ s: "error", errmsg: "..." }`.
-- `GET /quotes?symbols=<SYMBOL>` — real-time quote.
-
-### WebSocket topics
-
-All topic names use the instance's symbol (`BTC`, `ETH`, …) in place of `<SYMBOL>`.
-
-#### `<SYMBOL>@orderbook`
-
-Full L2 book every tick. Asks ascending, bids descending. Up to 100 levels per side.
-
-```json
-{
-  "topic": "BTC@orderbook",
-  "ts": 1747526400123,
-  "snapshotId": "...",
-  "seq": 4271,
-  "data": {
-    "symbol": "BTC",
-    "asks": [[77177, 316.39], [77178, 119.4], ...],
-    "bids": [[77173, 329.42], [77172, 192.4], ...]
-  }
-}
-```
-
-Each level is `[price, size]`.
-
-#### `<SYMBOL>@trade`
-
-One frame per spot trade.
-
-```json
-{
-  "topic": "BTC@trade",
-  "ts": 1747526400123,
-  "snapshotId": "...",
-  "seq": 9912,
-  "data": {
-    "symbol":     "BTC",
-    "side":       "BUY",
-    "price":      77175,
-    "size":       0.42,
-    "trade_time": 1747526400123
-  }
-}
-```
-
-Subscribe-time snapshot carries the most recent 100 trades:
-
-```json
-{
-  "topic": "BTC@trade",
-  "ts": ...,
-  "snapshotId": "...",
-  "seq": ...,
-  "snapshot": true,
-  "data": { "symbol": "BTC", "trades": [ ...newest first... ] }
-}
-```
-
-#### `<SYMBOL>@stats`
-
-Rolling stats, broadcast every 30s and on subscribe.
-
-```json
-{
-  "topic": "BTC@stats",
-  "ts": ...,
-  "snapshotId": "...",
-  "seq": ...,
-  "data": {
-    "symbol":            "BTC",
-    "volume_24h":        12345678.9,
-    "open_interest":     98765432.1,
-    "est_funding_rate":  0.00012,
-    "last_funding_rate": 0.00009
-  }
-}
-```
-
-#### `<SYMBOL>@kline_<interval>`
-
-Live OHLCV per timeframe. Valid intervals:
-`1m`, `2m`, `3m`, `5m`, `15m`, `30m`, `1h`, `4h`, `8h`, `1D`, `1W`.
-
-Subscribe message may include `"limit": N` to control snapshot depth
-(default 1000, max 5000).
-
-Snapshot frame:
-
-```json
-{
+  "event": "error",
+  "message": "unknown_topic",
   "topic": "BTC@kline_1m",
-  "ts": ...,
-  "snapshotId": "...",
-  "seq": ...,
-  "snapshot": true,
-  "data": {
-    "symbol": "BTC",
-    "interval": "1m",
-    "candles": [
-      [t, o, h, l, c, v, closed],
-      ...
-    ]
-  }
+  "ts": 1747526400000
 }
 ```
 
-Live frame (one per price tick while a candle is open):
+Error messages are `invalid_json`, `missing_topic`, `unknown_event`,
+`unknown_topic`, `subscribe_rate_limit` and `too_many_subscriptions`. These
+protocol errors leave the socket open.
 
-```json
-{
-  "topic": "BTC@kline_1m",
-  "ts": ...,
-  "snapshotId": "...",
-  "seq": ...,
-  "data": {
-    "symbol": "BTC",
-    "interval": "1m",
-    "candle": [t, o, h, l, c, v, closed]
-  }
-}
-```
-
-Candle tuple is `[t, o, h, l, c, v, closed]`:
-- `t` = bucket start in **seconds** since epoch
-- `o`, `h`, `l`, `c` = open/high/low/close
-- `v` = volume
-- `closed` = `1` when finalized, `0` while still open
-
-On rollover, the server emits the previous candle with `closed: 1` followed
-immediately by the new candle with `closed: 0`. Same `t` ⇒ update; new `t` ⇒
-new bar.
-
-#### `<SYMBOL>@perp_orderbook`
-
-Perp L2 book, same shape as spot plus mark/index/basis metadata.
-
-```json
-{
-  "topic": "BTC@perp_orderbook",
-  "ts": ...,
-  "snapshotId": "...",
-  "seq": ...,
-  "data": {
-    "symbol":      "BTC",
-    "mark_price":  77182.4,
-    "index_price": 77173.0,
-    "basis_bps":   1.21,
-    "asks": [[77185, 25], [77190, 130], ...],
-    "bids": [[77180, 40], [77175, 90], ...]
-  }
-}
-```
-
-Sizes are in **contracts** (integers), not base units.
-
-#### `<SYMBOL>@perp_trade`
-
-One frame per perp trade.
-
-```json
-{
-  "topic": "BTC@perp_trade",
-  "ts": ...,
-  "snapshotId": "...",
-  "seq": ...,
-  "data": {
-    "symbol":      "BTC",
-    "side":        "BUY",
-    "price":       77182.4,
-    "contracts":   25,
-    "notional":    250,
-    "liquidation": false,
-    "trade_time":  1747526400123
-  }
-}
-```
-
-Subscribe-time snapshot mirrors `<SYMBOL>@trade` (most recent 100, newest first).
-
-#### `<SYMBOL>@perp_stats`
-
-Broadcast every 30s and on subscribe.
+Every topic frame uses this envelope:
 
 ```json
 {
   "topic": "BTC@perp_stats",
-  "ts": ...,
-  "snapshotId": "...",
-  "seq": ...,
+  "ts": 1747526400000,
+  "snapshotId": "opaque-process-id",
+  "seq": 12,
+  "snapshot": true,
   "data": {
-    "symbol":            "BTC",
-    "volume_24h":        ...,
-    "open_interest":     ...,
-    "est_funding_rate":  ...,
-    "last_funding_rate": ...,
-    "mark_price":        77182.4,
-    "index_price":       77173.0,
-    "basis_bps":         1.21,
-    "long_short_ratio":  1.03,
-    "liq_volume_24h":    ...
+    "symbol": "BTC",
+    "volume_24h": 12345678.9,
+    "open_interest": 98765432.1,
+    "last_funding_rate_hourly": "0.0000125",
+    "last_funding_rate": 0.0000125,
+    "mark_price": 77182.4,
+    "index_price": 77173,
+    "basis_bps": 1.218,
+    "long_short_ratio": 1.03,
+    "liq_volume_24h": 0
   }
 }
 ```
 
----
+`snapshot` is omitted on live frames. Payload shapes depend on the topic.
+
+### Stream consistency contract
+
+- `snapshotId` identifies the gateway process. On a changed ID, discard the
+  previous sequence baseline and acquire new snapshots.
+- `seq` is dense and increasing per topic, not global and not a block height.
+- A `subscribed` acknowledgement is followed by a snapshot carrying the topic's
+  latest sequence. Apply that snapshot, then accept newer live frames.
+- The server can send another `snapshot: true` after recovery; replace the
+  corresponding local state with it.
+- On a sequence gap, reconnect or resubscribe for a new socket snapshot. REST
+  market responses have no `seq` or `snapshotId`, so they cannot establish a
+  WebSocket sequence baseline.
+
+### Connection lifetime
+
+Default caps are 200 subscriptions and 50 subscribe operations per second per
+socket. The server sends protocol pings every 30 seconds and closes sockets
+that miss two ping intervals. WebSocket libraries normally answer these pings
+automatically. A server under load or unable to build a snapshot may close with
+code `1013` and reason `retry-after=<seconds>` (5–30 seconds); respect that delay.
+
+Source: [`internal/ws`](../../services/platform/perps-data/internal/ws).
+
+## Symbol Service
+
+Symbol REST routes live under `/api/<symbol>/` on the gateway origin. Symbol
+matching is case-insensitive. All registered perps markets have perpetual
+topics; spot topics are provided for **PAX and SID**. A BTC spot trade request
+can return an empty list; it is not an external BTC spot tape.
+
+### REST — Market data
+
+| Method and path | Body |
+| --- | --- |
+| `GET /api/btc/price` | `symbol`, nullable `price`, `timestamp`, `open`, `high`, `low` |
+| `GET /api/btc/stats` | Symbol stats below |
+| `GET /api/btc/perp_stats` | Stats plus nullable `mark_price`, `index_price`, `basis_bps`, `long_short_ratio`, and numeric `liq_volume_24h` |
+| `GET /api/btc/trades?limit=100` | `{ "symbol": "BTC", "count": 0, "trades": [] }` for an asset without registered spot trades |
+| `GET /api/btc/perp_trades?limit=100` | `{ "symbol": "BTC", "count": 1, "trades": [ ... ] }` |
+| `GET /api/btc/health` | `{ "status": "ok", "backfill": "complete", "lastFill": null, "symbol": "BTC" }` |
+
+`price` is the latest index price; open/high/low come from fills in the last
+24 hours. They can be `null` independently. Health reports `backfill: "pending"`
+until the head cursor exists; `lastFill` is an ISO timestamp or `null`.
+
+Symbol stats:
+
+```json
+{
+  "symbol": "BTC",
+  "volume_24h": 12345678.9,
+  "open_interest": 98765432.1,
+  "last_funding_rate_hourly": "0.0000125",
+  "last_funding_rate": 0.0000125
+}
+```
+
+`volume_24h` is USD fill notional; `open_interest` sums long and short USD open
+interest. `last_funding_rate_hourly` is the exact signed decimal **fraction per
+hour** from the latest `FundingSettled` row, scaled from the chain's 18-decimal
+integer. `"0.0000125"` means `0.00125%` per hour. It is `null` before the first
+settlement. `last_funding_rate` is a nullable JSON-number compatibility copy of
+the same settled hourly rate. Neither stats response carries
+`est_funding_rate`, a predicted `funding_rate`, or `next_funding_ms`.
+
+Trade lists are newest first. `limit` defaults to 100 and is clamped to 1–1000;
+malformed or repeated limits return HTTP 400 with `{ "error": "invalid limit" }`.
+The optional trailing symbol on `/api/btc/trades/BTC` or
+`/api/btc/perp_trades/BTC` must match the prefix.
+
+Spot trade entries have `id`, `side` (`BUY`/`SELL`), numeric `price`, `size`
+(base token units), and millisecond `trade_time`. Perpetual trade entries use
+`contracts` (base-equivalent size, which can be fractional), USD `notional`,
+and boolean `liquidation` in place of `size`. The ID is built from block and
+log index, not a wall-clock trade ID.
+
+Unknown symbols return HTTP 404 with `{ "error": "Unknown symbol: BTC" }`
+(using the requested uppercase symbol); unsupported symbol routes return
+`{ "error": "Not found" }`. Database failures return HTTP 500 with
+`{ "error": "internal error" }`.
+
+### REST — TradingView UDF datafeed
+
+Candles remain on the external Chainflow feed; the perps data gateway does not
+serve symbol `config`, `history`, `symbols`, `search`, `time` or `quotes` routes.
+The Next.js frontend forwards chart requests through its own
+`/api/candle/<endpoint>` route, implemented in
+[`src/pages/api/candle/[...path].ts`](src/pages/api/candle/%5B...path%5D.ts).
+It accepts GET/HEAD for `config`, `symbols`, `search`, `history`, `marks`,
+`timescale_marks`, `time` and `quotes`, with allowlisted query parameters.
+
+A typical history request is
+`/api/candle/history?symbol=BTC&resolution=1&from=1747522800&to=1747526400`.
+UDF times are seconds; candles use the upstream UDF arrays (`t`, `o`, `h`, `l`,
+`c`, `v`). The frontend's `MARKET_PROXY_HOST` and required bare
+`MARKET_PROXY_ORIGIN` configure this proxy; see [deployment](deploy/README.md).
+Missing origin returns HTTP 503, and upstream timeout/unreachability produces
+504/502. There is no gateway `<SYMBOL>@kline_<interval>` subscription.
+
+### WebSocket topics
+
+| Topic | Subscribe snapshot | Live payload |
+| --- | --- | --- |
+| `<SYMBOL>@perp_orderbook` | Up to 100 levels per side | Up to 20 levels per side, at most 10 frames/second |
+| `<SYMBOL>@perp_trade` | `{ "symbol": "BTC", "trades": [ ... ] }`, latest 100 newest first | One perpetual trade |
+| `<SYMBOL>@perp_stats` | Same fields as symbol REST `perp_stats` | Full stats every 30 seconds |
+| `PAX@orderbook`, `SID@orderbook` | Up to 100 spot levels per side | Up to 20 levels per side |
+| `PAX@trade`, `SID@trade` | Latest 100 spot trades in a `trades` wrapper | One spot trade |
+| `PAX@stats`, `SID@stats` | Same shape as REST `stats` | Full stats every 30 seconds |
+
+Book payloads contain `symbol`, `asks` ascending and `bids` descending. Each
+level is `[price, size]`. Perpetual sizes are fractional contracts computed as
+remaining USD notional divided by the limit price; spot sizes are base token
+units. Perpetual books also contain nullable `mark_price`, `index_price` and
+`basis_bps`. Live frames replace the displayed top levels and periodically
+include a CRC32 `checksum` for the top 20 levels. Do not interpret them as
+individual order inserts/deletes or assume integer sizes. The venue REST book
+(`/api/orderbook/BTC`) instead uses `{price, quantity}` objects with USD
+notional quantities; its payload is not interchangeable with the socket book.
+
+The current symbol adapter
+[`useSidPaxMarketStream`](src/hooks/perps/useSidPaxMarketStream.ts) converts the
+numeric `last_funding_rate` compatibility field to a nullable decimal string
+with `fundingRateFromJsonNumber`. Absent predicted funding remains `null`;
+[`fundingRowFigure`](src/core/perps/fundingRate.ts) then displays the venue's
+last settled hourly rate. A connected symbol socket does not imply an estimate
+is available.
 
 ## Markets Service
 
-Single instance. Cross-symbol market table and platform totals.
-
-Base URL: `http(s)://<markets-host>:3020`
-WebSocket: `ws(s)://<markets-host>:3020`
-
 ### REST
 
-#### `GET /markets`
+| Method and path | Response |
+| --- | --- |
+| `GET /api/markets` | `{ "ts": 1747526400000, "markets": [ ... ] }`, market ID order |
+| `GET /api/markets/btc` | `{ "ts": 1747526400000, "market": { ... } }`, case-insensitive symbol |
+| `GET /api/totals` | `{ "ts": 1747526400000, "totals": { ... } }` |
+| `GET /api/markets/health` | `{ "ok": true, "service": "perps-gateway", "symbols": 18, "uptimeSec": 12345 }` (count varies with registrations) |
 
-All markets, one entry per symbol.
-
-```json
-{
-  "ts": 1747526400123,
-  "markets": [
-    {
-      "symbol":          "BTC",
-      "symbol_full":     "Bitcoin",
-      "price":           77173.0,
-      "change_24h":      0.0123,
-      "volume_24h":      1234567.8,
-      "open_interest":   987654.3,
-      "funding_8h":      0.00009,
-      "est_funding_rate": 0.00012,
-      "volume_7d":       9876543.2,
-      "volume_30d":      45678901.2,
-      "trades_count":    123456,
-      "last_updated":    1747526399000,
-
-      "perp_mark_price":          77182.4,
-      "perp_index_price":         77173.0,
-      "perp_basis_bps":           1.21,
-      "perp_funding_rate":        0.00009,
-      "perp_next_funding_ms":     1747555200000,
-      "perp_long_short_ratio":    1.03,
-      "perp_liq_volume_24h":      ...,
-      "perp_oi_contracts":        ...,
-      "perp_oi_usd":              ...,
-      "perp_volume_24h_contracts": ...,
-      "perp_volume_24h_usd":      ...
-    },
-    ...
-  ]
-}
-```
-
-#### `GET /markets/:symbol`
-
-Single market record. `:symbol` is case-insensitive.
-
-```json
-{ "ts": ..., "market": { ...same shape as one element above... } }
-```
-
-`404` with `{ "error": "Unknown symbol: ..." }` if the symbol isn't tracked.
-
-#### `GET /totals`
-
-Platform totals derived from the same data as `/markets`.
+A market record has this shape:
 
 ```json
 {
-  "ts": ...,
-  "totals": {
-    "total_trades": 1234567,
-    "volume_24h":   12345678.9,
-    "volume_7d":    98765432.1,
-    "volume_30d":   456789012.3,
-    "total_oi":     9876543.2
-  }
+  "market_id": "0",
+  "symbol": "BTC",
+  "symbol_full": "Bitcoin",
+  "price": 77173,
+  "change_24h": 0.0123,
+  "volume_24h": 1234567.8,
+  "open_interest": 987654.3,
+  "funding_8h": "0.0001",
+  "last_funding_rate_hourly": "0.0000125",
+  "volume_7d": 9876543.2,
+  "volume_30d": 45678901.2,
+  "trades_count": 123456,
+  "last_updated": 1747526399000,
+  "perp_mark_price": 77182.4,
+  "perp_index_price": 77173,
+  "perp_basis_bps": 1.218,
+  "perp_funding_rate": "0.0000125",
+  "perp_next_funding_ms": 1747530000000,
+  "perp_long_short_ratio": 1.03,
+  "perp_liq_volume_24h": 0,
+  "perp_oi_contracts": 12.8,
+  "perp_oi_usd": 987654.3,
+  "perp_volume_24h_contracts": 16,
+  "perp_volume_24h_usd": 1234567.8
 }
 ```
 
-#### `GET /health`
+`market_id` is a decimal **string**. Prices/notionals are USD, `change_24h` is a
+fraction (0.0123 means 1.23%), and `perp_basis_bps` is in basis points.
+`price`, `change_24h`, `last_updated`, mark/index/basis, long/short ratio,
+`perp_oi_contracts` and `perp_oi_usd` are nullable in the record type.
+Volumes, trade count and top-level open interest are numeric; empty aggregate
+windows yield zero. A zero short OI leaves the long/short ratio `null`.
+`last_updated` reflects a mark block in REST and the rolling-statistics update
+block in market topic records; it is not a per-field freshness guarantee.
 
-```json
-{ "ok": true, "service": "markets-aggregator", "symbols": 18, "uptimeSec": 12345 }
-```
+### Funding contract
+
+| Field | Wire type | Meaning |
+| --- | --- | --- |
+| `last_funding_rate_hourly` | decimal string or `null` | Latest settled hourly fraction |
+| `perp_funding_rate` | decimal string or `null` | Same settled hourly fraction |
+| `funding_8h` | decimal string or `null` | Exactly eight times that settled hourly fraction |
+| `perp_next_funding_ms` | integer milliseconds | Next whole UTC hour at response construction |
+
+The three rates come from the same latest `FundingSettled` database row and
+are all `null` before one exists. `"0"` is an observed zero rate; `null` is
+unavailable. The eight-hour value is a multiplication, not a prediction or a
+claim that settlement runs every eight hours. The next-hour timestamp does
+not guarantee a future settlement or price. Market records have no estimated
+funding field.
+
+[`useMarketsStream`](src/hooks/perps/useMarketsStream.ts) parses these strings
+as signed 18-decimal `bigint` values; numbers and exponent notation are not
+accepted as exact funding inputs. A malformed field becomes `null` with a
+rate-limited warning for that symbol/field. Preserve nulls when rendering;
+do not coerce unavailable funding to zero. The 24-hour figure is the last
+settled hourly rate multiplied by 24, explicitly labeled as a projection.
+
+Totals contain numeric `total_trades`, `volume_24h`, `volume_7d`, `volume_30d`
+and `total_oi`, derived from rolling statistics. Unknown market symbols return
+HTTP 404 with `{ "error": "Unknown symbol: NOSUCH" }`; database failures return
+HTTP 500 with `{ "error": "internal error" }`.
 
 ### WebSocket topics
 
-#### `markets@all`
+- `markets@all`: `data` is the full market-record array.
+- `markets@totals`: `data` is the totals object.
+- `<SYMBOL>@market`: `data` is one market record.
 
-Full array of all market records, broadcast every 5s and on subscribe. Same
-record shape as `GET /markets`'s `markets` array.
+These topics send subscribe snapshots and full replacements every five
+seconds while watched. Funding types and units match REST. The frame envelope
+supplies the sequence; REST wrappers (`ts`, `markets`, `market`, `totals`) are
+not part of the topic's `data`.
 
-```json
-{
-  "topic": "markets@all",
-  "ts": ...,
-  "snapshotId": "...",
-  "seq": ...,
-  "data": [ { "symbol": "BTC", ... }, { "symbol": "ETH", ... }, ... ]
-}
-```
-
-#### `markets@totals`
-
-Platform totals, broadcast every 5s and on subscribe. Same shape as
-`GET /totals`'s `totals` object.
-
-```json
-{
-  "topic": "markets@totals",
-  "ts": ...,
-  "snapshotId": "...",
-  "seq": ...,
-  "data": {
-    "total_trades": 1234567,
-    "volume_24h":   12345678.9,
-    "volume_7d":    98765432.1,
-    "volume_30d":   456789012.3,
-    "total_oi":     9876543.2
-  }
-}
-```
-
-#### `<SYMBOL>@market`
-
-Single-market record for the named symbol. Same record shape as a `markets@all`
-element. Broadcast every 5s when at least one subscriber is connected.
-
-```json
-{
-  "topic": "BTC@market",
-  "ts": ...,
-  "snapshotId": "...",
-  "seq": ...,
-  "data": { "symbol": "BTC", "price": 77173.0, ... }
-}
-```
-
----
+Sources: [`records.go`](../../services/platform/perps-data/internal/records/records.go),
+[`rest/markets.go`](../../services/platform/perps-data/internal/rest/markets.go),
+and [`feeds/topics.go`](../../services/platform/perps-data/internal/feeds/topics.go).
 
 ## Chain Explorer Service
 
-Single instance. On-chain block and transaction stream.
+The gateway serves chain data as `chain@blocks` and `chain@transactions` topics
+on the shared socket. `/ws/explorer` subscribes to both. It does not register
+the former standalone `/blocks`, `/transactions` or explorer `/health` REST
+routes; use the socket snapshots for this protocol's recent history.
 
-Base URL: `http(s)://<chain-host>:4500`
-WebSocket: `ws(s)://<chain-host>:4500`
-
-### REST
-
-#### `GET /blocks?limit=N`
-
-Recent blocks, newest first. `limit` clamped to `[1, 50]`, default `20`.
+`chain@blocks` sends the latest 20 blocks, newest first, as the snapshot array;
+a live frame carries one block:
 
 ```json
 {
-  "blocks": [
-    {
-      "block_number": 1234567,
-      "time":         "2026-05-18T00:00:00.123Z",
-      "proposer":     "AB12CD34...",
-      "hash":         "0x...",
-      "transactions": 142
-    }
-  ]
+  "block_number": 1234567,
+  "time": "2026-05-18T00:00:00.123Z",
+  "proposer": "AB12CD34",
+  "hash": "0x0123",
+  "transactions": 142
 }
 ```
 
-#### `GET /transactions?limit=N`
-
-Recent transactions, newest first. `limit` clamped to `[1, 200]`, default `50`.
+`chain@transactions` snapshots the latest 50 indexed action rows, newest first;
+a live frame carries one action:
 
 ```json
 {
-  "transactions": [
-    {
-      "hash":   "0x...",
-      "action": "OROB Fill",
-      "block":  1234567,
-      "time":   "2026-05-18T00:00:00.123Z",
-      "user":   "pax1abc...",
-      "symbol": "BTC",
-      "side":   "buy",
-      "price":  77175.2,
-      "size":   0.42
-    }
-  ]
+  "hash": "0x0123",
+  "action": "Place Order",
+  "block": 1234567,
+  "time": "2026-05-18T00:00:00.123Z",
+  "user": "pax1...",
+  "symbol": "BTC",
+  "side": "buy",
+  "price": 77175.2,
+  "size": 0.42
 }
 ```
 
-`action` is one of: `"Place Order"`, `"Cancel Order"`, `"Modify Order"`,
-`"OROB Fill"`, `"Oracle Updated"`, `"Sealed Batch Executed"`.
-
-#### `GET /health`
-
-```json
-{ "status": "ok", "ts": ..., "chain_connected": true, "blocks_seen": 12345, "txs_seen": 678901 }
-```
-
-### WebSocket topics
-
-#### `chain@blocks`
-
-One frame per new block. Subscribe-time snapshot is an array of the most
-recent 20 blocks.
-
-Live frame:
-
-```json
-{
-  "topic": "chain@blocks",
-  "ts": ...,
-  "snapshotId": "...",
-  "seq": ...,
-  "data": {
-    "block_number": 1234567,
-    "time":         "2026-05-18T00:00:00.123Z",
-    "proposer":     "AB12CD34...",
-    "hash":         "0x...",
-    "transactions": 142
-  }
-}
-```
-
-Snapshot frame (same envelope, but `data` is an array and `snapshot: true`):
-
-```json
-{
-  "topic": "chain@blocks",
-  "ts": ...,
-  "snapshotId": "...",
-  "seq": ...,
-  "snapshot": true,
-  "data": [ { "block_number": ..., ... }, ... ]
-}
-```
-
-#### `chain@transactions`
-
-One frame per transaction. Subscribe-time snapshot is an array of the most
-recent 50 transactions.
-
-Live frame:
-
-```json
-{
-  "topic": "chain@transactions",
-  "ts": ...,
-  "snapshotId": "...",
-  "seq": ...,
-  "data": {
-    "hash":   "0x...",
-    "action": "OROB Fill",
-    "block":  1234567,
-    "time":   "2026-05-18T00:00:00.123Z",
-    "user":   "pax1abc...",
-    "symbol": "BTC",
-    "side":   "buy",
-    "price":  77175.2,
-    "size":   0.42
-  }
-}
-```
-
-Snapshot frame: same envelope with `snapshot: true` and `data` as an array of
-recent transactions.
+`user` uses the `pax` Bech32 prefix. `symbol`, `side`, `price` and `size` may be
+`null` for actions without those attributes. One transaction may produce more
+than one action row. Prices and amount sizes are scaled from their emitter's
+units; `Oracle Updated` and `Sealed Batch Executed` sizes are counts. This
+stream describes committed network activity, not a second finality stage.
