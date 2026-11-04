@@ -155,5 +155,5 @@ func (s *CommitStore) Exporter(version int64) (types.Exporter, error) {
 		_ = roStore.Close()
 		return nil, fmt.Errorf("unexpected store type from LoadVersion")
 	}
-	return NewKVExporter(cs, version), nil
+	return NewKVExporter(cs, cs.Version()), nil
 }

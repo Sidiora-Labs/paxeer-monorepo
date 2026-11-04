@@ -8,10 +8,8 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
-
-	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/crypto/merkle"
+	sm "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/internal/state"
 	tmbytes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/bytes"
 	tmmath "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/math"
 	service "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/service"
@@ -70,7 +68,7 @@ func KeyPathFn(fn KeyPathFunc) Option {
 // This merkle key paths are required when verifying /abci_query calls
 func DefaultMerkleKeyPathFn() KeyPathFunc {
 	// regexp for extracting store name from /abci_query path
-	storeNameRegexp := regexp.MustCompile(`\/store\/(.+)\/key`)
+	storeNameRegexp := regexp.MustCompile(`^/store/([^/]+)/key$`)
 
 	return func(path string, key []byte) (merkle.KeyPath, error) {
 		matches := storeNameRegexp.FindStringSubmatch(path)
@@ -117,14 +115,13 @@ func (c *Client) OnStop() {
 	}
 }
 
-// Returns the status of the light client. Previously this was querying the primary connected to the client
-// As a consequence of this change, running /status on the light client will return nil for SyncInfo, NodeInfo
-// and ValdiatorInfo.
+// Status reports the configured chain identity and local light-client trust state.
+// Full-node sync and validator information are not available from a light client.
 func (c *Client) Status(ctx context.Context) (*coretypes.ResultStatus, error) {
 	lightClientInfo := c.lc.Status(ctx)
 
 	return &coretypes.ResultStatus{
-		NodeInfo:        types.NodeInfo{},
+		NodeInfo:        types.NodeInfo{Network: c.lc.ChainID()},
 		SyncInfo:        coretypes.SyncInfo{},
 		ValidatorInfo:   coretypes.ValidatorInfo{},
 		LightClientInfo: *lightClientInfo,
@@ -177,11 +174,18 @@ func (c *Client) ABCIQueryWithOptions(ctx context.Context, path string, data tmb
 	if len(resp.Key) == 0 {
 		return nil, errors.New("empty key")
 	}
+	if !bytes.Equal(resp.Key, data) {
+		return nil, errors.New("response key does not match requested key")
+	}
 	if resp.ProofOps == nil || len(resp.ProofOps.Ops) == 0 {
 		return nil, errors.New("no proof ops")
 	}
 	if resp.Height <= 0 {
 		return nil, coretypes.ErrZeroOrNegativeHeight
+	}
+
+	if resp.Height != opts.Height {
+		return nil, fmt.Errorf("response height %d does not match requested height %d", resp.Height, opts.Height)
 	}
 
 	// Update the light client if we're behind.
@@ -194,12 +198,12 @@ func (c *Client) ABCIQueryWithOptions(ctx context.Context, path string, data tmb
 
 	// Validate the value proof against the trusted header.
 
-	// build a Merkle key path from path and resp.Key
+	// Derive the authenticated key path from the request, never provider fields.
 	if c.keyPathFn == nil {
 		return nil, errors.New("please configure Client with KeyPathFn option")
 	}
 
-	kp, err := c.keyPathFn(path, resp.Key)
+	kp, err := c.keyPathFn(path, data)
 	if err != nil {
 		return nil, fmt.Errorf("can't build merkle key path: %w", err)
 	}
@@ -315,19 +319,11 @@ func (c *Client) BlockchainInfo(ctx context.Context, minHeight, maxHeight int64)
 		}
 	}
 
-	// Update the light client if we're behind.
-	if len(res.BlockMetas) > 0 {
-		lastHeight := res.BlockMetas[len(res.BlockMetas)-1].Header.Height
-		if _, err := c.updateLightClientIfNeededTo(ctx, &lastHeight); err != nil {
-			return nil, err
-		}
-	}
-
-	// Verify each of the BlockMetas.
+	// Verify each returned height, including intermediate heights absent from a sparse store.
 	for _, meta := range res.BlockMetas {
-		h, err := c.lc.TrustedLightBlock(meta.Header.Height)
+		h, err := c.updateLightClientIfNeededTo(ctx, &meta.Header.Height)
 		if err != nil {
-			return nil, fmt.Errorf("trusted header %d: %w", meta.Header.Height, err)
+			return nil, fmt.Errorf("verify header %d: %w", meta.Header.Height, err)
 		}
 		if bmH, tH := meta.Header.Hash(), h.Hash(); !bytes.Equal(bmH, tH) {
 			return nil, fmt.Errorf("block meta header %X does not match with trusted header %X",
@@ -385,6 +381,10 @@ func (c *Client) BlockByHash(ctx context.Context, hash tmbytes.HexBytes) (*coret
 	res, err := c.next.BlockByHash(ctx, hash)
 	if err != nil {
 		return nil, err
+	}
+
+	if res.Block == nil && res.BlockID.IsNil() {
+		return res, nil
 	}
 
 	// Validate res.
@@ -447,20 +447,10 @@ func (c *Client) BlockResults(ctx context.Context, height *int64) (*coretypes.Re
 		return nil, err
 	}
 
-	// proto-encode FinalizeBlock events
-	bbeBytes, err := proto.Marshal(&abci.ResponseFinalizeBlock{
-		Events: res.FinalizeBlockEvents,
-	})
+	mh, err := sm.TxResultsHash(res.TxsResults)
 	if err != nil {
 		return nil, err
 	}
-
-	// Build a Merkle tree out of the slice.
-	rs, err := abci.MarshalTxResults(res.TxsResults)
-	if err != nil {
-		return nil, err
-	}
-	mh := merkle.HashFromByteSlices(append([][]byte{bbeBytes}, rs...))
 
 	// Verify block results.
 	if !types.SkipLastResultsHashValidation.Load() && !bytes.Equal(mh, trustedBlock.LastResultsHash) {
@@ -486,6 +476,10 @@ func (c *Client) HeaderByHash(ctx context.Context, hash tmbytes.HexBytes) (*core
 	res, err := c.next.HeaderByHash(ctx, hash)
 	if err != nil {
 		return nil, err
+	}
+
+	if res.Header == nil {
+		return res, nil
 	}
 
 	if err := res.Header.ValidateBasic(); err != nil {
@@ -530,6 +524,16 @@ func (c *Client) Tx(ctx context.Context, hash tmbytes.HexBytes, prove bool) (*co
 	// Validate res.
 	if res.Height <= 0 {
 		return nil, coretypes.ErrZeroOrNegativeHeight
+	}
+
+	if !bytes.Equal(res.Tx.Hash().Bytes(), hash) || !bytes.Equal(res.Hash, hash) {
+		return nil, errors.New("transaction hash does not match requested hash")
+	}
+	if !bytes.Equal(res.Proof.Data, res.Tx) {
+		return nil, errors.New("transaction proof data does not match returned transaction")
+	}
+	if res.Proof.Proof.Index != int64(res.Index) {
+		return nil, errors.New("transaction proof index does not match returned index")
 	}
 
 	// Update the light client if we're behind.

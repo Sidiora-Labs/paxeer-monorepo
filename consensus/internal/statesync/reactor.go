@@ -885,12 +885,10 @@ func (r *Reactor) handleParamsMessage(ctx context.Context, m p2p.RecvMsg[*pb.Mes
 		defer r.mtx.RUnlock()
 		logger.Debug("received consensus params response", "height", resp.GetHeight())
 
-		cp := types.ConsensusParamsFromProto(resp.GetConsensusParams())
-
 		if sp, ok := r.stateProvider.(*StateProviderP2P); ok {
 			err := func() error {
 				select {
-				case sp.ParamsRecvCh() <- cp:
+				case sp.ParamsRecvCh() <- resp:
 				case <-ctx.Done():
 					return ctx.Err()
 				case <-time.After(time.Second):

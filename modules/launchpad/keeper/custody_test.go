@@ -219,13 +219,20 @@ func TestCustodyLedgers(t *testing.T) {
 	// TreasuryHeld is keyed by the quote token, FeeHeld by the accumulator.
 	other := keeper.FeeHeldLedger(address("other accumulator"))
 	require.Equal(t, int64(0), c.ledger(other))
-	params := c.k.GetParams(c.ctx)
-	params.QuoteToken = address("other token").Hex()
-	require.NoError(t, c.k.UpdateParams(c.ctx, c.k.Authority(), params))
-	require.Equal(t, int64(0), c.ledger(treasury))
-	params.QuoteToken = c.usdl.Hex()
-	require.NoError(t, c.k.UpdateParams(c.ctx, c.k.Authority(), params))
-	require.Equal(t, int64(1_003_000), c.ledger(treasury))
+	{
+		// Exercise the token-keyed Treasury separately: a quote-token change
+		// cannot redenominate the funded pool and fee ledgers above.
+		c := newCustodyEnv(t)
+		c.approve(c.holder, 1_003_000)
+		c.pull(c.holder, treasury, 1_003_000)
+		params := c.k.GetParams(c.ctx)
+		params.QuoteToken = address("other token").Hex()
+		require.NoError(t, c.k.UpdateParams(c.ctx, c.k.Authority(), params))
+		require.Equal(t, int64(0), c.ledger(treasury))
+		params.QuoteToken = c.usdl.Hex()
+		require.NoError(t, c.k.UpdateParams(c.ctx, c.k.Authority(), params))
+		require.Equal(t, int64(1_003_000), c.ledger(treasury))
+	}
 
 	// Pay-first input: USDL sent straight to the pool is swept into HeldQuote.
 	c.transfer(c.holder, p1, 4_000_000)
@@ -310,6 +317,7 @@ func TestUsdlMovesAreContractCalls(t *testing.T) {
 	require.Len(t, c.logs(), before+2)
 
 	// A quote token without code returns no data and is refused.
+	c = newCustodyEnv(t)
 	params := c.k.GetParams(c.ctx)
 	params.QuoteToken = address("codeless token").Hex()
 	require.NoError(t, c.k.UpdateParams(c.ctx, c.k.Authority(), params))
