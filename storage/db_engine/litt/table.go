@@ -29,9 +29,9 @@ type Table interface {
 	// each and do not duplicate value bytes. Secondary keys must be globally unique just like
 	// primary keys, and must not collide with the primary key or other secondaries.
 	//
-	// The maximum size of a key (primary or secondary) is 64 KiB (2^16 - 1 bytes). The maximum size
-	// of the value is 2^32 bytes. This database has been optimized under the assumption that values
-	// are generally much larger than keys. This affects performance, but not correctness.
+	// The maximum size of a key (primary or secondary) is 65,535 bytes (math.MaxUint16). The maximum size
+	// of the value is 4,294,967,295 bytes (math.MaxUint32). This database has been optimized under the
+	// assumption that values are generally much larger than keys. This affects performance, but not correctness.
 	//
 	// It is not safe to modify the byte slices passed to this function after the call
 	// (the key bytes, the value bytes, and every secondary key's bytes).
@@ -42,9 +42,9 @@ type Table interface {
 	//
 	// Each PutRequest may include zero or more secondary keys (see Put for semantics).
 	//
-	// The maximum size of a key (primary or secondary) is 64 KiB (2^16 - 1 bytes). The maximum size
-	// of a value is 2^32 bytes. This database has been optimized under the assumption that values
-	// are generally much larger than keys. This affects performance, but not correctness.
+	// The maximum size of a key (primary or secondary) is 65,535 bytes (math.MaxUint16). The maximum size
+	// of a value is 4,294,967,295 bytes (math.MaxUint32). This database has been optimized under the
+	// assumption that values are generally much larger than keys. This affects performance, but not correctness.
 	//
 	// It is not safe to modify the byte slices passed to this function after the call
 	// (including the key byte slices, the value byte slices, and every secondary key's bytes).
@@ -54,7 +54,8 @@ type Table interface {
 	// (returns false if the key does not exist). If an error is returned, the value of the other returned values are
 	// undefined.
 	//
-	// The maximum size of a key is 2^32 bytes. The maximum size of a value is 2^32 bytes.
+	// Stored keys (primary or secondary) are at most 65,535 bytes (math.MaxUint16); returned values
+	// are at most 4,294,967,295 bytes (math.MaxUint32).
 	// This database has been optimized under the assumption that values are generally much larger than keys.
 	// This affects performance, but not correctness.
 	//

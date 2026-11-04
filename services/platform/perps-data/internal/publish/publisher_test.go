@@ -172,7 +172,7 @@ func startCluster(t *testing.T) *nats.Conn {
 	for i := range servers {
 		ns, err := server.NewServer(&server.Options{
 			ServerName: "perps-" + strconv.Itoa(i), Host: "127.0.0.1", Port: server.RANDOM_PORT,
-			JetStream: true, StoreDir: t.TempDir(), NoLog: true, NoSigs: true,
+			JetStream: true, StoreDir: t.TempDir(), MaxPayload: configuredPayloadLimit(t), NoLog: true, NoSigs: true,
 			Users: []*server.User{
 				{Username: "perps", Password: "perps-password"},
 				{Username: restrictedUser, Password: restrictedPassword, Permissions: &server.Permissions{Publish: &server.SubjectPermission{Deny: []string{fill}}}},
@@ -623,102 +623,24 @@ func TestPublisher(t *testing.T) {
 	})
 
 	t.Run("envelope_limit", func(t *testing.T) {
-		reset(t, ctx, db)
-		before := streamState(t, ctx, perps)
-		tx, err := db.BeginTx(ctx, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		sibling := fillEvent(t, 600, hashA, 1, 0)
-		if _, err = outboxStore.Enqueue(ctx, tx, sibling.subject, sibling.env); err != nil {
-			t.Fatal(err)
-		}
-		over := padded(t, policy, 600, delivery.MaxEnvelopeBytes+1)
-		if _, err = outboxStore.Enqueue(ctx, tx, over.subject, over.env); err == nil || err.Error() != "delivery: oversized envelope" {
-			t.Fatalf("Enqueue of a %d byte envelope: %v", delivery.MaxEnvelopeBytes+1, err)
-		}
-		if err = tx.Rollback(); err != nil {
-			t.Fatal(err)
-		}
-		if n := count(t, db, `SELECT count(*) FROM perps.delivery_outbox`); n != 0 {
-			t.Fatalf("rolled back block transaction left %d rows", n)
-		}
-
-		// An envelope at the limit is stored, but with its headers the broker
-		// refuses it for size. That can never succeed: the row is quarantined
-		// permanently on its first attempt and announced in its place.
-		limit := padded(t, policy, 601, delivery.MaxEnvelopeBytes)
-		after := fillEvent(t, 602, hashA, 0, 0)
-		enqueue(t, ctx, db, outboxStore, limit, after)
-		var logs bytes.Buffer
-		cfg := testConfig()
-		cfg.MaxHeadAge = time.Second
-		cfg.Logger = slog.New(slog.NewTextHandler(&logs, nil))
-		p, err := New(db, nc, policy, cfg)
-		if err != nil {
-			t.Fatal(err)
-		}
-		// The head row stuck past the bound turns readiness off.
-		time.Sleep(1100 * time.Millisecond)
-		if err := p.Ready(ctx); err == nil || !strings.Contains(err.Error(), "oldest open outbox row") {
-			t.Fatalf("Ready with a stuck head row = %v", err)
-		}
-		drainOpen(t, ctx, db, p)
-		rows := outbox(t, db)
-		if len(rows) != 2 {
-			t.Fatalf("outbox = %+v", rows)
-		}
-		if r := rows[0]; r.eventID != limit.env.EventID || r.state != "quarantined" || r.failure != "oversized" || r.attempts != 2 || r.brokerStream != stream.Name || r.brokerSequence != int64(before.LastSeq)+1 {
-			t.Fatalf("refused row = %+v", r)
-		}
-		if r := rows[1]; r.state != "published" || r.brokerSequence != int64(before.LastSeq)+2 {
-			t.Fatalf("row behind the refused row = %+v", r)
-		}
-		msg, err := perps.GetMsg(ctx, before.LastSeq+1)
-		if err != nil {
-			t.Fatal(err)
-		}
-		seq := strconv.FormatInt(rows[0].seq, 10)
-		if msg.Subject != "perps.125.control" || msg.Header.Get(delivery.HeaderControl) != delivery.ControlSkipped || msg.Header.Get(HeaderSeq) != seq || msg.Header.Get(jetstream.MsgIDHeader) != controlID(rows[0].seq, limit.env.EventID) || len(msg.Data) >= delivery.MaxEnvelopeBytes {
-			t.Fatalf("control message = %s %v", msg.Subject, msg.Header)
-		}
-		if state := streamState(t, ctx, perps); state.LastSeq != before.LastSeq+2 {
-			t.Fatalf("stream last sequence %d, want %d: one control message and one row", state.LastSeq, before.LastSeq+2)
-		}
-		// The announced row is resolved: readiness returns once the head drains.
-		if n, err := outboxStore.Quarantined(ctx); err != nil || n != 0 {
-			t.Fatalf("quarantined = %d, %v", n, err)
-		}
-		if err := p.Ready(ctx); err != nil {
-			t.Fatalf("Ready after drain = %v", err)
-		}
-		if n := metricValue(t, p.quarantined); n != 1 {
-			t.Fatalf("perps_outbox_quarantined_total = %v, want 1", n)
-		}
-		if age := metricValue(t, p.headAge); age != 0 {
-			t.Fatalf("perps_outbox_head_age_seconds = %v, want 0", age)
-		}
-		line := logs.String()
-		for _, want := range []string{"level=ERROR", `msg="perps outbox row quarantined permanently"`, "perps_seq=" + seq, limit.env.EventID, "class=oversized"} {
-			if !strings.Contains(line, want) {
-				t.Fatalf("log %q lacks %q", line, want)
-			}
-		}
+		checkEnvelopeBoundary(t, ctx, db, nc, policy, outboxStore, perps)
 	})
 
 	t.Run("refused_message_skipped_in_order", func(t *testing.T) {
 		reset(t, ctx, db)
 		base := streamState(t, ctx, perps).LastSeq
 		first := fillEvent(t, 700, hashA, 0, 0)
-		refused := padded(t, policy, 701, delivery.MaxEnvelopeBytes)
+		refused := padded(t, policy, 701, delivery.MaxTransportBytes)
 		later := []event{fillEvent(t, 702, hashA, 0, 0), fillEvent(t, 703, hashA, 0, 0)}
-		enqueue(t, ctx, db, outboxStore, append([]event{first, refused}, later...)...)
+		enqueue(t, ctx, db, outboxStore, first)
+		enqueueLegacy(t, ctx, db, policy, refused)
+		enqueue(t, ctx, db, outboxStore, later...)
 		drainOpen(t, ctx, db, publisher)
 		rows := outbox(t, db)
 		if len(rows) != 4 || rows[0].state != "published" || rows[0].brokerSequence != int64(base)+1 {
 			t.Fatalf("first row = %+v", rows)
 		}
-		if r := rows[1]; r.state != "quarantined" || r.failure != "oversized" || r.brokerSequence != int64(base)+2 {
+		if r := rows[1]; r.state != "quarantined" || r.failure != string(delivery.SchemaViolation) || r.brokerSequence != int64(base)+2 {
 			t.Fatalf("refused row = %+v", r)
 		}
 		msg, err := perps.GetMsg(ctx, base+2)
@@ -1286,5 +1208,215 @@ func TestClassifyInFlight(t *testing.T) {
 	other := &jetstream.APIError{Code: 400, ErrorCode: 10071, Description: "wrong last sequence"}
 	if err := classify(other, false); errors.Is(err, delivery.ErrInFlight) || errors.Is(err, delivery.ErrBrokerDown) {
 		t.Fatalf("classify(10071) = %v, want a failure of the message", err)
+	}
+}
+
+func checkEnvelopeBoundary(t *testing.T, ctx context.Context, db *sql.DB, nc *nats.Conn, policy delivery.Policy, outboxStore *delivery.Store, perps jetstream.Stream) {
+	t.Helper()
+	reset(t, ctx, db)
+	before := streamState(t, ctx, perps)
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback()
+	if _, err = tx.ExecContext(ctx, `INSERT INTO perps.blocks(number,hash,parent_hash,time,proposer,tx_count) VALUES($1,$2,$3,$4,$5,$6)`, 600, bytes.Repeat([]byte{0xcc}, 32), bytes.Repeat([]byte{0xbb}, 32), time.Now().UTC(), strings.Repeat("A", 40), 2); err != nil {
+		t.Fatal(err)
+	}
+	sibling := fillEvent(t, 600, hashA, 1, 0)
+	if _, err = outboxStore.Enqueue(ctx, tx, sibling.subject, sibling.env); err != nil {
+		t.Fatal(err)
+	}
+	over := padded(t, policy, 600, delivery.MaxEnvelopeBytes+1)
+	oversizedWire, err := json.Marshal(over.env)
+	if err != nil || len(oversizedWire) != delivery.MaxEnvelopeBytes+1 {
+		t.Fatalf("one-byte-over fixture = %d bytes: %v", len(oversizedWire), err)
+	}
+	if _, err = outboxStore.Enqueue(ctx, tx, over.subject, over.env); err == nil || err.Error() != "delivery: oversized envelope" {
+		t.Fatalf("Enqueue of a %d byte envelope: %v", delivery.MaxEnvelopeBytes+1, err)
+	}
+	if err = tx.Rollback(); err != nil {
+		t.Fatal(err)
+	}
+	if n := count(t, db, `SELECT count(*) FROM perps.delivery_outbox`); n != 0 {
+		t.Fatalf("rolled back block transaction left %d rows", n)
+	}
+	if n := count(t, db, `SELECT count(*) FROM perps.blocks WHERE number=600`); n != 0 {
+		t.Fatalf("refused envelope committed %d block rows", n)
+	}
+
+	limit := padded(t, policy, 601, delivery.MaxEnvelopeBytes)
+	second := padded(t, policy, 602, delivery.MaxEnvelopeBytes)
+	enqueue(t, ctx, db, outboxStore, limit, second)
+	publisher, err := New(db, nc, policy, testConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	drainOpen(t, ctx, db, publisher)
+	rows := outbox(t, db)
+	if len(rows) != 2 {
+		t.Fatalf("boundary outbox = %+v", rows)
+	}
+	for i, e := range []event{limit, second} {
+		r := rows[i]
+		if r.eventID != e.env.EventID || r.state != "published" || r.failure != "" || r.attempts != 1 || r.brokerStream != stream.Name || r.brokerSequence != int64(before.LastSeq)+int64(i)+1 {
+			t.Fatalf("maximum-admitted row = %+v", r)
+		}
+		assertBoundaryDelivery(t, ctx, nc, perps, policy, e, r, i == 1)
+	}
+	if n := metricValue(t, publisher.quarantined); n != 0 {
+		t.Fatalf("admitted envelopes quarantined = %v", n)
+	}
+	if state := streamState(t, ctx, perps); state.LastSeq != before.LastSeq+2 {
+		t.Fatalf("maximum-admitted stream sequence = %d, want %d", state.LastSeq, before.LastSeq+2)
+	}
+	if err := publisher.Ready(ctx); err != nil {
+		t.Fatalf("Ready after admitted envelopes = %v", err)
+	}
+
+	reset(t, ctx, db)
+	before = streamState(t, ctx, perps)
+	legacy := padded(t, policy, 603, delivery.MaxTransportBytes)
+	enqueueLegacy(t, ctx, db, policy, legacy)
+	after := fillEvent(t, 604, hashA, 0, 0)
+	enqueue(t, ctx, db, outboxStore, after)
+	var logs bytes.Buffer
+	cfg := testConfig()
+	cfg.MaxHeadAge = time.Second
+	cfg.Logger = slog.New(slog.NewTextHandler(&logs, nil))
+	p, err := New(db, nc, policy, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The head row stuck past the bound turns readiness off.
+	time.Sleep(1100 * time.Millisecond)
+	if err := p.Ready(ctx); err == nil || !strings.Contains(err.Error(), "oldest open outbox row") {
+		t.Fatalf("Ready with a stuck head row = %v", err)
+	}
+	drainOpen(t, ctx, db, p)
+	rows = outbox(t, db)
+	if len(rows) != 2 {
+		t.Fatalf("outbox = %+v", rows)
+	}
+	if r := rows[0]; r.eventID != legacy.env.EventID || r.state != "quarantined" || r.failure != string(delivery.SchemaViolation) || r.attempts != 2 || r.brokerStream != stream.Name || r.brokerSequence != int64(before.LastSeq)+1 {
+		t.Fatalf("refused row = %+v", r)
+	}
+	if r := rows[1]; r.state != "published" || r.brokerSequence != int64(before.LastSeq)+2 {
+		t.Fatalf("row behind the refused row = %+v", r)
+	}
+	msg, err := perps.GetMsg(ctx, before.LastSeq+1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seq := strconv.FormatInt(rows[0].seq, 10)
+	if msg.Subject != "perps.125.control" || msg.Header.Get(delivery.HeaderControl) != delivery.ControlSkipped || msg.Header.Get(HeaderSeq) != seq || msg.Header.Get(jetstream.MsgIDHeader) != controlID(rows[0].seq, legacy.env.EventID) || len(msg.Data) >= delivery.MaxEnvelopeBytes {
+		t.Fatalf("control message = %s %v", msg.Subject, msg.Header)
+	}
+	if state := streamState(t, ctx, perps); state.LastSeq != before.LastSeq+2 {
+		t.Fatalf("stream last sequence %d, want %d: one control message and one row", state.LastSeq, before.LastSeq+2)
+	}
+	// The announced row is resolved: readiness returns once the head drains.
+	if n, err := outboxStore.Quarantined(ctx); err != nil || n != 0 {
+		t.Fatalf("quarantined = %d, %v", n, err)
+	}
+	if err := p.Ready(ctx); err != nil {
+		t.Fatalf("Ready after drain = %v", err)
+	}
+	if n := metricValue(t, p.quarantined); n != 1 {
+		t.Fatalf("perps_outbox_quarantined_total = %v, want 1", n)
+	}
+	if age := metricValue(t, p.headAge); age != 0 {
+		t.Fatalf("perps_outbox_head_age_seconds = %v, want 0", age)
+	}
+	line := logs.String()
+	for _, want := range []string{"level=ERROR", `msg="perps outbox row quarantined permanently"`, "perps_seq=" + seq, legacy.env.EventID, "class=" + string(delivery.SchemaViolation)} {
+		if !strings.Contains(line, want) {
+			t.Fatalf("log %q lacks %q", line, want)
+		}
+	}
+}
+
+func configuredPayloadLimit(t *testing.T) int32 {
+	t.Helper()
+	src, err := os.ReadFile("../../deploy/nats/nats.conf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	config := strings.NewReplacer(
+		"$RAILWAY_SERVICE_NAME", "repair-m1484",
+		"$NATS_MAX_FILE_STORE", "19327352832",
+		"$NATS_CLUSTER_PASSWORD", "fixture-route-password",
+		"$NATS_INDEXER_PASSWORD", "fixture-indexer-password",
+		"$NATS_GATEWAY_PASSWORD", "fixture-gateway-password",
+		"$NATS_ROUTES", "[]",
+	).Replace(string(src))
+	opts := &server.Options{}
+	if err := opts.ProcessConfigString(config); err != nil {
+		t.Fatal(err)
+	}
+	if opts.MaxPayload != delivery.MaxTransportBytes || opts.MaxPayload != stream.Config(chain).MaxMsgSize {
+		t.Fatalf("broker=%d stream=%d transport=%d", opts.MaxPayload, stream.Config(chain).MaxMsgSize, delivery.MaxTransportBytes)
+	}
+	return opts.MaxPayload
+}
+
+func enqueueLegacy(t *testing.T, ctx context.Context, db *sql.DB, policy delivery.Policy, e event) {
+	t.Helper()
+	wire, err := json.Marshal(e.env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(wire) != delivery.MaxTransportBytes || len(wire) <= delivery.MaxEnvelopeBytes {
+		t.Fatalf("legacy fixture size = %d, want old limit %d above admission %d", len(wire), delivery.MaxTransportBytes, delivery.MaxEnvelopeBytes)
+	}
+	if _, err := delivery.Decode(wire, policy, e.subject); err == nil || err.Error() != "delivery: oversized envelope" {
+		t.Fatalf("legacy fixture is not genuinely invalid: %v", err)
+	}
+	// Only this legacy fixture bypasses the current producer's admission.
+	if _, err = db.ExecContext(ctx, `INSERT INTO perps.delivery_outbox(event_id,schema_version,subject,payload_hash,envelope) VALUES($1,$2,$3,$4,$5)`, e.env.EventID, e.env.SchemaVersion, e.subject, e.env.PayloadHash, wire); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func assertBoundaryDelivery(t *testing.T, ctx context.Context, nc *nats.Conn, perps jetstream.Stream, policy delivery.Policy, e event, row outboxRow, pipelined bool) {
+	t.Helper()
+	wire := wireOf(t, policy, e)
+	if len(wire) != delivery.MaxEnvelopeBytes {
+		t.Fatalf("boundary wire = %d bytes, want %d", len(wire), delivery.MaxEnvelopeBytes)
+	}
+	consumer, err := natsdriver.NewConsumer(ctx, nc, natsdriver.ConsumerConfig{
+		Stream: stream.Name, Subject: e.subject, StartSequence: uint64(row.brokerSequence), Batch: 1, FetchWait: time.Second,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer consumer.Close()
+	messages, err := consumer.Fetch(ctx)
+	if err != nil || len(messages) != 1 {
+		t.Fatalf("boundary consumer received %d messages: %v", len(messages), err)
+	}
+	m := messages[0]
+	if m.Stream != stream.Name || m.Sequence != uint64(row.brokerSequence) || m.Subject != e.subject || m.EventID != e.env.EventID || !bytes.Equal(m.Wire, wire) {
+		t.Fatalf("consumer changed boundary identity or wire: stream=%s sequence=%d subject=%s id=%s bytes=%d", m.Stream, m.Sequence, m.Subject, m.EventID, len(m.Wire))
+	}
+	if m.Header.Get(HeaderSeq) != strconv.FormatInt(row.seq, 10) || m.Header.Get(HeaderBlock) != e.env.SourceOrder.Height || m.Header.Get(HeaderKind) != e.env.EventType || m.Header.Get(jetstream.MsgIDHeader) != e.env.EventID || m.Header.Get("Nats-Expected-Stream") != stream.Name || m.Header.Get(delivery.HeaderControl) != "" {
+		t.Fatalf("boundary headers = %v", m.Header)
+	}
+	if pipelined && m.Header.Get("Nats-Expected-Last-Sequence") != strconv.FormatInt(row.brokerSequence-1, 10) {
+		t.Fatalf("pipelined boundary expectation = %v", m.Header)
+	}
+	if size := (&nats.Msg{Data: m.Wire, Header: m.Header}).Size(); size > int(configuredPayloadLimit(t)) {
+		t.Fatalf("body and mandatory headers = %d bytes above configured broker limit", size)
+	}
+	decoded, err := delivery.Decode(m.Wire, policy, m.Subject)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if decoded.EventID != e.env.EventID || decoded.EventType != e.env.EventType || decoded.SchemaVersion != e.env.SchemaVersion || decoded.ChainID != e.env.ChainID || decoded.SourceOrder != e.env.SourceOrder || !decoded.EmittedAt.Equal(e.env.EmittedAt) || decoded.TraceID != e.env.TraceID || decoded.PayloadHash != e.env.PayloadHash || decoded.PayloadHash != delivery.Hash(decoded.Payload) || !bytes.Equal(decoded.Payload, e.env.Payload) {
+		t.Fatal("delivery decoder changed boundary payload, hash or identity")
+	}
+	stored, err := perps.GetMsg(ctx, m.Sequence)
+	if err != nil || !bytes.Equal(stored.Data, wire) {
+		t.Fatalf("persisted boundary wire differs: %v", err)
 	}
 }

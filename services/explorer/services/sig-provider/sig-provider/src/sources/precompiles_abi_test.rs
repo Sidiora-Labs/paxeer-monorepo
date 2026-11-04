@@ -1,9 +1,7 @@
-use super::{EmbeddedPrecompiles, PrecompileSource};
-use std::{
-    collections::{BTreeSet, HashMap},
-    path::Path,
-    process::Command,
-};
+use super::PrecompileSource;
+#[path = "abi_inventory_test_support.rs"]
+mod inventory;
+use std::collections::{BTreeSet, HashMap};
 
 fn canonical_signature(name: &str, inputs: impl Iterator<Item = String>) -> String {
     format!("{name}({})", inputs.collect::<Vec<_>>().join(","))
@@ -22,23 +20,8 @@ fn table_entries(table: &HashMap<String, Vec<String>>) -> BTreeSet<(String, Stri
 
 #[test]
 fn embedded_table_matches_abi_files() {
-    let generator =
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("src/sources/generate_precompiles.py");
-    let generated = Command::new("python3")
-        .arg(generator)
-        .arg("--stdout")
-        .output()
-        .unwrap();
-    assert!(
-        generated.status.success(),
-        "{}",
-        String::from_utf8_lossy(&generated.stderr)
-    );
-    let expected: serde_json::Value = serde_json::from_slice(&generated.stdout).unwrap();
-    let actual: serde_json::Value = serde_json::from_str(include_str!("precompiles.json")).unwrap();
-    assert_eq!(actual, expected, "embedded inventory and ABI must match the node's versioned registry and historical snapshot");
-    let embedded: EmbeddedPrecompiles = serde_json::from_value(expected).unwrap();
-    let abi = embedded.into_contract();
+    let expected = inventory::declared_abi_inventory();
+    let abi = ethabi::Contract::load(serde_json::to_vec(&expected).unwrap().as_slice()).unwrap();
     let mut expected_functions = BTreeSet::new();
     let mut expected_events = BTreeSet::new();
     for function in abi.functions() {

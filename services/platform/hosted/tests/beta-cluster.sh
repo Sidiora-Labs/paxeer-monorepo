@@ -1067,6 +1067,7 @@ secrets_generate() {
     TEST_DESTINATION_DID=${LAYERX_BETA_TEST_DESTINATION_DID:-did:layerx:$(cat "$d/test-destination-signer.pub.hex")}
     [ "$TEST_SOURCE_DID" = "did:layerx:$(cat "$d/test-source-signer.pub.hex")" ] || fail "smoke source DID must be derived from its generated signer"
     [ "$TEST_DESTINATION_DID" = "did:layerx:$(cat "$d/test-destination-signer.pub.hex")" ] || fail "smoke destination DID must be derived from its generated signer"
+    python3 "$REPO_ROOT/services/platform/hosted/testnet/tests/smoke_accounts.py" generate "$d"
     interop_beta_roots_generate "$d"
     source "$REPO_ROOT/services/platform/hosted/human/material.sh"
     human_secrets_generate
@@ -2617,9 +2618,8 @@ env_write() {
         printf 'export LAYERX_TEST_DESTINATION_PUBLIC_KEY=%s\n' "$(cat "$SECRETS_DIR/test-destination-signer.pub.hex")"
         printf 'export LAYERX_TEST_DESTINATION_AUTH_TOKEN_FILE=%s\n' "$SECRETS_DIR/test-destination-auth.token"
         printf 'export LAYERX_TEST_SEQUENCER_PUBLIC_KEY=%s\n' "$(cat "$SECRETS_DIR/sequencer-public-key")"
-        printf 'export LAYERX_TEST_SEND_ENCODER=%s\n' "$WORK_DIR/smoke-target/debug/examples/hosted-send"
         printf 'export LAYERX_BIN=%s\n' "$WORK_DIR/smoke-target/debug/layerx"
-        printf 'export LAYERX_TEST_ASSET=%s\n' "$NODE_ASSET_ID"
+        python3 "$REPO_ROOT/services/platform/hosted/testnet/tests/smoke_accounts.py" env "$SECRETS_DIR"
         printf 'export LAYERX_TEST_AMOUNT=%s\n' "$TEST_AMOUNT"
         printf 'export LAYERX_TEST_ESCROW_WASM=%s\n' "$WORK_DIR/program-target/wasm32-unknown-unknown/release/layerx_reference_escrow.wasm"
         printf 'export LAYERX_GATEWAY_CA_FILE=%s\n' "$CA_DIR/ca.crt"

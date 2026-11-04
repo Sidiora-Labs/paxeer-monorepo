@@ -9,6 +9,8 @@ pub(crate) enum Error {
     Unavailable = 4,
     Integrity = 5,
     SelfCustodied = 6,
+    Capacity = 7,
+    Expired = 8,
 }
 pub(crate) type Result<T> = std::result::Result<T, Error>;
 
