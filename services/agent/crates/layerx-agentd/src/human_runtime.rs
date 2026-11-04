@@ -8676,6 +8676,15 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             &crate::session_control::SessionControl,
         )>,
     ) -> Result<HumanResponse, HumanOperationError> {
+        let reading = self
+            .lock_operations()?
+            .clock
+            .sample(Duration::from_secs(1))
+            .map_err(|_| HumanOperationError::Unavailable)?;
+        if reading.generation == [0; 16] {
+            return Err(HumanOperationError::Unavailable);
+        }
+        let current_time = layerx_agent_api::TimestampSeconds(reading.unix_seconds());
         let tenant =
             TenantId::new(peer.tenant.clone()).map_err(|_| HumanOperationError::Refused)?;
         let key = DecisionKey::new(idempotency_key).map_err(|_| HumanOperationError::Refused)?;
@@ -8756,21 +8765,20 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         }
         let snapshot = self
             .approvals
-            .get_scoped(&tenant, approval_id, current_sequence)
+            .get_scoped_at(
+                &tenant,
+                approval_id,
+                crate::policy::approval::ApprovalSequence(current_sequence),
+                current_time,
+            )
             .map_err(|_| HumanOperationError::Refused)?;
         if snapshot.prepared.disclosure.canonical_digest != held_digest {
             return Err(HumanOperationError::Refused);
         }
         if approve && snapshot.state == ApprovalState::AwaitingApproval {
             if let Some(facts) = snapshot.presentation {
-                let now = self
-                    .lock_operations()?
-                    .clock
-                    .sample(Duration::from_secs(1))
-                    .map_err(|_| HumanOperationError::Unavailable)?;
-                if now.generation == [0; 16]
-                    || now.unix_seconds() < facts.created_at_unix_seconds
-                    || now.unix_seconds() >= facts.activity_expires_at_unix_seconds
+                if current_time.get() < facts.created_at_unix_seconds
+                    || current_time.get() >= facts.activity_expires_at_unix_seconds
                 {
                     return Err(HumanOperationError::Refused);
                 }
@@ -8792,6 +8800,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             approver: ApproverId::new(peer.principal.clone())
                 .map_err(|_| HumanOperationError::Refused)?,
             current_sequence,
+            current_time,
         };
         let service = ApprovalService::new(&self.approvals, &self.budgets, &self.approval_expiry);
         let queue = &self.approval_queue;
@@ -9640,10 +9649,25 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
         cursor: Option<[u8; 32]>,
         limit: u8,
     ) -> Result<HumanResponse, HumanOperationError> {
+        let reading = self
+            .lock_operations()?
+            .clock
+            .sample(Duration::from_secs(1))
+            .map_err(|_| HumanOperationError::Unavailable)?;
+        if reading.generation == [0; 16] {
+            return Err(HumanOperationError::Unavailable);
+        }
+        let current_time = layerx_agent_api::TimestampSeconds(reading.unix_seconds());
         let tenant =
             TenantId::new(peer.tenant.clone()).map_err(|_| HumanOperationError::Refused)?;
         let page = ApprovalService::new(&self.approvals, &self.budgets, &self.approval_expiry)
-            .list(&tenant, cursor, usize::from(limit), current_sequence)
+            .list(
+                &tenant,
+                cursor,
+                usize::from(limit),
+                current_sequence,
+                current_time,
+            )
             .map_err(|_| HumanOperationError::Refused)?;
         let mut out = Encoder::new();
         out.u8(u8::try_from(page.approvals.len()).map_err(|_| HumanOperationError::Refused)?);
@@ -9665,10 +9689,19 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
         approval_id: [u8; 32],
         current_sequence: u64,
     ) -> Result<HumanResponse, HumanOperationError> {
+        let reading = self
+            .lock_operations()?
+            .clock
+            .sample(Duration::from_secs(1))
+            .map_err(|_| HumanOperationError::Unavailable)?;
+        if reading.generation == [0; 16] {
+            return Err(HumanOperationError::Unavailable);
+        }
+        let current_time = layerx_agent_api::TimestampSeconds(reading.unix_seconds());
         let tenant =
             TenantId::new(peer.tenant.clone()).map_err(|_| HumanOperationError::Refused)?;
         let record = ApprovalService::new(&self.approvals, &self.budgets, &self.approval_expiry)
-            .get(&tenant, approval_id, current_sequence)
+            .get(&tenant, approval_id, current_sequence, current_time)
             .map_err(|_| HumanOperationError::Refused)?;
         let mut out = Encoder::new();
         encode_approval_facts(&mut out, &record)?;
@@ -9681,10 +9714,19 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
         held_digest: [u8; 32],
         current_sequence: u64,
     ) -> Result<HumanResponse, HumanOperationError> {
+        let reading = self
+            .lock_operations()?
+            .clock
+            .sample(Duration::from_secs(1))
+            .map_err(|_| HumanOperationError::Unavailable)?;
+        if reading.generation == [0; 16] {
+            return Err(HumanOperationError::Unavailable);
+        }
+        let current_time = layerx_agent_api::TimestampSeconds(reading.unix_seconds());
         let tenant =
             TenantId::new(peer.tenant.clone()).map_err(|_| HumanOperationError::Refused)?;
         let record = ApprovalService::new(&self.approvals, &self.budgets, &self.approval_expiry)
-            .get(&tenant, approval_id, current_sequence)
+            .get(&tenant, approval_id, current_sequence, current_time)
             .map_err(|_| HumanOperationError::Refused)?;
         if record.canonical_bytes_digest != held_digest
             || !matches!(
@@ -10052,10 +10094,25 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
         cursor: Option<[u8; 32]>,
         limit: u8,
     ) -> Result<HumanResponse, HumanOperationError> {
+        let reading = self
+            .lock_operations()?
+            .clock
+            .sample(Duration::from_secs(1))
+            .map_err(|_| HumanOperationError::Unavailable)?;
+        if reading.generation == [0; 16] {
+            return Err(HumanOperationError::Unavailable);
+        }
+        let current_time = layerx_agent_api::TimestampSeconds(reading.unix_seconds());
         let tenant =
             TenantId::new(peer.tenant.clone()).map_err(|_| HumanOperationError::Refused)?;
         let page = ApprovalService::new(&self.approvals, &self.budgets, &self.approval_expiry)
-            .list(&tenant, cursor, usize::from(limit), current_sequence)
+            .list(
+                &tenant,
+                cursor,
+                usize::from(limit),
+                current_sequence,
+                current_time,
+            )
             .map_err(|_| HumanOperationError::Refused)?;
         let mut out = Encoder::new();
         out.u8(u8::try_from(page.approvals.len()).map_err(|_| HumanOperationError::Refused)?);
@@ -10077,10 +10134,19 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
         approval_id: [u8; 32],
         current_sequence: u64,
     ) -> Result<HumanResponse, HumanOperationError> {
+        let reading = self
+            .lock_operations()?
+            .clock
+            .sample(Duration::from_secs(1))
+            .map_err(|_| HumanOperationError::Unavailable)?;
+        if reading.generation == [0; 16] {
+            return Err(HumanOperationError::Unavailable);
+        }
+        let current_time = layerx_agent_api::TimestampSeconds(reading.unix_seconds());
         let tenant =
             TenantId::new(peer.tenant.clone()).map_err(|_| HumanOperationError::Refused)?;
         let record = ApprovalService::new(&self.approvals, &self.budgets, &self.approval_expiry)
-            .get(&tenant, approval_id, current_sequence)
+            .get(&tenant, approval_id, current_sequence, current_time)
             .map_err(|_| HumanOperationError::Refused)?;
         let mut out = Encoder::new();
         encode_approval(&mut out, &record)?;
