@@ -1,0 +1,14 @@
+[repair.22.33.776]
+audit = "22.30.174"
+finding = "container-inventory-test"
+test = "tools/containers/test_repair_22_33_776.py::test_container_inventory_test_runs_against_real_producer"
+proof = "The declared gate executes the original inventory test against the committed check.sh producer; additional cases decode its real shell assignment, exercise comment and blank-line grammar, and reject missing, extra, duplicate, reordered, consensus and historical human exclusions."
+change = "Parse OUT_OF_SCOPE using the rows() grammar and compare exactly with all 34 reviewed exclusions; retain the explicit consensus test Dockerfile coverage assertion."
+baseline = "Not executed: the explicit gate order prohibits testing before complete implementation and prohibits running verify_cmd by hand; the audit records the original historical-list failure."
+evidence = "hf-build and hf-done retain the verified candidate revision, exact command, exit code and private log location in /out/run/gates.jsonl; no gate result is claimed in this record."
+wiring_requests = []
+limits = "This is a local inventory test-gap repair, with no network protocol or restart state; the gate exercises the real Python consumer and committed shell assignment without executing the Docker-dependent all-services shell gate."
+
+[gotcha.inventory-comments]
+observed = "OUT_OF_SCOPE contains whole-line comments and the shell rows() filter removes them; raw splitlines() compares annotations as though they were inventory entries."
+resolution = "Match rows() filtering while preserving exact path content, order and duplicates for the reviewed inventory assertion."
