@@ -76,6 +76,11 @@ public final class LayerXAndroid implements AutoCloseable {
     public SessionTokenProvider sessions() { return sessions; }
     public ObjectMapper mapper() { return mapper; }
 
+    public ReceiptGate gate() {
+        return new ReceiptGate(client, configuration.receiptKeys().orElseThrow(() ->
+            MobileIntegrationException.of(MobileIntegrationException.Code.INVALID_CONFIGURATION)));
+    }
+
     public ReceiptGate gate(ReceiptGate.ReceiptResolver receipts) {
         return new ReceiptGate(receipts, configuration.receiptKeys().orElseThrow(() ->
             MobileIntegrationException.of(MobileIntegrationException.Code.INVALID_CONFIGURATION)));
