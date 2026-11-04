@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -10,8 +9,8 @@ import tempfile
 
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(ROOT / 'tools/qualification/paxeer-x/fixtures'))
-import caps_fixture
+sys.path.insert(0, str(Path(__file__).parent))
+import caps_discovery_contract as contract
 
 RUST_CASES = {'native_complete_evidence_and_mutation_refusals', 'native_live_paginated_discovery',
               'native_client_selection_and_terminal_refusals'}
@@ -33,27 +32,24 @@ def require(value, reason):
 
 
 def manifest(output):
-    path = output / 'manifest.json'
-    caps_fixture.fixture.private(path)
-    value = json.loads(path.read_text())
-    require(value.get('version') == 1 and value.get('purpose') == 'native-complete-caps-discovery', 'artifact contract')
-    require(set(value.get('artifacts', {})) == {'native', 'rust', 'layerxd'}, 'artifact set')
     revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
     tree = subprocess.check_output(['git', 'rev-parse', 'HEAD^{tree}'], cwd=ROOT, text=True).strip()
-    require((value['revision'], value['source_tree']) == (revision, tree), 'stale source-bound artifacts')
     require(not subprocess.check_output(['git', 'status', '--porcelain'], cwd=ROOT), 'source changed since build')
+    value = admit_manifest(output / 'manifest.json', {'revision': revision, 'source_tree': tree})
     for item in value['artifacts'].values():
-        executable = Path(item['path'])
-        require(executable.is_absolute() and executable.is_file() and not executable.is_symlink()
-                and os.access(executable, os.X_OK), 'missing prebuilt executable')
-        with executable.open('rb') as stream:
-            require(hashlib.file_digest(stream, 'sha256').hexdigest() == item['sha256'], 'artifact digest mismatch')
-    caps_fixture.fixture.artifacts(os.environ['PAXEER_X_RUNTIME_ARTIFACTS'])
-    caps_fixture.finality.supplemental(os.environ['PAXEER_X_FINALITY_ARTIFACTS'])
+        require(os.access(item['path'], os.X_OK), 'missing prebuilt executable')
     return value
 
 
+def admit_manifest(path, source):
+    return contract.admit(path, source)
+
+
 def worker(output, value, directory):
+    sys.path.insert(0, str(ROOT / 'tools/qualification/paxeer-x/fixtures'))
+    import caps_fixture
+    caps_fixture.fixture.artifacts(os.environ['PAXEER_X_RUNTIME_ARTIFACTS'])
+    caps_fixture.finality.supplemental(os.environ['PAXEER_X_FINALITY_ARTIFACTS'])
     require(os.geteuid() == 0 and os.getegid() == 4020, 'owned fixture UID0/GID4020 required')
     for name in ('net', 'pid', 'mnt'):
         require(os.readlink('/proc/self/ns/' + name) != os.environ['CAPS_PARENT_' + name.upper()],

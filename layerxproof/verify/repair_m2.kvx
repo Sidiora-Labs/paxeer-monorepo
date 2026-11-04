@@ -1,0 +1,25 @@
+[repair.22.33.2]
+audit = "22.30.1"
+finding = "3"
+tests = ["TestRepairM_2_CurrentCHostStateAndAccountProof", "TestRepairM_2_PersistedCHostRecovery", "TestRepairM_2_RestoredProofRejectsForeignBindingsAndTampering"]
+path = "Actual lxphost_reset preamble -> funded native account registry and committed KV leaves in all nine registered modules -> lxp_state_proof_build/encode -> committed transcript -> Go StateProof/AccountProof."
+recovery = "Recorder writes the production snapshot store, destroys the original host, reads the persisted snapshot and loads a new host before regenerating all account witnesses; Go consumes both sides and checks the snapshot manifest digest, identical roots, registrations, paths, account identities, assets and full 128-bit balances."
+fixture = "testdata/repair_m2.c records testdata/repair_m2.json using the unmodified host.go C preamble. The Go gate only reads the committed transcript; it does not compile or invoke C, load native artifacts, access a live service or use an environment variable."
+regenerate = "python3 layerxproof/verify/testdata/record_repair_m2.py (fixture capture only, outside the Go gate). Producer source SHA-256 values are retained and checked to prevent a stale transcript from silently qualifying a changed native producer."
+contract = "Current host registers modules 1,2,3,4,5,6,7,9,10, giving width 11. Three accounts with distinct assets and nonzero high balance words exercise every account-tree index, including the odd-leaf duplicate sibling."
+baseline = "Not run: the explicit gate order forbids testing before implementation and restricts verification to hf-done. No baseline failure or historical suite result is claimed."
+wiring_request = "spec/layerx-merge/spec.kvx, owning domain fm-kernel: attach finding 3 and the three TestRepairM_2_* proving functions from this in-scope repair record to task 22.33.2; spec edits are forbidden in this task."
+qualification_repair = "First hf-done at 8ecbff43f50481fdb8ff255bfc3939847caf8787 passed both native positive/recovery cases but exposed an incorrect expected refusal class for balance tampering: module-zero path index 9 of 11 reaches a duplicate sibling at index 2 of 3 and returns ErrStatePath before root comparison. Corrected the two balance cases to assert exactly ErrStatePath and retained exactly ErrStateRoot for root-sibling corruption; added the explicit path shape assertion."
+evidence = "Exact candidate revision, command, exit and private log are retained by hf-build/hf-done in the gate ledger and the final evidence line."
+
+[gotcha.repair_m2_recorder]
+area = "layerxproof/verify"
+symptom = "The recorder initially compiled with an implicit lxp_state_module_root_count declaration."
+cause = "The production declaration lives in src/state/lxp_state_internal.h rather than the public kernel header."
+do = "Include that existing production header and reject implicit declarations when recording; the committed fixture is regenerated from the corrected recorder."
+
+[gotcha.repair_m2_duplicate_sibling]
+area = "layerxproof/verify"
+symptom = "Changing any proven account balance in the captured host state returns ErrStatePath before ErrStateRoot."
+cause = "The account-tree leaf's module-zero path at index 9 of 11 reaches an odd last node whose sibling must equal itself."
+do = "Assert the exact canonical-path refusal for those balance corruptions and the exact root refusal for composite sibling corruption."
