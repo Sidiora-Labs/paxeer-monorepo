@@ -23,7 +23,10 @@ func BenchmarkGetValidator(b *testing.B) {
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		for _, addr := range valAddrs {
-			_, _ = app.StakingKeeper.GetValidator(ctx, addr)
+			validator, found := app.StakingKeeper.GetValidator(ctx, addr)
+			if !found || !validator.GetOperator().Equals(addr) {
+				b.Fatalf("validator store read failed for %s", addr)
+			}
 		}
 	}
 }

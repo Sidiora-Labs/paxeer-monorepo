@@ -48,6 +48,9 @@ const (
 
 // EVMRPC Config defines configurations for EVM RPC server on this node
 type Config struct {
+	// PxIndexerURL supplies /v1/assets enumeration; empty means unavailable.
+	PxIndexerURL string `mapstructure:"px_indexer_url"`
+
 	// Maximum number of requests in an RPC batch.
 	BatchRequestLimit int `mapstructure:"batch_request_limit"`
 
@@ -307,6 +310,11 @@ func duration(value interface{}) (time.Duration, error) {
 func ReadConfig(opts servertypes.AppOptions) (Config, error) {
 	cfg := DefaultConfig // copy
 	var err error
+	if v := opts.Get("evm.px_indexer_url"); v != nil {
+		if cfg.PxIndexerURL, err = cast.ToStringE(v); err != nil {
+			return cfg, fmt.Errorf("evm.px_indexer_url: %w", err)
+		}
+	}
 	if v := opts.Get(flagBatchRequestLimit); v != nil {
 		if cfg.BatchRequestLimit, err = cast.ToIntE(v); err != nil {
 			return cfg, fmt.Errorf("%s: %w", flagBatchRequestLimit, err)
@@ -554,6 +562,9 @@ send_raw_tx_sync_timeout = "{{ .EVM.SendRawTxSyncTimeout }}"
 http_enabled = {{ .EVM.HTTPEnabled }}
 http_port = {{ .EVM.HTTPPort }}
 http_address = "{{ .EVM.HTTPAddress }}"
+
+# Optional indexer for px_listAssets; metadata comes from this node.
+px_indexer_url = "{{ .EVM.PxIndexerURL }}"
 
 # controls whether a websocket server is enabled
 ws_enabled = {{ .EVM.WSEnabled }}

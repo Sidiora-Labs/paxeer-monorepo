@@ -1,0 +1,27 @@
+[repair]
+task = "22.33.868"
+audit = "22.30.182"
+base_revision = "fedbeb3bb47c5bb972f66afc8189f92f5395f3eb"
+baseline = "Not run: the explicit gate order requires complete implementation, hf-build, then hf-done and forbids a manual verify run; repair_m868_test.go did not exist on the starting tree, so no baseline test failures are claimed."
+evidence = "hf-build and hf-done record the exact candidate revision, command, exit code and private log in the runner gate ledger; qualification is established only by their results."
+wiring_requests = []
+
+[finding.syncset-read-locks]
+tests = ["TestRepairM_868_SyncSetReadLocks", "TestRepairM_868_SyncSetMixedCoverage"]
+repair = "Contains, Size and snapshot copying use the writer mutex; sorting uses a detached snapshot after unlocking, with documented concurrent access and batch semantics."
+
+[finding.syncset-mixed-coverage]
+tests = ["TestRepairM_868_SyncSetMixedCoverage"]
+repair = "The package concurrency test and focused repair test share a bounded mixed reader/writer workload with coordinated start and midpoint barriers, sorted snapshot checks and exact final membership."
+
+[finding.typedmap-range-delete]
+tests = ["TestRepairM_868_TypedMapRangeDelete", "TestRepairM_868_TypedMapRangeCoverage"]
+repair = "Range loads through the typed API and skips missing collected keys; documented live-load semantics permit callback and concurrent deletion without asserting missing values."
+
+[finding.typedmap-range-stop]
+tests = ["TestRepairM_868_TypedMapRangeStop"]
+repair = "Range stops immediately on callback false and retains ascending key order; tests stop at the first, middle and last key and check the exact callback prefix and values."
+
+[finding.typedmap-range-coverage]
+tests = ["TestRepairM_868_TypedMapRangeDelete", "TestRepairM_868_TypedMapRangeStop", "TestRepairM_868_TypedMapRangeCoverage"]
+repair = "Focused package tests cover termination and callback deletion; the repair gate also covers coordinated concurrent deletion, replacement, insertion and a typed nil value."

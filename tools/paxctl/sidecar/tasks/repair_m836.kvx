@@ -1,0 +1,36 @@
+[task.22.33.836]
+mode = "BUILD"
+status = "implemented-awaiting-bounded-qualification"
+audit = "spec/layerx-merge/programme/audit/records/22.30.180.kvx"
+baseline = "No pre-change verification ran: the ordered task instructions permit verification only through hf-done after implementation and hf-build; no pre-existing failing test is claimed. The initial tree contained only runner-owned .cgignore and spec status changes, and the gate ledger had no prior runs."
+evidence = "The runner's private /out/run/gates.jsonl and /out/evidence.json name the exact verified candidate revision, command, exit code and log; the final response copies the last bounded gate receipt."
+
+[finding.external-accounts-block-assembly-retry]
+test = "TestRepairM_836_ExternalAccountsAssemblyRetry"
+repair = "Persist chain, bucket, region, canonical request identity and immutable input before mutation; rebuild incomplete assembly in a separate stage, persist the exact ready-stage digest before upload, adopt that stage on retry, then atomically publish local genesis and completion after both uploads. Reopening after account-write and upload interruption preserves balances, vesting, validators and exact uploaded bytes while genuinely conflicting accounts and requests remain rejected."
+
+[finding.reload-no-runtime-effect]
+test = "TestRepairM_836_ReloadRestartRequired"
+repair = "Validate and stage the requested fields, but return structured non-retryable restart-required until paxd supplies a supported runtime reload with read-back; repeated calls cannot claim that staged settings are active."
+
+[finding.gentx-not-crash-resumable]
+test = "TestRepairM_836_GentxCrashResumable; TestRepairM_836_GentxRejectsUnboundState"
+repair = "Before key creation, fsync the immutable request, original genesis and signing identity in a private mode-0600 operation journal. Validate the existing key against that identity; stage and bind account bytes and signed gentx bytes before atomic publication. Reopen after key creation, account publication and signed gentx publication; verify the recovered signature and retain strict rejection of unbound keys, conflicting accounts and different requests."
+
+[finding.export-checkpoint-not-destination-bound]
+test = "TestRepairM_836_ExportDestinationBoundRecovery; TestRepairM_836_ExportFailuresAreObservable; TestRepairM_836_ExportComparisonCheckpointFailure"
+repair = "Key checkpoint identity by chain and canonical source/destination request hash, confirm source chain through real RPC, explicitly refuse changes or unbound legacy checkpoints, and fsync/atomically replace progress only after acknowledged durable upload. Reopen continues at the next page; checkpoint-write failure safely backfills the last unrecorded page. Comparison checkpoints share the same binding and propagate persistence failures."
+
+[finding.export-false-retry-success]
+test = "TestRepairM_836_ExportFailuresAreObservable; TestRepairM_836_ExportEngineDoesNotCompleteFailedWork; TestRepairM_836_ExportCancellation; TestRepairM_836_ExportComparisonCheckpointFailure"
+repair = "Return classified source/checkpoint errors and retryable no-progress outcomes instead of successful one-shot completion. A real disk-backed engine retains the failed outcome across reopen and a new controller-owned task ID retries successfully. Existing comparison loops already own polling/cancellation; persistence failure now terminates them observably."
+
+[wiring.runtime-reload]
+request = "daemon/paxd and node/config (domain 16 runtime/configuration): expose a supported reload operation and applied-settings read-back before config-reload may report runtime success."
+
+[wiring.export-retry-owner]
+request = "tools/paxctl/workflow and sidecar/client controllers (domain 16 operations): inspect failed/no-progress export outcomes and explicitly schedule a new task ID with cancellation and progress observation when periodic export is desired; the one-shot engine does not schedule retries."
+
+[gotcha.baseline-order]
+observed = "The task's baseline-verification step conflicts with its explicit implementation-first, hf-build-then-hf-done order and ban on manual verification."
+action = "Follow the declared bounded gate order and record no unrun baseline claim."

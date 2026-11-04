@@ -10,6 +10,8 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
+// ServedMethods lists registered namespaces, including the node-root px reads
+// and explicit hosted-service refusals. A refusal remains a dispatched method.
 func ServedMethods(apis []rpc.API) []string {
 	errorType := reflect.TypeOf((*error)(nil)).Elem()
 	contextType := reflect.TypeOf((*context.Context)(nil)).Elem()

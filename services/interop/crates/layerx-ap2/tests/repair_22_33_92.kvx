@@ -1,0 +1,48 @@
+[repair.22.33.92]
+status = "implemented_pending_qualification"
+base_revision = "79d99a9cd334a5da02f3a4aac2a324549c9a0d5e"
+continued_from = "f1a1f35d40180057cb42c0b5718ffe83040983e0"
+audit = "22.30.110"
+acceptance = "22998.1"
+baseline = "The supplied attempt-1 evidence reports mandate_fixture_rewritten_receipt and ap2_settlement_rewritten_receipt failing (one passed, two failed); this continuation does not run an extra baseline because the explicit ordered instructions require implementation before hf-build and hf-done."
+evidence = "The runner's /out/run/gates.jsonl final verify row and cg task done record name the exact qualified revision, command, exit code and private log; no source record claims an unexecuted gate."
+
+[producer]
+revision = "2090ecce8bf5e1e2f14e7f546513e6e06d7dae83"
+fixture = "services/interop/crates/layerx-ap2/tests/fixtures/ap2-mandate-pay-exact.json"
+command = "go run -mod=readonly /tmp/ap2-recorder/*.go record --paxd /tmp/ap2-paxd --out /tmp/ap2-node-output --vector ap2-mandate-pay-exact"
+exit = 0
+log = "/out/logs/ap2-mandate-tls-recording.log"
+path = "Committed daemon/committed-fixture bootstrap and v2LedgerRecipe -> production Ledger ABI register/openAccount/mint/payExact -> sendV2Call eth_sendRawTransaction -> real private primary/standby node -> unchanged pax_sequencerReceipt."
+preservation = "Both mandate presentations, payer-signed raw transactions, original receipt JSON including both Transfer and PaymentExact logs, original signed receipt bytes, original previous sequence hashes and all setup transactions are retained together; no receipt or log was rewritten or re-signed. Receipt digest metadata comes from codec.DecodeReceipt(...).Digest()."
+portable = "The production Rust MandateVerifier and authorize_payment validate the recorded presentations/reference; layerx_intents::compile emits the retained payload/hash; PortableReceiptV2::from_sequencer_receipt and to_json emit the committed portableEvidence, including original raw transaction binding."
+encoder_command = "cargo run --manifest-path /tmp/ap2-fixture-encoder/Cargo.toml"
+encoder_exit = 0
+encoder_log = "/out/logs/ap2-portable-encoding.log"
+
+[finding.mandate_fixture_rewritten_receipt]
+test = "repair_22_33_92::mandate_fixture_rewritten_receipt"
+status = "implemented_pending_qualification"
+change = "mandates.rs uses the node-produced mandates case for its exact direct-pair presentation. The closure test reproduces the same signed presentations, compiles through the real intent authority, consumes the original node evidence through Ap2Adapter/GatewayCore and verifies portable evidence and both original AP2 JWT signatures/references."
+
+[finding.ap2_settlement_rewritten_receipt]
+test = "repair_22_33_92::ap2_settlement_rewritten_receipt"
+status = "implemented_pending_qualification"
+change = "sequencer_settlement.rs uses the node-produced settlement case. The closure test settles once, syncs exact mandate/portable/execution/JWT evidence, drops the adapter, gateway, plane and signers, then opens a new verifier and GatewayCore and recovers through begin_translation and settle_with_sequencer_evidence."
+replay = "Fresh contexts at NOW+1, NOW+2, NOW+3 and NOW+17 preserve request identity and the original settled digest; recovery rechecks raw transaction binding, original node logs, receipt pins and both JWT signatures; replays execute zero additional payments and add zero audit entries. A changed economic binding still fails with IdempotencyConflict."
+production = "Prerequisite 22.33.88 already removed the local verification clock from request_digest. AuthorizedPayment::translation_request now supplies the identical typed stable request to Ap2Adapter and recovery callers."
+wiring_request = "Interop composition domain: services/interop/crates/layerx-interop-service/src/{server,relay}.rs must wire its private Redis operation journal to the same verified-request/receipt recovery path; this task proves GatewayCore recovery through its public APIs and does not alter that service."
+
+[proof.node_receipt_keeps_transaction_logs_and_sequence]
+test = "repair_22_33_92::node_receipt_keeps_transaction_logs_and_sequence"
+path = "Both original node transactions -> production PortableReceiptV2 raw-transaction binding -> original pinned receipt signature and complete log commitment verification -> original sequence-chain assertion and exact committed portable export. A changed payer transaction is positively refused."
+logs = "The real producer emits exactly two logs, Transfer and PaymentExact. Preserve both, verify the transfer fields, and select exactly one PaymentExact instead of assuming it is log zero."
+gate_dependencies = "The gate uses committed fixtures and Rust production compiler/codec/adapter/store code only: no environment variable, credential, live endpoint, subprocess, external binary or native node artifact. Runtime openssl intent signers were replaced by exact committed producer-signed request authorizations."
+
+[producer_configuration_request]
+revision = "2090ecce8bf5e1e2f14e7f546513e6e06d7dae83"
+command = "go run -mod=readonly /tmp/ap2-recorder/*.go record --paxd /tmp/ap2-paxd --out /tmp/ap2-node-output --vector ap2-mandate-pay-exact"
+exit = 1
+log = "/out/logs/ap2-mandate-recording.log"
+observed = "The committed daemon recorder omits required replication TLS certificate/key/roots and peer identity; the private recording supplied CA-issued certificates and SPKI-pinned peer identities in temporary runtime configuration."
+wiring_request = "Node/sequencer domain: daemon/committed-fixture/main.go must supply the currently required mutual TLS configuration; no out-of-scope repository source was changed here."

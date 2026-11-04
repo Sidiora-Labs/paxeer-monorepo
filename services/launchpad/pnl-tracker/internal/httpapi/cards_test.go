@@ -5,6 +5,7 @@ import (
 	"context"
 	"image/png"
 	"net/http"
+	"reflect"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -47,16 +48,40 @@ func TestMintAndHydrateCard(t *testing.T) {
 
 	body := mustJSON(t, map[string]string{"ownerAddress": "0xOWNER", "poolAddress": "0xPool"})
 	rec := serve(t, r, http.MethodPost, "/pnl/cards", body, map[string]string{"Content-Type": "application/json"})
-	if rec.Code != http.StatusOK {
-		t.Fatalf("mint status = %d (body=%s)", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusGone {
+		t.Fatalf("mint status = %d (body=%s), want 410", rec.Code, rec.Body.String())
 	}
-	var minted card.Minted
-	decode(t, rec, &minted)
-	if minted.CardID == "" || minted.ShortCode == "" {
-		t.Fatalf("minted = %+v", minted)
+	var cards, referrals int
+	if err := st.Pool().QueryRow(ctx, `SELECT (SELECT count(*) FROM pnl.pnl_cards), (SELECT count(*) FROM pnl.referrals)`).Scan(&cards, &referrals); err != nil {
+		t.Fatal(err)
 	}
-	if minted.Snapshot.OwnerAddress != "0xowner" {
-		t.Errorf("owner = %s", minted.Snapshot.OwnerAddress)
+	if cards != 0 || referrals != 0 {
+		t.Fatalf("retired mint wrote cards=%d referrals=%d", cards, referrals)
+	}
+	position, err := st.GetPosition(ctx, "0xowner", "0xpool")
+	if err != nil || position == nil || position.CurrentHoldings != oneToken {
+		t.Fatalf("position after retired mint = %+v, %v", position, err)
+	}
+	// Seed an immutable pre-retirement disclosure; HTTP may read this archive,
+	// but cannot create it from an arbitrary owner supplied by a caller.
+	price := "2500000"
+	snapshot := card.Snapshot{
+		Version: 1, OwnerAddress: "0xowner", PoolAddress: "0xpool", TokenAddress: "0xtoken", CapturedAt: 7,
+		Position: card.Position{
+			TotalUsdlSpent: "1000000", TotalTokensBought: oneToken, TotalUsdlReceived: "0", TotalTokensSold: "0",
+			AvgCostBasis: "1000000", CurrentHoldings: oneToken, RealizedPnlUsdl: "0", LastTradeTs: 1, TradeCount: 1,
+		},
+		Market: card.Market{PriceWad: &price},
+	}
+	row := store.CardRow{CardID: "archived-card", ShortCode: "old1234", OwnerAddress: snapshot.OwnerAddress,
+		PoolAddress: snapshot.PoolAddress, TokenAddress: snapshot.TokenAddress, Snapshot: mustJSON(t, snapshot), CreatedAt: 7}
+	if err := st.InsertCard(ctx, row); err != nil {
+		t.Fatalf("seed archive: %v", err)
+	}
+	svc := card.New(st, "https://sidiora.fun", "https://og.example", nil)
+	minted, err := svc.Get(ctx, row.CardID)
+	if err != nil || minted == nil || minted.CardID == "" || minted.ShortCode == "" || minted.Snapshot.OwnerAddress != "0xowner" {
+		t.Fatalf("archive = %+v, %v", minted, err)
 	}
 
 	t.Run("hydrate by id", func(t *testing.T) {
@@ -66,8 +91,9 @@ func TestMintAndHydrateCard(t *testing.T) {
 		}
 		var hydrated card.Minted
 		decode(t, got, &hydrated)
-		if hydrated.ShortCode != minted.ShortCode {
-			t.Errorf("shortCode = %s, want %s", hydrated.ShortCode, minted.ShortCode)
+		if hydrated.ShortCode != minted.ShortCode || hydrated.CardID != row.CardID || hydrated.CreatedAt != row.CreatedAt ||
+			hydrated.ShareURL != "" || hydrated.OgURL != "https://og.example/pnl/cards/"+row.CardID+"/og.png" || !reflect.DeepEqual(hydrated.Snapshot, snapshot) {
+			t.Fatalf("hydrated archive differs from persisted snapshot: %+v", hydrated)
 		}
 	})
 
@@ -96,16 +122,16 @@ func TestMintRejectsNoPosition(t *testing.T) {
 	r, _, _ := newCardRouter(t)
 	body := mustJSON(t, map[string]string{"ownerAddress": "0xnobody", "poolAddress": "0xpool"})
 	rec := serve(t, r, http.MethodPost, "/pnl/cards", body, map[string]string{"Content-Type": "application/json"})
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d, want 400", rec.Code)
+	if rec.Code != http.StatusGone {
+		t.Fatalf("status = %d, want 410", rec.Code)
 	}
 }
 
 func TestMintBadBody(t *testing.T) {
 	r, _, _ := newCardRouter(t)
 	rec := serve(t, r, http.MethodPost, "/pnl/cards", []byte(`{"ownerAddress":""}`), map[string]string{"Content-Type": "application/json"})
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d, want 400", rec.Code)
+	if rec.Code != http.StatusGone {
+		t.Fatalf("status = %d, want 410", rec.Code)
 	}
 }
 

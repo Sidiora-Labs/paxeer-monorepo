@@ -15,10 +15,14 @@ func TestHeavyRunUsesOneFrozenUniverse(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(snapshots) != 5 {
-		t.Fatal("incomplete heavy run")
+	categories := HeavyCategoryNames()
+	if len(snapshots) != len(categories) {
+		t.Fatalf("heavy run produced %d snapshots, want %d", len(snapshots), len(categories))
 	}
-	for _, snapshot := range snapshots {
+	for i, snapshot := range snapshots {
+		if snapshot.Category() != categories[i] {
+			t.Fatalf("snapshot %d category = %q, want %q", i, snapshot.Category(), categories[i])
+		}
 		if snapshot.RunID() != in.RunID || snapshot.InputDigest() != snapshots[0].InputDigest() {
 			t.Fatal("mixed run provenance")
 		}
@@ -88,10 +92,17 @@ func TestComparisonRequiresReviewedReleaseIdentity(t *testing.T) {
 
 func TestCompletedEmptyRunAndInputImmutability(t *testing.T) {
 	empty, err := ComputeRun(fixture(0), false)
-	if err != nil || len(empty) != 5 {
+	if err != nil {
 		t.Fatal("empty complete run", err)
 	}
-	for _, snapshot := range empty {
+	categories := HeavyCategoryNames()
+	if len(empty) != len(categories) {
+		t.Fatalf("empty heavy run produced %d snapshots, want %d", len(empty), len(categories))
+	}
+	for i, snapshot := range empty {
+		if snapshot.Category() != categories[i] {
+			t.Fatalf("empty snapshot %d category = %q, want %q", i, snapshot.Category(), categories[i])
+		}
 		if snapshot.Entries() == nil || len(snapshot.Entries()) != 0 || snapshot.OutputDigest() == "" {
 			t.Fatal("empty snapshot confused with absence")
 		}

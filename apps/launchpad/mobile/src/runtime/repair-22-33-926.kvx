@@ -1,0 +1,24 @@
+[task]
+id = "22.33.926"
+audit = "22.30.22"
+base = "0e1d5eb94cabe89e2260279a849b7154911ef8ee"
+baseline = "Not executed: the explicit implementation-first order and hf-build/hf-done-only gates prohibit the contradictory pre-change verify request; no pre-change test result is claimed."
+evidence = "The runner's hf-done ledger records the exact qualified candidate revision, command, exit and private log; this source record claims no gate result."
+
+[finding.mobile-default-push-authority]
+test = "mobileDefaultPushAuthority"
+path = "apps/launchpad/mobile/test/vitest/repair-22-33-926.test.ts"
+implementation = "Registered App calls createApplicationPush with its actual wallet and nativePush bridge; defaults connect MobileServices.issueDeviceProof and the existing signed-operation codec. Authority is installed before registration, including after restart."
+proof = "Production bootstrap, NativePlatformPush, PushController, MobileServices and SessionController cross loopback native/provider/wallet/account fixtures; both APNS/iOS and FCM/Android register, rotate, stop/reopen protected installation state, then sign and deliver revocation before server session logout."
+boundaries = ["mobilePushProofFailClosed", "mobilePushWalletAuthorityChanges", "mobilePushRevocationFailurePurgesLocally"]
+validation = "Account/session/installation/token/platform/provider, compactv2 nonce and expiry remain checked; account fixture verifies trusted-provider Ed25519 signature and external-wallet operation signature/body/path/action. Denied permission, unavailable issuer, invalid proofs, local lock, missing wallet, account/session changes and unsuccessful remote revocation fail closed."
+limits = "The native peer implements the production bridge port with loopback transcripts and the protected-store peer is an in-memory installation store; this gate makes no OS/device, live-provider or deployed backend claim."
+
+[wiring]
+issuance = "services/launchpad/gateway/internal/proxy and services/launchpad/user/internal/account (gateway/account owners): implement authenticated CSRF-protected POST /v1/me/devices/{installationId}/proof, validate actual APNS/FCM installation ownership, and return data.proof signed by the trusted provider as compactv2 for the authenticated account/session/token/platform/provider; issuance is absent from the current backend, so deployment closure remains external."
+native = "apps/launchpad/mobile/android/app/src/main/java/ag/sidiora/mobile/SecureSessionModule.kt and apps/launchpad/mobile/ios/Sidiora/SecureSession.swift (native platform owner): qualify installed permission, token rotation events and installation durability with the configured provider; native artifacts/device gates are outside this task."
+
+[gotcha]
+vitest = "Vitest 4 treats test(function) as a todo; named declarations must be registered as test(function.name, function) to execute their assertions. The initial wrapper exit zero therefore did not qualify behavior; both gates are rerun after correcting registration."
+bootstrap = "Push authority must be assigned to MobileServices during bootstrap rather than only after enable, otherwise restored installations cannot revoke before re-enabling."
+logout = "Device operations must finish while the cookie session and local wallet unlock are still valid; remote session deletion precedes the final local purge only after device revocation was attempted."

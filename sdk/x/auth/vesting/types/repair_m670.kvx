@@ -1,0 +1,7 @@
+[repair.22.33.670]
+finding = "vesting-cancellation-unwired"
+policy = "Cancellation is unsupported. Admin is reserved metadata without cancellation authority; CancelledTime is reserved and must be zero during account validation. Existing zero-marker schedules and delegation accounting remain supported."
+proving_tests = ["TestRepairM_670_RejectCancellationMarkers", "TestRepairM_670_GenesisTransportRejectsCancellation", "TestRepairM_670_ActiveSchedulesAndDelegationRoundTrip"]
+baseline = "Not run: the ordered implementation-first instructions prohibit testing before implementation and prohibit running verify_cmd outside hf-done; no baseline failure is claimed."
+wiring_request = "sdk/proto/cosmos/vesting/v1beta1/vesting.proto: domain 7 (protobuf owner), coordinate with domain 15 (Cosmos fork) to describe Admin and CancelledTime as reserved fields with cancellation unsupported, then regenerate the schema artifacts."
+evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, gate command, exit code and private evidence log; final response copies the last gate record."

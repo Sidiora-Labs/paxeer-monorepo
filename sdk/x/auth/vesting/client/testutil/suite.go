@@ -6,11 +6,16 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/suite"
 
+	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client/flags"
+	servertypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/server/types"
 	clitestutil "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/testutil/cli"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/testutil/network"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/testutil/oteltest"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	authante "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/ante"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/vesting/client/cli"
+	paramtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/params/types"
 )
 
 type IntegrationTestSuite struct {
@@ -27,6 +32,11 @@ func NewIntegrationTestSuite(cfg network.Config) *IntegrationTestSuite {
 func (s *IntegrationTestSuite) SetupSuite() {
 	s.T().Log("setting up integration test suite")
 
+	oteltest.Install()
+	// The network initializes the app with its generated validator genesis.
+	s.cfg.AppConstructor = func(network.Validator) servertypes.Application {
+		return app.Setup(s.T(), true, false, false)
+	}
 	s.network = network.New(s.T(), s.cfg)
 
 	_, err := s.network.WaitForHeight(1)
@@ -40,6 +50,11 @@ func (s *IntegrationTestSuite) TearDownSuite() {
 
 func (s *IntegrationTestSuite) TestNewMsgCreateVestingAccountCmd() {
 	val := s.network.Validators[0]
+	var genesis paramtypes.GenesisState
+	s.cfg.Codec.MustUnmarshalJSON(s.cfg.GenesisState[paramtypes.ModuleName], &genesis)
+	validatorPrices, err := sdk.ParseDecCoins(s.cfg.MinGasPrices)
+	s.Require().NoError(err)
+	gasPrices := authante.GetMinimumGasPricesWantedSorted(genesis.FeesParams.GlobalMinimumGasPrices, validatorPrices)
 
 	testCases := map[string]struct {
 		args         []string
@@ -55,7 +70,7 @@ func (s *IntegrationTestSuite) TestNewMsgCreateVestingAccountCmd() {
 				fmt.Sprintf("--%s=%s", flags.FlagFrom, val.Address),
 				fmt.Sprintf("--%s=true", flags.FlagSkipConfirmation),
 				fmt.Sprintf("--%s=%s", flags.FlagBroadcastMode, flags.BroadcastBlock),
-				fmt.Sprintf("--%s=%s", flags.FlagFees, sdk.NewCoins(sdk.NewCoin(s.cfg.BondDenom, sdk.NewInt(10))).String()),
+				fmt.Sprintf("--%s=%s", flags.FlagGasPrices, gasPrices.String()),
 			},
 			expectErr:    false,
 			expectedCode: 0,
@@ -70,7 +85,7 @@ func (s *IntegrationTestSuite) TestNewMsgCreateVestingAccountCmd() {
 				fmt.Sprintf("--%s=true", cli.FlagDelayed),
 				fmt.Sprintf("--%s=true", flags.FlagSkipConfirmation),
 				fmt.Sprintf("--%s=%s", flags.FlagBroadcastMode, flags.BroadcastBlock),
-				fmt.Sprintf("--%s=%s", flags.FlagFees, sdk.NewCoins(sdk.NewCoin(s.cfg.BondDenom, sdk.NewInt(10))).String()),
+				fmt.Sprintf("--%s=%s", flags.FlagGasPrices, gasPrices.String()),
 			},
 			expectErr:    false,
 			expectedCode: 0,
@@ -125,7 +140,7 @@ func (s *IntegrationTestSuite) TestNewMsgCreateVestingAccountCmd() {
 				s.Require().NoError(clientCtx.Codec.UnmarshalAsJSON(bw.Bytes(), tc.respType), bw.String())
 
 				txResp := tc.respType.(*sdk.TxResponse)
-				s.Require().Equal(tc.expectedCode, txResp.Code)
+				s.Require().Equal(tc.expectedCode, txResp.Code, txResp.RawLog)
 			}
 		})
 	}

@@ -1,0 +1,8 @@
+[repair.22.33.518]
+audit = "22.30.153"
+baseline = "No pre-change verification was run: the task's ordered gate rules require implementation before qualification and prohibit running verify_cmd by hand."
+hot-table-lock-budget = "Explorer.Repair.Repair2233518Test: hot-table-lock-budget: refusal rolls back all storage changes and permits retry"
+statistics-lock-budget = "Explorer.Repair.Repair2233518Test: statistics-lock-budget: refusal rolls back all statistics changes and permits retry"
+brin-invalid-index-resume = "Explorer.Repair.Repair2233518Test: brin-invalid-index-resume: interrupted migration recovers after repository restart; valid same-name index is preserved; same name on another table cannot qualify the migration"
+evidence = "The runner's hf-build/hf-done private gate ledger names the exact candidate revision, command, exit and log; this record makes no qualification claim before those gates execute."
+wiring_request = "spec/layerx-merge/spec.kvx (owning domain: programme/spec runner): copy the finding-to-test mapping and bounded gate receipt into task 22.33.518; spec edits are outside this task's scope."

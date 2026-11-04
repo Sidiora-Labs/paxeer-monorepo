@@ -1,6 +1,7 @@
 package datastructures_test
 
 import (
+	"fmt"
 	"sync"
 	"testing"
 
@@ -63,6 +64,68 @@ func TestTypedSyncMapParallel(t *testing.T) {
 	}
 	wg.Wait()
 	require.Equal(t, 0, m.Len())
+}
+
+func TestTypedSyncMapRangeStops(t *testing.T) {
+	testTypedSyncMapRangeStops(t)
+}
+
+func testTypedSyncMapRangeStops(t *testing.T) {
+	t.Helper()
+	for _, stop := range []int{1, 2, 3} {
+		t.Run(fmt.Sprintf("stop_at_%d", stop), func(t *testing.T) {
+			m := datastructures.NewTypedSyncMap[int, string]()
+			m.Store(3, "c")
+			m.Store(1, "a")
+			m.Store(2, "b")
+			var keys []int
+			var values []string
+			m.Range(func(key int, value string) bool {
+				keys = append(keys, key)
+				values = append(values, value)
+				return key != stop
+			})
+			require.Equal(t, []int{1, 2, 3}[:stop], keys)
+			require.Equal(t, []string{"a", "b", "c"}[:stop], values)
+			require.Equal(t, 3, m.Len())
+		})
+	}
+	empty := datastructures.NewTypedSyncMap[int, string]()
+	empty.Range(func(int, string) bool {
+		t.Fatal("empty map invoked a callback")
+		return false
+	})
+}
+
+func TestTypedSyncMapRangeDeletes(t *testing.T) {
+	testTypedSyncMapRangeDeletes(t)
+}
+
+func testTypedSyncMapRangeDeletes(t *testing.T) {
+	t.Helper()
+	m := datastructures.NewTypedSyncMap[int, string]()
+	m.Store(3, "c")
+	m.Store(2, "b")
+	m.Store(1, "a")
+	var keys []int
+	var values []string
+	m.Range(func(key int, value string) bool {
+		keys = append(keys, key)
+		values = append(values, value)
+		if key == 1 {
+			m.Delete(1)
+			m.Delete(2)
+		}
+		return true
+	})
+	require.Equal(t, []int{1, 3}, keys)
+	require.Equal(t, []string{"a", "c"}, values)
+	require.Equal(t, 1, m.Len())
+	_, ok := m.Load(2)
+	require.False(t, ok)
+	value, ok := m.Load(3)
+	require.True(t, ok)
+	require.Equal(t, "c", value)
 }
 
 func TestTypedSyncMapDeepCopy(t *testing.T) {

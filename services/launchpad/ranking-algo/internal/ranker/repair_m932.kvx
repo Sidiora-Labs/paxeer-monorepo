@@ -1,0 +1,10 @@
+[repair.22.33.932]
+finding = "coordinator-test-category-count"
+audit = "22.30.23"
+test = "TestRepairM_932_CoordinatorCategoryCount"
+cases = ["TestHeavyRunUsesOneFrozenUniverse", "TestCompletedEmptyRunAndInputImmutability"]
+change = "Assert the ordered HeavyCategoryNames set for populated and completed-empty heavy runs while retaining shared-digest, movers exclusion, independent-new and input immutability assertions."
+baseline_revision = "0e1d5eb94cabe89e2260279a849b7154911ef8ee"
+baseline = "Not executed: the task's ordered gate instructions prohibit verification before implementation and running verify_cmd by hand; the audit records both existing cases failing their obsolete five-result assertions."
+wiring_requests = []
+qualification = "The hf-build and hf-done private gate ledger records the exact verified candidate revision, commands, exits and log paths."

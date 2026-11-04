@@ -1,0 +1,7 @@
+{
+  "producer": "@dynamic-labs/sdk-react-core@4.74.1",
+  "success": { "email": "linked@example.org" },
+  "cancellation": "User cancelled",
+  "verificationRejection": "Failed to verify email, no fields were updated",
+  "validationRejection": "No signed-in user"
+}

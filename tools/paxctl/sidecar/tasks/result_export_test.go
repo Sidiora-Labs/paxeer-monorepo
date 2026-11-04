@@ -105,7 +105,7 @@ func fakeRPCServer(latestHeight int64) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.URL.Path == "/status":
-			fmt.Fprintf(w, `{"jsonrpc":"2.0","id":-1,"result":{"sync_info":{"latest_block_height":"%d"}}}`, latestHeight)
+			fmt.Fprintf(w, `{"jsonrpc":"2.0","id":-1,"result":{"node_info":{"network":"test-1"},"sync_info":{"latest_block_height":"%d"}}}`, latestHeight)
 		case r.URL.Path == "/block_results":
 			fmt.Fprint(w, `{"jsonrpc":"2.0","id":-1,"result":{}}`)
 		default:
@@ -121,7 +121,10 @@ func TestExportBootstrapFromSnapshotHeight(t *testing.T) {
 	}
 
 	e := NewResultExporter(tmpDir, "test-1", "test-pod-0", nil)
-	state := e.readExportState()
+	state, stateErr := e.readExportState()
+	if stateErr != nil {
+		t.Fatal(stateErr)
+	}
 
 	if state.LastExportedHeight != 198030000 {
 		t.Errorf("LastExportedHeight = %d, want 198030000", state.LastExportedHeight)
@@ -131,7 +134,10 @@ func TestExportBootstrapFromSnapshotHeight(t *testing.T) {
 func TestExportBootstrapNoFiles(t *testing.T) {
 	tmpDir := t.TempDir()
 	e := NewResultExporter(tmpDir, "test-1", "test-pod-0", nil)
-	state := e.readExportState()
+	state, stateErr := e.readExportState()
+	if stateErr != nil {
+		t.Fatal(stateErr)
+	}
 
 	if state.LastExportedHeight != 0 {
 		t.Errorf("LastExportedHeight = %d, want 0", state.LastExportedHeight)
@@ -141,7 +147,7 @@ func TestExportBootstrapNoFiles(t *testing.T) {
 func TestExportBootstrapPreferStateFile(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	stateData, _ := json.Marshal(exportState{LastExportedHeight: 200000000})
+	stateData, _ := json.Marshal(exportState{Identity: exportIdentity{ChainID: "test-1", RequestHash: recoveryHash([]byte("bootstrap-fixture"))}, LastExportedHeight: 200000000})
 	if err := os.WriteFile(filepath.Join(tmpDir, exportStateFile), stateData, 0o644); err != nil {
 		t.Fatalf("writing state file: %v", err)
 	}
@@ -150,7 +156,10 @@ func TestExportBootstrapPreferStateFile(t *testing.T) {
 	}
 
 	e := NewResultExporter(tmpDir, "test-1", "test-pod-0", nil)
-	state := e.readExportState()
+	state, stateErr := e.readExportState()
+	if stateErr != nil {
+		t.Fatal(stateErr)
+	}
 
 	if state.LastExportedHeight != 200000000 {
 		t.Errorf("LastExportedHeight = %d, want 200000000", state.LastExportedHeight)
@@ -171,8 +180,9 @@ func TestExportRPCUnavailable(t *testing.T) {
 		Region:      "us-east-1",
 		RPCEndpoint: srv.URL,
 	})
-	if err != nil {
-		t.Fatalf("Export() returned error %v, want nil (fail-safe)", err)
+	var te *engine.TaskError
+	if !errors.As(err, &te) || te.Operation != "source" || !te.Retryable {
+		t.Fatalf("expected retryable source error: %v", err)
 	}
 }
 
@@ -191,8 +201,9 @@ func TestExportRPCNon200Status(t *testing.T) {
 		Region:      "us-east-1",
 		RPCEndpoint: srv.URL,
 	})
-	if err != nil {
-		t.Fatalf("Export() returned error %v, want nil (fail-safe on HTTP error)", err)
+	var te *engine.TaskError
+	if !errors.As(err, &te) || te.Operation != "source" || !te.Retryable {
+		t.Fatalf("expected retryable source error: %v", err)
 	}
 }
 
@@ -254,7 +265,10 @@ func TestExportWritesStateAfterPage(t *testing.T) {
 		t.Fatalf("Export() error = %v", err)
 	}
 
-	state := e.readExportState()
+	state, stateErr := e.readExportState()
+	if stateErr != nil {
+		t.Fatal(stateErr)
+	}
 	if state.LastExportedHeight != 1000 {
 		t.Errorf("LastExportedHeight = %d, want 1000", state.LastExportedHeight)
 	}
@@ -346,8 +360,9 @@ func TestHandlerRouting_WithoutCanonicalRPC_CallsExport(t *testing.T) {
 		"region":      "us-east-1",
 		"rpcEndpoint": srv.URL,
 	})
-	if err != nil {
-		t.Fatalf("Handler() error = %v, want nil for empty export", err)
+	var te *engine.TaskError
+	if !errors.As(err, &te) || te.Operation != "source" || !te.Retryable {
+		t.Fatalf("expected explicit source-not-ready error: %v", err)
 	}
 }
 
@@ -378,7 +393,10 @@ func TestExportAndCompare_DivergenceDetected(t *testing.T) {
 		t.Fatalf("ExportAndCompare() error = %v, want nil (divergence = success)", err)
 	}
 
-	state := e.readExportState()
+	state, stateErr := e.readExportState()
+	if stateErr != nil {
+		t.Fatal(stateErr)
+	}
 	if state.LastExportedHeight != 1 {
 		t.Errorf("LastExportedHeight = %d, want 1 (diverged at first block)", state.LastExportedHeight)
 	}
@@ -440,7 +458,9 @@ func TestExportAndCompare_ResumesFromExportState(t *testing.T) {
 	defer canonicalSrv.Close()
 
 	tmpDir := t.TempDir()
-	stateData, _ := json.Marshal(exportState{LastExportedHeight: 3})
+	cfg := ResultExportRequest{Bucket: "test-bucket", Region: "us-east-1", RPCEndpoint: shadowSrv.URL, CanonicalRPC: canonicalSrv.URL}
+	identity := NewResultExporter(tmpDir, "test-1", "test-pod-0", nil).exportIdentity(cfg)
+	stateData, _ := json.Marshal(exportState{Identity: identity, LastExportedHeight: 3})
 	if err := os.WriteFile(filepath.Join(tmpDir, exportStateFile), stateData, 0o644); err != nil {
 		t.Fatalf("writing state: %v", err)
 	}
@@ -456,7 +476,10 @@ func TestExportAndCompare_ResumesFromExportState(t *testing.T) {
 		t.Fatalf("ExportAndCompare() error = %v", err)
 	}
 
-	state := e.readExportState()
+	state, stateErr := e.readExportState()
+	if stateErr != nil {
+		t.Fatal(stateErr)
+	}
 	if state.LastExportedHeight != 4 {
 		t.Errorf("LastExportedHeight = %d, want 4 (first block after resume)", state.LastExportedHeight)
 	}
@@ -540,7 +563,7 @@ func fakeRPCAndBlockServer(latestHeight int64, appHash, lastResultsHash string, 
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.URL.Path == "/status":
-			fmt.Fprintf(w, `{"jsonrpc":"2.0","id":-1,"result":{"sync_info":{"latest_block_height":"%d"}}}`, latestHeight)
+			fmt.Fprintf(w, `{"jsonrpc":"2.0","id":-1,"result":{"node_info":{"network":"test-1"},"sync_info":{"latest_block_height":"%d"}}}`, latestHeight)
 		case r.URL.Path == "/block":
 			resp := map[string]any{
 				"jsonrpc": "2.0",

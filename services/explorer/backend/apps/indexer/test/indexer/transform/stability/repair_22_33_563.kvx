@@ -1,0 +1,9 @@
+[repair.22.33.563]
+audit = "22.30.158"
+finding = "027"
+change = "Run Indexer.Transform.Stability.ValidatorsTest synchronously so its global chain-type mutations cannot overlap asynchronous ExUnit cases."
+proof = "Indexer.Repair2233563Test: 027: the original chain configuration cases are scheduled synchronously; 027: recorded RPC blocks reach the validator schema under serialized chain selection. The focused gate also executes all six original validator cases."
+baseline = "Not run: the task's gate order requires complete implementation before qualification and prohibits invoking verify_cmd by hand; no earlier gate ledger exists."
+qualification_repair = "The first gate ran eight tests with one failure because the new fixture expected lowercase quantities; the production encoder emits uppercase, so request assertions match that exact shape and fixture lookup uses the production quantity decoder."
+wiring_requests = []
+evidence = "The runner's hf-build and hf-done ledger records the exact candidate revision, command, exit code and private log location; the final task receipt repeats the last gate record."

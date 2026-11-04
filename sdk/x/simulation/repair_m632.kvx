@@ -1,0 +1,70 @@
+[repair.22.33.632]
+source_revision = "fedbeb3bb47c5bb972f66afc8189f92f5395f3eb"
+audit = "22.30.164"
+qualification = "hf-build then hf-done; the private gate ledger records the exact qualified candidate revision, command, exit code and log."
+baseline = "No baseline gate run: the ordered implementation-first and hf-done-only rules prohibit step 12's pre-change verification; no pre-change failures are claimed."
+scope = "sdk/x/simulation only; runner bookkeeping was present at session start and is left intact."
+wiring_requests = "None: the maintained Simulate entry point, real BaseApp integration fixture, and all eight repairs are within scope."
+continuation = "Attempt 2 retains all six seeded paths and the latest committed-store read repair; qualification runs hf-build and hf-done on the same candidate without manual verification."
+
+[finding.simulation-log-overwrite]
+test = "TestRepairM_632_SimulationLogOverwrite"
+repair = "Exclusive unique log creation returns the actual path and joins write and close errors; concurrent exports are reopened and checked after all writers close."
+
+[finding.validator-power-update]
+test = "TestRepairM_632_ValidatorPowerUpdate"
+repair = "Replace validator value while retaining liveness; updated power reaches generated votes and evidence."
+
+[finding.validator-liveness-update]
+test = "TestRepairM_632_ValidatorLivenessUpdate"
+repair = "Persist transitioned map values and prove online, offline and recovered successive requests."
+
+[finding.evidence-history-bounds]
+test = "TestRepairM_632_EvidenceHistoryBounds"
+repair = "Explicit starting height, matching history lengths, bounded populated selection, and observable unavailable evidence; sparse history survives removal of the current validator set."
+
+[finding.lost-timed-operations]
+test = "TestRepairM_632_LostTimedOperations"
+repair = "Return and retain the grown queue; driver executes deadlines in ascending order with FIFO ties, and proves committed store effects."
+
+[finding.invalid-operation-weights]
+test = "TestRepairM_632_InvalidOperationWeights"
+repair = "Admission rejects negative, overflowing, empty, all-zero and nil executable configurations with indexed errors; zero weights remain disabled."
+
+[finding.weighted-selection-boundary]
+test = "TestRepairM_632_WeightedSelectionBoundary"
+repair = "Half-open intervals with exhaustive deterministic draws at every boundary, including leading, middle and trailing zero weights."
+
+[finding.missing-simulation-driver]
+test = "TestRepairM_632_MissingSimulationDriver"
+repair = "Simulate wires real BaseApp FinalizeBlock and Commit to application begin/end handlers, selected operations, future queues, validator state and diagnostic reporting."
+additional_test = "TestRepairM_632_DriverReportsErrors"
+replacement_qualification = "go test -count=1 -v -run '^TestRepairM_632_' ./sdk/x/simulation/ via hf-done, without external services or environment configuration."
+
+[gotcha.baseline-order]
+observed = "The task asks for pre-change verification while its ordered gate rules prohibit testing until implementation is complete."
+action = "Follow the explicit ordered gates; retain this record of the conflict without claiming a baseline failure."
+
+[gotcha.fork-interface]
+observed = "The fork's BaseApp uses FinalizeBlock rather than a BeginBlock method, and validator test fixtures use the fork crypto protobuf types."
+action = "Run simulation operations within a registered FinalizeBlock handler and pass generated BeginBlock data to the application's callback."
+
+[qualification.repair1]
+attempt = 1
+revision = "2e547bcb643a4de402b2ce9df701f08cfc1ed4ed"
+command = "go build ./sdk/x/simulation/..."
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "The fork's RequestInitChain has no Validators field; consume the actual application InitChainer response instead."
+
+[qualification.repair2]
+attempt = 1
+revision = "221b922667dccc380f0bee8105e038e0755f0d0c"
+command = "cg spec done 22.33.632 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Driver fixtures incorrectly requested versioned legacy rootmulti reads; inspect the latest committed multistore directly while retaining exact state and height assertions."
+
+[gotcha.legacy-rootmulti]
+observed = "Legacy rootmulti rejects versioned reads even at the latest committed height; simulation proofs need its actual committed multistore."
+action = "Use BaseApp.NewUncachedContext after Simulate commits, assert LastBlockHeight independently, and retain exact operation state and genesis persistence assertions."

@@ -63,7 +63,7 @@ struct Request {
 #[serde(tag = "kind", rename_all = "kebab-case", deny_unknown_fields)]
 enum EvidenceRequest {
     Receipt { index: usize },
-    Committed,
+    Committed {},
 }
 
 #[derive(Deserialize)]
@@ -166,7 +166,7 @@ fn execute() -> Result<Value, &'static str> {
             let digest = layerx_wire::hash::receipt_digest(&unsigned).map_err(|_| "proof")?;
             Ok(report(observation, committed, Some(digest)))
         }
-        EvidenceRequest::Committed => {
+        EvidenceRequest::Committed {} => {
             let observation = evidence_checker.observation().ok_or("proof")?;
             Ok(report(observation, committed, None))
         }
@@ -356,3 +356,8 @@ fn canonical_u64(value: &str) -> Result<u64, &'static str> {
     }
     value.parse().map_err(|_| "malformed")
 }
+
+// Exercise documentation against the binary's actual private wire types.
+#[cfg(test)]
+#[path = "../../tests/repair_22_33_106/cases.rs"]
+mod documentation;

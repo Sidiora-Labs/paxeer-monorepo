@@ -146,14 +146,26 @@ class SerialQualification(unittest.TestCase):
     writejson(artifact/'manifest.json',{'version':2,'baseline_digest':gate.digest(patches._tree(self.stage)),'source_policy_sha256':gate.digest(source_policy),'entries':[{'path':'shared/accounting/wire.go','before':None,'after':identity}]})
     policy=copy.deepcopy(self.policy)
     policy['serial_integration']={'artifact_directory':str(artifact),'manifest_sha256':hashlib.sha256((artifact/'manifest.json').read_bytes()).hexdigest(),'allowed_paths':['shared/accounting/wire.go'],'source_policy':source_policy}
+    control_sources={
+      'tools/production/serial_gate.py':SOURCE/'serial_gate.py',
+      'tools/production/tests/test_serial_gate.py':SOURCE/'tests/test_serial_gate.py',
+    }
+    self.assertEqual(set(control_sources),gate.EXACT_SERIAL_CONTROL_PATHS)
     controls={}
     for path in sorted(gate.EXACT_SERIAL_CONTROL_PATHS):
-      destination=root/path;destination.parent.mkdir(parents=True,exist_ok=True);destination.write_bytes((SOURCE.parent.parent/path).read_bytes())
+      destination=root/path;destination.parent.mkdir(parents=True,exist_ok=True);destination.write_bytes(control_sources[path].read_bytes())
       controls[path]={'before':patches._tree(self.stage).get(path),'after':patches._tree(root)[path]}
     policy['control_plane']['serial_source_controls']=controls
     result=self.run_policy(policy,root=root)
     self.assertTrue(result['qualified']);self.assertEqual(len(result['accepted_tasks']),50)
     self.assertEqual(set(result['control_paths']),gate.CONTROL_PATHS|gate.EXACT_SERIAL_CONTROL_PATHS)
+    for path in sorted(gate.EXACT_SERIAL_CONTROL_PATHS):
+      destination=root/path;reviewed=destination.read_bytes()
+      try:
+        destination.write_bytes(reviewed+b'\n# unreviewed control bytes\n')
+        with self.assertRaisesRegex(gate.SerialGateError,'runner control source differs from exact review'):
+          self.run_policy(policy,root=root)
+      finally:destination.write_bytes(reviewed)
     policy['control_plane']['serial_source_controls']['tools/production/serial_gate.py']['after']['sha256']='0'*64
     with self.assertRaises(ValueError):self.run_policy(policy,root=root)
 
