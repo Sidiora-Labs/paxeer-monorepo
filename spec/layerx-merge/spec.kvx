@@ -158408,7 +158408,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.235]
 title = "Repair audit record 22.30.114 findings in apps/wallet/src/lib/portfolio-api: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -177333,7 +177333,7 @@ do_8 = "The gate of this task is corrected (gotcha 2984): the generated command 
 
 [task.22.33.1078]
 title = "Repair audit record 22.30.43 medium findings in cmd/layerxctl/src (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.78"]
@@ -182662,7 +182662,7 @@ do_4 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.368]
 title = "Repair audit record 22.30.95 findings in services/agent/crates/layerx-agentd/src: interface-mismatch, restart-recovery, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.443"]
@@ -184366,7 +184366,7 @@ do_14 = "The candidate carries only sources under the touches and the test file:
 
 [task.22.31.252]
 title = "Repair audit record 22.30.121 findings in programs/crates/layerx-programs-arbiter/src: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.443"]
@@ -197267,7 +197267,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1405]
 title = "Repair audit record 22.30.79 medium findings in sdk/codec/types (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.189", "22.31.190", "22.31.191", "22.31.349"]
@@ -197454,7 +197454,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1386]
 title = "Repair audit record 22.30.76 medium findings in services/platform/hosted/tests (part 1 of 2): config-drift, restart-recovery, retired-reference, security, test-gap, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.141", "22.31.142", "22.31.143"]
@@ -197915,7 +197915,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1345]
 title = "Repair audit record 22.30.73 medium findings in sdk/crypto/keys/multisig (part 1 of 1): runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.134", "22.31.135", "22.31.136", "22.31.137"]
@@ -200385,7 +200385,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1203]
 title = "Repair audit record 22.30.57 medium findings in interchain/modules/apps/27-interchain-accounts/types (part 1 of 1): restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.126"]
@@ -200689,7 +200689,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1194]
 title = "Repair audit record 22.30.55 medium findings in storage/state_db/bench (part 1 of 1): doc-drift, runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.119", "22.31.120", "22.31.121", "22.31.122", "22.31.123"]
@@ -203843,7 +203843,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1082]
 title = "Repair audit record 22.30.44 medium findings in consensus/internal/consensus (part 1 of 1): runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.79", "22.31.80"]
@@ -276317,7 +276317,7 @@ do_9 = "Attempt 2 (continue): the test compares SDK amount types with proto.Equa
 
 [task.22.33.1421]
 title = "Repair audit record 22.30.8 medium findings in modules/layerxauth/keeper (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.192", "22.31.193", "22.31.194", "22.31.195", "22.31.196", "22.31.197"]
@@ -278525,7 +278525,7 @@ do_8 = "Attempt 3 (continue): the delegate recovery cases pass; the zero-spend r
 
 [task.22.33.1106]
 title = "Repair audit record 22.30.46 medium findings in consensus/internal/state/indexer/sink/psql (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.81", "22.31.82", "22.31.83", "22.31.84", "22.31.85", "22.31.86", "22.31.87", "22.31.88", "22.31.89", "22.31.90", "22.31.91"]
@@ -281345,7 +281345,7 @@ do_8 = "Verification runs only the TestRepair_25_* functions of repair_25_test.g
 
 [task.22.31.24]
 title = "Repair audit record 22.30.2 findings in src/modules/programs: interface-mismatch, runtime-risk, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -320535,7 +320535,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1327]
 title = "Repair audit record 22.30.71 medium findings in sdk/chainflow/python/src/chainflow_data_gateway/resources/web_sockets (part 1 of 1): security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.188", "22.31.340", "22.31.341"]
@@ -336462,7 +336462,7 @@ do_9 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.316]
 title = "Repair audit record 22.30.173 findings in tools/qualification/paxeer-x: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
