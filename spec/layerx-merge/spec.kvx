@@ -177995,7 +177995,7 @@ do_14 = "Attempt 3 (continue after 22.31.465): cargo could not load the manifest
 
 [task.22.33.1318]
 title = "Repair audit record 22.30.70 medium findings in services/platform/examples (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.186", "22.31.187"]
@@ -182182,7 +182182,7 @@ do_9 = "Attempt 2 (continue): the first attempt failed before its own verify bec
 
 [task.22.33.57]
 title = "Repair audit record 22.30.107 medium findings in services/human/crates/layerx-network-gateway/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.157", "22.31.158", "22.31.159", "22.31.443"]
@@ -182540,7 +182540,7 @@ do_9 = "Attempt 3 (continue): the dependency check failed only in the human-serv
 
 [task.22.33.47]
 title = "Repair audit record 22.30.106 medium findings in services/human/crates/layerx-human-security-provider/tests/support (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.155", "22.31.156", "22.31.443", "22.31.475"]
@@ -183163,7 +183163,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.26]
 title = "Repair audit record 22.30.102 medium findings in services/human/crates/layerx-human-kms/src (part 2 of 2): config-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.150", "22.31.443"]
@@ -184479,7 +184479,7 @@ do_10 = "Attempt 3 (continue): the session optionality tests require BLOCKSCOUT_
 
 [task.22.31.269]
 title = "Repair audit record 22.30.139 findings in services/explorer/services/libs/blockscout-client/swaggers/overrides: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.445"]
@@ -209793,7 +209793,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.798]
 title = "Repair audit record 22.30.177 medium findings in tools/bringup (part 7 of 7): restart-recovery, retired-reference, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.319"]
@@ -323220,7 +323220,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1016]
 title = "Repair audit record 22.30.36 medium findings in services/launchpad (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.60", "22.31.61"]
@@ -325264,7 +325264,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.815]
 title = "Repair audit record 22.30.179 medium findings in launchpad/spec/production-system/integration/migrations (part 1 of 1): config-drift, restart-recovery, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.321", "22.31.322", "22.31.323", "22.31.324", "22.31.427"]
@@ -325301,7 +325301,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.814]
 title = "Repair audit record 22.30.179 medium findings in docker/kernel (part 1 of 1): config-drift, retired-reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.321", "22.31.322", "22.31.323", "22.31.324", "22.31.427"]
@@ -325374,7 +325374,7 @@ do_8 = "Decision 2525: README.md is not in this task's paths. Task 22.31.470 rew
 
 [task.22.33.812]
 title = "Repair audit record 22.30.178 medium findings in scripts/wallet (part 1 of 1): retired-reference, security, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.320"]
@@ -325521,7 +325521,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.806]
 title = "Repair audit record 22.30.178 medium findings in tools/hpx (part 1 of 1): config-drift, doc-drift, restart-recovery, runtime-risk, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.320"]
@@ -325634,7 +325634,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.801]
 title = "Repair audit record 22.30.178 medium findings in docker/localnode/scripts (part 1 of 1): runtime-risk, security, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.320"]
