@@ -649,7 +649,7 @@ func TestRepairM_795_MintRetiredSecretTargets(t *testing.T) {
 	if !strings.Contains(string(m795Read(t, filepath.Join(migrated, "gateway.railway.sh"))), "--stdin --service router --environment") {
 		t.Fatal("migration ignores rollout delivery target")
 	}
-	m795Wire(t, "mint-secrets.sh", "mint-token-plan", "migrate-retired", "mint-migrate")
+	m795Wire(t, "mint-secrets.sh", `exec "${BRINGUP_INSPECT_BIN:-bringup-inspect}" mint "$1"`, "migrate-retired", "mint-migrate")
 }
 
 // A loopback Docker API peer keeps its actual created objects independently

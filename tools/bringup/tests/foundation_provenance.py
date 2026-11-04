@@ -20,7 +20,7 @@ def qualify_foundation(manifest, directory, revision, consumer):
         raise ValueError("foundation source closure is empty")
     result = subprocess.run(
         [os.environ.get("BRINGUP_INSPECT_BIN", "bringup-inspect"),
-         "foundation-provenance", str(directory), revision,
+         "native-foundation-provenance" if manifest.get("version") == 2 else "foundation-provenance", str(directory), revision,
          hashlib.sha256(closure).hexdigest(), consumer],
         input=json.dumps(manifest), capture_output=True, text=True, timeout=30,
         check=False,
