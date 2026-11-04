@@ -171,19 +171,20 @@ func DenseView(actual []SeriesCandle, from, to int64, interval string, seed *Ser
 }
 
 type ReconstructionReport struct {
-	RunID            string   `json:"runId"`
-	RequestedFrom    int64    `json:"requestedFrom"`
-	RequestedTo      int64    `json:"requestedTo"`
-	RebuiltFrom      int64    `json:"rebuiltFrom"`
-	RebuiltTo        int64    `json:"rebuiltTo"`
-	AlgorithmVersion string   `json:"algorithmVersion"`
-	ManifestDigests  []string `json:"manifestDigests"`
-	SourceFills      uint64   `json:"sourceFills"`
-	DuplicateFills   uint64   `json:"duplicateFills"`
-	BarCount         uint64   `json:"barCount"`
-	ExpectedDigest   string   `json:"expectedDigest"`
-	ActualDigest     string   `json:"actualDigest"`
-	PromotionEpoch   uint64   `json:"promotionEpoch"`
+	RunID             string   `json:"runId"`
+	RequestedFrom     int64    `json:"requestedFrom"`
+	RequestedTo       int64    `json:"requestedTo"`
+	RebuiltFrom       int64    `json:"rebuiltFrom"`
+	RebuiltTo         int64    `json:"rebuiltTo"`
+	AlgorithmVersion  string   `json:"algorithmVersion"`
+	ManifestDigests   []string `json:"manifestDigests"`
+	SourceFills       uint64   `json:"sourceFills"`
+	DuplicateFills    uint64   `json:"duplicateFills"`
+	BarCount          uint64   `json:"barCount"`
+	ExpectedDigest    string   `json:"expectedDigest"`
+	ChecksumAuthority string   `json:"checksumAuthority"`
+	ActualDigest      string   `json:"actualDigest"`
+	PromotionEpoch    uint64   `json:"promotionEpoch"`
 }
 
 func projectionDigest(bars []QualifiedCandle) (string, error) {
@@ -304,93 +305,12 @@ func ReconstructArchive(ctx context.Context, st *store.ExactStore, reader store.
 	if len(fills) > 1000000 {
 		return report, errors.New("reconstruction_fill_bound")
 	}
-	buckets := map[string]QualifiedCandle{}
-	members := map[string]map[string]bool{}
-	for _, fill := range fills {
-		copied, err := QualifiedFill(fill)
-		if err != nil {
-			return report, err
-		}
-		for _, interval := range ExactIntervals {
-			start, err := BucketStart(copied.BlockTimestamp, interval)
-			if err != nil {
-				return report, err
-			}
-			duration, _ := IntervalSeconds(interval)
-			if start >= to || start+duration <= from {
-				continue
-			}
-			key := interval + ":" + strconv.FormatInt(start, 10)
-			var old *QualifiedCandle
-			if previous, exists := buckets[key]; exists {
-				p := previous
-				old = &p
-			}
-			if members[key] == nil {
-				members[key] = map[string]bool{}
-			}
-			newTrader := false
-			if copied.Sender != "" {
-				newTrader = !members[key][copied.Sender]
-				members[key][copied.Sender] = true
-			}
-			next, err := FoldQualified(old, fill, interval, newTrader)
-			if err != nil {
-				return report, err
-			}
-			buckets[key] = next
-		}
-	}
-	actual := []QualifiedCandle{}
-	stage := []store.StagedCandle{}
-	traders := []store.StagedTrader{}
-	checkpoint := SeriesCheckpoint{Height: uint64(lastManifest.ToHeight), Timestamp: lastTime}
-	for key, bar := range buckets {
-		actual = append(actual, bar)
-		state, err := DescribeSeries(bar, checkpoint, timeNowUTC())
-		if err != nil {
-			return report, err
-		}
-		state.CorrectionReason = "archive_reconstruction"
-		raw, err := json.Marshal(state)
-		if err != nil {
-			return report, err
-		}
-		stage = append(stage, store.StagedCandle{Interval: bar.Interval, Start: bar.Start, Snapshot: raw})
-		for actor := range members[key] {
-			traders = append(traders, store.StagedTrader{Interval: bar.Interval, Start: bar.Start, Actor: actor})
-		}
-	}
-	for _, parent := range actual {
-		if parent.Interval == "1m" {
-			continue
-		}
-		duration, _ := IntervalSeconds(parent.Interval)
-		children := []QualifiedCandle{}
-		actors := []string{}
-		for key, child := range buckets {
-			if child.Interval == "1m" && child.Start >= parent.Start && child.Start < parent.Start+duration {
-				children = append(children, child)
-				for actor := range members[key] {
-					actors = append(actors, actor)
-				}
-			}
-		}
-		rolled, _, err := RollupQualified(children, actors, parent.Interval, parent.Start)
-		if err != nil {
-			return report, err
-		}
-		a, _ := EconomicDigest(parent)
-		b, _ := EconomicDigest(rolled)
-		if a != b {
-			return report, store.ErrIntegrity
-		}
-	}
-	report.BarCount = uint64(len(actual))
-	report.ActualDigest, err = projectionDigest(actual)
+	projection, err := buildReconstructionProjection(fills, from, to, SeriesCheckpoint{Height: uint64(lastManifest.ToHeight), Timestamp: lastTime}, timeNowUTC())
 	if err != nil {
 		return report, err
 	}
+	report.BarCount = uint64(len(projection.Bars))
+	report.ActualDigest = projection.Digest
 	tx, err := st.Pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
 	if err != nil {
 		return report, err
@@ -400,50 +320,22 @@ func ReconstructArchive(ctx context.Context, st *store.ExactStore, reader store.
 	if err = tx.QueryRow(ctx, `SELECT revision FROM `+st.Schema+`.chart_series_clock WHERE chain_id='125' AND pool=$1`, pool).Scan(&revision); err != nil {
 		return report, err
 	}
-	rows, err := tx.Query(ctx, `SELECT snapshot FROM `+st.Schema+`.chart_exact WHERE chain_id='125' AND pool=$1 AND start>=$2 AND start<$3 ORDER BY interval,start`, pool, expandedFrom, expandedTo)
+	manifestWire, _ := json.Marshal(report.ManifestDigests)
+	hash := sha256.Sum256(manifestWire)
+	manifestDigest := hex.EncodeToString(hash[:])
+	report.ExpectedDigest, report.ChecksumAuthority, err = reconstructionExpectedDigest(ctx, tx, st.Schema, pool, expandedFrom, expandedTo, manifestDigest, revision)
 	if err != nil {
-		return report, err
-	}
-	expected := []QualifiedCandle{}
-	for rows.Next() {
-		var raw []byte
-		var bar QualifiedCandle
-		if err = rows.Scan(&raw); err != nil {
-			rows.Close()
-			return report, err
-		}
-		if err = json.Unmarshal(raw, &bar); err != nil {
-			rows.Close()
-			return report, err
-		}
-		duration, err := IntervalSeconds(bar.Interval)
-		if err != nil {
-			rows.Close()
-			return report, err
-		}
-		if bar.Start < to && bar.Start+duration > from {
-			expected = append(expected, bar)
-		}
-	}
-	rows.Close()
-	if err = rows.Err(); err != nil {
 		return report, err
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return report, err
 	}
-	report.ExpectedDigest, err = projectionDigest(expected)
-	if err != nil {
-		return report, err
-	}
-	if report.ExpectedDigest != report.ActualDigest {
+	if parityErr := verifyReconstructionParity(report.ExpectedDigest, report.ActualDigest); parityErr != nil {
 		hash := sha256.Sum256([]byte(report.ExpectedDigest + report.ActualDigest))
 		incidentErr := st.RecordRecoverabilityIncident(ctx, pool, "reconstruction_economic_checksum_mismatch", hex.EncodeToString(hash[:]))
-		return report, errors.Join(errors.New("reconstruction_economic_checksum_mismatch"), incidentErr)
+		return report, errors.Join(parityErr, incidentErr)
 	}
-	manifestWire, _ := json.Marshal(report.ManifestDigests)
-	hash := sha256.Sum256(manifestWire)
-	if err = st.StageRebuild(ctx, id, pool, from, to, hex.EncodeToString(hash[:]), report.ExpectedDigest, report.ActualDigest, revision, stage, traders, fills); err != nil {
+	if err = st.StageRebuild(ctx, id, pool, from, to, manifestDigest, report.ExpectedDigest, report.ActualDigest, revision, projection.Candles, projection.Traders, fills); err != nil {
 		return report, err
 	}
 	report.PromotionEpoch, err = st.PromoteRebuild(ctx, id)
@@ -458,16 +350,9 @@ func ReadSeries(ctx context.Context, st *store.ExactStore, pool, interval string
 	if err != nil {
 		return nil, err
 	}
-	bars := []SeriesCandle{}
-	for _, value := range raw {
-		var bar SeriesCandle
-		if err = json.Unmarshal(value, &bar); err != nil {
-			return nil, err
-		}
-		if bar.AlgorithmVersion != SeriesAlgorithm || bar.Synthetic || bar.Trades == 0 {
-			return nil, ErrInvalidFill
-		}
-		bars = append(bars, bar)
+	bars, err := decodeSeriesSnapshots(raw)
+	if err != nil {
+		return nil, err
 	}
 	if !dense {
 		return bars, nil
@@ -480,6 +365,21 @@ func ReadSeries(ctx context.Context, st *store.ExactStore, pool, interval string
 		}
 	}
 	return DenseView(bars, from, to, interval, seed, revision)
+}
+
+func decodeSeriesSnapshots(raw []json.RawMessage) ([]SeriesCandle, error) {
+	bars := []SeriesCandle{}
+	for _, value := range raw {
+		var bar SeriesCandle
+		if err := json.Unmarshal(value, &bar); err != nil {
+			return nil, err
+		}
+		if bar.AlgorithmVersion != SeriesAlgorithm || bar.Synthetic || bar.Trades == 0 {
+			return nil, ErrInvalidFill
+		}
+		bars = append(bars, bar)
+	}
+	return bars, nil
 }
 
 type MeasurementBar struct {

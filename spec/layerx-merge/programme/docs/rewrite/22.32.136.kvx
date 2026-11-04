@@ -1,0 +1,36 @@
+[manifest]
+task = "22.32.136"
+domain = 14
+owner_role = "fm-web-explorer-bridge"
+pages = 1
+
+[page.1]
+path = "docs/wiki/BetaCluster.md"
+status = "misleading"
+bytes = 25321
+source_1 = "record 22.30.108 [doc.02] (misleading): Lines 3, 5 and the bring-up, custody and LNI sections retain the separate daemon, archived batch settlement and retired operator infrastructure; see beta-site or beta-wiki."
+source_2 = "record 22.30.111 [doc.8] (misleading): Separate node/bootstrap and LNI instructions remain; coordinate rewrite with the site operator procedure and native ownership."
+source_3 = "record 22.30.112 [doc.04] (stale): Read the complete page. Drift at line 3: The wiki beta-cluster runbook likewise treats a LayerX daemon and independently deployed custody profile as the running architecture, including layerxd instructions around line 40."
+source_4 = "record 22.30.113 [doc.03] (stale): Read all 114 lines. Lines 3 and 42 repeat the retired separate-daemon topology and layerxd custody startup; synchronize the rewrite with the operator page."
+source_5 = "record 22.30.135 [doc.006] (stale): Lines 5, 42 and 60 retain separate receipt authority, layerxd custody-profile startup and sequencer trust pins. Update this mirror with the merged operational topology alongside the site page."
+source_6 = "record 22.30.136 [doc.05] (stale): Full page compared with the fully read site version, including every differing link and omitted section. Lines 3 and 42 retain the separate LayerX daemon/profile model."
+source_7 = "record 22.30.137 [doc.002] (stale): The wiki cluster page presents LayerX as a separate daemon, prescribes layerxd near line 42 and retains the separate sequencer flow near line 60. Rewrite proposal: Update docs/wiki/BetaCluster.md with the merged operator guide, replacing the layerxd command and sequencer deployment flow with the actual paxd launch and root RPC configuration."
+source_8 = "record 22.30.142 [doc.2] (stale): Lines 3 and 42 retain the separate daemon and layerxd custody-profile topology from the pre-merge cluster guide."
+source_9 = "record 22.30.143 [doc.02] (misleading): Read in full, including examples and operator or route tables. Operational pre-merge topology, endpoint, funding or finality guidance conflicts with the finished merged network. Exact source locations and owning-domain rewrite proposals are recorded in this page's finding."
+source_10 = "record 22.30.147 [doc.12] (stale): line 3: wiki-cluster-network — The wiki beta cluster guide starts a separate LayerX daemon and deploys GuarantorBond/CheckpointRegistry, retaining the same old settlement architecture as the site guide."
+source_11 = "record 22.30.148 [doc.05] (stale): Entire page reviewed. The layerxd node and custody-profile invocation at lines 3 and 42 require a merged-node rewrite; see wiki-beta-daemon."
+source_12 = "record 22.30.152 [doc.11] (stale): Lines3-5 and the later guarantor/checkpoint/custody-profile bring-up narrative describe the separate daemon and boundary cluster; see the corresponding beta documentation finding."
+source_13 = "record 22.30.157 [doc.2] (stale): Lines 3 and 5 describe the separate daemon and replica receipt authority; line 42 mounts layerxd --custody-profile and line 60 provisions sequencer pins. These instructions direct an operator to the pre-merge deployment."
+source_14 = "record 22.30.158 [doc.002] (stale): Read the complete wiki page. Lines 3 and 26 retain separate daemon/settlement bring-up; line 42 mounts a custody profile into retired layerxd."
+source_15 = "record 22.30.161 [doc.02] (stale): Read entire page (114 lines). Lines 3, 42 and 60 retain layerxd and sequencer provisioning; this mirror needs the same merged-paxd rewrite as the site operator page."
+source_16 = "record 22.30.170 [doc.002] (stale): Lines 3-5 describe the former node/replica deployment; line 42 runs layerxd --custody-profile and line 60 provisions sequencer-id/first-batch/last-batch secrets. See finding.package_doc_02 for the concrete rewrite."
+source_17 = "record 22.30.182 [doc.04] (misleading): Lines 3-5, 26-36, 42 and 60 retain obsolete split-node and custody bootstrap; see beta-wiki-runbook."
+source_18 = "record 22.30.183 [doc.02] (misleading): Lines 3-5, 26, 40, 50 and 68 describe retired daemon, checkpoint authority and sequencer-bound bring-up. Preserve chain id 125 and current hosted image ownership while rewriting the merged deployment path."
+source_19 = "record 22.30.21 [doc.8] (stale): Reviewed the page and its package-facing guidance; exact drift and owner rewrite proposals are recorded in beta-wiki-daemon."
+source_20 = "record 22.30.29 [doc.09] (misleading): wiki-beta: line42 The cluster instructions mount a custody profile into layerxd and retain separate primary and observer boundary provisioning and receipt-authority topology. The page presents these as the current beta bring-up rather than historical pre-merge infrastructure."
+source_21 = "record 22.30.30 [doc.10] (stale): Read in full. finding.cluster-doc-wiki at line 3. Retired topology and endpoint instructions require a coordinated rewrite."
+source_22 = "record 22.30.32 [doc.10] (stale): Read complete page; line 3 in beta_wiki identifies the stale statements and owning rewrite proposal."
+source_23 = "record 22.30.33 [doc.11] (misleading): Read the full page; active separate execution/daemon and retired custody/checkpoint architecture contradict the merged-network brief. Exact incorrect locations and rewrite proposals are recorded in the documentation findings."
+source_24 = "record 22.30.42 [doc.6] (stale): Lines 3 and 26-42 retain split bootstrap; also lacks site native-custody/Explorer-read sections; see beta-wiki."
+source_25 = "record 22.30.46 [doc.2] (stale): Lines 3 and 42 mirror the separate daemon topology and custody-profile launch instructions; synchronize with the merged operator guide."
+source_26 = "record 22.30.79 [doc.005] (misleading): Lines 26-42 retain separately deployed kernel/settlement contracts and custody profiles. Rewrite the cluster topology and readiness checks for the merged paxd chain rather than layerxd plus settlement."

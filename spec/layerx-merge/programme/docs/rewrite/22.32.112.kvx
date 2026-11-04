@@ -1,0 +1,33 @@
+[manifest]
+task = "22.32.112"
+domain = 13
+owner_role = "fm-programs"
+pages = 2
+
+[page.1]
+path = "docs/wiki/Home.md"
+status = "misleading"
+bytes = 7668
+source_1 = "record 22.30.123 [doc.007] (stale): Lines 3 and 7-22 present separate interface/checkpoint settlement; replace these with the merged chain and actual RPC ownership."
+source_2 = "record 22.30.17 [doc.05] (stale): Lines 7-23 retain pre-merge execution/settlement split and obsolete operational boundaries."
+source_3 = "record 22.30.5 [doc.09] (stale): Read all 141 lines. Lines 7-10,20-22 and later overview retain checkpoints, replicas, guarantors and claims."
+source_4 = "record 22.30.88 [doc.010] (stale): Read in full. Lines 7-10,20-22 and the settlement table retain checkpoint and guarantor claims that conflict with the merged BFT chain; see wiki-home-checkpoints."
+source_5 = "record 22.30.93 [doc.10] (misleading): Read the full page. The opening architecture and settlement sections present separate LayerX execution and Paxeer checkpoint settlement with guarantors. Rewrite for one BFT paxd network on chain 125 and commit finality; see the overview finding."
+
+[page.2]
+path = "docs/wiki/Programs.md"
+status = "misleading"
+bytes = 27849
+source_1 = "record 22.30.123 [doc.002] (stale): Lines 17-19 contradict the later LXT20 section; line 136 cites retired simulation; 300-358 and 610 retain obsolete ABI root/admission guidance."
+source_2 = "record 22.30.124 [doc.03] (misleading): Read in full including all differences from the site guide. Receipt/LNI guidance, ABI admission and separate batch-finality claims remain stale; see programs-wiki-current-model."
+source_3 = "record 22.30.125 [doc.programs_wiki] (misleading): Read full page including expanded import table. Lines 111-127 and 136 retain retired LNI/daemon guidance; 294 and 348-365 cap runtime/frozen ABIs at 2; 366-374 describe old hosted pins; 595 onward repeats incomplete frozen guidance. LXT-20 paths at 144-148 are correctly present. See programs_wiki_abi and programs_wiki_retired."
+source_4 = "record 22.30.126 [doc.3] (stale): Read in full; simulate lines 118-138 cite retired daemon/LNI transport; ABI admission statements are stale separately."
+source_5 = "record 22.30.127 [doc.3] (stale): Entire page reviewed, including differences from the fully read site counterpart. ABI/default/admission at 300-350 and generator line 610 are stale; simulation/REST at 118-136 are retired. Findings 11 and 13 apply independently."
+source_6 = "record 22.30.129 [doc.004] (misleading): The introduction contradicts the existing LXT-20 section. Default/admitted ABI guidance remains v2-only and call/simulation still uses retired LNI/layerxd."
+source_7 = "record 22.30.130 [doc.2] (stale): Full page read, including site differences. Lines 118-140 retain daemon simulation; line 300 and the admit_abi_version paragraph retain obsolete ABI limits. Synchronize version and transport guidance."
+source_8 = "record 22.30.152 [doc.9] (stale): Simulation section lines118-138 uses the retired daemon/LNI and hosted Programs REST. Later CALL settlement section (site404, wiki445) needs native committed-block semantics and current guest ABI/payload limits."
+source_9 = "record 22.30.156 [doc.12] (stale): Lines 47, 119-136, 251 and 459-479 mirror retired native submission and replay-finalizer guidance. Reviewed the complete site page and wiki differences including additional ABI material."
+source_10 = "record 22.30.162 [doc.012] (stale): Current operating guidance conflicts with the merged network; exact locations and rewrite proposals are recorded in programs-wiki."
+source_11 = "record 22.30.4 [doc.012] (stale): Lines 47-57, 112-114, 136, 294-351 and 459-478 describe retired fee relay/daemon/replay paths and an outdated guest/module ABI catalogue. Findings: 034, 035."
+source_12 = "record 22.30.5 [doc.07] (stale): Read all 634 lines. Full site-common text and every wiki difference reviewed;118-140,250-251,446-478 retain old ingress and batch finality, while added host ABI table needs synchronization."
+source_13 = "record 22.30.55 [doc.9] (stale): Read all 634 lines through the site text and full copy differences; current LXT-20 inventory is improved but the simulation source still cites the removed daemon. See wiki-programs-daemon-simulation."

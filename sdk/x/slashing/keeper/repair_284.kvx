@@ -1,0 +1,33 @@
+[repair.22.31.284]
+audit = "22.30.162"
+requirement = "22998.1"
+implementation = "Expansion inserts empty slots at the next circular write index and retains the entire old suffix, including its final bit; canonical Bech32 consensus addresses are decoded before legacy signing-info lookup and malformed addresses return ErrInvalidAddress."
+baseline = "Not run: the explicit task gate order requires complete implementation before hf-build and hf-done, and prohibits a separate verify invocation. No pre-change test failure is claimed."
+qualification = "The runner's hf-build/hf-done ledger and final task evidence identify the exact verified candidate revision, command, exit code and private log."
+wiring_request = "Owner domain 15 (Cosmos fork): sdk/x/slashing/client/rest/query.go signingInfoHandlerFn must emit sdk.ConsAddress(pk.Address()).String() instead of pk.Address().String(); then qualify legacy REST success, malformed-public-key and unknown-record parity with the canonical consumer."
+
+[finding.slashing-window-last-bit]
+proving_test = "TestRepair_284_WindowExpansionRestartPenalty"
+proof_path = "BeginBlocker votes -> persisted signing info and missed bitmap -> parameter-store window expansion at every offset of windows 1, 5 and 65 -> BeginBlocker -> LevelDB commit and close -> reopened store and keepers -> BeginBlocker through the exact downtime threshold."
+assertions = "Every retained bit, circular offset and population counter survives expansion and restart; signed votes expire actual misses without penalty; the exact miss limit does not penalize; the next miss slashes real bonded tokens, jails and clears the bitmap and counter."
+
+[finding.slashing-legacy-consumer-encoding]
+proving_test = "TestRepair_284_LegacyConsumerEncoding"
+proof_path = "Real CLI public-key decoder -> SDK query client -> HTTP JSON-RPC codec -> gRPC query router -> keeper/store; the decoded CLI-produced request also traverses the Amino codec and legacy querier. Generated REST gateway and gRPC client return the same stored signing info."
+assertions = "Canonical requests resolve the raw consensus key; malformed, hex, wrong-prefix and bad-checksum addresses yield typed legacy invalid-address errors; unknown valid addresses retain ErrNoSigningInfoFound and gRPC/REST NotFound; malformed JSON retains ErrJSONUnmarshal. Actual legacy REST producer emits hex and is explicitly rejected pending the owner wiring request."
+
+[gotcha.22.31.284]
+observed = "The scoped task cannot change the legacy REST producer, and its baseline-test step contradicts the ordered gate instructions."
+resolution = "Keep the consumer canonical, prove the current REST mismatch through its real handler, record the out-of-path wiring request here, and follow the explicit implementation-then-gates order without claiming a baseline run."
+
+[gotcha.22.31.284.codec]
+observed = "Verification of 8376d7c944e82432e3626d35f8b274ad8a571abd failed compilation because codec.Codec exposes UnmarshalAsJSON, not UnmarshalJSON; command cg spec done 22.31.284 -f layerx-merge --root /work/paxeer-monorepo exited 1 with private log /out/logs/verify-1.log."
+resolution = "Use the repository codec's UnmarshalAsJSON method for CLI and gateway responses, retaining both equality assertions."
+
+[gotcha.22.31.284.cli_context]
+observed = "The previous attempt panicked in client.SetCmdClientContext because a standalone CLI command had no context containing client.ClientContextKey; the keeper codec, store keys and parameter subspaces were already initialized."
+resolution = "Initialize each standalone CLI command with the SDK client-context pointer before calling SetCmdClientContext, preserving the real CLI, RPC, legacy querier and gRPC assertions. Keep this gotcha in the scoped task record because the task prohibits edits to the root ledger."
+
+[gotcha.22.31.284.gateway]
+observed = "Verification of 76512cfb976387ddc8615578cc5b1e36531bd1d8 passed TestRepair_284_WindowExpansionRestartPenalty but the bare grpc-gateway mux panicked marshaling time.Time; command cg spec done 22.31.284 -f layerx-merge --root /work/paxeer-monorepo exited 1 with private log /out/logs/verify-1.log and test log /tmp/repair-284.log."
+resolution = "Use api.New(clientCtx).GRPCGatewayRouter, the production gateway with its gogo protobuf JSON marshaler, error handler and interface registry, retaining all REST equality and error assertions."

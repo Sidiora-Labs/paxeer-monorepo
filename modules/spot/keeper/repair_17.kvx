@@ -1,0 +1,66 @@
+[repair.22.31.17]
+audit = "22.30.15"
+base_revision = "9b3c0edb83db2c918d37d3910bad522f5b067ca3"
+mode = "BUILD"
+scope = "modules/spot/keeper"
+build = "hf-build: go build ./modules/spot/keeper/..."
+verify = "hf-done: cg spec done 22.31.17 -f layerx-merge --root $TASK_ROOT; go test -count=1 -v -run '^TestRepair_17_' ./modules/spot/keeper/"
+evidence = "/out/run/gates.jsonl records the exact qualified candidate revision, command, exit and private log location; the runner publishes that evidence."
+baseline = "No unchanged-tree verify ran: the explicit implementation-first order and prohibition on manual verify commands take precedence over step 7's conflicting baseline instruction. No pre-change test failure is claimed."
+
+[finding.listing-share-pointer]
+tests = ["TestRepair_17_listingSharePointer", "TestRepair_17_listingRollback"]
+repair = "Governance creates every new pool's share metadata and native pointer using activation's symbol validation before publishing its cached registration, and emits ShareTokenCreated; failures discard all books, metadata, pointers and events."
+proof = "Real governance proposal handler to spot registry, public vault ABI deposits and withdrawals, pointer balance/supply and bank supply, closing and reopening all application stores on LevelDB and rebuilding the production spot rails."
+
+[finding.retained-token-decimals]
+tests = ["TestRepair_17_retainedTokenDecimals"]
+repair = "Retained units and custody kinds are immutable; every retained token must match its physical decimals and existing book. Metadata changes require a separate liability-safe migration."
+proof = "Funded deployed six-decimal ERC20 and native pool reject decimal and custody changes atomically; physical metadata and book drift are refused; an ordinary cap update, public token/share metadata, quotes and a real swap retain six-decimal units."
+
+[finding.expiry-head-starvation]
+tests = ["TestRepair_17_expiryHeadStarvation"]
+repair = "CursorPrefix/0x02 stores the last examined expiry key. The bounded scan wraps once, advancing past failures and backoff entries while retaining cached atomic refunds. Export rotates Expiries into circular scan order; import resumes after its last entry, preserving the next position without changing the genesis schema."
+proof = "A full leading window of real ERC20 refunds failing for insufficient custody cannot starve later native refunds; work stays bounded, backoff and escrow remain intact, future orders remain pending, and progress survives disk reopen and JSON export/import before every subsequent block."
+
+[wiring]
+request_keys = "modules/spot/types/keys.go; owning domain 3 (markets): document the keeper's CursorPrefix/0x02 expiry scan position alongside the existing cursor namespace."
+request_genesis = "modules/spot/types/genesis.go; owning domain 3 (markets): document GenesisState.Expiries as circular expiry scan order so downstream exporters preserve its array order."
+request_listing_test = "precompiles/spot/listing_test.go; owning domain 3 (markets): replace the obsolete manual CreateShareToken calls after governance listing with assertions on the governance-created pointers."
+
+[gotcha.gate_order]
+observed = "The task's baseline verify instruction conflicts with its explicit allowed-gate order."
+resolution = "Implement first and use only hf-build then hf-done; do not claim a baseline run."
+
+[qualification.first_verify]
+revision = "eda8ec892c7188619d35f25f884b23ea314c8ce4"
+command = "cg spec done 22.31.17 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+repair = "Dereference artifact ABI pointers for the test helpers' ABI value arguments; use real expiry orders above the production minimum notional."
+
+[qualification.continuation]
+source_revision = "0c8e21e14f6ba75aeba97ce5429e98049a162ea3"
+observed = "The previous attempt was implemented-not-qualified; its seven in-scope paths were retained and reviewed, and this attempt uses the declared focused verify filter."
+evidence = "/out/run/gates.jsonl records this attempt; its final verify entry names the exact revision, command, exit and private log path."
+
+[qualification.continuation_first_verify]
+revision = "2d57e5f847f971c95621f5996dcacff879d19804"
+command = "cg spec done 22.31.17 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+repair = "Compare the real ERC20 custody balance numerically to zero using big.Int.Sign; deep equality distinguished nil and empty internal magnitude slices for the same exact zero."
+
+[qualification.continuation_second_repair]
+revision = "4870b42216fbb642a15bae55872380e425ad6165"
+command = "go build ./modules/spot/keeper/..."
+exit = 0
+log = "/out/logs/build-2.log"
+repair = "Use activation's v6120Log for governance ShareTokenCreated events, preserving the existing exact empty-data event assertions; the first rebuild began before the full verify log's second failure was inspected."
+budget = "The gate ledger counts each additional build or verify as a repair; a second rebuild exhausts the two-repair budget before verification can run again. No passing verification is claimed."
+
+[qualification.attempt_three]
+observed = "Continued all seven carried paths from attempt 2; no gate had run in this attempt's ledger before these repairs."
+repair = "Compare event payloads with bytes.Equal, ABI integer values with big.Int.Cmp, and complete restart/import genesis snapshots by their deterministic JSON representation, preserving all field and amount assertions."
+gotcha = "Empty ABI payloads and zero big.Int values have multiple equivalent in-memory representations; compare their public byte and numeric values."
+evidence = "/out/run/gates.jsonl retains the exact candidate revision, command, exit and private evidence log for hf-build and hf-done; no current qualification is claimed before those gates run."

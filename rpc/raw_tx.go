@@ -63,11 +63,17 @@ func (r *RawTransactionAPI) GetRawTransactionByHash(ctx context.Context, hash co
 			if etx == nil {
 				return nil, errors.New("transaction is not an EVM transaction and thus cannot be represented in _getTransaction* endpoints")
 			}
+			if !domainAllowsTransaction(ctx, t.domainIndex, etx) {
+				return nil, nil
+			}
 			return rawEnvelopeForHash(etx, hash)
 		}
 	}
 	if tx, ok := t.tmClient.EvmTxByHash(hash); ok {
 		if etx := getEthTxForTxBz(tx, t.txConfigProvider(LatestCtxHeight).TxDecoder()); etx != nil {
+			if !domainAllowsTransaction(ctx, t.domainIndex, etx) {
+				return nil, nil
+			}
 			return rawEnvelopeForHash(etx, hash)
 		}
 	}
@@ -81,6 +87,11 @@ func (r *RawTransactionAPI) GetRawTransactionByHash(ctx context.Context, hash co
 	}
 	if receipt == nil {
 		return nil, fmt.Errorf("receipt lookup for %s returned nil", hash.Hex())
+	}
+	if scope, ok := DomainScopeFrom(ctx); ok {
+		if !domainHashSet(t.domainIndex, t.ctxProvider(LatestCtxHeight), scope, receipt.BlockNumber)[hash] {
+			return nil, nil
+		}
 	}
 	if receipt.BlockNumber > math.MaxInt64 {
 		return nil, fmt.Errorf("receipt block number %d exceeds int64", receipt.BlockNumber)

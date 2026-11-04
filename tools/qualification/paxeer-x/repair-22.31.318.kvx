@@ -1,0 +1,34 @@
+[meta]
+task = "22.31.318"
+audit = "22.30.176"
+base_revision = "61b2c3c98c61e72d831e1ce948a0bde6d218c980"
+qualification = "hf-build followed by hf-done; the private gate ledger records the exact candidate revision, command, exit and log."
+baseline = "No baseline gate ran: the explicit allowed-gate order prohibits a handwritten verify run before implementation, so no pre-change test failure is claimed."
+
+[finding.3]
+tests = ["test_program_receipt_reopens_and_retries", "test_paid_success_reopens", "test_recorded_signature_refusals", "test_node_json_must_match_signed_bytes", "test_recorded_tampered_log_refused", "test_operational_observation_rejects_foreign_execution", "test_program_result_refuses_noncanonical_shape"]
+repair = "Use the current SDK authenticated sequencer verifier, configured key-id/height pins, retained raw EVM transactions, signed JSON/log/return-data bindings and the program call ABI result."
+fixture = "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json: unmodified node-produced JSON and signatures; reopened consumers and durable payment/sent-byte records."
+
+[finding.4]
+tests = ["test_program_call_signed_evm_round_trip", "test_deploy_and_web_encodings", "test_deployment_receipt_rejects_call_transaction", "test_program_receipt_reopens_and_retries", "test_reverted_execution_uses_declared_result"]
+repair = "Sign chain-125 EIP-1559 transactions, recover and bind the DID's EVM signer, use the pending EVM nonce, encode current program deploy/call and web fulfilProgram ABIs, and bind deployment metadata to exact signed bytes."
+metadata = "deployment_activity contains signed type-2 bytes; deployment_sender is the recovered EVM deployer; evm_fees has gas_limit/max_fee_per_gas/max_priority_fee_per_gas; reference_program adds policy/authority/interface_encoding; kernel_observation adds raw_transaction; gateway.receipt_keys supplies governed key_id/public_key/first_height/last_height pins."
+retained = "Existing relay restart, exact-byte retry, web-fee split and fee-conservation assertions remain; the proof reproduces the node's recorded program transaction using RFC6979 and checks identical signed receipt and balances after reopen/retry."
+
+[wiring.1]
+request = "Domain 16 tools/ops: regenerate the external private paxeer-x.kernel-web-recovery.v1 inventory with the declared EVM deployment, secp256k1 caller key, fee fields and program interface metadata; no private inventory is committed."
+
+[wiring.2]
+request = "Domain 13 interop, services/interop/crates/x-websearch/src/kernel.rs: the existing crash-boundary consumer references this absent source; wire the retained relay's crash/journal interface in its owning domain."
+
+[wiring.3]
+request = "Domains 7 RPC and 11 web, rpc/sequencer_receipt_vectors_test.go: add node-produced deploy and fulfilProgram sequencer receipt transcripts for positive end-to-end coverage of those methods; this task proves their actual ABI/signature/submission paths and rejects foreign signed executions without inventing receipts."
+
+[gotcha.1]
+observed = "The qualification harness still read legacy payment fields and a Merkle leaf digest where the current payment producer persists tx_hash/raw_transaction and the canonical signature digest."
+resolution = "The repaired success consumer follows the current payment record, signed execution and authenticated payment event."
+
+[gotcha.2]
+observed = "py_compile writes bytecode even with PYTHONDONTWRITEBYTECODE; a directory-scoped candidate would include it."
+resolution = "Run both bounded gates with PYTHONPYCACHEPREFIX pointing outside the repository, keeping the final candidate source-only."

@@ -1,0 +1,17 @@
+[manifest]
+task = "22.32.10"
+domain = 3
+owner_role = "fm-markets"
+pages = 2
+
+[page.1]
+path = "modules/epoch/README.md"
+status = "stale"
+bytes = 3563
+source_1 = "record 22.30.11 [doc.13] (stale): The state/query/events and verification-history descriptions agree with source; hook timing omits strict-after-boundary and one-period-per-block catch-up, addressed by epoch-boundary-documentation."
+
+[page.2]
+path = "modules/epoch/spec/README.md"
+status = "stale"
+bytes = 450
+source_1 = "record 22.30.11 [doc.14] (stale): The abstract says at each epoch boundary without the strict-after and bounded catch-up details. Read with keeper/abci.go and abci_catchup_test.go; epoch-boundary-documentation proposes the clarification."

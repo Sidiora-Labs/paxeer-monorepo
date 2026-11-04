@@ -53,6 +53,7 @@ type node struct {
 	observer         bool
 	standbyAddress   string
 	gasPrice         *big.Int
+	bootstrapHeight  int64
 }
 
 var vectors = make(map[string]func(*node) (any, error))
@@ -113,6 +114,11 @@ func run(ctx context.Context, args []string, stderr io.Writer) (err error) {
 		return err
 	}
 	defer os.RemoveAll(standby.home)
+	if *vector == "" || *vector == vectorV2Name {
+		if err := n.configureV2Genesis(); err != nil {
+			return err
+		}
+	}
 	defer func() {
 		if err != nil {
 			standby.printLogTail(stderr)
@@ -163,6 +169,16 @@ func run(ctx context.Context, args []string, stderr io.Writer) (err error) {
 		value, err := vectors[name](n)
 		if err != nil {
 			return fmt.Errorf("record %s: %w", name, err)
+		}
+		if name == vectorV2Name {
+			v, ok := value.(*vectorV2)
+			if !ok {
+				return errors.New("V2 recorder returned another vector type")
+			}
+			if err := writeVectorV2Copies(*out, v); err != nil {
+				return err
+			}
+			continue
 		}
 		data, err := json.MarshalIndent(value, "", "  ")
 		if err != nil {
@@ -655,8 +671,12 @@ func (n *node) bootstrap(peers ...*node) error {
 	if err != nil {
 		return err
 	}
+	height := n.bootstrapHeight
+	if height == 0 {
+		height = 1
+	}
 	cmd := exec.CommandContext(ctx, n.paxd, "start", "--home", n.home, "--chain-id", fixtureChainID,
-		"--sequencer.enable=false", "--halt-height", "1")
+		"--sequencer.enable=false", "--halt-height", fmt.Sprint(height))
 	cmd.Stdout, cmd.Stderr = log, log
 	err = cmd.Run()
 	log.Close()
@@ -669,7 +689,7 @@ func (n *node) bootstrap(peers ...*node) error {
 	if err != nil {
 		return err
 	}
-	// The primary alone has quorum and halts at height 1. Copy its bootstrap
+	// The primary alone has quorum and halts at the bootstrap height. Copy its bootstrap
 	// state so peers cannot miss the commit when the primary shuts down.
 	for _, peer := range peers {
 		for _, entry := range entries {

@@ -1,0 +1,29 @@
+[manifest]
+task = "22.32.36"
+domain = 5
+owner_role = "fm-node-runtime"
+pages = 4
+
+[page.1]
+path = "consensus/spec/consensus/proposer-based-timestamp/v1/pbts_001_draft.md"
+status = "stale"
+bytes = 9262
+source_1 = "record 22.30.47 [doc.031] (stale): Vendored upstream PBTS model/design page pbts_001_draft.md. Versioned drafts and their clock/synchrony assumptions are retained as research; they do not establish Autobahn timeliness or current runtime qualification. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[page.2]
+path = "consensus/spec/consensus/proposer-selection.md"
+status = "stale"
+bytes = 15121
+source_1 = "record 22.30.47 [doc.032] (stale): Read complete page; rewrite targets: proposer-selection-mode at line 10. Concrete owning-domain proposals are recorded above."
+
+[page.3]
+path = "consensus/spec/consensus/signing.md"
+status = "stale"
+bytes = 7540
+source_1 = "record 22.30.47 [doc.034] (stale): Vendored upstream Tendermint protocol page signing.md, identified as inherited material by consensus/README.md. Retained as classic-protocol reference; not a current-network or Autobahn clean claim. Retained under the vendored review rule; missing-autobahn-spec-map records the need for explicit current-mode applicability."
+
+[page.4]
+path = "consensus/spec/consensus/wal.md"
+status = "stale"
+bytes = 1407
+source_1 = "record 22.30.47 [doc.035] (stale): Read complete page; rewrite targets: wal-mode-recovery-gap at line 3. Concrete owning-domain proposals are recorded above."

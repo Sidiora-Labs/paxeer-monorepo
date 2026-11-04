@@ -505,6 +505,13 @@ impl Projection {
         {
             return Err(RampError::IllegalTransition);
         }
+        if evidence.tx_hash.is_some_and(|hash| {
+            self.orders.iter().any(|(digest, other)| {
+                digest != order_digest && other.evidence.tx_hash == Some(hash)
+            })
+        }) {
+            return Err(RampError::Conflict);
+        }
         validate_resulting_evidence(next, &snapshot.evidence, evidence)?;
         if evidence_conflicts(&snapshot.evidence, evidence) {
             return Err(RampError::Conflict);
@@ -1885,7 +1892,7 @@ fn payment_receipt_missing(evidence: &TransitionEvidence) -> bool {
             || evidence.raw_transaction.is_none()
             || evidence.receipt_digest.is_none()
             || evidence.receipt_height.is_none()
-            || !matches!(evidence.rung, Some(Rung::Receipted | Rung::Committed))
+            || !matches!(evidence.rung, Some(Rung::Committed))
     }
 }
 
@@ -2026,7 +2033,7 @@ fn validate_resulting_evidence(
         .is_some_and(|value| value != [0; 32])
         && (legacy
             || (evidence.receipt_height.is_some_and(|height| height != 0)
-                && matches!(evidence.rung, Some(Rung::Receipted | Rung::Committed))));
+                && matches!(evidence.rung, Some(Rung::Committed))));
     let refusal = evidence
         .refusal_code
         .as_deref()

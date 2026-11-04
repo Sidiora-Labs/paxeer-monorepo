@@ -152,7 +152,11 @@ func qValidateResult(req qualificationRequest, result qualificationResult, run, 
 		return errors.New("unknown result cell")
 	}
 	m := req.Manifest
-	if result.LogicalID != req.LogicalID || result.CandidateSHA256 != m.CandidateSHA256 || result.ManifestSHA256 != qHash(qCanonical(m)) || result.Revision != m.Revision || result.EndRevision != m.Revision || result.Tree != m.Tree || result.EndTree != m.Tree || result.Dirty {
+	manifest, e := qCanonical(m)
+	if e != nil {
+		return e
+	}
+	if result.LogicalID != req.LogicalID || result.CandidateSHA256 != m.CandidateSHA256 || result.ManifestSHA256 != qHash(manifest) || result.Revision != m.Revision || result.EndRevision != m.Revision || result.Tree != m.Tree || result.EndTree != m.Tree || result.Dirty {
 		return errors.New("source or candidate mutation")
 	}
 	if result.RunID != run || result.Attempt != attempt || run <= 0 || attempt <= 0 || result.ExitCode != 0 || result.Tests <= 0 || result.Skipped != 0 {
@@ -203,7 +207,11 @@ func qValidateCompleted(c qualificationCompleted, pub ed25519.PublicKey, domain 
 	}
 	sig := c.Signature
 	c.Signature = nil
-	if len(pub) != ed25519.PublicKeySize || !ed25519.Verify(pub, qCanonical(c), sig) {
+	b, e := qCanonical(c)
+	if e != nil {
+		return e
+	}
+	if len(pub) != ed25519.PublicKeySize || !ed25519.Verify(pub, b, sig) {
 		return errors.New("untrusted completed record")
 	}
 	if c.Schema != "paxeer-x.completed-qualification.v1" || c.Domain != domain || domain == "" || c.Workflow != ".github/workflows/paxeer-x-qualification.yml" || c.Status != "completed" || c.Conclusion != "success" || c.Repository == "" || c.ObservedAt.IsZero() || c.ObservedAt.After(time.Now().Add(time.Minute)) {
@@ -232,9 +240,14 @@ func qValidateCompleted(c qualificationCompleted, pub ed25519.PublicKey, domain 
 	}
 	return nil
 }
-func qSign(c *qualificationCompleted, key ed25519.PrivateKey) {
+func qSign(c *qualificationCompleted, key ed25519.PrivateKey) error {
 	c.Signature = nil
-	c.Signature = ed25519.Sign(key, qCanonical(*c))
+	b, e := qCanonical(*c)
+	if e != nil {
+		return e
+	}
+	c.Signature = ed25519.Sign(key, b)
+	return nil
 }
 func qLoadKeys(root string) (*rsa.PrivateKey, ed25519.PrivateKey, error) {
 	b, e := qRead(filepath.Join(root, "artifact-key.der"))

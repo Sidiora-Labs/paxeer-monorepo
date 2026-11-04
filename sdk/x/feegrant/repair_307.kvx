@@ -1,0 +1,16 @@
+[repair.22.31.307]
+audit = "22.30.167"
+feegrant-key = "TestRepair_307_FeegrantKey; TestRepair_307_FeegrantKeyLayout"
+filtered-remove = "TestRepair_307_FilteredRemove"
+wiring_requests = "None: both proposals are contained in sdk/x/feegrant."
+baseline = "Not run: the explicit gate order prohibits running verify_cmd by hand before hf-done; no pre-change failures are claimed."
+evidence = "The runner's hf-build/hf-done ledger records the exact qualified candidate revision, command, exit and private log location."
+
+[gotcha.task-record]
+observed = "The task requests a spec task-record update while forbidding spec edits; this in-scope record carries the finding-to-test mapping."
+
+[gotcha.store-key]
+observed = "The parser uses panic-based validation; complete layout checks must precede reading the second length prefix and must use integer offsets."
+
+[gotcha.address-verifier]
+observed = "Package initialization installs the node address verifier, which accepts only 20/32-byte addresses; prove these through keeper queries and the codec's 255-byte boundary through direct round trips."

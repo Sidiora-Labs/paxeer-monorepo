@@ -27,6 +27,7 @@ var (
 	CheckCall                  = checkCall
 	ErrGateUnknownMethod       = errGateUnknownMethod
 	DecodeArgs                 = decodeArgs
+	ConfigureXWeb              = configureXWeb
 )
 
 func NewTestExecutor(host *lxphost.Host, evm *evmkeeper.Keeper) *PrecompileExecutor {

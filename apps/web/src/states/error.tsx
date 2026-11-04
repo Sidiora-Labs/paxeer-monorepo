@@ -20,6 +20,7 @@ import {
   browserSupportReportOutbox,
   type ErrorReporter,
 } from "./report";
+import { supportReportRoute } from "./report-routes.ts";
 
 export interface ErrorPresentation {
   readonly titleKey: string;
@@ -295,7 +296,7 @@ export function RouteErrorBoundary({
   return (
     <ErrorSurface
       error={errorPresentation(error)}
-      route={route}
+      route={supportReportRoute(route)}
       onRetry={reset}
       onReload={() => { window.location.reload(); }}
     />

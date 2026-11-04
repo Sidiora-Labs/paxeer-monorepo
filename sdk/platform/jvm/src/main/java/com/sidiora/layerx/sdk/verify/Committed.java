@@ -672,7 +672,7 @@ public final class Committed {
         verifyProof(sha256(tx), batchProof, header.dataHash());
     }
 
-    private static void verifyCommit(Header header, Commit commit, List<Validator> validators) {
+    static void verifyCommit(Header header, Commit commit, List<Validator> validators) {
         require(validators != null && !validators.isEmpty() && validators.size() <= 10000
             && commit.signatures().size() == validators.size() && commit.height() == header.height()
             && commit.round() >= 0 && equal(commit.blockId().hash(), header.hash())

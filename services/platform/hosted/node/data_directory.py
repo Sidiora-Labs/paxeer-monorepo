@@ -10,11 +10,10 @@ import sys
 
 GENERATION_MARKER = '.reset-generation.json'
 RESET_ID = re.compile(r'[0-9a-f]{32}\Z')
+ACTIVATION_MARKER = '.activation-durable.json'
 GENESIS_FILES = frozenset((
-    'genesis/genesis.manifest', 'genesis/genesis-request.lxgb',
-    'genesis/genesis.registration', 'genesis/00000000000000000000.lxs',
-    'genesis/paxeer-registration-request.lxrr',
-    'genesis/paxeer-deployment-descriptor.lxgd'))
+    'config/genesis.json', 'config/config.toml', 'config/app.toml',
+    'node.env', 'core.env', 'rpc-ca.der'))
 
 
 def _identity(reset_id, generation=None):
@@ -81,29 +80,34 @@ def _canonical_genesis(root_fd, genesis):
             or any(not isinstance(value, str) or not re.fullmatch(r'[0-9a-f]{64}', value)
                    for value in genesis.values())):
         raise ValueError('invalid canonical generation binding')
-    directory = os.open('genesis', os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
-                        dir_fd=root_fd)
-    try:
-        for path, expected in genesis.items():
-            descriptor = os.open(path.split('/')[1], os.O_RDONLY | os.O_NOFOLLOW,
+    for path, expected in genesis.items():
+        directory = os.dup(root_fd)
+        descriptor = None
+        try:
+            parts = path.split('/')
+            for part in parts[:-1]:
+                child = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+                                dir_fd=directory)
+                os.close(directory)
+                directory = child
+            descriptor = os.open(parts[-1], os.O_RDONLY | os.O_NOFOLLOW,
                                  dir_fd=directory)
-            try:
-                metadata = os.fstat(descriptor)
-                if (not stat.S_ISREG(metadata.st_mode) or metadata.st_uid != os.geteuid()
-                        or metadata.st_nlink != 1):
-                    raise ValueError('invalid canonical generation artifact')
-                digest = hashlib.sha256()
-                while True:
-                    block = os.read(descriptor, 1048576)
-                    if not block:
-                        break
-                    digest.update(block)
-                if digest.hexdigest() != expected:
-                    raise ValueError('canonical generation artifact changed')
-            finally:
+            metadata = os.fstat(descriptor)
+            if (not stat.S_ISREG(metadata.st_mode) or metadata.st_uid != os.geteuid()
+                    or metadata.st_nlink != 1 or metadata.st_size > 64 * 1024 * 1024):
+                raise ValueError('invalid canonical generation artifact')
+            digest = hashlib.sha256()
+            while True:
+                block = os.read(descriptor, 1048576)
+                if not block:
+                    break
+                digest.update(block)
+            if digest.hexdigest() != expected:
+                raise ValueError('canonical generation artifact changed')
+        finally:
+            if descriptor is not None:
                 os.close(descriptor)
-    finally:
-        os.close(directory)
+            os.close(directory)
 
 
 def _sync_tree(descriptor, count=None):
@@ -200,6 +204,34 @@ def seal_generation(data_dir, staged_data, reset_id, generation, genesis):
         os.close(live_fd)
 
 
+def _write_activation(live_fd, expected):
+    encoded = json.dumps(expected, sort_keys=True, separators=(',', ':')).encode()
+    temporary = ACTIVATION_MARKER + '.prepared'
+    try:
+        os.unlink(temporary, dir_fd=live_fd)
+    except FileNotFoundError:
+        pass
+    descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                         0o600, dir_fd=live_fd)
+    with os.fdopen(descriptor, 'wb') as handle:
+        handle.write(encoded)
+        handle.flush()
+        os.fsync(handle.fileno())
+    os.rename(temporary, ACTIVATION_MARKER, src_dir_fd=live_fd, dst_dir_fd=live_fd)
+    os.fsync(live_fd)
+
+
+def _activation_barrier(data, staged_data, live_fd, expected):
+    # Reconcile an exchange interrupted before either persistence barrier.
+    for path in (data, os.path.abspath(staged_data)):
+        _, parent = open_directory(os.path.dirname(path))
+        try:
+            os.fsync(parent)
+        finally:
+            os.close(parent)
+    _write_activation(live_fd, expected)
+
+
 def activate_generation(data_dir, staged_data, reset_id, generation, genesis):
     _identity(reset_id, generation)
     data, live_fd = open_directory(data_dir)
@@ -211,6 +243,7 @@ def activate_generation(data_dir, staged_data, reset_id, generation, genesis):
         live_marker = _marker(live_fd)
         if live_marker == expected:
             _canonical_genesis(live_fd, genesis)
+            _activation_barrier(data, staged_data, live_fd, expected)
             return 'active'
         if live_marker is not None and live_marker['generation'] >= generation:
             raise ValueError('activation cannot replace a later or conflicting generation')
@@ -241,6 +274,9 @@ def activate_generation(data_dir, staged_data, reset_id, generation, genesis):
                     os.fsencode(os.path.basename(staged)), 2) != 0:
             error = ctypes.get_errno()
             raise OSError(error, os.strerror(error))
+        for parent in parents:
+            os.fsync(parent)
+        _write_activation(live_fd=stage_fd, expected=expected)
         return 'activated'
     finally:
         for descriptor in parents:

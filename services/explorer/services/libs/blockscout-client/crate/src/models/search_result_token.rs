@@ -44,6 +44,6 @@ pub struct SearchResultToken {
     #[serde(default)]
     pub token_url: Option<String>,
 
-    pub total_supply: String,
+    pub total_supply: Option<String>,
     pub r#type: String,
 }

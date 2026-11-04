@@ -246,6 +246,7 @@ func (w *wrapper) SetGasEstimate(estimate uint64) {
 	}
 
 	w.tx.AuthInfo.Fee.GasEstimate = estimate
+	w.authInfoBz = nil
 }
 
 func (w *wrapper) SetFeeAmount(coins sdk.Coins) {

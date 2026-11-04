@@ -21,6 +21,16 @@ use layerx_programs::hex;
 use serde_json::{json, Value};
 use zeroize::Zeroizing;
 
+#[path = "../../../../../tools/platform/cli/src/install/binding_shape.rs"]
+pub mod binding_shape;
+
+// Expose the daemon's existing TLS implementation to in-process transport consumers.
+pub use rustls as readiness_tls;
+
+use binding_shape::{
+    AgentDeclaration, BindingDocument, LimitDeclaration, ReadinessTransport, MAX_DOCUMENT_BYTES,
+};
+
 use crate::budget::{LimitConfig, LimitScope};
 use crate::capability::{Capability, CapabilityId};
 use crate::identity::{IdentityRecord, ProtocolAuthority};
@@ -36,7 +46,6 @@ pub const DAEMON_BEARER_FILE: &str = "daemon-bearer";
 
 const MINIMUM_BEARER_BYTES: usize = 32;
 const MAX_TEXT_BYTES: usize = 255;
-const MAX_DOCUMENT_BYTES: usize = 65_536;
 const TOKEN_ATTEMPTS: usize = 8;
 const MAX_SOCKET_PATH_BYTES: usize = 107;
 const MAX_ADMITTED_PEERS: usize = 64;
@@ -128,6 +137,7 @@ pub struct DaemonSurface {
     endpoint: String,
     bearer: Zeroizing<String>,
     probe_program: [u8; 32],
+    readiness: Option<ReadinessDeclaration>,
 }
 
 impl fmt::Debug for DaemonSurface {
@@ -137,6 +147,7 @@ impl fmt::Debug for DaemonSurface {
             .field("endpoint", &self.endpoint)
             .field("bearer", &"[redacted]")
             .field("probe_program", &hex::encode(&self.probe_program))
+            .field("readiness", &self.readiness)
             .finish()
     }
 }
@@ -176,6 +187,76 @@ impl DaemonSurface {
             endpoint: endpoint.to_owned(),
             bearer,
             probe_program,
+            readiness: None,
+        })
+    }
+
+    /// Declares the authenticated gateway used by MCP daemon clients.
+    #[must_use]
+    pub fn with_readiness(mut self, readiness: ReadinessDeclaration) -> Self {
+        self.readiness = Some(readiness);
+        self
+    }
+}
+
+/// Authenticated HTTPS transport references carried unchanged into the MCP binding.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ReadinessDeclaration {
+    endpoint: String,
+    gateway_key_file: PathBuf,
+    trust_anchors: Option<PathBuf>,
+}
+
+impl ReadinessDeclaration {
+    /// Validates a gateway origin and absolute credential and optional trust-anchor paths.
+    ///
+    /// # Errors
+    ///
+    /// Refuses insecure origins, URL credentials, queries, fragments and invalid paths.
+    pub fn new(
+        endpoint: &str,
+        gateway_key_file: PathBuf,
+        trust_anchors: Option<PathBuf>,
+    ) -> Result<Self, EnrolmentError> {
+        let invalid =
+            || EnrolmentError::InvalidSurface("the readiness gateway is not an HTTPS origin");
+        let uri: ureq::http::Uri = endpoint.parse().map_err(|_| invalid())?;
+        if endpoint.len() > MAX_TEXT_BYTES
+            || uri.scheme_str() != Some("https")
+            || uri.host().is_none_or(str::is_empty)
+            || uri
+                .authority()
+                .is_some_and(|authority| authority.as_str().contains('@'))
+            || uri.path() != "/"
+            || uri.query().is_some()
+            || endpoint.contains('#')
+            || endpoint
+                .bytes()
+                .any(|byte| byte.is_ascii_whitespace() || byte.is_ascii_control())
+        {
+            return Err(invalid());
+        }
+        path_text(&gateway_key_file)?;
+        if let Some(path) = &trust_anchors {
+            path_text(path)?;
+        }
+        Ok(Self {
+            endpoint: endpoint.to_owned(),
+            gateway_key_file,
+            trust_anchors,
+        })
+    }
+
+    fn transport(&self) -> Result<ReadinessTransport, EnrolmentError> {
+        Ok(ReadinessTransport {
+            endpoint: self.endpoint.clone(),
+            gateway_key_file: path_text(&self.gateway_key_file)?.to_owned(),
+            trust_anchors: self
+                .trust_anchors
+                .as_deref()
+                .map(path_text)
+                .transpose()?
+                .map(str::to_owned),
         })
     }
 }
@@ -450,7 +531,7 @@ pub struct Enrolment {
     session_id: SessionId,
     session_generation: u64,
     capability_id: CapabilityId,
-    core_sequence: u64,
+    core_height: u64,
     token: Zeroizing<[u8; 32]>,
 }
 
@@ -462,7 +543,7 @@ impl fmt::Debug for Enrolment {
             .field("session_id", &hex::encode(&self.session_id.0))
             .field("session_generation", &self.session_generation)
             .field("capability_id", &hex::encode(&self.capability_id.0))
-            .field("core_sequence", &self.core_sequence)
+            .field("core_height", &self.core_height)
             .field("token", &"[redacted]")
             .finish()
     }
@@ -754,7 +835,7 @@ impl BindingPublisher {
             session_id: request.session_id,
             session_generation: record.generation,
             capability_id: request.capability_id,
-            core_sequence: request.core_sequence,
+            core_height: request.core_sequence,
             token: Zeroizing::new(record.request.token_id),
         };
         let binding = self.binding_path();
@@ -795,40 +876,45 @@ impl BindingPublisher {
         let deadline_ms = u64::try_from(self.deadline.as_millis()).map_err(|_| {
             EnrolmentError::Encoding("the transport deadline exceeds u64 milliseconds")
         })?;
-        let mut document = json!({
-            "mode": self.mode.label(),
-            "tenant": enrolment.tenant.as_str(),
-            "store": path_text(&self.store)?,
-            "audit_root": path_text(&self.audit_root)?,
-            "session_id": hex::encode(&enrolment.session_id.0),
-            "session_token_file": path_text(&self.root.join(SESSION_TOKEN_FILE))?,
-            "session_generation": enrolment.session_generation,
-            "capability_id": hex::encode(&enrolment.capability_id.0),
-            "core_sequence": enrolment.core_sequence,
-            "deadline_ms": deadline_ms,
-            "agent": {
-                "endpoint": self.surface.endpoint,
-                "bearer_file": path_text(&self.root.join(DAEMON_BEARER_FILE))?,
-                "probe_program": hex::encode(&self.surface.probe_program),
+        let document = BindingDocument {
+            mode: self.mode.label().to_owned(),
+            tenant: enrolment.tenant.as_str().to_owned(),
+            store: path_text(&self.store)?.to_owned(),
+            audit_root: path_text(&self.audit_root)?.to_owned(),
+            session_id: hex::encode(&enrolment.session_id.0),
+            session_token_file: path_text(&self.root.join(SESSION_TOKEN_FILE))?.to_owned(),
+            session_generation: enrolment.session_generation,
+            capability_id: hex::encode(&enrolment.capability_id.0),
+            core_height: enrolment.core_height,
+            deadline_ms,
+            agent: AgentDeclaration {
+                endpoint: self.surface.endpoint.clone(),
+                bearer_file: path_text(&self.root.join(DAEMON_BEARER_FILE))?.to_owned(),
+                probe_program: hex::encode(&self.surface.probe_program),
+                readiness: self
+                    .surface
+                    .readiness
+                    .as_ref()
+                    .map(ReadinessDeclaration::transport)
+                    .transpose()?,
             },
-            "limit": {
-                "id": hex::encode(&self.limit.id.0),
-                "name": self.limit.name,
-                "scope": scope,
-                "scope_id": hex::encode(&scope_id),
-                "ceiling": self.limit.ceiling.to_string(),
-                "consumed": self.limit.consumed.to_string(),
+            limit: LimitDeclaration {
+                id: hex::encode(&self.limit.id.0),
+                name: self.limit.name.clone(),
+                scope: scope.to_owned(),
+                scope_id: hex::encode(&scope_id),
+                ceiling: self.limit.ceiling.to_string(),
+                consumed: self.limit.consumed.to_string(),
             },
-        });
-        if let Some(object) = document.as_object_mut() {
-            if let Some(listener) = &self.listener {
-                object.insert("listener".to_owned(), listener.document()?);
-            }
-            if let Some(web) = &self.web {
-                object.insert("web".to_owned(), web.document());
-            }
-        }
-        Ok(document)
+            listener: self
+                .listener
+                .as_ref()
+                .map(ListenerDeclaration::document)
+                .transpose()?,
+            web: self.web.as_ref().map(WebDeclaration::document),
+        };
+        serde_json::to_value(document)
+            .map_err(|_| EnrolmentError::Encoding("the binding cannot be encoded"))
     }
 }
 
@@ -963,7 +1049,7 @@ fn open_and_publish(
         session_id: request.session_id,
         session_generation: issued.generation(),
         capability_id: request.capability_id,
-        core_sequence: request.core_sequence,
+        core_height: request.core_sequence,
         token: Zeroizing::new(issued.token_id()),
     };
     drop(issued);
@@ -1079,9 +1165,11 @@ fn read_document(path: &Path) -> Result<Option<Value>, EnrolmentError> {
     }
     let bytes = crate::config::read_protected_source(path, MAX_DOCUMENT_BYTES)
         .map_err(|_| EnrolmentError::InvalidPath("the binding document is not protected"))?;
-    serde_json::from_slice::<Value>(&bytes)
-        .map(Some)
-        .map_err(|_| EnrolmentError::AlreadyPublished(path.to_path_buf()))
+    let document: Value = serde_json::from_slice(&bytes)
+        .map_err(|_| EnrolmentError::AlreadyPublished(path.to_path_buf()))?;
+    serde_json::from_value::<BindingDocument>(document.clone())
+        .map_err(|_| EnrolmentError::AlreadyPublished(path.to_path_buf()))?;
+    Ok(Some(document))
 }
 
 fn create_private(path: &Path, contents: &[u8]) -> Result<(), EnrolmentError> {

@@ -19,6 +19,82 @@ use serde_aux::prelude::*;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize, derive_new::new)]
 pub struct GetTxs200Response {
-    pub items: Vec<models::Transaction>,
+    pub items: Vec<TransactionFeedItem>,
     pub next_page_params: serde_json::Value,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(untagged)]
+pub enum TransactionFeedItem {
+    Transaction(models::Transaction),
+    PriceUpdate(PriceUpdateTransaction),
+}
+
+impl<'de> Deserialize<'de> for TransactionFeedItem {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = serde_json::Value::deserialize(deserializer)?;
+        if value.get("type").and_then(serde_json::Value::as_u64) == Some(127) {
+            serde_json::from_value(value)
+                .map(Self::PriceUpdate)
+                .map_err(serde::de::Error::custom)
+        } else {
+            serde_json::from_value(value)
+                .map(Self::Transaction)
+                .map_err(serde::de::Error::custom)
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct PriceUpdateTransaction {
+    pub hash: String,
+    pub block_number: u64,
+    pub block_hash: String,
+    pub timestamp: String,
+    pub index: u64,
+    pub from: PriceUpdateSender,
+    pub to: Option<models::AddressParam>,
+    pub value: String,
+    pub fee: models::Fee,
+    pub gas_used: String,
+    pub gas_limit: String,
+    pub status: String,
+    pub result: String,
+    pub method: String,
+    pub transaction_types: Vec<String>,
+    pub r#type: PriceUpdateTransactionType,
+    pub confirmations: u64,
+    pub price_update: PriceUpdateDetails,
+}
+
+#[derive(
+    Clone, Copy, Debug, PartialEq, serde_repr::Serialize_repr, serde_repr::Deserialize_repr,
+)]
+#[repr(u64)]
+pub enum PriceUpdateTransactionType {
+    PriceUpdate = 127,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct PriceUpdateSender {
+    pub hash: String,
+    pub is_contract: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct PriceUpdateDetails {
+    pub feeder_bech32: String,
+    pub observation_count: u64,
+    pub observations: Vec<PriceUpdateObservation>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct PriceUpdateObservation {
+    pub market_id: u64,
+    pub accepted: bool,
+    pub symbol: Option<String>,
+    pub index_price: String,
+    pub mark_price: String,
+    pub source_timestamp_ms: u64,
+    pub sequence: u64,
 }

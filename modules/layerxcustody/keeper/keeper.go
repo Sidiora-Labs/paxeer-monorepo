@@ -78,6 +78,10 @@ func (k *Keeper) SetParams(ctx sdk.Context, params types.Params) error {
 	if k.Retired(ctx) {
 		return sdkerrors.Wrapf(types.ErrModuleRetired, "%s from height %d", types.MergePlanUpgrade, ctx.BlockHeight())
 	}
+	return k.setParams(ctx, params)
+}
+
+func (k *Keeper) setParams(ctx sdk.Context, params types.Params) error {
 	if err := params.Validate(); err != nil {
 		return err
 	}
@@ -135,6 +139,10 @@ func (k *Keeper) SetAsset(ctx sdk.Context, asset types.AssetMapping) error {
 	if k.Retired(ctx) {
 		return sdkerrors.Wrapf(types.ErrModuleRetired, "%s from height %d", types.MergePlanUpgrade, ctx.BlockHeight())
 	}
+	return k.setAsset(ctx, asset)
+}
+
+func (k *Keeper) setAsset(ctx sdk.Context, asset types.AssetMapping) error {
 	if err := asset.Validate(); err != nil {
 		return err
 	}
