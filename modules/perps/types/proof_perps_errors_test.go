@@ -7,8 +7,7 @@
 // invoked twice independently. Real account and book records are also read
 // twice, then their actual encoded bytes are truncated at the decoding edge.
 //
-// ValidateGenesis now preserves its registered ABCI identity. GetMarket
-// remains an out-of-scope keeper finding with undefined/1 wire identity.
+// ValidateGenesis and GetMarket preserve their registered ABCI identities.
 package types_test
 
 import (
@@ -210,18 +209,6 @@ func TestProofPerpsErrorsOutsideScope(t *testing.T) {
 		invalidGenesis := types.ValidateGenesis(*genesis)
 		proofPerpsTransport(t, invalidGenesis, types.ErrInvalidGenesis)
 		_, unknownMarket := k.GetMarket(ctx, 987)
-		require.ErrorIs(t, unknownMarket, types.ErrUnknownMarket)
-		proofPerpsLXP(t, unknownMarket, types.ErrUnknownMarket)
-		for _, finding := range []struct {
-			err  error
-			root *sdkerrors.Error
-		}{
-			{unknownMarket, types.ErrUnknownMarket},
-		} {
-			response := sdkerrors.ResponseDeliverTx(finding.err, 0, 0, false)
-			require.Equal(t, sdkerrors.UndefinedCodespace, response.Codespace)
-			require.Equal(t, uint32(1), response.Code)
-			require.NotErrorIs(t, sdkerrors.ABCIError(response.Codespace, response.Code, response.Log), finding.root)
-		}
+		proofPerpsTransport(t, unknownMarket, types.ErrUnknownMarket)
 	}
 }
