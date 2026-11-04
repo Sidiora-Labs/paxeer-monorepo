@@ -26,7 +26,7 @@ LINE = re.compile(r"^([a-z_][a-z0-9_]*)\s*=\s*(" + STRING + r"|-?\d+)\s*(?:#.*)?
 DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
 HEALTH = re.compile(r"^(/[A-Za-z0-9._/-]*|tcp:\d{1,5})$")
 IN_PROGRESS = {"BUILDING", "DEPLOYING", "INITIALIZING", "QUEUED", "WAITING"}
-TERMINAL = {"SUCCESS": "pass", "SLEEPING": "pass", "FAILED": "fail", "CRASHED": "fail",
+TERMINAL = {"SUCCESS": "pass", "SLEEPING": "blocked", "FAILED": "fail", "CRASHED": "fail",
             "REMOVED": "fail", "REMOVING": "fail", "SKIPPED": "fail", "NEEDS_APPROVAL": "blocked"}
 RAILWAY = ("railway", "railway-image")
 SECRET = re.compile(r"SECRET|TOKEN|PASSWORD|KEY|DSN|URL_WITH_PASSWORD|SEED|MNEMONIC|PRIVATE|SIGNING|CREDENTIAL|JWT|WEBHOOK")
