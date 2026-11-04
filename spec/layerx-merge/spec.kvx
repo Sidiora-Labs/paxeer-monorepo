@@ -154253,7 +154253,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.201]
 title = "Repair audit record 22.30.12 medium findings in apps/perps/src/widgets/mobile (part 1 of 1): restart-recovery, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.7", "22.31.8", "22.31.9"]
@@ -155134,7 +155134,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.167]
 title = "Repair audit record 22.30.118 medium findings in apps/wallet/src/server (part 1 of 2): restart-recovery, runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.245", "22.31.246", "22.31.247", "22.31.369"]
@@ -177360,7 +177360,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.443]
 title = "Bring the observed balances integration test of the human service onto the exact Quantity type of the gateway balance row"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
