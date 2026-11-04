@@ -459,10 +459,18 @@ func TestReactor_StateProviderP2P(t *testing.T) {
 	peerA := utils.OrPanic1(rts.AddPeer(ctx, t))
 	peerB := utils.OrPanic1(rts.AddPeer(ctx, t))
 	peerC := utils.OrPanic1(rts.AddPeer(ctx, t))
-	chain := buildLightBlockChain(ctx, t, 1, 10, time.Now())
+	paramsAt := func(height int64) *types.ConsensusParams {
+		params := types.DefaultConsensusParams()
+		if height >= 7 {
+			params.Block.MaxGas = 123456
+		}
+		return params
+	}
+	chain := buildLightBlockChainWithParams(ctx, t, 1, 10, time.Now(), paramsAt)
+	require.NotEqual(t, chain[6].ConsensusHash, chain[7].ConsensusHash)
 	for _, peer := range utils.Slice(peerA, peerB, peerC) {
 		go peer.handleLightBlockRequests(t.Context(), chain, false)
-		go peer.handleConsensusParamsRequest(t.Context())
+		go peer.handleConsensusParamsRequest(t.Context(), paramsAt)
 	}
 
 	rts.reactor.cfg.UseP2P = true
@@ -502,7 +510,9 @@ func TestReactor_StateProviderP2P(t *testing.T) {
 	state, err := rts.reactor.stateProvider.State(actx, 5)
 	require.NoError(t, err)
 	require.Equal(t, appHash, state.AppHash)
-	require.Equal(t, types.DefaultConsensusParams(), &state.ConsensusParams)
+	require.Equal(t, paramsAt(6), &state.ConsensusParams)
+	require.Equal(t, chain[6].ConsensusHash, state.ConsensusParams.HashConsensusParams())
+	require.NotEqual(t, chain[7].ConsensusHash, state.ConsensusParams.HashConsensusParams())
 
 	commit, err := rts.reactor.stateProvider.Commit(actx, 5)
 	require.NoError(t, err)
@@ -577,10 +587,15 @@ func TestReactor_Backfill(t *testing.T) {
 			)
 			require.NoError(t, err)
 
-			for height := startHeight; height <= stopHeight; height++ {
+			var visited int64
+			for height := startHeight; height >= stopHeight; height-- {
 				blockMeta := rts.blockStore.LoadBlockMeta(height)
 				require.NotNil(t, blockMeta)
+				require.Equal(t, chain[height].Header, &blockMeta.Header)
+				require.Equal(t, chain[height].Commit, rts.blockStore.LoadBlockCommit(height))
+				visited++
 			}
+			require.Equal(t, startHeight-stopHeight+1, visited)
 
 			require.Nil(t, rts.blockStore.LoadBlockMeta(stopHeight-1))
 			require.Nil(t, rts.blockStore.LoadBlockMeta(startHeight+1))
@@ -595,12 +610,19 @@ func TestReactor_Backfill(t *testing.T) {
 
 func buildLightBlockChain(ctx context.Context, t *testing.T, fromHeight, toHeight int64, startTime time.Time) map[int64]*types.LightBlock {
 	t.Helper()
+	return buildLightBlockChainWithParams(ctx, t, fromHeight, toHeight, startTime, func(int64) *types.ConsensusParams {
+		return types.DefaultConsensusParams()
+	})
+}
+
+func buildLightBlockChainWithParams(ctx context.Context, t *testing.T, fromHeight, toHeight int64, startTime time.Time, paramsAt func(int64) *types.ConsensusParams) map[int64]*types.LightBlock {
+	t.Helper()
 	chain := make(map[int64]*types.LightBlock, toHeight-fromHeight)
 	lastBlockID := factory.MakeBlockID()
 	blockTime := startTime.Add(time.Duration(fromHeight-toHeight) * time.Minute)
 	vals, pv := factory.ValidatorSet(ctx, 3, 10)
 	for height := fromHeight; height < toHeight; height++ {
-		vals, pv, chain[height] = mockLB(ctx, height, blockTime, lastBlockID, vals, pv)
+		vals, pv, chain[height] = mockLB(ctx, height, blockTime, lastBlockID, vals, pv, paramsAt(height))
 		lastBlockID = factory.MakeBlockIDWithHash(chain[height].Header.Hash())
 		blockTime = blockTime.Add(1 * time.Minute)
 	}
@@ -650,18 +672,20 @@ func (n *Node) handleLightBlockRequests(
 	}
 }
 
-func (n *Node) handleConsensusParamsRequest(ctx context.Context) error {
-	params := types.DefaultConsensusParams()
-	paramsProto := params.ToProto()
+func (n *Node) handleConsensusParamsRequest(ctx context.Context, paramsAt ...func(int64) *types.ConsensusParams) error {
 	for {
 		m, err := n.paramsCh.Recv(ctx)
 		if err != nil {
 			return err
 		}
 		msg := m.Message.Sum.(*pb.Message_ParamsRequest).ParamsRequest
+		params := types.DefaultConsensusParams()
+		if len(paramsAt) > 0 {
+			params = paramsAt[0](int64(msg.Height))
+		}
 		n.paramsCh.Send(wrap(&pb.ParamsResponse{
 			Height:          msg.Height,
-			ConsensusParams: paramsProto,
+			ConsensusParams: params.ToProto(),
 		}), m.From)
 	}
 }

@@ -3,7 +3,8 @@ import { expect, test } from "@playwright/test";
 import { copyEntry } from "../../copy/catalog.ts";
 import { formatCopy } from "../../copy/format.ts";
 import { establishPublicSession } from "../public-session.ts";
-import { decodeProfile } from "../../src/api/generated/index.ts";
+import { decodeNotificationPreferences, decodeProfile } from "../../src/api/generated/index.ts";
+import { readSettingsResponse } from "./settings-http.ts";
 
 function requiredEnvironment(name: string): string {
   const value = process.env[name]?.trim();
@@ -43,7 +44,7 @@ test("@settings settings preferences persist and privacy masks every figure", as
         && new URL(response.url()).pathname === "/human/v1/notifications/preferences"
     );
     await pushToggle.click();
-    await expect((await channelSaved).ok()).toBe(true);
+    await readSettingsResponse(await channelSaved, decodeNotificationPreferences, "saved channel");
   }
   const approvalLabel = copyEntry("settings.notifications.class.approval_waiting").message;
   const approvalToggle = page.getByRole("switch", {
@@ -58,7 +59,7 @@ test("@settings settings preferences persist and privacy masks every figure", as
       && new URL(response.url()).pathname === "/human/v1/notifications/preferences"
   );
   await approvalToggle.click();
-  await expect((await preferenceSaved).ok()).toBe(true);
+  await readSettingsResponse(await preferenceSaved, decodeNotificationPreferences, "saved preference");
   await expect(approvalToggle).toBeChecked({ checked: !approvalWasEnabled });
   await page.reload({ waitUntil: "networkidle" });
   await expect(page.getByRole("switch", {
@@ -122,7 +123,8 @@ test("@settings profile and notification detail changes apply and persist", asyn
       && new URL(response.url()).pathname === "/human/v1/profile"
   );
   await page.getByRole("button", { name: copyEntry("settings.action.save").message }).click();
-  await expect((await profileSaved).ok()).toBe(true);
+  const savedProfile = await readSettingsResponse(await profileSaved, decodeProfile, "saved profile");
+  expect(savedProfile.display_name).toBe(name);
   await expect(page.getByText(name, { exact: true })).toBeVisible();
   await page.reload({ waitUntil: "networkidle" });
   await expect(page.getByText(name, { exact: true })).toBeVisible();
@@ -138,8 +140,8 @@ test("@settings profile and notification detail changes apply and persist", asyn
     );
     await choice.click();
     const response = await detailSaved;
-    await expect(response.ok()).toBe(true);
-    expect((await response.json()).detail).toBe(detail);
+    const saved = await readSettingsResponse(response, decodeNotificationPreferences, "saved detail");
+    expect(saved.detail).toBe(detail);
     await expect(choice).toHaveAttribute("aria-selected", "true");
     await page.reload({ waitUntil: "networkidle" });
     await expect(choice).toHaveAttribute("aria-selected", "true");
@@ -149,8 +151,7 @@ test("@settings profile and notification detail changes apply and persist", asyn
 test("@settings declared-local avatar can be added and cleared through the real profile API", async ({ page }) => {
   await page.goto("/app/settings", { waitUntil: "networkidle" });
   const initialResponse = await page.request.get("/human/v1/profile");
-  expect(initialResponse.ok()).toBe(true);
-  const original = decodeProfile(await initialResponse.json(), "authenticated profile");
+  const original = await readSettingsResponse(initialResponse, decodeProfile, "authenticated profile");
   const avatarUrl = new URL(requiredEnvironment("HUMAN_E2E_BASE_URL")).href;
   const openEditor = async () => {
     await page.getByText(copyEntry("settings.profile.display_name").message, { exact: true }).click();
@@ -161,8 +162,7 @@ test("@settings declared-local avatar can be added and cleared through the real 
       && new URL(response.url()).pathname === "/human/v1/profile");
     await page.getByRole("button", { name: copyEntry("settings.action.save").message }).click();
     const response = await completed;
-    expect(response.ok()).toBe(true);
-    return decodeProfile(await response.json(), "saved local profile");
+    return readSettingsResponse(response, decodeProfile, "saved local profile");
   };
   await openEditor();
   await avatar.fill(avatarUrl);
@@ -180,8 +180,7 @@ test("@settings declared-local avatar can be added and cleared through the real 
   await openEditor();
   await expect(avatar).toHaveValue("");
   const persistedResponse = await page.request.get("/human/v1/profile");
-  expect(persistedResponse.ok()).toBe(true);
-  const persisted = decodeProfile(await persistedResponse.json(), "persisted local profile");
+  const persisted = await readSettingsResponse(persistedResponse, decodeProfile, "persisted local profile");
   expect(persisted).toEqual(cleared);
 });
 
@@ -236,7 +235,7 @@ test("@settings mandatory recovery and wallet rebinding keep an active delivery 
   if (!(await push.isChecked())) {
     const saved = saveResponse();
     await push.click();
-    expect((await saved).ok()).toBe(true);
+    await readSettingsResponse(await saved, decodeNotificationPreferences, "enabled push channel");
     await expect(push).toBeChecked();
   }
   for (const event of ["security_recovery", "security_wallet_rebinding"] as const) {
@@ -244,7 +243,7 @@ test("@settings mandatory recovery and wallet rebinding keep an active delivery 
     if (!(await critical.isChecked())) {
       const saved = saveResponse();
       await critical.click();
-      expect((await saved).ok()).toBe(true);
+      await readSettingsResponse(await saved, decodeNotificationPreferences, "enabled security preference");
       await expect(critical).toBeChecked();
     }
   }
@@ -253,7 +252,7 @@ test("@settings mandatory recovery and wallet rebinding keep an active delivery 
     if (await toggle.isChecked()) {
       const saved = saveResponse();
       await toggle.click();
-      expect((await saved).ok()).toBe(true);
+      await readSettingsResponse(await saved, decodeNotificationPreferences, "disabled delivery channel");
       await expect(toggle).not.toBeChecked();
     }
   }

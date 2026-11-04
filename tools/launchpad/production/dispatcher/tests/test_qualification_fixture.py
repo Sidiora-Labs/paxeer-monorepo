@@ -8,8 +8,9 @@ from dispatcher.graph import Graph, GraphError
 from dispatcher.qualification_fixture import normalize_fixture
 
 class FixtureTests(unittest.TestCase):
+ root = Path(os.environ.get('PRODUCTION_DISPATCHER_SPEC_ROOT',Path(__file__).resolve().parents[5]/'launchpad'))
  def test_live_status_variants_are_private_and_projection_consistent(self):
-  root=Path(os.environ.get('PRODUCTION_DISPATCHER_SPEC_ROOT','/root/mk-falcon/KindleLaunch'))
+  root=self.root
   original=(root/'spec/production-system/spec.kvx').read_text()
   original_plan=json.loads((root/'spec/production-system/execution-plan.json').read_text())
   import re

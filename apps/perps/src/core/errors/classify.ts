@@ -12,6 +12,7 @@
 
 import { decodeErrorResult, isHex, type Hex } from "viem";
 
+import { FetchPolicyError } from "../net/fetch";
 import { PerpsPrecompileABI } from "../network/abi/PerpsPrecompile";
 import {
   pecorAbi,
@@ -93,6 +94,19 @@ interface MatchInput {
 type Matcher = (i: MatchInput) => ErrorCode | null;
 
 const matchers: Matcher[] = [
+  ({ raw }) => {
+    if (!(raw instanceof FetchPolicyError)) return null;
+    switch (raw.kind) {
+      case "timeout":
+        return "API_TIMEOUT";
+      case "abort":
+        return "RUNTIME_ABORTED";
+      case "network":
+        return "API_OFFLINE";
+      default:
+        return null;
+    }
+  },
   // Abort / cancellation — must come first; AbortError is benign.
   ({ name, lower }) => {
     if (name === "AbortError") return "RUNTIME_ABORTED";
@@ -332,9 +346,9 @@ export const PRECOMPILE_ERROR_CODES: Readonly<Record<PrecompileErrorName, Precom
   PerpsInvalidOrderType: REVERT,
   PerpsPostOnlyWouldCross: REVERT,
   PerpsFokNotFilled: REVERT,
-  PerpsNoLiquidity: REVERT,
+  PerpsNoLiquidity: LIQUIDITY,
   PerpsSlippageExceeded: SLIPPAGE,
-  PerpsDeadlineExpired: SLIPPAGE,
+  PerpsDeadlineExpired: DEADLINE,
   PerpsReduceOnlyViolation: REVERT,
   PerpsDuplicateCloid: REVERT,
   PerpsUnknownOrder: REVERT,

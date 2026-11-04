@@ -13,7 +13,7 @@ import { accountRequest } from '@/widgets/profile/account-transport';
 import { usePrivateAccountQuery } from '@/widgets/profile/use-private-account-query';
 import { Tooltip } from '@/ui/primitives';
 import { cn } from '@/lib/utils';
-import { createItem, navItems, type NavItem } from './nav-config';
+import { createItem, isNavItemEligible, navItems, type NavItem } from './nav-config';
 
 const RAIL_KEY = 'sidiora-rail-expanded';
 const railListeners = new Set<() => void>();
@@ -109,7 +109,7 @@ export default function SidebarNav() {
   const { claimable, sessionReady } = useRewardsClaimable();
   const walletReady = isConnected && !!address;
 
-  const visible = (item: NavItem) => item.requires === 'public' || (item.requires === 'wallet' && walletReady) || (item.requires === 'session' && sessionReady);
+  const visible = (item: NavItem) => isNavItemEligible(item, walletReady, sessionReady);
   const main = navItems.filter(item => item.section === 'main' && visible(item));
   const primary = main.filter(item => item.group !== 'secondary');
   const secondary = main.filter(item => item.group === 'secondary');

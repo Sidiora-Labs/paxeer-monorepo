@@ -1,6 +1,7 @@
 package bench
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/binary"
@@ -22,6 +23,7 @@ import (
 	commonevm "github.com/Sidiora-Labs/Paxeer-X-Network/storage/common/keys"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/proto"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/state_db/bench/wrappers"
+	flatkvConfig "github.com/Sidiora-Labs/Paxeer-X-Network/storage/state_db/sc/flatkv/config"
 	sctypes "github.com/Sidiora-Labs/Paxeer-X-Network/storage/state_db/sc/types"
 )
 
@@ -43,6 +45,8 @@ type TestScenario struct {
 	// The database backend to use for the benchmark.
 	Backend      wrappers.DBType
 	Distribution KeyDistribution
+	// Historical offload requires an explicit destination; it has no local default.
+	HistoricalOffloadConfig *wrappers.HistoricalOffloadConfig
 
 	// SnapshotPath, when set, points to a state sync snapshot chunks directory
 	// (e.g. "<node_home>/data/snapshots/<height>/<format>/") containing numbered
@@ -50,6 +54,23 @@ type TestScenario struct {
 	// imported into the database via the native Committer.Importer path as a
 	// preparation stage.
 	SnapshotPath string
+}
+
+// OpenDB constructs the backend with the same configuration used by runBenchmark.
+func (scenario TestScenario) OpenDB(ctx context.Context, dataDir string) (wrappers.DBWrapper, error) {
+	var dbConfig any
+	switch scenario.Backend {
+	case wrappers.FlatKV:
+		dbConfig = flatkvConfig.DefaultConfig()
+	case wrappers.SSComposite, wrappers.CompositeDual_SSComposite:
+		dbConfig = wrappers.DefaultBenchStateStoreConfig()
+	case wrappers.SSHistoricalOffload:
+		if scenario.HistoricalOffloadConfig == nil {
+			return nil, fmt.Errorf("%s requires TestScenario.HistoricalOffloadConfig with explicit Kafka brokers and topic", scenario.Backend)
+		}
+		dbConfig = scenario.HistoricalOffloadConfig
+	}
+	return wrappers.NewDBImpl(ctx, scenario.Backend, dataDir, dbConfig)
 }
 
 // KeyDistribution defines how many keys to generate per block.
@@ -395,7 +416,7 @@ func runBenchmark(b *testing.B, scenario TestScenario, withProgress bool) {
 		func() {
 			dbDir := b.TempDir()
 			b.StopTimer()
-			cs, err := wrappers.NewDBImpl(b.Context(), scenario.Backend, dbDir, nil)
+			cs, err := scenario.OpenDB(b.Context(), dbDir)
 			require.NoError(b, err)
 
 			// Load snapshot if available

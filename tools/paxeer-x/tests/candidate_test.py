@@ -39,6 +39,8 @@ class CandidateTest(unittest.TestCase):
         self.git('config', 'user.email', 'candidate-test@example.invalid')
         self.git('config', 'user.name', 'Candidate Test')
         for relative in ('tools/paxeer-x/verify-task.sh', 'tools/paxeer-x/candidate.py',
+                         'tools/paxeer-x/candidate_contract.go',
+                         'tools/paxeer-x/route-catalogue.json',
                          'tools/paxeer-x/gates/registry.kvx', 'tools/paxeer-x/gates/0.2.sh',
                          SERVICE_CATALOGUE):
             target = self.repo / relative
@@ -82,7 +84,10 @@ class CandidateTest(unittest.TestCase):
             row.update(source_revision=revision, config_digest=digest,
                        readiness='ready', role_identity='secure://contract/role')
             service['observations'] = [row]
-            service['action'] = 'preserved'
+        resolutions = candidate.contract_request('resolve', self.roster)
+        for service in manifest['services']:
+            service['action'] = ('unknown' if resolutions[service['id']]['unresolved']
+                                 else 'preserved')
         return manifest
 
     def test_real_git_identity_complete_catalogue_private_output(self):
@@ -155,6 +160,7 @@ class CandidateTest(unittest.TestCase):
         manifest = self.contract_vector()
         candidate.validate(manifest, self.roster)
         service = manifest['services'][0]
+        self.assertEqual(service['action'], 'preserved')
         service['observations'][0]['config_digest'] = 'sha256:' + '0' * 64
         service['action'] = 'configure'
         candidate.validate(manifest, self.roster)
@@ -200,6 +206,47 @@ class CandidateTest(unittest.TestCase):
         candidate.validate(manifest, self.roster)
         second['dependency_ids'] = [first['id']]
         self.refused(manifest)
+
+    def test_declared_dependency_omission_refuses_even_with_evidence_reference(self):
+        for omit_all in (False, True):
+            with self.subTest(omit_all=omit_all):
+                manifest = self.contract_vector()
+                service = next(row for row in manifest['services'] if row['id'] == 'agentd')
+                self.assertGreater(len(service['dependency_ids']), 1)
+                service['dependency_ids'] = [] if omit_all else service['dependency_ids'][1:]
+                service['dependencies_ref'] = 'secure://contract/dependencies'
+                service['action'] = 'preserved'
+                self.refused(manifest)
+
+    def test_unresolved_catalogue_dependencies_cannot_claim_preservation(self):
+        manifest = self.contract_vector()
+        service = next(row for row in manifest['services'] if row['id'] == 'sequencer')
+        self.assertEqual(service['action'], 'unknown')
+        service['action'] = 'preserved'
+        self.refused(manifest)
+
+    def test_dependency_running_identity_and_ownership_required(self):
+        for field in ('owner_ref', 'authority_ref', 'membership_ref', 'storage_ref', 'data_ref'):
+            with self.subTest(field=field):
+                manifest = self.contract_vector()
+                services = {row['id']: row for row in manifest['services']}
+                services['agentd']['bindings'][field] = 'unknown'
+                services['agentd']['action'] = 'unknown'
+                self.assertEqual(services['agent-mcp']['action'], 'preserved')
+                self.refused(manifest)
+
+    def test_foundation_uses_maintained_rpc_roster_and_refuses_old_records(self):
+        routes = json.loads(PROGRAM.with_name('route-catalogue.json').read_text())
+        expected = ['api' + str(i) for i in range(1, 15)] + ['api-mainnet-beta']
+        self.assertEqual(routes['rpc_records'], expected)
+        self.assertEqual(candidate.FOUNDATION['rpc_records'], expected)
+        self.assertEqual(self.manifest['foundation']['rpc_records'], expected)
+        for records in (expected[:-1], expected + ['api15'],
+                        ['api' + str(i) for i in range(1, 17)]):
+            with self.subTest(records=records):
+                manifest = copy.deepcopy(self.manifest)
+                manifest['foundation']['rpc_records'] = records
+                self.refused(manifest)
 
     def test_branch_only_pending_changes_cannot_claim_integration(self):
         manifest = copy.deepcopy(self.manifest)

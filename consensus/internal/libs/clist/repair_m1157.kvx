@@ -1,0 +1,18 @@
+[repair.22.33.1157]
+audit = "22.30.52"
+base_revision = "0d67b10a1307bd87573ba79cf46b7f9c0337f7e3"
+acceptance = "22998.1"
+baseline = "Not executed: the explicit implementation-first and hf-build/hf-done-only gate order prohibits the contradictory baseline verification request; no pre-change failure is claimed."
+verified_revision = "The exact candidate revision, command, exit and private log are recorded in the hf-done receipt and runner gate ledger."
+wiring_requests = []
+
+[finding.clist-zero-value-panics]
+tests = ["TestRepairM_1157_ZeroValueLifecycle", "TestRepairM_1157_ZeroValueWaitFront"]
+repair = "Initialize the list wait channel under the list lock before push or waiting; preserve the channel when clearing an already-empty list so existing waiters still receive the next push."
+proof = "Public push, wait, remove, clear and reuse operations cover zero-value and constructed lists; concurrent waiters cover initial use, last-element removal and clear with deterministic synctest scheduling."
+
+[finding.clist-property-test-disabled]
+tests = ["TestRepairM_1157_PropertyStateMachine", "TestCListProperties"]
+repair = "Restore rapid.Check with per-case initialization and Repeat(StateMachineActions), retaining every original action and invariant; initialization is not a random reset action."
+proof = "The focused repair test executes the original full property test, including generated pushes and removals, length, endpoints and forward traversal, plus removal results and backward traversal."
+fixture = "No failure fixture is claimed; rapid records a reproducing seed and minimized failure fixture if a generated case fails."

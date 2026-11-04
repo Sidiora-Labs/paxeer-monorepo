@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/privval"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
@@ -32,7 +33,11 @@ var (
 type ReceiptKey struct {
 	private ed25519.PrivateKey
 	public  [32]byte
-	pins    []verify.SequencerAuthorization
+	pins    *atomic.Pointer[receiptPins]
+}
+
+type receiptPins struct {
+	entries []verify.SequencerAuthorization
 }
 
 // LoadReceiptKey loads the receipt key from keyFile, a hex 32-byte ed25519
@@ -74,10 +79,12 @@ func LoadReceiptKey(keyFile, consensusKeyFile string, pins []verify.SequencerAut
 	if bytes.Equal(consensus.Key.PubKey.Bytes(), key.public[:]) {
 		return nil, ErrReceiptKeyIsConsensusKey
 	}
-	key.pins, err = key.validatePins(pins)
+	matching, err := key.validatePins(pins)
 	if err != nil {
 		return nil, err
 	}
+	key.pins = &atomic.Pointer[receiptPins]{}
+	key.pins.Store(&receiptPins{entries: matching})
 	if _, err := key.KeyID(openHeight); err != nil {
 		return nil, err
 	}
@@ -110,14 +117,17 @@ func (k *ReceiptKey) SetPins(pins []verify.SequencerAuthorization) error {
 	if len(matching) == 0 {
 		return fmt.Errorf("%w: no entry for public key %x", ErrReceiptKeyPin, k.public)
 	}
-	k.pins = matching
+	if k.pins == nil {
+		k.pins = &atomic.Pointer[receiptPins]{}
+	}
+	k.pins.Store(&receiptPins{entries: matching})
 	return nil
 }
 
 // KeyID is the key id of the ReceiptKeys entry covering height.
 func (k *ReceiptKey) KeyID(height int64) ([32]byte, error) {
-	if height > 0 {
-		for _, pin := range k.pins {
+	if height > 0 && k.pins != nil && k.pins.Load() != nil {
+		for _, pin := range k.pins.Load().entries {
 			if pin.FirstBatchNumber <= uint64(height) && uint64(height) <= pin.LastBatchNumber {
 				return pin.SequencerID, nil
 			}

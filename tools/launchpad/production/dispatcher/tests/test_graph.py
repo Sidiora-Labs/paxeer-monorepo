@@ -11,33 +11,35 @@ spec=importlib.util.spec_from_file_location('dispatcher_graph',MODULE)
 module=importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
 Graph,GraphError=module.Graph,module.GraphError
-ROOT=Path('/root/mk-falcon/KindleLaunch')
-SPEC=ROOT/'spec/production-system/spec.kvx'
-PLAN=ROOT/'spec/production-system/execution-plan.json'
+ROOT=Path(__file__).resolve().parents[5]
+SPEC=ROOT/'launchpad/spec/production-system/spec.kvx'
+PLAN=ROOT/'launchpad/spec/production-system/execution-plan.json'
 
 class GraphTests(unittest.TestCase):
+    spec_path = SPEC
+    plan_path = PLAN
     def tiny(self,body):
         tmp=tempfile.TemporaryDirectory();self.addCleanup(tmp.cleanup)
         path=Path(tmp.name)/'spec.kvx';path.write_text(body);return path
     def test_full_graph_is_bounded(self):
-        start=time.monotonic();g=Graph(SPEC,PLAN)
+        start=time.monotonic();g=Graph(self.spec_path,self.plan_path)
         for _ in range(100):g.status();g.ready()
         self.assertLess(time.monotonic()-start,30)
         self.assertEqual(len(g.tasks),208)
         self.assertEqual(len(g.layout_digest),64)
     def test_fifty_ready_overlay_is_isolated(self):
-        g=Graph(SPEC,PLAN);before=g.status()
+        g=Graph(self.spec_path,self.plan_path);before=g.status()
         from dispatcher.qualification_fixture import initial_states
         ready=g.ready(initial_states(g.tasks))
         self.assertEqual(len(ready),50)
         self.assertTrue(all(g.tasks[x]['wave']==1 for x in ready))
         self.assertEqual(before,g.status())
     def test_only_done_dependency_qualifies(self):
-        g=Graph(SPEC)
+        g=Graph(self.spec_path)
         for state in ('pending','in_progress','implemented','blocked','failed','paused'):
             self.assertFalse(any(g.tasks[x]['wave']==1 for x in g.ready({'0.1':'done','0.2':'done','0.3':state})))
     def test_implemented_peers_do_not_open_gate(self):
-        g=Graph(SPEC,PLAN)
+        g=Graph(self.spec_path,self.plan_path)
         overlay={'0.1':'done','0.2':'done','0.3':'done'}
         overlay.update({k:'implemented' for k,t in g.tasks.items() if t['wave']==1})
         self.assertEqual(g.ready(overlay),[])
@@ -45,7 +47,7 @@ class GraphTests(unittest.TestCase):
         self.assertTrue(g.ready(overlay))
         self.assertTrue(all(g.tasks[k]['wave']==2 for k in g.ready(overlay)))
     def test_unknown_overlay_rejected(self):
-        g=Graph(SPEC)
+        g=Graph(self.spec_path)
         for overlay in ({'bogus':'done'},{'0.3':'success'},[]):
             with self.assertRaises(GraphError):g.ready(overlay)
     def test_lowest_wave(self):
@@ -65,10 +67,10 @@ class GraphTests(unittest.TestCase):
         with self.assertRaisesRegex(GraphError,'wave violation'):Graph(p)
     def test_projection_hash_and_definition(self):
         with tempfile.TemporaryDirectory() as tmp:
-            p=Path(tmp)/'plan.json';q=json.loads(PLAN.read_text());q['spec_sha256']='0'*64;p.write_text(json.dumps(q))
-            with self.assertRaises(GraphError):Graph(SPEC,p)
-            q=json.loads(PLAN.read_text());q['tasks']['0.1']['title']='bad';p.write_text(json.dumps(q))
-            with self.assertRaises(GraphError):Graph(SPEC,p)
+            p=Path(tmp)/'plan.json';q=json.loads(self.plan_path.read_text());q['spec_sha256']='0'*64;p.write_text(json.dumps(q))
+            with self.assertRaises(GraphError):Graph(self.spec_path,p)
+            q=json.loads(self.plan_path.read_text());q['tasks']['0.1']['title']='bad';p.write_text(json.dumps(q))
+            with self.assertRaises(GraphError):Graph(self.spec_path,p)
     def test_ownership_overlap(self):
         p=self.tiny('[lane.L01]\nwrite_paths=["a/**"]\n[lane.L02]\nwrite_paths=["a/b/**"]\n[task.0.1]\ntitle="a"\nwave=0\nstatus="pending"\nrequires=[]\n')
         with self.assertRaisesRegex(GraphError,'overlap'):Graph(p)

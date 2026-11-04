@@ -20,6 +20,7 @@ type LeaseHolderConfig struct {
 
 type LeaseHolder struct {
 	mu          sync.Mutex
+	renewMu     sync.Mutex
 	replicator  *Replicator
 	replayEpoch uint64
 	keyID       [32]byte
@@ -47,24 +48,29 @@ func NewLeaseHolder(cfg LeaseHolderConfig) (*LeaseHolder, error) {
 }
 
 func (l *LeaseHolder) Start(ctx context.Context) error {
+	l.renewMu.Lock()
+	defer l.renewMu.Unlock()
 	l.mu.Lock()
-	defer l.mu.Unlock()
 	if l.epoch != 0 {
+		l.mu.Unlock()
 		return errors.New("sequencer: lease holder already started")
 	}
 	if l.replayEpoch == math.MaxUint64 {
+		l.mu.Unlock()
 		return errors.New("sequencer: lease epoch exhausted")
 	}
-	lease := &wal.Lease{
-		Epoch:    l.replayEpoch + 1,
-		KeyID:    l.keyID,
-		ExpiryMs: uint64(time.Now().Add(l.duration).UnixMilli()),
-	}
+	lease := &wal.Lease{Epoch: l.replayEpoch + 1, KeyID: l.keyID, ExpiryMs: uint64(time.Now().Add(l.duration).UnixMilli())}
+	l.mu.Unlock()
 	if _, err := l.replicator.Release(ctx, lease); err != nil {
 		return err
 	}
-	l.epoch = lease.Epoch
-	l.expiry = time.UnixMilli(int64(lease.ExpiryMs))
+	expiry := time.UnixMilli(int64(lease.ExpiryMs))
+	if !time.Now().Before(expiry) {
+		return ErrLeaseFenced
+	}
+	l.mu.Lock()
+	l.epoch, l.expiry = lease.Epoch, expiry
+	l.mu.Unlock()
 	return nil
 }
 

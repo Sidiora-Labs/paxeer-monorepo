@@ -357,6 +357,38 @@ impl NodeProgramStateSource {
         authority: &HeadAuthority,
         now_ms: u64,
     ) -> Result<VerifiedProgramBundle, String> {
+        let (bundle, chain) =
+            self.current_program_state_bundle(program, current_head, authority, now_ms)?;
+        self.deployment_verifier
+            .verify_current_program_bundle(&bundle, &chain, program, now_ms)
+            .map_err(|error| format!("program/interface membership refused: {error}"))
+    }
+
+    pub fn current_deployment_head(
+        &self,
+        deployment: &VerifiedDeploymentEvidence,
+        current_head: AccountStateHead,
+        authority: &HeadAuthority,
+        now_ms: u64,
+    ) -> Result<layerx_programs::VerifiedProgramHead, String> {
+        let (bundle, chain) = self.current_program_state_bundle(
+            deployment.program(),
+            current_head,
+            authority,
+            now_ms,
+        )?;
+        self.deployment_verifier
+            .verify_current_deployment_head(&bundle, &chain, deployment, now_ms)
+            .map_err(|error| format!("deployment membership refused: {error}"))
+    }
+
+    fn current_program_state_bundle(
+        &self,
+        program: ProgramId,
+        current_head: AccountStateHead,
+        authority: &HeadAuthority,
+        now_ms: u64,
+    ) -> Result<(ProgramStateBundle, VerifiedChainHead), String> {
         let path = format!(
             "/v1/programs/{}/state-proof?at={}",
             hex::encode(&program.bytes()),
@@ -389,9 +421,7 @@ impl NodeProgramStateSource {
         }
         let evidence = chain_head_evidence(&head_document)?;
         let chain = self.verify_chain_head(&evidence, now_ms)?;
-        self.deployment_verifier
-            .verify_current_program_bundle(&bundle, &chain, program, now_ms)
-            .map_err(|error| format!("program/interface membership refused: {error}"))
+        Ok((bundle, chain))
     }
 
     pub fn program_state_profile2(
@@ -607,9 +637,16 @@ impl NodeProgramStateSource {
         let sequence = value["observed_sequence"]
             .as_u64()
             .ok_or("head omitted observed_sequence")?;
-        let path = format!("/v1/protocol/account-state/head?height={sequence}");
+        let path = format!(
+            "{}?height={sequence}",
+            crate::committed_head_route::HEAD_PATH
+        );
         let independent = self.get_authority(&path)?;
-        if evidence != chain_head_evidence(&independent)?
+        if independent["observed_sequence"].as_u64() != Some(sequence)
+            || independent["observed_at"] != value["observed_at"]
+            || independent["receipt_digest"] != value["receipt_digest"]
+            || independent["state_root"] != value["state_root"]
+            || evidence != chain_head_evidence(&independent)?
             || hex::decode_digest(field(&independent, "authority_replica_id")?)
                 .map_err(|error| error.to_string())?
                 != self.authority_replica_id
