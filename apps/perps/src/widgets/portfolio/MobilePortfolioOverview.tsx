@@ -1,10 +1,13 @@
-import { useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import { ArrowDownToLine, ArrowUpFromLine, ChevronRight, Clock, Loader2, RefreshCw, Settings } from "lucide-react";
 import { cn } from "@/ui/utils/cn";
 import { Button } from "@/ui/atoms/button";
 import { SettingsModal } from "@/app/modals/SettingsModal";
 import { fmtUsdCompact as fmtUsd, fmtDate, shortAddr, parse18 } from "@/ui/utils/format";
 import { OnChainHistoryPanel } from "./OnChainHistoryPanel";
+import { COLLATERAL_TOKENS } from "@/core/perps/config";
+import { formatUnits } from "viem";
+import { fmtUsd as fmtUsdAmount, parseWei } from "@/ui/utils/format";
 
 interface TokenInfo {
   symbol: string;
@@ -32,6 +35,14 @@ interface UserStats {
   activeOrders: number;
 }
 
+interface VaultActivityEvent {
+  id: string;
+  eventType: string;
+  tokenAddress: string;
+  amount: string;
+  blockTimestamp: string;
+}
+
 interface MobilePortfolioOverviewProps {
   address: string | null;
   totalVaultUsd: number;
@@ -39,7 +50,8 @@ interface MobilePortfolioOverviewProps {
   userStats: UserStats | null;
   balances: TokenBalance[];
   trades: any[];
-  vaultEvents: any[];
+  vaultEvents: VaultActivityEvent[];
+  collateralPricesUsd?: Readonly<Record<string, number | undefined>>;
   isLoading: boolean;
   onRefresh: () => void;
   action: "deposit" | "withdraw";
@@ -76,6 +88,7 @@ export function MobilePortfolioOverview({
   balances,
   trades,
   vaultEvents,
+  collateralPricesUsd,
   isLoading,
   onRefresh,
   action,
@@ -389,13 +402,13 @@ export function MobilePortfolioOverview({
               <div className="px-4 py-8 text-center text-sm text-[#828282]">No transactions yet</div>
             ) : (
               <div className="divide-y divide-[var(--brand-border)]">
-                {vaultEvents.slice(0, 5).map((event: any) => (
+                  {vaultEvents.slice(0, 5).map((event) => (
                   <div key={event.id} className="flex items-center justify-between gap-3 px-4 py-3 text-xs">
                     <div>
                       <div className="font-semibold text-white capitalize">{event.eventType}</div>
                       <div className="text-[#828282]">{fmtDate(event.blockTimestamp)}</div>
                     </div>
-                    <div className="text-right font-mono text-white">{fmtUsd(parse18(event.amount))}</div>
+                    <VaultEventAmount event={event} balances={balances} pricesUsd={collateralPricesUsd} />
                   </div>
                 ))}
               </div>
@@ -405,6 +418,30 @@ export function MobilePortfolioOverview({
 
       </div>
       <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+    </div>
+  );
+}
+
+function VaultEventAmount({ event, balances, pricesUsd }: {
+  event: VaultActivityEvent;
+  balances: TokenBalance[];
+  pricesUsd?: Readonly<Record<string, number | undefined>>;
+}) {
+  const address = event.tokenAddress.toLowerCase();
+  const token = [...balances, ...Object.values(COLLATERAL_TOKENS)].find(
+    (entry) => entry.address.toLowerCase() === address,
+  );
+  if (!token) {
+    return <div role="status" className="text-right text-[#828282]">Token metadata unavailable · {event.tokenAddress}</div>;
+  }
+  const nativeAmount = formatUnits(parseWei(event.amount), token.decimals);
+  const quote = Object.entries(pricesUsd ?? {}).find(([key]) => key.toLowerCase() === address)?.[1];
+  return (
+    <div className="text-right font-mono text-white" title={event.tokenAddress}>
+      <div>{nativeAmount} {token.symbol}</div>
+      {quote !== undefined && Number.isFinite(quote) && quote > 0 ? (
+        <div className="text-[#828282]">{fmtUsdAmount(Number(nativeAmount) * quote)} USD</div>
+      ) : null}
     </div>
   );
 }
