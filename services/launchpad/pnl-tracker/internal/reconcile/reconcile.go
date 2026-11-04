@@ -8,12 +8,15 @@ package reconcile
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
 
 	goredis "github.com/redis/go-redis/v9"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/constants"
 	shareddb "github.com/Sidiora-Technologies/KindleLaunch/shared/db"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/pnlcache"
@@ -41,6 +44,9 @@ func New(st *store.Store, rdb *goredis.Client, logger *slog.Logger, batchSize in
 // Forward progress is guaranteed by the (block_number, log_index) keyset, so a
 // block larger than the batch is still fully drained over successive ticks.
 func (r *Reconciler) RunOnce(ctx context.Context) (int, error) {
+	if r.redis == nil {
+		return 0, errors.New("reconcile: Redis is required to drain refresh obligations")
+	}
 	cur, err := r.store.GetCursor(ctx)
 	if err != nil {
 		return 0, err
@@ -53,13 +59,12 @@ func (r *Reconciler) RunOnce(ctx context.Context) (int, error) {
 		return 0, nil
 	}
 
-	touched := make(map[string]struct{})
 	var last store.IndexerSwap
 	processed := 0
 	for i := range swaps {
 		sw := swaps[i]
 		usdl, token := legs(sw)
-		inserted, ferr := r.store.FoldTrade(ctx, store.TradeInput{
+		_, ferr := r.store.FoldTrade(ctx, store.TradeInput{
 			ID:             sw.ID,
 			UserAddress:    sw.Sender,
 			PoolAddress:    sw.PoolAddress,
@@ -74,35 +79,61 @@ func (r *Reconciler) RunOnce(ctx context.Context) (int, error) {
 			TxHash:         sw.TxHash,
 		})
 		if ferr != nil {
-			// Advance over what we've durably folded so far before returning, so a
-			// single poison row doesn't wedge the cursor on every restart.
+			// Only the prefix whose refresh obligations were drained may advance.
 			if processed > 0 {
 				if cerr := r.store.AdvanceCursor(ctx, last.BlockNumber, last.LogIndex, last.ID, shareddb.NowSeconds()); cerr != nil {
-					r.logger.Warn("reconcile: advance cursor on poison-row path failed", slog.Any("err", cerr))
+					return processed, errors.Join(fmt.Errorf("reconcile: fold swap %s: %w", sw.ID, ferr), cerr)
 				}
 			}
 			return processed, fmt.Errorf("reconcile: fold swap %s: %w", sw.ID, ferr)
 		}
-		if inserted {
-			touched[strings.ToLower(sw.Sender)] = struct{}{}
+		processed++
+		// The persisted cursor is also the refresh checkpoint: a committed fold
+		// remains replayable until its cache bust and notification both succeed.
+		// Drain even on inserted=false, including after a stop between the fold
+		// commit and Redis, or after an ambiguous cursor-write response.
+		if err := r.refreshUser(ctx, sw); err != nil {
+			return processed, fmt.Errorf("reconcile: refresh swap %s: %w", sw.ID, err)
 		}
 		last = sw
-		processed++
 	}
 
 	if err := r.store.AdvanceCursor(ctx, last.BlockNumber, last.LogIndex, last.ID, shareddb.NowSeconds()); err != nil {
 		return processed, err
-	}
-	for user := range touched {
-		if err := pnlcache.InvalidateUser(ctx, r.redis, user); err != nil {
-			r.logger.Warn("reconcile: cache invalidate failed", slog.String("user", user), slog.Any("err", err))
-		}
 	}
 	if processed > 0 {
 		r.logger.Info("reconciled swaps", slog.Int("count", processed),
 			slog.Int64("throughBlock", last.BlockNumber))
 	}
 	return processed, nil
+}
+
+// refreshUser atomically invalidates the read caches and publishes the same
+// user-scoped signal as position.Consumer. The receipt survives worker restarts
+// and has no TTL: a failed cursor write can replay an arbitrarily old trade.
+// WATCH prevents two workers replaying the same trade from both publishing.
+func (r *Reconciler) refreshUser(ctx context.Context, sw store.IndexerSwap) error {
+	user := strings.ToLower(sw.Sender)
+	receipt := "pnl:reconcile:notified:" + sw.ID
+	payload, err := json.Marshal(map[string]string{"userAddress": user})
+	if err != nil {
+		return err
+	}
+	return r.redis.Watch(ctx, func(tx *goredis.Tx) error {
+		sent, err := tx.Exists(ctx, receipt).Result()
+		if err != nil {
+			return err
+		}
+		_, err = tx.TxPipelined(ctx, func(pipe goredis.Pipeliner) error {
+			pipe.Del(ctx, pnlcache.KeyPositions(user), pnlcache.KeyPortfolio(user))
+			if sent == 0 {
+				pipe.Set(ctx, receipt, "1", 0)
+				pipe.Publish(ctx, constants.ChannelPnlUpdate, payload)
+			}
+			return nil
+		})
+		return err
+	}, receipt)
 }
 
 // legs splits an indexer swap into its USDL and token amounts by direction.
