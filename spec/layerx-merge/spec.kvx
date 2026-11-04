@@ -130395,7 +130395,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.436]
 title = "Repair audit record 22.30.86 findings in services/platform/middleware/buyer/src: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -130613,7 +130613,7 @@ do_8 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.414]
 title = "Repair audit record 22.30.163 findings in sdk/integrations/express/example: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -132213,7 +132213,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.20]
 title = "Repair audit record 22.30.17 findings in apps/perps/src/hooks/perps: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -145737,7 +145737,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.437]
 title = "Carry the chainflow Rust SDK repair proof as a cargo integration test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -148859,7 +148859,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.164]
 title = "Repair audit record 22.30.110 findings in services/interop/crates/layerx-interop-service/src: restart-recovery, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -159682,7 +159682,7 @@ do_11 = "The candidate carries only sources under the touches and the test file:
 
 [task.22.31.336]
 title = "Repair audit record 22.30.58 findings in interchain/modules/core/04-channel/types: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -159829,7 +159829,7 @@ do_8 = "Verification runs go test -v, keeps its log and requires a PASS line for
 
 [task.22.31.329]
 title = "Repair audit record 22.30.180 findings in tools/paxctl/task: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -165465,7 +165465,7 @@ do_7 = "Verification runs only the TestRepair_41_* functions of repair_41_test.g
 
 [task.22.31.40]
 title = "Repair audit record 22.30.28 findings in services/launchpad/notifications: interface-mismatch, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -222493,7 +222493,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.126]
 title = "Inventory every test target of the kernel Makefile a third time at the closure revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.99.92", "22.99.93", "22.99.94", "22.99.95", "22.99.96", "22.99.97", "22.99.98", "22.99.99", "22.99.100", "22.99.101", "22.99.143"]
@@ -259743,7 +259743,7 @@ do_8 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.429]
 title = "Repair audit record 22.30.181 findings in tools/paxeer-x/sid-snapshot: runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -260317,7 +260317,7 @@ do_12 = "The candidate carries only sources under the touches and the test file:
 
 [task.22.31.341]
 title = "Repair audit record 22.30.71 findings in sdk/chainflow/python/src/chainflow_data_gateway: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -290160,7 +290160,7 @@ do_8 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.406]
 title = "Repair audit record 22.30.153 findings in services/explorer/backend/apps/explorer/priv/repo/migrations: restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -290300,7 +290300,7 @@ do_8 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.400]
 title = "Repair audit record 22.30.151 findings in services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x: security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -290371,7 +290371,7 @@ do_9 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.398]
 title = "Repair audit record 22.30.149 findings in services/explorer/backend/apps/explorer/lib/explorer/utility: restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -290478,7 +290478,7 @@ do_10 = "The candidate carries only sources under the touches and the test file:
 
 [task.22.31.395]
 title = "Repair audit record 22.30.143 findings in services/explorer/backend/apps/indexer/lib/indexer/transform: security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -290548,7 +290548,7 @@ do_8 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.393]
 title = "Repair audit record 22.30.143 findings in services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
