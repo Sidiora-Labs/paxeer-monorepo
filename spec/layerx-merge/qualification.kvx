@@ -26163,3 +26163,43 @@ symbol = "repair_m1072_test.go"
 observed = "Attempt 3: the cgo build fails because the installed RocksDB library lacks rocksdb_delete_file, which the pinned grocksdb binds."
 assumption = "A library pairing mismatch of the qualification environment; the gate builds the paired RocksDB."
 severity = "medium"
+
+[finding.22.33.1318.1]
+task = "22.33.1318"
+file = "tools/qualification/audit_repairs/test_repair_22_33_1318.py"
+symbol = "test_repair_22_33_1318.py"
+observed = "Attempt 1: cargo found no test target named repair_22_33_1318 because the gate went through the virtual workspace root."
+assumption = "A generated gate through a virtual workspace root (gotcha 2984), corrected by batch 420; the note was registered directly."
+severity = "low"
+
+[finding.22.33.1329.2]
+task = "22.33.1329"
+file = "services/platform/hosted/webhooks/tests/repair_22_33_1329.rs"
+symbol = "repair_22_33_1329.rs"
+observed = "Attempt 2: the go test gate matched no packages in the Rust crate's tests directory."
+assumption = "A pre-correction launch against the generated gate (gotcha 2984); the note was registered directly."
+severity = "low"
+
+[finding.22.33.1375.1]
+task = "22.33.1375"
+file = "services/platform/perf-db/tests/repair_22_33_1375.rs"
+symbol = "repair_22_33_1375.rs"
+observed = "Attempt 1: the crate does not compile because two call sites in the binary still expect the untyped hash."
+assumption = "An in-crate caller of a changed signature; the scope is widened to the crate's sources."
+severity = "medium"
+
+[finding.22.33.1376.1]
+task = "22.33.1376"
+file = "services/platform/perf-db/tests/repair_22_33_1376.rs"
+symbol = "repair_22_33_1376.rs"
+observed = "Attempt 1: the crate library does not compile because two call sites in the relational storage still expect the untyped result."
+assumption = "An in-crate caller of a changed signature; the scope is widened to the crate's sources."
+severity = "medium"
+
+[finding.22.33.1391.2]
+task = "22.33.1391"
+file = "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/Repair22331391Test.java"
+symbol = "Repair22331391Test.java"
+observed = "Attempt 2: five of seven cases pass; the fee-token recording and the program metadata failures of attempt 1 repeat."
+assumption = "A pre-ruling launch; the ruling of attempt 1 is repeated."
+severity = "low"

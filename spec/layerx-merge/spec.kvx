@@ -176768,7 +176768,7 @@ do_8 = "Prove each repair with an integration test services/platform/perf-db/tes
 do_9 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command above is the whole gate (gotcha 2962)."
 do_10 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["services/platform/perf-db/src/relational"]
+touches = ["services/platform/perf-db/src/relational", "services/platform/perf-db/src"]
 tests = ["services/platform/perf-db/tests/repair_22_33_1376.rs"]
 planned_paths = ["services/platform/perf-db/tests/repair_22_33_1376.rs", "services/platform/perf-db/Cargo.lock"]
 build_cmd = "cargo build --locked --manifest-path services/platform/perf-db/Cargo.toml --tests"
@@ -176784,6 +176784,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_11 = "Attempt 2 (continue): the typed referral-tier errors change signatures that src/storage/relational.rs consumes; callers inside the same crate are part of the change, so services/platform/perf-db/src is in scope. Propagate the new errors at the two call sites, never await a scope decision (this ruling is the decision), and run the build and the verify once on the final revision with no commit after the pass."
 
 [task.22.33.1375]
 title = "Repair audit record 22.30.75 medium findings in services/platform/perf-db/src/core (part 1 of 1): runtime-risk"
@@ -176803,7 +176804,7 @@ do_6 = "Prove each repair with an integration test services/platform/perf-db/tes
 do_7 = "Real means the component under repair is the production code; its peers are committed fixtures: recorded transcripts, in-memory stores, loopback test servers started by the test. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device, and the verify command above is the whole gate (gotcha 2962)."
 do_8 = "Close the findings: the task record names every finding id of this task with its proving test, and lists any out-of-path step as a wiring request to the owning domain instead of making it."
 symbols = []
-touches = ["services/platform/perf-db/src/core"]
+touches = ["services/platform/perf-db/src/core", "services/platform/perf-db/src"]
 tests = ["services/platform/perf-db/tests/repair_22_33_1375.rs"]
 planned_paths = ["services/platform/perf-db/tests/repair_22_33_1375.rs", "services/platform/perf-db/Cargo.lock"]
 build_cmd = "cargo build --locked --manifest-path services/platform/perf-db/Cargo.toml --tests"
@@ -176819,6 +176820,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_9 = "Attempt 2 (continue): the typed hash parser changes the return type that src/main.rs:250 and :254 consume; callers inside the same crate are part of the change, so services/platform/perf-db/src is in scope. Propagate or map the parse error at those call sites, never await a scope decision (this ruling is the decision), and run the build and the verify once on the final revision with no commit after the pass."
 
 [task.22.33.1374]
 title = "Repair audit record 22.30.75 medium findings in services/platform/perf-db/tests (part 1 of 1): test-gap"
@@ -177330,6 +177332,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_8 = "The gate of this task is corrected (gotcha 2984): the generated command named a toolchain the touched path does not use. The proving test is tools/qualification/audit_repairs/test_repair_22_33_1318.py and the verify command is python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1318.py; nothing else of the task changes."
+do_9 = "Attempt 2 (continue): attempt 1 ran against the generated cargo gate through the virtual workspace root services/platform/Cargo.toml, which can never hold a test target (gotcha 2984); the gate was corrected before this attempt. The proving test is tools/qualification/audit_repairs/test_repair_22_33_1318.py (pytest), proving the README doc-drift repairs of services/platform/examples at source level; the Rust test under services/platform/tests and its wiring requests are withdrawn (remove that file). Keep the README repairs and the example test, run the build and the verify once on the final revision, and make no commit after the pass."
 
 [task.22.33.1078]
 title = "Repair audit record 22.30.43 medium findings in cmd/layerxctl/src (part 1 of 1): doc-drift"
@@ -198172,6 +198175,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_11 = "Attempt 2 (continue): the webhooks service is a Rust crate (services/platform/hosted/webhooks/Cargo.toml with its tests directory), so the generated go test gate could never run; it was a generator error, not a wiring request to another domain (gotcha 2984). The gate is now cargo test --locked through the crate's own manifest with the proving test at services/platform/hosted/webhooks/tests/repair_22_33_1329.rs. Close the findings as the audit record proposes inside services/platform/hosted/webhooks/tests, prove them in that Rust test, and run the build and the verify once on the final revision with no commit after the pass."
+do_12 = "Attempt 3 (continue): attempt 2 ran against the generated go test gate before the correction landed (gotcha 2984): the webhooks service is a Rust crate and the gate is now cargo through services/platform/hosted/webhooks/Cargo.toml with the proving test services/platform/hosted/webhooks/tests/repair_22_33_1329.rs. Write that test (the restart-deadline and finalized-delivery cases attempt 2 preserved move into it or are driven from it), run the build and the verify once on the final revision, and make no commit after the pass. No binding or gate request is needed; the ruling is the decision."
 
 [task.22.33.1323]
 title = "Repair audit record 22.30.70 medium findings in services/platform/hosted/paxeer/tests (part 1 of 2): retired-reference, test-gap"
@@ -251719,6 +251723,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_10 = "Attempt 2 (continue): two in-scope corrections. First, the fee-token vector's receipt JSON is recorded once at implementation time from the public node at its root path (api1.mainnet-beta.paxeer.network, chain 125) and committed under the SDK's test fixtures, so the gate reads no network. Second, the program activity and program receipt metadata of the SDK names eth_getLogs where the retained-transaction contract in spec/layerx-merge/contracts names eth_getTransactionByHash; align the metadata in sdk/platform/jvm/src/main, now in scope, with the contract. No wiring requests. Run the build and the verify once on the final revision; no commit after the pass."
+do_11 = "Attempt 3 (continue): attempt 2 launched before the ruling of attempt 1 landed and repeated its failures (the fee-token vector lacks its recorded receipt JSON; the generated program metadata names eth_getLogs, the 0x101D address and a ProgramCallOutcome where the canonical contract has eth_getTransactionByHash and empty lists). That ruling stands and is repeated for this attempt: record the fee-token receipt JSON once from the public node and commit it under the SDK's test fixtures; align the generated metadata with the canonical contract in sdk/platform/jvm/src/main; file no wiring request; run the build and the verify once on the final revision with no commit after the pass."
 
 [task.22.33.1390]
 title = "Repair audit record 22.30.77 medium findings in sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk (part 2 of 2): restart-recovery, runtime-risk"
