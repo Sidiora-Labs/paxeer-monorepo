@@ -473,8 +473,7 @@ defmodule Explorer.SmartContract.Reader do
         options
       )
 
-    names = parse_names_from_abi(abi, method_id)
-    %{output: outputs, names: names}
+    named_outputs(outputs, abi, method_id)
   end
 
   def query_function_with_names(
@@ -495,11 +494,11 @@ defmodule Explorer.SmartContract.Reader do
         args || [],
         from,
         leave_error_as_map,
-        abi
+        abi,
+        options
       )
 
-    names = parse_names_from_abi(abi, method_id)
-    %{output: outputs, names: names}
+    named_outputs(outputs, abi, method_id)
   end
 
   @doc """
@@ -531,8 +530,7 @@ defmodule Explorer.SmartContract.Reader do
         options
       )
 
-    names = parse_names_from_abi(custom_abi, method_id)
-    %{output: outputs, names: names}
+    named_outputs(outputs, custom_abi, method_id)
   end
 
   @doc """
@@ -571,7 +569,16 @@ defmodule Explorer.SmartContract.Reader do
 
     case process_abi(parsed_final_abi, method_id) do
       %{outputs: outputs, method_id: method_id} ->
-        query_contract_and_link_outputs(contract_address_hash, args, from, abi, outputs, method_id, leave_error_as_map)
+        query_contract_and_link_outputs(
+          contract_address_hash,
+          args,
+          from,
+          abi,
+          outputs,
+          method_id,
+          leave_error_as_map,
+          options
+        )
 
       {:error, message} ->
         {:error, message}
@@ -625,7 +632,7 @@ defmodule Explorer.SmartContract.Reader do
          from,
          leave_error_as_map,
          custom_abi,
-         options \\ []
+         options
        ) do
     parsed_abi =
       custom_abi
@@ -649,7 +656,7 @@ defmodule Explorer.SmartContract.Reader do
     end
   end
 
-  defp process_abi([], _method_id), do: nil
+  defp process_abi([], _method_id), do: {:error, "method_id does not exist"}
 
   defp process_abi(abi, method_id) do
     function_object = find_function_by_method(abi, method_id)
@@ -672,7 +679,7 @@ defmodule Explorer.SmartContract.Reader do
          outputs,
          method_id,
          leave_error_as_map,
-         options \\ []
+         options
        ) do
     contract_address_hash
     |> query_verified_contract(%{method_id => normalize_args(args)}, from, leave_error_as_map, abi, options)
@@ -687,6 +694,12 @@ defmodule Explorer.SmartContract.Reader do
     else
       contract.abi
     end
+  end
+
+  defp named_outputs({:error, _} = error, _abi, _method_id), do: error
+
+  defp named_outputs(outputs, abi, method_id) do
+    %{output: outputs, names: parse_names_from_abi(abi, method_id)}
   end
 
   defp parse_names_from_abi(abi, method_id) do

@@ -12,6 +12,7 @@ import {
   updateLastNotified,
   getPendingCampaigns,
   markCampaignSent,
+  parseStoredSubscription,
   type StoredSubscription,
   type Campaign,
 } from './push-store';
@@ -29,7 +30,7 @@ function ensureVapid(): void {
   if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
     throw new Error(
       'VAPID keys not configured. Set NEXT_PUBLIC_VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY env vars. ' +
-      'Generate with: npx web-push generate-vapid-keys',
+        'Generate with: npx web-push generate-vapid-keys'
     );
   }
   webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
@@ -68,8 +69,10 @@ function buildPayload(payload: PushPayload): string {
 
 export async function sendToSubscription(
   sub: StoredSubscription,
-  payload: PushPayload,
+  payload: PushPayload
 ): Promise<{ success: boolean; removed: boolean }> {
+  // Recheck callers that did not obtain the record through the durable store.
+  sub = parseStoredSubscription(sub);
   ensureVapid();
 
   const pushSub = {
@@ -78,6 +81,7 @@ export async function sendToSubscription(
   };
 
   try {
+    // web-push uses node:https directly: 3xx responses fail without following Location.
     await webpush.sendNotification(pushSub, buildPayload(payload), {
       TTL: 86400, // 24 hours
       urgency: 'normal',
@@ -105,10 +109,7 @@ export interface SendResult {
   removed: number;
 }
 
-async function sendToMany(
-  subs: StoredSubscription[],
-  payload: PushPayload,
-): Promise<SendResult> {
+async function sendToMany(subs: StoredSubscription[], payload: PushPayload): Promise<SendResult> {
   const result: SendResult = { total: subs.length, sent: 0, failed: 0, removed: 0 };
   if (subs.length === 0) return result;
 
@@ -118,9 +119,7 @@ async function sendToMany(
 
   for (let i = 0; i < subs.length; i += BATCH_SIZE) {
     const batch = subs.slice(i, i + BATCH_SIZE);
-    const results = await Promise.allSettled(
-      batch.map((sub) => sendToSubscription(sub, payload)),
-    );
+    const results = await Promise.allSettled(batch.map((sub) => sendToSubscription(sub, payload)));
 
     for (let j = 0; j < results.length; j++) {
       const r = results[j];
@@ -157,27 +156,24 @@ export async function sendToAll(payload: PushPayload): Promise<SendResult> {
 /** Send push to a specific wallet address (all their devices). */
 export async function sendToWallet(
   walletAddress: string,
-  payload: PushPayload,
+  payload: PushPayload
 ): Promise<SendResult> {
   return sendToMany(await getSubscriptionsByWallet(walletAddress), payload);
 }
 
 /** Send push to subscribers with a specific tag. */
-export async function sendToTag(
-  tag: string,
-  payload: PushPayload,
-): Promise<SendResult> {
+export async function sendToTag(tag: string, payload: PushPayload): Promise<SendResult> {
   return sendToMany(await getSubscriptionsByTag(tag), payload);
 }
 
 /** Send push to specific wallet addresses. */
 export async function sendToWallets(
   walletAddresses: string[],
-  payload: PushPayload,
+  payload: PushPayload
 ): Promise<SendResult> {
   const normalized = new Set(walletAddresses.map((a) => a.toLowerCase()));
   const subs = (await getAllSubscriptions()).filter((s) =>
-    normalized.has(s.walletAddress.toLowerCase()),
+    normalized.has(s.walletAddress.toLowerCase())
   );
   return sendToMany(subs, payload);
 }
@@ -189,12 +185,10 @@ export async function notifyTransactionReceived(
   txHash: string,
   fromAddress?: string,
   value?: string,
-  symbol?: string,
+  symbol?: string
 ): Promise<SendResult> {
   const amountStr = value && symbol ? `${value} ${symbol}` : 'a transaction';
-  const fromStr = fromAddress
-    ? ` from ${fromAddress.slice(0, 6)}...${fromAddress.slice(-4)}`
-    : '';
+  const fromStr = fromAddress ? ` from ${fromAddress.slice(0, 6)}...${fromAddress.slice(-4)}` : '';
 
   return sendToWallet(walletAddress, {
     title: 'Transaction Received',
@@ -208,7 +202,7 @@ export async function notifyTransactionReceived(
 // ── Inactivity nudge ────────────────────────────────────────────────────────
 
 export async function sendInactivityNudges(
-  thresholdMs: number = 3 * 24 * 60 * 60 * 1000, // 3 days
+  thresholdMs: number = 3 * 24 * 60 * 60 * 1000 // 3 days
 ): Promise<SendResult> {
   const inactive = await getInactiveSubscriptions(thresholdMs);
   return sendToMany(inactive, {
@@ -234,12 +228,10 @@ export async function processPendingCampaigns(): Promise<{
     if (campaign.targetAddresses && campaign.targetAddresses.length > 0) {
       const normalized = new Set(campaign.targetAddresses.map((a) => a.toLowerCase()));
       subs = (await getAllSubscriptions()).filter((s) =>
-        normalized.has(s.walletAddress.toLowerCase()),
+        normalized.has(s.walletAddress.toLowerCase())
       );
     } else if (campaign.targetTags && campaign.targetTags.length > 0) {
-      const tagSets = await Promise.all(
-        campaign.targetTags.map((t) => getSubscriptionsByTag(t)),
-      );
+      const tagSets = await Promise.all(campaign.targetTags.map((t) => getSubscriptionsByTag(t)));
       const seen = new Set<string>();
       subs = [];
       for (const set of tagSets) {

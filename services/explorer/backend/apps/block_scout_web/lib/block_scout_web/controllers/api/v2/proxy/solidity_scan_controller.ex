@@ -6,6 +6,8 @@ defmodule BlockScoutWeb.API.V2.Proxy.SolidityScanController do
   alias Explorer.Chain.{Address, SmartContract}
   alias Explorer.ThirdPartyIntegrations.SolidityScan
 
+  action_fallback(BlockScoutWeb.API.V2.FallbackController)
+
   @api_true [api?: true]
 
   @doc """

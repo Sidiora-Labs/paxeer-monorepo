@@ -1,115 +1,124 @@
 defmodule BlockScoutWeb.TestApiSchemaAssertions do
   @moduledoc """
-  Test helper that automatically validates JSON responses against the OpenAPI schema
-  for every GET request to `/api/*` endpoints.
+  Validates API JSON responses against their OpenAPI operation and response schema.
 
-  It wraps `Phoenix.ConnTest.json_response/2` to perform schema validation using
-  `OpenApiSpex.TestAssertions.assert_schema/3` based on the current request path,
-  HTTP method and status code.
+  Non-API web routes are outside this contract. The exact `/api` and `/api/`
+  legacy RPC entry points intentionally use the RPC tests' action-specific schemas;
+  they have no single OpenAPI response shape. No v2 or account route is exempt.
+  Missing declarations and ambiguous route templates fail the calling test.
   """
 
-  require Logger
-  alias OpenApiSpex.{Operation, PathItem}
+  import ExUnit.Assertions, only: [flunk: 1]
+
+  alias OpenApiSpex.{MediaType, Operation, PathItem, Reference, Response, Schema}
 
   @spec json_response(Plug.Conn.t(), non_neg_integer()) :: map() | list()
   def json_response(%Plug.Conn{} = conn, status_code) when is_integer(status_code) do
     json = Phoenix.ConnTest.json_response(conn, status_code)
 
-    maybe_assert_schema(conn, status_code, json)
+    if covered_path?(conn.request_path) do
+      assert_response_schema(conn, status_code, json, [
+        BlockScoutWeb.Specs.Public.spec(),
+        BlockScoutWeb.Specs.Private.spec()
+      ])
+    end
 
     json
   end
 
-  defp maybe_assert_schema(%Plug.Conn{method: method, request_path: request_path} = _conn, status_code, json)
-       when is_integer(status_code) and is_binary(request_path) do
-    method_atom = String.downcase(method) |> String.to_atom()
-    public_spec = BlockScoutWeb.Specs.Public.spec()
-    private_spec = BlockScoutWeb.Specs.Private.spec()
+  @doc "Validates a decoded producer response against the supplied OpenAPI documents."
+  def assert_response_schema(%Plug.Conn{method: method, request_path: path}, status, json, specs) do
+    {spec, item} = find_path_item!(specs, strip_api_prefix(path))
 
-    with {:path_item, {:ok, spec, %PathItem{} = path_item}} <-
-           {:path_item, find_path_item([public_spec, private_spec], request_path)},
-         {:operation, %Operation{} = operation} <- {:operation, Map.get(path_item, method_atom)},
-         {:schema, {:ok, schema}} <- {:schema, find_response_schema(operation, status_code)} do
-      Logger.info("Validated response against schema for path: #{request_path} and status code: #{status_code}")
+    method_atom =
+      Enum.find(
+        [:get, :put, :post, :delete, :options, :head, :patch, :trace],
+        &(Atom.to_string(&1) == String.downcase(method))
+      )
 
-      OpenApiSpex.TestAssertions.assert_raw_schema(json, schema, spec)
-    else
-      {:path_item, :error} ->
-        Logger.warning("No schema found for path: #{request_path}")
-        :ok
+    operation =
+      case Map.get(item, method_atom) do
+        %Operation{} = operation -> operation
+        _ -> flunk("Missing OpenAPI #{method} operation for path: #{path}")
+      end
 
-      {:operation, _} ->
-        Logger.warning("No #{method} operation found for path: #{request_path}")
-        :ok
+    schema = find_response_schema!(operation, status, spec, path)
+    OpenApiSpex.TestAssertions.assert_raw_schema(json, schema, spec)
+  end
 
-      {:schema, :error} ->
-        Logger.warning("No schema found for path: #{request_path} and status code: #{status_code}")
-        :ok
+  defp covered_path?(path), do: String.starts_with?(path, "/api/") and path != "/api/"
+
+  defp strip_api_prefix("/api/" <> rest), do: "/" <> rest
+  defp strip_api_prefix(path), do: path
+
+  defp find_path_item!(specs, path) do
+    candidates =
+      for %{paths: paths} = spec <- specs,
+          {template, %PathItem{} = item} <- paths,
+          segments_match?(split_path(template), split_path(path)) do
+        specificity = template |> split_path() |> Enum.count(&(not dynamic_segment?(&1)))
+        {template, specificity, spec, item}
+      end
+
+    exact = Enum.filter(candidates, fn {template, _, _, _} -> template == path end)
+
+    best =
+      if exact == [] do
+        case candidates do
+          [] ->
+            []
+
+          _ ->
+            {_, score, _, _} = Enum.max_by(candidates, &elem(&1, 1))
+            Enum.filter(candidates, &(elem(&1, 1) == score))
+        end
+      else
+        exact
+      end
+
+    case best do
+      [{_, _, spec, item}] ->
+        {spec, item}
+
+      [] ->
+        flunk("Missing OpenAPI path: #{path}")
+
+      _ ->
+        templates = best |> Enum.map(&elem(&1, 0)) |> Enum.sort() |> Enum.join(", ")
+        flunk("Ambiguous OpenAPI path: #{path}; matching templates: #{templates}")
     end
   end
 
-  defp maybe_assert_schema(_conn, _status_code, _json), do: :ok
+  defp split_path(path), do: String.split(path, "/", trim: true)
 
-  defp find_path_item(specs, request_path) do
-    api_relative = strip_api_prefix(request_path)
+  defp segments_match?(templates, actual) when length(templates) == length(actual) do
+    Enum.zip(templates, actual) |> Enum.all?(fn {t, a} -> dynamic_segment?(t) or t == a end)
+  end
 
-    Enum.reduce_while(specs, :error, fn %{paths: paths} = spec, acc ->
-      case match_template_path(paths, api_relative) do
-        {:ok, {_, path_item}} -> {:halt, {:ok, spec, path_item}}
-        _ -> {:cont, acc}
+  defp segments_match?(_, _), do: false
+
+  defp dynamic_segment?(segment), do: String.starts_with?(segment, "{") and String.ends_with?(segment, "}")
+
+  defp find_response_schema!(%Operation{responses: responses}, status, spec, path) do
+    response =
+      if is_map(responses) do
+        Map.get(responses, Integer.to_string(status)) || Map.get(responses, status) || Map.get(responses, "default")
       end
-    end)
-  end
 
-  defp strip_api_prefix("/api" <> rest), do: rest
-  defp strip_api_prefix(path), do: path
+    response =
+      case response do
+        %Reference{"$ref": "#/components/responses/" <> name} ->
+          responses = if spec.components, do: spec.components.responses || %{}, else: %{}
+          Map.get(responses, name)
 
-  defp match_template_path(paths_map, actual_path) do
-    actual_segments = split_path(actual_path)
-
-    Enum.find_value(paths_map, fn {template_path, %PathItem{} = item} ->
-      template_segments = split_path(template_path)
-
-      if segments_match?(template_segments, actual_segments) do
-        {:ok, {template_path, item}}
-      else
-        false
+        other ->
+          other
       end
-    end) || :error
-  end
-
-  defp split_path(path) when is_binary(path) do
-    path
-    |> String.split("?", parts: 2)
-    |> hd()
-    |> String.split("/", trim: true)
-  end
-
-  defp segments_match?(template_segments, actual_segments) when length(template_segments) == length(actual_segments) do
-    Enum.zip(template_segments, actual_segments)
-    |> Enum.all?(fn {t, a} -> dynamic_segment?(t) or t == a end)
-  end
-
-  defp segments_match?(_template_segments, _actual_segments), do: false
-
-  defp dynamic_segment?(segment) when is_binary(segment) do
-    String.starts_with?(segment, "{") and String.ends_with?(segment, "}")
-  end
-
-  defp find_response_schema(%Operation{responses: responses}, status_code) when is_map(responses) do
-    key = Integer.to_string(status_code)
-
-    response = Map.get(responses, key) || Map.get(responses, status_code) || Map.get(responses, "default")
 
     case response do
-      %OpenApiSpex.Response{content: %{"application/json" => %OpenApiSpex.MediaType{schema: schema}}} ->
-        {:ok, schema}
-
-      %OpenApiSpex.Reference{} = ref ->
-        {:ok, ref}
-
-      _ ->
-        :error
+      %Response{content: %{"application/json" => %MediaType{schema: %Schema{} = schema}}} -> schema
+      %Response{content: %{"application/json" => %MediaType{schema: %Reference{} = schema}}} -> schema
+      _ -> flunk("Missing OpenAPI JSON response schema for path: #{path} and status: #{status}")
     end
   end
 end

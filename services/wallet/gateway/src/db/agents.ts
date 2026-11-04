@@ -399,6 +399,25 @@ export async function deactivateBudget(did: string, budgetId: string): Promise<b
   return (rowCount ?? 0) > 0;
 }
 
+// PostgreSQL rechecks these outer predicates against the current tuple after a
+// concurrent updater releases its row lock. The selector alone uses a snapshot.
+export const BUDGET_RESERVATION_SQL = `update agent_budgets b
+        set spent_wei = spent_wei + $4
+      where b.id = (
+        select id from agent_budgets
+         where did = $1 and active and expires_at > clock_timestamp()
+           and (target_contract is null or target_contract = $2)
+           and (token is null or token = $3)
+           and spent_wei + $4 <= cap_wei
+         order by ((target_contract is not null)::int + (token is not null)::int) desc, id asc
+         limit 1
+      )
+        and b.did = $1 and b.active and b.expires_at > clock_timestamp()
+        and (b.target_contract is null or b.target_contract = $2)
+        and (b.token is null or b.token = $3)
+        and b.spent_wei + $4 <= b.cap_wei
+      returning id::text`;
+
 /**
  * Atomically reserve `valueWei` against the MOST SPECIFIC active, unexpired
  * budget that covers (targetContract, token) and still has headroom. Returns
@@ -413,18 +432,7 @@ export async function reserveBudget(args: {
   valueWei: bigint;
 }, client?: PoolClient): Promise<string | null> {
   const { rows } = await (client ?? getPool()).query<{ id: string }>(
-    `update agent_budgets b
-        set spent_wei = spent_wei + $4
-      where b.id = (
-        select id from agent_budgets
-         where did = $1 and active and expires_at > now()
-           and (target_contract is null or target_contract = $2)
-           and (token is null or token = $3)
-           and spent_wei + $4 <= cap_wei
-         order by ((target_contract is not null)::int + (token is not null)::int) desc, id asc
-         limit 1
-      )
-      returning id::text`,
+    BUDGET_RESERVATION_SQL,
     [
       args.did,
       args.targetContract ? args.targetContract.toLowerCase() : null,
