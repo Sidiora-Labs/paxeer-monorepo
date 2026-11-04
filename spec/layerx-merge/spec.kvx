@@ -173473,7 +173473,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.485]
 title = "Port the hosted core public reads and the agent API read path to the current layerx-client types"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.483"]
@@ -186274,7 +186274,7 @@ do_17 = "The candidate carries only sources under the touches and the test file:
 
 [task.22.31.208]
 title = "Repair audit record 22.30.85 findings in services/platform/hosted/authority/src/human: interface-mismatch, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.465", "22.31.483"]
