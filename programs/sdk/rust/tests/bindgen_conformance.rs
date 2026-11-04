@@ -3,6 +3,9 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::{fs, path::Path};
 
+#[path = "support/bytes_call_boundary.rs"]
+mod bytes_call_boundary;
+
 const DOMAIN: &[u8] = b"LayerX/program-interface/v1\0";
 const CODE_HASH: [u8; 32] = [0x5a; 32];
 
