@@ -1,0 +1,7 @@
+[repair.22.33.1215]
+audit = "22.30.58"
+base_revision = "72c91077cb966f1c4c640ded61b4b259f41cad90"
+params-query-error = "TestRepairM_1215_ParamsQueryUnavailable proves the production params command returns the original error from a real closed loopback endpoint without output or panic; TestRepairM_1215_ParamsQueryConcreteResponse proves keeper-written parameters pass through the registered query handler, production JSON-RPC server/client, protobuf decoding and CLI JSON output."
+baseline = "Not run: the explicit task order requires complete implementation before gates and prohibits manual verify_cmd runs; the initial gate ledger was absent and gate counters were zero. No baseline failure is claimed."
+wiring_requests = []
+evidence = "The runner hf-build/hf-done private gate ledger records the exact candidate revision, command, exit code and log; no gate is claimed here before it runs."

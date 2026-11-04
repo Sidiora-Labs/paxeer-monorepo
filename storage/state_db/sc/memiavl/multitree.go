@@ -87,6 +87,14 @@ func LoadMultiTree(ctx context.Context, dir string, opts Options) (*MultiTree, e
 	}
 
 	treeMap := make(map[string]*Tree, len(entries))
+	loaded := false
+	defer func() {
+		if !loaded {
+			for _, tree := range treeMap {
+				_ = tree.Close()
+			}
+		}
+	}()
 	treeNames := make([]string, 0, len(entries))
 	for _, e := range entries {
 		// Check for cancellation
@@ -131,6 +139,7 @@ func LoadMultiTree(ctx context.Context, dir string, opts Options) (*MultiTree, e
 	}
 	// initial version is necessary for rlog index conversion
 	mtree.setInitialVersion(metadata.InitialVersion)
+	loaded = true
 	return mtree, nil
 }
 
@@ -282,9 +291,21 @@ func (t *MultiTree) ApplyUpgrades(upgrades []*proto.TreeNameUpgrade) error {
 	for i, tree := range trees {
 		treesByName[tree.Name] = i
 	}
+	retained := make(map[*Tree]bool, len(trees))
+	for _, tree := range trees {
+		retained[tree.Tree] = true
+	}
+	previous := t.trees
 	t.trees, t.treesByName = trees, treesByName
+	var errs []error
+	for _, tree := range previous {
+		if !retained[tree.Tree] {
+			tree.WaitToCompleteAsyncWrite()
+			errs = append(errs, tree.Close())
+		}
+	}
 
-	return nil
+	return errors.Join(errs...)
 }
 
 // ApplyChangeSet applies change set for a single tree.

@@ -1,0 +1,10 @@
+[repair.22.33.528]
+finding = "address-sorted-cache"
+test = "repair-22-33-528.spec.ts: addressSortedCacheReceivesChannelUpdates"
+change = "Include the selected sort and order in the address socket cache key using the same typed sorting conversion as useAddressTxsQuery."
+proof = "The real Next router, enabled address query, React Query in-memory cache, SocketProvider, Phoenix client and socket hook receive confirmed and pending updates over a loopback WebSocket; value and fee sorts in both directions preserve filters, replacement, deduplication, pagination metadata and inactive caches."
+baseline = "Not executed: the explicit gate order requires the complete implementation followed by hf-build then hf-done and forbids running verify_cmd by hand; before this repair the first sorted-query channel assertion targets an unchanged cache while the unsorted cache is incorrectly updated. No baseline test failure is claimed."
+formatting = "ESLint --fix formatted the two touched TypeScript files; vitest/expect-expect and vitest/valid-title reject the task-required test(namedFunction) registration, so that registration and its assertions remain intact."
+qualification_repair = "Build revision 30aefd92e1f442ca3f800ed169ceb6c8d28bfc22 exited 2 at /out/logs/build-1.log: TypeScript inferred the inactive-cache forEach updater data as void; explicitly use the production AddressTransactionsResponse type."
+wiring_requests = "None required by the repair proposal; the loopback producer uses committed transaction fixtures and does not claim execution of the backend notifier."
+evidence = "The private hf-build/hf-done ledger records the exact candidate revision, command, exit and log; the runner retains and publishes that evidence with the repair."
