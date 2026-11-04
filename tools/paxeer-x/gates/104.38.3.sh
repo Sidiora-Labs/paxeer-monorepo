@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# paxeer-x-services: human human-kms
+# paxeer-x-services: human-service human-kms
 set -euo pipefail
 if (($#)); then
     echo "usage: $0 (no arguments)" >&2

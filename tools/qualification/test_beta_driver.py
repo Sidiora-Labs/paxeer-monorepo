@@ -7,11 +7,11 @@ import socket
 import subprocess
 import sys
 import tempfile
-import time
 import unittest
+from copy import deepcopy
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.error import URLError
-from urllib.request import urlopen
+from threading import Thread
 
 from tools.qualification.release_runner import EVIDENCE_SPECS, SCHEMA
 
@@ -19,7 +19,7 @@ from tools.qualification.release_runner import EVIDENCE_SPECS, SCHEMA
 ROOT = Path(__file__).resolve().parents[2]
 DRIVER = ROOT / "tools" / "qualification" / "beta_driver.py"
 PLATFORM_TOOLS_MANIFEST = ROOT / "tools" / "platform" / "Cargo.toml"
-NETWORK_ID = "402"
+NETWORK_ID = "125"
 SOURCE_IDENTITY = "beta-driver-test-source-identity"
 DRIVER_TIMEOUT_SECONDS = 3600.0
 READY_TIMEOUT_SECONDS = 60.0
@@ -56,182 +56,146 @@ def cli_json(argv: list[str], environment: dict[str, str], stdin_text: str | Non
     raise RuntimeError(f"{' '.join(argv)} printed no JSON object: {completed.stdout}")
 
 
-class LocalEmulatorStack:
+class LocalPaxdStack:
+    """Replay merged-node recordings; never implement execution or mint authority.
+
+    The native transfer corpus is produced by the node RPC vector generator.
+    The program recording includes the node's actual stop/reopen observations.
+    This peer serves those bytes at the node's root JSON-RPC endpoint.
+    """
+
     def __init__(self, work: Path) -> None:
         self.work = work
-        self.home = work / "home"
-        self.home.mkdir()
-        self.target = Path(os.environ.get("CARGO_TARGET_DIR", str(ROOT / "tools" / "platform" / "target")))
-        self.binary = self.target / "debug" / "layerx"
-        self.port = free_port()
-        self.url = f"http://127.0.0.1:{self.port}"
-        self.process: subprocess.Popen[bytes] | None = None
-        self.log = work / "emulator.log"
-        self.anchor = ""
-        self.seed_file = ""
-        self.source = ""
-        self.destination = ""
+        corpus_path = ROOT / "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+        corpus = json.loads(corpus_path.read_text())
+        if corpus["provenance"]["generator"] != "rpc/sequencer_receipt_vectors_test.go":
+            raise RuntimeError("native beta evidence must be node-produced")
+        self.native = deepcopy(
+            next(case for case in corpus["cases"] if case["id"] == "V1-pax-transfer")
+        )
+        self.recovery_path = ROOT / "tests/daemon/fixtures/programs-commit-reopen.json"
+        self.recovery = json.loads(self.recovery_path.read_text())
+        if (
+            self.recovery["schema"] != "paxd/programs-commit-reopen/v1"
+            or self.recovery["provenance"]["generator"] != "tests/daemon/recorder/main.go"
+            or self.recovery["node_stopped_between_phases"] is not True
+            or self.recovery["anchor_store_absent_after_reopen"] is not True
+            or "layerxanchor" in self.recovery["stores_after_reopen"]
+        ):
+            raise RuntimeError("merged-node stop/reopen evidence required")
+        self.source = self.native["receiptJson"]["from"]
+        self.destination = self.native["receiptJson"]["to"]
+        self.server: ThreadingHTTPServer | None = None
+        self.thread: Thread | None = None
+        self.url = ""
+        self.exchanges: list[dict] = []
+        self.requests: list[dict] = []
+        self.errors: list[str] = []
 
-    def cli_environment(self) -> dict[str, str]:
+    def start(self, phase: str = "native") -> None:
+        if self.server is not None:
+            raise RuntimeError("stop the recorded node before reopening it")
+        if phase == "native":
+            self.exchanges = [
+                {
+                    "method": "eth_sendRawTransaction",
+                    "params": [self.native["rawTransaction"]],
+                    "result": self.native["receiptJson"]["txHash"],
+                },
+                {
+                    "method": "pax_sequencerReceipt",
+                    "params": [self.native["receiptJson"]["txHash"]],
+                    "result": self.native["receiptJson"],
+                },
+            ]
+        else:
+            # Unknown phases fail closed; there is no invented recovery answer.
+            self.exchanges = deepcopy(self.recovery["phases"][phase]["rpc"])
+        self.requests = []
+        self.errors = []
+        peer = self
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_POST(self) -> None:
+                try:
+                    if self.path != "/" or self.headers["Content-Type"] != "application/json":
+                        raise ValueError("root JSON-RPC and JSON content type required")
+                    length = int(self.headers["Content-Length"])
+                    if not 0 < length <= 1_048_576:
+                        raise ValueError("invalid request length")
+                    request = json.loads(self.rfile.read(length))
+                    if (
+                        set(request) != {"jsonrpc", "id", "method", "params"}
+                        or request["jsonrpc"] != "2.0"
+                        or type(request["id"]) is not int or request["id"] <= 0
+                    ):
+                        raise ValueError("invalid JSON-RPC request")
+                    index = len(peer.requests)
+                    peer.requests.append(request)
+                    recorded = peer.exchanges[index]
+                    if (
+                        request["method"] != recorded["method"]
+                        or request["params"] != recorded["params"]
+                    ):
+                        raise ValueError("request differs from node recording")
+                    payload = {"jsonrpc": "2.0", "id": request["id"], "result": recorded["result"]}
+                    body = json.dumps(payload).encode()
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
+                except Exception as error:
+                    peer.errors.append(str(error))
+                    self.send_error(400, "request differs from node recording")
+
+            def log_message(self, *args: object) -> None:
+                pass
+
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self.url = f"http://127.0.0.1:{self.server.server_port}"
+        self.thread = Thread(
+            target=self.server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True
+        )
+        self.thread.start()
+
+    def assert_consumed(self) -> None:
+        if self.errors or len(self.requests) != len(self.exchanges):
+            raise AssertionError(
+                f"node recording was not consumed exactly: {self.errors}, {self.requests}"
+            )
+
+    def stop(self) -> None:
+        if self.server is None:
+            return
+        self.server.shutdown()
+        self.server.server_close()
+        self.thread.join(timeout=5)
+        if self.thread.is_alive():
+            raise RuntimeError("recorded node listener did not stop")
+        self.server = None
+        self.thread = None
+
+    def driver_environment(self) -> dict[str, str]:
         environment = dict(os.environ)
         for name in tuple(environment):
             if name.startswith("LAYERX_"):
                 environment.pop(name)
-        environment["HOME"] = str(self.home)
-        environment["LAYERX_CREDENTIAL_STORE"] = "mock"
-        return environment
-
-    def build_cli(self) -> None:
-        subprocess.run(
-            (
-                "cargo",
-                "build",
-                "--offline",
-                "--manifest-path",
-                str(PLATFORM_TOOLS_MANIFEST),
-                "--locked",
-                "-p",
-                "layerx-platform-cli",
-                "--features",
-                "test-credential-store",
-            ),
-            cwd=ROOT,
-            check=True,
-        )
-        if not self.binary.is_file() or not os.access(self.binary, os.X_OK):
-            raise RuntimeError(f"built layerx binary not found at {self.binary}")
-
-    def provision(self) -> None:
-        provisioned = cli_json(
-            [str(self.binary), "--json", "emulator", "provision"], self.cli_environment()
-        )
-        self.anchor = provisioned["sequencer_trust_anchor"]
-        self.seed_file = provisioned["sequencer_seed_file"]
-        if len(self.anchor) != 64 or not Path(self.seed_file).is_file():
-            raise RuntimeError(f"emulator provisioning is incomplete: {provisioned}")
-
-    def start(self) -> None:
-        with self.log.open("wb") as log:
-            self.process = subprocess.Popen(
-                (
-                    str(self.binary),
-                    "emulator",
-                    "up",
-                    "--listen",
-                    f"127.0.0.1:{self.port}",
-                    "--sequencer-seed-file",
-                    self.seed_file,
-                ),
-                cwd=ROOT,
-                env=self.cli_environment(),
-                stdout=log,
-                stderr=subprocess.STDOUT,
-            )
-        deadline = time.monotonic() + READY_TIMEOUT_SECONDS
-        while True:
-            if self.process.poll() is not None:
-                raise RuntimeError(
-                    f"emulator exited {self.process.returncode}: {self.log.read_text(errors='replace')}"
-                )
-            try:
-                with urlopen(f"{self.url}/healthz", timeout=5) as response:
-                    if response.status == 200 and b'"status":"ready"' in response.read():
-                        return
-            except (URLError, OSError):
-                pass
-            if time.monotonic() >= deadline:
-                raise RuntimeError(f"emulator at {self.url} did not become ready")
-            time.sleep(0.2)
-
-    def fund_accounts(self) -> None:
-        environment = self.cli_environment()
-        cli_json(
-            [
-                str(self.binary),
-                "--json",
-                "environment",
-                "use",
-                "emulator",
-                "--endpoint",
-                self.url,
-                "--network-id",
-                NETWORK_ID,
-                "--sequencer-trust-anchor",
-                self.anchor,
-            ],
-            environment,
-        )
-        seed_hex = Path(self.seed_file).read_text(encoding="utf-8").strip()
-        sequencer = cli_json(
-            [str(self.binary), "--json", "key", "import", "sequencer"],
-            environment,
-            stdin_text=seed_hex + "\n",
-        )
-        if sequencer["public_key"] != self.anchor:
-            raise RuntimeError("imported sequencer key does not match the provisioned anchor")
-        funded = cli_json(
-            [
-                str(self.binary),
-                "--json",
-                "account",
-                "create",
-                "--key",
-                "sequencer",
-                "--initial-amount",
-                "1000000",
-            ],
-            environment,
-        )
-        cli_json([str(self.binary), "--json", "key", "create", "recipient"], environment)
-        recipient = cli_json(
-            [
-                str(self.binary),
-                "--json",
-                "account",
-                "create",
-                "--key",
-                "recipient",
-                "--initial-amount",
-                "0",
-            ],
-            environment,
-        )
-        self.source = funded["account"]
-        self.destination = recipient["account"]
-
-    def stop(self) -> None:
-        if self.process is None:
-            return
-        if self.process.poll() is None:
-            self.process.terminate()
-            try:
-                self.process.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                self.process.kill()
-                self.process.wait()
-        self.process = None
-
-    def driver_environment(self) -> dict[str, str]:
-        environment = self.cli_environment()
         environment.update(
             {
-                "LAYERX_BIN": str(self.binary),
-                "LAYERX_CLI_ENVIRONMENT": "emulator",
+                "LAYERX_CLI_ENVIRONMENT": "beta",
                 "LAYERX_NETWORK_ID": NETWORK_ID,
-                "LAYERX_SEQUENCER_TRUST_ANCHOR": self.anchor,
-                "LAYERX_API_TOKEN": "emulator-does-not-authenticate-callers",
                 "LAYERX_SOURCE": self.source,
                 "LAYERX_DESTINATION": self.destination,
-                "LAYERX_CURRENCY": "LXP",
-                "LAYERX_AMOUNT": "250",
-                "CARGO_NET_OFFLINE": "true",
+                "LAYERX_CURRENCY": "PAX",
+                "LAYERX_AMOUNT": "1000000000000000000",
             }
         )
         return environment
 
 
 class BetaDriverTests(unittest.TestCase):
-    stack: LocalEmulatorStack
+    stack: LocalPaxdStack
     work: Path
     agentd_url: str
     paxeer_url: str
@@ -241,15 +205,8 @@ class BetaDriverTests(unittest.TestCase):
         build_root = ROOT / "build" / "beta-driver-test"
         build_root.mkdir(parents=True, exist_ok=True)
         cls.work = Path(tempfile.mkdtemp(prefix="run-", dir=build_root))
-        cls.stack = LocalEmulatorStack(cls.work)
-        cls.stack.build_cli()
-        cls.stack.provision()
+        cls.stack = LocalPaxdStack(cls.work)
         cls.stack.start()
-        try:
-            cls.stack.fund_accounts()
-        except Exception:
-            cls.stack.stop()
-            raise
         cls.agentd_url = f"http://127.0.0.1:{free_port()}"
         cls.paxeer_url = f"http://127.0.0.1:{free_port()}"
 
@@ -330,7 +287,7 @@ class BetaDriverTests(unittest.TestCase):
                 self.assertEqual(record["artifacts"], [], case_id)
         return cases
 
-    def test_adoption_inventory_executes_against_the_local_emulator_stack(self) -> None:
+    def test_adoption_inventory_executes_against_the_local_paxd_stack(self) -> None:
         gate = "platform-qualify-adoption"
         output = self.work / gate
         completed, evidence = self.run_driver(gate, output)

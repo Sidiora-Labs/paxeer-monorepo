@@ -434,7 +434,14 @@ export class AgentToolExecutor {
     let verification: Awaited<ReturnType<typeof verifyPaymentReceipt>>;
     try {
       const network = `eip155:${decodeRawEip1559(receiptBytes(evidence.rawTransaction)).chainId}`;
-      verification = await verifyPaymentReceipt(evidence, {
+      const signedReceipt = receiptBytes(evidence.signedReceipt);
+      const verified = await verifySequencerReceipt(signedReceipt, receiptBytes(evidence.rawTransaction), this.#config.receiptKeys);
+      if (evidence.receiptDigest !== `0x${toHex(keccak256(signedReceipt))}`) {
+        throw new AgentMiddlewareError("verification-failure");
+      }
+      verification = await verifyPaymentReceipt({
+        ...evidence, receiptDigest: `0x${toHex(verified.receiptDigest)}`,
+      }, {
         scheme: "exact", network, amount, asset: `0x${asset}`, payTo: `0x${recipient}`,
         maxTimeoutSeconds: 120,
       }, this.#config.receiptKeys);

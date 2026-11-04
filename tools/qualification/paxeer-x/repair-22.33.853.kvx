@@ -1,0 +1,20 @@
+[meta]
+task = "22.33.853"
+audit = "22.30.181"
+base_revision = "39bdf7bceaa86b05bbba7248df1e01f4f36022e3"
+qualification = "hf-build then hf-done; /out/run/gates.jsonl and the final gate evidence line record the verified candidate revision, exact command, exit code and private log location."
+baseline = "No earlier gate ledger or task test module existed. No unchanged-tree test was run: the explicit Order forbids early testing and direct verify_cmd execution. No baseline failures are claimed."
+proof_boundary = "The production CLI parser, Cargo argv/environment construction, publish_service_record/publish_clock_record JSON producers, private filesystem transport, protected_record and source/artifact/predecessor consumers run in-process. Verbatim committed source files are executable-permission fixtures for file identity checks; no fixture is executed or claimed as a native compiler output. Native builds and the existing six-case boundary verification remain production operations, outside this focused gate."
+
+[finding.f033]
+tests = ["test_f033_operator_options_cover_every_mode", "test_f033_configured_toolchain_and_target_are_preserved", "test_f033_unset_environment_uses_path_and_cargo_configuration", "test_f033_cli_documents_bindings_and_requires_evidence", "test_f033_real_record_producer_transport_consumer_reopens_selected_directory", "test_f033_rejects_nonprivate_evidence_directory", "test_f033_preserves_protected_record_checks", "test_f033_preserves_source_compiler_digest_and_closed_profile_checks", "test_f033_predecessor_digest_still_binds_selected_service_record", "test_f033_legacy_gate_digest_does_not_exempt_other_service_sources"]
+repair = "All three CLI modes require --evidence-dir for the same retained v1/v2 record filenames. Evidence directories must be private and owned. --cargo overrides CARGO; otherwise cargo is resolved on PATH. --target-dir overrides CARGO_TARGET_DIR; otherwise the existing environment and Cargo configuration are preserved. Compiler target profiles, locked builds, timeouts, owner/regular-file/size/mode checks, O_NOFOLLOW writes, exact source and executable digests, predecessor binding and all six required boundary cases remain intact."
+wiring = "None: f033 requests changes only within tools/qualification/paxeer-x."
+
+[gotcha.1]
+observed = "The baseline request conflicts with the explicit implementation-first and wrapper-only gate order."
+resolution = "Follow the explicit Order and report baseline as not run, rather than claiming nonexistent prior evidence."
+
+[gotcha.2]
+observed = "Codify brief reported graph-wide uncommitted paths that git status did not report."
+resolution = "Use the actual git status and scoped diff for workspace state; leave unrelated graph state alone."
