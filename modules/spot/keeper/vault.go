@@ -802,10 +802,10 @@ func TokenParamLogs(ctx sdk.Context, before, after []types.TokenParams) []*ethty
 }
 
 func (k *Keeper) ListTokens(ctx sdk.Context, before, after []types.TokenParams) ([]types.TokenParams, []*ethtypes.Log, error) {
-	previous := make(map[common.Address]bool, len(before))
+	previous := make(map[common.Address]types.TokenParams, len(before))
 	listed := make(map[common.Address]bool, len(after))
 	for _, params := range before {
-		previous[params.Address] = true
+		previous[params.Address] = params
 	}
 	for _, params := range after {
 		listed[params.Address] = true
@@ -829,7 +829,22 @@ func (k *Keeper) ListTokens(ctx sdk.Context, before, after []types.TokenParams) 
 	updated := append([]types.TokenParams(nil), after...)
 	var logs []*ethtypes.Log
 	for i, params := range updated {
-		if previous[params.Address] {
+		if old, retained := previous[params.Address]; retained {
+			if params.Decimals != old.Decimals || params.Kind != old.Kind {
+				return nil, nil, types.ErrUnsupportedToken
+			}
+			book, found, err := k.tokenBook(ctx, params.Address)
+			if err != nil {
+				return nil, nil, err
+			}
+			decimals, err := k.tokenDecimals(ctx, params)
+			if err != nil {
+				return nil, nil, err
+			}
+			if !found || decimals != uint64(old.Decimals) || uint32(book.Decimals) != old.Decimals ||
+				book.Token != params.Address || book.ShareDenom != k.ShareDenom(params.Address) {
+				return nil, nil, types.ErrUnsupportedToken
+			}
 			continue
 		}
 		registered, tokenLogs, err := k.RegisterToken(ctx, params)
