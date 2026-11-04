@@ -147514,7 +147514,7 @@ do_9 = "Attempt 2 (continue): sdk/launchpad/packages/sidiora-launchpad-v3/proven
 
 [task.22.33.1047]
 title = "Repair audit record 22.30.41 medium findings in sdk/launchpad/packages/sdk/test (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.72", "22.31.73", "22.31.74", "22.31.75"]
@@ -147731,7 +147731,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.455]
 title = "Close the elliptic, request and deepmerge advisories in the remaining JavaScript lockfiles and remove the stale npm lockfile of the perps application"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -165751,7 +165751,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1397]
 title = "Repair audit record 22.30.78 medium findings in sdk/platform/swift/Sources/LayerXSDK (part 1 of 1): restart-recovery, retired-reference, runtime-risk, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.346", "22.31.347", "22.31.348"]
@@ -278570,7 +278570,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1133]
 title = "Repair audit record 22.30.5 medium findings in src/modules/service (part 1 of 1): security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.98", "22.31.99", "22.31.100", "22.31.101"]
@@ -321720,7 +321720,7 @@ do_12 = "Attempt 4 (continue): the recorder (tests/daemon/recorder/main.go) reop
 
 [task.22.33.1067]
 title = "Repair audit record 22.30.42 medium findings in tools/launchpad/production/feature-acceptance/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.76", "22.31.77"]
@@ -326111,7 +326111,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.725]
 title = "Repair audit record 22.30.170 medium findings in deploy/launchpad/production/topology (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.313", "22.31.314"]
