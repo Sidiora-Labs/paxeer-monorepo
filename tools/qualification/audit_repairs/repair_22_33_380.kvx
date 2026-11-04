@@ -1,0 +1,35 @@
+[task.22.33.380]
+base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
+repair = "Qualify root-retired-daemon against README.md as task 22.31.470 left it, per decision 2525. Add focused regression assertions for the merged chain-125 paxd network, root JSON-RPC hosts, transaction and committed receipt flow, linked native build path, upgrade address table and explicitly historical retired executor paragraph. README.md is outside scope and is unchanged here."
+source_proof = "Seven Python tests inspect the actual README and production sources: component integration and consensus source, root-path RPC dispatch and parsed curl JSON, accept/forward transport and durable release before receipt publication, committed receipt coverage and diagram order, parsed Makefile prerequisites and recipes, all thirteen merge addresses compared with MergeAddressTable and upgrade registration, and historical retirement guards. The final test parses this record and checks every declared proving test exists. No replacement production component, mock, fabricated transport or external subprocess is used."
+review_only = "Native Go/C/Rust compilation and execution, node startup, RPC availability, transaction execution, durable recovery, cryptography, BFT commitment and actual upgrade activation are not executed by this documentation gate. The module proves documented source facts along the producer, transport and consumer path; runtime behavior and operational deployment require review and their owning qualification gates. This is a doc-drift finding with no interface-mismatch or restart-recovery change. No shell script, unit file or manifest is changed; Makefile rules are parsed without invoking make. The gate needs no environment variable, credentials, live endpoint, external binary, native artifact or device."
+baseline = "No pre-change verification was run: the explicit implementation-first ordering, hf-build before hf-done and prohibition on running verify_cmd manually supersede the older unchanged-tree baseline clause. No baseline failures are claimed. Initial Git status/diff showed only runner-prepared .cgignore and spec bookkeeping; both scoped files were absent. Private gate.json reported zero builds and verifies, two repair cycles left, and gates.jsonl was absent."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_380.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private /out/run/gates.jsonl name the exact verified content-derived candidate revision, command, exit code and private log path. Build and verify must pass on the same candidate revision. This record is finalized before qualification; embedding its own content-derived candidate revision would change that revision. The runner retains the evidence and publishes the result; no manual commit or push is performed."
+wiring_request = "README.md; owner domain 17, task 22.31.470: supply the merged paxd component/build path, active upgrade addresses and explicitly historical legacy executor guidance; the inherited README already supplies these facts and the required network/RPC/receipt facts, so no additional README edit is requested by this source review."
+
+[finding.root-retired-daemon]
+audit = "22.30.140"
+file = "README.md"
+class = "doc-drift"
+severity = "medium"
+expected = "The maintained network runs paxd with its merged kernel and finality on BFT commit; a separate LayerX daemon is not a component an operator should build or launch for that network."
+tests = ["test_root_retired_daemon_merged_network_and_operator_components", "test_root_retired_daemon_root_rpc_hosts_and_chain_probe", "test_root_retired_daemon_submission_receipt_and_commit_source_path", "test_root_retired_daemon_build_targets_produce_linked_paxd", "test_root_retired_daemon_active_precompile_addresses_match_upgrade_table", "test_root_retired_daemon_legacy_executors_are_historical_refusals", "test_root_retired_daemon_record_names_proofs_limits_and_wiring_owner"]
+historical_resolution = "The obsolete daemon/build guidance is removed rather than retained. The remaining pre-merge ABI names and addresses occur only in the explicit historical refusal paragraph, including archive-only anchor views until store deletion. Retained codec/witness references explicitly add no settlement step to current BFT finality."
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths. After the complete implementation, apply .editorconfig UTF-8, LF, trailing-whitespace and final-newline conventions to the two scoped files only."
+
+[gotcha.1]
+observed = "The unchanged-tree baseline step contradicts the explicit implementation-first, wrapper-only gate order."
+resolution = "Follow the explicit order and record no baseline run or failures; task notes remain here because GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.2]
+observed = "Broad reads exceeded output limits, Codify brief reports unrelated tasks/changes, and its scoped graph searches do not include the production source paths."
+resolution = "Use bounded task-specific source reads and direct Git status/diff plus the private runner ledger as authority; use targeted filesystem searches for graph-excluded sources."
+
+[gotcha.3]
+observed = "The root has no pyproject.toml and the guessed precompiles/common/retired.go path does not exist."
+resolution = "Follow the existing audit-repair Python style and .editorconfig; inspect the actual retirement guards in the three precompile implementations."
