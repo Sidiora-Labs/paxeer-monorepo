@@ -40,8 +40,8 @@ static bool has_agent_shape(const uint8_t *name, size_t length,
             i + marker_length < length) {
             size_t tail;
             for (tail = i + marker_length; tail < length; ++tail)
-                if (name[tail] == (uint8_t)':') return false;
-            return true;
+                if (name[tail] == (uint8_t)':') break;
+            if (tail == length) return true;
         }
     }
     return false;
