@@ -167033,7 +167033,7 @@ do_11 = "Attempt 4: the qualification pay2 crate fails to compile on the names H
 
 [task.22.31.228]
 title = "Repair audit record 22.30.99 findings in services/agent/crates/layerx-sdk/src/bin: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -168585,7 +168585,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.157]
 title = "Repair audit record 22.30.107 findings in services/human/crates/layerx-network-gateway/src: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -183549,7 +183549,7 @@ do_15 = "Attempt 2: three failures: the agent envelope probe needs PAXEER_X_AGEN
 
 [task.22.31.140]
 title = "Repair audit record 22.30.75 findings in services/platform/perf-db/src: restart-recovery, runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
