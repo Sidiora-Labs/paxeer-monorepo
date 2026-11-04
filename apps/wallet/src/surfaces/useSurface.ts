@@ -19,6 +19,7 @@ import {
   type HolderRecords,
   type WalletCapsHistory,
   type WalletCapsState,
+  type WalletCapsSnapshot,
   type WalletGrantCap,
   type WebPayerGrant,
   feeToken,
@@ -696,14 +697,14 @@ const GRANT_LOOKUP_ABI = parseAbi([
 ]);
 const PAYER_GRANT_ISSUED = toEventSelector('PayerGrantIssued(bytes32)');
 const ZERO_WORD: Hex = `0x${'0'.repeat(64)}`;
-const REFUSED_CAPS: WalletCapsState = {
+const REFUSED_CAPS = {
   state: 'refused',
   reason: 'The account or its evidence was refused.',
-};
-const NO_FINALISED_CHECKPOINT: WalletCapsState = {
+} satisfies WalletCapsState;
+const NO_FINALISED_CHECKPOINT = {
   state: 'unavailable',
   reason: 'consensus_unavailable',
-};
+} satisfies WalletCapsState;
 const NO_GRANT_EXPIRY = ((1n << 64n) - 1n).toString();
 export const GRANT_LOG_WINDOW = 10_000n;
 export const GRANT_LOG_BATCH = 8;
@@ -844,10 +845,24 @@ async function inBatches<T, R>(items: readonly T[], read: (item: T) => Promise<R
   return out;
 }
 
+export interface SurfaceCapsSnapshot extends WalletCapsSnapshot {
+  readonly budgetAvailability: 'available' | 'unavailable';
+}
+
+export type SurfaceCapsState =
+  | Exclude<WalletCapsState, WalletCapsSnapshot>
+  | SurfaceCapsSnapshot
+  | {
+      readonly state: 'incomplete';
+      readonly reason: 'Grant discovery has not covered the finalized block.';
+      readonly indexedHeight: string | null;
+      readonly finalizedHeight: string;
+    };
+
 export async function readGrantCaps(
   provider: ModuleProvider,
   address: string
-): Promise<WalletCapsState> {
+): Promise<SurfaceCapsState> {
   const chainId = await ethQuantity(provider, 'eth_chainId');
   const head = await provider.request({
     method: 'eth_getBlockByNumber',
@@ -890,6 +905,13 @@ export async function readGrantCaps(
   let ids: string[];
   let history: WalletCapsHistory;
   if (indexed !== null) {
+    if (indexed.indexedHeight === null || indexed.indexedHeight < finalised)
+      return {
+        state: 'incomplete',
+        reason: 'Grant discovery has not covered the finalized block.',
+        indexedHeight: indexed.indexedHeight?.toString() ?? null,
+        finalizedHeight: height,
+      };
     ids = [...new Set(indexed.items.map(grantRecordId))];
     history = {
       source: 'indexer',
@@ -947,32 +969,31 @@ export async function readGrantCaps(
       state_root: head.stateRoot.slice(2).toLowerCase(),
     },
     history,
+    budgetAvailability: 'unavailable',
     budgets: [],
-    grants: owned.map(
-      (grant): WalletGrantCap => ({
-        id: grant.grantId.slice(2),
-        owner: grant.from.slice(2),
-        recipient: grant.recipient.slice(2),
-        asset: grant.asset.slice(2),
-        per_draw_maximum: grant.perDrawMaximum.toString(),
-        allowance: grant.allowance.toString(),
-        drawn_total: grant.drawnTotal.toString(),
-        drawn_this_period: grant.drawnThisPeriod.toString(),
-        recurring: grant.recurring,
-        window_length: grant.windowLength.toString(),
-        window_start: grant.windowStart.toString(),
-        expiration: grant.expiration.toString(),
-        revocation_height: grant.revocationSequence.toString(),
-        revoked_at_height: grant.revokedAt.toString(),
-        revoked: grant.revoked,
-        invoice_settled: grant.invoiceSettled,
-      })
-    ),
+    grants: owned.map((grant): WalletGrantCap => ({
+      id: grant.grantId.slice(2),
+      owner: grant.from.slice(2),
+      recipient: grant.recipient.slice(2),
+      asset: grant.asset.slice(2),
+      per_draw_maximum: grant.perDrawMaximum.toString(),
+      allowance: grant.allowance.toString(),
+      drawn_total: grant.drawnTotal.toString(),
+      drawn_this_period: grant.drawnThisPeriod.toString(),
+      recurring: grant.recurring,
+      window_length: grant.windowLength.toString(),
+      window_start: grant.windowStart.toString(),
+      expiration: grant.expiration.toString(),
+      revocation_height: grant.revocationSequence.toString(),
+      revoked_at_height: grant.revokedAt.toString(),
+      revoked: grant.revoked,
+      invoice_settled: grant.invoiceSettled,
+    })),
   };
 }
 
 export function useWebDataCaps(): {
-  readonly caps: WalletCapsState;
+  readonly caps: SurfaceCapsState;
   readonly refreshCaps: () => void;
 } {
   const connection = useWallet();
@@ -982,7 +1003,7 @@ export function useWebDataCaps(): {
     () => ({}),
     [provider, address, connection.identity?.id, connection.status, revision]
   );
-  const [retained, setRetained] = useState<{ key: object; value: WalletCapsState } | null>(null);
+  const [retained, setRetained] = useState<{ key: object; value: SurfaceCapsState } | null>(null);
   const refreshCaps = useCallback(() => setRevision((value) => value + 1), []);
   useEffect(() => {
     let alive = true,
@@ -1052,7 +1073,7 @@ export function useWebDataCaps(): {
       wallet?.off('message', message);
     };
   }, [key, provider, address, connection.wallet, refreshCaps]);
-  const caps: WalletCapsState = retained?.key === key ? retained.value : { state: 'loading' };
+  const caps: SurfaceCapsState = retained?.key === key ? retained.value : { state: 'loading' };
   useEffect(() => {
     if (caps.state !== 'ready' && caps.state !== 'empty') return undefined;
     const delay = capsRefreshDelay(caps.context.expires_at, Date.now());
