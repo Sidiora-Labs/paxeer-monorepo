@@ -5,15 +5,26 @@ Web attestors sign one raw digest with secp256k1 ECDSA. The digest is
 `"\x19Ethereum Signed Message"` prefix and no EIP-712 domain separator or
 struct hashing. Every integer is big-endian and fixed width; the domain is the
 ASCII string with no length prefix and no terminator. This is Solidity
-`abi.encodePacked` of the listed types. `types.Preimage` / `types.Digest` build
-these bytes, `types/attestation_test.go` recomputes the vectors below, and
-`types/testdata/preimage-vectors.json` carries the same vectors for the
-x-websearch sidecar and the kernel to assert.
+`abi.encodePacked` of the listed types.
+[`types.Preimage` / `types.Digest`](types/attestation.go) build these bytes,
+[`types/attestation_test.go`](types/attestation_test.go) recomputes the vectors
+below, and [`types/testdata/preimage-vectors.json`](types/testdata/preimage-vectors.json)
+carries the shared signing vectors.
 
-The same layout serves both origins. Origin 1 is a request made by a contract
-through the xweb precompile (`0x0000000000000000000000000000000000001019`) and
-fulfilled by `modules/xweb`; origin 2 is a request made by a kernel program and
-committed by the kernel web observation activity.
+The same layout serves both origins on one network. The kernel runs inside
+`paxd` and participates in block proposal. Both origins use the xweb precompile
+at `0x0000000000000000000000000000000000001019` and the persisted xweb keeper:
+
+- Origin 1: a contract calls `request`; `fulfil` delegates signature verification
+  and result storage to [`Keeper.Fulfil`](keeper/fulfil.go).
+- Origin 2: a program emits a `PAXEERX_WEB_REQUEST_V1` event;
+  [`Keeper.RequestFromProgram`](keeper/program.go) records the request.
+  [`fulfilProgram(bytes observation)`](../../precompiles/xweb/program.go) delegates
+  to [`Keeper.FulfilProgram`](keeper/program_fulfil.go), which verifies the
+  observation, stores the answer and pays the signers in chain state.
+
+Both paths use the same governance-managed xweb attestor set. A receipt is final
+when its block is committed.
 
 ## Preimage
 
@@ -23,42 +34,91 @@ Domain `PAXEERX_WEB_V1`. Preimage length 188 bytes.
 |-------:|-----:|----------------|--------------------------------------------------------------------------|
 |      0 |   14 | domain         | ASCII `PAXEERX_WEB_V1`                                                   |
 |     14 |    1 | origin         | uint8, 1 for the EVM precompile, 2 for a kernel program                  |
-|     15 |   32 | networkId      | uint256, the EVM chain id for origin 1, the kernel network id for origin 2 |
+|     15 |   32 | networkId      | uint256, the EVM chain id for origin 1, the configured kernel network id for origin 2 |
 |     47 |   32 | requester      | bytes32, the EVM address left-padded with zeros for origin 1, the 32-byte program id for origin 2 |
-|     79 |    8 | requestId      | uint64, the request id the module or the kernel assigned                 |
-|     87 |    1 | kind           | uint8, 1 fetch, 2 search, 3 api                                          |
+|     79 |    8 | requestId      | uint64, the module nonce for origin 1, the program-supplied request id for origin 2 |
+|     87 |    1 | kind           | uint8, 1 fetch, 2 search, 3 api, 4 storage receipt; support depends on origin |
 |     88 |   32 | payloadHash    | bytes32, keccak256 of the request payload bytes                          |
 |    120 |   32 | contentDigest  | bytes32, keccak256 of the canonical content bytes                        |
 |    152 |   32 | responseHash   | bytes32, keccak256 of the stored response bytes (at most 4096)           |
-|    184 |    4 | fullLength     | uint32, length of the full text the stored response is taken from       |
+|    184 |    4 | fullLength     | uint32, byte length of the full text or answer before response truncation |
 
 `digest = keccak256(preimage)`.
 
+For origin 1 the keeper reads the EVM chain id from chain state; mainnet-beta
+uses `125` (`0x7d`). For origin 2 it requires the observation's nonzero uint32
+network id to equal `Params.KernelNetworkId` (`kernel_network_id`); the signing
+preimage encodes that value in 32 bytes with 28 leading zero bytes. The
+precompile's `getKernelNetworkId()` exposes this configured value. These are
+origin-specific signing domains within the same network.
+
+[`types.KnownKind` and `types.ProgramKind`](types/state.go) define the request
+policy:
+
+| Kind | Request | Origin 1 | Origin 2 |
+|-----:|---------|----------|----------|
+| 1 | fetch | majority | majority |
+| 2 | search | majority | majority |
+| 3 | api | majority or single, selected by payload | unsupported |
+| 4 | storage receipt | majority | unsupported |
+
+Origin-2 request admission and persisted pending records accept only fetch and
+search. Although the [observation codec](types/observation.go) can encode kind 4,
+that alone does not provide a program storage-receipt lifecycle.
+
 ## Signature rules
 
-Enforced by `modules/xweb` fulfil in the shape of the bridge's verification,
-and by the kernel web intake:
+Enforced by `Keeper.Fulfil` for origin 1 and `Keeper.FulfilProgram` for origin 2,
+using [`layerxbridge/types.RecoverSigner`](../layerxbridge/types/attestation.go)
+for signature recovery:
 
 - each signature is 65 bytes `r (32) || s (32) || v (1)` with `v` in {27, 28}
   and `s <= secp256k1n / 2`;
 - signatures are ordered by strictly ascending recovered signer address, which
   also rejects a repeated signer;
-- every recovered signer must be a registered web attestor and at least
-  `threshold` signatures must be supplied; the threshold is always a strict
-  majority of the registered set;
+- every recovered signer must belong to the current registered web attestor
+  set; the majority level requires at least its `threshold`, which is a strict
+  majority of the set; an empty set accepts nothing;
 - the stored response is at most 4096 bytes and `fullLength` is never shorter
   than it;
-- a request is fulfilled at most once, and a refunded request is never
-  fulfilled.
+- a request is fulfilled at most once; origin 1 also rejects refunded requests;
+- origin 2 requires an active `v7.0` program-origin upgrade and an unpaused
+  module, a canonical observation with 1 to 16 signatures, the configured
+  network id, and a pending record matching the program id, request id, kind
+  and payload hash. The observation's wire encoding is distinct from the
+  188-byte signing preimage.
 
 An api request (kind 3) names its attestation level inside its payload, so the
 level is bound through `payloadHash` and the preimage keeps its 188 bytes.
 Under the single level a fulfilment carries exactly one signature, which must
 recover to the attestor the payload names; the threshold rule above applies to
-the majority level. `types/api.go` specifies the payload and
-`types/testdata/api-vectors.json` pins it.
+the majority level. [`types/api.go`](types/api.go) specifies the payload and
+[`types/testdata/api-vectors.json`](types/testdata/api-vectors.json) pins it.
+
+A storage-receipt request (kind 4, origin 1) uses
+[`types/storage_receipt.go`](types/storage_receipt.go): a nonzero 32-byte object
+digest followed by the UTF-8 base URL bytes, with no length prefix. The base URL
+must be 1 to 512 bytes, use HTTPS with a host, and contain no userinfo, query,
+fragment or trailing slash. `Keeper.Request` validates this payload before
+recording its `payloadHash`.
+
+The [x-websearch attestor](../../services/interop/crates/x-websearch/src/attest.rs)
+fetches `<baseURL>/manifests/<objectDigest>.json`, with the digest rendered as
+64 lowercase hexadecimal digits, and checks SHA-256 of those bytes against the
+payload's object digest. It builds receipt text
+`pns-receipt/v1\n<hex digest>\n<manifest byte length>\n<baseURL>\n` and stores its
+canonical encoding. The attestation's `contentDigest` is keccak256 of that
+canonical encoding; it is distinct from the SHA-256 object digest. On chain,
+the keeper verifies the signatures binding the stored request's payload hash,
+the supplied content digest, response hash and full length; it does not fetch
+the manifest itself.
 
 ## Vectors
+
+These are frozen compatibility vectors, not deployment settings. In particular,
+`713714` is the historical origin-1 test chain id, and origin-2 network id `1`
+is a fixture value. Live signing uses the chain state and governed configuration
+described above. The bytes, digests and signatures below remain unchanged.
 
 Vector `evm-fetch` (origin 1):
 
@@ -105,4 +165,5 @@ Vector `evm-api-single` (origin 1):
 - signer `0xe35182c595c7db5baf6237c02cf6f8177831f384`, signature
   `0x9144452b00ca7e3d2ff7909a87bc504d45409126175bee22aacf06eb64e8470e0ad0adf0f3c1b1c2ebb9887ae5fb5b293bdb0cbea5462f9bc54500064f7bbd9f1c`
 
-The full preimage bytes of each vector are in `types/testdata/preimage-vectors.json`.
+The full preimage bytes of each vector are in
+[`types/testdata/preimage-vectors.json`](types/testdata/preimage-vectors.json).
