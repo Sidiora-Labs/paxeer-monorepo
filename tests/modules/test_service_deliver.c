@@ -357,8 +357,20 @@ int main(void)
         memcmp(delivery.delivery_id, delivery_two, 32U) != 0 ||
         delivery.deliverable_count != 1U || delivery.global_sequence != 13U ||
         lx_service_agreement_lookup(&ctx, formed, &agreement) != LXP_OK ||
+        agreement.state != LX_SERVICE_AGREEMENT_DELIVERED ||
+        agreement.rejection_reason != 0U ||
+        agreement.contested_hash_count != 0U || agreement.default_applied ||
+        agreement.outcome_sequence != 0U ||
+        agreement.outcome_timestamp != 0U)
+        return 1;
+
+    length = reject_payload(payload, formed, 7U, contested, 1U);
+    if (dispatch(LX_SERVICE_REJECT, payload, length, &buyer, 100U, 14U, 16U,
+                 &outcome) != LXP_OK || outcome != LXP_OK ||
+        open_ctx(&ctx, 100U, 15U) != 0 ||
+        lx_service_agreement_lookup(&ctx, formed, &agreement) != LXP_OK ||
         agreement.state != LX_SERVICE_AGREEMENT_REJECTED ||
-        agreement.rejection_reason != 7U || agreement.outcome_sequence != 11U ||
+        agreement.rejection_reason != 7U || agreement.outcome_sequence != 14U ||
         agreement.outcome_timestamp != 100U)
         return 1;
 
