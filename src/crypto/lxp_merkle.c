@@ -93,7 +93,7 @@ lxp_result lxp_merkle_root(const lxp_merkle_leaf *leaves, size_t count,
 static uint8_t proof_depth(uint32_t count)
 {
     uint8_t depth = 0U;
-    while (count > 1U) { count = (count + 1U) / 2U; ++depth; }
+    while (count > 1U) { count = count / 2U + count % 2U; ++depth; }
     return depth;
 }
 
@@ -173,7 +173,7 @@ lxp_result lxp_merkle_proof_verify(const uint8_t leaf_hash[32],
         if (result != LXP_OK) return result;
         (void)memcpy(current, next, 32U);
         index /= 2U;
-        level_count = (level_count + 1U) / 2U;
+        level_count = level_count / 2U + level_count % 2U;
     }
     for (i = 0U; i < 32U; ++i) difference |= current[i] ^ expected_root[i];
     lxp_secure_zero(current, sizeof(current));
@@ -185,7 +185,9 @@ lxp_result lxp_merkle_proof_encode(lxp_codec_writer *writer,
                                    const lxp_merkle_proof *proof)
 {
     lxp_result result;
-    if (proof == NULL || proof->depth > LXP_MERKLE_MAX_DEPTH ||
+    if (proof == NULL || proof->leaf_count == 0U ||
+        proof->leaf_index >= proof->leaf_count ||
+        proof->depth > LXP_MERKLE_MAX_DEPTH ||
         proof->depth != proof_depth(proof->leaf_count)) return LXP_ERR_NON_CANONICAL;
     result = lxp_codec_write_struct_header(writer, 0x4d50U);
     if (result == LXP_OK) result = lxp_codec_write_u32(writer, proof->leaf_index);
