@@ -7,6 +7,7 @@
  */
 
 import { PAXEER_CONFIG } from '@/lib/constants';
+import { walletReadUrl, assertWalletReadResponse } from '../wallet-read-contract';
 
 export interface PortfolioApiOptions {
   signal?: AbortSignal;
@@ -65,13 +66,21 @@ const request = async <T>(
     body = JSON.stringify(init.body);
   }
 
-  const res = await fetch(url.toString(), { method, headers, body, signal: init.signal });
+  const requestUrl = method === 'GET' ? walletReadUrl(url.toString()) : url.toString();
+  const res = await fetch(requestUrl, {
+    method,
+    headers,
+    body,
+    signal: init.signal,
+    cache: 'no-store',
+  });
   const parsed = await parseBody(res);
 
   if (!res.ok) {
     throw new PortfolioApiError(res.status, parsed);
   }
 
+  if (method === 'GET') assertWalletReadResponse(res, requestUrl);
   return parsed as T;
 };
 

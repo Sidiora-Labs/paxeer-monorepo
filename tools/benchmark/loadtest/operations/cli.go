@@ -25,6 +25,62 @@ func RunCLI(ctx context.Context, args []string, input io.Reader, output io.Write
 	flags := flag.NewFlagSet(args[0], flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 	switch args[0] {
+	case "parse-transaction":
+		if len(args) != 2 {
+			return errors.New("expected identifier kind")
+		}
+		raw, e := io.ReadAll(io.LimitReader(input, 16<<20))
+		if e != nil {
+			return e
+		}
+		value, e := TransactionIdentifier(raw, args[1])
+		if e != nil {
+			return e
+		}
+		_, e = fmt.Fprintln(output, value)
+		return e
+	case "canonical-abi":
+		if len(args) != 1 {
+			return errors.New("ABI must be supplied on stdin")
+		}
+		raw, e := io.ReadAll(io.LimitReader(input, 16<<20))
+		if e != nil {
+			return e
+		}
+		entries, e := CanonicalABI(raw)
+		if e != nil {
+			return e
+		}
+		return json.NewEncoder(output).Encode(entries)
+	case "deploy-evm":
+		root := flags.String("root", "", "contract root")
+		endpoint := flags.String("endpoint", "", "RPC endpoint")
+		contract := flags.String("contract", "", "erc20 or erc721")
+		paxd := flags.String("paxd", filepath.Join(home, "go", "bin", "paxd"), "paxd executable")
+		if err = flags.Parse(args[1:]); err != nil {
+			return err
+		}
+		if *root == "" || flags.NArg() != 0 {
+			return errors.New("contract root is required")
+		}
+		address, e := DeployEVM(ctx, commands, EVMDeployment{Root: *root, Endpoint: *endpoint, Key: os.Getenv("BENCH_DEPLOYER_KEY"), Contract: *contract, Paxd: *paxd})
+		if e != nil {
+			return e
+		}
+		_, e = fmt.Fprintln(output, address)
+		return e
+	case "deploy-wasm":
+		root := flags.String("root", "", "contract root")
+		paxd := flags.String("paxd", "", "paxd executable")
+		key := flags.String("key", "", "admin key")
+		chain := flags.String("chain-id", "", "chain id")
+		if err = flags.Parse(args[1:]); err != nil {
+			return err
+		}
+		if flags.NArg() != 0 {
+			return errors.New("unexpected deployment arguments")
+		}
+		return DeployWasm(ctx, commands, WasmDeployment{Root: *root, Paxd: *paxd, Key: *key, Chain: *chain, Settle: 90 * time.Second}, output)
 	case "generate-bindings":
 		root := flags.String("bindings", "", "bindings directory")
 		abigen := flags.String("abigen", "abigen", "generator executable")

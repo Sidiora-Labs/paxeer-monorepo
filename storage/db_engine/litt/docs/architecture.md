@@ -56,6 +56,11 @@ In this hypothetical design, deletion would also remove the cache entry. Current
 checks base-table existence before serving a cache hit. Garbage collection removes keys and segment
 files without actively evicting those cache entries; cached bytes can remain until eviction or shutdown.
 The [final section](#putting-it-all-together-littdb) describes this distinction and its regression test.
+This is segment-driven visibility: deleting the segment's keymap entries makes its primary and
+secondary keys absent to the cache wrapper. It does not immediately reclaim their cached bytes.
+`RunGC` completes keymap removal before returning; releasing the segment schedules asynchronous file deletion
+after all reservations are released. [TestRepairM_1165_CacheDeletion](../repair_m1165_test.go)
+checks immediate cache invisibility, waits for file removal, and verifies the state after reopening.
 
 ## Iteration 3: Add an index
 

@@ -16,4 +16,4 @@ if [ -z "$CONFIG_PATH" ]; then
 fi
 CONFIG_PATH="$(cd "$(dirname "$CONFIG_PATH")" && pwd)/$(basename "$CONFIG_PATH")"
 
-$BINARY_PATH $CONFIG_PATH
+exec "$BINARY_PATH" "$CONFIG_PATH"

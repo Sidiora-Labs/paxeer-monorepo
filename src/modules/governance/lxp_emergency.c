@@ -26,6 +26,15 @@ static int same_scope(const lxp_gov_pause_record *pause,
         memcmp(pause->market_id, market_id, 32U) == 0;
 }
 
+static int scope_valid(lxp_pause_scope scope, uint16_t module_id,
+                        const uint8_t market_id[32])
+{
+    return scope >= LXP_PAUSE_MODULE && scope <= LXP_PAUSE_NETWORK &&
+        (scope == LXP_PAUSE_NETWORK ? module_id == 0U :
+         module_id != 0U && module_id <= LXP_MAX_GOV_MODULE_ID) &&
+        (scope != LXP_PAUSE_MARKET || !zero_id(market_id));
+}
+
 static lxp_result ordered(lxp_gov_emergency_state *state,
                           uint64_t ordered_sequence,
                           bool governance_authorized,
@@ -79,23 +88,23 @@ lxp_result lxp_gov_emergency_halt(
 {
     lxp_gov_pause_record pause;
     size_t i;
+    size_t slot;
     lxp_result status;
     if (!state_counts_valid(state) || trigger == NULL ||
         exit_conditions == NULL ||
-        entry_epoch == 0U || scope < LXP_PAUSE_MODULE ||
-        scope > LXP_PAUSE_NETWORK ||
-        (scope == LXP_PAUSE_NETWORK && module_id != 0U) ||
-        (scope != LXP_PAUSE_NETWORK && module_id == 0U) ||
-        (scope == LXP_PAUSE_MARKET && zero_id(market_id)) ||
-        state->pause_count == LXP_MAX_GOV_PAUSES)
+        entry_epoch == 0U || !scope_valid(scope, module_id, market_id))
         return LXP_ERR_NON_CANONICAL;
     status = ordered(state, ordered_sequence, governance_authorized,
                      ordered_governance_activity);
     if (status != LXP_OK) return status;
-    for (i = 0U; i < state->pause_count; ++i)
+    slot = state->pause_count;
+    for (i = 0U; i < state->pause_count; ++i) {
+        if (!state->pauses[i].active && slot == state->pause_count) slot = i;
         if (state->pauses[i].active && same_scope(
                 &state->pauses[i], scope, module_id, market_id))
             return LXP_ERR_PAUSED_SCOPE;
+    }
+    if (slot == LXP_MAX_GOV_PAUSES) return LXP_ERR_NON_CANONICAL;
     (void)memset(&pause, 0, sizeof(pause));
     pause.scope = scope;
     pause.module_id = module_id;
@@ -107,7 +116,8 @@ lxp_result lxp_gov_emergency_halt(
     pause.active = true;
     status = event_append(state, &pause, ordered_sequence, true);
     if (status != LXP_OK) return status;
-    state->pauses[state->pause_count++] = pause;
+    state->pauses[slot] = pause;
+    if (slot == state->pause_count) ++state->pause_count;
     return LXP_OK;
 }
 
@@ -119,8 +129,7 @@ lxp_result lxp_gov_emergency_resume(
 {
     size_t i;
     lxp_result status;
-    if (!state_counts_valid(state) || scope < LXP_PAUSE_MODULE ||
-        scope > LXP_PAUSE_NETWORK)
+    if (!state_counts_valid(state) || !scope_valid(scope, module_id, market_id))
         return LXP_ERR_NON_CANONICAL;
     status = ordered(state, ordered_sequence, governance_authorized,
                      ordered_governance_activity);

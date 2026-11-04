@@ -1,27 +1,31 @@
 package testutil
 
 import (
+	"fmt"
 	"net/http"
-	"os"
-	"strconv"
 	"testing"
+	"time"
 )
 
+const testServerProbeTimeout = 2 * time.Second
+
 func CheckTestServer(t *testing.T, url string) bool {
-	if _, err := http.Get(url); err != nil {
-		const SKIP_MOCK_TESTS = "SKIP_MOCK_TESTS"
-		if str, ok := os.LookupEnv(SKIP_MOCK_TESTS); ok {
-			skip, err := strconv.ParseBool(str)
-			if err != nil {
-				t.Fatalf("strconv.ParseBool(os.LookupEnv(%s)) failed: %s", SKIP_MOCK_TESTS, err)
-			}
-			if skip {
-				t.Skip("The test will not run without a mock server running against your OpenAPI spec")
-				return false
-			}
-			t.Errorf("The test will not run without a mock server running against your OpenAPI spec. You can set the environment variable %s to true to skip running any tests that require the mock server", SKIP_MOCK_TESTS)
-			return false
-		}
+	t.Helper()
+	if err := probeTestServer(url); err != nil {
+		t.Errorf("Test server probe failed: %s", err)
+		return false
 	}
 	return true
+}
+
+func probeTestServer(url string) error {
+	client := &http.Client{Timeout: testServerProbeTimeout}
+	response, err := client.Get(url)
+	if err != nil {
+		return fmt.Errorf("GET %q: %w", url, err)
+	}
+	if err := response.Body.Close(); err != nil {
+		return fmt.Errorf("close response from %q: %w", url, err)
+	}
+	return nil
 }

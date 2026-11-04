@@ -1,0 +1,17 @@
+[repair.22.33.1316]
+status = "awaiting_qualification"
+grpc-web-supply-assertion = "TestRepairM_1316_GRPCWebSupply: real bank genesis, keeper, loopback gRPC-Web handler and preserved Test_Total_Supply consumer; decode error and every denomination and amount asserted."
+grpc-test-source-errors = "TestRepairM_1316_GRPCConstructorsAndCredentials: real network.DefaultConfig(testing.T), its node.Setup-backed AppConstructor, bank keeper, loopback gRPC credentials and reflection; server_test.go passes s.T() to both real constructors and imports credentials/insecure."
+baseline = "Attempt 1 verification at 5817075aab1ce04e7cc5248245a3441861602a9d failed during compilation in out-of-scope auth, staking and tokenfactory CLI packages; neither TestRepairM_1316_ test executed. No unchanged-tree baseline was run because the gate order permits verification only after implementation and hf-build."
+evidence = "The runner's private hf-build/hf-done ledger records the exact candidate revision, command, exit code and log; this record does not claim an unexecuted gate."
+continuation = "Preserved all four files from attempt 1. Base 13d941baae20489831996ea7db5fde01ad1e253d already updates the previously failing CLI callers to handle both NewFactoryCLI return values; no out-of-scope repair was made here. Current qualification is recorded separately in the runner's private ledger."
+repair_cycle = "Verification at 04d919bb1c5d459e732881070c0a74815fd050d0 failed to compile because ProtoCodec has no UnmarshalJSON method; the genesis assertion now calls the configured codec's actual UnmarshalAsJSON method and retains its error assertion. Evidence: /out/logs/verify-1.log and /tmp/repair-m1316.log."
+wiring_request = "spec/layerx-merge/spec.kvx, owner fm-cosmos-fork: qualify the preserved TestIntegrationTestSuite under -tags=norace; the declared default-tag gate cannot execute that tagged suite and no additional gate is authorized here."
+
+[qualification.22.33.1316]
+revision = "5817075aab1ce04e7cc5248245a3441861602a9d"
+command = "cg spec done 22.33.1316 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; compiler diagnostics: /tmp/repair-m1316.log"
+observed = "Build passed at this revision, but verification could not compile the package because existing auth, staking and tokenfactory CLI callers expect one value from tx.NewFactoryCLI, which returns two; neither repair test executed."
+assumption = "Out-of-scope CLI owners must repair sdk/x/auth/client/cli, sdk/x/staking/client/cli and modules/tokenfactory/client/cli; the failure is recorded without another gate run or any assertion change."

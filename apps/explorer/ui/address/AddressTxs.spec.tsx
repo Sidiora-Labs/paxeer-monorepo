@@ -53,12 +53,12 @@ describe('AddressTxs', () => {
       .toBe('A total of 50 transactions found');
   });
 
-  it('puts the page-data download in the card header', () => {
+  it('puts the date-range CSV export in the card header', () => {
     const { container } = render(<AddressTxs txsCount={ 741895 }/>);
 
     const actions = container.querySelector('[data-scan-table-card] [data-actions]') as HTMLElement;
 
-    expect(actions.textContent).toContain('Download Page Data');
+    expect(actions.textContent).toContain('Export CSV by date range');
   });
 
   it('leaves the direction to the rows instead of the card header', () => {
@@ -68,7 +68,7 @@ describe('AddressTxs', () => {
 
     expect(container.querySelector('[data-scan-table-card] [data-actions] [data-direction]')).toBeNull();
     expect((container.querySelector('[data-scan-table-card] [data-actions]') as HTMLElement).textContent)
-      .toContain('Download Page Data');
+      .toContain('Export CSV by date range');
   });
 
   it('keeps the embedded transactions list inside the single card the tab opens', () => {
@@ -87,7 +87,7 @@ describe('AddressTxs', () => {
     expect(viewAll.getAttribute('href')).toBe('/txs');
     expect(viewAll.textContent).toBe('View all transactions →');
     expect(Array.from(container.querySelectorAll('[data-csv-export-label]')).map((item) => item.textContent))
-      .toEqual([ 'Download Page Data', 'CSV Export' ]);
+      .toEqual([ 'Export CSV by date range', 'CSV Export' ]);
   });
 
   it('asks for the local list when the address page lands without a tab', async() => {

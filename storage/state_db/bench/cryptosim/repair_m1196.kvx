@@ -1,0 +1,20 @@
+[repair.22.33.1196]
+audit = "22.30.55"
+qualification = "Only hf-build and hf-done qualify the unchanged candidate; the runner retains the exact verified revision, command, exit and private evidence log."
+baseline = "Not run: the explicit gate order requires complete implementation before any test and forbids running verify_cmd by hand; no baseline failures are claimed."
+limits = "Normal-stop recovery; state and receipt stores retain separate durability boundaries and do not provide a shared crash checkpoint."
+wiring_requests = "None; all proposed implementation and test changes are inside the authorized package."
+
+[finding.receipt-workload-test-gap]
+test = "TestRepairM_1196_ReceiptWorkloadRecovery"
+proof = "Production block generation, executor dispatch and receipt transport feed Pebble; configured concurrent receipt and log-filter ticker readers produce observed operations and refusal metrics; close/reopen recovers every decoded receipt and log."
+supporting_test = "TestReceiptSimulatorBackendWorkload"
+
+[finding.cryptosim-cancel-flush]
+test = "TestRepairM_1196_CancelFlushRecovery"
+additional_tests = ["TestRepairM_1196_FlushFailureIsExplicit", "TestRepairM_1196_DatabaseCloseFlushFailure"]
+proof = "Cancellation with a deterministically queued real block cannot release Flush or Close before execution acknowledgement; all participants join before database close, and reopened transaction values, counters and decoded receipts match the accepted block. Closed admission and failed flush are explicit errors, prevent finalization and reach CryptoSim.Close."
+
+[gotcha.baseline-order]
+observed = "The task step requesting an unchanged-tree baseline conflicts with its explicit gate order and single bounded verification allowance."
+resolution = "Follow the explicit gate order and record no baseline claim."

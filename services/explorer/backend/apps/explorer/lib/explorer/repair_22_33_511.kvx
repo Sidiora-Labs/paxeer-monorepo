@@ -1,0 +1,18 @@
+[repair.22.33.511]
+audit = "22.30.152"
+acceptance = "22998.1"
+findings = ["tag-config"]
+test_file = "services/explorer/backend/apps/explorer/test/repair/repair_22_33_511_test.exs"
+baseline = "No previous task implementation or gate ledger existed; builds_used and verify_runs_used were zero. The explicit ordered instructions require complete implementation before qualification and prohibit a manual verify run, so no unchanged-tree verification or pre-change test failure is claimed."
+wiring_requests = []
+evidence = "The runner's /out/run/gates.jsonl and final hf-done JSON record the exact candidate revision, command, exit code and private evidence log; closure requires the declared verify gate to pass."
+
+[finding.tag-config]
+implementation = "Decode JSON with string keys, validate the entire list and exact tag/title entry schema, then convert only the two known fields to atom keys. Reject malformed JSON, non-list values, unknown/missing keys, non-string and blank fields with an explicit NEW_TAGS error. Validate synchronously before starting the cataloger, whose state retains the validated snapshot for import."
+proving_tests = ["tag-config valid configuration reaches cataloger storage and recorded address consumer", "tag-config absent setting and explicit empty list are empty successful cataloger inputs", "tag-config objects and scalars fail explicitly before cataloger startup", "tag-config every entry must have exactly two non-empty string fields", "tag-config unknown string keys are rejected without creating atoms", "tag-config malformed JSON and non-string configuration never silently erase tags"]
+path = "Runtime NEW_TAGS application configuration -> real EnvVarTranslator -> Cataloger.init and its emitted fetch message -> real Cataloger.handle_info -> AddressTag schema and Repo -> AddressToTag binding of a miner decoded from the committed Paxeer X consecutive-block RPC recording. Invalid configuration drives real Cataloger.start_link and proves no process starts, no prefix imports and existing stored tags remain intact. Validator discovery and unrelated address-binding RPC are not invoked by the focused import callback proof."
+
+[gotcha.22.33.511]
+area = "qualification"
+symptom = "The baseline verify instruction conflicts with the explicit implementation-first bounded gate order."
+do = "Follow the explicit gate order and report no baseline test result; the scope forbids changing the root gotcha ledger or spec task record, so retain this task-local record instead."
