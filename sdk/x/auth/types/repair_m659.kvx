@@ -1,0 +1,26 @@
+[repair.22.33.659]
+finding = "nil-key-account-invalid-address"
+implementation = "BaseAccount.Validate parses every address before permitting an unset public key; key/address agreement remains mandatory when a key exists."
+tests = ["TestRepairM_659_InvalidNilKeyAddresses", "TestRepairM_659_KeyAddressAgreement", "TestRepairM_659_FundedAccountWithoutKey"]
+proof = "Production constructors, protobuf JSON genesis transport, genesis validators, and real auth/bank keepers backed by an in-memory multistore."
+baseline = "Not run: the explicit gate order prohibits verification before implementation and running verify_cmd by hand; no prior gate ledger or repair tests existed. No baseline failure is claimed."
+wiring_requests = []
+evidence = "The runner gate ledger records the exact candidate revision, command, exit code and private log; final response copies hf-done evidence."
+
+[gotcha.gate-order]
+observed = "The task steps request an unchanged-tree verification, but the explicit Order allows verification only through hf-done after implementation and hf-build."
+resolution = "Follow the explicit Order and record the omitted baseline honestly; do not edit the out-of-scope root gotcha ledger or spec records."
+
+[gotcha.codec-json-methods]
+observed = "The first verification failed to compile the new test helper because ProtoCodec has no MarshalJSON or UnmarshalJSON methods."
+resolution = "Use the repository's production MarshalAsJSON and UnmarshalAsJSON methods."
+revision = "ed0bf3bddda8a8290302f2399604c870f86068d9"
+command = "cg spec done 22.33.659 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; compiler diagnostics in /tmp/repair-m659.log"
+
+[gotcha.json-round-trip-cache]
+observed = "The seeded attempt failed KeyAddressAgreement for accounts with keys because MarshalAsJSON populates the source Any compatibility cache while the decoded Any has not yet been marshaled."
+resolution = "Marshal the decoded genesis through the same production codec before the existing full account equality assertion; additionally assert exact JSON value equality across the round trip."
+seed_revision = "90fa177bfcc93234e23edfffe2dd47ffa95c4b4e"
+baseline = "The seeded repair already passed InvalidNilKeyAddresses and FundedAccountWithoutKey; no unchanged-main-line gate was run in this continuation."
