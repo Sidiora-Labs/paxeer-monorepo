@@ -178,7 +178,7 @@ mod tests {
         };
         let request = IncomingRequest {
             method: "POST".into(),
-            path: "/rpc".into(),
+            path: "/".into(),
             headers: BTreeMap::from([("content-type".into(), "application/json".into())]),
             body: Vec::new(),
         };

@@ -1382,7 +1382,7 @@ impl AgentRuntime {
         if value.active_budget_id != active_budget_id
             || value.revocation_sequence == 0
             || value.observed_head_sequence < value.revocation_sequence
-            || !(4..=5).contains(&value.verification)
+            || crate::agents::rung_from_rank(value.verification).is_err()
             || value.evidence_digest == [0; 32]
             || value.receipt_digest == [0; 32]
             || value.checkpoint_digest == [0; 32]
@@ -1485,7 +1485,7 @@ impl AgentRuntime {
             || value.required_delay_seconds > value.maximum_delay_seconds
             || value.effective_sequence == 0
             || value.observed_head_sequence < value.effective_sequence
-            || !(4..=5).contains(&value.verification)
+            || crate::agents::rung_from_rank(value.verification).is_err()
             || value.evidence_digest == [0; 32]
             || value.checkpoint_digest == [0; 32]
             || value.maximum_age_sequences == 0
