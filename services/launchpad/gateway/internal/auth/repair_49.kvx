@@ -1,0 +1,12 @@
+[repair.22.31.49]
+audit = "22.30.32"
+source_revision = "7a46d90eecc4435aea1d78bdd9590421997ccc7e"
+finding = "browser_challenge_idempotency"
+status = "gateway-contract-covered; browser-wiring-outstanding"
+tests = ["TestRepair_49_ChallengeRetryAndVerification", "TestRepair_49_ChallengeRequiresUUID", "TestRepair_49_ChallengeRetryRequiresExactBody"]
+coverage = "Real registered gateway HTTP handlers, PostgreSQL attempt/challenge/session state, EIP-191 signing, JWT authentication and browser-cookie delivery; a contract-correct HTTP caller reuses one UUID and serialized body across retries."
+limitation = "These Go tests do not execute BrowserIdentitySession and do not close the active browser producer defect."
+wiring_request = "Launchpad web / owner_domain 4: apps/launchpad/web/src/core/wallet-sdk/auth.ts must create a UUID and serialize the body once per challenge attempt, send Idempotency-Key on the initial request, reuse both values on transport retries, allocate a new UUID for a new attempt, and prove BrowserIdentitySession.login obtains and verifies the real gateway challenge."
+baseline = "Not run: the prescribed gate order forbids verify before implementation and forbids running verify_cmd by hand; no earlier hf-build/hf-done ledger or auth changes existed at session start, so no baseline failures are claimed."
+evidence = "The runner's private gates.jsonl and final hf-done evidence line record the exact candidate revision, command, exit code and log path; qualification does not imply the outstanding browser wiring is complete."
+gotcha = "The proposed production fix belongs to the out-of-scope web caller; accepting a missing UUID or generating one at the gateway would weaken the required idempotency contract."

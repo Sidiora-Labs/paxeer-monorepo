@@ -8,13 +8,8 @@
 // module even when its genesis parameters were absent. Genesis JSON is produced
 // by AppModule.ExportGenesis and replayed by AppModule.InitGenesis.
 //
-// Outside scope: sdk/baseapp/grpcrouter.go's protoCodec uses the default Google
-// protobuf codec. Its Marshal currently panics on the real ProgramResult
-// response's custom types.Hash32; successful wire serialization is expected
-// once that codec supports SDK custom types. The proof asserts this current
-// behavior without replacing the codec, and exercises the exported Go query
-// methods for custom-type responses. Plain request/counter responses and error
-// statuses cross the unchanged default gRPC transport.
+// Successful custom-type query responses cross the registered protobuf gRPC
+// transport after disk reopen, using the same generated query client as callers.
 package keeper_test
 
 import (
@@ -53,8 +48,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/encoding"
-	grpcproto "google.golang.org/grpc/encoding/proto"
 	"google.golang.org/grpc/status"
 )
 
@@ -242,18 +235,12 @@ func TestProofGoApiProducerTransportConsumer(t *testing.T) {
 	client, stop := proofGoAPIQueries(t, a, ctx)
 	queryCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	queryServer := keeper.NewQueryServer(a.XWebKeeper)
-	goCtx := sdk.WrapSDKContext(ctx)
-	answer, err := queryServer.ProgramResult(goCtx, &types.QueryProgramResultRequest{ProgramId: program[:], RequestId: requestID})
+	answer, err := client.ProgramResult(queryCtx, &types.QueryProgramResultRequest{ProgramId: program[:], RequestId: requestID})
 	require.NoError(t, err)
 	require.Equal(t, observation.ContentDigest, answer.ContentDigest)
 	require.Equal(t, response, answer.Response)
 	require.Equal(t, uint32(4000), answer.FullLength)
 	require.Equal(t, uint32(len(response)), answer.ResponseLength)
-	// This is the producer's real response, not a fabricated transport fixture.
-	require.PanicsWithValue(t,
-		"invalid Go type types.Hash32 for field paxprotocol.paxchain.xweb.QueryProgramResultResponse.content_digest",
-		func() { _, _ = encoding.GetCodec(grpcproto.Name).Marshal(answer) })
 	request, err := client.ProgramRequest(queryCtx, &types.QueryProgramRequestRequest{ProgramId: program[:], RequestId: requestID})
 	require.NoError(t, err)
 	pending, err := keeper.DecodeProgramPendingRecord(request.Record)
@@ -265,10 +252,10 @@ func TestProofGoApiProducerTransportConsumer(t *testing.T) {
 	require.NoError(t, err)
 	require.Zero(t, counters.Pending)
 	require.Equal(t, uint64(1), counters.Committed)
-	params, err := queryServer.Params(goCtx, &types.QueryParamsRequest{})
+	params, err := client.Params(queryCtx, &types.QueryParamsRequest{})
 	require.NoError(t, err)
 	require.Equal(t, genesis.Params, params.Params)
-	attestors, err := queryServer.Attestors(goCtx, &types.QueryAttestorsRequest{})
+	attestors, err := client.Attestors(queryCtx, &types.QueryAttestorsRequest{})
 	require.NoError(t, err)
 	require.Equal(t, genesis.Attestors.Attestors, attestors.Attestors)
 	require.Equal(t, uint32(3), attestors.Threshold)

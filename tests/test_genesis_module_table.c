@@ -243,6 +243,68 @@ static int check_storage_retirement_registration(void)
     return 0;
 }
 
+static int check_guest_abi_v5_registration(void)
+{
+    static const uint8_t key[32] = LXP_PROGRAMS_GUEST_ABI_V5_PARAMETER;
+    static const uint8_t retirement_key[32] = LXP_PROGRAMS_STORAGE_RETIREMENT_PARAMETER;
+    static const uint16_t versions[] = {
+        LXP_PROTOCOL_VERSION_OCCUPANCY, LXP_PROTOCOL_VERSION_STATE_COMMITMENT
+    };
+    lxp_genesis_manifest manifest;
+    lxp_genesis_module_plan plan;
+    const lxp_module_iface *retirement =
+        programs_module_registration_v4_storage_retirement();
+    for (size_t version = 0U; version < sizeof(versions) / sizeof(versions[0]);
+         ++version) {
+        for (uint8_t enabled = 0U; enabled <= 1U; ++enabled) {
+            for (uint8_t retire = 0U; retire <= 1U; ++retire) {
+                draft_manifest(&manifest, key, enabled);
+                manifest.protocol_version = versions[version];
+                if (retire != 0U) {
+                    manifest.parameters[2] = manifest.parameters[1];
+                    manifest.parameters[1] = manifest.parameters[0];
+                    memcpy(manifest.parameters[1].key, retirement_key, 32U);
+                    manifest.parameters[1].value[31] = 1U;
+                    manifest.parameter_count = 3U;
+                }
+                REQUIRE(lxp_genesis_module_plan_resolve(&manifest, &plan) == LXP_OK);
+                const lxp_module_iface *iface = plan.modules[0];
+                REQUIRE(iface == (enabled ? programs_module_registration_v5() :
+                    retire ? retirement : programs_module_registration_v4()));
+                REQUIRE(iface->abi_version == (enabled ? 5U : 4U));
+                if (enabled != 0U) {
+                    REQUIRE(iface->activity_type_count == retirement->activity_type_count);
+                    REQUIRE(memcmp(iface->activity_types, retirement->activity_types,
+                        retirement->activity_type_count * sizeof(retirement->activity_types[0])) == 0);
+                    size_t retirement_count = 0U;
+                    for (size_t type = 0U; type < iface->activity_type_count; ++type)
+                        if (iface->activity_types[type] == LX_PROGRAMS_STORAGE_RETIREMENT)
+                            ++retirement_count;
+                    REQUIRE(retirement_count == 1U);
+                }
+            }
+        }
+    }
+    draft_manifest(&manifest, key, 2U);
+    REQUIRE(lxp_genesis_module_plan_resolve(&manifest, &plan) == LXP_ERR_NON_CANONICAL);
+    manifest.parameters[0].value[31] = 1U;
+    for (size_t i = 0U; i < 31U; ++i) {
+        manifest.parameters[0].value[i] = 1U;
+        REQUIRE(lxp_genesis_module_plan_resolve(&manifest, &plan) == LXP_ERR_NON_CANONICAL);
+        manifest.parameters[0].value[i] = 0U;
+    }
+    manifest.parameters[0].module_id = LXP_MODULE_PROGRAMS;
+    REQUIRE(lxp_genesis_module_plan_resolve(&manifest, &plan) == LXP_ERR_NON_CANONICAL);
+    manifest.parameters[0].module_id = LXP_MODULE_GOVERNANCE;
+    manifest.parameters[2] = manifest.parameters[0];
+    manifest.parameter_count = 3U;
+    REQUIRE(lxp_genesis_module_plan_resolve(&manifest, &plan) == LXP_ERR_SEQUENCE_REUSED);
+    manifest.parameter_count = 2U;
+    manifest.parameters[0].key[31] = 1U;
+    REQUIRE(lxp_genesis_module_plan_resolve(&manifest, &plan) == LXP_ERR_UNKNOWN_MODULE);
+    return 0;
+}
+
 static int check_no_handover_type(void)
 {
     lxp_genesis_module_plan plan;
@@ -829,6 +891,8 @@ static int check_public_fixture_v4(void)
 
 int main(int argc, char **argv)
 {
+    REQUIRE(lxp_test_register("genesis.module-table.guest-abi-v5-registration",
+                              check_guest_abi_v5_registration) == 0);
     REQUIRE(lxp_test_register("genesis.module-table.storage-retirement-registration",
                               check_storage_retirement_registration) == 0);
     REQUIRE(lxp_test_register("genesis.module-table.storage-retirement-roundtrip",
