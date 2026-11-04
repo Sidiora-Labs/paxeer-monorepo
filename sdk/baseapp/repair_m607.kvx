@@ -1,0 +1,36 @@
+[repair.22.33.607]
+audit = "22.30.162"
+base_revision = "26bb0fe1436e9a72a6260976b19c445841ae7af0"
+criterion = "22998.1"
+verified_revision = "Recorded by hf-done in the task's qualification evidence and private gates.jsonl; no qualification is claimed by this source record."
+baseline = "Not run: the explicit gate order forbids verification before the complete implementation and permits hf-done only after hf-build; there were no earlier gate ledger entries."
+
+[finding.sealed-retention-context]
+proof = "TestRepairM_607_SealedRetentionContext -> TestCommitSealedRetention"
+repair = "Select stateToCommit for evidence retention; use the legacy deliver state only when no selected commit state exists, preserving the public retention query contract."
+assertions = "Pruning enabled at the sealed commit, nil deliver state and deliver evidence ages both shorter and longer than sealed evidence; retained height 7 at block 12, sealed header, committed value and consensus parameters."
+
+[finding.sealed-retention-test]
+proof = "TestRepairM_607_SealedRetentionContext -> TestCommitSealedRetention"
+repair = "Real parameter subspace, independent cache branches and real Commit calls; the selected sealed state's evidence window determines pruning."
+
+[finding.concurrent-check-deliver-test]
+proof = "TestRepairM_607_ConcurrentCheckDeliver -> TestConcurrentCheckDeliver"
+repair = "Synchronize overlapping ante cache writes through the BaseApp Check helper and decoded Deliver path; verify successful and rejected ante/message effects, check-only admission and exact committed/check reset state."
+runtime = "runTx now returns after successful Check/ReCheck ante handling, as its documented mode contract requires, without executing message handlers."
+wiring_request = "node/abci.go and node/cosmos_checktx_test.go — node domain: drive the full App.CheckTx admission override with signed transactions under the same synchronized overlap and exact commit assertions; this SDK-only gate proves BaseApp cache isolation, not node admission policy."
+
+[finding.block-gas-test-disabled]
+proof = "TestRepairM_607_MaxBlockGasLimits -> TestMaxBlockGasLimits"
+repair = "Restore executable transaction/block gas boundary cases with current consensus parameters and SDK meters; charge the parent delivery meter before publishing successful message writes, and retain gas charges for failed execution."
+assertions = "Zero transactions, partial block use, exact block limit, next transaction after exhaustion, crossing the limit, per-transaction exhaustion, exact gas responses and exact committed success counts."
+wiring_request = "node/legacyabci/deliver_tx.go and consensus/state/execution.go — node/consensus domains: retain full-node gas-budget coverage for the production execution policy; this gate exercises BaseApp delivery with a bounded parent SDK gas meter."
+
+[finding.snapshot-fixture-cache-bypass]
+proof = "TestRepairM_607_SnapshotRollbackRestoreReopen"
+repair = "Snapshot fixture writes through ctx.KVStore; failed multi-message transactions prove insert and overwrite rollback; enable synchronous Pebble SS and transport actual snapshot chunks through BaseApp offer/load/apply."
+assertions = "All 200 deterministic successful values, rolled-back keys absent, restored commitment identity and SS value/latest/earliest version immediately after restore and after close/reopen, without committing another block."
+
+[gotcha.task-record-scope]
+observed = "The task steps ask for a baseline run and spec-record edits, while the explicit order permits only post-implementation gates and forbids all spec edits."
+action = "Follow the explicit order; retain finding-to-test mappings and out-of-path wiring requests here within sdk/baseapp, and let hf-done write the authoritative qualification evidence."
