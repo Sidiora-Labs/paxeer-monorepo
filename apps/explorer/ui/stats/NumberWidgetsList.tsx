@@ -29,11 +29,17 @@ export function formatCounterValue(value: string): string {
   return valueNum.toLocaleString(undefined, { maximumFractionDigits, notation: 'compact' });
 }
 
-// A counter measured in percent is the only change figure the counters service publishes, so it is
-// the one the grid tones: rising in the success tone, falling in the destructive one. Every other
-// counter is an absolute number and keeps the plain value tone.
-export function getCounterDeltaDirection(counter: stats.Counter): ScanStatDeltaDirection | undefined {
-  if (counter.units !== PERCENT_UNITS) {
+export type CounterValueSemantics = 'absolute' | 'change';
+
+interface Props {
+  counterSemantics?: Readonly<Record<string, CounterValueSemantics>>;
+}
+
+export function getCounterDeltaDirection(
+  counter: stats.Counter,
+  semantics: CounterValueSemantics = 'absolute',
+): ScanStatDeltaDirection | undefined {
+  if (semantics !== 'change') {
     return undefined;
   }
 
@@ -46,7 +52,7 @@ export function getCounterDeltaDirection(counter: stats.Counter): ScanStatDeltaD
   return valueNum < 0 ? 'down' : 'up';
 }
 
-const NumberWidgetsList = () => {
+const NumberWidgetsList = ({ counterSemantics }: Props) => {
   const { data, isPlaceholderData, isError } = useApiQuery('stats:counters', {
     queryOptions: {
       placeholderData: { counters: Array(10).fill(STATS_COUNTER) },
@@ -65,7 +71,7 @@ const NumberWidgetsList = () => {
     >
       {
         data?.counters?.map((counter, index) => {
-          const direction = getCounterDeltaDirection(counter);
+          const direction = getCounterDeltaDirection(counter, counterSemantics?.[counter.id]);
           const text = `${ formatCounterValue(counter.value) }${ formatCounterUnits(counter.units) }`;
 
           return (
