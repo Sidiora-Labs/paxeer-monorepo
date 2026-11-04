@@ -14,9 +14,5 @@
   },
   "engines": {
     "node": ">=22.18.0"
-  },
-  "devDependencies": {
-    "@supabase/supabase-js": "^2.45.4",
-    "typescript": "5.9.2"
   }
 }
