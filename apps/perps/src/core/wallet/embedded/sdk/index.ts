@@ -31,9 +31,13 @@ import {
 import {
   PaxeerProvider,
   type PaxeerProviderConfig,
-} from "../../../../../../../sdk/wallet/src/provider";
+} from "@paxeer/wallet/provider";
 
 export * from "./types";
+export {
+  readSequencerReceipt,
+  waitForSequencerReceipt,
+} from "@paxeer/wallet/receipt";
 
 export type OAuthProvider = "google" | "apple" | "twitter" | "github" | "discord";
 
