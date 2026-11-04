@@ -2468,15 +2468,5 @@
       },
       "description": "Returns the unified-origin route catalogue and dependency readiness. Readiness reports dependency health and identity checks; route entries describe request contracts and do not establish successful end-to-end feature execution."
     }
-  ],
-  "servers": [
-    {
-      "name": "Paxeer X",
-      "url": "https://api-mainnet-beta.paxeer.network"
-    },
-    {
-      "name": "Paxeer X RPC path",
-      "url": "https://api-mainnet-beta.paxeer.network/rpc"
-    }
   ]
 }
