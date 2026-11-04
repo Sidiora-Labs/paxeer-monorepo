@@ -43,7 +43,7 @@ fn assert_blocks_preserved(wire: &Value, typed: &HealthCheckResponse) {
         assert!(number.chars().all(|c| c.is_ascii_digit()));
     }
 
-    assert_eq!(typed.healthy, Some(true));
+    assert_eq!(typed.healthy, true);
     let decoded = serde_json::to_value(typed).expect("serialize generated health model");
     assert_eq!(
         decoded["metadata"]["blocks"], *blocks,
