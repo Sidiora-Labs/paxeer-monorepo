@@ -19,7 +19,6 @@ from .program_wire import (
     verify_native_program_call_signature,
 )
 from .verifier import (
-    AuthorizedReceiptBatch,
     LocalSignatureVerifier,
     ReceiptKey,
     ReceiptVerification,
@@ -143,12 +142,14 @@ class ProgramTrustContext:
         if not isinstance(self.receipt_keys, tuple) or any(
             not isinstance(key, ReceiptKey)
             or not isinstance(key.key_id, bytes) or len(key.key_id) != 32 or not any(key.key_id)
-            or not isinstance(key.public_key, bytes) or key.public_key != self.sequencer_public_key
+            or not isinstance(key.public_key, bytes) or len(key.public_key) != 32 or not any(key.public_key)
             or type(key.first_height) is not int or type(key.last_height) is not int
             or not 0 < key.first_height <= key.last_height <= _MAX_U64
             for key in self.receipt_keys
         ):
             raise ValueError("invalid pinned receipt keys")
+        if len({key.key_id for key in self.receipt_keys}) != len(self.receipt_keys):
+            raise ValueError("duplicate pinned receipt key ID")
         object.__setattr__(self, "sequencer_public_key", bytes(self.sequencer_public_key))
 
     def now_milliseconds(self) -> int:
@@ -199,7 +200,7 @@ def verify_lifecycle_recovery(result: object, expected_activity: str, sequencer:
     receipt = result["receipt"]
     if not isinstance(receipt, str) or not 0 < len(receipt) <= 2_097_152 or len(receipt) % 2 or any(character not in "0123456789abcdef" for character in receipt):
         raise ValueError("lifecycle recovery receipt")
-    verified = _verify_program_transaction(bytes.fromhex(receipt), signed_activity, tuple(key for key in receipt_keys if key.public_key == sequencer))
+    verified = _verify_program_transaction(bytes.fromhex(receipt), signed_activity, receipt_keys)
     if verified.receipt.activity_id.hex() != expected_activity:
         raise ValueError("lifecycle recovery binding")
     return verified
@@ -238,7 +239,7 @@ def _verify_lifecycle_submission(result: object, binding: DecodedSignedProgramCa
     receipt = result["receipt"]
     if not isinstance(receipt, str) or not 0 < len(receipt) <= 2_097_152 or len(receipt) % 2 or any(character not in "0123456789abcdef" for character in receipt):
         raise ValueError("lifecycle receipt")
-    verified = _verify_program_transaction(bytes.fromhex(receipt), binding.canonical_bytes, tuple(key for key in receipt_keys if key.public_key == sequencer))
+    verified = _verify_program_transaction(bytes.fromhex(receipt), binding.canonical_bytes, receipt_keys)
     if verified.receipt.activity_id.hex() != binding.activity_id:
         raise ValueError("lifecycle acknowledgement binding")
     if result["state"] != ("executed" if verified.receipt.result_code == 0 else "refused"):
@@ -504,7 +505,6 @@ def _verify_execution_receipt(
         trust.network_id, cast(str, execution["program_id"]),
     )
     receipt = verified.receipt
-    authority = _authority(execution, trust)
     if (
         receipt.activity_id.hex() != execution["activity_id"]
         or receipt.batch_id.hex() != execution["batch_id"]
@@ -513,9 +513,6 @@ def _verify_execution_receipt(
         or receipt.result_code != execution["result_code"]
         or receipt.resulting_state_root.hex() != execution["state_root"]
         or verified.receipt_digest.hex() != execution["receipt_digest"]
-        or receipt.batch_id != authority.batch_id or receipt.asset != authority.asset
-        or receipt.previous_state_root != authority.previous_state_root
-        or receipt.resulting_state_root != authority.resulting_state_root
         or (execution["state"] == "refused") != (receipt.result_code != 0)
     ):
         raise ValueError("program execution receipt binding failed")
@@ -572,7 +569,10 @@ def _sequencer_submission(
             or len(_rpc_bytes(result.get("returnData"))) != int.from_bytes(body[100:104], "big")
             or result.get("feeDenom") != body[109:].decode("ascii")
             or result.get("feeAmount") != hex(receipt.fee_charged)
-            or result.get("signingKey") != "0x" + trust.sequencer_public_key.hex()):
+            or result.get("signingKey") != "0x" + next(
+                key.public_key.hex() for key in trust.receipt_keys
+                if key.key_id == receipt.context_hash
+                and key.first_height <= verified.height <= key.last_height)):
         raise ValueError("program execution summary binding failed")
     for index, (log, effect) in enumerate(zip(logs, receipt.effects[1:], strict=True)):
         row = _mapping(log)
@@ -593,7 +593,7 @@ def _execution(value: object, expected_state: Literal["executed", "refused", "si
     execution = _mapping(value)
     _exact(execution, ("state", "activity_id", "program_id", "guest_abi_version", "module_version", "batch_id",
         "global_sequence", "result_code", "state_root", "receipt", "receipt_digest", "terminal_payload",
-        "call_graph", "authority", "usage", "outcome", "verification"), ("idempotency_key", "retained_signed_activity"))
+        "call_graph", "usage", "outcome", "verification"), ("idempotency_key", "retained_signed_activity"))
     if execution.get("state") != expected_state:
         raise ValueError("invalid program execution state")
     _hex_field(execution, "activity_id", 32, exact=True)
@@ -620,28 +620,10 @@ def _execution(value: object, expected_state: Literal["executed", "refused", "si
     _decimal(usage.get("fee_units"), _MAX_U128)
     if not isinstance(usage.get("output_values"), int) or isinstance(usage.get("output_values"), bool) or not 0 <= cast(int, usage["output_values"]) <= (1 << 32) - 1:
         raise ValueError("invalid program usage")
-    authority = _mapping(execution.get("authority"))
-    _exact(authority, ("batch_id", "asset", "previous_state_root", "resulting_state_root", "sequencer_public_key"))
-    for field in ("batch_id", "asset", "previous_state_root", "resulting_state_root", "sequencer_public_key"):
-        _hex_field(authority, field, 32, exact=True)
     result = dict(execution)
     result["outcome"] = outcome
     result["usage"] = dict(usage)
-    result["authority"] = dict(authority)
     return result
-
-
-def _authority(execution: Mapping[str, object], trust: ProgramTrustContext) -> AuthorizedReceiptBatch:
-    authority = _mapping(execution.get("authority"))
-    if authority.get("sequencer_public_key") != trust.sequencer_public_key.hex():
-        raise ValueError("program sequencer key does not match pin")
-    return AuthorizedReceiptBatch(
-        batch_id=bytes.fromhex(_hex_field(authority, "batch_id", 32, exact=True)),
-        asset=bytes.fromhex(_hex_field(authority, "asset", 32, exact=True)),
-        previous_state_root=bytes.fromhex(_hex_field(authority, "previous_state_root", 32, exact=True)),
-        resulting_state_root=bytes.fromhex(_hex_field(authority, "resulting_state_root", 32, exact=True)),
-        sequencer_public_key=trust.sequencer_public_key,
-    )
 
 
 def _verify_simulation(

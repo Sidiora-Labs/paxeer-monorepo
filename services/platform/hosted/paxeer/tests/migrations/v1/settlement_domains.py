@@ -1,3 +1,5 @@
+"""Version-one checkpoint export migration compatibility; never current chain evidence."""
+
 import importlib.util
 import json
 from pathlib import Path
@@ -5,13 +7,13 @@ import subprocess
 import tempfile
 import unittest
 
-ROOT = Path(__file__).resolve().parents[5]
+ROOT = Path(__file__).resolve().parents[7]
 spec = importlib.util.spec_from_file_location('settlement_domain', ROOT/'services/platform/hosted/paxeer/settlement-domain.py')
 helper = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(helper)
 
 
-class SettlementDomains(unittest.TestCase):
+class CheckpointSettlementV1Migration(unittest.TestCase):
     def test_domain_writer_preserves_vectors_and_generator_binds_signatures(self):
         original = json.loads((ROOT/'contracts/config/checkpoint-settlement.json').read_text())
         with tempfile.TemporaryDirectory() as work:

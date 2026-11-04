@@ -361,6 +361,9 @@ impl PrincipalState {
         for (table, rows) in &mut self.tables {
             let period = policy.period(*table);
             rows.retain(|key, row| {
+                if *table == Table::Support && key.as_str() == crate::support::INDEX_KEY {
+                    return true;
+                }
                 if !retention::elapsed(now, row.written_at, period) {
                     return true;
                 }
@@ -461,14 +464,16 @@ impl PrincipalStore {
             Some(bytes) => decode_state(&bytes, self.version)?,
             None => PrincipalState::default(),
         };
-        Ok(PrincipalScope {
+        let mut scope = PrincipalScope {
             store: self,
             principal: id.clone(),
             tenant,
             directory,
             state,
             deferred: false,
-        })
+        };
+        crate::support::initialize_index(&mut scope)?;
+        Ok(scope)
     }
 
     fn verify_root(&self) -> Result<(), StoreError> {
