@@ -16,11 +16,11 @@ func (k *Keeper) InitGenesis(ctx sdk.Context, gs types.GenesisState) {
 		panic(err)
 	}
 	k.accountKeeper.GetModuleAccount(ctx, types.ModuleName)
-	if err := k.SetParams(ctx, gs.Params); err != nil {
+	if err := k.setParams(ctx, gs.Params); err != nil {
 		panic(err)
 	}
 	for _, asset := range gs.Assets {
-		if err := k.SetAsset(ctx, asset); err != nil {
+		if err := k.setAsset(ctx, asset); err != nil {
 			panic(err)
 		}
 	}

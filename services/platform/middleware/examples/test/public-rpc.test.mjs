@@ -71,14 +71,15 @@ async function exampleInputs(context, receiptKeys) {
   ];
 }
 
-async function paymentListener(context) {
-  const requests = [];
+async function paymentListener(context, role = "node", requests = []) {
   const server = createServer(async (request, response) => {
     try {
       const chunks = [];
       for await (const chunk of request) chunks.push(chunk);
       const body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
       requests.push({ method: request.method, url: request.url, body });
+      assert.equal(request.url, role === "gateway" ? "/rpc" : "/");
+      assert.equal(body.method === "px_resolveAccount", role === "gateway");
       let result;
       switch (body.method) {
         case "px_resolveAccount":
@@ -118,7 +119,10 @@ async function paymentListener(context) {
   });
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
-  return { url: `http://127.0.0.1:${server.address().port}/rpc`, requests };
+  const url = `http://127.0.0.1:${server.address().port}${role === "gateway" ? "/rpc" : "/"}`;
+  if (role === "gateway") return url;
+  const gateway = await paymentListener(context, "gateway", requests);
+  return { url: { gateway, node: url }, requests };
 }
 
 async function runExample(context, url, args) {
@@ -129,8 +133,10 @@ async function runExample(context, url, args) {
     process.execPath,
     [
       fileURLToPath(new URL("../public-rpc.mjs", import.meta.url)),
+      "--gateway",
+      url.gateway,
       "--rpc",
-      url,
+      url.node,
       "--did",
       did,
       ...args,
@@ -170,7 +176,10 @@ async function nodeExampleVerifiesReceiptedPayment(context) {
   assert.match(output[1].transaction, /^0x[0-9a-f]{64}$/u);
   for (const request of requests) {
     assert.equal(request.method, "POST");
-    assert.equal(request.url, "/rpc");
+    assert.equal(
+      request.url,
+      request.body.method === "px_resolveAccount" ? "/rpc" : "/",
+    );
   }
   assert.deepEqual(
     requests.map(({ body }) => body),
@@ -178,19 +187,19 @@ async function nodeExampleVerifiesReceiptedPayment(context) {
       { jsonrpc: "2.0", id: 1, method: "px_resolveAccount", params: [did] },
       {
         jsonrpc: "2.0",
-        id: 2,
+        id: 1,
         method: "eth_getTransactionCount",
         params: [payment.receiptJson.from, "pending"],
       },
       {
         jsonrpc: "2.0",
-        id: 3,
+        id: 2,
         method: "eth_sendRawTransaction",
         params: [payment.rawTransaction],
       },
       {
         jsonrpc: "2.0",
-        id: 4,
+        id: 3,
         method: "pax_sequencerReceipt",
         params: [payment.receiptJson.txHash],
       },

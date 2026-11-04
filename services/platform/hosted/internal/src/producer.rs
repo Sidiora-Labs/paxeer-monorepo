@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 
-use crate::events::{Fact, Record};
+use crate::events::{DigestEnrollmentStatus, Fact, Record};
 use crate::secret::{sha256_hex, valid_hex, valid_identifier, valid_principal};
 use crate::tls::Upstream;
 
@@ -777,25 +777,41 @@ impl Client {
     }
 
     fn enrollment(&self, pending: &Pending) -> Result<(u64, bool), String> {
-        let principal = pending
-            .observation
-            .principal
-            .as_deref()
-            .filter(|principal| valid_principal(principal))
-            .ok_or_else(|| "enrollment recovery requires a principal".to_owned())?;
+        pending.validate()?;
+        let observation = &pending.observation;
+        let path = match (&observation.principal, &observation.principal_digest) {
+            (Some(principal), None) => {
+                format!("/internal/v1/principals/{principal}/enrollment")
+            }
+            (None, Some(digest)) => {
+                format!("/internal/v1/principal-digests/{digest}/enrollment")
+            }
+            _ => return Err("enrollment recovery identity invalid".to_owned()),
+        };
         let source = self
             .sources
-            .get(&pending.observation.kind)
+            .get(&observation.kind)
             .ok_or_else(|| "producer source missing".to_owned())?;
         let response = source
-            .get(&format!("/internal/v1/principals/{principal}/enrollment"))
+            .get(&path)
             .map_err(|_| "enrollment recovery unavailable".to_owned())?;
         if response.status != 200 || !response.content_type.starts_with("application/json") {
             return Err("enrollment recovery refused".to_owned());
         }
+        if let Some(digest) = &observation.principal_digest {
+            let enrollment: DigestEnrollmentStatus = serde_json::from_slice(&response.body)
+                .map_err(|_| "enrollment recovery malformed".to_owned())?;
+            if enrollment.principal_digest != *digest
+                || enrollment.kind != observation.kind
+                || (enrollment.bound && enrollment.generation == 0)
+            {
+                return Err("enrollment recovery digest mismatch".to_owned());
+            }
+            return Ok((enrollment.generation, enrollment.bound));
+        }
         let enrollment: EnrollmentStatus = serde_json::from_slice(&response.body)
             .map_err(|_| "enrollment recovery malformed".to_owned())?;
-        if enrollment.principal != principal {
+        if observation.principal.as_deref() != Some(enrollment.principal.as_str()) {
             return Err("enrollment recovery principal mismatch".to_owned());
         }
         Ok((enrollment.generation, enrollment.bound))

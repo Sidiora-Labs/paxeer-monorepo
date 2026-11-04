@@ -4,6 +4,8 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
+	authtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/types"
+	govtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/gov/types"
 	upgradetypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/upgrade/types"
 )
 
@@ -12,9 +14,16 @@ type retirementUpgradeReader interface {
 	GetUpgradePlan(sdk.Context) (upgradetypes.Plan, bool)
 }
 
+// retirementBankKeeper includes the governed transfer supported by the SDK bank.
+// Keep this interface here until the shared expected-keeper contract is wired.
+type retirementBankKeeper interface {
+	types.BankKeeper
+	SendCoinsFromModuleToModule(sdk.Context, string, string, sdk.Coins) error
+}
+
 // ReleaseRetired atomically releases balances and cancels pending claims during
 // the merge plan. The upgrade keeper's done height closes this path afterward;
-// custody keeps no separate retirement flag.
+// imported lifecycle markers also close this path after genesis recovery.
 func (k *Keeper) ReleaseRetired(ctx sdk.Context) error {
 	if k.Retired(ctx) {
 		return sdkerrors.Wrap(types.ErrModuleRetired, "already released")
@@ -32,6 +41,14 @@ func (k *Keeper) ReleaseRetired(ctx sdk.Context) error {
 		recipient, err := sdk.AccAddressFromBech32(authority)
 		if err != nil {
 			return struct{}{}, err
+		}
+		var moduleBank retirementBankKeeper
+		if recipient.Equals(authtypes.NewModuleAddress(govtypes.ModuleName)) {
+			var supported bool
+			moduleBank, supported = k.bankKeeper.(retirementBankKeeper)
+			if !supported {
+				return struct{}{}, sdkerrors.Wrap(sdkerrors.ErrLogic, "custody bank lacks governed module transfer")
+			}
 		}
 		var pending []types.Claim
 		k.IterateClaims(ctx, func(claim types.Claim) bool {
@@ -54,8 +71,12 @@ func (k *Keeper) ReleaseRetired(ctx sdk.Context) error {
 		k.IterateAssets(ctx, func(asset types.AssetMapping) bool {
 			balance := k.bankKeeper.GetBalance(ctx, k.ModuleAddress(), asset.Denom)
 			if balance.IsPositive() {
-				if releaseErr = k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName,
-					recipient, sdk.NewCoins(balance)); releaseErr != nil {
+				if moduleBank != nil {
+					releaseErr = moduleBank.SendCoinsFromModuleToModule(ctx, types.ModuleName, govtypes.ModuleName, sdk.NewCoins(balance))
+				} else {
+					releaseErr = k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, recipient, sdk.NewCoins(balance))
+				}
+				if releaseErr != nil {
 					return true
 				}
 			}
