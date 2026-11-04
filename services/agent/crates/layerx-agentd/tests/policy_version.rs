@@ -1,14 +1,18 @@
+#[path = "support/repair_22_33_1529.rs"]
+mod repair_support;
+mod support;
+
 use std::collections::BTreeSet;
 
 use layerx_agentd::capability::{Capability, CapabilityDimensions, CapabilityId, RateCeiling};
-use layerx_agentd::identity::ProtocolAuthority;
+use layerx_agentd::identity::{register, ProtocolAuthority};
 use layerx_agentd::policy::{
-    activate, evaluate, load_policy_source, DecisionReason, EvaluationInput, Outcome,
-    PolicyRegistry, PolicyRequest, PolicySet, PolicyValidationError, Rule, RuleConstraints,
-    RuleEffect,
+    activate, evaluate, evaluate_admission_with_context, load_policy_source, DecisionReason,
+    EvaluationInput, Outcome, PolicyRegistry, PolicyRequest, PolicySet, PolicyValidationError,
+    Rule, RuleConstraints, RuleEffect, VerifiedPolicyContext,
 };
-use layerx_agentd::session::{OpenRequest, SessionId, SessionRecord};
-use layerx_agentd::store::TenantId;
+use layerx_agentd::session::{open, OpenRequest, SessionId, SessionRecord, SessionRegistry};
+use layerx_agentd::store::{Store, TenantId};
 use layerx_types::ids::Did;
 
 fn policy(version: &str, effect: RuleEffect) -> PolicySet {
@@ -27,15 +31,36 @@ fn tenant() -> TenantId {
     TenantId::new("tenant-a").unwrap_or_else(|error| panic!("tenant: {error}"))
 }
 
-fn session(version: &str) -> SessionRecord {
-    SessionRecord {
-        request: OpenRequest {
-            session_id: SessionId([3; 32]),
-            token_id: [2; 32],
+fn session(
+    store: &mut Store,
+    sessions: &mut SessionRegistry,
+    version: &str,
+    id: u8,
+) -> SessionRecord {
+    let authority = ProtocolAuthority::SessionKey([1; 32]);
+    let did = Did::new(b"did:layerx:versioned").expect("policy agent");
+    let (mut node_authority, worker) = repair_support::authority_peer(vec![(
+        200,
+        repair_support::identity_document(120, false, std::slice::from_ref(&authority)),
+    )]);
+    let peer = repair_support::peer();
+    let mut resolver = repair_support::AuthorityIdentity {
+        authority: &mut node_authority,
+        peer: &peer,
+    };
+    let identity = register(store, tenant(), did.clone(), &mut resolver)
+        .expect("verified policy-session identity");
+    worker.join().expect("identity transcript");
+    let token = open(
+        store,
+        sessions,
+        &identity,
+        OpenRequest {
+            session_id: SessionId([id; 32]),
+            token_id: [id + 10; 32],
             tenant: tenant(),
-            agent: Did::new(b"did:layerx:versioned")
-                .unwrap_or_else(|error| panic!("did: {error:?}")),
-            authority: ProtocolAuthority::SessionKey([1; 32]),
+            agent: did.clone(),
+            authority,
             permitted_activity_types: BTreeSet::from([7]),
             scopes: BTreeSet::from(["prepare".to_owned()]),
             expiry_seconds: None,
@@ -43,13 +68,17 @@ fn session(version: &str) -> SessionRecord {
             opening_client: "version-test".to_owned(),
             policy_version: version.to_owned(),
         },
-        open: true,
-        sequence: 0,
-        budget_reserved: 0,
-        subscription_cursor: 0,
-        generation: 1,
-        retired_token_ids: BTreeSet::new(),
-    }
+        120,
+    )
+    .expect("production session open");
+    assert_eq!(
+        token.authorize(sessions, &tenant(), &did, "prepare", 120),
+        Ok(token.session_id())
+    );
+    sessions
+        .get(&tenant(), token.session_id())
+        .expect("opened session")
+        .clone()
 }
 
 fn capability() -> Capability {
@@ -95,27 +124,118 @@ fn activation_only_changes_requests_received_after_it() {
     assert_eq!(in_flight.version(), "v1");
     assert_eq!(later.version(), "v2");
 
+    let root = support::directory("policy-version-activation");
+    let mut store = Store::open(&root).expect("policy session store");
+    let mut sessions = SessionRegistry::default();
     let request = request();
     let capability = capability();
-    let old_session = session("v1");
-    let old_input = EvaluationInput::without_protocol_budget(&request, &old_session, &capability);
+    let old_session = session(&mut store, &mut sessions, "v1", 3);
+    let missing = EvaluationInput::without_protocol_budget(&request, &old_session, &capability);
+    assert_eq!(
+        evaluate(in_flight.policy(), &missing).reason,
+        DecisionReason::InvalidContext
+    );
+    assert_eq!(
+        evaluate(in_flight.policy(), &missing).outcome,
+        Outcome::Deny
+    );
+    let (authority, entries) = repair_support::cumulative_window(&old_session.request.agent);
+    let cumulative = authority
+        .authenticate_cumulative_use(
+            &old_session.request.agent,
+            layerx_agentd::protocol_evidence::CumulativeUseWindow {
+                first: 20,
+                last: 119,
+            },
+            &entries,
+        )
+        .expect("complete producer window");
+    assert_eq!(cumulative.amount(), 25);
+    assert_eq!(cumulative.count(), 1);
+    let old_input = EvaluationInput::with_authenticated_cumulative_use(
+        &request,
+        &old_session,
+        &capability,
+        &cumulative,
+    );
+    // Historical usage alone exhausts these bounds: admission projects the
+    // current request's amount and one additional use before matching.
+    let mut exact_usage = in_flight.policy().clone();
+    exact_usage.rules[0].constraints.maximum_cumulative_amount = Some(25);
+    exact_usage.rules[0].constraints.maximum_cumulative_count = Some(1);
+    assert_eq!(evaluate(&exact_usage, &old_input).outcome, Outcome::Deny);
+    let mut too_little_amount = exact_usage.clone();
+    too_little_amount.rules[0]
+        .constraints
+        .maximum_cumulative_amount = Some(24);
+    assert_eq!(
+        evaluate(&too_little_amount, &old_input).outcome,
+        Outcome::Deny
+    );
+    let mut too_little_count = exact_usage;
+    too_little_count.rules[0]
+        .constraints
+        .maximum_cumulative_count = Some(0);
+    assert_eq!(
+        evaluate(&too_little_count, &old_input).outcome,
+        Outcome::Deny
+    );
     let old_decision = evaluate(in_flight.policy(), &old_input);
-    assert_eq!(old_decision.outcome, Outcome::Deny);
-    assert_eq!(old_decision.reason, DecisionReason::InvalidContext);
+    assert_eq!(old_decision.outcome, Outcome::Allow, "{old_decision:?}");
+    assert_eq!(
+        evaluate_admission_with_context(
+            &in_flight,
+            &(&request).into(),
+            &old_session,
+            (&capability).into(),
+            VerifiedPolicyContext::Authenticated(&cumulative),
+        ),
+        old_decision
+    );
+    assert_eq!(old_decision.reason, DecisionReason::PermittedByRule);
+    assert_eq!(old_decision.deciding_rule.as_deref(), Some("v1-rule"));
 
-    let new_session = session("v2");
-    let new_input = EvaluationInput::without_protocol_budget(&request, &new_session, &capability);
+    let new_session = session(&mut store, &mut sessions, "v2", 4);
+    let new_input = EvaluationInput::with_authenticated_cumulative_use(
+        &request,
+        &new_session,
+        &capability,
+        &cumulative,
+    );
     let new_decision = evaluate(later.policy(), &new_input);
     assert_eq!(new_decision.outcome, Outcome::Deny);
-    assert_eq!(new_decision.reason, DecisionReason::InvalidContext);
+    assert_eq!(
+        evaluate_admission_with_context(
+            &later,
+            &(&request).into(),
+            &new_session,
+            (&capability).into(),
+            VerifiedPolicyContext::Authenticated(&cumulative),
+        ),
+        new_decision
+    );
+    assert_eq!(new_decision.reason, DecisionReason::ExplicitDeny);
+    assert_eq!(new_decision.deciding_rule.as_deref(), Some("v2-rule"));
+    registry
+        .record_decision([8; 32], old_decision.clone())
+        .expect("record retained v1 decision");
+    assert_eq!(
+        registry.audit_entry([8; 32]).map(|entry| &entry.decision),
+        Some(&old_decision)
+    );
 
-    registry.record_decision([9; 32], new_decision.clone());
+    registry
+        .record_decision([9; 32], new_decision.clone())
+        .expect("record active v2 decision");
     assert_eq!(
         registry.audit_entry([9; 32]).map(|entry| &entry.decision),
         Some(&new_decision)
     );
     assert!(registry.retained("v1").is_some());
     assert!(registry.retained("v2").is_some());
+    drop(sessions);
+    drop(store);
+    std::fs::remove_dir_all(root).expect("remove policy store");
 }
 
 #[test]

@@ -97,6 +97,8 @@ impl CommittedBlockSource {
         Ok(Self { rpc, receipt_keys })
     }
 
+    /// Returns a coordinate under the chain/genesis identity pinned by `open`.
+    /// `previous` refuses a regressed finalized height; it is not a trust anchor.
     pub fn latest_committed(
         &self,
         previous: Option<CommittedCoordinate>,
@@ -118,6 +120,8 @@ impl CommittedBlockSource {
         Ok(coordinate)
     }
 
+    /// Acquires exactly `previous.height + 1`, refusing a different parent hash.
+    /// Source chain/genesis trust remains configuration owned, not response owned.
     pub fn acquire_next(
         &self,
         previous: CommittedCoordinate,
@@ -216,6 +220,8 @@ fn parse_bytes(value: &Value) -> Result<Vec<u8>, CommittedRefusal> {
         .collect()
 }
 
+/// A block location within a source whose chain/genesis identity was pinned on
+/// open. This value deliberately carries only height and block hash.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct CommittedCoordinate {
     pub height: u64,

@@ -538,7 +538,7 @@ function lintPath(path) {
 }
 
 function main(argv) {
-  let manifest = new URL("../../abi-manifest.tsv", import.meta.url);
+  let manifest = new URL("../abi-manifest.tsv", import.meta.url);
   let index = 0;
   while (index < argv.length && argv[index].startsWith("--")) {
     if (argv[index] === "--abi-version" && index + 1 < argv.length) {

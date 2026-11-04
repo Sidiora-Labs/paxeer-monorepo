@@ -136,6 +136,21 @@ importers:
         specifier: ^8.21.1
         version: 8.22.1
     devDependencies:
+      '@ethereumjs/block':
+        specifier: 10.1.3
+        version: 10.1.3
+      '@ethereumjs/common':
+        specifier: 10.1.3
+        version: 10.1.3
+      '@ethereumjs/tx':
+        specifier: 10.1.3
+        version: 10.1.3
+      '@ethereumjs/util':
+        specifier: 10.1.3
+        version: 10.1.3
+      '@ethereumjs/vm':
+        specifier: 10.1.3
+        version: 10.1.3
       '@playwright/test':
         specifier: 1.62.0
         version: 1.62.0
@@ -184,6 +199,9 @@ importers:
       postcss:
         specifier: ^8.5.23
         version: 8.5.32
+      solc:
+        specifier: 0.8.27
+        version: 0.8.27
       tailwindcss:
         specifier: ^3.4.17
         version: 3.4.19
@@ -614,6 +632,45 @@ packages:
     resolution: {integrity: sha512-43/qtrDUokr7LJqoF2c3+RInu/t4zfrpYdoSDfYyhg52rwLV6TnOvdG4fXm7IkSB3wErkcmJS9iEhjVtOSEjjA==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
 
+  '@ethereumjs/binarytree@10.1.3':
+    resolution: {integrity: sha512-XWHuNNVZVtSfr6/2UbAhCXf848s4rNKUuVKFNG6O18lz0anuaMiIADfNQJ5DOhOfflZVIPRvGWegDMoU6xRaBA==}
+    engines: {node: '>=20'}
+
+  '@ethereumjs/block@10.1.3':
+    resolution: {integrity: sha512-6c0U1T1VMv44l7WXL6RWDiP26o/Cv53Z+9C07+5WJHNrYM7S2S/DsOCVog95Hhh0E9KCRjoCu3bzSsxQynu8Og==}
+    engines: {node: '>=20'}
+
+  '@ethereumjs/common@10.1.3':
+    resolution: {integrity: sha512-ECWwbc4s8Ji7U0mkfZP6gIDy1FxXe0ZyVOTt0adkztPQRzX2DbH2ul7a83DSS8qYAiG6//vVXMkP60TyYOnv8Q==}
+
+  '@ethereumjs/evm@10.1.3':
+    resolution: {integrity: sha512-7C6oo3f1rvtsFAQOURcmEkyUTBTePBbQUgWTfzrual8kbb0R8053rY+PolvFDETfVSK/TrPzZFhFe5sgz+Clgw==}
+    engines: {node: '>=20'}
+
+  '@ethereumjs/mpt@10.1.3':
+    resolution: {integrity: sha512-pN43KoH8V0afpIltMFJf0tSSpX9Xssp9LGAyamnYc93oe0r8bRafeizPWR9aDsS+WXSg/IWQscoZ3xTybQSYoA==}
+    engines: {node: '>=20'}
+
+  '@ethereumjs/rlp@10.1.3':
+    resolution: {integrity: sha512-d795YWkN6O8EJh/PgJ2zZKCdBMl8OlqkuVQESoidH666gaFtUuJ01jDtiuqfyOqTNcTdGhHi8LkQv1WEZzvZZw==}
+    engines: {node: '>=20'}
+    hasBin: true
+
+  '@ethereumjs/statemanager@10.1.3':
+    resolution: {integrity: sha512-d56NBae8xjh/ZY+orqvIfE30WLHOn2okacUekbM9J7VZrokjxQ2800sb6K6srffoSekcgbHxIWFJ3r+81jzrrA==}
+
+  '@ethereumjs/tx@10.1.3':
+    resolution: {integrity: sha512-5uk9qB2MjyF4axL6GGPvYODe3uR/h6k36boDbvjH81WYFphw/JAIrI1thkWQX4BCyF8bi6suxORhi+vDc3lPlg==}
+    engines: {node: '>=20'}
+
+  '@ethereumjs/util@10.1.3':
+    resolution: {integrity: sha512-PhezOVe4DFaC+QLIsnK/tiOaXjpjS2F9AH4Ez0EfWevFw9NWNSg95l7I0dWuHF0B7v9odm2Ijqwo0EnARXtUmA==}
+    engines: {node: '>=20'}
+
+  '@ethereumjs/vm@10.1.3':
+    resolution: {integrity: sha512-tnhWnQOgA6AkgWTjDg2dcF11tlTV9eOq/VJdyzo06DwN7PzKHDEacI3tge+40Izqt9KqX16Nc37Agd8dqhDYMw==}
+    engines: {node: '>=20'}
+
   '@floating-ui/core@1.8.0':
     resolution: {integrity: sha512-0CIZ5itps/8x7BG8dEIhs53BvCUH2PCoogtakwRTut+Arm58sJooJ0AuZhLw2HJYIR5cMLNPBSS728sPho2khQ==}
 
@@ -829,6 +886,9 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
+
+  '@js-sdsl/ordered-map@4.4.2':
+    resolution: {integrity: sha512-iUKgm52T8HOE/makSxjqoWhe95ZJA1/G1sYsGev2JDKUSS14KAgg1LHb+Ba+IPow0xflbnSkOsZcO08C7w1gYw==}
 
   '@kobalte/core@0.13.14':
     resolution: {integrity: sha512-SBVB1lnvYbYt2x3t7fG0lo5fGLEbHQ6PII3NDPva8vD5e2v53On84ZVQiuIk0XI/55R4GQhden7Yem+R/XR8uQ==}
@@ -2373,12 +2433,19 @@ packages:
   color-name@1.1.4:
     resolution: {integrity: sha512-dOy+3AuW3a2wNbZHIuMZpTcgjGuLU/uBL/ubcZF9OXbDo8ff4O8yVp5Bf0efS8uEoYo5q4Fx7dY9OgQGXgAsQA==}
 
+  command-exists@1.2.9:
+    resolution: {integrity: sha512-LTQ/SGc+s0Xc0Fu5WaKnR0YiygZkm9eKFvyS+fRsU7/ZWFF8ykFM6Pc9aCVf1+xasOOZpO3BAVgVrKvsqKHV7w==}
+
   commander@2.20.3:
     resolution: {integrity: sha512-GpVkmM8vF2vQUkj2LvZmD35JxeJOLCwJ9cUkugyk2nuhbv3+mJvpLYYt+0+USMxE+oj+ey/lJEnhZw75x/OMcQ==}
 
   commander@4.1.1:
     resolution: {integrity: sha512-NOKm8xhkzAjzFx8B2v5OAHT+u5pRQc2UCa2Vq9jYL/31o2wi9mxBA7LIFs3sV5VSC49z6pEhfbMULvShKj26WA==}
     engines: {node: '>= 6'}
+
+  commander@8.3.0:
+    resolution: {integrity: sha512-OkTL9umf+He2DZkUq8f8J9of7yL6RJKI24dVITBmNfZBmri9zYZQrKkuXiKhyfPSu8tUhnVBB1iKXevvnlR4Ww==}
+    engines: {node: '>= 12'}
 
   commondir@1.0.1:
     resolution: {integrity: sha512-W9pAhw0ja1Edb5GVdIF1mjZw/ASI0AlShXM83UUGe2DVr5TdAPEA1OA8m/g8zWp9x6On7gqufY+FatDbC3MDQg==}
@@ -2833,6 +2900,15 @@ packages:
   flatted@3.4.4:
     resolution: {integrity: sha512-5+ybhBZANEJxaH3X5evAFatUxLfEHSr7n6kYJ+1Qd0mUqr4eu9gIf6GDbWHf8RJijHrjjO8G+la14SlL2SeS1Q==}
 
+  follow-redirects@1.16.2:
+    resolution: {integrity: sha512-/kVP2U8z596Ia0gwFrwyIeo74ta5aVmSeU1FfAUMAmcEP5EP7zydmag3SLiN64NaRKef3lxsq7i/g7ltJQDGow==}
+    engines: {node: '>=4.0'}
+    peerDependencies:
+      debug: '*'
+    peerDependenciesMeta:
+      debug:
+        optional: true
+
   for-each@0.3.5:
     resolution: {integrity: sha512-dKx12eRCVIzqCxFGplyFKJMPvLEWgmNtUrpTiJIR5u97zEhRG8ySrtboPHZXx7daLxQVrl643cTzbab2tkQjxg==}
     engines: {node: '>= 0.4'}
@@ -3198,6 +3274,9 @@ packages:
     resolution: {integrity: sha512-/imKNG4EbWNrVjoNC/1H5/9GFy+tqjGBHCaSsN+P2RnPqjsLmv6UD3Ej+Kj8nBWaRAwyk7kK5ZUc+OEatnTR3A==}
     hasBin: true
 
+  js-sha3@0.8.0:
+    resolution: {integrity: sha512-gF1cRrHhIzNfToc802P800N8PpXS+evLLXfsVpowqmAFR9uwbi89WvXg2QspOmXL8QL86J4T1EpFu+yUkwJY3Q==}
+
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
 
@@ -3291,6 +3370,10 @@ packages:
   lru-cache@10.4.3:
     resolution: {integrity: sha512-JNAzZcXrCt42VGLuYz0zfAzDfAvJWW6AfYlDBQyDV5DClI2m5sAmK+OIO7s59XfsRsWHp02jAJrRadPRGTt6SQ==}
 
+  lru-cache@11.0.2:
+    resolution: {integrity: sha512-123qHRfJBmo2jXDbo/a5YOQrJoHF/GNQTLzQ5+IdK5pWpceK17yRc6ozlWd25FxvGKQbIUs91fDFkXmDHTKcyA==}
+    engines: {node: 20 || >=22}
+
   lru-cache@11.5.3:
     resolution: {integrity: sha512-U4N8FgzmWxc8k1VH8Kr6lQg18U7Fjvby6wXHVRX/ZZ7IwWbRMgrRbP0Wrb5q5NVinryp4SQampHKdvtecItxUg==}
     engines: {node: 20 || >=22}
@@ -3315,6 +3398,10 @@ packages:
   math-intrinsics@1.1.0:
     resolution: {integrity: sha512-/IXtbwEk5HTPyEwyKX6hGkYXxM9nbj64B+ilVJnC/R6B0pH5G4V3b0pVbL7DBj4tkhBAppbQUlf6F6Xl9LHu1g==}
     engines: {node: '>= 0.4'}
+
+  memorystream@0.3.1:
+    resolution: {integrity: sha512-S3UwM3yj5mtUSEfP41UZmt/0SCoVYUcU1rkXv+BQ5Ig8ndL4sPoJNBUJERafdPb5jjHJGuMgytgKvKIf58XNBw==}
+    engines: {node: '>= 0.10.0'}
 
   merge-stream@2.0.0:
     resolution: {integrity: sha512-abv/qOcuPfk3URPfDzmZU1LKmuw8kT+0nIHvKrKgFrwifol/doWcdA4ZqsWQ8ENrFKkd67Mfpo/LovbIUsbt3w==}
@@ -3538,6 +3625,10 @@ packages:
   optionator@0.9.4:
     resolution: {integrity: sha512-6IpQ7mKUxRcZNLIObR0hz7lxsapSSIYNZJwXPGeF0mTVqGKFIXj1DQcMoT22S3ROcLyY/rz0PWaWZ9ayWmad9g==}
     engines: {node: '>= 0.8.0'}
+
+  os-tmpdir@1.0.2:
+    resolution: {integrity: sha512-D2FR03Vir7FIu45XBY20mTb+/ZSWB00sjU9jdQXt83gDrI4Ztz5Fs7/yy74g2N5SVQY4xY1qDr4rNddwYRVX0g==}
+    engines: {node: '>=0.10.0'}
 
   own-keys@1.0.2:
     resolution: {integrity: sha512-19YVAg7T+WTrxggPukVq7DjTv6+PJ867TmhCvBsYwmbFCsZd344rq2Ld1p0wo8f8Qrrhgp82c6FJRqdXWtSEhg==}
@@ -3889,6 +3980,10 @@ packages:
       webpack:
         optional: true
 
+  semver@5.7.3:
+    resolution: {integrity: sha512-kM18BPOqTi0+TB68703/GJRpAML5Me+IDQsR1J26YB3EFKKNEyHIVZuWDX7+WKQB3tHwDwgk24BfhdpWUbytvQ==}
+    hasBin: true
+
   semver@6.3.2:
     resolution: {integrity: sha512-GYrCADwpu6yV5OAvchkQ27Z5wwMxWAEMg5NNWjyHh/5DboFFqbdbvYNIvZouQpxXyeMPoTOh0vdPYKlf0ZswdQ==}
     hasBin: true
@@ -3955,6 +4050,11 @@ packages:
 
   siginfo@2.0.0:
     resolution: {integrity: sha512-ybx0WO1/8bSBLEWXZvEd7gMW3Sn3JFlW3TvX1nREbDLRNQNaeNN8WK0meBwPdAaOI7TtRRRJn/Es1zhrrCHu7g==}
+
+  solc@0.8.27:
+    resolution: {integrity: sha512-BNxMol2tUAbkH7HKlXBcBqrGi2aqgv+uMHz26mJyTtlVgWmBA4ktiw0qVKHfkjf2oaHbwtbtaSeE2dhn/gTAKw==}
+    engines: {node: '>=10.0.0'}
+    hasBin: true
 
   solid-js@1.9.18:
     resolution: {integrity: sha512-CHGO5YFk6Y9m/1YSxVtKnXfrW7JD3Tmof8HmR4z6TmCPsS8efo8LnzIR8CQh3cUvffqYm6DWyBFfk8dQw1CNQQ==}
@@ -4151,6 +4251,10 @@ packages:
   tldts@6.1.86:
     resolution: {integrity: sha512-WMi/OQ2axVTf/ykqCQgXiIct+mSQDFdH2fkwhPwgEwvJ1kSzZRiinb0zF2Xb8u4+OqPChmyI6MEu4EezNJz+FQ==}
     hasBin: true
+
+  tmp@0.0.33:
+    resolution: {integrity: sha512-jRCJlojKnZ3addtTOjdIqoRuPEKBvNXcGYqzO6zWZX8KfKEpnGY5jfggJQ3EjKuu8D4bJRr0y+cYJFmYbImXGw==}
+    engines: {node: '>=0.6.0'}
 
   to-regex-range@5.0.1:
     resolution: {integrity: sha512-65P7iz6X5yEr1cwcgvQxbbIw7Uk3gOy5dIdtZ4rDveLqhrdJP+Li/Hx6tyK0NEb+2GCyneCMJiGqrADCSNk8sQ==}
@@ -5028,6 +5132,101 @@ snapshots:
       '@eslint/core': 0.17.0
       levn: 0.4.1
 
+  '@ethereumjs/binarytree@10.1.3':
+    dependencies:
+      '@ethereumjs/rlp': 10.1.3
+      '@ethereumjs/util': 10.1.3
+      '@noble/hashes': 2.4.0
+      debug: 4.4.3
+      lru-cache: 11.0.2
+    transitivePeerDependencies:
+      - supports-color
+
+  '@ethereumjs/block@10.1.3':
+    dependencies:
+      '@ethereumjs/common': 10.1.3
+      '@ethereumjs/mpt': 10.1.3
+      '@ethereumjs/rlp': 10.1.3
+      '@ethereumjs/tx': 10.1.3
+      '@ethereumjs/util': 10.1.3
+      '@noble/curves': 2.4.0
+      '@noble/hashes': 2.4.0
+    transitivePeerDependencies:
+      - supports-color
+
+  '@ethereumjs/common@10.1.3':
+    dependencies:
+      '@ethereumjs/util': 10.1.3
+      eventemitter3: 5.0.1
+
+  '@ethereumjs/evm@10.1.3':
+    dependencies:
+      '@ethereumjs/common': 10.1.3
+      '@ethereumjs/statemanager': 10.1.3
+      '@ethereumjs/util': 10.1.3
+      '@noble/curves': 2.4.0
+      '@noble/hashes': 2.4.0
+      debug: 4.4.3
+      eventemitter3: 5.0.1
+    transitivePeerDependencies:
+      - supports-color
+
+  '@ethereumjs/mpt@10.1.3':
+    dependencies:
+      '@ethereumjs/rlp': 10.1.3
+      '@ethereumjs/util': 10.1.3
+      '@noble/hashes': 2.4.0
+      debug: 4.4.3
+      lru-cache: 11.0.2
+    transitivePeerDependencies:
+      - supports-color
+
+  '@ethereumjs/rlp@10.1.3': {}
+
+  '@ethereumjs/statemanager@10.1.3':
+    dependencies:
+      '@ethereumjs/binarytree': 10.1.3
+      '@ethereumjs/common': 10.1.3
+      '@ethereumjs/mpt': 10.1.3
+      '@ethereumjs/rlp': 10.1.3
+      '@ethereumjs/util': 10.1.3
+      '@js-sdsl/ordered-map': 4.4.2
+      '@noble/hashes': 2.4.0
+      debug: 4.4.3
+      lru-cache: 11.0.2
+    transitivePeerDependencies:
+      - supports-color
+
+  '@ethereumjs/tx@10.1.3':
+    dependencies:
+      '@ethereumjs/common': 10.1.3
+      '@ethereumjs/rlp': 10.1.3
+      '@ethereumjs/util': 10.1.3
+      '@noble/curves': 2.4.0
+      '@noble/hashes': 2.4.0
+
+  '@ethereumjs/util@10.1.3':
+    dependencies:
+      '@ethereumjs/rlp': 10.1.3
+      '@noble/curves': 2.4.0
+      '@noble/hashes': 2.4.0
+
+  '@ethereumjs/vm@10.1.3':
+    dependencies:
+      '@ethereumjs/block': 10.1.3
+      '@ethereumjs/common': 10.1.3
+      '@ethereumjs/evm': 10.1.3
+      '@ethereumjs/mpt': 10.1.3
+      '@ethereumjs/rlp': 10.1.3
+      '@ethereumjs/statemanager': 10.1.3
+      '@ethereumjs/tx': 10.1.3
+      '@ethereumjs/util': 10.1.3
+      '@noble/hashes': 2.4.0
+      debug: 4.4.3
+      eventemitter3: 5.0.1
+    transitivePeerDependencies:
+      - supports-color
+
   '@floating-ui/core@1.8.0':
     dependencies:
       '@floating-ui/utils': 0.2.12
@@ -5191,6 +5390,8 @@ snapshots:
     dependencies:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.6.0
+
+  '@js-sdsl/ordered-map@4.4.2': {}
 
   '@kobalte/core@0.13.14(solid-js@1.9.18)':
     dependencies:
@@ -6762,9 +6963,13 @@ snapshots:
 
   color-name@1.1.4: {}
 
+  command-exists@1.2.9: {}
+
   commander@2.20.3: {}
 
   commander@4.1.1: {}
+
+  commander@8.3.0: {}
 
   commondir@1.0.1: {}
 
@@ -7373,6 +7578,8 @@ snapshots:
 
   flatted@3.4.4: {}
 
+  follow-redirects@1.16.2: {}
+
   for-each@0.3.5:
     dependencies:
       is-callable: 1.2.7
@@ -7738,6 +7945,8 @@ snapshots:
 
   jiti@1.21.7: {}
 
+  js-sha3@0.8.0: {}
+
   js-tokens@4.0.0: {}
 
   js-yaml@4.3.2:
@@ -7842,6 +8051,8 @@ snapshots:
 
   lru-cache@10.4.3: {}
 
+  lru-cache@11.0.2: {}
+
   lru-cache@11.5.3: {}
 
   lru-cache@5.1.1:
@@ -7862,6 +8073,8 @@ snapshots:
       '@jridgewell/sourcemap-codec': 1.6.0
 
   math-intrinsics@1.1.0: {}
+
+  memorystream@0.3.1: {}
 
   merge-stream@2.0.0: {}
 
@@ -8031,6 +8244,8 @@ snapshots:
       prelude-ls: 1.2.1
       type-check: 0.4.0
       word-wrap: 1.2.5
+
+  os-tmpdir@1.0.2: {}
 
   own-keys@1.0.2:
     dependencies:
@@ -8411,6 +8626,8 @@ snapshots:
     optionalDependencies:
       webpack: 5.112.2(postcss@8.5.32)
 
+  semver@5.7.3: {}
+
   semver@6.3.2: {}
 
   semver@7.8.6: {}
@@ -8512,6 +8729,18 @@ snapshots:
       side-channel-weakmap: 1.0.2
 
   siginfo@2.0.0: {}
+
+  solc@0.8.27:
+    dependencies:
+      command-exists: 1.2.9
+      commander: 8.3.0
+      follow-redirects: 1.16.2
+      js-sha3: 0.8.0
+      memorystream: 0.3.1
+      semver: 5.7.3
+      tmp: 0.0.33
+    transitivePeerDependencies:
+      - debug
 
   solid-js@1.9.18:
     dependencies:
@@ -8741,6 +8970,10 @@ snapshots:
   tldts@6.1.86:
     dependencies:
       tldts-core: 6.1.86
+
+  tmp@0.0.33:
+    dependencies:
+      os-tmpdir: 1.0.2
 
   to-regex-range@5.0.1:
     dependencies:
