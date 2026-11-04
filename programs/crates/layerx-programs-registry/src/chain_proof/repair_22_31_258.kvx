@@ -1,0 +1,10 @@
+[repair.22.31.258]
+finding = "bootstrap-header-encoding"
+proof = "bootstrap_header_encoding_go_producer_transport_consumer; bootstrap_header_encoding_keeps_protocol_refusals"
+producer = "consensus/types/block.go MakeBlock, Header.Populate, Header.ToProto, Header.Hash; Go VoteSignBytes and VerifyCommitLight"
+fixture_sha256 = "181c81885db34f042cef2696df7574ac4d519cc60b09cc6876455321ac9fc66f"
+fixture = "fixtures/bootstrap_headers.json: initial heights 1 and 7, linked later height 8, protobuf byte defaults, arbitrary application hashes"
+baseline = "No unchanged-tree verification ran: the explicit gate order requires full implementation, hf-build, then hf-done and forbids a manual verify command. No baseline test failure is claimed."
+wiring_header_tests = "Owning domain 13: programs/crates/layerx-programs-registry/tests/chain_header.rs has blanket empty/omitted-field and arbitrary-AppHash refusals that contradict Go; replace with field-specific cases in its separately scoped repair."
+wiring_state_head = "Owning domain 13: programs/crates/layerx-programs-registry/src/chain_proof.rs VerifiedChainHead cannot represent absent predecessor results or arbitrary AppHash; retain strict state-proof construction and use verify_header_commit for bootstrap authentication."
+evidence = "The runner records the exact final candidate revision, command, exit and private log via hf-build/hf-done; no unrun gate is claimed here."

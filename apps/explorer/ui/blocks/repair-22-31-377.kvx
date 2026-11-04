@@ -1,0 +1,15 @@
+[task]
+id = "22.31.377"
+finding = "native-block-refresh"
+proving_tests = ["nativeBlockRefresh", "canonicalHashReplacement", "distinctForkHashes", "refreshAtOverloadLimit", "mixedListCanonicalPromotion"]
+test_file = "apps/explorer/ui/blocks/repair-22-31-377.spec.ts"
+path = "Committed block contract fixtures -> loopback WebSocket v2 channel frames -> production Phoenix SocketProvider -> useBlocksNewBlock -> React Query cache -> BlocksTable and BlocksList"
+baseline = "Not run: ordered gate instructions prohibit testing before implementation and prohibit invoking verify_cmd outside hf-done. No baseline failure is claimed."
+gotcha = "Pinned Vitest treats a function in the name position only as a label; supply the named function as the callback as well so each regression executes."
+wiring_request = "Domain 14: services/explorer/backend/apps/block_scout_web owns the Notifier.broadcast_price_updates -> V2.BlockChannel producer integration; retain backend coverage of the native-count payload in that domain. This UI gate exercises its block.json contract over a loopback channel without a backend toolchain."
+evidence = "The private hf-build and hf-done ledger records the exact candidate revision, command, exit code and log path; no qualification is claimed before those gates pass."
+previous_attempt = "Attempt 1 build failed before TypeScript ran: ERR_PNPM_OTHER_PM_EXPECTED (yarn pin); no baseline assertion failure was observed. The sandbox now uses pnpm 9 with package-manager-strict=false for the declared pnpm gates and installs the pinned yarn.lock without changing manifests."
+gotcha_runtime = "A subprocess Elixir producer violates gotchas 2962 and 2966; the gate uses a loopback WebSocket peer and the production Phoenix browser client instead."
+payload_contract = "Native count fields follow services/explorer/backend/apps/block_scout_web/test/block_scout_web/channels/v2/paxeer_x_feed_channel_test.exs: every inserted update is broadcast with the payload its REST item carries (height 20, transactions_count=2, price_update_count=2); the frontend uses the existing committed mocks/blocks/block.ts fixture for the other rendered fields. No backend runtime gate is claimed here."
+formatter_note = "Repository ESLint --fix formatted the seven touched TypeScript sources; its remaining non-format diagnostics are vitest/expect-expect (assertions live in the imported test functions) and vitest/valid-title (the task requires function-name registration). No lint pass is claimed and neither rule is disabled."
+gotcha_json = "The explorer uses ts-reset, which types JSON.parse as unknown; validate the Phoenix v2 frame array before destructuring it. The initial hf-build reported TS2488 at blocksRefreshTest.ts:33; its exact evidence is in /out/logs/build-1.log."

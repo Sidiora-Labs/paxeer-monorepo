@@ -1,0 +1,75 @@
+[task]
+id = "22.31.141"
+audit = "22.30.76"
+status = "implemented; qualification is recorded by hf-build/hf-done"
+baseline = "The seeded implementation already failed verification at df9b695d572669d0869f1780732d9dd1dd980cee: TestAgentOperationEnvelopeProcessCases lacked its absolute case file and TestProgramTerminalV5NativeCorpus lacked its real signed corpus. No unchanged pre-implementation gate is claimed; this continuation preserves the supplied implementation."
+evidence = "The runner's private gates.jsonl records the exact candidate revision, command, exit and log; the final response copies the terminating gate record."
+
+[finding.committed-rpc-rung]
+test = "TestRepair_141_committed_rpc_rung"
+repair = "Accept both RPC transport views, preserve coordinates, and promote only through checkpoint-anchored inclusion evidence; round-trip unchanged daemon producer responses through Activity and portable export."
+
+[finding.mirror-request-shape]
+test = "TestRepair_141_mirror_request_shape"
+repair = "Select archived receipts by bounded index or committed evidence by coordinate; the production Go HTTP mirror transport replays the CLI Request/report transcript on loopback and compares both request variants exactly, including every receipt index and bounds."
+
+[finding.mirror-response-shape]
+test = "TestRepair_141_mirror_response_shape"
+repair = "Decode the actual Committed level, committed height/hash and nullable evidence digest; require the requested coordinate and preserve source observations without invented fields."
+transport_test = "TestRepair_141_mirror_http_bounds rejects redirects, oversized output, HTTP failures, malformed reports, legacy levels and digest/evidence mismatches."
+
+[finding.wind-down-native-route]
+test = "TestRepair_141_wind_down_native_route"
+repair = "Prepare route/deprecate/tombstone/exit ABI transactions against native conformance fixtures, propagate precompile authorization refusals, bind the externally signed EIP-1559 fixture to every prepared transaction field, broadcast unchanged bytes and read deprecated lifecycle state through production RPC transport/consumer code."
+receipt_test = "TestRepair_141_committed_rpc_rung exercises the common authenticated activity/finality lifecycle."
+
+[finding.stream-checkpoint-before-consumption]
+test = "TestRepair_141_stream_checkpoint_before_consumption"
+repair = "Keep fetched pages pending until ordered acknowledgment; assert same-instance retry retains the whole failed page or its unacknowledged suffix, then persist and reopen after first- and second-callback failures using the real Human HTTP transport/source and recorded two-event producer page."
+
+[finding.portable-unanchored-finality]
+test = "TestRepair_141_portable_unanchored_finality"
+repair = "Require external chain/checkpoint trust, reject internally consistent private validator chains, and authenticate contiguous validator evolution from the trusted header."
+validator_evolution_test = "TestRepair_141_validator_evolution"
+
+[wiring.mirror-schema]
+request = "sdk/platform/schema/mirror-v2.kvx — domain 8 platform SDK: update evidence variants to receipt/index and committed, and result fields to committedHeight, committedBlockHash, nullable evidenceDigest and level Committed; schema is outside this task's allowed paths."
+
+[wiring.external-consumers]
+request = "sdk/platform/{dotnet,jvm,python,rust,typescript} — domain 8 platform SDK: migrate callers to explicit trusted checkpoints, receipt indices/committed coordinates and native wind-down preparation; those paths are outside this task."
+
+[gotcha.scope]
+observed = "Root GOTCHA.kvx and spec task records are outside the explicit allowed paths; task-specific notes are retained in this in-scope repair record."
+
+[gotcha.native-fixture]
+observed = "The historic C deprecate fixture names a different exit program; the native precompile requires exitProgram == programId, so the native route test supplies the supported self-exit action while preserving the historic codec vectors."
+
+[qualification.unrelated-fixtures]
+revision = "3c8b6fe4eaa47ea3b98f460caebd587131d4cbe4"
+command = "cg spec done 22.31.141 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "TestAgentOperationEnvelopeProcessCases requires an absolute PAXEER_X_AGENT_ENVELOPE_CASE file; TestProgramTerminalV5NativeCorpus requires the real signed native terminal-v5 corpus; neither external fixture is supplied."
+
+[gotcha.tls]
+observed = "The default httptest certificate was refused by the real rustls consumer; use a dedicated CA and a separately issued server certificate with IP SAN and server-auth usage."
+
+[qualification.cold-native-helper]
+revision = "88525e71d547fcbe4654da8df56165d3659eba67"
+command = "cg spec done 22.31.141 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The native helper exhausted its four-minute compilation/execution budget; the two previously recorded external-fixture failures were unchanged."
+repair = "Initialize the real node directly with the same applied upgrade instead of importing the aggregate keeper test fixture package; preserve the four-minute bound and every native authorization, selector, transaction and store assertion."
+
+[continuation.attempt-2]
+revision = "84810092a6e0427d33d60a2d44b2a84109fabee0"
+observed = "Supplied prior gate failed TestRepair_141_wind_down_native_route on the node package import alias; two unrelated package-wide fixture failures were also present, and the mirror cases depended on a failing subprocess endpoint."
+repair = "Preserve the existing six production repairs; replace external helper projects with in-process loopback transcript peers and source fixtures per task steps 12-14; the focused hf-done gate requires no service, credential or subprocess toolchain."
+
+[gotcha.mirror-transport]
+observed = "MirrorVerifier originally coupled its codec to a protected executable; NewMirrorHTTPVerifier exposes the identical bounded production codec over an explicitly trusted HTTPS or loopback service, with redirects refused and context/response bounds retained."
+
+[fixtures]
+mirror = "testdata/repair141/mirror-transcript.json carries CLI Request/report wire examples with unchanged committed_blocks.json producer receipt digests; it is a peer wire fixture, not a claim that Rust quorum verification ran in this Go gate."
+native = "testdata/repair141/native-deprecate.json carries an offline RFC6979 scalar-1 EIP-1559 signature and native ABI response fixtures; native C route/tombstone/exit vectors are consumed unchanged, and the SDK is the real component under repair."
