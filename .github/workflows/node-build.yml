@@ -4,18 +4,6 @@ on:
   push:
     branches: [main]
   pull_request:
-    paths:
-      - 'node/**'
-      - 'modules/**'
-      - 'precompiles/**'
-      - 'engine/**'
-      - 'sdk/**'
-      - 'daemon/**'
-      - 'src/**'
-      - 'include/**'
-      - 'programs/**'
-      - 'Makefile'
-      - 'chain.mk'
 
 permissions:
   contents: read

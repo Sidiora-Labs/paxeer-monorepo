@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Reproducible paxd release build: dist/paxeer-network/<version>/ with SHA256SUMS.
 # Usage: build-paxd.sh [--print-tag]
-# Env: PAXD_DIST_DIR (output dir), PAXD_COMMIT, SOURCE_DATE_EPOCH, PAXD_RELEASE_LAYERXD=1 (also build layerxd).
+# Env: PAXD_DIST_DIR (output dir), PAXD_COMMIT, SOURCE_DATE_EPOCH.
 set -euo pipefail
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
@@ -89,10 +89,17 @@ native_libs=(build/liblayerx.a programs/target/release/liblayerx_programs_sandbo
 echo "build-paxd: native libraries ${native_libs[*]}"
 make --no-print-directory PROGRAMS_DIR="$src/programs" EXTRA_CFLAGS="-ffile-prefix-map=$root=." paxd-native-libs
 sha256sum "${native_libs[@]}" > "$out/native-libs.sha256"
+sha256sum --check --strict "$out/native-libs.sha256"
+native_digest=$(cat "${native_libs[@]}" | sha256sum | cut -d ' ' -f1)
+ldflags="$ldflags -X $version_pkg.NativeArchiveDigest=$native_digest"
 
 paxd="paxd-$version-$goos-$goarch"
 echo "build-paxd: go build $paxd"
 go build -trimpath -buildvcs=false -tags "netgo ledger" -ldflags "$ldflags" -o "$out/$paxd" ./daemon/paxd
+if [ "$("$out/$paxd" version --long --output json | jq -er '.native_archive_digest')" != "$native_digest" ]; then
+  echo "build-paxd: embedded native archive digest differs" >&2
+  exit 1
+fi
 
 if [ "$goos/$goarch" = linux/amd64 ]; then
   for lib in wasm-runtime/internal/api/libwasmvm.x86_64.so \
@@ -113,14 +120,6 @@ cargo build --locked --release --manifest-path "$src/services/platform/Cargo.tom
 platform_target=$(cargo metadata --locked --format-version 1 --no-deps --manifest-path "$src/services/platform/Cargo.toml" | jq -er '.target_directory')
 cp "$platform_target/release/price-sidecar" "$out/price-sidecar-$version-$goos-$goarch"
 
-if [ "${PAXD_RELEASE_LAYERXD:-0}" = 1 ]; then
-  build_dir=$(mktemp -d)
-  trap 'rm -rf -- "$build_dir"' EXIT
-  make --no-print-directory PROGRAMS_DIR="$src/programs" BUILD_DIR="$build_dir" LXP_REVISION="$commit" \
-    EXTRA_CFLAGS="-ffile-prefix-map=$root=. -ffile-prefix-map=$build_dir=build" layerxd
-  cp "$build_dir/bin/layerxd" "$out/layerxd-$version-$goos-$goarch"
-fi
-
 write_sums() {
   (cd "$out" && find . -maxdepth 1 -type f ! -name SHA256SUMS -printf '%f\n' | sort | xargs sha256sum > SHA256SUMS)
 }
@@ -129,6 +128,7 @@ touch -d "@$SOURCE_DATE_EPOCH" "$out"/*
 write_sums
 python3 tools/release/upgrade_info.py release --sums "$out/SHA256SUMS" --tag "$tag" --out "$out/upgrade-info.json"
 write_sums
+(cd "$out" && sha256sum --check --strict SHA256SUMS)
 touch -d "@$SOURCE_DATE_EPOCH" "$out"/*
 echo "build-paxd: $tag commit $commit epoch $SOURCE_DATE_EPOCH -> $out"
 cat "$out/SHA256SUMS"
