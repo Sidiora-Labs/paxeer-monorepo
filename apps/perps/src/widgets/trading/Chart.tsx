@@ -6,6 +6,9 @@ import type {
 } from "../../../public/static/charting_library/charting_library";
 import { PerpsDatafeed } from "@/core/datafeed/perps";
 import { useTheme } from "next-themes";
+import { usePerpsMarkets } from "@/hooks/perps/usePerpsMarkets";
+import { useMarketConfig } from "@/hooks/perps/useMarketConfig";
+import { moveChartOrderLine, type ChartPriceField, type DraggablePriceLine } from "./chartOrderPrices";
 import { useOrderLineStore } from "@/hooks/perps/useOrderLineStore";
 import { cn } from "@/ui/utils/cn";
 import { BarChart2, Settings2, Maximize2 } from "lucide-react";
@@ -139,6 +142,18 @@ function fmtLinePrice(p: number): string {
   });
 }
 
+export function chartOrderLineDrag(
+  symbol: string,
+  field: ChartPriceField,
+  currentMarket: () => { symbol: string; tickSize: bigint | null },
+) {
+  return function (this: DraggablePriceLine) {
+    const current = currentMarket();
+    if (current.symbol !== symbol || current.tickSize === null) return;
+    moveChartOrderLine(this, symbol, field, current.tickSize);
+  };
+}
+
 interface ChartProps {
   selectedPair?: string;
   height: number;
@@ -152,6 +167,14 @@ export function Chart({
   height,
   onHeightChange,
 }: ChartProps) {
+  const { catalog } = usePerpsMarkets();
+  const activeSymbol = getFormattedSymbol(selectedPair);
+  const activeMarket = catalog.find((market) => market.symbol === activeSymbol);
+  const marketConfig = useMarketConfig(BigInt(activeMarket?.marketId ?? 0));
+  const tickSize = activeMarket && marketConfig.data?.config.enabled
+    ? marketConfig.data.config.tickSize : null;
+  const dragMarketRef = useRef({ symbol: activeSymbol, tickSize });
+  dragMarketRef.current = { symbol: activeSymbol, tickSize };
   const widgetRef = useRef<any>(null);
   // Per-instance datafeed. Lazy-init so SSR doesn't touch window.
   const datafeedRef = useRef<PerpsDatafeed | null>(null);
@@ -521,6 +544,7 @@ export function Chart({
       if (entryLineRef.current) {
         // Update existing
         try {
+          entryLineRef.current.setEditable(tickSize !== null);
           entryLineRef.current.setPrice(olEntryPrice);
           entryLineRef.current.setText(
             `Entry @ $${fmtLinePrice(olEntryPrice)}`,
@@ -551,14 +575,9 @@ export function Chart({
             .setQuantityBorderColor(lineColor)
             .setQuantityBackgroundColor(bgColor)
             .setQuantityTextColor(textColor)
-            .setEditable(true)
+            .setEditable(tickSize !== null)
             .setModifyTooltip("Drag to adjust entry price")
-            // eslint-disable-next-line @typescript-eslint/no-this-alias
-            .onMove(function (this: any) {
-              const p = Math.round(this.getPrice() * 100) / 100;
-              this.setText(`Entry @ $${fmtLinePrice(p)}`);
-              olStore.getState().onChartDragEntry(p);
-            });
+            .onMove(chartOrderLineDrag(activeSymbol, "entryPrice", () => dragMarketRef.current));
           entryLineRef.current = line;
         } catch (err) {
           console.warn("[Chart] Failed to create Entry order line:", err);
@@ -577,6 +596,7 @@ export function Chart({
     if (olTpslEnabled && olTpPrice > 0) {
       if (tpLineRef.current) {
         try {
+          tpLineRef.current.setEditable(tickSize !== null);
           tpLineRef.current.setPrice(olTpPrice);
           tpLineRef.current.setText(`TP @ $${fmtLinePrice(olTpPrice)}`);
         } catch {
@@ -599,14 +619,9 @@ export function Chart({
             .setQuantityBorderColor("#0ebc5f")
             .setQuantityBackgroundColor("rgba(5, 193, 104, 0.12)")
             .setQuantityTextColor("#0ebc5f")
-            .setEditable(true)
+            .setEditable(tickSize !== null)
             .setModifyTooltip("Drag to adjust take profit")
-            // eslint-disable-next-line @typescript-eslint/no-this-alias
-            .onMove(function (this: any) {
-              const p = Math.round(this.getPrice() * 100) / 100;
-              this.setText(`TP @ $${fmtLinePrice(p)}`);
-              olStore.getState().onChartDragTp(p);
-            });
+            .onMove(chartOrderLineDrag(activeSymbol, "tpPrice", () => dragMarketRef.current));
           tpLineRef.current = line;
         } catch (err) {
           console.warn("[Chart] Failed to create TP order line:", err);
@@ -625,6 +640,7 @@ export function Chart({
     if (olTpslEnabled && olSlPrice > 0) {
       if (slLineRef.current) {
         try {
+          slLineRef.current.setEditable(tickSize !== null);
           slLineRef.current.setPrice(olSlPrice);
           slLineRef.current.setText(`SL @ $${fmtLinePrice(olSlPrice)}`);
         } catch {
@@ -647,14 +663,9 @@ export function Chart({
             .setQuantityBorderColor("#ff4c45")
             .setQuantityBackgroundColor("rgba(255, 90, 101, 0.12)")
             .setQuantityTextColor("#ff4c45")
-            .setEditable(true)
+            .setEditable(tickSize !== null)
             .setModifyTooltip("Drag to adjust stop loss")
-            // eslint-disable-next-line @typescript-eslint/no-this-alias
-            .onMove(function (this: any) {
-              const p = Math.round(this.getPrice() * 100) / 100;
-              this.setText(`SL @ $${fmtLinePrice(p)}`);
-              olStore.getState().onChartDragSl(p);
-            });
+            .onMove(chartOrderLineDrag(activeSymbol, "slPrice", () => dragMarketRef.current));
           slLineRef.current = line;
         } catch (err) {
           console.warn("[Chart] Failed to create SL order line:", err);
@@ -677,6 +688,8 @@ export function Chart({
     olTpPrice,
     olSlPrice,
     olTpslEnabled,
+    tickSize,
+    activeSymbol,
   ]);
 
   // Cleanup order lines on unmount

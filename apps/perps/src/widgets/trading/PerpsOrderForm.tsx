@@ -5,6 +5,10 @@ import React, {
   useEffect,
   useRef,
 } from "react";
+import { formatUnits } from "viem";
+import { useFeeTier } from "@/hooks/perps/useFeeTier";
+import type { FeeTierView } from "@/core/perps/feeTier";
+import { useChartPriceChange, type ChartPriceChange, type ChartPriceField } from "./chartOrderPrices";
 import { cn } from "@/ui/utils/cn";
 import { Slider } from "@/ui/atoms/slider";
 import { Switch } from "@/ui/atoms/switch";
@@ -49,6 +53,7 @@ import {
   type OrderOptions,
   type OrderPlan,
   type OrderLimits,
+  type OrderFormState,
 } from "@/core/perps/orderPlan";
 
 type OrderType = "market" | "limit" | "stop-limit" | "scaled";
@@ -250,12 +255,15 @@ function errorText(ufe: UserFacingError): string {
   return ufe.suggestedFix ? `${ufe.message} ${ufe.suggestedFix}` : ufe.message;
 }
 
-interface PendingOrder {
+export interface PendingOrder {
   plan: OrderPlan;
   confirmation: OrderConfirmation;
+  boundQuote: BoundQuote | null;
+  form: OrderFormState;
+  marketData: { config: MarketConfig; tiers: readonly MarginTier[] };
 }
 
-function quoteInputHash(params: {
+export function quoteInputHash(params: {
   marketId: bigint;
   collateralToken: string;
   collateralBigInt: bigint;
@@ -271,10 +279,73 @@ function quoteInputHash(params: {
   ].join("|");
 }
 
-interface BoundQuote {
+export interface BoundQuote {
   quote: OpenPositionQuote;
   inputHash: string;
   takenAt: number;
+  identity: string;
+}
+
+export function bindOrderQuote(quote: OpenPositionQuote, inputHash: string, takenAt: number): BoundQuote {
+  return { quote, inputHash, takenAt, identity: [inputHash, takenAt, ...Object.values(quote)].join(":") };
+}
+
+export function applyChartPriceChange(
+  change: ChartPriceChange, symbol: string,
+  setters: Record<ChartPriceField, (value: string) => void>,
+): void {
+  if (change.symbol === symbol) setters[change.field](change.price);
+}
+
+export function FeeTierRates({ view }: { view: FeeTierView | undefined }) {
+  return <span style={{ fontVariantNumeric: "tabular-nums" }}>
+    {view ? `${formatUnits(BigInt(Math.round(view.takerBps * 100)), 4)}% / ${formatUnits(BigInt(Math.round(view.makerBps * 100)), 4)}%` : "Unavailable"}
+  </span>;
+}
+
+export function preparePendingOrder(
+  form: OrderFormState,
+  boundQuote: BoundQuote | null,
+  marketData: PendingOrder["marketData"],
+): PendingOrder {
+  const limits = orderLimitsFromConfig(marketData, boundQuote?.quote.sizeUsd ?? safeParseUnits(form.sizeUsd, 18));
+  if (limits === null) throw new Error("Market is unavailable");
+  if (form.tpslEnabled && [form.tpPrice, form.slPrice].some((price) =>
+    price.trim() !== "" && safeParseUnits(price, 18) % limits.tickSize !== 0n))
+    throw new Error("TP and SL prices must be multiples of the market tick size.");
+  const plan = buildOrderPlan(form, boundQuote?.quote ?? null, limits);
+  if (plan.error) throw plan.error;
+  const confirmation = buildConfirmation(boundQuote?.quote ?? null, plan);
+  if (!confirmation) throw new Error("Order confirmation is unavailable");
+  return { plan, confirmation, boundQuote, form, marketData };
+}
+
+export async function confirmPendingOrder(
+  pending: PendingOrder,
+  context: {
+    inputHash: string;
+    now: () => number;
+    requote: () => Promise<BoundQuote>;
+    isCurrent: () => boolean;
+    present: (pending: PendingOrder) => void;
+    submit: (plan: OrderPlan) => Promise<void>;
+  },
+): Promise<"refreshed" | "submitted" | "cancelled"> {
+  const bound = pending.boundQuote;
+  if (pending.form.orderType === "market" && (!bound || bound.inputHash !== context.inputHash))
+    throw new Error("The order inputs changed; review a new quote.");
+  if (!context.isCurrent()) return "cancelled";
+  if (bound && needsRequote(context.now() - bound.takenAt)) {
+    const fresh = await context.requote();
+    if (!context.isCurrent()) return "cancelled";
+    if (fresh.inputHash !== context.inputHash || needsRequote(context.now() - fresh.takenAt))
+      throw new Error("A current quote is unavailable; request a new quote.");
+    context.present(preparePendingOrder(pending.form, fresh, pending.marketData));
+    return "refreshed";
+  }
+  if (!context.isCurrent()) return "cancelled";
+  await context.submit(pending.plan);
+  return "submitted";
 }
 
 export function orderLimitsFromConfig(
@@ -319,6 +390,7 @@ function ConnectedPerpsOrderForm({
   const { isConnected, connect, address, isCorrectChain, switchToPaxeer } =
     usePerpsWallet();
   const portfolioStats = usePortfolioStats();
+  const feeTier = useFeeTier(address ?? undefined);
 
   const ordersHook = usePerpsOrders();
   const quoterHook = useQuoter();
@@ -354,7 +426,7 @@ function ConnectedPerpsOrderForm({
 
   // ── Sync order form → chart order lines store ──
   const olStore = useOrderLineStore;
-  const chartDragSeq = useOrderLineStore((s) => s._chartDragSeq);
+  const chartPriceChange = useChartPriceChange((s) => s.change);
 
   // Push form values to store whenever they change
   useEffect(() => {
@@ -379,31 +451,14 @@ function ConnectedPerpsOrderForm({
     olStore.getState().setTpslEnabled(tpslEnabled);
   }, [tpslEnabled]);
 
-  // Pull chart drag updates back into form inputs.
-  // Use refs to read the latest input values without retriggering this effect
-  // (adding them to deps would cause a loop since typing updates the store → drag seq).
-  const triggerPriceRef = useRef(triggerPrice);
-  const tpPriceRef = useRef(tpPrice);
-  const slPriceRef = useRef(slPrice);
-  triggerPriceRef.current = triggerPrice;
-  tpPriceRef.current = tpPrice;
-  slPriceRef.current = slPrice;
+  const consumedChartChange = useRef(chartPriceChange);
   useEffect(() => {
-    if (chartDragSeq === 0) return;
-    const s = olStore.getState();
-    if (s.entryPrice > 0) {
-      const ep = s.entryPrice.toFixed(2);
-      if (ep !== triggerPriceRef.current) setTriggerPrice(ep);
-    }
-    if (s.tpPrice > 0) {
-      const tp = s.tpPrice.toFixed(2);
-      if (tp !== tpPriceRef.current) setTpPrice(tp);
-    }
-    if (s.slPrice > 0) {
-      const sl = s.slPrice.toFixed(2);
-      if (sl !== slPriceRef.current) setSlPrice(sl);
-    }
-  }, [chartDragSeq, olStore]);
+    if (chartPriceChange === consumedChartChange.current) return;
+    consumedChartChange.current = chartPriceChange;
+    if (chartPriceChange) applyChartPriceChange(chartPriceChange, market.symbol, {
+      entryPrice: setTriggerPrice, tpPrice: setTpPrice, slPrice: setSlPrice,
+    });
+  }, [chartPriceChange, market.symbol]);
   const [reduceOnly, setReduceOnly] = useState(false);
   const [orderOptions, setOrderOptions] = useState<OrderOptions>({
     postOnly: false,
@@ -418,6 +473,9 @@ function ConnectedPerpsOrderForm({
   );
   const [orderConfirm, setOrderConfirm] = useState(true);
   const [pending, setPending] = useState<PendingOrder | null>(null);
+  const pendingRef = useRef(pending);
+  pendingRef.current = pending;
+  const confirmationBusy = useRef(false);
 
   // ── TX state ──
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -616,10 +674,11 @@ function ConnectedPerpsOrderForm({
       });
       setIsQuoting(true);
       try {
+        const takenAt = Date.now();
         const result = await quoterRef.current.quoteOpenPosition(inputs);
         setQuote(result ?? null);
         boundQuoteRef.current = result
-          ? { quote: result, inputHash, takenAt: Date.now() }
+          ? bindOrderQuote(result, inputHash, takenAt)
           : null;
       } catch {
         setQuote(null);
@@ -690,7 +749,7 @@ function ConnectedPerpsOrderForm({
   );
 
   /** The current quote of the market inputs; an out-of-sync or aged quote is re-fetched. */
-  const currentQuote = useCallback(async (): Promise<OpenPositionQuote> => {
+  const currentQuote = useCallback(async (): Promise<BoundQuote> => {
     const inputs = {
       marketId: BigInt(market.marketId),
       collateralToken: collateralToken as `0x${string}`,
@@ -711,11 +770,12 @@ function ConnectedPerpsOrderForm({
       bound.inputHash === inputHash &&
       !needsRequote(Date.now() - bound.takenAt)
     )
-      return bound.quote;
+      return bound;
+    const takenAt = Date.now();
     const fresh = await quoterRef.current.quoteOpenPosition(inputs);
-    boundQuoteRef.current = { quote: fresh, inputHash, takenAt: Date.now() };
+    boundQuoteRef.current = bindOrderQuote(fresh, inputHash, takenAt);
     setQuote(fresh);
-    return fresh;
+    return boundQuoteRef.current;
   }, [
     market.marketId,
     collateralToken,
@@ -723,6 +783,13 @@ function ConnectedPerpsOrderForm({
     leverageBigInt,
     isLong,
   ]);
+
+  const orderKey = JSON.stringify([market.marketId, orderType, isLong, collateralToken,
+    collateralAmount, leverage, triggerPrice, limitPrice, sizeUsd, scaledStartPrice,
+    scaledEndPrice, scaledTotalOrders, scaledDistribution, tpslEnabled, tpPrice, slPrice,
+    reduceOnly, postOnly, ioc, fok]);
+  const confirmationContextRef = useRef({ isCorrectChain, canTrade, address, orderKey, marketData: marketConfig.data });
+  confirmationContextRef.current = { isCorrectChain, canTrade, address, orderKey, marketData: marketConfig.data };
 
   const handleSubmit = useCallback(async () => {
     if (!canTrade || orderLimits === null || !marketConfig.data) return;
@@ -738,11 +805,11 @@ function ConnectedPerpsOrderForm({
     setError(null);
     setSuccess(null);
     setPending(null);
-    let marketQuote: OpenPositionQuote | null = null;
+    let boundQuote: BoundQuote | null = null;
     if (orderType === "market") {
       setIsQuoting(true);
       try {
-        marketQuote = await currentQuote();
+        boundQuote = await currentQuote();
       } catch (err) {
         const ufe = classifyError(err, "perps-order/quote");
         setError(errorText(ufe));
@@ -752,56 +819,57 @@ function ConnectedPerpsOrderForm({
         setIsQuoting(false);
       }
     }
-    const tierMax = maxLeverageForNotional(
-      marketQuote?.sizeUsd ?? sizeUsdBigInt,
-      marketConfig.data.tiers,
-    );
-    const plan = buildOrderPlan(
-      {
-        orderType,
-        marketId: BigInt(market.marketId),
-        isLong,
-        collateralAmount,
-        leverage,
-        triggerPrice,
-        limitPrice,
-        sizeUsd,
-        scaledStartPrice,
-        scaledEndPrice,
-        scaledTotalOrders,
-        scaledDistribution,
-        tpslEnabled,
-        tpPrice,
-        slPrice,
-        reduceOnly,
-        postOnly,
-        ioc,
-        fok,
-        ladderId: newLadderId(),
-      },
-      marketQuote,
-      {
-        ...orderLimits,
-        maxLeverage:
-          (tierMax < marketConfig.data.config.maxLeverage
-            ? tierMax
-            : marketConfig.data.config.maxLeverage) * 10n ** 18n,
-      },
-    );
-    if (plan.error) {
-      setError(errorText(plan.error));
+    const current = confirmationContextRef.current;
+    if (current.orderKey !== orderKey || current.address !== address
+      || !current.isCorrectChain || !current.canTrade || current.marketData !== marketConfig.data) return;
+    let prepared: PendingOrder;
+    try {
+      prepared = preparePendingOrder(
+        {
+          orderType,
+          marketId: BigInt(market.marketId),
+          isLong,
+          collateralAmount,
+          leverage,
+          triggerPrice,
+          limitPrice,
+          sizeUsd,
+          scaledStartPrice,
+          scaledEndPrice,
+          scaledTotalOrders,
+          scaledDistribution,
+          tpslEnabled,
+          tpPrice,
+          slPrice,
+          reduceOnly,
+          postOnly,
+          ioc,
+          fok,
+          ladderId: newLadderId(),
+        },
+        boundQuote,
+        marketConfig.data,
+      );
+    } catch (err) {
+      const ufe = classifyError(err, "perps-order/plan");
+      setError(errorText(ufe));
       return;
     }
-    const confirmation = buildConfirmation(marketQuote, plan);
-    if (needsConfirmation(orderConfirm) && confirmation) {
-      setPending({ plan, confirmation });
+    if (needsConfirmation(orderConfirm)) {
+      setPending(prepared);
       return;
     }
-    await sendOrder(plan);
+    if (prepared.boundQuote && needsRequote(Date.now() - prepared.boundQuote.takenAt)) {
+      setPending(prepared);
+      return;
+    }
+    await sendOrder(prepared.plan);
   }, [
     canTrade,
     orderLimits,
     marketConfig.data,
+    orderKey,
+    address,
     sizeUsdBigInt,
     isCorrectChain,
     orderType,
@@ -829,16 +897,41 @@ function ConnectedPerpsOrderForm({
   ]);
 
   const acceptPending = useCallback(async () => {
-    if (!pending) return;
-    const { plan } = pending;
-    setPending(null);
-    await sendOrder(plan);
-  }, [pending, sendOrder]);
+    if (!pending || confirmationBusy.current) return;
+    confirmationBusy.current = true;
+    setIsQuoting(true);
+    setError(null);
+    try {
+      await confirmPendingOrder(pending, {
+        inputHash: quoteInputHash({ marketId: BigInt(market.marketId), collateralToken,
+          collateralBigInt, leverageBigInt, isLong }),
+        now: Date.now,
+        requote: currentQuote,
+        isCurrent: () => pendingRef.current === pending
+          && confirmationContextRef.current.isCorrectChain
+          && confirmationContextRef.current.canTrade
+          && confirmationContextRef.current.address === address
+          && confirmationContextRef.current.orderKey === orderKey
+          && confirmationContextRef.current.marketData === pending.marketData,
+        present: (updated) => { setPending(updated); setError("Quote refreshed. Review the updated order and confirm again."); },
+        submit: async (plan) => { setPending(null); await sendOrder(plan); },
+      });
+    } catch (err) {
+      const ufe = classifyError(err, "perps-order/confirm");
+      setError(errorText(ufe));
+    } finally {
+      confirmationBusy.current = false;
+      setIsQuoting(false);
+    }
+  }, [pending, currentQuote, sendOrder, market.marketId, collateralToken,
+    collateralBigInt, leverageBigInt, isLong, address, orderKey]);
 
   // A confirmation shows the plan of the inputs it was built from; any edit discards it.
   useEffect(() => {
     setPending(null);
   }, [
+    address,
+    isCorrectChain,
     market.marketId,
     marketConfig.data,
     orderType,
@@ -1834,9 +1927,7 @@ function ConnectedPerpsOrderForm({
               }}
             >
               <span>Taker / Maker</span>
-              <span style={{ fontVariantNumeric: "tabular-nums" }}>
-                0.06% / 0.03%
-              </span>
+              <FeeTierRates view={feeTier.view} />
             </div>
           </div>
         )}
@@ -1958,7 +2049,7 @@ function ConnectedPerpsOrderForm({
               <button
                 type="button"
                 onClick={acceptPending}
-                disabled={isSubmitting}
+                disabled={isSubmitting || isQuoting}
                 style={{
                   padding: "8px",
                   borderRadius: 999,
