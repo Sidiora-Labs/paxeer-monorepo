@@ -1,0 +1,14 @@
+[repair.22.33.1069]
+finding = "22.30.43/f003"
+base_revision = "4299cb15eced23eb9a839162acd11e9a937edd05"
+implementation = "Add real protobuf regression coverage for duplicate singular Block.last_commit and SignedHeader.commit fields whose individually bounded signature lists merge above the production cap. Reuse the committed producer and encrypted P2P channel fixtures from repair_78_test.go."
+proving_tests = ["TestRepairM_1069_DuplicateSingularCommitScan", "TestRepairM_1069_DuplicateLastCommitTransport", "TestRepairM_1069_DuplicateSignedHeaderCommitTransport"]
+scan_proof = "Generated protobuf decoding merges two or three singular Commit occurrences to cap+1 signatures; each fragment passes independently, combined bytes fail Scan and WireguardScan, and duplicate occurrences totaling exactly the cap pass. Empty duplicate occurrences are covered."
+transport_proof = "Generated protobuf producer output is preserved by the real Empty unknown-field codec, sent through the encrypted P2P router into the production blocksync channel; at-cap messages arrive with the exact decoded count, over-cap messages disconnect the peer without delivery."
+baseline = "Not run: the ordered gate instructions prohibit testing before complete implementation and prohibit invoking verify_cmd by hand. No pre-change failures are claimed; the ledger contained no previous gate runs."
+qualification = "hf-build then hf-done on the unchanged candidate; the runner ledger and final evidence line record the exact immutable verified revision, command, exit code and private evidence log."
+wiring_request = "None: f003 requires no changes outside this directory."
+
+[gotcha.baseline_order]
+symptom = "The finding requests a baseline verify on the unchanged tree, while the ordered gate contract forbids testing until implementation is complete."
+resolution = "Follow the ordered gate contract and explicitly record that baseline testing did not run; keep this record in scope instead of editing GOTCHA.kvx or spec files."
