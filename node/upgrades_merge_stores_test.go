@@ -6,6 +6,7 @@ import (
 
 	agenttypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxagent/types"
 	authtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxauth/types"
+	chainstypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxchains/types"
 	ledgertypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxledger/types"
 	paytypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay/types"
 	seqtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
@@ -17,7 +18,7 @@ import (
 
 func TestMergeStoreUpgradesAddsLayerXStores(t *testing.T) {
 	want := []string{keys.SequencerStoreKey, keys.LayerXLedgerStoreKey, keys.LayerXAuthStoreKey,
-		keys.LayerXPayStoreKey, keys.LayerXProgramsStoreKey, keys.LayerXAgentStoreKey, keys.LayerXHostStoreKey}
+		keys.LayerXPayStoreKey, keys.LayerXChainsStoreKey, keys.LayerXProgramsStoreKey, keys.LayerXAgentStoreKey, keys.LayerXHostStoreKey}
 	upgrades := mergeStoreUpgrades()
 	require.Equal(t, want, upgrades.Added)
 	require.Empty(t, upgrades.Deleted)
@@ -47,10 +48,11 @@ func TestMergeStoreUpgradesAddsLayerXStores(t *testing.T) {
 	}
 	require.Empty(t, a.unmountedPlanStores(MergeUpgrade))
 	versions := a.UpgradeKeeper.GetModuleVersionMap(ctx)
-	mergedModules := []string{ledgertypes.ModuleName, authtypes.ModuleName, paytypes.ModuleName, agenttypes.ModuleName}
+	mergedModules := []string{ledgertypes.ModuleName, authtypes.ModuleName, paytypes.ModuleName, chainstypes.ModuleName, agenttypes.ModuleName, keys.LayerXHostStoreKey}
 	for _, name := range mergedModules {
 		delete(versions, name)
 	}
+	before := snapshotStores(t, a, ctx)
 	plan := upgradetypes.Plan{Name: MergeUpgrade, Height: mergeHeight, Info: activationInfo(t)}
 	require.NoError(t, a.UpgradeKeeper.ScheduleUpgrade(ctx, plan))
 	returned, err := a.continueMergeUpgradePlan(ctx, plan, versions)
@@ -62,6 +64,8 @@ func TestMergeStoreUpgradesAddsLayerXStores(t *testing.T) {
 	require.Equal(t, ledgertypes.DefaultGenesis(), a.LayerXLedgerKeeper.ExportGenesis(ctx))
 	require.Equal(t, authtypes.DefaultGenesis(), a.LayerXAuthKeeper.ExportGenesis(ctx))
 	require.Equal(t, paytypes.DefaultGenesis(), a.LayerXPayKeeper.ExportGenesis(ctx))
+	require.Equal(t, before, snapshotStores(t, a, ctx))
+	require.Equal(t, chainstypes.DefaultGenesis(), a.LayerXChainsKeeper.ExportGenesis(ctx))
 	require.Equal(t, agenttypes.DefaultGenesis(), a.LayerXAgentKeeper.ExportGenesis(ctx))
 	state, err := a.SequencerKeeper.ExportGenesis(ctx)
 	require.NoError(t, err)
