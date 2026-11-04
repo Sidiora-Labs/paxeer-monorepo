@@ -231,7 +231,12 @@ func (s *Server) handlePostTask(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleListTasks(w http.ResponseWriter, _ *http.Request) {
-	results := s.engine.RecentResults()
+	results, err := s.engine.RecentResults()
+	if err != nil {
+		w.Header().Set("Retry-After", "1")
+		writeError(w, http.StatusServiceUnavailable, "failed to list tasks; retry")
+		return
+	}
 	if results == nil {
 		results = []engine.TaskResult{}
 	}
@@ -244,7 +249,12 @@ func (s *Server) handleGetTask(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "missing task ID")
 		return
 	}
-	result := s.engine.GetResult(id)
+	result, err := s.engine.GetResult(id)
+	if err != nil {
+		w.Header().Set("Retry-After", "1")
+		writeError(w, http.StatusServiceUnavailable, "failed to get task; retry")
+		return
+	}
 	if result == nil {
 		writeError(w, http.StatusNotFound, "task not found")
 		return

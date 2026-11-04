@@ -1,0 +1,33 @@
+[repair.22.33.225]
+audit = "22.30.125"
+finding = "sandbox_rollback_error (task label: storage-environment item)"
+implementation = "src/modules/programs/sandbox.c preserves a failed discard result and bypasses receipt completion while still releasing sandbox buffers."
+tests = ["sandbox_rollback_preserves_refusal", "sandbox_rollback_staged_account_failure_is_fatal", "sandbox_rollback_transfer_failure_is_fatal"]
+path = "programs-core-test -> programs_registration -> sandbox lifecycle C harness -> production sandbox execute and module savepoint discard"
+conditions = "A real active savepoint refuses re-entry; production account staging or a canonical Programs transfer invalidates its rollback invariants. No runtime or savepoint helper is replaced."
+assertions = "Fatal discard errors supersede ordinary refusal; successful discard preserves refusal; no usage receipt or outcome is published; enclosing context and journal rollback restore balances, account inventory and committed state root."
+baseline = "Not run: the explicit implementation-first order and hf-done-only verification rule prohibit the conflicting unchanged-tree verify request; no pre-change test result is claimed."
+wiring_requests = []
+evidence = "The private hf-build/hf-done ledger records the exact candidate revision, commands, exits and log paths; no gate result is claimed in advance."
+
+[qualification.inherited_registration_failure]
+revision = "38e7c0bc27555df8b32f9ac7f65c9fdfc42a7062"
+command = "cg spec done 22.33.225 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "make -s programs-core-test exited 2 before executing tests because the inherited registration_contract references undefined LX_PROGRAMS_FEE_GOVERNANCE; make -s all passed at this revision."
+assumption = "Superseded by the continuation ruling authorizing repair of the registration contract and qualification of the changed candidate."
+
+[repair.22.33.225.continuation]
+registration = "The production ABI 2, 3 and 4 registrations have respectively seven, eight and nine activity types; retain exact count and ordering assertions for those live types, removing only the retired fee-governance expectation as authorized."
+current_base = "Base f25ab9129415b70e1e47d668e4d2d04777519969 already has both retired-interface corrections: registration_contract checks the live activity list and migration_activate stages and activates the verified migration profile through the current interface. Neither test source still references the retired activity constant, so this continuation preserves both current-interface cases without weakening their assertions."
+regressions = "Preserve rollback-error propagation and all five refusal and rollback cases executed by programs_registration in programs-core-test."
+gotcha = "No live fee activity constant is registered by the Programs module; fee-governance retirement removes that entry and shifts the exact registration counts and final account/wind-down indices."
+
+[qualification.rollback_journal_sequence]
+revision = "27e7cf751ab0a075dd1316e0c98e4a175e219dda"
+command = "cg spec done 22.33.225 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The rollback fixture used its activity marker as the journal sequence and failed journal open before exercising rollback; the store requires its next_sequence."
+repair = "Use the store's next_sequence for the rollback context; preserve all rollback, receipt, root and balance assertions."

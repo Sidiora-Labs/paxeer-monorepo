@@ -1,0 +1,26 @@
+[task.22.33.1072]
+status = "implemented_not_qualified"
+f008 = "TestRepairM_1072_ConfigPathPersistence"
+f009 = "TestRepairM_1072_WALAppendFailureRestart; TestRepairM_1072_ConcurrentWALOrderRestart"
+f010 = "TestRepairM_1072_HasRepeatedOwnedReads"
+f011 = "TestRepairM_1072_ImmediateClose; TestRepairM_1072_CloseConcurrentAcceptedWrites"
+slice_review = "Has now frees successful getSlice allocations; Get and OpenDB already use copyAndFreeSlice; iterator Key, Value and Timestamp are borrowed grocksdb slices with freed=true."
+baseline = "Previous attempt cb9c90bb6485af26436fa81894fa3f553051d35d failed cg spec done 22.33.1072 -f layerx-merge --root /work/paxeer-monorepo with exit 1 at package setup; no TestRepairM_1072_ test executed. The controlling gate order prohibits a separate unchanged-tree verify before hf-build."
+qualification = "Attempt 5 retains the attempt-4 implementation and uses hf-build followed by hf-done with rocksdbBackend and RocksDB 8.11.4 built with ROCKSDB_DISABLE_GFLAGS=1 by the declared gates, preserving the pinned grocksdb v1.8.11 binding. The private gate ledger /out/run/gates.jsonl records the exact candidate revision, command, exit and log; no passing gate is claimed before it runs. No gate wiring request remains."
+gotcha = "All MVCC source and test files require rocksdbBackend; untagged recursive go build can succeed with no matching packages while untagged go test fails before executing tests."
+
+[qualification.attempt3]
+revision = "4f1a91a7bd63a858758f2415e43eecb814929023"
+command = "(dpkg -s librocksdb-dev >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq librocksdb-dev >/dev/null)) && go build -tags rocksdbBackend ./storage/db_engine/rocksdb/mvcc/..."
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "# github.com/linxGnu/grocksdb\n/root/go/pkg/mod/github.com/linx!gnu/grocksdb@v1.8.11/db.go:1668:2: could not determine what C.rocksdb_delete_file refers to"
+assumption = "The system librocksdb-dev is incompatible with the pinned grocksdb v1.8.11 binding; the continuation ruling requires recording this external failure and stopping without a repair rerun or hf-done. No tests executed and no qualification is claimed."
+
+[qualification.attempt4]
+revision = "803c05150acea57514939333b9b0fe168a52f53a"
+command = "cg spec done 22.33.1072 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "hf-build passed on the same candidate; hf-done failed before test execution because /usr/lib/x86_64-linux-gnu/libgflags.so.2.2 has an unresolved __cxa_call_terminate@CXXABI_1.3.15 reference; full linker output is /tmp/repair-m1072.log."
+assumption = "This native-toolchain dependency failure is outside the task scope and is recorded without repair or rerun as instructed; no focused test executed and no qualification is claimed."
