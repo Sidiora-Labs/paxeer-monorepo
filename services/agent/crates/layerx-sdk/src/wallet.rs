@@ -274,7 +274,9 @@ impl<'Wallet> Wallet<'Wallet> {
         payload: &[u8],
         options: &PaymentOptions,
     ) -> Result<PreparedPayment, RpcError> {
-        if options.wait_timeout > Duration::from_secs(300) {
+        if payload.len() > crate::rpc::MAX_TRANSACTION_CALLDATA_BYTES
+            || options.wait_timeout > Duration::from_secs(300)
+        {
             return Err(RpcError::InvalidRequest);
         }
         if options.commitment == Commitment::Finalised

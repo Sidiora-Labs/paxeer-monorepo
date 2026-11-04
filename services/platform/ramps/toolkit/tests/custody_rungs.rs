@@ -58,6 +58,7 @@ fn executed_receipt() -> ExecutedReceipt {
         cumulative_gas_used: 21_000,
         effective_gas_price: 1,
         fee_denom: "upax".to_owned(),
+        payment_denom: "upax".to_owned(),
         fee_amount: {
             let mut amount = [0; 32];
             amount[30..].copy_from_slice(&21_000_u16.to_be_bytes());

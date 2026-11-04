@@ -18,7 +18,8 @@ use crate::{
 };
 
 /// Configuration, policy and model a new reputation segment binds to.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct SegmentBinding {
     pub config: Version,
     pub policy: Digest32,
@@ -136,7 +137,8 @@ pub fn rollover_segment(
     dead_code,
     reason = "crate-internal F07 primitive: its F05/F06 bridge caller is not in tree; tests/reputation_vectors.rs drives it via #[path]"
 )]
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub(crate) struct EpochTally {
     pub(crate) median: Presence<Score>,
     pub(crate) support: u8,
@@ -399,7 +401,8 @@ pub const SEAL_BYTES: usize = 20;
     dead_code,
     reason = "joint-section runtime used by epoch.rs; tests/reputation_vectors.rs includes this file via #[path]"
 )]
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct HistorySeal {
     pub epoch: u64,
     pub allowed: u32,
@@ -423,7 +426,8 @@ impl HistorySeal {
     dead_code,
     reason = "joint-section runtime used by epoch.rs; tests/reputation_vectors.rs includes this file via #[path]"
 )]
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Region {
     pub state: ReputationState,
     pub seal: Presence<HistorySeal>,
@@ -504,6 +508,7 @@ fn check_seal(state: &ReputationState, seal: HistorySeal) -> CodecResult<()> {
     dead_code,
     reason = "joint-section runtime used by epoch.rs; tests/reputation_vectors.rs includes this file via #[path]"
 )]
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_joint(region: &Region, table: &[u8], out: &mut [u8]) -> CodecResult<usize> {
     let mut len = encode_section(&region.state, out)?;
     if let Presence::Present(seal) = region.seal {
@@ -788,7 +793,8 @@ pub fn prune_released(
     dead_code,
     reason = "joint-section runtime used by epoch.rs; tests/reputation_vectors.rs includes this file via #[path]"
 )]
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct WorkerObservation {
     pub median: Presence<Score>,
     pub support: u8,

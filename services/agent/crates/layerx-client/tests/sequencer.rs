@@ -171,6 +171,7 @@ fn expected_receipt() -> ExecutedReceipt {
         cumulative_gas_used: 42_000,
         effective_gas_price: 1_000_000_000,
         fee_denom: "upax".to_owned(),
+        payment_denom: "upax".to_owned(),
         fee_amount: amount,
         sponsor: [0; 20],
         from: from(),
