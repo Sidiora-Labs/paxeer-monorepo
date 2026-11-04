@@ -284514,7 +284514,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.172]
 title = "Rewrite the tools-ops documentation pages of tools/codebase-map: stale and misleading pages (manifest 22.32.172, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284544,7 +284544,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.171]
 title = "Rewrite the tools-ops documentation pages of tools/benchmark: stale and misleading pages (manifest 22.32.171, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284574,7 +284574,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.170]
 title = "Rewrite the tools-ops documentation pages of tests/integration: stale and misleading pages (manifest 22.32.170, 5 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284604,7 +284604,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.169]
 title = "Rewrite the tools-ops documentation pages of scripts/bump_version: stale and misleading pages (manifest 22.32.169, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284634,7 +284634,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.168]
 title = "Rewrite the tools-ops documentation pages of migrations: stale and misleading pages (manifest 22.32.168, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284664,7 +284664,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.167]
 title = "Rewrite the tools-ops documentation pages of docs/site: stale and misleading pages (manifest 22.32.167, 3 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284694,7 +284694,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.166]
 title = "Rewrite the tools-ops documentation pages of docs/site: stale and misleading pages (manifest 22.32.166, 6 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284724,7 +284724,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.165]
 title = "Rewrite the tools-ops documentation pages of docs: stale and misleading pages (manifest 22.32.165, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284754,7 +284754,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.164]
 title = "Rewrite the tools-ops documentation pages of deploy/launchpad: stale and misleading pages (manifest 22.32.164, 2 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284784,7 +284784,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.163]
 title = "Rewrite the tools-ops documentation pages of deploy/launchpad: stale and misleading pages (manifest 22.32.163, 6 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284814,7 +284814,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.162]
 title = "Rewrite the tools-ops documentation pages of contracts: stale and misleading pages (manifest 22.32.162, 2 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284844,7 +284844,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.161]
 title = "Rewrite the tools-ops documentation pages of .github: stale and misleading pages (manifest 22.32.161, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284874,7 +284874,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.160]
 title = "Rewrite the tools-ops documentation pages of .codify: stale and misleading pages (manifest 22.32.160, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284904,7 +284904,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.159]
 title = "Rewrite the tools-ops documentation pages of .: stale and misleading pages (manifest 22.32.159, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284934,7 +284934,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.158]
 title = "Rewrite the cosmos-fork documentation pages of sdk/x: stale and misleading pages (manifest 22.32.158, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284964,7 +284964,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.157]
 title = "Rewrite the cosmos-fork documentation pages of sdk/x: stale and misleading pages (manifest 22.32.157, 2 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284994,7 +284994,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.156]
 title = "Rewrite the cosmos-fork documentation pages of sdk/x: stale and misleading pages (manifest 22.32.156, 6 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285024,7 +285024,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.155]
 title = "Rewrite the cosmos-fork documentation pages of sdk/x: stale and misleading pages (manifest 22.32.155, 6 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285054,7 +285054,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.154]
 title = "Rewrite the cosmos-fork documentation pages of sdk/x: stale and misleading pages (manifest 22.32.154, 6 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285084,7 +285084,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.153]
 title = "Rewrite the cosmos-fork documentation pages of sdk/x: stale and misleading pages (manifest 22.32.153, 6 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285114,7 +285114,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.152]
 title = "Rewrite the cosmos-fork documentation pages of sdk/x: stale and misleading pages (manifest 22.32.152, 6 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285144,7 +285144,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.151]
 title = "Rewrite the cosmos-fork documentation pages of sdk/x: stale and misleading pages (manifest 22.32.151, 6 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285174,7 +285174,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.150]
 title = "Rewrite the cosmos-fork documentation pages of sdk/x: stale and misleading pages (manifest 22.32.150, 6 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285204,7 +285204,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.149]
 title = "Rewrite the cosmos-fork documentation pages of docs/wiki: stale and misleading pages (manifest 22.32.149, 2 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285234,7 +285234,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.148]
 title = "Rewrite the cosmos-fork documentation pages of docs/site: stale and misleading pages (manifest 22.32.148, 2 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285264,7 +285264,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.147]
 title = "Rewrite the cosmos-fork documentation pages of docs: stale and misleading pages (manifest 22.32.147, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285294,7 +285294,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.146]
 title = "Rewrite the cosmos-fork documentation pages of contracts: new pages (manifest 22.32.146, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285324,7 +285324,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.145]
 title = "Rewrite the web-explorer-bridge documentation pages of services/explorer: stale and misleading pages (manifest 22.32.145, 3 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285354,7 +285354,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.144]
 title = "Rewrite the web-explorer-bridge documentation pages of services/explorer: stale and misleading pages (manifest 22.32.144, 5 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285384,7 +285384,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.143]
 title = "Rewrite the web-explorer-bridge documentation pages of services/explorer: stale and misleading pages (manifest 22.32.143, 4 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285414,7 +285414,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.142]
 title = "Rewrite the web-explorer-bridge documentation pages of sdk/js: stale and misleading pages (manifest 22.32.142, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285444,7 +285444,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.141]
 title = "Rewrite the web-explorer-bridge documentation pages of docs/wiki: stale and misleading pages (manifest 22.32.141, 2 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285474,7 +285474,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.140]
 title = "Rewrite the web-explorer-bridge documentation pages of docs/wiki: stale and misleading pages (manifest 22.32.140, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285504,7 +285504,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.139]
 title = "Rewrite the web-explorer-bridge documentation pages of docs/wiki: stale and misleading pages (manifest 22.32.139, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285534,7 +285534,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.138]
 title = "Rewrite the web-explorer-bridge documentation pages of docs/wiki: stale and misleading pages (manifest 22.32.138, 2 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285564,7 +285564,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.137]
 title = "Rewrite the web-explorer-bridge documentation pages of docs/wiki: stale and misleading pages (manifest 22.32.137, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285594,7 +285594,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.136]
 title = "Rewrite the web-explorer-bridge documentation pages of docs/wiki: stale and misleading pages (manifest 22.32.136, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285624,7 +285624,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.135]
 title = "Rewrite the web-explorer-bridge documentation pages of docs/system: stale and misleading pages (manifest 22.32.135, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285654,7 +285654,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.134]
 title = "Rewrite the web-explorer-bridge documentation pages of docs/site: stale and misleading pages (manifest 22.32.134, 3 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285684,7 +285684,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.133]
 title = "Rewrite the web-explorer-bridge documentation pages of docs/site: stale and misleading pages (manifest 22.32.133, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285714,7 +285714,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.132]
 title = "Rewrite the web-explorer-bridge documentation pages of docs/site: stale and misleading pages (manifest 22.32.132, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285744,7 +285744,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.131]
 title = "Rewrite the web-explorer-bridge documentation pages of docs/site: stale and misleading pages (manifest 22.32.131, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285774,7 +285774,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.130]
 title = "Rewrite the web-explorer-bridge documentation pages of docs/site: stale and misleading pages (manifest 22.32.130, 2 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285804,7 +285804,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.129]
 title = "Rewrite the web-explorer-bridge documentation pages of docs/site: stale and misleading pages (manifest 22.32.129, 1 page)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285834,7 +285834,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.128]
 title = "Rewrite the web-explorer-bridge documentation pages of docs/readme: stale and misleading pages (manifest 22.32.128, 2 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285864,7 +285864,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.127]
 title = "Rewrite the web-explorer-bridge documentation pages of docs: stale and misleading pages (manifest 22.32.127, 3 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285954,7 +285954,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.124]
 title = "Rewrite the web-explorer-bridge documentation pages of contracts: new pages (manifest 22.32.124, 3 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -285984,7 +285984,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.123]
 title = "Rewrite the web-explorer-bridge documentation pages of contracts: new pages (manifest 22.32.123, 6 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286014,7 +286014,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.122]
 title = "Rewrite the web-explorer-bridge documentation pages of contracts: new pages (manifest 22.32.122, 6 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286044,7 +286044,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.121]
 title = "Rewrite the web-explorer-bridge documentation pages of contracts: new pages (manifest 22.32.121, 6 pages)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
