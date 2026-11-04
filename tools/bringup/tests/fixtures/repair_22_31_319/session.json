@@ -1,0 +1,229 @@
+{
+  "description": "SSH command/response contract at edge and authorized kernel origins. Public readiness is exercised against loopback TLS; manifest/site stdout is supplied unchanged by edge.sh. Test-only stream certificate, never a deployment identity.",
+  "exchanges": [
+    {
+      "id": "dns-edge.bringup.test",
+      "tool": "getent",
+      "argv": [
+        "ahosts",
+        "edge.bringup.test"
+      ],
+      "stdout": "127.0.0.1 STREAM edge.bringup.test\n127.0.0.1 DGRAM edge.bringup.test\n"
+    },
+    {
+      "id": "dns-box.bringup.test",
+      "tool": "getent",
+      "argv": [
+        "ahosts",
+        "box.bringup.test"
+      ],
+      "stdout": "127.0.0.1 STREAM box.bringup.test\n127.0.0.1 DGRAM box.bringup.test\n"
+    },
+    {
+      "id": "dns-ramp.bringup.test",
+      "tool": "getent",
+      "argv": [
+        "ahosts",
+        "ramp.bringup.test"
+      ],
+      "stdout": "127.0.0.1 STREAM ramp.bringup.test\n127.0.0.1 DGRAM ramp.bringup.test\n"
+    },
+    {
+      "id": "dns-railway.bringup.test",
+      "tool": "getent",
+      "argv": [
+        "ahosts",
+        "railway.bringup.test"
+      ],
+      "stdout": "127.0.0.1 STREAM railway.bringup.test\n127.0.0.1 DGRAM railway.bringup.test\n"
+    },
+    {
+      "id": "dns-stream.bringup.test",
+      "tool": "getent",
+      "argv": [
+        "ahosts",
+        "stream.bringup.test"
+      ],
+      "stdout": "127.0.0.1 STREAM stream.bringup.test\n127.0.0.1 DGRAM stream.bringup.test\n"
+    },
+    {
+      "id": "dns-rpc.bringup.test",
+      "tool": "getent",
+      "argv": [
+        "ahosts",
+        "rpc.bringup.test"
+      ],
+      "stdout": "127.0.0.1 STREAM rpc.bringup.test\n127.0.0.1 DGRAM rpc.bringup.test\n"
+    },
+    {
+      "id": "edge-read",
+      "tool": "ssh",
+      "argv": [
+        "-n",
+        "-o",
+        "BatchMode=yes",
+        "--",
+        "edge.bringup.test",
+        "nginx_dir={NGINX_DIR}; cat \"$nginx_dir/edge/manifest\" 2>/dev/null; echo @@sites; for f in \"$nginx_dir\"/sites-available/* \"$nginx_dir\"/edge/stream/*.conf; do head -n 1 \"$f\" 2>/dev/null | grep -q \"^# rendered by tools/bringup/edge.sh\" && cat \"$f\"; done; true"
+      ],
+      "stdout": "",
+      "stdout_file": "{SNAPSHOT}"
+    },
+    {
+      "id": "box-upstream",
+      "tool": "ssh",
+      "argv": [
+        "-n",
+        "-o",
+        "BatchMode=yes",
+        "--",
+        "edge.bringup.test",
+        "curl -fsS --max-time 10 --connect-to 10.0.0.5:8080:10.0.0.5:8080 -H 'Host: box.bringup.test' http://10.0.0.5:8080/readyz"
+      ],
+      "stdout": "{\"ready\":true}"
+    },
+    {
+      "id": "ramp-upstream",
+      "tool": "ssh",
+      "argv": [
+        "-n",
+        "-o",
+        "BatchMode=yes",
+        "--",
+        "edge.bringup.test",
+        "curl -fsS --max-time 10 --cacert {BOX_CA} --connect-to backend.bringup.test:9443:10.0.0.6:9443 -H 'Host: ramp.bringup.test' https://backend.bringup.test:9443/readyz"
+      ],
+      "stdout": "{\"ready\":true}"
+    },
+    {
+      "id": "railway-upstream",
+      "tool": "ssh",
+      "argv": [
+        "-n",
+        "-o",
+        "BatchMode=yes",
+        "--",
+        "edge.bringup.test",
+        "curl -fsS --max-time 10 --connect-to backend.bringup.test:443:service.up.railway.app:443 -H 'Host: backend.bringup.test' https://backend.bringup.test:443/readyz"
+      ],
+      "stdout": "{\"ready\":true}"
+    },
+    {
+      "id": "rpc-api1.mainnet-beta.paxeer.network",
+      "tool": "ssh",
+      "argv": [
+        "-n",
+        "-o",
+        "BatchMode=yes",
+        "--",
+        "edge.bringup.test",
+        "curl -fsS --max-time 10 -H 'Content-Type: application/json' --data '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"eth_chainId\",\"params\":[]}' https://api1.mainnet-beta.paxeer.network/"
+      ],
+      "stdout": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":\"0x7d\"}"
+    },
+    {
+      "id": "rpc-api2.mainnet-beta.paxeer.network",
+      "tool": "ssh",
+      "argv": [
+        "-n",
+        "-o",
+        "BatchMode=yes",
+        "--",
+        "edge.bringup.test",
+        "curl -fsS --max-time 10 -H 'Content-Type: application/json' --data '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"eth_chainId\",\"params\":[]}' https://api2.mainnet-beta.paxeer.network/"
+      ],
+      "stdout": "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":\"0x7d\"}"
+    },
+    {
+      "id": "stream-upstream",
+      "tool": "ssh",
+      "argv": [
+        "-n",
+        "-o",
+        "BatchMode=yes",
+        "--",
+        "edge.bringup.test",
+        "timeout 10 openssl s_client -connect 10.0.0.7:9443 -servername stream.bringup.test </dev/null 2>/dev/null | openssl x509 -noout -fingerprint -sha256 2>/dev/null"
+      ],
+      "stdout": "sha256 Fingerprint=79:D4:3D:55:2E:17:6B:5E:0D:10:6F:4E:5B:F4:09:63:A3:82:0E:F1:2C:44:70:04:23:1A:27:28:70:33:02:06\n"
+    },
+    {
+      "id": "internal-kms",
+      "tool": "ssh",
+      "argv": [
+        "-n",
+        "-o",
+        "BatchMode=yes",
+        "--",
+        "kernel.bringup.test",
+        "'tls={TLS_DIR}/human-event-client' app=internal-kms group=kms limit=10 url=https://internal-kms.railway.internal:9443/readyz 'connect=internal-kms.railway.internal:9443:{PRIVATE_TARGET}' sh -c 'for group in \"$group\"; do\n\tstatus=0\n\tanswer=$(curl -sS -m \"$limit\" --cacert \"$tls/ca.pem\" --cert \"$tls/cert.pem\" --key \"$tls/key.pem\" -w \"\\n%{http_code}\" \"${url}\" ${connect:+--connect-to \"$connect\"} 2>&1) || status=$?\n\techo \"@@$group $status $(printf \"%s\" \"$answer\" | tail -n 1) $(printf \"%s\" \"$answer\" | head -n 1 | tr -d \" \" | cut -c1-120)\"\ndone'"
+      ],
+      "stdout": "@@kms 0 200 {\"ready\":true}\n"
+    },
+    {
+      "id": "internal-journeys",
+      "tool": "ssh",
+      "argv": [
+        "-n",
+        "-o",
+        "BatchMode=yes",
+        "--",
+        "kernel.bringup.test",
+        "'tls={TLS_DIR}/human-event-client' app=internal-journeys group=journeys limit=10 url=https://internal-journeys.railway.internal:9443/readyz 'connect=internal-journeys.railway.internal:9443:{PRIVATE_TARGET}' sh -c 'for group in \"$group\"; do\n\tstatus=0\n\tanswer=$(curl -sS -m \"$limit\" --cacert \"$tls/ca.pem\" --cert \"$tls/cert.pem\" --key \"$tls/key.pem\" -w \"\\n%{http_code}\" \"${url}\" ${connect:+--connect-to \"$connect\"} 2>&1) || status=$?\n\techo \"@@$group $status $(printf \"%s\" \"$answer\" | tail -n 1) $(printf \"%s\" \"$answer\" | head -n 1 | tr -d \" \" | cut -c1-120)\"\ndone'"
+      ],
+      "stdout": "@@journeys 0 200 {\"ready\":true}\n"
+    },
+    {
+      "id": "internal-payments",
+      "tool": "ssh",
+      "argv": [
+        "-n",
+        "-o",
+        "BatchMode=yes",
+        "--",
+        "kernel.bringup.test",
+        "'tls={TLS_DIR}/human-event-client' app=internal-payments group=payments limit=10 url=https://internal-payments.railway.internal:9443/readyz 'connect=internal-payments.railway.internal:9443:{PRIVATE_TARGET}' sh -c 'for group in \"$group\"; do\n\tstatus=0\n\tanswer=$(curl -sS -m \"$limit\" --cacert \"$tls/ca.pem\" --cert \"$tls/cert.pem\" --key \"$tls/key.pem\" -w \"\\n%{http_code}\" \"${url}\" ${connect:+--connect-to \"$connect\"} 2>&1) || status=$?\n\techo \"@@$group $status $(printf \"%s\" \"$answer\" | tail -n 1) $(printf \"%s\" \"$answer\" | head -n 1 | tr -d \" \" | cut -c1-120)\"\ndone'"
+      ],
+      "stdout": "@@payments 0 200 {\"ready\":true}\n"
+    },
+    {
+      "id": "internal-approvals",
+      "tool": "ssh",
+      "argv": [
+        "-n",
+        "-o",
+        "BatchMode=yes",
+        "--",
+        "kernel.bringup.test",
+        "'tls={TLS_DIR}/human-event-client' app=internal-approvals group=approvals limit=10 url=https://internal-approvals.railway.internal:9443/readyz 'connect=internal-approvals.railway.internal:9443:{PRIVATE_TARGET}' sh -c 'for group in \"$group\"; do\n\tstatus=0\n\tanswer=$(curl -sS -m \"$limit\" --cacert \"$tls/ca.pem\" --cert \"$tls/cert.pem\" --key \"$tls/key.pem\" -w \"\\n%{http_code}\" \"${url}\" ${connect:+--connect-to \"$connect\"} 2>&1) || status=$?\n\techo \"@@$group $status $(printf \"%s\" \"$answer\" | tail -n 1) $(printf \"%s\" \"$answer\" | head -n 1 | tr -d \" \" | cut -c1-120)\"\ndone'"
+      ],
+      "stdout": "@@approvals 0 200 {\"ready\":true}\n"
+    },
+    {
+      "id": "internal-programs",
+      "tool": "ssh",
+      "argv": [
+        "-n",
+        "-o",
+        "BatchMode=yes",
+        "--",
+        "kernel.bringup.test",
+        "'tls={TLS_DIR}/human-event-client' app=internal-programs group=programs limit=10 url=https://internal-programs.railway.internal:9443/readyz 'connect=internal-programs.railway.internal:9443:{PRIVATE_TARGET}' sh -c 'for group in \"$group\"; do\n\tstatus=0\n\tanswer=$(curl -sS -m \"$limit\" --cacert \"$tls/ca.pem\" --cert \"$tls/cert.pem\" --key \"$tls/key.pem\" -w \"\\n%{http_code}\" \"${url}\" ${connect:+--connect-to \"$connect\"} 2>&1) || status=$?\n\techo \"@@$group $status $(printf \"%s\" \"$answer\" | tail -n 1) $(printf \"%s\" \"$answer\" | head -n 1 | tr -d \" \" | cut -c1-120)\"\ndone'"
+      ],
+      "stdout": "@@programs 0 200 {\"ready\":true}\n"
+    },
+    {
+      "id": "internal-missing-identity",
+      "tool": "ssh",
+      "argv": [
+        "-n",
+        "-o",
+        "BatchMode=yes",
+        "--",
+        "kernel.bringup.test",
+        "'tls={MISSING_TLS_DIR}/human-event-client' app=internal-kms group=kms limit=10 url=https://internal-kms.railway.internal:9443/readyz 'connect=internal-kms.railway.internal:9443:{PRIVATE_TARGET}' sh -c 'for group in \"$group\"; do\n\tstatus=0\n\tanswer=$(curl -sS -m \"$limit\" --cacert \"$tls/ca.pem\" --cert \"$tls/cert.pem\" --key \"$tls/key.pem\" -w \"\\n%{http_code}\" \"${url}\" ${connect:+--connect-to \"$connect\"} 2>&1) || status=$?\n\techo \"@@$group $status $(printf \"%s\" \"$answer\" | tail -n 1) $(printf \"%s\" \"$answer\" | head -n 1 | tr -d \" \" | cut -c1-120)\"\ndone'"
+      ],
+      "stdout": "@@kms 58 000 curl:(58)couldnotloadPEMclientcertificate\n"
+    }
+  ]
+}

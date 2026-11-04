@@ -249,6 +249,11 @@ Environment:
   CHECK_LIVE_RELAY_ACTIVITY  file of original signed activity bytes, required by relay
   CHECK_LIVE_RELAY_ACTIVITY_ID  the activity id the hosted gateway answers for it
   CHECK_LIVE_RELAY_KEY_FILE  file holding the hosted gateway API key; never printed
+  CHECK_LIVE_EDGE_NGINX_DIR  edge nginx root, default /etc/nginx
+  CHECK_LIVE_EDGE_BOX_CA     edge box upstream trust, default /etc/layerx/ca.crt
+  CHECK_LIVE_EDGE_READINESS_PATH  HTTP readiness path, default /readyz
+  CHECK_LIVE_INTERNAL_CONNECT_<GROUP>  private host:port reachable from KERNEL_HOST;
+                       TLS retains the deployed service name
   CHECK_LIVE_TIMEOUT   seconds per request, ssh or flyctl call, default 30
   LAYERX_CA_DIR        the internal CA directory on this host, default
                        /etc/layerx/ca
@@ -1431,7 +1436,7 @@ check_identity() {
 # the same X-Search-Node, one of those names. One line per check.
 check_search_front() {
 	local host=search.paxeer.network
-	local app status headers code listing mounted expected validators listed first second failures=0
+	local app status headers code listing mounted expected validators listed="" first second failures=0
 	if ! command -v "$railway_bin" >/dev/null 2>&1; then
 		echo "check-live: $railway_bin is required" >&2
 		exit 2
@@ -1464,24 +1469,18 @@ check_search_front() {
 		expected="$(sed -n 's/^serve //p' <<<"$listing" | sort)"
 		validators="$(sed -n 's/^validator //p' <<<"$listing" | sort)"
 		mounted="$(railway_ssh "$app" "cat /etc/nginx/search/upstreams.conf" </dev/null)" || mounted=""
-		listed="$(sed -n 's/^[[:space:]]*\([0-9.]*%\|\*\)[[:space:]]\{1,\}\([a-z0-9.-]*\);.*/\2/p' <<<"$mounted" | sort)"
-		first="$(comm -23 <(printf '%s\n' "$expected") <(printf '%s\n' "$listed") | grep -c . || true)"
-		second="$(comm -13 <(printf '%s\n' "$expected") <(printf '%s\n' "$listed") | grep -c . || true)"
-		code="$(comm -12 <(printf '%s\n' "$validators") <(printf '%s\n' "$listed") | grep -c . || true)"
-		if [ -z "$mounted" ]; then
-			echo "fail upstreams app=$app list=unreadable"
-			failures=$((failures + 1))
-		elif [ "$first" -eq 0 ] && [ "$second" -eq 0 ] && [ "$code" -eq 0 ]; then
-			echo "pass upstreams listed=$(grep -c . <<<"$listed")/$(grep -c . <<<"$expected") validator=0"
+		if listed="$("$repo_root/tools/bringup/search-front.sh" qualify <<<"$mounted")"; then
+			echo "pass upstreams pinned=$listed eligible=1 validator=0 readiness=typed"
 		else
-			echo "fail upstreams missing=$first extra=$second validator=$code"
+			echo "fail upstreams pin-or-readiness=invalid"
 			failures=$((failures + 1))
+			listed=""
 		fi
 	fi
 
 	first="$(curl -sS --max-time "$timeout" -D - -o /dev/null "https://$host/xweb/health" 2>/dev/null | sed -n 's/^x-search-node:[[:space:]]*//Ip' | tr -d '\r')" || first=""
 	second="$(curl -sS --max-time "$timeout" -D - -o /dev/null "https://$host/xweb/health" 2>/dev/null | sed -n 's/^x-search-node:[[:space:]]*//Ip' | tr -d '\r')" || second=""
-	if [ -n "$first" ] && [ "$first" = "$second" ] && grep -qxF "$first" <<<"$expected"; then
+	if [ -n "$first" ] && [ "$first" = "$second" ] && [ "$first" = "$listed" ]; then
 		echo "pass sticky node=$first requests=2"
 	else
 		echo "fail sticky first=${first:-none} second=${second:-none}"
@@ -1490,111 +1489,119 @@ check_search_front() {
 	finish "$failures"
 }
 
-# check_edge: the names tools/bringup/edge.sh registered on the edge host, read
-# with its rendered sites over ssh from EDGE_HOST. The manifest names at least
-# one name; no rendered site names a validator host; every name resolves only
-# to EDGE_HOST's addresses; an http name answers the readiness route of its
-# app's toml (the first http check path) over TLS verified for the name with
-# 200, the Fly edge's fly-request-id header and the body the app's fly.dev name
-# answers; a stream name presents through the edge the certificate its app
-# presents at its fly.dev name for that SNI. One line per check, no address.
+# The registered edge contract is shared by edge and ramp. Decode every row;
+# a malformed row fails qualification instead of silently disappearing.
 # shellcheck disable=SC2016
-edge_cmd='cat /etc/nginx/edge/manifest 2>/dev/null; echo @@sites; for f in /etc/nginx/sites-available/* /etc/nginx/edge/stream/*.conf; do head -n 1 "$f" 2>/dev/null | grep -q "^# rendered by tools/bringup/edge.sh" && cat "$f"; done; true'
-edge_route_py='
-import sys
-import tomllib
+edge_cmd='cat "$nginx_dir/edge/manifest" 2>/dev/null; echo @@sites; for f in "$nginx_dir"/sites-available/* "$nginx_dir"/edge/stream/*.conf; do head -n 1 "$f" 2>/dev/null | grep -q "^# rendered by tools/bringup/edge.sh" && cat "$f"; done; true'
 
-with open(sys.argv[1], "rb") as handle:
-    doc = tomllib.load(handle)
-for check in (doc.get("http_service") or {}).get("checks") or []:
-    if check.get("path"):
-        print(check["path"])
-        break
-'
-check_edge() {
-	local reply status=0 manifest sites edge_addrs addrs v named=0 name mode app port at toml route
-	local out headers code fly_id body app_body tls first fp_edge fp_app failures=0
-	reply="$(ssh_read "$EDGE_HOST" "$edge_cmd")" || status=$?
-	if [ "$status" -ne 0 ] || [[ "$reply" != *@@sites* ]]; then
-		echo "fail EDGE_HOST manifest ssh=$status"
-		finish 1
-	fi
-	manifest="$(grep -E '^[a-z0-9.-]+ (http|stream) [a-z0-9-]+ [0-9]+$' <<<"${reply%%@@sites*}" || true)"
-	sites="${reply#*@@sites}"
-	if [ -z "$manifest" ]; then
-		echo "fail manifest names=0"
-		finish 1
-	fi
-	echo "pass manifest names=$(grep -c . <<<"$manifest")"
-	for v in $VALIDATOR_HOSTS; do
-		if grep -qF -- "${v#*@}" <<<"$sites"; then
-			named=$((named + 1))
-		fi
-	done
-	if [ "$named" -eq 0 ]; then
-		echo "pass sites validator=0"
-	else
-		echo "fail sites validator=$named"
-		failures=$((failures + 1))
-	fi
+edge_read() {
+	local command
+	printf -v command 'nginx_dir=%q; %s' "${CHECK_LIVE_EDGE_NGINX_DIR:-/etc/nginx}" "$edge_cmd"
+	ssh_read "$EDGE_HOST" "$command"
+}
+
+edge_manifest() {
+	python3 "$repo_root/tools/bringup/edge-contract.py"
+}
+
+# edge_probe <six manifest fields>: verify the actual public and upstream
+# responses. Upstream requests originate on the edge, where private box routes
+# and the box CA exist. TLS URLs retain SNI while --connect-to selects the
+# manifest's actual host:port. No provider request-id or Fly metadata is needed.
+edge_probe() {
+	local name="$1" mode="$2" upstream="$3" port="$4" kind="$5" sni="$6"
+	local addrs edge_addrs first fp_edge fp_up public direct command identity scheme host ca="" route
+	local members member payload='' failures=0
 	edge_addrs="$(getent ahosts "${EDGE_HOST#*@}" 2>/dev/null | awk '{print $1}' | sort -u)"
-	while read -r name mode app port; do
-		addrs="$(getent ahosts "$name" 2>/dev/null | awk '{print $1}' | sort -u)"
-		at=no
-		if [ -n "$addrs" ] && [ -n "$edge_addrs" ] && [ -z "$(comm -23 <(printf '%s\n' "$addrs") <(printf '%s\n' "$edge_addrs"))" ]; then
-			at=yes
+	addrs="$(getent ahosts "$name" 2>/dev/null | awk '{print $1}' | sort -u)"
+	if [ -z "$addrs" ] || [ -z "$edge_addrs" ] || [ -n "$(comm -23 <(printf '%s\n' "$addrs") <(printf '%s\n' "$edge_addrs"))" ]; then
+		echo "fail $name mode=$mode edge=no"
+		return 1
+	fi
+	if [ "$mode" = stream ]; then
+		first="$(head -n 1 <<<"$addrs")"
+		fp_edge="$(timeout "$timeout" openssl s_client -connect "$first:$port" -servername "$name" </dev/null 2>/dev/null | openssl x509 -noout -fingerprint -sha256 2>/dev/null)" || fp_edge=""
+		printf -v command 'timeout %q openssl s_client -connect %q -servername %q </dev/null 2>/dev/null | openssl x509 -noout -fingerprint -sha256 2>/dev/null' "$timeout" "$upstream" "$name"
+		fp_up="$(ssh_read "$EDGE_HOST" "$command")" || fp_up=""
+		if [ -n "$fp_edge" ] && [ "$fp_edge" = "$fp_up" ]; then
+			echo "pass $name mode=stream edge=yes certificate=match"
+			return 0
 		fi
-		if [ "$mode" = stream ]; then
-			first="$(head -n 1 <<<"$addrs")"
-			fp_edge=""
-			[ -z "$first" ] || fp_edge="$(timeout "$timeout" openssl s_client -connect "$first:$port" -servername "$name" </dev/null 2>/dev/null | openssl x509 -noout -fingerprint -sha256 2>/dev/null | cut -d= -f2)" || fp_edge=""
-			fp_app="$(timeout "$timeout" openssl s_client -connect "$app.fly.dev:$port" -servername "$name" </dev/null 2>/dev/null | openssl x509 -noout -fingerprint -sha256 2>/dev/null | cut -d= -f2)" || fp_app=""
-			out="$name mode=stream app=$app port=$port edge=$at presented=${fp_edge:-none} app-presents=${fp_app:-none}"
-			if [ "$at" = yes ] && [ -n "$fp_edge" ] && [ "$fp_edge" = "$fp_app" ]; then
-				echo "pass $out"
-			else
-				echo "fail $out"
+		echo "fail $name mode=stream certificate=differ"
+		return 1
+	fi
+	route="${CHECK_LIVE_EDGE_READINESS_PATH:-/readyz}"
+	if [ "$mode" = rpc ]; then
+		route=/
+		payload='{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
+	fi
+	local -a request=()
+	[ -z "$payload" ] || request=(-H 'Content-Type: application/json' --data "$payload")
+	public="$(curl -fsS --max-time "$timeout" "${request[@]}" "https://$name$route")" || public=""
+	if [ -z "$public" ]; then
+		echo "fail $name mode=$mode public=unready"
+		return 1
+	fi
+	if [ "$mode" = rpc ]; then
+		if ! python3 -c 'import json,sys; v=json.load(sys.stdin); assert v.get("jsonrpc") == "2.0" and type(v.get("id")) is int and v["id"] == 1 and v.get("result") == "0x7d" and "error" not in v' <<<"$public"; then
+			echo "fail $name mode=rpc chain-id=invalid"
+			return 1
+		fi
+		members="$(python3 "$repo_root/tools/bringup/edge-contract.py" "$name" "$port" <<<"$edge_reply")" || return 1
+		while read -r member; do
+			printf -v command 'curl -fsS --max-time %q -H %q --data %q %q' "$timeout" 'Content-Type: application/json' "$payload" "https://$member/"
+			direct="$(ssh_read "$EDGE_HOST" "$command")" || direct=""
+			if ! python3 -c 'import json,sys; a,b=map(json.loads,sys.argv[1:]); assert a == b' "$public" "$direct"; then
 				failures=$((failures + 1))
 			fi
-			continue
-		fi
-		route=""
-		toml="$(git -C "$repo_root" grep -l -E "^app = \"$app\"$" -- '*.toml' 2>/dev/null | head -n 1)" || toml=""
-		[ -z "$toml" ] || route="$(python3 -c "$edge_route_py" "$repo_root/$toml" 2>/dev/null)" || route=""
-		if [ -z "$route" ]; then
-			echo "fail $name mode=http app=$app edge=$at route=unknown"
-			failures=$((failures + 1))
-			continue
-		fi
-		status=0
-		out="$(curl -sS --max-time "$timeout" -D - "https://$name$route" 2>&1)" || status=$?
-		tls=verified
-		code=none
-		fly_id=absent
-		body=""
-		if [ "$status" -ne 0 ]; then
-			tls="curl-$status"
-		else
-			headers="${out%%$'\r\n\r\n'*}"
-			body="${out#*$'\r\n\r\n'}"
-			code="$(sed -n '1s/^HTTP\/[0-9.]* \([0-9]*\).*/\1/p' <<<"$headers")"
-			if grep -qiE '^fly-request-id: *[^[:space:]]' <<<"$headers"; then
-				fly_id=present
-			fi
-		fi
-		app_body="$(curl -sS --max-time "$timeout" -D - "https://$app.fly.dev$route" 2>/dev/null)" || app_body=""
-		app_body="${app_body#*$'\r\n\r\n'}"
-		v=differ
-		if [ -n "$body" ] && [ "$body" = "$app_body" ]; then
-			v=match
-		fi
-		out="$name mode=http app=$app edge=$at tls=$tls route=$route http=${code:-none} fly-request-id=$fly_id body=$v"
-		if [ "$at" = yes ] && [ "$tls" = verified ] && [ "$code" = 200 ] && [ "$fly_id" = present ] && [ "$v" = match ]; then
-			echo "pass $out"
-		else
-			echo "fail $out"
-			failures=$((failures + 1))
-		fi
+		done <<<"$members"
+	else
+		scheme=http
+		identity="${upstream%:*}"
+		[ "$sni" = - ] || identity="$sni"
+		host="$name"
+		if [ "$kind" = railway ]; then scheme=https; host="$identity"; fi
+		if [ "$kind" = box ] && [ "$sni" != - ]; then scheme=https; printf -v ca ' --cacert %q' "${CHECK_LIVE_EDGE_BOX_CA:-/etc/layerx/ca.crt}"; fi
+		printf -v command 'curl -fsS --max-time %q%s --connect-to %q -H %q %q' "$timeout" "$ca" "$identity:${upstream##*:}:$upstream" "Host: $host" "$scheme://$identity:${upstream##*:}$route"
+		direct="$(ssh_read "$EDGE_HOST" "$command")" || direct=""
+		[ "$public" = "$direct" ] || failures=1
+	fi
+	if [ "$failures" = 0 ]; then
+		echo "pass $name mode=$mode kind=$kind edge=yes tls=verified body=match"
+		return 0
+	fi
+	echo "fail $name mode=$mode kind=$kind upstream=differ"
+	return 1
+}
+
+# The ramp consumer uses the same rendered-route and upstream contract as edge.
+check_ramp_edge() {
+	local ramp_name="$1" edge_reply manifest line name mode upstream port kind sni
+	edge_reply="$(edge_read)" || { echo "fail edge $ramp_name manifest=unreadable"; return 1; }
+	manifest="$(edge_manifest <<<"$edge_reply")" || { echo "fail edge $ramp_name manifest=invalid"; return 1; }
+	line="$(awk -v n="$ramp_name" '$1 == n && $2 == "http" && $4 == 443' <<<"$manifest")"
+	if [ -z "$line" ] || [ "$(wc -l <<<"$line")" != 1 ]; then
+		echo "fail edge $ramp_name route=absent-or-ambiguous"
+		return 1
+	else
+		read -r name mode upstream port kind sni <<<"$line"
+		CHECK_LIVE_EDGE_READINESS_PATH=/readyz edge_probe "$name" "$mode" "$upstream" "$port" "$kind" "$sni" || return 1
+	fi
+
+}
+
+check_edge() {
+	local edge_reply manifest sites v named=0 name mode upstream port kind sni failures=0
+	edge_reply="$(edge_read)" || { echo 'fail EDGE_HOST manifest=unreadable'; finish 1; }
+	manifest="$(edge_manifest <<<"$edge_reply")" || { echo 'fail manifest contract=invalid'; finish 1; }
+	echo "pass manifest names=$(grep -c . <<<"$manifest")"
+	sites="${edge_reply#*@@sites}"
+	for v in $VALIDATOR_HOSTS; do
+		if grep -qF -- "${v#*@}" <<<"$sites"; then named=$((named + 1)); fi
+	done
+	if [ "$named" = 0 ]; then echo 'pass sites validator=0'; else echo "fail sites validator=$named"; failures=$((failures + 1)); fi
+	while read -r name mode upstream port kind sni; do
+		edge_probe "$name" "$mode" "$upstream" "$port" "$kind" "$sni" || failures=$((failures + 1))
 	done <<<"$manifest"
 	finish "$failures"
 }
@@ -2303,9 +2310,25 @@ echo "@@pin $(base64 <"$(env_of LAYERX_EVENTS_UPSTREAM_CA_DER)" 2>/dev/null | tr
 # shellcheck disable=SC2016
 internal_ready_script='for group in "$group"; do
 	status=0
-	answer=$(curl -sS -m "$limit" --cacert "$tls/ca.pem" --cert "$tls/cert.pem" --key "$tls/key.pem" -w "\n%{http_code}" "https://$app.railway.internal:9443/readyz" 2>&1) || status=$?
+	answer=$(curl -sS -m "$limit" --cacert "$tls/ca.pem" --cert "$tls/cert.pem" --key "$tls/key.pem" -w "\n%{http_code}" "${url}" ${connect:+--connect-to "$connect"} 2>&1) || status=$?
 	echo "@@$group $status $(printf "%s" "$answer" | tail -n 1) $(printf "%s" "$answer" | head -n 1 | tr -d " " | cut -c1-120)"
 done'
+# The kernel box must have the private route and DNS of the deployed service.
+# An explicit private connect target can override routing while preserving the
+# service URL's TLS identity. Never move the Human key to the target role.
+internal_probe() {
+	local app="$1" group="$2" variable target command
+	variable="CHECK_LIVE_INTERNAL_CONNECT_${group^^}"
+	target="${!variable:-}"
+	if [ -n "$target" ] && ! [[ "$target" =~ ^[a-zA-Z0-9.:-]+:[0-9]+$ ]]; then
+		echo "check-live: $variable must be a private host:port" >&2
+		return 2
+	fi
+	[ -z "$target" ] || target="$app.railway.internal:9443:$target"
+	printf -v command 'tls=%q app=%q group=%q limit=%q url=%q connect=%q sh -c %q' "$tls_dir/human-event-client" "$app" "$group" "$timeout" "https://$app.railway.internal:9443/readyz" "$target" "$internal_ready_script"
+	ssh_read "$KERNEL_HOST" "$command"
+}
+
 check_internal() {
 	local node=api-mainnet-beta.paxeer.network
 	local connect="${CHECK_LIVE_ROUTER_CONNECT:-api-mainnet-beta.paxeer.network:443}"
@@ -2384,9 +2407,9 @@ check_internal() {
 
 	for group in kms journeys payments approvals programs; do
 		app="$(railway_service "internal-$group")"
-		kernel="$app"
+		kernel=KERNEL_HOST
 		url="https://$app.railway.internal:9443/readyz"
-		reply="$(printf '%s\n' "$internal_ready_script" | railway_ssh "$app" "tls=$tls_dir/human-event-client app=$app group=$group limit=$timeout sh -s")" || reply=""
+		reply="$(internal_probe "$app" "$group")" || reply=""
 		line="$(sed -n "s/^@@$group //p" <<<"$reply" | head -n 1)"
 		read -r status code body <<<"${line:-none none}"
 		if [ "$status" = 0 ] && [ "$code" = 200 ] && [[ "$body" == *'"ready":true'* ]]; then
@@ -3662,8 +3685,8 @@ PY
 # check_ramp: the reference ramp app of services/platform/ramps/fly.toml runs one
 # started machine with one volume; ramp.paxeer.network is registered on the
 # edge host as an http site of that app, resolves to the edge host and
-# answers /readyz 200 under a publicly verified certificate with Fly's
-# request id and the body the app's fly.dev name answers; and
+# answers /readyz 200 under a publicly verified certificate and the
+# matching upstream readiness body; and
 # services/platform/ramps/sandbox-journey.sh against the name records done for one
 # on-ramp and one off-ramp order. The journey's inputs are its own variables
 # (LAYERX_RAMP_CUSTOMER_TOKEN, LAYERX_RAMP_OPERATOR_URL,
@@ -3673,7 +3696,7 @@ PY
 # LAYERX_RAMP_CA_PEM defaults to the system CA file. One line per check,
 # never printing a token or an address.
 check_ramp() {
-	local ramp_name=ramp.paxeer.network name app answer
+	local ramp_name="${CHECK_LIVE_RAMP_NAME:-ramp.paxeer.network}" name app answer
 	local reply status=0 manifest line edge_addrs addrs at out headers body code railway_id app_body v failures=0
 	for name in LAYERX_RAMP_CUSTOMER_TOKEN LAYERX_RAMP_OPERATOR_URL LAYERX_RAMP_OPERATOR_TOKEN LAYERX_RAMP_ON_QUOTE_ID \
 		LAYERX_RAMP_OFF_QUOTE_ID LAYERX_RAMP_OFF_GRANT_JSON LAYERX_RAMP_ON_ACCOUNT_SEQUENCE LAYERX_RAMP_OFF_RECEIVER_SEQUENCE; do
@@ -3694,55 +3717,7 @@ check_ramp() {
 	fi
 	railway_deployment "$app" /data || failures=$((failures + 1))
 
-	reply="$(ssh_read "$EDGE_HOST" "$edge_cmd")" || status=$?
-	manifest="$(grep -E '^[a-z0-9.-]+ (http|stream) [a-z0-9-]+ [0-9]+$' <<<"${reply%%@@sites*}" || true)"
-	line="$(awk -v n="$ramp_name" '$1 == n' <<<"$manifest" | head -n 1)"
-	edge_addrs="$(getent ahosts "${EDGE_HOST#*@}" 2>/dev/null | awk '{print $1}' | sort -u)"
-	addrs="$(getent ahosts "$ramp_name" 2>/dev/null | awk '{print $1}' | sort -u)"
-	at=no
-	if [ -n "$addrs" ] && [ -n "$edge_addrs" ] && [ -z "$(comm -23 <(printf '%s\n' "$addrs") <(printf '%s\n' "$edge_addrs"))" ]; then
-		at=yes
-	fi
-	if [ "$status" -ne 0 ] || [[ "$reply" != *@@sites* ]]; then
-		echo "fail edge $ramp_name manifest ssh=$status"
-		failures=$((failures + 1))
-	elif [ "$line" = "$ramp_name http $app 443" ] && [ "$at" = yes ]; then
-		echo "pass edge $ramp_name mode=http app=$app edge=yes"
-	else
-		read -r _ v name _ <<<"${line:-none none none}"
-		echo "fail edge $ramp_name mode=$v app=$name want=$app edge=$at"
-		failures=$((failures + 1))
-	fi
-
-	status=0
-	out="$(curl -sS --max-time "$timeout" -D - "https://$ramp_name/readyz" 2>&1)" || status=$?
-	code=none
-	railway_id=absent
-	body=""
-	if [ "$status" -eq 0 ]; then
-		headers="${out%%$'\r\n\r\n'*}"
-		body="${out#*$'\r\n\r\n'}"
-		code="$(sed -n '1s/^HTTP\/[0-9.]* \([0-9]*\).*/\1/p' <<<"$headers")"
-		if grep -qiE '^x-railway-request-id: *[^[:space:]]' <<<"$headers"; then
-			railway_id=present
-		fi
-	fi
-	answer="$(railway_origin "$app")" || answer=""
-	app_body="$(curl -sS --max-time "$timeout" -D - "$answer/readyz" 2>/dev/null)" || app_body=""
-	app_body="${app_body#*$'\r\n\r\n'}"
-	v=differ
-	if [ -n "$body" ] && [ "$body" = "$app_body" ]; then
-		v=match
-	fi
-	if [ "$status" -ne 0 ]; then
-		echo "fail readyz https://$ramp_name/readyz curl=$status"
-		failures=$((failures + 1))
-	elif [ "$code" = 200 ] && [ "$railway_id" = present ] && [ "$v" = match ]; then
-		echo "pass readyz https://$ramp_name/readyz tls=verified http=200 x-railway-request-id=present body=match"
-	else
-		echo "fail readyz https://$ramp_name/readyz tls=verified http=${code:-none} x-railway-request-id=$railway_id body=$v"
-		failures=$((failures + 1))
-	fi
+	check_ramp_edge "$ramp_name" || failures=$((failures + 1))
 
 	status=0
 	LAYERX_RAMP_URL="https://$ramp_name" LAYERX_RAMP_CA_PEM="${LAYERX_RAMP_CA_PEM:-/etc/ssl/certs/ca-certificates.crt}" \

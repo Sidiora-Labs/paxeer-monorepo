@@ -51,7 +51,7 @@ render serve <directory>
           writes <directory>/<apiN name>.json for every serving RPC name that
           XWEB_SERVE_NAMES or search-front.sh names lists: listen 127.0.0.1:8482,
           gateway.endpoint the configured hosted gateway's /rpc with the
-          kernel's sequencer id and public key, the four assets with their prices, evm the node's
+          node's complete receipt trust history, the four assets with their prices, evm the node's
           loopback JSON-RPC on chain 125, kernel_network_id 125, peers the
           https names of the other serving RPC names, the crawl seeds of
           XWEB_SEEDS and no kernel block.
@@ -60,28 +60,22 @@ render attestor <directory>
           writes <directory>/attestor-<N>.json for the four Fly attestor apps
           of services/interop/deploy/x-websearch/attestor-<N>.toml: listen [::]:8480,
           data_dir /data/state, gateway.endpoint the configured hosted
-          gateway's /rpc with the kernel's sequencer id and public key, the four assets with their
+          gateway's /rpc with the node's complete receipt trust history, the four assets with their
           prices, evm the https name of a serving RPC name (attestor N takes
           the (N-1)th of the list, wrapping) on chain 125, kernel_network_id
           125, peers the loopback hops http://127.0.0.1:849<M> of the other
-          three, the crawl seeds of XWEB_SEEDS and the kernel block: endpoint
-          the configured hosted gateway's /rpc, the program web request topic,
-          submitter_did
-          XWEB_ATTESTOR_<N>_RECEIVER_DID and fee_limit XWEB_KERNEL_FEE_LIMIT.
-          Also needs:
-  XWEB_ATTESTOR_1_RECEIVER_DID .. XWEB_ATTESTOR_4_RECEIVER_DID
-                          the kernel DID each attestor's receiver key posts
-                          observations as
-  XWEB_KERNEL_FEE_LIMIT   the fee limit of each observation activity, a
-                          decimal in base units of the fee asset
+          three, the crawl seeds of XWEB_SEEDS and only supported config fields.
+          Program relay authority is configured by the runtime environment;
+          no root kernel object is written.
 
 Inputs (all required, none printed but the ids and prices):
   XWEB_ASSET_ID_SID, XWEB_ASSET_ID_PAX, XWEB_ASSET_ID_USDC, XWEB_ASSET_ID_USDL
                           the 64-hex asset ids the kernel genesis registered
   XWEB_DECIMALS_SID, XWEB_DECIMALS_PAX, XWEB_DECIMALS_USDC, XWEB_DECIMALS_USDL
                           the decimals of those genesis asset records
-  XWEB_SEQUENCER_ID, XWEB_SEQUENCER_PUBLIC_KEY
-                          the kernel's sequencer id and ed25519 public key, 64 hex
+  XWEB_RECEIPT_KEYS_ENDPOINT
+                          node JSON-RPC publishing px_getReceiptKeys, defaults to
+                          XWEB_EVM_ENDPOINT; every historical range is retained
   XWEB_SEEDS              the space-separated https URLs the sidecar crawls from
   XWEB_SID_PER_PAX        SID per PAX, default the owner-set 3.114
   XWEB_GATEWAY_ENDPOINT   required operator-deployed hosted gateway JSON-RPC
@@ -115,18 +109,31 @@ import os
 import urllib.error
 import urllib.request
 
+def unique_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate RPC field")
+        result[key] = value
+    return result
+
 def rpc(endpoint, method, params):
     body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": params}).encode()
     request = urllib.request.Request(endpoint, body, {"content-type": "application/json"})
     try:
         with urllib.request.urlopen(request, timeout=int(os.environ.get("XWEB_TIMEOUT", "30"))) as reply:
-            answer = json.loads(reply.read(1 << 20))
+            answer = json.loads(reply.read(1 << 20), object_pairs_hook=unique_object)
     except (OSError, ValueError, urllib.error.URLError):
         return None, "unreachable"
-    if not isinstance(answer, dict) or answer.get("id") != 1:
+    if not isinstance(answer, dict) or answer.get("jsonrpc") != "2.0" or type(answer.get("id")) is not int or answer["id"] != 1:
+        return None, "malformed"
+    if ("result" in answer) == ("error" in answer):
         return None, "malformed"
     if "error" in answer:
-        return None, "error=%s" % ((answer.get("error") or {}).get("code", "none"))
+        error = answer["error"]
+        if not isinstance(error, dict) or type(error.get("code")) is not int or not isinstance(error.get("message"), str):
+            return None, "malformed"
+        return None, "error=%s" % error["code"]
     return answer.get("result"), None
 '
 
@@ -205,14 +212,50 @@ for sym, asset, price in rows:
 		"$XWEB_ASSET_ID_USDC" "$XWEB_DECIMALS_USDC" "$XWEB_ASSET_ID_USDL" "$XWEB_DECIMALS_USDL"
 }
 
+# xweb_receipt_keys: retain every height range published by the node producer.
+xweb_receipt_keys() {
+	python3 -c "$xweb_rpc_py"'
+import re
+import sys
+
+result, error = rpc(sys.argv[1], "px_getReceiptKeys", [])
+try:
+    if error or not isinstance(result, dict) or set(result) != {"keys"}:
+        raise ValueError("receipt history unavailable or malformed")
+    entries = result["keys"]
+    if not isinstance(entries, list) or not entries:
+        raise ValueError("receipt history is empty")
+    keys, seen = [], set()
+    for entry in entries:
+        if not isinstance(entry, dict) or set(entry) != {"keyId", "publicKey", "firstHeight", "lastHeight"}:
+            raise ValueError("receipt history entry shape")
+        key = {}
+        for source, target in (("keyId", "key_id"), ("publicKey", "public_key")):
+            value = entry[source]
+            if not isinstance(value, str) or not re.fullmatch(r"0x[0-9a-fA-F]{64}", value) or value[2:] == "00" * 32:
+                raise ValueError("receipt history key")
+            key[target] = value[2:].lower()
+        first, last = entry["firstHeight"], entry["lastHeight"]
+        if type(first) is not int or type(last) is not int or not 0 <= first <= last <= 18446744073709551615:
+            raise ValueError("receipt history range")
+        if key["key_id"] in seen:
+            raise ValueError("duplicate receipt history key")
+        seen.add(key["key_id"])
+        key.update(first_height=first, last_height=last)
+        keys.append(key)
+    print(json.dumps(keys))
+except (KeyError, TypeError, ValueError) as error:
+    sys.exit("xweb-config: " + str(error))
+' "${XWEB_RECEIPT_KEYS_ENDPOINT:-$xweb_evm}"
+}
+
 # xweb_render_serve <directory>: the serving config of every serving RPC name.
 xweb_render_serve() {
-	local dir="$1" listing prices name
+	local dir="$1" listing prices receipt_keys name
 	local -a names=()
-	xweb_need XWEB_SEQUENCER_ID
-	xweb_need XWEB_SEQUENCER_PUBLIC_KEY
 	xweb_need XWEB_SEEDS
 	prices="$(xweb_prices)"
+	receipt_keys="$(xweb_receipt_keys)" || return 1
 	if [ "${XWEB_SERVE_NAMES+x}" = x ]; then
 		read -r -a names <<<"$XWEB_SERVE_NAMES"
 	else
@@ -225,16 +268,12 @@ xweb_render_serve() {
 	fi
 	mkdir -p "$dir"
 	for name in "${names[@]}"; do
-		python3 - "$name" "$xweb_gateway" "$XWEB_SEQUENCER_ID" "$XWEB_SEQUENCER_PUBLIC_KEY" "$xweb_evm" "$prices" "$XWEB_SEEDS" "${names[@]}" >"$dir/$name.json" <<'PY'
+		python3 - "$name" "$xweb_gateway" "$receipt_keys" "$xweb_evm" "$prices" "$XWEB_SEEDS" "${names[@]}" >"$dir/$name.json" <<'PY'
 import json
 import re
 import sys
 
-name, gateway, seq_id, seq_key, evm, prices, seeds, *names = sys.argv[1:]
-for label, value in (("XWEB_SEQUENCER_ID", seq_id), ("XWEB_SEQUENCER_PUBLIC_KEY", seq_key)):
-    if not re.fullmatch(r"[0-9a-f]{64}", value.lower().removeprefix("0x")):
-        print(f"xweb-config: {label} is malformed", file=sys.stderr)
-        sys.exit(2)
+name, gateway, receipt_keys, evm, prices, seeds, *names = sys.argv[1:]
 assets = {}
 for line in prices.splitlines():
     sym, asset, price = line.split()
@@ -248,8 +287,7 @@ config = {
     "assets": assets,
     "gateway": {
         "endpoint": gateway,
-        "sequencer_id": seq_id.lower().removeprefix("0x"),
-        "sequencer_public_key": seq_key.lower().removeprefix("0x"),
+        "receipt_keys": json.loads(receipt_keys),
     },
     "evm": {"endpoint": evm, "chain_id": 125, "confirmations": 12},
     "kernel_network_id": 125,
@@ -264,18 +302,11 @@ PY
 # xweb_render_attestor <directory>: the config of each of the four Fly
 # attestor apps, their peers reached through the machine's loopback hops.
 xweb_render_attestor() {
-	local dir="$1" listing prices n did
-	local -a names=() dids=()
-	xweb_need XWEB_SEQUENCER_ID
-	xweb_need XWEB_SEQUENCER_PUBLIC_KEY
+	local dir="$1" listing prices receipt_keys n
+	local -a names=()
 	xweb_need XWEB_SEEDS
-	xweb_need XWEB_KERNEL_FEE_LIMIT
-	for n in 1 2 3 4; do
-		did="XWEB_ATTESTOR_${n}_RECEIVER_DID"
-		xweb_need "$did"
-		dids+=("${!did}")
-	done
 	prices="$(xweb_prices)"
+	receipt_keys="$(xweb_receipt_keys)" || return 1
 	if [ "${XWEB_SERVE_NAMES+x}" = x ]; then
 		read -r -a names <<<"$XWEB_SERVE_NAMES"
 	else
@@ -287,22 +318,12 @@ xweb_render_attestor() {
 		return 1
 	fi
 	mkdir -p "$dir"
-	python3 - "$dir" "$xweb_gateway" "$XWEB_SEQUENCER_ID" "$XWEB_SEQUENCER_PUBLIC_KEY" "$prices" "$XWEB_SEEDS" "$XWEB_KERNEL_FEE_LIMIT" "${dids[@]}" "${names[@]}" <<'PY'
+	python3 - "$dir" "$xweb_gateway" "$receipt_keys" "$prices" "$XWEB_SEEDS" "${names[@]}" <<'PY'
 import json
 import re
 import sys
 
-out, gateway, seq_id, seq_key, prices, seeds, fee_limit, *rest = sys.argv[1:]
-dids, names = rest[:4], rest[4:]
-fail = lambda label: (print(f"xweb-config: {label} is malformed", file=sys.stderr), sys.exit(2))
-for label, value in (("XWEB_SEQUENCER_ID", seq_id), ("XWEB_SEQUENCER_PUBLIC_KEY", seq_key)):
-    if not re.fullmatch(r"[0-9a-f]{64}", value.lower().removeprefix("0x")):
-        fail(label)
-if not re.fullmatch(r"[1-9][0-9]{0,37}", fee_limit):
-    fail("XWEB_KERNEL_FEE_LIMIT")
-for n, did in enumerate(dids, 1):
-    if not re.fullmatch(r"did:[a-z0-9._-]+(:[a-z0-9._-]+)+", did) or ":asset:" in did or len(did) > 255:
-        fail(f"XWEB_ATTESTOR_{n}_RECEIVER_DID")
+out, gateway, receipt_keys, prices, seeds, *names = sys.argv[1:]
 assets = {}
 for line in prices.splitlines():
     sym, asset, price = line.split()
@@ -317,18 +338,10 @@ for n in range(1, 5):
         "assets": assets,
         "gateway": {
             "endpoint": gateway,
-            "sequencer_id": seq_id.lower().removeprefix("0x"),
-            "sequencer_public_key": seq_key.lower().removeprefix("0x"),
+            "receipt_keys": json.loads(receipt_keys),
         },
         "evm": {"endpoint": f"https://{names[(n - 1) % len(names)]}", "chain_id": 125, "confirmations": 12},
         "kernel_network_id": 125,
-        "kernel": {
-            "endpoint": gateway,
-            "poll_interval_ms": 1000,
-            "topics": ["PAXEERX_WEB_REQUEST_V1"],
-            "submitter_did": dids[n - 1],
-            "fee_limit": fee_limit,
-        },
         "peers": [f"http://127.0.0.1:{8490 + m}" for m in range(1, 5) if m != n],
     }
     with open(f"{out}/attestor-{n}.json", "w") as handle:

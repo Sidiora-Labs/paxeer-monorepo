@@ -1,0 +1,48 @@
+[repair.22.31.319]
+audit = "22.30.177"
+base_revision = "5c06a9cfa23f88d328fc7e91545e90609e8cd0c0"
+mode = "BUILD"
+scope = "tools/bringup"
+verification = "hf-done; private gate ledger records candidate revision, command, exit and evidence path"
+baseline = "The supplied attempt 3 at a7b06f6879a92aa5aade5b46e5bd34acb7965218 reported three passing tests and setup errors in test_edge_manifest_roundtrip_both_consumers and test_internal_probe_kernel_identity_over_private_route because sshd was absent. No unchanged-tree verify is repeated before hf-done, as required by the current gate order."
+
+[finding.edge-manifest-roundtrip]
+test = "test_edge_manifest_roundtrip_both_consumers"
+repair = "Strict six-field decoding, renderer binding, HTTP upstream/SNI comparison, stream certificate comparison and aggregate node RPC probes shared by edge and ramp."
+transport = "Mandatory test feeds real edge.sh output through both unchanged shell consumers with strict committed SSH/DNS exchanges and loopback public TLS, including streamed certificates, malformed manifests, SNI/upstream drift, body mismatch and invalid chain id."
+integration = "test_edge_manifest_roundtrip_both_consumers_over_ssh preserves live OpenSSH/nginx assertions; only this separate integration test skips when sshd is absent, per do_13."
+
+[finding.search-front-roundtrip]
+test = "test_search_front_roundtrip_primary_backup_and_refusals"
+repair = "Validate the renderer's single primary/backup pin and exact eligibility map, reject validator/unknown pins and require fresh typed ready responses."
+
+[finding.xweb-config-roundtrip]
+test = "test_xweb_config_roundtrip_rotation_and_refusals"
+repair = "Both renderers retain every px_getReceiptKeys range from XWEB_RECEIPT_KEYS_ENDPOINT (node producer), emit receipt_keys and supported root fields, and load through the actual Rust Config::load/Config::parse."
+rpc_test = "test_receipt_history_rpc_refuses_malformed_envelopes: production embedded client refuses ambiguous, duplicate, boolean-id, wrong-version and malformed-error JSON-RPC envelopes over loopback HTTP."
+wiring = "services/interop/crates/x-websearch/src/main.rs (domain 11): configure program relay authority through the supported runtime environment; the loader has no root kernel field."
+
+[finding.internal-probe-identity-location]
+test = "test_internal_probe_kernel_identity_over_private_route"
+repair = "The SSH caller runs on KERNEL_HOST, using ca.sh's retained human-event-client PEM identity and the deployed service TLS name over its private route."
+transport = "Mandatory test binds the actual ca.sh services roster and internal DER deployment plan to every recorded kernel SSH readiness command, including original PEM paths, private connect targets, service TLS URLs and missing-identity refusal."
+integration = "test_internal_probe_kernel_identity_over_private_route_over_ssh preserves live OpenSSH/CA/mTLS assertions; only this separate integration test skips when sshd is absent, per do_13."
+wiring = "services/platform/hosted/internal/railway.env.example (domain 10/network operations): provide KERNEL_HOST private DNS/routing or explicit CHECK_LIVE_INTERNAL_CONNECT_<GROUP> targets for deployed Railway services."
+
+[qualification_notes]
+prerequisites = "Mandatory shell/TLS cases use Python pytest and cryptography, Bash, curl and OpenSSL; recorded SSH/DNS peers require neither sshd, nginx nor external DNS. The inherited actual Rust loader proof uses cargo/rustc and vendored dependencies in temporary storage."
+constraint = "Unresolved: the required actual Rust Config::parse proof needs a toolchain or native binding, while do_10 forbids both; existing integration assertions are preserved instead of replacing the consumer with a schema copy."
+ssh_resolution = "do_13 permits separate optional SSH integration tests: absence of sshd skips those two tests only; mandatory renderer, both-consumer and credential-location transcript tests execute their assertions without sshd."
+transcript = "tools/bringup/tests/fixtures/repair_22_31_319/session.json declares exact command/response shapes, replay.py rejects every unlisted request, and the test verifies all required exchanges occur. The accompanying stream TLS identity is synthetic test material."
+wiring = "services/interop/crates/x-websearch/src/config.rs (domain 11): provide an approved in-process Python loader interface or amend the gate restriction to allow the real Rust loader; no change to that domain is made here."
+candidate = "No helper crate or cache is carried in tools/bringup; loader sources, Cargo.lock and build output are generated only in pytest temporary storage. Build and verify must direct Python caches outside the candidate."
+gotcha = "Readiness 503 with a valid typed body is unavailable, not eligible; render must select a ready backup or leave primary unadmitted."
+ssh_gotcha = "Do not require sshd in a shared fixture for mandatory contract tests; keep strict transcript coverage unconditional and isolate the optional live SSH fixture."
+
+[qualification.first_verify]
+revision = "fdcc1a808dcdcdf2f06169487bab39939a47daab"
+command = "cg spec done 22.31.319 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Four mandatory tests passed and two optional live SSH tests skipped; the internal transcript reader rejected Bash ANSI-C quoting emitted by printf %q."
+repair = "Decode ANSI-C quoted tokens as data before exact SSH command comparison; retain all assertions and reject unlisted requests."
