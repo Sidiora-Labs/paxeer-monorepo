@@ -32,6 +32,7 @@ defmodule Indexer.Fetcher.Optimism.TransactionBatch do
   alias EthereumJSONRPC.Block.ByHash
   alias EthereumJSONRPC.{Blocks, Contract}
   alias Explorer.{Chain, Repo}
+  alias Explorer.Application.Constants
   alias Explorer.Chain.{Block, Hash, RollupReorgMonitorQueue}
   alias Explorer.Chain.Events.Publisher
   alias Explorer.Chain.Optimism.{FrameSequence, FrameSequenceBlob}
@@ -45,6 +46,7 @@ defmodule Indexer.Fetcher.Optimism.TransactionBatch do
 
   @compressor_brotli 1
   @counter_type "optimism_batches_fetcher_last_l1_block_hash"
+  @channels_key "optimism_batches_fetcher_incomplete_channels"
   @empty_hash "0x0000000000000000000000000000000000000000000000000000000000000000"
 
   def child_spec(start_link_arguments) do
@@ -139,7 +141,7 @@ defmodule Indexer.Fetcher.Optimism.TransactionBatch do
          start_block: start_block,
          end_block: last_safe_block,
          chunk_size: chunk_size,
-         incomplete_channels: %{},
+         incomplete_channels: load_incomplete_channels(),
          genesis_block_l2: env[:genesis_block_l2],
          block_duration: optimism_env[:block_duration],
          json_rpc_named_arguments: json_rpc_named_arguments,
@@ -263,7 +265,7 @@ defmodule Indexer.Fetcher.Optimism.TransactionBatch do
         chunk_start = start_block + chunk_size * current_chunk
         chunk_end = min(chunk_start + chunk_size - 1, end_block)
 
-        {new_incomplete_channels, last_block_hash} =
+        result =
           if chunk_end >= chunk_start do
             Helper.log_blocks_chunk_handling(
               chunk_start,
@@ -274,79 +276,88 @@ defmodule Indexer.Fetcher.Optimism.TransactionBatch do
               :L1
             )
 
-            {:ok, new_incomplete_channels, batches, sequences, blobs, last_block_hash} =
-              get_transaction_batches(
-                Range.new(chunk_start, chunk_end),
-                batch_inbox,
-                batch_submitter,
-                {genesis_block_l2, block_duration},
-                incomplete_channels_acc,
-                {json_rpc_named_arguments, json_rpc_named_arguments_l2},
-                {eip4844_blobs_api_url, celestia_blobs_api_url, eigenda_blobs_api_url, alt_da_server_url, chain_id_l1},
-                Helper.infinite_retries_number()
+            with {:ok, new_incomplete_channels, batches, sequences, blobs, last_block_hash} <-
+                   get_transaction_batches(
+                     Range.new(chunk_start, chunk_end),
+                     batch_inbox,
+                     batch_submitter,
+                     {genesis_block_l2, block_duration},
+                     incomplete_channels_acc,
+                     {json_rpc_named_arguments, json_rpc_named_arguments_l2},
+                     {eip4844_blobs_api_url, celestia_blobs_api_url, eigenda_blobs_api_url, alt_da_server_url,
+                      chain_id_l1},
+                     Helper.infinite_retries_number()
+                   ) do
+              {batches, sequences, blobs} = remove_duplicates(batches, sequences, blobs)
+
+              {:ok, _} =
+                Chain.import(%{
+                  optimism_frame_sequences: %{params: sequences},
+                  timeout: :infinity
+                })
+
+              {:ok, inserted} =
+                Chain.import(%{
+                  optimism_frame_sequence_blobs: %{params: blobs},
+                  optimism_transaction_batches: %{params: batches},
+                  timeout: :infinity
+                })
+
+              removed_sequence_ids = remove_prev_frame_sequences(inserted)
+              sequences = Enum.reject(sequences, fn s -> s.id in removed_sequence_ids end)
+              set_frame_sequences_view_ready(sequences)
+
+              last_batch =
+                sequences
+                |> Enum.max_by(& &1.id, fn -> nil end)
+
+              # credo:disable-for-next-line
+              if last_batch do
+                Instrumenter.set_latest_batch(last_batch.id, last_batch.l1_timestamp)
+              end
+
+              Publisher.broadcast(
+                %{
+                  new_optimism_batches:
+                    Enum.map(sequences, &FrameSequence.batch_by_number(&1.id, include_blobs?: false))
+                },
+                :realtime
               )
 
-            {batches, sequences, blobs} = remove_duplicates(batches, sequences, blobs)
+              Helper.log_blocks_chunk_handling(
+                chunk_start,
+                chunk_end,
+                start_block,
+                end_block,
+                "#{Enum.count(sequences)} batch(es) containing #{Enum.count(batches)} block(s).",
+                :L1
+              )
 
-            {:ok, _} =
-              Chain.import(%{
-                optimism_frame_sequences: %{params: sequences},
-                timeout: :infinity
-              })
-
-            {:ok, inserted} =
-              Chain.import(%{
-                optimism_frame_sequence_blobs: %{params: blobs},
-                optimism_transaction_batches: %{params: batches},
-                timeout: :infinity
-              })
-
-            removed_sequence_ids = remove_prev_frame_sequences(inserted)
-            sequences = Enum.reject(sequences, fn s -> s.id in removed_sequence_ids end)
-            set_frame_sequences_view_ready(sequences)
-
-            last_batch =
-              sequences
-              |> Enum.max_by(& &1.id, fn -> nil end)
-
-            # credo:disable-for-next-line
-            if last_batch do
-              Instrumenter.set_latest_batch(last_batch.id, last_batch.l1_timestamp)
+              {:ok, new_incomplete_channels, last_block_hash}
             end
-
-            Publisher.broadcast(
-              %{
-                new_optimism_batches: Enum.map(sequences, &FrameSequence.batch_by_number(&1.id, include_blobs?: false))
-              },
-              :realtime
-            )
-
-            Helper.log_blocks_chunk_handling(
-              chunk_start,
-              chunk_end,
-              start_block,
-              end_block,
-              "#{Enum.count(sequences)} batch(es) containing #{Enum.count(batches)} block(s).",
-              :L1
-            )
-
-            {new_incomplete_channels, last_block_hash}
           else
-            {incomplete_channels_acc, nil}
+            {:ok, incomplete_channels_acc, nil}
           end
 
-        reorg_block = RollupReorgMonitorQueue.reorg_block_pop(__MODULE__)
+        case result do
+          {:error, reason} ->
+            Logger.error("Cannot fetch batch data for #{chunk_start}..#{chunk_end}: #{inspect(reason)}")
+            {:halt, {chunk_start - 1, incomplete_channels_acc}}
 
-        if !is_nil(reorg_block) && reorg_block > 0 do
-          new_incomplete_channels = handle_l1_reorg(reorg_block, new_incomplete_channels)
+          {:ok, new_incomplete_channels, last_block_hash} ->
+            reorg_block = RollupReorgMonitorQueue.reorg_block_pop(__MODULE__)
 
-          Optimism.set_last_block_hash(@empty_hash, @counter_type)
+            if !is_nil(reorg_block) && reorg_block > 0 do
+              new_incomplete_channels = handle_l1_reorg(reorg_block, new_incomplete_channels)
 
-          {:halt, {if(reorg_block <= chunk_end, do: reorg_block - 1, else: chunk_end), new_incomplete_channels}}
-        else
-          Optimism.set_last_block_hash(last_block_hash, @counter_type)
+              checkpoint_incomplete_channels(new_incomplete_channels, @empty_hash)
 
-          {:cont, {chunk_end, new_incomplete_channels}}
+              {:halt, {if(reorg_block <= chunk_end, do: reorg_block - 1, else: chunk_end), new_incomplete_channels}}
+            else
+              checkpoint_incomplete_channels(new_incomplete_channels, last_block_hash)
+
+              {:cont, {chunk_end, new_incomplete_channels}}
+            end
         end
       end)
 
@@ -354,7 +365,7 @@ defmodule Indexer.Fetcher.Optimism.TransactionBatch do
     new_end_block = Helper.fetch_latest_l1_block_number(json_rpc_named_arguments)
 
     delay =
-      if new_end_block == last_written_block do
+      if new_end_block == last_written_block or new_start_block <= end_block do
         # there is no new block, so wait for some time to let the chain issue the new block
         max(block_check_interval - Timex.diff(Timex.now(), time_before, :milliseconds), 0)
       else
@@ -376,6 +387,60 @@ defmodule Indexer.Fetcher.Optimism.TransactionBatch do
   def handle_info({ref, _result}, state) do
     Process.demonitor(ref, [:flush])
     {:noreply, state}
+  end
+
+  @doc false
+  def checkpoint_incomplete_channels(channels, last_block_hash) do
+    encoded = {1, channels} |> :erlang.term_to_binary([:compressed]) |> Base.encode64()
+    # Constants.value is varchar(255); preserve the full snapshot in bounded rows.
+    fragments =
+      for offset <- 0..div(byte_size(encoded) - 1, 240) do
+        binary_part(encoded, offset * 240, min(240, byte_size(encoded) - offset * 240))
+      end
+
+    {:ok, _} =
+      Repo.transaction(fn ->
+        prefix = @channels_key <> ":"
+        Repo.delete_all(from(c in Constants, where: fragment("starts_with(?, ?)", c.key, ^prefix)))
+        Constants.set_constant_value(@channels_key, "1:#{length(fragments)}")
+        now = DateTime.utc_now()
+
+        rows =
+          Enum.with_index(fragments, fn value, index ->
+            %{key: "#{@channels_key}:#{index}", value: value, inserted_at: now, updated_at: now}
+          end)
+
+        Repo.insert_all(Constants, rows)
+
+        if last_block_hash do
+          {:ok, _} = Optimism.set_last_block_hash(last_block_hash, @counter_type)
+        end
+      end)
+  end
+
+  @doc false
+  def load_incomplete_channels do
+    prefix = @channels_key <> ":"
+    # One query observes either complete snapshot, including during checkpoint commits.
+    snapshot =
+      Repo.all(
+        from(c in Constants,
+          where: c.key == ^@channels_key or fragment("starts_with(?, ?)", c.key, ^prefix),
+          select: {c.key, c.value}
+        )
+      )
+      |> Map.new()
+
+    if map_size(snapshot) == 0 do
+      %{}
+    else
+      "1:" <> count = Map.fetch!(snapshot, @channels_key)
+      count = String.to_integer(count)
+      true = count > 0 and map_size(snapshot) == count + 1
+      encoded = Enum.map_join(0..(count - 1), &Map.fetch!(snapshot, "#{@channels_key}:#{&1}"))
+      {1, channels} = encoded |> Base.decode64!() |> :erlang.binary_to_term([:safe])
+      channels
+    end
   end
 
   @doc false
@@ -509,16 +574,17 @@ defmodule Indexer.Fetcher.Optimism.TransactionBatch do
     end
   end
 
-  defp get_transaction_batches(
-         block_range,
-         batch_inbox,
-         batch_submitter,
-         {genesis_block_l2, block_duration},
-         incomplete_channels,
-         {json_rpc_named_arguments, json_rpc_named_arguments_l2},
-         blobs_api_url,
-         retries_left
-       ) do
+  @doc false
+  def get_transaction_batches(
+        block_range,
+        batch_inbox,
+        batch_submitter,
+        {genesis_block_l2, block_duration},
+        incomplete_channels,
+        {json_rpc_named_arguments, json_rpc_named_arguments_l2},
+        blobs_api_url,
+        retries_left
+      ) do
     case fetch_blocks_by_range(block_range, json_rpc_named_arguments) do
       {:ok, %Blocks{transactions_params: transactions_params, blocks_params: blocks_params, errors: []}} ->
         last_block_hash =
@@ -535,7 +601,13 @@ defmodule Indexer.Fetcher.Optimism.TransactionBatch do
           json_rpc_named_arguments_l2,
           blobs_api_url
         )
-        |> (&Tuple.insert_at(&1, tuple_size(&1), last_block_hash)).()
+        |> case do
+          {:ok, channels, batches, sequences, blobs} ->
+            {:ok, channels, batches, sequences, blobs, last_block_hash}
+
+          {:error, _} = error ->
+            error
+        end
 
       {_, message_or_errors} ->
         message =
@@ -568,92 +640,38 @@ defmodule Indexer.Fetcher.Optimism.TransactionBatch do
     end
   end
 
-  defp eip4844_blobs_to_inputs(_transaction_hash, _blob_versioned_hashes, _block_timestamp, "", _chain_id_l1) do
-    Logger.error(
-      "Cannot read EIP-4844 blobs from the Blockscout Blobs API as the API URL is not defined. Please, check INDEXER_OPTIMISM_L1_BATCH_BLOCKSCOUT_BLOBS_API_URL env variable."
-    )
-
-    []
-  end
-
-  defp eip4844_blobs_to_inputs(
-         transaction_hash,
-         blob_versioned_hashes,
-         block_timestamp,
-         blobs_api_url,
-         chain_id_l1
-       ) do
-    blob_versioned_hashes
-    |> Enum.reduce([], fn blob_hash, inputs_acc ->
-      with {:ok, response} <- Helper.http_get_request(blobs_api_url <> "/" <> blob_hash),
-           blob_data = Map.get(response, "blob_data"),
-           false <- is_nil(blob_data) do
-        # read the data from Blockscout API
-        decoded =
-          blob_data
-          |> hash_to_binary()
-          |> OptimismTransactionBatch.decode_eip4844_blob()
-
-        if is_nil(decoded) do
-          Logger.warning("Cannot decode the blob #{blob_hash} taken from the Blockscout Blobs API.")
-
-          inputs_acc
+  defp eip4844_blobs_to_inputs(transaction_hash, blob_versioned_hashes, block_timestamp, blobs_api_url, chain_id_l1) do
+    Enum.reduce_while(blob_versioned_hashes, [], fn blob_hash, inputs ->
+      primary =
+        if blobs_api_url in [nil, ""] do
+          {:error, :primary_blob_api_unset}
         else
-          Logger.info(
-            "The input for transaction #{transaction_hash} is taken from the Blockscout Blobs API. Blob hash: #{blob_hash}"
-          )
-
-          input = %{
-            bytes: decoded,
-            eip4844_blob_hash: blob_hash
-          }
-
-          [input | inputs_acc]
+          Helper.http_get_request(blobs_api_url <> "/" <> blob_hash)
         end
+
+      blob =
+        case primary do
+          {:ok, %{"blob_data" => data}} when is_binary(data) -> hash_to_binary(data)
+          _ -> Helper.get_eip4844_blob_from_beacon_node(blob_hash, block_timestamp, chain_id_l1)
+        end
+
+      if is_nil(blob) do
+        {:halt, {:error, {:blob_unavailable, transaction_hash, blob_hash}}}
       else
-        _ ->
-          # read the data from the fallback source (beacon node)
-          eip4844_blobs_to_inputs_from_fallback(
-            transaction_hash,
-            blob_hash,
-            block_timestamp,
-            inputs_acc,
-            chain_id_l1
-          )
+        case OptimismTransactionBatch.decode_eip4844_blob(blob) do
+          nil ->
+            # Retrieved data is validated non-batch input, rather than a transport gap.
+            Logger.warning("Cannot decode blob #{blob_hash} for transaction #{transaction_hash}.")
+            {:cont, inputs}
+
+          decoded ->
+            {:cont, [%{bytes: decoded, eip4844_blob_hash: blob_hash} | inputs]}
+        end
       end
     end)
-    |> Enum.reverse()
-  end
-
-  defp eip4844_blobs_to_inputs_from_fallback(
-         transaction_hash,
-         blob_hash,
-         block_timestamp,
-         inputs_acc,
-         chain_id_l1
-       ) do
-    blob = Helper.get_eip4844_blob_from_beacon_node(blob_hash, block_timestamp, chain_id_l1)
-
-    with false <- is_nil(blob),
-         decoded_blob_data = OptimismTransactionBatch.decode_eip4844_blob(blob),
-         {:blob_data_invalid, false} <- {:blob_data_invalid, is_nil(decoded_blob_data)} do
-      Logger.info(
-        "The input for transaction #{transaction_hash} is taken from the Beacon Node. Blob hash: #{blob_hash}"
-      )
-
-      input = %{
-        bytes: decoded_blob_data,
-        eip4844_blob_hash: blob_hash
-      }
-
-      [input | inputs_acc]
-    else
-      true ->
-        inputs_acc
-
-      {:blob_data_invalid, true} ->
-        Logger.warning("Cannot decode invalid blob #{blob_hash} taken from the Beacon Node.")
-        inputs_acc
+    |> case do
+      {:error, _} = error -> error
+      inputs -> Enum.reverse(inputs)
     end
   end
 
@@ -668,17 +686,19 @@ defmodule Indexer.Fetcher.Optimism.TransactionBatch do
   #
   # ## Returns
   # - A list with a map containing blob's data and metadata.
-  # - An empty list in case of an error (`da-indexer` didn't respond, URL is not defined, or transaction input is incorrect).
-  @spec celestia_blob_to_input(binary(), non_neg_integer(), String.t(), String.t()) :: [
-          %{
-            :bytes => binary(),
-            :celestia_blob_metadata => %{
-              :height => non_neg_integer(),
-              :namespace => String.t(),
-              :commitment => String.t()
+  # - An empty list for malformed commitments, or a retryable error for unavailable data.
+  @spec celestia_blob_to_input(binary(), non_neg_integer(), String.t(), String.t()) ::
+          [
+            %{
+              :bytes => binary(),
+              :celestia_blob_metadata => %{
+                :height => non_neg_integer(),
+                :namespace => String.t(),
+                :commitment => String.t()
+              }
             }
-          }
-        ]
+          ]
+          | {:error, term()}
   defp celestia_blob_to_input("0x" <> transaction_input, offset, transaction_hash, blobs_api_url) do
     transaction_input
     |> Base.decode16!(case: :mixed)
@@ -719,11 +739,11 @@ defmodule Indexer.Fetcher.Optimism.TransactionBatch do
       false ->
         Logger.error("Cannot read namespace or data from Celestia Blobs API response for the request #{url}")
 
-        []
+        {:error, {:da_response_invalid, url}}
 
       _ ->
         Logger.error("Cannot read a response from Celestia Blobs API for the request #{url}")
-        []
+        {:error, {:da_unavailable, url}}
     end
   end
 
@@ -738,7 +758,7 @@ defmodule Indexer.Fetcher.Optimism.TransactionBatch do
       "Cannot read Celestia blobs from the server as the API URL is not defined. Please, check INDEXER_OPTIMISM_L1_BATCH_CELESTIA_BLOBS_API_URL env variable."
     )
 
-    []
+    {:error, :celestia_api_unset}
   end
 
   # Gets EigenDA blob data & metadata by L1 transaction input (encoding blob's certificate).
@@ -752,10 +772,12 @@ defmodule Indexer.Fetcher.Optimism.TransactionBatch do
   #
   # ## Returns
   # - A list with a map containing blob's data and certificate.
-  # - An empty list in case of an error (`da-indexer` didn't respond, URL is not defined, or transaction input is incorrect).
-  @spec eigenda_blob_to_input(binary(), non_neg_integer(), String.t(), String.t()) :: [
-          %{:bytes => binary(), :eigenda_cert => binary()}
-        ]
+  # - An empty list for malformed commitments, or a retryable error for unavailable data.
+  @spec eigenda_blob_to_input(binary(), non_neg_integer(), String.t(), String.t()) ::
+          [
+            %{:bytes => binary(), :eigenda_cert => binary()}
+          ]
+          | {:error, term()}
   defp eigenda_blob_to_input("0x" <> transaction_input, offset, transaction_hash, blobs_api_url) do
     transaction_input
     |> Base.decode16!(case: :mixed)
@@ -791,11 +813,11 @@ defmodule Indexer.Fetcher.Optimism.TransactionBatch do
       false ->
         Logger.error("EigenDA Proxy server response is empty for the request #{url_with_proxy}")
 
-        []
+        {:error, {:da_response_invalid, url_with_proxy}}
 
       _ ->
         Logger.warning("Transaction hash: #{transaction_hash}")
-        []
+        {:error, {:da_unavailable, url_with_proxy}}
     end
   end
 
@@ -804,7 +826,7 @@ defmodule Indexer.Fetcher.Optimism.TransactionBatch do
       "Cannot read EigenDA blobs from the server as the API URL is not defined. Please, check INDEXER_OPTIMISM_L1_BATCH_EIGENDA_BLOBS_API_URL env variable."
     )
 
-    []
+    {:error, :eigenda_api_unset}
   end
 
   # Gets Alt-DA data & commitment hash by L1 transaction input (encoding the commitment).
@@ -817,13 +839,15 @@ defmodule Indexer.Fetcher.Optimism.TransactionBatch do
   #
   # ## Returns
   # - A list with a map containing commitment data and hash.
-  # - An empty list in case of an error (DA server didn't respond, URL is not defined, or transaction input is incorrect).
-  @spec alt_da_commitment_to_input(binary(), String.t(), String.t()) :: [
-          %{
-            :bytes => binary(),
-            :alt_da_commitment => String.t()
-          }
-        ]
+  # - An empty list for malformed commitments, or a retryable error for unavailable data.
+  @spec alt_da_commitment_to_input(binary(), String.t(), String.t()) ::
+          [
+            %{
+              :bytes => binary(),
+              :alt_da_commitment => String.t()
+            }
+          ]
+          | {:error, term()}
   defp alt_da_commitment_to_input("0x" <> transaction_input, transaction_hash, da_server_url) do
     transaction_input
     |> Base.decode16!(case: :mixed)
@@ -849,11 +873,11 @@ defmodule Indexer.Fetcher.Optimism.TransactionBatch do
       false ->
         Logger.error("DA server response is empty for the request #{url}")
 
-        []
+        {:error, {:da_response_invalid, url}}
 
       _ ->
         Logger.error("Cannot read a response from DA server for the request #{url}")
-        []
+        {:error, {:da_unavailable, url}}
     end
   end
 
@@ -867,7 +891,7 @@ defmodule Indexer.Fetcher.Optimism.TransactionBatch do
       "Cannot read data from the DA server as its URL is not defined. Please, check INDEXER_OPTIMISM_L1_BATCH_ALT_DA_SERVER_URL env variable."
     )
 
-    []
+    {:error, :alt_da_api_unset}
   end
 
   defp get_transaction_batches_inner(
@@ -879,9 +903,9 @@ defmodule Indexer.Fetcher.Optimism.TransactionBatch do
          {eip4844_blobs_api_url, celestia_blobs_api_url, eigenda_blobs_api_url, alt_da_server_url, chain_id_l1}
        ) do
     transactions_filtered
-    |> Enum.reduce({:ok, incomplete_channels, [], [], []}, fn transaction,
-                                                              {_, incomplete_channels_acc, batches_acc, sequences_acc,
-                                                               blobs_acc} ->
+    |> Enum.reduce_while({:ok, incomplete_channels, [], [], []}, fn transaction,
+                                                                    {_, incomplete_channels_acc, batches_acc,
+                                                                     sequences_acc, blobs_acc} ->
       inputs =
         cond do
           transaction.type == 3 ->
@@ -917,21 +941,28 @@ defmodule Indexer.Fetcher.Optimism.TransactionBatch do
             [%{bytes: transaction.input}]
         end
 
-      Enum.reduce(
-        inputs,
-        {:ok, incomplete_channels_acc, batches_acc, sequences_acc, blobs_acc},
-        fn input, {_, new_incomplete_channels_acc, new_batches_acc, new_sequences_acc, new_blobs_acc} ->
-          handle_input(
-            input,
-            transaction,
-            blocks_params,
-            new_incomplete_channels_acc,
-            {new_batches_acc, new_sequences_acc, new_blobs_acc},
-            {genesis_block_l2, block_duration},
-            json_rpc_named_arguments_l2
-          )
-        end
-      )
+      case inputs do
+        {:error, _} = error ->
+          {:halt, error}
+
+        inputs ->
+          {:cont,
+           Enum.reduce(
+             inputs,
+             {:ok, incomplete_channels_acc, batches_acc, sequences_acc, blobs_acc},
+             fn input, {_, new_incomplete_channels_acc, new_batches_acc, new_sequences_acc, new_blobs_acc} ->
+               handle_input(
+                 input,
+                 transaction,
+                 blocks_params,
+                 new_incomplete_channels_acc,
+                 {new_batches_acc, new_sequences_acc, new_blobs_acc},
+                 {genesis_block_l2, block_duration},
+                 json_rpc_named_arguments_l2
+               )
+             end
+           )}
+      end
     end)
   end
 

@@ -22,15 +22,124 @@ defmodule Explorer.Chain.PaxeerX.ReceiptInclusion do
 
     with {:ok, header, chain_id} <- trusted_header(config, opts, height),
          {:ok, ^height} <- CometCommit.verify(chain_id, opts[:commit], opts[:validators]),
-         {:ok, settlement, successor} <- linked_settlement(config, opts, header, chain_id, height) do
+         {:ok, evidence} <- inclusion(opts[:receipt_inclusion], opts),
+         {:ok, settlement, successor} <-
+           linked_settlement(config, Keyword.put(opts, :settlement, evidence), header, chain_id, height),
+         :ok <- covering_range(opts[:batch], settlement["sequence_batch"]) do
       if included?(receipt, key, height, chain_id, header, opts) and
            settlement_matches?(settlement, successor, header, receipt, opts),
          do: :ok,
-         else: {:error, :r7}
+         else: {:error, :r8}
     else
+      {:error, :r7} -> {:error, :r7}
       _ -> {:error, :r8}
     end
   end
+
+  defp inclusion(
+         %{
+           "Transaction" => transaction,
+           "TransactionProof" => tx_proof,
+           "Result" => result,
+           "ResultProof" => result_proof,
+           "BatchTransaction" => batch,
+           "BatchProof" => batch_proof,
+           "NextHeader" => header,
+           "NextCommit" => commit,
+           "NextValidators" => validators
+         },
+         opts
+       ) do
+    with {:ok, signed, validators} <- CometCommit.inclusion_header(header, commit, validators),
+         {:ok, transaction} <- base64(transaction),
+         {:ok, raw, _id} <- NativeSettlement.transaction(transaction),
+         {:ok, batch} <- base64(batch),
+         {:ok, fields} <- batch_fields(batch),
+         %{"Code" => code, "Data" => data, "GasWanted" => wanted, "GasUsed" => used} <- result,
+         result <- %{"code" => code, "data" => data, "gas_wanted" => wanted, "gas_used" => used},
+         {:ok, result_bytes} <- NativeSettlement.result_bytes(result),
+         {:ok, tx_proof} <- inclusion_proof(tx_proof, :crypto.hash(:sha256, transaction)),
+         {:ok, batch_proof} <- inclusion_proof(batch_proof, :crypto.hash(:sha256, batch)),
+         {:ok, result_proof} <- inclusion_proof(result_proof, result_bytes),
+         execution when is_map(execution) <- Map.get(opts[:commit], "signed_header", opts[:commit]) do
+      {:ok,
+       %{
+         "execution_header" => execution["header"],
+         "execution_commit" => execution["commit"],
+         "header" => signed["header"],
+         "commit" => signed["commit"],
+         "validators" => validators["validators"],
+         "raw_transaction" => encode_hex(raw),
+         "sequence_batch" => fields,
+         "sequence_batch_proof" => %{
+           "root_hash" => execution["header"]["data_hash"],
+           "data" => Base.encode64(batch),
+           "proof" => batch_proof
+         },
+         "transaction_proof" => %{
+           "root_hash" => execution["header"]["data_hash"],
+           "data" => Base.encode64(transaction),
+           "proof" => tx_proof
+         },
+         "exec_tx_result" => result,
+         "exec_tx_result_bytes" => encode_hex(result_bytes),
+         "exec_tx_result_proof" => result_proof
+       }}
+    else
+      _ -> :error
+    end
+  end
+
+  defp inclusion(
+         %{
+           "execution_header" => _,
+           "execution_commit" => _,
+           "header" => _,
+           "commit" => _,
+           "validators" => _,
+           "sequence_batch" => _,
+           "sequence_batch_proof" => _,
+           "transaction_proof" => _,
+           "exec_tx_result" => _,
+           "exec_tx_result_bytes" => _,
+           "exec_tx_result_proof" => _,
+           "raw_transaction" => _
+         } = settlement,
+         _opts
+       ),
+       do: {:ok, settlement}
+
+  defp inclusion(_, _), do: :error
+
+  defp inclusion_proof(%{"Total" => total, "Index" => index, "Aunts" => aunts}, data)
+       when is_integer(total) and total in 1..100_001 and is_integer(index) and index >= 0 and index < total and
+              is_list(aunts) and length(aunts) <= 17 do
+    if Enum.all?(aunts, fn aunt ->
+         is_list(aunt) and length(aunt) == 32 and Enum.all?(aunt, &(is_integer(&1) and &1 in 0..255))
+       end) do
+      {:ok,
+       %{
+         "total" => Integer.to_string(total),
+         "index" => Integer.to_string(index),
+         "leaf_hash" => Base.encode64(:crypto.hash(:sha256, <<0>> <> data)),
+         "aunts" => Enum.map(aunts, &(&1 |> :erlang.list_to_binary() |> Base.encode64()))
+       }}
+    else
+      :error
+    end
+  end
+
+  defp inclusion_proof(_, _), do: :error
+
+  defp covering_range(batch, %{"FromSeq" => first, "ToSeq" => last}) when is_map(batch) do
+    if Map.get(batch, "from_seq", first) == first and Map.get(batch, "to_seq", last) == last,
+      do: :ok,
+      else: {:error, :r7}
+  end
+
+  defp covering_range(_, _), do: {:error, :r7}
+
+  defp encode_hex(bytes), do: "0x" <> Base.encode16(bytes, case: :lower)
 
   def authenticate(commit, validators, height) do
     config = Application.get_env(:explorer, SequencerReceipt, [])
@@ -206,6 +315,25 @@ defmodule Explorer.Chain.PaxeerX.ReceiptInclusion do
   end
 
   defp batch_fields_match?(_, _), do: false
+
+  defp batch_fields(
+         <<@batch_domain, height::64, first::64, last::64, previous::binary-size(32), resulting::binary-size(32),
+           root::binary-size(32), key::binary-size(32), signature::binary-size(64)>>
+       ) do
+    {:ok,
+     %{
+       "Height" => height,
+       "FromSeq" => first,
+       "ToSeq" => last,
+       "PrevSeqHash" => Base.encode64(previous),
+       "LastSeqHash" => Base.encode64(resulting),
+       "TxRoot" => Base.encode64(root),
+       "KeyId" => Base.encode64(key),
+       "Sig" => Base.encode64(signature)
+     }}
+  end
+
+  defp batch_fields(_), do: :error
   defp base64(text) when is_binary(text), do: Base.decode64(text)
   defp base64(_), do: :error
 

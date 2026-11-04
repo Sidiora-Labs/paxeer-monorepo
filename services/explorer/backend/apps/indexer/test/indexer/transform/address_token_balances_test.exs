@@ -33,9 +33,24 @@ defmodule Indexer.Transform.AddressTokenBalancesTest do
       params_set = AddressTokenBalances.params_set(%{token_transfers_params: [token_transfer_params]})
 
       assert MapSet.size(params_set) == 2
-      assert %{address_hash: from_address_hash, block_number: block_number}
-      assert %{address_hash: to_address_hash, block_number: block_number}
-      assert %{address_hash: token_contract_address_hash, block_number: block_number}
+
+      assert params_set ==
+               MapSet.new([
+                 %{
+                   address_hash: from_address_hash,
+                   block_number: block_number,
+                   token_contract_address_hash: token_contract_address_hash,
+                   token_type: "ERC-20",
+                   token_id: nil
+                 },
+                 %{
+                   address_hash: to_address_hash,
+                   block_number: block_number,
+                   token_contract_address_hash: token_contract_address_hash,
+                   token_type: "ERC-20",
+                   token_id: nil
+                 }
+               ])
     end
 
     test "does set params when the from_address_hash is the burn address for the Token ERC-721" do

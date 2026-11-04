@@ -205,9 +205,13 @@ defmodule EthereumJSONRPC.Receipts do
   def fetch_by_block_numbers([], _json_rpc_named_arguments), do: {:ok, %{logs: [], receipts: []}}
 
   def fetch_by_block_numbers(block_numbers, json_rpc_named_arguments) when is_list(block_numbers) do
+    block_numbers = Enum.map(block_numbers, &quantity_to_integer/1)
+
     requests =
-      block_numbers
-      |> Enum.map(&ByBlockNumber.request(%{id: &1, number: &1}))
+      Enum.map(block_numbers, fn number ->
+        quantity = number |> EthereumJSONRPC.integer_to_quantity() |> String.downcase()
+        ByBlockNumber.request(%{id: number, number: quantity})
+      end)
 
     request_and_parse(requests, block_numbers, json_rpc_named_arguments)
   end

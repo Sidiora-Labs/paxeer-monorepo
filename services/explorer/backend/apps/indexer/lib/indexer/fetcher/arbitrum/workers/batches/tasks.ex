@@ -138,6 +138,15 @@ defmodule Indexer.Fetcher.Arbitrum.Workers.Batches.Tasks do
           }
         } = state
       ) do
+    BatchesDiscovery.retry_unresolved(
+      sequencer_inbox_address,
+      new_batches_limit,
+      messages_to_blocks_shift,
+      l1_rpc_config,
+      node_interface_address,
+      rollup_rpc_config
+    )
+
     # Requesting the "latest" block instead of "safe" allows to catch new batches
     # without latency.
 

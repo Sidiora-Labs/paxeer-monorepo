@@ -8,7 +8,7 @@ import { TableBody, TableColumnHeader, TableHeaderSticky, TableRoot, TableRow } 
 import TimeFormatToggle from 'ui/shared/time/TimeFormatToggle';
 
 import TokenTransfersCrossChainTableItem from './TokenTransfersCrossChainTableItem';
-import { getItemKey } from './utils';
+import { getItemsWithKeys } from './utils';
 
 interface Props {
   data: Array<InterchainTransfer>;
@@ -17,7 +17,7 @@ interface Props {
   currentAddress?: string;
 }
 
-const TokenTransfersCrossChainTable = ({ data, isLoading, top, currentAddress }: Props) => {
+export const TokenTransfersCrossChainTable = ({ data, isLoading, top, currentAddress }: Props) => {
   return (
     <AddressHighlightProvider>
       <TableRoot tableLayout="auto">
@@ -41,9 +41,9 @@ const TokenTransfersCrossChainTable = ({ data, isLoading, top, currentAddress }:
           </TableRow>
         </TableHeaderSticky>
         <TableBody>
-          { data.map((item, index) => (
+          { getItemsWithKeys(data).map(({ item, key }) => (
             <TokenTransfersCrossChainTableItem
-              key={ getItemKey(item, isLoading ? index : undefined) }
+              key={ key }
               data={ item }
               isLoading={ isLoading }
               currentAddress={ currentAddress }

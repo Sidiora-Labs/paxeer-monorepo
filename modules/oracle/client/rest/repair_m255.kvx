@@ -1,0 +1,12 @@
+[repair.22.33.255]
+audit = "22.30.13"
+finding_015 = "TestRepairM_255_TwapLookback"
+finding_014 = "TestRepairM_255_TypedQueryRoutes"
+error_contract = "TestRepairM_255_QueryValidationAndFailure"
+transport = "AppModuleBasic REST registration -> typed QueryClient -> client.Context -> loopback JSON-RPC -> AppModule.RegisterServices GRPCQueryRouter -> real keeper and in-memory stores."
+response = "Retained routes return protobuf JSON query responses within the existing height/result envelope."
+baseline = "Not run: the task's exact gate order requires full implementation before build and hf-done; no pre-change failures are claimed."
+wiring_requests = "None; both findings are repaired within the authorized paths."
+evidence = "Runner hf-build/hf-done ledger records the exact candidate revision, command, exit and private log."
+qualification_repair = "The initial verify exposed SDK codec method names MarshalAsJSON/UnmarshalAsJSON; test calls now use those real interfaces. Oracle query errors explicitly include the HTTP status code, preserving the asserted 400 body contract."
+continuation_repair = "The supplied previous-attempt gate failed TestRepairM_255_TwapLookback/valid_1 because its observations were outside the one-second window; that case now records real keeper snapshots at the start and end of the one-second window before requesting the mounted route, with all existing assertions and production handlers unchanged."

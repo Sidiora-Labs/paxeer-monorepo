@@ -172,21 +172,16 @@ func (iter *mvsMergeIterator) Close() error {
 	return iter.cache.Close()
 }
 
-// Error returns an error if the mvsMergeIterator is invalid defined by the
-// Valid method.
+// Error implements Iterator and reports backing errors independently of exhaustion.
 func (iter *mvsMergeIterator) Error() error {
-	if !iter.Valid() {
-		return errors.New("invalid mvsMergeIterator")
-	}
-
-	return nil
+	return errors.Join(iter.parent.Error(), iter.cache.Error())
 }
 
 // If not valid, panics.
 // NOTE: May have side-effect of iterating over cache.
 func (iter *mvsMergeIterator) assertValid() {
-	if err := iter.Error(); err != nil {
-		panic(err)
+	if !iter.Valid() {
+		panic("invalid mvsMergeIterator")
 	}
 }
 

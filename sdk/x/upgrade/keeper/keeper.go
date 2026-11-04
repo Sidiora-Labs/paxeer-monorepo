@@ -422,7 +422,33 @@ func (k Keeper) DumpUpgradeInfoWithInfoToDisk(height int64, name string, info st
 		return err
 	}
 
-	return os.WriteFile(upgradeInfoFilePath, bz, 0o600)
+	dir, err := os.Open(filepath.Dir(upgradeInfoFilePath))
+	if err != nil {
+		return err
+	}
+	defer dir.Close()
+
+	tmp, err := os.CreateTemp(filepath.Dir(upgradeInfoFilePath), UpgradeInfoFileName+".tmp-*")
+	if err != nil {
+		return err
+	}
+	tmpPath := tmp.Name()
+	defer os.Remove(tmpPath)
+	if _, err := tmp.Write(bz); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(tmpPath, upgradeInfoFilePath); err != nil {
+		return err
+	}
+	return dir.Sync()
 }
 
 // GetUpgradeInfoPath returns the upgrade info file path
@@ -445,6 +471,8 @@ func (k Keeper) getHomeDir() string {
 // written to disk by the old binary when panicking. An error is returned if
 // the upgrade path directory cannot be created or if the file exists and
 // cannot be read or if the upgrade info fails to unmarshal.
+// Interrupted writes leave temporary siblings which are never promoted on read:
+// only the atomically published file is authoritative (or no plan if absent).
 func (k Keeper) ReadUpgradeInfoFromDisk() (store.UpgradeInfo, error) {
 	var upgradeInfo store.UpgradeInfo
 

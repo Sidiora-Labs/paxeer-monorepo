@@ -4,7 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
+	"sync"
 	"time"
+	"unicode"
 
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -18,25 +21,48 @@ import (
 
 const flagGenesisTime = "genesis-time"
 
-// Allow applications to extend and modify the migration process.
-//
-// Ref: https://github.com/cosmos/cosmos-sdk/issues/5041
-var migrationMap = types.MigrationMap{}
+var (
+	migrationMap   = types.MigrationMap{}
+	migrationMutex sync.RWMutex
+)
+
+// RegisterMigration registers an application migration before MigrateGenesisCmd
+// is constructed. Duplicate targets are rejected to prevent replacing a migration.
+func RegisterMigration(version string, callback types.MigrationCallback) error {
+	if version == "" || strings.IndexFunc(version, unicode.IsSpace) >= 0 {
+		return fmt.Errorf("migration target must be non-empty and contain no whitespace")
+	}
+	if callback == nil {
+		return fmt.Errorf("migration callback for version %s must not be nil", version)
+	}
+
+	migrationMutex.Lock()
+	defer migrationMutex.Unlock()
+	if _, exists := migrationMap[version]; exists {
+		return fmt.Errorf("migration already registered for version: %s", version)
+	}
+	migrationMap[version] = callback
+	return nil
+}
 
 // GetMigrationCallback returns a MigrationCallback for a given version.
 func GetMigrationCallback(version string) types.MigrationCallback {
+	migrationMutex.RLock()
+	defer migrationMutex.RUnlock()
 	return migrationMap[version]
 }
 
 // GetMigrationVersions get all migration version in a sorted slice.
 func GetMigrationVersions() []string {
-	versions := make([]string, len(migrationMap))
+	migrationMutex.RLock()
+	defer migrationMutex.RUnlock()
+	return migrationVersions(migrationMap)
+}
 
-	var i int
-
-	for version := range migrationMap {
-		versions[i] = version
-		i++
+func migrationVersions(migrations types.MigrationMap) []string {
+	versions := make([]string, 0, len(migrations))
+	for version := range migrations {
+		versions = append(versions, version)
 	}
 
 	sort.Strings(versions)
@@ -46,15 +72,31 @@ func GetMigrationVersions() []string {
 
 // MigrateGenesisCmd returns a command to execute genesis state migration.
 func MigrateGenesisCmd() *cobra.Command {
+	// Keep the advertised targets and executable callbacks on the same snapshot.
+	migrationMutex.RLock()
+	migrations := make(types.MigrationMap, len(migrationMap))
+	for version, callback := range migrationMap {
+		migrations[version] = callback
+	}
+	migrationMutex.RUnlock()
+	versions := migrationVersions(migrations)
+	supported := strings.Join(versions, ", ")
+	if len(versions) == 0 {
+		supported = "none (this application has not registered any genesis migrations)"
+	}
+
 	cmd := &cobra.Command{
 		Use:   "migrate [target-version] [genesis-file]",
 		Short: "Migrate genesis to a specified target version",
 		Long: fmt.Sprintf(`Migrate the source genesis into the target version and print to STDOUT.
 
+Supported target versions: %s
+
 Example:
-$ %s migrate v0.36 /path/to/genesis.json --chain-id=cosmoshub-3 --genesis-time=2019-04-22T17:00:00Z
-`, version.AppName),
-		Args: cobra.ExactArgs(2),
+$ %s migrate [target-version] /path/to/genesis.json --chain-id=cosmoshub-3 --genesis-time=2019-04-22T17:00:00Z
+`, supported, version.AppName),
+		ValidArgs: versions,
+		Args:      cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			clientCtx := client.GetClientContextFromCmd(cmd)
 
@@ -81,9 +123,9 @@ $ %s migrate v0.36 /path/to/genesis.json --chain-id=cosmoshub-3 --genesis-time=2
 				return errors.Wrap(err, "failed to JSON unmarshal initial genesis state")
 			}
 
-			migrationFunc := GetMigrationCallback(target)
+			migrationFunc := migrations[target]
 			if migrationFunc == nil {
-				return fmt.Errorf("unknown migration function for version: %s", target)
+				return fmt.Errorf("unknown migration function for version: %s; supported target versions: %s", target, supported)
 			}
 
 			// TODO: handler error from migrationFunc call

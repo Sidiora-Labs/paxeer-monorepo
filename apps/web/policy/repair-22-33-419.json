@@ -1,0 +1,42 @@
+{
+  "task": "22.33.419",
+  "audit": "22.30.145",
+  "findings": {
+    "web-local-link-policy": "apps/web/test/repair-22-33-419.test.mjs#webLocalLinkPolicy",
+    "web-dependency-budget": "apps/web/test/repair-22-33-419.test.mjs#webDependencyBudget"
+  },
+  "baseline": {
+    "revision": "de8ab245609a7e0707cc32c502b6dcbe17ce3aca",
+    "executed": false,
+    "reason": "The required implementation-first order and exclusive bounded hf-build/hf-done gates prohibit an unchanged-tree verification run; the planned repair test did not exist at baseline. No baseline test failure is claimed.",
+    "recorded_failures": "Audit 22.30.145 records eleven manifest dependencies versus five approved, Next 16.4.1 versus 16.3.5, two unapproved SDK/wallet links, and the wallet UNLICENSED disposition."
+  },
+  "continued_attempt": {
+    "revision": "98b9a3e77404dafe89dbab62b1bc7cad5bdff040",
+    "recorded_failure": "Attempt 1 failed webLocalLinkPolicy and webDependencyBudget because packages/layerx-ui/node_modules/cac was rejected as an unapproved local package target.",
+    "repair": "Retain the prior implementation and recognize installed dependencies under the three explicitly approved local targets; require canonical node_modules package paths and retain every nested package version, license and unknown-link check. webLocalLinkPolicy asserts the real nested cac entry and rejects nested unknown links, unlicensed or unpinned packages and path traversal."
+  },
+  "dependency_review": {
+    "@noble/curves": "Remove duplicate web runtime declaration: sdk/wallet/src/receipt.ts and agent.ts own signature verification; sdk/wallet/package.json declares the dependency.",
+    "@noble/hashes": "Remove duplicate web runtime declaration: sdk/wallet/src/receipt.ts and agent.ts own hashing; the wallet and agent SDK each declare their required versions.",
+    "@supabase/supabase-js": "Remove duplicate web runtime declaration: sdk/wallet/src/index.ts owns session authentication and sdk/wallet/package.json declares the dependency.",
+    "@sidiora/layerx-sdk": "Retain: apps/web/src/api/sdk.ts reexports the production SDK builders; sdk/wallet/src/modules uses its browser API. Pin the local SDK identity, path, version and Apache-2.0 license.",
+    "@paxeer/wallet": "Retain: apps/web/src/api/wallet.ts uses gasStation and apps/web/src/app/exchange/exchange-client.tsx uses exchange. Pin the local wallet identity, path, version and private internal license disposition.",
+    "viem": "Move to web devDependencies at 2.56.9: web e2e/exchange-perps.test.ts and launchpad-reads.test.ts consume its ABI helpers and signing tests consume viem/accounts. Production wallet usage remains declared by sdk/wallet/package.json.",
+    "next": "Approve current patched repository pin 16.4.1 for the App Router application; retain exact manifest/lock equality.",
+    "retained_inventory": "Seven direct runtime packages: UI, wallet, agent SDK, Next, QRCode for src/kit/qr-code.tsx, React and React DOM. The finite maximum is seven."
+  },
+  "wallet_license_disposition": {
+    "name": "@paxeer/wallet",
+    "path": "sdk/wallet/package.json",
+    "version": "0.1.0",
+    "license": "UNLICENSED",
+    "private": true,
+    "disposition": "Private first-party package for internal integration in the private web application; retain UNLICENSED and prevent npm publication. This package-specific disposition grants no third-party license and does not add UNLICENSED to the global allowlist. Identity, target path, version, actual manifest and lock metadata must agree."
+  },
+  "proof": "Both proving tests run the production dependency policy and the wallet exchange approval walkthrough: production SDK ABI builder -> PaxeerProvider -> HTTP POST / on an in-process server -> production allowance/approval consumer. Exact requests, responses, insufficient/sufficient allowance and malformed response rejection are asserted. Source loading requires no dist artifact or subprocess.",
+  "wiring_requests": [
+    "spec/layerx-merge/spec.kvx task.22.33.419 (domain 14 web, owner fm-web-explorer-bridge): attach these finding-to-test mappings and the runner's exact verified revision/command/exit/private log receipt; spec edits are outside this task's scope."
+  ],
+  "qualification": "Use the runner's hf-done JSON receipt for the verified candidate revision and private evidence location; no gate result is claimed in this pre-qualification record."
+}

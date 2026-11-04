@@ -263,6 +263,7 @@ func (store *VersionIndexedStore) Set(key []byte, value []byte) {
 	// defer telemetry.MeasureSince(time.Now(), "store", "mvkv", "set")
 
 	types.AssertValidKey(key)
+	types.AssertValidValue(value)
 	store.setValue(key, value)
 }
 

@@ -1,0 +1,20 @@
+[repair.22.33.163]
+audit = "22.30.118"
+base_revision = "2b502183a86af3a2498748de6572b1bde20e4768"
+test_file = "apps/wallet/src/app/api/wallet/[...path]/repair-22-33-163.test.ts"
+qualification = "The runner's hf-build and hf-done ledger records the final candidate revision, commands, exits and private evidence locations."
+baseline = "Not run: the explicit gate order requires complete implementation before hf-build and hf-done and forbids running verify_cmd separately; no baseline failures are claimed."
+wiring_requests = []
+
+[finding.proxy-cache-capacity]
+repair = "256 LRU entries, 8 MiB aggregate UTF-8 key/body/header bytes, 512 KiB per body and 16 in-flight upstream requests; admission follows deduplication and excess distinct work receives an explicit 503."
+tests = ["proxy_cache_capacity_evicts_lru_entries", "proxy_cache_capacity_bounds_aggregate_utf8_bytes", "proxy_cache_capacity_bounds_inflight_and_preserves_deduplication", "proxy_cache_capacity_releases_failed_inflight_slots"]
+
+[finding.proxy-head-get-collision]
+repair = "Response cache and in-flight promises use the effective method plus upstream URL."
+tests = ["proxy_head_get_collision_head_before_get", "proxy_head_get_collision_concurrent_head_then_get", "proxy_head_get_collision_concurrent_get_then_head"]
+
+[evidence.fixture]
+producer = "Committed loopback HTTP server emits JSON GET bodies and bodyless HEAD replies with distinct method-specific cache headers."
+transport = "Native fetch to an ephemeral loopback listener; no transport or production module is mocked."
+consumer = "Production GET/HEAD handlers, cache, in-flight admission, HTTP boundaries and durable rate limiter with a temporary store; fixture supplies its own configuration."
