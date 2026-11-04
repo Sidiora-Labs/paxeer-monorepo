@@ -199052,7 +199052,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1402]
 title = "Repair audit record 22.30.78 medium findings in services/platform/hosted/human (part 2 of 2): retired-reference, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.346", "22.31.347", "22.31.348", "22.31.467"]
@@ -199940,7 +199940,7 @@ do_19 = "Attempt 5 (continue): the build fails with six E0061 errors in tests/su
 
 [task.22.33.1321]
 title = "Repair audit record 22.30.70 medium findings in services/platform/hosted/paxeer (part 3 of 3): restart-recovery, retired-reference, security"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.186", "22.31.187"]
@@ -279392,7 +279392,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1237]
 title = "Repair audit record 22.30.6 medium findings in tests/modules (part 2 of 2): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.127"]
@@ -338281,7 +338281,7 @@ do_9 = "Attempt 2: the verify command passed but the candidate carried compiled 
 
 [task.22.31.332]
 title = "Repair audit record 22.30.184 findings in tools/qualification/paxeer-x: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.443", "22.31.483"]
