@@ -17,12 +17,21 @@
       "import": "./dist/react.js"
     },
     "./provider": {
-      "types": "./dist/provider.d.ts",
-      "import": "./dist/provider.js"
+      "types": "./src/provider.ts",
+      "default": "./src/provider.ts"
+    },
+    "./receipt": {
+      "types": "./src/receipt.ts",
+      "default": "./src/receipt.ts"
+    },
+    "./types": {
+      "types": "./src/types.ts",
+      "default": "./src/types.ts"
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "src"
   ],
   "scripts": {
     "build": "pnpm run build:agent-sdk && tsc -p tsconfig.json",
