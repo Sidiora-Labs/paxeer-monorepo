@@ -15090,3 +15090,58 @@ fix = "22.31.506 provisions Node and the pinned pnpm in the Ceremony job the way
 title = "The launchpad service images stopped building: a go directive above the pinned toolchain and stale module graphs behind a moved replace target"
 symptom = "Publish off-chain images (.github/workflows/offchain-images.yml) has been red on main since 2026-11-04 01:51Z. deploy/launchpad/Dockerfile.svc builds with golang:1.26.4 under GOTOOLCHAIN=local and checks that go mod download and go mod verify leave go.mod and go.sum unchanged. services/launchpad/api/go.mod declares go 1.27.0 since 22.31.453 (c22a03aa47), so the api image refuses to build (go.mod requires go >= 1.27.0); services/launchpad/notifications/go.mod declares the same since 22.33.958. In indexer, ranking-algo, the stats module, social and user the download step rewrites go.mod and go.sum, because sdk/launchpad/shared, which they take through a replace directive, moved its requirement set in the same commit (go-ethereum 1.17.4, pion dtls v3, stun v3, transport v4) while their own graphs were not regenerated; the 453 gate built each module with the go of the qualification environment and never ran the image step. Six of fifteen images fail on every push."
 fix = "22.31.507 brings every launchpad go directive back under the pinned toolchain and regenerates the six module graphs; its verify runs the Dockerfile step per module under GOTOOLCHAIN=go1.26.4 (decision 2549)."
+
+[gotcha.3054]
+title = "A process-global rate limiter is shared by every gateway unit test carried into one repair binary"
+symptom = "22.33.1336 attempt 8 (2026-11-04 21:03Z): history::tests::unified_history_answer_reads_the_paxeer_node_over_http, a gateway unit test included into the repair binary (gotcha 3047), failed with -32001 public_read_rate_limit while it passes in every other binary; the public read rate limiter is process-global and the sibling tests of that binary exhaust it first."
+fix = "A repair binary skips a carried unit test that depends on process-global state its siblings exhaust; the test keeps running in the gateway's own binary."
+
+[gotcha.3055]
+title = "22.33.1501 made the wallet surface read the web-data payment availability and the surface test double does not answer it"
+symptom = "a4710dac6e (22.33.1501, 2026-11-04 12:35Z) changed apps/wallet/src/surfaces/useSurface.ts and sdk/wallet/src/modules/web-data.ts after 22.33.205 published at 06:32Z: readGrantCaps now calls paymentAvailability (the module's getParams read at the web-data module address) and the GrantChain double in apps/wallet/src/surfaces/test/chain.tsx throws 'no contract answers' for it; three cases of apps/wallet/src/surfaces/repair-22-33-205.test.ts are red on main and failed 22.31.486 attempt 3 at 20:46Z."
+fix = "22.31.508 teaches the double the producer's call; a change that adds a chain read to a surface updates the surface's test doubles in the same change (decision 2554)."
+
+[gotcha.3056]
+title = "The buyer middleware confirms only named payees, and the V4 committed recording pays an asset account"
+symptom = "22.31.492 attempt 3 (2026-11-04 21:03Z): the buyer's prepare checks that the offer's account name hashes under the legacy or native account-id domain to payTo; the V4 recording's payee is ledgerkeeper.AccountID(did, asset), an asset account with no name, so a committed offer carrying that payTo is refused requirements-mismatch at the payee check."
+fix = "The committed-rung regression pays the named V1 payee (decision 2552); whether an offer must be able to name an asset-account payee (a DID and an asset) is recorded as an open question for the owner."
+
+[gotcha.3057]
+title = "Threading time through the approval service has consumers in two other crates"
+symptom = "22.31.495 attempt 2 (2026-11-04 21:07Z): the dependent-crate check compiled services/agent/crates/layerx-mcp/src/catalogue.rs (line 813, E0061: the approval call now takes a time argument) and the layerx-human-service repair test services/human/crates/layerx-human-service/tests/repair_22_33_61.rs (lines 510 and 538, E0063: DecisionRequest initialisers without current_time) against the new interface and stopped before the verify."
+fix = "Both consumers join the task's paths and it fixes them; an interface change lists its consumers in its paths before it launches."
+
+[gotcha.3058]
+title = "The wallet gateway send path times out against the in-process database socket server"
+symptom = "22.33.208 attempt 3 (2026-11-04 21:07Z): with the database opened through the in-process engine's socket server (ten connections) by test/support/node-receipts.ts and the gateway pool at its default size, the send route answered 500 send_failed, connection terminated due to connection timeout, while two other cases of the same file passed against the same database."
+fix = "The test sets DATABASE_POOL_MAX to 1 before the pool opens; a path that needs two connections at once is a defect the task names."
+
+[gotcha.3059]
+title = "The Python SDK web-search receipt digest is a third digest definition"
+symptom = "22.33.18 attempt 2 (2026-11-04 21:40Z): services/agent/sdk/python/layerx_sdk/web_search.py line 395 computes receiptDigest as SHA-256 over the merkle-leaf domain and the signed receipt bytes, pinned by its own test at tests/test_web_search_sequencer.py line 55; the web-search server compares the canonical receipt digest (decision 1103) and the portable receipt digest is the signature digest (decision 2538); the replayed exact exchange of tests/ci/test_repair_22_33_18.py differed from the recording only in receiptDigest."
+fix = "22.31.510 moves the SDK to the digest its own verifier returns and re-checks the recording; 22.33.18 waits for it."
+
+[gotcha.3060]
+title = "The V1 pay-exact receipt vector is synthetic and carries no committed inclusion material"
+symptom = "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json (case V1-layerxledger-pay-exact) is generated by rpc/sequencer_receipt_vectors_test.go from hand-built transaction logs; it has no recorded batch transaction, transaction proof or result proof, which services/agent/sdk/typescript/src/committed-proof.ts verifyReceiptInclusion requires for the committed rung. 22.31.492 attempt 4 (2026-11-04 22:03Z) stopped on that missing field as its instructions said."
+fix = "Committed-rung evidence comes only from the node recorder in daemon/committed-fixture; decision 2555 replaces the V1 direction of decision 2552."
+
+[gotcha.3061]
+title = "x402 offers name the payee's main account while production asset payments settle into the asset sub-account"
+symptom = "The offer field extra.layerx.account carries agent:<did>:main and services/platform/middleware/buyer/src/index.ts accountNamesPayTo refuses any payTo that is not that name's identifier. Production asset payments land in the DID's asset sub-account (modules/lxphost/accountmap.go AssetAccountID, name agent:<did>:asset:<asset hex>); the main account holds the native asset only (services/human/crates/layerx-human-service/src/agents/create_native.rs funds the main account with the native asset and the budget asset into the sub-account). Every production asset offer is therefore refused as requirements-mismatch, and the committed recordings carry no payee identity, so no consumer test could build a matching offer (the open question of gotcha 3056)."
+fix = "Decision 2555: the buyer accepts the main account identifier or the DID's asset sub-account identifier for the offer's asset; 22.31.511 records vector V7 with the parties in its provenance; 22.31.492 follows it."
+
+[gotcha.3062]
+title = "The grant-caps surface reports the retired state while its discovery cases assert coverage states"
+symptom = "22.33.1501 (a4710dac6e) made readGrantCaps in apps/wallet/src/surfaces/useSurface.ts return state retired with the web-data payment availability after DID binding; three cases of apps/wallet/src/surfaces/repair-22-33-205.test.ts still assert the incomplete and empty discovery states. 22.31.508 attempt 1 (2026-11-04 22:08Z) fixed the double (34 of 37 cases pass) and the three failed on the contract."
+fix = "Decision 2556: the three cases follow the retired contract; the test file joins the task's paths."
+
+[gotcha.3063]
+title = "Program mutations of the Python agent transport moved to the node root without their consumer test"
+symptom = "22.33.16 (6683a9d260, 2026-11-04 15:48Z) routed program mutations and hash reads of services/agent/sdk/python/layerx_sdk/agent_http.py to the node root as JSON-RPC (eth_sendRawTransaction and pax_sequencerReceipt with application/json) and did not run tests/agent/sdk/python/test_repair_22_31_147.py, whose twelve lifecycle cases still expect the octet-stream agent route; 22.31.510 attempt 1 (2026-11-04 22:08Z) passed its own seven cases and failed on those twelve."
+fix = "Decision 2557: the 147 cases follow the node-root contract; 22.31.510 realigns them and the file joins its paths."
+
+[gotcha.3064]
+title = "A path list naming the bare tests directory waits on every test change"
+symptom = "22.33.1135 and 22.33.1136 declared tests as a path next to their kernel source file; the admission check treats every task changing any file under tests/ as an overlap, so both stayed eligible but unlaunched for hours."
+fix = "Their paths now name the source file alone, with tests/codec and tests/ledger as planned paths."

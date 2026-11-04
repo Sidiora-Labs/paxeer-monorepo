@@ -1,0 +1,25 @@
+[repair.22.31.508]
+mode = "BUILD"
+criterion = "22998.1"
+source_revision = "0a76cd72f6c808eb67379b35bfa45c17d608d093"
+producer_revision = "a4710dac6e"
+producer_task = "22.33.1501"
+gotchas = ["3055", "2962", "3062"]
+change = "SurfaceChain, inherited by GrantChain, answers eth_call getParams() only at XWEB_PRECOMPILE, the default webData module address used by paymentAvailability."
+encoding = "Five ABI words accepted by decodeWebDataPaymentAvailability: xwebFee (uint256), zero uint32, zero uint64, zero uint64, and paused (bool), the inverse of configurable xwebAvailable. Availability defaults to true and the existing configurable xwebFee defaults to zero."
+tests = ["empty_lagging_index_test_stays_incomplete_until_the_issued_grant_is_discovered", "incomplete_grant_discovery_requires_coverage_on_every_page_and_refuses_unknown_heights", "budgets_not_discovered_is_exposed_separately_from_verified_grant_absence"]
+build_cmd = "pnpm --dir apps/wallet exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "pnpm --dir apps/wallet exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/wallet exec vitest run src/surfaces/repair-22-33-205.test.ts src/account/repair-22-33-161.test.ts"
+evidence = "The hf-build and hf-done ledger records name the exact candidate revision, command, exit code and private log. Only a passing hf-done record proves the listed cases green; no pre-change or unexecuted gate is claimed."
+
+[finding.production_contract]
+observed = "Production readGrantCaps unconditionally returns state retired after paymentAvailability, while the three preserved grant-discovery cases require incomplete, ready or empty states. A decoder-valid getParams answer cannot restore the removed discovery behavior."
+resolution = "Decision 2556 authorizes updating the three named test functions to the retired contract. They assert the complete payment object, available fee reason and paused reason, DID, network 125 and finalized observation, including refresh. Retired discovery setup and indexed-height/page-coverage assertions are removed. Production source and the other cases are unchanged."
+
+[gotcha.source_location]
+observed = "GrantChain is declared in test/grants.ts and inherits the contract answer implementation from SurfaceChain in test/chain.tsx."
+
+[continuation]
+base_revision = "9fd6b2040c6771399dd6d1f912229e9482ca979e"
+decision = "2556"
+proof = "The declared verify gate executes both complete test files; the private hf-done ledger identifies the verified candidate revision and the result for all cases. The tests exercise configurable nonzero uint256 fees, paused availability and the default zero-fee availability through production readGrantCaps and its decoder."
