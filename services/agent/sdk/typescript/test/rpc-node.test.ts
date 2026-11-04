@@ -34,6 +34,7 @@ async function withRpcServer(exchanges: readonly Exchange[], run: (client: JsonR
   const requests: unknown[] = [];
   const server = http.createServer(async (request, response) => {
     try {
+      if (request.url !== "/") { response.writeHead(404); response.end(); return; }
       const chunks: Buffer[] = [];
       for await (const chunk of request) chunks.push(Buffer.from(chunk));
       const body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>;
@@ -51,9 +52,13 @@ async function withRpcServer(exchanges: readonly Exchange[], run: (client: JsonR
   try {
     const listener = server.address();
     assert(listener !== null && typeof listener === "object");
-    await run(new JsonRpcClient(`http://127.0.0.1:${listener.port}`));
+    const endpoint = `http://127.0.0.1:${listener.port}`;
+    for (const suffix of ["/rpc", "/rpc/ws", "/ws"]) {
+      await assert.rejects(new JsonRpcClient(endpoint + suffix).getNodeInfo(), /Invalid RPC HTTP response/u);
+    }
+    await run(new JsonRpcClient(endpoint));
     assert.deepEqual(requests, exchanges.map((exchange, index) => ({
-      verb: "POST", path: "/rpc", jsonrpc: "2.0", id: String(index + 1),
+      verb: "POST", path: "/", jsonrpc: "2.0", id: String(index + 1),
       method: exchange.method, params: exchange.params,
     })));
   } finally {
