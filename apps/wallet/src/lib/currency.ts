@@ -11,16 +11,24 @@
  * - No API key is required for the public latest/USD endpoint.
  */
 
-import {
-  currencyRatesRepository,
-  preferencesRepository,
-} from '@/platform/storage/repositories';
+import { currencyRatesRepository, preferencesRepository } from '@/platform/storage/repositories';
 import { PWA_NETWORK_ENV, configuredBase } from '@/pwa/config';
 
 // Supported fiat currencies (matching the settings dropdown)
 export const FIAT_CURRENCIES = [
-  'USD', 'EUR', 'GBP', 'AED', 'AUD', 'CAD', 'CHF', 'CNY', 'JPY', 'KRW',
-  'ZAR', 'NGN', 'BRL',
+  'USD',
+  'EUR',
+  'GBP',
+  'AED',
+  'AUD',
+  'CAD',
+  'CHF',
+  'CNY',
+  'JPY',
+  'KRW',
+  'ZAR',
+  'NGN',
+  'BRL',
 ] as const;
 
 export type FiatCurrency = (typeof FIAT_CURRENCIES)[number];
@@ -59,11 +67,19 @@ export function getActiveCurrency(): FiatCurrency {
 }
 
 function isFresh(): boolean {
-  return Date.now() - cache.fetchedAt < RATE_TTL_MS;
+  return (
+    cache.fetchedAt > 0 &&
+    Date.now() >= cache.fetchedAt &&
+    Date.now() - cache.fetchedAt < RATE_TTL_MS
+  );
 }
 
 function isStale(): boolean {
-  return Date.now() - cache.fetchedAt < STALE_TTL_MS;
+  return (
+    cache.fetchedAt > 0 &&
+    Date.now() >= cache.fetchedAt &&
+    Date.now() - cache.fetchedAt < STALE_TTL_MS
+  );
 }
 
 async function fetchRates(): Promise<void> {
@@ -72,7 +88,7 @@ async function fetchRates(): Promise<void> {
     if (base === null) throw new Error(`${PWA_NETWORK_ENV.fxRates} is not set`);
     const res = await fetch(`${base}/latest/USD`, { signal: AbortSignal.timeout(10_000) });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json() as {
+    const data = (await res.json()) as {
       result?: unknown;
       rates?: Record<string, unknown>;
     };
@@ -122,10 +138,9 @@ export async function ensureRates(): Promise<void> {
  */
 export function getRate(currency: FiatCurrency): number | null {
   if (currency === 'USD') return 1;
+  if (getRatesFreshness() === 'unavailable') return null;
   const rate = cache.rates[currency];
-  return typeof rate === 'number' && Number.isFinite(rate) && rate > 0
-    ? rate
-    : null;
+  return typeof rate === 'number' && Number.isFinite(rate) && rate > 0 ? rate : null;
 }
 
 /**
@@ -146,11 +161,10 @@ export function convertFromUsd(usdAmount: number, currency?: FiatCurrency): numb
 export function formatUsdAsFiat(
   usdAmount: number,
   locale: string,
-  currency?: FiatCurrency,
+  currency?: FiatCurrency
 ): string {
   const target = currency ?? getActiveCurrency();
-  const fractionDigits =
-    Math.abs(usdAmount) > 0 && Math.abs(usdAmount) < 0.01 ? 8 : 2;
+  const fractionDigits = Math.abs(usdAmount) > 0 && Math.abs(usdAmount) < 0.01 ? 8 : 2;
   if (target === 'USD') {
     return new Intl.NumberFormat(locale, {
       style: 'currency',
@@ -161,19 +175,22 @@ export function formatUsdAsFiat(
   }
   const converted = convertFromUsd(usdAmount, target);
   if (converted === null) {
-    return new Intl.NumberFormat(locale, {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: fractionDigits,
-    }).format(usdAmount);
+    return (
+      new Intl.NumberFormat(locale, {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: fractionDigits,
+      }).format(usdAmount) + ' USD (conversion unavailable)'
+    );
   }
-  return new Intl.NumberFormat(locale, {
+  const formatted = new Intl.NumberFormat(locale, {
     style: 'currency',
     currency: target,
     minimumFractionDigits: 2,
     maximumFractionDigits: fractionDigits,
   }).format(converted);
+  return getRatesFreshness() === 'stale' ? `${formatted} (stale rate)` : formatted;
 }
 
 /**

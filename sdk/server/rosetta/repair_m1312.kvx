@@ -1,0 +1,51 @@
+[task.22.33.1312]
+audit = "22.30.70"
+acceptance = "22998.1"
+baseline = "No unchanged-tree verify ran: the explicit implementation-first order forbids testing before all implementation and requires hf-done as the only verify invocation; the supplied gate ledger had no earlier runs."
+evidence = "The runner records exact candidate revision, command, exit and private evidence location in /out/run/gates.jsonl and /out/logs/build-*.log and verify-*.log; completion requires hf-done success at the same candidate as hf-build. This record is part of that candidate."
+wiring_requests = []
+
+[finding.rosetta-bank-pagination]
+test = "TestRepairM_1312_BankPagination"
+proof = "Real bank keeper over an in-memory multistore serves 207 owned assets plus an unowned currency over loopback gRPC; all balance and supply pages preserve one resolved height, continuation keys and exact balances; repeated cursors and the 1000-page bound fail without returning partial results."
+
+[finding.rosetta-operation-index]
+test = "TestRepairM_1312_OperationIndex"
+proof = "Production MsgMultiSend operations with two, three and four real signers round-trip through the converter, retain a following independent message and reject every truncated group and every corrupted sibling without a panic."
+
+[finding.rosetta-combine-identity]
+test = "TestRepairM_1312_CombineIdentity"
+proof = "Production payloads and two distinct ECDSA keys traverse HTTP payloads, combine and parse; the returned Cosmos transaction verifies both signatures. HTTP combine refuses wrong keys, reordered signatures, valid signatures over a wrong payload or different transaction, wrong accounts, curves, signature types and corrupted signature bytes."
+wire = "UnsignedTransaction transports encoded Cosmos bytes plus chain ID and exact account/sequence context as opaque construction hex; combine recomputes canonical payloads and emits standard Cosmos transaction bytes."
+
+[finding.rosetta-skipped-suite]
+test = "TestRepairM_1312_PreservedSuite"
+proof = "TestConverterTestSuite no longer skips; the bounded repair gate invokes the entire preserved suite. Its success vector now uses the real unsigned-envelope producer and a deterministic valid signature, compares exact output bytes with an independent SDK builder and verifies the resulting signature. All other preserved assertions remain enabled."
+
+[finding.rosetta-metadata-precision]
+test = "TestRepairM_1312_MetadataPrecision"
+proof = "Real auth keeper account numbers and sequences at zero, 2^53-1, 2^53, 2^53+1 and MaxUint64 survive gRPC account packing, metadata JSON maps and HTTP payload construction; independent legacy amino sign documents hash to the exact returned payloads. Gas limits use the same exact decimal wire representation, with zero retained by direct metadata round-trip and positive gas required by preprocess."
+wire = "All construction uint64 values serialize as decimal JSON strings; metadata map decoding uses json.Number. Consumers reject floating point values, overflow, negatives and fractional decimal strings."
+
+[gotcha.baseline-order]
+observed = "The inherited baseline verification step conflicts with the explicit bounded implementation-first gate order."
+action = "Follow the explicit order; no baseline result is claimed."
+
+[gotcha.signing-context]
+observed = "Cosmos TxRaw omits chain ID and signer account numbers, preventing stateless canonical payload reconstruction from raw bytes alone."
+action = "Retain context in the opaque unsigned construction envelope; parse unwraps it, combine verifies canonical payloads and signatures, and signed bytes remain ordinary Cosmos TxRaw."
+
+[qualification.initial]
+revision = "bac09debb49ff76042320aad4041b0173ac7a832"
+command = "cg spec done 22.33.1312 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Pagination and operation-index proofs passed; HTTP construction fixture omitted the SDK Msg interface registration, and the restored suite exposed old short-address and cosmos-prefix fixtures."
+
+[gotcha.fixture-registry]
+observed = "Rosetta MakeCodec registers concrete bank messages but the SDK Msg interface name must be registered by application configuration for SupportedOperations discovery."
+action = "Register sdk.RegisterInterfaces in the proof's application registry; require the real MsgMultiSend type in the advertised operation set before starting the HTTP proof."
+
+[gotcha.preserved-addresses]
+observed = "The preserved suite used short synthetic addresses and a recorded cosmos-prefix transaction, while the chain enforces 20/32-byte pax addresses."
+action = "Keep all conversion assertions, use valid full-length address fixtures, and reencode the recorded address bytes under the configured prefix without altering key or signer identities."

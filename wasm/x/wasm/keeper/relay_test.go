@@ -55,13 +55,18 @@ func TestOnOpenChannel(t *testing.T) {
 	for name, spec := range specs {
 		t.Run(name, func(t *testing.T) {
 			myChannel := wasmvmtypes.IBCChannel{Version: "my test channel"}
+			var beforeRuntime uint64
+			var sdkMeter sdk.GasMeter
 			myMsg := wasmvmtypes.IBCChannelOpenMsg{OpenTry: &wasmvmtypes.IBCOpenTry{Channel: myChannel, CounterpartyVersion: "foo"}}
 			m.IBCChannelOpenFn = func(codeID wasmvm.Checksum, env wasmvmtypes.Env, msg wasmvmtypes.IBCChannelOpenMsg, store wasmvm.KVStore, goapi wasmvm.GoAPI, querier wasmvm.Querier, gasMeter wasmvm.GasMeter, gasLimit uint64, deserCost wasmvmtypes.UFraction) (*wasmvmtypes.IBC3ChannelOpenResponse, uint64, error) {
 				assert.Equal(t, myMsg, msg)
+				beforeRuntime = sdkMeter.GasConsumed()
 				return &wasmvmtypes.IBC3ChannelOpenResponse{}, spec.contractGas * DefaultGasMultiplier, spec.contractErr
 			}
 
 			ctx, _ := parentCtx.CacheContext()
+			sdkMeter = sdk.NewInfiniteGasMeter(1, 1)
+			ctx = ctx.WithGasMeter(sdkMeter)
 
 			// when
 			msg := wasmvmtypes.IBCChannelOpenMsg{
@@ -73,11 +78,15 @@ func TestOnOpenChannel(t *testing.T) {
 			_, err := keepers.WasmKeeper.OnOpenChannel(ctx, spec.contractAddr, msg)
 
 			// then
+			if beforeRuntime != 0 {
+				require.Equal(t, spec.contractGas, sdkMeter.GasConsumed()-beforeRuntime)
+			}
 			if spec.expErr {
 				require.Error(t, err)
 				return
 			}
 			require.NoError(t, err)
+			require.Equal(t, spec.expGas, sdkMeter.GasConsumed()-beforeRuntime)
 		})
 	}
 }
