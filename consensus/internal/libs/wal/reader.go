@@ -74,6 +74,6 @@ func (r *logReader) ReadEntry() (data []byte, err error) {
 }
 
 // Close unconditionally releases all the resources.
-func (r *logReader) Close() {
-	_ = r.file.Close()
+func (r *logReader) Close() error {
+	return r.file.Close()
 }
