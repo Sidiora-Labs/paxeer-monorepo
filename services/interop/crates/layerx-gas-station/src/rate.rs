@@ -438,6 +438,17 @@ impl<S: QuoteSigner, R: JsonRpc> RatePublisher<S, R> {
         {
             return Err(RateRefusal::LegacyUnresolved);
         }
+        if journal.state().rate_identity.is_some_and(|identity| {
+            identity
+                != (
+                    signer.address(),
+                    config.station.chain_id,
+                    config.station.paymaster,
+                )
+        }) || journal.state().rate_fee_high_water > config.max_fee_per_gas
+        {
+            return Err(RateRefusal::NotOwner);
+        }
         for transaction in journal.state().rate_transactions.values() {
             validate_publication_transaction(transaction)?;
             if transaction.chain_id != config.station.chain_id
@@ -497,6 +508,9 @@ impl<S: QuoteSigner, R: JsonRpc> RatePublisher<S, R> {
         base_fee: u128,
         signer: &Address,
     ) -> Result<u128, RateRefusal> {
+        if now < self.journal.state().time_high_water {
+            return Err(RpcFault::Divergence.into());
+        }
         let spent = self.journal.state().publication_gas(now / DAY_SECONDS);
         if spent
             .checked_add(u128::from(RATE_GAS_LIMIT))
@@ -768,8 +782,11 @@ impl<S: QuoteSigner, R: JsonRpc> RatePublisher<S, R> {
                 match receipt["rung"].as_str() {
                     Some("submitted") => {}
                     Some("receipted" | "committed") => {
-                        self.verify_signed_receipt(transaction, &receipt)?;
-                        if !sequencer_outcome(transaction, &receipt)? {
+                        let succeeded = self.verify_signed_receipt(transaction, &receipt)?;
+                        if sequencer_outcome(transaction, &receipt)? != succeeded {
+                            return Err(RpcFault::Malformed.into());
+                        }
+                        if !succeeded {
                             return Err(RateRefusal::Reverted);
                         }
                         if self
@@ -796,18 +813,12 @@ impl<S: QuoteSigner, R: JsonRpc> RatePublisher<S, R> {
         &self,
         transaction: &PublicationTransaction,
         receipt: &Value,
-    ) -> Result<(), RpcFault> {
-        let signed = bytes(receipt["receipt"].as_str().ok_or(RpcFault::Malformed)?)?;
-        let verified =
-            verify_sequencer_signature(&signed, self.config.sequencer_receipt_keys.as_slice())
-                .map_err(|_| RpcFault::Malformed)?;
-        if verified
-            .protocol()
-            .is_none_or(|protocol| protocol.activity_id() != keccak(&transaction.raw))
-        {
-            return Err(RpcFault::Malformed);
-        }
-        Ok(())
+    ) -> Result<bool, RpcFault> {
+        verify_sequencer_view(
+            receipt,
+            &keccak(&transaction.raw),
+            &self.config.sequencer_receipt_keys,
+        )
     }
 
     /// Journals the settlement of a publication whose committed receipt the
@@ -899,6 +910,170 @@ pub fn next_wait(cadence_seconds: u64, result: &Result<Publication, RateRefusal>
 
 fn field_quantity(value: &Value, name: &str) -> Result<u128, RpcFault> {
     quantity(value[name].as_str().ok_or(RpcFault::Malformed)?)
+}
+
+/// Verifies the node's sequencer layout and binds the JSON execution view to
+/// the authenticated summary and log effects. Returns the signed execution outcome.
+/// # Errors
+/// Refuses unsigned evidence or any disagreement with the node's canonical layout.
+pub fn verify_sequencer_view(
+    view: &Value,
+    transaction_hash: &Word,
+    keys: &[SequencerAuthorization],
+) -> Result<bool, RpcFault> {
+    let signed = bytes(view["receipt"].as_str().ok_or(RpcFault::Malformed)?)?;
+    let verified = verify_sequencer_signature(&signed, keys).map_err(|_| RpcFault::Malformed)?;
+    let protocol = verified.protocol().ok_or(RpcFault::Malformed)?;
+    let status = match protocol.result_code() {
+        0 => 1u128,
+        1 => 0,
+        _ => return Err(RpcFault::Malformed),
+    };
+    let from = protocol.from();
+    let to = protocol.to();
+    if protocol.protocol_version() != 2
+        || protocol.module_id() != 12
+        || protocol.module_version() != 1
+        || protocol.parameter_version() != 0
+        || protocol.total_units().is_some()
+        || protocol.program_outcome().is_some()
+        || protocol.activity_id() != *transaction_hash
+        || view["txHash"] != hex(transaction_hash)
+        || from[..12] != [0; 12]
+        || to[..12] != [0; 12]
+        || view["from"] != hex(&from[12..])
+        || view["to"] != hex(&to[12..])
+        || view["keyId"] != hex(&protocol.context_hash())
+        || field_quantity(view, "nonce")? != u128::from(protocol.debit_sequence())
+        || field_quantity(view, "seq")? != u128::from(protocol.global_sequence())
+        || field_quantity(view, "timestamp")? != u128::from(protocol.timestamp())
+        || field_quantity(view, "status")? != status
+        || field_quantity(view, "feeAmount")? != protocol.fee_charged()
+    {
+        return Err(RpcFault::Malformed);
+    }
+    let batch = protocol.batch_id();
+    let height = u64::from_be_bytes(batch[24..].try_into().map_err(|_| RpcFault::Malformed)?);
+    if batch[..24] != [0; 24] || field_quantity(view, "height")? != u128::from(height) {
+        return Err(RpcFault::Malformed);
+    }
+    match view["rung"].as_str() {
+        Some("receipted") if view["blockNumber"].is_null() && view["blockHash"].is_null() => {}
+        Some("committed") if field_quantity(view, "blockNumber")? >= u128::from(height) => {
+            let hash = bytes(view["blockHash"].as_str().ok_or(RpcFault::Malformed)?)?;
+            if hash.len() != 32 || hash.iter().all(|byte| *byte == 0) {
+                return Err(RpcFault::Malformed);
+            }
+        }
+        _ => return Err(RpcFault::Malformed),
+    }
+    let signing_key = keys
+        .iter()
+        .find(|key| {
+            key.sequencer_id() == protocol.context_hash()
+                && key.first_batch_number() <= height
+                && key.last_batch_number() >= height
+        })
+        .ok_or(RpcFault::Malformed)?;
+    if view["signingKey"] != hex(&signing_key.public_key()) {
+        return Err(RpcFault::Malformed);
+    }
+    let effects = protocol.effects();
+    let summary = effects.first().ok_or(RpcFault::Malformed)?;
+    let body = summary.body();
+    if summary.module_id() != protocol.module_id()
+        || summary.ordinal() != 0
+        || summary.kind() != 1
+        || body.len() < 109
+    {
+        return Err(RpcFault::Malformed);
+    }
+    let u64_at = |start| -> Result<u128, RpcFault> {
+        Ok(u128::from(u64::from_be_bytes(
+            body[start..start + 8]
+                .try_into()
+                .map_err(|_| RpcFault::Malformed)?,
+        )))
+    };
+    let u32_at = |start| -> Result<u32, RpcFault> {
+        Ok(u32::from_be_bytes(
+            body[start..start + 4]
+                .try_into()
+                .map_err(|_| RpcFault::Malformed)?,
+        ))
+    };
+    let denom_length = usize::from(body[108]);
+    if denom_length == 0
+        || denom_length > 64
+        || body.len() != 109 + denom_length
+        || field_quantity(view, "gasUsed")? != u64_at(0)?
+        || field_quantity(view, "cumulativeGasUsed")? != u64_at(8)?
+        || field_quantity(view, "effectiveGasPrice")? != u64_at(16)?
+        || field_quantity(view, "index")? != u128::from(u32_at(24)?)
+        || view["contractAddress"] != hex(&body[28..48])
+        || view["sponsor"] != hex(&body[48..68])
+        || view["feeDenom"]
+            .as_str()
+            .ok_or(RpcFault::Malformed)?
+            .as_bytes()
+            != &body[109..]
+    {
+        return Err(RpcFault::Malformed);
+    }
+    let payment = view["paymentDenom"].as_str().ok_or(RpcFault::Malformed)?;
+    let sha256 = |value: &[u8]| -> Result<Word, RpcFault> {
+        layerx_platform_internal::secret::unhex(&layerx_platform_internal::secret::sha256_hex(
+            value,
+        ))
+        .ok_or(RpcFault::Malformed)?
+        .try_into()
+        .map_err(|_| RpcFault::Malformed)
+    };
+    let returned = bytes(view["returnData"].as_str().ok_or(RpcFault::Malformed)?)?;
+    let vm_error = view["vmError"].as_str().ok_or(RpcFault::Malformed)?;
+    if payment.is_empty()
+        || payment.len() > 64
+        || sha256(payment.as_bytes())? != protocol.asset()
+        || returned.len() != u32_at(100)? as usize
+        || sha256(&returned)? != protocol.activity_root()
+        || sha256(vm_error.as_bytes())? != body[68..100]
+    {
+        return Err(RpcFault::Malformed);
+    }
+    let logs = view["logs"].as_array().ok_or(RpcFault::Malformed)?;
+    if logs.len() != u32_at(104)? as usize || effects.len() != logs.len() + 1 {
+        return Err(RpcFault::Malformed);
+    }
+    for (index, (log, effect)) in logs.iter().zip(&effects[1..]).enumerate() {
+        let body = effect.body();
+        if effect.module_id() != protocol.module_id()
+            || usize::from(effect.ordinal()) != index + 1
+            || effect.kind() != 3
+            || body.len() < 53
+        {
+            return Err(RpcFault::Malformed);
+        }
+        let count = usize::from(body[20]);
+        let topics = log["topics"].as_array().ok_or(RpcFault::Malformed)?;
+        if count > 4
+            || body.len() != 53 + 32 * count
+            || topics.len() != count
+            || log["address"] != hex(&body[..20])
+            || field_quantity(log, "logIndex")? != index as u128
+        {
+            return Err(RpcFault::Malformed);
+        }
+        for (index, topic) in topics.iter().enumerate() {
+            if *topic != hex(&body[21 + index * 32..21 + (index + 1) * 32]) {
+                return Err(RpcFault::Malformed);
+            }
+        }
+        let data = bytes(log["data"].as_str().ok_or(RpcFault::Malformed)?)?;
+        if sha256(&data)? != body[body.len() - 32..] {
+            return Err(RpcFault::Malformed);
+        }
+    }
+    Ok(status == 1)
 }
 
 /// Whether a receipted or committed `pax_sequencerReceipt` reports the
