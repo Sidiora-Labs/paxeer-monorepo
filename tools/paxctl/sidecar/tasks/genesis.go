@@ -1,10 +1,13 @@
 package tasks
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"golang.org/x/sys/unix"
 	"io"
 	"os"
 	"path/filepath"
@@ -41,18 +44,17 @@ func DefaultS3ClientFactory(ctx context.Context, region string) (S3GetObjectAPI,
 
 // GenesisS3Config holds S3 coordinates for genesis.json download.
 type GenesisS3Config struct {
-	Bucket string
-	Key    string
-	Region string
+	Bucket              string
+	Key                 string
+	Region              string
+	ExpectedGenesisHash string
 }
 
 // ConfigureGenesisRequest holds the typed parameters for the configure-genesis task.
 // The fetcher resolves genesis from the chain ID using embedded config or S3 fallback.
 //
 // ExpectedGenesisHash is the bare SHA-256 hex digest (no "sha256:" prefix) the
-// downloaded genesis.json must match. When non-empty it gates the S3 download:
-// a mismatch fails closed. When empty (what the current controller sends) the
-// download is unverified, preserving today's behavior.
+// downloaded genesis.json must match. Every S3 download requires this digest.
 type ConfigureGenesisRequest struct {
 	ExpectedGenesisHash string `json:"expectedGenesisHash,omitempty"`
 }
@@ -89,10 +91,6 @@ func NewGenesisFetcher(homeDir, chainID, genesisBucket, genesisRegion string, fa
 // config or S3 fallback. No task parameters are required.
 func (g *GenesisFetcher) Handler() engine.TaskHandler {
 	return engine.TypedHandler(func(ctx context.Context, req ConfigureGenesisRequest) error {
-		if markerExists(g.homeDir, genesisMarkerFile) {
-			genesisLog.Debug("already completed, skipping")
-			return nil
-		}
 
 		// Try embedded genesis first.
 		if _, err := seiconfig.GenesisForChain(g.chainID); err == nil {
@@ -111,68 +109,108 @@ func (g *GenesisFetcher) Handler() engine.TaskHandler {
 }
 
 // Fetch downloads genesis.json from S3, skipping if the marker file exists.
-// Retained for backward compatibility with callers that build GenesisS3Config
-// directly; such callers do not verify a hash (empty expected hash).
+// Direct callers must provide the authenticated ExpectedGenesisHash.
 func (g *GenesisFetcher) Fetch(ctx context.Context, cfg GenesisS3Config) error {
-	if markerExists(g.homeDir, genesisMarkerFile) {
-		genesisLog.Debug("already completed, skipping")
-		return nil
-	}
-	return g.fetchFromS3(ctx, cfg, "")
+	return g.fetchFromS3(ctx, cfg, cfg.ExpectedGenesisHash)
 }
 
-// fetchFromS3 downloads genesis.json, tee-ing the bytes through SHA-256 as they
-// land on disk. When expectedHash is non-empty the digest is verified BEFORE the
-// completion marker is written: a mismatch deletes the partial file, skips the
-// marker, and returns a terminal (non-retryable) error so a poisoned-then-retried
-// node always re-verifies and never skips via a stale marker.
+const maxGenesisBytes = 128 << 20
+
+type genesisCompletion struct {
+	ChainID string `json:"chainId"`
+	Digest  string `json:"digest"`
+}
+
+func canonicalGenesisHash(hash string) bool {
+	if len(hash) != 64 {
+		return false
+	}
+	b, err := hex.DecodeString(hash)
+	return err == nil && hex.EncodeToString(b) == hash
+}
+
+func verifyGenesisBytes(data []byte, chainID, hash string) error {
+	if !canonicalGenesisHash(hash) {
+		return fmt.Errorf("canonical SHA-256 genesis digest required")
+	}
+	sum := sha256.Sum256(data)
+	if hex.EncodeToString(sum[:]) != hash {
+		return &engine.TaskError{Task: "configure-genesis", Operation: "verify-hash", Message: "genesis SHA-256 does not match authenticated digest", Retryable: false}
+	}
+	var doc struct {
+		ChainID string `json:"chain_id"`
+	}
+	if err := json.Unmarshal(data, &doc); err != nil {
+		return err
+	}
+	if chainID == "" || doc.ChainID != chainID {
+		return fmt.Errorf("genesis chain ID %q differs from configured %q", doc.ChainID, chainID)
+	}
+	return nil
+}
+
 func (g *GenesisFetcher) fetchFromS3(ctx context.Context, cfg GenesisS3Config, expectedHash string) error {
-	genesisLog.Info("downloading genesis.json from S3", "bucket", cfg.Bucket, "key", cfg.Key)
-	s3Client, err := g.s3ClientFactory(ctx, cfg.Region)
+	if !canonicalGenesisHash(expectedHash) {
+		return Terminal(fmt.Errorf("configure-genesis: canonical authenticated SHA-256 digest required"))
+	}
+	if g.chainID == "" {
+		return Terminal(fmt.Errorf("configure-genesis: chain ID required"))
+	}
+	home, err := openConfinedDir(g.homeDir, false)
+	if err != nil {
+		return err
+	}
+	defer home.Close()
+	marker, err := confinedRead(home, genesisMarkerFile, 4096)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	if err == nil {
+		var completed genesisCompletion
+		if err := json.Unmarshal(marker, &completed); err != nil {
+			return fmt.Errorf("configure-genesis: unbound legacy marker: %w", err)
+		}
+		if completed.ChainID != g.chainID || completed.Digest != expectedHash {
+			return Terminal(fmt.Errorf("configure-genesis: completion belongs to a different chain or digest"))
+		}
+		dir, err := openConfinedDir(filepath.Join(g.homeDir, "config"), false)
+		if err != nil {
+			return err
+		}
+		defer dir.Close()
+		data, err := confinedRead(dir, "genesis.json", maxGenesisBytes)
+		if err != nil {
+			return err
+		}
+		return verifyGenesisBytes(data, g.chainID, expectedHash)
+	}
+	client, err := g.s3ClientFactory(ctx, cfg.Region)
 	if err != nil {
 		return fmt.Errorf("building S3 client: %w", err)
 	}
-
-	output, err := s3Client.GetObject(ctx, &s3.GetObjectInput{
-		Bucket: aws.String(cfg.Bucket),
-		Key:    aws.String(cfg.Key),
-	})
+	output, err := client.GetObject(ctx, &s3.GetObjectInput{Bucket: aws.String(cfg.Bucket), Key: aws.String(cfg.Key)})
 	if err != nil {
 		return seis3.ClassifyS3Error("configure-genesis", cfg.Bucket, cfg.Key, cfg.Region, err)
 	}
-	defer func() { _ = output.Body.Close() }()
-
-	// Hash the exact downloaded bytes inline with the copy — no re-read, no
-	// JSON re-marshal between download and digest.
-	hasher := sha256.New()
-	if err := g.writeGenesisFile(func(f *os.File) error {
-		_, err := io.Copy(io.MultiWriter(f, hasher), output.Body)
-		return err
-	}); err != nil {
+	defer output.Body.Close()
+	data, err := io.ReadAll(io.LimitReader(output.Body, maxGenesisBytes+1))
+	if err != nil {
 		return err
 	}
-	gotHash := hex.EncodeToString(hasher.Sum(nil))
-
-	if expectedHash != "" && gotHash != expectedHash {
-		destPath := filepath.Join(g.homeDir, "config", "genesis.json")
-		_ = os.Remove(destPath)
-		genesisLog.Error("genesis hash mismatch — failing closed",
-			"bucket", cfg.Bucket, "key", cfg.Key, "expected", expectedHash, "got", gotHash)
-		return &engine.TaskError{
-			Task:      "configure-genesis",
-			Operation: "verify-hash",
-			Message: fmt.Sprintf("downloaded genesis.json from s3://%s/%s has SHA-256 %s, expected %s",
-				cfg.Bucket, cfg.Key, gotHash, expectedHash),
-			Hint:      "the genesis trust root does not match the expected hash; the S3 object may have been replaced — refusing to use it",
-			Retryable: false,
-		}
+	if len(data) > maxGenesisBytes {
+		return fmt.Errorf("genesis exceeds size limit")
 	}
-
-	if expectedHash != "" {
-		genesisLog.Info("genesis hash verified", "sha256", gotHash)
+	if err := verifyGenesisBytes(data, g.chainID, expectedHash); err != nil {
+		return err
 	}
-	genesisLog.Info("genesis download complete (S3)")
-	return writeMarker(g.homeDir, genesisMarkerFile)
+	if err := g.writeGenesisFile(func(f *os.File) error { _, err := io.Copy(f, bytes.NewReader(data)); return err }); err != nil {
+		return err
+	}
+	completion, err := json.Marshal(genesisCompletion{ChainID: g.chainID, Digest: expectedHash})
+	if err != nil {
+		return err
+	}
+	return confinedWrite(home, genesisMarkerFile, completion, 0600)
 }
 
 func (g *GenesisFetcher) writeEmbeddedGenesis() error {
@@ -200,20 +238,30 @@ func (g *GenesisFetcher) writeEmbeddedGenesis() error {
 // writeGenesisFile creates the config directory and genesis.json file, calling
 // writeFn to populate its contents.
 func (g *GenesisFetcher) writeGenesisFile(writeFn func(*os.File) error) error {
-	destDir := filepath.Join(g.homeDir, "config")
-	if err := os.MkdirAll(destDir, 0o755); err != nil {
-		return fmt.Errorf("creating config directory: %w", err)
-	}
-
-	destPath := filepath.Join(destDir, "genesis.json")
-	f, err := os.Create(destPath)
+	dir, err := openConfinedDir(filepath.Join(g.homeDir, "config"), true)
 	if err != nil {
-		return fmt.Errorf("creating %s: %w", destPath, err)
+		return err
 	}
-	defer func() { _ = f.Close() }()
-
+	defer dir.Close()
+	tmp := fmt.Sprintf(".genesis-%x", randomFileID())
+	fd, err := unix.Openat(int(dir.Fd()), tmp, unix.O_RDWR|unix.O_CREAT|unix.O_EXCL|unix.O_NOFOLLOW|unix.O_CLOEXEC, 0600)
+	if err != nil {
+		return err
+	}
+	f := os.NewFile(uintptr(fd), tmp)
+	defer f.Close()
+	defer unix.Unlinkat(int(dir.Fd()), tmp, 0)
 	if err := writeFn(f); err != nil {
-		return fmt.Errorf("writing %s: %w", destPath, err)
+		return err
 	}
-	return nil
+	if err := f.Sync(); err != nil {
+		return err
+	}
+	if err := rejectSymlinkAt(dir, "genesis.json"); err != nil {
+		return err
+	}
+	if err := unix.Renameat(int(dir.Fd()), tmp, int(dir.Fd()), "genesis.json"); err != nil {
+		return err
+	}
+	return dir.Sync()
 }

@@ -1,6 +1,7 @@
 package tasks
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -97,7 +98,7 @@ func TestAddExternalGenesisAccounts_AppendsBalanceAndAccount(t *testing.T) {
 	genFile := minimalGenesis(t, homeDir)
 
 	a := NewGenesisAssembler(homeDir, "bucket", "region", "test-chain-1", nil, nil)
-	addr := "sei1zg69v7y6hn00qy352euf40x77qfrg4nclsjzp9"
+	addr := sdk.AccAddress(bytes.Repeat([]byte{1}, 20)).String()
 	bal := "1000000000usei"
 
 	err := a.addExternalGenesisAccounts([]GenesisAccountEntry{{Address: addr, Balance: bal}})
@@ -131,7 +132,7 @@ func TestAddExternalGenesisAccounts_CollisionHardFails(t *testing.T) {
 	_ = minimalGenesis(t, homeDir)
 
 	a := NewGenesisAssembler(homeDir, "bucket", "region", "test-chain-1", nil, nil)
-	addr := "sei1zg69v7y6hn00qy352euf40x77qfrg4nclsjzp9"
+	addr := sdk.AccAddress(bytes.Repeat([]byte{1}, 20)).String()
 
 	// First add succeeds.
 	if err := a.addExternalGenesisAccounts([]GenesisAccountEntry{{Address: addr, Balance: "1usei"}}); err != nil {
@@ -152,7 +153,7 @@ func TestAddExternalGenesisAccounts_RejectsDuplicateInSameBatch(t *testing.T) {
 	_ = minimalGenesis(t, homeDir)
 
 	a := NewGenesisAssembler(homeDir, "bucket", "region", "test-chain-1", nil, nil)
-	addr := "sei1zg69v7y6hn00qy352euf40x77qfrg4nclsjzp9"
+	addr := sdk.AccAddress(bytes.Repeat([]byte{1}, 20)).String()
 	err := a.addExternalGenesisAccounts([]GenesisAccountEntry{
 		{Address: addr, Balance: "1usei"},
 		{Address: addr, Balance: "2usei"},
@@ -173,7 +174,7 @@ func TestAddExternalGenesisAccounts_CollidesWithPreSeeded(t *testing.T) {
 	// does not depend on which path populated auth.accounts.
 	homeDir := t.TempDir()
 	genFile := minimalGenesis(t, homeDir)
-	addr := "sei1zg69v7y6hn00qy352euf40x77qfrg4nclsjzp9"
+	addr := sdk.AccAddress(bytes.Repeat([]byte{1}, 20)).String()
 	seedAuthAccount(t, genFile, addr)
 
 	a := NewGenesisAssembler(homeDir, "bucket", "region", "test-chain-1", nil, nil)
@@ -229,7 +230,7 @@ func TestAddExternalGenesisAccounts_RejectsBadBalance(t *testing.T) {
 
 	a := NewGenesisAssembler(homeDir, "bucket", "region", "test-chain-1", nil, nil)
 	err := a.addExternalGenesisAccounts([]GenesisAccountEntry{{
-		Address: "sei1zg69v7y6hn00qy352euf40x77qfrg4nclsjzp9",
+		Address: sdk.AccAddress(bytes.Repeat([]byte{1}, 20)).String(),
 		Balance: "not-a-coin",
 	}})
 	if err == nil {
@@ -279,7 +280,7 @@ func findAuthAccount(t *testing.T, genFile, addr string) authtypes.GenesisAccoun
 func TestAddExternalGenesisAccounts_VestingContinuousByDefault(t *testing.T) {
 	homeDir := t.TempDir()
 	genFile := minimalGenesis(t, homeDir)
-	addr := "sei1zg69v7y6hn00qy352euf40x77qfrg4nclsjzp9"
+	addr := sdk.AccAddress(bytes.Repeat([]byte{1}, 20)).String()
 
 	a := NewGenesisAssembler(homeDir, "bucket", "region", "test-chain-1", nil, nil)
 	err := a.addExternalGenesisAccounts([]GenesisAccountEntry{{
@@ -341,7 +342,7 @@ func TestAddExternalGenesisAccounts_VestingContinuousByDefault(t *testing.T) {
 func TestAddExternalGenesisAccounts_VestingDelayed(t *testing.T) {
 	homeDir := t.TempDir()
 	genFile := minimalGenesis(t, homeDir)
-	addr := "sei1zg69v7y6hn00qy352euf40x77qfrg4nclsjzp9"
+	addr := sdk.AccAddress(bytes.Repeat([]byte{1}, 20)).String()
 
 	a := NewGenesisAssembler(homeDir, "bucket", "region", "test-chain-1", nil, nil)
 	err := a.addExternalGenesisAccounts([]GenesisAccountEntry{{
@@ -375,7 +376,7 @@ func TestAddExternalGenesisAccounts_VestingAmountExceedsBalanceRejected(t *testi
 
 	a := NewGenesisAssembler(homeDir, "bucket", "region", "test-chain-1", nil, nil)
 	err := a.addExternalGenesisAccounts([]GenesisAccountEntry{{
-		Address: "sei1zg69v7y6hn00qy352euf40x77qfrg4nclsjzp9",
+		Address: sdk.AccAddress(bytes.Repeat([]byte{1}, 20)).String(),
 		Balance: "1000000usei",
 		Vesting: &GenesisAccountVesting{Amount: "2000000usei", EndTime: 1893456000},
 	}})
@@ -393,7 +394,7 @@ func TestAddExternalGenesisAccounts_VestingRejectsBadAmount(t *testing.T) {
 
 	a := NewGenesisAssembler(homeDir, "bucket", "region", "test-chain-1", nil, nil)
 	err := a.addExternalGenesisAccounts([]GenesisAccountEntry{{
-		Address: "sei1zg69v7y6hn00qy352euf40x77qfrg4nclsjzp9",
+		Address: sdk.AccAddress(bytes.Repeat([]byte{1}, 20)).String(),
 		Balance: "1000000usei",
 		Vesting: &GenesisAccountVesting{Amount: "not-a-coin", EndTime: 1893456000},
 	}})
@@ -415,7 +416,7 @@ func TestAddExternalGenesisAccounts_VestingRejectsDegenerateAmount(t *testing.T)
 
 			a := NewGenesisAssembler(homeDir, "bucket", "region", "test-chain-1", nil, nil)
 			err := a.addExternalGenesisAccounts([]GenesisAccountEntry{{
-				Address: "sei1zg69v7y6hn00qy352euf40x77qfrg4nclsjzp9",
+				Address: sdk.AccAddress(bytes.Repeat([]byte{1}, 20)).String(),
 				Balance: "1000000usei",
 				Vesting: &GenesisAccountVesting{Amount: amount, EndTime: 1893456000},
 			}})
@@ -440,7 +441,7 @@ func TestAddExternalGenesisAccounts_VestingRejectsEndTimeBeforeGenesis(t *testin
 
 	// Continuous: EndTime exactly at genesis time.
 	err := a.addExternalGenesisAccounts([]GenesisAccountEntry{{
-		Address: "sei1zg69v7y6hn00qy352euf40x77qfrg4nclsjzp9",
+		Address: sdk.AccAddress(bytes.Repeat([]byte{1}, 20)).String(),
 		Balance: "1000000usei",
 		Vesting: &GenesisAccountVesting{Amount: "1000000usei", EndTime: 1767225600},
 	}})
@@ -454,7 +455,7 @@ func TestAddExternalGenesisAccounts_VestingRejectsEndTimeBeforeGenesis(t *testin
 	// Delayed with a past EndTime: no start/end ordering check in the account
 	// type itself, so this guard is the only thing catching it.
 	err = a.addExternalGenesisAccounts([]GenesisAccountEntry{{
-		Address: "sei1zg69v7y6hn00qy352euf40x77qfrg4nclsjzp9",
+		Address: sdk.AccAddress(bytes.Repeat([]byte{1}, 20)).String(),
 		Balance: "1000000usei",
 		Vesting: &GenesisAccountVesting{Amount: "1000000usei", EndTime: 1, Delayed: true},
 	}})

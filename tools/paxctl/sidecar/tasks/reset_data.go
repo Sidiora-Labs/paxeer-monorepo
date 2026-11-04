@@ -2,10 +2,15 @@ package tasks
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
+	tmtypes "github.com/sei-protocol/sei-chain/sei-tendermint/types"
+	"github.com/sei-protocol/seictl/internal/patch"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/sei-protocol/seictl/sidecar/engine"
 	"github.com/sei-protocol/seictl/sidecar/rpc"
@@ -15,15 +20,11 @@ import (
 var resetDataLog = seilog.NewLogger("seictl", "task", "reset-data")
 
 // privValidatorStateFile is CometBFT's last-sign-state file. It lives inside
-// data/ (unlike node_key.json / priv_validator_key.json, which live in config/
-// and are therefore outside the wipe), so the reset rewrites it fresh.
+// data/. Reset retains its exact bytes and also keeps a durable copy outside
+// chain data so interrupted wipes cannot reset a validator's signing history.
 const privValidatorStateFile = "priv_validator_state.json"
 
-// emptyPrivValidatorState is the reset last-sign-state (unsafe-reset-all
-// semantics): height is a JSON string, round and step are numbers. RPC nodes
-// do not sign, and validators are excluded from the recipe, so writing a fresh
-// zero state is always safe here.
-const emptyPrivValidatorState = `{"height":"0","round":0,"step":0}` + "\n"
+const preservedSignStateFile = ".pax-sidecar-last-sign-state.json"
 
 // ResetDataResult is the reset-data task's structured result. WipedBytes is the
 // pre-wipe on-disk size of data/ (regular files only), surfaced so the
@@ -53,7 +54,8 @@ type ResetDataer struct {
 	probeUp func(ctx context.Context) bool
 	// measure returns the pre-wipe size of data/. A test seam; defaults to
 	// dirSize when nil.
-	measure func(dir string) (int64, error)
+	measure   func(dir string) (int64, error)
+	witnesses *StateSyncConfigurer
 }
 
 // NewResetDataer builds a ResetDataer rooted at homeDir with the real local-RPC
@@ -68,22 +70,68 @@ func NewResetDataer(homeDir string) *ResetDataer {
 }
 
 // Handler returns an engine.TaskHandler for the reset-data task type. Params
-// are empty; the result carries the pre-wipe byte count.
+// carry optional explicit RPC witnesses; the result carries the pre-wipe byte count.
 func (d *ResetDataer) Handler() engine.TaskHandler {
-	return engine.TypedHandlerWithResult(func(ctx context.Context, _ struct{}) (ResetDataResult, error) {
-		return d.reset(ctx)
+	return engine.TypedHandlerWithResult(func(ctx context.Context, p StateSyncRequest) (ResetDataResult, error) {
+		return d.resetWithWitnesses(ctx, p)
 	})
 }
 
 func (d *ResetDataer) reset(ctx context.Context) (ResetDataResult, error) {
+	return d.resetWithWitnesses(ctx, StateSyncRequest{})
+}
+
+func (d *ResetDataer) resetWithWitnesses(ctx context.Context, p StateSyncRequest) (ResetDataResult, error) {
+	if err := d.confirmResetAuthority(ctx); err != nil {
+		return ResetDataResult{}, err
+	}
+	witnesses := d.witnesses
+	if witnesses == nil {
+		witnesses = NewStateSyncConfigurer(d.homeDir, nil)
+	}
+	if _, err := witnesses.Preflight(ctx, p); err != nil {
+		return ResetDataResult{}, fmt.Errorf("reset-data: witness preflight: %w", err)
+	}
 	// Defense-in-depth: a serving RPC means seid is running, so the node is not
 	// held and a wipe would race a live process. Refuse rather than wipe under
 	// it (mirrors restart-seid's refusal to report a stop that did not happen).
 	if d.probeUp(ctx) {
-		return ResetDataResult{}, fmt.Errorf("reset-data: seid RPC is serving; node is not held — refusing to wipe a live data directory")
+		return ResetDataResult{}, fmt.Errorf("reset-data: paxd RPC is serving; node is not held — refusing to wipe a live data directory")
 	}
 
 	dataDir := filepath.Join(d.homeDir, "data")
+	home, err := openConfinedDir(d.homeDir, false)
+	if err != nil {
+		return ResetDataResult{}, err
+	}
+	defer home.Close()
+	data, err := openConfinedDir(dataDir, true)
+	if err != nil {
+		return ResetDataResult{}, err
+	}
+	defer data.Close()
+	state, err := confinedRead(data, privValidatorStateFile, 1<<20)
+	if err != nil && !os.IsNotExist(err) {
+		return ResetDataResult{}, err
+	}
+	if len(state) > 0 {
+		if !json.Valid(state) {
+			return ResetDataResult{}, fmt.Errorf("invalid validator last-sign state")
+		}
+		if err := confinedWrite(home, preservedSignStateFile, state, 0600); err != nil {
+			return ResetDataResult{}, err
+		}
+	} else {
+		saved, err := confinedRead(home, preservedSignStateFile, 1<<20)
+		if err != nil && !os.IsNotExist(err) {
+			return ResetDataResult{}, err
+		}
+		if len(saved) > 0 {
+			if err := confinedWrite(data, privValidatorStateFile, saved, 0600); err != nil {
+				return ResetDataResult{}, err
+			}
+		}
+	}
 
 	// Measurement is observability only — never let it gate the wipe. On any
 	// non-ENOENT failure, log and proceed with an unknown (-1) size.
@@ -99,16 +147,6 @@ func (d *ResetDataer) reset(ctx context.Context) (ResetDataResult, error) {
 
 	if err := wipeDirContents(dataDir); err != nil {
 		return ResetDataResult{}, fmt.Errorf("reset-data: wiping %s: %w", dataDir, err)
-	}
-
-	// Recreate data/ (the wipe may have removed it if it was empty of anything
-	// but itself) and drop a fresh zero sign-state.
-	if err := os.MkdirAll(dataDir, 0o750); err != nil {
-		return ResetDataResult{}, fmt.Errorf("reset-data: recreating %s: %w", dataDir, err)
-	}
-	statePath := filepath.Join(dataDir, privValidatorStateFile)
-	if err := os.WriteFile(statePath, []byte(emptyPrivValidatorState), 0o600); err != nil {
-		return ResetDataResult{}, fmt.Errorf("reset-data: writing %s: %w", statePath, err)
 	}
 
 	// Clear the state-sync completion marker (home root, outside data/) so the
@@ -135,6 +173,9 @@ func wipeDirContents(dir string) error {
 		return err
 	}
 	for _, e := range entries {
+		if e.Name() == privValidatorStateFile {
+			continue
+		}
 		p := filepath.Join(dir, e.Name())
 		if err := os.RemoveAll(p); err != nil && !os.IsNotExist(err) {
 			return fmt.Errorf("removing %s: %w", p, err)
@@ -172,4 +213,94 @@ func dirSize(dir string) (int64, error) {
 		return 0, nil
 	}
 	return total, err
+}
+
+func (d *ResetDataer) confirmResetAuthority(ctx context.Context) error {
+	if d.probeUp == nil || d.probeUp(ctx) {
+		return fmt.Errorf("reset-data: node RPC is serving or unobservable")
+	}
+	configDir, err := openConfinedDir(filepath.Join(d.homeDir, "config"), false)
+	if err != nil {
+		return err
+	}
+	defer configDir.Close()
+	raw, err := confinedRead(configDir, "config.toml", 8<<20)
+	if err != nil {
+		return err
+	}
+	cfg, err := patch.UnmarshalTOML(raw)
+	if err != nil {
+		return err
+	}
+	if cfg["mode"] != "full" {
+		return fmt.Errorf("reset-data: verified full-node role required")
+	}
+	if addr, _ := cfg["priv-validator-laddr"].(string); addr != "" {
+		return fmt.Errorf("reset-data: remote validator signer configured")
+	}
+	if pv, ok := cfg["priv-validator"].(map[string]any); ok {
+		if addr, _ := pv["laddr"].(string); addr != "" {
+			return fmt.Errorf("reset-data: remote validator signer configured")
+		}
+		for name, expected := range map[string]string{"key-file": "config/priv_validator_key.json", "state-file": "data/priv_validator_state.json"} {
+			if path, _ := pv[name].(string); path != "" && filepath.Clean(path) != expected && filepath.Clean(path) != filepath.Join(d.homeDir, expected) {
+				return fmt.Errorf("reset-data: noncanonical validator %s requires explicit preservation", name)
+			}
+		}
+	}
+
+	doc, err := tmtypes.GenesisDocFromFile(filepath.Join(d.homeDir, "config", "genesis.json"))
+	if err != nil {
+		return fmt.Errorf("reset-data: verify genesis validators: %w", err)
+	}
+	key, err := confinedRead(configDir, "priv_validator_key.json", 1<<20)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	if len(key) > 0 {
+		var identity struct {
+			Address string `json:"address"`
+		}
+		if err := json.Unmarshal(key, &identity); err != nil || identity.Address == "" {
+			return fmt.Errorf("reset-data: invalid validator identity")
+		}
+		for _, val := range doc.Validators {
+			if strings.EqualFold(identity.Address, val.Address.String()) {
+				return fmt.Errorf("reset-data: active validator identity cannot reset chain data")
+			}
+		}
+	}
+	if _, err := os.Lstat(filepath.Join(d.homeDir, "sidecar.db")); err != nil {
+		return fmt.Errorf("reset-data: persisted workflow hold required: %w", err)
+	}
+	store, err := engine.NewSQLiteStore(filepath.Join(d.homeDir, "sidecar.db"))
+	if err != nil {
+		return err
+	}
+	defer store.Close()
+	hold, err := store.LatestByType(string(engine.TaskMarkNotReady))
+	if err != nil {
+		return err
+	}
+	if hold == nil || hold.Status != engine.TaskStatusCompleted {
+		return fmt.Errorf("reset-data: completed durable hold required")
+	}
+	release, err := store.LatestByType(string(engine.TaskMarkReady))
+	if err != nil {
+		return err
+	}
+	if release != nil && !release.SubmittedAt.Before(hold.SubmittedAt) {
+		return fmt.Errorf("reset-data: hold has been superseded by release")
+	}
+	stop, err := store.LatestByType(string(engine.TaskStopSeid))
+	if err != nil {
+		return err
+	}
+	if stop == nil || stop.Status != engine.TaskStatusCompleted || stop.SubmittedAt.Before(hold.SubmittedAt) {
+		return fmt.Errorf("reset-data: confirmed process termination under hold required")
+	}
+	if pid, err := (seidStartFinder{}).FindPID(restartSeidProcess); !errors.Is(err, errNodeProcessAbsent) {
+		return fmt.Errorf("reset-data: process may still be running (pid %d): %v", pid, err)
+	}
+	return nil
 }

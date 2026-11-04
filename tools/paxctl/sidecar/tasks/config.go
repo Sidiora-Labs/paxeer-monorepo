@@ -58,17 +58,51 @@ func (p *ConfigPatcher) Handler() engine.TaskHandler {
 
 // PatchFiles merge-patches each named TOML file under homeDir/config/.
 func (p *ConfigPatcher) PatchFiles(_ context.Context, files map[string]any) error {
+	dir, err := openConfinedDir(filepath.Join(p.homeDir, "config"), false)
+	if err != nil {
+		return err
+	}
+	defer dir.Close()
+	prepared := make(map[string][]byte, len(files))
 	for filename, rawPatch := range files {
+		switch filename {
+		case "app.toml", "client.toml", "config.toml":
+		default:
+			return fmt.Errorf("config-patch: filename %q is not allowed", filename)
+		}
 		patchMap, ok := rawPatch.(map[string]any)
 		if !ok {
 			return fmt.Errorf("config-patch: value for %q must be a map", filename)
 		}
-		filePath := filepath.Join(p.homeDir, "config", filename)
-		patchLog.Debug("patching file", "file", filename)
-		if err := mergeAndWrite(filePath, patchMap); err != nil {
-			return fmt.Errorf("config-patch %s: %w", filename, err)
+		if err := rejectSymlinkAt(dir, filename); err != nil {
+			return err
+		}
+		data, err := confinedRead(dir, filename, 8<<20)
+		if err != nil && !os.IsNotExist(err) {
+			return err
+		}
+		doc := make(map[string]any)
+		if len(data) > 0 {
+			doc, err = patch.UnmarshalTOML(data)
+			if err != nil {
+				return err
+			}
+		}
+		merged, ok := patch.Merge(doc, patchMap).(map[string]any)
+		if !ok {
+			return fmt.Errorf("config-patch: merge produced non-map")
+		}
+		prepared[filename], err = patch.MarshalTOML(merged)
+		if err != nil {
+			return err
 		}
 	}
+	for filename, data := range prepared {
+		if err := confinedWrite(dir, filename, data, 0644); err != nil {
+			return err
+		}
+	}
+
 	patchLog.Info("files patched", "count", len(files))
 	return nil
 }

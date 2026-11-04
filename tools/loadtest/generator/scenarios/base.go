@@ -215,6 +215,44 @@ func (c *ContractScenarioBase[T]) DeployScenario(config *config.LoadConfig, depl
 
 // CreateTransaction implements ScenarioDeployer interface for contract scenarios
 func (c *ContractScenarioBase[T]) CreateTransaction(config *config.LoadConfig, scenario *types.TxScenario) (*ethtypes.Transaction, error) {
-	auth := utils.CreateTransactionOpts(config.GetChainID(), scenario)
+	auth, err := createScenarioTransactionOpts(config.GetChainID(), scenario, c.scenarioConfig, 200000)
+	if err != nil {
+		return nil, err
+	}
 	return c.deployer.CreateContractTransaction(auth, scenario)
+}
+
+// createScenarioTransactionOpts applies profile selections over scenario defaults
+// before the contract binding or transfer signer consumes the options.
+func createScenarioTransactionOpts(chainID *big.Int, scenario *types.TxScenario, cfg config.Scenario, defaultGas uint64) (*bind.TransactOpts, error) {
+	auth := utils.CreateTransactionOpts(chainID, scenario)
+	auth.GasLimit = defaultGas
+	for _, selection := range []struct {
+		name   string
+		picker *config.GasPicker
+		apply  func(uint64)
+	}{
+		{"gasPicker", cfg.GasPicker, func(value uint64) { auth.GasLimit = value }},
+		{"gasTipCapPicker", cfg.GasTipCapPicker, func(value uint64) { auth.GasTipCap = new(big.Int).SetUint64(value) }},
+		{"gasFeeCapPicker", cfg.GasFeeCapPicker, func(value uint64) { auth.GasFeeCap = new(big.Int).SetUint64(value) }},
+	} {
+		if selection.picker == nil {
+			continue
+		}
+		if selection.picker.Name() != "fixed" && selection.picker.Name() != "random" {
+			return nil, fmt.Errorf("%s: a fixed or random picker is required", selection.name)
+		}
+		value, err := selection.picker.GenerateGas()
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", selection.name, err)
+		}
+		selection.apply(value)
+	}
+	if auth.GasLimit == 0 {
+		return nil, fmt.Errorf("gasPicker: gas limit must be greater than zero")
+	}
+	if auth.GasFeeCap.Cmp(auth.GasTipCap) < 0 {
+		return nil, fmt.Errorf("gasFeeCapPicker: fee cap must be at least the gasTipCapPicker tip cap")
+	}
+	return auth, nil
 }
