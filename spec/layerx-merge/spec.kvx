@@ -198405,7 +198405,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.506]
 title = "Make the Wallet Go tests workflow pass: pnpm for the ceremony suite and the two failing attestor server cases"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -369766,7 +369766,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.527]
 title = "Repair audit record 22.30.154 medium findings in services/explorer/backend (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.407"]
