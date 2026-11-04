@@ -1,0 +1,16 @@
+[repair.22.31.181]
+audit = "22.30.60"
+source_revision = "7fc896febbb27d599c34aa9b6e0a81d4a7905759"
+finding_019 = ["TestRepair_181_RejectInconsistentRecovery", "TestRepair_181_OrdinaryRestartRecovery", "TestRepair_181_StreamRestartRecovery"]
+repair = "ValidateLayerXBindings rejects inconsistent completed ordinary and streamed imports; streamed imports initialize once and defer the table check until channel closure, after both directions have arrived."
+baseline = "Not run: the ordered gate instructions prohibit testing before implementation and prohibit running verify_cmd by hand; no prior gate ledger existed and no baseline failures are claimed."
+evidence = "The final hf-done ledger row records the verified candidate revision, command, exit code and private log, reproduced in the final response."
+wiring_request = "sdk/types/module/module.go — SDK/module-manager owner (domain 15): dispatch the EVM module's streamed chunks through AppModule.InitGenesisStream, close its channel at the final EVM boundary and wait for validation before returning InitGenesis; the current per-chunk InitGenesis calls cannot accept split binding tables."
+
+[qualification_note.1]
+revision = "de0263897322d7c1208202ed5bdc07f418e080a9"
+command = "cg spec done 22.31.181 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All twelve inconsistent-table cases passed; both restart tests found version zero because SetupWithDB allocates a new home and PaxDB stores state under that home rather than the supplied metadata DB."
+repair = "Open the real application with the same explicit home and DB on restart; preserve the exact commit ID equality and every recovered-state assertion."
