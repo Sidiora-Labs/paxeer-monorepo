@@ -15,7 +15,7 @@ export interface InfoCardProps {
   tokenId: string;
   tokenName: string;
   tokenSymbol: string;
-  tokenDecimals: number;
+  tokenDecimals: number | null;
   totalSupply: number | null;
   marketCap: number;
   holderCount: number;
@@ -84,7 +84,10 @@ export function InfoCard({
           />
         )}
         {!isPax && (
-          <InfoRow label="Decimals" value={<span className="font-semibold">{tokenDecimals}</span>} />
+          <InfoRow
+            label="Decimals"
+            value={<span className="font-semibold">{tokenDecimals ?? 'Unknown'}</span>}
+          />
         )}
         {totalSupply != null && totalSupply > 0 && (
           <InfoRow

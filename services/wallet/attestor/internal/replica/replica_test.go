@@ -538,7 +538,7 @@ func TestLoadConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadConfig: %v", err)
 	}
-	if cfg.Addr != f.srv.addr || cfg.RemoteDir != remoteDir || cfg.Interval != time.Minute || cfg.LedgerPath != filepath.Join(f.dataDir, LedgerFileName) {
+	if cfg.Addr != f.srv.addr || cfg.RemoteDir != remoteDir || cfg.Interval != time.Minute || cfg.OperationTimeout != DefaultOperationTimeout || cfg.LedgerPath != filepath.Join(f.dataDir, LedgerFileName) {
 		t.Fatalf("config = %+v", cfg)
 	}
 	cases := map[string]func(map[string]string){
@@ -550,6 +550,9 @@ func TestLoadConfig(t *testing.T) {
 		"root remote":       func(e map[string]string) { e[EnvRemoteDir] = "/" },
 		"interval shape":    func(e map[string]string) { e[EnvInterval] = "often" },
 		"interval too fast": func(e map[string]string) { e[EnvInterval] = "10ms" },
+		"timeout shape":     func(e map[string]string) { e[EnvOperationTimeout] = "forever" },
+		"timeout zero":      func(e map[string]string) { e[EnvOperationTimeout] = "0s" },
+		"timeout negative":  func(e map[string]string) { e[EnvOperationTimeout] = "-1s" },
 	}
 	for name, mutate := range cases {
 		env := f.env()
