@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/crypto/ed25519"
 	tmnet "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/net"
 	tmrand "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/rand"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
@@ -66,7 +65,7 @@ func TestSignerRemoteRetryTCPOnly(t *testing.T) {
 	}(ln, attemptCh)
 
 	dialerEndpoint := NewSignerDialerEndpoint(
-		DialTCPFn(ln.Addr().String(), testTimeoutReadWrite, ed25519.GenerateSecretKey()),
+		DialTCPFn(ln.Addr().String(), testTimeoutReadWrite, testSocketDialerKey, testSocketListenerKey.Public()),
 	)
 	SignerDialerEndpointTimeoutReadWrite(time.Millisecond)(dialerEndpoint)
 	SignerDialerEndpointConnRetries(retries)(dialerEndpoint)
@@ -153,7 +152,7 @@ func newSignerListenerEndpoint(t *testing.T, addr string, timeoutReadWrite time.
 		UnixListenerTimeoutReadWrite(timeoutReadWrite)(unixLn)
 		listener = unixLn
 	} else {
-		tcpLn := NewTCPListener(ln, ed25519.GenerateSecretKey())
+		tcpLn := NewTCPListener(ln, testSocketListenerKey, testSocketDialerKey.Public())
 		TCPListenerTimeoutAccept(testTimeoutAccept)(tcpLn)
 		TCPListenerTimeoutReadWrite(timeoutReadWrite)(tcpLn)
 		listener = tcpLn
