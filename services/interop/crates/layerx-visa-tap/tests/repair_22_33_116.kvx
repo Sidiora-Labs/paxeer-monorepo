@@ -1,0 +1,10 @@
+[repair.22.33.116]
+finding = "visa_intent_path"
+status = "partial_requires_wiring"
+tests = ["visa_intent_path_producer_receipt_agrees_with_both_consumers", "visa_intent_path_refuses_substituted_receipt_identity_and_payment_fields", "visa_intent_path_reopened_recorded_evidence_retains_the_same_commerce_outcome", "middleware::middleware_operation_result_uses_the_recorded_receipt"]
+implemented = "Middleware consumes the original committed producer receipt and signature without rebuilding or signing it; the production receipt verifier, signed-log verifier, gateway settlement and merchant consumer agree on its transaction identity, payment fields and digest, and refuse substitutions."
+not_proven = "Configured Visa registry, canonical intent compilation, actual service relay submission, durable binding-owner restart and nonce replay refusal remain unproven; reloading recorded evidence is not a binding-owner restart."
+baseline = "No prior task gate exists (builds_used=0, verify_runs_used=0); the repair integration target did not exist on the base revision. The explicit implementation-first gate order prohibits running the verify command by hand before hf-done, so no baseline failures are claimed."
+evidence = "The bounded runner records the exact candidate revision, command, exit code and private log path in /out/run/gates.jsonl."
+wiring_request = "services/interop/crates/layerx-visa-tap/Cargo.toml and services/interop/crates/layerx-interop-service/{src/server.rs,tests}: owning domain 11 (fm-interop) must expose the configured registry/compiler/relay/durable-binding scenario to this integration target and prove nonce replay refusal after reopening the durable owner; the current manifest has no service/compiler dependency and the service registry/binding types are private."
+repair_cycle_1 = "Build 071ebb194aa91fb6a2d2fa5581163c3b5ba8bdde exited 101 (/out/logs/build-1.log): Traced errors have no PartialEq; exact status assertions now first require successful results, preserving the original checks."
