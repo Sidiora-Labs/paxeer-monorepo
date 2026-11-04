@@ -11,7 +11,9 @@ import (
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/params"
 )
 
 // Router trade kinds of EventEmitter.emitRouterTrade
@@ -185,27 +187,55 @@ func (p PrecompileExecutor) multicall(c *call) ([]byte, error) {
 	data := c.args[0].([][]byte)
 	results := make([][]byte, len(data))
 	for i, input := range data {
-		if len(input) < 4 {
-			return nil, &multicallFailure{index: i, reason: []byte{}, cause: errUnknownSelector}
-		}
-		method, err := routerABI.MethodById(input[:4])
+		ret, err := p.multicallEntry(c, input, i)
 		if err != nil {
-			return nil, &multicallFailure{index: i, reason: []byte{}, cause: errUnknownSelector}
-		}
-		args, err := decodeWhole(method, input[4:])
-		if err != nil {
-			return nil, &multicallFailure{index: i, reason: []byte{}, cause: err}
-		}
-		entry := *c
-		entry.method, entry.args = method, args
-		ret, err := p.routerHandler(&entry)
-		c.ctx = entry.ctx
-		if err != nil {
-			return nil, &multicallFailure{index: i, reason: entryRevert(err), cause: err}
+			return nil, err
 		}
 		results[i] = ret
 	}
 	return c.method.Outputs.Pack(results)
+}
+
+// multicallEntry pays for decoding and execution from the same budget as
+// nested EVM calls. Each entry occupies a frame in the EVM depth budget so
+// recursive batching and reentrant EVM calls cannot bypass its limit.
+func (p PrecompileExecutor) multicallEntry(c *call, input []byte, index int) ([]byte, error) {
+	if c.evm == nil {
+		return nil, errors.New("launchpad: multicall needs the EVM of the run")
+	}
+	// Use the same admission check as EVM.Call: the current frame is
+	// already counted, and dispatch adds the child frame below.
+	if c.evm.GetDepth() > int(params.CallCreateDepth) {
+		return nil, vm.ErrDepth
+	}
+	var method *abi.Method
+	if len(input) >= 4 {
+		method, _ = routerABI.MethodById(input[:4])
+	}
+	var writes uint64
+	if method != nil {
+		writes = Writes(method.RawName)
+	}
+	if err := c.budget.take(Gas(uint64(len(input)), writes)); err != nil {
+		return nil, err
+	}
+	if method == nil {
+		return nil, &multicallFailure{index: index, reason: []byte{}, cause: errUnknownSelector}
+	}
+	args, err := decodeWhole(method, input[4:])
+	if err != nil {
+		return nil, &multicallFailure{index: index, reason: []byte{}, cause: err}
+	}
+	entry := *c
+	entry.method, entry.args = method, args
+	c.evm.Depth++
+	defer func() { c.evm.Depth-- }()
+	ret, err := p.routerHandler(&entry)
+	c.ctx = entry.ctx
+	if err != nil && !errors.Is(err, vm.ErrOutOfGas) && !errors.Is(err, vm.ErrDepth) {
+		return nil, &multicallFailure{index: index, reason: entryRevert(err), cause: err}
+	}
+	return ret, err
 }
 
 // entryRevert is the revert data a failed multicall entry returned.
