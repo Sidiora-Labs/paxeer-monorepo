@@ -55,6 +55,16 @@ type PlaceResult struct {
 // immediate order is matched against the book and a GTC or POST_ONLY
 // remainder rests at its limit price, reserving its initial margin.
 func (k *Keeper) PlaceOrder(ctx sdk.Context, account common.Address, p OrderParams) (PlaceResult, error) {
+	cacheCtx, write := ctx.CacheContext()
+	result, err := k.placeOrder(cacheCtx, account, p)
+	if err != nil {
+		return PlaceResult{}, err
+	}
+	write()
+	return result, nil
+}
+
+func (k *Keeper) placeOrder(ctx sdk.Context, account common.Address, p OrderParams) (PlaceResult, error) {
 	params, err := k.GetParams(ctx)
 	if err != nil {
 		return PlaceResult{}, err
@@ -133,15 +143,7 @@ func (k *Keeper) PlaceOrder(ctx sdk.Context, account common.Address, p OrderPara
 			return PlaceResult{}, err
 		}
 	} else {
-		tier, err := k.FeeTier(ctx, account)
-		if err != nil {
-			return PlaceResult{}, err
-		}
-		if err := k.CheckOpen(ctx, OpenRequest{
-			Account: account, MarketID: order.MarketID, IsLong: order.IsLong,
-			NotionalUsd: sdk.NewIntFromBigInt(order.SizeUsd.ToBig()), Leverage: order.Leverage,
-			TakerFeePpm: tier.TakerFeePpm,
-		}); err != nil {
+		if err := k.checkOpeningOrder(ctx, params, market, order); err != nil {
 			return PlaceResult{}, err
 		}
 	}
@@ -153,7 +155,9 @@ func (k *Keeper) PlaceOrder(ctx sdk.Context, account common.Address, p OrderPara
 	if isTriggerOrder(order.Type) {
 		order.Status = types.OrderStatusUntriggered
 		k.setOrder(ctx, order)
-		k.store(ctx).Set(triggerKey(order), wordBytes(order.ID))
+		if err := k.TriggerInsert(ctx, order); err != nil {
+			return PlaceResult{}, err
+		}
 		return result, nil
 	}
 	order.Status = types.OrderStatusResting
@@ -552,7 +556,9 @@ func (k *Keeper) withdrawOrder(ctx sdk.Context, order types.Order, status types.
 			return err
 		}
 	} else {
-		k.store(ctx).Delete(triggerKey(order))
+		if err := k.TriggerRemove(ctx, order); err != nil {
+			return err
+		}
 	}
 	return k.closeOrder(ctx, order, status)
 }
@@ -561,6 +567,9 @@ func (k *Keeper) withdrawOrder(ctx sdk.Context, order types.Order, status types.
 // order, cloid and expiry entries and counts it out of the account's open
 // orders.
 func (k *Keeper) closeOrder(ctx sdk.Context, order types.Order, status types.OrderStatus) error {
+	if err := k.detachOrderLeg(ctx, order); err != nil {
+		return err
+	}
 	store := k.store(ctx)
 	holder, exists, err := loadBookedAccount(store, order.Account)
 	if err != nil {
@@ -630,4 +639,30 @@ func orderOptionsEvent(order types.Order) types.EventRecord {
 		Args: []any{order.ID.ToBig(), uint8(order.TimeInForce), order.ReduceOnly, order.LimitPrice.ToBig(),
 			order.AcceptablePrice.ToBig(), order.Deadline, order.Cloid},
 	}
+}
+
+func (k *Keeper) checkOpeningOrder(ctx sdk.Context, params types.Params, market types.Market, order types.Order) error {
+	tier, err := k.FeeTier(ctx, order.Account)
+	if err != nil {
+		return err
+	}
+	price, err := k.slippageBound(ctx, market, order, params.DefaultSlippagePpm)
+	if err != nil {
+		return err
+	}
+	state, err := k.GetMarketState(ctx, market.ID)
+	if err != nil {
+		return err
+	}
+	// Initial margin is required at mark, and fees are reserved at the highest
+	// executable notional even when the opening order was sized at mark.
+	if price.Lt(&state.MarkPrice) {
+		price = state.MarkPrice
+	}
+	notional, overflow := new(uint256.Int).MulDivOverflow(&order.SizeBase, &price, fixedPointOne)
+	if overflow {
+		return types.ErrOverflow.Wrap("opening risk notional")
+	}
+	return k.CheckOpen(ctx, OpenRequest{Account: order.Account, MarketID: order.MarketID, IsLong: order.IsLong,
+		NotionalUsd: sdk.NewIntFromBigInt(notional.ToBig()), Leverage: order.Leverage, TakerFeePpm: tier.TakerFeePpm})
 }
