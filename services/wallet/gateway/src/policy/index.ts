@@ -1,3 +1,5 @@
+import type { PoolClient } from 'pg';
+import type { SignatureLogInput } from '../db/wallets.js';
 import { query } from '../db/pool.js';
 import { env } from '../env.js';
 
@@ -27,7 +29,8 @@ export type PolicyDenyCode =
   | 'RATE_LIMIT'
   | 'TX_VALUE_CAP'
   | 'DAILY_VALUE_CAP'
-  | 'WALLET_DISABLED';
+  | 'WALLET_DISABLED'
+  | 'POLICY_UNAVAILABLE';
 
 export interface PolicyRequestContext {
   user_id: string;
@@ -39,7 +42,10 @@ export interface PolicyRequestContext {
  * Evaluate a signing request against the policy engine.
  * Reads recent activity from `wallet_signatures` for caps + rate limits.
  */
-export async function evaluate(ctx: PolicyRequestContext): Promise<PolicyDecision> {
+export async function evaluate(
+  ctx: PolicyRequestContext,
+  read: typeof query = query,
+): Promise<PolicyDecision> {
   // 1. Per-tx value cap.
   if (ctx.value_wei > env.POLICY_MAX_TX_VALUE_WEI) {
     return {
@@ -51,7 +57,7 @@ export async function evaluate(ctx: PolicyRequestContext): Promise<PolicyDecisio
 
   // 2. Rate limit — count signatures in the last 60s.
   try {
-    const { rows } = await query<{ count: string }>(
+    const { rows } = await read<{ count: string }>(
       `select count(*)::text as count
          from wallet_signatures
         where user_id = $1
@@ -78,15 +84,17 @@ export async function evaluate(ctx: PolicyRequestContext): Promise<PolicyDecisio
   // 3. Daily aggregate cap (native value) — aggregate in Postgres, not Node.
   if (ctx.value_wei > 0n) {
     try {
-      const { rows } = await query<{ total: string }>(
+      const { rows } = await read<{ total: string }>(
         `select coalesce(sum(value_wei), 0)::text as total
            from wallet_signatures
           where user_id = $1
-            and kind = 'transaction'
             and created_at >= now() - interval '24 hours'`,
         [ctx.user_id],
       );
-      const dailyTotal = BigInt(rows[0]?.total ?? '0');
+      if (!rows[0] || !/^[0-9]+$/.test(rows[0].total)) {
+        throw new Error('daily value aggregate is unavailable');
+      }
+      const dailyTotal = BigInt(rows[0].total);
       if (dailyTotal + ctx.value_wei > env.POLICY_MAX_DAILY_VALUE_WEI) {
         return {
           allow: false,
@@ -94,13 +102,33 @@ export async function evaluate(ctx: PolicyRequestContext): Promise<PolicyDecisio
           message: `daily value cap exceeded. used=${dailyTotal.toString()} request=${ctx.value_wei.toString()} cap=${env.POLICY_MAX_DAILY_VALUE_WEI.toString()}`,
         };
       }
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.warn(
-        `[policy] daily-cap lookup failed (fail-open): ${err instanceof Error ? err.message : String(err)}`,
-      );
+    } catch {
+      return {
+        allow: false,
+        code: 'POLICY_UNAVAILABLE',
+        message: 'daily signing authority could not be established',
+      };
     }
   }
 
   return { allow: true };
+}
+
+/** The caller holds the principal transaction lock and commits before signing. */
+export async function reserveHumanDailyValue(
+  client: PoolClient,
+  input: SignatureLogInput,
+): Promise<string> {
+  const { rows } = await client.query<{ id: string }>(
+    `insert into wallet_signatures
+       (user_id, wallet_id, address, kind, to_address, value_wei, chain_id,
+        request_hash, ip, user_agent)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+     returning id::text`,
+    [input.user_id, input.wallet_id, input.address, input.kind,
+      input.to_address ?? null, input.value_wei!.toString(), input.chain_id,
+      input.request_hash, input.ip ?? null, input.user_agent ?? null],
+  );
+  if (!rows[0]) throw new Error('daily value reservation was not persisted');
+  return rows[0].id;
 }

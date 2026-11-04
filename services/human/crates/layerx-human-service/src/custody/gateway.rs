@@ -719,6 +719,7 @@ const fn status(error: KmsError) -> u8 {
         KmsError::Refused
         | KmsError::InvalidReference
         | KmsError::InvalidEnvelope
+        | KmsError::UnsupportedNativeConsent
         | KmsError::DevelopmentOnly => 1,
         KmsError::KeyNotFound => 2,
         KmsError::Conflict => 3,
