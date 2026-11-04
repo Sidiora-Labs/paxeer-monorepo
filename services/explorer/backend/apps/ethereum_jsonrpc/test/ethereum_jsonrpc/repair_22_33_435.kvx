@@ -1,0 +1,91 @@
+[meta]
+task = "22.33.435"
+audit = "22.30.147"
+acceptance = "22998.1"
+base_revision = "876fbe3211af9ef09a8e5589f822c0e986d0a140"
+continued_attempt = 4
+test_module = "EthereumJSONRPC.Repair2233435Test"
+implementation = "Persist the existing one-time recordings without changing payload values; replay through loopback HTTP/WebSocket peers into production PaxeerX, Blocks and Geth. Preserve decoder, mutation and legacy compatibility assertions."
+qualification = "The exact candidate revision, command, exit and private log are recorded by hf-build/hf-done in the runner ledger; no pass is asserted before those gates execute."
+
+[baseline]
+source = "Prior attempt evidence supplied by the task runner; no duplicate baseline gate was run in this continuation."
+initial_failures = "First qualification: syncing transport error was converted to synced and strict head parity failed; attempt 2 left only producer parity failing."
+previous_result = "Attempt 4 ran ten tests successfully but failed ten graph checks for unwritten captures, helper and task record."
+repair = "22.31.460 supplies the producer header repair; the retained PaxeerX change propagates transport errors unchanged."
+
+[finding.newhead-fields-real-path]
+tests = ["newhead-fields-real-path: recorded WebSocket head drives HTTP block import", "newhead-fields-real-path: mutated roots refetch by number and invalid heights are refused"]
+proof = "Production WebSocketClient subscription delivery, HTTP refetch and Blocks conversion compare imported header fields and preserve root mutation and invalid-number refusals."
+
+[finding.newhead-parity-real-path]
+tests = ["newhead-parity-real-path: recorded WebSocket and HTTP fields agree in the imported block"]
+proof = "The repaired producer pair agrees across every emitted header field and the imported transaction root, bloom and gas. Both historical public-node mismatches retain their original values."
+
+[finding.syncing-real-path]
+tests = ["syncing-real-path: recorded consensus catch-up progress reaches the adapter over HTTP"]
+proof = "The recorded progress response crosses production HTTP into PaxeerX with ordered starting/current/highest heights; the capture explicitly records its after-only revision provenance."
+
+[finding.sync-legacy-test]
+tests = ["sync-legacy-test: recorded current false reaches the adapter over HTTP", "sync-legacy-test: a real HTTP transport error must remain an adapter error"]
+proof = "Recorded false maps to synced; a closed real loopback socket returns econnrefused unchanged. The separately versioned legacy v1 refusal remains an error."
+
+[finding.trace-real-path]
+tests = ["trace-real-path: recorded empty block crosses HTTP and the real trace importer", "trace-real-path: recorded historical-block refusal survives the trace importer"]
+proof = "The real Geth trace importer receives the recorded empty trace and preserves the historical lookback refusal; existing synthetic call/create and mutation assertions remain."
+
+[finding.mixed-count-test-capture]
+tests = ["mixed-count-test-capture: recorded eth block/count exclude recorded Cosmos shell activity", "mixed-count-test-capture: recorded pax refusals do not become eth visibility"]
+proof = "The existing recorded eth block/count and fifteen Cosmos shell logs are replayed with namespace visibility separate; pax method-deprecation refusals survive HTTP. Original synthetic two-transaction index assertions remain separately named."
+
+[provenance.headers]
+path = "captures/new_heads.json"
+layout = "Original public-node transcript at the top level; formatter_capture contains the repaired node transcript recorded once in attempt 3. captures/new_heads_previous.json preserves the earlier public-node transcript."
+node_revision = "aa5e0820b3652890f3812a220f4b91f4f8a45387"
+formatter_revision = "4af5959eb28ba0c7269a509c5dfb2ea13b022b1c"
+block_number = "0x2"
+block_hash = "0x0000000000000000000000000000000000000000000000000000000000000066"
+producer = "rpc/tests.SetupCommittedHeaderFixture executes and commits a bank transaction; the production HTTP and WebSocket servers emit the body/header via BlockHeaderNotifier. The implementation-time Go recorder is not a gate dependency."
+public_revision = "2da69275051f6feb074a8b552977d37197735d86"
+public_blocks = ["0x2898b22", "0x28944e3"]
+
+[wiring.sync_status_error]
+request = "Node RPC domain: rpc/info.go — record a disposable consensus Status RPC error; this task proves real transport errors without inventing a producer response."
+
+[wiring.nonempty_trace]
+request = "Node RPC domain: rpc/tracers.go — provide a current-node nonempty internal-call recording; the current recording proves empty trace and refusal handling only."
+
+[wiring.mixed_block]
+request = "Node RPC domain: rpc/block.go — provide a committed mixed EVM/Cosmos block with namespace count and every transaction index; the recorded public node returns legacy_pax_deprecated for pax methods."
+
+[capture.new_heads]
+path = "captures/new_heads.json"
+sha256 = "e85a6dbd230f8448d2e16fde3534e58cbe94ce743f188bb235acc517b869957b"
+
+[capture.new_heads_previous]
+path = "captures/new_heads_previous.json"
+sha256 = "06672fca4060814f34f3154466f73ea1db460d776b34593ca6723b73a4a7bd7c"
+
+[capture.pax_block]
+path = "captures/pax_block.json"
+sha256 = "da4634b4c2f652f3a3fa03c6251944546f5abdf529711ba5507fc9c6e59f8127"
+
+[capture.pax_count]
+path = "captures/pax_count.json"
+sha256 = "6ac54c79a3cecd6926e35386c1efb109b2ef3b85aea005e2a216cce47cdc857b"
+
+[capture.synced]
+path = "captures/synced.json"
+sha256 = "31fb25afa03965250285c597b503388d5aa9febf375bc823e543802cf53a4d97"
+
+[capture.syncing]
+path = "captures/syncing.json"
+sha256 = "b7817e5cd1ccae464f296ba80136ecb76f849f9b50463938f86633045d4d877e"
+
+[capture.trace_block]
+path = "captures/trace_block.json"
+sha256 = "52a070aa69584fb885c6a8a115df17a3799d7523fbc1ea1f6efb9b6acb4c77c1"
+
+[capture.trace_historical_refusal]
+path = "captures/trace_historical_refusal.json"
+sha256 = "a8e2456fa9e9313c674109e64037da3116cb09b21cde4d72e8f2b890f950bc57"
