@@ -93,7 +93,10 @@ export function classifyPerformanceRoute(pathname: string): PerformanceRoute | u
   if (pathname === "/") {
     return "root";
   }
-  if (EXPLORER_NAVIGATION.some((item) => item.href === pathname)) {
+  if (
+    EXPLORER_NAVIGATION.some((item) => item.href === pathname) ||
+    /^\/explorer\/(?:accounts|programs|receipts)\/[^/]+\/?$/u.test(pathname)
+  ) {
     return "explorer";
   }
   if (pathname === "/app" || pathname.startsWith("/app/")) {

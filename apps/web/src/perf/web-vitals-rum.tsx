@@ -4,26 +4,14 @@ import { usePathname } from "next/navigation";
 import { useReportWebVitals } from "next/web-vitals";
 import { useCallback, useRef } from "react";
 
-import { submitWebVital } from "../api/performance-client";
-import {
-  classifyPerformanceRoute,
-  isWebVitalName,
-  normalizeWebVital,
-} from "./budgets";
-
-type ReportedWebVital = Readonly<{ name: string; value: number }>;
+import { collectWebVital, type ReportedWebVital } from "./collect-web-vital";
 
 export function WebVitalsRum() {
   const pathname = usePathname();
-  const route = useRef(classifyPerformanceRoute(pathname));
-  route.current = classifyPerformanceRoute(pathname);
+  const currentPathname = useRef(pathname);
+  currentPathname.current = pathname;
   const report = useCallback((metric: ReportedWebVital) => {
-    if (route.current !== undefined && isWebVitalName(metric.name)) {
-      const observed = normalizeWebVital(metric.name, metric.value);
-      if (observed !== undefined) {
-        submitWebVital(route.current, metric.name, observed);
-      }
-    }
+    collectWebVital(currentPathname.current, metric);
   }, []);
   useReportWebVitals(report);
   return null;
