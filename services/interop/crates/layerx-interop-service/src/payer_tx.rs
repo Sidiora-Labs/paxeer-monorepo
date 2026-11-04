@@ -18,7 +18,7 @@ pub(crate) struct PayExactCall {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum PayerTransactionRefusal {
+pub enum PayerTransactionRefusal {
     Malformed,
     TargetRefused,
     SelectorRefused,
