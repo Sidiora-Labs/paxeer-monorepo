@@ -1,0 +1,66 @@
+[repair.22.33.1501]
+audit = "22.30.9"
+acceptance = "22998.1"
+qualification = "hf-build and hf-done retain the exact candidate revision, command, exit and private evidence log; no independent gate result is claimed."
+baseline = "Not run: the explicit implementation-first order and allowed gate budget prohibit the conflicting embedded baseline request; no pre-change test failure is claimed."
+
+[finding.2]
+test = "TestRepairM_1501_InterfaceUnits"
+repair = "The prerequisite already published expiresAtMs with selector 78ea11db and made nextSequence consume account IDs. The focused proof executes expiry refusals, automatic debit sequences and payments after persisted reopen; ViewsRecovery composes openAccount output with nextSequence."
+wiring_solidity = "contracts/src/precompiles/ILayerXLedger.sol (planned binding path) — contracts domain: publish payExact uint64 expiresAtMs in Unix milliseconds without changing its selector; nextSequence consumes an account ID."
+wiring_sdk = "services/agent/sdk/typescript and services/agent/sdk/python/layerx_sdk/x402.py — agent SDK domain: reconcile ledger payment argument names and documentation with expiresAtMs and nextSequence(accountId, assetId)."
+wiring_docs = "docs/site/docs/reference — documentation domain: regenerate ledger ABI reference from precompiles/layerxledger/abi.json with millisecond expiry and account-ID sequence semantics."
+
+[finding.13]
+test = "TestRepairM_1501_TransfersRecovery"
+repair = "Removed raw host-account construction. Binding, ABI register/openAccount/mint now produce the source and recipient. Send retains foreign-source and malformed-envelope refusals; a persisted application proof compares native and EVM canonical receipts and checks bank/kernel balances, global/identity/debit sequences and further sends after closing and reopening LevelDB."
+
+[finding.14]
+test = "TestRepairM_1501_ClientReceipt"
+repair = "The signed EVM delivery test decodes source and recipient IDs from actual openAccount transaction responses and mints directly to the source, retaining transaction, receipt, gas, transfer-log and unauthorized-caller assertions."
+
+[finding.15]
+test = "TestRepairM_1501_GasConformance"
+repair = "The gas test debits the actual opened source through payExact and send, preserving every method's exact intrinsic-plus-row gas comparison and asserting both final balances and the source sequence."
+
+[finding.16]
+test = "TestRepairM_1501_BankMirror"
+repair = "The mirror test uses opened source and recipient accounts for both payments and send; issuance conservation, supply and exact bank/kernel balance comparisons remain at every stage."
+
+[finding.17]
+test = "TestRepairM_1501_KernelParity"
+repair = "Send parity now binds, registers, opens and mints through production ABI handlers and compares byte-identical native/EVM receipts from the returned asset source, without a fabricated main account or preparatory funding transfer."
+
+[finding.18]
+test = "TestRepairM_1501_ViewsRecovery"
+repair = "The owning view table checks NextSequenceByAccountID against its actual account ID. A companion owning test decodes ABI openAccount output, debits it, closes and reopens the application database, rereads the same sequence and balances, retains unknown-account refusals and performs the next debit."
+
+[finding.20]
+test = "TestRepairM_1501_RetiredGrantsAndWebPayments"
+repair = "Keep LXP_NO_PAYER_GRANT refusal. SDK caps raises WebPayerGrantsRetiredError with payer_grants_retired; current availability reads canonical getParams and its fee/pause state. The wallet removes historical discovery and cap reads, pins availability to its finalized observation and displays a typed retired state with the supported transaction-value payment model."
+proof = "The in-process application serves actual EVM getParams/fee reads and a paid XWeb request, decodes canonical output and emitted event, checks the real keeper and bank debit, then closes/reopens LevelDB and verifies recovered requests and availability; consumer source assertions cover the SDK/UI wiring. No JavaScript runtime execution is claimed by this Go gate."
+wiring_wallet_tests = "sdk/wallet/src/modules/web-data.test.ts and apps/wallet/src/surfaces/WebDataView.test.tsx — domain 12: migrate legacy grant-cap expectations to typed retirement and node-produced request-value availability; these test paths are outside this task."
+wiring_wallet_proof = "apps/wallet/src/surfaces/repair-22-33-205.test.ts — domain 12: migrate historical discovery expectations to finalized web payment availability."
+
+[gotcha.scope]
+observed = "The task excludes spec and the root gotcha ledger, and its baseline request conflicts with its explicit gate order."
+resolution = "Keep finding mappings, out-of-path wiring requests and gotchas in this scoped task record; use only hf-build then hf-done for qualification and leave publication to the runner."
+
+[qualification.build]
+revision = "3e9c047d4b6acee73d1a3243f10ec3b297c5b197"
+command = "make -s paxd-native-libs && CGO_ENABLED=1 go build ./precompiles/layerxledger/..."
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "Implemented, not qualified: inherited sdk/x/staking/client/cli/tx.go:62 and sdk/x/auth/client/cli/{tx_multisign.go:84,260,tx_sign.go:69,validate_sigs.go:216} use the two-result tx.NewFactoryCLI as one result; all are outside scope, so no repair or rerun is authorized and hf-done did not run."
+
+[qualification.attempt3.initial]
+revision = "5ec4755471d95534939437da9e99f353ede25d23"
+command = "cg spec done 22.33.1501 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; focused test details: /tmp/repair-m1501.log"
+repair = "Account for both burn and payExact debits before send, asserting sequences 2 then 3; read native receipt bytes through the arena buffer pointer while retaining strict decoding and byte-identical native/EVM parity."
+
+[gotcha.native_receipt_buffer]
+observed = "The duplicated lxphost_node declaration in modules/lxphost/simulate.go omits programs_guest_abi, so cgo reflection of the later arena_bytes field reads the wrong offset; arena.buffer precedes that mismatch and points to the real encoded receipt."
+resolution = "The scoped parity helper copies bytes from the allocator buffer with capacity and allocation bounds; no receipt bytes are synthesized."
+wiring = "modules/lxphost/{host.go,simulate.go} — host domain 2: share or reconcile the native node declaration, including programs_guest_abi, so later field offsets agree."
