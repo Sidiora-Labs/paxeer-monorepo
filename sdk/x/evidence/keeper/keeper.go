@@ -19,6 +19,7 @@ type Keeper struct {
 	cdc            codec.BinaryCodec
 	storeKey       sdk.StoreKey
 	router         types.Router
+	routerSet      bool
 	stakingKeeper  types.StakingKeeper
 	slashingKeeper types.SlashingKeeper
 }
@@ -27,10 +28,13 @@ func NewKeeper(
 	cdc codec.BinaryCodec, storeKey sdk.StoreKey, stakingKeeper types.StakingKeeper,
 	slashingKeeper types.SlashingKeeper,
 ) *Keeper {
+	router := types.NewRouter()
+	router.Seal()
 
 	return &Keeper{
 		cdc:            cdc,
 		storeKey:       storeKey,
+		router:         router,
 		stakingKeeper:  stakingKeeper,
 		slashingKeeper: slashingKeeper,
 	}
@@ -39,19 +43,23 @@ func NewKeeper(
 // SetRouter sets the Evidence Handler router for the x/evidence module. Note,
 // we allow the ability to set the router after the Keeper is constructed as a
 // given Handler may need access the Keeper before being constructed. The router
-// may only be set once and will be sealed if it's not already sealed.
+// may only be set once and will be sealed if it's not already sealed. Until
+// explicitly configured, the keeper uses a sealed router with no approved routes.
 func (k *Keeper) SetRouter(rtr types.Router) {
+	if k.routerSet {
+		panic(fmt.Sprintf("attempting to reset router on x/%s", types.ModuleName))
+	}
+	if rtr == nil {
+		panic("cannot set a nil evidence router")
+	}
 	// It is vital to seal the Evidence Handler router as to not allow further
 	// handlers to be registered after the keeper is created since this
 	// could create invalid or non-deterministic behavior.
 	if !rtr.Sealed() {
 		rtr.Seal()
 	}
-	if k.router != nil {
-		panic(fmt.Sprintf("attempting to reset router on x/%s", types.ModuleName))
-	}
-
 	k.router = rtr
+	k.routerSet = true
 }
 
 // GetEvidenceHandler returns a registered Handler for a given Evidence type. If

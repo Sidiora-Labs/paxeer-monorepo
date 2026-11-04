@@ -1,0 +1,29 @@
+[repair.22.33.373]
+audit = "22.30.140"
+base_revision = "264615cba89456c37eeb19535cb16b81846f6a68"
+previous_attempt_base_revision = "de8ab245609a7e0707cc32c502b6dcbe17ce3aca"
+baseline = "Not run: the explicit task gate order forbids verification before complete implementation and hf-build, and forbids running verify_cmd by hand. No baseline failures are claimed."
+qualification = "hf-done records the verified candidate revision, exact command, exit and private log in /out/run/gates.jsonl; the final evidence line copies that record."
+wiring_requests = []
+
+[finding.bridge-cli-output-promise]
+proving_tests = ["TestRepairM_373_PublicationContract", "TestRepairM_373_StagingFailureAndRetry", "TestRepairM_373_ValidationRefusal"]
+repair = "The CLI package comment, Run documentation and real command usage distinguish validation/initial staging from publication failures, warn against submitting an incomplete set, locate the recovery journal and stages, and describe unchanged-input recovery and verification before resuming. The existing complete-bundle publisher is retained."
+proof_path = "Committed Ethereum and Solana configurations with fixture identities -> real Run -> Generate -> complete filesystem publication -> DecodeBody, DecodeProposal and Readback consumers; missing readback parent refuses after staging bodies/proposals without publishing them, and identical arguments succeed after creating the parent. Real Run help transports the contract to the operator; the package and Run comments must carry the same obligations."
+recovery_coverage = "This doc-drift repair retains the publisher and its existing restart tests in proposals/repair_m365_test.go; this task gate claims only the tests listed above."
+
+[gotcha.baseline-order]
+observed = "The inherited audit step requests unchanged-tree verification, but the explicit task gate order prohibits it."
+resolution = "Follow the explicit gate order and record no unrun baseline claim."
+
+[gotcha.configuration-layout]
+observed = "First hf-done at 31148e4adfe254a7ff4828ccbd95ec7386788e34 failed because chainconfig.Load requires the configuration parent directory to match its chain; exit 1, /out/logs/verify-1.log."
+resolution = "Write the committed fixture copy under <temporary-root>/<chain>/config.json, retaining all assertions and production validation."
+
+[gotcha.solana-vault-binding]
+observed = "Second hf-done at c1cfd22e243b10fcc08707dcdf8f094dc1d31397 failed because the new canonical-input helper copied an independently recorded legacy vault rather than deriving the configured program's PDA handle; exit 1, /out/logs/verify-2.log."
+resolution = "Derive the test argument with the real vectors.Key and vectors.VaultHandle functions, preserving FromChainConfig's exact vault-binding validation and every assertion."
+
+[continuation.review]
+observed = "The continued working tree already contains the Solana vault-handle derivation described above, after the previous failed verification; it has not yet been qualified."
+resolution = "Retain the implementation and every assertion; format the touched Go files, then qualify this candidate through hf-build and hf-done without running verify_cmd by hand."

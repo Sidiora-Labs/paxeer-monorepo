@@ -1,0 +1,8 @@
+[repair.22.33.197]
+audit = "22.30.12"
+f034 = "f034MobilePositionOpensExistingTpSlModal"
+f035 = "f035WalletSwitchRejectsLateResults; f035StopReopenRejectsSupersededResults; f035FailuresAreVisibleAndRetryRecovers"
+f018 = "f018DownloadAndMissingGlobalRecoverOnReopen"
+baseline = "Not run: the task's explicit gate order prohibits testing before implementation and running verify_cmd by hand; no baseline failure is claimed."
+wiring_request = "apps/perps/src/hooks/perps/usePortfolioStats.ts — perps hooks owner: clear wallet-scoped positions and locally-closed optimism on address changes, and generation-guard singleton requests and subscription callbacks across wallet changes and reopen."
+qualification = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit code and private evidence location."

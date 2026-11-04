@@ -24,11 +24,23 @@ authorization with `ErrUnpackAny` and a type URL without a registered
 `MsgServiceRouter` handler with `ErrInvalidType`. Successful storage emits
 `EventGrant`.
 
-The current handler, `SaveGrant`, and `NewGrant` do **not** reject expiration times
-in the past. A successful grant transaction therefore does not prove that the
-authorization is usable. Clients should choose a future expiration explicitly.
-Expiration is checked when loading a clean authorization for execution or a
-message-type-filtered query, as described below.
+Grant creation requires `expiration.After(ctx.BlockTime())`: expiration must be
+strictly later than the current chain block time, including nanoseconds. An
+expiration before or equal to that time is rejected with `ErrInvalidExpirationTime`,
+codespace `authz`, code `3`. There is no grant storage write and no `EventGrant`
+on rejection; an existing grant for the same tuple remains unchanged. Both the
+message server and `SaveGrant` enforce this policy. `NewGrant` takes the chain
+block time explicitly. Message construction and `ValidateBasic` only check
+structure and authorization validity, since they do not have a chain clock.
+
+### Genesis import policy
+
+Genesis validation checks addresses, distinct granter and grantee, unpacked typed
+authorizations and their validation, supported message types, and duplicate storage
+tuples before initialization writes anything. An imported expiration is preserved,
+even if already expired: exports may contain such records. Import does not create
+`EventGrant` events. Restored expired records cannot authorize execution. This
+policy uses no local wall clock and permits faithful export/import and restart.
 
 ## MsgRevoke
 
@@ -64,9 +76,8 @@ cached state; a failed SDK transaction does not commit those message writes.
 
 ### Expiration and cleanup
 
-`GetCleanAuthorization` treats a grant as expired only when
-`expiration.Before(ctx.BlockHeader().Time)` is true. Equality with block time is
-not expired. For an expired grant, it calls `DeleteGrant` in the supplied context
+`GetCleanAuthorization` treats a grant as expired when
+`!expiration.After(ctx.BlockTime())` is true. Equality with block time is expired. For an expired grant, it calls `DeleteGrant` in the supplied context
 and returns no authorization.
 
 This cleanup is subject to that context's commit rules. In particular, deletion

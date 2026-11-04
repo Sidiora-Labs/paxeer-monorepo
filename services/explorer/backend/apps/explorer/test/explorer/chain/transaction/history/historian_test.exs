@@ -10,8 +10,25 @@ defmodule Explorer.Chain.Transaction.History.HistorianTest do
   @feeder "0xb97e177fe6e701db2cf85c1ba1307688166318cc"
   @feeder_bech32 "pax1h9lpwllxuuqakt8ctsd6zvrk3qtxxxxvyfs9jc"
 
-  setup do
-    Application.put_env(:explorer, Historian, utc_today: ~D[1970-01-04])
+  setup :configure_historian
+
+  def configure_historian(_context) do
+    previous = Application.fetch_env(:explorer, Historian)
+
+    on_exit(fn ->
+      case previous do
+        {:ok, config} -> Application.put_env(:explorer, Historian, config)
+        :error -> Application.delete_env(:explorer, Historian)
+      end
+    end)
+
+    config =
+      case previous do
+        {:ok, config} -> config
+        :error -> []
+      end
+
+    Application.put_env(:explorer, Historian, Keyword.put(config, :utc_today, ~D[1970-01-04]))
     :ok
   end
 

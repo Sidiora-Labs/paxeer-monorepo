@@ -91,7 +91,7 @@ const ZetaChainCCTXsTab = () => {
     hasNextPageFn,
   });
 
-  const query = tab === 'cctx_mined' ? cctxsValidatedQuery : cctxsPendingQuery;
+  const query = tab === 'cctx_pending' ? cctxsPendingQuery : cctxsValidatedQuery;
 
   const handleFilterChange = React.useCallback(<T extends keyof ZetaChainCCTXFilterParams>(field: T, val: ZetaChainCCTXFilterParams[T]) => {
     setFilters(prevState => {

@@ -78,13 +78,13 @@ const BeaconChainWithdrawalsListItem = ({ item, isLoading, view }: Props) => {
               display="inline-block"
             />
           </ListItemMobileGrid.Value>
-
-          <ListItemMobileGrid.Label isLoading={ isLoading }>Value</ListItemMobileGrid.Label>
-          <ListItemMobileGrid.Value>
-            <NativeCoinValue amount={ item.amount } loading={ isLoading }/>
-          </ListItemMobileGrid.Value>
         </>
       ) }
+
+      <ListItemMobileGrid.Label isLoading={ isLoading }>Value</ListItemMobileGrid.Label>
+      <ListItemMobileGrid.Value>
+        <NativeCoinValue amount={ item.amount } loading={ isLoading }/>
+      </ListItemMobileGrid.Value>
 
     </ListItemMobileGrid.Container>
   );

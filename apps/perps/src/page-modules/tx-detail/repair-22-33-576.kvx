@@ -1,0 +1,16 @@
+[task.22.33.576]
+finding = "tx-deep-link"
+tests = ["txDeepLinkCommittedTransactionSurvivesRefresh", "txDeepLinkMissingTransactionPreservesIdentity", "txDeepLinkRejectsAmbiguousSelectors", "txDeepLinkRejectsWrongIdentityAndInvalidResponses", "txDeepLinkDistinguishesUnavailableFromMissing", "txDeepLinkQuerySwitchDoesNotReusePreviousDetails"]
+implementation = "The legacy redirect is preserved; TransactionQueryDetail consumes its tx query through the production Paxscan URL builder, bounded HTTP transport, query cache and validated detail renderer, including loading, missing and failure states."
+wiring_request = "apps/perps/src/page-modules/explorer/index.tsx — owning domain 3 (fm-markets): mount TransactionQueryDetail from @/page-modules/tx-detail with query={router.query} after router.isReady; retain accessible live lists."
+closure = "Implemented, not qualified: hf-build failed on unrelated wallet SDK imports and implicit-any errors; hf-done and the regression tests did not run. End-to-end finding closure also requires the out-of-scope Explorer wiring request."
+baseline = "No baseline gate was run: the explicit ordered gate instructions require complete implementation before hf-build and hf-done and prohibit a manual verify_cmd run. No pre-change runtime failure is claimed. The original module had no query consumer and Explorer never read tx."
+evidence = "The final hf-done entry in /out/run/gates.jsonl records the exact qualified revision, command, exit code and private log; no gate pass is claimed before that entry exists."
+gotcha = "Paxscan's shared HTTP transport raises FetchPolicyError for HTTP 404 before paxscanFetch can raise PaxscanError; missing detection handles both real transport errors and leaves other failures as errors."
+
+[qualification.build]
+revision = "2c9ed87144006b680dd6da84bdaf4e6245d6c6f0"
+command = "pnpm --dir apps/perps exec tsc --noEmit"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "Unchanged sdk/wallet/src/provider.ts and receipt.ts cannot resolve viem or @sidiora/layerx-sdk/browser and report implicit-any callbacks; no changed file is reported, and the required passing build prevents hf-done."
