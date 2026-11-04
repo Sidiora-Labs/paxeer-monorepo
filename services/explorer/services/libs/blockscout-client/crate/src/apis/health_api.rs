@@ -141,7 +141,7 @@ impl ResponseContent<HealthV1Success> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum HealthError {
-    Status500(Box<models::HealthCheckResponse>),
+    Status500(Box<models::UnhealthyHealthCheckResponse>),
     UnknownValue(serde_json::Value),
 }
 
