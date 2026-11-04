@@ -1,105 +1,101 @@
-
 # Synopsis
 
- A TLA+ specification of a simplified Tendermint consensus, tuned for
- fork accountability. The simplifications are as follows:
+This directory retains a TLA+ model of **classic Tendermint** fork accountability.
+It is a research abstraction of the protocol in
+*[The latest gossip on BFT consensus](https://arxiv.org/abs/1807.04938)*, rather
+than an executable specification of the merged Paxeer node.
 
-- the procotol runs for one height, that is, one-shot consensus
+Paxeer mainnet-beta is one BFT network (`paxd`, EVM chain ID 125), with the kernel
+participating in block proposals. Receipts are final when their blocks commit.
+These TLA+ modules do not model the application's
+[`FinalizeBlock`/`Commit` lifecycle](../../core/state.md#execution), nor Autobahn
+certificates and persistent recovery. For the implementation boundary, see
+[fork accountability](README.md#implementation-boundary) and
+[attack isolation](../attacks/isolate-attackers_001_draft.md).
 
-- this specification focuses on safety, so timeouts are modelled with
-   with non-determinism
+The model deliberately simplifies the protocol:
 
-- the proposer function is non-determinstic, no fairness is assumed
+- One height is modeled: this is one-shot consensus with fixed membership.
+- Safety is the focus; timeouts are nondeterministic and proposer selection has
+  no fairness assumption. This is not a liveness proof.
+- Faulty-process messages are injected into initial states.
+- Every process has voting power one; cardinality arguments do not establish
+  safety for an arbitrary weighted validator set.
+- Hashes are modeled as identity; cryptography is abstracted.
 
-- the messages by the faulty processes are injected right in the initial states
-
-- every process has the voting power of 1
-
-- hashes are modelled as identity
-
- Having the above assumptions in mind, the specification follows the pseudo-code
- of the Tendermint paper: <https://arxiv.org/abs/1807.04938>
-
- Byzantine processes can demonstrate arbitrary behavior, including
- no communication. However, we have to show that under the collective evidence
- collected by the correct processes, at least `f+1` Byzantine processes demonstrate
- one of the following behaviors:
-
-- Equivocation: a Byzantine process sends two different values
-     in the same round.
-
-- Amnesia: a Byzantine process locks a value, although it has locked
-     another value in the past.
+The accountability goal is to expose at least `f+1` Byzantine processes under the
+model's bounds when correct processes disagree, without accusing correct
+processes. The modeled fault scenarios are equivocation within a round and
+amnesia across rounds. This goal is distinct from what the current Go evidence
+implementation can attribute: different-round attacks return no accused
+validators.
 
 # TLA+ modules
 
-- [TendermintAcc_004_draft](TendermintAcc_004_draft.tla) is the protocol
-   specification,
+| Module | Purpose |
+| --- | --- |
+| [TendermintAcc_004_draft](TendermintAcc_004_draft.tla) | Protocol and state transitions. |
+| [TendermintAccInv_004_draft](TendermintAccInv_004_draft.tla) | Inductive invariant and agreement/accountability theorem statements. |
+| `MC_n<n>_f<f>`, such as [MC_n4_f1](MC_n4_f1.tla) | Finite instances with fixed correct/faulty sets, values and maximum round. `ConstInit` chooses the proposer nondeterministically. |
+| [TendermintAccTrace_004_draft](TendermintAccTrace_004_draft.tla) | Restrictions to a chosen action sequence, useful for a counterexample trace. |
+| [TendermintAccDebug_004_draft](TendermintAccDebug_004_draft.tla) | Definitions for inspecting executions with TLC and Apalache. |
 
-- [TendermintAccInv_004_draft](TendermintAccInv_004_draft.tla) contains an
-   inductive invariant for establishing the protocol safety as well as the
-   forking cases,
-
-- `MC_n<n>_f<f>`, e.g., [MC_n4_f1](MC_n4_f1.tla), contains fixed constants for
-   model checking with the [Apalache model
-   checker](https://github.com/informalsystems/apalache),
-
-- [TendermintAccTrace_004_draft](TendermintAccTrace_004_draft.tla) shows how
-   to restrict the execution space to a fixed sequence of actions (e.g., to
-   instantiate a counterexample),
-
-- [TendermintAccDebug_004_draft](TendermintAccDebug_004_draft.tla) contains
-   the useful definitions for debugging the protocol specification with TLC and
-   Apalache.
+The separate [Ivy models](../../ivy-proofs/README.md) study classic Tendermint
+with their own abstractions and assumptions; they are not interchangeable with
+these finite experiments.
 
 # Reasoning about fork scenarios
 
-The theorem statements can be found in
+The theorem names below occur in
 [TendermintAccInv_004_draft.tla](TendermintAccInv_004_draft.tla).
 
-First, we would like to show that `TypedInv` is an inductive invariant.
-Formally, the statement looks as follows:
+1. `TypedInvIsInductive` combines initialization and preservation of `TypedInv`.
+   Its disjunct `FaultyQuorum` makes no invariant claim when faulty processes
+   alone reach `THRESHOLD2`.
+2. `AgreementWhenLessThanThirdFaulty` states:
 
-```tla
-THEOREM TypedInvIsInductive ==
-    \/ FaultyQuorum
-    \//\ Init => TypedInv
-      /\ TypedInv /\ [Next]_vars => TypedInv'
-```
+   ```tla
+   LessThanThirdFaulty /\ TypedInv => Agreement
+   ```
 
-When over two-thirds of processes are faulty, `TypedInv` is not inductive.
-However, there is no hope to repair the protocol in this case. We run
-[Apalache](https://github.com/informalsystems/apalache) to prove this theorem
-only for fixed instances of 4 to 5 validators.  Apalache does not parse theorem
-statements at the moment, so we ran Apalache using a shell script. To find a
-parameterized argument, one has to use a theorem prover, e.g., TLAPS.
+   Here `LessThanThirdFaulty` means `N > 3 * T` and
+   `Cardinality(Faulty) <= T`.
+3. `AgreementOrFork` states:
 
-Second, we would like to show that the invariant implies `Agreement`, that is,
-no fork, provided that less than one third of processes is faulty. By combining
-this theorem with the previous theorem, we conclude that the protocol indeed
-satisfies Agreement under the condition `LessThanThirdFaulty`.
+   ```tla
+   ~FaultyQuorum /\ TypedInv => Accountability
+   ```
 
-```tla
-THEOREM AgreementWhenLessThanThirdFaulty ==
-    LessThanThirdFaulty /\ TypedInv => Agreement
-```
+   `Accountability` describes agreement or the modeled fork witnesses. It does
+   not specify a deployed evidence-submission or punishment mechanism.
 
-Third, in the general case, we either have no fork, or two fork scenarios:
-
-```tla
-THEOREM AgreementOrFork ==
-    ~FaultyQuorum /\ TypedInv => Accountability
-```
+These are theorem statements in the source, not a record that a parameterized
+proof was executed. The recorded Apalache experiments check initialization,
+one-step induction and implications separately for finite instances. A
+parameterized proof would require a separate argument or theorem prover.
 
 # Model checking results
 
-Check the report on [model checking with Apalache](./results/001indinv-apalache-report.md).
+The [historical report](results/001indinv-apalache-report.md) records `NoError`
+for twelve experiments. Their exact inputs are in
+[`001indinv-apalache.csv`](001indinv-apalache.csv): four- and five-process
+instances with one or two faulty processes, lengths zero or one, and
+`--cinit=ConstInit`. Other instance files in the directory are not evidence
+that those instances were included in that report.
 
-To run the model checking experiments, use the script:
+The retained [`run.sh`](run.sh) is **not a portable reproduction command**. It
+sets `SCRIPTS_DIR=~/devl/apalache-tests/scripts`, `BUILDS=unstable`,
+`BENCHMARK=001indinv-apalache`, and `RUN_SCRIPT=./run-all.sh`, then loads
+`~/devl/apalache-tests/Makefile.common` with `make -e`. That external harness and
+a pinned Apalache build are not supplied here. An environment override cannot
+replace a value that the script itself exports. There is no documented,
+repository-provided configurable harness path in this version.
 
-```console
-./run.sh
-```
-
-This script assumes that the apalache build is available in
-`~/devl/apalache-unstable`.
+A reproduction must first provision and identify compatible Apalache and
+experiment-harness revisions, then run the full CSV through that harness with
+its actual paths. Preserve the finite constants, initialization predicates,
+invariants and lengths. Record the repository revision, tool and harness
+revisions, exact invocations, exit codes and complete private logs; do not treat
+the historical `unstable` label as a version pin. No model checker was executed
+for this documentation rewrite, and the documentation gate does not reproduce
+these results.
