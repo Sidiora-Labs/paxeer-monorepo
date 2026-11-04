@@ -682,7 +682,9 @@ impl HumanApiComponents for UnixComponents {
                 "issued_at": context.issued_at,
                 "expires_at": context.expires_at,
                 "assertion": context.assertion(),
-                "did": context.did()
+                "did": context.did(),
+                "refresh_token": context.refresh_credentials().map(|pair| pair.0),
+                "refresh_csrf": context.refresh_credentials().map(|pair| pair.1)
             })
         });
         let mut response = self.round_trip(json!({
@@ -922,6 +924,18 @@ fn parse_authorized(
         issued_at,
         expires_at,
     )?;
+    let context = match (result.get("refresh_token"), result.get("refresh_csrf")) {
+        (None | Some(Value::Null), None | Some(Value::Null)) => context,
+        (Some(Value::String(_)), Some(Value::String(_)))
+            if operation_name_is_refresh(expected.operation) =>
+        {
+            context.with_refresh(
+                bounded_result_text(result, "refresh_token", 4_096)?,
+                bounded_result_text(result, "refresh_csrf", 4_096)?,
+            )?
+        }
+        _ => return Err(ApiFailure::upstream_degraded()),
+    };
     let context = if result
         .get("assertion")
         .is_some_and(|value| !value.is_null())
@@ -935,6 +949,10 @@ fn parse_authorized(
     } else {
         Ok(context)
     }
+}
+
+fn operation_name_is_refresh(operation: &Operation) -> bool {
+    operation.name == "session.refresh"
 }
 
 fn bounded_secret(result: &Map<String, Value>, name: &str) -> Result<String, ApiFailure> {
