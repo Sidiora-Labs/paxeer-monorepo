@@ -2,6 +2,7 @@ package types
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/internal/autobahn/pb"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/internal/protoutils"
@@ -22,7 +23,7 @@ type AppProposal struct {
 
 // NewAppProposal creates a new AppProposal.
 func NewAppProposal(globalNumber GlobalBlockNumber, roadIndex RoadIndex, appHash AppHash) *AppProposal {
-	return &AppProposal{globalNumber: globalNumber, roadIndex: roadIndex, appHash: appHash}
+	return &AppProposal{globalNumber: globalNumber, roadIndex: roadIndex, appHash: slices.Clone(appHash)}
 }
 
 // GlobalNumber .
@@ -32,7 +33,7 @@ func (m *AppProposal) GlobalNumber() GlobalBlockNumber { return m.globalNumber }
 func (m *AppProposal) RoadIndex() RoadIndex { return m.roadIndex }
 
 // AppHash .
-func (m *AppProposal) AppHash() AppHash { return m.appHash }
+func (m *AppProposal) AppHash() AppHash { return slices.Clone(m.appHash) }
 
 // Next is the next global block number to compute AppHash for.
 func (m *AppProposal) Next() RoadIndex {
@@ -56,7 +57,7 @@ var AppProposalConv = protoutils.Conv[*AppProposal, *pb.AppProposal]{
 		return &pb.AppProposal{
 			GlobalNumber: utils.Alloc(uint64(m.globalNumber)),
 			RoadIndex:    utils.Alloc(uint64(m.roadIndex)),
-			AppHash:      m.appHash,
+			AppHash:      m.AppHash(),
 		}
 	},
 	Decode: func(m *pb.AppProposal) (*AppProposal, error) {
@@ -66,10 +67,6 @@ var AppProposalConv = protoutils.Conv[*AppProposal, *pb.AppProposal]{
 		if m.RoadIndex == nil {
 			return nil, fmt.Errorf("RoadIndex: missing")
 		}
-		return &AppProposal{
-			globalNumber: GlobalBlockNumber(*m.GlobalNumber),
-			roadIndex:    RoadIndex(*m.RoadIndex),
-			appHash:      AppHash(m.AppHash),
-		}, nil
+		return NewAppProposal(GlobalBlockNumber(*m.GlobalNumber), RoadIndex(*m.RoadIndex), AppHash(m.AppHash)), nil
 	},
 }
