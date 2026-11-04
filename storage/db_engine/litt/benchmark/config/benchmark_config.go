@@ -77,10 +77,7 @@ type BenchmarkConfig struct {
 	// The frequency at which the benchmark logs metrics, in seconds. If zero, then metrics logging is disabled.
 	MetricsLoggingPeriodSeconds float64
 
-	// If true, the benchmark will panic and halt if there is a read failure.
-	// There is currently a rare bug somewhere, I suspect in metadata tracking. The bug can cause
-	// the benchmark to read a key that is no longer present in the database. Until that bug is fixed,
-	// do not halt the benchmark on read failures by default.
+	// Retained for configuration compatibility. Integrity violations always fail the run.
 	PanicOnReadFailure bool
 
 	// If true, fsync cohort files to ensure atomicity. Can be set to false for unit tests that need to be fast.

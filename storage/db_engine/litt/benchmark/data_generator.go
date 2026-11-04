@@ -33,6 +33,7 @@ func NewDataGenerator(seed int64, poolSize uint64) *DataGenerator {
 	randPool.Put(rng)
 
 	return &DataGenerator{
+		seed:     seed,
 		randPool: randPool,
 		dataPool: dataPool,
 	}
@@ -52,6 +53,9 @@ func (g *DataGenerator) Key(index uint64) []byte {
 
 // Value generates a new value. The value is deterministic for the same index, seed, and value size.
 func (g *DataGenerator) Value(index uint64, valueLength uint64) []byte {
+	if valueLength == 0 {
+		return []byte{}
+	}
 	rng := g.randPool.Get().(*rand.Rand)
 	rng.Seed(g.seed + int64(index)) //nolint:gosec // deterministic test seeding
 
@@ -64,8 +68,8 @@ func (g *DataGenerator) Value(index uint64, valueLength uint64) []byte {
 		value = make([]byte, valueLength)
 		_, _ = rng.Read(value)
 	} else {
-		startIndex := rng.Intn(len(g.dataPool) - int(valueLength))   //nolint:gosec // valueLength bounded by len(dataPool)
-		value = g.dataPool[startIndex : startIndex+int(valueLength)] //nolint:gosec // valueLength bounded by len(dataPool)
+		startIndex := rng.Intn(len(g.dataPool) - int(valueLength) + 1) //nolint:gosec // valueLength bounded by len(dataPool)
+		value = g.dataPool[startIndex : startIndex+int(valueLength)]   //nolint:gosec // valueLength bounded by len(dataPool)
 	}
 
 	g.randPool.Put(rng)
