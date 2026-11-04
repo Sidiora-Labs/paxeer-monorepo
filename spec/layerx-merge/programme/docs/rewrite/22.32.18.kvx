@@ -1,0 +1,21 @@
+[manifest]
+task = "22.32.18"
+domain = 4
+owner_role = "fm-launchpad"
+pages = 1
+
+[page.1]
+path = "docs/site/docs/platform/registry.md"
+status = "misleading"
+bytes = 36833
+source_1 = "record 22.30.100 [doc.08] (stale): Line 9 and the configuration at 176-186 describe receipt-authority replicas and bootstrap; credential guidance near 29 retains the old topology. Interface table is producer vocabulary, which the Python transport currently fails to consume."
+source_2 = "record 22.30.112 [doc.07] (stale): Read the complete page. Drift at line 7: The registry page instructs operators to deploy and trust a distinct layerx-receipt-authority service, separate authorization credentials and replica-id ConfigMaps; lines 179-186 prescribe those dependencies as current."
+source_3 = "record 22.30.139 [doc.10] (stale): The page describes TCP-only readiness and an unconditional ready state at lines 136-138, while the deployment uses HTTP health on port 9421 for readiness and TCP for liveness; replica identity guidance also disagrees with current deployment wiring. Rewrite: Match registry deployment documentation to the actual HTTP readiness, TCP liveness, health failure semantics and current replica identity configuration, including restart and stale-registration behavior."
+source_4 = "record 22.30.144 [doc.10] (stale): Stale at lines 28, 86 and 176-182. Journal/build isolation details remain useful; authority/recovery topology is pre-merge."
+source_5 = "record 22.30.162 [doc.009] (stale): Current operating guidance conflicts with the merged network; exact locations and rewrite proposals are recorded in registry-replica-doc."
+source_6 = "record 22.30.185 [doc.10] (stale): Read the page; rewrite starts at line 28. The registry uses a separate receipt-authority endpoint and replica identity at lines 28 and 179-186; lines 67 and 86 describe ABI-1/2-only state restoration and reject other ABI values despite the current ABI-5 host registration work."
+source_7 = "record 22.30.26 [doc.registry] (stale): Read the complete page including journal quarantine, isolated rebuilds, refusals and configuration. Separate receipt-authority recovery and trust topology must migrate to merged-node block/commit evidence; see registry_retired_authority."
+source_8 = "record 22.30.29 [doc.06] (misleading): site-registry: line7 The registry topology directs operators to layerx-agent-boundary and layerx-receipt-authority services and line29 requires distinct node and receipt-authority credentials. The durability section restores program state through those separate pre-merge authorities."
+source_9 = "record 22.30.30 [doc.07] (stale): Read in full. finding.registry-doc-site at line 7. Retired topology and endpoint instructions require a coordinated rewrite."
+source_10 = "record 22.30.32 [doc.05] (stale): Read complete page; line 28 in registry_site identifies the stale statements and owning rewrite proposal."
+source_11 = "record 22.30.42 [doc.3] (stale): Lines 86 and 182 retain receipt-authority recovery and sequencer trust history; see registry-site."

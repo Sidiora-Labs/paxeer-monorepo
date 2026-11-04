@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 import { getPool } from './pool.js';
+import { SIGNATURE_ACCOUNTING_MIGRATION } from './signatureAccounting.js';
 
 /**
  * Minimal migration runner.
@@ -61,18 +62,23 @@ export async function runMigrations(): Promise<void> {
         )
       `);
 
-      const files = readdirSync(migrationsDir)
-        .filter((f) => f.endsWith('.sql'))
-        .sort(); // lexical order → 001_x before 002_x
+      const files = [
+        ...readdirSync(migrationsDir)
+          .filter((f) => f.endsWith('.sql'))
+          .sort()
+          .map((filename) => ({
+            filename,
+            sql: readFileSync(join(migrationsDir, filename), 'utf8'),
+          })),
+        SIGNATURE_ACCOUNTING_MIGRATION,
+      ];
 
-      for (const file of files) {
+      for (const { filename: file, sql } of files) {
         const already = await client.query<{ filename: string }>(
           'select filename from _migrations where filename = $1',
           [file],
         );
         if (already.rowCount && already.rowCount > 0) continue;
-
-        const sql = readFileSync(join(migrationsDir, file), 'utf8');
 
         // Each migration file is run as a single round-trip. node-postgres
         // allows multi-statement text in a simple query. We DON'T wrap in an

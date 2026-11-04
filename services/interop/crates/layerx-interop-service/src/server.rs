@@ -2,7 +2,7 @@ use crate::config::{
     decode_hex, parse_hex32, Ap2KeyPin, Config, FiatProviderPin, VisaAgentPin, VisaTargetPin,
 };
 use crate::payer_tx::{decode_pay_exact, PayExactCall};
-use crate::relay::{ChainRelay, RelayError, RelayJournal, RelayOutcome};
+use crate::relay::{ChainRelay, RelayError, RelayOutcome};
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine as _;
 use ed25519_dalek::{Signature, Verifier as _, VerifyingKey as Ed25519Key};
@@ -63,7 +63,6 @@ use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use subtle::ConstantTimeEq;
-use zeroize::Zeroizing;
 
 const MAX_BODY: usize = 512 * 1024;
 const FIAT_EVIDENCE_SIGNATURE_DOMAIN: &[u8] = b"LayerX/interop/fiat/provider-evidence/v1\0";
@@ -1226,50 +1225,7 @@ struct X402SettlePlane {
 }
 
 fn chain_relay(config: &Config) -> Result<ChainRelay, String> {
-    use std::io::Read as _;
-    let read = |name: &str, maximum: usize| -> Result<Zeroizing<Vec<u8>>, String> {
-        let path = std::env::var(name).map_err(|_| format!("{name} is required"))?;
-        let file = std::fs::File::open(path).map_err(|_| format!("{name} unavailable"))?;
-        let mut bytes = Zeroizing::new(Vec::new());
-        file.take((maximum + 1) as u64)
-            .read_to_end(&mut bytes)
-            .map_err(|_| format!("{name} unavailable"))?;
-        if bytes.is_empty() || bytes.len() > maximum {
-            return Err(format!("{name} exceeds its bound"));
-        }
-        Ok(bytes)
-    };
-    let secret = |name: &str| -> Result<Zeroizing<String>, String> {
-        let bytes = read(name, 4096)?;
-        let text = std::str::from_utf8(&bytes)
-            .map_err(|_| format!("{name} is invalid"))?
-            .trim_end_matches(['\r', '\n']);
-        if text.is_empty() {
-            return Err(format!("{name} is empty"));
-        }
-        Ok(Zeroizing::new(text.to_owned()))
-    };
-    let ca_der = read("LAYERX_INTEROP_OUTBOUND_CA_DER", 64 * 1024)?;
-    let ca = native_tls::Certificate::from_der(&ca_der).map_err(|error| error.to_string())?;
-    let endpoint = layerx_client::sequencer::SequencerEndpoint::new(
-        &std::env::var("LAYERX_INTEROP_SEQUENCER_URL")
-            .map_err(|_| "sequencer endpoint unavailable".to_owned())?,
-        &[ca_der.as_slice()],
-    )
-    .map_err(|error| format!("sequencer endpoint: {error:?}"))?;
-    let journal = RelayJournal::new(
-        &std::env::var("LAYERX_INTEROP_REDIS_URL")
-            .map_err(|_| "relay journal endpoint unavailable".to_owned())?,
-        ca,
-        secret("LAYERX_INTEROP_REDIS_USERNAME_FILE")?,
-        secret("LAYERX_INTEROP_REDIS_PASSWORD_FILE")?,
-    )
-    .map_err(|error| error.to_string())?;
-    Ok(ChainRelay {
-        endpoint: std::sync::Arc::new(endpoint),
-        receipt_keys: config.receipt_keys.clone(),
-        journal,
-    })
+    Ok(ChainRelay::from_config(config))
 }
 
 impl X402SettlePlane {
@@ -3185,6 +3141,7 @@ fn hex(bytes: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::relay::RelayJournal;
     use ed25519_dalek::{Signer as _, SigningKey};
     use layerx_interop_gateway::adapter::{AdapterId, ConformanceSuite};
     use layerx_platform_gateway::http;
@@ -3199,6 +3156,7 @@ mod tests {
     use std::sync::Arc;
     use std::thread;
     use std::time::{Duration, Instant};
+    use zeroize::Zeroizing;
 
     #[test]
     fn no_route_posts_hosted_activities() {

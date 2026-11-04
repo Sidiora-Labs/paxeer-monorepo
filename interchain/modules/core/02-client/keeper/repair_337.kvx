@@ -1,0 +1,9 @@
+[repair.22.31.337]
+audit = "22.30.58"
+consensus-states-pagination = "TestRepair_337_ConsensusStatesPagination"
+consensus-heights-pagination = "TestRepair_337_ConsensusHeightsPagination"
+baseline = "Not run: the explicit ordered gate instructions prohibit verification before implementation and direct invocation of verify_cmd. No pre-change failure is claimed."
+inherited_failure = "Attempt 1 candidate ddcaa178e42f61bbf7d28b45ab140140d94bf76b failed TestRepair_337_ConsensusStatesPagination and TestRepair_337_ConsensusHeightsPagination according to the supplied runner evidence; its fixtures and assertions are preserved."
+wiring_request = "sdk/types/query/filtered_pagination.go — SDK query owner: preserve the first nextKey during count_total scans; currently filtered metadata after the first out-of-page hit overwrites its cursor. Keeper tests assert exact continuation with real Tendermint metadata."
+repair = "Both callbacks exclude metadata and append only when accumulate is true; the keeper resolves metadata continuation keys to the first consensus state after the returned page, in either direction, within the existing MaxScanLimit."
+evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit and private log location."

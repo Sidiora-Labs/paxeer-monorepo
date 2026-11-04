@@ -16,7 +16,8 @@ public struct PortableReceipt: Sendable {
     rawTransaction: Data, signedReceipt: Data, receiptJSON: [String: JSONValue],
     receiptKey: ReceiptKeys, prevSeqHash: Data? = nil,
     blockHeader: CommittedHeader? = nil, receiptInclusion: ReceiptInclusion? = nil,
-    commit: CometCommit? = nil, validatorSet: [CometValidator]? = nil
+    commit: CometCommit? = nil, validatorSet: [CometValidator]? = nil,
+    trust: CommittedTrust? = nil
   ) throws -> PortableReceipt {
     let supplied = [
       blockHeader != nil, receiptInclusion != nil, commit != nil, validatorSet != nil,
@@ -40,11 +41,13 @@ public struct PortableReceipt: Sendable {
     }
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-    return try verify(encoder.encode(document), keys: [receiptKey], prevSeqHash: prevSeqHash)
+    return try verify(
+      encoder.encode(document), keys: [receiptKey], prevSeqHash: prevSeqHash, trust: trust)
   }
 
   public static func verify(
-    _ bundle: Data, keys: [ReceiptKeys], prevSeqHash: Data? = nil
+    _ bundle: Data, keys: [ReceiptKeys], prevSeqHash: Data? = nil,
+    trust: CommittedTrust? = nil
   ) throws -> PortableReceipt {
     guard !bundle.isEmpty, bundle.count <= 16 * 1_048_576 else { throw portableFailure() }
     var scanner = PortableDocumentScanner(bundle)
@@ -102,7 +105,7 @@ public struct PortableReceipt: Sendable {
       }
       committed = try Committed.verify(
         receipt, blockHeader: header.decoded(), receiptInclusion: proof,
-        commit: commit.decoded(), validatorSet: validators.map { try $0.decoded() })
+        commit: commit.decoded(), validatorSet: validators.map { try $0.decoded() }, trust: trust)
     } else {
       committed = nil
     }
@@ -113,11 +116,15 @@ public struct PortableReceipt: Sendable {
     _ signed: Data, rawTransaction: Data, receiptJSON: [String: JSONValue],
     keys: [ReceiptKeys], prevSeqHash: Data?
   ) throws -> SequencerReceiptVerification {
-    let fields: Set<String> = [
+    var fields: Set<String> = [
       "rung", "txHash", "nonce", "seq", "height", "index", "timestamp", "status", "returnData",
-      "logs", "gasUsed", "cumulativeGasUsed", "effectiveGasPrice", "feeDenom", "feeAmount",
+      "logs", "gasUsed", "cumulativeGasUsed", "effectiveGasPrice", "paymentDenom", "feeDenom",
+      "feeAmount",
       "sponsor", "from", "to", "contractAddress", "vmError", "keyId", "receipt",
     ]
+    if receiptJSON["rung"] == .string("committed") {
+      fields.formUnion(["blockNumber", "blockHash"])
+    }
     var actual = Set(receiptJSON.keys)
     actual.remove("signingKey")
     guard actual == fields, signed.count >= 86,

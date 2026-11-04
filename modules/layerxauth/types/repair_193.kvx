@@ -1,0 +1,47 @@
+[task.22.31.193]
+audit = "22.30.8"
+mode = "BUILD"
+qualification = "hf-build followed by hf-done; exact candidate revision and private evidence are recorded by the gate runner."
+baseline = "No prior gate ledger existed. The unchanged-tree verification requested by step 8 was not run because the task's explicit gate order forbids verification before complete implementation and permits only hf-done. No baseline test failures are claimed."
+
+[finding.unscoped-message-bypasses-policy]
+test = "TestRepair_193_unscoped_message_bypasses_policy"
+repair = "Decode real MsgSend into module 1 ordinal 5, canonical layerx/<asset-id> denomination, amount and payment purpose; refuse unmapped denominations and multi-asset messages. Unsupported unscoped shapes fail closed. Accepted payments update persisted lifetime spending."
+
+[finding.grant-validity-not-enforced]
+test = "TestRepair_193_grant_validity_not_enforced"
+repair = "Accept checks the block's millisecond timestamp in the half-open NotBefore..NotAfter interval independently of SDK expiration. Signed MsgGrant and MsgExec traverse real codecs, cryptographic signature verification and authz/bank keepers."
+wiring = "sdk/x/authz/keeper/keeper.go and sdk/x/authz/keeper/msg_server.go (owning domain 2): bind or reject MsgGrant/SaveGrant expiration against LayerX NotAfter; Authorization.Accept cannot access or mutate its enclosing Grant expiration."
+
+[finding.period-budget-not-enforced]
+test = "TestRepair_193_period_budget_not_enforced"
+repair = "Persist PeriodStart at wire field 17 and SpentThisPeriod at 18; roll by whole elapsed periods, enforce cumulative period spending, and return updated authorization only after all checks. Bind nonzero purpose to SHA-256 of the domain-separated protobuf bank payment. Test cumulative refusal, exact rollover, real database close/reopen recovery and transaction cache rollback."
+wiring = "api/layerxauth/tx.proto (owning domain 2): add uint64 period_start = 17 and string spent_this_period = 18, then regenerate modules/layerxauth/types/tx.pb.go; the in-scope generated representation and descriptor already carry those wire fields."
+wiring_2 = "modules/layerxauth/keeper/capability.go (owning domain 2): copy Scope.PeriodStart and Scope.SpentThisPeriod into the SDK authorization, preserve the concrete activity message URL and bind BankSendPurpose where issuing a bank payment capability."
+wiring_3 = "modules/layerxauth/ante/integration_test.go and capability issuers (owning domain 2): use canonical mirror asset denominations and the adapter's module/ordinal and bank payment purpose; an unmapped ordinary denomination fails closed."
+
+[finding.zero-total-disagrees-with-kernel]
+test = "TestRepair_193_zero_total_disagrees_with_kernel"
+repair = "Accept treats zero MaxTotal as uncapped while retaining per-activity, finite-total, period and u128 overflow checks. A real signed kernel capability is persisted and read into the SDK mirror; real keeper.CheckActivity and bank MsgExec compare finite and zero-total decisions."
+constraint = "Existing ValidateBasic period bounds and TestLayerXScopeValidateBasicKindAndPeriod explicitly reject positive MaxPerPeriod with zero MaxTotal. Those assertions and bounds remain intact under the task's no-weakening rule; the zero-total kernel-to-SDK proof uses the real SDK SaveGrant mirror path, which does not invoke MsgGrant.ValidateBasic."
+wiring = "modules/layerxauth/types/authorization.go and authorization_test.go (owning domain 2): resolve the declared stateless zero-total/positive-period validation contradiction before issuing that shape through signed SDK MsgGrant; this task preserves the existing bound and tests."
+
+[qualification.build_1]
+revision = "3dbdce62e6491af8def9fa031a617ad2dd3284fc"
+command = "go build ./modules/layerxauth/types/..."
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "The Go module proxy returned HTTP/2 INTERNAL_ERROR while downloading the pinned google.golang.org/genproto zip; compilation did not finish."
+assumption = "Dependency installation may be retried with HTTP/2 disabled without changing project dependency versions."
+
+[qualification.verify_1]
+revision = "81f00a4f44f0fdb1000db036d48cb23ef35e3f04"
+command = "cg spec done 22.31.193 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The database recovery test panicked because rootmulti.Store implements Commit(bool), not Commit(); qualification did not complete."
+repair = "Use the actual store Commit(bool) API and the real host fixture's explicit timestamp window."
+
+[continuation.recovery]
+repair = "Keep the real sdk.CommitMultiStore interface in the fixture, commit with Commit(true), close and reopen LevelDB, and assert the recovered commit ID and persisted spending counters. Reject a redirected recipient under the same restricted payment purpose."
+gotcha = "CommitMultiStore uses Commit(bool), and the host activity fixture must set TimestampWindowMs explicitly; neither an invented Commit() interface nor a zero timestamp window proves recovery or kernel execution."

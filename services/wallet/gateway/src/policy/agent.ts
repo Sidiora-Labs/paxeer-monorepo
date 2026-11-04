@@ -1,3 +1,5 @@
+import { decodeFunctionData, encodeFunctionData, type Hex } from 'viem';
+import { PRECOMPILE_ADDRESSES, SCHEDULER_ABI, STREAMS_ABI } from '../precompiles.js';
 import { env } from '../env.js';
 import {
   countAgentSignaturesLastMinute,
@@ -253,7 +255,16 @@ export interface EvaluateAgentInput {
 export async function evaluateAgent(
   input: EvaluateAgentInput,
 ): Promise<AgentDecision> {
-  const { principal, intent } = input;
+  return evaluateAgentIntent(input, false, 0);
+}
+
+async function evaluateAgentIntent(
+  input: EvaluateAgentInput,
+  movementOnly: boolean,
+  depth: number,
+): Promise<AgentDecision> {
+  const { principal } = input;
+  let intent = input.intent;
   const eff = effectivePolicy(input.policy);
 
   // 0. Freeze — the instant kill switch.
@@ -321,6 +332,15 @@ export async function evaluateAgent(
     return { allow: true, reservedBudgetId: null, reservedValueWei: value };
   }
   const to = intent.to.toLowerCase();
+  let scheduled: AgentTxIntent | null = null;
+  if (to === PRECOMPILE_ADDRESSES.scheduler || to === PRECOMPILE_ADDRESSES.streams) {
+    if (depth >= 16) return deny('COUNTERPARTY_UNDECODED', 'scheduled call nesting exceeds the policy bound');
+    const decoded = decodePrecompilePolicy(intent);
+    if (!decoded) return deny('COUNTERPARTY_UNDECODED', 'precompile movement cannot be decoded from signed calldata');
+    intent = decoded.intent;
+    scheduled = decoded.scheduled;
+  }
+
 
   // Decode selector + asset-moving operands from calldata.
   let selector: string | null = null;
@@ -345,21 +365,33 @@ export async function evaluateAgent(
       if (selector === ERC20_TRANSFER_SELECTOR) {
         tokenContract = to;
         tokenRecipient = decodeAddressArg(data, 0);
-        tokenAmount = intent.tokenAmount ?? decodeUintArg(data, 1);
+        tokenAmount = decodeUintArg(data, 1);
       } else if (selector === ERC20_APPROVE_SELECTOR) {
         tokenContract = to;
         tokenRecipient = decodeAddressArg(data, 0);
         isApprove = true;
+        tokenAmount = decodeUintArg(data, 1);
       } else if (selector === ERC20_TRANSFER_FROM_SELECTOR) {
         tokenContract = to;
         tokenRecipient = decodeAddressArg(data, 1);
-        tokenAmount = intent.tokenAmount ?? decodeUintArg(data, 2);
+        tokenAmount = decodeUintArg(data, 2);
       } else if (mover.known) {
         tokenContract = to;
         tokenRecipient = mover.counterparty;
         isApprove = mover.isApprove;
       }
     }
+  }
+
+  if (movementOnly && mover?.known &&
+      (mover.counterparty === null || ![ERC20_APPROVE_SELECTOR, ERC20_TRANSFER_SELECTOR,
+        ERC20_TRANSFER_FROM_SELECTOR].includes(selector!))) {
+    return deny('COUNTERPARTY_UNDECODED', 'scheduled movement has no decodable counterparty');
+  }
+  if (movementOnly && (selector === ERC20_TRANSFER_SELECTOR ||
+      selector === ERC20_TRANSFER_FROM_SELECTOR || selector === ERC20_APPROVE_SELECTOR) &&
+      (tokenRecipient === null || tokenAmount === null)) {
+    return deny('COUNTERPARTY_UNDECODED', 'scheduled token movement is malformed');
   }
 
   // 3. Denylist — deny always beats allow.
@@ -493,6 +525,12 @@ export async function evaluateAgent(
     }
   }
 
+  if (scheduled) {
+    const nested = await evaluateAgentIntent({ ...input, intent: scheduled }, true, depth + 1);
+    if (!nested.allow) return nested;
+  }
+  if (movementOnly) return { allow: true, reservedBudgetId: null, reservedValueWei: 0n };
+
   // 9. Rate limit, before any budget reservation.
   const limited = await rateLimited(principal.did, eff.rateLimitPerMin);
   if (limited) return limited;
@@ -570,4 +608,47 @@ function decodeApproveAmount(data: string): bigint | null {
   const slot = data.slice(start, end);
   if (!/^[0-9a-f]{64}$/.test(slot)) return null;
   return BigInt(`0x${slot}`);
+}
+
+/** Decode only signed operands; helper annotations never grant precompile authority. */
+function decodePrecompilePolicy(intent: AgentTxIntent): {
+  intent: AgentTxIntent;
+  scheduled: AgentTxIntent | null;
+} | null {
+  const to = intent.to!.toLowerCase();
+  const data = (intent.data ?? '0x').toLowerCase() as Hex;
+  const clean: AgentTxIntent = {
+    kind: 'transaction', to, data, value: intent.value ?? 0n,
+    tokenContract: null, tokenRecipient: null, tokenAmount: null, isApprove: false,
+  };
+  try {
+    if (to === PRECOMPILE_ADDRESSES.scheduler) {
+      const call = decodeFunctionData({ abi: SCHEDULER_ABI, data });
+      if (encodeFunctionData({ abi: SCHEDULER_ABI, ...call }).toLowerCase() !== data) return null;
+      if (call.functionName === 'schedule') {
+        const [target, callData] = call.args;
+        clean.tokenRecipient = target.toLowerCase();
+        return { intent: clean, scheduled: { kind: 'transaction', to: target, data: callData, value: 0n } };
+      }
+      // Rescheduling by id cannot establish the retained job's destination.
+      if (call.functionName === 'reschedule') return null;
+      return { intent: clean, scheduled: null };
+    }
+    const call = decodeFunctionData({ abi: STREAMS_ABI, data });
+    if (encodeFunctionData({ abi: STREAMS_ABI, ...call }).toLowerCase() !== data) return null;
+    if (call.functionName === 'open') {
+      const [payee, token, , , , cap] = call.args;
+      // A stream must carry a positive spend bound.
+      if (cap === 0n) return null;
+      clean.tokenRecipient = payee.toLowerCase();
+      clean.tokenContract = token.toLowerCase();
+      clean.tokenAmount = cap;
+      return { intent: clean, scheduled: null };
+    }
+    // These calls move or increase funds for an id, without signed payee/token operands.
+    if (call.functionName === 'settle' || call.functionName === 'close' || call.functionName === 'updateRate') return null;
+    return { intent: clean, scheduled: null };
+  } catch {
+    return null;
+  }
 }

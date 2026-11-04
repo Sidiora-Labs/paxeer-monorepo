@@ -1,0 +1,41 @@
+[manifest]
+task = "22.32.12"
+domain = 3
+owner_role = "fm-markets"
+pages = 6
+
+[page.1]
+path = "modules/oracle/README.md"
+status = "stale"
+bytes = 3679
+source_1 = "record 22.30.13 [doc.013] (stale): Line 3 incorrectly advertises a current EVM oracle precompile; single-step voting, MidBlock, defaults and penalty-counter sections otherwise match implementation."
+
+[page.2]
+path = "modules/oracle/spec/01_concepts.md"
+status = "stale"
+bytes = 119
+source_1 = "record 22.30.13 [doc.014] (stale): Lines 7-14 are empty behavior headings despite links relying on this page for voting/reward/slashing explanations."
+
+[page.3]
+path = "modules/oracle/spec/02_state.md"
+status = "misleading"
+bytes = 1849
+source_1 = "record 22.30.13 [doc.015] (misleading): Lines 7-45 describe obsolete scalar votes, wrong store prefixes/Amino values and Terra identifiers instead of current protobuf records and freshness."
+
+[page.4]
+path = "modules/oracle/spec/03_end_block.md"
+status = "stale"
+bytes = 1498
+source_1 = "record 22.30.13 [doc.016] (stale): Lines 9-33 place tally in EndBlock and describe rate purging, rewards and prevotes absent from current MidBlock lifecycle."
+
+[page.5]
+path = "modules/oracle/spec/04_messages.md"
+status = "misleading"
+bytes = 5035
+source_1 = "record 22.30.13 [doc.017] (misleading): Lines 70-105 describe aggregate prevotes and required Salt even though the current proto reserves salt and accepts a single-step aggregate vote."
+
+[page.6]
+path = "modules/oracle/spec/05_events.md"
+status = "stale"
+bytes = 1302
+source_1 = "record 22.30.13 [doc.018] (stale): Line 9 assigns price events to EndBlocker and the complete table omits end_slash_window counters; the retired vote row is correctly absent."

@@ -398,7 +398,12 @@ func proofNotificationsServer(t *testing.T, store Store, account, other string) 
 	roots.AddCert(root)
 	// This is the Authenticate boundary supplied by the embedding server: resolve
 	// the actor only from the actual TLS verifier's authenticated certificate.
-	h := HTTP{Store: store, Authenticate: func(r *http.Request) (string, error) {
+	h := HTTP{Store: store, Principal: func(r *http.Request) (Principal, error) {
+		if r.TLS == nil || len(r.TLS.VerifiedChains) == 0 || len(r.TLS.PeerCertificates) == 0 {
+			return Principal{}, ErrForbidden
+		}
+		return Principal{AccountID: r.TLS.PeerCertificates[0].Subject.CommonName, Wallet: "0x0123456789abcdef0123456789abcdef01234567"}, nil
+	}, Authenticate: func(r *http.Request) (string, error) {
 		if r.TLS == nil || len(r.TLS.VerifiedChains) == 0 || len(r.TLS.PeerCertificates) == 0 {
 			return "", ErrForbidden
 		}

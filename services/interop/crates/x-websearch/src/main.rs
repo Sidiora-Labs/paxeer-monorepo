@@ -590,6 +590,13 @@ fn relay(
         ProgramExchange::open(&config.data_dir.join("program-attest"), &config.peers)
             .map_err(|error| format!("peers or data_dir: {error}"))?,
     );
+    exchange
+        .bind_chain(
+            config.evm.chain_id,
+            network_id,
+            attest::signer_address(attestor_key),
+        )
+        .map_err(|error| format!("program exchange identity: {error}"))?;
     program::register(routes, &exchange)
         .map_err(|error| format!("route /program-attestations: {error}"))?;
     let attestor = ProgramAttestor::new(

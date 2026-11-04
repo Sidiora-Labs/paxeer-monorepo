@@ -1,7 +1,6 @@
 use super::trust::CommittedCheckpoint;
 use super::{by_activity, hex, json, protected, refusal, Config, Request, Response};
 use layerx_platform_authority::{authorized_batch_by_activity, receipt_locator, AuthorityFacts};
-use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_wire::receipt::{decode, decode_batch_header};
 use serde::{Deserialize, Serialize};
 use serde_json::{json as value, Value};
@@ -127,6 +126,7 @@ pub(super) struct Record {
 struct Verified {
     record: Record,
     facts: AuthorityFacts,
+    receipt_key_id: [u8; 32],
     receipt_digest: [u8; 32],
     header: Vec<u8>,
     header_signature: [u8; 64],
@@ -362,7 +362,7 @@ impl Human {
             receipt_hex: hex::encode(receipt),
             replica_document: serde_json::from_slice(document).map_err(|_| ())?,
         };
-        let verified = verify(record.clone(), &config.authorization, config)?;
+        let verified = verify(record.clone(), config)?;
         let path = self
             .state_root
             .join(format!("{}.json", hex::encode(&verified.facts.activity_id)));
@@ -402,8 +402,8 @@ impl Human {
                 protected::read(&path, MAX_FILE).map_err(|()| unavailable("state_unavailable"))?;
             let record =
                 serde_json::from_slice(&bytes).map_err(|_| unavailable("state_unavailable"))?;
-            let item = verify(record, &config.authorization, config)
-                .map_err(|()| unavailable("state_evidence_refused"))?;
+            let item =
+                verify(record, config).map_err(|()| unavailable("state_evidence_refused"))?;
             if path.file_name().and_then(|s| s.to_str())
                 != Some(format!("{}.json", hex::encode(&item.facts.activity_id)).as_str())
             {
@@ -422,11 +422,7 @@ impl Human {
     }
 }
 
-fn verify(
-    record: Record,
-    authorization: &SequencerAuthorization,
-    config: &Config,
-) -> Result<Verified, ()> {
+fn verify(record: Record, config: &Config) -> Result<Verified, ()> {
     let receipt = hex::decode(&record.receipt_hex).map_err(|_| ())?;
     let locator = receipt_locator(&receipt).map_err(|_| ())?;
     let (evidence, derived) = crate::trust::replica(
@@ -435,9 +431,6 @@ fn verify(
         &serde_json::to_vec(&record.replica_document).map_err(|_| ())?,
     )
     .map_err(|_| ())?;
-    if derived != *authorization {
-        return Err(());
-    }
     let facts = authorized_batch_by_activity(locator.activity_id, &receipt, &evidence, &derived)
         .map_err(|_| ())?;
     let header = decode_batch_header(&evidence.header).map_err(|_| ())?;
@@ -447,6 +440,7 @@ fn verify(
     Ok(Verified {
         record,
         facts,
+        receipt_key_id: derived.sequencer_id(),
         checkpoint: None,
         receipt_digest: locator.receipt_digest,
         timestamp_ms: header.timestamp_ms(),
@@ -558,7 +552,7 @@ fn dispatch(config: &Config, request: &Request) -> Result<Response, Response> {
             .find(|e| hex::encode(&e.facts.activity_id) == *activity)
         {
             return selected_activity_authority(
-                value!({"batch_id": hex::encode(&held.facts.batch_id), "asset": hex::encode(&held.facts.asset), "sequencer_public_key": hex::encode(&held.facts.sequencer_public_key)}),
+                value!({"batch_id": hex::encode(&held.facts.batch_id), "asset": hex::encode(&held.facts.asset), "sequencer_public_key": hex::encode(&held.facts.sequencer_public_key), "receipt_key_id": hex::encode(&held.receipt_key_id)}),
                 &held.record.receipt_hex,
             );
         }
@@ -576,19 +570,7 @@ fn dispatch(config: &Config, request: &Request) -> Result<Response, Response> {
     }
     let mut evidence = human.evidence(config)?;
     if matches!(name, "identity" | "key-policy" | "capability-scope") {
-        for item in &mut evidence {
-            item.checkpoint = super::checkpoint_header(config, item.facts.batch_number).ok();
-        }
-    }
-    if name == "identity" {
-        let current = super::checkpoint_for(config, None)
-            .map_err(|()| unavailable("identity_head_checkpoint_unavailable"))?;
-        let latest = evidence
-            .last()
-            .ok_or_else(|| unavailable("identity_state_proof_unavailable"))?;
-        if !current.binds_header(&latest.header) {
-            return Err(unavailable("identity_head_evidence_incomplete"));
-        }
+        bind_committed(config, &mut evidence)?;
     }
     match name {
         "core-clock" => clock(&evidence, human.horizon),
@@ -597,6 +579,38 @@ fn dispatch(config: &Config, request: &Request) -> Result<Response, Response> {
             .or_else(|_| budget(p, &params["budget_id"], &evidence)),
         _ => policy_route(name, &params, p, &evidence),
     }
+}
+
+fn bind_committed(config: &Config, evidence: &mut [Verified]) -> Result<(), Response> {
+    let head = crate::committed::CommittedHeader::open(config)
+        .map_err(|()| unavailable("committed_header_unavailable"))?;
+    for item in evidence {
+        let bytes = hex::decode(&item.record.receipt_hex)
+            .map_err(|_| unavailable("committed_receipt_evidence_unavailable"))?;
+        head.bind_receipt(config, &bytes)
+            .map_err(|()| unavailable("committed_receipt_evidence_unavailable"))?;
+        item.checkpoint = Some(
+            CommittedCheckpoint::new(&item.header, head.clone())
+                .map_err(|()| unavailable("committed_receipt_evidence_unavailable"))?,
+        );
+    }
+    Ok(())
+}
+
+fn current_identity_state(identity: &Identity, evidence: &[Verified]) -> Result<Vec<u8>, Response> {
+    let state = evidence
+        .iter()
+        .rev()
+        .find_map(|item| native_identity_state(item, &identity.did).ok())
+        .ok_or_else(|| unavailable("identity_state_proof_unavailable"))?;
+    let latest = evidence
+        .last()
+        .ok_or_else(|| unavailable("head_unavailable"))?;
+    native_checkpoint(latest)?
+        .finality
+        .prove(7, &state[5..37], &state)
+        .map_err(|()| unavailable("identity_state_proof_unavailable"))?;
+    Ok(state)
 }
 
 fn selected_activity_authority(
@@ -912,7 +926,8 @@ fn policy_route(
                 "authorities": authorities,
                 "canonical_core_bytes": hex::encode(&state),
                 "head_sequence": head, "revocation_sequence": revision,
-                "frozen": false, "verification_level": "checkpoint_finalised"
+                "frozen": false, "verification_level": "checkpoint_finalised",
+                "finality": native_checkpoint(item)?.finality.document()
             }),
         ));
     }
@@ -1000,7 +1015,14 @@ fn native_capability_scope(
             }
         }
     }
+    current_identity_state(identity, evidence)?;
     let checkpoint = native_checkpoint(item)?;
+    let mut summary_key = vec![0x15];
+    summary_key.extend_from_slice(&summary[5..37]);
+    checkpoint
+        .finality
+        .prove(7, &summary_key, summary)
+        .map_err(|()| refused())?;
     Ok(json(
         200,
         &value!({
@@ -1011,7 +1033,8 @@ fn native_capability_scope(
             "enforceable_dimensions": [], "observed_sequence": head, "verification": 4,
             "evidence_digest": hex::encode(&item.receipt_digest),
             "canonical_core_bytes": hex::encode(summary),
-            "checkpoint_digest": hex::encode(&checkpoint.checkpoint_id)
+            "checkpoint_digest": hex::encode(&checkpoint.checkpoint_id),
+            "finality": checkpoint.finality.document()
         }),
     ))
 }
@@ -1083,6 +1106,7 @@ fn native_key_policy(
             }
         }
     }
+    current_identity_state(identity, evidence)?;
     Ok(json(
         200,
         &value!({
@@ -1097,7 +1121,8 @@ fn native_key_policy(
                 .map(|c| c.checkpoint_id)
                 .ok_or_else(|| unavailable("key_policy_checkpoint_evidence_unavailable"))?),
             "age_sequences": head - item.facts.global_sequence,
-            "maximum_age_sequences": p.maximum_age_sequences
+            "maximum_age_sequences": p.maximum_age_sequences,
+            "finality": checkpoint.ok_or_else(|| unavailable("committed_header_unavailable"))?.finality.document()
         }),
     ))
 }

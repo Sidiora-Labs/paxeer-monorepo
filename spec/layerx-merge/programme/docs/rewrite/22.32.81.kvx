@@ -1,0 +1,11 @@
+[manifest]
+task = "22.32.81"
+domain = 8
+owner_role = "fm-platform"
+pages = 1
+
+[page.1]
+path = "sdk/crypto/bcrypt_readme.md"
+status = "misleading"
+bytes = 1091
+source_1 = "record 22.30.73 [doc.13] (misleading): Lines 4-7 correctly describe export cost 12; lines 18-20 mistake the keyhash argument 2 for its effective cost, which the pinned bcrypt dependency normalizes to 10. Lines 9-16 omit that verifier from the copied-directory threat model; see bcrypt-doc-backup-risk."

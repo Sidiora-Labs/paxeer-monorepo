@@ -1,0 +1,11 @@
+[manifest]
+task = "22.32.142"
+domain = 14
+owner_role = "fm-web-explorer-bridge"
+pages = 1
+
+[page.1]
+path = "sdk/js/README.md"
+status = "stale"
+bytes = 12268
+source_1 = "record 22.30.140 [doc.013] (stale): Provenance and /encoding exports match the maintained SDK, but lines 118/193 use undeclared MsgSend, line 141 lacks AminoTypes import and lines 136-145 select an unexplained Arctic network."

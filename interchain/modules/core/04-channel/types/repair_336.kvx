@@ -1,0 +1,9 @@
+[repair.22.31.336]
+finding = "genesis-receipt-loss"
+test = "TestRepair_336_GenesisReceiptRecovery"
+path = "Real channel SendPacket and commitment proofs -> unordered RecvPacket -> ExportGenesis -> NewGenesisState -> codec JSON -> stopped receiver -> fresh keeper InitGenesis -> retained receipts and ErrNoOpMsg on replay; an unreceived sequence remains receivable."
+baseline = "Attempt 1 at 091de5637a6bc6fe399bcb7d18a77f7ad6b96140 failed TestRepair_336_GenesisReceiptRecovery at the JSON equality assertion: nil acknowledgements and commitments decoded as empty slices. This continuation retains the applied constructor fix; no unchanged-tree rerun was made because the explicit gate order forbids invoking verify_cmd by hand."
+fixture_repair = "Produce acknowledgements with WriteAcknowledgement and an outbound commitment with SendPacket before export, retaining all strict equality assertions and checking the entire imported channel state."
+gotcha = "Protobuf JSON materializes empty repeated fields as empty slices; populate the full-state fixture through production packet paths so nil versus empty does not obscure receipt recovery."
+wiring_requests = []
+evidence = "The runner records the exact candidate revision, command, exit code and private log in the hf-build/hf-done ledger; no qualification is claimed here before those gates."

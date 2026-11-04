@@ -1,0 +1,41 @@
+[manifest]
+task = "22.32.101"
+domain = 11
+owner_role = "fm-interop"
+pages = 6
+
+[page.1]
+path = "services/interop/PORTABILITY.md"
+status = "misleading"
+bytes = 17166
+source_1 = "record 22.30.110 [doc.007] (misleading): Current v2 format/example are accurate, but v1 API instructions and reader promise at lines 25, 337-347 and 381 are unsupported."
+
+[page.2]
+path = "services/interop/crates/layerx-migrate/OPERATIONS.md"
+status = "stale"
+bytes = 6794
+source_1 = "record 22.30.109 [doc.013] (stale): Full page read. Lines 22-25 require a separately delivered durable rollback authority; line 27 misdescribes claim context instead of signing-key context plus independent effect matching."
+
+[page.3]
+path = "services/interop/crates/layerx-migrate/README.md"
+status = "stale"
+bytes = 1292
+source_1 = "record 22.30.109 [doc.014] (stale): Full page read. Line 7 links into services/docs and services/migrations; source provenance, workspace index and genuine connected fixture caveats otherwise agree."
+
+[page.4]
+path = "services/interop/crates/layerx-mirror/README.md"
+status = "stale"
+bytes = 1270
+source_1 = "record 22.30.111 [doc.9] (stale): Lines 3-5 describe batch/Paxeer X branding and line 12 links the incompatible verifier example; signer framing link remains applicable."
+
+[page.5]
+path = "services/interop/crates/layerx-portable/FORMAT.md"
+status = "stale"
+bytes = 8919
+source_1 = "record 22.30.112 [doc.13] (stale): Read all 158 lines. Leading v1/base64/AuthorizedBatch instructions conflict with current v2; the evidence digest alone does not authenticate verifier provenance."
+
+[page.6]
+path = "services/interop/crates/layerx-x402/COMPATIBILITY.md"
+status = "misleading"
+bytes = 3135
+source_1 = "record 22.30.111 [doc.10] (misleading): Lines 24-28 claim durable crash recovery and exactly-once economic effect beyond the cited in-memory local fault-injection suite."

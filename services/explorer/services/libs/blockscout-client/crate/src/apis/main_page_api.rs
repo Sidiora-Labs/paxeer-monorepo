@@ -253,14 +253,14 @@ impl ResponseContent<GetMainPageTokensSuccess> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum GetMainPageTxsSuccess {
-    Status200(Box<Vec<models::Transaction>>),
+    Status200(Box<Vec<super::feed::FeedItem>>),
 
     UnknownValue(serde_json::Value),
 }
 
 // changed
 impl ResponseContent<GetMainPageTxsSuccess> {
-    pub fn try_as_success(&self) -> Option<&Vec<models::Transaction>> {
+    pub fn try_as_success(&self) -> Option<&Vec<super::feed::FeedItem>> {
         match &self.entity {
             Some(GetMainPageTxsSuccess::Status200(data)) => Some(data),
             _ => None,
@@ -269,7 +269,7 @@ impl ResponseContent<GetMainPageTxsSuccess> {
 
     pub fn try_parse_as_success_model(
         &self,
-    ) -> Result<Vec<models::Transaction>, serde_json_path_to_error::Error> {
+    ) -> Result<Vec<super::feed::FeedItem>, serde_json_path_to_error::Error> {
         serde_json_path_to_error::from_str(&self.content)
     }
 }

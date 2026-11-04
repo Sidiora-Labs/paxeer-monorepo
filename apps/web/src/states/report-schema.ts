@@ -1,11 +1,12 @@
 import { errorCodeVariants } from "../api/generated/index.ts";
+import { supportReportRoute, type SupportReportRoute } from "./report-routes.ts";
 
 export type ReportShell = "mobile" | "desktop";
 
 export interface SupportReportRequest {
   readonly traceId: string;
   readonly machineCode: string;
-  readonly route: string;
+  readonly route: SupportReportRoute;
   readonly shell: ReportShell;
 }
 
@@ -57,20 +58,6 @@ function supportReportMachineCode(value: string): string {
   if (normalized.length === 0 || normalized.length > 120
     || (!errorCodeVariants.some((code) => code === normalized) && !/^[A-Z][A-Z0-9._:-]*$/u.test(normalized))) {
     throw new Error("Invalid machine code");
-  }
-  return normalized;
-}
-
-function supportReportRoute(value: string): string {
-  const normalized = value.trim();
-  const segments = normalized.split("/");
-  if (
-    !/^\/[A-Za-z0-9/_-]*$/u.test(normalized)
-    || normalized.length > 160
-    || segments.includes("..")
-    || segments.includes(".")
-  ) {
-    throw new Error("Invalid report route");
   }
   return normalized;
 }

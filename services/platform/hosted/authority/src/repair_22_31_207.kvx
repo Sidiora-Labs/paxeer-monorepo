@@ -1,0 +1,48 @@
+[repair.22.31.207]
+audit = "22.30.85"
+acceptance = "22998.1"
+evidence = "The private hf-build/hf-done ledger records the candidate revision, exact commands, exit codes and logs; qualification is claimed only by a passing hf-done row."
+baseline = "Not run: the explicit implementation-first order and prohibition on manually invoking verify take precedence over the contradictory baseline step. No baseline failure is claimed."
+
+[finding.retired-anchor-finality]
+test = "retired_anchor_finality_binds_identity_capability_and_key_policy"
+repair = "Replace retired anchor calls with a pinned committed Comet header and EVM projection, committed receipt landing checks, and native lxphost ICS23 per-key membership against app_hash at H-1. Identity, session membership, capability and key policy retain their existing signature, scope, freshness and replay checks."
+proof = "Real native host executes identity registration, rotation announcement and canonical session issuance; real disk SDK store commits and reopens; genuine Comet commit is signed and verified; TLS authority consumes receipts, headers and store proofs with anchor retirement active. Header, proof, key, value, height and uncommitted-receipt mutations are refused."
+
+[finding.rotated-human-receipt-key]
+test = "rotated_human_receipt_key_lookup_retention_and_replay"
+repair = "Retain the SHA256(public key) identity derived from the applicable pinned receipt authorization instead of requiring equality with the legacy singleton. Native content-addressed receipts select their pinned key using receipt context, node height and signature; independent signed batch evidence verifies the execution batch and key validity range."
+proof = "Lookup both historical and rotated pinned keys with human configuration enabled, persist through the real authority writer, stop and restart the authority, replay both human evidence and the rotated key identity, and reject an inapplicable rotated key on lookup and restart."
+
+[wiring.1]
+request = "services/platform/hosted/paxeer/src/comet.rs — platform/domain8: permit the bounded /store/lxphost/key abci_query proof route alongside /store/evm/key; authority fails closed until this transport wiring is deployed."
+
+[wiring.2]
+request = "services/agent/crates/layerx-client/src — agent/domain7: expose a generic native-store ICS23 membership verifier so authority can replace its unchanged copy of the registry verifier without editing out-of-scope manifests or dependencies."
+
+[wiring.3]
+request = "services/agent/crates/layerx-client/src/sequencer.rs — agent/domain7: admit canonical native module receipts with their native zero payment asset in sequencer_receipt; authority uses its existing strict native receipt RPC reader in the meantime."
+
+[wiring.4]
+request = "services/platform/hosted/authority/tests/human_tls.rs — platform/domain8: migrate the old identity_evidence_binds_to_the_committed_anchor_checkpoint fixture to committed headers and native proofs; it encodes the retired anchor interface and is outside this task scope."
+
+[gotcha.1]
+observed = "Native execution batch IDs are content addressed, so the sequencer-only height-encoded receipt-key selector refuses authentic native receipts before human retention. The independent signed header still enforces the same pinned key range."
+
+[gotcha.2]
+observed = "Comet header H authenticates SDK state H-1, not state H and not a receipt global sequence; the proof request and returned height must agree with that pinned coordinate."
+
+[gotcha.3]
+observed = "Existing native session fixtures have expired validity windows. The focused test produces fresh canonical grants through the actual host instead of changing time checks or weakening their bounds."
+
+[compatibility]
+wire = "The existing checkpoint_finalised verification enum and checkpoint_digest field remain wire-compatible; the digest is the committed block hash and the added finality object explicitly reports height, block_hash, app_hash and state_height. No anchor checkpoint registration is used."
+
+[gotcha.4]
+observed = "First focused gate stopped at the producer prerequisite: CARGO_MANIFEST_DIR needs four parent components to reach the repository root. Corrected the harness path; no product assertion was relaxed."
+
+[gotcha.5]
+observed = "The previous attempt's focused verification failed both declared tests during authority startup because its human and service bearer tokens collided. Give service, replica and human routes distinct credentials and report startup stderr directly; preserve the production distinct-token check."
+
+[gotcha.6]
+observed = "The continued focused gate reached lookup and refused BatchIdentity: HostExecute emits unsigned execution output before batch sealing. The producer now uses the real kernel batch-identity, receipt signing, header and Merkle proof routines to publish complete batches; the Rust consumer explicitly asserts the canonical execution batch identity."

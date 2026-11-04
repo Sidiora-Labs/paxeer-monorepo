@@ -1,7 +1,6 @@
 package keeper
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/perps/types"
@@ -59,7 +58,7 @@ func (k *Keeper) SamplePremium(ctx sdk.Context, market types.Market) (bool, erro
 	}
 	oracle := state.IndexPrice.ToBig()
 	if market.ImpactNotionalUsd.IsNil() || !market.ImpactNotionalUsd.IsPositive() {
-		return false, fmt.Errorf("%w: market %d impact notional must be positive", types.ErrInvalidParams, market.ID)
+		return false, types.ErrInvalidParams.Wrapf("market %d impact notional must be positive", market.ID)
 	}
 	notional := market.ImpactNotionalUsd.BigInt()
 	impactBid, err := k.impactPrice(ctx, market.ID, types.SideBuy, notional, oracle)
@@ -76,10 +75,10 @@ func (k *Keeper) SamplePremium(ctx sdk.Context, market types.Market) (bool, erro
 		return false, err
 	}
 	if _, overflow := state.OracleSum.AddOverflow(&state.OracleSum, &state.IndexPrice); overflow {
-		return false, fmt.Errorf("%w: market %d oracle price sum", types.ErrOverflow, market.ID)
+		return false, types.ErrOverflow.Wrapf("market %d oracle price sum", market.ID)
 	}
 	if state.PremiumCount == ^uint64(0) {
-		return false, fmt.Errorf("%w: market %d premium sample count", types.ErrOverflow, market.ID)
+		return false, types.ErrOverflow.Wrapf("market %d premium sample count", market.ID)
 	}
 	state.PremiumCount++
 	state.LastSampleTime = now
@@ -112,7 +111,7 @@ func (k *Keeper) impactPrice(ctx sdk.Context, marketID uint64, side byte, notion
 	err := k.IterateBook(ctx, marketID, side, func(order types.Order) bool {
 		var open uint256.Int
 		if _, underflow := open.SubOverflow(&order.SizeBase, &order.FilledBase); underflow {
-			visitErr = fmt.Errorf("%w: order %s filled above its size", types.ErrOverflow, order.ID.Dec())
+			visitErr = types.ErrOverflow.Wrapf("order %s filled above its size", order.ID.Dec())
 			return true
 		}
 		price := order.LimitPrice.ToBig()
@@ -301,7 +300,7 @@ func fundingBasis(isLong bool, marketID uint64, size, fundingIndex uint256.Int) 
 // account and the position.
 func (k *Keeper) SettlePositionFunding(ctx sdk.Context, account *types.Account, position *types.Position, fundingIndex uint256.Int) (*types.EventRecord, error) {
 	if account.Address != position.Account {
-		return nil, fmt.Errorf("%w: position %s", types.ErrNotPositionHolder, position.ID.Dec())
+		return nil, types.ErrNotPositionHolder.Wrapf("position %s", position.ID.Dec())
 	}
 	books, err := k.fundingVenueBooks(ctx)
 	if err != nil {

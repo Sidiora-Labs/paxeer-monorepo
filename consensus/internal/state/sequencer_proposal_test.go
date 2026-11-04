@@ -54,6 +54,11 @@ func (s *sealedSource) Admit(_ context.Context, height int64, txs types.Txs) (in
 	return len(txs), nil
 }
 
+func (s *sealedSource) AdmitWithAcknowledgements(ctx context.Context, height int64, txs types.Txs) (int, int, error) {
+	admitted, err := s.Admit(ctx, height, txs)
+	return admitted, admitted, err
+}
+
 func (s *sealedSource) Seal(_ context.Context, height int64) (sm.SealedBlock, error) {
 	s.sealCalls = append(s.sealCalls, height)
 	b, ok := s.sealed[height]
@@ -215,7 +220,9 @@ func TestSequencerProposalAdmitErrorFailsProposal(t *testing.T) {
 	require.ErrorIs(t, err, want)
 	require.Nil(t, block)
 	require.Equal(t, []admitCall{{height: height, txs: types.Txs{tx}}}, f.source.admitCalls)
-	require.Zero(t, f.mempool.Size())
+	require.Equal(t, 1, f.mempool.Size())
+	left, _ := f.mempool.ReapTxs(mempool.ReapLimits{}, false)
+	require.Equal(t, types.Txs{tx}, left)
 	require.Empty(t, f.source.sealCalls)
 }
 

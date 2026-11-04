@@ -1,0 +1,66 @@
+[manifest]
+task = "22.32.16"
+domain = 4
+owner_role = "fm-launchpad"
+pages = 4
+
+[page.1]
+path = "docs/site/docs/concepts/assets.md"
+status = "stale"
+bytes = 8773
+source_1 = "record 22.30.165 [doc.006] (stale): Lines 3-8 and subsequent identity/grants/LXGB/network-fee sections present the standalone kernel asset/LNI activity model as current."
+source_2 = "record 22.30.27 [doc.004] (stale): Stale lines 3-7 (balance authority), activity ordinal table beginning at line 40 on site / 44 on wiki, and custody issuance section; show native bank and pointerview paths."
+source_3 = "record 22.30.35 [doc.8] (stale): Lines 41-42 and 219-220 describe retired public lx_ asset and activity APIs; retain valid encoding details during the rewrite. Finding 23."
+source_4 = "record 22.30.48 [doc.11] (stale): Read in full; rewrite the obsolete architecture or interface statements identified by findings assets-gateway-methods."
+source_5 = "record 22.30.81 [doc.assets] (stale): Lines 42-55 describe live public lx_sendActivity Asset ordinals; lines 217-227 advertise lx_listAssets, lx_getAsset, balances and fee reads that rpc::dispatch now refuses. Rewrite proposal: Update docs/site/docs/concepts/assets.md to document merged ledger/bank/pointer asset behavior and the supported hosted px_ reads and transaction entry points. Retain legacy payload encodings only as explicitly historical decoding references."
+source_6 = "record 22.30.85 [doc.07] (stale): Lines 198-228 retain LNI minor-5 and lx_* read guidance; preserve accurate canonical encoding details."
+
+[page.2]
+path = "docs/site/docs/concepts/paxeer-settlement.md"
+status = "misleading"
+bytes = 3520
+source_1 = "record 22.30.20 [doc.02] (stale): Read in full. Lines 3-24 split LayerX activity from Paxeer execution, lines 28-40 require checkpoint-backed custody, and lines 44-49 prescribe retired sequencer emergency exits."
+source_2 = "record 22.30.37 [doc.d002] (stale): Lines 3-24, 28-47 and 54-72 retain separate LayerX execution, custody checkpoints, emergency exit and relay/guarantor roles; see docs-settlement-two-networks."
+source_3 = "record 22.30.42 [doc.8] (stale): Lines 3-6 and custody/exit sections describe the retired network split; see settlement-retired-custody."
+source_4 = "record 22.30.72 [doc.12] (stale): Read in full; Line 3: The page says ordinary activity needs no Paxeer transaction, divides kernel execution from custody/checkpoints/guarantors, and teaches checkpoint withdrawals and emergency exits through the retired separate sequencer settlement model. See settlement-page-retired-model."
+source_5 = "record 22.30.81 [doc.settlement] (misleading): Lines 3-23 define a separate checkpoint/guarantor settlement finality and lines 28-50 present custody withdrawals and forced exits as live network operations. Rewrite proposal: Replace docs/site/docs/concepts/paxeer-settlement.md with committed-block receipt finality and actual merchant verification behavior. Preserve historical checkpoint/custody material only as archived evidence with no live submission or deployment instructions."
+
+[page.3]
+path = "docs/site/docs/operators/settlement-evidence.md"
+status = "misleading"
+bytes = 14460
+source_1 = "record 22.30.1 [doc.5] (stale): Lines 3-39 and 89-105 prescribe guarantor checkpoint publication, custody, deposit-root authority and producer provisioning; line 55 claims only 9/10 native module leaves. Historic publication and current native proof contracts need separate guidance."
+source_2 = "record 22.30.11 [doc.07] (stale): Lines 7-39 prescribe retired checkpoint and deposit-root publication; finding retired-settlement-publication requests a historical boundary and the merged native movement/proof workflow."
+source_3 = "record 22.30.126 [doc.10] (misleading): Read in full; lines 3-39, 54 and 84-105 retain retired checkpoint, custody and guarantor workflows."
+source_4 = "record 22.30.134 [doc.11] (stale): Lines 3-13 and the consumer/producer sequences prescribe active guarantor checkpoint, custody-credit and withdrawal publication."
+source_5 = "record 22.30.149 [doc.11] (stale): Read in full; current operating guidance conflicts with the merged network or with its own command availability statements. Rewrite proposals and exact entry lines: settlement-evidence-retired."
+source_6 = "record 22.30.150 [doc.005] (stale): Lines 7-37 prescribe the retired checkpoint, guarantor and custody publication lifecycle as current operation; finding 013 proposes committed-height evidence and explicit historical archive labeling."
+source_7 = "record 22.30.156 [doc.05] (stale): Lines 3-9, 32-37 and 95 present retired checkpoint/guarantor/deposit publication as current operations; migrate to block/ICS23/native-bank guidance."
+source_8 = "record 22.30.165 [doc.010] (stale): Lines 3 onward use retired settlement suite, checkpoint/guarantor publication and confirmation-depth finality rather than committed BFT state/proofs."
+source_9 = "record 22.30.170 [doc.005] (stale): Lines 3-9 and 30-39 instruct checkpoint certificate registration, balance/withdrawal witness publication and deposit-root authority configuration through publication contracts. See finding.package_doc_05 for the concrete rewrite."
+source_10 = "record 22.30.20 [doc.05] (stale): Read in full. Lines 3-9,30-39 and 95-105 prescribe retired witness-publication contracts and autonomous guarantor operation rather than committed chain evidence."
+source_11 = "record 22.30.26 [doc.settlement] (stale): Read the complete page. Historical v2 evidence formats are presented as active checkpoint and guarantor publication procedures; see settlement_evidence_retired."
+source_12 = "record 22.30.31 [doc.006] (stale): Lines 3, 33-37 and 93-101 retain active guarantor certificate/publication rollout. Mark historical formats and document committed-block evidence as the current authority."
+source_13 = "record 22.30.37 [doc.d005] (stale): Lines 3-39 and 95-105 retain guarantor checkpoint publication, confirmation depth and retired settlement contracts; see docs-settlement-evidence-retired-procedure."
+source_14 = "record 22.30.4 [doc.005] (misleading): Lines 34, 54 and 93-95 require retired guarantor replay/certificate and publication-input workflows; preserve proof and owner-signature principles in a current node procedure. Findings: 030."
+source_15 = "record 22.30.42 [doc.10] (stale): Lines 3, 7 and 9 require retired certificates, checkpoint witnesses and vault authorities; see evidence-retired-publication."
+source_16 = "record 22.30.52 [doc.2] (misleading): Read in full: checkpoint publication, deposit-root authority and guarantor exit procedures describe retired settlement architecture, not BFT commit evidence."
+source_17 = "record 22.30.56 [doc.8] (stale): Read in full. Publication/redeployment and guarantor/checkpoint instructions need historical scope and a current committed-block evidence procedure."
+source_18 = "record 22.30.73 [doc.06] (stale): Lines 3-39 and 73-105 prescribe retired checkpoint publication, custody deposit roots and exit payout instead of committed-block settlement."
+source_19 = "record 22.30.85 [doc.10] (misleading): Lines 3-40, 84-97 and 103-105 retain retired checkpoint/deposit publication and authority lifecycle."
+source_20 = "record 22.30.9 [doc.7] (stale): Live consumer/publication instructions at lines 30-38 and 93-95 use retired guarantor, checkpoint registry and custody-exit workflows."
+
+[page.4]
+path = "docs/site/docs/platform/agent-boundary.md"
+status = "misleading"
+bytes = 30019
+source_1 = "record 22.30.151 [doc.10] (stale): Line 297 names a layerxd LNI socket and lines 419-420 describe a standalone sequencer and authority replica. Document the merged node kernel boundary and distinguish retained local agent control concepts from retired deployment roles."
+source_2 = "record 22.30.156 [doc.07] (stale): Lines 4, 136, 234-253, 297-298, 379 and 419-420 depend on retired LNI/layerxd/authority-replica transport and readiness. Retained TLS/idempotency rules need a merged-node adapter rewrite."
+source_3 = "record 22.30.162 [doc.006] (stale): Current operating guidance conflicts with the merged network; exact locations and rewrite proposals are recorded in agent-retired-transport."
+source_4 = "record 22.30.164 [doc.9] (stale): Read all 457 lines. Lines 3-5, 234-260, 297 and 418-420 instruct operators to use retired LNI and daemon/replica processes."
+source_5 = "record 22.30.170 [doc.011] (stale): Lines 3-8 submit activities onto node LNI; later deployment config treats the retired layerxd socket and program listener as running dependencies. See finding.package_doc_11 for the concrete rewrite."
+source_6 = "record 22.30.26 [doc.agent_boundary] (stale): Read the complete page. LNI activity and receipt transport, socket configuration, readiness and layerxd authority prerequisites describe retired components; see agent_boundary_retired_lni."
+source_7 = "record 22.30.31 [doc.011] (stale): Lines 4, 136, 234-256 and 297-298 retain live LNI submission, sequencer receipts and layerxd socket configuration. Replace the transport and receipt lifecycle with the merged boundary."
+source_8 = "record 22.30.32 [doc.03] (stale): Read complete page; line 297 in boundary_site identifies the stale statements and owning rewrite proposal."
+source_9 = "record 22.30.71 [doc.3] (stale): Lines 3-4, 234-258, 297-299 and 379-420 describe LNI, a layerxd socket and a separate sequencer/replica readiness and test path; replace with chain transaction and receipt behavior."
+source_10 = "record 22.30.79 [doc.012] (misleading): Lines 3-5 and 141-152 describe LNI activity submission; lines 223-288 document a removed idempotency journal, line 297 LNI configuration and line 420 old tests. Rewrite for retained chain receipt/deployment evidence, retired-route refusals and current configuration."

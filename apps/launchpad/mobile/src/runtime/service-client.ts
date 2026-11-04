@@ -1,3 +1,11 @@
+import {
+  signAccountOperation,
+  sameOperationIdentity,
+  type OperationWallet,
+  type AccountAction,
+  type AccountMethod,
+  type SignedAccountOperation,
+} from './operation-authority.ts';
 import { marketRoutes } from './routes/market.ts';
 import * as accountRoutes from './routes/account.ts';
 import * as notificationsRoutes from './routes/notifications.ts';
@@ -165,9 +173,27 @@ export function readConfiguration(input: unknown): PublicConfiguration {
 export class MobileServices {
   readonly sdk: SdkClient;
   private csrf = '';
+  private identity: CurrentIdentity | undefined;
+  private identityGeneration = 0;
+  private operationWallet: OperationWallet | undefined;
+  private operationUnlocked: () => boolean = () => true;
+  private pendingWrites = new Map<string, Promise<SignedAccountOperation>>();
+  private activeWrites = new Set<string>();
+  setOperationWallet(
+    wallet: OperationWallet,
+    unlocked: () => boolean = () => true,
+  ) {
+    this.operationWallet = wallet;
+    this.operationUnlocked = unlocked;
+  }
   constructor(
     readonly config: PublicConfiguration,
     _token?: () => string | undefined,
+    private readonly cookieFetch: (
+      url: string,
+      init?: RequestInit,
+    ) => Promise<Response> = protectedCookieFetch,
+    private readonly requestId: () => Promise<string> = nativeRequestId,
   ) {
     this.sdk = new SdkClient(
       {
@@ -190,23 +216,28 @@ export class MobileServices {
         headers.set('Origin', config.canonicalOrigin);
         if (init?.credentials === 'omit')
           return fetch(url.href, { ...init, headers });
-        return protectedCookieFetch(url.href, { ...init, headers });
+        return this.cookieFetch(url.href, { ...init, headers });
       },
     );
   }
   async currentSession(signal: AbortSignal) {
-    let response = await protectedCookieFetch(
-      `${this.config.canonicalOrigin}/v2/auth/session`,
-      {
+    const generation = this.identityGeneration;
+    const read = () =>
+      this.cookieFetch(`${this.config.canonicalOrigin}/v2/auth/session`, {
         signal,
         headers: {
           Origin: this.config.canonicalOrigin,
           Accept: 'application/json',
         },
-      },
-    );
-    if (response.status === 401) {
-      const refreshed = await protectedCookieFetch(
+      });
+    let response = await read();
+    let csrf = response.headers.get('X-CSRF-Token');
+    // The identity read deliberately issues no CSRF secret. On native restart,
+    // rotate through the real refresh boundary: the protected cookie provider
+    // supplies the vault's refresh cookie and CSRF proof, and the producer
+    // returns the new CSRF receipt with its rotated cookie credentials.
+    if (response.status === 401 || (response.ok && !this.csrf && !csrf)) {
+      const refreshed = await this.cookieFetch(
         `${this.config.canonicalOrigin}/v2/auth/sessions:refresh`,
         {
           signal,
@@ -221,30 +252,133 @@ export class MobileServices {
       );
       if (!refreshed.ok) throw new HttpError(refreshed.status);
       decodeV2Contract('RefreshResponse', await refreshed.json());
-      response = await protectedCookieFetch(
-        `${this.config.canonicalOrigin}/v2/auth/session`,
-        {
-          signal,
-          headers: {
-            Origin: this.config.canonicalOrigin,
-            Accept: 'application/json',
-          },
-        },
-      );
+      csrf = refreshed.headers.get('X-CSRF-Token');
+      response = await read();
     }
     if (!response.ok) throw new HttpError(response.status);
     const body: unknown = await response.json();
     if (!body || typeof body !== 'object' || !('data' in body))
       throw new Error('Invalid current identity');
     const principal = decodeCurrentIdentity(body.data);
-    const csrf = response.headers.get('X-CSRF-Token');
+    if (
+      !csrf &&
+      this.identity &&
+      sameOperationIdentity(this.identity, principal)
+    )
+      csrf = this.csrf;
     if (!csrf || !/^[A-Za-z0-9_-]{32,256}$/.test(csrf))
       throw new Error('Current cookie CSRF proof missing');
+    signal.throwIfAborted();
+    if (generation !== this.identityGeneration)
+      throw new Error('Identity changed during session validation');
+    if (this.identity && !sameOperationIdentity(this.identity, principal)) {
+      this.identityGeneration++;
+      this.pendingWrites.clear();
+    }
+    this.identity = principal;
     this.csrf = csrf;
     return principal;
   }
   clearIdentity() {
     this.csrf = '';
+    this.identity = undefined;
+    this.identityGeneration++;
+    this.pendingWrites.clear();
+  }
+  private async accountWrite<
+    N extends
+      | 'WatchlistPutResponse'
+      | 'WatchlistDeleteResponse'
+      | 'ProfilePatchResponse'
+      | 'PreferencesUpdateResponse',
+  >(
+    action: AccountAction,
+    method: AccountMethod,
+    path: string,
+    response: N,
+    body: unknown,
+    signal: AbortSignal,
+  ): Promise<ContractTypes[N]> {
+    const wallet = this.operationWallet;
+    if (!wallet) throw new Error('External wallet operation signer required');
+    const identity = await this.currentSession(signal),
+      generation = this.identityGeneration;
+    if (
+      action === 'profile.update' &&
+      path !== `/v1/profiles/${identity.wallet}` &&
+      path.toLowerCase() !== `/v1/profiles/${identity.wallet.toLowerCase()}`
+    )
+      throw new Error('Current profile owner required');
+    const text = body === undefined ? '' : JSON.stringify(body);
+    const key = JSON.stringify([
+      identity.accountId,
+      identity.sessionId,
+      identity.authEpoch,
+      action,
+      method,
+      path,
+      text,
+    ]);
+    if (this.activeWrites.has(key))
+      throw new Error('Account operation already active');
+    this.activeWrites.add(key);
+    const assertCurrent = () => {
+      signal.throwIfAborted();
+      if (
+        generation !== this.identityGeneration ||
+        !this.identity ||
+        !sameOperationIdentity(identity, this.identity) ||
+        wallet !== this.operationWallet ||
+        !this.operationUnlocked() ||
+        wallet.connectedAccount?.toLowerCase() !== identity.wallet.toLowerCase()
+      )
+        throw new Error('Operation account, session or local unlock changed');
+    };
+    try {
+      assertCurrent();
+      let pending = this.pendingWrites.get(key);
+      if (!pending) {
+        pending = signAccountOperation(
+          wallet,
+          identity,
+          { action, method, path, body: text },
+          this.requestId,
+          signal,
+          assertCurrent,
+        );
+        this.pendingWrites.set(key, pending);
+        try {
+          await pending;
+        } catch (error) {
+          this.pendingWrites.delete(key);
+          throw error;
+        }
+      }
+      const authorization = await pending;
+      await this.currentSession(signal);
+      assertCurrent();
+      if (Date.now() >= authorization.expiresAt * 1000)
+        throw new Error(
+          'Outstanding signed operation expired; reconcile server state before another write',
+        );
+      const result = await this.sdk.request(path, response, {
+        method,
+        signal,
+        authenticated: true,
+        ...(text ? { serializedBody: text } : {}),
+        requestId: authorization.requestId,
+        headers: {
+          'Idempotency-Key': authorization.idempotencyKey,
+          'X-Kindle-Operation': authorization.operation,
+          'X-Kindle-Operation-Signature': authorization.signature,
+        },
+      });
+      assertCurrent();
+      this.pendingWrites.delete(key);
+      return result;
+    } finally {
+      this.activeWrites.delete(key);
+    }
   }
 
   pools(signal: AbortSignal) {
@@ -267,22 +401,23 @@ export class MobileServices {
     );
   }
   watch(pool: string, enabled: boolean, signal: AbortSignal) {
-    return this.sdk.request(
+    return this.accountWrite(
+      'watchlist.update',
+      'PUT',
       `/v1/me/watchlist/${evmAddress(pool)}`,
       'WatchlistPutResponse',
-      {
-        signal,
-        method: 'PUT',
-        authenticated: true,
-        body: decodeContract('WatchlistPutBody', { alertEnabled: enabled }),
-      },
+      decodeContract('WatchlistPutBody', { alertEnabled: enabled }),
+      signal,
     );
   }
   unwatch(pool: string, signal: AbortSignal) {
-    return this.sdk.request(
+    return this.accountWrite(
+      'watchlist.remove',
+      'DELETE',
       `/v1/me/watchlist/${evmAddress(pool)}`,
       'WatchlistDeleteResponse',
-      { signal, method: 'DELETE', authenticated: true },
+      undefined,
+      signal,
     );
   }
   profile(wallet: string, signal: AbortSignal) {
@@ -293,15 +428,19 @@ export class MobileServices {
     );
   }
   editProfile(wallet: string, body: ProfilePatchBody, signal: AbortSignal) {
-    return this.sdk.request(
-      `/v1/profiles/${evmAddress(wallet)}`,
+    const path = `/v1/profiles/${evmAddress(wallet)}`;
+    if (
+      !this.identity ||
+      wallet.toLowerCase() !== this.identity.wallet.toLowerCase()
+    )
+      throw new Error('Current profile owner required');
+    return this.accountWrite(
+      'profile.update',
+      'PATCH',
+      path,
       'ProfilePatchResponse',
-      {
-        signal,
-        method: 'PATCH',
-        authenticated: true,
-        body: decodeContract('ProfilePatchBody', body),
-      },
+      decodeContract('ProfilePatchBody', body),
+      signal,
     );
   }
   notifications(signal: AbortSignal) {
@@ -318,12 +457,14 @@ export class MobileServices {
     });
   }
   updatePreferences(body: PreferencesUpdateBody, signal: AbortSignal) {
-    return this.sdk.request('/v1/me/preferences', 'PreferencesUpdateResponse', {
+    return this.accountWrite(
+      'preferences.update',
+      'PATCH',
+      '/v1/me/preferences',
+      'PreferencesUpdateResponse',
+      decodeContract('PreferencesUpdateBody', body),
       signal,
-      method: 'PATCH',
-      authenticated: true,
-      body: decodeContract('PreferencesUpdateBody', body),
-    });
+    );
   }
   deviceAuthorization:
     | ((input: {
@@ -369,7 +510,7 @@ export class MobileServices {
       !/^0x[0-9a-f]+$/i.test(authorization.signature)
     )
       throw new Error('Invalid device operation authority');
-    const result = await protectedCookieFetch(
+    const result = await this.cookieFetch(
       `${this.config.canonicalOrigin}${path}`,
       {
         signal,
@@ -381,7 +522,7 @@ export class MobileServices {
           'X-CSRF-Token': this.csrf,
           'Idempotency-Key': authorization.idempotencyKey,
           'X-Kindle-Operation': authorization.operation,
-          'X-Kindle-Signature': authorization.signature,
+          'X-Kindle-Operation-Signature': authorization.signature,
         },
         body: text || undefined,
       },

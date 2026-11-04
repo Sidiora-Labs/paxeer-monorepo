@@ -1,0 +1,40 @@
+[repair.22.31.213]
+finding = "22.30.89/mcp_enrollment_shape"
+source_revision = "7fc896febbb27d599c34aa9b6e0a81d4a7905759"
+proof = "tools/platform/cli/tests/repair_22_31_213.rs::mcp_enrollment_shape_installs_and_serves_unchanged_before_and_after_restart"
+validation = "tools/platform/cli/tests/repair_22_31_213.rs::mcp_enrollment_shape_readiness_requires_https_and_absolute_protected_file_references"
+path = "BindingPublisher/enrol -> shared BindingDocument -> protected binding and session store -> installer shared shape plus Binding::parse -> authenticated HTTPS mcp.describe -> registered production stdio server; reconstruct the publisher, reopen the store, session registry and in-process TLS listener at the same origin and repeat without rewriting any binding or secret."
+shape = "tools/platform/cli/src/install/binding_shape.rs defines the persisted height and readiness fields once; enrolment.rs compiles that source for publication and recovery, and the installer decodes it before passing the same unmodified bytes to the serving consumers Binding parser."
+transport = "The test carries committed certificate/key fixtures and an in-process Rust TLS loopback peer using the daemon existing rustls dependency; no Python, OpenSSL executable, live endpoint, external credential or subprocess toolchain is needed. The Cargo-built CLI is the production installer and stdio component under test."
+height = "The existing EnrolmentRequest.core_sequence caller already supplies core_height; publish it as core_height and expose the same height in installation metadata without converting it to a session or transaction sequence."
+baseline = "The supplied previous-attempt evidence reports mcp_enrollment_shape_installs_and_serves_unchanged_before_and_after_restart failing with outcome.unknown instead of gateway.authentication and the readiness validation test passing; the earlier verify failure is retained below. No additional baseline verify was run because the explicit ordered gates prohibit it."
+wiring_request = "services/agent/crates/layerx-agentd/src/main.rs (domain 9): pass the configured unified HTTPS gateway origin, protected gateway-key file and optional trust-anchor file through ReadinessDeclaration::new and DaemonSurface::with_readiness when constructing McpBoot."
+wiring_request_2 = "tools/platform/cli/tests/mcp_daemon_bound.rs (domain 8): migrate its legacy producer assumptions and document rewriting to the unchanged current enrollment output; the retired-key negative case must construct an explicitly retired document instead of calling the current publisher."
+evidence = "The exact verified candidate revision, command, exit and private log are recorded by hf-done as the final verify row in /out/run/gates.jsonl and /out/logs/verify-1.log; no result is claimed until that gate passes."
+
+[qualification.build_1]
+revision = "f2df7141334926a7665b4d27127e60a7f566f83a"
+command = "cargo build --locked --manifest-path tools/platform/cli/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "The new authentication assertion dereferenced SessionCredential::token_id(), which returns its array by value; the task-scoped repair passes the array directly."
+
+[qualification.verify_1]
+revision = "72603821b4aa1b812b6820bdefe9504361bd63f6"
+command = "cg spec done 22.31.213 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The TLS relay's HTML 401 was classified as outcome.unknown by the SDK; repair the relay to send agent_rpc::refusal's actual typed JSON body while retaining both gateway.authentication and refused assertions."
+
+[continuation.2]
+repair = "Use the shared closed BindingDocument for both publication and recovered enrolment reads, and the same source definition in installation; preserve exact height, readiness and secret-file references. Replace the subprocess relay with an in-process TLS peer that sends agent_rpc::refusal as typed application/json after consuming the request, so SDK and stdio preserve gateway.authentication before and after restart."
+proof = "The existing proving test now compares the installer readiness and all binding metadata before and after fresh publisher/store/listener recovery, re-decodes the original document with the shared definition, and retains both exact gateway.authentication/refused assertions and all unchanged binding/token/bearer checks."
+gotcha = "A pre-dispatch HTTP authentication refusal must carry the daemon typed error envelope with JSON content type, and the HTTP peer must consume the request body before closing; an HTML refusal or reset makes MCP classify the exchange as outcome.unknown."
+
+[continuation.2.build_1]
+revision = "1b11b902f5e734ea094dc6d87dca0593b0ab714f"
+command = "cargo build --locked --manifest-path tools/platform/cli/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "The in-process TLS listener called rustix::net::socket with SocketFlags; this crate version takes those flags through socket_with."
+repair = "Call socket_with with the same CLOEXEC flag, address family, socket type and protocol; retain every listener and transport assertion."
