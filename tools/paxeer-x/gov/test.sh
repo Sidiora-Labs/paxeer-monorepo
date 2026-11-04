@@ -49,24 +49,42 @@ if [ -z "$PAXD" ]; then
 fi
 
 OUT=${GOV_TEST_OUT:-$WORK/out}
-"$ROOT/tools/paxeer-x/gov/render.sh" --out "$OUT" --paxd "$PAXD" \
-  --height 27000000 \
-  --release-url https://example.invalid/paxd-v6.12.0-linux-amd64 \
-  --release-sha256 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef \
-  --deposit 10000000uhpx --pax-usd 0.02 \
-  --pax-asset-id 1111111111111111111111111111111111111111111111111111111111111111 \
-  --sid-asset-id 2222222222222222222222222222222222222222222222222222222222222222 \
-  --market-pax-sid 3333333333333333333333333333333333333333333333333333333333333333 \
-  --market-btc-usd 4444444444444444444444444444444444444444444444444444444444444444 \
-  --market-eth-usd 5555555555555555555555555555555555555555555555555555555555555555 \
-  --custody-network-id 125 \
-  --kernel-network-id 125 \
-  --deposit-authority d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a \
-  --sequencer-id 6666666666666666666666666666666666666666666666666666666666666666 \
-  --sequencer-pubkey 3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c \
-  --first-batch 1 \
-  --bridge-config "$ROOT/services/bridge/deploy/proposals/testdata/solana.json" \
+RENDER_ARGS=(
+  --paxd "$PAXD"
+  --height 27000000
+  --release-url https://example.invalid/paxd-v6.12.0-linux-amd64
+  --release-sha256 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+  --deposit 10000000uhpx --pax-usd 0.02
+  --kernel-network-id 125
   --bridge-manifest "$ROOT/services/bridge/deploy/proposals/testdata/attestors.json"
+)
+"$ROOT/tools/paxeer-x/gov/render.sh" --out "$OUT" "${RENDER_ARGS[@]}" \
+  --bridge-config "$ROOT/services/bridge/deploy/proposals/testdata/solana.json"
+
+bridge_names_refuse_traversal() {
+  local name config="$WORK/invalid-bridge.json" output="$WORK/refused"
+  mkdir "$WORK/escape"
+  printf 'operator data must survive\n' >"$WORK/escape/sentinel"
+  for name in '../escape' '../../escape' 'solana/../../escape' \
+    'solana/child' 'solana\child' "$WORK/escape" '.' '..' ''; do
+    jq --arg name "$name" '.name = $name' \
+      "$ROOT/services/bridge/deploy/proposals/testdata/solana.json" >"$config"
+    if "$ROOT/tools/paxeer-x/gov/render.sh" --out "$output" "${RENDER_ARGS[@]}" \
+        --bridge-config "$config" >"$WORK/refused.log" 2>&1; then
+      fail "bridge_names_refuse_traversal: accepted $name"
+    fi
+    grep -Fq 'bridge name must be' "$WORK/refused.log" \
+      || fail "bridge_names_refuse_traversal: wrong refusal for $name"
+    [ ! -e "$output/bridge" ] || fail "bridge_names_refuse_traversal: created bridge directory"
+    [ "$(cat "$WORK/escape/sentinel")" = 'operator data must survive' ] \
+      || fail "bridge_names_refuse_traversal: changed outside sentinel"
+    [ "$(ls -A "$WORK/escape")" = sentinel ] \
+      || fail "bridge_names_refuse_traversal: wrote outside output"
+  done
+  echo "bridge_names_refuse_traversal: ok"
+}
+
+bridge_names_refuse_traversal
 
 for f in 01-software-upgrade 02-fee-token-params 03-xweb-fee \
   bridge/solana/proposals/04-proposal-open-chain bridge/solana/proposals/05-proposal-sidiora-cap; do

@@ -1,0 +1,21 @@
+[repair.22.33.311]
+mode = "BUILD"
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+scope = ["services/explorer/deploy/tools/tests", "tools/qualification/audit_repairs/repair_22_33_311.kvx", "tools/qualification/audit_repairs/test_repair_22_33_311.py"]
+build = "hf-build: bash -n services/explorer/deploy/tools/tests/copy-blockscout-test.sh"
+verify = "hf-done: cg spec done 22.33.311 -f layerx-merge --root $TASK_ROOT"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_311.py"
+evidence = "The private /out/run/gates.jsonl and final hf-done JSON identify the exact candidate revision, command, exit code and log; this repair record is included in that candidate."
+baseline = "Not run: the explicit implementation-first and hf-build/hf-done-only order overrides step 5's historical unchanged-tree run. No test_repair_22_33_311.py or earlier gate ledger existed at task entry; no baseline failures are claimed."
+
+[finding.copy-divergence-test-gap]
+tests = ["test_source_mutation_scenario_checks_retained_content_and_progress", "test_wrong_key_scenario_checks_identity_and_complete_retained_row", "test_scenarios_invoke_real_tool_and_propagate_assertion_failures", "test_interrupted_copy_refuses_same_key_mutation_and_recovers_retained_values", "test_equal_count_wrong_key_rejected_by_production_content_verifier"]
+repair = "Strengthen the existing real-tool scenarios: prove the committed transaction exists before same-key source mutation, retain its complete row across refusal and successful recovery, check interrupted progress stays fixed, and prove equal-count key substitution retains the complete conflicting destination log without inserting the missing original key."
+policy = "The production copy owner persists the interrupted boundary and source content fingerprints. A reopened source snapshot with changed keys or values is refused until explicit source reconciliation; equal-count destination divergence fails content verification without overwriting or deleting rows."
+automated = "Pytest checks shell scenario command order, exact SQL, value/identity assertions, real tool invocation and failure propagation. Production CopyRun and PsqlSession execute fingerprint, COPY, atomic commit and verification through the existing committed socket transcript peer. The test loses the second batch connection, closes both sessions, reopens from production-emitted boundary/fingerprint state, refuses a same-key mutation, reads retained COPY values and recovers after reconciliation. Equal-count substituted keys produce the real verification response 2 2 0. The separate declared build parses the shell with bash -n; pytest requires no subprocess or external binary."
+review_only = "The Docker/PostgreSQL integration scenarios are inspected but not executed by these allowed gates. Live PostgreSQL trigger behavior, physical database durability and the shell process exit codes remain integration review obligations; the transcript tests prove production protocol and content policy, not a database engine."
+wiring_requests = []
+
+[qualification.notes]
+gotcha = "The base already contains the two proposed divergence scenarios from the producer repair; extend their value, identity and progress checks in place rather than adding duplicate scenarios or changing unrelated tests."
+fixture = "Reuse services/explorer/deploy/tools/fixtures/copy-m310-transcripts.json and the committed TranscriptPeer in test_repair_22_33_310.py; its peer asserts every SQL/COPY request exactly. Retained values are read from COPY bytes emitted by the production producer before interruption, not an independent hand-built recovery message."

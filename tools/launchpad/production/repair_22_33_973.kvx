@@ -1,0 +1,61 @@
+[repair.22.33.973]
+audit = "22.30.30"
+base_revision = "9fda5aafcf8b4dba3d79ad6d650ea1272c960511"
+seed_base_revision = "13d941baae20489831996ea7db5fde01ad1e253d"
+scope = "Production qualifier, serial control-plane bindings and their focused file-transport regressions. No retired production specification, semantic catalogue or accepted execution evidence is reconstructed."
+pre_change = "No unchanged-tree verification ran: the explicit Order requires complete implementation before hf-build and makes hf-done the sole initial verification. The declared repair test did not exist at the base, so no pre-change test failures are claimed; the audit supplies the recorded missing-input observations."
+authority = "Retained specification spec/layerx-merge/spec.kvx decision.1803 retires the old production-system tree; decision.421 identifies the retained SDK operation and schema sources. req.181182 restores six byte-identical v1 fixtures, not a complete semantic catalogue or fifty-lane DAG."
+approval = "The task authorizes routing and reviewed-input binding changes. It does not supply approval or authentic source for a replacement semantic catalogue, graph or exact ownership inventory. The canonical registry explicitly awaits that owning-domain review; tests never turn that state into production approval."
+digest_updates = "retained_inputs pins all six restored protocol files and both retained SDK authority sources by file digest and an aggregate digest. A future canonical migration approval must bind the exact specification, plan, layout, catalogue/manifest, retained inventory and complete runner/dispatcher source identities. Historical interface, base ownership and signed-acceptance digests remain unchanged. The do_9-authorized prelude migration is generated with a new ownership digest and matching registry policy digest; it does not approve an unreviewed production graph."
+evidence = "The runner-owned /out/run/gates.jsonl and final hf-done line bind the exact candidate revision, command, exit code and private evidence log. This source record does not claim a gate result in advance."
+qualification_boundary = "The focused gate needs only Python and committed peers. It proves reviewed input transport, retained source identity, catalogue semantics, both serial reconstruction entry paths, exact fifty-lane refusal checks, durable acceptance-index transport and every existing exact-patch assertion. It neither executes native lane checks nor claims complete production qualification."
+
+[finding.qualification-missing-inputs]
+tests = ["test_qualification_missing_inputs_retained_inventory_is_authentic", "test_qualification_missing_inputs_real_materializer_transport", "test_qualification_missing_inputs_rejects_unreviewed_bytes", "test_qualification_missing_inputs_are_pinned_after_preflight", "test_qualification_missing_inputs_cannot_approve_invalid_authority", "test_qualification_missing_inputs_preserves_canonical_source_checks", "test_qualification_missing_inputs_real_cli_reports_unapproved_migration", "test_qualification_missing_inputs_reviewed_bundle_and_registry_arguments"]
+repair = "Bind qualification to the canonical registry's explicit reviewed specification/plan and actual restored protocol inventory. Consume semantic identity from the same approved nonempty catalogue and materializer manifest used by interface clients, with digest and source checks before and after qualification. Update bootstrap registry client arguments to the explicit authority contracts, including real restored accounting/chain fixtures; unreviewed registry/spec aliases, empty catalogues, stale approvals and changed sources fail."
+
+[finding.serial-gate-layout]
+tests = ["test_serial_gate_layout_both_paths_reach_exact_fifty_boundary", "test_serial_gate_layout_preserves_fifty_lane_checks", "test_serial_gate_layout_store_to_readonly_index_survives_reopen", "test_serial_gate_layout_retains_every_exact_patch_assertion", "test_serial_gate_layout_approved_generator_preserves_patch_allocations", "test_serial_gate_layout_approval_refuses_changed_source", "test_serial_gate_layout_prelude_and_hash_refusals_are_distinct", "test_serial_gate_layout_new_control_entry_cannot_be_patched"]
+repair = "Both serial paths and the accepted-candidate qualifier reconstruct the same digest-reviewed graph through the actual split dispatcher package, independent of import search paths. Pin dispatcher/runner bytes, review canonical specification/plan/registry identities, protect those paths against serial patch writes and use launchpad/evidence consistently. Require fifty distinct canonical lanes and fifty distinct selected acceptances. Move active exact runner-control paths explicitly; retain the historical base ownership, extension, prelude source/mode and native-check pins. Generate the specifically approved prelude ownership migration without changing its 387 historical patch allocations or its strict 388-entry bound; the additional entry records the new root-exclusive control-plane reader and grants no patch permission."
+peer = "tests/fixtures/repair_22_33_973/peer.kvx derives from the committed dispatcher repair_22_33_915 peer, with a production-system format header and first-wave done statuses for boundary tests. It is explicitly an isolated test graph. The semantic peer is emitted by the real materializer from the existing reviewed schema-exercise selection, not substituted for the missing production catalogue."
+transport = "Real Graph task/ownership records -> JSON execution plan -> canonical reviewed reader; real materializer -> catalogue and manifest bytes -> qualifier semantic consumer and JSON Schema instance validator; real Store.claim/accept -> SQLite -> reopened serial ReadOnlyIndex. Existing exact policy, extension and prelude suites execute all their original filesystem/codec assertions in process, without subprocess check execution or synthetic receipts."
+
+[wiring.production-graph]
+request = "spec/layerx-merge/spec.kvx — owning domain 4 with specification owner domain 17: approve an explicitly retained production qualification graph and matching plan, including all fifty lane ownership bindings; publish its canonical registry identities and layout digest without restoring the retired tree implicitly."
+
+[wiring.semantic-catalogue]
+request = "sdk/launchpad/protocol/contracts and sdk/launchpad/packages — owning domain 4: supply and approve the complete authentic semantic catalogue, generated mapping/schema/standards inputs, migration register and required chain attestations; then bind their real paths and update frozen interface digests in tools/launchpad/production/bootstrap/check-registry.json. The six restored fixtures alone cannot supply those inputs."
+
+[wiring.accepted-policies]
+request = "Owning domain 4 coordinator's private signed baseline, lane registry, accepted artifacts and exact serial ownership/prelude artifacts: explicitly review the split source/ownership bindings and regenerate matching evidence, including current serial runner source hashes and registry-without-self digest. Historical receipts are not repinned or relabelled as current qualification."
+
+[gotcha.scope-and-order]
+observed = "Root GOTCHA.kvx and spec records are outside the task's explicit scope, and step 6's pre-change verify conflicts with the explicit implementation-first gate order. Keep the findings and wiring requests in this scoped record and run only the bounded gates."
+
+[gotcha.frozen-ownership]
+observed = "The base ownership, extension and approved prelude content pins remain exact. Task do_9 explicitly authorizes a regenerated prelude ownership pin with a recorded generator and unchanged historical patch permissions; broad path replacements in signed historical inputs remain prohibited."
+
+[qualification.initial]
+revision = "afff85717ad7a50cd20bb72c87005839ec2c7b89"
+command = "cg spec done 22.33.973 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "81 passed and 3 failed: the unchanged base and working PRELUDE_OWNERSHIP_BYTES hash to 9899f10158a075d02a90a22a9f826762e86b8f018791a5f2bd93296d70737c64 and declare 387 paths, while the immutable production review requires 9f4fc356c8d3dd5ecf24d2024daee7280679c49e8fc4a50e118b1e6db9a2d4ad and 388 paths."
+assumption = "The original attempt treated this as missing approval. The continuation ruling do_9 supplies approval for a generated binding repair; this is a task-scoped repair, with all existing assertions and strict counts preserved."
+
+[approval.serial-prelude-migration]
+authority = "Task 22.33.973 continuation ruling do_9 explicitly authorizes regenerating the approved prelude ownership through a reproducible generator. This updates only the local reviewed binding, not production migration approval or private signed execution evidence."
+generator_command = "python3 tools/launchpad/production/approve_serial_prelude.py --approval 22.33.973"
+source = "tests/fixtures/repair_22_33_973/reviewed-prelude-ownership.json is the byte-exact decoded original PRELUDE_OWNERSHIP_BYTES, SHA256 9899f10158a075d02a90a22a9f826762e86b8f018791a5f2bd93296d70737c64. The generator refuses changed source."
+transformation = "Preserve all 387 historical path/owner entries, add the real control_plane.py as exactly one root-exclusive ownership entry, and explicitly bind the split runner control paths. The artifact still requires exactly 388 entries; the 387 patchable paths remain byte-for-byte allocations, with the approved prelude still forbidden from changing twice."
+outputs = "tests/fixtures/repair_22_33_973/approved-prelude-ownership.json, the generated PRELUDED_SERIAL_OWNERSHIP_SHA256, matching canonical registry source-policy/policy digests and bootstrap/prelude-review-22.33.973.json carrying source and output identities."
+refusals = "A missing approved prelude is refused before reading ownership or manifest artifacts. With a valid prelude, altered ownership bytes retain the distinct artifact differs from reviewed hash refusal."
+
+[gotcha.continuation-conflict]
+observed = "The qualifier seed collided with the current load-repair admission branch. Preserve load_repair_admission, qualify_load_repair and the early load-repair dispatch while integrating the optional explicit root parameter beside them."
+
+[gotcha.programme-parser]
+observed = "The retained programme KVX contains legacy backslash strings and is not wholesale TOML. Read only its identity header for retained inventory authority, as the implementation already does; the isolated production graph remains strict TOML."
+
+[gotcha.python-format]
+observed = "No Python formatter is configured for this directory or the repository root; preserve the existing file styles and use only the declared build and verification gates."

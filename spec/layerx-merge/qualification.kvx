@@ -27923,3 +27923,99 @@ symbol = "repair_22_33_1321.rs"
 observed = "Attempt 1: the gates passed; publication was held on a lock file outside the declared paths."
 assumption = "A declared-paths gap for a lock the task's manifest change regenerates."
 severity = "low"
+
+[finding.22.31.447.3]
+task = "22.31.447"
+file = "services/wallet/gateway/src/db/repair-22-31-447.test.ts"
+symbol = "repair-22-31-447.test.ts"
+observed = "Attempt 3: every gate passed; the publication was rejected for apps/perps/node_modules/.bin/webpack changing outside the declared paths."
+assumption = "A tracked install artefact rewritten by the install, not a product change (gotcha 2997)."
+severity = "low"
+
+[finding.22.31.474.1]
+task = "22.31.474"
+file = "apps/explorer/ui/marketplace/essentialDapps/revoke/components/repair-22-33-299.spec.ts"
+symbol = "repair-22-33-299.spec.ts"
+observed = "Attempt 1: type-check and scoped lint passed and 45 of 46 tests passed; the signature replay case expected 10 to be 1000."
+assumption = "The literal height in the consumer spec went stale when the producer fixture was regenerated at height 10."
+severity = "high"
+
+[finding.22.33.1400.4]
+task = "22.33.1400"
+file = "services/platform/examples/test/repair-22-33-1400.test.mjs"
+symbol = "repair-22-33-1400.test.mjs"
+observed = "Attempt 4: the build passed; the verify failed at npm ci before any test ran."
+assumption = "Blocked by the root lock, not by the task's own change."
+severity = "low"
+
+[finding.22.31.269.6]
+task = "22.31.269"
+file = "services/explorer/services/libs/blockscout-client/crate/tests/repair_22_31_269.rs"
+symbol = "repair_22_31_269.rs"
+observed = "Attempt 6: cargo build --tests exit 101 on six outdated field accesses in the dependent test repair_22_33_430.rs."
+assumption = "A consumer test of the regenerated client that the task's paths excluded."
+severity = "high"
+
+[finding.22.33.1537.1]
+task = "22.33.1537"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1537.rs"
+symbol = "repair_22_33_1537.rs"
+observed = "Attempt 1: the build passed; 30 of 32 cases passed; the two outbox_recover restart cases failed on the inventory results."
+assumption = "The restart and recovery path is only proven when the inventory producer is repaired alongside its tests."
+severity = "high"
+
+[finding.22.33.1550.1]
+task = "22.33.1550"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1550.rs"
+symbol = "repair_22_33_1550.rs"
+observed = "Attempt 1: the final build passed; verification recorded 6 of 7 cases before the fixture correction."
+assumption = "The corrected fixture is unverified, not wrong."
+severity = "low"
+
+[finding.22.99.77.12]
+task = "22.99.77"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 10: 16 of 17 f03 cases passed (status -3 on the schedule-capacity case) and 12 routed operations exceeded the CPU fuel cap by at most 47 units."
+assumption = "Per-operation fuel grows with the state size; the cap is the protocol's and does not move."
+severity = "high"
+
+[finding.22.33.1244.1]
+task = "22.33.1244"
+file = "modules/evm/repair_m1244_test.go"
+symbol = "repair_m1244_test.go"
+observed = "Attempt 1: the repair and the pipeline documentation were implemented; go test failed to compile on the undefined GenPrivKey."
+assumption = "A wrong helper name in the test, not a product defect."
+severity = "low"
+
+[finding.22.33.458.1]
+task = "22.33.458"
+file = "services/explorer/services/libs/blockscout-service-launcher/tests/repair_22_33_458.rs"
+symbol = "repair_22_33_458.rs"
+observed = "Attempt 1: URL component encoding and five integration tests were implemented; cargo build --tests exit 101 on the unresolved database import."
+assumption = "A gate wiring gap: the feature the repair needs was not enabled."
+severity = "low"
+
+[finding.22.31.465.1]
+task = "22.31.465"
+file = "services/platform/hosted/paxeer"
+symbol = "paxeer"
+observed = "Attempt 1: cargo metadata and the webhooks build passed; four 1319 Go tests failed on the deployment manifest facts."
+assumption = "The four failures belong to the manifest crossing (gotcha 2998), reconciled by 22.31.481."
+severity = "low"
+
+[finding.22.33.1000.3]
+task = "22.33.1000"
+file = "services/launchpad/indexer/internal/processor/repair_m1000_test.go"
+symbol = "repair_m1000_test.go"
+observed = "Attempt 3: the build and five repair tests passed; the generation case failed on one absent committed response (decimals of the pool token)."
+assumption = "One producer response is missing from the committed fixtures; the replay design is right."
+severity = "low"
+
+[finding.22.33.213.3]
+task = "22.33.213"
+file = "precompiles/layerxprograms/repair_m213_test.go"
+symbol = "repair_m213_test.go"
+observed = "Attempt 3: six of seven repair cases passed; the storage-environment response case failed on a fixture prefix length and a non-canonical lease-state record; the gate output showed only binary-file-matches lines."
+assumption = "The remaining failure is in the test fixture, and the gate output was hidden by binary bytes in the log."
+severity = "low"

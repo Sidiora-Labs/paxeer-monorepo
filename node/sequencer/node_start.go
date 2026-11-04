@@ -1,7 +1,6 @@
 package sequencer
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -205,8 +204,11 @@ func (n *Node) reconcileWALTip(ctx context.Context, height int64) error {
 			return errors.New("sequencer: WAL committed tip is ahead of app")
 		}
 		if committed.Height == uint64(height) {
-			if committed.LastSeq != lastSeq || !bytes.Equal(committed.AppHash[:], n.App.CommitMultiStore().LastCommitID().Hash) {
+			if committed.LastSeq != lastSeq {
 				return errors.New("sequencer: WAL committed tip differs from app")
+			}
+			if err := n.App.CheckCommittedAppHash(height, committed.AppHash[:]); err != nil {
+				return fmt.Errorf("sequencer: WAL committed tip differs from app: %w", err)
 			}
 			return nil
 		}
@@ -229,9 +231,9 @@ func (n *Node) reconcileWALTip(ctx context.Context, height int64) error {
 	if seal == nil || seal.Height != uint64(height) || seal.ToSeq != lastSeq || seal.LastSeqHash != lastHash {
 		return errors.New("sequencer: sealed WAL tip differs from committed app")
 	}
-	hash := n.App.CommitMultiStore().LastCommitID().Hash
-	if len(hash) != 32 {
-		return errors.New("sequencer: committed app hash is not 32 bytes")
+	hash, err := n.App.CommittedAppHash(height)
+	if err != nil {
+		return err
 	}
 	_, err = n.Replicator.Release(ctx, &wal.Committed{Height: uint64(height), LastSeq: lastSeq, AppHash: [32]byte(hash)})
 	return err

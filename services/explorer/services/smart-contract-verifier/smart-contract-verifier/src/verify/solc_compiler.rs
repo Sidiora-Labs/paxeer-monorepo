@@ -86,12 +86,16 @@ impl evm_compilers::EvmCompiler for SolcCompiler {
             compiler_path,
             compiler_version.to_semver().to_owned(),
         );
-        let output = solc
-            .async_compile_output(input)
-            .await
-            .context("compilation")?;
-        let output_value =
-            serde_json::from_slice(&output).context("deserializing compiler output into value")?;
+        let command = solc.configure_cmd().into();
+        let input = serde_json::to_vec(input).context("serializing compiler input")?;
+        let output = super::compiler_process::run_command(command, Some(input)).await?;
+        if !output.status.success() {
+            return Err(
+                anyhow::anyhow!(foundry_compilers::error::SolcError::solc_output(&output)).into(),
+            );
+        }
+        let output_value = serde_json::from_slice(&output.stdout)
+            .context("deserializing compiler output into value")?;
 
         Ok(output_value)
     }

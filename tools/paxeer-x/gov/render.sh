@@ -8,12 +8,7 @@ usage() {
   cat <<'USAGE'
 usage: render.sh --out DIR --height H --release-url URL --release-sha256 HEX
                  --deposit COINS --pax-usd PRICE
-                 --pax-asset-id HEX64 --sid-asset-id HEX64
-                 --market-pax-sid HEX64 --market-btc-usd HEX64 --market-eth-usd HEX64
-                 --custody-network-id N --kernel-network-id N --deposit-authority HEX64
-                 --sequencer-id HEX64 --sequencer-pubkey HEX64
-                 [--perp-margin pax|sid] [--rate-update-height H]
-                 [--sid-pointer 0xADDR] [--first-batch N] [--last-batch N]
+                 --kernel-network-id N [--rate-update-height H]
                  [--bridge-config FILE]... [--bridge-manifest FILE]
                  [--paxd BIN] [--from BECH32] [--chain-id ID]
 USAGE
@@ -27,15 +22,10 @@ GOV_AUTHORITY=pax10d07y265gmmuvt4z0w9aw880jnsr700jxdwa9m
 CHAIN_ID=hyperpax_125-1
 FROM=$GOV_AUTHORITY
 PAXD=${PAXD:-paxd}
-PERP_MARGIN=pax
-FIRST_BATCH=0
-LAST_BATCH=18446744073709551615
-SID_POINTER=""
 BRIDGE_MANIFEST="$ROOT/services/bridge/deploy/attestors.json"
 BRIDGE_CONFIGS=()
 OUT="" HEIGHT="" RELEASE_URL="" RELEASE_SHA256="" DEPOSIT="" PAX_USD="" RATE_UPDATE_HEIGHT=""
-PAX_ASSET_ID="" SID_ASSET_ID="" MARKET_PAX_SID="" MARKET_BTC_USD="" MARKET_ETH_USD=""
-CUSTODY_NETWORK_ID="" KERNEL_NETWORK_ID="" DEPOSIT_AUTHORITY="" SEQUENCER_ID="" SEQUENCER_PUBKEY=""
+KERNEL_NETWORK_ID=""
 
 while [ $# -gt 0 ]; do
   [ $# -ge 2 ] || usage
@@ -47,20 +37,7 @@ while [ $# -gt 0 ]; do
     --deposit) DEPOSIT=$2 ;;
     --pax-usd) PAX_USD=$2 ;;
     --rate-update-height) RATE_UPDATE_HEIGHT=$2 ;;
-    --pax-asset-id) PAX_ASSET_ID=$2 ;;
-    --sid-asset-id) SID_ASSET_ID=$2 ;;
-    --sid-pointer) SID_POINTER=$2 ;;
-    --market-pax-sid) MARKET_PAX_SID=$2 ;;
-    --market-btc-usd) MARKET_BTC_USD=$2 ;;
-    --market-eth-usd) MARKET_ETH_USD=$2 ;;
-    --perp-margin) PERP_MARGIN=$2 ;;
-    --custody-network-id) CUSTODY_NETWORK_ID=$2 ;;
     --kernel-network-id) KERNEL_NETWORK_ID=$2 ;;
-    --deposit-authority) DEPOSIT_AUTHORITY=$2 ;;
-    --sequencer-id) SEQUENCER_ID=$2 ;;
-    --sequencer-pubkey) SEQUENCER_PUBKEY=$2 ;;
-    --first-batch) FIRST_BATCH=$2 ;;
-    --last-batch) LAST_BATCH=$2 ;;
     --bridge-config) BRIDGE_CONFIGS+=("$2") ;;
     --bridge-manifest) BRIDGE_MANIFEST=$2 ;;
     --paxd) PAXD=$2 ;;
@@ -72,26 +49,15 @@ while [ $# -gt 0 ]; do
 done
 
 die() { echo "render.sh: $*" >&2; exit 1; }
-for name in OUT HEIGHT RELEASE_URL RELEASE_SHA256 DEPOSIT PAX_USD PAX_ASSET_ID SID_ASSET_ID \
-  MARKET_PAX_SID MARKET_BTC_USD MARKET_ETH_USD CUSTODY_NETWORK_ID KERNEL_NETWORK_ID DEPOSIT_AUTHORITY SEQUENCER_ID SEQUENCER_PUBKEY; do
+for name in OUT HEIGHT RELEASE_URL RELEASE_SHA256 DEPOSIT PAX_USD KERNEL_NETWORK_ID; do
   [ -n "${!name}" ] || die "--$(echo "$name" | tr 'A-Z_' 'a-z-') is required"
 done
 RATE_UPDATE_HEIGHT=${RATE_UPDATE_HEIGHT:-$HEIGHT}
 [[ $HEIGHT =~ ^[1-9][0-9]*$ ]] || die "--height $HEIGHT is not a positive integer"
 [[ $RATE_UPDATE_HEIGHT =~ ^[1-9][0-9]*$ ]] || die "--rate-update-height $RATE_UPDATE_HEIGHT is not a positive integer"
-[[ $CUSTODY_NETWORK_ID =~ ^[1-9][0-9]*$ ]] || die "--custody-network-id $CUSTODY_NETWORK_ID is not a positive integer"
 [[ $KERNEL_NETWORK_ID =~ ^[1-9][0-9]*$ && ${#KERNEL_NETWORK_ID} -le 10 && $KERNEL_NETWORK_ID -le 4294967295 ]] \
   || die "--kernel-network-id $KERNEL_NETWORK_ID is not a positive uint32"
-[[ $FIRST_BATCH =~ ^[0-9]+$ && $LAST_BATCH =~ ^[0-9]+$ ]] || die "batch numbers must be unsigned integers"
 [[ $RELEASE_SHA256 =~ ^[0-9a-f]{64}$ ]] || die "--release-sha256 is not 64 lowercase hex characters"
-for name in SEQUENCER_ID SEQUENCER_PUBKEY; do
-  [[ ${!name} =~ ^[0-9a-f]{64}$ ]] || die "--$(echo "$name" | tr 'A-Z_' 'a-z-') is not 64 lowercase hex characters"
-done
-case "$PERP_MARGIN" in
-  pax) PERP_MARGIN_ASSET_ID=$PAX_ASSET_ID ;;
-  sid) PERP_MARGIN_ASSET_ID=$SID_ASSET_ID ;;
-  *) die "--perp-margin must be pax or sid" ;;
-esac
 OUT=$(realpath -m "$OUT")
 BRIDGE_MANIFEST=$(realpath "$BRIDGE_MANIFEST")
 for i in "${!BRIDGE_CONFIGS[@]}"; do BRIDGE_CONFIGS[$i]=$(realpath "${BRIDGE_CONFIGS[$i]}"); done
@@ -114,21 +80,6 @@ print(fee)
 PY
 )
 
-# setSequencerAuthorization(bytes32,bytes32,uint64,uint64), selector 0xc2661383.
-ANCHOR_CALLDATA=$(python3 - "$SEQUENCER_ID" "$SEQUENCER_PUBKEY" "$FIRST_BATCH" "$LAST_BATCH" <<'PY'
-import sys
-seq, key, first, last = sys.argv[1], sys.argv[2], int(sys.argv[3]), int(sys.argv[4])
-if int(seq, 16) == 0 or int(key, 16) == 0:
-    sys.exit("sequencer id and public key must be nonzero")
-for n in (first, last):
-    if n >= 1 << 64:
-        sys.exit("batch number %d exceeds uint64" % n)
-if first > last:
-    sys.exit("first batch %d is after last batch %d" % (first, last))
-print("0xc2661383" + seq + key + "%064x" % first + "%064x" % last)
-PY
-)
-
 UPGRADE_INFO=$(jq -cn --arg url "$RELEASE_URL" --arg sha "$RELEASE_SHA256" \
   '{binaries: {"linux/amd64": ($url + "?checksum=sha256:" + $sha)}}')
 
@@ -140,16 +91,6 @@ VARS=$(jq -n \
   --arg XWEB_MAX_CALLBACK_GAS "500000" --arg XWEB_TIMEOUT_BLOCKS "3600" \
   --argjson XWEB_KERNEL_NETWORK_ID "$KERNEL_NETWORK_ID" \
   --argjson XWEB_PROGRAM_FEE_DENOMS '["uhpx","usid","uusdc","uusdl"]' \
-  --arg MARKET_PAX_SID "$MARKET_PAX_SID" --arg MARKET_BTC_USD "$MARKET_BTC_USD" \
-  --arg MARKET_ETH_USD "$MARKET_ETH_USD" --arg PERP_MARGIN_ASSET_ID "$PERP_MARGIN_ASSET_ID" \
-  --arg PAX_ASSET_ID "$PAX_ASSET_ID" --arg SID_ASSET_ID "$SID_ASSET_ID" --arg SID_POINTER "$SID_POINTER" \
-  --arg PAX_MINIMUM_DEPOSIT "1000000" --arg PAX_CUSTODY_CAP "" \
-  --arg SID_MINIMUM_DEPOSIT "1000000" --arg SID_CUSTODY_CAP "" \
-  --argjson CUSTODY_NETWORK_ID "$CUSTODY_NETWORK_ID" \
-  --arg WITHDRAWAL_DELAY_SECONDS "3600" --arg FORCED_EXIT_DELAY_SECONDS "0" \
-  --arg LIVENESS_BOUND_SECONDS "86400" --arg DEPOSIT_AUTHORITY "$DEPOSIT_AUTHORITY" \
-  --arg SEQUENCER_ID "$SEQUENCER_ID" --arg SEQUENCER_PUBKEY "$SEQUENCER_PUBKEY" \
-  --arg FIRST_BATCH "$FIRST_BATCH" --arg LAST_BATCH "$LAST_BATCH" --arg ANCHOR_CALLDATA "$ANCHOR_CALLDATA" \
   '$ARGS.named')
 
 OUT=$(python3 "$OUTPUT_GUARD" prepare "$OUT")
