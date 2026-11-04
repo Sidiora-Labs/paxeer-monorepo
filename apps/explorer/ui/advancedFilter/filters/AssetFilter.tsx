@@ -4,8 +4,11 @@ import React from 'react';
 
 import type { AdvancedFilterParams } from 'types/api/advancedFilter';
 import type { TokenInfo } from 'types/api/token';
+import type { ClusterChainConfig } from 'types/multichain';
 
+import config from 'configs/app';
 import useApiQuery from 'lib/api/useApiQuery';
+import { useMultichainContext } from 'lib/contexts/multichain';
 import useDebounce from 'lib/hooks/useDebounce';
 import { Checkbox, CheckboxGroup } from 'toolkit/chakra/checkbox';
 import { Select } from 'toolkit/chakra/select';
@@ -16,7 +19,7 @@ import * as TokenEntity from 'ui/shared/entities/token/TokenEntity';
 import TableColumnFilter from 'ui/shared/filters/TableColumnFilter';
 import NativeTokenIcon from 'ui/shared/NativeTokenIcon';
 
-import { NATIVE_TOKEN } from '../constants';
+import { getNativeToken } from '../constants';
 
 const FILTER_PARAM_INCLUDE = 'token_contract_address_hashes_to_include';
 const FILTER_PARAM_EXCLUDE = 'token_contract_address_hashes_to_exclude';
@@ -40,10 +43,17 @@ type Props = {
   handleFilterChange: (filed: keyof AdvancedFilterParams, val: Array<string>) => void;
   columnName: string;
   isLoading?: boolean;
+  currency?: ClusterChainConfig['app_config']['chain']['currency'];
 };
 
-const AssetFilter = ({ value = [], handleFilterChange }: Props) => {
-  const [ currentValue, setCurrentValue ] = React.useState<Value>([ ...value ]);
+const AssetFilter = ({ value = [], handleFilterChange, currency: currencyProp }: Props) => {
+  const multichainContext = useMultichainContext();
+  const currency = currencyProp ?? (multichainContext?.chain.app_config ?? config).chain.currency;
+  const nativeToken = React.useMemo(() => getNativeToken(currency), [ currency ]);
+  const [ selectedValue, setCurrentValue ] = React.useState<Value>([ ...value ]);
+  const currentValue = React.useMemo(() => selectedValue.map(item => (
+    item.token.address_hash === 'native' ? { ...item, token: nativeToken } : item
+  )), [ selectedValue, nativeToken ]);
   const [ searchTerm, setSearchTerm ] = React.useState<string>('');
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
@@ -74,7 +84,8 @@ const AssetFilter = ({ value = [], handleFilterChange }: Props) => {
   });
 
   const onTokenClick = React.useCallback((token: TokenInfo) => () => {
-    setCurrentValue(prev => prev.findIndex(i => i.token.address_hash === token.address_hash) > -1 ? prev : [ { token, mode: 'include' }, ...prev ]);
+    setCurrentValue(prev => prev.some(i => i.token.address_hash === token.address_hash) ?
+      prev.filter(i => i.token.address_hash !== token.address_hash) : [ { token, mode: 'include' }, ...prev ]);
   }, []);
 
   const onTokenChange = React.useCallback((token: TokenInfo) => (event: React.FormEvent<HTMLLabelElement>) => {
@@ -134,7 +145,7 @@ const AssetFilter = ({ value = [], handleFilterChange }: Props) => {
         <>
           <Text color="text.secondary" fontWeight="600" mt={ 3 }>Popular</Text>
           <Flex rowGap={ 3 } flexWrap="wrap" gap={ 3 } mb={ 2 }>
-            { [ NATIVE_TOKEN, ...tokensQuery.data.items ].map(token => (
+            { [ nativeToken, ...tokensQuery.data.items ].map(token => (
               <Tag
                 key={ token.address_hash }
                 data-id={ token.address_hash }
@@ -142,7 +153,7 @@ const AssetFilter = ({ value = [], handleFilterChange }: Props) => {
                 variant="select"
               >
                 <Flex flexGrow={ 1 } alignItems="center">
-                  { token.address_hash === NATIVE_TOKEN.address_hash ? <NativeTokenIcon boxSize={ 5 } mr={ 2 }/> : <TokenEntity.Icon token={ token }/> }
+                  { token.address_hash === nativeToken.address_hash ? <NativeTokenIcon boxSize={ 5 } mr={ 2 }/> : <TokenEntity.Icon token={ token }/> }
                   { token.symbol || token.name || token.address_hash }
                 </Flex>
               </Tag>

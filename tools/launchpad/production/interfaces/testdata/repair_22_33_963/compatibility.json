@@ -1,0 +1,2538 @@
+{
+  "contracts": [
+    {
+      "field_mappings": [
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "ClientConfiguration.baseUrl"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "ClientConfiguration.timeoutMs"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "HistoryBars.c"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "HistoryBars.h"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "HistoryBars.l"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "HistoryBars.nextCursor"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "HistoryBars.o"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "HistoryBars.s"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "HistoryBars.t"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "HistoryBars.v"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "HistoryRequest.countback"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "HistoryRequest.cursor"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "HistoryRequest.from"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "HistoryRequest.resolution"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "HistoryRequest.symbol"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "HistoryRequest.to"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "NoHistory.nextTime"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "NoHistory.s"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "RequestOptions.signal"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "UdfConfig.code"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "UdfConfig.currency_codes"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "UdfConfig.desc"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "UdfConfig.description"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "UdfConfig.exchanges"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "UdfConfig.id"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "UdfConfig.name"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "UdfConfig.supported_resolutions"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "UdfConfig.supports_group_request"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "UdfConfig.supports_marks"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "UdfConfig.supports_search"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "UdfConfig.supports_time"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "UdfConfig.supports_timescale_marks"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "UdfConfig.symbols_types"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "UdfConfig.value"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "UdfSymbol.currency_code"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "UdfSymbol.description"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "UdfSymbol.exchange"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "UdfSymbol.full_name"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "UdfSymbol.has_empty_bars"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "UdfSymbol.has_intraday"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "UdfSymbol.has_weekly_and_monthly"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "UdfSymbol.listed_exchange"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "UdfSymbol.name"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "UdfSymbol.pricescale"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "UdfSymbol.session"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "UdfSymbol.supported_resolutions"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "UdfSymbol.ticker"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "UdfSymbol.timezone"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "source_field": "UdfSymbol.type"
+        }
+      ],
+      "id": "candles-sdk",
+      "interface_inventories": [
+        {
+          "fields": [
+            "ClientConfiguration.baseUrl",
+            "ClientConfiguration.timeoutMs",
+            "HistoryBars.c",
+            "HistoryBars.h",
+            "HistoryBars.l",
+            "HistoryBars.nextCursor",
+            "HistoryBars.o",
+            "HistoryBars.s",
+            "HistoryBars.t",
+            "HistoryBars.v",
+            "HistoryRequest.countback",
+            "HistoryRequest.cursor",
+            "HistoryRequest.from",
+            "HistoryRequest.resolution",
+            "HistoryRequest.symbol",
+            "HistoryRequest.to",
+            "NoHistory.nextTime",
+            "NoHistory.s",
+            "RequestOptions.signal",
+            "UdfConfig.code",
+            "UdfConfig.currency_codes",
+            "UdfConfig.desc",
+            "UdfConfig.description",
+            "UdfConfig.exchanges",
+            "UdfConfig.id",
+            "UdfConfig.name",
+            "UdfConfig.supported_resolutions",
+            "UdfConfig.supports_group_request",
+            "UdfConfig.supports_marks",
+            "UdfConfig.supports_search",
+            "UdfConfig.supports_time",
+            "UdfConfig.supports_timescale_marks",
+            "UdfConfig.symbols_types",
+            "UdfConfig.value",
+            "UdfSymbol.currency_code",
+            "UdfSymbol.description",
+            "UdfSymbol.exchange",
+            "UdfSymbol.full_name",
+            "UdfSymbol.has_empty_bars",
+            "UdfSymbol.has_intraday",
+            "UdfSymbol.has_weekly_and_monthly",
+            "UdfSymbol.listed_exchange",
+            "UdfSymbol.name",
+            "UdfSymbol.pricescale",
+            "UdfSymbol.session",
+            "UdfSymbol.supported_resolutions",
+            "UdfSymbol.ticker",
+            "UdfSymbol.timezone",
+            "UdfSymbol.type"
+          ],
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts"
+        }
+      ],
+      "missing_prerequisites": [
+        "Runtime adapter and exact target-field semantic review remain unqualified."
+      ],
+      "routes": [
+        {
+          "literal": "/config",
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts"
+        }
+      ],
+      "runtime_qualified": false,
+      "source_anchors": [
+        {
+          "source": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "text": "export interface ClientConfiguration { baseUrl: string; timeoutMs?: number }"
+        }
+      ],
+      "sources": [
+        {
+          "path": "sdk/launchpad/packages/candles-sdk/src/index.ts",
+          "sha256": "b47eddbb9957b5f255616c8776bd7e0fccc02942a2be5136ae244bcd1e763509"
+        }
+      ],
+      "status": "adapter_required",
+      "target_schema_refs": [
+        "schema-definitions.json#/$defs/PoolStats"
+      ]
+    },
+    {
+      "field_mappings": [
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/stats-sdk/src/types.ts",
+          "source_field": "PoolStats.buyCount24h"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/stats-sdk/src/types.ts",
+          "source_field": "PoolStats.createdAt"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/stats-sdk/src/types.ts",
+          "source_field": "PoolStats.creatorAddress"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/stats-sdk/src/types.ts",
+          "source_field": "PoolStats.creatorHoldingsPct"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/stats-sdk/src/types.ts",
+          "source_field": "PoolStats.high24h"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/stats-sdk/src/types.ts",
+          "source_field": "PoolStats.holderCount"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/stats-sdk/src/types.ts",
+          "source_field": "PoolStats.low24h"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/stats-sdk/src/types.ts",
+          "source_field": "PoolStats.marketCap"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/stats-sdk/src/types.ts",
+          "source_field": "PoolStats.poolAddress"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/stats-sdk/src/types.ts",
+          "source_field": "PoolStats.price"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/stats-sdk/src/types.ts",
+          "source_field": "PoolStats.priceChange15m"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/stats-sdk/src/types.ts",
+          "source_field": "PoolStats.priceChange1h"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/stats-sdk/src/types.ts",
+          "source_field": "PoolStats.priceChange1m"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/stats-sdk/src/types.ts",
+          "source_field": "PoolStats.priceChange24h"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/stats-sdk/src/types.ts",
+          "source_field": "PoolStats.priceChange5m"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/stats-sdk/src/types.ts",
+          "source_field": "PoolStats.priceChangeDollar15m"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/stats-sdk/src/types.ts",
+          "source_field": "PoolStats.priceChangeDollar1h"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/stats-sdk/src/types.ts",
+          "source_field": "PoolStats.priceChangeDollar1m"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/stats-sdk/src/types.ts",
+          "source_field": "PoolStats.priceChangeDollar24h"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/stats-sdk/src/types.ts",
+          "source_field": "PoolStats.priceChangeDollar5m"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/stats-sdk/src/types.ts",
+          "source_field": "PoolStats.riskFactors"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/stats-sdk/src/types.ts",
+          "source_field": "PoolStats.riskRating"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/stats-sdk/src/types.ts",
+          "source_field": "PoolStats.sellCount24h"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/stats-sdk/src/types.ts",
+          "source_field": "PoolStats.tokenAddress"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/stats-sdk/src/types.ts",
+          "source_field": "PoolStats.top10Concentration"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/stats-sdk/src/types.ts",
+          "source_field": "PoolStats.uniqueTraders24h"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/stats-sdk/src/types.ts",
+          "source_field": "PoolStats.updatedAt"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/stats-sdk/src/types.ts",
+          "source_field": "PoolStats.volume1h"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/stats-sdk/src/types.ts",
+          "source_field": "PoolStats.volume24h"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/stats-sdk/src/types.ts",
+          "source_field": "PoolStats.volume5m"
+        }
+      ],
+      "id": "stats-sdk",
+      "interface_inventories": [
+        {
+          "fields": [
+            "PoolStats.buyCount24h",
+            "PoolStats.createdAt",
+            "PoolStats.creatorAddress",
+            "PoolStats.creatorHoldingsPct",
+            "PoolStats.high24h",
+            "PoolStats.holderCount",
+            "PoolStats.low24h",
+            "PoolStats.marketCap",
+            "PoolStats.poolAddress",
+            "PoolStats.price",
+            "PoolStats.priceChange15m",
+            "PoolStats.priceChange1h",
+            "PoolStats.priceChange1m",
+            "PoolStats.priceChange24h",
+            "PoolStats.priceChange5m",
+            "PoolStats.priceChangeDollar15m",
+            "PoolStats.priceChangeDollar1h",
+            "PoolStats.priceChangeDollar1m",
+            "PoolStats.priceChangeDollar24h",
+            "PoolStats.priceChangeDollar5m",
+            "PoolStats.riskFactors",
+            "PoolStats.riskRating",
+            "PoolStats.sellCount24h",
+            "PoolStats.tokenAddress",
+            "PoolStats.top10Concentration",
+            "PoolStats.uniqueTraders24h",
+            "PoolStats.updatedAt",
+            "PoolStats.volume1h",
+            "PoolStats.volume24h",
+            "PoolStats.volume5m"
+          ],
+          "source": "sdk/launchpad/packages/stats-sdk/src/types.ts"
+        }
+      ],
+      "missing_prerequisites": [
+        "Runtime adapter and exact target-field semantic review remain unqualified."
+      ],
+      "routes": [],
+      "runtime_qualified": false,
+      "source_anchors": [
+        {
+          "source": "sdk/launchpad/packages/stats-sdk/src/types.ts",
+          "text": "export interface PoolStats {"
+        }
+      ],
+      "sources": [
+        {
+          "path": "sdk/launchpad/packages/stats-sdk/src/types.ts",
+          "sha256": "2f7059fc5db318d3b68d6b374af8a1354e172826fc3b758a7ef439df5782b050"
+        }
+      ],
+      "status": "adapter_required",
+      "target_schema_refs": [
+        "schema-definitions.json#/$defs/PoolStats"
+      ]
+    },
+    {
+      "field_mappings": [
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/indexer-sdk/src/index.ts",
+          "source_field": "HttpClientConfig.baseUrl"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/indexer-sdk/src/index.ts",
+          "source_field": "HttpClientConfig.fetch"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/indexer-sdk/src/index.ts",
+          "source_field": "HttpClientConfig.headers"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/indexer-sdk/src/index.ts",
+          "source_field": "RecentTrades.pool"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/indexer-sdk/src/index.ts",
+          "source_field": "RecentTrades.trades"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/indexer-sdk/src/index.ts",
+          "source_field": "Trade.amountIn"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/indexer-sdk/src/index.ts",
+          "source_field": "Trade.amountOut"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/indexer-sdk/src/index.ts",
+          "source_field": "Trade.blockTimestamp"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/indexer-sdk/src/index.ts",
+          "source_field": "Trade.fee"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/indexer-sdk/src/index.ts",
+          "source_field": "Trade.id"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/indexer-sdk/src/index.ts",
+          "source_field": "Trade.isBuy"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/indexer-sdk/src/index.ts",
+          "source_field": "Trade.price"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/indexer-sdk/src/index.ts",
+          "source_field": "Trade.sender"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/indexer-sdk/src/index.ts",
+          "source_field": "Trade.txHash"
+        }
+      ],
+      "id": "indexer-sdk",
+      "interface_inventories": [
+        {
+          "fields": [
+            "HttpClientConfig.baseUrl",
+            "HttpClientConfig.fetch",
+            "HttpClientConfig.headers",
+            "RecentTrades.pool",
+            "RecentTrades.trades",
+            "Trade.amountIn",
+            "Trade.amountOut",
+            "Trade.blockTimestamp",
+            "Trade.fee",
+            "Trade.id",
+            "Trade.isBuy",
+            "Trade.price",
+            "Trade.sender",
+            "Trade.txHash"
+          ],
+          "source": "sdk/launchpad/packages/indexer-sdk/src/index.ts"
+        }
+      ],
+      "missing_prerequisites": [
+        "Runtime adapter and exact target-field semantic review remain unqualified."
+      ],
+      "routes": [],
+      "runtime_qualified": false,
+      "source_anchors": [
+        {
+          "source": "sdk/launchpad/packages/indexer-sdk/src/index.ts",
+          "text": "export interface HttpClientConfig {"
+        }
+      ],
+      "sources": [
+        {
+          "path": "sdk/launchpad/packages/indexer-sdk/src/index.ts",
+          "sha256": "76b02a522f46e769ee7c47f19f838b9b7df96656e6d81f851c8ed1e135dff993"
+        }
+      ],
+      "status": "adapter_required",
+      "target_schema_refs": [
+        "schema-definitions.json#/$defs/PoolStats"
+      ]
+    },
+    {
+      "field_mappings": [
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "HttpClientConfig.baseUrl"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "HttpClientConfig.headers"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingErrorResponse.capability"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingErrorResponse.code"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingErrorResponse.dependency"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingErrorResponse.details"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingErrorResponse.fieldErrors"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingErrorResponse.latestWatermark"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingErrorResponse.message"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingErrorResponse.minimumVersion"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingErrorResponse.pointer"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingErrorResponse.requestId"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingErrorResponse.resource"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingErrorResponse.restart"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingErrorResponse.retainLastResult"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingErrorResponse.retryAfterMs"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingErrorResponse.retryable"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingErrorResponse.rule"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingErrorResponse.supported"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingFreshness.ageSeconds"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingFreshness.cutoffHeight"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingFreshness.generatedAt"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingFreshness.retryAfterSeconds"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingFreshness.sourceObservedAt"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingFreshness.stale"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingFreshness.staleReason"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingItem.category"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingItem.computedAt"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingItem.modelVersion"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingItem.poolAddress"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingItem.rank"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingItem.score"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingQuery.cursor"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingQuery.limit"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingQuery.signal"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingSnapshot.category"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingSnapshot.computedAt"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingSnapshot.items"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingSnapshot.modelVersion"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingSnapshot.replace"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingSnapshot.snapshotId"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingSnapshot.totalEligible"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingSnapshot.truncated"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingSnapshot.watermark"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingWatermark.blockHash"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingWatermark.chainId"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingWatermark.height"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingWatermark.integrity"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingWatermark.observedAt"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingWatermark.projectionRevision"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingsResponse.data"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingsResponse.freshness"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingsResponse.generatedAt"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingsResponse.nextCursor"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingsResponse.quality"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingsResponse.requestId"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingsResponse.revision"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingsResponse.snapshot"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "source_field": "RankingsResponse.watermark"
+        }
+      ],
+      "id": "ranking-algo-sdk",
+      "interface_inventories": [
+        {
+          "fields": [
+            "HttpClientConfig.baseUrl",
+            "HttpClientConfig.headers",
+            "RankingErrorResponse.capability",
+            "RankingErrorResponse.code",
+            "RankingErrorResponse.dependency",
+            "RankingErrorResponse.details",
+            "RankingErrorResponse.fieldErrors",
+            "RankingErrorResponse.latestWatermark",
+            "RankingErrorResponse.message",
+            "RankingErrorResponse.minimumVersion",
+            "RankingErrorResponse.pointer",
+            "RankingErrorResponse.requestId",
+            "RankingErrorResponse.resource",
+            "RankingErrorResponse.restart",
+            "RankingErrorResponse.retainLastResult",
+            "RankingErrorResponse.retryAfterMs",
+            "RankingErrorResponse.retryable",
+            "RankingErrorResponse.rule",
+            "RankingErrorResponse.supported",
+            "RankingFreshness.ageSeconds",
+            "RankingFreshness.cutoffHeight",
+            "RankingFreshness.generatedAt",
+            "RankingFreshness.retryAfterSeconds",
+            "RankingFreshness.sourceObservedAt",
+            "RankingFreshness.stale",
+            "RankingFreshness.staleReason",
+            "RankingItem.category",
+            "RankingItem.computedAt",
+            "RankingItem.modelVersion",
+            "RankingItem.poolAddress",
+            "RankingItem.rank",
+            "RankingItem.score",
+            "RankingQuery.cursor",
+            "RankingQuery.limit",
+            "RankingQuery.signal",
+            "RankingSnapshot.category",
+            "RankingSnapshot.computedAt",
+            "RankingSnapshot.items",
+            "RankingSnapshot.modelVersion",
+            "RankingSnapshot.replace",
+            "RankingSnapshot.snapshotId",
+            "RankingSnapshot.totalEligible",
+            "RankingSnapshot.truncated",
+            "RankingSnapshot.watermark",
+            "RankingWatermark.blockHash",
+            "RankingWatermark.chainId",
+            "RankingWatermark.height",
+            "RankingWatermark.integrity",
+            "RankingWatermark.observedAt",
+            "RankingWatermark.projectionRevision",
+            "RankingsResponse.data",
+            "RankingsResponse.freshness",
+            "RankingsResponse.generatedAt",
+            "RankingsResponse.nextCursor",
+            "RankingsResponse.quality",
+            "RankingsResponse.requestId",
+            "RankingsResponse.revision",
+            "RankingsResponse.snapshot",
+            "RankingsResponse.watermark"
+          ],
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts"
+        }
+      ],
+      "missing_prerequisites": [
+        "Runtime adapter and exact target-field semantic review remain unqualified."
+      ],
+      "routes": [],
+      "runtime_qualified": false,
+      "source_anchors": [
+        {
+          "source": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "text": "export interface RankingWatermark {"
+        }
+      ],
+      "sources": [
+        {
+          "path": "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts",
+          "sha256": "cc2cdef27dfceafc0af7c5e1dd54bafaf33ba94d4dd5ce11376ccad4c28da390"
+        }
+      ],
+      "status": "adapter_required",
+      "target_schema_refs": [
+        "schema-definitions.json#/$defs/PoolStats"
+      ]
+    },
+    {
+      "field_mappings": [
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
+          "source_field": "ClientConfig.baseUrl"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
+          "source_field": "PublicMetadata.banner"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
+          "source_field": "PublicMetadata.created_at"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
+          "source_field": "PublicMetadata.creator"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
+          "source_field": "PublicMetadata.decimals"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
+          "source_field": "PublicMetadata.description"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
+          "source_field": "PublicMetadata.images"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
+          "source_field": "PublicMetadata.logo"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
+          "source_field": "PublicMetadata.name"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
+          "source_field": "PublicMetadata.pool_address"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
+          "source_field": "PublicMetadata.socials"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
+          "source_field": "PublicMetadata.symbol"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
+          "source_field": "PublicMetadata.tags"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
+          "source_field": "PublicMetadata.token_address"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
+          "source_field": "PublicMetadata.total_supply"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
+          "source_field": "PublicMetadata.updated_at"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
+          "source_field": "RequestOptions.signal"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
+          "source_field": "Socials.discord"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
+          "source_field": "Socials.telegram"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
+          "source_field": "Socials.twitter"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
+          "source_field": "Socials.website"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
+          "source_field": "UploadMetadata.decimals"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
+          "source_field": "UploadMetadata.description"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
+          "source_field": "UploadMetadata.discord"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
+          "source_field": "UploadMetadata.name"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
+          "source_field": "UploadMetadata.symbol"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
+          "source_field": "UploadMetadata.tags"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
+          "source_field": "UploadMetadata.telegram"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
+          "source_field": "UploadMetadata.twitter"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
+          "source_field": "UploadMetadata.website"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
+          "source_field": "UploadRequest.banner"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
+          "source_field": "UploadRequest.logo"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
+          "source_field": "UploadRequest.message"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
+          "source_field": "UploadRequest.metadata"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
+          "source_field": "UploadRequest.signature"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
+          "source_field": "UploadRequest.wallet"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
+          "source_field": "UploadResponse.banner_url"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
+          "source_field": "UploadResponse.errors"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
+          "source_field": "UploadResponse.logo_url"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
+          "source_field": "UploadResponse.metadata_updated"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
+          "source_field": "UploadResponse.success"
+        }
+      ],
+      "id": "metadata-sdk",
+      "interface_inventories": [
+        {
+          "fields": [
+            "ClientConfig.baseUrl",
+            "PublicMetadata.banner",
+            "PublicMetadata.created_at",
+            "PublicMetadata.creator",
+            "PublicMetadata.decimals",
+            "PublicMetadata.description",
+            "PublicMetadata.images",
+            "PublicMetadata.logo",
+            "PublicMetadata.name",
+            "PublicMetadata.pool_address",
+            "PublicMetadata.socials",
+            "PublicMetadata.symbol",
+            "PublicMetadata.tags",
+            "PublicMetadata.token_address",
+            "PublicMetadata.total_supply",
+            "PublicMetadata.updated_at",
+            "RequestOptions.signal",
+            "Socials.discord",
+            "Socials.telegram",
+            "Socials.twitter",
+            "Socials.website",
+            "UploadMetadata.decimals",
+            "UploadMetadata.description",
+            "UploadMetadata.discord",
+            "UploadMetadata.name",
+            "UploadMetadata.symbol",
+            "UploadMetadata.tags",
+            "UploadMetadata.telegram",
+            "UploadMetadata.twitter",
+            "UploadMetadata.website",
+            "UploadRequest.banner",
+            "UploadRequest.logo",
+            "UploadRequest.message",
+            "UploadRequest.metadata",
+            "UploadRequest.signature",
+            "UploadRequest.wallet",
+            "UploadResponse.banner_url",
+            "UploadResponse.errors",
+            "UploadResponse.logo_url",
+            "UploadResponse.metadata_updated",
+            "UploadResponse.success"
+          ],
+          "source": "sdk/launchpad/packages/metadata-sdk/src/index.ts"
+        }
+      ],
+      "missing_prerequisites": [
+        "Runtime adapter and exact target-field semantic review remain unqualified."
+      ],
+      "routes": [],
+      "runtime_qualified": false,
+      "source_anchors": [
+        {
+          "source": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
+          "text": "export interface Socials {"
+        }
+      ],
+      "sources": [
+        {
+          "path": "sdk/launchpad/packages/metadata-sdk/src/index.ts",
+          "sha256": "5dce812607200de09028b9380f1fbc71e4fae05e4c8aa1f23438d963e746b2c8"
+        }
+      ],
+      "status": "adapter_required",
+      "target_schema_refs": [
+        "schema-definitions.json#/$defs/PoolStats"
+      ]
+    },
+    {
+      "field_mappings": [
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/users-sdk/src/index.ts",
+          "source_field": "CreatedPool.created_at"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/users-sdk/src/index.ts",
+          "source_field": "CreatedPool.pool_address"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/users-sdk/src/index.ts",
+          "source_field": "CreatedPool.token_address"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/users-sdk/src/index.ts",
+          "source_field": "ErrorResponse.error"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/users-sdk/src/index.ts",
+          "source_field": "ErrorResponse.message"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/users-sdk/src/index.ts",
+          "source_field": "ErrorResponse.statusCode"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/users-sdk/src/index.ts",
+          "source_field": "HttpClientConfig.baseUrl"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/users-sdk/src/index.ts",
+          "source_field": "Images.avatar"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/users-sdk/src/index.ts",
+          "source_field": "Images.banner"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/users-sdk/src/index.ts",
+          "source_field": "ProfileData.bio"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/users-sdk/src/index.ts",
+          "source_field": "ProfileData.discord"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/users-sdk/src/index.ts",
+          "source_field": "ProfileData.display_name"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/users-sdk/src/index.ts",
+          "source_field": "ProfileData.telegram"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/users-sdk/src/index.ts",
+          "source_field": "ProfileData.twitter"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/users-sdk/src/index.ts",
+          "source_field": "ProfileData.website"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/users-sdk/src/index.ts",
+          "source_field": "PublicProfile.bio"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/users-sdk/src/index.ts",
+          "source_field": "PublicProfile.created_at"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/users-sdk/src/index.ts",
+          "source_field": "PublicProfile.created_pools"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/users-sdk/src/index.ts",
+          "source_field": "PublicProfile.display_name"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/users-sdk/src/index.ts",
+          "source_field": "PublicProfile.images"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/users-sdk/src/index.ts",
+          "source_field": "PublicProfile.socials"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/users-sdk/src/index.ts",
+          "source_field": "PublicProfile.updated_at"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/users-sdk/src/index.ts",
+          "source_field": "PublicProfile.wallet_address"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/users-sdk/src/index.ts",
+          "source_field": "RequestOptions.signal"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/users-sdk/src/index.ts",
+          "source_field": "Socials.discord"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/users-sdk/src/index.ts",
+          "source_field": "Socials.telegram"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/users-sdk/src/index.ts",
+          "source_field": "Socials.twitter"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/users-sdk/src/index.ts",
+          "source_field": "Socials.website"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/users-sdk/src/index.ts",
+          "source_field": "SuccessResponse.success"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/users-sdk/src/index.ts",
+          "source_field": "UpdateProfileRequest.data"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/users-sdk/src/index.ts",
+          "source_field": "UploadResponse.url"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/users-sdk/src/index.ts",
+          "source_field": "WalletAuthorization.message"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/users-sdk/src/index.ts",
+          "source_field": "WalletAuthorization.signature"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/users-sdk/src/index.ts",
+          "source_field": "WatchlistEntry.added_at"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/users-sdk/src/index.ts",
+          "source_field": "WatchlistEntry.pool_address"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/users-sdk/src/index.ts",
+          "source_field": "WatchlistResponse.pools"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/users-sdk/src/index.ts",
+          "source_field": "WatchlistResponse.wallet_address"
+        }
+      ],
+      "id": "users-sdk",
+      "interface_inventories": [
+        {
+          "fields": [
+            "CreatedPool.created_at",
+            "CreatedPool.pool_address",
+            "CreatedPool.token_address",
+            "ErrorResponse.error",
+            "ErrorResponse.message",
+            "ErrorResponse.statusCode",
+            "HttpClientConfig.baseUrl",
+            "Images.avatar",
+            "Images.banner",
+            "ProfileData.bio",
+            "ProfileData.discord",
+            "ProfileData.display_name",
+            "ProfileData.telegram",
+            "ProfileData.twitter",
+            "ProfileData.website",
+            "PublicProfile.bio",
+            "PublicProfile.created_at",
+            "PublicProfile.created_pools",
+            "PublicProfile.display_name",
+            "PublicProfile.images",
+            "PublicProfile.socials",
+            "PublicProfile.updated_at",
+            "PublicProfile.wallet_address",
+            "RequestOptions.signal",
+            "Socials.discord",
+            "Socials.telegram",
+            "Socials.twitter",
+            "Socials.website",
+            "SuccessResponse.success",
+            "UpdateProfileRequest.data",
+            "UploadResponse.url",
+            "WalletAuthorization.message",
+            "WalletAuthorization.signature",
+            "WatchlistEntry.added_at",
+            "WatchlistEntry.pool_address",
+            "WatchlistResponse.pools",
+            "WatchlistResponse.wallet_address"
+          ],
+          "source": "sdk/launchpad/packages/users-sdk/src/index.ts"
+        }
+      ],
+      "missing_prerequisites": [
+        "Runtime adapter and exact target-field semantic review remain unqualified."
+      ],
+      "routes": [],
+      "runtime_qualified": false,
+      "source_anchors": [
+        {
+          "source": "sdk/launchpad/packages/users-sdk/src/index.ts",
+          "text": "export interface Socials { website: string | null; twitter: string | null; telegram: string | null; discord: string | null }"
+        }
+      ],
+      "sources": [
+        {
+          "path": "sdk/launchpad/packages/users-sdk/src/index.ts",
+          "sha256": "f038e094588b2467afeaea11d0ae7be09e344953e7de4d8fed27a02853a9b62e"
+        }
+      ],
+      "status": "adapter_required",
+      "target_schema_refs": [
+        "schema-definitions.json#/$defs/PoolStats"
+      ]
+    },
+    {
+      "field_mappings": [
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/sidiora-launchpad-v3/src/index.ts",
+          "source_field": "LaunchpadClient.deployment"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/sidiora-launchpad-v3/src/index.ts",
+          "source_field": "LaunchpadClient.factory"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/sidiora-launchpad-v3/src/index.ts",
+          "source_field": "LaunchpadClient.protocolConfig"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/sidiora-launchpad-v3/src/index.ts",
+          "source_field": "LaunchpadClient.quoter"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/sidiora-launchpad-v3/src/index.ts",
+          "source_field": "LaunchpadClient.router"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/sidiora-launchpad-v3/src/index.ts",
+          "source_field": "LaunchpadDeployment.chainId"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/sidiora-launchpad-v3/src/index.ts",
+          "source_field": "LaunchpadDeployment.factory"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/sidiora-launchpad-v3/src/index.ts",
+          "source_field": "LaunchpadDeployment.protocolConfig"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/sidiora-launchpad-v3/src/index.ts",
+          "source_field": "LaunchpadDeployment.quoter"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/sidiora-launchpad-v3/src/index.ts",
+          "source_field": "LaunchpadDeployment.router"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/sidiora-launchpad-v3/src/index.ts",
+          "source_field": "LaunchpadDeployment.usdl"
+        }
+      ],
+      "id": "sidiora-launchpad-v3",
+      "interface_inventories": [
+        {
+          "fields": [
+            "LaunchpadClient.deployment",
+            "LaunchpadClient.factory",
+            "LaunchpadClient.protocolConfig",
+            "LaunchpadClient.quoter",
+            "LaunchpadClient.router",
+            "LaunchpadDeployment.chainId",
+            "LaunchpadDeployment.factory",
+            "LaunchpadDeployment.protocolConfig",
+            "LaunchpadDeployment.quoter",
+            "LaunchpadDeployment.router",
+            "LaunchpadDeployment.usdl"
+          ],
+          "source": "sdk/launchpad/packages/sidiora-launchpad-v3/src/index.ts"
+        }
+      ],
+      "missing_prerequisites": [
+        "Runtime adapter and exact target-field semantic review remain unqualified."
+      ],
+      "routes": [],
+      "runtime_qualified": false,
+      "source_anchors": [
+        {
+          "source": "sdk/launchpad/packages/sidiora-launchpad-v3/src/index.ts",
+          "text": "export interface LaunchpadDeployment {"
+        }
+      ],
+      "sources": [
+        {
+          "path": "sdk/launchpad/packages/sidiora-launchpad-v3/src/index.ts",
+          "sha256": "93c8d630c6eba9046bc5b7c138d9b12f0669f7d2c3015761271f4925a8482c32"
+        }
+      ],
+      "status": "adapter_required",
+      "target_schema_refs": [
+        "schema-definitions.json#/$defs/PoolStats"
+      ]
+    },
+    {
+      "field_mappings": [
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "apps/launchpad/web/src/core/clients/chat-ws.ts",
+          "source_field": "ChatAuth.wallet"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "apps/launchpad/web/src/core/clients/chat-ws.ts",
+          "source_field": "ChatWsCallbacks.ack"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "apps/launchpad/web/src/core/clients/chat-ws.ts",
+          "source_field": "ChatWsCallbacks.clientId"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "apps/launchpad/web/src/core/clients/chat-ws.ts",
+          "source_field": "ChatWsCallbacks.conversationId"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "apps/launchpad/web/src/core/clients/chat-ws.ts",
+          "source_field": "ChatWsCallbacks.error"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "apps/launchpad/web/src/core/clients/chat-ws.ts",
+          "source_field": "ChatWsCallbacks.message"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "apps/launchpad/web/src/core/clients/chat-ws.ts",
+          "source_field": "ChatWsCallbacks.onDm"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "apps/launchpad/web/src/core/clients/chat-ws.ts",
+          "source_field": "ChatWsCallbacks.onError"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "apps/launchpad/web/src/core/clients/chat-ws.ts",
+          "source_field": "ChatWsCallbacks.onPersisted"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "apps/launchpad/web/src/core/clients/chat-ws.ts",
+          "source_field": "ChatWsCallbacks.onPoolMessage"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "apps/launchpad/web/src/core/clients/chat-ws.ts",
+          "source_field": "ChatWsCallbacks.onRead"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "apps/launchpad/web/src/core/clients/chat-ws.ts",
+          "source_field": "ChatWsCallbacks.onRejected"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "apps/launchpad/web/src/core/clients/chat-ws.ts",
+          "source_field": "ChatWsCallbacks.onReplay"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "apps/launchpad/web/src/core/clients/chat-ws.ts",
+          "source_field": "ChatWsCallbacks.onReset"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "apps/launchpad/web/src/core/clients/chat-ws.ts",
+          "source_field": "ChatWsCallbacks.onStatusChange"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "apps/launchpad/web/src/core/clients/chat-ws.ts",
+          "source_field": "ChatWsCallbacks.onUncertain"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "apps/launchpad/web/src/core/clients/chat-ws.ts",
+          "source_field": "ChatWsCallbacks.status"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "apps/launchpad/web/src/core/clients/chat-ws.ts",
+          "source_field": "ChatWsCallbacks.through"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "apps/launchpad/web/src/core/clients/chat-ws.ts",
+          "source_field": "PersistedAck.clientMessageId"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "apps/launchpad/web/src/core/clients/chat-ws.ts",
+          "source_field": "PersistedAck.conversationId"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "apps/launchpad/web/src/core/clients/chat-ws.ts",
+          "source_field": "PersistedAck.id"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "apps/launchpad/web/src/core/clients/chat-ws.ts",
+          "source_field": "PersistedAck.revision"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "apps/launchpad/web/src/core/clients/chat-ws.ts",
+          "source_field": "PersistedAck.sequence"
+        }
+      ],
+      "id": "browser-chat",
+      "interface_inventories": [
+        {
+          "fields": [
+            "ChatAuth.wallet",
+            "ChatWsCallbacks.ack",
+            "ChatWsCallbacks.clientId",
+            "ChatWsCallbacks.conversationId",
+            "ChatWsCallbacks.error",
+            "ChatWsCallbacks.message",
+            "ChatWsCallbacks.onDm",
+            "ChatWsCallbacks.onError",
+            "ChatWsCallbacks.onPersisted",
+            "ChatWsCallbacks.onPoolMessage",
+            "ChatWsCallbacks.onRead",
+            "ChatWsCallbacks.onRejected",
+            "ChatWsCallbacks.onReplay",
+            "ChatWsCallbacks.onReset",
+            "ChatWsCallbacks.onStatusChange",
+            "ChatWsCallbacks.onUncertain",
+            "ChatWsCallbacks.status",
+            "ChatWsCallbacks.through",
+            "PersistedAck.clientMessageId",
+            "PersistedAck.conversationId",
+            "PersistedAck.id",
+            "PersistedAck.revision",
+            "PersistedAck.sequence"
+          ],
+          "source": "apps/launchpad/web/src/core/clients/chat-ws.ts"
+        }
+      ],
+      "missing_prerequisites": [
+        "Runtime adapter and exact target-field semantic review remain unqualified."
+      ],
+      "routes": [],
+      "runtime_qualified": false,
+      "source_anchors": [
+        {
+          "source": "apps/launchpad/web/src/core/clients/chat-ws.ts",
+          "text": "export interface PersistedAck { clientMessageId: string; id: string; conversationId: string; sequence: string; revision: string }"
+        }
+      ],
+      "sources": [
+        {
+          "path": "apps/launchpad/web/src/core/clients/chat-ws.ts",
+          "sha256": "60c402bf893dbd49e39e1610fbf653c3e21611b523efeea80b85f377855d4518"
+        }
+      ],
+      "status": "adapter_required",
+      "target_schema_refs": [
+        "schema-definitions.json#/$defs/PoolStats"
+      ]
+    },
+    {
+      "field_mappings": [
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/sdk/src/stream.ts",
+          "source_field": "SnapshotStreamOptions.error"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/sdk/src/stream.ts",
+          "source_field": "SnapshotStreamOptions.event"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/sdk/src/stream.ts",
+          "source_field": "SnapshotStreamOptions.maxBuffer"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/sdk/src/stream.ts",
+          "source_field": "SnapshotStreamOptions.reason"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/sdk/src/stream.ts",
+          "source_field": "SnapshotStreamOptions.snapshot"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/sdk/src/stream.ts",
+          "source_field": "SnapshotStreamOptions.state"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/sdk/src/stream.ts",
+          "source_field": "SnapshotStreamOptions.transport"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/sdk/src/stream.ts",
+          "source_field": "SnapshotStreamV2Options.error"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/sdk/src/stream.ts",
+          "source_field": "SnapshotStreamV2Options.event"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/sdk/src/stream.ts",
+          "source_field": "SnapshotStreamV2Options.maxBuffer"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/sdk/src/stream.ts",
+          "source_field": "SnapshotStreamV2Options.reason"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/sdk/src/stream.ts",
+          "source_field": "SnapshotStreamV2Options.snapshot"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/sdk/src/stream.ts",
+          "source_field": "SnapshotStreamV2Options.state"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/sdk/src/stream.ts",
+          "source_field": "SnapshotStreamV2Options.transport"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/sdk/src/stream.ts",
+          "source_field": "StreamTransport.frame"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/sdk/src/stream.ts",
+          "source_field": "StreamTransport.input"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/sdk/src/stream.ts",
+          "source_field": "StreamTransport.signal"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/sdk/src/stream.ts",
+          "source_field": "StreamTransport.ticket"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/sdk/src/stream.ts",
+          "source_field": "StreamTransport.topics"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/sdk/src/stream.ts",
+          "source_field": "StreamTransport.value"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/sdk/src/stream.ts",
+          "source_field": "StreamTransportV2.frame"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/sdk/src/stream.ts",
+          "source_field": "StreamTransportV2.input"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/sdk/src/stream.ts",
+          "source_field": "StreamTransportV2.signal"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/sdk/src/stream.ts",
+          "source_field": "StreamTransportV2.ticket"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/sdk/src/stream.ts",
+          "source_field": "StreamTransportV2.topics"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "sdk/launchpad/packages/sdk/src/stream.ts",
+          "source_field": "StreamTransportV2.value"
+        }
+      ],
+      "id": "opaque-resume",
+      "interface_inventories": [
+        {
+          "fields": [
+            "SnapshotStreamOptions.error",
+            "SnapshotStreamOptions.event",
+            "SnapshotStreamOptions.maxBuffer",
+            "SnapshotStreamOptions.reason",
+            "SnapshotStreamOptions.snapshot",
+            "SnapshotStreamOptions.state",
+            "SnapshotStreamOptions.transport",
+            "SnapshotStreamV2Options.error",
+            "SnapshotStreamV2Options.event",
+            "SnapshotStreamV2Options.maxBuffer",
+            "SnapshotStreamV2Options.reason",
+            "SnapshotStreamV2Options.snapshot",
+            "SnapshotStreamV2Options.state",
+            "SnapshotStreamV2Options.transport",
+            "StreamTransport.frame",
+            "StreamTransport.input",
+            "StreamTransport.signal",
+            "StreamTransport.ticket",
+            "StreamTransport.topics",
+            "StreamTransport.value",
+            "StreamTransportV2.frame",
+            "StreamTransportV2.input",
+            "StreamTransportV2.signal",
+            "StreamTransportV2.ticket",
+            "StreamTransportV2.topics",
+            "StreamTransportV2.value"
+          ],
+          "source": "sdk/launchpad/packages/sdk/src/stream.ts"
+        }
+      ],
+      "missing_prerequisites": [
+        "Runtime adapter and exact target-field semantic review remain unqualified."
+      ],
+      "routes": [],
+      "runtime_qualified": false,
+      "source_anchors": [
+        {
+          "source": "sdk/launchpad/packages/sdk/src/stream.ts",
+          "text": "export interface StreamTransport {"
+        }
+      ],
+      "sources": [
+        {
+          "path": "sdk/launchpad/packages/sdk/src/stream.ts",
+          "sha256": "0387ded7da9040dcea34636997eb1148afc60472b7fc5576bdf4a5f9f15d27be"
+        }
+      ],
+      "status": "adapter_required",
+      "target_schema_refs": [
+        "schema-definitions.json#/$defs/PoolStats"
+      ]
+    },
+    {
+      "field_mappings": [
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "apps/launchpad/web/src/widgets/profile/portfolio-transport.ts",
+          "source_field": "HistoryInterval.from"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "apps/launchpad/web/src/widgets/profile/portfolio-transport.ts",
+          "source_field": "HistoryInterval.interval"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "apps/launchpad/web/src/widgets/profile/portfolio-transport.ts",
+          "source_field": "HistoryInterval.to"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "apps/launchpad/web/src/widgets/profile/portfolio-transport.ts",
+          "source_field": "PartialSum.counted"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "apps/launchpad/web/src/widgets/profile/portfolio-transport.ts",
+          "source_field": "PartialSum.partial"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "apps/launchpad/web/src/widgets/profile/portfolio-transport.ts",
+          "source_field": "PartialSum.raw"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "apps/launchpad/web/src/widgets/profile/portfolio-transport.ts",
+          "source_field": "PortfolioIssue.body"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "apps/launchpad/web/src/widgets/profile/portfolio-transport.ts",
+          "source_field": "PortfolioIssue.kind"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "apps/launchpad/web/src/widgets/profile/portfolio-transport.ts",
+          "source_field": "PortfolioIssue.title"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "apps/launchpad/web/src/widgets/profile/portfolio-transport.ts",
+          "source_field": "PortfolioRead.loadable"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "apps/launchpad/web/src/widgets/profile/portfolio-transport.ts",
+          "source_field": "PortfolioRead.owner"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "apps/launchpad/web/src/widgets/profile/portfolio-transport.ts",
+          "source_field": "PortfolioRead.source"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "apps/launchpad/web/src/widgets/profile/portfolio-transport.ts",
+          "source_field": "PositionPages.hasMore"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "apps/launchpad/web/src/widgets/profile/portfolio-transport.ts",
+          "source_field": "PositionPages.loadingMore"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "apps/launchpad/web/src/widgets/profile/portfolio-transport.ts",
+          "source_field": "PositionPages.moreError"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "apps/launchpad/web/src/widgets/profile/portfolio-transport.ts",
+          "source_field": "PositionPages.positions"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "apps/launchpad/web/src/widgets/profile/portfolio-transport.ts",
+          "source_field": "SeriesPoint.complete"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "apps/launchpad/web/src/widgets/profile/portfolio-transport.ts",
+          "source_field": "SeriesPoint.time"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "apps/launchpad/web/src/widgets/profile/portfolio-transport.ts",
+          "source_field": "SeriesPoint.valueRaw"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "apps/launchpad/web/src/widgets/profile/portfolio-transport.ts",
+          "source_field": "TopTrade.position"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "apps/launchpad/web/src/widgets/profile/portfolio-transport.ts",
+          "source_field": "TopTrade.realizedRaw"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "apps/launchpad/web/src/widgets/profile/portfolio-transport.ts",
+          "source_field": "WindowDelta.absRaw"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "apps/launchpad/web/src/widgets/profile/portfolio-transport.ts",
+          "source_field": "WindowDelta.pct"
+        },
+        {
+          "disposition": "requires_enrichment",
+          "rule": "Explicit inventory only: semantic adapter and enrichment qualification are still required.",
+          "source": "apps/launchpad/web/src/widgets/profile/portfolio-transport.ts",
+          "source_field": "WindowDelta.tone"
+        }
+      ],
+      "id": "portfolio-basis",
+      "interface_inventories": [
+        {
+          "fields": [
+            "HistoryInterval.from",
+            "HistoryInterval.interval",
+            "HistoryInterval.to",
+            "PartialSum.counted",
+            "PartialSum.partial",
+            "PartialSum.raw",
+            "PortfolioIssue.body",
+            "PortfolioIssue.kind",
+            "PortfolioIssue.title",
+            "PortfolioRead.loadable",
+            "PortfolioRead.owner",
+            "PortfolioRead.source",
+            "PositionPages.hasMore",
+            "PositionPages.loadingMore",
+            "PositionPages.moreError",
+            "PositionPages.positions",
+            "SeriesPoint.complete",
+            "SeriesPoint.time",
+            "SeriesPoint.valueRaw",
+            "TopTrade.position",
+            "TopTrade.realizedRaw",
+            "WindowDelta.absRaw",
+            "WindowDelta.pct",
+            "WindowDelta.tone"
+          ],
+          "source": "apps/launchpad/web/src/widgets/profile/portfolio-transport.ts"
+        }
+      ],
+      "missing_prerequisites": [
+        "Runtime adapter and exact target-field semantic review remain unqualified."
+      ],
+      "routes": [],
+      "runtime_qualified": false,
+      "source_anchors": [
+        {
+          "source": "apps/launchpad/web/src/widgets/profile/portfolio-transport.ts",
+          "text": "export interface HistoryInterval { from: string; to: string; interval: '1h' | '1d' }"
+        }
+      ],
+      "sources": [
+        {
+          "path": "apps/launchpad/web/src/widgets/profile/portfolio-transport.ts",
+          "sha256": "ad6e3a7ce5ac3747c411bb7c4d44f7a71ba518896c4bec288113e23f23a30847"
+        }
+      ],
+      "status": "adapter_required",
+      "target_schema_refs": [
+        "schema-definitions.json#/$defs/PoolStats"
+      ]
+    }
+  ],
+  "scope": "Recorded current source inventory; no runtime compatibility claim"
+}

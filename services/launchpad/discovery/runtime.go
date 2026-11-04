@@ -34,6 +34,26 @@ func (r Runtime) PublishBatch(ctx context.Context, limit int) (int, error) {
 			if e != nil {
 				return e
 			}
+			// The notification worker consumes the outbox after arbitrary delays.
+			// A queued creation must not resurrect a target deleted in the meantime.
+			if kind == "callout-target-ref-v2" {
+				var event CalloutTargetEvent
+				if e = json.Unmarshal(body, &event); e != nil {
+					return e
+				}
+				var raw []byte
+				if e = tx.QueryRowContext(ctx, `SELECT document FROM narrative_discovery.callouts WHERE id=$1`, event.TargetID).Scan(&raw); e != nil {
+					return e
+				}
+				var c Callout
+				if e = json.Unmarshal(raw, &c); e != nil {
+					return e
+				}
+				if c.Deleted {
+					event.Actor, event.Removed, event.Revision = c.AuthorAccountID, true, c.Revision
+					body = encode(event)
+				}
+			}
 			send, cancel := context.WithTimeout(ctx, 5*time.Second)
 			e = r.Publisher.Publish(send, kind, id, body)
 			cancel()

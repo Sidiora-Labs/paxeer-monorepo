@@ -113,6 +113,7 @@ func newPublicFixture(t *testing.T) *publicFixture {
 	for _, id := range []string{"130000", "130001", "150005"} {
 		f.exec(migrationSQL(t, id))
 	}
+	f.exec(fmt.Sprintf(PublicStatsDDL, f.repo.schema))
 	ddl, err := holdings.SchemaSQL(publicTestHolders)
 	if err != nil {
 		t.Fatal(err)

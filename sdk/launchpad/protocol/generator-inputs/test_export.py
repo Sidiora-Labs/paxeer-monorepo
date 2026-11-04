@@ -94,7 +94,7 @@ class ExportTests(unittest.TestCase):
         self.assertEqual(m.keccak256(b'').hex(),
                          'c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470')
         reviewed = json.loads((pathlib.Path(__file__).resolve().parents[1] / 'catalog/reviewed.json').read_text())
-        root = pathlib.Path('/root/mk-falcon/contracts')
+        root = CONTRACTS_ROOT
         changed = copy.deepcopy(reviewed)
         changed['contracts'][0]['events'][0]['topic0'] = '0x' + '1' * 64
         with self.assertRaisesRegex(ValueError, 'unmapped event signature'):

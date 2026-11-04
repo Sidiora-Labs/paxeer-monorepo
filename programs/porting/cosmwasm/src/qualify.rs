@@ -355,7 +355,8 @@ pub fn settle(
 
 /// Imports an exported `CosmWasm` state dump into namespaced storage, writing
 /// each donor's record into the namespace of the principal that owns it, and
-/// returns the number of changed cells.
+/// returns the number of changed cells. The complete plan is staged in a
+/// storage candidate; any refusal leaves the original storage unchanged.
 ///
 /// `cw-storage-plus` stores values as `JSON`, so each cell arrives as the
 /// document the dump contains and is transcoded into the canonical framing the
@@ -373,14 +374,17 @@ pub fn import_state(
     cells: &[(MigrationCell, String)],
 ) -> Result<usize, PortRefusal> {
     let schema = donation_record()?;
+    let mut candidate = storage.clone();
     let mut changed = 0_usize;
     for (cell, exported) in cells {
         let principal = PrincipalId::new(cell.principal)?;
         let value = schema.transcode(exported)?;
-        let mut transaction = storage.transaction(StorageNamespace::principal(program, principal));
+        let mut transaction =
+            candidate.transaction(StorageNamespace::principal(program, principal));
         transaction.write(&cell.layerx_key, &value)?;
         changed = changed.saturating_add(transaction.commit());
     }
+    *storage = candidate;
     Ok(changed)
 }
 

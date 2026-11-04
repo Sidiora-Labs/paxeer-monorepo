@@ -63,8 +63,47 @@ export class UsersApiError extends Error {
     this.name = 'UsersApiError';
   }
 }
-export interface HttpClientConfig { baseUrl: string }
+export const USERS_DEFAULT_TIMEOUT_MS = 10_000;
+export const USERS_MAX_TIMEOUT_MS = 120_000;
+export const USERS_RESPONSE_LIMITS = Object.freeze({
+  profile: 1024 * 1024,
+  watchlist: 1024 * 1024,
+  mutation: 16 * 1024,
+  upload: 16 * 1024,
+  error: 16 * 1024,
+});
+export class UsersResponseTooLargeError extends UsersResponseError {
+  constructor(public readonly limit: number) {
+    super();
+    this.name = 'UsersResponseTooLargeError';
+    this.message = `Users API response exceeds ${limit} bytes`;
+  }
+}
+export interface HttpClientConfig { baseUrl: string; timeoutMs?: number }
 export interface RequestOptions { signal?: AbortSignal }
+async function boundedResponseText(response: Response, limit: number): Promise<string> {
+  if (!response.body) return '';
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  const parts: string[] = [];
+  let bytes = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      bytes += value.byteLength;
+      if (bytes > limit) throw new UsersResponseTooLargeError(limit);
+      parts.push(decoder.decode(value, { stream: true }));
+    }
+    parts.push(decoder.decode());
+    return parts.join('');
+  } catch (error) {
+    await reader.cancel().catch(() => {});
+    throw error;
+  } finally {
+    reader.releaseLock();
+  }
+}
 function address(value: string): string {
   const normalized = value.trim().toLowerCase();
   if (!/^0x[a-f0-9]{40}$/.test(normalized)) throw new TypeError('Invalid EVM address');
@@ -75,42 +114,66 @@ function authorization(value: WalletAuthorization): void {
 }
 export class UsersHttpClient {
   private baseUrl: string | undefined;
+  private timeoutMs = USERS_DEFAULT_TIMEOUT_MS;
   constructor(config?: HttpClientConfig) { if (config) this.configure(config); }
   configure(config: HttpClientConfig): void {
     const url = new URL(config.baseUrl);
     if (!['http:', 'https:'].includes(url.protocol) || url.search || url.hash || url.username || url.password) {
       throw new TypeError('baseUrl must be an HTTP(S) service root without credentials, query or fragment');
     }
+    const timeoutMs = config.timeoutMs ?? USERS_DEFAULT_TIMEOUT_MS;
+    if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0 || timeoutMs > USERS_MAX_TIMEOUT_MS) {
+      throw new RangeError(`timeoutMs must be an integer between 1 and ${USERS_MAX_TIMEOUT_MS}`);
+    }
     this.baseUrl = config.baseUrl.replace(/\/+$/, '');
+    this.timeoutMs = timeoutMs;
   }
   private url(path: string): string {
     if (this.baseUrl === undefined) throw new Error('Users SDK baseUrl is not configured');
     return this.baseUrl + path;
   }
-  private async request<T>(path: string, init: RequestInit, decode: Decoder<T>, options: RequestOptions = {}): Promise<T> {
-    const response = await fetch(this.url(path), { ...init, signal: options.signal });
-    if (!response.ok) {
-      const text = await response.text();
-      let body: unknown = text;
-      try { body = JSON.parse(text); } catch { /* Non-JSON proxy errors retain their original text. */ }
-      throw new UsersApiError(response.status, body);
+  private async request<T>(path: string, init: RequestInit, decode: Decoder<T>, limit: number, options: RequestOptions = {}): Promise<T> {
+    const url = this.url(path);
+    const controller = new AbortController();
+    const caller = options.signal;
+    const abort = () => controller.abort(caller?.reason);
+    const timer = setTimeout(() => controller.abort(new DOMException('Users API request timed out', 'TimeoutError')), this.timeoutMs);
+    try {
+      if (caller?.aborted) abort();
+      else caller?.addEventListener('abort', abort, { once: true });
+      controller.signal.throwIfAborted();
+      const response = await fetch(url, { ...init, signal: controller.signal });
+      const text = await boundedResponseText(response, response.ok ? limit : USERS_RESPONSE_LIMITS.error);
+      controller.signal.throwIfAborted();
+      if (!response.ok) {
+        let body: unknown = text;
+        try { body = JSON.parse(text); } catch { /* Non-JSON proxy errors retain their original text. */ }
+        throw new UsersApiError(response.status, body);
+      }
+      let value: unknown;
+      try { value = JSON.parse(text); } catch { throw new UsersResponseError(); }
+      return decode(value);
+    } catch (error) {
+      if (controller.signal.aborted) throw controller.signal.reason;
+      controller.abort();
+      throw error;
+    } finally {
+      clearTimeout(timer);
+      caller?.removeEventListener('abort', abort);
     }
-    let value: unknown;
-    try { value = await response.json(); } catch { throw new UsersResponseError(); }
-    return decode(value);
   }
   private signed(path: string, method: string, body: WalletAuthorization, options?: RequestOptions): Promise<SuccessResponse> {
     authorization(body);
-    return this.request(path, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }, success, options);
+    return this.request(path, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }, success, USERS_RESPONSE_LIMITS.mutation, options);
   }
   getProfile(wallet: string, options?: RequestOptions): Promise<PublicProfile> {
-    return this.request(`/users/${address(wallet)}`, { method: 'GET' }, profile, options);
+    return this.request(`/users/${address(wallet)}`, { method: 'GET' }, profile, USERS_RESPONSE_LIMITS.profile, options);
   }
   updateProfile(wallet: string, body: UpdateProfileRequest, options?: RequestOptions): Promise<SuccessResponse> {
     return this.signed(`/users/${address(wallet)}`, 'POST', body, options);
   }
   getWatchlist(wallet: string, options?: RequestOptions): Promise<WatchlistResponse> {
-    return this.request(`/users/${address(wallet)}/watchlist`, { method: 'GET' }, watchlist, options);
+    return this.request(`/users/${address(wallet)}/watchlist`, { method: 'GET' }, watchlist, USERS_RESPONSE_LIMITS.watchlist, options);
   }
   addWatchlist(wallet: string, pool: string, body: WalletAuthorization, options?: RequestOptions): Promise<SuccessResponse> {
     return this.signed(`/users/${address(wallet)}/watchlist/${address(pool)}`, 'PUT', body, options);
@@ -127,7 +190,7 @@ export class UsersHttpClient {
     form.append(kind, file);
     form.append('signature', auth.signature);
     form.append('message', auth.message);
-    return this.request(`/users/${address(wallet)}/${kind}`, { method: 'POST', body: form }, upload, options);
+    return this.request(`/users/${address(wallet)}/${kind}`, { method: 'POST', body: form }, upload, USERS_RESPONSE_LIMITS.upload, options);
   }
 }
 export const httpClient = new UsersHttpClient();

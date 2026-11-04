@@ -1,0 +1,11 @@
+[task.22.33.1050]
+audit = "22.30.41"
+finding_20 = "TestRepairM_1050_PartialFailureRetry; TestRepairM_1050_PermanentValidation"
+finding_19 = "TestRepairM_1050_RequestBounds"
+finding_14 = "TestRepairM_1050_ProducerToSocketRestartResync (testAdmittedCandleApplicationStream in ws_test.go)"
+implementation = "Webhook admission limits the raw body to 1048576 bytes and events to 1000 before HMAC verification, decodes once, refuses permanent invalid swaps with 422 and retryable apply failures with 503/Retry-After, and never acknowledges a failed apply as ok. RegisterWS retires the incompatible legacy /ws route with 410 and a /v2/stream migration link."
+proof = "Real HMAC -> HTTP router -> Builder.ProcessSwap -> pgx/store against a strict committed SQL transcript proves one commit, a later commit failure, a reopened builder's durable duplicate refusal and retry success; real archive validation -> FoldQualified -> DescribeSeries -> CanonicalCandle -> registered replay proxy -> loopback socket -> frozen CandleEvent decoder proves exact monetary/provenance data, retained replay across proxy restart, resnapshot recovery and unavailable-source refusal. Coalescer unit coverage remains intact."
+baseline = "Not run: the explicit ordered gate instructions prohibit tests before complete implementation and reserve verification for hf-done; no pre-change test failure is claimed."
+evidence = "Runner-owned /out/run/gates.jsonl records the exact candidate revision, command, exit and private log; the final response copies the last bounded gate evidence."
+wiring_request = "services/launchpad/trading-charts/internal/app/app.go (Domain 4, launchpad charts; task 22.33.1049): exercise the retired legacy route and configured admitted /v2/snapshots + /v2/stream origin through App.New; the canonical stream owner remains services/launchpad/api/internal/ws and no raw development CandleUpdateEvent may be adapted by guessing decimals/provenance."
+gotcha = "An unchanged-tree baseline run conflicts with this task's ordered single-gate instructions; SQL and gateway peers use in-process loopback fixtures so the focused gate needs no database, Redis process or live endpoint."

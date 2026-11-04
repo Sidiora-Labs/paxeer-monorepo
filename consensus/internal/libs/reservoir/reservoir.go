@@ -68,7 +68,7 @@ func (s *Sampler[T]) Add(item T) {
 	if j := s.rng.Int64N(s.seen); int(j) < s.size {
 		replacee := s.samples[j]
 		s.samples[j] = item
-		s.dirtySinceAdd = replacee != item
+		s.dirtySinceAdd = s.dirtySinceAdd || replacee != item
 	}
 }
 

@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/pnlmath"
 	inventory "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l16"
@@ -39,8 +39,8 @@ type replayTrade struct {
 
 // loadTrades reads the wallet's folded trades in fold order (block, then log
 // index from the txHash-logIndex id).
-func loadTrades(ctx context.Context, pool *pgxpool.Pool, wallet string) ([]replayTrade, error) {
-	rows, err := pool.Query(ctx, `
+func loadTrades(ctx context.Context, tx pgx.Tx, wallet string) ([]replayTrade, error) {
+	rows, err := tx.Query(ctx, `
 		SELECT t.id, t.pool_address, lower(COALESCE(NULLIF(t.token_address, ''), ip.token_address, '')),
 		       t.is_buy, t.usdl_amount, t.token_amount, t.block_number, t.block_timestamp
 		FROM pnl.user_trades t
@@ -177,12 +177,7 @@ func (h *handlers) intervalHistory(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, l17.ErrInvalid)
 		return
 	}
-	snap, err := h.Reader.Snapshot(r.Context(), wallet)
-	if err != nil {
-		h.fail(w, err)
-		return
-	}
-	trades, err := loadTrades(r.Context(), h.Reader.Pool, wallet)
+	snap, trades, err := h.Reader.snapshot(r.Context(), wallet, true)
 	if err != nil {
 		h.fail(w, err)
 		return
@@ -283,12 +278,7 @@ func (h *handlers) valueHistory(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, l17.ErrInvalid)
 		return
 	}
-	snap, err := h.Reader.Snapshot(r.Context(), wallet)
-	if err != nil {
-		h.fail(w, err)
-		return
-	}
-	trades, err := loadTrades(r.Context(), h.Reader.Pool, wallet)
+	snap, trades, err := h.Reader.snapshot(r.Context(), wallet, true)
 	if err != nil {
 		h.fail(w, err)
 		return

@@ -1,2 +1,9 @@
-const root=process.env.CONTRACT_SOURCE_ROOT||__dirname+'/../../../../../../contracts';
-module.exports={networks:{lane:{url:'http://127.0.0.1:22700',chainId:125}},paths:{cache:__dirname+'/.private-cache',artifacts:root+'/artifacts'}};
+const { creationChainRoots } = require('./creation-chain-layout.cjs');
+const roots = creationChainRoots(
+  process.env.L27_SOURCE_ROOT,
+  process.env.CONTRACT_SOURCE_ROOT,
+);
+module.exports = {
+  networks: { lane: roots.network },
+  paths: { cache: roots.cache, artifacts: roots.contracts + '/artifacts' },
+};
