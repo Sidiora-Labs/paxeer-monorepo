@@ -6,6 +6,7 @@ import shlex
 import subprocess
 import sys
 from pathlib import Path
+from urllib.parse import urlsplit
 
 
 def test_check_passes_only_arguments_the_renderer_declares():
@@ -126,12 +127,13 @@ def test_rendered_keys_match_the_example(tmp_path):
         "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
     ]
     for chain in ("paxeer", "ethereum"):
+        rpc_path = "/" if chain == "paxeer" else "/rpc"
         for backend in ("a", "b"):
             command.extend(
                 [
                     "--%s-endpoint" % chain,
-                    "https://%s-%s.example/rpc,%s-%s,/run/secrets/ca.der,/run/secrets/token"
-                    % (chain, backend, chain, backend),
+                    "https://%s-%s.example%s,%s-%s,/run/secrets/ca.der,/run/secrets/token"
+                    % (chain, backend, rpc_path, chain, backend),
                 ]
             )
 
@@ -174,6 +176,15 @@ def test_rendered_keys_match_the_example(tmp_path):
         if not with_solana:
             expected.pop("solana")
         assert key_sets(rendered) == key_sets(expected)
+        for chain in ("paxeer", "ethereum", "solana"):
+            if chain in rendered:
+                expected_path = "/" if chain == "paxeer" else "/rpc"
+                endpoints = rendered[chain]["rpc"]["endpoints"]
+                assert len(endpoints) == 2, endpoints
+                for endpoint in endpoints:
+                    parsed = urlsplit(endpoint["url"])
+                    assert parsed.path == expected_path, endpoint
+                    assert not parsed.query and not parsed.fragment, endpoint
         assert rendered["first_height"] == 1000
         assert (
             rendered["freshness_budget_blocks"]
