@@ -1,0 +1,28 @@
+[task.22.33.154]
+audit = "spec/layerx-merge/programme/audit/records/22.30.116.kvx"
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+requirement = "22998.1"
+repair = "Replace the removed Next lint subcommand with the repository ESLint CLI, declare ESLint 9 and the matching Next 16 flat-config dependency, and document the active modal/panel provisioning and send flow and exact filtered lint command."
+source_proof = "The Python gate parses package JSON and shell command tokens, checks the complete flat-config structure and generated-only exclusions, resolves documented scripts and local links, and traces documented provisioning, send and planning facts through the real demo and SDK source. It launches no external toolchain and changes no runtime interface or stateful component."
+review_only = "Dependency installation, loading the JavaScript config, an actual pnpm --filter @paxeer/demo lint run and its diagnostics, Next build, browser authentication, signing, RPC submission and commitment are not executed by this Python source-fact gate. No runtime lint success, live endpoint availability or restart/recovery qualification is claimed."
+baseline = "Initial git status/diff contained only runner-owned .cgignore and spec task-start changes; no scoped repairs existed. /out/run/gate.json showed zero builds and verifies and no /out/run/gates.jsonl existed. No baseline verification ran: the explicit implementation-first order and exclusive hf-done gate supersede do_6's unchanged-tree run. No test is claimed to have failed before editing. Source review found next lint and missing ESLint dependencies/config; existing README provisioning/send facts already matched the modal/panel and were preserved."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_154.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private gate ledger record the exact verified candidate revision, command, exit and log. This record is finalized before hf-build so build and verification use identical content; inserting the candidate hash into this record would change that hash. The runner publishes the qualified candidate."
+wiring_requests = ["services/wallet/pnpm-lock.yaml — wallet domain: regenerate the workspace lock importer for demo's ESLint dependencies before a frozen install; lock regeneration/install is outside this Python gate and the declared source paths."]
+
+[finding.demo-lint-command]
+file = "services/wallet/demo/package.json"
+config = "services/wallet/demo/eslint.config.mjs"
+tests = ["test_demo_lint_command_and_dependencies", "test_demo_flat_config_covers_source_without_rule_overrides", "test_readme_package_commands_resolve_to_registered_scripts"]
+proves = "The registered lint command invokes the same supported ESLint CLI as apps/wallet, uses declared ESLint 9 and framework-aligned Next config dependencies, and discovers a local unmodified Core Web Vitals flat preset without source/test exclusions or rule disabling."
+
+[finding.demo-readme-flow]
+file = "services/wallet/demo/README.md"
+tests = ["test_readme_package_commands_resolve_to_registered_scripts", "test_readme_provisioning_matches_modal_and_panel", "test_readme_send_matches_wallet_and_provider_path", "test_readme_planning_limit_matches_real_endpoint_contract", "test_readme_source_links_and_configuration_are_current"]
+proves = "The README documents the rendered modal/panel, explicit provisioning, chain-125 connection, integer-wei transaction path, approvals and hash-versus-commitment limit, and keeps planning distinct with the current hostedUrl limitation. Its filtered commands resolve to the actual package scripts and its source links resolve."
+
+[gotcha.baseline_order]
+observed = "The older audit step requests a pre-change verify but the explicit task order forbids verification before complete implementation and permits it only through hf-done."
+resolution = "Use only hf-build then hf-done and record source inspection separately from unrun baseline tests; GOTCHA.kvx and spec files are outside the explicit scope."
