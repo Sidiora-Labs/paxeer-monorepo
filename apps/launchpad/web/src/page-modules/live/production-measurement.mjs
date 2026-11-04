@@ -2,14 +2,26 @@ import {readFile,mkdir,writeFile,open} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {createRequire} from 'node:module';
 import {dirname,resolve,isAbsolute} from 'node:path';
+import {pathToFileURL} from 'node:url';
 
 const hash=raw=>createHash('sha256').update(raw).digest('hex');
 const validHash=value=>typeof value==='string'&&/^[a-f0-9]{64}$/.test(value);
 const assert=(condition,message)=>{if(!condition)throw new Error(message)};
 async function bound(artifact){assert(artifact&&isAbsolute(artifact.path)&&validHash(artifact.sha256),'Exact artifact path and SHA required');const raw=await readFile(artifact.path);assert(raw.length<=1048576&&hash(raw)===artifact.sha256,'Artifact digest or size mismatch');return raw}
-const manifestPath=process.env.L40_BROWSER_MANIFEST,manifestSHA=process.env.L40_BROWSER_MANIFEST_SHA256;
-assert(manifestPath&&manifestSHA,'Approved browser manifest is required');
-const raw=await bound({path:manifestPath,sha256:manifestSHA});const config=JSON.parse(raw.toString('utf8'));
+const browserSourcePaths=Object.freeze([
+ 'apps/launchpad/web/src/page-modules/live/production-measurement.mjs',
+ 'apps/launchpad/web/src/widgets/trading/live-stream.tsx',
+ 'apps/launchpad/web/src/page-modules/live/index.tsx',
+ 'apps/launchpad/web/src/core/clients/livestream-api.ts',
+]);
+
+export async function inventoryBrowserSources(sourceRoot){
+ assert(isAbsolute(sourceRoot),'Absolute candidate source root required');
+ return Object.fromEntries(await Promise.all(browserSourcePaths.map(async path=>[path,hash(await readFile(resolve(sourceRoot,path)))])));
+}
+
+export async function readBrowserManifest(artifact){
+const raw=await bound(artifact);const config=JSON.parse(raw.toString('utf8'));
 const keys=['version','runId','candidate','interface','topology','generator','sourceRoot','sourceFiles','outputRoot','authority','applicationOrigin','poolPage','directoryPage','streamId','revision','license','networkProfile','playwrightPackage','playwrightVersion','axeSource','browserExecutable','browserExecutableSHA256','samples','parallelism','durationSeconds'];
 assert(Object.keys(config).length===keys.length&&keys.every(key=>Object.hasOwn(config,key)),'Exact browser manifest schema required');
 assert(config.version===1&&/^[A-Za-z0-9_-]{1,128}$/.test(config.runId)&&[config.candidate,config.interface,config.topology,config.generator].every(validHash),'Browser evidence identity missing');
@@ -22,7 +34,13 @@ assert(authority.runId===config.runId&&authority.candidate===config.candidate&&a
 for(const digest of Object.values(config.sourceFiles))assert(validHash(digest),'Source SHA256 binding missing');
 const license=JSON.parse((await bound(config.license)).toString('utf8'));assert(license.streamId===config.streamId&&license.rightsReference&&Date.parse(license.validUntil)>Date.now()+config.samples/config.parallelism*config.durationSeconds*1000,'Licensed content authority missing');
 const profile=JSON.parse((await bound(config.networkProfile)).toString('utf8'));assert(profile.authorityReference&&license.regions.includes(profile.region)&&Number.isSafeInteger(profile.downstreamBitsPerSecond)&&profile.downstreamBitsPerSecond>0&&Number.isSafeInteger(profile.latencyMS)&&profile.latencyMS>=0,'Approved browser network profile missing');
-assert(isAbsolute(config.sourceRoot)&&['client/apps/web/src/page-modules/live/production-measurement.mjs','client/apps/web/src/widgets/trading/live-stream.tsx','client/apps/web/src/page-modules/live/index.tsx','client/apps/web/src/core/clients/livestream-api.ts'].every(path=>validHash(config.sourceFiles[path])),'Current source inventory required');for(const [path,digest] of Object.entries(config.sourceFiles)){assert(!isAbsolute(path)&&resolve(config.sourceRoot,path).startsWith(resolve(config.sourceRoot)+'/'),'Source path escapes candidate');assert(hash(await readFile(resolve(config.sourceRoot,path)))===digest,'Current browser source mismatch')}
+assert(isAbsolute(config.sourceRoot)&&browserSourcePaths.every(path=>validHash(config.sourceFiles[path])),'Current source inventory required');for(const [path,digest] of Object.entries(config.sourceFiles)){assert(!isAbsolute(path)&&resolve(config.sourceRoot,path).startsWith(resolve(config.sourceRoot)+'/'),'Source path escapes candidate');assert(hash(await readFile(resolve(config.sourceRoot,path)))===digest,'Current browser source mismatch')}
+return {config,origin,profile};
+}
+
+export async function runBrowserMeasurement(manifestPath,manifestSHA){
+assert(manifestPath&&manifestSHA,'Approved browser manifest is required');
+const {config,origin,profile}=await readBrowserManifest({path:manifestPath,sha256:manifestSHA});
 const packageRaw=await bound(config.playwrightPackage);const pkg=JSON.parse(packageRaw.toString('utf8'));assert(pkg.name==='playwright'&&pkg.version===config.playwrightVersion,'Actual pinned Playwright package required');
 const require=createRequire(config.playwrightPackage.path);const {chromium}=require(dirname(config.playwrightPackage.path));
 const axe=await bound(config.axeSource);assert(isAbsolute(config.browserExecutable)&&hash(await readFile(config.browserExecutable))===config.browserExecutableSHA256,'Actual pinned browser binary required');
@@ -56,3 +74,8 @@ const startup=samples.map(sample=>sample.startup_ms).sort((a,b)=>a-b);const p95=
 const summary={run_id:config.runId,candidate:config.candidate,interface:config.interface,topology:config.topology,generator:config.generator,scope:'isolated_component',final_gate:'9.1',capacity_qualified:false,samples:samples.length,required_samples:config.samples,startup_p95_ms:p95,rebuffer_ratio:total.observed?total.rebuffer/total.observed:null,network_sha256:hash(await readFile(resolve(output,'browser-network.ndjson'))),failures:failure||captureError?['actual browser or capture failure']:[],remaining:['Final 20k shared capacity, full application network inventory, replica/device/region matrix require serial9.1']};
 await writeFile(resolve(output,'summary.json'),JSON.stringify(summary,null,2),{mode:0o600,flag:'wx'});
 assert(!failure&&!captureError&&samples.length===config.samples&&p95!==null&&p95<=3000&&total.observed>0&&total.rebuffer/total.observed<.01,'Actual browser playback envelope failed');
+}
+
+if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){
+ await runBrowserMeasurement(process.env.L40_BROWSER_MANIFEST,process.env.L40_BROWSER_MANIFEST_SHA256);
+}
