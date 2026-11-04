@@ -1,0 +1,9 @@
+[repair.22.31.298]
+finding = "stream-validator-premature-success"
+audit = "22.30.165"
+base_revision = "ff6bf6162f496eda36bdb11465eb09d6f21a6fdd"
+tests = ["TestRepair_298_InvalidFinalModuleChunk", "TestRepair_298_EmptyMissingAndUnreadableInput", "TestRepair_298_ValidMultiChunkExport", "TestRepair_298_MalformedInputJoinsValidator", "TestRepair_298_CancelledInput"]
+proof = "Real params keeper/store exports flow through module stream export, JSON file transport, the validate-genesis command, codec and real module validators; leak checks prove participants terminate on success and error."
+baseline = "Not run: the explicit implementation-first order and hf-done-only verification restriction take precedence over do_5's conflicting pre-change verification request; no baseline failure is claimed."
+qualification = "The runner records the exact qualified candidate revision, command, exit and private log through hf-build and hf-done."
+wiring_request = "sdk/types/module/module.go and sdk/types/genesis/genesis.go — owner domain 15: expose joined validator completion and cancellable ingestion errors for other callers; this CLI now owns its reader and joins AppModuleBasic validators directly."
