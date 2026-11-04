@@ -278363,7 +278363,7 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 
 [task.22.31.505]
 title = "Restore the GENESIS and GOVERNANCE admission of the system reserve and withdrawals accounts in lx_account_open"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -321193,7 +321193,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.498]
 title = "Move the agent codec corpus CI test to the node-root endpoint"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.499"]
