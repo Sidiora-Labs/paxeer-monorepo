@@ -1,0 +1,16 @@
+{
+  "journey_id": "jrn_01j2gx3fam9kq4vte8n5w6y7z8",
+  "state": "done",
+  "started_at": "2026-08-18T09:30:00Z",
+  "updated_at": "2026-08-18T09:31:42Z",
+  "legs": [
+    {
+      "tx_hash": "0xabababababababababababababababababababababababababababababababab",
+      "nonce": 19,
+      "submitted": true,
+      "verified": true,
+      "refused": false,
+      "receipt_hash": "0xcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd"
+    }
+  ]
+}
