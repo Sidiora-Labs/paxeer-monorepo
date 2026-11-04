@@ -194,10 +194,9 @@ describe('eth_feeHistory Tests', function () {
     });
 
     describe('empty / null handling', () => {
-        // SKIP(expected-failure): Pax diverges on blockCount 0 oldestBlock; pending manual reverification.
-        it.skip('[spec] blockCount 0 returns oldestBlock as the canonical quantity 0x0', async () => {
+        it('[spec] blockCount 0 returns oldestBlock as the canonical quantity 0x0', async () => {
             // execution-apis: oldestBlock is a QUANTITY. geth returns "0x0" for an empty
-            // range; Pax returns null, which is not a valid quantity — assert the standard.
+            // range; both transports must preserve that canonical zero quantity.
             const [s, g] = await Promise.all([
                 rawPax<any>('eth_feeHistory', ['0x0', 'latest', []]),
                 rawGeth<any>('eth_feeHistory', ['0x0', 'latest', []]),
@@ -291,8 +290,7 @@ describe('eth_feeHistory Tests', function () {
             expect(s.error?.message).to.not.equal(g.error?.message);
         });
 
-        // TODO: Pax returns oldestBlock null (not 0x0) for blockCount 0 — revisit. Skipped for now.
-        it.skip('[parity] blockCount 0 returns an empty fee history (oldestBlock 0x0)', async () => {
+        it('[parity] blockCount 0 returns an empty fee history (oldestBlock 0x0)', async () => {
             // A zero block count is not rejected by either node: both return an empty
             // fee history (oldestBlock 0x0, no reward/gasUsedRatio rows) rather than an error.
             const [s, g] = await Promise.all([

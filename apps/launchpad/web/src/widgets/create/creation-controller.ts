@@ -45,9 +45,9 @@ export class CreationController {
    const reviewed=this.state.reviewed;if(!reviewed)throw new Error('Review this launch before approving.');const epoch=this.epoch;this.assertReviewed(reviewed,epoch);
    const fresh=await this.chain.readFunding(reviewed.draft,reviewed.scope);this.assertReviewed(reviewed,epoch);const plan=creationFunding(fresh);
    if(plan.state!=='approval_required')throw new Error(plan.state==='signable'?'Allowance is already sufficient. Review creation gas before submitting.':plan.state);
-   await this.chain.admitCreation(reviewed.draft,reviewed.scope);this.assertReviewed(reviewed,epoch);
+   await this.chain.admitCreation(reviewed.draft,reviewed.scope,'approval');this.assertReviewed(reviewed,epoch);
    this.set({phase:'approving',message:'Approve the exact USDL amount. Creation is a separate transaction.'});
-   const tx=await this.chain.approve(plan.approvalTargetRaw!,reviewed.scope);this.set({message:`Approval submitted: ${tx}`});
+   const tx=await this.chain.approve(plan.approvalTargetRaw!,reviewed.scope,reviewed.draft,reviewed.reviewedAt+30000);this.set({message:`Approval submitted: ${tx}`});
    await this.chain.approvalProof(tx,plan.approvalTargetRaw!,reviewed.scope);
    this.invalidate('Approval confirmed. Review the fresh creation gas and launch details before creating.');
   }));

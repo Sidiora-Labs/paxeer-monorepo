@@ -45,7 +45,7 @@ fn assets_decode_chain_metadata() {
                 name: Some("Ledger Asset".to_owned()),
                 symbol: Some("LED".to_owned()),
                 decimals: Some(18),
-                supply: Some(u128::MAX - 1),
+                supply: Some((u128::MAX - 1).into()),
             },
             AssetEntry {
                 asset_id: "paxeer:ulxp".to_owned(),
@@ -54,7 +54,7 @@ fn assets_decode_chain_metadata() {
                 name: Some("LayerX".to_owned()),
                 symbol: Some("LXP".to_owned()),
                 decimals: Some(18),
-                supply: Some(1_000_000),
+                supply: Some(1_000_000.into()),
             },
         ]
     );
@@ -65,8 +65,22 @@ fn assets_decode_chain_metadata() {
     boundary["assets"][0]["decimals"] = json!(255);
     let table = decode_assets(&boundary).expect("exact integer bounds decode");
     assert_eq!(table.height, u64::MAX);
-    assert_eq!(table.assets[0].supply, Some(u128::MAX));
+    assert_eq!(table.assets[0].supply, Some(u128::MAX.into()));
     assert_eq!(table.assets[0].decimals, Some(u8::MAX));
+
+    boundary["assets"][0]["supply"] = json!("340282366920938463463374607431768211456");
+    let large = decode_assets(&boundary).expect("uint256 supply read remains available");
+    let supply = large.assets[0].supply.expect("observed supply");
+    assert_eq!(
+        supply.to_string(),
+        "340282366920938463463374607431768211456"
+    );
+    assert_eq!(
+        supply.for_operation("asset-issuance"),
+        Err(GatewayError::AmountOutOfRange {
+            operation: "asset-issuance"
+        })
+    );
 
     for (field, invalid) in [
         ("asset_id", Value::Null),
@@ -79,7 +93,10 @@ fn assets_decode_chain_metadata() {
         ("decimals", json!(256)),
         ("decimals", json!(-1)),
         ("decimals", json!(1.5)),
-        ("supply", json!("340282366920938463463374607431768211456")),
+        (
+            "supply",
+            json!("115792089237316195423570985008687907853269984665640564039457584007913129639936"),
+        ),
         ("supply", json!("-1")),
         ("supply", json!("invalid")),
     ] {
@@ -152,8 +169,8 @@ fn assets_keep_null_metadata_rows() {
     assert_eq!(table.joined_limit, 16);
     assert_eq!(table.evidence, Evidence::GatewayReported);
     assert_eq!(table.assets.len(), 4);
-    assert_eq!(table.assets[0].supply, Some(u128::MAX - 1));
-    assert_eq!(table.assets[2].supply, Some(1_000_000));
+    assert_eq!(table.assets[0].supply, Some((u128::MAX - 1).into()));
+    assert_eq!(table.assets[2].supply, Some(1_000_000.into()));
     assert_eq!(
         table.assets[1],
         AssetEntry {
@@ -188,5 +205,5 @@ fn assets_keep_null_metadata_rows() {
     assert_eq!(zero.assets[1].name.as_deref(), Some(""));
     assert_eq!(zero.assets[1].symbol.as_deref(), Some(""));
     assert_eq!(zero.assets[1].decimals, Some(0));
-    assert_eq!(zero.assets[1].supply, Some(0));
+    assert_eq!(zero.assets[1].supply, Some(0.into()));
 }

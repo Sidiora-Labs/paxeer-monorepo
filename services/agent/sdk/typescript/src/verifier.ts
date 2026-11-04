@@ -1,3 +1,5 @@
+import { verifyReceiptInclusion, type CommittedReceiptInclusion } from "./committed-proof.js";
+import { encodeSequencerReceipt } from "./sequencer-receipt-codec.js";
 import { PlatformSdkError } from "./production.js";
 import { ed25519 } from "@noble/curves/ed25519.js";
 import { keccak_256 } from "@noble/hashes/sha3.js";
@@ -424,7 +426,8 @@ export type SequencerReceiptRefusal =
   | "bad_signature"
   | "hash_mismatch"
   | "height_regression"
-  | "insufficient_power";
+  | "insufficient_power"
+  | "inclusion_mismatch";
 
 export class SequencerReceiptVerificationError extends PlatformSdkError {
   public constructor(public readonly check: SequencerReceiptRefusal) {
@@ -439,6 +442,8 @@ export interface SequencerReceiptKey {
   readonly first_height: bigint;
   readonly last_height: bigint;
 }
+
+const authenticatedReceipts = new WeakMap<SequencerReceiptVerification, { receipt: Uint8Array; transaction: Uint8Array; keys: readonly SequencerReceiptKey[] }>();
 
 export interface SequencerReceiptVerification extends ReceiptVerification {
   readonly height: bigint;
@@ -492,10 +497,11 @@ export interface NodeReceiptInclusion {
 
 export interface NodeCommittedReceiptEvidence extends CommittedReceiptEvidence {
   readonly header: CometHeader;
-  readonly inclusion: NodeReceiptInclusion;
+  readonly inclusion: NodeReceiptInclusion & CommittedReceiptInclusion;
 }
 
 export interface CommittedReceiptEvidence {
+  readonly inclusion?: CommittedReceiptInclusion;
   readonly chainId: string;
   readonly landingHeight: bigint;
   readonly blockId: CometBlockId;
@@ -532,10 +538,11 @@ export async function verifySequencerReceipt(
   let decoded: DecodedReceipt;
   try {
     decoded = decodeSequencerReceipt(canonicalBytes);
+    if (!equal(encodeSequencerReceipt(decoded.receipt), canonicalBytes)) return sequencerReceiptFailure("bad_signature");
   } catch {
     return sequencerReceiptFailure("bad_signature");
   }
-  const { receipt, unsignedBytes } = decoded;
+  const { receipt } = decoded;
   if (receipt.protocolVersion !== 2 || receipt.moduleVersion !== 1
     || receipt.parameterVersion !== 0
     || !allZero(receipt.batchId.subarray(0, 24))) {
@@ -548,14 +555,17 @@ export async function verifySequencerReceipt(
     && key.last_height <= 0xffff_ffff_ffff_ffffn
     && key.first_height <= height && height <= key.last_height);
   if (active.length === 0) return sequencerReceiptFailure("key_out_of_range");
-  const receiptDigest = await sha256(RECEIPT_DOMAIN, unsignedBytes);
+  const receiptDigest = await sha256(RECEIPT_DOMAIN, encodeSequencerReceipt(receipt, false));
   let signingKey: SequencerReceiptKey | undefined;
   for (const key of active) {
     if (await verifyEd25519(key.publicKey, receipt.sequencerSignature, receiptDigest)) signingKey = key;
   }
   if (signingKey === undefined) return sequencerReceiptFailure("bad_signature");
   if (!equal(receipt.activityId, transactionHash)) return sequencerReceiptFailure("hash_mismatch");
-  return Object.freeze({ level: "sequencer-signed", receipt, canonicalBytes, receiptDigest, height, receiptKey: structuredClone(signingKey) });
+  const verified: SequencerReceiptVerification = Object.freeze({ level: "sequencer-signed", receipt, canonicalBytes, receiptDigest, height, receiptKey: structuredClone(signingKey) });
+  authenticatedReceipts.set(verified, { receipt: canonicalBytes.slice(), transaction: rawTransaction.slice(),
+    keys: receiptKeys.map(key => ({ ...key, keyId: key.keyId.slice(), publicKey: key.publicKey.slice() })) });
+  return verified;
 }
 
 function cometVarint(value: bigint): Uint8Array {
@@ -604,18 +614,35 @@ export async function verifyCommittedReceipt(
   receipt: SequencerReceiptVerification,
   evidence: CommittedReceiptEvidence,
 ): Promise<CommittedReceiptVerification> {
+  evidence = structuredClone(evidence);
   if (evidence.landingHeight < receipt.height || evidence.commit.height !== evidence.landingHeight) {
     return sequencerReceiptFailure("height_regression");
   }
-  if (!("header" in evidence) || !("inclusion" in evidence)) return sequencerReceiptFailure("hash_mismatch");
-  const nodeEvidence = evidence as NodeCommittedReceiptEvidence;
-  const { header } = nodeEvidence;
-  if (header.chainId !== evidence.chainId || header.height !== evidence.landingHeight
-    || !equal(await cometHeaderHash(header), evidence.blockId.hash)
-    || !equal(await cometValidatorSetHash(evidence.validators), header.validatorsHash)) {
-    return sequencerReceiptFailure("hash_mismatch");
+  const authenticated = authenticatedReceipts.get(receipt);
+  if (authenticated === undefined || evidence.inclusion === undefined) return sequencerReceiptFailure("inclusion_mismatch");
+  const verified = await verifySequencerReceipt(authenticated.receipt, authenticated.transaction, authenticated.keys);
+  await verifyReceiptInclusion(verified, evidence, authenticated.transaction, authenticated.keys);
+  if ("header" in evidence) {
+    if (!("activityIds" in evidence.inclusion)) return sequencerReceiptFailure("hash_mismatch");
+    const nodeEvidence = evidence as NodeCommittedReceiptEvidence;
+    const { header } = nodeEvidence;
+    if (header.chainId !== evidence.chainId || header.height !== evidence.landingHeight
+      || !equal(await cometHeaderHash(header), evidence.blockId.hash)
+      || !equal(await cometValidatorSetHash(evidence.validators), header.validatorsHash)) {
+      return sequencerReceiptFailure("hash_mismatch");
+    }
+    await verifyNodeReceiptInclusion(verified, { ...nodeEvidence,
+      header: evidence.inclusion.executionHeader, landingHeight: evidence.inclusion.executionHeader.height,
+      blockId: evidence.inclusion.executionCommit.blockId, commit: evidence.inclusion.executionCommit,
+      validators: evidence.inclusion.executionValidators,
+    });
   }
-  await verifyNodeReceiptInclusion(receipt, nodeEvidence);
+  const { signedPower, totalPower } = await verifyCometCommit(evidence);
+  return Object.freeze({ level: "committed", receipt: verified, landingHeight: evidence.landingHeight,
+    blockHash: new Uint8Array(evidence.blockId.hash), signedPower, totalPower });
+}
+
+export async function verifyCometCommit(evidence: CommittedReceiptEvidence): Promise<{ readonly signedPower: bigint; readonly totalPower: bigint }> {
   const { commit, validators } = evidence;
   const blockId = commit.blockId;
   if (commit.height <= 0n || commit.height > 0x7fff_ffff_ffff_ffffn
@@ -664,8 +691,7 @@ export async function verifyCommittedReceipt(
   if (totalPower === 0n || signedPower * 3n <= totalPower * 2n) {
     return sequencerReceiptFailure("insufficient_power");
   }
-  return Object.freeze({ level: "committed", receipt, landingHeight: evidence.landingHeight,
-    blockHash: new Uint8Array(blockId.hash), signedPower, totalPower });
+  return Object.freeze({ signedPower, totalPower });
 }
 
 async function cometMerkleHash(leaves: readonly Uint8Array[]): Promise<Uint8Array> {

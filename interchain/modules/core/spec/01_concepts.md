@@ -4,211 +4,217 @@ order: 1
 
 # Concepts
 
+IBC core provides clients, connections, channels and packet proof verification
+for communication with counterparty chains. In the merged Paxeer network these
+keepers execute within `paxd`, alongside the EVM and the kernel that participates
+in block proposal. Paxeer mainnet-beta has EVM chain id `125` (`0x7d`); a receipt
+is final when its block is committed. IBC packet completion additionally depends
+on counterparty state proofs and their relay.
+
+Sub-chains are tenant domains in the database. A tenant namespace alone does not
+establish an IBC client, connection or channel to another chain.
+
 ## Client Misbehaviour
 
-IBC clients must freeze when the counterparty chain becomes byzantine and 
-takes actions that could fool the light client into accepting invalid state 
-transitions. Thus, relayers are able to submit Misbehaviour proofs that prove 
-that a counterparty chain has signed two Headers for the same height. This 
-constitutes misbehaviour as the IBC client could have accepted either header 
-as valid. Upon verifying the misbehaviour the IBC client must freeze at that 
-height so that any proof verifications for the frozen height or later fail.
+Each IBC client implementation defines the evidence it accepts and how it
+freezes. The local Tendermint implementation accepts verified conflicting
+headers at the same height with different block hashes, or headers at different
+heights that violate monotonic block time. Both headers must pass the light
+client's verification against their trusted consensus states; an allegation
+alone does not freeze a client.
 
-Note, there is a difference between the chain-level Misbehaviour that IBC is 
-concerned with and the validator-level Evidence that Tendermint is concerned 
-with. Tendermint must be able to detect, submit, and punish any evidence of 
-individual validators breaking the Tendermint consensus protocol and attempting 
-to mount an attack. IBC clients must only act when an attack is successful 
-and the chain has successfully forked. In this case, valid Headers submitted 
-to the IBC client can no longer be trusted and the client must freeze.
+The [Tendermint misbehaviour handler](../../light-clients/07-tendermint/types/misbehaviour_handle.go)
+sets `FrozenHeight` to the non-zero sentinel height `{0, 1}`. This implementation
+treats it as a frozen flag rather than a boundary allowing proof verification
+below the offending height. Core proof verification requires an active client.
+Validator evidence handled by consensus is separate from IBC client
+misbehaviour processing.
 
-Governance may then choose to override a frozen client and provide the correct, 
-canonical Header so that the client can continue operating after the Misbehaviour 
-submission.
+Governance recovery uses a `ClientUpdateProposal` with `SubjectClientId` and
+`SubstituteClientId`, as implemented in
+[the client proposal keeper](../02-client/keeper/proposal.go):
+
+- Both clients must exist and neither may be the localhost client.
+- The subject must not be active; the substitute must be active.
+- The substitute's latest height must be strictly greater than the subject's.
+- The subject's `CheckSubstituteAndUpdateState` implementation must accept the
+  substitute and update the required state successfully.
+
+For [Tendermint clients](../../light-clients/07-tendermint/types/proposal_handle.go),
+compatibility requires matching client types and parameters, except frozen
+height, latest height, trusting period, chain ID and the deprecated
+`AllowUpdateAfterExpiry`/`AllowUpdateAfterMisbehaviour` flags. Recovery clears a
+frozen subject's frozen height, copies the substitute's latest consensus state
+and its processed-height/time metadata, and adopts the substitute's latest
+height, chain ID and trusting period. It retains the subject client identifier,
+so existing connections continue to refer to that client. Recovery does not
+consist of overriding a header and does not reopen closed channels.
 
 ## Connection Handshake
 
-The connection handshake occurs in 4 steps as defined in [ICS 03](https://github.com/cosmos/ibc/blob/master/spec/core/ics-003-connection-semantics).
+The four-step connection handshake follows
+[ICS 03](https://github.com/cosmos/ibc/blob/master/spec/core/ics-003-connection-semantics).
+Each connection end refers to a local light client of the counterparty chain.
+Connection identifiers are generated locally as `connection-{N}`, beginning
+with `connection-0`; identifiers at the two ends need not match.
 
-`ConnOpenInit` is the first attempt to initialize a connection on the executing chain. 
-The handshake is expected to succeed if the version selected is supported. The connection 
-identifier for the counterparty connection must be left empty indicating that the counterparty
-must select its own identifier. The connection identifier is auto derived in the format: 
-`connection{N}` where N is the next sequence to be used. The counter begins at 0 and increments
-by 1. The connection is set and stored in the INIT state upon success.
+[The connection keeper](../03-connection/keeper/handshake.go) implements:
 
-`ConnOpenTry` is a response to a chain executing `ConnOpenInit`. The executing chain will validate
-the chain level parameters the counterparty has stored such as its chainID. The executing chain 
-will also verify that if a previous connection exists for the specified connection identifier 
-that all the parameters match and its previous state was in INIT. This may occur when both 
-chains execute `ConnOpenInit` simultaneously. If the connection does not exist then a connection
-identifier is generated in the same format done in `ConnOpenInit`.  The executing chain will verify
-that the counterparty created a connection in INIT state. The executing chain will also verify 
-The `ClientState` and `ConsensusState` the counterparty stores for the executing chain. The 
-executing chain will select a version from the intersection of its supported versions and the 
-versions set by the counterparty. The connection is set and stored in the TRYOPEN state upon 
-success. 
+1. `ConnOpenInit`: creates the local connection in `INIT`. The counterparty
+   connection ID is empty so the other chain can allocate its own. An optional
+   version must be supported; otherwise the compatible versions are stored.
+   This step requires outbound connections to be enabled.
+2. `ConnOpenTry`: verifies proof of the counterparty's `INIT` connection, the
+   client state it holds for this chain and the corresponding consensus state.
+   It validates the self-client parameters and negotiates a compatible version.
+   If `previousConnectionID` is supplied for crossing handshakes, that local
+   connection must exist in `INIT` with matching client IDs, counterparty prefix
+   and delay period and no counterparty connection ID. Otherwise a new ID is
+   generated. Success stores `TRYOPEN`. This step requires inbound connections
+   to be enabled.
+3. `ConnOpenAck`: requires the local end in `INIT` or `TRYOPEN`, verifies the
+   counterparty's `TRYOPEN` connection and its client and consensus states, and
+   validates the selected version. It stores that version and the counterparty
+   connection ID and moves the local end to `OPEN`.
+4. `ConnOpenConfirm`: requires the local end in `TRYOPEN` and verifies a proof
+   that the counterparty end is `OPEN`, then moves the local end to `OPEN`.
 
-`ConnOpenAck` may be called on a chain when the counterparty connection has entered TRYOPEN. A
-previous connection on the executing chain must exist in either INIT or TRYOPEN. The executing
-chain will verify the version the counterparty selected. If the counterparty selected its own 
-connection identifier, it will be validated in the basic validation of a `MsgConnOpenAck`. 
-The counterparty connection state is verified along with the `ClientState` and `ConsensusState`
-stored for the executing chain. The connection is set and stored in the OPEN state upon success.
-
-`ConnOpenConfirm` is a response to a chain executing `ConnOpenAck`. The executing chain's connection
-must be in TRYOPEN. The counterparty connection state is verified to be in the OPEN state. The 
-connection is set and stored in the OPEN state upon success.
+These proofs are verified against client consensus state, not inferred from a
+relayer's report that the other chain accepted a transaction.
 
 ## Connection Version Negotiation
 
-During the handshake procedure for connections a version is agreed
-upon between the two parties. This occurs during the first 3 steps of the
-handshake.
-
-During `ConnOpenInit`, party A is expected to set all the versions they wish
-to support within their connection state. It is expected that this set of
-versions is from most preferred to least preferred. This is not a strict
-requirement for the SDK implementation of IBC because the party calling
-`ConnOpenTry` will greedily select the latest version it supports that the
-counterparty supports as well. A specific version can optionally be passed
-as `Version` to ensure that the handshake will either complete with that 
-version or fail.
-
-During `ConnOpenTry`, party B will select a version from the counterparty's
-supported versions. Priority will be placed on the latest supported version.
-If a matching version cannot be found an error is returned.
-
-During `ConnOpenAck`, party A will verify that they can support the version
-party B selected. If they do not support the selected version an error is
-returned. After this step, the connection version is considered agreed upon.
-
-
-A `Version` is defined as follows:
+A connection version has this shape (see
+[version.go](../03-connection/types/version.go)):
 
 ```go
 type Version struct {
-	// unique version identifier
-	Identifier string 
-	// list of features compatible with the specified identifier
-	Features []string 
+    Identifier string
+    Features   []string
 }
 ```
 
-A version must contain a non empty identifier. Empty feature sets are allowed, but each 
-feature must be a non empty string.
+Identifiers and individual feature strings must not be blank. Basic version
+validation permits an empty feature list, but negotiation for the currently
+supported identifier `"1"` requires a non-empty feature intersection. Its
+supported features are `ORDER_ORDERED` and `ORDER_UNORDERED`.
+
+`ConnOpenInit` stores the compatible versions, or a single explicitly requested
+supported version. `ConnOpenTry` calls `PickVersion`, iterating the local
+preference list and choosing the first identifier also supported by the
+counterparty whose feature intersection is allowed. It uses the previous
+connection's versions when continuing an initialized handshake. It returns an
+error when no compatible choice exists.
+
+`ConnOpenAck` checks that the selected version is supported when the local end
+is `INIT`. If the local end is already `TRYOPEN`, it must exactly match that
+end's single negotiated version. After acknowledgement both sides have agreed
+on the version and feature set.
 
 ::: warning
-A set of versions should not contain two versions with the same
-identifier, but differing feature sets. This will result in undefined behavior
-with regards to version selection in `ConnOpenTry`. Each version in a set of
-versions should have a unique version identifier.
+Keep version identifiers unique within each offered list. Repeating an
+identifier with different feature sets makes first-match selection ambiguous.
 :::
-
 
 ## Channel Version Negotiation
 
-During the channel handshake procedure a version must be agreed upon between
-the two parties. The selection process is largely left to the callers and
-the verification of valid versioning must be handled by application developers
-in the channel handshake callbacks.
+Channel version strings belong to applications. Core verifies the channel
+handshake proofs and ordering support, while the application callbacks decide
+which version strings they accept. The
+[core message server](../keeper/msg_server.go) calls these callbacks before
+writing the resulting channel state.
 
-During `ChanOpenInit`, a version string is passed in and set in party A's
-channel state.
+`ChanOpenInit` proposes and stores the application's initial version.
+`ChanOpenTry` verifies the counterparty's `INIT` channel using
+`CounterpartyVersion`, calls `OnChanOpenTry`, and stores the version returned by
+that callback. If continuing an existing `INIT` channel, its parameters,
+including its version, must match the expected handshake values.
 
-During `ChanOpenTry`, a version string for party A and for party B are passed
-in. The party A version string must match the version string used in
-`ChanOpenInit` otherwise channel state verification will fail. The party B
-version string could be anything (even different than the proposed one by
-party A). However, the proposed version by party B is expected to be fully
-supported by party A.
+During `ChanOpenAck`, the application validates the `CounterpartyVersion`
+proposed by the other end. Core then stores that version and opens the local
+channel. `ChanOpenConfirm` verifies the counterparty is open and completes the
+other end.
 
-During the `ChanOpenAck` callback, the application module is expected to verify
-the version proposed by party B using the `MsgChanOpenAck` `CounterpartyVersion`
-field. The application module should throw an error if the version string is
-not valid.
-
-In general empty version strings are to be considered valid options for an 
-application module.
-
-Application modules may implement their own versioning system, such as semantic
-versioning, or they may lean upon the versioning system used for in connection
-version negotiation. To use the connection version semantics the application
-would simply pass the proto encoded version into each of the handshake calls
-and decode the version string into a `Version` instance to do version verification
-in the handshake callbacks.
-
-Implementations which do not feel they would benefit from versioning can do
-basic string matching using a single compatible version.
+Core does not impose a shared application version format. Applications may use
+structured version strings, semantic versions or exact string matching; an
+empty string is usable only if the application's callbacks accept it. The
+[transfer application](../../apps/transfer/ibc_module.go) requires `UNORDERED`
+channels on its bound port (normally `transfer`) and exactly `ics20-1` during
+init, try and acknowledgement. It does not accept an empty version.
 
 ## Sending, Receiving, Acknowledging Packets
 
-Terminology:
-**Packet Commitment** A hash of the packet stored on the sending chain.
-**Packet Receipt** A single bit indicating that a packet has been received. 
-Used for timeouts. 
-**Acknowledgement** Data written to indicate the result of receiving a packet.
-Typically conveying either success or failure of the receive.
+The [packet keeper](../04-channel/keeper/packet.go) manages:
 
-A packet may be associated with one of the following states:
-- the packet does not exist (ie it has not been sent)
-- the packet has been sent but not received (the packet commitment exists on the 
-sending chain, but no receipt exists on the receiving chain)
-- the packet has been received but not acknowledged (packet commitment exists 
-on the sending chain, a receipt exists on the receiving chain, but no acknowledgement
-exists on the receiving chain)
-- the packet has been acknowledgement but the acknowledgement has not been relayed 
-(the packet commitment exists on the sending chain, the receipt and acknowledgement
-exist on the receiving chain)
-- the packet has completed its life cycle (the packet commitment does not exist on
-the sending chain, but a receipt and acknowledgement exist on the receiving chain)
+- **Packet commitment**: a hash commitment to a sent packet, stored on the
+  sending chain under its source port, source channel and sequence.
+- **Packet receipt**: a marker stored on the receiving chain for an unordered
+  channel. Ordered channels instead track the next receive sequence.
+- **Acknowledgement**: application result bytes whose hash is committed on the
+  receiving chain. Relayers supply the full bytes for verification on the sender.
 
-Sending of a packet is initiated by a call to the `ChannelKeeper.SendPacket` 
-function by an application module. Packets being sent will be verified for
-correctness (core logic only). If the packet is valid, a hash of the packet
-will be stored as a packet commitment using the packet sequence in the key.
-Packet commitments are stored on the sending chain.
+For unordered channels, a typical successful packet lifecycle is:
 
-A message should be sent to the receving chain indicating that the packet
-has been committed on the sending chain and should be received on the 
-receiving chain. The light client on the receiving chain, which verifies
-the sending chain's state, should be updated to the lastest sending chain
-state if possible. The verification will fail if the latest state of the
-light client does not include the packet commitment. The receiving chain
-is responsible for verifying that the counterparty set the hash of the 
-packet. If verification of the packet to be received is successful, the
-receiving chain should store a receipt of the packet and call application
-logic if necessary. An acknowledgement may be processed and stored at this time (synchronously)
-or at another point in the future (asynchronously). 
+| Stage | Sending chain | Receiving chain |
+|-------|---------------|-----------------|
+| Not sent | No packet commitment | No receipt or acknowledgement |
+| Sent | Packet commitment exists | No receipt or acknowledgement |
+| Received, asynchronous acknowledgement pending | Commitment remains | Receipt exists, no acknowledgement yet |
+| Acknowledgement written | Commitment remains until relay | Receipt and acknowledgement commitment exist |
+| Acknowledgement processed on sender | Packet commitment deleted | Receipt and acknowledgement commitment remain |
 
-Acknowledgements written on the receiving chain may be verified on the 
-sending chain. If the sending chain successfully verifies the acknowledgement
-then it may delete the packet commitment stored at that sequence. There is
-no requirement for acknowledgements to be written. Only the hash of the
-acknowledgement is stored on the chain. Application logic may be executed
-in conjunction with verifying an acknowledgement. For example, in fungible
-cross-chain token transfer, a failed acknowledgement results in locked or
-burned funds being refunded. 
+An application initiates sending through `ChannelKeeper.SendPacket` or its ICS4
+wrapper. Core checks the channel, capability, sequence, packet fields and
+counterparty timeout bounds against the client's known state before storing
+the commitment and advancing the send sequence. Relayers reconstruct packet
+data from the sending transaction's events and relay it with commitment proofs.
 
-Relayers are responsible for reconstructing packets between the sending, 
-receiving, and acknowledging of packets. 
+The receiver verifies the sender's packet commitment through its light client,
+using a consensus state at the proof height. A proof cannot verify against a
+state that predates the commitment. Core also checks the receiving chain's own
+height and timestamp against the packet deadlines. On an unordered channel it
+writes a receipt; on an ordered channel it checks and advances the receive
+sequence. Duplicate receives do not execute the application again.
 
-IBC applications sending and receiving packets are expected to appropriately
-handle data contained within a packet. For example, cross-chain token 
-transfers will unmarshal the data into proto definitions representing
-a token transfer. 
+Applications may acknowledge synchronously in `OnRecvPacket`, or return no
+acknowledgement and write it asynchronously later. The
+[transfer module](../../apps/transfer/spec/01_concepts.md#acknowledgements)
+decodes ICS20 packet data as JSON and returns a synchronous JSON acknowledgement.
+Other applications define their own data encodings and acknowledgement rules.
 
-Future optimizations may allow for storage cleanup. Stored packet 
-commitments could be removed from channels which do not write
-packet acknowledgements and acknowledgements could be removed
-when a packet has completed its life cycle.
+When an acknowledgement is relayed, the sender verifies its hash against the
+counterparty commitment and deletes the packet commitment. The application
+callback interprets the result. For ICS20, an error acknowledgement refunds the
+original sender by unescrowing tokens or re-minting burned vouchers; a success
+acknowledgement leaves the completed transfer intact. An application error
+acknowledgement still represents a received packet, so it is not a timeout.
 
-on channel closure will additionally verify that the counterparty channel has 
-been closed. A successful timeout may execute application logic as appropriate.
+### Timeouts and channel closure
 
-Both the packet's timeout timestamp and the timeout height must have been 
-surpassed on the receiving chain for a timeout to be valid. A timeout timestamp 
-or timeout height with a 0 value indicates the timeout field may be ignored. 
-Each packet is required to have at least one valid timeout field. 
+An ordinary timeout requires proof that the packet was not received and that
+**at least one enabled deadline has been reached** on the receiving chain.
+[TimeoutPacket](../04-channel/keeper/timeout.go) accepts either:
 
+- A non-zero timeout height with `proofHeight >= timeoutHeight`; or
+- A non-zero timeout timestamp with `proofTimestamp >= timeoutTimestamp`, where
+  `proofTimestamp` is the counterparty consensus timestamp at `proofHeight`
+  (timestamps are in nanoseconds).
 
+A zero height or timestamp disables that individual deadline. Both cannot be
+zero for a valid packet. A deadline is reached at equality; both enabled
+bounds do not have to be reached. Local sender wall-clock time alone is not a
+counterparty timeout proof.
+
+For unordered channels, non-receipt is proven by absence of the packet receipt.
+For ordered channels, the next receive sequence must prove that the packet's
+sequence has not been received. After successful application timeout handling,
+`TimeoutExecuted` deletes the sender's packet commitment and closes the local
+channel if it is ordered. The transfer callback refunds the sender.
+
+`TimeoutOnClose` instead verifies that the counterparty channel is `CLOSED`
+and that the individual packet was not received. It does not require a packet
+deadline to have elapsed. A closed channel does not automatically refund all
+tokens or erase outstanding obligations; relayers must submit the applicable
+proofs and execute the packet callbacks. See the transfer application's
+[locked-funds discussion](../../apps/transfer/spec/01_concepts.md#locked-funds)
+for the effect of channel closure on voucher redemption.
