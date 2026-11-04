@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -28,7 +29,11 @@ func MakeResetCommand(conf *config.Config) *cobra.Command {
 		Use:   "blockchain",
 		Short: "Removes all blocks, state, transactions and evidence stored by the tendermint node",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return ResetState(conf.DBDir())
+			plan, err := makeResetPlan(cmd, conf)
+			if err != nil {
+				return err
+			}
+			return plan.resetState()
 		},
 	}
 
@@ -56,16 +61,11 @@ Only use in testing. This can cause the node to double sign`,
 		Long: `Removes all tendermint data including signing state.
 Only use in testing. This can cause the node to double sign`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			home, err := cmd.Flags().GetString(cli.HomeFlag)
+			plan, err := makeResetPlan(cmd, conf)
 			if err != nil {
 				return err
 			}
-			// If home is empty, use conf.RootDir as a fallback
-			if home == "" {
-				home = conf.RootDir
-			}
-			return ResetAll(conf.DBDir(), conf.PrivValidator.KeyFile(),
-				conf.PrivValidator.StateFile(), keyType, home)
+			return plan.resetAll(keyType)
 		},
 	}
 
@@ -83,66 +83,115 @@ Only use in testing. This can cause the node to double sign`,
 	return resetCmd
 }
 
+// resetPlan contains paths resolved once by config accessors. Only wasm is
+// derived from home; database and signer paths must never be rooted again.
+type resetPlan struct {
+	dbDir        string
+	keyFile      string
+	stateFile    string
+	wasmDir      string
+	autobahnDirs []string
+}
+
+func makeResetPlan(cmd *cobra.Command, conf *config.Config) (resetPlan, error) {
+	if cmd.Flags().Lookup(cli.HomeFlag) != nil {
+		home, err := cmd.Flags().GetString(cli.HomeFlag)
+		if err != nil {
+			return resetPlan{}, err
+		}
+		if home != "" {
+			conf.SetRoot(home)
+		}
+	}
+	plan := resetPlan{
+		dbDir:     conf.DBDir(),
+		keyFile:   conf.PrivValidator.KeyFile(),
+		stateFile: conf.PrivValidator.StateFile(),
+		wasmDir:   filepath.Join(conf.RootDir, wasmDirName),
+	}
+	if conf.AutobahnConfigFile != "" {
+		dir, err := config.LoadAutobahnPersistentStateDir(conf.AutobahnConfigFile, conf.RootDir)
+		if err != nil {
+			return resetPlan{}, fmt.Errorf("loading Autobahn reset path from %q: %w", conf.AutobahnConfigFile, err)
+		}
+		if path, ok := dir.Get(); ok {
+			plan.autobahnDirs = append(plan.autobahnDirs, path)
+		}
+	}
+	return plan, nil
+}
+
 // ResetAll removes address book files plus all data, and resets the privValdiator data.
-// Exported for extenal CLI usage
+// Exported for extenal CLI usage. All arguments except homeDir are already resolved paths.
 // XXX: this is unsafe and should only suitable for testnets.
 func ResetAll(dbDir, privValKeyFile, privValStateFile string, keyType string, homeDir string) error {
-	if err := os.RemoveAll(filepath.Join(homeDir, dbDir)); err == nil {
-		logger.Info("Removed all blockchain history", "dir", dbDir)
-	} else {
-		logger.Error("error removing all blockchain history", "dir", dbDir, "err", err)
-	}
+	return (resetPlan{
+		dbDir:     dbDir,
+		keyFile:   privValKeyFile,
+		stateFile: privValStateFile,
+		wasmDir:   filepath.Join(homeDir, wasmDirName),
+	}).resetAll(keyType)
+}
 
-	if err := tmos.EnsureDir(filepath.Join(homeDir, dbDir), 0700); err != nil {
-		logger.Error("unable to recreate dbDir", "err", err)
-	} else {
-		logger.Info("Removed dbDir")
+func (plan resetPlan) resetAll(keyType string) error {
+	if err := removeIfExists(plan.dbDir, "all blockchain history"); err != nil {
+		return err
 	}
-
-	wasmDir := filepath.Join(homeDir, wasmDirName)
-	if err := os.RemoveAll(wasmDir); err == nil {
-		logger.Info("Removed wasm directory", "dir", wasmDir)
-	} else {
-		logger.Error("error removing wasm directory", "dir", wasmDir, "err", err)
+	if err := tmos.EnsureDir(plan.dbDir, 0700); err != nil {
+		return err
 	}
-
-	// recreate the dbDir since the privVal state needs to live there
-	return ResetFilePV(filepath.Join(homeDir, privValKeyFile), filepath.Join(homeDir, privValStateFile), keyType)
+	for _, path := range plan.autobahnDirs {
+		if err := removeIfExists(path, "Autobahn persistent state"); err != nil {
+			return err
+		}
+	}
+	if err := removeIfExists(plan.wasmDir, "wasm directory"); err != nil {
+		return err
+	}
+	// Recreate the signer state's parent, which may be outside dbDir.
+	if err := tmos.EnsureDir(filepath.Dir(plan.stateFile), 0700); err != nil {
+		return err
+	}
+	return ResetFilePV(plan.keyFile, plan.stateFile, keyType)
 }
 
 // removeIfExists removes a path if it exists, logging the result.
-func removeIfExists(path, label string) {
-	if tmos.FileExists(path) {
-		if err := os.RemoveAll(path); err == nil {
-			logger.Info("Removed "+label, "dir", path)
-		} else {
-			logger.Error("error removing "+label, "dir", path, "err", err)
-		}
+func removeIfExists(path, label string) error {
+	if err := os.RemoveAll(path); err != nil {
+		return fmt.Errorf("removing %s at %q: %w", label, path, err)
 	}
+	logger.Info("Removed "+label, "dir", path)
+	return nil
 }
 
 // ResetState removes all blocks, tendermint state, indexed transactions and evidence.
 // It handles both the legacy flat layout and the new subdirectory layout.
-// It also removes the Autobahn persistent state directory data/autobahn.
+// It also removes the default Autobahn persistent state directory under dbDir.
+// Commands additionally include the configured persistence directory in their reset plan.
 func ResetState(dbDir string) error {
-	// Legacy paths (flat under data/)
-	removeIfExists(filepath.Join(dbDir, "blockstore.db"), "blockstore.db")
-	removeIfExists(filepath.Join(dbDir, "state.db"), "state.db")
-	removeIfExists(filepath.Join(dbDir, "cs.wal"), "cs.wal")
-	removeIfExists(filepath.Join(dbDir, "evidence.db"), "evidence.db")
-	removeIfExists(filepath.Join(dbDir, "tx_index.db"), "tx_index.db")
+	return (resetPlan{dbDir: dbDir}).resetState()
+}
 
-	// New paths (subdirectory layout — all tendermint DBs under data/tendermint/)
-	removeIfExists(filepath.Join(dbDir, "tendermint", "blockstore.db"), "tendermint/blockstore.db")
-	removeIfExists(filepath.Join(dbDir, "tendermint", "tx_index.db"), "tendermint/tx_index.db")
-	removeIfExists(filepath.Join(dbDir, "tendermint", "state.db"), "tendermint/state.db")
-	removeIfExists(filepath.Join(dbDir, "tendermint", "cs.wal"), "tendermint/cs.wal")
-	removeIfExists(filepath.Join(dbDir, "tendermint", "evidence.db"), "tendermint/evidence.db")
-	removeIfExists(filepath.Join(dbDir, "tendermint", "peerstore.db"), "tendermint/peerstore.db")
-
-	removeIfExists(filepath.Join(dbDir, "autobahn"), "autobahn")
-
-	return tmos.EnsureDir(dbDir, 0700)
+func (plan resetPlan) resetState() error {
+	paths := []string{
+		// Legacy paths (flat under data/).
+		"blockstore.db", "state.db", "cs.wal", "evidence.db", "tx_index.db",
+		// New paths (all tendermint DBs under data/tendermint/).
+		"tendermint/blockstore.db", "tendermint/tx_index.db", "tendermint/state.db",
+		"tendermint/cs.wal", "tendermint/evidence.db", "tendermint/peerstore.db",
+		"autobahn",
+	}
+	for _, path := range paths {
+		if err := removeIfExists(filepath.Join(plan.dbDir, path), path); err != nil {
+			return err
+		}
+	}
+	for _, path := range plan.autobahnDirs {
+		if err := removeIfExists(path, "Autobahn persistent state"); err != nil {
+			return err
+		}
+	}
+	return tmos.EnsureDir(plan.dbDir, 0700)
 }
 
 // ResetFilePV loads the file private validator and resets the watermark to 0. If used on an existing network,
@@ -201,19 +250,11 @@ func MakeUnsafeResetAllCommand(conf *config.Config) *cobra.Command {
 		Long: `Removes all tendermint data including signing state, and the wasm directory (contract blobs and compiled modules).
 Only use in testing. This can cause the node to double sign`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Get the --home flag value from the command
-			home, err := cmd.Flags().GetString(cli.HomeFlag)
+			plan, err := makeResetPlan(cmd, conf)
 			if err != nil {
 				return err
 			}
-
-			// If home is empty, use conf.RootDir as a fallback
-			if home == "" {
-				home = conf.RootDir
-			}
-
-			return ResetAll(conf.DBDir(), conf.PrivValidator.KeyFile(),
-				conf.PrivValidator.StateFile(), keyType, home)
+			return plan.resetAll(keyType)
 		},
 	}
 
