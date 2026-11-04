@@ -10,17 +10,21 @@ defmodule Explorer.Market.Fetcher.Coin do
   require Logger
 
   alias Explorer.Chain.Events.Publisher
+  alias Explorer.History.Process, as: HistoryProcess
   alias Explorer.Market
   alias Explorer.Market.{Source, Token}
 
   @table_name :exchange_rates
+  @max_failed_attempts 3
 
   @type t() :: %__MODULE__{
           native_coin_source: module() | :ignored | nil,
-          secondary_coin_source: module() | :ignored | nil
+          secondary_coin_source: module() | :ignored | nil,
+          tasks: %{reference() => boolean()},
+          failures: %{boolean() => %{attempts: non_neg_integer(), reason: term()}}
         }
 
-  defstruct [:native_coin_source, :secondary_coin_source]
+  defstruct [:native_coin_source, :secondary_coin_source, tasks: %{}, failures: %{}]
 
   @impl GenServer
   def init(_) do
@@ -61,14 +65,30 @@ defmodule Explorer.Market.Fetcher.Coin do
 
   @impl GenServer
   def handle_info({:update, secondary_coin?}, state) do
-    fetch_rates(secondary_coin?, state)
-
-    {:noreply, state}
+    {:noreply, fetch_rates(secondary_coin?, state)}
   end
 
-  # Callback for successful fetch
   @impl GenServer
-  def handle_info({_ref, {{:ok, coin}, secondary_coin?}}, state) do
+  def handle_info({ref, {result, secondary_coin?}}, state) when is_reference(ref) do
+    case Map.pop(state.tasks, ref) do
+      {^secondary_coin?, tasks} ->
+        Process.demonitor(ref, [:flush])
+        handle_result(result, secondary_coin?, %{state | tasks: tasks})
+
+      _ ->
+        {:noreply, state}
+    end
+  end
+
+  @impl GenServer
+  def handle_info({:DOWN, ref, :process, _pid, reason}, state) do
+    case Map.pop(state.tasks, ref) do
+      {nil, _} -> {:noreply, state}
+      {secondary_coin?, tasks} -> handle_result({:error, reason}, secondary_coin?, %{state | tasks: tasks})
+    end
+  end
+
+  defp handle_result({:ok, coin}, secondary_coin?, state) do
     coin = if secondary_coin?, do: coin, else: add_coin_info_from_db(coin)
 
     if config(:store) == :ets do
@@ -81,24 +101,27 @@ defmodule Explorer.Market.Fetcher.Coin do
 
     schedule_next_consolidation(secondary_coin?)
 
-    {:noreply, state}
+    {:noreply, %{state | failures: Map.delete(state.failures, secondary_coin?)}}
   end
 
-  # Callback for errored fetch
-  @impl GenServer
-  def handle_info({_ref, {{:error, reason}, secondary_coin?}}, state) do
+  defp handle_result({:error, reason}, secondary_coin?, state) do
     Logger.warning(fn ->
-      "Failed to get #{Source.secondary_coin_string(secondary_coin?)} exchange rates with reason '#{reason}'."
+      "Failed to get #{Source.secondary_coin_string(secondary_coin?)} exchange rates with reason '#{inspect(reason)}'."
     end)
 
-    schedule_next_consolidation(secondary_coin?)
+    attempts = get_in(state.failures, [secondary_coin?, :attempts]) || 0
+    attempts = attempts + 1
 
-    {:noreply, state}
+    if attempts <= @max_failed_attempts do
+      Process.send_after(self(), {:update, secondary_coin?}, HistoryProcess.delay(attempts))
+    else
+      schedule_next_consolidation(secondary_coin?)
+    end
+
+    {:noreply, %{state | failures: Map.put(state.failures, secondary_coin?, %{attempts: attempts, reason: reason})}}
   end
 
-  # Callback for not implemented fetch
-  @impl GenServer
-  def handle_info({_ref, {:ignore, secondary_coin?}}, state) do
+  defp handle_result(:ignore, secondary_coin?, state) do
     Logger.warning(
       "Configured #{Source.secondary_coin_string(secondary_coin?)} source does not implement coin fetching"
     )
@@ -115,12 +138,6 @@ defmodule Explorer.Market.Fetcher.Coin do
     else
       {:noreply, state}
     end
-  end
-
-  # Callback that a monitored process has shutdown
-  @impl GenServer
-  def handle_info({:DOWN, _, :process, _, _}, state) do
-    {:noreply, state}
   end
 
   def start_link(opts) do
@@ -189,21 +206,20 @@ defmodule Explorer.Market.Fetcher.Coin do
     Application.get_env(:explorer, __MODULE__, [])[key]
   end
 
-  @spec fetch_rates(boolean(), t()) :: Task.t()
-  defp fetch_rates(false, state) do
-    if state.native_coin_source do
-      Task.Supervisor.async_nolink(
-        Explorer.MarketTaskSupervisor,
-        fn -> {state.native_coin_source.fetch_native_coin(), false} end
-      )
-    end
-  end
+  @spec fetch_rates(boolean(), t()) :: t()
+  defp fetch_rates(secondary_coin?, state) do
+    source = if secondary_coin?, do: state.secondary_coin_source, else: state.native_coin_source
 
-  defp fetch_rates(true, state) do
-    if state.secondary_coin_source do
-      Task.Supervisor.async_nolink(Explorer.MarketTaskSupervisor, fn ->
-        {state.secondary_coin_source.fetch_secondary_coin(), true}
-      end)
+    if source not in [nil, :ignored] and secondary_coin? not in Map.values(state.tasks) do
+      task =
+        Task.Supervisor.async_nolink(Explorer.MarketTaskSupervisor, fn ->
+          result = if secondary_coin?, do: source.fetch_secondary_coin(), else: source.fetch_native_coin()
+          {result, secondary_coin?}
+        end)
+
+      %{state | tasks: Map.put(state.tasks, task.ref, secondary_coin?)}
+    else
+      state
     end
   end
 
