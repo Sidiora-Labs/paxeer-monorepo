@@ -161,6 +161,10 @@ const TxsContent = ({
       return 'Transactions';
     }
 
+    if (socketType === 'txs_pending') {
+      return `Pending transactions on this page: ${ items.length.toLocaleString() }`;
+    }
+
     if (isChainWideList && Number.isFinite(totalTxs) && totalTxs >= items.length) {
       return formatScanTableCount({ kind: 'latest', value: totalTxs, shownValue: items.length, itemsName: ITEMS_NAME });
     }
