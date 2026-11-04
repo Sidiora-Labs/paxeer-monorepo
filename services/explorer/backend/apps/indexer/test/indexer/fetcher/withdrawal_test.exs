@@ -1,3 +1,5 @@
+Code.require_file("repair_22_33_555_support.exs", __DIR__)
+
 defmodule Indexer.Fetcher.WithdrawalTest do
   use EthereumJSONRPC.Case
   use Explorer.DataCase
@@ -64,7 +66,7 @@ defmodule Indexer.Fetcher.WithdrawalTest do
                "miner" => "0x5a0b54d5dc17e0aadc383d2db43b0a0d3e029c4c",
                "mixHash" => "0xda53ae7c2b3c529783d6cdacdb90587fd70eb651c0f04253e8ff17de97844010",
                "nonce" => "0x0946e5f01fce12bc",
-               "number" => "0x708677",
+               "number" => block_a_number_string,
                "parentHash" => "0x62543e836e0ef7edfa9e38f26526092c4be97efdf5ba9e0f53a4b0b7d5bc930a",
                "receiptsRoot" => "0xa7d2b82bd8526de11736c18bd5cc8cfe2692106c4364526f3310ad56d78669c4",
                "sealFields" => [
@@ -105,7 +107,7 @@ defmodule Indexer.Fetcher.WithdrawalTest do
                "miner" => "0x5a0b54d5dc17e0aadc383d2db43b0a0d3e029c4c",
                "mixHash" => "0xda53ae7c2b3c529783d6cdacdb90587fd70eb651c0f04253e8ff17de97844010",
                "nonce" => "0x0946e5f01fce12bc",
-               "number" => "0x708677",
+               "number" => block_b_number_string,
                "parentHash" => "0x62543e836e0ef7edfa9e38f26526092c4be97efdf5ba9e0f53a4b0b7d5bc930a",
                "receiptsRoot" => "0xa7d2b82bd8526de11736c18bd5cc8cfe2692106c4364526f3310ad56d78669c4",
                "sealFields" => [
@@ -140,12 +142,30 @@ defmodule Indexer.Fetcher.WithdrawalTest do
 
     assert is_pid(worker_pid)
 
-    :timer.sleep(300)
+    Indexer.Fetcher.Repair2233555.wait_until(5_000, fn ->
+      match?(
+        [{Indexer.Fetcher.Withdrawal, :undefined, :worker, [Indexer.Fetcher.Withdrawal]} | _],
+        Supervisor.which_children(Withdrawal.Supervisor)
+      )
+    end)
 
     assert [{Indexer.Fetcher.Withdrawal, :undefined, :worker, [Indexer.Fetcher.Withdrawal]} | _] =
              Withdrawal.Supervisor |> Supervisor.which_children()
 
+    for {index, block} <- [{1, block_a}, {2, block_b}] do
+      withdrawal = Repo.get!(Explorer.Chain.Withdrawal, index)
+      assert withdrawal.block_hash == block.hash
+      assert Repo.get!(Explorer.Chain.Block, withdrawal.block_hash).number == block.number
+      assert withdrawal.validator_index == 2059
+      assert to_string(withdrawal.address_hash) == "0x388ea662ef2c223ec0b047d41bf3c0f362142ad5"
+      assert Decimal.equal?(Explorer.Chain.Wei.to(withdrawal.amount, :gwei), 3_030_000_000_000)
+    end
+
     # Terminates the process so it finishes all Ecto processes.
     GenServer.stop(pid)
+  end
+
+  test "017: persists withdrawals and resumes only missing blocks after restart" do
+    Indexer.Fetcher.Repair2233555.assert_withdrawal_recovery()
   end
 end
