@@ -11,20 +11,20 @@ const AddressSerializedSize = 13
 
 // Address describes the location of a value on disk.
 //
-// An Address identifies the file the value lives in (Index), the byte offset of the value's length prefix
-// within that file (Offset), the shard within the segment that owns the value (ShardID), and the size of
-// the value itself in bytes (ValueSize).
+// An Address identifies the segment (Index), the byte offset of the first referenced byte within
+// its shard's value file (Offset), the shard within that segment (ShardID), and the exact number of
+// referenced bytes (ValueSize). V3 value files store raw bytes with no per-value length prefix.
+// A primary address spans the whole value; a secondary address may span any subrange of those bytes.
 type Address struct {
 	// index is the segment index that owns the value. Combined with the shardID, it identifies the value file
 	// that contains the value's bytes.
 	index uint32
-	// offset is the byte position of the value's length prefix within the shard's value file. The value's
-	// bytes immediately follow the 4-byte length prefix.
+	// offset is the byte position of the first referenced byte within the shard's value file.
 	offset uint32
 	// shardID is the index of the shard within the segment that holds the value. Encoded as a single byte,
 	// which caps the maximum sharding factor at 255 (see litt.MaxShardingFactor).
 	shardID uint8
-	// valueSize is the length of the value in bytes (not counting the 4-byte length prefix on disk).
+	// valueSize is the exact span in bytes starting at offset, with no length prefix.
 	valueSize uint32
 }
 
@@ -56,7 +56,7 @@ func (a Address) Index() uint32 {
 	return a.index
 }
 
-// Offset returns the byte offset of the value within its shard's value file.
+// Offset returns the byte offset of the first referenced byte within its shard's value file.
 func (a Address) Offset() uint32 {
 	return a.offset
 }
@@ -66,7 +66,7 @@ func (a Address) ShardID() uint8 {
 	return a.shardID
 }
 
-// ValueSize returns the size of the value in bytes.
+// ValueSize returns the exact number of referenced bytes starting at Offset, with no length prefix.
 func (a Address) ValueSize() uint32 {
 	return a.valueSize
 }

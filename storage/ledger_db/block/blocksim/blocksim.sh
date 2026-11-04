@@ -12,7 +12,7 @@ SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_SOURCE")" && pwd)"
 BINARY="${SCRIPT_DIR}/bin/blocksim"
 
 # Build binaries (no-op if already up to date; Go's build cache handles staleness).
-make -C "$SCRIPT_DIR" build
+make -C "$SCRIPT_DIR" build || exit "$?"
 
 # Configure paxlog env vars from the config file. The config file is the sole
 # source of truth -- any pre-existing PAX_LOG_* env vars are overwritten.
