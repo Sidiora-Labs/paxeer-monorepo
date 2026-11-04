@@ -4,47 +4,112 @@ order: false
 
 # simapp
 
-simapp is the Cosmos SDK application used by the IBC [`testing`](..) package in this repo. It exists for testing purposes only; the Paxeer X chain itself runs `paxd`.
+simapp is the SDK application used by the [IBC testing package](../README.md).
+It contains transfer, interchain accounts and the [mock IBC application](../mock/README.md)
+for tests. `simd` runs this application as a local test network; Paxeer's network
+runs `paxd`, with the kernel participating in block proposal and block commit
+providing finality.
 
 ## Running a local test network with `simd`
 
-To spin up a small local test network for this simapp, follow these steps.
-Unless otherwise noted, every step must be done by everyone who wants to participate.
+The commands below create a fresh local test network. All participants must use
+the same chain ID and final genesis file. The example chain ID `ibc-local-1` is
+for this test network; it is unrelated to Paxeer's public EVM chain ID 125.
 
-1. From the repo root, run `$ go build -o build/simd ./interchain/testing/simapp/simd`.
-    This builds the `simd` binary into the `build` directory. The following instructions
-    are run from inside that directory.
-2. If you've run `simd` before, you may need to reset your database before starting a new
-    network: `$ ./simd unsafe-reset-all`
-3. `$ ./simd init [moniker]`. This will initialize a new working directory, by default at
-    `~/.simapp`. You need to provide a "moniker," but it doesn't matter what it is.
-4. `$ ./simd keys add [key_name]`. This will create a new key, with a name of your choosing.
-    Save the output of this command somewhere; you'll need the address generated here later.
-5. `$ ./simd add-genesis-account  $(./simd keys show [key_name] -a) [amount]`, where `key_name`
-    is the same key name as before; and `amount` is something like `10000000000000000000000000stake`.
-6. `$ ./simd gentx [key_name] [amount] --chain-id [chain-id]`. This will create the
-    genesis transaction for your new chain.
-7. Now, one person needs to create the genesis file `genesis.json` using the genesis transactions
-   from every participant, by gathering all the genesis transactions under `config/gentx` and then
-   calling `./simd collect-gentxs`. This will create a new `genesis.json` file that includes data
-   from all the validators (we sometimes call it the "super genesis file" to distinguish it from
-   single-validator genesis files).
-8. Once you've received the super genesis file, overwrite your original `genesis.json` file with
-    the new super `genesis.json`.
-9. Modify your `config/config.toml` (in the simapp working directory) to include the other participants as
-    persistent peers:
+1. From the repository root, build the test binary and enter its directory:
 
+   ```sh
+   go build -o build/simd ./interchain/testing/simapp/simd
+   cd build
+   ```
+
+2. Choose a fresh test home on each participant's machine. The default is
+   `~/.simapp` (`DefaultNodeHome` in [app.go](app.go)); this example uses a
+   separate directory and passes `--home` explicitly throughout:
+
+   ```sh
+   simapp_home="$HOME/.simapp-ibc-test"
+   ./simd init validator-a --chain-id ibc-local-1 --home "$simapp_home"
+   ```
+
+   Each participant chooses its own moniker. Retain the same `simapp_home`
+   value for subsequent commands on that machine.
+
+3. Each participant creates a local key and supplies its account address to the
+   person preparing the shared genesis:
+
+   ```sh
+   ./simd keys add validator --home "$simapp_home"
+   ./simd keys show validator -a --home "$simapp_home"
+   ```
+
+4. On the machine preparing genesis, fund **every participant's account** in
+   `config/genesis.json`. For a single validator, use:
+
+   ```sh
+   ./simd add-genesis-account \
+     "$(./simd keys show validator -a --home "$simapp_home")" \
+     1000000000000uhpx --home "$simapp_home"
+   ```
+
+   For multiple validators, repeat `add-genesis-account` with each supplied
+   address. The staking denomination is `uhpx`, from `sdk.DefaultBondDenom`,
+   which the default staking genesis uses. Fund and delegate that denomination.
+
+5. Distribute this funded genesis file to every participant, replacing each
+   participant's `config/genesis.json` under its test home. Each participant
+   then creates its own validator genesis transaction:
+
+   ```sh
+   ./simd gentx validator 100000000uhpx \
+     --chain-id ibc-local-1 --home "$simapp_home"
+   ```
+
+   The delegated amount must be covered by that account's genesis balance.
+
+6. One participant gathers all generated transaction JSON files into its test
+   home's `config/gentx` directory, then collects and validates them:
+
+   ```sh
+   ./simd collect-gentxs --home "$simapp_home"
+   ./simd validate-genesis --home "$simapp_home"
+   ```
+
+7. Distribute the resulting `config/genesis.json` to every participant. Each
+   participant replaces its own genesis file with this identical final file.
+   For a single validator, the file is already in place.
+
+8. Obtain each node's peer ID:
+
+   ```sh
+   ./simd tendermint show-node-id --home "$simapp_home"
+   ```
+
+9. For multiple nodes, set `persistent_peers` in each test home's
+   `config/config.toml` to the other nodes' IDs and reachable addresses. For
+   example:
+
+   ```toml
+   persistent_peers = "<node-id-b>@<host-b>:26656,<node-id-c>@<host-c>:26656"
+   ```
+
+   `26656` is the default P2P port. Use the peer's configured port if changed;
+   nodes sharing a machine also need distinct listening ports and homes.
+
+10. Start each node:
+
+    ```sh
+    ./simd start --home "$simapp_home"
     ```
-    # Comma separated list of nodes to keep persistent connections to
-    persistent_peers = "[validator address]@[ip address]:[port],[validator address]@[ip address]:[port]"
-    ```
 
-    You can find `validator address` by running `./simd tendermint show-node-id`. (It will be hex-encoded.)
-    By default, `port` is 26656.
-10. Now you can start your nodes: `$ ./simd start`.
+    The test CLI's [configuration defaults](simd/cmd/root.go) set
+    `minimum-gas-prices` to `0uhpx` in `config/app.toml`.
 
-Now you have a small local network for trying out changes to the IBC modules or the SDK fork under `sdk/`.
+The resulting local network is for trying changes to IBC modules and the SDK
+under [`sdk/`](../../../sdk/). For in-process tests, use the coordinator and
+application setup described in the [testing guide](../README.md).
 
-NOTE: Sometimes creating the network through the `collect-gentxs` will fail, and validators will start
-in a funny state (and then panic). If this happens, you can try to create and start the network first
-with a single validator and then add additional validators using a `create-validator` transaction.
+For an intentional reset of disposable test state, stop the node and use
+`./simd tendermint unsafe-reset-all --home "$simapp_home"`. This command removes
+consensus data, signing state and the test home's WASM directory. A new test home
+avoids reusing that state when starting an unrelated network.
