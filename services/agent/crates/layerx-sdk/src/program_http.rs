@@ -46,36 +46,9 @@ fn program_call_calldata(
     fee_limit: u128,
 ) -> Result<Vec<u8>, ProgramOperationError> {
     call.encode().map_err(|_| ProgramOperationError::Decode)?;
-    let mut data = vec![0; PROGRAM_CALL_HEAD_BYTES];
-    data[..32].copy_from_slice(&call.program_id.bytes());
-    let mut word = |index: usize, value: u128| {
-        data[index * 32 + 16..(index + 1) * 32].copy_from_slice(&value.to_be_bytes());
-    };
-    word(1, u128::from(call.guest_abi));
-    word(6, u128::from(call.response_capacity));
-    for (index, resource) in call.resources.0.iter().enumerate() {
-        word(7 + index, u128::from(*resource));
-    }
-    word(14, fee_limit);
-    for (index, body) in [
-        call.entrypoint,
-        call.calldata,
-        call.capabilities,
-        call.access_declaration,
-    ]
-    .into_iter()
-    .enumerate()
-    {
-        let offset = data.len() as u128;
-        data[(2 + index) * 32 + 16..(3 + index) * 32].copy_from_slice(&offset.to_be_bytes());
-        data.extend_from_slice(&[0; 16]);
-        data.extend_from_slice(&(body.len() as u128).to_be_bytes());
-        data.extend_from_slice(body);
-        data.resize(data.len().next_multiple_of(32), 0);
-    }
-    let mut calldata = PROGRAM_CALL_SELECTOR.to_vec();
-    calldata.extend_from_slice(&data);
-    Ok(calldata)
+    Ok(layerx_crypto::disclosure::call::encode_program_call(
+        &call, fee_limit,
+    ))
 }
 
 fn program_call_body(
@@ -135,15 +108,15 @@ fn program_call_body(
 #[path = "programs/native_activity.rs"]
 mod native_activity;
 
-struct SignedProgramTransaction {
+pub(super) struct SignedProgramTransaction {
     to: [u8; 20],
-    data: Vec<u8>,
-    activity_id: [u8; 32],
-    idempotency_key: [u8; 32],
+    pub(super) data: Vec<u8>,
+    pub(super) activity_id: [u8; 32],
+    pub(super) idempotency_key: [u8; 32],
     protocol_version: u16,
 }
 
-fn signed_program_transaction(
+pub(super) fn signed_program_transaction(
     raw: &[u8],
 ) -> Result<SignedProgramTransaction, ProgramOperationError> {
     if raw.is_empty() || raw.len() > MAX_SIGNED_ACTIVITY_BYTES {
@@ -190,6 +163,41 @@ fn signed_program_transaction(
         }
         _ => Err(ProgramOperationError::Decode),
     }
+}
+
+pub(super) fn validate_public_call(
+    call: &layerx_types::intent::ProgramCall,
+    native: &layerx_crypto::disclosure::DisclosedProgramCall,
+    fee_limit: u128,
+) -> Result<(), ProgramOperationError> {
+    if native.entrypoint != b"layerx_call"
+        || native.program_id != call.callee()
+        || native.calldata != call.calldata().as_bytes()
+        || native.resources.0[0] != call.budget().fuel()
+        || fee_limit != call.budget().fee_limit().value()
+    {
+        return Err(ProgramOperationError::IdentityMismatch);
+    }
+    let grants = crate::native_capabilities::NativeCapabilitySet::decode(&native.capabilities)
+        .map_err(|_| ProgramOperationError::Decode)?;
+    use crate::native_capabilities::NativeCapability;
+    let expected = call
+        .capabilities()
+        .as_slice()
+        .iter()
+        .map(|capability| match capability {
+            CapabilityRequest::StorageRead => Ok(NativeCapability::StorageRead),
+            CapabilityRequest::StorageWrite => Ok(NativeCapability::StorageWrite),
+            CapabilityRequest::EmitEvent => Ok(NativeCapability::EmitEvent),
+            CapabilityRequest::Transfer | CapabilityRequest::Compose => {
+                Err(ProgramOperationError::IdentityMismatch)
+            }
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    if grants.grants() != expected.as_slice() {
+        return Err(ProgramOperationError::IdentityMismatch);
+    }
+    Ok(())
 }
 
 impl NativeProgramCallRequest {
@@ -272,11 +280,12 @@ impl std::fmt::Debug for LayerXKeyCredential {
 }
 
 pub struct HttpProgramTransport {
-    clock: fn() -> Result<u64, ProgramOperationError>,
+    pub(super) clock: fn() -> Result<u64, ProgramOperationError>,
     agent: ureq::Agent,
     endpoint: Url,
     credential: Option<LayerXKeyCredential>,
-    trusted_sequencer_public_key: [u8; 32],
+    pub(super) trusted_sequencer_public_key: [u8; 32],
+    pub(super) node_policy: Option<crate::rpc_verification::ReceiptPolicy>,
     lifecycle_node: Option<layerx_client::sequencer::SequencerEndpoint>,
     lifecycle_receipt_keys: Vec<layerx_client::sequencer::ReceiptKeyEntry>,
 }
@@ -287,12 +296,23 @@ impl HttpProgramTransport {
         request: &crate::program_lifecycle::NativeProgramLifecycleRequest,
         key: [u8; 32],
         ordinal: u16,
-        _operation: &'static str,
-        _route: &str,
     ) -> Result<crate::program_lifecycle::ProgramLifecycleSubmission, ProgramOperationError> {
         use crate::program_lifecycle::ProgramLifecycleSubmission;
         if request.ordinal() != ordinal || request.bound_idempotency_key() != key {
             return Err(ProgramOperationError::IdentityMismatch);
+        }
+        if self.node_policy.is_some() {
+            return match self
+                .send_node_transaction(request.signed_activity(), request.bound_activity_id())
+            {
+                Ok(()) => Ok(ProgramLifecycleSubmission::Submitted {
+                    activity_id: request.bound_activity_id(),
+                    idempotency_key: key,
+                    retained_signed_activity: request.signed_activity().to_vec(),
+                }),
+                Err(ProgramOperationError::Transport) => Ok(lifecycle_unknown(request)),
+                Err(error) => Err(error),
+            };
         }
         let node = self
             .lifecycle_node
@@ -471,58 +491,33 @@ impl HttpProgramTransport {
             result_code: protocol.result_code(),
         })
     }
+
     fn submit_bound(
         &self,
         request: &impl BoundProgramRequest,
-        wire: &Value,
+        _wire: &Value,
         idempotency_key: [u8; 32],
     ) -> Result<ProgramSubmission, ProgramOperationError> {
         if idempotency_key != request.bound_idempotency_key() {
             return Err(ProgramOperationError::IdentityMismatch);
         }
-        if let Some(credential) = &self.credential {
-            let _ = credential.authorization()?;
-        }
-        let encoded = serde_json::to_vec(wire).map_err(|_| ProgramOperationError::Decode)?;
-        if encoded.is_empty() || encoded.len() > MAX_HTTP_REQUEST_BYTES {
-            return Err(ProgramOperationError::Bounds);
-        }
-        let attempt = self
-            .dispatch(
-                "program.call",
-                Method::Post,
-                "/v1/programs/call",
-                wire,
-                Some(idempotency_key),
-            )
-            .and_then(|value| {
-                decode_submission(
-                    &value,
-                    SubmissionExpectation {
-                        program_id: Some(request.request_program()),
-                        activity_id: Some(request.bound_activity_id()),
-                        idempotency_key: Some(idempotency_key),
-                        retained_signed_activity: Some(request.signed_activity()),
-                        trusted_sequencer_public_key: self.trusted_sequencer_public_key,
-                    },
-                )
-            });
-        match attempt {
-            Ok(submission) => Ok(submission),
-            Err(ProgramOperationError::Service(error))
-                if error.retriability == Retriability::Terminal =>
-            {
-                Err(ProgramOperationError::Service(error))
-            }
-            Err(_) => Ok(ProgramSubmission::Unknown {
+        match self.send_node_transaction(request.signed_activity(), request.bound_activity_id()) {
+            Ok(()) => Ok(ProgramSubmission::Submitted {
+                activity_id: request.bound_activity_id(),
+                idempotency_key,
+                retained_signed_activity: request.signed_activity().to_vec(),
+            }),
+            Err(ProgramOperationError::Transport) => Ok(ProgramSubmission::Unknown {
                 activity_id: request.bound_activity_id(),
                 idempotency_key,
                 retained_signed_activity: Some(request.signed_activity().to_vec()),
             }),
+            Err(error) => Err(error),
         }
     }
 
-    /// Connects the exact hosted/emulator Programs route set.
+    /// Configures the node endpoint and optional gateway credential.
+    /// Use `connect_node` to supply network and height-ranged receipt authority for live operations.
     ///
     /// # Errors
     ///
@@ -555,86 +550,75 @@ impl HttpProgramTransport {
             endpoint,
             credential,
             trusted_sequencer_public_key,
+            node_policy: None,
             lifecycle_node: None,
             lifecycle_receipt_keys: Vec::new(),
         })
     }
 
-    fn endpoint(&self, route: &str) -> Result<Url, ProgramOperationError> {
-        let mut endpoint = self.endpoint.clone();
-        let base = endpoint.path().trim_end_matches('/');
-        endpoint.set_path(&format!("{base}{route}"));
-        endpoint.set_query(None);
-        endpoint.set_fragment(None);
-        validate_endpoint(endpoint.as_str())
-    }
-
-    fn dispatch(
+    pub(super) fn node_rpc(
         &self,
-        operation: &'static str,
-        method: Method,
-        route: &str,
-        body: &Value,
-        idempotency_key: Option<[u8; 32]>,
+        method: &str,
+        params: Value,
     ) -> Result<Value, ProgramOperationError> {
-        let endpoint = self.endpoint(route)?;
-        let encoded = match method {
-            Method::Post => bounded_hex(
-                object(body)?,
-                "signed_activity",
-                MAX_SIGNED_ACTIVITY_BYTES,
-                None,
-            )?,
-            Method::Get => serde_json::to_vec(body).map_err(|_| ProgramOperationError::Decode)?,
-        };
-        if encoded.is_empty() || encoded.len() > MAX_HTTP_REQUEST_BYTES {
+        let body =
+            serde_json::to_vec(&json!({"jsonrpc":"2.0", "id":1, "method":method, "params":params}))
+                .map_err(|_| ProgramOperationError::Decode)?;
+        if body.len() > MAX_HTTP_REQUEST_BYTES {
             return Err(ProgramOperationError::Bounds);
         }
+        let mut request = self
+            .agent
+            .post(self.endpoint.as_str())
+            .header("Content-Type", "application/json");
         let authorization = self
             .credential
             .as_ref()
             .map(LayerXKeyCredential::authorization)
             .transpose()?;
-        let response = match method {
-            Method::Get => {
-                if idempotency_key.is_some() {
-                    return Err(ProgramOperationError::IdentityMismatch);
-                }
-                let mut request = self
-                    .agent
-                    .get(endpoint.as_str())
-                    .header("Accept", "application/json")
-                    .header("Content-Type", "application/json")
-                    .header(
-                        "User-Agent",
-                        concat!("layerx-rust/", env!("CARGO_PKG_VERSION")),
-                    );
-                if let Some(value) = authorization.as_deref() {
-                    request = request.header("Authorization", value);
-                }
-                request.force_send_body().send(encoded.as_slice())
-            }
-            Method::Post => {
-                let mut request = self
-                    .agent
-                    .post(endpoint.as_str())
-                    .header("Accept", "application/json")
-                    .header("Content-Type", "application/octet-stream")
-                    .header(
-                        "User-Agent",
-                        concat!("layerx-rust/", env!("CARGO_PKG_VERSION")),
-                    );
-                if let Some(value) = authorization.as_deref() {
-                    request = request.header("Authorization", value);
-                }
-                if let Some(key) = idempotency_key {
-                    request = request.header("Idempotency-Key", hex(&key));
-                }
-                request.send(encoded.as_slice())
-            }
+        if let Some(value) = authorization.as_deref() {
+            request = request.header("Authorization", value);
         }
-        .map_err(|_| ProgramOperationError::Transport)?;
-        decode_agent_response(response, operation)
+        let mut response = request
+            .send(body.as_slice())
+            .map_err(|_| ProgramOperationError::Transport)?;
+        if !response.status().is_success() {
+            return Err(ProgramOperationError::Transport);
+        }
+        if response
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.split(';').next())
+            .map(str::trim)
+            != Some("application/json")
+        {
+            return Err(ProgramOperationError::Decode);
+        }
+        let bytes = response
+            .body_mut()
+            .with_config()
+            .limit(MAX_HTTP_RESPONSE_BYTES)
+            .read_to_vec()
+            .map_err(|_| ProgramOperationError::Transport)?;
+        let document: Value =
+            serde_json::from_slice(&bytes).map_err(|_| ProgramOperationError::Decode)?;
+        let value = object(&document)?;
+        if value.get("jsonrpc").and_then(Value::as_str) != Some("2.0")
+            || value.get("id") != Some(&json!(1))
+        {
+            return Err(ProgramOperationError::IdentityMismatch);
+        }
+        if exact_fields(value, &["jsonrpc", "id", "error"]) {
+            let code = value["error"]["code"]
+                .as_i64()
+                .ok_or(ProgramOperationError::Decode)?;
+            return Err(ProgramOperationError::NodeRpc { code });
+        }
+        if !exact_fields(value, &["jsonrpc", "id", "result"]) {
+            return Err(ProgramOperationError::Decode);
+        }
+        Ok(value["result"].clone())
     }
 }
 
@@ -643,6 +627,9 @@ impl ProgramTransport for HttpProgramTransport {
         &self,
         request: &crate::program_lifecycle::NativeProgramLifecycleRequest,
     ) -> Result<layerx_wire::receipt::Receipt, ProgramOperationError> {
+        if self.node_policy.is_some() {
+            return self.node_lifecycle_receipt(request);
+        }
         self.lookup_lifecycle(request)?
             .map(|receipt| receipt.receipt().clone())
             .ok_or(ProgramOperationError::Verification)
@@ -653,154 +640,62 @@ impl ProgramTransport for HttpProgramTransport {
         request: &crate::program_lifecycle::NativeProgramLifecycleRequest,
         key: [u8; 32],
     ) -> Result<crate::program_lifecycle::ProgramLifecycleSubmission, ProgramOperationError> {
-        self.submit_lifecycle(request, key, 1, "program.deploy", "/v1/programs/deploy")
+        self.submit_lifecycle(request, key, 1)
     }
     fn upgrade(
         &self,
         request: &crate::program_lifecycle::NativeProgramLifecycleRequest,
         key: [u8; 32],
     ) -> Result<crate::program_lifecycle::ProgramLifecycleSubmission, ProgramOperationError> {
-        self.submit_lifecycle(request, key, 2, "program.upgrade", "/v1/programs/upgrade")
+        self.submit_lifecycle(request, key, 2)
     }
     fn wind_down(
         &self,
         request: &crate::program_lifecycle::NativeProgramLifecycleRequest,
         key: [u8; 32],
     ) -> Result<crate::program_lifecycle::ProgramLifecycleSubmission, ProgramOperationError> {
-        self.submit_lifecycle(
-            request,
-            key,
-            7,
-            "program.wind-down",
-            "/v1/programs/wind-down",
-        )
+        self.submit_lifecycle(request, key, 7)
     }
     fn discover(
         &self,
         program: [u8; 32],
     ) -> Result<VerifiedProgramDiscovery, ProgramOperationError> {
-        let program_id = hex(&program);
-        let value = self.dispatch(
-            "program.discover",
-            Method::Get,
-            &format!("/v1/programs/registry/{program_id}"),
-            &json!({
-                "program_id": program_id,
-                "requested_rung": REQUESTED_VERIFICATION,
-            }),
-            None,
-        )?;
-        decode_discovery(
-            &value,
-            program,
-            (self.clock)()?,
-            self.trusted_sequencer_public_key,
-        )
+        // The live read is available, but does not carry the old signed discovery envelope.
+        // Keep the authenticated API closed until the owning node supplies a state proof.
+        self.node_read(program, "getProgram(bytes32)")?;
+        Err(ProgramOperationError::MissingNodeReadAuthority)
     }
-
     fn interface(
         &self,
         program: [u8; 32],
     ) -> Result<VerifiedProgramInterface, ProgramOperationError> {
-        let program_id = hex(&program);
-        let value = self.dispatch(
-            "program.interface",
-            Method::Get,
-            &format!("/v1/programs/registry/{program_id}/interface"),
-            &json!({
-                "program_id": program_id,
-                "requested_rung": REQUESTED_VERIFICATION,
-            }),
-            None,
-        )?;
-        let interface = decode_interface(&value, program, (self.clock)()?)?;
-        if interface.abi_version() >= 3 {
-            bind_interface_discovery(&interface, &self.discover(program)?)?;
-        }
-        Ok(interface)
+        self.node_read(program, "getInterface(bytes32)")?;
+        Err(ProgramOperationError::MissingNodeReadAuthority)
     }
-
     fn simulate(
         &self,
         request: &ProgramCallRequest,
     ) -> Result<VerifiedProgramSimulation, ProgramOperationError> {
-        let value = self.dispatch(
-            "program.simulate",
-            Method::Post,
-            "/v1/programs/simulate",
-            &wire_call(request),
-            None,
-        )?;
-        decode_simulation(&value, request, self.trusted_sequencer_public_key)
+        self.node_simulate(request.signed_activity())?;
+        Err(ProgramOperationError::MissingNodeReadAuthority)
     }
-
     fn submit(
         &self,
         request: &ProgramCallRequest,
-        idempotency_key: [u8; 32],
+        key: [u8; 32],
     ) -> Result<ProgramSubmission, ProgramOperationError> {
-        self.submit_bound(request, &wire_call(request), idempotency_key)
+        self.submit_bound(request, &wire_call(request), key)
     }
-
     fn receipt(
         &self,
-        idempotency_key: [u8; 32],
-        expected_activity: [u8; 32],
+        key: [u8; 32],
+        activity: [u8; 32],
     ) -> Result<ProgramSubmission, ProgramOperationError> {
-        let idempotency = hex(&idempotency_key);
-        let activity = hex(&expected_activity);
-        let value = self.dispatch(
-            "program.receipt",
-            Method::Get,
-            &format!("/v1/programs/receipts/by-idempotency/{idempotency}"),
-            &json!({
-                "idempotency_key": idempotency,
-                "expected_activity_id": activity,
-                "requested_rung": REQUESTED_VERIFICATION,
-            }),
-            None,
-        )?;
-        decode_submission(
-            &value,
-            SubmissionExpectation {
-                program_id: None,
-                activity_id: Some(expected_activity),
-                idempotency_key: Some(idempotency_key),
-                retained_signed_activity: None,
-                trusted_sequencer_public_key: self.trusted_sequencer_public_key,
-            },
-        )
+        self.node_recover(activity, Some(key))
     }
-
-    fn activity(&self, activity_id: [u8; 32]) -> Result<ProgramSubmission, ProgramOperationError> {
-        let activity = hex(&activity_id);
-        let value = self.dispatch(
-            "program.activity",
-            Method::Get,
-            &format!("/v1/programs/activities/{activity}"),
-            &json!({
-                "activity_id": activity,
-                "requested_rung": REQUESTED_VERIFICATION,
-            }),
-            None,
-        )?;
-        decode_submission(
-            &value,
-            SubmissionExpectation {
-                program_id: None,
-                activity_id: Some(activity_id),
-                idempotency_key: None,
-                retained_signed_activity: None,
-                trusted_sequencer_public_key: self.trusted_sequencer_public_key,
-            },
-        )
+    fn activity(&self, activity: [u8; 32]) -> Result<ProgramSubmission, ProgramOperationError> {
+        self.node_recover(activity, None)
     }
-}
-
-#[derive(Clone, Copy)]
-enum Method {
-    Get,
-    Post,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -1644,12 +1539,16 @@ fn decode_execution(
     }
     let activity_id = fixed(value, "activity_id")?;
     let program_id = fixed(value, "program_id")?;
-    let guest_abi_version = match value.get("guest_abi_version").and_then(Value::as_u64) {
-        Some(3) => 3,
-        Some(4) => 4,
-        _ => bounded_u16(value, "guest_abi_version", 1, 2)?,
-    };
-    let module_version = bounded_u32(value, "module_version", 1, 4)?;
+    let guest_abi_version = guest_abi(value, "guest_abi_version")?;
+    let module_version = bounded_u32(
+        value,
+        "module_version",
+        1,
+        layerx_types::programs_module_abi::CURRENT,
+    )?;
+    if !layerx_types::programs_module_abi::supported(module_version) {
+        return Err(ProgramOperationError::Bounds);
+    }
     let batch_id = fixed(value, "batch_id")?;
     let global_sequence = decimal_u64(value, "global_sequence")?;
     let result_code = exact_i32(value, "result_code")?;
@@ -1738,7 +1637,7 @@ pub(super) fn verify_execution_profile(
             }
             Ok(())
         }
-        3 | 4 => {
+        3 | 4 | 5 => {
             let protocol = verified
                 .receipt()
                 .receipt()
@@ -1973,17 +1872,11 @@ impl NativeProgramTransport for HttpProgramTransport {
         &self,
         request: &NativeProgramCallRequest,
     ) -> Result<VerifiedProgramSimulation, ProgramOperationError> {
-        let value = self.dispatch(
-            "program.simulate",
-            Method::Post,
-            "/v1/programs/simulate",
-            &wire_native_call(request)?,
-            None,
-        )?;
-        let verified = decode_simulation(&value, request, self.trusted_sequencer_public_key)?;
-        require_native_execution(verified.execution())?;
-        Ok(verified)
+        wire_native_call(request)?;
+        self.node_simulate(request.signed_activity())?;
+        Err(ProgramOperationError::MissingNodeReadAuthority)
     }
+
     fn submit_native(
         &self,
         request: &NativeProgramCallRequest,
@@ -1995,7 +1888,9 @@ impl NativeProgramTransport for HttpProgramTransport {
             ProgramSubmission::Executed(verified) | ProgramSubmission::Refused(verified) => {
                 require_native_execution(verified)?;
             }
-            ProgramSubmission::Unknown { .. } => {}
+            ProgramSubmission::Unknown { .. }
+            | ProgramSubmission::Submitted { .. }
+            | ProgramSubmission::Receipted(_) => {}
         }
         Ok(submission)
     }
