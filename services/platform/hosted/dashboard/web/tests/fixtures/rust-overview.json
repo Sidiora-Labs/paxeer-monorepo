@@ -1,0 +1,82 @@
+{
+  "principal": "developer-fixture",
+  "generated_at": 2,
+  "usage": {
+    "keys": 1,
+    "live_keys": 1,
+    "disabled_keys": 0,
+    "requests_allowed": 10,
+    "requests_used": 1,
+    "requests_remaining": 9,
+    "utilisation_per_mille": 100
+  },
+  "keys": [
+    {
+      "key_id": "key-fixture",
+      "principal": "developer-fixture",
+      "disabled": false,
+      "requests_per_window": 10,
+      "window_seconds": 60,
+      "used_in_window": 1,
+      "remaining_in_window": 9,
+      "window_started_at": 0,
+      "window_resets_at": 60,
+      "window_lapsed": false,
+      "utilisation_per_mille": 100
+    }
+  ],
+  "requests": {
+    "records": 1,
+    "pending": 0,
+    "completed": 1,
+    "rate_limited": 0,
+    "refused": 0,
+    "first_at": 1,
+    "last_at": 1
+  },
+  "recent_requests": [
+    {
+      "at": 1,
+      "operation": null,
+      "operation_digest": "operation-fixture",
+      "outcome": "completed",
+      "verification": "unverified"
+    }
+  ],
+  "deliveries": {
+    "endpoints": 0,
+    "suspended_endpoints": 0,
+    "pending": 0,
+    "in_flight": 0,
+    "retrying": 0,
+    "delivered_total": 0,
+    "dead_lettered_total": 0,
+    "delivered_per_mille": 0,
+    "oldest_undelivered_seconds": 0,
+    "next_attempt_at": null
+  },
+  "endpoints": [],
+  "dead_letters": [],
+  "payments": [
+    {
+      "event": "payment-fixture",
+      "subject": "subject-fixture",
+      "subject_sequence": 1,
+      "occurred_at": 1,
+      "amount": "10",
+      "asset": null,
+      "verification": "unverified",
+      "settlement_verification": "unverified",
+      "receipt_digest": null,
+      "settled": false,
+      "facts": [
+        {
+          "name": "state",
+          "value": "pending",
+          "verification": "unverified",
+          "receipt_digest": null
+        }
+      ]
+    }
+  ]
+}

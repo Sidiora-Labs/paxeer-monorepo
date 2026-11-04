@@ -37,12 +37,31 @@ func (k *Keeper) UnpauseAsset(ctx sdk.Context, actor Actor, assetID, idempotency
 }
 
 func (k *Keeper) executeAssetActivity(ctx sdk.Context, actor Actor, activityType uint32, payload []byte, idempotencyKey [32]byte) (Result, error) {
-	result, err := k.execute(ctx, actor, activityType, payload, idempotencyKey)
+	branch := ctx
+	var write func()
+	if k.issuerKeeper != nil {
+		branch, write = ctx.CacheContext()
+	}
+	result, err := k.execute(branch, actor, activityType, payload, idempotencyKey)
 	if err != nil {
 		return result, err
 	}
-	if err := k.Mirror(ctx, activityType, result.Receipt); err != nil {
+	if err := k.Mirror(branch, activityType, result.Receipt); err != nil {
 		return result, err
+	}
+	if k.issuerKeeper != nil {
+		var assetID [32]byte
+		copy(assetID[:], payload[2:34])
+		if activityType == assetRegisterActivity {
+			err = k.bindIssuerDenom(branch, assetID, string(actor.DID))
+		} else {
+			err = k.mirrorPause(branch, assetID, activityType == assetPauseActivity)
+		}
+		if err != nil {
+			return result, err
+		}
+		write()
+		ctx.EventManager().EmitEvents(branch.EventManager().Events())
 	}
 	return result, nil
 }

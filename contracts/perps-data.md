@@ -86,6 +86,26 @@ selects a decoder by emitter and event topic. The native sources include perps
 `0x1015`, pricefeed `0x1020`, the five spot rails `0x1021`–`0x1025` and discovered
 share pointers. ABI sources are linked in [markets](markets.md#addresses-and-abi-sources).
 
+### Native share decoding
+
+[spot.go](../services/platform/perps-data/internal/decode/spot.go) loads the
+deployed `Share()` ABI, with `Transfer` and `Approval`, rather than the historical
+Solidity ownership ABI. A share emitter is a dynamic pointer, not `0x1021`–`0x1025`.
+Resolution checks `ShareTokenCreated` earlier in the batch, the registry's
+pointer cache, persisted `perps.spot_token_registry` rows, then
+`getRegisteredTokens()` and `shareTokens(token)` on `0x1025`. The last lookup
+uses latest chain state. A restarted decoder can recover the association from
+the persisted row or chain reads; an unresolved pointer produces `share_lookup`.
+
+The creation row carries `token` and `shareToken`; transfer rows carry the
+pointer, underlying token, `from`, `to` and exact decimal-string `value`.
+Approval rows carry the pointer, underlying token, owner account, spender and
+exact decimal-string `value`. Zero-source and zero-destination transfers
+represent keeper mint and burn. Filter by the resolved emitter as well as
+topic: another ERC20's `Transfer` is not a vault share transfer. The native
+[share lifecycle and refusals](markets.md#spot-share-token) are the producer
+contract consumed here.
+
 Receipt kinds are `tx`, `perps_endblock`, `spot_endblock`, `activation` and
 `block_event`. Synthetic receipt hashes are
 `keccak256(tag || uint64-big-endian(height))`, using `perps-endblock`,

@@ -152,6 +152,12 @@ Task 22.33.711 wiring request: domain 3 owns
 `3.ts-perps-hooks-useperpsmarkets-j27` with the signature and behavior above.
 The registry path is outside this task's permitted scope.
 
+`loadPerpsMarkets()` returns `{ catalog, tradeable }` after decoding the gateway
+GraphQL `MARKETS_QUERY` through `decodeGatewayMarketsResult` and
+`catalogFromGateway`. A failed query
+exposes `error` and empty arrays; consumers must check loading and error before
+treating an empty catalog as a successful empty market set.
+
 [`useFeeTier(address: string | undefined)`](../apps/perps/src/hooks/perps/useFeeTier.ts)
 returns `{ view, isLoading, error }`. `view` contains `tier`, `takerBps`,
 `makerBps` (including negative maker rebates), and exact `volume14dUsd: bigint`.

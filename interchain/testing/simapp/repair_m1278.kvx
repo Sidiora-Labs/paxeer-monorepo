@@ -1,0 +1,40 @@
+[task.22.33.1278]
+audit = "22.30.64"
+acceptance = "22998.1"
+baseline = "No task gates had run in the inherited ledger; unchanged-tree verification was not run because the explicit gate order requires complete implementation before hf-build and hf-done and forbids a manual verify run. No baseline failures are claimed."
+evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit and private log; the final response copies the terminal gate evidence."
+continuation = "Continue attempt 3 on base 58f409287be8c8be4721f25baddd11ec1dc916fb with its README guidance, deliveryErr/commitErr separation, and both real-path regression tests intact after task 22.31.463 repaired the NewFactoryCLI callers. Preserve the landed SignAndDeliverResult split: it returns deliveryErr after independently checking commitErr, while SignAndDeliver retains the outcome assertions. Prior compilation failures did not execute either proving test."
+wiring_requests = []
+
+[finding.simapp-readme-bond-denom]
+repair = "The base README already funds and delegates uhpx; retain those amounts, explain the configured genesis bond denomination for customized genesis, and protect the recipe through the real signed gentx JSON/genesis/validator path."
+test = "TestRepairM_1278_ReadmeBondDenom"
+
+[finding.ibc-delivery-error]
+repair = "Return deliveryErr with the original gas and result after independently requiring commitErr to be nil. A refused bank send commits its ante sequence but no transfer; a subsequent valid send commits the expected balances."
+test = "TestRepairM_1278_DeliveryErrorSurvivesCommit"
+
+[gotcha.gate-order]
+observed = "The audit steps request an unchanged-tree verify while the explicit task order prohibits it and allows verification only through hf-done after implementation and hf-build."
+resolution = "Follow the explicit task order; document the baseline as unrun and keep all evidence claims limited to executed gates."
+
+[gotcha.continuation-conflict]
+observed = "The carried-forward helper assertions conflict with the landed SignAndDeliverResult extraction, which does not accept expPass."
+resolution = "Keep outcome assertions in the existing SignAndDeliver wrapper and preserve separate deliveryErr and commitErr in SignAndDeliverResult."
+
+[qualification.build-blocker]
+revision = "11f6ee3d78c253e5931add4e153bc8401f438440"
+command = "go build ./interchain/testing/simapp/..."
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "Pre-existing SDK auth and staking CLI callers expect one return value from tx.NewFactoryCLI, which returns two; hf-done refused with exit 4 because hf-build did not pass. Tests have not executed; this evidence entry was added after the failed build."
+assumption = "The fm-cosmos-fork domain must repair sdk/x/auth/client/cli/{tx_multisign.go,tx_sign.go,validate_sigs.go} and sdk/x/staking/client/cli/tx.go in a separately scoped task; no unrelated repair or unchanged gate rerun is authorized here."
+resolved = "Task 22.31.463 repaired the out-of-path callers on the current base; rerun only the declared task gates for attempt 3."
+
+[qualification.test-key-api]
+revision = "49de49b97cd2b5065852bd389c537fd0ceb109d9"
+command = "cg spec done 22.33.1278 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The inherited delivery regression test used removed consensus ed25519.GenPrivKey; compilation stopped before either test ran (compiler detail in /tmp/repair-m1278.log)."
+repair = "Construct the real consensus validator key with ed25519.GenerateSecretKey().Public(); retain every regression assertion."

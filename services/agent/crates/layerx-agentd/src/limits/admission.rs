@@ -104,6 +104,7 @@ pub enum BackpressureSource {
     InFlight,
     CoreBackpressured,
     CoreUnavailable,
+    TenantQueue,
 }
 
 /// Typed immediate refusal; the controller never waits or queues implicitly.
@@ -143,6 +144,8 @@ pub struct BoundaryAdmission {
     utilization: BTreeMap<Priority, LaneUtilization>,
     queued_ids: BTreeSet<u64>,
     in_flight: BTreeMap<u64, Priority>,
+    tenant_bound: Option<QueueBound>,
+    reserved_critical: usize,
 }
 
 impl BoundaryAdmission {
@@ -162,7 +165,45 @@ impl BoundaryAdmission {
             utilization,
             queued_ids: BTreeSet::new(),
             in_flight: BTreeMap::new(),
+            tenant_bound: None,
+            reserved_critical: 0,
         }
+    }
+
+    /// Reserves dispatch capacity for submission and receipt traffic and caps each tenant lane.
+    pub fn with_tenant_bound(
+        config: AdmissionConfig,
+        tenant_bound: QueueBound,
+        reserved_critical: usize,
+    ) -> Result<Self, AdmissionError> {
+        if tenant_bound.requests == 0
+            || tenant_bound.bytes == 0
+            || reserved_critical >= config.maximum_in_flight
+            || reserved_critical > 2
+        {
+            return Err(AdmissionError::InvalidConfiguration);
+        }
+        let mut admission = Self::new(config);
+        admission.tenant_bound = Some(tenant_bound);
+        admission.reserved_critical = reserved_critical;
+        Ok(admission)
+    }
+
+    /// Removes caller work that has not crossed the boundary yet.
+    pub fn cancel_queued(&mut self, request_id: u64) -> bool {
+        for priority in Priority::ALL {
+            let queue = self.queues.entry(priority).or_default();
+            if let Some(position) = queue.iter().position(|work| work.request_id == request_id) {
+                if let Some(work) = queue.remove(position) {
+                    let utilization = self.utilization.entry(priority).or_default();
+                    utilization.queued_requests -= 1;
+                    utilization.queued_bytes -= work.bytes.len();
+                    self.queued_ids.remove(&request_id);
+                    return true;
+                }
+            }
+        }
+        false
     }
 
     /// Admits work into its independently bounded lane only while core is ready.
@@ -183,6 +224,29 @@ impl BoundaryAdmission {
             || self.in_flight.contains_key(&work.request_id)
         {
             return Err(AdmissionError::DuplicateRequest(work.request_id));
+        }
+        if let Some(bound) = self.tenant_bound {
+            let mut tenant = LaneUtilization::default();
+            for queued in self.queues[&work.priority]
+                .iter()
+                .filter(|queued| queued.tenant == work.tenant)
+            {
+                tenant.queued_requests += 1;
+                tenant.queued_bytes += queued.bytes.len();
+            }
+            if tenant.queued_requests >= bound.requests
+                || tenant
+                    .queued_bytes
+                    .checked_add(work.bytes.len())
+                    .is_none_or(|bytes| bytes > bound.bytes)
+            {
+                return Err(backpressure(
+                    BackpressureSource::TenantQueue,
+                    work.priority,
+                    None,
+                    tenant,
+                ));
+            }
         }
         let bound = self.config.lanes[&work.priority];
         let current = self.utilization[&work.priority];
@@ -234,21 +298,44 @@ impl BoundaryAdmission {
         &mut self,
         availability: CoreAvailability,
     ) -> Result<Option<Dispatch>, AdmissionError> {
-        let next_priority = Priority::ALL
+        let queued_priority = Priority::ALL
             .into_iter()
             .find(|priority| !self.queues[priority].is_empty());
-        let Some(priority) = next_priority else {
+        let Some(first_priority) = queued_priority else {
             return Ok(None);
         };
-        self.propagate_availability(priority, availability)?;
-        if self.in_flight.len() >= self.config.maximum_in_flight {
+        self.propagate_availability(first_priority, availability)?;
+        let next_priority = Priority::ALL.into_iter().find(|priority| {
+            if self.queues[priority].is_empty() {
+                return false;
+            }
+            let unused_reservation = match priority {
+                Priority::Submission => usize::from(
+                    self.reserved_critical >= 2
+                        && !self
+                            .in_flight
+                            .values()
+                            .any(|lane| *lane == Priority::ReceiptResolution),
+                ),
+                Priority::ReceiptResolution => usize::from(
+                    self.reserved_critical >= 1
+                        && !self
+                            .in_flight
+                            .values()
+                            .any(|lane| *lane == Priority::Submission),
+                ),
+                _ => self.reserved_critical,
+            };
+            self.in_flight.len() < self.config.maximum_in_flight - unused_reservation
+        });
+        let Some(priority) = next_priority else {
             return Err(backpressure(
                 BackpressureSource::InFlight,
-                priority,
+                first_priority,
                 None,
-                self.utilization[&priority],
+                self.utilization[&first_priority],
             ));
-        }
+        };
 
         let Some(work) = self.queues.entry(priority).or_default().pop_front() else {
             return Ok(None);

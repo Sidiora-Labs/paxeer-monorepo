@@ -1,6 +1,7 @@
 mod cbor_auxdata;
 mod compilation;
 mod compiler_output;
+mod compiler_process;
 mod evm_compilers;
 mod solc_compiler;
 mod solc_compiler_cli;
@@ -12,6 +13,8 @@ mod vyper_compiler;
 mod test_compilation;
 
 pub mod vyper_compiler_input;
+
+pub(crate) use solc_compiler_cli::validate_source_name;
 
 pub use evm_compilers::EvmCompilersPool;
 pub use solc_compiler::{SolcCompiler, SolcInput};

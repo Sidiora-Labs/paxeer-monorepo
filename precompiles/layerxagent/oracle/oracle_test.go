@@ -208,6 +208,8 @@ func TestOracleAggregateWeightedMedian(t *testing.T) {
 		{"weighted", []oracle.Feed{feed(100, 1), feed(30, 6), feed(10, 2)}, 30, 1},
 		{"even lower tie", []oracle.Feed{feed(30, 2), feed(10, 2)}, 10, 2},
 		{"odd majority", []oracle.Feed{feed(30, 3), feed(10, 2)}, 30, 2},
+		{"floor one below half", []oracle.Feed{feed(10, 1), feed(30, 2)}, 30, 1},
+		{"multiple feeds reach floor below half", []oracle.Feed{feed(40, 4), feed(20, 2), feed(10, 1)}, 40, 1},
 		{"minimum across all kept", []oracle.Feed{feed(30, 8), feed(20, 1), feed(10, 2), feed(40, 0)}, 30, 1},
 		{"equal prices", []oracle.Feed{feed(20, 4), feed(20, 1), feed(10, 1)}, 20, 1},
 	} {

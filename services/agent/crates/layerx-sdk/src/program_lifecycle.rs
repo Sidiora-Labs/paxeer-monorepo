@@ -245,7 +245,7 @@ impl NativeProgramLifecycleRequest {
             ordinal,
             signed_activity: signed.to_vec(),
             activity_id: bound_id,
-            idempotency_key: bound_id,
+            idempotency_key: lifecycle_idempotency(bound_id, &transaction.data)?,
         })
     }
 
@@ -269,6 +269,11 @@ impl NativeProgramLifecycleRequest {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ProgramLifecycleSubmission {
+    Submitted {
+        activity_id: [u8; 32],
+        idempotency_key: [u8; 32],
+        retained_signed_activity: Vec<u8>,
+    },
     Acknowledged {
         activity_id: [u8; 32],
         receipt: Vec<u8>,
@@ -279,6 +284,50 @@ pub enum ProgramLifecycleSubmission {
         idempotency_key: [u8; 32],
         retained_signed_activity: Vec<u8>,
     },
+}
+
+pub(crate) fn lifecycle_idempotency(
+    hash: [u8; 32],
+    data: &[u8],
+) -> Result<[u8; 32], ProgramOperationError> {
+    let selector = data.get(..4).ok_or(ProgramOperationError::Decode)?;
+    Ok(Sha256::new()
+        .chain_update(b"layerxprograms/idempotency/v1")
+        .chain_update(hash)
+        .chain_update(0_u32.to_be_bytes())
+        .chain_update(selector)
+        .finalize()
+        .into())
+}
+
+/// Encodes the live Programs ABI from the exact typed lifecycle payload.
+pub fn lifecycle_calldata(ordinal: u16, payload: &[u8]) -> Result<Vec<u8>, ProgramOperationError> {
+    lifecycle_calldata_with_fee(ordinal, payload, 0)
+}
+
+/// Encodes a lifecycle call with the upgrade method's explicit execution fee budget.
+/// Deploy and wind-down methods carry no execution fee argument and refuse a nonzero one.
+pub fn lifecycle_calldata_with_fee(
+    ordinal: u16,
+    payload: &[u8],
+    execution_fee: u128,
+) -> Result<Vec<u8>, ProgramOperationError> {
+    if ordinal != 2 && execution_fee != 0 {
+        return Err(ProgramOperationError::IdentityMismatch);
+    }
+    match ordinal {
+        1 => deploy_calldata(
+            NativeProgramDeploy::decode(payload).map_err(|_| ProgramOperationError::Decode)?,
+        ),
+        2 => upgrade_calldata(
+            NativeProgramUpgrade::decode(payload).map_err(|_| ProgramOperationError::Decode)?,
+            execution_fee,
+        ),
+        7 => wind_down_calldata(
+            NativeProgramWindDown::decode(payload).map_err(|_| ProgramOperationError::Decode)?,
+        ),
+        _ => Err(ProgramOperationError::IdentityMismatch),
+    }
 }
 
 /// # Errors
@@ -313,6 +362,30 @@ pub fn verify_lifecycle_receipt<'a>(
     Ok(verified)
 }
 
+pub(crate) fn lifecycle_event_topic(data: &[u8]) -> Result<&'static str, ProgramOperationError> {
+    Ok(match data.get(..4) {
+        Some([0xbd, 0xe3, 0xff, 0x66]) => {
+            "2765c1020c93cab47e389edaa5b5c68834bdd76f7a5d384adb460fc86e688709"
+        }
+        Some([0xa8, 0x60, 0x92, 0x9f]) => {
+            "36b27ad7ada15e27c12e726d56c3dbd2aaa084a9250e5282c7cd38eb78a1a8ab"
+        }
+        Some([0x23, 0x33, 0x0d, 0xd5]) => {
+            "6b9aceca11d63f8d54de57f0d38646082c9375dc119465a34e7099ec6f92ac57"
+        }
+        Some([0x86, 0xba, 0x1a, 0x99]) => {
+            "769e024ff1115e1c26a069148f332c81f2578f4ea67dde7d5076a9e9fd5e1eb8"
+        }
+        Some([0xa5, 0x12, 0xf1, 0xa9]) => {
+            "47fc53b89ce902506c8f3a0424a87f764a54dcb5ccb9c985639991a3a55b410c"
+        }
+        Some([0x4d, 0xc5, 0x07, 0x30] | [0xad, 0xe5, 0xd9, 0xe6]) => {
+            "f07e690dd4cedc62197bec125b1418cfee68758e9c183deac3b50902e52f59ca"
+        }
+        _ => return Err(ProgramOperationError::Verification),
+    })
+}
+
 pub(crate) fn verify_lifecycle_outcome(
     verified: &layerx_client::rpc::receipt::AuthenticatedReceipt,
     request: &NativeProgramLifecycleRequest,
@@ -329,27 +402,7 @@ pub(crate) fn verify_lifecycle_outcome(
         return Err(ProgramOperationError::Verification);
     }
     if execution.success {
-        let event = match transaction.data.get(..4) {
-            Some([0xbd, 0xe3, 0xff, 0x66]) => {
-                "2765c1020c93cab47e389edaa5b5c68834bdd76f7a5d384adb460fc86e688709"
-            }
-            Some([0xa8, 0x60, 0x92, 0x9f]) => {
-                "36b27ad7ada15e27c12e726d56c3dbd2aaa084a9250e5282c7cd38eb78a1a8ab"
-            }
-            Some([0x23, 0x33, 0x0d, 0xd5]) => {
-                "6b9aceca11d63f8d54de57f0d38646082c9375dc119465a34e7099ec6f92ac57"
-            }
-            Some([0x86, 0xba, 0x1a, 0x99]) => {
-                "769e024ff1115e1c26a069148f332c81f2578f4ea67dde7d5076a9e9fd5e1eb8"
-            }
-            Some([0xa5, 0x12, 0xf1, 0xa9]) => {
-                "47fc53b89ce902506c8f3a0424a87f764a54dcb5ccb9c985639991a3a55b410c"
-            }
-            Some([0x4d, 0xc5, 0x07, 0x30] | [0xad, 0xe5, 0xd9, 0xe6]) => {
-                "f07e690dd4cedc62197bec125b1418cfee68758e9c183deac3b50902e52f59ca"
-            }
-            _ => return Err(ProgramOperationError::Verification),
-        };
+        let event = lifecycle_event_topic(&transaction.data)?;
         if !execution.logs.iter().any(|log| {
             log.address == PROGRAMS_PRECOMPILE
                 && log.topics.len() == 2
@@ -448,7 +501,11 @@ mod tests {
             .map_err(|error| format!("{error:?}"))?;
             assert_eq!(request.ordinal(), ordinal);
             assert_eq!(request.bound_activity_id(), transaction_hash(&signed));
-            assert_eq!(request.bound_idempotency_key(), transaction_hash(&signed));
+            assert_eq!(
+                request.bound_idempotency_key(),
+                lifecycle_idempotency(transaction_hash(&signed), &transaction.data)
+                    .map_err(|error| format!("{error:?}"))?
+            );
             assert_eq!(request.signed_activity(), signed);
             let (decoded, signature) = decode_signed(&signed).map_err(|error| error.to_string())?;
             assert_eq!(decoded, transaction);
