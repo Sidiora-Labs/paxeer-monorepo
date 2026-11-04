@@ -160613,7 +160613,7 @@ do_8 = "Verification runs go test -v, keeps its log and requires a PASS line for
 
 [task.22.31.300]
 title = "Repair audit record 22.30.165 findings in sdk/x/genutil: restart-recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -160757,7 +160757,7 @@ do_10 = "The candidate carries only sources under the touches and the test file:
 
 [task.22.31.296]
 title = "Repair audit record 22.30.165 findings in sdk/types/query: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -160831,7 +160831,7 @@ do_10 = "The candidate carries only sources under the touches and the test file:
 
 [task.22.31.294]
 title = "Repair audit record 22.30.165 findings in sdk/types/genesis: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -161079,7 +161079,7 @@ do_8 = "Verification runs go test -v, keeps its log and requires a PASS line for
 
 [task.22.31.286]
 title = "Repair audit record 22.30.162 findings in sdk/x/upgrade/keeper: runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -290658,7 +290658,7 @@ do_8 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.389]
 title = "Repair audit record 22.30.141 findings in services/explorer/backend/apps/explorer/lib/explorer/paxeer_x: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -290693,7 +290693,7 @@ do_8 = "The candidate carries only sources under the touches and the test file: 
 
 [task.22.31.388]
 title = "Repair audit record 22.30.141 findings in services/explorer/backend/apps/block_scout_web/lib/block_scout_web/channels: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
