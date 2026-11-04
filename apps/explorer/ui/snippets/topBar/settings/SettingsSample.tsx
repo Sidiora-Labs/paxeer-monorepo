@@ -46,6 +46,7 @@ const SettingsSample = ({ label, value, bg, onClick, isActive }: Props) => {
               borderColor: isActive ? activeBorderColor : 'hover',
             },
           }}
+          aria-current={ isActive ? 'true' : undefined }
           data-value={ value }
           onClick={ onClick }
         />
