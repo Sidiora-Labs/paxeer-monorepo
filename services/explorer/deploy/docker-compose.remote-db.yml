@@ -1,0 +1,15 @@
+# Explicit remote access: Compose >= 2.24.4 is required for !override.
+# See README.md before using this override with an existing database volume.
+services:
+  db:
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?Set an operator-provided database user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set an operator-provided database password}
+    ports: !override
+      - target: 5432
+        published: "${POSTGRES_PUBLISHED_PORT:-7432}"
+        host_ip: "${POSTGRES_BIND_ADDRESS:?Set the private interface for remote database access}"
+        protocol: tcp
+  backend:
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:?Set an operator-provided database user}:${POSTGRES_PASSWORD:?Set an operator-provided database password}@db:5432/${POSTGRES_DB:-blockscout}
