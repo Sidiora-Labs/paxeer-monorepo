@@ -1,0 +1,11 @@
+[manifest]
+task = "22.32.68"
+domain = 6
+owner_role = "fm-chain-modules"
+pages = 1
+
+[page.1]
+path = "modules/xweb/ATTESTATION.md"
+status = "stale"
+bytes = 6013
+source_1 = "record 22.30.61 [doc.04] (stale): Read in full. Line 16 and lines 37-40 assign origin-2 enforcement to retired kernel intake; kind table around line 28 omits origin-1 storage receipts. The historical network-ID vector and 188-byte preimage remain valid vectors."

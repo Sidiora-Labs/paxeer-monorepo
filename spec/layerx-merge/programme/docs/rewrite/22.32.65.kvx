@@ -1,0 +1,11 @@
+[manifest]
+task = "22.32.65"
+domain = 6
+owner_role = "fm-chain-modules"
+pages = 1
+
+[page.1]
+path = "modules/evm/AGENTS.md"
+status = "stale"
+bytes = 8487
+source_1 = "record 22.30.60 [doc.001] (stale): Full module guide read. The balance unit, pointer registry and deferred receipt descriptions match the code; lines 57-71 omit domain admission and misorder the actual ante chain, finding 032."

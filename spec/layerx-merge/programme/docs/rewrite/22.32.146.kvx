@@ -1,0 +1,14 @@
+[manifest]
+task = "22.32.146"
+domain = 15
+owner_role = "fm-cosmos-fork"
+pages = 1
+
+[page.1]
+path = "contracts/cosmos-fork.md"
+status = "missing"
+bytes = 0
+source_1 = "record 22.30.140 [doc.018] (missing): The package's interface registry references this contract page and anchors, but the page is absent from the audited tree. Rebind active contracts to maintained documentation and retire obsolete references."
+source_2 = "record 22.30.165 [doc.015] (missing): Registry Go/CLI/error contract target does not exist. Signatures and actual source/caller paths were reviewed, but prose agreement with this absent contract cannot be certified."
+source_3 = "record 22.30.166 [doc.20] (missing): Go API and OTel contract target referenced by the slice registry is absent; see missing-interface-contract-pages."
+source_4 = "record 22.30.85 [doc.17] (missing): The interface registry references this absent contract page; restore its maintained product contract or repoint and regenerate the owning registry declarations."

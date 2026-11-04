@@ -1,0 +1,46 @@
+[manifest]
+task = "22.32.121"
+domain = 14
+owner_role = "fm-web-explorer-bridge"
+pages = 6
+
+[page.1]
+path = "contracts/address-inventory.md"
+status = "missing"
+bytes = 0
+source_1 = "record 22.30.140 [doc.014] (missing): The package's interface registry references this contract page and anchors, but the page is absent from the audited tree. Rebind active contracts to maintained documentation and retire obsolete references."
+
+[page.2]
+path = "contracts/bridge-deploy.md"
+status = "missing"
+bytes = 0
+source_1 = "record 22.30.140 [doc.016] (missing): The package's interface registry references this contract page and anchors, but the page is absent from the audited tree. Rebind active contracts to maintained documentation and retire obsolete references."
+
+[page.3]
+path = "contracts/bridge-vectors.md"
+status = "missing"
+bytes = 0
+source_1 = "record 22.30.140 [doc.017] (missing): The package's interface registry references this contract page and anchors, but the page is absent from the audited tree. Rebind active contracts to maintained documentation and retire obsolete references."
+
+[page.4]
+path = "contracts/evm-rpc.md"
+status = "missing"
+bytes = 0
+source_1 = "record 22.30.140 [doc.019] (missing): The package's interface registry references this contract page and anchors, but the page is absent from the audited tree. Rebind active contracts to maintained documentation and retire obsolete references."
+
+[page.5]
+path = "contracts/explorer-config.md"
+status = "missing"
+bytes = 0
+source_1 = "record 22.30.140 [doc.020] (missing): The package's interface registry references this contract page and anchors, but the page is absent from the audited tree. Rebind active contracts to maintained documentation and retire obsolete references."
+source_2 = "record 22.30.148 [doc.15] (missing): The backend configuration contract page referenced by stable interface-registry rows is absent from this revision; corresponding missing-contract finding names the owning page and registry row."
+source_3 = "record 22.30.153 [doc.17] (missing): Linked from reviewed stable explorer registry rows but absent at this revision; see registry-missing-explorer-contract-pages."
+
+[page.6]
+path = "contracts/explorer-frontend-config.md"
+status = "missing"
+bytes = 0
+source_1 = "record 22.30.140 [doc.021] (missing): The package's interface registry references this contract page and anchors, but the page is absent from the audited tree. Rebind active contracts to maintained documentation and retire obsolete references."
+source_2 = "record 22.30.148 [doc.14] (missing): The frontend configuration contract page referenced by stable interface-registry rows is absent from this revision; corresponding missing-contract finding names the owning page and registry row."
+source_3 = "record 22.30.153 [doc.18] (missing): Linked from reviewed stable explorer registry rows but absent at this revision; see registry-missing-explorer-contract-pages."
+source_4 = "record 22.30.38 [doc.021] (missing): Attempted registered contract target; absent at this revision. Restore or retarget to an authoritative owning page; see registry-contract-pages-missing."

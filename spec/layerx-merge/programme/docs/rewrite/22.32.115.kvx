@@ -1,0 +1,17 @@
+[manifest]
+task = "22.32.115"
+domain = 13
+owner_role = "fm-programs"
+pages = 2
+
+[page.1]
+path = "programs/porting/cosmwasm/MIGRATION.md"
+status = "stale"
+bytes = 21549
+source_1 = "record 22.30.128 [doc.14] (stale): Line 171 denies scoped cursors/shared globals and line 290 denies derived-account vault payouts. Read full key/JSON/message, context, crypto, money and donation-reference guide."
+
+[page.2]
+path = "programs/porting/evm/MIGRATION.md"
+status = "stale"
+bytes = 20350
+source_1 = "record 22.30.128 [doc.13] (stale): Lines 205/324 deny supported later program-owned payouts; line 332 omits initialize. Read full Solidity layouts, shared storage, context, money, failure and reference qualification guide."
