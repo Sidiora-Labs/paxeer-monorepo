@@ -60,6 +60,34 @@ capture directories, not in the source tree as invented execution evidence.
 | 3 | `LOAD_PHASE3_CONFIG_FILE`, `LOAD_PHASE3_CONFIG_SHA256`, `LOAD_PHASE3_OUTPUT_DIR` | `python3 -m unittest discover -s tools/launchpad/production/load -p 'test_phase3_faults.py' -v` |
 | 4 | `LOAD_PHASE4_CONFIG_FILE`, `LOAD_PHASE4_CONFIG_SHA256`, `LOAD_PHASE4_OUTPUT_DIR` | `python3 -m unittest discover -s tools/launchpad/production/load -p 'test_phase4_capacity.py' -v` |
 
+Every phase 2–4 configuration requires `contract_authority_path` and
+`contract_authority_sha256`. The reviewed JSON document contains:
+
+```json
+{
+  "bindings": {"candidate": "<sha256>", "interface": "<sha256>", "topology": "<sha256>", "generator": "<sha256>"},
+  "schemas": {"path": "<reviewed-v2-schema-definitions.json>", "sha256": "<sha256>"},
+  "openapi": {"path": "<reviewed-openapi-3.1.json>", "sha256": "<sha256>"}
+}
+```
+
+All four bindings must equal the admitted run's bindings. Document hashes bind
+exact bytes, duplicate JSON keys and remote references are refused, and request,
+response and stream validation use that same schema authority. Paths may be
+absolute private authority paths or relative to the repository root. The current
+frozen v2 schema bundle is
+`sdk/launchpad/packages/production-contracts-v2/src/schemas.gen.json`; the API
+owner supplies the reviewed complete OpenAPI authority for the exact workload.
+The local v1 suite uses the explicitly pinned
+`sdk/launchpad/packages/production-contracts/src/schemas.gen.json` bundle.
+
+Final phase-4 readout additionally requires `coordinator_authority_path` and
+`coordinator_authority_sha256`. That document has the same `bindings`, a `spec`
+entry with `path: "spec/layerx-merge/spec.kvx"` and its exact `sha256`, plus the
+root-approved `freeze_task` and `final_task`. The native runtime authority must
+repeat the coordinator authority digest and final task and bind
+`coordinator_source_sha256` to the candidate. Missing authority fails admission.
+
 Phase 2 runs an actual connected ten-minute host workload via `phase2_runner.py`;
 its per-host assertions require 25,000 connections, 125,000 subscriptions and
 1,500,000 scheduled HTTP arrivals. A host result alone does not qualify the
@@ -82,10 +110,23 @@ Consult the phase scenario manifests/evidence policies and
 required evidence. Implemented runners, configured targets and isolated component
 proofs do not establish full managed-provider playback, four-host calibration,
 100,000/200,000 sockets, a 24-hour soak, reconciliation/lag or durability.
-The final shared scenarios belong to task `9.1` of the launchpad production-system
-specification; capacity and release qualification remain false without that gate's
-actual evidence. Dependencies and the root qualifier/plugin registry remain
-integrator-owned.
+Final shared execution requires a root-reviewed coordinator authority bound to
+`spec/layerx-merge/spec.kvx`. Its `freeze_task` must be done, its `final_task` must
+be in progress and depend on that freeze, and all 49 other runtime lane bindings
+must match the candidate, interface and topology. The old `9.1` scenario labels
+identify frozen workload definitions only. Capacity and release qualification
+remain false without actual final evidence. The root programme owns the reviewed
+freeze/final task mapping; this repair does not invent one.
+
+The repair qualification command is:
+
+```sh
+python3 tools/launchpad/production/qualify.py --task 22.33.965 \
+  --spec spec/layerx-merge/spec.kvx --require-current-source
+```
+
+This command proves the repair only; the provider commands above retain their
+own runtime assertions and admission requirements.
 
 See the [integration phases](../integration/README.md),
 [bootstrap baseline](../bootstrap/README.md),

@@ -20,6 +20,7 @@ pub enum OnboardingError {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+#[deprecated(note = "Use binding::BindAuthorization in an EVM bindLayerX registration transaction")]
 pub struct OnboardingConsent {
     pub sponsor: [u8; 32],
     pub target: Did,
@@ -114,6 +115,7 @@ impl OnboardingConsent {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+#[deprecated(note = "Use binding::BindAuthorization in an EVM bindLayerX registration transaction")]
 pub struct SponsoredRegistration {
     pub consent: OnboardingConsent,
     pub network_id: u32,

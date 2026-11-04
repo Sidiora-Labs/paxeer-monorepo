@@ -1,0 +1,69 @@
+[repair.22.33.797]
+audit = "22.30.177"
+base_revision = "76bd4ca9414014055f61431cd0c7be0dc9ac5fe2"
+mode = "BUILD"
+scope = "tools/bringup"
+build = "hf-build: go build ./tools/bringup/..."
+verify = "hf-done: cg spec done 22.33.797 -f layerx-merge --root /work/paxeer-monorepo"
+evidence = "The last hf-build and hf-done entries in /out/run/gates.jsonl bind the exact candidate revision, command, exit and private log. No gate is claimed before it executes. The runner publishes the candidate."
+baseline = "Initial status/diff contained runner-owned .cgignore and task status changes only; /out/run/gate.json reported builds_used=0 and verify_runs_used=0 and no earlier ledger existed. Step 12 conflicts with the explicit implementation-first gate order and prohibition on manual verify; no unchanged-tree verification or baseline failure is claimed."
+qualification = "The declared Go tests execute production provenance, roster, certificate, native identity, Docker lifecycle, search render/live consumer, RPC and receipt codecs in-process with recorded inputs and loopback peers. They require no external executable, toolchain, environment, credentials, live service or device. Physical Docker/mount/cgroup/loop cleanup, full native foundation handoffs, Python suites and the Rust loader are implemented integration qualification paths, not gates claimed to have executed here."
+fixtures = "repair_m797/record-foundation.py invokes the real Foundation.producer with git ls-tree at the base revision and retains its exact argv, return status, output and digests. It records only the provenance wire contract, not a native foundation deployment. CA bundles were emitted by actual ca.sh in repair_m794; native genesis and RPC captures come from repair_22_31_355; signed receipts and SEND vectors come from repair_m793's native recorders. No credential was deployed."
+
+[finding.foundation-provenance-shape]
+test = "TestRepairM_797_FoundationProvenanceShape"
+repair = "One typed provenance contract validates structured argv, explicit successful exit, both output digests, independently calculated revision/source-tree binding, generated artifact sizes/digests, artifact-manifest digest and qualification evidence. Foundation publication/restart and both registry-material and policy-graph consumers invoke it unchanged; legacy command-only records are refused."
+proof = "Recorded real Foundation.producer invocation -> production inspector producer -> unchanged JSON -> each real material provenance consumer, with actual files/digests and explicit refusal of unqualified, skipped, failed, command-only, changed-source, changed-artifact and unbound-input evidence. This focused wire qualification does not assert a native foundation deployment occurred."
+
+[finding.runtime-ca-roster-third-shape]
+test = "TestRepairM_797_RuntimeCARosterThirdShape"
+repair = "Retain the independently enumerated thirty-row merged runtime expectation and real ca.sh issuance/isolation qualification, add explicit retired ownership rejection, and reject suffixed guarantors and daemon identities in the production roster decoder. The existing registry and names file already contain the merged inventory and are preserved."
+proof = "Every actual ca.sh-produced bundle -> protected custody decoder/report -> production inventory checks exact owner, CN, EKU and SANs; every certificate is distinct, cross-role reuse is refused, and attestor authority remains separate. All retired role names are refused by the real roster consumer."
+
+[finding.runtime-retired-service-assertions]
+test = "TestRepairM_797_RuntimeRetiredServiceAssertions"
+repair = "Replace service_roster's removed full-profile supervisor extraction and the standalone authority/replica-bearer class with the actual merged kernel owner and committed RPC reader. Preserve signing custody, cross-UID denial, malformed source/installed evidence, foreign genesis, noncanonical commit, protected atomic checkpoint, reopen, PID identity and symlink refusals. No sleeper is substituted for a role."
+proof = "Real native node/validator/genesis codecs and durable identity adoption -> close/reopen -> canonical committed RPC consumer. Retained signing height survives while missing process, wrong UID/owner, absent mount/genesis/state, invalid start identity and retired executable all refuse readiness. Python integration directly imports kernel_runtime.py and replays the committed native_configuration recording through actual HTTP and readiness handlers."
+
+[finding.registry-test-missing-create-window]
+test = "TestRepairM_797_RegistryMissingCreateWindow"
+repair = "Add a real local Docker lifecycle integration case that forwards to the actual engine and withholds its successful create response. Observe the owned engine object while lifecycle.json has id=null and phase=planned, kill the entire owner process group, reopen cleanup and require container/cgroup/mount/loop absence. Local engine socket selection is explicit and never selects a remote host. Preserve the later executing-owner interruption test."
+proof = "The Go gate drives actual Plan/Create HTTP transport, interrupts after peer creation before ID publication, closes and reopens the lifecycle and proves durable recovered ID, removal, absence and idempotence. The physical Docker integration case independently asserts the real engine and device absence and is not claimed to run in this gate."
+
+[finding.search-test-retired-endpoints]
+test = "TestRepairM_797_SearchRetiredEndpoints"
+repair = "Retain current inventory-discovered serving/validator inputs and the explicit hosted gateway/root node transport already repaired by predecessors. Add renderer-output qualification through the same live consumer used by check-live. SearchFrontPin is shared by the installed CLI and shell qualification; bounded verified typed readiness is still required after pin validation. Strict hexadecimal receipt-key assertions remain."
+proof = "Actual published inventory -> serving selection -> verified TLS typed readiness -> production RenderSearchFront -> installed live pin decoder -> another readiness read. Validators, unpublished api15, unadmitted pins and extra directives are refused. The shell case feeds actual unready render output through live qualification and requires refusal."
+
+[finding.retirement-test-retains-authority]
+test = "TestRepairM_797_RetirementRetainsAuthority"
+repair = "Keep actual retired-caller scanner and ca.sh services execution; require surviving Human/KMS/registry/gateway identities and exact thirty rows while explicitly refusing receipt-authority, both guarantors, daemon and relay. Require canonical node receipt finality instead of a separate authority runtime."
+proof = "Production roster and recorded signed receipt -> real governed receipt/canonical inclusion consumer. A receipted rung cannot substitute for committed finality; the Python guard retains real scanner and issuer commands."
+
+[finding.value-loop-test-retains-lni]
+test = "TestRepairM_797_ValueLoopRetainsLNI"
+repair = "Remove the socket, independent authority process/bearer/readiness and layerxctl paths from the real value loop. Keep unconditional RPC and trust-anchor preconditions, authenticated handshake and retained signed transaction reconciliation. Wait for actual successful canonical inclusion and governed signed receipt via committed-transaction, then read balances and require handshake height at least the inclusion height."
+proof = "Recorded chain-125 signed producer -> actual transaction decoder and RPC submission -> canonical receipt/block/governed signature consumer. Refuse failed receipt, missing canonical transaction, missing/wrong key, bad signature and out-of-range authorization. The separately recorded dev-chain transaction remains explicitly refused for chain-125 submission."
+
+[finding.xweb-test-missing-loader]
+test = "TestRepairM_797_XwebMissingLoader"
+repair = "Serving and all four attestor test renders now query recorded actual node trust material and invoke the built Rust adapter, which imports the deployed config.rs and calls config::load. Assert loaded key IDs, public bytes and all ranges, and refusal of reversed history, weak key, legacy gateway field and unsupported kernel root. Move shell history translation to the production inspector codec without copying the Rust configuration parser."
+proof = "The Go gate drives actual node-history -> production config transport -> actual signed receipt verifier and refuses malformed/weak/changed trust. It checks the native adapter/test wiring. Actual Config::load execution belongs to the explicit native integration path and is not claimed by the Go-only gate."
+
+[wiring.native_loader_build]
+request = "services/interop/crates/x-websearch/src/config.rs — domain 11: build the in-scope tools/bringup/tests/xweb-loader adapter and supply XWEB_CONFIG_LOADER to native renderer qualification; retain Config::load as the sole configuration parser. The Go-only task gate cannot execute a Rust binary under the no-external-binary rule."
+
+[wiring.kernel_inspector]
+request = "docker/kernel/Dockerfile and docker/paxeer/Dockerfile.paxd-node — domain 16: install current bringup-inspect for committed-transaction, foundation-provenance, xweb-receipt-keys and search-pin operations; missing installation remains an explicit refusal."
+
+[wiring.human_qualification]
+request = "docker/human-service/entrypoint.sh and services/platform/hosted/human — domain 16: separately migrate historical RoleDirectories/DirectoryPrerequisite/KMS/policy assembly owner fixtures that still extract removed kernel-init functions to each actual Human producer; this task's merged service-roster and evidence-read cases no longer depend on those removed launches."
+
+[gotcha.scope]
+observed = "GOTCHA.kvx and spec task/qualification files are outside exclusive user scope; gotchas, finding/test mapping and wiring requests are retained in this in-scope task record."
+
+[gotcha.gate_order]
+observed = "Step 12's baseline run conflicts with the explicit build/done order and manual verification prohibition; no baseline execution or failure is invented."
+
+[gotcha.native_loader]
+observed = "A Go-only in-process gate cannot execute the Rust configuration loader without violating the explicit no-subprocess/native-artifact requirement; the native adapter and caller are implemented and its separate execution is not claimed."

@@ -214,6 +214,9 @@ pub fn ledger_payment_call(
     DisclosedCall::from_call(call, options.from)
 }
 
+#[deprecated(
+    note = "Use ledger_payment_call with CallOptions and canonical EIP-1559 transaction transport"
+)]
 pub struct EnvelopeOptions<'a> {
     pub actor: &'a str,
     pub public_key: [u8; 32],
@@ -226,6 +229,9 @@ pub struct EnvelopeOptions<'a> {
     pub not_after: u64,
 }
 
+#[deprecated(
+    note = "Use ledger_payment_call with CallOptions and canonical EIP-1559 transaction transport"
+)]
 pub struct DisclosedEnvelope {
     pub envelope: UnsignedEnvelope,
     pub registry: ModuleRegistry,
@@ -235,6 +241,9 @@ pub struct DisclosedEnvelope {
 
 /// # Errors
 /// Rejects malformed payloads and preserves independent source and identity sequences.
+#[deprecated(
+    note = "Use ledger_payment_call with CallOptions and canonical EIP-1559 transaction transport"
+)]
 pub fn encode_send_envelope(
     payload: &[u8],
     options: &EnvelopeOptions<'_>,

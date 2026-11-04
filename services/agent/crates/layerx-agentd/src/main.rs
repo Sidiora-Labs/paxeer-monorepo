@@ -515,12 +515,6 @@ fn connect_human_node() -> Result<SequencerEndpoint, String> {
         Vec::new()
     };
     let roots: Vec<&[u8]> = certificates.iter().map(AsRef::as_ref).collect();
-    let network = PxEndpoint::new(&config.url, &roots)
-        .and_then(|endpoint| endpoint.network())
-        .map_err(|error| format!("human PX network head is unavailable: {error:?}"))?;
-    if network.paxeer.chain_id != config.chain_id {
-        return Err("human node RPC chain id mismatch".to_owned());
-    }
     let endpoint = SequencerEndpoint::new(&config.url, &roots)
         .map_err(|error| format!("human sequencer endpoint is invalid: {error:?}"))?;
     if endpoint
@@ -530,6 +524,8 @@ fn connect_human_node() -> Result<SequencerEndpoint, String> {
     {
         return Err("human sequencer chain id mismatch".to_owned());
     }
+    layerx_agentd::human_node::verify_direct_node_readiness(&endpoint, config.chain_id)
+        .map_err(|error| format!("human node evidence refused: {error:?}"))?;
     Ok(endpoint)
 }
 

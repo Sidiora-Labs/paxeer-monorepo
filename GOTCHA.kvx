@@ -14780,3 +14780,13 @@ fix = "Task 22.31.474 repairs the spec files and the TS2769 in repair-22-33-299.
 title = "The EVM chain id still defaults to a foreign test network"
 symptom = "modules/evm/config/config.go line 10 keeps DefaultChainID = 713714 (an inherited upstream test network) and maps pacific-1, atlantic-2 and arctic-1 beside hyperpax_125-1; any application whose cosmos chain id is not in the mapping signs and verifies for chain 713714, so node tests built on an unmapped test chain fail with invalid chain id for signer: have 125 want 713714 (22.33.1141 attempt 1), and two tasks already had to be told that no Paxeer network uses 713714."
 fix = "Decision 2529: the default EVM chain id is 125 and the foreign network mappings are removed (task 22.31.476); tests derive the signer chain id from the application's configured chain id, never from a literal."
+
+[gotcha.2992]
+title = "A repair gate for the nested launchpad user module used root-relative Go patterns"
+symptom = "The build command of 22.31.471, go build ./services/launchpad/user/..., failed with directory prefix services/launchpad/user does not contain main module because that directory is its own Go module (services/launchpad/user/go.mod) outside the root module; the implementation never compiled."
+fix = "Gates for that module change into it first (cd services/launchpad/user && go build ./...), as the other launchpad user tasks already do; 22.31.471 is requalified with repaired commands."
+
+[gotcha.2993]
+title = "The middleware conformance package stopped compiling after the seller payment union"
+symptom = "services/platform/middleware/conformance/src/scenarios.ts line 447 reads paymentReference from verification.payment, whose type became PaymentExactEvent | PaymentDrawnEvent when the seller repair of audit record 22.30.86 landed (5a468c4b87); PaymentDrawnEvent (seller ledger.ts line 37) has no paymentReference, so every gate that builds the conformance package (22.33.1479, 22.33.1480, 22.33.1481) fails before its tests run."
+fix = "Repair task 22.31.477 narrows the union in the committed-rung scenario (decision 2530); the three consumers require it."
