@@ -1,229 +1,220 @@
 # Validator Signing
 
-Here we specify the rules for validating a proposal and vote before signing.
-First we include some general notes on validating data structures common to both types.
-We then provide specific validation rules for each. Finally, we include validation rules to prevent double-sigining.
+Paxeer validators sign consensus messages inside the network run by `paxd`.
+The kernel participates in that network and proposes blocks; a receipt is final
+when its block is committed. This page distinguishes the classic proposal/vote
+format from optional Autobahn signatures. The inherited classic rules remain
+useful protocol references, but do not describe Autobahn certificates.
+
+Use [proposer selection](proposer-selection.md) to identify the active leader
+rule and [WAL recovery](wal.md) to identify the corresponding durable state.
 
 ## SignedMsgType
 
-The `SignedMsgType` is a single byte that refers to the type of the message
-being signed. It is defined in Go as follows:
+Classic messages use the Protobuf enum in
+[`types.proto`](../../proto/tendermint/types/types.proto), whose generated Go
+type is `SignedMsgType int32`:
 
-```go
-// SignedMsgType is a type of signed message in the consensus.
-type SignedMsgType byte
+| Message | Enum | Value |
+| --- | --- | --- |
+| Prevote | `PrevoteType` | `0x01` |
+| Precommit | `PrecommitType` | `0x02` |
+| Proposal | `ProposalType` | `0x20` |
 
-const (
- // Votes
- PrevoteType   SignedMsgType = 0x01
- PrecommitType SignedMsgType = 0x02
-
- // Proposals
- ProposalType SignedMsgType = 0x20
-)
-```
-
-All signed messages must correspond to one of these types.
+The old description of this type as a Go byte alias does not match the current
+Protobuf declarations. Autobahn uses typed message variants instead of this enum.
 
 ## Timestamp
 
-Timestamp validation is subtle and there are currently no bounds placed on the
-timestamp included in a proposal or vote. It is expected that validators will honestly
-report their local clock time. The median of all timestamps
-included in a commit is used as the timestamp for the next block height.
+Classic proposal and vote canonical bytes include a timestamp. Basic structural
+validation does not enforce clock bounds, but the consensus state machine does
+check proposal timeliness, timestamp equality with the block, and block-time
+progression. See the [PBTS runtime checks](proposer-based-timestamp/v1/pbts_001_draft.md#classic-runtime-checks)
+for the receive-time interval and its locked-state/reproposal conditions.
 
-Timestamps are expected to be strictly monotonic for a given validator, though
-this is not currently enforced.
+Classic votes use the validator's local signing time. Their timestamps are
+still signed; they are not used to compute a weighted median timestamp for the
+next block in the current block-building path. Do not infer a per-validator
+strictly increasing timestamp check from the height/round/step signing rules.
 
 ## ChainID
 
-ChainID is an unstructured string with a max length of 50-bytes.
-In the future, the ChainID may become structured, and may take on longer lengths.
-For now, it is recommended that signers be configured for a particular ChainID,
-and to only sign votes and proposals corresponding to that ChainID.
+The classic canonical message binds the consensus chain ID string passed to
+`ProposalSignBytes` or `VoteSignBytes`. Genesis and header validation limit that
+string to `MaxChainIDLen` (50 bytes), as defined in
+[`genesis.go`](../../types/genesis.go). Signers must use the chain's configured
+consensus ID. It is distinct from the public EVM chain ID, 125 (`0x7d`);
+substituting the decimal EVM ID into consensus signing is not valid.
+
+`FilePV` takes the chain ID from its caller. Its persisted last-sign state is
+not a configuration mechanism for selecting a chain ID.
 
 ## BlockID
 
-BlockID is the structure used to represent the block:
+The current classic Go structure in [`block.go`](../../types/block.go) is:
 
 ```go
 type BlockID struct {
- Hash        []byte
- PartsHeader PartSetHeader
-}
-
-type PartSetHeader struct {
- Hash  []byte
- Total int
+    Hash          tmbytes.HexBytes
+    PartSetHeader PartSetHeader
 }
 ```
 
-To be included in a valid vote or proposal, BlockID must either represent a `nil` block, or a complete one.
-We introduce two methods, `BlockID.IsZero()` and `BlockID.IsComplete()` for these cases, respectively.
-
-`BlockID.IsZero()` returns true for BlockID `b` if each of the following
-are true:
-
-```go
-b.Hash == nil
-b.PartsHeader.Total == 0
-b.PartsHeader.Hash == nil
-```
-
-`BlockID.IsComplete()` returns true for BlockID `b` if each of the following
-are true:
-
-```go
-len(b.Hash) == 32
-b.PartsHeader.Total > 0
-len(b.PartsHeader.Hash) == 32
-```
+`BlockID.IsNil()` requires an empty hash and a zero part-set header (zero total
+and empty part hash). Empty slices and nil slices both satisfy the empty-byte
+checks. `BlockID.IsComplete()` requires a 32-byte block hash, a positive part
+count and a 32-byte part-set hash. These predicates are separate from
+`BlockID.ValidateBasic`, which checks the component encodings and can accept a
+partial ID. Proposals require a complete ID; votes require either nil or
+complete. The historical `PartsHeader` and `IsZero` spellings for `BlockID` are
+not the current API.
 
 ## Proposals
 
-The structure of a proposal for signing looks like:
+[`Proposal.ValidateBasic`](../../types/proposal.go) requires:
 
-```go
-type CanonicalProposal struct {
- Type      SignedMsgType // type alias for byte
- Height    int64         `binary:"fixed64"`
- Round     int64         `binary:"fixed64"`
- POLRound  int64         `binary:"fixed64"`
- BlockID   BlockID
- Timestamp time.Time
- ChainID   string
-}
-```
+- `Type == ProposalType`;
+- `Height >= 0` and `Round >= 0`;
+- `-1 <= POLRound < Round`;
+- a structurally valid, complete `BlockID`.
 
-A proposal is valid if each of the following lines evaluates to true for proposal `p`:
+The basic check accepts height zero; the live consensus state machine separately
+requires the proposal to match its current height and round. A positive chain
+height is not a stronger condition enforced by `ValidateBasic` itself.
 
-```go
-p.Type == 0x20
-p.Height > 0
-p.Round >= 0
-p.POLRound >= -1
-p.BlockID.IsComplete()
-```
-
-In other words, a proposal is valid for signing if it contains the type of a Proposal
-(0x20), has a positive, non-zero height, a
-non-negative round, a POLRound not less than -1, and a complete BlockID.
+The canonical signed proposal contains `Type`, `Height`, `Round`, `POLRound`,
+`BlockID`, `Timestamp` and `ChainID`. The runtime proposal also carries headers,
+transaction keys, evidence and commit information; do not substitute its JSON
+encoding for canonical signing bytes. The receiving state machine verifies the
+signature against the selected round leader and performs contextual validation.
 
 ## Votes
 
-The structure of a vote for signing looks like:
+[`Vote.ValidateBasic`](../../types/vote.go) requires:
 
-```go
-type CanonicalVote struct {
- Type      SignedMsgType // type alias for byte
- Height    int64         `binary:"fixed64"`
- Round     int64         `binary:"fixed64"`
- BlockID   BlockID
- Timestamp time.Time
- ChainID   string
-}
-```
+- a prevote or precommit type;
+- `Height >= 0` and `Round >= 0`;
+- a structurally valid `BlockID` that is either nil or complete;
+- a validator address of `crypto.AddressSize` (20 bytes);
+- `ValidatorIndex >= 0`.
 
-A vote is valid if each of the following lines evaluates to true for vote `v`:
+Signature verification is separate: `Vote.Verify` checks the canonical bytes
+with the supplied chain ID and validator public key. Basic structure alone
+neither authenticates a vote nor proves that its sender belongs to the current
+validator set.
 
-```go
-v.Type == 0x1 || v.Type == 0x2
-v.Height > 0
-v.Round >= 0
-v.BlockID.IsZero() || v.BlockID.IsComplete()
-```
-
-In other words, a vote is valid for signing if it contains the type of a Prevote
-or Precommit (0x1 or 0x2, respectively), has a positive, non-zero height, a
-non-negative round, and an empty or valid BlockID.
+The canonical signed vote contains `Type`, `Height`, `Round`, `BlockID`,
+`Timestamp` and `ChainID`; it omits the validator address and index. The exact
+schema is [`canonical.proto`](../../proto/tendermint/types/canonical.proto).
+Both proposal and vote signing use varint-length-prefixed Protobuf via
+`ProposalSignBytes` and `VoteSignBytes`, with canonicalization in
+[`canonical.go`](../../types/canonical.go). Height and round use `sfixed64`;
+proposal `POLRound` uses `int64`. The historical Go `binary` struct tags are not
+the signing format.
 
 ## Invalid Votes and Proposals
 
-Votes and proposals which do not satisfy the above rules are considered invalid.
-Peers gossipping invalid votes and proposals may be disconnected from other peers on the network.
-Note, however, that there is not currently any explicit mechanism to punish validators signing votes or proposals that fail
-these basic validation rules.
+Structural checks, signature checks and state-machine checks are distinct.
+Applications and signers should not treat successful canonicalization or a
+successful signing request as proof that a message satisfies all consensus
+rules. Invalid peer messages can be rejected independently of evidence handling.
+A protocol-valid signature does not make a wrong-height or wrong-leader proposal
+acceptable.
 
 ## Double Signing
 
-Signers must be careful not to sign conflicting messages, also known as "double signing" or "equivocating".
-Tendermint has mechanisms to publish evidence of validators that signed conflicting votes, so they can be punished
-by the application. Note Tendermint does not currently handle evidence of conflciting proposals, though it may in the future.
+Conflicting signatures at the same consensus position are equivocation.
+Classic [`FilePV`](../../privval/file.go) prevents regressions and conflicting
+re-signing by persisting its last signed position and bytes. Evidence processing
+and application consequences are separate from this local signer protection.
 
 ### State
 
-To prevent such double signing, signers must track the height, round, and type of the last message signed.
-Assume the signer keeps the following state, `s`:
+`FilePVLastSignState` stores `Height`, `Round`, `Step`, `Signature` and
+`SignBytes`. The internal steps are ordered as follows:
 
-```go
-type LastSigned struct {
- Height int64
- Round int64
- Type SignedMsgType // byte
-}
-```
+| Step | Value |
+| --- | --- |
+| No message | 0 |
+| Proposal | 1 |
+| Prevote | 2 |
+| Precommit | 3 |
 
-After signing a vote or proposal `m`, the signer sets:
-
-```go
-s.Height = m.Height
-s.Round = m.Round
-s.Type = m.Type
-```
+These are signer steps, not the `SignedMsgType` wire values. The signer rejects
+a lower height, a lower round at the same height, or a lower step at the same
+height and round. A higher height resets the round comparison; a higher round
+resets the step comparison. Last-sign state is saved before a new signature is
+returned. Preserve that state together with the validator key across restart.
 
 ### Proposals
 
-A signer should only sign a proposal `p` if any of the following lines are true:
-
-```go
-p.Height > s.Height
-p.Height == s.Height && p.Round > s.Round
-```
-
-In other words, a proposal should only be signed if it's at a higher height, or a higher round for the same height.
-Once a proposal or vote has been signed for a given height and round, a proposal should never be signed for the same height and round.
+At a new allowed position, the signer signs and persists the canonical proposal.
+At the same height, round and proposal step, byte-identical requests reuse the
+stored signature. Any change in those bytes, including a timestamp-only change,
+is rejected as `conflicting data`. An identical retry is permitted; the old
+blanket prohibition on signing a proposal twice at the same position was too
+strong.
 
 ### Votes
 
-A signer should only sign a vote `v` if any of the following lines are true:
+The same position rules allow proposal → prevote → precommit, but never a
+regression in that sequence. At the same vote position:
 
-```go
-v.Height > s.Height
-v.Height == s.Height && v.Round > s.Round
-v.Height == s.Height && v.Round == s.Round && v.Step == 0x1 && s.Step == 0x20
-v.Height == s.Height && v.Round == s.Round && v.Step == 0x2 && s.Step != 0x2
-```
+- identical canonical bytes reuse the stored signature;
+- if only the timestamp differs, `FilePV` restores the saved timestamp and
+  signature instead of signing again;
+- other differences are rejected as `conflicting data`.
 
-In other words, a vote should only be signed if it's:
-
-- at a higher height
-- at a higher round for the same height
-- a prevote for the same height and round where we haven't signed a prevote or precommit (but have signed a proposal)
-- a precommit for the same height and round where we haven't signed a precommit (but have signed a proposal and/or a prevote)
-
-This means that once a validator signs a prevote for a given height and round, the only other message it can sign for that height and round is a precommit.
-And once a validator signs a precommit for a given height and round, it must not sign any other message for that same height and round.
-
-Note this includes votes for `nil`, ie. where `BlockID.IsZero()` is true. If a
-signer has already signed a vote where `BlockID.IsZero()` is true, it cannot
-sign another vote with the same type for the same height and round where
-`BlockID.IsComplete()` is true. Thus only a single vote of a particular type
-(ie. 0x01 or 0x02) can be signed for the same height and round.
+Nil votes count as signed votes. A nil vote cannot be replaced by a non-nil vote
+at the same height, round and vote step. Restoring a stale or empty signer state
+would defeat this protection; replaying the consensus WAL does not replace it.
 
 ### Other Rules
 
-According to the rules of Tendermint consensus, once a validator precommits for
-a block, they become "locked" on that block, which means they can't prevote for
-another block unless they see sufficient justification (ie. a polka from a
-higher round). For more details, see the [consensus
-spec](https://arxiv.org/abs/1807.04938).
+Classic locking and unlocking also depend on the observed prevote and precommit
+quorums. The signer only remembers its last position and bytes; it cannot
+independently establish that the consensus state machine had sufficient
+justification to change a lock. The inherited discussion of “amnesia” concerns
+this distinction. Use the [classic consensus paper](https://arxiv.org/abs/1807.04938)
+for that research model, and [`state.go`](../../internal/consensus/state.go) for
+this fork's actual transitions. Classic locking analysis is not an Autobahn
+signer-state specification.
 
-Violating this rule is known as "amnesia". In contrast to equivocation,
-which is easy to detect, amnesia is difficult to detect without access to votes
-from all the validators, as this is what constitutes the justification for
-"unlocking". Hence, amnesia is not punished within the protocol, and cannot
-easily be prevented by a signer. If enough validators simultaneously commit an
-amnesia attack, they may cause a fork of the blockchain, at which point an
-off-chain protocol must be engaged to collect votes from all the validators and
-determine who misbehaved. For more details, see [fork
-detection](https://github.com/tendermint/tendermint/pull/3978).
+## Autobahn Signatures and Certificates
+
+[`autobahn/types/msg.go`](../../autobahn/types/msg.go) defines typed lane
+proposals/votes, application votes, road proposals, prepare votes, commit votes
+and timeout votes. `Sign` requires a secret key bound with `ForCommittee`.
+It signs a message hash with the `pax_giga_autobahn` Ed25519 tag and the preimage
+
+```text
+"pax/autobahn/signature/v1\x00" || committeeDomain || messageHash
+```
+
+`VerifySig` requires committee membership and verifies against the domain of
+the committee supplied by the verifier. The domain binds the chain ID, initial
+global block number, genesis timestamp, sorted keys and weights. It is not
+provided by an untrusted signed message. A signature valid for another chain or
+committee is not valid in this context.
+
+[`Committee`](../../autobahn/types/committee.go) defines `Faulty = (W - 1) / 3`
+for total weight `W`. Prepare, commit, timeout and application certificate
+quorums require weight `W - Faulty`; lane availability certificates require
+`Faulty + 1`. Certificate verification also checks signer uniqueness,
+membership and agreement on the certified value. A lane certificate alone is
+not a road commit certificate.
+
+[`FullProposal.VerifyAt`](../../autobahn/types/proposal.go) verifies the road
+leader, signature, view and global range, monotone timestamp, timeout
+justification and fresh-proposal timeliness. A justified reproposal must match
+the certified proposal. The [PBTS page](proposer-based-timestamp/v1/pbts_001_draft.md#autobahn-runtime-checks)
+details this distinct timestamp path.
+
+Autobahn node setup requires a local validator key and rejects a configured
+remote signer (`priv-validator.laddr`), as enforced in
+[`node.go`](../../node/node.go) and [`setup.go`](../../node/setup.go).
+`FilePVLastSignState` is not Autobahn's road-vote recovery mechanism. The
+consensus loop persists its votes and justifying certificates before publishing
+vote outputs; its availability and data layers persist certified payloads and
+prune anchors. Preserve all of the [Autobahn persistence](wal.md#autobahn-persistence)
+state to maintain those protections across restart.

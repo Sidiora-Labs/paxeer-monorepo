@@ -1,0 +1,13 @@
+[repair.22.31.322]
+finding = "top-level-report-path"
+proof = ["TestRepair_322_ReportPathPrecedence", "TestRepair_322_ReportWriteError"]
+precedence = "--report-path (including empty to disable) > nonempty settings.reportPath > top-level reportPath"
+path = "LoadConfig JSON producer -> profile file -> production Cobra command -> MergeReportPath -> LoadSettings/Viper -> ResolveSettings -> real dry-run generator/sender/collector -> Logger.LogFinalStats -> JSON file or returned write error"
+implementation = "The executable delegates to the importable command in config/cli so the declared config test can execute the actual CLI in process; per-command metrics mux and context lifetime allow successive executions without global handler conflicts."
+baseline = "No prior task gate ledger or repair tests existed. Baseline verification was not run: the explicit gate order forbids testing before complete implementation and forbids running verify_cmd by hand. No baseline failures are claimed."
+wiring_requests = []
+evidence = "hf-build and hf-done record the exact final candidate revision, command, exit and private log in the runner gate ledger."
+
+[gotcha.cli-proof]
+symptom = "The config package cannot import package main to exercise the real CLI, and the global metrics handler cannot be registered twice in process."
+resolution = "Extract the production command within the allowed config subtree and scope the metrics HTTP handler and lifetime to that command."

@@ -16,10 +16,6 @@ import (
 // INDEXER_HISTORICAL_RPC_URL in the committed source.
 const historicalEndpointID = "paxeer-historical"
 
-// maxRehydratedMarkets bounds boot rehydration: two code epochs per market
-// within the qualification's 4096-epoch authority.
-const maxRehydratedMarkets = 2040
-
 // bindRuntimeAnchor requires the receipt authority and the committed source to
 // pin the same chain identity in the same block-identity mode, and an anchor to
 // be the issued initial checkpoint the first live batch must extend.
@@ -84,35 +80,6 @@ func durableBlockHash(ctx context.Context, pool *pgxpool.Pool, stream string, he
 		return common.Hash{}, errors.New("indexer: durable block hash invalid")
 	}
 	return common.HexToHash(hash), nil
-}
-
-// persistedMarkets lists the markets of previously qualified canonical
-// creations for boot rehydration of the receipt authority.
-func persistedMarkets(ctx context.Context, pool *pgxpool.Pool) ([]receipt.DiscoveredMarket, error) {
-	rows, err := pool.Query(ctx, `SELECT token, pool, height, transaction_index FROM indexer.indexer_canonical_creations ORDER BY height, transaction_index, log_index LIMIT $1`, maxRehydratedMarkets+1)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	markets := []receipt.DiscoveredMarket{}
-	for rows.Next() {
-		var token, poolAddress string
-		var height, index int64
-		if err = rows.Scan(&token, &poolAddress, &height, &index); err != nil {
-			return nil, err
-		}
-		if !common.IsHexAddress(token) || !common.IsHexAddress(poolAddress) || height < 0 || index < 0 || index > 1<<32-1 {
-			return nil, errors.New("indexer: persisted canonical creation invalid")
-		}
-		markets = append(markets, receipt.DiscoveredMarket{Token: common.HexToAddress(token), Pool: common.HexToAddress(poolAddress), Height: uint64(height), TransactionIndex: uint(index)})
-	}
-	if err = rows.Err(); err != nil {
-		return nil, err
-	}
-	if len(markets) > maxRehydratedMarkets {
-		return nil, errors.New("indexer: qualified market count exceeds the receipt authority bound")
-	}
-	return markets, nil
 }
 
 // seedCanonicalWatermark starts a fresh production fleet at the issued

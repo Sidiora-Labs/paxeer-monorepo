@@ -1,87 +1,191 @@
 # MCP tools
 
-`layerx-mcp` exposes 21 tools in `TOOL_CATALOGUE`
-(`services/agent/crates/layerx-mcp/src/server.rs`). Every call is a
-`DaemonInvocation` through `layerx-agentd` with gates Policy, Capability,
-Budget, RateLimit, and Audit. There is no MCP-only write path.
+`layerx-mcp` exposes tenant- and scope-bound tools through `layerx-agentd`.
+Models receive tool access, not protocol authority. Calls pass the daemon's
+policy, capability, budget, rate and audit controls; writes use the ordinary
+owner preparation, external signing, submission and tracking path.
 
-Read-only deployment omits write tools. Encoded JSON arguments are bounded
-(catalogue validation 65_536 bytes; route 1_048_576 bytes).
+Paxeer is one network: the kernel participates in block proposal, and a
+receipt is final when its block is committed. Tools report actual evidence
+using `submitted`, `receipted` and `committed`, not a second settlement system.
+See [Agent API](AgentApi.md) for the contract and [Agentd](Agentd.md) for trust
+and recovery.
 
-Sources: `services/agent/crates/layerx-mcp/src/server.rs`,
-`services/agent/crates/layerx-mcp/src/catalogue.rs`,
-`services/agent/crates/layerx-mcp/README.md`,
-`spec/.beta/layerx-agent-interface/spec.kvx` requirement 17.
-
-Operator walkthrough: [Running an agent](RunningAnAgent.md). Write
-semantics: [Agent API](AgentApi.md).
+The core `TOOL_CATALOGUE` in
+`services/agent/crates/layerx-mcp/src/server.rs` contains 22 definitions.
+`WEB_TOOLS` and `SESSION_TOOLS` in `src/catalogue.rs` add paid web and session
+operations. Listings are filtered by the bound scope, and read-only deployment
+omits write tools. A listed definition is not a guarantee that the selected
+daemon boundary implements its operation: unavailable paths return a typed
+refusal.
 
 ---
 
 ## Catalogue
 
-Descriptions are the strings `catalogue.rs` returns from `description`.
+The table gives operation mappings from `server.rs::tool_operation` and
+current read semantics, rather than repeating legacy description strings.
 
-| Tool | Kind | Scope | Daemon operation | Description |
-| --- | --- | --- | --- | --- |
-| `balance.get` | read | `read:balance` | ReadBalance | Read verified program-scoped balances from the daemon with their verification level and freshness. |
-| `history.list` | read | `read:history` | ReadHistory | Page verified account history from the daemon under an explicit item bound and stable cursor. |
-| `receipt.get` | read | `read:receipt` | ProgramReceipt | Read the canonical receipt the daemon holds for one activity. |
-| `checkpoint.get` | read | `read:checkpoint` | ReadCheckpoint | Read the finalised checkpoint certificate for one batch sequence through the daemon. |
-| `proof.get` | read | `read:proof` | ReadProofBundle | Read the proof bundle the daemon holds for one activity. |
-| `availability.get` | read | `read:availability` | AvailabilityFetch | Read verified availability chunks and attributed failures for one decimal batch number. |
-| `wallet.accounts` | read | `read:wallet:accounts` | ReadAccount | List the verified accounts the daemon observes for one program. |
-| `wallet.balance` | read | `read:wallet:balance` | ReadBalance | Read one verified account balance for one asset through the daemon. |
-| `activity.prepare` | write | `write:prepare` | Prepare | Prepare canonical activity bytes and their bound disclosure inside the daemon. |
-| `activity.disclose` | write | `write:disclose` | Prepare | Decode the bound disclosure of canonical activity bytes. |
-| `activity.sign` | write | `write:sign` | Sign | Sign a daemon preparation at the daemon's external signing boundary; no key material is read. |
-| `activity.submit` | write | `write:submit` | Submit | Submit an externally signed preparation through the ordinary daemon path. |
-| `activity.track` | write | `write:track` | Track | Resolve the daemon's current state for one submission. |
-| `activity.wait` | write | `write:activity:wait` | Wait | Wait, under an explicit bound, for the daemon to resolve one submission. |
-| `wallet.send` | write | `write:wallet:send` | Submit | Send one asset amount through the ordinary daemon submission path. |
-| `token.create` | write | `write:token:create` | Submit | Create one asset through the ordinary daemon submission path. |
-| `token.mint` | write | `write:token:mint` | Submit | Mint one asset amount through the ordinary daemon submission path. |
-| `token.transfer` | write | `write:token:transfer` | Submit | Transfer one asset amount through the ordinary daemon submission path. |
-| `grant.issue` | write | `write:grant:issue` | Submit | Issue one spending grant through the ordinary daemon submission path. |
-| `grant.draw` | write | `write:grant:draw` | Submit | Draw against one spending grant through the ordinary daemon submission path. |
-| `faucet.request` | write | `write:faucet:claim` | FaucetClaim | Claim one bounded beta faucet grant for the named DID and signer key through the daemon's faucet operation. |
+| Tool | Kind | Required scope | Daemon operation / meaning |
+| --- | --- | --- | --- |
+| `tenant.readiness` | read | `read` | TenantReadiness; local recovery/admission observation, not execution proof |
+| `balance.get` | read | `read:balance` | ReadBalance; program-scoped balances with evidence and freshness |
+| `history.list` | read | `read:history` | ReadHistory; bounded account history ordered by block position |
+| `receipt.get` | read | `read:receipt` | ProgramReceipt; retained transaction execution receipt |
+| `checkpoint.get` | read | `read:checkpoint` | ReadCheckpoint; block and verified CometBFT commit at a height |
+| `proof.get` | read | `read:proof` | ReadProofBundle; transaction/receipt evidence with committed proof where available |
+| `availability.get` | read | `read:availability` | AvailabilityFetch; block availability and roots at a height |
+| `wallet.accounts` | read | `read:wallet:accounts` | ReadAccount; accounts observed for a program |
+| `wallet.balance` | read | `read:wallet:balance` | ReadBalance; selected account/asset balance |
+| `activity.prepare` | write | `write:prepare` | Prepare; bound bytes and disclosure, subject to approval |
+| `activity.disclose` | write | `write:disclose` | Prepare; owner-decoded disclosure |
+| `activity.sign` | write | `write:sign` | Sign; external-signature boundary |
+| `activity.submit` | write | `write:submit` | Submit; prepared or raw signed transaction under the selected variant |
+| `activity.track` | write | `write:track` | Track; actual submission state and rung |
+| `activity.wait` | write | `write:activity:wait` | Wait; bounded wait for submission progress |
+| `wallet.send` | write | `write:wallet:send` | Submit alias through ordinary Prepare/Sign/Submit/Track |
+| `token.create` | write | `write:token:create` | Submit alias for asset registration |
+| `token.mint` | write | `write:token:mint` | Submit alias for mint |
+| `token.transfer` | write | `write:token:transfer` | Submit alias for transfer |
+| `grant.issue` | write | `write:grant:issue` | Submit alias for issuing a grant |
+| `grant.draw` | write | `write:grant:draw` | Submit alias for drawing a grant |
+| `faucet.request` | write | `write:faucet:claim` | Catalogue definition retained; no ordinary daemon operation mapping |
 
-Read tools are absent from the list when the bound scope does not include
-them.
+`faucet.request` metadata describes testnet funding through `px_requestFunds`.
+In this daemon-bound server `tool_operation` returns None, so do not treat the
+listing as a served FaucetClaim operation. The CLI's hosted A2A toolset is a
+different surface. Agent HTTP `faucet.claim` is retired and returns
+`UnavailableCapability`; it is not an alternative MCP submission path.
+
+Read mappings use the daemon's program-balance and `/v1/reads/` listeners.
+`checkpoint.get`'s `sequence` and `availability.get`'s `batch` are retained
+argument names for **block height**. Availability reports a complete block's
+transaction count and roots, or a pruned/incomplete result; its native response
+has `rung: null`. It does not prove execution by returning bytes.
+Checkpoint reads bind the block hash and time to the verified signed header
+and configured validator trust. Missing proof sources or trust are refused.
 
 ---
 
 ## Parameters
 
-Required fields from `catalogue.rs` field schemas. Hex lengths are the
-catalogue patterns.
+`src/catalogue.rs::input_schema` defines the advertised JSON Schema and
+`validate` enforces it before routing. Argument objects are bounded to 65,536
+encoded bytes; the route also has an outer 1,048,576-byte limit. Unknown fields,
+wrong types and out-of-range values are refused rather than corrected.
+Abbreviated scalar fields are strings, including numeric bounds.
 
-| Tool | Required | Optional |
-| --- | --- | --- |
-| `balance.get` | `program` (hex32) | `account`, `asset` (hex32) |
-| `history.list` | `account` (hex32), `limit` (1–256) | `cursor` (hex32) |
-| `receipt.get` | `activity_id` (hex32) | — |
-| `checkpoint.get` | `sequence` (decimal u64) | — |
-| `proof.get` | `activity_id` (hex32) | — |
-| `availability.get` | `batch` (decimal u64) | — |
-| `wallet.accounts` | `program` (hex32) | — |
-| `wallet.balance` | `program`, `account`, `asset` (hex32) | — |
-| `activity.prepare` | `activity_type`, `payload`, `account_sequence`, `not_before_ms`, `expires_at_ms`, `fee_limit`, `idempotency_key` | — |
-| `activity.disclose` | `canonical_bytes` | — |
-| `activity.sign` | `preparation_ref` | — |
-| `activity.submit` | `preparation_ref`, `signature` (hex64), `signer_public_key` (hex32) | — |
-| `activity.track` | `submission_ref` | — |
-| `activity.wait` | `submission_ref`, `timeout_ms` (1–600000) | — |
-| `wallet.send` | `destination`, `asset`, `amount`, `idempotency_key` | — |
-| `token.create` | `symbol`, `decimals` (0–18), `supply`, `idempotency_key` | — |
-| `token.mint` | `asset`, `destination`, `amount`, `idempotency_key` | — |
-| `token.transfer` | `asset`, `destination`, `amount`, `idempotency_key` | — |
-| `grant.issue` | `beneficiary`, `asset`, `amount`, `expires_at_ms`, `idempotency_key` | — |
-| `grant.draw` | `grant_id`, `amount`, `idempotency_key` | — |
-| `faucet.request` | `did`, `public_key` (hex32) | — |
+| Tool | Catalogue arguments |
+| --- | --- |
+| `tenant.readiness` | Empty object |
+| `balance.get` | Required program; optional account and asset (32-byte hex) |
+| `wallet.accounts` | program (32-byte hex) |
+| `wallet.balance` | program, account, asset (32-byte hex) |
+| `history.list` | account (32-byte hex), limit (`1`–`256`); optional cursor |
+| `receipt.get`, `proof.get` | activity_id (32-byte transaction hash) |
+| `checkpoint.get` | sequence (decimal u64 height) |
+| `availability.get` | batch (nonzero decimal u64 height) |
+| `activity.disclose` | canonical_bytes (nonempty hex) |
+| `activity.track` | submission_ref |
+| `activity.wait` | submission_ref, timeout_ms (`1`–`600000`) |
+| `faucet.request` | did, public_key (32-byte hex); definition only on this boundary |
 
-Wallet and token writes reuse the ordinary submit path. `activity.wait`
-uses the `Wait` operation and existing receipt tracking stages.
+Cursors are transport-specific. The Agent API history cursor is a three-value
+decimal array `(blockHeight, txIndex, logIndex)`. The native daemon read adapter
+also has a compact 16-byte position cursor, while the abbreviated MCP schema
+still validates its optional cursor as 32-byte hex. These encodings cannot be
+substituted; a mismatched cursor is refused, not silently restarted or
+converted. Preserve the actual returned position and use a compatible owner
+surface for pagination.
+
+### Preparation, signing and submission
+
+Network calls use EIP-1559 type-2 transactions on chain **125 (`0x7d`)**.
+The owner binds the chain, nonce, destination, calldata, value, gas and fees.
+Public node JSON-RPC uses a root URL such as
+`https://api-mainnet-beta.paxeer.network/`. MCP tools do not authorize a direct
+connection that bypasses daemon policy.
+
+The preparation catalogue accepts the abbreviated fields activity_type,
+payload, account_sequence, not_before_ms, expires_at_ms, fee_limit and
+idempotency_key, plus explicit native variants `native_v1`, `native_effect_v1`
+and `native_send_v1`. Native variants carry structured activity, actor,
+authority, sequence, validity bounds, payload/hash, capability_id and a signed
+purpose binding; an optional local_grant is a separate signed restriction.
+Use the exact generated schema for the variant accepted by the owner.
+Catalogue validation alone does not establish execution support.
+
+`activity.disclose` sends the bytes to the owner's `native_disclosure_v1`
+Prepare variant. It cannot invent or edit the disclosure. For external signing,
+`activity.sign` supports:
+
+```text
+variant: external_signature_v1
+preparation_ref: 32-byte lowercase hex
+signature: 65-byte secp256k1 r || s || v, 130 lowercase hex characters
+```
+
+The boundary removes only the explicit carrier variant before invoking Sign.
+No key material or implicit signing seed is supplied by the tool. The legacy
+sign schema containing only preparation_ref remains a compatibility shape,
+not permission to manufacture a signature.
+
+`activity.submit` has a raw_transaction alternative: exact signed bytes as
+lowercase `0x02...` hex. A prepared native submission has its own explicit
+variant and fields; the abbreviated legacy signature/public-key shape is not
+interchangeable with the type-2 signature. Approval must release the exact
+preparation and disclosure digest before the ordinary owner can submit it.
+Unknown or timed-out sends stay pending and are resolved through Track/Wait,
+not automatically recreated at another nonce.
+
+### Wallet, token and grant aliases
+
+The `native_write_v1` carrier has exactly variant, intent, preparation,
+canonical_bytes, signature and signer_address. The signature is 65 bytes and
+signer_address is 20 bytes, both lowercase hex. The caller supplies the actual
+unsigned preview bytes and external signature. The owner independently decodes
+the preview, matches the signed purpose, intent and preparation, and requires
+actual Prepare bytes to equal the preview before proceeding. Each
+Prepare/Sign/Submit/Track stage reauthorizes the current full MCP credential.
+A held Prepare returns its real approval hold instead of submitting.
+
+Intent fields retain the useful tool-specific names:
+
+| Alias | Intent fields |
+| --- | --- |
+| `wallet.send`, `token.transfer` | destination, asset, amount, idempotency_key |
+| `token.mint` | asset, destination, amount, idempotency_key |
+| `token.create` | symbol, decimals, supply_cap, idempotency_key |
+| `grant.issue` | beneficiary, asset, amount, expires_at_ms, idempotency_key |
+| `grant.draw` | grant_id, amount, idempotency_key |
+
+The abbreviated legacy `token.create` field is `supply`; the native carrier
+requires `supply_cap` and an approved `native-registration-v1` profile. Native
+alias targets are ledger `0x000000000000000000000000000000000000101A`:
+Asset ordinals 5 for send/transfer, 1 for create, 10 for mint, 7 for issue and
+6 for draw. Registration must satisfy the owner policy and capability chain;
+a model's request does not establish that authority.
+
+---
+
+## Session tools and untrusted output
+
+Subscription tools are `subscription.create`, `list`, `pause`, `resume`,
+`delete`, `health`, and `acknowledge`, with the `subscription.` prefix and
+`subscribe` scope. Approval tools are `approval.list`, `get`, `approve`, and
+`reject`, with the `approval.` prefix and `approve` scope. Decisions bind the
+exact held request digest. Local lifecycle events and tenant readiness do not
+establish a transaction rung.
+
+Paid tools `web.search`, `web.fetch` and `web.content` require
+`write:web:search`, `write:web:fetch` and `write:web:content` respectively.
+They use the configured payer and approval boundary; returned external content
+is marked untrusted and cannot change tenant, capability or counterparty.
+
+Invocations are durably tracked so replay and recovery preserve Completed,
+Refused, Unknown or Failed outcomes. A result is released only after the
+current session boundary is revalidated. Scope changes and revocations are
+not bypassed by a previously accepted tool call.
 
 ---
 
@@ -91,3 +195,6 @@ uses the `Wait` operation and existing receipt tracking stages.
 - [Agentd](Agentd.md)
 - [Running an agent](RunningAnAgent.md)
 - [Payments developer path](PaymentsQuickstart.md)
+
+Sources: `services/agent/crates/layerx-mcp/src/{server,catalogue,binding,boundary}.rs`,
+`src/tools/write.rs`, and `services/agent/crates/layerx-agentd/src/read/{native,availability,history}.rs`.

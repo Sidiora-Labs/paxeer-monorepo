@@ -2130,3 +2130,31 @@ Source: `tools/paxeer-x/route-catalogue.json` (schema `paxeer-x.routes.v1`), the
 - `operator-admin`
 - `private-kms`
 - `signer-shares`
+
+## Pending explorer route admission (task 22.31.378)
+
+Finding `hosted-route-admission` remains open pending Domain 8 wiring. These paths are backend declarations and required frontend patterns; they are not additions to the admitted routes above. The scoped task record is `services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/hosted_route_admission.json`, mirrored in the catalogue’s `pending_wiring` entry.
+
+| Method | Required hosted REST path | Backend action |
+|---|---|---|
+| GET | `/explorer/backend/api/v2/advanced-filters` | `BlockScoutWeb.API.V2.AdvancedFilterController.list` |
+| GET | `/explorer/backend/api/v2/advanced-filters/csv` | `BlockScoutWeb.API.V2.AdvancedFilterController.list_csv` |
+| GET | `/explorer/backend/api/v2/advanced-filters/methods` | `BlockScoutWeb.API.V2.AdvancedFilterController.list_methods` |
+| GET | `/explorer/backend/api/v2/paxeer-x/feed/markets` | `BlockScoutWeb.API.V2.PaxeerX.FeedController.markets` |
+| GET | `/explorer/backend/api/v2/paxeer-x/feed/markets/{market_id}/updates` | `BlockScoutWeb.API.V2.PaxeerX.FeedController.market_updates` |
+| GET | `/explorer/backend/api/v2/paxeer-x/feed/updates` | `BlockScoutWeb.API.V2.PaxeerX.FeedController.updates` |
+| GET | `/explorer/backend/api/v2/paxeer-x/feed/updates/{hash}` | `BlockScoutWeb.API.V2.PaxeerX.FeedController.update` |
+
+Required frontend page patterns: `/explorer/feed`, `/explorer/feed/market/[id]`, `/explorer/feed/update/[hash]`.
+
+- Domain 8: services/platform/hosted/gateway/src/explorer_proxy.rs must admit the seven exact GET rest_routes under /explorer/backend, preserving existing header, query, origin, timeout and input bounds.
+- Domain 8: services/platform/hosted/gateway/src/ui_proxy.rs must admit the three exact page_patterns using the existing GET/HEAD policy and input bounds.
+- Domain 14 with Domain 8: services/platform/hosted/gateway/tests must exercise the production Rust gateway with loopback backend/frontend peers for all seven REST paths, encoded queries, JSON/CSV headers, 404/422 errors and GET/HEAD page loads.
+
+Attempt 1 reported 13 tests with 11 failures: both recorded-data backend cases passed; the seven hosted REST cases, backend-error propagation case and three hosted page cases failed with hosted 404 responses. The task record names every failing case. The continuation supplied seed revision `2cee03f2494ed1d795e9efd3524744e914edb6b9`, but did not supply the exact verify revision or private log; this is prior reported evidence, not qualification of the current candidate.
+
+The focused ExUnit gate checks the seven committed admission entries against the production Phoenix router and endpoint in process, preserving encoded queries, JSON/CSV headers, recorded price-update payloads and 404/422 errors. Its three page cases check the committed GET/HEAD patterns and page/resource mappings recorded from the Next sources, then execute their backend resource against that endpoint. These checks cover the scoped contract; rendered page loads and production gateway forwarding remain the wiring requests above.
+
+`BlockScoutWeb.Repair2231378Test.probe_hosted/3` retains the HTTP and HTML assertions as an optional diagnostic with explicitly supplied gateway/backend/frontend origins. Passing `nil` skips only that diagnostic. Every qualification test executes local assertions without reading environment variables or sending HTTP requests. The Rust admission tables do not load this JSON record or the catalogue, so this scoped contract does not claim those tables have changed.
+
+Attempt 2 reported the same eleven failures at revision `c6e3dd1444bcf920a08863d9386974e908498015`, blocked by its loopback assertion before requests were sent. The two recorded-data backend cases passed; its exact private log was not supplied in the continuation.
