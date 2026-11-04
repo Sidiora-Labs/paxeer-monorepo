@@ -2,7 +2,6 @@ package prefix
 
 import (
 	"bytes"
-	"errors"
 	"io"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/cachekv"
@@ -224,14 +223,9 @@ func (pi *prefixIterator) Close() error {
 	return pi.iter.Close()
 }
 
-// Error returns an error if the prefixIterator is invalid defined by the Valid
-// method.
+// Error returns the underlying iterator's error, if any.
 func (pi *prefixIterator) Error() error {
-	if !pi.Valid() {
-		return errors.New("invalid prefixIterator")
-	}
-
-	return nil
+	return pi.iter.Error()
 }
 
 // copied from github.com/tendermint/tendermint/libs/db/prefix_db.go

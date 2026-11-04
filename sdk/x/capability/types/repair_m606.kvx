@@ -1,0 +1,8 @@
+[repair.22.33.606]
+finding = "capability-genesis-invariants"
+tests = ["TestRepairM_606_RejectConflictingGenesis", "TestRepairM_606_ImportRestartAuthenticateRelease", "TestRepairM_606_OwnerKeyOrdering"]
+boundary = "Reject duplicate indices, duplicate module/name bindings within or across indices, and owner sets not strictly ordered by Owner.Key, preserving CapabilityOwners.Get/Remove semantics."
+proof = "Production scoped keepers create and export genesis; the protobuf JSON codec and AppModuleBasic validate it, AppModule imports it, and disk-backed stores close and reopen twice to prove InitMemStore, authentication, release, non-resurrection and next-index preservation."
+baseline = "Not run: the ordered implementation-first instructions and the single hf-done gate override do_5's contradictory unchanged-tree verification request; no baseline test result is claimed."
+wiring_request = "sdk/x/capability/genesis.go (cosmos-fork, domain 15): invoke genState.Validate before InitializeIndex/SetOwners so direct InitGenesis callers also enforce the boundary without relying on AppModuleBasic validation."
+evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit code and private log location."
